@@ -1,6 +1,2 @@
 /.git/
 /.idea/
-/compose/.env
-/frontend/node_modules
-/frontend/package-lock.json
-/config.ini

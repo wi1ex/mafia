@@ -1,9 +1,8 @@
 # --- build SPA ---
 FROM node:20-alpine AS build
-WORKDIR /app
-COPY frontend/package*.json ./frontend/
 WORKDIR /app/frontend
-RUN npm ci --no-audit --no-fund
+COPY frontend/package.json ./
+RUN npm install --no-audit --no-fund
 COPY frontend/ ./
 RUN npm run build
 
