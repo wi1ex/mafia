@@ -1,0 +1,11 @@
+# Python кеш
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# IDE
+.idea/
+
+# Логи
+*.log
