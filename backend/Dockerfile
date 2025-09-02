@@ -5,6 +5,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends build-essential
 COPY pyproject.toml poetry.lock* /app/
 RUN pip install --upgrade pip && pip install poetry \
  && poetry config virtualenvs.create false \
- && poetry install --no-interaction --no-ansi --only main
+ && poetry install --no-interaction --no-ansi --only main --no-root
 COPY . /app
 CMD ["uvicorn","app.entry:asgi","--host","0.0.0.0","--port","8000"]
