@@ -3,4 +3,4 @@ router = APIRouter()
 
 @router.get("/ping")
 async def ping():
-    return {"status":"ok"}
+    return {"status": "ok"}

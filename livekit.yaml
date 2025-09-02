@@ -14,8 +14,8 @@ region: ${LIVEKIT_REGION}
 
 # Сигналинг/RTC
 rtc:
-  port_range_start: ${TURN_RTC_PORT_RANGE_START}
-  port_range_end: ${TURN_RTC_PORT_RANGE_END}
+  port_range_start: ${LIVEKIT_RTC_PORT_RANGE_START}
+  port_range_end: ${LIVEKIT_RTC_PORT_RANGE_END}
   tcp_port: ${LIVEKIT_RTC_TCP_PORT}
   use_external_ip: ${LIVEKIT_RTC_USE_EXTERNAL_IP}
   nat1to1_ips: ${SERVER_HOST}

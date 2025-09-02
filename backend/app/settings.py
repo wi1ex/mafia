@@ -1,5 +1,5 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import List
+from typing import List, Optional
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(extra="ignore", case_sensitive=False)
@@ -17,6 +17,7 @@ class Settings(BaseSettings):
 
     REDIS_HOST: str
     REDIS_PORT: int = 6379
+    REDIS_PASSWORD: Optional[str] = None
 
     MINIO_ENDPOINT: str
     MINIO_ROOT_USER: str
