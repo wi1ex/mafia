@@ -15,6 +15,7 @@ SQLAlchemy = "^2.0.43"
 asyncpg = "^0.29.0"
 alembic = "^1.13.0"
 redis = "^5.0.0"
+sse-starlette = "^2.0"
 python-socketio = {version="^5.11.0", extras=["asgi"]}
 structlog = "^24.0.0"
 

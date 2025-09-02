@@ -7,4 +7,4 @@ RUN pip install --upgrade pip && pip install poetry \
  && poetry config virtualenvs.create false \
  && poetry install --no-interaction --no-ansi --only main --no-root
 COPY . /app
-CMD ["uvicorn","app.entry:asgi","--host","0.0.0.0","--port","8000"]
+CMD ["uvicorn","app.main:asgi","--host","0.0.0.0","--port","8000"]

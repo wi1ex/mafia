@@ -1,6 +1,6 @@
 from asyncio import sleep
 from fastapi import APIRouter
-from starlette.responses import EventSourceResponse
+from sse_starlette.sse import EventSourceResponse
 import json
 
 router = APIRouter()
