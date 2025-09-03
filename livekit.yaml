@@ -1,7 +1,7 @@
 # HTTP/API
 port: ${LIVEKIT_HTTP_PORT}
 bind_addresses:
-  - ${TURN_BIND_IP}
+  - ${LIVEKIT_BIND_IP}
 
 health_port: ${LIVEKIT_HEALTH_PORT}
 # Логи
@@ -9,7 +9,7 @@ logging:
   level: ${LIVEKIT_LOG_LEVEL}
 
 # Идентификация узла и регион (для кластеров)
-node_ip: ${SERVER_HOST}
+node_ip: ${PUBLIC_IP}
 region: ${LIVEKIT_REGION}
 
 # Сигналинг/RTC
@@ -18,7 +18,7 @@ rtc:
   port_range_end: ${LIVEKIT_RTC_PORT_RANGE_END}
   tcp_port: ${LIVEKIT_RTC_TCP_PORT}
   use_external_ip: ${LIVEKIT_RTC_USE_EXTERNAL_IP}
-  nat1to1_ips: ${SERVER_HOST}
+  nat1to1_ips: ${PUBLIC_IP}
   # TURN-сервера
   turn_servers:
     - url: turn:${DOMAIN}:${TURN_LISTENING_PORT}
