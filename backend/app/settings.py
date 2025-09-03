@@ -34,3 +34,5 @@ class Settings(BaseSettings):
     BACKEND_CORS_ORIGINS: List[str] = []
 
 settings = Settings()
+if not settings.BACKEND_CORS_ORIGINS:
+    settings.BACKEND_CORS_ORIGINS = [settings.PUBLIC_URL]

@@ -13,15 +13,13 @@ volumes:
 services:
   db:
     image: postgres:17-alpine
-    container_name: db
     env_file: .env
     volumes: ["pg_data:/var/lib/postgresql/data"]
     networks: [internal]
     restart: always
 
   redis:
-    image: redis:8-alpine
-    container_name: redis
+    image: redis:7.2-alpine
     env_file: .env
     command:
       - redis-server
@@ -39,7 +37,6 @@ services:
 
   minio:
     image: minio/minio:RELEASE.2025-07-18T21-56-31Z
-    container_name: minio
     env_file: .env
     command: server /data
     volumes: ["minio_data:/data"]
@@ -48,7 +45,6 @@ services:
 
   backend:
     build: ./backend
-    container_name: backend
     env_file: .env
     depends_on:
       - db
@@ -59,7 +55,6 @@ services:
 
   livekit:
     image: livekit/livekit-server:v1.9.0
-    container_name: livekit
     network_mode: "host"
     volumes:
       - /etc/letsencrypt:/etc/letsencrypt:ro
@@ -67,6 +62,7 @@ services:
       LIVEKIT_CONFIG: |
         port: ${LIVEKIT_HTTP_PORT}
         log_level: info
+        node_ip: ${PUBLIC_IP}
         region: eu-nl
         rtc:
           port_range_start: ${LIVEKIT_PORT_RANGE_START}
@@ -88,7 +84,6 @@ services:
     build:
       context: .
       dockerfile: nginx/Dockerfile
-    container_name: nginx
     env_file: .env
     volumes:
       - /etc/letsencrypt:/etc/letsencrypt:ro
@@ -102,3 +97,13 @@ services:
       - "host.docker.internal:host-gateway"
     networks: [edge, internal]
     restart: always
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx
+      - /var/run
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
