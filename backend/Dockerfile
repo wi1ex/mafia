@@ -17,7 +17,7 @@ RUN pip install --upgrade pip && pip install poetry \
 
 COPY . /app
 
-RUN useradd -u 10001 -r -s /usr/sbin/nologin appuser && chown -R appuser:appuser /app
+RUN useradd -u 999 -r -s /usr/sbin/nologin appuser && chown -R appuser:appuser /app
 USER appuser
 
 CMD ["uvicorn","app.main:app","--host","0.0.0.0","--port","8000","--proxy-headers","--forwarded-allow-ips=*"]
