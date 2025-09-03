@@ -10,7 +10,7 @@ limit_req_zone $binary_remote_addr zone=api_limit:10m rate=30r/s;
 map $http_upgrade $connection_upgrade { default upgrade; '' close; }
 
 upstream mafia_backend { server backend:8000; }
-upstream mafia_livekit { server livekit:7880; }
+upstream mafia_livekit { server host.docker.internal:7880; }
 
 # HTTP -> HTTPS
 server {

@@ -1,39 +1,25 @@
-# HTTP/API
 port: ${LIVEKIT_HTTP_PORT}
-bind_addresses:
-  - ${LIVEKIT_BIND_IP}
+log_level: info
+region: eu-nl
 
-health_port: ${LIVEKIT_HEALTH_PORT}
-# Логи
-logging:
-  level: ${LIVEKIT_LOG_LEVEL}
-
-# Идентификация узла и регион (для кластеров)
-node_ip: ${PUBLIC_IP}
-region: ${LIVEKIT_REGION}
-
-# Сигналинг/RTC
 rtc:
-  port_range_start: ${LIVEKIT_RTC_PORT_RANGE_START}
-  port_range_end: ${LIVEKIT_RTC_PORT_RANGE_END}
-  tcp_port: ${LIVEKIT_RTC_TCP_PORT}
-  use_external_ip: ${LIVEKIT_RTC_USE_EXTERNAL_IP}
-  nat1to1_ips: ${PUBLIC_IP}
-  # TURN-сервера
-  turn_servers:
-    - url: turn:${DOMAIN}:${TURN_LISTENING_PORT}
-      secret: ${TURN_SECRET}
-      ttl: ${TURN_TTL}
-    - url: turns:${DOMAIN}:${TURN_TLS_LISTENING_PORT}?transport=tcp
-      secret: ${TURN_SECRET}
-      ttl: ${TURN_TTL}
+  port_range_start: ${LIVEKIT_PORT_RANGE_START}
+  port_range_end: ${LIVEKIT_PORT_RANGE_END}
+  tcp_port: ${LIVEKIT_TCP_PORT}
+  use_external_ip: true
 
-# Ключи API (можно заменить на переменную окружения LIVEKIT_KEYS)
+turn:
+  enabled: true
+  domain: ${DOMAIN}
+  udp_port: ${LIVEKIT_UDP_PORT}
+  tls_port: ${LIVEKIT_TLS_PORT}
+  cert_file: ${SSL_CERT_PATH}
+  key_file: ${SSL_KEY_PATH}
+
+redis:
+  address: 127.0.0.1:${REDIS_PORT}
+  password: ${REDIS_PASSWORD}
+  db: 0
+
 keys:
   ${LIVEKIT_API_KEY}: ${LIVEKIT_API_SECRET}
-
-# Redis для сигнального состояния/room-маршрутизации
-redis:
-  address: ${REDIS_HOST}:${REDIS_PORT}
-  password: ${REDIS_PASSWORD}
-  db: ${LIVEKIT_DB}
