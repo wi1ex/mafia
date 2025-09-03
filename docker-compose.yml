@@ -62,7 +62,6 @@ services:
       LIVEKIT_CONFIG: |
         port: ${LIVEKIT_HTTP_PORT}
         log_level: info
-        node_ip: ${PUBLIC_IP}
         region: eu-nl
         rtc:
           port_range_start: ${LIVEKIT_PORT_RANGE_START}
@@ -101,9 +100,8 @@ services:
     tmpfs:
       - /var/cache/nginx
       - /var/run
+      - /etc/nginx/conf.d
     security_opt:
       - no-new-privileges:true
-    cap_drop:
-      - ALL
-    cap_add:
-      - NET_BIND_SERVICE
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
