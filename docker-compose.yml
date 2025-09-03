@@ -70,16 +70,40 @@ services:
     image: livekit/livekit-server:v1.9.0
     container_name: livekit
     env_file: .env
-    command:
-      - sh
-      - -c
-      - |
-        envsubst < /etc/livekit/livekit.yaml.tpl > /etc/livekit/livekit.yaml \
-        && /livekit --config /etc/livekit/livekit.yaml
     volumes:
-      - ./livekit.yaml.tpl:/etc/livekit/livekit.yaml.tpl:ro
       - /etc/letsencrypt:/etc/letsencrypt:ro
     network_mode: "host"
+    entrypoint: ["/bin/sh","-lc"]
+    command: |
+      mkdir -p /etc/livekit
+      cat > /etc/livekit/livekit.yaml <<EOF
+      port: ${LIVEKIT_HTTP_PORT}
+      log_level: info
+      region: eu-nl
+        
+      rtc:
+        port_range_start: ${LIVEKIT_PORT_RANGE_START}
+        port_range_end: ${LIVEKIT_PORT_RANGE_END}
+        tcp_port: ${LIVEKIT_TCP_PORT}
+        use_external_ip: true
+      
+      turn:
+        enabled: true
+        domain: ${DOMAIN}
+        udp_port: ${LIVEKIT_UDP_PORT}
+        tls_port: ${LIVEKIT_TLS_PORT}
+        cert_file: ${SSL_CERT_PATH}
+        key_file: ${SSL_KEY_PATH}
+      
+      redis:
+        address: 127.0.0.1:${REDIS_PORT}
+        password: ${REDIS_PASSWORD}
+        db: 0
+      
+      keys:
+        ${LIVEKIT_API_KEY}: ${LIVEKIT_API_SECRET}
+      EOF
+      exec /livekit-server --config /etc/livekit/livekit.yaml
     depends_on:
       - redis
     restart: always
