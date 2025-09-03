@@ -96,12 +96,3 @@ services:
       - "host.docker.internal:host-gateway"
     networks: [edge, internal]
     restart: always
-    read_only: true
-    tmpfs:
-      - /var/cache/nginx
-      - /var/run
-      - /etc/nginx/conf.d
-    security_opt:
-      - no-new-privileges:true
-    cap_drop: [ALL]
-    cap_add: [NET_BIND_SERVICE]
