@@ -20,7 +20,7 @@ def create_access_token(*, sub: int | str, role: str, sid: str, ttl_minutes: int
         "iss": settings.DOMAIN,
         "aud": settings.DOMAIN,
     }
-    return jwt.encode(payload, settings.SECRET_KEY, algorithm=ALG)
+    return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=ALG)
 
 def create_refresh_token(*, sub: int | str, sid: str, ttl_days: int) -> tuple[str, str]:
     iat = _now()
@@ -35,10 +35,10 @@ def create_refresh_token(*, sub: int | str, sid: str, ttl_days: int) -> tuple[st
         "iss": settings.DOMAIN,
         "aud": settings.DOMAIN,
     }
-    return jwt.encode(payload, settings.SECRET_KEY, algorithm=ALG), jti
+    return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=ALG), jti
 
 def decode_token(token: str) -> Dict[str, Any]:
-    return jwt.decode(token, settings.SECRET_KEY, algorithms=[ALG], audience=settings.DOMAIN, issuer=settings.DOMAIN)
+    return jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[ALG], audience=settings.DOMAIN, issuer=settings.DOMAIN)
 
 def verify_telegram_auth(data: Dict[str, Any]) -> bool:
     if "hash" not in data or "auth_date" not in data:
