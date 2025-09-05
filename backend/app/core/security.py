@@ -46,7 +46,7 @@ def verify_telegram_auth(data: Dict[str, Any]) -> bool:
     received_hash = data["hash"]
     pairs = [f"{k}={data[k]}" for k in sorted(k for k in data.keys() if k != "hash")]
     check_string = "\n".join(pairs)
-    secret_key = hashlib.sha256(settings.TELEGRAM_BOT_TOKEN.encode()).digest()
+    secret_key = hashlib.sha256(settings.TG_BOT_TOKEN.encode()).digest()
     expected_hash = hmac.new(secret_key, check_string.encode(), hashlib.sha256).hexdigest()
     if not hmac.compare_digest(expected_hash, received_hash):
         return False
