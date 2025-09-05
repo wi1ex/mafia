@@ -1,30 +1,18 @@
 from __future__ import annotations
-import json, secrets
-from fastapi import APIRouter, HTTPException, Depends, status, Query
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update, func
+import json
+import secrets
 import redis.asyncio as redis
-from ...db import get_session
-from ...models.user import User
-from ...schemas.auth import TelegramAuthIn, AuthOut, AuthPending, CompleteProfileIn, UserOut
-from ...core.security import verify_telegram_auth, create_access_token
-from ...core.redis import build_redis
-from ...services.logs import log_action
-from fastapi.responses import JSONResponse
-from __future__ import annotations
-import json, secrets
 from fastapi import APIRouter, HTTPException, Depends, status, Query, Response, Request
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, func
-import redis.asyncio as redis
+from sqlalchemy.ext.asyncio import AsyncSession
+from ..deps import get_current_user
+from ...core.redis import build_redis
+from ...core.security import verify_telegram_auth
 from ...db import get_session
 from ...models.user import User
 from ...schemas.auth import TelegramAuthIn, AuthOut, AuthPending, CompleteProfileIn, UserOut
-from ...core.security import verify_telegram_auth
-from ...core.redis import build_redis
 from ...services.logs import log_action
 from ...services.sessions import new_login_session, issue_access_token, rotate_refresh, logout as logout_sess, REFRESH_COOKIE
-from ..deps import get_current_user
 
 router = APIRouter()
 SESSION_TTL = 300
