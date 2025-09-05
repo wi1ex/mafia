@@ -69,9 +69,6 @@ services:
   livekit:
     image: livekit/livekit-server:v1.9.0
     container_name: livekit
-    network_mode: "host"
-    volumes:
-      - /etc/letsencrypt:/etc/letsencrypt:ro
     environment:
       LIVEKIT_CONFIG: |
         port: ${LIVEKIT_HTTP_PORT}
@@ -91,6 +88,14 @@ services:
           key_file: ${SSL_KEY_PATH}
       LIVEKIT_KEYS: |
         ${LIVEKIT_API_KEY}: ${LIVEKIT_API_SECRET}
+    volumes:
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+    ports:
+      - "3478:3478/udp"
+      - "5349:5349/tcp"
+      - "7881:7881/tcp"
+      - "50000-50127:50000-50127/udp"
+    networks: [internal]
     restart: always
 
   nginx:
@@ -110,7 +115,5 @@ services:
     depends_on:
       - backend
       - livekit
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     networks: [edge, internal]
     restart: always

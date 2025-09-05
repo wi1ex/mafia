@@ -9,7 +9,8 @@ from ...core.security import verify_telegram_auth, decode_token
 from ...services.sessions import new_login_session, issue_access_token, rotate_refresh, logout as logout_sess, REFRESH_COOKIE
 from ...services.storage_minio import download_telegram_photo, put_avatar
 from ...services.logs import log_action
-from ..deps import get_current_user
+import structlog
+log = structlog.get_logger()
 
 router = APIRouter()
 
@@ -30,8 +31,11 @@ async def telegram_auth(payload: TelegramAuthIn, db: AsyncSession = Depends(get_
             content, ext = dl
             try:
                 filename = await put_avatar(payload.id, content, ext)
-            except Exception:
+            except Exception as e:
+                log.error("avatar_store_failed", user_id=payload.id, err=str(e))
                 filename = None
+        else:
+            log.warning("avatar_download_none", user_id=payload.id, url=str(payload.photo_url))
 
     if user:
         # обновить username/аватар, last_login_at
@@ -87,6 +91,32 @@ async def refresh(request: Request, resp: Response, db: AsyncSession = Depends(g
     return AuthOut(access_token=access, user=UserOut(id=user_id, username=None, photo_url=None, role=role))
 
 @router.post("/logout")
-async def logout(resp: Response = None, current_user: User = Depends(get_current_user)):
-    await logout_sess(resp, user_id=current_user.id)
+async def logout(request: Request, resp: Response = None):
+    # 1) пробуем access из Authorization
+    uid: int | None = None
+    auth = request.headers.get("authorization")
+    if auth and auth.lower().startswith("bearer "):
+        token = auth[7:].strip()
+        try:
+            payload = decode_token(token)
+            if payload.get("typ") == "access":
+                uid = int(payload.get("sub"))
+        except Exception:
+            uid = None
+    # 2) если нет/протух — пробуем refresh-cookie
+    if uid is None:
+        raw = request.cookies.get(REFRESH_COOKIE)
+        if raw:
+            try:
+                payload = decode_token(raw)
+                if payload.get("typ") == "refresh":
+                    uid = int(payload.get("sub"))
+            except Exception:
+                uid = None
+    # 3) если удалось определить пользователя — ревок
+    if uid is not None:
+        await logout_sess(resp, user_id=uid)
+        return {"status": "ok"}
+    # если нет — всё равно очищаем cookie, отвечаем 200
+    await logout_sess(resp, user_id=0)  # почистит cookie
     return {"status": "ok"}
