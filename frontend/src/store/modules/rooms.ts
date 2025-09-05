@@ -24,7 +24,7 @@ export const useRoomsStore = defineStore('rooms', () => {
       const msg = JSON.parse(e.data) as {type:string; payload:any}
       if (msg.type === 'room_created') upsert({ ...msg.payload })
       if (msg.type === 'room_deleted') remove(msg.payload.id)
-      if (msg.type === 'occupancy')     upsert({ id: msg.payload.id, occupancy: msg.payload.occupancy } as Partial<Room> as Room)
+      if (msg.type === 'occupancy')     upsert({ id: msg.payload.id, occupancy: msg.payload.occupancy } as any)
     })
     sse.value = es
   }
@@ -45,5 +45,5 @@ export const useRoomsStore = defineStore('rooms', () => {
     return data
   }
 
-  return { rooms, sse, fetchRooms, startSSE, stopSSE, upsert, remove, createRoom }
+  return { rooms, sse, fetchRooms, startSSE, stopSSE, createRoom }
 })

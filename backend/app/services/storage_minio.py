@@ -1,11 +1,11 @@
 from __future__ import annotations
-import io
-import mimetypes
-import structlog
-import httpx
 from minio import Minio
 from minio.error import S3Error
+import io
+import mimetypes
+import httpx
 from ..settings import settings
+from ..core.logging import structlog  # если нет – замените на logging
 
 log = structlog.get_logger()
 
@@ -18,21 +18,24 @@ _client = Minio(
 _bucket = settings.MINIO_BUCKET
 
 async def ensure_bucket():
-    if not _client.bucket_exists(_bucket):
+    found = _client.bucket_exists(_bucket)
+    if not found:
         _client.make_bucket(_bucket)
 
 def _ext_from_ct(ct: str) -> str:
-    ct = (ct or "").split(";")[0].strip().lower()
+    ct = (ct or "image/jpeg").split(";")[0].strip()
     if ct == "image/jpeg": return ".jpg"
     if ct == "image/png": return ".png"
     if ct == "image/webp": return ".webp"
     if ct == "image/gif": return ".gif"
     return mimetypes.guess_extension(ct) or ".jpg"
 
-async def download_telegram_photo(url: str, timeout=10.0) -> tuple[bytes, str] | None:
+async def download_telegram_photo(url: str, timeout=8.0) -> tuple[bytes, str] | None:
     try:
-        async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
-            r = await client.get(url, headers={"User-Agent": "MafiaBot/1.0"})
+        async with httpx.AsyncClient(timeout=timeout, follow_redirects=True, headers={
+            "User-Agent": "Mozilla/5.0",
+        }) as client:
+            r = await client.get(url)
             r.raise_for_status()
             ct = r.headers.get("content-type", "image/jpeg")
             return r.content, _ext_from_ct(ct)
@@ -42,13 +45,13 @@ async def download_telegram_photo(url: str, timeout=10.0) -> tuple[bytes, str] |
 
 async def put_avatar(user_id: int, content: bytes, ext: str) -> str:
     await ensure_bucket()
-    # удалить старые файлы с любым расширением
     prefix = f"avatars/{user_id}."
     for obj in _client.list_objects(_bucket, prefix=prefix, recursive=True):
         try:
             _client.remove_object(_bucket, obj.object_name)
         except S3Error:
             pass
+
     name = f"{user_id}{ext}"
     objname = f"avatars/{name}"
     _client.put_object(

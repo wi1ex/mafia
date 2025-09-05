@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { computed, ref } from 'vue'
+import { ref } from 'vue'
 import { api } from '@/services/axios'
 import { setAccessToken, clearAccessToken, getAccessToken } from '@/services/tokens'
 
@@ -12,9 +12,7 @@ function parseJwtExp(jwtStr: string): number | null {
     const json = JSON.parse(
       decodeURIComponent(
         atob(payload.replace(/-/g, '+').replace(/_/g, '/'))
-          .split('')
-          .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-          .join('')
+          .split('').map(c => '%'+('00'+c.charCodeAt(0).toString(16)).slice(-2)).join('')
       )
     )
     return typeof json.exp === 'number' ? json.exp : null
@@ -25,11 +23,6 @@ export const useAuthStore = defineStore('auth', () => {
   const accessToken = ref<string>(getAccessToken() || '')
   const me = ref<UserProfile | null>(null)
   let refreshTimer: number | null = null
-
-  const isAuthed = computed(() => !!accessToken.value)
-  const role = computed(() => me.value?.role ?? 'user')
-  const avatarUrl = computed(() => me.value?.photo_url ? `/api/v1/assets/avatars/${me.value.photo_url}` : null)
-  const displayName = computed(() => me.value?.username || 'User')
 
   function scheduleRefresh(){
     if (!accessToken.value) return
@@ -80,8 +73,6 @@ export const useAuthStore = defineStore('auth', () => {
   return {
     // state
     accessToken, me,
-    // getters
-    isAuthed, role, avatarUrl, displayName,
     // actions
     init, refresh, fetchMe, signInWithTelegram, logout,
     // compat
