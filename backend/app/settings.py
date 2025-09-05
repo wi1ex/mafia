@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     LIVEKIT_API_KEY: str
     LIVEKIT_API_SECRET: str
 
-    TELEGRAM_BOT_TOKEN: str  # добавлено
+    TG_BOT_TOKEN: str
 
     BACKEND_CORS_ORIGINS: List[str] = []
 

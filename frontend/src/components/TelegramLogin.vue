@@ -16,7 +16,7 @@
 import { onMounted, ref } from 'vue'
 import { useAuthStore } from '@/store'
 
-const BOT = import.meta.env.VITE_TG_BOT_NAME ?? 'your_bot_name'
+const BOT = import.meta.env.VITE_TG_BOT_NAME
 const SIZE: 'large' | 'medium' | 'small' = 'large'
 
 const auth = useAuthStore()
