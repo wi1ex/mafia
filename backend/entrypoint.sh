@@ -1,31 +1,24 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
+cd /app
 
 echo "Waiting for Postgres at ${POSTGRES_HOST}:${POSTGRES_PORT}..."
 python - <<'PY'
-import asyncio, os
-import asyncpg
-async def main():
-    for i in range(60):
-        try:
-            conn = await asyncpg.connect(
-                user=os.environ["POSTGRES_USER"],
-                password=os.environ["POSTGRES_PASSWORD"],
-                database=os.environ["POSTGRES_DB"],
-                host=os.environ["POSTGRES_HOST"],
-                port=int(os.environ.get("POSTGRES_PORT","5432")),
-            )
-            await conn.close()
-            print("Postgres is ready")
-            return
-        except Exception as e:
-            await asyncio.sleep(1)
-    raise SystemExit("Postgres not available after 60s")
-asyncio.run(main())
+import os, time, socket
+h=os.environ['POSTGRES_HOST']; p=int(os.environ.get('POSTGRES_PORT','5432'))
+deadline=time.time()+60
+while time.time()<deadline:
+    try:
+        with socket.create_connection((h,p), timeout=3):
+            print("Postgres is ready"); break
+    except OSError:
+        time.sleep(1)
+else:
+    raise SystemExit("Postgres not reachable")
 PY
 
 echo "Applying migrations..."
 alembic upgrade head
 
-echo "Starting uvicorn..."
-exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips="*"
+echo "Starting app..."
+exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips='*'
