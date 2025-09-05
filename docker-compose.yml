@@ -19,7 +19,6 @@ services:
     ports:
       - "5432:5432"
     networks: [edge, internal]
-#    networks: [internal]
     restart: always
 
   redis:
@@ -40,7 +39,6 @@ services:
     ports:
       - "6379:6379"
     networks: [edge, internal]
-#    networks: [internal]
     restart: always
 
   minio:
@@ -52,7 +50,6 @@ services:
     ports:
       - "9000:9000"
     networks: [edge, internal]
-#    networks: [internal]
     restart: always
 
   backend:
@@ -63,7 +60,7 @@ services:
       - db
       - redis
       - minio
-    networks: [internal]
+    networks: [edge, internal]
     restart: always
 
   livekit:
@@ -85,6 +82,8 @@ services:
           domain: ${DOMAIN}
           udp_port: ${LIVEKIT_UDP_PORT}
           tls_port: ${LIVEKIT_TLS_PORT}
+          relay_range_start: ${LIVEKIT_PORT_RANGE_START}
+          relay_range_end: ${LIVEKIT_PORT_RANGE_END}
           cert_file: ${SSL_CERT_PATH}
           key_file: ${SSL_KEY_PATH}
       LIVEKIT_KEYS: |
@@ -96,7 +95,7 @@ services:
       - "5349:5349/tcp"
       - "7881:7881/tcp"
       - "50000-50127:50000-50127/udp"
-    networks: [internal]
+    networks: [edge, internal]
     restart: always
 
   nginx:
