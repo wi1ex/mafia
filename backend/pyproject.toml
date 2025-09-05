@@ -9,18 +9,19 @@ package-mode = false
 python = "^3.12"
 fastapi = "^0.116.1"
 uvicorn = {extras=["standard"], version="^0.30.6"}
-pydantic = "^2.9.0"
-pydantic-settings = "^2.5.0"
+pydantic = "^2.11.7"
+pydantic-settings = "^2.10.1"
 SQLAlchemy = "^2.0.43"
-asyncpg = "^0.29.0"
-alembic = "^1.13.0"
-redis = "^5.0.0"
-sse-starlette = "^2.0"
+asyncpg = "^0.30.0"
+alembic = "^1.16.5"
+redis = "^6.4.0"
+sse-starlette = "^3.0.2"
+PyJWT = "^2.10.1"
+livekit-api = "^1.0.5"
 python-socketio = {version="^5.11.0", extras=["asgi"]}
-structlog = "^24.0.0"
+structlog = "^25.4.0"
 
 [tool.poetry.group.dev.dependencies]
-# тесты добавим позже
 
 [tool.ruff]
 line-length = 100

@@ -1,6 +1,13 @@
 # --- build SPA ---
 FROM node:20-alpine AS build
 WORKDIR /app/frontend
+
+# build args из docker-compose
+ARG VITE_API_BASE
+ARG VITE_TG_BOT_NAME
+ENV VITE_API_BASE=${VITE_API_BASE}
+ENV VITE_TG_BOT_NAME=${VITE_TG_BOT_NAME}
+
 COPY frontend/package.json ./
 RUN npm install --no-audit --no-fund
 COPY frontend/ ./

@@ -1,0 +1,14 @@
+/* Дизайн-токены проекта. Используйте в <style scoped>. */
+:root {
+  /* brand */
+  --color-primary: #22c55e;
+  --color-secondary: #0ea5e9;
+  --color-danger: #ef4444;
+
+  /* ui */
+  --bg: #0b0f14;
+  --fg: #e5e7eb;
+  --muted: #94a3b8;
+}
+
+/* импорт в main.ts уже есть; глобальные стили не задаём */

@@ -18,6 +18,11 @@ services:
     volumes: ["pg_data:/var/lib/postgresql/data"]
     networks: [internal]
     restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB -h localhost -p $$POSTGRES_PORT || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
 
   redis:
     image: redis:7.2-alpine
@@ -36,6 +41,11 @@ services:
     volumes: ["redis_data:/data"]
     networks: [internal]
     restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "$REDIS_PASSWORD", "PING"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
 
   minio:
     image: minio/minio:RELEASE.2025-07-18T21-56-31Z
@@ -51,11 +61,19 @@ services:
     container_name: backend
     env_file: .env
     depends_on:
-      - db
-      - redis
-      - minio
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_started
     networks: [internal]
     restart: always
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:8000/api/v1/health/ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
 
   livekit:
     image: livekit/livekit-server:v1.9.0
@@ -88,6 +106,9 @@ services:
     build:
       context: .
       dockerfile: nginx/Dockerfile
+      args:
+        VITE_API_BASE: "/api"
+        VITE_TG_BOT_NAME: "${TG_BOT_NAME}"
     container_name: nginx
     env_file: .env
     volumes:
@@ -96,8 +117,10 @@ services:
       - "80:80/tcp"
       - "443:443/tcp"
     depends_on:
-      - backend
-      - livekit
+      backend:
+        condition: service_healthy
+      livekit:
+        condition: service_started
     extra_hosts:
       - "host.docker.internal:host-gateway"
     networks: [edge, internal]
