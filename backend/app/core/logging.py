@@ -2,7 +2,6 @@ import logging
 import sys
 import structlog
 
-
 def configure_logging() -> None:
     timestamper = structlog.processors.TimeStamper(fmt="iso")
 

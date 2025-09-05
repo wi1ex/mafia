@@ -44,7 +44,7 @@ async def rooms_stream(db: AsyncSession = Depends(get_session)):
             while True:
                 msg = await pubsub.get_message(ignore_subscribe_messages=True, timeout=5.0)
                 if msg and msg.get("type") == "message":
-                    payload = msg["data"] if isinstance(msg["data"], str) else msg["data"].decode()
+                    payload = msg["data"]
                     yield {"event": "update", "data": payload}
                 else:
                     yield ": keepalive\n\n"

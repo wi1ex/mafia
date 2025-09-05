@@ -90,7 +90,7 @@ async def create_room(
     await log_action(
         db,
         user_id=current_user.id,
-        user_nickname=current_user.nickname,
+        user_nickname=current_user.username,
         action="room_created",
         details={"room_id": room.id, "title": room.title, "limit": room.user_limit},
     )
@@ -128,7 +128,7 @@ async def join_room(
 
     lk_token = make_livekit_token(
         identity=str(current_user.id),
-        name=current_user.nickname or current_user.name or str(current_user.id),
+        name=current_user.username or str(current_user.id),
         room=str(room_id),
         ttl_minutes=60,
     )
@@ -171,7 +171,7 @@ async def leave_room(
                     await log_action(
                         db,
                         user_id=current_user.id,
-                        user_nickname=current_user.nickname,
+                        user_nickname=current_user.username,
                         action="room_deleted",
                         details={"room_id": room_id},
                     )

@@ -1,13 +1,10 @@
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 from .settings import settings
-from .core.logging import configure_logging
 from .core.lifespan import lifespan
 from .api.router import api_router
-from .realtime import sse, sio
+from .realtime import sio
 from .realtime.sse_rooms import router as sse_rooms
-
-configure_logging()
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -26,6 +23,5 @@ app.add_middleware(
 )
 
 app.include_router(api_router, prefix="/api")
-app.include_router(sse.router, prefix="/sse", tags=["sse"])
 app.include_router(sse_rooms, prefix="/sse", tags=["sse"])
 app.mount("/socket.io", sio.build_sio(settings.BACKEND_CORS_ORIGINS))

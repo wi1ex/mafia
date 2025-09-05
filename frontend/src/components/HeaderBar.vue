@@ -3,9 +3,9 @@
     <div class="brand">Mafia</div>
     <div v-if="!auth.isAuthed"><slot name="login"></slot></div>
     <div v-else class="user">
-      <img v-if="auth.me?.photo_url" :src="auth.me.photo_url" alt="" class="avatar" />
+      <img v-if="auth.avatarUrl" :src="auth.avatarUrl" alt="" class="avatar" />
       <div v-else class="avatar placeholder"></div>
-      <span class="nick">{{ auth.me?.nickname || auth.me?.username || 'user' }}</span>
+      <span class="nick">{{ auth.displayName }}</span>
     </div>
   </header>
 </template>

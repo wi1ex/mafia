@@ -1,5 +1,5 @@
 from __future__ import annotations
-from urllib.parse import parse_qs
+from urllib.parse import parse_qs, unquote
 from socketio import AsyncServer, ASGIApp
 from ..core.redis import build_redis
 from ..core.security import decode_token
@@ -15,17 +15,27 @@ def build_sio(cors):
         raw = (qs.get("token") or [None])[0]
         if not raw:
             return False
-        token = raw.replace("Bearer ", "")
+        tok = unquote(raw)
+        if tok.lower().startswith("bearer "):
+            tok = tok[7:].strip()
         try:
-            payload = decode_token(token)
-            uid = int(payload.get("sub"))
+            payload = decode_token(tok)
+            uid = payload.get("sub")
+            sid_claim = payload.get("sid")
+            if not uid or not sid_claim:
+                return False
+            # single-session: текущая сессия пользователя должна совпадать
+            current_sid = await r.get(f"user:{uid}:session")
+            if current_sid != sid_claim:
+                return False
         except Exception:
             return False
 
-        # Присутствие / маппинг сокета
+        # учёт онлайна
         await r.sadd("online_users", uid)
         await r.sadd(f"user:{uid}:sockets", sid)
         await r.set(f"socket:{sid}:user", uid, ex=86400)
+        return True
 
     @sio.event
     async def disconnect(sid):

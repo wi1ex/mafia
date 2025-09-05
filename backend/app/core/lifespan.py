@@ -1,23 +1,22 @@
 from __future__ import annotations
-import asyncio
 from contextlib import asynccontextmanager
-
-from sqlalchemy import text
-from starlette.types import ASGIApp
+from sqlalchemy.ext.asyncio import AsyncEngine
+from .logging import configure_logging
 from ..db import engine
-from .redis import build_redis
-
+from ..db import Base
+import redis.asyncio as redis
+from ..core.redis import build_redis
 
 @asynccontextmanager
-async def lifespan(app: ASGIApp):
-    # Проверка Postgres
-    async with engine.connect() as conn:
-        await conn.execute(text("select 1"))
-    # Проверка Redis
-    r = build_redis()
+async def lifespan(app):
+    configure_logging()
+    # проверка Redis
+    r: redis.Redis = build_redis()
     await r.ping()
-    try:
-        yield
-    finally:
-        await r.close()
-        await engine.dispose()
+    # авто-создание таблиц при старте
+    eng: AsyncEngine = engine
+    async with eng.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    yield
+    await eng.dispose()
+    await r.close()
