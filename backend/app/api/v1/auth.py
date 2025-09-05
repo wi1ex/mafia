@@ -15,7 +15,7 @@ router = APIRouter()
 
 @router.post("/telegram", response_model=AuthOut)
 async def telegram_auth(payload: TelegramAuthIn, db: AsyncSession = Depends(get_session), resp: Response = None):
-    data = payload.model_dump()
+    data = payload.model_dump(exclude_none=True)
     if not verify_telegram_auth(data):
         raise HTTPException(status_code=401, detail="invalid telegram signature")
 
