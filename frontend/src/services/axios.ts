@@ -4,7 +4,7 @@ import { getAccessToken, clearAccessToken } from './tokens'
 export const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE,
   timeout: 15000,
-  withCredentials: false,
+  withCredentials: true,
 })
 
 api.interceptors.request.use((config) => {
