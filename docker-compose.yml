@@ -75,7 +75,7 @@ services:
         log_level: info
         region: eu-nl
         rtc:
-          external_ip: ${PUBLIC_IP}
+          stun_servers: []
           use_external_ip: false
           port_range_start: ${LIVEKIT_PORT_RANGE_START}
           port_range_end: ${LIVEKIT_PORT_RANGE_END}
