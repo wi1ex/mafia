@@ -1,11 +1,11 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import Home from '@/pages/Home.vue'
-import RoomView from '@/pages/RoomView.vue'
+import Room from '@/pages/Room.vue'
 
 export default createRouter({
   history: createWebHistory(),
   routes: [
     { path: '/', component: Home },
-    { path: '/room/:id', component: RoomView },
+    { path: '/room/:id', component: Room },
   ],
 })
