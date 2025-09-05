@@ -75,10 +75,11 @@ services:
         log_level: info
         region: eu-nl
         rtc:
+          external_ip: ${PUBLIC_IP}
+          use_external_ip: false
           port_range_start: ${LIVEKIT_PORT_RANGE_START}
           port_range_end: ${LIVEKIT_PORT_RANGE_END}
           tcp_port: ${LIVEKIT_TCP_PORT}
-          use_external_ip: true
         turn:
           enabled: true
           domain: ${DOMAIN}

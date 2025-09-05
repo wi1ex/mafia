@@ -15,7 +15,7 @@ onMounted(() => {
   s.async = true; s.src = 'https://telegram.org/js/telegram-widget.js?19'
   s.setAttribute('data-telegram-login', BOT)
   s.setAttribute('data-size', SIZE)
-  s.setAttribute('data-userpic', 'false')
+  s.setAttribute('data-userpic', 'true')
   s.setAttribute('data-onauth', 'telegramAuthCallback(user)')
   document.getElementById('tg-login')?.appendChild(s)
 })

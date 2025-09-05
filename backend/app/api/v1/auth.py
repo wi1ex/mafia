@@ -92,18 +92,18 @@ async def refresh(request: Request, resp: Response, db: AsyncSession = Depends(g
 
 @router.post("/logout")
 async def logout(request: Request, resp: Response = None):
-    # 1) пробуем access из Authorization
+    from ...services.sessions import logout as logout_sess, REFRESH_COOKIE
+    from ...core.security import decode_token
+
     uid: int | None = None
     auth = request.headers.get("authorization")
     if auth and auth.lower().startswith("bearer "):
-        token = auth[7:].strip()
         try:
-            payload = decode_token(token)
+            payload = decode_token(auth[7:].strip())
             if payload.get("typ") == "access":
                 uid = int(payload.get("sub"))
         except Exception:
             uid = None
-    # 2) если нет/протух — пробуем refresh-cookie
     if uid is None:
         raw = request.cookies.get(REFRESH_COOKIE)
         if raw:
@@ -113,10 +113,5 @@ async def logout(request: Request, resp: Response = None):
                     uid = int(payload.get("sub"))
             except Exception:
                 uid = None
-    # 3) если удалось определить пользователя — ревок
-    if uid is not None:
-        await logout_sess(resp, user_id=uid)
-        return {"status": "ok"}
-    # если нет — всё равно очищаем cookie, отвечаем 200
-    await logout_sess(resp, user_id=0)  # почистит cookie
+    await logout_sess(resp, user_id=uid or 0)  # почистит cookie в любом случае
     return {"status": "ok"}
