@@ -16,10 +16,10 @@ def create_access_token(*, sub: str, role: str, ttl_minutes: int) -> str:
         "iss": settings.DOMAIN,
         "aud": settings.DOMAIN,
     }
-    return jwt.encode(payload, settings.SECRET_KEY, algorithm=ALG)
+    return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=ALG)
 
 def decode_token(token: str) -> Dict[str, Any]:
-    return jwt.decode(token, settings.SECRET_KEY, algorithms=[ALG], audience=settings.DOMAIN, issuer=settings.DOMAIN)
+    return jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[ALG], audience=settings.DOMAIN, issuer=settings.DOMAIN)
 
 def verify_telegram_auth(data: Dict[str, Any]) -> bool:
     if "hash" not in data or "auth_date" not in data:
