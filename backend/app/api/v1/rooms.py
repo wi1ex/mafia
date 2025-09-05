@@ -133,7 +133,7 @@ async def join_room(
         room=str(room_id),
         ttl_minutes=60,
     )
-    return {"ws_url": settings.LIVEKIT_WS_PUBLIC, "token": lk_token, "room_id": room_id}
+    return {"ws_url": f'wss://{settings.DOMAIN}', "token": lk_token, "room_id": room_id}
 
 @router.post("/{room_id}/leave")
 async def leave_room(

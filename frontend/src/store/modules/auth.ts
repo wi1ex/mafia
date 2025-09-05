@@ -57,8 +57,12 @@ export const useAuthStore = defineStore('auth', {
     },
     logout(){
       clearTimeout(this.refreshTimer); this.refreshTimer = 0
-      this.accessToken = ''; this.me = null; clearAccessToken()
-      api.post('/v1/auth/logout').catch(()=>{})
+      // сперва сервер
+      api.post('/v1/auth/logout').catch(()=>{}) // токен ещё на месте -> 200
+      // затем локальная очистка
+      this.accessToken = ''
+      this.me = null
+      clearAccessToken()
     },
   }
 })
