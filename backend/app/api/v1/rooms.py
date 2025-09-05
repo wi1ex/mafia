@@ -13,6 +13,7 @@ from ...services.logs import log_action
 from ...services.livekit_tokens import make_livekit_token
 from ...services.rooms_events import publish_room_event, cache_room_params, uncache_room
 from ...core.redis import build_redis
+from ...settings import settings
 from ..deps import get_current_user
 
 router = APIRouter()
@@ -132,7 +133,7 @@ async def join_room(
         room=str(room_id),
         ttl_minutes=60,
     )
-    return {"ws_url": "/rtc", "token": lk_token, "room_id": room_id}
+    return {"ws_url": settings.LIVEKIT_WS_PUBLIC, "token": lk_token, "room_id": room_id}
 
 @router.post("/{room_id}/leave")
 async def leave_room(

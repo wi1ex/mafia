@@ -1,3 +1,4 @@
+<!-- frontend/src/components/HeaderBar.vue -->
 <template>
   <header class="bar">
     <div class="brand">Mafia</div>
@@ -6,6 +7,7 @@
       <img v-if="auth.avatarUrl" :src="auth.avatarUrl" alt="" class="avatar" />
       <div v-else class="avatar placeholder"></div>
       <span class="nick">{{ auth.displayName }}</span>
+      <button class="logout" @click="auth.logout()">Выйти</button>
     </div>
   </header>
 </template>
@@ -22,4 +24,5 @@ const auth = useAuthStore()
 .avatar{width:32px;height:32px;border-radius:50%}
 .placeholder{background:#334155}
 .nick{color:var(--fg)}
+.logout{padding:6px 10px;border:none;border-radius:8px;cursor:pointer;background:#334155;color:#e5e7eb}
 </style>
