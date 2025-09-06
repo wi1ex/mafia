@@ -10,7 +10,8 @@
         <li v-for="r in roomsStore.rooms" :key="r.id" class="item">
           <span class="item__title">#{{ r.id }} — {{ r.title }}</span>
           <span class="item__meta">({{ r.occupancy }}/{{ r.user_limit }})</span>
-          <router-link :to="`/room/${r.id}`" class="link">Открыть</router-link>
+          <router-link v-if="isAuthed" :to="`/room/${r.id}`" class="link">Открыть</router-link>
+          <div v-else class="link disabled">Войдите, чтобы открыть</div>
         </li>
       </ul>
       <div v-if="isAuthed" class="create">
@@ -84,6 +85,11 @@ onBeforeUnmount(() => roomsStore.stopSSE())
 .link {
   margin-left: auto;
   text-decoration: underline;
+}
+.link.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 .create {
   margin-top: 16px;

@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { api, setGlobalToken, clearGlobalToken, getGlobalToken } from '@/services/axios'
+import { connectSocket, disconnectSocket } from '@/services/socket'
 
 export interface TgUser { id:number; username?:string; photo_url?:string; auth_date?:number; hash?:string }
 export interface UserProfile { id:number; username?:string; photo_url?:string; role:string }
@@ -41,6 +42,11 @@ export const useAuthStore = defineStore('auth', () => {
     accessToken.value = t
     setGlobalToken(t)
     scheduleRefresh()
+    // +++ подключаем сокет под текущим access
+    connectSocket(t, async () => {
+      await logout()
+      window.location.replace('/') // гарантированный редирект
+    })
   }
 
   async function refresh() {
@@ -57,7 +63,15 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function init() {
-    if (accessToken.value) { scheduleRefresh(); try { await fetchMe() } catch {} }
+    if (accessToken.value) {
+      scheduleRefresh()
+      try { await fetchMe() } catch {}
+      // +++ подключиться к сокету при перезагрузке, если токен есть
+      connectSocket(accessToken.value, async () => {
+        await logout()
+        window.location.replace('/')
+      })
+    }
   }
 
   async function signInWithTelegram(user: TgUser) {
@@ -70,6 +84,7 @@ export const useAuthStore = defineStore('auth', () => {
     if (refreshTimer) { clearTimeout(refreshTimer); refreshTimer = null }
     // сервер сам почистит refresh-cookie; доступ может уже истечь — не критично
     try { await api.post('/v1/auth/logout') } catch {}
+    disconnectSocket()
     accessToken.value = ''
     me.value = null
     clearGlobalToken()

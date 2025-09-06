@@ -61,39 +61,44 @@ async function onLeave(){
 }
 
 onMounted(async () => {
-  // получить ws_url + token
-  const { ws_url, token } = await rtc.requestJoin(rid)
+  try {
+    // получить ws_url + token
+    const { ws_url, token } = await rtc.requestJoin(rid)
 
-  const room = new LkRoom({ adaptiveStream:false, dynacast:false, publishDefaults:{ videoSimulcastLayers: [] } })
-  lk.value = room
+    const room = new LkRoom({ adaptiveStream:false, dynacast:false, publishDefaults:{ videoSimulcastLayers: [] } })
+    lk.value = room
 
-  // входящие треки
-  room.on(RoomEvent.TrackSubscribed, (track, _pub, participant) => {
-    const el = addElement(participant.identity, false)
-    if (track.kind === Track.Kind.Audio || track.kind === Track.Kind.Video){
-      (track as RemoteTrack).attach(el)
+    // входящие треки
+    room.on(RoomEvent.TrackSubscribed, (track, _pub, participant) => {
+      const el = addElement(participant.identity, false)
+      if (track.kind === Track.Kind.Audio || track.kind === Track.Kind.Video){
+        (track as RemoteTrack).attach(el)
+      }
+    })
+    room.on(RoomEvent.TrackUnsubscribed, (track, _pub, participant) => {
+      const el = elements.get(participant.identity); if (!el) return
+      try { (track as any).detach(el) } catch {}
+    })
+    room.on(RoomEvent.ParticipantDisconnected, (p) => removeElement(p.identity))
+    room.on(RoomEvent.Disconnected, () => { elements.forEach((_el,id)=>removeElement(id)) })
+
+    // локальные треки
+    const localTracks = await createLocalTracks({
+      audio: true,
+      video: { resolution: { width:1280, height:720 } },
+    })
+
+    await room.connect(ws_url, token)
+
+    for (const t of localTracks) await room.localParticipant.publishTrack(t)
+
+    const localEl = addElement(room.localParticipant.identity, true)
+    for (const t of localTracks){
+      if (t.kind === Track.Kind.Audio || t.kind === Track.Kind.Video) t.attach(localEl)
     }
-  })
-  room.on(RoomEvent.TrackUnsubscribed, (track, _pub, participant) => {
-    const el = elements.get(participant.identity); if (!el) return
-    try { (track as any).detach(el) } catch {}
-  })
-  room.on(RoomEvent.ParticipantDisconnected, (p) => removeElement(p.identity))
-  room.on(RoomEvent.Disconnected, () => { elements.forEach((_el,id)=>removeElement(id)) })
-
-  // локальные треки
-  const localTracks = await createLocalTracks({
-    audio: true,
-    video: { resolution: { width:1280, height:720 } },
-  })
-
-  await room.connect(ws_url, token)
-
-  for (const t of localTracks) await room.localParticipant.publishTrack(t)
-
-  const localEl = addElement(room.localParticipant.identity, true)
-  for (const t of localTracks){
-    if (t.kind === Track.Kind.Audio || t.kind === Track.Kind.Video) t.attach(localEl)
+  } catch (e:any) {
+    // 401 / 403 / room not found — назад на главную
+    await router.replace('/')
   }
 })
 

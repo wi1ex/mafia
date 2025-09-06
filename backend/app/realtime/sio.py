@@ -71,9 +71,19 @@ def build_sio(cors):
                 uid = msg.get("data")
                 if isinstance(uid, bytes):
                     uid = uid.decode()
-                # разрываем все сокеты пользователя
+
+                # все активные сокеты пользователя
                 sids = await r.smembers(f"user:{uid}:sockets")
+                # redis может вернуть bytes
+                sids = {s.decode() if isinstance(s, bytes) else s for s in sids}
+
                 for s in sids:
+                    # 1) отправляем событие
+                    try:
+                        await sio.emit('force_logout', {'reason': 'new_login'}, room=s)
+                    except Exception:
+                        pass
+                    # 2) разрываем соединение
                     try:
                         await sio.disconnect(s)
                     except Exception:

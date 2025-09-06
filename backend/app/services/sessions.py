@@ -39,14 +39,23 @@ async def _revoke_old_session(r: redis.Redis, user_id: int):
 
 async def new_login_session(resp: Response, *, user_id: int, role: str) -> str:
     r = get_redis()
-    await _revoke_old_session(r, user_id)
+    await _revoke_old_session(r, user_id)  # ← публикует sio:kick и чистит старые ключи
+
     import uuid
     sid = uuid.uuid4().hex
-    await r.setex(f"user:{user_id}:session", _refresh_ttl(), sid)
-    await r.setex(f"sess:{sid}:status", _refresh_ttl(), 1)
+
+    ttl = _refresh_ttl()
+    await r.setex(f"user:{user_id}:session", ttl, sid)
+    await r.setex(f"sess:{sid}:status", ttl, 1)
+
     rt, jti = create_refresh_token(sub=user_id, sid=sid, ttl_days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
-    await r.setex(f"sess:{sid}:rt:{jti}", _refresh_ttl(), 1)
+    await r.setex(f"sess:{sid}:rt:{jti}", ttl, 1)
     await _set_refresh_cookie(resp, rt)
+
+    # (опционально) подстрахуемся, если кто-то уменьшил TTL выше
+    await r.expire(f"user:{user_id}:session", ttl)
+    await r.expire(f"sess:{sid}:status", ttl)
+
     return sid
 
 def issue_access_token(*, user_id: int, role: str, sid: str) -> str:
