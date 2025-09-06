@@ -7,11 +7,11 @@ from .clients import init_clients, close_clients, get_redis
 from ..services.storage_minio import ensure_bucket
 
 @asynccontextmanager
-async def lifespan():
+async def lifespan(app):
     configure_logging()
     init_clients()
 
-    # Postgres ping + bootstrap таблиц если пусто
+    # Postgres ping + bootstrap (только для пустой БД)
     async with engine.begin() as conn:
         await conn.execute(text("SELECT 1"))
         await conn.run_sync(Base.metadata.create_all)
