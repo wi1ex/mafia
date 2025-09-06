@@ -17,9 +17,15 @@ from ...settings import settings
 
 router = APIRouter()
 
+
 def k_members(room_id: int) -> str: return f"room:{room_id}:members"
+
+
 def k_join(room_id: int, user_id: int) -> str: return f"room:{room_id}:join:{user_id}"
+
+
 def k_empty_probe(room_id: int) -> str: return f"room:{room_id}:empty_probe"
+
 
 JOIN_LUA = """
 local set = KEYS[1]
@@ -36,15 +42,17 @@ redis.call('SADD', set, uid)
 return {1, size + 1}
 """
 
+
 @router.get("")
 async def list_rooms(db: AsyncSession = Depends(get_session)):
     res = await db.execute(select(Room))
     rooms = res.scalars().all()
     r: redis.Redis = get_redis()
     out = []
-    # pipeline для снижения round-trips
+
     pipe = r.pipeline()
-    for rm in rooms: pipe.scard(k_members(rm.id))
+    for rm in rooms:
+        await pipe.scard(k_members(rm.id))
     occs = await pipe.execute()
     for rm, occ in zip(rooms, occs):
         out.append({
@@ -58,6 +66,7 @@ async def list_rooms(db: AsyncSession = Depends(get_session)):
             "occupancy": int(occ or 0),
         })
     return out
+
 
 @router.post("", status_code=201)
 async def create_room(request: Request, db: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
@@ -83,14 +92,17 @@ async def create_room(request: Request, db: AsyncSession = Depends(get_session),
     await publish_room_event(r, type_="room_created", payload={
         "id": room.id, "title": room.title, "user_limit": room.user_limit, "is_private": room.is_private, "occupancy": 0
     })
-    await log_action(db, user_id=current_user.id, username=current_user.username, action="room_created", details={"room_id": room.id, "title": room.title, "limit": room.user_limit})
+    await log_action(db, user_id=current_user.id, username=current_user.username, action="room_created",
+                     details={"room_id": room.id, "title": room.title, "limit": room.user_limit})
     await db.commit()
 
     return {
         "id": room.id, "title": room.title, "user_limit": room.user_limit, "is_private": room.is_private,
-        "created_by_user_id": room.created_by_user_id, "created_at": str(room.created_at), "updated_at": str(room.updated_at),
+        "created_by_user_id": room.created_by_user_id, "created_at": str(room.created_at),
+        "updated_at": str(room.updated_at),
         "occupancy": 0,
     }
+
 
 @router.post("/{room_id}/join")
 async def join_room(room_id: int = Path(...), db: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
@@ -104,12 +116,14 @@ async def join_room(room_id: int = Path(...), db: AsyncSession = Depends(get_ses
     if int(ok) != 1:
         raise HTTPException(status_code=403, detail="room_full")
 
-    await r.set(k_join(room_id, current_user.id), int(time.time()), ex=24*3600)
+    await r.set(k_join(room_id, current_user.id), int(time.time()), ex=24 * 3600)
     await publish_room_event(r, type_="occupancy", payload={"id": room_id, "occupancy": int(size)})
 
-    lk_token = make_livekit_token(identity=str(current_user.id), name=current_user.username or str(current_user.id), room=str(room_id), ttl_minutes=60)
+    lk_token = make_livekit_token(identity=str(current_user.id), name=current_user.username or str(current_user.id),
+                                  room=str(room_id), ttl_minutes=60)
     # ВАЖНО: возвращаем корректный wss URL с путём /rtc
     return {"ws_url": f"wss://{settings.DOMAIN}/rtc", "token": lk_token, "room_id": room_id}
+
 
 @router.post("/{room_id}/leave")
 async def leave_room(room_id: int = Path(...), db: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
@@ -132,6 +146,7 @@ async def leave_room(room_id: int = Path(...), db: AsyncSession = Depends(get_se
 
     if occ == 0 and not await r.exists(k_empty_probe(room_id)):
         await r.setex(k_empty_probe(room_id), 12, "1")
+
         async def _delayed():
             await asyncio.sleep(10)
             if (await r.scard(k_members(room_id))) == 0:
@@ -139,11 +154,13 @@ async def leave_room(room_id: int = Path(...), db: AsyncSession = Depends(get_se
                 rm2 = res2.scalar_one_or_none()
                 if rm2:
                     await db.delete(rm2)
-                    await log_action(db, user_id=current_user.id, username=current_user.username, action="room_deleted", details={"room_id": room_id})
+                    await log_action(db, user_id=current_user.id, username=current_user.username, action="room_deleted",
+                                     details={"room_id": room_id})
                     await db.commit()
                 await r.delete(k_members(room_id))
                 await uncache_room(r, room_id)
                 await publish_room_event(r, type_="room_deleted", payload={"id": room_id})
+
         asyncio.create_task(_delayed())
 
     return {"status": "ok"}

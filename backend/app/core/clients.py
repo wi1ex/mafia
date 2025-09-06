@@ -25,7 +25,6 @@ def init_clients() -> None:
             secure=False,
         )
     if _minio_public is None:
-        # публичный клиент для presign (хост = ваш основной домен, т.к. вы проксируете через /media/)
         _minio_public = Minio(
             settings.DOMAIN,  # без схемы
             access_key=settings.MINIO_ROOT_USER,

@@ -1,5 +1,4 @@
 from __future__ import annotations
-import asyncio
 import redis.asyncio as redis
 from fastapi import Response
 from ..settings import settings
@@ -31,11 +30,11 @@ async def _revoke_old_session(r: redis.Redis, user_id: int):
     prev = await r.get(f"user:{user_id}:session")
     if prev:
         pipe = r.pipeline()
-        pipe.delete(f"user:{user_id}:session")
-        pipe.delete(f"sess:{prev}:status")
+        await pipe.delete(f"user:{user_id}:session")
+        await pipe.delete(f"sess:{prev}:status")
         async for key in r.scan_iter(f"sess:{prev}:rt:*"):
-            pipe.delete(key)
-        pipe.publish("sio:kick", str(user_id))  # разорвать старые WS
+            await pipe.delete(key)
+        await pipe.publish("sio:kick", str(user_id))  # разорвать старые WS
         await pipe.execute()
 
 async def new_login_session(resp: Response, *, user_id: int, role: str) -> str:
@@ -84,10 +83,10 @@ async def logout(resp: Response, *, user_id: int):
     sid = await r.get(f"user:{user_id}:session")
     if sid:
         pipe = r.pipeline()
-        pipe.delete(f"user:{user_id}:session")
-        pipe.delete(f"sess:{sid}:status")
+        await pipe.delete(f"user:{user_id}:session")
+        await pipe.delete(f"sess:{sid}:status")
         async for key in r.scan_iter(f"sess:{sid}:rt:*"):
-            pipe.delete(key)
-        pipe.publish("sio:kick", str(user_id))
+            await pipe.delete(key)
+        await pipe.publish("sio:kick", str(user_id))
         await pipe.execute()
     await _clear_refresh_cookie(resp)

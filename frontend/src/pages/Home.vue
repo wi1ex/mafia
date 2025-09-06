@@ -42,7 +42,11 @@ async function onCreate(){
   router.push(`/room/${room.id}`)
 }
 
-onMounted(async () => { await roomsStore.fetchRooms(); roomsStore.startSSE() })
+onMounted(async () => {
+  await roomsStore.fetchRooms();
+  roomsStore.startSSE()
+})
+
 onBeforeUnmount(() => roomsStore.stopSSE())
 </script>
 

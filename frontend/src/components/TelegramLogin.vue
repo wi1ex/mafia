@@ -5,6 +5,7 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
 import { useAuthStore } from '@/store'
+
 const BOT = import.meta.env.VITE_TG_BOT_NAME
 const SIZE: 'large' | 'medium' | 'small' = 'large'
 const auth = useAuthStore()

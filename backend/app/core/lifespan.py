@@ -7,7 +7,7 @@ from .clients import init_clients, close_clients, get_redis
 from ..services.storage_minio import ensure_bucket
 
 @asynccontextmanager
-async def lifespan(app):
+async def lifespan():
     configure_logging()
     init_clients()
 

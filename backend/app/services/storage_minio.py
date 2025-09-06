@@ -1,7 +1,8 @@
 from __future__ import annotations
 from typing import Optional
 from minio.error import S3Error
-import io, mimetypes
+import io
+import mimetypes
 from datetime import timedelta
 from ..settings import settings
 from ..core.clients import get_minio_private, get_minio_public, get_httpx

@@ -8,7 +8,7 @@ from ...core.security import verify_telegram_auth, decode_token
 from ...services.sessions import new_login_session, issue_access_token, rotate_refresh, logout as logout_sess, REFRESH_COOKIE
 from ...services.storage_minio import download_telegram_photo, put_avatar, presign_avatar
 from ...services.logs import log_action
-from ..deps import get_current_user
+from ...settings import settings
 
 router = APIRouter()
 
@@ -55,7 +55,7 @@ async def telegram_auth(request: Request, db: AsyncSession = Depends(get_session
         await db.commit()
 
     sid = await new_login_session(resp, user_id=user.id, role=user.role)
-    access = await issue_access_token(user_id=user.id, role=user.role, sid=sid)
+    access = issue_access_token(user_id=user.id, role=user.role, sid=sid)
     return {
         "access_token": access,
         "token_type": "bearer",
@@ -93,7 +93,7 @@ async def refresh(request: Request, resp: Response, db: AsyncSession = Depends(g
     filename = row[1] if row else None
     username = row[2] if row else None
 
-    access = await issue_access_token(user_id=user_id, role=role, sid=sid)
+    access = issue_access_token(user_id=user_id, role=role, sid=sid)
     return {
         "access_token": access,
         "token_type": "bearer",
@@ -111,14 +111,18 @@ async def logout(request: Request, resp: Response):
     raw = request.cookies.get(REFRESH_COOKIE)
     if raw:
         try:
-            payload = decode_token(raw); user_id = int(payload.get("sub") or 0) or None
-        except: pass
+            payload = decode_token(raw)
+            user_id = int(payload.get("sub") or 0) or None
+        except Exception:
+            pass
     if not user_id:
         auth = request.headers.get("authorization")
         if auth and auth.lower().startswith("bearer "):
             try:
-                payload = decode_token(auth[7:].strip()); user_id = int(payload.get("sub") or 0) or None
-            except: pass
+                payload = decode_token(auth[7:].strip())
+                user_id = int(payload.get("sub") or 0) or None
+            except Exception:
+                pass
     if user_id:
         await logout_sess(resp, user_id=user_id)
     else:

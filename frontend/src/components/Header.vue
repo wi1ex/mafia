@@ -14,6 +14,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useAuthStore } from '@/store'
+
 const auth = useAuthStore()
 
 const isAuthed = computed(() => !!auth.accessToken)
