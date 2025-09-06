@@ -1,4 +1,6 @@
-<template><div id="tg-login" /></template>
+<template>
+  <div id="tg-login" />
+</template>
 
 <script setup lang="ts">
 import { onMounted } from 'vue'
@@ -20,4 +22,6 @@ onMounted(() => {
 })
 </script>
 
-<style lang="scss" scoped></style>
+<style lang="scss" scoped>
+
+</style>

@@ -101,18 +101,39 @@ onBeforeUnmount(() => onLeave())
 </script>
 
 <style lang="scss" scoped>
-.title{color:var(--fg)}
-.grid{
-  display:grid;
-  grid-template-columns:repeat(auto-fill,minmax(260px,1fr));
-  gap:12px;margin-top:12px
+.title {
+  color: var(--fg);
 }
-.tile{
-  position:relative;border-radius:12px;overflow:hidden;background:#0b0f14;min-height:180px
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
 }
-.tile > video{
-  width:100%;height:100%;min-height:180px;display:block;object-fit:cover;background:#000
+.tile {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #0b0f14;
+  min-height: 180px;
 }
-.btn{margin-top:12px;padding:8px 12px;border-radius:8px;border:none;cursor:pointer}
-.btn-danger{background:var(--color-danger);color:#190808}
+video {
+  width: 100%;
+  height: 100%;
+  min-height: 180px;
+  display: block;
+  object-fit: cover;
+  background: #000;
+}
+.btn {
+  margin-top: 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+}
+.btn-danger {
+  background: var(--color-danger);
+  color: #190808;
+}
 </style>
