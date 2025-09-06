@@ -52,17 +52,6 @@ services:
     networks: [edge, internal]
     restart: always
 
-  backend:
-    build: ./backend
-    container_name: backend
-    env_file: .env
-    depends_on:
-      - db
-      - redis
-      - minio
-    networks: [edge, internal]
-    restart: always
-
   livekit:
     image: livekit/livekit-server:v1.9.0
     container_name: livekit
@@ -98,6 +87,24 @@ services:
     networks: [edge, internal]
     restart: always
 
+  backend:
+    build: ./backend
+    container_name: backend
+    env_file: .env
+    depends_on:
+      - db
+      - redis
+      - minio
+      - livekit
+    networks: [edge, internal]
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/api/v1/health/ping || exit 1"]
+      interval: 5s
+      timeout: 1s
+      retries: 30
+      start_period: 5s
+
   nginx:
     build:
       context: .
@@ -113,7 +120,7 @@ services:
       - "80:80/tcp"
       - "443:443/tcp"
     depends_on:
-      - backend
-      - livekit
+      backend:
+        condition: service_healthy
     networks: [edge, internal]
     restart: always
