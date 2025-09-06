@@ -4,7 +4,7 @@ from sqlalchemy import text
 import redis.asyncio as redis
 
 from ...db import get_session
-from ...core.redis import build_redis
+from ...core.clients import get_redis
 
 router = APIRouter()
 
@@ -14,6 +14,6 @@ async def ping(
     db: AsyncSession = Depends(get_session),
 ):
     await db.execute(text("select 1"))
-    r: redis.Redis = build_redis()
+    r: redis.Redis = get_redis()
     await r.ping()
     return {"status": "ok"}

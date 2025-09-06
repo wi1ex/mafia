@@ -106,6 +106,21 @@ async def refresh(request: Request, resp: Response, db: AsyncSession = Depends(g
     }
 
 @router.post("/logout")
-async def logout(resp: Response = None, current_user: User = Depends(get_current_user)):
-    await logout_sess(resp, user_id=current_user.id)
+async def logout(request: Request, resp: Response):
+    user_id = None
+    raw = request.cookies.get(REFRESH_COOKIE)
+    if raw:
+        try:
+            payload = decode_token(raw); user_id = int(payload.get("sub") or 0) or None
+        except: pass
+    if not user_id:
+        auth = request.headers.get("authorization")
+        if auth and auth.lower().startswith("bearer "):
+            try:
+                payload = decode_token(auth[7:].strip()); user_id = int(payload.get("sub") or 0) or None
+            except: pass
+    if user_id:
+        await logout_sess(resp, user_id=user_id)
+    else:
+        resp.delete_cookie(REFRESH_COOKIE, path="/api", domain=settings.DOMAIN)
     return {"status": "ok"}

@@ -7,29 +7,27 @@ import redis.asyncio as redis
 from ..db import get_session
 from ..models.user import User
 from ..core.security import decode_token
-from ..core.redis import build_redis
+from ..core.clients import get_redis
 
 bearer = HTTPBearer(auto_error=False)
 
 async def get_current_user(
     creds: HTTPAuthorizationCredentials = Depends(bearer),
     db: AsyncSession = Depends(get_session),
-) -> User:
+):
     if not creds or creds.scheme.lower() != "bearer":
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="not authenticated")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="no token")
+
     try:
         payload = decode_token(creds.credentials)
-        if payload.get("typ") != "access":
-            raise ValueError("wrong token type")
         user_id = int(payload.get("sub"))
         sid = payload.get("sid")
-        if not sid:
-            raise ValueError("no sid")
+        if not user_id or not sid:
+            raise ValueError("bad token")
     except Exception:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid token")
 
-    # single-session проверка
-    r: redis.Redis = build_redis()
+    r: redis.Redis = get_redis()
     current_sid = await r.get(f"user:{user_id}:session")
     if current_sid != sid:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="session revoked")

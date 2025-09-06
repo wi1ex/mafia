@@ -1,22 +1,29 @@
 from __future__ import annotations
 from contextlib import asynccontextmanager
-from sqlalchemy.ext.asyncio import AsyncEngine
+from sqlalchemy import text
+from ..db import engine, Base
 from .logging import configure_logging
-from ..db import engine
-from ..db import Base
-import redis.asyncio as redis
-from ..core.redis import build_redis
+from .clients import init_clients, close_clients, get_redis
+from ..services.storage_minio import ensure_bucket
 
 @asynccontextmanager
 async def lifespan(app):
     configure_logging()
-    # проверка Redis
-    r: redis.Redis = build_redis()
-    await r.ping()
-    # авто-создание таблиц при старте
-    eng: AsyncEngine = engine
-    async with eng.begin() as conn:
+    init_clients()
+
+    # Postgres ping + bootstrap таблиц если пусто
+    async with engine.begin() as conn:
+        await conn.execute(text("SELECT 1"))
         await conn.run_sync(Base.metadata.create_all)
+
+    # Redis ping
+    r = get_redis()
+    await r.ping()
+
+    # MinIO bucket
+    ensure_bucket()
+
     yield
-    await eng.dispose()
-    await r.close()
+
+    await close_clients()
+    await engine.dispose()

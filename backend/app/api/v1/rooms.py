@@ -11,7 +11,7 @@ from ...models.user import User
 from ...services.logs import log_action
 from ...services.livekit_tokens import make_livekit_token
 from ...services.rooms_events import publish_room_event, cache_room_params, uncache_room
-from ...core.redis import build_redis
+from ...core.clients import get_redis
 from ..deps import get_current_user
 from ...settings import settings
 
@@ -40,10 +40,13 @@ return {1, size + 1}
 async def list_rooms(db: AsyncSession = Depends(get_session)):
     res = await db.execute(select(Room))
     rooms = res.scalars().all()
-    r: redis.Redis = build_redis()
+    r: redis.Redis = get_redis()
     out = []
-    for rm in rooms:
-        occ = await r.scard(k_members(rm.id))
+    # pipeline для снижения round-trips
+    pipe = r.pipeline()
+    for rm in rooms: pipe.scard(k_members(rm.id))
+    occs = await pipe.execute()
+    for rm, occ in zip(rooms, occs):
         out.append({
             "id": rm.id,
             "title": rm.title,
@@ -69,7 +72,7 @@ async def create_room(request: Request, db: AsyncSession = Depends(get_session),
     db.add(room)
     await db.flush()
 
-    r: redis.Redis = build_redis()
+    r: redis.Redis = get_redis()
     await cache_room_params(r, room.id, {
         "title": room.title,
         "user_limit": room.user_limit,
@@ -96,7 +99,7 @@ async def join_room(room_id: int = Path(...), db: AsyncSession = Depends(get_ses
     if not room:
         raise HTTPException(status_code=404, detail="room not found")
 
-    r: redis.Redis = build_redis()
+    r: redis.Redis = get_redis()
     ok, size = await r.eval(JOIN_LUA, 1, k_members(room_id), current_user.id, room.user_limit)
     if int(ok) != 1:
         raise HTTPException(status_code=403, detail="room_full")
@@ -105,11 +108,12 @@ async def join_room(room_id: int = Path(...), db: AsyncSession = Depends(get_ses
     await publish_room_event(r, type_="occupancy", payload={"id": room_id, "occupancy": int(size)})
 
     lk_token = make_livekit_token(identity=str(current_user.id), name=current_user.username or str(current_user.id), room=str(room_id), ttl_minutes=60)
-    return {"ws_url": settings.LIVEKIT_WS_PUBLIC, "token": lk_token, "room_id": room_id}
+    # ВАЖНО: возвращаем корректный wss URL с путём /rtc
+    return {"ws_url": f"wss://{settings.DOMAIN}/rtc", "token": lk_token, "room_id": room_id}
 
 @router.post("/{room_id}/leave")
 async def leave_room(room_id: int = Path(...), db: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
-    r: redis.Redis = build_redis()
+    r: redis.Redis = get_redis()
     await r.srem(k_members(room_id), current_user.id)
     ts = await r.getdel(k_join(room_id, current_user.id))
     if ts:
