@@ -119,10 +119,10 @@ async def join_room(room_id: int = Path(...), db: AsyncSession = Depends(get_ses
     await r.set(k_join(room_id, current_user.id), int(time.time()), ex=24 * 3600)
     await publish_room_event(r, type_="occupancy", payload={"id": room_id, "occupancy": int(size)})
 
-    lk_token = make_livekit_token(identity=str(current_user.id), name=current_user.username or str(current_user.id),
+    lk_token = make_livekit_token(identity=str(current_user.id),
+                                  name=current_user.username or str(current_user.id),
                                   room=str(room_id), ttl_minutes=60)
-    # ВАЖНО: возвращаем корректный wss URL с путём /rtc
-    return {"ws_url": f"wss://{settings.DOMAIN}/rtc", "token": lk_token, "room_id": room_id}
+    return {"ws_url": f"wss://{settings.DOMAIN}", "token": lk_token, "room_id": room_id}
 
 
 @router.post("/{room_id}/leave")
