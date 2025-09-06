@@ -9,6 +9,7 @@ from ...core.security import verify_telegram_auth, decode_token
 from ...services.sessions import new_login_session, issue_access_token, rotate_refresh, logout as logout_sess, REFRESH_COOKIE
 from ...services.storage_minio import download_telegram_photo, put_avatar
 from ...services.logs import log_action
+from ...services.storage_minio import presign_avatar
 import structlog
 log = structlog.get_logger()
 
@@ -60,7 +61,8 @@ async def telegram_auth(payload: TelegramAuthIn, db: AsyncSession = Depends(get_
 
     sid = await new_login_session(resp, user_id=user.id, role=user.role)
     access = await issue_access_token(user_id=user.id, role=user.role, sid=sid)
-    return AuthOut(access_token=access, user=UserOut(id=user.id, username=user.username, photo_url=user.photo_url, role=user.role))
+    avatar_url = presign_avatar(user.photo_url) if user.photo_url else None
+    return AuthOut(access_token=access, user=UserOut(id=user.id, username=user.username, photo_url=avatar_url, role=user.role))
 
 @router.post("/refresh", response_model=AuthOut)
 async def refresh(request: Request, resp: Response, db: AsyncSession = Depends(get_session)):

@@ -18,9 +18,7 @@ const auth = useAuthStore()
 
 const isAuthed = computed(() => !!auth.accessToken)
 const displayName = computed(() => auth.me?.username || 'User')
-const avatarUrl = computed(() =>
-  auth.me?.photo_url ? `/api/v1/assets/avatars/${auth.me.photo_url}` : null
-)
+const avatarUrl = computed(() => auth.me?.photo_url || null)
 </script>
 
 <style lang="scss" scoped>
