@@ -9,7 +9,6 @@ def build_sio(cors):
     sio = AsyncServer(async_mode="asgi", cors_allowed_origins=cors, ping_interval=20, ping_timeout=30)
 
     async def ensure_redis():
-        # Ждём, пока lifespan инициализирует клиентов
         while True:
             try:
                 r = get_redis()
@@ -22,7 +21,6 @@ def build_sio(cors):
     async def connect(sid, environ):
         r = await ensure_redis()
 
-        # Ожидаем ?token=Bearer%20<jwt> или ?token=<jwt>
         qs = parse_qs(environ.get("QUERY_STRING") or "")
         raw = (qs.get("token") or [None])[0]
         if not raw:
@@ -37,14 +35,15 @@ def build_sio(cors):
             sid_claim = payload.get("sid")
             if not uid or not sid_claim:
                 return False
-            # single-session: текущая сессия пользователя должна совпадать
-            current_sid = await r.get(f"user:{uid}:session")
-            if current_sid != sid_claim:
+            uid = str(uid)                 # NEW
+            sid_claim = str(sid_claim)     # NEW
+            stored = await r.get(f"user:{uid}:session")
+            stored_sid = stored.decode() if isinstance(stored, (bytes, bytearray)) else stored
+            if not stored_sid or stored_sid != sid_claim:
                 return False
         except Exception:
             return False
 
-        # учёт онлайна
         await r.sadd("online_users", uid)
         await r.sadd(f"user:{uid}:sockets", sid)
         await r.set(f"socket:{sid}:user", uid, ex=86400)
@@ -56,6 +55,9 @@ def build_sio(cors):
         uid = await r.get(f"socket:{sid}:user")
         await r.delete(f"socket:{sid}:user")
         if uid:
+            if isinstance(uid, (bytes, bytearray)):
+                uid = uid.decode()
+            uid = str(uid)  # NEW — для единообразия
             await r.srem(f"user:{uid}:sockets", sid)
             if (await r.scard(f"user:{uid}:sockets")) == 0:
                 await r.srem("online_users", uid)
@@ -69,21 +71,13 @@ def build_sio(cors):
                 if msg.get("type") != "message":
                     continue
                 uid = msg.get("data")
-                if isinstance(uid, bytes):
+                if isinstance(uid, (bytes, bytearray)):
                     uid = uid.decode()
 
-                # все активные сокеты пользователя
                 sids = await r.smembers(f"user:{uid}:sockets")
-                # redis может вернуть bytes
-                sids = {s.decode() if isinstance(s, bytes) else s for s in sids}
-
                 for s in sids:
-                    # 1) отправляем событие
-                    try:
-                        await sio.emit('force_logout', {'reason': 'new_login'}, room=s)
-                    except Exception:
-                        pass
-                    # 2) разрываем соединение
+                    if isinstance(s, (bytes, bytearray)):
+                        s = s.decode()
                     try:
                         await sio.disconnect(s)
                     except Exception:

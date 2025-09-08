@@ -107,7 +107,7 @@ onBeforeUnmount(() => onLeave())
 
 <style lang="scss" scoped>
 .title {
-  color: var(--fg);
+  color: var(--bg);
 }
 .grid {
   display: grid;

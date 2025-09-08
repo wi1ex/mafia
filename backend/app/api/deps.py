@@ -20,17 +20,20 @@ async def get_current_user(
 
     try:
         payload = decode_token(creds.credentials)
-        user_id = int(payload.get("sub"))
-        sid = payload.get("sid")
+        if payload.get("typ") != "access":
+            raise ValueError("not access token")
+        user_id = int(payload.get("sub") or 0)
+        sid = str(payload.get("sid") or "")
         if not user_id or not sid:
             raise ValueError("bad token")
     except Exception:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid token")
 
     r: redis.Redis = get_redis()
-    current_sid = await r.get(f"user:{user_id}:session")
-    if current_sid != sid:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="session revoked")
+    stored = await r.get(f"user:{user_id}:session")
+    stored_sid = stored.decode() if isinstance(stored, (bytes, bytearray)) else stored
+    if not stored_sid or stored_sid != sid:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="session_revoked")
 
     res = await db.execute(select(User).where(User.id == user_id))
     user = res.scalar_one_or_none()

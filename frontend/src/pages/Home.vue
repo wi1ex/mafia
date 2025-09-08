@@ -53,11 +53,11 @@ onBeforeUnmount(() => roomsStore.stopSSE())
 
 <style lang="scss" scoped>
 .title {
-  color: var(--fg);
+  color: var(--bg);
   margin: 0 0 8px;
 }
 .subtitle {
-  color: var(--fg);
+  color: var(--bg);
   margin: 12px 0 6px;
   font-size: 16px;
 }
@@ -74,7 +74,7 @@ onBeforeUnmount(() => roomsStore.stopSSE())
   align-items: center;
   gap: 8px;
   margin: 8px 0;
-  color: var(--fg);
+  color: var(--bg);
 }
 .item__title {
   font-weight: 500;

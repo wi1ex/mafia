@@ -30,7 +30,7 @@ const avatarUrl = computed(() => auth.me?.photo_url || null)
   padding: 12px 16px;
 }
 .brand {
-  color: var(--fg);
+  color: var(--bg);
   font-weight: 700;
   letter-spacing: 0.5px;
 }
@@ -49,7 +49,7 @@ const avatarUrl = computed(() => auth.me?.photo_url || null)
   background: #334155;
 }
 .nick {
-  color: var(--fg);
+  color: var(--bg);
 }
 .btn {
   padding: 6px 10px;
@@ -60,6 +60,6 @@ const avatarUrl = computed(() => auth.me?.photo_url || null)
 }
 .btn-ghost {
   background: #334155;
-  color: #e5e7eb;
+  color: #7795d2;
 }
 </style>

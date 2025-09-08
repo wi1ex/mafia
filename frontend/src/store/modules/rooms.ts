@@ -3,8 +3,14 @@ import { ref } from 'vue'
 import { api } from '@/services/axios'
 
 export interface Room {
-  id:number; title:string; user_limit:number; is_private:boolean;
-  created_by_user_id:number; created_at:string; updated_at:string; occupancy:number
+  id: number;
+  title: string;
+  user_limit: number;
+  is_private: boolean;
+  created_by_user_id: number;
+  created_at: string;
+  updated_at: string;
+  occupancy: number;
 }
 
 export const useRoomsStore = defineStore('rooms', () => {

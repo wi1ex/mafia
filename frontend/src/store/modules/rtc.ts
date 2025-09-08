@@ -1,7 +1,11 @@
 import { defineStore } from 'pinia'
 import { api } from '@/services/axios'
 
-export interface JoinReply { ws_url:string; token:string; room_id:number }
+export interface JoinReply {
+  ws_url: string;
+  token: string;
+  room_id: number;
+}
 
 export const useRtcStore = defineStore('rtc', () => {
   async function requestJoin(roomId:number){

@@ -1,6 +1,7 @@
 from __future__ import annotations
 import asyncio
 import time
+import json
 from fastapi import APIRouter, Depends, HTTPException, Path, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
@@ -10,13 +11,24 @@ from ...models.room import Room
 from ...models.user import User
 from ...services.logs import log_action
 from ...services.livekit_tokens import make_livekit_token
-from ...services.rooms_events import publish_room_event, cache_room_params, uncache_room
 from ...core.clients import get_redis
 from ..deps import get_current_user
 from ...settings import settings
 
 router = APIRouter()
 
+CHANNEL = "rooms:events"
+
+async def publish_room_event(r: redis.Redis, *, type_: str, payload: dict):
+    await r.publish(CHANNEL, json.dumps({"type": type_, "payload": payload}))
+
+async def cache_room_params(r: redis.Redis, room_id: int, params: dict):
+    await r.hset(f"room:{room_id}:params", mapping=params)
+    await r.sadd("rooms:index", room_id)
+
+async def uncache_room(r: redis.Redis, room_id: int):
+    await r.delete(f"room:{room_id}:params")
+    await r.srem("rooms:index", room_id)
 
 def k_members(room_id: int) -> str: return f"room:{room_id}:members"
 

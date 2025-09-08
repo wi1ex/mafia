@@ -1,4 +1,5 @@
 from __future__ import annotations
+import uuid
 import redis.asyncio as redis
 from fastapi import Response
 from ..settings import settings
@@ -28,74 +29,75 @@ async def _clear_refresh_cookie(resp: Response):
 
 async def _revoke_old_session(r: redis.Redis, user_id: int):
     prev = await r.get(f"user:{user_id}:session")
-    if prev:
-        pipe = r.pipeline()
-        await pipe.delete(f"user:{user_id}:session")
-        await pipe.delete(f"sess:{prev}:status")
-        async for key in r.scan_iter(f"sess:{prev}:rt:*"):
-            await pipe.delete(key)
-        await pipe.publish("sio:kick", str(user_id))  # разорвать старые WS
-        await pipe.execute()
+    if not prev:
+        return
+    prev_sid = prev.decode() if isinstance(prev, (bytes, bytearray)) else str(prev)
+
+    pipe = r.pipeline()
+    # стираем маркеры текущей сессии пользователя
+    pipe.delete(f"user:{user_id}:session")
+    # удаляем все выданные refresh для этой сессии
+    async for key in r.scan_iter(match=f"sess:{prev_sid}:rt:*"):
+        pipe.delete(key)
+    # кикнем все сокеты этого пользователя
+    pipe.publish("sio:kick", str(user_id))
+    await pipe.execute()
 
 async def new_login_session(resp: Response, *, user_id: int, role: str) -> str:
     r = get_redis()
-    await _revoke_old_session(r, user_id)  # ← публикует sio:kick и чистит старые ключи
+    await _revoke_old_session(r, user_id)
 
-    import uuid
     sid = uuid.uuid4().hex
-
-    ttl = _refresh_ttl()
-    await r.setex(f"user:{user_id}:session", ttl, sid)
-    await r.setex(f"sess:{sid}:status", ttl, 1)
+    await r.setex(f"user:{user_id}:session", _refresh_ttl(), sid)
 
     rt, jti = create_refresh_token(sub=user_id, sid=sid, ttl_days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
-    await r.setex(f"sess:{sid}:rt:{jti}", ttl, 1)
+    await r.setex(f"sess:{sid}:rt:{jti}", _refresh_ttl(), 1)
     await _set_refresh_cookie(resp, rt)
-
-    # (опционально) подстрахуемся, если кто-то уменьшил TTL выше
-    await r.expire(f"user:{user_id}:session", ttl)
-    await r.expire(f"sess:{sid}:status", ttl)
-
     return sid
 
 def issue_access_token(*, user_id: int, role: str, sid: str) -> str:
     return create_access_token(sub=user_id, role=role, sid=sid, ttl_minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
 
-async def rotate_refresh(resp: Response, *, raw_refresh_jwt: str) -> tuple[int, str] | None:
+async def rotate_refresh(resp: Response, *, raw_refresh_jwt: str) -> bool:
     try:
         payload = decode_token(raw_refresh_jwt)
     except Exception:
-        return None
+        return False
     if payload.get("typ") != "refresh":
-        return None
+        return False
+
     user_id = int(payload.get("sub") or 0)
     sid = payload.get("sid")
     jti = payload.get("jti")
     if not user_id or not sid or not jti:
-        return None
+        return False
+
     r = get_redis()
-    if await r.get(f"user:{user_id}:session") != sid:
-        return None
+    stored = await r.get(f"user:{user_id}:session")
+    stored_sid = stored.decode() if isinstance(stored, (bytes, bytearray)) else stored
+    if not stored_sid or stored_sid != sid:
+        return False
+
     if not await r.exists(f"sess:{sid}:rt:{jti}"):
-        return None
+        return False
+
+    # rotate only the refresh token + extend session TTLs
     await r.delete(f"sess:{sid}:rt:{jti}")
     new_rt, new_jti = create_refresh_token(sub=user_id, sid=sid, ttl_days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
     await r.setex(f"sess:{sid}:rt:{new_jti}", _refresh_ttl(), 1)
     await _set_refresh_cookie(resp, new_rt)
     await r.expire(f"user:{user_id}:session", _refresh_ttl())
-    await r.expire(f"sess:{sid}:status", _refresh_ttl())
-    access = create_access_token(sub=user_id, role="user", sid=sid, ttl_minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    return user_id, access
+    return True
 
 async def logout(resp: Response, *, user_id: int):
     r = get_redis()
-    sid = await r.get(f"user:{user_id}:session")
-    if sid:
+    stored = await r.get(f"user:{user_id}:session")
+    if stored:
+        sid = stored.decode() if isinstance(stored, (bytes, bytearray)) else str(stored)
         pipe = r.pipeline()
-        await pipe.delete(f"user:{user_id}:session")
-        await pipe.delete(f"sess:{sid}:status")
-        async for key in r.scan_iter(f"sess:{sid}:rt:*"):
-            await pipe.delete(key)
-        await pipe.publish("sio:kick", str(user_id))
+        pipe.delete(f"user:{user_id}:session")
+        async for key in r.scan_iter(match=f"sess:{sid}:rt:*"):
+            pipe.delete(key)
+        pipe.publish("sio:kick", str(user_id))
         await pipe.execute()
     await _clear_refresh_cookie(resp)
