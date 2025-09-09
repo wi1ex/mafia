@@ -7,7 +7,7 @@ from ...models.user import User
 from ...core.security import verify_telegram_auth, decode_token
 from ...services.sessions import new_login_session, issue_access_token, rotate_refresh, logout as logout_sess, REFRESH_COOKIE
 from ...services.storage_minio import download_telegram_photo, put_avatar, presign_avatar
-from ...services.logs import log_action
+from ...core.logging import log_action
 from ...settings import settings
 
 router = APIRouter()

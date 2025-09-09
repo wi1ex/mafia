@@ -3,11 +3,9 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-import redis.asyncio as redis
 from ..db import get_session
 from ..models.user import User
 from ..core.security import decode_token
-from ..core.clients import get_redis
 
 bearer = HTTPBearer(auto_error=False)
 
@@ -17,23 +15,15 @@ async def get_current_user(
 ):
     if not creds or creds.scheme.lower() != "bearer":
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="no token")
-
     try:
         payload = decode_token(creds.credentials)
         if payload.get("typ") != "access":
-            raise ValueError("not access token")
+            raise ValueError("not access")
         user_id = int(payload.get("sub") or 0)
-        sid = str(payload.get("sid") or "")
-        if not user_id or not sid:
-            raise ValueError("bad token")
+        if not user_id:
+            raise ValueError("bad sub")
     except Exception:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid token")
-
-    r: redis.Redis = get_redis()
-    stored = await r.get(f"user:{user_id}:session")
-    stored_sid = stored.decode() if isinstance(stored, (bytes, bytearray)) else stored
-    if not stored_sid or stored_sid != sid:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="session_revoked")
 
     res = await db.execute(select(User).where(User.id == user_id))
     user = res.scalar_one_or_none()

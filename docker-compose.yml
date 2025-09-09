@@ -47,9 +47,7 @@ services:
     env_file: .env
     command: server /data
     volumes: ["minio_data:/data"]
-    ports:
-      - "9000:9000"
-    networks: [edge, internal]
+    networks: [internal]
     restart: always
 
   livekit:

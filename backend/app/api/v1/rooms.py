@@ -9,7 +9,7 @@ import redis.asyncio as redis
 from ...db import get_session
 from ...models.room import Room
 from ...models.user import User
-from ...services.logs import log_action
+from ...core.logging import log_action
 from ...services.livekit_tokens import make_livekit_token
 from ...core.clients import get_redis
 from ..deps import get_current_user
@@ -32,9 +32,7 @@ async def uncache_room(r: redis.Redis, room_id: int):
 
 def k_members(room_id: int) -> str: return f"room:{room_id}:members"
 
-
 def k_join(room_id: int, user_id: int) -> str: return f"room:{room_id}:join:{user_id}"
-
 
 def k_empty_probe(room_id: int) -> str: return f"room:{room_id}:empty_probe"
 

@@ -1,26 +1,23 @@
+from __future__ import annotations
 from fastapi import FastAPI
-from starlette.middleware.cors import CORSMiddleware
-from .settings import settings
+from fastapi.middleware.cors import CORSMiddleware
 from .api.router import api_router
-from .realtime import sse_rooms, sio
+from .realtime.sse_rooms import router as sse_rooms_router
 from .core.lifespan import lifespan
+from .settings import settings
 
-app = FastAPI(
-    title=settings.PROJECT_NAME,
-    version="0.1.0",
-    docs_url="/api/docs",
-    openapi_url="/api/openapi.json",
-    lifespan=lifespan,
-)
+def build_app() -> FastAPI:
+    main_app = FastAPI(title=settings.PROJECT_NAME, lifespan=lifespan)
+    main_app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.BACKEND_CORS_ORIGINS,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+    main_app.include_router(api_router, prefix="/api")
+    main_app.include_router(sse_rooms_router, prefix="/sse")
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.BACKEND_CORS_ORIGINS,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+    return main_app
 
-app.include_router(api_router, prefix="/api")
-app.include_router(sse_rooms.router, prefix="/sse", tags=["sse"])
-app.mount("/socket.io", sio.build_sio(settings.BACKEND_CORS_ORIGINS))
+app = build_app()

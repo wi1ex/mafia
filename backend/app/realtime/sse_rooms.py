@@ -10,7 +10,6 @@ from ..core.clients import get_redis
 
 router = APIRouter()
 
-
 async def snapshot(r):
     async with SessionLocal() as db:
         res = await db.execute(select(Room))

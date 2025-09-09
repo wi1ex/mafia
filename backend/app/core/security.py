@@ -56,4 +56,4 @@ def verify_telegram_auth(data: Dict[str, Any]) -> bool:
         auth_date = int(data["auth_date"])
     except Exception:
         return False
-    return _now() - auth_date <= 86400
+    return _now() - auth_date <= 300
