@@ -1,5 +1,4 @@
 from __future__ import annotations
-import uuid
 from fastapi import Depends, HTTPException, Response, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy import select
@@ -9,8 +8,10 @@ from ..db import get_session
 from ..models.user import User
 from ..settings import settings
 
+
 REFRESH_COOKIE = "rt"
 COOKIE_PATH = "/api"
+
 
 bearer = HTTPBearer(auto_error=False)
 _unauth = HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="unauthorized")
@@ -25,34 +26,27 @@ def _set_refresh_cookie(resp: Response, token: str) -> None:
         httponly=True,
         samesite="strict",
         path=COOKIE_PATH,
-        domain=settings.DOMAIN,
+        domain=settings.DOMAIN
     )
 
 
-def issue_access_token(*, user_id: int, role: str, sid: str) -> str:
-    return create_access_token(sub=user_id, role=role, sid=sid, ttl_minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-
-
-async def new_login_session(resp: Response, *, user_id: int, role: str) -> str:
-    sid = uuid.uuid4().hex
-    rt, _ = create_refresh_token(sub=user_id, sid=sid, ttl_days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+async def new_login_session(resp: Response, *, user_id: int, role: str) -> None:
+    rt = create_refresh_token(sub=user_id, ttl_days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
     _set_refresh_cookie(resp, rt)
-    return sid
+
+
+def issue_access_token(*, user_id: int, role: str) -> str:
+    return create_access_token(sub=user_id, role=role, ttl_minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
 
 
 async def rotate_refresh(resp: Response, *, raw_refresh_jwt: str) -> bool:
     try:
         p = decode_token(raw_refresh_jwt)
-        if p.get("typ") != "refresh":
-            return False
-        uid = int(p.get("sub") or 0)
-        sid = p.get("sid")
-        if not uid or not sid:
+        if p.get("typ") != "refresh" or not int(p.get("sub") or 0):
             return False
     except Exception:
         return False
-    rt, _ = create_refresh_token(sub=uid, sid=sid, ttl_days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
-    _set_refresh_cookie(resp, rt)
+    _set_refresh_cookie(resp, create_refresh_token(sub=int(p["sub"]), ttl_days=settings.REFRESH_TOKEN_EXPIRE_DAYS))
     return True
 
 

@@ -43,11 +43,11 @@ async function onCreate() {
 
 onMounted(async () => {
   await roomsStore.fetchRooms()
-  roomsStore.startSSE()
+  roomsStore.startWS()
 })
 
-onBeforeUnmount(() => {
-  roomsStore.stopSSE()
+onBeforeUnmount(()=> {
+  roomsStore.stopWS()
 })
 </script>
 

@@ -15,57 +15,79 @@ export interface Room {
 
 export const useRoomsStore = defineStore('rooms', () => {
   const rooms = ref<Room[]>([])
-  const sse = ref<EventSource | null>(null)
+  const ws = ref<WebSocket | null>(null)
   let backoffMs = 1000
+  let timer: number | null = null
 
-  async function fetchRooms() {
-    const { data } = await api.get<Room[]>('/rooms')
-    rooms.value = data
+  function setAll(list: Room[]) {
+    rooms.value = list
   }
 
   function upsert(item: Partial<Room> & {id: number}) {
-    const i = rooms.value.findIndex(r=>r.id===item.id)
-    i >= 0 ? rooms.value.splice(i,1,{...rooms.value[i],...item} as Room) : rooms.value.push(item as Room)
+    const i=rooms.value.findIndex(r => r.id === item.id)
+    i >= 0 ? rooms.value.splice(i,1, {
+      ...rooms.value[i],...item} as Room) : rooms.value.push(item as Room)
   }
 
   function remove(id: number) {
     rooms.value = rooms.value.filter(r => r.id !== id)
   }
 
-  function startSSE(){
-    stopSSE()
-    const es = new EventSource('/sse/rooms')
-    sse.value = es
+  function url(): string {
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws'
+    return `${proto}://${location.host}/ws/rooms`
+  }
 
-    es.onopen = () => {
+  function startWS(){
+    stopWS()
+    const sock = new WebSocket(url())
+    ws.value = sock
+
+    sock.onopen = () => {
       backoffMs = 1000
     }
 
-    es.onerror = () => {
-      es.close()
-      sse.value=null
-      setTimeout(()=>startSSE(), Math.min(backoffMs, 30000))
+    sock.onmessage = (ev) => {
+      try {
+        const m = JSON.parse(ev.data)
+        if (m.type === 'rooms_snapshot') setAll(m.payload as Room[])
+        else if (m.type === 'room_created' || m.type === 'occupancy' || m.type === 'room_deleted') {
+          if (m.type === 'room_deleted') remove(m.payload.id)
+          else upsert(m.payload as Room)
+        }
+      } catch {}
+    }
+
+    sock.onclose = () => {
+      ws.value = null
+      if (timer) window.clearTimeout(timer)
+      timer = window.setTimeout(()=> startWS(), Math.min(backoffMs, 30000)) as unknown as number
       backoffMs *= 2
     }
 
-    es.onmessage = (ev) => {
+    sock.onerror = () => {
       try {
-        const m = JSON.parse(ev.data)
-        if (m.type === 'room_created' || m.type === 'occupancy' || m.type === 'room_snapshot') {
-          upsert(m.payload)
-        }
-        else if (m.type==='room_deleted') {
-          remove(m.payload.id)
-        }
+        sock.close()
       } catch {}
     }
   }
 
-  function stopSSE() {
-    if (sse.value) {
-      sse.value.close()
-      sse.value=null
+  function stopWS() {
+    if (timer) {
+      window.clearTimeout(timer)
+      timer = null
     }
+    if (ws.value) {
+      try {
+        ws.value.close()
+      } catch {}
+      ws.value = null
+    }
+  }
+
+  async function fetchRooms() {
+    const { data } = await api.get<Room[]>('/rooms')
+    rooms.value = data
   }
 
   async function createRoom(title: string, user_limit: number, is_private=false) {
@@ -76,11 +98,11 @@ export const useRoomsStore = defineStore('rooms', () => {
 
   return {
     rooms,
-    sse,
+    ws,
 
     fetchRooms,
-    startSSE,
-    stopSSE,
+    startWS,
+    stopWS,
     createRoom
   }
 })

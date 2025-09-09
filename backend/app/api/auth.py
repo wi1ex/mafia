@@ -13,8 +13,10 @@ from ..settings import settings
 
 router = APIRouter()
 
+
 unauth = HTTPException(status_code=401, detail="unauthorized")
 bad = HTTPException(status_code=400, detail="bad payload")
+
 
 @router.post("/telegram")
 async def telegram_auth(request: Request, resp: Response, db: AsyncSession = Depends(get_session)):
@@ -27,6 +29,7 @@ async def telegram_auth(request: Request, resp: Response, db: AsyncSession = Dep
     uid = int(b["id"])
     username = b.get("username")
     photo_url = b.get("photo_url")
+
     user = (await db.execute(select(User).where(User.id == uid))).scalar_one_or_none()
 
     filename = None
@@ -38,6 +41,7 @@ async def telegram_auth(request: Request, resp: Response, db: AsyncSession = Dep
                 filename = put_avatar(uid, c, ext)
             except Exception:
                 filename = None
+
     if user:
         vals = {"last_login_at": func.now()}
         if username is not None:
@@ -54,8 +58,8 @@ async def telegram_auth(request: Request, resp: Response, db: AsyncSession = Dep
         await log_action(db, user_id=user.id, username=user.username, action="user_registered", details={"user_id": user.id})
         await db.commit()
 
-    sid = await new_login_session(resp, user_id=user.id, role=user.role)
-    at = issue_access_token(user_id=user.id, role=user.role, sid=sid)
+    await new_login_session(resp, user_id=user.id, role=user.role)
+    at = issue_access_token(user_id=user.id, role=user.role)
     return {
         "access_token": at,
         "token_type": "bearer",
@@ -75,8 +79,7 @@ async def refresh(request: Request, resp: Response, db: AsyncSession = Depends(g
     try:
         p = decode_token(raw)
         uid = int(p.get("sub") or 0)
-        sid = p.get("sid")
-        if not uid or not sid:
+        if not uid:
             raise ValueError
     except Exception:
         raise unauth
@@ -84,7 +87,7 @@ async def refresh(request: Request, resp: Response, db: AsyncSession = Depends(g
         raise unauth
     row = (await db.execute(select(User.role, User.photo_url, User.username).where(User.id == uid))).first()
     role, filename, username = (row[0], row[1], row[2]) if row else ("user", None, None)
-    at = issue_access_token(user_id=uid, role=role, sid=sid)
+    at = issue_access_token(user_id=uid, role=role)
     return {
         "access_token": at,
         "token_type": "bearer",

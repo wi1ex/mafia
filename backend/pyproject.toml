@@ -17,7 +17,6 @@ asyncpg = "^0.30.0"
 redis = "^6.4.0"
 minio = "^7.2.16"
 httpx = "^0.28.1"
-sse-starlette = "^3.0.2"
 PyJWT = "^2.10.1"
 livekit-api = "^1.0.5"
 python-socketio = {version="^5.11.0", extras=["asgi"]}

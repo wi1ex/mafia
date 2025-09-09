@@ -18,7 +18,6 @@ from ..services.sessions import get_current_user
 
 router = APIRouter()
 
-CHANNEL = "rooms:events"
 
 JOIN_LUA = """
 local set = KEYS[1]
@@ -46,7 +45,7 @@ def k_empty_probe(room_id: int) -> str:
     return f"room:{room_id}:empty_probe"
 
 async def publish_room_event(r: redis.Redis, *, type_: str, payload: dict) -> None:
-    await r.publish(CHANNEL, json.dumps({"type": type_, "payload": payload}))
+    await r.publish("rooms:events", json.dumps({"type": type_, "payload": payload}))
 
 async def cache_room_params(r: redis.Redis, room_id: int, params: dict) -> None:
     await r.hset(f"room:{room_id}:params", mapping=params)
@@ -95,7 +94,8 @@ async def create_room(request: Request, db: AsyncSession = Depends(get_session),
         "user_limit": room.user_limit,
         "is_private": int(room.is_private),
         "created_by": room.created_by_user_id,
-        "created_at": str(room.created_at)
+        "created_at": str(room.created_at),
+        "updated_at": str(room.updated_at),
     })
     await publish_room_event(r, type_="room_created", payload={
         "id": room.id,
