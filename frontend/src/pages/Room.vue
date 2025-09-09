@@ -2,11 +2,7 @@
   <div class="container">
     <div class="card">
       <h2 class="title">Комната #{{ rid }}</h2>
-
-      <div class="grid">
-        <div v-for="n in nodes" :key="n.id" class="tile" />
-      </div>
-
+      <div class="grid"><div v-for="n in nodes" :key="n.id" class="tile" /></div>
       <button class="btn btn-danger" @click="onLeave">Покинуть комнату</button>
     </div>
   </div>
@@ -20,89 +16,124 @@ import { useRtcStore } from '@/store'
 
 const route = useRoute()
 const router = useRouter()
+
 const rtc = useRtcStore()
 
-const rid = Number(route.params.id)
-const lk = ref<LkRoom | null>(null)
-
-// участник -> <video>
+const lk = ref<LkRoom|null>(null)
 const elements = new Map<string, HTMLVideoElement>()
-type NodeRec = { id: string; el: HTMLVideoElement }
+type NodeRec = {
+  id: string;
+  el: HTMLVideoElement
+}
 const nodes = ref<NodeRec[]>([])
+const rid = Number(route.params.id)
 
-function mount(el: HTMLElement){
+function mount(el: HTMLElement) {
   requestAnimationFrame(() => {
-    const last = document.querySelector('.grid .tile:last-child') as HTMLElement | null
-    if (last) last.appendChild(el)
+    document.querySelector('.grid .tile:last-child')?.appendChild(el)
   })
 }
-function addElement(id:string, isLocal:boolean){
+
+function addElement(id: string, isLocal: boolean) {
   if (elements.has(id)) return elements.get(id)!
   const el = document.createElement('video')
-  el.autoplay = true; el.playsInline = true; el.muted = isLocal
-  el.setAttribute('data-rtc-el', '1')
+  el.autoplay = true
+  el.playsInline = true
+  el.muted = isLocal
+  el.dataset.rtcEl = '1'
   elements.set(id, el)
-  const rec: NodeRec = { id, el }
-  nodes.value.push(rec)
+  nodes.value.push({ id, el })
   mount(el)
   return el
 }
-function removeElement(id:string){
-  const recIdx = nodes.value.findIndex(n => n.id === id)
-  if (recIdx >= 0){ try { nodes.value[recIdx].el.remove() } catch {} ; nodes.value.splice(recIdx,1) }
-  const el = elements.get(id); if (el){ el.srcObject = null; elements.delete(id) }
+
+function removeElement(id: string) {
+  const i = nodes.value.findIndex(n => n.id === id)
+  if (i >= 0) {
+    try {
+      nodes.value[i].el.remove()
+    } catch {}
+    nodes.value.splice(i,1)
+  }
+  const el = elements.get(id)
+  if (el) {
+    el.srcObject = null
+    elements.delete(id)
+  }
 }
 
-async function onLeave(){
-  try { await rtc.requestLeave(rid) } catch {}
-  try { await lk.value?.disconnect() } catch {}
-  elements.forEach((_el,id) => removeElement(id))
-  router.push('/')
+async function onLeave() {
+  try {
+    await rtc.requestLeave(rid)
+  } catch {}
+  try {
+    await lk.value?.disconnect()
+  } catch {}
+  elements.forEach((_e,id)=>removeElement(id))
+  await router.push('/')
 }
 
 onMounted(async () => {
   try {
-    // получить ws_url + token
     const { ws_url, token } = await rtc.requestJoin(rid)
-
-    const room = new LkRoom({ adaptiveStream:false, dynacast:false, publishDefaults:{ videoSimulcastLayers: [] } })
-    lk.value = room
-
-    // входящие треки
-    room.on(RoomEvent.TrackSubscribed, (track, _pub, participant) => {
-      const el = addElement(participant.identity, false)
-      if (track.kind === Track.Kind.Audio || track.kind === Track.Kind.Video){
-        (track as RemoteTrack).attach(el)
+    const room = new LkRoom({
+      adaptiveStream: false,
+      dynacast: false,
+      publishDefaults: {
+        videoSimulcastLayers: []
       }
     })
-    room.on(RoomEvent.TrackUnsubscribed, (track, _pub, participant) => {
-      const el = elements.get(participant.identity); if (!el) return
-      try { (track as any).detach(el) } catch {}
-    })
-    room.on(RoomEvent.ParticipantDisconnected, (p) => removeElement(p.identity))
-    room.on(RoomEvent.Disconnected, () => { elements.forEach((_el,id)=>removeElement(id)) })
+    lk.value = room
 
-    // локальные треки
+    room.on(RoomEvent.TrackSubscribed, (t,_p,part) => {
+      const el = addElement(part.identity,false)
+      if (t.kind === Track.Kind.Audio || t.kind === Track.Kind.Video) {
+        (t as RemoteTrack).attach(el)
+      }
+    })
+
+    room.on(RoomEvent.TrackUnsubscribed, (t,_p,part) => {
+      const el = elements.get(part.identity)
+      if (el) try {
+        (t as any).detach(el)
+      } catch {}
+    })
+
+    room.on(RoomEvent.ParticipantDisconnected, p => {
+      removeElement(p.identity)
+    })
+
+    room.on(RoomEvent.Disconnected, () => {
+      elements.forEach((_e,id) => {
+        removeElement(id)
+      })
+    })
+
     const localTracks = await createLocalTracks({
-      audio: true,
-      video: { resolution: { width:1280, height:720 } },
+      audio: true, video: {
+        resolution: { width: 1280, height: 720
+        }
+      }
     })
 
     await room.connect(ws_url, token)
-
-    for (const t of localTracks) await room.localParticipant.publishTrack(t)
-
-    const localEl = addElement(room.localParticipant.identity, true)
-    for (const t of localTracks){
-      if (t.kind === Track.Kind.Audio || t.kind === Track.Kind.Video) t.attach(localEl)
+    for (const t of localTracks) {
+      await room.localParticipant.publishTrack(t)
     }
-  } catch (e:any) {
-    // 401 / 403 / room not found — назад на главную
+    const localEl = addElement(room.localParticipant.identity, true)
+    for (const t of localTracks) {
+      if (t.kind === Track.Kind.Audio || t.kind === Track.Kind.Video) {
+        t.attach(localEl)
+      }
+    }
+  } catch {
     await router.replace('/')
   }
 })
 
-onBeforeUnmount(() => onLeave())
+onBeforeUnmount(()=> {
+  onLeave()
+})
 </script>
 
 <style lang="scss" scoped>
@@ -134,7 +165,7 @@ video {
   margin-top: 12px;
   padding: 8px 12px;
   border-radius: 8px;
-  border: none;
+  border: 0;
   cursor: pointer;
 }
 .btn-danger {

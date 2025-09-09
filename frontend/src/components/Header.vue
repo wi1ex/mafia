@@ -1,25 +1,20 @@
 <template>
   <header class="bar">
     <div class="brand">Mafia</div>
-    <div v-if="!isAuthed"><slot name="login" /></div>
+    <div v-if="!auth.isAuthed"><slot name="login" /></div>
     <div v-else class="user">
-      <img v-if="avatarUrl" :src="avatarUrl" alt="" class="avatar" />
+      <img v-if="auth.avatarUrl" :src="auth.avatarUrl" alt="" class="avatar" />
       <div v-else class="avatar placeholder" />
-      <span class="nick">{{ displayName }}</span>
+      <span class="nick">{{ auth.displayName }}</span>
       <button class="btn btn-ghost" @click="auth.logout()">Выйти</button>
     </div>
   </header>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
 import { useAuthStore } from '@/store'
 
 const auth = useAuthStore()
-
-const isAuthed = computed(() => !!auth.accessToken)
-const displayName = computed(() => auth.me?.username || 'User')
-const avatarUrl = computed(() => auth.me?.photo_url || null)
 </script>
 
 <style lang="scss" scoped>
@@ -53,10 +48,10 @@ const avatarUrl = computed(() => auth.me?.photo_url || null)
 }
 .btn {
   padding: 6px 10px;
-  border: none;
+  border: 0;
   border-radius: 8px;
   cursor: pointer;
-  transition: opacity 0.15s;
+  transition: opacity 0.25s;
 }
 .btn-ghost {
   background: #334155;

@@ -1,59 +1,46 @@
 from __future__ import annotations
-import time
-import hmac
 import hashlib
+import hmac
+import time
 import uuid
-from typing import Dict, Any
 import jwt
+from typing import Any
 from ..settings import settings
 
-ALG = "HS256"
 
-
-def _now() -> int: return int(time.time())
+def _encode(kind: str, *, sub: int | str, sid: str, exp_s: int, extra: dict[str, Any] | None = None) -> str:
+    iat = int(time.time())
+    payload = {
+        "typ": kind,
+        "sub": str(sub),
+        "sid": sid,
+        "iat": iat,
+        "exp": iat + exp_s,
+        "iss": settings.DOMAIN,
+        "aud": settings.DOMAIN,
+    }
+    if extra: payload.update(extra)
+    return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm="HS256")
 
 
 def create_access_token(*, sub: int | str, role: str, sid: str, ttl_minutes: int) -> str:
-    iat = _now()
-    payload = {"typ": "access",
-               "sub": str(sub),
-               "role": role,
-               "sid": sid,
-               "iat": iat,
-               "exp": iat + ttl_minutes * 60,
-               "iss": settings.DOMAIN,
-               "aud": settings.DOMAIN}
-    return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=ALG)
+    return _encode("access", sub=sub, sid=sid, exp_s=ttl_minutes * 60, extra={"role": role})
 
 
 def create_refresh_token(*, sub: int | str, sid: str, ttl_days: int) -> tuple[str, str]:
-    iat = _now()
     jti = uuid.uuid4().hex
-    payload = {"typ": "refresh",
-               "sub": str(sub),
-               "sid": sid,
-               "jti": jti,
-               "iat": iat,
-               "exp": iat + ttl_days * 86400,
-               "iss": settings.DOMAIN,
-               "aud": settings.DOMAIN}
-    return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=ALG), jti
+    return _encode("refresh", sub=sub, sid=sid, exp_s=ttl_days * 86400, extra={"jti": jti}), jti
 
 
-def decode_token(token: str) -> Dict[str, Any]:
-    return jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[ALG], audience=settings.DOMAIN, issuer=settings.DOMAIN)
+def decode_token(token: str) -> dict[str, Any]:
+    return jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=["HS256"], audience=settings.DOMAIN, issuer=settings.DOMAIN)
 
 
-def verify_telegram_auth(data: Dict[str, Any]) -> bool:
-    if "hash" not in data or "auth_date" not in data: return False
-    received_hash = data["hash"]
-    pairs = [f"{k}={data[k]}" for k in sorted(k for k in data.keys() if k != "hash")]
-    check_string = "\n".join(pairs)
-    secret_key = hashlib.sha256(settings.TG_BOT_TOKEN.encode()).digest()
-    expected_hash = hmac.new(secret_key, check_string.encode(), hashlib.sha256).hexdigest()
-    if not hmac.compare_digest(expected_hash, received_hash): return False
-    try:
-        auth_date = int(data["auth_date"])
-    except Exception:
-        return False
-    return _now() - auth_date <= 300
+def verify_telegram_auth(data: dict[str, Any]) -> bool:
+    h, ad = data.get("hash"), data.get("auth_date")
+    if not h or not ad: return False
+    check = "\n".join(f"{k}={data[k]}" for k in sorted(k for k in data if k != "hash"))
+    secret = hashlib.sha256(settings.TG_BOT_TOKEN.encode()).digest()
+    if not hmac.compare_digest(hmac.new(secret, check.encode(), hashlib.sha256).hexdigest(), h): return False
+    try: return int(time.time()) - int(ad) <= 300
+    except Exception: return False

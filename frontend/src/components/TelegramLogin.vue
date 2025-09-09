@@ -3,15 +3,24 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onMounted, onBeforeUnmount } from 'vue'
 import { useAuthStore } from '@/store'
 
 const BOT = import.meta.env.VITE_TG_BOT_NAME
-const SIZE: 'large' | 'medium' | 'small' = 'large'
+const SIZE: 'large'|'medium'|'small'='large'
+
 const auth = useAuthStore()
 
+declare global {
+  interface Window {
+    telegramAuthCallback?: (u: any)=>void
+  }
+}
+
 onMounted(() => {
-  ;(window as any).telegramAuthCallback = async (user:any) => { await auth.signInWithTelegram(user) }
+  window.telegramAuthCallback = async (u: any) => {
+    await auth.signInWithTelegram(u)
+  }
   const s = document.createElement('script')
   s.async = true
   s.src = 'https://telegram.org/js/telegram-widget.js?19'
@@ -20,6 +29,10 @@ onMounted(() => {
   s.setAttribute('data-userpic', 'true')
   s.setAttribute('data-onauth', 'telegramAuthCallback(user)')
   document.getElementById('tg-login')?.appendChild(s)
+})
+
+onBeforeUnmount(() => {
+  delete window.telegramAuthCallback
 })
 </script>
 

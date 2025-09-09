@@ -8,12 +8,17 @@ export interface JoinReply {
 }
 
 export const useRtcStore = defineStore('rtc', () => {
-  async function requestJoin(roomId:number){
-    const { data } = await api.post<JoinReply>(`/v1/rooms/${roomId}/join`, {})
+  async function requestJoin(roomId: number) {
+    const { data } = await api.post<JoinReply>(`/rooms/${roomId}/join`, {})
     return data
   }
-  async function requestLeave(roomId:number){
-    await api.post(`/v1/rooms/${roomId}/leave`, {})
+
+  async function requestLeave(roomId: number) {
+    await api.post(`/rooms/${roomId}/leave`, {})
   }
-  return { requestJoin, requestLeave }
+
+  return {
+    requestJoin,
+    requestLeave
+  }
 })

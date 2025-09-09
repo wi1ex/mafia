@@ -96,19 +96,12 @@ services:
       - livekit
     networks: [edge, internal]
     restart: always
-    healthcheck:
-      test: [ "CMD-SHELL", "python - <<'PY'\nimport urllib.request,sys\ntry:\n  r=urllib.request.urlopen('http://localhost:8000/api/v1/health/ping',timeout=1)\n  sys.exit(0 if r.status==200 else 1)\nexcept Exception:\n  sys.exit(1)\nPY" ]
-      interval: 5s
-      timeout: 2s
-      retries: 30
-      start_period: 20s
 
   nginx:
     build:
       context: .
       dockerfile: nginx/Dockerfile
       args:
-        VITE_API_BASE: "/api"
         VITE_TG_BOT_NAME: "${TG_BOT_NAME}"
     container_name: nginx
     env_file: .env
@@ -118,7 +111,6 @@ services:
       - "80:80/tcp"
       - "443:443/tcp"
     depends_on:
-      backend:
-        condition: service_healthy
+      - backend
     networks: [edge, internal]
     restart: always

@@ -1,29 +1,31 @@
 from __future__ import annotations
+import asyncio
 from contextlib import asynccontextmanager
+from typing import AsyncIterator
 from sqlalchemy import text
-from ..db import engine, Base
+from ..db import Base, engine
+from .clients import close_clients, get_redis, init_clients
 from .logging import configure_logging
-from .clients import init_clients, close_clients, get_redis
 from ..services.storage_minio import ensure_bucket
 
+
 @asynccontextmanager
-async def lifespan(app):
+async def lifespan(app) -> AsyncIterator[None]:
     configure_logging()
     init_clients()
 
-    # Postgres ping + bootstrap (только для пустой БД)
+    r = get_redis()
+    redis_ping = asyncio.create_task(r.ping())
+    minio_ready = asyncio.to_thread(ensure_bucket)
+
     async with engine.begin() as conn:
         await conn.execute(text("SELECT 1"))
         await conn.run_sync(Base.metadata.create_all)
 
-    # Redis ping
-    r = get_redis()
-    await r.ping()
+    await asyncio.gather(redis_ping, minio_ready)
 
-    # MinIO bucket
-    ensure_bucket()
-
-    yield
-
-    await close_clients()
-    await engine.dispose()
+    try:
+        yield
+    finally:
+        await close_clients()
+        await engine.dispose()

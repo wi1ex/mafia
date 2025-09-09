@@ -1,23 +1,21 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import List, Optional
+from typing import List
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(extra="ignore", case_sensitive=False)
 
-    ENV: str = "production"
-    PROJECT_NAME: str = "Mafia"
+    PROJECT_NAME: str
     DOMAIN: str
-    PUBLIC_URL: str
 
     POSTGRES_HOST: str
-    POSTGRES_PORT: int = 5432
+    POSTGRES_PORT: int
     POSTGRES_DB: str
     POSTGRES_USER: str
     POSTGRES_PASSWORD: str
 
     REDIS_HOST: str
-    REDIS_PORT: int = 6379
-    REDIS_PASSWORD: Optional[str] = None
+    REDIS_PORT: int
+    REDIS_PASSWORD: str
 
     MINIO_ENDPOINT: str
     MINIO_ROOT_USER: str
@@ -26,8 +24,8 @@ class Settings(BaseSettings):
 
     TG_BOT_TOKEN: str
     JWT_SECRET_KEY: str
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
-    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+    ACCESS_TOKEN_EXPIRE_MINUTES: int
+    REFRESH_TOKEN_EXPIRE_DAYS: int
 
     LIVEKIT_API_KEY: str
     LIVEKIT_API_SECRET: str
@@ -36,4 +34,4 @@ class Settings(BaseSettings):
 
 settings = Settings()
 if not settings.BACKEND_CORS_ORIGINS:
-    settings.BACKEND_CORS_ORIGINS = [settings.PUBLIC_URL]
+    settings.BACKEND_CORS_ORIGINS = [f"https://{settings.DOMAIN}"]

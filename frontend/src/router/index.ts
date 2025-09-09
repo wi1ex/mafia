@@ -10,11 +10,12 @@ const router = createRouter({
     { path: '/room/:id(\\d+)', name: 'room', component: Room, meta: { requiresAuth: true, title: 'Комната' } },
     { path: '/:pathMatch(.*)*', redirect: { name: 'home' } },
   ],
-  scrollBehavior(){ return { top: 0 } }
+  scrollBehavior() {
+    return { top: 0 }
+  },
 })
 
 router.beforeEach((to) => {
-  // если нужен доступ — должен быть токен
   if (to.meta.requiresAuth) {
     const id = String(to.params.id || '')
     const isNumber = /^\d+$/.test(id)

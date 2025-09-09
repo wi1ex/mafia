@@ -1,41 +1,24 @@
 from __future__ import annotations
 import asyncio
-import time
 import json
-from fastapi import APIRouter, Depends, HTTPException, Path, Request
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update
+import time
 import redis.asyncio as redis
-from ...db import get_session
-from ...models.room import Room
-from ...models.user import User
-from ...core.logging import log_action
-from ...services.livekit_tokens import make_livekit_token
-from ...core.clients import get_redis
-from ..deps import get_current_user
-from ...settings import settings
+from fastapi import APIRouter, Depends, HTTPException, Path, Request
+from sqlalchemy import select, update
+from sqlalchemy.ext.asyncio import AsyncSession
+from ..db import get_session
+from ..models.room import Room
+from ..models.user import User
+from ..core.logging import log_action
+from ..services.livekit_tokens import make_livekit_token
+from ..core.clients import get_redis
+from ..settings import settings
+from ..services.sessions import get_current_user
+
 
 router = APIRouter()
 
 CHANNEL = "rooms:events"
-
-async def publish_room_event(r: redis.Redis, *, type_: str, payload: dict):
-    await r.publish(CHANNEL, json.dumps({"type": type_, "payload": payload}))
-
-async def cache_room_params(r: redis.Redis, room_id: int, params: dict):
-    await r.hset(f"room:{room_id}:params", mapping=params)
-    await r.sadd("rooms:index", room_id)
-
-async def uncache_room(r: redis.Redis, room_id: int):
-    await r.delete(f"room:{room_id}:params")
-    await r.srem("rooms:index", room_id)
-
-def k_members(room_id: int) -> str: return f"room:{room_id}:members"
-
-def k_join(room_id: int, user_id: int) -> str: return f"room:{room_id}:join:{user_id}"
-
-def k_empty_probe(room_id: int) -> str: return f"room:{room_id}:empty_probe"
-
 
 JOIN_LUA = """
 local set = KEYS[1]
@@ -53,37 +36,52 @@ return {1, size + 1}
 """
 
 
+def k_members(room_id: int) -> str:
+    return f"room:{room_id}:members"
+
+def k_join(room_id: int, user_id: int) -> str:
+    return f"room:{room_id}:join:{user_id}"
+
+def k_empty_probe(room_id: int) -> str:
+    return f"room:{room_id}:empty_probe"
+
+async def publish_room_event(r: redis.Redis, *, type_: str, payload: dict) -> None:
+    await r.publish(CHANNEL, json.dumps({"type": type_, "payload": payload}))
+
+async def cache_room_params(r: redis.Redis, room_id: int, params: dict) -> None:
+    await r.hset(f"room:{room_id}:params", mapping=params)
+    await r.sadd("rooms:index", room_id)
+
+async def uncache_room(r: redis.Redis, room_id: int) -> None:
+    await r.delete(f"room:{room_id}:params")
+    await r.srem("rooms:index", room_id)
+
+
 @router.get("")
 async def list_rooms(db: AsyncSession = Depends(get_session)):
-    res = await db.execute(select(Room))
-    rooms = res.scalars().all()
+    rooms = (await db.execute(select(Room))).scalars().all()
     r: redis.Redis = get_redis()
-    out = []
-
     pipe = r.pipeline()
     for rm in rooms:
         await pipe.scard(k_members(rm.id))
     occs = await pipe.execute()
-    for rm, occ in zip(rooms, occs):
-        out.append({
-            "id": rm.id,
-            "title": rm.title,
-            "user_limit": rm.user_limit,
-            "is_private": rm.is_private,
-            "created_by_user_id": rm.created_by_user_id,
-            "created_at": str(rm.created_at),
-            "updated_at": str(rm.updated_at),
-            "occupancy": int(occ or 0),
-        })
-    return out
+    return [{"id": rm.id,
+             "title": rm.title,
+             "user_limit": rm.user_limit,
+             "is_private": rm.is_private,
+             "created_by_user_id": rm.created_by_user_id,
+             "created_at": str(rm.created_at),
+             "updated_at": str(rm.updated_at),
+             "occupancy": int(o or 0)}
+            for rm, o in zip(rooms, occs)]
 
 
 @router.post("", status_code=201)
 async def create_room(request: Request, db: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
-    body = await request.json()
-    title = (body.get("title") or "").strip()
-    user_limit = int(body.get("user_limit") or 0)
-    is_private = bool(body.get("is_private") or False)
+    b = await request.json()
+    title = (b.get("title") or "").strip()
+    user_limit = int(b.get("user_limit") or 0)
+    is_private = bool(b.get("is_private") or False)
     if not title or user_limit < 2 or user_limit > 32:
         raise HTTPException(status_code=400, detail="bad params")
 
@@ -97,27 +95,39 @@ async def create_room(request: Request, db: AsyncSession = Depends(get_session),
         "user_limit": room.user_limit,
         "is_private": int(room.is_private),
         "created_by": room.created_by_user_id,
-        "created_at": str(room.created_at),
+        "created_at": str(room.created_at)
     })
     await publish_room_event(r, type_="room_created", payload={
-        "id": room.id, "title": room.title, "user_limit": room.user_limit, "is_private": room.is_private, "occupancy": 0
+        "id": room.id,
+        "title": room.title,
+        "user_limit": room.user_limit,
+        "is_private": room.is_private,
+        "occupancy": 0
     })
-    await log_action(db, user_id=current_user.id, username=current_user.username, action="room_created",
-                     details={"room_id": room.id, "title": room.title, "limit": room.user_limit})
+    await log_action(
+        db,
+        user_id=current_user.id,
+        username=current_user.username,
+        action="room_created",
+        details={"room_id": room.id, "title": room.title, "limit": room.user_limit}
+    )
     await db.commit()
 
     return {
-        "id": room.id, "title": room.title, "user_limit": room.user_limit, "is_private": room.is_private,
-        "created_by_user_id": room.created_by_user_id, "created_at": str(room.created_at),
+        "id": room.id,
+        "title": room.title,
+        "user_limit": room.user_limit,
+        "is_private": room.is_private,
+        "created_by_user_id": room.created_by_user_id,
+        "created_at": str(room.created_at),
         "updated_at": str(room.updated_at),
-        "occupancy": 0,
+        "occupancy": 0
     }
 
 
 @router.post("/{room_id}/join")
 async def join_room(room_id: int = Path(...), db: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
-    res = await db.execute(select(Room).where(Room.id == room_id))
-    room = res.scalar_one_or_none()
+    room = (await db.execute(select(Room).where(Room.id == room_id))).scalar_one_or_none()
     if not room:
         raise HTTPException(status_code=404, detail="room not found")
 
@@ -126,13 +136,15 @@ async def join_room(room_id: int = Path(...), db: AsyncSession = Depends(get_ses
     if int(ok) != 1:
         raise HTTPException(status_code=403, detail="room_full")
 
-    await r.set(k_join(room_id, current_user.id), int(time.time()), ex=24 * 3600)
+    await r.set(k_join(room_id, current_user.id), int(time.time()), ex=86400)
     await publish_room_event(r, type_="occupancy", payload={"id": room_id, "occupancy": int(size)})
 
-    lk_token = make_livekit_token(identity=str(current_user.id),
-                                  name=current_user.username or str(current_user.id),
-                                  room=str(room_id), ttl_minutes=60)
-    return {"ws_url": f"wss://{settings.DOMAIN}", "token": lk_token, "room_id": room_id}
+    token = make_livekit_token(
+        identity=str(current_user.id),
+        name=current_user.username or str(current_user.id),
+        room=str(room_id),
+        ttl_minutes=60)
+    return {"ws_url": f"wss://{settings.DOMAIN}", "token": token, "room_id": room_id}
 
 
 @router.post("/{room_id}/leave")
@@ -141,8 +153,7 @@ async def leave_room(room_id: int = Path(...), db: AsyncSession = Depends(get_se
     await r.srem(k_members(room_id), current_user.id)
     ts = await r.getdel(k_join(room_id, current_user.id))
     if ts:
-        res = await db.execute(select(Room).where(Room.id == room_id))
-        rm = res.scalar_one_or_none()
+        rm = (await db.execute(select(Room).where(Room.id == room_id))).scalar_one_or_none()
         if rm:
             d = dict(rm.user_durations or {})
             uid = str(current_user.id)
@@ -160,17 +171,19 @@ async def leave_room(room_id: int = Path(...), db: AsyncSession = Depends(get_se
         async def _delayed():
             await asyncio.sleep(10)
             if (await r.scard(k_members(room_id))) == 0:
-                res2 = await db.execute(select(Room).where(Room.id == room_id))
-                rm2 = res2.scalar_one_or_none()
+                rm2 = (await db.execute(select(Room).where(Room.id == room_id))).scalar_one_or_none()
                 if rm2:
                     await db.delete(rm2)
-                    await log_action(db, user_id=current_user.id, username=current_user.username, action="room_deleted",
-                                     details={"room_id": room_id})
+                    await log_action(
+                        db,
+                        user_id=current_user.id,
+                        username=current_user.username,
+                        action="room_deleted",
+                        details={"room_id": room_id}
+                    )
                     await db.commit()
                 await r.delete(k_members(room_id))
                 await uncache_room(r, room_id)
                 await publish_room_event(r, type_="room_deleted", payload={"id": room_id})
-
         asyncio.create_task(_delayed())
-
     return {"status": "ok"}
