@@ -42,7 +42,6 @@ async function onCreate() {
 }
 
 onMounted(async () => {
-  await roomsStore.fetchRooms()
   roomsStore.startWS()
 })
 

@@ -77,11 +77,17 @@ onMounted(async () => {
   try {
     const { ws_url, token } = await rtc.requestJoin(rid)
     const room = new LkRoom({
-      adaptiveStream: false,
-      dynacast: false,
+      adaptiveStream: true,
+      dynacast: true,
+      disconnectOnPageLeave: true,
       publishDefaults: {
-        videoSimulcastLayers: []
-      }
+        videoCodec: 'vp9',
+        videoSimulcastLayers: [],
+        dtx: true,
+        red: true,
+        screenShareEncoding: { maxBitrate: 2_000_000, maxFramerate: 25 },
+      },
+      videoCaptureDefaults: { resolution: { width: 640, height: 360 } },
     })
     lk.value = room
 

@@ -56,7 +56,7 @@ services:
     environment:
       LIVEKIT_CONFIG: |
         port: ${LIVEKIT_HTTP_PORT}
-        log_level: info
+        log_level: warn
         region: eu-nl
         rtc:
           stun_servers: []

@@ -85,11 +85,6 @@ export const useRoomsStore = defineStore('rooms', () => {
     }
   }
 
-  async function fetchRooms() {
-    const { data } = await api.get<Room[]>('/rooms')
-    rooms.value = data
-  }
-
   async function createRoom(title: string, user_limit: number, is_private=false) {
     const { data } = await api.post<Room>('/rooms', { title, user_limit, is_private })
     upsert(data)
@@ -100,7 +95,6 @@ export const useRoomsStore = defineStore('rooms', () => {
     rooms,
     ws,
 
-    fetchRooms,
     startWS,
     stopWS,
     createRoom

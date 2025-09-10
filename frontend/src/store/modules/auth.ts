@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { api, setGlobalToken, clearGlobalToken, getGlobalToken } from '@/services/axios'
+import { api, setAuthHeader } from '@/services/axios'
 
 export interface TgUser {
   id: number;
@@ -18,7 +18,7 @@ export interface UserProfile {
 }
 
 export const useAuthStore = defineStore('auth', () => {
-  const accessToken = ref<string>(getGlobalToken() || '')
+  const accessToken = ref<string>('')
   const me = ref<UserProfile | null>(null)
 
   const isAuthed = computed(() => !!accessToken.value)
@@ -28,20 +28,22 @@ export const useAuthStore = defineStore('auth', () => {
 
   function setAccess(t: string) {
     accessToken.value = t
-    setGlobalToken(t)
-  }
-
-  async function fetchMe() {
-    if (!accessToken.value) return
-    const { data } = await api.get<UserProfile>('/users/me')
-    me.value = data
+    setAuthHeader(t)
   }
 
   async function init() {
-    if (!accessToken.value) return
     try {
-      await fetchMe()
-    } catch {}
+      const { data } = await api.post('/auth/refresh')
+      setAccess(data.access_token)
+      me.value = data.user
+    } catch {
+      setAccess(''); me.value = null
+    }
+  }
+
+  async function fetchMe() {
+    const { data } = await api.get<UserProfile>('/users/me')
+    me.value = data
   }
 
   async function signInWithTelegram(user: TgUser) {
@@ -53,10 +55,9 @@ export const useAuthStore = defineStore('auth', () => {
   async function logout() {
     try {
       await api.post('/auth/logout')
-    } catch{}
-    accessToken.value=''
-    me.value=null
-    clearGlobalToken()
+    } catch {}
+    setAccess('')
+    me.value = null
   }
 
   return {

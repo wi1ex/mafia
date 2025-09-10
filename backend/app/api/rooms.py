@@ -56,25 +56,6 @@ async def uncache_room(r: redis.Redis, room_id: int) -> None:
     await r.srem("rooms:index", room_id)
 
 
-@router.get("")
-async def list_rooms(db: AsyncSession = Depends(get_session)):
-    rooms = (await db.execute(select(Room))).scalars().all()
-    r: redis.Redis = get_redis()
-    pipe = r.pipeline()
-    for rm in rooms:
-        await pipe.scard(k_members(rm.id))
-    occs = await pipe.execute()
-    return [{"id": rm.id,
-             "title": rm.title,
-             "user_limit": rm.user_limit,
-             "is_private": rm.is_private,
-             "created_by_user_id": rm.created_by_user_id,
-             "created_at": str(rm.created_at),
-             "updated_at": str(rm.updated_at),
-             "occupancy": int(o or 0)}
-            for rm, o in zip(rooms, occs)]
-
-
 @router.post("", status_code=201)
 async def create_room(request: Request, db: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
     b = await request.json()
