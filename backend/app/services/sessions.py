@@ -1,4 +1,5 @@
 from __future__ import annotations
+import structlog
 from fastapi import Depends, HTTPException, Response, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy import select
@@ -7,6 +8,9 @@ from ..core.security import create_access_token, create_refresh_token, decode_to
 from ..db import get_session
 from ..models.user import User
 from ..settings import settings
+
+
+log = structlog.get_logger()
 
 
 REFRESH_COOKIE = "rt"
@@ -38,6 +42,7 @@ async def new_login_session(resp: Response, *, user_id: int, role: str) -> str:
     rt = create_refresh_token(sub=user_id, ttl_days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
     _set_refresh_cookie(resp, rt)
     at = create_access_token(sub=user_id, role=role, ttl_minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    log.info("session.login", user_id=user_id, role=role)
     return at
 
 
@@ -49,6 +54,7 @@ async def rotate_refresh(resp: Response, *, raw_refresh_jwt: str) -> bool:
     except Exception:
         return False
     _set_refresh_cookie(resp, create_refresh_token(sub=int(p["sub"]), ttl_days=settings.REFRESH_TOKEN_EXPIRE_DAYS))
+    log.debug("session.refresh.rotated")
     return True
 
 
@@ -72,3 +78,4 @@ async def get_current_user(creds: HTTPAuthorizationCredentials = Depends(bearer)
 
 async def logout(resp: Response, *, user_id: int) -> None:
     resp.delete_cookie(key=REFRESH_COOKIE, path=COOKIE_PATH, domain=settings.DOMAIN)
+    log.info("session.logout", user_id=user_id)

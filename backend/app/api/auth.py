@@ -16,11 +16,13 @@ from ..services.storage_minio import download_telegram_photo, put_avatar, presig
 from ..core.logging import log_action
 from ..schemas import TelegramAuthIn, TokenOut, UserOut, Ok
 from ..settings import settings
+from ..core.route_utils import log_route
 
 
 router = APIRouter()
 
 
+@log_route("auth.telegram")
 @router.post("/telegram", response_model=TokenOut)
 async def login_with_telegram(payload: TelegramAuthIn, resp: Response, db: AsyncSession = Depends(get_session)) -> TokenOut:
     if not verify_telegram_auth(payload.model_dump()):
@@ -52,8 +54,8 @@ async def login_with_telegram(payload: TelegramAuthIn, resp: Response, db: Async
         await db.commit()
 
     await log_action(db, user_id=user.id, username=user.username, action="login", details={})
-    at = await new_login_session(resp, user_id=user.id, role=user.role)
 
+    at = await new_login_session(resp, user_id=user.id, role=user.role)
     return TokenOut(access_token=at, user=UserOut(
         id=user.id,
         username=user.username,
@@ -62,6 +64,7 @@ async def login_with_telegram(payload: TelegramAuthIn, resp: Response, db: Async
     ))
 
 
+@log_route("auth.refresh")
 @router.post("/refresh", response_model=TokenOut)
 async def refresh(resp: Response, request: Request, db: AsyncSession = Depends(get_session)) -> TokenOut:
     raw = request.cookies.get(REFRESH_COOKIE)
@@ -92,6 +95,7 @@ async def refresh(resp: Response, request: Request, db: AsyncSession = Depends(g
     ))
 
 
+@log_route("auth.logout")
 @router.post("/logout", response_model=Ok)
 async def logout(resp: Response, request: Request) -> Ok:
     raw = request.cookies.get(REFRESH_COOKIE)

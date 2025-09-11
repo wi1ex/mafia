@@ -1,8 +1,12 @@
 from __future__ import annotations
+import structlog
 import httpx
 import redis.asyncio as redis
 from minio import Minio
 from ..settings import settings
+
+
+log = structlog.get_logger()
 
 
 _redis: redis.Redis | None = None
@@ -23,8 +27,10 @@ def _build_redis() -> redis.Redis:
 
 
 def _build_minio_private() -> Minio:
+    private_ep = settings.MINIO_ENDPOINT
+    log.debug("minio.private.endpoint", endpoint=private_ep)
     return Minio(
-        settings.MINIO_ENDPOINT,
+        private_ep,
         access_key=settings.MINIO_ROOT_USER,
         secret_key=settings.MINIO_ROOT_PASSWORD,
         secure=False,
@@ -32,8 +38,10 @@ def _build_minio_private() -> Minio:
 
 
 def _build_minio_public() -> Minio:
+    public_ep = settings.DOMAIN
+    log.debug("minio.public.endpoint", endpoint=public_ep)
     return Minio(
-        settings.DOMAIN,
+        public_ep,
         access_key=settings.MINIO_ROOT_USER,
         secret_key=settings.MINIO_ROOT_PASSWORD,
         region="us-east-1",
@@ -52,10 +60,12 @@ def _build_httpx() -> httpx.AsyncClient:
 
 def init_clients() -> None:
     global _redis, _minio_private, _minio_public, _httpx
+    log.info("clients.init.start")
     _redis = _build_redis()
     _minio_private = _build_minio_private()
     _minio_public = _build_minio_public()
     _httpx = _build_httpx()
+    log.info("clients.init.ok")
 
 
 def get_redis() -> redis.Redis:
@@ -84,6 +94,7 @@ def get_httpx() -> httpx.AsyncClient:
 
 async def close_clients() -> None:
     global _redis, _httpx, _minio_private, _minio_public
+    log.info("clients.close.start")
     if _redis is not None:
         await _redis.close()
         _redis = None
@@ -92,3 +103,4 @@ async def close_clients() -> None:
         _httpx = None
     _minio_private = None
     _minio_public = None
+    log.info("clients.close.ok")

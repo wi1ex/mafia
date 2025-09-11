@@ -3,18 +3,17 @@ import hashlib
 import hmac
 import time
 from typing import Any
+import structlog
 import jwt
 from ..settings import settings
 
 
+log = structlog.get_logger()
+
+
 def _encode(kind: str, *, sub: int | str, exp_s: int, extra: dict[str, Any] | None = None) -> str:
     i = int(time.time())
-    p = {
-        "typ": kind,
-        "sub": str(sub),
-        "iat": i,
-        "exp": i + exp_s,
-    }
+    p = {"typ": kind, "sub": str(sub), "iat": i, "exp": i + exp_s}
     if extra:
         p.update(extra)
     return jwt.encode(p, settings.JWT_SECRET_KEY, algorithm="HS256")
@@ -36,12 +35,19 @@ def verify_telegram_auth(data: dict[str, Any]) -> bool:
     h = data.get("hash")
     ad = data.get("auth_date")
     if not h or not ad:
+        log.warning("tg.verify.missing_fields")
         return False
     check = "\n".join(f"{k}={data[k]}" for k in sorted(k for k in data if k != "hash"))
     secret = hashlib.sha256(settings.TG_BOT_TOKEN.encode()).digest()
     if not hmac.compare_digest(hmac.new(secret, check.encode(), hashlib.sha256).hexdigest(), h):
+        log.warning("tg.verify.bad_hash")
         return False
     try:
-        return int(time.time()) - int(ad) <= 300
+        age = int(time.time()) - int(ad)
+        if age <= 300:
+            return True
+        log.warning("tg.verify.expired", age_s=age)
+        return False
     except Exception:
+        log.warning("tg.verify.bad_auth_date")
         return False

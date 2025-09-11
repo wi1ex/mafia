@@ -4,11 +4,13 @@ from ..models.user import User
 from ..schemas import UserOut
 from ..services.storage_minio import presign_avatar
 from ..services.sessions import get_current_user
+from ..core.route_utils import log_route
 
 
 router = APIRouter()
 
 
+@log_route("users.me")
 @router.get("/me", response_model=UserOut)
 async def me(current_user: User = Depends(get_current_user)) -> UserOut:
     return UserOut(

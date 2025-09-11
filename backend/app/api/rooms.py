@@ -13,6 +13,7 @@ from ..core.clients import get_redis
 from ..settings import settings
 from ..services.sessions import get_current_user
 from ..schemas import RoomCreateIn, RoomOut, Ok
+from ..core.route_utils import log_route
 
 
 router = APIRouter()
@@ -35,6 +36,7 @@ def _serialize(room: Room, *, occupancy: int) -> dict:
     }
 
 
+@log_route("rooms.create")
 @router.post("", status_code=201, response_model=RoomOut)
 async def create_room(body: RoomCreateIn, request: Request, db: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)) -> RoomOut:
     title = body.title.strip()
@@ -70,6 +72,7 @@ async def create_room(body: RoomCreateIn, request: Request, db: AsyncSession = D
     )
 
 
+@log_route("rooms.join")
 @router.post("/{room_id}/join", response_model=dict)
 async def join_room(room_id: int = Path(..., ge=1), current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_session)):
     r = get_redis()
@@ -94,6 +97,7 @@ async def join_room(room_id: int = Path(..., ge=1), current_user: User = Depends
     }
 
 
+@log_route("rooms.leave")
 @router.post("/{room_id}/leave", response_model=dict)
 async def leave_room(room_id: int = Path(..., ge=1), current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_session)) -> Ok:
     r = get_redis()
