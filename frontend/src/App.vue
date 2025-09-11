@@ -12,7 +12,3 @@ onMounted(() => {
   auth.init()
 })
 </script>
-
-<style lang="scss" scoped>
-
-</style>

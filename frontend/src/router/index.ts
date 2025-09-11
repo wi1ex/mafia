@@ -25,4 +25,11 @@ router.beforeEach((to) => {
   return true
 })
 
+router.afterEach((to) => {
+  const base = 'Mafia'
+  const t = to.meta?.title as string | undefined
+  const id = to.name === 'room' ? String(to.params.id || '') : ''
+  document.title = t ? `${t}${id ? ' #' + id : ''} — ${base}` : base
+})
+
 export default router

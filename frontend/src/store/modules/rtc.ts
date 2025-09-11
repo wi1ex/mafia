@@ -14,7 +14,7 @@ export const useRtcStore = defineStore('rtc', () => {
   }
 
   async function requestLeave(roomId: number) {
-    await api.post(`/rooms/${roomId}/leave`, {})
+    await api.post<void>(`/rooms/${roomId}/leave`, {})
   }
 
   return {

@@ -8,6 +8,7 @@ from ..db import Base
 
 class User(Base):
     __tablename__ = "users"
+
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     username: Mapped[Optional[str]] = mapped_column(String(64), nullable=False, index=True, unique=True)
     role: Mapped[str] = mapped_column(String(16), nullable=False, default="user")

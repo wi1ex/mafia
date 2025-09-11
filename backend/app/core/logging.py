@@ -14,22 +14,16 @@ def configure_logging() -> None:
         structlog.stdlib.add_log_level,
         structlog.processors.StackInfoRenderer(),
         structlog.processors.format_exc_info,
-        structlog.processors.EventRenamer("message"),
     ]
     structlog.configure(
-        processors=[*pre, structlog.processors.JSONRenderer()],
+        processors=[*pre, structlog.stdlib.ProcessorFormatter.remove_processors_meta, structlog.processors.JSONRenderer()],
         wrapper_class=structlog.make_filtering_bound_logger(logging.INFO),
+        context_class=dict,
         logger_factory=structlog.stdlib.LoggerFactory(),
         cache_logger_on_first_use=True,
     )
     handler = logging.StreamHandler(sys.stdout)
-    handler.setLevel(logging.INFO)
-    handler.setFormatter(
-        structlog.stdlib.ProcessorFormatter(
-            processor=structlog.processors.JSONRenderer(),
-            foreign_pre_chain=pre,
-        )
-    )
+    handler.setFormatter(structlog.stdlib.ProcessorFormatter(processor=structlog.processors.JSONRenderer(), foreign_pre_chain=pre))
     root = logging.getLogger()
     root.handlers = [handler]
     root.setLevel(logging.INFO)

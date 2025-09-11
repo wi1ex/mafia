@@ -9,6 +9,7 @@ from ..db import Base
 
 class AppLog(Base):
     __tablename__ = "app_logs"
+
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True, index=True)
     username: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)

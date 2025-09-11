@@ -13,35 +13,38 @@ _ct2ext = {
     "image/jpeg": ".jpg",
     "image/png": ".png",
     "image/webp": ".webp",
-    "image/gif": ".gif"
+    "image/gif": ".gif",
 }
 
 
 def ensure_bucket() -> None:
     c = get_minio_private()
-    if not c.bucket_exists(_bucket): c.make_bucket(_bucket)
-
-
-def _ext_from_ct(ct: str) -> str:
-    return _ct2ext.get(ct, mimetypes.guess_extension(ct) or ".jpg")
+    if not c.bucket_exists(_bucket):
+        try:
+            c.make_bucket(_bucket)
+        except S3Error as e:
+            if e.code != "BucketAlreadyOwnedByYou" and e.code != "BucketAlreadyExists":
+                raise
 
 
 async def download_telegram_photo(url: str) -> tuple[bytes, str] | None:
     try:
         r = await get_httpx().get(url)
         r.raise_for_status()
-        ct = r.headers.get("content-type", "image/jpeg").split(";")[0].strip()
-        return r.content, _ext_from_ct(ct)
+        content_type = r.headers.get("content-type", "image/jpeg").split(";")[0].strip()
+        return r.content, content_type
     except Exception:
         return None
 
 
-def put_avatar(user_id: int, content: bytes, ext: str) -> str:
+def put_avatar(user_id: int, content: bytes, content_type: str | None) -> Optional[str]:
     ensure_bucket()
     c = get_minio_private()
+    ext = _ct2ext.get(content_type, mimetypes.guess_extension(content_type) or ".jpg")
     prefix = f"avatars/{user_id}."
     for o in c.list_objects(_bucket, prefix=prefix, recursive=True):
-        try: c.remove_object(_bucket, o.object_name)
+        try:
+            c.remove_object(_bucket, o.object_name)
         except S3Error:
             pass
     name, obj = f"{user_id}{ext}", f"avatars/{user_id}{ext}"
@@ -50,7 +53,8 @@ def put_avatar(user_id: int, content: bytes, ext: str) -> str:
 
 
 def presign_avatar(filename: str, *, expires_hours: int = 1) -> Optional[str]:
-    if not filename: return None
+    if not filename:
+        return None
     try:
         url = get_minio_public().presigned_get_object(_bucket, f"avatars/{filename}", expires=timedelta(hours=expires_hours))
         host = f"https://{settings.DOMAIN}/"

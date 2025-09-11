@@ -14,24 +14,22 @@ def _encode(kind: str, *, sub: int | str, exp_s: int, extra: dict[str, Any] | No
         "sub": str(sub),
         "iat": i,
         "exp": i + exp_s,
-        "iss": settings.DOMAIN,
-        "aud": settings.DOMAIN
     }
     if extra:
         p.update(extra)
     return jwt.encode(p, settings.JWT_SECRET_KEY, algorithm="HS256")
 
 
-def create_access_token(*, sub: int | str, role: str, ttl_minutes: int) -> str:
+def decode_token(token: str) -> dict[str, Any]:
+    return jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=["HS256"])
+
+
+def create_access_token(*, sub: int, role: str, ttl_minutes: int) -> str:
     return _encode("access", sub=sub, exp_s=ttl_minutes * 60, extra={"role": role})
 
 
-def create_refresh_token(*, sub: int | str, ttl_days: int) -> str:
+def create_refresh_token(*, sub: int, ttl_days: int) -> str:
     return _encode("refresh", sub=sub, exp_s=ttl_days * 86400)
-
-
-def decode_token(token: str) -> dict[str, Any]:
-    return jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=["HS256"], audience=settings.DOMAIN, issuer=settings.DOMAIN)
 
 
 def verify_telegram_auth(data: dict[str, Any]) -> bool:
@@ -39,7 +37,6 @@ def verify_telegram_auth(data: dict[str, Any]) -> bool:
     ad = data.get("auth_date")
     if not h or not ad:
         return False
-
     check = "\n".join(f"{k}={data[k]}" for k in sorted(k for k in data if k != "hash"))
     secret = hashlib.sha256(settings.TG_BOT_TOKEN.encode()).digest()
     if not hmac.compare_digest(hmac.new(secret, check.encode(), hashlib.sha256).hexdigest(), h):

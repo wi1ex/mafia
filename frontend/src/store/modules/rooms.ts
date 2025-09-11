@@ -10,23 +10,23 @@ export interface Room {
   created_by_user_id: number;
   created_at: string;
   updated_at: string;
-  occupancy: number ;
+  occupancy: number;
 }
 
 export const useRoomsStore = defineStore('rooms', () => {
   const rooms = ref<Room[]>([])
   const ws = ref<WebSocket | null>(null)
   let backoffMs = 1000
-  let timer: number | null = null
+  let reconnectTimer: number | null = null
+  let heartbeatTimer: number | null = null
 
   function setAll(list: Room[]) {
     rooms.value = list
   }
 
-  function upsert(item: Partial<Room> & {id: number}) {
-    const i=rooms.value.findIndex(r => r.id === item.id)
-    i >= 0 ? rooms.value.splice(i,1, {
-      ...rooms.value[i],...item} as Room) : rooms.value.push(item as Room)
+  function upsert(item: Partial<Room> & { id: number }) {
+    const i = rooms.value.findIndex(r => r.id === item.id)
+    i >= 0 ? rooms.value.splice(i, 1, { ...rooms.value[i], ...item } as Room) : rooms.value.push(item as Room)
   }
 
   function remove(id: number) {
@@ -38,30 +38,35 @@ export const useRoomsStore = defineStore('rooms', () => {
     return `${proto}://${location.host}/ws/rooms`
   }
 
-  function startWS(){
-    stopWS()
+  function startWS() {
+    if (ws.value) return
     const sock = new WebSocket(url())
     ws.value = sock
 
     sock.onopen = () => {
       backoffMs = 1000
+      if (heartbeatTimer) window.clearInterval(heartbeatTimer)
+      heartbeatTimer = window.setInterval(() => {
+        try {
+          ws.value?.send('ping')
+        } catch {}
+      }, 25000) as unknown as number
     }
 
     sock.onmessage = (ev) => {
       try {
         const m = JSON.parse(ev.data)
         if (m.type === 'rooms_snapshot') setAll(m.payload as Room[])
-        else if (m.type === 'room_created' || m.type === 'occupancy' || m.type === 'room_deleted') {
-          if (m.type === 'room_deleted') remove(m.payload.id)
-          else upsert(m.payload as Room)
-        }
+        else if (m.type === 'room_deleted') remove(m.payload.id)
+        else if (m.type === 'room_created' || m.type === 'occupancy') upsert(m.payload as Room)
       } catch {}
     }
 
     sock.onclose = () => {
       ws.value = null
-      if (timer) window.clearTimeout(timer)
-      timer = window.setTimeout(()=> startWS(), Math.min(backoffMs, 30000)) as unknown as number
+      if (heartbeatTimer) { window.clearInterval(heartbeatTimer); heartbeatTimer = null }
+      if (reconnectTimer) window.clearTimeout(reconnectTimer)
+      reconnectTimer = window.setTimeout(startWS, Math.min(backoffMs, 30000)) as unknown as number
       backoffMs *= 2
     }
 
@@ -73,10 +78,8 @@ export const useRoomsStore = defineStore('rooms', () => {
   }
 
   function stopWS() {
-    if (timer) {
-      window.clearTimeout(timer)
-      timer = null
-    }
+    if (reconnectTimer) { window.clearTimeout(reconnectTimer); reconnectTimer = null }
+    if (heartbeatTimer) { window.clearInterval(heartbeatTimer); heartbeatTimer = null }
     if (ws.value) {
       try {
         ws.value.close()
@@ -85,10 +88,9 @@ export const useRoomsStore = defineStore('rooms', () => {
     }
   }
 
-  async function createRoom(title: string, user_limit: number, is_private=false) {
+  async function createRoom(title: string, user_limit: number, is_private = false) {
     const { data } = await api.post<Room>('/rooms', { title, user_limit, is_private })
-    upsert(data)
-    return data
+    upsert(data); return data
   }
 
   return {

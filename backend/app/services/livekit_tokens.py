@@ -4,6 +4,7 @@ from livekit.api import AccessToken
 from livekit.api.access_token import VideoGrants
 from ..settings import settings
 
+
 def make_livekit_token(*, identity: str, name: str, room: str, ttl_minutes: int = 60) -> str:
     return (
         AccessToken(api_key=settings.LIVEKIT_API_KEY, api_secret=settings.LIVEKIT_API_SECRET)

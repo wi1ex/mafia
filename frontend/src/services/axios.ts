@@ -1,9 +1,10 @@
-import axios, { AxiosError, AxiosResponse } from 'axios'
+import axios, { AxiosError, AxiosResponse, InternalAxiosRequestConfig } from 'axios'
 
 export const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE || '/api',
+  baseURL: '/api',
   timeout: 15000,
   withCredentials: true,
+  headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
 })
 
 let accessTok = ''
@@ -15,6 +16,11 @@ export function setAuthHeader(tok: string) {
   if (tok) api.defaults.headers.common.Authorization = `Bearer ${tok}`
   else delete api.defaults.headers.common.Authorization
 }
+
+api.interceptors.request.use((cfg: InternalAxiosRequestConfig) => {
+  if (accessTok) cfg.headers.Authorization = `Bearer ${accessTok}`
+  return cfg
+})
 
 async function doRefresh(): Promise<string | null> {
   try {
@@ -35,17 +41,22 @@ api.interceptors.response.use(
     const st = error.response?.status
     const cfg: any = error.config || {}
     const url: string = cfg.url || ''
-    if (st === 401 && !cfg.__retry401 && !url.includes('/auth/refresh') && !url.includes('/auth/telegram')) {
+    const isAuthCall = url.includes('/auth/refresh') || url.includes('/auth/telegram')
+    if (st === 401 && !cfg.__retry401 && !isAuthCall) {
       cfg.__retry401 = true
       if (!isRefreshing) {
         isRefreshing = true
-        const tok = await doRefresh()
-        isRefreshing = false
-        pending.forEach(cb => cb(tok)); pending = []
-        if (!tok) return Promise.reject(error)
-        cfg.headers = cfg.headers || {}
-        cfg.headers.Authorization = `Bearer ${tok}`
-        return api(cfg)
+        try {
+          const tok = await doRefresh()
+          pending.forEach(cb => cb(tok))
+          pending = []
+          if (!tok) return Promise.reject(error)
+          cfg.headers = cfg.headers || {}
+          cfg.headers.Authorization = `Bearer ${tok}`
+          return api(cfg)
+        } finally {
+          isRefreshing = false
+        }
       }
       return new Promise((resolve, reject) => {
         pending.push((tok) => {

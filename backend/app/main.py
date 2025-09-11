@@ -3,9 +3,10 @@ from fastapi import FastAPI
 from fastapi.responses import ORJSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from .api.router import api_router
-from .realtime.ws_rooms  import router as ws_rooms_router
+from .realtime.ws_rooms import router as ws_rooms_router
 from .core.lifespan import lifespan
 from .settings import settings
+
 
 def build_app() -> FastAPI:
     main_app = FastAPI(
@@ -13,7 +14,8 @@ def build_app() -> FastAPI:
         lifespan=lifespan,
         default_response_class=ORJSONResponse,
         docs_url=None,
-        redoc_url=None
+        redoc_url=None,
+        openapi_url=None,
     )
 
     main_app.add_middleware(
@@ -28,5 +30,6 @@ def build_app() -> FastAPI:
     main_app.include_router(ws_rooms_router, prefix="/ws")
 
     return main_app
+
 
 app = build_app()

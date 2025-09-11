@@ -1,5 +1,6 @@
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from __future__ import annotations
 from typing import List
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(extra="ignore", case_sensitive=False)
@@ -23,6 +24,7 @@ class Settings(BaseSettings):
     MINIO_BUCKET: str
 
     TG_BOT_TOKEN: str
+
     JWT_SECRET_KEY: str
     ACCESS_TOKEN_EXPIRE_MINUTES: int
     REFRESH_TOKEN_EXPIRE_DAYS: int
@@ -32,6 +34,12 @@ class Settings(BaseSettings):
 
     BACKEND_CORS_ORIGINS: List[str] = []
 
+    @property
+    def pg_dsn(self) -> str:
+        return (f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
+                f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}")
+
 settings = Settings()
+
 if not settings.BACKEND_CORS_ORIGINS:
     settings.BACKEND_CORS_ORIGINS = [f"https://{settings.DOMAIN}"]

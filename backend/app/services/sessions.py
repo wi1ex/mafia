@@ -14,7 +14,7 @@ COOKIE_PATH = "/api"
 
 
 bearer = HTTPBearer(auto_error=False)
-_unauth = HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="unauthorized")
+_unauth = HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
 
 
 def _set_refresh_cookie(resp: Response, token: str) -> None:
@@ -26,17 +26,19 @@ def _set_refresh_cookie(resp: Response, token: str) -> None:
         httponly=True,
         samesite="strict",
         path=COOKIE_PATH,
-        domain=settings.DOMAIN
+        domain=settings.DOMAIN,
     )
-
-
-async def new_login_session(resp: Response, *, user_id: int, role: str) -> None:
-    rt = create_refresh_token(sub=user_id, ttl_days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
-    _set_refresh_cookie(resp, rt)
 
 
 def issue_access_token(*, user_id: int, role: str) -> str:
     return create_access_token(sub=user_id, role=role, ttl_minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+
+
+async def new_login_session(resp: Response, *, user_id: int, role: str) -> str:
+    rt = create_refresh_token(sub=user_id, ttl_days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    _set_refresh_cookie(resp, rt)
+    at = create_access_token(sub=user_id, role=role, ttl_minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    return at
 
 
 async def rotate_refresh(resp: Response, *, raw_refresh_jwt: str) -> bool:
