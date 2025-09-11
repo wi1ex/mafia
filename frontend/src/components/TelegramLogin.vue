@@ -10,7 +10,11 @@ const BOT = import.meta.env.VITE_TG_BOT_NAME
 const SIZE: 'large'|'medium'|'small' = 'large'
 const auth = useAuthStore()
 
-declare global { interface Window { __mafia_tg_cb__?: (u: any)=>void } }
+declare global {
+  interface Window {
+    __mafia_tg_cb__?: (u: any) => void
+  }
+}
 
 onMounted(() => {
   if (!BOT) return
