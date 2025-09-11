@@ -10,51 +10,67 @@ from ..settings import settings
 
 
 router = APIRouter()
+log = structlog.get_logger()
 
 
 CLIENTS: Set[WebSocket] = set()
 _stream_task: asyncio.Task | None = None
 _lock = asyncio.Lock()
-log = structlog.get_logger()
+
+
+def _to_int(v, default=0):
+    try:
+        return int(v)
+    except Exception:
+        return default
+
+
+def _to_bool(v) -> bool:
+    s = str(v).strip().lower()
+    return s in {"1", "true", "yes", "on"}
 
 
 async def _snapshot() -> list[dict]:
     r = get_redis()
     ids = await r.smembers("rooms:index")
     result: list[dict] = []
-    for sid in sorted((int(x) for x in ids), reverse=True):
+    for sid in sorted((_to_int(x, 0) for x in ids), reverse=True):
+        if not sid:
+            continue
         data = await r.hgetall(f"room:{sid}:params")
         if not data:
+            log.warning("ws.snapshot.missing_params", room_id=sid)
             continue
-        result.append({
-            "id": int(data["id"]),
-            "title": data["title"],
-            "user_limit": int(data["user_limit"]),
-            "is_private": bool(int(data["is_private"])),
-            "created_by_user_id": int(data["created_by_user_id"]),
-            "created_at": data["created_at"],
-            "updated_at": data["updated_at"],
-            "occupancy": int(data["occupancy"]),
-        })
+
+        rid = _to_int(data.get("id", sid), sid)
+        try:
+            result.append({
+                "id": rid,
+                "title": data.get("title", ""),
+                "user_limit": _to_int(data.get("user_limit"), 0),
+                "is_private": _to_bool(data.get("is_private", 0)),
+                "created_by_user_id": _to_int(data.get("created_by_user_id"), 0),
+                "created_at": data.get("created_at", ""),
+                "updated_at": data.get("updated_at", ""),
+                "occupancy": _to_int(data.get("occupancy"), 0),
+            })
+        except Exception as e:
+            log.warning("ws.snapshot.bad_item", room_id=sid, err=str(e), data_keys=list(data.keys()))
+            continue
     return result
 
 
 async def _broadcast(payload: dict) -> None:
-    if not CLIENTS:
-        return
-    msg = json.dumps(payload)
     dead: list[WebSocket] = []
+    msg = json.dumps(payload)
     for ws in CLIENTS:
         try:
             await ws.send_text(msg)
-        except Exception:
+        except Exception as e:
             dead.append(ws)
-    if dead:
-        for ws in dead:
-            CLIENTS.discard(ws)
-        log.warning("ws.broadcast.dropped", dropped=len(dead), alive=len(CLIENTS))
-    else:
-        log.debug("ws.broadcast.sent", receivers=len(CLIENTS), type=payload.get("type"))
+            log.error("ws.broadcast.error", err=str(e))
+    for ws in dead:
+        CLIENTS.discard(ws)
 
 
 async def _stream_loop() -> None:
@@ -72,15 +88,9 @@ async def _stream_loop() -> None:
             try:
                 payload = json.loads(data)
             except Exception:
-                log.warning("ws.stream.bad_message")
+                log.warning("ws.stream.bad_json")
                 continue
-            try:
-                await _broadcast(payload)
-            except Exception:
-                log.exception("ws.stream.broadcast_error")
-    except Exception:
-        log.exception("ws.stream.error")
-        raise
+            await _broadcast(payload)
     finally:
         with suppress(Exception):
             await pubsub.unsubscribe("rooms:events")
@@ -102,9 +112,7 @@ async def _ensure_stream() -> None:
 @router.websocket("/rooms")
 async def rooms_ws(ws: WebSocket):
     origin = ws.headers.get("sec-websocket-origin") or ws.headers.get("origin")
-    expected = f"https://{settings.DOMAIN}"
-    if origin != expected:
-        log.warning("ws.reject.origin", origin=origin, expected=expected)
+    if origin != f"https://{settings.DOMAIN}":
         with suppress(Exception):
             await ws.close(code=1008)
         return
@@ -112,8 +120,7 @@ async def rooms_ws(ws: WebSocket):
     await ws.accept()
     await _ensure_stream()
     CLIENTS.add(ws)
-    peer = f"{getattr(ws.client, 'host', '-') }:{getattr(ws.client, 'port', '-')}" if ws.client else "-"
-    log.info("ws.client.connected", peer=peer, clients=len(CLIENTS))
+    log.info("ws.client.connected", peer=f"{ws.client.host}:{ws.client.port}", clients=len(CLIENTS))
     try:
         await ws.send_text(json.dumps({"type": "rooms_snapshot", "payload": await _snapshot()}))
         while True:
@@ -121,11 +128,9 @@ async def rooms_ws(ws: WebSocket):
                 await ws.receive_text()
             await asyncio.sleep(30)
     except WebSocketDisconnect:
-        log.info("ws.client.disconnected", peer=peer)
-    except Exception:
-        log.exception("ws.client.error", peer=peer)
-        with suppress(Exception):
-            await ws.close(code=1011)
+        pass
+    except Exception as e:
+        log.error("ws.client.error", peer=f"{ws.client.host}:{ws.client.port}", err=str(e))
     finally:
         CLIENTS.discard(ws)
         log.info("ws.client.removed", clients=len(CLIENTS))
