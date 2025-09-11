@@ -10,6 +10,6 @@ COPY . /app
 RUN useradd -u 999 -r -s /usr/sbin/nologin appuser && chown -R appuser:appuser /app
 USER appuser
 
-ENV PROXY_HEADERS=true FORWARDED_ALLOW_IPS=127.0.0.1,172.19.0.0/16,172.18.0.0/16
-ENV GUNICORN_CMD_ARGS="--bind 0.0.0.0:8000 --workers 2 --threads 1 --keep-alive 75 --timeout 60 --graceful-timeout 20 --backlog 2048 --forwarded-allow-ips 127.0.0.1,172.19.0.0/16,172.18.0.0/16 --log-level info --access-logfile - --error-logfile -"
+ENV PROXY_HEADERS=true FORWARDED_ALLOW_IPS="172.18.0.6172.19.0.7"
+ENV GUNICORN_CMD_ARGS="--bind 0.0.0.0:8000 --workers 2 --threads 1 --keep-alive 75 --timeout 60 --graceful-timeout 20 --backlog 2048 --log-level info --access-logfile - --error-logfile - --forwarded-allow-ips 172.18.0.6172.19.0.7"
 CMD ["gunicorn","app.main:app","-k","uvicorn.workers.UvicornWorker"]
