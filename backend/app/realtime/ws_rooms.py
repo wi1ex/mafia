@@ -5,13 +5,13 @@ from contextlib import suppress
 from typing import Set
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from ..core.clients import get_redis
-
+from ..settings import settings
 
 router = APIRouter()
 
-
 CLIENTS: Set[WebSocket] = set()
 _stream_task: asyncio.Task | None = None
+_lock = asyncio.Lock()
 
 
 async def _snapshot() -> list[dict]:
@@ -74,7 +74,7 @@ async def _ensure_stream() -> None:
     global _stream_task
     if _stream_task and not _stream_task.done():
         return
-    async with asyncio.Lock():
+    async with _lock:
         if _stream_task and not _stream_task.done():
             return
         _stream_task = asyncio.create_task(_stream_loop())
@@ -82,6 +82,12 @@ async def _ensure_stream() -> None:
 
 @router.websocket("/rooms")
 async def rooms_ws(ws: WebSocket):
+    origin = ws.headers.get("sec-websocket-origin") or ws.headers.get("origin")
+    if origin != f"https://{settings.DOMAIN}":
+        with suppress(Exception):
+            await ws.close(code=1008)
+        return
+
     await ws.accept()
     await _ensure_stream()
     CLIENTS.add(ws)

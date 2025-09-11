@@ -2,7 +2,12 @@
   <div class="container">
     <div class="card">
       <h2 class="title">Комната #{{ rid }}</h2>
-      <div ref="gridRef" class="grid" />
+      <div class="grid">
+        <div v-for="id in peerIds" :key="id" class="tile">
+          <video :ref="el => setVideoRef(id, el as HTMLVideoElement)" playsinline autoplay :muted="id === localId" />
+        </div>
+      </div>
+
       <button class="btn btn-danger" type="button" @click="onLeave">Покинуть комнату</button>
     </div>
   </div>
@@ -19,41 +24,36 @@ const router = useRouter()
 const rtc = useRtcStore()
 
 const rid = Number(route.params.id)
-const gridRef = ref<HTMLDivElement | null>(null)
-
 const lk = ref<LkRoom | null>(null)
 const localTracks: LocalTrack[] = []
-const wrappers = new Map<string, HTMLDivElement>()
+const peerIds = ref<string[]>([])
+const localId = ref<string>('')
+const videoEls = new Map<string, HTMLVideoElement>()
 
-function makeWrapper(id: string, muted: boolean): HTMLDivElement {
-  const wrap = document.createElement('div')
-  wrap.className = 'tile'
-  const el = document.createElement('video')
+function ensurePeer(id: string) {
+  if (!peerIds.value.includes(id)) peerIds.value.push(id)
+}
+
+function removePeer(id: string) {
+  peerIds.value = peerIds.value.filter(x => x !== id)
+  const el = videoEls.get(id)
+  if (el) {
+    try {
+      el.srcObject = null
+    } catch {}
+    videoEls.delete(id)
+  }
+}
+
+function setVideoRef(id: string, el: HTMLVideoElement | null) {
+  if (!el) {
+    videoEls.delete(id)
+    return
+  }
   el.autoplay = true
   el.playsInline = true
-  el.muted = muted
-  el.dataset.rtcEl = '1'
-  wrap.appendChild(el)
-  wrappers.set(id, wrap)
-  gridRef.value?.appendChild(wrap)
-  return wrap
-}
-
-function videoEl(id: string, isLocal = false): HTMLVideoElement {
-  const wrap = wrappers.get(id) ?? makeWrapper(id, isLocal)
-  return wrap.querySelector('video') as HTMLVideoElement
-}
-
-function removeWrapper(id: string) {
-  const wrap = wrappers.get(id)
-  if (!wrap) return
-  try {
-    wrap.querySelector('video')?.remove()
-  } catch {}
-  try {
-    wrap.remove()
-  } catch {}
-  wrappers.delete(id)
+  el.muted = id === localId.value
+  videoEls.set(id, el)
 }
 
 async function onLeave() {
@@ -73,8 +73,8 @@ async function onLeave() {
   try {
     await lk.value?.disconnect()
   } catch {}
-  for (const id of Array.from(wrappers.keys())) {
-    removeWrapper(id)
+  for (const id of [...videoEls.keys()]) {
+    removePeer(id)
   }
   lk.value = null
   try {
@@ -94,41 +94,49 @@ onMounted(async () => {
         videoSimulcastLayers: [],
         dtx: true,
         red: true,
-        screenShareEncoding: { maxBitrate: 2_000_000, maxFramerate: 25 },
+        screenShareEncoding: {
+          maxBitrate: 2_000_000,
+          maxFramerate: 25
+        },
       },
-      videoCaptureDefaults: { resolution: { width: 640, height: 360 } },
+      videoCaptureDefaults: {
+        resolution: {
+          width: 640,
+          height: 360
+        }
+      },
     })
     lk.value = room
 
-    const onTrackSub = (t: RemoteTrack, _p: any, part: any) => {
-      const el = videoEl(part.identity, false)
+    room.on(RoomEvent.TrackSubscribed, (t: RemoteTrack, _pub, part) => {
+      const id = String(part.identity)
+      ensurePeer(id)
+      const el = videoEls.get(id)
+      if (!el) return
       if (t.kind === Track.Kind.Audio || t.kind === Track.Kind.Video) {
         try {
           t.attach(el)
         } catch {}
       }
-    }
-    const onTrackUnsub = (t: RemoteTrack, _p: any, part: any) => {
-      const el = wrappers.get(part.identity)?.querySelector('video')
+    })
+
+    room.on(RoomEvent.TrackUnsubscribed, (t: RemoteTrack, _pub, part) => {
+      const id = String(part.identity)
+      const el = videoEls.get(id)
       if (el) try {
-        t.detach(el as HTMLVideoElement)
+        t.detach(el)
       } catch {}
-      removeWrapper(part.identity)
-    }
-    const onPartDisc = (p: any) => removeWrapper(p.identity)
-    const onDisc = () => {
-      for (const id of Array.from(wrappers.keys())) {
-        removeWrapper(id)
+    })
+
+    room.on(RoomEvent.ParticipantDisconnected, (part) => {
+      removePeer(String(part.identity))
+    })
+
+    room.on(RoomEvent.Disconnected, () => {
+      for (const id of [...videoEls.keys()]) {
+        removePeer(id)
       }
-    }
-
-    room.on(RoomEvent.TrackSubscribed, onTrackSub as any)
-
-    room.on(RoomEvent.TrackUnsubscribed, onTrackUnsub as any)
-
-    room.on(RoomEvent.ParticipantDisconnected, onPartDisc as any)
-
-    room.on(RoomEvent.Disconnected, onDisc)
+    })
 
     const created = await createLocalTracks({
       audio: true,
@@ -137,20 +145,29 @@ onMounted(async () => {
           width: 640,
           height: 360
         }
-      }
+      },
     })
     localTracks.push(...created)
 
     await room.connect(ws_url, token)
-    for (const t of localTracks) {
-      await room.localParticipant.publishTrack(t)
-    }
 
-    const localEl = videoEl(room.localParticipant.identity, true)
-    for (const t of localTracks) {
-      if (t.kind === Track.Kind.Audio || t.kind === Track.Kind.Video) {
-        t.attach(localEl)
+    localId.value = String(room.localParticipant.identity)
+    ensurePeer(localId.value)
+
+    const el = videoEls.get(localId.value)
+    if (el) {
+      for (const t of localTracks) {
+        if (t.kind === Track.Kind.Audio || t.kind === Track.Kind.Video) {
+          try {
+            t.attach(el)
+          } catch {}
+        }
       }
+    }
+    for (const t of localTracks) {
+      try {
+        await room.localParticipant.publishTrack(t)
+      } catch {}
     }
   } catch {
     try {
@@ -165,10 +182,41 @@ onBeforeUnmount(() => {
 </script>
 
 <style lang="scss" scoped>
-.title { color: var(--bg); }
-.grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(260px,1fr)); gap:12px; margin-top:12px; }
-.tile { position:relative; border-radius:12px; overflow:hidden; background:#0b0f14; min-height:180px; }
-video { width:100%; height:100%; min-height:180px; display:block; object-fit:cover; background:#000; }
-.btn { margin-top:12px; padding:8px 12px; border-radius:8px; border:0; cursor:pointer; }
-.btn-danger { background:var(--color-danger); color:#190808; }
+.card {
+  .title {
+    color: var(--bg);
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 12px;
+    margin-top: 12px;
+  }
+  .tile {
+    position: relative;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #0b0f14;
+    min-height: 180px;
+    video {
+      width: 100%;
+      height: 100%;
+      min-height: 180px;
+      display: block;
+      object-fit: cover;
+      background: #000;
+    }
+  }
+  .btn {
+    margin-top: 12px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 0;
+    cursor: pointer;
+  }
+  .btn-danger {
+    background: var(--color-danger);
+    color: #190808;
+  }
+}
 </style>

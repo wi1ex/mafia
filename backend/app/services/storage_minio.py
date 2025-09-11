@@ -23,7 +23,7 @@ def ensure_bucket() -> None:
         try:
             c.make_bucket(_bucket)
         except S3Error as e:
-            if e.code != "BucketAlreadyOwnedByYou" and e.code != "BucketAlreadyExists":
+            if e.code not in ("BucketAlreadyOwnedByYou", "BucketAlreadyExists"):
                 raise
 
 
@@ -38,17 +38,23 @@ async def download_telegram_photo(url: str) -> tuple[bytes, str] | None:
 
 
 def put_avatar(user_id: int, content: bytes, content_type: str | None) -> Optional[str]:
+    ct = (content_type or "").split(";")[0].strip().lower()
+    if ct not in set(_ct2ext.keys()):
+        return None
+
     ensure_bucket()
     c = get_minio_private()
-    ext = _ct2ext.get(content_type, mimetypes.guess_extension(content_type) or ".jpg")
+    ext = _ct2ext[ct]
+
     prefix = f"avatars/{user_id}."
     for o in c.list_objects(_bucket, prefix=prefix, recursive=True):
         try:
             c.remove_object(_bucket, o.object_name)
         except S3Error:
             pass
+
     name, obj = f"{user_id}{ext}", f"avatars/{user_id}{ext}"
-    c.put_object(_bucket, obj, io.BytesIO(content), length=len(content), content_type=mimetypes.types_map.get(ext, "image/jpeg"))
+    c.put_object(_bucket, obj, io.BytesIO(content), length=len(content), content_type=ct or mimetypes.types_map.get(ext, "image/jpeg"))
     return name
 
 

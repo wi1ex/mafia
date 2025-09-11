@@ -66,17 +66,69 @@ onBeforeUnmount(()=> {
 </script>
 
 <style lang="scss" scoped>
-.title { color: var(--bg); margin:0 0 8px; }
-.subtitle { color: var(--bg); margin:12px 0 6px; font-size:16px; }
-.muted { color: var(--muted); }
-.list { margin:0; padding:0; list-style:none; }
-.item { display:flex; align-items:center; gap:8px; margin:8px 0; color:var(--bg); }
-.item__title { font-weight:500; }
-.item__meta { color:var(--muted); }
-.link { margin-left:auto; text-decoration:underline; }
-.link.disabled { opacity:.5; cursor:not-allowed; pointer-events:none; }
-.create { margin-top:16px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-.input { padding:8px 10px; border-radius:8px; border:1px solid #334155; color:#e5e7eb; background:#0b0f14; }
-.btn { padding:8px 12px; border-radius:8px; border:0; cursor:pointer; }
-.btn-primary { background:var(--color-primary); color:#06110b; }
+.card {
+  .title {
+    color: var(--bg);
+    margin: 0 0 8px;
+  }
+  .subtitle {
+    color: var(--bg);
+    margin: 12px 0 6px;
+    font-size: 16px;
+  }
+  .muted {
+    color: var(--muted);
+  }
+  .list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 8px 0;
+    color: var(--bg);
+    &__title {
+      font-weight: 500;
+    }
+    &__meta {
+      color: var(--muted);
+    }
+  }
+  .link {
+    margin-left: auto;
+    text-decoration: underline;
+    &.disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+  }
+  .create {
+    margin-top: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .input {
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid #334155;
+    color: #e5e7eb;
+    background: #0b0f14;
+  }
+  .btn {
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 0;
+    cursor: pointer;
+  }
+  .btn-primary {
+    background: var(--color-primary);
+    color: #06110b;
+  }
+}
 </style>

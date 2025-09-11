@@ -14,6 +14,7 @@ from ..settings import settings
 from ..services.sessions import get_current_user
 from ..schemas import RoomCreateIn, RoomOut, Ok
 
+
 router = APIRouter()
 
 
@@ -82,11 +83,10 @@ async def join_room(room_id: int = Path(..., ge=1), current_user: User = Depends
 
     await r.sadd(f"room:{room_id}:members", current_user.id)
     occ = int(await r.scard(f"room:{room_id}:members") or 0)
-
     await r.hset(f"room:{rm.id}:params", mapping=_serialize(rm, occupancy=occ))
     await r.sadd("rooms:index", rm.id)
-
     await _publish(r, type_="occupancy", payload={"id": room_id, "occupancy": occ})
+
     return {
         "ws_url": f"wss://{settings.DOMAIN}",
         "token": make_livekit_token(identity=str(current_user.id), name=current_user.username or f"user-{current_user.id}", room=str(room_id)),
@@ -99,7 +99,6 @@ async def leave_room(room_id: int = Path(..., ge=1), current_user: User = Depend
     r = get_redis()
     await r.srem(f"room:{room_id}:members", current_user.id)
     occ = int(await r.scard(f"room:{room_id}:members") or 0)
-
     await _publish(r, type_="occupancy", payload={"id": room_id, "occupancy": occ})
     if occ == 0 and not await r.exists(f"room:{room_id}:empty_probe"):
         await r.setex(f"room:{room_id}:empty_probe", 12, "1")
