@@ -1,7 +1,11 @@
 from __future__ import annotations
 import logging
 import sys
+from typing import Any
 import structlog
+from sqlalchemy.ext.asyncio import AsyncSession
+from ..models.log import AppLog
+
 
 def configure_logging() -> None:
     pre = [
@@ -28,3 +32,8 @@ def configure_logging() -> None:
     root.setLevel(logging.INFO)
 
     logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
+
+
+async def log_action(db: AsyncSession, *, user_id: int | None, username: str | None, action: str, details: dict[str, Any]) -> None:
+    db.add(AppLog(user_id=user_id, username=username, action=action, details=details))
+    await db.flush()
