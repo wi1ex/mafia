@@ -52,13 +52,7 @@ def verify_telegram_auth(data: dict[str, Any]) -> bool:
 
     ok = hmac.compare_digest(calc, h)
     if not ok:
-        log.warning(
-            "tg.verify.bad_hash",
-            calc_prefix=calc[:12],
-            got_prefix=str(h)[:12],
-            check_preview=(check.decode("utf-8")[:200] + "...") if len(check) > 200 else check.decode("utf-8"),
-            token_sha256_prefix=hashlib.sha256(settings.TG_BOT_TOKEN.encode()).hexdigest()[:12],
-        )
+        log.warning("tg.verify.bad_hash")
         return False
 
     log.info("tg.verify.ok")
