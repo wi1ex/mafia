@@ -22,6 +22,7 @@ PyJWT = "^2.10.1"
 livekit-api = "^1.0.5"
 python-socketio = {version="^5.11.0", extras=["asgi"]}
 structlog = "^25.4.0"
+orjson = "^3.11.3"
 
 [tool.poetry.group.dev.dependencies]
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 import asyncio
+import json
 from fastapi import APIRouter, Depends, HTTPException, Path, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,7 +21,7 @@ router = APIRouter()
 
 
 async def _publish(r: redis.Redis, *, type_: str, payload: dict) -> None:
-    await r.publish("rooms:events", __import__("json").dumps({"type": type_, "payload": payload}))
+    await r.publish("rooms:events", json.dumps({"type": type_, "payload": payload}))
 
 
 def _serialize(room: Room, *, occupancy: int) -> dict:
