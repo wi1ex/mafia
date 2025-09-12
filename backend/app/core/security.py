@@ -2,6 +2,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import time
+import json
 from typing import Any
 import structlog
 import jwt
@@ -37,17 +38,22 @@ def verify_telegram_auth(data: dict[str, Any]) -> bool:
     if not h or not ad:
         log.warning("tg.verify.missing_fields")
         return False
-    check = "\n".join(f"{k}={data[k]}" for k in sorted(k for k in data if k != "hash"))
-    secret = hashlib.sha256(settings.TG_BOT_TOKEN.encode()).digest()
-    if not hmac.compare_digest(hmac.new(secret, check.encode(), hashlib.sha256).hexdigest(), h):
-        log.warning("tg.verify.bad_hash")
-        return False
+
     try:
-        age = int(time.time()) - int(ad)
-        if age <= 300:
-            return True
-        log.warning("tg.verify.expired", age_s=age)
-        return False
+        if int(time.time()) - int(ad) > 43200:
+            log.warning("tg.verify.expired")
+            return False
     except Exception:
         log.warning("tg.verify.bad_auth_date")
         return False
+
+    secret = hashlib.sha256(settings.TG_BOT_TOKEN.encode()).digest()
+    check = "\n".join(f"{k}={data[k]}" for k in sorted(k for k in data.keys() if k != "hash")).encode()
+    calc = hmac.new(secret, check, hashlib.sha256).hexdigest()
+
+    if not hmac.compare_digest(calc, h):
+        log.warning("tg.verify.bad_hash")
+        return False
+
+    log.info("tg.verify.ok")
+    return True
