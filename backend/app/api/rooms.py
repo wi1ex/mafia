@@ -4,7 +4,6 @@ import json
 from fastapi import APIRouter, Depends, HTTPException, Path, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-import redis.asyncio as redis
 from ..db import get_session
 from ..models.room import Room
 from ..models.user import User
@@ -18,10 +17,6 @@ from ..core.route_utils import log_route
 
 
 router = APIRouter()
-
-
-async def _publish(r: redis.Redis, *, type_: str, payload: dict) -> None:
-    await r.publish("rooms:events", json.dumps({"type": type_, "payload": payload}))
 
 
 def _serialize(room: Room, *, occupancy: int) -> dict:
@@ -52,14 +47,16 @@ async def create_room(body: RoomCreateIn, request: Request, db: AsyncSession = D
     )
     db.add(room)
     await db.flush()
+    await db.refresh(room)
 
     r = get_redis()
-    await r.hset(f"room:{room.id}:params", mapping=_serialize(room, occupancy=0))
+    data = _serialize(room, occupancy=0)
+    await r.hset(f"room:{room.id}:params", mapping=data)
     await r.sadd("rooms:index", room.id)
     await db.commit()
 
     await log_action(db, user_id=current_user.id, username=current_user.username, action="room_created", details={"room_id": room.id})
-    await _publish(r, type_="room_created", payload=_serialize(room, occupancy=0))
+    await r.publish("rooms:events", json.dumps({"type": "room_created", "payload": data}))
 
     return RoomOut(
         id=room.id,
@@ -87,9 +84,10 @@ async def join_room(room_id: int = Path(..., ge=1), current_user: User = Depends
 
     await r.sadd(f"room:{room_id}:members", current_user.id)
     occ = int(await r.scard(f"room:{room_id}:members") or 0)
-    await r.hset(f"room:{rm.id}:params", mapping=_serialize(rm, occupancy=occ))
+    data = _serialize(rm, occupancy=occ)
+    await r.hset(f"room:{rm.id}:params", mapping=data)
     await r.sadd("rooms:index", rm.id)
-    await _publish(r, type_="occupancy", payload={"id": room_id, "occupancy": occ})
+    await r.publish("rooms:events", json.dumps({"type": "occupancy", "payload": {"id": room_id, "occupancy": occ}}))
 
     return {
         "ws_url": f"wss://{settings.DOMAIN}",
@@ -104,7 +102,7 @@ async def leave_room(room_id: int = Path(..., ge=1), current_user: User = Depend
     r = get_redis()
     await r.srem(f"room:{room_id}:members", current_user.id)
     occ = int(await r.scard(f"room:{room_id}:members") or 0)
-    await _publish(r, type_="occupancy", payload={"id": room_id, "occupancy": occ})
+    await r.publish("rooms:events", json.dumps({"type": "occupancy", "payload": {"id": room_id, "occupancy": occ}}))
     if occ == 0 and not await r.exists(f"room:{room_id}:empty_probe"):
         await r.setex(f"room:{room_id}:empty_probe", 12, "1")
 
@@ -119,7 +117,7 @@ async def leave_room(room_id: int = Path(..., ge=1), current_user: User = Depend
                 await r.delete(f"room:{room_id}:members")
                 await r.delete(f"room:{room_id}:params")
                 await r.srem("rooms:index", room_id)
-                await _publish(r, type_="room_deleted", payload={"id": room_id})
+                await r.publish("rooms:events", json.dumps({"type": "room_deleted", "payload": {"id": room_id}}))
 
         asyncio.create_task(_delayed_cleanup())
     return Ok()

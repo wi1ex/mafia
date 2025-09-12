@@ -64,8 +64,13 @@ export const useRoomsStore = defineStore('rooms', () => {
 
     sock.onclose = () => {
       ws.value = null
-      if (heartbeatTimer) { window.clearInterval(heartbeatTimer); heartbeatTimer = null }
-      if (reconnectTimer) window.clearTimeout(reconnectTimer)
+      if (heartbeatTimer) {
+        window.clearInterval(heartbeatTimer)
+        heartbeatTimer = null
+      }
+      if (reconnectTimer) {
+        window.clearTimeout(reconnectTimer)
+      }
       reconnectTimer = window.setTimeout(startWS, Math.min(backoffMs, 30000)) as unknown as number
       backoffMs *= 2
     }
@@ -78,8 +83,14 @@ export const useRoomsStore = defineStore('rooms', () => {
   }
 
   function stopWS() {
-    if (reconnectTimer) { window.clearTimeout(reconnectTimer); reconnectTimer = null }
-    if (heartbeatTimer) { window.clearInterval(heartbeatTimer); heartbeatTimer = null }
+    if (reconnectTimer) {
+      window.clearTimeout(reconnectTimer)
+      reconnectTimer = null
+    }
+    if (heartbeatTimer) {
+      window.clearInterval(heartbeatTimer)
+      heartbeatTimer = null
+    }
     if (ws.value) {
       try {
         ws.value.close()
@@ -90,7 +101,8 @@ export const useRoomsStore = defineStore('rooms', () => {
 
   async function createRoom(title: string, user_limit: number, is_private = false) {
     const { data } = await api.post<Room>('/rooms', { title, user_limit, is_private })
-    upsert(data); return data
+    upsert(data)
+    return data
   }
 
   return {

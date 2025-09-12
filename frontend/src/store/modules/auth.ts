@@ -37,7 +37,8 @@ export const useAuthStore = defineStore('auth', () => {
       setAccess(data.access_token)
       me.value = data.user
     } catch {
-      setAccess(''); me.value = null
+      setAccess('')
+      me.value = null
     }
   }
 

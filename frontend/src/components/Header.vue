@@ -49,7 +49,7 @@ async function logout() {
       background: #334155;
     }
     .nick {
-      color: var(--bg);
+      color: var(--fg);
     }
     .btn {
       padding: 6px 10px;

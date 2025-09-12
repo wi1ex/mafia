@@ -72,7 +72,7 @@ onBeforeUnmount(()=> {
     margin: 0 0 8px;
   }
   .subtitle {
-    color: var(--bg);
+    color: var(--fg);
     margin: 12px 0 6px;
     font-size: 16px;
   }
