@@ -111,13 +111,14 @@ async def join_room(room_id: int = Path(..., ge=1), current_user: User = Depends
 
 
 @log_route("rooms.leave")
-@router.post("/{room_id}/leave", response_model=dict)
+@router.post("/{room_id}/leave", response_model=Ok)
 async def leave_room(room_id: int = Path(..., ge=1), current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_session)) -> Ok:
     r = get_redis()
     await r.srem(f"room:{room_id}:members", current_user.id)
     occ = int(await r.scard(f"room:{room_id}:members") or 0)
     await r.publish("rooms:events", json.dumps({"type": "occupancy", "payload": {"id": room_id, "occupancy": occ}}))
-    if occ == 0 and not await r.exists(f"room:{room_id}:empty_probe"):
+    empty = bool(await r.exists(f"room:{room_id}:empty_probe"))
+    if occ == 0 and not empty:
         await r.setex(f"room:{room_id}:empty_probe", 12, "1")
 
         async def _delayed_cleanup():

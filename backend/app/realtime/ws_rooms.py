@@ -5,6 +5,7 @@ from contextlib import suppress
 from typing import Set
 import structlog
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from starlette.websockets import WebSocketState
 from ..core.clients import get_redis
 from ..settings import settings
 
@@ -64,6 +65,9 @@ async def _broadcast(payload: dict) -> None:
     dead: list[WebSocket] = []
     msg = json.dumps(payload)
     for ws in CLIENTS:
+        if ws.application_state != WebSocketState.CONNECTED:
+            dead.append(ws)
+            continue
         try:
             await ws.send_text(msg)
         except Exception as e:

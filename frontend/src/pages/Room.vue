@@ -7,14 +7,13 @@
           <video :ref="el => setVideoRef(id, el as HTMLVideoElement)" playsinline autoplay :muted="id === localId" />
         </div>
       </div>
-
       <button class="btn btn-danger" type="button" @click="onLeave">Покинуть комнату</button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, ref } from 'vue'
+import { onMounted, onBeforeUnmount, ref, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Room as LkRoom, RoomEvent, createLocalTracks, Track, RemoteTrack, LocalTrack } from 'livekit-client'
 import { useRtcStore } from '@/store'
@@ -45,6 +44,19 @@ function removePeer(id: string) {
   }
 }
 
+function attachLocalToEl() {
+  const el = videoEls.get(localId.value)
+  if (!el) return
+  el.muted = true
+  for (const t of localTracks) {
+    if (t.kind === Track.Kind.Video) {
+      try {
+        t.attach(el)
+      } catch {}
+    }
+  }
+}
+
 function setVideoRef(id: string, el: HTMLVideoElement | null) {
   if (!el) {
     videoEls.delete(id)
@@ -54,28 +66,37 @@ function setVideoRef(id: string, el: HTMLVideoElement | null) {
   el.playsInline = true
   el.muted = id === localId.value
   videoEls.set(id, el)
+  if (id === localId.value) {
+    attachLocalToEl()
+  }
 }
 
 async function onLeave() {
   try {
     await rtc.requestLeave(rid)
   } catch {}
-  for (const t of localTracks) {
+  const room = lk.value
+  if (room) {
+    const pubs = Array.from(room.localParticipant.tracks.values())
+    for (const pub of pubs) {
+      const t = pub.track
+      if (!t) continue
+      try {
+        await room.localParticipant.unpublishTrack(t, { stop: false })
+      } catch {}
+      try {
+        t.detach()
+      } catch {}
+      try {
+        (t.mediaStreamTrack as MediaStreamTrack | undefined)?.stop()
+      } catch {}
+    }
     try {
-      t.detach()
-      await lk.value?.localParticipant.unpublishTrack(t)
-    } catch {}
-    try {
-      (t.mediaStreamTrack as MediaStreamTrack | undefined)?.stop()
+      await room.disconnect()
     } catch {}
   }
+  for (const id of [...videoEls.keys()]) removePeer(id)
   localTracks.length = 0
-  try {
-    await lk.value?.disconnect()
-  } catch {}
-  for (const id of [...videoEls.keys()]) {
-    removePeer(id)
-  }
   lk.value = null
   try {
     await router.push('/')
@@ -108,24 +129,30 @@ onMounted(async () => {
     })
     lk.value = room
 
-    room.on(RoomEvent.TrackSubscribed, (t: RemoteTrack, _pub, part) => {
+    room.on(RoomEvent.TrackSubscribed, (t, _pub, part) => {
       const id = String(part.identity)
       ensurePeer(id)
-      const el = videoEls.get(id)
-      if (!el) return
-      if (t.kind === Track.Kind.Audio || t.kind === Track.Kind.Video) {
-        try {
+      if (t.kind === Track.Kind.Video) {
+        const el = videoEls.get(id)
+        if (el) try {
           t.attach(el)
+        } catch {}
+      } else if (t.kind === Track.Kind.Audio) {
+        const a = new Audio()
+        a.autoplay = true
+        try {
+          t.attach(a)
         } catch {}
       }
     })
 
-    room.on(RoomEvent.TrackUnsubscribed, (t: RemoteTrack, _pub, part) => {
-      const id = String(part.identity)
-      const el = videoEls.get(id)
-      if (el) try {
-        t.detach(el)
-      } catch {}
+    room.on(RoomEvent.TrackUnsubscribed, (t, _pub, part) => {
+      if (t.kind === Track.Kind.Video) {
+        const el = videoEls.get(String(part.identity))
+        if (el) try {
+          t.detach(el)
+        } catch {}
+      }
     })
 
     room.on(RoomEvent.ParticipantDisconnected, (part) => {
@@ -153,17 +180,9 @@ onMounted(async () => {
 
     localId.value = String(room.localParticipant.identity)
     ensurePeer(localId.value)
+    await nextTick()
+    attachLocalToEl()
 
-    const el = videoEls.get(localId.value)
-    if (el) {
-      for (const t of localTracks) {
-        if (t.kind === Track.Kind.Audio || t.kind === Track.Kind.Video) {
-          try {
-            t.attach(el)
-          } catch {}
-        }
-      }
-    }
     for (const t of localTracks) {
       try {
         await room.localParticipant.publishTrack(t)
