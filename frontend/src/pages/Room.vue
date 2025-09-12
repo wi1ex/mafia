@@ -75,29 +75,28 @@ async function onLeave() {
   try {
     await rtc.requestLeave(rid)
   } catch {}
-  const room = lk.value
-  if (room) {
-    const pubs = Array.from(room.localParticipant.tracks.values())
-    for (const pub of pubs) {
-      const t = pub.track
-      if (!t) continue
-      try {
-        await room.localParticipant.unpublishTrack(t, { stop: false })
-      } catch {}
-      try {
-        t.detach()
-      } catch {}
-      try {
-        (t.mediaStreamTrack as MediaStreamTrack | undefined)?.stop()
-      } catch {}
-    }
+  for (const t of localTracks) {
     try {
-      await room.disconnect()
+      t.detach()
+    } catch {}
+    try {
+      (t.mediaStreamTrack as MediaStreamTrack | undefined)?.stop()
     } catch {}
   }
-  for (const id of [...videoEls.keys()]) removePeer(id)
   localTracks.length = 0
+  const room = lk.value
   lk.value = null
+  try {
+    await room?.disconnect()
+  } catch {}
+  for (const [id, el] of Array.from(videoEls.entries())) {
+    try {
+      el.srcObject = null
+    } catch {}
+    videoEls.delete(id)
+  }
+  peerIds.value = []
+  localId.value = ''
   try {
     await router.push('/')
   } catch {}
@@ -170,8 +169,8 @@ onMounted(async () => {
       video: {
         resolution: {
           width: 640,
-          height: 360
-        }
+          height: 360,
+        },
       },
     })
     localTracks.push(...created)
