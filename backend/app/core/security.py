@@ -2,7 +2,6 @@ from __future__ import annotations
 import hashlib
 import hmac
 import time
-import json
 from typing import Any
 import structlog
 import jwt
@@ -40,19 +39,26 @@ def verify_telegram_auth(data: dict[str, Any]) -> bool:
         return False
 
     try:
-        if int(time.time()) - int(ad) > 43200:
+        if int(time.time()) - int(ad) > 12 * 3600:
             log.warning("tg.verify.expired")
             return False
     except Exception:
-        log.warning("tg.verify.bad_auth_date")
+        log.warning("tg.verify.bad_auth_date", auth_date=ad)
         return False
 
     secret = hashlib.sha256(settings.TG_BOT_TOKEN.encode()).digest()
     check = "\n".join(f"{k}={data[k]}" for k in sorted(k for k in data.keys() if k != "hash")).encode()
     calc = hmac.new(secret, check, hashlib.sha256).hexdigest()
 
-    if not hmac.compare_digest(calc, h):
-        log.warning("tg.verify.bad_hash")
+    ok = hmac.compare_digest(calc, h)
+    if not ok:
+        log.warning(
+            "tg.verify.bad_hash",
+            calc_prefix=calc[:12],
+            got_prefix=str(h)[:12],
+            check_preview=(check.decode("utf-8")[:200] + "...") if len(check) > 200 else check.decode("utf-8"),
+            token_sha256_prefix=hashlib.sha256(settings.TG_BOT_TOKEN.encode()).hexdigest()[:12],
+        )
         return False
 
     log.info("tg.verify.ok")
