@@ -4,6 +4,7 @@ import json
 from fastapi import APIRouter, Depends, HTTPException, Path, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from typing import Any
 from ..db import get_session
 from ..models.room import Room
 from ..models.user import User
@@ -19,8 +20,20 @@ from ..core.route_utils import log_route
 router = APIRouter()
 
 
+def _to_redis_mapping(d: dict[str, Any]) -> dict[str, str]:
+    out: dict[str, str] = {}
+    for k, v in d.items():
+        if isinstance(v, bool):
+            out[k] = "1" if v else "0"
+        elif v is None:
+            out[k] = ""
+        else:
+            out[k] = str(v)
+    return out
+
+
 def _serialize(room: Room, *, occupancy: int) -> dict:
-    return {
+    data = {
         "id": room.id,
         "title": room.title,
         "user_limit": room.user_limit,
@@ -30,6 +43,7 @@ def _serialize(room: Room, *, occupancy: int) -> dict:
         "updated_at": room.updated_at.isoformat(),
         "occupancy": occupancy,
     }
+    return _to_redis_mapping(data)
 
 
 @log_route("rooms.create")
