@@ -56,11 +56,12 @@ services:
     environment:
       LIVEKIT_CONFIG: |
         port: ${LIVEKIT_HTTP_PORT}
-        log_level: warn
+        log_level: info
         region: eu-nl
+        node_ip: ${PUBLIC_IP}
+        external_ip: ${PUBLIC_IP}
         rtc:
-          stun_servers: []
-          use_external_ip: false
+          use_external_ip: true
           port_range_start: ${LIVEKIT_PORT_RANGE_START}
           port_range_end: ${LIVEKIT_PORT_RANGE_END}
           tcp_port: ${LIVEKIT_TCP_PORT}
