@@ -63,7 +63,6 @@ import {
   setLogLevel,
   LogLevel
 } from 'livekit-client'
-import '@livekit/components-styles';
 import { useRtcStore } from '@/store'
 
 setLogLevel(LogLevel.debug)
