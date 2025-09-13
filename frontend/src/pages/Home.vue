@@ -68,7 +68,7 @@ onBeforeUnmount(()=> {
 <style lang="scss" scoped>
 .card {
   .title {
-    color: var(--bg);
+    color: var(--fg);
     margin: 0 0 8px;
   }
   .subtitle {

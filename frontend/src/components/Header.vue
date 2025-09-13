@@ -30,7 +30,7 @@ async function logout() {
   align-items: center;
   padding: 12px 16px;
   .brand {
-    color: var(--bg);
+    color: var(--fg);
     font-weight: 700;
     letter-spacing: 0.5px;
   }
