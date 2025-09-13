@@ -58,8 +58,6 @@ services:
         port: ${LIVEKIT_HTTP_PORT}
         log_level: info
         region: eu-nl
-        node_ip: ${PUBLIC_IP}
-        external_ip: ${PUBLIC_IP}
         rtc:
           use_external_ip: true
           port_range_start: ${LIVEKIT_PORT_RANGE_START}
