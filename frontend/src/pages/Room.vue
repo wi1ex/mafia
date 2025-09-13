@@ -71,6 +71,7 @@ const rtc = useRtcStore()
 
 const rid = Number(route.params.id)
 const lk = ref<LkRoom | null>(null)
+let joined = false
 
 const localId = ref<string>('')
 const peerIds = ref<string[]>([])
@@ -186,7 +187,7 @@ async function toggleVisibility() {
 async function onLeave() {
   const room = lk.value
   lk.value = null
-  try { await rtc.requestLeave(rid) } catch {}
+  if (joined) { try { await rtc.requestLeave(rid) } catch {} }
   try { await room?.disconnect() } catch {}
   for (const [, el] of Array.from(videoEls.entries())) {
     try { el.srcObject = null } catch {}
@@ -270,16 +271,20 @@ onMounted(async () => {
     })
 
     await room.connect(ws_url, token)
+    joined = true
 
     localId.value = String(room.localParticipant.identity)
     ensurePeer(localId.value)
     await nextTick()
 
-    // включаем устройства по текущим флажкам
-    if (micOn.value) await room.localParticipant.setMicrophoneEnabled(true)
-    if (camOn.value) await room.localParticipant.setCameraEnabled(true, { resolution: { width: 640, height: 360 } })
-
-    // первый экспорт статусов
+    // включаем устройства по флагам, не покидаем страницу при ошибке
+    try {
+      if (micOn.value) await room.localParticipant.setMicrophoneEnabled(true)
+    } catch { micOn.value = false }
+    try {
+      if (camOn.value) await room.localParticipant.setCameraEnabled(true, { resolution: { width: 640, height: 360 } })
+    } catch { camOn.value = false }
+    // первый экспорт статусов после фактического состояния
     await publishMyMetadata(room.localParticipant)
 
     // подстроить подписки для уже присутствующих
@@ -290,7 +295,8 @@ onMounted(async () => {
       applySubscriptionsForParticipant(p)
     })
   } catch {
-    try { await router.replace('/') } catch {}
+    try { await lk.value?.disconnect() } catch {}
+    lk.value = null
   }
 })
 
@@ -318,7 +324,7 @@ video { width:100%; height:100%; min-height:180px; display:block; object-fit:cov
     padding:8px 12px; border-radius:8px; border:0; cursor:pointer;
     background:#12202e; color:#e5e7eb;
     &[aria-pressed="false"] { opacity:.75 }
-    &.danger { background: var(--color-danger); color:#190808; }
+    &.danger { background: var(--color-danger); color: #883c3c; }
   }
 }
 </style>

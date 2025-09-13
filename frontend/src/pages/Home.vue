@@ -89,7 +89,7 @@ onBeforeUnmount(()=> {
     align-items: center;
     gap: 8px;
     margin: 8px 0;
-    color: var(--bg);
+    color: var(--fg);
     &__title {
       font-weight: 500;
     }
@@ -100,6 +100,7 @@ onBeforeUnmount(()=> {
   .link {
     margin-left: auto;
     text-decoration: underline;
+    color: var(--fg);
     &.disabled {
       opacity: 0.5;
       cursor: not-allowed;
