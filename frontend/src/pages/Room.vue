@@ -120,7 +120,7 @@ function setVideoRef(id: string, el: HTMLVideoElement | null) {
       }
     })
   } else {
-    const p = room.participants.get(id)
+    const p = room.getParticipantByIdentity?.(id) as RemoteParticipant | undefined
     p?.getTrackPublications().forEach(pub => {
       if (pub.kind === Track.Kind.Video && pub.track) {
         try { pub.track.attach(el) } catch {}
@@ -152,17 +152,30 @@ function parseMeta(s: unknown): Status | null {
 }
 
 function applySubscriptionsForParticipant(p: RemoteParticipant) {
-  // аудио
-  p.getTrackPublications().forEach((pub: RemoteTrackPublication) => {
-    if (pub.kind === Track.Kind.Audio) pub.setSubscribed(speakersOn.value).catch(() => {})
-    if (pub.kind === Track.Kind.Video) pub.setSubscribed(visibilityOn.value).catch(() => {})
+  p.getTrackPublications().forEach((pub) => {
+    try {
+      if (pub.kind === Track.Kind.Audio) pub.setSubscribed(speakersOn.value)
+      if (pub.kind === Track.Kind.Video) pub.setSubscribed(visibilityOn.value)
+    } catch {}
   })
 }
 
 function applySubscriptionsForAll() {
   const room = lk.value
   if (!room) return
-  room.participants.forEach(p => applySubscriptionsForParticipant(p))
+
+  // через identity из уже известных peerIds
+  peerIds.value
+    .filter(id => id !== localId.value)
+    .forEach(id => {
+      const p = room.getParticipantByIdentity?.(id) as RemoteParticipant | undefined
+      if (p) applySubscriptionsForParticipant(p)
+    })
+
+  // либо, если хотите обходить Map напрямую:
+  ;((room as any).participants ?? (room as any).remoteParticipants)?.forEach?.(
+    (p: RemoteParticipant) => applySubscriptionsForParticipant(p)
+  )
 }
 
 async function toggleMic() {
@@ -360,8 +373,8 @@ onMounted(async () => {
       if (st) statusMap[String(p.identity)] = st
       applySubscriptionsForParticipant(p)
     })
-  } catch {
-    console.error('room.connect failed', e)
+  } catch (err) {
+    console.error('room.connect failed', err)
     try { await lk.value?.disconnect() } catch {}
     lk.value = null
   }
