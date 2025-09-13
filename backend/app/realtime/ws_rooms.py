@@ -72,7 +72,6 @@ async def _broadcast(payload: dict) -> None:
             await ws.send_text(msg)
         except Exception as e:
             dead.append(ws)
-            log.error("ws.broadcast.error", err=str(e))
     for ws in dead:
         CLIENTS.discard(ws)
 

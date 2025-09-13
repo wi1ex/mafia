@@ -22,6 +22,7 @@ const route = useRoute()
 const router = useRouter()
 const rtc = useRtcStore()
 
+const leaving = ref(false)
 const rid = Number(route.params.id)
 const lk = ref<LkRoom | null>(null)
 const localTracks: LocalTrack[] = []
@@ -72,6 +73,8 @@ function setVideoRef(id: string, el: HTMLVideoElement | null) {
 }
 
 async function onLeave() {
+  if (leaving.value) return
+  leaving.value = true
   try {
     await rtc.requestLeave(rid)
   } catch {}
