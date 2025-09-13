@@ -4,6 +4,7 @@ import mimetypes
 from datetime import timedelta
 from typing import Optional
 import structlog
+from minio import Minio
 from minio.error import S3Error
 from ..settings import settings
 from ..core.clients import get_minio_private, get_minio_public, get_httpx
@@ -21,7 +22,8 @@ _ct2ext = {
 }
 
 
-def ensure_bucket(minio) -> None:
+def ensure_bucket(minio_client: Optional[Minio] = None) -> None:
+    minio = minio_client or get_minio_private()
     if not minio.bucket_exists(_bucket):
         try:
             minio.make_bucket(_bucket)
