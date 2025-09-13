@@ -21,11 +21,10 @@ _ct2ext = {
 }
 
 
-def ensure_bucket() -> None:
-    c = get_minio_private()
-    if not c.bucket_exists(_bucket):
+def ensure_bucket(minio) -> None:
+    if not minio.bucket_exists(_bucket):
         try:
-            c.make_bucket(_bucket)
+            minio.make_bucket(_bucket)
             log.info("minio.bucket.created", bucket=_bucket)
         except S3Error as e:
             if e.code not in ("BucketAlreadyOwnedByYou", "BucketAlreadyExists"):
@@ -50,19 +49,18 @@ def put_avatar(user_id: int, content: bytes, content_type: str | None) -> Option
         log.warning("avatar.unsupported_content_type", user_id=user_id, content_type=ct or content_type)
         return None
 
-    ensure_bucket()
-    c = get_minio_private()
+    minio = get_minio_private()
+    ensure_bucket(minio)
     ext = _ct2ext[ct]
-
     prefix = f"avatars/{user_id}."
-    for o in c.list_objects(_bucket, prefix=prefix, recursive=True):
+    for o in minio.list_objects(_bucket, prefix=prefix, recursive=True):
         try:
-            c.remove_object(_bucket, o.object_name)
+            minio.remove_object(_bucket, o.object_name)
         except S3Error:
             log.debug("avatar.remove_old_failed", user_id=user_id, object=o.object_name)
 
     name, obj = f"{user_id}{ext}", f"avatars/{user_id}{ext}"
-    c.put_object(_bucket, obj, io.BytesIO(content), length=len(content), content_type=ct or mimetypes.types_map.get(ext, "image/jpeg"))
+    minio.put_object(_bucket, obj, io.BytesIO(content), length=len(content), content_type=ct or mimetypes.types_map.get(ext, "image/jpeg"))
     log.info("avatar.stored", user_id=user_id, ext=ext, bytes=len(content))
     return name
 
@@ -71,9 +69,9 @@ def presign_avatar(filename: str, *, expires_hours: int = 1) -> Optional[str]:
     if not filename:
         return None
     try:
-        url = get_minio_public().presigned_get_object(_bucket, f"avatars/{filename}", expires=timedelta(hours=expires_hours))
-        host = f"https://{settings.DOMAIN}/"
-        return url.replace(host, host + "media/", 1) if url.startswith(host) else url
+        minio = get_minio_public()
+        url = minio.presigned_get_object(_bucket, f"avatars/{filename}", expires=timedelta(hours=expires_hours))
+        return url
     except Exception:
         log.debug("avatar.presign_failed")
         return None

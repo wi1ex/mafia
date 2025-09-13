@@ -20,7 +20,7 @@
       <div v-if="auth.isAuthed" class="create">
         <h3 class="subtitle">Создать комнату</h3>
         <input v-model.trim="title" class="input" placeholder="Название" />
-        <input v-model.number="limit" class="input" type="number" min="2" max="32" placeholder="Лимит" />
+        <input v-model.number="limit" class="input" type="number" min="2" max="20" placeholder="Лимит" />
         <button class="btn btn-primary" :disabled="creating || !valid" @click="onCreate">
           {{ creating ? 'Создаю…' : 'Создать' }}
         </button>
@@ -41,9 +41,9 @@ const auth = useAuthStore()
 const roomsStore = useRoomsStore()
 
 const title = ref('')
-const limit = ref(8)
+const limit = ref(12)
 const creating = ref(false)
-const valid = computed(() => (title.value || '').length > 0 && limit.value >= 2 && limit.value <= 32)
+const valid = computed(() => (title.value || '').length > 0 && limit.value >= 2 && limit.value <= 20)
 
 async function onCreate() {
   if (!valid.value || creating.value) return
