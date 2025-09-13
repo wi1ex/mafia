@@ -104,6 +104,24 @@ function setVideoRef(id: string, el: HTMLVideoElement | null) {
   el.playsInline = true
   el.muted = id === localId.value
   videoEls.set(id, el)
+
+  // если участник уже публиковал видео — прикрепим сразу
+  const room = lk.value
+  if (!room) return
+  if (id === String(room.localParticipant.identity)) {
+    room.localParticipant.getTrackPublications().forEach(pub => {
+      if (pub.kind === Track.Kind.Video && pub.track) {
+        try { pub.track.attach(el) } catch {}
+      }
+    })
+  } else {
+    const p = room.participants.get(id)
+    p?.getTrackPublications().forEach(pub => {
+      if (pub.kind === Track.Kind.Video && pub.track) {
+        try { pub.track.attach(el) } catch {}
+      }
+    })
+  }
 }
 
 function badgeClass(on?: boolean) { return on ? 'on' : 'off' }
@@ -146,26 +164,26 @@ async function toggleMic() {
   const room = lk.value
   if (!room) return
   const next = !micOn.value
+  micOn.value = next
   try {
     await room.localParticipant.setMicrophoneEnabled(next)
-    micOn.value = next
     await publishMyMetadata(room.localParticipant)
-  } catch { /* revert UI only if нужно */ }
+  } catch {
+    micOn.value = !next
+  }
 }
 
 async function toggleCam() {
   const room = lk.value
   if (!room) return
   const next = !camOn.value
+  camOn.value = next
   try {
-    if (next) {
-      await room.localParticipant.setCameraEnabled(true, { resolution: { width: 640, height: 360 } })
-    } else {
-      await room.localParticipant.setCameraEnabled(false)
-    }
-    camOn.value = next
+    await room.localParticipant.setCameraEnabled(next, next ? { resolution: { width: 640, height: 360 } } : undefined)
     await publishMyMetadata(room.localParticipant)
-  } catch {}
+  } catch {
+    camOn.value = !next
+  }
 }
 
 async function toggleSpeakers() {
@@ -225,6 +243,7 @@ onMounted(async () => {
         if (el) try { pub.track?.attach(el) } catch {}
       }
     })
+
     room.on(RoomEvent.LocalTrackUnpublished, (pub: LocalTrackPublication) => {
       if (pub.kind === Track.Kind.Video) {
         const el = videoEls.get(localId.value)
@@ -236,11 +255,17 @@ onMounted(async () => {
     room.on(RoomEvent.TrackSubscribed, (t: RemoteTrack, _pub, part) => {
       const id = String(part.identity)
       ensurePeer(id)
-      const el = videoEls.get(id)
-      if (el && (t.kind === Track.Kind.Video || t.kind === Track.Kind.Audio)) {
-        try { t.attach(el) } catch {}
+      if (t.kind === Track.Kind.Video) {
+        const el = videoEls.get(id)
+        if (el) try { t.attach(el) } catch {}
+      } else if (t.kind === Track.Kind.Audio) {
+        const a = new Audio()
+        a.autoplay = true
+        a.playsInline = true
+        try { t.attach(a) } catch {}
       }
     })
+
     room.on(RoomEvent.TrackUnsubscribed, (t: RemoteTrack, _pub, part) => {
       const el = videoEls.get(String(part.identity))
       if (el) try { t.detach(el) } catch {}
@@ -258,6 +283,7 @@ onMounted(async () => {
       const st = parseMeta(p.metadata)
       if (st) statusMap[String(p.identity)] = st
     })
+
     room.on(RoomEvent.ParticipantDisconnected, (p) => {
       removePeer(String(p.identity))
     })

@@ -25,8 +25,10 @@ export const useRoomsStore = defineStore('rooms', () => {
   }
 
   function upsert(item: Partial<Room> & { id: number }) {
-    const i = rooms.value.findIndex(r => r.id === item.id)
-    i >= 0 ? rooms.value.splice(i, 1, { ...rooms.value[i], ...item } as Room) : rooms.value.push(item as Room)
+    const id = Number(item.id)
+    const i = rooms.value.findIndex(r => r.id === id)
+    const merged = { ...(i >= 0 ? rooms.value[i] : {}), ...item, id } as Room
+    i >= 0 ? rooms.value.splice(i, 1, merged) : rooms.value.push(merged)
   }
 
   function remove(id: number) {
@@ -36,6 +38,21 @@ export const useRoomsStore = defineStore('rooms', () => {
   function url(): string {
     const proto = location.protocol === 'https:' ? 'wss' : 'ws'
     return `${proto}://${location.host}/ws/rooms`
+  }
+
+  function toNum(v: any, d = 0) { const n = Number(v); return Number.isFinite(n) ? n : d }
+
+  function normRoom(x: any): Room {
+    return {
+      id: toNum(x.id),
+      title: String(x.title || ''),
+      user_limit: toNum(x.user_limit),
+      is_private: (x.is_private === true || x.is_private === '1' || x.is_private === 1),
+      creator: toNum(x.creator),
+      created_at: String(x.created_at || ''),
+      updated_at: String(x.updated_at || ''),
+      occupancy: toNum(x.occupancy),
+    }
   }
 
   function startWS() {
@@ -56,9 +73,10 @@ export const useRoomsStore = defineStore('rooms', () => {
     sock.onmessage = (ev) => {
       try {
         const m = JSON.parse(ev.data)
-        if (m.type === 'rooms_snapshot') setAll(m.payload as Room[])
-        else if (m.type === 'room_deleted') remove(m.payload.id)
-        else if (m.type === 'room_created' || m.type === 'occupancy') upsert(m.payload as Room)
+        if (m.type === 'rooms_snapshot') setAll((m.payload as any[]).map(normRoom))
+        else if (m.type === 'room_deleted') remove(toNum(m.payload.id))
+        else if (m.type === 'room_created') upsert(normRoom(m.payload))
+        else if (m.type === 'occupancy') upsert({ id: toNum(m.payload.id), occupancy: toNum(m.payload.occupancy) } as any)
       } catch {}
     }
 

@@ -28,7 +28,7 @@ def _to_redis_mapping(d: dict[str, Any]) -> dict[str, str]:
         elif v is None:
             out[k] = ""
         else:
-            out[k] = str(v)
+            out[k] = v
     return out
 
 
@@ -68,6 +68,7 @@ async def create_room(body: RoomCreateIn, db: AsyncSession = Depends(get_session
     await r.hset(f"room:{room.id}:params", mapping=data)
     await r.sadd("rooms:index", room.id)
     await db.commit()
+    await r.publish("rooms:events", json.dumps({"type": "room_created", "payload": data}))
 
     await log_action(db, user_id=current_user.id, username=current_user.username, action="room_created",
                      details={
@@ -75,7 +76,6 @@ async def create_room(body: RoomCreateIn, db: AsyncSession = Depends(get_session
                          "username": current_user.username,
                          "room_id": room.id,
                      })
-    await r.publish("rooms:events", json.dumps({"type": "room_created", "payload": data}))
 
     return RoomOut(
         id=room.id,
@@ -117,7 +117,7 @@ async def join_room(room_id: int = Path(..., ge=1), current_user: User = Depends
 
 @log_route("rooms.leave")
 @router.post("/{room_id}/leave", response_model=Ok)
-async def leave_room(room_id: int = Path(..., ge=1), current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_session)) -> Ok:
+async def leave_room(room_id: int = Path(..., ge=1), current_user: User = Depends(get_current_user)) -> Ok:
     r = get_redis()
     await r.srem(f"room:{room_id}:members", current_user.id)
     occ = int(await r.scard(f"room:{room_id}:members") or 0)
