@@ -17,16 +17,21 @@ async def lifespan(app) -> AsyncIterator[None]:
     log = structlog.get_logger()
     log.info("app.start", project=settings.PROJECT_NAME, domain=settings.DOMAIN)
 
+    log.info("clients.init.start")
     init_clients()
-    r = get_redis()
-    redis_ping = asyncio.create_task(r.ping())
-    minio_ready = asyncio.to_thread(ensure_bucket)
 
     async with engine.begin() as conn:
         await conn.execute(text("SELECT 1"))
         await conn.run_sync(Base.metadata.create_all)
 
-    await asyncio.gather(redis_ping, minio_ready)
+    async def redis_ping():
+        await get_redis().ping()
+
+    async def minio_ready():
+        await asyncio.to_thread(ensure_bucket)
+
+    await asyncio.gather(redis_ping(), minio_ready())
+    log.info("clients.init.ok")
     try:
         yield
     finally:
