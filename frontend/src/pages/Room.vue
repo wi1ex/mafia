@@ -76,6 +76,7 @@ let joined = false
 const localId = ref<string>('')
 const peerIds = ref<string[]>([])
 const videoEls = new Map<string, HTMLVideoElement>()
+const audioEls = new Map<string, HTMLAudioElement>()
 const statusMap = reactive<Record<string, Status>>({})
 
 const micOn = ref(true)
@@ -225,15 +226,20 @@ onMounted(async () => {
       adaptiveStream: true,
       dynacast: true,
       disconnectOnPageLeave: true,
-      publishDefaults: {
-        videoCodec: 'vp9',
-        videoSimulcastLayers: [],
-        dtx: true,
-        red: true,
-        screenShareEncoding: { maxBitrate: 2_000_000, maxFramerate: 25 },
-      },
-      videoCaptureDefaults: { resolution: { width: 640, height: 360 } },
     })
+    // const room = new LkRoom({
+    //   adaptiveStream: true,
+    //   dynacast: true,
+    //   disconnectOnPageLeave: true,
+    //   publishDefaults: {
+    //     videoCodec: 'vp9',
+    //     videoSimulcastLayers: [],
+    //     dtx: true,
+    //     red: true,
+    //     screenShareEncoding: { maxBitrate: 2_000_000, maxFramerate: 25 },
+    //   },
+    //   videoCaptureDefaults: { resolution: { width: 640, height: 360 } },
+    // })
     lk.value = room
 
     // локальные публикации → прикрепляем к своему <video>
@@ -259,9 +265,14 @@ onMounted(async () => {
         const el = videoEls.get(id)
         if (el) try { t.attach(el) } catch {}
       } else if (t.kind === Track.Kind.Audio) {
-        const a = new Audio()
-        a.autoplay = true
-        a.playsInline = true
+        let a = audioEls.get(id)
+        if (!a) {
+          a = new Audio()
+          a.autoplay = true
+          a.playsInline = true
+          audioEls.set(id, a)
+          document.body.appendChild(a) // можно скрыть через CSS, но пусть будет в DOM
+        }
         try { t.attach(a) } catch {}
       }
     })
@@ -308,7 +319,16 @@ onMounted(async () => {
       if (micOn.value) await room.localParticipant.setMicrophoneEnabled(true)
     } catch { micOn.value = false }
     try {
-      if (camOn.value) await room.localParticipant.setCameraEnabled(true, { resolution: { width: 640, height: 360 } })
+      if (camOn.value) {
+        await room.localParticipant.setCameraEnabled(true, { resolution: { width: 640, height: 360 } })
+        // livekit-way: берём опубликованный видеотрек и прикрепляем к нашему <video>
+        const vpub = Array.from(room.localParticipant.videoTrackPublications.values())[0]
+        const el = videoEls.get(localId.value)
+        if (vpub?.track && el) {
+          el.muted = true // на всякий случай
+          vpub.track.attach(el)
+        }
+      }
     } catch { camOn.value = false }
     // первый экспорт статусов после фактического состояния
     await publishMyMetadata(room.localParticipant)
