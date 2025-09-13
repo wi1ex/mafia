@@ -1,11 +1,11 @@
 from __future__ import annotations
 import asyncio
 import json
-from fastapi import APIRouter, Depends, HTTPException, Path, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Path, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Any
-from ..db import get_session
+from ..db import SessionLocal, get_session
 from ..models.room import Room
 from ..models.user import User
 from ..core.logging import log_action
@@ -38,7 +38,7 @@ def _serialize(room: Room, *, occupancy: int) -> dict:
         "title": room.title,
         "user_limit": room.user_limit,
         "is_private": room.is_private,
-        "created_by_user_id": room.created_by_user_id,
+        "creator": room.creator,
         "created_at": room.created_at.isoformat(),
         "updated_at": room.updated_at.isoformat(),
         "occupancy": occupancy,
@@ -48,7 +48,7 @@ def _serialize(room: Room, *, occupancy: int) -> dict:
 
 @log_route("rooms.create")
 @router.post("", status_code=201, response_model=RoomOut)
-async def create_room(body: RoomCreateIn, request: Request, db: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)) -> RoomOut:
+async def create_room(body: RoomCreateIn, db: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)) -> RoomOut:
     title = body.title.strip()
     if not title:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="title empty")
@@ -57,7 +57,7 @@ async def create_room(body: RoomCreateIn, request: Request, db: AsyncSession = D
         title=title,
         user_limit=body.user_limit,
         is_private=body.is_private,
-        created_by_user_id=current_user.id,
+        creator=current_user.id,
     )
     db.add(room)
     await db.flush()
@@ -69,7 +69,12 @@ async def create_room(body: RoomCreateIn, request: Request, db: AsyncSession = D
     await r.sadd("rooms:index", room.id)
     await db.commit()
 
-    await log_action(db, user_id=current_user.id, username=current_user.username, action="room_created", details={"room_id": room.id})
+    await log_action(db, user_id=current_user.id, username=current_user.username, action="room_created",
+                     details={
+                         "user_id": current_user.id,
+                         "username": current_user.username,
+                         "room_id": room.id,
+                     })
     await r.publish("rooms:events", json.dumps({"type": "room_created", "payload": data}))
 
     return RoomOut(
@@ -77,7 +82,7 @@ async def create_room(body: RoomCreateIn, request: Request, db: AsyncSession = D
         title=room.title,
         user_limit=room.user_limit,
         is_private=room.is_private,
-        created_by_user_id=room.created_by_user_id,
+        creator=room.creator,
         created_at=room.created_at.isoformat(),
         updated_at=room.updated_at.isoformat(),
         occupancy=0,
@@ -124,11 +129,17 @@ async def leave_room(room_id: int = Path(..., ge=1), current_user: User = Depend
         async def _delayed_cleanup():
             await asyncio.sleep(10)
             if (await r.scard(f"room:{room_id}:members")) == 0:
-                rm2 = (await db.execute(select(Room).where(Room.id == room_id))).scalar_one_or_none()
-                if rm2:
-                    await db.delete(rm2)
-                    await log_action(db, user_id=current_user.id, username=current_user.username, action="room_deleted", details={"room_id": room_id})
-                    await db.commit()
+                async with SessionLocal() as s:
+                    rm2 = (await s.execute(select(Room).where(Room.id == room_id))).scalar_one_or_none()
+                    if rm2:
+                        await s.delete(rm2)
+                        await log_action(s, user_id=current_user.id, username=current_user.username, action="room_deleted",
+                                         details={
+                                             "user_id": current_user.id,
+                                             "username": current_user.username,
+                                             "room_id": room_id,
+                                         })
+                        await s.commit()
                 await r.delete(f"room:{room_id}:members")
                 await r.delete(f"room:{room_id}:params")
                 await r.srem("rooms:index", room_id)

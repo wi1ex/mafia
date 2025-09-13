@@ -2,10 +2,10 @@ from __future__ import annotations
 import structlog
 from fastapi import Depends, HTTPException, Response, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from sqlalchemy import select
+from sqlalchemy import select, update, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.security import create_access_token, create_refresh_token, decode_token
-from ..db import get_session
+from ..db import SessionLocal, get_session
 from ..models.user import User
 from ..settings import settings
 
@@ -19,6 +19,12 @@ COOKIE_PATH = "/api"
 
 bearer = HTTPBearer(auto_error=False)
 _unauth = HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
+
+
+async def _touch_last_login(user_id: int) -> None:
+    async with SessionLocal() as db:
+        await db.execute(update(User).where(User.id == user_id).values(last_login_at=func.now()))
+        await db.commit()
 
 
 def _set_refresh_cookie(resp: Response, token: str) -> None:
@@ -42,6 +48,7 @@ async def new_login_session(resp: Response, *, user_id: int, role: str) -> str:
     rt = create_refresh_token(sub=user_id, ttl_days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
     _set_refresh_cookie(resp, rt)
     at = create_access_token(sub=user_id, role=role, ttl_minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    await _touch_last_login(user_id)
     log.info("session.login", user_id=user_id, role=role)
     return at
 
@@ -49,11 +56,14 @@ async def new_login_session(resp: Response, *, user_id: int, role: str) -> str:
 async def rotate_refresh(resp: Response, *, raw_refresh_jwt: str) -> bool:
     try:
         p = decode_token(raw_refresh_jwt)
-        if p.get("typ") != "refresh" or not int(p.get("sub") or 0):
+        uid = int(p.get("sub") or 0)
+        if p.get("typ") != "refresh" or not uid:
             return False
     except Exception:
         return False
-    _set_refresh_cookie(resp, create_refresh_token(sub=int(p["sub"]), ttl_days=settings.REFRESH_TOKEN_EXPIRE_DAYS))
+    rt = create_refresh_token(sub=uid, ttl_days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    _set_refresh_cookie(resp, rt)
+    await _touch_last_login(uid)
     log.debug("session.refresh.rotated")
     return True
 

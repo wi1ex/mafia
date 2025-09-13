@@ -5,6 +5,7 @@ import structlog
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from typing import Callable, Awaitable
+from ..core.security import decode_token
 
 
 async def _logging_logic(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
@@ -15,7 +16,6 @@ async def _logging_logic(request: Request, call_next: Callable[[Request], Awaita
     auth = request.headers.get("authorization") or ""
     if auth.lower().startswith("bearer "):
         try:
-            from ..core.security import decode_token
             p = decode_token(auth[7:].strip())
             if p.get("typ") == "access":
                 user_id = int(p.get("sub") or 0) or None

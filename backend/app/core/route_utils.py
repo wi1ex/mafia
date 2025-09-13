@@ -1,9 +1,10 @@
 from __future__ import annotations
 import asyncio
 import functools
-import structlog
 from typing import Callable, Any
-from fastapi import HTTPException
+import structlog
+from fastapi import HTTPException, Depends
+from ..models.user import User
 from ..services.sessions import get_current_user
 
 
@@ -39,8 +40,7 @@ def log_route(name: str):
 
 
 def require_roles(*roles: str):
-    async def _dep():
-        user = await get_current_user()
+    async def _dep(user: User = Depends(get_current_user)) -> bool:
         if roles and getattr(user, "role", None) not in roles:
             raise HTTPException(status_code=403, detail="forbidden")
         return True

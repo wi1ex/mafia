@@ -1,7 +1,7 @@
 from __future__ import annotations
-from fastapi import APIRouter, HTTPException, Depends, Response, Request, status
-from sqlalchemy import select, update, func
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, HTTPException, Depends, Response, Request, status
 from ..db import get_session
 from ..models.user import User
 from ..core.security import verify_telegram_auth, decode_token
@@ -29,33 +29,34 @@ async def login_with_telegram(payload: TelegramAuthIn, resp: Response, db: Async
     if not verify_telegram_auth(data_for_sig):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid telegram auth")
 
+    new_user = False
     uid = int(payload.id)
-    username = payload.username
-    filename = None
-
     user = (await db.execute(select(User).where(User.id == uid))).scalar_one_or_none()
-    if payload.photo_url and (not user or not user.photo_url):
-        photo = await download_telegram_photo(payload.photo_url)
-        if photo:
-            content, ct = photo
-            filename = put_avatar(uid, content, ct)
-
-    if user:
-        vals = {"last_login_at": func.now()}
-        if username is not None:
-            vals["username"] = username
-        if filename is not None:
-            vals["photo_url"] = filename
-        await db.execute(update(User).where(User.id == uid).values(**vals))
-        await db.commit()
-        user = (await db.execute(select(User).where(User.id == uid))).scalar_one()
-    else:
+    if not user:
+        new_user = True
+        if payload.username:
+            username = payload.username
+            taken = (await db.execute(select(1).where(User.username == username).limit(1))).first() is not None
+            if taken:
+                username = f'user{uid}'
+        else:
+            username = f'user{uid}'
+        filename = None
+        if payload.photo_url and (not user or not user.photo_url):
+            photo = await download_telegram_photo(payload.photo_url)
+            if photo:
+                content, ct = photo
+                filename = put_avatar(uid, content, ct)
         user = User(id=uid, username=username, role="user", photo_url=filename)
         db.add(user)
         await db.commit()
 
-    await log_action(db, user_id=user.id, username=user.username, action="login", details={})
-
+    await log_action(db, user_id=user.id, username=user.username, action="register" if new_user else "login",
+                     details={
+                         "user_id": user.id,
+                         "username": user.username,
+                         "role": user.role,
+                     })
     at = await new_login_session(resp, user_id=user.id, role=user.role)
     return TokenOut(access_token=at, user=UserOut(
         id=user.id,

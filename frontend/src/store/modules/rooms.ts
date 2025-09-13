@@ -7,7 +7,7 @@ export interface Room {
   title: string;
   user_limit: number;
   is_private: boolean;
-  created_by_user_id: number;
+  creator: number;
   created_at: string;
   updated_at: string;
   occupancy: number;

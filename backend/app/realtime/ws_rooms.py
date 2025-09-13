@@ -50,7 +50,7 @@ async def _snapshot() -> list[dict]:
                 "title": data.get("title", ""),
                 "user_limit": _to_int(data.get("user_limit"), 0),
                 "is_private": _to_bool(data.get("is_private", 0)),
-                "created_by_user_id": _to_int(data.get("created_by_user_id"), 0),
+                "creator": _to_int(data.get("creator"), 0),
                 "created_at": data.get("created_at", ""),
                 "updated_at": data.get("updated_at", ""),
                 "occupancy": _to_int(data.get("occupancy"), 0),
