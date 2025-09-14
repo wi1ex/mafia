@@ -88,6 +88,16 @@ const camOn = ref(true)
 const speakersOn = ref(true)
 const visibilityOn = ref(true)
 
+function participantsMap(room?: LkRoom | null) {
+  return (room as any)?.participants ?? (room as any)?.remoteParticipants as | Map<string, RemoteParticipant> | undefined
+}
+
+function getByIdentity(room: LkRoom, id: string) {
+  return (room as any)?.getParticipantByIdentity?.(id)
+      ?? participantsMap(room)?.get?.(id)
+      ?? undefined
+}
+
 function ensurePeer(id: string) {
   if (!peerIds.value.includes(id)) peerIds.value.push(id)
   if (!statusMap[id]) statusMap[id] = { mic: true, cam: true, speakers: true, visibility: true }
@@ -120,7 +130,7 @@ function setVideoRef(id: string, el: HTMLVideoElement | null) {
       }
     })
   } else {
-    const p = room.getParticipantByIdentity?.(id) as RemoteParticipant | undefined
+    const p = getByIdentity(room, id)
     p?.getTrackPublications().forEach(pub => {
       if (pub.kind === Track.Kind.Video && pub.track) {
         try { pub.track.attach(el) } catch {}
@@ -163,19 +173,7 @@ function applySubscriptionsForParticipant(p: RemoteParticipant) {
 function applySubscriptionsForAll() {
   const room = lk.value
   if (!room) return
-
-  // через identity из уже известных peerIds
-  peerIds.value
-    .filter(id => id !== localId.value)
-    .forEach(id => {
-      const p = room.getParticipantByIdentity?.(id) as RemoteParticipant | undefined
-      if (p) applySubscriptionsForParticipant(p)
-    })
-
-  // либо, если хотите обходить Map напрямую:
-  ;((room as any).participants ?? (room as any).remoteParticipants)?.forEach?.(
-    (p: RemoteParticipant) => applySubscriptionsForParticipant(p)
-  )
+  participantsMap(room)?.forEach((p) => applySubscriptionsForParticipant(p))
 }
 
 async function toggleMic() {
@@ -367,7 +365,7 @@ onMounted(async () => {
     await publishMyMetadata(room.localParticipant)
 
     // подстроить подписки для уже присутствующих
-    room.participants.forEach(p => {
+    participantsMap(room)?.forEach((p) => {
       ensurePeer(String(p.identity))
       const st = parseMeta(p.metadata)
       if (st) statusMap[String(p.identity)] = st
