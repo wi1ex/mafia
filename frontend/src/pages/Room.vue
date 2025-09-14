@@ -39,6 +39,7 @@ import {
   Room as LkRoom,
   RoomEvent,
   Track,
+  VideoPresets,
 } from 'livekit-client'
 import { useRtcStore } from '@/store'
 
@@ -210,30 +211,30 @@ onMounted(async () => {
   try {
     const { ws_url, token } = await rtc.requestJoin(rid)
     const room = new LkRoom({
-      dynacast: true,
+      // dynacast: true,
       publishDefaults: {
         videoCodec: 'vp8',
-        simulcast: true,
-        videoSimulcastLayers: [{ width: 320, height: 180 }, { width: 640, height: 360 }],
-        screenShareEncoding: { maxBitrate: 3_000_000, maxFramerate: 25 },
+        // simulcast: true,
+        // videoSimulcastLayers: [VideoPresets.h180, VideoPresets.h360],
+        // screenShareEncoding: { maxBitrate: 3_000_000, maxFramerate: 25 },
         red: true,
         dtx: true,
-        stopMicTrackOnMute: true,
+        // stopMicTrackOnMute: true,
       },
-      audioCaptureDefaults: {
-        // deviceId: { exact: '...' } | '...'
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true,
-      },
+      // audioCaptureDefaults: {
+      //   // deviceId: { exact: '...' } | '...'
+      //   echoCancellation: true,
+      //   noiseSuppression: true,
+      //   autoGainControl: true,
+      // },
       videoCaptureDefaults: {
         // deviceId: { exact: '...' } | '...'
         resolution: { width: 640, height: 360 },
-        frameRate: { ideal: 25, max: 30 },
+        // frameRate: 25,
       },
-      audioOutput: {
+      // audioOutput: {
         // deviceId: '...'
-      },
+      // },
     })
     lk.value = room
 
@@ -246,6 +247,7 @@ onMounted(async () => {
       if (pub.kind === Track.Kind.Audio) micOn.value = true
       publishMyMetadata(room.localParticipant)
     })
+
     room.on(RoomEvent.LocalTrackUnpublished, (pub: LocalTrackPublication) => {
       if (pub.kind === Track.Kind.Video) {
         const el = videoEls.get(localId.value)
@@ -312,6 +314,7 @@ onMounted(async () => {
       const st = parseMeta(p.metadata)
       if (st) statusMap[String(p.identity)] = st
     })
+
     room.on(RoomEvent.ParticipantDisconnected, (p) => removePeer(String(p.identity)))
 
     room.on(RoomEvent.ParticipantMetadataChanged, (_prev, participant) => {
@@ -320,6 +323,10 @@ onMounted(async () => {
       const st = parseMeta(participant.metadata)
       if (st) statusMap[id] = st
     })
+
+    room.on(RoomEvent.MediaDevicesError, (e) => console.error('MediaDevicesError:', e))
+
+    room.on(RoomEvent.ConnectionStateChanged, (s) => console.log('LK state:', s))
 
     await room.connect(ws_url, token, {
       autoSubscribe: false,
@@ -334,16 +341,23 @@ onMounted(async () => {
     await nextTick()
 
     try {
-      await room.localParticipant.enableCameraAndMicrophone()
+      await room.localParticipant.setMicrophoneEnabled(true)
+      micOn.value = true
+    } catch (e) {
+      console.warn('mic failed', e)
+      micOn.value = false
+    }
+
+    try {
+      await room.localParticipant.setCameraEnabled(true, { resolution: { width: 640, height: 360 } })
+      camOn.value = true
       const vpub = Array.from(room.localParticipant.videoTrackPublications.values())[0]
       const el = videoEls.get(localId.value)
-      if (vpub?.track && el) {
-        el.muted = true
-        vpub.track.attach(el)
-      }
-    } catch {}
-    micOn.value = room.localParticipant.audioTrackPublications.size > 0
-    camOn.value = room.localParticipant.videoTrackPublications.size > 0
+      if (vpub?.track && el) { el.muted = true; vpub.track.attach(el) }
+    } catch (e) {
+      console.warn('camera failed', e)
+      camOn.value = false
+    }
 
     await publishMyMetadata(room.localParticipant)
 
