@@ -11,6 +11,7 @@
             autoplay
             :muted="id === localId"
           />
+          <div class="veil" :class="{ visible: covers.has(id) }"></div>
           <div class="badges">
             <span class="badge" :class="badgeClass(statusMap[id]?.mic) " title="Микрофон">
               🎤
@@ -75,6 +76,7 @@ const rtc = useRtcStore()
 
 const rid = Number(route.params.id)
 const lk = ref<LkRoom | null>(null)
+let visibilityOp: Promise<void> | null = null
 let joined = false
 
 const localId = ref<string>('')
@@ -87,6 +89,9 @@ const micOn = ref(true)
 const camOn = ref(true)
 const speakersOn = ref(true)
 const visibilityOn = ref(true)
+
+const covers = reactive(new Set<string>())
+const cover = (id: string, on: boolean) => { on ? covers.add(id) : covers.delete(id) }
 
 function participantsMap(room?: LkRoom | null) {
   return (room as any)?.participants ?? (room as any)?.remoteParticipants as | Map<string, RemoteParticipant> | undefined
@@ -114,6 +119,7 @@ function removePeer(id: string) {
     audioEls.delete(id)
   }
   delete statusMap[id]
+  covers.delete(id)
 }
 
 function setVideoRef(id: string, el: HTMLVideoElement | null) {
@@ -162,16 +168,6 @@ function parseMeta(s: unknown): Status | null {
       mic: !!j.mic, cam: !!j.cam, speakers: !!j.speakers, visibility: !!j.visibility,
     }
   } catch { return null }
-}
-
-function fadeRemoteVideos(show: boolean) {
-  forEachRemote((id) => {
-    if (id === localId.value) return
-    const el = videoEls.get(id)
-    if (!el) return
-    el.style.transition = 'opacity 120ms linear'
-    el.style.opacity = show ? '1' : '0'
-  })
 }
 
 function forEachRemote(cb: (id: string, p: RemoteParticipant) => void) {
@@ -234,10 +230,26 @@ async function toggleSpeakers() {
 
 async function toggleVisibility() {
   const room = lk.value; if (!room) return
-  visibilityOn.value = !visibilityOn.value
-  fadeRemoteVideos(visibilityOn.value)            // сначала плавное скрытие/показ
-  setVideoSubscriptionsForAll(visibilityOn.value) // затем подписка/отписка
-  await publishMyMetadata(room.localParticipant)
+  // последовательность вызовов, чтобы не дергалось при быстром клике
+  visibilityOp = (async () => {
+    const next = !visibilityOn.value
+    visibilityOn.value = next
+
+    if (!next) {
+      // Сначала накрыть всех (кроме себя)
+      forEachRemote((id) => { if (id !== localId.value) cover(id, true) })
+      // Дать браузеру кадр на прорисовку плашки и ещё ~120мс
+      await new Promise(r => requestAnimationFrame(() => setTimeout(r, 120)))
+      setVideoSubscriptionsForAll(false)         // теперь смело отписываемся
+    } else {
+      setVideoSubscriptionsForAll(true)          // подписываемся
+      // плашки снимутся в TrackSubscribed по первому кадру
+    }
+
+    await publishMyMetadata(room.localParticipant)
+  })()
+  await visibilityOp
+  visibilityOp = null
 }
 
 async function onLeave() {
@@ -316,7 +328,16 @@ onMounted(async () => {
       if (t.kind === Track.Kind.Video) {
         const el = videoEls.get(id)
         if (el) {
-          try { t.attach(el) } catch {}
+          try {
+            t.attach(el)
+            const onReady = () => {
+              cover(id, false)                // убрать плашку, когда поток реально «зажил»
+              el.removeEventListener('loadeddata', onReady)
+              el.removeEventListener('resize', onReady)
+            }
+            el.addEventListener('loadeddata', onReady)
+            el.addEventListener('resize', onReady)
+          } catch {}
           // при возврате видимости мгновенно делаем непрозрачным
           if (visibilityOn.value) { el.style.opacity = '1' }
         }
@@ -430,8 +451,15 @@ onBeforeUnmount(() => {
 .title { color: var(--fg); }
 .grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(260px,1fr)); gap:12px; margin-top:12px; }
 .tile { position:relative; border-radius:12px; overflow:hidden; background:#0b0f14; min-height:180px; }
-video { width:100%; height:100%; min-height:180px; display:block; object-fit:cover; background:#000; }
-
+video {
+  width:100%; height:100%; min-height:180px; display:block; object-fit:cover; background:#000;
+  will-change: opacity; transform: translateZ(0); backface-visibility: hidden;
+}
+.veil {
+  position:absolute; inset:0; background:#000; opacity:0; pointer-events:none;
+  transition: opacity .12s linear;
+}
+.veil.visible { opacity:1; }
 .badges {
   position:absolute; left:8px; top:8px; display:flex; gap:6px; z-index:2;
   .badge {
@@ -440,7 +468,6 @@ video { width:100%; height:100%; min-height:180px; display:block; object-fit:cov
     &.off { opacity:.45; filter:grayscale(1); }
   }
 }
-
 .controls {
   margin-top:12px; display:flex; flex-wrap:wrap; gap:8px;
   .ctrl {
