@@ -33,6 +33,8 @@ import { useRoute, useRouter } from 'vue-router'
 import {
   LocalParticipant,
   LocalTrackPublication,
+  createLocalVideoTrack,
+  LocalTrack,
   RemoteParticipant,
   RemoteTrack,
   RemoteTrackPublication,
@@ -76,7 +78,11 @@ function getByIdentity(room: LkRoom, id: string) {
 
 function ensurePeer(id: string) {
   if (!peerIds.value.includes(id)) peerIds.value.push(id)
-  if (!statusMap[id]) statusMap[id] = { mic: true, cam: true, speakers: true, visibility: true }
+  if (!statusMap[id]) {
+    statusMap[id] = id === localId.value
+      ? { mic: micOn.value, cam: camOn.value, speakers: speakersOn.value, visibility: visibilityOn.value }
+      : { mic: true, cam: true, speakers: true, visibility: true }
+  }
 }
 function removePeer(id: string) {
   peerIds.value = peerIds.value.filter(x => x !== id)
@@ -112,7 +118,6 @@ function em(kind: 'mic'|'cam'|'speakers'|'visibility', on?: boolean) {
   return (on ?? true) ? ON[kind] : OFF[kind]
 }
 
-// ---- metadata
 async function publishMyMetadata(lp: LocalParticipant) {
   const payload: Status = { mic: micOn.value, cam: camOn.value, speakers: speakersOn.value, visibility: visibilityOn.value }
   try {
@@ -129,7 +134,6 @@ function parseMeta(s: unknown): Status | null {
   catch { return null }
 }
 
-// ---- subscriptions
 function forEachRemote(cb: (id: string, p: RemoteParticipant) => void) {
   const room = lk.value
   if (!room) return
@@ -146,7 +150,6 @@ function setVideoSubscriptionsForAll(on: boolean) {
   })
 }
 
-// ---- toggles
 async function toggleMic() {
   const room = lk.value
   if (!room) return
@@ -162,11 +165,39 @@ async function toggleCam() {
   const room = lk.value
   if (!room) return
   const next = !camOn.value
-  camOn.value = next
+
   try {
-    await room.localParticipant.setCameraEnabled(next, next ? { resolution: { width: 640, height: 360 } } : undefined)
+    await room.localParticipant.setCameraEnabled(next)
+    camOn.value = room.localParticipant.videoTrackPublications.size > 0
+    if (next && camOn.value) {
+      const el = videoEls.get(localId.value)
+      const vpub = Array.from(room.localParticipant.videoTrackPublications.values())[0]
+      if (el && vpub?.track) try { vpub.track.attach(el) } catch {}
+    }
     await publishMyMetadata(room.localParticipant)
-  } catch { camOn.value = !next }
+    return
+  } catch {}
+
+  if (next) {
+    try {
+      const track = await createLocalVideoTrack()
+      await room.localParticipant.publishTrack(track, { source: Track.Source.Camera })
+      camOn.value = true
+      const el = videoEls.get(localId.value)
+      if (el) try { track.attach(el) } catch {}
+      await publishMyMetadata(room.localParticipant)
+    } catch {
+      camOn.value = false
+    }
+  } else {
+    try {
+      for (const pub of room.localParticipant.videoTrackPublications.values()) {
+        if (pub.track) await room.localParticipant.unpublishTrack(pub.track as LocalTrack, true)
+      }
+      camOn.value = false
+      await publishMyMetadata(room.localParticipant)
+    } catch {}
+  }
 }
 async function toggleSpeakers() {
   const room = lk.value
@@ -209,16 +240,15 @@ async function onLeave() {
   try { await router.push('/') } catch {}
 }
 
-// ---- lifecycle
 onMounted(async () => {
   try {
     const { ws_url, token } = await rtc.requestJoin(rid)
     const room = new LkRoom({
-      dynacast: true,
+      // dynacast: true,
       publishDefaults: {
         videoCodec: 'vp8',
-        simulcast: true,
-        videoSimulcastLayers: [{ width: 320, height: 180 }, { width: 640, height: 360 }],
+        // simulcast: true,
+        // videoSimulcastLayers: [{ width: 320, height: 180 }, { width: 640, height: 360 }],
         screenShareEncoding: { maxBitrate: 3_000_000, maxFramerate: 25 },
         red: true,
         dtx: true,
@@ -236,7 +266,7 @@ onMounted(async () => {
         frameRate: { ideal: 25, max: 30 },
       },
       audioOutput: {
-        // deviceId: '...' // если нужен конкретный динамик/гарнитура
+        // deviceId: '...'
       },
     })
     lk.value = room
@@ -246,12 +276,18 @@ onMounted(async () => {
         const el = videoEls.get(localId.value)
         if (el) try { pub.track?.attach(el) } catch {}
       }
+      if (pub.kind === Track.Kind.Video) camOn.value = true
+      if (pub.kind === Track.Kind.Audio) micOn.value = true
+      publishMyMetadata(room.localParticipant)
     })
     room.on(RoomEvent.LocalTrackUnpublished, (pub: LocalTrackPublication) => {
       if (pub.kind === Track.Kind.Video) {
         const el = videoEls.get(localId.value)
         if (el) try { pub.track?.detach(el) } catch {}
       }
+      if (pub.kind === Track.Kind.Video) camOn.value = false
+      if (pub.kind === Track.Kind.Audio) micOn.value = false
+      publishMyMetadata(room.localParticipant)
     })
 
     room.on(RoomEvent.TrackSubscribed, (t: RemoteTrack, _pub, part) => {
@@ -319,6 +355,12 @@ onMounted(async () => {
       if (st) statusMap[id] = st
     })
 
+    room.on(RoomEvent.MediaDevicesError, () => {
+      camOn.value = room.localParticipant.videoTrackPublications.size > 0
+      micOn.value = room.localParticipant.audioTrackPublications.size > 0
+      publishMyMetadata(room.localParticipant)
+    })
+
     await room.connect(ws_url, token, {
       autoSubscribe: false,
       maxRetries: 2,
@@ -339,12 +381,9 @@ onMounted(async () => {
         el.muted = true
         vpub.track.attach(el)
       }
-      micOn.value = true
-      camOn.value = true
-    } catch {
-      micOn.value = false
-      camOn.value = false
-    }
+    } catch {}
+    micOn.value = room.localParticipant.audioTrackPublications.size > 0
+    camOn.value = room.localParticipant.videoTrackPublications.size > 0
 
     await publishMyMetadata(room.localParticipant)
 
@@ -397,7 +436,7 @@ video {
   background: #000;
   opacity: 0;
   pointer-events: none;
-  .visible {
+  &.visible {
     opacity: 1;
   }
 }
