@@ -3,7 +3,7 @@
     <div class="card">
       <h2 class="title">Комната #{{ rid }}</h2>
 
-      <div class="grid">
+      <div class="grid" :style="gridStyle">
         <div v-for="id in peerIds" :key="id" class="tile">
           <video :ref="el => setVideoRef(id, el as HTMLVideoElement)" playsinline autoplay :muted="id === localId" />
           <div class="veil" :class="{ visible: covers.has(id) }"></div>
@@ -28,7 +28,7 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { nextTick, onBeforeUnmount, onMounted, reactive, ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   LocalParticipant,
@@ -55,10 +55,21 @@ let visibilityOp: Promise<void> | null = null
 let joined = false
 
 const localId = ref<string>('')
-const peerIds = ref<string[]>([])
+type Peer = { id: string; joinedAt: number; isLocal: boolean }
+const peers = ref<Peer[]>([])
+const peerIds = computed(() => peers.value.map(p => p.id))
 const videoEls = new Map<string, HTMLVideoElement>()
 const audioEls = new Map<string, HTMLAudioElement>()
 const statusMap = reactive<Record<string, Status>>({})
+
+const gridCols = computed(() => {
+  const n = peerIds.value.length
+  if (n <= 6) return 3
+  if (n <= 12) return 4
+  return 5
+})
+const gridStyle = computed(() => ({ gridTemplateColumns: `repeat(${gridCols.value}, 1fr)` }))
+
 
 const micOn = ref(true)
 const camOn = ref(true)
@@ -75,12 +86,19 @@ function getByIdentity(room: LkRoom, id: string) {
   return (room as any)?.getParticipantByIdentity?.(id) ?? participantsMap(room)?.get?.(id)
 }
 
-function ensurePeer(id: string) {
-  if (!peerIds.value.includes(id)) peerIds.value.push(id)
+function upsertPeerFromParticipant(p: RemoteParticipant | LocalParticipant, isLocal = false) {
+  const id = String(p.identity)
+  const ja: any = (p as any).joinedAt
+  const ts = typeof ja === 'number' ? ja : ja instanceof Date ? ja.getTime() : Date.now()
+  const i = peers.value.findIndex(x => x.id === id)
+  const rec: Peer = { id, joinedAt: ts, isLocal }
+  if (i >= 0) peers.value[i] = { ...peers.value[i], ...rec }
+  else peers.value.push(rec)
+  peers.value.sort((a, b) => a.joinedAt - b.joinedAt || Number(a.isLocal) - Number(b.isLocal) || a.id.localeCompare(b.id))
   if (!statusMap[id]) statusMap[id] = { mic: true, cam: true, speakers: true, visibility: true }
 }
 function removePeer(id: string) {
-  peerIds.value = peerIds.value.filter(x => x !== id)
+  peers.value = peers.value.filter(x => x.id !== id)
   const v = videoEls.get(id)
   if (v) { try { v.srcObject = null } catch {} videoEls.delete(id) }
   const a = audioEls.get(id)
@@ -202,7 +220,7 @@ async function onLeave() {
   videoEls.forEach(el => { try { el.srcObject = null } catch {} })
   videoEls.clear()
   audioEls.clear()
-  peerIds.value = []
+  peers.value = []
   localId.value = ''
   try { await router.push('/') } catch {}
 }
@@ -259,8 +277,8 @@ onMounted(async () => {
     })
 
     room.on(RoomEvent.TrackSubscribed, (t: RemoteTrack, _pub, part) => {
+      upsertPeerFromParticipant(part)
       const id = String(part.identity)
-      ensurePeer(id)
       if (t.kind === Track.Kind.Video) {
         const el = videoEls.get(id)
         if (el) {
@@ -309,7 +327,7 @@ onMounted(async () => {
     room.on(RoomEvent.TrackPublished, (_pub, part) => applySubsFor(part as RemoteParticipant))
 
     room.on(RoomEvent.ParticipantConnected, (p: RemoteParticipant) => {
-      ensurePeer(String(p.identity))
+      upsertPeerFromParticipant(p)
       applySubsFor(p)
       const st = parseMeta(p.metadata)
       if (st) statusMap[String(p.identity)] = st
@@ -318,8 +336,8 @@ onMounted(async () => {
     room.on(RoomEvent.ParticipantDisconnected, (p) => removePeer(String(p.identity)))
 
     room.on(RoomEvent.ParticipantMetadataChanged, (_prev, participant) => {
+      upsertPeerFromParticipant(participant)
       const id = String(participant.identity)
-      ensurePeer(id)
       const st = parseMeta(participant.metadata)
       if (st) statusMap[id] = st
     })
@@ -336,8 +354,9 @@ onMounted(async () => {
     })
     joined = true
 
+    participantsMap(room)?.forEach((p) => upsertPeerFromParticipant(p))
     localId.value = String(room.localParticipant.identity)
-    ensurePeer(localId.value)
+    upsertPeerFromParticipant(room.localParticipant, true)
     await nextTick()
 
     try {
@@ -353,7 +372,10 @@ onMounted(async () => {
       camOn.value = true
       const vpub = Array.from(room.localParticipant.videoTrackPublications.values())[0]
       const el = videoEls.get(localId.value)
-      if (vpub?.track && el) { el.muted = true; vpub.track.attach(el) }
+      if (vpub?.track && el) {
+        el.muted = true
+        vpub.track.attach(el)
+      }
     } catch (e) {
       console.warn('camera failed', e)
       camOn.value = false
@@ -362,7 +384,7 @@ onMounted(async () => {
     await publishMyMetadata(room.localParticipant)
 
     participantsMap(room)?.forEach((p) => {
-      ensurePeer(String(p.identity))
+      upsertPeerFromParticipant(p)
       const st = parseMeta(p.metadata)
       if (st) statusMap[String(p.identity)] = st
       applySubsFor(p)
@@ -384,7 +406,6 @@ onBeforeUnmount(() => {
 }
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 12px;
   margin-top: 12px;
 }
