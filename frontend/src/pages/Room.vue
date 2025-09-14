@@ -17,10 +17,10 @@
       </div>
 
       <div class="controls">
-        <button class="ctrl" :aria-pressed="micOn" @click="toggleMic">{{ micOn ? 'Микрофон вкл' : 'Микрофон выкл' }}</button>
-        <button class="ctrl" :aria-pressed="camOn" @click="toggleCam">{{ camOn ? 'Камера вкл' : 'Камера выкл' }}</button>
-        <button class="ctrl" :aria-pressed="speakersOn" @click="toggleSpeakers">{{ speakersOn ? 'Звук вкл' : 'Звук выкл' }}</button>
-        <button class="ctrl" :aria-pressed="visibilityOn" @click="toggleVisibility">{{ visibilityOn ? 'Видео вкл' : 'Видео выкл' }}</button>
+        <button class="ctrl" @click="toggleMic">{{ micOn ? 'Микрофон вкл' : 'Микрофон выкл' }}</button>
+        <button class="ctrl" @click="toggleCam">{{ camOn ? 'Камера вкл' : 'Камера выкл' }}</button>
+        <button class="ctrl" @click="toggleSpeakers">{{ speakersOn ? 'Звук вкл' : 'Звук выкл' }}</button>
+        <button class="ctrl" @click="toggleVisibility">{{ visibilityOn ? 'Видео вкл' : 'Видео выкл' }}</button>
         <button class="ctrl danger" @click="onLeave">Покинуть комнату</button>
       </div>
     </div>
@@ -33,8 +33,6 @@ import { useRoute, useRouter } from 'vue-router'
 import {
   LocalParticipant,
   LocalTrackPublication,
-  createLocalVideoTrack,
-  LocalTrack,
   RemoteParticipant,
   RemoteTrack,
   RemoteTrackPublication,
@@ -78,11 +76,7 @@ function getByIdentity(room: LkRoom, id: string) {
 
 function ensurePeer(id: string) {
   if (!peerIds.value.includes(id)) peerIds.value.push(id)
-  if (!statusMap[id]) {
-    statusMap[id] = id === localId.value
-      ? { mic: micOn.value, cam: camOn.value, speakers: speakersOn.value, visibility: visibilityOn.value }
-      : { mic: true, cam: true, speakers: true, visibility: true }
-  }
+  if (!statusMap[id]) statusMap[id] = { mic: true, cam: true, speakers: true, visibility: true }
 }
 function removePeer(id: string) {
   peerIds.value = peerIds.value.filter(x => x !== id)
@@ -165,39 +159,11 @@ async function toggleCam() {
   const room = lk.value
   if (!room) return
   const next = !camOn.value
-
+  camOn.value = next
   try {
-    await room.localParticipant.setCameraEnabled(next)
-    camOn.value = room.localParticipant.videoTrackPublications.size > 0
-    if (next && camOn.value) {
-      const el = videoEls.get(localId.value)
-      const vpub = Array.from(room.localParticipant.videoTrackPublications.values())[0]
-      if (el && vpub?.track) try { vpub.track.attach(el) } catch {}
-    }
+    await room.localParticipant.setCameraEnabled(next, next ? { resolution: { width: 640, height: 360 } } : undefined)
     await publishMyMetadata(room.localParticipant)
-    return
-  } catch {}
-
-  if (next) {
-    try {
-      const track = await createLocalVideoTrack()
-      await room.localParticipant.publishTrack(track, { source: Track.Source.Camera })
-      camOn.value = true
-      const el = videoEls.get(localId.value)
-      if (el) try { track.attach(el) } catch {}
-      await publishMyMetadata(room.localParticipant)
-    } catch {
-      camOn.value = false
-    }
-  } else {
-    try {
-      for (const pub of room.localParticipant.videoTrackPublications.values()) {
-        if (pub.track) await room.localParticipant.unpublishTrack(pub.track as LocalTrack, true)
-      }
-      camOn.value = false
-      await publishMyMetadata(room.localParticipant)
-    } catch {}
-  }
+  } catch { camOn.value = !next }
 }
 async function toggleSpeakers() {
   const room = lk.value
@@ -244,11 +210,11 @@ onMounted(async () => {
   try {
     const { ws_url, token } = await rtc.requestJoin(rid)
     const room = new LkRoom({
-      // dynacast: true,
+      dynacast: true,
       publishDefaults: {
         videoCodec: 'vp8',
-        // simulcast: true,
-        // videoSimulcastLayers: [{ width: 320, height: 180 }, { width: 640, height: 360 }],
+        simulcast: true,
+        videoSimulcastLayers: [{ width: 320, height: 180 }, { width: 640, height: 360 }],
         screenShareEncoding: { maxBitrate: 3_000_000, maxFramerate: 25 },
         red: true,
         dtx: true,
@@ -353,12 +319,6 @@ onMounted(async () => {
       ensurePeer(id)
       const st = parseMeta(participant.metadata)
       if (st) statusMap[id] = st
-    })
-
-    room.on(RoomEvent.MediaDevicesError, () => {
-      camOn.value = room.localParticipant.videoTrackPublications.size > 0
-      micOn.value = room.localParticipant.audioTrackPublications.size > 0
-      publishMyMetadata(room.localParticipant)
     })
 
     await room.connect(ws_url, token, {
@@ -469,9 +429,6 @@ video {
     cursor: pointer;
     background: #12202e;
     color: #e5e7eb;
-    &[aria-pressed="false"] {
-      opacity: 0.75
-    }
     &.danger {
       background: var(--color-danger);
       color: #883c3c;
