@@ -214,11 +214,30 @@ onMounted(async () => {
   try {
     const { ws_url, token } = await rtc.requestJoin(rid)
     const room = new LkRoom({
-      adaptiveStream: true,
       dynacast: true,
-      disconnectOnPageLeave: false,
-      publishDefaults: { videoCodec: 'vp8', red: true, dtx: true },
-      videoCaptureDefaults: { resolution: { width: 640, height: 360 } },
+      publishDefaults: {
+        videoCodec: 'vp8',
+        simulcast: true,
+        videoSimulcastLayers: [{ width: 320, height: 180 }, { width: 640, height: 360 }],
+        screenShareEncoding: { maxBitrate: 3_000_000, maxFramerate: 25 },
+        red: true,
+        dtx: true,
+        stopMicTrackOnMute: true,
+      },
+      audioCaptureDefaults: {
+        // deviceId: { exact: '...' } | '...'
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      },
+      videoCaptureDefaults: {
+        // deviceId: { exact: '...' } | '...'
+        resolution: { width: 640, height: 360 },
+        frameRate: { ideal: 25, max: 30 },
+      },
+      audioOutput: {
+        // deviceId: '...' // если нужен конкретный динамик/гарнитура
+      },
     })
     lk.value = room
 
@@ -300,7 +319,12 @@ onMounted(async () => {
       if (st) statusMap[id] = st
     })
 
-    await room.connect(ws_url, token)
+    await room.connect(ws_url, token, {
+      autoSubscribe: false,
+      maxRetries: 2,
+      peerConnectionTimeout: 20_000,
+      websocketTimeout: 10_000,
+    })
     joined = true
 
     localId.value = String(room.localParticipant.identity)
