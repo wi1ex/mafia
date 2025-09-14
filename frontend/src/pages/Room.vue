@@ -176,10 +176,10 @@ async function toggleSpeakers() {
 async function toggleVisibility() {
   const room = lk.value
   if (!room) return
+  if (visibilityOp) { await visibilityOp }
   visibilityOp = (async () => {
     const next = !visibilityOn.value
     visibilityOn.value = next
-
     if (!next) {
       forEachRemote((id) => { if (id !== localId.value) cover(id, true) })
       await new Promise(r => requestAnimationFrame(() => setTimeout(r, 100)))
