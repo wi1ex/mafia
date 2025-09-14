@@ -105,11 +105,8 @@ function ensurePeer(id: string) {
 
 function removePeer(id: string) {
   peerIds.value = peerIds.value.filter(x => x !== id)
-  const el = videoEls.get(id)
-  if (el) {
-    try { el.srcObject = null } catch {}
-    videoEls.delete(id)
-  }
+  const v = videoEls.get(id); if (v) { try { v.srcObject = null } catch {} ; videoEls.delete(id) }
+  const a = audioEls.get(id); if (a) { try { a.remove() } catch {} ; audioEls.delete(id) }
   delete statusMap[id]
 }
 
@@ -161,19 +158,40 @@ function parseMeta(s: unknown): Status | null {
   } catch { return null }
 }
 
-function applySubscriptionsForParticipant(p: RemoteParticipant) {
-  p.getTrackPublications().forEach((pub) => {
-    try {
-      if (pub.kind === Track.Kind.Audio) pub.setSubscribed(speakersOn.value)
-      if (pub.kind === Track.Kind.Video) pub.setSubscribed(visibilityOn.value)
-    } catch {}
+function fadeRemoteVideos(show: boolean) {
+  forEachRemote((id) => {
+    if (id === localId.value) return
+    const el = videoEls.get(id)
+    if (!el) return
+    el.style.transition = 'opacity 120ms linear'
+    el.style.opacity = show ? '1' : '0'
   })
 }
 
-function applySubscriptionsForAll() {
+function forEachRemote(cb: (id: string, p: RemoteParticipant) => void) {
   const room = lk.value
   if (!room) return
-  participantsMap(room)?.forEach((p) => applySubscriptionsForParticipant(p))
+  participantsMap(room)?.forEach((p, id) => cb(String(id), p))
+}
+
+function setAudioSubscriptionsForAll(on: boolean) {
+  forEachRemote((_id, p) => {
+    p.getTrackPublications().forEach(pub => {
+      if (pub.kind === Track.Kind.Audio) {
+        try { pub.setSubscribed(on) } catch {}
+      }
+    })
+  })
+}
+
+function setVideoSubscriptionsForAll(on: boolean) {
+  forEachRemote((_id, p) => {
+    p.getTrackPublications().forEach(pub => {
+      if (pub.kind === Track.Kind.Video) {
+        try { pub.setSubscribed(on) } catch {}
+      }
+    })
+  })
 }
 
 async function toggleMic() {
@@ -203,18 +221,17 @@ async function toggleCam() {
 }
 
 async function toggleSpeakers() {
-  const room = lk.value
-  if (!room) return
+  const room = lk.value; if (!room) return
   speakersOn.value = !speakersOn.value
-  applySubscriptionsForAll()
+  setAudioSubscriptionsForAll(speakersOn.value)   // только аудио
   await publishMyMetadata(room.localParticipant)
 }
 
 async function toggleVisibility() {
-  const room = lk.value
-  if (!room) return
+  const room = lk.value; if (!room) return
   visibilityOn.value = !visibilityOn.value
-  applySubscriptionsForAll()
+  fadeRemoteVideos(visibilityOn.value)            // сначала плавное скрытие/показ
+  setVideoSubscriptionsForAll(visibilityOn.value) // затем подписка/отписка
   await publishMyMetadata(room.localParticipant)
 }
 
@@ -293,7 +310,11 @@ onMounted(async () => {
       ensurePeer(id)
       if (t.kind === Track.Kind.Video) {
         const el = videoEls.get(id)
-        if (el) try { t.attach(el) } catch {}
+        if (el) {
+          try { t.attach(el) } catch {}
+          // при возврате видимости мгновенно делаем непрозрачным
+          if (visibilityOn.value) { el.style.opacity = '1' }
+        }
       } else if (t.kind === Track.Kind.Audio) {
         let a = audioEls.get(id)
         if (!a) {
@@ -309,7 +330,12 @@ onMounted(async () => {
 
     room.on(RoomEvent.TrackUnsubscribed, (t: RemoteTrack, _pub, part) => {
       const el = videoEls.get(String(part.identity))
-      if (el) try { t.detach(el) } catch {}
+      if (el && t.kind === Track.Kind.Video) {
+        // элемент уже «приглушён», просто отвяжем трек
+        try { t.detach(el) } catch {}
+      } else if (el) {
+        try { t.detach(el) } catch {}
+      }
     })
 
     // новые публикации: применяем текущие правила подписок
@@ -376,6 +402,10 @@ onMounted(async () => {
     try { await lk.value?.disconnect() } catch {}
     lk.value = null
   }
+})
+
+onBeforeUnmount(() => {
+  onLeave()
 })
 
 </script>
