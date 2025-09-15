@@ -1,7 +1,5 @@
 <template>
   <section class="card">
-    <h2 class="title">Комната #{{ rid }}</h2>
-
     <div class="grid" :style="gridStyle">
       <div v-for="id in peerIds" :key="id" class="tile">
         <video :ref="el => setVideoRef(id, el as HTMLVideoElement)" playsinline autoplay :muted="id === localId" />
@@ -93,7 +91,16 @@ const gridCols = computed(() => {
   if (n <= 12) return 4
   return 5
 })
-const gridStyle = computed(() => ({ gridTemplateColumns: `repeat(${gridCols.value}, 1fr)` }))
+const gridRows = computed(() => {
+  const n = peerIds.value.length
+  if (n <= 6) return 2
+  if (n <= 12) return 3
+  return 4
+})
+const gridStyle = computed(() => ({
+  gridTemplateColumns: `repeat(${gridCols.value}, 1fr)`,
+  gridTemplateRows: `repeat(${gridRows.value}, 1fr)`,
+}))
 
 const micOn = ref(true)
 const camOn = ref(true)
@@ -478,7 +485,7 @@ onBeforeUnmount(() => {
 .grid {
   display: grid;
   gap: 12px;
-  margin-top: 12px;
+  margin: 12px;
 }
 .tile {
   position: relative;
@@ -524,10 +531,10 @@ video {
   }
 }
 .controls {
-  margin-top: 12px;
+  margin: 12px;
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 12px;
   .ctrl {
     padding: 8px 12px;
     border-radius: 8px;
@@ -542,7 +549,7 @@ video {
   }
 }
 .devices {
-  margin-top: 8px;
+  margin: 12px;
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
