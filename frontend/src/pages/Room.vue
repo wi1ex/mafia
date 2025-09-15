@@ -56,6 +56,10 @@ import {
   RemoteTrack,
   RemoteTrackPublication,
   Room as LkRoom,
+  createLocalAudioTrack,
+  createLocalVideoTrack,
+  LocalAudioTrack,
+  LocalVideoTrack,
   RoomEvent,
   Track,
   VideoPresets,
@@ -85,7 +89,7 @@ const videoEls = new Map<string, HTMLVideoElement>()
 const audioEls = new Map<string, HTMLAudioElement>()
 const statusMap = reactive<Record<string, Status>>({})
 
-const LS = { mic: 'mafia.audioDeviceId', cam: 'mafia.videoDeviceId' }
+const LS = { mic: 'audioDeviceId', cam: 'videoDeviceId' }
 const mics = ref<MediaDeviceInfo[]>([])
 const cams = ref<MediaDeviceInfo[]>([])
 const selectedMicId = ref<string>('')
@@ -129,11 +133,17 @@ async function onMicChange() {
   if (!room) return
   const id = selectedMicId.value
   saveLS(LS.mic, id)
-  try {
+  const pub = Array.from(room.localParticipant.audioTrackPublications.values())[0]
+  if (pub?.track) {
+    const oldTrack = pub.track as LocalAudioTrack | null
+    const newTrack = await createLocalAudioTrack({
+      deviceId: { exact: id } as any,
+      echoCancellation: true, noiseSuppression: true, autoGainControl: true,
+    })
+    await pub.replaceTrack(newTrack)
+    try { oldTrack?.stop() } catch {}
+  } else {
     await room.localParticipant.setMicrophoneEnabled(true, { deviceId: { exact: id } as any })
-  } catch {
-    try { await room.localParticipant.setMicrophoneEnabled(false) } catch {}
-    try { await room.localParticipant.setMicrophoneEnabled(true, { deviceId: { exact: id } as any }) } catch {}
   }
 }
 
@@ -142,11 +152,33 @@ async function onCamChange() {
   if (!room) return
   const id = selectedCamId.value
   saveLS(LS.cam, id)
-  try {
-    await room.localParticipant.setCameraEnabled(true, { deviceId: { exact: id } as any, resolution: { width: 640, height: 360 } })
-  } catch {
-    try { await room.localParticipant.setCameraEnabled(false) } catch {}
-    try { await room.localParticipant.setCameraEnabled(true, { deviceId: { exact: id } as any, resolution: { width: 640, height: 360 } }) } catch {}
+  const pub = Array.from(room.localParticipant.videoTrackPublications.values())[0]
+  if (pub?.track) {
+    const oldTrack = pub.track as LocalVideoTrack | null
+    const newTrack = await createLocalVideoTrack({
+      deviceId: { exact: id } as any,
+      resolution: VideoPresets.h360.resolution,
+    })
+    await pub.replaceTrack(newTrack)
+    const el = videoEls.get(localId.value)
+    if (el) {
+      try { oldTrack?.detach(el) } catch {}
+      try {
+        newTrack.attach(el)
+        el.muted = true
+      } catch {}
+    }
+    try { oldTrack?.stop() } catch {}
+  } else {
+    await room.localParticipant.setCameraEnabled(true, { deviceId: { exact: id } as any, resolution: VideoPresets.h360.resolution })
+    const vpub = Array.from(room.localParticipant.videoTrackPublications.values())[0]
+    const el = videoEls.get(localId.value)
+    if (vpub?.track && el) {
+      try {
+        vpub.track.attach(el)
+        el.muted = true
+      } catch {}
+    }
   }
 }
 
@@ -251,7 +283,7 @@ async function toggleCam() {
   const next = !camOn.value
   camOn.value = next
   try {
-    await room.localParticipant.setCameraEnabled(next, next ? { resolution: { width: 640, height: 360 } } : undefined)
+    await room.localParticipant.setCameraEnabled(next, next ? { resolution: VideoPresets.h360.resolution } : undefined)
     await publishMyMetadata(room.localParticipant)
   } catch { camOn.value = !next }
 }
@@ -310,15 +342,15 @@ onMounted(async () => {
         dtx: true,
         // stopMicTrackOnMute: true,
       },
-      // audioCaptureDefaults: {
-      //   // deviceId: { exact: '...' } | '...'
-      //   echoCancellation: true,
-      //   noiseSuppression: true,
-      //   autoGainControl: true,
-      // },
+      audioCaptureDefaults: {
+        // deviceId: { exact: '...' } | '...'
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      },
       videoCaptureDefaults: {
         // deviceId: { exact: '...' } | '...'
-        resolution: { width: 640, height: 360 },
+        resolution: VideoPresets.h360.resolution,
         // frameRate: 25,
       },
       // audioOutput: {
@@ -442,7 +474,7 @@ onMounted(async () => {
     }
 
     try {
-      const camOpts: any = { resolution: { width: 640, height: 360 } }
+      const camOpts: any = { resolution: VideoPresets.h360.resolution }
       if (selectedCamId.value) camOpts.deviceId = { exact: selectedCamId.value }
       await room.localParticipant.setCameraEnabled(true, camOpts)
       camOn.value = true
