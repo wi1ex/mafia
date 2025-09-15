@@ -75,6 +75,7 @@ const rid = Number(route.params.id)
 const lk = ref<LkRoom | null>(null)
 let visibilityOp: Promise<void> | null = null
 let joined = false
+let leavingByUser = false
 
 const localId = ref<string>('')
 type Peer = { id: string; joinedAt: number; isLocal: boolean }
@@ -106,6 +107,12 @@ const visibilityOn = ref(true)
 const covers = reactive(new Set<string>())
 const cover = (id: string, on: boolean) => { on ? covers.add(id) : covers.delete(id) }
 
+const onPageHide = () => { if (!leavingByUser) sendLeaveBeacon() }
+const onBeforeUnload = () => { if (!leavingByUser) sendLeaveBeacon() }
+const onVisChange = () => {
+  if (document.visibilityState === 'hidden' && !leavingByUser) sendLeaveBeacon()
+}
+
 function saveLS(k: string, v: string) { try { localStorage.setItem(k, v) } catch {} }
 function loadLS(k: string): string | null { try { return localStorage.getItem(k) } catch { return null } }
 
@@ -132,9 +139,7 @@ async function onMicChange() {
     await room.switchActiveDevice('audioinput', id)
     micOn.value = true
     await publishMyMetadata(room.localParticipant)
-  } catch (e) {
-    console.warn('mic switch failed', e)
-  }
+  } catch (e) { console.warn('mic switch failed', e) }
 }
 
 async function onCamChange() {
@@ -148,15 +153,11 @@ async function onCamChange() {
     const el = videoEls.get(localId.value)
     const vpub = Array.from(room.localParticipant.videoTrackPublications.values())[0]
     if (el && vpub?.track) {
-      try {
-        vpub.track.attach(el)
-        el.muted = true
-      } catch {}
+      vpub.track.attach(el)
+      el.muted = true
     }
     await publishMyMetadata(room.localParticipant)
-  } catch (e) {
-    console.warn('cam switch failed', e)
-  }
+  } catch (e) { console.warn('cam switch failed', e) }
 }
 
 function participantsMap(room?: LkRoom | null) {
@@ -248,22 +249,27 @@ async function toggleMic() {
   if (!room) return
   const next = !micOn.value
   micOn.value = next
+  const pub = Array.from(room.localParticipant.audioTrackPublications.values())[0]
   try {
-    await room.localParticipant.setMicrophoneEnabled(next)
+    if (pub?.track) await pub.track.setEnabled(next)
+    else await room.localParticipant.setMicrophoneEnabled(next)
     await publishMyMetadata(room.localParticipant)
-  }
-  catch { micOn.value = !next }
+  } catch { micOn.value = !next }
 }
+
 async function toggleCam() {
   const room = lk.value
   if (!room) return
   const next = !camOn.value
   camOn.value = next
+  const pub = Array.from(room.localParticipant.videoTrackPublications.values())[0]
   try {
-    await room.localParticipant.setCameraEnabled(next, next ? { resolution: VideoPresets.h360.resolution } : undefined)
+    if (pub?.track) await pub.track.setEnabled(next)
+    else await room.localParticipant.setCameraEnabled(next, { resolution: VideoPresets.h360.resolution })
     await publishMyMetadata(room.localParticipant)
   } catch { camOn.value = !next }
 }
+
 async function toggleSpeakers() {
   const room = lk.value
   if (!room) return
@@ -272,6 +278,7 @@ async function toggleSpeakers() {
   setAudioSubscriptionsForAll(next)
   await publishMyMetadata(room.localParticipant)
 }
+
 async function toggleVisibility() {
   const room = lk.value
   if (!room) return
@@ -293,20 +300,33 @@ async function toggleVisibility() {
 }
 
 async function onLeave() {
+  leavingByUser = true
   const room = lk.value
   lk.value = null
-  if (joined) { try { await rtc.requestLeave(rid) } catch {} }
+  try { await rtc.requestLeave(rid) } catch {}
   try { await room?.disconnect() } catch {}
+  cleanupMedia()
+  try { await router.push('/') } catch {}
+}
+
+function cleanupMedia() {
   videoEls.forEach(el => { try { el.srcObject = null } catch {} })
   videoEls.clear()
+  audioEls.forEach(a => { try { a.remove() } catch {} })
   audioEls.clear()
   peers.value = []
   localId.value = ''
-  try { await router.push('/') } catch {}
+}
+
+function sendLeaveBeacon() {
+  try { rtc.leaveKeepalive(rid) } catch {}
 }
 
 onMounted(async () => {
   try {
+    selectedMicId.value = loadLS(LS.mic) || ''
+    selectedCamId.value = loadLS(LS.cam) || ''
+
     const { ws_url, token } = await rtc.requestJoin(rid)
     const room = new LkRoom({
       // dynacast: true,
@@ -317,22 +337,19 @@ onMounted(async () => {
         // screenShareEncoding: { maxBitrate: 3_000_000, maxFramerate: 25 },
         red: true,
         dtx: true,
-        // stopMicTrackOnMute: true,
+        stopMicTrackOnMute: false,
       },
       audioCaptureDefaults: {
-        // deviceId: { exact: '...' } | '...'
+        deviceId: selectedMicId.value ? ({ exact: selectedMicId.value } as any) : undefined,
         echoCancellation: true,
         noiseSuppression: true,
         autoGainControl: true,
       },
       videoCaptureDefaults: {
-        // deviceId: { exact: '...' } | '...'
+        deviceId: selectedCamId.value ? ({ exact: selectedCamId.value } as any) : undefined,
         resolution: VideoPresets.h360.resolution,
         // frameRate: 25,
       },
-      // audioOutput: {
-        // deviceId: '...'
-      // },
     })
     lk.value = room
 
@@ -432,49 +449,31 @@ onMounted(async () => {
     })
     joined = true
 
-    participantsMap(room)?.forEach((p) => upsertPeerFromParticipant(p))
     localId.value = String(room.localParticipant.identity)
     upsertPeerFromParticipant(room.localParticipant, true)
+    participantsMap(room)?.forEach(p => upsertPeerFromParticipant(p))
     await nextTick()
 
-    selectedMicId.value = loadLS(LS.mic) || ''
-    selectedCamId.value = loadLS(LS.cam) || ''
+    await room.localParticipant.enableCameraAndMicrophone()
 
-    try {
-      await room.localParticipant.setMicrophoneEnabled(true, selectedMicId.value ? { deviceId: { exact: selectedMicId.value } as any } : undefined)
-      micOn.value = true
-    } catch (e) {
-      console.warn('mic failed', e)
-      micOn.value = false
+    const vpub = room.localParticipant.videoTrackPublications.values().next().value
+    const el = videoEls.get(localId.value)
+    if (vpub?.track && el) {
+      el.muted = true
+      vpub.track.attach(el)
     }
 
-    try {
-      const camOpts: any = { resolution: VideoPresets.h360.resolution }
-      if (selectedCamId.value) camOpts.deviceId = { exact: selectedCamId.value }
-      await room.localParticipant.setCameraEnabled(true, camOpts)
-      camOn.value = true
-      const vpub = Array.from(room.localParticipant.videoTrackPublications.values())[0]
-      const el = videoEls.get(localId.value)
-      if (vpub?.track && el) {
-        el.muted = true
-        vpub.track.attach(el)
-      }
-    } catch (e) {
-      console.warn('camera failed', e)
-      camOn.value = false
-    }
+    micOn.value = room.localParticipant.audioTrackPublications.size > 0
+    camOn.value = room.localParticipant.videoTrackPublications.size > 0
 
     await refreshDevices()
-    try { navigator.mediaDevices.addEventListener?.('devicechange', refreshDevices) } catch {}
+    navigator.mediaDevices.addEventListener?.('devicechange', refreshDevices)
+    window.addEventListener('pagehide', onPageHide)
+    window.addEventListener('beforeunload', onBeforeUnload)
+    document.addEventListener('visibilitychange', onVisChange)
 
     await publishMyMetadata(room.localParticipant)
-
-    participantsMap(room)?.forEach((p) => {
-      upsertPeerFromParticipant(p)
-      const st = parseMeta(p.metadata)
-      if (st) statusMap[String(p.identity)] = st
-      applySubsFor(p)
-    })
+    participantsMap(room)?.forEach((p) => applySubsFor(p))
   } catch {
     try { await lk.value?.disconnect() } catch {}
     lk.value = null
@@ -482,8 +481,12 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
-  onLeave()
-  try { navigator.mediaDevices.removeEventListener?.('devicechange', refreshDevices) } catch {}
+  navigator.mediaDevices.removeEventListener?.('devicechange', refreshDevices)
+  window.removeEventListener('pagehide', onPageHide)
+  window.removeEventListener('beforeunload', onBeforeUnload)
+  document.removeEventListener('visibilitychange', onVisChange)
+  try { lk.value?.disconnect() } catch {}
+  cleanupMedia()
 })
 </script>
 

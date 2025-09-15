@@ -17,8 +17,27 @@ export const useRtcStore = defineStore('rtc', () => {
     await api.post<void>(`/rooms/${roomId}/leave`, {})
   }
 
+ function leaveKeepalive(roomId: number) {
+  const base = (api.defaults?.baseURL ?? '').replace(/\/$/, '');
+  const url = `${base}/rooms/${roomId}/leave`;
+
+  if ('sendBeacon' in navigator) {
+    const payload = new Blob([JSON.stringify({})], { type: 'application/json' });
+    navigator.sendBeacon(url, payload);
+    return;
+  }
+  fetch(url, {
+    method: 'POST',
+    body: '{}',
+    headers: { 'content-type': 'application/json' },
+    keepalive: true,
+    credentials: 'same-origin',
+  }).catch(() => {});
+}
+
   return {
     requestJoin,
-    requestLeave
+    requestLeave,
+    leaveKeepalive,
   }
 })
