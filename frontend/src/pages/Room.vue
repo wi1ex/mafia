@@ -74,8 +74,6 @@ const rtc = useRtcStore()
 const rid = Number(route.params.id)
 const lk = ref<LkRoom | null>(null)
 let visibilityOp: Promise<void> | null = null
-let joined = false
-let leavingByUser = false
 
 const localId = ref<string>('')
 type Peer = { id: string; joinedAt: number; isLocal: boolean }
@@ -106,12 +104,6 @@ const visibilityOn = ref(true)
 
 const covers = reactive(new Set<string>())
 const cover = (id: string, on: boolean) => { on ? covers.add(id) : covers.delete(id) }
-
-const onPageHide = () => { if (!leavingByUser) sendLeaveBeacon() }
-const onBeforeUnload = () => { if (!leavingByUser) sendLeaveBeacon() }
-const onVisChange = () => {
-  if (document.visibilityState === 'hidden' && !leavingByUser) sendLeaveBeacon()
-}
 
 function saveLS(k: string, v: string) { try { localStorage.setItem(k, v) } catch {} }
 function loadLS(k: string): string | null { try { return localStorage.getItem(k) } catch { return null } }
@@ -248,11 +240,9 @@ async function toggleMic() {
   const room = lk.value
   if (!room) return
   const next = !micOn.value
-  micOn.value = next
-  const pub = Array.from(room.localParticipant.audioTrackPublications.values())[0]
   try {
-    if (pub?.track) await pub.track.setEnabled(next)
-    else await room.localParticipant.setMicrophoneEnabled(next)
+    await room.localParticipant.setMicrophoneEnabled(next)
+    micOn.value = next
     await publishMyMetadata(room.localParticipant)
   } catch { micOn.value = !next }
 }
@@ -261,14 +251,19 @@ async function toggleCam() {
   const room = lk.value
   if (!room) return
   const next = !camOn.value
-  camOn.value = next
-  const pub = Array.from(room.localParticipant.videoTrackPublications.values())[0]
   try {
-    if (pub?.track) await pub.track.setEnabled(next)
-    else await room.localParticipant.setCameraEnabled(next, { resolution: VideoPresets.h360.resolution })
+    await room.localParticipant.setCameraEnabled(next, next ? { resolution: VideoPresets.h360.resolution } : undefined)
+    camOn.value = next
+    const el = videoEls.get(localId.value)
+    const vpub = Array.from(room.localParticipant.videoTrackPublications.values())[0]
+    if (next && el && vpub?.track) {
+      el.muted = true
+      vpub.track.attach(el)
+    }
     await publishMyMetadata(room.localParticipant)
   } catch { camOn.value = !next }
 }
+
 
 async function toggleSpeakers() {
   const room = lk.value
@@ -300,7 +295,6 @@ async function toggleVisibility() {
 }
 
 async function onLeave() {
-  leavingByUser = true
   const room = lk.value
   lk.value = null
   try { await rtc.requestLeave(rid) } catch {}
@@ -316,10 +310,6 @@ function cleanupMedia() {
   audioEls.clear()
   peers.value = []
   localId.value = ''
-}
-
-function sendLeaveBeacon() {
-  try { rtc.leaveKeepalive(rid) } catch {}
 }
 
 onMounted(async () => {
@@ -447,7 +437,6 @@ onMounted(async () => {
       peerConnectionTimeout: 20_000,
       websocketTimeout: 10_000,
     })
-    joined = true
 
     localId.value = String(room.localParticipant.identity)
     upsertPeerFromParticipant(room.localParticipant, true)
@@ -468,9 +457,6 @@ onMounted(async () => {
 
     await refreshDevices()
     navigator.mediaDevices.addEventListener?.('devicechange', refreshDevices)
-    window.addEventListener('pagehide', onPageHide)
-    window.addEventListener('beforeunload', onBeforeUnload)
-    document.addEventListener('visibilitychange', onVisChange)
 
     await publishMyMetadata(room.localParticipant)
     participantsMap(room)?.forEach((p) => applySubsFor(p))
@@ -482,9 +468,6 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   navigator.mediaDevices.removeEventListener?.('devicechange', refreshDevices)
-  window.removeEventListener('pagehide', onPageHide)
-  window.removeEventListener('beforeunload', onBeforeUnload)
-  document.removeEventListener('visibilitychange', onVisChange)
   try { lk.value?.disconnect() } catch {}
   cleanupMedia()
 })
