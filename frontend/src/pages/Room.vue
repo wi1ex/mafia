@@ -49,24 +49,19 @@
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, onMounted, reactive, ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useRtcStore } from '@/store'
 import {
   LocalParticipant,
   LocalTrackPublication,
   RemoteParticipant,
   RemoteTrack,
-  RemoteTrackPublication,
   Room as LkRoom,
-  createLocalAudioTrack,
-  createLocalVideoTrack,
-  LocalAudioTrack,
-  LocalVideoTrack,
   RoomEvent,
   Track,
   VideoPresets,
   setLogLevel,
   LogLevel,
 } from 'livekit-client'
-import { useRtcStore } from '@/store'
 
 setLogLevel(LogLevel.info)
 
@@ -133,17 +128,12 @@ async function onMicChange() {
   if (!room) return
   const id = selectedMicId.value
   saveLS(LS.mic, id)
-  const pub = Array.from(room.localParticipant.audioTrackPublications.values())[0]
-  if (pub?.track) {
-    const oldTrack = pub.track as LocalAudioTrack | null
-    const newTrack = await createLocalAudioTrack({
-      deviceId: { exact: id } as any,
-      echoCancellation: true, noiseSuppression: true, autoGainControl: true,
-    })
-    await pub.replaceTrack(newTrack)
-    try { oldTrack?.stop() } catch {}
-  } else {
-    await room.localParticipant.setMicrophoneEnabled(true, { deviceId: { exact: id } as any })
+  try {
+    await room.switchActiveDevice('audioinput', id)
+    micOn.value = true
+    await publishMyMetadata(room.localParticipant)
+  } catch (e) {
+    console.warn('mic switch failed', e)
   }
 }
 
@@ -152,33 +142,20 @@ async function onCamChange() {
   if (!room) return
   const id = selectedCamId.value
   saveLS(LS.cam, id)
-  const pub = Array.from(room.localParticipant.videoTrackPublications.values())[0]
-  if (pub?.track) {
-    const oldTrack = pub.track as LocalVideoTrack | null
-    const newTrack = await createLocalVideoTrack({
-      deviceId: { exact: id } as any,
-      resolution: VideoPresets.h360.resolution,
-    })
-    await pub.replaceTrack(newTrack)
+  try {
+    await room.switchActiveDevice('videoinput', id)
+    camOn.value = true
     const el = videoEls.get(localId.value)
-    if (el) {
-      try { oldTrack?.detach(el) } catch {}
-      try {
-        newTrack.attach(el)
-        el.muted = true
-      } catch {}
-    }
-    try { oldTrack?.stop() } catch {}
-  } else {
-    await room.localParticipant.setCameraEnabled(true, { deviceId: { exact: id } as any, resolution: VideoPresets.h360.resolution })
     const vpub = Array.from(room.localParticipant.videoTrackPublications.values())[0]
-    const el = videoEls.get(localId.value)
-    if (vpub?.track && el) {
+    if (el && vpub?.track) {
       try {
         vpub.track.attach(el)
         el.muted = true
       } catch {}
     }
+    await publishMyMetadata(room.localParticipant)
+  } catch (e) {
+    console.warn('cam switch failed', e)
   }
 }
 
@@ -446,8 +423,6 @@ onMounted(async () => {
     })
 
     room.on(RoomEvent.MediaDevicesError, (e) => console.error('MediaDevicesError:', e))
-
-    room.on(RoomEvent.ConnectionStateChanged, (s) => console.log('LK state:', s))
 
     await room.connect(ws_url, token, {
       autoSubscribe: false,
