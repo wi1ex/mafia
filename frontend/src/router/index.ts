@@ -15,15 +15,14 @@ const router = createRouter({
   },
 })
 
-router.beforeEach((to) => {
-  if (to.meta.requiresAuth) {
-    const id = String(to.params.id || '')
-    const isNumber = /^\d+$/.test(id)
-    const auth = useAuthStore()
-    if (!isNumber || !auth.isAuthed) return { name: 'home' }
-  }
-  return true
+router.beforeEach(async (to) => {
+  if (!to.meta.requiresAuth) return true
+  if (!/^\d+$/.test(String(to.params.id || ''))) return { name: 'home' }
+  const auth = useAuthStore()
+  if (!auth.ready) await auth.init()
+  return auth.isAuthed ? true : { name: 'home' }
 })
+
 
 router.afterEach((to) => {
   const base = 'Mafia'

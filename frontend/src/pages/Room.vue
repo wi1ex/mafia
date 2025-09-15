@@ -1,49 +1,47 @@
 <template>
-  <div class="container">
-    <div class="card">
-      <h2 class="title">Комната #{{ rid }}</h2>
+  <section class="card">
+    <h2 class="title">Комната #{{ rid }}</h2>
 
-      <div class="grid" :style="gridStyle">
-        <div v-for="id in peerIds" :key="id" class="tile">
-          <video :ref="el => setVideoRef(id, el as HTMLVideoElement)" playsinline autoplay :muted="id === localId" />
-          <div class="veil" :class="{ visible: covers.has(id) }"></div>
-          <div class="badges">
-            <span class="badge" title="Микрофон">{{ em('mic', statusMap[id]?.mic) }}</span>
-            <span class="badge" title="Камера">{{ em('cam', statusMap[id]?.cam) }}</span>
-            <span class="badge" title="Звук">{{ em('speakers', statusMap[id]?.speakers) }}</span>
-            <span class="badge" title="Видимость">{{ em('visibility', statusMap[id]?.visibility) }}</span>
-          </div>
+    <div class="grid" :style="gridStyle">
+      <div v-for="id in peerIds" :key="id" class="tile">
+        <video :ref="el => setVideoRef(id, el as HTMLVideoElement)" playsinline autoplay :muted="id === localId" />
+        <div class="veil" :class="{ visible: covers.has(id) }"></div>
+        <div class="badges">
+          <span class="badge" title="Микрофон">{{ em('mic', statusMap[id]?.mic) }}</span>
+          <span class="badge" title="Камера">{{ em('cam', statusMap[id]?.cam) }}</span>
+          <span class="badge" title="Звук">{{ em('speakers', statusMap[id]?.speakers) }}</span>
+          <span class="badge" title="Видимость">{{ em('visibility', statusMap[id]?.visibility) }}</span>
         </div>
       </div>
-
-      <div class="controls">
-        <button class="ctrl" @click="toggleMic">{{ micOn ? 'Микрофон вкл' : 'Микрофон выкл' }}</button>
-        <button class="ctrl" @click="toggleCam">{{ camOn ? 'Камера вкл' : 'Камера выкл' }}</button>
-        <button class="ctrl" @click="toggleSpeakers">{{ speakersOn ? 'Звук вкл' : 'Звук выкл' }}</button>
-        <button class="ctrl" @click="toggleVisibility">{{ visibilityOn ? 'Видео вкл' : 'Видео выкл' }}</button>
-        <button class="ctrl danger" @click="onLeave">Покинуть комнату</button>
-      </div>
-
-      <div class="devices">
-        <label>
-          Микрофон:
-          <select v-model="selectedMicId" @change="onMicChange" :disabled="mics.length===0">
-            <option v-for="d in mics" :key="d.deviceId" :value="d.deviceId">
-              {{ d.label || 'Микрофон' }}
-            </option>
-          </select>
-        </label>
-        <label>
-          Камера:
-          <select v-model="selectedCamId" @change="onCamChange" :disabled="cams.length===0">
-            <option v-for="d in cams" :key="d.deviceId" :value="d.deviceId">
-              {{ d.label || 'Камера' }}
-            </option>
-          </select>
-        </label>
-      </div>
     </div>
-  </div>
+
+    <div class="controls">
+      <button class="ctrl" @click="toggleMic">{{ micOn ? 'Микрофон вкл' : 'Микрофон выкл' }}</button>
+      <button class="ctrl" @click="toggleCam">{{ camOn ? 'Камера вкл' : 'Камера выкл' }}</button>
+      <button class="ctrl" @click="toggleSpeakers">{{ speakersOn ? 'Звук вкл' : 'Звук выкл' }}</button>
+      <button class="ctrl" @click="toggleVisibility">{{ visibilityOn ? 'Видео вкл' : 'Видео выкл' }}</button>
+      <button class="ctrl danger" @click="onLeave">Покинуть комнату</button>
+    </div>
+
+    <div class="devices">
+      <label>
+        Микрофон:
+        <select v-model="selectedMicId" @change="onMicChange" :disabled="mics.length===0">
+          <option v-for="d in mics" :key="d.deviceId" :value="d.deviceId">
+            {{ d.label || 'Микрофон' }}
+          </option>
+        </select>
+      </label>
+      <label>
+        Камера:
+        <select v-model="selectedCamId" @change="onCamChange" :disabled="cams.length===0">
+          <option v-for="d in cams" :key="d.deviceId" :value="d.deviceId">
+            {{ d.label || 'Камера' }}
+          </option>
+        </select>
+      </label>
+    </div>
+  </section>
 </template>
 
 <script setup lang="ts">

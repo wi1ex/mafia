@@ -7,29 +7,13 @@
   --muted:#94a3b8;
 }
 
-* {
-  box-sizing: border-box;
-}
-html, body , #app {
+*, html, body , #app {
+  width: 100%;
   height: 100%;
 }
 body {
   margin: 0;
-  background: #06090d;
+  background: #022a26;
   color: var(--fg);
-  font: 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
-}
-a {
-  color: inherit;
-}
-
-.container {
-  max-width: 960px;
-  margin: 0 auto;
-  padding: 16px;
-}
-.card {background: #0a121a;
-  border: 1px solid #12202e;
-  border-radius: 12px;
-  padding: 16px;
+  font: 14px Roboto;
 }

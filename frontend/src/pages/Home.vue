@@ -4,29 +4,27 @@
       <TelegramLogin />
     </template>
   </Header>
-  <div class="container">
-    <div class="card">
-      <h2 class="title">Комнаты</h2>
-      <div v-if="roomsStore.rooms.length===0" class="muted">Пока пусто</div>
-      <ul class="list">
-        <li v-for="r in roomsStore.rooms" :key="r.id" class="item">
-          <span class="item__title">#{{ r.id }} — {{ r.title }}</span>
-          <span class="item__meta">({{ r.occupancy }}/{{ r.user_limit }})</span>
-          <router-link v-if="auth.isAuthed" :to="`/room/${r.id}`" class="link">Открыть</router-link>
-          <div v-else class="link disabled">Войдите, чтобы открыть</div>
-        </li>
-      </ul>
+  <section class="card">
+    <h2 class="title">Комнаты</h2>
+    <div v-if="roomsStore.rooms.length===0" class="muted">Пока пусто</div>
+    <ul class="list">
+      <li v-for="r in roomsStore.rooms" :key="r.id" class="item">
+        <span class="item__title">#{{ r.id }} — {{ r.title }}</span>
+        <span class="item__meta">({{ r.occupancy }}/{{ r.user_limit }})</span>
+        <router-link v-if="auth.isAuthed" :to="`/room/${r.id}`" class="link">Открыть</router-link>
+        <div v-else class="link disabled">Войдите, чтобы открыть</div>
+      </li>
+    </ul>
 
-      <div v-if="auth.isAuthed" class="create">
-        <h3 class="subtitle">Создать комнату</h3>
-        <input v-model.trim="title" class="input" placeholder="Название" />
-        <input v-model.number="limit" class="input" type="number" min="2" max="20" placeholder="Лимит" />
-        <button class="btn btn-primary" :disabled="creating || !valid" @click="onCreate">
-          {{ creating ? 'Создаю…' : 'Создать' }}
-        </button>
-      </div>
+    <div v-if="auth.isAuthed" class="create">
+      <h3 class="subtitle">Создать комнату</h3>
+      <input v-model.trim="title" class="input" placeholder="Название" />
+      <input v-model.number="limit" class="input" type="number" min="2" max="20" placeholder="Лимит" />
+      <button class="btn btn-primary" :disabled="creating || !valid" @click="onCreate">
+        {{ creating ? 'Создаю…' : 'Создать' }}
+      </button>
     </div>
-  </div>
+  </section>
 </template>
 
 <script setup lang="ts">

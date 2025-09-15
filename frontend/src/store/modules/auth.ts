@@ -7,19 +7,20 @@ export interface TgUser {
   username?: string;
   photo_url?: string;
   auth_date?: number;
-  hash?: string ;
+  hash?: string;
 }
-
 export interface UserProfile {
   id: number;
   username?: string;
   photo_url?: string;
-  role: string ;
+  role: string;
 }
 
 export const useAuthStore = defineStore('auth', () => {
   const accessToken = ref<string>('')
   const me = ref<UserProfile | null>(null)
+  const ready = ref(false)
+  let _initPromise: Promise<void> | null = null
 
   const isAuthed = computed(() => !!accessToken.value)
   const role = computed(() => me.value?.role ?? 'user')
@@ -29,17 +30,28 @@ export const useAuthStore = defineStore('auth', () => {
   function setAccess(t: string) {
     accessToken.value = t
     setAuthHeader(t)
+    try { t ? localStorage.setItem('accessToken', t) : localStorage.removeItem('accessToken') } catch {}
   }
 
   async function init() {
-    try {
-      const { data } = await api.post('/auth/refresh')
-      setAccess(data.access_token)
-      me.value = data.user
-    } catch {
-      setAccess('')
-      me.value = null
-    }
+    if (ready.value) return
+    if (_initPromise) return _initPromise
+    _initPromise = (async () => {
+      try {
+        try {
+          const { data } = await api.post('/auth/refresh', {})
+          setAccess(data.access_token)
+          me.value = data.user
+        } catch {
+          setAccess('')
+          me.value = null
+        }
+      } finally {
+        ready.value = true
+        _initPromise = null
+      }
+    })()
+    return _initPromise
   }
 
   async function fetchMe() {
@@ -51,19 +63,20 @@ export const useAuthStore = defineStore('auth', () => {
     const { data } = await api.post('/auth/telegram', user)
     setAccess(data.access_token)
     me.value = data.user
+    ready.value = true
   }
 
   async function logout() {
-    try {
-      await api.post('/auth/logout')
-    } catch {}
+    try { await api.post('/auth/logout') } catch {}
     setAccess('')
     me.value = null
+    ready.value = true
   }
 
   return {
     accessToken,
     me,
+    ready,
     isAuthed,
     role,
     avatarUrl,
@@ -73,6 +86,6 @@ export const useAuthStore = defineStore('auth', () => {
     fetchMe,
     signInWithTelegram,
     logout,
-    setToken: setAccess
+    setToken: setAccess,
   }
 })
