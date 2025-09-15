@@ -23,6 +23,25 @@
         <button class="ctrl" @click="toggleVisibility">{{ visibilityOn ? 'Видео вкл' : 'Видео выкл' }}</button>
         <button class="ctrl danger" @click="onLeave">Покинуть комнату</button>
       </div>
+
+      <div class="devices">
+        <label>
+          Микрофон:
+          <select v-model="selectedMicId" @change="onMicChange" :disabled="mics.length===0">
+            <option v-for="d in mics" :key="d.deviceId" :value="d.deviceId">
+              {{ d.label || 'Микрофон' }}
+            </option>
+          </select>
+        </label>
+        <label>
+          Камера:
+          <select v-model="selectedCamId" @change="onCamChange" :disabled="cams.length===0">
+            <option v-for="d in cams" :key="d.deviceId" :value="d.deviceId">
+              {{ d.label || 'Камера' }}
+            </option>
+          </select>
+        </label>
+      </div>
     </div>
   </div>
 </template>
@@ -40,8 +59,12 @@ import {
   RoomEvent,
   Track,
   VideoPresets,
+  setLogLevel,
+  LogLevel,
 } from 'livekit-client'
 import { useRtcStore } from '@/store'
+
+setLogLevel(LogLevel.info)
 
 type Status = { mic: boolean; cam: boolean; speakers: boolean; visibility: boolean }
 
@@ -62,6 +85,12 @@ const videoEls = new Map<string, HTMLVideoElement>()
 const audioEls = new Map<string, HTMLAudioElement>()
 const statusMap = reactive<Record<string, Status>>({})
 
+const LS = { mic: 'mafia.audioDeviceId', cam: 'mafia.videoDeviceId' }
+const mics = ref<MediaDeviceInfo[]>([])
+const cams = ref<MediaDeviceInfo[]>([])
+const selectedMicId = ref<string>('')
+const selectedCamId = ref<string>('')
+
 const gridCols = computed(() => {
   const n = peerIds.value.length
   if (n <= 6) return 3
@@ -70,7 +99,6 @@ const gridCols = computed(() => {
 })
 const gridStyle = computed(() => ({ gridTemplateColumns: `repeat(${gridCols.value}, 1fr)` }))
 
-
 const micOn = ref(true)
 const camOn = ref(true)
 const speakersOn = ref(true)
@@ -78,6 +106,49 @@ const visibilityOn = ref(true)
 
 const covers = reactive(new Set<string>())
 const cover = (id: string, on: boolean) => { on ? covers.add(id) : covers.delete(id) }
+
+function saveLS(k: string, v: string) { try { localStorage.setItem(k, v) } catch {} }
+function loadLS(k: string): string | null { try { return localStorage.getItem(k) } catch { return null } }
+
+async function refreshDevices() {
+  try {
+    const list = await navigator.mediaDevices.enumerateDevices()
+    mics.value = list.filter(d => d.kind === 'audioinput')
+    cams.value = list.filter(d => d.kind === 'videoinput')
+    if (!mics.value.find(d => d.deviceId === selectedMicId.value)) {
+      selectedMicId.value = loadLS(LS.mic) && mics.value.find(d => d.deviceId === loadLS(LS.mic)!) ? loadLS(LS.mic)! : (mics.value[0]?.deviceId || '')
+    }
+    if (!cams.value.find(d => d.deviceId === selectedCamId.value)) {
+      selectedCamId.value = loadLS(LS.cam) && cams.value.find(d => d.deviceId === loadLS(LS.cam)!) ? loadLS(LS.cam)! : (cams.value[0]?.deviceId || '')
+    }
+  } catch {}
+}
+
+async function onMicChange() {
+  const room = lk.value
+  if (!room) return
+  const id = selectedMicId.value
+  saveLS(LS.mic, id)
+  try {
+    await room.localParticipant.setMicrophoneEnabled(true, { deviceId: { exact: id } as any })
+  } catch {
+    try { await room.localParticipant.setMicrophoneEnabled(false) } catch {}
+    try { await room.localParticipant.setMicrophoneEnabled(true, { deviceId: { exact: id } as any }) } catch {}
+  }
+}
+
+async function onCamChange() {
+  const room = lk.value
+  if (!room) return
+  const id = selectedCamId.value
+  saveLS(LS.cam, id)
+  try {
+    await room.localParticipant.setCameraEnabled(true, { deviceId: { exact: id } as any, resolution: { width: 640, height: 360 } })
+  } catch {
+    try { await room.localParticipant.setCameraEnabled(false) } catch {}
+    try { await room.localParticipant.setCameraEnabled(true, { deviceId: { exact: id } as any, resolution: { width: 640, height: 360 } }) } catch {}
+  }
+}
 
 function participantsMap(room?: LkRoom | null) {
   return (room as any)?.participants ?? (room as any)?.remoteParticipants as | Map<string, RemoteParticipant> | undefined
@@ -359,8 +430,11 @@ onMounted(async () => {
     upsertPeerFromParticipant(room.localParticipant, true)
     await nextTick()
 
+    selectedMicId.value = loadLS(LS.mic) || ''
+    selectedCamId.value = loadLS(LS.cam) || ''
+
     try {
-      await room.localParticipant.setMicrophoneEnabled(true)
+      await room.localParticipant.setMicrophoneEnabled(true, selectedMicId.value ? { deviceId: { exact: selectedMicId.value } as any } : undefined)
       micOn.value = true
     } catch (e) {
       console.warn('mic failed', e)
@@ -368,7 +442,9 @@ onMounted(async () => {
     }
 
     try {
-      await room.localParticipant.setCameraEnabled(true, { resolution: { width: 640, height: 360 } })
+      const camOpts: any = { resolution: { width: 640, height: 360 } }
+      if (selectedCamId.value) camOpts.deviceId = { exact: selectedCamId.value }
+      await room.localParticipant.setCameraEnabled(true, camOpts)
       camOn.value = true
       const vpub = Array.from(room.localParticipant.videoTrackPublications.values())[0]
       const el = videoEls.get(localId.value)
@@ -380,6 +456,9 @@ onMounted(async () => {
       console.warn('camera failed', e)
       camOn.value = false
     }
+
+    await refreshDevices()
+    try { navigator.mediaDevices.addEventListener?.('devicechange', refreshDevices) } catch {}
 
     await publishMyMetadata(room.localParticipant)
 
@@ -397,6 +476,7 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   onLeave()
+  try { navigator.mediaDevices.removeEventListener?.('devicechange', refreshDevices) } catch {}
 })
 </script>
 
@@ -468,6 +548,19 @@ video {
       background: var(--color-danger);
       color: #883c3c;
     }
+  }
+}
+.devices {
+  margin-top: 8px;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  select {
+    padding: 6px 8px;
+    border-radius: 8px;
+    border: 1px solid #334155;
+    background: #0b0f14;
+    color: #e5e7eb;
   }
 }
 </style>
