@@ -5,10 +5,10 @@
         <video :ref="el => setVideoRef(id, el as HTMLVideoElement)" playsinline autoplay :muted="id === localId" />
         <div class="veil" :class="{ visible: covers.has(id) }"></div>
         <div class="badges">
-          <span class="badge" title="Микрофон">{{ em('mic', statusMap[id]?.mic) }}</span>
-          <span class="badge" title="Камера">{{ em('cam', statusMap[id]?.cam) }}</span>
-          <span class="badge" title="Звук">{{ em('speakers', statusMap[id]?.speakers) }}</span>
-          <span class="badge" title="Видимость">{{ em('visibility', statusMap[id]?.visibility) }}</span>
+          <span class="badge" title="Микрофон">{{ em('mic', !!statusMap[id]?.mic) }}</span>
+          <span class="badge" title="Камера">{{ em('cam', !!statusMap[id]?.cam) }}</span>
+          <span class="badge" title="Звук">{{ em('speakers', !!statusMap[id]?.speakers) }}</span>
+          <span class="badge" title="Видимость">{{ em('visibility', !!statusMap[id]?.visibility) }}</span>
         </div>
       </div>
     </div>
@@ -77,7 +77,7 @@ const peers = ref<Peer[]>([])
 const peerIds = computed(() => peers.value.map(p => p.id))
 const videoEls = new Map<string, HTMLVideoElement>()
 const audioEls = new Map<string, HTMLAudioElement>()
-const statusMap = reactive<Record<string, Status>>({})
+const statusMap = rtc.statusMap as unknown as Record<string, { mic: 0|1; cam: 0|1; speakers: 0|1; visibility: 0|1 }>
 
 const LS = { mic: 'audioDeviceId', cam: 'videoDeviceId' }
 const mics = ref<MediaDeviceInfo[]>([])
@@ -245,40 +245,24 @@ async function toggleMic() {
   const room = lk.value
   if (!room) return
   const next = !micOn.value
-  try {
-    await room.localParticipant.setMicrophoneEnabled(next)
-    micOn.value = next
-    await publishMyMetadata(room.localParticipant)
-  } catch { micOn.value = !next }
+  await room.localParticipant.setMicrophoneEnabled(next)
+  micOn.value = next
+  await rtc.toggleMic()
 }
-
 async function toggleCam() {
   const room = lk.value
   if (!room) return
   const next = !camOn.value
-  try {
-    await room.localParticipant.setCameraEnabled(next, next ? { resolution: VideoPresets.h360.resolution } : undefined)
-    camOn.value = next
-    const el = videoEls.get(localId.value)
-    const vpub = Array.from(room.localParticipant.videoTrackPublications.values())[0]
-    if (next && el && vpub?.track) {
-      el.muted = true
-      vpub.track.attach(el)
-    }
-    await publishMyMetadata(room.localParticipant)
-  } catch { camOn.value = !next }
+  await room.localParticipant.setCameraEnabled(next)
+  camOn.value = next
+  await rtc.toggleCam()
 }
-
-
 async function toggleSpeakers() {
-  const room = lk.value
-  if (!room) return
   const next = !speakersOn.value
-  speakersOn.value = next
   setAudioSubscriptionsForAll(next)
-  await publishMyMetadata(room.localParticipant)
+  speakersOn.value = next
+  await rtc.toggleSpeakers()
 }
-
 async function toggleVisibility() {
   const room = lk.value
   if (!room) return
@@ -292,8 +276,9 @@ async function toggleVisibility() {
       setVideoSubscriptionsForAll(false)
     } else {
       setVideoSubscriptionsForAll(true)
+      forEachRemote((id) => cover(id, false))
     }
-    await publishMyMetadata(room.localParticipant)
+    await rtc.toggleVisibility()
   })()
   await visibilityOp
   visibilityOp = null
@@ -322,7 +307,7 @@ onMounted(async () => {
     selectedMicId.value = loadLS(LS.mic) || ''
     selectedCamId.value = loadLS(LS.cam) || ''
 
-    const { ws_url, token } = await rtc.requestJoin(rid)
+    const { ws_url, token } = await rtc.join(rid)
     const room = new LkRoom({
       // dynacast: true,
       publishDefaults: {
@@ -347,6 +332,14 @@ onMounted(async () => {
       },
     })
     lk.value = room
+
+    if (!rtc.micOn) { try { await room.localParticipant.setMicrophoneEnabled(false) } catch {} }
+    if (!rtc.camOn) { try { await room.localParticipant.setCameraEnabled(false) } catch {} }
+
+    room.on(RoomEvent.Reconnected, async () => {
+      if (!rtc.micOn) { try { await room.localParticipant.setMicrophoneEnabled(false) } catch {} }
+      if (!rtc.camOn) { try { await room.localParticipant.setCameraEnabled(false) } catch {} }
+    })
 
     room.on(RoomEvent.LocalTrackPublished, (pub: LocalTrackPublication) => {
       if (pub.kind === Track.Kind.Video) {
@@ -493,6 +486,7 @@ onBeforeUnmount(() => {
   overflow: hidden;
   background: #0b0f14;
   aspect-ratio: 16 / 9;
+  isolation: isolate;
 }
 video {
   position: absolute;
@@ -502,6 +496,7 @@ video {
   display: block;
   object-fit: cover;
   background: #000;
+  transform: translateZ(0);
 }
 .veil {
   position: absolute;
@@ -509,6 +504,7 @@ video {
   background: #000;
   opacity: 0;
   pointer-events: none;
+  mix-blend-mode: normal;
   &.visible {
     opacity: 1;
   }
@@ -521,11 +517,9 @@ video {
   gap: 6px;
   z-index: 2;
   .badge {
-    font-size: 14px;
-    line-height: 1;
-    padding: 4px 6px;
+    padding: 2px 6px;
     border-radius: 8px;
-    background: #0a121acc;
+    background: rgba(10, 18, 26, 0.9);
     border: 1px solid #12202e;
     color: #e5e7eb;
   }

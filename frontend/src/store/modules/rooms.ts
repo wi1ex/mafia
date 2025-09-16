@@ -9,7 +9,6 @@ export interface Room {
   is_private: boolean;
   creator: number;
   created_at: string;
-  updated_at: string;
   occupancy: number;
 }
 
@@ -50,7 +49,6 @@ export const useRoomsStore = defineStore('rooms', () => {
       is_private: (x.is_private === true || x.is_private === '1' || x.is_private === 1),
       creator: toNum(x.creator),
       created_at: String(x.created_at || ''),
-      updated_at: String(x.updated_at || ''),
       occupancy: toNum(x.occupancy),
     }
   }

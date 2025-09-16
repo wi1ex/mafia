@@ -1,7 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import Home from '@/pages/Home.vue'
 import Room from '@/pages/Room.vue'
-import { useAuthStore } from '@/store'
+import { useAuthStore, useRtcStore } from '@/store'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -10,19 +10,18 @@ const router = createRouter({
     { path: '/room/:id(\\d+)', name: 'room', component: Room, meta: { requiresAuth: true, title: 'Комната' } },
     { path: '/:pathMatch(.*)*', redirect: { name: 'home' } },
   ],
-  scrollBehavior() {
-    return { top: 0 }
-  },
+  scrollBehavior() { return { top: 0 } },
 })
 
+const rtc = useRtcStore()
+rtc.installPageLeaveHandlers(router)
+
 router.beforeEach(async (to) => {
-  if (!to.meta.requiresAuth) return true
-  if (!/^\d+$/.test(String(to.params.id || ''))) return { name: 'home' }
+  if (!to.meta?.requiresAuth) return true
   const auth = useAuthStore()
   if (!auth.ready) await auth.init()
   return auth.isAuthed ? true : { name: 'home' }
 })
-
 
 router.afterEach((to) => {
   const base = 'Mafia'

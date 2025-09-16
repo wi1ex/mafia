@@ -4,6 +4,7 @@ from fastapi.responses import ORJSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from .api.router import api_router
 from .realtime.ws_rooms import router as ws_rooms_router
+from .realtime.ws_room import router as ws_room_router
 from .core.lifespan import lifespan
 from .core.handlers import setup_exception_handlers
 from .core.middleware import LoggingMiddleware
@@ -20,8 +21,6 @@ def build_app() -> FastAPI:
         openapi_url=None,
     )
 
-    main_app.add_middleware(LoggingMiddleware)
-
     main_app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.BACKEND_CORS_ORIGINS,
@@ -30,10 +29,12 @@ def build_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    main_app.add_middleware(LoggingMiddleware)
     setup_exception_handlers(main_app)
 
     main_app.include_router(api_router, prefix="/api")
     main_app.include_router(ws_rooms_router, prefix="/ws")
+    main_app.include_router(ws_room_router,  prefix="/ws")
 
     return main_app
 

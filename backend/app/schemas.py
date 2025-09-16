@@ -48,5 +48,4 @@ class RoomOut(BaseModel):
     is_private: bool
     creator: int
     created_at: str
-    updated_at: str
     occupancy: int = 0

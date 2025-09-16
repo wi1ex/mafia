@@ -43,16 +43,14 @@ async def _snapshot() -> list[dict]:
             log.warning("ws.snapshot.missing_params", room_id=sid)
             continue
 
-        rid = _to_int(data.get("id", sid), sid)
         try:
             result.append({
-                "id": rid,
+                "id": _to_int(data.get("id", sid), sid),
                 "title": data.get("title", ""),
                 "user_limit": _to_int(data.get("user_limit"), 0),
                 "is_private": _to_bool(data.get("is_private", 0)),
                 "creator": _to_int(data.get("creator"), 0),
                 "created_at": data.get("created_at", ""),
-                "updated_at": data.get("updated_at", ""),
                 "occupancy": _to_int(data.get("occupancy"), 0),
             })
         except Exception as e:
