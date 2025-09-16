@@ -8,7 +8,7 @@ import structlog
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Path, Depends
 from starlette.websockets import WebSocketState
 from ..core.clients import get_redis
-from ..services.sessions import get_current_user
+from ..services.sessions import get_current_user_ws
 from ..models.user import User
 
 
@@ -58,12 +58,15 @@ async def _force_leave(r, room_id: int, user_id: int) -> None:
 
 
 @router.websocket("/room/{room_id}")
-async def room_ws(ws: WebSocket, room_id: int = Path(..., ge=1), user: User = Depends(get_current_user)):
+async def room_ws(ws: WebSocket, room_id: int = Path(..., ge=1), user: User = Depends(get_current_user_ws)):
     await ws.accept()
     r = await get_redis()
     uid = int(user.id)
-    now = int(time.time())
+    await r.sadd(f"room:{room_id}:members", uid)
+    occ = int(await r.scard(f"room:{room_id}:members") or 0)
+    await _broadcast_rooms(r, {"type": "occupancy", "payload": {"id": room_id, "occupancy": occ}})
 
+    now = int(time.time())
     await ws.send_text(json.dumps({"type": "snapshot", "payload": await _room_snapshot(r, room_id), "ts": now}))
 
     pub = r.pubsub()
@@ -78,25 +81,28 @@ async def room_ws(ws: WebSocket, room_id: int = Path(..., ge=1), user: User = De
     hb_task = asyncio.create_task(heartbeats())
 
     async def consume_incoming():
-        while True:
-            raw = await ws.receive_text()
-            try:
-                msg = json.loads(raw)
-            except Exception:
-                continue
-            mtype = msg.get("type")
-            seq = msg.get("seq")
-            ts = int(time.time())
-            if mtype == "state":
-                payload = msg.get("payload") or {}
-                applied = await _apply_state(r, room_id, uid, payload)
-                if applied:
-                    evt = {"type": "state_changed", "payload": {"user_id": uid, **applied}, "origin": uid, "ts": ts}
-                    await _broadcast_room(r, room_id, evt)
-                await ws.send_text(json.dumps({"type": "state_ack", "seq": seq, "ts": ts}))
-            elif mtype == "goodbye":
-                await _force_leave(r, room_id, uid)
-                await ws.send_text(json.dumps({"type": "goodbye_ack", "seq": seq, "ts": ts}))
+        try:
+            while True:
+                raw = await ws.receive_text()
+                try:
+                    msg = json.loads(raw)
+                except Exception:
+                    continue
+                mtype = msg.get("type")
+                seq = msg.get("seq")
+                ts = int(time.time())
+                if mtype == "state":
+                    payload = msg.get("payload") or {}
+                    applied = await _apply_state(r, room_id, uid, payload)
+                    if applied:
+                        evt = {"type": "state_changed", "payload": {"user_id": uid, **applied}, "origin": uid, "ts": ts}
+                        await _broadcast_room(r, room_id, evt)
+                    await ws.send_text(json.dumps({"type": "state_ack", "seq": seq, "ts": ts}))
+                elif mtype == "goodbye":
+                    await _force_leave(r, room_id, uid)
+                    await ws.send_text(json.dumps({"type": "goodbye_ack", "seq": seq, "ts": ts}))
+        except WebSocketDisconnect:
+            return
 
     incoming_task = asyncio.create_task(consume_incoming())
 

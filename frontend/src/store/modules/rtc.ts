@@ -121,7 +121,7 @@ export const useRtcStore = defineStore('rtc', () => {
       reconnectT = Math.min((reconnectT || 500) * 2, 5000)
       setTimeout(() => {
         if (!roomId.value) return
-        connectWS(`wss://${location.host}/ws/room/${roomId.value}`)
+        connectWS(`wss://${location.host}/ws/room/${roomId.value}?token=${auth.accessToken}`)
         httpPublishState().catch(() => {})
       }, reconnectT || 500)
     }
