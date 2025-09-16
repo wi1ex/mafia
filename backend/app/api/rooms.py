@@ -1,5 +1,4 @@
 from __future__ import annotations
-import asyncio
 import json
 import time
 from typing import Any, Dict, List
@@ -17,6 +16,20 @@ from ..settings import settings
 
 
 router = APIRouter()
+
+
+def _renc(v):
+    if isinstance(v, bool):
+        return "1" if v else "0"
+    if isinstance(v, (int, float)):
+        return str(v)
+    if isinstance(v, (str, bytes)):
+        return v
+    return json.dumps(v, separators=(",", ":"))
+
+
+def _rmap(d: dict) -> dict:
+    return {k: _renc(v) for k, v in d.items()}
 
 
 def _serialize(rm: Room, *, occupancy: int = 0) -> Dict[str, Any]:
@@ -40,8 +53,8 @@ async def list_rooms(session: AsyncSession = Depends(get_session)) -> List[RoomO
         occ = int(await r.scard(f"room:{rm.id}:members") or 0)
         data = _serialize(rm, occupancy=occ)
         out.append(RoomOut(**data))
-        await r.hset(f"room:{rm.id}:params", mapping=data)
-        await r.sadd("rooms:index", rm.id)
+        await r.hset(f"room:{rm.id}:params", mapping=_rmap(data))
+        await r.sadd("rooms:index", str(rm.id))
     return out
 
 
@@ -52,8 +65,8 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
     await session.flush()
     r = await get_redis()
     data = _serialize(rm, occupancy=0)
-    await r.hset(f"room:{rm.id}:params", mapping=data)
-    await r.sadd("rooms:index", rm.id)
+    await r.hset(f"room:{rm.id}:params", mapping=_rmap(data))
+    await r.sadd("rooms:index", str(rm.id))
     await session.commit()
     return RoomOut(**data)
 
@@ -74,8 +87,8 @@ async def join_room(room_id: int = Path(..., ge=1), current_user: User = Depends
 
     occ = int(await r.scard(f"room:{room_id}:members") or 0)
     data = _serialize(rm, occupancy=occ)
-    await r.hset(f"room:{rm.id}:params", mapping=data)
-    await r.sadd("rooms:index", rm.id)
+    await r.hset(f"room:{rm.id}:params", mapping=_rmap(data))
+    await r.sadd("rooms:index", str(rm.id))
     await r.publish("rooms:events", json.dumps({"type": "occupancy", "payload": {"id": room_id, "occupancy": occ}}))
 
     members = await r.smembers(f"room:{room_id}:members")
