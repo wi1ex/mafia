@@ -27,7 +27,7 @@ export const useRoomsStore = defineStore('rooms', () => {
     if (!auth.ready) await auth.init()
     if (!auth.isAuthed) return
 
-    sio.value = io('/ws', {
+    sio.value = io( {
       path: '/ws/socket.io',
       transports: ['websocket'],
       auth: (cb) => cb({ token: auth.accessToken }),

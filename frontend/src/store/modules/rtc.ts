@@ -37,7 +37,7 @@ export const useRtcStore = defineStore('rtc', () => {
 
   function connectSocket() {
     if (socket.value?.connected) return
-    socket.value = io('/ws', {
+    socket.value = io( {
       path: '/ws/socket.io',
       transports: ['websocket'],
       auth: (cb) => cb({ token: useAuthStore().accessToken }),
