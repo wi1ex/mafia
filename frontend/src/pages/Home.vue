@@ -66,16 +66,16 @@ onBeforeUnmount(()=> {
 <style lang="scss" scoped>
 .card {
   .title {
-    color: var(--fg);
+    color: $fg;
     margin: 0 0 8px;
   }
   .subtitle {
-    color: var(--fg);
+    color: $fg;
     margin: 12px 0 6px;
     font-size: 16px;
   }
   .muted {
-    color: var(--muted);
+    color: $muted;
   }
   .list {
     margin: 0;
@@ -87,18 +87,18 @@ onBeforeUnmount(()=> {
     align-items: center;
     gap: 8px;
     margin: 8px 0;
-    color: var(--fg);
+    color: $fg;
     &__title {
       font-weight: 500;
     }
     &__meta {
-      color: var(--muted);
+      color: $muted;
     }
   }
   .link {
     margin-left: auto;
     text-decoration: underline;
-    color: var(--fg);
+    color: $fg;
     &.disabled {
       opacity: 0.5;
       cursor: not-allowed;
@@ -126,7 +126,7 @@ onBeforeUnmount(()=> {
     cursor: pointer;
   }
   .btn-primary {
-    background: var(--color-primary);
+    background: $color-primary;
     color: #06110b;
   }
 }

@@ -1,15 +1,8 @@
-:root{
-  --color-primary:#22c55e;
-  --color-secondary:#0ea5e9;
-  --color-danger:#ef4444;
-  --bg:#0b0f14;
-  --fg:#e5e7eb;
-  --muted:#94a3b8;
-}
+@use "./index" as *;
 
 body {
   margin: 0;
-  background: #022a26;
-  color: var(--fg);
+  background: $bg;
+  color: $fg;
   font: 14px Roboto;
 }

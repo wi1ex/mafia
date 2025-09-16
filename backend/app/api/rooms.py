@@ -11,20 +11,32 @@ from ..core.clients import get_redis
 from ..realtime.sio import sio
 from ..services.sessions import get_current_user
 from ..services.livekit_tokens import make_livekit_token
-from ..schemas import RoomCreateIn, RoomOut, Ok
+from ..schemas import RoomCreateIn, RoomOut, JoinOut, Ok
 
 
 router = APIRouter()
 
 
-def _serialize_room(rm: Room, *, occupancy: int) -> Dict[str, Any]:
+def _to_redis(d: Dict[str, Any]) -> Dict[str, str]:
+    out: Dict[str, str] = {}
+    for k, v in d.items():
+        if isinstance(v, bool):
+            out[k] = "1" if v else "0"
+        elif v is None:
+            out[k] = ""
+        else:
+            out[k] = v
+    return out
+
+
+def _serialize_room(room: Room, *, occupancy: int) -> Dict[str, Any]:
     return {
-        "id": rm.id,
-        "title": rm.title,
-        "user_limit": rm.user_limit,
-        "is_private": rm.is_private,
-        "creator": rm.creator,
-        "created_at": rm.created_at.isoformat(),
+        "id": room.id,
+        "title": room.title,
+        "user_limit": room.user_limit,
+        "is_private": room.is_private,
+        "creator": room.creator,
+        "created_at": room.created_at.isoformat(),
         "occupancy": occupancy,
     }
 
@@ -34,43 +46,36 @@ async def list_rooms(session: AsyncSession = Depends(get_session)) -> List[RoomO
     r = get_redis()
     rows = (await session.execute(select(Room))).scalars().all()
     out: List[RoomOut] = []
-    for rm in rows:
-        occ = int(await r.scard(f"room:{rm.id}:members") or 0)
-        data = _serialize_room(rm, occupancy=occ)
-        await r.hset(f"room:{rm.id}:params", mapping=data)
-        await r.sadd("rooms:index", rm.id)
+    for room in rows:
+        occ = int(await r.scard(f"room:{room.id}:members") or 0)
+        data = _serialize_room(room, occupancy=occ)
+        await r.hset(f"room:{room.id}:params", mapping=_to_redis(data))
+        await r.sadd("rooms:index", room.id)
         out.append(RoomOut(**data))
     return out
 
 
 @router.post("", response_model=RoomOut, status_code=status.HTTP_201_CREATED)
 async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get_session), user: User = Depends(get_current_user)) -> RoomOut:
-    rm = Room(title=payload.title, user_limit=payload.user_limit, is_private=payload.is_private, creator=user.id)
-    session.add(rm)
+    room = Room(title=payload.title, user_limit=payload.user_limit, is_private=payload.is_private, creator=user.id)
+    session.add(room)
     await session.flush()
     r = get_redis()
-    data = _serialize_room(rm, occupancy=0)
-    await r.hset(f"room:{rm.id}:params", mapping=data)
-    await r.sadd("rooms:index", rm.id)
+    data = _serialize_room(room, occupancy=0)
+    await r.hset(f"room:{room.id}:params", mapping=_to_redis(data))
+    await r.sadd("rooms:index", room.id)
     return RoomOut(**data)
-
-
-class JoinOut(RoomOut):
-    token: str
-    room_id: int
-    snapshot: Dict[str, Dict[str, str]]
-    self_pref: Dict[str, str]
 
 
 @router.post("/{room_id}/join", response_model=JoinOut)
 async def join_room(room_id: int = Path(..., ge=1), session: AsyncSession = Depends(get_session), user: User = Depends(get_current_user)) -> JoinOut:
-    rm = await session.get(Room, room_id)
-    if not rm:
+    room = await session.get(Room, room_id)
+    if room is None:
         raise HTTPException(status_code=404, detail="room_not_found")
 
     r = get_redis()
     occ = int(await r.scard(f"room:{room_id}:members") or 0)
-    if occ >= rm.user_limit:
+    if occ >= room.user_limit:
         raise HTTPException(status_code=409, detail="room_is_full")
 
     await r.sadd(f"room:{room_id}:members", user.id)
@@ -88,7 +93,7 @@ async def join_room(room_id: int = Path(..., ge=1), session: AsyncSession = Depe
                  for k, v in (self_pref_raw or {}).items()}
 
     lk_token = make_livekit_token(identity=str(user.id), name=user.username or f"user-{user.id}", room=str(room_id))
-    data = _serialize_room(rm, occupancy=int(await r.scard(f"room:{room_id}:members") or 0))
+    data = _serialize_room(room, occupancy=int(await r.scard(f"room:{room_id}:members") or 0))
     await sio.emit("rooms_occupancy", {"id": room_id, "occupancy": data["occupancy"]})
     return JoinOut(**data, token=lk_token, room_id=room_id, snapshot=snapshot, self_pref=self_pref or {})
 
@@ -96,10 +101,10 @@ async def join_room(room_id: int = Path(..., ge=1), session: AsyncSession = Depe
 @router.post("/{room_id}/state", response_model=Ok)
 async def update_state(payload: Dict[str, Any], room_id: int = Path(..., ge=1), user: User = Depends(get_current_user)) -> Ok:
     r = get_redis()
-    norm = {k: "1" if bool(v) else "0" for k, v in (payload or {}).items() if k in {"mic", "cam", "speakers", "visibility"}}
-    if norm:
-        await r.hset(f"room:{room_id}:user:{user.id}:state", mapping=norm)
-        await r.hset(f"user:{user.id}:last_state", mapping=norm)
+    data = {k: "1" if bool(v) else "0" for k, v in (payload or {}).items() if k in {"mic", "cam", "speakers", "visibility"}}
+    if data:
+        await r.hset(f"room:{room_id}:user:{user.id}:state", mapping=data)
+        await r.hset(f"user:{user.id}:last_state", mapping=data)
     return Ok()
 
 

@@ -430,7 +430,7 @@ onBeforeUnmount(() => {
 
 <style lang="scss" scoped>
 .title {
-  color: var(--fg);
+  color: $fg;
 }
 .grid {
   display: grid;
@@ -498,7 +498,7 @@ video {
     background: #12202e;
     color: #e5e7eb;
     &.danger {
-      background: var(--color-danger);
+      background: $color-danger;
       color: #883c3c;
     }
   }

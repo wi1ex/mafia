@@ -11,7 +11,7 @@ from ..settings import settings
 log = structlog.get_logger()
 
 
-def _encode(kind: str, *, sub: int | str, exp_s: int, extra: dict[str, Any] | None = None) -> str:
+def _encode(kind: str, *, sub: int | str, exp_s: int, extra: Dict[str, Any] | None = None) -> str:
     i = int(time.time())
     p = {"typ": kind, "sub": str(sub), "iat": i, "exp": i + exp_s}
     if extra:
@@ -19,7 +19,7 @@ def _encode(kind: str, *, sub: int | str, exp_s: int, extra: dict[str, Any] | No
     return jwt.encode(p, settings.JWT_SECRET_KEY, algorithm="HS256")
 
 
-def decode_token(token: str) -> dict[str, Any]:
+def decode_token(token: str) -> Dict[str, Any]:
     return jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=["HS256"])
 
 
@@ -31,7 +31,7 @@ def create_refresh_token(*, sub: int, ttl_days: int) -> str:
     return _encode("refresh", sub=sub, exp_s=ttl_days * 86400)
 
 
-def verify_telegram_auth(data: dict[str, Any]) -> bool:
+def verify_telegram_auth(data: Dict[str, Any]) -> bool:
     h = data.get("hash")
     ad = data.get("auth_date")
     if not h or not ad:
