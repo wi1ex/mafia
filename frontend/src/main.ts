@@ -3,7 +3,7 @@ import { createPinia } from 'pinia'
 import App from './App.vue'
 import router from './router'
 import './styles/main.scss'
-import { useRtcStore } from '@/store/modules/rtc'
+import { useRtcStore } from '@/store'
 
 const app = createApp(App)
 const pinia = createPinia()
@@ -11,6 +11,6 @@ const pinia = createPinia()
 app.use(pinia)
 app.use(router)
 
-useRtcStore().installPageLeaveHandlers(router)
-
 app.mount('#app')
+
+useRtcStore().installPageLeaveHandlers(router)

@@ -1,7 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import Home from '@/pages/Home.vue'
 import Room from '@/pages/Room.vue'
-import { useAuthStore } from '@/store/modules/auth'
+import { useAuthStore } from '@/store'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -15,6 +15,7 @@ const router = createRouter({
 
 router.beforeEach(async (to) => {
   if (!to.meta?.requiresAuth) return true
+  if (!/^\d+$/.test(String(to.params.id || ''))) return { name: 'home' }
   const auth = useAuthStore()
   if (!auth.ready) await auth.init()
   return auth.isAuthed ? true : { name: 'home' }

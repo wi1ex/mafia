@@ -1,17 +1,17 @@
 from __future__ import annotations
+import socketio
 from fastapi import FastAPI
-from fastapi.responses import ORJSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import ORJSONResponse
 from .api.router import api_router
-from .realtime.ws_rooms import router as ws_rooms_router
-from .realtime.ws_room import router as ws_room_router
-from .core.lifespan import lifespan
 from .core.handlers import setup_exception_handlers
+from .core.lifespan import lifespan
 from .core.middleware import LoggingMiddleware
+from .realtime.sio import sio
 from .settings import settings
 
 
-def build_app() -> FastAPI:
+def build_fastapi() -> FastAPI:
     main_app = FastAPI(
         title=settings.PROJECT_NAME,
         lifespan=lifespan,
@@ -20,23 +20,22 @@ def build_app() -> FastAPI:
         redoc_url=None,
         openapi_url=None,
     )
+    main_app.add_middleware(LoggingMiddleware)
 
     main_app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.BACKEND_CORS_ORIGINS,
+        allow_origins=settings.BACKEND_CORS_ORIGINS or ["*"],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )
-
-    main_app.add_middleware(LoggingMiddleware)
     setup_exception_handlers(main_app)
 
     main_app.include_router(api_router, prefix="/api")
-    main_app.include_router(ws_rooms_router, prefix="/ws")
-    main_app.include_router(ws_room_router,  prefix="/ws")
 
     return main_app
 
 
-app = build_app()
+_fastapi = build_fastapi()
+
+app = socketio.ASGIApp(sio, other_asgi_app=_fastapi, socketio_path="ws/socket.io")

@@ -5,10 +5,10 @@
         <video :ref="el => setVideoRef(id, el as HTMLVideoElement)" playsinline autoplay :muted="id === localId" />
         <div class="veil" :class="{ visible: covers.has(id) }"></div>
         <div class="badges">
-          <span class="badge" title="Микрофон">{{ em('mic', !!statusMap[id]?.mic) }}</span>
-          <span class="badge" title="Камера">{{ em('cam', !!statusMap[id]?.cam) }}</span>
-          <span class="badge" title="Звук">{{ em('speakers', !!statusMap[id]?.speakers) }}</span>
-          <span class="badge" title="Видимость">{{ em('visibility', !!statusMap[id]?.visibility) }}</span>
+          <span class="badge" title="Микрофон">{{ em('mic', statusMap[id]?.mic === 1) }}</span>
+          <span class="badge" title="Камера">{{ em('cam', statusMap[id]?.cam === 1) }}</span>
+          <span class="badge" title="Звук">{{ em('speakers', statusMap[id]?.speakers === 1) }}</span>
+          <span class="badge" title="Видимость">{{ em('visibility', statusMap[id]?.visibility === 1) }}</span>
         </div>
       </div>
     </div>
@@ -43,9 +43,10 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, onMounted, reactive, ref, computed } from 'vue'
+import { nextTick, onBeforeUnmount, onMounted, reactive, ref, computed, watchEffect } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useRtcStore } from '@/store'
+import { storeToRefs } from 'pinia'
 import {
   LocalParticipant,
   LocalTrackPublication,
@@ -61,15 +62,13 @@ import {
 
 setLogLevel(LogLevel.info)
 
-type Status = { mic: boolean; cam: boolean; speakers: boolean; visibility: boolean }
-
 const route = useRoute()
 const router = useRouter()
 const rtc = useRtcStore()
 
+const { micOn, camOn, speakersOn, visibilityOn, statusMap } = storeToRefs(rtc)
 const rid = Number(route.params.id)
 const lk = ref<LkRoom | null>(null)
-let visibilityOp: Promise<void> | null = null
 
 const localId = ref<string>('')
 type Peer = { id: string; joinedAt: number; isLocal: boolean }
@@ -77,7 +76,6 @@ const peers = ref<Peer[]>([])
 const peerIds = computed(() => peers.value.map(p => p.id))
 const videoEls = new Map<string, HTMLVideoElement>()
 const audioEls = new Map<string, HTMLAudioElement>()
-const statusMap = rtc.statusMap as unknown as Record<string, { mic: 0|1; cam: 0|1; speakers: 0|1; visibility: 0|1 }>
 
 const LS = { mic: 'audioDeviceId', cam: 'videoDeviceId' }
 const mics = ref<MediaDeviceInfo[]>([])
@@ -101,11 +99,6 @@ const gridStyle = computed(() => ({
   gridTemplateColumns: `repeat(${gridCols.value}, 1fr)`,
   gridTemplateRows: `repeat(${gridRows.value}, 1fr)`,
 }))
-
-const micOn = ref(true)
-const camOn = ref(true)
-const speakersOn = ref(true)
-const visibilityOn = ref(true)
 
 const covers = reactive(new Set<string>())
 const cover = (id: string, on: boolean) => { on ? covers.add(id) : covers.delete(id) }
@@ -134,8 +127,6 @@ async function onMicChange() {
   saveLS(LS.mic, id)
   try {
     await room.switchActiveDevice('audioinput', id)
-    micOn.value = true
-    await publishMyMetadata(room.localParticipant)
   } catch (e) { console.warn('mic switch failed', e) }
 }
 
@@ -146,14 +137,12 @@ async function onCamChange() {
   saveLS(LS.cam, id)
   try {
     await room.switchActiveDevice('videoinput', id)
-    camOn.value = true
     const el = videoEls.get(localId.value)
     const vpub = Array.from(room.localParticipant.videoTrackPublications.values())[0]
     if (el && vpub?.track) {
       vpub.track.attach(el)
       el.muted = true
     }
-    await publishMyMetadata(room.localParticipant)
   } catch (e) { console.warn('cam switch failed', e) }
 }
 
@@ -173,7 +162,6 @@ function upsertPeerFromParticipant(p: RemoteParticipant | LocalParticipant, isLo
   if (i >= 0) peers.value[i] = { ...peers.value[i], ...rec }
   else peers.value.push(rec)
   peers.value.sort((a, b) => a.joinedAt - b.joinedAt || Number(a.isLocal) - Number(b.isLocal) || a.id.localeCompare(b.id))
-  if (!statusMap[id]) statusMap[id] = { mic: true, cam: true, speakers: true, visibility: true }
 }
 function removePeer(id: string) {
   peers.value = peers.value.filter(x => x.id !== id)
@@ -181,7 +169,7 @@ function removePeer(id: string) {
   if (v) { try { v.srcObject = null } catch {} videoEls.delete(id) }
   const a = audioEls.get(id)
   if (a) { try { a.remove() } catch {} audioEls.delete(id) }
-  delete statusMap[id]
+  delete statusMap.value[id]
   covers.delete(id)
 }
 
@@ -209,22 +197,6 @@ function em(kind: 'mic'|'cam'|'speakers'|'visibility', on?: boolean) {
   return (on ?? true) ? ON[kind] : OFF[kind]
 }
 
-async function publishMyMetadata(lp: LocalParticipant) {
-  const payload: Status = { mic: micOn.value, cam: camOn.value, speakers: speakersOn.value, visibility: visibilityOn.value }
-  try {
-    await lp.setMetadata(JSON.stringify(payload))
-    statusMap[localId.value] = payload
-  } catch {}
-}
-function parseMeta(s: unknown): Status | null {
-  if (!s || typeof s !== 'string') return null
-  try {
-    const j = JSON.parse(s) as Partial<Status>
-    return { mic: !!j.mic, cam: !!j.cam, speakers: !!j.speakers, visibility: !!j.visibility }
-  }
-  catch { return null }
-}
-
 function forEachRemote(cb: (id: string, p: RemoteParticipant) => void) {
   const room = lk.value
   if (!room) return
@@ -245,49 +217,43 @@ async function toggleMic() {
   const room = lk.value
   if (!room) return
   const next = !micOn.value
-  await room.localParticipant.setMicrophoneEnabled(next)
-  micOn.value = next
-  await rtc.toggleMic()
+  try {
+    await room.localParticipant.setMicrophoneEnabled(next)
+    micOn.value = next
+    await rtc.toggleMic()
+  } catch { micOn.value = !next }
 }
+
 async function toggleCam() {
   const room = lk.value
   if (!room) return
   const next = !camOn.value
-  await room.localParticipant.setCameraEnabled(next)
-  camOn.value = next
-  await rtc.toggleCam()
+  try {
+    await room.localParticipant.setCameraEnabled(next)
+    camOn.value = next
+    await rtc.toggleCam()
+  } catch { camOn.value = !next }
 }
+
 async function toggleSpeakers() {
   const next = !speakersOn.value
-  setAudioSubscriptionsForAll(next)
   speakersOn.value = next
+  setAudioSubscriptionsForAll(next)
   await rtc.toggleSpeakers()
 }
+
 async function toggleVisibility() {
   const room = lk.value
   if (!room) return
-  if (visibilityOp) { await visibilityOp }
-  visibilityOp = (async () => {
-    const next = !visibilityOn.value
-    visibilityOn.value = next
-    if (!next) {
-      forEachRemote((id) => { if (id !== localId.value) cover(id, true) })
-      await new Promise(r => requestAnimationFrame(() => setTimeout(r, 100)))
-      setVideoSubscriptionsForAll(false)
-    } else {
-      setVideoSubscriptionsForAll(true)
-      forEachRemote((id) => cover(id, false))
-    }
-    await rtc.toggleVisibility()
-  })()
-  await visibilityOp
-  visibilityOp = null
+  visibilityOn.value = !visibilityOn.value
+  setVideoSubscriptionsForAll(visibilityOn.value)
+  await rtc.toggleVisibility()
 }
 
 async function onLeave() {
   const room = lk.value
   lk.value = null
-  try { await rtc.requestLeave(rid) } catch {}
+  try { await rtc.leave() } catch {}
   try { await room?.disconnect() } catch {}
   cleanupMedia()
   try { await router.push('/') } catch {}
@@ -301,6 +267,15 @@ function cleanupMedia() {
   peers.value = []
   localId.value = ''
 }
+
+watchEffect(() => {
+  peerIds.value.forEach((id) => {
+    const st = statusMap.value[id]
+    const camOff = !st || st.cam !== 1
+    const unsubscribedByMe = (id !== localId.value) && !visibilityOn.value
+    cover(id, camOff || unsubscribedByMe)
+  })
+})
 
 onMounted(async () => {
   try {
@@ -333,14 +308,6 @@ onMounted(async () => {
     })
     lk.value = room
 
-    if (!rtc.micOn) { try { await room.localParticipant.setMicrophoneEnabled(false) } catch {} }
-    if (!rtc.camOn) { try { await room.localParticipant.setCameraEnabled(false) } catch {} }
-
-    room.on(RoomEvent.Reconnected, async () => {
-      if (!rtc.micOn) { try { await room.localParticipant.setMicrophoneEnabled(false) } catch {} }
-      if (!rtc.camOn) { try { await room.localParticipant.setCameraEnabled(false) } catch {} }
-    })
-
     room.on(RoomEvent.LocalTrackPublished, (pub: LocalTrackPublication) => {
       if (pub.kind === Track.Kind.Video) {
         const el = videoEls.get(localId.value)
@@ -348,7 +315,6 @@ onMounted(async () => {
       }
       if (pub.kind === Track.Kind.Video) camOn.value = true
       if (pub.kind === Track.Kind.Audio) micOn.value = true
-      publishMyMetadata(room.localParticipant)
     })
 
     room.on(RoomEvent.LocalTrackUnpublished, (pub: LocalTrackPublication) => {
@@ -358,7 +324,6 @@ onMounted(async () => {
       }
       if (pub.kind === Track.Kind.Video) camOn.value = false
       if (pub.kind === Track.Kind.Audio) micOn.value = false
-      publishMyMetadata(room.localParticipant)
     })
 
     room.on(RoomEvent.TrackSubscribed, (t: RemoteTrack, _pub, part) => {
@@ -414,18 +379,9 @@ onMounted(async () => {
     room.on(RoomEvent.ParticipantConnected, (p: RemoteParticipant) => {
       upsertPeerFromParticipant(p)
       applySubsFor(p)
-      const st = parseMeta(p.metadata)
-      if (st) statusMap[String(p.identity)] = st
     })
 
     room.on(RoomEvent.ParticipantDisconnected, (p) => removePeer(String(p.identity)))
-
-    room.on(RoomEvent.ParticipantMetadataChanged, (_prev, participant) => {
-      upsertPeerFromParticipant(participant)
-      const id = String(participant.identity)
-      const st = parseMeta(participant.metadata)
-      if (st) statusMap[id] = st
-    })
 
     room.on(RoomEvent.MediaDevicesError, (e) => console.error('MediaDevicesError:', e))
 
@@ -441,7 +397,8 @@ onMounted(async () => {
     participantsMap(room)?.forEach(p => upsertPeerFromParticipant(p))
     await nextTick()
 
-    await room.localParticipant.enableCameraAndMicrophone()
+    if (camOn.value) { try { await room.localParticipant.setCameraEnabled(true) } catch {} }
+    if (micOn.value) { try { await room.localParticipant.setMicrophoneEnabled(true) } catch {} }
 
     const vpub = room.localParticipant.videoTrackPublications.values().next().value
     const el = videoEls.get(localId.value)
@@ -456,7 +413,6 @@ onMounted(async () => {
     await refreshDevices()
     navigator.mediaDevices.addEventListener?.('devicechange', refreshDevices)
 
-    await publishMyMetadata(room.localParticipant)
     participantsMap(room)?.forEach((p) => applySubsFor(p))
   } catch {
     try { await lk.value?.disconnect() } catch {}
@@ -466,6 +422,7 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   navigator.mediaDevices.removeEventListener?.('devicechange', refreshDevices)
+  try { void rtc.leave() } catch {}
   try { lk.value?.disconnect() } catch {}
   cleanupMedia()
 })
@@ -486,7 +443,6 @@ onBeforeUnmount(() => {
   overflow: hidden;
   background: #0b0f14;
   aspect-ratio: 16 / 9;
-  isolation: isolate;
 }
 video {
   position: absolute;
@@ -496,15 +452,17 @@ video {
   display: block;
   object-fit: cover;
   background: #000;
-  transform: translateZ(0);
+  filter: none !important;
+  mix-blend-mode: normal !important;
+  opacity: 1 !important;
 }
 .veil {
   position: absolute;
   inset: 0;
   background: #000;
   opacity: 0;
+  transition: opacity 120ms ease-in-out;
   pointer-events: none;
-  mix-blend-mode: normal;
   &.visible {
     opacity: 1;
   }
@@ -517,11 +475,14 @@ video {
   gap: 6px;
   z-index: 2;
   .badge {
-    padding: 2px 6px;
+    font-size: 14px;
+    line-height: 1;
+    padding: 4px 6px;
     border-radius: 8px;
-    background: rgba(10, 18, 26, 0.9);
+    background: #0a121acc;
     border: 1px solid #12202e;
     color: #e5e7eb;
+    backdrop-filter: none !important;
   }
 }
 .controls {

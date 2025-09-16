@@ -1,8 +1,7 @@
 from __future__ import annotations
 import structlog
-from fastapi import Depends, HTTPException, Response, status, WebSocket, WebSocketException
+from fastapi import Depends, HTTPException, Response, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from fastapi.security.utils import get_authorization_scheme_param
 from sqlalchemy import select, update, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.security import create_access_token, create_refresh_token, decode_token
@@ -85,36 +84,6 @@ async def get_current_user(creds: HTTPAuthorizationCredentials = Depends(bearer)
     if not user:
         raise _unauth
     return user
-
-
-async def get_current_user_ws(websocket: WebSocket, db: AsyncSession = Depends(get_session)):
-    token = websocket.query_params.get("token")
-
-    if not token:
-        auth = websocket.headers.get("Authorization")
-        scheme, credentials = get_authorization_scheme_param(auth)
-        if scheme and scheme.lower() == "bearer":
-            token = credentials
-
-    if not token:
-        token = websocket.cookies.get("access_token")
-
-    if not token:
-        raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION, reason="Missing token")
-
-    try:
-        payload = decode_token(token)
-        if payload.get("typ") != "access":
-            raise ValueError("wrong token type")
-        uid = int(payload.get("sub") or 0)
-        if not uid:
-            raise ValueError("no sub")
-        user = (await db.execute(select(User).where(User.id == uid))).scalar_one_or_none()
-        if not user:
-            raise ValueError("user not found")
-        return user
-    except Exception:
-        raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION, reason="Invalid token")
 
 
 async def logout(resp: Response, *, user_id: int) -> None:
