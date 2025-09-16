@@ -37,11 +37,10 @@ export const useRtcStore = defineStore('rtc', () => {
 
   function connectSocket() {
     if (socket.value?.connected) return
-    const token = auth.accessToken
     socket.value = io('/ws', {
       path: '/ws/socket.io',
       transports: ['websocket'],
-      auth: { token },
+      auth: (cb) => cb({ token: useAuthStore().accessToken }),
       autoConnect: true,
       reconnection: true,
       reconnectionAttempts: Infinity,
@@ -52,6 +51,8 @@ export const useRtcStore = defineStore('rtc', () => {
     socket.value.on('connect', () => {
       if (roomId.value) socket.value?.emit('join', { room_id: roomId.value, state: curStatePayload() })
     })
+
+    socket.value.on('connect_error', (e) => console.warn('rtc sio error', e?.message))
 
     socket.value.on('snapshot', (snap: Record<string, Record<string, string>>) => {
       Object.keys(statusMap).forEach(k => delete statusMap[k])
@@ -79,6 +80,7 @@ export const useRtcStore = defineStore('rtc', () => {
     })
 
     socket.value.on('member_left', (p: any) => { delete statusMap[String(p.user_id)] })
+
     socket.value.on('member_joined', (p: any) => {
       const uid = String(p.user_id)
       if (!statusMap[uid]) statusMap[uid] = { mic: 1, cam: 1, speakers: 1, visibility: 1 }

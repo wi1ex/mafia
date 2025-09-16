@@ -29,7 +29,7 @@ def _serialize_room(rm: Room, *, occupancy: int) -> Dict[str, Any]:
     }
 
 
-@router.get("/rooms", response_model=List[RoomOut])
+@router.get("", response_model=List[RoomOut])
 async def list_rooms(session: AsyncSession = Depends(get_session)) -> List[RoomOut]:
     r = get_redis()
     rows = (await session.execute(select(Room))).scalars().all()
@@ -43,7 +43,7 @@ async def list_rooms(session: AsyncSession = Depends(get_session)) -> List[RoomO
     return out
 
 
-@router.post("/rooms", response_model=RoomOut, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=RoomOut, status_code=status.HTTP_201_CREATED)
 async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get_session), user: User = Depends(get_current_user)) -> RoomOut:
     rm = Room(title=payload.title, user_limit=payload.user_limit, is_private=payload.is_private, creator=user.id)
     session.add(rm)
@@ -62,7 +62,7 @@ class JoinOut(RoomOut):
     self_pref: Dict[str, str]
 
 
-@router.post("/rooms/{room_id}/join", response_model=JoinOut)
+@router.post("/{room_id}/join", response_model=JoinOut)
 async def join_room(room_id: int = Path(..., ge=1), session: AsyncSession = Depends(get_session), user: User = Depends(get_current_user)) -> JoinOut:
     rm = await session.get(Room, room_id)
     if not rm:
@@ -88,12 +88,12 @@ async def join_room(room_id: int = Path(..., ge=1), session: AsyncSession = Depe
                  for k, v in (self_pref_raw or {}).items()}
 
     lk_token = make_livekit_token(identity=str(user.id), name=user.username or f"user-{user.id}", room=str(room_id))
-
     data = _serialize_room(rm, occupancy=int(await r.scard(f"room:{room_id}:members") or 0))
+    await sio.emit("rooms_occupancy", {"id": room_id, "occupancy": data["occupancy"]})
     return JoinOut(**data, token=lk_token, room_id=room_id, snapshot=snapshot, self_pref=self_pref or {})
 
 
-@router.post("/rooms/{room_id}/state", response_model=Ok)
+@router.post("/{room_id}/state", response_model=Ok)
 async def update_state(payload: Dict[str, Any], room_id: int = Path(..., ge=1), user: User = Depends(get_current_user)) -> Ok:
     r = get_redis()
     norm = {k: "1" if bool(v) else "0" for k, v in (payload or {}).items() if k in {"mic", "cam", "speakers", "visibility"}}
@@ -103,7 +103,7 @@ async def update_state(payload: Dict[str, Any], room_id: int = Path(..., ge=1), 
     return Ok()
 
 
-@router.post("/rooms/{room_id}/leave", response_model=Ok)
+@router.post("/{room_id}/leave", response_model=Ok)
 async def leave_room(room_id: int = Path(..., ge=1), user: User = Depends(get_current_user)) -> Ok:
     r = get_redis()
     await r.srem(f"room:{room_id}:members", user.id)

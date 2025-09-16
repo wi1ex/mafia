@@ -24,6 +24,7 @@ sio = socketio.AsyncServer(
     async_mode="asgi",
     cors_allowed_origins=settings.BACKEND_CORS_ORIGINS or "*",
     client_manager=mgr,
+    logger=True, engineio_logger=True,  # временно
 )
 
 
