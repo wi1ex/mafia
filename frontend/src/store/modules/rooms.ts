@@ -22,9 +22,10 @@ export const useRoomsStore = defineStore('rooms', () => {
     rooms.value = data
   }
 
-  function startWS() {
+  async function startWS() {
     if (sio.value?.connected) return
     if (!auth.ready) await auth.init()
+    if (!auth.isAuthed) return
 
     sio.value = io('/ws', {
       path: '/ws/socket.io',

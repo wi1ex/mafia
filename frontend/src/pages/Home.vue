@@ -55,7 +55,7 @@ async function onCreate() {
 }
 
 onMounted(() => {
-  roomsStore.startWS()
+  void roomsStore.startWS()
 })
 
 onBeforeUnmount(()=> {
