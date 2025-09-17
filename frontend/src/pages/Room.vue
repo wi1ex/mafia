@@ -59,6 +59,7 @@ import {
   setLogLevel,
   LogLevel,
 } from 'livekit-client'
+import { VideoPreset } from 'livekit-client/src/room/track/options'
 
 setLogLevel(LogLevel.warn)
 
@@ -120,47 +121,67 @@ async function refreshDevices() {
   } catch {}
 }
 
-async function onMicChange() {
-  const room = lk.value
-  const id = selectedMicId.value
-  if (!room || !id) return
-  saveLS(LS.mic, id)
-  try {
-    await room.switchActiveDevice('audioinput', id)
-    saveLS(LS.mic, id)
-  } catch (e) {
-    console.warn('mic switch failed', e)
-    try {
-      await room.localParticipant.setMicrophoneEnabled(false)
-      await room.localParticipant.setMicrophoneEnabled(true)
-    } catch {}
-    const prev = loadLS(LS.mic) || ''
-    if (prev && prev !== id) { selectedMicId.value = prev }
+function isBusyErr(e:any){
+  const name = (e?.name||'')+''; const msg=(e?.message||'')+'';
+  return name==='NotReadableError' || /Could not start .* source/i.test(msg);
+}
+async function fallbackVideo(room:LkRoom){
+  await refreshDevices();
+  if (!cams.value.length){
+    window.alert('Камера отсутствует или недоступна.');
+    selectedCamId.value = ''; saveLS(LS.cam, '');
+    try { await room.localParticipant.setCameraEnabled(false) } catch {}
+    await rtc.setCam(false);
+    return;
   }
+  window.alert('Текущая камера занята. Переключаюсь на другую.');
+  const newId = cams.value[0].deviceId;
+  selectedCamId.value = newId; saveLS(LS.cam, newId);
+  try {
+    await room.switchActiveDevice('videoinput', newId);
+    if (!camOn.value){ await room.localParticipant.setCameraEnabled(true); await rtc.setCam(true); }
+  } catch (e){ console.warn('fallback cam failed', e); }
+}
+async function fallbackAudio(room:LkRoom){
+  await refreshDevices();
+  if (!mics.value.length){
+    window.alert('Микрофон отсутствует или недоступен.');
+    selectedMicId.value = ''; saveLS(LS.mic, '');
+    try { await room.localParticipant.setMicrophoneEnabled(false) } catch {}
+    await rtc.setMic(false);
+    return;
+  }
+  window.alert('Текущий микрофон занят. Переключаюсь на другой.');
+  const newId = mics.value[0].deviceId;
+  selectedMicId.value = newId; saveLS(LS.mic, newId);
+  try {
+    await room.switchActiveDevice('audioinput', newId);
+    if (!micOn.value){ await room.localParticipant.setMicrophoneEnabled(true); await rtc.setMic(true); }
+  } catch (e){ console.warn('fallback mic failed', e); }
 }
 
+async function onMicChange() {
+  const room = lk.value; const id = selectedMicId.value; if (!room || !id) return;
+  saveLS(LS.mic, id);
+  try { await room.switchActiveDevice('audioinput', id); }
+  catch (e){
+    console.warn('mic switch failed', e);
+    if (isBusyErr(e)) { await fallbackAudio(room); }
+    else { window.alert('Не удалось переключить микрофон.'); }
+  }
+}
 async function onCamChange() {
-  const room = lk.value
-  const id = selectedCamId.value
-  if (!room || !id) return
-  saveLS(LS.cam, id)
+  const room = lk.value; const id = selectedCamId.value; if (!room || !id) return;
+  saveLS(LS.cam, id);
   try {
-    await room.switchActiveDevice('videoinput', id)
-    saveLS(LS.cam, id)
-    const el = videoEls.get(localId.value)
-    const vpub = Array.from(room.localParticipant.videoTrackPublications.values())[0]
-    if (el && vpub?.track) {
-      vpub.track.attach(el)
-      el.muted = true
-    }
-  } catch (e) {
-    console.warn('cam switch failed', e)
-    try {
-      await room.localParticipant.setCameraEnabled(false)
-      await room.localParticipant.setCameraEnabled(true)
-    } catch {}
-    const prev = loadLS(LS.cam) || ''
-    if (prev && prev !== id) { selectedCamId.value = prev }
+    await room.switchActiveDevice('videoinput', id);
+    const el = videoEls.get(localId.value);
+    const vpub = Array.from(room.localParticipant.videoTrackPublications.values())[0];
+    if (el && vpub?.track) { vpub.track.attach(el); el.muted = true; }
+  } catch (e){
+    console.warn('cam switch failed', e);
+    if (isBusyErr(e)) { await fallbackVideo(room); }
+    else { window.alert('Не удалось переключить камеру.'); }
   }
 }
 
@@ -308,7 +329,7 @@ onMounted(async () => {
         videoCodec: 'vp8',
         // simulcast: true,
         // videoSimulcastLayers: [VideoPresets.h180, VideoPresets.h360],
-        // screenShareEncoding: { maxBitrate: 3_000_000, maxFramerate: 25 },
+        // screenShareEncoding: ScreenSharePresets.h720fps30,
         red: true,
         dtx: true,
         stopMicTrackOnMute: false,
@@ -402,8 +423,15 @@ onMounted(async () => {
 
     room.on(RoomEvent.ParticipantDisconnected, (p) => removePeer(String(p.identity)))
 
-    room.on(RoomEvent.MediaDevicesError, (e:any) => {
+    room.on(RoomEvent.MediaDevicesError, async (e:any) => {
       console.error('MediaDevicesError', { name: e?.name, message: e?.message, constraint: e?.constraint || e?.constraintName || e?.cause?.constraint });
+      const msg = (e?.message||'')+''; const name=(e?.name||'')+'';
+      const isVideo = /video|camera/i.test(msg) || /video/i.test(name);
+      const isAudio = /audio|microphone/i.test(msg) || /audio/i.test(name);
+      if (isBusyErr(e)) {
+        if (isVideo || (!isAudio && camOn.value)) await fallbackVideo(room);
+        if (isAudio || (!isVideo && micOn.value)) await fallbackAudio(room);
+      }
     });
 
     await room.connect(ws_url, token, {
@@ -413,8 +441,20 @@ onMounted(async () => {
       websocketTimeout: 10_000,
     })
 
-    if (selectedMicId.value)  { try { await room.switchActiveDevice('audioinput',  selectedMicId.value) } catch {} }
-    if (selectedCamId.value)  { try { await room.switchActiveDevice('videoinput', selectedCamId.value) } catch {} }
+    if (selectedMicId.value)  {
+      try {
+        await room.switchActiveDevice('audioinput',  selectedMicId.value)
+      } catch (e) {
+        if (isBusyErr(e)) await fallbackAudio(room)
+      }
+    }
+    if (selectedCamId.value)  {
+      try {
+        await room.switchActiveDevice('videoinput', selectedCamId.value)
+      } catch (e) {
+        if(isBusyErr(e)) await fallbackVideo(room)
+      }
+    }
 
     localId.value = String(room.localParticipant.identity)
     upsertPeerFromParticipant(room.localParticipant, true)
