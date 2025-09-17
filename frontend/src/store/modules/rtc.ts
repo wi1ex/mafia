@@ -81,7 +81,14 @@ export const useRtcStore = defineStore('rtc', () => {
 
     socket.value.on('member_left', (p: any) => { delete statusMap[String(p.user_id)] })
 
-    socket.value.on('member_joined', (_p:any) => { /* ждём state_changed */ })
+    socket.value.on('member_joined', (p: any) => {
+      const uid = String(p.user_id)
+      const st = p.state || {}
+      statusMap[uid] = {
+        mic: to01(st.mic, 1), cam: to01(st.cam, 1),
+        speakers: to01(st.speakers, 1), visibility: to01(st.visibility, 1),
+      }
+    })
   }
 
   function curStatePayload() {
@@ -125,6 +132,20 @@ async function join(id: number) {
     reset()
   }
 
+  function emitWithAck(evt:string, payload:any, timeout=1500) {
+    return new Promise<void>((resolve,reject)=>{
+      let done=false
+      const t=setTimeout(()=>{ if(!done){done=true; reject(new Error('ack timeout'))}}, timeout)
+      socket.value?.emit(evt, payload, (_resp:any)=>{ if(!done){done=true; clearTimeout(t); resolve()} })
+    })
+  }
+  async function publishState() {
+    if (!roomId.value) return
+    const payload = curStatePayload()
+    try { await emitWithAck('state', payload) }
+    catch { await api.post(`/rooms/${roomId.value}/state`, payload) }
+  }
+
   async function toggleMic() {
     micOn.value = !micOn.value
     await publishState()
@@ -140,16 +161,6 @@ async function join(id: number) {
   async function toggleVisibility() {
     visibilityOn.value = !visibilityOn.value
     await publishState()
-  }
-
-  async function publishState() {
-    if (!roomId.value) return
-    const payload = curStatePayload()
-    try {
-      socket.value?.emit('state', payload, (_resp: any) => {})
-    } catch {
-      await api.post(`/rooms/${roomId.value}/state`, payload)
-    }
   }
 
   function installPageLeaveHandlers(router: any) {

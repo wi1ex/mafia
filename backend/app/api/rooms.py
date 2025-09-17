@@ -71,8 +71,8 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
         await pipe.sadd("rooms:index", room.id)
         await pipe.execute()
 
-    await sio.emit("rooms_upsert", data)
-    await sio.emit("rooms_occupancy", {"id": room.id, "occupancy": 0})
+    await sio.emit("rooms_upsert", data, namespace="/rooms")
+    await sio.emit("rooms_occupancy", {"id": room.id, "occupancy": 0}, namespace="/rooms")
 
     return RoomOut(**data)
 
@@ -104,7 +104,7 @@ async def join_room(room_id: int = Path(..., ge=1), session: AsyncSession = Depe
 
     lk_token = make_livekit_token(identity=str(user.id), name=user.username or f"user-{user.id}", room=str(room_id))
     data = _serialize_room(room, occupancy=int(await r.scard(f"room:{room_id}:members") or 0))
-    await sio.emit("rooms_occupancy", {"id": room_id, "occupancy": data["occupancy"]})
+    await sio.emit("rooms_occupancy", {"id": room_id, "occupancy": data["occupancy"]}, namespace="/rooms")
     return JoinOut(**data, token=lk_token, room_id=room_id, snapshot=snapshot, self_pref=self_pref or {})
 
 
@@ -125,5 +125,9 @@ async def leave_room(room_id: int = Path(..., ge=1), user: User = Depends(get_cu
     await r.delete(f"room:{room_id}:member:{user.id}")
     await r.delete(f"room:{room_id}:user:{user.id}:state")
     occ = int(await r.scard(f"room:{room_id}:members") or 0)
-    await sio.emit("rooms_occupancy", {"id": room_id, "occupancy": occ})
+    await sio.emit("rooms_occupancy", {"id": room_id, "occupancy": occ}, namespace="/rooms")
+    if occ == 0:
+        from ..realtime.sio import _gc_empty_room
+        import asyncio
+        asyncio.create_task(_gc_empty_room(room_id))
     return Ok()

@@ -126,7 +126,7 @@ async function onMicChange() {
   if (!room || !id) return
   saveLS(LS.mic, id)
   try {
-    await room.switchActiveDevice('audioinput', id)
+    await room.switchActiveDevice('audioinput', { exact: id } as any)
   } catch (e) { console.warn('mic switch failed', e) }
 }
 
@@ -136,7 +136,7 @@ async function onCamChange() {
   if (!room || !id) return
   saveLS(LS.cam, id)
   try {
-    await room.switchActiveDevice('videoinput', id)
+    await room.switchActiveDevice('videoinput', { exact: id } as any)
     const el = videoEls.get(localId.value)
     const vpub = Array.from(room.localParticipant.videoTrackPublications.values())[0]
     if (el && vpub?.track) {

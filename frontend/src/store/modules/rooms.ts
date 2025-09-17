@@ -24,24 +24,25 @@ export const useRoomsStore = defineStore('rooms', () => {
 
   async function startWS() {
     if (sio.value?.connected) return
-    if (!auth.ready) await auth.init()
-    if (!auth.isAuthed) return
 
-    sio.value = io( {
+    sio.value = io('/rooms', {
       path: '/ws/socket.io',
       transports: ['websocket'],
-      auth: (cb) => cb({ token: auth.accessToken }),
     })
 
-    sio.value.on('connect_error', (err) => console.warn('rooms sio error', err?.message))
+    sio.value.on('connect_error', err => console.warn('rooms sio error', err?.message))
 
     sio.value.on('rooms_upsert', (r: Room) => upsert(r))
 
-    sio.value.on('rooms_occupancy', (p: {id:number; occupancy:number}) => {
+    sio.value.on('rooms_remove', (p:{id:number}) => {
+      rooms.value = rooms.value.filter(r => r.id !== p.id)
+    })
+
+    sio.value.on('rooms_occupancy', (p:{id:number; occupancy:number}) => {
       const i = rooms.value.findIndex(r => r.id === p.id)
       if (i>=0) rooms.value[i] = { ...rooms.value[i], occupancy: p.occupancy }
     })
-  }
+}
 
   function stopWS() { try { sio.value?.close() } catch {} sio.value = null }
 
