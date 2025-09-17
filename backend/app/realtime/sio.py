@@ -1,6 +1,5 @@
 from __future__ import annotations
 import asyncio
-import time
 from typing import Any, Dict
 import socketio
 import structlog
@@ -73,8 +72,7 @@ async def _snapshot(r, rid: int) -> Dict[str, Dict[str, str]]:
     for b in ids or []:
         uid = (b.decode() if isinstance(b, (bytes, bytearray)) else str(b))
         st = await r.hgetall(f"room:{rid}:user:{uid}:state")
-        out[uid] = {(k.decode() if isinstance(k, (bytes, bytearray)) else k): (
-            v.decode() if isinstance(v, (bytes, bytearray)) else v)
+        out[uid] = {(k.decode() if isinstance(k, (bytes, bytearray)) else k): (v.decode() if isinstance(v, (bytes, bytearray)) else v)
                     for k, v in (st or {}).items()}
     return out
 
@@ -87,7 +85,7 @@ async def _apply_state(r, rid: int, uid: int, data: Dict[str, Any]) -> Dict[str,
     if not m:
         return {}
     await r.hset(f"room:{rid}:user:{uid}:state", mapping=m)
-    await r.hset(f"user:{uid}:last_state", mapping=m)
+    await r.hset(f"room:{rid}:user:{uid}:last_state", mapping=m)
     return m
 
 
@@ -124,7 +122,6 @@ async def join(sid, data):
     r = get_redis()
 
     await r.sadd(f"room:{rid}:members", uid)
-    await r.set(f"room:{rid}:member:{uid}", str(int(time.time())))
 
     init_state = data.get("state") or {}
     applied = {}
@@ -135,7 +132,7 @@ async def join(sid, data):
     await sio.save_session(sid, {"uid": uid, "rid": rid}, namespace="/room")
 
     snap = await _snapshot(r, rid)
-    self_pref_raw = await r.hgetall(f"user:{uid}:last_state")
+    self_pref_raw = await r.hgetall(f"room:{rid}:user:{uid}:last_state")
     self_pref = {(k.decode() if isinstance(k, (bytes, bytearray)) else k): (v.decode() if isinstance(v, (bytes, bytearray)) else v)
                  for k, v in (self_pref_raw or {}).items()}
     cur_state_raw = await r.hgetall(f"room:{rid}:user:{uid}:state")
@@ -167,18 +164,6 @@ async def state(sid, data):
     return {"ok": True}
 
 
-@sio.event(namespace="/room")
-async def heartbeat(sid):
-    sess = await sio.get_session(sid, namespace="/room")
-    uid = int(sess["uid"])
-    rid = int(sess.get("rid") or 0)
-    if not rid:
-        return {"ok": False}
-    r = get_redis()
-    await r.set(f"room:{rid}:member:{uid}", str(int(time.time())))
-    return {"ok": True}
-
-
 async def _force_leave(sid):
     sess = await sio.get_session(sid, namespace="/room")
     uid = int(sess["uid"])
@@ -187,7 +172,6 @@ async def _force_leave(sid):
         return
     r = get_redis()
     await r.srem(f"room:{rid}:members", uid)
-    await r.delete(f"room:{rid}:member:{uid}")
     await r.delete(f"room:{rid}:user:{uid}:state")
     await sio.leave_room(sid, f"room:{rid}", namespace="/room")
     await sio.emit("member_left", {"user_id": uid}, room=f"room:{rid}", namespace="/room")

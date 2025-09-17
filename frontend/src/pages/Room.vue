@@ -60,7 +60,7 @@ import {
   LogLevel,
 } from 'livekit-client'
 
-setLogLevel(LogLevel.info)
+setLogLevel(LogLevel.warn)
 
 const route = useRoute()
 const router = useRouter()
@@ -217,9 +217,9 @@ async function toggleMic() {
   const next = !micOn.value
   try {
     await room.localParticipant.setMicrophoneEnabled(next)
-    micOn.value = next
-    await rtc.toggleMic()
-  } catch { micOn.value = !next }
+    await rtc.setMic(next)
+  }
+  catch { /* noop */ }
 }
 
 async function toggleCam() {
@@ -228,24 +228,23 @@ async function toggleCam() {
   const next = !camOn.value
   try {
     await room.localParticipant.setCameraEnabled(next)
-    camOn.value = next
-    await rtc.toggleCam()
-  } catch { camOn.value = !next }
+    await rtc.setCam(next)
+  }
+  catch { /* noop */ }
 }
 
 async function toggleSpeakers() {
   const next = !speakersOn.value
-  speakersOn.value = next
   setAudioSubscriptionsForAll(next)
-  await rtc.toggleSpeakers()
+  await rtc.setSpeakers(next)
 }
 
 async function toggleVisibility() {
   const room = lk.value
   if (!room) return
-  visibilityOn.value = !visibilityOn.value
-  setVideoSubscriptionsForAll(visibilityOn.value)
-  await rtc.toggleVisibility()
+  const next = !visibilityOn.value
+  setVideoSubscriptionsForAll(next)
+  await rtc.setVisibility(next)
 }
 
 async function onLeave() {

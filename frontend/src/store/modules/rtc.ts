@@ -37,10 +37,10 @@ export const useRtcStore = defineStore('rtc', () => {
 
   function connectSocket() {
     if (socket.value?.connected) return
-    socket.value = io( {
+    socket.value = io('/room', {
       path: '/ws/socket.io',
       transports: ['websocket'],
-      auth: (cb) => cb({ token: useAuthStore().accessToken }),
+      auth: { token: auth.accessToken },
       autoConnect: true,
       reconnection: true,
       reconnectionAttempts: Infinity,
@@ -146,21 +146,42 @@ async function join(id: number) {
     catch { await api.post(`/rooms/${roomId.value}/state`, payload) }
   }
 
+  async function setMic(next:boolean) {
+    if (micOn.value!==next) {
+      micOn.value=next
+      await publishState()
+    }
+  }
+  async function setCam(next:boolean) {
+    if (camOn.value!==next) {
+      camOn.value=next
+      await publishState()
+    }
+  }
+  async function setSpeakers(next:boolean) {
+    if (speakersOn.value!==next) {
+      speakersOn.value=next
+      await publishState()
+    }
+  }
+  async function setVisibility(next:boolean) {
+    if (visibilityOn.value!==next) {
+      visibilityOn.value=next
+      await publishState()
+    }
+  }
+
   async function toggleMic() {
-    micOn.value = !micOn.value
-    await publishState()
+    await setMic(!micOn.value)
   }
   async function toggleCam() {
-    camOn.value = !camOn.value
-    await publishState()
+    await setCam(!camOn.value)
   }
   async function toggleSpeakers() {
-    speakersOn.value = !speakersOn.value
-    await publishState()
+    await setSpeakers(!speakersOn.value)
   }
   async function toggleVisibility() {
-    visibilityOn.value = !visibilityOn.value
-    await publishState()
+    await setVisibility(!visibilityOn.value)
   }
 
   function installPageLeaveHandlers(router: any) {
@@ -185,6 +206,10 @@ async function join(id: number) {
 
     join,
     leave,
+    setMic,
+    setCam,
+    setSpeakers,
+    setVisibility,
     toggleMic,
     toggleCam,
     toggleSpeakers,

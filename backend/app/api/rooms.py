@@ -89,7 +89,6 @@ async def join_room(room_id: int = Path(..., ge=1), session: AsyncSession = Depe
         raise HTTPException(status_code=409, detail="room_is_full")
 
     await r.sadd(f"room:{room_id}:members", user.id)
-    await r.set(f"room:{room_id}:member:{user.id}", str(int(time.time())))
 
     ids = await r.smembers(f"room:{room_id}:members")
     snapshot: Dict[str, Dict[str, str]] = {}
@@ -98,7 +97,7 @@ async def join_room(room_id: int = Path(..., ge=1), session: AsyncSession = Depe
         st = await r.hgetall(f"room:{room_id}:user:{uid}:state")
         snapshot[uid] = {(k.decode() if isinstance(k, (bytes, bytearray)) else k): (v.decode() if isinstance(v, (bytes, bytearray)) else v)
                          for k, v in (st or {}).items()}
-    self_pref_raw = await r.hgetall(f"user:{user.id}:last_state")
+    self_pref_raw = await r.hgetall(f"room:{room_id}:user:{user.id}:last_state")
     self_pref = {(k.decode() if isinstance(k, (bytes, bytearray)) else k): (v.decode() if isinstance(v, (bytes, bytearray)) else v)
                  for k, v in (self_pref_raw or {}).items()}
 
@@ -114,7 +113,7 @@ async def update_state(payload: Dict[str, Any], room_id: int = Path(..., ge=1), 
     data = {k: "1" if bool(v) else "0" for k, v in (payload or {}).items() if k in {"mic", "cam", "speakers", "visibility"}}
     if data:
         await r.hset(f"room:{room_id}:user:{user.id}:state", mapping=data)
-        await r.hset(f"user:{user.id}:last_state", mapping=data)
+        await r.hset(f"room:{room_id}:user:{user.id}:last_state", mapping=data)
     return Ok()
 
 
@@ -122,7 +121,6 @@ async def update_state(payload: Dict[str, Any], room_id: int = Path(..., ge=1), 
 async def leave_room(room_id: int = Path(..., ge=1), user: User = Depends(get_current_user)) -> Ok:
     r = get_redis()
     await r.srem(f"room:{room_id}:members", user.id)
-    await r.delete(f"room:{room_id}:member:{user.id}")
     await r.delete(f"room:{room_id}:user:{user.id}:state")
     occ = int(await r.scard(f"room:{room_id}:members") or 0)
     await sio.emit("rooms_occupancy", {"id": room_id, "occupancy": occ}, namespace="/rooms")
