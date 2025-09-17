@@ -60,10 +60,16 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
     room = Room(title=payload.title, user_limit=payload.user_limit, is_private=payload.is_private, creator=user.id)
     session.add(room)
     await session.flush()
-    r = get_redis()
+    await session.commit()
+
     data = _serialize_room(room, occupancy=0)
-    await r.hset(f"room:{room.id}:params", mapping=_to_redis(data))
-    await r.sadd("rooms:index", room.id)
+
+    r = get_redis()
+    async with r.pipeline(transaction=True) as pipe:
+        await pipe.hset(f"room:{room.id}:params", mapping=_to_redis(data))
+        await pipe.sadd("rooms:index", room.id)
+        await pipe.execute()
+
     return RoomOut(**data)
 
 
