@@ -155,14 +155,14 @@ function isBusyErr(e:any){
 async function fallbackVideo(room:LkRoom){
   await refreshDevices()
   if (!cams.value.length){
-    window.alert('Камера отсутствует или недоступна.')
+    alert('Камера отсутствует или недоступна.')
     selectedCamId.value = ''
     saveLS(LS.cam, '')
     try { await room.localParticipant.setCameraEnabled(false) } catch {}
     await rtc.setCam(false)
     return
   }
-  window.alert('Текущая камера занята. Переключаюсь на другую.')
+  alert('Текущая камера занята. Переключаюсь на другую.')
   const newId = cams.value[0].deviceId
   selectedCamId.value = newId
   saveLS(LS.cam, newId)
@@ -177,14 +177,14 @@ async function fallbackVideo(room:LkRoom){
 async function fallbackAudio(room:LkRoom){
   await refreshDevices()
   if (!mics.value.length){
-    window.alert('Микрофон отсутствует или недоступен.')
+    alert('Микрофон отсутствует или недоступен.')
     selectedMicId.value = ''
     saveLS(LS.mic, '')
     try { await room.localParticipant.setMicrophoneEnabled(false) } catch {}
     await rtc.setMic(false)
     return
   }
-  window.alert('Текущий микрофон занят. Переключаюсь на другой.')
+  alert('Текущий микрофон занят. Переключаюсь на другой.')
   const newId = mics.value[0].deviceId
   selectedMicId.value = newId
   saveLS(LS.mic, newId)
@@ -206,7 +206,7 @@ async function onMicChange() {
   catch (e){
     console.warn('mic switch failed', e)
     if (isBusyErr(e)) { await fallbackAudio(room) }
-    else { window.alert('Не удалось переключить микрофон.') }
+    else { alert('Не удалось переключить микрофон.') }
   }
 }
 async function onCamChange() {
@@ -225,7 +225,7 @@ async function onCamChange() {
   } catch (e){
     console.warn('cam switch failed', e)
     if (isBusyErr(e)) { await fallbackVideo(room) }
-    else { window.alert('Не удалось переключить камеру.') }
+    else { alert('Не удалось переключить камеру.') }
   }
 }
 
@@ -294,6 +294,24 @@ function setVideoSubscriptionsForAll(on: boolean) {
   })
 }
 
+function waitLocalPub(room: LkRoom, kind: Track.Kind, timeout = 2000) {
+  return new Promise<void>((resolve) => {
+    const pubs = kind === Track.Kind.Audio ? room.localParticipant.audioTrackPublications : room.localParticipant.videoTrackPublications
+    if (pubs.size > 0) return resolve()
+    const onPub = (pub: LocalTrackPublication) => {
+      if (pub.kind === kind) {
+        room.off(RoomEvent.LocalTrackPublished, onPub)
+        resolve()
+      }
+    }
+    room.on(RoomEvent.LocalTrackPublished, onPub)
+    setTimeout(() => {
+      room.off(RoomEvent.LocalTrackPublished, onPub)
+      resolve()
+    }, timeout)
+  });
+}
+
 async function toggleMic() {
   const room = lk.value
   if (!room) return
@@ -302,11 +320,12 @@ async function toggleMic() {
     if (next) {
       const id = await ensureDevice(room, 'audioinput', selectedMicId.value || loadLS(LS.mic) || undefined)
       if (!id) {
-        window.alert('Микрофон недоступен')
+        alert('Микрофон недоступен')
         return
       }
       selectedMicId.value = id
       saveLS(LS.mic, id)
+      await waitLocalPub(room, Track.Kind.Audio)
     } else {
       await room.localParticipant.setMicrophoneEnabled(false)
     }
@@ -320,13 +339,20 @@ async function toggleCam() {
   const next = !camOn.value
   try {
     if (next) {
-      const id = await ensureDevice(room, 'videoinput', selectedCamId.value || loadLS(LS.cam) || undefined)
+      const id = await ensureDevice(room, 'videoinput', selectedCamId.value || loadLS(LS.cam) || undefined);
       if (!id) {
-        window.alert('Камера недоступна')
+        alert('Камера недоступна')
         return
       }
       selectedCamId.value = id
       saveLS(LS.cam, id)
+      await waitLocalPub(room, Track.Kind.Video)
+      const el = videoEls.get(localId.value)
+      const vpub = Array.from(room.localParticipant.videoTrackPublications.values())[0]
+      if (el && vpub?.track) {
+        vpub.track.attach(el)
+        el.muted = true
+      }
     } else {
       await room.localParticipant.setCameraEnabled(false)
     }
@@ -373,7 +399,9 @@ function cleanupMedia() {
 watchEffect(() => {
   peerIds.value.forEach((id) => {
     const st = statusMap.value[id]
-    const camOff = !st || st.cam !== 1
+    const camOffRemote = !st || st.cam !== 1
+    const camOffLocal  = !camOn.value
+    const camOff = id === localId.value ? camOffLocal : camOffRemote
     const unsubscribedByMe = (id !== localId.value) && !visibilityOn.value
     cover(id, camOff || unsubscribedByMe)
   })
@@ -514,7 +542,7 @@ onMounted(async () => {
       const sel = loadLS(LS.cam) || undefined
       const okId = await ensureDevice(room, 'videoinput', sel)
       if (!okId) {
-        window.alert('Не удалось запустить камеру')
+        alert('Не удалось запустить камеру')
         await onLeave()
         return
       }
@@ -525,7 +553,7 @@ onMounted(async () => {
       const sel = loadLS(LS.mic) || undefined
       const okId = await ensureDevice(room, 'audioinput', sel)
       if (!okId) {
-        window.alert('Не удалось запустить микрофон')
+        alert('Не удалось запустить микрофон')
         await onLeave()
         return
       }
