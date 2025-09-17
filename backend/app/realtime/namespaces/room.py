@@ -1,5 +1,6 @@
 from __future__ import annotations
 import asyncio
+from jwt import ExpiredSignatureError
 from ..sio import sio
 from ...core.clients import get_redis
 from ...core.security import decode_token
@@ -12,8 +13,10 @@ async def connect(sid, environ, auth):
         token = auth.get("token") if isinstance(auth, dict) else None
         if not token:
             raise ConnectionRefusedError("no_token")
-        uid = int(decode_token(token).get("sub"))
+        uid = int(decode_token(token)["sub"])
         await sio.save_session(sid, {"uid": uid, "rid": None}, namespace="/room")
+    except ExpiredSignatureError:
+        raise ConnectionRefusedError("expired_token")
     except Exception:
         raise ConnectionRefusedError("bad_token")
 

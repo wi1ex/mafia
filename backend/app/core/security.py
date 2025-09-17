@@ -2,7 +2,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import time
-from typing import Any
+from typing import Any, Dict
 import structlog
 import jwt
 from ..settings import settings
