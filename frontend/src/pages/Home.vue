@@ -54,7 +54,7 @@ async function onCreate() {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   await roomsStore.load()
   void roomsStore.startWS()
 })
