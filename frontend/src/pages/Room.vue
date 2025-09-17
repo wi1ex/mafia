@@ -122,8 +122,8 @@ async function refreshDevices() {
 
 async function onMicChange() {
   const room = lk.value
-  if (!room) return
   const id = selectedMicId.value
+  if (!room || !id) return
   saveLS(LS.mic, id)
   try {
     await room.switchActiveDevice('audioinput', id)
@@ -132,8 +132,8 @@ async function onMicChange() {
 
 async function onCamChange() {
   const room = lk.value
-  if (!room) return
   const id = selectedCamId.value
+  if (!room || !id) return
   saveLS(LS.cam, id)
   try {
     await room.switchActiveDevice('videoinput', id)
@@ -185,9 +185,7 @@ function setVideoRef(id: string, el: HTMLVideoElement | null) {
 
   const room = lk.value
   if (!room) return
-  const pubs = id === String(room.localParticipant.identity)
-    ? room.localParticipant.getTrackPublications()
-    : getByIdentity(room, id)?.getTrackPublications()
+  const pubs = id === String(room.localParticipant.identity) ? room.localParticipant.getTrackPublications() : getByIdentity(room, id)?.getTrackPublications()
   pubs?.forEach(pub => { if (pub.kind === Track.Kind.Video && pub.track) { try { pub.track.attach(el) } catch {} } })
 }
 
@@ -282,6 +280,8 @@ onMounted(async () => {
     selectedMicId.value = loadLS(LS.mic) || ''
     selectedCamId.value = loadLS(LS.cam) || ''
 
+    await refreshDevices()
+
     const { ws_url, token } = await rtc.join(rid)
     const room = new LkRoom({
       // dynacast: true,
@@ -295,13 +295,13 @@ onMounted(async () => {
         stopMicTrackOnMute: false,
       },
       audioCaptureDefaults: {
-        deviceId: selectedMicId.value ? ({ exact: selectedMicId.value } as any) : undefined,
+        deviceId: selectedMicId.value ? ({ ideal: selectedMicId.value } as any) : undefined,
         echoCancellation: true,
         noiseSuppression: true,
         autoGainControl: true,
       },
       videoCaptureDefaults: {
-        deviceId: selectedCamId.value ? ({ exact: selectedCamId.value } as any) : undefined,
+        deviceId: selectedCamId.value ? ({ ideal: selectedCamId.value } as any) : undefined,
         resolution: VideoPresets.h360.resolution,
         // frameRate: 25,
       },
@@ -383,7 +383,9 @@ onMounted(async () => {
 
     room.on(RoomEvent.ParticipantDisconnected, (p) => removePeer(String(p.identity)))
 
-    room.on(RoomEvent.MediaDevicesError, (e) => console.error('MediaDevicesError:', e))
+    room.on(RoomEvent.MediaDevicesError, (e:any) => {
+      console.error('MediaDevicesError', { name: e?.name, message: e?.message, constraint: e?.constraint || e?.constraintName || e?.cause?.constraint });
+    });
 
     await room.connect(ws_url, token, {
       autoSubscribe: false,
@@ -410,7 +412,6 @@ onMounted(async () => {
     micOn.value = room.localParticipant.audioTrackPublications.size > 0
     camOn.value = room.localParticipant.videoTrackPublications.size > 0
 
-    await refreshDevices()
     navigator.mediaDevices.addEventListener?.('devicechange', refreshDevices)
 
     participantsMap(room)?.forEach((p) => applySubsFor(p))

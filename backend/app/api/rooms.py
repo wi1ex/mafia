@@ -63,12 +63,16 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
     await session.commit()
 
     data = _serialize_room(room, occupancy=0)
+    redis_data = _to_redis(data)
 
     r = get_redis()
     async with r.pipeline(transaction=True) as pipe:
-        await pipe.hset(f"room:{room.id}:params", mapping=_to_redis(data))
+        await pipe.hset(f"room:{room.id}:params", mapping=redis_data)
         await pipe.sadd("rooms:index", room.id)
         await pipe.execute()
+
+    await sio.emit("rooms_upsert", data)
+    await sio.emit("rooms_occupancy", {"id": room.id, "occupancy": 0})
 
     return RoomOut(**data)
 

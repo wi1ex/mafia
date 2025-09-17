@@ -30,7 +30,6 @@ export const useAuthStore = defineStore('auth', () => {
   function setAccess(t: string) {
     accessToken.value = t
     setAuthHeader(t)
-    try { t ? localStorage.setItem('accessToken', t) : localStorage.removeItem('accessToken') } catch {}
   }
 
   async function init() {

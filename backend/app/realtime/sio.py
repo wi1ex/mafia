@@ -158,15 +158,12 @@ async def _force_leave(sid):
 
 
 @sio.event
-async def goodbye(sid, data=None):
+async def goodbye(sid):
     await _force_leave(sid)
     return {"ok": True}
 
 
 @sio.event
 async def disconnect(sid):
-    try:
-        await _force_leave(sid)
-    except Exception:
-        pass
+    await _force_leave(sid)
     log.info("sio.disconnect", sid=sid)
