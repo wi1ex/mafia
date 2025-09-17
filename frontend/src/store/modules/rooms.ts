@@ -13,7 +13,7 @@ export const useRoomsStore = defineStore('rooms', () => {
 
   function upsert(r: Room) {
     const i = rooms.value.findIndex(x => x.id === r.id)
-    if (i>=0) rooms.value[i] = r
+    if (i>=0) rooms.value[i] = { ...rooms.value[i], ...r }
     else rooms.value.push(r)
   }
 
@@ -34,6 +34,8 @@ export const useRoomsStore = defineStore('rooms', () => {
     })
 
     sio.value.on('connect_error', (err) => console.warn('rooms sio error', err?.message))
+
+    sio.value.on('rooms_upsert', (r: Room) => upsert(r))
 
     sio.value.on('rooms_occupancy', (p: {id:number; occupancy:number}) => {
       const i = rooms.value.findIndex(r => r.id === p.id)

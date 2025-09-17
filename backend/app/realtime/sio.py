@@ -96,8 +96,9 @@ async def join(sid, data):
     await r.set("room:{rid}:member:{uid}".format(rid=rid, uid=uid), str(int(time.time())))
 
     init_state = data.get("state") or {}
+    applied = {}
     if init_state:
-        await _apply_state(r, rid, uid, init_state)
+        applied = await _apply_state(r, rid, uid, init_state)
 
     await sio.enter_room(sid, f"room:{rid}")
     await sio.save_session(sid, {"uid": uid, "rid": rid})
@@ -110,6 +111,10 @@ async def join(sid, data):
     await sio.emit("snapshot", snap, room=sid)
     await sio.emit("self_pref", self_pref, room=sid)
     await sio.emit("member_joined", {"user_id": uid}, room=f"room:{rid}", skip_sid=sid)
+
+    if applied:
+        await sio.emit("state_changed", {"user_id": uid, **applied}, room=f"room:{rid}", skip_sid=sid)
+
     await _broadcast_rooms_occupancy(r, rid)
     return {"ok": True}
 

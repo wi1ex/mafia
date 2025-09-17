@@ -81,10 +81,7 @@ export const useRtcStore = defineStore('rtc', () => {
 
     socket.value.on('member_left', (p: any) => { delete statusMap[String(p.user_id)] })
 
-    socket.value.on('member_joined', (p: any) => {
-      const uid = String(p.user_id)
-      if (!statusMap[uid]) statusMap[uid] = { mic: 1, cam: 1, speakers: 1, visibility: 1 }
-    })
+    socket.value.on('member_joined', (_p:any) => { /* ждём state_changed */ })
   }
 
   function curStatePayload() {
