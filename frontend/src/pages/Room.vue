@@ -117,6 +117,14 @@ const cams = ref<MediaDeviceInfo[]>([])
 const selectedMicId = ref<string>('')
 const selectedCamId = ref<string>('')
 
+const onHide = () => {
+  const ridNow = roomId.value
+  try { socket.value?.emit('goodbye') } catch {}
+  try { if (ridNow) void api.post(`/rooms/${ridNow}/leave`, {}, { keepalive: true as any }) } catch {}
+}
+const onVis = () => { if (document.visibilityState === 'hidden') onHide() }
+
+
 function saveLS(k: string, v: string) { try { localStorage.setItem(k, v) } catch {} }
 function loadLS(k: string): string | null { try { return localStorage.getItem(k) } catch { return null } }
 
@@ -328,7 +336,11 @@ function connectSocket() {
     }
   })
 
-  socket.value.on('member_left', (p: any) => { delete statusMap[String(p.user_id)] })
+  socket.value.on('member_left', (p: any) => {
+    const uid = String(p.user_id)
+    delete statusMap[uid]
+    removePeer(uid)
+  })
 
   socket.value.on('member_joined', (p: any) => {
     const uid = String(p.user_id)
@@ -572,12 +584,18 @@ async function onCamChange() {
 
 async function onLeave() {
   const room = lk.value
+  const ridNow = roomId.value
+
   try { await room?.localParticipant.setMicrophoneEnabled(false) } catch {}
   try { await room?.localParticipant.setCameraEnabled(false) } catch {}
-  lk.value = null
+
+  try { await room?.disconnect() } catch {}
+
   try { socket.value?.emit('goodbye') } catch {}
-  try { if (roomId.value) await api.post(`/rooms/${roomId.value}/leave`, {}, { keepalive: true as any }) } catch {}
+  try { if (ridNow) await api.post(`/rooms/${ridNow}/leave`, {}, { keepalive: true as any }) } catch {}
+
   cleanupMedia()
+  lk.value = null
   roomId.value = null
   try { await router.push('/') } catch {}
 }
@@ -747,6 +765,10 @@ onMounted(async () => {
     }
 
     navigator.mediaDevices.addEventListener?.('devicechange', refreshDevices)
+    window.addEventListener('pagehide', onHide)
+    window.addEventListener('beforeunload', onHide)
+    document.addEventListener('visibilitychange', onVis)
+
     participantsMap(room)?.forEach((p) => applySubsFor(p))
   } catch (e) {
     console.warn(e)
@@ -757,9 +779,15 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   navigator.mediaDevices.removeEventListener?.('devicechange', refreshDevices)
-  try { socket.value?.emit('goodbye') } catch {}
+
+  window.removeEventListener('pagehide', onHide)
+  window.removeEventListener('beforeunload', onHide)
+  document.removeEventListener('visibilitychange', onVis)
+
   try { lk.value?.disconnect() } catch {}
+  try { socket.value?.emit('goodbye') } catch {}
   try { if (roomId.value) void api.post(`/rooms/${roomId.value}/leave`, {}, { keepalive: true as any }) } catch {}
+
   cleanupMedia()
 })
 </script>
