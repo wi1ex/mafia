@@ -2,6 +2,7 @@ from __future__ import annotations
 import asyncio
 from typing import Any, Dict
 from sqlalchemy.ext.asyncio import async_sessionmaker
+from .sio import sio
 from ..db import engine
 from ..core.clients import get_redis
 from ..models.room import Room
@@ -37,13 +38,11 @@ async def apply_state(r, rid: int, uid: int, data: Dict[str, Any]) -> Dict[str, 
 
 
 async def broadcast_rooms_occupancy(r, rid: int) -> None:
-    from .sio import sio
     occ = int(await r.scard(f"room:{rid}:members") or 0)
     await sio.emit("rooms_occupancy", {"id": rid, "occupancy": occ}, namespace="/rooms")
 
 
 async def gc_empty_room(rid: int):
-    from .sio import sio
     r = get_redis()
     if not await r.setnx(f"room:{rid}:gc_lock", "1"):
         return

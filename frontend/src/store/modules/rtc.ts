@@ -25,8 +25,8 @@ export const useRtcStore = defineStore('rtc', () => {
   const statusMap = reactive<Record<string, UserState>>({})
 
   // local toggles
-  const micOn = ref(true)
-  const camOn = ref(true)
+  const micOn = ref(false)
+  const camOn = ref(false)
   const speakersOn = ref(true)
   const visibilityOn = ref(true)
 
