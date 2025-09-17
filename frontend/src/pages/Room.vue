@@ -85,15 +85,11 @@ const selectedCamId = ref<string>('')
 
 const gridCols = computed(() => {
   const n = peerIds.value.length
-  if (n <= 6) return 3
-  if (n <= 12) return 4
-  return 5
+  return (n <= 6) ? 3 : (n <= 12) ? 4 : 5
 })
 const gridRows = computed(() => {
   const n = peerIds.value.length
-  if (n <= 6) return 2
-  if (n <= 12) return 3
-  return 4
+  return (n <= 6) ? 2 : (n <= 12) ? 3 : 4
 })
 const gridStyle = computed(() => ({
   gridTemplateColumns: `repeat(${gridCols.value}, 1fr)`,
@@ -125,10 +121,7 @@ async function ensureDevice( room: LkRoom, kind: 'audioinput' | 'videoinput', pr
 
   if (list.length === 0) return null
 
-  const ids = Array.from(new Set([
-    preferredId && list.some(d => d.deviceId === preferredId) ? preferredId : null,
-    ...list.map(d => d.deviceId),
-  ].filter(Boolean) as string[]))
+  const ids = Array.from(new Set([preferredId && list.some(d => d.deviceId === preferredId) ? preferredId : null, ...list.map(d => d.deviceId)].filter(Boolean) as string[]))
 
   for (const id of ids) {
     try {
@@ -306,10 +299,19 @@ async function toggleMic() {
   if (!room) return
   const next = !micOn.value
   try {
-    await room.localParticipant.setMicrophoneEnabled(next)
+    if (next) {
+      const id = await ensureDevice(room, 'audioinput', selectedMicId.value || loadLS(LS.mic) || undefined)
+      if (!id) {
+        window.alert('Микрофон недоступен')
+        return
+      }
+      selectedMicId.value = id
+      saveLS(LS.mic, id)
+    } else {
+      await room.localParticipant.setMicrophoneEnabled(false)
+    }
     await rtc.setMic(next)
-  }
-  catch { /* noop */ }
+  } catch (e) { console.warn('toggleMic', e) }
 }
 
 async function toggleCam() {
@@ -317,10 +319,19 @@ async function toggleCam() {
   if (!room) return
   const next = !camOn.value
   try {
-    await room.localParticipant.setCameraEnabled(next)
+    if (next) {
+      const id = await ensureDevice(room, 'videoinput', selectedCamId.value || loadLS(LS.cam) || undefined)
+      if (!id) {
+        window.alert('Камера недоступна')
+        return
+      }
+      selectedCamId.value = id
+      saveLS(LS.cam, id)
+    } else {
+      await room.localParticipant.setCameraEnabled(false)
+    }
     await rtc.setCam(next)
-  }
-  catch { /* noop */ }
+  } catch (e) { console.warn('toggleCam', e) }
 }
 
 async function toggleSpeakers() {
@@ -339,6 +350,10 @@ async function toggleVisibility() {
 
 async function onLeave() {
   const room = lk.value
+  try { await room?.localParticipant.setMicrophoneEnabled(false) } catch {}
+  try { await room?.localParticipant.setCameraEnabled(false) } catch {}
+  micOn.value = false
+  camOn.value = false
   lk.value = null
   try { await rtc.leave() } catch {}
   try { await room?.disconnect() } catch {}
