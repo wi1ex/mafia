@@ -5,10 +5,10 @@
         <video :ref="el => setVideoRef(id, el as HTMLVideoElement)" playsinline autoplay :muted="id === localId" />
         <div class="veil" :class="{ visible: covers.has(id) }"></div>
         <div class="badges">
-          <span class="badge" title="Микрофон">{{ em('mic', statusMap[id]?.mic === 1) }}</span>
-          <span class="badge" title="Камера">{{ em('cam', statusMap[id]?.cam === 1) }}</span>
-          <span class="badge" title="Звук">{{ em('speakers', statusMap[id]?.speakers === 1) }}</span>
-          <span class="badge" title="Видимость">{{ em('visibility', statusMap[id]?.visibility === 1) }}</span>
+          <span class="badge" title="Микрофон">{{ em('mic', isOn(id, 'mic')) }}</span>
+          <span class="badge" title="Камера">{{ em('cam', isOn(id, 'cam')) }}</span>
+          <span class="badge" title="Звук">{{ em('speakers', isOn(id, 'speakers')) }}</span>
+          <span class="badge" title="Видимость">{{ em('visibility', isOn(id, 'visibility')) }}</span>
         </div>
       </div>
     </div>
@@ -43,7 +43,7 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, onMounted, reactive, ref, computed, watchEffect } from 'vue'
+import { nextTick, onBeforeUnmount, onMounted, reactive, ref, computed, watch, watchEffect } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useRtcStore } from '@/store'
 import { storeToRefs } from 'pinia'
@@ -278,6 +278,29 @@ function em(kind: 'mic'|'cam'|'speakers'|'visibility', on?: boolean) {
   return (on ?? true) ? ON[kind] : OFF[kind]
 }
 
+function isOn(id: string, kind: 'mic'|'cam'|'speakers'|'visibility') {
+  if (id === localId.value) {
+    if (kind === 'mic') return micOn.value
+    if (kind === 'cam') return camOn.value
+    if (kind === 'speakers') return speakersOn.value
+    return visibilityOn.value
+  }
+  const st = statusMap.value[id]
+  return st ? st[kind] === 1 : true
+}
+
+function syncLocalBadges() {
+  const id = localId.value
+  if (!id) return
+  statusMap.value[id] = {
+    ...(statusMap.value[id] || { mic: 1, cam: 1, speakers: 1, visibility: 1 }),
+    mic:        micOn.value ? 1 : 0,
+    cam:        camOn.value ? 1 : 0,
+    speakers:   speakersOn.value ? 1 : 0,
+    visibility: visibilityOn.value ? 1 : 0,
+  }
+}
+
 function forEachRemote(cb: (id: string, p: RemoteParticipant) => void) {
   const room = lk.value
   if (!room) return
@@ -309,7 +332,7 @@ function waitLocalPub(room: LkRoom, kind: Track.Kind, timeout = 2000) {
       room.off(RoomEvent.LocalTrackPublished, onPub)
       resolve()
     }, timeout)
-  });
+  })
 }
 
 async function toggleMic() {
@@ -330,6 +353,7 @@ async function toggleMic() {
       await room.localParticipant.setMicrophoneEnabled(false)
     }
     await rtc.setMic(next)
+    syncLocalBadges()
   } catch (e) { console.warn('toggleMic', e) }
 }
 
@@ -339,7 +363,7 @@ async function toggleCam() {
   const next = !camOn.value
   try {
     if (next) {
-      const id = await ensureDevice(room, 'videoinput', selectedCamId.value || loadLS(LS.cam) || undefined);
+      const id = await ensureDevice(room, 'videoinput', selectedCamId.value || loadLS(LS.cam) || undefined)
       if (!id) {
         alert('Камера недоступна')
         return
@@ -357,6 +381,7 @@ async function toggleCam() {
       await room.localParticipant.setCameraEnabled(false)
     }
     await rtc.setCam(next)
+    syncLocalBadges()
   } catch (e) { console.warn('toggleCam', e) }
 }
 
@@ -364,6 +389,7 @@ async function toggleSpeakers() {
   const next = !speakersOn.value
   setAudioSubscriptionsForAll(next)
   await rtc.setSpeakers(next)
+  syncLocalBadges()
 }
 
 async function toggleVisibility() {
@@ -372,6 +398,7 @@ async function toggleVisibility() {
   const next = !visibilityOn.value
   setVideoSubscriptionsForAll(next)
   await rtc.setVisibility(next)
+  syncLocalBadges()
 }
 
 async function onLeave() {
@@ -395,6 +422,10 @@ function cleanupMedia() {
   peers.value = []
   localId.value = ''
 }
+
+watch([micOn, camOn, speakersOn, visibilityOn, localId], () => {
+  syncLocalBadges()
+}, { immediate: false })
 
 watchEffect(() => {
   peerIds.value.forEach((id) => {
@@ -446,6 +477,7 @@ onMounted(async () => {
       }
       if (pub.kind === Track.Kind.Video) camOn.value = true
       if (pub.kind === Track.Kind.Audio) micOn.value = true
+      syncLocalBadges()
     })
 
     room.on(RoomEvent.LocalTrackUnpublished, (pub: LocalTrackPublication) => {
@@ -455,6 +487,7 @@ onMounted(async () => {
       }
       if (pub.kind === Track.Kind.Video) camOn.value = false
       if (pub.kind === Track.Kind.Audio) micOn.value = false
+      syncLocalBadges()
     })
 
     room.on(RoomEvent.TrackSubscribed, (t: RemoteTrack, _pub, part) => {
@@ -563,6 +596,7 @@ onMounted(async () => {
 
     micOn.value = room.localParticipant.audioTrackPublications.size > 0
     camOn.value = room.localParticipant.videoTrackPublications.size > 0
+    syncLocalBadges()
 
     navigator.mediaDevices.addEventListener?.('devicechange', refreshDevices)
 
