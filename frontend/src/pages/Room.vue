@@ -59,7 +59,6 @@ import {
   setLogLevel,
   LogLevel,
 } from 'livekit-client'
-import { VideoPreset } from 'livekit-client/src/room/track/options'
 
 setLogLevel(LogLevel.warn)
 
@@ -121,67 +120,119 @@ async function refreshDevices() {
   } catch {}
 }
 
+async function ensureDevice( room: LkRoom, kind: 'audioinput' | 'videoinput', preferredId?: string): Promise<string | null> {
+  const list = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === kind) as MediaDeviceInfo[]
+
+  if (list.length === 0) return null
+
+  const ids = Array.from(new Set([
+    preferredId && list.some(d => d.deviceId === preferredId) ? preferredId : null,
+    ...list.map(d => d.deviceId),
+  ].filter(Boolean) as string[]))
+
+  for (const id of ids) {
+    try {
+      if (kind === 'audioinput') {
+        await room.localParticipant.setMicrophoneEnabled(true, { deviceId: { exact: id } } as any)
+      } else {
+        await room.localParticipant.setCameraEnabled(true, { deviceId: { exact: id }, resolution: VideoPresets.h360.resolution } as any)
+        const el = videoEls.get(localId.value)
+        const vpub = Array.from(room.localParticipant.videoTrackPublications.values())[0]
+        if (el && vpub?.track) {
+          vpub.track.attach(el)
+          el.muted = true
+        }
+      }
+      return id
+    } catch {
+      try {
+        if (kind === 'audioinput') await room.localParticipant.setMicrophoneEnabled(false)
+        else await room.localParticipant.setCameraEnabled(false)
+      } catch {}
+    }
+  }
+  return null
+}
+
 function isBusyErr(e:any){
-  const name = (e?.name||'')+''; const msg=(e?.message||'')+'';
-  return name==='NotReadableError' || /Could not start .* source/i.test(msg);
+  const name = (e?.name||'')+''
+  const msg=(e?.message||'')+''
+  return name==='NotReadableError' || /Could not start .* source/i.test(msg)
 }
 async function fallbackVideo(room:LkRoom){
-  await refreshDevices();
+  await refreshDevices()
   if (!cams.value.length){
-    window.alert('Камера отсутствует или недоступна.');
-    selectedCamId.value = ''; saveLS(LS.cam, '');
+    window.alert('Камера отсутствует или недоступна.')
+    selectedCamId.value = ''
+    saveLS(LS.cam, '')
     try { await room.localParticipant.setCameraEnabled(false) } catch {}
-    await rtc.setCam(false);
-    return;
+    await rtc.setCam(false)
+    return
   }
-  window.alert('Текущая камера занята. Переключаюсь на другую.');
-  const newId = cams.value[0].deviceId;
-  selectedCamId.value = newId; saveLS(LS.cam, newId);
+  window.alert('Текущая камера занята. Переключаюсь на другую.')
+  const newId = cams.value[0].deviceId
+  selectedCamId.value = newId
+  saveLS(LS.cam, newId)
   try {
-    await room.switchActiveDevice('videoinput', newId);
-    if (!camOn.value){ await room.localParticipant.setCameraEnabled(true); await rtc.setCam(true); }
-  } catch (e){ console.warn('fallback cam failed', e); }
+    await room.switchActiveDevice('videoinput', newId)
+    if (!camOn.value) {
+      await room.localParticipant.setCameraEnabled(true)
+      await rtc.setCam(true)
+    }
+  } catch (e) { console.warn('fallback cam failed', e) }
 }
 async function fallbackAudio(room:LkRoom){
-  await refreshDevices();
+  await refreshDevices()
   if (!mics.value.length){
-    window.alert('Микрофон отсутствует или недоступен.');
-    selectedMicId.value = ''; saveLS(LS.mic, '');
+    window.alert('Микрофон отсутствует или недоступен.')
+    selectedMicId.value = ''
+    saveLS(LS.mic, '')
     try { await room.localParticipant.setMicrophoneEnabled(false) } catch {}
-    await rtc.setMic(false);
-    return;
+    await rtc.setMic(false)
+    return
   }
-  window.alert('Текущий микрофон занят. Переключаюсь на другой.');
-  const newId = mics.value[0].deviceId;
-  selectedMicId.value = newId; saveLS(LS.mic, newId);
+  window.alert('Текущий микрофон занят. Переключаюсь на другой.')
+  const newId = mics.value[0].deviceId
+  selectedMicId.value = newId
+  saveLS(LS.mic, newId)
   try {
-    await room.switchActiveDevice('audioinput', newId);
-    if (!micOn.value){ await room.localParticipant.setMicrophoneEnabled(true); await rtc.setMic(true); }
-  } catch (e){ console.warn('fallback mic failed', e); }
+    await room.switchActiveDevice('audioinput', newId)
+    if (!micOn.value) {
+      await room.localParticipant.setMicrophoneEnabled(true)
+      await rtc.setMic(true)
+    }
+  } catch (e) { console.warn('fallback mic failed', e) }
 }
 
 async function onMicChange() {
-  const room = lk.value; const id = selectedMicId.value; if (!room || !id) return;
-  saveLS(LS.mic, id);
-  try { await room.switchActiveDevice('audioinput', id); }
+  const room = lk.value
+  const id = selectedMicId.value
+  if (!room || !id) return
+  saveLS(LS.mic, id)
+  try { await room.switchActiveDevice('audioinput', id) }
   catch (e){
-    console.warn('mic switch failed', e);
-    if (isBusyErr(e)) { await fallbackAudio(room); }
-    else { window.alert('Не удалось переключить микрофон.'); }
+    console.warn('mic switch failed', e)
+    if (isBusyErr(e)) { await fallbackAudio(room) }
+    else { window.alert('Не удалось переключить микрофон.') }
   }
 }
 async function onCamChange() {
-  const room = lk.value; const id = selectedCamId.value; if (!room || !id) return;
-  saveLS(LS.cam, id);
+  const room = lk.value
+  const id = selectedCamId.value
+  if (!room || !id) return
+  saveLS(LS.cam, id)
   try {
-    await room.switchActiveDevice('videoinput', id);
-    const el = videoEls.get(localId.value);
-    const vpub = Array.from(room.localParticipant.videoTrackPublications.values())[0];
-    if (el && vpub?.track) { vpub.track.attach(el); el.muted = true; }
+    await room.switchActiveDevice('videoinput', id)
+    const el = videoEls.get(localId.value)
+    const vpub = Array.from(room.localParticipant.videoTrackPublications.values())[0]
+    if (el && vpub?.track) {
+      vpub.track.attach(el)
+      el.muted = true
+    }
   } catch (e){
-    console.warn('cam switch failed', e);
-    if (isBusyErr(e)) { await fallbackVideo(room); }
-    else { window.alert('Не удалось переключить камеру.'); }
+    console.warn('cam switch failed', e)
+    if (isBusyErr(e)) { await fallbackVideo(room) }
+    else { window.alert('Не удалось переключить камеру.') }
   }
 }
 
@@ -317,10 +368,7 @@ onMounted(async () => {
   try {
     selectedMicId.value = loadLS(LS.mic) || ''
     selectedCamId.value = loadLS(LS.cam) || ''
-
     await refreshDevices()
-    const audioId = mics.value.some(d => d.deviceId === selectedMicId.value) ? selectedMicId.value : undefined
-    const videoId = cams.value.some(d => d.deviceId === selectedCamId.value) ? selectedCamId.value : undefined
 
     const { ws_url, token } = await rtc.join(rid)
     const room = new LkRoom({
@@ -335,13 +383,13 @@ onMounted(async () => {
         stopMicTrackOnMute: false,
       },
       audioCaptureDefaults: {
-        deviceId: audioId,
+        // deviceId: audioId,
         echoCancellation: true,
         noiseSuppression: true,
         autoGainControl: true,
       },
       videoCaptureDefaults: {
-        deviceId: videoId,
+        // deviceId: videoId,
         resolution: VideoPresets.h360.resolution,
         // frameRate: 25,
       },
@@ -424,15 +472,16 @@ onMounted(async () => {
     room.on(RoomEvent.ParticipantDisconnected, (p) => removePeer(String(p.identity)))
 
     room.on(RoomEvent.MediaDevicesError, async (e:any) => {
-      console.error('MediaDevicesError', { name: e?.name, message: e?.message, constraint: e?.constraint || e?.constraintName || e?.cause?.constraint });
-      const msg = (e?.message||'')+''; const name=(e?.name||'')+'';
-      const isVideo = /video|camera/i.test(msg) || /video/i.test(name);
-      const isAudio = /audio|microphone/i.test(msg) || /audio/i.test(name);
+      console.error('MediaDevicesError', { name: e?.name, message: e?.message, constraint: e?.constraint || e?.constraintName || e?.cause?.constraint })
+      const msg = (e?.message||'')+''
+      const name=(e?.name||'')+''
+      const isVideo = /video|camera/i.test(msg) || /video/i.test(name)
+      const isAudio = /audio|microphone/i.test(msg) || /audio/i.test(name)
       if (isBusyErr(e)) {
-        if (isVideo || (!isAudio && camOn.value)) await fallbackVideo(room);
-        if (isAudio || (!isVideo && micOn.value)) await fallbackAudio(room);
+        if (isVideo || (!isAudio && camOn.value)) await fallbackVideo(room)
+        if (isAudio || (!isVideo && micOn.value)) await fallbackAudio(room)
       }
-    });
+    })
 
     await room.connect(ws_url, token, {
       autoSubscribe: false,
@@ -441,34 +490,32 @@ onMounted(async () => {
       websocketTimeout: 10_000,
     })
 
-    if (selectedMicId.value)  {
-      try {
-        await room.switchActiveDevice('audioinput',  selectedMicId.value)
-      } catch (e) {
-        if (isBusyErr(e)) await fallbackAudio(room)
-      }
-    }
-    if (selectedCamId.value)  {
-      try {
-        await room.switchActiveDevice('videoinput', selectedCamId.value)
-      } catch (e) {
-        if(isBusyErr(e)) await fallbackVideo(room)
-      }
-    }
-
     localId.value = String(room.localParticipant.identity)
     upsertPeerFromParticipant(room.localParticipant, true)
     participantsMap(room)?.forEach(p => upsertPeerFromParticipant(p))
     await nextTick()
 
-    if (camOn.value) { try { await room.localParticipant.setCameraEnabled(true) } catch {} }
-    if (micOn.value) { try { await room.localParticipant.setMicrophoneEnabled(true) } catch {} }
-
-    const vpub = room.localParticipant.videoTrackPublications.values().next().value
-    const el = videoEls.get(localId.value)
-    if (vpub?.track && el) {
-      el.muted = true
-      vpub.track.attach(el)
+    if (camOn.value) {
+      const sel = loadLS(LS.cam) || undefined
+      const okId = await ensureDevice(room, 'videoinput', sel)
+      if (!okId) {
+        window.alert('Не удалось запустить камеру')
+        await onLeave()
+        return
+      }
+      selectedCamId.value = okId
+      saveLS(LS.cam, okId)
+    }
+    if (micOn.value) {
+      const sel = loadLS(LS.mic) || undefined
+      const okId = await ensureDevice(room, 'audioinput', sel)
+      if (!okId) {
+        window.alert('Не удалось запустить микрофон')
+        await onLeave()
+        return
+      }
+      selectedMicId.value = okId
+      saveLS(LS.mic, okId)
     }
 
     micOn.value = room.localParticipant.audioTrackPublications.size > 0
