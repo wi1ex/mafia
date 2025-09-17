@@ -126,8 +126,17 @@ async function onMicChange() {
   if (!room || !id) return
   saveLS(LS.mic, id)
   try {
-    await room.switchActiveDevice('audioinput', { exact: id } as any)
-  } catch (e) { console.warn('mic switch failed', e) }
+    await room.switchActiveDevice('audioinput', id)
+    saveLS(LS.mic, id)
+  } catch (e) {
+    console.warn('mic switch failed', e)
+    try {
+      await room.localParticipant.setMicrophoneEnabled(false)
+      await room.localParticipant.setMicrophoneEnabled(true)
+    } catch {}
+    const prev = loadLS(LS.mic) || ''
+    if (prev && prev !== id) { selectedMicId.value = prev }
+  }
 }
 
 async function onCamChange() {
@@ -136,14 +145,23 @@ async function onCamChange() {
   if (!room || !id) return
   saveLS(LS.cam, id)
   try {
-    await room.switchActiveDevice('videoinput', { exact: id } as any)
+    await room.switchActiveDevice('videoinput', id)
+    saveLS(LS.cam, id)
     const el = videoEls.get(localId.value)
     const vpub = Array.from(room.localParticipant.videoTrackPublications.values())[0]
     if (el && vpub?.track) {
       vpub.track.attach(el)
       el.muted = true
     }
-  } catch (e) { console.warn('cam switch failed', e) }
+  } catch (e) {
+    console.warn('cam switch failed', e)
+    try {
+      await room.localParticipant.setCameraEnabled(false)
+      await room.localParticipant.setCameraEnabled(true)
+    } catch {}
+    const prev = loadLS(LS.cam) || ''
+    if (prev && prev !== id) { selectedCamId.value = prev }
+  }
 }
 
 function participantsMap(room?: LkRoom | null) {
@@ -280,6 +298,8 @@ onMounted(async () => {
     selectedCamId.value = loadLS(LS.cam) || ''
 
     await refreshDevices()
+    const audioId = mics.value.some(d => d.deviceId === selectedMicId.value) ? selectedMicId.value : undefined
+    const videoId = cams.value.some(d => d.deviceId === selectedCamId.value) ? selectedCamId.value : undefined
 
     const { ws_url, token } = await rtc.join(rid)
     const room = new LkRoom({
@@ -294,13 +314,13 @@ onMounted(async () => {
         stopMicTrackOnMute: false,
       },
       audioCaptureDefaults: {
-        deviceId: selectedMicId.value ? ({ ideal: selectedMicId.value } as any) : undefined,
+        deviceId: audioId,
         echoCancellation: true,
         noiseSuppression: true,
         autoGainControl: true,
       },
       videoCaptureDefaults: {
-        deviceId: selectedCamId.value ? ({ ideal: selectedCamId.value } as any) : undefined,
+        deviceId: videoId,
         resolution: VideoPresets.h360.resolution,
         // frameRate: 25,
       },
@@ -392,6 +412,9 @@ onMounted(async () => {
       peerConnectionTimeout: 20_000,
       websocketTimeout: 10_000,
     })
+
+    if (selectedMicId.value)  { try { await room.switchActiveDevice('audioinput',  selectedMicId.value) } catch {} }
+    if (selectedCamId.value)  { try { await room.switchActiveDevice('videoinput', selectedCamId.value) } catch {} }
 
     localId.value = String(room.localParticipant.identity)
     upsertPeerFromParticipant(room.localParticipant, true)

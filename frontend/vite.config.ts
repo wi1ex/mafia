@@ -5,18 +5,14 @@ import path from 'node:path'
 export default defineConfig({
   plugins: [vue()],
   resolve: {
-    alias: {
-      '@': path.resolve(__dirname, 'src')
-    }
-    },
+    alias: { '@': path.resolve(__dirname, 'src') },
+  },
   css: {
     preprocessorOptions: {
       scss: {
-        additionalData: `@use "@/styles/index.scss" as *;`
-      }
-    }
+        additionalData: `@use "@/styles/variables" as *;`,
+      },
+    },
   },
-  build: {
-    sourcemap: false
-  },
+  build: { sourcemap: false },
 })

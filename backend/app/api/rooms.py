@@ -1,5 +1,5 @@
 from __future__ import annotations
-import time
+import asyncio
 from typing import Any, Dict, List
 from fastapi import APIRouter, Depends, HTTPException, Path, status
 from sqlalchemy import select
@@ -9,6 +9,7 @@ from ..models.room import Room
 from ..models.user import User
 from ..core.clients import get_redis
 from ..realtime.sio import sio
+from ..realtime.utils import gc_empty_room
 from ..services.sessions import get_current_user
 from ..services.livekit_tokens import make_livekit_token
 from ..schemas import RoomCreateIn, RoomOut, JoinOut, Ok
@@ -92,14 +93,10 @@ async def join_room(room_id: int = Path(..., ge=1), session: AsyncSession = Depe
 
     ids = await r.smembers(f"room:{room_id}:members")
     snapshot: Dict[str, Dict[str, str]] = {}
-    for b in ids or []:
-        uid = (b.decode() if isinstance(b, (bytes, bytearray)) else str(b))
-        st = await r.hgetall(f"room:{room_id}:user:{uid}:state")
-        snapshot[uid] = {(k.decode() if isinstance(k, (bytes, bytearray)) else k): (v.decode() if isinstance(v, (bytes, bytearray)) else v)
-                         for k, v in (st or {}).items()}
-    self_pref_raw = await r.hgetall(f"room:{room_id}:user:{user.id}:last_state")
-    self_pref = {(k.decode() if isinstance(k, (bytes, bytearray)) else k): (v.decode() if isinstance(v, (bytes, bytearray)) else v)
-                 for k, v in (self_pref_raw or {}).items()}
+    for uid in ids or []:
+        snapshot[uid] = await r.hgetall(f"room:{room_id}:user:{uid}:state")
+
+    self_pref = snapshot.get(str(user.id), {})
 
     lk_token = make_livekit_token(identity=str(user.id), name=user.username or f"user-{user.id}", room=str(room_id))
     data = _serialize_room(room, occupancy=int(await r.scard(f"room:{room_id}:members") or 0))
@@ -113,7 +110,6 @@ async def update_state(payload: Dict[str, Any], room_id: int = Path(..., ge=1), 
     data = {k: "1" if bool(v) else "0" for k, v in (payload or {}).items() if k in {"mic", "cam", "speakers", "visibility"}}
     if data:
         await r.hset(f"room:{room_id}:user:{user.id}:state", mapping=data)
-        await r.hset(f"room:{room_id}:user:{user.id}:last_state", mapping=data)
     return Ok()
 
 
@@ -121,11 +117,8 @@ async def update_state(payload: Dict[str, Any], room_id: int = Path(..., ge=1), 
 async def leave_room(room_id: int = Path(..., ge=1), user: User = Depends(get_current_user)) -> Ok:
     r = get_redis()
     await r.srem(f"room:{room_id}:members", user.id)
-    await r.delete(f"room:{room_id}:user:{user.id}:state")
     occ = int(await r.scard(f"room:{room_id}:members") or 0)
     await sio.emit("rooms_occupancy", {"id": room_id, "occupancy": occ}, namespace="/rooms")
     if occ == 0:
-        from ..realtime.sio import _gc_empty_room
-        import asyncio
-        asyncio.create_task(_gc_empty_room(room_id))
+        asyncio.create_task(gc_empty_room(room_id))
     return Ok()
