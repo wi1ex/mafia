@@ -168,10 +168,12 @@ function setVideoRef(id: string, el: HTMLVideoElement | null) {
   videoEls.set(id, el)
   const room = lk.value
   if (!room) return
-  const isSelf = id === String(room.localParticipant.identity)
-  const pubs = isSelf
+  const part = room.getParticipantByIdentity?.(id)
+    ?? (room as any).remoteParticipants?.get?.(id)
+    ?? (room as any).participants?.get?.(id)
+  const pubs = id === String(room.localParticipant.identity)
     ? room.localParticipant.getTrackPublications()
-    : room.getParticipantByIdentity?.(id)?.getTrackPublications()
+    : part?.getTrackPublications()
   pubs?.forEach(pub => pub.kind === Track.Kind.Video && pub.track && attachVideoTrackTo(id, pub.track))
 }
 const videoRef = (id: string) => (el: HTMLVideoElement | null) => setVideoRef(id, el)
@@ -196,6 +198,49 @@ async function refreshDevices() {
   } catch {}
 }
 
+function isBusyErr(e: any) {
+  const name = (e?.name || '') + ''
+  const msg = (e?.message || '') + ''
+  return name === 'NotReadableError' || /Could not start .* source/i.test(msg)
+}
+
+async function fallback(kind: 'audioinput' | 'videoinput') {
+  await refreshDevices()
+  const list = kind === 'audioinput' ? mics.value : cams.value
+  const setEnabled = (on: boolean) => kind === 'audioinput'
+    ? lk.value?.localParticipant.setMicrophoneEnabled(on)
+    : lk.value?.localParticipant.setCameraEnabled(on)
+  if (!list.length) {
+    await setEnabled(false)
+    const k = kind === 'audioinput' ? 'mic' : 'cam'
+    await publishCoalesced({ [k]: false } as any)
+    if (kind === 'audioinput') { selectedMicId.value = ''; saveLS(LS_KEYS.mic, '') }
+    else { selectedCamId.value = ''; saveLS(LS_KEYS.cam, '') }
+    return
+  }
+  const newId = list[0].deviceId
+  try {
+    await lk.value?.switchActiveDevice(kind, newId)
+    if (kind === 'audioinput') { selectedMicId.value = newId; saveLS(LS_KEYS.mic, newId) }
+    else { selectedCamId.value = newId; saveLS(LS_KEYS.cam, newId) }
+  } catch {}
+}
+
+async function waitLocalPub(room: LkRoom, kind: Track.Kind, timeout = 2000) {
+  return new Promise<void>((resolve) => {
+    const pubs = kind === Track.Kind.Audio ? room.localParticipant.audioTrackPublications : room.localParticipant.videoTrackPublications
+    if (pubs.size > 0) return resolve()
+    const onPub = (pub: LocalTrackPublication) => {
+      if (pub.kind === kind) {
+        room.off(RoomEvent.LocalTrackPublished, onPub)
+        resolve()
+      }
+    }
+    room.on(RoomEvent.LocalTrackPublished, onPub)
+    setTimeout(() => { room.off(RoomEvent.LocalTrackPublished, onPub); resolve() }, timeout)
+  })
+}
+
 async function ensureDevice(kind: 'audioinput' | 'videoinput', preferredId?: string): Promise<string | null> {
   const room = lk.value
   if (!room) return null
@@ -206,14 +251,17 @@ async function ensureDevice(kind: 'audioinput' | 'videoinput', preferredId?: str
     try {
       if (kind === 'audioinput') {
         await room.localParticipant.setMicrophoneEnabled(true, { deviceId: { exact: id } } as any)
+        await waitLocalPub(room, Track.Kind.Audio)
       } else {
         await room.localParticipant.setCameraEnabled(true, { deviceId: { exact: id }, resolution: VideoPresets.h360.resolution } as any)
+        await waitLocalPub(room, Track.Kind.Video)
         const vpub = Array.from(room.localParticipant.videoTrackPublications.values())[0]
         await nextTick(); attachVideoTrackTo(localId.value, vpub?.track ?? null)
       }
       return id
-    } catch {
+    } catch (e) {
       try { kind === 'audioinput' ? await room.localParticipant.setMicrophoneEnabled(false) : await room.localParticipant.setCameraEnabled(false) } catch {}
+      if (isBusyErr(e)) continue
     }
   }
   return null
@@ -233,7 +281,8 @@ async function ensureCamEnabled() {
 async function onMicChange() {
   const room = lk.value
   if (!room || !selectedMicId.value || !micOn.value) return
-  try { await room.switchActiveDevice('audioinput', selectedMicId.value); saveLS(LS_KEYS.mic, selectedMicId.value) } catch {}
+  try { await room.switchActiveDevice('audioinput', selectedMicId.value); saveLS(LS_KEYS.mic, selectedMicId.value) }
+  catch (e) { if (isBusyErr(e)) await fallback('audioinput') }
 }
 async function onCamChange() {
   const room = lk.value
@@ -243,7 +292,7 @@ async function onCamChange() {
     const vpub = Array.from(room.localParticipant.videoTrackPublications.values())[0]
     attachVideoTrackTo(localId.value, vpub?.track ?? null)
     saveLS(LS_KEYS.cam, selectedCamId.value)
-  } catch {}
+  } catch (e) { if (isBusyErr(e)) await fallback('videoinput') }
 }
 
 /* ---- socket (ACK-first + coalesce) ---- */
@@ -288,25 +337,25 @@ function emitWithAck<T = any>(evt: string, payload: any, timeout = 1200): Promis
 
 let pubInFlight = false
 let pubPending: Partial<{ mic: boolean; cam: boolean; speakers: boolean; visibility: boolean }> | null = null
-async function publishCoalesced(delta: typeof pubPending) {
+async function publishCoalesced(delta: typeof pubPending): Promise<boolean> {
   pubPending = { ...(pubPending || {}), ...delta }
-  if (pubInFlight) return
+  if (pubInFlight) return true
   pubInFlight = true
+  let okAll = true
   while (pubPending) {
     const batch = pubPending; pubPending = null
     const ok = await publishState(batch)
-    if (!ok) break
+    if (!ok) { okAll = false; break }
   }
   pubInFlight = false
+  return okAll
 }
 async function publishState(delta: Partial<{ mic: boolean; cam: boolean; speakers: boolean; visibility: boolean }>) {
   try {
     const ack: any = await emitWithAck('state', delta)
     return !!ack?.ok
   } catch {
-    try {
-      await api.post(`/rooms/${roomId.value}/state`, delta)
-    } catch { return false }
+    try { await api.post(`/rooms/${roomId.value}/state`, delta) } catch { return false }
     return true
   }
 }
@@ -325,28 +374,32 @@ function removePeer(id: string) {
   const a = audioEls.get(id); if (a) { try { a.srcObject = null } catch {}; try { a.remove() } catch {}; audioEls.delete(id) }
 }
 
-/* ---- toggles ---- */
+/* ---- toggles (ACK → железо, локальное состояние только при успехе) ---- */
 const toggleMic = async () => {
   const want = !micOn.value
-  await publishCoalesced({ mic: want })
-  if (want) { await ensureMicEnabled() } else { try { await lk.value?.localParticipant.setMicrophoneEnabled(false) } catch {} }
+  const ok = await publishCoalesced({ mic: want })
+  if (!ok) return
+  try { want ? await ensureMicEnabled() : await lk.value?.localParticipant.setMicrophoneEnabled(false) } catch {}
   micOn.value = want
 }
 const toggleCam = async () => {
   const want = !camOn.value
-  await publishCoalesced({ cam: want })
-  if (want) { await ensureCamEnabled() } else { try { await lk.value?.localParticipant.setCameraEnabled(false) } catch {} }
+  const ok = await publishCoalesced({ cam: want })
+  if (!ok) return
+  try { want ? await ensureCamEnabled() : await lk.value?.localParticipant.setCameraEnabled(false) } catch {}
   camOn.value = want
 }
 const toggleSpeakers = async () => {
   const want = !speakersOn.value
-  await publishCoalesced({ speakers: want })
+  const ok = await publishCoalesced({ speakers: want })
+  if (!ok) return
   speakersOn.value = want
   lk.value?.remoteParticipants.forEach(p => applySubsFor(p))
 }
 const toggleVisibility = async () => {
   const want = !visibilityOn.value
-  await publishCoalesced({ visibility: want })
+  const ok = await publishCoalesced({ visibility: want })
+  if (!ok) return
   visibilityOn.value = want
   lk.value?.remoteParticipants.forEach(p => applySubsFor(p))
 }
@@ -359,10 +412,7 @@ async function postLeaveKeepalive() {
     await fetch(url, {
       method: 'POST',
       keepalive: true,
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       body: '{}',
     })
   } catch {}
@@ -374,11 +424,18 @@ function pageHideLeave() {
 }
 
 let closing = false
+function removeGlobalListeners() {
+  navigator.mediaDevices.removeEventListener?.('devicechange', refreshDevices)
+  window.removeEventListener('pagehide', pageHideLeave)
+  window.removeEventListener('beforeunload', pageHideLeave)
+  document.removeEventListener('visibilitychange', onVisChange)
+}
 async function closeRoom(reason?: string) {
   if (closing) return
   closing = true
   phase.value = 'leaving'
   try {
+    removeGlobalListeners()
     try { await lk.value?.localParticipant.setCameraEnabled(false) } catch {}
     try { await lk.value?.localParticipant.setMicrophoneEnabled(false) } catch {}
     try { await lk.value?.disconnect() } catch {}
@@ -405,6 +462,9 @@ async function closeRoomAndExit() {
 }
 
 /* ---- mount ---- */
+function onVisChange() {
+  if (document.visibilityState === 'hidden') pageHideLeave()
+}
 onMounted(async () => {
   phase.value = 'joining'
   await auth.init()
@@ -428,6 +488,17 @@ onMounted(async () => {
   }))
   lk.value = room
 
+  room.on(RoomEvent.Disconnected, () => { if (!closing) void closeRoom('lk-disconnected') })
+  room.on(RoomEvent.MediaDevicesError, async (e: any) => {
+    const msg = (e?.message || '') + ''
+    const name = (e?.name || '') + ''
+    const isVideo = /video|camera/i.test(msg) || /video/i.test(name)
+    const isAudio = /audio|microphone/i.test(msg) || /audio/i.test(name)
+    if (isBusyErr(e)) {
+      if (isVideo || (!isAudio && camOn.value)) await fallback('videoinput')
+      if (isAudio || (!isVideo && micOn.value)) await fallback('audioinput')
+    }
+  })
   room.on(RoomEvent.LocalTrackPublished, (pub: LocalTrackPublication) => {
     if (pub.kind === Track.Kind.Video) attachVideoTrackTo(localId.value, pub.track ?? null)
   })
@@ -476,9 +547,10 @@ onMounted(async () => {
   if (camOn.value) { try { await ensureCamEnabled() } catch {} }
   if (micOn.value) { try { await ensureMicEnabled() } catch {} }
 
+  navigator.mediaDevices.addEventListener?.('devicechange', refreshDevices)
   window.addEventListener('pagehide', pageHideLeave)
   window.addEventListener('beforeunload', pageHideLeave)
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') pageHideLeave() })
+  document.addEventListener('visibilitychange', onVisChange)
 
   phase.value = 'connected'
 })
