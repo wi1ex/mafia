@@ -188,7 +188,6 @@ async function fallbackVideo(room:LkRoom){
     await setCam(false)
     return
   }
-  alert('Текущая камера занята. Переключаюсь на другую.')
   const newId = cams.value[0].deviceId
   selectedCamId.value = newId
   saveLS(LS.cam, newId)
@@ -211,7 +210,6 @@ async function fallbackAudio(room:LkRoom){
     await setMic(false)
     return
   }
-  alert('Текущий микрофон занят. Переключаюсь на другой.')
   const newId = mics.value[0].deviceId
   selectedMicId.value = newId
   saveLS(LS.mic, newId)
@@ -580,6 +578,16 @@ async function onCamChange() {
   }
 }
 
+function cleanupMedia() {
+  videoEls.forEach(el => { try { el.srcObject = null } catch {} })
+  videoEls.clear()
+  audioEls.forEach(a => { try { a.remove() } catch {} })
+  audioEls.clear()
+  peers.value = []
+  localId.value = ''
+  Object.keys(statusMap).forEach(k => delete statusMap[k])
+}
+
 async function onLeave() {
   if (leaving.value) return
   leaving.value = true
@@ -607,16 +615,6 @@ async function onLeave() {
   leaving.value = false
 
   try { await router.replace('/') } catch {}
-}
-
-function cleanupMedia() {
-  videoEls.forEach(el => { try { el.srcObject = null } catch {} })
-  videoEls.clear()
-  audioEls.forEach(a => { try { a.remove() } catch {} })
-  audioEls.clear()
-  peers.value = []
-  localId.value = ''
-  Object.keys(statusMap).forEach(k => delete statusMap[k])
 }
 
 onMounted(async () => {
