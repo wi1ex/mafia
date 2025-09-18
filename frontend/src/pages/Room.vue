@@ -85,6 +85,10 @@ const camOn = ref(false)
 const speakersOn = ref(true)
 const visibilityOn = ref(true)
 
+const isEmpty = (v:any) => v === undefined || v === null || v === ''
+const read01  = (v:any, fallback: 0|1): 0|1 => isEmpty(v) ? fallback : to01(v, fallback)
+const readB   = (v:any, fallback: boolean): boolean => isEmpty(v) ? fallback : (to01(v, fallback ? 1 : 0) === 1)
+
 /* --------------------------
    LiveKit / медиаплееры
 ---------------------------*/
@@ -149,7 +153,12 @@ async function refreshDevices() {
 function attachLocalVideo(room: LkRoom) {
   const el = videoEls.get(localId.value)
   const vpub = Array.from(room.localParticipant.videoTrackPublications.values())[0]
-  if (el && vpub?.track) { try { vpub.track.attach(el); el.muted = true } catch {} }
+  if (el && vpub?.track) {
+    try {
+      vpub.track.attach(el)
+      el.muted = true
+    } catch {}
+  }
 }
 
 async function ensureDevice(room: LkRoom, kind: 'audioinput' | 'videoinput', preferredId?: string): Promise<string | null> {
@@ -315,29 +324,29 @@ function connectSocket() {
     Object.keys(statusMap).forEach(k => delete statusMap[k])
     for (const [uid, st] of Object.entries(snap || {})) {
       statusMap[uid] = {
-        mic: to01(st.mic, 0),
-        cam: to01(st.cam, 0),
-        speakers: to01(st.speakers, 0),
-        visibility: to01(st.visibility, 0),
+        mic:        read01(st.mic, 0),
+        cam:        read01(st.cam, 0),
+        speakers:   read01(st.speakers, 1),
+        visibility: read01(st.visibility, 1),
       }
     }
   })
 
-  socket.value.on('self_pref', (pref: Record<string, string>) => {
-    micOn.value = to01(pref.mic, 0) === 1
-    camOn.value = to01(pref.cam, 0) === 1
-    speakersOn.value = to01(pref.speakers, 0) === 1
-    visibilityOn.value = to01(pref.visibility, 0) === 1
+  socket.value.on('self_pref', (pref: Record<string, any>) => {
+    if (!isEmpty(pref.mic))        micOn.value        = to01(pref.mic,        micOn.value ? 1 : 0) === 1
+    if (!isEmpty(pref.cam))        camOn.value        = to01(pref.cam,        camOn.value ? 1 : 0) === 1
+    if (!isEmpty(pref.speakers))   speakersOn.value   = to01(pref.speakers,   speakersOn.value ? 1 : 0) === 1
+    if (!isEmpty(pref.visibility)) visibilityOn.value = to01(pref.visibility, visibilityOn.value ? 1 : 0) === 1
   })
 
   socket.value.on('state_changed', (p: any) => {
     const uid = String(p.user_id)
     const cur = statusMap[uid] || { mic: 1, cam: 1, speakers: 1, visibility: 1 }
     statusMap[uid] = {
-      mic: to01(p.mic ?? cur.mic),
-      cam: to01(p.cam ?? cur.cam),
-      speakers: to01(p.speakers ?? cur.speakers),
-      visibility: to01(p.visibility ?? cur.visibility),
+      mic:        read01(p.mic,        cur.mic),
+      cam:        read01(p.cam,        cur.cam),
+      speakers:   read01(p.speakers,   cur.speakers),
+      visibility: read01(p.visibility, cur.visibility),
     }
   })
 
@@ -351,10 +360,10 @@ function connectSocket() {
     const uid = String(p.user_id)
     const st = p.state || {}
     statusMap[uid] = {
-      mic: to01(st.mic, 0),
-      cam: to01(st.cam, 0),
-      speakers: to01(st.speakers, 0),
-      visibility: to01(st.visibility, 0),
+      mic:        read01(st.mic, 0),
+      cam:        read01(st.cam, 0),
+      speakers:   read01(st.speakers, 1),
+      visibility: read01(st.visibility, 1),
     }
   })
 }
@@ -606,7 +615,10 @@ async function onLeave() {
   try { socket.value?.emit('goodbye') } catch {}
   try { if (ridNow) await api.post(`/rooms/${ridNow}/leave`, {}, { keepalive: true as any }) } catch {}
   try { socket.value && (socket.value.io.opts.reconnection = false) } catch {}
-  try { socket.value?.off?.(); socket.value?.close?.() } catch {}
+  try {
+    socket.value?.off?.()
+    socket.value?.close?.()
+  } catch {}
   socket.value = null
 
   cleanupMedia()
@@ -624,7 +636,8 @@ onMounted(async () => {
     await refreshDevices()
 
     const { data } = await api.post<{
-      token: string; room_id: number;
+      token: string;
+      room_id: number;
       snapshot: Record<string, Record<string, string>>;
       self_pref: Record<string, string>;
     }>(`/rooms/${rid}/join`, {})
@@ -632,17 +645,17 @@ onMounted(async () => {
     Object.keys(statusMap).forEach(k => delete statusMap[k])
     for (const [uid, st] of Object.entries(data.snapshot || {})) {
       statusMap[uid] = {
-        mic: to01(st.mic, 0),
-        cam: to01(st.cam, 0),
-        speakers: to01(st.speakers, 0),
-        visibility: to01(st.visibility, 0)
+        mic:        read01(st.mic, 0),
+        cam:        read01(st.cam, 0),
+        speakers:   read01(st.speakers, 1),
+        visibility: read01(st.visibility, 1),
       }
     }
     if (data.self_pref) {
-      micOn.value        = to01(data.self_pref.mic, 0) === 1
-      camOn.value        = to01(data.self_pref.cam, 0) === 1
-      speakersOn.value   = to01(data.self_pref.speakers, 0) === 1
-      visibilityOn.value = to01(data.self_pref.visibility, 0) === 1
+      micOn.value        = readB(data.self_pref.mic,        micOn.value)
+      camOn.value        = readB(data.self_pref.cam,        camOn.value)
+      speakersOn.value   = readB(data.self_pref.speakers,   speakersOn.value)
+      visibilityOn.value = readB(data.self_pref.visibility, visibilityOn.value)
     }
 
     connectSocket()
@@ -842,7 +855,7 @@ video {
     line-height: 1;
     padding: 4px 6px;
     border-radius: 8px;
-    background: #0a121acc;
+    background: #000000;
     border: 1px solid #12202e;
     color: #e5e7eb;
     backdrop-filter: none !important;

@@ -52,19 +52,38 @@ async function load() {
 
 function startWS() {
   if (sio.value?.connected) return
-  sio.value = io('/rooms', { path:'/ws/socket.io', transports:['websocket'] })
+
+  sio.value = io('/rooms', {
+    path:'/ws/socket.io',
+    transports:['websocket']
+  })
+
+  sio.value.on('connect', async () => {
+    try {
+      const { data } = await api.get<Room[]>('/rooms', { headers: { 'Cache-Control': 'no-cache' } })
+      rooms.value = data
+    } catch {}
+  })
+
   sio.value.on('connect_error', err => console.warn('rooms sio error', err?.message))
+
   sio.value.on('rooms_upsert', (r:Room) => upsert(r))
+
   sio.value.on('rooms_remove', (p:{id:number}) => {
     rooms.value = rooms.value.filter(r => r.id !== p.id)
   })
+
   sio.value.on('rooms_occupancy', (p:{id:number; occupancy:number}) => {
     const i = rooms.value.findIndex(r => r.id === p.id)
     if (i>=0) rooms.value[i] = { ...rooms.value[i], occupancy:p.occupancy }
   })
 }
 
-function stopWS(){ try { sio.value?.close() } catch {} sio.value=null }
+function stopWS() {
+  try { sio.value?.off?.() } catch {}
+  try { sio.value?.close?.() } catch {}
+  sio.value = null
+}
 
 async function createRoom(title:string, user_limit:number, is_private:boolean){
   const { data } = await api.post<Room>('/rooms', { title, user_limit, is_private })
@@ -89,8 +108,8 @@ async function onCreate() {
 }
 
 onMounted(async () => {
-  await load()
   startWS()
+  await load()
 })
 onBeforeUnmount(() => {
   stopWS()
