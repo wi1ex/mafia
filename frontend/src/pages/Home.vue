@@ -1,14 +1,10 @@
 <template>
-  <Header>
-    <template #login>
-      <TelegramLogin />
-    </template>
-  </Header>
+  <Header />
   <section class="card">
     <h2 class="title">Комнаты</h2>
-    <div v-if="roomsStore.rooms.length===0" class="muted">Пока пусто</div>
+    <div v-if="rooms.length===0" class="muted">Пока пусто</div>
     <ul class="list">
-      <li v-for="r in roomsStore.rooms" :key="r.id" class="item">
+      <li v-for="r in rooms" :key="r.id" class="item">
         <span class="item__title">#{{ r.id }} — {{ r.title }}</span>
         <span class="item__meta">({{ r.occupancy }}/{{ r.user_limit }})</span>
         <router-link v-if="auth.isAuthed" :to="`/room/${r.id}`" class="link">Открыть</router-link>
@@ -30,13 +26,51 @@
 <script setup lang="ts">
 import { onMounted, onBeforeUnmount, ref, computed } from 'vue'
 import Header from '@/components/Header.vue'
-import TelegramLogin from '@/components/TelegramLogin.vue'
 import { useRouter } from 'vue-router'
-import { useAuthStore, useRoomsStore } from '@/store'
+import { useAuthStore } from '@/store/modules/auth'
+import { io, Socket } from 'socket.io-client'
+import { api } from '@/services/axios'
+
+type Room = { id:number; title:string; user_limit:number; is_private:boolean; creator:number; created_at:string; occupancy:number }
 
 const router = useRouter()
 const auth = useAuthStore()
-const roomsStore = useRoomsStore()
+
+const rooms = ref<Room[]>([])
+const sio = ref<Socket|null>(null)
+
+function upsert(r: Room) {
+  const i = rooms.value.findIndex(x => x.id === r.id)
+  if (i>=0) rooms.value[i] = { ...rooms.value[i], ...r }
+  else rooms.value.push(r)
+}
+
+async function load() {
+  const { data } = await api.get<Room[]>('/rooms')
+  rooms.value = data
+}
+
+function startWS() {
+  if (sio.value?.connected) return
+  sio.value = io('/rooms', { path:'/ws/socket.io', transports:['websocket'] })
+  sio.value.on('connect_error', err => console.warn('rooms sio error', err?.message))
+  sio.value.on('rooms_upsert', (r:Room) => upsert(r))
+  sio.value.on('rooms_remove', (p:{id:number}) => {
+    rooms.value = rooms.value.filter(r => r.id !== p.id)
+  })
+  sio.value.on('rooms_occupancy', (p:{id:number; occupancy:number}) => {
+    const i = rooms.value.findIndex(r => r.id === p.id)
+    if (i>=0) rooms.value[i] = { ...rooms.value[i], occupancy:p.occupancy }
+  })
+}
+
+function stopWS(){ try { sio.value?.close() } catch {} sio.value=null }
+
+async function createRoom(title:string, user_limit:number, is_private:boolean){
+  const { data } = await api.post<Room>('/rooms', { title, user_limit, is_private })
+  upsert(data)
+  return data
+}
 
 const title = ref('')
 const limit = ref(12)
@@ -47,7 +81,7 @@ async function onCreate() {
   if (!valid.value || creating.value) return
   creating.value = true
   try {
-    const r = await roomsStore.createRoom(title.value, limit.value)
+    const r = await createRoom(title.value, limit.value, false)
     await router.push(`/room/${r.id}`)
   } finally {
     creating.value = false
@@ -55,12 +89,11 @@ async function onCreate() {
 }
 
 onMounted(async () => {
-  await roomsStore.load()
-  void roomsStore.startWS()
+  await load()
+  startWS()
 })
-
-onBeforeUnmount(()=> {
-  roomsStore.stopWS()
+onBeforeUnmount(() => {
+  stopWS()
 })
 </script>
 

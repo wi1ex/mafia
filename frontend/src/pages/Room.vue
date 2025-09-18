@@ -43,7 +43,7 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, onMounted, reactive, ref, computed, watchEffect } from 'vue'
+import { onBeforeUnmount, onMounted, reactive, ref, computed, watchEffect } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { io, Socket } from 'socket.io-client'
 import { api } from '@/services/axios'
@@ -88,8 +88,10 @@ const visibilityOn = ref(true)
 /* --------------------------
    LiveKit / медиаплееры
 ---------------------------*/
+const leaving = ref(false)
 const lk = ref<LkRoom | null>(null)
 type Peer = { id: string; joinedAt: number; isLocal: boolean }
+const ws_url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host
 const peers = ref<Peer[]>([])
 const peerIds = computed(() => peers.value.map(p => p.id))
 const videoEls = new Map<string, HTMLVideoElement>()
@@ -144,6 +146,12 @@ async function refreshDevices() {
   } catch {}
 }
 
+function attachLocalVideo(room: LkRoom) {
+  const el = videoEls.get(localId.value)
+  const vpub = Array.from(room.localParticipant.videoTrackPublications.values())[0]
+  if (el && vpub?.track) { try { vpub.track.attach(el); el.muted = true } catch {} }
+}
+
 async function ensureDevice(room: LkRoom, kind: 'audioinput' | 'videoinput', preferredId?: string): Promise<string | null> {
   const list = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === kind) as MediaDeviceInfo[]
   if (list.length === 0) return null
@@ -154,12 +162,7 @@ async function ensureDevice(room: LkRoom, kind: 'audioinput' | 'videoinput', pre
         await room.localParticipant.setMicrophoneEnabled(true, { deviceId: { exact: id } } as any)
       } else {
         await room.localParticipant.setCameraEnabled(true, { deviceId: { exact: id }, resolution: VideoPresets.h360.resolution } as any)
-        const el = videoEls.get(localId.value)
-        const vpub = Array.from(room.localParticipant.videoTrackPublications.values())[0]
-        if (el && vpub?.track) {
-          vpub.track.attach(el)
-          el.muted = true
-        }
+        attachLocalVideo(room)
       }
       return id
     } catch {
@@ -314,25 +317,29 @@ function connectSocket() {
     Object.keys(statusMap).forEach(k => delete statusMap[k])
     for (const [uid, st] of Object.entries(snap || {})) {
       statusMap[uid] = {
-        mic: to01(st.mic, 1), cam: to01(st.cam, 1),
-        speakers: to01(st.speakers, 1), visibility: to01(st.visibility, 1),
+        mic: to01(st.mic, 0),
+        cam: to01(st.cam, 0),
+        speakers: to01(st.speakers, 0),
+        visibility: to01(st.visibility, 0),
       }
     }
   })
 
   socket.value.on('self_pref', (pref: Record<string, string>) => {
-    micOn.value = to01(pref.mic, 1) === 1
-    camOn.value = to01(pref.cam, 1) === 1
-    speakersOn.value = to01(pref.speakers, 1) === 1
-    visibilityOn.value = to01(pref.visibility, 1) === 1
+    micOn.value = to01(pref.mic, 0) === 1
+    camOn.value = to01(pref.cam, 0) === 1
+    speakersOn.value = to01(pref.speakers, 0) === 1
+    visibilityOn.value = to01(pref.visibility, 0) === 1
   })
 
   socket.value.on('state_changed', (p: any) => {
     const uid = String(p.user_id)
     const cur = statusMap[uid] || { mic: 1, cam: 1, speakers: 1, visibility: 1 }
     statusMap[uid] = {
-      mic: to01(p.mic ?? cur.mic), cam: to01(p.cam ?? cur.cam),
-      speakers: to01(p.speakers ?? cur.speakers), visibility: to01(p.visibility ?? cur.visibility),
+      mic: to01(p.mic ?? cur.mic),
+      cam: to01(p.cam ?? cur.cam),
+      speakers: to01(p.speakers ?? cur.speakers),
+      visibility: to01(p.visibility ?? cur.visibility),
     }
   })
 
@@ -346,14 +353,16 @@ function connectSocket() {
     const uid = String(p.user_id)
     const st = p.state || {}
     statusMap[uid] = {
-      mic: to01(st.mic, 1), cam: to01(st.cam, 1),
-      speakers: to01(st.speakers, 1), visibility: to01(st.visibility, 1),
+      mic: to01(st.mic, 0),
+      cam: to01(st.cam, 0),
+      speakers: to01(st.speakers, 0),
+      visibility: to01(st.visibility, 0),
     }
   })
 }
 
-function to01(v: unknown, d: State01 = 1 as State01): State01 {
-  if (typeof v === 'boolean') return (v ? 1 : 0) as State01
+function to01(v: unknown, d: 0|1 = 0 as 0|1): 0|1 {
+  if (typeof v === 'boolean') return (v ? 1 : 0) as 0|1
   if (v === '1' || v === 1) return 1
   if (v === '0' || v === 0) return 0
   return d
@@ -459,12 +468,7 @@ async function toggleCam() {
       selectedCamId.value = id
       saveLS(LS.cam, id)
       await waitLocalPub(room, Track.Kind.Video)
-      const el = videoEls.get(localId.value)
-      const vpub = Array.from(room.localParticipant.videoTrackPublications.values())[0]
-      if (el && vpub?.track) {
-        vpub.track.attach(el)
-        el.muted = true
-      }
+      attachLocalVideo(room)
     } else {
       await room.localParticipant.setCameraEnabled(false)
     }
@@ -542,8 +546,7 @@ watchEffect(() => {
   peerIds.value.forEach((id) => {
     const isSelf = id === localId.value
     const camOnServer = statusMap[id]?.cam === 1
-    const camOnLocal  = camOn.value
-    const show = isSelf ? !camOnLocal : !camOnServer
+    const show = isSelf ? !camOn.value : !camOnServer
     const unsubscribedByMe = (!isSelf) && !visibilityOn.value
     cover(id, show || unsubscribedByMe)
   })
@@ -569,12 +572,7 @@ async function onCamChange() {
   saveLS(LS.cam, id)
   try {
     await room.switchActiveDevice('videoinput', id)
-    const el = videoEls.get(localId.value)
-    const vpub = Array.from(room.localParticipant.videoTrackPublications.values())[0]
-    if (el && vpub?.track) {
-      vpub.track.attach(el)
-      el.muted = true
-    }
+    attachLocalVideo(room)
   } catch (e) {
     console.warn('cam switch failed', e)
     if (isBusyErr(e)) await fallbackVideo(room)
@@ -583,6 +581,13 @@ async function onCamChange() {
 }
 
 async function onLeave() {
+  if (leaving.value) return
+  leaving.value = true
+
+  window.removeEventListener('pagehide', onHide)
+  window.removeEventListener('beforeunload', onHide)
+  document.removeEventListener('visibilitychange', onVis)
+
   const room = lk.value
   const ridNow = roomId.value
 
@@ -590,14 +595,18 @@ async function onLeave() {
   try { await room?.localParticipant.setCameraEnabled(false) } catch {}
 
   try { await room?.disconnect() } catch {}
-
   try { socket.value?.emit('goodbye') } catch {}
   try { if (ridNow) await api.post(`/rooms/${ridNow}/leave`, {}, { keepalive: true as any }) } catch {}
+  try { socket.value && (socket.value.io.opts.reconnection = false) } catch {}
+  try { socket.value?.off?.(); socket.value?.close?.() } catch {}
+  socket.value = null
 
   cleanupMedia()
   lk.value = null
   roomId.value = null
-  try { await router.push('/') } catch {}
+  leaving.value = false
+
+  try { await router.replace('/') } catch {}
 }
 
 function cleanupMedia() {
@@ -624,19 +633,22 @@ onMounted(async () => {
 
     Object.keys(statusMap).forEach(k => delete statusMap[k])
     for (const [uid, st] of Object.entries(data.snapshot || {})) {
-      statusMap[uid] = { mic: to01(st.mic, 1), cam: to01(st.cam, 1), speakers: to01(st.speakers, 1), visibility: to01(st.visibility, 1) }
+      statusMap[uid] = {
+        mic: to01(st.mic, 0),
+        cam: to01(st.cam, 0),
+        speakers: to01(st.speakers, 0),
+        visibility: to01(st.visibility, 0)
+      }
     }
     if (data.self_pref) {
-      micOn.value        = to01(data.self_pref.mic, 1) === 1
-      camOn.value        = to01(data.self_pref.cam, 1) === 1
-      speakersOn.value   = to01(data.self_pref.speakers, 1) === 1
-      visibilityOn.value = to01(data.self_pref.visibility, 1) === 1
+      micOn.value        = to01(data.self_pref.mic, 0) === 1
+      camOn.value        = to01(data.self_pref.cam, 0) === 1
+      speakersOn.value   = to01(data.self_pref.speakers, 0) === 1
+      visibilityOn.value = to01(data.self_pref.visibility, 0) === 1
     }
 
     connectSocket()
-    socket.value?.emit('join', { room_id: rid, state: curStatePayload() })
 
-    const ws_url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host
     const room = new LkRoom({
       publishDefaults: {
         videoCodec: 'vp8',
@@ -742,7 +754,6 @@ onMounted(async () => {
     upsertPeerFromParticipant(room.localParticipant, true)
     participantsMap(room)?.forEach(p => upsertPeerFromParticipant(p))
 
-    await nextTick()
     if (camOn.value) {
       const sel = loadLS(LS.cam) || undefined
       const okId = await ensureDevice(room, 'videoinput', sel)
@@ -778,17 +789,7 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
-  navigator.mediaDevices.removeEventListener?.('devicechange', refreshDevices)
-
-  window.removeEventListener('pagehide', onHide)
-  window.removeEventListener('beforeunload', onHide)
-  document.removeEventListener('visibilitychange', onVis)
-
-  try { lk.value?.disconnect() } catch {}
-  try { socket.value?.emit('goodbye') } catch {}
-  try { if (roomId.value) void api.post(`/rooms/${roomId.value}/leave`, {}, { keepalive: true as any }) } catch {}
-
-  cleanupMedia()
+  void onLeave()
 })
 </script>
 
