@@ -40,14 +40,6 @@
 </template>
 
 <script setup lang="ts">
-/**
- * Однофайловая реализация комнаты с упором на простоту и надёжность:
- * - Машина состояний (idle → joining → connecting → connected → leaving → idle).
- * - ACK-сначала для публикации состояния + коалесcирование быстрых кликов.
- * - Отвязка внешних объектов от реактивности (markRaw + shallowRef).
- * - Детерминированный shutdown и sendBeacon при закрытии вкладки.
- * - Минимум реактивности на тяжёлых структурах (DOM-карты не реактивны).
- */
 import { computed, markRaw, nextTick, onBeforeUnmount, onMounted, reactive, ref, shallowRef } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { io, Socket } from 'socket.io-client'
@@ -65,52 +57,42 @@ import {
   LogLevel,
 } from 'livekit-client'
 
-/* ========== Константы и типы ========== */
 setLogLevel(LogLevel.warn)
 
+/* ---- types/const ---- */
 type B01 = 0 | 1
 type Flags01 = Readonly<{ mic: B01; cam: B01; speakers: B01; visibility: B01 }>
 type Phase = 'idle' | 'joining' | 'connecting' | 'connected' | 'leaving' | 'error'
-
 const DEF_REMOTE: Flags01 = Object.freeze({ mic: 0, cam: 0, speakers: 1, visibility: 1 })
 const LS_KEYS = { mic: 'audioDeviceId', cam: 'videoDeviceId' } as const
 
-/* ========== Реактивные поля ========== */
+/* ---- state ---- */
 const phase = ref<Phase>('idle')
-
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 const roomId = ref<number>(Number(route.params.id))
 const localId = ref<string>('')
 
-/** Внешние клиенты держим вне реактивности Vue */
 const lk = shallowRef<LkRoom | null>(null)
 const socket = shallowRef<Socket | null>(null)
 
-/** Серверные флаги удалённых участников */
 const statusMap = reactive<Record<string, Flags01>>({})
-
-/** Локальные флаги (UI-источник правды для себя) */
 const micOn = ref(false)
 const camOn = ref(false)
 const speakersOn = ref(true)
 const visibilityOn = ref(true)
 
-/** Устройства */
 const mics = ref<MediaDeviceInfo[]>([])
 const cams = ref<MediaDeviceInfo[]>([])
 const selectedMicId = ref<string>('')
 const selectedCamId = ref<string>('')
 
-/** Список участников (для v-for). Порядок не критичен → простой массив id */
 const peerIds = ref<string[]>([])
-
-/** Видео/аудио DOM-карты не реактивны */
 const videoEls = new Map<string, HTMLVideoElement>()
 const audioEls = new Map<string, HTMLAudioElement>()
 
-/* ========== Утилиты ========== */
+/* ---- utils ---- */
 const to01 = (v: unknown, def: B01 = 0): B01 =>
   v === 1 || v === true || v === '1' || v === 'true' || v === 'yes' || v === 'on'
     ? 1
@@ -141,7 +123,6 @@ function em(kind: keyof Flags01, on: boolean) {
   const OFF = { mic: '🔇', cam: '🚫', speakers: '🔇', visibility: '🙈' } as const
   return on ? ON[kind] : OFF[kind]
 }
-
 function isOn(id: string, k: keyof Flags01): boolean {
   if (id === localId.value) {
     if (k === 'mic') return micOn.value
@@ -153,17 +134,12 @@ function isOn(id: string, k: keyof Flags01): boolean {
   if (!st) return DEF_REMOTE[k] === 1
   return st[k] === 1
 }
-
-/** Вуаль прячем, если:
- *  - для себя: камера выкл;
- *  - для удалённого: либо локально выключена видимость всех, либо у удалённого cam=0.
- */
 function veilVisible(id: string): boolean {
   if (id === localId.value) return !camOn.value
   return !visibilityOn.value || !isOn(id, 'cam')
 }
 
-/* ========== Сетка ========== */
+/* ---- grid ---- */
 const gridStyle = computed(() => {
   const n = peerIds.value.length || 1
   const cols = n <= 6 ? 3 : n <= 12 ? 4 : 5
@@ -171,7 +147,7 @@ const gridStyle = computed(() => {
   return { gridTemplateColumns: `repeat(${cols}, 1fr)`, gridTemplateRows: `repeat(${rows}, 1fr)` }
 })
 
-/* ========== DOM refs ========== */
+/* ---- refs ---- */
 function attachVideoTrackTo(id: string, track?: Track | null) {
   const el = videoEls.get(id)
   if (el && track) {
@@ -184,19 +160,14 @@ function attachVideoTrackTo(id: string, track?: Track | null) {
 function setVideoRef(id: string, el: HTMLVideoElement | null) {
   if (!el) {
     const prev = videoEls.get(id)
-    if (prev) {
-      try { prev.srcObject = null } catch {}
-    }
+    if (prev) { try { prev.srcObject = null } catch {} }
     videoEls.delete(id)
     return
   }
-  el.autoplay = true
-  el.playsInline = true
-  el.muted = id === localId.value
+  el.autoplay = true; el.playsInline = true; el.muted = id === localId.value
   videoEls.set(id, el)
   const room = lk.value
   if (!room) return
-  // если трек уже есть — прикрепим
   const isSelf = id === String(room.localParticipant.identity)
   const pubs = isSelf
     ? room.localParticipant.getTrackPublications()
@@ -205,7 +176,7 @@ function setVideoRef(id: string, el: HTMLVideoElement | null) {
 }
 const videoRef = (id: string) => (el: HTMLVideoElement | null) => setVideoRef(id, el)
 
-/* ========== Устройства ========== */
+/* ---- devices ---- */
 function saveLS(k: string, v: string) { try { localStorage.setItem(k, v) } catch {} }
 function loadLS(k: string) { try { return localStorage.getItem(k) } catch { return null } }
 
@@ -253,7 +224,6 @@ async function ensureMicEnabled() {
   if (!id) throw new Error('no-mic')
   selectedMicId.value = id; saveLS(LS_KEYS.mic, id)
 }
-
 async function ensureCamEnabled() {
   const id = await ensureDevice('videoinput', selectedCamId.value || loadLS(LS_KEYS.cam) || undefined)
   if (!id) throw new Error('no-cam')
@@ -276,7 +246,7 @@ async function onCamChange() {
   } catch {}
 }
 
-/* ========== Socket.IO (ACK-сначала) ========== */
+/* ---- socket (ACK-first + coalesce) ---- */
 function connectSocket(token?: string) {
   if (socket.value && (socket.value.connected || (socket.value as any).connecting)) return
   socket.value = markRaw(io('/room', {
@@ -291,7 +261,10 @@ function connectSocket(token?: string) {
   }))
 
   socket.value.on('connect', () => {
-    socket.value?.emit('join', { room_id: roomId.value, state: { mic: micOn.value, cam: camOn.value, speakers: speakersOn.value, visibility: visibilityOn.value } })
+    socket.value?.emit('join', {
+      room_id: roomId.value,
+      state: { mic: micOn.value, cam: camOn.value, speakers: speakersOn.value, visibility: visibilityOn.value },
+    })
   })
   socket.value.on('snapshot', (snap: Record<string, Partial<Flags01>>) => {
     Object.keys(statusMap).forEach(k => delete statusMap[k])
@@ -309,16 +282,12 @@ function emitWithAck<T = any>(evt: string, payload: any, timeout = 1200): Promis
     if (!socket.value || !socket.value.connected) return reject(new Error('socket-offline'))
     let done = false
     const t = setTimeout(() => { if (!done) { done = true; reject(new Error('ack-timeout')) } }, timeout)
-    socket.value.emit(evt, payload, (resp: T) => {
-      if (!done) { done = true; clearTimeout(t); resolve(resp) }
-    })
+    socket.value.emit(evt, payload, (resp: T) => { if (!done) { done = true; clearTimeout(t); resolve(resp) } })
   })
 }
 
-/** Коалесcирование дельт состояний при быстрых кликах */
 let pubInFlight = false
 let pubPending: Partial<{ mic: boolean; cam: boolean; speakers: boolean; visibility: boolean }> | null = null
-
 async function publishCoalesced(delta: typeof pubPending) {
   pubPending = { ...(pubPending || {}), ...delta }
   if (pubInFlight) return
@@ -330,25 +299,25 @@ async function publishCoalesced(delta: typeof pubPending) {
   }
   pubInFlight = false
 }
-
 async function publishState(delta: Partial<{ mic: boolean; cam: boolean; speakers: boolean; visibility: boolean }>) {
   try {
     const ack: any = await emitWithAck('state', delta)
     return !!ack?.ok
   } catch {
-    try { await api.post(`/rooms/${roomId.value}/state`, delta) } catch { return false }
+    try {
+      await api.post(`/rooms/${roomId.value}/state`, delta)
+    } catch { return false }
     return true
   }
 }
 
-/* ========== LiveKit события/подписки ========== */
+/* ---- LiveKit helpers ---- */
 function applySubsFor(p: RemoteParticipant) {
   p.getTrackPublications().forEach(pub => {
     if (pub.kind === Track.Kind.Audio) { try { pub.setSubscribed(speakersOn.value) } catch {} }
     if (pub.kind === Track.Kind.Video) { try { pub.setSubscribed(visibilityOn.value) } catch {} }
   })
 }
-
 function removePeer(id: string) {
   peerIds.value = peerIds.value.filter(x => x !== id)
   delete statusMap[id]
@@ -356,65 +325,71 @@ function removePeer(id: string) {
   const a = audioEls.get(id); if (a) { try { a.srcObject = null } catch {}; try { a.remove() } catch {}; audioEls.delete(id) }
 }
 
-/* ========== Тогглы (ACK → железо) ========== */
+/* ---- toggles ---- */
 const toggleMic = async () => {
   const want = !micOn.value
-  const ok = await publishCoalesced({ mic: want }); if (ok === undefined) {/* coalesced gate */}
+  await publishCoalesced({ mic: want })
   if (want) { await ensureMicEnabled() } else { try { await lk.value?.localParticipant.setMicrophoneEnabled(false) } catch {} }
   micOn.value = want
 }
 const toggleCam = async () => {
   const want = !camOn.value
-  const ok = await publishCoalesced({ cam: want }); if (ok === undefined) {}
+  await publishCoalesced({ cam: want })
   if (want) { await ensureCamEnabled() } else { try { await lk.value?.localParticipant.setCameraEnabled(false) } catch {} }
   camOn.value = want
 }
 const toggleSpeakers = async () => {
   const want = !speakersOn.value
-  const ok = await publishCoalesced({ speakers: want }); if (ok === undefined) {}
+  await publishCoalesced({ speakers: want })
   speakersOn.value = want
-  // пересобрать подписки
-  const room = lk.value
-  room?.remoteParticipants.forEach(p => applySubsFor(p))
+  lk.value?.remoteParticipants.forEach(p => applySubsFor(p))
 }
 const toggleVisibility = async () => {
   const want = !visibilityOn.value
-  const ok = await publishCoalesced({ visibility: want }); if (ok === undefined) {}
+  await publishCoalesced({ visibility: want })
   visibilityOn.value = want
-  const room = lk.value
-  room?.remoteParticipants.forEach(p => applySubsFor(p))
+  lk.value?.remoteParticipants.forEach(p => applySubsFor(p))
 }
 
-/* ========== Закрытие/очистка ========== */
-function pageHideLeave() {
-  // гарантированная отправка при закрытии вкладки
+/* ---- leave (401 fix: fetch keepalive + Authorization) ---- */
+async function postLeaveKeepalive() {
   const url = `/api/rooms/${roomId.value}/leave`
+  const token = auth.accessToken
   try {
-    if (navigator.sendBeacon) navigator.sendBeacon(url, new Blob([], { type: 'text/plain' }))
-    else void api.post(url, {}, { keepalive: true as any })
+    await fetch(url, {
+      method: 'POST',
+      keepalive: true,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: '{}',
+    })
   } catch {}
+}
+
+function pageHideLeave() {
+  void postLeaveKeepalive()
   try { socket.value?.emit('goodbye') } catch {}
 }
 
 let closing = false
 async function closeRoom(reason?: string) {
-  if (closing || phase.value === 'leaving') return
+  if (closing) return
   closing = true
   phase.value = 'leaving'
   try {
     try { await lk.value?.localParticipant.setCameraEnabled(false) } catch {}
     try { await lk.value?.localParticipant.setMicrophoneEnabled(false) } catch {}
     try { await lk.value?.disconnect() } catch {}
-    pageHideLeave()
+    await postLeaveKeepalive()
     try { if (socket.value) (socket.value.io.opts.reconnection = false) } catch {}
     try { socket.value?.close() } catch {}
   } finally {
-    // чистка DOM
     videoEls.forEach(el => { try { el.srcObject = null } catch {} })
     videoEls.clear()
     audioEls.forEach(a => { try { a.srcObject = null } catch {}; try { a.remove() } catch {} })
     audioEls.clear()
-    // чистка состояний
     peerIds.value = []
     Object.keys(statusMap).forEach(k => delete statusMap[k])
     localId.value = ''
@@ -424,32 +399,27 @@ async function closeRoom(reason?: string) {
     closing = false
   }
 }
-
 async function closeRoomAndExit() {
   await closeRoom('manual-exit')
   try { await router.replace('/') } catch {}
 }
 
-/* ========== Монтирование ========== */
+/* ---- mount ---- */
 onMounted(async () => {
   phase.value = 'joining'
   await auth.init()
 
-  // Предпочтительные устройства
   selectedMicId.value = loadLS(LS_KEYS.mic) || ''
   selectedCamId.value = loadLS(LS_KEYS.cam) || ''
   await refreshDevices()
 
-  // JOIN → токен + snapshot + self_pref
   const { data } = await api.post<{ token: string; room_id: number; snapshot: Record<string, Partial<Flags01>>; self_pref: Partial<Flags01> }>(`/rooms/${roomId.value}/join`, {})
   Object.keys(statusMap).forEach(k => delete statusMap[k]); peerIds.value = []
   Object.entries(data.snapshot || {}).forEach(([uid, st]) => applyRemotePatch(uid, st))
   if (data.self_pref) applySelfPref(data.self_pref)
 
-  // Socket
   connectSocket(auth.accessToken)
 
-  // LiveKit
   phase.value = 'connecting'
   const room = markRaw(new LkRoom({
     publishDefaults: { videoCodec: 'vp8', red: true, dtx: true, stopMicTrackOnMute: false },
@@ -458,8 +428,6 @@ onMounted(async () => {
   }))
   lk.value = room
 
-  // Слушатели LiveKit
-  room.on(RoomEvent.Disconnected, () => { /* чистка произойдёт в closeRoom() */ })
   room.on(RoomEvent.LocalTrackPublished, (pub: LocalTrackPublication) => {
     if (pub.kind === Track.Kind.Video) attachVideoTrackTo(localId.value, pub.track ?? null)
   })
@@ -503,14 +471,11 @@ onMounted(async () => {
   localId.value = String(room.localParticipant.identity)
   if (!peerIds.value.includes(localId.value)) peerIds.value = [localId.value, ...peerIds.value]
 
-  // Стартовые подписки
   room.remoteParticipants.forEach(p => applySubsFor(p))
 
-  // Автозапуск устройств по self_pref
   if (camOn.value) { try { await ensureCamEnabled() } catch {} }
   if (micOn.value) { try { await ensureMicEnabled() } catch {} }
 
-  // Глобальные слушатели «ухода»
   window.addEventListener('pagehide', pageHideLeave)
   window.addEventListener('beforeunload', pageHideLeave)
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') pageHideLeave() })
@@ -524,51 +489,17 @@ onBeforeUnmount(async () => { await closeRoom('unmount') })
 <style scoped lang="scss">
 .card { padding: 16px; }
 .grid { display: grid; gap: 12px; margin: 12px; }
-.tile {
-  position: relative;
-  border-radius: 12px;
-  overflow: hidden;
-  background: #0b0f14;
-  aspect-ratio: 16 / 9;
-}
-video {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-  background: #000;
-}
-.veil {
-  position: absolute; inset: 0;
-  background: #000;
-  opacity: 0; transition: opacity .2s ease;
-}
+.tile { position: relative; border-radius: 12px; overflow: hidden; background: #0b0f14; aspect-ratio: 16 / 9; }
+video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; background: #000; }
+.veil { position: absolute; inset: 0; background: #000; opacity: 0; transition: opacity .2s ease; }
 .veil.visible { opacity: .75; }
-.badges {
-  position: absolute; left: 8px; top: 8px; display: flex; gap: 6px; z-index: 2;
-}
-.badge {
-  font-size: 14px; line-height: 1;
-  padding: 4px 6px; border-radius: 8px;
-  background: #000; border: 1px solid #12202e; color: #e5e7eb;
-}
-.controls {
-  margin: 12px; display: flex; gap: 12px; flex-wrap: wrap;
-}
-.ctrl {
-  padding: 8px 12px; border-radius: 8px; border: 0; cursor: pointer;
-  background: #12202e; color: #e5e7eb;
-}
+.badges { position: absolute; left: 8px; top: 8px; display: flex; gap: 6px; z-index: 2; }
+.badge { font-size: 14px; line-height: 1; padding: 4px 6px; border-radius: 8px; background: #000; border: 1px solid #12202e; color: #e5e7eb; }
+.controls { margin: 12px; display: flex; gap: 12px; flex-wrap: wrap; }
+.ctrl { padding: 8px 12px; border-radius: 8px; border: 0; cursor: pointer; background: #12202e; color: #e5e7eb; }
 .ctrl.danger { background: #320e0e; color: #fca5a5; }
-.devices {
-  margin: 12px; display: flex; gap: 12px; flex-wrap: wrap;
-}
+.devices { margin: 12px; display: flex; gap: 12px; flex-wrap: wrap; }
 .devices label { display: grid; gap: 6px; }
 .devices label.disabled { opacity: .6; }
-.devices select {
-  padding: 6px 8px; border-radius: 8px; border: 1px solid #334155;
-  background: #0b0f14; color: #e5e7eb;
-}
+.devices select { padding: 6px 8px; border-radius: 8px; border: 1px solid #334155; background: #0b0f14; color: #e5e7eb; }
 </style>
