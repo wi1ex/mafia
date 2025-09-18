@@ -51,7 +51,7 @@ async function load() {
 }
 
 function startWS() {
-  if (sio.value?.connected) return
+  if (sio.value && (sio.value.connected || (sio.value as any).connecting)) return
 
   sio.value = io('/rooms', {
     path:'/ws/socket.io',
