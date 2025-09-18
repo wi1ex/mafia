@@ -8,6 +8,7 @@ from ..db import get_session
 from ..models.room import Room
 from ..models.user import User
 from ..core.clients import get_redis
+from ..core.route_utils import log_route
 from ..realtime.sio import sio
 from ..realtime.utils import gc_empty_room
 from ..services.sessions import get_current_user
@@ -42,6 +43,7 @@ def _serialize_room(room: Room, *, occupancy: int) -> Dict[str, Any]:
     }
 
 
+@log_route("rooms.list_rooms")
 @router.get("", response_model=List[RoomOut])
 async def list_rooms(session: AsyncSession = Depends(get_session)) -> List[RoomOut]:
     r = get_redis()
@@ -56,6 +58,7 @@ async def list_rooms(session: AsyncSession = Depends(get_session)) -> List[RoomO
     return out
 
 
+@log_route("rooms.create_room")
 @router.post("", response_model=RoomOut, status_code=status.HTTP_201_CREATED)
 async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get_session), user: User = Depends(get_current_user)) -> RoomOut:
     room = Room(title=payload.title, user_limit=payload.user_limit, is_private=payload.is_private, creator=user.id)
@@ -78,6 +81,7 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
     return RoomOut(**data)
 
 
+@log_route("rooms.join_room")
 @router.post("/{room_id}/join", response_model=JoinOut)
 async def join_room(room_id: int = Path(..., ge=1), session: AsyncSession = Depends(get_session), user: User = Depends(get_current_user)) -> JoinOut:
     room = await session.get(Room, room_id)
@@ -104,6 +108,7 @@ async def join_room(room_id: int = Path(..., ge=1), session: AsyncSession = Depe
     return JoinOut(**data, token=lk_token, room_id=room_id, snapshot=snapshot, self_pref=self_pref or {})
 
 
+@log_route("rooms.update_state")
 @router.post("/{room_id}/state", response_model=Ok)
 async def update_state(payload: Dict[str, Any], room_id: int = Path(..., ge=1), user: User = Depends(get_current_user)) -> Ok:
     r = get_redis()
@@ -113,6 +118,7 @@ async def update_state(payload: Dict[str, Any], room_id: int = Path(..., ge=1), 
     return Ok()
 
 
+@log_route("rooms.leave_room")
 @router.post("/{room_id}/leave", response_model=Ok)
 async def leave_room(room_id: int = Path(..., ge=1), user: User = Depends(get_current_user)) -> Ok:
     r = get_redis()

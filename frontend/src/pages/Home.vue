@@ -58,13 +58,6 @@ function startWS() {
     transports:['websocket']
   })
 
-  sio.value.on('connect', async () => {
-    try {
-      const { data } = await api.get<Room[]>('/rooms', { headers: { 'Cache-Control': 'no-cache' } })
-      rooms.value = data
-    } catch {}
-  })
-
   sio.value.on('connect_error', err => console.warn('rooms sio error', err?.message))
 
   sio.value.on('rooms_upsert', (r:Room) => upsert(r))
