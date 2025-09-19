@@ -27,16 +27,8 @@ async def _touch_last_login(user_id: int) -> None:
 
 
 def _set_refresh_cookie(resp: Response, token: str) -> None:
-    resp.set_cookie(
-        key=REFRESH_COOKIE,
-        value=token,
-        max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 86400,
-        secure=True,
-        httponly=True,
-        samesite="strict",
-        path=COOKIE_PATH,
-        domain=settings.DOMAIN,
-    )
+    resp.set_cookie(key=REFRESH_COOKIE, value=token, max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 86400,
+                    secure=True, httponly=True, samesite="strict", path=COOKIE_PATH, domain=settings.DOMAIN)
 
 
 def issue_access_token(*, user_id: int, role: str) -> str:

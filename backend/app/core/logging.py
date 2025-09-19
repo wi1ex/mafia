@@ -36,4 +36,4 @@ def configure_logging() -> None:
 
 async def log_action(db: AsyncSession, *, user_id: int | None, username: str | None, action: str, details: dict[str, Any]) -> None:
     db.add(AppLog(user_id=user_id, username=username, action=action, details=details))
-    await db.flush()
+    await db.commit()

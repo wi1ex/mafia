@@ -21,7 +21,6 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
 
     room = Room(title=payload.title, user_limit=payload.user_limit, is_private=payload.is_private, creator=user.id)
     session.add(room)
-    await session.flush()
     await session.commit()
 
     r = get_redis()
