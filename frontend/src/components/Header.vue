@@ -7,9 +7,9 @@
     </div>
 
     <div v-else class="user">
-      <img v-if="auth.avatarUrl" :src="auth.avatarUrl" alt="Аватар" class="avatar" loading="lazy" referrerpolicy="no-referrer" />
+      <img v-if="auth.user.photo_url" :src="auth.user.photo_url" alt="Аватар" class="avatar" loading="lazy" referrerpolicy="no-referrer" />
       <div v-else class="avatar placeholder" aria-hidden="true" />
-      <span class="nick" aria-live="polite">{{ auth.displayName }}</span>
+      <span class="nick" aria-live="polite">{{ auth.user.username }}</span>
       <button class="btn btn-ghost" type="button" @click="logout">Выйти</button>
     </div>
   </header>

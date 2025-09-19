@@ -6,6 +6,7 @@ from typing import Optional
 import structlog
 from minio import Minio
 from minio.error import S3Error
+from minio.deleteobjects import DeleteObject
 from ..settings import settings
 from ..core.clients import get_minio_private, get_minio_public, get_httpx
 
@@ -55,11 +56,10 @@ def put_avatar(user_id: int, content: bytes, content_type: str | None) -> Option
     ensure_bucket(minio)
     ext = _ct2ext[ct]
     prefix = f"avatars/{user_id}."
-    for o in minio.list_objects(_bucket, prefix=prefix, recursive=True):
-        try:
-            minio.remove_object(_bucket, o.object_name)
-        except S3Error:
-            log.debug("avatar.remove_old_failed", user_id=user_id, object=o.object_name)
+    to_delete = [DeleteObject(o.object_name) for o in minio.list_objects(_bucket, prefix=prefix, recursive=True)]
+    if to_delete:
+        for err in minio.remove_objects(_bucket, to_delete):
+            log.debug("avatar.remove_old_failed", user_id=user_id, object=getattr(err, "name", None), code=getattr(err, "code", None))
 
     name, obj = f"{user_id}{ext}", f"avatars/{user_id}{ext}"
     minio.put_object(_bucket, obj, io.BytesIO(content), length=len(content), content_type=ct or mimetypes.types_map.get(ext, "image/jpeg"))

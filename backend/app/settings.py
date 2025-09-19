@@ -39,6 +39,10 @@ class Settings(BaseSettings):
         return (f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
                 f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}")
 
+    @property
+    def redis_url(self) -> str:
+        return f"redis://:{self.REDIS_PASSWORD}@{self.REDIS_HOST}:{self.REDIS_PORT}/0"
+
 settings = Settings()
 
 if not settings.BACKEND_CORS_ORIGINS:

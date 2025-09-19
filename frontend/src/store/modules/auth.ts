@@ -3,88 +3,86 @@ import { ref, computed } from 'vue'
 import { api, setAuthHeader } from '@/services/axios'
 
 export interface TgUser {
-  id: number;
-  username?: string;
-  photo_url?: string;
-  auth_date?: number;
-  hash?: string;
+  id: number
+  username?: string
+  photo_url?: string
+  auth_date?: number
+  hash?: string
 }
+
 export interface UserProfile {
-  id: number;
-  username?: string;
-  photo_url?: string;
-  role: string;
+  id: number
+  username?: string
+  photo_url?: string
+  role: string
 }
 
 export const useAuthStore = defineStore('auth', () => {
   const accessToken = ref<string>('')
-  const me = ref<UserProfile | null>(null)
+  const user = ref<UserProfile | null>(null)
   const ready = ref(false)
-  let _initPromise: Promise<void> | null = null
+  let initPromise: Promise<void> | null = null
 
   const isAuthed = computed(() => !!accessToken.value)
-  const role = computed(() => me.value?.role ?? 'user')
-  const avatarUrl = computed(() => me.value?.photo_url || null)
-  const displayName = computed(() => me.value?.username || 'User')
 
-  function setAccess(t: string) {
-    accessToken.value = t
-    setAuthHeader(t)
-  }
-
-  async function init() {
+  async function init(): Promise<void> {
     if (ready.value) return
-    if (_initPromise) return _initPromise
-    _initPromise = (async () => {
+    if (initPromise) return initPromise
+
+    initPromise = (async () => {
       try {
-        try {
-          const { data } = await api.post('/auth/refresh', {})
-          setAccess(data.access_token)
-          me.value = data.user
-        } catch {
-          setAccess('')
-          me.value = null
-        }
+        const { data } = await api.post('/auth/refresh', undefined, { __skipAuth: true })
+        accessToken.value = data.access_token
+        setAuthHeader(accessToken.value)
+        await fetchMe()
+      } catch {
+        accessToken.value = ''
+        setAuthHeader(accessToken.value)
+        user.value = null
       } finally {
         ready.value = true
-        _initPromise = null
+        initPromise = null
       }
     })()
-    return _initPromise
+
+    return initPromise
   }
 
-  async function fetchMe() {
-    const { data } = await api.get<UserProfile>('/users/me')
-    me.value = data
-  }
-
-  async function signInWithTelegram(user: TgUser) {
+  async function signInWithTelegram(user: TgUser): Promise<void> {
     const { data } = await api.post('/auth/telegram', user)
-    setAccess(data.access_token)
-    me.value = data.user
+    accessToken.value = data.access_token
+    setAuthHeader(accessToken.value)
+    await fetchMe()
     ready.value = true
   }
 
-  async function logout() {
-    try { await api.post('/auth/logout') } catch {}
-    setAccess('')
-    me.value = null
-    ready.value = true
+  async function fetchMe(): Promise<void> {
+    const { data } = await api.get<UserProfile>('/users/profile_info')
+    user.value = data
+  }
+
+  async function logout(): Promise<void> {
+    try {
+      await api.post('/auth/logout', undefined, { __skipAuth: true })
+    } catch {
+      // ignore
+    } finally {
+      accessToken.value = ''
+      setAuthHeader(accessToken.value)
+      user.value = null
+      ready.value = true
+    }
   }
 
   return {
     accessToken,
-    me,
+    user,
     ready,
     isAuthed,
-    role,
-    avatarUrl,
-    displayName,
 
     init,
     fetchMe,
     signInWithTelegram,
     logout,
-    setToken: setAccess,
   }
 })

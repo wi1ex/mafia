@@ -1,72 +1,147 @@
-import axios, { AxiosError, AxiosResponse, InternalAxiosRequestConfig } from 'axios'
+import axios, {
+  AxiosError,
+  AxiosHeaders,
+  AxiosResponse,
+  InternalAxiosRequestConfig,
+} from 'axios'
+
+declare module 'axios' {
+  export interface InternalAxiosRequestConfig<D = unknown> {
+    __retry401?: boolean
+    __skipAuth?: boolean
+  }
+}
 
 export const api = axios.create({
   baseURL: '/api',
-  timeout: 15000,
+  timeout: 15_000,
   withCredentials: true,
-  headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+  headers: {
+    Accept: 'application/json',
+    'X-Requested-With': 'XMLHttpRequest',
+  }
 })
 
-let accessTok = ''
+let accessToken = ''
 let isRefreshing = false
-let pending: Array<(t: string | null) => void> = []
+let pendingWaiters: Array<(t: string | null) => void> = []
 
-export function setAuthHeader(tok: string) {
-  accessTok = tok
-  if (tok) api.defaults.headers.common.Authorization = `Bearer ${tok}`
-  else delete api.defaults.headers.common.Authorization
+const PENDING_LIMIT = 200
+const REFRESH_TIMEOUT_MS = 10_000
+
+export class AuthExpiredError extends Error {
+  constructor() {
+    super('auth_expired')
+  }
+}
+
+export function setAuthHeader(tok: string): void {
+  accessToken = tok
+}
+
+function setReqAuthHeader(cfg: InternalAxiosRequestConfig, tok: string): void {
+  cfg.headers = AxiosHeaders.from(cfg.headers || {})
+  cfg.headers.set('Authorization', `Bearer ${tok}`)
+}
+
+async function doRefreshWithTimeout(): Promise<string | null> {
+  const ctrl = new AbortController()
+  let tid: ReturnType<typeof setTimeout>
+
+  const refreshPromise = (async () => {
+    try {
+      const headers = AxiosHeaders.from({
+        Accept: 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+      })
+      const { data } = await api.post('/auth/refresh', undefined, {
+        signal: ctrl.signal,
+        headers,
+        __skipAuth: true,
+      })
+
+      const tok = (data?.access_token as string | undefined) ?? null
+      setAuthHeader(tok ?? '')
+      return tok
+    } catch {
+      setAuthHeader('')
+      return null
+    } finally {
+      clearTimeout(tid)
+    }
+  })()
+
+  const timeoutPromise = new Promise<string | null>((resolve) => {
+    tid = setTimeout(() => {
+      try {
+        ctrl.abort()
+      } catch {
+        /* noop */
+      }
+      resolve(null)
+    }, REFRESH_TIMEOUT_MS)
+  })
+
+  return Promise.race([refreshPromise, timeoutPromise])
 }
 
 api.interceptors.request.use((cfg: InternalAxiosRequestConfig) => {
-  if (accessTok) cfg.headers.Authorization = `Bearer ${accessTok}`
+  if (accessToken && !cfg.__skipAuth) setReqAuthHeader(cfg, accessToken)
   return cfg
 })
 
-async function doRefresh(): Promise<string | null> {
-  try {
-    const { data } = await api.post('/auth/refresh')
-    const tok = data?.access_token as string | undefined
-    if (!tok) throw new Error('no_access')
-    setAuthHeader(tok)
-    return tok
-  } catch {
-    setAuthHeader('')
-    return null
-  }
+const AUTH_PATHS = ['/auth/refresh', '/auth/telegram', '/auth/logout'] as const
+function isAuthEndpoint(url: string): boolean {
+  return AUTH_PATHS.some((p) => url.includes(p))
+}
+
+function isRefreshWorthyStatus(st?: number): boolean {
+  return st === 401 || st === 419 || st === 440
 }
 
 api.interceptors.response.use(
   (res: AxiosResponse) => res,
   async (error: AxiosError) => {
-    const st = error.response?.status
-    const cfg: any = error.config || {}
-    const url: string = cfg.url || ''
-    const isAuthCall = url.includes('/auth/refresh') || url.includes('/auth/telegram')
-    if (st === 401 && !cfg.__retry401 && !isAuthCall) {
-      cfg.__retry401 = true
-      if (!isRefreshing) {
-        isRefreshing = true
-        try {
-          const tok = await doRefresh()
-          pending.forEach(cb => cb(tok))
-          pending = []
-          if (!tok) return Promise.reject(error)
-          cfg.headers = cfg.headers || {}
-          cfg.headers.Authorization = `Bearer ${tok}`
-          return api(cfg)
-        } finally {
-          isRefreshing = false
-        }
-      }
-      return new Promise((resolve, reject) => {
-        pending.push((tok) => {
-          if (!tok) return reject(error)
-          cfg.headers = cfg.headers || {}
-          cfg.headers.Authorization = `Bearer ${tok}`
-          resolve(api(cfg))
-        })
-      })
+    const status = error.response?.status
+    const cfg = (error.config || {}) as InternalAxiosRequestConfig
+    const url = cfg.url || ''
+
+    if (!isRefreshWorthyStatus(status) || cfg.__retry401 || isAuthEndpoint(url)) {
+      return Promise.reject(error)
     }
-    return Promise.reject(error)
+
+    cfg.__retry401 = true
+
+    if (!isRefreshing) {
+      isRefreshing = true
+      try {
+        const tok = await doRefreshWithTimeout()
+
+        pendingWaiters.forEach((cb) => cb(tok))
+        pendingWaiters = []
+
+        if (!tok) {
+          return Promise.reject(new AuthExpiredError())
+        }
+
+        setReqAuthHeader(cfg, tok)
+        return api(cfg)
+      } finally {
+        isRefreshing = false
+      }
+    }
+
+    if (pendingWaiters.length > PENDING_LIMIT) {
+      pendingWaiters = []
+      return Promise.reject(new Error('refresh_queue_overflow'))
+    }
+
+    return new Promise((resolve, reject) => {
+      pendingWaiters.push((tok) => {
+        if (!tok) return reject(new AuthExpiredError())
+        setReqAuthHeader(cfg, tok)
+        resolve(api(cfg))
+      })
+    })
   }
 )

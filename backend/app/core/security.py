@@ -13,7 +13,7 @@ log = structlog.get_logger()
 
 def _encode(kind: str, *, sub: int | str, exp_s: int, extra: Dict[str, Any] | None = None) -> str:
     i = int(time.time())
-    p = {"typ": kind, "sub": str(sub), "iat": i, "exp": i + exp_s}
+    p: Dict[str, Any] = {"typ": kind, "sub": str(sub), "iat": i, "exp": i + exp_s}
     if extra:
         p.update(extra)
     return jwt.encode(p, settings.JWT_SECRET_KEY, algorithm="HS256")
@@ -27,8 +27,8 @@ def create_access_token(*, sub: int, role: str, ttl_minutes: int) -> str:
     return _encode("access", sub=sub, exp_s=ttl_minutes * 60, extra={"role": role})
 
 
-def create_refresh_token(*, sub: int, ttl_days: int) -> str:
-    return _encode("refresh", sub=sub, exp_s=ttl_days * 86400)
+def create_refresh_token(*, sub: int, sid: str, jti: str, ttl_days: int) -> str:
+    return _encode("refresh", sub=sub, exp_s=ttl_days * 86400, extra={"sid": sid, "jti": jti})
 
 
 def verify_telegram_auth(data: Dict[str, Any]) -> bool:

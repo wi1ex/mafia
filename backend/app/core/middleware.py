@@ -11,7 +11,6 @@ from ..core.security import decode_token
 async def _logging_logic(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
     rid = request.headers.get("x-request-id") or uuid.uuid4().hex
     client_ip = request.client.host if request.client else "-"
-    # Пытаемся извлечь user_id из access JWT
     user_id: int | None = None
     auth = request.headers.get("authorization") or ""
     if auth.lower().startswith("bearer "):
@@ -34,18 +33,17 @@ async def _logging_logic(request: Request, call_next: Callable[[Request], Awaita
     log.info("request.start")
 
     t0 = time.perf_counter()
-    resp: Response
     try:
         resp = await call_next(request)
     except Exception as exc:
         log.exception("request.error", error=str(exc))
         raise
     finally:
-        dur_ms = (time.perf_counter() - t0) * 1000.0
-        log.info("request.end", duration_ms=round(dur_ms, 2))
+        duration_ms = (time.perf_counter() - t0) * 1000.0
+        log.info("request.end", duration_ms=round(duration_ms, 2))
 
     resp.headers.setdefault("X-Request-ID", rid)
-    resp.headers.setdefault("Server-Timing", f"app;dur={round((time.perf_counter()-t0)*1000.0,2)}")
+    resp.headers.setdefault("Server-Timing", f"app;dur={round(duration_ms, 2)}")
     return resp
 
 

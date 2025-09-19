@@ -2,13 +2,23 @@
   <Header />
   <section class="card">
     <h2 class="title">Комнаты</h2>
-    <div v-if="rooms.length===0" class="muted">Пока пусто</div>
+
+    <div v-if="sortedRooms.length === 0" class="muted">Пока пусто</div>
+
     <ul class="list">
-      <li v-for="r in rooms" :key="r.id" class="item">
-        <span class="item__title">#{{ r.id }} — {{ r.title }}</span>
-        <span class="item__meta">({{ r.occupancy }}/{{ r.user_limit }})</span>
-        <router-link v-if="auth.isAuthed" :to="`/room/${r.id}`" class="link">Открыть</router-link>
-        <div v-else class="link disabled">Войдите, чтобы открыть</div>
+      <li v-for="r in sortedRooms" :key="r.id" class="item">
+        <span class="item_title">#{{ r.id }} — {{ r.title }}</span>
+        <span class="item_meta">({{ r.occupancy }}/{{ r.user_limit }})</span>
+
+        <router-link v-if="auth.isAuthed && !isFull(r)" :to="`/room/${r.id}`" class="link">
+          Открыть
+        </router-link>
+
+        <div v-else-if="auth.isAuthed && isFull(r)" class="link disabled" aria-disabled="true" title="Комната заполнена">
+          Заполнена
+        </div>
+
+        <div v-else class="link disabled" aria-disabled="true">Войдите, чтобы открыть</div>
       </li>
     </ul>
 
@@ -24,51 +34,77 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, ref, computed } from 'vue'
+import { onMounted, onBeforeUnmount, ref, computed, reactive } from 'vue'
 import Header from '@/components/Header.vue'
 import { useRouter } from 'vue-router'
-import { useAuthStore } from '@/store/modules/auth'
+import { useAuthStore } from '@/store'
 import { io, Socket } from 'socket.io-client'
 import { api } from '@/services/axios'
 
-type Room = { id:number; title:string; user_limit:number; is_private:boolean; creator:number; created_at:string; occupancy:number }
+type Room = {
+  id: number
+  title: string
+  user_limit: number
+  is_private: boolean
+  creator: number
+  created_at: string
+  occupancy: number
+}
 
 const router = useRouter()
 const auth = useAuthStore()
 
-const rooms = ref<Room[]>([])
-const sio = ref<Socket|null>(null)
+const roomsMap = reactive(new Map<number, Room>())
+const sio = ref<Socket | null>(null)
+
+const title = ref('')
+const limit = ref(12)
+const creating = ref(false)
+const valid = computed(() => (title.value || '').length > 0 && limit.value >= 2 && limit.value <= 20)
+
+const sortedRooms = computed(() => {
+  return Array.from(roomsMap.values()).sort((a, b) => {
+    const ta = Date.parse(a.created_at)
+    const tb = Date.parse(b.created_at)
+    return ta - tb
+  })
+})
 
 function upsert(r: Room) {
-  const i = rooms.value.findIndex(x => x.id === r.id)
-  if (i>=0) rooms.value[i] = { ...rooms.value[i], ...r }
-  else rooms.value.push(r)
+  const prev = roomsMap.get(r.id)
+  roomsMap.set(r.id, { ...(prev || {} as Room), ...r })
+}
+
+function remove(id: number) {
+  roomsMap.delete(id)
 }
 
 async function load() {
   const { data } = await api.get<Room[]>('/rooms')
-  rooms.value = data
+  for (const r of data) roomsMap.set(r.id, r)
 }
 
 function startWS() {
   if (sio.value && (sio.value.connected || (sio.value as any).connecting)) return
 
   sio.value = io('/rooms', {
-    path:'/ws/socket.io',
-    transports:['websocket']
+    path: '/ws/socket.io',
+    transports: ['websocket'],
+    reconnection: true,
+    reconnectionAttempts: Infinity,
+    reconnectionDelay: 500,
+    reconnectionDelayMax: 5000,
   })
 
   sio.value.on('connect_error', err => console.warn('rooms sio error', err?.message))
 
-  sio.value.on('rooms_upsert', (r:Room) => upsert(r))
+  sio.value.on('rooms_upsert', (r: Room) => upsert(r))
 
-  sio.value.on('rooms_remove', (p:{id:number}) => {
-    rooms.value = rooms.value.filter(r => r.id !== p.id)
-  })
+  sio.value.on('rooms_remove', (p: { id: number }) => remove(p.id))
 
-  sio.value.on('rooms_occupancy', (p:{id:number; occupancy:number}) => {
-    const i = rooms.value.findIndex(r => r.id === p.id)
-    if (i>=0) rooms.value[i] = { ...rooms.value[i], occupancy:p.occupancy }
+  sio.value.on('rooms_occupancy', (p: { id: number; occupancy: number }) => {
+    const cur = roomsMap.get(p.id)
+    if (cur) roomsMap.set(p.id, { ...cur, occupancy: p.occupancy })
   })
 }
 
@@ -78,16 +114,11 @@ function stopWS() {
   sio.value = null
 }
 
-async function createRoom(title:string, user_limit:number, is_private:boolean){
+async function createRoom(title: string, user_limit: number, is_private: boolean) {
   const { data } = await api.post<Room>('/rooms', { title, user_limit, is_private })
   upsert(data)
   return data
 }
-
-const title = ref('')
-const limit = ref(12)
-const creating = ref(false)
-const valid = computed(() => (title.value || '').length > 0 && limit.value >= 2 && limit.value <= 20)
 
 async function onCreate() {
   if (!valid.value || creating.value) return
@@ -100,10 +131,15 @@ async function onCreate() {
   }
 }
 
+function isFull(r: Room) {
+  return r.occupancy >= r.user_limit
+}
+
 onMounted(async () => {
   startWS()
   await load()
 })
+
 onBeforeUnmount(() => {
   stopWS()
 })
@@ -134,10 +170,10 @@ onBeforeUnmount(() => {
     gap: 8px;
     margin: 8px 0;
     color: $fg;
-    &__title {
+    &_title {
       font-weight: 500;
     }
-    &__meta {
+    &_meta {
       color: $muted;
     }
   }

@@ -1,9 +1,11 @@
 from __future__ import annotations
+import secrets
 import structlog
 from fastapi import Depends, HTTPException, Response, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy import select, update, func
 from sqlalchemy.ext.asyncio import AsyncSession
+from ..core.clients import get_redis
 from ..core.security import create_access_token, create_refresh_token, decode_token
 from ..db import SessionLocal, get_session
 from ..models.user import User
@@ -44,28 +46,58 @@ def issue_access_token(*, user_id: int, role: str) -> str:
     return create_access_token(sub=user_id, role=role, ttl_minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
 
 
+async def _store_refresh_jti(*, sid: str, jti: str, ttl_days: int) -> None:
+    r = get_redis()
+    await r.setex(f"session:{sid}:rjti", ttl_days * 86400, jti)
+
+
+async def _get_refresh_jti(*, sid: str) -> str | None:
+    r = get_redis()
+    return await r.get(f"session:{sid}:rjti")
+
+
+async def _del_refresh_state(*, sid: str) -> None:
+    r = get_redis()
+    await r.delete(f"session:{sid}:rjti")
+
+
 async def new_login_session(resp: Response, *, user_id: int, role: str) -> str:
-    rt = create_refresh_token(sub=user_id, ttl_days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    sid = secrets.token_urlsafe(16)
+    jti = secrets.token_urlsafe(16)
+    rt = create_refresh_token(sub=user_id, sid=sid, jti=jti, ttl_days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    await _store_refresh_jti(sid=sid, jti=jti, ttl_days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
     _set_refresh_cookie(resp, rt)
-    at = create_access_token(sub=user_id, role=role, ttl_minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    at = issue_access_token(user_id=user_id, role=role)
     await _touch_last_login(user_id)
-    log.info("session.login", user_id=user_id, role=role)
+    log.info("session.login", user_id=user_id, role=role, sid=sid)
     return at
 
 
-async def rotate_refresh(resp: Response, *, raw_refresh_jwt: str) -> bool:
+async def rotate_refresh(resp: Response, *, raw_refresh_jwt: str) -> tuple[bool, int, str | None]:
     try:
         p = decode_token(raw_refresh_jwt)
+        if p.get("typ") != "refresh":
+            return False, 0, None
         uid = int(p.get("sub") or 0)
-        if p.get("typ") != "refresh" or not uid:
-            return False
+        sid = str(p.get("sid") or "")
+        jti = str(p.get("jti") or "")
+        if not uid or not sid or not jti:
+            return False, 0, None
     except Exception:
-        return False
-    rt = create_refresh_token(sub=uid, ttl_days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+        return False, 0, None
+
+    current = await _get_refresh_jti(sid=sid)
+    if current is None or current != jti:
+        await logout(resp, user_id=uid, sid=sid)
+        log.warning("session.refresh.reuse", user_id=uid, sid=sid)
+        return False, 0, None
+
+    new_jti = secrets.token_urlsafe(16)
+    rt = create_refresh_token(sub=uid, sid=sid, jti=new_jti, ttl_days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    await _store_refresh_jti(sid=sid, jti=new_jti, ttl_days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
     _set_refresh_cookie(resp, rt)
-    await _touch_last_login(uid)
-    log.debug("session.refresh.rotated")
-    return True
+    log.debug("session.refresh.rotated", user_id=uid, sid=sid)
+    return True, uid, sid
 
 
 async def get_current_user(creds: HTTPAuthorizationCredentials = Depends(bearer), db: AsyncSession = Depends(get_session)) -> User:
@@ -86,6 +118,8 @@ async def get_current_user(creds: HTTPAuthorizationCredentials = Depends(bearer)
     return user
 
 
-async def logout(resp: Response, *, user_id: int) -> None:
-    resp.delete_cookie(key=REFRESH_COOKIE, path=COOKIE_PATH, domain=settings.DOMAIN)
-    log.info("session.logout", user_id=user_id)
+async def logout(resp: Response, *, user_id: int, sid: str | None = None) -> None:
+    resp.delete_cookie(key=REFRESH_COOKIE, path=COOKIE_PATH, domain=settings.DOMAIN, samesite="strict")
+    if sid:
+        await _del_refresh_state(sid=sid)
+    log.info("session.logout", user_id=user_id, sid=sid)

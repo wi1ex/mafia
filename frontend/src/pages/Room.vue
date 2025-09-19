@@ -47,7 +47,8 @@ import { onBeforeUnmount, onMounted, reactive, ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { io, Socket } from 'socket.io-client'
 import { api } from '@/services/axios'
-import { useAuthStore } from '@/store/modules/auth'
+import axios from 'axios'
+import { useAuthStore } from '@/store'
 import {
   LocalParticipant,
   LocalTrackPublication,
@@ -65,7 +66,12 @@ import {
    ЛОКАЛЬНОЕ СОСТОЯНИЕ + SIO
 ---------------------------*/
 type State01 = 0 | 1
-type UserState = { mic: State01; cam: State01; speakers: State01; visibility: State01 }
+type UserState = {
+  mic: State01
+  cam: State01
+  speakers: State01
+  visibility: State01
+}
 
 setLogLevel(LogLevel.warn)
 
@@ -127,9 +133,13 @@ function applySelfPref(pref:any) {
 /* --------------------------
    LiveKit / медиаплееры
 ---------------------------*/
+type Peer = {
+  id: string
+  joinedAt: number
+  isLocal: boolean
+}
 const leaving = ref(false)
 const lk = ref<LkRoom | null>(null)
-type Peer = { id: string; joinedAt: number; isLocal: boolean }
 const ws_url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host
 const peers = ref<Peer[]>([])
 const peerIds = computed(() => peers.value.map(p => p.id))
@@ -158,12 +168,14 @@ const cams = ref<MediaDeviceInfo[]>([])
 const selectedMicId = ref<string>('')
 const selectedCamId = ref<string>('')
 
-const onHide = () => {
-  const ridNow = roomId.value
-  try { socket.value?.emit('goodbye') } catch {}
-  try { if (ridNow) void api.post(`/rooms/${ridNow}/leave`, {}, { keepalive: true as any }) } catch {}
+function beaconLeave(rid: number) {
+  const url = `${location.origin}/api/rooms/${rid}/leave`
+  try {
+    if (navigator.sendBeacon) return navigator.sendBeacon(url)
+    return fetch(url, { method: 'POST', keepalive: true, credentials: 'include' })
+  } catch { return false }
 }
-const onVis = () => { if (document.visibilityState === 'hidden') onHide() }
+const onHide = () => { if (roomId.value) beaconLeave(roomId.value) }
 
 type LocalKey = keyof typeof local
 function toggleFactory(k: LocalKey, onEnable?: ()=>Promise<void>, onDisable?: ()=>Promise<void>){
@@ -426,13 +438,18 @@ function emitWithAck<T=any>(evt:string, payload:any, timeout=1500): Promise<T> {
   })
 }
 
-async function publishState(delta: Partial<{ mic:boolean; cam:boolean; speakers:boolean; visibility:boolean }>) {
+async function publishState(delta: Partial<{
+  mic: boolean
+  cam: boolean
+  speakers: boolean
+  visibility: boolean
+}>) {
   if (!roomId.value) return false
   try {
     const resp:any = await emitWithAck('state', delta)
     return !!resp?.ok
   } catch {
-    try { await api.post(`/rooms/${roomId.value}/state`, delta) } catch { return false }
+    try { await api.post(`/room/${roomId.value}/state`, delta) } catch { return false }
     return true
   }
 }
@@ -570,7 +587,6 @@ function removeAllPageListeners(){
   navigator.mediaDevices.removeEventListener?.('devicechange', refreshDevices)
   window.removeEventListener('pagehide', onHide)
   window.removeEventListener('beforeunload', onHide)
-  document.removeEventListener('visibilitychange', onVis)
 }
 
 function teardownSocket(){
@@ -595,7 +611,7 @@ async function onLeave() {
     await safeDisableLocalTracks()
     try { await lk.value?.disconnect() } catch {}
     try { socket.value?.emit('goodbye') } catch {}
-    if (roomId.value) { try { await api.post(`/rooms/${roomId.value}/leave`, {}, { keepalive: true as any }) } catch {} }
+    if (roomId.value) beaconLeave(roomId.value)
     try { socket.value && (socket.value.io.opts.reconnection = false) } catch {}
     teardownSocket()
     try { socket.value?.close?.() } catch {}
@@ -611,11 +627,16 @@ async function onLeave() {
 
 onMounted(async () => {
   try {
+    const { data } = await api.post<{
+      token: string
+      room_id: number
+      snapshot: Record<string, Record<string, string>>
+      self_pref: Record<string, string>
+    }>(`/rooms/${rid}/join`, {})
+
     selectedMicId.value = loadLS(LS.mic) || ''
     selectedCamId.value = loadLS(LS.cam) || ''
     await refreshDevices()
-
-    const { data } = await api.post<{ token: string; room_id: number; snapshot: Record<string, Record<string, string>>; self_pref: Record<string, string> }>(`/rooms/${rid}/join`, {})
 
     Object.keys(statusMap).forEach(k => delete statusMap[k])
     for (const [uid, st] of Object.entries(data.snapshot || {})) {
@@ -763,13 +784,25 @@ onMounted(async () => {
     navigator.mediaDevices.addEventListener?.('devicechange', refreshDevices)
     window.addEventListener('pagehide', onHide)
     window.addEventListener('beforeunload', onHide)
-    document.addEventListener('visibilitychange', onVis)
 
     participantsMap(room)?.forEach((p) => applySubsFor(p))
   } catch (e) {
     console.warn(e)
     try { await lk.value?.disconnect() } catch {}
     lk.value = null
+    if (axios.isAxiosError(e)) {
+      const st = e.response?.status
+      if (st === 404) {
+        alert('Комната не найдена')
+      } else if (st === 409) {
+        alert('Комната заполнена')
+      } else {
+        alert('Ошибка входа в комнату')
+      }
+    } else {
+      alert('Ошибка входа в комнату')
+    }
+    await router.replace('/')
   }
 })
 
