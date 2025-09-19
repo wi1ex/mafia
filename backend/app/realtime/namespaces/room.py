@@ -10,7 +10,7 @@ from ...core.clients import get_redis
 from ...core.security import decode_token
 from ...schemas import JoinAck
 from ...services.livekit_tokens import make_livekit_token
-from ...utils import apply_state, broadcast_rooms_occupancy, gc_empty_room
+from ...utils import apply_state, gc_empty_room, get_room_snapshot
 
 _sessionmaker = async_sessionmaker(bind=engine, expire_on_commit=False)
 
@@ -47,25 +47,14 @@ async def join(sid, data) -> JoinAck:
             occ = int(await r.scard(f"room:{rid}:members") or 0)
             if occ >= room.user_limit:
                 return {"ok": False, "error": "room_is_full", "status": 409}
-
             await r.sadd(f"room:{rid}:members", str(uid))
 
-        ids = await r.smembers(f"room:{rid}:members")
-        snapshot = {}
-        if ids:
-            pipe = r.pipeline()
-            for mid in ids:
-                await pipe.hgetall(f"room:{rid}:user:{mid}:state")
-            states = await pipe.execute()
-            for mid, st in zip(ids, states):
-                snapshot[str(mid)] = st or {}
+        snapshot = await get_room_snapshot(r, rid)
         self_pref = snapshot.get(str(uid), {})
-
         user = await s.get(User, uid)
         lk_token = make_livekit_token(identity=str(uid), name=(user.username or f"user-{uid}"), room=str(rid))
 
     applied = await apply_state(r, rid, uid, data.get("state") or {})
-
     if applied:
         prev = snapshot.get(str(uid), {}) or {}
         snapshot[str(uid)] = {**prev, **applied}
@@ -73,7 +62,8 @@ async def join(sid, data) -> JoinAck:
 
     await sio.enter_room(sid, f"room:{rid}", namespace="/room")
     await sio.save_session(sid, {"uid": uid, "rid": rid}, namespace="/room")
-    await broadcast_rooms_occupancy(r, rid)
+    occ = int(await r.scard(f"room:{rid}:members") or 0)
+    await sio.emit("rooms_occupancy", {"id": rid, "occupancy": occ}, namespace="/rooms")
 
     state_for_broadcast = {**(snapshot.get(str(uid), {})), **applied} if applied else snapshot.get(str(uid), {})
     await sio.emit("member_joined", {"user_id": uid, "state": state_for_broadcast}, room=f"room:{rid}", skip_sid=sid, namespace="/room")
@@ -111,7 +101,8 @@ async def disconnect(sid):
     await r.srem(f"room:{rid}:members", str(uid))
     await sio.leave_room(sid, f"room:{rid}", namespace="/room")
     await sio.emit("member_left", {"user_id": uid}, room=f"room:{rid}", namespace="/room")
-    await broadcast_rooms_occupancy(r, rid)
+    occ = int(await r.scard(f"room:{rid}:members") or 0)
+    await sio.emit("rooms_occupancy", {"id": rid, "occupancy": occ}, namespace="/rooms")
     await sio.save_session(sid, {"uid": uid, "rid": None}, namespace="/room")
     if int(await r.scard(f"room:{rid}:members") or 0) == 0:
         asyncio.create_task(gc_empty_room(rid))
