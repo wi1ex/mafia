@@ -7,9 +7,8 @@
     </div>
 
     <div v-else class="user">
-      <img v-if="auth.user.photo_url" :src="auth.user.photo_url" alt="Аватар" class="avatar" loading="lazy" referrerpolicy="no-referrer" />
-      <div v-else class="avatar placeholder" aria-hidden="true" />
-      <span class="nick" aria-live="polite">{{ auth.user.username }}</span>
+      <img :src="auth.user?.photo_url || defaultAvatar" alt="Аватар" class="avatar" loading="lazy" referrerpolicy="no-referrer" />
+      <span class="nick" aria-live="polite">{{ auth.user?.username || 'User' }}</span>
       <button class="btn btn-ghost" type="button" @click="logout">Выйти</button>
     </div>
   </header>
@@ -18,6 +17,8 @@
 <script setup lang="ts">
 import { onMounted, onBeforeUnmount } from 'vue'
 import { useAuthStore } from '@/store'
+
+import defaultAvatar from "@/assets/svg/defaultAvatar.svg"
 
 const auth = useAuthStore()
 
@@ -73,9 +74,6 @@ onBeforeUnmount(() => {
       border-radius: 50%;
       object-fit: cover;
       background: #0b0f14;
-    }
-    .placeholder {
-      background: #334155;
     }
     .nick {
       color: $fg;

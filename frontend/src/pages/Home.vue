@@ -90,21 +90,26 @@ function startWS() {
   sio.value = io('/rooms', {
     path: '/ws/socket.io',
     transports: ['websocket'],
+    autoConnect: true,
     reconnection: true,
     reconnectionAttempts: Infinity,
     reconnectionDelay: 500,
     reconnectionDelayMax: 5000,
   })
 
-  sio.value.on('connect_error', err => console.warn('rooms sio error', err?.message))
+  sio.value.on('connect', async () => {
+    try {
+      const resp:any = await sio.value!.timeout(1500).emitWithAck('rooms_list')
+      if (resp?.ok) for (const r of resp.rooms) upsert(r as Room)
+    } catch (e) { console.warn('rooms list ack failed', e) }
+  })
 
   sio.value.on('rooms_upsert', (r: Room) => upsert(r))
 
-  sio.value.on('rooms_remove', (p: { id: number }) => remove(p.id))
+  sio.value.on('rooms_remove', (p:{id:number}) => remove(p.id))
 
-  sio.value.on('rooms_occupancy', (p: { id: number; occupancy: number }) => {
-    const cur = roomsMap.get(p.id)
-    if (cur) roomsMap.set(p.id, { ...cur, occupancy: p.occupancy })
+  sio.value.on('rooms_occupancy', (p:{id:number;occupancy:number}) => {
+    const cur = roomsMap.get(p.id); if (cur) roomsMap.set(p.id, { ...cur, occupancy: p.occupancy })
   })
 }
 
@@ -147,6 +152,7 @@ onBeforeUnmount(() => {
 
 <style lang="scss" scoped>
 .card {
+  padding: 12px 16px;
   .title {
     color: $fg;
     margin: 0 0 8px;

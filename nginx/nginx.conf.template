@@ -2,7 +2,10 @@ server_tokens off;
 gzip on;
 gzip_comp_level 5;
 gzip_min_length 1024;
-gzip_types text/plain text/css application/json application/javascript application/xml+rss image/svg+xml;
+gzip_types text/plain text/css application/json application/javascript application/xml text/xml application/rss+xml image/svg+xml;
+
+access_log off;
+error_log /dev/stderr error;
 
 resolver 127.0.0.11 valid=30s;
 
@@ -45,6 +48,14 @@ server {
 
   root /usr/share/nginx/html;
   index index.html;
+
+  limit_req_status 429;
+  error_page 429 = @rl_json;
+
+  location @rl_json {
+    default_type application/json;
+    return 429 '{"detail":"rate_limited"}';
+  }
 
   location ~ (^|/)\.(?!well-known)(.*)$ { return 404; }
   location ~* \.(env|ya?ml|toml|ini|log|bak|old)(\..*)?$ { return 404; }

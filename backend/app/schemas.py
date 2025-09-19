@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Optional, Dict
+from typing import Optional, Dict, TypedDict
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -48,8 +48,11 @@ class RoomOut(BaseModel):
     occupancy: int = 0
 
 
-class JoinOut(RoomOut):
-    token: str
+class JoinAck(TypedDict, total=False):
+    ok: bool
+    error: str
+    status: int
     room_id: int
+    token: str
     snapshot: Dict[str, Dict[str, str]]
     self_pref: Dict[str, str]

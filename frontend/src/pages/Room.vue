@@ -46,8 +46,6 @@
 import { onBeforeUnmount, onMounted, reactive, ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { io, Socket } from 'socket.io-client'
-import { api } from '@/services/axios'
-import axios from 'axios'
 import { useAuthStore } from '@/store'
 import {
   LocalParticipant,
@@ -138,6 +136,15 @@ type Peer = {
   joinedAt: number
   isLocal: boolean
 }
+type JoinAck = {
+  ok?: boolean
+  error?: string
+  status?: number
+  room_id?: number
+  token?: string
+  snapshot?: Record<string, Record<string, string>>
+  self_pref?: Record<string, string>
+}
 const leaving = ref(false)
 const lk = ref<LkRoom | null>(null)
 const ws_url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host
@@ -167,15 +174,6 @@ const mics = ref<MediaDeviceInfo[]>([])
 const cams = ref<MediaDeviceInfo[]>([])
 const selectedMicId = ref<string>('')
 const selectedCamId = ref<string>('')
-
-function beaconLeave(rid: number) {
-  const url = `${location.origin}/api/rooms/${rid}/leave`
-  try {
-    if (navigator.sendBeacon) return navigator.sendBeacon(url)
-    return fetch(url, { method: 'POST', keepalive: true, credentials: 'include' })
-  } catch { return false }
-}
-const onHide = () => { if (roomId.value) beaconLeave(roomId.value) }
 
 type LocalKey = keyof typeof local
 function toggleFactory(k: LocalKey, onEnable?: ()=>Promise<void>, onDisable?: ()=>Promise<void>){
@@ -399,18 +397,7 @@ function connectSocket() {
     reconnectionDelayMax: 5000,
   })
 
-  socket.value.on('connect', async () => {
-    if (roomId.value) socket.value?.emit('join', { room_id: roomId.value, state: curStatePayload() })
-  })
-
   socket.value.on('connect_error', (e) => console.warn('rtc sio error', e?.message))
-
-  socket.value.on('snapshot', (snap) => {
-    Object.keys(statusMap).forEach(k => delete statusMap[k])
-    Object.entries(snap || {}).forEach(([uid, st]) => applyPeerState(String(uid), st))
-  })
-
-  socket.value.on('self_pref', applySelfPref)
 
   socket.value.on('state_changed', (p:any) => applyPeerState(String(p.user_id), p))
 
@@ -419,40 +406,25 @@ function connectSocket() {
   socket.value.on('member_left', (p:any) => removePeer(String(p.user_id)))
 }
 
-function emitWithAck<T=any>(evt:string, payload:any, timeout=1500): Promise<T> {
-  return new Promise((resolve, reject) => {
-    let done=false
-    const t=setTimeout(() => {
-      if (!done) {
-        done=true
-        reject(new Error('ack timeout'))
-      }
-    }, timeout)
-    socket.value?.emit(evt, payload, (resp:T) => {
-      if (!done) {
-        done=true
-        clearTimeout(t)
-        resolve(resp)
-      }
+async function joinViaSocket() {
+  if (!socket.value) connectSocket()
+  if (!socket.value!.connected) {
+    await new Promise<void>((res, rej) => {
+      const t = setTimeout(() => rej(new Error('connect timeout')), 5000)
+      socket.value!.once('connect', () => { clearTimeout(t); res() })
     })
-  })
+  }
+  return await socket.value!.timeout(1500).emitWithAck('join', { room_id: rid, state: curStatePayload() })
 }
 
-async function publishState(delta: Partial<{
-  mic: boolean
-  cam: boolean
-  speakers: boolean
-  visibility: boolean
-}>) {
-  if (!roomId.value) return false
+async function publishState(delta: Partial<{ mic:boolean; cam:boolean; speakers:boolean; visibility:boolean }>) {
+  if (!roomId.value || !socket.value || !socket.value.connected) return false
   try {
-    const resp:any = await emitWithAck('state', delta)
+    const resp: any = await socket.value.timeout(1500).emitWithAck('state', delta)
     return !!resp?.ok
-  } catch {
-    try { await api.post(`/room/${roomId.value}/state`, delta) } catch { return false }
-    return true
-  }
+  } catch { return false }
 }
+
 
 /* --------------------------
    Тогглы (ACK → железо)
@@ -519,19 +491,17 @@ const setVideoSubscriptionsForAll = (on:boolean) => setSubscriptions(Track.Kind.
 /* --------------------------
    Жизненный цикл
 ---------------------------*/
-watch(
-  [peerIds, () => local.cam, () => local.visibility],
-  () => {
-    peerIds.value.forEach((id) => {
-      const isSelf = id === localId.value
-      const camOnServer = statusMap[id]?.cam === 1
-      const show = isSelf ? !local.cam : !camOnServer
-      const unsubscribedByMe = (!isSelf) && !local.visibility
-      cover(id, show || unsubscribedByMe)
-    })
-  },
-  { immediate: true }
-)
+const camSig = computed(() => peerIds.value.map(id => statusMap[id]?.cam ?? 1).join('|'))
+
+watch([peerIds, () => local.cam, () => local.visibility, camSig], () => {
+  peerIds.value.forEach((id) => {
+    const isSelf = id === localId.value
+    const camOnServer = statusMap[id]?.cam === 1
+    const show = isSelf ? !local.cam : !camOnServer
+    const unsubscribedByMe = (!isSelf) && !local.visibility
+    cover(id, show || unsubscribedByMe)
+  })
+}, { immediate: true })
 
 async function onMicChange() {
   const room = lk.value
@@ -583,19 +553,12 @@ function cleanupMedia() {
   Object.keys(statusMap).forEach(k => delete statusMap[k])
 }
 
-function removeAllPageListeners(){
-  navigator.mediaDevices.removeEventListener?.('devicechange', refreshDevices)
-  window.removeEventListener('pagehide', onHide)
-  window.removeEventListener('beforeunload', onHide)
-}
-
 function teardownSocket(){
   if (!socket.value) return
-  socket.value.off('snapshot')
-  socket.value.off('self_pref')
+  socket.value.off('connect_error')
   socket.value.off('state_changed')
-  socket.value.off('member_left')
   socket.value.off('member_joined')
+  socket.value.off('member_left')
 }
 
 async function safeDisableLocalTracks(){
@@ -607,49 +570,47 @@ async function onLeave() {
   if (leaving.value) return
   leaving.value = true
   try {
-    removeAllPageListeners()
     await safeDisableLocalTracks()
     try { await lk.value?.disconnect() } catch {}
-    try { socket.value?.emit('goodbye') } catch {}
-    if (roomId.value) beaconLeave(roomId.value)
     try { socket.value && (socket.value.io.opts.reconnection = false) } catch {}
-    teardownSocket()
     try { socket.value?.close?.() } catch {}
     socket.value = null
     cleanupMedia()
     lk.value = null
     roomId.value = null
-    try { await router.replace('/') } catch {}
+    await router.replace('/')
   } finally {
+    navigator.mediaDevices.removeEventListener?.('devicechange', refreshDevices)
     leaving.value = false
   }
 }
 
 onMounted(async () => {
   try {
-    const { data } = await api.post<{
-      token: string
-      room_id: number
-      snapshot: Record<string, Record<string, string>>
-      self_pref: Record<string, string>
-    }>(`/rooms/${rid}/join`, {})
+    connectSocket()
+    const j = await joinViaSocket() as JoinAck
+    if (!j?.ok) {
+      if (j?.status === 404) alert('Комната не найдена')
+      else if (j?.status === 409) alert('Комната заполнена')
+      else alert('Ошибка входа в комнату')
+      await router.replace('/')
+      return
+    }
 
     selectedMicId.value = loadLS(LS.mic) || ''
     selectedCamId.value = loadLS(LS.cam) || ''
     await refreshDevices()
 
     Object.keys(statusMap).forEach(k => delete statusMap[k])
-    for (const [uid, st] of Object.entries(data.snapshot || {})) {
+    Object.entries(j.snapshot || {}).forEach(([uid, st]: any) => {
       statusMap[uid] = {
         mic:        pick01(st.mic, 0),
         cam:        pick01(st.cam, 0),
         speakers:   pick01(st.speakers, 1),
         visibility: pick01(st.visibility, 1),
       }
-    }
-    if (data.self_pref) applySelfPref(data.self_pref)
-
-    connectSocket()
+    })
+    if (j.self_pref) applySelfPref(j.self_pref)
 
     const room = new LkRoom({
       publishDefaults: {
@@ -670,7 +631,6 @@ onMounted(async () => {
     lk.value = room
 
     room.on(RoomEvent.Disconnected, () => {
-      try { socket.value?.emit('goodbye') } catch {}
       teardownSocket()
       cleanupMedia()
     })
@@ -749,7 +709,7 @@ onMounted(async () => {
       }
     })
 
-    await room.connect(ws_url, data.token, {
+    await room.connect(ws_url, j.token, {
       autoSubscribe: false,
       maxRetries: 2,
       peerConnectionTimeout: 20_000,
@@ -781,27 +741,15 @@ onMounted(async () => {
       saveLS(LS.mic, okId)
     }
 
-    navigator.mediaDevices.addEventListener?.('devicechange', refreshDevices)
-    window.addEventListener('pagehide', onHide)
-    window.addEventListener('beforeunload', onHide)
-
     participantsMap(room)?.forEach((p) => applySubsFor(p))
+
+    navigator.mediaDevices.addEventListener?.('devicechange', refreshDevices)
+
   } catch (e) {
     console.warn(e)
     try { await lk.value?.disconnect() } catch {}
     lk.value = null
-    if (axios.isAxiosError(e)) {
-      const st = e.response?.status
-      if (st === 404) {
-        alert('Комната не найдена')
-      } else if (st === 409) {
-        alert('Комната заполнена')
-      } else {
-        alert('Ошибка входа в комнату')
-      }
-    } else {
-      alert('Ошибка входа в комнату')
-    }
+    alert('Ошибка входа в комнату')
     await router.replace('/')
   }
 })
@@ -891,12 +839,15 @@ video {
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
-  select {
-    padding: 6px 8px;
-    border-radius: 8px;
-    border: 1px solid #334155;
-    background: #0b0f14;
-    color: #e5e7eb;
+  label {
+    width: 100%;
+    select {
+      padding: 6px 8px;
+      border-radius: 8px;
+      border: 1px solid #334155;
+      background: #0b0f14;
+      color: #e5e7eb;
+    }
   }
 }
 </style>
