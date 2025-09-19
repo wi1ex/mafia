@@ -5,12 +5,8 @@ from sqlalchemy.orm import DeclarativeBase
 from .settings import settings
 
 
-engine = create_async_engine(
-    settings.pg_dsn,
-    echo=False,
-    pool_pre_ping=True,
-    pool_recycle=1800,
-)
+engine = create_async_engine(settings.pg_dsn, echo=False, pool_pre_ping=True, pool_recycle=1800)
+
 SessionLocal = async_sessionmaker(engine, expire_on_commit=False)
 
 

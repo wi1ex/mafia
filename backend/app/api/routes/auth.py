@@ -19,9 +19,7 @@ from ...schemas import TelegramAuthIn, AccessTokenOut, Ok
 from ...settings import settings
 from ...core.route_utils import log_route
 
-
 router = APIRouter()
-
 
 @log_route("auth.telegram")
 @router.post("/telegram", response_model=AccessTokenOut)

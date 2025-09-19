@@ -5,9 +5,7 @@ from livekit.api import AccessToken
 from livekit.api.access_token import VideoGrants
 from ..settings import settings
 
-
 log = structlog.get_logger()
-
 
 def make_livekit_token(*, identity: str, name: str, room: str, ttl_minutes: int = 60) -> str:
     tok = (

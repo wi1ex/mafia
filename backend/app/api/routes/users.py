@@ -6,9 +6,7 @@ from ...services.storage_minio import presign_avatar
 from ...services.sessions import get_current_user
 from ...core.route_utils import log_route
 
-
 router = APIRouter()
-
 
 @log_route("users.profile_info")
 @router.get("/profile_info", response_model=UserOut)

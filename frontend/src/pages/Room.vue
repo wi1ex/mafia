@@ -411,13 +411,21 @@ async function joinViaSocket() {
   if (!socket.value!.connected) {
     await new Promise<void>((res, rej) => {
       const t = setTimeout(() => rej(new Error('connect timeout')), 5000)
-      socket.value!.once('connect', () => { clearTimeout(t); res() })
+      socket.value!.once('connect', () => {
+        clearTimeout(t)
+        res()
+      })
     })
   }
   return await socket.value!.timeout(1500).emitWithAck('join', { room_id: rid, state: curStatePayload() })
 }
 
-async function publishState(delta: Partial<{ mic:boolean; cam:boolean; speakers:boolean; visibility:boolean }>) {
+async function publishState(delta: Partial<{
+  mic:boolean
+  cam:boolean
+  speakers:boolean
+  visibility:boolean
+}>) {
   if (!roomId.value || !socket.value || !socket.value.connected) return false
   try {
     const resp: any = await socket.value.timeout(1500).emitWithAck('state', delta)

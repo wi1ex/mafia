@@ -5,11 +5,9 @@ from ...db import engine
 from ...models.room import Room
 from ..sio import sio
 from ...core.clients import get_redis
-from ...api.utils import serialize_room
-
+from ...utils import serialize_room
 
 _sessionmaker = async_sessionmaker(bind=engine, expire_on_commit=False)
-
 
 @sio.event(namespace="/rooms")
 async def rooms_list(sid):

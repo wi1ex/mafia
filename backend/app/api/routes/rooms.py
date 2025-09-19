@@ -2,7 +2,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends
 from fastapi import status
 from sqlalchemy.ext.asyncio import AsyncSession
-from ..utils import serialize_room, to_redis, rate_limit_create_room
+from ...utils import serialize_room, to_redis, rate_limit_create_room
 from ...core.clients import get_redis
 from ...core.route_utils import log_route
 from ...db import get_session
@@ -12,9 +12,7 @@ from ...realtime.sio import sio
 from ...schemas import RoomCreateIn, RoomOut
 from ...services.sessions import get_current_user
 
-
 router = APIRouter()
-
 
 @log_route("rooms.create_room")
 @router.post("", response_model=RoomOut, status_code=status.HTTP_201_CREATED)
@@ -31,7 +29,6 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
 
     async with r.pipeline(transaction=True) as pipe:
         await pipe.hset(f"room:{room.id}:params", mapping=to_redis(data))
-        await pipe.sadd("rooms:index", room.id)
         await pipe.execute()
 
     await sio.emit("rooms_upsert", data, namespace="/rooms")

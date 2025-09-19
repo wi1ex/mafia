@@ -2,6 +2,7 @@ from __future__ import annotations
 from typing import List
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(extra="ignore", case_sensitive=False)
 
@@ -43,7 +44,9 @@ class Settings(BaseSettings):
     def redis_url(self) -> str:
         return f"redis://:{self.REDIS_PASSWORD}@{self.REDIS_HOST}:{self.REDIS_PORT}/0"
 
+
 settings = Settings()
+
 
 if not settings.BACKEND_CORS_ORIGINS:
     settings.BACKEND_CORS_ORIGINS = [f"https://{settings.DOMAIN}"]

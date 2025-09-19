@@ -10,11 +10,9 @@ from ...core.clients import get_redis
 from ...core.security import decode_token
 from ...schemas import JoinAck
 from ...services.livekit_tokens import make_livekit_token
-from ..utils import apply_state, broadcast_rooms_occupancy, gc_empty_room
-
+from ...utils import apply_state, broadcast_rooms_occupancy, gc_empty_room
 
 _sessionmaker = async_sessionmaker(bind=engine, expire_on_commit=False)
-
 
 @sio.event(namespace="/room")
 async def connect(sid, environ, auth):

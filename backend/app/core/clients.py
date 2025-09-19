@@ -5,9 +5,7 @@ import redis.asyncio as redis
 from minio import Minio
 from ..settings import settings
 
-
 log = structlog.get_logger()
-
 
 _redis: redis.Redis | None = None
 _minio_private: Minio | None = None

@@ -11,13 +11,10 @@ from ..db import SessionLocal, get_session
 from ..models.user import User
 from ..settings import settings
 
-
 log = structlog.get_logger()
-
 
 REFRESH_COOKIE = "rt"
 COOKIE_PATH = "/api"
-
 
 bearer = HTTPBearer(auto_error=False)
 _unauth = HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")

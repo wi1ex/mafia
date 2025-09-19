@@ -7,9 +7,7 @@ import structlog
 import jwt
 from ..settings import settings
 
-
 log = structlog.get_logger()
-
 
 def _encode(kind: str, *, sub: int | str, exp_s: int, extra: Dict[str, Any] | None = None) -> str:
     i = int(time.time())
