@@ -7,6 +7,11 @@ sio = socketio.AsyncServer(
     async_mode="asgi",
     cors_allowed_origins=settings.BACKEND_CORS_ORIGINS,
     client_manager=mgr,
+    logger=False,
+    engineio_logger=False,
+    ping_timeout=25,
+    ping_interval=30,
+    max_http_buffer_size=64 * 1024,
 )
 
 from .namespaces import rooms as _ns_rooms

@@ -1,21 +1,44 @@
 from __future__ import annotations
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker
-from ...db import engine
-from ...models.room import Room
 from ..sio import sio
 from ...core.clients import get_redis
-from ...utils import serialize_room, get_occupancies
+from ...db import engine
+from ...utils import get_occupancies
 
 _sessionmaker = async_sessionmaker(bind=engine, expire_on_commit=False)
+
 
 @sio.event(namespace="/rooms")
 async def rooms_list(sid):
     r = get_redis()
-    async with _sessionmaker() as s:
-        rooms = (await s.execute(select(Room))).scalars().all()
 
-    rids = [rm.id for rm in rooms]
+    ids = await r.zrevrange("rooms:index", 0, 200 - 1)
+    rids = [int(x) for x in ids]
+    if not rids:
+        return {"ok": True, "rooms": []}
+
+    pipe = r.pipeline()
+    for rid in rids:
+        await pipe.hgetall(f"room:{rid}:params")
+    params_list = await pipe.execute()
+
     occ = await get_occupancies(r, rids)
-    out = [serialize_room(rm, occupancy=occ.get(rm.id, 0)) for rm in rooms]
+    out = []
+    for rid, prm in zip(rids, params_list):
+        if not prm:
+            continue
+        try:
+            data = {
+                "id": int(prm["id"]),
+                "title": prm["title"],
+                "user_limit": int(prm["user_limit"]),
+                "is_private": prm["is_private"] in ("1", "true", "True"),
+                "creator": int(prm["creator"]),
+                "created_at": prm["created_at"],
+                "occupancy": int(occ.get(rid, 0)),
+            }
+            out.append(data)
+        except KeyError:
+            continue
+
     return {"ok": True, "rooms": out}

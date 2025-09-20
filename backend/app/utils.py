@@ -1,5 +1,6 @@
 from __future__ import annotations
 import asyncio
+from datetime import datetime
 from typing import Any, Dict, Iterable, Mapping
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import async_sessionmaker
@@ -9,12 +10,12 @@ from .models.room import Room
 
 __all__ = [
     "to_redis",
-    "serialize_room",
     "apply_state",
     "get_room_snapshot",
     "get_occupancies",
     "gc_empty_room",
     "rate_limit",
+    "rooms_index_add",
 ]
 
 _sessionmaker = async_sessionmaker(bind=engine, expire_on_commit=False)
@@ -30,18 +31,6 @@ def to_redis(d: Mapping[str, Any]) -> Dict[str, str]:
         else:
             out[k] = str(v)
     return out
-
-
-def serialize_room(room: Room, *, occupancy: int) -> Dict[str, Any]:
-    return {
-        "id": room.id,
-        "title": room.title,
-        "user_limit": room.user_limit,
-        "is_private": room.is_private,
-        "creator": room.creator,
-        "created_at": room.created_at.isoformat(),
-        "occupancy": occupancy,
-    }
 
 
 def _to01(v: Any) -> str:
@@ -93,7 +82,6 @@ async def gc_empty_room(rid: int) -> bool:
     await asyncio.sleep(10)
     if int(await r.scard(f"room:{rid}:members") or 0) > 0:
         return False
-    await r.delete(f"room:{rid}:params")
 
     async def _del_scan(pattern: str, count: int = 200):
         cursor = 0
@@ -107,11 +95,15 @@ async def gc_empty_room(rid: int) -> bool:
     await _del_scan(f"room:{rid}:user:*:state")
     await _del_scan(f"room:{rid}:member:*")
     await r.delete(f"room:{rid}:members")
+    await r.delete(f"room:{rid}:params")
+    await r.zrem("rooms:index", str(rid))
+
     async with _sessionmaker() as s:
         rm = await s.get(Room, rid)
         if rm:
             await s.delete(rm)
             await s.commit()
+
     return True
 
 
@@ -123,3 +115,12 @@ async def rate_limit(key: str, *, limit: int, window_s: int) -> None:
         cnt, _ = await pipe.execute()
     if int(cnt) > limit:
         raise HTTPException(status_code=429, detail="rate_limited", headers={"Retry-After": str(window_s)})
+
+
+async def rooms_index_add(r, *, rid: int, created_at_iso: str) -> None:
+    try:
+        dt = datetime.fromisoformat(created_at_iso.replace("Z", "+00:00"))
+        score = int(dt.timestamp())
+    except Exception:
+        score = 0
+    await r.zadd("rooms:index", {str(rid): score})

@@ -14,6 +14,21 @@ from ...utils import apply_state, gc_empty_room, get_room_snapshot
 
 _sessionmaker = async_sessionmaker(bind=engine, expire_on_commit=False)
 
+# KEYS[1] = set room:{rid}:members, ARGV[1] = uid, ARGV[2] = limit
+_JOIN_LUA = """
+local key = KEYS[1]
+local member = ARGV[1]
+local limit = tonumber(ARGV[2])
+redis.call('SADD', key, member)
+local size = redis.call('SCARD', key)
+if size > limit then
+  redis.call('SREM', key, member)
+  return -1
+end
+return size
+"""
+
+
 @sio.event(namespace="/room")
 async def connect(sid, environ, auth):
     try:
@@ -32,7 +47,7 @@ async def connect(sid, environ, auth):
 async def join(sid, data) -> JoinAck:
     sess = await sio.get_session(sid, namespace="/room")
     uid = int(sess["uid"])
-    rid = int(data.get("room_id") or 0)
+    rid = int((data or {}).get("room_id") or 0)
     if not rid:
         return {"ok": False, "error": "bad_room_id", "status": 400}
 
@@ -42,27 +57,30 @@ async def join(sid, data) -> JoinAck:
         if room is None:
             return {"ok": False, "error": "room_not_found", "status": 404}
 
-        is_member = await r.sismember(f"room:{rid}:members", str(uid))
-        if not is_member:
-            occ = int(await r.scard(f"room:{rid}:members") or 0)
-            if occ >= room.user_limit:
-                return {"ok": False, "error": "room_is_full", "status": 409}
-            await r.sadd(f"room:{rid}:members", str(uid))
+        occ = int(await r.eval(_JOIN_LUA, 1, f"room:{rid}:members", str(uid), str(room.user_limit)))
+        if occ == -1:
+            return {"ok": False, "error": "room_is_full", "status": 409}
 
         snapshot = await get_room_snapshot(r, rid)
         user_state: dict[str, str] = {k: str(v) for k, v in (snapshot.get(str(uid)) or {}).items()}
-        user = await s.get(User, uid)
+
+        r = get_redis()
+        username = await r.hget(f"user:{uid}", "username")
+        if username is None:
+            user = await s.get(User, uid)
+            username = user.username if user else None
+            await r.hset(f"user:{uid}", mapping={"username": username or ""})
+
         lk_token = make_livekit_token(identity=str(uid), name=(user.username or f"user-{uid}"), room=str(rid))
 
     incoming = (data.get("state") or {}) if isinstance(data, dict) else {}
     applied: dict[str, str] = {}
-    if not user_state and incoming:
+    if incoming:
         applied = await apply_state(r, rid, uid, incoming)
         if applied:
             user_state = {**user_state, **applied}
             snapshot[str(uid)] = user_state
 
-    occ = int(await r.scard(f"room:{rid}:members") or 0)
     await sio.enter_room(sid, f"room:{rid}", namespace="/room")
     await sio.save_session(sid, {"uid": uid, "rid": rid}, namespace="/room")
     await sio.emit("rooms_occupancy", {"id": rid, "occupancy": occ}, namespace="/rooms")
@@ -98,9 +116,10 @@ async def disconnect(sid):
         return
 
     r = get_redis()
-    occ = int(await r.scard(f"room:{rid}:members") or 0)
     await r.srem(f"room:{rid}:members", str(uid))
     await sio.leave_room(sid, f"room:{rid}", namespace="/room")
+    occ = int(await r.scard(f"room:{rid}:members") or 0)
+
     await sio.emit("member_left", {"user_id": uid}, room=f"room:{rid}", namespace="/room")
     await sio.emit("rooms_occupancy", {"id": rid, "occupancy": occ}, namespace="/rooms")
     await sio.save_session(sid, {"uid": uid, "rid": None}, namespace="/room")

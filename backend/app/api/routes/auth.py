@@ -2,6 +2,7 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import APIRouter, HTTPException, Depends, Response, Request, status
+from ...core.clients import get_redis
 from ...db import get_session
 from ...models.user import User
 from ...core.security import verify_telegram_auth, decode_token
@@ -52,6 +53,10 @@ async def login_with_telegram(payload: TelegramAuthIn, resp: Response, db: Async
 
     await log_action(db, user_id=user.id, username=user.username, action="register" if new_user else "login",
                      details={"user_id": user.id, "username": user.username, "role": user.role})
+
+    r = get_redis()
+    await r.hset(f"user:{user.id}", mapping={"username": user.username or "", "photo": user.photo_url or ""})
+
     at = await new_login_session(resp, user_id=user.id, role=user.role)
     return AccessTokenOut(access_token=at)
 
@@ -70,6 +75,9 @@ async def refresh(resp: Response, request: Request, db: AsyncSession = Depends(g
     user = (await db.execute(select(User).where(User.id == uid))).scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unknown user")
+
+    r = get_redis()
+    await r.hset(f"user:{user.id}", mapping={"username": user.username or "", "photo": user.photo_url or ""})
 
     at = issue_access_token(user_id=uid, role=user.role)
     return AccessTokenOut(access_token=at)
