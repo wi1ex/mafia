@@ -1,18 +1,12 @@
 from __future__ import annotations
 import asyncio
 from jwt import ExpiredSignatureError
-from sqlalchemy.ext.asyncio import async_sessionmaker
-from ...db import engine
-from ...models.room import Room
-from ...models.user import User
 from ..sio import sio
 from ...core.clients import get_redis
 from ...core.security import decode_token
 from ...schemas import JoinAck
 from ...services.livekit_tokens import make_livekit_token
 from ...utils import apply_state, gc_empty_room, get_room_snapshot
-
-_sessionmaker = async_sessionmaker(bind=engine, expire_on_commit=False)
 
 # KEYS[1] = set room:{rid}:members, ARGV[1] = uid, ARGV[2] = limit
 _JOIN_LUA = """
@@ -52,22 +46,16 @@ async def join(sid, data) -> JoinAck:
         return {"ok": False, "error": "bad_room_id", "status": 400}
 
     r = get_redis()
-    async with _sessionmaker() as s:
-        room = await s.get(Room, rid)
-        if room is None:
-            return {"ok": False, "error": "room_not_found", "status": 404}
+    occ = int(await r.eval(_JOIN_LUA, 2, f"room:{rid}:members", f"room:{rid}:params", str(uid)))
+    if occ == -2:
+        return {"ok": False, "error": "room_not_found", "status": 404}
+    if occ == -1:
+        return {"ok": False, "error": "room_is_full", "status": 409}
 
-        occ = int(await r.eval(_JOIN_LUA, 1, f"room:{rid}:members", str(uid), str(room.user_limit)))
-        if occ == -1:
-            return {"ok": False, "error": "room_is_full", "status": 409}
-
-        snapshot = await get_room_snapshot(r, rid)
-        user_state: dict[str, str] = {k: str(v) for k, v in (snapshot.get(str(uid)) or {}).items()}
-        user = await s.get(User, uid)
-        lk_token = make_livekit_token(identity=str(uid), name=(user.username or f"user-{uid}"), room=str(rid))
-
-    incoming = (data.get("state") or {}) if isinstance(data, dict) else {}
     applied: dict[str, str] = {}
+    snapshot = await get_room_snapshot(r, rid)
+    incoming = (data.get("state") or {}) if isinstance(data, dict) else {}
+    user_state: dict[str, str] = {k: str(v) for k, v in (snapshot.get(str(uid)) or {}).items()}
     if not user_state and incoming:
         applied = await apply_state(r, rid, uid, incoming)
         if applied:
@@ -91,6 +79,7 @@ async def join(sid, data) -> JoinAck:
     if applied:
         await sio.emit("state_changed", {"user_id": uid, **applied}, room=f"room:{rid}", skip_sid=sid, namespace="/room")
 
+    lk_token = make_livekit_token(identity=str(uid), name=f"user-{uid}", room=str(rid))
     return {"ok": True, "room_id": rid, "token": lk_token, "snapshot": snapshot, "self_pref": user_state}
 
 
