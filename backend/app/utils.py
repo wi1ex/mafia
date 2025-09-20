@@ -6,7 +6,6 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from .core.clients import get_redis
 from .db import engine
 from .models.room import Room
-from .realtime.sio import sio
 
 __all__ = [
     "to_redis",
@@ -86,14 +85,14 @@ async def get_occupancies(r, rids: Iterable[int]) -> Dict[int, int]:
     return {rid: int(v or 0) for rid, v in zip(ids, vals)}
 
 
-async def gc_empty_room(rid: int) -> None:
+async def gc_empty_room(rid: int) -> bool:
     r = get_redis()
     if not await r.setnx(f"room:{rid}:gc_lock", "1"):
-        return
+        return False
     await r.expire(f"room:{rid}:gc_lock", 20)
     await asyncio.sleep(10)
     if int(await r.scard(f"room:{rid}:members") or 0) > 0:
-        return
+        return False
     await r.delete(f"room:{rid}:params")
 
     async def _del_scan(pattern: str, count: int = 200):
@@ -113,7 +112,7 @@ async def gc_empty_room(rid: int) -> None:
         if rm:
             await s.delete(rm)
             await s.commit()
-    await sio.emit("rooms_remove", {"id": rid}, namespace="/rooms")
+    return True
 
 
 async def rate_limit(key: str, *, limit: int, window_s: int) -> None:

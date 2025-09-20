@@ -104,5 +104,10 @@ async def disconnect(sid):
     occ = int(await r.scard(f"room:{rid}:members") or 0)
     await sio.emit("rooms_occupancy", {"id": rid, "occupancy": occ}, namespace="/rooms")
     await sio.save_session(sid, {"uid": uid, "rid": None}, namespace="/room")
+
     if int(await r.scard(f"room:{rid}:members") or 0) == 0:
-        asyncio.create_task(gc_empty_room(rid))
+        async def _gc():
+            removed = await gc_empty_room(rid)
+            if removed:
+                await sio.emit("rooms_remove", {"id": rid}, namespace="/rooms")
+        asyncio.create_task(_gc())
