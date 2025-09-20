@@ -64,14 +64,13 @@ async def join(sid, data) -> JoinAck:
         snapshot = await get_room_snapshot(r, rid)
         user_state: dict[str, str] = {k: str(v) for k, v in (snapshot.get(str(uid)) or {}).items()}
 
-        r = get_redis()
         username = await r.hget(f"user:{uid}", "username")
         if username is None:
             user = await s.get(User, uid)
             username = user.username if user else None
             await r.hset(f"user:{uid}", mapping={"username": username or ""})
 
-        lk_token = make_livekit_token(identity=str(uid), name=(user.username or f"user-{uid}"), room=str(rid))
+        lk_token = make_livekit_token(identity=str(uid), name=(username or f"user-{uid}"), room=str(rid))
 
     incoming = (data.get("state") or {}) if isinstance(data, dict) else {}
     applied: dict[str, str] = {}

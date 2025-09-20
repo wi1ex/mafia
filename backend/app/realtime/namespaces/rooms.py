@@ -1,11 +1,7 @@
 from __future__ import annotations
-from sqlalchemy.ext.asyncio import async_sessionmaker
 from ..sio import sio
 from ...core.clients import get_redis
-from ...db import engine
 from ...utils import get_occupancies
-
-_sessionmaker = async_sessionmaker(bind=engine, expire_on_commit=False)
 
 
 @sio.event(namespace="/rooms")
