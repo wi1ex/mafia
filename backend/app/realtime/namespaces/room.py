@@ -8,17 +8,30 @@ from ...schemas import JoinAck
 from ...services.livekit_tokens import make_livekit_token
 from ...utils import apply_state, gc_empty_room, get_room_snapshot
 
-# KEYS[1] = set room:{rid}:members, ARGV[1] = uid, ARGV[2] = limit
+# KEYS[1] = set room:{rid}:members
+# KEYS[2] = hash room:{rid}:params  (поле user_limit)
+# ARGV[1] = uid
 _JOIN_LUA = """
-local key = KEYS[1]
-local member = ARGV[1]
-local limit = tonumber(ARGV[2])
-redis.call('SADD', key, member)
-local size = redis.call('SCARD', key)
-if size > limit then
-  redis.call('SREM', key, member)
+local members = KEYS[1]
+local params  = KEYS[2]
+local uid     = ARGV[1]
+
+local limraw = redis.call('HGET', params, 'user_limit')
+if not limraw or limraw == '' then
+  return -2
+end
+local lim = tonumber(limraw)
+if not lim or lim <= 0 then
+  return -2
+end
+
+redis.call('SADD', members, uid)
+local size = redis.call('SCARD', members)
+if size > lim then
+  redis.call('SREM', members, uid)
   return -1
 end
+
 return size
 """
 
