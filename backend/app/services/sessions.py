@@ -3,11 +3,10 @@ import secrets
 import structlog
 from fastapi import Depends, HTTPException, Response, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from sqlalchemy import select, update, func
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import update, func
 from ..core.clients import get_redis
 from ..core.security import create_access_token, create_refresh_token, decode_token
-from ..db import SessionLocal, get_session
+from ..db import SessionLocal
 from ..models.user import User
 from ..schemas import Identity
 from ..settings import settings
@@ -89,24 +88,6 @@ async def rotate_refresh(resp: Response, *, raw_refresh_jwt: str) -> tuple[bool,
     _set_refresh_cookie(resp, rt)
     log.debug("session.refresh.rotated", user_id=uid, sid=sid)
     return True, uid, sid
-
-
-async def get_current_user(creds: HTTPAuthorizationCredentials = Depends(bearer), db: AsyncSession = Depends(get_session)) -> User:
-    if not creds or creds.scheme.lower() != "bearer":
-        raise _unauth
-    try:
-        p = decode_token(creds.credentials)
-        if p.get("typ") != "access":
-            raise ValueError
-        uid = int(p.get("sub") or 0)
-        if not uid:
-            raise ValueError
-    except Exception:
-        raise _unauth
-    user = (await db.execute(select(User).where(User.id == uid))).scalar_one_or_none()
-    if not user:
-        raise _unauth
-    return user
 
 
 async def get_identity(creds: HTTPAuthorizationCredentials = Depends(bearer)) -> Identity:

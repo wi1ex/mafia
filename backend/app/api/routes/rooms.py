@@ -12,6 +12,7 @@ from ...services.sessions import get_identity
 
 router = APIRouter()
 
+
 @log_route("rooms.create_room")
 @router.post("", response_model=RoomOut, status_code=status.HTTP_201_CREATED)
 async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get_session), ident: Identity = Depends(get_identity)) -> RoomOut:

@@ -4,8 +4,8 @@ import functools
 from typing import Callable, Any
 import structlog
 from fastapi import HTTPException, Depends
-from ..models.user import User
-from ..services.sessions import get_current_user
+from ..schemas import Identity
+from ..services.sessions import get_identity
 
 
 def log_route(name: str):
@@ -40,8 +40,8 @@ def log_route(name: str):
 
 
 def require_roles(*roles: str):
-    async def _dep(user: User = Depends(get_current_user)) -> bool:
-        if roles and getattr(user, "role", None) not in roles:
+    async def _dep(ident: Identity = Depends(get_identity)) -> bool:
+        if roles and ident["role"] not in roles:
             raise HTTPException(status_code=403, detail="forbidden")
         return True
     return _dep

@@ -21,6 +21,7 @@ from ...core.route_utils import log_route
 
 router = APIRouter()
 
+
 @log_route("auth.telegram")
 @router.post("/telegram", response_model=AccessTokenOut)
 async def login_with_telegram(payload: TelegramAuthIn, resp: Response, db: AsyncSession = Depends(get_session)) -> AccessTokenOut:

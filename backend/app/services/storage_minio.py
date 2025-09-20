@@ -65,9 +65,10 @@ def put_avatar(user_id: int, content: bytes, content_type: str | None) -> Option
     return name
 
 
-def presign_avatar(filename: str, *, expires_hours: int = 1) -> Optional[str]:
+def presign_avatar(filename: Optional[str], *, expires_hours: int = 1) -> Optional[str]:
     if not filename:
         return None
+
     try:
         minio = get_minio_public()
         url = minio.presigned_get_object(_bucket, f"avatars/{filename}", expires=timedelta(hours=expires_hours))
