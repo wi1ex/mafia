@@ -1,12 +1,14 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import { useAuthStore } from '@/store'
 
+const BASE_TITLE = 'Mafia'
+
 const routes: RouteRecordRaw[] = [
   {
     path: '/',
     name: 'home',
     component: () => import('@/pages/Home.vue'),
-    meta: { title: 'Mafia' },
+    meta: { title: BASE_TITLE },
   },
   {
     path: '/room/:id(\\d+)',
@@ -23,8 +25,6 @@ const router = createRouter({
   routes,
   scrollBehavior: () => ({ top: 0 }),
 })
-
-const BASE_TITLE = 'Mafia'
 
 function setTitle(to: any): void {
   const t = to.meta?.title as string | undefined

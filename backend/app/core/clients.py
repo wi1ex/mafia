@@ -52,7 +52,7 @@ def _build_httpx() -> httpx.AsyncClient:
         timeout=httpx.Timeout(5.0, read=10.0, write=5.0, connect=5.0),
         limits=httpx.Limits(max_keepalive_connections=100, max_connections=200),
         follow_redirects=True,
-        headers={"User-Agent": "mafia-backend/1.0"},
+        headers={"User-Agent": "backend/1.0"},
     )
 
 

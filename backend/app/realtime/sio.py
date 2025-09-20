@@ -5,7 +5,7 @@ from ..settings import settings
 mgr = socketio.AsyncRedisManager(settings.redis_url)
 sio = socketio.AsyncServer(
     async_mode="asgi",
-    cors_allowed_origins=settings.BACKEND_CORS_ORIGINS or "*",
+    cors_allowed_origins=settings.BACKEND_CORS_ORIGINS,
     client_manager=mgr,
 )
 

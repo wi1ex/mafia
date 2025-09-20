@@ -26,7 +26,7 @@ const BOT = import.meta.env.VITE_TG_BOT_NAME as string | undefined
 const SIZE: 'large'|'medium'|'small' = 'large'
 
 declare global {
-  interface Window { __mafia_tg_cb__?: (u:any) => void }
+  interface Window { __tg_cb__?: (u:any) => void }
 }
 
 async function logout() { try { await auth.logout() } catch {} }
@@ -35,7 +35,7 @@ onMounted(() => {
   if (!BOT || auth.isAuthed) return
   if (document.querySelector('script[data-tg-widget="1"]')) return
 
-  window.__mafia_tg_cb__ = async (u:any) => { await auth.signInWithTelegram(u) }
+  window.__tg_cb__ = async (u:any) => { await auth.signInWithTelegram(u) }
 
   const s = document.createElement('script')
   s.async = true
@@ -43,13 +43,13 @@ onMounted(() => {
   s.dataset.telegramLogin = BOT
   s.dataset.size = SIZE
   s.dataset.userpic = 'true'
-  s.dataset.onauth = '__mafia_tg_cb__(user)'
+  s.dataset.onauth = '__tg_cb__(user)'
   s.setAttribute('data-tg-widget', '1')
   document.getElementById('tg-login')?.appendChild(s)
 })
 
 onBeforeUnmount(() => {
-  delete window.__mafia_tg_cb__
+  delete window.__tg_cb__
 })
 </script>
 
