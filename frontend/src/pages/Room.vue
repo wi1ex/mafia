@@ -516,7 +516,11 @@ async function onMicChange() {
   const id = selectedMicId.value
   if (!room || !id) return
   saveLS(LS.mic, id)
-  try { await room.switchActiveDevice('audioinput', id) }
+  try {
+    await room.localParticipant.setMicrophoneEnabled(false)
+    await room.switchActiveDevice('audioinput', id)
+    await room.localParticipant.setMicrophoneEnabled(true)
+  }
   catch (e) {
     console.warn('mic switch failed', e)
     if (isBusyErr(e)) await fallback('audioinput')
@@ -530,7 +534,9 @@ async function onCamChange() {
   if (!room || !id) return
   saveLS(LS.cam, id)
   try {
+    await room.localParticipant.setCameraEnabled(false)
     await room.switchActiveDevice('videoinput', id)
+    await room.localParticipant.setCameraEnabled(true)
     attachLocalVideo(room)
   } catch (e) {
     console.warn('cam switch failed', e)

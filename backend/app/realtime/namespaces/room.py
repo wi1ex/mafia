@@ -63,22 +63,26 @@ async def join(sid, data) -> JoinAck:
 
         snapshot = await get_room_snapshot(r, rid)
         user_state: dict[str, str] = {k: str(v) for k, v in (snapshot.get(str(uid)) or {}).items()}
-
-        username = await r.hget(f"user:{uid}", "username")
-        if username is None:
-            user = await s.get(User, uid)
-            username = user.username if user else None
-            await r.hset(f"user:{uid}", mapping={"username": username or ""})
-
-        lk_token = make_livekit_token(identity=str(uid), name=(username or f"user-{uid}"), room=str(rid))
+        user = await s.get(User, uid)
+        lk_token = make_livekit_token(identity=str(uid), name=(user.username or f"user-{uid}"), room=str(rid))
 
     incoming = (data.get("state") or {}) if isinstance(data, dict) else {}
     applied: dict[str, str] = {}
-    if incoming:
+    if not user_state and incoming:
         applied = await apply_state(r, rid, uid, incoming)
         if applied:
             user_state = {**user_state, **applied}
             snapshot[str(uid)] = user_state
+    elif user_state and incoming:
+        to_fill = {}
+        for k in ("mic", "cam", "speakers", "visibility"):
+            if k in incoming and k not in user_state:
+                to_fill[k] = incoming[k]
+        if to_fill:
+            applied = await apply_state(r, rid, uid, to_fill)
+            if applied:
+                user_state = {**user_state, **applied}
+                snapshot[str(uid)] = user_state
 
     await sio.enter_room(sid, f"room:{rid}", namespace="/room")
     await sio.save_session(sid, {"uid": uid, "rid": rid}, namespace="/room")
