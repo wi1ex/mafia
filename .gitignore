@@ -5,3 +5,4 @@
 **/__pycache__/
 **/*.pyc
 /frontend/package-lock.json
+/script.py

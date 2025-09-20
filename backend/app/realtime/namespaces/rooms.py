@@ -13,28 +13,26 @@ async def rooms_list(sid):
     if not rids:
         return {"ok": True, "rooms": []}
 
+    fields = ("id", "title", "user_limit", "is_private", "creator", "created_at")
     pipe = r.pipeline()
     for rid in rids:
-        await pipe.hgetall(f"room:{rid}:params")
-    params_list = await pipe.execute()
+        await pipe.hmget(f"room:{rid}:params", *fields)
+    rows = await pipe.execute()
 
     occ = await get_occupancies(r, rids)
     out = []
-    for rid, prm in zip(rids, params_list):
-        if not prm:
+    for rid, vals in zip(rids, rows):
+        if not vals or any(v is None for v in vals):
             continue
-        try:
-            data = {
-                "id": int(prm["id"]),
-                "title": prm["title"],
-                "user_limit": int(prm["user_limit"]),
-                "is_private": prm["is_private"] in ("1", "true", "True"),
-                "creator": int(prm["creator"]),
-                "created_at": prm["created_at"],
-                "occupancy": int(occ.get(rid, 0)),
-            }
-            out.append(data)
-        except KeyError:
-            continue
+
+        _id, title, user_limit, is_private, creator, created_at = vals
+        out.append({
+            "id": int(_id), "title": title,
+            "user_limit": int(user_limit),
+            "is_private": str(is_private) in ("1", "true", "True"),
+            "creator": int(creator),
+            "created_at": created_at,
+            "occupancy": int(occ.get(rid, 0)),
+        })
 
     return {"ok": True, "rooms": out}

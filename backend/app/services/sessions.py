@@ -9,6 +9,7 @@ from ..core.clients import get_redis
 from ..core.security import create_access_token, create_refresh_token, decode_token
 from ..db import SessionLocal, get_session
 from ..models.user import User
+from ..schemas import Identity
 from ..settings import settings
 
 log = structlog.get_logger()
@@ -18,6 +19,7 @@ COOKIE_PATH = "/api"
 
 bearer = HTTPBearer(auto_error=False)
 _unauth = HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
+
 
 
 async def _touch_last_login(user_id: int) -> None:
@@ -105,6 +107,18 @@ async def get_current_user(creds: HTTPAuthorizationCredentials = Depends(bearer)
     if not user:
         raise _unauth
     return user
+
+
+async def get_identity(creds: HTTPAuthorizationCredentials = Depends(bearer)) -> Identity:
+    if not creds or creds.scheme.lower() != "bearer":
+        raise _unauth
+    try:
+        p = decode_token(creds.credentials)
+        if p.get("typ") != "access":
+            raise ValueError
+        return {"id": int(p["sub"]), "role": str(p["role"])}
+    except Exception:
+        raise _unauth
 
 
 async def logout(resp: Response, *, user_id: int, sid: str | None = None) -> None:

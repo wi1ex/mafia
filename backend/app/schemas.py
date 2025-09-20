@@ -14,6 +14,11 @@ class UserOut(BaseModel):
     role: str
 
 
+class Identity(TypedDict):
+    id: int
+    role: str
+
+
 class TelegramAuthIn(BaseModel):
     id: int
     auth_date: int
