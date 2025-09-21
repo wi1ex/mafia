@@ -223,14 +223,18 @@ function isCovered(id: string): boolean {
 }
 
 function getByIdentity(room: LkRoom, id: string) {
-  return (room as any).getParticipantByIdentity?.(id) ?? (room.participants as Map<string, RemoteParticipant>).get(id)
+  return (room as any)?.getParticipantByIdentity?.(id) ?? participantsMap(room)?.get?.(id)
+}
+
+function participantsMap(room?: LkRoom | null) {
+  return (room as any)?.participants ?? (room as any)?.remoteParticipants as
+    | Map<string, RemoteParticipant>
+    | undefined
 }
 
 function forEachRemote(cb: (id: string, p: RemoteParticipant) => void) {
   const room = lk.value
-  if (!room) return
-  const parts = room.participants as Map<string, RemoteParticipant>
-  parts.forEach((p) => cb(String(p.identity), p))
+  participantsMap(room)?.forEach((p) => cb(String(p.identity), p))
 }
 
 function upsertPeerFromParticipant(p: RemoteParticipant | LocalParticipant, isLocal = false) {
@@ -315,35 +319,6 @@ async function joinViaSocket() {
   return await socket.value!.timeout(1500).emitWithAck('join', { room_id: rid, state: curStatePayload() })
 }
 
-/* ---------- отправка состояния: микро-батч ---------- */
-let batchTimer: any = null
-let batched: Partial<typeof local> = {}
-let pendingAck: Promise<boolean> | null = null
-
-function queueStatePatch(delta: Partial<typeof local>): Promise<boolean> {
-  batched = { ...batched, ...delta }
-  if (pendingAck) return pendingAck
-  pendingAck = new Promise<boolean>((resolve) => {
-    if (batchTimer) clearTimeout(batchTimer)
-    batchTimer = setTimeout(async () => {
-      const payload = batched
-      batched = {}
-      const ok = await publishState(payload)
-      pendingAck = null
-      resolve(ok)
-    }, 50)
-  })
-  return pendingAck
-}
-
-async function publishState(delta: Partial<{ mic: boolean; cam: boolean; speakers: boolean; visibility: boolean }>) {
-  if (!roomId.value || !socket.value || !socket.value.connected) return false
-  try {
-    const resp: any = await socket.value.timeout(1500).emitWithAck('state', delta)
-    return !!resp?.ok
-  } catch { return false }
-}
-
 /* ---------- тумблеры ---------- */
 function isBusyErr(e: any) {
   const name = (e?.name || '') + ''
@@ -357,41 +332,27 @@ async function handleMediaError(error: unknown, kind: 'audioinput' | 'videoinput
   else alert(`Ошибка ${kind === 'audioinput' ? 'микрофона' : 'камеры'}`)
 }
 
-const inflight: Record<keyof typeof local, Promise<void> | null> = { mic: null, cam: null, speakers: null, visibility: null }
+async function publishState(delta: Partial<{ mic: boolean; cam: boolean; speakers: boolean; visibility: boolean }>) {
+  if (!roomId.value || !socket.value || !socket.value.connected) return false
+  try {
+    const resp: any = await socket.value.timeout(1500).emitWithAck('state', delta)
+    return !!resp?.ok
+  } catch { return false }
+}
+
 const toggleFactory = (k: keyof typeof local, onEnable?: () => Promise<void>, onDisable?: () => Promise<void>) => {
   return async () => {
-    if (pending[k] || inflight[k]) return
+    if (pending[k]) return
     pending[k] = true
     const want = !local[k]
     try {
-      if (k === 'speakers' || k === 'visibility') {
-        if (k === 'speakers') setAudioSubscriptionsForAll(want)
-        if (k === 'visibility') setVideoSubscriptionsForAll(want)
-        local[k] = want
-        const ok = await queueStatePatch({ [k]: want } as any)
-        if (!ok) {
-          if (k === 'speakers') setAudioSubscriptionsForAll(!want)
-          if (k === 'visibility') setVideoSubscriptionsForAll(!want)
-          local[k] = !want
-        }
-      } else {
-        const doToggle = async () => {
-          if (want) await onEnable?.()
-          else await onDisable?.()
-        }
-        inflight[k] = doToggle()
-        const ok = await queueStatePatch({ [k]: want } as any)
-        await inflight[k]
-        inflight[k] = null
-        if (ok) local[k] = want
-        else {
-          if (want) await onDisable?.()
-        }
-      }
+      const ok = await publishState({ [k]: want } as any)
+      if (!ok) return
+      if (want) await onEnable?.()
+      else await onDisable?.()
+      local[k] = want
     } catch (e) {
-      console.error(`toggle ${String(k)} failed`, e)
-      if (k === 'mic') await lk.value?.localParticipant.setMicrophoneEnabled(false)
-      if (k === 'cam') await lk.value?.localParticipant.setCameraEnabled(false)
+      try { await publishState({ [k]: !want } as any) } catch {}
     } finally {
       pending[k] = false
     }
@@ -419,8 +380,15 @@ const toggleCam = toggleFactory('cam',
   async () => { await lk.value?.localParticipant.setCameraEnabled(false) },
 )
 
-const toggleSpeakers = toggleFactory('speakers')
-const toggleVisibility = toggleFactory('visibility')
+const toggleSpeakers  = toggleFactory('speakers',
+  async () => setAudioSubscriptionsForAll(true),
+  async () => setAudioSubscriptionsForAll(false),
+)
+
+const toggleVisibility = toggleFactory('visibility',
+  async () => setVideoSubscriptionsForAll(true),
+  async () => setVideoSubscriptionsForAll(false),
+)
 
 /* ---------- подписки (верный API) ---------- */
 function setSubscriptions(kind: Track.Kind, on: boolean) {
@@ -452,7 +420,7 @@ async function fallback(kind: 'audioinput' | 'videoinput') {
     await setEnabled(false)
     const k = kind === 'audioinput' ? 'mic' : 'cam'
     local[k] = false
-    await queueStatePatch({ [k]: false } as any)
+    await publishState({ [k]: false } as any)
     if (kind === 'audioinput') {
       selectedMicId.value = ''
       saveLS(LS.mic, '')
@@ -664,8 +632,7 @@ onMounted(async () => {
 
     localId.value = String(room.localParticipant.identity)
     upsertPeerFromParticipant(room.localParticipant, true)
-    const parts = room.participants as Map<string, RemoteParticipant>
-    parts.forEach(p => upsertPeerFromParticipant(p))
+    participantsMap(room)?.forEach(p => upsertPeerFromParticipant(p))
 
     if (camOn.value) {
       const sel = loadLS(LS.cam) || undefined
@@ -690,7 +657,7 @@ onMounted(async () => {
       saveLS(LS.mic, okId)
     }
 
-    parts.forEach(applySubsFor)
+    participantsMap(room)?.forEach(applySubsFor)
     navigator.mediaDevices.addEventListener?.('devicechange', refreshDevices)
   } catch (e) {
     console.warn(e)
