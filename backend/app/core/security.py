@@ -9,6 +9,7 @@ from ..settings import settings
 
 log = structlog.get_logger()
 
+
 def _encode(kind: str, *, sub: int | str, exp_s: int, extra: Dict[str, Any] | None = None) -> str:
     i = int(time.time())
     p: Dict[str, Any] = {"typ": kind, "sub": str(sub), "iat": i, "exp": i + exp_s}
@@ -19,6 +20,24 @@ def _encode(kind: str, *, sub: int | str, exp_s: int, extra: Dict[str, Any] | No
 
 def decode_token(token: str) -> Dict[str, Any]:
     return jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=["HS256"])
+
+
+def parse_refresh_token(raw: str) -> tuple[bool, int, str, str]:
+    try:
+        p = decode_token(raw)
+        if p.get("typ") != "refresh":
+            log.debug("jwt.bad_type", typ=p.get("typ"))
+            return False, 0, "", ""
+        uid = int(p.get("sub") or 0)
+        sid = str(p.get("sid") or "")
+        jti = str(p.get("jti") or "")
+        if not uid or not sid or not jti:
+            log.debug("jwt.missing_claims")
+            return False, 0, "", ""
+        return True, uid, sid, jti
+    except Exception as e:
+        log.debug("jwt.decode_failed", err=type(e).__name__)
+        return False, 0, "", ""
 
 
 def create_access_token(*, sub: int, role: str, ttl_minutes: int) -> str:

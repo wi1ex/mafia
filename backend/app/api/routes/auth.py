@@ -4,10 +4,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import APIRouter, HTTPException, Depends, Response, Request, status
 from ...db import get_session
 from ...models.user import User
-from ...core.security import verify_telegram_auth, decode_token
+from ...core.security import verify_telegram_auth, create_access_token, parse_refresh_token
 from ...services.sessions import (
     new_login_session,
-    issue_access_token,
     rotate_refresh,
     logout as sess_logout,
     REFRESH_COOKIE,
@@ -73,7 +72,7 @@ async def refresh(resp: Response, request: Request, db: AsyncSession = Depends(g
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unknown user")
 
-    at = issue_access_token(user_id=uid, role=user.role)
+    at = create_access_token(sub=uid, role=user.role, ttl_minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     return AccessTokenOut(access_token=at)
 
 
@@ -82,14 +81,9 @@ async def refresh(resp: Response, request: Request, db: AsyncSession = Depends(g
 async def logout(resp: Response, request: Request) -> Ok:
     raw = request.cookies.get(REFRESH_COOKIE)
     if raw:
-        try:
-            p = decode_token(raw)
-            if p.get("typ") == "refresh":
-                uid = int(p.get("sub") or 0)
-                sid = str(p.get("sid") or "")
-                await sess_logout(resp, user_id=uid, sid=sid or None)
-                return Ok()
-        except Exception:
-            pass
+        ok, uid, sid, _ = parse_refresh_token(raw)
+        if ok:
+            await sess_logout(resp, user_id=uid, sid=sid or None)
+            return Ok()
     resp.delete_cookie(REFRESH_COOKIE, path=COOKIE_PATH, domain=settings.DOMAIN, samesite="strict")
     return Ok()
