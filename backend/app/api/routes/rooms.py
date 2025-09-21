@@ -1,7 +1,8 @@
 from __future__ import annotations
+from datetime import timezone
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from ...utils import to_redis, rate_limit, rooms_index_add
+from ...utils import to_redis, rate_limit
 from ...core.clients import get_redis
 from ...core.route_utils import log_route
 from ...db import get_session
@@ -34,11 +35,12 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
         "occupancy": 0,
     }
 
+    ts = int(room.created_at.replace(tzinfo=timezone.utc).timestamp())
     async with r.pipeline(transaction=True) as pipe:
         await pipe.hset(f"room:{room.id}:params", mapping=to_redis(data))
+        await pipe.zadd("rooms:index", {str(room.id): ts})
         await pipe.execute()
 
-    await rooms_index_add(r, rid=room.id, created_at_iso=data["created_at"])
     await sio.emit("rooms_upsert", data, namespace="/rooms")
     await sio.emit("rooms_occupancy", {"id": room.id, "occupancy": 0}, namespace="/rooms")
 

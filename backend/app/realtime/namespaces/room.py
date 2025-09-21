@@ -1,39 +1,15 @@
 from __future__ import annotations
 import asyncio
+import structlog
 from jwt import ExpiredSignatureError
 from ..sio import sio
 from ...core.clients import get_redis
 from ...core.security import decode_token
 from ...schemas import JoinAck
 from ...services.livekit_tokens import make_livekit_token
-from ...utils import apply_state, gc_empty_room, get_room_snapshot
+from ...utils import apply_state, gc_empty_room, get_room_snapshot, join_room_atomic, leave_room_atomic
 
-# KEYS[1] = set room:{rid}:members
-# KEYS[2] = hash room:{rid}:params  (поле user_limit)
-# ARGV[1] = uid
-_JOIN_LUA = """
-local members = KEYS[1]
-local params  = KEYS[2]
-local uid     = ARGV[1]
-
-local limraw = redis.call('HGET', params, 'user_limit')
-if not limraw or limraw == '' then
-  return -2
-end
-local lim = tonumber(limraw)
-if not lim or lim <= 0 then
-  return -2
-end
-
-redis.call('SADD', members, uid)
-local size = redis.call('SCARD', members)
-if size > lim then
-  redis.call('SREM', members, uid)
-  return -1
-end
-
-return size
-"""
+log = structlog.get_logger()
 
 
 @sio.event(namespace="/room")
@@ -59,11 +35,12 @@ async def join(sid, data) -> JoinAck:
         return {"ok": False, "error": "bad_room_id", "status": 400}
 
     r = get_redis()
-    occ = int(await r.eval(_JOIN_LUA, 2, f"room:{rid}:members", f"room:{rid}:params", str(uid)))
+    occ = await join_room_atomic(r, rid, uid)
     if occ == -2:
         return {"ok": False, "error": "room_not_found", "status": 404}
     if occ == -1:
         return {"ok": False, "error": "room_is_full", "status": 409}
+    await r.delete(f"room:{rid}:empty_since")
 
     applied: dict[str, str] = {}
     snapshot = await get_room_snapshot(r, rid)
@@ -121,17 +98,19 @@ async def disconnect(sid):
         return
 
     r = get_redis()
-    await r.srem(f"room:{rid}:members", str(uid))
-    await sio.leave_room(sid, f"room:{rid}", namespace="/room")
-    occ = int(await r.scard(f"room:{rid}:members") or 0)
+    occ, gc_seq = await leave_room_atomic(r, rid, uid)
 
+    await sio.leave_room(sid, f"room:{rid}", namespace="/room")
     await sio.emit("member_left", {"user_id": uid}, room=f"room:{rid}", namespace="/room")
     await sio.emit("rooms_occupancy", {"id": rid, "occupancy": occ}, namespace="/rooms")
     await sio.save_session(sid, {"uid": uid, "rid": None}, namespace="/room")
 
     if occ == 0:
         async def _gc():
-            removed = await gc_empty_room(rid)
-            if removed:
-                await sio.emit("rooms_remove", {"id": rid}, namespace="/rooms")
+            try:
+                removed = await gc_empty_room(rid, expected_seq=gc_seq)
+                if removed:
+                    await sio.emit("rooms_remove", {"id": rid}, namespace="/rooms")
+            except Exception:
+                log.exception("gc failed rid=%s", rid)
         asyncio.create_task(_gc())

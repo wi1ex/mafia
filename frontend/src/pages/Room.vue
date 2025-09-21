@@ -14,10 +14,10 @@
     </div>
 
     <div class="controls">
-      <button class="ctrl" @click="toggleMic" :disabled="pending.mic">{{ micOn ? 'Микрофон вкл' : 'Микрофон выкл' }}</button>
-      <button class="ctrl" @click="toggleCam" :disabled="pending.cam">{{ camOn ? 'Камера вкл' : 'Камера выкл' }}</button>
-      <button class="ctrl" @click="toggleSpeakers" :disabled="pending.speakers">{{ speakersOn ? 'Звук вкл' : 'Звук выкл' }}</button>
-      <button class="ctrl" @click="toggleVisibility" :disabled="pending.visibility">{{ visibilityOn ? 'Видео вкл' : 'Видео выкл' }}</button>
+      <button class="ctrl" @click="toggleMic" :disabled="pending.mic">{{ micOn ? 'Микрофон ВКЛ' : 'Микрофон ВЫКЛ' }}</button>
+      <button class="ctrl" @click="toggleCam" :disabled="pending.cam">{{ camOn ? 'Камера ВКЛ' : 'Камера ВЫКЛ' }}</button>
+      <button class="ctrl" @click="toggleSpeakers" :disabled="pending.speakers">{{ speakersOn ? 'Звук ВКЛ' : 'Звук ВЫКЛ' }}</button>
+      <button class="ctrl" @click="toggleVisibility" :disabled="pending.visibility">{{ visibilityOn ? 'Видео ВКЛ' : 'Видео ВЫКЛ' }}</button>
       <button class="ctrl danger" @click="onLeave">Покинуть комнату</button>
     </div>
 
@@ -658,7 +658,6 @@ onMounted(async () => {
     }
 
     room.remoteParticipants.forEach(applySubsFor)
-
     window.addEventListener('pagehide', onPageHide)
     window.addEventListener('beforeunload', onPageHide)
     navigator.mediaDevices.addEventListener?.('devicechange', refreshDevices)
