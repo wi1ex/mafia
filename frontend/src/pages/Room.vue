@@ -167,7 +167,7 @@ async function refreshDevices() {
 
 function attachLocalVideo(room: LkRoom) {
   const el = videoEls.get(localId.value)
-  const vpub = Array.from(room.localParticipant.videoTrackPublications.values())[0]
+  const vpub = Array.from(room.localParticipant.getTrackPublications()).find(p => p.kind === Track.Kind.Video)
   if (el && vpub?.track) {
     try {
       vpub.track.attach(el)
@@ -179,7 +179,10 @@ function attachLocalVideo(room: LkRoom) {
 async function ensureTrack(kind: 'audioinput' | 'videoinput', preferredId?: string): Promise<string | null> {
   const room = lk.value
   if (!room) return null
-  const list = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === kind) as MediaDeviceInfo[]
+  if ((kind === 'audioinput' ? mics.value.length : cams.value.length) === 0) {
+    await refreshDevices()
+  }
+  const list = (kind === 'audioinput' ? mics.value : cams.value)
   if (list.length === 0) return null
   const ids = Array.from(new Set([preferredId && list.some(d => d.deviceId === preferredId) ? preferredId : null, ...list.map(d => d.deviceId)].filter(Boolean) as string[]))
   for (const id of ids) {
@@ -223,19 +226,13 @@ function isCovered(id: string): boolean {
 }
 
 function getByIdentity(room: LkRoom, id: string) {
-  return (room as any)?.getParticipantByIdentity?.(id) ?? participantsMap(room)?.get?.(id)
-}
-
-function participantsMap(room?: LkRoom | null) {
-  return (room as any)?.participants ?? (room as any)?.remoteParticipants as
-    | Map<string, RemoteParticipant>
-    | undefined
+  return room.getParticipantByIdentity?.(id) ?? room.remoteParticipants.get(id)
 }
 
 function forEachRemote(cb: (id: string, p: RemoteParticipant) => void) {
-  const room = lk.value
-  participantsMap(room)?.forEach((p) => cb(String(p.identity), p))
+  lk.value?.remoteParticipants.forEach((p, id) => cb(String(id), p))
 }
+
 
 function upsertPeerFromParticipant(p: RemoteParticipant | LocalParticipant, isLocal = false) {
   const id = String(p.identity)
@@ -392,9 +389,7 @@ const toggleVisibility = toggleFactory('visibility',
 
 /* ---------- подписки (верный API) ---------- */
 function setSubscriptions(kind: Track.Kind, on: boolean) {
-  forEachRemote((_id, p) => {
-    p.getTrackPublications().forEach(pub => { if (pub.kind === kind) { try { pub.setSubscribed(on) } catch {} } })
-  })
+  forEachRemote((_id, p) => { p.getTrackPublications().forEach(pub => { if (pub.kind === kind) { try { pub.setSubscribed(on) } catch {} } }) })
 }
 const setAudioSubscriptionsForAll = (on: boolean) => setSubscriptions(Track.Kind.Audio, on)
 const setVideoSubscriptionsForAll = (on: boolean) => setSubscriptions(Track.Kind.Video, on)
@@ -405,17 +400,14 @@ async function onDeviceChange(kind: 'audioinput' | 'videoinput') {
   saveLS(lsKey, deviceId)
   try {
     await lk.value?.switchActiveDevice(kind, deviceId)
-    if (kind === 'videoinput') attachLocalVideo(lk.value!)
+    if (kind === 'videoinput' && lk.value) attachLocalVideo(lk.value)
   } catch (error) { await handleMediaError(error, kind) }
 }
 
 async function fallback(kind: 'audioinput' | 'videoinput') {
   await refreshDevices()
   const list = kind === 'audioinput' ? mics.value : cams.value
-  const setEnabled = (on: boolean) => kind === 'audioinput'
-    ? lk.value?.localParticipant.setMicrophoneEnabled(on)
-    : lk.value?.localParticipant.setCameraEnabled(on)
-
+  const setEnabled = (on: boolean) => kind === 'audioinput' ? lk.value?.localParticipant.setMicrophoneEnabled(on) : lk.value?.localParticipant.setCameraEnabled(on)
   if (!list.length) {
     await setEnabled(false)
     const k = kind === 'audioinput' ? 'mic' : 'cam'
@@ -475,6 +467,11 @@ function teardownSocket() {
 }
 
 async function safeDisableLocalTracks() {
+  if (!lk.value) return
+  try {
+    const pubs = lk.value?.localParticipant.getTrackPublications() ?? []
+    for (const p of pubs) { try { p.track?.stop() } catch {} }
+  } catch {}
   try { await lk.value?.localParticipant.setMicrophoneEnabled(false) } catch {}
   try { await lk.value?.localParticipant.setCameraEnabled(false) } catch {}
 }
@@ -483,10 +480,20 @@ async function onLeave() {
   if (leaving.value) return
   leaving.value = true
   try {
+    window.removeEventListener('pagehide', onPageHide)
+    window.removeEventListener('beforeunload', onPageHide)
+    navigator.mediaDevices.removeEventListener?.('devicechange', refreshDevices)
+  } catch {}
+  try {
     await safeDisableLocalTracks()
-    try { await lk.value?.disconnect() } catch {}
-    try { socket.value && (socket.value.io.opts.reconnection = false) } catch {}
-    try { socket.value?.close?.() } catch {}
+    try { if (lk.value) await lk.value.disconnect() } catch {}
+    try {
+      if (socket.value) {
+        socket.value.io.opts.reconnection = false
+        socket.value.removeAllListeners?.()
+        socket.value.close()
+      }
+    } catch {}
     socket.value = null
     cleanupMedia()
     lk.value?.removeAllListeners?.()
@@ -494,10 +501,11 @@ async function onLeave() {
     roomId.value = null
     await router.replace('/')
   } finally {
-    navigator.mediaDevices.removeEventListener?.('devicechange', refreshDevices)
     leaving.value = false
   }
 }
+
+const onPageHide = () => { void onLeave() }
 
 onMounted(async () => {
   try {
@@ -567,15 +575,7 @@ onMounted(async () => {
       upsertPeerFromParticipant(part)
       if (t.kind === Track.Kind.Video) {
         const el = videoEls.get(id)
-        if (el) {
-          try { t.attach(el) } catch {}
-          const onReady = () => {
-            el.removeEventListener('loadeddata', onReady)
-            el.removeEventListener('resize', onReady)
-          }
-          el.addEventListener('loadeddata', onReady)
-          el.addEventListener('resize', onReady)
-        }
+        if (el) { try { t.attach(el) } catch {} }
       } else if (t.kind === Track.Kind.Audio) {
         let a = audioEls.get(id)
         if (!a) {
@@ -632,7 +632,7 @@ onMounted(async () => {
 
     localId.value = String(room.localParticipant.identity)
     upsertPeerFromParticipant(room.localParticipant, true)
-    participantsMap(room)?.forEach(p => upsertPeerFromParticipant(p))
+    room.remoteParticipants.forEach(p => upsertPeerFromParticipant(p))
 
     if (camOn.value) {
       const sel = loadLS(LS.cam) || undefined
@@ -657,7 +657,10 @@ onMounted(async () => {
       saveLS(LS.mic, okId)
     }
 
-    participantsMap(room)?.forEach(applySubsFor)
+    room.remoteParticipants.forEach(applySubsFor)
+
+    window.addEventListener('pagehide', onPageHide)
+    window.addEventListener('beforeunload', onPageHide)
     navigator.mediaDevices.addEventListener?.('devicechange', refreshDevices)
   } catch (e) {
     console.warn(e)
