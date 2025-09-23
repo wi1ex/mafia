@@ -1,6 +1,5 @@
 import { ref, type Ref } from 'vue'
 import {
-  LocalParticipant,
   LocalTrackPublication,
   RemoteParticipant,
   RemoteTrack,
@@ -15,14 +14,13 @@ setLogLevel(LogLevel.warn)
 
 type DeviceKind = 'audioinput' | 'videoinput'
 const LS = { mic: 'audioDeviceId', cam: 'videoDeviceId' }
-
-function saveLS(k: string, v: string) { try { localStorage.setItem(k, v) } catch {} }
-function loadLS(k: string): string | null { try { return localStorage.getItem(k) } catch { return null } }
+const saveLS = (k: string, v: string) => { try { localStorage.setItem(k, v) } catch {} }
+const loadLS = (k: string) => { try { return localStorage.getItem(k) } catch { return null } }
 
 export type UseRTC = {
   lk: Ref<LkRoom | null>
   localId: Ref<string>
-  peerIds: Ref<Set<string>>
+  peerIds: Ref<string[]>
   mics: Ref<MediaDeviceInfo[]>
   cams: Ref<MediaDeviceInfo[]>
   LS: typeof LS
@@ -56,7 +54,7 @@ export type UseRTC = {
 export function useRTC(): UseRTC {
   const lk = ref<LkRoom | null>(null)
   const localId = ref('')
-  const peerIds = ref<Set<string>>(new Set())
+  const peerIds = ref<string[]>([])
   const videoEls = new Map<string, HTMLVideoElement>()
   const audioEls = new Map<string, HTMLAudioElement>()
   const mics = ref<MediaDeviceInfo[]>([])
@@ -66,9 +64,7 @@ export function useRTC(): UseRTC {
   const wantAudio = ref(true)
   const wantVideo = ref(true)
 
-  function getByIdentity(room: LkRoom, id: string) {
-    return room.getParticipantByIdentity?.(id) ?? room.remoteParticipants.get(id)
-  }
+  const getByIdentity = (room: LkRoom, id: string) => room.getParticipantByIdentity?.(id) ?? room.remoteParticipants.get(id)
 
   function setVideoRef(id: string, el: HTMLVideoElement | null) {
     const prev = videoEls.get(id)
@@ -124,12 +120,11 @@ export function useRTC(): UseRTC {
     const room = lk.value
     if (!room) return
     const deviceId = kind === 'audioinput' ? selectedMicId.value : selectedCamId.value
-    const lsKey = kind === 'audioinput' ? LS.mic : LS.cam
-    saveLS(lsKey, deviceId)
-    await room.switchActiveDevice(kind, deviceId)
+    saveLS(kind === 'audioinput' ? LS.mic : LS.cam, deviceId)
+    try { await room.switchActiveDevice(kind, deviceId) } catch {}
   }
 
-  function isBusyError(e: unknown): boolean {
+  const isBusyError = (e: unknown) => {
     const name = ((e as any)?.name || '') + ''
     const msg  = ((e as any)?.message || '') + ''
     return name === 'NotReadableError' || /Could not start .* source/i.test(msg)
@@ -143,7 +138,7 @@ export function useRTC(): UseRTC {
         ? lk.value?.localParticipant.setMicrophoneEnabled(on)
         : lk.value?.localParticipant.setCameraEnabled(on)
     if (list.length === 0) {
-      await setEnabled(false)
+      try { await setEnabled(false) } catch {}
       if (kind === 'audioinput') {
         selectedMicId.value = ''
         saveLS(LS.mic, '')
@@ -164,45 +159,41 @@ export function useRTC(): UseRTC {
     }
   }
 
-async function enable(kind: DeviceKind): Promise<boolean> {
-  const room = lk.value
-  if (!room) return false
-  if ((kind === 'audioinput' ? mics.value.length : cams.value.length) === 0) {
-    await refreshDevices()
-  }
-  const id = kind === 'audioinput' ? selectedMicId.value : selectedCamId.value
-  try {
-    if (kind === 'audioinput') {
-      await room.localParticipant.setMicrophoneEnabled(true, id
-        ? ({ deviceId: { exact: id } } as any)
-        : undefined)
-    } else {
-      await room.localParticipant.setCameraEnabled(true, id
-        ? ({ deviceId: { exact: id }, resolution: VideoPresets.h360.resolution } as any)
-        : ({ resolution: VideoPresets.h360.resolution } as any))
+  async function enable(kind: DeviceKind): Promise<boolean> {
+    const room = lk.value
+    if (!room) return false
+    if ((kind === 'audioinput' ? mics.value.length : cams.value.length) === 0) {
+      await refreshDevices()
     }
-    return true
-  } catch {
-    await fallback(kind)
-    const nextId = kind === 'audioinput' ? selectedMicId.value : selectedCamId.value
-    if (!nextId) return false
+    const id = kind === 'audioinput' ? selectedMicId.value : selectedCamId.value
     try {
       if (kind === 'audioinput') {
-        await room.localParticipant.setMicrophoneEnabled(true,
-          { deviceId: { exact: nextId } } as any)
+        await room.localParticipant.setMicrophoneEnabled(true, id ? ({ deviceId: { exact: id } } as any) : undefined)
       } else {
-        await room.localParticipant.setCameraEnabled(true,
-          { deviceId: { exact: nextId }, resolution: VideoPresets.h360.resolution } as any)
+        await room.localParticipant.setCameraEnabled(true, id
+          ? ({ deviceId: { exact: id }, resolution: VideoPresets.h360.resolution } as any)
+          : ({ resolution: VideoPresets.h360.resolution } as any))
       }
       return true
-    } catch { return false }
+    } catch {
+      await fallback(kind)
+      const nextId = kind === 'audioinput' ? selectedMicId.value : selectedCamId.value
+      if (!nextId) return false
+      try {
+        if (kind === 'audioinput') {
+          await room.localParticipant.setMicrophoneEnabled(true, { deviceId: { exact: nextId } } as any)
+        } else {
+          await room.localParticipant.setCameraEnabled(true, { deviceId: { exact: nextId }, resolution: VideoPresets.h360.resolution } as any)
+        }
+        return true
+      } catch { return false }
+    }
   }
-}
 
   function setSubscriptions(kind: Track.Kind, on: boolean) {
     const room = lk.value
     if (!room) return
-    room.remoteParticipants.forEach((p) => {
+    room.remoteParticipants.forEach(p => {
       p.getTrackPublications().forEach(pub => {
         if (pub.kind === kind) { try { pub.setSubscribed(on) } catch {} }
       })
@@ -216,7 +207,7 @@ async function enable(kind: DeviceKind): Promise<boolean> {
     wantVideo.value = on
     setSubscriptions(Track.Kind.Video, on)
   }
-  function applySubsFor(p: RemoteParticipant) {
+  const applySubsFor = (p: RemoteParticipant) => {
     p.getTrackPublications().forEach(pub => {
       if (pub.kind === Track.Kind.Audio) { try { pub.setSubscribed(wantAudio.value) } catch {} }
       if (pub.kind === Track.Kind.Video) { try { pub.setSubscribed(wantVideo.value) } catch {} }
@@ -231,20 +222,8 @@ async function enable(kind: DeviceKind): Promise<boolean> {
       try { a.remove() } catch {}
     })
     audioEls.clear()
-    peerIds.value.clear()
+    peerIds.value = []
     localId.value = ''
-  }
-
-  let deviceListenerAttached = false
-  function attachDeviceListener() {
-    if (deviceListenerAttached) return
-    navigator.mediaDevices.addEventListener?.('devicechange', refreshDevices)
-    deviceListenerAttached = true
-  }
-  function detachDeviceListener() {
-    if (!deviceListenerAttached) return
-    navigator.mediaDevices.removeEventListener?.('devicechange', refreshDevices)
-    deviceListenerAttached = false
   }
 
   function initRoom(opts?: {
@@ -255,31 +234,41 @@ async function enable(kind: DeviceKind): Promise<boolean> {
   }): LkRoom {
     if (lk.value) return lk.value
     const room = new LkRoom({
-      publishDefaults: { videoCodec: 'vp8', red: true, dtx: true, ...(opts?.publishDefaults || {}) },
-      audioCaptureDefaults: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, ...(opts?.audioCaptureDefaults || {}) },
-      videoCaptureDefaults: { resolution: VideoPresets.h360.resolution, ...(opts?.videoCaptureDefaults || {}) },
+      publishDefaults: {
+        videoCodec: 'vp8',
+        red: true,
+        dtx: true,
+        ...(opts?.publishDefaults || {})
+      },
+      audioCaptureDefaults: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+        ...(opts?.audioCaptureDefaults || {})
+      },
+      videoCaptureDefaults: {
+        resolution: VideoPresets.h360.resolution,
+        ...(opts?.videoCaptureDefaults || {})
+      },
     })
     lk.value = room
 
-    room.on(RoomEvent.Disconnected, () => { cleanupMedia() })
+    room.on(RoomEvent.Disconnected, cleanupMedia)
 
     room.on(RoomEvent.LocalTrackPublished, (pub: LocalTrackPublication) => {
-      if (pub.kind === Track.Kind.Video) {
-        const el = videoEls.get(localId.value)
-        if (el) try { pub.track?.attach(el) } catch {}
-      }
+      if (pub.kind !== Track.Kind.Video) return
+      const el = videoEls.get(localId.value)
+      if (el && pub.track) { try { pub.track.attach(el) } catch {} }
     })
 
     room.on(RoomEvent.LocalTrackUnpublished, (pub: LocalTrackPublication) => {
-      if (pub.kind === Track.Kind.Video) {
-        const el = videoEls.get(localId.value)
-        if (el) try { pub.track?.detach(el) } catch {}
-      }
+      if (pub.kind !== Track.Kind.Video) return
+      const el = videoEls.get(localId.value)
+      if (el && pub.track) { try { pub.track.detach(el) } catch {} }
     })
 
     room.on(RoomEvent.TrackSubscribed, (t: RemoteTrack, _pub, part) => {
       const id = String(part.identity)
-      peerIds.value.add(id)
       if (t.kind === Track.Kind.Video) {
         const el = videoEls.get(id)
         if (el) { try { t.attach(el) } catch {} }
@@ -303,12 +292,14 @@ async function enable(kind: DeviceKind): Promise<boolean> {
     room.on(RoomEvent.TrackPublished, (_pub, part) => applySubsFor(part as RemoteParticipant))
 
     room.on(RoomEvent.ParticipantConnected, (p: RemoteParticipant) => {
-      peerIds.value.add(String(p.identity))
+      const id = String(p.identity)
+      if (!peerIds.value.includes(id)) { peerIds.value = [...peerIds.value, id] }
       applySubsFor(p)
     })
+
     room.on(RoomEvent.ParticipantDisconnected, (p) => {
       const id = String(p.identity)
-      peerIds.value.delete(id)
+      peerIds.value = peerIds.value.filter(x => x !== id)
       const a = audioEls.get(id)
       if (a) {
         try { a.srcObject = null } catch {}
@@ -324,14 +315,17 @@ async function enable(kind: DeviceKind): Promise<boolean> {
 
     room.on(RoomEvent.MediaDevicesError, (e: any) => { opts?.onMediaDevicesError?.(e) })
 
+    room.on(RoomEvent.MediaDevicesChanged, refreshDevices)
+
     return room
   }
 
-  async function connect(
-    wsUrl: string,
-    token: string,
-    opts?: { autoSubscribe?: boolean; maxRetries?: number; peerConnectionTimeout?: number; websocketTimeout?: number }
-  ) {
+  async function connect(wsUrl: string, token: string, opts?: {
+    autoSubscribe?: boolean
+    maxRetries?: number
+    peerConnectionTimeout?: number
+    websocketTimeout?: number
+  }) {
     const room = lk.value ?? initRoom()
     await room.connect(wsUrl, token, {
       autoSubscribe: opts?.autoSubscribe ?? false,
@@ -339,11 +333,11 @@ async function enable(kind: DeviceKind): Promise<boolean> {
       peerConnectionTimeout: opts?.peerConnectionTimeout ?? 20_000,
       websocketTimeout: opts?.websocketTimeout ?? 10_000,
     })
-
     localId.value = String(room.localParticipant.identity)
-    peerIds.value.add(localId.value)
-    room.remoteParticipants.forEach(p => peerIds.value.add(String(p.identity)))
-    attachDeviceListener()
+    const ids: string[] = [localId.value]
+    room.remoteParticipants.forEach(p => ids.push(String(p.identity)))
+    peerIds.value = Array.from(new Set(ids))
+    await refreshDevices()
   }
 
   async function disconnect() {
@@ -355,7 +349,6 @@ async function enable(kind: DeviceKind): Promise<boolean> {
     try { await lk.value?.localParticipant.setCameraEnabled(false) } catch {}
     try { await lk.value?.disconnect() } catch {}
     try { lk.value?.removeAllListeners?.() } catch {}
-    detachDeviceListener()
     cleanupMedia()
     lk.value = null
   }
@@ -369,7 +362,6 @@ async function enable(kind: DeviceKind): Promise<boolean> {
     LS,
     selectedMicId,
     selectedCamId,
-
     videoRef,
     initRoom,
     connect,

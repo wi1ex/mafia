@@ -1,7 +1,7 @@
 <template>
   <section class="card">
     <div class="grid" :style="gridStyle">
-      <div v-for="id in peerIds" :key="id" class="tile">
+      <div v-for="id in sortedPeerIds" :key="id" class="tile">
         <video :ref="videoRef(id)" playsinline autoplay :muted="id === localId" />
         <div class="veil" :class="{ visible: isCovered(id) }"></div>
         <div class="badges">
@@ -57,10 +57,10 @@ const rid = Number(route.params.id)
 const roomId = ref<number | null>(rid)
 const local = reactive({ mic: false, cam: false, speakers: true, visibility: true })
 const pending = reactive<{ [k in keyof typeof local]: boolean }>({ mic: false, cam: false, speakers: false, visibility: false })
-const micOn = computed({ get: () => local.mic, set: (v: boolean) => { local.mic = v } })
-const camOn = computed({ get: () => local.cam, set: (v: boolean) => { local.cam = v } })
-const speakersOn = computed({ get: () => local.speakers, set: (v: boolean) => { local.speakers = v } })
-const visibilityOn = computed({ get: () => local.visibility, set: (v: boolean) => { local.visibility = v } })
+const micOn = computed({ get: () => local.mic, set: v => { local.mic = v } })
+const camOn = computed({ get: () => local.cam, set: v => { local.cam = v } })
+const speakersOn = computed({ get: () => local.speakers, set: v => { local.speakers = v } })
+const visibilityOn = computed({ get: () => local.visibility, set: v => { local.visibility = v } })
 
 const socket = ref<Socket | null>(null)
 const statusMap = reactive<Record<string, UserState>>({})
@@ -70,19 +70,17 @@ const leaving = ref(false)
 const ws_url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host
 
 const rtc = useRTC()
-const { localId, peerIds: idsSet, mics, cams, selectedMicId, selectedCamId, videoRef, refreshDevices, enable, onDeviceChange } = rtc
+const { localId, peerIds, mics, cams, selectedMicId, selectedCamId, videoRef, refreshDevices, enable, onDeviceChange } = rtc
 
-const peerIds = computed(() => {
-  const ids = Array.from(idsSet.value)
-  return ids.sort((a, b) => {
+const sortedPeerIds = computed(() => {
+  return [...peerIds.value].sort((a, b) => {
     const pa = positions[a] ?? Number.POSITIVE_INFINITY
     const pb = positions[b] ?? Number.POSITIVE_INFINITY
-    if (pa !== pb) return pa - pb
-    return String(a).localeCompare(String(b))
+    return pa !== pb ? pa - pb : String(a).localeCompare(String(b))
   })
 })
 const gridStyle = computed(() => {
-  const count = peerIds.value.length
+  const count = sortedPeerIds.value.length
   const cols = count <= 6 ? 3 : count <= 12 ? 4 : 5
   const rows = count <= 6 ? 2 : count <= 12 ? 3 : 4
   return { gridTemplateColumns: `repeat(${cols}, 1fr)`, gridTemplateRows: `repeat(${rows}, 1fr)` }
@@ -117,7 +115,6 @@ function isOn(id: string, kind: 'mic' | 'cam' | 'speakers' | 'visibility') {
   const st = statusMap[id]
   return st ? st[kind] === 1 : true
 }
-
 function isCovered(id: string): boolean {
   const isSelf = id === localId.value
   const remoteCamOn = statusMap[id]?.cam === 1
@@ -133,7 +130,6 @@ function applyPeerState(uid: string, patch: any) {
     visibility: pick01(patch?.visibility, cur.visibility),
   }
 }
-
 function applySelfPref(pref: any) {
   if (!isEmpty(pref?.mic))        local.mic        = norm01(pref.mic, local.mic ? 1 : 0) === 1
   if (!isEmpty(pref?.cam))        local.cam        = norm01(pref.cam, local.cam ? 1 : 0) === 1
@@ -153,10 +149,7 @@ function connectSocket() {
     reconnectionDelay: 500,
     reconnectionDelayMax: 5000,
   })
-
-  socket.value.on('reconnect', async () => {
-    try { await socket.value!.timeout(1500).emitWithAck('join', { room_id: rid, state: { ...local } }) } catch {}
-  })
+  socket.value.on('reconnect', async () => { try { await socket.value!.timeout(1500).emitWithAck('join', { room_id: rid, state: { ...local } }) } catch {} })
 
   socket.value.on('connect_error', e => console.warn('rtc sio error', e?.message))
 
@@ -191,7 +184,7 @@ async function joinViaSocket() {
       })
     })
   }
-  return await socket.value!.timeout(1500).emitWithAck('join', { room_id: rid, state: { ...local } })
+  return socket.value!.timeout(1500).emitWithAck('join', { room_id: rid, state: { ...local } })
 }
 
 async function publishState(delta: Partial<{ mic: boolean; cam: boolean; speakers: boolean; visibility: boolean }>) {
@@ -202,52 +195,39 @@ async function publishState(delta: Partial<{ mic: boolean; cam: boolean; speaker
   } catch { return false }
 }
 
-const toggleFactory = (k: keyof typeof local, onEnable?: () => Promise<void>, onDisable?: () => Promise<void>) => {
-  return async () => {
-    if (pending[k]) return
-    pending[k] = true
-    const want = !local[k]
-    try {
-      const ok = await publishState({ [k]: want } as any)
-      if (!ok) return
-      if (want) await onEnable?.()
-      else await onDisable?.()
-      local[k] = want
-      if (k === 'speakers')   rtc.setAudioSubscriptionsForAll(local.speakers)
-      if (k === 'visibility') rtc.setVideoSubscriptionsForAll(local.visibility)
-    } catch {
-      try { await publishState({ [k]: !want } as any) } catch {}
-    } finally {
-      pending[k] = false
-    }
-  }
+const toggleFactory = (k: keyof typeof local, onEnable?: () => Promise<void>, onDisable?: () => Promise<void>) => async () => {
+  if (pending[k]) return
+  pending[k] = true
+  const want = !local[k]
+  try {
+    const ok = await publishState({ [k]: want } as any)
+    if (!ok) return
+    if (want) await onEnable?.()
+    else await onDisable?.()
+    local[k] = want
+    if (k === 'speakers')   rtc.setAudioSubscriptionsForAll(local.speakers)
+    if (k === 'visibility') rtc.setVideoSubscriptionsForAll(local.visibility)
+  } catch {
+    try { await publishState({ [k]: !want } as any) } catch {}
+  } finally { pending[k] = false }
 }
 
 const toggleMic = toggleFactory('mic',
   async () => {
-    const ok = await enable('audioinput')
+  const ok = await enable('audioinput')
     if (!ok) throw new Error('no-mic')
   },
-  async () => { await rtc.lk.value?.localParticipant.setMicrophoneEnabled(false) },
+  async () => { try { await rtc.lk.value?.localParticipant.setMicrophoneEnabled(false) } catch {} }
 )
-
 const toggleCam = toggleFactory('cam',
   async () => {
-    const ok = await enable('videoinput')
+  const ok = await enable('videoinput')
     if (!ok) throw new Error('no-cam')
   },
-  async () => { await rtc.lk.value?.localParticipant.setCameraEnabled(false) },
+  async () => { try { await rtc.lk.value?.localParticipant.setCameraEnabled(false) } catch {} }
 )
-
-const toggleSpeakers  = toggleFactory('speakers',
-  async () => rtc.setAudioSubscriptionsForAll(true),
-  async () => rtc.setAudioSubscriptionsForAll(false),
-)
-
-const toggleVisibility = toggleFactory('visibility',
-  async () => rtc.setVideoSubscriptionsForAll(true),
-  async () => rtc.setVideoSubscriptionsForAll(false),
-)
+const toggleSpeakers  = toggleFactory('speakers',  async () => rtc.setAudioSubscriptionsForAll(true),  async () => rtc.setAudioSubscriptionsForAll(false))
+const toggleVisibility = toggleFactory('visibility', async () => rtc.setVideoSubscriptionsForAll(true), async () => rtc.setVideoSubscriptionsForAll(false))
 
 async function onLeave() {
   if (leaving.value) return
@@ -260,7 +240,7 @@ async function onLeave() {
     await rtc.disconnect()
     try {
       if (socket.value) {
-        socket.value.io.opts.reconnection = false
+        (socket.value.io.opts as any).reconnection = false
         socket.value.removeAllListeners?.()
         socket.value.close()
       }
@@ -272,17 +252,14 @@ async function onLeave() {
     leaving.value = false
   }
 }
-
 const onPageHide = () => { void onLeave() }
 
 onMounted(async () => {
   try {
     connectSocket()
-    const j = await joinViaSocket() as any
+    const j: any = await joinViaSocket()
     if (!j?.ok) {
-      if (j?.status === 404) alert('Комната не найдена')
-      else if (j?.status === 409) alert('Комната заполнена')
-      else alert('Ошибка входа в комнату')
+      alert(j?.status === 404 ? 'Комната не найдена' : j?.status === 409 ? 'Комната заполнена' : 'Ошибка входа в комнату')
       await router.replace('/')
       return
     }
@@ -291,12 +268,12 @@ onMounted(async () => {
     rtc.selectedCamId.value = rtc.loadLS(rtc.LS.cam) || ''
     await refreshDevices()
 
-    Object.keys(positions).forEach(k => delete positions[k])
+    Object.keys(positions).forEach(k => delete (positions as any)[k])
     Object.entries(j.positions || {}).forEach(([uid, pos]: any) => {
       const p = Number(pos)
       if (Number.isFinite(p)) positions[String(uid)] = p
     })
-    Object.keys(statusMap).forEach(k => delete statusMap[k])
+    Object.keys(statusMap).forEach(k => delete (statusMap as any)[k])
     Object.entries(j.snapshot || {}).forEach(([uid, st]: any) => {
       statusMap[uid] = {
         mic:        pick01(st.mic, 0),
