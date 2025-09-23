@@ -41,7 +41,6 @@ type Room = {
   id: number
   title: string
   user_limit: number
-  is_private: boolean
   creator: number
   created_at: string
   occupancy: number
@@ -125,8 +124,8 @@ function stopWS() {
   sio.value = null
 }
 
-async function createRoom(title: string, user_limit: number, is_private: boolean) {
-  const { data } = await api.post<Room>('/rooms', { title, user_limit, is_private })
+async function createRoom(title: string, user_limit: number) {
+  const { data } = await api.post<Room>('/rooms', { title, user_limit })
   upsert(data)
   return data
 }

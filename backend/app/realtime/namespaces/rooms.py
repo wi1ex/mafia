@@ -16,7 +16,7 @@ async def rooms_list(sid):
         if not rids:
             return {"ok": True, "rooms": []}
 
-        fields = ("id", "title", "user_limit", "is_private", "creator", "created_at")
+        fields = ("id", "title", "user_limit", "creator", "created_at")
         pipe = r.pipeline()
         for rid in rids:
             await pipe.hmget(f"room:{rid}:params", *fields)
@@ -27,11 +27,10 @@ async def rooms_list(sid):
         for rid, vals in zip(rids, rows):
             if not vals or any(v is None for v in vals):
                 continue
-            _id, title, user_limit, is_private, creator, created_at = vals
+            _id, title, user_limit, creator, created_at = vals
             out.append({
                 "id": int(_id), "title": title,
                 "user_limit": int(user_limit),
-                "is_private": str(is_private) in ("1", "true", "True"),
                 "creator": int(creator),
                 "created_at": created_at,
                 "occupancy": int(occ.get(rid, 0)),

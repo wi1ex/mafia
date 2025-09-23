@@ -63,7 +63,7 @@ async def get_occupancies(r, rids: Iterable[int]) -> Dict[int, int]:
 
 
 async def get_positions(r, rid: int) -> dict[str, int]:
-    rows = await r.zrange(f"room:{rid}:order", 0, -1, withscores=True)
+    rows = await r.zrange(f"room:{rid}:positions", 0, -1, withscores=True)
     out: dict[str, int] = {}
     for member, score in rows:
         m = member.decode() if isinstance(member, (bytes, bytearray)) else str(member)
@@ -92,16 +92,16 @@ async def join_room_atomic(r, rid: int, uid: int, role: str, *, retries: int = 8
 
     for _ in range(retries):
         try:
-            await r.watch(f"room:{rid}:members", f"room:{rid}:order")
+            await r.watch(f"room:{rid}:members", f"room:{rid}:positions")
             already = await r.sismember(f"room:{rid}:members", uid)
             size = int(await r.scard(f"room:{rid}:members") or 0)
             now = int(time())
             if already:
-                pos = await r.zscore(f"room:{rid}:order", uid)
+                pos = await r.zscore(f"room:{rid}:positions", uid)
                 if pos is None:
                     pos = size if size > 0 else 1
                     async with r.pipeline() as p:
-                        p.zadd(f"room:{rid}:order", {uid: pos})
+                        p.zadd(f"room:{rid}:positions", {uid: pos})
                         p.hset(f"room:{rid}:user:{uid}:info", mapping={"position": int(pos)})
                         await p.execute()
                 existing_jd = await r.hget(f"room:{rid}:user:{uid}:info", "join_date")
@@ -121,7 +121,7 @@ async def join_room_atomic(r, rid: int, uid: int, role: str, *, retries: int = 8
             new_pos = size + 1
             async with r.pipeline() as p:
                 p.sadd(f"room:{rid}:members", uid)
-                p.zadd(f"room:{rid}:order", {uid: new_pos})
+                p.zadd(f"room:{rid}:positions", {uid: new_pos})
                 p.hset(f"room:{rid}:user:{uid}:info", mapping={"join_date": now, "position": new_pos, "role": eff_role})
                 p.delete(f"room:{rid}:empty_since")
                 await p.execute()
@@ -140,7 +140,7 @@ async def join_room_atomic(r, rid: int, uid: int, role: str, *, retries: int = 8
 
 
 async def leave_room_atomic(r, rid: int, uid: int, *, retries: int = 8) -> tuple[int, int, list[tuple[int, int]]]:
-    pos = await r.zscore(f"room:{rid}:order", uid)
+    pos = await r.zscore(f"room:{rid}:positions", uid)
     try:
         pos_i = int(pos) if pos is not None else None
     except Exception:
@@ -158,10 +158,10 @@ async def leave_room_atomic(r, rid: int, uid: int, *, retries: int = 8) -> tuple
 
     for _ in range(retries):
         try:
-            await r.watch(f"room:{rid}:members", f"room:{rid}:order")
+            await r.watch(f"room:{rid}:members", f"room:{rid}:positions")
             async with r.pipeline() as p:
                 p.srem(f"room:{rid}:members", uid)
-                p.zrem(f"room:{rid}:order", uid)
+                p.zrem(f"room:{rid}:positions", uid)
                 p.delete(f"room:{rid}:user:{uid}:info")
                 await p.execute()
             break
@@ -200,11 +200,11 @@ async def leave_room_atomic(r, rid: int, uid: int, *, retries: int = 8) -> tuple
 
     updates: list[tuple[int, int]] = []
     if occ > 0 and pos_i is not None:
-        ids = await r.zrangebyscore(f"room:{rid}:order", min=pos_i + 1, max="+inf")
+        ids = await r.zrangebyscore(f"room:{rid}:positions", min=pos_i + 1, max="+inf")
         if ids:
             async with r.pipeline() as p:
                 for mid in ids:
-                    p.zincrby(f"room:{rid}:order", -1, mid)
+                    p.zincrby(f"room:{rid}:positions", -1, mid)
                 new_scores = await p.execute()
             async with r.pipeline() as p2:
                 for mid, sc in zip(ids, new_scores):
@@ -262,8 +262,7 @@ async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
             async with _sessionmaker() as s:
                 rm = await s.get(Room, rid)
                 if rm:
-                    rm.visitor_ids = sorted(list({*(rm.visitor_ids or []), *visitors_map.keys()}))
-                    rm.visitor_durations = {**(rm.visitor_durations or {}), **{str(k): v for k, v in visitors_map.items()}}
+                    rm.visitors = {**(rm.visitors or {}), **{str(k): v for k, v in visitors_map.items()}}
                     rm.deleted_at = datetime.now(timezone.utc)
                     await s.commit()
             log.info("gc.persisted_to_db", rid=rid, visitors=len(visitors_map))
@@ -284,7 +283,7 @@ async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
         await _del_scan(f"room:{rid}:user:*:info")
         await r.delete(
             f"room:{rid}:members",
-            f"room:{rid}:order",
+            f"room:{rid}:positions",
             f"room:{rid}:visitors",
             f"room:{rid}:params",
             f"room:{rid}:gc_seq",
