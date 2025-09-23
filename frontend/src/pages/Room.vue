@@ -64,6 +64,7 @@ const visibilityOn = computed({ get: () => local.visibility, set: (v: boolean) =
 
 const socket = ref<Socket | null>(null)
 const statusMap = reactive<Record<string, UserState>>({})
+const positions = reactive<Record<string, number>>({})
 
 const leaving = ref(false)
 const ws_url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host
@@ -71,7 +72,15 @@ const ws_url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.
 const rtc = useRTC()
 const { localId, peers, mics, cams, selectedMicId, selectedCamId, videoRef, refreshDevices, ensureTrack, onDeviceChange } = rtc
 
-const peerIds = computed(() => peers.value.map(p => p.id))
+const peerIds = computed(() => {
+  const ids = peers.value.map(p => p.id)
+  return ids.sort((a, b) => {
+    const pa = positions[a] ?? Number.POSITIVE_INFINITY
+    const pb = positions[b] ?? Number.POSITIVE_INFINITY
+    if (pa !== pb) return pa - pb
+    return String(a).localeCompare(String(b))
+  })
+})
 const gridStyle = computed(() => {
   const count = peerIds.value.length
   const cols = count <= 6 ? 3 : count <= 12 ? 4 : 5
@@ -80,6 +89,7 @@ const gridStyle = computed(() => {
 })
 
 const isEmpty = (v: any) => v === undefined || v === null || v === ''
+const pick01 = (v: any, fallback: 0 | 1) => isEmpty(v) ? fallback : norm01(v, fallback)
 function norm01(v: unknown, fallback: 0 | 1): 0 | 1 {
   if (typeof v === 'boolean') return v ? 1 : 0
   if (typeof v === 'number') return v === 1 ? 1 : v === 0 ? 0 : fallback
@@ -90,29 +100,13 @@ function norm01(v: unknown, fallback: 0 | 1): 0 | 1 {
   }
   return fallback
 }
-const pick01 = (v: any, fallback: 0 | 1) => isEmpty(v) ? fallback : norm01(v, fallback)
-
-function applyPeerState(uid: string, patch: any) {
-  const cur = statusMap[uid] ?? { mic: 1, cam: 1, speakers: 1, visibility: 1 }
-  statusMap[uid] = {
-    mic: pick01(patch?.mic, cur.mic),
-    cam: pick01(patch?.cam, cur.cam),
-    speakers: pick01(patch?.speakers, cur.speakers),
-    visibility: pick01(patch?.visibility, cur.visibility),
-  }
-}
-function applySelfPref(pref: any) {
-  if (!isEmpty(pref?.mic)) local.mic = norm01(pref.mic, local.mic ? 1 : 0) === 1
-  if (!isEmpty(pref?.cam)) local.cam = norm01(pref.cam, local.cam ? 1 : 0) === 1
-  if (!isEmpty(pref?.speakers)) local.speakers = norm01(pref.speakers, local.speakers ? 1 : 0) === 1
-  if (!isEmpty(pref?.visibility)) local.visibility = norm01(pref.visibility, local.visibility ? 1 : 0) === 1
-}
 
 function em(kind: 'mic' | 'cam' | 'speakers' | 'visibility', on?: boolean) {
   const ON = { mic: '🎤', cam: '🎥', speakers: '🔈', visibility: '👁️' } as const
   const OFF = { mic: '🔇', cam: '🚫', speakers: '🔇', visibility: '🙈' } as const
   return (on ?? true) ? ON[kind] : OFF[kind]
 }
+
 function isOn(id: string, kind: 'mic' | 'cam' | 'speakers' | 'visibility') {
   if (id === localId.value) {
     if (kind === 'mic') return micOn.value
@@ -123,10 +117,28 @@ function isOn(id: string, kind: 'mic' | 'cam' | 'speakers' | 'visibility') {
   const st = statusMap[id]
   return st ? st[kind] === 1 : true
 }
+
 function isCovered(id: string): boolean {
   const isSelf = id === localId.value
   const remoteCamOn = statusMap[id]?.cam === 1
   return (isSelf && !camOn.value) || (!isSelf && (!remoteCamOn || !visibilityOn.value))
+}
+
+function applyPeerState(uid: string, patch: any) {
+  const cur = statusMap[uid] ?? { mic: 1, cam: 1, speakers: 1, visibility: 1 }
+  statusMap[uid] = {
+    mic: pick01(patch?.mic, cur.mic),
+    cam: pick01(patch?.cam, cur.cam),
+    speakers: pick01(patch?.speakers, cur.speakers),
+    visibility: pick01(patch?.visibility, cur.visibility),
+  }
+}
+
+function applySelfPref(pref: any) {
+  if (!isEmpty(pref?.mic)) local.mic = norm01(pref.mic, local.mic ? 1 : 0) === 1
+  if (!isEmpty(pref?.cam)) local.cam = norm01(pref.cam, local.cam ? 1 : 0) === 1
+  if (!isEmpty(pref?.speakers)) local.speakers = norm01(pref.speakers, local.speakers ? 1 : 0) === 1
+  if (!isEmpty(pref?.visibility)) local.visibility = norm01(pref.visibility, local.visibility ? 1 : 0) === 1
 }
 
 function connectSocket() {
@@ -141,10 +153,33 @@ function connectSocket() {
     reconnectionDelay: 500,
     reconnectionDelayMax: 5000,
   })
+
+  socket.value.on('reconnect', async () => {
+    try { await socket.value!.timeout(1500).emitWithAck('join', { room_id: rid, state: { ...local } }) } catch {}
+  })
+
+  socket.value.on('connect_error', e => console.warn('rtc sio error', e?.message))
+
   socket.value.on('state_changed', (p: any) => applyPeerState(String(p.user_id), p))
+
   socket.value.on('member_joined', (p: any) => applyPeerState(String(p.user_id), p?.state || {}))
-  socket.value.on('member_left', (p: any) => delete statusMap[String(p.user_id)])
+
+  socket.value.on('member_left', (p: any) => {
+    const id = String(p.user_id)
+    delete statusMap[id]
+    delete positions[id]
+  })
+
+  socket.value.on('positions', (p: any) => {
+    const ups = Array.isArray(p?.updates) ? p.updates : []
+    for (const u of ups) {
+      const id = String(u.user_id)
+      const pos = Number(u.position)
+      if (Number.isFinite(pos)) positions[id] = pos
+    }
+  })
 }
+
 async function joinViaSocket() {
   if (!socket.value) connectSocket()
   if (!socket.value!.connected) {
@@ -158,6 +193,7 @@ async function joinViaSocket() {
   }
   return await socket.value!.timeout(1500).emitWithAck('join', { room_id: rid, state: { ...local } })
 }
+
 async function publishState(delta: Partial<{ mic: boolean; cam: boolean; speakers: boolean; visibility: boolean }>) {
   if (!roomId.value || !socket.value || !socket.value.connected) return false
   try {
@@ -189,18 +225,20 @@ const toggleFactory = (k: keyof typeof local, onEnable?: () => Promise<void>, on
 
 const toggleMic = toggleFactory('mic',
   async () => {
-    const id = await ensureTrack('audioinput', rtc.selectedMicId.value || null || undefined)
+    const id = await ensureTrack('audioinput', rtc.selectedMicId.value || undefined)
     if (!id) throw new Error('no-mic')
     rtc.selectedMicId.value = id
+    rtc.saveLS(rtc.LS.mic, id)
   },
   async () => { await rtc.lk.value?.localParticipant.setMicrophoneEnabled(false) },
 )
 
 const toggleCam = toggleFactory('cam',
   async () => {
-    const id = await ensureTrack('videoinput', rtc.selectedCamId.value || null || undefined)
+    const id = await ensureTrack('videoinput', rtc.selectedCamId.value || undefined)
     if (!id) throw new Error('no-cam')
     rtc.selectedCamId.value = id
+    rtc.saveLS(rtc.LS.cam, id)
     rtc.attachLocalVideo()
   },
   async () => { await rtc.lk.value?.localParticipant.setCameraEnabled(false) },
@@ -256,10 +294,15 @@ onMounted(async () => {
       return
     }
 
-    rtc.selectedMicId.value = localStorage.getItem('audioDeviceId') || ''
-    rtc.selectedCamId.value = localStorage.getItem('videoDeviceId') || ''
+    rtc.selectedMicId.value = rtc.loadLS(rtc.LS.mic) || ''
+    rtc.selectedCamId.value = rtc.loadLS(rtc.LS.cam) || ''
     await refreshDevices()
 
+    Object.keys(positions).forEach(k => delete positions[k])
+    Object.entries(j.positions || {}).forEach(([uid, pos]: any) => {
+      const p = Number(pos)
+      if (Number.isFinite(p)) positions[String(uid)] = p
+    })
     Object.keys(statusMap).forEach(k => delete statusMap[k])
     Object.entries(j.snapshot || {}).forEach(([uid, st]: any) => {
       statusMap[uid] = {
@@ -272,14 +315,26 @@ onMounted(async () => {
     if (j.self_pref) applySelfPref(j.self_pref)
 
     rtc.initRoom({
-      onMediaDevicesError: async (e: any) => {
-        const msg = (e?.message || '') + ''
-        const name = (e?.name || '') + ''
+      onMediaDevicesError: async (e: unknown) => {
+        if (!rtc.isBusyError(e)) return
+        const msg = ((e as any)?.message || '') + ''
+        const name = ((e as any)?.name || '') + ''
         const isVideo = /video|camera/i.test(msg) || /video/i.test(name)
         const isAudio = /audio|microphone/i.test(msg) || /audio/i.test(name)
-        if (name === 'NotReadableError' || /Could not start .* source/i.test(msg)) {
-          if (isVideo || (!isAudio && camOn.value)) await rtc.refreshDevices()
-          if (isAudio || (!isVideo && micOn.value)) await rtc.refreshDevices()
+
+        if (isVideo && camOn.value) {
+          await rtc.fallback('videoinput')
+          if (!rtc.selectedCamId.value) {
+            camOn.value = false
+            await publishState({ cam: false })
+          }
+        }
+        if (isAudio && micOn.value) {
+          await rtc.fallback('audioinput')
+          if (!rtc.selectedMicId.value) {
+            micOn.value = false
+            await publishState({ mic: false })
+          }
         }
       }
     })
@@ -288,7 +343,6 @@ onMounted(async () => {
 
     rtc.setAudioSubscriptionsForAll(speakersOn.value)
     rtc.setVideoSubscriptionsForAll(visibilityOn.value)
-    rtc.applySubsForAll()
 
     if (camOn.value) {
       const okId = await ensureTrack('videoinput', rtc.selectedCamId.value || undefined)

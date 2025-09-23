@@ -1,4 +1,4 @@
-import { ref, reactive, computed, type Ref } from 'vue'
+import { ref, type Ref } from 'vue'
 import {
   LocalParticipant,
   LocalTrackPublication,
@@ -9,10 +9,12 @@ import {
   Track,
   VideoPresets,
 } from 'livekit-client'
+import { setLogLevel, LogLevel } from 'livekit-client'
+
+setLogLevel(LogLevel.warn)
 
 type Peer = { id: string; joinedAt: number; isLocal: boolean }
 type DeviceKind = 'audioinput' | 'videoinput'
-
 const LS = { mic: 'audioDeviceId', cam: 'videoDeviceId' }
 
 function saveLS(k: string, v: string) { try { localStorage.setItem(k, v) } catch {} }
@@ -24,11 +26,12 @@ export type UseRTC = {
   peers: Ref<Peer[]>
   mics: Ref<MediaDeviceInfo[]>
   cams: Ref<MediaDeviceInfo[]>
+  LS: typeof LS
+  saveLS: (k: string, v: string) => void
+  loadLS: (k: string) => string | null
   selectedMicId: Ref<string>
   selectedCamId: Ref<string>
-
   videoRef: (id: string) => (el: HTMLVideoElement | null) => void
-
   initRoom: (opts?: {
     onMediaDevicesError?: (e: unknown) => void
     publishDefaults?: Parameters<typeof LkRoom>[0]['publishDefaults']
@@ -42,16 +45,14 @@ export type UseRTC = {
     websocketTimeout?: number
   }) => Promise<void>
   disconnect: () => Promise<void>
-
   setAudioSubscriptionsForAll: (on: boolean) => void
   setVideoSubscriptionsForAll: (on: boolean) => void
-  applySubsForAll: () => void
-
   refreshDevices: () => Promise<void>
+  isBusyError: (e: unknown) => boolean
+  fallback: (kind: DeviceKind) => Promise<void>
   onDeviceChange: (kind: DeviceKind) => Promise<void>
   ensureTrack: (kind: DeviceKind, preferredId?: string) => Promise<string | null>
   attachLocalVideo: (room?: LkRoom | null) => void
-
   getByIdentity: (room: LkRoom, id: string) => RemoteParticipant | undefined
 }
 
@@ -59,15 +60,12 @@ export function useRTC(): UseRTC {
   const lk = ref<LkRoom | null>(null)
   const localId = ref('')
   const peers = ref<Peer[]>([])
-
   const videoEls = new Map<string, HTMLVideoElement>()
   const audioEls = new Map<string, HTMLAudioElement>()
-
   const mics = ref<MediaDeviceInfo[]>([])
   const cams = ref<MediaDeviceInfo[]>([])
   const selectedMicId = ref<string>('')
   const selectedCamId = ref<string>('')
-
   const wantAudio = ref(true)
   const wantVideo = ref(true)
 
@@ -185,6 +183,31 @@ export function useRTC(): UseRTC {
     if (kind === 'videoinput') attachLocalVideo(room)
   }
 
+  function isBusyError(e: unknown): boolean {
+    const name = ((e as any)?.name || '') + ''
+    const msg  = ((e as any)?.message || '') + ''
+    return name === 'NotReadableError' || /Could not start .* source/i.test(msg)
+  }
+
+  async function fallback(kind: DeviceKind): Promise<void> {
+    await refreshDevices()
+    const list = kind === 'audioinput' ? mics.value : cams.value
+    const setEnabled = (on: boolean) =>
+      kind === 'audioinput'
+        ? lk.value?.localParticipant.setMicrophoneEnabled(on)
+        : lk.value?.localParticipant.setCameraEnabled(on)
+    if (list.length === 0) {
+      await setEnabled(false)
+      if (kind === 'audioinput') { selectedMicId.value = ''; saveLS(LS.mic, '') }
+      else { selectedCamId.value = ''; saveLS(LS.cam, '') }
+      return
+    }
+    const id = list[0].deviceId
+    try { await lk.value?.switchActiveDevice(kind, id) } catch {}
+    if (kind === 'audioinput') { selectedMicId.value = id; saveLS(LS.mic, id) }
+    else { selectedCamId.value = id; saveLS(LS.cam, id); attachLocalVideo() }
+  }
+
   function setSubscriptions(kind: Track.Kind, on: boolean) {
     const room = lk.value
     if (!room) return
@@ -201,11 +224,6 @@ export function useRTC(): UseRTC {
   const setVideoSubscriptionsForAll = (on: boolean) => {
     wantVideo.value = on
     setSubscriptions(Track.Kind.Video, on)
-  }
-  const applySubsForAll = () => {
-    const room = lk.value
-    if (!room) return
-    room.remoteParticipants.forEach(applySubsFor)
   }
   function applySubsFor(p: RemoteParticipant) {
     p.getTrackPublications().forEach(pub => {
@@ -352,24 +370,24 @@ export function useRTC(): UseRTC {
     peers,
     mics,
     cams,
+    LS,
     selectedMicId,
     selectedCamId,
 
     videoRef,
-
     initRoom,
     connect,
     disconnect,
-
     setAudioSubscriptionsForAll,
     setVideoSubscriptionsForAll,
-    applySubsForAll,
-
+    saveLS,
+    loadLS,
     refreshDevices,
+    isBusyError,
+    fallback,
     onDeviceChange,
     ensureTrack,
     attachLocalVideo,
-
     getByIdentity,
   }
 }

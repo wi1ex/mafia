@@ -15,5 +15,6 @@ class Room(Base):
     user_limit: Mapped[int] = mapped_column(Integer, nullable=False, default=12)
     is_private: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     visitor_ids: Mapped[list[int]] = mapped_column(JSONB, nullable=False, default=list, server_default="[]")
+    visitor_durations: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default="{}")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     deleted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)

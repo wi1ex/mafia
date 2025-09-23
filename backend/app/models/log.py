@@ -14,5 +14,5 @@ class AppLog(Base):
     user_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True, index=True)
     username: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
     action: Mapped[str] = mapped_column(String(64), nullable=False)
-    details: Mapped[dict] = mapped_column(JSONB, nullable=False, server_default="{}")
+    details: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default="{}")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)

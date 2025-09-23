@@ -61,3 +61,4 @@ class JoinAck(TypedDict, total=False):
     token: str
     snapshot: Dict[str, Dict[str, str]]
     self_pref: Dict[str, str]
+    positions: Dict[str, int]
