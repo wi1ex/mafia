@@ -38,7 +38,7 @@ class AccessTokenOut(BaseModel):
 
 
 class RoomCreateIn(BaseModel):
-    title: str = Field(min_length=1, max_length=120)
+    title: str = Field(min_length=1, max_length=64)
     user_limit: int = Field(ge=2, le=20, default=12)
     is_private: bool = False
 
