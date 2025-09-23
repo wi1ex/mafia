@@ -2,7 +2,8 @@ from __future__ import annotations
 from datetime import timezone
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from ...utils import to_redis, rate_limit
+from ...utils_common import to_redis
+from ..utils_api import rate_limit
 from ...core.clients import get_redis
 from ...core.route_utils import log_route
 from ...db import get_session

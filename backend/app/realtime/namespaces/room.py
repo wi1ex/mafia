@@ -7,7 +7,7 @@ from ...core.clients import get_redis
 from ...core.security import decode_token
 from ...schemas import JoinAck
 from ...services.livekit_tokens import make_livekit_token
-from ...utils import apply_state, gc_empty_room, get_room_snapshot, join_room_atomic, leave_room_atomic, get_positions
+from ..utils_sio import apply_state, gc_empty_room, get_room_snapshot, join_room_atomic, leave_room_atomic, get_positions
 
 log = structlog.get_logger()
 

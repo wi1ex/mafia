@@ -2,7 +2,7 @@ from __future__ import annotations
 import structlog
 from ..sio import sio
 from ...core.clients import get_redis
-from ...utils import get_occupancies
+from ..utils_sio import get_occupancies
 
 log = structlog.get_logger()
 
