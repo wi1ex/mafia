@@ -13,6 +13,7 @@ import { setLogLevel, LogLevel } from 'livekit-client'
 
 setLogLevel(LogLevel.warn)
 
+type Peer = { id: string; joinedAt: number; isLocal: boolean }
 type DeviceKind = 'audioinput' | 'videoinput'
 const LS = { mic: 'audioDeviceId', cam: 'videoDeviceId' }
 
@@ -22,7 +23,7 @@ function loadLS(k: string): string | null { try { return localStorage.getItem(k)
 export type UseRTC = {
   lk: Ref<LkRoom | null>
   localId: Ref<string>
-  peerIds: Ref<Set<string>>
+  peers: Ref<Peer[]>
   mics: Ref<MediaDeviceInfo[]>
   cams: Ref<MediaDeviceInfo[]>
   LS: typeof LS
@@ -50,13 +51,15 @@ export type UseRTC = {
   isBusyError: (e: unknown) => boolean
   fallback: (kind: DeviceKind) => Promise<void>
   onDeviceChange: (kind: DeviceKind) => Promise<void>
-  enable: (kind: DeviceKind) => Promise<boolean>
+  ensureTrack: (kind: DeviceKind, preferredId?: string) => Promise<string | null>
+  attachLocalVideo: (room?: LkRoom | null) => void
+  getByIdentity: (room: LkRoom, id: string) => RemoteParticipant | undefined
 }
 
 export function useRTC(): UseRTC {
   const lk = ref<LkRoom | null>(null)
   const localId = ref('')
-  const peerIds = ref<Set<string>>(new Set())
+  const peers = ref<Peer[]>([])
   const videoEls = new Map<string, HTMLVideoElement>()
   const audioEls = new Map<string, HTMLAudioElement>()
   const mics = ref<MediaDeviceInfo[]>([])
@@ -65,6 +68,32 @@ export function useRTC(): UseRTC {
   const selectedCamId = ref<string>('')
   const wantAudio = ref(true)
   const wantVideo = ref(true)
+
+  function upsertPeerFromParticipant(p: RemoteParticipant | LocalParticipant, isLocal = false) {
+    const id = String(p.identity)
+    const ja: any = (p as any).joinedAt
+    const ts = typeof ja === 'number' ? ja : ja instanceof Date ? ja.getTime() : Date.now()
+    const i = peers.value.findIndex(x => x.id === id)
+    const rec: Peer = { id, joinedAt: ts, isLocal }
+    if (i >= 0) peers.value[i] = { ...peers.value[i], ...rec }
+    else peers.value.push(rec)
+    peers.value.sort((a, b) => a.joinedAt - b.joinedAt || Number(a.isLocal) - Number(b.isLocal) || a.id.localeCompare(b.id))
+  }
+
+  function removePeer(id: string) {
+    peers.value = peers.value.filter(x => x.id !== id)
+    const v = videoEls.get(id)
+    if (v) {
+      try { v.srcObject = null } catch {}
+      videoEls.delete(id)
+    }
+    const a = audioEls.get(id)
+    if (a) {
+      try { a.srcObject = null } catch {}
+      try { a.remove() } catch {}
+      audioEls.delete(id)
+    }
+  }
 
   function getByIdentity(room: LkRoom, id: string) {
     return room.getParticipantByIdentity?.(id) ?? room.remoteParticipants.get(id)
@@ -90,18 +119,17 @@ export function useRTC(): UseRTC {
   }
   const videoRef = (id: string) => (el: HTMLVideoElement | null) => setVideoRef(id, el)
 
-  function ensureAudioEl(id: string): HTMLAudioElement {
-    let a = audioEls.get(id)
-    if (!a) {
-      a = new Audio()
-      a.autoplay = true
-      a.playsInline = true
-      a.muted = false
-      a.style.display = 'none'
-      audioEls.set(id, a)
-      document.body.appendChild(a)
+  function attachLocalVideo(room?: LkRoom | null) {
+    const r = room ?? lk.value
+    if (!r) return
+    const el = videoEls.get(localId.value)
+    const vpub = Array.from(r.localParticipant.getTrackPublications()).find(p => p.kind === Track.Kind.Video)
+    if (el && vpub?.track) {
+      try {
+        vpub.track.attach(el)
+        el.muted = true
+      } catch {}
     }
-    return a
   }
 
   async function refreshDevices() {
@@ -120,6 +148,31 @@ export function useRTC(): UseRTC {
     } catch {}
   }
 
+  async function ensureTrack(kind: DeviceKind, preferredId?: string): Promise<string | null> {
+    const room = lk.value
+    if (!room) return null
+    if ((kind === 'audioinput' ? mics.value.length : cams.value.length) === 0) {
+      await refreshDevices()
+    }
+    const list = (kind === 'audioinput' ? mics.value : cams.value)
+    if (list.length === 0) return null
+    const ids = Array.from(new Set([preferredId && list.some(d => d.deviceId === preferredId) ? preferredId : null, ...list.map(d => d.deviceId)].filter(Boolean) as string[]))
+    for (const id of ids) {
+      try {
+        if (kind === 'audioinput') {
+          await room.localParticipant.setMicrophoneEnabled(true, { deviceId: { exact: id } } as any)
+        } else {
+          await room.localParticipant.setCameraEnabled(true, { deviceId: { exact: id }, resolution: VideoPresets.h360.resolution } as any)
+          attachLocalVideo(room)
+        }
+        return id
+      } catch {
+        try { kind === 'audioinput' ? await room.localParticipant.setMicrophoneEnabled(false) : await room.localParticipant.setCameraEnabled(false) } catch {}
+      }
+    }
+    return null
+  }
+
   async function onDeviceChange(kind: DeviceKind) {
     const room = lk.value
     if (!room) return
@@ -127,6 +180,7 @@ export function useRTC(): UseRTC {
     const lsKey = kind === 'audioinput' ? LS.mic : LS.cam
     saveLS(lsKey, deviceId)
     await room.switchActiveDevice(kind, deviceId)
+    if (kind === 'videoinput') attachLocalVideo(room)
   }
 
   function isBusyError(e: unknown): boolean {
@@ -144,60 +198,15 @@ export function useRTC(): UseRTC {
         : lk.value?.localParticipant.setCameraEnabled(on)
     if (list.length === 0) {
       await setEnabled(false)
-      if (kind === 'audioinput') {
-        selectedMicId.value = ''
-        saveLS(LS.mic, '')
-      } else {
-        selectedCamId.value = ''
-        saveLS(LS.cam, '')
-      }
+      if (kind === 'audioinput') { selectedMicId.value = ''; saveLS(LS.mic, '') }
+      else { selectedCamId.value = ''; saveLS(LS.cam, '') }
       return
     }
     const id = list[0].deviceId
     try { await lk.value?.switchActiveDevice(kind, id) } catch {}
-    if (kind === 'audioinput') {
-      selectedMicId.value = id
-      saveLS(LS.mic, id)
-    } else {
-      selectedCamId.value = id
-      saveLS(LS.cam, id)
-    }
+    if (kind === 'audioinput') { selectedMicId.value = id; saveLS(LS.mic, id) }
+    else { selectedCamId.value = id; saveLS(LS.cam, id); attachLocalVideo() }
   }
-
-async function enable(kind: DeviceKind): Promise<boolean> {
-  const room = lk.value
-  if (!room) return false
-  if ((kind === 'audioinput' ? mics.value.length : cams.value.length) === 0) {
-    await refreshDevices()
-  }
-  const id = kind === 'audioinput' ? selectedMicId.value : selectedCamId.value
-  try {
-    if (kind === 'audioinput') {
-      await room.localParticipant.setMicrophoneEnabled(true, id
-        ? ({ deviceId: { exact: id } } as any)
-        : undefined)
-    } else {
-      await room.localParticipant.setCameraEnabled(true, id
-        ? ({ deviceId: { exact: id }, resolution: VideoPresets.h360.resolution } as any)
-        : ({ resolution: VideoPresets.h360.resolution } as any))
-    }
-    return true
-  } catch {
-    await fallback(kind)
-    const nextId = kind === 'audioinput' ? selectedMicId.value : selectedCamId.value
-    if (!nextId) return false
-    try {
-      if (kind === 'audioinput') {
-        await room.localParticipant.setMicrophoneEnabled(true,
-          { deviceId: { exact: nextId } } as any)
-      } else {
-        await room.localParticipant.setCameraEnabled(true,
-          { deviceId: { exact: nextId }, resolution: VideoPresets.h360.resolution } as any)
-      }
-      return true
-    } catch { return false }
-  }
-}
 
   function setSubscriptions(kind: Track.Kind, on: boolean) {
     const room = lk.value
@@ -231,7 +240,7 @@ async function enable(kind: DeviceKind): Promise<boolean> {
       try { a.remove() } catch {}
     })
     audioEls.clear()
-    peerIds.value.clear()
+    peers.value = []
     localId.value = ''
   }
 
@@ -279,12 +288,21 @@ async function enable(kind: DeviceKind): Promise<boolean> {
 
     room.on(RoomEvent.TrackSubscribed, (t: RemoteTrack, _pub, part) => {
       const id = String(part.identity)
-      peerIds.value.add(id)
+      upsertPeerFromParticipant(part)
       if (t.kind === Track.Kind.Video) {
         const el = videoEls.get(id)
         if (el) { try { t.attach(el) } catch {} }
       } else if (t.kind === Track.Kind.Audio) {
-        const a = ensureAudioEl(id)
+        let a = audioEls.get(id)
+        if (!a) {
+          a = new Audio()
+          a.autoplay = true
+          a.playsInline = true
+          a.muted = false
+          a.style.display = 'none'
+          audioEls.set(id, a)
+          document.body.appendChild(a)
+        }
         try { t.attach(a) } catch {}
       }
     })
@@ -303,24 +321,10 @@ async function enable(kind: DeviceKind): Promise<boolean> {
     room.on(RoomEvent.TrackPublished, (_pub, part) => applySubsFor(part as RemoteParticipant))
 
     room.on(RoomEvent.ParticipantConnected, (p: RemoteParticipant) => {
-      peerIds.value.add(String(p.identity))
+      upsertPeerFromParticipant(p)
       applySubsFor(p)
     })
-    room.on(RoomEvent.ParticipantDisconnected, (p) => {
-      const id = String(p.identity)
-      peerIds.value.delete(id)
-      const a = audioEls.get(id)
-      if (a) {
-        try { a.srcObject = null } catch {}
-        try { a.remove() } catch {}
-        audioEls.delete(id)
-      }
-      const v = videoEls.get(id)
-      if (v) {
-        try { v.srcObject = null } catch {}
-        videoEls.delete(id)
-      }
-    })
+    room.on(RoomEvent.ParticipantDisconnected, (p) => removePeer(String(p.identity)))
 
     room.on(RoomEvent.MediaDevicesError, (e: any) => { opts?.onMediaDevicesError?.(e) })
 
@@ -341,8 +345,8 @@ async function enable(kind: DeviceKind): Promise<boolean> {
     })
 
     localId.value = String(room.localParticipant.identity)
-    peerIds.value.add(localId.value)
-    room.remoteParticipants.forEach(p => peerIds.value.add(String(p.identity)))
+    upsertPeerFromParticipant(room.localParticipant, true)
+    room.remoteParticipants.forEach(p => upsertPeerFromParticipant(p))
     attachDeviceListener()
   }
 
@@ -363,7 +367,7 @@ async function enable(kind: DeviceKind): Promise<boolean> {
   return {
     lk,
     localId,
-    peerIds,
+    peers,
     mics,
     cams,
     LS,
@@ -382,6 +386,8 @@ async function enable(kind: DeviceKind): Promise<boolean> {
     isBusyError,
     fallback,
     onDeviceChange,
-    enable,
+    ensureTrack,
+    attachLocalVideo,
+    getByIdentity,
   }
 }

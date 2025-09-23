@@ -9,7 +9,7 @@
     <div v-else class="user">
       <img :src="auth.user?.photo_url || defaultAvatar" alt="Аватар" class="avatar" loading="lazy" referrerpolicy="no-referrer" />
       <span class="nick" aria-live="polite">{{ auth.user?.username || 'User' }}</span>
-      <button class="btn btn-ghost" type="button" @click="logout">Выйти</button>
+      <button class="btn" type="button" @click="logout">Выйти</button>
     </div>
   </header>
 </template>
@@ -61,8 +61,6 @@ onBeforeUnmount(() => {
   padding: 12px 16px;
   .brand {
     color: $fg;
-    font-weight: 700;
-    letter-spacing: 0.5px;
   }
   .user {
     display: flex;
@@ -73,21 +71,14 @@ onBeforeUnmount(() => {
       height: 32px;
       border-radius: 50%;
       object-fit: cover;
-      background: #0b0f14;
     }
     .nick {
       color: $fg;
     }
     .btn {
       padding: 6px 10px;
-      border: 0;
       border-radius: 8px;
       cursor: pointer;
-      transition: opacity 0.2s ease;
-    }
-    .btn-ghost {
-      background: #334155;
-      color: #7795d2;
     }
   }
 }

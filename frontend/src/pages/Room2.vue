@@ -70,10 +70,10 @@ const leaving = ref(false)
 const ws_url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host
 
 const rtc = useRTC()
-const { localId, peerIds: idsSet, mics, cams, selectedMicId, selectedCamId, videoRef, refreshDevices, enable, onDeviceChange } = rtc
+const { localId, peers, mics, cams, selectedMicId, selectedCamId, videoRef, refreshDevices, ensureTrack, onDeviceChange } = rtc
 
 const peerIds = computed(() => {
-  const ids = Array.from(idsSet.value)
+  const ids = peers.value.map(p => p.id)
   return ids.sort((a, b) => {
     const pa = positions[a] ?? Number.POSITIVE_INFINITY
     const pb = positions[b] ?? Number.POSITIVE_INFINITY
@@ -127,17 +127,17 @@ function isCovered(id: string): boolean {
 function applyPeerState(uid: string, patch: any) {
   const cur = statusMap[uid] ?? { mic: 1, cam: 1, speakers: 1, visibility: 1 }
   statusMap[uid] = {
-    mic:        pick01(patch?.mic, cur.mic),
-    cam:        pick01(patch?.cam, cur.cam),
-    speakers:   pick01(patch?.speakers, cur.speakers),
+    mic: pick01(patch?.mic, cur.mic),
+    cam: pick01(patch?.cam, cur.cam),
+    speakers: pick01(patch?.speakers, cur.speakers),
     visibility: pick01(patch?.visibility, cur.visibility),
   }
 }
 
 function applySelfPref(pref: any) {
-  if (!isEmpty(pref?.mic))        local.mic        = norm01(pref.mic, local.mic ? 1 : 0) === 1
-  if (!isEmpty(pref?.cam))        local.cam        = norm01(pref.cam, local.cam ? 1 : 0) === 1
-  if (!isEmpty(pref?.speakers))   local.speakers   = norm01(pref.speakers, local.speakers ? 1 : 0) === 1
+  if (!isEmpty(pref?.mic)) local.mic = norm01(pref.mic, local.mic ? 1 : 0) === 1
+  if (!isEmpty(pref?.cam)) local.cam = norm01(pref.cam, local.cam ? 1 : 0) === 1
+  if (!isEmpty(pref?.speakers)) local.speakers = norm01(pref.speakers, local.speakers ? 1 : 0) === 1
   if (!isEmpty(pref?.visibility)) local.visibility = norm01(pref.visibility, local.visibility ? 1 : 0) === 1
 }
 
@@ -213,7 +213,7 @@ const toggleFactory = (k: keyof typeof local, onEnable?: () => Promise<void>, on
       if (want) await onEnable?.()
       else await onDisable?.()
       local[k] = want
-      if (k === 'speakers')   rtc.setAudioSubscriptionsForAll(local.speakers)
+      if (k === 'speakers') rtc.setAudioSubscriptionsForAll(local.speakers)
       if (k === 'visibility') rtc.setVideoSubscriptionsForAll(local.visibility)
     } catch {
       try { await publishState({ [k]: !want } as any) } catch {}
@@ -225,16 +225,21 @@ const toggleFactory = (k: keyof typeof local, onEnable?: () => Promise<void>, on
 
 const toggleMic = toggleFactory('mic',
   async () => {
-    const ok = await enable('audioinput')
-    if (!ok) throw new Error('no-mic')
+    const id = await ensureTrack('audioinput', rtc.selectedMicId.value || undefined)
+    if (!id) throw new Error('no-mic')
+    rtc.selectedMicId.value = id
+    rtc.saveLS(rtc.LS.mic, id)
   },
   async () => { await rtc.lk.value?.localParticipant.setMicrophoneEnabled(false) },
 )
 
 const toggleCam = toggleFactory('cam',
   async () => {
-    const ok = await enable('videoinput')
-    if (!ok) throw new Error('no-cam')
+    const id = await ensureTrack('videoinput', rtc.selectedCamId.value || undefined)
+    if (!id) throw new Error('no-cam')
+    rtc.selectedCamId.value = id
+    rtc.saveLS(rtc.LS.cam, id)
+    rtc.attachLocalVideo()
   },
   async () => { await rtc.lk.value?.localParticipant.setCameraEnabled(false) },
 )
@@ -273,7 +278,9 @@ async function onLeave() {
   }
 }
 
-const onPageHide = () => { void onLeave() }
+const onPageHide = () => {
+  void onLeave()
+}
 
 onMounted(async () => {
   try {
@@ -338,20 +345,22 @@ onMounted(async () => {
     rtc.setVideoSubscriptionsForAll(visibilityOn.value)
 
     if (camOn.value) {
-      const ok = await enable('videoinput')
-      if (!ok) {
+      const okId = await ensureTrack('videoinput', rtc.selectedCamId.value || undefined)
+      if (!okId) {
         alert('Не удалось запустить камеру')
         await onLeave()
         return
       }
+      rtc.selectedCamId.value = okId
     }
     if (micOn.value) {
-      const ok = await enable('audioinput')
-      if (!ok) {
+      const okId = await ensureTrack('audioinput', rtc.selectedMicId.value || undefined)
+      if (!okId) {
         alert('Не удалось запустить микрофон')
         await onLeave()
         return
       }
+      rtc.selectedMicId.value = okId
     }
 
     window.addEventListener('pagehide', onPageHide)
@@ -382,7 +391,7 @@ onBeforeUnmount(() => {
   position: relative;
   border-radius: 12px;
   overflow: hidden;
-  background: $bg;
+  background: #0b0f14;
   aspect-ratio: 16 / 9;
 }
 video {
@@ -392,7 +401,7 @@ video {
   height: 100%;
   display: block;
   object-fit: cover;
-  background: $black;
+  background: #000;
   filter: none !important;
   mix-blend-mode: normal !important;
   opacity: 1 !important;
@@ -400,7 +409,7 @@ video {
 .veil {
   position: absolute;
   inset: 0;
-  background: $black;
+  background: #000;
   opacity: 0;
   transition: opacity 0.25s ease-in-out;
   pointer-events: auto;
@@ -416,12 +425,13 @@ video {
   gap: 6px;
   z-index: 2;
   .badge {
+    font-size: 14px;
     line-height: 1;
     padding: 4px 6px;
     border-radius: 8px;
-    background: $black;
-    border: 1px solid $fg;
-    color: $fg;
+    background: #000000;
+    border: 1px solid #12202e;
+    color: #e5e7eb;
     backdrop-filter: none !important;
   }
 }
@@ -435,15 +445,15 @@ video {
     border-radius: 8px;
     border: 0;
     cursor: pointer;
-    background: $bg;
-    color: $fg;
+    background: #12202e;
+    color: #e5e7eb;
     &:disabled {
       opacity: 0.6;
       cursor: not-allowed;
     }
     &.danger {
       background: $color-danger;
-      color: $fg;
+      color: #883c3c;
     }
   }
 }
@@ -457,9 +467,9 @@ video {
     select {
       padding: 6px 8px;
       border-radius: 8px;
-      border: 1px solid $fg;
-      background: $bg;
-      color: $fg;
+      border: 1px solid #334155;
+      background: #0b0f14;
+      color: #e5e7eb;
     }
   }
 }

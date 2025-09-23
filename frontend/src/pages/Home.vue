@@ -22,7 +22,7 @@
       <h3 class="subtitle">Создать комнату</h3>
       <input v-model.trim="title" class="input" placeholder="Название" maxlength="64" />
       <input v-model.number="limit" class="input" type="number" min="2" max="20" placeholder="Лимит" />
-      <button class="btn btn-primary" :disabled="creating || !valid" @click="onCreate">
+      <button class="btn" :disabled="creating || !valid" @click="onCreate">
         {{ creating ? 'Создаю…' : 'Создать' }}
       </button>
     </div>
@@ -159,12 +159,9 @@ onBeforeUnmount(() => {
   padding: 12px 16px;
   .title {
     color: $fg;
-    margin: 0 0 8px;
   }
   .subtitle {
     color: $fg;
-    margin: 12px 0 6px;
-    font-size: 16px;
   }
   .muted {
     color: $muted;
@@ -198,28 +195,23 @@ onBeforeUnmount(() => {
     }
   }
   .create {
-    margin-top: 16px;
     display: flex;
     align-items: center;
     gap: 8px;
-    flex-wrap: wrap;
   }
   .input {
     padding: 8px 10px;
     border-radius: 8px;
-    border: 1px solid #334155;
-    color: #e5e7eb;
-    background: #0b0f14;
+    border: 1px solid $fg;
+    color: $fg;
+    background: $bg;
   }
   .btn {
     padding: 8px 12px;
     border-radius: 8px;
-    border: 0;
     cursor: pointer;
-  }
-  .btn-primary {
     background: $color-primary;
-    color: #06110b;
+    color: $bg;
   }
 }
 </style>
