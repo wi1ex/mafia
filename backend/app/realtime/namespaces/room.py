@@ -23,6 +23,7 @@ async def connect(sid, environ, auth):
         uid = int(p["sub"])
         role = str(p.get("role") or "user")
         await sio.save_session(sid, {"uid": uid, "rid": None, "role": role}, namespace="/room")
+        await sio.enter_room(sid, f"user:{uid}", namespace="/room")
     except ExpiredSignatureError:
         log.warning("sio.connect.expired_token")
         raise ConnectionRefusedError("expired_token")

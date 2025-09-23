@@ -35,10 +35,9 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
         "occupancy": 0,
     }
 
-    ts = int(room.created_at.replace(tzinfo=timezone.utc).timestamp())
     async with r.pipeline(transaction=True) as pipe:
         await pipe.hset(f"room:{room.id}:params", mapping=to_redis(data))
-        await pipe.zadd("rooms:index", {str(room.id): ts})
+        await pipe.zadd("rooms:index", {str(room.id): int(room.created_at.timestamp())})
         await pipe.execute()
 
     await sio.emit("rooms_upsert", data, namespace="/rooms")

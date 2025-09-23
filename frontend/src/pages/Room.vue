@@ -153,6 +153,8 @@ function connectSocket() {
 
   socket.value.on('connect_error', e => console.warn('rtc sio error', e?.message))
 
+  socket.value.on('force_logout', async () => { await auth.logout() })
+
   socket.value.on('state_changed', (p: any) => applyPeerState(String(p.user_id), p))
 
   socket.value.on('member_joined', (p: any) => applyPeerState(String(p.user_id), p?.state || {}))

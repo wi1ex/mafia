@@ -5,7 +5,7 @@ from pathlib import Path
 
 SKIP_DIRS_DEFAULT = {"node_modules", "public", "assets", ".git", ".idea"}
 SKIP_FILES_DEFAULT = {"package-lock.json", "Room2.vue", "rtc2.ts"}
-SEPARATOR = "__________________________________"
+SEPARATOR = "__________________________________________________"
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Собирает весь код проекта в один текстовый файл и пишет сводку по строкам.")

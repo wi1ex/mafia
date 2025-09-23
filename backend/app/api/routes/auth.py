@@ -8,9 +8,7 @@ from ...core.security import verify_telegram_auth, create_access_token, parse_re
 from ...services.sessions import (
     new_login_session,
     rotate_refresh,
-    logout as sess_logout,
-    REFRESH_COOKIE,
-    COOKIE_PATH,
+    logout as sess_logout
 )
 from ...services.storage_minio import download_telegram_photo, put_avatar
 from ...core.logging import log_action
@@ -53,18 +51,18 @@ async def login_with_telegram(payload: TelegramAuthIn, resp: Response, db: Async
     await log_action(db, user_id=user.id, username=user.username, action="register" if new_user else "login",
                      details={"user_id": user.id, "username": user.username, "role": user.role})
 
-    at = await new_login_session(resp, user_id=user.id, role=user.role)
-    return AccessTokenOut(access_token=at)
+    at, sid = await new_login_session(resp, user_id=user.id, role=user.role)
+    return AccessTokenOut(access_token=at, sid=sid)
 
 
 @log_route("auth.refresh")
 @router.post("/refresh", response_model=AccessTokenOut)
 async def refresh(resp: Response, request: Request, db: AsyncSession = Depends(get_session)) -> AccessTokenOut:
-    raw = request.cookies.get(REFRESH_COOKIE)
+    raw = request.cookies.get("rt")
     if not raw:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="No refresh cookie")
 
-    ok, uid, _sid = await rotate_refresh(resp, raw_refresh_jwt=raw)
+    ok, uid, sid = await rotate_refresh(resp, raw_refresh_jwt=raw)
     if not ok:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh")
 
@@ -73,17 +71,17 @@ async def refresh(resp: Response, request: Request, db: AsyncSession = Depends(g
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unknown user")
 
     at = create_access_token(sub=uid, role=user.role, ttl_minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    return AccessTokenOut(access_token=at)
+    return AccessTokenOut(access_token=at, sid=sid or "")
 
 
 @log_route("auth.logout")
 @router.post("/logout", response_model=Ok)
 async def logout(resp: Response, request: Request) -> Ok:
-    raw = request.cookies.get(REFRESH_COOKIE)
+    raw = request.cookies.get("rt")
     if raw:
         ok, uid, sid, _ = parse_refresh_token(raw)
         if ok:
             await sess_logout(resp, user_id=uid, sid=sid or None)
             return Ok()
-    resp.delete_cookie(REFRESH_COOKIE, path=COOKIE_PATH, domain=settings.DOMAIN, samesite="strict")
+    resp.delete_cookie("rt", path="/api", domain=settings.DOMAIN, samesite="strict")
     return Ok()

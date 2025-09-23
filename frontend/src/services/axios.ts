@@ -29,6 +29,12 @@ let pendingWaiters: Array<(t: string | null) => void> = []
 const PENDING_LIMIT = 200
 const REFRESH_TIMEOUT_MS = 10_000
 
+let onAuthExpired: (() => void) | null = null
+export function setOnAuthExpired(handler: (() => void) | null) { onAuthExpired = handler }
+
+let onTokenRefreshed: ((t: string) => void) | null = null
+export function setOnTokenRefreshed(handler: ((t: string) => void) | null) { onTokenRefreshed = handler }
+
 export class AuthExpiredError extends Error {
   constructor() {
     super('auth_expired')
@@ -62,6 +68,7 @@ async function doRefreshWithTimeout(): Promise<string | null> {
 
       const tok = (data?.access_token as string | undefined) ?? null
       setAuthHeader(tok ?? '')
+      if (tok) onTokenRefreshed?.(tok)
       return tok
     } catch {
       setAuthHeader('')
@@ -121,6 +128,7 @@ api.interceptors.response.use(
         pendingWaiters = []
 
         if (!tok) {
+          onAuthExpired?.()
           return Promise.reject(new AuthExpiredError())
         }
 

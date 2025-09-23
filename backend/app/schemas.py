@@ -35,6 +35,7 @@ class TelegramAuthIn(BaseModel):
 class AccessTokenOut(BaseModel):
     access_token: str
     token_type: str = Field(default="bearer")
+    sid: str
 
 
 class RoomCreateIn(BaseModel):

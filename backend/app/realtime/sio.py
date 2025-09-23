@@ -18,3 +18,4 @@ sio = socketio.AsyncServer(
 
 from .namespaces import rooms as _ns_rooms
 from .namespaces import room as _ns_room
+from .namespaces import auth as _ns_auth
