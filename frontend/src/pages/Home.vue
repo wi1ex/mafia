@@ -134,7 +134,7 @@ async function onCreate() {
   if (!valid.value || creating.value) return
   creating.value = true
   try {
-    const r = await createRoom(title.value, limit.value, false)
+    const r = await createRoom(title.value, limit.value)
     await router.push(`/room/${r.id}`)
   } finally {
     creating.value = false
