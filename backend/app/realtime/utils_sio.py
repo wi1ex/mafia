@@ -96,7 +96,6 @@ async def join_room_atomic(r, rid: int, uid: int, role: str, *, retries: int = 8
             already = await r.sismember(f"room:{rid}:members", uid)
             size = int(await r.scard(f"room:{rid}:members") or 0)
             now = int(time())
-
             if already:
                 pos = await r.zscore(f"room:{rid}:order", uid)
                 if pos is None:
@@ -128,7 +127,6 @@ async def join_room_atomic(r, rid: int, uid: int, role: str, *, retries: int = 8
                 await p.execute()
             await r.unwatch()
             return new_pos, new_pos
-
         except WatchError:
             continue
         finally:
@@ -220,7 +218,6 @@ async def leave_room_atomic(r, rid: int, uid: int, *, retries: int = 8) -> tuple
 
 async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
     r = get_redis()
-
     ts1 = await r.get(f"room:{rid}:empty_since")
     if not ts1:
         log.debug("gc.skip.no_empty_since", rid=rid)
