@@ -23,25 +23,79 @@ export const useAuthStore = defineStore('auth', () => {
   const sessionId = ref<string>('')
   const user = ref<UserProfile | null>(null)
   const ready = ref(false)
+  const foreignActive = ref(false)
   let initPromise: Promise<void> | null = null
   let authSio: Socket | null = null
   let bc: BroadcastChannel | null = null
   let storageListenerBound = false
   let consistencyTimer: number | null = null
   const SID_KEY = 'auth:sid'
+  const OWNER_KEY = 'auth:owner'
+  const HB_KEY = 'auth:owner_hb'
+  const TAB_ID = Math.random().toString(36).slice(2)
+  let hbTimer: number | null = null
 
   type SessionPayload = { access_token?: string; sid?: string }
 
   const isAuthed = computed(() => !!accessToken.value)
+  
   const writeSidMarker = (sid: string) => { try { localStorage.setItem(SID_KEY, sid || '') } catch {} }
   const readSidMarker  = () => { try { return localStorage.getItem(SID_KEY) || '' } catch { return '' } }
-
+  const readOwner = () => { try { return localStorage.getItem(OWNER_KEY) || '' } catch { return '' } }
+  const readHb = () => {
+    try {
+      const v = localStorage.getItem(HB_KEY)
+      return v ? JSON.parse(v) as {id: string; ts: number} : null } catch { return null }
+  }
+  const beat = () => { try { localStorage.setItem(HB_KEY, JSON.stringify({ id: TAB_ID, ts: Date.now() })) } catch {} }
+  const becomeOwner = () => {
+    try {
+      localStorage.setItem(OWNER_KEY, TAB_ID)
+      beat()
+      if (hbTimer) clearInterval(hbTimer)
+      hbTimer = window.setInterval(beat, 4000)
+      window.addEventListener('beforeunload', () => { releaseOwnership(sessionId.value) }, { once: true })
+    } catch {}
+  }
+  const releaseOwnership = (prevSid?: string) => {
+    try {
+      const owner = readOwner()
+      if (owner === TAB_ID) {
+        localStorage.removeItem(OWNER_KEY)
+        localStorage.removeItem(HB_KEY)
+        if (prevSid && readSidMarker() === prevSid) writeSidMarker('')
+      }
+    } catch {}
+  }
+  const ownerAlive = () => {
+    const owner = readOwner()
+    const hb = readHb()
+    return !!owner && !!hb && hb.id === owner && (Date.now() - hb.ts) < 15000
+  }
   const checkConsistency = async () => {
     const globalSid = readSidMarker()
     const cur = sessionId.value || ''
-    if ((globalSid && globalSid !== cur) || (!globalSid && cur)) {
-      await localSignOut()
+    if (!cur && globalSid) {
+      if (!ownerAlive()) {
+        releaseOwnership(globalSid)
+        try { writeSidMarker('') } catch {}
+        foreignActive.value = false
+      } else {
+        foreignActive.value = true
+      }
+      return
     }
+    if (cur && !globalSid) {
+      foreignActive.value = false
+      await localSignOut()
+      return
+    }
+    if (cur && globalSid && cur !== globalSid) {
+      foreignActive.value = false
+      await localSignOut()
+      return
+    }
+    foreignActive.value = false
   }
   
   async function applySession(data: SessionPayload, { connect = true } = {}) {
@@ -51,17 +105,21 @@ export const useAuthStore = defineStore('auth', () => {
     setupCrossTab()
     if (connect) connectAuthWS()
     writeSidMarker(sessionId.value)
+    if (!readOwner() || !ownerAlive()) becomeOwner()
     broadcastSession()
     ready.value = true
   }
 
   function clearSession() {
+    const prev = sessionId.value
     accessToken.value = ''
     sessionId.value = ''
     setAuthHeader('')
     user.value = null
     disconnectAuthWS()
     writeSidMarker('')
+    releaseOwnership(prev)
+    foreignActive.value = !!readSidMarker()
     broadcastSession()
     ready.value = true
   }
@@ -117,9 +175,7 @@ export const useAuthStore = defineStore('auth', () => {
   }
   async function handleSidMessage(incoming?: string) {
     if (incoming === undefined) return
-    if ((incoming && incoming !== sessionId.value) || (!incoming && sessionId.value)) {
-      await localSignOut()
-    }
+    await checkConsistency()
   }
   function broadcastSession(): void {
     const payload = { sid: sessionId.value }
@@ -136,13 +192,18 @@ export const useAuthStore = defineStore('auth', () => {
     initPromise = (async () => {
       setupCrossTab()
       await checkConsistency()
-      try {
-        const { data } = await api.post('/auth/refresh', undefined, { __skipAuth: true })
-        await applySession(data)
-      } catch {
-        clearSession()
-      } finally {
-        initPromise = null
+      if (foreignActive.value) {
+        ready.value = true
+      } else {
+        try {
+          const { data } = await api.post('/auth/refresh', undefined, { __skipAuth: true })
+          await applySession(data)
+        } catch {
+          const hasGlobal = !!readSidMarker()
+          if (hasGlobal) { ready.value = true } else { clearSession() }
+        } finally {
+          initPromise = null
+        }
       }
     })()
 
@@ -170,6 +231,7 @@ export const useAuthStore = defineStore('auth', () => {
     user,
     ready,
     isAuthed,
+    foreignActive,
 
     init,
     fetchMe,

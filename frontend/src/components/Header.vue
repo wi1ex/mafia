@@ -2,8 +2,11 @@
   <header class="bar" role="banner">
     <div class="brand" aria-label="Mafia">Mafia</div>
 
-    <div v-if="!auth.isAuthed" class="login-box">
+    <div v-if="!auth.isAuthed && !auth.foreignActive" class="login-box">
       <div id="tg-login" />
+    </div>
+    <div v-else-if="!auth.isAuthed && auth.foreignActive" class="login-box note">
+      <span>Вы уже авторизованы в соседней вкладке</span>
     </div>
 
     <div v-else class="user">
@@ -50,15 +53,17 @@ function mountTGWidget() {
   box.appendChild(s)
 }
 
-watch(() => auth.isAuthed, async (ok) => {
-  if (!ok) {
+watch([() => auth.isAuthed, () => auth.foreignActive], async () => {
+  if (!auth.isAuthed && !auth.foreignActive) {
     await nextTick()
     mountTGWidget()
+  } else {
+    document.getElementById('tg-login')?.replaceChildren()
   }
 }, { flush: 'post' })
 
 onMounted(async () => {
-  if (!auth.isAuthed) {
+  if (!auth.isAuthed && !auth.foreignActive) {
     await nextTick()
     mountTGWidget()
   }
@@ -77,6 +82,10 @@ onBeforeUnmount(() => {
   padding: 12px 16px;
   .brand {
     color: $fg;
+  }
+  .note {
+    color: $muted;
+    max-width: 460px;
   }
   .user {
     display: flex;
