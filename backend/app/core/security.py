@@ -40,8 +40,8 @@ def parse_refresh_token(raw: str) -> tuple[bool, int, str, str]:
         return False, 0, "", ""
 
 
-def create_access_token(*, sub: int, role: str, ttl_minutes: int) -> str:
-    return _encode("access", sub=sub, exp_s=ttl_minutes * 60, extra={"role": role})
+def create_access_token(*, sub: int, role: str, sid: str, ttl_minutes: int) -> str:
+    return _encode("access", sub=sub, exp_s=ttl_minutes * 60, extra={"role": role, "sid": sid})
 
 
 def create_refresh_token(*, sub: int, sid: str, jti: str, ttl_days: int) -> str:

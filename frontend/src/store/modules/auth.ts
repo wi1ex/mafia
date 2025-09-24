@@ -27,10 +27,22 @@ export const useAuthStore = defineStore('auth', () => {
   let authSio: Socket | null = null
   let bc: BroadcastChannel | null = null
   let storageListenerBound = false
-
-  const isAuthed = computed(() => !!accessToken.value)
+  let consistencyTimer: number | null = null
+  const SID_KEY = 'auth:sid'
 
   type SessionPayload = { access_token?: string; sid?: string }
+
+  const isAuthed = computed(() => !!accessToken.value)
+  const writeSidMarker = (sid: string) => { try { localStorage.setItem(SID_KEY, sid || '') } catch {} }
+  const readSidMarker  = () => { try { return localStorage.getItem(SID_KEY) || '' } catch { return '' } }
+
+  const checkConsistency = async () => {
+    const globalSid = readSidMarker()
+    const cur = sessionId.value || ''
+    if ((globalSid && globalSid !== cur) || (!globalSid && cur)) {
+      await localSignOut()
+    }
+  }
   
   async function applySession(data: SessionPayload, { connect = true } = {}) {
     accessToken.value = data.access_token
@@ -38,6 +50,7 @@ export const useAuthStore = defineStore('auth', () => {
     setAuthHeader(accessToken.value)
     setupCrossTab()
     if (connect) connectAuthWS()
+    writeSidMarker(sessionId.value)
     broadcastSession()
     ready.value = true
   }
@@ -48,6 +61,7 @@ export const useAuthStore = defineStore('auth', () => {
     setAuthHeader('')
     user.value = null
     disconnectAuthWS()
+    writeSidMarker('')
     broadcastSession()
     ready.value = true
   }
@@ -89,6 +103,9 @@ export const useAuthStore = defineStore('auth', () => {
             void handleSidMessage(typeof sid === 'string' ? sid : undefined)
           } catch {}
         })
+        window.addEventListener('focus', () => { void checkConsistency() })
+        document.addEventListener('visibilitychange', () => { if (!document.hidden) void checkConsistency() })
+        consistencyTimer = window.setInterval(() => { void checkConsistency() }, 5000)
         storageListenerBound = true
       }
       setOnAuthExpired(() => { void localSignOut() })
@@ -118,6 +135,7 @@ export const useAuthStore = defineStore('auth', () => {
 
     initPromise = (async () => {
       setupCrossTab()
+      await checkConsistency()
       try {
         const { data } = await api.post('/auth/refresh', undefined, { __skipAuth: true })
         await applySession(data)

@@ -48,7 +48,7 @@ async def new_login_session(resp: Response, *, user_id: int, role: str) -> tuple
             await p.execute()
 
         _set_refresh_cookie(resp, rt)
-        at = create_access_token(sub=user_id, role=role, ttl_minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+        at = create_access_token(sub=user_id, role=role, sid=sid, ttl_minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
 
         async with SessionLocal() as db:
             await db.execute(update(User).where(User.id == user_id).values(last_login_at=func.now()))
@@ -102,7 +102,15 @@ async def get_identity(creds: HTTPAuthorizationCredentials = Depends(bearer)) ->
         p = decode_token(creds.credentials)
         if p.get("typ") != "access":
             raise ValueError
-        return {"id": int(p["sub"]), "role": str(p["role"])}
+
+        uid = int(p["sub"])
+        sid = str(p.get("sid") or "")
+        r = get_redis()
+        cur = await r.get(f"user:{uid}:sid")
+        if not cur or cur != sid:
+            raise _unauth
+
+        return {"id": uid, "role": str(p["role"])}
     except Exception:
         raise _unauth
 

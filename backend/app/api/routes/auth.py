@@ -70,7 +70,7 @@ async def refresh(resp: Response, request: Request, db: AsyncSession = Depends(g
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unknown user")
 
-    at = create_access_token(sub=uid, role=user.role, ttl_minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    at = create_access_token(sub=uid, role=user.role, sid=sid or "", ttl_minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     return AccessTokenOut(access_token=at, sid=sid or "")
 
 
