@@ -122,6 +122,9 @@ async def state(sid, data):
 async def disconnect(sid):
     try:
         sess = await sio.get_session(sid, namespace="/room")
+        if not sess or "uid" not in sess:
+            return
+
         uid = int(sess["uid"])
         rid = int(sess.get("rid") or 0)
         if not rid:

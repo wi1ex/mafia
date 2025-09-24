@@ -34,8 +34,9 @@ import { onMounted, onBeforeUnmount, ref, computed, reactive } from 'vue'
 import Header from '@/components/Header.vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/store'
-import { io, Socket } from 'socket.io-client'
+import { Socket } from 'socket.io-client'
 import { api } from '@/services/axios'
+import { createPublicSocket } from '@/services/sio'
 
 type Room = {
   id: number
@@ -96,7 +97,7 @@ function remove(id: number) {
 function startWS() {
   if (sio.value && (sio.value.connected || (sio.value as any).connecting)) return
 
-  sio.value = io('/rooms', {
+  sio.value = createPublicSocket('/rooms', {
     path: '/ws/socket.io',
     transports: ['websocket'],
     autoConnect: true,

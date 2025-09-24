@@ -42,9 +42,10 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, reactive, ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { io, Socket } from 'socket.io-client'
+import { Socket } from 'socket.io-client'
 import { useAuthStore } from '@/store'
 import { useRTC } from '@/services/rtc'
+import { createAuthedSocket } from '@/services/sio'
 
 type State01 = 0 | 1
 type UserState = { mic: State01; cam: State01; speakers: State01; visibility: State01 }
@@ -139,16 +140,16 @@ function applySelfPref(pref: any) {
 
 function connectSocket() {
   if (socket.value && (socket.value.connected || (socket.value as any).connecting)) return
-  socket.value = io('/room', {
+  socket.value = createAuthedSocket('/room', {
     path: '/ws/socket.io',
     transports: ['websocket'],
-    auth: { token: auth.accessToken },
     autoConnect: true,
     reconnection: true,
     reconnectionAttempts: Infinity,
     reconnectionDelay: 500,
     reconnectionDelayMax: 5000,
   })
+
   socket.value.on('reconnect', async () => { try { await socket.value!.timeout(1500).emitWithAck('join', { room_id: rid, state: { ...local } }) } catch {} })
 
   socket.value.on('connect_error', e => console.warn('rtc sio error', e?.message))
@@ -184,7 +185,7 @@ async function joinViaSocket() {
   if (!socket.value) connectSocket()
   if (!socket.value!.connected) {
     await new Promise<void>((res, rej) => {
-      const t = setTimeout(() => rej(new Error('connect timeout')), 5000)
+      const t = setTimeout(() => rej(new Error('connect timeout')), 10000)
       socket.value!.once('connect', () => {
         clearTimeout(t)
         res()
