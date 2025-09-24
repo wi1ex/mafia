@@ -6,7 +6,6 @@ import compression from 'vite-plugin-compression'
 export default defineConfig({
   plugins: [
     vue(),
-    compression({ algorithm: 'brotliCompress' }),
     compression({ algorithm: 'gzip' }),
   ],
   resolve: {

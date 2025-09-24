@@ -13,21 +13,25 @@ async def connect(sid, environ, auth):
     try:
         token = auth.get("token") if isinstance(auth, dict) else None
         if not token:
-            raise ConnectionRefusedError("no_token")
+            log.warning("sio.connect.no_token")
+            return False
 
         p = decode_token(token)
         uid = int(p["sub"])
         cur = await get_redis().get(f"user:{uid}:sid")
         tok_sid = (p.get("sid") or "")
         if not cur or cur != tok_sid:
-            raise ConnectionRefusedError("replaced_session")
+            log.warning("sio.connect.replaced_session")
+            return False
 
         await sio.save_session(sid, {"uid": uid}, namespace="/auth")
         await sio.enter_room(sid, f"user:{uid}", namespace="/auth")
     except ExpiredSignatureError:
-        raise ConnectionRefusedError("expired_token")
+        log.warning("sio.connect.expired_token")
+        return False
     except Exception:
-        raise ConnectionRefusedError("bad_token")
+        log.warning("sio.connect.bad_token")
+        return False
 
 
 @sio.event(namespace="/auth")
