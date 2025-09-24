@@ -48,8 +48,13 @@ async def login_with_telegram(payload: TelegramAuthIn, resp: Response, db: Async
         db.add(user)
         await db.commit()
 
-    await log_action(db, user_id=user.id, username=user.username, action="register" if new_user else "login",
-                     details={"user_id": user.id, "username": user.username, "role": user.role})
+    await log_action(
+        db,
+        user_id=user.id,
+        username=user.username,
+        action="register" if new_user else "login",
+        details=f"Вход пользователя: user_id={user.id} username={user.username}",
+    )
 
     at, sid = await new_login_session(resp, user_id=user.id, role=user.role)
     return AccessTokenOut(access_token=at, sid=sid)

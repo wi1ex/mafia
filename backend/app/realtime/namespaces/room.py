@@ -19,9 +19,16 @@ async def connect(sid, environ, auth):
         if not token:
             log.warning("sio.connect.no_token")
             raise ConnectionRefusedError("no_token")
+
         p = decode_token(token)
         uid = int(p["sub"])
         role = str(p.get("role") or "user")
+        cur = await get_redis().get(f"user:{uid}:sid")
+        tok_sid = (p.get("sid") or "")
+        if not cur or cur != tok_sid:
+            log.warning("sio.connect.replaced_session")
+            raise ConnectionRefusedError("replaced_session")
+
         await sio.save_session(sid, {"uid": uid, "rid": None, "role": role}, namespace="/room")
         await sio.enter_room(sid, f"user:{uid}", namespace="/room")
     except ExpiredSignatureError:
@@ -43,7 +50,7 @@ async def join(sid, data) -> JoinAck:
             return {"ok": False, "error": "bad_room_id", "status": 400}
 
         r = get_redis()
-        occ, pos = await join_room_atomic(r, rid, uid, role)
+        occ, pos, already = await join_room_atomic(r, rid, uid, role)
         if occ == -2:
             return {"ok": False, "error": "room_not_found", "status": 404}
         if occ == -1:
@@ -71,14 +78,19 @@ async def join(sid, data) -> JoinAck:
 
         await sio.enter_room(sid, f"room:{rid}", namespace="/room")
         await sio.save_session(sid, {"uid": uid, "rid": rid, "role": role}, namespace="/room")
-        await sio.emit("rooms_occupancy", {"id": rid, "occupancy": occ}, namespace="/rooms")
-        await sio.emit("member_joined", {"user_id": uid, "state": user_state, "position": pos, "role": role}, room=f"room:{rid}", skip_sid=sid, namespace="/room")
+
+        if not already:
+            await sio.emit("rooms_occupancy", {"id": rid, "occupancy": occ}, namespace="/rooms")
+            await sio.emit("member_joined", {"user_id": uid, "state": user_state, "position": pos, "role": role}, room=f"room:{rid}", skip_sid=sid, namespace="/room")
+
         await sio.emit("positions", {"updates": [{"user_id": uid, "position": pos}]}, room=f"room:{rid}", namespace="/room")
+
         if applied:
             await sio.emit("state_changed", {"user_id": uid, **applied}, room=f"room:{rid}", skip_sid=sid, namespace="/room")
 
         positions = await get_positions(r, rid)
         lk_token = make_livekit_token(identity=str(uid), name=f"user-{uid}", room=str(rid))
+
         return {"ok": True, "room_id": rid, "token": lk_token, "snapshot": snapshot, "self_pref": user_state, "positions": positions}
     except Exception:
         log.exception("sio.join.error", sid=sid, data=bool(data))

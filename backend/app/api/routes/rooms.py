@@ -1,5 +1,4 @@
 from __future__ import annotations
-from datetime import timezone
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from ...utils_common import to_redis
@@ -8,9 +7,11 @@ from ...core.clients import get_redis
 from ...core.route_utils import log_route
 from ...db import get_session
 from ...models.room import Room
+from ...models.user import User
 from ...realtime.sio import sio
 from ...schemas import RoomCreateIn, RoomOut, Identity
 from ...services.sessions import get_identity
+from ...core.logging import log_action
 
 router = APIRouter()
 
@@ -24,6 +25,16 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
     session.add(room)
     await session.commit()
     await session.refresh(room)
+
+    creator = await session.get(User, ident["id"])
+    creator_name = (creator.username if creator and creator.username else f"user{ident['id']}")
+    await log_action(
+        session,
+        user_id=ident["id"],
+        username=creator_name,
+        action="room_created",
+        details=f"Создание комнаты room_id={room.id} title={room.title} user_limit={room.user_limit}",
+    )
 
     r = get_redis()
     data = {

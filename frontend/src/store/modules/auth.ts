@@ -24,15 +24,15 @@ export const useAuthStore = defineStore('auth', () => {
   const user = ref<UserProfile | null>(null)
   const ready = ref(false)
   const foreignActive = ref(false)
+  const SID_KEY = 'auth:sid'
+  const OWNER_KEY = 'auth:owner'
+  const HB_KEY = 'auth:owner_hb'
+  const TAB_ID = Math.random().toString(36).slice(2)
   let initPromise: Promise<void> | null = null
   let authSio: Socket | null = null
   let bc: BroadcastChannel | null = null
   let storageListenerBound = false
   let consistencyTimer: number | null = null
-  const SID_KEY = 'auth:sid'
-  const OWNER_KEY = 'auth:owner'
-  const HB_KEY = 'auth:owner_hb'
-  const TAB_ID = Math.random().toString(36).slice(2)
   let hbTimer: number | null = null
 
   type SessionPayload = { access_token?: string; sid?: string }

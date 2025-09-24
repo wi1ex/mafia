@@ -56,8 +56,11 @@ def put_avatar(user_id: int, content: bytes, content_type: str | None) -> Option
     prefix = f"avatars/{user_id}."
     to_delete = [DeleteObject(o.object_name) for o in minio.list_objects(_bucket, prefix=prefix, recursive=True)]
     if to_delete:
+        errs = []
         for err in minio.remove_objects(_bucket, to_delete):
-            log.debug("avatar.remove_old_failed", user_id=user_id, object=getattr(err, "name", None), code=getattr(err, "code", None))
+            errs.append({"object": getattr(err, "name", None), "code": getattr(err, "code", None)})
+        if errs:
+            log.warning("avatar.remove_old_errors", user_id=user_id, errors=errs)
 
     name, obj = f"{user_id}{ext}", f"avatars/{user_id}{ext}"
     minio.put_object(_bucket, obj, io.BytesIO(content), length=len(content), content_type=ct or mimetypes.types_map.get(ext, "image/jpeg"))

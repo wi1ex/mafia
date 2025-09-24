@@ -1,4 +1,5 @@
 from __future__ import annotations
+import json
 import logging
 import sys
 from typing import Any
@@ -25,7 +26,11 @@ def configure_logging() -> None:
     )
 
     handler = logging.StreamHandler(sys.stdout)
-    handler.setFormatter(structlog.stdlib.ProcessorFormatter(processor=structlog.processors.JSONRenderer(), foreign_pre_chain=pre))
+    handler.setFormatter(
+        structlog.stdlib.ProcessorFormatter(
+            processor=structlog.processors.JSONRenderer(), foreign_pre_chain=pre
+        )
+    )
 
     root = logging.getLogger()
     root.handlers = [handler]
@@ -34,6 +39,13 @@ def configure_logging() -> None:
     logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
 
 
-async def log_action(db: AsyncSession, *, user_id: int | None, username: str | None, action: str, details: dict[str, Any]) -> None:
-    db.add(AppLog(user_id=user_id, username=username, action=action, details=details))
-    await db.commit()
+async def log_action(db: AsyncSession, *, user_id: int | None, username: str | None, action: str, details: str | dict[str, Any], commit: bool = True) -> None:
+    if isinstance(details, (dict, list)):
+        try:
+            details = json.dumps(details, ensure_ascii=False, separators=(",", ":"))
+        except Exception:
+            details = str(details)
+
+    db.add(AppLog(user_id=user_id, username=username, action=action, details=details or ""))
+    if commit:
+        await db.commit()
