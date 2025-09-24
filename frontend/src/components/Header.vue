@@ -15,7 +15,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount } from 'vue'
+import { onMounted, onBeforeUnmount, watch } from 'vue'
 import { useAuthStore } from '@/store'
 
 import defaultAvatar from "@/assets/svg/defaultAvatar.svg"
@@ -31,10 +31,12 @@ declare global {
 
 async function logout() { try { await auth.logout() } catch {} }
 
-onMounted(() => {
-  if (!BOT || auth.isAuthed) return
-  if (document.querySelector('script[data-tg-widget="1"]')) return
-
+function mountTGWidget() {
+  if (!BOT) return
+  const box = document.getElementById('tg-login')
+  if (!box) return
+  box.innerHTML = ''
+  document.querySelector('script[data-tg-widget="1"]')?.remove()
   window.__tg_cb__ = async (u:any) => { await auth.signInWithTelegram(u) }
 
   const s = document.createElement('script')
@@ -45,7 +47,15 @@ onMounted(() => {
   s.dataset.userpic = 'true'
   s.dataset.onauth = '__tg_cb__(user)'
   s.setAttribute('data-tg-widget', '1')
-  document.getElementById('tg-login')?.appendChild(s)
+  box.appendChild(s)
+}
+
+watch(() => auth.isAuthed, (ok) => {
+  if (!ok) mountTGWidget()
+})
+
+onMounted(() => {
+  if (!auth.isAuthed) mountTGWidget()
 })
 
 onBeforeUnmount(() => {

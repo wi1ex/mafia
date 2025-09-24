@@ -50,6 +50,8 @@ export const useAuthStore = defineStore('auth', () => {
     broadcastSession()
     ready.value = true
   }
+
+  async function localSignOut(): Promise<void> { clearSession() }
   
   function connectAuthWS(): void {
     disconnectAuthWS()
@@ -64,7 +66,7 @@ export const useAuthStore = defineStore('auth', () => {
       reconnectionDelayMax: 5000,
     })
 
-    authSio.on('force_logout', async () => { await logout() })
+    authSio.on('force_logout', async () => { await localSignOut() })
   }
   function disconnectAuthWS(): void {
     try { authSio?.off?.() } catch {}
@@ -79,10 +81,10 @@ export const useAuthStore = defineStore('auth', () => {
       bc.onmessage = async (ev) => {
         const sid = ev?.data?.sid as string | undefined
         if (sid === undefined) return
-        if (sid && sid !== sessionId.value) { await logout() }
-        if (!sid && sessionId.value)       { await logout() }
+        if (sid && sid !== sessionId.value) { await localSignOut() }
+        if (!sid && sessionId.value)       { await localSignOut() }
       }
-      setOnAuthExpired(() => { void logout() })
+      setOnAuthExpired(() => { void localSignOut() })
       setOnTokenRefreshed((t) => {
         accessToken.value = t
         try { if (authSio) (authSio.io.opts as any).auth = { token: t } } catch {}
@@ -137,5 +139,6 @@ export const useAuthStore = defineStore('auth', () => {
     fetchMe,
     signInWithTelegram,
     logout,
+    localSignOut,
   }
 })

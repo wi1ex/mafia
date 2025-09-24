@@ -40,7 +40,7 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, reactive, ref, computed } from 'vue'
+import { onBeforeUnmount, onMounted, reactive, ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { io, Socket } from 'socket.io-client'
 import { useAuthStore } from '@/store'
@@ -153,7 +153,12 @@ function connectSocket() {
 
   socket.value.on('connect_error', e => console.warn('rtc sio error', e?.message))
 
-  socket.value.on('force_logout', async () => { await auth.logout() })
+  socket.value.on('force_logout', async () => {
+    try { await onLeave() } finally {
+      if ('localSignOut' in auth) await (auth as any).localSignOut()
+      else await auth.logout()
+    }
+  })
 
   socket.value.on('state_changed', (p: any) => applyPeerState(String(p.user_id), p))
 
@@ -255,6 +260,8 @@ async function onLeave() {
   }
 }
 const onPageHide = () => { void onLeave() }
+
+watch(() => auth.isAuthed, (ok) => { if (!ok) void onLeave() })
 
 onMounted(async () => {
   try {
@@ -412,7 +419,7 @@ video {
   .ctrl {
     padding: 8px 12px;
     border-radius: 8px;
-    border: 0;
+    border: 1px solid $fg;
     cursor: pointer;
     background: $bg;
     color: $fg;
