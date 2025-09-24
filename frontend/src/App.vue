@@ -15,7 +15,7 @@ watch(auth.isAuthed, (ok) => {
   if (!ok && (route.meta as any)?.requiresAuth) router.replace('/')
 })
 
-onMounted(() => {
+onMounted(async () => {
   await auth.init()
   if (auth.isAuthed) { try { await auth.fetchMe() } catch {} }
 })
