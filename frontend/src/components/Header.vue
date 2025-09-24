@@ -15,7 +15,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, watch } from 'vue'
+import { onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useAuthStore } from '@/store'
 
 import defaultAvatar from "@/assets/svg/defaultAvatar.svg"
@@ -50,12 +50,18 @@ function mountTGWidget() {
   box.appendChild(s)
 }
 
-watch(() => auth.isAuthed, (ok) => {
-  if (!ok) mountTGWidget()
-})
+watch(() => auth.isAuthed, async (ok) => {
+  if (!ok) {
+    await nextTick()
+    mountTGWidget()
+  }
+}, { flush: 'post' })
 
-onMounted(() => {
-  if (!auth.isAuthed) mountTGWidget()
+onMounted(async () => {
+  if (!auth.isAuthed) {
+    await nextTick()
+    mountTGWidget()
+  }
 })
 
 onBeforeUnmount(() => {

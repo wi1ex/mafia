@@ -26,6 +26,7 @@ export const useAuthStore = defineStore('auth', () => {
   let initPromise: Promise<void> | null = null
   let authSio: Socket | null = null
   let bc: BroadcastChannel | null = null
+  let storageListenerBound = false
 
   const isAuthed = computed(() => !!accessToken.value)
 
@@ -76,13 +77,19 @@ export const useAuthStore = defineStore('auth', () => {
 
   function setupCrossTab(): void {
     try {
-      if (bc) return
-      bc = new BroadcastChannel('auth')
-      bc.onmessage = async (ev) => {
-        const sid = ev?.data?.sid as string | undefined
-        if (sid === undefined) return
-        if (sid && sid !== sessionId.value) { await localSignOut() }
-        if (!sid && sessionId.value)       { await localSignOut() }
+      if (!bc && 'BroadcastChannel' in window) {
+        bc = new BroadcastChannel('auth')
+        bc.onmessage = async (ev) => handleSidMessage(ev?.data?.sid as string | undefined)
+      }
+      if (!storageListenerBound) {
+        window.addEventListener('storage', (e) => {
+          if (e.key !== 'auth:msg' || !e.newValue) return
+          try {
+            const { sid } = JSON.parse(e.newValue)
+            void handleSidMessage(typeof sid === 'string' ? sid : undefined)
+          } catch {}
+        })
+        storageListenerBound = true
       }
       setOnAuthExpired(() => { void localSignOut() })
       setOnTokenRefreshed((t) => {
@@ -91,8 +98,18 @@ export const useAuthStore = defineStore('auth', () => {
       })
     } catch {}
   }
+  async function handleSidMessage(incoming?: string) {
+    if (incoming === undefined) return
+    if ((incoming && incoming !== sessionId.value) || (!incoming && sessionId.value)) {
+      await localSignOut()
+    }
+  }
   function broadcastSession(): void {
-    try { bc?.postMessage({ sid: sessionId.value }) } catch {}
+    const payload = { sid: sessionId.value }
+    try { bc?.postMessage(payload) } catch {}
+    try {
+      localStorage.setItem('auth:msg', JSON.stringify({ ...payload, ts: Date.now(), rnd: Math.random() }))
+    } catch {}
   }
 
   async function init(): Promise<void> {
@@ -100,6 +117,7 @@ export const useAuthStore = defineStore('auth', () => {
     if (initPromise) return initPromise
 
     initPromise = (async () => {
+      setupCrossTab()
       try {
         const { data } = await api.post('/auth/refresh', undefined, { __skipAuth: true })
         await applySession(data)
