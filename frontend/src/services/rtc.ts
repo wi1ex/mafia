@@ -66,6 +66,11 @@ export function useRTC(): UseRTC {
   const wantAudio = ref(true)
   const wantVideo = ref(true)
 
+  const unlabeled = (arr: MediaDeviceInfo[]) => arr.length > 0 && arr.every(d => !d.label)
+  function needsPermissions(): boolean {
+    return (mics.value.length + cams.value.length) === 0 || unlabeled(mics.value) || unlabeled(cams.value)
+  }
+
   const getByIdentity = (room: LkRoom, id: string) => room.getParticipantByIdentity?.(id) ?? room.remoteParticipants.get(id)
 
   function setVideoRef(id: string, el: HTMLVideoElement | null) {
@@ -134,13 +139,11 @@ export function useRTC(): UseRTC {
 
   async function bootstrapPermissions(): Promise<boolean> {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true })
-      try { stream.getTracks().forEach(t => { try { t.stop() } catch {} }) } catch {}
-      await refreshDevices()
-      return (mics.value.length + cams.value.length) > 0
-    } catch {
-      return false
-    }
+      const s = await navigator.mediaDevices.getUserMedia({ audio: true, video: true })
+      s.getTracks().forEach(t => { try { t.stop() } catch {} })
+    } catch {}
+    await refreshDevices()
+    return !needsPermissions()
   }
 
   function hasAnyDevice(): boolean {
@@ -174,39 +177,39 @@ export function useRTC(): UseRTC {
     }
   }
 
-  async function enable(kind: DeviceKind): Promise<boolean> {
-    const room = lk.value
-    if (!room) return false
-    if ((kind === 'audioinput' ? mics.value.length : cams.value.length) === 0) {
-      await refreshDevices()
-      if ((kind === 'audioinput' ? mics.value.length : cams.value.length) === 0) {
-        const ok = await bootstrapPermissions()
-        if (!ok) return false
+  async function enable(kind: 'audioinput'|'videoinput'): Promise<boolean> {
+    const room = lk.value; if (!room) return false
+
+    if (needsPermissions()) {
+      const ok = await bootstrapPermissions()
+      if (!ok) return false
+    }
+    await refreshDevices()
+    const id = kind === 'audioinput' ? selectedMicId.value : selectedCamId.value
+
+    const tryEnable = async (useExact: boolean) => {
+      if (kind === 'audioinput') {
+        await room.localParticipant.setMicrophoneEnabled(true, useExact && id ? ({ deviceId: { exact: id } } as any) : undefined)
+      } else {
+        const base: any = { resolution: VideoPresets.h360.resolution }
+        await room.localParticipant.setCameraEnabled(true, useExact && id ? { ...base, deviceId: { exact: id } } : base)
       }
     }
-    const id = kind === 'audioinput' ? selectedMicId.value : selectedCamId.value
+
     try {
-      if (kind === 'audioinput') {
-        await room.localParticipant.setMicrophoneEnabled(true, id ? ({ deviceId: { exact: id } } as any) : undefined)
-      } else {
-        await room.localParticipant.setCameraEnabled(true, id
-          ? ({ deviceId: { exact: id }, resolution: VideoPresets.h360.resolution } as any)
-          : ({ resolution: VideoPresets.h360.resolution } as any)
-        )
-      }
+      await tryEnable(true)
       return true
-    } catch {
-      await fallback(kind)
-      const nextId = kind === 'audioinput' ? selectedMicId.value : selectedCamId.value
-      if (!nextId) return false
-      try {
-        if (kind === 'audioinput') {
-          await room.localParticipant.setMicrophoneEnabled(true, { deviceId: { exact: nextId } } as any)
-        } else {
-          await room.localParticipant.setCameraEnabled(true, { deviceId: { exact: nextId }, resolution: VideoPresets.h360.resolution } as any)
-        }
-        return true
-      } catch { return false }
+    } catch (e:any) {
+      if (['NotAllowedError','SecurityError','OverconstrainedError','NotFoundError'].includes(e?.name)) {
+        await bootstrapPermissions()
+        await refreshDevices()
+        try { await tryEnable(false); return true } catch {}
+      }
+      if (isBusyError(e)) {
+        await fallback(kind)
+        try { await tryEnable(true); return true } catch {}
+      }
+      return false
     }
   }
 

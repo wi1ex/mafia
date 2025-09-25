@@ -79,8 +79,8 @@ const ws_url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.
 
 const rtc = useRTC()
 const {
-  localId, peerIds, mics, cams, selectedMicId, selectedCamId,
-  videoRef, refreshDevices, enable, onDeviceChange, bootstrapPermissions, hasAnyDevice
+  localId, peerIds, mics, cams, selectedMicId, selectedCamId, needsPermissions,
+  videoRef, refreshDevices, enable, onDeviceChange, bootstrapPermissions, hasAnyDevice,
 } = rtc
 
 const showPermBanner = ref(false)
@@ -307,14 +307,10 @@ onMounted(async () => {
     rtc.selectedCamId.value = rtc.loadLS(rtc.LS.cam) || ''
     await refreshDevices()
 
-    if (!hasAnyDevice()) {
+    if (needsPermissions()) {
       const ok = await bootstrapPermissions()
-      if (!ok) {
-        showPermBanner.value = true
-      } else {
-        await refreshDevices()
-        showPermBanner.value = false
-      }
+      await refreshDevices()
+      showPermBanner.value = !ok || needsPermissions()
     }
 
     Object.keys(positions).forEach(k => delete (positions as any)[k])
