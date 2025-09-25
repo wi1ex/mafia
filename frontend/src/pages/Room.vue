@@ -1,9 +1,8 @@
 <template>
   <section class="card">
     <div class="grid" :style="gridStyle">
-      <div v-for="id in sortedPeerIds" :key="id" class="tile">
+      <div v-for="id in sortedPeerIds" :key="id" class="tile" :class="{ speaking: isSpeaking(id) && !isCovered(id) }">
         <video :ref="videoRef(id)" playsinline autoplay :muted="id === localId" />
-        <div class="veil" :class="{ visible: isCovered(id) }"></div>
         <div class="badges">
           <span class="badge" title="Микрофон">{{ em('mic', isOn(id, 'mic')) }}</span>
           <span class="badge" title="Камера">{{ em('cam', isOn(id, 'cam')) }}</span>
@@ -53,6 +52,7 @@ import { Socket } from 'socket.io-client'
 import { useAuthStore } from '@/store'
 import { useRTC } from '@/services/rtc'
 import { createAuthedSocket } from '@/services/sio'
+import { RoomEvent } from 'livekit-client'
 
 const L = (evt: string, data?: any) => console.log(`[Room] ${new Date().toISOString()} — ${evt}`, data ?? '')
 const W = (evt: string, data?: any) => console.warn(`[Room] ${new Date().toISOString()} — ${evt}`, data ?? '')
@@ -77,6 +77,20 @@ const visibilityOn = computed({ get: () => local.visibility, set: v => { local.v
 const socket = ref<Socket | null>(null)
 const statusByUser = reactive<Record<string, UserState>>({})
 const positionByUser = reactive<Record<string, number>>({})
+const speakingByUser = reactive<Record<string, boolean>>({})
+
+const speakTimers = new Map<string, number>()
+const isSpeaking = (id: string) => Boolean(speakingByUser[id])
+function markSpeaking(id: string) {
+  speakingByUser[id] = true
+  const prev = speakTimers.get(id)
+  if (prev) clearTimeout(prev)
+  const t = window.setTimeout(() => {
+    speakingByUser[id] = false
+    speakTimers.delete(id)
+  }, 500)
+  speakTimers.set(id, t)
+}
 
 const leaving = ref(false)
 const ws_url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host
@@ -98,7 +112,7 @@ function toggleQuality() {
   pendingQuality.value = true
   try {
     setRemoteQualityForAll(next)
-    setTimeout(() => debugQualitySnapshot('after toggle'), 1200)
+    setTimeout(() => debugQualitySnapshot('after toggle'), 1000)
   } finally { pendingQuality.value = false }
 }
 
@@ -218,6 +232,8 @@ function connectSocket() {
     L('socket: member_left', { id })
     delete statusByUser[id]
     delete positionByUser[id]
+    delete speakingByUser[id]
+    const t = speakTimers.get(id); if (t) { clearTimeout(t); speakTimers.delete(id) }
   })
   socket.value.on('positions', (p: any) => {
     const ups = Array.isArray(p?.updates) ? p.updates : []
@@ -257,7 +273,7 @@ async function publishState(delta: Partial<{ mic: boolean; cam: boolean; speaker
     L('publish state', delta)
     const resp: any = await socket.value.timeout(5000).emitWithAck('state', delta)
     L('publish state ack', resp)
-    return !!resp?.ok
+    return Boolean(resp?.ok)
   } catch (e) {
     W('publish state failed, queued', { delta, e })
     pendingDeltas.push(delta)
@@ -329,6 +345,9 @@ async function onLeave() {
         socket.value.close()
       }
     } catch {}
+    for (const t of speakTimers.values()) clearTimeout(t)
+    speakTimers.clear()
+    Object.keys(speakingByUser).forEach(k => delete (speakingByUser as any)[k])
     socket.value = null
     roomId.value = null
     await router.replace('/')
@@ -440,6 +459,10 @@ onMounted(async () => {
     await rtc.connect(ws_url, j.token, { autoSubscribe: false })
     L('rtc.connect done', { localId: localId.value, peers: peerIds.value })
 
+    rtc.lk.value?.on(RoomEvent.ActiveSpeakersChanged, (parts) => {
+      for (const p of parts) markSpeaking(String(p.identity))
+    })
+
     rtc.setAudioSubscriptionsForAll(speakersOn.value)
     rtc.setVideoSubscriptionsForAll(visibilityOn.value)
     L('subscriptions set', { audio: speakersOn.value, video: visibilityOn.value })
@@ -487,6 +510,13 @@ onBeforeUnmount(() => {
   overflow: hidden;
   background: $bg;
   aspect-ratio: 16 / 9;
+  border: 2px solid transparent;
+  box-shadow: inset 0 0 0 0 $color-primary;
+  transition: border-color 0.25s ease-in-out, box-shadow 0.25s ease-in-out;
+  &.speaking {
+    border-color: $color-primary;
+    box-shadow: inset 0 0 0 2px $color-primary, 0 0 10px rgba(34,197,94,0.35);
+  }
 }
 video {
   position: absolute;
@@ -499,17 +529,6 @@ video {
   filter: none !important;
   mix-blend-mode: normal !important;
   opacity: 1 !important;
-}
-.veil {
-  position: absolute;
-  inset: 0;
-  background: $black;
-  opacity: 0;
-  transition: opacity 0.25s ease-in-out;
-  pointer-events: auto;
-  &.visible {
-    opacity: 1;
-  }
 }
 .badges {
   position: absolute;

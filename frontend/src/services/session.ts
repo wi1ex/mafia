@@ -34,7 +34,8 @@ function beat() { try { localStorage.setItem(HB_KEY, JSON.stringify({ id: TAB_ID
 function ownerAlive(): boolean {
   const owner = read.owner()
   const hb = read.hb()
-  return !!owner && !!hb && hb.id === owner && (Date.now() - hb.ts) < 15000
+  if (!owner || !hb) return false
+  return hb.id === owner && (Date.now() - hb.ts) < 15_000
 }
 function becomeOwner() {
   try {

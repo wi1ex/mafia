@@ -20,7 +20,7 @@ export const useAuthStore = defineStore('auth', () => {
   const ready = ref(false)
   const foreign = ref(false)
 
-  const isAuthed = computed(() => !!sessionId.value)
+  const isAuthed = computed(() => Boolean(sessionId.value))
 
   let busInited = false
   let unsubFA: (() => void) | null = null

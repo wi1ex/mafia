@@ -74,6 +74,7 @@ export function useRTC(): UseRTC {
   const permProbed = ref<boolean>(loadLS('mediaPermProbed') === '1')
   const hasAudioInput = ref(false)
   const hasVideoInput = ref(false)
+  const isSub = (pub: any) => (pub?.isSubscribed ?? (pub?.subscriptionStatus === 'subscribed'))
 
   const LOG = (evt: string, data?: any) => console.log(`[RTC] ${new Date().toISOString()} — ${evt}`, data ?? '')
   const WRN = (evt: string, data?: any) => console.warn(`[RTC] ${new Date().toISOString()} — ${evt}`, data ?? '')
@@ -267,8 +268,7 @@ export function useRTC(): UseRTC {
       if (pub.kind === Track.Kind.Video) {
         try {
           pub.setSubscribed(wantVideo.value)
-          const subscribed = (pub as any).isSubscribed ?? ((pub as any).subscriptionStatus === 'subscribed')
-          if (wantVideo.value && subscribed) {
+          if (wantVideo.value && isSub(pub)) {
             pub.setVideoQuality(remoteQuality.value === 'hd' ? VideoQuality.HIGH : VideoQuality.LOW)
           }
         } catch {}
@@ -287,8 +287,7 @@ export function useRTC(): UseRTC {
     room.remoteParticipants.forEach((p) => {
       p.getTrackPublications().forEach((pub) => {
         if (pub.kind === Track.Kind.Video) {
-          const subscribed = (pub as any).isSubscribed ?? ((pub as any).subscriptionStatus === 'subscribed')
-          if (!subscribed) { LOG('skip quality (not subscribed)', { id: p.identity }); return }
+          if (!isSub(pub)) { LOG('skip quality (not subscribed)', { id: p.identity }); return }
           try {
             const lkQ = q === 'hd' ? VideoQuality.HIGH : VideoQuality.LOW
             pub.setVideoQuality(lkQ)
@@ -307,9 +306,10 @@ export function useRTC(): UseRTC {
         if (pub.kind !== Track.Kind.Video) return
         const id = String(p.identity)
         const el = videoEls.get(id)
-        const subscribed = (pub as any).isSubscribed ?? ((pub as any).subscriptionStatus === 'subscribed')
+        const subscribed = isSub(pub)
         console.log('[RTC]', 'quality snapshot', where, {
-          id, subscribed,
+          id,
+          subscribed,
           preferred: remoteQuality.value,
           videoEl: el ? { vw: el.videoWidth, vh: el.videoHeight, cw: el.clientWidth, ch: el.clientHeight } : null,
         })
@@ -337,11 +337,13 @@ export function useRTC(): UseRTC {
   }): LkRoom {
     if (lk.value) return lk.value
     const room = new LkRoom({
+      dynacast: true,
       publishDefaults: {
         videoCodec: 'vp8',
         red: true,
         dtx: true,
         simulcast: true,
+        videoSimulcastLayers: [VideoPresets.h180, VideoPresets.h360],
         ...(opts?.publishDefaults || {})
       },
       audioCaptureDefaults: {
@@ -423,6 +425,12 @@ export function useRTC(): UseRTC {
       }
     })
 
+    room.on(RoomEvent.TrackSubscriptionStatusChanged, (pub, _status, _part) => {
+      if (pub.kind === Track.Kind.Video && isSub(pub)) {
+        try { pub.setVideoQuality(remoteQuality.value === 'hd' ? VideoQuality.HIGH : VideoQuality.LOW) } catch {}
+      }
+    })
+
     room.on(RoomEvent.MediaDevicesError, (e: any) => { opts?.onMediaDevicesError?.(e) })
 
     room.on(RoomEvent.MediaDevicesChanged, refreshDevices)
@@ -491,10 +499,10 @@ export function useRTC(): UseRTC {
     fallback,
     onDeviceChange,
     enable,
-    setRemoteQualityForAll,
     probePermissions,
     clearProbeFlag,
     disable,
+    setRemoteQualityForAll,
     debugQualitySnapshot,
   }
 }
