@@ -75,7 +75,7 @@ const positions = reactive<Record<string, number>>({})
 
 const leaving = ref(false)
 // ВАЖНО: LiveKit сигнальный WS должен идти на /rtc
-const ws_url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/rtc'
+const ws_url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host
 
 const rtc = useRTC()
 const { localId, peerIds, mics, cams, selectedMicId, selectedCamId, videoRef, refreshDevices, enable, onDeviceChange } = rtc
