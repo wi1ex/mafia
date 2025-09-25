@@ -374,9 +374,9 @@ onMounted(async () => {
 
     await rtc.connect(ws_url, j.token, { autoSubscribe: false })
 
-    setRemoteQualityForAll(remoteQuality.value)
     rtc.setAudioSubscriptionsForAll(speakersOn.value)
     rtc.setVideoSubscriptionsForAll(visibilityOn.value)
+    setRemoteQualityForAll(remoteQuality.value)
 
     if (camOn.value) {
       const ok = await enable('videoinput')

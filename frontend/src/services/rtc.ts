@@ -257,11 +257,15 @@ export function useRTC(): UseRTC {
     p.getTrackPublications().forEach(pub => {
       if (pub.kind === Track.Kind.Audio) {
         try { pub.setSubscribed(wantAudio.value) } catch {}
+        return
       }
       if (pub.kind === Track.Kind.Video) {
         try {
           pub.setSubscribed(wantVideo.value)
-          pub.setVideoQuality(remoteQuality.value === 'hd' ? VideoQuality.High : VideoQuality.Low)
+          const subscribed = (pub as any).isSubscribed ?? ((pub as any).subscriptionStatus === 'subscribed')
+          if (wantVideo.value && subscribed) {
+            pub.setVideoQuality(remoteQuality.value === 'hd' ? VideoQuality.High : VideoQuality.Low)
+          }
         } catch {}
       }
     })
@@ -276,9 +280,10 @@ export function useRTC(): UseRTC {
     if (!room) return
     room.remoteParticipants.forEach((p) => {
       p.getTrackPublications().forEach((pub) => {
-        if (pub.kind === Track.Kind.Video) {
-          try { pub.setVideoQuality(q === 'hd' ? VideoQuality.High : VideoQuality.Low) } catch {}
-        }
+        if (pub.kind !== Track.Kind.Video) return
+        const subscribed = (pub as any).isSubscribed ?? ((pub as any).subscriptionStatus === 'subscribed')
+        if (!subscribed) return
+        try { pub.setVideoQuality(q === 'hd' ? VideoQuality.High : VideoQuality.Low) } catch {}
       })
     })
   }
@@ -337,14 +342,13 @@ export function useRTC(): UseRTC {
       if (el && pub.track) { try { pub.track.detach(el) } catch {} }
     })
 
-    room.on(RoomEvent.TrackSubscribed, (t: RemoteTrack, _pub, part) => {
+    room.on(RoomEvent.TrackSubscribed, (t: RemoteTrack, pub, part) => {
       const id = String(part.identity)
       if (t.kind === Track.Kind.Video) {
         const el = videoEls.get(id)
         if (el) { try { t.attach(el) } catch {} }
         try {
-          const pub = (part as RemoteParticipant).getTrackPublications().find(p => p.track === t)
-          pub?.setVideoQuality(remoteQuality.value === 'hd' ? VideoQuality.High : VideoQuality.Low)
+          pub.setVideoQuality(remoteQuality.value === 'hd' ? VideoQuality.High : VideoQuality.Low)
         } catch {}
       } else if (t.kind === Track.Kind.Audio) {
         const a = ensureAudioEl(id)
