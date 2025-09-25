@@ -1,8 +1,8 @@
 <template>
   <section class="card">
     <div class="grid" :style="gridStyle">
-      <div v-for="id in sortedPeerIds" :key="id" class="tile" :class="{ speaking: isSpeaking(id) }">
-        <video :ref="videoRef(id)" playsinline autoplay :muted="id === localId" />
+      <div v-for="id in sortedPeerIds" :key="id" class="tile" :class="{ speaking: rtc.isSpeaking(id) }">
+        <video :ref="rtc.videoRef(id)" playsinline autoplay :muted="id === rtc.localId.value" />
         <div class="badges">
           <span class="badge" title="Микрофон">{{ em('mic', isOn(id, 'mic')) }}</span>
           <span class="badge" title="Камера">{{ em('cam', isOn(id, 'cam')) }}</span>
@@ -22,7 +22,7 @@
     </div>
 
     <div v-if="showPermProbe" class="perm-probe">
-      <button class="ctrl" @click="probePermissions({ audio: true, video: true })">
+      <button class="ctrl" @click="rtc.probePermissions({ audio: true, video: true })">
         Разрешить доступ к камере и микрофону
       </button>
     </div>
@@ -30,15 +30,15 @@
     <div class="devices">
       <label :class="{ disabled: !micOn }">
         {{ !micOn ? 'Включите микрофон, чтобы выбрать устройство' : 'Микрофон' }}
-        <select v-model="selectedMicId" @change="onDeviceChange('audioinput')" :disabled="!micOn || mics.length===0">
-          <option v-for="d in mics" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Микрофон' }}</option>
+        <select v-model="rtc.selectedMicId" @change="rtc.onDeviceChange('audioinput')" :disabled="!micOn || rtc.mics.length===0">
+          <option v-for="d in rtc.mics" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Микрофон' }}</option>
         </select>
       </label>
 
       <label :class="{ disabled: !camOn }">
         {{ !camOn ? 'Включите камеру, чтобы выбрать устройство' : 'Камера' }}
-        <select v-model="selectedCamId" @change="onDeviceChange('videoinput')" :disabled="!camOn || cams.length===0">
-          <option v-for="d in cams" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Камера' }}</option>
+        <select v-model="rtc.selectedCamId" @change="rtc.onDeviceChange('videoinput')" :disabled="!camOn || rtc.cams.length===0">
+          <option v-for="d in rtc.cams" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Камера' }}</option>
         </select>
       </label>
     </div>
@@ -55,7 +55,6 @@ import { createAuthedSocket } from '@/services/sio'
 
 const L = (evt: string, data?: any) => console.log(`[Room] ${new Date().toISOString()} — ${evt}`, data ?? '')
 const W = (evt: string, data?: any) => console.warn(`[Room] ${new Date().toISOString()} — ${evt}`, data ?? '')
-const E = (evt: string, data?: any) => console.error(`[Room] ${new Date().toISOString()} — ${evt}`, data ?? '')
 
 type State01 = 0 | 1
 type UserState = { mic: State01; cam: State01; speakers: State01; visibility: State01 }
@@ -63,6 +62,7 @@ type UserState = { mic: State01; cam: State01; speakers: State01; visibility: St
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
+const rtc = useRTC()
 
 const rid = Number(route.params.id)
 const roomId = ref<number | null>(rid)
@@ -72,53 +72,17 @@ const micOn = computed({ get: () => local.mic, set: v => { local.mic = v } })
 const camOn = computed({ get: () => local.cam, set: v => { local.cam = v } })
 const speakersOn = computed({ get: () => local.speakers, set: v => { local.speakers = v } })
 const visibilityOn = computed({ get: () => local.visibility, set: v => { local.visibility = v } })
-
 const socket = ref<Socket | null>(null)
 const statusByUser = reactive<Record<string, UserState>>({})
 const positionByUser = reactive<Record<string, number>>({})
-
 const leaving = ref(false)
 const ws_url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host
-
-const rtc = useRTC()
-const {
-  localId,
-  peerIds,
-  mics,
-  cams,
-  selectedMicId,
-  selectedCamId,
-  permProbed,
-  remoteQuality,
-
-  videoRef,
-  refreshDevices,
-  enable,
-  onDeviceChange,
-  probePermissions,
-  disable,
-  isSpeaking,
-  setRemoteQualityForAll,
-  debugQualitySnapshot,
-} = rtc
-
 const pendingQuality = ref(false)
-const videoQuality = computed(() => remoteQuality.value)
+const videoQuality = computed(() => rtc.remoteQuality.value)
 
-function toggleQuality() {
-  if (pendingQuality.value) return
-  const next = videoQuality.value === 'hd' ? 'sd' : 'hd'
-  L('toggleQuality click', { current: videoQuality.value, next })
-  pendingQuality.value = true
-  try {
-    setRemoteQualityForAll(next)
-    setTimeout(() => debugQualitySnapshot('after toggle'), 1000)
-  } finally { pendingQuality.value = false }
-}
-
-const showPermProbe = computed(() => !permProbed.value && !micOn.value && !camOn.value)
+const showPermProbe = computed(() => !rtc.permProbed.value && !micOn.value && !camOn.value)
 const sortedPeerIds = computed(() => {
-  return [...peerIds.value].sort((a, b) => {
+  return [...rtc.peerIds.value].sort((a, b) => {
     const pa = positionByUser[a] ?? Number.POSITIVE_INFINITY
     const pb = positionByUser[b] ?? Number.POSITIVE_INFINITY
     return pa !== pb ? pa - pb : String(a).localeCompare(String(b))
@@ -149,7 +113,7 @@ const BADGE_OFF = { mic:'🔇', cam:'🚫', speakers:'🔇', visibility:'🙈' }
 function em(kind: keyof typeof BADGE_ON, on = true) { return on ? BADGE_ON[kind] : BADGE_OFF[kind] }
 
 function isOn(id: string, kind: 'mic' | 'cam' | 'speakers' | 'visibility') {
-  if (id === localId.value) {
+  if (id === rtc.localId.value) {
     if (kind === 'mic') return micOn.value
     if (kind === 'cam') return camOn.value
     if (kind === 'speakers') return speakersOn.value
@@ -157,6 +121,16 @@ function isOn(id: string, kind: 'mic' | 'cam' | 'speakers' | 'visibility') {
   }
   const st = statusByUser[id]
   return st ? st[kind] === 1 : true
+}
+
+function toggleQuality() {
+  if (pendingQuality.value) return
+  const next = videoQuality.value === 'hd' ? 'sd' : 'hd'
+  L('toggleQuality click', { current: videoQuality.value, next })
+  pendingQuality.value = true
+  try {
+    rtc.setRemoteQualityForAll(next)
+  } finally { pendingQuality.value = false }
 }
 
 function applyPeerState(uid: string, patch: any) {
@@ -299,12 +273,12 @@ const toggleFactory = (k: keyof typeof local, onEnable?: () => Promise<boolean |
 }
 
 const toggleMic = toggleFactory('mic',
-  async () => await enable('audioinput'),
-  async () => { await disable('audioinput') }
+  async () => await rtc.enable('audioinput'),
+  async () => { await rtc.disable('audioinput') }
 )
 const toggleCam = toggleFactory('cam',
-  async () => await enable('videoinput'),
-  async () => { await disable('videoinput') }
+  async () => await rtc.enable('videoinput'),
+  async () => { await rtc.disable('videoinput') }
 )
 const toggleSpeakers  = toggleFactory('speakers',
   async () => {
@@ -357,16 +331,16 @@ watch(() => auth.isAuthed, (ok) => {
     void onLeave()
   }
 })
-watch(() => remoteQuality.value, (nv, ov) => {
+watch(() => rtc.remoteQuality.value, (nv, ov) => {
   L('quality store changed', { from: ov, to: nv, lk: 'VideoQuality.' + (nv === 'hd' ? 'High' : 'Low') })
 })
-watch(() => micOn.value,        v => L('local mic',        { on: v }))
-watch(() => camOn.value,        v => L('local cam',        { on: v }))
-watch(() => speakersOn.value,   v => L('local speakers',   { on: v }))
-watch(() => visibilityOn.value, v => L('local visibility', { on: v }))
-watch(() => selectedMicId.value,  v => L('selected micId',  { id: v }))
-watch(() => selectedCamId.value,  v => L('selected camId',  { id: v }))
-watch(() => peerIds.value.slice(), v => L('peers list', { ids: v }))
+watch(() => micOn.value,               v => L('local mic',        { on: v }))
+watch(() => camOn.value,               v => L('local cam',        { on: v }))
+watch(() => speakersOn.value,          v => L('local speakers',   { on: v }))
+watch(() => visibilityOn.value,        v => L('local visibility', { on: v }))
+watch(() => rtc.selectedMicId.value,   v => L('selected micId',   { id: v }))
+watch(() => rtc.selectedCamId.value,   v => L('selected camId',   { id: v }))
+watch(() => rtc.peerIds.value.slice(), v => L('peers list',       { ids: v }))
 
 onMounted(async () => {
   L('mounted', { rid })
@@ -398,10 +372,8 @@ onMounted(async () => {
       return
     }
 
-    rtc.selectedMicId.value = rtc.loadLS(rtc.LS.mic) || ''
-    rtc.selectedCamId.value = rtc.loadLS(rtc.LS.cam) || ''
-    await refreshDevices()
-    L('devices refreshed', { mics: mics.value.length, cams: cams.value.length })
+    await rtc.refreshDevices()
+    L('devices refreshed', { mics: rtc.mics.value.length, cams: rtc.cams.value.length })
 
     Object.keys(positionByUser).forEach(k => delete (positionByUser as any)[k])
     Object.entries(j.positions || {}).forEach(([uid, pos]: any) => {
@@ -446,21 +418,21 @@ onMounted(async () => {
     })
 
     await rtc.connect(ws_url, j.token, { autoSubscribe: false })
-    L('rtc.connect done', { localId: localId.value, peers: peerIds.value })
+    L('rtc.connect done', { localId: rtc.localId.value, peers: rtc.peerIds.value })
 
     rtc.setAudioSubscriptionsForAll(speakersOn.value)
     rtc.setVideoSubscriptionsForAll(visibilityOn.value)
     L('subscriptions set', { audio: speakersOn.value, video: visibilityOn.value })
 
-    setRemoteQualityForAll(remoteQuality.value)
-    L('initial quality applied', { to: remoteQuality.value })
+    rtc.setRemoteQualityForAll(rtc.remoteQuality.value)
+    L('initial quality applied', { to: rtc.remoteQuality.value })
 
     if (camOn.value) {
-      const ok = await enable('videoinput')
+      const ok = await rtc.enable('videoinput')
       if (!ok) { W('camera auto-enable failed') } else { L('camera auto-enabled') }
     }
     if (micOn.value) {
-      const ok = await enable('audioinput')
+      const ok = await rtc.enable('audioinput')
       if (!ok) { W('mic auto-enable failed') } else { L('mic auto-enabled') }
     }
 
@@ -500,7 +472,7 @@ onBeforeUnmount(() => {
   transition: border-color 0.25s ease-in-out, box-shadow 0.25s ease-in-out;
   &.speaking {
     border-color: $color-primary;
-    box-shadow: inset 0 0 0 2px $color-primary, 0 0 10px rgba(34,197,94,0.35);
+    box-shadow: inset 0 0 0 6px $color-primary;
   }
 }
 video {
