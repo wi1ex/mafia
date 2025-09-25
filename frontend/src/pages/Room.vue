@@ -54,6 +54,10 @@ import { useAuthStore } from '@/store'
 import { useRTC } from '@/services/rtc'
 import { createAuthedSocket } from '@/services/sio'
 
+const L = (evt: string, data?: any) => console.log(`[Room] ${new Date().toISOString()} — ${evt}`, data ?? '')
+const W = (evt: string, data?: any) => console.warn(`[Room] ${new Date().toISOString()} — ${evt}`, data ?? '')
+const E = (evt: string, data?: any) => console.error(`[Room] ${new Date().toISOString()} — ${evt}`, data ?? '')
+
 type State01 = 0 | 1
 type UserState = { mic: State01; cam: State01; speakers: State01; visibility: State01 }
 
@@ -87,9 +91,12 @@ const pendingQuality = ref(false)
 const videoQuality = computed(() => remoteQuality.value)
 function toggleQuality() {
   if (pendingQuality.value) return
+  const next = videoQuality.value === 'hd' ? 'sd' : 'hd'
+  L('toggleQuality click', { current: videoQuality.value, next })
   pendingQuality.value = true
   try {
-    setRemoteQualityForAll(videoQuality.value === 'hd' ? 'sd' : 'hd')
+    setRemoteQualityForAll(next)
+    L('toggleQuality requested -> waiting apply in RTC', { next })
   } finally {
     pendingQuality.value = false
   }
@@ -151,16 +158,19 @@ function applyPeerState(uid: string, patch: any) {
     speakers:   pick01(patch?.speakers, cur.speakers),
     visibility: pick01(patch?.visibility, cur.visibility),
   }
+  L('peer state changed', { uid, state: statusByUser[uid] })
 }
 function applySelfPref(pref: any) {
   if (!isEmpty(pref?.mic))        local.mic        = norm01(pref.mic, local.mic ? 1 : 0) === 1
   if (!isEmpty(pref?.cam))        local.cam        = norm01(pref.cam, local.cam ? 1 : 0) === 1
   if (!isEmpty(pref?.speakers))   local.speakers   = norm01(pref.speakers, local.speakers ? 1 : 0) === 1
   if (!isEmpty(pref?.visibility)) local.visibility = norm01(pref.visibility, local.visibility ? 1 : 0) === 1
+  L('self prefs applied', { ...local })
 }
 
 function connectSocket() {
   if (socket.value && (socket.value.connected || (socket.value as any).connecting)) return
+  L('socket: init', { ns: '/room' })
   socket.value = createAuthedSocket('/room', {
     path: '/ws/socket.io',
     transports: ['websocket'],
@@ -172,33 +182,43 @@ function connectSocket() {
   })
 
   socket.value?.on('connect', async () => {
+    L('socket: connected', { id: socket.value?.id })
     if (pendingDeltas.length) {
       const merged = Object.assign({}, ...pendingDeltas.splice(0))
+      L('socket: flush pending deltas', merged)
       try { await socket.value!.timeout(5000).emitWithAck('state', merged) } catch { pendingDeltas.unshift(merged) }
     }
   })
 
-  socket.value.on('reconnect', async () => { try { await socket.value!.timeout(5000).emitWithAck('join', { room_id: rid, state: { ...local } }) } catch {} })
+  socket.value.on('reconnect', async () => {
+    L('socket: reconnect')
+    try { await socket.value!.timeout(5000).emitWithAck('join', { room_id: rid, state: { ...local } }) } catch {}
+  })
 
-  socket.value.on('connect_error', e => console.warn('rtc sio error', e?.message))
+  socket.value.on('connect_error', e => W('socket: error', e?.message))
 
   socket.value.on('force_logout', async () => {
+    W('socket: force_logout')
     try { await onLeave() } finally {
       if ('localSignOut' in auth) await (auth as any).localSignOut()
       else await auth.logout()
     }
   })
 
-  socket.value.on('state_changed', (p: any) => applyPeerState(String(p.user_id), p))
-
-  socket.value.on('member_joined', (p: any) => applyPeerState(String(p.user_id), p?.state || {}))
-
+  socket.value.on('state_changed', (p: any) => {
+    L('socket: state_changed', p)
+    applyPeerState(String(p.user_id), p)
+  })
+  socket.value.on('member_joined', (p: any) => {
+    L('socket: member_joined', p)
+    applyPeerState(String(p.user_id), p?.state || {})
+  })
   socket.value.on('member_left', (p: any) => {
     const id = String(p.user_id)
+    L('socket: member_left', { id })
     delete statusByUser[id]
     delete positionByUser[id]
   })
-
   socket.value.on('positions', (p: any) => {
     const ups = Array.isArray(p?.updates) ? p.updates : []
     for (const u of ups) {
@@ -206,12 +226,14 @@ function connectSocket() {
       const pos = Number(u.position)
       if (Number.isFinite(pos)) positionByUser[id] = pos
     }
+    L('socket: positions', { count: ups.length })
   })
 }
 
 async function joinViaSocket() {
   if (!socket.value) connectSocket()
   if (!socket.value!.connected) {
+    L('socket: waiting connect')
     await new Promise<void>((res, rej) => {
       const t = setTimeout(() => rej(new Error('connect timeout')), 10000)
       socket.value!.once('connect', () => {
@@ -220,16 +242,24 @@ async function joinViaSocket() {
       })
     })
   }
+  L('socket: join', { room_id: rid, state: { ...local } })
   return socket.value!.timeout(5000).emitWithAck('join', { room_id: rid, state: { ...local } })
 }
 
 const pendingDeltas: any[] = []
 async function publishState(delta: Partial<{ mic: boolean; cam: boolean; speakers: boolean; visibility: boolean }>) {
-  if (!socket.value || !socket.value.connected) { pendingDeltas.push(delta); return false }
+  if (!socket.value || !socket.value.connected) {
+    pendingDeltas.push(delta)
+    L('queue delta (offline)', delta)
+    return false
+  }
   try {
+    L('publish state', delta)
     const resp: any = await socket.value.timeout(5000).emitWithAck('state', delta)
+    L('publish state ack', resp)
     return !!resp?.ok
-  } catch {
+  } catch (e) {
+    W('publish state failed, queued', { delta, e })
     pendingDeltas.push(delta)
     return false
   }
@@ -237,11 +267,13 @@ async function publishState(delta: Partial<{ mic: boolean; cam: boolean; speaker
 
 const toggleFactory = (k: keyof typeof local, onEnable?: () => Promise<boolean | void>, onDisable?: () => Promise<void>) => async () => {
   if (pending[k]) return
-  pending[k] = true
   const want = !local[k]
+  L('toggle click', { key: k, want })
+  pending[k] = true
   try {
     if (want) {
       const okLocal = (await onEnable?.()) !== false
+      L('toggle enable result', { key: k, okLocal })
       if (!okLocal) return
       local[k] = true
       if (k === 'speakers')   rtc.setAudioSubscriptionsForAll(true)
@@ -270,16 +302,20 @@ const toggleSpeakers  = toggleFactory('speakers',
     rtc.setAudioSubscriptionsForAll(true)
     return true
   },
-  async () => rtc.setAudioSubscriptionsForAll(false))
+  async () => rtc.setAudioSubscriptionsForAll(false)
+)
 const toggleVisibility = toggleFactory('visibility',
   async () => {
     rtc.setVideoSubscriptionsForAll(true)
     return true
-  }, async () => rtc.setVideoSubscriptionsForAll(false))
+  },
+  async () => rtc.setVideoSubscriptionsForAll(false)
+)
 
 async function onLeave() {
   if (leaving.value) return
   leaving.value = true
+  L('leave start')
   try {
     window.removeEventListener('pagehide', onPageHide)
     window.removeEventListener('beforeunload', onPageHide)
@@ -296,31 +332,58 @@ async function onLeave() {
     socket.value = null
     roomId.value = null
     await router.replace('/')
+    L('leave done')
   } finally {
     leaving.value = false
   }
 }
-const onPageHide = () => { void onLeave() }
+const onPageHide = () => {
+  L('pagehide')
+  void onLeave()
+}
 
-watch(() => auth.isAuthed, (ok) => { if (!ok) void onLeave() })
+watch(() => auth.isAuthed, (ok) => {
+  if (!ok) {
+    W('auth lost')
+    void onLeave()
+  }
+})
+
+watch(() => remoteQuality.value, (nv, ov) => {
+  L('quality store changed', { from: ov, to: nv, lk: 'VideoQuality.' + (nv === 'hd' ? 'High' : 'Low') })
+})
+watch(() => micOn.value,        v => L('local mic',        { on: v }))
+watch(() => camOn.value,        v => L('local cam',        { on: v }))
+watch(() => speakersOn.value,   v => L('local speakers',   { on: v }))
+watch(() => visibilityOn.value, v => L('local visibility', { on: v }))
+watch(() => selectedMicId.value,  v => L('selected micId',  { id: v }))
+watch(() => selectedCamId.value,  v => L('selected camId',  { id: v }))
+watch(() => peerIds.value.slice(), v => L('peers list', { ids: v }))
 
 onMounted(async () => {
+  L('mounted', { rid })
   try {
-    if (!auth.ready) { try { await auth.init() } catch {} }
+    if (!auth.ready) {
+      try {
+        await auth.init()
+        L('auth.init done') } catch (e) { W('auth.init failed', e)
+      }
+    }
     const run = async () => {
       if (!rtc.permProbed.value && !micOn.value && !camOn.value) {
-        try { await rtc.probePermissions({ audio: true, video: true }) } catch {}
+        L('probePermissions start')
+        try {
+          await rtc.probePermissions({ audio: true, video: true })
+          L('probePermissions done') } catch (e) { W('probePermissions error', e)
+        }
       }
     }
     if (document.visibilityState === 'visible') await run()
-    else document.addEventListener(
-      'visibilitychange',
-      async () => { if (document.visibilityState === 'visible') await run() },
-      { once: true }
-    )
+    else document.addEventListener('visibilitychange', async () => { if (document.visibilityState === 'visible') await run() }, { once: true })
 
     connectSocket()
     const j: any = await joinViaSocket()
+    L('joinViaSocket ack', j)
     if (!j?.ok) {
       alert(j?.status === 404 ? 'Комната не найдена' : j?.status === 409 ? 'Комната заполнена' : 'Ошибка входа в комнату')
       await router.replace('/')
@@ -330,6 +393,7 @@ onMounted(async () => {
     rtc.selectedMicId.value = rtc.loadLS(rtc.LS.mic) || ''
     rtc.selectedCamId.value = rtc.loadLS(rtc.LS.cam) || ''
     await refreshDevices()
+    L('devices refreshed', { mics: mics.value.length, cams: cams.value.length })
 
     Object.keys(positionByUser).forEach(k => delete (positionByUser as any)[k])
     Object.entries(j.positions || {}).forEach(([uid, pos]: any) => {
@@ -349,6 +413,7 @@ onMounted(async () => {
 
     rtc.initRoom({
       onMediaDevicesError: async (e: unknown) => {
+        W('MediaDevicesError', e)
         if (!rtc.isBusyError(e)) return
         const msg = ((e as any)?.message || '') + ''
         const name = ((e as any)?.name || '') + ''
@@ -373,24 +438,28 @@ onMounted(async () => {
     })
 
     await rtc.connect(ws_url, j.token, { autoSubscribe: false })
+    L('rtc.connect done', { localId: localId.value, peers: peerIds.value })
 
     rtc.setAudioSubscriptionsForAll(speakersOn.value)
     rtc.setVideoSubscriptionsForAll(visibilityOn.value)
+    L('subscriptions set', { audio: speakersOn.value, video: visibilityOn.value })
+
     setRemoteQualityForAll(remoteQuality.value)
+    L('initial quality applied', { to: remoteQuality.value })
 
     if (camOn.value) {
       const ok = await enable('videoinput')
-      if (!ok) { console.warn('camera auto-enable failed') }
+      if (!ok) { W('camera auto-enable failed') } else { L('camera auto-enabled') }
     }
     if (micOn.value) {
       const ok = await enable('audioinput')
-      if (!ok) { console.warn('mic auto-enable failed') }
+      if (!ok) { W('mic auto-enable failed') } else { L('mic auto-enabled') }
     }
 
     window.addEventListener('pagehide', onPageHide)
     window.addEventListener('beforeunload', onPageHide)
   } catch (e) {
-    console.warn(e)
+    W('onMounted error', e)
     try { await rtc.disconnect() } catch {}
     alert('Ошибка входа в комнату')
     await router.replace('/')
@@ -398,6 +467,7 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  L('beforeUnmount')
   void onLeave()
 })
 </script>
