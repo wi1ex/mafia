@@ -24,7 +24,7 @@ class LoggingMiddleware:
         client_ip = client[0] if client else "-"
         user_id = None
         auth = _get("authorization")
-        if auth.lower().startswith("bearer "):
+        if auth and auth.lower().startswith("bearer "):
             try:
                 p = decode_token(auth[7:].strip())
                 if p.get("typ") == "access":

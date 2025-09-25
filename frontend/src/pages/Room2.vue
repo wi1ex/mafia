@@ -18,7 +18,6 @@
       <button class="ctrl" @click="toggleCam" :disabled="pending.cam">{{ camOn ? 'Камера ВКЛ' : 'Камера ВЫКЛ' }}</button>
       <button class="ctrl" @click="toggleSpeakers" :disabled="pending.speakers">{{ speakersOn ? 'Звук ВКЛ' : 'Звук ВЫКЛ' }}</button>
       <button class="ctrl" @click="toggleVisibility" :disabled="pending.visibility">{{ visibilityOn ? 'Видео ВКЛ' : 'Видео ВЫКЛ' }}</button>
-      <button class="ctrl" @click="toggleQuality" :disabled="pendingQuality">{{ videoQuality === 'hd' ? 'HD' : 'SD' }}</button>
       <button class="ctrl danger" @click="onLeave">Покинуть комнату</button>
     </div>
 
@@ -79,21 +78,9 @@ const ws_url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.
 
 const rtc = useRTC()
 const {
-  localId, peerIds, mics, cams, selectedMicId, selectedCamId, permProbed, remoteQuality,
-  videoRef, refreshDevices, enable, onDeviceChange, probePermissions, disable, setRemoteQualityForAll,
+  localId, peerIds, mics, cams, selectedMicId, selectedCamId, permProbed,
+  videoRef, refreshDevices, enable, onDeviceChange, probePermissions, disable
 } = rtc
-
-const pendingQuality = ref(false)
-const videoQuality = computed(() => remoteQuality.value)
-function toggleQuality() {
-  if (pendingQuality.value) return
-  pendingQuality.value = true
-  try {
-    setRemoteQualityForAll(videoQuality.value === 'hd' ? 'sd' : 'hd')
-  } finally {
-    pendingQuality.value = false
-  }
-}
 
 const showPermProbe = computed(() => !permProbed.value && !micOn.value && !camOn.value)
 const sortedPeerIds = computed(() => {
@@ -374,7 +361,6 @@ onMounted(async () => {
 
     await rtc.connect(ws_url, j.token, { autoSubscribe: false })
 
-    setRemoteQualityForAll(remoteQuality.value)
     rtc.setAudioSubscriptionsForAll(speakersOn.value)
     rtc.setVideoSubscriptionsForAll(visibilityOn.value)
 

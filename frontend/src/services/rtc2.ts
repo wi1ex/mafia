@@ -7,15 +7,13 @@ import {
   RoomEvent,
   Track,
   VideoPresets,
-  VideoQuality,
 } from 'livekit-client'
 import { setLogLevel, LogLevel } from 'livekit-client'
 
 setLogLevel(LogLevel.warn)
 
 type DeviceKind = 'audioinput' | 'videoinput'
-type VQ = 'sd'|'hd'
-const LS = { mic: 'audioDeviceId', cam: 'videoDeviceId', vq: 'videoQuality' }
+const LS = { mic: 'audioDeviceId', cam: 'videoDeviceId' }
 const saveLS = (k: string, v: string) => { try { localStorage.setItem(k, v) } catch {} }
 const loadLS = (k: string) => { try { return localStorage.getItem(k) } catch { return null } }
 
@@ -216,9 +214,8 @@ export function useRTC(): UseRTC {
         await room.localParticipant.setMicrophoneEnabled(true, id ? ({ deviceId: { exact: id } } as any) : undefined)
       } else {
         await room.localParticipant.setCameraEnabled(true, id
-            ? ({ deviceId: { exact: id }, resolution: VideoPresets.h360.resolution } as any)
-            : ({ resolution: VideoPresets.h360.resolution } as any)
-        )
+          ? ({ deviceId: { exact: id }, resolution: VideoPresets.h360.resolution } as any)
+          : ({ resolution: VideoPresets.h360.resolution } as any))
       }
       return true
     } catch {
@@ -255,31 +252,8 @@ export function useRTC(): UseRTC {
   }
   const applySubsFor = (p: RemoteParticipant) => {
     p.getTrackPublications().forEach(pub => {
-      if (pub.kind === Track.Kind.Audio) {
-        try { pub.setSubscribed(wantAudio.value) } catch {}
-      }
-      if (pub.kind === Track.Kind.Video) {
-        try {
-          pub.setSubscribed(wantVideo.value)
-          pub.setVideoQuality(remoteQuality.value === 'hd' ? VideoQuality.High : VideoQuality.Low)
-        } catch {}
-      }
-    })
-  }
-
-  const remoteQuality = ref<VQ>((loadLS(LS.vq) as VQ) === 'sd' ? 'sd' : 'hd')
-
-  function setRemoteQualityForAll(q: VQ) {
-    remoteQuality.value = q
-    saveLS(LS.vq, q)
-    const room = lk.value
-    if (!room) return
-    room.remoteParticipants.forEach((p) => {
-      p.getTrackPublications().forEach((pub) => {
-        if (pub.kind === Track.Kind.Video) {
-          try { pub.setVideoQuality(q === 'hd' ? VideoQuality.High : VideoQuality.Low) } catch {}
-        }
-      })
+      if (pub.kind === Track.Kind.Audio) { try { pub.setSubscribed(wantAudio.value) } catch {} }
+      if (pub.kind === Track.Kind.Video) { try { pub.setSubscribed(wantVideo.value) } catch {} }
     })
   }
 
@@ -307,7 +281,6 @@ export function useRTC(): UseRTC {
         videoCodec: 'vp8',
         red: true,
         dtx: true,
-        simulcast: true,
         ...(opts?.publishDefaults || {})
       },
       audioCaptureDefaults: {
@@ -342,10 +315,6 @@ export function useRTC(): UseRTC {
       if (t.kind === Track.Kind.Video) {
         const el = videoEls.get(id)
         if (el) { try { t.attach(el) } catch {} }
-        try {
-          const pub = (part as RemoteParticipant).getTrackPublications().find(p => p.track === t)
-          pub?.setVideoQuality(remoteQuality.value === 'hd' ? VideoQuality.High : VideoQuality.Low)
-        } catch {}
       } else if (t.kind === Track.Kind.Audio) {
         const a = ensureAudioEl(id)
         try { t.attach(a) } catch {}
@@ -434,7 +403,6 @@ export function useRTC(): UseRTC {
     mics,
     cams,
     LS,
-    remoteQuality,
     selectedMicId,
     selectedCamId,
     permProbed,
@@ -454,7 +422,6 @@ export function useRTC(): UseRTC {
     fallback,
     onDeviceChange,
     enable,
-    setRemoteQualityForAll,
     probePermissions,
     clearProbeFlag,
     disable,
