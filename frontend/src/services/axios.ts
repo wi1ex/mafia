@@ -20,8 +20,8 @@ let accessToken = ''
 let isRefreshing = false
 let pendingWaiters: Array<(t: string | null) => void> = []
 
-const PENDING_LIMIT = 200
-const REFRESH_TIMEOUT_MS = 10_000
+type RefreshResult = { token: string | null; data?: any }
+let refreshInFlight: Promise<RefreshResult> | null = null
 
 const tokenRefreshedListeners: Array<(t: string) => void> = []
 const authExpiredListeners: Array<() => void> = []
@@ -40,11 +40,14 @@ export function removeAuthExpiredListener(cb: () => void) {
   if (i >= 0) authExpiredListeners.splice(i, 1)
 }
 export async function refreshAccessToken(notifyOnFail = false): Promise<string | null> {
-  const tok = await doRefreshWithTimeout()
-  if (!tok && notifyOnFail) {
-    notifyAuthExpired()
-  }
-  return tok
+  const { token } = await startRefresh()
+  if (!token && notifyOnFail) notifyAuthExpired()
+  return token
+}
+export async function refreshAccessTokenFull(notifyOnFail = false): Promise<any | null> {
+  const { token, data } = await startRefresh()
+  if (!token && notifyOnFail) notifyAuthExpired()
+  return token ? data : null
 }
 export function getAccessToken(): string { return accessToken }
 
@@ -56,7 +59,7 @@ function setReqAuthHeader(cfg: InternalAxiosRequestConfig, tok: string): void {
   cfg.headers.set('Authorization', `Bearer ${tok}`)
 }
 
-async function doRefreshWithTimeout(): Promise<string | null> {
+async function doRefreshWithTimeout(): Promise<RefreshResult> {
   const ctrl = new AbortController()
   let tid: ReturnType<typeof setTimeout>
   const refreshPromise = (async () => {
@@ -66,19 +69,30 @@ async function doRefreshWithTimeout(): Promise<string | null> {
       const tok = (data?.access_token as string | undefined) ?? null
       setAuthHeader(tok ?? '')
       if (tok) notifyTokenRefreshed(tok)
-      return tok
+      return { token: tok, data }
     } catch {
       setAuthHeader('')
-      return null
+      return { token: null }
     } finally { clearTimeout(tid) }
   })()
   const timeoutPromise = new Promise<string | null>((resolve) => {
     tid = setTimeout(() => {
       try { ctrl.abort() } catch {}
       resolve(null)
-    }, REFRESH_TIMEOUT_MS)
+    }, 10_000)
   })
-  return Promise.race([refreshPromise, timeoutPromise])
+  const res = await Promise.race([refreshPromise, timeoutPromise])
+  return (res && typeof res === 'object' && 'token' in res) ? res as RefreshResult : { token: res as string | null }
+}
+async function startRefresh(): Promise<RefreshResult> {
+  if (!refreshInFlight) {
+    refreshInFlight = (async () => {
+      const out = await doRefreshWithTimeout()
+      refreshInFlight = null
+      return out
+    })()
+  }
+  return refreshInFlight
 }
 
 api.interceptors.request.use((cfg: InternalAxiosRequestConfig) => {
@@ -102,7 +116,7 @@ api.interceptors.response.use(
     if (!isRefreshing) {
       isRefreshing = true
       try {
-        const tok = await doRefreshWithTimeout()
+        const { token: tok } = await startRefresh()
         pendingWaiters.forEach(cb => cb(tok))
         pendingWaiters = []
         if (!tok) {
@@ -114,7 +128,7 @@ api.interceptors.response.use(
       } finally { isRefreshing = false }
     }
 
-    if (pendingWaiters.length > PENDING_LIMIT) {
+    if (pendingWaiters.length > 200) {
       pendingWaiters = []
       return Promise.reject(new Error('refresh_queue_overflow'))
     }

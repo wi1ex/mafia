@@ -25,7 +25,6 @@
       <button class="ctrl" @click="probePermissions({ audio: true, video: true })">
         Разрешить доступ к камере и микрофону
       </button>
-      <small class="hint">Нужно один раз подтвердить доступ устройств в браузере.</small>
     </div>
 
     <div class="devices">
@@ -162,7 +161,7 @@ function connectSocket() {
   socket.value?.on('connect', async () => {
     if (pendingDeltas.length) {
       const merged = Object.assign({}, ...pendingDeltas.splice(0))
-      try { await socket.value!.timeout(ACK).emitWithAck('state', merged) } catch { pendingDeltas.unshift(merged) }
+      try { await socket.value!.timeout(5000).emitWithAck('state', merged) } catch { pendingDeltas.unshift(merged) }
     }
   })
 
@@ -294,6 +293,7 @@ watch(() => auth.isAuthed, (ok) => { if (!ok) void onLeave() })
 
 onMounted(async () => {
   try {
+    if (!auth.ready) { try { await auth.init() } catch {} }
     const run = async () => {
       if (!rtc.permProbed.value && !micOn.value && !camOn.value) {
         try { await rtc.probePermissions({ audio: true, video: true }) } catch {}
@@ -471,9 +471,6 @@ video {
   display: flex;
   align-items: center;
   gap: 12px;
-  .hint {
-    color: $muted;
-  }
 }
 .devices {
   margin: 12px;

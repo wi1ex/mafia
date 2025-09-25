@@ -22,7 +22,7 @@ function wireAuthedSocket(s: Socket) {
   s.on('connect_error', async () => {
     if (triedRefreshOnThisCycle) return
     triedRefreshOnThisCycle = true
-    const tok = await refreshAccessToken(true)
+    const tok = await refreshAccessToken(false)
     if (tok) {
       applyAuth()
       try { s.io.reconnect() } catch {}

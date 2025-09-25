@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { api, setAuthHeader, addAuthExpiredListener } from '@/services/axios'
+import { api, setAuthHeader, addAuthExpiredListener, refreshAccessTokenFull } from '@/services/axios'
 import {
   initSessionBus, setSid, clearSid, isForeignActive,
   onForeignActive, onInconsistency, checkConsistencyNow
@@ -73,7 +73,8 @@ export const useAuthStore = defineStore('auth', () => {
       return
     }
     try {
-      const { data } = await api.post('/auth/refresh', undefined, { __skipAuth: true })
+      const data = await refreshAccessTokenFull(false)
+      if (!data) { clearSession(); return }
       await applySession(data)
     } catch {
       clearSession()
