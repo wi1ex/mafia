@@ -49,6 +49,12 @@ export type UseRTC = {
   fallback: (kind: DeviceKind) => Promise<void>
   onDeviceChange: (kind: DeviceKind) => Promise<void>
   enable: (kind: DeviceKind) => Promise<boolean>
+  permProbed: Ref<boolean>
+  probePermissions: (opts?: { audio?: boolean; video?: boolean | MediaTrackConstraints }) => Promise<boolean>
+  clearProbeFlag: () => void
+  hasAudioInput: Ref<boolean>
+  hasVideoInput: Ref<boolean>
+  disable: (kind: DeviceKind) => Promise<void>
 }
 
 export function useRTC(): UseRTC {
@@ -63,8 +69,43 @@ export function useRTC(): UseRTC {
   const selectedCamId = ref<string>('')
   const wantAudio = ref(true)
   const wantVideo = ref(true)
+  const permProbed = ref<boolean>(loadLS('mediaPermProbed') === '1')
+  const hasAudioInput = ref(false)
+  const hasVideoInput = ref(false)
 
   const getByIdentity = (room: LkRoom, id: string) => room.getParticipantByIdentity?.(id) ?? room.remoteParticipants.get(id)
+
+  function setPermFlag(v: boolean) {
+    try {
+      permProbed.value = v
+      if (v) localStorage.setItem('mediaPermProbed', '1')
+      else localStorage.removeItem('mediaPermProbed')
+    } catch {}
+  }
+
+  async function probePermissions(opts?: { audio?: boolean; video?: boolean | MediaTrackConstraints }): Promise<boolean> {
+    const audio = opts?.audio ?? true
+    const video = opts?.video ?? true
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio, video })
+      stream.getTracks().forEach(t => { try { t.stop() } catch {} })
+      await refreshDevices()
+      setPermFlag(true)
+      return true
+    } catch {
+      setPermFlag(false)
+      return false
+    }
+  }
+
+  function clearProbeFlag() { setPermFlag(false) }
+
+  async function disable(kind: DeviceKind) {
+    try {
+      if (kind === 'audioinput') await lk.value?.localParticipant.setMicrophoneEnabled(false)
+      else await lk.value?.localParticipant.setCameraEnabled(false)
+    } catch {}
+  }
 
   function setVideoRef(id: string, el: HTMLVideoElement | null) {
     const prev = videoEls.get(id)
@@ -105,6 +146,8 @@ export function useRTC(): UseRTC {
       const list = await navigator.mediaDevices.enumerateDevices()
       mics.value = list.filter(d => d.kind === 'audioinput')
       cams.value = list.filter(d => d.kind === 'videoinput')
+      hasAudioInput.value = mics.value.length > 0
+      hasVideoInput.value = cams.value.length > 0
       if (!mics.value.find(d => d.deviceId === selectedMicId.value)) {
         const fromLS = loadLS(LS.mic)
         selectedMicId.value = (fromLS && mics.value.find(d => d.deviceId === fromLS)) ? fromLS : (mics.value[0]?.deviceId || '')
@@ -362,6 +405,10 @@ export function useRTC(): UseRTC {
     LS,
     selectedMicId,
     selectedCamId,
+    permProbed,
+    hasAudioInput,
+    hasVideoInput,
+
     videoRef,
     initRoom,
     connect,
@@ -375,5 +422,8 @@ export function useRTC(): UseRTC {
     fallback,
     onDeviceChange,
     enable,
+    probePermissions,
+    clearProbeFlag,
+    disable,
   }
 }

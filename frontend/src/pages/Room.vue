@@ -21,16 +21,23 @@
       <button class="ctrl danger" @click="onLeave">Покинуть комнату</button>
     </div>
 
+    <div v-if="showPermProbe" class="perm-probe">
+      <button class="ctrl" @click="probePermissions({ audio: true, video: true })">
+        Разрешить доступ к камере и микрофону
+      </button>
+      <small class="hint">Нужно один раз подтвердить доступ устройств в браузере.</small>
+    </div>
+
     <div class="devices">
       <label :class="{ disabled: !micOn }">
-        {{ !micOn ? 'Включите микрофон, чтобы выбрать устройство' : 'Устройства не найдены' }}
+        {{ !micOn ? 'Включите микрофон, чтобы выбрать устройство' : 'Микрофон' }}
         <select v-model="selectedMicId" @change="onDeviceChange('audioinput')" :disabled="!micOn || mics.length===0">
           <option v-for="d in mics" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Микрофон' }}</option>
         </select>
       </label>
 
       <label :class="{ disabled: !camOn }">
-        {{ !camOn ? 'Включите камеру, чтобы выбрать устройство' : 'Устройства не найдены' }}
+        {{ !camOn ? 'Включите камеру, чтобы выбрать устройство' : 'Камера' }}
         <select v-model="selectedCamId" @change="onDeviceChange('videoinput')" :disabled="!camOn || cams.length===0">
           <option v-for="d in cams" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Камера' }}</option>
         </select>
@@ -40,7 +47,7 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, reactive, ref, computed, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Socket } from 'socket.io-client'
 import { useAuthStore } from '@/store'
@@ -64,19 +71,23 @@ const speakersOn = computed({ get: () => local.speakers, set: v => { local.speak
 const visibilityOn = computed({ get: () => local.visibility, set: v => { local.visibility = v } })
 
 const socket = ref<Socket | null>(null)
-const statusMap = reactive<Record<string, UserState>>({})
-const positions = reactive<Record<string, number>>({})
+const statusByUser = reactive<Record<string, UserState>>({})
+const positionByUser = reactive<Record<string, number>>({})
 
 const leaving = ref(false)
 const ws_url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host
 
 const rtc = useRTC()
-const { localId, peerIds, mics, cams, selectedMicId, selectedCamId, videoRef, refreshDevices, enable, onDeviceChange } = rtc
+const {
+  localId, peerIds, mics, cams, selectedMicId, selectedCamId, permProbed,
+  videoRef, refreshDevices, enable, onDeviceChange, probePermissions, disable
+} = rtc
 
+const showPermProbe = computed(() => !permProbed.value && !micOn.value && !camOn.value)
 const sortedPeerIds = computed(() => {
   return [...peerIds.value].sort((a, b) => {
-    const pa = positions[a] ?? Number.POSITIVE_INFINITY
-    const pb = positions[b] ?? Number.POSITIVE_INFINITY
+    const pa = positionByUser[a] ?? Number.POSITIVE_INFINITY
+    const pb = positionByUser[b] ?? Number.POSITIVE_INFINITY
     return pa !== pb ? pa - pb : String(a).localeCompare(String(b))
   })
 })
@@ -100,11 +111,9 @@ function norm01(v: unknown, fallback: 0 | 1): 0 | 1 {
   return fallback
 }
 
-function em(kind: 'mic' | 'cam' | 'speakers' | 'visibility', on?: boolean) {
-  const ON = { mic: '🎤', cam: '🎥', speakers: '🔈', visibility: '👁️' } as const
-  const OFF = { mic: '🔇', cam: '🚫', speakers: '🔇', visibility: '🙈' } as const
-  return (on ?? true) ? ON[kind] : OFF[kind]
-}
+const BADGE_ON  = { mic:'🎤', cam:'🎥', speakers:'🔈', visibility:'👁️' } as const
+const BADGE_OFF = { mic:'🔇', cam:'🚫', speakers:'🔇', visibility:'🙈' } as const
+function em(kind: keyof typeof BADGE_ON, on = true) { return on ? BADGE_ON[kind] : BADGE_OFF[kind] }
 
 function isOn(id: string, kind: 'mic' | 'cam' | 'speakers' | 'visibility') {
   if (id === localId.value) {
@@ -113,18 +122,18 @@ function isOn(id: string, kind: 'mic' | 'cam' | 'speakers' | 'visibility') {
     if (kind === 'speakers') return speakersOn.value
     return visibilityOn.value
   }
-  const st = statusMap[id]
+  const st = statusByUser[id]
   return st ? st[kind] === 1 : true
 }
 function isCovered(id: string): boolean {
   const isSelf = id === localId.value
-  const remoteCamOn = statusMap[id]?.cam === 1
+  const remoteCamOn = statusByUser[id]?.cam === 1
   return (isSelf && !camOn.value) || (!isSelf && (!remoteCamOn || !visibilityOn.value))
 }
 
 function applyPeerState(uid: string, patch: any) {
-  const cur = statusMap[uid] ?? { mic: 1, cam: 1, speakers: 1, visibility: 1 }
-  statusMap[uid] = {
+  const cur = statusByUser[uid] ?? { mic: 1, cam: 1, speakers: 1, visibility: 1 }
+  statusByUser[uid] = {
     mic:        pick01(patch?.mic, cur.mic),
     cam:        pick01(patch?.cam, cur.cam),
     speakers:   pick01(patch?.speakers, cur.speakers),
@@ -150,7 +159,14 @@ function connectSocket() {
     reconnectionDelayMax: 5000,
   })
 
-  socket.value.on('reconnect', async () => { try { await socket.value!.timeout(1500).emitWithAck('join', { room_id: rid, state: { ...local } }) } catch {} })
+  socket.value?.on('connect', async () => {
+    if (pendingDeltas.length) {
+      const merged = Object.assign({}, ...pendingDeltas.splice(0))
+      try { await socket.value!.timeout(ACK).emitWithAck('state', merged) } catch { pendingDeltas.unshift(merged) }
+    }
+  })
+
+  socket.value.on('reconnect', async () => { try { await socket.value!.timeout(5000).emitWithAck('join', { room_id: rid, state: { ...local } }) } catch {} })
 
   socket.value.on('connect_error', e => console.warn('rtc sio error', e?.message))
 
@@ -167,8 +183,8 @@ function connectSocket() {
 
   socket.value.on('member_left', (p: any) => {
     const id = String(p.user_id)
-    delete statusMap[id]
-    delete positions[id]
+    delete statusByUser[id]
+    delete positionByUser[id]
   })
 
   socket.value.on('positions', (p: any) => {
@@ -176,7 +192,7 @@ function connectSocket() {
     for (const u of ups) {
       const id = String(u.user_id)
       const pos = Number(u.position)
-      if (Number.isFinite(pos)) positions[id] = pos
+      if (Number.isFinite(pos)) positionByUser[id] = pos
     }
   })
 }
@@ -192,50 +208,62 @@ async function joinViaSocket() {
       })
     })
   }
-  return socket.value!.timeout(1500).emitWithAck('join', { room_id: rid, state: { ...local } })
+  return socket.value!.timeout(5000).emitWithAck('join', { room_id: rid, state: { ...local } })
 }
 
+const pendingDeltas: any[] = []
 async function publishState(delta: Partial<{ mic: boolean; cam: boolean; speakers: boolean; visibility: boolean }>) {
-  if (!roomId.value || !socket.value || !socket.value.connected) return false
+  if (!socket.value || !socket.value.connected) { pendingDeltas.push(delta); return false }
   try {
-    const resp: any = await socket.value.timeout(1500).emitWithAck('state', delta)
+    const resp: any = await socket.value.timeout(5000).emitWithAck('state', delta)
     return !!resp?.ok
-  } catch { return false }
+  } catch {
+    pendingDeltas.push(delta)
+    return false
+  }
 }
 
-const toggleFactory = (k: keyof typeof local, onEnable?: () => Promise<void>, onDisable?: () => Promise<void>) => async () => {
+const toggleFactory = (k: keyof typeof local, onEnable?: () => Promise<boolean | void>, onDisable?: () => Promise<void>) => async () => {
   if (pending[k]) return
   pending[k] = true
   const want = !local[k]
   try {
-    const ok = await publishState({ [k]: want } as any)
-    if (!ok) return
-    if (want) await onEnable?.()
-    else await onDisable?.()
-    local[k] = want
-    if (k === 'speakers')   rtc.setAudioSubscriptionsForAll(local.speakers)
-    if (k === 'visibility') rtc.setVideoSubscriptionsForAll(local.visibility)
-  } catch {
-    try { await publishState({ [k]: !want } as any) } catch {}
+    if (want) {
+      const okLocal = (await onEnable?.()) !== false
+      if (!okLocal) return
+      local[k] = true
+      if (k === 'speakers')   rtc.setAudioSubscriptionsForAll(true)
+      if (k === 'visibility') rtc.setVideoSubscriptionsForAll(true)
+      try { await publishState({ [k]: true } as any) } catch {}
+    } else {
+      await onDisable?.()
+      local[k] = false
+      if (k === 'speakers')   rtc.setAudioSubscriptionsForAll(false)
+      if (k === 'visibility') rtc.setVideoSubscriptionsForAll(false)
+      try { await publishState({ [k]: false } as any) } catch {}
+    }
   } finally { pending[k] = false }
 }
 
 const toggleMic = toggleFactory('mic',
-  async () => {
-  const ok = await enable('audioinput')
-    if (!ok) throw new Error('no-mic')
-  },
-  async () => { try { await rtc.lk.value?.localParticipant.setMicrophoneEnabled(false) } catch {} }
+  async () => await enable('audioinput'),
+  async () => { await disable('audioinput') }
 )
 const toggleCam = toggleFactory('cam',
-  async () => {
-  const ok = await enable('videoinput')
-    if (!ok) throw new Error('no-cam')
-  },
-  async () => { try { await rtc.lk.value?.localParticipant.setCameraEnabled(false) } catch {} }
+  async () => await enable('videoinput'),
+  async () => { await disable('videoinput') }
 )
-const toggleSpeakers  = toggleFactory('speakers',  async () => rtc.setAudioSubscriptionsForAll(true),  async () => rtc.setAudioSubscriptionsForAll(false))
-const toggleVisibility = toggleFactory('visibility', async () => rtc.setVideoSubscriptionsForAll(true), async () => rtc.setVideoSubscriptionsForAll(false))
+const toggleSpeakers  = toggleFactory('speakers',
+  async () => {
+    rtc.setAudioSubscriptionsForAll(true)
+    return true
+  },
+  async () => rtc.setAudioSubscriptionsForAll(false))
+const toggleVisibility = toggleFactory('visibility',
+  async () => {
+    rtc.setVideoSubscriptionsForAll(true)
+    return true
+  }, async () => rtc.setVideoSubscriptionsForAll(false))
 
 async function onLeave() {
   if (leaving.value) return
@@ -266,6 +294,18 @@ watch(() => auth.isAuthed, (ok) => { if (!ok) void onLeave() })
 
 onMounted(async () => {
   try {
+    const run = async () => {
+      if (!rtc.permProbed.value && !micOn.value && !camOn.value) {
+        try { await rtc.probePermissions({ audio: true, video: true }) } catch {}
+      }
+    }
+    if (document.visibilityState === 'visible') await run()
+    else document.addEventListener(
+      'visibilitychange',
+      async () => { if (document.visibilityState === 'visible') await run() },
+      { once: true }
+    )
+
     connectSocket()
     const j: any = await joinViaSocket()
     if (!j?.ok) {
@@ -278,14 +318,14 @@ onMounted(async () => {
     rtc.selectedCamId.value = rtc.loadLS(rtc.LS.cam) || ''
     await refreshDevices()
 
-    Object.keys(positions).forEach(k => delete (positions as any)[k])
+    Object.keys(positionByUser).forEach(k => delete (positionByUser as any)[k])
     Object.entries(j.positions || {}).forEach(([uid, pos]: any) => {
       const p = Number(pos)
-      if (Number.isFinite(p)) positions[String(uid)] = p
+      if (Number.isFinite(p)) positionByUser[String(uid)] = p
     })
-    Object.keys(statusMap).forEach(k => delete (statusMap as any)[k])
+    Object.keys(statusByUser).forEach(k => delete (statusByUser as any)[k])
     Object.entries(j.snapshot || {}).forEach(([uid, st]: any) => {
-      statusMap[uid] = {
+      statusByUser[uid] = {
         mic:        pick01(st.mic, 0),
         cam:        pick01(st.cam, 0),
         speakers:   pick01(st.speakers, 1),
@@ -326,19 +366,11 @@ onMounted(async () => {
 
     if (camOn.value) {
       const ok = await enable('videoinput')
-      if (!ok) {
-        alert('Не удалось запустить камеру')
-        await onLeave()
-        return
-      }
+      if (!ok) { console.warn('camera auto-enable failed') }
     }
     if (micOn.value) {
       const ok = await enable('audioinput')
-      if (!ok) {
-        alert('Не удалось запустить микрофон')
-        await onLeave()
-        return
-      }
+      if (!ok) { console.warn('mic auto-enable failed') }
     }
 
     window.addEventListener('pagehide', onPageHide)
@@ -432,6 +464,15 @@ video {
       background: $color-danger;
       color: $fg;
     }
+  }
+}
+.perm-probe {
+  margin: 0 12px 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  .hint {
+    color: $muted;
   }
 }
 .devices {
