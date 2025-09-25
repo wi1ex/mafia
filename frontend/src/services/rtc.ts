@@ -269,7 +269,7 @@ export function useRTC(): UseRTC {
           pub.setSubscribed(wantVideo.value)
           const subscribed = (pub as any).isSubscribed ?? ((pub as any).subscriptionStatus === 'subscribed')
           if (wantVideo.value && subscribed) {
-            pub.setVideoQuality(remoteQuality.value === 'hd' ? VideoQuality.High : VideoQuality.Low)
+            pub.setVideoQuality(remoteQuality.value === 'hd' ? VideoQuality.HIGH : VideoQuality.LOW)
           }
         } catch {}
       }
@@ -290,11 +290,29 @@ export function useRTC(): UseRTC {
           const subscribed = (pub as any).isSubscribed ?? ((pub as any).subscriptionStatus === 'subscribed')
           if (!subscribed) { LOG('skip quality (not subscribed)', { id: p.identity }); return }
           try {
-            const lkQ = q === 'hd' ? VideoQuality.High : VideoQuality.Low
+            const lkQ = q === 'hd' ? VideoQuality.HIGH : VideoQuality.LOW
             pub.setVideoQuality(lkQ)
             LOG('apply quality', { to: q, lk: lkQ, participant: p.identity })
           } catch (e) { WRN('setVideoQuality error', e) }
         }
+      })
+    })
+  }
+
+  function debugQualitySnapshot(where = '') {
+    const room = lk.value
+    if (!room) return
+    room.remoteParticipants.forEach((p) => {
+      p.getTrackPublications().forEach((pub) => {
+        if (pub.kind !== Track.Kind.Video) return
+        const id = String(p.identity)
+        const el = videoEls.get(id)
+        const subscribed = (pub as any).isSubscribed ?? ((pub as any).subscriptionStatus === 'subscribed')
+        console.log('[RTC]', 'quality snapshot', where, {
+          id, subscribed,
+          preferred: remoteQuality.value,
+          videoEl: el ? { vw: el.videoWidth, vh: el.videoHeight, cw: el.clientWidth, ch: el.clientHeight } : null,
+        })
       })
     })
   }
@@ -360,7 +378,7 @@ export function useRTC(): UseRTC {
         if (el) { try { t.attach(el) } catch {} }
         LOG('TrackSubscribed', { from: String(part.identity), kind: t.kind })
         try {
-          const lkQ = remoteQuality.value === 'hd' ? VideoQuality.High : VideoQuality.Low
+          const lkQ = remoteQuality.value === 'hd' ? VideoQuality.HIGH : VideoQuality.LOW
           pub?.setVideoQuality(lkQ)
           LOG('apply quality on subscribed track', { participant: String(part.identity), quality: remoteQuality.value, lk: lkQ })
         } catch (e) { WRN('setVideoQuality error on TrackSubscribed', e) }
@@ -477,5 +495,6 @@ export function useRTC(): UseRTC {
     probePermissions,
     clearProbeFlag,
     disable,
+    debugQualitySnapshot,
   }
 }

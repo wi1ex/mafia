@@ -83,12 +83,14 @@ const ws_url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.
 
 const rtc = useRTC()
 const {
-  localId, peerIds, mics, cams, selectedMicId, selectedCamId, permProbed, remoteQuality,
-  videoRef, refreshDevices, enable, onDeviceChange, probePermissions, disable, setRemoteQualityForAll,
+  localId, peerIds, mics, cams, selectedMicId, selectedCamId, permProbed,
+  remoteQuality, setRemoteQualityForAll, debugQualitySnapshot,
+  videoRef, refreshDevices, enable, onDeviceChange, probePermissions, disable,
 } = rtc
 
 const pendingQuality = ref(false)
 const videoQuality = computed(() => remoteQuality.value)
+
 function toggleQuality() {
   if (pendingQuality.value) return
   const next = videoQuality.value === 'hd' ? 'sd' : 'hd'
@@ -96,10 +98,8 @@ function toggleQuality() {
   pendingQuality.value = true
   try {
     setRemoteQualityForAll(next)
-    L('toggleQuality requested -> waiting apply in RTC', { next })
-  } finally {
-    pendingQuality.value = false
-  }
+    setTimeout(() => debugQualitySnapshot('after toggle'), 1200)
+  } finally { pendingQuality.value = false }
 }
 
 const showPermProbe = computed(() => !permProbed.value && !micOn.value && !camOn.value)
