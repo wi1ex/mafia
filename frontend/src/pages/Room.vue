@@ -1,7 +1,7 @@
 <template>
   <section class="card">
     <div class="grid" :style="gridStyle">
-      <div v-for="id in sortedPeerIds" :key="id" class="tile" :class="{ speaking: isSpeaking(id) && !isCovered(id) }">
+      <div v-for="id in sortedPeerIds" :key="id" class="tile" :class="{ speaking: isSpeaking(id) }">
         <video :ref="videoRef(id)" playsinline autoplay :muted="id === localId" />
         <div class="badges">
           <span class="badge" title="Микрофон">{{ em('mic', isOn(id, 'mic')) }}</span>
@@ -52,7 +52,6 @@ import { Socket } from 'socket.io-client'
 import { useAuthStore } from '@/store'
 import { useRTC } from '@/services/rtc'
 import { createAuthedSocket } from '@/services/sio'
-import { RoomEvent } from 'livekit-client'
 
 const L = (evt: string, data?: any) => console.log(`[Room] ${new Date().toISOString()} — ${evt}`, data ?? '')
 const W = (evt: string, data?: any) => console.warn(`[Room] ${new Date().toISOString()} — ${evt}`, data ?? '')
@@ -77,29 +76,30 @@ const visibilityOn = computed({ get: () => local.visibility, set: v => { local.v
 const socket = ref<Socket | null>(null)
 const statusByUser = reactive<Record<string, UserState>>({})
 const positionByUser = reactive<Record<string, number>>({})
-const speakingByUser = reactive<Record<string, boolean>>({})
-
-const speakTimers = new Map<string, number>()
-const isSpeaking = (id: string) => Boolean(speakingByUser[id])
-function markSpeaking(id: string) {
-  speakingByUser[id] = true
-  const prev = speakTimers.get(id)
-  if (prev) clearTimeout(prev)
-  const t = window.setTimeout(() => {
-    speakingByUser[id] = false
-    speakTimers.delete(id)
-  }, 500)
-  speakTimers.set(id, t)
-}
 
 const leaving = ref(false)
 const ws_url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host
 
 const rtc = useRTC()
 const {
-  localId, peerIds, mics, cams, selectedMicId, selectedCamId, permProbed,
-  remoteQuality, setRemoteQualityForAll, debugQualitySnapshot,
-  videoRef, refreshDevices, enable, onDeviceChange, probePermissions, disable,
+  localId,
+  peerIds,
+  mics,
+  cams,
+  selectedMicId,
+  selectedCamId,
+  permProbed,
+  remoteQuality,
+
+  videoRef,
+  refreshDevices,
+  enable,
+  onDeviceChange,
+  probePermissions,
+  disable,
+  isSpeaking,
+  setRemoteQualityForAll,
+  debugQualitySnapshot,
 } = rtc
 
 const pendingQuality = ref(false)
@@ -157,11 +157,6 @@ function isOn(id: string, kind: 'mic' | 'cam' | 'speakers' | 'visibility') {
   }
   const st = statusByUser[id]
   return st ? st[kind] === 1 : true
-}
-function isCovered(id: string): boolean {
-  const isSelf = id === localId.value
-  const remoteCamOn = statusByUser[id]?.cam === 1
-  return (isSelf && !camOn.value) || (!isSelf && (!remoteCamOn || !visibilityOn.value))
 }
 
 function applyPeerState(uid: string, patch: any) {
@@ -232,8 +227,6 @@ function connectSocket() {
     L('socket: member_left', { id })
     delete statusByUser[id]
     delete positionByUser[id]
-    delete speakingByUser[id]
-    const t = speakTimers.get(id); if (t) { clearTimeout(t); speakTimers.delete(id) }
   })
   socket.value.on('positions', (p: any) => {
     const ups = Array.isArray(p?.updates) ? p.updates : []
@@ -345,9 +338,6 @@ async function onLeave() {
         socket.value.close()
       }
     } catch {}
-    for (const t of speakTimers.values()) clearTimeout(t)
-    speakTimers.clear()
-    Object.keys(speakingByUser).forEach(k => delete (speakingByUser as any)[k])
     socket.value = null
     roomId.value = null
     await router.replace('/')
@@ -367,7 +357,6 @@ watch(() => auth.isAuthed, (ok) => {
     void onLeave()
   }
 })
-
 watch(() => remoteQuality.value, (nv, ov) => {
   L('quality store changed', { from: ov, to: nv, lk: 'VideoQuality.' + (nv === 'hd' ? 'High' : 'Low') })
 })
@@ -458,10 +447,6 @@ onMounted(async () => {
 
     await rtc.connect(ws_url, j.token, { autoSubscribe: false })
     L('rtc.connect done', { localId: localId.value, peers: peerIds.value })
-
-    rtc.lk.value?.on(RoomEvent.ActiveSpeakersChanged, (parts) => {
-      for (const p of parts) markSpeaking(String(p.identity))
-    })
 
     rtc.setAudioSubscriptionsForAll(speakersOn.value)
     rtc.setVideoSubscriptionsForAll(visibilityOn.value)

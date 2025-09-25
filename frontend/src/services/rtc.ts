@@ -1,4 +1,4 @@
-import { ref, type Ref } from 'vue'
+import { ref, type Ref, reactive } from 'vue'
 import {
   LocalTrackPublication,
   RemoteParticipant,
@@ -30,6 +30,7 @@ export type UseRTC = {
   loadLS: (k: string) => string | null
   selectedMicId: Ref<string>
   selectedCamId: Ref<string>
+  remoteQuality: Ref<VQ>
   videoRef: (id: string) => (el: HTMLVideoElement | null) => void
   initRoom: (opts?: {
     onMediaDevicesError?: (e: unknown) => void
@@ -46,6 +47,7 @@ export type UseRTC = {
   disconnect: () => Promise<void>
   setAudioSubscriptionsForAll: (on: boolean) => void
   setVideoSubscriptionsForAll: (on: boolean) => void
+  setRemoteQualityForAll: (q: VQ) => void
   refreshDevices: () => Promise<void>
   isBusyError: (e: unknown) => boolean
   fallback: (kind: DeviceKind) => Promise<void>
@@ -57,6 +59,9 @@ export type UseRTC = {
   hasAudioInput: Ref<boolean>
   hasVideoInput: Ref<boolean>
   disable: (kind: DeviceKind) => Promise<void>
+  debugQualitySnapshot: (where?: string) => void
+  isSpeaking: (id: string) => boolean
+  setSpeakingHoldMs: (ms: number) => void
 }
 
 export function useRTC(): UseRTC {
@@ -75,6 +80,48 @@ export function useRTC(): UseRTC {
   const hasAudioInput = ref(false)
   const hasVideoInput = ref(false)
   const isSub = (pub: any) => (pub?.isSubscribed ?? (pub?.subscriptionStatus === 'subscribed'))
+
+  const speakingById = reactive<Record<string, boolean>>({})
+  const lastSpokeAt = new Map<string, number>()
+  const speakHoldMs = ref(700)
+  let speakingTimer: number | undefined
+
+  const isSpeaking = (id: string) => !!speakingById[id]
+  const setSpeakingHoldMs = (ms: number) => { speakHoldMs.value = Math.max(0, Number(ms) || 0) }
+
+  function isAudioSubscribedFor(id: string): boolean {
+    const room = lk.value
+    if (!room) return false
+    if (id === localId.value) return true // локальный всегда по факту речи
+    if (!wantAudio.value) return false    // глобально звук выкл → никого не слушаем
+    const p = room.getParticipantByIdentity?.(id) ?? room.remoteParticipants.get(id)
+    if (!p) return false
+    return p.getTrackPublications().some(pub =>
+      pub.kind === Track.Kind.Audio &&
+      ((pub as any).isSubscribed ?? ((pub as any).subscriptionStatus === 'subscribed'))
+    )
+  }
+
+  function refreshSpeaking() {
+    const room = lk.value
+    if (!room) return
+    const now = performance.now()
+    const activeIds = room.activeSpeakers.map(p => String(p.identity))
+    for (const id of activeIds) {
+      if (isAudioSubscribedFor(id)) lastSpokeAt.set(id, now)
+    }
+    for (const id of peerIds.value) {
+      speakingById[id] = ((lastSpokeAt.get(id) ?? 0) > (now - speakHoldMs.value))
+    }
+  }
+
+  function startSpeakingLoop() {
+    if (speakingTimer) clearInterval(speakingTimer)
+    speakingTimer = window.setInterval(refreshSpeaking, 120)
+  }
+  function stopSpeakingLoop() {
+    if (speakingTimer) { clearInterval(speakingTimer); speakingTimer = undefined }
+  }
 
   const LOG = (evt: string, data?: any) => console.log(`[RTC] ${new Date().toISOString()} — ${evt}`, data ?? '')
   const WRN = (evt: string, data?: any) => console.warn(`[RTC] ${new Date().toISOString()} — ${evt}`, data ?? '')
@@ -253,11 +300,17 @@ export function useRTC(): UseRTC {
     wantAudio.value = on
     LOG('setAudioSubscriptionsForAll', { on })
     setSubscriptions(Track.Kind.Audio, on)
+    if (!on) {
+      lastSpokeAt.clear()
+      for (const id of Object.keys(speakingById)) speakingById[id] = false
+    }
+    try { refreshSpeaking() } catch {}
   }
   const setVideoSubscriptionsForAll = (on: boolean) => {
     wantVideo.value = on
     LOG('setVideoSubscriptionsForAll', { on })
     setSubscriptions(Track.Kind.Video, on)
+    try { refreshSpeaking() } catch {}
   }
   const applySubsFor = (p: RemoteParticipant) => {
     p.getTrackPublications().forEach(pub => {
@@ -318,6 +371,9 @@ export function useRTC(): UseRTC {
   }
 
   function cleanupMedia() {
+    stopSpeakingLoop()
+    lastSpokeAt.clear()
+    Object.keys(speakingById).forEach(k => delete (speakingById as any)[k])
     videoEls.forEach(el => { try { el.srcObject = null } catch {} })
     videoEls.clear()
     audioEls.forEach(a => {
@@ -407,6 +463,7 @@ export function useRTC(): UseRTC {
       const id = String(p.identity)
       if (!peerIds.value.includes(id)) { peerIds.value = [...peerIds.value, id] }
       applySubsFor(p)
+      try { refreshSpeaking() } catch {}
     })
 
     room.on(RoomEvent.ParticipantDisconnected, (p) => {
@@ -423,17 +480,24 @@ export function useRTC(): UseRTC {
         try { v.srcObject = null } catch {}
         videoEls.delete(id)
       }
+      delete (speakingById as any)[id]
+      lastSpokeAt.delete(id)
     })
 
     room.on(RoomEvent.TrackSubscriptionStatusChanged, (pub, _status, _part) => {
       if (pub.kind === Track.Kind.Video && isSub(pub)) {
         try { pub.setVideoQuality(remoteQuality.value === 'hd' ? VideoQuality.HIGH : VideoQuality.LOW) } catch {}
       }
+      if (pub.kind === Track.Kind.Audio) { try { refreshSpeaking() } catch {} }
     })
 
     room.on(RoomEvent.MediaDevicesError, (e: any) => { opts?.onMediaDevicesError?.(e) })
 
     room.on(RoomEvent.MediaDevicesChanged, refreshDevices)
+
+    room.on(RoomEvent.ActiveSpeakersChanged, () => { try { refreshSpeaking() } catch {} })
+
+    startSpeakingLoop()
 
     return room
   }
@@ -456,6 +520,7 @@ export function useRTC(): UseRTC {
     room.remoteParticipants.forEach(p => ids.push(String(p.identity)))
     peerIds.value = Array.from(new Set(ids))
     await refreshDevices()
+    try { refreshSpeaking() } catch {}
     LOG('connect ok', { url: wsUrl, local: room.localParticipant.identity, remotes: Array.from(room.remoteParticipants.keys()) })
   }
 
@@ -504,5 +569,7 @@ export function useRTC(): UseRTC {
     disable,
     setRemoteQualityForAll,
     debugQualitySnapshot,
+    isSpeaking,
+    setSpeakingHoldMs,
   }
 }
