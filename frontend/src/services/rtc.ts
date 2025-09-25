@@ -78,9 +78,27 @@ export function useRTC(): UseRTC {
   const hasAudioInput = ref(false)
   const hasVideoInput = ref(false)
   const speakingById = reactive<Record<string, boolean>>({})
+  const speakTimers = new Map<string, number>()
   const isSpeaking = (id: string) => Boolean(speakingById[id])
   const isSub = (pub: any) => (pub?.isSubscribed ?? (pub?.subscriptionStatus === 'subscribed'))
 
+  function holdSpeaking(id: string) {
+    speakingById[id] = true
+    const prev = speakTimers.get(id)
+    if (prev) clearTimeout(prev)
+    const t = window.setTimeout(() => {
+      speakingById[id] = false
+      speakTimers.delete(id)
+    }, 1000)
+    speakTimers.set(id, t)
+  }
+
+  function stopSpeakingNow(id: string) {
+    const t = speakTimers.get(id)
+    if (t) clearTimeout(t)
+    speakTimers.delete(id)
+    speakingById[id] = false
+  }
   function isAudioSubscribedFor(id: string): boolean {
     const room = lk.value
     if (!room) return false
@@ -97,13 +115,16 @@ export function useRTC(): UseRTC {
     const lp = room.localParticipant
     if (lp?.identity != null) {
       const id = String(lp.identity)
-      const audible = true
-      speakingById[id] = Boolean(lp.isSpeaking) && audible
+      if (lp.isSpeaking) holdSpeaking(id)
     }
     room.remoteParticipants.forEach((p) => {
       const id = String(p.identity)
       const audible = isAudioSubscribedFor(id)
-      speakingById[id] = Boolean(p.isSpeaking) && audible
+      if (!audible) {
+        stopSpeakingNow(id)
+        return
+      }
+      if (p.isSpeaking) holdSpeaking(id)
     })
   }
 
@@ -344,6 +365,8 @@ export function useRTC(): UseRTC {
     audioEls.clear()
     peerIds.value = []
     localId.value = ''
+    speakTimers.forEach(t => clearTimeout(t))
+    speakTimers.clear()
   }
 
   function initRoom(opts?: {
@@ -442,6 +465,7 @@ export function useRTC(): UseRTC {
         videoEls.delete(id)
       }
       delete (speakingById as any)[id]
+      stopSpeakingNow(id)
       refreshSpeaking()
     })
 
@@ -450,6 +474,7 @@ export function useRTC(): UseRTC {
         try { pub.setVideoQuality(remoteQuality.value === 'hd' ? VideoQuality.HIGH : VideoQuality.LOW) } catch {}
       }
       if (pub.kind === Track.Kind.Audio) {
+        if (!isSub(pub)) stopSpeakingNow(String(_part?.identity ?? ''))
         refreshSpeaking()
       }
     })

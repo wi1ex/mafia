@@ -30,15 +30,15 @@
     <div class="devices">
       <label :class="{ disabled: !micOn }">
         {{ !micOn ? 'Включите микрофон, чтобы выбрать устройство' : 'Микрофон' }}
-        <select v-model="rtc.selectedMicId" @change="rtc.onDeviceChange('audioinput')" :disabled="!micOn || rtc.mics.length===0">
-          <option v-for="d in rtc.mics" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Микрофон' }}</option>
+        <select v-model="rtc.selectedMicId" @change="rtc.onDeviceChange('audioinput')" :disabled="!micOn || rtc.mics.value.length === 0">
+          <option v-for="d in rtc.mics.value" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Микрофон' }}</option>
         </select>
       </label>
 
       <label :class="{ disabled: !camOn }">
         {{ !camOn ? 'Включите камеру, чтобы выбрать устройство' : 'Камера' }}
-        <select v-model="rtc.selectedCamId" @change="rtc.onDeviceChange('videoinput')" :disabled="!camOn || rtc.cams.length===0">
-          <option v-for="d in rtc.cams" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Камера' }}</option>
+        <select v-model="rtc.selectedCamId" @change="rtc.onDeviceChange('videoinput')" :disabled="!camOn || rtc.cams.value.length === 0">
+          <option v-for="d in rtc.cams.value" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Камера' }}</option>
         </select>
       </label>
     </div>
