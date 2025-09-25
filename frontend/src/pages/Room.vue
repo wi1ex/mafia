@@ -21,16 +21,22 @@
       <button class="ctrl danger" @click="onLeave">Покинуть комнату</button>
     </div>
 
+    <!-- Одноразовый запрос прав по клику пользователя -->
+    <div v-if="showPermProbe" class="perm-probe">
+      <button class="ctrl" @click="preflightPermissions">Разрешить доступ к камере и микрофону</button>
+      <small class="hint">Нужно один раз подтвердить доступ устройств в браузере.</small>
+    </div>
+
     <div class="devices">
       <label :class="{ disabled: !micOn }">
-        {{ !micOn ? 'Включите микрофон, чтобы выбрать устройство' : 'Устройства не найдены' }}
+        {{ !micOn ? 'Включите микрофон, чтобы выбрать устройство' : 'Микрофон' }}
         <select v-model="selectedMicId" @change="onDeviceChange('audioinput')" :disabled="!micOn || mics.length===0">
           <option v-for="d in mics" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Микрофон' }}</option>
         </select>
       </label>
 
       <label :class="{ disabled: !camOn }">
-        {{ !camOn ? 'Включите камеру, чтобы выбрать устройство' : 'Устройства не найдены' }}
+        {{ !camOn ? 'Включите камеру, чтобы выбрать устройство' : 'Камера' }}
         <select v-model="selectedCamId" @change="onDeviceChange('videoinput')" :disabled="!camOn || cams.length===0">
           <option v-for="d in cams" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Камера' }}</option>
         </select>
@@ -68,11 +74,39 @@ const statusMap = reactive<Record<string, UserState>>({})
 const positions = reactive<Record<string, number>>({})
 
 const leaving = ref(false)
-const ws_url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host
+// ВАЖНО: LiveKit сигнальный WS должен идти на /rtc
+const ws_url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/rtc'
 
 const rtc = useRTC()
 const { localId, peerIds, mics, cams, selectedMicId, selectedCamId, videoRef, refreshDevices, enable, onDeviceChange } = rtc
 
+// ===== permission preflight =====
+const PERM_LS = 'perm:probed'
+const permProbed = ref<boolean>(false)
+const showPermProbe = computed(() => !permProbed.value && !micOn.value && !camOn.value)
+
+function loadPermFlag(): boolean { try { return localStorage.getItem(PERM_LS) === '1' } catch { return false } }
+function savePermFlag() { try { localStorage.setItem(PERM_LS, '1') } catch {} }
+
+/** Одноразовый запрос прав устройств по инициативе пользователя **/
+async function preflightPermissions(): Promise<void> {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: true,
+      video: { width: 640, height: 360 },
+    })
+    stream.getTracks().forEach(t => { try { t.stop() } catch {} })
+    await refreshDevices()
+    permProbed.value = true
+    savePermFlag()
+  } catch {
+    // Пользователь отказал или браузер не показал диалог — не падаем.
+    permProbed.value = true
+    savePermFlag()
+  }
+}
+
+// ====== UI/сетка ======
 const sortedPeerIds = computed(() => {
   return [...peerIds.value].sort((a, b) => {
     const pa = positions[a] ?? Number.POSITIVE_INFINITY
@@ -203,39 +237,54 @@ async function publishState(delta: Partial<{ mic: boolean; cam: boolean; speaker
   } catch { return false }
 }
 
-const toggleFactory = (k: keyof typeof local, onEnable?: () => Promise<void>, onDisable?: () => Promise<void>) => async () => {
+/**
+ * Инвертированная логика:
+ *  - Включение: СНАЧАЛА пытаемся локально включить устройство (вызовет системный диалог),
+ *               потом отправляем состояние на сервер (best effort).
+ *  - Выключение: СНАЧАЛА выключаем локально, потом отправляем состояние.
+ * Так окно разрешений всегда появляется по клику, а сетевые ошибки не блокируют UX.
+ */
+const toggleFactory = (k: keyof typeof local,
+  onEnable?: () => Promise<boolean | void>,
+  onDisable?: () => Promise<void>
+) => async () => {
   if (pending[k]) return
   pending[k] = true
   const want = !local[k]
   try {
-    const ok = await publishState({ [k]: want } as any)
-    if (!ok) return
-    if (want) await onEnable?.()
-    else await onDisable?.()
-    local[k] = want
-    if (k === 'speakers')   rtc.setAudioSubscriptionsForAll(local.speakers)
-    if (k === 'visibility') rtc.setVideoSubscriptionsForAll(local.visibility)
-  } catch {
-    try { await publishState({ [k]: !want } as any) } catch {}
+    if (want) {
+      const okLocal = (await onEnable?.()) !== false
+      if (!okLocal) return
+      local[k] = true
+      if (k === 'speakers')   rtc.setAudioSubscriptionsForAll(true)
+      if (k === 'visibility') rtc.setVideoSubscriptionsForAll(true)
+      try { await publishState({ [k]: true } as any) } catch {}
+    } else {
+      await onDisable?.()
+      local[k] = false
+      if (k === 'speakers')   rtc.setAudioSubscriptionsForAll(false)
+      if (k === 'visibility') rtc.setVideoSubscriptionsForAll(false)
+      try { await publishState({ [k]: false } as any) } catch {}
+    }
   } finally { pending[k] = false }
 }
 
 const toggleMic = toggleFactory('mic',
   async () => {
-  const ok = await enable('audioinput')
-    if (!ok) throw new Error('no-mic')
+    const ok = await enable('audioinput')
+    return !!ok
   },
   async () => { try { await rtc.lk.value?.localParticipant.setMicrophoneEnabled(false) } catch {} }
 )
 const toggleCam = toggleFactory('cam',
   async () => {
-  const ok = await enable('videoinput')
-    if (!ok) throw new Error('no-cam')
+    const ok = await enable('videoinput')
+    return !!ok
   },
   async () => { try { await rtc.lk.value?.localParticipant.setCameraEnabled(false) } catch {} }
 )
-const toggleSpeakers  = toggleFactory('speakers',  async () => rtc.setAudioSubscriptionsForAll(true),  async () => rtc.setAudioSubscriptionsForAll(false))
-const toggleVisibility = toggleFactory('visibility', async () => rtc.setVideoSubscriptionsForAll(true), async () => rtc.setVideoSubscriptionsForAll(false))
+const toggleSpeakers  = toggleFactory('speakers',  async () => { rtc.setAudioSubscriptionsForAll(true);  return true }, async () => rtc.setAudioSubscriptionsForAll(false))
+const toggleVisibility = toggleFactory('visibility', async () => { rtc.setVideoSubscriptionsForAll(true); return true }, async () => rtc.setVideoSubscriptionsForAll(false))
 
 async function onLeave() {
   if (leaving.value) return
@@ -266,6 +315,8 @@ watch(() => auth.isAuthed, (ok) => { if (!ok) void onLeave() })
 
 onMounted(async () => {
   try {
+    permProbed.value = loadPermFlag()
+
     connectSocket()
     const j: any = await joinViaSocket()
     if (!j?.ok) {
@@ -324,21 +375,9 @@ onMounted(async () => {
     rtc.setAudioSubscriptionsForAll(speakersOn.value)
     rtc.setVideoSubscriptionsForAll(visibilityOn.value)
 
-    if (camOn.value) {
-      const ok = await enable('videoinput')
-      if (!ok) {
-        alert('Не удалось запустить камеру')
-        await onLeave()
-        return
-      }
-    }
-    if (micOn.value) {
-      const ok = await enable('audioinput')
-      if (!ok) {
-        alert('Не удалось запустить микрофон')
-        await onLeave()
-        return
-      }
+    // Автопроба прав: 1) попробовать мягко, 2) если не вышло — показать кнопку.
+    if (!permProbed.value && !micOn.value && !camOn.value) {
+      try { await preflightPermissions() } catch {}
     }
 
     window.addEventListener('pagehide', onPageHide)
@@ -357,97 +396,26 @@ onBeforeUnmount(() => {
 </script>
 
 <style lang="scss" scoped>
-.title {
-  color: $fg;
+.title { color: $fg; }
+.grid { display: grid; gap: 12px; margin: 12px; }
+.tile { position: relative; border-radius: 12px; overflow: hidden; background: $bg; aspect-ratio: 16 / 9; }
+video { position: absolute; inset: 0; width: 100%; height: 100%; display: block; object-fit: cover; background: $black; filter: none !important; mix-blend-mode: normal !important; opacity: 1 !important; }
+.veil { position: absolute; inset: 0; background: $black; opacity: 0; transition: opacity 0.25s ease-in-out; pointer-events: auto; &.visible { opacity: 1; } }
+.badges { position: absolute; left: 8px; top: 8px; display: flex; gap: 6px; z-index: 2;
+  .badge { line-height: 1; padding: 4px 6px; border-radius: 8px; background: $black; border: 1px solid $fg; color: $fg; backdrop-filter: none !important; }
 }
-.grid {
-  display: grid;
-  gap: 12px;
-  margin: 12px;
-}
-.tile {
-  position: relative;
-  border-radius: 12px;
-  overflow: hidden;
-  background: $bg;
-  aspect-ratio: 16 / 9;
-}
-video {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  display: block;
-  object-fit: cover;
-  background: $black;
-  filter: none !important;
-  mix-blend-mode: normal !important;
-  opacity: 1 !important;
-}
-.veil {
-  position: absolute;
-  inset: 0;
-  background: $black;
-  opacity: 0;
-  transition: opacity 0.25s ease-in-out;
-  pointer-events: auto;
-  &.visible {
-    opacity: 1;
+.controls { margin: 12px; display: flex; flex-wrap: wrap; gap: 12px;
+  .ctrl { padding: 8px 12px; border-radius: 8px; border: 1px solid $fg; cursor: pointer; background: $bg; color: $fg;
+    &:disabled { opacity: 0.6; cursor: not-allowed; }
+    &.danger { background: $color-danger; color: $fg; }
   }
 }
-.badges {
-  position: absolute;
-  left: 8px;
-  top: 8px;
-  display: flex;
-  gap: 6px;
-  z-index: 2;
-  .badge {
-    line-height: 1;
-    padding: 4px 6px;
-    border-radius: 8px;
-    background: $black;
-    border: 1px solid $fg;
-    color: $fg;
-    backdrop-filter: none !important;
-  }
+.perm-probe { margin: 0 12px 12px; display: flex; align-items: center; gap: 12px;
+  .hint { color: $muted; }
 }
-.controls {
-  margin: 12px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  .ctrl {
-    padding: 8px 12px;
-    border-radius: 8px;
-    border: 1px solid $fg;
-    cursor: pointer;
-    background: $bg;
-    color: $fg;
-    &:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-    &.danger {
-      background: $color-danger;
-      color: $fg;
-    }
-  }
-}
-.devices {
-  margin: 12px;
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-  label {
-    width: 100%;
-    select {
-      padding: 6px 8px;
-      border-radius: 8px;
-      border: 1px solid $fg;
-      background: $bg;
-      color: $fg;
-    }
+.devices { margin: 12px; display: flex; gap: 12px; flex-wrap: wrap;
+  label { width: 100%;
+    select { padding: 6px 8px; border-radius: 8px; border: 1px solid $fg; background: $bg; color: $fg; }
   }
 }
 </style>
