@@ -49,8 +49,6 @@ export type UseRTC = {
   fallback: (kind: DeviceKind) => Promise<void>
   onDeviceChange: (kind: DeviceKind) => Promise<void>
   enable: (kind: DeviceKind) => Promise<boolean>
-  bootstrapPermissions: () => Promise<boolean>
-  hasAnyDevice: () => boolean
 }
 
 export function useRTC(): UseRTC {
@@ -65,11 +63,6 @@ export function useRTC(): UseRTC {
   const selectedCamId = ref<string>('')
   const wantAudio = ref(true)
   const wantVideo = ref(true)
-
-  const unlabeled = (arr: MediaDeviceInfo[]) => arr.length > 0 && arr.every(d => !d.label)
-  function needsPermissions(): boolean {
-    return (mics.value.length + cams.value.length) === 0 || unlabeled(mics.value) || unlabeled(cams.value)
-  }
 
   const getByIdentity = (room: LkRoom, id: string) => room.getParticipantByIdentity?.(id) ?? room.remoteParticipants.get(id)
 
@@ -137,24 +130,13 @@ export function useRTC(): UseRTC {
     return name === 'NotReadableError' || /Could not start .* source/i.test(msg)
   }
 
-  async function bootstrapPermissions(): Promise<boolean> {
-    try {
-      const s = await navigator.mediaDevices.getUserMedia({ audio: true, video: true })
-      s.getTracks().forEach(t => { try { t.stop() } catch {} })
-    } catch {}
-    await refreshDevices()
-    return !needsPermissions()
-  }
-
-  function hasAnyDevice(): boolean {
-    return (mics.value.length + cams.value.length) > 0
-  }
-
   async function fallback(kind: DeviceKind): Promise<void> {
     await refreshDevices()
     const list = kind === 'audioinput' ? mics.value : cams.value
     const setEnabled = (on: boolean) =>
-      kind === 'audioinput' ? lk.value?.localParticipant.setMicrophoneEnabled(on) : lk.value?.localParticipant.setCameraEnabled(on)
+      kind === 'audioinput'
+        ? lk.value?.localParticipant.setMicrophoneEnabled(on)
+        : lk.value?.localParticipant.setCameraEnabled(on)
     if (list.length === 0) {
       try { await setEnabled(false) } catch {}
       if (kind === 'audioinput') {
@@ -177,39 +159,34 @@ export function useRTC(): UseRTC {
     }
   }
 
-  async function enable(kind: 'audioinput'|'videoinput'): Promise<boolean> {
-    const room = lk.value; if (!room) return false
-
-    if (needsPermissions()) {
-      const ok = await bootstrapPermissions()
-      if (!ok) return false
+  async function enable(kind: DeviceKind): Promise<boolean> {
+    const room = lk.value
+    if (!room) return false
+    if ((kind === 'audioinput' ? mics.value.length : cams.value.length) === 0) {
+      await refreshDevices()
     }
-    await refreshDevices()
     const id = kind === 'audioinput' ? selectedMicId.value : selectedCamId.value
-
-    const tryEnable = async (useExact: boolean) => {
-      if (kind === 'audioinput') {
-        await room.localParticipant.setMicrophoneEnabled(true, useExact && id ? ({ deviceId: { exact: id } } as any) : undefined)
-      } else {
-        const base: any = { resolution: VideoPresets.h360.resolution }
-        await room.localParticipant.setCameraEnabled(true, useExact && id ? { ...base, deviceId: { exact: id } } : base)
-      }
-    }
-
     try {
-      await tryEnable(true)
+      if (kind === 'audioinput') {
+        await room.localParticipant.setMicrophoneEnabled(true, id ? ({ deviceId: { exact: id } } as any) : undefined)
+      } else {
+        await room.localParticipant.setCameraEnabled(true, id
+          ? ({ deviceId: { exact: id }, resolution: VideoPresets.h360.resolution } as any)
+          : ({ resolution: VideoPresets.h360.resolution } as any))
+      }
       return true
-    } catch (e:any) {
-      if (['NotAllowedError','SecurityError','OverconstrainedError','NotFoundError'].includes(e?.name)) {
-        await bootstrapPermissions()
-        await refreshDevices()
-        try { await tryEnable(false); return true } catch {}
-      }
-      if (isBusyError(e)) {
-        await fallback(kind)
-        try { await tryEnable(true); return true } catch {}
-      }
-      return false
+    } catch {
+      await fallback(kind)
+      const nextId = kind === 'audioinput' ? selectedMicId.value : selectedCamId.value
+      if (!nextId) return false
+      try {
+        if (kind === 'audioinput') {
+          await room.localParticipant.setMicrophoneEnabled(true, { deviceId: { exact: nextId } } as any)
+        } else {
+          await room.localParticipant.setCameraEnabled(true, { deviceId: { exact: nextId }, resolution: VideoPresets.h360.resolution } as any)
+        }
+        return true
+      } catch { return false }
     }
   }
 
@@ -398,7 +375,5 @@ export function useRTC(): UseRTC {
     fallback,
     onDeviceChange,
     enable,
-    bootstrapPermissions,
-    hasAnyDevice,
   }
 }
