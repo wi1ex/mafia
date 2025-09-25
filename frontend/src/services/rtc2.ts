@@ -49,8 +49,6 @@ export type UseRTC = {
   fallback: (kind: DeviceKind) => Promise<void>
   onDeviceChange: (kind: DeviceKind) => Promise<void>
   enable: (kind: DeviceKind) => Promise<boolean>
-  bootstrapPermissions: () => Promise<boolean>
-  hasAnyDevice: () => boolean
 }
 
 export function useRTC(): UseRTC {
@@ -132,26 +130,13 @@ export function useRTC(): UseRTC {
     return name === 'NotReadableError' || /Could not start .* source/i.test(msg)
   }
 
-  async function bootstrapPermissions(): Promise<boolean> {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true })
-      try { stream.getTracks().forEach(t => { try { t.stop() } catch {} }) } catch {}
-      await refreshDevices()
-      return (mics.value.length + cams.value.length) > 0
-    } catch {
-      return false
-    }
-  }
-
-  function hasAnyDevice(): boolean {
-    return (mics.value.length + cams.value.length) > 0
-  }
-
   async function fallback(kind: DeviceKind): Promise<void> {
     await refreshDevices()
     const list = kind === 'audioinput' ? mics.value : cams.value
     const setEnabled = (on: boolean) =>
-      kind === 'audioinput' ? lk.value?.localParticipant.setMicrophoneEnabled(on) : lk.value?.localParticipant.setCameraEnabled(on)
+      kind === 'audioinput'
+        ? lk.value?.localParticipant.setMicrophoneEnabled(on)
+        : lk.value?.localParticipant.setCameraEnabled(on)
     if (list.length === 0) {
       try { await setEnabled(false) } catch {}
       if (kind === 'audioinput') {
@@ -179,10 +164,6 @@ export function useRTC(): UseRTC {
     if (!room) return false
     if ((kind === 'audioinput' ? mics.value.length : cams.value.length) === 0) {
       await refreshDevices()
-      if ((kind === 'audioinput' ? mics.value.length : cams.value.length) === 0) {
-        const ok = await bootstrapPermissions()
-        if (!ok) return false
-      }
     }
     const id = kind === 'audioinput' ? selectedMicId.value : selectedCamId.value
     try {
@@ -191,8 +172,7 @@ export function useRTC(): UseRTC {
       } else {
         await room.localParticipant.setCameraEnabled(true, id
           ? ({ deviceId: { exact: id }, resolution: VideoPresets.h360.resolution } as any)
-          : ({ resolution: VideoPresets.h360.resolution } as any)
-        )
+          : ({ resolution: VideoPresets.h360.resolution } as any))
       }
       return true
     } catch {
@@ -395,7 +375,5 @@ export function useRTC(): UseRTC {
     fallback,
     onDeviceChange,
     enable,
-    bootstrapPermissions,
-    hasAnyDevice,
   }
 }

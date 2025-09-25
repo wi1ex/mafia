@@ -1,12 +1,5 @@
 <template>
   <section class="card">
-    <div v-if="showPermBanner" class="perm-banner" role="alert">
-      <div>Нужен доступ к микрофону и камере, чтобы выбрать устройства и общаться.</div>
-      <button class="btn" type="button" @click="requestPermissions" :disabled="permLoading">
-        {{ permLoading ? 'Запрашиваю…' : 'Разрешить доступ' }}
-      </button>
-    </div>
-
     <div class="grid" :style="gridStyle">
       <div v-for="id in sortedPeerIds" :key="id" class="tile">
         <video :ref="videoRef(id)" playsinline autoplay :muted="id === localId" />
@@ -78,13 +71,7 @@ const leaving = ref(false)
 const ws_url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host
 
 const rtc = useRTC()
-const {
-  localId, peerIds, mics, cams, selectedMicId, selectedCamId,
-  videoRef, refreshDevices, enable, onDeviceChange, bootstrapPermissions, hasAnyDevice
-} = rtc
-
-const showPermBanner = ref(false)
-const permLoading = ref(false)
+const { localId, peerIds, mics, cams, selectedMicId, selectedCamId, videoRef, refreshDevices, enable, onDeviceChange } = rtc
 
 const sortedPeerIds = computed(() => {
   return [...peerIds.value].sort((a, b) => {
@@ -163,9 +150,7 @@ function connectSocket() {
     reconnectionDelayMax: 5000,
   })
 
-  socket.value.on('reconnect', async () => {
-    try { await socket.value!.timeout(1500).emitWithAck('join', { room_id: rid, state: { ...local } }) } catch {}
-  })
+  socket.value.on('reconnect', async () => { try { await socket.value!.timeout(1500).emitWithAck('join', { room_id: rid, state: { ...local } }) } catch {} })
 
   socket.value.on('connect_error', e => console.warn('rtc sio error', e?.message))
 
@@ -200,7 +185,7 @@ async function joinViaSocket() {
   if (!socket.value) connectSocket()
   if (!socket.value!.connected) {
     await new Promise<void>((res, rej) => {
-      const t = setTimeout(() => rej(new Error('connect timeout')), 10_000)
+      const t = setTimeout(() => rej(new Error('connect timeout')), 10000)
       socket.value!.once('connect', () => {
         clearTimeout(t)
         res()
@@ -252,20 +237,6 @@ const toggleCam = toggleFactory('cam',
 const toggleSpeakers  = toggleFactory('speakers',  async () => rtc.setAudioSubscriptionsForAll(true),  async () => rtc.setAudioSubscriptionsForAll(false))
 const toggleVisibility = toggleFactory('visibility', async () => rtc.setVideoSubscriptionsForAll(true), async () => rtc.setVideoSubscriptionsForAll(false))
 
-async function requestPermissions() {
-  if (permLoading.value) return
-  permLoading.value = true
-  try {
-    const ok = await bootstrapPermissions()
-    if (ok) {
-      await refreshDevices()
-      showPermBanner.value = false
-    }
-  } finally {
-    permLoading.value = false
-  }
-}
-
 async function onLeave() {
   if (leaving.value) return
   leaving.value = true
@@ -306,16 +277,6 @@ onMounted(async () => {
     rtc.selectedMicId.value = rtc.loadLS(rtc.LS.mic) || ''
     rtc.selectedCamId.value = rtc.loadLS(rtc.LS.cam) || ''
     await refreshDevices()
-
-    if (!hasAnyDevice()) {
-      const ok = await bootstrapPermissions()
-      if (!ok) {
-        showPermBanner.value = true
-      } else {
-        await refreshDevices()
-        showPermBanner.value = false
-      }
-    }
 
     Object.keys(positions).forEach(k => delete (positions as any)[k])
     Object.entries(j.positions || {}).forEach(([uid, pos]: any) => {
@@ -396,26 +357,6 @@ onBeforeUnmount(() => {
 </script>
 
 <style lang="scss" scoped>
-.perm-banner {
-  margin: 12px;
-  padding: 12px;
-  border: 1px solid $fg;
-  border-radius: 8px;
-  color: $fg;
-  background: $bg;
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  .btn {
-    padding: 8px 12px;
-    border-radius: 8px;
-    cursor: pointer;
-    background: $color-secondary;
-    color: $bg;
-  }
-}
 .title {
   color: $fg;
 }
