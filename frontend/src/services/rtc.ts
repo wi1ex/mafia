@@ -81,6 +81,8 @@ export function useRTC(): UseRTC {
   const activeSpeakers = ref<Set<string>>(new Set())
   const audibleIds = ref<Set<string>>(new Set())
   const isSub = (pub: RemoteTrackPublication) => pub.isSubscribed
+  let lowQuality = VideoPresets.h180
+  let highQuality = VideoPresets.h720
 
   const isSpeaking = (id: string) => {
     if (id === localId.value) return activeSpeakers.value.has(id)
@@ -245,8 +247,8 @@ export function useRTC(): UseRTC {
         await room.localParticipant.setMicrophoneEnabled(true, id ? ({ deviceId: { exact: id } } as any) : undefined)
       } else {
         await room.localParticipant.setCameraEnabled(true, id
-            ? ({ deviceId: { exact: id }, resolution: VideoPresets.h360.resolution } as any)
-            : ({ resolution: VideoPresets.h360.resolution } as any)
+            ? ({ deviceId: { exact: id }, resolution: highQuality.resolution } as any)
+            : ({ resolution: highQuality.resolution } as any)
         )
       }
       return true
@@ -258,7 +260,7 @@ export function useRTC(): UseRTC {
         if (kind === 'audioinput') {
           await room.localParticipant.setMicrophoneEnabled(true, { deviceId: { exact: nextId } } as any)
         } else {
-          await room.localParticipant.setCameraEnabled(true, { deviceId: { exact: nextId }, resolution: VideoPresets.h360.resolution } as any)
+          await room.localParticipant.setCameraEnabled(true, { deviceId: { exact: nextId }, resolution: highQuality.resolution } as any)
         }
         return true
       } catch { return false }
@@ -353,7 +355,7 @@ export function useRTC(): UseRTC {
         red: true,
         dtx: true,
         simulcast: true,
-        videoSimulcastLayers: [VideoPresets.h180, VideoPresets.h360],
+        videoSimulcastLayers: [lowQuality, highQuality],
         ...(opts?.publishDefaults || {})
       },
       audioCaptureDefaults: {
@@ -363,7 +365,7 @@ export function useRTC(): UseRTC {
         ...(opts?.audioCaptureDefaults || {})
       },
       videoCaptureDefaults: {
-        resolution: VideoPresets.h360.resolution,
+        resolution: highQuality.resolution,
         ...(opts?.videoCaptureDefaults || {})
       },
     })
