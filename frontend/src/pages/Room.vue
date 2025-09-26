@@ -2,7 +2,7 @@
   <section class="card">
     <div class="grid" :style="gridStyle">
       <div v-for="id in sortedPeerIds" :key="id" class="tile" :class="{ speaking: rtc.isSpeaking(id) }">
-        <video :ref="rtc.videoRef(id)" playsinline autoplay :muted="id === rtc.localId.value" />
+        <video :ref="rtc.videoRef(id)" playsinline autoplay :muted="id === localId" />
         <div class="badges">
           <span class="badge" title="Микрофон">{{ em('mic', isOn(id, 'mic')) }}</span>
           <span class="badge" title="Камера">{{ em('cam', isOn(id, 'cam')) }}</span>
@@ -30,15 +30,15 @@
     <div class="devices">
       <label :class="{ disabled: !micOn }">
         {{ !micOn ? 'Включите микрофон, чтобы выбрать устройство' : 'Микрофон' }}
-        <select v-model="rtc.selectedMicId" @change="rtc.onDeviceChange('audioinput')" :disabled="!micOn || rtc.mics.length === 0">
-          <option v-for="d in rtc.mics" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Микрофон' }}</option>
+        <select v-model="selectedMicId" @change="rtc.onDeviceChange('audioinput')" :disabled="!micOn || mics.length === 0">
+          <option v-for="d in mics" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Микрофон' }}</option>
         </select>
       </label>
 
       <label :class="{ disabled: !camOn }">
         {{ !camOn ? 'Включите камеру, чтобы выбрать устройство' : 'Камера' }}
-        <select v-model="rtc.selectedCamId" @change="rtc.onDeviceChange('videoinput')" :disabled="!camOn || rtc.cams.length === 0">
-          <option v-for="d in rtc.cams" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Камера' }}</option>
+        <select v-model="selectedCamId" @change="rtc.onDeviceChange('videoinput')" :disabled="!camOn || cams.length === 0">
+          <option v-for="d in cams" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Камера' }}</option>
         </select>
       </label>
     </div>
@@ -64,6 +64,8 @@ const router = useRouter()
 const auth = useAuthStore()
 const rtc = useRTC()
 
+const { localId, mics, cams, selectedMicId, selectedCamId, peerIds } = rtc
+
 const rid = Number(route.params.id)
 const roomId = ref<number | null>(rid)
 const local = reactive({ mic: false, cam: false, speakers: true, visibility: true })
@@ -82,7 +84,7 @@ const videoQuality = computed(() => rtc.remoteQuality.value)
 
 const showPermProbe = computed(() => !rtc.permProbed.value && !micOn.value && !camOn.value)
 const sortedPeerIds = computed(() => {
-  return [...rtc.peerIds.value].sort((a, b) => {
+  return [...peerIds.value].sort((a, b) => {
     const pa = positionByUser[a] ?? Number.POSITIVE_INFINITY
     const pb = positionByUser[b] ?? Number.POSITIVE_INFINITY
     return pa !== pb ? pa - pb : String(a).localeCompare(String(b))
@@ -113,7 +115,7 @@ const BADGE_OFF = { mic:'🔇', cam:'🚫', speakers:'🔇', visibility:'🙈' }
 function em(kind: keyof typeof BADGE_ON, on = true) { return on ? BADGE_ON[kind] : BADGE_OFF[kind] }
 
 function isOn(id: string, kind: 'mic' | 'cam' | 'speakers' | 'visibility') {
-  if (id === rtc.localId.value) {
+  if (id === localId.value) {
     if (kind === 'mic') return micOn.value
     if (kind === 'cam') return camOn.value
     if (kind === 'speakers') return speakersOn.value
@@ -166,16 +168,18 @@ function connectSocket() {
 
   socket.value?.on('connect', async () => {
     L('socket: connected', { id: socket.value?.id })
+    try {
+      const j:any = await socket.value!.timeout(5000).emitWithAck('join', { room_id: rid, state: { ...local } })
+      L('socket: join-after-connect ack', j)
+    } catch (e) { W('socket: join-after-connect failed', e) }
     if (pendingDeltas.length) {
       const merged = Object.assign({}, ...pendingDeltas.splice(0))
       L('socket: flush pending deltas', merged)
-      try { await socket.value!.timeout(5000).emitWithAck('state', merged) } catch { pendingDeltas.unshift(merged) }
+      try {
+        const resp:any = await socket.value!.timeout(5000).emitWithAck('state', merged)
+        if (!resp?.ok) pendingDeltas.unshift(merged)
+      } catch { pendingDeltas.unshift(merged) }
     }
-  })
-
-  socket.value.on('reconnect', async () => {
-    L('socket: reconnect')
-    try { await socket.value!.timeout(5000).emitWithAck('join', { room_id: rid, state: { ...local } }) } catch {}
   })
 
   socket.value.on('connect_error', e => W('socket: error', e?.message))
@@ -334,13 +338,13 @@ watch(() => auth.isAuthed, (ok) => {
 watch(() => rtc.remoteQuality.value, (nv, ov) => {
   L('quality store changed', { from: ov, to: nv, lk: 'VideoQuality.' + (nv === 'hd' ? 'High' : 'Low') })
 })
-watch(() => micOn.value,               v => L('local mic',        { on: v }))
-watch(() => camOn.value,               v => L('local cam',        { on: v }))
-watch(() => speakersOn.value,          v => L('local speakers',   { on: v }))
-watch(() => visibilityOn.value,        v => L('local visibility', { on: v }))
-watch(() => rtc.selectedMicId.value,   v => L('selected micId',   { id: v }))
-watch(() => rtc.selectedCamId.value,   v => L('selected camId',   { id: v }))
-watch(() => rtc.peerIds.value.slice(), v => L('peers list',       { ids: v }))
+watch(() => micOn.value,           v => L('local mic',        { on: v }))
+watch(() => camOn.value,           v => L('local cam',        { on: v }))
+watch(() => speakersOn.value,      v => L('local speakers',   { on: v }))
+watch(() => visibilityOn.value,    v => L('local visibility', { on: v }))
+watch(() => selectedMicId.value,   v => L('selected micId',   { id: v }))
+watch(() => selectedCamId.value,   v => L('selected camId',   { id: v }))
+watch(() => peerIds.value.slice(), v => L('peers list',       { ids: v }))
 
 onMounted(async () => {
   L('mounted', { rid })
@@ -373,7 +377,7 @@ onMounted(async () => {
     }
 
     await rtc.refreshDevices()
-    L('devices refreshed', { mics: rtc.mics.value.length, cams: rtc.cams.value.length })
+    L('devices refreshed', { mics: mics.value.length, cams: cams.value.length })
 
     Object.keys(positionByUser).forEach(k => delete (positionByUser as any)[k])
     Object.entries(j.positions || {}).forEach(([uid, pos]: any) => {
@@ -402,14 +406,14 @@ onMounted(async () => {
 
         if (isVideo && camOn.value) {
           await rtc.fallback('videoinput')
-          if (!rtc.selectedCamId.value) {
+          if (!selectedCamId.value) {
             camOn.value = false
             await publishState({ cam: false })
           }
         }
         if (isAudio && micOn.value) {
           await rtc.fallback('audioinput')
-          if (!rtc.selectedMicId.value) {
+          if (!selectedMicId.value) {
             micOn.value = false
             await publishState({ mic: false })
           }
@@ -418,7 +422,7 @@ onMounted(async () => {
     })
 
     await rtc.connect(ws_url, j.token, { autoSubscribe: false })
-    L('rtc.connect done', { localId: rtc.localId.value, peers: rtc.peerIds.value })
+    L('rtc.connect done', { localId: localId.value, peers: peerIds.value })
 
     rtc.setAudioSubscriptionsForAll(speakersOn.value)
     rtc.setVideoSubscriptionsForAll(visibilityOn.value)

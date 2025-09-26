@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
+import { createRouter, createWebHistory, type RouteRecordRaw, type RouteLocationNormalized } from 'vue-router'
 import { useAuthStore } from '@/store'
 
 const BASE_TITLE = 'Mafia'
@@ -26,7 +26,7 @@ const router = createRouter({
   scrollBehavior: () => ({ top: 0 }),
 })
 
-function setTitle(to: any): void {
+function setTitle(to: RouteLocationNormalized): void {
   const t = to.meta?.title as string | undefined
   const id = to.name === 'room' ? String(to.params.id ?? '') : ''
   document.title = t ? `${t}${id ? ` #${id}` : ''} — ${BASE_TITLE}` : BASE_TITLE

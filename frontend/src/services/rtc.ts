@@ -86,6 +86,7 @@ export function useRTC(): UseRTC {
     if (id === localId.value) return activeSpeakers.value.has(id)
     return activeSpeakers.value.has(id) && audibleIds.value.has(id)
   }
+
   function refreshAudibleIds() {
     const room = lk.value
     const s = new Set<string>()

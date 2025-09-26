@@ -1,10 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { api, setAuthHeader, addAuthExpiredListener, refreshAccessTokenFull } from '@/services/axios'
-import {
-  initSessionBus, setSid, clearSid, isForeignActive,
-  onForeignActive, onInconsistency, checkConsistencyNow
-} from '@/services/session'
+import { initSessionBus, setSid, clearSid, isForeignActive, onForeignActive, onInconsistency, checkConsistencyNow } from '@/services/session'
 import { startAuthSocket, stopAuthSocket } from '@/services/sio'
 
 export interface TgUser {
