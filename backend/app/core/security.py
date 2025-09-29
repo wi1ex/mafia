@@ -2,9 +2,13 @@ from __future__ import annotations
 import hashlib
 import hmac
 import time
-from typing import Any, Dict
-import structlog
 import jwt
+import structlog
+from typing import Any, Dict
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from .clients import get_redis
+from ..schemas import Identity
 from ..settings import settings
 
 log = structlog.get_logger()
@@ -19,29 +23,38 @@ def _encode(kind: str, *, sub: int | str, exp_s: int, extra: Dict[str, Any] | No
 
 
 def decode_token(token: str) -> Dict[str, Any]:
-    return jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=["HS256"])
+    return jwt.decode(
+        token,
+        settings.JWT_SECRET_KEY,
+        algorithms=["HS256"],
+        options={"require": ["exp", "iat", "sub", "typ"]},
+        leeway=2,
+    )
 
 
 def parse_refresh_token(raw: str) -> tuple[bool, int, str, str]:
     try:
         p = decode_token(raw)
         if p.get("typ") != "refresh":
-            log.debug("jwt.bad_type", typ=p.get("typ"))
+            log.info("jwt.bad_type", typ=p.get("typ"))
             return False, 0, "", ""
+
         uid = int(p.get("sub") or 0)
         sid = str(p.get("sid") or "")
         jti = str(p.get("jti") or "")
         if not uid or not sid or not jti:
-            log.debug("jwt.missing_claims")
+            log.info("jwt.missing_claims")
             return False, 0, "", ""
+
         return True, uid, sid, jti
+
     except Exception as e:
-        log.debug("jwt.decode_failed", err=type(e).__name__)
+        log.info("jwt.decode_failed", err=type(e).__name__)
         return False, 0, "", ""
 
 
-def create_access_token(*, sub: int, role: str, sid: str, ttl_minutes: int) -> str:
-    return _encode("access", sub=sub, exp_s=ttl_minutes * 60, extra={"role": role, "sid": sid})
+def create_access_token(*, sub: int, username: str, role: str, sid: str, ttl_minutes: int) -> str:
+    return _encode("access", sub=sub, exp_s=ttl_minutes * 60, extra={"role": role, "sid": sid, "username": username})
 
 
 def create_refresh_token(*, sub: int, sid: str, jti: str, ttl_days: int) -> str:
@@ -59,6 +72,7 @@ def verify_telegram_auth(data: Dict[str, Any]) -> bool:
         if int(time.time()) - int(ad) > 12 * 3600:
             log.warning("tg.verify.expired")
             return False
+
     except Exception:
         log.warning("tg.verify.bad_auth_date", auth_date=ad)
         return False
@@ -67,10 +81,31 @@ def verify_telegram_auth(data: Dict[str, Any]) -> bool:
     check = "\n".join(f"{k}={data[k]}" for k in sorted(k for k in data.keys() if k != "hash")).encode()
     calc = hmac.new(secret, check, hashlib.sha256).hexdigest()
 
-    ok = hmac.compare_digest(calc, h)
-    if not ok:
+    if not hmac.compare_digest(calc, h):
         log.warning("tg.verify.bad_hash")
         return False
 
     log.info("tg.verify.ok")
     return True
+
+
+async def get_identity(creds: HTTPAuthorizationCredentials = Depends(HTTPBearer(auto_error=False))) -> Identity:
+    if not creds or creds.scheme.lower() != "bearer":
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
+
+    try:
+        p = decode_token(creds.credentials)
+        if p.get("typ") != "access":
+            raise ValueError
+
+        uid = int(p["sub"])
+        sid = str(p.get("sid") or "")
+        r = get_redis()
+        cur = await r.get(f"user:{uid}:sid")
+        if not cur or cur != sid:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
+
+        return {"id": uid, "role": str(p["role"]), "username": str(p["username"])}
+
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")

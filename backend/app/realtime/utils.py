@@ -37,6 +37,7 @@ async def apply_state(r, rid: int, uid: int, data: Mapping[str, Any]) -> Dict[st
                 m[k] = "1" if str(data[k]).strip().lower() in {"1", "true"} else "0"
     if not m:
         return {}
+
     await r.hset(f"room:{rid}:user:{uid}:state", mapping=m)
     return m
 
@@ -45,6 +46,7 @@ async def get_room_snapshot(r, rid: int) -> Dict[str, Dict[str, str]]:
     ids = await r.smembers(f"room:{rid}:members")
     if not ids:
         return {}
+
     pipe = r.pipeline()
     for uid in ids:
         await pipe.hgetall(f"room:{rid}:user:{uid}:state")
@@ -68,9 +70,8 @@ async def get_positions(r, rid: int) -> dict[str, int]:
     rows = await r.zrange(f"room:{rid}:positions", 0, -1, withscores=True)
     out: dict[str, int] = {}
     for member, score in rows:
-        m = member.decode() if isinstance(member, (bytes, bytearray)) else str(member)
-        if m.isdigit():
-            out[m] = int(score)
+        if member.isdigit():
+            out[member] = int(score)
     return out
 
 
@@ -78,10 +79,12 @@ async def join_room_atomic(r, rid: int, uid: int, role: str, *, retries: int = 8
     limraw = await r.hget(f"room:{rid}:params", "user_limit")
     if not limraw:
         return -2, 0, False
+
     try:
         lim = int(limraw)
     except Exception:
         return -2, 0, False
+
     if lim <= 0:
         return -2, 0, False
 
@@ -129,6 +132,7 @@ async def join_room_atomic(r, rid: int, uid: int, role: str, *, retries: int = 8
                 await p.execute()
             await r.unwatch()
             return new_pos, new_pos, False
+
         except WatchError:
             continue
         finally:
@@ -214,7 +218,6 @@ async def leave_room_atomic(r, rid: int, uid: int, *, retries: int = 8) -> tuple
                     updates.append((int(mid), new_pos))
                     p2.hset(f"room:{rid}:user:{int(mid)}:info", mapping={"position": new_pos})
                 await p2.execute()
-
     return occ, gc_seq, updates
 
 
@@ -222,33 +225,32 @@ async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
     r = get_redis()
     ts1 = await r.get(f"room:{rid}:empty_since")
     if not ts1:
-        log.debug("gc.skip.no_empty_since", rid=rid)
+        log.info("gc.skip.no_empty_since", rid=rid)
         return False
 
-    ts1_i = int(ts1 if isinstance(ts1, (int, str)) else ts1.decode())
-    delay = max(0, 10 - (int(time()) - ts1_i))
+    delay = max(0, 10 - (int(time()) - int(ts1)))
     if delay > 0:
-        log.debug("gc.wait", rid=rid, wait_s=delay)
+        log.info("gc.wait", rid=rid, wait_s=delay)
         await asyncio.sleep(delay)
 
     ts2 = await r.get(f"room:{rid}:empty_since")
     if not ts2 or ts1 != ts2:
-        log.debug("gc.skip.race_or_reset", rid=rid)
+        log.info("gc.skip.race_or_reset", rid=rid)
         return False
 
     if expected_seq is not None:
         cur_seq = int(await r.get(f"room:{rid}:gc_seq") or 0)
         if cur_seq != expected_seq:
-            log.debug("gc.skip.seq_mismatch", rid=rid, expected=expected_seq, current=cur_seq)
+            log.info("gc.skip.seq_mismatch", rid=rid, expected=expected_seq, current=cur_seq)
             return False
 
     if int(await r.scard(f"room:{rid}:members") or 0) > 0:
-        log.debug("gc.skip.not_empty_anymore", rid=rid)
+        log.info("gc.skip.not_empty_anymore", rid=rid)
         return False
 
     got = await r.set(f"room:{rid}:gc_lock", "1", nx=True, ex=20)
     if not got:
-        log.debug("gc.skip.no_lock", rid=rid)
+        log.info("gc.skip.no_lock", rid=rid)
         return False
 
     try:
@@ -314,5 +316,4 @@ async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
             await r.delete(f"room:{rid}:gc_lock")
         except Exception:
             pass
-
     return True

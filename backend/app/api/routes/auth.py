@@ -14,7 +14,7 @@ from ...services.storage_minio import download_telegram_photo, put_avatar
 from ...core.logging import log_action
 from ...schemas import TelegramAuthIn, AccessTokenOut, Ok
 from ...settings import settings
-from ...core.route_utils import log_route
+from ..decorators import log_route
 
 router = APIRouter()
 
@@ -31,19 +31,17 @@ async def login_with_telegram(payload: TelegramAuthIn, resp: Response, db: Async
     user = (await db.execute(select(User).where(User.id == uid))).scalar_one_or_none()
     if not user:
         new_user = True
-        if payload.username:
-            username = payload.username
-            taken = (await db.execute(select(1).where(User.username == username).limit(1))).first() is not None
-            if taken:
-                username = f'user{uid}'
-        else:
-            username = f'user{uid}'
+        username = payload.username or f"user{uid}"
+        if await db.scalar(select(1).where(User.username == username).limit(1)):
+            username = f"user{uid}"
+
         filename = None
-        if payload.photo_url and (not user or not user.photo_url):
+        if payload.photo_url:
             photo = await download_telegram_photo(payload.photo_url)
             if photo:
                 content, ct = photo
                 filename = put_avatar(uid, content, ct)
+
         user = User(id=uid, username=username, role="user", photo_url=filename)
         db.add(user)
         await db.commit()
@@ -56,7 +54,7 @@ async def login_with_telegram(payload: TelegramAuthIn, resp: Response, db: Async
         details=f"Вход пользователя: user_id={user.id} username={user.username}",
     )
 
-    at, sid = await new_login_session(resp, user_id=user.id, role=user.role)
+    at, sid = await new_login_session(resp, user_id=user.id, username=user.username, role=user.role)
     return AccessTokenOut(access_token=at, sid=sid)
 
 
@@ -75,7 +73,7 @@ async def refresh(resp: Response, request: Request, db: AsyncSession = Depends(g
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unknown user")
 
-    at = create_access_token(sub=uid, role=user.role, sid=sid or "", ttl_minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    at = create_access_token(sub=uid, username=user.username, role=user.role, sid=sid or "", ttl_minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     return AccessTokenOut(access_token=at, sid=sid or "")
 
 
@@ -88,5 +86,6 @@ async def logout(resp: Response, request: Request) -> Ok:
         if ok:
             await sess_logout(resp, user_id=uid, sid=sid or None)
             return Ok()
-    resp.delete_cookie("rt", path="/api", domain=settings.DOMAIN, samesite="strict")
+
+    resp.delete_cookie("rt", path="/api", domain=settings.DOMAIN, samesite="strict", secure=True)
     return Ok()

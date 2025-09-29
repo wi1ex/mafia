@@ -1,42 +1,31 @@
 from __future__ import annotations
 import asyncio
 import structlog
-from jwt import ExpiredSignatureError
-from ..sio import sio
+from ..sio import sio, validate_auth
 from ...core.clients import get_redis
-from ...core.security import decode_token
 from ...schemas import JoinAck
 from ...services.livekit_tokens import make_livekit_token
-from ..utils_sio import apply_state, gc_empty_room, get_room_snapshot, join_room_atomic, leave_room_atomic, get_positions
+from ..utils import (
+    apply_state,
+    gc_empty_room,
+    get_room_snapshot,
+    join_room_atomic,
+    leave_room_atomic,
+    get_positions,
+)
 
 log = structlog.get_logger()
 
 
 @sio.event(namespace="/room")
 async def connect(sid, environ, auth):
-    try:
-        token = auth.get("token") if isinstance(auth, dict) else None
-        if not token:
-            log.warning("sio.connect.no_token")
-            return False
-
-        p = decode_token(token)
-        uid = int(p["sub"])
-        role = str(p.get("role") or "user")
-        cur = await get_redis().get(f"user:{uid}:sid")
-        tok_sid = (p.get("sid") or "")
-        if not cur or cur != tok_sid:
-            log.warning("sio.connect.replaced_session")
-            return False
-
-        await sio.save_session(sid, {"uid": uid, "rid": None, "role": role}, namespace="/room")
-        await sio.enter_room(sid, f"user:{uid}", namespace="/room")
-    except ExpiredSignatureError:
-        log.warning("sio.connect.expired_token")
+    vr = await validate_auth(auth)
+    if not vr:
         return False
-    except Exception:
-        log.warning("sio.connect.bad_token")
-        return False
+
+    uid, role = vr
+    await sio.save_session(sid, {"uid": uid, "rid": None, "role": role}, namespace="/room")
+    await sio.enter_room(sid, f"user:{uid}", namespace="/room")
 
 
 @sio.event(namespace="/room")

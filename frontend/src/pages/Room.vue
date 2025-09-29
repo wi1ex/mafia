@@ -63,7 +63,6 @@ const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 const rtc = useRTC()
-
 const { localId, mics, cams, selectedMicId, selectedCamId, peerIds } = rtc
 
 const rid = Number(route.params.id)
@@ -81,6 +80,10 @@ const leaving = ref(false)
 const ws_url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host
 const pendingQuality = ref(false)
 const videoQuality = computed(() => rtc.remoteQuality.value)
+
+const BADGE_ON  = { mic:'🎤', cam:'🎥', speakers:'🔈', visibility:'👁️' } as const
+const BADGE_OFF = { mic:'🔇', cam:'🚫', speakers:'🔇', visibility:'🙈' } as const
+function em(kind: keyof typeof BADGE_ON, on = true) { return on ? BADGE_ON[kind] : BADGE_OFF[kind] }
 
 const showPermProbe = computed(() => !rtc.permProbed.value && !micOn.value && !camOn.value)
 const sortedPeerIds = computed(() => {
@@ -109,10 +112,6 @@ function norm01(v: unknown, fallback: 0 | 1): 0 | 1 {
   }
   return fallback
 }
-
-const BADGE_ON  = { mic:'🎤', cam:'🎥', speakers:'🔈', visibility:'👁️' } as const
-const BADGE_OFF = { mic:'🔇', cam:'🚫', speakers:'🔇', visibility:'🙈' } as const
-function em(kind: keyof typeof BADGE_ON, on = true) { return on ? BADGE_ON[kind] : BADGE_OFF[kind] }
 
 function isOn(id: string, kind: 'mic' | 'cam' | 'speakers' | 'visibility') {
   if (id === localId.value) {
@@ -196,16 +195,19 @@ function connectSocket() {
     L('socket: state_changed', p)
     applyPeerState(String(p.user_id), p)
   })
+  
   socket.value.on('member_joined', (p: any) => {
     L('socket: member_joined', p)
     applyPeerState(String(p.user_id), p?.state || {})
   })
+  
   socket.value.on('member_left', (p: any) => {
     const id = String(p.user_id)
     L('socket: member_left', { id })
     delete statusByUser[id]
     delete positionByUser[id]
   })
+  
   socket.value.on('positions', (p: any) => {
     const ups = Array.isArray(p?.updates) ? p.updates : []
     for (const u of ups) {

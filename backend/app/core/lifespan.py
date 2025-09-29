@@ -15,9 +15,8 @@ from ..settings import settings
 async def lifespan(app) -> AsyncIterator[None]:
     configure_logging()
     log = structlog.get_logger()
-    log.info("app.start", project=settings.PROJECT_NAME, domain=settings.DOMAIN)
+    log.info("app.startup", project=settings.PROJECT_NAME, domain=settings.DOMAIN)
 
-    log.info("clients.init.start")
     init_clients()
 
     async with engine.begin() as conn:
@@ -31,10 +30,11 @@ async def lifespan(app) -> AsyncIterator[None]:
         await asyncio.to_thread(ensure_bucket)
 
     await asyncio.gather(redis_ping(), minio_ready())
-    log.info("clients.init.ok")
+    log.info("app.ready")
+
     try:
         yield
     finally:
-        log.info("app.stop")
         await close_clients()
         await engine.dispose()
+        log.info("app.shutdown.ok")

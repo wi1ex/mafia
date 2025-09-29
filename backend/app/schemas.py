@@ -16,6 +16,7 @@ class UserOut(BaseModel):
 
 class Identity(TypedDict):
     id: int
+    username: str
     role: str
 
 

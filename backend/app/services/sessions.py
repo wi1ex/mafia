@@ -1,22 +1,16 @@
 from __future__ import annotations
 import secrets
 import structlog
-from fastapi import Depends, HTTPException, Response, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi import Response
 from sqlalchemy import update, func
 from ..core.clients import get_redis
-from ..core.security import create_access_token, create_refresh_token, decode_token, parse_refresh_token
+from ..core.security import create_access_token, create_refresh_token, parse_refresh_token
 from ..db import SessionLocal
 from ..realtime.sio import sio
 from ..models.user import User
-from ..schemas import Identity
 from ..settings import settings
 
 log = structlog.get_logger()
-
-bearer = HTTPBearer(auto_error=False)
-
-_unauth = HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
 
 
 def _set_refresh_cookie(resp: Response, token: str) -> None:
@@ -32,7 +26,7 @@ def _set_refresh_cookie(resp: Response, token: str) -> None:
     )
 
 
-async def new_login_session(resp: Response, *, user_id: int, role: str) -> tuple[str, str]:
+async def new_login_session(resp: Response, *, user_id: int, username: str, role: str) -> tuple[str, str]:
     try:
         r = get_redis()
         sid = secrets.token_urlsafe(16)
@@ -48,7 +42,7 @@ async def new_login_session(resp: Response, *, user_id: int, role: str) -> tuple
             await p.execute()
 
         _set_refresh_cookie(resp, rt)
-        at = create_access_token(sub=user_id, role=role, sid=sid, ttl_minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+        at = create_access_token(sub=user_id, username=username, role=role, sid=sid, ttl_minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
 
         async with SessionLocal() as db:
             await db.execute(update(User).where(User.id == user_id).values(last_login_at=func.now()))
@@ -91,32 +85,12 @@ async def rotate_refresh(resp: Response, *, raw_refresh_jwt: str) -> tuple[bool,
     rt = create_refresh_token(sub=uid, sid=sid, jti=new_jti, ttl_days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
     await r.setex(f"session:{sid}:rjti", settings.REFRESH_TOKEN_EXPIRE_DAYS * 86400, new_jti)
     _set_refresh_cookie(resp, rt)
-    log.debug("session.refresh.rotated", user_id=uid, sid=sid)
+    log.info("session.refresh.rotated", user_id=uid, sid=sid)
     return True, uid, sid
 
 
-async def get_identity(creds: HTTPAuthorizationCredentials = Depends(bearer)) -> Identity:
-    if not creds or creds.scheme.lower() != "bearer":
-        raise _unauth
-    try:
-        p = decode_token(creds.credentials)
-        if p.get("typ") != "access":
-            raise ValueError
-
-        uid = int(p["sub"])
-        sid = str(p.get("sid") or "")
-        r = get_redis()
-        cur = await r.get(f"user:{uid}:sid")
-        if not cur or cur != sid:
-            raise _unauth
-
-        return {"id": uid, "role": str(p["role"])}
-    except Exception:
-        raise _unauth
-
-
 async def logout(resp: Response, *, user_id: int, sid: str | None = None) -> None:
-    resp.delete_cookie(key="rt", path="/api", domain=settings.DOMAIN, samesite="strict")
+    resp.delete_cookie(key="rt", path="/api", domain=settings.DOMAIN, samesite="strict", secure=True)
     r = get_redis()
     if sid:
         await r.delete(f"session:{sid}:rjti")

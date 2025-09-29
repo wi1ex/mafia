@@ -21,14 +21,15 @@ def _build_redis() -> redis.Redis:
         decode_responses=True,
         socket_keepalive=True,
         health_check_interval=10,
+        socket_connect_timeout=3.0,
+        socket_timeout=5.0,
+        retry_on_timeout=True,
     )
 
 
 def _build_minio_private() -> Minio:
-    private_ep = settings.MINIO_ENDPOINT
-    log.debug("minio.private.endpoint", endpoint=private_ep)
     return Minio(
-        private_ep,
+        settings.MINIO_ENDPOINT,
         access_key=settings.MINIO_ROOT_USER,
         secret_key=settings.MINIO_ROOT_PASSWORD,
         secure=False,
@@ -36,10 +37,8 @@ def _build_minio_private() -> Minio:
 
 
 def _build_minio_public() -> Minio:
-    public_ep = settings.DOMAIN
-    log.debug("minio.public.endpoint", endpoint=public_ep)
     return Minio(
-        public_ep,
+        settings.DOMAIN,
         access_key=settings.MINIO_ROOT_USER,
         secret_key=settings.MINIO_ROOT_PASSWORD,
         region="us-east-1",
@@ -58,11 +57,14 @@ def _build_httpx() -> httpx.AsyncClient:
 
 def init_clients() -> None:
     global _redis, _minio_private, _minio_public, _httpx
+    if _redis and _minio_private and _minio_public and _httpx:
+        return
+
     log.info("clients.init.start")
-    _redis = _build_redis()
-    _minio_private = _build_minio_private()
-    _minio_public = _build_minio_public()
-    _httpx = _build_httpx()
+    _redis = _redis or _build_redis()
+    _minio_private = _minio_private or _build_minio_private()
+    _minio_public = _minio_public or _build_minio_public()
+    _httpx = _httpx or _build_httpx()
     log.info("clients.init.ok")
 
 
