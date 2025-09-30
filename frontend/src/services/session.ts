@@ -95,6 +95,10 @@ async function checkConsistency(): Promise<void> {
   setForeignActive(false)
 }
 
+let storageHandler: ((e: StorageEvent)=>void) | null = null
+let focusHandler: (()=>void) | null = null
+let visHandler: (()=>void) | null = null
+
 function bindListenersOnce() {
   if (storageListenerBound) return
   storageListenerBound = true
@@ -102,19 +106,20 @@ function bindListenersOnce() {
   if ('BroadcastChannel' in window) {
     try {
       bc = new BroadcastChannel('auth')
-      bc.onmessage = async (ev) => { if (ev?.data && typeof ev.data.sid === 'string') await checkConsistency() }
+      bc.onmessage = () => { void checkConsistency() }
     } catch {}
   }
 
-  window.addEventListener('storage', (e) => {
-    if (e.key !== 'auth:msg' || !e.newValue) return
-    try {
-      const v = JSON.parse(e.newValue)
-      if (typeof v.sid === 'string') { void checkConsistency() }
-    } catch {}
-  })
-  window.addEventListener('focus', () => { void checkConsistency() })
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) void checkConsistency() })
+  storageHandler = (e) => {
+    if (e.key === 'auth:msg' && e.newValue) { void checkConsistency() }
+  }
+  focusHandler = () => { void checkConsistency() }
+  visHandler = () => { if (!document.hidden) void checkConsistency() }
+
+  window.addEventListener('storage', storageHandler)
+  window.addEventListener('focus', focusHandler)
+  document.addEventListener('visibilitychange', visHandler)
+
   consistencyTimer = window.setInterval(() => { void checkConsistency() }, 5000)
 }
 
@@ -135,6 +140,18 @@ export function stopSessionBus(): void {
   if (consistencyTimer) {
     clearInterval(consistencyTimer)
     consistencyTimer = null
+  }
+  if (storageHandler) {
+    window.removeEventListener('storage', storageHandler)
+    storageHandler = null
+  }
+  if (focusHandler) {
+    window.removeEventListener('focus', focusHandler)
+    focusHandler = null
+  }
+  if (visHandler) {
+    document.removeEventListener('visibilitychange', visHandler)
+    visHandler = null
   }
   storageListenerBound = false
   inited = false

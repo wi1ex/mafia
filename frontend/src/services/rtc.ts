@@ -81,8 +81,9 @@ export function useRTC(): UseRTC {
   const activeSpeakers = ref<Set<string>>(new Set())
   const audibleIds = ref<Set<string>>(new Set())
   const isSub = (pub: RemoteTrackPublication) => pub.isSubscribed
-  let lowQuality = VideoPresets.h180
-  let highQuality = VideoPresets.h720
+  const lowQuality = VideoPresets.h180
+  const highQuality = VideoPresets.h720
+  const logState = true
 
   const isSpeaking = (id: string) => {
     if (id === localId.value) return activeSpeakers.value.has(id)
@@ -103,8 +104,8 @@ export function useRTC(): UseRTC {
     audibleIds.value = s
   }
 
-  const LOG = (evt: string, data?: any) => console.log(`[RTC] ${new Date().toISOString()} — ${evt}`, data ?? '')
-  const WRN = (evt: string, data?: any) => console.warn(`[RTC] ${new Date().toISOString()} — ${evt}`, data ?? '')
+  const LOG = (evt: string, data?: any) => { if (logState) console.log(`[RTC] ${new Date().toISOString()} — ${evt}`, data ?? '') }
+  const WRN = (evt: string, data?: any) => { if (logState) console.warn(`[RTC] ${new Date().toISOString()} — ${evt}`, data ?? '') }
 
   const getByIdentity = (room: LkRoom, id: string) => room.getParticipantByIdentity?.(id) ?? room.remoteParticipants.get(id)
 

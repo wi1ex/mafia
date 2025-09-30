@@ -71,23 +71,19 @@ async function syncRoomsSnapshot() {
   try {
     const resp: any = await sio.value.timeout(1500).emitWithAck('rooms_list')
     if (!resp?.ok || !Array.isArray(resp.rooms)) return
-
     const nextIds = new Set<number>()
     for (const r of resp.rooms as Room[]) {
       nextIds.add(r.id)
       upsert(r)
     }
-    for (const id of Array.from(roomsMap.keys())) {
-      if (!nextIds.has(id)) roomsMap.delete(id)
-    }
+    for (const id of Array.from(roomsMap.keys())) if (!nextIds.has(id)) roomsMap.delete(id)
   } catch (e) {
     console.warn('rooms list ack failed', e)
   }
 }
 
 function upsert(r: Room) {
-  const prev = roomsMap.get(r.id)
-  roomsMap.set(r.id, { ...(prev || {} as Room), ...r })
+  roomsMap.set(r.id, { ...(roomsMap.get(r.id) || {} as Room), ...r })
 }
 
 function remove(id: number) {

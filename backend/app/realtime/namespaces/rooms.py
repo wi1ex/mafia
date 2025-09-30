@@ -2,7 +2,6 @@ from __future__ import annotations
 import structlog
 from ..sio import sio
 from ...core.clients import get_redis
-from ..utils import get_occupancies
 
 log = structlog.get_logger()
 
@@ -11,33 +10,25 @@ log = structlog.get_logger()
 async def rooms_list(sid):
     try:
         r = get_redis()
-        ids = await r.zrevrange("rooms:index", 0, 200 - 1)
-        rids = [int(x) for x in ids]
+        rids = list(map(int, await r.zrevrange("rooms:index", 0, 99)))
         if not rids:
             return {"ok": True, "rooms": []}
 
         fields = ("id", "title", "user_limit", "creator", "created_at")
-        pipe = r.pipeline()
-        for rid in rids:
-            await pipe.hmget(f"room:{rid}:params", *fields)
-        rows = await pipe.execute()
-        occ = await get_occupancies(r, rids)
+        async with r.pipeline() as p:
+            for rid in rids:
+                await p.hmget(f"room:{rid}:params", *fields)
+            for rid in rids:
+                await p.scard(f"room:{rid}:members")
+            res = await p.execute()
 
-        out = []
-        for rid, vals in zip(rids, rows):
-            if not vals or any(v is None for v in vals):
-                continue
-
-            _id, title, user_limit, creator, created_at = vals
-            out.append({
-                "id": int(_id), "title": title,
-                "user_limit": int(user_limit),
-                "creator": int(creator),
-                "created_at": created_at,
-                "occupancy": int(occ.get(rid, 0)),
-            })
-
-        return {"ok": True, "rooms": out}
+        rows, occ_vals = res[:len(rids)], res[len(rids):]
+        occ = {rid: int(v or 0) for rid, v in zip(rids, occ_vals)}
+        rooms = [{"id": int(_id), "title": title, "user_limit": int(user_limit),
+                  "creator": int(creator), "created_at": created_at, "occupancy": occ.get(rid, 0)}
+                 for rid, (_id, title, user_limit, creator, created_at) in zip(rids, rows)
+                 if None not in (_id, title, user_limit, creator, created_at)]
+        return {"ok": True, "rooms": rooms}
 
     except Exception:
         log.exception("rooms.list.error", sid=sid)

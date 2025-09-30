@@ -15,7 +15,6 @@ const routes: RouteRecordRaw[] = [
     name: 'room',
     component: () => import('@/pages/Room.vue'),
     meta: { requiresAuth: true, title: 'Комната' },
-    props: (route) => ({ id: Number(route.params.id) }),
   },
   { path: '/:pathMatch(.*)*', redirect: { name: 'home' } },
 ]
@@ -47,6 +46,11 @@ router.beforeEach(async (to) => {
 router.afterEach((to) => setTitle(to))
 
 router.onError((err) => {
+  const msg = String(err?.message || '')
+  if (/Loading chunk \d+ failed|ChunkLoadError|Failed to fetch dynamically imported module/.test(msg)) {
+    location.reload()
+    return
+  }
   console.error('[router]', err)
   router.replace({ name: 'home' }).catch(() => {})
 })

@@ -2,7 +2,7 @@ from __future__ import annotations
 import asyncio
 from time import time
 from datetime import datetime, timezone
-from typing import Any, Dict, Iterable, Mapping, cast
+from typing import Any, Dict, Mapping, cast
 import structlog
 from redis import WatchError
 from sqlalchemy.ext.asyncio import async_sessionmaker
@@ -15,7 +15,6 @@ from ..core.logging import log_action
 __all__ = [
     "apply_state",
     "get_room_snapshot",
-    "get_occupancies",
     "get_positions",
     "join_room_atomic",
     "leave_room_atomic",
@@ -55,15 +54,6 @@ async def get_room_snapshot(r, rid: int) -> Dict[str, Dict[str, str]]:
     for uid, st in zip(ids, states):
         out[str(uid)] = st or {}
     return out
-
-
-async def get_occupancies(r, rids: Iterable[int]) -> Dict[int, int]:
-    ids = list(rids)
-    pipe = r.pipeline()
-    for rid in ids:
-        await pipe.scard(f"room:{rid}:members")
-    vals = await pipe.execute()
-    return {rid: int(v or 0) for rid, v in zip(ids, vals)}
 
 
 async def get_positions(r, rid: int) -> dict[str, int]:

@@ -53,8 +53,9 @@ import { useAuthStore } from '@/store'
 import { useRTC } from '@/services/rtc'
 import { createAuthedSocket } from '@/services/sio'
 
-const L = (evt: string, data?: any) => console.log(`[Room] ${new Date().toISOString()} — ${evt}`, data ?? '')
-const W = (evt: string, data?: any) => console.warn(`[Room] ${new Date().toISOString()} — ${evt}`, data ?? '')
+const logState = true
+const L = (evt: string, data?: any) => { if (logState) console.log(`[Room] ${new Date().toISOString()} — ${evt}`, data ?? '') }
+const W = (evt: string, data?: any) => { if (logState) console.warn(`[Room] ${new Date().toISOString()} — ${evt}`, data ?? '') }
 
 type State01 = 0 | 1
 type UserState = { mic: State01; cam: State01; speakers: State01; visibility: State01 }
