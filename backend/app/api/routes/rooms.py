@@ -20,7 +20,7 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
     uid = int(ident["id"])
     creator_name = ident["username"]
 
-    room = Room(title=payload.title.strip(), user_limit=payload.user_limit, creator=uid)
+    room = Room(title=payload.title.strip(), user_limit=payload.user_limit, creator=uid, creator_name=creator_name)
     session.add(room)
     await session.commit()
     await session.refresh(room)
@@ -31,14 +31,15 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
         "title": room.title,
         "user_limit": room.user_limit,
         "creator": room.creator,
+        "creator_name": creator_name,
         "created_at": room.created_at.isoformat(),
         "occupancy": 0,
     }
 
-    async with r.pipeline(transaction=True) as pipe:
-        await pipe.hset(f"room:{room.id}:params", mapping=data)
-        await pipe.zadd("rooms:index", {str(room.id): int(room.created_at.timestamp())})
-        await pipe.execute()
+    async with r.pipeline() as p:
+        await p.hset(f"room:{room.id}:params", mapping=data)
+        await p.zadd("rooms:index", {str(room.id): int(room.created_at.timestamp())})
+        await p.execute()
 
     await sio.emit("rooms_upsert", data, namespace="/rooms")
     await sio.emit("rooms_occupancy", {"id": room.id, "occupancy": 0}, namespace="/rooms")

@@ -9,13 +9,11 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from ..core.clients import get_redis
 from ..db import engine
 from ..models.room import Room
-from ..models.user import User
 from ..core.logging import log_action
 
 __all__ = [
     "apply_state",
     "get_room_snapshot",
-    "get_positions",
     "join_room_atomic",
     "leave_room_atomic",
     "gc_empty_room",
@@ -27,13 +25,12 @@ _sessionmaker = async_sessionmaker(bind=engine, expire_on_commit=False)
 
 
 async def apply_state(r, rid: int, uid: int, data: Mapping[str, Any]) -> Dict[str, str]:
-    m: Dict[str, str] = {}
-    for k in ("mic", "cam", "speakers", "visibility"):
-        if k in data:
-            if isinstance(data[k], bool):
-                m[k] = "1" if data[k] else "0"
-            else:
-                m[k] = "1" if str(data[k]).strip().lower() in {"1", "true"} else "0"
+    def norm(v: Any) -> str:
+        if isinstance(v, bool):
+            return "1" if v else "0"
+        return "1" if str(v).strip().lower() in {"1", "true"} else "0"
+
+    m = {k: norm(data[k]) for k in ("mic", "cam", "speakers", "visibility") if k in data}
     if not m:
         return {}
 
@@ -46,27 +43,16 @@ async def get_room_snapshot(r, rid: int) -> Dict[str, Dict[str, str]]:
     if not ids:
         return {}
 
-    pipe = r.pipeline()
-    for uid in ids:
-        await pipe.hgetall(f"room:{rid}:user:{uid}:state")
-    states = await pipe.execute()
-    out: Dict[str, Dict[str, str]] = {}
-    for uid, st in zip(ids, states):
-        out[str(uid)] = st or {}
-    return out
-
-
-async def get_positions(r, rid: int) -> dict[str, int]:
-    rows = await r.zrange(f"room:{rid}:positions", 0, -1, withscores=True)
-    out: dict[str, int] = {}
-    for member, score in rows:
-        if member.isdigit():
-            out[member] = int(score)
-    return out
+    async with r.pipeline() as p:
+        for uid in ids:
+            await p.hgetall(f"room:{rid}:user:{uid}:state")
+        states = await p.execute()
+    return {str(uid): (st or {}) for uid, st in zip(ids, states)}
 
 
 async def join_room_atomic(r, rid: int, uid: int, role: str, *, retries: int = 8) -> tuple[int, int, bool]:
-    limraw = await r.hget(f"room:{rid}:params", "user_limit")
+    res = await r.hmget(f"room:{rid}:params", "user_limit", "creator")
+    limraw, creator_raw = res
     if not limraw:
         return -2, 0, False
 
@@ -78,7 +64,6 @@ async def join_room_atomic(r, rid: int, uid: int, role: str, *, retries: int = 8
     if lim <= 0:
         return -2, 0, False
 
-    creator_raw = await r.hget(f"room:{rid}:params", "creator")
     try:
         creator_id = int(creator_raw or 0)
     except Exception:
@@ -96,31 +81,27 @@ async def join_room_atomic(r, rid: int, uid: int, role: str, *, retries: int = 8
                 if pos is None:
                     pos = size if size > 0 else 1
                     async with r.pipeline() as p:
-                        p.zadd(f"room:{rid}:positions", {uid: pos})
-                        p.hset(f"room:{rid}:user:{uid}:info", mapping={"position": int(pos)})
+                        await p.zadd(f"room:{rid}:positions", {uid: pos})
                         await p.execute()
                 existing_jd = await r.hget(f"room:{rid}:user:{uid}:info", "join_date")
                 mapping: Dict[str, Any] = {"role": eff_role}
                 if not existing_jd:
                     mapping["join_date"] = now
                 async with r.pipeline() as p:
-                    p.hset(f"room:{rid}:user:{uid}:info", mapping=mapping)
+                    await p.hset(f"room:{rid}:user:{uid}:info", mapping=mapping)
                     await p.execute()
-                await r.unwatch()
                 return size, int(pos), True
 
             if size >= lim:
-                await r.unwatch()
                 return -1, 0, False
 
             new_pos = size + 1
             async with r.pipeline() as p:
-                p.sadd(f"room:{rid}:members", uid)
-                p.zadd(f"room:{rid}:positions", {uid: new_pos})
-                p.hset(f"room:{rid}:user:{uid}:info", mapping={"join_date": now, "position": new_pos, "role": eff_role})
-                p.delete(f"room:{rid}:empty_since")
+                await p.sadd(f"room:{rid}:members", uid)
+                await p.zadd(f"room:{rid}:positions", {uid: new_pos})
+                await p.hset(f"room:{rid}:user:{uid}:info", mapping={"join_date": now, "role": eff_role})
+                await p.delete(f"room:{rid}:empty_since")
                 await p.execute()
-            await r.unwatch()
             return new_pos, new_pos, False
 
         except WatchError:
@@ -156,9 +137,9 @@ async def leave_room_atomic(r, rid: int, uid: int, *, retries: int = 8) -> tuple
         try:
             await r.watch(f"room:{rid}:members", f"room:{rid}:positions")
             async with r.pipeline() as p:
-                p.srem(f"room:{rid}:members", uid)
-                p.zrem(f"room:{rid}:positions", uid)
-                p.delete(f"room:{rid}:user:{uid}:info")
+                await p.srem(f"room:{rid}:members", uid)
+                await p.zrem(f"room:{rid}:positions", uid)
+                await p.delete(f"room:{rid}:user:{uid}:info")
                 await p.execute()
             break
         except WatchError:
@@ -176,15 +157,13 @@ async def leave_room_atomic(r, rid: int, uid: int, *, retries: int = 8) -> tuple
             try:
                 await r.watch(f"room:{rid}:members", f"room:{rid}:empty_since", f"room:{rid}:gc_seq")
                 if int(await r.scard(f"room:{rid}:members") or 0) != 0:
-                    await r.unwatch()
                     break
                 now = int(time())
                 async with r.pipeline() as p:
-                    p.set(f"room:{rid}:empty_since", now, ex=86400)
-                    p.incr(f"room:{rid}:gc_seq")
+                    await p.set(f"room:{rid}:empty_since", now, ex=86400)
+                    await p.incr(f"room:{rid}:gc_seq")
                     res = await p.execute()
                 gc_seq = int(res[-1])
-                await r.unwatch()
                 break
             except WatchError:
                 continue
@@ -200,14 +179,12 @@ async def leave_room_atomic(r, rid: int, uid: int, *, retries: int = 8) -> tuple
         if ids:
             async with r.pipeline() as p:
                 for mid in ids:
-                    p.zincrby(f"room:{rid}:positions", -1, mid)
+                    await p.zincrby(f"room:{rid}:positions", -1, mid)
                 new_scores = await p.execute()
-            async with r.pipeline() as p2:
-                for mid, sc in zip(ids, new_scores):
-                    new_pos = int(sc)
-                    updates.append((int(mid), new_pos))
-                    p2.hset(f"room:{rid}:user:{int(mid)}:info", mapping={"position": new_pos})
-                await p2.execute()
+
+            for mid, sc in zip(ids, new_scores):
+                updates.append((int(mid), int(sc)))
+
     return occ, gc_seq, updates
 
 
@@ -259,8 +236,7 @@ async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
                     rm_title = rm.title
                     rm_user_limit = rm.user_limit
                     rm_creator = cast(int, rm.creator)
-                    creator_user = await s.get(User, rm_creator)
-                    creator_name = (creator_user.username if creator_user and creator_user.username else f"user{rm_creator}")
+                    rm_creator_name = cast(str, rm.creator_name)
                     unique_visitors = len(set(visitors_map.keys()))
                     if unique_visitors <= 1:
                         await s.delete(rm)
@@ -270,7 +246,7 @@ async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
                     await log_action(
                         s,
                         user_id=rm_creator,
-                        username=creator_name,
+                        username=rm_creator_name,
                         action="room_deleted",
                         details=f"Удаление комнаты room_id={rid} title={rm_title} user_limit={rm_user_limit} count_users={unique_visitors}",
                     )
@@ -284,7 +260,7 @@ async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
             while True:
                 cursor, keys = await r.scan(cursor=cursor, match=pattern, count=count)
                 if keys:
-                    await r.delete(*keys)
+                    await r.unlink(*keys)
                 if cursor == 0:
                     break
 

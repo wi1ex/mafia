@@ -49,6 +49,7 @@ class RoomOut(BaseModel):
     title: str
     user_limit: int
     creator: int
+    creator_name: str
     created_at: str
     occupancy: int = 0
 

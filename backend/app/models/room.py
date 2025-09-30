@@ -11,6 +11,7 @@ class Room(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     creator: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    creator_name: Mapped[str] = mapped_column(String(32), nullable=False)
     title: Mapped[str] = mapped_column(String(64), nullable=False)
     user_limit: Mapped[int] = mapped_column(Integer, nullable=False, default=12)
     visitors: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default="{}")

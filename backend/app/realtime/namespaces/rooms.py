@@ -14,7 +14,7 @@ async def rooms_list(sid):
         if not rids:
             return {"ok": True, "rooms": []}
 
-        fields = ("id", "title", "user_limit", "creator", "created_at")
+        fields = ("id", "title", "user_limit", "creator", "creator_name", "created_at")
         async with r.pipeline() as p:
             for rid in rids:
                 await p.hmget(f"room:{rid}:params", *fields)
@@ -24,10 +24,18 @@ async def rooms_list(sid):
 
         rows, occ_vals = res[:len(rids)], res[len(rids):]
         occ = {rid: int(v or 0) for rid, v in zip(rids, occ_vals)}
-        rooms = [{"id": int(_id), "title": title, "user_limit": int(user_limit),
-                  "creator": int(creator), "created_at": created_at, "occupancy": occ.get(rid, 0)}
-                 for rid, (_id, title, user_limit, creator, created_at) in zip(rids, rows)
-                 if None not in (_id, title, user_limit, creator, created_at)]
+        rooms = [
+            {"id": int(_id),
+             "title": title,
+             "user_limit": int(user_limit),
+             "creator": int(creator),
+             "creator_name": creator_name,
+             "created_at": created_at,
+             "occupancy": occ.get(rid, 0)
+             }
+            for rid, (_id, title, user_limit, creator, creator_name, created_at) in zip(rids, rows)]
+
+        log.info("rooms.list.ok", sid=sid, count=len(rooms))
         return {"ok": True, "rooms": rooms}
 
     except Exception:

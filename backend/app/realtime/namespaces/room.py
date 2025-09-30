@@ -11,7 +11,6 @@ from ..utils import (
     get_room_snapshot,
     join_room_atomic,
     leave_room_atomic,
-    get_positions,
 )
 
 log = structlog.get_logger()
@@ -36,50 +35,47 @@ async def join(sid, data) -> JoinAck:
         role = str(sess.get("role") or "user")
         rid = int((data or {}).get("room_id") or 0)
         if not rid:
+            log.warning("sio.join.bad_room_id", sid=sid)
             return {"ok": False, "error": "bad_room_id", "status": 400}
 
         r = get_redis()
         occ, pos, already = await join_room_atomic(r, rid, uid, role)
         if occ == -2:
+            log.warning("sio.join.room_not_found", rid=rid, uid=uid)
             return {"ok": False, "error": "room_not_found", "status": 404}
+
         if occ == -1:
+            log.info("sio.join.room_full", rid=rid, uid=uid)
             return {"ok": False, "error": "room_is_full", "status": 409}
 
         applied: dict[str, str] = {}
         snapshot = await get_room_snapshot(r, rid)
         incoming = (data.get("state") or {}) if isinstance(data, dict) else {}
         user_state: dict[str, str] = {k: str(v) for k, v in (snapshot.get(str(uid)) or {}).items()}
-        if not user_state and incoming:
-            applied = await apply_state(r, rid, uid, incoming)
+        to_fill = {k: incoming[k] for k in ("mic", "cam", "speakers", "visibility") if k in incoming and k not in user_state}
+        if to_fill:
+            applied = await apply_state(r, rid, uid, to_fill)
             if applied:
                 user_state = {**user_state, **applied}
                 snapshot[str(uid)] = user_state
-        elif user_state and incoming:
-            to_fill = {}
-            for k in ("mic", "cam", "speakers", "visibility"):
-                if k in incoming and k not in user_state:
-                    to_fill[k] = incoming[k]
-            if to_fill:
-                applied = await apply_state(r, rid, uid, to_fill)
-                if applied:
-                    user_state = {**user_state, **applied}
-                    snapshot[str(uid)] = user_state
 
         await sio.enter_room(sid, f"room:{rid}", namespace="/room")
         await sio.save_session(sid, {"uid": uid, "rid": rid, "role": role}, namespace="/room")
 
         if not already:
             await sio.emit("rooms_occupancy", {"id": rid, "occupancy": occ}, namespace="/rooms")
-            await sio.emit("member_joined", {"user_id": uid, "state": user_state, "position": pos, "role": role}, room=f"room:{rid}", skip_sid=sid, namespace="/room")
+            await sio.emit("member_joined", {"user_id": uid, "state": user_state, "role": role}, room=f"room:{rid}", skip_sid=sid, namespace="/room")
 
-        await sio.emit("positions", {"updates": [{"user_id": uid, "position": pos}]}, room=f"room:{rid}", namespace="/room")
+        await sio.emit("positions", {"updates": [{"user_id": uid, "position": pos}]}, room=f"room:{rid}", skip_sid=sid, namespace="/room")
 
         if applied:
             await sio.emit("state_changed", {"user_id": uid, **applied}, room=f"room:{rid}", skip_sid=sid, namespace="/room")
 
-        positions = await get_positions(r, rid)
+        redis_positions = await r.zrange(f"room:{rid}:positions", 0, -1, withscores=True)
+        positions = {m: int(s) for m, s in redis_positions if m.isdigit()}
         lk_token = make_livekit_token(identity=str(uid), name=f"user-{uid}", room=str(rid))
 
+        log.info("sio.join.ok", rid=rid, uid=uid, pos=pos, occ=occ, already=already)
         return {"ok": True, "room_id": rid, "token": lk_token, "snapshot": snapshot, "self_pref": user_state, "positions": positions}
     except Exception:
         log.exception("sio.join.error", sid=sid, data=bool(data))
@@ -93,13 +89,15 @@ async def state(sid, data):
         uid = int(sess["uid"])
         rid = int(sess.get("rid") or 0)
         if not rid:
+            log.info("sio.state.no_rid", uid=uid)
             return {"ok": False}
 
         r = get_redis()
         applied = await apply_state(r, rid, uid, data or {})
         if applied:
             await sio.emit("state_changed", {"user_id": uid, **applied}, room=f"room:{rid}", namespace="/room")
-
+        else:
+            log.info("sio.state.no_changes", uid=uid, rid=rid)
         return {"ok": True}
 
     except Exception:
@@ -139,5 +137,6 @@ async def disconnect(sid):
                     log.exception("gc failed rid=%s", rid)
             asyncio.create_task(_gc())
 
+        log.info("sio.disconnect.ok", uid=uid, rid=rid, occ=occ, updates=len(pos_updates))
     except Exception:
         log.exception("sio.disconnect.error", sid=sid)

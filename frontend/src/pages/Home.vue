@@ -7,7 +7,9 @@
     <ul class="list">
       <li v-for="r in sortedRooms" :key="r.id" class="item">
         <span class="item_title">#{{ r.id }} — {{ r.title }}</span>
-        <span class="item_meta">({{ r.occupancy }}/{{ r.user_limit }})</span>
+        <span class="item_meta">
+          ({{ r.occupancy }}/{{ r.user_limit }}) • владелец: {{ r.creator_name }}
+        </span>
         <router-link v-if="auth.isAuthed && !isFull(r)" :to="`/room/${r.id}`" class="link">
           Открыть
         </router-link>
@@ -43,6 +45,7 @@ type Room = {
   title: string
   user_limit: number
   creator: number
+  creator_name: string
   created_at: string
   occupancy: number
 }
