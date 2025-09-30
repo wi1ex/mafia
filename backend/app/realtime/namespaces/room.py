@@ -1,7 +1,8 @@
 from __future__ import annotations
 import asyncio
 import structlog
-from ..sio import sio, validate_auth
+from ..sio import sio
+from ..utils import validate_auth
 from ...core.clients import get_redis
 from ...schemas import JoinAck
 from ...services.livekit_tokens import make_livekit_token

@@ -1,6 +1,7 @@
 from __future__ import annotations
 import structlog
-from ..sio import sio, validate_auth
+from ..sio import sio
+from ..utils import validate_auth
 
 log = structlog.get_logger()
 

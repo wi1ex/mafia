@@ -1,17 +1,21 @@
 from __future__ import annotations
 import asyncio
-from time import time
 from datetime import datetime, timezone
-from typing import Any, Dict, Mapping, cast
+from time import time
+from typing import Any, Tuple
+from typing import Dict, Mapping, cast
 import structlog
+from jwt import ExpiredSignatureError
 from redis import WatchError
 from sqlalchemy.ext.asyncio import async_sessionmaker
 from ..core.clients import get_redis
+from ..core.logging import log_action
+from ..core.security import decode_token
 from ..db import engine
 from ..models.room import Room
-from ..core.logging import log_action
 
 __all__ = [
+    "validate_auth",
     "apply_state",
     "get_room_snapshot",
     "join_room_atomic",
@@ -22,6 +26,33 @@ __all__ = [
 log = structlog.get_logger()
 
 _sessionmaker = async_sessionmaker(bind=engine, expire_on_commit=False)
+
+
+async def validate_auth(auth: Any) -> Tuple[int, str] | None:
+    token = auth.get("token") if isinstance(auth, dict) else None
+    if not token:
+        log.warning("sio.connect.no_token")
+        return None
+
+    try:
+        p = decode_token(token)
+        uid = int(p["sub"])
+        sid = str(p.get("sid") or "")
+        cur = await get_redis().get(f"user:{uid}:sid")
+        if not cur or cur != sid:
+            log.warning("sio.connect.replaced_session")
+            return None
+
+        role = str(p.get("role") or "user")
+        return uid, role
+
+    except ExpiredSignatureError:
+        log.warning("sio.connect.expired_token")
+        return None
+
+    except Exception:
+        log.warning("sio.connect.bad_token")
+        return None
 
 
 async def apply_state(r, rid: int, uid: int, data: Mapping[str, Any]) -> Dict[str, str]:
