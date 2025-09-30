@@ -30,12 +30,21 @@ async def apply_state(r, rid: int, uid: int, data: Mapping[str, Any]) -> Dict[st
             return "1" if v else "0"
         return "1" if str(v).strip().lower() in {"1", "true"} else "0"
 
-    m = {k: norm(data[k]) for k in ("mic", "cam", "speakers", "visibility") if k in data}
-    if not m:
+    KEYS = ("mic", "cam", "speakers", "visibility")
+    incoming = {k: norm(data[k]) for k in KEYS if k in data}
+    if not incoming:
         return {}
 
-    await r.hset(f"room:{rid}:user:{uid}:state", mapping=m)
-    return m
+    cur_vals = await r.hmget(f"room:{rid}:user:{uid}:state", *KEYS)
+    cur = {k: (v if v is not None else "") for k, v in zip(KEYS, cur_vals)}
+
+    changed = {k: v for k, v in incoming.items() if cur.get(k) != v}
+    if not changed:
+        return {}
+
+    await r.hset(f"room:{rid}:user:{uid}:state", mapping=changed)
+    return changed
+
 
 
 async def get_room_snapshot(r, rid: int) -> Dict[str, Dict[str, str]]:
@@ -47,6 +56,7 @@ async def get_room_snapshot(r, rid: int) -> Dict[str, Dict[str, str]]:
         for uid in ids:
             await p.hgetall(f"room:{rid}:user:{uid}:state")
         states = await p.execute()
+
     return {str(uid): (st or {}) for uid, st in zip(ids, states)}
 
 
@@ -83,6 +93,7 @@ async def join_room_atomic(r, rid: int, uid: int, role: str, *, retries: int = 8
                     async with r.pipeline() as p:
                         await p.zadd(f"room:{rid}:positions", {uid: pos})
                         await p.execute()
+
                 existing_jd = await r.hget(f"room:{rid}:user:{uid}:info", "join_date")
                 mapping: Dict[str, Any] = {"role": eff_role}
                 if not existing_jd:
@@ -158,6 +169,7 @@ async def leave_room_atomic(r, rid: int, uid: int, *, retries: int = 8) -> tuple
                 await r.watch(f"room:{rid}:members", f"room:{rid}:empty_since", f"room:{rid}:gc_seq")
                 if int(await r.scard(f"room:{rid}:members") or 0) != 0:
                     break
+
                 now = int(time())
                 async with r.pipeline() as p:
                     await p.set(f"room:{rid}:empty_since", now, ex=86400)
@@ -243,6 +255,7 @@ async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
                     else:
                         rm.visitors = {**(rm.visitors or {}), **{str(k): v for k, v in visitors_map.items()}}
                         rm.deleted_at = datetime.now(timezone.utc)
+
                     await log_action(
                         s,
                         user_id=rm_creator,
