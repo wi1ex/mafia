@@ -75,6 +75,8 @@ const camOn = computed({ get: () => local.cam, set: v => { local.cam = v } })
 const speakersOn = computed({ get: () => local.speakers, set: v => { local.speakers = v } })
 const visibilityOn = computed({ get: () => local.visibility, set: v => { local.visibility = v } })
 const socket = ref<Socket | null>(null)
+const joinInFlight = ref<Promise<any> | null>(null)
+const joinedRoomId = ref<number | null>(null)
 const statusByUser = reactive<Record<string, UserState>>({})
 const positionByUser = reactive<Record<string, number>>({})
 const leaving = ref(false)
@@ -167,10 +169,12 @@ function connectSocket() {
   })
 
   socket.value?.on('connect', async () => {
+    joinedRoomId.value = null
+    if (joinInFlight.value || joinedRoomId.value === rid) return
     L('socket: connected', { id: socket.value?.id })
     try {
-      const j:any = await socket.value!.timeout(5000).emitWithAck('join', { room_id: rid, state: { ...local } })
-      L('socket: join-after-connect ack', j)
+      const j:any = await safeJoin()
+      if (j?.ok) applyJoinAck(j)
     } catch (e) { W('socket: join-after-connect failed', e) }
     if (pendingDeltas.length) {
       const merged = Object.assign({}, ...pendingDeltas.splice(0))
@@ -183,6 +187,8 @@ function connectSocket() {
   })
 
   socket.value.on('connect_error', e => W('socket: error', e?.message))
+
+  socket.value?.on('disconnect', () => { joinedRoomId.value = null })
 
   socket.value.on('force_logout', async () => {
     W('socket: force_logout')
@@ -220,20 +226,42 @@ function connectSocket() {
   })
 }
 
-async function joinViaSocket() {
+async function safeJoin() {
   if (!socket.value) connectSocket()
+  if (joinedRoomId.value === rid && !joinInFlight.value) return { ok: true }
+  if (joinInFlight.value) return joinInFlight.value
   if (!socket.value!.connected) {
-    L('socket: waiting connect')
     await new Promise<void>((res, rej) => {
       const t = setTimeout(() => rej(new Error('connect timeout')), 10000)
-      socket.value!.once('connect', () => {
-        clearTimeout(t)
-        res()
-      })
+      socket.value!.once('connect', () => { clearTimeout(t); res() })
     })
   }
-  L('socket: join', { room_id: rid, state: { ...local } })
-  return socket.value!.timeout(5000).emitWithAck('join', { room_id: rid, state: { ...local } })
+  joinInFlight.value = socket.value!.timeout(5000).emitWithAck('join', { room_id: rid, state: { ...local } })
+  try {
+    const ack = await joinInFlight.value
+    if (ack?.ok) joinedRoomId.value = rid
+    return ack
+  } finally { joinInFlight.value = null }
+}
+
+function applyJoinAck(j: any) {
+  Object.keys(positionByUser).forEach(k => delete (positionByUser as any)[k])
+  Object.entries(j.positions || {}).forEach(([uid, pos]: any) => {
+    const p = Number(pos)
+    if (Number.isFinite(p)) positionByUser[String(uid)] = p
+  })
+
+  Object.keys(statusByUser).forEach(k => delete (statusByUser as any)[k])
+  Object.entries(j.snapshot || {}).forEach(([uid, st]: any) => {
+    statusByUser[uid] = {
+      mic:        pick01(st.mic, 0),
+      cam:        pick01(st.cam, 0),
+      speakers:   pick01(st.speakers, 1),
+      visibility: pick01(st.visibility, 1),
+    }
+  })
+
+  if (j.self_pref) applySelfPref(j.self_pref)
 }
 
 const pendingDeltas: any[] = []
@@ -321,6 +349,7 @@ async function onLeave() {
     } catch {}
     socket.value = null
     roomId.value = null
+    joinedRoomId.value = null
     await router.replace('/')
     L('leave done')
   } finally {
@@ -371,8 +400,8 @@ onMounted(async () => {
     else document.addEventListener('visibilitychange', async () => { if (document.visibilityState === 'visible') await run() }, { once: true })
 
     connectSocket()
-    const j: any = await joinViaSocket()
-    L('joinViaSocket ack', j)
+    const j:any = await safeJoin()
+    L('safeJoin ack', j)
     if (!j?.ok) {
       alert(j?.status === 404 ? 'Комната не найдена' : j?.status === 409 ? 'Комната заполнена' : 'Ошибка входа в комнату')
       await router.replace('/')
@@ -382,21 +411,7 @@ onMounted(async () => {
     await rtc.refreshDevices()
     L('devices refreshed', { mics: mics.value.length, cams: cams.value.length })
 
-    Object.keys(positionByUser).forEach(k => delete (positionByUser as any)[k])
-    Object.entries(j.positions || {}).forEach(([uid, pos]: any) => {
-      const p = Number(pos)
-      if (Number.isFinite(p)) positionByUser[String(uid)] = p
-    })
-    Object.keys(statusByUser).forEach(k => delete (statusByUser as any)[k])
-    Object.entries(j.snapshot || {}).forEach(([uid, st]: any) => {
-      statusByUser[uid] = {
-        mic:        pick01(st.mic, 0),
-        cam:        pick01(st.cam, 0),
-        speakers:   pick01(st.speakers, 1),
-        visibility: pick01(st.visibility, 1),
-      }
-    })
-    if (j.self_pref) applySelfPref(j.self_pref)
+    applyJoinAck(j)
 
     rtc.initRoom({
       onMediaDevicesError: async (e: unknown) => {
