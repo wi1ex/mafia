@@ -4,6 +4,7 @@ import structlog
 from ..sio import sio
 from ..utils import validate_auth
 from ...core.clients import get_redis
+from ...core.decorators import rate_limited_sio
 from ...schemas import JoinAck
 from ...services.livekit_tokens import make_livekit_token
 from ..utils import (
@@ -28,6 +29,7 @@ async def connect(sid, environ, auth):
     await sio.enter_room(sid, f"user:{uid}", namespace="/room")
 
 
+@rate_limited_sio(lambda *, uid=None, **__: f"rl:sio:join:{uid or 'nouid'}", limit=5, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
 async def join(sid, data) -> JoinAck:
     try:
@@ -83,6 +85,7 @@ async def join(sid, data) -> JoinAck:
         return {"ok": False, "error": "internal", "status": 500}
 
 
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:state:{uid or 'nouid'}:{rid or 0}", limit=20, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
 async def state(sid, data):
     try:

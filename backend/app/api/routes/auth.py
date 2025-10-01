@@ -14,7 +14,7 @@ from ...services.storage_minio import download_telegram_photo, put_avatar
 from ...core.logging import log_action
 from ...schemas import TelegramAuthIn, AccessTokenOut, Ok
 from ...settings import settings
-from ..decorators import log_route
+from ...core.decorators import log_route
 
 router = APIRouter()
 

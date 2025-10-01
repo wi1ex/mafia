@@ -1,5 +1,5 @@
 from __future__ import annotations
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, status, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from ...core.clients import get_redis
 from ...db import get_session
@@ -8,7 +8,7 @@ from ...realtime.sio import sio
 from ...schemas import RoomCreateIn, RoomOut, Identity
 from ...core.security import get_identity
 from ...core.logging import log_action
-from ..decorators import log_route, rate_limited
+from ...core.decorators import log_route, rate_limited
 
 router = APIRouter()
 
@@ -19,8 +19,11 @@ router = APIRouter()
 async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get_session), ident: Identity = Depends(get_identity)) -> RoomOut:
     uid = int(ident["id"])
     creator_name = ident["username"]
+    title = (payload.title or "").strip()
+    if not title:
+        raise HTTPException(status_code=422, detail="title_empty")
 
-    room = Room(title=payload.title.strip(), user_limit=payload.user_limit, creator=uid, creator_name=creator_name)
+    room = Room(title=title, user_limit=payload.user_limit, creator=uid, creator_name=creator_name)
     session.add(room)
     await session.commit()
     await session.refresh(room)

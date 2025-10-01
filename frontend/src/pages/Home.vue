@@ -25,7 +25,7 @@
       <input v-model.trim="title" class="input" placeholder="Название" maxlength="64" />
       <input v-model.number="limit" class="input" type="number" min="2" max="20" placeholder="Лимит" />
       <button class="btn" :disabled="creating || !valid" @click="onCreate">
-        {{ creating ? 'Создаю…' : 'Создать' }}
+        {{ creating ? 'Создаю...' : 'Создать' }}
       </button>
     </div>
   </section>
@@ -59,7 +59,7 @@ const sio = ref<Socket | null>(null)
 const title = ref('')
 const limit = ref(12)
 const creating = ref(false)
-const valid = computed(() => (title.value || '').length > 0 && limit.value >= 2 && limit.value <= 20)
+const valid = computed(() => title.value.length > 0 && limit.value >= 2 && limit.value <= 20)
 
 const sortedRooms = computed(() => {
   return Array.from(roomsMap.values()).sort((a, b) => {

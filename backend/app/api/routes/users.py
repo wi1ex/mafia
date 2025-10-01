@@ -6,7 +6,7 @@ from ...models.user import User
 from ...schemas import UserOut, Identity
 from ...core.security import get_identity
 from ...services.storage_minio import presign_avatar
-from ..decorators import log_route
+from ...core.decorators import log_route
 
 router = APIRouter()
 

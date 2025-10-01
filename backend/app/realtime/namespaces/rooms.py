@@ -2,10 +2,12 @@ from __future__ import annotations
 import structlog
 from ..sio import sio
 from ...core.clients import get_redis
+from ...core.decorators import rate_limited_sio
 
 log = structlog.get_logger()
 
 
+@rate_limited_sio(lambda sid, **__: f"rl:sio:rooms_list:{sid}", limit=10, window_s=1)
 @sio.event(namespace="/rooms")
 async def rooms_list(sid):
     try:
