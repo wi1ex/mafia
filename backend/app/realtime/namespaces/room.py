@@ -8,11 +8,15 @@ from ...core.decorators import rate_limited_sio
 from ...schemas import JoinAck
 from ...services.livekit_tokens import make_livekit_token
 from ..utils import (
+    KEYS,
     apply_state,
     gc_empty_room,
     get_room_snapshot,
+    get_blocks_snapshot,
+    get_roles_snapshot,
     join_room_atomic,
     leave_room_atomic,
+    update_blocks,
 )
 
 log = structlog.get_logger()
@@ -53,9 +57,11 @@ async def join(sid, data) -> JoinAck:
 
         applied: dict[str, str] = {}
         snapshot = await get_room_snapshot(r, rid)
+        blocked = await get_blocks_snapshot(r, rid)
+        roles_map = await get_roles_snapshot(r, rid)
         incoming = (data.get("state") or {}) if isinstance(data, dict) else {}
         user_state: dict[str, str] = {k: str(v) for k, v in (snapshot.get(str(uid)) or {}).items()}
-        to_fill = {k: incoming[k] for k in ("mic", "cam", "speakers", "visibility") if k in incoming and k not in user_state}
+        to_fill = {k: incoming[k] for k in KEYS if k in incoming and k not in user_state}
         if to_fill:
             applied = await apply_state(r, rid, uid, to_fill)
             if applied:
@@ -63,29 +69,36 @@ async def join(sid, data) -> JoinAck:
                 snapshot[str(uid)] = user_state
 
         await sio.enter_room(sid, f"room:{rid}", namespace="/room")
-        await sio.save_session(sid, {"uid": uid, "rid": rid, "role": role}, namespace="/room")
-
+        eff_role = roles_map.get(str(uid), role)
+        await sio.save_session(sid, {"uid": uid, "rid": rid, "role": eff_role}, namespace="/room")
         if not already:
             await sio.emit("rooms_occupancy", {"id": rid, "occupancy": occ}, namespace="/rooms")
-            await sio.emit("member_joined", {"user_id": uid, "state": user_state, "role": role}, room=f"room:{rid}", skip_sid=sid, namespace="/room")
-
+            await sio.emit("member_joined", {"user_id": uid, "state": user_state, "role": roles_map.get(str(uid), role)}, room=f"room:{rid}", skip_sid=sid, namespace="/room")
         await sio.emit("positions", {"updates": [{"user_id": uid, "position": pos}]}, room=f"room:{rid}", skip_sid=sid, namespace="/room")
-
         if applied:
             await sio.emit("state_changed", {"user_id": uid, **applied}, room=f"room:{rid}", skip_sid=sid, namespace="/room")
 
         redis_positions = await r.zrange(f"room:{rid}:positions", 0, -1, withscores=True)
         positions = {m: int(s) for m, s in redis_positions if m.isdigit()}
         lk_token = make_livekit_token(identity=str(uid), name=f"user-{uid}", room=str(rid))
-
         log.info("sio.join.ok", rid=rid, uid=uid, pos=pos, occ=occ, already=already)
-        return {"ok": True, "room_id": rid, "token": lk_token, "snapshot": snapshot, "self_pref": user_state, "positions": positions}
+        return {
+            "ok": True,
+            "room_id": rid,
+            "token": lk_token,
+            "snapshot": snapshot,
+            "self_pref": user_state,
+            "positions": positions,
+            "blocked": blocked,
+            "roles": roles_map,
+        }
+
     except Exception:
         log.exception("sio.join.error", sid=sid, data=bool(data))
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:state:{uid or 'nouid'}:{rid or 0}", limit=20, window_s=1, session_ns="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:state:{uid or 'nouid'}:{rid or 0}", limit=30, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
 async def state(sid, data):
     try:
@@ -107,6 +120,43 @@ async def state(sid, data):
     except Exception:
         log.exception("sio.state.error", sid=sid)
         return {"ok": False}
+
+
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:moderate:{uid or 'nouid'}:{rid or 0}", limit=30, window_s=1, session_ns="/room")
+@sio.event(namespace="/room")
+async def moderate(sid, data):
+    try:
+        sess = await sio.get_session(sid, namespace="/room")
+        actor_uid = int(sess["uid"])
+        actor_role = str(sess.get("role") or "user")
+        rid = int(sess.get("rid") or 0)
+        if not rid:
+            return {"ok": False, "error": "no_room", "status": 400}
+
+        target = int((data or {}).get("user_id") or 0)
+        blocks = (data or {}).get("blocks") or {}
+        if not target or not isinstance(blocks, dict):
+            return {"ok": False, "error": "bad_request", "status": 400}
+
+        norm = {k: blocks[k] for k in KEYS if k in blocks}
+        if not norm:
+            return {"ok": False, "error": "no_changes", "status": 400}
+
+        r = get_redis()
+        applied, forced_off = await update_blocks(r, rid, actor_uid, actor_role, target, norm)
+        if "__error__" in forced_off:
+            err = forced_off["__error__"]
+            return {"ok": False, "error": err, "status": 404 if err == "user_not_in_room" else 403}
+
+        if forced_off:
+            await sio.emit("state_changed", {"user_id": target, **forced_off}, room=f"room:{rid}", namespace="/room")
+        if applied:
+            await sio.emit("moderation", {"user_id": target, "blocks": applied, "by": {"user_id": actor_uid, "role": actor_role}}, room=f"room:{rid}", namespace="/room")
+        return {"ok": True, "applied": applied, "forced_off": forced_off}
+
+    except Exception:
+        log.exception("sio.moderate.error", sid=sid)
+        return {"ok": False, "error": "internal", "status": 500}
 
 
 @sio.event(namespace="/room")

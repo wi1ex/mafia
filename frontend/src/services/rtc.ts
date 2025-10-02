@@ -83,7 +83,6 @@ export function useRTC(): UseRTC {
   const isSub = (pub: RemoteTrackPublication) => pub.isSubscribed
   const lowQuality = VideoPresets.h180
   const highQuality = VideoPresets.h720
-  const logState = true
 
   const isSpeaking = (id: string) => {
     if (id === localId.value) return activeSpeakers.value.has(id)
@@ -103,9 +102,6 @@ export function useRTC(): UseRTC {
     })
     audibleIds.value = s
   }
-
-  const LOG = (evt: string, data?: any) => { if (logState) console.log(`[RTC] ${new Date().toISOString()} — ${evt}`, data ?? '') }
-  const WRN = (evt: string, data?: any) => { if (logState) console.warn(`[RTC] ${new Date().toISOString()} — ${evt}`, data ?? '') }
 
   const getByIdentity = (room: LkRoom, id: string) => room.getParticipantByIdentity?.(id) ?? room.remoteParticipants.get(id)
 
@@ -279,21 +275,19 @@ export function useRTC(): UseRTC {
   }
   const setAudioSubscriptionsForAll = (on: boolean) => {
     wantAudio.value = on
-    LOG('setAudioSubscriptionsForAll', { on })
     setSubscriptions(Track.Kind.Audio, on)
     if (!on) audibleIds.value = new Set()
     else refreshAudibleIds()
   }
   const setVideoSubscriptionsForAll = (on: boolean) => {
     wantVideo.value = on
-    LOG('setVideoSubscriptionsForAll', { on })
     setSubscriptions(Track.Kind.Video, on)
   }
   function applyVideoQuality(pub: RemoteTrackPublication) {
     if (pub.kind !== Track.Kind.Video || !pub.isSubscribed) return
     try {
       pub.setVideoQuality(remoteQuality.value === 'hd' ? VideoQuality.HIGH : VideoQuality.LOW)
-    } catch (e) { WRN('setVideoQuality error', e) }
+    } catch {}
   }
   const applySubsFor = (p: RemoteParticipant) => {
     p.getTrackPublications().forEach(pub => {
@@ -313,7 +307,6 @@ export function useRTC(): UseRTC {
   const remoteQuality = ref<VQ>((loadLS(LS.vq) as VQ) === 'sd' ? 'sd' : 'hd')
 
   function setRemoteQualityForAll(q: VQ) {
-    LOG('setRemoteQualityForAll request', { to: q })
     remoteQuality.value = q
     saveLS(LS.vq, q)
     const room = lk.value
@@ -322,7 +315,6 @@ export function useRTC(): UseRTC {
       p.getTrackPublications().forEach((pub) => {
         if (pub.kind === Track.Kind.Video) {
           applyVideoQuality(pub as RemoteTrackPublication)
-          LOG('apply quality', { to: q, participant: p.identity })
         }
       })
     })
@@ -391,7 +383,6 @@ export function useRTC(): UseRTC {
       if (t.kind === Track.Kind.Video) {
         const el = videoEls.get(id)
         if (el) { try { t.attach(el) } catch {} }
-        LOG('TrackSubscribed', { from: String(part.identity), kind: t.kind })
         applyVideoQuality(pub as RemoteTrackPublication)
       } else if (t.kind === Track.Kind.Audio) {
         const a = ensureAudioEl(id)
@@ -484,7 +475,6 @@ export function useRTC(): UseRTC {
     peerIds.value = Array.from(new Set(ids))
     await refreshDevices()
     refreshAudibleIds()
-    LOG('connect ok', { url: wsUrl, local: room.localParticipant.identity, remotes: Array.from(room.remoteParticipants.keys()) })
   }
 
   async function disconnect() {
