@@ -94,7 +94,13 @@ async def join(sid, data) -> JoinAck:
                            namespace="/room")
 
         redis_positions = await r.zrange(f"room:{rid}:positions", 0, -1, withscores=True)
-        positions = {m: int(s) for m, s in redis_positions if m.isdigit()}
+        positions = {}
+        for m, s in redis_positions:
+            try:
+                positions[str(int(m))] = int(s)
+            except Exception:
+                pass
+
         lk_token = make_livekit_token(identity=str(uid), name=f"user-{uid}", room=str(rid))
         log.info("sio.join.ok", rid=rid, uid=uid, pos=pos, occ=occ, already=already)
         return {
@@ -146,7 +152,6 @@ async def moderate(sid, data):
     try:
         sess = await sio.get_session(sid, namespace="/room")
         actor_uid = int(sess["uid"])
-        actor_role = str(sess.get("role") or "user")
         rid = int(sess.get("rid") or 0)
         if not rid:
             return {"ok": False, "error": "no_room", "status": 400}
@@ -161,6 +166,8 @@ async def moderate(sid, data):
             return {"ok": False, "error": "no_changes", "status": 400}
 
         r = get_redis()
+        role_in_room = await r.hget(f"room:{rid}:user:{actor_uid}:info", "role")
+        actor_role = str(role_in_room or sess.get("role") or "user")
         applied, forced_off = await update_blocks(r, rid, actor_uid, actor_role, target, norm)
         if "__error__" in forced_off:
             err = forced_off["__error__"]
@@ -172,8 +179,10 @@ async def moderate(sid, data):
                            room=f"room:{rid}",
                            namespace="/room")
         if applied:
+            row = await r.hgetall(f"room:{rid}:user:{target}:block")
+            full = {k: ("1" if (row or {}).get(k) == "1" else "0") for k in KEYS}
             await sio.emit("moderation",
-                           {"user_id": target, "blocks": applied, "by": {"user_id": actor_uid, "role": actor_role}},
+                           {"user_id": target, "blocks": full, "by": {"user_id": actor_uid, "role": actor_role}},
                            room=f"room:{rid}",
                            namespace="/room")
         return {"ok": True, "applied": applied, "forced_off": forced_off}

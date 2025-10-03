@@ -268,23 +268,22 @@ function connectSocket() {
 
   socket.value.on('moderation', async (p: any) => {
     const uid = String(p?.user_id ?? '')
-    const blocks = p?.blocks || {}
-    if (!uid) return
+    const blocks = (p?.blocks ?? {}) as Record<string, any>
     applyBlocks(uid, blocks)
-    if (uid === localId.value) {
-      if (blocks.cam === '1') {
+    if (uid === String(localId.value)) {
+      if ('cam' in blocks && norm01(blocks.cam, 0) === 1) {
         local.cam = false
         try { await rtc.disable('videoinput') } catch {}
       }
-      if (blocks.mic === '1') {
+      if ('mic' in blocks && norm01(blocks.mic, 0) === 1) {
         local.mic = false
         try { await rtc.disable('audioinput') } catch {}
       }
-      if (blocks.speakers === '1') {
+      if ('speakers' in blocks && norm01(blocks.speakers, 0) === 1) {
         local.speakers = false
         rtc.setAudioSubscriptionsForAll(false)
       }
-      if (blocks.visibility === '1') {
+      if ('visibility' in blocks && norm01(blocks.visibility, 0) === 1) {
         local.visibility = false
         rtc.setVideoSubscriptionsForAll(false)
       }
