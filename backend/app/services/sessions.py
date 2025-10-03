@@ -17,7 +17,7 @@ def _set_refresh_cookie(resp: Response, token: str) -> None:
     resp.set_cookie(
         key="rt",
         value=token,
-        max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 86400,
+        max_age=settings.REFRESH_EXP_DAY * 86400,
         secure=True,
         httponly=True,
         samesite="strict",
@@ -32,18 +32,17 @@ async def new_login_session(resp: Response, *, user_id: int, username: str, role
         sid = secrets.token_urlsafe(16)
         jti = secrets.token_urlsafe(16)
 
-        rt = create_refresh_token(sub=user_id, sid=sid, jti=jti, ttl_days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+        rt = create_refresh_token(sub=user_id, sid=sid, jti=jti, ttl_days=settings.REFRESH_EXP_DAY)
         prev_sid = await r.get(f"user:{user_id}:sid")
         async with r.pipeline() as p:
-            await p.setex(f"session:{sid}:rjti", settings.REFRESH_TOKEN_EXPIRE_DAYS * 86400, jti)
+            await p.setex(f"session:{sid}:rjti", settings.REFRESH_EXP_DAY * 86400, jti)
             await p.set(f"user:{user_id}:sid", sid)
             if prev_sid and prev_sid != sid:
                 await p.delete(f"session:{prev_sid}:rjti")
             await p.execute()
 
         _set_refresh_cookie(resp, rt)
-        at = create_access_token(sub=user_id, username=username, role=role, sid=sid,
-                                 ttl_minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+        at = create_access_token(sub=user_id, username=username, role=role, sid=sid, ttl_minutes=settings.ACCESS_EXP_MIN)
 
         async with SessionLocal() as db:
             await db.execute(update(User).where(User.id == user_id).values(last_login_at=func.now()))
@@ -89,8 +88,8 @@ async def rotate_refresh(resp: Response, *, raw_refresh_jwt: str) -> tuple[bool,
         return False, 0, None
 
     new_jti = secrets.token_urlsafe(16)
-    rt = create_refresh_token(sub=uid, sid=sid, jti=new_jti, ttl_days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
-    await r.setex(f"session:{sid}:rjti", settings.REFRESH_TOKEN_EXPIRE_DAYS * 86400, new_jti)
+    rt = create_refresh_token(sub=uid, sid=sid, jti=new_jti, ttl_days=settings.REFRESH_EXP_DAY)
+    await r.setex(f"session:{sid}:rjti", settings.REFRESH_EXP_DAY * 86400, new_jti)
     _set_refresh_cookie(resp, rt)
     log.info("session.refresh.rotated", user_id=uid, sid=sid)
     return True, uid, sid

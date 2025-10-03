@@ -27,8 +27,8 @@ class Settings(BaseSettings):
     TG_BOT_TOKEN: str
 
     JWT_SECRET_KEY: str
-    ACCESS_TOKEN_EXPIRE_MINUTES: int
-    REFRESH_TOKEN_EXPIRE_DAYS: int
+    ACCESS_EXP_MIN: int
+    REFRESH_EXP_DAY: int
 
     LIVEKIT_API_KEY: str
     LIVEKIT_API_SECRET: str

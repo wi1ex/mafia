@@ -36,19 +36,13 @@
     </div>
 
     <div class="devices">
-      <label :class="{ disabled: !micOn || blockedSelf.mic }">
-        {{ (!micOn || blockedSelf.mic) ? 'Включите микрофон, чтобы выбрать устройство' : 'Микрофон' }}
-        <select v-model="selectedMicId" @change="rtc.onDeviceChange('audioinput')" :disabled="!micOn || blockedSelf.mic || mics.length === 0">
-          <option v-for="d in mics" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Микрофон' }}</option>
-        </select>
-      </label>
+      <select v-model="selectedMicId" @change="rtc.onDeviceChange('audioinput')" :disabled="!micOn || blockedSelf.mic || mics.length === 0">
+        <option v-for="d in mics" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Микрофон' }}</option>
+      </select>
 
-      <label :class="{ disabled: !camOn || blockedSelf.cam }">
-        {{ (!camOn || blockedSelf.cam) ? 'Включите камеру, чтобы выбрать устройство' : 'Камера' }}
-        <select v-model="selectedCamId" @change="rtc.onDeviceChange('videoinput')" :disabled="!camOn || blockedSelf.cam || cams.length === 0">
-          <option v-for="d in cams" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Камера' }}</option>
-        </select>
-      </label>
+      <select v-model="selectedCamId" @change="rtc.onDeviceChange('videoinput')" :disabled="!camOn || blockedSelf.cam || cams.length === 0">
+        <option v-for="d in cams" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Камера' }}</option>
+      </select>
     </div>
   </section>
 </template>
@@ -104,8 +98,8 @@ const sortedPeerIds = computed(() => {
 })
 const gridStyle = computed(() => {
   const count = sortedPeerIds.value.length
-  const cols = count <= 6 ? 3 : count <= 12 ? 4 : 5
-  const rows = count <= 6 ? 2 : count <= 12 ? 3 : 4
+  const cols = count <= 6 ? 3 : 4
+  const rows = count <= 6 ? 2 : 3
   return { gridTemplateColumns: `repeat(${cols}, 1fr)`, gridTemplateRows: `repeat(${rows}, 1fr)` }
 })
 
@@ -477,27 +471,26 @@ onBeforeUnmount(() => { void onLeave() })
     display: grid;
     gap: 12px;
     margin: 12px;
+    width: calc(100vw - 24px);
+    height: calc(100vh - 120px);
   }
   .tile {
+    min-height: 0;
+    min-width: 0;
     position: relative;
     border-radius: 12px;
-    overflow: hidden;
-    background: $bg;
-    aspect-ratio: 16 / 9;
     border: 2px solid transparent;
-    box-shadow: inset 0 0 0 0 $color-primary;
     transition: border-color 0.25s ease-in-out, box-shadow 0.25s ease-in-out;
     &.speaking {
       border-color: $color-primary;
       box-shadow: inset 0 0 0 6px $color-primary;
     }
     video {
-      position: absolute;
-      inset: 0;
       width: 100%;
       height: 100%;
       display: block;
       object-fit: cover;
+      border-radius: 12px;
       background: $black;
     }
     .badges {
@@ -512,8 +505,6 @@ onBeforeUnmount(() => { void onLeave() })
         padding: 4px 6px;
         border-radius: 8px;
         background: $black;
-        border: 1px solid $fg;
-        color: $fg;
       }
     }
     .mod-controls {
@@ -526,9 +517,8 @@ onBeforeUnmount(() => { void onLeave() })
       .mod {
         padding: 4px 6px;
         border-radius: 8px;
-        border: 1px solid $fg;
+        border: none;
         background: $black;
-        color: $fg;
         cursor: pointer;
         opacity: 0.85;
         &.on {
@@ -542,7 +532,6 @@ onBeforeUnmount(() => { void onLeave() })
   .controls {
     margin: 12px;
     display: flex;
-    flex-wrap: wrap;
     gap: 12px;
     .ctrl {
       padding: 8px 12px;
@@ -571,19 +560,12 @@ onBeforeUnmount(() => { void onLeave() })
     margin: 12px;
     display: flex;
     gap: 12px;
-    flex-wrap: wrap;
-    label {
-      width: 100%;
-      &.disabled {
-        opacity: 0.7;
-      }
-      select {
-        padding: 6px 8px;
-        border-radius: 8px;
-        border: 1px solid $fg;
-        background: $bg;
-        color: $fg;
-      }
+    select {
+      padding: 6px 8px;
+      border-radius: 8px;
+      border: 1px solid $fg;
+      background: $bg;
+      color: $fg;
     }
   }
 }

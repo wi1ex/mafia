@@ -5,11 +5,7 @@ from fastapi import APIRouter, HTTPException, Depends, Response, Request, status
 from ...db import get_session
 from ...models.user import User
 from ...core.security import verify_telegram_auth, create_access_token, parse_refresh_token
-from ...services.sessions import (
-    new_login_session,
-    rotate_refresh,
-    logout as sess_logout
-)
+from ...services.sessions import new_login_session, rotate_refresh, logout as sess_logout
 from ...services.storage_minio import download_telegram_photo, put_avatar
 from ...core.logging import log_action
 from ...schemas import TelegramAuthIn, AccessTokenOut, Ok
@@ -73,7 +69,7 @@ async def refresh(resp: Response, request: Request, db: AsyncSession = Depends(g
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unknown user")
 
-    at = create_access_token(sub=uid, username=user.username, role=user.role, sid=sid or "", ttl_minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    at = create_access_token(sub=uid, username=user.username, role=user.role, sid=sid or "", ttl_minutes=settings.ACCESS_EXP_MIN)
     return AccessTokenOut(access_token=at, sid=sid or "")
 
 

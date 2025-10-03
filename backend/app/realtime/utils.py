@@ -353,6 +353,8 @@ async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
                     else:
                         rm.visitors = {**(rm.visitors or {}), **{str(k): v for k, v in visitors_map.items()}}
                         rm.deleted_at = datetime.now(timezone.utc)
+
+                    await r.srem(f"user:{rm_creator}:rooms", str(rid))
                     await log_action(
                         s,
                         user_id=rm_creator,

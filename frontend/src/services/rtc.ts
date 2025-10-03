@@ -80,9 +80,10 @@ export function useRTC(): UseRTC {
   const hasVideoInput = ref(false)
   const activeSpeakers = ref<Set<string>>(new Set())
   const audibleIds = ref<Set<string>>(new Set())
+
   const isSub = (pub: RemoteTrackPublication) => pub.isSubscribed
   const lowQuality = VideoPresets.h180
-  const highQuality = VideoPresets.h720
+  const highQuality = VideoPresets.h540
 
   const isSpeaking = (id: string) => {
     if (id === localId.value) return activeSpeakers.value.has(id)

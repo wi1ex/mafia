@@ -23,7 +23,7 @@
     <div v-if="auth.isAuthed" class="create">
       <h3 class="subtitle">Создать комнату</h3>
       <input v-model.trim="title" class="input" placeholder="Название" maxlength="64" />
-      <input v-model.number="limit" class="input" type="number" min="2" max="20" placeholder="Лимит" />
+      <input v-model.number="limit" class="input" type="number" min="2" max="12" placeholder="Лимит" />
       <button class="btn" :disabled="creating || !valid" @click="onCreate">
         {{ creating ? 'Создаю...' : 'Создать' }}
       </button>
@@ -59,7 +59,7 @@ const sio = ref<Socket | null>(null)
 const title = ref('')
 const limit = ref(12)
 const creating = ref(false)
-const valid = computed(() => title.value.length > 0 && limit.value >= 2 && limit.value <= 20)
+const valid = computed(() => title.value.length > 0 && limit.value >= 2 && limit.value <= 12)
 
 const sortedRooms = computed(() => {
   return Array.from(roomsMap.values()).sort((a, b) => {
@@ -136,6 +136,18 @@ async function onCreate() {
   try {
     const r = await createRoom(title.value, limit.value)
     await router.push(`/room/${r.id}`)
+  } catch (e: any) {
+    const st = e?.response?.status
+    const d = e?.response?.data?.detail
+    if (st === 409 && d === 'rooms_limit_global') {
+      alert('Достигнут общий лимит активных комнат (100). Попробуйте позже.')
+    } else if (st === 409 && d === 'rooms_limit_user') {
+      alert('У вас уже 3 активные комнаты. Закройте одну из них и попробуйте снова.')
+    } else if (st === 422) {
+      alert('Название не должно быть пустым')
+    } else {
+      alert('Ошибка создания комнаты')
+    }
   } finally {
     creating.value = false
   }
