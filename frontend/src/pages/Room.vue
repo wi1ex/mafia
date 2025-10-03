@@ -175,11 +175,9 @@ function toggleQuality() {
 async function toggleBlock(targetId: string, key: keyof UserState) {
   const want = !isBlocked(targetId, key)
   try {
-    await socket.value!.timeout(5000).emitWithAck('moderate', {
-      user_id: Number(targetId),
-      blocks: { [key]: want }
-    })
-  } catch {}
+    const resp:any = await socket.value!.timeout(5000).emitWithAck('moderate', {user_id: Number(targetId), blocks: { [key]: want } })
+    if (!resp?.ok) alert(resp?.status === 403 ? 'Недостаточно прав' : resp?.status === 404 ? 'Пользователь не в комнате' : 'Ошибка модерации')
+  } catch { alert('Сеть/таймаут при модерации') }
 }
 
 function applyPeerState(uid: string, patch: any) {
@@ -245,8 +243,10 @@ function connectSocket() {
   })
 
   socket.value.on('member_joined', (p: any) => {
-    applyPeerState(String(p.user_id), p?.state || {})
-    if (p?.role) rolesByUser[String(p.user_id)] = String(p.role)
+    const id = String(p.user_id)
+    applyPeerState(id, p?.state || {})
+    if (p?.role) rolesByUser[id] = String(p.role)
+    if (p?.blocks) applyBlocks(id, p.blocks)
   })
 
   socket.value.on('member_left', (p: any) => {
@@ -519,8 +519,8 @@ onBeforeUnmount(() => { void onLeave() })
     }
     .mod-controls {
       position: absolute;
-      right: 8px;
-      top: 8px;
+      left: 8px;
+      bottom: 8px;
       display: flex;
       gap: 6px;
       z-index: 3;

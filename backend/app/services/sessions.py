@@ -42,7 +42,8 @@ async def new_login_session(resp: Response, *, user_id: int, username: str, role
             await p.execute()
 
         _set_refresh_cookie(resp, rt)
-        at = create_access_token(sub=user_id, username=username, role=role, sid=sid, ttl_minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+        at = create_access_token(sub=user_id, username=username, role=role, sid=sid,
+                                 ttl_minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
 
         async with SessionLocal() as db:
             await db.execute(update(User).where(User.id == user_id).values(last_login_at=func.now()))
@@ -50,8 +51,14 @@ async def new_login_session(resp: Response, *, user_id: int, username: str, role
 
         if prev_sid and prev_sid != sid:
             try:
-                await sio.emit("force_logout", {"reason": "replaced"}, room=f"user:{user_id}", namespace="/auth")
-                await sio.emit("force_logout", {"reason": "replaced"}, room=f"user:{user_id}", namespace="/room")
+                await sio.emit("force_logout",
+                               {"reason": "replaced"},
+                               room=f"user:{user_id}",
+                               namespace="/auth")
+                await sio.emit("force_logout",
+                               {"reason": "replaced"},
+                               room=f"user:{user_id}",
+                               namespace="/room")
             except Exception:
                 log.warning("session.force_logout.emit_failed", user_id=user_id)
 

@@ -16,7 +16,8 @@ router = APIRouter()
 @log_route("rooms.create_room")
 @rate_limited(lambda ident, **_: f"rl:create_room:{ident['id']}", limit=5, window_s=60)
 @router.post("", response_model=RoomOut, status_code=status.HTTP_201_CREATED)
-async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get_session), ident: Identity = Depends(get_identity)) -> RoomOut:
+async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get_session),
+                      ident: Identity = Depends(get_identity)) -> RoomOut:
     uid = int(ident["id"])
     creator_name = ident["username"]
     title = (payload.title or "").strip()
@@ -44,8 +45,12 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
         await p.zadd("rooms:index", {str(room.id): int(room.created_at.timestamp())})
         await p.execute()
 
-    await sio.emit("rooms_upsert", data, namespace="/rooms")
-    await sio.emit("rooms_occupancy", {"id": room.id, "occupancy": 0}, namespace="/rooms")
+    await sio.emit("rooms_upsert",
+                   data,
+                   namespace="/rooms")
+    await sio.emit("rooms_occupancy",
+                   {"id": room.id, "occupancy": 0},
+                   namespace="/rooms")
 
     await log_action(
         session,

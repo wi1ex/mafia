@@ -29,7 +29,7 @@ async def connect(sid, environ, auth):
         return False
 
     uid, role = vr
-    await sio.save_session(sid, {"uid": uid, "rid": None, "role": role}, namespace="/room")
+    await sio.save_session(sid, {"uid": uid, "rid": None, "role": role, "base_role": role}, namespace="/room")
     await sio.enter_room(sid, f"user:{uid}", namespace="/room")
 
 
@@ -39,14 +39,14 @@ async def join(sid, data) -> JoinAck:
     try:
         sess = await sio.get_session(sid, namespace="/room")
         uid = int(sess["uid"])
-        role = str(sess.get("role") or "user")
+        base_role = str(sess.get("base_role") or "user")
         rid = int((data or {}).get("room_id") or 0)
         if not rid:
             log.warning("sio.join.bad_room_id", sid=sid)
             return {"ok": False, "error": "bad_room_id", "status": 400}
 
         r = get_redis()
-        occ, pos, already = await join_room_atomic(r, rid, uid, role)
+        occ, pos, already = await join_room_atomic(r, rid, uid, base_role)
         if occ == -2:
             log.warning("sio.join.room_not_found", rid=rid, uid=uid)
             return {"ok": False, "error": "room_not_found", "status": 404}
@@ -69,14 +69,29 @@ async def join(sid, data) -> JoinAck:
                 snapshot[str(uid)] = user_state
 
         await sio.enter_room(sid, f"room:{rid}", namespace="/room")
-        eff_role = roles_map.get(str(uid), role)
-        await sio.save_session(sid, {"uid": uid, "rid": rid, "role": eff_role}, namespace="/room")
+        eff_blocks = blocked.get(str(uid)) or {}
+        eff_role = roles_map.get(str(uid), base_role)
+        await sio.save_session(sid, {"uid": uid, "rid": rid, "role": eff_role, "base_role": base_role}, namespace="/room")
         if not already:
-            await sio.emit("rooms_occupancy", {"id": rid, "occupancy": occ}, namespace="/rooms")
-            await sio.emit("member_joined", {"user_id": uid, "state": user_state, "role": roles_map.get(str(uid), role)}, room=f"room:{rid}", skip_sid=sid, namespace="/room")
-        await sio.emit("positions", {"updates": [{"user_id": uid, "position": pos}]}, room=f"room:{rid}", skip_sid=sid, namespace="/room")
+            await sio.emit("rooms_occupancy",
+                           {"id": rid, "occupancy": occ},
+                           namespace="/rooms")
+            await sio.emit("member_joined",
+                           {"user_id": uid, "state": user_state, "role": eff_role, "blocks": eff_blocks},
+                           room=f"room:{rid}",
+                           skip_sid=sid,
+                           namespace="/room")
+        await sio.emit("positions",
+                       {"updates": [{"user_id": uid, "position": pos}]},
+                       room=f"room:{rid}",
+                       skip_sid=sid,
+                       namespace="/room")
         if applied:
-            await sio.emit("state_changed", {"user_id": uid, **applied}, room=f"room:{rid}", skip_sid=sid, namespace="/room")
+            await sio.emit("state_changed",
+                           {"user_id": uid, **applied},
+                           room=f"room:{rid}",
+                           skip_sid=sid,
+                           namespace="/room")
 
         redis_positions = await r.zrange(f"room:{rid}:positions", 0, -1, withscores=True)
         positions = {m: int(s) for m, s in redis_positions if m.isdigit()}
@@ -112,7 +127,10 @@ async def state(sid, data):
         r = get_redis()
         applied = await apply_state(r, rid, uid, data or {})
         if applied:
-            await sio.emit("state_changed", {"user_id": uid, **applied}, room=f"room:{rid}", namespace="/room")
+            await sio.emit("state_changed",
+                           {"user_id": uid, **applied},
+                           room=f"room:{rid}",
+                           namespace="/room")
         else:
             log.info("sio.state.no_changes", uid=uid, rid=rid)
         return {"ok": True}
@@ -149,9 +167,15 @@ async def moderate(sid, data):
             return {"ok": False, "error": err, "status": 404 if err == "user_not_in_room" else 403}
 
         if forced_off:
-            await sio.emit("state_changed", {"user_id": target, **forced_off}, room=f"room:{rid}", namespace="/room")
+            await sio.emit("state_changed",
+                           {"user_id": target, **forced_off},
+                           room=f"room:{rid}",
+                           namespace="/room")
         if applied:
-            await sio.emit("moderation", {"user_id": target, "blocks": applied, "by": {"user_id": actor_uid, "role": actor_role}}, room=f"room:{rid}", namespace="/room")
+            await sio.emit("moderation",
+                           {"user_id": target, "blocks": applied, "by": {"user_id": actor_uid, "role": actor_role}},
+                           room=f"room:{rid}",
+                           namespace="/room")
         return {"ok": True, "applied": applied, "forced_off": forced_off}
 
     except Exception:
@@ -175,18 +199,29 @@ async def disconnect(sid):
         occ, gc_seq, pos_updates = await leave_room_atomic(r, rid, uid)
 
         await sio.leave_room(sid, f"room:{rid}", namespace="/room")
-        await sio.emit("member_left", {"user_id": uid}, room=f"room:{rid}", namespace="/room")
+        await sio.emit("member_left",
+                       {"user_id": uid},
+                       room=f"room:{rid}",
+                       namespace="/room")
         if pos_updates:
-            await sio.emit("positions", {"updates": [{"user_id": u, "position": p} for u, p in pos_updates]}, room=f"room:{rid}", namespace="/room")
-        await sio.emit("rooms_occupancy", {"id": rid, "occupancy": occ}, namespace="/rooms")
-        await sio.save_session(sid, {"uid": uid, "rid": None, "role": sess.get("role")}, namespace="/room")
+            await sio.emit("positions",
+                           {"updates": [{"user_id": u, "position": p} for u, p in pos_updates]},
+                           room=f"room:{rid}",
+                           namespace="/room")
+        await sio.emit("rooms_occupancy",
+                       {"id": rid, "occupancy": occ},
+                       namespace="/rooms")
 
+        base_role = str(sess.get("base_role") or "user")
+        await sio.save_session(sid, {"uid": uid, "rid": None, "role": base_role, "base_role": base_role}, namespace="/room")
         if occ == 0:
             async def _gc():
                 try:
                     removed = await gc_empty_room(rid, expected_seq=gc_seq)
                     if removed:
-                        await sio.emit("rooms_remove", {"id": rid}, namespace="/rooms")
+                        await sio.emit("rooms_remove",
+                                       {"id": rid},
+                                       namespace="/rooms")
                 except Exception:
                     log.exception("gc failed rid=%s", rid)
             asyncio.create_task(_gc())
