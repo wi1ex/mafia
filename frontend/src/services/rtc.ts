@@ -88,6 +88,7 @@ export function useRTC(): UseRTC {
   const lowQuality = VideoPresets.h180
   const highQuality = VideoPresets.h540
 
+  const msrcNodes = new Map<string, MediaStreamAudioSourceNode>()
   const volumePrefs = new Map<string, number>()
   const VOL_LS = (id: string) => `vol:${id}`
   const lsWriteTimers = new Map<string, number>()
@@ -132,20 +133,21 @@ export function useRTC(): UseRTC {
 
   function ensureGainFor(id: string, el: HTMLAudioElement): GainNode {
     const ctx = getCtx()
-    let src = srcNodes.get(id)
-    if (!src) {
-      src = ctx.createMediaElementSource(el)
-      srcNodes.set(id, src)
-    }
     let g = gainNodes.get(id)
     if (!g) {
       g = ctx.createGain()
       gainNodes.set(id, g)
-      src.connect(g)
       g.connect(ctx.destination)
     }
-    el.volume = 0
+    const stream = el.srcObject as MediaStream | null
+    if (stream) {
+      try { msrcNodes.get(id)?.disconnect() } catch {}
+      const src = new MediaStreamAudioSourceNode(ctx, { mediaStream: stream })
+      src.connect(g)
+      msrcNodes.set(id, src)
+    }
     el.muted = true
+    el.volume = 0
     return g
   }
 
@@ -169,7 +171,6 @@ export function useRTC(): UseRTC {
         waState = -1
       }
     }
-    // Фолбэк
     destroyAudioGraph(id)
     a.muted = false
     a.volume = Math.min(1, Math.max(0, (want || 100) / 100))
@@ -273,8 +274,10 @@ export function useRTC(): UseRTC {
   function destroyAudioGraph(id: string) {
     try { srcNodes.get(id)?.disconnect() } catch {}
     try { gainNodes.get(id)?.disconnect() } catch {}
+    try { msrcNodes.get(id)?.disconnect() } catch {}
     srcNodes.delete(id)
     gainNodes.delete(id)
+    msrcNodes.delete(id)
   }
 
   function ensureAudioEl(id: string): HTMLAudioElement {
@@ -461,6 +464,10 @@ export function useRTC(): UseRTC {
       gainNodes.forEach(g => g.disconnect())
       gainNodes.clear()
     } catch {}
+    try {
+      msrcNodes.forEach(n => n.disconnect())
+      msrcNodes.clear()
+    } catch {}
     try { audioCtx?.close() } catch {}
     audioCtx = null
     volumePrefs.clear()
@@ -543,6 +550,7 @@ export function useRTC(): UseRTC {
           a.muted = true
           a.volume = 0
         }
+        destroyAudioGraph(id)
         const tm = lsWriteTimers.get(id)
         if (tm) {
           try { clearTimeout(tm) } catch {}
@@ -558,6 +566,7 @@ export function useRTC(): UseRTC {
       if (!peerIds.value.includes(id)) { peerIds.value = [...peerIds.value, id] }
       applySubsFor(p)
       refreshAudibleIds()
+      void resumeAudio()
     })
 
     room.on(RoomEvent.ParticipantDisconnected, (p) => {
