@@ -5,10 +5,10 @@
         <video :ref="rtc.videoRef(id)" playsinline autoplay :muted="id === localId" />
 
         <div class="vol-wrap" v-if="id !== localId">
-          <button class="vol-btn" @click.stop="toggleVolPopover(id)" :aria-expanded="openVolumeFor===id">
+          <button v-if="openVolumeFor !== id" class="vol-btn" @click.stop="toggleVolPopover(id)" :aria-expanded="openVolumeFor===id">
             🔊
           </button>
-          <div class="vol-pop" :class="{ show: openVolumeFor===id }" @click.stop>
+          <div class="vol-pop" :class="{ show: openVolumeFor === id }" @click.stop>
             <input class="vol-range" type="range" min="0" max="200" v-model.number="volUi[id]" @input="onVol(id, volUi[id])" />
             <span class="vol-val">{{ volUi[id] ?? 100 }}%</span>
           </div>
@@ -545,7 +545,10 @@ onBeforeUnmount(() => { void onLeave() })
       }
       .vol-pop {
         display: none;
+        flex-direction: column;
         align-items: center;
+        height: 160px;
+        width: 40px;
         gap: 8px;
         background: $black;
         border: 1px solid $fg;
@@ -555,12 +558,12 @@ onBeforeUnmount(() => { void onLeave() })
           display: flex;
         }
         .vol-range {
-          width: 140px;
+          position: absolute;
+          top: 90px;
+          transform: rotate(-90deg);
           accent-color: $fg;
         }
         .vol-val {
-          min-width: 40px;
-          text-align: right;
           font-variant-numeric: tabular-nums;
         }
       }

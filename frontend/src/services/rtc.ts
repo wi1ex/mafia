@@ -526,6 +526,7 @@ export function useRTC(): UseRTC {
         const a = ensureAudioEl(id)
         try { t.attach(a) } catch {}
         try { applyVolume(id) } catch {}
+        try { void resumeAudio() } catch {}
         try { void a.play() } catch {}
       }
     })
