@@ -4,6 +4,16 @@
       <div v-for="id in sortedPeerIds" :key="id" class="tile" :class="{ speaking: rtc.isSpeaking(id) }">
         <video :ref="rtc.videoRef(id)" playsinline autoplay :muted="id === localId" />
 
+        <div class="vol-wrap" v-if="id !== localId">
+          <button class="vol-btn" @click.stop="toggleVolPopover(id)" :aria-expanded="openVolumeFor===id">
+            🔊
+          </button>
+          <div class="vol-pop" :class="{ show: openVolumeFor===id }" @click.stop>
+            <input class="vol-range" type="range" min="0" max="200" v-model.number="volUi[id]" @input="onVol(id, volUi[id])" />
+            <span class="vol-val">{{ volUi[id] ?? 100 }}%</span>
+          </div>
+        </div>
+
         <div class="badges">
           <span class="badge">{{ emTri('mic', id) }}</span>
           <span class="badge">{{ emTri('cam', id) }}</span>
@@ -83,8 +93,10 @@ const leaving = ref(false)
 const ws_url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host
 const pendingQuality = ref(false)
 const videoQuality = computed(() => rtc.remoteQuality.value)
+const openVolumeFor = ref<string>('')
+const volUi = reactive<Record<string, number>>({})
 
-const BADGE_ON  = { mic:'🎤', cam:'🎥', speakers:'🔈', visibility:'👁️' } as const
+const BADGE_ON = { mic:'🎤', cam:'🎥', speakers:'🔈', visibility:'👁️' } as const
 const BADGE_OFF = { mic:'🔇', cam:'🚫', speakers:'🔇', visibility:'🙈' } as const
 const BADGE_BLK = { mic:'⛔', cam:'⛔', speakers:'⛔', visibility:'⛔' } as const
 
@@ -114,6 +126,20 @@ function norm01(v: unknown, fallback: 0 | 1): 0 | 1 {
     if (s === '0' || s === 'false') return 0
   }
   return fallback
+}
+
+function onVol(id: string, v: number) {
+  volUi[id] = v
+  rtc.setUserVolume(id, v)
+}
+async function toggleVolPopover(id: string) {
+  await rtc.resumeAudio()
+  volUi[id] = rtc.getUserVolume(id)
+  openVolumeFor.value = openVolumeFor.value === id ? '' : id
+}
+function onDocClick() {
+  openVolumeFor.value = ''
+  void rtc.resumeAudio()
 }
 
 function rol(id: string): string {
@@ -193,9 +219,9 @@ function applyBlocks(uid: string, patch: any) {
   }
 }
 function applySelfPref(pref: any) {
-  if (!isEmpty(pref?.mic))        local.mic        = norm01(pref.mic, local.mic ? 1 : 0) === 1
-  if (!isEmpty(pref?.cam))        local.cam        = norm01(pref.cam, local.cam ? 1 : 0) === 1
-  if (!isEmpty(pref?.speakers))   local.speakers   = norm01(pref.speakers, local.speakers ? 1 : 0) === 1
+  if (!isEmpty(pref?.mic)) local.mic = norm01(pref.mic, local.mic ? 1 : 0) === 1
+  if (!isEmpty(pref?.cam)) local.cam = norm01(pref.cam, local.cam ? 1 : 0) === 1
+  if (!isEmpty(pref?.speakers)) local.speakers = norm01(pref.speakers, local.speakers ? 1 : 0) === 1
   if (!isEmpty(pref?.visibility)) local.visibility = norm01(pref.visibility, local.visibility ? 1 : 0) === 1
 }
 
@@ -385,9 +411,10 @@ const toggleCam = toggleFactory('cam',
   async () => await rtc.enable('videoinput'),
   async () => { await rtc.disable('videoinput') }
 )
-const toggleSpeakers  = toggleFactory('speakers',
+const toggleSpeakers = toggleFactory('speakers',
   async () => {
     rtc.setAudioSubscriptionsForAll(true)
+    await rtc.resumeAudio()
     return true
   },
   async () => rtc.setAudioSubscriptionsForAll(false)
@@ -404,6 +431,7 @@ async function onLeave() {
   if (leaving.value) return
   leaving.value = true
   try {
+    document.removeEventListener('click', onDocClick)
     window.removeEventListener('pagehide', onPageHide)
     window.removeEventListener('beforeunload', onPageHide)
   } catch {}
@@ -453,6 +481,7 @@ onMounted(async () => {
     if (camOn.value && !blockedSelf.value.cam) { await rtc.enable('videoinput').catch(()=>{}) }
     if (micOn.value && !blockedSelf.value.mic) { await rtc.enable('audioinput').catch(()=>{}) }
 
+    document.addEventListener('click', onDocClick)
     window.addEventListener('pagehide', onPageHide)
     window.addEventListener('beforeunload', onPageHide)
   } catch {
@@ -492,6 +521,49 @@ onBeforeUnmount(() => { void onLeave() })
       object-fit: cover;
       border-radius: 12px;
       background: $black;
+    }
+    .vol-wrap {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      z-index: 4;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      .vol-btn {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        border: 1px solid $fg;
+        background: $black;
+        color: $fg;
+        cursor: pointer;
+        opacity: 0.9;
+      }
+      .vol-btn:hover {
+        opacity: 1
+      }
+      .vol-pop {
+        display: none;
+        align-items: center;
+        gap: 8px;
+        background: $black;
+        border: 1px solid $fg;
+        border-radius: 8px;
+        padding: 6px 8px;
+        &.show {
+          display: flex;
+        }
+        .vol-range {
+          width: 140px;
+          accent-color: $fg;
+        }
+        .vol-val {
+          min-width: 40px;
+          text-align: right;
+          font-variant-numeric: tabular-nums;
+        }
+      }
     }
     .badges {
       position: absolute;

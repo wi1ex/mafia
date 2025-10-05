@@ -12,7 +12,7 @@ import {
 } from 'livekit-client'
 import { setLogLevel, LogLevel } from 'livekit-client'
 
-setLogLevel(LogLevel.warn)
+setLogLevel(LogLevel.error)
 
 type DeviceKind = 'audioinput' | 'videoinput'
 type VQ = 'sd'|'hd'
@@ -61,6 +61,9 @@ export type UseRTC = {
   hasVideoInput: Ref<boolean>
   disable: (kind: DeviceKind) => Promise<void>
   isSpeaking: (id: string) => boolean
+  setUserVolume: (id: string, v: number) => void
+  getUserVolume: (id: string) => number
+  resumeAudio: () => Promise<void>
 }
 
 export function useRTC(): UseRTC {
@@ -84,6 +87,115 @@ export function useRTC(): UseRTC {
   const isSub = (pub: RemoteTrackPublication) => pub.isSubscribed
   const lowQuality = VideoPresets.h180
   const highQuality = VideoPresets.h540
+
+  const volumePrefs = new Map<string, number>()
+  const VOL_LS = (id: string) => `vol:${id}`
+  const lsWriteTimers = new Map<string, number>()
+  let audioCtx: AudioContext | null = null
+  let waState: 0 | 1 | -1 = 0
+  const getCtx = () => (audioCtx ??= new (window.AudioContext || (window as any).webkitAudioContext)())
+  function webAudioAvailable(): boolean {
+    if (waState === -1) return false
+    try {
+      getCtx()
+      waState = 1
+      return true
+    } catch {
+      waState = -1
+      return false
+    }
+  }
+
+  const srcNodes = new Map<string, MediaElementAudioSourceNode>()
+  const gainNodes = new Map<string, GainNode>()
+
+  function getSavedVol(id: string): number {
+    try {
+      const v = localStorage.getItem(VOL_LS(id))
+      if (!v) return 100
+      const n = +v
+      return Number.isFinite(n) ? Math.min(200, Math.max(0, n)) : 100
+    } catch { return 100 }
+  }
+
+  function setSavedVol(id: string, v: number) {
+    const vv = Math.min(200, Math.max(0, Math.round(v)))
+    volumePrefs.set(id, vv)
+    const prev = lsWriteTimers.get(id)
+    if (prev) window.clearTimeout(prev)
+    const t = window.setTimeout(() => {
+      try { localStorage.setItem(VOL_LS(id), String(vv)) } catch {}
+      lsWriteTimers.delete(id)
+    }, 500)
+    lsWriteTimers.set(id, t)
+  }
+
+  function ensureGainFor(id: string, el: HTMLAudioElement): GainNode {
+    const ctx = getCtx()
+    let src = srcNodes.get(id)
+    if (!src) {
+      src = ctx.createMediaElementSource(el)
+      srcNodes.set(id, src)
+    }
+    let g = gainNodes.get(id)
+    if (!g) {
+      g = ctx.createGain()
+      gainNodes.set(id, g)
+      src.connect(g)
+      g.connect(ctx.destination)
+    }
+    el.volume = 0
+    el.muted = true
+    return g
+  }
+
+  function applyVolume(id: string, v?: number) {
+    const a = audioEls.get(id)
+    if (!a) return
+    const want = v ?? volumePrefs.get(id) ?? getSavedVol(id)
+
+    if (webAudioAvailable()) {
+      try {
+        const ctx = getCtx()
+        const g = ensureGainFor(id, a)
+        const gain = Math.max(0, want / 100)
+        const now = ctx.currentTime || 0
+        try { g.gain.cancelScheduledValues(now) } catch {}
+        g.gain.setTargetAtTime(gain, now, 0.01)
+        a.muted = true
+        a.volume = 0
+        return
+      } catch {
+        waState = -1
+      }
+    }
+    // Фолбэк
+    destroyAudioGraph(id)
+    a.muted = false
+    a.volume = Math.min(1, Math.max(0, (want || 100) / 100))
+  }
+
+  function setUserVolume(id: string, v: number) {
+    const vv = Math.min(200, Math.max(0, Math.round(v)))
+    const cur = volumePrefs.get(id) ?? getSavedVol(id)
+    if (cur === vv) return
+    setSavedVol(id, vv)
+    applyVolume(id, vv)
+  }
+  function getUserVolume(id: string): number {
+    let v = volumePrefs.get(id)
+    if (v == null) {
+      v = getSavedVol(id)
+      volumePrefs.set(id, v)
+    }
+    return v
+  }
+  async function resumeAudio() {
+    try {
+      if (audioCtx && audioCtx.state !== 'running') { await audioCtx.resume() }
+    } catch {}
+    for (const a of audioEls.values()) { try { await a.play() } catch {} }
+  }
 
   const isSpeaking = (id: string) => {
     if (id === localId.value) return activeSpeakers.value.has(id)
@@ -158,16 +270,24 @@ export function useRTC(): UseRTC {
   }
   const videoRef = (id: string) => (el: HTMLVideoElement | null) => setVideoRef(id, el)
 
+  function destroyAudioGraph(id: string) {
+    try { srcNodes.get(id)?.disconnect() } catch {}
+    try { gainNodes.get(id)?.disconnect() } catch {}
+    srcNodes.delete(id)
+    gainNodes.delete(id)
+  }
+
   function ensureAudioEl(id: string): HTMLAudioElement {
     let a = audioEls.get(id)
     if (!a) {
       a = new Audio()
       a.autoplay = true
       a.playsInline = true
-      a.muted = false
+      a.muted = true
       a.style.display = 'none'
       audioEls.set(id, a)
       document.body.appendChild(a)
+      applyVolume(id)
     }
     return a
   }
@@ -279,6 +399,7 @@ export function useRTC(): UseRTC {
     setSubscriptions(Track.Kind.Audio, on)
     if (!on) audibleIds.value = new Set()
     else refreshAudibleIds()
+    if (on) { void resumeAudio() }
   }
   const setVideoSubscriptionsForAll = (on: boolean) => {
     wantVideo.value = on
@@ -331,6 +452,22 @@ export function useRTC(): UseRTC {
       try { a.remove() } catch {}
     })
     audioEls.clear()
+
+    try {
+      srcNodes.forEach(n => n.disconnect())
+      srcNodes.clear()
+    } catch {}
+    try {
+      gainNodes.forEach(g => g.disconnect())
+      gainNodes.clear()
+    } catch {}
+    try { audioCtx?.close() } catch {}
+    audioCtx = null
+    volumePrefs.clear()
+    lsWriteTimers.forEach((t) => { try { window.clearTimeout(t) } catch {} })
+    lsWriteTimers.clear()
+    waState = 0
+
     peerIds.value = []
     localId.value = ''
   }
@@ -388,6 +525,8 @@ export function useRTC(): UseRTC {
       } else if (t.kind === Track.Kind.Audio) {
         const a = ensureAudioEl(id)
         try { t.attach(a) } catch {}
+        try { applyVolume(id) } catch {}
+        try { void a.play() } catch {}
       }
     })
 
@@ -398,7 +537,16 @@ export function useRTC(): UseRTC {
         if (el) { try { t.detach(el) } catch {} }
       } else if (t.kind === Track.Kind.Audio) {
         const a = audioEls.get(id)
-        if (a) { try { t.detach(a) } catch {} }
+        if (a) {
+          try { t.detach(a) } catch {}
+          a.muted = true
+          a.volume = 0
+        }
+        const tm = lsWriteTimers.get(id)
+        if (tm) {
+          try { clearTimeout(tm) } catch {}
+          lsWriteTimers.delete(id)
+        }
       }
     })
 
@@ -420,6 +568,12 @@ export function useRTC(): UseRTC {
         try { a.remove() } catch {}
         audioEls.delete(id)
       }
+      const tm = lsWriteTimers.get(id)
+      if (tm) { try {
+        clearTimeout(tm) } catch {}
+        lsWriteTimers.delete(id)
+      }
+      destroyAudioGraph(id)
       const v = videoEls.get(id)
       if (v) {
         try { v.srcObject = null } catch {}
@@ -523,5 +677,8 @@ export function useRTC(): UseRTC {
     disable,
     setRemoteQualityForAll,
     isSpeaking,
+    setUserVolume,
+    getUserVolume,
+    resumeAudio,
   }
 }

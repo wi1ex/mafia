@@ -1,9 +1,6 @@
 type ForeignActiveCb = (on: boolean) => void
 type InconsistencyCb = () => void
 
-const SID_KEY = 'auth:sid'
-const OWNER_KEY = 'auth:owner'
-const HB_KEY = 'auth:owner_hb'
 const TAB_ID = Math.random().toString(36).slice(2)
 
 let bc: BroadcastChannel | null = null
@@ -19,18 +16,18 @@ const foreignActiveSubs = new Set<ForeignActiveCb>()
 const inconsistencySubs = new Set<InconsistencyCb>()
 
 const read = {
-  sid(): string { try { return localStorage.getItem(SID_KEY) || '' } catch { return '' } },
-  owner(): string { try { return localStorage.getItem(OWNER_KEY) || '' } catch { return '' } },
+  sid(): string { try { return localStorage.getItem('auth:sid') || '' } catch { return '' } },
+  owner(): string { try { return localStorage.getItem('auth:owner') || '' } catch { return '' } },
   hb(): { id: string; ts: number } | null {
     try {
-      const v = localStorage.getItem(HB_KEY)
+      const v = localStorage.getItem('auth:owner_hb')
       return v ? JSON.parse(v) : null
     } catch { return null }
   },
 }
 
-function writeSidMarker(sid: string) { try { localStorage.setItem(SID_KEY, sid || '') } catch {} }
-function beat() { try { localStorage.setItem(HB_KEY, JSON.stringify({ id: TAB_ID, ts: Date.now() })) } catch {} }
+function writeSidMarker(sid: string) { try { localStorage.setItem('auth:sid', sid || '') } catch {} }
+function beat() { try { localStorage.setItem('auth:owner_hb', JSON.stringify({ id: TAB_ID, ts: Date.now() })) } catch {} }
 function ownerAlive(): boolean {
   const owner = read.owner()
   const hb = read.hb()
@@ -39,7 +36,7 @@ function ownerAlive(): boolean {
 }
 function becomeOwner() {
   try {
-    localStorage.setItem(OWNER_KEY, TAB_ID)
+    localStorage.setItem('auth:owner', TAB_ID)
     beat()
     if (hbTimer) clearInterval(hbTimer)
     hbTimer = window.setInterval(beat, 4000)
@@ -50,8 +47,8 @@ function releaseOwnership(prevSid?: string) {
   try {
     const owner = read.owner()
     if (owner === TAB_ID) {
-      localStorage.removeItem(OWNER_KEY)
-      localStorage.removeItem(HB_KEY)
+      localStorage.removeItem('auth:owner')
+      localStorage.removeItem('auth:owner_hb')
       if (prevSid && read.sid() === prevSid) writeSidMarker('')
     }
   } catch {}

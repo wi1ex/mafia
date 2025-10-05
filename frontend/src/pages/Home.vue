@@ -13,7 +13,7 @@
         <router-link v-if="auth.isAuthed && !isFull(r)" :to="`/room/${r.id}`" class="link">
           Открыть
         </router-link>
-        <div v-else-if="auth.isAuthed && isFull(r)" class="link disabled" aria-disabled="true" title="Комната заполнена">
+        <div v-else-if="auth.isAuthed && isFull(r)" class="link disabled" aria-disabled="true">
           Заполнена
         </div>
         <div v-else class="link disabled" aria-disabled="true">Войдите, чтобы открыть</div>
