@@ -16,9 +16,10 @@ services:
     container_name: db
     env_file: .env
     volumes: ["pg_data:/var/lib/postgresql/data"]
-    ports:
-      - "5432:5432"
-    networks: [edge, internal]
+#    ports:
+#      - "5432:5432"
+#    networks: [edge, internal]
+    networks: [internal]
     restart: always
 
   redis:
@@ -36,9 +37,10 @@ services:
       - --appendfsync
       - "everysec"
     volumes: ["redis_data:/data"]
-    ports:
-      - "6379:6379"
-    networks: [edge, internal]
+#    ports:
+#      - "6379:6379"
+#    networks: [edge, internal]
+    networks: [internal]
     restart: always
 
   minio:
