@@ -79,7 +79,7 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
 
 
 @log_route("rooms.info")
-@router.get("/{room_id}/info", response_model=RoomInfoOut)
+@router.get("/{room_id}/info", response_model=RoomInfoOut, response_model_exclude_none=True)
 async def room_info(room_id: int, session: AsyncSession = Depends(get_session)) -> RoomInfoOut:
     r = get_redis()
     params = await r.hgetall(f"room:{room_id}:params")
@@ -97,19 +97,8 @@ async def room_info(room_id: int, session: AsyncSession = Depends(get_session)) 
         raise HTTPException(status_code=404, detail="room_not_found")
 
     occupancy = int(await r.scard(f"room:{rid}:members") or 0)
-    ids_scores = await r.zrange(f"room:{rid}:positions", 0, -1, withscores=True)
-    order_ids = [int(uid) for uid, _ in ids_scores]
-    positions = {int(uid): int(score) for uid, score in ids_scores}
-
-    roles: dict[int, str] = {}
-    if order_ids:
-        async with r.pipeline() as p:
-            for uid in order_ids:
-                await p.hget(f"room:{rid}:user:{uid}:info", "role")
-            role_vals = await p.execute()
-        for uid, rv in zip(order_ids, role_vals):
-            if rv:
-                roles[int(uid)] = str(rv)
+    order_raw = await r.zrange(f"room:{rid}:positions", 0, -1)
+    order_ids = [int(uid) for uid in order_raw]
 
     users_map: dict[int, User] = {}
     if order_ids:
@@ -124,8 +113,6 @@ async def room_info(room_id: int, session: AsyncSession = Depends(get_session)) 
             id=uid,
             username=(u.username if u else f"user{uid}"),
             photo_url=presign_avatar(u.photo_url if u else None),
-            role=roles.get(uid),
-            position=positions.get(uid),
         ))
 
     return RoomInfoOut(

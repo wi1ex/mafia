@@ -24,8 +24,8 @@
       </div>
     </div>
 
-    <aside class="right" aria-live="polite">
-      <div v-if="!selectedId" class="placeholder muted">Выберите комнату слева</div>
+    <aside class="right" aria-live="polite" @click.self="clearSelection">
+      <div v-if="!selectedId" class="placeholder muted">Скоро здесь будет красиво</div>
 
       <div v-else class="room-info">
         <div class="ri-head">
@@ -45,10 +45,6 @@
               <img :src="m.photo_url || defaultAvatar" alt="" class="ri-ava" loading="lazy" referrerpolicy="no-referrer" />
               <div class="ri-u-main">
                 <div class="ri-u-name">{{ m.username || ('user' + m.id) }}</div>
-                <div class="ri-u-meta">
-                  <span v-if="m.role">роль: {{ m.role }}</span>
-                  <span v-if="m.position">место: {{ m.position }}</span>
-                </div>
               </div>
             </li>
           </ul>
@@ -144,6 +140,19 @@ function selectRoom(id: number) {
   void fetchRoomInfo(id)
 }
 
+function clearSelection() {
+  const prevId = selectedId.value
+  selectedId.value = null
+  info.value = null
+  if (prevId != null) {
+    const t = infoTimers.get(prevId)
+    if (t) {
+      try { clearTimeout(t) } catch {}
+      infoTimers.delete(prevId)
+    }
+  }
+}
+
 function goRoom(id: number) { router.push(`/room/${id}`) }
 
 async function syncRoomsSnapshot() {
@@ -157,7 +166,6 @@ async function syncRoomsSnapshot() {
       upsert(r)
     }
     for (const id of Array.from(roomsMap.keys())) if (!nextIds.has(id)) roomsMap.delete(id)
-    if (!selectedId.value && resp.rooms?.length) selectRoom(resp.rooms[0].id)
   } catch {}
 }
 
@@ -175,10 +183,7 @@ function startWS() {
 
   sio.value.on('connect', syncRoomsSnapshot)
 
-  sio.value.on('rooms_upsert', (r: Room) => {
-    upsert(r)
-    if (!selectedId.value) selectRoom(r.id)
-  })
+  sio.value.on('rooms_upsert', (r: Room) => upsert(r))
 
   sio.value.on('rooms_remove', (p: { id: number }) => remove(p.id))
 
@@ -370,12 +375,6 @@ onBeforeUnmount(() => {
           .ri-u-main {
             .ri-u-name {
               font-weight: 600;
-            }
-            .ri-u-meta {
-              display: flex;
-              gap: 8px;
-              color: $muted;
-              font-size: 0.95em;
             }
           }
         }
