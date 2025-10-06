@@ -343,8 +343,6 @@ onBeforeUnmount(() => {
     align-self: start;
     border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: 12px;
-    padding: 12px;
-    min-height: 220px;
   }
   .placeholder {
     padding: 8px 4px;
@@ -353,6 +351,7 @@ onBeforeUnmount(() => {
     display: flex;
     flex-direction: column;
     gap: 12px;
+    padding: 12px;
     .ri-head {
       .ri-title {
         margin: 0;

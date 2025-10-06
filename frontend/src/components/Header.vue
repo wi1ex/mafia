@@ -1,6 +1,6 @@
 <template>
   <header class="bar" role="banner">
-    <div class="brand" aria-label="Mafia">Mafia</div>
+    <div class="brand" aria-label="Mafia">DECEIT • games</div>
 
     <div v-if="!auth.isAuthed && !auth.foreignActive" class="login-box">
       <div id="tg-login" />
