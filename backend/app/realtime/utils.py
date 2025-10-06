@@ -2,7 +2,7 @@ from __future__ import annotations
 import asyncio
 from datetime import datetime, timezone
 from time import time
-from typing import Any, Tuple
+from typing import Any, Tuple, List
 from typing import Dict, Mapping, cast
 import structlog
 from jwt import ExpiredSignatureError
@@ -170,19 +170,19 @@ async def update_blocks(r, rid: int, actor_uid: int, actor_role: str, target_uid
     return to_apply, forced_off
 
 
-async def join_room_atomic(r, rid: int, uid: int, role: str, *, retries: int = 8) -> tuple[int, int, bool]:
+async def join_room_atomic(r, rid: int, uid: int, role: str, *, retries: int = 8) -> tuple[int, int, bool, List[tuple[int, int]]]:
     res = await r.hmget(f"room:{rid}:params", "user_limit", "creator")
     limraw, creator_raw = res
     if not limraw:
-        return -2, 0, False
+        return -2, 0, False, []
 
     try:
         lim = int(limraw)
     except Exception:
-        return -2, 0, False
+        return -2, 0, False, []
 
     if lim <= 0:
-        return -2, 0, False
+        return -2, 0, False, []
 
     try:
         creator_id = int(creator_raw or 0)
@@ -196,23 +196,40 @@ async def join_room_atomic(r, rid: int, uid: int, role: str, *, retries: int = 8
             size = int(await r.scard(f"room:{rid}:members") or 0)
             now = int(time())
             if already:
-                pos = await r.zscore(f"room:{rid}:positions", uid)
-                if pos is None:
-                    pos = size if size > 0 else 1
-                    async with r.pipeline() as p:
-                        await p.zadd(f"room:{rid}:positions", {uid: pos})
-                        await p.execute()
+                pos_raw = await r.zscore(f"room:{rid}:positions", uid)
                 existing_jd = await r.hget(f"room:{rid}:user:{uid}:info", "join_date")
-                mapping: Dict[str, Any] = {"role": eff_role}
+                info_mapping = {"role": eff_role}
                 if not existing_jd:
-                    mapping["join_date"] = now
-                async with r.pipeline() as p:
-                    await p.hset(f"room:{rid}:user:{uid}:info", mapping=mapping)
-                    await p.execute()
-                return size, int(pos), True
+                    info_mapping["join_date"] = now
+                if pos_raw is None:
+                    new_pos = size
+                    async with r.pipeline() as p:
+                        await p.zadd(f"room:{rid}:positions", {uid: new_pos})
+                        await p.hset(f"room:{rid}:user:{uid}:info", mapping=info_mapping)
+                        await p.execute()
+                    return size, new_pos, True, []
+
+                pos = int(pos_raw)
+                if pos < size:
+                    after = await r.zrangebyscore(f"room:{rid}:positions", min=pos + 1, max="+inf", withscores=True)
+                    new_pos = size
+                    updates = [(int(mid), int(sc) - 1) for mid, sc in after]
+                    async with r.pipeline() as p:
+                        for mid, _sc in after:
+                            await p.zincrby(f"room:{rid}:positions", -1, mid)
+                        await p.zadd(f"room:{rid}:positions", {uid: new_pos})
+                        await p.hset(f"room:{rid}:user:{uid}:info", mapping=info_mapping)
+                        await p.execute()
+                    return size, new_pos, True, updates
+
+                else:
+                    async with r.pipeline() as p:
+                        await p.hset(f"room:{rid}:user:{uid}:info", mapping=info_mapping)
+                        await p.execute()
+                    return size, pos, True, []
 
             if size >= lim:
-                return -1, 0, False
+                return -1, 0, False, []
 
             new_pos = size + 1
             async with r.pipeline() as p:
@@ -221,7 +238,7 @@ async def join_room_atomic(r, rid: int, uid: int, role: str, *, retries: int = 8
                 await p.hset(f"room:{rid}:user:{uid}:info", mapping={"join_date": now, "role": eff_role})
                 await p.delete(f"room:{rid}:empty_since")
                 await p.execute()
-            return new_pos, new_pos, False
+            return new_pos, new_pos, False, []
 
         except WatchError:
             continue
@@ -230,8 +247,9 @@ async def join_room_atomic(r, rid: int, uid: int, role: str, *, retries: int = 8
                 await r.unwatch()
             except Exception:
                 pass
+
     log.warning("join.retries_exhausted", rid=rid, uid=uid, retries=retries)
-    return -1, 0, False
+    return -1, 0, False, []
 
 
 async def leave_room_atomic(r, rid: int, uid: int, *, retries: int = 8) -> tuple[int, int, list[tuple[int, int]]]:

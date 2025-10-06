@@ -88,6 +88,7 @@ export function useRTC(): UseRTC {
   const lowQuality = VideoPresets.h180
   const highQuality = VideoPresets.h540
 
+  const gainNodes = new Map<string, GainNode>()
   const msrcNodes = new Map<string, MediaStreamAudioSourceNode>()
   const volumePrefs = new Map<string, number>()
   const VOL_LS = (id: string) => `vol:${id}`
@@ -106,9 +107,6 @@ export function useRTC(): UseRTC {
       return false
     }
   }
-
-  const srcNodes = new Map<string, MediaElementAudioSourceNode>()
-  const gainNodes = new Map<string, GainNode>()
 
   function getSavedVol(id: string): number {
     try {
@@ -272,10 +270,8 @@ export function useRTC(): UseRTC {
   const videoRef = (id: string) => (el: HTMLVideoElement | null) => setVideoRef(id, el)
 
   function destroyAudioGraph(id: string) {
-    try { srcNodes.get(id)?.disconnect() } catch {}
     try { gainNodes.get(id)?.disconnect() } catch {}
     try { msrcNodes.get(id)?.disconnect() } catch {}
-    srcNodes.delete(id)
     gainNodes.delete(id)
     msrcNodes.delete(id)
   }
@@ -457,10 +453,6 @@ export function useRTC(): UseRTC {
     audioEls.clear()
 
     try {
-      srcNodes.forEach(n => n.disconnect())
-      srcNodes.clear()
-    } catch {}
-    try {
       gainNodes.forEach(g => g.disconnect())
       gainNodes.clear()
     } catch {}
@@ -637,7 +629,7 @@ export function useRTC(): UseRTC {
     localId.value = String(room.localParticipant.identity)
     const ids: string[] = [localId.value]
     room.remoteParticipants.forEach(p => ids.push(String(p.identity)))
-    peerIds.value = Array.from(new Set(ids))
+    peerIds.value = [...new Set(ids)]
     await refreshDevices()
     refreshAudibleIds()
   }

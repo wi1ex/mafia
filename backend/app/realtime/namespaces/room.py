@@ -46,7 +46,7 @@ async def join(sid, data) -> JoinAck:
             return {"ok": False, "error": "bad_room_id", "status": 400}
 
         r = get_redis()
-        occ, pos, already = await join_room_atomic(r, rid, uid, base_role)
+        occ, pos, already, pos_updates = await join_room_atomic(r, rid, uid, base_role)
         if occ == -2:
             log.warning("sio.join.room_not_found", rid=rid, uid=uid)
             return {"ok": False, "error": "room_not_found", "status": 404}
@@ -80,6 +80,11 @@ async def join(sid, data) -> JoinAck:
                            {"user_id": uid, "state": user_state, "role": eff_role, "blocks": eff_blocks},
                            room=f"room:{rid}",
                            skip_sid=sid,
+                           namespace="/room")
+        if pos_updates:
+            await sio.emit("positions",
+                           {"updates": [{"user_id": u, "position": p} for u, p in pos_updates]},
+                           room=f"room:{rid}",
                            namespace="/room")
         await sio.emit("positions",
                        {"updates": [{"user_id": uid, "position": pos}]},

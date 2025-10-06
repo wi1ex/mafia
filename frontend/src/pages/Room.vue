@@ -9,7 +9,7 @@
             🔊
           </button>
           <div class="vol-pop" :class="{ show: openVolumeFor === id }" @click.stop>
-            <input class="vol-range" type="range" min="0" max="200" v-model.number="volUi[id]" @input="onVol(id, volUi[id])" />
+            <input class="vol-range" type="range" min="0" max="200" :disabled="!speakersOn || isBlocked(id,'speakers')" v-model.number="volUi[id]" @input="onVol(id, volUi[id])" />
             <span class="vol-val">{{ volUi[id] ?? 100 }}%</span>
           </div>
         </div>
@@ -85,10 +85,10 @@ const visibilityOn = computed({ get: () => local.visibility, set: v => { local.v
 const socket = ref<Socket | null>(null)
 const joinInFlight = ref<Promise<any> | null>(null)
 const joinedRoomId = ref<number | null>(null)
-const statusByUser = reactive<Record<string, UserState>>({})
-const positionByUser = reactive<Record<string, number>>({})
-const blockByUser = reactive<Record<string, UserState>>({})
-const rolesByUser = reactive<Record<string, string>>({})
+const statusByUser  = reactive(new Map<string, UserState>())
+const positionByUser= reactive(new Map<string, number>())
+const blockByUser   = reactive(new Map<string, UserState>())
+const rolesByUser   = reactive(new Map<string, string>())
 const leaving = ref(false)
 const ws_url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host
 const pendingQuality = ref(false)
@@ -103,8 +103,8 @@ const BADGE_BLK = { mic:'⛔', cam:'⛔', speakers:'⛔', visibility:'⛔' } as 
 const showPermProbe = computed(() => !rtc.permProbed.value && !micOn.value && !camOn.value)
 const sortedPeerIds = computed(() => {
   return [...peerIds.value].sort((a, b) => {
-    const pa = positionByUser[a] ?? Number.POSITIVE_INFINITY
-    const pb = positionByUser[b] ?? Number.POSITIVE_INFINITY
+    const pa = positionByUser.get(a) ?? Number.POSITIVE_INFINITY
+    const pb = positionByUser.get(b) ?? Number.POSITIVE_INFINITY
     return pa !== pb ? pa - pb : String(a).localeCompare(String(b))
   })
 })
@@ -142,9 +142,7 @@ function onDocClick() {
   void rtc.resumeAudio()
 }
 
-function rol(id: string): string {
-  return rolesByUser[id] || 'user'
-}
+function rol(id: string): string { return rolesByUser.get(id) || 'user' }
 const myRole = computed(() => rol(localId.value))
 function isOn(id: string, kind: keyof UserState) {
   if (id === localId.value) {
@@ -153,11 +151,11 @@ function isOn(id: string, kind: keyof UserState) {
     if (kind === 'speakers') return speakersOn.value
     return visibilityOn.value
   }
-  const st = statusByUser[id]
+  const st = statusByUser.get(id)
   return st ? st[kind] === 1 : true
 }
 function isBlocked(id: string, kind: keyof UserState) {
-  const st = blockByUser[id]
+  const st = blockByUser.get(id)
   return st ? st[kind] === 1 : false
 }
 function emTri(kind: keyof typeof BADGE_ON, id: string) {
@@ -166,7 +164,7 @@ function emTri(kind: keyof typeof BADGE_ON, id: string) {
 }
 
 const blockedSelf = computed<UserState>(() => {
-  const s = blockByUser[localId.value]
+  const s = blockByUser.get(localId.value)
   return {
     mic: (s?.mic ?? 0) as State01,
     cam: (s?.cam ?? 0) as State01,
@@ -201,22 +199,22 @@ async function toggleBlock(targetId: string, key: keyof UserState) {
 }
 
 function applyPeerState(uid: string, patch: any) {
-  const cur = statusByUser[uid] ?? { mic: 1, cam: 1, speakers: 1, visibility: 1 }
-  statusByUser[uid] = {
+  const cur = statusByUser.get(uid) ?? { mic: 1, cam: 1, speakers: 1, visibility: 1 }
+  statusByUser.set(uid, {
     mic:        pick01(patch?.mic, cur.mic),
     cam:        pick01(patch?.cam, cur.cam),
     speakers:   pick01(patch?.speakers, cur.speakers),
     visibility: pick01(patch?.visibility, cur.visibility),
-  }
+  })
 }
 function applyBlocks(uid: string, patch: any) {
-  const cur = blockByUser[uid] ?? { mic: 0, cam: 0, speakers: 0, visibility: 0 }
-  blockByUser[uid] = {
+  const cur = blockByUser.get(uid) ?? { mic: 0, cam: 0, speakers: 0, visibility: 0 }
+  blockByUser.set(uid, {
     mic:        pick01(patch?.mic, cur.mic),
     cam:        pick01(patch?.cam, cur.cam),
     speakers:   pick01(patch?.speakers, cur.speakers),
     visibility: pick01(patch?.visibility, cur.visibility),
-  }
+  })
 }
 function applySelfPref(pref: any) {
   if (!isEmpty(pref?.mic)) local.mic = norm01(pref.mic, local.mic ? 1 : 0) === 1
@@ -265,16 +263,18 @@ function connectSocket() {
   socket.value.on('member_joined', (p: any) => {
     const id = String(p.user_id)
     applyPeerState(id, p?.state || {})
-    if (p?.role) rolesByUser[id] = String(p.role)
+    if (p?.role) rolesByUser.set(id, String(p.role))
     if (p?.blocks) applyBlocks(id, p.blocks)
   })
 
   socket.value.on('member_left', (p: any) => {
     const id = String(p.user_id)
-    delete statusByUser[id]
-    delete positionByUser[id]
-    delete blockByUser[id]
-    delete rolesByUser[id]
+    statusByUser.delete(id)
+    positionByUser.delete(id)
+    blockByUser.delete(id)
+    rolesByUser.delete(id)
+    if (openVolumeFor.value === id) openVolumeFor.value = ''
+    delete volUi[id]
   })
 
   socket.value.on('positions', (p: any) => {
@@ -282,7 +282,7 @@ function connectSocket() {
     for (const u of ups) {
       const id = String(u.user_id)
       const pos = Number(u.position)
-      if (Number.isFinite(pos)) positionByUser[id] = pos
+      if (Number.isFinite(pos)) positionByUser.set(id, pos)
     }
   })
 
@@ -333,34 +333,40 @@ async function safeJoin() {
 }
 
 function applyJoinAck(j: any) {
-  Object.keys(positionByUser).forEach(k => delete (positionByUser as any)[k])
-  Object.entries(j.positions || {}).forEach(([uid, pos]: any) => {
+  positionByUser.clear()
+  for (const [uid, pos] of Object.entries(j.positions || {})) {
     const p = Number(pos)
-    if (Number.isFinite(p)) positionByUser[String(uid)] = p
-  })
+    if (Number.isFinite(p)) positionByUser.set(String(uid), p)
+  }
 
-  Object.keys(statusByUser).forEach(k => delete (statusByUser as any)[k])
-  Object.entries(j.snapshot || {}).forEach(([uid, st]: any) => {
-    statusByUser[uid] = {
+  statusByUser.clear()
+  for (const [uid, st] of Object.entries(j.snapshot || {})) {
+    statusByUser.set(String(uid), {
       mic:        pick01(st.mic, 0),
       cam:        pick01(st.cam, 0),
       speakers:   pick01(st.speakers, 1),
       visibility: pick01(st.visibility, 1),
-    }
-  })
+    })
+  }
 
-  Object.keys(blockByUser).forEach(k => delete (blockByUser as any)[k])
-  Object.entries(j.blocked || {}).forEach(([uid, bl]: any) => {
-    blockByUser[uid] = {
+  blockByUser.clear()
+  for (const [uid, bl] of Object.entries(j.blocked || {})) {
+    blockByUser.set(String(uid), {
       mic:        pick01(bl.mic, 0),
       cam:        pick01(bl.cam, 0),
       speakers:   pick01(bl.speakers, 0),
       visibility: pick01(bl.visibility, 0),
-    }
-  })
+    })
+  }
 
-  Object.keys(rolesByUser).forEach(k => delete (rolesByUser as any)[k])
-  Object.entries(j.roles || {}).forEach(([uid, r]: any) => { rolesByUser[uid] = String(r || 'user') })
+  rolesByUser.clear()
+  for (const [uid, r] of Object.entries(j.roles || {})) {
+    rolesByUser.set(String(uid), String(r || 'user'))
+  }
+
+  for (const k in volUi) {
+    if (!statusByUser.has(k)) delete volUi[k]
+  }
 
   if (j.self_pref) applySelfPref(j.self_pref)
 }
@@ -531,8 +537,7 @@ onBeforeUnmount(() => { void onLeave() })
       align-items: center;
       gap: 6px;
       .vol-btn {
-        width: 32px;
-        height: 32px;
+        padding: 4px 6px;
         border-radius: 8px;
         border: 1px solid $fg;
         background: $black;
