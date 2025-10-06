@@ -3,13 +3,24 @@ import structlog
 from ..sio import sio
 from ...core.clients import get_redis
 from ...core.decorators import rate_limited_sio
+from ...schemas import RoomsListAck
 
 log = structlog.get_logger()
 
 
+@sio.event(namespace="/rooms")
+async def connect(sid, environ, auth):
+    log.info("rooms.connect", sid=sid)
+
+
+@sio.event(namespace="/rooms")
+async def disconnect(sid):
+    log.info("rooms.disconnect", sid=sid)
+
+
 @rate_limited_sio(lambda sid, **__: f"rl:sio:rooms_list:{sid}", limit=10, window_s=1)
 @sio.event(namespace="/rooms")
-async def rooms_list(sid):
+async def rooms_list(sid) -> RoomsListAck:
     try:
         r = get_redis()
         rids = list(map(int, await r.zrevrange("rooms:index", 0, 99)))
@@ -42,4 +53,4 @@ async def rooms_list(sid):
 
     except Exception:
         log.exception("rooms.list.error", sid=sid)
-        return {"ok": True, "rooms": []}
+        return {"ok": False, "rooms": []}

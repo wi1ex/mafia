@@ -2,8 +2,7 @@ from __future__ import annotations
 import asyncio
 from datetime import datetime, timezone
 from time import time
-from typing import Any, Tuple, List
-from typing import Dict, Mapping, cast
+from typing import Any, Tuple, List, Dict, Mapping, cast
 import structlog
 from jwt import ExpiredSignatureError
 from redis import WatchError
@@ -33,12 +32,273 @@ _sessionmaker = async_sessionmaker(bind=engine, expire_on_commit=False)
 
 KEYS: tuple[str, ...] = ("mic", "cam", "speakers", "visibility")
 
+JOIN_LUA = r'''
+-- KEYS: params, members, positions, info, empty_since
+local params       = KEYS[1]
+local members      = KEYS[2]
+local positions    = KEYS[3]
+local info         = KEYS[4]
+local empty_since  = KEYS[5]
+
+local rid       = ARGV[1]
+local uid       = tonumber(ARGV[2])
+local base_role = ARGV[3]
+local now       = tonumber(ARGV[4])
+
+local lim = tonumber(redis.call('HGET', params, 'user_limit') or '0')
+if not lim or lim <= 0 then return {-2,0,0,0} end
+
+local creator = tonumber(redis.call('HGET', params, 'creator') or '0')
+local eff_role = (uid == creator) and 'host' or base_role
+
+local already = redis.call('SISMEMBER', members, uid)
+local size = tonumber(redis.call('SCARD', members) or '0')
+
+if already == 1 then
+  local pos = tonumber(redis.call('ZSCORE', positions, uid) or '0')
+  local existing_jd = redis.call('HGET', info, 'join_date')
+  redis.call('HSET', info, 'role', eff_role)
+  if not existing_jd then redis.call('HSET', info, 'join_date', now) end
+  if not pos or pos == 0 then
+    local new_pos = size
+    redis.call('ZADD', positions, new_pos, uid)
+    return {size, new_pos, 1, 0}
+  end
+  if pos < size then
+    local after = redis.call('ZRANGEBYSCORE', positions, pos+1, '+inf', 'WITHSCORES')
+    local new_pos = size
+    local updates = {}
+    for i=1,#after,2 do
+      local mid = tonumber(after[i])
+      redis.call('ZINCRBY', positions, -1, mid)
+      local sc = tonumber(after[i+1]) - 1
+      table.insert(updates, mid)
+      table.insert(updates, sc)
+    end
+    redis.call('ZADD', positions, new_pos, uid)
+    return {size, new_pos, 1, #updates/2, unpack(updates)}
+  else
+    return {size, pos, 1, 0}
+  end
+end
+
+if size >= lim then return {-1,0,0,0} end
+
+local new_pos = size + 1
+redis.call('SADD', members, uid)
+redis.call('ZADD', positions, new_pos, uid)
+redis.call('HSET', info, 'join_date', now, 'role', eff_role)
+redis.call('DEL', empty_since)
+return {new_pos, new_pos, 0, 0}
+'''
+
+LEAVE_LUA = r'''
+-- KEYS: members, positions, info, empty_since, gc_seq, visitors
+local members      = KEYS[1]
+local positions    = KEYS[2]
+local info         = KEYS[3]
+local empty_since  = KEYS[4]
+local gc_seq       = KEYS[5]
+local visitors     = KEYS[6]
+
+local uid = tonumber(ARGV[1])
+local now = tonumber(ARGV[2])
+
+local pos = tonumber(redis.call('ZSCORE', positions, uid) or '0')
+local jd  = tonumber(redis.call('HGET', info, 'join_date') or '0')
+if jd and jd > 0 then
+  local dt = now - jd
+  if dt > 0 then redis.call('HINCRBY', visitors, tostring(uid), dt) end
+end
+
+redis.call('SREM', members, uid)
+redis.call('ZREM', positions, uid)
+redis.call('DEL', info)
+
+local occ = tonumber(redis.call('SCARD', members) or '0')
+if occ == 0 then
+  redis.call('SET', empty_since, now, 'EX', 86400)
+  local seq = tonumber(redis.call('INCR', gc_seq))
+  return {occ, seq, 0}
+end
+
+if not pos or pos == 0 then return {occ, 0, 0} end
+
+local ids = redis.call('ZRANGEBYSCORE', positions, pos+1, '+inf')
+local updates = {}
+for i=1,#ids do
+  local mid = tonumber(ids[i])
+  local sc  = tonumber(redis.call('ZINCRBY', positions, -1, mid))
+  table.insert(updates, mid)
+  table.insert(updates, sc)
+end
+return {occ, 0, #updates/2, unpack(updates)}
+'''
+
+_join_sha = None
+_leave_sha = None
+
+async def _ensure_scripts(r):
+    global _join_sha, _leave_sha
+    if _join_sha is None:
+        _join_sha = await r.script_load(JOIN_LUA)
+    if _leave_sha is None:
+        _leave_sha = await r.script_load(LEAVE_LUA)
+
 
 def _norm01(v: Any) -> str:
     if isinstance(v, bool):
         return "1" if v else "0"
 
     return "1" if str(v).strip().lower() in {"1", "true"} else "0"
+
+
+async def _join_room_atomic_old(r, rid: int, uid: int, role: str, *, retries: int = 8) -> tuple[int, int, bool, List[tuple[int, int]]]:
+    res = await r.hmget(f"room:{rid}:params", "user_limit", "creator")
+    limraw, creator_raw = res
+    if not limraw:
+        return -2, 0, False, []
+
+    try:
+        lim = int(limraw)
+    except Exception:
+        return -2, 0, False, []
+
+    if lim <= 0:
+        return -2, 0, False, []
+
+    try:
+        creator_id = int(creator_raw or 0)
+    except Exception:
+        creator_id = 0
+    eff_role = "host" if uid == creator_id else role
+    for _ in range(retries):
+        try:
+            await r.watch(f"room:{rid}:members", f"room:{rid}:positions")
+            already = await r.sismember(f"room:{rid}:members", uid)
+            size = int(await r.scard(f"room:{rid}:members") or 0)
+            now = int(time())
+            if already:
+                pos_raw = await r.zscore(f"room:{rid}:positions", uid)
+                existing_jd = await r.hget(f"room:{rid}:user:{uid}:info", "join_date")
+                info_mapping = {"role": eff_role}
+                if not existing_jd:
+                    info_mapping["join_date"] = now
+                if pos_raw is None:
+                    new_pos = size
+                    async with r.pipeline() as p:
+                        await p.zadd(f"room:{rid}:positions", {uid: new_pos})
+                        await p.hset(f"room:{rid}:user:{uid}:info", mapping=info_mapping)
+                        await p.execute()
+                    return size, new_pos, True, []
+
+                pos = int(pos_raw)
+                if pos < size:
+                    after = await r.zrangebyscore(f"room:{rid}:positions", min=pos + 1, max="+inf", withscores=True)
+                    new_pos = size
+                    updates = [(int(mid), int(sc) - 1) for mid, sc in after]
+                    async with r.pipeline() as p:
+                        for mid, _sc in after:
+                            await p.zincrby(f"room:{rid}:positions", -1, mid)
+                        await p.zadd(f"room:{rid}:positions", {uid: new_pos})
+                        await p.hset(f"room:{rid}:user:{uid}:info", mapping=info_mapping)
+                        await p.execute()
+                    return size, new_pos, True, updates
+
+                else:
+                    async with r.pipeline() as p:
+                        await p.hset(f"room:{rid}:user:{uid}:info", mapping=info_mapping)
+                        await p.execute()
+                    return size, pos, True, []
+
+            if size >= lim:
+                return -1, 0, False, []
+
+            new_pos = size + 1
+            async with r.pipeline() as p:
+                await p.sadd(f"room:{rid}:members", uid)
+                await p.zadd(f"room:{rid}:positions", {uid: new_pos})
+                await p.hset(f"room:{rid}:user:{uid}:info", mapping={"join_date": now, "role": eff_role})
+                await p.delete(f"room:{rid}:empty_since")
+                await p.execute()
+            return new_pos, new_pos, False, []
+
+        except WatchError:
+            continue
+        finally:
+            try:
+                await r.unwatch()
+            except Exception:
+                pass
+
+    log.warning("join.retries_exhausted", rid=rid, uid=uid, retries=retries)
+    return -1, 0, False, []
+
+
+async def _leave_room_atomic_old(r, rid: int, uid: int, *, retries: int = 8) -> tuple[int, int, list[tuple[int, int]]]:
+    pos = await r.zscore(f"room:{rid}:positions", uid)
+    try:
+        pos_i = int(pos) if pos is not None else None
+    except Exception:
+        pos_i = None
+    try:
+        jd_raw = await r.hget(f"room:{rid}:user:{uid}:info", "join_date")
+        jd = int(jd_raw) if jd_raw else None
+        if jd:
+            dt = max(0, int(time()) - jd)
+            if dt:
+                await r.hincrby(f"room:{rid}:visitors", str(uid), dt)
+    except Exception:
+        pass
+    for _ in range(retries):
+        try:
+            await r.watch(f"room:{rid}:members", f"room:{rid}:positions")
+            async with r.pipeline() as p:
+                await p.srem(f"room:{rid}:members", uid)
+                await p.zrem(f"room:{rid}:positions", uid)
+                await p.delete(f"room:{rid}:user:{uid}:info")
+                await p.execute()
+            break
+        except WatchError:
+            continue
+        finally:
+            try:
+                await r.unwatch()
+            except Exception:
+                pass
+    gc_seq = 0
+    occ = int(await r.scard(f"room:{rid}:members") or 0)
+    if occ == 0:
+        for _ in range(retries):
+            try:
+                await r.watch(f"room:{rid}:members", f"room:{rid}:empty_since", f"room:{rid}:gc_seq")
+                if int(await r.scard(f"room:{rid}:members") or 0) != 0:
+                    break
+                now = int(time())
+                async with r.pipeline() as p:
+                    await p.set(f"room:{rid}:empty_since", now, ex=86400)
+                    await p.incr(f"room:{rid}:gc_seq")
+                    res = await p.execute()
+                gc_seq = int(res[-1])
+                break
+            except WatchError:
+                continue
+            finally:
+                try:
+                    await r.unwatch()
+                except Exception:
+                    pass
+    updates: list[tuple[int, int]] = []
+    if occ > 0 and pos_i is not None:
+        ids = await r.zrangebyscore(f"room:{rid}:positions", min=pos_i + 1, max="+inf")
+        if ids:
+            async with r.pipeline() as p:
+                for mid in ids:
+                    await p.zincrby(f"room:{rid}:positions", -1, mid)
+                new_scores = await p.execute()
+            for mid, sc in zip(ids, new_scores):
+                updates.append((int(mid), int(sc)))
+    return occ, gc_seq, updates
 
 
 async def validate_auth(auth: Any) -> Tuple[int, str] | None:
@@ -170,152 +430,54 @@ async def update_blocks(r, rid: int, actor_uid: int, actor_role: str, target_uid
     return to_apply, forced_off
 
 
-async def join_room_atomic(r, rid: int, uid: int, role: str, *, retries: int = 8) -> tuple[int, int, bool, List[tuple[int, int]]]:
-    res = await r.hmget(f"room:{rid}:params", "user_limit", "creator")
-    limraw, creator_raw = res
-    if not limraw:
-        return -2, 0, False, []
-
+async def join_room_atomic(r, rid: int, uid: int, role: str) -> tuple[int, int, bool, list[tuple[int, int]]]:
     try:
-        lim = int(limraw)
+        await _ensure_scripts(r)
+        now = int(time())
+        res = await r.evalsha(
+            _join_sha,
+            5,
+            f"room:{rid}:params",
+            f"room:{rid}:members",
+            f"room:{rid}:positions",
+            f"room:{rid}:user:{uid}:info",
+            f"room:{rid}:empty_since",
+            str(rid), str(uid), role, str(now),
+        )
+        occ = int(res[0])
+        pos = int(res[1])
+        already = bool(int(res[2]))
+        ups_len = int(res[3])
+        updates = [(int(a), int(b)) for a, b in zip(*[iter(res[4:4 + ups_len * 2])] * 2)]
+        return occ, pos, already, updates
+
     except Exception:
-        return -2, 0, False, []
+        return await _join_room_atomic_old(r, rid, uid, role)
 
-    if lim <= 0:
-        return -2, 0, False, []
 
+async def leave_room_atomic(r, rid: int, uid: int) -> tuple[int, int, list[tuple[int, int]]]:
     try:
-        creator_id = int(creator_raw or 0)
+        await _ensure_scripts(r)
+        now = int(time())
+        res = await r.evalsha(
+            _leave_sha,
+            6,
+            f"room:{rid}:members",
+            f"room:{rid}:positions",
+            f"room:{rid}:user:{uid}:info",
+            f"room:{rid}:empty_since",
+            f"room:{rid}:gc_seq",
+            f"room:{rid}:visitors",
+            str(uid), str(now),
+        )
+        occ = int(res[0])
+        gc_seq = int(res[1])
+        ups_len = int(res[2])
+        updates = [(int(a), int(b)) for a, b in zip(*[iter(res[3:3 + ups_len * 2])] * 2)]
+        return occ, gc_seq, updates
+
     except Exception:
-        creator_id = 0
-    eff_role = "host" if uid == creator_id else role
-    for _ in range(retries):
-        try:
-            await r.watch(f"room:{rid}:members", f"room:{rid}:positions")
-            already = await r.sismember(f"room:{rid}:members", uid)
-            size = int(await r.scard(f"room:{rid}:members") or 0)
-            now = int(time())
-            if already:
-                pos_raw = await r.zscore(f"room:{rid}:positions", uid)
-                existing_jd = await r.hget(f"room:{rid}:user:{uid}:info", "join_date")
-                info_mapping = {"role": eff_role}
-                if not existing_jd:
-                    info_mapping["join_date"] = now
-                if pos_raw is None:
-                    new_pos = size
-                    async with r.pipeline() as p:
-                        await p.zadd(f"room:{rid}:positions", {uid: new_pos})
-                        await p.hset(f"room:{rid}:user:{uid}:info", mapping=info_mapping)
-                        await p.execute()
-                    return size, new_pos, True, []
-
-                pos = int(pos_raw)
-                if pos < size:
-                    after = await r.zrangebyscore(f"room:{rid}:positions", min=pos + 1, max="+inf", withscores=True)
-                    new_pos = size
-                    updates = [(int(mid), int(sc) - 1) for mid, sc in after]
-                    async with r.pipeline() as p:
-                        for mid, _sc in after:
-                            await p.zincrby(f"room:{rid}:positions", -1, mid)
-                        await p.zadd(f"room:{rid}:positions", {uid: new_pos})
-                        await p.hset(f"room:{rid}:user:{uid}:info", mapping=info_mapping)
-                        await p.execute()
-                    return size, new_pos, True, updates
-
-                else:
-                    async with r.pipeline() as p:
-                        await p.hset(f"room:{rid}:user:{uid}:info", mapping=info_mapping)
-                        await p.execute()
-                    return size, pos, True, []
-
-            if size >= lim:
-                return -1, 0, False, []
-
-            new_pos = size + 1
-            async with r.pipeline() as p:
-                await p.sadd(f"room:{rid}:members", uid)
-                await p.zadd(f"room:{rid}:positions", {uid: new_pos})
-                await p.hset(f"room:{rid}:user:{uid}:info", mapping={"join_date": now, "role": eff_role})
-                await p.delete(f"room:{rid}:empty_since")
-                await p.execute()
-            return new_pos, new_pos, False, []
-
-        except WatchError:
-            continue
-        finally:
-            try:
-                await r.unwatch()
-            except Exception:
-                pass
-
-    log.warning("join.retries_exhausted", rid=rid, uid=uid, retries=retries)
-    return -1, 0, False, []
-
-
-async def leave_room_atomic(r, rid: int, uid: int, *, retries: int = 8) -> tuple[int, int, list[tuple[int, int]]]:
-    pos = await r.zscore(f"room:{rid}:positions", uid)
-    try:
-        pos_i = int(pos) if pos is not None else None
-    except Exception:
-        pos_i = None
-    try:
-        jd_raw = await r.hget(f"room:{rid}:user:{uid}:info", "join_date")
-        jd = int(jd_raw) if jd_raw else None
-        if jd:
-            dt = max(0, int(time()) - jd)
-            if dt:
-                await r.hincrby(f"room:{rid}:visitors", str(uid), dt)
-    except Exception:
-        pass
-    for _ in range(retries):
-        try:
-            await r.watch(f"room:{rid}:members", f"room:{rid}:positions")
-            async with r.pipeline() as p:
-                await p.srem(f"room:{rid}:members", uid)
-                await p.zrem(f"room:{rid}:positions", uid)
-                await p.delete(f"room:{rid}:user:{uid}:info")
-                await p.execute()
-            break
-        except WatchError:
-            continue
-        finally:
-            try:
-                await r.unwatch()
-            except Exception:
-                pass
-    gc_seq = 0
-    occ = int(await r.scard(f"room:{rid}:members") or 0)
-    if occ == 0:
-        for _ in range(retries):
-            try:
-                await r.watch(f"room:{rid}:members", f"room:{rid}:empty_since", f"room:{rid}:gc_seq")
-                if int(await r.scard(f"room:{rid}:members") or 0) != 0:
-                    break
-                now = int(time())
-                async with r.pipeline() as p:
-                    await p.set(f"room:{rid}:empty_since", now, ex=86400)
-                    await p.incr(f"room:{rid}:gc_seq")
-                    res = await p.execute()
-                gc_seq = int(res[-1])
-                break
-            except WatchError:
-                continue
-            finally:
-                try:
-                    await r.unwatch()
-                except Exception:
-                    pass
-    updates: list[tuple[int, int]] = []
-    if occ > 0 and pos_i is not None:
-        ids = await r.zrangebyscore(f"room:{rid}:positions", min=pos_i + 1, max="+inf")
-        if ids:
-            async with r.pipeline() as p:
-                for mid in ids:
-                    await p.zincrby(f"room:{rid}:positions", -1, mid)
-                new_scores = await p.execute()
-            for mid, sc in zip(ids, new_scores):
-                updates.append((int(mid), int(sc)))
-    return occ, gc_seq, updates
+        return await _leave_room_atomic_old(r, rid, uid)
 
 
 async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:

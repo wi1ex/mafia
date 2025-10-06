@@ -2,8 +2,7 @@ from __future__ import annotations
 import asyncio
 import functools
 import inspect
-from typing import Any, Callable, Awaitable, Union
-from typing import Optional
+from typing import Any, Callable, Awaitable, Union, Optional
 import structlog
 from fastapi import HTTPException, Depends
 from ..core.clients import get_redis

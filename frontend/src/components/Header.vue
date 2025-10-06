@@ -28,9 +28,7 @@ const auth = useAuthStore()
 const BOT = import.meta.env.VITE_TG_BOT_NAME as string | undefined
 const SIZE: 'large'|'medium'|'small' = 'large'
 
-declare global {
-  interface Window { __tg_cb__?: (u:any) => void }
-}
+declare global { interface Window { __tg_cb__?: (u:any) => void } }
 
 async function logout() { try { await auth.logout() } catch {} }
 

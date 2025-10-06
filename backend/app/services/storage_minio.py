@@ -61,6 +61,7 @@ async def download_telegram_photo(url: str) -> tuple[bytes, str] | None:
                 log.warning("telegram.photo.too_large.header", size=int(cl))
                 return None
 
+            ct_from_hdr = (r.headers.get("content-type") or "").split(";")[0].strip().lower() or None
             chunks: list[bytes] = []
             total = 0
             async for chunk in r.aiter_bytes():
@@ -74,8 +75,8 @@ async def download_telegram_photo(url: str) -> tuple[bytes, str] | None:
                 chunks.append(chunk)
 
         data = b"".join(chunks)
-        ct_hdr = (r.headers.get("content-type") or "image/jpeg").split(";")[0].strip().lower()
-        ct = ct_hdr if ct_hdr in _ct2ext else (_sniff_ct(data) or "image/jpeg")
+        ct_guess = _sniff_ct(data)
+        ct = ct_from_hdr if (ct_from_hdr in _ct2ext) else (ct_guess or "image/jpeg")
         return data, ct
 
     except Exception as e:

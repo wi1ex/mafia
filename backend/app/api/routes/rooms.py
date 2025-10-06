@@ -1,14 +1,18 @@
 from __future__ import annotations
 from fastapi import APIRouter, Depends, status, HTTPException
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from ...core.clients import get_redis
+from ...core.decorators import log_route, rate_limited
+from ...core.logging import log_action
+from ...core.security import get_identity
 from ...db import get_session
 from ...models.room import Room
+from ...models.user import User
 from ...realtime.sio import sio
 from ...schemas import RoomCreateIn, RoomOut, Identity
-from ...core.security import get_identity
-from ...core.logging import log_action
-from ...core.decorators import log_route, rate_limited
+from ...schemas import RoomInfoOut, RoomInfoMemberOut
+from ...services.storage_minio import presign_avatar
 
 router = APIRouter()
 
@@ -72,3 +76,65 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
     )
 
     return RoomOut(**data)
+
+
+@log_route("rooms.info")
+@router.get("/{room_id}/info", response_model=RoomInfoOut)
+async def room_info(room_id: int, session: AsyncSession = Depends(get_session)) -> RoomInfoOut:
+    r = get_redis()
+    params = await r.hgetall(f"room:{room_id}:params")
+    if not params:
+        raise HTTPException(status_code=404, detail="room_not_found")
+
+    try:
+        rid = int(params.get("id") or room_id)
+        title = str(params.get("title") or "")
+        user_limit = int(params.get("user_limit") or 0)
+        creator = int(params.get("creator") or 0)
+        creator_name = str(params.get("creator_name") or "")
+        created_at = str(params.get("created_at") or "")
+    except Exception:
+        raise HTTPException(status_code=404, detail="room_not_found")
+
+    occupancy = int(await r.scard(f"room:{rid}:members") or 0)
+    ids_scores = await r.zrange(f"room:{rid}:positions", 0, -1, withscores=True)
+    order_ids = [int(uid) for uid, _ in ids_scores]
+    positions = {int(uid): int(score) for uid, score in ids_scores}
+
+    roles: dict[int, str] = {}
+    if order_ids:
+        async with r.pipeline() as p:
+            for uid in order_ids:
+                await p.hget(f"room:{rid}:user:{uid}:info", "role")
+            role_vals = await p.execute()
+        for uid, rv in zip(order_ids, role_vals):
+            if rv:
+                roles[int(uid)] = str(rv)
+
+    users_map: dict[int, User] = {}
+    if order_ids:
+        rows = await session.execute(select(User).where(User.id.in_(order_ids)))
+        for u in rows.scalars().all():
+            users_map[int(u.id)] = u
+
+    members: list[RoomInfoMemberOut] = []
+    for uid in order_ids:
+        u = users_map.get(uid)
+        members.append(RoomInfoMemberOut(
+            id=uid,
+            username=(u.username if u else f"user{uid}"),
+            photo_url=presign_avatar(u.photo_url if u else None),
+            role=roles.get(uid),
+            position=positions.get(uid),
+        ))
+
+    return RoomInfoOut(
+        id=rid,
+        title=title,
+        user_limit=user_limit,
+        creator=creator,
+        creator_name=creator_name,
+        created_at=created_at,
+        occupancy=occupancy,
+        members=members,
+    )

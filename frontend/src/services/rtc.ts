@@ -88,8 +88,9 @@ export function useRTC(): UseRTC {
   const lowQuality = VideoPresets.h180
   const highQuality = VideoPresets.h540
 
+  type SrcWrap = { node: MediaStreamAudioSourceNode; stream: MediaStream }
   const gainNodes = new Map<string, GainNode>()
-  const msrcNodes = new Map<string, MediaStreamAudioSourceNode>()
+  const msrcNodes = new Map<string, SrcWrap>()
   const volumePrefs = new Map<string, number>()
   const VOL_LS = (id: string) => `vol:${id}`
   const lsWriteTimers = new Map<string, number>()
@@ -139,10 +140,13 @@ export function useRTC(): UseRTC {
     }
     const stream = el.srcObject as MediaStream | null
     if (stream) {
-      try { msrcNodes.get(id)?.disconnect() } catch {}
-      const src = new MediaStreamAudioSourceNode(ctx, { mediaStream: stream })
-      src.connect(g)
-      msrcNodes.set(id, src)
+      const wrap = msrcNodes.get(id)
+      if (!wrap || wrap.stream !== stream) {
+        try { wrap?.node.disconnect() } catch {}
+        const src = new MediaStreamAudioSourceNode(ctx, { mediaStream: stream })
+        src.connect(g)
+        msrcNodes.set(id, { node: src, stream })
+      }
     }
     el.muted = true
     el.volume = 0
@@ -189,11 +193,16 @@ export function useRTC(): UseRTC {
     }
     return v
   }
+  let resumeBusy = false
   async function resumeAudio() {
+    if (resumeBusy) return
+    resumeBusy = true
     try {
       if (audioCtx && audioCtx.state !== 'running') { await audioCtx.resume() }
-    } catch {}
-    for (const a of audioEls.values()) { try { await a.play() } catch {} }
+      for (const a of audioEls.values()) { try { await a.play() } catch {} }
+    } finally {
+      queueMicrotask(() => { resumeBusy = false })
+    }
   }
 
   const isSpeaking = (id: string) => {
@@ -270,10 +279,11 @@ export function useRTC(): UseRTC {
   const videoRef = (id: string) => (el: HTMLVideoElement | null) => setVideoRef(id, el)
 
   function destroyAudioGraph(id: string) {
-    try { gainNodes.get(id)?.disconnect() } catch {}
-    try { msrcNodes.get(id)?.disconnect() } catch {}
-    gainNodes.delete(id)
+    const w = msrcNodes.get(id)
+    try { w?.node.disconnect() } catch {}
     msrcNodes.delete(id)
+    try { gainNodes.get(id)?.disconnect() } catch {}
+    gainNodes.delete(id)
   }
 
   function ensureAudioEl(id: string): HTMLAudioElement {
@@ -457,7 +467,7 @@ export function useRTC(): UseRTC {
       gainNodes.clear()
     } catch {}
     try {
-      msrcNodes.forEach(n => n.disconnect())
+      msrcNodes.forEach(w => { try { w.node.disconnect() } catch {} })
       msrcNodes.clear()
     } catch {}
     try { audioCtx?.close() } catch {}

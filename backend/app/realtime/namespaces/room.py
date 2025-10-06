@@ -5,7 +5,7 @@ from ..sio import sio
 from ..utils import validate_auth
 from ...core.clients import get_redis
 from ...core.decorators import rate_limited_sio
-from ...schemas import JoinAck
+from ...schemas import StateAck, ModerateAck, JoinAck
 from ...services.livekit_tokens import make_livekit_token
 from ..utils import (
     KEYS,
@@ -26,9 +26,11 @@ log = structlog.get_logger()
 async def connect(sid, environ, auth):
     vr = await validate_auth(auth)
     if not vr:
+        log.warning("room.connect.denied", sid=sid)
         return False
 
     uid, role = vr
+    log.info("room.connect.ok", sid=sid, uid=uid, role=role)
     await sio.save_session(sid, {"uid": uid, "rid": None, "role": role, "base_role": role}, namespace="/room")
     await sio.enter_room(sid, f"user:{uid}", namespace="/room")
 
@@ -99,12 +101,7 @@ async def join(sid, data) -> JoinAck:
                            namespace="/room")
 
         redis_positions = await r.zrange(f"room:{rid}:positions", 0, -1, withscores=True)
-        positions = {}
-        for m, s in redis_positions:
-            try:
-                positions[str(int(m))] = int(s)
-            except Exception:
-                pass
+        positions = {str(int(m)): int(s) for m, s in redis_positions}
 
         lk_token = make_livekit_token(identity=str(uid), name=f"user-{uid}", room=str(rid))
         log.info("sio.join.ok", rid=rid, uid=uid, pos=pos, occ=occ, already=already)
@@ -126,7 +123,7 @@ async def join(sid, data) -> JoinAck:
 
 @rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:state:{uid or 'nouid'}:{rid or 0}", limit=30, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
-async def state(sid, data):
+async def state(sid, data) -> StateAck:
     try:
         sess = await sio.get_session(sid, namespace="/room")
         uid = int(sess["uid"])
@@ -153,21 +150,24 @@ async def state(sid, data):
 
 @rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:moderate:{uid or 'nouid'}:{rid or 0}", limit=30, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
-async def moderate(sid, data):
+async def moderate(sid, data) -> ModerateAck:
     try:
         sess = await sio.get_session(sid, namespace="/room")
         actor_uid = int(sess["uid"])
         rid = int(sess.get("rid") or 0)
         if not rid:
+            log.warning("sio.moderate.no_room", actor_uid=actor_uid)
             return {"ok": False, "error": "no_room", "status": 400}
 
         target = int((data or {}).get("user_id") or 0)
         blocks = (data or {}).get("blocks") or {}
         if not target or not isinstance(blocks, dict):
+            log.warning("sio.moderate.bad_request", actor_uid=actor_uid, rid=rid)
             return {"ok": False, "error": "bad_request", "status": 400}
 
         norm = {k: blocks[k] for k in KEYS if k in blocks}
         if not norm:
+            log.info("sio.moderate.no_changes", actor_uid=actor_uid, rid=rid)
             return {"ok": False, "error": "no_changes", "status": 400}
 
         r = get_redis()

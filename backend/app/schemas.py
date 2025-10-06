@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Optional, Dict, TypedDict
+from typing import Optional, Dict, TypedDict, List
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -65,3 +65,53 @@ class JoinAck(TypedDict, total=False):
     positions: Dict[str, int]
     blocked: Dict[str, Dict[str, str]]
     roles: Dict[str, str]
+
+
+class ErrorOut(BaseModel):
+    detail: str
+
+
+class RoomListItem(TypedDict):
+    id: int
+    title: str
+    user_limit: int
+    creator: int
+    creator_name: str
+    created_at: str
+    occupancy: int
+
+
+class RoomsListAck(TypedDict):
+    ok: bool
+    rooms: List[RoomListItem]
+
+
+class StateAck(TypedDict):
+    ok: bool
+
+
+class ModerateAck(TypedDict, total=False):
+    ok: bool
+    status: int
+    error: str
+    applied: Dict[str, str]
+    forced_off: Dict[str, str]
+
+
+class RoomInfoMemberOut(BaseModel):
+    id: int
+    username: Optional[str] = None
+    photo_url: Optional[str] = None
+    role: Optional[str] = None
+    position: Optional[int] = None
+
+
+class RoomInfoOut(BaseModel):
+    id: int
+    title: str
+    user_limit: int
+    creator: int
+    creator_name: str
+    created_at: str
+    occupancy: int = 0
+    members: List[RoomInfoMemberOut] = Field(default_factory=list)

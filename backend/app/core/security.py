@@ -91,21 +91,27 @@ def verify_telegram_auth(data: Dict[str, Any]) -> bool:
 
 async def get_identity(creds: HTTPAuthorizationCredentials = Depends(HTTPBearer(auto_error=False))) -> Identity:
     if not creds or creds.scheme.lower() != "bearer":
+        log.info("auth.no_bearer")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
 
     try:
         p = decode_token(creds.credentials)
         if p.get("typ") != "access":
-            raise ValueError
-
+            log.info("auth.bad_token_type", typ=p.get("typ"))
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
         uid = int(p["sub"])
         sid = str(p.get("sid") or "")
         r = get_redis()
         cur = await r.get(f"user:{uid}:sid")
         if not cur or cur != sid:
+            log.info("auth.sid_mismatch", uid=uid)
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
 
         return {"id": uid, "role": str(p["role"]), "username": str(p["username"])}
 
-    except Exception:
+    except HTTPException:
+        raise
+
+    except Exception as e:
+        log.info("auth.decode_failed", err=type(e).__name__)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
