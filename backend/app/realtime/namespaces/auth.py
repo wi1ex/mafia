@@ -14,12 +14,10 @@ async def connect(sid, environ, auth):
         return False
 
     uid, _ = vr
-    log.info("auth.connect.ok", sid=sid, uid=uid)
     await sio.save_session(sid, {"uid": uid}, namespace="/auth")
     await sio.enter_room(sid, f"user:{uid}", namespace="/auth")
 
 
 @sio.event(namespace="/auth")
 async def disconnect(sid):
-    log.info("auth.disconnect", sid=sid)
     return

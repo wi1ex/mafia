@@ -8,16 +8,6 @@ from ...schemas import RoomsListAck
 log = structlog.get_logger()
 
 
-@sio.event(namespace="/rooms")
-async def connect(sid, environ, auth):
-    log.info("rooms.connect", sid=sid)
-
-
-@sio.event(namespace="/rooms")
-async def disconnect(sid):
-    log.info("rooms.disconnect", sid=sid)
-
-
 @rate_limited_sio(lambda sid, **__: f"rl:sio:rooms_list:{sid}", limit=10, window_s=1)
 @sio.event(namespace="/rooms")
 async def rooms_list(sid) -> RoomsListAck:
@@ -47,8 +37,6 @@ async def rooms_list(sid) -> RoomsListAck:
              "occupancy": occ.get(rid, 0)
              }
             for rid, (_id, title, user_limit, creator, creator_name, created_at) in zip(rids, rows)]
-
-        log.info("rooms.list.ok", sid=sid, count=len(rooms))
         return {"ok": True, "rooms": rooms}
 
     except Exception:

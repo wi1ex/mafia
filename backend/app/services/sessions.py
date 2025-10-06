@@ -60,8 +60,6 @@ async def new_login_session(resp: Response, *, user_id: int, username: str, role
                                namespace="/room")
             except Exception:
                 log.warning("session.force_logout.emit_failed", user_id=user_id)
-
-        log.info("session.login", user_id=user_id, role=role, sid=sid)
         return at, sid
 
     except Exception:
@@ -91,7 +89,6 @@ async def rotate_refresh(resp: Response, *, raw_refresh_jwt: str) -> tuple[bool,
     rt = create_refresh_token(sub=uid, sid=sid, jti=new_jti, ttl_days=settings.REFRESH_EXP_DAY)
     await r.setex(f"session:{sid}:rjti", settings.REFRESH_EXP_DAY * 86400, new_jti)
     _set_refresh_cookie(resp, rt)
-    log.info("session.refresh.rotated", user_id=uid, sid=sid)
     return True, uid, sid
 
 
@@ -103,4 +100,3 @@ async def logout(resp: Response, *, user_id: int, sid: str | None = None) -> Non
     cur = await r.get(f"user:{user_id}:sid")
     if cur == sid:
         await r.delete(f"user:{user_id}:sid")
-    log.info("session.logout", user_id=user_id, sid=sid)

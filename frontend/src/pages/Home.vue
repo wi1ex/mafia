@@ -4,7 +4,7 @@
     <div class="left">
       <h2 class="title">Комнаты</h2>
       <div v-if="sortedRooms.length === 0" class="muted">Пока пусто</div>
-      <ul class="list">
+      <ul class="list" ref="listEl">
         <li v-for="r in sortedRooms" :key="r.id" class="item" :class="{ active: r.id === selectedId }" tabindex="0" @click="selectRoom(r.id)">
           <div class="item_main">
             <span class="item_title">#{{ r.id }} — {{ r.title }}</span>
@@ -24,7 +24,7 @@
       </div>
     </div>
 
-    <aside class="right" aria-live="polite" @click.self="clearSelection">
+    <aside class="right" aria-live="polite" ref="rightEl" @click.self="clearSelection">
       <div v-if="!selectedId" class="placeholder muted">Скоро здесь будет красиво</div>
 
       <div v-else class="room-info">
@@ -93,6 +93,9 @@ const auth = useAuthStore()
 
 const roomsMap = reactive(new Map<number, Room>())
 const sio = ref<Socket | null>(null)
+const listEl = ref<HTMLElement | null>(null)
+const rightEl = ref<HTMLElement | null>(null)
+const suppressedAutoselect = ref(true)
 
 const title = ref('')
 const limit = ref(12)
@@ -128,6 +131,7 @@ async function fetchRoomInfo(id: number) {
 
 function selectRoom(id: number) {
   if (selectedId.value === id) return
+  suppressedAutoselect.value = false
   const prevId = selectedId.value
   selectedId.value = id
   if (prevId != null) {
@@ -141,16 +145,22 @@ function selectRoom(id: number) {
 }
 
 function clearSelection() {
+  if (selectedId.value == null) return
   const prevId = selectedId.value
   selectedId.value = null
   info.value = null
-  if (prevId != null) {
-    const t = infoTimers.get(prevId)
-    if (t) {
-      try { clearTimeout(t) } catch {}
-      infoTimers.delete(prevId)
-    }
+  suppressedAutoselect.value = true
+  const t = infoTimers.get(prevId)
+  if (t) {
+    try { clearTimeout(t) } catch {}
+    infoTimers.delete(prevId)
   }
+}
+
+function onGlobalPointerDown(e: PointerEvent) {
+  const target = e.target as Node | null
+  if ( (target && listEl.value && listEl.value.contains(target)) || (target && rightEl.value && rightEl.value.contains(target)) ) return
+  clearSelection()
 }
 
 function goRoom(id: number) { router.push(`/room/${id}`) }
@@ -183,7 +193,10 @@ function startWS() {
 
   sio.value.on('connect', syncRoomsSnapshot)
 
-  sio.value.on('rooms_upsert', (r: Room) => upsert(r))
+  sio.value.on('rooms_upsert', (r: Room) => {
+   upsert(r)
+   if (!selectedId.value && !suppressedAutoselect.value) selectRoom(r.id)
+  })
 
   sio.value.on('rooms_remove', (p: { id: number }) => remove(p.id))
 
@@ -233,12 +246,16 @@ async function onCreate() {
   } finally { creating.value = false }
 }
 
-onMounted(() => { startWS() })
+onMounted(() => {
+  startWS()
+  document.addEventListener('pointerdown', onGlobalPointerDown, { capture: true })
+})
 
 onBeforeUnmount(() => {
   infoTimers.forEach((t) => { try { clearTimeout(t) } catch {} })
   infoTimers.clear()
   stopWS()
+  try { document.removeEventListener('pointerdown', onGlobalPointerDown, { capture: true } as any) } catch {}
 })
 </script>
 

@@ -489,7 +489,6 @@ async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
 
     delay = max(0, 10 - (int(time()) - int(ts1)))
     if delay > 0:
-        log.info("gc.wait", rid=rid, wait_s=delay)
         await asyncio.sleep(delay)
     ts2 = await r.get(f"room:{rid}:empty_since")
     if not ts2 or ts1 != ts2:
@@ -542,7 +541,6 @@ async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
                         action="room_deleted",
                         details=f"Удаление комнаты room_id={rid} title={rm_title} user_limit={rm_user_limit} count_users={unique_visitors}",
                     )
-            log.info("gc.persisted_to_db", rid=rid, visitors=len(visitors_map))
         except Exception:
             log.exception("gc.db.persist_failed", rid=rid)
             raise
@@ -569,7 +567,6 @@ async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
             f"room:{rid}:gc_lock",
         )
         await r.zrem("rooms:index", str(rid))
-        log.info("gc.done", rid=rid)
     finally:
         try:
             await r.delete(f"room:{rid}:gc_lock")

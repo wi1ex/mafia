@@ -85,7 +85,6 @@ def verify_telegram_auth(data: Dict[str, Any]) -> bool:
         log.warning("tg.verify.bad_hash")
         return False
 
-    log.info("tg.verify.ok")
     return True
 
 
@@ -99,6 +98,7 @@ async def get_identity(creds: HTTPAuthorizationCredentials = Depends(HTTPBearer(
         if p.get("typ") != "access":
             log.info("auth.bad_token_type", typ=p.get("typ"))
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
+
         uid = int(p["sub"])
         sid = str(p.get("sid") or "")
         r = get_redis()

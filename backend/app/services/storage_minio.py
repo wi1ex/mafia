@@ -109,7 +109,6 @@ def put_avatar(user_id: int, content: bytes, content_type: str | None) -> Option
 
     name, obj = f"{user_id}{ext}", f"avatars/{user_id}{ext}"
     minio.put_object(_bucket, obj, io.BytesIO(content), length=len(content), content_type=ct or mimetypes.types_map.get(ext, "image/jpeg"))
-    log.info("avatar.stored", user_id=user_id, ext=ext, bytes=len(content))
     return name
 
 

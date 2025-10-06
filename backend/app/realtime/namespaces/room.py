@@ -30,7 +30,6 @@ async def connect(sid, environ, auth):
         return False
 
     uid, role = vr
-    log.info("room.connect.ok", sid=sid, uid=uid, role=role)
     await sio.save_session(sid, {"uid": uid, "rid": None, "role": role, "base_role": role}, namespace="/room")
     await sio.enter_room(sid, f"user:{uid}", namespace="/room")
 
@@ -104,7 +103,6 @@ async def join(sid, data) -> JoinAck:
         positions = {str(int(m)): int(s) for m, s in redis_positions}
 
         lk_token = make_livekit_token(identity=str(uid), name=f"user-{uid}", room=str(rid))
-        log.info("sio.join.ok", rid=rid, uid=uid, pos=pos, occ=occ, already=already)
         return {
             "ok": True,
             "room_id": rid,
@@ -139,8 +137,6 @@ async def state(sid, data) -> StateAck:
                            {"user_id": uid, **applied},
                            room=f"room:{rid}",
                            namespace="/room")
-        else:
-            log.info("sio.state.no_changes", uid=uid, rid=rid)
         return {"ok": True}
 
     except Exception:
@@ -240,6 +236,5 @@ async def disconnect(sid):
                     log.exception("gc failed rid=%s", rid)
             asyncio.create_task(_gc())
 
-        log.info("sio.disconnect.ok", uid=uid, rid=rid, occ=occ, updates=len(pos_updates))
     except Exception:
         log.exception("sio.disconnect.error", sid=sid)
