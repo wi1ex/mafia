@@ -1,5 +1,5 @@
 from __future__ import annotations
-from sqlalchemy import select
+from sqlalchemy import select, update, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import APIRouter, HTTPException, Depends, Response, Request, status
 from ...db import get_session
@@ -51,6 +51,10 @@ async def login_with_telegram(payload: TelegramAuthIn, resp: Response, db: Async
     )
 
     at, sid = await new_login_session(resp, user_id=user.id, username=user.username, role=user.role)
+
+    await db.execute(update(User).where(User.id == user.id).values(last_login_at=func.now()))
+    await db.commit()
+
     return AccessTokenOut(access_token=at, sid=sid)
 
 
@@ -70,6 +74,10 @@ async def refresh(resp: Response, request: Request, db: AsyncSession = Depends(g
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unknown user")
 
     at = create_access_token(sub=uid, username=user.username, role=user.role, sid=sid or "", ttl_minutes=settings.ACCESS_EXP_MIN)
+
+    await db.execute(update(User).where(User.id == user.id).values(last_login_at=func.now()))
+    await db.commit()
+
     return AccessTokenOut(access_token=at, sid=sid or "")
 
 
