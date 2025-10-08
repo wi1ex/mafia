@@ -1,7 +1,13 @@
 import type { Directive, DirectiveBinding } from 'vue'
 import { getImageURL, parseAvatarVersion } from '@/services/mediaCache'
 
-type MinioVal = | string | { key: string; version?: number; placeholder?: string; fallback?: string; lazy?: boolean }
+type MinioVal = | string | {
+  key: string
+  version?: number
+  placeholder?: string
+  fallback?: string
+  lazy?: boolean
+}
 
 type ElEx = HTMLImageElement & { __m_req?: number; __m_obs?: IntersectionObserver | null }
 
@@ -63,6 +69,9 @@ function mount(el: ElEx, binding: DirectiveBinding<MinioVal>) {
 }
 
 function update(el: ElEx, binding: DirectiveBinding<MinioVal>) {
+  const cur = norm(binding.value)
+  const prev = binding.oldValue ? norm(binding.oldValue as any) : null
+  if (prev && cur.key === prev.key && cur.version === prev.version) return
   loadInto(el, binding.value)
 }
 

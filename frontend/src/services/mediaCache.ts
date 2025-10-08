@@ -102,22 +102,21 @@ export async function fetchBlobByPresign(key: string): Promise<Blob> {
 }
 
 export async function getImageURL(key: string, version: number, loader?: (key: string)=>Promise<Blob>): Promise<string> {
+  const u = urlMap.get(key)
+  if (u) return u
+
   try {
     const cur = await get(key)
     if (cur && cur.version === version) {
-      const cached = urlMap.get(key) || URL.createObjectURL(cur.blob)
+      const cached = URL.createObjectURL(cur.blob)
       rememberURL(key, cached)
-      console.log('Get from IndexedDB', { key, version })
       return cached
     }
   } catch {}
 
   const load = loader || fetchBlobByPresign
   const blob = await load(key)
-  try {
-    await put({ key, version, blob, ctype: blob.type })
-    console.log('Get from MinIO. Save in IndexedDB', { key, version })
-  } catch {}
+  try { await put({ key, version, blob, ctype: blob.type }) } catch {}
   const url = URL.createObjectURL(blob)
   rememberURL(key, url)
   return url

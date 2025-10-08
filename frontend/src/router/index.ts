@@ -51,7 +51,6 @@ router.onError((err) => {
     location.reload()
     return
   }
-  console.error('[router]', err)
   router.replace({ name: 'home' }).catch(() => {})
 })
 

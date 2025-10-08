@@ -4,7 +4,7 @@
       <div v-for="id in sortedPeerIds" :key="id" class="tile" :class="{ speaking: rtc.isSpeaking(id) }">
         <video :ref="rtc.videoRef(id)" playsinline autoplay :muted="id === localId" v-show="isOn(id,'cam') && !isBlocked(id,'cam')" />
 
-        <div v-if="!isOn(id,'cam') || isBlocked(id,'cam')" class="ava-wrap">
+        <div v-show="!isOn(id,'cam') || isBlocked(id,'cam')" class="ava-wrap">
           <img v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar }" alt="" class="ava-circle" />
         </div>
 
@@ -593,8 +593,7 @@ onBeforeUnmount(() => { void onLeave() })
       z-index: 1;
     }
     .ava-circle {
-      width: 48%;
-      height: 48%;
+      height: 40%;
       border-radius: 50%;
       object-fit: cover;
       background: $black;
