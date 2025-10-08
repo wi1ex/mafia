@@ -14,14 +14,21 @@ const urlOrder: string[] = []
 const URL_MAX = 300
 
 function rememberURL(key: string, url: string) {
-  if (urlMap.has(key)) URL.revokeObjectURL(urlMap.get(key)!)
+  const prev = urlMap.get(key)
+  if (prev && prev !== url) {
+    try { URL.revokeObjectURL(prev) } catch {}
+  }
   urlMap.set(key, url)
+  const idx = urlOrder.indexOf(key)
+  if (idx !== -1) urlOrder.splice(idx, 1)
   urlOrder.push(key)
   while (urlOrder.length > URL_MAX) {
-    const old = urlOrder.shift()
-    if (old && urlMap.has(old)) {
-      try { URL.revokeObjectURL(urlMap.get(old)!) } catch {}
-      urlMap.delete(old)
+    const oldKey = urlOrder.shift()
+    if (!oldKey) continue
+    const u = urlMap.get(oldKey)
+    if (u) {
+      try { URL.revokeObjectURL(u) } catch {}
+      urlMap.delete(oldKey)
     }
   }
 }

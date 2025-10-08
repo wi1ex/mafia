@@ -87,15 +87,9 @@ async def room_info(room_id: int, session: AsyncSession = Depends(get_session)) 
 
     try:
         rid = int(params.get("id") or room_id)
-        title = str(params.get("title") or "")
-        user_limit = int(params.get("user_limit") or 0)
-        creator = int(params.get("creator") or 0)
-        creator_name = str(params.get("creator_name") or "")
-        created_at = str(params.get("created_at") or "")
     except Exception:
         raise HTTPException(status_code=404, detail="room_not_found")
 
-    occupancy = int(await r.scard(f"room:{rid}:members") or 0)
     order_raw = await r.zrange(f"room:{rid}:positions", 0, -1)
     order_ids = [int(uid) for uid in order_raw]
 
@@ -114,13 +108,4 @@ async def room_info(room_id: int, session: AsyncSession = Depends(get_session)) 
             avatar_name=u.avatar_name,
         ))
 
-    return RoomInfoOut(
-        id=rid,
-        title=title,
-        user_limit=user_limit,
-        creator=creator,
-        creator_name=creator_name,
-        created_at=created_at,
-        occupancy=occupancy,
-        members=members,
-    )
+    return RoomInfoOut(members=members)

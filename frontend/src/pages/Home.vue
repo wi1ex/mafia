@@ -28,12 +28,10 @@
       <div v-if="!selectedId" class="placeholder muted">Скоро здесь будет красиво</div>
 
       <div v-else class="room-info">
-        <div class="ri-head">
-          <h3 class="ri-title">#{{ info?.id }} — {{ info?.title || '...' }}</h3>
-          <div class="ri-meta">
-            <span>Участников: {{ info?.occupancy ?? 0 }}/{{ info?.user_limit ?? 0 }}</span>
-            <span>Владелец: {{ info?.creator_name || '—' }}</span>
-          </div>
+        <h3 class="ri-title">#{{ selectedRoom?.id }} — {{ selectedRoom?.title || '...' }}</h3>
+        <div class="ri-meta">
+          <span>Участников: {{ selectedRoom?.occupancy ?? 0 }}/{{ selectedRoom?.user_limit ?? 0 }}</span>
+          <span>Владелец: {{ selectedRoom?.creator_name || '—' }}</span>
         </div>
 
         <div class="ri-members">
@@ -51,8 +49,8 @@
         </div>
 
         <div class="ri-actions">
-          <button v-if="auth.isAuthed && info && !isFullInfo(info)" class="btn enter" @click="goRoom(info.id)">Войти</button>
-          <div v-else-if="auth.isAuthed && info && isFullInfo(info)" class="muted">Комната заполнена</div>
+          <button v-if="auth.isAuthed && selectedRoom && !isFullRoom(selectedRoom)" class="btn enter" @click="goRoom(selectedRoom.id)">Войти</button>
+          <div v-else-if="auth.isAuthed && selectedRoom && isFullRoom(selectedRoom)" class="muted">Комната заполнена</div>
           <div v-else class="muted">Авторизуйтесь, чтобы войти</div>
         </div>
       </div>
@@ -85,7 +83,7 @@ type RoomInfoMember = {
   username?: string
   avatar_name?: string | null
 }
-type RoomInfo = Room & { members: RoomInfoMember[] }
+type RoomMembers = { members: RoomInfoMember[] }
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -99,16 +97,17 @@ const suppressedAutoselect = ref(true)
 const title = ref('')
 const limit = ref(12)
 const creating = ref(false)
-const valid = computed(() => title.value.length > 0 && limit.value >= 2 && limit.value <= 12)
-
-const sortedRooms = computed(() => Array.from(roomsMap.values()).sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at)))
 
 const infoTimers = new Map<number, number>()
 const selectedId = ref<number | null>(null)
-const info = ref<RoomInfo | null>(null)
+const info = ref<RoomMembers | null>(null)
 const loadingInfo = ref(false)
 
-function isFullInfo(r: RoomInfo) { return r.occupancy >= r.user_limit }
+const selectedRoom = computed(() => selectedId.value ? (roomsMap.get(selectedId.value) || null) : null)
+const valid = computed(() => title.value.length > 0 && limit.value >= 2 && limit.value <= 12)
+const sortedRooms = computed(() => Array.from(roomsMap.values()).sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at)))
+
+function isFullRoom(r: Room) { return r.occupancy >= r.user_limit }
 function upsert(r: Room) { roomsMap.set(r.id, { ...(roomsMap.get(r.id) || {} as Room), ...r }) }
 function remove(id: number) {
   roomsMap.delete(id)
@@ -121,7 +120,7 @@ function remove(id: number) {
 async function fetchRoomInfo(id: number) {
   loadingInfo.value = true
   try {
-    const { data } = await api.get<RoomInfo>(`/rooms/${id}/info`, { __skipAuth: true })
+    const { data } = await api.get<RoomMembers>(`/rooms/${id}/info`, { __skipAuth: true })
     info.value = data
   } catch {
     info.value = null

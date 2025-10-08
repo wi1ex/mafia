@@ -105,11 +105,4 @@ class RoomInfoMemberOut(BaseModel):
 
 
 class RoomInfoOut(BaseModel):
-    id: int
-    title: str
-    user_limit: int
-    creator: int
-    creator_name: str
-    created_at: str
-    occupancy: int = 0
     members: List[RoomInfoMemberOut] = Field(default_factory=list)
