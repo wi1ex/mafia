@@ -10,20 +10,22 @@
     </div>
 
     <div v-else class="user">
-      <img :src="auth.user?.photo_url || defaultAvatar" alt="Аватар" class="avatar" loading="lazy" referrerpolicy="no-referrer" />
-      <span class="nick" aria-live="polite">{{ auth.user?.username || 'User' }}</span>
+      <img :src="avaSrc" alt="Аватар" class="avatar" loading="lazy" referrerpolicy="no-referrer" />
+      <span class="nick" aria-live="polite">{{ user.user?.username || 'User' }}</span>
       <button class="btn" type="button" @click="logout">Выйти</button>
     </div>
   </header>
 </template>
 
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
-import { useAuthStore } from '@/store'
+import { onMounted, onBeforeUnmount, watch, nextTick, ref } from 'vue'
+import { useAuthStore, useUserStore } from '@/store'
+import { getAvatarURL, clearObjectURL } from '@/services/mediaCache'
 
 import defaultAvatar from "@/assets/svg/defaultAvatar.svg"
 
 const auth = useAuthStore()
+const user  = useUserStore()
 
 const BOT = import.meta.env.VITE_TG_BOT_NAME as string | undefined
 const SIZE: 'large'|'medium'|'small' = 'large'
@@ -51,6 +53,9 @@ function mountTGWidget() {
   box.appendChild(s)
 }
 
+const avaKey = ref<string>('')
+const avaSrc = ref<string>(defaultAvatar)
+
 watch([() => auth.isAuthed, () => auth.foreignActive], async () => {
   if (!auth.isAuthed && !auth.foreignActive) {
     await nextTick()
@@ -59,6 +64,20 @@ watch([() => auth.isAuthed, () => auth.foreignActive], async () => {
     document.getElementById('tg-login')?.replaceChildren()
   }
 }, { flush: 'post' })
+
+watch(() => user.user?.avatar_name, async (name) => {
+  const prev = avaKey.value
+  avaKey.value = ''
+  if (prev) clearObjectURL(`avatars/${prev}`)
+  if (!name) {
+    avaSrc.value = defaultAvatar
+    return
+  }
+  try {
+    avaSrc.value = await getAvatarURL(name)
+    avaKey.value = name
+  } catch { avaSrc.value = defaultAvatar }
+}, { immediate: true })
 
 onMounted(async () => {
   if (!auth.isAuthed && !auth.foreignActive) {
@@ -69,6 +88,8 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   delete window.__tg_cb__
+  const prev = avaKey.value
+  if (prev) clearObjectURL(`avatars/${prev}`)
 })
 </script>
 

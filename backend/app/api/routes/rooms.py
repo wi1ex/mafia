@@ -12,7 +12,6 @@ from ...models.user import User
 from ...realtime.sio import sio
 from ...schemas import RoomCreateIn, RoomOut, Identity
 from ...schemas import RoomInfoOut, RoomInfoMemberOut
-from ...services.storage_minio import presign_avatar
 
 router = APIRouter()
 
@@ -112,7 +111,7 @@ async def room_info(room_id: int, session: AsyncSession = Depends(get_session)) 
         members.append(RoomInfoMemberOut(
             id=uid,
             username=(u.username if u else f"user{uid}"),
-            photo_url=presign_avatar(u.photo_url if u else None),
+            avatar_name=u.avatar_name,
         ))
 
     return RoomInfoOut(

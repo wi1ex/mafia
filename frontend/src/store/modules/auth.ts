@@ -1,19 +1,33 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { api, setAuthHeader, addAuthExpiredListener, refreshAccessTokenFull } from '@/services/axios'
-import { initSessionBus, setSid, clearSid, isForeignActive, onForeignActive, onInconsistency, checkConsistencyNow, stopSessionBus } from '@/services/session'
 import { startAuthSocket, stopAuthSocket } from '@/services/sio'
+import {
+  api,
+  setAuthHeader,
+  addAuthExpiredListener,
+  refreshAccessTokenFull,
+} from '@/services/axios'
+import {
+  initSessionBus,
+  setSid,
+  clearSid,
+  isForeignActive,
+  onForeignActive,
+  onInconsistency,
+  checkConsistencyNow,
+  stopSessionBus,
+} from '@/services/session'
 
 export interface TgUser {
-  id: number; username?: string; photo_url?: string; auth_date?: number; hash?: string
-}
-export interface UserProfile {
-  id: number; username?: string; photo_url?: string; role: string
+  id: number
+  username?: string
+  photo_url?: string
+  auth_date?: number
+  hash?: string
 }
 
 export const useAuthStore = defineStore('auth', () => {
   const sessionId = ref<string>('')
-  const user = ref<UserProfile | null>(null)
   const ready = ref(false)
   const foreign = ref(false)
 
@@ -45,10 +59,9 @@ export const useAuthStore = defineStore('auth', () => {
     ready.value = true
   }
 
-  function clearSession() {
+  async function clearSession() {
     const prev = sessionId.value
     sessionId.value = ''
-    user.value = null
     setAuthHeader('')
     stopAuthSocket()
     clearSid(prev)
@@ -56,9 +69,13 @@ export const useAuthStore = defineStore('auth', () => {
     stopSessionBus()
     foreign.value = isForeignActive()
     ready.value = true
+    try {
+      const { useUserStore } = await import('@/store/modules/user')
+      useUserStore().clear()
+    } catch {}
   }
 
-  async function localSignOut(): Promise<void> { clearSession() }
+  async function localSignOut(): Promise<void> { await clearSession() }
 
   async function init(): Promise<void> {
     if (ready.value) return
@@ -73,38 +90,35 @@ export const useAuthStore = defineStore('auth', () => {
     }
     try {
       const data = await refreshAccessTokenFull(false)
-      if (!data) { clearSession(); return }
+      if (!data) {
+        await clearSession()
+        return
+      }
       await applySession(data)
     } catch {
-      clearSession()
+      await clearSession()
     }
   }
 
   async function signInWithTelegram(tg: TgUser): Promise<void> {
     const { data } = await api.post('/auth/telegram', tg)
     await applySession(data)
-    await fetchMe()
-  }
-
-  async function fetchMe(): Promise<void> {
-    const { data } = await api.get<UserProfile>('/users/profile_info')
-    user.value = data
+    const { useUserStore } = await import('@/store/modules/user')
+    await useUserStore().fetchMe()
   }
 
   async function logout(): Promise<void> {
     try { await api.post('/auth/logout', undefined, { __skipAuth: true }) } catch {}
-    finally { clearSession() }
+    finally { await clearSession() }
   }
 
   return {
     sessionId,
-    user,
     ready,
     isAuthed,
     foreignActive: foreign,
 
     init,
-    fetchMe,
     signInWithTelegram,
     logout,
     localSignOut,

@@ -38,7 +38,7 @@ async def login_with_telegram(payload: TelegramAuthIn, resp: Response, db: Async
                 content, ct = photo
                 filename = put_avatar(uid, content, ct)
 
-        user = User(id=uid, username=username, role="user", photo_url=filename)
+        user = User(id=uid, username=username, role="user", avatar_name=filename)
         db.add(user)
         await db.commit()
 

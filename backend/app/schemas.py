@@ -10,7 +10,7 @@ class Ok(BaseModel):
 class UserOut(BaseModel):
     id: int
     username: Optional[str] = None
-    photo_url: Optional[str] = None
+    avatar_name: Optional[str] = None
     role: str
 
 
@@ -101,9 +101,7 @@ class ModerateAck(TypedDict, total=False):
 class RoomInfoMemberOut(BaseModel):
     id: int
     username: Optional[str] = None
-    photo_url: Optional[str] = None
-    role: Optional[str] = None
-    position: Optional[int] = None
+    avatar_name: Optional[str] = None
 
 
 class RoomInfoOut(BaseModel):
