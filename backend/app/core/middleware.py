@@ -40,7 +40,6 @@ class LoggingMiddleware:
 
         log = structlog.get_logger()
         log.info("request.start")
-
         t0 = time.perf_counter()
         headers_sent = False
 
@@ -99,9 +98,9 @@ class LastLoginTouchMiddleware:
             try:
                 p = decode_token(token)
                 if p.get("typ") == "access":
+                    r = get_redis()
                     uid = int(p["sub"])
                     sid = str(p.get("sid") or "")
-                    r = get_redis()
                     cur = await r.get(f"user:{uid}:sid")
                     if cur and cur == sid:
                         if await r.set(f"user:{uid}:last_touch", "1", ex=self.ttl_s, nx=True):
