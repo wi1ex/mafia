@@ -60,7 +60,7 @@ async def download_telegram_photo(url: str) -> Tuple[bytes, str] | None:
             return None
 
         client = get_httpx()
-        async with client.stream("GET", url, follow_redirects=False, headers={"Accept": "image/*"}) as r:
+        async with client.stream("GET", url, follow_redirects=True, headers={"Accept": "image/*", "User-Agent": "Mozilla/5.0"}) as r:
             r.raise_for_status()
             cl = r.headers.get("content-length")
             if cl and cl.isdigit() and int(cl) > _MAX_BYTES:
@@ -81,6 +81,10 @@ async def download_telegram_photo(url: str) -> Tuple[bytes, str] | None:
                 chunks.append(chunk)
 
         data = b"".join(chunks)
+        if not data:
+            log.warning("telegram.photo.empty_response", url_host=r.url.host, status=r.status_code)
+            return None
+
         ct_guess = _sniff_ct(data)
         ct = ct_from_hdr if (ct_from_hdr in _ct2ext) else (ct_guess or "image/jpeg")
         return data, ct
@@ -91,6 +95,10 @@ async def download_telegram_photo(url: str) -> Tuple[bytes, str] | None:
 
 
 def put_avatar(user_id: int, content: bytes, content_type: str | None) -> Optional[str]:
+    if not content:
+        log.warning("avatar.put.empty", user_id=user_id)
+        return None
+
     if len(content) > _MAX_BYTES:
         log.warning("avatar.put.too_large", user_id=user_id, bytes=len(content))
         return None
