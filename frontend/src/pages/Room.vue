@@ -484,8 +484,20 @@ onMounted(async () => {
     rtc.setAudioSubscriptionsForAll(local.speakers)
     rtc.setVideoSubscriptionsForAll(local.visibility)
 
-    if (camOn.value && !blockedSelf.value.cam) { await rtc.enable('videoinput').catch(()=>{}) }
-    if (micOn.value && !blockedSelf.value.mic) { await rtc.enable('audioinput').catch(()=>{}) }
+    if (camOn.value && !blockedSelf.value.cam) {
+      const ok = await rtc.enable('videoinput')
+      if (!ok) {
+        camOn.value = false
+        void publishState({ cam: false })
+      }
+    }
+    if (micOn.value && !blockedSelf.value.mic) {
+      const ok = await rtc.enable('audioinput')
+      if (!ok) {
+        micOn.value = false
+        void publishState({ mic: false })
+      }
+    }
 
     document.addEventListener('click', onDocClick)
     window.addEventListener('pagehide', onPageHide)
