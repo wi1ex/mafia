@@ -28,10 +28,12 @@
       <div v-if="!selectedId" class="placeholder muted">Скоро здесь будет красиво</div>
 
       <div v-else class="room-info">
-        <h3 class="ri-title">#{{ selectedRoom?.id }} — {{ selectedRoom?.title || '...' }}</h3>
-        <div class="ri-meta">
-          <span>Участников: {{ selectedRoom?.occupancy ?? 0 }}/{{ selectedRoom?.user_limit ?? 0 }}</span>
-          <span>Владелец: {{ selectedRoom?.creator_name || '—' }}</span>
+        <div class="ri-head">
+          <h3 class="ri-title">#{{ selectedRoom?.id }} — {{ selectedRoom?.title || '...' }}</h3>
+          <div class="ri-meta">
+            <span>Участников: {{ selectedRoom?.occupancy ?? 0 }}/{{ selectedRoom?.user_limit ?? 0 }}</span>
+            <span>Владелец: {{ selectedRoom?.creator_name || '—' }}</span>
+          </div>
         </div>
 
         <div class="ri-members">

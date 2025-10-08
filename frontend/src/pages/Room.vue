@@ -2,7 +2,11 @@
   <section class="card">
     <div class="grid" :style="gridStyle">
       <div v-for="id in sortedPeerIds" :key="id" class="tile" :class="{ speaking: rtc.isSpeaking(id) }">
-        <video :ref="rtc.videoRef(id)" playsinline autoplay :muted="id === localId" />
+        <video :ref="rtc.videoRef(id)" playsinline autoplay :muted="id === localId" v-show="isOn(id,'cam') && !isBlocked(id,'cam')" />
+
+        <div v-if="!isOn(id,'cam') || isBlocked(id,'cam')" class="ava-wrap">
+          <img v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar }" alt="" class="ava-circle" />
+        </div>
 
         <div class="vol-wrap" v-if="id !== localId">
           <button v-if="openVolumeFor !== id" class="vol-btn" @click.stop="toggleVolPopover(id)" :aria-expanded="openVolumeFor===id">
@@ -64,9 +68,17 @@ import { Socket } from 'socket.io-client'
 import { useAuthStore } from '@/store'
 import { useRTC } from '@/services/rtc'
 import { createAuthedSocket } from '@/services/sio'
+import { api } from '@/services/axios'
+
+import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
 
 type State01 = 0 | 1
-type UserState = { mic: State01; cam: State01; speakers: State01; visibility: State01 }
+type UserState = {
+  mic: State01
+  cam: State01
+  speakers: State01
+  visibility: State01
+}
 
 const route = useRoute()
 const router = useRouter()
@@ -95,6 +107,29 @@ const pendingQuality = ref(false)
 const videoQuality = computed(() => rtc.remoteQuality.value)
 const openVolumeFor = ref<string>('')
 const volUi = reactive<Record<string, number>>({})
+
+const avatarByUser = reactive(new Map<string, string | null>())
+function avatarKey(id: string): string {
+  const name = avatarByUser.get(id)
+  return name ? `avatars/${name}` : ''
+}
+let avatarsTimer: number | null = null
+function scheduleFetchAvatars() {
+  if (avatarsTimer) clearTimeout(avatarsTimer)
+  avatarsTimer = window.setTimeout(() => {
+    avatarsTimer = null
+    void fetchAvatars()
+  }, 300)
+}
+async function fetchAvatars() {
+  try {
+    const { data } = await api.get<{ members: { id: number; avatar_name?: string|null }[] }>(
+      `/rooms/${rid}/info`, { __skipAuth: true }
+    )
+    avatarByUser.clear()
+    for (const m of (data?.members || [])) avatarByUser.set(String(m.id), m.avatar_name ?? null)
+  } catch {}
+}
 
 const BADGE_ON = { mic:'🎤', cam:'🎥', speakers:'🔈', visibility:'👁️' } as const
 const BADGE_OFF = { mic:'🔇', cam:'🚫', speakers:'🔇', visibility:'🙈' } as const
@@ -265,6 +300,7 @@ function connectSocket() {
     applyPeerState(id, p?.state || {})
     if (p?.role) rolesByUser.set(id, String(p.role))
     if (p?.blocks) applyBlocks(id, p.blocks)
+    scheduleFetchAvatars()
   })
 
   socket.value.on('member_left', (p: any) => {
@@ -275,6 +311,7 @@ function connectSocket() {
     rolesByUser.delete(id)
     if (openVolumeFor.value === id) openVolumeFor.value = ''
     delete volUi[id]
+    avatarByUser.delete(id)
   })
 
   socket.value.on('positions', (p: any) => {
@@ -453,6 +490,10 @@ async function onLeave() {
     socket.value = null
     roomId.value = null
     joinedRoomId.value = null
+    if (avatarsTimer) {
+      try { clearTimeout(avatarsTimer) } catch {}
+      avatarsTimer = null
+    }
     await router.replace('/')
   } finally {
     leaving.value = false
@@ -475,6 +516,7 @@ onMounted(async () => {
 
     await rtc.refreshDevices()
     applyJoinAck(j)
+    scheduleFetchAvatars()
 
     rtc.initRoom({
       onMediaDevicesError: async (_e) => {}
@@ -539,6 +581,25 @@ onBeforeUnmount(() => { void onLeave() })
       object-fit: cover;
       border-radius: 12px;
       background: $black;
+    }
+    .ava-wrap {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: $black;
+      border-radius: 12px;
+      z-index: 1;
+    }
+    .ava-circle {
+      width: 48%;
+      height: 48%;
+      border-radius: 50%;
+      object-fit: cover;
+      background: $black;
+      user-select: none;
+      pointer-events: none;
     }
     .vol-wrap {
       position: absolute;
