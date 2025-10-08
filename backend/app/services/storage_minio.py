@@ -4,6 +4,7 @@ import mimetypes
 import time
 from datetime import timedelta
 from typing import Optional, Tuple
+from urllib.parse import urlparse
 import structlog
 from minio import Minio
 from minio.error import S3Error
@@ -53,6 +54,11 @@ def _sniff_ct(buf: bytes) -> Optional[str]:
 
 async def download_telegram_photo(url: str) -> Tuple[bytes, str] | None:
     try:
+        u = urlparse(url)
+        if u.scheme != "https":
+            log.warning("telegram.photo.bad_host", host=u.hostname)
+            return None
+
         client = get_httpx()
         async with client.stream("GET", url, follow_redirects=False, headers={"Accept": "image/*"}) as r:
             r.raise_for_status()

@@ -10,7 +10,7 @@
     </div>
 
     <div v-else class="user">
-      <img :src="avaSrc" alt="Аватар" class="avatar" loading="lazy" referrerpolicy="no-referrer" />
+      <img v-minio-img="{ key: user.user?.avatar_name ? `avatars/${user.user.avatar_name}` : '', placeholder: defaultAvatar }" alt="Аватар" class="avatar" />
       <span class="nick" aria-live="polite">{{ user.user?.username || 'User' }}</span>
       <button class="btn" type="button" @click="logout">Выйти</button>
     </div>
@@ -20,7 +20,6 @@
 <script setup lang="ts">
 import { onMounted, onBeforeUnmount, watch, nextTick, ref } from 'vue'
 import { useAuthStore, useUserStore } from '@/store'
-import { getAvatarURL, clearObjectURL } from '@/services/mediaCache'
 
 import defaultAvatar from "@/assets/svg/defaultAvatar.svg"
 
@@ -53,9 +52,6 @@ function mountTGWidget() {
   box.appendChild(s)
 }
 
-const avaKey = ref<string>('')
-const avaSrc = ref<string>(defaultAvatar)
-
 watch([() => auth.isAuthed, () => auth.foreignActive], async () => {
   if (!auth.isAuthed && !auth.foreignActive) {
     await nextTick()
@@ -64,20 +60,6 @@ watch([() => auth.isAuthed, () => auth.foreignActive], async () => {
     document.getElementById('tg-login')?.replaceChildren()
   }
 }, { flush: 'post' })
-
-watch(() => user.user?.avatar_name, async (name) => {
-  const prev = avaKey.value
-  avaKey.value = ''
-  if (prev) clearObjectURL(`avatars/${prev}`)
-  if (!name) {
-    avaSrc.value = defaultAvatar
-    return
-  }
-  try {
-    avaSrc.value = await getAvatarURL(name)
-    avaKey.value = name
-  } catch { avaSrc.value = defaultAvatar }
-}, { immediate: true })
 
 onMounted(async () => {
   if (!auth.isAuthed && !auth.foreignActive) {
@@ -88,8 +70,6 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   delete window.__tg_cb__
-  const prev = avaKey.value
-  if (prev) clearObjectURL(`avatars/${prev}`)
 })
 </script>
 

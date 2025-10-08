@@ -111,9 +111,3 @@ export async function getImageURL(key: string, version: number, loader?: (key: s
   rememberURL(key, url)
   return url
 }
-
-export async function getAvatarURL(name: string): Promise<string> {
-  const v = parseAvatarVersion(name)
-  const key = `avatars/${name}`
-  return getImageURL(key, v)
-}

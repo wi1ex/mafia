@@ -5,12 +5,13 @@ from ...db import get_session
 from ...models.user import User
 from ...schemas import UserOut, Identity
 from ...core.security import get_identity
-from ...core.decorators import log_route
+from ...core.decorators import log_route, rate_limited
 
 router = APIRouter()
 
 
 @log_route("users.profile_info")
+@rate_limited(lambda ident, **_: f"rl:profile_info:{ident['id']}", limit=5, window_s=1)
 @router.get("/profile_info", response_model=UserOut)
 async def profile_info(ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UserOut:
     user = await db.get(User, int(ident["id"]))

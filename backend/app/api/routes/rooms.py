@@ -78,6 +78,7 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
 
 
 @log_route("rooms.info")
+@rate_limited(lambda room_id, **_: f"rl:room_info:{room_id}", limit=5, window_s=1)
 @router.get("/{room_id}/info", response_model=RoomInfoOut, response_model_exclude_none=True)
 async def room_info(room_id: int, session: AsyncSession = Depends(get_session)) -> RoomInfoOut:
     r = get_redis()

@@ -42,7 +42,7 @@
           <div v-else-if="(info?.members?.length ?? 0) === 0" class="muted">Пока никого</div>
           <ul v-else class="ri-grid">
             <li v-for="m in info!.members" :key="m.id" class="ri-user">
-              <img :src="avatarSrcById.get(m.id) || defaultAvatar" alt="" class="ri-ava" loading="lazy" referrerpolicy="no-referrer" />
+              <img v-minio-img="{ key: m.avatar_name ? `avatars/${m.avatar_name}` : '', placeholder: defaultAvatar }" alt="" class="ri-ava" />
               <div class="ri-u-main">
                 <div class="ri-u-name">{{ m.username || ('user' + m.id) }}</div>
               </div>
@@ -68,7 +68,6 @@ import { useAuthStore } from '@/store'
 import { Socket } from 'socket.io-client'
 import { api } from '@/services/axios'
 import { createPublicSocket } from '@/services/sio'
-import { getAvatarURL, clearObjectURL } from '@/services/mediaCache'
 
 import defaultAvatar from "@/assets/svg/defaultAvatar.svg"
 
@@ -109,37 +108,6 @@ const selectedId = ref<number | null>(null)
 const info = ref<RoomInfo | null>(null)
 const loadingInfo = ref(false)
 
-const avatarSrcById = reactive(new Map<number, string>())
-const avatarKeyById = reactive(new Map<number, string>())
-function resetAvatars() {
-  for (const [uid, key] of avatarKeyById) {
-    if (key) { try { clearObjectURL(key) } catch {} }
-    avatarKeyById.delete(uid)
-  }
-  avatarSrcById.clear()
-}
-async function hydrateAvatars(members: RoomInfoMember[]) {
-  const tasks = members.map(async (m) => {
-    const key = m.avatar_name ? `avatars/${m.avatar_name}` : ''
-    const prevKey = avatarKeyById.get(m.id)
-    if (prevKey && prevKey !== key) { try { clearObjectURL(prevKey) } catch {} }
-    if (!key) {
-      avatarKeyById.set(m.id, '')
-      avatarSrcById.set(m.id, '')
-      return
-    }
-    try {
-      const url = await getAvatarURL(m.avatar_name!)
-      avatarKeyById.set(m.id, key)
-      avatarSrcById.set(m.id, url)
-    } catch {
-      avatarKeyById.set(m.id, key)
-      avatarSrcById.set(m.id, '')
-    }
-  })
-  await Promise.allSettled(tasks)
-}
-
 function isFullInfo(r: RoomInfo) { return r.occupancy >= r.user_limit }
 function upsert(r: Room) { roomsMap.set(r.id, { ...(roomsMap.get(r.id) || {} as Room), ...r }) }
 function remove(id: number) {
@@ -147,7 +115,6 @@ function remove(id: number) {
   if (selectedId.value === id) {
     selectedId.value = null
     info.value = null
-    resetAvatars()
   }
 }
 
@@ -156,12 +123,11 @@ async function fetchRoomInfo(id: number) {
   try {
     const { data } = await api.get<RoomInfo>(`/rooms/${id}/info`, { __skipAuth: true })
     info.value = data
-    resetAvatars()
-    await hydrateAvatars(data.members || [])
   } catch {
     info.value = null
-    resetAvatars()
-  } finally { loadingInfo.value = false }
+  } finally {
+    loadingInfo.value = false
+  }
 }
 
 function selectRoom(id: number) {
@@ -190,7 +156,6 @@ function clearSelection() {
     try { clearTimeout(t) } catch {}
     infoTimers.delete(prevId)
   }
-  resetAvatars()
 }
 
 function onGlobalPointerDown(e: PointerEvent) {
@@ -291,7 +256,6 @@ onBeforeUnmount(() => {
   infoTimers.forEach((t) => { try { clearTimeout(t) } catch {} })
   infoTimers.clear()
   stopWS()
-  resetAvatars()
   try { document.removeEventListener('pointerdown', onGlobalPointerDown, { capture: true } as any) } catch {}
 })
 </script>
