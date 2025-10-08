@@ -6,7 +6,7 @@ from fastapi.responses import ORJSONResponse
 from .api.router import api_router
 from .core.handlers import setup_exception_handlers
 from .core.lifespan import lifespan
-from .core.middleware import LoggingMiddleware
+from .core.middleware import LoggingMiddleware, LastLoginTouchMiddleware
 from .realtime.sio import sio
 from .settings import settings
 
@@ -21,6 +21,7 @@ def build_fastapi() -> FastAPI:
         openapi_url=None,
     )
     main_app.add_middleware(LoggingMiddleware)
+    main_app.add_middleware(LastLoginTouchMiddleware)
 
     main_app.add_middleware(
         CORSMiddleware,

@@ -2,7 +2,12 @@ from __future__ import annotations
 import time
 import uuid
 import structlog
+from sqlalchemy import update, func
 from starlette.types import ASGIApp, Receive, Scope, Send, Message
+from .clients import get_redis
+from .security import decode_token
+from ..db import SessionLocal
+from ..models.user import User
 
 
 class LoggingMiddleware:
@@ -62,3 +67,34 @@ class LoggingMiddleware:
                 structlog.contextvars.clear_contextvars()
             except Exception:
                 pass
+
+
+class LastLoginTouchMiddleware:
+    def __init__(self, app: ASGIApp, *, ttl_s: int = 300):
+        self.app = app
+        self.ttl_s = ttl_s
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send):
+        if scope.get("type") != "http":
+            return await self.app(scope, receive, send)
+
+        hdrs = dict((k.decode().lower(), v.decode()) for k, v in (scope.get("headers") or []))
+        auth = hdrs.get("authorization", "")
+        if auth.lower().startswith("bearer "):
+            token = auth[7:].strip()
+            try:
+                p = decode_token(token)
+                if p.get("typ") == "access":
+                    uid = int(p["sub"])
+                    sid = str(p.get("sid") or "")
+                    r = get_redis()
+                    cur = await r.get(f"user:{uid}:sid")
+                    if cur and cur == sid:
+                        if await r.set(f"user:{uid}:last_touch", "1", ex=self.ttl_s, nx=True):
+                            async with SessionLocal() as s:
+                                await s.execute(update(User).where(User.id == uid).values(last_login_at=func.now()))
+                                await s.commit()
+            except Exception:
+                pass
+
+        return await self.app(scope, receive, send)

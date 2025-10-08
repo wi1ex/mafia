@@ -2,12 +2,9 @@ from __future__ import annotations
 import secrets
 import structlog
 from fastapi import Response
-from sqlalchemy import update, func
 from ..core.clients import get_redis
 from ..core.security import create_access_token, create_refresh_token, parse_refresh_token
-from ..db import SessionLocal
 from ..realtime.sio import sio
-from ..models.user import User
 from ..settings import settings
 
 log = structlog.get_logger()
@@ -43,10 +40,6 @@ async def new_login_session(resp: Response, *, user_id: int, username: str, role
 
         _set_refresh_cookie(resp, rt)
         at = create_access_token(sub=user_id, username=username, role=role, sid=sid, ttl_minutes=settings.ACCESS_EXP_MIN)
-
-        async with SessionLocal() as db:
-            await db.execute(update(User).where(User.id == user_id).values(last_login_at=func.now()))
-            await db.commit()
 
         if prev_sid and prev_sid != sid:
             try:
