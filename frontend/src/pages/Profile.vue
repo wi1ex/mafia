@@ -1,5 +1,9 @@
 <template>
   <section class="profile card">
+    <div class="page-actions">
+      <router-link class="btn" :to="{ name: 'home' }" aria-label="На главную">На главную</router-link>
+    </div>
+
     <nav class="tabs" role="tablist" aria-label="Профиль">
       <button class="tab active" role="tab" aria-selected="true">Личные данные</button>
       <button class="tab" role="tab" disabled>Статистика</button>
@@ -300,6 +304,14 @@ onBeforeUnmount(() => {
   .hint {
     color: $muted;
     font-size: 12px;
+  }
+  .page-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 12px;
+    .btn {
+      text-decoration: none;
+    }
   }
   .tabs {
     display: flex;

@@ -4,7 +4,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, watch, computed } from 'vue'
+import { onMounted, watchEffect, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/store'
 import { useUserStore } from '@/store'
@@ -17,8 +17,10 @@ const user = useUserStore()
 
 const isRoom = computed(() => route.name === 'room')
 
-watch(auth.isAuthed, (ok) => {
-  if (!ok && (route.meta as any)?.requiresAuth) router.replace('/')
+watchEffect(() => {
+  if (route.meta?.requiresAuth && !auth.isAuthed) {
+    router.replace({ name: 'home' }).catch(() => {})
+  }
 })
 
 onMounted(async () => {
