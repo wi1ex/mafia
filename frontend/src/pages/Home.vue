@@ -1,5 +1,4 @@
 <template>
-  <Header />
   <section class="card card-grid">
     <div class="left">
       <h2 class="title">Комнаты</h2>
@@ -62,7 +61,6 @@
 
 <script setup lang="ts">
 import { onMounted, onBeforeUnmount, ref, computed, reactive, watch } from 'vue'
-import Header from '@/components/Header.vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/store'
 import { Socket } from 'socket.io-client'

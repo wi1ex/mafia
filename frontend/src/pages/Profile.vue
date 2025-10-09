@@ -1,5 +1,4 @@
 <template>
-  <Header />
   <section class="profile card">
     <nav class="tabs" role="tablist" aria-label="Профиль">
       <button class="tab active" role="tab" aria-selected="true">Личные данные</button>
@@ -37,7 +36,7 @@
   <div v-if="crop.show" ref="modalEl" class="modal" @keydown.esc="cancelCrop" tabindex="0" role="dialog" aria-modal="true" aria-label="Кадрирование аватара" >
     <div class="modal-body">
       <canvas ref="canvasEl" @mousedown="dragStart" @mousemove="dragMove" @mouseup="dragStop" @mouseleave="dragStop" @wheel.prevent="onWheel" />
-      <input class="range" type="range" :min="crop.min" :max="crop.max" step="0.01" v-model.number="crop.scale" @input="redraw" />
+      <input class="range" type="range" :min="crop.min" :max="crop.max" step="0.01" v-model.number="crop.scale" @input="onRange" />
       <div class="modal-actions">
         <button class="btn" @click="cancelCrop">Отменить</button>
         <button class="btn primary" @click="applyCrop" :disabled="busyAva">Загрузить</button>
@@ -48,7 +47,6 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, reactive, ref } from 'vue'
-import Header from '@/components/Header.vue'
 import { api } from '@/services/axios'
 import { useUserStore } from '@/store'
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
@@ -130,7 +128,7 @@ async function onPick(e: Event) {
     crop.type = (f.type === 'image/png' ? 'image/png' : 'image/jpeg')
     crop.show = true
     await nextTick()
-    modalEl.focus()
+    modalEl.value?.focus()
     const canvas = canvasEl.value!
     const dpr = Math.max(1, window.devicePixelRatio || 1)
     const S = 360
@@ -140,11 +138,12 @@ async function onPick(e: Event) {
     canvas.style.height = S + 'px'
     const s = fitCover(img.width, img.height, canvas.width)
     crop.scale = s
-    crop.min = Math.max(s * 0.5, 0.5)
-    crop.max = s * 3
+    crop.min = Math.max(0.2, Math.min(1, s * 0.4))
+    crop.max = Math.max(s * 4, s + 1)
     crop.x = (canvas.width - img.width * s) / 2
     crop.y = (canvas.height - img.height * s) / 2
-    redraw()
+    clampPosition()
+    requestAnimationFrame(redraw)
   }
   img.onerror = () => {
     URL.revokeObjectURL(url)
@@ -165,7 +164,10 @@ function redraw() {
   ctx.imageSmoothingQuality = 'high' as any
   ctx.drawImage(img, crop.x, crop.y, img.width * crop.scale, img.height * crop.scale)
 }
-
+function onRange() {
+  clampPosition()
+  redraw()
+}
 function clampPosition() {
   const c = canvasEl.value!, img = crop.img!
   const w = img.width * crop.scale, h = img.height * crop.scale
