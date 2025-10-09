@@ -2,8 +2,8 @@
   <section class="profile card">
     <nav class="tabs" role="tablist" aria-label="Профиль">
       <button class="tab active" role="tab" aria-selected="true">Личные данные</button>
-      <button class="tab" role="tab" disabled>Безопасность</button>
-      <button class="tab" role="tab" disabled>Настройки</button>
+      <button class="tab" role="tab" disabled>Статистика</button>
+      <button class="tab" role="tab" disabled>История игр</button>
     </nav>
 
     <div class="grid">
@@ -30,19 +30,19 @@
           2–32 символа: латиница, кириллица, цифры, <code>._-</code> (не начинается с <code>user</code>).
         </div>
       </div>
-    </div>
-  </section>
 
-  <div v-if="crop.show" ref="modalEl" class="modal" @keydown.esc="cancelCrop" tabindex="0" role="dialog" aria-modal="true" aria-label="Кадрирование аватара" >
-    <div class="modal-body">
-      <canvas ref="canvasEl" @mousedown="dragStart" @mousemove="dragMove" @mouseup="dragStop" @mouseleave="dragStop" @wheel.prevent="onWheel" />
-      <input class="range" type="range" :min="crop.min" :max="crop.max" step="0.01" v-model.number="crop.scale" @input="onRange" />
-      <div class="modal-actions">
-        <button class="btn" @click="cancelCrop">Отменить</button>
-        <button class="btn primary" @click="applyCrop" :disabled="busyAva">Загрузить</button>
+      <div v-if="crop.show" ref="modalEl" class="modal" @keydown.esc="cancelCrop" tabindex="0" role="dialog" aria-modal="true" aria-label="Кадрирование аватара" >
+        <div class="modal-body">
+          <canvas ref="canvasEl" @mousedown="dragStart" @mousemove="dragMove" @mouseup="dragStop" @mouseleave="dragStop" @wheel.passive="onWheel" />
+          <input class="range" type="range" :min="crop.min" :max="crop.max" step="0.04" :value="crop.scale" @input="onRange" />
+          <div class="modal-actions">
+            <button class="btn" @click="cancelCrop">Отменить</button>
+            <button class="btn primary" @click="applyCrop" :disabled="busyAva">Загрузить</button>
+          </div>
+        </div>
       </div>
     </div>
-  </div>
+  </section>
 </template>
 
 <script setup lang="ts">
@@ -103,6 +103,7 @@ const crop = reactive<Crop>({ show: false, scale: 1, min: 0.5, max: 3, x: 0, y: 
 const canvasEl = ref<HTMLCanvasElement | null>(null)
 const busyAva = ref(false)
 
+function clamp(v:number, lo:number, hi:number) { return Math.min(hi, Math.max(lo, v)) }
 function fitContain(imgW: number, imgH: number, boxW: number, boxH: number) {
   return Math.min(boxW / imgW, boxH / imgH)
 }
@@ -141,6 +142,7 @@ async function onPick(e: Event) {
     crop.show = true
     await nextTick()
     modalEl.value?.focus()
+    document.body.style.overflow = 'hidden'
     const canvas = canvasEl.value!
     const dpr = Math.max(1, window.devicePixelRatio || 1)
     const S = 360
@@ -177,7 +179,7 @@ function redraw() {
   ctx.drawImage(img, crop.x, crop.y, img.width * crop.scale, img.height * crop.scale)
 }
 function onRange() {
-  const next = Math.min(crop.max, Math.max(crop.min, crop.scale))
+  const next = clamp(Number((e.target as HTMLInputElement).value), crop.min, crop.max)
   scaleTo(next)
 }
 function clampPosition() {
@@ -211,6 +213,7 @@ function onWheel(ev: WheelEvent) {
 function cancelCrop() {
   crop.show = false
   crop.img = undefined
+  document.body.style.overflow = ''
 }
 
 async function applyCrop() {
@@ -366,6 +369,7 @@ onMounted(() => { loadMe().catch(()=>{}) })
     align-items: center;
     justify-content: center;
     z-index: 50;
+    overscroll-behavior: contain;
     .modal-body {
       background: $bg;
       border: 1px solid rgba(255, 255, 255, 0.15);
