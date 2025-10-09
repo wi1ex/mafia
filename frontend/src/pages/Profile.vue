@@ -34,7 +34,7 @@
     </div>
   </section>
 
-  <div v-if="crop.show" class="modal" @keydown.esc="cancelCrop" tabindex="0">
+  <div v-if="crop.show" ref="modalEl" class="modal" @keydown.esc="cancelCrop" tabindex="0" role="dialog" aria-modal="true" aria-label="Кадрирование аватара" >
     <div class="modal-body">
       <canvas ref="canvasEl" @mousedown="dragStart" @mousemove="dragMove" @mouseup="dragStop" @mouseleave="dragStop" @wheel.prevent="onWheel" />
       <input class="range" type="range" :min="crop.min" :max="crop.max" step="0.01" v-model.number="crop.scale" @input="redraw" />
@@ -56,6 +56,7 @@ import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
 const userStore = useUserStore()
 const me = reactive({ id: 0, username: '', avatar_name: null as string | null, role: '' })
 const fileEl = ref<HTMLInputElement | null>(null)
+const modalEl = ref<HTMLDivElement | null>(null)
 
 const nick = ref('')
 const busyNick = ref(false)
@@ -124,10 +125,12 @@ async function onPick(e: Event) {
   const url = URL.createObjectURL(f)
   const img = new Image()
   img.onload = async () => {
+    URL.revokeObjectURL(url)
     crop.img = img
     crop.type = (f.type === 'image/png' ? 'image/png' : 'image/jpeg')
     crop.show = true
     await nextTick()
+    modalEl.focus()
     const canvas = canvasEl.value!
     const dpr = Math.max(1, window.devicePixelRatio || 1)
     const S = 360
@@ -163,6 +166,12 @@ function redraw() {
   ctx.drawImage(img, crop.x, crop.y, img.width * crop.scale, img.height * crop.scale)
 }
 
+function clampPosition() {
+  const c = canvasEl.value!, img = crop.img!
+  const w = img.width * crop.scale, h = img.height * crop.scale
+  crop.x = w <= c.width  ? (c.width - w)/2  : Math.min(0, Math.max(c.width - w, crop.x))
+  crop.y = h <= c.height ? (c.height - h)/2 : Math.min(0, Math.max(c.height - h, crop.y))
+}
 function dragStart(ev: MouseEvent) {
   crop.dragging = true
   crop.sx = ev.clientX - crop.x
@@ -172,6 +181,7 @@ function dragMove(ev: MouseEvent) {
   if (!crop.dragging) return
   crop.x = ev.clientX - crop.sx
   crop.y = ev.clientY - crop.sy
+  clampPosition()
   redraw()
 }
 function dragStop() {
@@ -192,6 +202,7 @@ function onWheel(ev: WheelEvent) {
   crop.x = cx - dx * k
   crop.y = cy - dy * k
   crop.scale = next
+  clampPosition()
   redraw()
 }
 
@@ -223,7 +234,7 @@ async function applyCrop() {
     }
     const fd = new FormData()
     fd.append('file', new File([blob], crop.type === 'image/png' ? 'avatar.png' : 'avatar.jpg', { type: crop.type }))
-    const { data } = await api.post('/users/avatar', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+    const { data } = await api.post('/users/avatar', fd)
     me.avatar_name = data.avatar_name || null
     try { await userStore.fetchMe?.() } catch {}
     cancelCrop()

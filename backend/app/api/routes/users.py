@@ -44,16 +44,16 @@ async def update_username(payload: UsernameUpdateIn, ident: Identity = Depends(g
     if new.lower().startswith("user"):
         raise HTTPException(status_code=422, detail="reserved_prefix")
 
-    exists = await db.scalar(select(1).where(User.username == new).limit(1))
-    if exists:
-        raise HTTPException(status_code=409, detail="username_taken")
-
     user = await db.get(User, uid)
     if not user:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
     if user.username == new:
         return UserOut(id=user.id, username=user.username, avatar_name=user.avatar_name, role=user.role)
+
+    exists = await db.scalar(select(1).where(User.username == new, User.id != uid).limit(1))
+    if exists:
+        raise HTTPException(status_code=409, detail="username_taken")
 
     await db.execute(update(User).where(User.id == uid).values(username=new))
     await db.commit()

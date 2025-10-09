@@ -1,14 +1,13 @@
 import { createRouter, createWebHistory, type RouteRecordRaw, type RouteLocationNormalized } from 'vue-router'
 import { useAuthStore } from '@/store'
 
-const BASE_TITLE = 'DECEIT'
+const BASE_TITLE = 'Deceit'
 
 const routes: RouteRecordRaw[] = [
   {
     path: '/',
     name: 'home',
     component: () => import('@/pages/Home.vue'),
-    meta: { title: 'Главная' },
   },
   {
     path: '/profile',
@@ -32,21 +31,23 @@ const router = createRouter({
 })
 
 function setTitle(to: RouteLocationNormalized): void {
-  const t = to.meta?.title as string | undefined
+  const t = (to.meta?.title as string | undefined) ?? ''
   const id = to.name === 'room' ? String(to.params.id ?? '') : ''
-  document.title = t ? `${t}${id ? ` #${id}` : ''} — ${BASE_TITLE}` : BASE_TITLE
+  document.title = t ? `${t}${id ? ` #${id}` : ''}` : BASE_TITLE
 }
 
 router.beforeEach(async (to) => {
   if (!to.meta?.requiresAuth) return true
 
-  const id = Number(to.params.id)
-  if (!Number.isFinite(id) || id <= 0) return { name: 'home' }
-
   const auth = useAuthStore()
   if (!auth.ready) await auth.init()
+  if (!auth.isAuthed) return { name: 'home' }
 
-  return auth.isAuthed ? true : { name: 'home' }
+  if (to.name === 'room') {
+    const id = Number(to.params.id)
+    if (!Number.isFinite(id) || id <= 0) return { name: 'home' }
+  }
+  return true
 })
 
 router.afterEach((to) => setTitle(to))
