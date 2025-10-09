@@ -1,14 +1,20 @@
 import { createRouter, createWebHistory, type RouteRecordRaw, type RouteLocationNormalized } from 'vue-router'
 import { useAuthStore } from '@/store'
 
-const BASE_TITLE = 'Mafia'
+const BASE_TITLE = 'DECEIT'
 
 const routes: RouteRecordRaw[] = [
   {
     path: '/',
     name: 'home',
     component: () => import('@/pages/Home.vue'),
-    meta: { title: BASE_TITLE },
+    meta: { title: 'Главная' },
+  },
+  {
+    path: '/profile',
+    name: 'profile',
+    component: () => import('@/pages/Profile.vue'),
+    meta: { requiresAuth: true, title: 'Профиль' },
   },
   {
     path: '/room/:id(\\d+)',

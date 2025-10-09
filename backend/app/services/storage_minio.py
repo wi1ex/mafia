@@ -15,13 +15,11 @@ from ..core.clients import get_minio_private, get_minio_public, get_httpx
 log = structlog.get_logger()
 
 _bucket = settings.MINIO_BUCKET
-_ct2ext = {
+ALLOWED_CT = {
     "image/jpeg": ".jpg",
     "image/png": ".png",
-    "image/webp": ".webp",
-    "image/gif": ".gif",
 }
-_MAX_BYTES = 5 * 1024 * 1024
+MAX_BYTES = 5 * 1024 * 1024
 
 
 def ensure_bucket(minio_client: Optional[Minio] = None) -> None:
@@ -63,7 +61,7 @@ async def download_telegram_photo(url: str) -> Tuple[bytes, str] | None:
         async with client.stream("GET", url, follow_redirects=True, headers={"Accept": "image/*", "User-Agent": "Mozilla/5.0"}) as r:
             r.raise_for_status()
             cl = r.headers.get("content-length")
-            if cl and cl.isdigit() and int(cl) > _MAX_BYTES:
+            if cl and cl.isdigit() and int(cl) > MAX_BYTES:
                 log.warning("telegram.photo.too_large.header", size=int(cl), url_host=r.url.host)
                 return None
 
@@ -74,7 +72,7 @@ async def download_telegram_photo(url: str) -> Tuple[bytes, str] | None:
                 if not chunk:
                     break
                 total += len(chunk)
-                if total > _MAX_BYTES:
+                if total > MAX_BYTES:
                     log.warning("telegram.photo.too_large.stream", read_bytes=total)
                     return None
 
@@ -86,7 +84,7 @@ async def download_telegram_photo(url: str) -> Tuple[bytes, str] | None:
             return None
 
         ct_guess = _sniff_ct(data)
-        ct = ct_from_hdr if (ct_from_hdr in _ct2ext) else (ct_guess or "image/jpeg")
+        ct = ct_from_hdr if (ct_from_hdr in ALLOWED_CT) else (ct_guess or "image/jpeg")
         return data, ct
 
     except Exception as e:
@@ -99,19 +97,19 @@ def put_avatar(user_id: int, content: bytes, content_type: str | None) -> Option
         log.warning("avatar.put.empty", user_id=user_id)
         return None
 
-    if len(content) > _MAX_BYTES:
+    if len(content) > MAX_BYTES:
         log.warning("avatar.put.too_large", user_id=user_id, bytes=len(content))
         return None
 
     ct_hdr = (content_type or "").split(";")[0].strip().lower()
-    ct = ct_hdr if ct_hdr in _ct2ext else _sniff_ct(content)
-    if ct not in _ct2ext:
+    ct = ct_hdr if ct_hdr in ALLOWED_CT else _sniff_ct(content)
+    if ct not in ALLOWED_CT:
         log.warning("avatar.put.unsupported_type", user_id=user_id, content_type=ct or content_type)
         return None
 
     minio = get_minio_private()
     ensure_bucket(minio)
-    ext = _ct2ext[ct]
+    ext = ALLOWED_CT[ct]
     name = f"{user_id}-{int(time.time())}{ext}"
     obj = f"avatars/{name}"
     prefix = f"avatars/{user_id}-"
@@ -134,6 +132,22 @@ def put_avatar(user_id: int, content: bytes, content_type: str | None) -> Option
     except Exception:
         log.exception("avatar.put.unexpected", user_id=user_id)
         raise
+
+
+def delete_avatars(user_id: int) -> int:
+    minio = get_minio_private()
+    ensure_bucket(minio)
+    prefix = f"avatars/{user_id}-"
+    to_delete = [DeleteObject(o.object_name) for o in minio.list_objects(_bucket, prefix=prefix, recursive=True)]
+    if not to_delete:
+        return 0
+
+    errs = []
+    for err in minio.remove_objects(_bucket, to_delete):
+        errs.append({"object": getattr(err, "name", None), "code": getattr(err, "code", None)})
+    if errs:
+        log.warning("avatar.remove.errors", user_id=user_id, errors=errs)
+    return len(to_delete)
 
 
 def presign_key(key: str, *, expires_hours: int = 1) -> tuple[str, int]:

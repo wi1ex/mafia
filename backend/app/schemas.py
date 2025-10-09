@@ -106,3 +106,11 @@ class RoomInfoMemberOut(BaseModel):
 
 class RoomInfoOut(BaseModel):
     members: List[RoomInfoMemberOut] = Field(default_factory=list)
+
+
+class UsernameUpdateIn(BaseModel):
+    username: str = Field(min_length=3, max_length=32)
+
+
+class AvatarUploadOut(BaseModel):
+    avatar_name: Optional[str] = None

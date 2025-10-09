@@ -10,8 +10,10 @@
     </div>
 
     <div v-else class="user">
-      <img v-minio-img="{ key: user.user?.avatar_name ? `avatars/${user.user.avatar_name}` : '', placeholder: defaultAvatar }" alt="Аватар" class="avatar" />
-      <span class="nick" aria-live="polite">{{ user.user?.username || 'User' }}</span>
+      <router-link to="/profile" class="profile-link" aria-label="Профиль">
+        <img v-minio-img="{ key: user.user?.avatar_name ? `avatars/${user.user.avatar_name}` : '', placeholder: defaultAvatar }" alt="Аватар" class="avatar" />
+        <span class="nick" aria-live="polite">{{ user.user?.username || 'User' }}</span>
+      </router-link>
       <button class="btn" type="button" @click="logout">Выйти</button>
     </div>
   </header>
@@ -27,7 +29,7 @@ const auth = useAuthStore()
 const user  = useUserStore()
 
 const BOT = import.meta.env.VITE_TG_BOT_NAME as string | undefined
-const SIZE: 'large'|'medium'|'small' = 'large'
+const SIZE: 'large' | 'medium' | 'small' = 'large'
 
 declare global { interface Window { __tg_cb__?: (u:any) => void } }
 
@@ -90,14 +92,20 @@ onBeforeUnmount(() => {
     display: flex;
     align-items: center;
     gap: 10px;
-    .avatar {
-      width: 32px;
-      height: 32px;
-      border-radius: 50%;
-      object-fit: cover;
-    }
-    .nick {
-      color: $fg;
+    .profile-link {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      .avatar {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        object-fit: cover;
+      }
+      .nick {
+        color: $fg;
+      }
     }
     .btn {
       padding: 6px 10px;

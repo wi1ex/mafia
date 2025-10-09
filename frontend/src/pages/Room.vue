@@ -1,5 +1,24 @@
 <template>
   <section class="card">
+    <div class="panel">
+      <div class="controls">
+        <button class="ctrl" @click="toggleMic" :disabled="pending.mic || blockedSelf.mic">{{ micOn ? 'Микрофон ВКЛ' : 'Микрофон ВЫКЛ' }}</button>
+        <button class="ctrl" @click="toggleCam" :disabled="pending.cam || blockedSelf.cam">{{ camOn ? 'Камера ВКЛ' : 'Камера ВЫКЛ' }}</button>
+        <button class="ctrl" @click="toggleSpeakers" :disabled="pending.speakers || blockedSelf.speakers">{{ speakersOn ? 'Звук ВКЛ' : 'Звук ВЫКЛ' }}</button>
+        <button class="ctrl" @click="toggleVisibility" :disabled="pending.visibility || blockedSelf.visibility">{{ visibilityOn ? 'Видео ВКЛ' : 'Видео ВЫКЛ' }}</button>
+        <button class="ctrl" @click="toggleQuality" :disabled="pendingQuality">{{ videoQuality === 'hd' ? 'HD' : 'SD' }}</button>
+        <button class="ctrl danger" @click="onLeave">Покинуть комнату</button>
+      </div>
+
+      <div class="devices">
+        <select v-model="selectedMicId" @change="rtc.onDeviceChange('audioinput')" :disabled="!micOn || blockedSelf.mic || mics.length === 0">
+          <option v-for="d in mics" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Микрофон' }}</option>
+        </select>
+        <select v-model="selectedCamId" @change="rtc.onDeviceChange('videoinput')" :disabled="!camOn || blockedSelf.cam || cams.length === 0">
+          <option v-for="d in cams" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Камера' }}</option>
+        </select>
+      </div>
+    </div>
     <div class="grid" :style="gridStyle">
       <div v-for="id in sortedPeerIds" :key="id" class="tile" :class="{ speaking: rtc.isSpeaking(id) }">
         <video :ref="rtc.videoRef(id)" playsinline autoplay :muted="id === localId" v-show="isOn(id,'cam') && !isBlocked(id,'cam')" />
@@ -34,29 +53,10 @@
       </div>
     </div>
 
-    <div class="controls">
-      <button class="ctrl" @click="toggleMic" :disabled="pending.mic || blockedSelf.mic">{{ micOn ? 'Микрофон ВКЛ' : 'Микрофон ВЫКЛ' }}</button>
-      <button class="ctrl" @click="toggleCam" :disabled="pending.cam || blockedSelf.cam">{{ camOn ? 'Камера ВКЛ' : 'Камера ВЫКЛ' }}</button>
-      <button class="ctrl" @click="toggleSpeakers" :disabled="pending.speakers || blockedSelf.speakers">{{ speakersOn ? 'Звук ВКЛ' : 'Звук ВЫКЛ' }}</button>
-      <button class="ctrl" @click="toggleVisibility" :disabled="pending.visibility || blockedSelf.visibility">{{ visibilityOn ? 'Видео ВКЛ' : 'Видео ВЫКЛ' }}</button>
-      <button class="ctrl" @click="toggleQuality" :disabled="pendingQuality">{{ videoQuality === 'hd' ? 'HD' : 'SD' }}</button>
-      <button class="ctrl danger" @click="onLeave">Покинуть комнату</button>
-    </div>
-
     <div v-if="showPermProbe" class="perm-probe">
       <button class="ctrl" @click="rtc.probePermissions({ audio: true, video: true })">
         Разрешить доступ к камере и микрофону
       </button>
-    </div>
-
-    <div class="devices">
-      <select v-model="selectedMicId" @change="rtc.onDeviceChange('audioinput')" :disabled="!micOn || blockedSelf.mic || mics.length === 0">
-        <option v-for="d in mics" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Микрофон' }}</option>
-      </select>
-
-      <select v-model="selectedCamId" @change="rtc.onDeviceChange('videoinput')" :disabled="!camOn || blockedSelf.cam || cams.length === 0">
-        <option v-for="d in cams" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Камера' }}</option>
-      </select>
     </div>
   </section>
 </template>
@@ -556,12 +556,54 @@ onBeforeUnmount(() => { void onLeave() })
 
 <style lang="scss" scoped>
 .card {
+  display: flex;
+  .panel {
+    display: flex;
+    flex-direction: column;
+    .controls {
+      margin: 12px;
+      display: flex;
+      flex-direction: column;
+      width: 74px;
+      gap: 12px;
+      .ctrl {
+        padding: 8px 12px;
+        border-radius: 8px;
+        border: 1px solid $fg;
+        cursor: pointer;
+        background: $bg;
+        color: $fg;
+        &:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+        &.danger {
+          background: $color-danger;
+          color: $fg;
+        }
+      }
+    }
+    .devices {
+      margin: 12px;
+      display: flex;
+      flex-direction: column;
+      width: 74px;
+      gap: 12px;
+      select {
+        padding: 6px 8px;
+        border-radius: 8px;
+        border: 1px solid $fg;
+        background: $bg;
+        color: $fg;
+      }
+    }
+  }
   .grid {
     display: grid;
     gap: 12px;
     margin: 12px;
-    width: calc(100vw - 24px);
-    height: calc(100vh - 120px);
+    width: calc(100vw - 98px);
+    height: 100vh;
   }
   .tile {
     min-height: 0;
@@ -681,44 +723,11 @@ onBeforeUnmount(() => { void onLeave() })
       }
     }
   }
-  .controls {
-    margin: 12px;
-    display: flex;
-    gap: 12px;
-    .ctrl {
-      padding: 8px 12px;
-      border-radius: 8px;
-      border: 1px solid $fg;
-      cursor: pointer;
-      background: $bg;
-      color: $fg;
-      &:disabled {
-        opacity: 0.6;
-        cursor: not-allowed;
-      }
-      &.danger {
-        background: $color-danger;
-        color: $fg;
-      }
-    }
-  }
   .perm-probe {
     margin: 0 12px 12px;
     display: flex;
     align-items: center;
     gap: 12px;
-  }
-  .devices {
-    margin: 12px;
-    display: flex;
-    gap: 12px;
-    select {
-      padding: 6px 8px;
-      border-radius: 8px;
-      border: 1px solid $fg;
-      background: $bg;
-      color: $fg;
-    }
   }
 }
 </style>
