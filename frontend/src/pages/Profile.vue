@@ -103,8 +103,20 @@ const crop = reactive<Crop>({ show: false, scale: 1, min: 0.5, max: 3, x: 0, y: 
 const canvasEl = ref<HTMLCanvasElement | null>(null)
 const busyAva = ref(false)
 
-function fitCover(imgW: number, imgH: number, box: number) {
-  return Math.max(box / imgW, box / imgH)
+function fitContain(imgW: number, imgH: number, boxW: number, boxH: number) {
+  return Math.min(boxW / imgW, boxH / imgH)
+}
+function scaleTo(next: number) {
+  if (!crop.img || !canvasEl.value) return
+  const c = canvasEl.value!
+  const Cx = c.width / 2, Cy = c.height / 2
+  const u = (Cx - crop.x) / crop.scale
+  const v = (Cy - crop.y) / crop.scale
+  crop.scale = next
+  crop.x = Cx - u * next
+  crop.y = Cy - v * next
+  clampPosition()
+  redraw()
 }
 
 async function onPick(e: Event) {
@@ -136,10 +148,10 @@ async function onPick(e: Event) {
     canvas.height = S * dpr
     canvas.style.width = S + 'px'
     canvas.style.height = S + 'px'
-    const s = fitCover(img.width, img.height, canvas.width)
+    const s = fitContain(img.width, img.height, canvas.width, canvas.height)
+    crop.min = s
+    crop.max = s * 3
     crop.scale = s
-    crop.min = Math.max(0.2, Math.min(1, s * 0.4))
-    crop.max = Math.max(s * 4, s + 1)
     crop.x = (canvas.width - img.width * s) / 2
     crop.y = (canvas.height - img.height * s) / 2
     clampPosition()
@@ -165,8 +177,8 @@ function redraw() {
   ctx.drawImage(img, crop.x, crop.y, img.width * crop.scale, img.height * crop.scale)
 }
 function onRange() {
-  clampPosition()
-  redraw()
+  const next = Math.min(crop.max, Math.max(crop.min, crop.scale))
+  scaleTo(next)
 }
 function clampPosition() {
   const c = canvasEl.value!, img = crop.img!
@@ -190,22 +202,10 @@ function dragStop() {
   crop.dragging = false
 }
 function onWheel(ev: WheelEvent) {
-  const prev = crop.scale
   const dir = ev.deltaY > 0 ? -1 : 1
-  const next = Math.min(crop.max, Math.max(crop.min, prev * (1 + dir * 0.1)))
-  if (next === prev) return
-  const c = canvasEl.value!
-  const rect = c.getBoundingClientRect()
-  const cx = (ev.clientX - rect.left) * Math.max(1, window.devicePixelRatio || 1)
-  const cy = (ev.clientY - rect.top)  * Math.max(1, window.devicePixelRatio || 1)
-  const dx = cx - crop.x
-  const dy = cy - crop.y
-  const k = next / prev
-  crop.x = cx - dx * k
-  crop.y = cy - dy * k
-  crop.scale = next
-  clampPosition()
-  redraw()
+  const next = Math.min(crop.max, Math.max(crop.min, crop.scale * (1 + dir * 0.04)))
+  if (next === crop.scale) return
+  scaleTo(next)
 }
 
 function cancelCrop() {
