@@ -1,8 +1,8 @@
 from __future__ import annotations
 import re
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
+from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from ...db import get_session
 from ...models.user import User
 from ...schemas import UserOut, Identity, UsernameUpdateIn, AvatarUploadOut, Ok
@@ -37,7 +37,7 @@ async def update_username(payload: UsernameUpdateIn, ident: Identity = Depends(g
     uid = int(ident["id"])
     new = (payload.username or "").strip()
 
-    USERNAME_RE = re.compile(r"^[a-zA-Z0-9._-]{3,32}$")
+    USERNAME_RE = re.compile(r"^[a-zA-Zа-яА-Я0-9._-]{2,32}$")
     if not USERNAME_RE.match(new):
         raise HTTPException(status_code=422, detail="invalid_username_format")
 

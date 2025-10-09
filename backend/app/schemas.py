@@ -109,7 +109,7 @@ class RoomInfoOut(BaseModel):
 
 
 class UsernameUpdateIn(BaseModel):
-    username: str = Field(min_length=3, max_length=32)
+    username: str = Field(min_length=2, max_length=32)
 
 
 class AvatarUploadOut(BaseModel):
