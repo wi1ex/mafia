@@ -34,7 +34,7 @@
       <div v-if="crop.show" ref="modalEl" class="modal" @keydown.esc="cancelCrop" tabindex="0" role="dialog" aria-modal="true" aria-label="Кадрирование аватара" >
         <div class="modal-body">
           <canvas ref="canvasEl" @mousedown="dragStart" @mousemove="dragMove" @mouseup="dragStop" @mouseleave="dragStop" @wheel.passive="onWheel" />
-          <input class="range" type="range" :min="crop.min" :max="crop.max" step="0.04" :value="crop.scale" @input="onRange" />
+          <input class="range" type="range" aria-label="Масштаб" :min="crop.min" :max="crop.max" step="0.01" :value="crop.scale" @input="onRange" />
           <div class="modal-actions">
             <button class="btn" @click="cancelCrop">Отменить</button>
             <button class="btn primary" @click="applyCrop" :disabled="busyAva">Загрузить</button>
@@ -46,7 +46,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, reactive, ref } from 'vue'
+import { computed, nextTick, onMounted, onBeforeUnmount, reactive, ref } from 'vue'
 import { api } from '@/services/axios'
 import { useUserStore } from '@/store'
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
@@ -63,10 +63,10 @@ const validNick = computed(() => /^[a-zA-Zа-яА-Я0-9._-]{2,32}$/.test(nick.va
 async function loadMe() {
   const { data } = await api.get('/users/profile_info')
   me.id = data.id
-  me.username = data.username
+  me.username = data.username || ''
   me.avatar_name = data.avatar_name
   me.role = data.role
-  nick.value = me.username || ''
+  nick.value = me.username
   try { await userStore.fetchMe?.() } catch {}
 }
 
@@ -178,7 +178,7 @@ function redraw() {
   ctx.imageSmoothingQuality = 'high' as any
   ctx.drawImage(img, crop.x, crop.y, img.width * crop.scale, img.height * crop.scale)
 }
-function onRange() {
+function onRange(e: Event) {
   const next = clamp(Number((e.target as HTMLInputElement).value), crop.min, crop.max)
   scaleTo(next)
 }
@@ -262,7 +262,13 @@ async function onDeleteAvatar() {
   } catch { alert('Не удалось удалить аватар') } finally { busyAva.value = false }
 }
 
-onMounted(() => { loadMe().catch(()=>{}) })
+onMounted(() => {
+  loadMe().catch(() => {})
+})
+
+onBeforeUnmount(() => {
+  document.body.style.overflow = ''
+})
 </script>
 
 <style lang="scss" scoped>
