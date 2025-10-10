@@ -17,7 +17,7 @@
           <img class="avatar" v-minio-img="{ key: me.avatar_name ? `avatars/${me.avatar_name}` : '', placeholder: defaultAvatar }" alt="Текущий аватар" />
           <div class="actions">
             <input ref="fileEl" type="file" accept="image/jpeg,image/png" @change="onPick" hidden />
-            <button class="btn" @click="fileEl?.click()" :disabled="busyAva">Изменить</button>
+            <button class="btn primary" @click="fileEl?.click()" :disabled="busyAva">Загрузить файл</button>
             <button class="btn danger" v-if="me.avatar_name" @click="onDeleteAvatar" :disabled="busyAva">Удалить</button>
             <div class="hint">JPG/PNG, до 5 МБ</div>
           </div>
@@ -40,8 +40,8 @@
           <canvas ref="canvasEl" @mousedown="dragStart" @mousemove="dragMove" @mouseup="dragStop" @mouseleave="dragStop" @wheel.passive="onWheel" />
           <input class="range" type="range" aria-label="Масштаб" :min="crop.min" :max="crop.max" step="0.01" :value="crop.scale" @input="onRange" />
           <div class="modal-actions">
-            <button class="btn" @click="cancelCrop">Отменить</button>
-            <button class="btn primary" @click="applyCrop" :disabled="busyAva">Загрузить</button>
+            <button class="btn danger" @click="cancelCrop">Отменить</button>
+            <button class="btn" @click="applyCrop" :disabled="busyAva">Загрузить</button>
           </div>
         </div>
       </div>
@@ -149,7 +149,7 @@ async function onPick(e: Event) {
     document.body.style.overflow = 'hidden'
     const canvas = canvasEl.value!
     const dpr = Math.max(1, window.devicePixelRatio || 1)
-    const S = 360
+    const S = 240
     canvas.width = S * dpr
     canvas.height = S * dpr
     canvas.style.width = S + 'px'
@@ -302,20 +302,21 @@ onBeforeUnmount(() => {
     }
   }
   .hint {
+    margin-top: 4px;
     color: $muted;
     font-size: 12px;
   }
   .page-actions {
     display: flex;
-    justify-content: flex-end;
-    margin-bottom: 12px;
+    justify-content: flex-start;
+    margin-bottom: 24px;
     .btn {
       text-decoration: none;
     }
   }
   .tabs {
     display: flex;
-    gap: 8px;
+    gap: 12px;
     margin-bottom: 12px;
     .tab {
       padding: 8px 12px;
@@ -335,7 +336,7 @@ onBeforeUnmount(() => {
   }
   .grid {
     display: grid;
-    gap: 16px;
+    gap: 12px;
     grid-template-columns: 1fr 1fr;
   }
   .block {
@@ -348,7 +349,7 @@ onBeforeUnmount(() => {
     }
     .avatar-row {
       display: flex;
-      gap: 16px;
+      gap: 12px;
       align-items: center;
       .avatar {
         width: 120px;
@@ -359,14 +360,13 @@ onBeforeUnmount(() => {
       }
       .actions {
         display: flex;
-        flex-direction: column;
-        gap: 8px;
-        align-items: flex-start;
+        gap: 12px;
+        align-items: flex-end;
       }
     }
     .nick-row {
       display: flex;
-      gap: 8px;
+      gap: 12px;
       align-items: center;
       .input {
         padding: 8px 10px;
@@ -399,8 +399,8 @@ onBeforeUnmount(() => {
       canvas {
         background: $black;
         border-radius: 8px;
-        width: 360px;
-        height: 360px;
+        width: 240px;
+        height: 240px;
       }
       .range {
         width: 100%;
@@ -408,8 +408,8 @@ onBeforeUnmount(() => {
       }
       .modal-actions {
         display: flex;
-        gap: 8px;
-        justify-content: flex-end;
+        gap: 12px;
+        justify-content: space-between;
       }
     }
   }

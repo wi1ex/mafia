@@ -77,7 +77,7 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
     return RoomOut(**data)
 
 
-@log_route("rooms.info")
+@log_route("rooms.room_info")
 @router.get("/{room_id}/info", response_model=RoomInfoOut, response_model_exclude_none=True)
 async def room_info(room_id: int, session: AsyncSession = Depends(get_session)) -> RoomInfoOut:
     r = get_redis()

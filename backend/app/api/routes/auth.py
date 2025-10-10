@@ -17,7 +17,7 @@ router = APIRouter()
 
 @log_route("auth.telegram")
 @router.post("/telegram", response_model=AccessTokenOut)
-async def login_with_telegram(payload: TelegramAuthIn, resp: Response, db: AsyncSession = Depends(get_session)) -> AccessTokenOut:
+async def telegram(payload: TelegramAuthIn, resp: Response, db: AsyncSession = Depends(get_session)) -> AccessTokenOut:
     data_for_sig = payload.model_dump(exclude_none=True)
     if not verify_telegram_auth(data_for_sig):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid telegram auth")

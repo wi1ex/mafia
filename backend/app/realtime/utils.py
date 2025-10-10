@@ -451,7 +451,8 @@ async def join_room_atomic(r, rid: int, uid: int, role: str) -> tuple[int, int, 
         updates = [(int(a), int(b)) for a, b in zip(*[iter(res[4:4 + ups_len * 2])] * 2)]
         return occ, pos, already, updates
 
-    except Exception:
+    except Exception as e:
+        log.warning("join.lua_failed_fallback", rid=rid, uid=uid, err=type(e).__name__)
         return await _join_room_atomic_old(r, rid, uid, role)
 
 
@@ -476,7 +477,8 @@ async def leave_room_atomic(r, rid: int, uid: int) -> tuple[int, int, list[tuple
         updates = [(int(a), int(b)) for a, b in zip(*[iter(res[3:3 + ups_len * 2])] * 2)]
         return occ, gc_seq, updates
 
-    except Exception:
+    except Exception as e:
+        log.warning("leave.lua_failed_fallback", rid=rid, uid=uid, err=type(e).__name__)
         return await _leave_room_atomic_old(r, rid, uid)
 
 

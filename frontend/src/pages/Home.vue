@@ -336,6 +336,10 @@ onBeforeUnmount(() => {
     cursor: pointer;
     background: $color-primary;
     color: $bg;
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
   }
   .right {
     position: sticky;

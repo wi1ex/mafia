@@ -66,7 +66,7 @@ def main() -> None:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with out_path.open("w", encoding="utf-8", newline="\n") as out:
         for rel, content, line_count in entries:
-            out.write(f"{rel}:\n\n")
+            out.write(f"filename {rel}:\n")
             out.write(content)
             if not content.endswith("\n"):
                 out.write("\n")

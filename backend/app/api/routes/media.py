@@ -2,6 +2,7 @@ from __future__ import annotations
 import re
 import time
 from fastapi import APIRouter, HTTPException, Query, status
+from ...core.decorators import log_route
 from ...services.storage_minio import presign_key
 from ...core.clients import get_redis
 
@@ -12,8 +13,9 @@ ALLOWED_PREFIXES = ("avatars/",)
 KEY_RE = re.compile(r"^[a-zA-Z0-9._/-]{3,256}$")
 
 
+@log_route("media.presign")
 @router.get("/presign")
-async def presign(key: str = Query(..., description="например: avatars/123-1719050000.jpg")) -> dict:
+async def presign(key: str = Query(..., description="")) -> dict:
     if not key or not KEY_RE.match(key):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="bad_key")
 

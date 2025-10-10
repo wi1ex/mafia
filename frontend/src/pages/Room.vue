@@ -560,6 +560,7 @@ onBeforeUnmount(() => { void onLeave() })
   .panel {
     display: flex;
     flex-direction: column;
+    background-color: $black;
     .controls {
       margin: 12px;
       display: flex;
