@@ -288,10 +288,20 @@ export function useRTC(): UseRTC {
   const screenVideoRef = (id: string) => (el: HTMLVideoElement | null) => setScreenVideoRef(id, el)
 
   async function startScreenShare(opts?: { audio?: boolean }) {
+    const room = lk.value
+    if (!room) return false
+    const wantAudio = opts?.audio ?? true
     try {
-      await lk.value?.localParticipant.setScreenShareEnabled(true, { audio: opts?.audio ?? true })
+      await room.localParticipant.setScreenShareEnabled(true, { audio: wantAudio as any })
       return true
-    } catch { return false }
+    } catch (_e) {
+      try {
+        await room.localParticipant.setScreenShareEnabled(true, { audio: false } as any)
+        return true
+      } catch {
+        return false
+      }
+    }
   }
   async function stopScreenShare() {
     try { await lk.value?.localParticipant.setScreenShareEnabled(false) } catch {}
