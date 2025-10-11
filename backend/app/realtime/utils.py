@@ -14,7 +14,8 @@ from ..db import engine
 from ..models.room import Room
 
 __all__ = [
-    "KEYS",
+    "KEYS_STATE",
+    "KEYS_BLOCK",
     "validate_auth",
     "apply_state",
     "get_room_snapshot",
@@ -24,13 +25,16 @@ __all__ = [
     "leave_room_atomic",
     "gc_empty_room",
     "update_blocks",
+    "claim_screen",
+    "release_screen",
 ]
 
 log = structlog.get_logger()
 
 _sessionmaker = async_sessionmaker(bind=engine, expire_on_commit=False)
 
-KEYS: tuple[str, ...] = ("mic", "cam", "speakers", "visibility")
+KEYS_STATE: tuple[str, ...] = ("mic", "cam", "speakers", "visibility")
+KEYS_BLOCK: tuple[str, ...] = (*KEYS_STATE, "screen")
 
 JOIN_LUA = r'''
 -- KEYS: params, members, positions, info, empty_since
@@ -329,18 +333,18 @@ async def validate_auth(auth: Any) -> Tuple[int, str] | None:
 
 
 async def apply_state(r, rid: int, uid: int, data: Mapping[str, Any]) -> Dict[str, str]:
-    incoming = {k: _norm01(data[k]) for k in KEYS if k in data}
+    incoming = {k: _norm01(data[k]) for k in KEYS_STATE if k in data}
     if not incoming:
         return {}
 
-    block_vals = await r.hmget(f"room:{rid}:user:{uid}:block", *KEYS)
-    blocked = {k: (v == "1") for k, v in zip(KEYS, block_vals)}
+    block_vals = await r.hmget(f"room:{rid}:user:{uid}:block", *KEYS_BLOCK)
+    blocked = {k: (v == "1") for k, v in zip(KEYS_BLOCK, block_vals)}
     incoming = {k: v for k, v in incoming.items() if not (blocked.get(k, False) and v == "1")}
     if not incoming:
         return {}
 
-    cur_vals = await r.hmget(f"room:{rid}:user:{uid}:state", *KEYS)
-    cur = {k: (v if v is not None else "") for k, v in zip(KEYS, cur_vals)}
+    cur_vals = await r.hmget(f"room:{rid}:user:{uid}:state", *KEYS_STATE)
+    cur = {k: (v if v is not None else "") for k, v in zip(KEYS_STATE, cur_vals)}
     changed = {k: v for k, v in incoming.items() if cur.get(k) != v}
     if not changed:
         return {}
@@ -372,7 +376,7 @@ async def get_blocks_snapshot(r, rid: int) -> Dict[str, Dict[str, str]]:
         res = await p.execute()
     out: Dict[str, Dict[str, str]] = {}
     for uid, row in zip(ids, res):
-        out[str(uid)] = {k: ("1" if v == "1" else "0") for k, v in (row or {}).items() if k in KEYS}
+        out[str(uid)] = {k: ("1" if v == "1" else "0") for k, v in (row or {}).items() if k in KEYS_BLOCK}
     return out
 
 
@@ -407,19 +411,19 @@ async def update_blocks(r, rid: int, actor_uid: int, actor_role: str, target_uid
     if actor_role == "host" and target_role == "admin":
         return {}, {"__error__": "forbidden"}
 
-    incoming = {k: _norm01(changes_bool[k]) for k in KEYS if k in changes_bool}
+    incoming = {k: _norm01(changes_bool[k]) for k in KEYS_BLOCK if k in changes_bool}
     if not incoming:
         return {}, {}
 
-    cur_vals = await r.hmget(f"room:{rid}:user:{target_uid}:block", *KEYS)
-    cur = {k: (v if v is not None else "0") for k, v in zip(KEYS, cur_vals)}
+    cur_vals = await r.hmget(f"room:{rid}:user:{target_uid}:block", *KEYS_BLOCK)
+    cur = {k: (v if v is not None else "0") for k, v in zip(KEYS_BLOCK, cur_vals)}
     to_apply = {k: v for k, v in incoming.items() if cur.get(k) != v}
     if not to_apply:
         return {}, {}
 
     await r.hset(f"room:{rid}:user:{target_uid}:block", mapping=to_apply)
     forced_off: Dict[str, str] = {}
-    turn_off_keys = [k for k, v in to_apply.items() if v == "1"]
+    turn_off_keys = [k for k, v in to_apply.items() if v == "1" and k in KEYS_STATE]
     if turn_off_keys:
         st_vals = await r.hmget(f"room:{rid}:user:{target_uid}:state", *turn_off_keys)
         for k, v in zip(turn_off_keys, st_vals):
@@ -428,6 +432,28 @@ async def update_blocks(r, rid: int, actor_uid: int, actor_role: str, target_uid
         if forced_off:
             await r.hset(f"room:{rid}:user:{target_uid}:state", mapping=forced_off)
     return to_apply, forced_off
+
+
+async def claim_screen(r, rid: int, uid: int) -> tuple[bool, int]:
+    cur = await r.get(f"room:{rid}:screen_owner")
+    if cur and int(cur) != uid:
+        return False, int(cur)
+
+    ok = await r.set(f"room:{rid}:screen_owner", str(uid), nx=True)
+    if ok:
+        return True, uid
+
+    cur2 = await r.get(f"room:{rid}:screen_owner")
+    return (int(cur2 or 0) == uid), (int(cur2) if cur2 else 0)
+
+
+async def release_screen(r, rid: int, uid: int) -> bool:
+    cur = await r.get(f"room:{rid}:screen_owner")
+    if cur and int(cur) == uid:
+        await r.delete(f"room:{rid}:screen_owner")
+        return True
+
+    return False
 
 
 async def join_room_atomic(r, rid: int, uid: int, role: str) -> tuple[int, int, bool, list[tuple[int, int]]]:

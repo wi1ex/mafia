@@ -6,7 +6,8 @@
         <button class="ctrl" @click="toggleCam" :disabled="pending.cam || blockedSelf.cam">{{ camOn ? 'Камера ВКЛ' : 'Камера ВЫКЛ' }}</button>
         <button class="ctrl" @click="toggleSpeakers" :disabled="pending.speakers || blockedSelf.speakers">{{ speakersOn ? 'Звук ВКЛ' : 'Звук ВЫКЛ' }}</button>
         <button class="ctrl" @click="toggleVisibility" :disabled="pending.visibility || blockedSelf.visibility">{{ visibilityOn ? 'Видео ВКЛ' : 'Видео ВЫКЛ' }}</button>
-        <button class="ctrl" @click="toggleQuality" :disabled="pendingQuality">{{ videoQuality === 'hd' ? 'HD' : 'SD' }}</button>
+        <button class="ctrl" @click="toggleScreen" :disabled="pendingScreen || (!!screenOwnerId && screenOwnerId !== localId) || blockedSelf.screen">{{ isMyScreen ? 'Стрим ВЫКЛ' : 'Стрим ВКЛ' }}</button>
+        <button class="ctrl" @click="toggleQuality" :disabled="pendingQuality">{{ videoQuality === 'hd' ? 'Качество HD' : 'Качество SD' }}</button>
         <button class="ctrl danger" @click="onLeave">Покинуть комнату</button>
       </div>
 
@@ -19,7 +20,8 @@
         </select>
       </div>
     </div>
-    <div class="grid" :style="gridStyle">
+
+    <div v-if="!isTheater" class="grid" :style="gridStyle">
       <div v-for="id in sortedPeerIds" :key="id" class="tile" :class="{ speaking: rtc.isSpeaking(id) }">
         <video :ref="rtc.videoRef(id)" playsinline autoplay :muted="id === localId" v-show="isOn(id,'cam') && !isBlocked(id,'cam')" />
 
@@ -28,9 +30,7 @@
         </div>
 
         <div class="vol-wrap" v-if="id !== localId">
-          <button v-if="openVolumeFor !== id" class="vol-btn" @click.stop="toggleVolPopover(id)" :aria-expanded="openVolumeFor===id">
-            🔊
-          </button>
+          <button v-if="openVolumeFor !== id" class="vol-btn" @click.stop="toggleVolPopover(id)" :aria-expanded="openVolumeFor===id">🔊</button>
           <div class="vol-pop" :class="{ show: openVolumeFor === id }" @click.stop>
             <input class="vol-range" type="range" min="0" max="200" :disabled="!speakersOn || isBlocked(id,'speakers')" v-model.number="volUi[id]" @input="onVol(id, volUi[id])" />
             <span class="vol-val">{{ volUi[id] ?? 100 }}%</span>
@@ -42,6 +42,7 @@
           <span class="badge">{{ emTri('cam', id) }}</span>
           <span class="badge">{{ emTri('speakers', id) }}</span>
           <span class="badge">{{ emTri('visibility', id) }}</span>
+          <span class="badge">{{ emTri('screen', id) }}</span>
         </div>
 
         <div v-if="canModerate(id)" class="mod-controls" role="group" aria-label="Блокировки">
@@ -49,6 +50,54 @@
           <button class="mod" :class="{ on: isBlocked(id,'cam') }" @click="toggleBlock(id,'cam')">🎥⛔</button>
           <button class="mod" :class="{ on: isBlocked(id,'speakers') }" @click="toggleBlock(id,'speakers')">🔈⛔</button>
           <button class="mod" :class="{ on: isBlocked(id,'visibility') }" @click="toggleBlock(id,'visibility')">👁️⛔</button>
+          <button class="mod" :class="{ on: isBlocked(id,'screen') }" @click="toggleBlock(id,'screen')">🖥️⛔</button>
+        </div>
+      </div>
+    </div>
+
+    <div v-else class="theater">
+      <div class="stage">
+        <video :ref="rtc.screenVideoRef(screenOwnerId)" playsinline autoplay />
+        <div class="vol-wrap" v-if="streamAudioKey">
+          <button v-if="openVolumeFor !== streamAudioKey" class="vol-btn" @click.stop="toggleVolPopover(streamAudioKey)">🔊</button>
+          <div class="vol-pop" :class="{ show: openVolumeFor === streamAudioKey }" @click.stop>
+            <input class="vol-range" type="range" min="0" max="200" :disabled="!speakersOn" v-model.number="volUi[streamAudioKey]" @input="onVol(streamAudioKey, volUi[streamAudioKey])" />
+            <span class="vol-val">{{ volUi[streamAudioKey] ?? 100 }}%</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="sidebar">
+        <div v-for="id in sortedPeerIds" :key="id" class="tile side" :class="{ speaking: rtc.isSpeaking(id) }">
+          <video :ref="rtc.videoRef(id)" playsinline autoplay :muted="id === localId" v-show="isOn(id,'cam') && !isBlocked(id,'cam')" />
+
+          <div v-show="!isOn(id,'cam') || isBlocked(id,'cam')" class="ava-wrap">
+            <img v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar }" alt="" class="ava-circle" />
+          </div>
+
+          <div class="vol-wrap" v-if="id !== localId">
+            <button v-if="openVolumeFor !== id" class="vol-btn" @click.stop="toggleVolPopover(id)" :aria-expanded="openVolumeFor===id">🔊</button>
+            <div class="vol-pop" :class="{ show: openVolumeFor === id }" @click.stop>
+              <input class="vol-range" type="range" min="0" max="200" :disabled="!speakersOn || isBlocked(id,'speakers')" v-model.number="volUi[id]" @input="onVol(id, volUi[id])" />
+              <span class="vol-val">{{ volUi[id] ?? 100 }}%</span>
+            </div>
+          </div>
+
+          <div class="badges">
+            <span class="badge">{{ emTri('mic', id) }}</span>
+            <span class="badge">{{ emTri('cam', id) }}</span>
+            <span class="badge">{{ emTri('speakers', id) }}</span>
+            <span class="badge">{{ emTri('visibility', id) }}</span>
+            <span class="badge">{{ emTri('screen', id) }}</span>
+          </div>
+
+          <div v-if="canModerate(id)" class="mod-controls" role="group" aria-label="Блокировки">
+            <button class="mod" :class="{ on: isBlocked(id,'mic') }" @click="toggleBlock(id,'mic')">🎤⛔</button>
+            <button class="mod" :class="{ on: isBlocked(id,'cam') }" @click="toggleBlock(id,'cam')">🎥⛔</button>
+            <button class="mod" :class="{ on: isBlocked(id,'speakers') }" @click="toggleBlock(id,'speakers')">🔈⛔</button>
+            <button class="mod" :class="{ on: isBlocked(id,'visibility') }" @click="toggleBlock(id,'visibility')">👁️⛔</button>
+            <button class="mod" :class="{ on: isBlocked(id,'screen') }" @click="toggleBlock(id,'screen')">🖥️⛔</button>
+          </div>
         </div>
       </div>
     </div>
@@ -63,6 +112,7 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import type { Ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Socket } from 'socket.io-client'
 import { useAuthStore } from '@/store'
@@ -72,13 +122,10 @@ import { api } from '@/services/axios'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
 
-type State01 = 0 | 1
-type UserState = {
-  mic: State01
-  cam: State01
-  speakers: State01
-  visibility: State01
-}
+type State01     = 0 | 1
+type StatusState = { mic: State01; cam: State01; speakers: State01; visibility: State01 }
+type BlockState  = StatusState & { screen: State01 }
+type IconKind    = keyof StatusState | 'screen'
 
 const route = useRoute()
 const router = useRouter()
@@ -97,10 +144,15 @@ const visibilityOn = computed({ get: () => local.visibility, set: v => { local.v
 const socket = ref<Socket | null>(null)
 const joinInFlight = ref<Promise<any> | null>(null)
 const joinedRoomId = ref<number | null>(null)
-const statusByUser  = reactive(new Map<string, UserState>())
-const positionByUser= reactive(new Map<string, number>())
-const blockByUser   = reactive(new Map<string, UserState>())
-const rolesByUser   = reactive(new Map<string, string>())
+const statusByUser = reactive(new Map<string, StatusState>())
+const positionByUser = reactive(new Map<string, number>())
+const blockByUser  = reactive(new Map<string, BlockState>())
+const rolesByUser = reactive(new Map<string, string>())
+const screenOwnerId = ref<string>('')
+const pendingScreen = ref(false)
+const isTheater = computed(() => !!screenOwnerId.value)
+const isMyScreen = computed(() => screenOwnerId.value === localId.value)
+const streamAudioKey = computed(() => screenOwnerId.value ? `${screenOwnerId.value}#s` : '')
 const leaving = ref(false)
 const ws_url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host
 const pendingQuality = ref(false)
@@ -131,9 +183,9 @@ async function fetchAvatars() {
   } catch {}
 }
 
-const BADGE_ON = { mic:'🎤', cam:'🎥', speakers:'🔈', visibility:'👁️' } as const
-const BADGE_OFF = { mic:'🔇', cam:'🚫', speakers:'🔇', visibility:'🙈' } as const
-const BADGE_BLK = { mic:'⛔', cam:'⛔', speakers:'⛔', visibility:'⛔' } as const
+const BADGE_ON = { mic:'🎤', cam:'🎥', speakers:'🔈', visibility:'👁️', screen:'🖥️' } as const
+const BADGE_OFF = { mic:'🔇', cam:'🚫', speakers:'🔇', visibility:'🙈', screen:'📺' } as const
+const BADGE_BLK = { mic:'⛔', cam:'⛔', speakers:'⛔', visibility:'⛔', screen:'⛔' } as const
 
 const showPermProbe = computed(() => !rtc.permProbed.value && !micOn.value && !camOn.value)
 const sortedPeerIds = computed(() => {
@@ -179,7 +231,8 @@ function onDocClick() {
 
 function rol(id: string): string { return rolesByUser.get(id) || 'user' }
 const myRole = computed(() => rol(localId.value))
-function isOn(id: string, kind: keyof UserState) {
+function isOn(id: string, kind: IconKind) {
+  if (kind === 'screen') return id === screenOwnerId.value
   if (id === localId.value) {
     if (kind === 'mic') return micOn.value
     if (kind === 'cam') return camOn.value
@@ -189,22 +242,22 @@ function isOn(id: string, kind: keyof UserState) {
   const st = statusByUser.get(id)
   return st ? st[kind] === 1 : true
 }
-function isBlocked(id: string, kind: keyof UserState) {
+function isBlocked(id: string, kind: IconKind) {
   const st = blockByUser.get(id)
   return st ? st[kind] === 1 : false
 }
-function emTri(kind: keyof typeof BADGE_ON, id: string) {
+function emTri(kind: IconKind, id: string) {
   if (isBlocked(id, kind)) return BADGE_BLK[kind]
   return isOn(id, kind) ? BADGE_ON[kind] : BADGE_OFF[kind]
 }
-
-const blockedSelf = computed<UserState>(() => {
+const blockedSelf = computed<BlockState>(() => {
   const s = blockByUser.get(localId.value)
   return {
-    mic: (s?.mic ?? 0) as State01,
-    cam: (s?.cam ?? 0) as State01,
-    speakers: (s?.speakers ?? 0) as State01,
-    visibility: (s?.visibility ?? 0) as State01,
+    mic: s?.mic ?? 0,
+    cam: s?.cam ?? 0,
+    speakers: s?.speakers ?? 0,
+    visibility: s?.visibility ?? 0,
+    screen: s?.screen ?? 0,
   }
 })
 
@@ -225,7 +278,7 @@ function toggleQuality() {
   } finally { pendingQuality.value = false }
 }
 
-async function toggleBlock(targetId: string, key: keyof UserState) {
+async function toggleBlock(targetId: string, key: keyof BlockState) {
   const want = !isBlocked(targetId, key)
   try {
     const resp:any = await socket.value!.timeout(5000).emitWithAck('moderate', {user_id: Number(targetId), blocks: { [key]: want } })
@@ -243,12 +296,13 @@ function applyPeerState(uid: string, patch: any) {
   })
 }
 function applyBlocks(uid: string, patch: any) {
-  const cur = blockByUser.get(uid) ?? { mic: 0, cam: 0, speakers: 0, visibility: 0 }
+  const cur = blockByUser.get(uid) ?? { mic: 0, cam: 0, speakers: 0, visibility: 0, screen: 0 }
   blockByUser.set(uid, {
     mic:        pick01(patch?.mic, cur.mic),
     cam:        pick01(patch?.cam, cur.cam),
     speakers:   pick01(patch?.speakers, cur.speakers),
     visibility: pick01(patch?.visibility, cur.visibility),
+    screen:     pick01(patch?.screen, cur.screen),
   })
 }
 function applySelfPref(pref: any) {
@@ -344,7 +398,15 @@ function connectSocket() {
         local.visibility = false
         rtc.setVideoSubscriptionsForAll(false)
       }
+      if ('screen' in blocks && norm01(blocks.screen, 0) === 1) {
+        if (screenOwnerId.value === localId.value) { try { await rtc.stopScreenShare() } catch {} }
+        screenOwnerId.value = ''
+      }
     }
+  })
+
+  socket.value.on('screen_owner', (p: any) => {
+    screenOwnerId.value = p?.user_id ? String(p.user_id) : ''
   })
 }
 
@@ -393,6 +455,7 @@ function applyJoinAck(j: any) {
       cam:        pick01(bl.cam, 0),
       speakers:   pick01(bl.speakers, 0),
       visibility: pick01(bl.visibility, 0),
+      screen:     pick01(bl.screen, 0),
     })
   }
 
@@ -406,6 +469,8 @@ function applyJoinAck(j: any) {
   }
 
   if (j.self_pref) applySelfPref(j.self_pref)
+
+  screenOwnerId.value = j.screen_owner ? String(j.screen_owner) : ''
 }
 
 const pendingDeltas: any[] = []
@@ -470,6 +535,46 @@ const toggleVisibility = toggleFactory('visibility',
   async () => rtc.setVideoSubscriptionsForAll(false)
 )
 
+function toggleWithHandshake(pendingRef: Ref<boolean>, isOn: () => boolean, steps: { reserve(): Promise<any>; enable(): Promise<boolean>; release(): Promise<any>; disable(): Promise<void> }) {
+  return async () => {
+    if (pendingRef.value) return
+    pendingRef.value = true
+    try {
+      if (!isOn()) {
+        const resp = await steps.reserve()
+        if (!resp?.ok) {
+          if (resp?.status === 409 && resp?.owner) {
+            screenOwnerId.value = String(resp.owner)
+          } else if (resp?.status === 403 && resp?.error === 'blocked') {
+            alert('Стрим запрещён администратором')
+          } else {
+            alert('Не удалось начать трансляцию')
+          }
+          return
+        }
+        const ok = await steps.enable()
+        if (!ok) {
+          try { await steps.release() } catch {}
+          alert('Браузер отклонил доступ к экрану')
+          return
+        }
+      } else {
+        await steps.disable()
+        try { await steps.release() } catch {}
+      }
+    } finally {
+      pendingRef.value = false
+    }
+  }
+}
+
+const toggleScreen = toggleWithHandshake(pendingScreen, () => isMyScreen.value, {
+  reserve: () => socket.value!.timeout(5000).emitWithAck('screen', { on: true }),
+  enable:  () => rtc.startScreenShare({ audio: true }),
+  release: () => socket.value!.timeout(5000).emitWithAck('screen', { on: false }),
+  disable: () => rtc.stopScreenShare(),
+})
+
 async function onLeave() {
   if (leaving.value) return
   leaving.value = true
@@ -519,7 +624,13 @@ onMounted(async () => {
     scheduleFetchAvatars()
 
     rtc.initRoom({
-      onMediaDevicesError: async (_e) => {}
+      onMediaDevicesError: async (_e) => {},
+      onScreenShareEnded: async () => {
+        if (isMyScreen.value) {
+          screenOwnerId.value = ''
+          try { await socket.value!.timeout(5000).emitWithAck('screen', { on: false }) } catch {}
+        }
+      }
     })
 
     await rtc.connect(ws_url, j.token, { autoSubscribe: false })
@@ -596,6 +707,43 @@ onBeforeUnmount(() => { void onLeave() })
         border: 1px solid $fg;
         background: $bg;
         color: $fg;
+      }
+    }
+  }
+  .theater {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 12px;
+    margin: 12px;
+    width: calc(100vw - 98px);
+    height: 100vh;
+    .stage {
+      position: relative;
+      border-radius: 12px;
+      overflow: hidden;
+      background: $black;
+      video {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        background: $black;
+      }
+      .vol-wrap {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        z-index: 4;
+      }
+    }
+    .sidebar {
+      display: grid;
+      grid-auto-rows: minmax(120px, 1fr);
+      grid-template-columns: 1fr;
+      gap: 12px;
+      overflow-y: auto;
+      padding-right: 4px;
+      .tile.side {
+        min-height: 0;
       }
     }
   }

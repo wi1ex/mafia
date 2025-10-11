@@ -2,13 +2,14 @@ from __future__ import annotations
 import asyncio
 import structlog
 from ..sio import sio
-from ..utils import validate_auth
+from ..utils import validate_auth, claim_screen, release_screen
 from ...core.clients import get_redis
 from ...core.decorators import rate_limited_sio
-from ...schemas import StateAck, ModerateAck, JoinAck
+from ...schemas import StateAck, ModerateAck, JoinAck, ScreenAck
 from ...services.livekit_tokens import make_livekit_token
 from ..utils import (
-    KEYS,
+    KEYS_STATE,
+    KEYS_BLOCK,
     apply_state,
     gc_empty_room,
     get_room_snapshot,
@@ -56,13 +57,16 @@ async def join(sid, data) -> JoinAck:
             log.info("sio.join.room_full", rid=rid, uid=uid)
             return {"ok": False, "error": "room_is_full", "status": 409}
 
+        owner_id = await r.get(f"room:{rid}:screen_owner")
+        owner = int(owner_id) if owner_id else 0
+
         applied: dict[str, str] = {}
         snapshot = await get_room_snapshot(r, rid)
         blocked = await get_blocks_snapshot(r, rid)
         roles_map = await get_roles_snapshot(r, rid)
         incoming = (data.get("state") or {}) if isinstance(data, dict) else {}
         user_state: dict[str, str] = {k: str(v) for k, v in (snapshot.get(str(uid)) or {}).items()}
-        to_fill = {k: incoming[k] for k in KEYS if k in incoming and k not in user_state}
+        to_fill = {k: incoming[k] for k in KEYS_STATE if k in incoming and k not in user_state}
         if to_fill:
             applied = await apply_state(r, rid, uid, to_fill)
             if applied:
@@ -112,6 +116,7 @@ async def join(sid, data) -> JoinAck:
             "positions": positions,
             "blocked": blocked,
             "roles": roles_map,
+            "screen_owner": owner,
         }
 
     except Exception:
@@ -144,6 +149,62 @@ async def state(sid, data) -> StateAck:
         return {"ok": False}
 
 
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:screen:{uid or 'nouid'}:{rid or 0}", limit=5, window_s=1, session_ns="/room")
+@sio.event(namespace="/room")
+async def screen(sid, data) -> ScreenAck:
+    try:
+        sess = await sio.get_session(sid, namespace="/room")
+        actor_uid = int(sess["uid"])
+        rid = int(sess.get("rid") or 0)
+        if not rid:
+            return {"ok": False, "error": "no_room", "status": 400}
+
+        r = get_redis()
+        want_on = bool((data or {}).get("on"))
+        target = int((data or {}).get("target") or actor_uid)
+
+        if not await r.sismember(f"room:{rid}:members", str(target)):
+            return {"ok": False, "error": "not_in_room", "status": 403}
+
+        if target != actor_uid:
+            role_in_room = await r.hget(f"room:{rid}:user:{actor_uid}:info", "role")
+            actor_role = str(role_in_room or sess.get("role") or "user")
+            if actor_role not in ("admin", "host"):
+                return {"ok": False, "error": "forbidden", "status": 403}
+
+            trg_role = str(await r.hget(f"room:{rid}:user:{target}:info", "role") or "user")
+            if actor_role == "host" and trg_role == "admin":
+                return {"ok": False, "error": "forbidden", "status": 403}
+
+        if want_on and target == actor_uid:
+            bl = await r.hget(f"room:{rid}:user:{actor_uid}:block", "screen")
+            if (bl or "0") == "1":
+                return {"ok": False, "error": "blocked", "status": 403}
+
+        if want_on:
+            ok, owner = await claim_screen(r, rid, target)
+            if not ok and owner and owner != target:
+                return {"ok": False, "error": "busy", "status": 409, "owner": owner}
+
+            await sio.emit("screen_owner",
+                           {"user_id": target},
+                           room=f"room:{rid}",
+                           namespace="/room")
+            return {"ok": True, "on": True}
+
+        changed = await release_screen(r, rid, target)
+        if changed:
+            await sio.emit("screen_owner",
+                           {"user_id": None},
+                           room=f"room:{rid}",
+                           namespace="/room")
+        return {"ok": True, "on": False}
+
+    except Exception:
+        log.exception("sio.screen.error", sid=sid)
+        return {"ok": False, "error": "internal", "status": 500}
+
+
 @rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:moderate:{uid or 'nouid'}:{rid or 0}", limit=30, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
 async def moderate(sid, data) -> ModerateAck:
@@ -161,7 +222,7 @@ async def moderate(sid, data) -> ModerateAck:
             log.warning("sio.moderate.bad_request", actor_uid=actor_uid, rid=rid)
             return {"ok": False, "error": "bad_request", "status": 400}
 
-        norm = {k: blocks[k] for k in KEYS if k in blocks}
+        norm = {k: blocks[k] for k in KEYS_BLOCK if k in blocks}
         if not norm:
             log.info("sio.moderate.no_changes", actor_uid=actor_uid, rid=rid)
             return {"ok": False, "error": "no_changes", "status": 400}
@@ -181,11 +242,19 @@ async def moderate(sid, data) -> ModerateAck:
                            namespace="/room")
         if applied:
             row = await r.hgetall(f"room:{rid}:user:{target}:block")
-            full = {k: ("1" if (row or {}).get(k) == "1" else "0") for k in KEYS}
+            full = {k: ("1" if (row or {}).get(k) == "1" else "0") for k in KEYS_BLOCK}
             await sio.emit("moderation",
                            {"user_id": target, "blocks": full, "by": {"user_id": actor_uid, "role": actor_role}},
                            room=f"room:{rid}",
                            namespace="/room")
+            if applied.get("screen") == "1":
+                cur = await r.get(f"room:{rid}:screen_owner")
+                if cur and int(cur) == target:
+                    await r.delete(f"room:{rid}:screen_owner")
+                    await sio.emit("screen_owner",
+                                   {"user_id": None},
+                                   room=f"room:{rid}",
+                                   namespace="/room")
         return {"ok": True, "applied": applied, "forced_off": forced_off}
 
     except Exception:
@@ -206,6 +275,14 @@ async def disconnect(sid):
             return
 
         r = get_redis()
+        owner = await r.get(f"room:{rid}:screen_owner")
+        if owner and int(owner) == uid:
+            await r.delete(f"room:{rid}:screen_owner")
+            await sio.emit("screen_owner",
+                           {"user_id": None},
+                           room=f"room:{rid}",
+                           namespace="/room")
+
         occ, gc_seq, pos_updates = await leave_room_atomic(r, rid, uid)
 
         await sio.leave_room(sid, f"room:{rid}", namespace="/room")

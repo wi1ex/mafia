@@ -65,6 +65,7 @@ class JoinAck(TypedDict, total=False):
     positions: Dict[str, int]
     blocked: Dict[str, Dict[str, str]]
     roles: Dict[str, str]
+    screen_owner: int
 
 
 class ErrorOut(BaseModel):
@@ -96,6 +97,14 @@ class ModerateAck(TypedDict, total=False):
     error: str
     applied: Dict[str, str]
     forced_off: Dict[str, str]
+
+
+class ScreenAck(TypedDict, total=False):
+    ok: bool
+    on: bool
+    error: str
+    status: int
+    owner: int
 
 
 class RoomInfoMemberOut(BaseModel):
