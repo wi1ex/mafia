@@ -6,7 +6,7 @@
         <button class="ctrl" @click="toggleCam" :disabled="pending.cam || blockedSelf.cam">{{ camOn ? 'Камера ВКЛ' : 'Камера ВЫКЛ' }}</button>
         <button class="ctrl" @click="toggleSpeakers" :disabled="pending.speakers || blockedSelf.speakers">{{ speakersOn ? 'Звук ВКЛ' : 'Звук ВЫКЛ' }}</button>
         <button class="ctrl" @click="toggleVisibility" :disabled="pending.visibility || blockedSelf.visibility">{{ visibilityOn ? 'Видео ВКЛ' : 'Видео ВЫКЛ' }}</button>
-        <button class="ctrl" @click="toggleScreen" :disabled="pendingScreen || (!!screenOwnerId && screenOwnerId !== localId) || blockedSelf.screen">{{ isMyScreen ? 'Стрим ВЫКЛ' : 'Стрим ВКЛ' }}</button>
+        <button class="ctrl" @click="toggleScreen" :disabled="pendingScreen || (!!screenOwnerId && screenOwnerId !== localId) || blockedSelf.screen">{{ isMyScreen ? 'Стрим ВКЛ' : 'Стрим ВЫКЛ' }}</button>
         <button class="ctrl" @click="toggleQuality" :disabled="pendingQuality">{{ videoQuality === 'hd' ? 'Качество HD' : 'Качество SD' }}</button>
         <button class="ctrl danger" @click="onLeave">Покинуть комнату</button>
       </div>
@@ -122,10 +122,10 @@ import { api } from '@/services/axios'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
 
-type State01     = 0 | 1
+type State01 = 0 | 1
 type StatusState = { mic: State01; cam: State01; speakers: State01; visibility: State01 }
-type BlockState  = StatusState & { screen: State01 }
-type IconKind    = keyof StatusState | 'screen'
+type BlockState = StatusState & { screen: State01 }
+type IconKind = keyof StatusState | 'screen'
 
 const route = useRoute()
 const router = useRouter()
@@ -184,7 +184,7 @@ async function fetchAvatars() {
 }
 
 const BADGE_ON = { mic:'🎤', cam:'🎥', speakers:'🔈', visibility:'👁️', screen:'🖥️' } as const
-const BADGE_OFF = { mic:'🔇', cam:'🚫', speakers:'🔇', visibility:'🙈', screen:'📺' } as const
+const BADGE_OFF = { mic:'🚫', cam:'🚫', speakers:'🚫', visibility:'🚫', screen:'🚫' } as const
 const BADGE_BLK = { mic:'⛔', cam:'⛔', speakers:'⛔', visibility:'⛔', screen:'⛔' } as const
 
 const showPermProbe = computed(() => !rtc.permProbed.value && !micOn.value && !camOn.value)
@@ -541,8 +541,14 @@ function toggleWithHandshake(pendingRef: Ref<boolean>, isOn: () => boolean, step
     pendingRef.value = true
     try {
       if (!isOn()) {
+        const ok = await steps.enable()
+        if (!ok) {
+          alert('Браузер отклонил доступ к экрану')
+          return
+        }
         const resp = await steps.reserve()
         if (!resp?.ok) {
+          try { await steps.disable() } catch {}
           if (resp?.status === 409 && resp?.owner) {
             screenOwnerId.value = String(resp.owner)
           } else if (resp?.status === 403 && resp?.error === 'blocked') {
@@ -550,12 +556,6 @@ function toggleWithHandshake(pendingRef: Ref<boolean>, isOn: () => boolean, step
           } else {
             alert('Не удалось начать трансляцию')
           }
-          return
-        }
-        const ok = await steps.enable()
-        if (!ok) {
-          try { await steps.release() } catch {}
-          alert('Браузер отклонил доступ к экрану')
           return
         }
       } else {

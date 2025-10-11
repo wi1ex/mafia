@@ -397,7 +397,7 @@ async def get_roles_snapshot(r, rid: int) -> Dict[str, str]:
 
 
 async def update_blocks(r, rid: int, actor_uid: int, actor_role: str, target_uid: int, changes_bool: Mapping[str, Any]) -> tuple[Dict[str, str], Dict[str, str]]:
-    if not await r.sismember(f"room:{rid}:members", target_uid):
+    if not await r.sismember(f"room:{rid}:members", str(target_uid)):
         return {}, {"__error__": "user_not_in_room"}
 
     role = await r.hget(f"room:{rid}:user:{target_uid}:info", "role")
