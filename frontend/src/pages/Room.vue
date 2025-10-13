@@ -29,11 +29,11 @@
           <img v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar }" alt="" class="ava-circle" />
         </div>
 
-        <div class="vol-wrap" v-if="id !== localId">
-          <button v-if="openVolumeFor !== id" class="vol-btn" @click.stop="toggleVolPopover(id)" :aria-expanded="openVolumeFor===id">🔊</button>
-          <div class="vol-pop" :class="{ show: openVolumeFor === id }" @click.stop>
-            <input class="vol-range" type="range" min="0" max="200" :disabled="!speakersOn || isBlocked(id,'speakers')" v-model.number="volUi[id]" @input="onVol(id, volUi[id])" />
-            <span class="vol-val">{{ volUi[id] ?? 100 }}%</span>
+        <div class="vol-wrap" v-if="streamAudioKey">
+          <button v-if="openVolumeFor !== streamAudioKey" class="vol-btn" @click.stop="toggleVolPopover(streamAudioKey)" :aria-expanded="openVolumeFor===streamAudioKey">🔊</button>
+          <div class="vol-pop" :class="{ show: openVolumeFor === streamAudioKey }" @click.stop>
+            <input class="vol-range" type="range" min="0" max="200" :disabled="!speakersOn || isBlocked(screenOwnerId,'speakers')" v-model.number="volUi[streamAudioKey]" @input="onVol(streamAudioKey, volUi[streamAudioKey])" />
+            <span class="vol-val">{{ volUi[streamAudioKey] ?? 100 }}%</span>
           </div>
         </div>
 
@@ -540,26 +540,28 @@ const toggleScreen = async () => {
   pendingScreen.value = true
   try {
     if (!isMyScreen.value) {
-      const got = await rtc.prepareScreenShare({ audio: true })
-      if (!got) {
-        alert('Браузер отклонил доступ к экрану')
-        return
-      }
       const resp:any = await socket.value!.timeout(5000).emitWithAck('screen', { on: true })
       if (!resp?.ok) {
-        await rtc.cancelPreparedScreen()
         if (resp?.status === 409 && resp?.owner) screenOwnerId.value = String(resp.owner)
         else if (resp?.status === 403 && resp?.error === 'blocked') alert('Стрим запрещён администратором')
         else alert('Не удалось начать трансляцию')
         return
       }
+      screenOwnerId.value = localId.value
+      const got = await rtc.prepareScreenShare({ audio: true })
+      if (!got) {
+        await socket.value!.timeout(5000).emitWithAck('screen', { on: false }).catch(() => {})
+        screenOwnerId.value = ''
+        alert('Браузер отклонил доступ к экрану')
+        return
+      }
       const pubOk = await rtc.publishPreparedScreen()
       if (!pubOk) {
         await socket.value!.timeout(5000).emitWithAck('screen', { on: false }).catch(() => {})
+        screenOwnerId.value = ''
         alert('Ошибка публикации видеопотока')
         return
       }
-      screenOwnerId.value = localId.value
     } else {
       await rtc.stopScreenShare()
       await socket.value!.timeout(5000).emitWithAck('screen', { on: false }).catch(() => {})
@@ -706,8 +708,6 @@ onBeforeUnmount(() => { void onLeave() })
   .theater {
     display: grid;
     grid-template-columns: 1fr 320px;
-    gap: 12px;
-    margin: 12px;
     width: calc(100vw - 98px);
     height: 100vh;
     .stage {
@@ -729,12 +729,11 @@ onBeforeUnmount(() => { void onLeave() })
       }
     }
     .sidebar {
-      display: grid;
-      grid-auto-rows: minmax(120px, 1fr);
-      grid-template-columns: 1fr;
+      display: flex;
+      flex-direction: column;
       gap: 12px;
+      padding: 12px;
       overflow-y: auto;
-      padding-right: 4px;
       .tile.side {
         min-height: 0;
       }

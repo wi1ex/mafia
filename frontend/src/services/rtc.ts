@@ -96,8 +96,9 @@ export function useRTC(): UseRTC {
 
   const screenId = (id: string) => `${id}#s`
   const isSub = (pub: RemoteTrackPublication) => pub.isSubscribed
-  const lowQuality = VideoPresets.h180
-  const highQuality = VideoPresets.h540
+  const lowVideoQuality = VideoPresets.h180
+  const highVideoQuality = VideoPresets.h540
+  const highScreenQuality = ScreenSharePresets.h720fps30
 
   type SrcWrap = { node: MediaStreamAudioSourceNode; stream: MediaStream }
   const gainNodes = new Map<string, GainNode>()
@@ -296,7 +297,7 @@ export function useRTC(): UseRTC {
     try {
       preparedScreen = await createLocalScreenTracks({
         audio: opts?.audio ?? true,
-        resolution: ScreenSharePresets.h720fps30.resolution,
+        resolution: highScreenQuality.resolution,
       })
       preparedScreen.forEach(t => {
         t.mediaStreamTrack.addEventListener('ended', () => {
@@ -309,7 +310,7 @@ export function useRTC(): UseRTC {
       try {
         preparedScreen = await createLocalScreenTracks({
           audio: false,
-          resolution: ScreenSharePresets.h720fps30.resolution,
+          resolution: highScreenQuality.resolution,
         })
         return true
       } catch { return false }
@@ -324,7 +325,7 @@ export function useRTC(): UseRTC {
         await lk.value.localParticipant.publishTrack(video, {
           source: Track.Source.ScreenShare,
           simulcast: false,
-          videoEncoding: ScreenSharePresets.h720fps30.encoding,
+          videoEncoding: highScreenQuality.encoding,
         })
       }
     } catch (e) {
@@ -368,10 +369,13 @@ export function useRTC(): UseRTC {
     videoEls.set(id, el)
     const room = lk.value
     if (!room) return
-    const pubs = id === String(room.localParticipant.identity)
-      ? room.localParticipant.getTrackPublications()
-      : getByIdentity(room, id)?.getTrackPublications()
-    pubs?.forEach(pub => { if (pub.kind === Track.Kind.Video && pub.track) { try { pub.track.attach(el) } catch {} } })
+    const pubs = id === String(room.localParticipant.identity) ? room.localParticipant.getTrackPublications() : getByIdentity(room, id)?.getTrackPublications()
+    pubs?.forEach(pub => {
+      const rp = pub as RemoteTrackPublication
+      if (pub.kind === Track.Kind.Video && rp.source === Track.Source.Camera && pub.track) {
+        try { pub.track.attach(el) } catch {}
+      }
+    })
   }
   const videoRef = (id: string) => (el: HTMLVideoElement | null) => setVideoRef(id, el)
 
@@ -471,8 +475,8 @@ export function useRTC(): UseRTC {
         await room.localParticipant.setMicrophoneEnabled(true, id ? ({ deviceId: { exact: id } } as any) : undefined)
       } else {
         await room.localParticipant.setCameraEnabled(true, id
-            ? ({ deviceId: { exact: id }, resolution: highQuality.resolution } as any)
-            : ({ resolution: highQuality.resolution } as any)
+            ? ({ deviceId: { exact: id }, resolution: highVideoQuality.resolution } as any)
+            : ({ resolution: highVideoQuality.resolution } as any)
         )
       }
       return true
@@ -484,7 +488,7 @@ export function useRTC(): UseRTC {
         if (kind === 'audioinput') {
           await room.localParticipant.setMicrophoneEnabled(true, { deviceId: { exact: nextId } } as any)
         } else {
-          await room.localParticipant.setCameraEnabled(true, { deviceId: { exact: nextId }, resolution: highQuality.resolution } as any)
+          await room.localParticipant.setCameraEnabled(true, { deviceId: { exact: nextId }, resolution: highVideoQuality.resolution } as any)
         }
         return true
       } catch { return false }
@@ -595,8 +599,8 @@ export function useRTC(): UseRTC {
         red: true,
         dtx: true,
         simulcast: true,
-        videoSimulcastLayers: [lowQuality, highQuality],
-        screenShareEncoding: ScreenSharePresets.h720fps30.encoding,
+        videoSimulcastLayers: [lowVideoQuality, highVideoQuality],
+        screenShareEncoding: highScreenQuality.encoding,
         screenShareSimulcastLayers: undefined,
         ...(opts?.publishDefaults || {})
       },
@@ -607,7 +611,7 @@ export function useRTC(): UseRTC {
         ...(opts?.audioCaptureDefaults || {})
       },
       videoCaptureDefaults: {
-        resolution: highQuality.resolution,
+        resolution: highVideoQuality.resolution,
         ...(opts?.videoCaptureDefaults || {})
       },
     })
