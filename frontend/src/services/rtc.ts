@@ -37,7 +37,9 @@ export type UseRTC = {
   remoteQuality: Ref<VQ>
   videoRef: (id: string) => (el: HTMLVideoElement | null) => void
   screenVideoRef: (id: string) => (el: HTMLVideoElement | null) => void
-  startScreenShare: (opts?: { audio?: boolean }) => Promise<boolean>
+  prepareScreenShare: (opts?: { audio?: boolean }) => Promise<boolean>
+  publishPreparedScreen: () => Promise<boolean>
+  cancelPreparedScreen: () => Promise<void>
   stopScreenShare: () => Promise<void>
   initRoom: (opts?: {
     onMediaDevicesError?: (e: unknown) => void
@@ -789,7 +791,9 @@ export function useRTC(): UseRTC {
     getUserVolume,
     resumeAudio,
     screenVideoRef,
-    startScreenShare,
+    prepareScreenShare,
+    publishPreparedScreen,
+    cancelPreparedScreen,
     stopScreenShare,
   }
 }
