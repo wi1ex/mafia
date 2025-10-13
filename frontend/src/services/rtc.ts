@@ -294,7 +294,10 @@ export function useRTC(): UseRTC {
   let preparedScreen: LocalTrack[] | null = null
   async function prepareScreenShare(opts?: { audio?: boolean }): Promise<boolean> {
     try {
-      preparedScreen = await createLocalScreenTracks({ audio: opts?.audio ?? true })
+      preparedScreen = await createLocalScreenTracks({
+        audio: opts?.audio ?? true,
+        resolution: ScreenSharePresets.h720fps30.resolution,
+      })
       preparedScreen.forEach(t => {
         t.mediaStreamTrack.addEventListener('ended', () => {
           try { lk.value?.localParticipant.unpublishTrack(t) } catch {}
@@ -304,17 +307,26 @@ export function useRTC(): UseRTC {
       return true
     } catch {
       try {
-        preparedScreen = await createLocalScreenTracks({ audio: false })
+        preparedScreen = await createLocalScreenTracks({
+          audio: false,
+          resolution: ScreenSharePresets.h720fps30.resolution,
+        })
         return true
       } catch { return false }
     }
   }
   async function publishPreparedScreen(): Promise<boolean> {
     if (!lk.value || !preparedScreen?.length) return false
-    const video = preparedScreen.find((t) => t.kind === Track.Kind.Video)
-    const audio = preparedScreen.find((t) => t.kind === Track.Kind.Audio)
+    const video = preparedScreen.find(t => t.kind === Track.Kind.Video)
+    const audio = preparedScreen.find(t => t.kind === Track.Kind.Audio)
     try {
-      if (video) await lk.value.localParticipant.publishTrack(video)
+      if (video) {
+        await lk.value.localParticipant.publishTrack(video, {
+          source: Track.Source.ScreenShare,
+          simulcast: false,
+          videoEncoding: ScreenSharePresets.h720fps30.encoding,
+        })
+      }
     } catch (e) {
       console.warn('[screen] video publish failed', e)
       try { preparedScreen.forEach(t => t.stop()) } catch {}
@@ -323,7 +335,9 @@ export function useRTC(): UseRTC {
     }
     if (audio) {
       try {
-        await lk.value.localParticipant.publishTrack(audio)
+        await lk.value.localParticipant.publishTrack(audio, {
+          source: Track.Source.ScreenShareAudio,
+        })
       } catch (e) {
         console.warn('[screen] audio publish failed, continue with video', e)
         try { audio.stop() } catch {}
