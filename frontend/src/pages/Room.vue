@@ -663,6 +663,7 @@ onBeforeUnmount(() => { void onLeave() })
 <style lang="scss" scoped>
 .card {
   display: flex;
+
   .panel {
     display: flex;
     flex-direction: column;
@@ -705,6 +706,130 @@ onBeforeUnmount(() => { void onLeave() })
       }
     }
   }
+
+  .grid {
+    display: grid;
+    gap: 12px;
+    margin: 12px;
+    width: calc(100vw - 98px);
+    height: 100vh;
+    .tile {
+      min-height: 0;
+      min-width: 0;
+      position: relative;
+      border-radius: 12px;
+      border: 2px solid transparent;
+      transition: border-color 0.25s ease-in-out, box-shadow 0.25s ease-in-out;
+      overflow: hidden;
+      &.speaking {
+        border-color: $color-primary;
+        box-shadow: inset 0 0 0 6px $color-primary;
+      }
+      video {
+        width: 100%;
+        height: 100%;
+        display: block;
+        object-fit: cover;
+        border-radius: 12px;
+        background: $black;
+      }
+      .ava-wrap {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: $black;
+        border-radius: 12px;
+        z-index: 1;
+      }
+      .ava-circle {
+        height: 40%;
+        border-radius: 50%;
+        object-fit: cover;
+        background: $black;
+        user-select: none;
+        pointer-events: none;
+      }
+      .vol-wrap {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        z-index: 4;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        .vol-btn {
+          padding: 4px 6px;
+          border-radius: 8px;
+          border: 1px solid $fg;
+          background: $black;
+          color: $fg;
+          cursor: pointer;
+        }
+        .vol-pop {
+          display: none;
+          flex-direction: column;
+          align-items: center;
+          height: 160px;
+          width: 40px;
+          gap: 8px;
+          background: $black;
+          border: 1px solid $fg;
+          border-radius: 8px;
+          padding: 6px 8px;
+          &.show {
+            display: flex;
+          }
+          .vol-range {
+            position: absolute;
+            top: 90px;
+            transform: rotate(-90deg);
+            accent-color: $fg;
+          }
+          .vol-val {
+            font-variant-numeric: tabular-nums;
+          }
+        }
+      }
+      .badges {
+        position: absolute;
+        left: 8px;
+        top: 8px;
+        display: flex;
+        gap: 6px;
+        z-index: 2;
+        .badge {
+          line-height: 1;
+          padding: 4px 6px;
+          border-radius: 8px;
+          background: $black;
+        }
+      }
+      .mod-controls {
+        position: absolute;
+        left: 8px;
+        bottom: 8px;
+        display: flex;
+        gap: 6px;
+        z-index: 3;
+        .mod {
+          padding: 4px 6px;
+          border-radius: 8px;
+          border: none;
+          background: $black;
+          cursor: pointer;
+          opacity: 0.85;
+          &.on {
+            background: $color-danger;
+            color: $fg;
+            border-color: $color-danger;
+          }
+        }
+      }
+    }
+  }
+
   .theater {
     display: grid;
     grid-template-columns: 1fr 268px;
@@ -726,6 +851,41 @@ onBeforeUnmount(() => { void onLeave() })
         top: 8px;
         right: 8px;
         z-index: 4;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        .vol-btn {
+          padding: 4px 6px;
+          border-radius: 8px;
+          border: 1px solid $fg;
+          background: $black;
+          color: $fg;
+          cursor: pointer;
+        }
+        .vol-pop {
+          display: none;
+          flex-direction: column;
+          align-items: center;
+          height: 160px;
+          width: 40px;
+          gap: 8px;
+          background: $black;
+          border: 1px solid $fg;
+          border-radius: 8px;
+          padding: 6px 8px;
+          &.show {
+            display: flex;
+          }
+          .vol-range {
+            position: absolute;
+            top: 90px;
+            transform: rotate(-90deg);
+            accent-color: $fg;
+          }
+          .vol-val {
+            font-variant-numeric: tabular-nums;
+          }
+        }
       }
     }
     .sidebar {
@@ -736,137 +896,124 @@ onBeforeUnmount(() => { void onLeave() })
       max-width: 244px;
       overflow-y: auto;
       .tile.side {
+        position: relative;
         flex: 0 0 auto;
         aspect-ratio: 16 / 9;
         width: 100%;
-      }
-    }
-  }
-  .grid {
-    display: grid;
-    gap: 12px;
-    margin: 12px;
-    width: calc(100vw - 98px);
-    height: 100vh;
-  }
-  .tile {
-    min-height: 0;
-    min-width: 0;
-    position: relative;
-    border-radius: 12px;
-    border: 2px solid transparent;
-    transition: border-color 0.25s ease-in-out, box-shadow 0.25s ease-in-out;
-    &.speaking {
-      border-color: $color-primary;
-      box-shadow: inset 0 0 0 6px $color-primary;
-    }
-    video {
-      width: 100%;
-      height: 100%;
-      display: block;
-      object-fit: cover;
-      border-radius: 12px;
-      background: $black;
-    }
-    .ava-wrap {
-      position: absolute;
-      inset: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: $black;
-      border-radius: 12px;
-      z-index: 1;
-    }
-    .ava-circle {
-      height: 40%;
-      border-radius: 50%;
-      object-fit: cover;
-      background: $black;
-      user-select: none;
-      pointer-events: none;
-    }
-    .vol-wrap {
-      position: absolute;
-      top: 8px;
-      right: 8px;
-      z-index: 4;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      .vol-btn {
-        padding: 4px 6px;
-        border-radius: 8px;
-        border: 1px solid $fg;
-        background: $black;
-        color: $fg;
-        cursor: pointer;
-        opacity: 0.9;
-      }
-      .vol-btn:hover {
-        opacity: 1
-      }
-      .vol-pop {
-        display: none;
-        flex-direction: column;
-        align-items: center;
-        height: 160px;
-        width: 40px;
-        gap: 8px;
-        background: $black;
-        border: 1px solid $fg;
-        border-radius: 8px;
-        padding: 6px 8px;
-        &.show {
-          display: flex;
+        border-radius: 12px;
+        border: 2px solid transparent;
+        transition: border-color 0.25s ease-in-out, box-shadow 0.25s ease-in-out;
+        overflow: hidden;
+        &.speaking {
+          border-color: $color-primary;
+          box-shadow: inset 0 0 0 6px $color-primary;
         }
-        .vol-range {
+        video {
+          width: 100%;
+          height: 100%;
+          display: block;
+          object-fit: cover;
+          border-radius: 12px;
+          background: $black;
+        }
+        .ava-wrap {
           position: absolute;
-          top: 90px;
-          transform: rotate(-90deg);
-          accent-color: $fg;
+          inset: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: $black;
+          border-radius: 12px;
+          z-index: 1;
         }
-        .vol-val {
-          font-variant-numeric: tabular-nums;
+        .ava-circle {
+          height: 40%;
+          border-radius: 50%;
+          object-fit: cover;
+          background: $black;
+          user-select: none;
+          pointer-events: none;
         }
-      }
-    }
-    .badges {
-      position: absolute;
-      left: 8px;
-      top: 8px;
-      display: flex;
-      gap: 6px;
-      z-index: 2;
-      .badge {
-        line-height: 1;
-        padding: 4px 6px;
-        border-radius: 8px;
-        background: $black;
-      }
-    }
-    .mod-controls {
-      position: absolute;
-      left: 8px;
-      bottom: 8px;
-      display: flex;
-      gap: 6px;
-      z-index: 3;
-      .mod {
-        padding: 4px 6px;
-        border-radius: 8px;
-        border: none;
-        background: $black;
-        cursor: pointer;
-        opacity: 0.85;
-        &.on {
-          background: $color-danger;
-          color: $fg;
-          border-color: $color-danger;
+        .vol-wrap {
+          position: absolute;
+          top: 8px;
+          right: 8px;
+          z-index: 4;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          .vol-btn {
+            padding: 4px 6px;
+            border-radius: 8px;
+            border: 1px solid $fg;
+            background: $black;
+            color: $fg;
+            cursor: pointer;
+          }
+          .vol-pop {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            height: 160px;
+            width: 40px;
+            gap: 8px;
+            background: $black;
+            border: 1px solid $fg;
+            border-radius: 8px;
+            padding: 6px 8px;
+            &.show {
+              display: flex;
+            }
+            .vol-range {
+              position: absolute;
+              top: 90px;
+              transform: rotate(-90deg);
+              accent-color: $fg;
+            }
+            .vol-val {
+              font-variant-numeric: tabular-nums;
+            }
+          }
+        }
+        .badges {
+          position: absolute;
+          left: 8px;
+          top: 8px;
+          display: flex;
+          gap: 6px;
+          z-index: 2;
+          .badge {
+            line-height: 1;
+            padding: 4px 6px;
+            border-radius: 8px;
+            background: $black;
+          }
+        }
+        .mod-controls {
+          position: absolute;
+          left: 8px;
+          bottom: 8px;
+          display: flex;
+          gap: 6px;
+          z-index: 3;
+          .mod {
+            padding: 4px 6px;
+            border-radius: 8px;
+            border: none;
+            background: $black;
+            cursor: pointer;
+            opacity: 0.85;
+            &.on {
+              background: $color-danger;
+              color: $fg;
+              border-color: $color-danger;
+            }
+          }
         }
       }
     }
   }
+
   .perm-probe {
     margin: 0 12px 12px;
     display: flex;

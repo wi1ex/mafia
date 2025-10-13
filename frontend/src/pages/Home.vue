@@ -293,10 +293,6 @@ onBeforeUnmount(() => {
     color: $fg;
     background: transparent;
     transition: border-color 0.15s ease-in-out, background 0.15s ease-in-out;
-    &:hover {
-      border-color: rgba(255, 255, 255, 0.15);
-      background: rgba(255, 255, 255, 0.03);
-    }
     &.active {
       border-color: $color-secondary;
       background: rgba(14, 165, 233, 0.07);
