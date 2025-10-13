@@ -1,8 +1,7 @@
 from __future__ import annotations
 from datetime import timedelta
 import structlog
-from livekit.api import AccessToken
-from livekit.api.access_token import VideoGrants
+from livekit.api import AccessToken, VideoGrants
 from ..settings import settings
 
 log = structlog.get_logger()
@@ -20,7 +19,8 @@ def make_livekit_token(*, identity: str, name: str, room: str, ttl_minutes: int 
                 can_publish=True,
                 can_subscribe=True,
                 can_update_own_metadata=True,
-                can_publish_data=True
+                can_publish_data=True,
+                can_publish_sources=["camera", "microphone", "screen_share", "screen_share_audio"],
             ))
             .with_ttl(timedelta(minutes=ttl_minutes))
             .to_jwt()

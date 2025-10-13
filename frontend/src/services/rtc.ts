@@ -315,11 +315,15 @@ export function useRTC(): UseRTC {
 
   async function publishPreparedScreen(): Promise<boolean> {
     if (!preparedScreen?.length || !lk.value) return false
+    if ((lk.value as any).state !== 'connected') return false
     try {
       await lk.value.localParticipant.publishTracks(preparedScreen)
       preparedScreen = null
       return true
-    } catch { return false }
+    } catch (e) {
+      console.error('publishTracks failed', e)
+      return false
+    }
   }
 
   async function cancelPreparedScreen() {
