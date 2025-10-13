@@ -535,45 +535,38 @@ const toggleVisibility = toggleFactory('visibility',
   async () => rtc.setVideoSubscriptionsForAll(false)
 )
 
-function toggleWithHandshake(pendingRef: Ref<boolean>, isOn: () => boolean, steps: { reserve(): Promise<any>; enable(): Promise<boolean>; release(): Promise<any>; disable(): Promise<void> }) {
-  return async () => {
-    if (pendingRef.value) return
-    pendingRef.value = true
-    try {
-      if (!isOn()) {
-        const ok = await steps.enable()
-        if (!ok) {
-          alert('Браузер отклонил доступ к экрану')
-          return
-        }
-        const resp = await steps.reserve()
-        if (!resp?.ok) {
-          try { await steps.disable() } catch {}
-          if (resp?.status === 409 && resp?.owner) {
-            screenOwnerId.value = String(resp.owner)
-          } else if (resp?.status === 403 && resp?.error === 'blocked') {
-            alert('Стрим запрещён администратором')
-          } else {
-            alert('Не удалось начать трансляцию')
-          }
-          return
-        }
-      } else {
-        await steps.disable()
-        try { await steps.release() } catch {}
+const toggleScreen = async () => {
+  if (pendingScreen.value) return
+  pendingScreen.value = true
+  try {
+    if (!isMyScreen.value) {
+      const got = await rtc.prepareScreenShare({ audio: true })
+      if (!got) {
+        alert('Браузер отклонил доступ к экрану')
+        return
       }
-    } finally {
-      pendingRef.value = false
+      const resp:any = await socket.value!.timeout(5000).emitWithAck('screen', { on: true })
+      if (!resp?.ok) {
+        await rtc.cancelPreparedScreen()
+        if (resp?.status === 409 && resp?.owner) screenOwnerId.value = String(resp.owner)
+        else if (resp?.status === 403 && resp?.error === 'blocked') alert('Стрим запрещён администратором')
+        else alert('Не удалось начать трансляцию')
+        return
+      }
+      const pubOk = await rtc.publishPreparedScreen()
+      if (!pubOk) {
+        await socket.value!.timeout(5000).emitWithAck('screen', { on: false }).catch(() => {})
+        alert('Ошибка публикации стрима')
+        return
+      }
+      screenOwnerId.value = localId.value
+    } else {
+      await rtc.stopScreenShare()
+      await socket.value!.timeout(5000).emitWithAck('screen', { on: false }).catch(() => {})
+      screenOwnerId.value = ''
     }
-  }
+  } finally { pendingScreen.value = false }
 }
-
-const toggleScreen = toggleWithHandshake(pendingScreen, () => isMyScreen.value, {
-  reserve: () => socket.value!.timeout(5000).emitWithAck('screen', { on: true }),
-  enable:  () => rtc.startScreenShare({ audio: true }),
-  release: () => socket.value!.timeout(5000).emitWithAck('screen', { on: false }),
-  disable: () => rtc.stopScreenShare(),
-})
 
 async function onLeave() {
   if (leaving.value) return

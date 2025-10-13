@@ -10,6 +10,8 @@ import {
   VideoPresets,
   ScreenSharePresets,
   VideoQuality,
+  createLocalScreenTracks,
+  type LocalTrack
 } from 'livekit-client'
 import { setLogLevel, LogLevel } from 'livekit-client'
 
@@ -287,22 +289,42 @@ export function useRTC(): UseRTC {
   }
   const screenVideoRef = (id: string) => (el: HTMLVideoElement | null) => setScreenVideoRef(id, el)
 
-  async function startScreenShare(opts?: { audio?: boolean }) {
-    const room = lk.value
-    if (!room) return false
-    const wantAudio = opts?.audio ?? true
+  let preparedScreen: LocalTrack[] | null = null
+  async function prepareScreenShare(opts?: { audio?: boolean }): Promise<boolean> {
     try {
-      await room.localParticipant.setScreenShareEnabled(true, { audio: wantAudio as any })
+      preparedScreen = await createLocalScreenTracks({ audio: opts?.audio ?? true })
+      preparedScreen.forEach(t => {
+        t.mediaStreamTrack.addEventListener('ended', () => {
+          try { lk.value?.localParticipant.unpublishTrack(t) } catch {}
+          try { optsRoom?.onScreenShareEnded?.() } catch {}
+        }, { once: true })
+      })
       return true
-    } catch (_e) {
-      try {
-        await room.localParticipant.setScreenShareEnabled(true, { audio: false } as any)
-        return true
-      } catch {
-        return false
+    } catch {
+      if (opts?.audio !== false) {
+        try {
+          preparedScreen = await createLocalScreenTracks({ audio: false })
+          return true
+        } catch {}
       }
+      return false
     }
   }
+
+  async function publishPreparedScreen(): Promise<boolean> {
+    if (!preparedScreen?.length || !lk.value) return false
+    try {
+      await lk.value.localParticipant.publishTracks(preparedScreen)
+      preparedScreen = null
+      return true
+    } catch { return false }
+  }
+
+  async function cancelPreparedScreen() {
+    try { preparedScreen?.forEach(t => t.stop()) } catch {}
+    preparedScreen = null
+  }
+
   async function stopScreenShare() {
     try { await lk.value?.localParticipant.setScreenShareEnabled(false) } catch {}
   }
@@ -530,6 +552,7 @@ export function useRTC(): UseRTC {
     localId.value = ''
   }
 
+  let optsRoom: Parameters<typeof initRoom>[0] | undefined
   function initRoom(opts?: {
     onMediaDevicesError?: (e: unknown) => void
     onScreenShareEnded?: () => void | Promise<void>
@@ -537,6 +560,7 @@ export function useRTC(): UseRTC {
     audioCaptureDefaults?: ConstructorParameters<typeof LkRoom>[0]['audioCaptureDefaults']
     videoCaptureDefaults?: ConstructorParameters<typeof LkRoom>[0]['videoCaptureDefaults']
   }): LkRoom {
+    optsRoom = opts
     if (lk.value) return lk.value
     const room = new LkRoom({
       dynacast: true,
