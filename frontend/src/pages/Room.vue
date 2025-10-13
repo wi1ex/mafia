@@ -29,11 +29,11 @@
           <img v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar }" alt="" class="ava-circle" />
         </div>
 
-        <div class="vol-wrap" v-if="streamAudioKey">
-          <button v-if="openVolumeFor !== streamAudioKey" class="vol-btn" @click.stop="toggleVolPopover(streamAudioKey)" :aria-expanded="openVolumeFor===streamAudioKey">🔊</button>
-          <div class="vol-pop" :class="{ show: openVolumeFor === streamAudioKey }" @click.stop>
-            <input class="vol-range" type="range" min="0" max="200" :disabled="!speakersOn || isBlocked(screenOwnerId,'speakers')" v-model.number="volUi[streamAudioKey]" @input="onVol(streamAudioKey, volUi[streamAudioKey])" />
-            <span class="vol-val">{{ volUi[streamAudioKey] ?? 100 }}%</span>
+        <div class="vol-wrap" v-if="id !== localId">
+          <button v-if="openVolumeFor !== id" class="vol-btn" @click.stop="toggleVolPopover(id)" :aria-expanded="openVolumeFor===id">🔊</button>
+          <div class="vol-pop" :class="{ show: openVolumeFor === id }" @click.stop>
+            <input class="vol-range" type="range" min="0" max="200" :disabled="!speakersOn || isBlocked(id,'speakers')" v-model.number="volUi[id]" @input="onVol(id, volUi[id])" />
+            <span class="vol-val">{{ volUi[id] ?? 100 }}%</span>
           </div>
         </div>
 
@@ -59,9 +59,9 @@
       <div class="stage">
         <video :ref="rtc.screenVideoRef(screenOwnerId)" playsinline autoplay />
         <div class="vol-wrap" v-if="streamAudioKey">
-          <button v-if="openVolumeFor !== streamAudioKey" class="vol-btn" @click.stop="toggleVolPopover(streamAudioKey)">🔊</button>
+          <button v-if="openVolumeFor !== streamAudioKey" class="vol-btn" @click.stop="toggleVolPopover(streamAudioKey)" :aria-expanded="openVolumeFor===streamAudioKey">🔊</button>
           <div class="vol-pop" :class="{ show: openVolumeFor === streamAudioKey }" @click.stop>
-            <input class="vol-range" type="range" min="0" max="200" :disabled="!speakersOn" v-model.number="volUi[streamAudioKey]" @input="onVol(streamAudioKey, volUi[streamAudioKey])" />
+            <input class="vol-range" type="range" min="0" max="200" :disabled="!speakersOn || isBlocked(screenOwnerId,'speakers')" v-model.number="volUi[streamAudioKey]" @input="onVol(streamAudioKey, volUi[streamAudioKey])"/>
             <span class="vol-val">{{ volUi[streamAudioKey] ?? 100 }}%</span>
           </div>
         </div>
@@ -707,7 +707,7 @@ onBeforeUnmount(() => { void onLeave() })
   }
   .theater {
     display: grid;
-    grid-template-columns: 1fr 320px;
+    grid-template-columns: 1fr 268px;
     width: calc(100vw - 98px);
     height: 100vh;
     .stage {
@@ -733,9 +733,12 @@ onBeforeUnmount(() => { void onLeave() })
       flex-direction: column;
       gap: 12px;
       padding: 12px;
+      max-width: 244px;
       overflow-y: auto;
       .tile.side {
-        min-height: 0;
+        flex: 0 0 auto;
+        aspect-ratio: 16 / 9;
+        width: 100%;
       }
     }
   }
