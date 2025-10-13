@@ -18,8 +18,8 @@ def make_livekit_token(*, identity: str, name: str, room: str, ttl_minutes: int 
                 room=room,
                 can_publish=True,
                 can_subscribe=True,
-                can_update_own_metadata=True,
                 can_publish_data=True,
+                can_update_own_metadata=True,
                 can_publish_sources=["camera", "microphone", "screen_share", "screen_share_audio"],
             ))
             .with_ttl(timedelta(minutes=ttl_minutes))

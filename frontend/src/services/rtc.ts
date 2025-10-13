@@ -303,29 +303,35 @@ export function useRTC(): UseRTC {
       })
       return true
     } catch {
-      if (opts?.audio !== false) {
-        try {
-          preparedScreen = await createLocalScreenTracks({ audio: false })
-          return true
-        } catch {}
-      }
-      return false
+      try {
+        preparedScreen = await createLocalScreenTracks({ audio: false })
+        return true
+      } catch { return false }
     }
   }
-
   async function publishPreparedScreen(): Promise<boolean> {
-    if (!preparedScreen?.length || !lk.value) return false
-    if ((lk.value as any).state !== 'connected') return false
+    if (!lk.value || !preparedScreen?.length) return false
+    const video = preparedScreen.find((t) => t.kind === Track.Kind.Video)
+    const audio = preparedScreen.find((t) => t.kind === Track.Kind.Audio)
     try {
-      await lk.value.localParticipant.publishTracks(preparedScreen)
-      preparedScreen = null
-      return true
+      if (video) await lk.value.localParticipant.publishTrack(video)
     } catch (e) {
-      console.error('publishTracks failed', e)
+      console.warn('[screen] video publish failed', e)
+      try { preparedScreen.forEach(t => t.stop()) } catch {}
+      preparedScreen = null
       return false
     }
+    if (audio) {
+      try {
+        await lk.value.localParticipant.publishTrack(audio)
+      } catch (e) {
+        console.warn('[screen] audio publish failed, continue with video', e)
+        try { audio.stop() } catch {}
+      }
+    }
+    preparedScreen = null
+    return true
   }
-
   async function cancelPreparedScreen() {
     try { preparedScreen?.forEach(t => t.stop()) } catch {}
     preparedScreen = null

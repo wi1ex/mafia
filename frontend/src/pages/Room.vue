@@ -556,7 +556,7 @@ const toggleScreen = async () => {
       const pubOk = await rtc.publishPreparedScreen()
       if (!pubOk) {
         await socket.value!.timeout(5000).emitWithAck('screen', { on: false }).catch(() => {})
-        alert('Ошибка публикации стрима')
+        alert('Ошибка публикации видеопотока')
         return
       }
       screenOwnerId.value = localId.value

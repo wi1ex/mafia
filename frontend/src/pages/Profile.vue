@@ -17,7 +17,7 @@
           <img class="avatar" v-minio-img="{ key: me.avatar_name ? `avatars/${me.avatar_name}` : '', placeholder: defaultAvatar }" alt="Текущий аватар" />
           <div class="actions">
             <input ref="fileEl" type="file" accept="image/jpeg,image/png" @change="onPick" hidden />
-            <button class="btn primary" @click="fileEl?.click()" :disabled="busyAva">Загрузить файл</button>
+            <button class="btn primary" @click="fileEl?.click()" :disabled="busyAva">Изменить аватар</button>
             <button class="btn danger" v-if="me.avatar_name" @click="onDeleteAvatar" :disabled="busyAva">Удалить</button>
             <div class="hint">JPG/PNG, до 5 МБ</div>
           </div>
