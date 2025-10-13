@@ -596,7 +596,8 @@ export function useRTC(): UseRTC {
         dtx: true,
         simulcast: true,
         videoSimulcastLayers: [lowQuality, highQuality],
-        screenShareEncoding: ScreenSharePresets.h720fps30,
+        screenShareEncoding: ScreenSharePresets.h720fps30.encoding,
+        screenShareSimulcastLayers: undefined,
         ...(opts?.publishDefaults || {})
       },
       audioCaptureDefaults: {
