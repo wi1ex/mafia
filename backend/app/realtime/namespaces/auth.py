@@ -13,9 +13,13 @@ async def connect(sid, environ, auth):
         log.warning("auth.connect.denied", sid=sid)
         return False
 
-    uid, _ = vr
-    await sio.save_session(sid, {"uid": uid}, namespace="/auth")
-    await sio.enter_room(sid, f"user:{uid}", namespace="/auth")
+    uid = vr[0]
+    await sio.save_session(sid,
+                           {"uid": uid},
+                           namespace="/auth")
+    await sio.enter_room(sid,
+                         f"user:{uid}",
+                         namespace="/auth")
 
 
 @sio.event(namespace="/auth")

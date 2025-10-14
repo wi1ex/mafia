@@ -1,26 +1,30 @@
 from __future__ import annotations
 import asyncio
-from datetime import datetime, timezone
-from time import time
-from typing import Any, Tuple, List, Dict, Mapping, cast
 import structlog
-from jwt import ExpiredSignatureError
+from time import time
 from redis import WatchError
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker
+from jwt import ExpiredSignatureError
+from datetime import datetime, timezone
+from typing import Any, Tuple, List, Dict, Mapping, cast, Optional
+from ..db import engine
+from ..models.room import Room
+from ..models.user import User
 from ..core.clients import get_redis
 from ..core.logging import log_action
 from ..core.security import decode_token
-from ..db import engine
-from ..models.room import Room
 
 __all__ = [
     "KEYS_STATE",
     "KEYS_BLOCK",
+    "load_user_profile",
     "validate_auth",
     "apply_state",
     "get_room_snapshot",
     "get_blocks_snapshot",
     "get_roles_snapshot",
+    "get_profiles_snapshot",
     "join_room_atomic",
     "leave_room_atomic",
     "gc_empty_room",
@@ -179,7 +183,7 @@ async def _join_room_atomic_old(r, rid: int, uid: int, role: str, *, retries: in
     for _ in range(retries):
         try:
             await r.watch(f"room:{rid}:members", f"room:{rid}:positions")
-            already = await r.sismember(f"room:{rid}:members", uid)
+            already = await r.sismember(f"room:{rid}:members", str(uid))
             size = int(await r.scard(f"room:{rid}:members") or 0)
             now = int(time())
             if already:
@@ -305,7 +309,16 @@ async def _leave_room_atomic_old(r, rid: int, uid: int, *, retries: int = 8) -> 
     return occ, gc_seq, updates
 
 
-async def validate_auth(auth: Any) -> Tuple[int, str] | None:
+async def load_user_profile(uid: int) -> tuple[Optional[str], Optional[str]]:
+    async with _sessionmaker() as s:
+        row = await s.execute(select(User.username, User.avatar_name).where(User.id == uid))
+        rec = row.first()
+        if not rec:
+            return None, None
+        return cast(Optional[str], rec[0]), cast(Optional[str], rec[1])
+
+
+async def validate_auth(auth: Any) -> Tuple[int, str, str, Optional[str]] | None:
     token = auth.get("token") if isinstance(auth, dict) else None
     if not token:
         log.warning("sio.connect.no_token")
@@ -321,7 +334,8 @@ async def validate_auth(auth: Any) -> Tuple[int, str] | None:
             return None
 
         role = str(p.get("role") or "user")
-        return uid, role
+        username = str(p.get("username") or f"user-{uid}")
+        return uid, role, username, None
 
     except ExpiredSignatureError:
         log.warning("sio.connect.expired_token")
@@ -393,6 +407,36 @@ async def get_roles_snapshot(r, rid: int) -> Dict[str, str]:
     for uid, role in zip(ids, roles):
         if role:
             out[str(uid)] = str(role)
+    return out
+
+
+async def get_profiles_snapshot(r, rid: int) -> dict[str, dict[str, str | None]]:
+    ids = await r.smembers(f"room:{rid}:members")
+    if not ids:
+        return {}
+
+    async with r.pipeline() as p:
+        for uid in ids:
+            await p.hmget(f"room:{rid}:user:{uid}:info", "username", "avatar_name")
+        rows = await p.execute()
+
+    out: dict[str, dict[str, str | None]] = {}
+    need_db: list[int] = []
+    for uid, (un, av) in zip(ids, rows):
+        uid_s = str(uid)
+        out[uid_s] = {"username": str(un) if un else None, "avatar_name": str(av) if av else None}
+        if av is None or un is None:
+            need_db.append(int(uid))
+
+    if need_db:
+        async with _sessionmaker() as s:
+            res = await s.execute(select(User.id, User.username, User.avatar_name).where(User.id.in_(need_db)))
+            for uid_i, un_db, av_db in res.all():
+                cur = out[str(uid_i)]
+                if cur["avatar_name"] is None:
+                    cur["avatar_name"] = av_db
+                if cur["username"] is None:
+                    cur["username"] = un_db
     return out
 
 

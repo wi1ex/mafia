@@ -15,9 +15,11 @@ from ..utils import (
     get_room_snapshot,
     get_blocks_snapshot,
     get_roles_snapshot,
+    get_profiles_snapshot,
     join_room_atomic,
     leave_room_atomic,
     update_blocks,
+    load_user_profile,
 )
 
 log = structlog.get_logger()
@@ -30,9 +32,13 @@ async def connect(sid, environ, auth):
         log.warning("room.connect.denied", sid=sid)
         return False
 
-    uid, role = vr
-    await sio.save_session(sid, {"uid": uid, "rid": None, "role": role, "base_role": role}, namespace="/room")
-    await sio.enter_room(sid, f"user:{uid}", namespace="/room")
+    uid, role, username, avatar_name = vr
+    await sio.save_session(sid,
+                           {"uid": uid, "rid": None, "role": role, "base_role": role, "username": username, "avatar_name": avatar_name},
+                           namespace="/room")
+    await sio.enter_room(sid,
+                         f"user:{uid}",
+                         namespace="/room")
 
 
 @rate_limited_sio(lambda *, uid=None, **__: f"rl:sio:join:{uid or 'nouid'}", limit=5, window_s=1, session_ns="/room")
@@ -59,11 +65,19 @@ async def join(sid, data) -> JoinAck:
 
         owner_id = await r.get(f"room:{rid}:screen_owner")
         owner = int(owner_id) if owner_id else 0
+        db_username, db_avatar = await load_user_profile(uid)
+        username, avatar_name = (sess.get("username") or None) or (db_username or None), db_avatar
+        if username is not None or avatar_name is not None:
+            await r.hset(f"room:{rid}:user:{uid}:info", mapping={
+                **({"username": username} if username is not None else {}),
+                **({"avatar_name": avatar_name} if avatar_name is not None else {}),
+            })
 
         applied: dict[str, str] = {}
         snapshot = await get_room_snapshot(r, rid)
         blocked = await get_blocks_snapshot(r, rid)
         roles_map = await get_roles_snapshot(r, rid)
+        profiles = await get_profiles_snapshot(r, rid)
         incoming = (data.get("state") or {}) if isinstance(data, dict) else {}
         user_state: dict[str, str] = {k: str(v) for k, v in (snapshot.get(str(uid)) or {}).items()}
         to_fill = {k: incoming[k] for k in KEYS_STATE if k in incoming and k not in user_state}
@@ -73,16 +87,20 @@ async def join(sid, data) -> JoinAck:
                 user_state = {**user_state, **applied}
                 snapshot[str(uid)] = user_state
 
-        await sio.enter_room(sid, f"room:{rid}", namespace="/room")
+        await sio.enter_room(sid,
+                             f"room:{rid}",
+                             namespace="/room")
         eff_blocks = blocked.get(str(uid)) or {}
         eff_role = roles_map.get(str(uid), base_role)
-        await sio.save_session(sid, {"uid": uid, "rid": rid, "role": eff_role, "base_role": base_role}, namespace="/room")
+        await sio.save_session(sid,
+                               {"uid": uid, "rid": rid, "role": eff_role, "base_role": base_role, "username": username, "avatar_name": avatar_name},
+                               namespace="/room")
         if not already:
             await sio.emit("rooms_occupancy",
                            {"id": rid, "occupancy": occ},
                            namespace="/rooms")
             await sio.emit("member_joined",
-                           {"user_id": uid, "state": user_state, "role": eff_role, "blocks": eff_blocks},
+                           {"user_id": uid, "state": user_state, "role": eff_role, "blocks": eff_blocks, "username": username, "avatar_name": avatar_name},
                            room=f"room:{rid}",
                            skip_sid=sid,
                            namespace="/room")
@@ -106,7 +124,7 @@ async def join(sid, data) -> JoinAck:
         redis_positions = await r.zrange(f"room:{rid}:positions", 0, -1, withscores=True)
         positions = {str(int(m)): int(s) for m, s in redis_positions}
 
-        lk_token = make_livekit_token(identity=str(uid), name=f"user-{uid}", room=str(rid))
+        lk_token = make_livekit_token(identity=str(uid), name=(username or f"user-{uid}"), room=str(rid))
         return {
             "ok": True,
             "room_id": rid,
@@ -116,6 +134,7 @@ async def join(sid, data) -> JoinAck:
             "positions": positions,
             "blocked": blocked,
             "roles": roles_map,
+            "profiles": profiles,
             "screen_owner": owner,
         }
 
@@ -300,7 +319,9 @@ async def disconnect(sid):
                        namespace="/rooms")
 
         base_role = str(sess.get("base_role") or "user")
-        await sio.save_session(sid, {"uid": uid, "rid": None, "role": base_role, "base_role": base_role}, namespace="/room")
+        await sio.save_session(sid,
+                               {"uid": uid, "rid": None, "role": base_role, "base_role": base_role, "username": sess.get("username"), "avatar_name": sess.get("avatar_name")},
+                               namespace="/room")
         if occ == 0:
             async def _gc():
                 try:
