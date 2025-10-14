@@ -540,15 +540,15 @@ async function enable(kind: DeviceKind): Promise<boolean> {
     })
   }
   const setAudioSubscriptionsForAll = (on: boolean) => {
-    if (wantAudio.value === on) return
     wantAudio.value = on
     setSubscriptions(Track.Kind.Audio, on)
     if (!on) audibleIds.value = new Set()
-    else refreshAudibleIds()
-    if (on) void resumeAudio()
+    else {
+      refreshAudibleIds()
+      void resumeAudio()
+    }
   }
   const setVideoSubscriptionsForAll = (on: boolean) => {
-    if (wantVideo.value === on) return
     wantVideo.value = on
     setSubscriptions(Track.Kind.Video, on)
   }
@@ -576,9 +576,11 @@ async function enable(kind: DeviceKind): Promise<boolean> {
   const remoteQuality = ref<VQ>((loadLS(LS.vq) as VQ) === 'sd' ? 'sd' : 'hd')
 
   function setRemoteQualityForAll(q: VQ) {
-    if (remoteQuality.value === q) return
-    remoteQuality.value = q
-    saveLS(LS.vq, q)
+    const changed = remoteQuality.value !== q
+    if (changed) {
+      remoteQuality.value = q
+      saveLS(LS.vq, q)
+    }
     const room = lk.value
     if (!room) return
     room.remoteParticipants.forEach(p => {

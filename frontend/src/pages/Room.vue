@@ -44,21 +44,11 @@
         </div>
 
         <div class="titlebar">
-          <button class="title-btn" :style="id === localId ? 'cursor: default;' : ''" @click.stop="toggleTilePanel(id)" :aria-expanded="openPanelFor===id">
-            <img v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar }" alt="" class="title-ava" />
-            <span class="title-nick">{{ userName(id) }}</span>
-          </button>
-
-          <div class="right">
-            <div class="volume">
-              <button v-if="openVolFor !== id" class="vol-btn" @click.stop="toggleVolume(id)" :disabled="id === localId || !speakersOn || isBlocked(id,'speakers')" aria-label="volume">
-                <img class="status-icon" :src="stateIcon('speakers', id)" alt="vol" />
-              </button>
-              <div v-else class="vol-inline" @click.stop>
-                <input class="vol-slider" type="range" min="0" max="200" :disabled="id === localId || !speakersOn || isBlocked(id,'speakers')" v-model.number="volUi[id]" @input="onVol(id, volUi[id])" />
-                <span class="vol-val">{{ volUi[id] ?? 100 }}%</span>
-              </div>
-            </div>
+          <div class="titlebar-div">
+            <button class="title-btn" :style="id === localId ? 'cursor: default;' : ''" @click.stop="toggleTilePanel(id)" :aria-expanded="openPanelFor===id">
+              <img v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar }" alt="" class="title-ava" />
+              <span class="title-nick">{{ userName(id) }}</span>
+            </button>
 
             <div v-if="!canModerate(id)" class="status">
               <img class="status-icon" :src="stateIcon('mic', id)" alt="mic" />
@@ -86,12 +76,25 @@
               </button>
             </div>
           </div>
+
+          <div class="right">
+            <div v-if="id !== localId" class="volume">
+              <button v-if="openVolFor !== id" class="vol-btn" @click.stop="toggleVolume(id)" :disabled="id === localId || !speakersOn || isBlocked(id,'speakers')" aria-label="volume">
+                <img class="status-icon" :src="stateIcon('speakers', id)" alt="vol" />
+              </button>
+              <div v-else class="vol-inline" @click.stop>
+                <input class="vol-slider" type="range" min="0" max="200" :disabled="id === localId || !speakersOn || isBlocked(id,'speakers')" v-model.number="volUi[id]" @input="onVol(id, volUi[id])" />
+                <span class="vol-val">{{ volUi[id] ?? 100 }}%</span>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div v-if="openPanelFor === id" class="tile-panel" @click.stop>
           <div class="panel-user">
             <img v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar }" alt="" class="panel-ava" />
             <div class="panel-nick">{{ userName(id) }}</div>
+            <div class="panel-nick">*информация о пользователе*</div>
           </div>
         </div>
       </div>
@@ -102,11 +105,6 @@
         <video :ref="rtc.screenVideoRef(screenOwnerId)" playsinline autoplay />
 
         <div class="titlebar">
-          <button class="title-btn" @click.stop="toggleTilePanel(streamAudioKey)" :aria-expanded="openPanelFor===streamAudioKey">
-            <img v-minio-img="{ key: avatarKey(screenOwnerId), placeholder: defaultAvatar }" alt="" class="title-ava" />
-            <span class="title-nick">{{ userName(screenOwnerId) }}</span>
-          </button>
-
           <div class="right">
             <div class="volume">
               <button v-if="openVolFor !== streamAudioKey" class="vol-btn" @click.stop="toggleVolume(streamAudioKey)" :disabled="screenOwnerId === localId || !speakersOn || isBlocked(screenOwnerId,'speakers')" aria-label="volume">
@@ -137,21 +135,11 @@
           </div>
 
           <div class="titlebar">
-            <button class="title-btn" :style="id === localId ? 'cursor: default;' : ''" @click.stop="toggleTilePanel(id)" :aria-expanded="openPanelFor===id">
-              <img v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar }" alt="" class="title-ava" />
-              <span class="title-nick">{{ userName(id) }}</span>
-            </button>
-
-            <div class="right">
-              <div class="volume">
-                <button v-if="openVolFor !== id" class="vol-btn" @click.stop="toggleVolume(id)" :disabled="id === localId || !speakersOn || isBlocked(id,'speakers')" aria-label="volume">
-                  <img class="status-icon" :src="stateIcon('speakers', id)" alt="vol" />
-                </button>
-                <div v-else class="vol-inline" @click.stop>
-                  <input class="vol-slider" type="range" min="0" max="200" :disabled="id === localId || !speakersOn || isBlocked(id,'speakers')" v-model.number="volUi[id]" @input="onVol(id, volUi[id])" />
-                  <span class="vol-val">{{ volUi[id] ?? 100 }}%</span>
-                </div>
-              </div>
+            <div class="titlebar-div">
+              <button class="title-btn" :style="id === localId ? 'cursor: default;' : ''" @click.stop="toggleTilePanel(id)" :aria-expanded="openPanelFor===id">
+                <img v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar }" alt="" class="title-ava" />
+                <span class="title-nick">{{ userName(id) }}</span>
+              </button>
 
               <div v-if="!canModerate(id)" class="status">
                 <img class="status-icon" :src="stateIcon('mic', id)" alt="mic" />
@@ -179,12 +167,25 @@
                 </button>
               </div>
             </div>
+
+            <div class="right">
+              <div v-if="id !== localId" class="volume">
+                <button v-if="openVolFor !== id" class="vol-btn" @click.stop="toggleVolume(id)" :disabled="id === localId || !speakersOn || isBlocked(id,'speakers')" aria-label="volume">
+                  <img class="status-icon" :src="stateIcon('speakers', id)" alt="vol" />
+                </button>
+                <div v-else class="vol-inline" @click.stop>
+                  <input class="vol-slider" type="range" min="0" max="200" :disabled="id === localId || !speakersOn || isBlocked(id,'speakers')" v-model.number="volUi[id]" @input="onVol(id, volUi[id])" />
+                  <span class="vol-val">{{ volUi[id] ?? 100 }}%</span>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div v-if="openPanelFor === id" class="tile-panel" @click.stop>
             <div class="panel-user">
               <img v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar }" alt="" class="panel-ava" />
               <div class="panel-nick">{{ userName(id) }}</div>
+              <div class="panel-nick">*информация о пользователе*</div>
             </div>
           </div>
         </div>
@@ -421,7 +422,7 @@ function applySelfPref(pref: any) {
 }
 
 function connectSocket() {
-  if (socket.value && (socket.value.connected || (socket.value as any).connecting)) return
+  if (socket.value && socket.value.connected) return
   socket.value = createAuthedSocket('/room', {
     path: '/ws/socket.io',
     transports: ['websocket'],
@@ -530,7 +531,7 @@ function connectSocket() {
 
 async function safeJoin() {
   if (!socket.value) connectSocket()
-  if (joinedRoomId.value === rid && !joinInFlight.value) return { ok: true }
+  if (socket.value?.connected && joinedRoomId.value === rid && !joinInFlight.value) return { ok: true }
   if (joinInFlight.value) return joinInFlight.value
   if (!socket.value!.connected) {
     await new Promise<void>((res, rej) => {
@@ -891,7 +892,7 @@ onBeforeUnmount(() => { void onLeave() })
         pointer-events: auto;
         z-index: 5;
       }
-      .title-btn {
+      .titlebar-div {
         display: inline-flex;
         align-items: center;
         gap: 8px;
@@ -901,17 +902,57 @@ onBeforeUnmount(() => { void onLeave() })
         color: $fg;
         cursor: pointer;
         padding: 2px 4px;
-        .title-ava {
-          width: 24px;
-          height: 24px;
-          border-radius: 50%;
-          object-fit: cover;
+        .title-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          border: 1px solid transparent;
+          border-radius: 10px;
+          background: transparent;
+          color: $fg;
+          cursor: pointer;
+          padding: 2px 4px;
+          .title-ava {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            object-fit: cover;
+          }
+          .title-nick {
+            max-width: 160px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
         }
-        .title-nick {
-          max-width: 160px;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
+        .status {
+          display: flex;
+          gap: 6px;
+          align-items: center;
+          .status-icon {
+            width: 18px;
+            height: 18px;
+            display: block;
+          }
+        }
+        .admin-row {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+          .mod {
+            border-radius: 8px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid rgba($fg, 0.25);
+            background: $black;
+            cursor: pointer;
+            .status-icon {
+              width: 18px;
+              height: 18px;
+              display: block;
+            }
+          }
         }
       }
       .right {
@@ -924,8 +965,6 @@ onBeforeUnmount(() => { void onLeave() })
         align-items: center;
       }
       .vol-btn {
-        width: 36px;
-        height: 36px;
         border-radius: 8px;
         display: inline-flex;
         align-items: center;
@@ -952,37 +991,6 @@ onBeforeUnmount(() => { void onLeave() })
           min-width: 48px;
           text-align: right;
           font-variant-numeric: tabular-nums;
-        }
-      }
-      .status {
-        display: flex;
-        gap: 6px;
-        align-items: center;
-        .status-icon {
-          width: 18px;
-          height: 18px;
-          display: block;
-        }
-      }
-      .admin-row {
-        display: flex;
-        gap: 8px;
-        flex-wrap: wrap;
-        .mod {
-          width: 36px;
-          height: 36px;
-          border-radius: 8px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          border: 1px solid rgba($fg, 0.25);
-          background: $black;
-          cursor: pointer;
-          .status-icon {
-            width: 18px;
-            height: 18px;
-            display: block;
-          }
         }
       }
       .tile-panel {
@@ -1046,29 +1054,6 @@ onBeforeUnmount(() => { void onLeave() })
         pointer-events: auto;
         z-index: 5;
       }
-      .title-btn {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        border: 1px solid transparent;
-        border-radius: 10px;
-        background: transparent;
-        color: $fg;
-        cursor: pointer;
-        padding: 2px 4px;
-        .title-ava {
-          width: 24px;
-          height: 24px;
-          border-radius: 50%;
-          object-fit: cover;
-        }
-        .title-nick {
-          max-width: 160px;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-      }
       .right {
         display: inline-flex;
         align-items: center;
@@ -1079,8 +1064,6 @@ onBeforeUnmount(() => { void onLeave() })
         align-items: center;
       }
       .vol-btn {
-        width: 36px;
-        height: 36px;
         border-radius: 8px;
         display: inline-flex;
         align-items: center;
@@ -1197,7 +1180,7 @@ onBeforeUnmount(() => { void onLeave() })
           pointer-events: auto;
           z-index: 5;
         }
-        .title-btn {
+        .titlebar-div {
           display: inline-flex;
           align-items: center;
           gap: 8px;
@@ -1207,17 +1190,57 @@ onBeforeUnmount(() => { void onLeave() })
           color: $fg;
           cursor: pointer;
           padding: 2px 4px;
-          .title-ava {
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            object-fit: cover;
+          .title-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            border: 1px solid transparent;
+            border-radius: 10px;
+            background: transparent;
+            color: $fg;
+            cursor: pointer;
+            padding: 2px 4px;
+            .title-ava {
+              width: 24px;
+              height: 24px;
+              border-radius: 50%;
+              object-fit: cover;
+            }
+            .title-nick {
+              max-width: 160px;
+              white-space: nowrap;
+              overflow: hidden;
+              text-overflow: ellipsis;
+            }
           }
-          .title-nick {
-            max-width: 160px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+          .status {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            .status-icon {
+              width: 18px;
+              height: 18px;
+              display: block;
+            }
+          }
+          .admin-row {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            .mod {
+              border-radius: 8px;
+              display: inline-flex;
+              align-items: center;
+              justify-content: center;
+              border: 1px solid rgba($fg, 0.25);
+              background: $black;
+              cursor: pointer;
+              .status-icon {
+                width: 18px;
+                height: 18px;
+                display: block;
+              }
+            }
           }
         }
         .right {
@@ -1230,8 +1253,6 @@ onBeforeUnmount(() => { void onLeave() })
           align-items: center;
         }
         .vol-btn {
-          width: 36px;
-          height: 36px;
           border-radius: 8px;
           display: inline-flex;
           align-items: center;
@@ -1258,37 +1279,6 @@ onBeforeUnmount(() => { void onLeave() })
             min-width: 48px;
             text-align: right;
             font-variant-numeric: tabular-nums;
-          }
-        }
-        .status {
-          display: flex;
-          gap: 6px;
-          align-items: center;
-          .status-icon {
-            width: 18px;
-            height: 18px;
-            display: block;
-          }
-        }
-        .admin-row {
-          display: flex;
-          gap: 8px;
-          flex-wrap: wrap;
-          .mod {
-            width: 36px;
-            height: 36px;
-            border-radius: 8px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            border: 1px solid rgba($fg, 0.25);
-            background: $black;
-            cursor: pointer;
-            .status-icon {
-              width: 18px;
-              height: 18px;
-              display: block;
-            }
           }
         }
         .tile-panel {
