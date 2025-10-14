@@ -882,23 +882,6 @@ onBeforeUnmount(() => { void onLeave() })
         user-select: none;
         pointer-events: none;
       }
-      .titlebar {
-        position: absolute;
-        left: 0;
-        right: 0;
-        top: 0;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 6px 8px;
-        max-height: 50px;
-        background: rgba($black, 0.65);
-        backdrop-filter: blur(4px);
-        z-index: 5;
-        opacity: 0;
-        pointer-events: none;
-        transition: opacity 0.25s ease-in-out;
-      }
       .titlebar-div {
         display: inline-flex;
         align-items: center;
@@ -1164,23 +1147,6 @@ onBeforeUnmount(() => { void onLeave() })
           user-select: none;
           pointer-events: none;
         }
-        .titlebar {
-          position: absolute;
-          left: 0;
-          right: 0;
-          top: 0;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 6px 8px;
-          max-height: 50px;
-          background: rgba($black, 0.65);
-          backdrop-filter: blur(4px);
-          z-index: 5;
-          opacity: 0;
-          pointer-events: none;
-          transition: opacity 0.25s ease-in-out;
-        }
         .titlebar-div {
           display: inline-flex;
           align-items: center;
@@ -1307,6 +1273,23 @@ onBeforeUnmount(() => { void onLeave() })
         }
       }
     }
+  }
+  .tile .titlebar {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 8px;
+    max-height: 50px;
+    background: rgba($black, 0.65);
+    backdrop-filter: blur(4px);
+    z-index: 5;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease-in-out;
   }
   .tile:hover .titlebar,
   .tile:focus .titlebar,
