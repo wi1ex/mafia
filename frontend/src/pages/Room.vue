@@ -36,7 +36,7 @@
     </div>
 
     <div v-if="!isTheater" class="grid" :style="gridStyle">
-      <div v-for="id in sortedPeerIds" :key="id" class="tile" :class="{ speaking: rtc.isSpeaking(id), 'show-title': openVolFor===id || openPanelFor===id }">
+      <div v-for="id in sortedPeerIds" :key="id" class="tile" :tabindex="0" :class="{ speaking: rtc.isSpeaking(id), 'show-title': openVolFor===id || openPanelFor===id }">
         <video :ref="rtc.videoRef(id)" playsinline autoplay :muted="id === localId" v-show="isOn(id,'cam') && !isBlocked(id,'cam')" />
 
         <div v-show="!isOn(id,'cam') || isBlocked(id,'cam')" class="ava-wrap">
@@ -81,7 +81,7 @@
             <div v-if="id !== localId" class="volume">
               <button v-if="openVolFor !== id" class="vol-btn" @click.stop="toggleVolume(id)"
                       :disabled="!speakersOn || isBlocked(id,'speakers')" aria-label="volume">
-                <img class="status-icon" :src="stateIcon('speakers', id)" alt="vol" />
+                <img class="status-icon" :src="iconVolumeMax" alt="vol" />
               </button>
               <div v-else class="vol-inline" @click.stop>
                 <input class="vol-slider" type="range" min="0" max="200" :disabled="!speakersOn || isBlocked(id,'speakers')"
@@ -110,7 +110,7 @@
           <div v-if="screenOwnerId !== localId" class="volume">
             <button v-if="openVolFor !== streamAudioKey" class="vol-btn" @click.stop="toggleVolume(streamAudioKey)"
                     :disabled="!speakersOn || isBlocked(screenOwnerId,'speakers')" aria-label="volume">
-              <img class="status-icon" :src="stateIcon('speakers', screenOwnerId)" alt="vol" />
+              <img class="status-icon" :src="iconVolumeMax" alt="vol" />
             </button>
             <div v-else class="vol-inline" @click.stop>
               <input class="vol-slider" type="range" min="0" max="200" :disabled="!speakersOn || isBlocked(screenOwnerId,'speakers')"
@@ -129,7 +129,7 @@
       </div>
 
       <div class="sidebar">
-        <div v-for="id in sortedPeerIds" :key="id" class="tile side" :class="{ speaking: rtc.isSpeaking(id), 'show-title': openVolFor===id || openPanelFor===id }">
+        <div v-for="id in sortedPeerIds" :key="id" class="tile side" :tabindex="0" :class="{ speaking: rtc.isSpeaking(id), 'show-title': openVolFor===id || openPanelFor===id }">
           <video :ref="rtc.videoRef(id)" playsinline autoplay :muted="id === localId" v-show="isOn(id,'cam') && !isBlocked(id,'cam')" />
 
           <div v-show="!isOn(id,'cam') || isBlocked(id,'cam')" class="ava-wrap">
@@ -174,7 +174,7 @@
               <div v-if="id !== localId" class="volume">
                 <button v-if="openVolFor !== id" class="vol-btn" @click.stop="toggleVolume(id)"
                         :disabled="!speakersOn || isBlocked(id,'speakers')" aria-label="volume">
-                  <img class="status-icon" :src="stateIcon('speakers', id)" alt="vol" />
+                  <img class="status-icon" :src="iconVolumeMax" alt="vol" />
                 </button>
                 <div v-else class="vol-inline" @click.stop>
                   <input class="vol-slider" type="range" min="0" max="200" :disabled="!speakersOn || isBlocked(id,'speakers')"
@@ -213,6 +213,7 @@ import { useRTC } from '@/services/rtc'
 import { createAuthedSocket } from '@/services/sio'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
+import iconVolumeMax from '@/assets/svg/volumeMax.svg'
 import iconMicOn from '@/assets/svg/micOn.svg'
 import iconMicOff from '@/assets/svg/micOff.svg'
 import iconMicBlocked from '@/assets/svg/micBlocked.svg'
@@ -814,8 +815,8 @@ onBeforeUnmount(() => { void onLeave() })
           color: $fg;
         }
         .ctrl-icon {
-          width: 18px;
-          height: 18px;
+          width: 24px;
+          height: 24px;
           display: block;
           flex: 0 0 18px;
         }
@@ -891,21 +892,18 @@ onBeforeUnmount(() => { void onLeave() })
         justify-content: space-between;
         padding: 6px 8px;
         max-height: 50px;
-        border-radius: 12px;
         background: rgba($black, 0.65);
         backdrop-filter: blur(4px);
         z-index: 5;
         opacity: 0;
         pointer-events: none;
-        transform: translateY(-6px);
-        transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
+        transition: opacity 0.25s ease-in-out;
       }
       .titlebar-div {
         display: inline-flex;
         align-items: center;
         gap: 8px;
         border: 1px solid transparent;
-        border-radius: 10px;
         background: transparent;
         color: $fg;
         padding: 2px 4px;
@@ -1176,21 +1174,18 @@ onBeforeUnmount(() => { void onLeave() })
           justify-content: space-between;
           padding: 6px 8px;
           max-height: 50px;
-          border-radius: 12px;
           background: rgba($black, 0.65);
           backdrop-filter: blur(4px);
           z-index: 5;
           opacity: 0;
           pointer-events: none;
-          transform: translateY(-6px);
-          transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
+          transition: opacity 0.25s ease-in-out;
         }
         .titlebar-div {
           display: inline-flex;
           align-items: center;
           gap: 8px;
           border: 1px solid transparent;
-          border-radius: 10px;
           background: transparent;
           color: $fg;
           padding: 2px 4px;
@@ -1314,11 +1309,11 @@ onBeforeUnmount(() => { void onLeave() })
     }
   }
   .tile:hover .titlebar,
-  .tile.show-title .titlebar,
-  .tile:focus-within .titlebar {
+  .tile:focus .titlebar,
+  .tile:focus-within .titlebar,
+  .tile.show-title .titlebar {
     opacity: 1;
     pointer-events: auto;
-    transform: translateY(0);
   }
 
   .perm-probe {
@@ -1345,8 +1340,8 @@ onBeforeUnmount(() => { void onLeave() })
         color: $fg;
       }
       .ctrl-icon {
-        width: 18px;
-        height: 18px;
+        width: 24px;
+        height: 24px;
         display: block;
         flex: 0 0 18px;
       }
