@@ -36,7 +36,7 @@
     </div>
 
     <div v-if="!isTheater" class="grid" :style="gridStyle">
-      <div v-for="id in sortedPeerIds" :key="id" class="tile" :class="{ speaking: rtc.isSpeaking(id) }">
+      <div v-for="id in sortedPeerIds" :key="id" class="tile" :class="{ speaking: rtc.isSpeaking(id), 'show-title': openVolFor===id || openPanelFor===id }">
         <video :ref="rtc.videoRef(id)" playsinline autoplay :muted="id === localId" v-show="isOn(id,'cam') && !isBlocked(id,'cam')" />
 
         <div v-show="!isOn(id,'cam') || isBlocked(id,'cam')" class="ava-wrap">
@@ -79,11 +79,13 @@
 
           <div class="right">
             <div v-if="id !== localId" class="volume">
-              <button v-if="openVolFor !== id" class="vol-btn" @click.stop="toggleVolume(id)" :disabled="id === localId || !speakersOn || isBlocked(id,'speakers')" aria-label="volume">
+              <button v-if="openVolFor !== id" class="vol-btn" @click.stop="toggleVolume(id)"
+                      :disabled="!speakersOn || isBlocked(id,'speakers')" aria-label="volume">
                 <img class="status-icon" :src="stateIcon('speakers', id)" alt="vol" />
               </button>
               <div v-else class="vol-inline" @click.stop>
-                <input class="vol-slider" type="range" min="0" max="200" :disabled="id === localId || !speakersOn || isBlocked(id,'speakers')" v-model.number="volUi[id]" @input="onVol(id, volUi[id])" />
+                <input class="vol-slider" type="range" min="0" max="200" :disabled="!speakersOn || isBlocked(id,'speakers')"
+                       v-model.number="volUi[id]" @input="onVol(id, volUi[id])" />
                 <span class="vol-val">{{ volUi[id] ?? 100 }}%</span>
               </div>
             </div>
@@ -104,16 +106,16 @@
       <div class="stage">
         <video :ref="rtc.screenVideoRef(screenOwnerId)" playsinline autoplay />
 
-        <div class="titlebar">
-          <div class="right">
-            <div class="volume">
-              <button v-if="openVolFor !== streamAudioKey" class="vol-btn" @click.stop="toggleVolume(streamAudioKey)" :disabled="screenOwnerId === localId || !speakersOn || isBlocked(screenOwnerId,'speakers')" aria-label="volume">
-                <img class="status-icon" :src="stateIcon('speakers', screenOwnerId)" alt="vol" />
-              </button>
-              <div v-else class="vol-inline" @click.stop>
-                <input class="vol-slider" type="range" min="0" max="200" :disabled="screenOwnerId === localId || !speakersOn || isBlocked(screenOwnerId,'speakers')" v-model.number="volUi[streamAudioKey]" @input="onVol(streamAudioKey, volUi[streamAudioKey])" />
-                <span class="vol-val">{{ volUi[streamAudioKey] ?? 100 }}%</span>
-              </div>
+        <div class="right">
+          <div v-if="screenOwnerId !== localId" class="volume">
+            <button v-if="openVolFor !== streamAudioKey" class="vol-btn" @click.stop="toggleVolume(streamAudioKey)"
+                    :disabled="!speakersOn || isBlocked(screenOwnerId,'speakers')" aria-label="volume">
+              <img class="status-icon" :src="stateIcon('speakers', screenOwnerId)" alt="vol" />
+            </button>
+            <div v-else class="vol-inline" @click.stop>
+              <input class="vol-slider" type="range" min="0" max="200" :disabled="!speakersOn || isBlocked(screenOwnerId,'speakers')"
+                     v-model.number="volUi[streamAudioKey]" @input="onVol(streamAudioKey, volUi[streamAudioKey])" />
+              <span class="vol-val">{{ volUi[streamAudioKey] ?? 100 }}%</span>
             </div>
           </div>
         </div>
@@ -127,7 +129,7 @@
       </div>
 
       <div class="sidebar">
-        <div v-for="id in sortedPeerIds" :key="id" class="tile side" :class="{ speaking: rtc.isSpeaking(id) }">
+        <div v-for="id in sortedPeerIds" :key="id" class="tile side" :class="{ speaking: rtc.isSpeaking(id), 'show-title': openVolFor===id || openPanelFor===id }">
           <video :ref="rtc.videoRef(id)" playsinline autoplay :muted="id === localId" v-show="isOn(id,'cam') && !isBlocked(id,'cam')" />
 
           <div v-show="!isOn(id,'cam') || isBlocked(id,'cam')" class="ava-wrap">
@@ -170,11 +172,13 @@
 
             <div class="right">
               <div v-if="id !== localId" class="volume">
-                <button v-if="openVolFor !== id" class="vol-btn" @click.stop="toggleVolume(id)" :disabled="id === localId || !speakersOn || isBlocked(id,'speakers')" aria-label="volume">
+                <button v-if="openVolFor !== id" class="vol-btn" @click.stop="toggleVolume(id)"
+                        :disabled="!speakersOn || isBlocked(id,'speakers')" aria-label="volume">
                   <img class="status-icon" :src="stateIcon('speakers', id)" alt="vol" />
                 </button>
                 <div v-else class="vol-inline" @click.stop>
-                  <input class="vol-slider" type="range" min="0" max="200" :disabled="id === localId || !speakersOn || isBlocked(id,'speakers')" v-model.number="volUi[id]" @input="onVol(id, volUi[id])" />
+                  <input class="vol-slider" type="range" min="0" max="200" :disabled="!speakersOn || isBlocked(id,'speakers')"
+                         v-model.number="volUi[id]" @input="onVol(id, volUi[id])" />
                   <span class="vol-val">{{ volUi[id] ?? 100 }}%</span>
                 </div>
               </div>
@@ -886,11 +890,15 @@ onBeforeUnmount(() => { void onLeave() })
         align-items: center;
         justify-content: space-between;
         padding: 6px 8px;
+        max-height: 50px;
         border-radius: 12px;
         background: rgba($black, 0.65);
         backdrop-filter: blur(4px);
-        pointer-events: auto;
         z-index: 5;
+        opacity: 0;
+        pointer-events: none;
+        transform: translateY(-6px);
+        transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
       }
       .titlebar-div {
         display: inline-flex;
@@ -900,7 +908,6 @@ onBeforeUnmount(() => { void onLeave() })
         border-radius: 10px;
         background: transparent;
         color: $fg;
-        cursor: pointer;
         padding: 2px 4px;
         .title-btn {
           display: inline-flex;
@@ -927,7 +934,7 @@ onBeforeUnmount(() => { void onLeave() })
         }
         .status {
           display: flex;
-          gap: 6px;
+          gap: 8px;
           align-items: center;
           .status-icon {
             width: 18px;
@@ -937,7 +944,6 @@ onBeforeUnmount(() => { void onLeave() })
         }
         .admin-row {
           display: flex;
-          gap: 8px;
           flex-wrap: wrap;
           .mod {
             border-radius: 8px;
@@ -981,7 +987,6 @@ onBeforeUnmount(() => { void onLeave() })
       .vol-inline {
         display: inline-flex;
         align-items: center;
-        gap: 10px;
         .vol-slider {
           flex: 1 1 auto;
           height: 24px;
@@ -1039,24 +1044,21 @@ onBeforeUnmount(() => { void onLeave() })
         object-fit: contain;
         background: $black;
       }
-      .titlebar {
+      .right {
         position: absolute;
         left: 0;
         right: 0;
         top: 0;
         display: flex;
         align-items: center;
-        justify-content: space-between;
-        padding: 6px 8px;
+        justify-content: flex-end;
+        margin: 14px 8px;
         border-radius: 12px;
         background: rgba($black, 0.65);
+        -webkit-backdrop-filter: blur(4px);
         backdrop-filter: blur(4px);
         pointer-events: auto;
         z-index: 5;
-      }
-      .right {
-        display: inline-flex;
-        align-items: center;
         gap: 8px;
       }
       .volume {
@@ -1080,7 +1082,6 @@ onBeforeUnmount(() => { void onLeave() })
       .vol-inline {
         display: inline-flex;
         align-items: center;
-        gap: 10px;
         .vol-slider {
           flex: 1 1 auto;
           height: 24px;
@@ -1174,11 +1175,15 @@ onBeforeUnmount(() => { void onLeave() })
           align-items: center;
           justify-content: space-between;
           padding: 6px 8px;
+          max-height: 50px;
           border-radius: 12px;
           background: rgba($black, 0.65);
           backdrop-filter: blur(4px);
-          pointer-events: auto;
           z-index: 5;
+          opacity: 0;
+          pointer-events: none;
+          transform: translateY(-6px);
+          transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
         }
         .titlebar-div {
           display: inline-flex;
@@ -1188,7 +1193,6 @@ onBeforeUnmount(() => { void onLeave() })
           border-radius: 10px;
           background: transparent;
           color: $fg;
-          cursor: pointer;
           padding: 2px 4px;
           .title-btn {
             display: inline-flex;
@@ -1215,7 +1219,7 @@ onBeforeUnmount(() => { void onLeave() })
           }
           .status {
             display: flex;
-            gap: 6px;
+            gap: 8px;
             align-items: center;
             .status-icon {
               width: 18px;
@@ -1225,7 +1229,6 @@ onBeforeUnmount(() => { void onLeave() })
           }
           .admin-row {
             display: flex;
-            gap: 8px;
             flex-wrap: wrap;
             .mod {
               border-radius: 8px;
@@ -1269,7 +1272,6 @@ onBeforeUnmount(() => { void onLeave() })
         .vol-inline {
           display: inline-flex;
           align-items: center;
-          gap: 10px;
           .vol-slider {
             flex: 1 1 auto;
             height: 24px;
@@ -1310,6 +1312,13 @@ onBeforeUnmount(() => { void onLeave() })
         }
       }
     }
+  }
+  .tile:hover .titlebar,
+  .tile.show-title .titlebar,
+  .tile:focus-within .titlebar {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0);
   }
 
   .perm-probe {
