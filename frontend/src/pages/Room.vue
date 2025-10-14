@@ -2,13 +2,38 @@
   <section class="card">
     <div class="panel">
       <div class="controls">
-        <button class="ctrl" @click="toggleMic" :disabled="pending.mic || blockedSelf.mic">{{ micOn ? 'Микрофон ВКЛ' : 'Микрофон ВЫКЛ' }}</button>
-        <button class="ctrl" @click="toggleCam" :disabled="pending.cam || blockedSelf.cam">{{ camOn ? 'Камера ВКЛ' : 'Камера ВЫКЛ' }}</button>
-        <button class="ctrl" @click="toggleSpeakers" :disabled="pending.speakers || blockedSelf.speakers">{{ speakersOn ? 'Звук ВКЛ' : 'Звук ВЫКЛ' }}</button>
-        <button class="ctrl" @click="toggleVisibility" :disabled="pending.visibility || blockedSelf.visibility">{{ visibilityOn ? 'Видео ВКЛ' : 'Видео ВЫКЛ' }}</button>
-        <button class="ctrl" @click="toggleScreen" :disabled="pendingScreen || (!!screenOwnerId && screenOwnerId !== localId) || blockedSelf.screen">{{ isMyScreen ? 'Стрим ВКЛ' : 'Стрим ВЫКЛ' }}</button>
-        <button class="ctrl" @click="toggleQuality" :disabled="pendingQuality">{{ videoQuality === 'hd' ? 'Качество HD' : 'Качество SD' }}</button>
-        <button class="ctrl danger" @click="onLeave">Покинуть комнату</button>
+        <button class="ctrl" @click="toggleMic" :disabled="pending.mic || blockedSelf.mic" :aria-pressed="micOn">
+          <img class="ctrl-icon" :src="stateIcon('mic', localId)" alt="mic" />
+          <span>{{ micOn ? 'Микрофон ВКЛ' : 'Микрофон ВЫКЛ' }}</span>
+        </button>
+
+        <button class="ctrl" @click="toggleCam" :disabled="pending.cam || blockedSelf.cam" :aria-pressed="camOn">
+          <img class="ctrl-icon" :src="stateIcon('cam', localId)" alt="cam" />
+          <span>{{ camOn ? 'Камера ВКЛ' : 'Камера ВЫКЛ' }}</span>
+        </button>
+
+        <button class="ctrl" @click="toggleSpeakers" :disabled="pending.speakers || blockedSelf.speakers" :aria-pressed="speakersOn">
+          <img class="ctrl-icon" :src="stateIcon('speakers', localId)" alt="speakers" />
+          <span>{{ speakersOn ? 'Звук ВКЛ' : 'Звук ВЫКЛ' }}</span>
+        </button>
+
+        <button class="ctrl" @click="toggleVisibility" :disabled="pending.visibility || blockedSelf.visibility" :aria-pressed="visibilityOn">
+          <img class="ctrl-icon" :src="stateIcon('visibility', localId)" alt="visibility" />
+          <span>{{ visibilityOn ? 'Видео ВКЛ' : 'Видео ВЫКЛ' }}</span>
+        </button>
+
+        <button class="ctrl" @click="toggleScreen" :disabled="pendingScreen || (!!screenOwnerId && screenOwnerId !== localId) || blockedSelf.screen" :aria-pressed="isMyScreen">
+          <img class="ctrl-icon" :src="stateIcon('screen', localId)" alt="screen" />
+          <span>{{ isMyScreen ? 'Стрим ВКЛ' : 'Стрим ВЫКЛ' }}</span>
+        </button>
+
+        <button class="ctrl" @click="toggleQuality" :disabled="pendingQuality">
+          <span>{{ videoQuality === 'hd' ? 'Качество HD' : 'Качество SD' }}</span>
+        </button>
+
+        <button class="ctrl danger" @click="onLeave">
+          <span>Покинуть комнату</span>
+        </button>
       </div>
 
       <div class="devices">
@@ -29,28 +54,43 @@
           <img v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar }" alt="" class="ava-circle" />
         </div>
 
-        <div class="vol-wrap" v-if="id !== localId">
-          <button v-if="openVolumeFor !== id" class="vol-btn" @click.stop="toggleVolPopover(id)" :aria-expanded="openVolumeFor===id">🔊</button>
-          <div class="vol-pop" :class="{ show: openVolumeFor === id }" @click.stop>
-            <input class="vol-range" type="range" min="0" max="200" :disabled="!speakersOn || isBlocked(id,'speakers')" v-model.number="volUi[id]" @input="onVol(id, volUi[id])" />
-            <span class="vol-val">{{ volUi[id] ?? 100 }}%</span>
+        <div class="titlebar">
+          <button class="title-btn" @click.stop="toggleTilePanel(id)" :aria-expanded="openPanelFor===id">
+            <img v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar }" alt="" class="title-ava" />
+            <span class="title-nick">{{ userName(id) }}</span>
+          </button>
+          <div class="status">
+            <img class="status-icon" :src="stateIcon('mic', id)" alt="mic" />
+            <img class="status-icon" :src="stateIcon('cam', id)" alt="cam" />
+            <img class="status-icon" :src="stateIcon('speakers', id)" alt="spk" />
+            <img class="status-icon" :src="stateIcon('visibility', id)" alt="vis" />
+            <img class="status-icon" :src="stateIcon('screen', id)" alt="scr" />
           </div>
         </div>
 
-        <div class="badges">
-          <span class="badge">{{ emTri('mic', id) }}</span>
-          <span class="badge">{{ emTri('cam', id) }}</span>
-          <span class="badge">{{ emTri('speakers', id) }}</span>
-          <span class="badge">{{ emTri('visibility', id) }}</span>
-          <span class="badge">{{ emTri('screen', id) }}</span>
-        </div>
+        <div v-if="openPanelFor === id" class="tile-panel" @click.stop>
+          <div class="panel-row">
+            <input class="vol-slider" type="range" min="0" max="200" :disabled="id === localId || !speakersOn || isBlocked(id,'speakers')" v-model.number="volUi[id]" @input="onVol(id, volUi[id])" />
+            <span class="vol-val">{{ volUi[id] ?? 100 }}%</span>
+          </div>
 
-        <div v-if="canModerate(id)" class="mod-controls" role="group" aria-label="Блокировки">
-          <button class="mod" :class="{ on: isBlocked(id,'mic') }" @click="toggleBlock(id,'mic')">🎤⛔</button>
-          <button class="mod" :class="{ on: isBlocked(id,'cam') }" @click="toggleBlock(id,'cam')">🎥⛔</button>
-          <button class="mod" :class="{ on: isBlocked(id,'speakers') }" @click="toggleBlock(id,'speakers')">🔈⛔</button>
-          <button class="mod" :class="{ on: isBlocked(id,'visibility') }" @click="toggleBlock(id,'visibility')">👁️⛔</button>
-          <button class="mod" :class="{ on: isBlocked(id,'screen') }" @click="toggleBlock(id,'screen')">🖥️⛔</button>
+          <div v-if="canModerate(id)" class="admin-row" role="group" aria-label="Блокировки">
+            <button class="mod" :class="{ on: isBlocked(id,'mic') }" @click="toggleBlock(id,'mic')" aria-label="block mic">
+              <img :src="iconMicBlocked" alt="" />
+            </button>
+            <button class="mod" :class="{ on: isBlocked(id,'cam') }" @click="toggleBlock(id,'cam')" aria-label="block cam">
+              <img :src="iconCamBlocked" alt="" />
+            </button>
+            <button class="mod" :class="{ on: isBlocked(id,'speakers') }" @click="toggleBlock(id,'speakers')" aria-label="block speakers">
+              <img :src="iconSpkBlocked" alt="" />
+            </button>
+            <button class="mod" :class="{ on: isBlocked(id,'visibility') }" @click="toggleBlock(id,'visibility')" aria-label="block visibility">
+              <img :src="iconVisBlocked" alt="" />
+            </button>
+            <button class="mod" :class="{ on: isBlocked(id,'screen') }" @click="toggleBlock(id,'screen')" aria-label="block screen">
+              <img :src="iconScreenBlocked" alt="" />
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -58,11 +98,40 @@
     <div v-else class="theater">
       <div class="stage">
         <video :ref="rtc.screenVideoRef(screenOwnerId)" playsinline autoplay />
-        <div class="vol-wrap" v-if="streamAudioKey">
-          <button v-if="openVolumeFor !== streamAudioKey" class="vol-btn" @click.stop="toggleVolPopover(streamAudioKey)" :aria-expanded="openVolumeFor===streamAudioKey">🔊</button>
-          <div class="vol-pop" :class="{ show: openVolumeFor === streamAudioKey }" @click.stop>
-            <input class="vol-range" type="range" min="0" max="200" :disabled="!speakersOn || isBlocked(screenOwnerId,'speakers')" v-model.number="volUi[streamAudioKey]" @input="onVol(streamAudioKey, volUi[streamAudioKey])"/>
+
+        <div class="titlebar">
+          <button class="title-btn" @click.stop="toggleTilePanel(streamAudioKey)" :aria-expanded="openPanelFor===streamAudioKey">
+            <img v-minio-img="{ key: avatarKey(screenOwnerId), placeholder: defaultAvatar }" alt="" class="title-ava" />
+            <span class="title-nick">{{ userName(screenOwnerId) }}</span>
+          </button>
+          <div class="status">
+            <img class="status-icon" :src="stateIcon('speakers', screenOwnerId)" alt="spk" />
+            <img class="status-icon" :src="stateIcon('screen', screenOwnerId)" alt="scr" />
+          </div>
+        </div>
+
+        <div v-if="openPanelFor === streamAudioKey" class="tile-panel" @click.stop>
+          <div class="panel-row">
+            <input class="vol-slider" type="range" min="0" max="200" :disabled="screenOwnerId === localId || !speakersOn || isBlocked(screenOwnerId,'speakers')" v-model.number="volUi[streamAudioKey]" @input="onVol(streamAudioKey, volUi[streamAudioKey])" />
             <span class="vol-val">{{ volUi[streamAudioKey] ?? 100 }}%</span>
+          </div>
+
+          <div v-if="canModerate(screenOwnerId)" class="admin-row" role="group" aria-label="Блокировки">
+            <button class="mod" :class="{ on: isBlocked(screenOwnerId,'mic') }" @click="toggleBlock(screenOwnerId,'mic')" aria-label="block mic">
+              <img :src="iconMicBlocked" alt="" />
+            </button>
+            <button class="mod" :class="{ on: isBlocked(screenOwnerId,'cam') }" @click="toggleBlock(screenOwnerId,'cam')" aria-label="block cam">
+              <img :src="iconCamBlocked" alt="" />
+            </button>
+            <button class="mod" :class="{ on: isBlocked(screenOwnerId,'speakers') }" @click="toggleBlock(screenOwnerId,'speakers')" aria-label="block speakers">
+              <img :src="iconSpkBlocked" alt="" />
+            </button>
+            <button class="mod" :class="{ on: isBlocked(screenOwnerId,'visibility') }" @click="toggleBlock(screenOwnerId,'visibility')" aria-label="block visibility">
+              <img :src="iconVisBlocked" alt="" />
+            </button>
+            <button class="mod" :class="{ on: isBlocked(screenOwnerId,'screen') }" @click="toggleBlock(screenOwnerId,'screen')" aria-label="block screen">
+              <img :src="iconScreenBlocked" alt="" />
+            </button>
           </div>
         </div>
       </div>
@@ -75,28 +144,43 @@
             <img v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar }" alt="" class="ava-circle" />
           </div>
 
-          <div class="vol-wrap" v-if="id !== localId">
-            <button v-if="openVolumeFor !== id" class="vol-btn" @click.stop="toggleVolPopover(id)" :aria-expanded="openVolumeFor===id">🔊</button>
-            <div class="vol-pop" :class="{ show: openVolumeFor === id }" @click.stop>
-              <input class="vol-range" type="range" min="0" max="200" :disabled="!speakersOn || isBlocked(id,'speakers')" v-model.number="volUi[id]" @input="onVol(id, volUi[id])" />
-              <span class="vol-val">{{ volUi[id] ?? 100 }}%</span>
+          <div class="titlebar">
+            <button class="title-btn" @click.stop="toggleTilePanel(id)" :aria-expanded="openPanelFor===id">
+              <img v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar }" alt="" class="title-ava" />
+              <span class="title-nick">{{ userName(id) }}</span>
+            </button>
+            <div class="status">
+              <img class="status-icon" :src="stateIcon('mic', id)" alt="mic" />
+              <img class="status-icon" :src="stateIcon('cam', id)" alt="cam" />
+              <img class="status-icon" :src="stateIcon('speakers', id)" alt="spk" />
+              <img class="status-icon" :src="stateIcon('visibility', id)" alt="vis" />
+              <img class="status-icon" :src="stateIcon('screen', id)" alt="scr" />
             </div>
           </div>
 
-          <div class="badges">
-            <span class="badge">{{ emTri('mic', id) }}</span>
-            <span class="badge">{{ emTri('cam', id) }}</span>
-            <span class="badge">{{ emTri('speakers', id) }}</span>
-            <span class="badge">{{ emTri('visibility', id) }}</span>
-            <span class="badge">{{ emTri('screen', id) }}</span>
-          </div>
+          <div v-if="openPanelFor === id" class="tile-panel" @click.stop>
+            <div class="panel-row">
+              <input class="vol-slider" type="range" min="0" max="200" :disabled="id === localId || !speakersOn || isBlocked(id,'speakers')" v-model.number="volUi[id]" @input="onVol(id, volUi[id])" />
+              <span class="vol-val">{{ volUi[id] ?? 100 }}%</span>
+            </div>
 
-          <div v-if="canModerate(id)" class="mod-controls" role="group" aria-label="Блокировки">
-            <button class="mod" :class="{ on: isBlocked(id,'mic') }" @click="toggleBlock(id,'mic')">🎤⛔</button>
-            <button class="mod" :class="{ on: isBlocked(id,'cam') }" @click="toggleBlock(id,'cam')">🎥⛔</button>
-            <button class="mod" :class="{ on: isBlocked(id,'speakers') }" @click="toggleBlock(id,'speakers')">🔈⛔</button>
-            <button class="mod" :class="{ on: isBlocked(id,'visibility') }" @click="toggleBlock(id,'visibility')">👁️⛔</button>
-            <button class="mod" :class="{ on: isBlocked(id,'screen') }" @click="toggleBlock(id,'screen')">🖥️⛔</button>
+            <div v-if="canModerate(id)" class="admin-row" role="group" aria-label="Блокировки">
+              <button class="mod" :class="{ on: isBlocked(id,'mic') }" @click="toggleBlock(id,'mic')" aria-label="block mic">
+                <img :src="iconMicBlocked" alt="" />
+              </button>
+              <button class="mod" :class="{ on: isBlocked(id,'cam') }" @click="toggleBlock(id,'cam')" aria-label="block cam">
+                <img :src="iconCamBlocked" alt="" />
+              </button>
+              <button class="mod" :class="{ on: isBlocked(id,'speakers') }" @click="toggleBlock(id,'speakers')" aria-label="block speakers">
+                <img :src="iconSpkBlocked" alt="" />
+              </button>
+              <button class="mod" :class="{ on: isBlocked(id,'visibility') }" @click="toggleBlock(id,'visibility')" aria-label="block visibility">
+                <img :src="iconVisBlocked" alt="" />
+              </button>
+              <button class="mod" :class="{ on: isBlocked(id,'screen') }" @click="toggleBlock(id,'screen')" aria-label="block screen">
+                <img :src="iconScreenBlocked" alt="" />
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -112,7 +196,6 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
-import type { Ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Socket } from 'socket.io-client'
 import { useAuthStore } from '@/store'
@@ -121,6 +204,21 @@ import { createAuthedSocket } from '@/services/sio'
 import { api } from '@/services/axios'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
+import iconMicOn from '@/assets/svg/micOn.svg'
+import iconMicOff from '@/assets/svg/micOff.svg'
+import iconMicBlocked from '@/assets/svg/micBlocked.svg'
+import iconCamOn from '@/assets/svg/camOn.svg'
+import iconCamOff from '@/assets/svg/camOff.svg'
+import iconCamBlocked from '@/assets/svg/camBlocked.svg'
+import iconSpkOn from '@/assets/svg/spkOn.svg'
+import iconSpkOff from '@/assets/svg/spkOff.svg'
+import iconSpkBlocked from '@/assets/svg/spkBlocked.svg'
+import iconVisOn from '@/assets/svg/visOn.svg'
+import iconVisOff from '@/assets/svg/visOff.svg'
+import iconVisBlocked from '@/assets/svg/visBlocked.svg'
+import iconScreenOn from '@/assets/svg/screenOn.svg'
+import iconScreenOff from '@/assets/svg/screenOff.svg'
+import iconScreenBlocked from '@/assets/svg/screenBlocked.svg'
 
 type State01 = 0 | 1
 type StatusState = { mic: State01; cam: State01; speakers: State01; visibility: State01 }
@@ -148,22 +246,26 @@ const statusByUser = reactive(new Map<string, StatusState>())
 const positionByUser = reactive(new Map<string, number>())
 const blockByUser  = reactive(new Map<string, BlockState>())
 const rolesByUser = reactive(new Map<string, string>())
+const nameByUser = reactive(new Map<string, string>())
 const screenOwnerId = ref<string>('')
+const openPanelFor = ref<string>('')
 const pendingScreen = ref(false)
 const isTheater = computed(() => !!screenOwnerId.value)
 const isMyScreen = computed(() => screenOwnerId.value === localId.value)
-const streamAudioKey = computed(() => screenOwnerId.value ? `${screenOwnerId.value}#s` : '')
+const streamAudioKey = computed(() => screenOwnerId.value ? rtc.screenKey(screenOwnerId.value) : '')
 const leaving = ref(false)
 const ws_url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host
 const pendingQuality = ref(false)
 const videoQuality = computed(() => rtc.remoteQuality.value)
-const openVolumeFor = ref<string>('')
 const volUi = reactive<Record<string, number>>({})
 
 const avatarByUser = reactive(new Map<string, string | null>())
 function avatarKey(id: string): string {
   const name = avatarByUser.get(id)
   return name ? `avatars/${name}` : ''
+}
+function userName(id: string) {
+  return nameByUser.get(id) || `user-${id}`
 }
 let avatarsTimer: number | null = null
 function scheduleFetchAvatars() {
@@ -173,19 +275,42 @@ function scheduleFetchAvatars() {
     void fetchAvatars()
   }, 300)
 }
+type MemberInfo = { id: number; avatar_name?: string|null; display_name?: string|null }
 async function fetchAvatars() {
   try {
-    const { data } = await api.get<{ members: { id: number; avatar_name?: string|null }[] }>(
+    const { data } = await api.get<{ members: MemberInfo[] }>(
       `/rooms/${rid}/info`, { __skipAuth: true }
     )
     avatarByUser.clear()
-    for (const m of (data?.members || [])) avatarByUser.set(String(m.id), m.avatar_name ?? null)
+    for (const m of (data?.members || [])) {
+      avatarByUser.set(String(m.id), m.avatar_name ?? null)
+      if (m.display_name) nameByUser.set(String(m.id), m.display_name)
+    }
   } catch {}
 }
 
-const BADGE_ON = { mic:'🎤', cam:'🎥', speakers:'🔈', visibility:'👁️', screen:'🖥️' } as const
-const BADGE_OFF = { mic:'🚫', cam:'🚫', speakers:'🚫', visibility:'🚫', screen:'🚫' } as const
-const BADGE_BLK = { mic:'⛔', cam:'⛔', speakers:'⛔', visibility:'⛔', screen:'⛔' } as const
+const STATE_ICONS = {
+  mic:        { on: iconMicOn,    off: iconMicOff,    blk: iconMicBlocked },
+  cam:        { on: iconCamOn,    off: iconCamOff,    blk: iconCamBlocked },
+  speakers:   { on: iconSpkOn,    off: iconSpkOff,    blk: iconSpkBlocked },
+  visibility: { on: iconVisOn,    off: iconVisOff,    blk: iconVisBlocked },
+  screen:     { on: iconScreenOn, off: iconScreenOff, blk: iconScreenBlocked },
+} as const
+function stateIcon(kind: IconKind, id: string) {
+  if (isBlocked(id, kind)) return STATE_ICONS[kind].blk
+  return isOn(id, kind) ? STATE_ICONS[kind].on : STATE_ICONS[kind].off
+}
+async function toggleTilePanel(id: string) {
+  if (openPanelFor.value === id) {
+    openPanelFor.value = ''
+    return
+  }
+  if (id !== localId.value) {
+    await rtc.resumeAudio()
+    volUi[id] = rtc.getUserVolume(id)
+  }
+  openPanelFor.value = id
+}
 
 const showPermProbe = computed(() => !rtc.permProbed.value && !micOn.value && !camOn.value)
 const sortedPeerIds = computed(() => {
@@ -219,13 +344,8 @@ function onVol(id: string, v: number) {
   volUi[id] = v
   rtc.setUserVolume(id, v)
 }
-async function toggleVolPopover(id: string) {
-  await rtc.resumeAudio()
-  volUi[id] = rtc.getUserVolume(id)
-  openVolumeFor.value = openVolumeFor.value === id ? '' : id
-}
 function onDocClick() {
-  openVolumeFor.value = ''
+  openPanelFor.value = ''
   void rtc.resumeAudio()
 }
 
@@ -245,10 +365,6 @@ function isOn(id: string, kind: IconKind) {
 function isBlocked(id: string, kind: IconKind) {
   const st = blockByUser.get(id)
   return st ? st[kind] === 1 : false
-}
-function emTri(kind: IconKind, id: string) {
-  if (isBlocked(id, kind)) return BADGE_BLK[kind]
-  return isOn(id, kind) ? BADGE_ON[kind] : BADGE_OFF[kind]
 }
 const blockedSelf = computed<BlockState>(() => {
   const s = blockByUser.get(localId.value)
@@ -339,7 +455,10 @@ function connectSocket() {
     }
   })
 
-  socket.value?.on('disconnect', () => { joinedRoomId.value = null })
+  socket.value?.on('disconnect', () => {
+    joinedRoomId.value = null
+    openPanelFor.value = ''
+  })
 
   socket.value.on('force_logout', async () => {
     try { await onLeave() } finally { await auth.localSignOut?.() }
@@ -363,8 +482,9 @@ function connectSocket() {
     positionByUser.delete(id)
     blockByUser.delete(id)
     rolesByUser.delete(id)
-    if (openVolumeFor.value === id) openVolumeFor.value = ''
+    if (openPanelFor.value === id || openPanelFor.value === rtc.screenKey(id)) openPanelFor.value = ''
     delete volUi[id]
+    delete volUi[rtc.screenKey(id)]
     avatarByUser.delete(id)
   })
 
@@ -406,7 +526,9 @@ function connectSocket() {
   })
 
   socket.value.on('screen_owner', (p: any) => {
+    const prev = screenOwnerId.value
     screenOwnerId.value = p?.user_id ? String(p.user_id) : ''
+    if (openPanelFor.value === rtc.screenKey(prev)) openPanelFor.value = ''
   })
 }
 
@@ -465,12 +587,18 @@ function applyJoinAck(j: any) {
   }
 
   for (const k in volUi) {
-    if (!statusByUser.has(k)) delete volUi[k]
+    if (!statusByUser.has(k) || rtc.isScreenKey(k)) delete volUi[k]
   }
 
   if (j.self_pref) applySelfPref(j.self_pref)
 
   screenOwnerId.value = j.screen_owner ? String(j.screen_owner) : ''
+  const keepKey = screenOwnerId.value ? rtc.screenKey(screenOwnerId.value) : ''
+  for (const k in volUi) {
+    const isUserId = statusByUser.has(k)
+    const isKeep = keepKey && k === keepKey
+    if (!isUserId && !isKeep) delete volUi[k]
+  }
 }
 
 const pendingDeltas: any[] = []
@@ -540,7 +668,7 @@ const toggleScreen = async () => {
   pendingScreen.value = true
   try {
     if (!isMyScreen.value) {
-      const resp:any = await socket.value!.timeout(5000).emitWithAck('screen', { on: true })
+      const resp: any = await socket.value!.timeout(5000).emitWithAck('screen', { on: true })
       if (!resp?.ok) {
         if (resp?.status === 409 && resp?.owner) screenOwnerId.value = String(resp.owner)
         else if (resp?.status === 403 && resp?.error === 'blocked') alert('Стрим запрещён администратором')
@@ -548,18 +676,11 @@ const toggleScreen = async () => {
         return
       }
       screenOwnerId.value = localId.value
-      const got = await rtc.prepareScreenShare({ audio: true })
-      if (!got) {
+      const ok = await rtc.startScreenShare({ audio: true })
+      if (!ok) {
         await socket.value!.timeout(5000).emitWithAck('screen', { on: false }).catch(() => {})
         screenOwnerId.value = ''
-        alert('Браузер отклонил доступ к экрану')
-        return
-      }
-      const pubOk = await rtc.publishPreparedScreen()
-      if (!pubOk) {
-        await socket.value!.timeout(5000).emitWithAck('screen', { on: false }).catch(() => {})
-        screenOwnerId.value = ''
-        alert('Ошибка публикации видеопотока')
+        alert('Ошибка публикации видеопотока или доступ отклонён')
         return
       }
     } else {
@@ -675,6 +796,9 @@ onBeforeUnmount(() => { void onLeave() })
       width: 74px;
       gap: 12px;
       .ctrl {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
         padding: 8px 12px;
         border-radius: 8px;
         border: 1px solid $fg;
@@ -688,6 +812,12 @@ onBeforeUnmount(() => { void onLeave() })
         &.danger {
           background: $color-danger;
           color: $fg;
+        }
+        .ctrl-icon {
+          width: 18px;
+          height: 18px;
+          display: block;
+          flex: 0 0 18px;
         }
       }
     }
@@ -751,79 +881,102 @@ onBeforeUnmount(() => { void onLeave() })
         user-select: none;
         pointer-events: none;
       }
-      .vol-wrap {
+      .titlebar {
         position: absolute;
-        top: 8px;
+        left: 8px;
         right: 8px;
-        z-index: 4;
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        .vol-btn {
-          padding: 4px 6px;
-          border-radius: 8px;
-          border: 1px solid $fg;
-          background: $black;
-          color: $fg;
-          cursor: pointer;
-        }
-        .vol-pop {
-          display: none;
-          flex-direction: column;
-          align-items: center;
-          height: 160px;
-          width: 40px;
-          gap: 8px;
-          background: $black;
-          border: 1px solid $fg;
-          border-radius: 8px;
-          padding: 6px 8px;
-          &.show {
-            display: flex;
-          }
-          .vol-range {
-            position: absolute;
-            top: 90px;
-            transform: rotate(-90deg);
-            accent-color: $fg;
-          }
-          .vol-val {
-            font-variant-numeric: tabular-nums;
-          }
-        }
-      }
-      .badges {
-        position: absolute;
-        left: 8px;
-        top: 8px;
-        display: flex;
-        gap: 6px;
-        z-index: 2;
-        .badge {
-          line-height: 1;
-          padding: 4px 6px;
-          border-radius: 8px;
-          background: $black;
-        }
-      }
-      .mod-controls {
-        position: absolute;
-        left: 8px;
         bottom: 8px;
         display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 6px 8px;
+        border-radius: 10px;
+        background: rgba($black, 0.65);
+        backdrop-filter: blur(4px);
+        pointer-events: auto;
+        z-index: 5;
+      }
+      .title-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid transparent;
+        border-radius: 10px;
+        background: transparent;
+        color: $fg;
+        cursor: pointer;
+        padding: 2px 4px;
+        .title-ava {
+          width: 24px;
+          height: 24px;
+          border-radius: 50%;
+          object-fit: cover;
+        }
+        .title-nick {
+          max-width: 160px;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+      }
+      .status {
+        display: flex;
         gap: 6px;
-        z-index: 3;
+        align-items: center;
+        .status-icon {
+          width: 18px;
+          height: 18px;
+          display: block;
+        }
+      }
+      .tile-panel {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding: 12px;
+        background: rgba($black, 0.8);
+        backdrop-filter: blur(6px);
+        z-index: 6;
+      }
+      .panel-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        .vol-slider {
+          flex: 1 1 auto;
+          height: 24px;
+          accent-color: $fg;
+        }
+        .vol-val {
+          min-width: 48px;
+          text-align: right;
+          font-variant-numeric: tabular-nums;
+        }
+      }
+      .admin-row {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
         .mod {
-          padding: 4px 6px;
+          width: 36px;
+          height: 36px;
           border-radius: 8px;
-          border: none;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border: 1px solid rgba($fg, 0.25);
           background: $black;
           cursor: pointer;
-          opacity: 0.85;
+          img {
+            width: 20px;
+            height: 20px;
+            display: block;
+          }
           &.on {
-            background: $color-danger;
-            color: $fg;
             border-color: $color-danger;
+            box-shadow: inset 0 0 0 9999px rgba($color-danger, 0.15);
           }
         }
       }
@@ -846,44 +999,102 @@ onBeforeUnmount(() => { void onLeave() })
         object-fit: contain;
         background: $black;
       }
-      .vol-wrap {
+      .titlebar {
         position: absolute;
-        top: 8px;
+        left: 8px;
         right: 8px;
-        z-index: 4;
+        bottom: 8px;
         display: flex;
         align-items: center;
-        gap: 6px;
-        .vol-btn {
-          padding: 4px 6px;
-          border-radius: 8px;
-          border: 1px solid $fg;
-          background: $black;
-          color: $fg;
-          cursor: pointer;
+        justify-content: space-between;
+        padding: 6px 8px;
+        border-radius: 10px;
+        background: rgba($black, 0.65);
+        backdrop-filter: blur(4px);
+        pointer-events: auto;
+        z-index: 5;
+      }
+      .title-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid transparent;
+        border-radius: 10px;
+        background: transparent;
+        color: $fg;
+        cursor: pointer;
+        padding: 2px 4px;
+        .title-ava {
+          width: 24px;
+          height: 24px;
+          border-radius: 50%;
+          object-fit: cover;
         }
-        .vol-pop {
-          display: none;
-          flex-direction: column;
-          align-items: center;
-          height: 160px;
-          width: 40px;
-          gap: 8px;
-          background: $black;
-          border: 1px solid $fg;
+        .title-nick {
+          max-width: 160px;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+      }
+      .status {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        .status-icon {
+          width: 18px;
+          height: 18px;
+          display: block;
+        }
+      }
+      .tile-panel {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding: 12px;
+        background: rgba($black, 0.8);
+        backdrop-filter: blur(6px);
+        z-index: 6;
+      }
+      .panel-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        .vol-slider {
+          flex: 1 1 auto;
+          height: 24px;
+          accent-color: $fg;
+        }
+        .vol-val {
+          min-width: 48px;
+          text-align: right;
+          font-variant-numeric: tabular-nums;
+        }
+      }
+      .admin-row {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        .mod {
+          width: 36px;
+          height: 36px;
           border-radius: 8px;
-          padding: 6px 8px;
-          &.show {
-            display: flex;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border: 1px solid rgba($fg, 0.25);
+          background: $black;
+          cursor: pointer;
+          img {
+            width: 20px;
+            height: 20px;
+            display: block;
           }
-          .vol-range {
-            position: absolute;
-            top: 90px;
-            transform: rotate(-90deg);
-            accent-color: $fg;
-          }
-          .vol-val {
-            font-variant-numeric: tabular-nums;
+          &.on {
+            border-color: $color-danger;
+            box-shadow: inset 0 0 0 9999px rgba($color-danger, 0.15);
           }
         }
       }
@@ -934,79 +1145,102 @@ onBeforeUnmount(() => { void onLeave() })
           user-select: none;
           pointer-events: none;
         }
-        .vol-wrap {
+        .titlebar {
           position: absolute;
-          top: 8px;
+          left: 8px;
           right: 8px;
-          z-index: 4;
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          .vol-btn {
-            padding: 4px 6px;
-            border-radius: 8px;
-            border: 1px solid $fg;
-            background: $black;
-            color: $fg;
-            cursor: pointer;
-          }
-          .vol-pop {
-            display: none;
-            flex-direction: column;
-            align-items: center;
-            height: 160px;
-            width: 40px;
-            gap: 8px;
-            background: $black;
-            border: 1px solid $fg;
-            border-radius: 8px;
-            padding: 6px 8px;
-            &.show {
-              display: flex;
-            }
-            .vol-range {
-              position: absolute;
-              top: 90px;
-              transform: rotate(-90deg);
-              accent-color: $fg;
-            }
-            .vol-val {
-              font-variant-numeric: tabular-nums;
-            }
-          }
-        }
-        .badges {
-          position: absolute;
-          left: 8px;
-          top: 8px;
-          display: flex;
-          gap: 6px;
-          z-index: 2;
-          .badge {
-            line-height: 1;
-            padding: 4px 6px;
-            border-radius: 8px;
-            background: $black;
-          }
-        }
-        .mod-controls {
-          position: absolute;
-          left: 8px;
           bottom: 8px;
           display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 6px 8px;
+          border-radius: 10px;
+          background: rgba($black, 0.65);
+          backdrop-filter: blur(4px);
+          pointer-events: auto;
+          z-index: 5;
+        }
+        .title-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          border: 1px solid transparent;
+          border-radius: 10px;
+          background: transparent;
+          color: $fg;
+          cursor: pointer;
+          padding: 2px 4px;
+          .title-ava {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            object-fit: cover;
+          }
+          .title-nick {
+            max-width: 160px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+        }
+        .status {
+          display: flex;
           gap: 6px;
-          z-index: 3;
+          align-items: center;
+          .status-icon {
+            width: 18px;
+            height: 18px;
+            display: block;
+          }
+        }
+        .tile-panel {
+          position: absolute;
+          inset: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          padding: 12px;
+          background: rgba($black, 0.8);
+          backdrop-filter: blur(6px);
+          z-index: 6;
+        }
+        .panel-row {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          .vol-slider {
+            flex: 1 1 auto;
+            height: 24px;
+            accent-color: $fg;
+          }
+          .vol-val {
+            min-width: 48px;
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+          }
+        }
+        .admin-row {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
           .mod {
-            padding: 4px 6px;
+            width: 36px;
+            height: 36px;
             border-radius: 8px;
-            border: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid rgba($fg, 0.25);
             background: $black;
             cursor: pointer;
-            opacity: 0.85;
+            img {
+              width: 20px;
+              height: 20px;
+              display: block;
+            }
             &.on {
-              background: $color-danger;
-              color: $fg;
               border-color: $color-danger;
+              box-shadow: inset 0 0 0 9999px rgba($color-danger, 0.15);
             }
           }
         }

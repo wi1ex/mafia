@@ -11,15 +11,16 @@ import {
   ScreenSharePresets,
   VideoQuality,
   createLocalScreenTracks,
-  type LocalTrack
+  type LocalTrack,
+  setLogLevel,
+  LogLevel,
 } from 'livekit-client'
-import { setLogLevel, LogLevel } from 'livekit-client'
 
 setLogLevel(LogLevel.error)
 
-type DeviceKind = 'audioinput' | 'videoinput'
-type VQ = 'sd'|'hd'
-const LS = { mic: 'audioDeviceId', cam: 'videoDeviceId', vq: 'videoQuality' }
+export type DeviceKind = 'audioinput' | 'videoinput'
+export type VQ = 'sd' | 'hd'
+const LS = { mic: 'audioDeviceId', cam: 'videoDeviceId', vq: 'videoQuality', perm: 'mediaPermProbed' }
 const saveLS = (k: string, v: string) => { try { localStorage.setItem(k, v) } catch {} }
 const loadLS = (k: string) => { try { return localStorage.getItem(k) } catch { return null } }
 
@@ -41,6 +42,9 @@ export type UseRTC = {
   publishPreparedScreen: () => Promise<boolean>
   cancelPreparedScreen: () => Promise<void>
   stopScreenShare: () => Promise<void>
+  screenKey: (id: string) => string
+  isScreenKey: (key: string) => boolean
+  startScreenShare: (opts?: { audio?: boolean }) => Promise<boolean>
   initRoom: (opts?: {
     onMediaDevicesError?: (e: unknown) => void
     onScreenShareEnded?: () => void | Promise<void>
@@ -82,19 +86,22 @@ export function useRTC(): UseRTC {
   const videoEls = new Map<string, HTMLVideoElement>()
   const audioEls = new Map<string, HTMLAudioElement>()
   const screenVideoEls = new Map<string, HTMLVideoElement>()
+  const videoRefFns = new Map<string, (el: HTMLVideoElement|null) => void>()
+  const screenRefFns = new Map<string, (el: HTMLVideoElement|null) => void>()
   const mics = ref<MediaDeviceInfo[]>([])
   const cams = ref<MediaDeviceInfo[]>([])
   const selectedMicId = ref<string>('')
   const selectedCamId = ref<string>('')
   const wantAudio = ref(true)
   const wantVideo = ref(true)
-  const permProbed = ref<boolean>(loadLS('mediaPermProbed') === '1')
+  const permProbed = ref<boolean>(loadLS(LS.perm) === '1')
   const hasAudioInput = ref(false)
   const hasVideoInput = ref(false)
   const activeSpeakers = ref<Set<string>>(new Set())
   const audibleIds = ref<Set<string>>(new Set())
 
-  const screenId = (id: string) => `${id}#s`
+  const screenKey = (id: string) => `${id}#s`
+  const isScreenKey = (key: string) => key.endsWith('#s')
   const isSub = (pub: RemoteTrackPublication) => pub.isSubscribed
   const lowVideoQuality = VideoPresets.h180
   const highVideoQuality = VideoPresets.h540
@@ -211,7 +218,9 @@ export function useRTC(): UseRTC {
     resumeBusy = true
     try {
       if (audioCtx && audioCtx.state !== 'running') { await audioCtx.resume() }
-      for (const a of audioEls.values()) { try { await a.play() } catch {} }
+      const plays = []
+      for (const a of audioEls.values()) plays.push(a.play().catch(() => {}))
+      await Promise.allSettled(plays)
     } finally {
       queueMicrotask(() => { resumeBusy = false })
     }
@@ -241,8 +250,8 @@ export function useRTC(): UseRTC {
   function setPermFlag(v: boolean) {
     try {
       permProbed.value = v
-      if (v) localStorage.setItem('mediaPermProbed', '1')
-      else localStorage.removeItem('mediaPermProbed')
+      if (v) localStorage.setItem(LS.perm, '1')
+      else localStorage.removeItem(LS.perm)
     } catch {}
   }
 
@@ -270,6 +279,16 @@ export function useRTC(): UseRTC {
     } catch {}
   }
 
+  async function startScreenShare(opts?: { audio?: boolean }): Promise<boolean> {
+    const got = await prepareScreenShare(opts)
+    if (!got) return false
+    const ok = await publishPreparedScreen()
+    if (!ok) {
+      try { await cancelPreparedScreen() } catch {}
+      return false
+    }
+    return true
+  }
   function setScreenVideoRef(id: string, el: HTMLVideoElement | null) {
     const prev = screenVideoEls.get(id)
     if (!el) {
@@ -290,7 +309,14 @@ export function useRTC(): UseRTC {
       }
     })
   }
-  const screenVideoRef = (id: string) => (el: HTMLVideoElement | null) => setScreenVideoRef(id, el)
+  const screenVideoRef = (id: string) => {
+    let fn = screenRefFns.get(id)
+    if (!fn) {
+      fn = (el) => setScreenVideoRef(id, el)
+      screenRefFns.set(id, fn)
+    }
+    return fn
+  }
 
   let preparedScreen: LocalTrack[] | null = null
   async function prepareScreenShare(opts?: { audio?: boolean }): Promise<boolean> {
@@ -300,10 +326,10 @@ export function useRTC(): UseRTC {
         resolution: highScreenQuality.resolution,
       })
       preparedScreen.forEach(t => {
-        t.mediaStreamTrack.addEventListener('ended', () => {
-          try { lk.value?.localParticipant.unpublishTrack(t) } catch {}
-          try { optsRoom?.onScreenShareEnded?.() } catch {}
-        }, { once: true })
+        const onEnded = async () => {
+          try { await lk.value?.localParticipant.unpublishTrack(t) } catch {}
+        }
+        t.mediaStreamTrack.addEventListener('ended', onEnded, { once: true })
       })
       return true
     } catch {
@@ -328,8 +354,7 @@ export function useRTC(): UseRTC {
           videoEncoding: highScreenQuality.encoding,
         })
       }
-    } catch (e) {
-      console.warn('[screen] video publish failed', e)
+    } catch {
       try { preparedScreen.forEach(t => t.stop()) } catch {}
       preparedScreen = null
       return false
@@ -339,8 +364,7 @@ export function useRTC(): UseRTC {
         await lk.value.localParticipant.publishTrack(audio, {
           source: Track.Source.ScreenShareAudio,
         })
-      } catch (e) {
-        console.warn('[screen] audio publish failed, continue with video', e)
+      } catch {
         try { audio.stop() } catch {}
       }
     }
@@ -377,7 +401,14 @@ export function useRTC(): UseRTC {
       }
     })
   }
-  const videoRef = (id: string) => (el: HTMLVideoElement | null) => setVideoRef(id, el)
+  const videoRef = (id: string) => {
+    let fn = videoRefFns.get(id)
+    if (!fn) {
+      fn = (el) => setVideoRef(id, el)
+      videoRefFns.set(id, fn)
+    }
+    return fn
+  }
 
   function destroyAudioGraph(id: string) {
     const w = msrcNodes.get(id)
@@ -424,6 +455,7 @@ export function useRTC(): UseRTC {
     const room = lk.value
     if (!room) return
     const deviceId = kind === 'audioinput' ? selectedMicId.value : selectedCamId.value
+    if (!deviceId) return
     saveLS(kind === 'audioinput' ? LS.mic : LS.cam, deviceId)
     try { await room.switchActiveDevice(kind, deviceId) } catch {}
   }
@@ -463,21 +495,24 @@ export function useRTC(): UseRTC {
     }
   }
 
-  async function enable(kind: DeviceKind): Promise<boolean> {
+async function enable(kind: DeviceKind): Promise<boolean> {
     const room = lk.value
     if (!room) return false
     if ((kind === 'audioinput' ? mics.value.length : cams.value.length) === 0) {
       await refreshDevices()
     }
-    const id = kind === 'audioinput' ? selectedMicId.value : selectedCamId.value
+    let id = kind === 'audioinput' ? selectedMicId.value : selectedCamId.value
+    if (!id) {
+      await fallback(kind)
+      id = kind === 'audioinput' ? selectedMicId.value : selectedCamId.value
+      if (!id) return false
+    }
+
     try {
       if (kind === 'audioinput') {
-        await room.localParticipant.setMicrophoneEnabled(true, id ? ({ deviceId: { exact: id } } as any) : undefined)
+        await room.localParticipant.setMicrophoneEnabled(true, { deviceId: { exact: id } } as any)
       } else {
-        await room.localParticipant.setCameraEnabled(true, id
-            ? ({ deviceId: { exact: id }, resolution: highVideoQuality.resolution } as any)
-            : ({ resolution: highVideoQuality.resolution } as any)
-        )
+        await room.localParticipant.setCameraEnabled(true, { deviceId: { exact: id }, resolution: highVideoQuality.resolution } as any)
       }
       return true
     } catch {
@@ -505,13 +540,15 @@ export function useRTC(): UseRTC {
     })
   }
   const setAudioSubscriptionsForAll = (on: boolean) => {
+    if (wantAudio.value === on) return
     wantAudio.value = on
     setSubscriptions(Track.Kind.Audio, on)
     if (!on) audibleIds.value = new Set()
     else refreshAudibleIds()
-    if (on) { void resumeAudio() }
+    if (on) void resumeAudio()
   }
   const setVideoSubscriptionsForAll = (on: boolean) => {
+    if (wantVideo.value === on) return
     wantVideo.value = on
     setSubscriptions(Track.Kind.Video, on)
   }
@@ -539,15 +576,14 @@ export function useRTC(): UseRTC {
   const remoteQuality = ref<VQ>((loadLS(LS.vq) as VQ) === 'sd' ? 'sd' : 'hd')
 
   function setRemoteQualityForAll(q: VQ) {
+    if (remoteQuality.value === q) return
     remoteQuality.value = q
     saveLS(LS.vq, q)
     const room = lk.value
     if (!room) return
-    room.remoteParticipants.forEach((p) => {
-      p.getTrackPublications().forEach((pub) => {
-        if (pub.kind === Track.Kind.Video) {
-          applyVideoQuality(pub as RemoteTrackPublication)
-        }
+    room.remoteParticipants.forEach(p => {
+      p.getTrackPublications().forEach(pub => {
+        if (pub.kind === Track.Kind.Video && pub.isSubscribed) applyVideoQuality(pub as RemoteTrackPublication)
       })
     })
   }
@@ -562,7 +598,10 @@ export function useRTC(): UseRTC {
       try { a.remove() } catch {}
     })
     audioEls.clear()
-
+    screenVideoEls.forEach(el => { try { el.srcObject = null } catch {} })
+    screenVideoEls.clear()
+    videoRefFns.clear()
+    screenRefFns.clear()
     try {
       gainNodes.forEach(g => g.disconnect())
       gainNodes.clear()
@@ -577,9 +616,10 @@ export function useRTC(): UseRTC {
     lsWriteTimers.forEach((t) => { try { window.clearTimeout(t) } catch {} })
     lsWriteTimers.clear()
     waState = 0
-
     peerIds.value = []
     localId.value = ''
+    try { preparedScreen?.forEach(t => t.stop()) } catch {}
+    preparedScreen = null
   }
 
   let optsRoom: Parameters<typeof initRoom>[0] | undefined
@@ -655,7 +695,7 @@ export function useRTC(): UseRTC {
         applyVideoQuality(pub as RemoteTrackPublication)
       } else if (t.kind === Track.Kind.Audio) {
         const isScreenA = (pub as RemoteTrackPublication).source === Track.Source.ScreenShareAudio
-        const aid = isScreenA ? screenId(id) : id
+        const aid = isScreenA ? screenKey(id) : id
         const a = ensureAudioEl(aid)
         try { t.attach(a) } catch {}
         try { applyVolume(aid) } catch {}
@@ -672,7 +712,7 @@ export function useRTC(): UseRTC {
         if (el) { try { t.detach(el) } catch {} }
       } else if (t.kind === Track.Kind.Audio) {
         const isScreenA = (pub as RemoteTrackPublication).source === Track.Source.ScreenShareAudio
-        const aid = isScreenA ? screenId(id) : id
+        const aid = isScreenA ? screenKey(id) : id
         const a = audioEls.get(aid)
         if (a) {
           try { t.detach(a) } catch {}
@@ -713,6 +753,20 @@ export function useRTC(): UseRTC {
         lsWriteTimers.delete(id)
       }
       destroyAudioGraph(id)
+      volumePrefs.delete(id)
+      const sid = screenKey(id)
+      const sa = audioEls.get(sid)
+      if (sa) {
+        try { sa.srcObject = null } catch {}
+        try { sa.remove() } catch {}
+        audioEls.delete(sid)
+      }
+      const tms = lsWriteTimers.get(sid)
+      if (tms) {
+        try { clearTimeout(tms) } catch {}
+        lsWriteTimers.delete(sid) }
+      destroyAudioGraph(sid)
+      volumePrefs.delete(sid)
       const v = videoEls.get(id)
       if (v) {
         try { v.srcObject = null } catch {}
@@ -724,6 +778,13 @@ export function useRTC(): UseRTC {
       const s2 = new Set(activeSpeakers.value)
       s2.delete(id)
       activeSpeakers.value = s2
+      const sv = screenVideoEls.get(id)
+      if (sv) {
+        try { sv.srcObject = null } catch {}
+        screenVideoEls.delete(id)
+      }
+      videoRefFns.delete(id)
+      screenRefFns.delete(id)
     })
 
     room.on(RoomEvent.TrackSubscriptionStatusChanged, (pub, _status, _part) => {
@@ -824,5 +885,8 @@ export function useRTC(): UseRTC {
     publishPreparedScreen,
     cancelPreparedScreen,
     stopScreenShare,
+    screenKey,
+    isScreenKey,
+    startScreenShare,
   }
 }
