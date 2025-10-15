@@ -83,7 +83,7 @@
     </div>
 
     <div class="panel">
-      <button @click="onLeave">
+      <button @click="onLeave" aria-label="Покинуть комнату">
         <img :src="iconLeaveRoom" alt="leave" />
       </button>
 
@@ -92,7 +92,7 @@
           Разрешить доступ к камере и микрофону
         </button>
       </div>
-      <div v-if="!showPermProbe" class="controls">
+      <div v-else class="controls">
         <button @click="toggleMic" :disabled="pending.mic || blockedSelf.mic" :aria-pressed="micOn">
           <img :src="stateIcon('mic', localId)" alt="mic" />
         </button>
@@ -108,22 +108,28 @@
         <button @click="toggleScreen" :disabled="pendingScreen || (!!screenOwnerId && screenOwnerId !== localId) || blockedSelf.screen" :aria-pressed="isMyScreen">
           <img :src="stateIcon('screen', localId)" alt="screen" />
         </button>
-        <button @click="toggleQuality" :disabled="pendingQuality">
+        <button @click="toggleQuality" :disabled="pendingQuality" aria-label="Качество видео">
           <span>{{ videoQuality === 'hd' ? 'HD' : 'SD' }}</span>
         </button>
       </div>
 
-      <button @click="onLeave">
+      <button ref="settingsBtnRef" @click="toggleSettings" :aria-expanded="settingsOpen" aria-haspopup="dialog" aria-controls="room-settings-popover" aria-label="Настройки устройств">
         <img :src="iconSettings" alt="settings" />
       </button>
 
-      <div>
-        <select v-model="selectedMicId" @change="rtc.onDeviceChange('audioinput')" :disabled="!micOn || blockedSelf.mic || mics.length === 0">
-          <option v-for="d in mics" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Микрофон' }}</option>
-        </select>
-        <select v-model="selectedCamId" @change="rtc.onDeviceChange('videoinput')" :disabled="!camOn || blockedSelf.cam || cams.length === 0">
-          <option v-for="d in cams" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Камера' }}</option>
-        </select>
+      <div v-show="settingsOpen" id="room-settings-popover" class="settings-popover" role="dialog" aria-label="Настройки устройств" @click.stop>
+        <label class="sel">
+          <span>Микрофон</span>
+          <select v-model="selectedMicId" @change="rtc.onDeviceChange('audioinput')" :disabled="!micOn || blockedSelf.mic || mics.length === 0">
+            <option v-for="d in mics" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Микрофон' }}</option>
+          </select>
+        </label>
+        <label class="sel">
+          <span>Камера</span>
+          <select v-model="selectedCamId" @change="rtc.onDeviceChange('videoinput')" :disabled="!camOn || blockedSelf.cam || cams.length === 0">
+            <option v-for="d in cams" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Камера' }}</option>
+          </select>
+        </label>
       </div>
     </div>
   </section>
@@ -189,6 +195,8 @@ const screenOwnerId = ref<string>('')
 const openPanelFor = ref<string>('')
 const openVolFor = ref<string>('')
 const pendingScreen = ref(false)
+const settingsOpen = ref(false)
+const settingsBtnRef = ref<HTMLButtonElement | null>(null)
 const isTheater = computed(() => !!screenOwnerId.value)
 const isMyScreen = computed(() => screenOwnerId.value === localId.value)
 const streamAudioKey = computed(() => screenOwnerId.value ? rtc.screenKey(screenOwnerId.value) : '')
@@ -205,6 +213,10 @@ function avatarKey(id: string): string {
 }
 function userName(id: string) {
   return nameByUser.get(id) || `user-${id}`
+}
+function toggleSettings() {
+  settingsOpen.value = !settingsOpen.value
+  if (settingsOpen.value) { void rtc.refreshDevices().catch(() => {}) }
 }
 
 const videoRefMemo = new Map<string, (el: HTMLVideoElement | null) => void>()
@@ -289,6 +301,7 @@ function onVol(id: string, v: number) {
 function onDocClick() {
   openPanelFor.value = ''
   openVolFor.value = ''
+  settingsOpen.value = false
   void rtc.resumeAudio()
 }
 
@@ -877,6 +890,37 @@ onBeforeUnmount(() => { void onLeave() })
     .controls {
       display: flex;
       gap: 10px;
+    }
+    .settings-popover {
+      position: absolute;
+      right: 0;
+      bottom: 56px;
+      z-index: 20;
+      min-width: 260px;
+      padding: 10px;
+      border-radius: 8px;
+      background: $dark;
+      border: 1px solid rgba($fg, 0.2);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      .sel {
+        display: grid;
+        gap: 6px;
+        color: $fg;
+        select {
+          padding: 6px 8px;
+          border-radius: 8px;
+          border: 1px solid $fg;
+          background: $bg;
+          color: $fg;
+          &:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+          }
+        }
+      }
     }
   }
 }
