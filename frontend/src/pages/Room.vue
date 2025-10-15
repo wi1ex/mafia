@@ -271,12 +271,11 @@ function toggleSettings() {
   }
 }
 function volumeIconFor(key: string): string {
-  if (!key) return iconVolumeMax
-  const raw = volUi[key] ?? rtc.getUserVolume(key)
-  const pct = Math.max(0, Math.min(100, Math.round(raw)))
-  if (pct === 0) return iconVolumeMute
-  if (pct <= 25) return iconVolumeLow
-  if (pct <= 100) return iconVolumeMid
+  if (!key) return iconVolumeMute
+  const raw = Math.round(volUi[key] ?? rtc.getUserVolume(key))
+  if (raw < 1) return iconVolumeMute
+  if (raw < 25) return iconVolumeLow
+  if (raw < 100) return iconVolumeMid
   return iconVolumeMax
 }
 
@@ -796,8 +795,8 @@ onBeforeUnmount(() => { void onLeave() })
           display: flex;
           align-items: center;
           justify-content: center;
-          width: 35px;
-          height: 35px;
+          width: 40px;
+          height: 40px;
           border: none;
           border-radius: 5px;
           background: $dark;
@@ -812,8 +811,8 @@ onBeforeUnmount(() => { void onLeave() })
           flex-direction: column;
           align-items: center;
           justify-content: space-between;
-          padding: 5px;
-          width: 35px;
+          padding: 8px 5px;
+          width: 30px;
           height: 200px;
           border: none;
           border-radius: 5px;
@@ -824,7 +823,6 @@ onBeforeUnmount(() => { void onLeave() })
             height: 24px;
           }
           input[type="range"] {
-            display: flex;
             width: 140px;
             height: 10px;
             accent-color: $fg;

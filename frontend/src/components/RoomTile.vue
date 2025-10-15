@@ -113,6 +113,7 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
   video {
     width: 100%;
     height: 100%;
+    object-fit: cover;
     border-radius: 5px;
   }
   .ava-wrap {
@@ -151,7 +152,7 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
     border: 1px solid transparent;
     background: transparent;
     color: $fg;
-    padding: 2px 0;
+    padding: 2px;
     .title-btn {
       display: inline-flex;
       align-items: center;
@@ -161,7 +162,7 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
       background: transparent;
       color: $fg;
       cursor: pointer;
-      padding: 2px 0;
+      padding: 2px;
       &:disabled {
         cursor: default;
       }
