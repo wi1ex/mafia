@@ -30,7 +30,6 @@
     <div v-else class="theater">
       <div class="stage">
         <video :ref="stableScreenRef(screenOwnerId)" playsinline autoplay />
-
         <div class="right">
           <div v-if="screenOwnerId !== localId" class="volume">
             <button v-if="openVolFor !== streamAudioKey" class="vol-btn" @click.stop="toggleVolume(streamAudioKey)"
@@ -113,11 +112,11 @@
         </button>
       </div>
 
-      <button ref="settingsBtnRef" @click="toggleSettings" :aria-expanded="settingsOpen" aria-haspopup="dialog" aria-controls="room-settings-popover" aria-label="Настройки устройств">
+      <button ref="settingsBtnRef" @click.stop="toggleSettings" :aria-expanded="settingsOpen" aria-label="Настройки устройств">
         <img :src="iconSettings" alt="settings" />
       </button>
 
-      <div v-show="settingsOpen" id="room-settings-popover" class="settings-popover" role="dialog" aria-label="Настройки устройств" @click.stop>
+      <div v-show="settingsOpen" id="room-settings-popover" class="settings-popover" aria-label="Настройки устройств" @click.stop>
         <label class="sel">
           <span>Микрофон</span>
           <select v-model="selectedMicId" @change="rtc.onDeviceChange('audioinput')" :disabled="!micOn || blockedSelf.mic || mics.length === 0">
@@ -276,8 +275,8 @@ const sortedPeerIds = computed(() => {
 })
 const gridStyle = computed(() => {
   const count = sortedPeerIds.value.length
-  const cols = count <= 4 ? 2 : 4
-  const rows = count <= 4 ? 2 : 3
+  const cols = count <= 2 ? 2 : count <= 6 ? 3 : 4
+  const rows = count <= 2 ? 1 : count <= 6 ? 2 : 3
   return { gridTemplateColumns: `repeat(${cols}, 1fr)`, gridTemplateRows: `repeat(${rows}, 1fr)` }
 })
 
@@ -860,6 +859,7 @@ onBeforeUnmount(() => { void onLeave() })
                                 }
   .panel {
     display: flex;
+    position: relative;
     align-items: center;
     justify-content: space-between;
     width: calc(100vw - 20px);
