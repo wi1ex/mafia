@@ -33,7 +33,7 @@
         <div v-if="screenOwnerId !== localId" class="volume">
           <button v-if="openVolFor !== streamAudioKey" @click.stop="toggleVolume(streamAudioKey)"
                   :disabled="!speakersOn || isBlocked(screenOwnerId,'speakers')" aria-label="volume">
-            <img :src="iconVolumeMax" alt="vol" />
+            <img :src="volumeIconFor(streamAudioKey)" alt="vol" />
           </button>
           <div v-else class="vol-inline" @click.stop>
             <input class="vol-slider" type="range" min="0" max="200" :disabled="!speakersOn || isBlocked(screenOwnerId,'speakers')"
@@ -140,6 +140,9 @@ import iconQualityHD from '@/assets/svg/qualityHD.svg'
 import iconLeaveRoom from '@/assets/svg/leaveRoom.svg'
 import iconSettings from '@/assets/svg/settings.svg'
 import iconVolumeMax from '@/assets/svg/volumeMax.svg'
+import iconVolumeMid from '@/assets/svg/volumeMid.svg'
+import iconVolumeLow from '@/assets/svg/volumeLow.svg'
+import iconVolumeMute from '@/assets/svg/volumeMute.svg'
 import iconMicOn from '@/assets/svg/micOn.svg'
 import iconMicOff from '@/assets/svg/micOff.svg'
 import iconMicBlocked from '@/assets/svg/micBlocked.svg'
@@ -265,6 +268,15 @@ function toggleSettings() {
     openVolFor.value = ''
     void rtc.refreshDevices().catch(() => {})
   }
+}
+function volumeIconFor(key: string): string {
+  if (!key) return iconVolumeMax
+  const raw = volUi[key] ?? rtc.getUserVolume(key)
+  const pct = Math.max(0, Math.min(100, Math.round(raw)))
+  if (pct === 0) return iconVolumeMute
+  if (pct <= 25) return iconVolumeLow
+  if (pct <= 100) return iconVolumeMid
+  return iconVolumeMax
 }
 
 const showPermProbe = computed(() => !rtc.permProbed.value && !micOn.value && !camOn.value)
