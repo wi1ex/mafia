@@ -1,5 +1,5 @@
 <template>
-  <div class="tile" :class="[{ speaking, 'show-title': openPanel || openVol }, side && 'side']" tabindex="0">
+  <div class="tile" :class="[{ speaking }, side && 'side']" tabindex="0">
     <video v-show="showVideo" :ref="videoRef" playsinline autoplay :muted="id === localId" />
 
     <div v-show="!showVideo" class="ava-wrap">
@@ -150,9 +150,6 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
     background: rgba($black, 0.65);
     backdrop-filter: blur(4px);
     z-index: 5;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.25s ease-in-out;
   }
   .titlebar-div {
     display: inline-flex;
@@ -172,6 +169,9 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
       color: $fg;
       cursor: pointer;
       padding: 2px 0;
+      &:disabled {
+        cursor: default;
+      }
       .title-ava {
         width: 24px;
         height: 24px;
@@ -274,13 +274,6 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
     .panel-nick {
       font-weight: 600;
     }
-  }
-  &:hover .titlebar,
-  &:focus .titlebar,
-  &:focus-within .titlebar,
-  &.show-title .titlebar {
-    opacity: 1;
-    pointer-events: auto;
   }
 }
 .tile.side {

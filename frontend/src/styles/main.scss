@@ -3,7 +3,8 @@
 
 body {
   margin: 0;
-  background: $bg;
   color: $fg;
+  background: $bg;
+  user-select: none;
   font-family: 'Manrope-Regular';
 }

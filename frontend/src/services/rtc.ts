@@ -826,10 +826,15 @@ async function enable(kind: DeviceKind): Promise<boolean> {
       peerConnectionTimeout: opts?.peerConnectionTimeout ?? 20_000,
       websocketTimeout: opts?.websocketTimeout ?? 10_000,
     })
+
     localId.value = String(room.localParticipant.identity)
     const ids: string[] = [localId.value]
     room.remoteParticipants.forEach(p => ids.push(String(p.identity)))
     peerIds.value = [...new Set(ids)]
+
+    room.remoteParticipants.forEach(p => applySubsFor(p))
+    if (wantAudio.value) { void resumeAudio() }
+
     await refreshDevices()
     refreshAudibleIds()
   }

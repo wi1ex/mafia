@@ -1,40 +1,5 @@
 <template>
-  <section class="card">
-    <div class="panel">
-      <div class="controls">
-        <button class="ctrl" @click="toggleMic" :disabled="pending.mic || blockedSelf.mic" :aria-pressed="micOn">
-          <img class="ctrl-icon" :src="stateIcon('mic', localId)" alt="mic" />
-        </button>
-        <button class="ctrl" @click="toggleCam" :disabled="pending.cam || blockedSelf.cam" :aria-pressed="camOn">
-          <img class="ctrl-icon" :src="stateIcon('cam', localId)" alt="cam" />
-        </button>
-        <button class="ctrl" @click="toggleSpeakers" :disabled="pending.speakers || blockedSelf.speakers" :aria-pressed="speakersOn">
-          <img class="ctrl-icon" :src="stateIcon('speakers', localId)" alt="speakers" />
-        </button>
-        <button class="ctrl" @click="toggleVisibility" :disabled="pending.visibility || blockedSelf.visibility" :aria-pressed="visibilityOn">
-          <img class="ctrl-icon" :src="stateIcon('visibility', localId)" alt="visibility" />
-        </button>
-        <button class="ctrl" @click="toggleScreen" :disabled="pendingScreen || (!!screenOwnerId && screenOwnerId !== localId) || blockedSelf.screen" :aria-pressed="isMyScreen">
-          <img class="ctrl-icon" :src="stateIcon('screen', localId)" alt="screen" />
-        </button>
-        <button class="ctrl" @click="toggleQuality" :disabled="pendingQuality">
-          <span>{{ videoQuality === 'hd' ? 'HD' : 'SD' }}</span>
-        </button>
-        <button class="ctrl danger" @click="onLeave">
-          <span>Покинуть комнату</span>
-        </button>
-      </div>
-
-      <div class="devices">
-        <select v-model="selectedMicId" @change="rtc.onDeviceChange('audioinput')" :disabled="!micOn || blockedSelf.mic || mics.length === 0">
-          <option v-for="d in mics" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Микрофон' }}</option>
-        </select>
-        <select v-model="selectedCamId" @change="rtc.onDeviceChange('videoinput')" :disabled="!camOn || blockedSelf.cam || cams.length === 0">
-          <option v-for="d in cams" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Камера' }}</option>
-        </select>
-      </div>
-    </div>
-
+  <section class="room">
     <div v-if="!isTheater" class="grid" :style="gridStyle">
       <RoomTile
         v-for="id in sortedPeerIds"
@@ -117,10 +82,49 @@
       </div>
     </div>
 
-    <div v-if="showPermProbe" class="perm-probe">
-      <button class="ctrl" @click="rtc.probePermissions({ audio: true, video: true })">
-        Разрешить доступ к камере и микрофону
+    <div class="panel">
+      <button @click="onLeave">
+        <img :src="iconLeaveRoom" alt="leave" />
       </button>
+
+      <div v-if="showPermProbe" class="controls">
+        <button class="probe" @click="rtc.probePermissions({ audio: true, video: true })">
+          Разрешить доступ к камере и микрофону
+        </button>
+      </div>
+      <div v-if="!showPermProbe" class="controls">
+        <button @click="toggleMic" :disabled="pending.mic || blockedSelf.mic" :aria-pressed="micOn">
+          <img :src="stateIcon('mic', localId)" alt="mic" />
+        </button>
+        <button @click="toggleCam" :disabled="pending.cam || blockedSelf.cam" :aria-pressed="camOn">
+          <img :src="stateIcon('cam', localId)" alt="cam" />
+        </button>
+        <button @click="toggleSpeakers" :disabled="pending.speakers || blockedSelf.speakers" :aria-pressed="speakersOn">
+          <img :src="stateIcon('speakers', localId)" alt="speakers" />
+        </button>
+        <button @click="toggleVisibility" :disabled="pending.visibility || blockedSelf.visibility" :aria-pressed="visibilityOn">
+          <img :src="stateIcon('visibility', localId)" alt="visibility" />
+        </button>
+        <button @click="toggleScreen" :disabled="pendingScreen || (!!screenOwnerId && screenOwnerId !== localId) || blockedSelf.screen" :aria-pressed="isMyScreen">
+          <img :src="stateIcon('screen', localId)" alt="screen" />
+        </button>
+        <button @click="toggleQuality" :disabled="pendingQuality">
+          <span>{{ videoQuality === 'hd' ? 'HD' : 'SD' }}</span>
+        </button>
+      </div>
+
+      <button @click="onLeave">
+        <img :src="iconSettings" alt="settings" />
+      </button>
+
+      <div>
+        <select v-model="selectedMicId" @change="rtc.onDeviceChange('audioinput')" :disabled="!micOn || blockedSelf.mic || mics.length === 0">
+          <option v-for="d in mics" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Микрофон' }}</option>
+        </select>
+        <select v-model="selectedCamId" @change="rtc.onDeviceChange('videoinput')" :disabled="!camOn || blockedSelf.cam || cams.length === 0">
+          <option v-for="d in cams" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Камера' }}</option>
+        </select>
+      </div>
     </div>
   </section>
 </template>
@@ -135,6 +139,8 @@ import { createAuthedSocket } from '@/services/sio'
 import RoomTile from '@/components/RoomTile.vue'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
+import iconLeaveRoom from '@/assets/svg/leaveRoom.svg'
+import iconSettings from '@/assets/svg/settings.svg'
 import iconVolumeMax from '@/assets/svg/volumeMax.svg'
 import iconMicOn from '@/assets/svg/micOn.svg'
 import iconMicOff from '@/assets/svg/micOff.svg'
@@ -258,8 +264,8 @@ const sortedPeerIds = computed(() => {
 })
 const gridStyle = computed(() => {
   const count = sortedPeerIds.value.length
-  const cols = count <= 6 ? 3 : 4
-  const rows = count <= 6 ? 2 : 3
+  const cols = count <= 4 ? 2 : 4
+  const rows = count <= 4 ? 2 : 3
   return { gridTemplateColumns: `repeat(${cols}, 1fr)`, gridTemplateRows: `repeat(${rows}, 1fr)` }
 })
 
@@ -724,203 +730,153 @@ onBeforeUnmount(() => { void onLeave() })
 </script>
 
 <style lang="scss" scoped>
-.card {
+.room {
   display: flex;
-
-  .panel {
-    display: flex;
-    flex-direction: column;
-    background-color: $black;
-    .controls {
-      margin: 12px;
-      display: flex;
-      flex-direction: column;
-      width: 74px;
-      gap: 12px;
-      .ctrl {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-        padding: 8px 12px;
-        border-radius: 8px;
-        border: 1px solid $fg;
-        cursor: pointer;
-        background: $bg;
-        color: $fg;
-        &:disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
-        }
-        &.danger {
-          background: $color-danger;
-          color: $fg;
-        }
-        .ctrl-icon {
-          width: 24px;
-          height: 24px;
-          display: block;
-          flex: 0 0 18px;
-        }
-      }
-    }
-    .devices {
-      margin: 12px;
-      display: flex;
-      flex-direction: column;
-      width: 74px;
-      gap: 12px;
-      select {
-        padding: 6px 8px;
-        border-radius: 8px;
-        border: 1px solid $fg;
-        background: $bg;
-        color: $fg;
-      }
-    }
-  }
-
+  flex-direction: column;
+  padding: 10px;
+  gap: 10px;
+  overflow: hidden;
   .grid {
     display: grid;
-    gap: 12px;
-    margin: 12px;
-    width: calc(100vw - 98px);
-    height: 100vh;
+    gap: 10px;
+    width: calc(100vw - 20px);
+    height: calc(100vh - 80px);
   }
-
-  .theater {
-    display: grid;
-    grid-template-columns: 1fr 268px;
-    width: calc(100vw - 98px);
-    height: 100vh;
-    .stage {
-      position: relative;
-      border-radius: 12px;
-      overflow: hidden;
-      background: $black;
-      video {
-        width: 100%;
-        height: 100%;
-        object-fit: contain;
-        background: $black;
-      }
-      .right {
-        position: absolute;
-        left: 0;
-        right: 0;
-        top: 0;
-        display: flex;
-        align-items: center;
-        justify-content: flex-end;
-        margin: 14px 8px;
-        border-radius: 12px;
-        background: rgba($black, 0.65);
-        -webkit-backdrop-filter: blur(4px);
-        backdrop-filter: blur(4px);
-        pointer-events: auto;
-        z-index: 5;
-        gap: 8px;
-      }
-      .volume {
-        display: inline-flex;
-        align-items: center;
-      }
-      .vol-btn {
-        border-radius: 8px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        border: 1px solid rgba($fg, 0.25);
-        background: $black;
-        cursor: pointer;
-        .status-icon {
-          width: 18px;
-          height: 18px;
-          display: block;
-        }
-      }
-      .vol-inline {
-        display: inline-flex;
-        align-items: center;
-        .vol-slider {
-          flex: 1 1 auto;
-          height: 24px;
-          accent-color: $fg;
-        }
-        .vol-val {
-          min-width: 48px;
-          text-align: right;
-          font-variant-numeric: tabular-nums;
-        }
-      }
-      .tile-panel {
-        position: absolute;
-        inset: 0;
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-        padding: 12px;
-        background: rgba($black, 0.8);
-        backdrop-filter: blur(6px);
-        z-index: 6;
-        .panel-user {
-          margin: auto;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 12px;
-        }
-        .panel-ava {
-          width: 96px;
-          height: 96px;
-          border-radius: 50%;
-          object-fit: cover;
-        }
-        .panel-nick {
-          font-weight: 600;
-        }
-      }
-    }
-    .sidebar {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      padding: 12px;
-      max-width: 244px;
-      overflow-y: auto;
-      scrollbar-width: none;
-    }
-  }
-
-  .perm-probe {
-    margin: 0 12px 12px;
+                                .theater {
+                                  display: grid;
+                                  grid-template-columns: 1fr 268px;
+                                  width: calc(100vw - 98px);
+                                  height: 100vh;
+                                  .stage {
+                                    position: relative;
+                                    border-radius: 12px;
+                                    overflow: hidden;
+                                    background: $black;
+                                    video {
+                                      width: 100%;
+                                      height: 100%;
+                                      object-fit: contain;
+                                      background: $black;
+                                    }
+                                    .right {
+                                      position: absolute;
+                                      left: 0;
+                                      right: 0;
+                                      top: 0;
+                                      display: flex;
+                                      align-items: center;
+                                      justify-content: flex-end;
+                                      margin: 14px 8px;
+                                      border-radius: 12px;
+                                      background: rgba($black, 0.65);
+                                      -webkit-backdrop-filter: blur(4px);
+                                      backdrop-filter: blur(4px);
+                                      pointer-events: auto;
+                                      z-index: 5;
+                                      gap: 8px;
+                                    }
+                                    .volume {
+                                      display: inline-flex;
+                                      align-items: center;
+                                    }
+                                    .vol-btn {
+                                      border-radius: 8px;
+                                      display: inline-flex;
+                                      align-items: center;
+                                      justify-content: center;
+                                      border: 1px solid rgba($fg, 0.25);
+                                      background: $black;
+                                      cursor: pointer;
+                                      .status-icon {
+                                        width: 18px;
+                                        height: 18px;
+                                        display: block;
+                                      }
+                                    }
+                                    .vol-inline {
+                                      display: inline-flex;
+                                      align-items: center;
+                                      .vol-slider {
+                                        flex: 1 1 auto;
+                                        height: 24px;
+                                        accent-color: $fg;
+                                      }
+                                      .vol-val {
+                                        min-width: 48px;
+                                        text-align: right;
+                                        font-variant-numeric: tabular-nums;
+                                      }
+                                    }
+                                    .tile-panel {
+                                      position: absolute;
+                                      inset: 0;
+                                      display: flex;
+                                      flex-direction: column;
+                                      gap: 12px;
+                                      padding: 12px;
+                                      background: rgba($black, 0.8);
+                                      backdrop-filter: blur(6px);
+                                      z-index: 6;
+                                      .panel-user {
+                                        margin: auto;
+                                        display: flex;
+                                        flex-direction: column;
+                                        align-items: center;
+                                        gap: 12px;
+                                      }
+                                      .panel-ava {
+                                        width: 96px;
+                                        height: 96px;
+                                        border-radius: 50%;
+                                        object-fit: cover;
+                                      }
+                                      .panel-nick {
+                                        font-weight: 600;
+                                      }
+                                    }
+                                  }
+                                  .sidebar {
+                                    display: flex;
+                                    flex-direction: column;
+                                    gap: 12px;
+                                    padding: 12px;
+                                    max-width: 244px;
+                                    overflow-y: auto;
+                                    scrollbar-width: none;
+                                  }
+                                }
+  .panel {
     display: flex;
     align-items: center;
-    gap: 12px;
-    .ctrl {
-      display: inline-flex;
+    justify-content: space-between;
+    width: calc(100vw - 20px);
+    height: 50px;
+    button {
+      display: flex;
       align-items: center;
-      gap: 8px;
-      padding: 8px 12px;
-      border-radius: 8px;
-      border: 1px solid $fg;
+      justify-content: center;
+      width: 75px;
+      height: 50px;
+      border: none;
+      border-radius: 5px;
+      background: $dark;
       cursor: pointer;
-      background: $bg;
-      color: $fg;
       &:disabled {
-        opacity: 0.6;
+        opacity: 0.5;
         cursor: not-allowed;
       }
-      &.danger {
-        background: $color-danger;
-        color: $fg;
+      img {
+        width: 32px;
+        height: 32px;
       }
-      .ctrl-icon {
-        width: 24px;
-        height: 24px;
-        display: block;
-        flex: 0 0 18px;
-      }
+    }
+    .probe {
+      width: fit-content;
+      color: $white;
+    }
+    .controls {
+      display: flex;
+      gap: 10px;
     }
   }
 }
