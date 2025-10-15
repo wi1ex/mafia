@@ -101,10 +101,8 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
 
 <style scoped lang="scss">
 .tile {
-  min-height: 0;
-  min-width: 0;
   position: relative;
-  border-radius: 12px;
+  border-radius: 5px;
   border: 2px solid transparent;
   transition: border-color 0.25s ease-in-out, box-shadow 0.25s ease-in-out;
   overflow: hidden;
@@ -115,10 +113,7 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
   video {
     width: 100%;
     height: 100%;
-    display: block;
-    object-fit: cover;
-    border-radius: 12px;
-    background: $black;
+    border-radius: 5px;
   }
   .ava-wrap {
     position: absolute;
@@ -127,14 +122,12 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
     align-items: center;
     justify-content: center;
     background: $black;
-    border-radius: 12px;
+    border-radius: 5px;
     z-index: 1;
   }
   .ava-circle {
     height: 40%;
     border-radius: 50%;
-    object-fit: cover;
-    background: $black;
     user-select: none;
     pointer-events: none;
   }
@@ -154,7 +147,7 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
   .titlebar-div {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
+    gap: 5px;
     border: 1px solid transparent;
     background: transparent;
     color: $fg;
@@ -162,9 +155,9 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
     .title-btn {
       display: inline-flex;
       align-items: center;
-      gap: 4px;
+      gap: 5px;
       border: 1px solid transparent;
-      border-radius: 10px;
+      border-radius: 5px;
       background: transparent;
       color: $fg;
       cursor: pointer;
@@ -187,7 +180,7 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
     }
     .status {
       display: flex;
-      gap: 4px;
+      gap: 5px;
       align-items: center;
       .status-icon {
         width: 18px;
@@ -199,7 +192,7 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
       display: flex;
       flex-wrap: wrap;
       .mod {
-        border-radius: 8px;
+        border-radius: 5px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -220,7 +213,7 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
     margin-right: 4px;
   }
   .vol-btn {
-    border-radius: 8px;
+    border-radius: 5px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -253,8 +246,8 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
     inset: 0;
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    padding: 12px;
+    gap: 10px;
+    padding: 10px;
     background: rgba($black, 0.8);
     backdrop-filter: blur(6px);
     z-index: 6;
@@ -263,7 +256,7 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
     }
     .panel-ava {
       width: 96px;
@@ -277,7 +270,6 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
   }
 }
 .tile.side {
-  flex: 0 0 auto;
   aspect-ratio: 16 / 9;
 }
 </style>

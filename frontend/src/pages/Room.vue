@@ -36,7 +36,8 @@
             <img :src="volumeIconFor(streamAudioKey)" alt="vol" />
           </button>
           <div v-else class="vol-inline" @click.stop>
-            <input class="vol-slider" type="range" min="0" max="200" :disabled="!speakersOn || isBlocked(screenOwnerId,'speakers')"
+            <img :src="volumeIconFor(streamAudioKey)" alt="vol" />
+            <input type="range" min="0" max="200" :disabled="!speakersOn || isBlocked(screenOwnerId,'speakers')"
                    v-model.number="volUi[streamAudioKey]" @input="onVol(streamAudioKey, volUi[streamAudioKey])" />
             <span class="vol-val">{{ volUi[streamAudioKey] ?? 100 }}%</span>
           </div>
@@ -776,6 +777,7 @@ onBeforeUnmount(() => { void onLeave() })
     gap: 10px;
     .stage {
       position: relative;
+      border: 5px solid $dark;
       border-radius: 5px;
       overflow: hidden;
       video {
@@ -827,12 +829,6 @@ onBeforeUnmount(() => { void onLeave() })
             height: 10px;
             accent-color: $fg;
             transform: rotate(270deg);
-            -webkit-appearance: none;
-            appearance: none;
-          }
-          input[type="range"]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
           }
           .vol-val {
             text-align: center;
