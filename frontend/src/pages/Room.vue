@@ -31,9 +31,9 @@
       <div class="stage">
         <video :ref="stableScreenRef(screenOwnerId)" playsinline autoplay />
         <div v-if="screenOwnerId !== localId" class="volume">
-          <button v-if="openVolFor !== streamAudioKey" class="vol-btn" @click.stop="toggleVolume(streamAudioKey)"
+          <button v-if="openVolFor !== streamAudioKey" @click.stop="toggleVolume(streamAudioKey)"
                   :disabled="!speakersOn || isBlocked(screenOwnerId,'speakers')" aria-label="volume">
-            <img class="status-icon" :src="iconVolumeMax" alt="vol" />
+            <img :src="iconVolumeMax" alt="vol" />
           </button>
           <div v-else class="vol-inline" @click.stop>
             <input class="vol-slider" type="range" min="0" max="200" :disabled="!speakersOn || isBlocked(screenOwnerId,'speakers')"
@@ -752,18 +752,19 @@ onBeforeUnmount(() => { void onLeave() })
   overflow: hidden;
   .grid {
     display: grid;
-    gap: 10px;
     width: calc(100vw - 20px);
     height: calc(100vh - 80px);
+    gap: 10px;
   }
   .theater {
     display: grid;
-    grid-template-columns: 1fr 268px;
+    grid-template-columns: 1fr 250px;
     width: calc(100vw - 20px);
     height: calc(100vh - 80px);
+    gap: 10px;
     .stage {
       position: relative;
-      border-radius: 10px;
+      border-radius: 5px;
       overflow: hidden;
       video {
         width: 100%;
@@ -771,61 +772,77 @@ onBeforeUnmount(() => { void onLeave() })
         object-fit: contain;
         background: $black;
       }
-
-
-
-
-
       .volume {
-        display: inline-flex;
-        align-items: center;
-        margin-right: 4px;
-      }
-      .vol-btn {
-        border-radius: 8px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        border: 1px solid rgba($fg, 0.25);
-        background: $black;
-        cursor: pointer;
-        .status-icon {
-          width: 18px;
-          height: 18px;
-          display: block;
+        display: flex;
+        position: absolute;
+        top: 5px;
+        right: 5px;
+        -webkit-overflow-scrolling: touch;
+        button {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 35px;
+          height: 35px;
+          border: none;
+          border-radius: 5px;
+          background: $dark;
+          cursor: pointer;
+          img {
+            width: 24px;
+            height: 24px;
+          }
         }
-      }
-      .vol-inline {
-        display: inline-flex;
-        align-items: center;
-        gap: 10px;
-        .vol-slider {
-          flex: 1 1 auto;
-          height: 24px;
-          accent-color: $fg;
-        }
-        .vol-val {
-          min-width: 48px;
-          text-align: right;
-          font-variant-numeric: tabular-nums;
+        .vol-inline {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: space-between;
+          padding: 5px;
+          width: 35px;
+          height: 200px;
+          border: none;
+          border-radius: 5px;
+          background: $dark;
+          cursor: pointer;
+          img {
+            width: 24px;
+            height: 24px;
+          }
+          input[type="range"] {
+            display: flex;
+            width: 140px;
+            height: 10px;
+            accent-color: $fg;
+            transform: rotate(270deg);
+            -webkit-appearance: none;
+            appearance: none;
+          }
+          input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+          }
+          .vol-val {
+            text-align: center;
+            font-size: 12px;
+          }
         }
       }
     }
     .sidebar {
       display: flex;
       flex-direction: column;
+      max-width: 250px;
       gap: 10px;
-      padding: 12px;
-      max-width: 244px;
       overflow-y: auto;
       scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+    .sidebar::-webkit-scrollbar {
+      width: 0;
+      height: 0;
     }
   }
-
-
-
-
-
   .panel {
     display: flex;
     position: relative;
