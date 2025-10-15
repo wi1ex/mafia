@@ -30,24 +30,15 @@
     <div v-else class="theater">
       <div class="stage">
         <video :ref="stableScreenRef(screenOwnerId)" playsinline autoplay />
-        <div class="right">
-          <div v-if="screenOwnerId !== localId" class="volume">
-            <button v-if="openVolFor !== streamAudioKey" class="vol-btn" @click.stop="toggleVolume(streamAudioKey)"
-                    :disabled="!speakersOn || isBlocked(screenOwnerId,'speakers')" aria-label="volume">
-              <img class="status-icon" :src="iconVolumeMax" alt="vol" />
-            </button>
-            <div v-else class="vol-inline" @click.stop>
-              <input class="vol-slider" type="range" min="0" max="200" :disabled="!speakersOn || isBlocked(screenOwnerId,'speakers')"
-                     v-model.number="volUi[streamAudioKey]" @input="onVol(streamAudioKey, volUi[streamAudioKey])" />
-              <span class="vol-val">{{ volUi[streamAudioKey] ?? 100 }}%</span>
-            </div>
-          </div>
-        </div>
-
-        <div v-if="openPanelFor === streamAudioKey" class="tile-panel" @click.stop>
-          <div class="panel-user">
-            <img v-minio-img="{ key: avatarKey(screenOwnerId), placeholder: defaultAvatar }" alt="" class="panel-ava" />
-            <div class="panel-nick">{{ userName(screenOwnerId) }}</div>
+        <div v-if="screenOwnerId !== localId" class="volume">
+          <button v-if="openVolFor !== streamAudioKey" class="vol-btn" @click.stop="toggleVolume(streamAudioKey)"
+                  :disabled="!speakersOn || isBlocked(screenOwnerId,'speakers')" aria-label="volume">
+            <img class="status-icon" :src="iconVolumeMax" alt="vol" />
+          </button>
+          <div v-else class="vol-inline" @click.stop>
+            <input class="vol-slider" type="range" min="0" max="200" :disabled="!speakersOn || isBlocked(screenOwnerId,'speakers')"
+                   v-model.number="volUi[streamAudioKey]" @input="onVol(streamAudioKey, volUi[streamAudioKey])" />
+            <span class="vol-val">{{ volUi[streamAudioKey] ?? 100 }}%</span>
           </div>
         </div>
       </div>
@@ -108,7 +99,7 @@
           <img :src="stateIcon('screen', localId)" alt="screen" />
         </button>
         <button @click="toggleQuality" :disabled="pendingQuality" aria-label="Качество видео">
-          <span>{{ videoQuality === 'hd' ? 'HD' : 'SD' }}</span>
+          <img :src="videoQuality === 'hd' ? iconQualityHD : iconQualitySD" alt="quality" />
         </button>
       </div>
 
@@ -116,16 +107,16 @@
         <img :src="iconSettings" alt="settings" />
       </button>
 
-      <div v-show="settingsOpen" id="room-settings-popover" class="settings-popover" aria-label="Настройки устройств" @click.stop>
+      <div v-show="settingsOpen" class="settings" aria-label="Настройки устройств" @click.stop>
         <label class="sel">
           <span>Микрофон</span>
-          <select v-model="selectedMicId" @change="rtc.onDeviceChange('audioinput')" :disabled="!micOn || blockedSelf.mic || mics.length === 0">
+          <select v-model="selectedMicId" @change="rtc.onDeviceChange('audioinput')" :disabled="blockedSelf.mic || mics.length === 0">
             <option v-for="d in mics" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Микрофон' }}</option>
           </select>
         </label>
         <label class="sel">
           <span>Камера</span>
-          <select v-model="selectedCamId" @change="rtc.onDeviceChange('videoinput')" :disabled="!camOn || blockedSelf.cam || cams.length === 0">
+          <select v-model="selectedCamId" @change="rtc.onDeviceChange('videoinput')" :disabled="blockedSelf.cam || cams.length === 0">
             <option v-for="d in cams" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Камера' }}</option>
           </select>
         </label>
@@ -144,6 +135,8 @@ import { createAuthedSocket } from '@/services/sio'
 import RoomTile from '@/components/RoomTile.vue'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
+import iconQualitySD from '@/assets/svg/qualitySD.svg'
+import iconQualityHD from '@/assets/svg/qualityHD.svg'
 import iconLeaveRoom from '@/assets/svg/leaveRoom.svg'
 import iconSettings from '@/assets/svg/settings.svg'
 import iconVolumeMax from '@/assets/svg/volumeMax.svg'
@@ -213,10 +206,6 @@ function avatarKey(id: string): string {
 function userName(id: string) {
   return nameByUser.get(id) || `user-${id}`
 }
-function toggleSettings() {
-  settingsOpen.value = !settingsOpen.value
-  if (settingsOpen.value) { void rtc.refreshDevices().catch(() => {}) }
-}
 
 const videoRefMemo = new Map<string, (el: HTMLVideoElement | null) => void>()
 function stableVideoRef(id: string) {
@@ -248,21 +237,34 @@ function stateIcon(kind: IconKind, id: string) {
 }
 async function toggleTilePanel(id: string) {
   if (id === localId.value) return
+  settingsOpen.value = false
   if (openPanelFor.value === id) {
     openPanelFor.value = ''
     return
   }
   openPanelFor.value = id
+  openVolFor.value = ''
 }
 function toggleVolume(id: string) {
   if (id === localId.value) return
+  settingsOpen.value = false
   if (openVolFor.value === id) {
     openVolFor.value = ''
     return
   }
   openVolFor.value = id
+  openPanelFor.value = ''
   void rtc.resumeAudio()
   volUi[id] = rtc.getUserVolume(id)
+}
+function toggleSettings() {
+  const next = !settingsOpen.value
+  settingsOpen.value = next
+  if (next) {
+    openPanelFor.value = ''
+    openVolFor.value = ''
+    void rtc.refreshDevices().catch(() => {})
+  }
 }
 
 const showPermProbe = computed(() => !rtc.permProbed.value && !micOn.value && !camOn.value)
@@ -754,109 +756,76 @@ onBeforeUnmount(() => { void onLeave() })
     width: calc(100vw - 20px);
     height: calc(100vh - 80px);
   }
-                                .theater {
-                                  display: grid;
-                                  grid-template-columns: 1fr 268px;
-                                  width: calc(100vw - 98px);
-                                  height: 100vh;
-                                  .stage {
-                                    position: relative;
-                                    border-radius: 12px;
-                                    overflow: hidden;
-                                    background: $black;
-                                    video {
-                                      width: 100%;
-                                      height: 100%;
-                                      object-fit: contain;
-                                      background: $black;
-                                    }
-                                    .right {
-                                      position: absolute;
-                                      left: 0;
-                                      right: 0;
-                                      top: 0;
-                                      display: flex;
-                                      align-items: center;
-                                      justify-content: flex-end;
-                                      margin: 14px 8px;
-                                      border-radius: 12px;
-                                      background: rgba($black, 0.65);
-                                      -webkit-backdrop-filter: blur(4px);
-                                      backdrop-filter: blur(4px);
-                                      pointer-events: auto;
-                                      z-index: 5;
-                                      gap: 8px;
-                                    }
-                                    .volume {
-                                      display: inline-flex;
-                                      align-items: center;
-                                    }
-                                    .vol-btn {
-                                      border-radius: 8px;
-                                      display: inline-flex;
-                                      align-items: center;
-                                      justify-content: center;
-                                      border: 1px solid rgba($fg, 0.25);
-                                      background: $black;
-                                      cursor: pointer;
-                                      .status-icon {
-                                        width: 18px;
-                                        height: 18px;
-                                        display: block;
-                                      }
-                                    }
-                                    .vol-inline {
-                                      display: inline-flex;
-                                      align-items: center;
-                                      .vol-slider {
-                                        flex: 1 1 auto;
-                                        height: 24px;
-                                        accent-color: $fg;
-                                      }
-                                      .vol-val {
-                                        min-width: 48px;
-                                        text-align: right;
-                                        font-variant-numeric: tabular-nums;
-                                      }
-                                    }
-                                    .tile-panel {
-                                      position: absolute;
-                                      inset: 0;
-                                      display: flex;
-                                      flex-direction: column;
-                                      gap: 12px;
-                                      padding: 12px;
-                                      background: rgba($black, 0.8);
-                                      backdrop-filter: blur(6px);
-                                      z-index: 6;
-                                      .panel-user {
-                                        margin: auto;
-                                        display: flex;
-                                        flex-direction: column;
-                                        align-items: center;
-                                        gap: 12px;
-                                      }
-                                      .panel-ava {
-                                        width: 96px;
-                                        height: 96px;
-                                        border-radius: 50%;
-                                        object-fit: cover;
-                                      }
-                                      .panel-nick {
-                                        font-weight: 600;
-                                      }
-                                    }
-                                  }
-                                  .sidebar {
-                                    display: flex;
-                                    flex-direction: column;
-                                    gap: 12px;
-                                    padding: 12px;
-                                    max-width: 244px;
-                                    overflow-y: auto;
-                                    scrollbar-width: none;
-                                  }
-                                }
+  .theater {
+    display: grid;
+    grid-template-columns: 1fr 268px;
+    width: calc(100vw - 20px);
+    height: calc(100vh - 80px);
+    .stage {
+      position: relative;
+      border-radius: 10px;
+      overflow: hidden;
+      video {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        background: $black;
+      }
+
+
+
+
+
+      .volume {
+        display: inline-flex;
+        align-items: center;
+        margin-right: 4px;
+      }
+      .vol-btn {
+        border-radius: 8px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid rgba($fg, 0.25);
+        background: $black;
+        cursor: pointer;
+        .status-icon {
+          width: 18px;
+          height: 18px;
+          display: block;
+        }
+      }
+      .vol-inline {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        .vol-slider {
+          flex: 1 1 auto;
+          height: 24px;
+          accent-color: $fg;
+        }
+        .vol-val {
+          min-width: 48px;
+          text-align: right;
+          font-variant-numeric: tabular-nums;
+        }
+      }
+    }
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 12px;
+      max-width: 244px;
+      overflow-y: auto;
+      scrollbar-width: none;
+    }
+  }
+
+
+
+
+
   .panel {
     display: flex;
     position: relative;
@@ -872,10 +841,9 @@ onBeforeUnmount(() => { void onLeave() })
       height: 50px;
       border: none;
       border-radius: 5px;
-      background: $dark;
+      background-color: $dark;
       cursor: pointer;
       &:disabled {
-        opacity: 0.5;
         cursor: not-allowed;
       }
       img {
@@ -891,29 +859,27 @@ onBeforeUnmount(() => { void onLeave() })
       display: flex;
       gap: 10px;
     }
-    .settings-popover {
-      position: absolute;
-      right: 0;
-      bottom: 56px;
-      z-index: 20;
-      min-width: 260px;
-      padding: 10px;
-      border-radius: 8px;
-      background: $dark;
-      border: 1px solid rgba($fg, 0.2);
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    .settings {
       display: flex;
+      position: absolute;
       flex-direction: column;
+      right: 0;
+      bottom: 60px;
+      padding: 10px;
       gap: 10px;
+      min-width: 360px;
+      border-radius: 5px;
+      background-color: $dark;
+      z-index: 20;
       .sel {
-        display: grid;
-        gap: 6px;
-        color: $fg;
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        color: $white;
         select {
-          padding: 6px 8px;
-          border-radius: 8px;
-          border: 1px solid $fg;
-          background: $bg;
+          padding: 5px;
+          border-radius: 5px;
+          background-color: $bg;
           color: $fg;
           &:disabled {
             opacity: 0.5;

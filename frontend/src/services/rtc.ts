@@ -452,12 +452,18 @@ export function useRTC(): UseRTC {
   }
 
   async function onDeviceChange(kind: DeviceKind) {
+    const id = kind === 'audioinput' ? selectedMicId.value : selectedCamId.value
+    if (!id) return
+    saveLS(kind === 'audioinput' ? LS.mic : LS.cam, id)
     const room = lk.value
     if (!room) return
-    const deviceId = kind === 'audioinput' ? selectedMicId.value : selectedCamId.value
-    if (!deviceId) return
-    saveLS(kind === 'audioinput' ? LS.mic : LS.cam, deviceId)
-    try { await room.switchActiveDevice(kind, deviceId) } catch {}
+    const pubs = room.localParticipant.getTrackPublications()
+    const enabled = pubs.some(pub => kind === 'audioinput'
+      ? pub.kind === Track.Kind.Audio && (pub as any).source === Track.Source.Microphone && !!pub.track
+      : pub.kind === Track.Kind.Video && (pub as any).source === Track.Source.Camera && !!pub.track
+    )
+    if (!enabled) return
+    try { await room.switchActiveDevice(kind, id) } catch {}
   }
 
   const isBusyError = (e: unknown) => {
