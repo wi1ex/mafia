@@ -40,16 +40,14 @@
         </div>
       </div>
 
-      <div class="right">
-        <div v-if="id !== localId" class="volume">
-          <button v-if="!openVol" class="vol-btn" @click.stop="$emit('toggle-volume', id)" :disabled="!speakersOn || isBlocked(id,'speakers')" aria-label="volume">
-            <img class="status-icon" :src="iconVolumeMax" alt="vol" />
-          </button>
-          <div v-else class="vol-inline" @click.stop>
-            <input class="vol-slider" type="range" min="0" max="200" :disabled="!speakersOn || isBlocked(id,'speakers')" :value="vol ?? 100"
-                   @input="$emit('vol-input', id, Number(($event.target as HTMLInputElement).value))" />
-            <span class="vol-val">{{ vol ?? 100 }}%</span>
-          </div>
+      <div v-if="id !== localId" class="volume">
+        <button v-if="!openVol" class="vol-btn" @click.stop="$emit('toggle-volume', id)" :disabled="!speakersOn || isBlocked(id,'speakers')" aria-label="volume">
+          <img class="status-icon" :src="iconVolumeMax" alt="vol" />
+        </button>
+        <div v-else class="vol-inline" @click.stop>
+          <input class="vol-slider" type="range" min="0" max="200" :disabled="!speakersOn || isBlocked(id,'speakers')" :value="vol ?? 100"
+                 @input="$emit('vol-input', id, Number(($event.target as HTMLInputElement).value))" />
+          <span class="vol-val">{{ vol ?? 100 }}%</span>
         </div>
       </div>
     </div>
@@ -148,8 +146,7 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 6px 8px;
-    max-height: 50px;
+    max-height: 36px;
     background: rgba($black, 0.65);
     backdrop-filter: blur(4px);
     z-index: 5;
@@ -160,21 +157,21 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
   .titlebar-div {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: 4px;
     border: 1px solid transparent;
     background: transparent;
     color: $fg;
-    padding: 2px 4px;
+    padding: 2px 0;
     .title-btn {
       display: inline-flex;
       align-items: center;
-      gap: 8px;
+      gap: 4px;
       border: 1px solid transparent;
       border-radius: 10px;
       background: transparent;
       color: $fg;
       cursor: pointer;
-      padding: 2px 4px;
+      padding: 2px 0;
       .title-ava {
         width: 24px;
         height: 24px;
@@ -190,7 +187,7 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
     }
     .status {
       display: flex;
-      gap: 8px;
+      gap: 4px;
       align-items: center;
       .status-icon {
         width: 18px;
@@ -217,14 +214,10 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
       }
     }
   }
-  .right {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-  }
   .volume {
     display: inline-flex;
     align-items: center;
+    margin-right: 4px;
   }
   .vol-btn {
     border-radius: 8px;

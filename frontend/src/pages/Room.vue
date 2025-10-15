@@ -740,6 +740,7 @@ onBeforeUnmount(() => { void onLeave() })
       .ctrl {
         display: inline-flex;
         align-items: center;
+        justify-content: center;
         gap: 8px;
         padding: 8px 12px;
         border-radius: 8px;
@@ -887,6 +888,7 @@ onBeforeUnmount(() => { void onLeave() })
       padding: 12px;
       max-width: 244px;
       overflow-y: auto;
+      scrollbar-width: none;
     }
   }
 
