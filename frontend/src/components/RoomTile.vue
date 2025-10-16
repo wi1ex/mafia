@@ -136,6 +136,7 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
     left: 5px;
     right: 5px;
     top: 5px;
+    gap: 5px;
     height: 40px;
     border-radius: 3px;
     background: rgba($black, 0.5);
@@ -144,12 +145,13 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
     .titlebar-div {
       display: flex;
       align-items: center;
-      padding: 0 5px;
-      gap: 5px;
+      min-width: 0;
       .title-btn {
         display: flex;
         align-items: center;
+        padding: 0 5px;
         gap: 5px;
+        min-width: 0;
         border: none;
         background: none;
         cursor: pointer;
@@ -163,7 +165,6 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
           object-fit: cover;
         }
         .title-nick {
-          max-width: 151px;
           color: $fg;
           font-size: 20px;
           white-space: nowrap;

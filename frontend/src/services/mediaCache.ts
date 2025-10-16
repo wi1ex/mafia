@@ -14,10 +14,6 @@ const urlOrder: string[] = []
 const URL_MAX = 300
 
 function rememberURL(key: string, url: string) {
-  const prev = urlMap.get(key)
-  if (prev && prev !== url) {
-    try { URL.revokeObjectURL(prev) } catch {}
-  }
   urlMap.set(key, url)
   const idx = urlOrder.indexOf(key)
   if (idx !== -1) urlOrder.splice(idx, 1)
