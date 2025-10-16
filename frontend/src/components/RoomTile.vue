@@ -9,34 +9,15 @@
     <div class="titlebar">
       <div class="titlebar-div">
         <button class="title-btn" :disabled="id===localId" :aria-disabled="id===localId" @click.stop="$emit('toggle-panel', id)" :aria-expanded="openPanel">
-          <img class="title-ava" v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar }" alt="" />
+          <img v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar }" alt="" />
           <span class="title-nick">{{ userName(id) }}</span>
         </button>
 
-        <div v-if="!canModerate(id)" class="status">
-          <img class="status-icon" :src="stateIcon('mic', id)" alt="mic" />
-          <img class="status-icon" :src="stateIcon('cam', id)" alt="cam" />
-          <img class="status-icon" :src="stateIcon('speakers', id)" alt="spk" />
-          <img class="status-icon" :src="stateIcon('visibility', id)" alt="vis" />
-          <img class="status-icon" :src="stateIcon('screen', id)" alt="scr" />
-        </div>
-
-        <div v-else class="admin-row" aria-label="Блокировки">
-          <button class="mod" @click="$emit('block','mic',id)" aria-label="block mic">
-            <img class="status-icon" :src="stateIcon('mic', id)" alt="mic" />
-          </button>
-          <button class="mod" @click="$emit('block','cam',id)" aria-label="block cam">
-            <img class="status-icon" :src="stateIcon('cam', id)" alt="cam" />
-          </button>
-          <button class="mod" @click="$emit('block','speakers',id)" aria-label="block speakers">
-            <img class="status-icon" :src="stateIcon('speakers', id)" alt="spk" />
-          </button>
-          <button class="mod" @click="$emit('block','visibility',id)" aria-label="block visibility">
-            <img class="status-icon" :src="stateIcon('visibility', id)" alt="vis" />
-          </button>
-          <button class="mod" @click="$emit('block','screen',id)" aria-label="block screen">
-            <img class="status-icon" :src="stateIcon('screen', id)" alt="scr" />
-          </button>
+        <div class="status">
+          <img v-if="isBlocked(id,'mic') || !isOn(id,'mic')" :src="stateIcon('mic', id)" alt="mic" />
+          <img v-if="isBlocked(id,'cam') || !isOn(id,'cam')" :src="stateIcon('cam', id)" alt="cam" />
+          <img v-if="isBlocked(id,'speakers') || !isOn(id,'speakers')" :src="stateIcon('speakers', id)" alt="spk" />
+          <img v-if="isBlocked(id,'visibility') || !isOn(id,'visibility')" :src="stateIcon('visibility', id)" alt="vis" />
         </div>
       </div>
 
@@ -58,6 +39,24 @@
         <img class="panel-ava" v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar }" alt="" />
         <div class="panel-nick">{{ userName(id) }}</div>
         <div class="panel-nick">*информация о пользователе*</div>
+
+        <div v-if="canModerate(id)" class="admin-row" aria-label="Блокировки">
+          <button class="mod" @click="$emit('block','mic',id)" aria-label="block mic">
+            <img class="status-icon" :src="stateIcon('mic', id)" alt="mic" />
+          </button>
+          <button class="mod" @click="$emit('block','cam',id)" aria-label="block cam">
+            <img class="status-icon" :src="stateIcon('cam', id)" alt="cam" />
+          </button>
+          <button class="mod" @click="$emit('block','speakers',id)" aria-label="block speakers">
+            <img class="status-icon" :src="stateIcon('speakers', id)" alt="spk" />
+          </button>
+          <button class="mod" @click="$emit('block','visibility',id)" aria-label="block visibility">
+            <img class="status-icon" :src="stateIcon('visibility', id)" alt="vis" />
+          </button>
+          <button class="mod" @click="$emit('block','screen',id)" aria-label="block screen">
+            <img class="status-icon" :src="stateIcon('screen', id)" alt="scr" />
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -106,7 +105,6 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
   border: 2px solid transparent;
   border-radius: 5px;
   transition: border-color 0.25s ease-in-out;
-  overflow: hidden;
   &.speaking {
     border-color: $green;
   }
@@ -114,6 +112,7 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
     width: 100%;
     height: 100%;
     object-fit: cover;
+    border-radius: 3px;
   }
   .ava-wrap {
     position: absolute;
@@ -129,52 +128,44 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
       user-select: none;
     }
   }
-
-
-
-
-
   .titlebar {
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: 0;
     display: flex;
+    position: absolute;
     align-items: center;
     justify-content: space-between;
+    left: 5px;
+    right: 5px;
+    top: 5px;
     height: 40px;
-    background: rgba($black, 0.65);
-    backdrop-filter: blur(4px);
+    border-radius: 3px;
+    background: rgba($black, 0.5);
+    backdrop-filter: blur(5px);
     z-index: 5;
     .titlebar-div {
-      display: inline-flex;
+      display: flex;
       align-items: center;
+      padding: 0 5px;
       gap: 5px;
-      border: 1px solid transparent;
-      background: transparent;
-      color: $fg;
-      padding: 2px;
       .title-btn {
-        display: inline-flex;
+        display: flex;
         align-items: center;
         gap: 5px;
-        border: 1px solid transparent;
-        border-radius: 5px;
-        background: transparent;
-        color: $fg;
+        border: none;
+        background: none;
         cursor: pointer;
-        padding: 2px;
         &:disabled {
           cursor: default;
         }
-        .title-ava {
+        img {
           width: 24px;
           height: 24px;
           border-radius: 50%;
           object-fit: cover;
         }
         .title-nick {
-          max-width: 160px;
+          max-width: 151px;
+          color: $fg;
+          font-size: 20px;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -182,38 +173,17 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
       }
       .status {
         display: flex;
-        gap: 5px;
         align-items: center;
-        .status-icon {
-          width: 18px;
-          height: 18px;
-          display: block;
-        }
-      }
-      .admin-row {
-        display: flex;
-        flex-wrap: wrap;
-        .mod {
-          border-radius: 5px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          border: 1px solid rgba($fg, 0.25);
-          background: $black;
-          cursor: pointer;
-          .status-icon {
-            width: 18px;
-            height: 18px;
-            display: block;
-          }
+        gap: 5px;
+        img {
+          width: 24px;
+          height: 24px;
         }
       }
     }
     .volume {
       display: flex;
-      position: absolute;
-      top: 5px;
-      right: 5px;
+      position: relative;
       -webkit-overflow-scrolling: touch;
       button {
         display: flex;
@@ -222,8 +192,8 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
         width: 40px;
         height: 40px;
         border: none;
-        border-radius: 5px;
-        background: $dark;
+        border-radius: 3px;
+        background: rgba($dark, 0.5);
         cursor: pointer;
         img {
           width: 24px;
@@ -232,14 +202,17 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
       }
       .vol-inline {
         display: flex;
+        position: absolute;
         flex-direction: column;
         align-items: center;
         justify-content: space-between;
+        top: -20px;
+        right: 0;
         padding: 8px 5px;
         width: 30px;
         height: 200px;
         border: none;
-        border-radius: 5px;
+        border-radius: 3px;
         background: $dark;
         cursor: pointer;
         img {
@@ -275,15 +248,33 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
       flex-direction: column;
       align-items: center;
       gap: 10px;
-    }
-    .panel-ava {
-      width: 96px;
-      height: 96px;
-      border-radius: 50%;
-      object-fit: cover;
-    }
-    .panel-nick {
-      font-weight: 600;
+      .panel-ava {
+        width: 96px;
+        height: 96px;
+        border-radius: 50%;
+        object-fit: cover;
+      }
+      .panel-nick {
+        font-weight: 600;
+      }
+      .admin-row {
+        display: flex;
+        flex-wrap: wrap;
+        .mod {
+          border-radius: 5px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border: 1px solid rgba($fg, 0.25);
+          background: $black;
+          cursor: pointer;
+          .status-icon {
+            width: 18px;
+            height: 18px;
+            display: block;
+          }
+        }
+      }
     }
   }
 }

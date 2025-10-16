@@ -847,7 +847,7 @@ onBeforeUnmount(() => { void onLeave() })
     .sidebar {
       display: flex;
       flex-direction: column;
-      max-width: 250px;
+      width: 250px;
       gap: 10px;
       overflow-y: auto;
       scrollbar-width: none;
@@ -899,7 +899,7 @@ onBeforeUnmount(() => { void onLeave() })
       bottom: 60px;
       padding: 10px;
       gap: 10px;
-      min-width: 360px;
+      min-width: 250px;
       border-radius: 5px;
       background-color: $dark;
       z-index: 20;
