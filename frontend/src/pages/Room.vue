@@ -39,7 +39,7 @@
             <img :src="volumeIconForStream(streamAudioKey)" alt="vol" />
             <input type="range" min="0" max="200" :disabled="!speakersOn || isBlocked(screenOwnerId,'speakers')"
                    v-model.number="volUi[streamAudioKey]" @input="onVol(streamAudioKey, volUi[streamAudioKey])" />
-            <span class="vol-val">{{ volUi[streamAudioKey] ?? 100 }}%</span>
+            <span>{{ volUi[streamAudioKey] ?? 100 }}%</span>
           </div>
         </div>
       </div>
@@ -837,7 +837,7 @@ onBeforeUnmount(() => { void onLeave() })
             accent-color: $fg;
             transform: rotate(270deg);
           }
-          .vol-val {
+          span {
             text-align: center;
             font-size: 12px;
           }

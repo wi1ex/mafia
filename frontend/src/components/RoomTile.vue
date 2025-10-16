@@ -6,11 +6,11 @@
       <img v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar }" alt="" />
     </div>
 
-    <div class="titlebar">
+    <div class="titlebar" :class="{ 'has-vol': openVol }">
       <div class="titlebar-div">
-        <button class="title-btn" :disabled="id===localId" :aria-disabled="id===localId" @click.stop="$emit('toggle-panel', id)" :aria-expanded="openPanel">
+        <button :disabled="id===localId" :aria-disabled="id===localId" @click.stop="$emit('toggle-panel', id)" :aria-expanded="openPanel">
           <img v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar }" alt="" />
-          <span class="title-nick">{{ userName(id) }}</span>
+          <span>{{ userName(id) }}</span>
         </button>
 
         <div class="status">
@@ -29,34 +29,40 @@
           <img :src="volumeIcon" alt="vol" />
           <input type="range" min="0" max="200" :disabled="!speakersOn || isBlocked(id,'speakers')" :value="vol ?? 100"
                  @input="$emit('vol-input', id, Number(($event.target as HTMLInputElement).value))" />
-          <span class="vol-val">{{ vol ?? 100 }}%</span>
+          <span>{{ vol ?? 100 }}%</span>
         </div>
       </div>
     </div>
 
     <div v-if="openPanel" class="tile-panel" @click.stop>
-      <div class="panel-user">
-        <img class="panel-ava" v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar }" alt="" />
-        <div class="panel-nick">{{ userName(id) }}</div>
-        <div class="panel-nick">*информация о пользователе*</div>
+      <button class="panel-close" aria-label="Закрыть" @click.stop="$emit('toggle-panel', id)">✕</button>
 
-        <div v-if="canModerate(id)" class="admin-row" aria-label="Блокировки">
-          <button class="mod" @click="$emit('block','mic',id)" aria-label="block mic">
-            <img class="status-icon" :src="stateIcon('mic', id)" alt="mic" />
-          </button>
-          <button class="mod" @click="$emit('block','cam',id)" aria-label="block cam">
-            <img class="status-icon" :src="stateIcon('cam', id)" alt="cam" />
-          </button>
-          <button class="mod" @click="$emit('block','speakers',id)" aria-label="block speakers">
-            <img class="status-icon" :src="stateIcon('speakers', id)" alt="spk" />
-          </button>
-          <button class="mod" @click="$emit('block','visibility',id)" aria-label="block visibility">
-            <img class="status-icon" :src="stateIcon('visibility', id)" alt="vis" />
-          </button>
-          <button class="mod" @click="$emit('block','screen',id)" aria-label="block screen">
-            <img class="status-icon" :src="stateIcon('screen', id)" alt="scr" />
-          </button>
+      <div class="panel-user">
+        <div class="panel-profile">
+          <img v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar }" alt="" />
+          <span>{{ userName(id) }}</span>
         </div>
+        <div class="panel-info">
+          <span>*информация о пользователе*</span>
+        </div>
+      </div>
+
+      <div v-if="canModerate(id)" class="admin-row" aria-label="Блокировки">
+        <button @click="$emit('block','mic',id)" aria-label="block mic">
+          <img :src="stateIcon('mic', id)" alt="mic" />
+        </button>
+        <button @click="$emit('block','cam',id)" aria-label="block cam">
+          <img :src="stateIcon('cam', id)" alt="cam" />
+        </button>
+        <button @click="$emit('block','speakers',id)" aria-label="block speakers">
+          <img :src="stateIcon('speakers', id)" alt="spk" />
+        </button>
+        <button @click="$emit('block','visibility',id)" aria-label="block visibility">
+          <img :src="stateIcon('visibility', id)" alt="vis" />
+        </button>
+        <button @click="$emit('block','screen',id)" aria-label="block screen">
+          <img :src="stateIcon('screen', id)" alt="scr" />
+        </button>
       </div>
     </div>
   </div>
@@ -142,11 +148,14 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
     background: rgba($black, 0.5);
     backdrop-filter: blur(5px);
     z-index: 5;
+    &.has-vol {
+      z-index: 10;
+    }
     .titlebar-div {
       display: flex;
       align-items: center;
       min-width: 0;
-      .title-btn {
+      button {
         display: flex;
         align-items: center;
         padding: 0 5px;
@@ -164,7 +173,7 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
           border-radius: 50%;
           object-fit: cover;
         }
-        .title-nick {
+        span {
           color: $fg;
           font-size: 20px;
           white-space: nowrap;
@@ -226,7 +235,7 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
           accent-color: $fg;
           transform: rotate(270deg);
         }
-        .vol-val {
+        span {
           text-align: center;
           font-size: 12px;
         }
@@ -234,46 +243,67 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
     }
   }
   .tile-panel {
-    position: absolute;
-    inset: 0;
     display: flex;
+    position: absolute;
     flex-direction: column;
-    gap: 10px;
+    inset: 0;
     padding: 10px;
     background: rgba($black, 0.8);
-    backdrop-filter: blur(6px);
-    z-index: 6;
+    backdrop-filter: blur(5px);
+    z-index: 10;
+    .panel-close {
+      position: absolute;
+      top: 5px;
+      right: 5px;
+      width: 24px;
+      height: 24px;
+      border: none;
+      border-radius: 3px;
+      background: rgba($fg, 0.15);
+      color: $fg;
+      cursor: pointer;
+    }
     .panel-user {
       margin: auto;
       display: flex;
       flex-direction: column;
       align-items: center;
       gap: 10px;
-      .panel-ava {
-        width: 96px;
-        height: 96px;
-        border-radius: 50%;
-        object-fit: cover;
-      }
-      .panel-nick {
-        font-weight: 600;
-      }
-      .admin-row {
+      .panel-profile {
         display: flex;
-        flex-wrap: wrap;
-        .mod {
-          border-radius: 5px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          border: 1px solid rgba($fg, 0.25);
-          background: $black;
-          cursor: pointer;
-          .status-icon {
-            width: 18px;
-            height: 18px;
-            display: block;
-          }
+        img {
+          width: 96px;
+          height: 96px;
+          border-radius: 50%;
+          object-fit: cover;
+        }
+        span {
+          font-size: 20px;
+          font-weight: 600;
+        }
+      }
+      .panel-info {
+        display: flex;
+        span {
+          font-size: 12px;
+          font-weight: 400;
+        }
+      }
+    }
+    .admin-row {
+      display: flex;
+      flex-wrap: wrap;
+      button {
+        border-radius: 3px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: none;
+        background: $black;
+        cursor: pointer;
+        img {
+          width: 24px;
+          height: 24px;
         }
       }
     }
