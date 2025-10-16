@@ -43,7 +43,7 @@
         <img v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar }" alt="" />
         <div class="panel-info">
           <span>{{ userName(id) }}</span>
-          <span>*информация о пользователе*</span>
+          <span>*инф. о пользователе*</span>
         </div>
       </div>
 
@@ -249,10 +249,9 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
     display: flex;
     position: absolute;
     flex-direction: column;
-    justify-content: space-between;
     inset: 0;
-    padding: 10px;
-    border-radius: 3px;
+    padding: 5px;
+    gap: 10px;
     background: rgba($black, 0.8);
     backdrop-filter: blur(5px);
     z-index: 10;
@@ -260,8 +259,8 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
       position: absolute;
       top: 5px;
       right: 5px;
-      width: 24px;
-      height: 24px;
+      width: 40px;
+      height: 40px;
       border: none;
       border-radius: 3px;
       background: $dark;
@@ -274,8 +273,7 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
     .panel-user {
       display: flex;
       align-items: flex-start;
-      flex-direction: column;
-      gap: 10px;
+      gap: 5px;
       img {
         width: 40px;
         height: 40px;
@@ -293,13 +291,13 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
     }
     .admin-row {
       display: flex;
-      gap: 14px;
+      gap: 11px;
       button {
         border-radius: 3px;
         display: flex;
         align-items: center;
         justify-content: center;
-        padding: 5px;
+        padding: 5px 7px;
         border: none;
         background: rgba($grey, 0.2);
         cursor: pointer;
