@@ -792,7 +792,7 @@ onBeforeUnmount(() => { void onLeave() })
         width: 100%;
         height: 100%;
         object-fit: contain;
-        background: $black;
+        background-color: $black;
       }
       .volume {
         display: flex;
@@ -808,7 +808,7 @@ onBeforeUnmount(() => { void onLeave() })
           height: 40px;
           border: none;
           border-radius: 5px;
-          background: $dark;
+          background-color: $dark;
           cursor: pointer;
           img {
             width: 24px;
@@ -825,7 +825,7 @@ onBeforeUnmount(() => { void onLeave() })
           height: 200px;
           border: none;
           border-radius: 5px;
-          background: $dark;
+          background-color: $dark;
           cursor: pointer;
           img {
             width: 24px;

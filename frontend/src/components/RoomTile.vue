@@ -121,6 +121,7 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
     height: 100%;
     object-fit: cover;
     border-radius: 3px;
+    background-color: $black;
   }
   .ava-wrap {
     display: flex;
@@ -128,7 +129,7 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
     align-items: center;
     justify-content: center;
     inset: 0;
-    background: $black;
+    background-color: $black;
     border-radius: 3px;
     z-index: 1;
     img {
@@ -148,7 +149,7 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
     gap: 5px;
     height: 40px;
     border-radius: 3px;
-    background: rgba($black, 0.5);
+    background-color: rgba($black, 0.5);
     backdrop-filter: blur(5px);
     z-index: 5;
     &.has-vol {
@@ -206,7 +207,7 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
         height: 40px;
         border: none;
         border-radius: 3px;
-        background: rgba($dark, 0.5);
+        background-color: rgba($dark, 0.5);
         cursor: pointer;
         img {
           width: 24px;
@@ -226,7 +227,7 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
         height: 200px;
         border: none;
         border-radius: 3px;
-        background: $dark;
+        background-color: $dark;
         cursor: pointer;
         img {
           width: 24px;
@@ -252,7 +253,7 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
     inset: 0;
     padding: 5px;
     gap: 10px;
-    background: rgba($black, 0.8);
+    background-color: rgba($black, 0.8);
     backdrop-filter: blur(5px);
     z-index: 10;
     .panel-close {
@@ -263,7 +264,7 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
       height: 40px;
       border: none;
       border-radius: 3px;
-      background: $dark;
+      background-color: $dark;
       cursor: pointer;
       img {
         width: 24px;
@@ -299,7 +300,7 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
         justify-content: center;
         padding: 5px 7px;
         border: none;
-        background: rgba($grey, 0.2);
+        background-color: rgba($grey, 0.2);
         cursor: pointer;
         img {
           width: 24px;
