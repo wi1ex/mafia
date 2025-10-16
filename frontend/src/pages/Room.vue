@@ -885,7 +885,7 @@ onBeforeUnmount(() => { void onLeave() })
     }
     .probe {
       width: fit-content;
-      color: $white;
+      color: $fg;
     }
     .controls {
       display: flex;
@@ -907,7 +907,7 @@ onBeforeUnmount(() => { void onLeave() })
         display: flex;
         flex-direction: column;
         gap: 5px;
-        color: $white;
+        color: $fg;
         select {
           padding: 5px;
           border-radius: 5px;

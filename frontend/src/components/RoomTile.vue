@@ -35,14 +35,14 @@
     </div>
 
     <div v-if="openPanel" class="tile-panel" @click.stop>
-      <button class="panel-close" aria-label="Закрыть" @click.stop="$emit('toggle-panel', id)">✕</button>
+      <button class="panel-close" aria-label="Закрыть" @click.stop="$emit('toggle-panel', id)">
+        <img :src="iconClose" alt="close" />
+      </button>
 
       <div class="panel-user">
-        <div class="panel-profile">
-          <img v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar }" alt="" />
-          <span>{{ userName(id) }}</span>
-        </div>
+        <img v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar }" alt="" />
         <div class="panel-info">
+          <span>{{ userName(id) }}</span>
           <span>*информация о пользователе*</span>
         </div>
       </div>
@@ -70,6 +70,8 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+
+import iconClose from '@/assets/svg/close.svg'
 
 type IconKind = 'mic' | 'cam' | 'speakers' | 'visibility' | 'screen'
 
@@ -108,8 +110,8 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
 <style scoped lang="scss">
 .tile {
   position: relative;
-  border: 2px solid transparent;
   border-radius: 5px;
+  border: 2px solid transparent;
   transition: border-color 0.25s ease-in-out;
   &.speaking {
     border-color: $green;
@@ -121,12 +123,13 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
     border-radius: 3px;
   }
   .ava-wrap {
-    position: absolute;
-    inset: 0;
     display: flex;
+    position: absolute;
     align-items: center;
     justify-content: center;
+    inset: 0;
     background: $black;
+    border-radius: 3px;
     z-index: 1;
     img {
       height: 40%;
@@ -246,8 +249,10 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
     display: flex;
     position: absolute;
     flex-direction: column;
+    justify-content: space-between;
     inset: 0;
     padding: 10px;
+    border-radius: 3px;
     background: rgba($black, 0.8);
     backdrop-filter: blur(5px);
     z-index: 10;
@@ -259,31 +264,27 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
       height: 24px;
       border: none;
       border-radius: 3px;
-      background: rgba($fg, 0.15);
-      color: $fg;
+      background: $dark;
       cursor: pointer;
+      img {
+        width: 24px;
+        height: 24px;
+      }
     }
     .panel-user {
-      margin: auto;
       display: flex;
+      align-items: flex-start;
       flex-direction: column;
-      align-items: center;
       gap: 10px;
-      .panel-profile {
-        display: flex;
-        img {
-          width: 96px;
-          height: 96px;
-          border-radius: 50%;
-          object-fit: cover;
-        }
-        span {
-          font-size: 20px;
-          font-weight: 600;
-        }
+      img {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        object-fit: cover;
       }
       .panel-info {
         display: flex;
+        flex-direction: column;
         span {
           font-size: 12px;
           font-weight: 400;
@@ -292,14 +293,15 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
     }
     .admin-row {
       display: flex;
-      flex-wrap: wrap;
+      gap: 14px;
       button {
         border-radius: 3px;
         display: flex;
         align-items: center;
         justify-content: center;
+        padding: 5px;
         border: none;
-        background: $black;
+        background: rgba($grey, 0.2);
         cursor: pointer;
         img {
           width: 24px;
