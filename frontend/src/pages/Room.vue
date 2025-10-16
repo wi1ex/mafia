@@ -9,7 +9,7 @@
         :speaking="rtc.isSpeaking(id)"
         :video-ref="stableVideoRef(id)"
         :default-avatar="defaultAvatar"
-        :icon-volume-max="iconVolumeMax"
+        :volume-icon="volumeIconForUser(id)"
         :state-icon="stateIcon"
         :is-on="isOn"
         :is-blocked="isBlocked"
@@ -19,7 +19,7 @@
         :speakers-on="speakersOn"
         :open-panel-for="openPanelFor"
         :open-vol-for="openVolFor"
-        :vol="volUi[id]"
+        :vol="volUi[id] ?? rtc.getUserVolume(id)"
         @toggle-panel="toggleTilePanel"
         @toggle-volume="toggleVolume"
         @vol-input="onVol"
@@ -33,10 +33,10 @@
         <div v-if="screenOwnerId !== localId" class="volume">
           <button v-if="openVolFor !== streamAudioKey" @click.stop="toggleVolume(streamAudioKey)"
                   :disabled="!speakersOn || isBlocked(screenOwnerId,'speakers')" aria-label="volume">
-            <img :src="volumeIconFor(streamAudioKey)" alt="vol" />
+            <img :src="volumeIconForStream(streamAudioKey)" alt="vol" />
           </button>
           <div v-else class="vol-inline" @click.stop>
-            <img :src="volumeIconFor(streamAudioKey)" alt="vol" />
+            <img :src="volumeIconForStream(streamAudioKey)" alt="vol" />
             <input type="range" min="0" max="200" :disabled="!speakersOn || isBlocked(screenOwnerId,'speakers')"
                    v-model.number="volUi[streamAudioKey]" @input="onVol(streamAudioKey, volUi[streamAudioKey])" />
             <span class="vol-val">{{ volUi[streamAudioKey] ?? 100 }}%</span>
@@ -54,7 +54,7 @@
           :speaking="rtc.isSpeaking(id)"
           :video-ref="stableVideoRef(id)"
           :default-avatar="defaultAvatar"
-          :icon-volume-max="iconVolumeMax"
+          :volume-icon="volumeIconForUser(id)"
           :state-icon="stateIcon"
           :is-on="isOn"
           :is-blocked="isBlocked"
@@ -64,7 +64,7 @@
           :speakers-on="speakersOn"
           :open-panel-for="openPanelFor"
           :open-vol-for="openVolFor"
-          :vol="volUi[id]"
+          :vol="volUi[id] ?? rtc.getUserVolume(id)"
           @toggle-panel="toggleTilePanel"
           @toggle-volume="toggleVolume"
           @vol-input="onVol"
@@ -111,13 +111,13 @@
       <div v-show="settingsOpen" class="settings" aria-label="Настройки устройств" @click.stop>
         <label class="sel">
           <span>Микрофон</span>
-          <select v-model="selectedMicId" @change="rtc.onDeviceChange('audioinput')" :disabled="blockedSelf.mic || mics.length === 0">
+          <select v-model="selectedMicId" @change="rtc.onDeviceChange('audioinput')" :disabled="mics.length === 0">
             <option v-for="d in mics" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Микрофон' }}</option>
           </select>
         </label>
         <label class="sel">
           <span>Камера</span>
-          <select v-model="selectedCamId" @change="rtc.onDeviceChange('videoinput')" :disabled="blockedSelf.cam || cams.length === 0">
+          <select v-model="selectedCamId" @change="rtc.onDeviceChange('videoinput')" :disabled="cams.length === 0">
             <option v-for="d in cams" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Камера' }}</option>
           </select>
         </label>
@@ -270,9 +270,18 @@ function toggleSettings() {
     void rtc.refreshDevices().catch(() => {})
   }
 }
-function volumeIconFor(key: string): string {
+function volumeIconForStream(key: string): string {
   if (!key) return iconVolumeMute
+  if (!speakersOn.value || isBlocked(screenOwnerId.value, 'speakers')) return iconVolumeMute
   const raw = Math.round(volUi[key] ?? rtc.getUserVolume(key))
+  if (raw < 1) return iconVolumeMute
+  if (raw < 25) return iconVolumeLow
+  if (raw < 100) return iconVolumeMid
+  return iconVolumeMax
+}
+function volumeIconForUser(id: string): string {
+  if (!speakersOn.value || isBlocked(id, 'speakers')) return iconVolumeMute
+  const raw = Math.round(volUi[id] ?? rtc.getUserVolume(id))
   if (raw < 1) return iconVolumeMute
   if (raw < 25) return iconVolumeLow
   if (raw < 100) return iconVolumeMid

@@ -4,17 +4,17 @@
       <router-link class="btn" :to="{ name: 'home' }" aria-label="На главную">На главную</router-link>
     </div>
 
-    <nav class="tabs" role="tablist" aria-label="Профиль">
-      <button class="tab active" role="tab" aria-selected="true">Личные данные</button>
-      <button class="tab" role="tab" disabled>Статистика</button>
-      <button class="tab" role="tab" disabled>История игр</button>
+    <nav class="tabs" aria-label="Профиль">
+      <button class="tab active" aria-selected="true">Личные данные</button>
+      <button class="tab" disabled>Статистика</button>
+      <button class="tab" disabled>История игр</button>
     </nav>
 
     <div class="grid">
       <div class="block">
         <h3 class="title">Аватар</h3>
         <div class="avatar-row">
-          <img class="avatar" v-minio-img="{ key: me.avatar_name ? `avatars/${me.avatar_name}` : '', placeholder: defaultAvatar }" alt="Текущий аватар" />
+          <img class="avatar" v-minio-img="{ key: me.avatar_name ? `avatars/${me.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="Текущий аватар" />
           <div class="actions">
             <input ref="fileEl" type="file" accept="image/jpeg,image/png" @change="onPick" hidden />
             <button class="btn primary" @click="fileEl?.click()" :disabled="busyAva">Изменить аватар</button>
@@ -35,7 +35,7 @@
         </div>
       </div>
 
-      <div v-if="crop.show" ref="modalEl" class="modal" @keydown.esc="cancelCrop" tabindex="0" role="dialog" aria-modal="true" aria-label="Кадрирование аватара" >
+      <div v-if="crop.show" ref="modalEl" class="modal" @keydown.esc="cancelCrop" tabindex="0" aria-modal="true" aria-label="Кадрирование аватара" >
         <div class="modal-body">
           <canvas ref="canvasEl" @mousedown="dragStart" @mousemove="dragMove" @mouseup="dragStop" @mouseleave="dragStop" @wheel.passive="onWheel" />
           <input class="range" type="range" aria-label="Масштаб" :min="crop.min" :max="crop.max" step="0.01" :value="crop.scale" @input="onRange" />
@@ -284,16 +284,16 @@ onBeforeUnmount(() => {
     padding: 8px 12px;
     border-radius: 8px;
     cursor: pointer;
-    background: $color-primary;
+    background: $green;
     color: $bg;
-    border: 1px solid $color-primary;
+    border: 1px solid $green;
     &.primary {
-      background: $color-secondary;
-      border-color: $color-secondary;
+      background: $blue;
+      border-color: $blue;
     }
     &.danger {
-      background: $color-danger;
-      border-color: $color-danger;
+      background: $red;
+      border-color: $red;
       color: $fg;
     }
     &:disabled {
@@ -303,7 +303,7 @@ onBeforeUnmount(() => {
   }
   .hint {
     margin-top: 4px;
-    color: $muted;
+    color: $grey;
     font-size: 12px;
   }
   .page-actions {
@@ -325,7 +325,7 @@ onBeforeUnmount(() => {
       background: $bg;
       color: $fg;
       &.active {
-        border-color: $color-secondary;
+        border-color: $blue;
         background: rgba(14, 165, 233, 0.07);
       }
       &:disabled {

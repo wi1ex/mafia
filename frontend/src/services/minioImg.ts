@@ -46,20 +46,19 @@ async function loadInto(el: ElEx, val: MinioVal) {
 
 function mount(el: ElEx, binding: DirectiveBinding<MinioVal>) {
   el.setAttribute('referrerpolicy', 'no-referrer')
-  el.loading = 'lazy'
+
+  const { lazy } = norm(binding.value)
+  el.loading = lazy ? 'lazy' : 'eager'
 
   const run = () => loadInto(el, binding.value)
 
-  const { lazy } = norm(binding.value)
   if (lazy && 'IntersectionObserver' in window) {
     const obs = new IntersectionObserver((entries) => {
-      entries.forEach((e) => {
-        if (e.isIntersecting) {
-          try { obs.disconnect() } catch {}
-          el.__m_obs = null
-          run()
-        }
-      })
+      for (const e of entries) if (e.isIntersecting) {
+        try { obs.disconnect() } catch {}
+        el.__m_obs = null
+        run()
+      }
     }, { rootMargin: '200px' })
     el.__m_obs = obs
     obs.observe(el)

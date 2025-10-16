@@ -1,5 +1,5 @@
 <template>
-  <header class="bar" role="banner">
+  <header class="bar">
     <div class="brand" aria-label="Mafia">DECEIT • games</div>
 
     <div v-if="!auth.isAuthed && !auth.foreignActive" class="login-box">
@@ -11,7 +11,7 @@
 
     <div v-else class="user">
       <router-link to="/profile" class="profile-link" aria-label="Профиль">
-        <img v-minio-img="{ key: user.user?.avatar_name ? `avatars/${user.user.avatar_name}` : '', placeholder: defaultAvatar }" alt="Аватар" class="avatar" />
+        <img v-minio-img="{ key: user.user?.avatar_name ? `avatars/${user.user.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="Аватар" class="avatar" />
         <span class="nick" aria-live="polite">{{ user.user?.username || 'User' }}</span>
       </router-link>
       <button class="btn" type="button" @click="logout">Выйти</button>
@@ -85,7 +85,7 @@ onBeforeUnmount(() => {
     color: $fg;
   }
   .note {
-    color: $muted;
+    color: $grey;
     max-width: 460px;
   }
   .user {

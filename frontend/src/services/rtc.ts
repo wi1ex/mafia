@@ -433,24 +433,6 @@ export function useRTC(): UseRTC {
     return a
   }
 
-  async function refreshDevices() {
-    try {
-      const list = await navigator.mediaDevices.enumerateDevices()
-      mics.value = list.filter(d => d.kind === 'audioinput')
-      cams.value = list.filter(d => d.kind === 'videoinput')
-      hasAudioInput.value = mics.value.length > 0
-      hasVideoInput.value = cams.value.length > 0
-      if (!mics.value.find(d => d.deviceId === selectedMicId.value)) {
-        const fromLS = loadLS(LS.mic)
-        selectedMicId.value = (fromLS && mics.value.find(d => d.deviceId === fromLS)) ? fromLS : (mics.value[0]?.deviceId || '')
-      }
-      if (!cams.value.find(d => d.deviceId === selectedCamId.value)) {
-        const fromLS = loadLS(LS.cam)
-        selectedCamId.value = (fromLS && cams.value.find(d => d.deviceId === fromLS)) ? fromLS : (cams.value[0]?.deviceId || '')
-      }
-    } catch {}
-  }
-
   async function onDeviceChange(kind: DeviceKind) {
     const id = kind === 'audioinput' ? selectedMicId.value : selectedCamId.value
     if (!id) return
@@ -501,11 +483,42 @@ export function useRTC(): UseRTC {
     }
   }
 
-async function enable(kind: DeviceKind): Promise<boolean> {
+  async function refreshDevices() {
+    try {
+      const list = await navigator.mediaDevices.enumerateDevices()
+      mics.value = list.filter(d => d.kind === 'audioinput')
+      cams.value = list.filter(d => d.kind === 'videoinput')
+      if (mics.value.length === 0 && cams.value.length === 0) { permProbed.value = false }
+      hasAudioInput.value = mics.value.length > 0
+      hasVideoInput.value = cams.value.length > 0
+      if (!mics.value.find(d => d.deviceId === selectedMicId.value)) {
+        const fromLS = loadLS(LS.mic)
+        selectedMicId.value = (fromLS && mics.value.find(d => d.deviceId === fromLS)) ? fromLS : (mics.value[0]?.deviceId || '')
+      }
+      if (!cams.value.find(d => d.deviceId === selectedCamId.value)) {
+        const fromLS = loadLS(LS.cam)
+        selectedCamId.value = (fromLS && cams.value.find(d => d.deviceId === fromLS)) ? fromLS : (cams.value[0]?.deviceId || '')
+      }
+    } catch {}
+  }
+
+  async function enable(kind: DeviceKind): Promise<boolean> {
     const room = lk.value
     if (!room) return false
     if ((kind === 'audioinput' ? mics.value.length : cams.value.length) === 0) {
-      await refreshDevices()
+      try {
+        const perms = kind === 'audioinput' ? { audio: true, video: false } : { audio: false, video: true }
+        await navigator.mediaDevices.getUserMedia(perms)
+        await refreshDevices()
+        if ((kind === 'audioinput' ? mics.value.length : cams.value.length) === 0) {
+          permProbed.value = false
+          return false
+        }
+        permProbed.value = true
+      } catch {
+        permProbed.value = false
+        return false
+      }
     }
     let id = kind === 'audioinput' ? selectedMicId.value : selectedCamId.value
     if (!id) {
@@ -513,7 +526,6 @@ async function enable(kind: DeviceKind): Promise<boolean> {
       id = kind === 'audioinput' ? selectedMicId.value : selectedCamId.value
       if (!id) return false
     }
-
     try {
       if (kind === 'audioinput') {
         await room.localParticipant.setMicrophoneEnabled(true, { deviceId: { exact: id } } as any)

@@ -4,7 +4,7 @@
       <h2 class="title">Комнаты</h2>
       <div v-if="sortedRooms.length === 0" class="muted">Пока пусто</div>
       <ul class="list" ref="listEl">
-        <li v-for="r in sortedRooms" :key="r.id" class="item" :class="{ active: r.id === selectedId }" tabindex="0" @click="selectRoom(r.id)">
+        <li class="item" v-for="r in sortedRooms" :key="r.id" :class="{ active: r.id === selectedId }" tabindex="0" @click="selectRoom(r.id)">
           <div class="item_main">
             <span class="item_title">#{{ r.id }} — {{ r.title }}</span>
             <span class="item_meta">({{ r.occupancy }}/{{ r.user_limit }}) • владелец: {{ r.creator_name }}</span>
@@ -40,8 +40,8 @@
           <div v-if="loadingInfo" class="muted">Загрузка…</div>
           <div v-else-if="(info?.members?.length ?? 0) === 0" class="muted">Пока никого</div>
           <ul v-else class="ri-grid">
-            <li v-for="m in info!.members" :key="m.id" class="ri-user">
-              <img v-minio-img="{ key: m.avatar_name ? `avatars/${m.avatar_name}` : '', placeholder: defaultAvatar }" alt="" class="ri-ava" />
+            <li class="ri-user" v-for="m in info!.members" :key="m.id">
+              <img class="ri-ava" v-minio-img="{ key: m.avatar_name ? `avatars/${m.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="" />
               <div class="ri-u-main">
                 <div class="ri-u-name">{{ m.username || ('user' + m.id) }}</div>
               </div>
@@ -273,7 +273,7 @@ onBeforeUnmount(() => {
     }
   }
   .muted {
-    color: $muted;
+    color: $grey;
   }
   .list {
     margin: 8px 0 0;
@@ -294,7 +294,7 @@ onBeforeUnmount(() => {
     background: transparent;
     transition: border-color 0.15s ease-in-out, background 0.15s ease-in-out;
     &.active {
-      border-color: $color-secondary;
+      border-color: $blue;
       background: rgba(14, 165, 233, 0.07);
     }
     .item_main {
@@ -306,7 +306,7 @@ onBeforeUnmount(() => {
       }
       .item_meta {
         margin-left: 6px;
-        color: $muted;
+        color: $grey;
       }
     }
     .chev {
@@ -330,7 +330,7 @@ onBeforeUnmount(() => {
     padding: 8px 12px;
     border-radius: 8px;
     cursor: pointer;
-    background: $color-primary;
+    background: $green;
     color: $bg;
     &:disabled {
       opacity: 0.6;
@@ -360,7 +360,7 @@ onBeforeUnmount(() => {
       .ri-meta {
         display: flex;
         gap: 10px;
-        color: $muted;
+        color: $grey;
       }
     }
     .ri-members {
