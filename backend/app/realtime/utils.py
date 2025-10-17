@@ -40,12 +40,13 @@ KEYS_STATE: tuple[str, ...] = ("mic", "cam", "speakers", "visibility")
 KEYS_BLOCK: tuple[str, ...] = (*KEYS_STATE, "screen")
 
 JOIN_LUA = r'''
--- KEYS: params, members, positions, info, empty_since
+-- KEYS: params, members, positions, info, empty_since, reservations
 local params       = KEYS[1]
 local members      = KEYS[2]
 local positions    = KEYS[3]
 local info         = KEYS[4]
 local empty_since  = KEYS[5]
+local resv         = KEYS[6]
 
 local rid       = ARGV[1]
 local uid       = tonumber(ARGV[2])
@@ -55,17 +56,21 @@ local now       = tonumber(ARGV[4])
 local lim = tonumber(redis.call('HGET', params, 'user_limit') or '0')
 if not lim or lim <= 0 then return {-2,0,0,0} end
 
+redis.call('ZREMRANGEBYSCORE', resv, '-inf', now)
+
 local creator = tonumber(redis.call('HGET', params, 'creator') or '0')
 local eff_role = (uid == creator) and 'host' or base_role
 
 local already = redis.call('SISMEMBER', members, uid)
 local size = tonumber(redis.call('SCARD', members) or '0')
+local has_resv = redis.call('ZSCORE', resv, uid)
 
 if already == 1 then
   local pos = tonumber(redis.call('ZSCORE', positions, uid) or '0')
   local existing_jd = redis.call('HGET', info, 'join_date')
   redis.call('HSET', info, 'role', eff_role)
   if not existing_jd then redis.call('HSET', info, 'join_date', now) end
+  if has_resv then redis.call('ZREM', resv, uid) end
   if not pos or pos == 0 then
     local new_pos = size
     redis.call('ZADD', positions, new_pos, uid)
@@ -89,13 +94,14 @@ if already == 1 then
   end
 end
 
-if size >= lim then return {-1,0,0,0} end
+if size >= lim and not has_resv then return {-1,0,0,0} end
 
 local new_pos = size + 1
 redis.call('SADD', members, uid)
 redis.call('ZADD', positions, new_pos, uid)
 redis.call('HSET', info, 'join_date', now, 'role', eff_role)
 redis.call('DEL', empty_since)
+if has_resv then redis.call('ZREM', resv, uid) end
 return {new_pos, new_pos, 0, 0}
 '''
 
@@ -500,12 +506,13 @@ async def join_room_atomic(r, rid: int, uid: int, role: str) -> tuple[int, int, 
         now = int(time())
         res = await r.evalsha(
             _join_sha,
-            5,
+            6,
             f"room:{rid}:params",
             f"room:{rid}:members",
             f"room:{rid}:positions",
             f"room:{rid}:user:{uid}:info",
             f"room:{rid}:empty_since",
+            f"room:{rid}:resv",
             str(rid), str(uid), role, str(now),
         )
         occ = int(res[0])

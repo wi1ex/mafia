@@ -133,35 +133,44 @@ async def enter_room(room_id: int, ident: Identity = Depends(get_identity)):
     uid = int(ident["id"])
 
     script = """
-    local params = "room:"..ARGV[1]..":params"
-    local members = "room:"..ARGV[1]..":members"
-    local positions = "room:"..ARGV[1]..":positions"
+    -- ARGV: rid, uid, now, ttl
+    local rid   = ARGV[1]
+    local uid   = ARGV[2]
+    local now   = tonumber(ARGV[3])
+    local ttl   = tonumber(ARGV[4])
+
+    local params = "room:"..rid..":params"
+    local members = "room:"..rid..":members"
+    local resv = "room:"..rid..":resv"
+
     local lim_raw = redis.call("HGET", params, "user_limit")
     if not lim_raw then return -2 end
-    local limit = tonumber(lim_raw)
-    local cnt = tonumber(redis.call("SCARD", members) or "0")
-    if cnt >= limit and redis.call("SISMEMBER", members, ARGV[2]) == 0 then
+    local lim = tonumber(lim_raw)
+
+    redis.call("ZREMRANGEBYSCORE", resv, "-inf", now)
+
+    local size = tonumber(redis.call("SCARD", members) or "0")
+    local already = redis.call("SISMEMBER", members, uid)
+    local has_resv = redis.call("ZSCORE", resv, uid)
+    local resv_cnt = tonumber(redis.call("ZCOUNT", resv, "("..now, "+inf"))
+
+    if already == 0 and not has_resv and (size + resv_cnt) >= lim then
       return -1
     end
-    local added = redis.call("SADD", members, ARGV[2])
-    if added == 1 then
-      redis.call("ZADD", positions, tonumber(ARGV[3]), ARGV[2])
-      cnt = cnt + 1
-    end
-    return cnt
+
+    local exp = now + ttl
+    redis.call("ZADD", resv, exp, uid)
+    return 1
     """
 
     now = int(time.time())
-    occ = await r.eval(script, 0, str(room_id), str(uid), str(now))
+    ttl = 12
+    rc = await r.eval(script, 0, str(room_id), str(uid), str(now), str(ttl))
 
-    if int(occ) == -2:
+    if int(rc) == -2:
         raise HTTPException(status_code=404, detail="room_not_found")
 
-    if int(occ) == -1:
+    if int(rc) == -1:
         raise HTTPException(status_code=409, detail="room_full")
 
-    await sio.emit("rooms_occupancy",
-                   {"id": room_id,
-                    "occupancy": int(occ)},
-                   namespace="/rooms")
     return Response(status_code=204)
