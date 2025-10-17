@@ -64,7 +64,7 @@
         <button @click="$emit('block','screen',id)" aria-label="block screen">
           <img :src="stateIcon('screen', id)" alt="scr" />
         </button>
-        <button @click="$emit('kick', id)" aria-label="kick user">
+        <button class="red-button" @click="$emit('kick', id)" aria-label="kick user">
           <img :src="iconLeaveRoom" alt="kick" />
         </button>
       </div>
@@ -298,16 +298,19 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
     }
     .admin-row {
       display: flex;
-      gap: 5px;
+      gap: 6px;
       button {
         border-radius: 3px;
         display: flex;
         align-items: center;
         justify-content: center;
-        padding: 3px 5px;
+        padding: 5px;
         border: none;
-        background-color: rgba($grey, 0.2);
+        background-color: rgba($grey, 0.25);
         cursor: pointer;
+        &.red-button {
+          background-color: rgba($red, 0.5);
+        }
         img {
           width: 24px;
           height: 24px;

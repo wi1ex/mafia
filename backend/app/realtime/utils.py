@@ -335,7 +335,7 @@ async def validate_auth(auth: Any) -> Tuple[int, str, str, Optional[str]] | None
             return None
 
         role = str(p.get("role") or "user")
-        username = str(p.get("username") or f"user-{uid}")
+        username = p.get("username") or None
         return uid, role, username, None
 
     except ExpiredSignatureError:

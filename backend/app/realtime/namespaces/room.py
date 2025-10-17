@@ -66,12 +66,11 @@ async def join(sid, data) -> JoinAck:
         owner_id = await r.get(f"room:{rid}:screen_owner")
         owner = int(owner_id) if owner_id else 0
         db_username, db_avatar = await load_user_profile(uid)
-        username, avatar_name = (sess.get("username") or None) or (db_username or None), db_avatar
-        if username is not None or avatar_name is not None:
-            await r.hset(f"room:{rid}:user:{uid}:info", mapping={
-                **({"username": username} if username is not None else {}),
-                **({"avatar_name": avatar_name} if avatar_name is not None else {}),
-            })
+        username, avatar_name = db_username if db_username is not None else (sess.get("username") or None), db_avatar
+        mapping = {**({"username": username} if username is not None else {}),
+                   **({"avatar_name": avatar_name} if avatar_name is not None else {})}
+        if mapping:
+            await r.hset(f"room:{rid}:user:{uid}:info", mapping=mapping)
 
         applied: dict[str, str] = {}
         snapshot = await get_room_snapshot(r, rid)

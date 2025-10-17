@@ -206,8 +206,9 @@ const volUi = reactive<Record<string, number>>({})
 
 const avatarByUser = reactive(new Map<string, string | null>())
 function avatarKey(id: string): string {
-  const name = avatarByUser.get(id)
-  return name ? `avatars/${name}` : ''
+  const name = avatarByUser.get(id) || ''
+  if (!name) return ''
+  return name.startsWith('avatars/') ? name : `avatars/${name}`
 }
 function userName(id: string) {
   return nameByUser.get(id) || `user-${id}`
