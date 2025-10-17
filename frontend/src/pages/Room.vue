@@ -293,8 +293,7 @@ function volumeIconForUser(id: string): string {
 
 const showPermProbe = computed(() => !rtc.permProbed.value && !micOn.value && !camOn.value)
 const sortedPeerIds = computed(() => {
-  const known = peerIds.value.filter((id) => statusByUser.has(id))
-  return known.sort((a, b) => {
+  return [...peerIds.value].sort((a, b) => {
     const pa = positionByUser.get(a) ?? Number.POSITIVE_INFINITY
     const pb = positionByUser.get(b) ?? Number.POSITIVE_INFINITY
     return pa !== pb ? pa - pb : String(a).localeCompare(String(b))
