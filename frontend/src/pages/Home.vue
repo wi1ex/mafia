@@ -99,6 +99,7 @@ const limit = ref(12)
 const creating = ref(false)
 
 const infoTimers = new Map<number, number>()
+const infoInFlight = new Set<number>()
 const selectedId = ref<number | null>(null)
 const info = ref<RoomMembers | null>(null)
 const loadingInfo = ref(false)
@@ -118,6 +119,8 @@ function remove(id: number) {
 }
 
 async function fetchRoomInfo(id: number) {
+  if (infoInFlight.has(id)) return
+  infoInFlight.add(id)
   loadingInfo.value = true
   try {
     const { data } = await api.get<RoomMembers>(`/rooms/${id}/info`, { __skipAuth: true })
@@ -126,6 +129,7 @@ async function fetchRoomInfo(id: number) {
     info.value = null
   } finally {
     loadingInfo.value = false
+    infoInFlight.delete(id)
   }
 }
 

@@ -14,6 +14,8 @@ const urlOrder: string[] = []
 const URL_MAX = 300
 
 function rememberURL(key: string, url: string) {
+  const prev = urlMap.get(key)
+  if (prev && prev !== url) { try { URL.revokeObjectURL(prev) } catch {} }
   urlMap.set(key, url)
   const idx = urlOrder.indexOf(key)
   if (idx !== -1) urlOrder.splice(idx, 1)
@@ -81,7 +83,9 @@ async function put(val: Stored): Promise<void> {
 }
 
 export function parseAvatarVersion(name: string): number {
-  const m = name.match(/^\d+-([0-9]{9,})\.[a-z0-9]+$/i)
+  const m =
+    name.match(/^\d+-([0-9]{12,})-[0-9a-f]{6}\.[a-z0-9]+$/i) ||
+    name.match(/^\d+-([0-9]{9,})\.[a-z0-9]+$/i)
   return m ? Number(m[1]) : 0
 }
 

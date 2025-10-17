@@ -166,6 +166,11 @@ export function useRTC(): UseRTC {
         src.connect(g)
         msrcNodes.set(id, { node: src, stream })
       }
+    } else {
+      try { msrcNodes.get(id)?.node.disconnect() } catch {}
+      msrcNodes.delete(id)
+      el.muted = true
+      el.volume = 0
     }
     el.muted = true
     el.volume = 0
@@ -717,7 +722,7 @@ export function useRTC(): UseRTC {
         const isScreenA = (pub as RemoteTrackPublication).source === Track.Source.ScreenShareAudio
         const aid = isScreenA ? screenKey(id) : id
         const a = ensureAudioEl(aid)
-        try { t.attach(a) } catch {}
+        try { t.attach(a) } catch { destroyAudioGraph(aid) }
         try { applyVolume(aid) } catch {}
         try { void resumeAudio() } catch {}
         try { void a.play() } catch {}

@@ -1,6 +1,6 @@
 <template>
   <header class="bar">
-    <div class="brand" aria-label="Mafia">DECEIT • games</div>
+    <div class="brand" aria-label="Mafia">DECEIT • games (v{{ BUILD }})</div>
 
     <div v-if="!auth.isAuthed && !auth.foreignActive" class="login-box">
       <div id="tg-login" />
@@ -28,7 +28,8 @@ import defaultAvatar from "@/assets/svg/defaultAvatar.svg"
 const auth = useAuthStore()
 const user  = useUserStore()
 
-const BOT = import.meta.env.VITE_TG_BOT_NAME as string | undefined
+const BOT = import.meta.env.VITE_TG_BOT_NAME as string || ''
+const BUILD = import.meta.env.VITE_BUILD_ID as string || ''
 const SIZE: 'large' | 'medium' | 'small' = 'large'
 
 declare global { interface Window { __tg_cb__?: (u:any) => void } }

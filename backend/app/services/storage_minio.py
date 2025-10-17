@@ -1,6 +1,7 @@
 from __future__ import annotations
 import io
 import mimetypes
+import secrets
 import time
 from datetime import timedelta
 from typing import Optional, Tuple
@@ -110,7 +111,7 @@ def put_avatar(user_id: int, content: bytes, content_type: str | None) -> Option
     minio = get_minio_private()
     ensure_bucket(minio)
     ext = ALLOWED_CT[ct]
-    name = f"{user_id}-{int(time.time())}{ext}"
+    name = f"{user_id}-{int(time.time()*1000)}-{secrets.token_hex(3)}{ext}"
     obj = f"avatars/{name}"
     prefix = f"avatars/{user_id}-"
     to_delete = [DeleteObject(o.object_name) for o in minio.list_objects(_bucket, prefix=prefix, recursive=True)]

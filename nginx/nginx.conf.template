@@ -165,7 +165,13 @@ server {
   }
 
   location = /index.html {
-    add_header Cache-Control "no-cache, no-store, must-revalidate";
+    add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+    expires -1;
+  }
+
+  location = /version.txt {
+    default_type text/plain;
+    add_header Cache-Control "no-store" always;
     expires -1;
   }
 }
