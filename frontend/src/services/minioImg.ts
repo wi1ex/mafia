@@ -1,5 +1,5 @@
 import type { Directive, DirectiveBinding } from 'vue'
-import { getImageURL, parseAvatarVersion, clearObjectURL } from '@/services/mediaCache'
+import { getImageURL, parseAvatarVersion, retainImageURL, releaseImageURL } from '@/services/mediaCache'
 
 type MinioVal = | string | {
   key: string
@@ -9,7 +9,8 @@ type MinioVal = | string | {
   lazy?: boolean
 }
 
-type ElEx = HTMLImageElement & { __m_req?: number; __m_obs?: IntersectionObserver | null }
+type ElEx = HTMLImageElement & { __m_req?: number; __m_obs?: IntersectionObserver | null; __m_key?: string }
+
 function norm(v: unknown): { key: string; version?: number; placeholder?: string; fallback?: string; lazy: boolean } {
   if (typeof v === 'string') return { key: v, lazy: true }
   const o = (v ?? {}) as any
@@ -25,15 +26,24 @@ function norm(v: unknown): { key: string; version?: number; placeholder?: string
 async function loadInto(el: ElEx, val: MinioVal) {
   const { key, version, placeholder, fallback } = norm(val)
   const myReq = (el.__m_req = (el.__m_req || 0) + 1)
+  if (el.__m_key && el.__m_key !== key) {
+    try { releaseImageURL(el.__m_key) } catch {}
+    el.__m_key = undefined
+  }
   if (!key) {
     if (placeholder) el.src = placeholder
     return
   }
-  if (placeholder && !el.src) el.src = placeholder
+  if (!el.src && placeholder) el.src = placeholder
   const v = typeof version === 'number' ? version : parseAvatarVersion(key.split('/').pop() || '')
   try {
     const url = await getImageURL(key, v)
-    if (el.__m_req === myReq) el.src = url
+    if (el.__m_req === myReq) {
+      el.src = url
+      el.__m_key = key
+    } else {
+      releaseImageURL(key)
+    }
   } catch {
     if (fallback && el.__m_req === myReq) el.src = fallback
   }
@@ -71,7 +81,9 @@ function unmount(el: ElEx, binding: DirectiveBinding<MinioVal>) {
   el.__m_obs = null
   el.__m_req = 0
   const { key } = (binding.value ?? {}) as any
-  if (key) clearObjectURL(key)
+  if (key) {
+    try { releaseImageURL(key) } catch {}
+  }
 }
 
 const minioImg: Directive<ElEx, MinioVal> = { mounted: mount, updated: update, unmounted: unmount }

@@ -10,32 +10,46 @@ type Stored = {
 const DB_NAME = 'media-cache'
 const DB_VER = 1
 const STORE = 'objects'
-const urlMap = new Map<string, string>()
+
+type UrlRec = { url: string; refs: number }
+const urlMap = new Map<string, UrlRec>()
 const urlOrder: string[] = []
 const URL_MAX = 300
 
-function rememberURL(key: string, url: string) {
-  urlMap.set(key, url)
-  const idx = urlOrder.indexOf(key)
-  if (idx !== -1) urlOrder.splice(idx, 1)
-  urlOrder.push(key)
-  while (urlOrder.length > URL_MAX) {
-    const oldKey = urlOrder.shift()
-    if (!oldKey) continue
-    const u = urlMap.get(oldKey)
-    if (u) {
-      try { URL.revokeObjectURL(u) } catch {}
-      urlMap.delete(oldKey)
+function _evictLRU(limit = URL_MAX) {
+  let guard = urlOrder.length + 1
+  while (urlOrder.length > limit && guard-- > 0) {
+    const k = urlOrder.shift()
+    if (!k) continue
+    const rec = urlMap.get(k)
+    if (!rec) continue
+    if (rec.refs <= 0) {
+      try { URL.revokeObjectURL(rec.url) } catch {}
+      urlMap.delete(k)
+    } else {
+      urlOrder.push(k)
     }
   }
 }
 
-export function clearObjectURL(key: string) {
-  const u = urlMap.get(key)
-  if (u) {
-    try { URL.revokeObjectURL(u) } catch {}
-    urlMap.delete(key)
-  }
+function rememberURL(key: string, url: string) {
+  const prev = urlMap.get(key)
+  urlMap.set(key, { url, refs: prev?.refs ?? 0 })
+  const idx = urlOrder.indexOf(key)
+  if (idx !== -1) urlOrder.splice(idx, 1)
+  urlOrder.push(key)
+  _evictLRU()
+}
+
+export function retainImageURL(key: string) {
+  const rec = urlMap.get(key)
+  if (rec) rec.refs++
+}
+
+export function releaseImageURL(key: string) {
+  const rec = urlMap.get(key)
+  if (!rec) return
+  rec.refs = Math.max(0, rec.refs - 1)
 }
 
 function openDB(): Promise<IDBDatabase> {
@@ -98,14 +112,18 @@ export async function fetchBlobByPresign(key: string): Promise<Blob> {
   return await resp.blob()
 }
 
-export async function getImageURL(key: string, version: number, loader?: (key: string)=>Promise<Blob>): Promise<string> {
-  const u = urlMap.get(key)
-  if (u) return u
+export async function getImageURL(key: string, version: number, loader?: (key: string) => Promise<Blob>): Promise<string> {
+  const rec = urlMap.get(key)
+  if (rec) {
+    rec.refs++
+    return rec.url
+  }
   try {
     const cur = await get(key)
     if (cur && cur.version === version) {
       const cached = URL.createObjectURL(cur.blob)
       rememberURL(key, cached)
+      retainImageURL(key)
       return cached
     }
   } catch {}
@@ -114,5 +132,6 @@ export async function getImageURL(key: string, version: number, loader?: (key: s
   try { await put({ key, version, blob, ctype: blob.type }) } catch {}
   const url = URL.createObjectURL(blob)
   rememberURL(key, url)
+  retainImageURL(key)
   return url
 }

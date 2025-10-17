@@ -293,7 +293,8 @@ function volumeIconForUser(id: string): string {
 
 const showPermProbe = computed(() => !rtc.permProbed.value && !micOn.value && !camOn.value)
 const sortedPeerIds = computed(() => {
-  return [...peerIds.value].sort((a, b) => {
+  const known = peerIds.value.filter((id) => statusByUser.has(id))
+  return known.sort((a, b) => {
     const pa = positionByUser.get(a) ?? Number.POSITIVE_INFINITY
     const pb = positionByUser.get(b) ?? Number.POSITIVE_INFINITY
     return pa !== pb ? pa - pb : String(a).localeCompare(String(b))
@@ -464,8 +465,12 @@ function connectSocket() {
     applyPeerState(id, p?.state || {})
     if (p?.role) rolesByUser.set(id, String(p.role))
     if (p?.blocks) applyBlocks(id, p.blocks)
-    if (p?.avatar_name !== undefined) avatarByUser.set(id, p.avatar_name || null)
-    if ('username' in p) nameByUser.set(id, String(p.username ?? ''))
+
+    const av = p?.avatar_name
+    if (typeof av === 'string' && av.trim() !== '') avatarByUser.set(id, av)
+
+    const un = p?.username
+    if (typeof un === 'string' && un.trim() !== '') nameByUser.set(id, String(un))
   })
 
   socket.value.on('member_left', (p: any) => {
@@ -590,8 +595,8 @@ function applyJoinAck(j: any) {
   for (const [uid, m] of Object.entries(prof)) {
     const id = String(uid)
     const mm = m as any
-    if (mm?.avatar_name !== undefined) avatarByUser.set(id, mm.avatar_name || null)
-    if ('username' in mm) nameByUser.set(id, String(mm.username ?? ''))
+    if (typeof mm?.avatar_name === 'string' && mm.avatar_name.trim() !== '') avatarByUser.set(id, mm.avatar_name)
+    if (typeof mm?.username === 'string' && mm.username.trim() !== '') nameByUser.set(id, String(mm.username))
   }
 
   if (j.self_pref) applySelfPref(j.self_pref)

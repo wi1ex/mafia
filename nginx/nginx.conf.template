@@ -45,7 +45,7 @@ server {
   add_header X-Content-Type-Options nosniff;
   add_header X-Frame-Options DENY;
   add_header Referrer-Policy strict-origin-when-cross-origin;
-  add_header Content-Security-Policy "default-src 'self'; script-src 'self' https://telegram.org https://*.telegram.org https://oauth.telegram.org; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://telegram.org https://*.telegram.org; connect-src 'self' https: wss:; media-src 'self' blob:; frame-src 'self' https://oauth.telegram.org; frame-ancestors 'none'; worker-src 'self' blob:; upgrade-insecure-requests" always;
+  add_header Content-Security-Policy "default-src 'self'; script-src 'self' https://telegram.org https://*.telegram.org https://oauth.telegram.org; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://telegram.org https://*.telegram.org; connect-src 'self' https: wss:; media-src 'self' blob:; frame-src 'self' https://oauth.telegram.org; frame-ancestors 'none'; worker-src 'self' blob:; upgrade-insecure-requests" always;
   add_header Cross-Origin-Resource-Policy same-origin always;
 
   root /usr/share/nginx/html;

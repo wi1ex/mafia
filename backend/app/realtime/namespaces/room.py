@@ -64,10 +64,14 @@ async def join(sid, data) -> JoinAck:
 
         owner_id = await r.get(f"room:{rid}:screen_owner")
         owner = int(owner_id) if owner_id else 0
-        username = sess.get("username") or f"user{uid}"
+        raw_username = sess.get("username")
+        username = (raw_username.strip() if isinstance(raw_username, str) else None) or None
         avatar_name = sess.get("avatar_name") or None
-        mapping = {**({"username": username} if username is not None else {}),
-                   **({"avatar_name": avatar_name} if avatar_name is not None else {})}
+        mapping = {}
+        if username is not None:
+            mapping["username"] = username
+        if avatar_name is not None:
+            mapping["avatar_name"] = avatar_name
         if mapping:
             await r.hset(f"room:{rid}:user:{uid}:info", mapping=mapping)
 
