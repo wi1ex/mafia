@@ -69,12 +69,18 @@ async def join(sid, data) -> JoinAck:
         username_raw = (sess_username.strip() if isinstance(sess_username, str) else None) or None
         avatar_raw = (sess_avatar.strip() if isinstance(sess_avatar, str) else None) or None
 
+        info_mapping = {}
+        if username_raw:
+            info_mapping["username"] = username_raw
+        if avatar_raw:
+            info_mapping["avatar_name"] = avatar_raw
+        if info_mapping:
+            await r.hset(f"room:{rid}:user:{uid}:info", mapping=info_mapping)
+
         applied: dict[str, str] = {}
         snapshot = await get_room_snapshot(r, rid)
         blocked = await get_blocks_snapshot(r, rid)
         roles_map = await get_roles_snapshot(r, rid)
-        profiles = await get_profiles_snapshot(r, rid)
-
         incoming = (data.get("state") or {}) if isinstance(data, dict) else {}
         user_state: dict[str, str] = {k: str(v) for k, v in (snapshot.get(str(uid)) or {}).items()}
         to_fill = {k: incoming[k] for k in KEYS_STATE if k in incoming and k not in user_state}
@@ -89,6 +95,7 @@ async def join(sid, data) -> JoinAck:
 
         eff_blocks = blocked.get(str(uid)) or {}
         eff_role = roles_map.get(str(uid), base_role)
+        profiles = await get_profiles_snapshot(r, rid)
         me_prof = profiles.get(str(uid)) or {}
         ev_username = me_prof.get("username")
         if isinstance(ev_username, str):
@@ -104,13 +111,6 @@ async def join(sid, data) -> JoinAck:
                                {"uid": uid, "rid": rid, "role": eff_role, "base_role": base_role, "username": ev_username, "avatar_name": ev_avatar},
                                namespace="/room")
 
-        info_mapping = {}
-        if ev_username is not None:
-            info_mapping["username"] = ev_username
-        if ev_avatar is not None:
-            info_mapping["avatar_name"] = ev_avatar
-        if info_mapping:
-            await r.hset(f"room:{rid}:user:{uid}:info", mapping=info_mapping)
         if not already:
             await sio.emit("rooms_occupancy", {"id": rid, "occupancy": occ}, namespace="/rooms")
             await sio.emit("member_joined",
@@ -118,11 +118,14 @@ async def join(sid, data) -> JoinAck:
                            room=f"room:{rid}",
                            skip_sid=sid,
                            namespace="/room")
+            log.info("emit.member_joined", uid=uid, ev_username=ev_username, ev_avatar=ev_avatar)
+
         if pos_updates:
             await sio.emit("positions",
                            {"updates": [{"user_id": u, "position": p} for u, p in pos_updates]},
                            room=f"room:{rid}",
                            namespace="/room")
+
         await sio.emit("positions",
                        {"updates": [{"user_id": uid, "position": pos}]},
                        room=f"room:{rid}",
