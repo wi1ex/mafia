@@ -478,6 +478,7 @@ function connectSocket() {
     positionByUser.delete(id)
     blockByUser.delete(id)
     rolesByUser.delete(id)
+    nameByUser.delete(id)
     if (openPanelFor.value === id || openPanelFor.value === rtc.screenKey(id)) openPanelFor.value = ''
     if (openVolFor.value === id || openVolFor.value === rtc.screenKey(id)) openVolFor.value = ''
     delete volUi[id]

@@ -64,22 +64,17 @@ async def join(sid, data) -> JoinAck:
 
         owner_id = await r.get(f"room:{rid}:screen_owner")
         owner = int(owner_id) if owner_id else 0
-        raw_username = sess.get("username")
-        username = (raw_username.strip() if isinstance(raw_username, str) else None) or None
-        avatar_name = sess.get("avatar_name") or None
-        mapping = {}
-        if username is not None:
-            mapping["username"] = username
-        if avatar_name is not None:
-            mapping["avatar_name"] = avatar_name
-        if mapping:
-            await r.hset(f"room:{rid}:user:{uid}:info", mapping=mapping)
+        sess_username = sess.get("username")
+        sess_avatar = sess.get("avatar_name")
+        username_raw = (sess_username.strip() if isinstance(sess_username, str) else None) or None
+        avatar_raw = (sess_avatar.strip() if isinstance(sess_avatar, str) else None) or None
 
         applied: dict[str, str] = {}
         snapshot = await get_room_snapshot(r, rid)
         blocked = await get_blocks_snapshot(r, rid)
         roles_map = await get_roles_snapshot(r, rid)
         profiles = await get_profiles_snapshot(r, rid)
+
         incoming = (data.get("state") or {}) if isinstance(data, dict) else {}
         user_state: dict[str, str] = {k: str(v) for k, v in (snapshot.get(str(uid)) or {}).items()}
         to_fill = {k: incoming[k] for k in KEYS_STATE if k in incoming and k not in user_state}
@@ -88,21 +83,38 @@ async def join(sid, data) -> JoinAck:
             if applied:
                 user_state = {**user_state, **applied}
                 snapshot[str(uid)] = user_state
-
         await sio.enter_room(sid,
                              f"room:{rid}",
                              namespace="/room")
+
         eff_blocks = blocked.get(str(uid)) or {}
         eff_role = roles_map.get(str(uid), base_role)
+        me_prof = profiles.get(str(uid)) or {}
+        ev_username = me_prof.get("username")
+        if isinstance(ev_username, str):
+            ev_username = ev_username.strip() or None
+        ev_avatar = me_prof.get("avatar_name")
+        if isinstance(ev_avatar, str):
+            ev_avatar = ev_avatar.strip() or None
+        if ev_username is None:
+            ev_username = username_raw or f"user{uid}"
+        if ev_avatar is None:
+            ev_avatar = avatar_raw
         await sio.save_session(sid,
-                               {"uid": uid, "rid": rid, "role": eff_role, "base_role": base_role, "username": username, "avatar_name": avatar_name},
+                               {"uid": uid, "rid": rid, "role": eff_role, "base_role": base_role, "username": ev_username, "avatar_name": ev_avatar},
                                namespace="/room")
+
+        info_mapping = {}
+        if ev_username is not None:
+            info_mapping["username"] = ev_username
+        if ev_avatar is not None:
+            info_mapping["avatar_name"] = ev_avatar
+        if info_mapping:
+            await r.hset(f"room:{rid}:user:{uid}:info", mapping=info_mapping)
         if not already:
-            await sio.emit("rooms_occupancy",
-                           {"id": rid, "occupancy": occ},
-                           namespace="/rooms")
+            await sio.emit("rooms_occupancy", {"id": rid, "occupancy": occ}, namespace="/rooms")
             await sio.emit("member_joined",
-                           {"user_id": uid, "state": user_state, "role": eff_role, "blocks": eff_blocks, "username": username, "avatar_name": avatar_name},
+                           {"user_id": uid, "state": user_state, "role": eff_role, "blocks": eff_blocks, "username": ev_username, "avatar_name": ev_avatar},
                            room=f"room:{rid}",
                            skip_sid=sid,
                            namespace="/room")
@@ -125,8 +137,7 @@ async def join(sid, data) -> JoinAck:
 
         redis_positions = await r.zrange(f"room:{rid}:positions", 0, -1, withscores=True)
         positions = {str(int(m)): int(s) for m, s in redis_positions}
-
-        lk_token = make_livekit_token(identity=str(uid), name=username, room=str(rid))
+        lk_token = make_livekit_token(identity=str(uid), name=ev_username or f"user{uid}", room=str(rid))
         return {
             "ok": True,
             "room_id": rid,

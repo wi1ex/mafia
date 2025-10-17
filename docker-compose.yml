@@ -37,10 +37,10 @@ services:
       - --appendfsync
       - "everysec"
     volumes: ["redis_data:/data"]
-#    ports:
-#      - "6379:6379"
-#    networks: [edge, internal]
-    networks: [internal]
+    ports:
+      - "6379:6379"
+    networks: [edge, internal]
+#    networks: [internal]
     restart: always
 
   minio:
