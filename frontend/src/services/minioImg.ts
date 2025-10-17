@@ -10,7 +10,6 @@ type MinioVal = | string | {
 }
 
 type ElEx = HTMLImageElement & { __m_req?: number; __m_obs?: IntersectionObserver | null }
-
 function norm(v: unknown): { key: string; version?: number; placeholder?: string; fallback?: string; lazy: boolean } {
   if (typeof v === 'string') return { key: v, lazy: true }
   const o = (v ?? {}) as any
@@ -26,16 +25,12 @@ function norm(v: unknown): { key: string; version?: number; placeholder?: string
 async function loadInto(el: ElEx, val: MinioVal) {
   const { key, version, placeholder, fallback } = norm(val)
   const myReq = (el.__m_req = (el.__m_req || 0) + 1)
-
   if (!key) {
     if (placeholder) el.src = placeholder
     return
   }
-
   if (placeholder && !el.src) el.src = placeholder
-
   const v = typeof version === 'number' ? version : parseAvatarVersion(key.split('/').pop() || '')
-
   try {
     const url = await getImageURL(key, v)
     if (el.__m_req === myReq) el.src = url

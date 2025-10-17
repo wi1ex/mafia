@@ -6,6 +6,7 @@ type Stored = {
   blob: Blob
   ctype?: string
 }
+
 const DB_NAME = 'media-cache'
 const DB_VER = 1
 const STORE = 'objects'
@@ -100,7 +101,6 @@ export async function fetchBlobByPresign(key: string): Promise<Blob> {
 export async function getImageURL(key: string, version: number, loader?: (key: string)=>Promise<Blob>): Promise<string> {
   const u = urlMap.get(key)
   if (u) return u
-
   try {
     const cur = await get(key)
     if (cur && cur.version === version) {
@@ -109,7 +109,6 @@ export async function getImageURL(key: string, version: number, loader?: (key: s
       return cached
     }
   } catch {}
-
   const load = loader || fetchBlobByPresign
   const blob = await load(key)
   try { await put({ key, version, blob, ctype: blob.type }) } catch {}
