@@ -10,5 +10,5 @@ COPY . /app
 RUN useradd -u 999 -r -s /usr/sbin/nologin appuser && chown -R appuser:appuser /app
 USER appuser
 
-ENV GUNICORN_CMD_ARGS="--bind 0.0.0.0:8000 --workers 2 --threads 1 --keep-alive 75 --timeout 60 --graceful-timeout 20 --backlog 2048 --forwarded-allow-ips=* --log-level info --access-logfile - --error-logfile -"
+ENV GUNICORN_CMD_ARGS="--bind 0.0.0.0:8000 --workers 1 --threads 1 --keep-alive 75 --timeout 60 --graceful-timeout 20 --backlog 2048 --forwarded-allow-ips=* --log-level info --access-logfile - --error-logfile -"
 CMD ["gunicorn","app.main:app","-k","uvicorn.workers.UvicornWorker"]
