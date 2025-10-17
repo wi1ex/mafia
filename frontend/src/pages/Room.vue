@@ -24,6 +24,7 @@
         @toggle-volume="toggleVolume"
         @vol-input="onVol"
         @block="(key, uid) => toggleBlock(uid, key)"
+        @kick="kickUser"
       />
     </div>
 
@@ -69,6 +70,7 @@
           @toggle-volume="toggleVolume"
           @vol-input="onVol"
           @block="(key, uid) => toggleBlock(uid, key)"
+          @kick="kickUser"
         />
       </div>
     </div>
@@ -380,6 +382,15 @@ async function toggleBlock(targetId: string, key: keyof BlockState) {
   } catch { alert('Сеть/таймаут при модерации') }
 }
 
+async function kickUser(targetId: string) {
+  if (!canModerate(targetId)) return
+  if (!confirm('Удалить пользователя из комнаты?')) return
+  try {
+    const resp:any = await socket.value!.timeout(5000).emitWithAck('kick', { user_id: Number(targetId) })
+    if (!resp?.ok) alert(resp?.status === 403 ? 'Недостаточно прав' : resp?.status === 404 ? 'Пользователь не в комнате' : 'Ошибка удаления')
+  } catch { alert('Сеть/таймаут при удалении') }
+}
+
 function applyPeerState(uid: string, patch: any) {
   const cur = statusByUser.get(uid) ?? { mic: 1, cam: 1, speakers: 1, visibility: 1 }
   statusByUser.set(uid, {
@@ -506,6 +517,10 @@ function connectSocket() {
         screenOwnerId.value = ''
       }
     }
+  })
+
+  socket.value.on('force_leave', async (_p:any) => {
+    try { await onLeave() } catch {}
   })
 
   socket.value.on('screen_owner', (p: any) => {

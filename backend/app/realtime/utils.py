@@ -146,6 +146,7 @@ return {occ, 0, #updates/2, unpack(updates)}
 _join_sha = None
 _leave_sha = None
 
+
 async def _ensure_scripts(r):
     global _join_sha, _leave_sha
     if _join_sha is None:

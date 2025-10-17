@@ -1,5 +1,7 @@
 from __future__ import annotations
-from fastapi import APIRouter, Depends, status, HTTPException
+import time
+import asyncio
+from fastapi import APIRouter, Depends, status, HTTPException, Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from ...core.clients import get_redis
@@ -10,6 +12,7 @@ from ...db import get_session
 from ...models.room import Room
 from ...models.user import User
 from ...realtime.sio import sio
+from ...realtime.utils import gc_empty_room
 from ...schemas import RoomCreateIn, RoomOut, Identity
 from ...schemas import RoomInfoOut, RoomInfoMemberOut
 
@@ -57,6 +60,7 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
         await p.hset(f"room:{room.id}:params", mapping=data)
         await p.zadd("rooms:index", {str(room.id): int(room.created_at.timestamp())})
         await p.sadd(f"user:{uid}:rooms", str(room.id))
+        await p.set(f"room:{room.id}:empty_since", int(room.created_at.timestamp()), ex=86400)
         await p.execute()
 
     await sio.emit("rooms_upsert",
@@ -65,6 +69,16 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
     await sio.emit("rooms_occupancy",
                    {"id": room.id, "occupancy": 0},
                    namespace="/rooms")
+
+    async def _gc_soon(rid: int) -> None:
+        await asyncio.sleep(12)
+        removed = await gc_empty_room(rid)
+        if removed:
+            await sio.emit("rooms_remove",
+                           {"id": rid},
+                           namespace="/rooms")
+
+    asyncio.create_task(_gc_soon(room.id))
 
     await log_action(
         session,
@@ -109,3 +123,45 @@ async def room_info(room_id: int, session: AsyncSession = Depends(get_session)) 
         ))
 
     return RoomInfoOut(members=members)
+
+
+@log_route("rooms.enter_room")
+@rate_limited(lambda ident, **_: f"rl:enter_room:{ident['id']}", limit=1, window_s=1)
+@router.post("/{room_id}/enter", status_code=204)
+async def enter_room(room_id: int, ident: Identity = Depends(get_identity)):
+    r = get_redis()
+    uid = int(ident["id"])
+
+    script = """
+    local params = "room:"..ARGV[1]..":params"
+    local members = "room:"..ARGV[1]..":members"
+    local positions = "room:"..ARGV[1]..":positions"
+    local lim_raw = redis.call("HGET", params, "user_limit")
+    if not lim_raw then return -2 end
+    local limit = tonumber(lim_raw)
+    local cnt = tonumber(redis.call("SCARD", members) or "0")
+    if cnt >= limit and redis.call("SISMEMBER", members, ARGV[2]) == 0 then
+      return -1
+    end
+    local added = redis.call("SADD", members, ARGV[2])
+    if added == 1 then
+      redis.call("ZADD", positions, tonumber(ARGV[3]), ARGV[2])
+      cnt = cnt + 1
+    end
+    return cnt
+    """
+
+    now = int(time.time())
+    occ = await r.eval(script, 0, str(room_id), str(uid), str(now))
+
+    if int(occ) == -2:
+        raise HTTPException(status_code=404, detail="room_not_found")
+
+    if int(occ) == -1:
+        raise HTTPException(status_code=409, detail="room_full")
+
+    await sio.emit("rooms_occupancy",
+                   {"id": room_id,
+                    "occupancy": int(occ)},
+                   namespace="/rooms")
+    return Response(status_code=204)

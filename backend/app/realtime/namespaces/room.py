@@ -281,6 +281,75 @@ async def moderate(sid, data) -> ModerateAck:
         return {"ok": False, "error": "internal", "status": 500}
 
 
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:kick:{uid or 'nouid'}:{rid or 0}", limit=5, window_s=1, session_ns="/room")
+@sio.event(namespace="/room")
+async def kick(sid, data):
+    try:
+        sess = await sio.get_session(sid, namespace="/room")
+        actor_uid = int(sess["uid"])
+        rid = int(sess.get("rid") or 0)
+        if not rid:
+            return {"ok": False, "error": "no_room", "status": 400}
+
+        target = int((data or {}).get("user_id") or 0)
+        if not target:
+            return {"ok": False, "error": "bad_request", "status": 400}
+
+        r = get_redis()
+        if not await r.sismember(f"room:{rid}:members", str(target)):
+            return {"ok": False, "error": "user_not_in_room", "status": 404}
+
+        role_in_room = await r.hget(f"room:{rid}:user:{actor_uid}:info", "role")
+        actor_role = str(role_in_room or sess.get("role") or "user")
+        trg_role = str(await r.hget(f"room:{rid}:user:{target}:info", "role") or "user")
+
+        if actor_role not in ("admin", "host"):
+            return {"ok": False, "error": "forbidden", "status": 403}
+
+        if actor_role == "host" and trg_role == "admin":
+            return {"ok": False, "error": "forbidden", "status": 403}
+
+        await sio.emit("force_leave",
+                       {"room_id": rid, "by": {"user_id": actor_uid, "role": actor_role}},
+                       room=f"user:{target}",
+                       namespace="/room")
+
+        async def _ensure_left():
+            await asyncio.sleep(5)
+            if await r.sismember(f"room:{rid}:members", str(target)):
+                occ, gc_seq, pos_updates = await leave_room_atomic(r, rid, target)
+                await sio.emit("member_left",
+                               {"user_id": target},
+                               room=f"room:{rid}",
+                               namespace="/room")
+                if pos_updates:
+                    await sio.emit("positions",
+                                   {"updates": [{"user_id": u, "position": p} for u, p in pos_updates]},
+                                   room=f"room:{rid}",
+                                   namespace="/room")
+                await sio.emit("rooms_occupancy",
+                               {"id": rid, "occupancy": occ},
+                               namespace="/rooms")
+                if occ == 0:
+                    async def _gc():
+                        try:
+                            removed = await gc_empty_room(rid, expected_seq=gc_seq)
+                            if removed:
+                                await sio.emit("rooms_remove",
+                                               {"id": rid},
+                                               namespace="/rooms")
+                        except Exception:
+                            log.exception("gc failed rid=%s", rid)
+                    asyncio.create_task(_gc())
+
+        asyncio.create_task(_ensure_left())
+        return {"ok": True}
+
+    except Exception:
+        log.exception("sio.kick.error", sid=sid)
+        return {"ok": False, "error": "internal", "status": 500}
+
+
 @sio.event(namespace="/room")
 async def disconnect(sid):
     try:

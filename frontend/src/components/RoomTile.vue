@@ -18,6 +18,7 @@
           <img v-if="isBlocked(id,'cam') || !isOn(id,'cam')" :src="stateIcon('cam', id)" alt="cam" />
           <img v-if="isBlocked(id,'speakers') || !isOn(id,'speakers')" :src="stateIcon('speakers', id)" alt="spk" />
           <img v-if="isBlocked(id,'visibility') || !isOn(id,'visibility')" :src="stateIcon('visibility', id)" alt="vis" />
+          <img v-if="isBlocked(id,'screen')" :src="stateIcon('screen', id)" alt="scr" />
         </div>
       </div>
 
@@ -63,6 +64,9 @@
         <button @click="$emit('block','screen',id)" aria-label="block screen">
           <img :src="stateIcon('screen', id)" alt="scr" />
         </button>
+        <button @click="$emit('kick', id)" aria-label="kick user">
+          <img :src="iconLeaveRoom" alt="kick" />
+        </button>
       </div>
     </div>
   </div>
@@ -72,6 +76,7 @@
 import { computed } from 'vue'
 
 import iconClose from '@/assets/svg/close.svg'
+import iconLeaveRoom from '@/assets/svg/leaveRoom.svg'
 
 type IconKind = 'mic' | 'cam' | 'speakers' | 'visibility' | 'screen'
 
@@ -100,6 +105,7 @@ defineEmits<{
   (e: 'toggle-volume', id: string): void
   (e: 'vol-input', id: string, v: number): void
   (e: 'block', key: 'mic'|'cam'|'speakers'|'visibility'|'screen', id: string): void
+  (e: 'kick', id: string): void
 }>()
 
 const openPanel = computed(() => props.openPanelFor === props.id)
@@ -292,13 +298,13 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
     }
     .admin-row {
       display: flex;
-      gap: 11px;
+      gap: 5px;
       button {
         border-radius: 3px;
         display: flex;
         align-items: center;
         justify-content: center;
-        padding: 5px 7px;
+        padding: 3px 5px;
         border: none;
         background-color: rgba($grey, 0.2);
         cursor: pointer;

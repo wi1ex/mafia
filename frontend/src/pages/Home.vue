@@ -50,7 +50,9 @@
         </div>
 
         <div class="ri-actions">
-          <button v-if="auth.isAuthed && selectedRoom && !isFullRoom(selectedRoom)" class="btn enter" @click="goRoom(selectedRoom.id)">Войти</button>
+          <button v-if="auth.isAuthed && selectedRoom && !isFullRoom(selectedRoom)" class="btn enter" :disabled="entering" @click="onEnter">
+            {{ entering ? 'Вхожу…' : 'Войти' }}
+          </button>
           <div v-else-if="auth.isAuthed && selectedRoom && isFullRoom(selectedRoom)" class="muted">Комната заполнена</div>
           <div v-else class="muted">Авторизуйтесь, чтобы войти</div>
         </div>
@@ -97,6 +99,7 @@ const suppressedAutoselect = ref(true)
 const title = ref('')
 const limit = ref(12)
 const creating = ref(false)
+const entering = ref(false)
 
 const infoTimers = new Map<number, number>()
 const infoInFlight = new Set<number>()
@@ -167,7 +170,27 @@ function onGlobalPointerDown(e: PointerEvent) {
   clearSelection()
 }
 
-function goRoom(id: number) { router.push(`/room/${id}`) }
+async function onEnter() {
+  const id = selectedRoom?.value?.id
+  if (!id || entering.value) return
+  entering.value = true
+  try {
+    await api.post(`/rooms/${id}/enter`)
+    await router.push(`/room/${id}`)
+  } catch (e:any) {
+    const st = e?.response?.status
+    const d  = e?.response?.data?.detail
+    if (st === 409 && d === 'room_full') {
+      alert('Комната заполнена')
+      void fetchRoomInfo(id)
+    } else if (st === 404) {
+      alert('Комната не найдена')
+      remove(id)
+    } else {
+      alert('Ошибка входа')
+    }
+  } finally { entering.value = false }
+}
 
 async function syncRoomsSnapshot() {
   if (!sio.value) return

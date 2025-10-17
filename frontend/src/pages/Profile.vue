@@ -51,7 +51,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onBeforeUnmount, reactive, ref } from 'vue'
-import { api } from '@/services/axios'
+import { api, refreshAccessTokenFull } from '@/services/axios'
 import { useUserStore } from '@/store'
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
 
@@ -80,6 +80,7 @@ async function saveNick() {
   try {
     const { data } = await api.patch('/users/username', { username: nick.value })
     me.username = data.username
+    try { await refreshAccessTokenFull(false) } catch {}
     try { await userStore.fetchMe?.() } catch {}
   } catch (e: any) {
     const st = e?.response?.status
