@@ -67,7 +67,6 @@ function mount(el: ElEx, binding: DirectiveBinding<MinioVal>) {
 function update(el: ElEx, binding: DirectiveBinding<MinioVal>) {
   const cur = norm(binding.value)
   const prev = binding.oldValue ? norm(binding.oldValue as any) : null
-  if (prev && prev.key && cur.key !== prev.key) clearObjectURL(prev.key)
   if (prev && cur.key === prev.key && cur.version === prev.version) return
   loadInto(el, binding.value)
 }

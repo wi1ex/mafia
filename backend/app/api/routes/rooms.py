@@ -118,7 +118,7 @@ async def room_info(room_id: int, session: AsyncSession = Depends(get_session)) 
         u = users_map.get(uid)
         members.append(RoomInfoMemberOut(
             id=uid,
-            username=(u.username if u else f"user{uid}"),
+            username=u.username,
             avatar_name=u.avatar_name,
         ))
 

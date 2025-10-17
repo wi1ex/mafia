@@ -211,7 +211,7 @@ function avatarKey(id: string): string {
   return name.startsWith('avatars/') ? name : `avatars/${name}`
 }
 function userName(id: string) {
-  return nameByUser.get(id) || `user-${id}`
+  return nameByUser.get(id)
 }
 
 const videoRefMemo = new Map<string, (el: HTMLVideoElement | null) => void>()
