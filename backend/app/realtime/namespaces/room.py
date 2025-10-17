@@ -19,7 +19,6 @@ from ..utils import (
     join_room_atomic,
     leave_room_atomic,
     update_blocks,
-    load_user_profile,
 )
 
 log = structlog.get_logger()
@@ -65,8 +64,8 @@ async def join(sid, data) -> JoinAck:
 
         owner_id = await r.get(f"room:{rid}:screen_owner")
         owner = int(owner_id) if owner_id else 0
-        db_username, db_avatar = await load_user_profile(uid)
-        username, avatar_name = db_username or (sess.get("username") or f"user{uid}"), db_avatar
+        username = sess.get("username") or f"user{uid}"
+        avatar_name = sess.get("avatar_name") or None
         mapping = {**({"username": username} if username is not None else {}),
                    **({"avatar_name": avatar_name} if avatar_name is not None else {})}
         if mapping:

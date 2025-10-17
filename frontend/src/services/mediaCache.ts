@@ -30,8 +30,6 @@ function rememberURL(key: string, url: string, ver: number) {
 }
 
 export function clearObjectURL(key: string) {
-  const u = urlMap.get(key)
-  if (u) { try { URL.revokeObjectURL(u) } catch {} }
   urlMap.delete(key)
   verMap.delete(key)
 }

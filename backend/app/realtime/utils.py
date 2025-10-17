@@ -18,7 +18,6 @@ from ..core.security import decode_token
 __all__ = [
     "KEYS_STATE",
     "KEYS_BLOCK",
-    "load_user_profile",
     "validate_auth",
     "apply_state",
     "get_room_snapshot",
@@ -310,15 +309,6 @@ async def _leave_room_atomic_old(r, rid: int, uid: int, *, retries: int = 8) -> 
     return occ, gc_seq, updates
 
 
-async def load_user_profile(uid: int) -> tuple[Optional[str], Optional[str]]:
-    async with _sessionmaker() as s:
-        row = await s.execute(select(User.username, User.avatar_name).where(User.id == uid))
-        rec = row.first()
-        if not rec:
-            return None, None
-        return cast(Optional[str], rec[0]), cast(Optional[str], rec[1])
-
-
 async def validate_auth(auth: Any) -> Tuple[int, str, str, Optional[str]] | None:
     token = auth.get("token") if isinstance(auth, dict) else None
     if not token:
@@ -335,8 +325,11 @@ async def validate_auth(auth: Any) -> Tuple[int, str, str, Optional[str]] | None
             return None
 
         role = str(p.get("role") or "user")
-        username = p.get("username") or None
-        return uid, role, username, None
+        async with _sessionmaker() as s:
+            row = await s.execute(select(User.username, User.avatar_name).where(User.id == uid))
+            rec = row.first()
+            username, avatar_name = (cast(Optional[str], rec[0]), cast(Optional[str], rec[1])) if rec else (None, None)
+        return uid, role, username, avatar_name
 
     except ExpiredSignatureError:
         log.warning("sio.connect.expired_token")
