@@ -87,7 +87,7 @@ export function parseAvatarVersion(name: string): number {
 }
 
 export async function presign(key: string): Promise<string> {
-  const { data } = await api.get('/media/presign', { params: { key }, __skipAuth: true })
+  const { data } = await api.get('/media/presign', { params: { key } })
   return String(data?.url || '')
 }
 

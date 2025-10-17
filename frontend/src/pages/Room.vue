@@ -211,7 +211,7 @@ function avatarKey(id: string): string {
   return name.startsWith('avatars/') ? name : `avatars/${name}`
 }
 function userName(id: string) {
-  return nameByUser.get(id)
+  return nameByUser.get(id) || `user${id}`
 }
 
 const videoRefMemo = new Map<string, (el: HTMLVideoElement | null) => void>()
@@ -465,7 +465,7 @@ function connectSocket() {
     if (p?.role) rolesByUser.set(id, String(p.role))
     if (p?.blocks) applyBlocks(id, p.blocks)
     if (p?.avatar_name !== undefined) avatarByUser.set(id, p.avatar_name || null)
-    if (p?.username) nameByUser.set(id, p.username)
+    if ('username' in p) nameByUser.set(id, String(p.username ?? ''))
   })
 
   socket.value.on('member_left', (p: any) => {
@@ -591,7 +591,7 @@ function applyJoinAck(j: any) {
     const id = String(uid)
     const mm = m as any
     if (mm?.avatar_name !== undefined) avatarByUser.set(id, mm.avatar_name || null)
-    if (mm?.username) nameByUser.set(id, mm.username)
+    if ('username' in mm) nameByUser.set(id, String(mm.username ?? ''))
   }
 
   if (j.self_pref) applySelfPref(j.self_pref)
@@ -704,18 +704,18 @@ async function onLeave() {
     window.removeEventListener('beforeunload', onPageHide)
   } catch {}
   try {
-    await rtc.disconnect()
-    try {
-      if (socket.value) {
-        (socket.value.io.opts as any).reconnection = false
-        socket.value.removeAllListeners?.()
-        socket.value.close()
-      }
-    } catch {}
+    const s = socket.value
     socket.value = null
+    if (s) {
+      try { (s.io.opts as any).reconnection = false } catch {}
+      try { s.removeAllListeners?.() } catch {}
+      try { s.close() } catch {}
+    }
+    const disc = rtc.disconnect().catch(() => {})
+    await router.replace('/')
+    await disc
     roomId.value = null
     joinedRoomId.value = null
-    await router.replace('/')
   } finally {
     leaving.value = false
   }
