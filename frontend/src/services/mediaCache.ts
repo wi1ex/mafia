@@ -10,28 +10,31 @@ const DB_NAME = 'media-cache'
 const DB_VER = 1
 const STORE = 'objects'
 const urlMap = new Map<string, string>()
-const verMap = new Map<string, number>()
-const inFlight = new Map<string, Promise<string>>()
 const urlOrder: string[] = []
 const URL_MAX = 300
 
-function rememberURL(key: string, url: string, ver: number) {
+function rememberURL(key: string, url: string) {
   urlMap.set(key, url)
-  verMap.set(key, ver)
-  const i = urlOrder.indexOf(key); if (i !== -1) urlOrder.splice(i, 1)
+  const idx = urlOrder.indexOf(key)
+  if (idx !== -1) urlOrder.splice(idx, 1)
   urlOrder.push(key)
   while (urlOrder.length > URL_MAX) {
-    const oldKey = urlOrder.shift()!
+    const oldKey = urlOrder.shift()
+    if (!oldKey) continue
     const u = urlMap.get(oldKey)
-    if (u) { try { URL.revokeObjectURL(u) } catch {} }
-    urlMap.delete(oldKey)
-    verMap.delete(oldKey)
+    if (u) {
+      try { URL.revokeObjectURL(u) } catch {}
+      urlMap.delete(oldKey)
+    }
   }
 }
 
 export function clearObjectURL(key: string) {
-  urlMap.delete(key)
-  verMap.delete(key)
+  const u = urlMap.get(key)
+  if (u) {
+    try { URL.revokeObjectURL(u) } catch {}
+    urlMap.delete(key)
+  }
 }
 
 function openDB(): Promise<IDBDatabase> {
@@ -78,14 +81,12 @@ async function put(val: Stored): Promise<void> {
 }
 
 export function parseAvatarVersion(name: string): number {
-  const m =
-    name.match(/^\d+-([0-9]{12,})-[0-9a-f]{6}\.[a-z0-9]+$/i) ||
-    name.match(/^\d+-([0-9]{9,})\.[a-z0-9]+$/i)
+  const m = name.match(/^\d+-([0-9]{9,})\.[a-z0-9]+$/i)
   return m ? Number(m[1]) : 0
 }
 
 export async function presign(key: string): Promise<string> {
-  const { data } = await api.get('/media/presign', { params: { key } })
+  const { data } = await api.get('/media/presign', { params: { key }, __skipAuth: true })
   return String(data?.url || '')
 }
 
@@ -96,28 +97,23 @@ export async function fetchBlobByPresign(key: string): Promise<Blob> {
   return await resp.blob()
 }
 
-export async function getImageURL(key: string, version: number, loader?: (k:string)=>Promise<Blob>): Promise<string> {
-  const cached = urlMap.get(key)
-  const cachedVer = verMap.get(key)
-  if (cached && cachedVer === version) return cached
-  const infl = inFlight.get(key)
-  if (infl) return infl
-  const p = (async () => {
-    try {
-      const cur = await get(key)
-      if (cur && cur.version === version) {
-        const u = URL.createObjectURL(cur.blob)
-        rememberURL(key, u, version)
-        return u
-      }
-    } catch {}
-    const load = loader || fetchBlobByPresign
-    const blob = await load(key)
-    try { await put({ key, version, blob, ctype: blob.type }) } catch {}
-    const u = URL.createObjectURL(blob)
-    rememberURL(key, u, version)
-    return u
-  })()
-  inFlight.set(key, p)
-  try { return await p } finally { inFlight.delete(key) }
+export async function getImageURL(key: string, version: number, loader?: (key: string)=>Promise<Blob>): Promise<string> {
+  const u = urlMap.get(key)
+  if (u) return u
+
+  try {
+    const cur = await get(key)
+    if (cur && cur.version === version) {
+      const cached = URL.createObjectURL(cur.blob)
+      rememberURL(key, cached)
+      return cached
+    }
+  } catch {}
+
+  const load = loader || fetchBlobByPresign
+  const blob = await load(key)
+  try { await put({ key, version, blob, ctype: blob.type }) } catch {}
+  const url = URL.createObjectURL(blob)
+  rememberURL(key, url)
+  return url
 }

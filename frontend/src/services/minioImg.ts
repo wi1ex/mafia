@@ -1,5 +1,5 @@
 import type { Directive, DirectiveBinding } from 'vue'
-import { getImageURL, parseAvatarVersion } from '@/services/mediaCache'
+import { getImageURL, parseAvatarVersion, clearObjectURL } from '@/services/mediaCache'
 
 type MinioVal = | string | {
   key: string
@@ -75,6 +75,8 @@ function unmount(el: ElEx, binding: DirectiveBinding<MinioVal>) {
   try { el.__m_obs?.disconnect() } catch {}
   el.__m_obs = null
   el.__m_req = 0
+  const { key } = (binding.value ?? {}) as any
+  if (key) clearObjectURL(key)
 }
 
 const minioImg: Directive<ElEx, MinioVal> = { mounted: mount, updated: update, unmounted: unmount }
