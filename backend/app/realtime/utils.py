@@ -416,7 +416,7 @@ async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
     r = get_redis()
     ts1 = await r.get(f"room:{rid}:empty_since")
     if not ts1:
-        log.info("gc.skip.no_empty_since", rid=rid)
+        log.warning("gc.skip.no_empty_since", rid=rid)
         return False
 
     delay = max(0, 10 - (int(time()) - int(ts1)))
@@ -424,22 +424,22 @@ async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
         await asyncio.sleep(delay)
     ts2 = await r.get(f"room:{rid}:empty_since")
     if not ts2 or ts1 != ts2:
-        log.info("gc.skip.race_or_reset", rid=rid)
+        log.warning("gc.skip.race_or_reset", rid=rid)
         return False
 
     if expected_seq is not None:
         cur_seq = int(await r.get(f"room:{rid}:gc_seq") or 0)
         if cur_seq != expected_seq:
-            log.info("gc.skip.seq_mismatch", rid=rid, expected=expected_seq, current=cur_seq)
+            log.warning("gc.skip.seq_mismatch", rid=rid, expected=expected_seq, current=cur_seq)
             return False
 
     if int(await r.scard(f"room:{rid}:members") or 0) > 0:
-        log.info("gc.skip.not_empty_anymore", rid=rid)
+        log.warning("gc.skip.not_empty_anymore", rid=rid)
         return False
 
     got = await r.set(f"room:{rid}:gc_lock", "1", nx=True, ex=20)
     if not got:
-        log.info("gc.skip.no_lock", rid=rid)
+        log.warning("gc.skip.no_lock", rid=rid)
         return False
 
     try:

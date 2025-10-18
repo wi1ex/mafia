@@ -36,20 +36,20 @@ def parse_refresh_token(raw: str) -> tuple[bool, int, str, str]:
     try:
         p = decode_token(raw)
         if p.get("typ") != "refresh":
-            log.info("jwt.bad_type", typ=p.get("typ"))
+            log.warning("jwt.bad_type", typ=p.get("typ"))
             return False, 0, "", ""
 
         uid = int(p.get("sub") or 0)
         sid = str(p.get("sid") or "")
         jti = str(p.get("jti") or "")
         if not uid or not sid or not jti:
-            log.info("jwt.missing_claims")
+            log.warning("jwt.missing_claims")
             return False, 0, "", ""
 
         return True, uid, sid, jti
 
     except Exception as e:
-        log.info("jwt.decode_failed", err=type(e).__name__)
+        log.exception("jwt.decode_failed", err=type(e).__name__)
         return False, 0, "", ""
 
 
@@ -97,7 +97,7 @@ async def get_identity(creds: HTTPAuthorizationCredentials = Depends(HTTPBearer(
     try:
         p = decode_token(creds.credentials)
         if p.get("typ") != "access":
-            log.info("auth.bad_token_type", typ=p.get("typ"))
+            log.warning("auth.bad_token_type", typ=p.get("typ"))
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
 
         uid = int(p["sub"])
@@ -105,7 +105,7 @@ async def get_identity(creds: HTTPAuthorizationCredentials = Depends(HTTPBearer(
         r = get_redis()
         cur = await r.get(f"user:{uid}:sid")
         if not cur or cur != sid:
-            log.info("auth.sid_mismatch", uid=uid)
+            log.warning("auth.sid_mismatch", uid=uid)
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
 
         return {"id": uid, "role": str(p["role"]), "username": str(p["username"])}
@@ -114,5 +114,5 @@ async def get_identity(creds: HTTPAuthorizationCredentials = Depends(HTTPBearer(
         raise
 
     except Exception as e:
-        log.info("auth.decode_failed", err=type(e).__name__)
+        log.exception("auth.decode_failed", err=type(e).__name__)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
