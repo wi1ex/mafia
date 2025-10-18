@@ -33,7 +33,12 @@ async def connect(sid, environ, auth):
 
     uid, role, username, avatar_name = vr
     await sio.save_session(sid,
-                           {"uid": uid, "rid": None, "role": role, "base_role": role, "username": username, "avatar_name": avatar_name},
+                           {"uid": uid,
+                            "rid": None,
+                            "role": role,
+                            "base_role": role,
+                            "username": username,
+                            "avatar_name": avatar_name},
                            namespace="/room")
     await sio.enter_room(sid,
                          f"user:{uid}",
@@ -59,97 +64,94 @@ async def join(sid, data) -> JoinAck:
             return {"ok": False, "error": "room_not_found", "status": 404}
 
         if occ == -1:
-            log.info("sio.join.room_full", rid=rid, uid=uid)
+            log.warning("sio.join.room_full", rid=rid, uid=uid)
             return {"ok": False, "error": "room_is_full", "status": 409}
 
-        owner_id = await r.get(f"room:{rid}:screen_owner")
-        owner = int(owner_id) if owner_id else 0
-        sess_username = sess.get("username")
-        sess_avatar = sess.get("avatar_name")
-        username_raw = (sess_username.strip() if isinstance(sess_username, str) else None) or None
-        avatar_raw = (sess_avatar.strip() if isinstance(sess_avatar, str) else None) or None
+        un = sess.get("username")
+        av = sess.get("avatar_name")
+        mp = {}
+        if isinstance(un, str) and un.strip():
+            mp["username"] = un.strip()
+        if isinstance(av, str) and av.strip():
+            mp["avatar_name"] = av.strip()
+        if mp:
+            await r.hset(f"room:{rid}:user:{uid}:info", mapping=mp)
+        await sio.enter_room(sid,
+                             f"room:{rid}",
+                             namespace="/room")
 
-        info_mapping = {}
-        if username_raw:
-            info_mapping["username"] = username_raw
-        if avatar_raw:
-            info_mapping["avatar_name"] = avatar_raw
-        if info_mapping:
-            await r.hset(f"room:{rid}:user:{uid}:info", mapping=info_mapping)
-
-        applied: dict[str, str] = {}
         snapshot = await get_room_snapshot(r, rid)
-        blocked = await get_blocks_snapshot(r, rid)
-        roles_map = await get_roles_snapshot(r, rid)
+        blocked  = await get_blocks_snapshot(r, rid)
+        roles = await get_roles_snapshot(r, rid)
+        profiles = await get_profiles_snapshot(r, rid)
+        me_prof = profiles.get(str(uid)) or {}
+        ev_username = (me_prof.get("username") or un or f"user{uid}")
+        ev_avatar = me_prof.get("avatar_name") or av or None
+        eff_role = roles.get(str(uid), base_role)
+        await sio.save_session(sid,
+                               {"uid": uid,
+                                "rid": rid,
+                                "role": eff_role,
+                                "base_role": base_role,
+                                "username": ev_username,
+                                "avatar_name": ev_avatar},
+                               namespace="/room")
+
         incoming = (data.get("state") or {}) if isinstance(data, dict) else {}
-        user_state: dict[str, str] = {k: str(v) for k, v in (snapshot.get(str(uid)) or {}).items()}
+        user_state = {k: str(v) for k, v in (snapshot.get(str(uid)) or {}).items()}
         to_fill = {k: incoming[k] for k in KEYS_STATE if k in incoming and k not in user_state}
         if to_fill:
             applied = await apply_state(r, rid, uid, to_fill)
             if applied:
                 user_state = {**user_state, **applied}
                 snapshot[str(uid)] = user_state
-        await sio.enter_room(sid,
-                             f"room:{rid}",
-                             namespace="/room")
-
-        eff_blocks = blocked.get(str(uid)) or {}
-        eff_role = roles_map.get(str(uid), base_role)
-        profiles = await get_profiles_snapshot(r, rid)
-        me_prof = profiles.get(str(uid)) or {}
-        ev_username = me_prof.get("username")
-        if isinstance(ev_username, str):
-            ev_username = ev_username.strip() or None
-        ev_avatar = me_prof.get("avatar_name")
-        if isinstance(ev_avatar, str):
-            ev_avatar = ev_avatar.strip() or None
-        if ev_username is None:
-            ev_username = username_raw or f"user{uid}"
-        if ev_avatar is None:
-            ev_avatar = avatar_raw
-        await sio.save_session(sid,
-                               {"uid": uid, "rid": rid, "role": eff_role, "base_role": base_role, "username": ev_username, "avatar_name": ev_avatar},
+                await sio.emit("state_changed",
+                               {"user_id": uid, **applied},
+                               room=f"room:{rid}",
+                               skip_sid=sid,
                                namespace="/room")
 
         if not already:
-            await sio.emit("rooms_occupancy", {"id": rid, "occupancy": occ}, namespace="/rooms")
+            await sio.emit("rooms_occupancy",
+                           {"id": rid,
+                            "occupancy": occ},
+                           namespace="/rooms")
             await sio.emit("member_joined",
-                           {"user_id": uid, "state": user_state, "role": eff_role, "blocks": eff_blocks, "username": ev_username, "avatar_name": ev_avatar},
+                           {"user_id": uid,
+                            "state": user_state,
+                            "role": eff_role,
+                            "blocks": blocked.get(str(uid)) or {},
+                            "username": ev_username,
+                            "avatar_name": ev_avatar},
                            room=f"room:{rid}",
                            skip_sid=sid,
                            namespace="/room")
-            log.info("emit.member_joined", uid=uid, ev_username=ev_username, ev_avatar=ev_avatar)
 
         if pos_updates:
             await sio.emit("positions",
                            {"updates": [{"user_id": u, "position": p} for u, p in pos_updates]},
                            room=f"room:{rid}",
                            namespace="/room")
-
         await sio.emit("positions",
                        {"updates": [{"user_id": uid, "position": pos}]},
                        room=f"room:{rid}",
                        skip_sid=sid,
                        namespace="/room")
-        if applied:
-            await sio.emit("state_changed",
-                           {"user_id": uid, **applied},
-                           room=f"room:{rid}",
-                           skip_sid=sid,
-                           namespace="/room")
 
-        redis_positions = await r.zrange(f"room:{rid}:positions", 0, -1, withscores=True)
-        positions = {str(int(m)): int(s) for m, s in redis_positions}
-        lk_token = make_livekit_token(identity=str(uid), name=ev_username or f"user{uid}", room=str(rid))
+        pairs = await r.zrange(f"room:{rid}:positions", 0, -1, withscores=True)
+        positions = {str(int(m)): int(s) for m, s in pairs}
+        owner_raw = await r.get(f"room:{rid}:screen_owner")
+        owner = int(owner_raw) if owner_raw else 0
+        token = make_livekit_token(identity=str(uid), name=ev_username, room=str(rid))
         return {
             "ok": True,
             "room_id": rid,
-            "token": lk_token,
+            "token": token,
             "snapshot": snapshot,
             "self_pref": user_state,
             "positions": positions,
             "blocked": blocked,
-            "roles": roles_map,
+            "roles": roles,
             "profiles": profiles,
             "screen_owner": owner,
         }
@@ -167,7 +169,7 @@ async def state(sid, data) -> StateAck:
         uid = int(sess["uid"])
         rid = int(sess.get("rid") or 0)
         if not rid:
-            log.info("sio.state.no_rid", uid=uid)
+            log.warning("sio.state.no_rid", uid=uid)
             return {"ok": False}
 
         r = get_redis()
@@ -259,7 +261,7 @@ async def moderate(sid, data) -> ModerateAck:
 
         norm = {k: blocks[k] for k in KEYS_BLOCK if k in blocks}
         if not norm:
-            log.info("sio.moderate.no_changes", actor_uid=actor_uid, rid=rid)
+            log.warning("sio.moderate.no_changes", actor_uid=actor_uid, rid=rid)
             return {"ok": False, "error": "no_changes", "status": 400}
 
         r = get_redis()
@@ -279,7 +281,9 @@ async def moderate(sid, data) -> ModerateAck:
             row = await r.hgetall(f"room:{rid}:user:{target}:block")
             full = {k: ("1" if (row or {}).get(k) == "1" else "0") for k in KEYS_BLOCK}
             await sio.emit("moderation",
-                           {"user_id": target, "blocks": full, "by": {"user_id": actor_uid, "role": actor_role}},
+                           {"user_id": target,
+                            "blocks": full,
+                            "by": {"user_id": actor_uid, "role": actor_role}},
                            room=f"room:{rid}",
                            namespace="/room")
             if applied.get("screen") == "1":
@@ -326,7 +330,8 @@ async def kick(sid, data):
             return {"ok": False, "error": "forbidden", "status": 403}
 
         await sio.emit("force_leave",
-                       {"room_id": rid, "by": {"user_id": actor_uid, "role": actor_role}},
+                       {"room_id": rid,
+                        "by": {"user_id": actor_uid, "role": actor_role}},
                        room=f"user:{target}",
                        namespace="/room")
         return {"ok": True}
@@ -359,7 +364,9 @@ async def disconnect(sid):
 
         occ, gc_seq, pos_updates = await leave_room_atomic(r, rid, uid)
 
-        await sio.leave_room(sid, f"room:{rid}", namespace="/room")
+        await sio.leave_room(sid,
+                             f"room:{rid}",
+                             namespace="/room")
         await sio.emit("member_left",
                        {"user_id": uid},
                        room=f"room:{rid}",
@@ -370,12 +377,18 @@ async def disconnect(sid):
                            room=f"room:{rid}",
                            namespace="/room")
         await sio.emit("rooms_occupancy",
-                       {"id": rid, "occupancy": occ},
+                       {"id": rid,
+                        "occupancy": occ},
                        namespace="/rooms")
 
         base_role = str(sess.get("base_role") or "user")
         await sio.save_session(sid,
-                               {"uid": uid, "rid": None, "role": base_role, "base_role": base_role, "username": sess.get("username"), "avatar_name": sess.get("avatar_name")},
+                               {"uid": uid,
+                                "rid": None,
+                                "role": base_role,
+                                "base_role": base_role,
+                                "username": sess.get("username"),
+                                "avatar_name": sess.get("avatar_name")},
                                namespace="/room")
         if occ == 0:
             async def _gc():

@@ -1,7 +1,6 @@
 from __future__ import annotations
-import time
 import asyncio
-from fastapi import APIRouter, Depends, status, HTTPException, Response
+from fastapi import APIRouter, Depends, status, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from ...core.clients import get_redis
@@ -53,7 +52,6 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
         "creator": room.creator,
         "creator_name": creator_name,
         "created_at": room.created_at.isoformat(),
-        "occupancy": 0,
     }
 
     async with r.pipeline() as p:
@@ -67,7 +65,8 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
                    data,
                    namespace="/rooms")
     await sio.emit("rooms_occupancy",
-                   {"id": room.id, "occupancy": 0},
+                   {"id": room.id,
+                   "occupancy": 0},
                    namespace="/rooms")
 
     async def _gc_soon(rid: int) -> None:
@@ -123,54 +122,3 @@ async def room_info(room_id: int, session: AsyncSession = Depends(get_session)) 
         ))
 
     return RoomInfoOut(members=members)
-
-
-@log_route("rooms.enter_room")
-@rate_limited(lambda ident, **_: f"rl:enter_room:{ident['id']}", limit=1, window_s=1)
-@router.post("/{room_id}/enter", status_code=204)
-async def enter_room(room_id: int, ident: Identity = Depends(get_identity)):
-    r = get_redis()
-    uid = int(ident["id"])
-
-    script = """
-    -- ARGV: rid, uid, now, ttl
-    local rid   = ARGV[1]
-    local uid   = ARGV[2]
-    local now   = tonumber(ARGV[3])
-    local ttl   = tonumber(ARGV[4])
-
-    local params = "room:"..rid..":params"
-    local members = "room:"..rid..":members"
-    local resv = "room:"..rid..":resv"
-
-    local lim_raw = redis.call("HGET", params, "user_limit")
-    if not lim_raw then return -2 end
-    local lim = tonumber(lim_raw)
-
-    redis.call("ZREMRANGEBYSCORE", resv, "-inf", now)
-
-    local size = tonumber(redis.call("SCARD", members) or "0")
-    local already = redis.call("SISMEMBER", members, uid)
-    local has_resv = redis.call("ZSCORE", resv, uid)
-    local resv_cnt = tonumber(redis.call("ZCOUNT", resv, "("..now, "+inf"))
-
-    if already == 0 and not has_resv and (size + resv_cnt) >= lim then
-      return -1
-    end
-
-    local exp = now + ttl
-    redis.call("ZADD", resv, exp, uid)
-    return 1
-    """
-
-    now = int(time.time())
-    ttl = 12
-    rc = await r.eval(script, 0, str(room_id), str(uid), str(now), str(ttl))
-
-    if int(rc) == -2:
-        raise HTTPException(status_code=404, detail="room_not_found")
-
-    if int(rc) == -1:
-        raise HTTPException(status_code=409, detail="room_full")
-
-    return Response(status_code=204)

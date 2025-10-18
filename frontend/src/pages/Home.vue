@@ -174,22 +174,8 @@ async function onEnter() {
   const id = selectedRoom?.value?.id
   if (!id || entering.value) return
   entering.value = true
-  try {
-    await api.post(`/rooms/${id}/enter`)
-    await router.push(`/room/${id}`)
-  } catch (e:any) {
-    const st = e?.response?.status
-    const d  = e?.response?.data?.detail
-    if (st === 409 && d === 'room_full') {
-      alert('Комната заполнена')
-      void fetchRoomInfo(id)
-    } else if (st === 404) {
-      alert('Комната не найдена')
-      remove(id)
-    } else {
-      alert('Ошибка входа')
-    }
-  } finally { entering.value = false }
+  try { await router.push(`/room/${id}`) }
+  finally { entering.value = false }
 }
 
 async function syncRoomsSnapshot() {

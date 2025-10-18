@@ -51,7 +51,6 @@ class RoomOut(BaseModel):
     creator: int
     creator_name: str
     created_at: str
-    occupancy: int = 0
 
 
 class JoinAck(TypedDict, total=False):
