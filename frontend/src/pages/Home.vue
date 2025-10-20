@@ -14,7 +14,7 @@
     </div>
 
     <aside class="right" aria-live="polite" ref="rightEl" @click.self="clearSelection">
-      <div v-if="!selectedId" class="placeholder">Скоро здесь будет красиво</div>
+      <div v-if="!selectedId" class="placeholder">Выберите комнату для отображения информации</div>
 
       <div v-else class="room-info">
         <div class="ri-head">
@@ -273,14 +273,17 @@ onBeforeUnmount(() => {
 .card {
   display: grid;
   grid-template-columns: 1fr 600px;
+  grid-template-rows: 1fr 200px;
   padding: 0 10px;
   gap: 10px;
   .left {
     display: flex;
+    grid-column: 1;
+    grid-row: 1;
     flex-direction: column;
     padding: 10px;
     gap: 10px;
-    height: 600px;
+    height: 580px;
     border-radius: 5px;
     background-color: $dark;
     p {
@@ -331,9 +334,11 @@ onBeforeUnmount(() => {
   .right {
     display: flex;
     position: sticky;
+    grid-column: 2;
+    grid-row: 1;
     flex-direction: column;
     padding: 10px;
-    height: 600px;
+    height: 580px;
     border-radius: 5px;
     background-color: $dark;
     .placeholder {
@@ -430,10 +435,11 @@ onBeforeUnmount(() => {
   .create {
     display: flex;
     grid-column: 2;
+    grid-row: 2;
     flex-direction: column;
     padding: 10px;
     gap: 10px;
-    height: 200px;
+    height: 180px;
     border-radius: 5px;
     background-color: $dark;
     p {
