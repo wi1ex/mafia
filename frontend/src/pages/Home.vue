@@ -19,29 +19,29 @@
       <div v-else class="room-info">
         <div class="ri-head">
           <div class="ri-title">
-            <p class="ri-name">#{{ selectedRoom?.id }} — {{ selectedRoom?.title || '...' }}</p>
+            <p class="ri-name">Комната #{{ selectedRoom?.id }}: {{ selectedRoom?.title || '...' }}</p>
 
             <div class="ri-actions">
               <button v-if="auth.isAuthed && selectedRoom && !isFullRoom(selectedRoom)" :disabled="entering" @click="onEnter">
-                {{ entering ? 'Вхожу…' : 'Войти' }}
+                {{ entering ? 'Вхожу...' : 'Войти в комнату' }}
               </button>
               <div v-else-if="auth.isAuthed && selectedRoom && isFullRoom(selectedRoom)" class="muted">Комната заполнена</div>
               <div v-else class="muted">Авторизуйтесь, чтобы войти</div>
             </div>
           </div>
           <div class="ri-meta">
-            <span>Участников: {{ selectedRoom?.occupancy ?? 0 }}/{{ selectedRoom?.user_limit ?? 0 }}</span>
             <span>Владелец: {{ selectedRoom?.creator_name || '—' }}</span>
+            <span>Параметры: ...</span>
           </div>
         </div>
 
         <div class="ri-members">
-          <p class="ri-subtitle">В комнате</p>
+          <p class="ri-subtitle">Участники: {{ selectedRoom?.occupancy ?? 0 }}/{{ selectedRoom?.user_limit ?? 0 }}</p>
           <div v-if="loadingInfo" class="muted">Загрузка…</div>
           <div v-else-if="(info?.members?.length ?? 0) === 0" class="muted">Пока никого</div>
           <ul v-else class="ri-grid">
             <li class="ri-user" v-for="m in info!.members" :key="m.id">
-              <img class="ri-ava" v-minio-img="{ key: m.avatar_name ? `avatars/${m.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="" />
+              <img v-minio-img="{ key: m.avatar_name ? `avatars/${m.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="" />
               <p class="ri-u-name">{{ m.username || ('user' + m.id) }}</p>
             </li>
           </ul>
@@ -53,7 +53,7 @@
       <p>Создать комнату</p>
       <input v-model.trim="title" class="input" placeholder="Название" maxlength="64" />
       <input v-model.number="limit" class="input" type="number" min="2" max="12" placeholder="Лимит" />
-      <button class="btn" :disabled="creating || !valid" @click="onCreate">{{ creating ? 'Создаю...' : 'Создать' }}</button>
+      <button :disabled="creating || !valid" @click="onCreate">{{ creating ? 'Создаю...' : 'Создать' }}</button>
     </div>
   </section>
 </template>
@@ -342,7 +342,7 @@ onBeforeUnmount(() => {
     .room-info {
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 20px;
       .ri-head {
         display: flex;
         flex-direction: column;
@@ -358,11 +358,13 @@ onBeforeUnmount(() => {
           }
           .ri-actions {
             button {
-              padding: 8px 12px;
-              border-radius: 8px;
-              cursor: pointer;
+              padding: 0 10px;
+              height: 30px;
+              border: none;
+              border-radius: 5px;
               background-color: $green;
               color: $bg;
+              cursor: pointer;
               &:disabled {
                 opacity: 0.6;
                 cursor: not-allowed;
@@ -402,7 +404,7 @@ onBeforeUnmount(() => {
           margin: 0;
           padding: 0;
           gap: 5px;
-          max-height: 475px;
+          max-height: 420px;
           list-style: none;
           overflow: auto;
           .ri-user {
@@ -410,13 +412,12 @@ onBeforeUnmount(() => {
             align-items: center;
             gap: 5px;
             width: 100%;
-            height: 35px;
-            .ri-ava {
-              width: 36px;
-              height: 36px;
+            height: 30px;
+            img {
+              width: 24px;
+              height: 24px;
               border-radius: 50%;
               object-fit: cover;
-              background-color: $black;
             }
             .ri-u-name {
               margin: 0;
@@ -448,11 +449,13 @@ onBeforeUnmount(() => {
       background-color: $bg;
     }
     button {
-      padding: 8px 12px;
-      border-radius: 8px;
-      cursor: pointer;
+      padding: 0 10px;
+      height: 30px;
+      border-radius: 5px;
+      border: none;
       background-color: $green;
       color: $bg;
+      cursor: pointer;
       &:disabled {
         opacity: 0.6;
         cursor: not-allowed;
