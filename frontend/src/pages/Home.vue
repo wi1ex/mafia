@@ -18,7 +18,17 @@
 
       <div v-else class="room-info">
         <div class="ri-head">
-          <p class="ri-title">#{{ selectedRoom?.id }} — {{ selectedRoom?.title || '...' }}</p>
+          <div class="ri-title">
+            <p class="ri-name">#{{ selectedRoom?.id }} — {{ selectedRoom?.title || '...' }}</p>
+
+            <div class="ri-actions">
+              <button v-if="auth.isAuthed && selectedRoom && !isFullRoom(selectedRoom)" :disabled="entering" @click="onEnter">
+                {{ entering ? 'Вхожу…' : 'Войти' }}
+              </button>
+              <div v-else-if="auth.isAuthed && selectedRoom && isFullRoom(selectedRoom)" class="muted">Комната заполнена</div>
+              <div v-else class="muted">Авторизуйтесь, чтобы войти</div>
+            </div>
+          </div>
           <div class="ri-meta">
             <span>Участников: {{ selectedRoom?.occupancy ?? 0 }}/{{ selectedRoom?.user_limit ?? 0 }}</span>
             <span>Владелец: {{ selectedRoom?.creator_name || '—' }}</span>
@@ -32,19 +42,9 @@
           <ul v-else class="ri-grid">
             <li class="ri-user" v-for="m in info!.members" :key="m.id">
               <img class="ri-ava" v-minio-img="{ key: m.avatar_name ? `avatars/${m.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="" />
-              <div class="ri-u-main">
-                <div class="ri-u-name">{{ m.username || ('user' + m.id) }}</div>
-              </div>
+              <p class="ri-u-name">{{ m.username || ('user' + m.id) }}</p>
             </li>
           </ul>
-        </div>
-
-        <div class="ri-actions">
-          <button v-if="auth.isAuthed && selectedRoom && !isFullRoom(selectedRoom)" :disabled="entering" @click="onEnter">
-            {{ entering ? 'Вхожу…' : 'Войти' }}
-          </button>
-          <div v-else-if="auth.isAuthed && selectedRoom && isFullRoom(selectedRoom)" class="muted">Комната заполнена</div>
-          <div v-else class="muted">Авторизуйтесь, чтобы войти</div>
         </div>
       </div>
     </aside>
@@ -294,14 +294,15 @@ onBeforeUnmount(() => {
     .list {
       margin: 0;
       padding: 0;
+      gap: 5px;
       list-style: none;
       .item {
-        display: grid;
+        display: flex;
         grid-template-columns: 1fr auto;
         align-items: center;
         gap: 10px;
-        padding: 10px;
-        margin: 6px 0;
+        padding: 10px 0;
+        margin: 0;
         border: 1px solid transparent;
         border-radius: 5px;
         cursor: pointer;
@@ -336,7 +337,7 @@ onBeforeUnmount(() => {
     border-radius: 5px;
     background-color: $dark;
     .placeholder {
-      padding: 8px 4px;
+      margin: auto;
     }
     .room-info {
       display: flex;
@@ -347,13 +348,35 @@ onBeforeUnmount(() => {
         flex-direction: column;
         gap: 10px;
         .ri-title {
-          margin: 0;
-          color: $fg;
-          font-size: 24px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          .ri-name {
+            margin: 0;
+            color: $fg;
+            font-size: 24px;
+          }
+          .ri-actions {
+            button {
+              padding: 8px 12px;
+              border-radius: 8px;
+              cursor: pointer;
+              background-color: $green;
+              color: $bg;
+              &:disabled {
+                opacity: 0.6;
+                cursor: not-allowed;
+              }
+            }
+            .muted {
+              color: $grey;
+            }
+          }
         }
         .ri-meta {
           display: flex;
-          gap: 10px;
+          flex-direction: column;
+          gap: 5px;
           color: $grey;
         }
       }
@@ -385,7 +408,7 @@ onBeforeUnmount(() => {
           .ri-user {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 5px;
             width: 100%;
             height: 35px;
             .ri-ava {
@@ -395,28 +418,10 @@ onBeforeUnmount(() => {
               object-fit: cover;
               background-color: $black;
             }
-            .ri-u-main {
-              .ri-u-name {
-                font-weight: 600;
-              }
+            .ri-u-name {
+              margin: 0;
             }
           }
-        }
-      }
-      .ri-actions {
-        button {
-          padding: 8px 12px;
-          border-radius: 8px;
-          cursor: pointer;
-          background-color: $green;
-          color: $bg;
-          &:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-          }
-        }
-        .muted {
-          color: $grey;
         }
       }
     }
@@ -431,7 +436,7 @@ onBeforeUnmount(() => {
     border-radius: 5px;
     background-color: $dark;
     p {
-      margin: 0;
+      margin: 0 0 10px;
       color: $fg;
       font-size: 24px;
     }
