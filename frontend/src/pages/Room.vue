@@ -8,6 +8,7 @@
         :local-id="localId"
         :speaking="rtc.isSpeaking(id)"
         :video-ref="stableVideoRef(id)"
+        :is-video-ready="rtc.isVideoReady"
         :default-avatar="defaultAvatar"
         :volume-icon="volumeIconForUser(id)"
         :state-icon="stateIcon"
@@ -31,6 +32,9 @@
     <div v-else class="theater">
       <div class="stage">
         <video :ref="stableScreenRef(screenOwnerId)" playsinline autoplay />
+        <div v-if="(!!screenOwnerId && !rtc.isScreenReady(screenOwnerId)) || pendingScreen" class="loading-overlay" aria-label="Загрузка экрана">
+          <div class="spinner"></div>
+        </div>
         <div v-if="screenOwnerId !== localId" class="volume">
           <button v-if="openVolFor !== streamAudioKey" @click.stop="toggleVolume(streamAudioKey)"
                   :disabled="!speakersOn || isBlocked(screenOwnerId,'speakers')" aria-label="volume">
@@ -54,6 +58,7 @@
           :side="true"
           :speaking="rtc.isSpeaking(id)"
           :video-ref="stableVideoRef(id)"
+          :is-video-ready="rtc.isVideoReady"
           :default-avatar="defaultAvatar"
           :volume-icon="volumeIconForUser(id)"
           :state-icon="stateIcon"
@@ -106,7 +111,7 @@
         </button>
       </div>
 
-      <button ref="settingsBtnRef" @click.stop="toggleSettings" :aria-expanded="settingsOpen" aria-label="Настройки устройств">
+      <button @click.stop="toggleSettings" :aria-expanded="settingsOpen" aria-label="Настройки устройств">
         <img :src="iconSettings" alt="settings" />
       </button>
 
@@ -124,6 +129,10 @@
           </select>
         </label>
       </div>
+    </div>
+    <div v-if="booting" class="boot-overlay" aria-live="polite">
+      <div class="spinner"></div>
+      <div>Загрузка комнаты…</div>
     </div>
   </section>
 </template>
@@ -194,7 +203,6 @@ const openPanelFor = ref<string>('')
 const openVolFor = ref<string>('')
 const pendingScreen = ref(false)
 const settingsOpen = ref(false)
-const settingsBtnRef = ref<HTMLButtonElement | null>(null)
 const isTheater = computed(() => !!screenOwnerId.value)
 const isMyScreen = computed(() => screenOwnerId.value === localId.value)
 const streamAudioKey = computed(() => screenOwnerId.value ? rtc.screenKey(screenOwnerId.value) : '')
@@ -204,6 +212,7 @@ const pendingQuality = ref(false)
 const videoQuality = computed(() => rtc.remoteQuality.value)
 const volUi = reactive<Record<string, number>>({})
 
+const booting = computed(() => !socket.value?.connected || joinedRoomId.value !== rid || !rtc.lk.value)
 const avatarByUser = reactive(new Map<string, string | null>())
 function avatarKey(id: string): string {
   const name = avatarByUser.get(id) || ''
@@ -214,22 +223,19 @@ function userName(id: string) {
   return nameByUser.get(id) || `user${id}`
 }
 
-const videoRefMemo = new Map<string, (el: HTMLVideoElement | null) => void>()
-function stableVideoRef(id: string) {
-  const cached = videoRefMemo.get(id)
-  if (cached) return cached
-  const fn = rtc.videoRef(id)
-  videoRefMemo.set(id, fn)
-  return fn
+function memoRef<K, F extends (k:K) => any> (cache: Map<any, any>, factory: F) {
+  return (k: K) => {
+    const c = cache.get(k)
+    if (c) return c
+    const f = factory(k)
+    cache.set(k,f)
+    return f
+  }
 }
-const screenRefMemo = new Map<string, (el: HTMLVideoElement | null) => void>()
-function stableScreenRef(uid: string) {
-  const cached = screenRefMemo.get(uid)
-  if (cached) return cached
-  const fn = rtc.screenVideoRef(uid)
-  screenRefMemo.set(uid, fn)
-  return fn
-}
+const videoRefMemo    = new Map<string, (el: HTMLVideoElement|null)=>void>()
+const screenRefMemo   = new Map<string, (el: HTMLVideoElement|null)=>void>()
+const stableVideoRef  = memoRef(videoRefMemo,  (id:string)=> rtc.videoRef(id))
+const stableScreenRef = memoRef(screenRefMemo, (id:string)=> id? rtc.screenVideoRef(id) : () => {})
 
 const STATE_ICONS = {
   mic:        { on: iconMicOn,    off: iconMicOff,    blk: iconMicBlocked },
@@ -242,27 +248,22 @@ function stateIcon(kind: IconKind, id: string) {
   if (isBlocked(id, kind)) return STATE_ICONS[kind].blk
   return isOn(id, kind) ? STATE_ICONS[kind].on : STATE_ICONS[kind].off
 }
-async function toggleTilePanel(id: string) {
-  if (id === localId.value) return
+function toggleExclusive(target: string, ref: typeof openPanelFor, other?: typeof openVolFor) {
+  if (target===localId.value) return
   settingsOpen.value = false
-  if (openPanelFor.value === id) {
-    openPanelFor.value = ''
-    return
+  if (ref.value === target) ref.value = ''
+  else {
+    ref.value = target
+    if (other) other.value = ''
   }
-  openPanelFor.value = id
-  openVolFor.value = ''
 }
-function toggleVolume(id: string) {
-  if (id === localId.value) return
-  settingsOpen.value = false
-  if (openVolFor.value === id) {
-    openVolFor.value = ''
-    return
+const toggleTilePanel = (id: string)=> toggleExclusive(id, openPanelFor, openVolFor)
+function toggleVolume(id: string){
+  toggleExclusive(id, openVolFor, openPanelFor)
+  if (id !== localId.value) {
+    void rtc.resumeAudio()
+    volUi[id] = rtc.getUserVolume(id)
   }
-  openVolFor.value = id
-  openPanelFor.value = ''
-  void rtc.resumeAudio()
-  volUi[id] = rtc.getUserVolume(id)
 }
 function toggleSettings() {
   const next = !settingsOpen.value
@@ -273,22 +274,29 @@ function toggleSettings() {
     void rtc.refreshDevices().catch(() => {})
   }
 }
-function volumeIconForStream(key: string): string {
-  if (!key) return iconVolumeMute
-  if (!speakersOn.value || isBlocked(screenOwnerId.value, 'speakers')) return iconVolumeMute
-  const raw = Math.round(volUi[key] ?? rtc.getUserVolume(key))
-  if (raw < 1) return iconVolumeMute
-  if (raw < 25) return iconVolumeLow
-  if (raw < 100) return iconVolumeMid
-  return iconVolumeMax
+function volumeIcon(val: number, enabled: boolean) {
+  if (!enabled) return iconVolumeMute
+  const v = Math.round(val)
+  return v < 1 ? iconVolumeMute : v < 25 ? iconVolumeLow : v < 100 ? iconVolumeMid : iconVolumeMax
 }
-function volumeIconForUser(id: string): string {
-  if (!speakersOn.value || isBlocked(id, 'speakers')) return iconVolumeMute
-  const raw = Math.round(volUi[id] ?? rtc.getUserVolume(id))
-  if (raw < 1) return iconVolumeMute
-  if (raw < 25) return iconVolumeLow
-  if (raw < 100) return iconVolumeMid
-  return iconVolumeMax
+function volumeIconForUser(id: string) {
+  return volumeIcon(volUi[id] ?? rtc.getUserVolume(id), speakersOn.value && !isBlocked(id,'speakers'))
+}
+function volumeIconForStream(key: string) {
+  return volumeIcon(volUi[key] ?? rtc.getUserVolume(key), !!key && speakersOn.value && !isBlocked(screenOwnerId.value,'speakers'))
+}
+
+type Ack = { ok: boolean; status?: number; [k: string]: any } | null
+async function sendAck(event: string, payload: any, timeoutMs = 5000): Promise<Ack> {
+  try {
+    return await socket.value!.timeout(timeoutMs).emitWithAck(event, payload)
+  } catch { return null }
+}
+function ensureOk(resp: Ack, msgByCode: Record<number, string>, netMsg: string): boolean {
+  if (resp && resp.ok) return true
+  const code = resp?.status
+  alert((code && msgByCode[code]) || netMsg)
+  return false
 }
 
 const showPermProbe = computed(() => !rtc.permProbed.value && !micOn.value && !camOn.value)
@@ -377,19 +385,15 @@ function toggleQuality() {
 
 async function toggleBlock(targetId: string, key: keyof BlockState) {
   const want = !isBlocked(targetId, key)
-  try {
-    const resp:any = await socket.value!.timeout(5000).emitWithAck('moderate', {user_id: Number(targetId), blocks: { [key]: want } })
-    if (!resp?.ok) alert(resp?.status === 403 ? 'Недостаточно прав' : resp?.status === 404 ? 'Пользователь не в комнате' : 'Ошибка модерации')
-  } catch { alert('Сеть/таймаут при модерации') }
+  const resp = await sendAck('moderate', { user_id: Number(targetId), blocks: { [key]: want } })
+  if (!ensureOk(resp, { 403: 'Недостаточно прав', 404: 'Пользователь не в комнате' }, 'Сеть/таймаут при модерации')) return
 }
 
 async function kickUser(targetId: string) {
   if (!canModerate(targetId)) return
   if (!confirm('Удалить пользователя из комнаты?')) return
-  try {
-    const resp:any = await socket.value!.timeout(5000).emitWithAck('kick', { user_id: Number(targetId) })
-    if (!resp?.ok) alert(resp?.status === 403 ? 'Недостаточно прав' : resp?.status === 404 ? 'Пользователь не в комнате' : 'Ошибка удаления')
-  } catch { alert('Сеть/таймаут при удалении') }
+  const resp = await sendAck('kick', { user_id: Number(targetId) })
+  if (!ensureOk(resp, { 403: 'Недостаточно прав', 404: 'Пользователь не в комнате' }, 'Сеть/таймаут при удалении')) return
 }
 
 function applyPeerState(uid: string, patch: any) {
@@ -418,6 +422,22 @@ function applySelfPref(pref: any) {
   if (!isEmpty(pref?.visibility)) local.visibility = norm01(pref.visibility, local.visibility ? 1 : 0) === 1
 }
 
+function purgePeerUI(id: string) {
+  statusByUser.delete(id)
+  positionByUser.delete(id)
+  blockByUser.delete(id)
+  rolesByUser.delete(id)
+  nameByUser.delete(id)
+  avatarByUser.delete(id)
+  videoRefMemo.delete(id)
+  screenRefMemo.delete(id)
+  if (openPanelFor.value === id || openPanelFor.value === rtc.screenKey(id)) openPanelFor.value = ''
+  if (openVolFor.value === id || openVolFor.value === rtc.screenKey(id)) openVolFor.value = ''
+  delete volUi[id]
+  delete volUi[rtc.screenKey(id)]
+  if (screenOwnerId.value === id) screenOwnerId.value = ''
+}
+
 function connectSocket() {
   if (socket.value && socket.value.connected) return
   socket.value = createAuthedSocket('/room', {
@@ -438,10 +458,8 @@ function connectSocket() {
     } catch {}
     if (pendingDeltas.length) {
       const merged = Object.assign({}, ...pendingDeltas.splice(0))
-      try {
-        const resp:any = await socket.value!.timeout(5000).emitWithAck('state', merged)
-        if (!resp?.ok) pendingDeltas.unshift(merged)
-      } catch { pendingDeltas.unshift(merged) }
+      const resp = await sendAck('state', merged)
+      if (!resp?.ok) pendingDeltas.unshift(merged)
     }
   })
 
@@ -464,28 +482,17 @@ function connectSocket() {
     applyPeerState(id, p?.state || {})
     if (p?.role) rolesByUser.set(id, String(p.role))
     if (p?.blocks) applyBlocks(id, p.blocks)
-
     const av = p?.avatar_name
     if (typeof av === 'string' && av.trim() !== '') avatarByUser.set(id, av)
-
     const un = p?.username
     if (typeof un === 'string' && un.trim() !== '') nameByUser.set(id, String(un))
   })
 
   socket.value.on('member_left', (p: any) => {
     const id = String(p.user_id)
-    statusByUser.delete(id)
-    positionByUser.delete(id)
-    blockByUser.delete(id)
-    rolesByUser.delete(id)
-    nameByUser.delete(id)
-    if (openPanelFor.value === id || openPanelFor.value === rtc.screenKey(id)) openPanelFor.value = ''
-    if (openVolFor.value === id || openVolFor.value === rtc.screenKey(id)) openVolFor.value = ''
-    delete volUi[id]
-    delete volUi[rtc.screenKey(id)]
-    avatarByUser.delete(id)
-    videoRefMemo.delete(id)
-    screenRefMemo.delete(id)
+    const isInLK = Array.from(rtc.lk.value?.remoteParticipants.values() ?? []).some(x => String(x.identity) === id)
+    if (!isInLK) rtc.cleanupPeer(id)
+    purgePeerUI(id)
   })
 
   socket.value.on('positions', (p: any) => {
@@ -550,7 +557,7 @@ async function safeJoin() {
       })
     })
   }
-  joinInFlight.value = socket.value!.timeout(5000).emitWithAck('join', { room_id: rid, state: { ...local } })
+  joinInFlight.value = sendAck('join', { room_id: rid, state: { ...local } })
   try {
     const ack = await joinInFlight.value
     if (ack?.ok) joinedRoomId.value = rid
@@ -616,13 +623,10 @@ async function publishState(delta: Partial<{ mic: boolean; cam: boolean; speaker
     pendingDeltas.push(delta)
     return false
   }
-  try {
-    const resp: any = await socket.value.timeout(5000).emitWithAck('state', delta)
-    return Boolean(resp?.ok)
-  } catch {
-    pendingDeltas.push(delta)
-    return false
-  }
+  const resp = await sendAck('state', delta)
+  if (resp?.ok) return true
+  pendingDeltas.push(delta)
+  return false
 }
 
 const toggleFactory = (k: keyof typeof local, onEnable?: () => Promise<boolean | void>, onDisable?: () => Promise<void>) => async () => {
@@ -677,8 +681,8 @@ const toggleScreen = async () => {
   pendingScreen.value = true
   try {
     if (!isMyScreen.value) {
-      const resp: any = await socket.value!.timeout(5000).emitWithAck('screen', { on: true })
-      if (!resp?.ok) {
+      const resp = await sendAck('screen', { on: true })
+      if (!resp || !resp.ok) {
         if (resp?.status === 409 && resp?.owner) screenOwnerId.value = String(resp.owner)
         else if (resp?.status === 403 && resp?.error === 'blocked') alert('Стрим запрещён администратором')
         else alert('Не удалось начать трансляцию')
@@ -687,14 +691,13 @@ const toggleScreen = async () => {
       screenOwnerId.value = localId.value
       const ok = await rtc.startScreenShare({ audio: true })
       if (!ok) {
-        await socket.value!.timeout(5000).emitWithAck('screen', { on: false }).catch(() => {})
+        await sendAck('screen', { on: false })
         screenOwnerId.value = ''
         alert('Ошибка публикации видеопотока или доступ отклонён')
-        return
       }
     } else {
       await rtc.stopScreenShare()
-      await socket.value!.timeout(5000).emitWithAck('screen', { on: false }).catch(() => {})
+      await sendAck('screen', { on: false })
       screenOwnerId.value = ''
     }
   } finally { pendingScreen.value = false }
@@ -744,13 +747,15 @@ onMounted(async () => {
     applyJoinAck(j)
 
     rtc.initRoom({
-      onMediaDevicesError: async (_e) => {},
+      onMediaDevicesError: (e) => {
+        console.error('MediaDevicesError', e)
+      },
       onScreenShareEnded: async () => {
         if (isMyScreen.value) {
           screenOwnerId.value = ''
-          try { await socket.value!.timeout(5000).emitWithAck('screen', { on: false }) } catch {}
+          try { await sendAck('screen', { on: false }) } catch {}
         }
-      }
+      },
     })
 
     await rtc.connect(ws_url, j.token, { autoSubscribe: false })
@@ -788,6 +793,7 @@ onBeforeUnmount(() => { void onLeave() })
 <style lang="scss" scoped>
 .room {
   display: flex;
+  position: relative;
   flex-direction: column;
   padding: 10px;
   gap: 10px;
@@ -815,6 +821,25 @@ onBeforeUnmount(() => { void onLeave() })
         object-fit: contain;
         background-color: $black;
       }
+      .loading-overlay{
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: rgba($black, 0.35);
+        z-index: 10;
+        border-radius: 5px;
+      }
+      .spinner{
+        width: 40px;
+        height: 40px;
+        border: 3px solid rgba(255, 255, 255, 0.25);
+        border-top-color: $fg;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+      @keyframes spin { to { transform: rotate(360deg) } }
       .volume {
         display: flex;
         position: absolute;
@@ -941,6 +966,22 @@ onBeforeUnmount(() => { void onLeave() })
         }
       }
     }
+  }
+  .boot-overlay{
+    position: absolute;
+    left: 10px;
+    right: 10px;
+    top: 10px;
+    bottom: 70px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba($black, 0.6);
+    border-radius: 8px;
+    z-index: 50;
+    color: $fg;
   }
 }
 </style>

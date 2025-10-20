@@ -115,10 +115,6 @@ async def room_info(room_id: int, session: AsyncSession = Depends(get_session)) 
     members: list[RoomInfoMemberOut] = []
     for uid in order_ids:
         u = users_map.get(uid)
-        members.append(RoomInfoMemberOut(
-            id=uid,
-            username=u.username,
-            avatar_name=u.avatar_name,
-        ))
+        members.append(RoomInfoMemberOut(id=uid, username=u.username, avatar_name=u.avatar_name))
 
     return RoomInfoOut(members=members)
