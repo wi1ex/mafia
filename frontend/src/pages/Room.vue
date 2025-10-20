@@ -191,6 +191,7 @@ const camOn = computed({ get: () => local.cam, set: v => { local.cam = v } })
 const speakersOn = computed({ get: () => local.speakers, set: v => { local.speakers = v } })
 const visibilityOn = computed({ get: () => local.visibility, set: v => { local.visibility = v } })
 const socket = ref<Socket | null>(null)
+const netConnected = ref(false)
 const joinInFlight = ref<Promise<any> | null>(null)
 const joinedRoomId = ref<number | null>(null)
 const statusByUser = reactive(new Map<string, StatusState>())
@@ -212,7 +213,7 @@ const pendingQuality = ref(false)
 const videoQuality = computed(() => rtc.remoteQuality.value)
 const volUi = reactive<Record<string, number>>({})
 
-const booting = computed(() => !socket.value?.connected || joinedRoomId.value !== rid || !rtc.lk.value)
+const booting = computed(() => !(netConnected.value && joinedRoomId.value === rid && !!rtc.lk.value))
 const avatarByUser = reactive(new Map<string, string | null>())
 function avatarKey(id: string): string {
   const name = avatarByUser.get(id) || ''
@@ -451,6 +452,7 @@ function connectSocket() {
   })
 
   socket.value?.on('connect', async () => {
+    netConnected.value = true
     if (joinInFlight.value || joinedRoomId.value === rid) return
     try {
       const j:any = await safeJoin()
@@ -464,6 +466,7 @@ function connectSocket() {
   })
 
   socket.value?.on('disconnect', () => {
+    netConnected.value = false
     joinedRoomId.value = null
     openPanelFor.value = ''
     openVolFor.value = ''
@@ -629,36 +632,46 @@ async function publishState(delta: Partial<{ mic: boolean; cam: boolean; speaker
   return false
 }
 
-const toggleFactory = (k: keyof typeof local, onEnable?: () => Promise<boolean | void>, onDisable?: () => Promise<void>) => async () => {
+const toggleFactory = (k: keyof typeof local, onEnable?: () => Promise<boolean | void>, onDisable?: () => Promise<void>, opts?: { optimistic?: boolean }) => async () => {
   if (pending[k]) return
   if (blockedSelf.value[k]) return
   const want = !local[k]
   pending[k] = true
   try {
     if (want) {
-      const okLocal = (await onEnable?.()) !== false
-      if (!okLocal) return
-      local[k] = true
-      if (k === 'speakers')   rtc.setAudioSubscriptionsForAll(true)
+      if (opts?.optimistic) local[k] = true
+      if (k === 'speakers') rtc.setAudioSubscriptionsForAll(true)
       if (k === 'visibility') rtc.setVideoSubscriptionsForAll(true)
-      try { await publishState({ [k]: true } as any) } catch {}
+      const okLocal = (await onEnable?.()) !== false
+      if (!okLocal) {
+        if (opts?.optimistic) {
+          if (k === 'speakers') rtc.setAudioSubscriptionsForAll(false)
+          if (k === 'visibility') rtc.setVideoSubscriptionsForAll(false)
+          local[k] = false
+          void publishState({ [k]: false } as any)
+        }
+        return
+      }
+      if (!opts?.optimistic) local[k] = true
+      void publishState({ [k]: true } as any)
     } else {
       await onDisable?.()
       local[k] = false
       if (k === 'speakers')   rtc.setAudioSubscriptionsForAll(false)
       if (k === 'visibility') rtc.setVideoSubscriptionsForAll(false)
-      try { await publishState({ [k]: false } as any) } catch {}
+      void publishState({ [k]: false } as any)
     }
   } finally { pending[k] = false }
 }
 
 const toggleMic = toggleFactory('mic',
   async () => await rtc.enable('audioinput'),
-  async () => { await rtc.disable('audioinput') }
+  async () => await rtc.disable('audioinput')
 )
 const toggleCam = toggleFactory('cam',
   async () => await rtc.enable('videoinput'),
-  async () => { await rtc.disable('videoinput') }
+  async () => await rtc.disable('videoinput'),
+  { optimistic: true }
 )
 const toggleSpeakers = toggleFactory('speakers',
   async () => {
