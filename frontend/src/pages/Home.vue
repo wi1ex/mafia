@@ -1,13 +1,6 @@
 <template>
   <section class="card">
     <div class="left">
-      <div v-if="auth.isAuthed" class="create">
-        <h3>Создать комнату</h3>
-        <input v-model.trim="title" class="input" placeholder="Название" maxlength="64" />
-        <input v-model.number="limit" class="input" type="number" min="2" max="12" placeholder="Лимит" />
-        <button class="btn" :disabled="creating || !valid" @click="onCreate">{{ creating ? 'Создаю...' : 'Создать' }}</button>
-      </div>
-
       <h2>Список комнат</h2>
       <div v-if="sortedRooms.length === 0" class="muted">Пока пусто</div>
       <ul v-else class="list" ref="listEl">
@@ -55,6 +48,13 @@
         </div>
       </div>
     </aside>
+
+    <div v-if="auth.isAuthed" class="create">
+      <h3>Создать комнату</h3>
+      <input v-model.trim="title" class="input" placeholder="Название" maxlength="64" />
+      <input v-model.number="limit" class="input" type="number" min="2" max="12" placeholder="Лимит" />
+      <button class="btn" :disabled="creating || !valid" @click="onCreate">{{ creating ? 'Создаю...' : 'Создать' }}</button>
+    </div>
   </section>
 </template>
 
@@ -273,38 +273,15 @@ onBeforeUnmount(() => {
 .card {
   display: grid;
   grid-template-columns: 1fr 600px;
-  padding: 10px;
+  padding: 0 10px;
   gap: 10px;
   .left {
     display: flex;
     flex-direction: column;
-    .create {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      h3 {
-        margin: 0;
-        color: $fg;
-      }
-      input {
-        padding: 8px 10px;
-        border-radius: 8px;
-        border: 1px solid $fg;
-        color: $fg;
-        background-color: $bg;
-      }
-      button {
-        padding: 8px 12px;
-        border-radius: 8px;
-        cursor: pointer;
-        background-color: $green;
-        color: $bg;
-        &:disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
-        }
-      }
-    }
+    padding: 10px;
+    height: 600px;
+    border-radius: 5px;
+    background-color: $dark;
     h2 {
       margin: 0;
       color: $fg;
@@ -349,11 +326,13 @@ onBeforeUnmount(() => {
     }
   }
   .right {
+    display: flex;
     position: sticky;
-    top: 12px;
-    align-self: start;
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 12px;
+    flex-direction: column;
+    padding: 10px;
+    height: 600px;
+    border-radius: 5px;
+    background-color: $dark;
     .placeholder {
       padding: 8px 4px;
     }
@@ -424,6 +403,38 @@ onBeforeUnmount(() => {
         .muted {
           color: $grey;
         }
+      }
+    }
+  }
+  .create {
+    display: flex;
+    grid-column: 2;
+    flex-direction: column;
+    padding: 10px;
+    gap: 10px;
+    height: 200px;
+    border-radius: 5px;
+    background-color: $dark;
+    h3 {
+      margin: 0;
+      color: $fg;
+    }
+    input {
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid $fg;
+      color: $fg;
+      background-color: $bg;
+    }
+    button {
+      padding: 8px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      background-color: $green;
+      color: $bg;
+      &:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
       }
     }
   }

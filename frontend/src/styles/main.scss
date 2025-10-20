@@ -1,10 +1,2 @@
 @use './variables' as *;
 @use './fonts';
-
-body {
-  margin: 0;
-  background-color: $bg;
-  color: $fg;
-  font-family: 'Manrope-Medium';
-  user-select: none;
-}

@@ -778,14 +778,14 @@ onBeforeUnmount(() => { void onLeave() })
   .grid {
     display: grid;
     width: calc(100vw - 20px);
-    height: calc(100vh - 80px);
+    height: calc(100dvh - 80px);
     gap: 10px;
   }
   .theater {
     display: grid;
     grid-template-columns: 1fr 250px;
     width: calc(100vw - 20px);
-    height: calc(100vh - 80px);
+    height: calc(100dvh - 80px);
     gap: 10px;
     .stage {
       position: relative;
