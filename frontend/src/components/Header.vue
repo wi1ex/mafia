@@ -11,7 +11,7 @@
 
     <div v-else class="user">
       <router-link to="/profile" class="profile-link" aria-label="Профиль">
-        <img v-minio-img="{ key: user.user?.avatar_name ? `avatars/${user.user.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="Аватар" class="avatar" />
+        <img v-minio-img="{ key: user.user?.avatar_name ? `avatars/${user.user.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="Аватар" />
         <span class="nick" aria-live="polite">{{ user.user?.username || 'User' }}</span>
       </router-link>
       <button class="btn" type="button" @click="logout">Выйти</button>
@@ -79,15 +79,23 @@ onBeforeUnmount(() => {
 <style lang="scss" scoped>
 .bar {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 12px 16px;
+  justify-content: space-between;
+  padding: 0 10px;
+  width: calc(100% - 20px);
+  height: 50px;
   .brand {
-    color: $fg;
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+    height: 30px;
+    border-radius: 5px;
+    background-color: $fg;
+    color: $dark;
   }
   .note {
-    color: $grey;
     max-width: 460px;
+    color: $fg;
   }
   .user {
     display: flex;
@@ -96,11 +104,16 @@ onBeforeUnmount(() => {
     .profile-link {
       display: flex;
       align-items: center;
-      gap: 10px;
+      justify-content: center;
+      padding: 0 10px;
+      gap: 5px;
+      height: 30px;
+      border-radius: 5px;
+      background-color: $dark;
       text-decoration: none;
-      .avatar {
-        width: 32px;
-        height: 32px;
+      img {
+        width: 24px;
+        height: 24px;
         border-radius: 50%;
         object-fit: cover;
       }
@@ -109,8 +122,12 @@ onBeforeUnmount(() => {
       }
     }
     .btn {
-      padding: 6px 10px;
-      border-radius: 8px;
+      padding: 0 10px;
+      height: 30px;
+      border-radius: 5px;
+      border: none;
+      background-color: $dark;
+      color: $fg;
       cursor: pointer;
     }
   }

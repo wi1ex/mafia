@@ -285,15 +285,15 @@ onBeforeUnmount(() => {
     padding: 8px 12px;
     border-radius: 8px;
     cursor: pointer;
-    background: $green;
+    background-color: $green;
     color: $bg;
     border: 1px solid $green;
     &.primary {
-      background: $blue;
+      background-color: $blue;
       border-color: $blue;
     }
     &.danger {
-      background: $red;
+      background-color: $red;
       border-color: $red;
       color: $fg;
     }
@@ -323,11 +323,11 @@ onBeforeUnmount(() => {
       padding: 8px 12px;
       border-radius: 8px;
       border: 1px solid rgba(255, 255, 255, 0.15);
-      background: $bg;
+      background-color: $bg;
       color: $fg;
       &.active {
         border-color: $blue;
-        background: rgba(14, 165, 233, 0.07);
+        background-color: rgba(14, 165, 233, 0.07);
       }
       &:disabled {
         opacity: 0.6;
@@ -357,7 +357,7 @@ onBeforeUnmount(() => {
         height: 120px;
         border-radius: 50%;
         object-fit: cover;
-        background: $black;
+        background-color: $black;
       }
       .actions {
         display: flex;
@@ -375,7 +375,7 @@ onBeforeUnmount(() => {
         border-radius: 8px;
         border: 1px solid $fg;
         color: $fg;
-        background: $bg;
+        background-color: $bg;
         min-width: 240px;
       }
     }
@@ -383,7 +383,7 @@ onBeforeUnmount(() => {
   .modal {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.5);
+    background-color: rgba(0, 0, 0, 0.5);
     backdrop-filter: blur(2px);
     display: flex;
     align-items: center;
@@ -391,7 +391,7 @@ onBeforeUnmount(() => {
     z-index: 50;
     overscroll-behavior: contain;
     .modal-body {
-      background: $bg;
+      background-color: $bg;
       border: 1px solid rgba(255, 255, 255, 0.15);
       border-radius: 12px;
       padding: 16px;
@@ -399,7 +399,7 @@ onBeforeUnmount(() => {
       flex-direction: column;
       gap: 12px;
       canvas {
-        background: $black;
+        background-color: $black;
         border-radius: 8px;
         width: 240px;
         height: 240px;

@@ -116,9 +116,12 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
 <style scoped lang="scss">
 .tile {
   position: relative;
+  min-width: 0;
+  min-height: 0;
   border-radius: 5px;
   border: 2px solid transparent;
   transition: border-color 0.25s ease-in-out;
+  overflow: hidden;
   &.speaking {
     border-color: $green;
   }

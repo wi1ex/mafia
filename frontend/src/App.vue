@@ -40,17 +40,15 @@ onMounted(async () => {
   align-items: center;
   justify-content: center;
   inset: 0;
-  background-color: $black;
+  background-color: rgba($black, 0.8);
+  backdrop-filter: blur(5px);
   text-align: center;
-  color: $white;
+  color: $fg;
   z-index: 9999;
-  padding: calc(env(safe-area-inset-top, 0px) + 16px)
-           calc(env(safe-area-inset-right, 0px) + 16px)
-           calc(env(safe-area-inset-bottom, 0px) + 16px)
-           calc(env(safe-area-inset-left, 0px) + 16px);
 }
 .rotate-box {
-  max-width: 420px;
+  max-width: 600px;
+  font-size: 20px;
 }
 @media (orientation: portrait) {
   .rotate-overlay {

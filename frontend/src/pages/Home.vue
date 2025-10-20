@@ -1,30 +1,27 @@
 <template>
-  <section class="card card-grid">
+  <section class="card">
     <div class="left">
-      <h2 class="title">Комнаты</h2>
+      <div v-if="auth.isAuthed" class="create">
+        <h3 class="subtitle">Создать комнату</h3>
+        <input v-model.trim="title" class="input" placeholder="Название" maxlength="64" />
+        <input v-model.number="limit" class="input" type="number" min="2" max="12" placeholder="Лимит" />
+        <button class="btn" :disabled="creating || !valid" @click="onCreate">{{ creating ? 'Создаю...' : 'Создать' }}</button>
+      </div>
+
+      <h2 class="title">Список комнат</h2>
       <div v-if="sortedRooms.length === 0" class="muted">Пока пусто</div>
-      <ul class="list" ref="listEl">
+      <ul v-else class="list" ref="listEl">
         <li class="item" v-for="r in sortedRooms" :key="r.id" :class="{ active: r.id === selectedId }" tabindex="0" @click="selectRoom(r.id)">
           <div class="item_main">
             <span class="item_title">#{{ r.id }} — {{ r.title }}</span>
             <span class="item_meta">({{ r.occupancy }}/{{ r.user_limit }}) • владелец: {{ r.creator_name }}</span>
           </div>
-          <span class="chev">›</span>
         </li>
       </ul>
-
-      <div v-if="auth.isAuthed" class="create">
-        <h3 class="subtitle">Создать комнату</h3>
-        <input v-model.trim="title" class="input" placeholder="Название" maxlength="64" />
-        <input v-model.number="limit" class="input" type="number" min="2" max="12" placeholder="Лимит" />
-        <button class="btn" :disabled="creating || !valid" @click="onCreate">
-          {{ creating ? 'Создаю...' : 'Создать' }}
-        </button>
-      </div>
     </div>
 
     <aside class="right" aria-live="polite" ref="rightEl" @click.self="clearSelection">
-      <div v-if="!selectedId" class="placeholder muted">Скоро здесь будет красиво</div>
+      <div v-if="!selectedId" class="placeholder">Скоро здесь будет красиво</div>
 
       <div v-else class="room-info">
         <div class="ri-head">
@@ -50,7 +47,7 @@
         </div>
 
         <div class="ri-actions">
-          <button v-if="auth.isAuthed && selectedRoom && !isFullRoom(selectedRoom)" class="btn enter" :disabled="entering" @click="onEnter">
+          <button v-if="auth.isAuthed && selectedRoom && !isFullRoom(selectedRoom)" :disabled="entering" @click="onEnter">
             {{ entering ? 'Вхожу…' : 'Войти' }}
           </button>
           <div v-else-if="auth.isAuthed && selectedRoom && isFullRoom(selectedRoom)" class="muted">Комната заполнена</div>
@@ -274,80 +271,80 @@ onBeforeUnmount(() => {
 
 <style lang="scss" scoped>
 .card {
-  &.card-grid {
-    display: grid;
-    grid-template-columns: 1fr 420px;
-    gap: 16px;
-    padding: 12px 16px;
-  }
+  display: grid;
+  grid-template-columns: 1fr 600px;
+  padding: 10px;
+  gap: 10px;
   .left {
-    .title {
+    display: flex;
+    flex-direction: column;
+    .create {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 16px;
+      h3 {
+        color: $fg;
+      }
+      input {
+        padding: 8px 10px;
+        border-radius: 8px;
+        border: 1px solid $fg;
+        color: $fg;
+        background-color: $bg;
+      }
+      button {
+        padding: 8px 12px;
+        border-radius: 8px;
+        cursor: pointer;
+        background-color: $green;
+        color: $bg;
+        &:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+      }
+    }
+    h2 {
       color: $fg;
     }
-  }
-  .muted {
-    color: $grey;
-  }
-  .list {
-    margin: 8px 0 0;
-    padding: 0;
-    list-style: none;
-  }
-  .item {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 12px;
-    margin: 6px 0;
-    border: 1px solid transparent;
-    border-radius: 10px;
-    cursor: pointer;
-    color: $fg;
-    background: transparent;
-    transition: border-color 0.15s ease-in-out, background 0.15s ease-in-out;
-    &.active {
-      border-color: $blue;
-      background: rgba(14, 165, 233, 0.07);
+    .muted {
+      color: $grey;
     }
-    .item_main {
-      display: flex;
-      align-items: baseline;
-      gap: 6px;
-      .item_title {
-        font-weight: 600;
+    .list {
+      margin: 8px 0 0;
+      padding: 0;
+      list-style: none;
+      .item {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 12px;
+        margin: 6px 0;
+        border: 1px solid transparent;
+        border-radius: 10px;
+        cursor: pointer;
+        color: $fg;
+        background: transparent;
+        transition: border-color 0.15s ease-in-out, background 0.15s ease-in-out;
+        &.active {
+          border-color: $blue;
+          background-color: rgba(14, 165, 233, 0.07);
+        }
+        .item_main {
+          display: flex;
+          align-items: baseline;
+          gap: 6px;
+          .item_title {
+            font-weight: 600;
+          }
+          .item_meta {
+            margin-left: 6px;
+            color: $grey;
+          }
+        }
       }
-      .item_meta {
-        margin-left: 6px;
-        color: $grey;
-      }
-    }
-    .chev {
-      opacity: 0.6;
-    }
-  }
-  .create {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-top: 16px;
-  }
-  .input {
-    padding: 8px 10px;
-    border-radius: 8px;
-    border: 1px solid $fg;
-    color: $fg;
-    background: $bg;
-  }
-  .btn {
-    padding: 8px 12px;
-    border-radius: 8px;
-    cursor: pointer;
-    background: $green;
-    color: $bg;
-    &:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
     }
   }
   .right {
@@ -356,62 +353,76 @@ onBeforeUnmount(() => {
     align-self: start;
     border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: 12px;
-  }
-  .placeholder {
-    padding: 8px 4px;
-  }
-  .room-info {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    padding: 12px;
-    .ri-head {
-      .ri-title {
-        margin: 0;
-        color: $fg;
-      }
-      .ri-meta {
-        display: flex;
-        gap: 10px;
-        color: $grey;
-      }
+    .placeholder {
+      padding: 8px 4px;
     }
-    .ri-members {
-      .ri-subtitle {
-        margin: 6px 0;
-        color: $fg;
-      }
-      .ri-grid {
-        list-style: none;
-        margin: 8px 0 0;
-        padding: 0;
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 8px;
-        max-height: 420px;
-        overflow: auto;
-        .ri-user {
+    .room-info {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 12px;
+      .ri-head {
+        .ri-title {
+          margin: 0;
+          color: $fg;
+        }
+        .ri-meta {
           display: flex;
           gap: 10px;
-          align-items: center;
-          .ri-ava {
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            object-fit: cover;
-            background: $black;
-          }
-          .ri-u-main {
-            .ri-u-name {
-              font-weight: 600;
+          color: $grey;
+        }
+      }
+      .ri-members {
+        .ri-subtitle {
+          margin: 6px 0;
+          color: $fg;
+        }
+        .muted {
+          color: $grey;
+        }
+        .ri-grid {
+          list-style: none;
+          margin: 8px 0 0;
+          padding: 0;
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 8px;
+          max-height: 600px;
+          overflow: auto;
+          .ri-user {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            .ri-ava {
+              width: 36px;
+              height: 36px;
+              border-radius: 50%;
+              object-fit: cover;
+              background-color: $black;
+            }
+            .ri-u-main {
+              .ri-u-name {
+                font-weight: 600;
+              }
             }
           }
         }
       }
-    }
-    .ri-actions {
-      .enter {
-        width: 100%;
+      .ri-actions {
+        button {
+          padding: 8px 12px;
+          border-radius: 8px;
+          cursor: pointer;
+          background-color: $green;
+          color: $bg;
+          &:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+          }
+        }
+        .muted {
+          color: $grey;
+        }
       }
     }
   }
