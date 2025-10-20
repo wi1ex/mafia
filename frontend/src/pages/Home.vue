@@ -1,7 +1,7 @@
 <template>
   <section class="card">
     <div class="left">
-      <h2>Список комнат</h2>
+      <p>Список комнат</p>
       <div v-if="sortedRooms.length === 0" class="muted">Пока пусто</div>
       <ul v-else class="list" ref="listEl">
         <li class="item" v-for="r in sortedRooms" :key="r.id" :class="{ active: r.id === selectedId }" tabindex="0" @click="selectRoom(r.id)">
@@ -18,7 +18,7 @@
 
       <div v-else class="room-info">
         <div class="ri-head">
-          <h3 class="ri-title">#{{ selectedRoom?.id }} — {{ selectedRoom?.title || '...' }}</h3>
+          <p class="ri-title">#{{ selectedRoom?.id }} — {{ selectedRoom?.title || '...' }}</p>
           <div class="ri-meta">
             <span>Участников: {{ selectedRoom?.occupancy ?? 0 }}/{{ selectedRoom?.user_limit ?? 0 }}</span>
             <span>Владелец: {{ selectedRoom?.creator_name || '—' }}</span>
@@ -26,7 +26,7 @@
         </div>
 
         <div class="ri-members">
-          <h4 class="ri-subtitle">В комнате</h4>
+          <p class="ri-subtitle">В комнате</p>
           <div v-if="loadingInfo" class="muted">Загрузка…</div>
           <div v-else-if="(info?.members?.length ?? 0) === 0" class="muted">Пока никого</div>
           <ul v-else class="ri-grid">
@@ -50,7 +50,7 @@
     </aside>
 
     <div v-if="auth.isAuthed" class="create">
-      <h3>Создать комнату</h3>
+      <p>Создать комнату</p>
       <input v-model.trim="title" class="input" placeholder="Название" maxlength="64" />
       <input v-model.number="limit" class="input" type="number" min="2" max="12" placeholder="Лимит" />
       <button class="btn" :disabled="creating || !valid" @click="onCreate">{{ creating ? 'Создаю...' : 'Создать' }}</button>
@@ -279,33 +279,35 @@ onBeforeUnmount(() => {
     display: flex;
     flex-direction: column;
     padding: 10px;
+    gap: 10px;
     height: 600px;
     border-radius: 5px;
     background-color: $dark;
-    h2 {
+    p {
       margin: 0;
+      font-size: 24px;
       color: $fg;
     }
     .muted {
       color: $grey;
     }
     .list {
-      margin: 8px 0 0;
+      margin: 0;
       padding: 0;
       list-style: none;
       .item {
         display: grid;
         grid-template-columns: 1fr auto;
         align-items: center;
-        gap: 8px;
-        padding: 10px 12px;
+        gap: 10px;
+        padding: 10px;
         margin: 6px 0;
         border: 1px solid transparent;
-        border-radius: 10px;
+        border-radius: 5px;
         cursor: pointer;
         color: $fg;
         background: transparent;
-        transition: border-color 0.15s ease-in-out, background 0.15s ease-in-out;
+        transition: border-color 0.25s ease-in-out, background 0.25s ease-in-out;
         &.active {
           border-color: $blue;
           background-color: rgba(14, 165, 233, 0.07);
@@ -339,12 +341,15 @@ onBeforeUnmount(() => {
     .room-info {
       display: flex;
       flex-direction: column;
-      gap: 12px;
-      padding: 12px;
+      gap: 10px;
       .ri-head {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
         .ri-title {
           margin: 0;
           color: $fg;
+          font-size: 24px;
         }
         .ri-meta {
           display: flex;
@@ -353,26 +358,36 @@ onBeforeUnmount(() => {
         }
       }
       .ri-members {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
         .ri-subtitle {
-          margin: 6px 0;
+          margin: 0;
           color: $fg;
+          font-size: 20px;
         }
         .muted {
-          color: $grey;
+          width: 100%;
+          height: 35px;
+          border-radius: 5px;
+          background-color: $bg;
+          color: $fg;
         }
         .ri-grid {
-          list-style: none;
-          margin: 8px 0 0;
-          padding: 0;
           display: grid;
           grid-template-columns: 1fr;
-          gap: 8px;
-          max-height: 600px;
+          margin: 0;
+          padding: 0;
+          gap: 5px;
+          max-height: 475px;
+          list-style: none;
           overflow: auto;
           .ri-user {
             display: flex;
-            gap: 10px;
             align-items: center;
+            gap: 10px;
+            width: 100%;
+            height: 35px;
             .ri-ava {
               width: 36px;
               height: 36px;
@@ -415,9 +430,10 @@ onBeforeUnmount(() => {
     height: 200px;
     border-radius: 5px;
     background-color: $dark;
-    h3 {
+    p {
       margin: 0;
       color: $fg;
+      font-size: 24px;
     }
     input {
       padding: 8px 10px;

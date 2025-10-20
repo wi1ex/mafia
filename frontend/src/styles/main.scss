@@ -1,2 +1,18 @@
 @use './variables' as *;
 @use './fonts';
+
+body {
+  margin: 0;
+  user-select: none;
+}
+
+#app{
+  display: flex;
+  flex-direction: column;
+  width: 100vw;
+  height: 100dvh;
+  background-color: $bg;
+  color: $fg;
+  font-family: 'Manrope-Medium';
+  line-height: 1;
+}

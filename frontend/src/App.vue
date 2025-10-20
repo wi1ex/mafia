@@ -34,20 +34,6 @@ onMounted(async () => {
 
 
 <style lang="scss" scoped>
-body {
-  margin: 0;
-  background-color: $bg;
-  color: $fg;
-  font-family: 'Manrope-Medium';
-  user-select: none;
-}
-#app{
-  display: flex;
-  flex-direction: column;
-  width: 100vw;
-  height: 100dvh;
-}
-
 .rotate-overlay {
   display: none;
   position: fixed;
