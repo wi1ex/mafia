@@ -6,8 +6,8 @@
       <ul v-else class="list" ref="listEl">
         <li class="item" v-for="r in sortedRooms" :key="r.id" :class="{ active: r.id === selectedId }" tabindex="0" @click="selectRoom(r.id)">
           <div class="item_main">
-            <span class="item_title">#{{ r.id }} — {{ r.title }}</span>
-            <span class="item_meta">({{ r.occupancy }}/{{ r.user_limit }}) • владелец: {{ r.creator_name }}</span>
+            <span class="item_title">Комната #{{ r.id }}: {{ r.title }}</span>
+            <span class="item_meta"> • ({{ r.occupancy }}/{{ r.user_limit }}) • Владелец: {{ r.creator_name }}</span>
           </div>
         </li>
       </ul>
@@ -19,7 +19,7 @@
       <div v-else class="room-info">
         <div class="ri-head">
           <div class="ri-title">
-            <p class="ri-name">Комната #{{ selectedRoom?.id }}: {{ selectedRoom?.title || '...' }}</p>
+            <p class="ri-name">Комната #{{ selectedRoom?.id }}: {{ selectedRoom?.title }}</p>
 
             <div class="ri-actions">
               <button v-if="auth.isAuthed && selectedRoom && !isFullRoom(selectedRoom)" :disabled="entering" @click="onEnter">
@@ -30,7 +30,7 @@
             </div>
           </div>
           <div class="ri-meta">
-            <span>Владелец: {{ selectedRoom?.creator_name || '—' }}</span>
+            <span>Владелец: {{ selectedRoom?.creator_name }}</span>
             <span>Параметры: ...</span>
           </div>
         </div>
