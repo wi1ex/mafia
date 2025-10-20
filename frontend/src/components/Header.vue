@@ -90,8 +90,8 @@ onBeforeUnmount(() => {
     padding: 0 10px;
     height: 30px;
     border-radius: 5px;
-    background-color: $fg;
-    color: $dark;
+    background-color: $dark;
+    color: $fg;
   }
   .note {
     max-width: 460px;
@@ -109,7 +109,7 @@ onBeforeUnmount(() => {
       gap: 5px;
       height: 30px;
       border-radius: 5px;
-      background-color: $dark;
+      background-color: $fg;
       text-decoration: none;
       img {
         width: 24px;
@@ -118,7 +118,7 @@ onBeforeUnmount(() => {
         object-fit: cover;
       }
       .nick {
-        color: $fg;
+        color: $bg;
       }
     }
     .btn {

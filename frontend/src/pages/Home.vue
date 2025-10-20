@@ -2,13 +2,13 @@
   <section class="card">
     <div class="left">
       <div v-if="auth.isAuthed" class="create">
-        <h3 class="subtitle">Создать комнату</h3>
+        <h3>Создать комнату</h3>
         <input v-model.trim="title" class="input" placeholder="Название" maxlength="64" />
         <input v-model.number="limit" class="input" type="number" min="2" max="12" placeholder="Лимит" />
         <button class="btn" :disabled="creating || !valid" @click="onCreate">{{ creating ? 'Создаю...' : 'Создать' }}</button>
       </div>
 
-      <h2 class="title">Список комнат</h2>
+      <h2>Список комнат</h2>
       <div v-if="sortedRooms.length === 0" class="muted">Пока пусто</div>
       <ul v-else class="list" ref="listEl">
         <li class="item" v-for="r in sortedRooms" :key="r.id" :class="{ active: r.id === selectedId }" tabindex="0" @click="selectRoom(r.id)">
@@ -282,8 +282,8 @@ onBeforeUnmount(() => {
       display: flex;
       align-items: center;
       gap: 8px;
-      margin-top: 16px;
       h3 {
+        margin: 0;
         color: $fg;
       }
       input {
@@ -306,6 +306,7 @@ onBeforeUnmount(() => {
       }
     }
     h2 {
+      margin: 0;
       color: $fg;
     }
     .muted {
