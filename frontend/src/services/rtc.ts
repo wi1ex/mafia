@@ -1,4 +1,4 @@
-import { ref, reactive, type Ref } from 'vue'
+import { ref, type Ref } from 'vue'
 import {
   LocalTrackPublication,
   RemoteParticipant,
@@ -46,7 +46,6 @@ export type UseRTC = {
   isScreenKey: (key: string) => boolean
   startScreenShare: (opts?: { audio?: boolean }) => Promise<boolean>
   initRoom: (opts?: {
-    onMediaDevicesError?: (e: unknown) => void
     onScreenShareEnded?: () => void | Promise<void>
     publishDefaults?: ConstructorParameters<typeof LkRoom>[0]['publishDefaults']
     audioCaptureDefaults?: ConstructorParameters<typeof LkRoom>[0]['audioCaptureDefaults']
@@ -76,8 +75,6 @@ export type UseRTC = {
   setUserVolume: (id: string, v: number) => void
   getUserVolume: (id: string) => number
   resumeAudio: () => Promise<void>
-  isVideoReady: (id: string) => boolean
-  isScreenReady: (id: string) => boolean
   cleanupPeer: (id: string) => void
 }
 
@@ -99,12 +96,6 @@ export function useRTC(): UseRTC {
   const hasVideoInput = ref(false)
   const activeSpeakers = ref<Set<string>>(new Set())
   const audibleIds = ref<Set<string>>(new Set())
-  const videoReady = reactive<Record<string, boolean>>({})
-  const screenReady = reactive<Record<string, boolean>>({})
-
-  type ReadyHandlers = { el: HTMLVideoElement; playing: any; waiting: any; loadeddata: any; emptied: any }
-  const videoElHandlers  = new Map<string, ReadyHandlers>()
-  const screenElHandlers = new Map<string, ReadyHandlers>()
 
   const screenKey = (id: string) => `${id}#s`
   const isScreenKey = (key: string) => key.endsWith('#s')
@@ -113,7 +104,7 @@ export function useRTC(): UseRTC {
   const highVideoQuality = VideoPresets.h540
   const highScreenQuality = ScreenSharePresets.h720fps30
 
-  type RefDeps = { elMap: Map<string, HTMLVideoElement>; handlerMap: Map<string, ReadyHandlers>; readyMap: Record<string, boolean>; source: Track.Source }
+  type RefDeps = { elMap: Map<string, HTMLVideoElement>; source: Track.Source }
   type SrcWrap = { node: MediaStreamAudioSourceNode; stream: MediaStream }
   const gainNodes = new Map<string, GainNode>()
   const msrcNodes = new Map<string, SrcWrap>()
@@ -310,7 +301,7 @@ export function useRTC(): UseRTC {
     return true
   }
 
-  const screenVideoRef = makeVideoRef({ elMap: screenVideoEls, handlerMap: screenElHandlers, readyMap: screenReady, source: Track.Source.ScreenShare })
+  const screenVideoRef = makeVideoRef({ elMap: screenVideoEls, source: Track.Source.ScreenShare })
 
   let preparedScreen: LocalTrack[] | null = null
   async function prepareScreenShare(opts?: { audio?: boolean }): Promise<boolean> {
@@ -390,60 +381,24 @@ export function useRTC(): UseRTC {
       }
     })
   }
-  function bindReadyEvents(id: string, el: HTMLVideoElement, store: Map<string, {el: HTMLVideoElement, playing: any, waiting: any, loadeddata: any, emptied: any}>, ready: Record<string, boolean>) {
-    const prev = store.get(id)
-    if (prev) {
-      try {
-        prev.el.removeEventListener('playing', prev.playing)
-        prev.el.removeEventListener('waiting', prev.waiting)
-        prev.el.removeEventListener('loadeddata', prev.loadeddata)
-        prev.el.removeEventListener('emptied', prev.emptied)
-      } catch {}
-      store.delete(id)
-    }
-    const playing = () => { ready[id] = true }
-    const waiting = () => { ready[id] = false }
-    const loadeddata = () => { ready[id] = true }
-    const emptied = () => { ready[id] = false }
-    el.addEventListener('playing', playing)
-    el.addEventListener('waiting',waiting)
-    el.addEventListener('loadeddata', loadeddata)
-    el.addEventListener('emptied',emptied)
-    store.set(id,{ el, playing, waiting, loadeddata, emptied })
-  }
   function makeVideoRef(deps: RefDeps) {
     return (id: string) => (el: HTMLVideoElement|null) => {
       const prev = deps.elMap.get(id)
       if (!el) {
-        const h = deps.handlerMap.get(id)
-        if (h) {
-          try {
-            h.el.removeEventListener('playing', h.playing)
-            h.el.removeEventListener('waiting', h.waiting)
-            h.el.removeEventListener('loadeddata', h.loadeddata)
-            h.el.removeEventListener('emptied', h.emptied)
-          } catch {}
-          deps.handlerMap.delete(id)
-        }
         if (prev) { try { prev.srcObject = null } catch {} }
-        delete deps.readyMap[id]
         deps.elMap.delete(id)
         return
       }
       if (prev && prev !== el) { try { prev.srcObject = null } catch {} }
       setBaseVideoAttrs(el, id===localId.value)
       deps.elMap.set(id, el)
-      bindReadyEvents(id, el, deps.handlerMap, deps.readyMap)
       const room = lk.value
       if (!room) return
       attachBySource(room, id, deps.source, el)
     }
   }
 
-  const videoRef = makeVideoRef({ elMap: videoEls, handlerMap: videoElHandlers, readyMap: videoReady, source: Track.Source.Camera })
-
-  const isVideoReady = (id: string) => videoReady[id]
-  const isScreenReady = (id: string) => screenReady[id]
+  const videoRef = makeVideoRef({ elMap: videoEls, source: Track.Source.Camera })
 
   function destroyAudioGraph(id: string) {
     const w = msrcNodes.get(id)
@@ -663,29 +618,6 @@ export function useRTC(): UseRTC {
       screenVideoEls.delete(id)
     }
 
-    const vh = videoElHandlers.get(id)
-    if (vh) {
-      try {
-        vh.el.removeEventListener('playing', vh.playing)
-        vh.el.removeEventListener('waiting', vh.waiting)
-        vh.el.removeEventListener('loadeddata', vh.loadeddata)
-        vh.el.removeEventListener('emptied', vh.emptied)
-      } catch {}
-      videoElHandlers.delete(id)
-    }
-    const sh = screenElHandlers.get(id)
-    if (sh) {
-      try {
-        sh.el.removeEventListener('playing', sh.playing)
-        sh.el.removeEventListener('waiting', sh.waiting)
-        sh.el.removeEventListener('loadeddata', sh.loadeddata)
-        sh.el.removeEventListener('emptied', sh.emptied)
-      } catch {}
-      screenElHandlers.delete(id)
-    }
-    delete videoReady[id]
-    delete screenReady[id]
-
     const sAud = new Set(audibleIds.value)
     sAud.delete(id)
     audibleIds.value = sAud
@@ -697,34 +629,6 @@ export function useRTC(): UseRTC {
   }
 
   function cleanupMedia() {
-    videoElHandlers.forEach((h, id) => {
-      const el = videoEls.get(id)
-      if (el) {
-        try {
-          el.removeEventListener('playing', h.playing)
-          el.removeEventListener('waiting', h.waiting)
-          el.removeEventListener('loadeddata', h.loadeddata)
-          el.removeEventListener('emptied', h.emptied)
-        } catch {}
-      }
-    })
-    videoElHandlers.clear()
-    Object.keys(videoReady).forEach(k => delete videoReady[k])
-
-    screenElHandlers.forEach((h, id) => {
-      const el = screenVideoEls.get(id)
-      if (el) {
-        try {
-          el.removeEventListener('playing', h.playing)
-          el.removeEventListener('waiting', h.waiting)
-          el.removeEventListener('loadeddata', h.loadeddata)
-          el.removeEventListener('emptied', h.emptied)
-        } catch {}
-      }
-    })
-    screenElHandlers.clear()
-    Object.keys(screenReady).forEach(k => delete screenReady[k])
-
     activeSpeakers.value = new Set()
     audibleIds.value = new Set()
     videoEls.forEach(el => { try { el.srcObject = null } catch {} })
@@ -757,7 +661,6 @@ export function useRTC(): UseRTC {
   }
 
   function initRoom(opts?: {
-    onMediaDevicesError?: (e: unknown) => void
     onScreenShareEnded?: () => void | Promise<void>
     publishDefaults?: ConstructorParameters<typeof LkRoom>[0]['publishDefaults']
     audioCaptureDefaults?: ConstructorParameters<typeof LkRoom>[0]['audioCaptureDefaults']
@@ -807,12 +710,10 @@ export function useRTC(): UseRTC {
         const el = screenVideoEls.get(localId.value)
         if (el && pub.track) { try { pub.track.detach(el) } catch {} }
         try { opts?.onScreenShareEnded?.() } catch {}
-        screenReady[localId.value] = false
       }
       if (pub.kind === Track.Kind.Video && pub.source === Track.Source.Camera) {
         const el = videoEls.get(localId.value)
         if (el && pub.track) { try { pub.track.detach(el) } catch {} }
-        videoReady[localId.value] = false
       }
     })
 
@@ -844,8 +745,6 @@ export function useRTC(): UseRTC {
         const isScreenV = (pub as RemoteTrackPublication).source === Track.Source.ScreenShare
         const el = isScreenV ? screenVideoEls.get(id) : videoEls.get(id)
         if (el) { try { t.detach(el) } catch {} }
-        if (isScreenV) screenReady[id] = false
-        else videoReady[id] = false
       } else if (t.kind === Track.Kind.Audio) {
         const isScreenA = (pub as RemoteTrackPublication).source === Track.Source.ScreenShareAudio
         const aid = isScreenA ? screenKey(id) : id
@@ -891,8 +790,6 @@ export function useRTC(): UseRTC {
         audibleIds.value = s
       }
     })
-
-    room.on(RoomEvent.MediaDevicesError, (e: any) => { opts?.onMediaDevicesError?.(e) })
 
     room.on(RoomEvent.MediaDevicesChanged, refreshDevices)
 
@@ -984,8 +881,6 @@ export function useRTC(): UseRTC {
     screenKey,
     isScreenKey,
     startScreenShare,
-    isVideoReady,
-    isScreenReady,
     cleanupPeer,
   }
 }

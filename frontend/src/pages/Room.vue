@@ -8,7 +8,6 @@
         :local-id="localId"
         :speaking="rtc.isSpeaking(id)"
         :video-ref="stableVideoRef(id)"
-        :is-video-ready="rtc.isVideoReady"
         :default-avatar="defaultAvatar"
         :volume-icon="volumeIconForUser(id)"
         :state-icon="stateIcon"
@@ -32,9 +31,7 @@
     <div v-else class="theater">
       <div class="stage">
         <video :ref="stableScreenRef(screenOwnerId)" playsinline autoplay />
-        <div v-if="(!!screenOwnerId && !rtc.isScreenReady(screenOwnerId)) || pendingScreen" class="loading-overlay" aria-label="Загрузка экрана">
-          <div class="spinner"></div>
-        </div>
+
         <div v-if="screenOwnerId !== localId" class="volume">
           <button v-if="openVolFor !== streamAudioKey" @click.stop="toggleVolume(streamAudioKey)"
                   :disabled="!speakersOn || isBlocked(screenOwnerId,'speakers')" aria-label="volume">
@@ -58,7 +55,6 @@
           :side="true"
           :speaking="rtc.isSpeaking(id)"
           :video-ref="stableVideoRef(id)"
-          :is-video-ready="rtc.isVideoReady"
           :default-avatar="defaultAvatar"
           :volume-icon="volumeIconForUser(id)"
           :state-icon="stateIcon"
@@ -130,10 +126,6 @@
         </label>
       </div>
     </div>
-    <div v-if="booting" class="boot-overlay" aria-live="polite">
-      <div class="spinner"></div>
-      <div>Загрузка комнаты…</div>
-    </div>
   </section>
 </template>
 
@@ -191,7 +183,6 @@ const camOn = computed({ get: () => local.cam, set: v => { local.cam = v } })
 const speakersOn = computed({ get: () => local.speakers, set: v => { local.speakers = v } })
 const visibilityOn = computed({ get: () => local.visibility, set: v => { local.visibility = v } })
 const socket = ref<Socket | null>(null)
-const netConnected = ref(false)
 const joinInFlight = ref<Promise<any> | null>(null)
 const joinedRoomId = ref<number | null>(null)
 const statusByUser = reactive(new Map<string, StatusState>())
@@ -213,7 +204,6 @@ const pendingQuality = ref(false)
 const videoQuality = computed(() => rtc.remoteQuality.value)
 const volUi = reactive<Record<string, number>>({})
 
-const booting = computed(() => !(netConnected.value && joinedRoomId.value === rid && !!rtc.lk.value))
 const avatarByUser = reactive(new Map<string, string | null>())
 function avatarKey(id: string): string {
   const name = avatarByUser.get(id) || ''
@@ -452,7 +442,6 @@ function connectSocket() {
   })
 
   socket.value?.on('connect', async () => {
-    netConnected.value = true
     if (joinInFlight.value || joinedRoomId.value === rid) return
     try {
       const j:any = await safeJoin()
@@ -466,7 +455,6 @@ function connectSocket() {
   })
 
   socket.value?.on('disconnect', () => {
-    netConnected.value = false
     joinedRoomId.value = null
     openPanelFor.value = ''
     openVolFor.value = ''
@@ -493,8 +481,6 @@ function connectSocket() {
 
   socket.value.on('member_left', (p: any) => {
     const id = String(p.user_id)
-    const isInLK = Array.from(rtc.lk.value?.remoteParticipants.values() ?? []).some(x => String(x.identity) === id)
-    if (!isInLK) rtc.cleanupPeer(id)
     purgePeerUI(id)
   })
 
@@ -632,61 +618,46 @@ async function publishState(delta: Partial<{ mic: boolean; cam: boolean; speaker
   return false
 }
 
-const toggleFactory = (k: keyof typeof local, onEnable?: () => Promise<boolean | void>, onDisable?: () => Promise<void>, opts?: { optimistic?: boolean }) => async () => {
+const toggleFactory = (k: keyof typeof local, onEnable?: () => Promise<boolean | void>, onDisable?: () => Promise<void>) => async () => {
   if (pending[k]) return
   if (blockedSelf.value[k]) return
-  const want = !local[k]
-  pending[k] = true
   try {
+    pending[k] = true
+    const want = !local[k]
     if (want) {
-      if (opts?.optimistic) local[k] = true
-      if (k === 'speakers') rtc.setAudioSubscriptionsForAll(true)
-      if (k === 'visibility') rtc.setVideoSubscriptionsForAll(true)
       const okLocal = (await onEnable?.()) !== false
-      if (!okLocal) {
-        if (opts?.optimistic) {
-          if (k === 'speakers') rtc.setAudioSubscriptionsForAll(false)
-          if (k === 'visibility') rtc.setVideoSubscriptionsForAll(false)
-          local[k] = false
-          void publishState({ [k]: false } as any)
-        }
-        return
-      }
-      if (!opts?.optimistic) local[k] = true
-      void publishState({ [k]: true } as any)
+      if (!okLocal) return
+      local[k] = true
+      try { await publishState({ [k]: true } as any) } catch {}
     } else {
       await onDisable?.()
       local[k] = false
-      if (k === 'speakers')   rtc.setAudioSubscriptionsForAll(false)
-      if (k === 'visibility') rtc.setVideoSubscriptionsForAll(false)
-      void publishState({ [k]: false } as any)
+      try { await publishState({ [k]: false } as any) } catch {}
     }
   } finally { pending[k] = false }
 }
 
 const toggleMic = toggleFactory('mic',
   async () => await rtc.enable('audioinput'),
-  async () => await rtc.disable('audioinput')
+  async () => await rtc.disable('audioinput'),
 )
 const toggleCam = toggleFactory('cam',
   async () => await rtc.enable('videoinput'),
   async () => await rtc.disable('videoinput'),
-  { optimistic: true }
 )
 const toggleSpeakers = toggleFactory('speakers',
   async () => {
     rtc.setAudioSubscriptionsForAll(true)
-    await rtc.resumeAudio()
     return true
   },
-  async () => rtc.setAudioSubscriptionsForAll(false)
+  async () => rtc.setAudioSubscriptionsForAll(false),
 )
 const toggleVisibility = toggleFactory('visibility',
   async () => {
     rtc.setVideoSubscriptionsForAll(true)
     return true
   },
-  async () => rtc.setVideoSubscriptionsForAll(false)
+  async () => rtc.setVideoSubscriptionsForAll(false),
 )
 
 const toggleScreen = async () => {
@@ -708,11 +679,7 @@ const toggleScreen = async () => {
         screenOwnerId.value = ''
         alert('Ошибка публикации видеопотока или доступ отклонён')
       }
-    } else {
-      await rtc.stopScreenShare()
-      await sendAck('screen', { on: false })
-      screenOwnerId.value = ''
-    }
+    } else await rtc.stopScreenShare()
   } finally { pendingScreen.value = false }
 }
 
@@ -760,9 +727,6 @@ onMounted(async () => {
     applyJoinAck(j)
 
     rtc.initRoom({
-      onMediaDevicesError: (e) => {
-        console.error('MediaDevicesError', e)
-      },
       onScreenShareEnded: async () => {
         if (isMyScreen.value) {
           screenOwnerId.value = ''
@@ -834,25 +798,6 @@ onBeforeUnmount(() => { void onLeave() })
         object-fit: contain;
         background-color: $black;
       }
-      .loading-overlay{
-        position: absolute;
-        inset: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background-color: rgba($black, 0.35);
-        z-index: 10;
-        border-radius: 5px;
-      }
-      .spinner{
-        width: 40px;
-        height: 40px;
-        border: 3px solid rgba(255, 255, 255, 0.25);
-        border-top-color: $fg;
-        border-radius: 50%;
-        animation: spin 1s linear infinite;
-      }
-      @keyframes spin { to { transform: rotate(360deg) } }
       .volume {
         display: flex;
         position: absolute;
@@ -979,22 +924,6 @@ onBeforeUnmount(() => { void onLeave() })
         }
       }
     }
-  }
-  .boot-overlay{
-    position: absolute;
-    left: 10px;
-    right: 10px;
-    top: 10px;
-    bottom: 70px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    align-items: center;
-    justify-content: center;
-    background-color: rgba($black, 0.6);
-    border-radius: 8px;
-    z-index: 50;
-    color: $fg;
   }
 }
 </style>

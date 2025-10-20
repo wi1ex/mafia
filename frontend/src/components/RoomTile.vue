@@ -1,9 +1,6 @@
 <template>
   <div class="tile" :class="[{ speaking }, side && 'side']" tabindex="0">
     <video v-show="showVideo" :ref="videoRef" playsinline autoplay :muted="id === localId" />
-    <div v-if="isOn(id,'cam') && !isBlocked(id,'cam') && !isVideoReady(id)" class="loading-overlay" aria-label="Загрузка видео">
-      <div class="spinner"></div>
-    </div>
 
     <div v-show="!showVideo" class="ava-wrap">
       <img v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar }" alt="" />
@@ -91,7 +88,6 @@ const props = withDefaults(defineProps<{
   defaultAvatar: string
   volumeIcon: string
   videoRef: (el: HTMLVideoElement | null) => void
-  isVideoReady: (id: string) => boolean
   openPanelFor: string
   openVolFor: string
   speakersOn: boolean
@@ -133,25 +129,6 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
     border-radius: 3px;
     background-color: $black;
   }
-  .loading-overlay{
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background-color: rgba($black, 0.35);
-    z-index: 4;
-    border-radius: 3px;
-  }
-  .spinner{
-    width: 36px;
-    height: 36px;
-    border: 3px solid rgba(255, 255, 255, 0.25);
-    border-top-color: $fg;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-  }
-  @keyframes spin { to { transform: rotate(360deg) } }
   .ava-wrap {
     display: flex;
     position: absolute;
