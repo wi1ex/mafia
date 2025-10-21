@@ -6,7 +6,7 @@
       <img v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar }" alt="" />
     </div>
 
-    <div class="titlebar" :class="{ 'has-vol': openVol }">
+    <div class="titlebar">
       <div class="titlebar-div">
         <button :disabled="id===localId" :aria-disabled="id===localId" @click.stop="$emit('toggle-panel', id)" :aria-expanded="openPanel">
           <img v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar }" alt="" />
@@ -22,16 +22,11 @@
         </div>
       </div>
 
-      <div v-if="id !== localId" class="volume">
-        <button v-if="!openVol" @click.stop="$emit('toggle-volume', id)" :disabled="!speakersOn || isBlocked(id,'speakers')" aria-label="volume">
-          <img :src="volumeIcon" alt="vol" />
-        </button>
-        <div v-else class="vol-inline" @click.stop>
-          <img :src="volumeIcon" alt="vol" />
-          <input type="range" min="0" max="200" :disabled="!speakersOn || isBlocked(id,'speakers')" :value="vol ?? 100"
-                 @input="$emit('vol-input', id, Number(($event.target as HTMLInputElement).value))" />
-          <span>{{ vol ?? 100 }}%</span>
-        </div>
+      <div v-if="id !== localId" class="volume" @click.stop>
+        <img :src="volumeIcon" alt="vol" />
+        <input type="range" min="0" max="200" :disabled="!speakersOn || isBlocked(id,'speakers')" :value="vol ?? 100"
+               @input="$emit('vol-input', id, Number(($event.target as HTMLInputElement).value))" />
+        <span>{{ vol ?? 100 }}%</span>
       </div>
     </div>
 
@@ -89,7 +84,6 @@ const props = withDefaults(defineProps<{
   volumeIcon: string
   videoRef: (el: HTMLVideoElement | null) => void
   openPanelFor: string
-  openVolFor: string
   speakersOn: boolean
   vol?: number
   stateIcon: (k: IconKind, id: string) => string
@@ -102,14 +96,12 @@ const props = withDefaults(defineProps<{
 
 defineEmits<{
   (e: 'toggle-panel', id: string): void
-  (e: 'toggle-volume', id: string): void
   (e: 'vol-input', id: string, v: number): void
   (e: 'block', key: 'mic'|'cam'|'speakers'|'visibility'|'screen', id: string): void
   (e: 'kick', id: string): void
 }>()
 
 const openPanel = computed(() => props.openPanelFor === props.id)
-const openVol = computed(() => props.openVolFor === props.id)
 const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked(props.id, 'cam'))
 </script>
 
@@ -161,9 +153,6 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
     background-color: rgba($black, 0.5);
     backdrop-filter: blur(5px);
     z-index: 5;
-    &.has-vol {
-      z-index: 10;
-    }
     .titlebar-div {
       display: flex;
       align-items: center;
@@ -206,52 +195,33 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
     }
     .volume {
       display: flex;
-      position: relative;
+      position: absolute;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      top: -20px;
+      right: 0;
+      padding: 8px 5px;
+      width: 30px;
+      height: 200px;
+      border: none;
+      border-radius: 3px;
+      background-color: $dark;
+      cursor: pointer;
       -webkit-overflow-scrolling: touch;
-      button {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 40px;
-        height: 40px;
-        border: none;
-        border-radius: 3px;
-        background-color: rgba($dark, 0.5);
-        cursor: pointer;
-        img {
-          width: 24px;
-          height: 24px;
-        }
+      img {
+        width: 24px;
+        height: 24px;
       }
-      .vol-inline {
-        display: flex;
-        position: absolute;
-        flex-direction: column;
-        align-items: center;
-        justify-content: space-between;
-        top: -20px;
-        right: 0;
-        padding: 8px 5px;
-        width: 30px;
-        height: 200px;
-        border: none;
-        border-radius: 3px;
-        background-color: $dark;
-        cursor: pointer;
-        img {
-          width: 24px;
-          height: 24px;
-        }
-        input[type="range"] {
-          width: 140px;
-          height: 10px;
-          accent-color: $fg;
-          transform: rotate(270deg);
-        }
-        span {
-          text-align: center;
-          font-size: 12px;
-        }
+      input[type="range"] {
+        width: 140px;
+        height: 10px;
+        accent-color: $fg;
+        transform: rotate(270deg);
+      }
+      span {
+        text-align: center;
+        font-size: 12px;
       }
     }
   }

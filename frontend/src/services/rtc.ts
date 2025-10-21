@@ -21,6 +21,12 @@ setLogLevel(LogLevel.error)
 export type DeviceKind = 'audioinput' | 'videoinput'
 export type VQ = 'sd' | 'hd'
 const LS = { mic: 'audioDeviceId', cam: 'videoDeviceId', vq: 'videoQuality', perm: 'mediaPermProbed' }
+
+const error = (...a: any[]) => console.error('[RTC]', ...a)
+
+const UA = navigator.userAgent || ''
+const isSafari = /Safari/.test(UA) && !/Chrome|Chromium|Edg/.test(UA)
+
 const saveLS = (k: string, v: string) => { try { localStorage.setItem(k, v) } catch {} }
 const loadLS = (k: string) => { try { return localStorage.getItem(k) } catch { return null } }
 
@@ -275,7 +281,8 @@ export function useRTC(): UseRTC {
       await refreshDevices()
       setPermFlag(true)
       return true
-    } catch {
+    } catch (e:any) {
+      error('probePermissions fail', { name: e?.name, message: e?.message })
       setPermFlag(false)
       return false
     }
@@ -472,7 +479,9 @@ export function useRTC(): UseRTC {
       const list = await navigator.mediaDevices.enumerateDevices()
       mics.value = list.filter(d => d.kind === 'audioinput')
       cams.value = list.filter(d => d.kind === 'videoinput')
+      const labelsKnown = [...mics.value, ...cams.value].some(d => (d.label ?? '').trim().length > 0)
       if (mics.value.length === 0 && cams.value.length === 0) { permProbed.value = false }
+      if (isSafari && !labelsKnown) { permProbed.value = false }
       hasAudioInput.value = mics.value.length > 0
       hasVideoInput.value = cams.value.length > 0
       if (!mics.value.find(d => d.deviceId === selectedMicId.value)) {
@@ -483,7 +492,10 @@ export function useRTC(): UseRTC {
         const fromLS = loadLS(LS.cam)
         selectedCamId.value = (fromLS && cams.value.find(d => d.deviceId === fromLS)) ? fromLS : (cams.value[0]?.deviceId || '')
       }
-    } catch {}
+    } catch (e) {
+      error('refreshDevices', e)
+      permProbed.value = false
+    }
   }
 
   async function enable(kind: DeviceKind): Promise<boolean> {
@@ -499,7 +511,8 @@ export function useRTC(): UseRTC {
           return false
         }
         permProbed.value = true
-      } catch {
+      } catch (e:any) {
+        error('enable: gUM to populate devices failed', { kind, name: e?.name })
         permProbed.value = false
         return false
       }
@@ -517,7 +530,11 @@ export function useRTC(): UseRTC {
         await room.localParticipant.setCameraEnabled(true, { deviceId: { exact: id }, resolution: highVideoQuality.resolution } as any)
       }
       return true
-    } catch {
+    } catch (e:any) {
+      error('enable exact failed', { kind, id, name: e?.name })
+      if (e?.name === 'NotAllowedError' || e?.name === 'SecurityError') {
+        permProbed.value = false
+      }
       await fallback(kind)
       const nextId = kind === 'audioinput' ? selectedMicId.value : selectedCamId.value
       if (!nextId) return false
@@ -528,7 +545,17 @@ export function useRTC(): UseRTC {
           await room.localParticipant.setCameraEnabled(true, { deviceId: { exact: nextId }, resolution: highVideoQuality.resolution } as any)
         }
         return true
-      } catch { return false }
+      } catch (e2:any) {
+        error('enable retry exact failed', { kind, name: e2?.name })
+        try {
+          if (kind === 'audioinput') await room.localParticipant.setMicrophoneEnabled(true)
+          else await room.localParticipant.setCameraEnabled(true, { resolution: highVideoQuality.resolution } as any)
+          return true
+        } catch (e3:any) {
+          error('enable final failed', { kind, name: e3?.name, message: e3?.message })
+          return false
+        }
+      }
     }
   }
 

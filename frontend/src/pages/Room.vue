@@ -18,10 +18,8 @@
         :can-moderate="canModerate"
         :speakers-on="speakersOn"
         :open-panel-for="openPanelFor"
-        :open-vol-for="openVolFor"
         :vol="volUi[id] ?? rtc.getUserVolume(id)"
         @toggle-panel="toggleTilePanel"
-        @toggle-volume="toggleVolume"
         @vol-input="onVol"
         @block="(key, uid) => toggleBlock(uid, key)"
         @kick="kickUser"
@@ -32,17 +30,11 @@
       <div class="stage">
         <video :ref="stableScreenRef(screenOwnerId)" playsinline autoplay />
 
-        <div v-if="screenOwnerId !== localId" class="volume">
-          <button v-if="openVolFor !== streamAudioKey" @click.stop="toggleVolume(streamAudioKey)"
-                  :disabled="!speakersOn || isBlocked(screenOwnerId,'speakers')" aria-label="volume">
-            <img :src="volumeIconForStream(streamAudioKey)" alt="vol" />
-          </button>
-          <div v-else class="vol-inline" @click.stop>
-            <img :src="volumeIconForStream(streamAudioKey)" alt="vol" />
-            <input type="range" min="0" max="200" :disabled="!speakersOn || isBlocked(screenOwnerId,'speakers')"
-                   v-model.number="volUi[streamAudioKey]" @input="onVol(streamAudioKey, volUi[streamAudioKey])" />
-            <span>{{ volUi[streamAudioKey] ?? 100 }}%</span>
-          </div>
+        <div v-if="screenOwnerId !== localId && streamAudioKey" class="volume" @click.stop>
+          <img :src="volumeIconForStream(streamAudioKey)" alt="vol" />
+          <input type="range" min="0" max="200" :disabled="!speakersOn || isBlocked(screenOwnerId,'speakers')"
+                 :value="streamVol" @input="onVol(streamAudioKey, Number(($event.target as HTMLInputElement).value))" />
+          <span>{{ streamVol }}%</span>
         </div>
       </div>
 
@@ -65,10 +57,8 @@
           :can-moderate="canModerate"
           :speakers-on="speakersOn"
           :open-panel-for="openPanelFor"
-          :open-vol-for="openVolFor"
           :vol="volUi[id] ?? rtc.getUserVolume(id)"
           @toggle-panel="toggleTilePanel"
-          @toggle-volume="toggleVolume"
           @vol-input="onVol"
           @block="(key, uid) => toggleBlock(uid, key)"
           @kick="kickUser"
@@ -192,17 +182,19 @@ const rolesByUser = reactive(new Map<string, string>())
 const nameByUser = reactive(new Map<string, string>())
 const screenOwnerId = ref<string>('')
 const openPanelFor = ref<string>('')
-const openVolFor = ref<string>('')
 const pendingScreen = ref(false)
 const settingsOpen = ref(false)
 const isTheater = computed(() => !!screenOwnerId.value)
 const isMyScreen = computed(() => screenOwnerId.value === localId.value)
+const volUi = reactive<Record<string, number>>({})
 const streamAudioKey = computed(() => screenOwnerId.value ? rtc.screenKey(screenOwnerId.value) : '')
+const streamVol = computed(() => streamAudioKey.value ? (volUi[streamAudioKey.value] ?? rtc.getUserVolume(streamAudioKey.value)) : 100)
 const leaving = ref(false)
 const ws_url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host
 const pendingQuality = ref(false)
 const videoQuality = computed(() => rtc.remoteQuality.value)
-const volUi = reactive<Record<string, number>>({})
+
+const rerr = (...a: any[]) => console.error('[ROOM]', ...a)
 
 const avatarByUser = reactive(new Map<string, string | null>())
 function avatarKey(id: string): string {
@@ -239,29 +231,16 @@ function stateIcon(kind: IconKind, id: string) {
   if (isBlocked(id, kind)) return STATE_ICONS[kind].blk
   return isOn(id, kind) ? STATE_ICONS[kind].on : STATE_ICONS[kind].off
 }
-function toggleExclusive(target: string, ref: typeof openPanelFor, other?: typeof openVolFor) {
-  if (target===localId.value) return
+const toggleTilePanel = (id: string) => {
+  if (id === localId.value) return
   settingsOpen.value = false
-  if (ref.value === target) ref.value = ''
-  else {
-    ref.value = target
-    if (other) other.value = ''
-  }
-}
-const toggleTilePanel = (id: string)=> toggleExclusive(id, openPanelFor, openVolFor)
-function toggleVolume(id: string){
-  toggleExclusive(id, openVolFor, openPanelFor)
-  if (id !== localId.value) {
-    void rtc.resumeAudio()
-    volUi[id] = rtc.getUserVolume(id)
-  }
+  openPanelFor.value = openPanelFor.value === id ? '' : id
 }
 function toggleSettings() {
   const next = !settingsOpen.value
   settingsOpen.value = next
   if (next) {
     openPanelFor.value = ''
-    openVolFor.value = ''
     void rtc.refreshDevices().catch(() => {})
   }
 }
@@ -274,14 +253,18 @@ function volumeIconForUser(id: string) {
   return volumeIcon(volUi[id] ?? rtc.getUserVolume(id), speakersOn.value && !isBlocked(id,'speakers'))
 }
 function volumeIconForStream(key: string) {
-  return volumeIcon(volUi[key] ?? rtc.getUserVolume(key), !!key && speakersOn.value && !isBlocked(screenOwnerId.value,'speakers'))
+  if (!key) return iconVolumeMute
+  return volumeIcon(volUi[key] ?? rtc.getUserVolume(key), speakersOn.value && !isBlocked(screenOwnerId.value,'speakers'))
 }
 
 type Ack = { ok: boolean; status?: number; [k: string]: any } | null
 async function sendAck(event: string, payload: any, timeoutMs = 5000): Promise<Ack> {
   try {
     return await socket.value!.timeout(timeoutMs).emitWithAck(event, payload)
-  } catch { return null }
+  } catch (e:any) {
+    rerr('ack fail', { event, payload, name: e?.name, message: e?.message })
+    return null
+  }
 }
 function ensureOk(resp: Ack, msgByCode: Record<number, string>, netMsg: string): boolean {
   if (resp && resp.ok) return true
@@ -290,7 +273,7 @@ function ensureOk(resp: Ack, msgByCode: Record<number, string>, netMsg: string):
   return false
 }
 
-const showPermProbe = computed(() => !rtc.permProbed.value && !micOn.value && !camOn.value)
+const showPermProbe = computed(() => (!rtc.hasAudioInput.value && !rtc.hasVideoInput.value) || !rtc.permProbed.value)
 const sortedPeerIds = computed(() => {
   return [...peerIds.value].sort((a, b) => {
     const pa = positionByUser.get(a) ?? Number.POSITIVE_INFINITY
@@ -321,10 +304,10 @@ function norm01(v: unknown, fallback: 0 | 1): 0 | 1 {
 function onVol(id: string, v: number) {
   volUi[id] = v
   rtc.setUserVolume(id, v)
+  void rtc.resumeAudio()
 }
 function onDocClick() {
   openPanelFor.value = ''
-  openVolFor.value = ''
   settingsOpen.value = false
   void rtc.resumeAudio()
 }
@@ -423,7 +406,6 @@ function purgePeerUI(id: string) {
   videoRefMemo.delete(id)
   screenRefMemo.delete(id)
   if (openPanelFor.value === id || openPanelFor.value === rtc.screenKey(id)) openPanelFor.value = ''
-  if (openVolFor.value === id || openVolFor.value === rtc.screenKey(id)) openVolFor.value = ''
   delete volUi[id]
   delete volUi[rtc.screenKey(id)]
   if (screenOwnerId.value === id) screenOwnerId.value = ''
@@ -457,7 +439,6 @@ function connectSocket() {
   socket.value?.on('disconnect', () => {
     joinedRoomId.value = null
     openPanelFor.value = ''
-    openVolFor.value = ''
   })
 
   socket.value.on('force_logout', async () => {
@@ -529,7 +510,7 @@ function connectSocket() {
     const prev = screenOwnerId.value
     screenOwnerId.value = p?.user_id ? String(p.user_id) : ''
     if (openPanelFor.value === rtc.screenKey(prev)) openPanelFor.value = ''
-    if (openVolFor.value === rtc.screenKey(prev)) openVolFor.value = ''
+    if (prev) delete volUi[rtc.screenKey(prev)]
   })
 }
 
@@ -758,6 +739,7 @@ onMounted(async () => {
     window.addEventListener('pagehide', onPageHide)
     window.addEventListener('beforeunload', onPageHide)
   } catch {
+    rerr('room onMounted fatal')
     try { await rtc.disconnect() } catch {}
     alert('Ошибка входа в комнату')
     await router.replace('/')
@@ -801,50 +783,32 @@ onBeforeUnmount(() => { void onLeave() })
       .volume {
         display: flex;
         position: absolute;
+        flex-direction: column;
+        align-items: center;
+        justify-content: space-between;
         top: 5px;
         right: 5px;
+        padding: 8px 5px;
+        width: 30px;
+        height: 200px;
+        border: none;
+        border-radius: 5px;
+        background-color: $dark;
+        cursor: pointer;
         -webkit-overflow-scrolling: touch;
-        button {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 40px;
-          height: 40px;
-          border: none;
-          border-radius: 5px;
-          background-color: $dark;
-          cursor: pointer;
-          img {
-            width: 24px;
-            height: 24px;
-          }
+        img {
+          width: 24px;
+          height: 24px;
         }
-        .vol-inline {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: space-between;
-          padding: 8px 5px;
-          width: 30px;
-          height: 200px;
-          border: none;
-          border-radius: 5px;
-          background-color: $dark;
-          cursor: pointer;
-          img {
-            width: 24px;
-            height: 24px;
-          }
-          input[type="range"] {
-            width: 140px;
-            height: 10px;
-            accent-color: $fg;
-            transform: rotate(270deg);
-          }
-          span {
-            text-align: center;
-            font-size: 12px;
-          }
+        input[type="range"] {
+          width: 140px;
+          height: 10px;
+          accent-color: $fg;
+          transform: rotate(270deg);
+        }
+        span {
+          text-align: center;
+          font-size: 12px;
         }
       }
     }
