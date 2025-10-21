@@ -238,21 +238,17 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
       }
     }
     .volume {
-      display: flex;
-      position: absolute;
-      flex-direction: column;
-      align-items: center;
-      justify-content: space-between;
-      top: 0;
-      right: 0;
-      padding: 8px 5px;
-      width: 30px;
-      height: 200px;
-      border: none;
-      border-radius: 3px;
-      background-color: $dark;
-      cursor: pointer;
-      -webkit-overflow-scrolling: touch;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 5px 8px;
+    width: calc(100% - 16px);
+    height: 30px;
+    border: none;
+    border-radius: 3px;
+    background-color: $dark;
+    cursor: pointer;
+    -webkit-overflow-scrolling: touch;
       img {
         width: 24px;
         height: 24px;
@@ -261,7 +257,6 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
         width: 140px;
         height: 10px;
         accent-color: $fg;
-        transform: rotate(270deg);
       }
       span {
         text-align: center;

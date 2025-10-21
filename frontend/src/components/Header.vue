@@ -83,12 +83,12 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   padding: 0 10px;
   width: calc(100% - 20px);
-  height: 50px;
+  height: 70px;
   .brand {
     display: flex;
     align-items: center;
     padding: 0 10px;
-    height: 30px;
+    height: 50px;
     border-radius: 5px;
     background-color: $dark;
     color: $fg;
@@ -107,7 +107,7 @@ onBeforeUnmount(() => {
       justify-content: center;
       padding: 0 10px;
       gap: 5px;
-      height: 30px;
+      height: 50px;
       border-radius: 5px;
       background-color: $fg;
       text-decoration: none;
@@ -123,7 +123,7 @@ onBeforeUnmount(() => {
     }
     .btn {
       padding: 0 10px;
-      height: 30px;
+      height: 50px;
       border-radius: 5px;
       border: none;
       background-color: $dark;
