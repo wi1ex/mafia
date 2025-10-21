@@ -92,6 +92,7 @@ onBeforeUnmount(() => {
     border-radius: 5px;
     background-color: $dark;
     color: $fg;
+    font-size: 20px;
   }
   .note {
     max-width: 460px;
@@ -105,7 +106,7 @@ onBeforeUnmount(() => {
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 0 10px;
+      padding: 0 20px;
       gap: 5px;
       height: 50px;
       border-radius: 5px;
@@ -119,15 +120,17 @@ onBeforeUnmount(() => {
       }
       .nick {
         color: $bg;
+        font-size: 20px;
       }
     }
     .btn {
-      padding: 0 10px;
+      padding: 0 20px;
       height: 50px;
       border-radius: 5px;
       border: none;
       background-color: $dark;
       color: $fg;
+      font-size: 20px;
       cursor: pointer;
     }
   }

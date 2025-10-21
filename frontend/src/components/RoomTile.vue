@@ -193,11 +193,11 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
     top: 5px;
     left: 5px;
     padding: 5px;
+    gap: 6px;
     width: 226px;
     height: 118px;
     border-radius: 5px;
-    background-color: rgba($black, 0.8);
-    backdrop-filter: blur(5px);
+    background-color: $dark;
     z-index: 10;
     .panel-div {
       display: flex;
@@ -230,8 +230,7 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
         width: 20px;
         height: 20px;
         border: none;
-        border-radius: 3px;
-        background-color: $dark;
+        background: none;
         cursor: pointer;
         img {
           width: 20px;
@@ -244,20 +243,21 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
       align-items: center;
       justify-content: space-between;
       width: 100%;
-      height: 30px;
+      height: 20px;
       border-radius: 3px;
-      cursor: pointer;
       -webkit-overflow-scrolling: touch;
       img {
         width: 20px;
         height: 20px;
       }
       input[type="range"] {
-        width: 165px;
+        width: 160px;
         height: 10px;
         accent-color: $fg;
+        cursor: pointer;
       }
       span {
+        min-width: 32px;
         text-align: center;
         font-size: 12px;
       }
@@ -266,13 +266,15 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
       display: flex;
       gap: 9px;
       button {
-        border-radius: 3px;
         display: flex;
         align-items: center;
         justify-content: center;
-        padding: 5px;
+        padding: 0;
+        width: 30px;
+        height: 30px;
         border: none;
-        background-color: rgba($grey, 0.25);
+        border-radius: 3px;
+        background-color: $bg;
         cursor: pointer;
         &.red-button {
           background-color: rgba($red, 0.5);

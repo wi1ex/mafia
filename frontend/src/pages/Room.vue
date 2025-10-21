@@ -785,30 +785,27 @@ onBeforeUnmount(() => { void onLeave() })
       .volume {
         display: flex;
         position: absolute;
-        flex-direction: column;
         align-items: center;
         justify-content: space-between;
         top: 5px;
         right: 5px;
-        padding: 8px 5px;
-        width: 30px;
-        height: 200px;
-        border: none;
-        border-radius: 5px;
+        width: 100%;
+        height: 20px;
+        border-radius: 3px;
         background-color: $dark;
-        cursor: pointer;
         -webkit-overflow-scrolling: touch;
         img {
-          width: 24px;
-          height: 24px;
+          width: 20px;
+          height: 20px;
         }
         input[type="range"] {
-          width: 140px;
+          width: 160px;
           height: 10px;
           accent-color: $fg;
-          transform: rotate(270deg);
+          cursor: pointer;
         }
         span {
+          min-width: 32px;
           text-align: center;
           font-size: 12px;
         }
