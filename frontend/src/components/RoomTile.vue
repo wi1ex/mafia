@@ -21,13 +21,6 @@
           <img v-if="isBlocked(id,'screen')" :src="stateIcon('screen', id)" alt="scr" />
         </div>
       </div>
-
-      <div v-if="id !== localId" class="volume" @click.stop>
-        <img :src="volumeIcon" alt="vol" />
-        <input type="range" min="0" max="200" :disabled="!speakersOn || isBlocked(id,'speakers')" :value="vol ?? 100"
-               @input="$emit('vol-input', id, Number(($event.target as HTMLInputElement).value))" />
-        <span>{{ vol ?? 100 }}%</span>
-      </div>
     </div>
 
     <div v-if="openPanel" class="tile-panel" @click.stop>
@@ -37,10 +30,14 @@
 
       <div class="panel-user">
         <img v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar }" alt="" />
-        <div class="panel-info">
-          <span>{{ userName(id) }}</span>
-          <span>*инф. о пользователе*</span>
-        </div>
+        <span>{{ userName(id) }}</span>
+      </div>
+
+      <div v-if="id !== localId" class="volume" @click.stop>
+        <img :src="volumeIcon" alt="vol" />
+        <input type="range" min="0" max="200" :disabled="!speakersOn || isBlocked(id,'speakers')" :value="vol ?? 100"
+               @input="$emit('vol-input', id, Number(($event.target as HTMLInputElement).value))" />
+        <span>{{ vol ?? 100 }}%</span>
       </div>
 
       <div v-if="canModerate(id)" class="admin-row" aria-label="Блокировки">
@@ -193,13 +190,60 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
         }
       }
     }
+  }
+  .tile-panel {
+    display: flex;
+    position: absolute;
+    flex-direction: column;
+    top: 5px;
+    left: 5px;
+    padding: 5px;
+    gap: 10px;
+    width: 226px;
+    height: 118px;
+    background-color: rgba($black, 0.8);
+    backdrop-filter: blur(5px);
+    z-index: 10;
+    .panel-close {
+      position: absolute;
+      top: 5px;
+      right: 5px;
+      width: 30px;
+      height: 30px;
+      border: none;
+      border-radius: 3px;
+      background-color: $dark;
+      cursor: pointer;
+      img {
+        width: 20px;
+        height: 20px;
+      }
+    }
+    .panel-user {
+      display: flex;
+      align-items: flex-start;
+      gap: 5px;
+      img {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        object-fit: cover;
+      }
+      span {
+        color: $fg;
+        font-size: 20px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+    }
     .volume {
       display: flex;
       position: absolute;
       flex-direction: column;
       align-items: center;
       justify-content: space-between;
-      top: -20px;
+      top: 0;
       right: 0;
       padding: 8px 5px;
       width: 30px;
@@ -224,54 +268,9 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
         font-size: 12px;
       }
     }
-  }
-  .tile-panel {
-    display: flex;
-    position: absolute;
-    flex-direction: column;
-    inset: 0;
-    padding: 5px;
-    gap: 10px;
-    background-color: rgba($black, 0.8);
-    backdrop-filter: blur(5px);
-    z-index: 10;
-    .panel-close {
-      position: absolute;
-      top: 5px;
-      right: 5px;
-      width: 40px;
-      height: 40px;
-      border: none;
-      border-radius: 3px;
-      background-color: $dark;
-      cursor: pointer;
-      img {
-        width: 24px;
-        height: 24px;
-      }
-    }
-    .panel-user {
-      display: flex;
-      align-items: flex-start;
-      gap: 5px;
-      img {
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
-        object-fit: cover;
-      }
-      .panel-info {
-        display: flex;
-        flex-direction: column;
-        span {
-          font-size: 12px;
-          font-weight: 400;
-        }
-      }
-    }
     .admin-row {
       display: flex;
-      gap: 6px;
+      gap: 9px;
       button {
         border-radius: 3px;
         display: flex;
@@ -285,8 +284,8 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
           background-color: rgba($red, 0.5);
         }
         img {
-          width: 24px;
-          height: 24px;
+          width: 20px;
+          height: 20px;
         }
       }
     }
