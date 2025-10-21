@@ -203,30 +203,32 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
       display: flex;
       align-items: center;
       justify-content: space-between;
-      height: 30px;
+      height: 20px;
       .panel-user {
         display: flex;
-        align-items: flex-start;
+        align-items: center;
         gap: 5px;
-        height: 30px;
+        height: 20px;
         img {
-          width: 24px;
-          height: 24px;
+          width: 20px;
+          height: 20px;
           border-radius: 50%;
           object-fit: cover;
         }
         span {
           color: $fg;
-          font-size: 20px;
+          font-size: 16px;
           white-space: nowrap;
           overflow: hidden;
-          text-overflow: ellipsis;
         }
       }
       .panel-close {
         display: flex;
-        width: 30px;
-        height: 30px;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        width: 20px;
+        height: 20px;
         border: none;
         border-radius: 3px;
         background-color: $dark;
@@ -241,20 +243,17 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 0 5px;
-      width: calc(100% - 10px);
+      width: 100%;
       height: 30px;
-      border: none;
       border-radius: 3px;
-      background-color: $dark;
       cursor: pointer;
       -webkit-overflow-scrolling: touch;
       img {
-        width: 24px;
-        height: 24px;
+        width: 20px;
+        height: 20px;
       }
       input[type="range"] {
-        width: 140px;
+        width: 165px;
         height: 10px;
         accent-color: $fg;
       }
