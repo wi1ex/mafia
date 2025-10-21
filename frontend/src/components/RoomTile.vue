@@ -22,13 +22,15 @@
     </div>
 
     <div v-if="openPanel" class="tile-panel" @click.stop>
-      <button class="panel-close" aria-label="Закрыть" @click.stop="$emit('toggle-panel', id)">
-        <img :src="iconClose" alt="close" />
-      </button>
+      <div class="panel-div">
+        <div class="panel-user">
+          <img v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar }" alt="" />
+          <span>{{ userName(id) }}</span>
+        </div>
 
-      <div class="panel-user">
-        <img v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar }" alt="" />
-        <span>{{ userName(id) }}</span>
+        <button class="panel-close" aria-label="Закрыть" @click.stop="$emit('toggle-panel', id)">
+          <img :src="iconClose" alt="close" />
+        </button>
       </div>
 
       <div v-if="id !== localId" class="volume" @click.stop>
@@ -139,11 +141,11 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
     display: flex;
     position: absolute;
     align-items: center;
-    justify-content: space-between;
     left: 5px;
-    right: 5px;
     top: 5px;
+    padding: 0 5px;
     gap: 5px;
+    max-width: 226px;
     height: 30px;
     border-radius: 3px;
     background-color: rgba($black, 0.5);
@@ -152,7 +154,7 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
     button {
       display: flex;
       align-items: center;
-      padding: 0 5px;
+      padding: 0;
       gap: 5px;
       min-width: 0;
       border: none;
@@ -169,7 +171,7 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
       }
       span {
         color: $fg;
-        font-size: 20px;
+        font-size: 16px;
         white-space: nowrap;
         overflow: hidden;
       }
@@ -179,8 +181,8 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
       align-items: center;
       gap: 5px;
       img {
-        width: 24px;
-        height: 24px;
+        width: 20px;
+        height: 20px;
       }
     }
   }
@@ -191,58 +193,62 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
     top: 5px;
     left: 5px;
     padding: 5px;
-    gap: 10px;
     width: 226px;
     height: 118px;
     border-radius: 5px;
     background-color: rgba($black, 0.8);
     backdrop-filter: blur(5px);
     z-index: 10;
-    .panel-close {
-      position: absolute;
-      top: 5px;
-      right: 5px;
-      width: 30px;
+    .panel-div {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 30px;
+      .panel-user {
+        display: flex;
+        align-items: flex-start;
+        gap: 5px;
+        height: 30px;
+        img {
+          width: 24px;
+          height: 24px;
+          border-radius: 50%;
+          object-fit: cover;
+        }
+        span {
+          color: $fg;
+          font-size: 20px;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+      }
+      .panel-close {
+        display: flex;
+        width: 30px;
+        height: 30px;
+        border: none;
+        border-radius: 3px;
+        background-color: $dark;
+        cursor: pointer;
+        img {
+          width: 20px;
+          height: 20px;
+        }
+      }
+    }
+    .volume {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 5px;
+      width: calc(100% - 10px);
       height: 30px;
       border: none;
       border-radius: 3px;
       background-color: $dark;
       cursor: pointer;
-      img {
-        width: 20px;
-        height: 20px;
-      }
-    }
-    .panel-user {
-      display: flex;
-      align-items: flex-start;
-      gap: 5px;
-      img {
-        width: 24px;
-        height: 24px;
-        border-radius: 50%;
-        object-fit: cover;
-      }
-      span {
-        color: $fg;
-        font-size: 20px;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-    }
-    .volume {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 5px 8px;
-    width: calc(100% - 16px);
-    height: 30px;
-    border: none;
-    border-radius: 3px;
-    background-color: $dark;
-    cursor: pointer;
-    -webkit-overflow-scrolling: touch;
+      -webkit-overflow-scrolling: touch;
       img {
         width: 24px;
         height: 24px;
