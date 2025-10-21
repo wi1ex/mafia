@@ -283,7 +283,7 @@ onBeforeUnmount(() => {
   }
   .btn {
     padding: 8px 12px;
-    border-radius: 8px;
+    border-radius: 5px;
     cursor: pointer;
     background-color: $green;
     color: $bg;
@@ -321,7 +321,7 @@ onBeforeUnmount(() => {
     margin-bottom: 12px;
     .tab {
       padding: 8px 12px;
-      border-radius: 8px;
+      border-radius: 5px;
       border: 1px solid rgba(255, 255, 255, 0.15);
       background-color: $bg;
       color: $fg;
@@ -342,7 +342,7 @@ onBeforeUnmount(() => {
   }
   .block {
     border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 12px;
+    border-radius: 5px;
     padding: 12px;
     .title {
       margin: 0 0 10px;
@@ -372,7 +372,7 @@ onBeforeUnmount(() => {
       align-items: center;
       .input {
         padding: 8px 10px;
-        border-radius: 8px;
+        border-radius: 5px;
         border: 1px solid $fg;
         color: $fg;
         background-color: $bg;
@@ -393,14 +393,14 @@ onBeforeUnmount(() => {
     .modal-body {
       background-color: $bg;
       border: 1px solid rgba(255, 255, 255, 0.15);
-      border-radius: 12px;
+      border-radius: 5px;
       padding: 16px;
       display: flex;
       flex-direction: column;
       gap: 12px;
       canvas {
         background-color: $black;
-        border-radius: 8px;
+        border-radius: 5px;
         width: 240px;
         height: 240px;
       }

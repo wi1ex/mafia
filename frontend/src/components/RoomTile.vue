@@ -119,7 +119,7 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
     width: 100%;
     height: 100%;
     object-fit: cover;
-    border-radius: 3px;
+    border-radius: 5px;
     background-color: $black;
   }
   .ava-wrap {
@@ -129,7 +129,7 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
     justify-content: center;
     inset: 0;
     background-color: $black;
-    border-radius: 3px;
+    border-radius: 5px;
     z-index: 1;
     img {
       height: 40%;
@@ -147,7 +147,7 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
     gap: 5px;
     max-width: 226px;
     height: 30px;
-    border-radius: 3px;
+    border-radius: 5px;
     background-color: rgba($black, 0.5);
     backdrop-filter: blur(5px);
     z-index: 5;
@@ -244,7 +244,6 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
       justify-content: space-between;
       width: 100%;
       height: 20px;
-      border-radius: 3px;
       -webkit-overflow-scrolling: touch;
       img {
         width: 20px;
@@ -273,7 +272,7 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
         width: 30px;
         height: 30px;
         border: none;
-        border-radius: 3px;
+        border-radius: 5px;
         background-color: $bg;
         cursor: pointer;
         &.red-button {

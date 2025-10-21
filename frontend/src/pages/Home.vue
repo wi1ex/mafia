@@ -449,7 +449,7 @@ onBeforeUnmount(() => {
     }
     input {
       padding: 8px 10px;
-      border-radius: 8px;
+      border-radius: 5px;
       border: 1px solid $fg;
       color: $fg;
       background-color: $bg;

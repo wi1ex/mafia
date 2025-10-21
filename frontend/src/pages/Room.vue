@@ -788,10 +788,12 @@ onBeforeUnmount(() => { void onLeave() })
         align-items: center;
         justify-content: space-between;
         top: 5px;
-        right: 5px;
-        width: 100%;
+        left: 5px;
+        padding: 10px;
+        gap: 5px;
+        width: min-content;
         height: 20px;
-        border-radius: 3px;
+        border-radius: 5px;
         background-color: $dark;
         -webkit-overflow-scrolling: touch;
         img {
