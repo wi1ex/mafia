@@ -1,25 +1,23 @@
 <template>
   <div class="tile" :class="[{ speaking }, side && 'side']" tabindex="0">
-    <video v-show="showVideo" :ref="videoRef" playsinline autoplay :muted="id === localId" />
+    <video v-show="showVideo" :ref="videoRef" playsinline autoplay :muted="id === localId" :style="{ objectFit: fitContain ? 'contain' : 'cover' }" />
 
     <div v-show="!showVideo" class="ava-wrap">
       <img v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar }" alt="" />
     </div>
 
     <div class="titlebar">
-      <div class="titlebar-div">
-        <button :disabled="id===localId" :aria-disabled="id===localId" @click.stop="$emit('toggle-panel', id)" :aria-expanded="openPanel">
-          <img v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar }" alt="" />
-          <span>{{ userName(id) }}</span>
-        </button>
+      <button :disabled="id===localId" :aria-disabled="id===localId" @click.stop="$emit('toggle-panel', id)" :aria-expanded="openPanel">
+        <img v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar }" alt="" />
+        <span>{{ userName(id) }}</span>
+      </button>
 
-        <div class="status">
-          <img v-if="isBlocked(id,'mic') || !isOn(id,'mic')" :src="stateIcon('mic', id)" alt="mic" />
-          <img v-if="isBlocked(id,'cam') || !isOn(id,'cam')" :src="stateIcon('cam', id)" alt="cam" />
-          <img v-if="isBlocked(id,'speakers') || !isOn(id,'speakers')" :src="stateIcon('speakers', id)" alt="spk" />
-          <img v-if="isBlocked(id,'visibility') || !isOn(id,'visibility')" :src="stateIcon('visibility', id)" alt="vis" />
-          <img v-if="isBlocked(id,'screen')" :src="stateIcon('screen', id)" alt="scr" />
-        </div>
+      <div class="status">
+        <img v-if="isBlocked(id,'mic') || !isOn(id,'mic')" :src="stateIcon('mic', id)" alt="mic" />
+        <img v-if="isBlocked(id,'cam') || !isOn(id,'cam')" :src="stateIcon('cam', id)" alt="cam" />
+        <img v-if="isBlocked(id,'speakers') || !isOn(id,'speakers')" :src="stateIcon('speakers', id)" alt="spk" />
+        <img v-if="isBlocked(id,'visibility') || !isOn(id,'visibility')" :src="stateIcon('visibility', id)" alt="vis" />
+        <img v-if="isBlocked(id,'screen')" :src="stateIcon('screen', id)" alt="scr" />
       </div>
     </div>
 
@@ -77,6 +75,7 @@ const props = withDefaults(defineProps<{
   localId: string
   speaking: boolean
   side?: boolean
+  fitContain?: boolean
   defaultAvatar: string
   volumeIcon: string
   videoRef: (el: HTMLVideoElement | null) => void
@@ -145,49 +144,43 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
     right: 5px;
     top: 5px;
     gap: 5px;
-    height: 40px;
+    height: 30px;
     border-radius: 3px;
     background-color: rgba($black, 0.5);
     backdrop-filter: blur(5px);
     z-index: 5;
-    .titlebar-div {
+    button {
       display: flex;
       align-items: center;
+      padding: 0 5px;
+      gap: 5px;
       min-width: 0;
-      button {
-        display: flex;
-        align-items: center;
-        padding: 0 5px;
-        gap: 5px;
-        min-width: 0;
-        border: none;
-        background: none;
-        cursor: pointer;
-        &:disabled {
-          cursor: default;
-        }
-        img {
-          width: 24px;
-          height: 24px;
-          border-radius: 50%;
-          object-fit: cover;
-        }
-        span {
-          color: $fg;
-          font-size: 20px;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
+      border: none;
+      background: none;
+      cursor: pointer;
+      &:disabled {
+        cursor: default;
       }
-      .status {
-        display: flex;
-        align-items: center;
-        gap: 5px;
-        img {
-          width: 24px;
-          height: 24px;
-        }
+      img {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        object-fit: cover;
+      }
+      span {
+        color: $fg;
+        font-size: 20px;
+        white-space: nowrap;
+        overflow: hidden;
+      }
+    }
+    .status {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      img {
+        width: 24px;
+        height: 24px;
       }
     }
   }
@@ -201,6 +194,7 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
     gap: 10px;
     width: 226px;
     height: 118px;
+    border-radius: 5px;
     background-color: rgba($black, 0.8);
     backdrop-filter: blur(5px);
     z-index: 10;

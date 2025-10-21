@@ -8,6 +8,7 @@
         :local-id="localId"
         :speaking="rtc.isSpeaking(id)"
         :video-ref="stableVideoRef(id)"
+        :fit-contain="fitContainInGrid"
         :default-avatar="defaultAvatar"
         :volume-icon="volumeIconForUser(id)"
         :state-icon="stateIcon"
@@ -193,6 +194,7 @@ const leaving = ref(false)
 const ws_url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host
 const pendingQuality = ref(false)
 const videoQuality = computed(() => rtc.remoteQuality.value)
+const fitContainInGrid = computed(() => !isTheater.value && sortedPeerIds.value.length < 3)
 
 const rerr = (...a: any[]) => console.error('[ROOM]', ...a)
 
