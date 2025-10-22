@@ -281,7 +281,7 @@ onBeforeUnmount(() => {
     background-color: $dark;
     .create {
       display: flex;
-      margin-bottom: 20px;
+      margin: 10px 0 20px;
       gap: 10px;
       p {
         margin: 0;
