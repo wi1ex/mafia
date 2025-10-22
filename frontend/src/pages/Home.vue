@@ -284,6 +284,7 @@ onBeforeUnmount(() => {
       margin-bottom: 20px;
       gap: 10px;
       p {
+        margin: 0;
         color: $fg;
         font-size: 24px;
       }
