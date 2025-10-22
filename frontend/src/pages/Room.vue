@@ -801,7 +801,7 @@ onBeforeUnmount(() => { void onLeave() })
           height: 20px;
         }
         input[type="range"] {
-          width: 160px;
+          width: 120px;
           height: 10px;
           accent-color: $fg;
           cursor: pointer;

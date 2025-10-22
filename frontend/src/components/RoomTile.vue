@@ -262,7 +262,7 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
         height: 20px;
       }
       input[type="range"] {
-        width: 120px;
+        width: 184px;
         height: 10px;
         accent-color: $fg;
         cursor: pointer;
