@@ -1,13 +1,20 @@
 <template>
   <section class="card">
     <div class="left">
+      <div v-if="auth.isAuthed" class="create">
+        <p>Создать комнату</p>
+        <input v-model.trim="title" class="input" placeholder="Название" maxlength="64" />
+        <input v-model.number="limit" class="input" type="number" min="2" max="12" placeholder="Лимит" />
+        <button :disabled="creating || !valid" @click="onCreate">{{ creating ? 'Создаю...' : 'Создать' }}</button>
+      </div>
+
       <p>Список комнат</p>
       <div v-if="sortedRooms.length === 0" class="muted">Пока пусто</div>
       <ul v-else class="list" ref="listEl">
         <li class="item" v-for="r in sortedRooms" :key="r.id" :class="{ active: r.id === selectedId }" tabindex="0" @click="selectRoom(r.id)">
           <div class="item_main">
             <span class="item_title">Комната #{{ r.id }}: {{ r.title }}</span>
-            <span class="item_meta"> • ({{ r.occupancy }}/{{ r.user_limit }}) • Владелец: {{ r.creator_name }}</span>
+            <span class="item_meta">({{ r.occupancy }}/{{ r.user_limit }}) • Владелец: {{ r.creator_name }}</span>
           </div>
         </li>
       </ul>
@@ -17,27 +24,25 @@
       <div v-if="!selectedId" class="placeholder">Выберите комнату для отображения информации</div>
 
       <div v-else class="room-info">
-        <div class="ri-head">
-          <div class="ri-title">
-            <p class="ri-name">Комната #{{ selectedRoom?.id }}: {{ selectedRoom?.title }}</p>
+        <div class="ri-title">
+          <div class="ri-actions">
+            <button v-if="auth.isAuthed && selectedRoom && !isFullRoom(selectedRoom)" :disabled="entering" @click="onEnter">
+              {{ entering ? 'Вхожу...' : 'Войти в комнату' }}
+            </button>
+            <div v-else-if="auth.isAuthed && selectedRoom && isFullRoom(selectedRoom)" class="muted">Комната заполнена</div>
+            <div v-else class="muted">Авторизуйтесь, чтобы войти</div>
+          </div>
+          <p class="ri-name">Комната #{{ selectedRoom?.id }}: {{ selectedRoom?.title }}</p>
+        </div>
 
-            <div class="ri-actions">
-              <button v-if="auth.isAuthed && selectedRoom && !isFullRoom(selectedRoom)" :disabled="entering" @click="onEnter">
-                {{ entering ? 'Вхожу...' : 'Войти в комнату' }}
-              </button>
-              <div v-else-if="auth.isAuthed && selectedRoom && isFullRoom(selectedRoom)" class="muted">Комната заполнена</div>
-              <div v-else class="muted">Авторизуйтесь, чтобы войти</div>
-            </div>
-          </div>
-          <div class="ri-meta">
-            <span>Владелец: {{ selectedRoom?.creator_name }}</span>
-            <span>Параметры: ...</span>
-          </div>
+        <div class="ri-meta">
+          <span>Владелец: {{ selectedRoom?.creator_name }}</span>
+          <span>Параметры: -</span>
         </div>
 
         <div class="ri-members">
           <p class="ri-subtitle">Участники: {{ selectedRoom?.occupancy ?? 0 }}/{{ selectedRoom?.user_limit ?? 0 }}</p>
-          <div v-if="loadingInfo" class="muted">Загрузка…</div>
+          <div v-if="loadingInfo" class="muted"></div>
           <div v-else-if="(info?.members?.length ?? 0) === 0" class="muted">Пока никого</div>
           <ul v-else class="ri-grid">
             <li class="ri-user" v-for="m in info!.members" :key="m.id">
@@ -48,13 +53,6 @@
         </div>
       </div>
     </aside>
-
-    <div v-if="auth.isAuthed" class="create">
-      <p>Создать комнату</p>
-      <input v-model.trim="title" class="input" placeholder="Название" maxlength="64" />
-      <input v-model.number="limit" class="input" type="number" min="2" max="12" placeholder="Лимит" />
-      <button :disabled="creating || !valid" @click="onCreate">{{ creating ? 'Создаю...' : 'Создать' }}</button>
-    </div>
   </section>
 </template>
 
@@ -272,20 +270,50 @@ onBeforeUnmount(() => {
 <style lang="scss" scoped>
 .card {
   display: grid;
-  grid-template-columns: 1fr 600px;
-  grid-template-rows: 1fr 200px;
+  grid-template-columns: 1fr 400px;
   padding: 0 10px;
   gap: 10px;
   .left {
     display: flex;
-    grid-column: 1;
-    grid-row: 1;
     flex-direction: column;
     padding: 10px;
     gap: 10px;
-    height: 580px;
     border-radius: 5px;
     background-color: $dark;
+    .create {
+      display: flex;
+      flex-direction: column;
+      margin-bottom: 20px;
+      gap: 10px;
+      max-width: 300px;
+      border-radius: 5px;
+      background-color: $dark;
+      p {
+        margin: 0 0 10px;
+        color: $fg;
+        font-size: 24px;
+      }
+      input {
+        padding: 8px 10px;
+        border-radius: 5px;
+        border: 1px solid $fg;
+        color: $fg;
+        background-color: $bg;
+      }
+      button {
+        padding: 0 10px;
+        height: 30px;
+        border-radius: 5px;
+        border: none;
+        background-color: $green;
+        color: $bg;
+        cursor: pointer;
+        &:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+      }
+    }
     p {
       margin: 0;
       font-size: 24px;
@@ -324,7 +352,6 @@ onBeforeUnmount(() => {
             font-weight: 600;
           }
           .item_meta {
-            margin-left: 6px;
             color: $grey;
           }
         }
@@ -334,11 +361,8 @@ onBeforeUnmount(() => {
   .right {
     display: flex;
     position: sticky;
-    grid-column: 2;
-    grid-row: 1;
     flex-direction: column;
     padding: 10px;
-    height: 580px;
     border-radius: 5px;
     background-color: $dark;
     .placeholder {
@@ -348,44 +372,47 @@ onBeforeUnmount(() => {
       display: flex;
       flex-direction: column;
       gap: 20px;
-      .ri-head {
+      .ri-title {
         display: flex;
         flex-direction: column;
+        align-items: center;
         gap: 10px;
-        .ri-title {
+        .ri-actions {
           display: flex;
-          align-items: center;
-          justify-content: space-between;
-          .ri-name {
-            margin: 0;
-            color: $fg;
-            font-size: 24px;
-          }
-          .ri-actions {
-            button {
-              padding: 0 10px;
-              height: 30px;
-              border: none;
-              border-radius: 5px;
-              background-color: $green;
-              color: $bg;
-              cursor: pointer;
-              &:disabled {
-                opacity: 0.6;
-                cursor: not-allowed;
-              }
-            }
-            .muted {
-              color: $grey;
+          button {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 20px;
+            height: 40px;
+            border: none;
+            border-radius: 5px;
+            background-color: $green;
+            color: $bg;
+            font-size: 16px;
+            font-family: Manrope-Medium;
+            line-height: 1;
+            cursor: pointer;
+            &:disabled {
+              opacity: 0.6;
+              cursor: not-allowed;
             }
           }
+          .muted {
+            color: $grey;
+          }
         }
-        .ri-meta {
-          display: flex;
-          flex-direction: column;
-          gap: 5px;
-          color: $grey;
+        .ri-name {
+          margin: 0;
+          color: $fg;
+          font-size: 24px;
         }
+      }
+      .ri-meta {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        color: $grey;
       }
       .ri-members {
         display: flex;
@@ -397,11 +424,10 @@ onBeforeUnmount(() => {
           font-size: 20px;
         }
         .muted {
-          width: 100%;
+          width: 50%;
           height: 35px;
           border-radius: 5px;
-          background-color: $bg;
-          color: $fg;
+          background-color: $graphite;
         }
         .ri-grid {
           display: grid;
@@ -429,42 +455,6 @@ onBeforeUnmount(() => {
             }
           }
         }
-      }
-    }
-  }
-  .create {
-    display: flex;
-    grid-column: 2;
-    grid-row: 2;
-    flex-direction: column;
-    padding: 10px;
-    gap: 10px;
-    height: 180px;
-    border-radius: 5px;
-    background-color: $dark;
-    p {
-      margin: 0 0 10px;
-      color: $fg;
-      font-size: 24px;
-    }
-    input {
-      padding: 8px 10px;
-      border-radius: 5px;
-      border: 1px solid $fg;
-      color: $fg;
-      background-color: $bg;
-    }
-    button {
-      padding: 0 10px;
-      height: 30px;
-      border-radius: 5px;
-      border: none;
-      background-color: $green;
-      color: $bg;
-      cursor: pointer;
-      &:disabled {
-        opacity: 0.6;
-        cursor: not-allowed;
       }
     }
   }

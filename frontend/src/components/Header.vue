@@ -83,16 +83,16 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   padding: 0 10px;
   width: calc(100% - 20px);
-  height: 70px;
+  height: 60px;
   .brand {
     display: flex;
     align-items: center;
     padding: 0 10px;
-    height: 50px;
+    height: 40px;
     border-radius: 5px;
     background-color: $dark;
     color: $fg;
-    font-size: 20px;
+    font-size: 16px;
   }
   .note {
     max-width: 460px;
@@ -106,9 +106,9 @@ onBeforeUnmount(() => {
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 0 20px;
+      padding: 0 10px;
       gap: 5px;
-      height: 50px;
+      height: 40px;
       border-radius: 5px;
       background-color: $fg;
       text-decoration: none;
@@ -120,17 +120,17 @@ onBeforeUnmount(() => {
       }
       .nick {
         color: $bg;
-        font-size: 20px;
+        font-size: 16px;
       }
     }
     .btn {
-      padding: 0 20px;
-      height: 50px;
+      padding: 0 10px;
+      height: 40px;
       border-radius: 5px;
       border: none;
       background-color: $dark;
       color: $fg;
-      font-size: 20px;
+      font-size: 16px;
       cursor: pointer;
     }
   }
