@@ -78,19 +78,19 @@
         </button>
       </div>
       <div v-else class="controls">
-        <button @click="toggleMic" :disabled="pending.mic || blockedSelf.mic || !isLkConnected" :aria-pressed="micOn">
+        <button @click="toggleMic" :disabled="pending.mic || blockedSelf.mic" :aria-pressed="micOn">
           <img :src="stateIcon('mic', localId)" alt="mic" />
         </button>
-        <button @click="toggleCam" :disabled="pending.cam || blockedSelf.cam || !isLkConnected" :aria-pressed="camOn">
+        <button @click="toggleCam" :disabled="pending.cam || blockedSelf.cam" :aria-pressed="camOn">
           <img :src="stateIcon('cam', localId)" alt="cam" />
         </button>
-        <button @click="toggleSpeakers" :disabled="pending.speakers || blockedSelf.speakers || !isLkConnected" :aria-pressed="speakersOn">
+        <button @click="toggleSpeakers" :disabled="pending.speakers || blockedSelf.speakers" :aria-pressed="speakersOn">
           <img :src="stateIcon('speakers', localId)" alt="speakers" />
         </button>
-        <button @click="toggleVisibility" :disabled="pending.visibility || blockedSelf.visibility || !isLkConnected" :aria-pressed="visibilityOn">
+        <button @click="toggleVisibility" :disabled="pending.visibility || blockedSelf.visibility" :aria-pressed="visibilityOn">
           <img :src="stateIcon('visibility', localId)" alt="visibility" />
         </button>
-        <button @click="toggleScreen" :disabled="pendingScreen || (!!screenOwnerId && screenOwnerId !== localId) || blockedSelf.screen || !isLkConnected" :aria-pressed="isMyScreen">
+        <button @click="toggleScreen" :disabled="pendingScreen || (!!screenOwnerId && screenOwnerId !== localId) || blockedSelf.screen" :aria-pressed="isMyScreen">
           <img :src="stateIcon('screen', localId)" alt="screen" />
         </button>
         <button @click="toggleQuality" :disabled="pendingQuality" aria-label="Качество видео">
@@ -168,6 +168,8 @@ const { localId, mics, cams, selectedMicId, selectedCamId, peerIds } = rtc
 const rid = Number(route.params.id)
 const roomId = ref<number | null>(rid)
 const local = reactive({ mic: false, cam: false, speakers: true, visibility: true })
+const suspended = ref(false)
+const savedBeforeHide = ref<{ mic: boolean; cam: boolean; speakers: boolean; visibility: boolean } | null>(null)
 const pending = reactive<{ [k in keyof typeof local]: boolean }>({ mic: false, cam: false, speakers: false, visibility: false })
 const micOn = computed({ get: () => local.mic, set: v => { local.mic = v } })
 const camOn = computed({ get: () => local.cam, set: v => { local.cam = v } })
@@ -195,7 +197,6 @@ const ws_url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.
 const pendingQuality = ref(false)
 const videoQuality = computed(() => rtc.remoteQuality.value)
 const fitContainInGrid = computed(() => !isTheater.value && sortedPeerIds.value.length < 3)
-const isLkConnected = computed(() => (rtc.lk.value?.state as any) === 'connected')
 
 const rerr = (...a: any[]) => console.error('[ROOM]', ...a)
 
@@ -465,7 +466,6 @@ function connectSocket() {
 
   socket.value.on('member_left', (p: any) => {
     const id = String(p.user_id)
-    if (id === String(localId.value)) return
     if (peerIds.value.includes(id)) return
     purgePeerUI(id)
   })
@@ -607,7 +607,6 @@ async function publishState(delta: Partial<{ mic: boolean; cam: boolean; speaker
 const toggleFactory = (k: keyof typeof local, onEnable?: () => Promise<boolean | void>, onDisable?: () => Promise<void>) => async () => {
   if (pending[k]) return
   if (blockedSelf.value[k]) return
-  if ((rtc.lk.value?.state as any) !== 'connected') return
   try {
     pending[k] = true
     const want = !local[k]
@@ -695,13 +694,27 @@ async function onLeave() {
   }
 }
 async function onVisibilityChange() {
-  if (document.hidden) return
+  if (document.hidden) {
+    if (!suspended.value) {
+      savedBeforeHide.value = { ...local }
+      suspended.value = true
+      try { await publishState({ mic: false, cam: false, speakers: false, visibility: false }) } catch {}
+      try { await rtc.disable('audioinput') } catch {}
+      try { await rtc.disable('videoinput') } catch {}
+      rtc.setAudioSubscriptionsForAll(false)
+      rtc.setVideoSubscriptionsForAll(false)
+      local.mic = false
+      local.cam = false
+      local.speakers = false
+      local.visibility = false
+    }
+    return
+  }
   connectSocket()
   try { await rtc.refreshDevices() } catch {}
   try { await rtc.resumeAudio() } catch {}
   const room = rtc.lk.value as any
-  const s = room?.state
-  const disconnected = !room || s === 'disconnected' || s === 'reconnecting'
+  const disconnected = !room || room.state === 'disconnected'
   if (disconnected) {
     try {
       const j:any = await safeJoin()
@@ -715,6 +728,26 @@ async function onVisibilityChange() {
   } else {
     rtc.setAudioSubscriptionsForAll(local.speakers)
     rtc.setVideoSubscriptionsForAll(local.visibility)
+  }
+  if (suspended.value && savedBeforeHide.value) {
+    const pref = savedBeforeHide.value
+    suspended.value = false
+    savedBeforeHide.value = null
+    if (pref.visibility) rtc.setVideoSubscriptionsForAll(true)
+    if (pref.speakers)  rtc.setAudioSubscriptionsForAll(true)
+    if (pref.cam && !blockedSelf.value.cam) {
+      const ok = await rtc.enable('videoinput')
+      if (!ok) pref.cam = false
+    }
+    if (pref.mic && !blockedSelf.value.mic) {
+      const ok = await rtc.enable('audioinput')
+      if (!ok) pref.mic = false
+    }
+    local.mic = !!pref.mic
+    local.cam = !!pref.cam
+    local.speakers = !!pref.speakers
+    local.visibility = !!pref.visibility
+    try { await publishState({ ...pref }) } catch {}
   }
 }
 

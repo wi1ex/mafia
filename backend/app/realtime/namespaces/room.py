@@ -23,6 +23,8 @@ from ..utils import (
 
 log = structlog.get_logger()
 
+GRACE_S = 30
+
 
 @sio.event(namespace="/room")
 async def connect(sid, environ, auth):
@@ -79,6 +81,7 @@ async def join(sid, data) -> JoinAck:
         await sio.enter_room(sid,
                              f"room:{rid}",
                              namespace="/room")
+        await r.delete(f"room:{rid}:softdisc:{uid}")
 
         snapshot = await get_room_snapshot(r, rid)
         blocked  = await get_blocks_snapshot(r, rid)
@@ -362,25 +365,14 @@ async def disconnect(sid):
                            room=f"room:{rid}",
                            namespace="/room")
 
-        occ, gc_seq, pos_updates = await leave_room_atomic(r, rid, uid)
-
-        await sio.leave_room(sid,
-                             f"room:{rid}",
-                             namespace="/room")
-        await sio.emit("member_left",
-                       {"user_id": uid},
+        await r.setex(f"room:{rid}:softdisc:{uid}", GRACE_S, "1")
+        await r.hset(f"room:{rid}:user:{uid}:state", mapping={"mic": "0", "cam": "0", "speakers": "0", "visibility": "0"})
+        await sio.emit("state_changed",
+                       {"user_id": uid, "mic": "0", "cam": "0", "speakers": "0", "visibility": "0"},
                        room=f"room:{rid}",
                        namespace="/room")
-        if pos_updates:
-            await sio.emit("positions",
-                           {"updates": [{"user_id": u, "position": p} for u, p in pos_updates]},
-                           room=f"room:{rid}",
-                           namespace="/room")
-        await sio.emit("rooms_occupancy",
-                       {"id": rid,
-                        "occupancy": occ},
-                       namespace="/rooms")
 
+        await sio.leave_room(sid, f"room:{rid}", namespace="/room")
         base_role = str(sess.get("base_role") or "user")
         await sio.save_session(sid,
                                {"uid": uid,
@@ -390,17 +382,44 @@ async def disconnect(sid):
                                 "username": sess.get("username"),
                                 "avatar_name": sess.get("avatar_name")},
                                namespace="/room")
-        if occ == 0:
-            async def _gc():
-                try:
-                    removed = await gc_empty_room(rid, expected_seq=gc_seq)
-                    if removed:
-                        await sio.emit("rooms_remove",
-                                       {"id": rid},
-                                       namespace="/rooms")
-                except Exception:
-                    log.exception("gc failed rid=%s", rid)
-            asyncio.create_task(_gc())
+
+        async def _finalize():
+            try:
+                await asyncio.sleep(GRACE_S)
+                if not await r.get(f"room:{rid}:softdisc:{uid}"):
+                    return
+
+                await r.delete(f"room:{rid}:softdisc:{uid}")
+                occ, gc_seq, pos_updates = await leave_room_atomic(r, rid, uid)
+                await sio.emit("member_left",
+                               {"user_id": uid},
+                               room=f"room:{rid}",
+                               namespace="/room")
+                if pos_updates:
+                    await sio.emit("positions",
+                                   {"updates": [{"user_id": u, "position": p} for u, p in pos_updates]},
+                                   room=f"room:{rid}",
+                                   namespace="/room")
+                await sio.emit("rooms_occupancy",
+                               {"id": rid,
+                                "occupancy": occ},
+                               namespace="/rooms")
+
+                if occ == 0:
+                    async def _gc():
+                        try:
+                            removed = await gc_empty_room(rid, expected_seq=gc_seq)
+                            if removed:
+                                await sio.emit("rooms_remove",
+                                               {"id": rid},
+                                               namespace="/rooms")
+                        except Exception:
+                            log.exception("gc failed rid=%s", rid)
+                    asyncio.create_task(_gc())
+            except Exception:
+                log.exception("sio.disconnect.finalize.error", rid=rid, uid=uid)
+
+        asyncio.create_task(_finalize())
 
     except Exception:
         log.exception("sio.disconnect.error", sid=sid)

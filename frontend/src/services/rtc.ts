@@ -501,10 +501,6 @@ export function useRTC(): UseRTC {
   async function enable(kind: DeviceKind): Promise<boolean> {
     const room = lk.value
     if (!room) return false
-    if ((room as any).state !== 'connected') {
-      error('enable ignored: room not connected', { state: (room as any).state, kind })
-      return false
-    }
     if ((kind === 'audioinput' ? mics.value.length : cams.value.length) === 0) {
       try {
         const perms = kind === 'audioinput' ? { audio: true, video: false } : { audio: false, video: true }
@@ -659,7 +655,7 @@ export function useRTC(): UseRTC {
     peerIds.value = peerIds.value.filter(x => x !== id)
   }
 
-  function cleanupMedia(wipePeers = true) {
+  function cleanupMedia() {
     activeSpeakers.value = new Set()
     audibleIds.value = new Set()
     videoEls.forEach(el => { try { el.srcObject = null } catch {} })
@@ -685,10 +681,8 @@ export function useRTC(): UseRTC {
     lsWriteTimers.forEach(t => { try { window.clearTimeout(t) } catch {} })
     lsWriteTimers.clear()
     waState = 0
-    if (wipePeers) {
-      peerIds.value = []
-      localId.value = ''
-    }
+    peerIds.value = []
+    localId.value = ''
     try { preparedScreen?.forEach(t => t.stop()) } catch {}
     preparedScreen = null
   }
@@ -725,7 +719,7 @@ export function useRTC(): UseRTC {
     })
     lk.value = room
 
-    room.on(RoomEvent.Disconnected, () => cleanupMedia(false))
+    room.on(RoomEvent.Disconnected, cleanupMedia)
 
     room.on(RoomEvent.LocalTrackPublished, (pub: LocalTrackPublication) => {
       if (pub.kind === Track.Kind.Video && pub.source === Track.Source.ScreenShare) {
@@ -874,7 +868,7 @@ export function useRTC(): UseRTC {
     try { await lk.value?.localParticipant.setCameraEnabled(false) } catch {}
     try { await lk.value?.disconnect() } catch {}
     try { lk.value?.removeAllListeners?.() } catch {}
-    cleanupMedia(true)
+    cleanupMedia()
     lk.value = null
   }
 
