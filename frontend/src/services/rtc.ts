@@ -824,6 +824,12 @@ export function useRTC(): UseRTC {
       activeSpeakers.value = new Set(parts.map(p => String(p.identity)))
     })
 
+    room.on(RoomEvent.Reconnected, () => {
+      room.remoteParticipants.forEach(p => applySubsFor(p))
+      refreshAudibleIds()
+      void resumeAudio()
+    })
+
     return room
   }
 

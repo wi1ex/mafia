@@ -464,6 +464,7 @@ function connectSocket() {
 
   socket.value.on('member_left', (p: any) => {
     const id = String(p.user_id)
+    if (peerIds.value.includes(id)) return
     purgePeerUI(id)
   })
 
@@ -671,8 +672,7 @@ async function onLeave() {
   leaving.value = true
   try {
     document.removeEventListener('click', onDocClick)
-    window.removeEventListener('pagehide', onPageHide)
-    window.removeEventListener('beforeunload', onPageHide)
+    document.removeEventListener('visibilitychange', onVisibilityChange)
   } catch {}
   try {
     const s = socket.value
@@ -691,7 +691,28 @@ async function onLeave() {
     leaving.value = false
   }
 }
-const onPageHide = () => { void onLeave() }
+async function onVisibilityChange() {
+  if (document.hidden) return
+  connectSocket()
+  try { await rtc.refreshDevices() } catch {}
+  try { await rtc.resumeAudio() } catch {}
+  const room = rtc.lk.value as any
+  const disconnected = !room || room.state === 'disconnected'
+  if (disconnected) {
+    try {
+      const j:any = await safeJoin()
+      if (j?.ok) {
+        applyJoinAck(j)
+        await rtc.connect(ws_url, j.token, { autoSubscribe: false })
+        rtc.setAudioSubscriptionsForAll(local.speakers)
+        rtc.setVideoSubscriptionsForAll(local.visibility)
+      }
+    } catch {}
+  } else {
+    rtc.setAudioSubscriptionsForAll(local.speakers)
+    rtc.setVideoSubscriptionsForAll(local.visibility)
+  }
+}
 
 watch(() => auth.isAuthed, (ok) => { if (!ok) { void onLeave() } })
 
@@ -738,8 +759,7 @@ onMounted(async () => {
     }
 
     document.addEventListener('click', onDocClick)
-    window.addEventListener('pagehide', onPageHide)
-    window.addEventListener('beforeunload', onPageHide)
+    document.addEventListener('visibilitychange', onVisibilityChange)
   } catch {
     rerr('room onMounted fatal')
     try { await rtc.disconnect() } catch {}
@@ -748,7 +768,13 @@ onMounted(async () => {
   }
 })
 
-onBeforeUnmount(() => { void onLeave() })
+onBeforeUnmount(() => {
+  try {
+    document.removeEventListener('click', onDocClick)
+    document.removeEventListener('visibilitychange', onVisibilityChange)
+  } catch {}
+  void onLeave()
+})
 </script>
 
 <style lang="scss" scoped>

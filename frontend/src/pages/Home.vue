@@ -8,7 +8,6 @@
         <button :disabled="creating || !valid" @click="onCreate">{{ creating ? 'Создаю...' : 'Создать' }}</button>
       </div>
 
-      <p>Список комнат</p>
       <div v-if="sortedRooms.length === 0" class="muted">Пока пусто</div>
       <ul v-else class="list" ref="listEl">
         <li class="item" v-for="r in sortedRooms" :key="r.id" :class="{ active: r.id === selectedId }" tabindex="0" @click="selectRoom(r.id)">
@@ -282,14 +281,9 @@ onBeforeUnmount(() => {
     background-color: $dark;
     .create {
       display: flex;
-      flex-direction: column;
       margin-bottom: 20px;
       gap: 10px;
-      max-width: 300px;
-      border-radius: 5px;
-      background-color: $dark;
       p {
-        margin: 0 0 10px;
         color: $fg;
         font-size: 24px;
       }
@@ -302,7 +296,7 @@ onBeforeUnmount(() => {
       }
       button {
         padding: 0 10px;
-        height: 30px;
+        height: 33px;
         border-radius: 5px;
         border: none;
         background-color: $green;
@@ -313,11 +307,6 @@ onBeforeUnmount(() => {
           cursor: not-allowed;
         }
       }
-    }
-    p {
-      margin: 0;
-      font-size: 24px;
-      color: $fg;
     }
     .muted {
       color: $grey;
@@ -367,6 +356,7 @@ onBeforeUnmount(() => {
     background-color: $dark;
     .placeholder {
       margin: auto;
+      text-align: center;
     }
     .room-info {
       display: flex;
