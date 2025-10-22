@@ -317,7 +317,7 @@ onBeforeUnmount(() => {
   }
   .tabs {
     display: flex;
-    gap: 12px;
+    gap: 10px;
     margin-bottom: 12px;
     .tab {
       padding: 8px 12px;
@@ -337,7 +337,7 @@ onBeforeUnmount(() => {
   }
   .grid {
     display: grid;
-    gap: 12px;
+    gap: 10px;
     grid-template-columns: 1fr 1fr;
   }
   .block {
@@ -350,7 +350,7 @@ onBeforeUnmount(() => {
     }
     .avatar-row {
       display: flex;
-      gap: 12px;
+      gap: 10px;
       align-items: center;
       .avatar {
         width: 120px;
@@ -362,13 +362,13 @@ onBeforeUnmount(() => {
       .actions {
         display: flex;
         flex-direction: column;
-        gap: 12px;
+        gap: 10px;
         align-items: flex-end;
       }
     }
     .nick-row {
       display: flex;
-      gap: 12px;
+      gap: 10px;
       align-items: center;
       .input {
         padding: 8px 10px;
@@ -397,7 +397,7 @@ onBeforeUnmount(() => {
       padding: 16px;
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 10px;
       canvas {
         background-color: $black;
         border-radius: 5px;
@@ -410,7 +410,7 @@ onBeforeUnmount(() => {
       }
       .modal-actions {
         display: flex;
-        gap: 12px;
+        gap: 10px;
         justify-content: space-between;
       }
     }

@@ -762,14 +762,14 @@ onBeforeUnmount(() => { void onLeave() })
   .grid {
     display: grid;
     width: calc(100vw - 20px);
-    height: calc(100dvh - 80px);
+    height: calc(100dvh - 70px);
     gap: 10px;
   }
   .theater {
     display: grid;
-    grid-template-columns: 1fr 250px;
+    grid-template-columns: 1fr 284px;
     width: calc(100vw - 20px);
-    height: calc(100dvh - 80px);
+    height: calc(100dvh - 70px);
     gap: 10px;
     .stage {
       position: relative;
@@ -789,7 +789,7 @@ onBeforeUnmount(() => { void onLeave() })
         justify-content: space-between;
         top: 5px;
         left: 5px;
-        padding: 10px;
+        padding: 5px;
         gap: 5px;
         width: min-content;
         height: 20px;
@@ -816,7 +816,7 @@ onBeforeUnmount(() => { void onLeave() })
     .sidebar {
       display: flex;
       flex-direction: column;
-      width: 250px;
+      width: 284px;
       gap: 10px;
       overflow-y: auto;
       scrollbar-width: none;
@@ -838,8 +838,8 @@ onBeforeUnmount(() => { void onLeave() })
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 75px;
-      height: 50px;
+      width: 60px;
+      height: 40px;
       border: none;
       border-radius: 5px;
       background-color: $dark;
@@ -848,8 +848,8 @@ onBeforeUnmount(() => { void onLeave() })
         cursor: not-allowed;
       }
       img {
-        width: 32px;
-        height: 32px;
+        width: 30px;
+        height: 30px;
       }
     }
     .probe {
@@ -870,7 +870,7 @@ onBeforeUnmount(() => { void onLeave() })
       right: 0;
       bottom: 60px;
       padding: 10px;
-      gap: 10px;
+      gap: 20px;
       min-width: 250px;
       border-radius: 5px;
       background-color: $dark;

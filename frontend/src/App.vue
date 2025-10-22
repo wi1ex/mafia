@@ -40,7 +40,7 @@ onMounted(async () => {
   align-items: center;
   justify-content: center;
   inset: 0;
-  background-color: rgba($black, 0.8);
+  background-color: rgba($black, 0.75);
   backdrop-filter: blur(5px);
   text-align: center;
   color: $fg;
@@ -48,7 +48,6 @@ onMounted(async () => {
 }
 .rotate-box {
   max-width: 600px;
-  font-size: 20px;
 }
 @media (orientation: portrait) {
   .rotate-overlay {
