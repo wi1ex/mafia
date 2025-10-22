@@ -168,8 +168,6 @@ const { localId, mics, cams, selectedMicId, selectedCamId, peerIds } = rtc
 const rid = Number(route.params.id)
 const roomId = ref<number | null>(rid)
 const local = reactive({ mic: false, cam: false, speakers: true, visibility: true })
-const suspended = ref(false)
-const savedBeforeHide = ref<{ mic: boolean; cam: boolean; speakers: boolean; visibility: boolean } | null>(null)
 const pending = reactive<{ [k in keyof typeof local]: boolean }>({ mic: false, cam: false, speakers: false, visibility: false })
 const micOn = computed({ get: () => local.mic, set: v => { local.mic = v } })
 const camOn = computed({ get: () => local.cam, set: v => { local.cam = v } })
@@ -466,7 +464,6 @@ function connectSocket() {
 
   socket.value.on('member_left', (p: any) => {
     const id = String(p.user_id)
-    if (peerIds.value.includes(id)) return
     purgePeerUI(id)
   })
 
@@ -674,7 +671,8 @@ async function onLeave() {
   leaving.value = true
   try {
     document.removeEventListener('click', onDocClick)
-    document.removeEventListener('visibilitychange', onVisibilityChange)
+    window.removeEventListener('pagehide', onPageHide)
+    window.removeEventListener('beforeunload', onPageHide)
   } catch {}
   try {
     const s = socket.value
@@ -693,63 +691,8 @@ async function onLeave() {
     leaving.value = false
   }
 }
-async function onVisibilityChange() {
-  if (document.hidden) {
-    if (!suspended.value) {
-      savedBeforeHide.value = { ...local }
-      suspended.value = true
-      try { await publishState({ mic: false, cam: false, speakers: false, visibility: false }) } catch {}
-      try { await rtc.disable('audioinput') } catch {}
-      try { await rtc.disable('videoinput') } catch {}
-      rtc.setAudioSubscriptionsForAll(false)
-      rtc.setVideoSubscriptionsForAll(false)
-      local.mic = false
-      local.cam = false
-      local.speakers = false
-      local.visibility = false
-    }
-    return
-  }
-  connectSocket()
-  try { await rtc.refreshDevices() } catch {}
-  try { await rtc.resumeAudio() } catch {}
-  const room = rtc.lk.value as any
-  const disconnected = !room || room.state === 'disconnected'
-  if (disconnected) {
-    try {
-      const j:any = await safeJoin()
-      if (j?.ok) {
-        applyJoinAck(j)
-        await rtc.connect(ws_url, j.token, { autoSubscribe: false })
-        rtc.setAudioSubscriptionsForAll(local.speakers)
-        rtc.setVideoSubscriptionsForAll(local.visibility)
-      }
-    } catch {}
-  } else {
-    rtc.setAudioSubscriptionsForAll(local.speakers)
-    rtc.setVideoSubscriptionsForAll(local.visibility)
-  }
-  if (suspended.value && savedBeforeHide.value) {
-    const pref = savedBeforeHide.value
-    suspended.value = false
-    savedBeforeHide.value = null
-    if (pref.visibility) rtc.setVideoSubscriptionsForAll(true)
-    if (pref.speakers)  rtc.setAudioSubscriptionsForAll(true)
-    if (pref.cam && !blockedSelf.value.cam) {
-      const ok = await rtc.enable('videoinput')
-      if (!ok) pref.cam = false
-    }
-    if (pref.mic && !blockedSelf.value.mic) {
-      const ok = await rtc.enable('audioinput')
-      if (!ok) pref.mic = false
-    }
-    local.mic = !!pref.mic
-    local.cam = !!pref.cam
-    local.speakers = !!pref.speakers
-    local.visibility = !!pref.visibility
-    try { await publishState({ ...pref }) } catch {}
-  }
-}
+
+const onPageHide = () => { void onLeave() }
 
 watch(() => auth.isAuthed, (ok) => { if (!ok) { void onLeave() } })
 
@@ -796,7 +739,8 @@ onMounted(async () => {
     }
 
     document.addEventListener('click', onDocClick)
-    document.addEventListener('visibilitychange', onVisibilityChange)
+    window.addEventListener('pagehide', onPageHide)
+    window.addEventListener('beforeunload', onPageHide)
   } catch {
     rerr('room onMounted fatal')
     try { await rtc.disconnect() } catch {}
@@ -805,13 +749,7 @@ onMounted(async () => {
   }
 })
 
-onBeforeUnmount(() => {
-  try {
-    document.removeEventListener('click', onDocClick)
-    document.removeEventListener('visibilitychange', onVisibilityChange)
-  } catch {}
-  void onLeave()
-})
+onBeforeUnmount(() => { void onLeave() })
 </script>
 
 <style lang="scss" scoped>
