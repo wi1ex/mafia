@@ -103,16 +103,16 @@
       </button>
 
       <div v-show="settingsOpen" class="settings" aria-label="Настройки устройств" @click.stop>
-        <label class="sel">
+        <label>
           <span>Микрофон</span>
           <select v-model="selectedMicId" @change="rtc.onDeviceChange('audioinput')" :disabled="mics.length === 0">
-            <option v-for="d in mics" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Микрофон' }}</option>
+            <option v-for="d in mics" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Микрофон не обнаружен' }}</option>
           </select>
         </label>
-        <label class="sel">
+        <label>
           <span>Камера</span>
           <select v-model="selectedCamId" @change="rtc.onDeviceChange('videoinput')" :disabled="cams.length === 0">
-            <option v-for="d in cams" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Камера' }}</option>
+            <option v-for="d in cams" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Камера не обнаружена' }}</option>
           </select>
         </label>
       </div>
@@ -855,6 +855,9 @@ onBeforeUnmount(() => { void onLeave() })
     .probe {
       width: fit-content;
       color: $fg;
+      font-size: 16px;
+      font-family: Manrope-Medium;
+      line-height: 1;
     }
     .controls {
       display: flex;
@@ -872,16 +875,21 @@ onBeforeUnmount(() => { void onLeave() })
       border-radius: 5px;
       background-color: $dark;
       z-index: 20;
-      .sel {
+      label {
         display: flex;
         flex-direction: column;
         gap: 5px;
-        color: $fg;
+        span {
+          color: $fg;
+        }
         select {
           padding: 5px;
           border-radius: 5px;
           background-color: $bg;
           color: $fg;
+          font-size: 14px;
+          font-family: Manrope-Medium;
+          line-height: 1;
           &:disabled {
             opacity: 0.5;
             cursor: not-allowed;

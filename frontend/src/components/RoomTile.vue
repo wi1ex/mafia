@@ -156,7 +156,7 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
       align-items: center;
       padding: 0;
       gap: 5px;
-      min-width: 0;
+      height: 20px;
       border: none;
       background: none;
       cursor: pointer;
@@ -170,8 +170,11 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
         object-fit: cover;
       }
       span {
+        height: 18px;
         color: $fg;
         font-size: 16px;
+        font-family: Manrope-Medium;
+        line-height: 1;
         white-space: nowrap;
         overflow: hidden;
       }
@@ -216,6 +219,7 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
           object-fit: cover;
         }
         span {
+          height: 18px;
           color: $fg;
           font-size: 16px;
           white-space: nowrap;
@@ -276,7 +280,7 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
         background-color: $bg;
         cursor: pointer;
         &.red-button {
-          background-color: rgba($red, 0.5);
+          background-color: rgba($red, 0.75);
         }
         img {
           width: 20px;
