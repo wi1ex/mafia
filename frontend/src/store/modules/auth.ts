@@ -100,33 +100,21 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  function wipeLocalForNewUser(hard = true) {
-    try { stopSessionBus() } catch {}
+  function wipeLocalForNewLogin() {
     try {
-      if (hard) {
-        localStorage.clear()
-        return
-      }
-      const toDel: string[] = []
+      const toDel = new Set([ 'audioDeviceId', 'videoDeviceId', 'videoQuality', 'mediaPermProbed' ])
+      const extra: string[] = []
       for (let i = 0; i < localStorage.length; i++) {
         const k = localStorage.key(i)!
-        if (
-          k.startsWith('loglevel:') ||
-          k.startsWith('auth:')     ||
-          k.startsWith('vol:')      ||
-          k === 'audioDeviceId'     ||
-          k === 'videoDeviceId'     ||
-          k === 'videoQuality'      ||
-          k === 'mediaPermProbed'
-        ) toDel.push(k)
+        if (k.startsWith('vol:') || k.startsWith('auth:') || k.startsWith('loglevel:')) extra.push(k)
       }
-      toDel.forEach(k => { try { localStorage.removeItem(k) } catch {} })
+      ;[...toDel, ...extra].forEach((k:any) => { try { localStorage.removeItem(k) } catch {} })
+      try { sessionStorage.clear() } catch {}
     } catch {}
   }
 
   async function signInWithTelegram(tg: TgUser): Promise<void> {
     const { data } = await api.post('/auth/telegram', tg)
-    wipeLocalForNewUser(true)
     await applySession(data)
     const { useUserStore } = await import('@/store/modules/user')
     await useUserStore().fetchMe()
@@ -147,5 +135,6 @@ export const useAuthStore = defineStore('auth', () => {
     signInWithTelegram,
     logout,
     localSignOut,
+    wipeLocalForNewLogin,
   }
 })

@@ -2,10 +2,10 @@
   <header class="bar">
     <div class="brand" aria-label="Mafia">DECEIT.games (v{{ BUILD }})</div>
 
-    <div v-if="!auth.isAuthed && !auth.foreignActive" class="login-box">
+    <div v-if="!auth.isAuthed && !auth.foreignActive">
       <div id="tg-login" />
     </div>
-    <div v-else-if="!auth.isAuthed && auth.foreignActive" class="login-box note">
+    <div v-else-if="!auth.isAuthed && auth.foreignActive" class="brand">
       <span>Вы уже авторизованы в соседней вкладке</span>
     </div>
 
@@ -49,8 +49,10 @@ function mountTGWidget() {
   if (!box) return
   box.innerHTML = ''
   document.querySelector('script[data-tg-widget="1"]')?.remove()
-  window.__tg_cb__ = async (u:any) => { await auth.signInWithTelegram(u) }
-
+  window.__tg_cb__ = async (u:any) => {
+    try { auth.wipeLocalForNewLogin() } catch {}
+    await auth.signInWithTelegram(u)
+  }
   const s = document.createElement('script')
   s.async = true
   s.src = 'https://telegram.org/js/telegram-widget.js?19'
