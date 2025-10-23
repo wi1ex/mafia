@@ -100,8 +100,33 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  function wipeLocalForNewUser(hard = true) {
+    try { stopSessionBus() } catch {}
+    try {
+      if (hard) {
+        localStorage.clear()
+        return
+      }
+      const toDel: string[] = []
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i)!
+        if (
+          k.startsWith('loglevel:') ||
+          k.startsWith('auth:')     ||
+          k.startsWith('vol:')      ||
+          k === 'audioDeviceId'     ||
+          k === 'videoDeviceId'     ||
+          k === 'videoQuality'      ||
+          k === 'mediaPermProbed'
+        ) toDel.push(k)
+      }
+      toDel.forEach(k => { try { localStorage.removeItem(k) } catch {} })
+    } catch {}
+  }
+
   async function signInWithTelegram(tg: TgUser): Promise<void> {
     const { data } = await api.post('/auth/telegram', tg)
+    wipeLocalForNewUser(true)
     await applySession(data)
     const { useUserStore } = await import('@/store/modules/user')
     await useUserStore().fetchMe()

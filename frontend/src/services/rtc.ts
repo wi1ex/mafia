@@ -51,6 +51,7 @@ export type UseRTC = {
   screenKey: (id: string) => string
   isScreenKey: (key: string) => boolean
   startScreenShare: (opts?: { audio?: boolean }) => Promise<boolean>
+  getLastScreenShareError: () => 'canceled' | 'failed' | null
   initRoom: (opts?: {
     onScreenShareEnded?: () => void | Promise<void>
     publishDefaults?: ConstructorParameters<typeof LkRoom>[0]['publishDefaults']
@@ -109,6 +110,13 @@ export function useRTC(): UseRTC {
   const lowVideoQuality = VideoPresets.h180
   const highVideoQuality = VideoPresets.h540
   const highScreenQuality = ScreenSharePresets.h720fps30
+  let lastScreenShareError: 'canceled' | 'failed' | null = null
+  const isUserCancel = (e: any) => {
+    const n = e?.name
+    if (n === 'NotAllowedError' || n === 'AbortError' || n === 'NotFoundError') return true
+    const msg = String(e?.message || '').toLowerCase()
+    return msg.includes('permission dismissed') || msg.includes('user cancelled') || msg.includes('user canceled')
+  }
 
   type RefDeps = { elMap: Map<string, HTMLVideoElement>; source: Track.Source }
   type SrcWrap = { node: MediaStreamAudioSourceNode; stream: MediaStream }
@@ -305,6 +313,7 @@ export function useRTC(): UseRTC {
       try { await cancelPreparedScreen() } catch {}
       return false
     }
+    lastScreenShareError = null
     return true
   }
 
@@ -313,6 +322,7 @@ export function useRTC(): UseRTC {
   let preparedScreen: LocalTrack[] | null = null
   async function prepareScreenShare(opts?: { audio?: boolean }): Promise<boolean> {
     try {
+      lastScreenShareError = null
       preparedScreen = await createLocalScreenTracks({
         audio: opts?.audio ?? true,
         resolution: highScreenQuality.resolution,
@@ -324,14 +334,29 @@ export function useRTC(): UseRTC {
         t.mediaStreamTrack.addEventListener('ended', onEnded, { once: true })
       })
       return true
-    } catch {
+    } catch (e: any) {
+      if (isUserCancel(e)) {
+        lastScreenShareError = 'canceled'
+        preparedScreen = null
+        return false
+      }
       try {
         preparedScreen = await createLocalScreenTracks({
           audio: false,
           resolution: highScreenQuality.resolution,
         })
+        preparedScreen.forEach(t => {
+          const onEnded = async () => {
+            try { await lk.value?.localParticipant.unpublishTrack(t) } catch {}
+          }
+          t.mediaStreamTrack.addEventListener('ended', onEnded, { once: true })
+        })
         return true
-      } catch { return false }
+      } catch (e2: any) {
+        lastScreenShareError = isUserCancel(e2) ? 'canceled' : 'failed'
+        preparedScreen = null
+        return false
+      }
     }
   }
   async function publishPreparedScreen(): Promise<boolean> {
@@ -349,6 +374,7 @@ export function useRTC(): UseRTC {
     } catch {
       try { preparedScreen.forEach(t => t.stop()) } catch {}
       preparedScreen = null
+      lastScreenShareError = 'failed'
       return false
     }
     if (audio) {
@@ -908,6 +934,7 @@ export function useRTC(): UseRTC {
     screenKey,
     isScreenKey,
     startScreenShare,
+    getLastScreenShareError: () => lastScreenShareError,
     cleanupPeer,
   }
 }

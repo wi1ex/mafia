@@ -165,6 +165,10 @@ const auth = useAuthStore()
 const rtc = useRTC()
 const { localId, mics, cams, selectedMicId, selectedCamId, peerIds } = rtc
 
+const UA = navigator.userAgent || ''
+const IS_MOBILE = (navigator as any).userAgentData?.mobile === true || /Android|iPhone|iPad|iPod|Mobile/i.test(UA)
+  || (window.matchMedia?.('(pointer: coarse)').matches && /Android|iPhone|iPad|iPod|Mobile|Tablet|Touch/i.test(UA))
+
 const rid = Number(route.params.id)
 const roomId = ref<number | null>(rid)
 const local = reactive({ mic: false, cam: false, speakers: true, visibility: true })
@@ -655,12 +659,16 @@ const toggleScreen = async () => {
         else alert('Не удалось начать трансляцию')
         return
       }
-      screenOwnerId.value = localId.value
       const ok = await rtc.startScreenShare({ audio: true })
+      if (ok) {
+        screenOwnerId.value = localId.value
+        return
+      }
       if (!ok) {
         await sendAck('screen', { on: false })
         screenOwnerId.value = ''
-        alert('Ошибка публикации видеопотока или доступ отклонён')
+        const reason = rtc.getLastScreenShareError?.()
+        alert(reason === 'canceled' ? 'Трансляция отменена' : 'Ошибка публикации видеопотока или доступ отклонён')
       }
     } else await rtc.stopScreenShare()
   } finally { pendingScreen.value = false }
@@ -671,8 +679,8 @@ async function onLeave() {
   leaving.value = true
   try {
     document.removeEventListener('click', onDocClick)
-    window.removeEventListener('pagehide', onPageHide)
-    window.removeEventListener('beforeunload', onPageHide)
+    document.removeEventListener('visibilitychange', onBackgroundMaybeLeave as any)
+    window.removeEventListener('pagehide', onBackgroundMaybeLeave as any)
   } catch {}
   try {
     const s = socket.value
@@ -692,7 +700,10 @@ async function onLeave() {
   }
 }
 
-const onPageHide = () => { void onLeave() }
+function onBackgroundMaybeLeave(e?: PageTransitionEvent) {
+  if (!IS_MOBILE) return
+  if (document.visibilityState === 'hidden' || (e && (e as any).persisted === true)) void onLeave()
+}
 
 watch(() => auth.isAuthed, (ok) => { if (!ok) { void onLeave() } })
 
@@ -739,8 +750,8 @@ onMounted(async () => {
     }
 
     document.addEventListener('click', onDocClick)
-    window.addEventListener('pagehide', onPageHide)
-    window.addEventListener('beforeunload', onPageHide)
+    document.addEventListener('visibilitychange', onBackgroundMaybeLeave, { passive: true })
+    window.addEventListener('pagehide', onBackgroundMaybeLeave as any, { passive: true })
   } catch {
     rerr('room onMounted fatal')
     try { await rtc.disconnect() } catch {}

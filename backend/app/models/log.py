@@ -11,7 +11,7 @@ class AppLog(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True, index=True)
-    username: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
+    username: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     action: Mapped[str] = mapped_column(String(64), nullable=False)
     details: Mapped[str] = mapped_column(Text, nullable=False, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)

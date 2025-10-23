@@ -32,9 +32,16 @@ const BOT = import.meta.env.VITE_TG_BOT_NAME as string || ''
 const BUILD = import.meta.env.VITE_BUILD_ID as string || ''
 const SIZE: 'large' | 'medium' | 'small' = 'large'
 
-declare global { interface Window { __tg_cb__?: (u:any) => void } }
+declare global {
+  interface Window { __tg_cb__?: (u:any) => void }
+}
 
-async function logout() { try { await auth.logout() } catch {} }
+async function logout() {
+  try { await auth.logout() }
+  finally {
+    alert('Для "полного" выхода нажмите в Telegram "Terminate session" для этой сессии')
+  }
+}
 
 function mountTGWidget() {
   if (!BOT) return

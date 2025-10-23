@@ -3,7 +3,7 @@
     <div class="left">
       <div v-if="auth.isAuthed" class="create">
         <p>Создать комнату</p>
-        <input v-model.trim="title" class="input" placeholder="Название" maxlength="64" />
+        <input v-model.trim="title" class="input" placeholder="Название" maxlength="32" />
         <input v-model.number="limit" class="input" type="number" min="2" max="12" placeholder="Лимит" />
         <button :disabled="creating || !valid" @click="onCreate">{{ creating ? 'Создаю...' : 'Создать' }}</button>
       </div>

@@ -40,7 +40,7 @@ class AccessTokenOut(BaseModel):
 
 
 class RoomCreateIn(BaseModel):
-    title: str = Field(min_length=1, max_length=64)
+    title: str = Field(min_length=1, max_length=32)
     user_limit: int = Field(ge=2, le=12, default=12)
 
 
@@ -118,7 +118,7 @@ class RoomInfoOut(BaseModel):
 
 
 class UsernameUpdateIn(BaseModel):
-    username: str = Field(min_length=2, max_length=32)
+    username: str = Field(min_length=2, max_length=20)
 
 
 class AvatarUploadOut(BaseModel):

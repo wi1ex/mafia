@@ -27,11 +27,11 @@
       <div class="block">
         <h3 class="title">Никнейм</h3>
         <div class="nick-row">
-          <input class="input" v-model.trim="nick" maxlength="32" :disabled="busyNick" placeholder="Никнейм" />
+          <input class="input" v-model.trim="nick" maxlength="20" :disabled="busyNick" placeholder="Никнейм" />
           <button class="btn" @click="saveNick" :disabled="busyNick || nick === me.username || !validNick">{{ busyNick ? '...' : 'Сохранить' }}</button>
         </div>
         <div class="hint">
-          2–32 символа: латиница, кириллица, цифры, <code>._-</code> (не начинается с <code>user</code>).
+          2–20 символов: латиница, кириллица, цифры, <code>. _ -</code>.
         </div>
       </div>
 
@@ -62,7 +62,7 @@ const modalEl = ref<HTMLDivElement | null>(null)
 
 const nick = ref('')
 const busyNick = ref(false)
-const validNick = computed(() => /^[a-zA-Zа-яА-Я0-9._-]{2,32}$/.test(nick.value) && !/^user/i.test(nick.value))
+const validNick = computed(() => /^[a-zA-Zа-яА-Я0-9._-]{2,20}$/.test(nick.value) && !/^user/i.test(nick.value))
 
 async function loadMe() {
   const { data } = await api.get('/users/profile_info')
