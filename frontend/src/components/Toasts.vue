@@ -1,40 +1,90 @@
 <template>
   <div class="toasts">
-    <div v-for="t in items" :key="t.key" class="toast">
-      <span>{{ t.text }}</span>
-      <button v-if="t.action" @click="run(t)"> {{ t.action.label }} </button>
-      <button @click="close(t)">✕</button>
+    <div v-for="t in items" :key="t.key" class="toast" :data-kind="t.kind">
+      <div class="head">
+        <strong class="title">{{ t.title }}</strong>
+        <time class="date">{{ fmt(t.date) }}</time>
+      </div>
+      <p class="text">{{ t.text }}</p>
+      <div class="actions">
+        <button v-if="t.action" @click="run(t)">{{ t.action.label }}</button>
+        <button class="close" @click="close(t)">✕</button>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useNotifStore } from '@/store/modules/notif'
+import { api } from '@/services/axios'
 
-type T = { key: number; text: string; action?: {label: string; run: () => void}; noteId?: number }
+type RouteAction = {
+  kind: 'route'
+  label: string
+  to: string
+}
+type ApiAction = {
+  kind: 'api'
+  label: string
+  url: string
+  method?: 'get'|'post'|'delete'|'put'
+  body?: any
+}
+type ToastAction = RouteAction | ApiAction
+type ToastItem = {
+  key: number
+  noteId?: number
+  title: string
+  text: string
+  date: number
+  kind?: string
+  action?: ToastAction
+  ttl?: number
+}
 
-const items = ref<T[]>([])
+const items = ref<ToastItem[]>([])
 const n = useNotifStore()
+const router = useRouter()
 
-async function close(t: T) {
+function fmt(ts: number) { return new Date(ts).toLocaleString() }
+
+async function close(t: ToastItem) {
   items.value = items.value.filter(x => x !== t)
-  if (t.noteId) {
-    try { await n.markReadVisible([t.noteId]) } catch {}
+  if (t.noteId) { try { await n.markReadVisible([t.noteId]) } catch {} }
+}
+
+async function run(t: ToastItem) {
+  try {
+    if (!t.action) return
+    if (t.action.kind === 'route') {
+      await router.push(t.action.to)
+    } else if (t.action.kind === 'api') {
+      const m = (t.action.method || 'post').toLowerCase()
+      await api[m](t.action.url, t.action.body)
+    }
+  } finally {
+    await close(t)
   }
 }
 
-function run(t:T) { try{ t.action?.run() } finally { close(t) } }
-
 onMounted(() => {
-  window.addEventListener('toast', (e: any)=>{
-    const d = e.detail || {}
+  window.addEventListener('toast', (e: any) => {
+    const d = e?.detail || {}
     const key = Date.now() + Math.random()
-    const t: T = { key, text: d.text, noteId: d.id, action: d.action }
+    const t: ToastItem = {
+      key,
+      noteId: d.id,
+      title: d.title || 'Уведомление',
+      text: String(d.text || ''),
+      date: d.date ? Number(new Date(d.date)) : Date.now(),
+      kind: d.kind || 'info',
+      action: d.action,
+      ttl: Number.isFinite(d.ttl) ? d.ttl : (d.action ? 8000 : 5000),
+    }
     items.value.push(t)
-    setTimeout(() => {
-      items.value = items.value.filter(x => x !== t)
-    }, 5000)
+    setTimeout(() => close(t), t.ttl!)
   })
 })
 </script>
@@ -50,20 +100,44 @@ onMounted(() => {
   z-index: 2000;
 }
 .toast {
-  display: flex;
-  gap: 8px;
-  align-items: center;
+  min-width: 280px;
+  max-width: 420px;
   background: #2a2a2a;
   color: #fff;
   border-radius: 6px;
   padding: 10px 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
 }
-.toast button {
+.head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.title {
+  font-weight: 600;
+}
+.date {
+  color: #bbb;
+  font-size: 12px;
+}
+.text {
+  margin: 6px 0 8px;
+}
+.actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.actions > button {
   background: #444;
   color: #fff;
   border: none;
   border-radius: 4px;
   padding: 4px 8px;
   cursor: pointer;
+}
+.actions > .close {
+  background: #555;
 }
 </style>

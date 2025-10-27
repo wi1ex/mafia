@@ -20,7 +20,10 @@ let accessToken = ''
 let isRefreshing = false
 let pendingWaiters: Array<(t: string | null) => void> = []
 
-type RefreshResult = { token: string | null; data?: any }
+type RefreshResult = {
+  token: string | null
+  data?: any
+}
 let refreshInFlight: Promise<RefreshResult> | null = null
 
 const tokenRefreshedListeners: Array<(t: string) => void> = []

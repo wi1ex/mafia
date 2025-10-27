@@ -9,7 +9,11 @@ type MinioVal = | string | {
   lazy?: boolean
 }
 
-type ElEx = HTMLImageElement & { __m_req?: number; __m_obs?: IntersectionObserver | null; __m_key?: string }
+type ElEx = HTMLImageElement & {
+  __m_req?: number
+  __m_obs?: IntersectionObserver | null
+  __m_key?: string
+}
 
 function norm(v: unknown): { key: string; version?: number; placeholder?: string; fallback?: string; lazy: boolean } {
   if (typeof v === 'string') return { key: v, lazy: true }

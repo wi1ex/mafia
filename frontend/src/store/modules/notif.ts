@@ -2,7 +2,12 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { api } from '@/services/axios'
 
-type Note = { id: number; text: string; created_at: string; read: boolean }
+type Note = {
+  id: number
+  text: string
+  created_at: string
+  read: boolean
+}
 
 export const useNotifStore = defineStore('notif', () => {
   const items = ref<Note[]>([])

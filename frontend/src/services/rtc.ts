@@ -118,8 +118,14 @@ export function useRTC(): UseRTC {
     return msg.includes('permission dismissed') || msg.includes('user cancelled') || msg.includes('user canceled')
   }
 
-  type RefDeps = { elMap: Map<string, HTMLVideoElement>; source: Track.Source }
-  type SrcWrap = { node: MediaStreamAudioSourceNode; stream: MediaStream }
+  type RefDeps = {
+    elMap: Map<string, HTMLVideoElement>
+    source: Track.Source
+  }
+  type SrcWrap = {
+    node: MediaStreamAudioSourceNode
+    stream: MediaStream
+  }
   const gainNodes = new Map<string, GainNode>()
   const msrcNodes = new Map<string, SrcWrap>()
   const volumePrefs = new Map<string, number>()

@@ -61,7 +61,18 @@ export const useAuthStore = defineStore('auth', () => {
         onNotify: (p) => {
           try {
             window.dispatchEvent(new CustomEvent('auth-notify', { detail: p }))
-            window.dispatchEvent(new CustomEvent('toast', { detail: { id: p.id, kind: 'approve', text: p.text } }))
+            const text = String(p?.text || '')
+            const m = /#(\d+)/.exec(text)
+            window.dispatchEvent(new CustomEvent('toast', {
+              detail: {
+                id: p.id,
+                title: 'Одобрено',
+                kind: 'approve',
+                text,
+                date: p.created_at,
+                action: m ? { kind: 'route', label: 'Перейти', to: `/room/${m[1]}` } : undefined,
+              }
+            }))
           } catch {}
         },
         onRoomApp: (p) => {
@@ -70,12 +81,10 @@ export const useAuthStore = defineStore('auth', () => {
             const text = `Заявка в комнату #${p.room_id}: ${p.user?.username || ('user' + p.user?.id)}`
             window.dispatchEvent(new CustomEvent('toast', {
               detail: {
+                title: 'Заявка',
                 kind: 'app',
                 text,
-                action: {
-                  label: 'Разрешить вход',
-                  run: async () => { try { await api.post(`/rooms/${p.room_id}/applications/${p.user.id}/approve`) } catch {} }
-                }
+                action: { kind: 'api', label: 'Разрешить вход', url: `/rooms/${p.room_id}/applications/${p.user.id}/approve`, method: 'post' }
               }
             }))
           } catch {}

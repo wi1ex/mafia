@@ -173,7 +173,12 @@ import iconScreenOff from '@/assets/svg/screenOff.svg'
 import iconScreenBlocked from '@/assets/svg/screenBlocked.svg'
 
 type State01 = 0 | 1
-type StatusState = { mic: State01; cam: State01; speakers: State01; visibility: State01 }
+type StatusState = {
+  mic: State01
+  cam: State01
+  speakers: State01
+  visibility: State01
+}
 type BlockState = StatusState & { screen: State01 }
 type IconKind = keyof StatusState | 'screen'
 

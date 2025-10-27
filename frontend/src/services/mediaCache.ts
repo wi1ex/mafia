@@ -11,7 +11,10 @@ const DB_NAME = 'media-cache'
 const DB_VER = 1
 const STORE = 'objects'
 
-type UrlRec = { url: string; refs: number }
+type UrlRec = {
+  url: string
+  refs: number
+}
 const urlMap = new Map<string, UrlRec>()
 const urlOrder: string[] = []
 const URL_MAX = 300
