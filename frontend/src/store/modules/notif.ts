@@ -24,28 +24,13 @@ export const useNotifStore = defineStore('notif', () => {
       if (!p) return
       items.value.unshift({ ...p, read: false })
       unread.value++
-      window.dispatchEvent(new CustomEvent('toast', { detail: { id: p.id, kind: 'approve', text: p.text } }))
       const m = /#(\d+)/.exec(p.text || '')
       if (m) {
         const roomId = Number(m[1])
         if (Number.isFinite(roomId)) window.dispatchEvent(new CustomEvent('room-approved', { detail: { roomId } }))
       }
     }
-    onRoomAppEv = (e: any) => {
-      const p = e?.detail
-      if (!p) return
-      const text = `Заявка в комнату #${p.room_id}: ${p.user?.username || ('user' + p.user?.id)}`
-      window.dispatchEvent(new CustomEvent('toast', {
-        detail: {
-          kind: 'app',
-          text,
-          action: {
-            label: 'Разрешить вход',
-            run: async () => { try { await api.post(`/rooms/${p.room_id}/applications/${p.user.id}/approve`) } catch {} }
-          }
-        }
-      }))
-    }
+    onRoomAppEv = (_e: any) => {}
     window.addEventListener('auth-notify', onNotifyEv)
     window.addEventListener('auth-room_app', onRoomAppEv)
     inited = true

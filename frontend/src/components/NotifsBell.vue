@@ -25,6 +25,7 @@ import { useNotifStore } from '@/store/modules/notif'
 const n = useNotifStore()
 
 let obs: IntersectionObserver | null = null
+let onScrollBound: ((e: Event)=>void) | null = null
 const open = ref(false)
 const list = ref<HTMLElement|null>(null)
 const panel = ref<HTMLElement|null>(null)
@@ -39,17 +40,44 @@ function attachObserver() {
     const ids: number[] = []
     entries.forEach(e => {
       if (!e.isIntersecting) return
+      if (e.intersectionRatio < 0.5) return
       const id = Number((e.target as HTMLElement).dataset.id)
       const it = n.items.find(x => x.id === id)
       if (it && !it.read) ids.push(id)
     })
     if (ids.length) void n.markReadVisible(ids)
-  }, { root: list.value, threshold: 0.6 })
+  }, { root: list.value, threshold: 0.5 })
   queueMicrotask(() => {
     list.value?.querySelectorAll('.item').forEach(el => obs?.observe(el))
   })
 }
-
+function markVisibleNow() {
+  if (!list.value) return
+  const rootBox = list.value.getBoundingClientRect()
+  const ids: number[] = []
+  list.value.querySelectorAll<HTMLElement>('.item').forEach(el => {
+    const r = el.getBoundingClientRect()
+    const visible = Math.max(0, Math.min(rootBox.bottom, r.bottom) - Math.max(rootBox.top, r.top))
+    const ratio = visible / Math.max(1, r.height)
+    if (ratio >= 0.5) {
+      const id = Number(el.dataset.id)
+      const it = n.items.find(x => x.id === id)
+      if (it && !it.read) ids.push(id)
+    }
+  })
+  if (ids.length) void n.markReadVisible(ids)
+}
+function bindScroll() {
+  if (!list.value) return
+  if (onScrollBound) return
+  onScrollBound = () => markVisibleNow()
+  list.value.addEventListener('scroll', onScrollBound, { passive: true })
+}
+function unbindScroll() {
+  if (!list.value || !onScrollBound) return
+  try { list.value.removeEventListener('scroll', onScrollBound) } catch {}
+  onScrollBound = null
+}
 function onDocClick(e: Event) {
   const t = e.target as Node | null
   if (!t) return
@@ -64,20 +92,34 @@ watch(open, (v) => {
 watch(() => n.items.length, () => {
   if (!open.value) return
   attachObserver()
+  markVisibleNow()
 })
 
 watch(open, (v) => {
-  if (v) attachObserver()
-  else { try { obs?.disconnect() } catch {} }
+  if (v) {
+    attachObserver()
+    markVisibleNow()
+    bindScroll()
+  } else {
+    try { obs?.disconnect() } catch {}
+    unbindScroll()
+  }
 })
 
 onMounted(async () => {
   n.ensureWS()
   await n.fetchAll()
-  if (open.value) attachObserver()
+  if (open.value) {
+    attachObserver()
+    markVisibleNow()
+    bindScroll()
+  }
 })
 
-onBeforeUnmount(() => { try { obs?.disconnect() } catch {} })
+onBeforeUnmount(() => {
+  try { obs?.disconnect() } catch {}
+  unbindScroll()
+})
 </script>
 
 <style scoped>

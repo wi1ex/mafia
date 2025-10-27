@@ -10,11 +10,11 @@
     </div>
 
     <div v-else class="user">
+      <NotifsBell />
       <router-link to="/profile" class="profile-link" aria-label="Профиль">
         <img v-minio-img="{ key: user.user?.avatar_name ? `avatars/${user.user.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="Аватар" />
         <span class="nick" aria-live="polite">{{ user.user?.username || 'User' }}</span>
       </router-link>
-      <NotifsBell />
       <button class="btn" type="button" @click="logout">Выйти</button>
     </div>
   </header>

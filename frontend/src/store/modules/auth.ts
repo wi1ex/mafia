@@ -59,10 +59,26 @@ export const useAuthStore = defineStore('auth', () => {
       startAuthSocket({
         onForceLogout: () => { void localSignOut() },
         onNotify: (p) => {
-          try { window.dispatchEvent(new CustomEvent('auth-notify', { detail: p })) } catch {}
+          try {
+            window.dispatchEvent(new CustomEvent('auth-notify', { detail: p }))
+            window.dispatchEvent(new CustomEvent('toast', { detail: { id: p.id, kind: 'approve', text: p.text } }))
+          } catch {}
         },
         onRoomApp: (p) => {
-          try { window.dispatchEvent(new CustomEvent('auth-room_app', { detail: p })) } catch {}
+          try {
+            window.dispatchEvent(new CustomEvent('auth-room_app', { detail: p }))
+            const text = `Заявка в комнату #${p.room_id}: ${p.user?.username || ('user' + p.user?.id)}`
+            window.dispatchEvent(new CustomEvent('toast', {
+              detail: {
+                kind: 'app',
+                text,
+                action: {
+                  label: 'Разрешить вход',
+                  run: async () => { try { await api.post(`/rooms/${p.room_id}/applications/${p.user.id}/approve`) } catch {} }
+                }
+              }
+            }))
+          } catch {}
         }
       })
     }
