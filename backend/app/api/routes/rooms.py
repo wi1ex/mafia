@@ -10,15 +10,13 @@ from ...core.security import get_identity
 from ...db import get_session
 from ...models.room import Room
 from ...models.user import User
+from ...models.notif import Notif
 from ...realtime.sio import sio
 from ...realtime.utils import gc_empty_room
-from ...schemas import RoomCreateIn, RoomOut, Identity
+from ...schemas import RoomCreateIn, RoomOut, Identity, RoomAccessOut, Ok, UserOut
 from ...schemas import RoomInfoOut, RoomInfoMemberOut
 
 router = APIRouter()
-
-MAX_ROOMS_GLOBAL = 100
-MAX_ROOMS_PER_USER = 3
 
 
 @log_route("rooms.create_room")
@@ -33,14 +31,14 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
 
     r = get_redis()
     total = int(await r.zcard("rooms:index") or 0)
-    if total >= MAX_ROOMS_GLOBAL:
+    if total >= 100:
         raise HTTPException(status_code=409, detail="rooms_limit_global")
 
     mine = int(await r.scard(f"user:{uid}:rooms") or 0)
-    if mine >= MAX_ROOMS_PER_USER:
+    if mine >= 3:
         raise HTTPException(status_code=409, detail="rooms_limit_user")
 
-    room = Room(title=title, user_limit=payload.user_limit, creator=uid, creator_name=creator_name)
+    room = Room(title=title, user_limit=payload.user_limit, privacy=payload.privacy, creator=uid, creator_name=creator_name)
     session.add(room)
     await session.commit()
     await session.refresh(room)
@@ -52,6 +50,7 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
         "creator": room.creator,
         "creator_name": creator_name,
         "created_at": room.created_at.isoformat(),
+        "privacy": payload.privacy,
     }
 
     async with r.pipeline() as p:
@@ -84,7 +83,7 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
         user_id=uid,
         username=creator_name,
         action="room_created",
-        details=f"Создание комнаты room_id={room.id} title={room.title} user_limit={room.user_limit}",
+        details=f"Создание комнаты room_id={room.id} title={room.title} user_limit={room.user_limit} privacy={payload.privacy}",
     )
 
     return RoomOut(**data)
@@ -118,3 +117,117 @@ async def room_info(room_id: int, session: AsyncSession = Depends(get_session)) 
         members.append(RoomInfoMemberOut(id=uid, username=u.username, avatar_name=u.avatar_name))
 
     return RoomInfoOut(members=members)
+
+
+@log_route("rooms.access")
+@rate_limited(lambda ident, room_id, **_: f"rl:rooms:access:{ident['id']}:{room_id}", limit=5, window_s=1)
+@router.get("/{room_id}/access", response_model=RoomAccessOut)
+async def access(room_id: int, ident: Identity = Depends(get_identity)) -> RoomAccessOut:
+    r = get_redis()
+    params = await r.hgetall(f"room:{room_id}:params")
+    if not params:
+        raise HTTPException(status_code=404, detail="room_not_found")
+
+    privacy = (params.get("privacy") or "open").strip()
+    if privacy != "private":
+        return RoomAccessOut(privacy="open", access="approved")
+
+    uid = int(ident["id"])
+    if int(params.get("creator") or 0) == uid:
+        return RoomAccessOut(privacy="private", access="approved")
+
+    if await r.sismember(f"room:{room_id}:allow", str(uid)):
+        return RoomAccessOut(privacy="private", access="approved")
+
+    if await r.sismember(f"room:{room_id}:pending", str(uid)):
+        return RoomAccessOut(privacy="private", access="pending")
+
+    return RoomAccessOut(privacy="private", access="none")
+
+
+@log_route("rooms.apply")
+@rate_limited(lambda ident, room_id, **_: f"rl:rooms:apply:{ident['id']}:{room_id}", limit=5, window_s=1)
+@router.post("/{room_id}/apply", response_model=Ok, status_code=202)
+async def apply(room_id: int, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> Ok:
+    r = get_redis()
+    params = await r.hgetall(f"room:{room_id}:params")
+    if not params:
+        raise HTTPException(status_code=404, detail="room_not_found")
+
+    if (params.get("privacy") or "open") != "private":
+        raise HTTPException(status_code=400, detail="not_private")
+
+    uid = int(ident["id"])
+    creator = int(params.get("creator") or 0)
+    if uid == creator:
+        return Ok()
+
+    if await r.sismember(f"room:{room_id}:allow", str(uid)):
+        return Ok()
+
+    await r.sadd(f"room:{room_id}:pending", str(uid))
+
+    user = await db.get(User, uid)
+    try:
+        await sio.emit("room_app",
+                       {"room_id": room_id,
+                        "user": {"id": uid, "username": user.username, "avatar_name": user.avatar_name}},
+                       room=f"user:{creator}",
+                       namespace="/auth")
+    except Exception:
+        pass
+
+    return Ok()
+
+
+@log_route("rooms.list_applications")
+@rate_limited(lambda ident, room_id, **_: f"rl:rooms:apps_list:{ident['id']}:{room_id}", limit=5, window_s=1)
+@router.get("/{room_id}/applications", response_model=list[UserOut])
+async def list_applications(room_id: int, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)):
+    r = get_redis()
+    params = await r.hgetall(f"room:{room_id}:params")
+    if not params:
+        raise HTTPException(status_code=404, detail="room_not_found")
+
+    if int(params.get("creator") or 0) != int(ident["id"]):
+        raise HTTPException(status_code=403, detail="forbidden")
+
+    ids = list(map(int, await r.smembers(f"room:{room_id}:pending") or []))
+    if not ids:
+        return []
+
+    rows = await db.execute(select(User).where(User.id.in_(ids)))
+    return [UserOut(id=u.id, username=u.username, avatar_name=u.avatar_name, role=u.role) for u in rows.scalars().all()]
+
+
+@log_route("rooms.approve")
+@rate_limited(lambda ident, room_id, user_id, **_: f"rl:rooms:approve:{ident['id']}:{room_id}", limit=5, window_s=1)
+@router.post("/{room_id}/applications/{user_id}/approve", response_model=Ok)
+async def approve(room_id: int, user_id: int, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> Ok:
+    r = get_redis()
+    params = await r.hgetall(f"room:{room_id}:params")
+    if not params:
+        raise HTTPException(status_code=404, detail="room_not_found")
+
+    if int(params.get("creator") or 0) != int(ident["id"]):
+        raise HTTPException(status_code=403, detail="forbidden")
+
+    await r.srem(f"room:{room_id}:pending", str(user_id))
+    await r.sadd(f"room:{room_id}:allow", str(user_id))
+
+    note = Notif(user_id=int(user_id), text=f"Вход в комнату #{room_id} одобрен")
+    db.add(note)
+    await db.commit()
+    await db.refresh(note)
+
+    try:
+        await sio.emit("notify",
+                       {"id": note.id,
+                        "text": note.text,
+                        "created_at": note.created_at.isoformat()},
+                       room=f"user:{user_id}",
+                       namespace="/auth")
+    except Exception:
+        pass
+
+    return Ok()

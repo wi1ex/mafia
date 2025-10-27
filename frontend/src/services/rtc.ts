@@ -22,7 +22,7 @@ export type DeviceKind = 'audioinput' | 'videoinput'
 export type VQ = 'sd' | 'hd'
 const LS = { mic: 'audioDeviceId', cam: 'videoDeviceId', vq: 'videoQuality', perm: 'mediaPermProbed' }
 
-const error = (...a: any[]) => console.error('[RTC]', ...a)
+const error = (...a: unknown[]) => console.error('[RTC]', ...a)
 
 const UA = navigator.userAgent || ''
 const isSafari = /Safari/.test(UA) && !/Chrome|Chromium|Edg/.test(UA)

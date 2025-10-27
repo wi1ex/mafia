@@ -384,7 +384,7 @@ onBeforeUnmount(() => {
     position: fixed;
     inset: 0;
     background-color: rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(2px);
+    backdrop-filter: blur(3px);
     display: flex;
     align-items: center;
     justify-content: center;

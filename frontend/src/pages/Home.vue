@@ -2,11 +2,10 @@
   <section class="card">
     <div class="left">
       <div v-if="auth.isAuthed" class="create">
-        <p>Создать комнату</p>
-        <input v-model.trim="title" class="input" placeholder="Название" maxlength="32" />
-        <input v-model.number="limit" class="input" type="number" min="2" max="12" placeholder="Лимит" />
-        <button :disabled="creating || !valid" @click="onCreate">{{ creating ? 'Создаю...' : 'Создать' }}</button>
+        <button @click="openCreate = true">Создать комнату</button>
       </div>
+
+      <RoomModal v-if="openCreate" @close="openCreate=false" @created="onCreated" />
 
       <div v-if="sortedRooms.length === 0" class="muted">Пока пусто</div>
       <ul v-else class="list" ref="listEl">
@@ -25,10 +24,15 @@
       <div v-else class="room-info">
         <div class="ri-title">
           <div class="ri-actions">
-            <button v-if="auth.isAuthed && selectedRoom && !isFullRoom(selectedRoom)" :disabled="entering" @click="onEnter">
-              {{ entering ? 'Вхожу...' : 'Войти в комнату' }}
-            </button>
-            <div v-else-if="auth.isAuthed && selectedRoom && isFullRoom(selectedRoom)" class="muted">Комната заполнена</div>
+            <template v-if="auth.isAuthed && selectedRoom">
+              <button v-if="roomPrivacy==='open' && !isFullRoom(selectedRoom)" :disabled="entering" @click="onEnter">{{ entering ? 'Вхожу...' : 'Войти в комнату' }}</button>
+              <template v-else-if="roomPrivacy==='private'">
+                <button v-if="access==='approved' && !isFullRoom(selectedRoom)" :disabled="entering" @click="onEnter">{{ entering ? 'Вхожу...' : 'Войти в комнату' }}</button>
+                <button v-else-if="access==='none'" :disabled="false" @click="onApply">Подать заявку</button>
+                <button v-else disabled>Заявка отправлена</button>
+              </template>
+              <div v-else class="muted">Комната заполнена</div>
+            </template>
             <div v-else class="muted">Авторизуйтесь, чтобы войти</div>
           </div>
           <p class="ri-name">Комната #{{ selectedRoom?.id }}: {{ selectedRoom?.title }}</p>
@@ -57,11 +61,12 @@
 
 <script setup lang="ts">
 import { onMounted, onBeforeUnmount, ref, computed, reactive, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/store'
 import { Socket } from 'socket.io-client'
 import { api } from '@/services/axios'
 import { createPublicSocket } from '@/services/sio'
+import RoomModal from '@/components/RoomModal.vue'
 
 import defaultAvatar from "@/assets/svg/defaultAvatar.svg"
 
@@ -80,8 +85,10 @@ type RoomInfoMember = {
   avatar_name?: string | null
 }
 type RoomMembers = { members: RoomInfoMember[] }
+type Access = 'approved'|'pending'|'none'
 
 const router = useRouter()
+const route = useRoute()
 const auth = useAuthStore()
 
 const roomsMap = reactive(new Map<number, Room>())
@@ -90,19 +97,18 @@ const listEl = ref<HTMLElement | null>(null)
 const rightEl = ref<HTMLElement | null>(null)
 const suppressedAutoselect = ref(true)
 
-const title = ref('')
-const limit = ref(12)
-const creating = ref(false)
 const entering = ref(false)
-
 const infoTimers = new Map<number, number>()
 const infoInFlight = new Set<number>()
 const selectedId = ref<number | null>(null)
 const info = ref<RoomMembers | null>(null)
 const loadingInfo = ref(false)
 
+const openCreate = ref(false)
+const access = ref<Access>('approved')
+const roomPrivacy = ref<'open'|'private'>('open')
+
 const selectedRoom = computed(() => selectedId.value ? (roomsMap.get(selectedId.value) || null) : null)
-const valid = computed(() => title.value.length > 0 && limit.value >= 2 && limit.value <= 12)
 const sortedRooms = computed(() => Array.from(roomsMap.values()).sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at)))
 
 function isFullRoom(r: Room) { return r.occupancy >= r.user_limit }
@@ -113,6 +119,37 @@ function remove(id: number) {
     selectedId.value = null
     info.value = null
   }
+}
+
+async function onCreated(room: any) {
+  openCreate.value = false
+  await router.push(`/room/${room.id}`)
+}
+
+async function fetchAccess(id: number){
+  if (!auth.isAuthed) {
+    access.value='none'
+    roomPrivacy.value='open'
+    return
+  }
+  try{
+    const { data } = await api.get(`/rooms/${id}/access`)
+    roomPrivacy.value = data.privacy
+    access.value = data.access
+  } catch {
+    roomPrivacy.value = 'open'
+    access.value = 'approved'
+  }
+}
+
+async function onApply() {
+  const id = selectedRoom.value?.id
+  if (!id) return
+  try {
+    await api.post(`/rooms/${id}/apply`)
+    access.value='pending'
+  }
+  catch (e: any) { alert('Ошибка отправки заявки') }
 }
 
 async function fetchRoomInfo(id: number) {
@@ -230,32 +267,24 @@ function stopWS() {
   sio.value = null
 }
 
-async function createRoom(title: string, user_limit: number) {
-  const { data } = await api.post<Room>('/rooms', { title, user_limit })
-  upsert(data)
-  return data
-}
-async function onCreate() {
-  if (!valid.value || creating.value) return
-  creating.value = true
-  try {
-    const r = await createRoom(title.value, limit.value)
-    await router.push(`/room/${r.id}`)
-  } catch (e: any) {
-    const st = e?.response?.status
-    const d = e?.response?.data?.detail
-    if (st === 409 && d === 'rooms_limit_global')      alert('Достигнут общий лимит активных комнат (100). Попробуйте позже.')
-    else if (st === 409 && d === 'rooms_limit_user')   alert('У вас уже 3 активные комнаты. Закройте одну и попробуйте снова.')
-    else if (st === 422 && (d === 'title_empty'))      alert('Название не должно быть пустым')
-    else if (typeof d === 'string' && d)               alert(d)
-    else if (d && typeof d === 'object' && d.detail)   alert(String(d.detail))
-    else                                               alert('Ошибка создания комнаты')
-  } finally { creating.value = false }
-}
+watch(selectedId, (id) => {
+  if (id) { void fetchAccess(id) }
+})
+
+watch(() => route.query.focus, (v) => {
+  const id = Number(v)
+  if (Number.isFinite(id)) selectRoom(id)
+})
 
 onMounted(() => {
   startWS()
   document.addEventListener('pointerdown', onGlobalPointerDown, { capture: true })
+  const f = Number(route.query.focus)
+  if (Number.isFinite(f)) selectRoom(f)
+  window.addEventListener('room-approved', (e: any) => {
+    const rid = Number(e?.detail?.roomId)
+    if (selectedId.value && rid === selectedId.value) access.value = 'approved'
+  })
 })
 
 onBeforeUnmount(() => {
@@ -263,6 +292,7 @@ onBeforeUnmount(() => {
   infoTimers.clear()
   stopWS()
   try { document.removeEventListener('pointerdown', onGlobalPointerDown, { capture: true } as any) } catch {}
+  try { window.removeEventListener('room-approved', () => {}) } catch {}
 })
 </script>
 

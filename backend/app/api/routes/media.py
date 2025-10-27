@@ -8,18 +8,14 @@ from ...core.clients import get_redis
 
 router = APIRouter()
 
-EXPIRES_HOURS = 1
-ALLOWED_PREFIXES = ("avatars/",)
-KEY_RE = re.compile(r"^[a-zA-Z0-9._/-]{3,256}$")
-
 
 @log_route("media.presign")
 @router.get("/presign")
 async def presign(key: str = Query(..., description="")) -> dict:
-    if not key or not KEY_RE.match(key):
+    if not key or not re.compile(r"^[a-zA-Z0-9._/-]{3,256}$").match(key):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="bad_key")
 
-    if not any(key.startswith(p) for p in ALLOWED_PREFIXES):
+    if not any(key.startswith(p) for p in ("avatars/",)):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="forbidden_prefix")
 
     r = get_redis()
@@ -38,7 +34,7 @@ async def presign(key: str = Query(..., description="")) -> dict:
         pass
 
     try:
-        url, ttl = presign_key(key, expires_hours=EXPIRES_HOURS)
+        url, ttl = presign_key(key, expires_hours=1)
     except FileNotFoundError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not_found")
 
@@ -49,7 +45,7 @@ async def presign(key: str = Query(..., description="")) -> dict:
         raise HTTPException(status_code=500, detail="internal")
 
     exp = now + ttl
-    cache_ttl = max(30, min(ttl - 30, EXPIRES_HOURS * 3600))
+    cache_ttl = max(30, min(ttl - 30, 1 * 3600))
     try:
         await r.setex(cache_key, cache_ttl, f"{url}|{exp}")
     except Exception:

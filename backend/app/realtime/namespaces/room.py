@@ -58,6 +58,17 @@ async def join(sid, data) -> JoinAck:
             return {"ok": False, "error": "bad_room_id", "status": 400}
 
         r = get_redis()
+        params = await r.hgetall(f"room:{rid}:params")
+        if not params:
+            return {"ok": False, "error": "room_not_found", "status": 404}
+
+        creator = int(params.get("creator") or 0)
+        if (creator != uid) and ((params.get("privacy") or "open") == "private"):
+            allowed = await r.sismember(f"room:{rid}:allow", str(uid))
+            if not allowed:
+                pending = await r.sismember(f"room:{rid}:pending", str(uid))
+                return {"ok": False, "error": "private_room", "status": 403, "pending": bool(pending)}
+
         occ, pos, already, pos_updates = await join_room_atomic(r, rid, uid, base_role)
         if occ == -2:
             log.warning("sio.join.room_not_found", rid=rid, uid=uid)
@@ -329,6 +340,8 @@ async def kick(sid, data):
         if actor_role == "host" and trg_role == "admin":
             return {"ok": False, "error": "forbidden", "status": 403}
 
+        await r.srem(f"room:{rid}:allow", str(target))
+        await r.srem(f"room:{rid}:pending", str(target))
         await sio.emit("force_leave",
                        {"room_id": rid,
                         "by": {"user_id": actor_uid, "role": actor_role}},

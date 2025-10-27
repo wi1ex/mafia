@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Optional, Dict, TypedDict, List
+from typing import Optional, Dict, TypedDict, List, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -42,12 +42,14 @@ class AccessTokenOut(BaseModel):
 class RoomCreateIn(BaseModel):
     title: str = Field(min_length=1, max_length=32)
     user_limit: int = Field(ge=2, le=12, default=12)
+    privacy: Literal["open", "private"] = Field(default="open")
 
 
 class RoomOut(BaseModel):
     id: int
     title: str
     user_limit: int
+    privacy: Literal["open", "private"]
     creator: int
     creator_name: str
     created_at: str
@@ -66,6 +68,7 @@ class JoinAck(TypedDict, total=False):
     roles: Dict[str, str]
     profiles: Dict[str, Dict[str, Optional[str]]]
     screen_owner: int
+    pending: bool
 
 
 class ErrorOut(BaseModel):
@@ -123,3 +126,25 @@ class UsernameUpdateIn(BaseModel):
 
 class AvatarUploadOut(BaseModel):
     avatar_name: Optional[str] = None
+
+
+class RoomAccessOut(BaseModel):
+    privacy: Literal["open", "private"]
+    access: Literal["approved", "pending", "none"]
+
+
+class NotifOut(BaseModel):
+    id: int
+    text: str
+    created_at: str
+    read: bool = False
+
+
+class NotifsListOut(BaseModel):
+    items: List[NotifOut]
+    unread_count: int
+
+
+class MarkReadIn(BaseModel):
+    ids: List[int] = Field(default_factory=list)
+    all_before_id: Optional[int] = None

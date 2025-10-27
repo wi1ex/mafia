@@ -497,6 +497,8 @@ async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
             f"room:{rid}:gc_seq",
             f"room:{rid}:empty_since",
             f"room:{rid}:gc_lock",
+            f"room:{rid}:allow",
+            f"room:{rid}:pending",
         )
         await r.zrem("rooms:index", str(rid))
     finally:

@@ -68,7 +68,11 @@ export function createPublicSocket(namespace: string, opts?: IoOpts): Socket {
 
 let authSocket: Socket | null = null
 
-export function startAuthSocket(opts?: { onForceLogout?: () => void }): Socket {
+export function startAuthSocket(opts?: {
+  onForceLogout?: () => void
+  onNotify?: (p: any) => void
+  onRoomApp?: (p: any) => void
+}): Socket {
   if (authSocket) return authSocket
   authSocket = createAuthedSocket('/auth', {
     path: '/ws/socket.io',
@@ -79,6 +83,8 @@ export function startAuthSocket(opts?: { onForceLogout?: () => void }): Socket {
     reconnectionDelayMax: 5000,
   })
   if (opts?.onForceLogout) authSocket.on('force_logout', opts.onForceLogout)
+  if (opts?.onNotify) authSocket.on('notify', opts.onNotify)
+  if (opts?.onRoomApp) authSocket.on('room_app', opts.onRoomApp)
   return authSocket
 }
 

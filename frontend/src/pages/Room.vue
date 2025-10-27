@@ -78,6 +78,9 @@
         </button>
       </div>
       <div v-else class="controls">
+        <button v-if="myRole === 'host'" @click="openApps=!openApps">
+          Заявки
+        </button>
         <button @click="toggleMic" :disabled="pending.mic || blockedSelf.mic" :aria-pressed="micOn">
           <img :src="stateIcon('mic', localId)" alt="mic" />
         </button>
@@ -115,6 +118,20 @@
             <option v-for="d in cams" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Камера не обнаружена' }}</option>
           </select>
         </label>
+      </div>
+    </div>
+
+    <div v-if="openApps" class="apps-overlay" @click.self="openApps=false">
+      <div class="apps-panel">
+        <header><span>Заявки</span><button @click="openApps=false">✕</button></header>
+        <ul v-if="apps.length" class="apps-list">
+          <li v-for="u in apps" :key="u.id">
+            <img v-minio-img="{ key: u.avatar_name ? `avatars/${u.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="" />
+            <span>{{ u.username || ('user' + u.id) }}</span>
+            <button @click="approve(u.id)">Разрешить вход</button>
+          </li>
+        </ul>
+        <p v-else>Нет заявок</p>
       </div>
     </div>
   </section>
@@ -185,24 +202,34 @@ const positionByUser = reactive(new Map<string, number>())
 const blockByUser  = reactive(new Map<string, BlockState>())
 const rolesByUser = reactive(new Map<string, string>())
 const nameByUser = reactive(new Map<string, string>())
+const avatarByUser = reactive(new Map<string, string | null>())
+const volUi = reactive<Record<string, number>>({})
 const screenOwnerId = ref<string>('')
 const openPanelFor = ref<string>('')
 const pendingScreen = ref(false)
+const pendingQuality = ref(false)
 const settingsOpen = ref(false)
+const leaving = ref(false)
+const openApps = ref(false)
+const apps = ref<{id: number; username?: string; avatar_name?: string|null}[]>([])
+const ws_url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host
 const isTheater = computed(() => !!screenOwnerId.value)
 const isMyScreen = computed(() => screenOwnerId.value === localId.value)
-const volUi = reactive<Record<string, number>>({})
 const streamAudioKey = computed(() => screenOwnerId.value ? rtc.screenKey(screenOwnerId.value) : '')
 const streamVol = computed(() => streamAudioKey.value ? (volUi[streamAudioKey.value] ?? rtc.getUserVolume(streamAudioKey.value)) : 100)
-const leaving = ref(false)
-const ws_url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host
-const pendingQuality = ref(false)
 const videoQuality = computed(() => rtc.remoteQuality.value)
 const fitContainInGrid = computed(() => !isTheater.value && sortedPeerIds.value.length < 3)
 
-const rerr = (...a: any[]) => console.error('[ROOM]', ...a)
+const rerr = (...a: unknown[]) => console.error('[ROOM]', ...a)
 
-const avatarByUser = reactive(new Map<string, string | null>())
+async function approve(uid:number){
+  try {
+    await api.post(`/rooms/${rid}/applications/${uid}/approve`)
+    apps.value = apps.value.filter(x => x.id !== uid)
+  }
+  catch { alert('Ошибка') }
+}
+
 function avatarKey(id: string): string {
   const name = avatarByUser.get(id) || ''
   if (!name) return ''
@@ -221,10 +248,10 @@ function memoRef<K, F extends (k:K) => any> (cache: Map<any, any>, factory: F) {
     return f
   }
 }
-const videoRefMemo    = new Map<string, (el: HTMLVideoElement|null)=>void>()
-const screenRefMemo   = new Map<string, (el: HTMLVideoElement|null)=>void>()
-const stableVideoRef  = memoRef(videoRefMemo,  (id:string)=> rtc.videoRef(id))
-const stableScreenRef = memoRef(screenRefMemo, (id:string)=> id? rtc.screenVideoRef(id) : () => {})
+const videoRefMemo = new Map<string, (el: HTMLVideoElement | null) => void>()
+const screenRefMemo = new Map<string, (el: HTMLVideoElement | null) => void>()
+const stableVideoRef = memoRef(videoRefMemo, (id: string) => rtc.videoRef(id))
+const stableScreenRef = memoRef(screenRefMemo, (id: string) => id ? rtc.screenVideoRef(id) : () => {})
 
 const STATE_ICONS = {
   mic:        { on: iconMicOn,    off: iconMicOff,    blk: iconMicBlocked },
@@ -706,6 +733,13 @@ function onBackgroundMaybeLeave(e?: PageTransitionEvent) {
 }
 
 watch(() => auth.isAuthed, (ok) => { if (!ok) { void onLeave() } })
+watch(openApps, async (on)=>{
+  if (!on || !(myRole.value === 'host' || myRole.value === 'admin')) return
+  try {
+    const { data } = await api.get(`/rooms/${rid}/applications`)
+    apps.value = data
+  } catch { apps.value = [] }
+})
 
 onMounted(async () => {
   try {
@@ -713,6 +747,11 @@ onMounted(async () => {
     connectSocket()
     const j:any = await safeJoin()
     if (!j?.ok) {
+      if (j?.status === 403 && j?.error === 'private_room') {
+        alert('Комната приватная')
+        await router.replace({ name: 'home', query: { focus: String(rid) } })
+        return
+      }
       alert(j?.status === 404 ? 'Комната не найдена' : j?.status === 409 ? 'Комната заполнена' : 'Ошибка входа в комнату')
       await router.replace('/')
       return
@@ -906,6 +945,51 @@ onBeforeUnmount(() => { void onLeave() })
             opacity: 0.5;
             cursor: not-allowed;
           }
+        }
+      }
+    }
+  }
+  .apps-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 3000;
+    .apps-panel {
+      min-width: 300px;
+      max-width: 420px;
+      max-height: 60vh;
+      overflow: auto;
+      background: #1e1e1e;
+      border-radius: 8px;
+      padding: 10px;
+      header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+      }
+      .apps-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        li {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        img {
+          width: 24px;
+          height: 24px;
+          border-radius: 50%;
+        }
+        button {
+          margin-left: auto;
         }
       }
     }
