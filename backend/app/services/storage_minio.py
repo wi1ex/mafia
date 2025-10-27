@@ -9,7 +9,7 @@ import structlog
 from minio import Minio
 from minio.error import S3Error
 from minio.deleteobjects import DeleteObject
-from ..settings import settings
+from ..core.settings import settings
 from ..core.clients import get_minio_private, get_minio_public, get_httpx
 
 log = structlog.get_logger()

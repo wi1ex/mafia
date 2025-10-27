@@ -8,7 +8,7 @@ from fastapi import HTTPException, Depends
 from ..core.clients import get_redis
 from ..core.security import get_identity
 from ..realtime.sio import sio
-from ..schemas import Identity
+from ..schemas.common import Identity
 
 log = structlog.get_logger()
 
@@ -52,13 +52,63 @@ def log_route(name: str):
     return deco
 
 
-def require_roles(*roles: str):
-    async def _dep(ident: Identity = Depends(get_identity)) -> bool:
-        if roles and ident["role"] not in roles:
-            raise HTTPException(status_code=403, detail="forbidden")
-        return True
+def require_roles_deco(*roles: str):
+    def deco(fn):
+        if not asyncio.iscoroutinefunction(fn):
+            raise TypeError("require_roles_deco может оборачивать только async-функции")
 
-    return _dep
+        sig = inspect.signature(fn)
+        need_inject = "ident" not in sig.parameters
+
+        @functools.wraps(fn)
+        async def wrap(*args, **kwargs):
+            ident: Identity | None = kwargs.get("ident")
+            if not ident:
+                raise HTTPException(status_code=401, detail="Unauthorized")
+
+            if roles and ident["role"] not in roles:
+                raise HTTPException(status_code=403, detail="forbidden")
+
+            return await fn(*args, **kwargs)
+
+        if need_inject:
+            params = list(sig.parameters.values()) + [inspect.Parameter("ident", kind=inspect.Parameter.KEYWORD_ONLY, default=Depends(get_identity))]
+            wrap.__signature__ = sig.replace(parameters=params)
+        else:
+            wrap.__signature__ = sig
+
+        return wrap
+
+    return deco
+
+
+def require_room_creator(room_id_param: str = "room_id"):
+    def deco(fn):
+        sig = inspect.signature(fn)
+
+        @functools.wraps(fn)
+        async def wrap(*args, ident: Identity, **kwargs):
+            bound = sig.bind_partial(*args, **kwargs)
+            if room_id_param not in bound.arguments:
+                raise HTTPException(status_code=500, detail="room_id_param_not_found")
+
+            r = get_redis()
+            rid = int(bound.arguments[room_id_param])
+            redis_params = await r.hgetall(f"room:{rid}:params")
+            if not redis_params:
+                raise HTTPException(status_code=404, detail="room_not_found")
+
+            if int(redis_params.get("creator") or 0) != int(ident["id"]):
+                raise HTTPException(status_code=403, detail="forbidden")
+
+            return await fn(*args, **kwargs)
+
+        params = list(sig.parameters.values()) + [inspect.Parameter("ident", kind=inspect.Parameter.KEYWORD_ONLY, default=Depends(get_identity))]
+        wrap.__signature__ = sig.replace(parameters=params)
+
+        return wrap
+
+    return deco
 
 
 def rate_limited(key: Union[str, Callable[..., str]], *, limit: int, window_s: int):

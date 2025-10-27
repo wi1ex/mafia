@@ -2,7 +2,7 @@ from __future__ import annotations
 from datetime import datetime
 from sqlalchemy import BigInteger, Integer, DateTime, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
-from ..db import Base
+from ..core.db import Base
 
 
 class Notif(Base):

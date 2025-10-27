@@ -3,7 +3,7 @@ import structlog
 import httpx
 import redis.asyncio as redis
 from minio import Minio
-from ..settings import settings
+from ..core.settings import settings
 
 log = structlog.get_logger()
 

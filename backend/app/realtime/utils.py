@@ -3,12 +3,11 @@ import asyncio
 import structlog
 from time import time
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import async_sessionmaker
 from redis.exceptions import ResponseError
 from jwt import ExpiredSignatureError
 from datetime import datetime, timezone
 from typing import Any, Tuple, Dict, Mapping, cast, Optional
-from ..db import engine
+from ..core.db import SessionLocal
 from ..models.room import Room
 from ..models.user import User
 from ..core.clients import get_redis
@@ -24,6 +23,7 @@ __all__ = [
     "get_blocks_snapshot",
     "get_roles_snapshot",
     "get_profiles_snapshot",
+    "account_screen_time",
     "join_room_atomic",
     "leave_room_atomic",
     "gc_empty_room",
@@ -33,8 +33,6 @@ __all__ = [
 ]
 
 log = structlog.get_logger()
-
-_sessionmaker = async_sessionmaker(bind=engine, expire_on_commit=False)
 
 KEYS_STATE: tuple[str, ...] = ("mic", "cam", "speakers", "visibility")
 KEYS_BLOCK: tuple[str, ...] = (*KEYS_STATE, "screen")
@@ -124,7 +122,7 @@ redis.call('DEL', info)
 
 local occ = tonumber(redis.call('SCARD', members) or '0')
 if occ == 0 then
-  redis.call('SET', empty_since, now, 'EX', 86400)
+  redis.call('SET', empty_since, now, 'EX', 2592000)
   local seq = tonumber(redis.call('INCR', gc_seq))
   return {occ, seq, 0}
 end
@@ -177,7 +175,7 @@ async def validate_auth(auth: Any) -> Tuple[int, str, str, Optional[str]] | None
             return None
 
         role = str(p.get("role") or "user")
-        async with _sessionmaker() as s:
+        async with SessionLocal() as s:
             row = await s.execute(select(User.username, User.avatar_name).where(User.id == uid))
             rec = row.first()
             username, avatar_name = (cast(Optional[str], rec[0]), cast(Optional[str], rec[1])) if rec else (None, None)
@@ -275,7 +273,7 @@ async def get_profiles_snapshot(r, rid: int) -> dict[str, dict[str, str | None]]
             need_db.append(int(uid))
 
     if need_db:
-        async with _sessionmaker() as s:
+        async with SessionLocal() as s:
             res = await s.execute(select(User.id, User.username, User.avatar_name).where(User.id.in_(need_db)))
             for uid_i, un_db, av_db in res.all():
                 cur = out[str(uid_i)]
@@ -344,6 +342,19 @@ async def release_screen(r, rid: int, uid: int) -> bool:
         return True
 
     return False
+
+
+async def account_screen_time(r, rid: int, uid: int) -> None:
+    started = await r.get(f"room:{rid}:screen_started_at")
+    if not started:
+        return
+    try:
+        dt = int(time()) - int(started)
+    except Exception:
+        dt = 0
+    if dt > 0:
+        await r.hincrby(f"room:{rid}:screen_time", str(uid), dt)
+    await r.delete(f"room:{rid}:screen_started_at")
 
 
 async def join_room_atomic(r, rid: int, uid: int, role: str):
@@ -450,8 +461,27 @@ async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
                 visitors_map[int(k)] = int(v or 0)
             except Exception:
                 continue
+
+        owner = await r.get(f"room:{rid}:screen_owner")
+        started = await r.get(f"room:{rid}:screen_started_at")
+        if owner and started:
+            try:
+                dt = int(time()) - int(started)
+                if dt > 0:
+                    await r.hincrby(f"room:{rid}:screen_time", str(int(owner)), dt)
+            except Exception:
+                pass
+
+        raw_scr = await r.hgetall(f"room:{rid}:screen_time")
+        screen_map_sec: dict[int, int] = {}
+        for k, v in (raw_scr or {}).items():
+            try:
+                screen_map_sec[int(k)] = int(v or 0)
+            except Exception:
+                continue
+
         try:
-            async with _sessionmaker() as s:
+            async with SessionLocal() as s:
                 rm = await s.get(Room, rid)
                 if rm:
                     rm_title = rm.title
@@ -463,6 +493,7 @@ async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
                         await s.delete(rm)
                     else:
                         rm.visitors = {**(rm.visitors or {}), **{str(k): v for k, v in visitors_map.items()}}
+                        rm.screen_time = {**(rm.screen_time or {}), **{str(uid): max(0, sec) for uid, sec in screen_map_sec.items()}}
                         rm.deleted_at = datetime.now(timezone.utc)
 
                     await r.srem(f"user:{rm_creator}:rooms", str(rid))
@@ -499,6 +530,9 @@ async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
             f"room:{rid}:gc_lock",
             f"room:{rid}:allow",
             f"room:{rid}:pending",
+            f"room:{rid}:screen_time",
+            f"room:{rid}:screen_owner",
+            f"room:{rid}:screen_started_at",
         )
         await r.zrem("rooms:index", str(rid))
     finally:

@@ -105,47 +105,35 @@
         <img :src="iconSettings" alt="settings" />
       </button>
 
-      <div v-show="settingsOpen" class="settings" aria-label="Настройки устройств" @click.stop>
-        <label>
-          <span>Микрофон</span>
-          <select v-model="selectedMicId" @change="rtc.onDeviceChange('audioinput')" :disabled="mics.length === 0">
-            <option v-for="d in mics" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Микрофон не обнаружен' }}</option>
-          </select>
-        </label>
-        <label>
-          <span>Камера</span>
-          <select v-model="selectedCamId" @change="rtc.onDeviceChange('videoinput')" :disabled="cams.length === 0">
-            <option v-for="d in cams" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Камера не обнаружена' }}</option>
-          </select>
-        </label>
-      </div>
+      <RoomSetting
+        :open="settingsOpen"
+        :mics="mics"
+        :cams="cams"
+        v-model:micId="selectedMicId"
+        v-model:camId="selectedCamId"
+        @device-change="(kind) => rtc.onDeviceChange(kind)"
+      />
     </div>
 
-    <div v-if="openApps" class="apps-overlay" @click.self="openApps=false">
-      <div class="apps-panel">
-        <header><span>Заявки</span><button @click="openApps=false">✕</button></header>
-        <ul v-if="apps.length" class="apps-list">
-          <li v-for="u in apps" :key="u.id">
-            <img v-minio-img="{ key: u.avatar_name ? `avatars/${u.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="" />
-            <span>{{ u.username || ('user' + u.id) }}</span>
-            <button @click="approve(u.id)">Разрешить вход</button>
-          </li>
-        </ul>
-        <p v-else>Нет заявок</p>
-      </div>
-    </div>
+    <RoomRequests
+      v-if="myRole === 'host' && roomPrivacy==='private'"
+      v-model:open="openApps"
+      :room-id="rid"
+    />
   </section>
 </template>
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Socket } from 'socket.io-client'
+import type { Socket } from 'socket.io-client'
 import { useAuthStore } from '@/store'
 import { useRTC } from '@/services/rtc'
 import { createAuthedSocket } from '@/services/sio'
 import { api } from '@/services/axios'
 import RoomTile from '@/components/RoomTile.vue'
+import RoomSetting from '@/components/RoomSetting.vue'
+import RoomRequests from '@/components/RoomRequests.vue'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
 import iconQualitySD from '@/assets/svg/qualitySD.svg'
@@ -193,7 +181,6 @@ const IS_MOBILE = (navigator as any).userAgentData?.mobile === true || /Android|
   || (window.matchMedia?.('(pointer: coarse)').matches && /Android|iPhone|iPad|iPod|Mobile|Tablet|Touch/i.test(UA))
 
 const rid = Number(route.params.id)
-const roomId = ref<number | null>(rid)
 const local = reactive({ mic: false, cam: false, speakers: true, visibility: true })
 const pending = reactive<{ [k in keyof typeof local]: boolean }>({ mic: false, cam: false, speakers: false, visibility: false })
 const micOn = computed({ get: () => local.mic, set: v => { local.mic = v } })
@@ -217,7 +204,6 @@ const pendingQuality = ref(false)
 const settingsOpen = ref(false)
 const leaving = ref(false)
 const openApps = ref(false)
-const apps = ref<{id: number; username?: string; avatar_name?: string|null}[]>([])
 const roomPrivacy = ref<'open'|'private'>('open')
 const ws_url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host
 const isTheater = computed(() => !!screenOwnerId.value)
@@ -228,14 +214,6 @@ const videoQuality = computed(() => rtc.remoteQuality.value)
 const fitContainInGrid = computed(() => !isTheater.value && sortedPeerIds.value.length < 3)
 
 const rerr = (...a: unknown[]) => console.error('[ROOM]', ...a)
-
-async function approve(uid:number){
-  try {
-    await api.post(`/rooms/${rid}/applications/${uid}/approve`)
-    apps.value = apps.value.filter(x => x.id !== uid)
-  }
-  catch { alert('Ошибка') }
-}
 
 function avatarKey(id: string): string {
   const name = avatarByUser.get(id) || ''
@@ -717,6 +695,9 @@ async function onLeave() {
     window.removeEventListener('pagehide', onBackgroundMaybeLeave as any)
   } catch {}
   try {
+    if (screenOwnerId.value === localId.value) {
+      try { await sendAck('screen', { on: false }) } catch {}
+    }
     const s = socket.value
     socket.value = null
     if (s) {
@@ -727,7 +708,6 @@ async function onLeave() {
     const disc = rtc.disconnect().catch(() => {})
     await router.replace('/')
     await disc
-    roomId.value = null
     joinedRoomId.value = null
   } finally {
     leaving.value = false
@@ -739,33 +719,13 @@ function onBackgroundMaybeLeave(e?: PageTransitionEvent) {
   if (document.visibilityState === 'hidden' || (e && (e as any).persisted === true)) void onLeave()
 }
 
-const onRoomAppEvt = (e: any) => {
-  const p = e?.detail
-  if (Number(p?.room_id) !== rid) return
-  if (myRole.value !== 'host') return
-  const u = p?.user
-  if (!u?.id) return
-  if (!apps.value.some(x => x.id === u.id)) {
-    apps.value.push({ id: u.id, username: u.username, avatar_name: u.avatar_name })
-  }
-}
-
 watch(() => auth.isAuthed, (ok) => { if (!ok) { void onLeave() } })
-watch(openApps, async (on)=>{
-  if (!on || myRole.value !== 'host') return
-  try {
-    const { data } = await api.get(`/rooms/${rid}/applications`)
-    apps.value = data
-  } catch { apps.value = [] }
-})
 
 onMounted(async () => {
   try {
     const { data } = await api.get(`/rooms/${rid}/access`)
     roomPrivacy.value = data.privacy
   } catch { roomPrivacy.value = 'open' }
-
-  window.addEventListener('auth-room_invite', onRoomAppEvt)
 
   try {
     if (!auth.ready) { try { await auth.init() } catch {} }
@@ -825,7 +785,6 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
-  try { window.removeEventListener('auth-room_invite', onRoomAppEvt) } catch {}
   void onLeave()
 })
 </script>
@@ -941,85 +900,6 @@ onBeforeUnmount(() => {
     .controls {
       display: flex;
       gap: 10px;
-    }
-    .settings {
-      display: flex;
-      position: absolute;
-      flex-direction: column;
-      right: 0;
-      bottom: 60px;
-      padding: 10px;
-      gap: 20px;
-      min-width: 250px;
-      border-radius: 5px;
-      background-color: $dark;
-      z-index: 20;
-      label {
-        display: flex;
-        flex-direction: column;
-        gap: 5px;
-        span {
-          color: $fg;
-        }
-        select {
-          padding: 5px;
-          border-radius: 5px;
-          background-color: $bg;
-          color: $fg;
-          font-size: 14px;
-          font-family: Manrope-Medium;
-          line-height: 1;
-          &:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-          }
-        }
-      }
-    }
-  }
-  .apps-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.6);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 3000;
-    .apps-panel {
-      min-width: 300px;
-      max-width: 420px;
-      max-height: 60vh;
-      overflow: auto;
-      background: #1e1e1e;
-      border-radius: 8px;
-      padding: 10px;
-      header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 8px;
-      }
-      .apps-list {
-        list-style: none;
-        margin: 0;
-        padding: 0;
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        li {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-        img {
-          width: 24px;
-          height: 24px;
-          border-radius: 50%;
-        }
-        button {
-          margin-left: auto;
-        }
-      }
     }
   }
 }

@@ -2,7 +2,7 @@ from __future__ import annotations
 from sqlalchemy import MetaData
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
-from .settings import settings
+from ..core.settings import settings
 
 engine = create_async_engine(
     settings.pg_dsn,
@@ -23,6 +23,7 @@ NAMING_CONVENTION = {
     "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
     "pk": "pk_%(table_name)s",
 }
+
 _metadata = MetaData(naming_convention=NAMING_CONVENTION)
 
 

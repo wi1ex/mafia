@@ -4,7 +4,7 @@
     <div class="rotate-box">Поверните устройство в горизонтальную ориентацию</div>
   </div>
   <router-view />
-  <Toasts />
+  <Toast />
 </template>
 
 <script setup lang="ts">
@@ -13,7 +13,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/store'
 import { useUserStore } from '@/store'
 import Header from '@/components/Header.vue'
-import Toasts from '@/components/Toasts.vue'
+import Toast from '@/components/Toast.vue'
 
 const route = useRoute()
 const router = useRouter()

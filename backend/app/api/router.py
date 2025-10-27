@@ -8,6 +8,6 @@ api_router.include_router(rooms.router, prefix="/rooms", tags=["rooms"])
 api_router.include_router(media.router, prefix="/media", tags=["media"])
 api_router.include_router(notifs.router, prefix="/notifs", tags=["notifs"])
 
-# @router.post("/admin-only")
-# async def admin_task(_: bool = Depends(require_roles("admin"))):
-#     return {"status": "ok"}
+# @require_roles_deco("admin","moder")
+# @router.get("/staff/metrics")
+# async def staff_metrics():

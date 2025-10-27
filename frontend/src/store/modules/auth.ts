@@ -78,14 +78,20 @@ export const useAuthStore = defineStore('auth', () => {
         onRoomApp: (p) => {
           try {
             window.dispatchEvent(new CustomEvent('auth-room_invite', { detail: p }))
-            const text = `Заявка в комнату #${p.room_id}: ${p.user?.username || ('user' + p.user?.id)}`
+            const text = `Заявка в комнату #${p.room_id}: ${p.room_title} — ${p.user?.username || ('user' + p.user?.id)}`
             window.dispatchEvent(new CustomEvent('toast', {
               detail: {
                 title: 'Заявка',
                 kind: 'app',
                 text,
-                action: { kind: 'api', label: 'Разрешить вход', url: `/rooms/${p.room_id}/applications/${p.user.id}/approve`, method: 'post' }
-              }
+                user: p.user,
+                action: {
+                  kind: 'api',
+                  label: 'Разрешить вход',
+                  url: `/rooms/${p.room_id}/requests/${p.user.id}/approve`,
+                  method: 'post',
+                },
+              },
             }))
           } catch {}
         }
@@ -137,7 +143,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   function wipeLocalForNewLogin() {
     try {
-      const toDel = new Set([ 'audioDeviceId', 'videoDeviceId', 'videoQuality', 'mediaPermProbed' ])
+      const toDel = new Set([ 'audioDeviceId', 'videoDeviceId', 'videoQuality', 'mediaPermProbed', 'room:lastLimit', 'room:lastPrivacy' ])
       const extra: string[] = []
       for (let i = 0; i < localStorage.length; i++) {
         const k = localStorage.key(i)!

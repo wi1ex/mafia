@@ -5,7 +5,14 @@
         <strong class="title">{{ t.title }}</strong>
         <time class="date">{{ fmt(t.date) }}</time>
       </div>
+
+      <div v-if="t.user" class="user">
+        <img v-minio-img="{ key: t.user.avatar_name ? `avatars/${t.user.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="" />
+        <span class="user-name">{{ t.user.username || ('user' + t.user.id) }}</span>
+      </div>
+
       <p class="text">{{ t.text }}</p>
+
       <div class="actions">
         <button v-if="t.action" @click="run(t)">{{ t.action.label }}</button>
         <button class="close" @click="close(t)">✕</button>
@@ -20,6 +27,8 @@ import { useRouter } from 'vue-router'
 import { useNotifStore } from '@/store/modules/notif'
 import { api } from '@/services/axios'
 
+import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
+
 type RouteAction = {
   kind: 'route'
   label: string
@@ -33,6 +42,12 @@ type ApiAction = {
   body?: any
 }
 type ToastAction = RouteAction | ApiAction
+type ToastUser = {
+  id: number
+  username?: string
+  avatar_name?: string|null
+}
+
 type ToastItem = {
   key: number
   noteId?: number
@@ -42,38 +57,36 @@ type ToastItem = {
   kind?: string
   action?: ToastAction
   ttl?: number
+  user?: ToastUser
 }
 
 const items = ref<ToastItem[]>([])
 const n = useNotifStore()
 const router = useRouter()
 
-function fmt(ts: number) { return new Date(ts).toLocaleString() }
+function fmt(ts: number){ return new Date(ts).toLocaleString() }
 
-async function close(t: ToastItem) {
+async function close(t: ToastItem){
   items.value = items.value.filter(x => x !== t)
   if (t.noteId) { try { await n.markReadVisible([t.noteId]) } catch {} }
 }
 
-async function run(t: ToastItem) {
-  try {
+async function run(t: ToastItem){
+  try{
     if (!t.action) return
-    if (t.action.kind === 'route') {
-      await router.push(t.action.to)
-    } else if (t.action.kind === 'api') {
+    if (t.action.kind === 'route') await router.push(t.action.to)
+    else {
       const m = (t.action.method || 'post').toLowerCase()
-      await api[m](t.action.url, t.action.body)
+      await (api as any)[m](t.action.url, t.action.body)
     }
-  } finally {
-    await close(t)
-  }
+  } finally { await close(t) }
 }
 
 onMounted(() => {
-  window.addEventListener('toast', (e: any) => {
+  window.addEventListener('toast', (e:any) => {
     const d = e?.detail || {}
     const key = Date.now() + Math.random()
-    const t: ToastItem = {
+    const t:ToastItem = {
       key,
       noteId: d.id,
       title: d.title || 'Уведомление',
@@ -82,6 +95,7 @@ onMounted(() => {
       kind: d.kind || 'info',
       action: d.action,
       ttl: Number.isFinite(d.ttl) ? d.ttl : (d.action ? 8000 : 5000),
+      user: d.user,
     }
     items.value.push(t)
     setTimeout(() => close(t), t.ttl!)
@@ -120,6 +134,20 @@ onMounted(() => {
 .date {
   color: #bbb;
   font-size: 12px;
+}
+.user {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0 4px;
+}
+.user img {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+}
+.user-name {
+  font-weight: 500;
 }
 .text {
   margin: 6px 0 8px;

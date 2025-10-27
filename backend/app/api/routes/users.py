@@ -3,11 +3,12 @@ import re
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
-from ...db import get_session
+from ...core.db import get_session
 from ...models.user import User
-from ...schemas import UserOut, Identity, UsernameUpdateIn, AvatarUploadOut, Ok
 from ...core.security import get_identity
 from ...core.decorators import log_route, rate_limited
+from ...schemas.common import Identity, Ok
+from ...schemas.user import UserOut, UsernameUpdateIn, AvatarUploadOut
 from ...services.storage_minio import put_avatar, delete_avatars, ALLOWED_CT, MAX_BYTES
 from ...core.logging import log_action
 
@@ -62,7 +63,7 @@ async def update_username(payload: UsernameUpdateIn, ident: Identity = Depends(g
         db,
         user_id=uid,
         username=new,
-        action="username_changed",
+        action="username_updated",
         details=f"Изменение никнейма: {user.username} -> {new}",
     )
 

@@ -8,8 +8,8 @@ from typing import Any, Dict
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from .clients import get_redis
-from ..schemas import Identity
-from ..settings import settings
+from ..core.settings import settings
+from ..schemas.common import Identity
 
 log = structlog.get_logger()
 

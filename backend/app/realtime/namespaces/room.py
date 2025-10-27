@@ -1,11 +1,14 @@
 from __future__ import annotations
 import asyncio
+from time import time
 import structlog
 from ..sio import sio
-from ..utils import validate_auth, claim_screen, release_screen
+from ..utils import validate_auth, claim_screen, release_screen, account_screen_time
 from ...core.clients import get_redis
 from ...core.decorators import rate_limited_sio
-from ...schemas import StateAck, ModerateAck, JoinAck, ScreenAck
+from ...core.logging import log_action
+from ...core.db import SessionLocal
+from ...schemas.realtime import StateAck, ModerateAck, JoinAck, ScreenAck
 from ...services.livekit_tokens import make_livekit_token
 from ..utils import (
     KEYS_STATE,
@@ -238,7 +241,12 @@ async def screen(sid, data) -> ScreenAck:
                            {"user_id": target},
                            room=f"room:{rid}",
                            namespace="/room")
+            await r.set(f"room:{rid}:screen_started_at", str(int(time())), nx=True)
             return {"ok": True, "on": True}
+
+        cur = await r.get(f"room:{rid}:screen_owner")
+        if cur and int(cur) == target:
+            await account_screen_time(r, rid, target)
 
         changed = await release_screen(r, rid, target)
         if changed:
@@ -259,6 +267,7 @@ async def moderate(sid, data) -> ModerateAck:
     try:
         sess = await sio.get_session(sid, namespace="/room")
         actor_uid = int(sess["uid"])
+        actor_user_name = str(sess.get("username") or f"user{actor_uid}")
         rid = int(sess.get("rid") or 0)
         if not rid:
             log.warning("sio.moderate.no_room", actor_uid=actor_uid)
@@ -300,11 +309,23 @@ async def moderate(sid, data) -> ModerateAck:
             if applied.get("screen") == "1":
                 cur = await r.get(f"room:{rid}:screen_owner")
                 if cur and int(cur) == target:
+                    await account_screen_time(r, rid, target)
                     await r.delete(f"room:{rid}:screen_owner")
                     await sio.emit("screen_owner",
                                    {"user_id": None},
                                    room=f"room:{rid}",
                                    namespace="/room")
+
+        if applied or forced_off:
+            async with SessionLocal() as s:
+                await log_action(
+                    s,
+                    user_id=actor_uid,
+                    username=actor_user_name,
+                    action="room_blocks",
+                    details=f"Блокировка в комнате room_id={rid} target_user={target} actor_role={actor_role} applied={applied} forced_off={forced_off}",
+                )
+
         return {"ok": True, "applied": applied, "forced_off": forced_off}
 
     except Exception:
@@ -318,6 +339,7 @@ async def kick(sid, data):
     try:
         sess = await sio.get_session(sid, namespace="/room")
         actor_uid = int(sess["uid"])
+        actor_user_name = str(sess.get("username") or f"user{actor_uid}")
         rid = int(sess.get("rid") or 0)
         if not rid:
             return {"ok": False, "error": "no_room", "status": 400}
@@ -347,6 +369,16 @@ async def kick(sid, data):
                         "by": {"user_id": actor_uid, "role": actor_role}},
                        room=f"user:{target}",
                        namespace="/room")
+
+        async with SessionLocal() as s:
+            await log_action(
+                s,
+                user_id=actor_uid,
+                username=actor_user_name,
+                action="room_kick",
+                details=f"Кик из комнаты room_id={rid} target_user={target} actor_role={actor_role}",
+            )
+
         return {"ok": True}
 
     except Exception:
@@ -369,6 +401,7 @@ async def disconnect(sid):
         r = get_redis()
         owner = await r.get(f"room:{rid}:screen_owner")
         if owner and int(owner) == uid:
+            await account_screen_time(r, rid, uid)
             await r.delete(f"room:{rid}:screen_owner")
             await sio.emit("screen_owner",
                            {"user_id": None},

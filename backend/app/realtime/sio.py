@@ -1,7 +1,7 @@
 from __future__ import annotations
 import socketio
 import structlog
-from ..settings import settings
+from ..core.settings import settings
 
 log = structlog.get_logger()
 

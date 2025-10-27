@@ -5,7 +5,7 @@ from fastapi import Response
 from ..core.clients import get_redis
 from ..core.security import create_access_token, create_refresh_token, parse_refresh_token
 from ..realtime.sio import sio
-from ..settings import settings
+from ..core.settings import settings
 
 log = structlog.get_logger()
 

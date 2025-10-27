@@ -6,7 +6,7 @@ from sqlalchemy import update, func
 from starlette.types import ASGIApp, Receive, Scope, Send, Message
 from .clients import get_redis
 from .security import decode_token
-from ..db import SessionLocal
+from ..core.db import SessionLocal
 from ..models.user import User
 
 

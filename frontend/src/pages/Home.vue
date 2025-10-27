@@ -112,12 +112,20 @@ const selectedRoom = computed(() => selectedId.value ? (roomsMap.get(selectedId.
 const sortedRooms = computed(() => Array.from(roomsMap.values()).sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at)))
 
 function isFullRoom(r: Room) { return r.occupancy >= r.user_limit }
+
 function upsert(r: Room) { roomsMap.set(r.id, { ...(roomsMap.get(r.id) || {} as Room), ...r }) }
+
 function remove(id: number) {
   roomsMap.delete(id)
   if (selectedId.value === id) {
     selectedId.value = null
     info.value = null
+    suppressedAutoselect.value = true
+    const t = infoTimers.get(id)
+    if (t) {
+      try { clearTimeout(t) } catch {}
+      infoTimers.delete(id)
+    }
   }
 }
 

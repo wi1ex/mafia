@@ -4,11 +4,11 @@ from contextlib import asynccontextmanager
 from typing import AsyncIterator
 import structlog
 from sqlalchemy import text
-from ..db import Base, engine
+from ..core.db import Base, engine
 from .clients import close_clients, get_redis, init_clients
 from .logging import configure_logging
 from ..services.storage_minio import ensure_bucket
-from ..settings import settings
+from ..core.settings import settings
 
 
 @asynccontextmanager

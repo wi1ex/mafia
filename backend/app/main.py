@@ -8,7 +8,7 @@ from .core.handlers import setup_exception_handlers
 from .core.lifespan import lifespan
 from .core.middleware import LoggingMiddleware, LastLoginTouchMiddleware
 from .realtime.sio import sio
-from .settings import settings
+from .core.settings import settings
 
 
 def build_fastapi() -> FastAPI:

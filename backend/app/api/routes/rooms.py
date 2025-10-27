@@ -4,17 +4,18 @@ from fastapi import APIRouter, Depends, status, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from ...core.clients import get_redis
-from ...core.decorators import log_route, rate_limited
+from ...core.decorators import log_route, rate_limited, require_room_creator
 from ...core.logging import log_action
 from ...core.security import get_identity
-from ...db import get_session
+from ...core.db import get_session
 from ...models.room import Room
 from ...models.user import User
 from ...models.notif import Notif
 from ...realtime.sio import sio
 from ...realtime.utils import gc_empty_room
-from ...schemas import RoomCreateIn, RoomOut, Identity, RoomAccessOut, Ok, UserOut
-from ...schemas import RoomInfoOut, RoomInfoMemberOut
+from ...schemas.common import Identity, Ok
+from ...schemas.room import RoomOut, RoomCreateIn, RoomInfoOut, RoomInfoMemberOut, RoomAccessOut
+from ...schemas.user import UserOut
 
 router = APIRouter()
 
@@ -57,7 +58,7 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
         await p.hset(f"room:{room.id}:params", mapping=data)
         await p.zadd("rooms:index", {str(room.id): int(room.created_at.timestamp())})
         await p.sadd(f"user:{uid}:rooms", str(room.id))
-        await p.set(f"room:{room.id}:empty_since", int(room.created_at.timestamp()), ex=86400)
+        await p.set(f"room:{room.id}:empty_since", int(room.created_at.timestamp()), ex=3600*24*30)
         await p.execute()
 
     await sio.emit("rooms_upsert",
@@ -159,6 +160,7 @@ async def apply(room_id: int, ident: Identity = Depends(get_identity), db: Async
 
     uid = int(ident["id"])
     creator = int(params.get("creator") or 0)
+    title = (params.get("title") or "").strip()
     if uid == creator:
         return Ok()
 
@@ -171,19 +173,29 @@ async def apply(room_id: int, ident: Identity = Depends(get_identity), db: Async
     try:
         await sio.emit("room_invite",
                        {"room_id": room_id,
+                        "room_title": title,
                         "user": {"id": uid, "username": user.username, "avatar_name": user.avatar_name}},
                        room=f"user:{creator}",
                        namespace="/auth")
     except Exception:
         pass
 
+    await log_action(
+        db,
+        user_id=uid,
+        username=ident["username"],
+        action="room_apply",
+        details=f"Подана заявка в комнату room_id={room_id} title={title} creator={creator}",
+    )
+
     return Ok()
 
 
-@log_route("rooms.list_applications")
+@log_route("rooms.list_requests")
 @rate_limited(lambda ident, room_id, **_: f"rl:rooms:apps_list:{ident['id']}:{room_id}", limit=5, window_s=1)
-@router.get("/{room_id}/applications", response_model=list[UserOut])
-async def list_applications(room_id: int, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)):
+@require_room_creator("room_id")
+@router.get("/{room_id}/requests", response_model=list[UserOut])
+async def list_requests(room_id: int, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)):
     r = get_redis()
     params = await r.hgetall(f"room:{room_id}:params")
     if not params:
@@ -202,7 +214,8 @@ async def list_applications(room_id: int, ident: Identity = Depends(get_identity
 
 @log_route("rooms.approve")
 @rate_limited(lambda ident, room_id, user_id, **_: f"rl:rooms:approve:{ident['id']}:{room_id}", limit=5, window_s=1)
-@router.post("/{room_id}/applications/{user_id}/approve", response_model=Ok)
+@require_room_creator("room_id")
+@router.post("/{room_id}/requests/{user_id}/approve", response_model=Ok)
 async def approve(room_id: int, user_id: int, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> Ok:
     r = get_redis()
     params = await r.hgetall(f"room:{room_id}:params")
@@ -215,7 +228,8 @@ async def approve(room_id: int, user_id: int, ident: Identity = Depends(get_iden
     await r.srem(f"room:{room_id}:pending", str(user_id))
     await r.sadd(f"room:{room_id}:allow", str(user_id))
 
-    note = Notif(user_id=int(user_id), text=f"Вход в комнату #{room_id} одобрен")
+    title = (params.get("title") or "").strip()
+    note = Notif(user_id=int(user_id), text=f"Вход в комнату #{room_id}: \"{title}\" одобрен")
     db.add(note)
     await db.commit()
     await db.refresh(note)
@@ -229,5 +243,13 @@ async def approve(room_id: int, user_id: int, ident: Identity = Depends(get_iden
                        namespace="/auth")
     except Exception:
         pass
+
+    await log_action(
+        db,
+        user_id=int(ident["id"]),
+        username=ident["username"],
+        action="room_approve",
+        details=f"Одобрена заявка в комнату room_id={room_id} title={title} target_user={user_id}",
+    )
 
     return Ok()

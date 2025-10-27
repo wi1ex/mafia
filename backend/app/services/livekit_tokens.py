@@ -2,7 +2,7 @@ from __future__ import annotations
 from datetime import timedelta
 import structlog
 from livekit.api import AccessToken, VideoGrants
-from ..settings import settings
+from ..core.settings import settings
 
 log = structlog.get_logger()
 

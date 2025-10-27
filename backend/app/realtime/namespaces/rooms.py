@@ -3,7 +3,7 @@ import structlog
 from ..sio import sio
 from ...core.clients import get_redis
 from ...core.decorators import rate_limited_sio
-from ...schemas import RoomsListAck
+from ...schemas.realtime import RoomsListAck
 
 log = structlog.get_logger()
 
