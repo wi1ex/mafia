@@ -10,7 +10,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { useNotifStore } from '@/store/modules/notifs'
+import { useNotifStore } from '@/store/modules/notif'
 
 type T = { key: number; text: string; action?: {label: string; run: () => void}; noteId?: number }
 

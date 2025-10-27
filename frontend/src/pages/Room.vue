@@ -78,7 +78,7 @@
         </button>
       </div>
       <div v-else class="controls">
-        <button v-if="myRole === 'host'" @click="openApps=!openApps">
+        <button v-if="myRole === 'host' && roomPrivacy==='private'" @click="openApps=!openApps">
           Заявки
         </button>
         <button @click="toggleMic" :disabled="pending.mic || blockedSelf.mic" :aria-pressed="micOn">
@@ -144,6 +144,7 @@ import { Socket } from 'socket.io-client'
 import { useAuthStore } from '@/store'
 import { useRTC } from '@/services/rtc'
 import { createAuthedSocket } from '@/services/sio'
+import { api } from '@/services/axios'
 import RoomTile from '@/components/RoomTile.vue'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
@@ -212,6 +213,7 @@ const settingsOpen = ref(false)
 const leaving = ref(false)
 const openApps = ref(false)
 const apps = ref<{id: number; username?: string; avatar_name?: string|null}[]>([])
+const roomPrivacy = ref<'open'|'private'>('open')
 const ws_url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host
 const isTheater = computed(() => !!screenOwnerId.value)
 const isMyScreen = computed(() => screenOwnerId.value === localId.value)
@@ -732,9 +734,20 @@ function onBackgroundMaybeLeave(e?: PageTransitionEvent) {
   if (document.visibilityState === 'hidden' || (e && (e as any).persisted === true)) void onLeave()
 }
 
+const onRoomAppEvt = (e: any) => {
+  const p = e?.detail
+  if (Number(p?.room_id) !== rid) return
+  if (myRole.value !== 'host') return
+  const u = p?.user
+  if (!u?.id) return
+  if (!apps.value.some(x => x.id === u.id)) {
+    apps.value.push({ id: u.id, username: u.username, avatar_name: u.avatar_name })
+  }
+}
+
 watch(() => auth.isAuthed, (ok) => { if (!ok) { void onLeave() } })
 watch(openApps, async (on)=>{
-  if (!on || !(myRole.value === 'host' || myRole.value === 'admin')) return
+  if (!on || myRole.value !== 'host') return
   try {
     const { data } = await api.get(`/rooms/${rid}/applications`)
     apps.value = data
@@ -742,6 +755,13 @@ watch(openApps, async (on)=>{
 })
 
 onMounted(async () => {
+  try {
+    const { data } = await api.get(`/rooms/${rid}/access`)
+    roomPrivacy.value = data.privacy
+  } catch { roomPrivacy.value = 'open' }
+
+  window.addEventListener('auth-room_app', onRoomAppEvt)
+
   try {
     if (!auth.ready) { try { await auth.init() } catch {} }
     connectSocket()
@@ -799,7 +819,10 @@ onMounted(async () => {
   }
 })
 
-onBeforeUnmount(() => { void onLeave() })
+onBeforeUnmount(() => {
+  try { window.removeEventListener('auth-room_app', onRoomAppEvt) } catch {}
+  void onLeave()
+})
 </script>
 
 <style lang="scss" scoped>

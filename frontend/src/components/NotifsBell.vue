@@ -1,5 +1,5 @@
 <template>
-  <div class="bell">
+  <div class="bell" ref="root">
     <button @click="toggle" aria-label="Уведомления">
       🔔 <span v-if="n.unread>0" class="cnt">{{ n.unread }}</span>
     </button>
@@ -20,7 +20,7 @@
 
 <script setup lang="ts">
 import { onMounted, onBeforeUnmount, ref, watch } from 'vue'
-import { useNotifStore } from '@/store/modules/notifs'
+import { useNotifStore } from '@/store/modules/notif'
 
 const n = useNotifStore()
 
@@ -28,6 +28,7 @@ let obs: IntersectionObserver | null = null
 const open = ref(false)
 const list = ref<HTMLElement|null>(null)
 const panel = ref<HTMLElement|null>(null)
+const root = ref<HTMLElement|null>(null)
 
 function toggle() { open.value = !open.value }
 
@@ -48,6 +49,17 @@ function attachObserver() {
     list.value?.querySelectorAll('.item').forEach(el => obs?.observe(el))
   })
 }
+
+function onDocClick(e: Event) {
+  const t = e.target as Node | null
+  if (!t) return
+  if (!root.value?.contains(t)) open.value = false
+}
+
+watch(open, (v) => {
+  try { document.removeEventListener('pointerdown', onDocClick, { capture: true } as any) } catch {}
+  if (v) document.addEventListener('pointerdown', onDocClick, { capture: true })
+})
 
 watch(() => n.items.length, () => {
   if (!open.value) return

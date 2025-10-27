@@ -55,7 +55,17 @@ export const useAuthStore = defineStore('auth', () => {
     setAuthHeader(data.access_token || '')
     bindBus()
     setSid(sessionId.value)
-    if (connect) startAuthSocket({ onForceLogout: () => { void localSignOut() } })
+    if (connect) {
+      startAuthSocket({
+        onForceLogout: () => { void localSignOut() },
+        onNotify: (p) => {
+          try { window.dispatchEvent(new CustomEvent('auth-notify', { detail: p })) } catch {}
+        },
+        onRoomApp: (p) => {
+          try { window.dispatchEvent(new CustomEvent('auth-room_app', { detail: p })) } catch {}
+        }
+      })
+    }
     ready.value = true
   }
 

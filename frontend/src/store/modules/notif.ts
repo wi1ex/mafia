@@ -1,7 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { api } from '@/services/axios'
-import { startAuthSocket } from '@/services/sio'
 
 type Note = { id: number; text: string; created_at: string; read: boolean }
 
@@ -9,6 +8,8 @@ export const useNotifStore = defineStore('notif', () => {
   const items = ref<Note[]>([])
   const unread = ref(0)
   let inited = false
+  let onNotifyEv: ((e: any) => void) | null = null
+  let onRoomAppEv: ((e: any) => void) | null = null
 
   async function fetchAll() {
     const { data } = await api.get('/notifs')
@@ -18,23 +19,35 @@ export const useNotifStore = defineStore('notif', () => {
 
   function ensureWS() {
     if (inited) return
-    startAuthSocket({
-      onNotify: (p: Note) => {
-        items.value.unshift({ ...p, read: false })
-        unread.value++
-        window.dispatchEvent(new CustomEvent('toast', { detail: { id: p.id, kind: 'approve', text: p.text } }))
-        const m = /#(\d+)/.exec(p.text || '')
-        if (m) {
-          const roomId = Number(m[1])
-          if (Number.isFinite(roomId)) {
-            window.dispatchEvent(new CustomEvent('room-approved', { detail: { roomId } }))
+    onNotifyEv = (e: any) => {
+      const p = e?.detail as Note
+      if (!p) return
+      items.value.unshift({ ...p, read: false })
+      unread.value++
+      window.dispatchEvent(new CustomEvent('toast', { detail: { id: p.id, kind: 'approve', text: p.text } }))
+      const m = /#(\d+)/.exec(p.text || '')
+      if (m) {
+        const roomId = Number(m[1])
+        if (Number.isFinite(roomId)) window.dispatchEvent(new CustomEvent('room-approved', { detail: { roomId } }))
+      }
+    }
+    onRoomAppEv = (e: any) => {
+      const p = e?.detail
+      if (!p) return
+      const text = `Заявка в комнату #${p.room_id}: ${p.user?.username || ('user' + p.user?.id)}`
+      window.dispatchEvent(new CustomEvent('toast', {
+        detail: {
+          kind: 'app',
+          text,
+          action: {
+            label: 'Разрешить вход',
+            run: async () => { try { await api.post(`/rooms/${p.room_id}/applications/${p.user.id}/approve`) } catch {} }
           }
         }
-      },
-      onRoomApp: (p: any) => {
-        const text = `Заявка в комнату #${p.room_id}: ${p.user?.username || ('user' + p.user?.id)}`
-        window.dispatchEvent(new CustomEvent('toast', { detail: { kind: 'app', text, action: { label: 'Разрешить вход', run: async () => { try { await api.post(`/rooms/${p.room_id}/applications/${p.user.id}/approve`) } catch {} }}}}))}
-    })
+      }))
+    }
+    window.addEventListener('auth-notify', onNotifyEv)
+    window.addEventListener('auth-room_app', onRoomAppEv)
     inited = true
   }
 
