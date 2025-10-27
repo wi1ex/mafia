@@ -169,7 +169,7 @@ async def apply(room_id: int, ident: Identity = Depends(get_identity), db: Async
 
     user = await db.get(User, uid)
     try:
-        await sio.emit("room_app",
+        await sio.emit("room_invite",
                        {"room_id": room_id,
                         "user": {"id": uid, "username": user.username, "avatar_name": user.avatar_name}},
                        room=f"user:{creator}",

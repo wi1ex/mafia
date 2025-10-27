@@ -34,7 +34,7 @@ const root = ref<HTMLElement|null>(null)
 function toggle() { open.value = !open.value }
 
 function attachObserver() {
-  if (!list.value) return
+  if (!list.value || !panel.value) return
   if (obs) { try { obs.disconnect() } catch {} }
   obs = new IntersectionObserver((entries) => {
     const ids: number[] = []
@@ -46,14 +46,14 @@ function attachObserver() {
       if (it && !it.read) ids.push(id)
     })
     if (ids.length) void n.markReadVisible(ids)
-  }, { root: list.value, threshold: 0.5 })
+  }, { root: panel.value, threshold: 0.5 })
   queueMicrotask(() => {
     list.value?.querySelectorAll('.item').forEach(el => obs?.observe(el))
   })
 }
 function markVisibleNow() {
-  if (!list.value) return
-  const rootBox = list.value.getBoundingClientRect()
+  if (!list.value || !panel.value) return
+  const rootBox = panel.value.getBoundingClientRect()
   const ids: number[] = []
   list.value.querySelectorAll<HTMLElement>('.item').forEach(el => {
     const r = el.getBoundingClientRect()
@@ -68,14 +68,14 @@ function markVisibleNow() {
   if (ids.length) void n.markReadVisible(ids)
 }
 function bindScroll() {
-  if (!list.value) return
+  if (!panel.value) return
   if (onScrollBound) return
   onScrollBound = () => markVisibleNow()
-  list.value.addEventListener('scroll', onScrollBound, { passive: true })
+  panel.value.addEventListener('scroll', onScrollBound, { passive: true })
 }
 function unbindScroll() {
-  if (!list.value || !onScrollBound) return
-  try { list.value.removeEventListener('scroll', onScrollBound) } catch {}
+  if (!panel.value || !onScrollBound) return
+  try { panel.value.removeEventListener('scroll', onScrollBound) } catch {}
   onScrollBound = null
 }
 function onDocClick(e: Event) {

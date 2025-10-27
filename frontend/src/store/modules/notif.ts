@@ -32,7 +32,7 @@ export const useNotifStore = defineStore('notif', () => {
     }
     onRoomAppEv = (_e: any) => {}
     window.addEventListener('auth-notify', onNotifyEv)
-    window.addEventListener('auth-room_app', onRoomAppEv)
+    window.addEventListener('auth-room_invite', onRoomAppEv)
     inited = true
   }
 

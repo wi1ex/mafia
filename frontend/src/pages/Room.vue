@@ -760,7 +760,7 @@ onMounted(async () => {
     roomPrivacy.value = data.privacy
   } catch { roomPrivacy.value = 'open' }
 
-  window.addEventListener('auth-room_app', onRoomAppEvt)
+  window.addEventListener('auth-room_invite', onRoomAppEvt)
 
   try {
     if (!auth.ready) { try { await auth.init() } catch {} }
@@ -820,7 +820,7 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
-  try { window.removeEventListener('auth-room_app', onRoomAppEvt) } catch {}
+  try { window.removeEventListener('auth-room_invite', onRoomAppEvt) } catch {}
   void onLeave()
 })
 </script>

@@ -66,7 +66,7 @@ export const useAuthStore = defineStore('auth', () => {
         },
         onRoomApp: (p) => {
           try {
-            window.dispatchEvent(new CustomEvent('auth-room_app', { detail: p }))
+            window.dispatchEvent(new CustomEvent('auth-room_invite', { detail: p }))
             const text = `Заявка в комнату #${p.room_id}: ${p.user?.username || ('user' + p.user?.id)}`
             window.dispatchEvent(new CustomEvent('toast', {
               detail: {

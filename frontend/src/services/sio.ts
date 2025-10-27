@@ -84,7 +84,7 @@ export function startAuthSocket(opts?: {
   })
   if (opts?.onForceLogout) authSocket.on('force_logout', opts.onForceLogout)
   if (opts?.onNotify) authSocket.on('notify', opts.onNotify)
-  if (opts?.onRoomApp) authSocket.on('room_app', opts.onRoomApp)
+  if (opts?.onRoomApp) authSocket.on('room_invite', opts.onRoomApp)
   return authSocket
 }
 
