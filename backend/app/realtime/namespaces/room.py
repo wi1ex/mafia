@@ -3,7 +3,6 @@ import asyncio
 from time import time
 import structlog
 from ..sio import sio
-from ..utils import validate_auth, claim_screen, release_screen, account_screen_time
 from ...core.clients import get_redis
 from ...core.decorators import rate_limited_sio
 from ...core.logging import log_action
@@ -22,6 +21,10 @@ from ..utils import (
     join_room_atomic,
     leave_room_atomic,
     update_blocks,
+    validate_auth,
+    claim_screen,
+    release_screen,
+    account_screen_time,
 )
 
 log = structlog.get_logger()
@@ -95,7 +98,7 @@ async def join(sid, data) -> JoinAck:
                              namespace="/room")
 
         snapshot = await get_room_snapshot(r, rid)
-        blocked  = await get_blocks_snapshot(r, rid)
+        blocked = await get_blocks_snapshot(r, rid)
         roles = await get_roles_snapshot(r, rid)
         profiles = await get_profiles_snapshot(r, rid)
         me_prof = profiles.get(str(uid)) or {}
@@ -175,7 +178,8 @@ async def join(sid, data) -> JoinAck:
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:state:{uid or 'nouid'}:{rid or 0}", limit=30, window_s=1, session_ns="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:state:{uid or 'nouid'}:{rid or 0}", limit=30, window_s=1,
+                  session_ns="/room")
 @sio.event(namespace="/room")
 async def state(sid, data) -> StateAck:
     try:
@@ -200,7 +204,8 @@ async def state(sid, data) -> StateAck:
         return {"ok": False}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:screen:{uid or 'nouid'}:{rid or 0}", limit=5, window_s=1, session_ns="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:screen:{uid or 'nouid'}:{rid or 0}", limit=5, window_s=1,
+                  session_ns="/room")
 @sio.event(namespace="/room")
 async def screen(sid, data) -> ScreenAck:
     try:
@@ -261,7 +266,8 @@ async def screen(sid, data) -> ScreenAck:
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:moderate:{uid or 'nouid'}:{rid or 0}", limit=30, window_s=1, session_ns="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:moderate:{uid or 'nouid'}:{rid or 0}", limit=30,
+                  window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
 async def moderate(sid, data) -> ModerateAck:
     try:
@@ -333,7 +339,8 @@ async def moderate(sid, data) -> ModerateAck:
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:kick:{uid or 'nouid'}:{rid or 0}", limit=5, window_s=1, session_ns="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:kick:{uid or 'nouid'}:{rid or 0}", limit=5, window_s=1,
+                  session_ns="/room")
 @sio.event(namespace="/room")
 async def kick(sid, data):
     try:
@@ -378,6 +385,24 @@ async def kick(sid, data):
                 action="room_kick",
                 details=f"Кик из комнаты room_id={rid} target_user={target} actor_role={actor_role}",
             )
+
+        async def _force_cleanup():
+            await asyncio.sleep(2)
+            if not await r.sismember(f"room:{rid}:members", str(target)):
+                return
+
+            occ, _, pos_updates = await leave_room_atomic(r, rid, target)
+            await sio.emit("member_left", {"user_id": target}, room=f"room:{rid}", namespace="/room")
+            if pos_updates:
+                await sio.emit("positions",
+                               {"updates": [{"user_id": u, "position": p} for u, p in pos_updates]},
+                               room=f"room:{rid}",
+                               namespace="/room")
+            await sio.emit("rooms_occupancy",
+                           {"id": rid, "occupancy": occ},
+                           namespace="/rooms")
+
+        asyncio.create_task(_force_cleanup())
 
         return {"ok": True}
 
@@ -445,7 +470,8 @@ async def disconnect(sid):
                                        {"id": rid},
                                        namespace="/rooms")
                 except Exception:
-                    log.exception("gc failed rid=%s", rid)
+                    log.exception("gc.failed", rid=rid)
+
             asyncio.create_task(_gc())
 
     except Exception:

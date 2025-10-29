@@ -71,6 +71,7 @@ async def download_telegram_photo(url: str) -> Tuple[bytes, str] | None:
             async for chunk in r.aiter_bytes():
                 if not chunk:
                     break
+
                 total += len(chunk)
                 if total > MAX_BYTES:
                     log.warning("telegram.photo.too_large.stream", read_bytes=total)

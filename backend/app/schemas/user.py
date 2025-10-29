@@ -13,5 +13,9 @@ class UsernameUpdateIn(BaseModel):
     username: str = Field(min_length=2, max_length=20)
 
 
+class UsernameUpdateOut(BaseModel):
+    username: str
+
+
 class AvatarUploadOut(BaseModel):
     avatar_name: Optional[str] = None

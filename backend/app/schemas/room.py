@@ -8,14 +8,8 @@ class RoomCreateIn(BaseModel):
     privacy: Literal["open", "private"] = Field(default="open")
 
 
-class RoomOut(BaseModel):
+class RoomIdOut(BaseModel):
     id: int
-    title: str
-    user_limit: int
-    privacy: Literal["open", "private"]
-    creator: int
-    creator_name: str
-    created_at: str
 
 
 class RoomInfoMemberOut(BaseModel):
@@ -29,5 +23,4 @@ class RoomInfoOut(BaseModel):
 
 
 class RoomAccessOut(BaseModel):
-    privacy: Literal["open", "private"]
     access: Literal["approved", "pending", "none"]

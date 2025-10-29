@@ -3,6 +3,7 @@ import asyncio
 from fastapi import APIRouter, Depends, status, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from ..utils import emit_rooms_upsert
 from ...core.clients import get_redis
 from ...core.decorators import log_route, rate_limited, require_room_creator
 from ...core.logging import log_action
@@ -12,9 +13,10 @@ from ...models.room import Room
 from ...models.user import User
 from ...models.notif import Notif
 from ...realtime.sio import sio
-from ...realtime.utils import gc_empty_room
+from ...realtime.utils import gc_empty_room, get_room_brief
 from ...schemas.common import Identity, Ok
-from ...schemas.room import RoomOut, RoomCreateIn, RoomInfoOut, RoomInfoMemberOut, RoomAccessOut
+from ...schemas.realtime import RoomListItem
+from ...schemas.room import RoomIdOut, RoomCreateIn, RoomInfoOut, RoomInfoMemberOut, RoomAccessOut
 from ...schemas.user import UserOut
 
 router = APIRouter()
@@ -22,8 +24,8 @@ router = APIRouter()
 
 @log_route("rooms.create_room")
 @rate_limited(lambda ident, **_: f"rl:create_room:{ident['id']}", limit=5, window_s=60)
-@router.post("", response_model=RoomOut, status_code=status.HTTP_201_CREATED)
-async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get_session), ident: Identity = Depends(get_identity)) -> RoomOut:
+@router.post("", response_model=RoomIdOut, status_code=status.HTTP_201_CREATED)
+async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get_session), ident: Identity = Depends(get_identity)) -> RoomIdOut:
     uid = int(ident["id"])
     creator_name = ident["username"]
     title = (payload.title or "").strip()
@@ -61,13 +63,7 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
         await p.set(f"room:{room.id}:empty_since", int(room.created_at.timestamp()), ex=3600*24*30)
         await p.execute()
 
-    await sio.emit("rooms_upsert",
-                   data,
-                   namespace="/rooms")
-    await sio.emit("rooms_occupancy",
-                   {"id": room.id,
-                   "occupancy": 0},
-                   namespace="/rooms")
+    await emit_rooms_upsert(room.id)
 
     async def _gc_soon(rid: int) -> None:
         await asyncio.sleep(12)
@@ -87,7 +83,7 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
         details=f"Создание комнаты room_id={room.id} title={room.title} user_limit={room.user_limit} privacy={payload.privacy}",
     )
 
-    return RoomOut(**data)
+    return RoomIdOut(id=room.id)
 
 
 @log_route("rooms.room_info")
@@ -98,12 +94,7 @@ async def room_info(room_id: int, session: AsyncSession = Depends(get_session)) 
     if not params:
         raise HTTPException(status_code=404, detail="room_not_found")
 
-    try:
-        rid = int(params.get("id") or room_id)
-    except Exception:
-        raise HTTPException(status_code=404, detail="room_not_found")
-
-    order_raw = await r.zrange(f"room:{rid}:positions", 0, -1)
+    order_raw = await r.zrange(f"room:{room_id}:positions", 0, -1)
     order_ids = [int(uid) for uid in order_raw]
 
     users_map: dict[int, User] = {}
@@ -115,9 +106,21 @@ async def room_info(room_id: int, session: AsyncSession = Depends(get_session)) 
     members: list[RoomInfoMemberOut] = []
     for uid in order_ids:
         u = users_map.get(uid)
-        members.append(RoomInfoMemberOut(id=uid, username=u.username, avatar_name=u.avatar_name))
+        members.append(RoomInfoMemberOut(id=uid, username=(u.username if u else None), avatar_name=(u.avatar_name if u else None)))
 
     return RoomInfoOut(members=members)
+
+
+@log_route("rooms.brief")
+@rate_limited(lambda ident, room_id, **_: f"rl:rooms:brief:{ident['id']}:{room_id}", limit=5, window_s=1)
+@router.get("/{room_id}/brief", response_model=RoomListItem)
+async def brief_one(room_id: int) -> RoomListItem:
+    r = get_redis()
+    data = await get_room_brief(r, room_id)
+    if not data:
+        raise HTTPException(status_code=404, detail="room_not_found")
+
+    return RoomListItem(**data)
 
 
 @log_route("rooms.access")
@@ -131,19 +134,19 @@ async def access(room_id: int, ident: Identity = Depends(get_identity)) -> RoomA
 
     privacy = (params.get("privacy") or "open").strip()
     if privacy != "private":
-        return RoomAccessOut(privacy="open", access="approved")
+        return RoomAccessOut(access="approved")
 
     uid = int(ident["id"])
     if int(params.get("creator") or 0) == uid:
-        return RoomAccessOut(privacy="private", access="approved")
+        return RoomAccessOut(access="approved")
 
     if await r.sismember(f"room:{room_id}:allow", str(uid)):
-        return RoomAccessOut(privacy="private", access="approved")
+        return RoomAccessOut(access="approved")
 
     if await r.sismember(f"room:{room_id}:pending", str(uid)):
-        return RoomAccessOut(privacy="private", access="pending")
+        return RoomAccessOut(access="pending")
 
-    return RoomAccessOut(privacy="private", access="none")
+    return RoomAccessOut(access="none")
 
 
 @log_route("rooms.apply")

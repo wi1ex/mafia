@@ -12,7 +12,14 @@
         <li class="item" v-for="r in sortedRooms" :key="r.id" :class="{ active: r.id === selectedId }" tabindex="0" @click="selectRoom(r.id)">
           <div class="item_main">
             <span class="item_title">Комната #{{ r.id }}: {{ r.title }}</span>
-            <span class="item_meta">({{ r.occupancy }}/{{ r.user_limit }}) • Владелец: {{ r.creator_name }}</span>
+            <div class="item_meta">
+              <span>({{ r.occupancy }}/{{ r.user_limit }})</span>
+              <span class="badge" :data-kind="r.privacy === 'private' ? 'priv' : 'open'">
+                {{ r.privacy === 'private' ? 'Приватная' : 'Открытая' }}
+              </span>
+              <img class="owner_ava" v-minio-img="{ key: r.creator_avatar_name ? `avatars/${r.creator_avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="" />
+              <span>Владелец: {{ r.creator_name }}</span>
+            </div>
           </div>
         </li>
       </ul>
@@ -25,8 +32,8 @@
         <div class="ri-title">
           <div class="ri-actions">
             <template v-if="auth.isAuthed && selectedRoom">
-              <button v-if="roomPrivacy==='open' && !isFullRoom(selectedRoom)" :disabled="entering" @click="onEnter">{{ entering ? 'Вхожу...' : 'Войти в комнату' }}</button>
-              <template v-else-if="roomPrivacy==='private'">
+              <button v-if="selectedRoom.privacy === 'open' && !isFullRoom(selectedRoom)" :disabled="entering" @click="onEnter">{{ entering ? 'Вхожу...' : 'Войти в комнату' }}</button>
+              <template v-else-if="selectedRoom.privacy === 'private'">
                 <button v-if="access==='approved' && !isFullRoom(selectedRoom)" :disabled="entering" @click="onEnter">{{ entering ? 'Вхожу...' : 'Войти в комнату' }}</button>
                 <button v-else-if="access==='none'" :disabled="false" @click="onApply">Подать заявку</button>
                 <button v-else disabled>Заявка отправлена</button>
@@ -39,8 +46,11 @@
         </div>
 
         <div class="ri-meta">
-          <span>Владелец: {{ selectedRoom?.creator_name }}</span>
-          <span>Параметры: -</span>
+          <span class="owner">
+            <img class="owner_ava" v-minio-img="{ key: selectedRoom?.creator_avatar_name ? `avatars/${selectedRoom!.creator_avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="" />
+            <span>Владелец: {{ selectedRoom?.creator_name }}</span>
+          </span>
+          <span>Приватность: {{ (selectedRoom?.privacy === 'private') ? 'закрытая' : 'открытая' }}</span>
         </div>
 
         <div class="ri-members">
@@ -74,8 +84,10 @@ type Room = {
   id: number
   title: string
   user_limit: number
+  privacy: 'open' | 'private'
   creator: number
   creator_name: string
+  creator_avatar_name?: string | null
   created_at: string
   occupancy: number
 }
@@ -106,7 +118,6 @@ const loadingInfo = ref(false)
 
 const openCreate = ref(false)
 const access = ref<Access>('approved')
-const roomPrivacy = ref<'open'|'private'>('open')
 
 const selectedRoom = computed(() => selectedId.value ? (roomsMap.get(selectedId.value) || null) : null)
 const sortedRooms = computed(() => Array.from(roomsMap.values()).sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at)))
@@ -134,20 +145,15 @@ async function onCreated(room: any) {
   await router.push(`/room/${room.id}`)
 }
 
-async function fetchAccess(id: number){
+async function fetchAccess(id: number) {
   if (!auth.isAuthed) {
-    access.value='none'
-    roomPrivacy.value='open'
+    access.value = 'none'
     return
   }
-  try{
+  try {
     const { data } = await api.get(`/rooms/${id}/access`)
-    roomPrivacy.value = data.privacy
     access.value = data.access
-  } catch {
-    roomPrivacy.value = 'open'
-    access.value = 'approved'
-  }
+  } catch { access.value = 'none' }
 }
 
 async function onApply() {
@@ -235,7 +241,8 @@ function startWS() {
   if (sio.value && (sio.value.connected || (sio.value as any).connecting)) return
   sio.value = createPublicSocket('/rooms', {
     path: '/ws/socket.io',
-    transports: ['websocket'],
+    transports: ['websocket','polling'],
+    upgrade: true,
     autoConnect: true,
     reconnection: true,
     reconnectionAttempts: Infinity,
@@ -246,8 +253,8 @@ function startWS() {
   sio.value.on('connect', syncRoomsSnapshot)
 
   sio.value.on('rooms_upsert', (r: Room) => {
-   upsert(r)
-   if (!selectedId.value && !suppressedAutoselect.value) selectRoom(r.id)
+    upsert(r)
+    if (!selectedId.value && !suppressedAutoselect.value) selectRoom(r.id)
   })
 
   sio.value.on('rooms_remove', (p: { id: number }) => remove(p.id))
@@ -275,6 +282,11 @@ function stopWS() {
   sio.value = null
 }
 
+const onRoomApproved = (e: any) => {
+  const rid = Number(e?.detail?.roomId)
+  if (selectedId.value && rid === selectedId.value) access.value = 'approved'
+}
+
 watch(selectedId, (id) => {
   if (id) { void fetchAccess(id) }
 })
@@ -286,13 +298,13 @@ watch(() => route.query.focus, (v) => {
 
 onMounted(() => {
   startWS()
+
   document.addEventListener('pointerdown', onGlobalPointerDown, { capture: true })
+
   const f = Number(route.query.focus)
   if (Number.isFinite(f)) selectRoom(f)
-  window.addEventListener('room-approved', (e: any) => {
-    const rid = Number(e?.detail?.roomId)
-    if (selectedId.value && rid === selectedId.value) access.value = 'approved'
-  })
+
+  window.addEventListener('room-approved', onRoomApproved)
 })
 
 onBeforeUnmount(() => {
@@ -300,7 +312,7 @@ onBeforeUnmount(() => {
   infoTimers.clear()
   stopWS()
   try { document.removeEventListener('pointerdown', onGlobalPointerDown, { capture: true } as any) } catch {}
-  try { window.removeEventListener('room-approved', () => {}) } catch {}
+  try { window.removeEventListener('room-approved', onRoomApproved) } catch {}
 })
 </script>
 
@@ -380,7 +392,27 @@ onBeforeUnmount(() => {
             font-weight: 600;
           }
           .item_meta {
-            color: $grey;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            .owner_ava {
+              width: 18px;
+              height: 18px;
+              border-radius: 50%;
+              object-fit: cover;
+            }
+            .badge {
+              padding: 0 6px;
+              border-radius: 4px;
+              font-size: 12px;
+              background: $graphite;
+              &[data-kind="priv"] {
+                background: rgba(239, 68, 68, 0.25);
+              }
+              &[data-kind="open"] {
+                background: rgba(34, 197, 94, 0.25);
+              }
+            }
           }
         }
       }
@@ -442,6 +474,17 @@ onBeforeUnmount(() => {
         flex-direction: column;
         gap: 5px;
         color: $grey;
+        .owner {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          .owner_ava {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            object-fit: cover;
+          }
+        }
       }
       .ri-members {
         display: flex;

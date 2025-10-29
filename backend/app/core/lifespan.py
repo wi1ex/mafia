@@ -19,9 +19,13 @@ async def lifespan(app) -> AsyncIterator[None]:
 
     init_clients()
 
-    async with engine.begin() as conn:
-        await conn.execute(text("SELECT 1"))
-        await conn.run_sync(Base.metadata.create_all)
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(text("SELECT 1"))
+            await conn.run_sync(Base.metadata.create_all)
+    except Exception:
+        log.exception("app.startup.db_failed")
+        raise
 
     async def redis_ping():
         await get_redis().ping()
@@ -29,12 +33,23 @@ async def lifespan(app) -> AsyncIterator[None]:
     async def minio_ready():
         await asyncio.to_thread(ensure_bucket)
 
-    await asyncio.gather(redis_ping(), minio_ready())
+    try:
+        await asyncio.gather(redis_ping(), minio_ready())
+    except Exception:
+        log.exception("app.startup.deps_failed")
+        raise
+
     log.info("app.ready")
 
     try:
         yield
     finally:
-        await close_clients()
-        await engine.dispose()
+        try:
+            await close_clients()
+        except Exception:
+            log.warning("app.shutdown.close_clients_failed")
+        try:
+            await engine.dispose()
+        except Exception:
+            log.warning("app.shutdown.engine_dispose_failed")
         log.info("app.shutdown.ok")

@@ -64,9 +64,11 @@ def require_roles_deco(*roles: str):
         async def wrap(*args, **kwargs):
             ident: Identity | None = kwargs.get("ident")
             if not ident:
+                log.warning("require_roles.missing_identity")
                 raise HTTPException(status_code=401, detail="Unauthorized")
 
             if roles and ident["role"] not in roles:
+                log.warning("require_roles.forbidden", role=ident["role"], need=roles)
                 raise HTTPException(status_code=403, detail="forbidden")
 
             return await fn(*args, **kwargs)
@@ -90,15 +92,18 @@ def require_room_creator(room_id_param: str = "room_id"):
         async def wrap(*args, ident: Identity, **kwargs):
             bound = sig.bind_partial(*args, **kwargs)
             if room_id_param not in bound.arguments:
+                log.error("require_room_creator.param_missing", param=room_id_param)
                 raise HTTPException(status_code=500, detail="room_id_param_not_found")
 
             r = get_redis()
             rid = int(bound.arguments[room_id_param])
             redis_params = await r.hgetall(f"room:{rid}:params")
             if not redis_params:
+                log.warning("require_room_creator.room_not_found", rid=rid)
                 raise HTTPException(status_code=404, detail="room_not_found")
 
             if int(redis_params.get("creator") or 0) != int(ident["id"]):
+                log.warning("require_room_creator.forbidden", rid=rid, uid=ident["id"])
                 raise HTTPException(status_code=403, detail="forbidden")
 
             return await fn(*args, **kwargs)

@@ -76,7 +76,8 @@ export function startAuthSocket(opts?: {
   if (authSocket) return authSocket
   authSocket = createAuthedSocket('/auth', {
     path: '/ws/socket.io',
-    transports: ['websocket'],
+    transports: ['websocket','polling'],
+    upgrade: true,
     reconnection: true,
     reconnectionAttempts: Infinity,
     reconnectionDelay: 500,

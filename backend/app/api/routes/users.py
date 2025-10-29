@@ -3,12 +3,13 @@ import re
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from ..utils import broadcast_creator_rooms
 from ...core.db import get_session
 from ...models.user import User
 from ...core.security import get_identity
 from ...core.decorators import log_route, rate_limited
 from ...schemas.common import Identity, Ok
-from ...schemas.user import UserOut, UsernameUpdateIn, AvatarUploadOut
+from ...schemas.user import UserOut, UsernameUpdateIn, AvatarUploadOut, UsernameUpdateOut
 from ...services.storage_minio import put_avatar, delete_avatars, ALLOWED_CT, MAX_BYTES
 from ...core.logging import log_action
 
@@ -33,8 +34,8 @@ async def profile_info(ident: Identity = Depends(get_identity), db: AsyncSession
 
 @log_route("users.update_username")
 @rate_limited(lambda ident, **_: f"rl:update_username:{ident['id']}", limit=1, window_s=1)
-@router.patch("/username", response_model=UserOut)
-async def update_username(payload: UsernameUpdateIn, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UserOut:
+@router.patch("/username", response_model=UsernameUpdateOut)
+async def update_username(payload: UsernameUpdateIn, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UsernameUpdateOut:
     uid = int(ident["id"])
     new = (payload.username or "").strip()
 
@@ -50,7 +51,7 @@ async def update_username(payload: UsernameUpdateIn, ident: Identity = Depends(g
         raise HTTPException(status_code=401, detail="Unauthorized")
 
     if user.username == new:
-        return UserOut(id=user.id, username=user.username, avatar_name=user.avatar_name, role=user.role)
+        return UsernameUpdateOut(username=user.username)
 
     exists = await db.scalar(select(1).where(User.username == new, User.id != uid).limit(1))
     if exists:
@@ -67,8 +68,8 @@ async def update_username(payload: UsernameUpdateIn, ident: Identity = Depends(g
         details=f"Изменение никнейма: {user.username} -> {new}",
     )
 
-    user.username = new
-    return UserOut(id=user.id, username=user.username, avatar_name=user.avatar_name, role=user.role)
+    await broadcast_creator_rooms(uid, update_name=new)
+    return UsernameUpdateOut(username=new)
 
 
 @log_route("users.upload_avatar")
@@ -103,6 +104,7 @@ async def upload_avatar(file: UploadFile = File(...), ident: Identity = Depends(
         details="Изменение аватара",
     )
 
+    await broadcast_creator_rooms(uid)
     return AvatarUploadOut(avatar_name=name)
 
 
@@ -126,4 +128,5 @@ async def delete_avatar(ident: Identity = Depends(get_identity), db: AsyncSessio
         details="Удаление аватара",
     )
 
+    await broadcast_creator_rooms(uid)
     return Ok()

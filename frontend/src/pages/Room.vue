@@ -78,7 +78,7 @@
         </button>
       </div>
       <div v-else class="controls">
-        <button v-if="myRole === 'host' && roomPrivacy==='private'" @click="openApps=!openApps">
+        <button v-if="myRole === 'host' && roomBrief.privacy === 'private'" @click="openApps=!openApps">
           Заявки
         </button>
         <button @click="toggleMic" :disabled="pending.mic || blockedSelf.mic" :aria-pressed="micOn">
@@ -107,6 +107,7 @@
 
       <RoomSetting
         :open="settingsOpen"
+        :room="roomBrief"
         :mics="mics"
         :cams="cams"
         v-model:micId="selectedMicId"
@@ -116,7 +117,7 @@
     </div>
 
     <RoomRequests
-      v-if="myRole === 'host' && roomPrivacy==='private'"
+      v-if="myRole === 'host' && roomBrief.privacy === 'private'"
       v-model:open="openApps"
       :room-id="rid"
     />
@@ -204,7 +205,7 @@ const pendingQuality = ref(false)
 const settingsOpen = ref(false)
 const leaving = ref(false)
 const openApps = ref(false)
-const roomPrivacy = ref<'open'|'private'>('open')
+const roomBrief = ref<any>(null)
 const ws_url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host
 const isTheater = computed(() => !!screenOwnerId.value)
 const isMyScreen = computed(() => screenOwnerId.value === localId.value)
@@ -433,7 +434,8 @@ function connectSocket() {
   if (socket.value && socket.value.connected) return
   socket.value = createAuthedSocket('/room', {
     path: '/ws/socket.io',
-    transports: ['websocket'],
+    transports: ['websocket','polling'],
+    upgrade: true,
     autoConnect: true,
     reconnection: true,
     reconnectionAttempts: Infinity,
@@ -723,9 +725,11 @@ watch(() => auth.isAuthed, (ok) => { if (!ok) { void onLeave() } })
 
 onMounted(async () => {
   try {
-    const { data } = await api.get(`/rooms/${rid}/access`)
-    roomPrivacy.value = data.privacy
-  } catch { roomPrivacy.value = 'open' }
+    const { data } = await api.get(`/rooms/${rid}/brief`, { __skipAuth: true } as any)
+    roomBrief.value = data
+  } catch {
+    roomBrief.value = null
+  }
 
   try {
     if (!auth.ready) { try { await auth.init() } catch {} }

@@ -30,28 +30,25 @@ import defaultAvatar from "@/assets/svg/defaultAvatar.svg"
 const auth = useAuthStore()
 const user  = useUserStore()
 
+let TG_LIB_ONCE = false
 const BOT = import.meta.env.VITE_TG_BOT_NAME as string || ''
 const BUILD = import.meta.env.VITE_BUILD_ID as string || ''
 const SIZE: 'large' | 'medium' | 'small' = 'large'
 
 declare global {
-  interface Window { __tg_cb__?: (u:any) => void }
+  interface Window { __tg_cb__?: (u: any) => void }
 }
 
 async function logout() {
   try { await auth.logout() }
-  finally {
-    alert('Для "полного" выхода нажмите в Telegram "Terminate session" для этой сессии')
-  }
+  finally { alert('Для "полного" выхода из аккаунта нажмите в Telegram "Terminate session" для этой сессии') }
 }
 
 function mountTGWidget() {
   if (!BOT) return
   const box = document.getElementById('tg-login')
-  if (!box) return
-  box.innerHTML = ''
-  document.querySelector('script[data-tg-widget="1"]')?.remove()
-  window.__tg_cb__ = async (u:any) => {
+  if (!box || box.children.length) return
+  window.__tg_cb__ = async (u: any) => {
     try { auth.wipeLocalForNewLogin() } catch {}
     await auth.signInWithTelegram(u)
   }
@@ -62,7 +59,8 @@ function mountTGWidget() {
   s.dataset.size = SIZE
   s.dataset.userpic = 'true'
   s.dataset.onauth = '__tg_cb__(user)'
-  s.setAttribute('data-tg-widget', '1')
+  s.setAttribute('data-tg-widget', TG_LIB_ONCE ? '0' : '1')
+  TG_LIB_ONCE = true
   box.appendChild(s)
 }
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 import re
 import time
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query
 from ...core.decorators import log_route
 from ...services.storage_minio import presign_key
 from ...core.clients import get_redis
@@ -12,11 +12,17 @@ router = APIRouter()
 @log_route("media.presign")
 @router.get("/presign")
 async def presign(key: str = Query(..., description="")) -> dict:
-    if not key or not re.compile(r"^[a-zA-Z0-9._/-]{3,256}$").match(key):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="bad_key")
+    ALLOWED_PREFIXES = ("avatars/",)
+    KEY_RE = re.compile(r"^[a-zA-Z0-9._/-]{3,256}$")
 
-    if not any(key.startswith(p) for p in ("avatars/",)):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="forbidden_prefix")
+    if not key or not KEY_RE.match(key):
+        raise HTTPException(status_code=400, detail="bad_key")
+
+    if not any(key.startswith(p) for p in ALLOWED_PREFIXES):
+        raise HTTPException(status_code=403, detail="forbidden_prefix")
+
+    if ".." in key or "//" in key or key.endswith("/"):
+        raise HTTPException(status_code=400, detail="bad_key")
 
     r = get_redis()
     now = int(time.time())
@@ -36,7 +42,7 @@ async def presign(key: str = Query(..., description="")) -> dict:
     try:
         url, ttl = presign_key(key, expires_hours=1)
     except FileNotFoundError:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not_found")
+        raise HTTPException(status_code=404, detail="not_found")
 
     except HTTPException:
         raise

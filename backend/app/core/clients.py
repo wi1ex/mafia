@@ -70,24 +70,28 @@ def init_clients() -> None:
 
 def get_redis() -> redis.Redis:
     if _redis is None:
+        log.error("clients.redis.uninitialized")
         raise RuntimeError("redis client not initialized")
     return _redis
 
 
 def get_minio_private() -> Minio:
     if _minio_private is None:
+        log.error("clients.minio_private.uninitialized")
         raise RuntimeError("minio private client not initialized")
     return _minio_private
 
 
 def get_minio_public() -> Minio:
     if _minio_public is None:
+        log.error("clients.minio_public.uninitialized")
         raise RuntimeError("minio public client not initialized")
     return _minio_public
 
 
 def get_httpx() -> httpx.AsyncClient:
     if _httpx is None:
+        log.error("clients.httpx.uninitialized")
         raise RuntimeError("httpx client not initialized")
     return _httpx
 

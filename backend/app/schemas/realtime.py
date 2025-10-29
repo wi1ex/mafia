@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, TypedDict
+from typing import Dict, List, Optional, TypedDict, Literal
 
 
 class JoinAck(TypedDict, total=False):
@@ -21,8 +21,10 @@ class RoomListItem(TypedDict):
     id: int
     title: str
     user_limit: int
+    privacy: Literal["open", "private"]
     creator: int
     creator_name: str
+    creator_avatar_name: Optional[str]
     created_at: str
     occupancy: int
 

@@ -28,7 +28,7 @@ async def telegram(payload: TelegramAuthIn, resp: Response, db: AsyncSession = D
     user = (await db.execute(select(User).where(User.id == uid))).scalar_one_or_none()
     if not user:
         new_user = True
-        username = payload.username or f"user{uid}"
+        username = payload.username[:20] or f"user{uid}"
         if await db.scalar(select(1).where(User.username == username).limit(1)):
             username = f"user{uid}"
 

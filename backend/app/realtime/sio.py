@@ -15,8 +15,8 @@ sio = socketio.AsyncServer(
     ping_interval=25,
     ping_timeout=60,
     max_http_buffer_size=64 * 1024,
-    allow_upgrades=False,
-    http_compression=False,
+    allow_upgrades=True,
+    http_compression=True,
 )
 
 from .namespaces import rooms as _ns_rooms

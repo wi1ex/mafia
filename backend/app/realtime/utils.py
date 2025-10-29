@@ -6,7 +6,7 @@ from sqlalchemy import select
 from redis.exceptions import ResponseError
 from jwt import ExpiredSignatureError
 from datetime import datetime, timezone
-from typing import Any, Tuple, Dict, Mapping, cast, Optional
+from typing import Any, Tuple, Dict, Mapping, cast, Optional, List, Iterable
 from ..core.db import SessionLocal
 from ..models.room import Room
 from ..models.user import User
@@ -30,6 +30,8 @@ __all__ = [
     "update_blocks",
     "claim_screen",
     "release_screen",
+    "get_room_brief",
+    "get_rooms_brief",
 ]
 
 log = structlog.get_logger()
@@ -355,6 +357,42 @@ async def account_screen_time(r, rid: int, uid: int) -> None:
     if dt > 0:
         await r.hincrby(f"room:{rid}:screen_time", str(uid), dt)
     await r.delete(f"room:{rid}:screen_started_at")
+
+
+async def get_room_brief(r, rid: int) -> Optional[dict]:
+    fields = ("id", "title", "user_limit", "creator", "creator_name", "created_at", "privacy")
+    _id, title, user_limit, creator, creator_name, created_at, privacy = await r.hmget(f"room:{rid}:params", *fields)
+    if not (_id and title and user_limit and creator and creator_name and created_at):
+        return None
+
+    creator_id = int(creator)
+    creator_avatar_name: Optional[str] = None
+    occ = int(await r.scard(f"room:{rid}:members") or 0)
+    try:
+        async with SessionLocal() as s:
+            u = await s.get(User, creator_id)
+            if u:
+                creator_avatar_name = cast(Optional[str], u.avatar_name)
+    except Exception:
+        creator_avatar_name = None
+
+    return {
+        "id": int(_id),
+        "title": str(title),
+        "user_limit": int(user_limit),
+        "creator": creator_id,
+        "creator_name": str(creator_name),
+        "created_at": str(created_at),
+        "privacy": str(privacy or "open"),
+        "occupancy": occ,
+        "creator_avatar_name": creator_avatar_name,
+    }
+
+
+async def get_rooms_brief(r, ids: Iterable[int]) -> List[dict]:
+    tasks = [get_room_brief(r, int(rid)) for rid in ids]
+    res = await asyncio.gather(*tasks, return_exceptions=False)
+    return [x for x in res if x]
 
 
 async def join_room_atomic(r, rid: int, uid: int, role: str):

@@ -1,6 +1,6 @@
 <template>
   <div class="toasts">
-    <div v-for="t in items" :key="t.key" class="toast" :data-kind="t.kind">
+    <div v-for="t in items" :key="t.key" class="toast" :data-kind="t.kind" :class="{ closing: t._closing }">
       <div class="head">
         <strong class="title">{{ t.title }}</strong>
         <time class="date">{{ fmt(t.date) }}</time>
@@ -15,7 +15,7 @@
 
       <div class="actions">
         <button v-if="t.action" @click="run(t)">{{ t.action.label }}</button>
-        <button class="close" @click="close(t)">✕</button>
+        <button class="close" @click="closeManual(t)">✕</button>
       </div>
     </div>
   </div>
@@ -28,6 +28,9 @@ import { useNotifStore } from '@/store/modules/notif'
 import { api } from '@/services/axios'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
+
+const router = useRouter()
+const notif = useNotifStore()
 
 type RouteAction = {
   kind: 'route'
@@ -58,20 +61,23 @@ type ToastItem = {
   action?: ToastAction
   ttl?: number
   user?: ToastUser
+  _closing?: boolean
 }
 
 const items = ref<ToastItem[]>([])
-const n = useNotifStore()
-const router = useRouter()
 
 function fmt(ts: number){ return new Date(ts).toLocaleString() }
 
-async function close(t: ToastItem){
+async function close(t: ToastItem) {
   items.value = items.value.filter(x => x !== t)
-  if (t.noteId) { try { await n.markReadVisible([t.noteId]) } catch {} }
 }
 
-async function run(t: ToastItem){
+async function closeManual(t: ToastItem){
+  try { if (t.noteId) await notif.markReadVisible([t.noteId]) } catch {}
+  await close(t)
+}
+
+async function run(t: ToastItem) {
   try{
     if (!t.action) return
     if (t.action.kind === 'route') await router.push(t.action.to)
@@ -79,7 +85,7 @@ async function run(t: ToastItem){
       const m = (t.action.method || 'post').toLowerCase()
       await (api as any)[m](t.action.url, t.action.body)
     }
-  } finally { await close(t) }
+  } finally { await closeManual(t) }
 }
 
 onMounted(() => {
@@ -98,7 +104,10 @@ onMounted(() => {
       user: d.user,
     }
     items.value.push(t)
-    setTimeout(() => close(t), t.ttl!)
+    window.setTimeout(() => {
+      t._closing = true
+      window.setTimeout(() => { void close(t) }, 250)
+    }, t.ttl!)
   })
 })
 </script>
@@ -121,6 +130,15 @@ onMounted(() => {
   border-radius: 6px;
   padding: 10px 12px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
+  will-change: opacity, transform;
+  .closing {
+    opacity: 0;
+    transform: translateY(8px);
+    pointer-events: none;
+  }
 }
 .head {
   display: flex;

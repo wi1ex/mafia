@@ -80,8 +80,8 @@ async function saveNick() {
   try {
     const { data } = await api.patch('/users/username', { username: nick.value })
     me.username = data.username
+    userStore.setUsername(data.username)
     try { await refreshAccessTokenFull(false) } catch {}
-    try { await userStore.fetchMe?.() } catch {}
   } catch (e: any) {
     const st = e?.response?.status
     const d  = e?.response?.data?.detail
@@ -109,9 +109,11 @@ const canvasEl = ref<HTMLCanvasElement | null>(null)
 const busyAva = ref(false)
 
 function clamp(v:number, lo:number, hi:number) { return Math.min(hi, Math.max(lo, v)) }
+
 function fitContain(imgW: number, imgH: number, boxW: number, boxH: number) {
   return Math.min(boxW / imgW, boxH / imgH)
 }
+
 function scaleTo(next: number) {
   if (!crop.img || !canvasEl.value) return
   const c = canvasEl.value!
@@ -137,7 +139,6 @@ async function onPick(e: Event) {
     alert('Файл больше 5 МБ')
     return
   }
-
   const url = URL.createObjectURL(f)
   const img = new Image()
   img.onload = async () => {
@@ -183,21 +184,25 @@ function redraw() {
   ctx.imageSmoothingQuality = 'high' as any
   ctx.drawImage(img, crop.x, crop.y, img.width * crop.scale, img.height * crop.scale)
 }
+
 function onRange(e: Event) {
   const next = clamp(Number((e.target as HTMLInputElement).value), crop.min, crop.max)
   scaleTo(next)
 }
+
 function clampPosition() {
   const c = canvasEl.value!, img = crop.img!
   const w = img.width * crop.scale, h = img.height * crop.scale
   crop.x = w <= c.width  ? (c.width - w)/2  : Math.min(0, Math.max(c.width - w, crop.x))
   crop.y = h <= c.height ? (c.height - h)/2 : Math.min(0, Math.max(c.height - h, crop.y))
 }
+
 function dragStart(ev: MouseEvent) {
   crop.dragging = true
   crop.sx = ev.clientX - crop.x
   crop.sy = ev.clientY - crop.y
 }
+
 function dragMove(ev: MouseEvent) {
   if (!crop.dragging) return
   crop.x = ev.clientX - crop.sx
@@ -205,9 +210,11 @@ function dragMove(ev: MouseEvent) {
   clampPosition()
   redraw()
 }
+
 function dragStop() {
   crop.dragging = false
 }
+
 function onWheel(ev: WheelEvent) {
   const dir = ev.deltaY > 0 ? -1 : 1
   const next = Math.min(crop.max, Math.max(crop.min, crop.scale * (1 + dir * 0.04)))
@@ -246,7 +253,7 @@ async function applyCrop() {
     fd.append('file', new File([blob], crop.type === 'image/png' ? 'avatar.png' : 'avatar.jpg', { type: crop.type }))
     const { data } = await api.post('/users/avatar', fd)
     me.avatar_name = data.avatar_name || null
-    try { await userStore.fetchMe?.() } catch {}
+    userStore.setAvatarName(me.avatar_name)
     cancelCrop()
   } catch (e: any) {
     const st = e?.response?.status
@@ -263,7 +270,7 @@ async function onDeleteAvatar() {
   try {
     await api.delete('/users/avatar')
     me.avatar_name = null
-    try { await userStore.fetchMe?.() } catch {}
+    userStore.setAvatarName(null)
   } catch { alert('Не удалось удалить аватар') } finally { busyAva.value = false }
 }
 
