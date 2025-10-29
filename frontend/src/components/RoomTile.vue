@@ -3,12 +3,12 @@
     <video v-show="showVideo" :ref="videoRef" playsinline autoplay :muted="id === localId" :style="{ objectFit: fitContain ? 'contain' : 'cover' }" />
 
     <div v-show="!showVideo" class="ava-wrap">
-      <img v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar }" alt="" />
+      <img v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar, lazy: false }" alt="" />
     </div>
 
     <div class="titlebar">
       <button :disabled="id===localId" :aria-disabled="id===localId" @click.stop="$emit('toggle-panel', id)" :aria-expanded="openPanel">
-        <img v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar }" alt="" />
+        <img v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar, lazy: false }" alt="" />
         <span>{{ userName(id) }}</span>
       </button>
 
@@ -21,10 +21,10 @@
       </div>
     </div>
 
-    <div v-if="openPanel" class="tile-panel" @click.stop>
+    <div v-show="openPanel" class="tile-panel" @click.stop>
       <div class="panel-div">
         <div class="panel-user">
-          <img v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar }" alt="" />
+          <img v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar, lazy: false }" alt="" />
           <span>{{ userName(id) }}</span>
         </div>
 
@@ -143,7 +143,7 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
     align-items: center;
     left: 5px;
     top: 5px;
-    padding: 0 5px;
+    padding: 5px 10px;
     gap: 5px;
     max-width: 260px;
     height: 30px;
@@ -197,12 +197,12 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
     flex-direction: column;
     top: 5px;
     left: 5px;
-    padding: 5px;
+    padding: 5px 10px;
     gap: 10px;
-    width: 260px;
+    width: 250px;
     height: 138px;
     border-radius: 5px;
-    background-color: $bg;
+    background-color: $dark;
     z-index: 10;
     .panel-div {
       display: flex;
@@ -250,19 +250,20 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
       display: flex;
       align-items: center;
       justify-content: space-between;
+      margin-top: -5px;
       padding: 5px;
       gap: 5px;
       width: calc(100% - 10px);
       height: 20px;
       border-radius: 5px;
-      background-color: $dark;
+      background-color: $graphite;
       -webkit-overflow-scrolling: touch;
       img {
         width: 20px;
         height: 20px;
       }
       input[type="range"] {
-        width: 184px;
+        width: 174px;
         height: 10px;
         accent-color: $fg;
         cursor: pointer;
@@ -281,11 +282,11 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
         align-items: center;
         justify-content: center;
         padding: 0;
-        width: 35px;
-        height: 30px;
+        width: calc(200px / 6);
+        height: 25px;
         border: none;
         border-radius: 5px;
-        background-color: $dark;
+        background-color: $graphite;
         cursor: pointer;
         &.red-button {
           background-color: rgba($red, 0.75);

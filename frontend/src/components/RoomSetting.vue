@@ -69,7 +69,7 @@ const brief = ref<RoomBrief | null>(props.roomBrief ?? null)
 let poll: number | undefined
 let inFlight = false
 
-async function fetchBrief() {
+async function fetchBrief(force = false) {
   if (inFlight || !props.roomId) return
   if (!force && brief.value) return
   inFlight = true
@@ -119,7 +119,7 @@ onBeforeUnmount(() => {
   right: 0;
   bottom: 60px;
   padding: 10px;
-  gap: 16px;
+  gap: 10px;
   min-width: 250px;
   border-radius: 5px;
   background-color: $dark;
