@@ -66,6 +66,7 @@ function measureAndSetVars() {
   const card = cardEl.value
   if (!card) return
 
+  const opened = openPanel.value
   const shadow = card.cloneNode(true) as HTMLElement
   shadow.style.position = 'absolute'
   shadow.style.left = '-99999px'
@@ -84,10 +85,10 @@ function measureAndSetVars() {
   if (sb) sb.style.display = 'block'
   const ow = shadow.offsetWidth
   const oh = shadow.offsetHeight
-
   shadow.remove()
-  const targetW = openPanel.value ? ow : cw
-  const targetH = openPanel.value ? oh : ch
+  const targetW = opened ? ow : cw
+  const targetH = opened ? oh : ch
+  console.log('[user-card measure]', { opened, cw, ch, ow, oh, targetW, targetH })
   card.style.setProperty('--w-cur', `${targetW}px`)
   card.style.setProperty('--h-cur', `${targetH}px`)
 }
@@ -176,8 +177,10 @@ onBeforeUnmount(() => window.removeEventListener('resize', measureAndSetVars))
     position: absolute;
     left: 5px;
     top: 5px;
-    inline-size: var(--w-cur, auto);
+    inline-size: var(--w-cur, max-content);
     block-size: var(--h-cur, 30px);
+    min-inline-size: 0;
+    max-inline-size: 100%;
     border-radius: 5px;
     backdrop-filter: blur(5px);
     background-color: rgba($graphite, 0.75);
@@ -192,7 +195,6 @@ onBeforeUnmount(() => window.removeEventListener('resize', measureAndSetVars))
       align-items: center;
       gap: 5px;
       height: 30px;
-      width: 100%;
       padding: 0 10px;
       border: none;
       background: none;
