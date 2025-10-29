@@ -6,8 +6,9 @@
       <img v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar, lazy: false }" alt="" />
     </div>
 
-    <div class="user-card" :class="{ expanded: openPanel }">
-      <button class="card-head" :disabled="id === localId" :aria-disabled="id === localId" @click.stop="$emit('toggle-panel', id)" :aria-expanded="openPanel">
+    <div class="user-card" :class="{ expanded: openPanel }" ref="cardEl">
+      <button class="card-head" ref="headEl" :disabled="id === localId"
+              :aria-disabled="id === localId" @click.stop="$emit('toggle-panel', id)" :aria-expanded="openPanel">
         <img v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar, lazy: false }" alt="" />
         <span>{{ userName(id) }}</span>
         <div class="status">
@@ -20,7 +21,7 @@
       </button>
 
       <Transition name="card-body">
-        <div v-if="openPanel" class="card-body" @click.stop>
+        <div v-show="openPanel" ref="bodyEl" class="card-body" @click.stop>
           <div class="panel-user">
             <span>{{ userName(id) }}</span>
             <button class="panel-close" aria-label="Закрыть" @click.stop="$emit('toggle-panel', id)">
@@ -50,12 +51,25 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, nextTick, onMounted, onBeforeUnmount, ref, watch } from 'vue'
 
 import iconClose from '@/assets/svg/close.svg'
 import iconLeaveRoom from '@/assets/svg/leaveRoom.svg'
 
 type IconKind = 'mic' | 'cam' | 'speakers' | 'visibility' | 'screen'
+
+const cardEl = ref<HTMLElement | null>(null)
+const headEl = ref<HTMLButtonElement | null>(null)
+const bodyEl = ref<HTMLElement | null>(null)
+
+function measureAndSetVars() {
+  const card = cardEl.value, head = headEl.value
+  if (!card || !head) return
+  const w = card.scrollWidth
+  const h = card.scrollHeight
+  card.style.setProperty('--w', `${w}px`)
+  card.style.setProperty('--h', `${h}px`)
+}
 
 const props = withDefaults(defineProps<{
   id: string
@@ -86,6 +100,16 @@ defineEmits<{
 
 const openPanel = computed(() => props.openPanelFor === props.id)
 const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked(props.id, 'cam'))
+
+watch(openPanel, async () => { await nextTick(); measureAndSetVars() })
+
+onMounted(async () => {
+  await nextTick()
+  measureAndSetVars()
+  window.addEventListener('resize', measureAndSetVars, { passive: true })
+})
+
+onBeforeUnmount(() => window.removeEventListener('resize', measureAndSetVars))
 </script>
 
 <style lang="scss" scoped>
@@ -123,20 +147,20 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
     }
   }
   .user-card {
+    display: inline-block;
     position: absolute;
     left: 5px;
     top: 5px;
-    width: 250px;
+    inline-size: var(--w, auto);
+    block-size: var(--h, 30px);
     border-radius: 5px;
     backdrop-filter: blur(5px);
     background-color: rgba($graphite, 0.75);
     z-index: 5;
     overflow: hidden;
-    max-height: 30px;
-    transition: max-height 0.25s ease-in-out, background-color 0.25s ease-in-out;
+    transition: inline-size 0.25s ease-in-out, block-size 0.25s ease-in-out, background-color 0.25s ease-in-out;
     &.expanded {
       background-color: rgba($dark, 0.75);
-      max-height: 190px;
     }
     .card-head {
       display: flex;
