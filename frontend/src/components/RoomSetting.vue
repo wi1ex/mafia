@@ -57,6 +57,7 @@ const props = defineProps<{
   cams: Dev[]
   micId: string
   camId: string
+  roomBrief?: RoomBrief | null
 }>()
 const emit = defineEmits<{
   'update:micId': [string]
@@ -64,12 +65,13 @@ const emit = defineEmits<{
   'device-change': ['audioinput' | 'videoinput']
 }>()
 
-const brief = ref<RoomBrief | null>(null)
+const brief = ref<RoomBrief | null>(props.roomBrief ?? null)
 let poll: number | undefined
 let inFlight = false
 
 async function fetchBrief() {
   if (inFlight || !props.roomId) return
+  if (!force && brief.value) return
   inFlight = true
   try {
     const { data } = await api.get<RoomBrief>(`/rooms/${props.roomId}/brief`, { __skipAuth: true } as any)
@@ -85,12 +87,14 @@ function onChange(kind: 'audioinput'|'videoinput', e: Event) {
   emit('device-change', kind)
 }
 
-watch(() => props.roomId, () => { if (props.open) void fetchBrief() })
+watch(() => props.roomBrief, v => { if (v) brief.value = v }, { immediate: true })
+
+watch(() => props.roomId, () => { if (props.open) void fetchBrief(true) })
 
 watch(() => props.open, on => {
   if (on) {
-    void fetchBrief()
-    poll = window.setInterval(fetchBrief, 5000)
+    void fetchBrief(true)
+    poll = window.setInterval(() => { void fetchBrief(true) }, 5000)
   } else {
     if (poll) {
       window.clearInterval(poll)
@@ -121,8 +125,9 @@ onBeforeUnmount(() => {
   background-color: $dark;
   z-index: 20;
   .room-brief {
-    display: grid;
-    gap: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
     .rb-title {
       color: $fg;
       font-weight: 600;

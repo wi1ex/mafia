@@ -376,6 +376,10 @@ async def kick(sid, data):
                         "by": {"user_id": actor_uid, "role": actor_role}},
                        room=f"user:{target}",
                        namespace="/room")
+        await sio.emit("member_left",
+                       {"user_id": target},
+                       room=f"room:{rid}",
+                       namespace="/room")
 
         async with SessionLocal() as s:
             await log_action(
@@ -392,7 +396,6 @@ async def kick(sid, data):
                 return
 
             occ, _, pos_updates = await leave_room_atomic(r, rid, target)
-            await sio.emit("member_left", {"user_id": target}, room=f"room:{rid}", namespace="/room")
             if pos_updates:
                 await sio.emit("positions",
                                {"updates": [{"user_id": u, "position": p} for u, p in pos_updates]},

@@ -112,7 +112,7 @@ async def room_info(room_id: int, session: AsyncSession = Depends(get_session)) 
 
 
 @log_route("rooms.brief")
-@rate_limited(lambda ident, room_id, **_: f"rl:rooms:brief:{ident['id']}:{room_id}", limit=5, window_s=1)
+@rate_limited(lambda ident, room_id, **_: f"rl:rooms:brief:{ident['id']}:{room_id}", limit=10, window_s=1)
 @router.get("/{room_id}/brief", response_model=RoomListItem)
 async def brief_one(room_id: int) -> RoomListItem:
     r = get_redis()

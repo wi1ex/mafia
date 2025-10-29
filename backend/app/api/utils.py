@@ -20,7 +20,9 @@ async def emit_rooms_upsert(rid: int) -> None:
         return
 
     try:
-        await sio.emit("rooms_upsert", item, namespace="/rooms")
+        await sio.emit("rooms_upsert",
+                       item,
+                       namespace="/rooms")
     except Exception as e:
         log.warning("rooms.upsert.emit_failed", rid=rid, err=type(e).__name__)
 

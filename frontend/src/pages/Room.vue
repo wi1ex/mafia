@@ -111,6 +111,7 @@
       <RoomSetting
         :open="settingsOpen"
         :room-id="rid"
+        :room-brief="roomBrief"
         :mics="mics"
         :cams="cams"
         v-model:micId="selectedMicId"
@@ -488,6 +489,7 @@ function connectSocket() {
   socket.value.on('member_left', (p: any) => {
     const id = String(p.user_id)
     purgePeerUI(id)
+    rtc.cleanupPeer(id)
   })
 
   socket.value.on('positions', (p: any) => {
