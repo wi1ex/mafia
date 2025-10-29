@@ -58,9 +58,9 @@ function measureAndSetVars() {
   const card = cardEl.value, head = headEl.value
   if (!card || !head) return
   const opened = openPanel.value
-  const headW = Math.min(Math.ceil(head.scrollWidth), 270)
-  const targetW = opened ? 270 : headW
-  const targetH = opened ? 148 : 30
+  const headW = Math.min(Math.ceil(head.scrollWidth) + 1, 250)
+  const targetW = opened ? 250 : headW
+  const targetH = opened ? 138 : 30
   card.style.setProperty('--w-cur', `${targetW}px`)
   card.style.setProperty('--h-cur', `${targetH}px`)
 }
@@ -144,18 +144,21 @@ onBeforeUnmount(() => window.removeEventListener('resize', measureAndSetVars))
     }
   }
   .user-card {
-    display: inline-block;
-    box-sizing: border-box;
+    display: flex;
+    //display: inline-block;
+    //box-sizing: border-box;
     position: absolute;
     left: 5px;
     top: 5px;
-    inline-size: var(--w-cur, 270px);
+    padding: 5px 10px;
+    gap: 10px;
+    inline-size: var(--w-cur, 250px);
     block-size: var(--h-cur, 30px);
-    min-inline-size: 0;
-    max-inline-size: 270px;
-    max-block-size: 148px;
-    contain: layout;
-    will-change: inline-size, block-size;
+    //min-inline-size: 0;
+    //max-inline-size: 250px;
+    //max-block-size: 138px;
+    //contain: layout;
+    //will-change: inline-size, block-size;
     border-radius: 5px;
     backdrop-filter: blur(5px);
     background-color: rgba($dark, 0.75);
@@ -166,9 +169,8 @@ onBeforeUnmount(() => window.removeEventListener('resize', measureAndSetVars))
       display: flex;
       align-items: center;
       gap: 5px;
-      width: 100%;
+      max-width: 100%;
       height: 30px;
-      padding: 0 10px;
       border: none;
       background: none;
       cursor: pointer;
@@ -209,7 +211,7 @@ onBeforeUnmount(() => window.removeEventListener('resize', measureAndSetVars))
     .card-body-enter-from,
     .card-body-leave-to {
       opacity: 0;
-      transform: translateY(-4px);
+      transform: translateY(-30px);
     }
     .card-body-enter-active,
     .card-body-leave-active {
@@ -219,7 +221,6 @@ onBeforeUnmount(() => window.removeEventListener('resize', measureAndSetVars))
       display: flex;
       flex-direction: column;
       gap: 10px;
-      padding: 10px;
       .volume {
         display: flex;
         align-items: center;
