@@ -64,18 +64,28 @@ const bodyEl = ref<HTMLElement | null>(null)
 
 function measureAndSetVars() {
   const card = cardEl.value
-  const body = bodyEl.value
   if (!card) return
-  const save = body ? body.style.cssText : ''
-  if (body) body.style.cssText = save + ';display: none !important'
-  card.offsetHeight
-  const cw = card.scrollWidth
-  const ch = card.scrollHeight
-  if (body) body.style.cssText = save + ';display: block !important; position: absolute !important; visibility: hidden !important'
-  card.offsetHeight
-  const ow = card.scrollWidth
-  const oh = card.scrollHeight
-  if (body) body.style.cssText = save
+
+  const shadow = card.cloneNode(true) as HTMLElement
+  shadow.style.position = 'absolute'
+  shadow.style.left = '-99999px'
+  shadow.style.top = '-99999px'
+  shadow.style.visibility = 'hidden'
+  shadow.style.pointerEvents = 'none'
+  shadow.style.transition = 'none'
+  shadow.style.inlineSize = 'auto'
+  shadow.style.blockSize  = 'auto'
+
+  const sb = shadow.querySelector('.card-body') as HTMLElement | null
+  if (sb) sb.style.display = 'none'
+  document.body.appendChild(shadow)
+  const cw = shadow.offsetWidth
+  const ch = shadow.offsetHeight
+  if (sb) sb.style.display = 'block'
+  const ow = shadow.offsetWidth
+  const oh = shadow.offsetHeight
+
+  shadow.remove()
   const targetW = openPanel.value ? ow : cw
   const targetH = openPanel.value ? oh : ch
   card.style.setProperty('--w-cur', `${targetW}px`)
