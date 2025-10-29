@@ -31,6 +31,7 @@ def log_route(name: str):
                 except Exception:
                     lg.exception("route.error")
                     raise
+                
             return wrap
 
         else:
@@ -47,6 +48,7 @@ def log_route(name: str):
                 except Exception:
                     lg.exception("route.error")
                     raise
+
             return wrap_sync
 
     return deco
@@ -87,7 +89,7 @@ def require_roles_deco(*roles: str):
 def require_room_creator(room_id_param: str = "room_id"):
     def deco(fn):
         if not asyncio.iscoroutinefunction(fn):
-            log.error("require_room_creator.not_async", function = getattr(fn, "__qualname__", getattr(fn, "__name__", "?")))
+            log.error("require_room_creator.not_async", function=getattr(fn, "__qualname__", getattr(fn, "__name__", "?")))
             raise TypeError("require_room_creator может оборачивать только async-функции")
 
         sig = inspect.signature(fn)
@@ -97,7 +99,7 @@ def require_room_creator(room_id_param: str = "room_id"):
         async def wrap(*args, **kwargs):
             ident: Identity | None = kwargs.get("ident")
             if not ident:
-                log.warning("require_room_creator.no_ident", function = getattr(fn, "__qualname__", getattr(fn, "__name__", "?")))
+                log.warning("require_room_creator.no_ident", function=getattr(fn, "__qualname__", getattr(fn, "__name__", "?")))
                 raise HTTPException(status_code=401, detail="Unauthorized")
 
             bound = sig.bind_partial(*args, **kwargs)
@@ -145,7 +147,6 @@ def rate_limited(key: Union[str, Callable[..., str]], *, limit: int, window_s: i
             r = get_redis()
             created = await r.set(k, 1, ex=window_s, nx=True)
             cnt = 1 if created else int(await r.incr(k))
-
             if cnt == 1 and not created:
                 try:
                     await r.expire(k, window_s)
@@ -188,9 +189,8 @@ def rate_limited_sio(key: Union[str, KeyBuilder], *, limit: int, window_s: int, 
                     except Exception:
                         uid = rid = None
 
-                k = key(sid=sid, *a, **kw, uid=uid, rid=rid) if callable(key) else str(key)
-
                 r = get_redis()
+                k = key(sid=sid, *a, **kw, uid=uid, rid=rid) if callable(key) else str(key)
                 created = await r.set(k, 1, ex=window_s, nx=True)
                 cnt = 1 if created else int(await r.incr(k))
 

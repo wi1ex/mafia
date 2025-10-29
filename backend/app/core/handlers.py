@@ -2,7 +2,7 @@ from __future__ import annotations
 import structlog
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse
-from backend.app.schemas.common import ErrorOut
+from ..schemas.common import ErrorOut
 
 
 def setup_exception_handlers(app: FastAPI) -> None:
