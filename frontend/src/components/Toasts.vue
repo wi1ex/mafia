@@ -79,12 +79,20 @@ async function closeManual(t: ToastItem){
 }
 
 async function run(t: ToastItem) {
-  try{
+  try {
     if (!t.action) return
-    if (t.action.kind === 'route') await router.push(t.action.to)
-    else {
+    if (t.action.kind === 'route') {
+      await router.push(t.action.to)
+    } else {
       const m = (t.action.method || 'post').toLowerCase()
       await (api as any)[m](t.action.url, t.action.body)
+      const rx = /\/rooms\/(\d+)\/requests\/(\d+)\/approve/
+      const mm = rx.exec(t.action.url)
+      if (mm) {
+        window.dispatchEvent(new CustomEvent('auth-room_app_approved', {
+          detail: { room_id: Number(mm[1]), user_id: Number(mm[2]) }
+        }))
+      }
     }
   } finally { await closeManual(t) }
 }

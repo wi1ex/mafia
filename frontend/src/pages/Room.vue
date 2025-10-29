@@ -693,13 +693,28 @@ const toggleScreen = async () => {
   } finally { pendingScreen.value = false }
 }
 
+const onRoomInviteEv = (e:any) => {
+  const p = e?.detail
+  if (!p || Number(p.room_id) !== rid) return
+  appsCounts.total = Math.max(0, appsCounts.total + 1)
+  if (!openApps.value) appsCounts.unread = Math.max(0, appsCounts.unread + 1)
+}
+const onRoomAppApproved = (e:any) => {
+  const p = e?.detail
+  if (!p || Number(p.room_id) !== rid) return
+  appsCounts.total = Math.max(0, appsCounts.total - 1)
+  if (appsCounts.unread > 0) appsCounts.unread -= 1
+}
+
 async function onLeave() {
   if (leaving.value) return
   leaving.value = true
   try {
     document.removeEventListener('click', onDocClick)
-    document.removeEventListener('visibilitychange', onBackgroundMaybeLeave as any)
-    window.removeEventListener('pagehide', onBackgroundMaybeLeave as any)
+    document.removeEventListener('visibilitychange', onBackgroundMaybeLeave)
+    window.removeEventListener('pagehide', onBackgroundMaybeLeave)
+    window.removeEventListener('auth-room_invite', onRoomInviteEv)
+    window.removeEventListener('auth-room_app_approved', onRoomAppApproved)
   } catch {}
   try {
     if (screenOwnerId.value === localId.value) {
@@ -784,7 +799,9 @@ onMounted(async () => {
 
     document.addEventListener('click', onDocClick)
     document.addEventListener('visibilitychange', onBackgroundMaybeLeave, { passive: true })
-    window.addEventListener('pagehide', onBackgroundMaybeLeave as any, { passive: true })
+    window.addEventListener('pagehide', onBackgroundMaybeLeave, { passive: true })
+    window.addEventListener('auth-room_invite', onRoomInviteEv)
+    window.addEventListener('auth-room_app_approved', onRoomAppApproved)
   } catch {
     rerr('room onMounted fatal')
     try { await rtc.disconnect() } catch {}

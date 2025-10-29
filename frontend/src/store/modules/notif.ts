@@ -41,17 +41,49 @@ export const useNotifStore = defineStore('notif', () => {
     inited = true
   }
 
+  const pending = new Set<number>()
+  let flushing = false
+  let tFlush: number | undefined
+  let backoffMs = 0
+
+  function scheduleFlush() {
+    if (tFlush) return
+    tFlush = window.setTimeout(() => {
+      tFlush = undefined
+      void flush()
+    }, Math.max(300, backoffMs))
+  }
+
+  async function flush() {
+    if (flushing || pending.size === 0) return
+    flushing = true
+    const ids = Array.from(pending)
+    pending.clear()
+    try {
+      await api.post('/notifs/mark_read', { ids })
+      backoffMs = 0
+    } catch (e: any) {
+      if (e?.response?.status === 429) {
+        backoffMs = Math.min(2000, backoffMs ? backoffMs * 2 : 300)
+        ids.forEach(id => pending.add(id))
+        scheduleFlush()
+      }
+    } finally { flushing = false }
+  }
+
   async function markReadVisible(ids: number[]) {
     if (!ids.length) return
-    try { await api.post('/notifs/mark_read', { ids }) } catch {}
     for (const id of ids) {
       const it = items.value.find(x => x.id === id)
       if (it && !it.read) {
         it.read = true
         unread.value = Math.max(0, unread.value - 1)
       }
+      pending.add(id)
     }
+    scheduleFlush()
   }
+
   async function markAll() {
     const maxId = items.value.reduce((m, x) => Math.max(m, x.id), 0)
     try { await api.post('/notifs/mark_read', { all_before_id: maxId }) } catch {}
@@ -59,13 +91,5 @@ export const useNotifStore = defineStore('notif', () => {
     unread.value = 0
   }
 
-  return {
-    items,
-    unread,
-
-    fetchAll,
-    ensureWS,
-    markReadVisible,
-    markAll
-  }
+  return { items, unread, fetchAll, ensureWS, markReadVisible, markAll }
 })
