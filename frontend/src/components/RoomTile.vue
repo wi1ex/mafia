@@ -63,35 +63,20 @@ const headEl = ref<HTMLButtonElement | null>(null)
 const bodyEl = ref<HTMLElement | null>(null)
 
 function measureAndSetVars() {
-  const card = cardEl.value
-  if (!card) return
-
+  const card = cardEl.value, head = headEl.value
+  if (!card || !head) return
   const opened = openPanel.value
-  const shadow = card.cloneNode(true) as HTMLElement
-  shadow.style.position = 'absolute'
-  shadow.style.left = '-99999px'
-  shadow.style.top = '-99999px'
-  shadow.style.visibility = 'hidden'
-  shadow.style.pointerEvents = 'none'
-  shadow.style.transition = 'none'
-  shadow.style.inlineSize = 'auto'
-  shadow.style.blockSize  = 'auto'
-  shadow.style.removeProperty('--w-cur')
-  shadow.style.removeProperty('--h-cur')
-
-  const sb = shadow.querySelector('.card-body') as HTMLElement | null
-  const sh = shadow.querySelector('.card-head') as HTMLElement | null
-  if (sb) sb.style.display = 'none'
-  document.body.appendChild(shadow)
-  const cw = sh ? Math.ceil(sh.offsetWidth) : Math.ceil(shadow.offsetWidth)
-  const ch = sh ? Math.ceil(sh.offsetHeight) : Math.ceil(shadow.offsetHeight)
-  if (sb) sb.style.display = 'block'
-  const ow = Math.ceil(shadow.offsetWidth)
-  const oh = Math.ceil(shadow.offsetHeight)
-  shadow.remove()
-  const targetW = opened ? ow : cw
-  const targetH = opened ? oh : ch
-  console.log('[user-card measure]', { opened, cw, ch, ow, oh, targetW, targetH })
+  const headW = Math.ceil(head.scrollWidth)
+  const headH = Math.ceil(head.scrollHeight)
+  let bodyW = 0, bodyH = 0
+  const body = bodyEl.value
+  if (opened && body) {
+    bodyW = Math.ceil(body.scrollWidth)
+    bodyH = Math.ceil(body.scrollHeight)
+  }
+  const targetW = opened ? Math.max(headW, bodyW) : headW
+  const targetH = opened ? headH + bodyH : headH
+  console.log('[user-card measure]', { opened, headW, headH, bodyW, bodyH, targetW, targetH })
   card.style.setProperty('--w-cur', `${targetW}px`)
   card.style.setProperty('--h-cur', `${targetH}px`)
 }
@@ -184,6 +169,8 @@ onBeforeUnmount(() => window.removeEventListener('resize', measureAndSetVars))
     block-size: var(--h-cur, 30px);
     min-inline-size: 0;
     max-inline-size: 100%;
+    contain: layout;
+    will-change: inline-size, block-size;
     border-radius: 5px;
     backdrop-filter: blur(5px);
     background-color: rgba($graphite, 0.75);
@@ -223,9 +210,6 @@ onBeforeUnmount(() => window.removeEventListener('resize', measureAndSetVars))
         overflow: hidden;
         text-overflow: ellipsis;
       }
-      :global(.expanded) & span {
-        flex: 1 1 auto;
-      }
       .status {
         display: flex;
         align-items: center;
@@ -236,6 +220,9 @@ onBeforeUnmount(() => window.removeEventListener('resize', measureAndSetVars))
         }
       }
     }
+     &.expanded .card-head span {
+       flex: 1 1 auto;
+     }
     .card-body-enter-from,
     .card-body-leave-to {
       opacity: 0;
