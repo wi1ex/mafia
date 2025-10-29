@@ -76,15 +76,18 @@ function measureAndSetVars() {
   shadow.style.transition = 'none'
   shadow.style.inlineSize = 'auto'
   shadow.style.blockSize  = 'auto'
+  shadow.style.removeProperty('--w-cur')
+  shadow.style.removeProperty('--h-cur')
 
   const sb = shadow.querySelector('.card-body') as HTMLElement | null
+  const sh = shadow.querySelector('.card-head') as HTMLElement | null
   if (sb) sb.style.display = 'none'
   document.body.appendChild(shadow)
-  const cw = shadow.offsetWidth
-  const ch = shadow.offsetHeight
+  const cw = sh ? Math.ceil(sh.offsetWidth) : Math.ceil(shadow.offsetWidth)
+  const ch = sh ? Math.ceil(sh.offsetHeight) : Math.ceil(shadow.offsetHeight)
   if (sb) sb.style.display = 'block'
-  const ow = shadow.offsetWidth
-  const oh = shadow.offsetHeight
+  const ow = Math.ceil(shadow.offsetWidth)
+  const oh = Math.ceil(shadow.offsetHeight)
   shadow.remove()
   const targetW = opened ? ow : cw
   const targetH = opened ? oh : ch
@@ -209,7 +212,7 @@ onBeforeUnmount(() => window.removeEventListener('resize', measureAndSetVars))
         object-fit: cover;
       }
       span {
-        flex: 1 1 auto;
+        flex: 0 1 auto;
         min-width: 0;
         height: 18px;
         color: $fg;
@@ -219,6 +222,9 @@ onBeforeUnmount(() => window.removeEventListener('resize', measureAndSetVars))
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+      }
+      :global(.expanded) & span {
+        flex: 1 1 auto;
       }
       .status {
         display: flex;
