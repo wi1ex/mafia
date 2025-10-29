@@ -148,7 +148,7 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
     max-width: 260px;
     height: 30px;
     border-radius: 5px;
-    background-color: rgba($graphite, 0.5);
+    background-color: rgba($graphite, 0.75);
     backdrop-filter: blur(5px);
     z-index: 5;
     button {
@@ -202,7 +202,8 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
     width: 250px;
     height: 138px;
     border-radius: 5px;
-    background-color: $dark;
+    background-color: rgba($dark, 0.75);
+    backdrop-filter: blur(5px);
     z-index: 10;
     .panel-div {
       display: flex;
@@ -256,7 +257,7 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
       width: calc(100% - 10px);
       height: 20px;
       border-radius: 5px;
-      background-color: $graphite;
+      background-color: rgba($graphite, 0.75);
       -webkit-overflow-scrolling: touch;
       img {
         width: 20px;
@@ -286,7 +287,7 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
         height: 25px;
         border: none;
         border-radius: 5px;
-        background-color: $graphite;
+        background-color: rgba($graphite, 0.75);
         cursor: pointer;
         &.red-button {
           background-color: rgba($red, 0.75);
