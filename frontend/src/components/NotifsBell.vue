@@ -6,7 +6,7 @@
     <div v-if="open" class="panel" ref="panel">
       <div class="head">
         <span>Уведомления</span>
-        <button @click="n.markAll()">Отметить всё прочитанным</button>
+        <button v-if="n.unread > 0" @click="n.markAll()">Отметить всё прочитанным</button>
       </div>
       <div class="list" ref="list">
         <article v-for="it in n.items" :key="it.id" class="item" :data-id="it.id" :class="{ unread: !it.read }">
@@ -19,11 +19,12 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, ref, watch } from 'vue'
+import { onMounted, onBeforeUnmount, ref, watch, nextTick } from 'vue'
 import { useNotifStore } from '@/store/modules/notif'
 
 const n = useNotifStore()
 
+let ro: ResizeObserver | null = null
 let obs: IntersectionObserver | null = null
 let onScrollBound: ((e: Event)=>void) | null = null
 const open = ref(false)
@@ -78,6 +79,15 @@ function unbindScroll() {
   try { panel.value.removeEventListener('scroll', onScrollBound) } catch {}
   onScrollBound = null
 }
+function bindResize() {
+  if (ro || !panel.value) return
+  ro = new ResizeObserver(() => markVisibleNow())
+  ro.observe(panel.value)
+}
+function unbindResize() {
+  try { ro?.disconnect() } catch {}
+  ro = null
+}
 function onDocClick(e: Event) {
   const t = e.target as Node | null
   if (!t) return
@@ -89,20 +99,25 @@ watch(open, (v) => {
   if (v) document.addEventListener('pointerdown', onDocClick, { capture: true })
 })
 
-watch(() => n.items.length, () => {
+watch(() => n.items.length, async () => {
   if (!open.value) return
+  await nextTick()
   attachObserver()
   markVisibleNow()
 })
 
-watch(open, (v) => {
+watch(open, async v => {
+  try { document.removeEventListener('pointerdown', onDocClick, { capture: true } as any) } catch {}
   if (v) {
+    await nextTick()
     attachObserver()
     markVisibleNow()
     bindScroll()
+    bindResize()
   } else {
     try { obs?.disconnect() } catch {}
     unbindScroll()
+    unbindResize()
   }
 })
 
@@ -124,25 +139,23 @@ onBeforeUnmount(() => {
 
 <style lang="scss" scoped>
 .bell {
-  display: flex;
   position: relative;
-  align-items: center;
-  justify-content: center;
-  padding: 0 10px;
-  height: 40px;
   border-radius: 5px;
-  border: none;
-  background-color: $dark;
-  color: $fg;
-  font-size: 16px;
-  cursor: pointer;
+  button {
+    padding: 0 10px;
+    height: 40px;
+    border-radius: 5px;
+    border: none;
+    background-color: $dark;
+    font-size: 16px;
+    cursor: pointer;
+  }
 }
 .cnt {
   background: #e33;
   color: #fff;
   border-radius: 10px;
-  padding: 0 6px;
-  margin-left: 4px;
+  padding: 3px 6px;
   font-size: 12px;
 }
 .panel {

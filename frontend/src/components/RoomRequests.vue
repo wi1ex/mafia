@@ -74,6 +74,11 @@ async function approve(uid: number) {
 function onInvite(e: any) {
   const p = e?.detail
   if (Number(p?.room_id) !== props.roomId) return
+  const uid = Number(p?.user?.id)
+  if (props.open && Number.isFinite(uid)) {
+    seen.add(uid)
+    saveSeen([...seen])
+  }
   void load()
 }
 

@@ -1,6 +1,6 @@
 <template>
-  <div class="toasts">
-    <div v-for="t in items" :key="t.key" class="toast" :data-kind="t.kind" :class="{ closing: t._closing }">
+  <div class="toasts" @transitionend="onTransEnd">
+    <div v-for="t in items" :key="t.key" class="toast" :data-key="t.key" :class="{ closing: t._closing }">
       <div class="head">
         <strong class="title">{{ t.title }}</strong>
         <time class="date">{{ fmt(t.date) }}</time>
@@ -74,7 +74,8 @@ async function close(t: ToastItem) {
 
 async function closeManual(t: ToastItem){
   try { if (t.noteId) await notif.markReadVisible([t.noteId]) } catch {}
-  await close(t)
+  t._closing = true
+  setTimeout(() => { void close(t) }, 300)
 }
 
 async function run(t: ToastItem) {
@@ -88,11 +89,19 @@ async function run(t: ToastItem) {
   } finally { await closeManual(t) }
 }
 
+function onTransEnd(e: TransitionEvent) {
+  const el = e.target as HTMLElement
+  if (!el.classList.contains('toast')) return
+  const k = Number(el.dataset.key)
+  const t = items.value.find(x => x.key === k)
+  if (t && t._closing) { void close(t) }
+}
+
 onMounted(() => {
-  window.addEventListener('toast', (e:any) => {
+  window.addEventListener('toast', (e: any) => {
     const d = e?.detail || {}
     const key = Date.now() + Math.random()
-    const t:ToastItem = {
+    const t: ToastItem = {
       key,
       noteId: d.id,
       title: d.title || 'Уведомление',
@@ -106,7 +115,7 @@ onMounted(() => {
     items.value.push(t)
     window.setTimeout(() => {
       t._closing = true
-      window.setTimeout(() => { void close(t) }, 250)
+      window.setTimeout(() => { void close(t) }, 600)
     }, t.ttl!)
   })
 })
