@@ -156,7 +156,7 @@ onBeforeUnmount(() => window.removeEventListener('resize', measureAndSetVars))
     backdrop-filter: blur(5px);
     background-color: rgba($dark, 0.75);
     z-index: 5;
-    transition: inline-size 0.25s ease-in-out, block-size 0.25s ease-in-out, background-color 0.25s ease-in-out;
+    transition: inline-size 0.25s ease-in-out, block-size 0.25s ease-in-out;
     .card-head {
       display: flex;
       align-items: center;

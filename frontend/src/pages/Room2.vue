@@ -472,14 +472,11 @@ function connectSocket() {
   })
 
   socket.value.on('state_changed', (p: any) => {
-    const id = String(p.user_id)
-    ensurePeer(id)
-    applyPeerState(id, p)
+    applyPeerState(String(p.user_id), p)
   })
 
   socket.value.on('member_joined', (p: any) => {
     const id = String(p.user_id)
-    ensurePeer(id)
     applyPeerState(id, p?.state || {})
     if (p?.role) rolesByUser.set(id, String(p.role))
     if (p?.blocks) applyBlocks(id, p.blocks)
@@ -501,7 +498,6 @@ function connectSocket() {
       const id = String(u.user_id)
       const pos = Number(u.position)
       if (Number.isFinite(pos)) positionByUser.set(id, pos)
-      ensurePeer(id)
     }
   })
 
@@ -566,12 +562,6 @@ async function safeJoin() {
   } finally { joinInFlight.value = null }
 }
 
-function ensurePeer(id: string) {
-  if (!rtc.peerIds.value.includes(id)) {
-    rtc.peerIds.value = [...rtc.peerIds.value, id]
-  }
-}
-
 function applyJoinAck(j: any) {
   positionByUser.clear()
   for (const [uid, pos] of Object.entries(j.positions || {})) {
@@ -588,11 +578,6 @@ function applyJoinAck(j: any) {
       visibility: pick01(st.visibility, 1),
     })
   }
-
-  const ids = new Set<string>(rtc.peerIds.value)
-  Object.keys(j.snapshot || {}).forEach(uid => ids.add(String(uid)))
-  Object.keys(j.positions || {}).forEach(uid => ids.add(String(uid)))
-  rtc.peerIds.value = [...ids]
 
   blockByUser.clear()
   for (const [uid, bl] of Object.entries(j.blocked || {})) {
