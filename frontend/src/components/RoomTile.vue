@@ -6,7 +6,7 @@
       <img v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar, lazy: false }" alt="" />
     </div>
 
-    <div class="user-card" :class="{ expanded: openPanel }" ref="cardEl">
+    <div class="user-card" ref="cardEl" :class="{ expanded: openPanel }">
       <button class="card-head" ref="headEl" :disabled="id === localId"
               :aria-disabled="id === localId" @click.stop="$emit('toggle-panel', id)" :aria-expanded="openPanel">
         <img v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar, lazy: false }" alt="" />
@@ -63,12 +63,23 @@ const headEl = ref<HTMLButtonElement | null>(null)
 const bodyEl = ref<HTMLElement | null>(null)
 
 function measureAndSetVars() {
-  const card = cardEl.value, head = headEl.value
-  if (!card || !head) return
-  const w = card.scrollWidth
-  const h = card.scrollHeight
-  card.style.setProperty('--w', `${w}px`)
-  card.style.setProperty('--h', `${h}px`)
+  const card = cardEl.value
+  const body = bodyEl.value
+  if (!card) return
+  const save = body ? body.style.cssText : ''
+  if (body) body.style.cssText = save + ';display: none !important'
+  card.offsetHeight
+  const cw = card.scrollWidth
+  const ch = card.scrollHeight
+  if (body) body.style.cssText = save + ';display: block !important; position: absolute !important; visibility: hidden !important'
+  card.offsetHeight
+  const ow = card.scrollWidth
+  const oh = card.scrollHeight
+  if (body) body.style.cssText = save
+  const targetW = openPanel.value ? ow : cw
+  const targetH = openPanel.value ? oh : ch
+  card.style.setProperty('--w-cur', `${targetW}px`)
+  card.style.setProperty('--h-cur', `${targetH}px`)
 }
 
 const props = withDefaults(defineProps<{
@@ -101,7 +112,10 @@ defineEmits<{
 const openPanel = computed(() => props.openPanelFor === props.id)
 const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked(props.id, 'cam'))
 
-watch(openPanel, async () => { await nextTick(); measureAndSetVars() })
+watch(openPanel, async () => {
+  await nextTick()
+  measureAndSetVars()
+})
 
 onMounted(async () => {
   await nextTick()
@@ -148,11 +162,12 @@ onBeforeUnmount(() => window.removeEventListener('resize', measureAndSetVars))
   }
   .user-card {
     display: inline-block;
+    box-sizing: border-box;
     position: absolute;
     left: 5px;
     top: 5px;
-    inline-size: var(--w, auto);
-    block-size: var(--h, 30px);
+    inline-size: var(--w-cur, auto);
+    block-size: var(--h-cur, 30px);
     border-radius: 5px;
     backdrop-filter: blur(5px);
     background-color: rgba($graphite, 0.75);
