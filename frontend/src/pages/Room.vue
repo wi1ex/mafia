@@ -860,7 +860,8 @@ onBeforeUnmount(() => {
         width: min-content;
         height: 20px;
         border-radius: 5px;
-        background-color: $dark;
+        background-color: rgba($dark, 0.75);
+        backdrop-filter: blur(5px);
         -webkit-overflow-scrolling: touch;
         img {
           width: 20px;
