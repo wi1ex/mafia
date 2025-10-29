@@ -13,7 +13,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/store'
 import { useUserStore } from '@/store'
 import Header from '@/components/Header.vue'
-import Toast from '@/components/Toast.vue'
+import Toast from '@/components/Toasts.vue'
 
 const route = useRoute()
 const router = useRouter()
