@@ -6,7 +6,7 @@
       <img v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar, lazy: false }" alt="" />
     </div>
 
-    <div class="user-card" ref="cardEl">
+    <div class="user-card" ref="cardEl" @click.stop>
       <button class="card-head" ref="headEl" :disabled="id === localId"
               :aria-disabled="id === localId" @click.stop="$emit('toggle-panel', id)" :aria-expanded="openPanel">
         <img v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar, lazy: false }" alt="" />
@@ -21,7 +21,7 @@
       </button>
 
       <Transition name="card-body">
-        <div v-show="openPanel" ref="bodyEl" class="card-body" @click.stop>
+        <div v-show="openPanel" class="card-body" @click.stop>
           <div v-if="id !== localId" class="volume">
             <img :src="volumeIcon" alt="vol" />
             <input type="range" min="0" max="200" :disabled="!speakersOn || isBlocked(id,'speakers')"
@@ -52,15 +52,17 @@ type IconKind = 'mic' | 'cam' | 'speakers' | 'visibility' | 'screen'
 
 const cardEl = ref<HTMLElement | null>(null)
 const headEl = ref<HTMLButtonElement | null>(null)
-const bodyEl = ref<HTMLElement | null>(null)
 
 function measureAndSetVars() {
-  const card = cardEl.value, head = headEl.value
+  const card = cardEl.value
+  const head = headEl.value
   if (!card || !head) return
+
   const opened = openPanel.value
   const headW = Math.min(Math.ceil(head.scrollWidth) + 1, 250)
   const targetW = opened ? 250 : headW
   const targetH = opened ? 138 : 30
+
   card.style.setProperty('--w-cur', `${targetW}px`)
   card.style.setProperty('--h-cur', `${targetH}px`)
 }
@@ -154,7 +156,6 @@ onBeforeUnmount(() => window.removeEventListener('resize', measureAndSetVars))
     backdrop-filter: blur(5px);
     background-color: rgba($dark, 0.75);
     z-index: 5;
-    overflow: hidden;
     transition: inline-size 0.25s ease-in-out, block-size 0.25s ease-in-out, background-color 0.25s ease-in-out;
     .card-head {
       display: flex;
@@ -176,8 +177,6 @@ onBeforeUnmount(() => window.removeEventListener('resize', measureAndSetVars))
         object-fit: cover;
       }
       span {
-        flex: 0 1 auto;
-        min-width: 0;
         height: 18px;
         color: $fg;
         font-size: 16px;
@@ -191,9 +190,6 @@ onBeforeUnmount(() => window.removeEventListener('resize', measureAndSetVars))
         display: flex;
         align-items: center;
         gap: 5px;
-        white-space: nowrap;
-        flex: 0 0 auto;
-        min-width: max-content;
         img {
           width: 20px;
           height: 20px;
@@ -203,11 +199,10 @@ onBeforeUnmount(() => window.removeEventListener('resize', measureAndSetVars))
     .card-body-enter-from,
     .card-body-leave-to {
       opacity: 0;
-      transform: translate(-30px -30px);
     }
     .card-body-enter-active,
     .card-body-leave-active {
-      transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
+      transition: opacity 0.25s ease-in-out;
     }
     .card-body {
       display: flex;
