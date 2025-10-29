@@ -103,7 +103,7 @@ const openPanel = computed(() => props.openPanelFor === props.id)
 const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked(props.id, 'cam'))
 </script>
 
-<style scoped lang="scss">
+<style lang="scss" scoped>
 .tile {
   position: relative;
   min-width: 0;

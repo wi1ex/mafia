@@ -80,6 +80,9 @@
       <div v-else class="controls">
         <button v-if="myRole === 'host' && roomBrief.privacy === 'private'" @click="openApps=!openApps">
           Заявки
+          <span v-if="appsCounts.total" class="apps-count" :data-unread="appsCounts.unread > 0 ? 1 : 0">
+            ({{ appsCounts.total }})
+          </span>
         </button>
         <button @click="toggleMic" :disabled="pending.mic || blockedSelf.mic" :aria-pressed="micOn">
           <img :src="stateIcon('mic', localId)" alt="mic" />
@@ -107,7 +110,7 @@
 
       <RoomSetting
         :open="settingsOpen"
-        :room="roomBrief"
+        :room-id="rid"
         :mics="mics"
         :cams="cams"
         v-model:micId="selectedMicId"
@@ -120,6 +123,7 @@
       v-if="myRole === 'host' && roomBrief.privacy === 'private'"
       v-model:open="openApps"
       :room-id="rid"
+      @counts="(p) => { appsCounts.total = p.total; appsCounts.unread = p.unread }"
     />
   </section>
 </template>
@@ -205,6 +209,7 @@ const pendingQuality = ref(false)
 const settingsOpen = ref(false)
 const leaving = ref(false)
 const openApps = ref(false)
+const appsCounts = reactive({ total: 0, unread: 0 })
 const roomBrief = ref<any>(null)
 const ws_url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host
 const isTheater = computed(() => !!screenOwnerId.value)
@@ -904,6 +909,12 @@ onBeforeUnmount(() => {
     .controls {
       display: flex;
       gap: 10px;
+    }
+    .apps-count {
+      margin-left: 4px;
+      &[data-unread="1"] {
+        color: $red;
+      }
     }
   }
 }

@@ -119,7 +119,7 @@ onBeforeUnmount(() => {
       gap: 5px;
       height: 40px;
       border-radius: 5px;
-      background-color: $fg;
+      background-color: $lead;
       text-decoration: none;
       img {
         width: 24px;
@@ -128,7 +128,7 @@ onBeforeUnmount(() => {
         object-fit: cover;
       }
       .nick {
-        color: $bg;
+        color: $fg;
         font-size: 16px;
       }
     }

@@ -122,9 +122,20 @@ onBeforeUnmount(() => {
 })
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .bell {
+  display: flex;
   position: relative;
+  align-items: center;
+  justify-content: center;
+  padding: 0 10px;
+  height: 40px;
+  border-radius: 5px;
+  border: none;
+  background-color: $dark;
+  color: $fg;
+  font-size: 16px;
+  cursor: pointer;
 }
 .cnt {
   background: #e33;

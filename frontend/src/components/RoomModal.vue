@@ -80,7 +80,7 @@ onMounted(() => {
 })
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .overlay {
   position: fixed;
   inset: 0;

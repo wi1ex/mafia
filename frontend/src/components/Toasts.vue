@@ -112,7 +112,7 @@ onMounted(() => {
 })
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .toasts {
   position: fixed;
   right: 10px;
@@ -134,7 +134,7 @@ onMounted(() => {
   transform: translateY(0);
   transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
   will-change: opacity, transform;
-  .closing {
+  &.closing {
     opacity: 0;
     transform: translateY(8px);
     pointer-events: none;

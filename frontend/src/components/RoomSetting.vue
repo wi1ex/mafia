@@ -1,28 +1,28 @@
 <template>
   <div v-show="open" class="settings" aria-label="Настройки устройств" @click.stop>
-    <div v-if="room" class="room-brief">
-      <div class="rb-title">Комната #{{ room.id }}: {{ room.title }}</div>
+    <div v-if="brief" class="room-brief">
+      <div class="rb-title">Комната #{{ brief.id }}: {{ brief.title }}</div>
       <div class="rb-meta">
-        <span class="rb-badge" :data-kind="room.privacy === 'private' ? 'priv' : 'open'">
-          {{ room.privacy === 'private' ? 'Приватная' : 'Открытая' }}
+        <span class="rb-badge" :data-kind="brief.privacy === 'private' ? 'priv' : 'open'">
+          {{ brief.privacy === 'private' ? 'Приватная' : 'Открытая' }}
         </span>
-        <span>— {{ room.occupancy }}/{{ room.user_limit }}</span>
+        <span>— {{ brief.occupancy }}/{{ brief.user_limit }}</span>
       </div>
       <div class="rb-owner">
-        <img v-minio-img="{ key: room.creator_avatar_name ? `avatars/${room.creator_avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="" />
-        <span>{{ room.creator_name }}</span>
+        <img v-minio-img="{ key: brief.creator_avatar_name ? `avatars/${brief.creator_avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="" />
+        <span>{{ brief.creator_name }}</span>
       </div>
     </div>
 
     <label>
       <span>Микрофон</span>
-      <select :value="micId" @change="onChange('audioinput',$event)" :disabled="mics.length===0">
+      <select :value="micId" @change="onChange('audioinput', $event)" :disabled="mics.length===0">
         <option v-for="d in mics" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Микрофон не обнаружен' }}</option>
       </select>
     </label>
     <label>
       <span>Камера</span>
-      <select :value="camId" @change="onChange('videoinput',$event)" :disabled="cams.length===0">
+      <select :value="camId" @change="onChange('videoinput', $event)" :disabled="cams.length===0">
         <option v-for="d in cams" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Камера не обнаружена' }}</option>
       </select>
     </label>
@@ -30,8 +30,8 @@
 </template>
 
 <script setup lang="ts">
-import { defineProps, defineEmits } from 'vue'
-
+import { ref, watch, onBeforeUnmount } from 'vue'
+import { api } from '@/services/axios'
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
 
 type Dev = {
@@ -50,20 +50,33 @@ type RoomBrief = {
   occupancy: number
 }
 
-defineProps<{
+const props = defineProps<{
   open: boolean
-  room?: RoomBrief | null
+  roomId: number
   mics: Dev[]
   cams: Dev[]
   micId: string
   camId: string
 }>()
-
 const emit = defineEmits<{
   'update:micId': [string]
   'update:camId': [string]
   'device-change': ['audioinput' | 'videoinput']
 }>()
+
+const brief = ref<RoomBrief | null>(null)
+let poll: number | undefined
+let inFlight = false
+
+async function fetchBrief() {
+  if (inFlight || !props.roomId) return
+  inFlight = true
+  try {
+    const { data } = await api.get<RoomBrief>(`/rooms/${props.roomId}/brief`, { __skipAuth: true } as any)
+    brief.value = data
+  } catch {}
+  finally { inFlight = false }
+}
 
 function onChange(kind: 'audioinput'|'videoinput', e: Event) {
   const val = (e.target as HTMLSelectElement).value
@@ -71,6 +84,27 @@ function onChange(kind: 'audioinput'|'videoinput', e: Event) {
   else emit('update:camId', val)
   emit('device-change', kind)
 }
+
+watch(() => props.roomId, () => { if (props.open) void fetchBrief() })
+
+watch(() => props.open, on => {
+  if (on) {
+    void fetchBrief()
+    poll = window.setInterval(fetchBrief, 5000)
+  } else {
+    if (poll) {
+      window.clearInterval(poll)
+      poll = undefined
+    }
+  }
+})
+
+onBeforeUnmount(() => {
+  if (poll) {
+    window.clearInterval(poll)
+    poll = undefined
+  }
+})
 </script>
 
 <style scoped lang="scss">
