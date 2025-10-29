@@ -58,6 +58,9 @@ import iconLeaveRoom from '@/assets/svg/leaveRoom.svg'
 
 type IconKind = 'mic' | 'cam' | 'speakers' | 'visibility' | 'screen'
 
+const W_EXP = 250
+const H_EXP = 138
+const H_COLLAPSED = 30
 const cardEl = ref<HTMLElement | null>(null)
 const headEl = ref<HTMLButtonElement | null>(null)
 const bodyEl = ref<HTMLElement | null>(null)
@@ -66,17 +69,9 @@ function measureAndSetVars() {
   const card = cardEl.value, head = headEl.value
   if (!card || !head) return
   const opened = openPanel.value
-  const headW = Math.ceil(head.scrollWidth)
-  const headH = Math.ceil(head.scrollHeight)
-  let bodyW = 0, bodyH = 0
-  const body = bodyEl.value
-  if (opened && body) {
-    bodyW = Math.ceil(body.scrollWidth)
-    bodyH = Math.ceil(body.scrollHeight)
-  }
-  const targetW = opened ? Math.max(headW, bodyW) : headW
-  const targetH = opened ? headH + bodyH : headH
-  console.log('[user-card measure]', { opened, headW, headH, bodyW, bodyH, targetW, targetH })
+  const headW = Math.min(Math.ceil(head.scrollWidth), W_EXP)
+  const targetW = opened ? W_EXP : headW
+  const targetH = opened ? H_EXP : H_COLLAPSED
   card.style.setProperty('--w-cur', `${targetW}px`)
   card.style.setProperty('--h-cur', `${targetH}px`)
 }
@@ -165,20 +160,21 @@ onBeforeUnmount(() => window.removeEventListener('resize', measureAndSetVars))
     position: absolute;
     left: 5px;
     top: 5px;
-    inline-size: var(--w-cur, max-content);
+    inline-size: var(--w-cur, 250px);
     block-size: var(--h-cur, 30px);
     min-inline-size: 0;
-    max-inline-size: 100%;
+    max-inline-size: 250px;
+    max-block-size: 138px;
     contain: layout;
     will-change: inline-size, block-size;
     border-radius: 5px;
     backdrop-filter: blur(5px);
-    background-color: rgba($graphite, 0.75);
+    background-color: rgba($dark, 0.75);
     z-index: 5;
     overflow: hidden;
     transition: inline-size 0.25s ease-in-out, block-size 0.25s ease-in-out, background-color 0.25s ease-in-out;
     &.expanded {
-      background-color: rgba($dark, 0.75);
+      inline-size: 250px; block-size: 138px;
     }
     .card-head {
       display: flex;
@@ -214,6 +210,9 @@ onBeforeUnmount(() => window.removeEventListener('resize', measureAndSetVars))
         display: flex;
         align-items: center;
         gap: 5px;
+        white-space: nowrap;
+        flex: 0 0 auto;
+        min-width: max-content;
         img {
           width: 20px;
           height: 20px;
