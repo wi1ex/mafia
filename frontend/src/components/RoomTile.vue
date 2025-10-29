@@ -6,7 +6,7 @@
       <img v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar, lazy: false }" alt="" />
     </div>
 
-    <div class="user-card" ref="cardEl" :class="{ expanded: openPanel }">
+    <div class="user-card" ref="cardEl">
       <button class="card-head" ref="headEl" :disabled="id === localId"
               :aria-disabled="id === localId" @click.stop="$emit('toggle-panel', id)" :aria-expanded="openPanel">
         <img v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar, lazy: false }" alt="" />
@@ -22,13 +22,6 @@
 
       <Transition name="card-body">
         <div v-show="openPanel" ref="bodyEl" class="card-body" @click.stop>
-          <div class="panel-user">
-            <span>{{ userName(id) }}</span>
-            <button class="panel-close" aria-label="Закрыть" @click.stop="$emit('toggle-panel', id)">
-              <img :src="iconClose" alt="close" />
-            </button>
-          </div>
-
           <div v-if="id !== localId" class="volume">
             <img :src="volumeIcon" alt="vol" />
             <input type="range" min="0" max="200" :disabled="!speakersOn || isBlocked(id,'speakers')"
@@ -53,14 +46,10 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onBeforeUnmount, ref, watch } from 'vue'
 
-import iconClose from '@/assets/svg/close.svg'
 import iconLeaveRoom from '@/assets/svg/leaveRoom.svg'
 
 type IconKind = 'mic' | 'cam' | 'speakers' | 'visibility' | 'screen'
 
-const W_EXP = 250
-const H_EXP = 138
-const H_COLLAPSED = 30
 const cardEl = ref<HTMLElement | null>(null)
 const headEl = ref<HTMLButtonElement | null>(null)
 const bodyEl = ref<HTMLElement | null>(null)
@@ -69,9 +58,9 @@ function measureAndSetVars() {
   const card = cardEl.value, head = headEl.value
   if (!card || !head) return
   const opened = openPanel.value
-  const headW = Math.min(Math.ceil(head.scrollWidth), W_EXP)
-  const targetW = opened ? W_EXP : headW
-  const targetH = opened ? H_EXP : H_COLLAPSED
+  const headW = Math.min(Math.ceil(head.scrollWidth), 270)
+  const targetW = opened ? 270 : headW
+  const targetH = opened ? 148 : 30
   card.style.setProperty('--w-cur', `${targetW}px`)
   card.style.setProperty('--h-cur', `${targetH}px`)
 }
@@ -160,11 +149,11 @@ onBeforeUnmount(() => window.removeEventListener('resize', measureAndSetVars))
     position: absolute;
     left: 5px;
     top: 5px;
-    inline-size: var(--w-cur, 250px);
+    inline-size: var(--w-cur, 270px);
     block-size: var(--h-cur, 30px);
     min-inline-size: 0;
-    max-inline-size: 250px;
-    max-block-size: 138px;
+    max-inline-size: 270px;
+    max-block-size: 148px;
     contain: layout;
     will-change: inline-size, block-size;
     border-radius: 5px;
@@ -173,13 +162,11 @@ onBeforeUnmount(() => window.removeEventListener('resize', measureAndSetVars))
     z-index: 5;
     overflow: hidden;
     transition: inline-size 0.25s ease-in-out, block-size 0.25s ease-in-out, background-color 0.25s ease-in-out;
-    &.expanded {
-      inline-size: 250px; block-size: 138px;
-    }
     .card-head {
       display: flex;
       align-items: center;
       gap: 5px;
+      width: 100%;
       height: 30px;
       padding: 0 10px;
       border: none;
@@ -219,9 +206,6 @@ onBeforeUnmount(() => window.removeEventListener('resize', measureAndSetVars))
         }
       }
     }
-     &.expanded .card-head span {
-       flex: 1 1 auto;
-     }
     .card-body-enter-from,
     .card-body-leave-to {
       opacity: 0;
@@ -235,36 +219,11 @@ onBeforeUnmount(() => window.removeEventListener('resize', measureAndSetVars))
       display: flex;
       flex-direction: column;
       gap: 10px;
-      padding: 5px 10px 10px;
-      .panel-user {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        height: 30px;
-        span {
-          color: $fg;
-          font-size: 16px;
-        }
-        .panel-close {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 20px;
-          height: 30px;
-          border: none;
-          background: none;
-          cursor: pointer;
-          img {
-            width: 20px;
-            height: 20px;
-          }
-        }
-      }
+      padding: 10px;
       .volume {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        margin-top: -5px;
         padding: 5px;
         gap: 5px;
         width: calc(100% - 10px);
