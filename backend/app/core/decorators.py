@@ -86,10 +86,20 @@ def require_roles_deco(*roles: str):
 
 def require_room_creator(room_id_param: str = "room_id"):
     def deco(fn):
+        if not asyncio.iscoroutinefunction(fn):
+            log.error("require_room_creator.not_async", function = getattr(fn, "__qualname__", getattr(fn, "__name__", "?")))
+            raise TypeError("require_room_creator может оборачивать только async-функции")
+
         sig = inspect.signature(fn)
+        need_inject = "ident" not in sig.parameters
 
         @functools.wraps(fn)
-        async def wrap(*args, ident: Identity, **kwargs):
+        async def wrap(*args, **kwargs):
+            ident: Identity | None = kwargs.get("ident")
+            if not ident:
+                log.warning("require_room_creator.no_ident", function = getattr(fn, "__qualname__", getattr(fn, "__name__", "?")))
+                raise HTTPException(status_code=401, detail="Unauthorized")
+
             bound = sig.bind_partial(*args, **kwargs)
             if room_id_param not in bound.arguments:
                 log.error("require_room_creator.param_missing", param=room_id_param)
@@ -108,8 +118,11 @@ def require_room_creator(room_id_param: str = "room_id"):
 
             return await fn(*args, **kwargs)
 
-        params = list(sig.parameters.values()) + [inspect.Parameter("ident", kind=inspect.Parameter.KEYWORD_ONLY, default=Depends(get_identity))]
-        wrap.__signature__ = sig.replace(parameters=params)
+        if need_inject:
+            params = list(sig.parameters.values()) + [inspect.Parameter("ident", kind=inspect.Parameter.KEYWORD_ONLY, default=Depends(get_identity))]
+            wrap.__signature__ = sig.replace(parameters=params)
+        else:
+            wrap.__signature__ = sig
 
         return wrap
 
