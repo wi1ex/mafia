@@ -60,10 +60,8 @@ function measureAndSetVars() {
 
   const opened = openPanel.value
   const headW = Math.min(Math.ceil(head.scrollWidth) + 1, 250)
-  const headH = Math.min(Math.ceil(head.scrollHeight) + 1, 138) // добавили
   const targetW = opened ? 250 : headW
-  const targetH = opened ? 138 : headH // добавили
-  // const targetH = opened ? 138 : 30
+  const targetH = opened ? 138 : 30
 
   card.style.setProperty('--w-cur', `${targetW}px`)
   card.style.setProperty('--h-cur', `${targetH}px`)
@@ -153,8 +151,7 @@ onBeforeUnmount(() => window.removeEventListener('resize', measureAndSetVars))
     top: 5px;
     padding: 5px 10px;
     inline-size: var(--w-cur, 250px);
-    block-size: var(--h-cur, 138px); // добавили
-    //block-size: var(--h-cur, 30px);
+    block-size: var(--h-cur, 30px);
     border-radius: 5px;
     backdrop-filter: blur(5px);
     background-color: rgba($dark, 0.75);
@@ -202,7 +199,7 @@ onBeforeUnmount(() => window.removeEventListener('resize', measureAndSetVars))
     .card-body-enter-from,
     .card-body-leave-to {
       opacity: 0;
-      transform: translate(-30px -30px);
+      transform: translate(-30px, -30px);
     }
     .card-body-enter-active,
     .card-body-leave-active {

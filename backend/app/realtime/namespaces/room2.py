@@ -105,15 +105,13 @@ async def join(sid, data) -> JoinAck:
         ev_username = (me_prof.get("username") or un or f"user{uid}")
         ev_avatar = me_prof.get("avatar_name") or av or None
         eff_role = roles.get(str(uid), base_role)
-        epoch = int(await r.incr(f"room:{rid}:user:{uid}:epoch"))
         await sio.save_session(sid,
                                {"uid": uid,
                                 "rid": rid,
                                 "role": eff_role,
                                 "base_role": base_role,
                                 "username": ev_username,
-                                "avatar_name": ev_avatar,
-                                "epoch": epoch},
+                                "avatar_name": ev_avatar},
                                namespace="/room")
 
         incoming = (data.get("state") or {}) if isinstance(data, dict) else {}
@@ -135,16 +133,16 @@ async def join(sid, data) -> JoinAck:
                            {"id": rid,
                             "occupancy": occ},
                            namespace="/rooms")
-        await sio.emit("member_joined",
-                       {"user_id": uid,
-                        "state": user_state,
-                        "role": eff_role,
-                        "blocks": blocked.get(str(uid)) or {},
-                        "username": ev_username,
-                        "avatar_name": ev_avatar},
-                       room=f"room:{rid}",
-                       skip_sid=sid,
-                       namespace="/room")
+            await sio.emit("member_joined",
+                           {"user_id": uid,
+                            "state": user_state,
+                            "role": eff_role,
+                            "blocks": blocked.get(str(uid)) or {},
+                            "username": ev_username,
+                            "avatar_name": ev_avatar},
+                           room=f"room:{rid}",
+                           skip_sid=sid,
+                           namespace="/room")
 
         if pos_updates:
             await sio.emit("positions",
@@ -429,15 +427,6 @@ async def disconnect(sid):
             return
 
         r = get_redis()
-        try:
-            sess_epoch = int(sess.get("epoch") or 0)
-        except Exception:
-            sess_epoch = 0
-
-        cur_epoch = int(await r.get(f"room:{rid}:user:{uid}:epoch") or 0)
-        if cur_epoch > sess_epoch:
-            return
-
         owner = await r.get(f"room:{rid}:screen_owner")
         if owner and int(owner) == uid:
             await account_screen_time(r, rid, uid)
