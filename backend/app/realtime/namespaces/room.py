@@ -166,6 +166,7 @@ async def join(sid, data) -> JoinAck:
             "ok": True,
             "room_id": rid,
             "token": token,
+            "privacy": str(params.get("privacy") or "open"),
             "snapshot": snapshot,
             "self_pref": user_state,
             "positions": positions,

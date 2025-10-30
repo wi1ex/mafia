@@ -86,6 +86,13 @@ export function startAuthSocket(opts?: {
   if (opts?.onForceLogout) authSocket.on('force_logout', opts.onForceLogout)
   if (opts?.onNotify) authSocket.on('notify', opts.onNotify)
   if (opts?.onRoomApp) authSocket.on('room_invite', opts.onRoomApp)
+
+  authSocket.on('room_app_approved', (p:any) => {
+    try {
+      window.dispatchEvent(new CustomEvent('auth-room_app_approved', { detail: p }))
+    } catch {}
+  })
+
   return authSocket
 }
 

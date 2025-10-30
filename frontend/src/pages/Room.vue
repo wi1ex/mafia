@@ -68,9 +68,11 @@
     </div>
 
     <div class="panel">
-      <button @click="onLeave" aria-label="Покинуть комнату">
-        <img :src="iconLeaveRoom" alt="leave" />
-      </button>
+      <div class="controls-side">
+        <button @click="onLeave" aria-label="Покинуть комнату">
+          <img :src="iconLeaveRoom" alt="leave" />
+        </button>
+      </div>
 
       <div v-if="showPermProbe" class="controls">
         <button class="probe" @click="rtc.probePermissions({ audio: true, video: true })">
@@ -78,12 +80,6 @@
         </button>
       </div>
       <div v-else class="controls">
-        <button v-if="myRole === 'host' && roomBrief.privacy === 'private'" @click="openApps=!openApps">
-          Заявки
-          <span v-if="appsCounts.total" class="apps-count" :data-unread="appsCounts.unread > 0 ? 1 : 0">
-            ({{ appsCounts.total }})
-          </span>
-        </button>
         <button @click="toggleMic" :disabled="pending.mic || blockedSelf.mic" :aria-pressed="micOn">
           <img :src="stateIcon('mic', localId)" alt="mic" />
         </button>
@@ -101,14 +97,20 @@
         </button>
       </div>
 
-      <button @click.stop="toggleSettings" :aria-expanded="settingsOpen" aria-label="Настройки устройств">
-        <img :src="iconSettings" alt="settings" />
-      </button>
+      <div class="controls-side">
+        <button v-if="myRole === 'host' && isPrivate" @click="openApps=!openApps">
+          Заявки
+          <span v-if="appsCounts.total" class="apps-count" :data-unread="appsCounts.unread > 0 ? 1 : 0">
+            ({{ appsCounts.total }})
+          </span>
+        </button>
+        <button @click.stop="toggleSettings" :aria-expanded="settingsOpen" aria-label="Настройки устройств">
+          <img :src="iconSettings" alt="settings" />
+        </button>
+      </div>
 
       <RoomSetting
         :open="settingsOpen"
-        :room-id="rid"
-        :room-brief="roomBrief"
         :mics="mics"
         :cams="cams"
         v-model:micId="selectedMicId"
@@ -120,7 +122,7 @@
     </div>
 
     <RoomRequests
-      v-if="myRole === 'host' && roomBrief.privacy === 'private'"
+      v-if="myRole === 'host' && isPrivate"
       v-model:open="openApps"
       :room-id="rid"
       @counts="(p) => { appsCounts.total = p.total; appsCounts.unread = p.unread }"
@@ -136,7 +138,6 @@ import { useAuthStore } from '@/store'
 import { useRTC } from '@/services/rtc'
 import type { VQ } from '@/services/rtc'
 import { createAuthedSocket } from '@/services/sio'
-import { api } from '@/services/axios'
 import RoomTile from '@/components/RoomTile.vue'
 import RoomSetting from '@/components/RoomSetting.vue'
 import RoomRequests from '@/components/RoomRequests.vue'
@@ -209,7 +210,7 @@ const settingsOpen = ref(false)
 const leaving = ref(false)
 const openApps = ref(false)
 const appsCounts = reactive({ total: 0, unread: 0 })
-const roomBrief = ref<any>(null)
+const isPrivate = ref(false)
 const ws_url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host
 const isTheater = computed(() => !!screenOwnerId.value)
 const isMyScreen = computed(() => !!localId.value && screenOwnerId.value === localId.value)
@@ -762,13 +763,6 @@ watch(() => auth.isAuthed, (ok) => { if (!ok) { void onLeave() } })
 
 onMounted(async () => {
   try {
-    const { data } = await api.get(`/rooms/${rid}/brief`, { __skipAuth: true } as any)
-    roomBrief.value = data
-  } catch {
-    roomBrief.value = null
-  }
-
-  try {
     if (!auth.ready) { try { await auth.init() } catch {} }
     connectSocket()
     const j:any = await safeJoin()
@@ -785,6 +779,7 @@ onMounted(async () => {
 
     await rtc.refreshDevices()
     applyJoinAck(j)
+    isPrivate.value = (j?.privacy || j?.room?.privacy) === 'private'
 
     rtc.initRoom({
       onScreenShareEnded: async () => {
@@ -944,6 +939,11 @@ onBeforeUnmount(() => {
     .controls {
       display: flex;
       gap: 10px;
+    }
+    .controls-side {
+      display: flex;
+      gap: 10px;
+      width: 100px;
     }
     .apps-count {
       margin-left: 4px;

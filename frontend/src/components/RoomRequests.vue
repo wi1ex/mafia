@@ -31,7 +31,6 @@ const emit = defineEmits<{
 
 const apps = ref<{id: number; username?: string; avatar_name?: string|null}[]>([])
 const seenKey = computed(() => `room:${props.roomId}:apps_seen`)
-const poll = ref<number | undefined>(undefined)
 let inFlight = false
 
 function loadSeen(): Set<number> {
@@ -74,27 +73,33 @@ async function approve(uid: number) {
 function onInvite(e: any) {
   const p = e?.detail
   if (Number(p?.room_id) !== props.roomId) return
-  const uid = Number(p?.user?.id)
-  if (props.open && Number.isFinite(uid)) {
-    seen.add(uid)
-    saveSeen([...seen])
+  if (!Number.isFinite(uid)) return
+  const u = { id: uid, username: p.user?.username, avatar_name: p.user?.avatar_name ?? null }
+  if (!apps.value.some(x => x.id === uid)) apps.value = [u, ...apps.value]
+  else apps.value = apps.value.map(x => x.id === uid ? { ...x, ...u } : x)
+  if (props.open) { seen.add(uid); saveSeen([...seen]) }
+  recomputeCounts()
+}
+
+function onApproved(e: any) {
+  const p = e?.detail
+  if (Number(p?.room_id) !== props.roomId) return
+  const uid = Number(p?.user_id)
+  if (!Number.isFinite(uid)) return
+  if (apps.value.some(x => x.id === uid)) {
+    apps.value = apps.value.filter(x => x.id !== uid)
+    recomputeCounts()
   }
-  void load()
 }
 
 watch(() => props.open, async on => {
   if (on) {
     await load()
-    poll.value = window.setInterval(load, 5000)
     seen = new Set(apps.value.map(x => x.id))
     saveSeen([...seen])
     recomputeCounts()
   } else {
     apps.value = []
-    if (poll.value) {
-      window.clearInterval(poll.value)
-      poll.value = undefined
-    }
   }
 })
 
@@ -103,14 +108,14 @@ watch(() => props.roomId, async () => {
   await load()
 })
 
-onMounted(() => window.addEventListener('auth-room_invite', onInvite))
+onMounted(() => {
+  window.addEventListener('auth-room_invite', onInvite)
+  window.addEventListener('auth-room_app_approved', onApproved)
+})
 
 onBeforeUnmount(() => {
   window.removeEventListener('auth-room_invite', onInvite)
-  if (poll.value) {
-    window.clearInterval(poll.value)
-    poll.value = undefined
-  }
+  window.removeEventListener('auth-room_app_approved', onApproved)
 })
 </script>
 

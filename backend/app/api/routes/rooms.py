@@ -13,9 +13,8 @@ from ...models.room import Room
 from ...models.user import User
 from ...models.notif import Notif
 from ...realtime.sio import sio
-from ...realtime.utils import gc_empty_room, get_room_brief
+from ...realtime.utils import gc_empty_room
 from ...schemas.common import Identity, Ok
-from ...schemas.realtime import RoomListItem
 from ...schemas.room import RoomIdOut, RoomCreateIn, RoomInfoOut, RoomInfoMemberOut, RoomAccessOut
 from ...schemas.user import UserOut
 
@@ -118,18 +117,6 @@ async def room_info(room_id: int, session: AsyncSession = Depends(get_session)) 
         )
 
     return RoomInfoOut(members=members)
-
-
-@log_route("rooms.brief")
-@rate_limited(lambda ident, room_id, **_: f"rl:rooms:brief:{ident['id']}:{room_id}", limit=10, window_s=1)
-@router.get("/{room_id}/brief", response_model=RoomListItem)
-async def brief_one(room_id: int) -> RoomListItem:
-    r = get_redis()
-    data = await get_room_brief(r, room_id)
-    if not data:
-        raise HTTPException(status_code=404, detail="room_not_found")
-
-    return RoomListItem(**data)
 
 
 @log_route("rooms.access")
@@ -252,6 +239,10 @@ async def approve(room_id: int, user_id: int, ident: Identity = Depends(get_iden
                         "text": note.text,
                         "created_at": note.created_at.isoformat()},
                        room=f"user:{user_id}",
+                       namespace="/auth")
+        await sio.emit("room_app_approved",
+                       {"room_id": room_id, "user_id": user_id},
+                       room=f"user:{int(ident['id'])}",
                        namespace="/auth")
     except Exception:
         pass
