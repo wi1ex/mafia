@@ -99,9 +99,6 @@
         <button @click="toggleScreen" :disabled="pendingScreen || (!!screenOwnerId && screenOwnerId !== localId) || blockedSelf.screen" :aria-pressed="isMyScreen">
           <img :src="stateIcon('screen', localId)" alt="screen" />
         </button>
-        <button @click="toggleQuality" :disabled="pendingQuality" aria-label="Качество видео">
-          <img :src="videoQuality === 'hd' ? iconQualityHD : iconQualitySD" alt="quality" />
-        </button>
       </div>
 
       <button @click.stop="toggleSettings" :aria-expanded="settingsOpen" aria-label="Настройки устройств">
@@ -116,6 +113,8 @@
         :cams="cams"
         v-model:micId="selectedMicId"
         v-model:camId="selectedCamId"
+        v-model:vq="videoQuality"
+        :vq-disabled="pendingQuality"
         @device-change="(kind) => rtc.onDeviceChange(kind)"
       />
     </div>
@@ -135,6 +134,7 @@ import { useRoute, useRouter } from 'vue-router'
 import type { Socket } from 'socket.io-client'
 import { useAuthStore } from '@/store'
 import { useRTC } from '@/services/rtc'
+import type { VQ } from '@/services/rtc'
 import { createAuthedSocket } from '@/services/sio'
 import { api } from '@/services/axios'
 import RoomTile from '@/components/RoomTile.vue'
@@ -142,8 +142,6 @@ import RoomSetting from '@/components/RoomSetting.vue'
 import RoomRequests from '@/components/RoomRequests.vue'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
-import iconQualitySD from '@/assets/svg/qualitySD.svg'
-import iconQualityHD from '@/assets/svg/qualityHD.svg'
 import iconLeaveRoom from '@/assets/svg/leaveRoom.svg'
 import iconSettings from '@/assets/svg/settings.svg'
 import iconVolumeMax from '@/assets/svg/volumeMax.svg'
@@ -214,11 +212,19 @@ const appsCounts = reactive({ total: 0, unread: 0 })
 const roomBrief = ref<any>(null)
 const ws_url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host
 const isTheater = computed(() => !!screenOwnerId.value)
-const isMyScreen = computed(() => screenOwnerId.value === localId.value)
+const isMyScreen = computed(() => !!localId.value && screenOwnerId.value === localId.value)
 const streamAudioKey = computed(() => screenOwnerId.value ? rtc.screenKey(screenOwnerId.value) : '')
 const streamVol = computed(() => streamAudioKey.value ? (volUi[streamAudioKey.value] ?? rtc.getUserVolume(streamAudioKey.value)) : 100)
-const videoQuality = computed(() => rtc.remoteQuality.value)
 const fitContainInGrid = computed(() => !isTheater.value && sortedPeerIds.value.length < 3)
+
+const videoQuality = computed<VQ>({
+  get: () => rtc.remoteQuality.value,
+  set: (v) => {
+    if (pendingQuality.value) return
+    pendingQuality.value = true
+    try { rtc.setRemoteQualityForAll(v) } finally { pendingQuality.value = false }
+  },
+})
 
 const rerr = (...a: unknown[]) => console.error('[ROOM]', ...a)
 
@@ -340,7 +346,7 @@ function onDocClick() {
 function rol(id: string): string { return rolesByUser.get(id) || 'user' }
 const myRole = computed(() => rol(localId.value))
 function isOn(id: string, kind: IconKind) {
-  if (kind === 'screen') return id === screenOwnerId.value
+  if (kind === 'screen') return !!id && id === screenOwnerId.value
   if (id === localId.value) {
     if (kind === 'mic') return micOn.value
     if (kind === 'cam') return camOn.value
@@ -371,15 +377,6 @@ function canModerate(targetId: string): boolean {
   const trg = rol(targetId)
   if (me === 'admin') return true
   return me === 'host' && trg !== 'admin'
-}
-
-function toggleQuality() {
-  if (pendingQuality.value) return
-  const next = videoQuality.value === 'hd' ? 'sd' : 'hd'
-  pendingQuality.value = true
-  try {
-    rtc.setRemoteQualityForAll(next)
-  } finally { pendingQuality.value = false }
 }
 
 async function toggleBlock(targetId: string, key: keyof BlockState) {
@@ -918,7 +915,7 @@ onBeforeUnmount(() => {
     align-items: center;
     justify-content: space-between;
     width: calc(100vw - 20px);
-    height: 50px;
+    height: 40px;
     button {
       display: flex;
       align-items: center;

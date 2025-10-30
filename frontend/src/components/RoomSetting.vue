@@ -14,6 +14,15 @@
       </div>
     </div>
 
+    <div class="quality">
+      <span>Качество видео</span>
+      <div class="quality-toggle">
+        <span :data-active="vq==='sd' ? 1 : 0">SD</span>
+        <input type="range" min="0" max="1" step="1" :value="vq==='hd' ? 1 : 0" :disabled="vqDisabled" @input="onVQInput" aria-label="Качество видео" />
+        <span :data-active="vq==='hd' ? 1 : 0">HD</span>
+      </div>
+    </div>
+
     <label>
       <span>Микрофон</span>
       <select :value="micId" @change="onChange('audioinput', $event)" :disabled="mics.length===0">
@@ -32,6 +41,8 @@
 <script setup lang="ts">
 import { ref, watch, onBeforeUnmount } from 'vue'
 import { api } from '@/services/axios'
+import type { VQ } from '@/services/rtc'
+
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
 
 type Dev = {
@@ -58,10 +69,13 @@ const props = defineProps<{
   micId: string
   camId: string
   roomBrief?: RoomBrief | null
+  vq?: VQ
+  vqDisabled?: boolean
 }>()
 const emit = defineEmits<{
   'update:micId': [string]
   'update:camId': [string]
+  'update:vq': [VQ]
   'device-change': ['audioinput' | 'videoinput']
 }>()
 
@@ -78,6 +92,11 @@ async function fetchBrief(force = false) {
     brief.value = data
   } catch {}
   finally { inFlight = false }
+}
+
+function onVQInput(e: Event) {
+  const n = Number((e.target as HTMLInputElement).value)
+  emit('update:vq', n >= 1 ? 'hd' : 'sd')
 }
 
 function onChange(kind: 'audioinput'|'videoinput', e: Event) {
@@ -159,6 +178,32 @@ onBeforeUnmount(() => {
         height: 18px;
         border-radius: 50%;
         object-fit: cover;
+      }
+    }
+  }
+  .quality {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    span {
+      color: $fg;
+    }
+    .quality-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      input[type="range"] {
+        width: 72px;
+        height: 10px;
+        accent-color: $fg;
+        cursor: pointer;
+      }
+      span[data-active="1"] {
+        color: $fg;
+      }
+      span[data-active="0"] {
+        color: $grey;
       }
     }
   }

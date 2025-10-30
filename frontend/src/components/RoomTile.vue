@@ -149,7 +149,7 @@ onUpdated(() => setClosedWidth())
     backdrop-filter: blur(5px);
     background-color: rgba($dark, 0.75);
     z-index: 5;
-    transition: inline-size 0.25s ease-in-out, block-size 0.25s ease-in-out;
+    transition: inline-size 0.25s ease-out, block-size 0.25s ease-out;
     &[data-open="1"] {
       inline-size: 250px;
       block-size: 138px;
@@ -200,11 +200,11 @@ onUpdated(() => setClosedWidth())
     .card-body-enter-from,
     .card-body-leave-to {
       opacity: 0;
-      transform: translate(-30px, -30px);
+      transform: translate(-60px, -60px);
     }
     .card-body-enter-active,
     .card-body-leave-active {
-      transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
+      transition: opacity 0.15s ease-out, transform 0.15s ease-out;
     }
     .card-body {
       display: flex;
@@ -227,7 +227,7 @@ onUpdated(() => setClosedWidth())
           height: 20px;
         }
         input[type="range"] {
-          width: 174px;
+          min-width: 174px;
           height: 10px;
           accent-color: $fg;
           cursor: pointer;
@@ -246,7 +246,7 @@ onUpdated(() => setClosedWidth())
           align-items: center;
           justify-content: center;
           padding: 0;
-          width: calc(200px / 6);
+          min-width: calc(200px / 6);
           height: 25px;
           border: none;
           border-radius: 5px;
