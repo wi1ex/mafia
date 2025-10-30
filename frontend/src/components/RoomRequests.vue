@@ -65,6 +65,8 @@ async function approve(uid: number) {
   try {
     await api.post(`/rooms/${props.roomId}/requests/${uid}/approve`)
     apps.value = apps.value.filter(x => x.id !== uid)
+    seen.delete(uid)
+    saveSeen([...seen])
     recomputeCounts()
   }
   catch { alert('Ошибка') }
@@ -102,6 +104,8 @@ function onApproved(e: any) {
   if (!Number.isFinite(uid)) return
   if (apps.value.some(x => x.id === uid)) {
     apps.value = apps.value.filter(x => x.id !== uid)
+    seen.delete(uid)
+    saveSeen([...seen])
     recomputeCounts()
   }
 }
