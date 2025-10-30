@@ -69,6 +69,7 @@ export const useAuthStore = defineStore('auth', () => {
                 title: 'Одобрено',
                 kind: 'approve',
                 text,
+                room_id: p.room_id,
                 date: p.created_at,
                 action: m ? { kind: 'route', label: 'Перейти', to: `/room/${m[1]}` } : undefined,
               }

@@ -78,7 +78,20 @@ function onInvite(e: any) {
   const u = { id: uid, username: p.user?.username, avatar_name: p.user?.avatar_name ?? null }
   if (!apps.value.some(x => x.id === uid)) apps.value = [u, ...apps.value]
   else apps.value = apps.value.map(x => x.id === uid ? { ...x, ...u } : x)
-  if (props.open) { seen.add(uid); saveSeen([...seen]) }
+  if (props.open) {
+    seen.add(uid)
+    saveSeen([...seen])
+  }
+  recomputeCounts()
+}
+
+function onSeen(e: any) {
+  const p = e?.detail
+  if (Number(p?.room_id) !== props.roomId) return
+  const uid = Number(p?.user_id)
+  if (!Number.isFinite(uid)) return
+  seen.add(uid)
+  saveSeen([...seen])
   recomputeCounts()
 }
 
@@ -110,13 +123,16 @@ watch(() => props.roomId, async () => {
 })
 
 onMounted(() => {
+  void load()
   window.addEventListener('auth-room_invite', onInvite)
   window.addEventListener('auth-room_app_approved', onApproved)
+  window.addEventListener('room-app-seen', onSeen)
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('auth-room_invite', onInvite)
   window.removeEventListener('auth-room_app_approved', onApproved)
+  window.removeEventListener('room-app-seen', onSeen)
 })
 </script>
 

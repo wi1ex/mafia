@@ -61,6 +61,7 @@ type ToastItem = {
   action?: ToastAction
   ttl?: number
   user?: ToastUser
+  room_id?: number
   _closing?: boolean
 }
 
@@ -73,6 +74,11 @@ async function close(t: ToastItem) {
 }
 
 async function closeManual(t: ToastItem){
+  if (t.kind === 'app' && t.user?.id && t.room_id) {
+    try {
+      window.dispatchEvent(new CustomEvent('room-app-seen', { detail: { room_id: t.room_id, user_id: t.user.id } }))
+    } catch {}
+  }
   try { if (t.noteId) await notif.markReadVisible([t.noteId]) } catch {}
   t._closing = true
   setTimeout(() => { void close(t) }, 300)
@@ -119,6 +125,7 @@ onMounted(() => {
       action: d.action,
       ttl: Number.isFinite(d.ttl) ? d.ttl : (d.action ? 8000 : 5000),
       user: d.user,
+      room_id: Number.isFinite(d.room_id) ? Number(d.room_id) : undefined,
     }
     items.value.push(t)
     window.setTimeout(() => {

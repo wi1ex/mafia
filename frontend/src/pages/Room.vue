@@ -97,10 +97,10 @@
         </button>
       </div>
 
-      <div class="controls-side">
+      <div class="controls-side right">
         <button v-if="myRole === 'host' && isPrivate" @click="openApps=!openApps">
           Заявки
-          <span v-if="appsCounts.total" class="apps-count" :data-unread="appsCounts.unread > 0 ? 1 : 0">
+          <span class="apps-count" :data-unread="appsCounts.unread > 0 ? 1 : 0">
             ({{ appsCounts.total }})
           </span>
         </button>
@@ -714,19 +714,6 @@ const toggleScreen = async () => {
   } finally { pendingScreen.value = false }
 }
 
-const onRoomInviteEv = (e:any) => {
-  const p = e?.detail
-  if (!p || Number(p.room_id) !== rid) return
-  appsCounts.total = Math.max(0, appsCounts.total + 1)
-  if (!openApps.value) appsCounts.unread = Math.max(0, appsCounts.unread + 1)
-}
-const onRoomAppApproved = (e:any) => {
-  const p = e?.detail
-  if (!p || Number(p.room_id) !== rid) return
-  appsCounts.total = Math.max(0, appsCounts.total - 1)
-  if (appsCounts.unread > 0) appsCounts.unread -= 1
-}
-
 async function onLeave(goHome = true) {
   if (leaving.value) return
   leaving.value = true
@@ -734,8 +721,6 @@ async function onLeave(goHome = true) {
     document.removeEventListener('click', onDocClick)
     document.removeEventListener('visibilitychange', onBackgroundMaybeLeave)
     window.removeEventListener('pagehide', onBackgroundMaybeLeave)
-    window.removeEventListener('auth-room_invite', onRoomInviteEv)
-    window.removeEventListener('auth-room_app_approved', onRoomAppApproved)
   } catch {}
   try {
     const s = socket.value
@@ -812,8 +797,6 @@ onMounted(async () => {
     document.addEventListener('click', onDocClick)
     document.addEventListener('visibilitychange', onBackgroundMaybeLeave, { passive: true })
     window.addEventListener('pagehide', onBackgroundMaybeLeave, { passive: true })
-    window.addEventListener('auth-room_invite', onRoomInviteEv)
-    window.addEventListener('auth-room_app_approved', onRoomAppApproved)
   } catch {
     rerr('room onMounted fatal')
     try { await rtc.disconnect() } catch {}
@@ -939,7 +922,10 @@ onBeforeUnmount(() => {
     .controls-side {
       display: flex;
       gap: 10px;
-      width: 130px;
+      min-width: 130px;
+      &.right {
+        justify-content: flex-end;
+      }
     }
     .probe {
       width: fit-content;
