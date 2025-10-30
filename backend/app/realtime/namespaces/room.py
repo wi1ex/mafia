@@ -378,10 +378,20 @@ async def kick(sid, data):
                         "by": {"user_id": actor_uid, "role": actor_role}},
                        room=f"user:{target}",
                        namespace="/room")
+
+        occ, _, pos_updates = await leave_room_atomic(r, rid, target)
         await sio.emit("member_left",
                        {"user_id": target},
                        room=f"room:{rid}",
                        namespace="/room")
+        if pos_updates:
+            await sio.emit("positions",
+                           {"updates": [{"user_id": u, "position": p} for u, p in pos_updates]},
+                           room=f"room:{rid}",
+                           namespace="/room")
+        await sio.emit("rooms_occupancy",
+                       {"id": rid, "occupancy": occ},
+                       namespace="/rooms")
 
         async with SessionLocal() as s:
             await log_action(
@@ -391,23 +401,6 @@ async def kick(sid, data):
                 action="room_kick",
                 details=f"Кик из комнаты room_id={rid} target_user={target} actor_role={actor_role}",
             )
-
-        async def _force_cleanup():
-            await asyncio.sleep(2)
-            if not await r.sismember(f"room:{rid}:members", str(target)):
-                return
-
-            occ, _, pos_updates = await leave_room_atomic(r, rid, target)
-            if pos_updates:
-                await sio.emit("positions",
-                               {"updates": [{"user_id": u, "position": p} for u, p in pos_updates]},
-                               room=f"room:{rid}",
-                               namespace="/room")
-            await sio.emit("rooms_occupancy",
-                           {"id": rid, "occupancy": occ},
-                           namespace="/rooms")
-
-        asyncio.create_task(_force_cleanup())
 
         return {"ok": True}
 
@@ -447,15 +440,20 @@ async def disconnect(sid):
                            room=f"room:{rid}",
                            namespace="/room")
 
-        occ, gc_seq, pos_updates = await leave_room_atomic(r, rid, uid)
+        was_member = await r.sismember(f"room:{rid}:members", str(uid))
+        if was_member:
+            occ, gc_seq, pos_updates = await leave_room_atomic(r, rid, uid)
+        else:
+            occ, gc_seq, pos_updates = (int(await r.scard(f"room:{rid}:members") or 0), 0, [])
 
         await sio.leave_room(sid,
                              f"room:{rid}",
                              namespace="/room")
-        await sio.emit("member_left",
-                       {"user_id": uid},
-                       room=f"room:{rid}",
-                       namespace="/room")
+        if was_member:
+            await sio.emit("member_left",
+                           {"user_id": uid},
+                           room=f"room:{rid}",
+                           namespace="/room")
         if pos_updates:
             await sio.emit("positions",
                            {"updates": [{"user_id": u, "position": p} for u, p in pos_updates]},

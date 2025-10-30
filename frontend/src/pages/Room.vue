@@ -557,13 +557,19 @@ async function safeJoin() {
         res()
       })
     })
+    if (joinedRoomId.value === rid || joinInFlight.value) {
+      return joinInFlight.value || { ok: true }
+    }
   }
-  joinInFlight.value = sendAck('join', { room_id: rid, state: { ...local } })
+  const p = sendAck('join', { room_id: rid, state: { ...local } })
+  joinInFlight.value = p
   try {
-    const ack = await joinInFlight.value
+    const ack = await p
     if (ack?.ok) joinedRoomId.value = rid
     return ack
-  } finally { joinInFlight.value = null }
+  } finally {
+    if (joinInFlight.value === p) joinInFlight.value = null
+  }
 }
 
 function ensurePeer(id: string) {
@@ -723,7 +729,7 @@ const onRoomAppApproved = (e:any) => {
   if (appsCounts.unread > 0) appsCounts.unread -= 1
 }
 
-async function onLeave() {
+async function onLeave(goHome = true) {
   if (leaving.value) return
   leaving.value = true
   try {
@@ -734,9 +740,6 @@ async function onLeave() {
     window.removeEventListener('auth-room_app_approved', onRoomAppApproved)
   } catch {}
   try {
-    if (screenOwnerId.value === localId.value) {
-      try { await sendAck('screen', { on: false }) } catch {}
-    }
     const s = socket.value
     socket.value = null
     if (s) {
@@ -745,7 +748,7 @@ async function onLeave() {
       try { s.close() } catch {}
     }
     const disc = rtc.disconnect().catch(() => {})
-    await router.replace('/')
+    if (goHome) await router.replace('/')
     await disc
     joinedRoomId.value = null
   } finally {
@@ -828,7 +831,7 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
-  void onLeave()
+  void onLeave(false)
 })
 </script>
 

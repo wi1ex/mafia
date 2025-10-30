@@ -876,7 +876,7 @@ export function useRTC(): UseRTC {
     localId.value = String(room.localParticipant.identity)
     const ids: string[] = [localId.value]
     room.remoteParticipants.forEach(p => ids.push(String(p.identity)))
-    peerIds.value = [...new Set(ids)]
+    peerIds.value = [...new Set([...peerIds.value, ...ids])]
 
     room.remoteParticipants.forEach(p => applySubsFor(p))
     if (wantAudio.value) { void resumeAudio() }
@@ -890,8 +890,10 @@ export function useRTC(): UseRTC {
       const pubs = lk.value?.localParticipant.getTrackPublications() ?? []
       for (const p of pubs) { try { p.track?.stop() } catch {} }
     } catch {}
-    try { await lk.value?.localParticipant.setMicrophoneEnabled(false) } catch {}
-    try { await lk.value?.localParticipant.setCameraEnabled(false) } catch {}
+
+    try { lk.value?.localParticipant.setMicrophoneEnabled(false) } catch {}
+    try { lk.value?.localParticipant.setCameraEnabled(false) } catch {}
+
     try { await lk.value?.disconnect() } catch {}
     try { lk.value?.removeAllListeners?.() } catch {}
     cleanupMedia()
