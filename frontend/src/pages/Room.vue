@@ -915,6 +915,7 @@ onBeforeUnmount(() => {
       display: flex;
       align-items: center;
       justify-content: center;
+      padding: 0;
       width: 60px;
       height: 40px;
       border: none;
@@ -928,6 +929,17 @@ onBeforeUnmount(() => {
         width: 30px;
         height: 30px;
       }
+      .apps-count {
+        margin-left: 4px;
+        &[data-unread="1"] {
+          color: $red;
+        }
+      }
+    }
+    .controls-side {
+      display: flex;
+      gap: 10px;
+      width: 130px;
     }
     .probe {
       width: fit-content;
@@ -939,17 +951,6 @@ onBeforeUnmount(() => {
     .controls {
       display: flex;
       gap: 10px;
-    }
-    .controls-side {
-      display: flex;
-      gap: 10px;
-      width: 100px;
-    }
-    .apps-count {
-      margin-left: 4px;
-      &[data-unread="1"] {
-        color: $red;
-      }
     }
   }
 }

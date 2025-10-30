@@ -73,6 +73,7 @@ async function approve(uid: number) {
 function onInvite(e: any) {
   const p = e?.detail
   if (Number(p?.room_id) !== props.roomId) return
+  const uid = Number(p?.user?.id)
   if (!Number.isFinite(uid)) return
   const u = { id: uid, username: p.user?.username, avatar_name: p.user?.avatar_name ?? null }
   if (!apps.value.some(x => x.id === uid)) apps.value = [u, ...apps.value]
