@@ -96,6 +96,8 @@ async def room_info(room_id: int, session: AsyncSession = Depends(get_session)) 
 
     order_raw = await r.zrange(f"room:{room_id}:positions", 0, -1)
     order_ids = [int(uid) for uid in order_raw]
+    owner_raw = await r.get(f"room:{room_id}:screen_owner")
+    screen_owner = int(owner_raw) if owner_raw else 0
 
     users_map: dict[int, User] = {}
     if order_ids:
@@ -106,7 +108,14 @@ async def room_info(room_id: int, session: AsyncSession = Depends(get_session)) 
     members: list[RoomInfoMemberOut] = []
     for uid in order_ids:
         u = users_map.get(uid)
-        members.append(RoomInfoMemberOut(id=uid, username=(u.username if u else None), avatar_name=(u.avatar_name if u else None)))
+        members.append(
+            RoomInfoMemberOut(
+                id=uid,
+                username=(u.username if u else None),
+                avatar_name=(u.avatar_name if u else None),
+                screen=(True if screen_owner and uid == screen_owner else None),
+            )
+        )
 
     return RoomInfoOut(members=members)
 

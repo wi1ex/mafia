@@ -150,6 +150,7 @@ onBeforeUnmount(() => window.removeEventListener('resize', measureAndSetVars))
     left: 5px;
     top: 5px;
     padding: 5px 10px;
+    max-width: min-content;
     inline-size: var(--w-cur, 250px);
     block-size: var(--h-cur, 30px);
     border-radius: 5px;

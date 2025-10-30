@@ -248,6 +248,9 @@ async def screen(sid, data) -> ScreenAck:
                            {"user_id": target},
                            room=f"room:{rid}",
                            namespace="/room")
+            await sio.emit("rooms_stream",
+                           {"id": rid, "owner": target},
+                           namespace="/rooms")
             await r.set(f"room:{rid}:screen_started_at", str(int(time())), nx=True)
             return {"ok": True, "on": True}
 
@@ -261,6 +264,10 @@ async def screen(sid, data) -> ScreenAck:
                            {"user_id": None},
                            room=f"room:{rid}",
                            namespace="/room")
+            await sio.emit("rooms_stream",
+                           {"id": rid, "owner": None},
+                           namespace="/rooms")
+
         return {"ok": True, "on": False}
 
     except Exception:
@@ -323,6 +330,9 @@ async def moderate(sid, data) -> ModerateAck:
                                    {"user_id": None},
                                    room=f"room:{rid}",
                                    namespace="/room")
+                    await sio.emit("rooms_stream",
+                                   {"id": rid, "owner": None},
+                                   namespace="/rooms")
 
         if applied or forced_off:
             async with SessionLocal() as s:
@@ -439,6 +449,9 @@ async def disconnect(sid):
                            {"user_id": None},
                            room=f"room:{rid}",
                            namespace="/room")
+            await sio.emit("rooms_stream",
+                           {"id": rid, "owner": None},
+                           namespace="/rooms")
 
         was_member = await r.sismember(f"room:{rid}:members", str(uid))
         if was_member:

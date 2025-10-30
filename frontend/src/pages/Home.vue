@@ -55,12 +55,12 @@
 
         <div class="ri-members">
           <p class="ri-subtitle">Участники: {{ selectedRoom?.occupancy ?? 0 }}/{{ selectedRoom?.user_limit ?? 0 }}</p>
-          <div v-if="loadingInfo" class="muted"></div>
-          <div v-else-if="(info?.members?.length ?? 0) === 0" class="muted">Пока никого</div>
+          <div v-if="(info?.members?.length ?? 0) === 0" class="muted">Пока никого</div>
           <ul v-else class="ri-grid">
             <li class="ri-user" v-for="m in info!.members" :key="m.id">
               <img v-minio-img="{ key: m.avatar_name ? `avatars/${m.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="" />
               <p class="ri-u-name">{{ m.username || ('user' + m.id) }}</p>
+              <img v-if="m.screen" :src="iconScreenOn" alt="streaming" />
             </li>
           </ul>
         </div>
@@ -79,6 +79,7 @@ import { createPublicSocket } from '@/services/sio'
 import RoomModal from '@/components/RoomModal.vue'
 
 import defaultAvatar from "@/assets/svg/defaultAvatar.svg"
+import iconScreenOn from '@/assets/svg/screenOn.svg'
 
 type Room = {
   id: number
@@ -95,6 +96,7 @@ type RoomInfoMember = {
   id: number
   username?: string
   avatar_name?: string | null
+  screen?: boolean
 }
 type RoomMembers = { members: RoomInfoMember[] }
 type Access = 'approved'|'pending'|'none'
@@ -114,7 +116,6 @@ const infoTimers = new Map<number, number>()
 const infoInFlight = new Set<number>()
 const selectedId = ref<number | null>(null)
 const info = ref<RoomMembers | null>(null)
-const loadingInfo = ref(false)
 
 const openCreate = ref(false)
 const access = ref<Access>('approved')
@@ -169,14 +170,12 @@ async function onApply() {
 async function fetchRoomInfo(id: number) {
   if (infoInFlight.has(id)) return
   infoInFlight.add(id)
-  loadingInfo.value = true
   try {
     const { data } = await api.get<RoomMembers>(`/rooms/${id}/info`, { __skipAuth: true })
     info.value = data
   } catch {
     info.value = null
   } finally {
-    loadingInfo.value = false
     infoInFlight.delete(id)
   }
 }
@@ -273,6 +272,19 @@ function startWS() {
       }, 500)
       infoTimers.set(p.id, t)
     }
+  })
+
+  sio.value.on('rooms_stream', (p: { id: number; owner: number | null }) => {
+    if (selectedId.value !== p.id) return
+    const prev = infoTimers.get(p.id)
+    if (prev) window.clearTimeout(prev)
+    const roomId = p.id
+    const t = window.setTimeout(() => {
+      if (selectedId.value !== roomId) return
+      void fetchRoomInfo(roomId)
+      infoTimers.delete(roomId)
+    }, 300)
+    infoTimers.set(p.id, t)
   })
 }
 

@@ -16,6 +16,7 @@ class RoomInfoMemberOut(BaseModel):
     id: int
     username: Optional[str] = None
     avatar_name: Optional[str] = None
+    screen: Optional[bool] = None
 
 
 class RoomInfoOut(BaseModel):
