@@ -6,7 +6,7 @@
       <img v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar, lazy: false }" alt="" />
     </div>
 
-    <div class="user-card" :data-open="openPanel ? 1 : 0" @click.stop>
+    <div class="user-card" ref="cardEl" :data-open="openPanel ? 1 : 0" @click.stop>
       <button class="card-head" ref="headEl" :disabled="id === localId"
               :aria-disabled="id === localId" @click.stop="$emit('toggle-panel', id)" :aria-expanded="openPanel">
         <img v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar, lazy: false }" alt="" />
@@ -44,7 +44,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, nextTick, onMounted, onUpdated, ref, watch } from 'vue'
 
 import iconLeaveRoom from '@/assets/svg/leaveRoom.svg'
 
@@ -79,6 +79,27 @@ defineEmits<{
 
 const openPanel = computed(() => props.openPanelFor === props.id)
 const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked(props.id, 'cam'))
+
+const cardEl = ref<HTMLElement | null>(null)
+const headEl = ref<HTMLButtonElement | null>(null)
+
+function setClosedWidth() {
+  const head = headEl.value
+  const card = cardEl.value
+  if (!head || !card) return
+  const w = Math.min(Math.ceil(head.scrollWidth) + 1, 250)
+  card.style.setProperty('--w-closed', `${w}px`)
+}
+
+watch(openPanel, async () => {
+  await nextTick()
+  setClosedWidth()
+})
+onMounted(async () => {
+  await nextTick()
+  setClosedWidth()
+})
+onUpdated(() => setClosedWidth())
 </script>
 
 <style lang="scss" scoped>
@@ -120,8 +141,10 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
     left: 5px;
     top: 5px;
     padding: 5px 10px;
-    inline-size: fit-content(250px);
+    inline-size: var(--w-closed, auto);
     block-size: 30px;
+    max-inline-size: 250px;
+    will-change: inline-size, block-size;
     border-radius: 5px;
     backdrop-filter: blur(5px);
     background-color: rgba($dark, 0.75);
