@@ -6,7 +6,7 @@
       <img v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar, lazy: false }" alt="" />
     </div>
 
-    <div class="user-card" :data-open="openPanel ? 1 : 0" @click.stop>
+    <div class="user-card" ref="cardEl" @click.stop>
       <button class="card-head" ref="headEl" :disabled="id === localId"
               :aria-disabled="id === localId" @click.stop="$emit('toggle-panel', id)" :aria-expanded="openPanel">
         <img v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar, lazy: false }" alt="" />
@@ -44,11 +44,28 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, nextTick, onMounted, onBeforeUnmount, ref, watch } from 'vue'
 
 import iconLeaveRoom from '@/assets/svg/leaveRoom.svg'
 
 type IconKind = 'mic' | 'cam' | 'speakers' | 'visibility' | 'screen'
+
+const cardEl = ref<HTMLElement | null>(null)
+const headEl = ref<HTMLButtonElement | null>(null)
+
+function measureAndSetVars() {
+  const card = cardEl.value
+  const head = headEl.value
+  if (!card || !head) return
+
+  const opened = openPanel.value
+  const headW = Math.min(Math.ceil(head.scrollWidth) + 1, 250)
+  const targetW = opened ? 250 : headW
+  const targetH = opened ? 138 : 30
+
+  card.style.setProperty('--w-cur', `${targetW}px`)
+  card.style.setProperty('--h-cur', `${targetH}px`)
+}
 
 const props = withDefaults(defineProps<{
   id: string
@@ -79,6 +96,19 @@ defineEmits<{
 
 const openPanel = computed(() => props.openPanelFor === props.id)
 const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked(props.id, 'cam'))
+
+watch(openPanel, async () => {
+  await nextTick()
+  measureAndSetVars()
+})
+
+onMounted(async () => {
+  await nextTick()
+  measureAndSetVars()
+  window.addEventListener('resize', measureAndSetVars, { passive: true })
+})
+
+onBeforeUnmount(() => window.removeEventListener('resize', measureAndSetVars))
 </script>
 
 <style lang="scss" scoped>
@@ -120,24 +150,19 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
     left: 5px;
     top: 5px;
     padding: 5px 10px;
-    inline-size: fit-content(250px);
-    block-size: 30px;
+    inline-size: var(--w-cur, 250px);
+    block-size: var(--h-cur, 30px);
     border-radius: 5px;
     backdrop-filter: blur(5px);
     background-color: rgba($dark, 0.75);
     z-index: 5;
     transition: inline-size 0.25s ease-in-out, block-size 0.25s ease-in-out;
-    &[data-open="1"] {
-      inline-size: 250px;
-      block-size: 138px;
-    }
     .card-head {
       display: flex;
       align-items: center;
-      flex-wrap: nowrap;
       padding: 0;
       gap: 5px;
-      max-inline-size: 250px;
+      max-width: 100%;
       height: 30px;
       border: none;
       background: none;
@@ -152,8 +177,6 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
         object-fit: cover;
       }
       span {
-        flex: 1 1 auto;
-        min-width: 0;
         height: 18px;
         color: $fg;
         font-size: 16px;
@@ -164,7 +187,6 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
         text-overflow: ellipsis;
       }
       .status {
-        flex: 0 0 auto;
         display: flex;
         align-items: center;
         gap: 5px;
