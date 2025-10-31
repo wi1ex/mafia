@@ -154,15 +154,14 @@ onBeforeUnmount(() => {
 })
 </script>
 
-<style lang="scss" scoped>
+<style scoped lang="scss">
 .apps-panel {
   position: absolute;
   right: 0;
   bottom: 60px;
   z-index: 20;
   min-width: 300px;
-  max-width: 420px;
-  max-height: 60vh;
+  min-height: 300px;
   overflow: auto;
   background-color: #1e1e1e;
   border-radius: 8px;
@@ -217,15 +216,12 @@ onBeforeUnmount(() => {
     button {
       margin-left: auto;
       padding: 4px 8px;
-      background-color: $red;
+      background-color: $green;
       color: white;
       border: none;
       border-radius: 4px;
       cursor: pointer;
       font-size: 12px;
-      &:active {
-        background-color: rgba($red, 0.1);
-      }
     }
   }
   p {

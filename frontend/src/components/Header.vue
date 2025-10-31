@@ -108,7 +108,7 @@ onMounted(async () => {
 onBeforeUnmount(() => { delete (window as any).__tg_cb__ })
 </script>
 
-<style lang="scss" scoped>
+<style scoped lang="scss">
 .bar {
   display: flex;
   align-items: center;

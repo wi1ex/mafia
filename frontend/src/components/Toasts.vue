@@ -143,7 +143,7 @@ onMounted(() => {
 })
 </script>
 
-<style lang="scss" scoped>
+<style scoped lang="scss">
 .toasts {
   position: fixed;
   left: 10px;

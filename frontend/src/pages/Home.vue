@@ -5,7 +5,13 @@
         <button @click="openCreate = true">Создать комнату</button>
       </div>
 
-      <RoomModal v-if="openCreate" @close="openCreate=false" @created="onCreated" />
+      <Transition name="overlay">
+        <RoomModal
+          v-if="openCreate"
+          @close="openCreate=false"
+          @created="onCreated"
+        />
+      </Transition>
 
       <div v-if="sortedRooms.length === 0" class="muted">Пока пусто</div>
       <ul v-else class="list" ref="listEl">
@@ -328,7 +334,7 @@ onBeforeUnmount(() => {
 })
 </script>
 
-<style lang="scss" scoped>
+<style scoped lang="scss">
 .card {
   display: grid;
   grid-template-columns: 1fr 400px;

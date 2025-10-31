@@ -31,7 +31,7 @@ import iconClose from '@/assets/svg/close.svg'
 const props = defineProps<{
   open: boolean
 }>()
-defineEmits<{
+const emit = defineEmits<{
   'update:open': [boolean]
 }>()
 
@@ -110,9 +110,7 @@ function unbindDoc() {
   onDocDown = null
 }
 
-function emitClose() {
-  ;(getCurrentInstance()!.emit as any)('update:open', false)
-}
+function emitClose() { emit('update:open', false) }
 
 watch(() => notif.items.length, async () => {
   if (!props.open) return

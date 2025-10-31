@@ -102,7 +102,7 @@ onMounted(async () => {
 onUpdated(() => setClosedWidth())
 </script>
 
-<style lang="scss" scoped>
+<style scoped lang="scss">
 .tile {
   position: relative;
   min-width: 0;

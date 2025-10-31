@@ -283,7 +283,7 @@ onBeforeUnmount(() => {
 })
 </script>
 
-<style lang="scss" scoped>
+<style scoped lang="scss">
 .profile {
   &.card {
     padding: 12px 16px;

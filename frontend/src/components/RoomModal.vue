@@ -86,7 +86,7 @@ onMounted(() => {
 })
 </script>
 
-<style lang="scss" scoped>
+<style scoped lang="scss">
 .overlay {
   position: fixed;
   inset: 0;
@@ -113,5 +113,22 @@ onMounted(() => {
 .privacy {
   display: flex;
   gap: 12px;
+}
+
+.overlay-enter-active,
+.overlay-leave-active {
+  transition: opacity 0.18s ease;
+}
+.overlay-enter-from,
+.overlay-leave-to {
+  opacity: 0;
+}
+.modal {
+  transform: translateY(8px);
+  transition: transform 0.18s ease;
+}
+.overlay-enter-from .modal,
+.overlay-leave-to .modal {
+  transform: translateY(16px);
 }
 </style>

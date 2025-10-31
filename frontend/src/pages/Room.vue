@@ -856,7 +856,7 @@ onBeforeUnmount(() => {
 })
 </script>
 
-<style lang="scss" scoped>
+<style scoped lang="scss">
 .room {
   display: flex;
   position: relative;
