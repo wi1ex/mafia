@@ -417,12 +417,12 @@ onBeforeUnmount(() => {
               padding: 0 6px;
               border-radius: 4px;
               font-size: 12px;
-              background: $graphite;
+              background-color: $graphite;
               &[data-kind="priv"] {
-                background: rgba(239, 68, 68, 0.25);
+                background-color: rgba(239, 68, 68, 0.25);
               }
               &[data-kind="open"] {
-                background: rgba(34, 197, 94, 0.25);
+                background-color: rgba(34, 197, 94, 0.25);
               }
             }
           }

@@ -43,6 +43,7 @@ export type UseRTC = {
   selectedCamId: Ref<string>
   remoteQuality: Ref<VQ>
   videoRef: (id: string) => (el: HTMLVideoElement | null) => void
+  reconnecting: Ref<boolean>
   screenVideoRef: (id: string) => (el: HTMLVideoElement | null) => void
   prepareScreenShare: (opts?: { audio?: boolean }) => Promise<boolean>
   publishPreparedScreen: () => Promise<boolean>
@@ -103,6 +104,7 @@ export function useRTC(): UseRTC {
   const hasVideoInput = ref(false)
   const activeSpeakers = ref<Set<string>>(new Set())
   const audibleIds = ref<Set<string>>(new Set())
+  const reconnecting = ref<boolean>(false)
 
   const screenKey = (id: string) => `${id}#s`
   const isScreenKey = (key: string) => key.endsWith('#s')
@@ -724,6 +726,7 @@ export function useRTC(): UseRTC {
     publishDefaults?: ConstructorParameters<typeof LkRoom>[0]['publishDefaults']
     audioCaptureDefaults?: ConstructorParameters<typeof LkRoom>[0]['audioCaptureDefaults']
     videoCaptureDefaults?: ConstructorParameters<typeof LkRoom>[0]['videoCaptureDefaults']
+    onDisconnected?: () => void | Promise<void>
   }): LkRoom {
     if (lk.value) return lk.value
     const room = new LkRoom({
@@ -751,7 +754,19 @@ export function useRTC(): UseRTC {
     })
     lk.value = room
 
-    room.on(RoomEvent.Disconnected, cleanupMedia)
+    room.on(RoomEvent.Reconnecting, () => { reconnecting.value = true })
+
+    room.on(RoomEvent.Reconnected, () => {
+      reconnecting.value = false
+      refreshAudibleIds()
+      void resumeAudio()
+    })
+
+    room.on(RoomEvent.Disconnected, () => {
+      reconnecting.value = false
+      cleanupMedia()
+      try { opts?.onDisconnected?.() } catch {}
+    })
 
     room.on(RoomEvent.LocalTrackPublished, (pub: LocalTrackPublication) => {
       if (pub.kind === Track.Kind.Video && pub.source === Track.Source.ScreenShare) {
@@ -886,6 +901,7 @@ export function useRTC(): UseRTC {
   }
 
   async function disconnect() {
+    reconnecting.value = false
     try {
       const pubs = lk.value?.localParticipant.getTrackPublications() ?? []
       for (const p of pubs) { try { p.track?.stop() } catch {} }
@@ -915,6 +931,7 @@ export function useRTC(): UseRTC {
     hasVideoInput,
     screenVideoRef,
     videoRef,
+    reconnecting,
 
     initRoom,
     connect,

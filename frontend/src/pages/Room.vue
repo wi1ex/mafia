@@ -1,5 +1,8 @@
 <template>
   <section class="room">
+    <div v-if="isReconnecting" class="reconnect-overlay" aria-live="polite">
+      Восстанавливаем соединение…
+    </div>
     <div v-if="!isTheater" class="grid" :style="gridStyle">
       <RoomTile
         v-for="id in sortedPeerIds"
@@ -98,11 +101,8 @@
       </div>
 
       <div class="controls-side right">
-        <button v-if="myRole === 'host' && isPrivate" @click="openApps=!openApps">
-          Заявки
-          <span class="apps-count" :data-unread="appsCounts.unread > 0 ? 1 : 0">
-            ({{ appsCounts.total }})
-          </span>
+        <button v-if="myRole === 'host' && isPrivate" @click.stop="toggleApps" :aria-expanded="openApps" aria-label="Заявки">
+          <img :src="appsCounts.unread > 0 ? iconRequestsRoomNew : iconRequestsRoom" alt="requests" />
         </button>
         <button @click.stop="toggleSettings" :aria-expanded="settingsOpen" aria-label="Настройки устройств">
           <img :src="iconSettings" alt="settings" />
@@ -118,6 +118,7 @@
         v-model:vq="videoQuality"
         :vq-disabled="pendingQuality"
         @device-change="(kind) => rtc.onDeviceChange(kind)"
+        @close="settingsOpen=false"
       />
     </div>
 
@@ -145,6 +146,8 @@ import RoomRequests from '@/components/RoomRequests.vue'
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
 import iconLeaveRoom from '@/assets/svg/leaveRoom.svg'
 import iconSettings from '@/assets/svg/settings.svg'
+import iconRequestsRoom from '@/assets/svg/requestsRoom.svg'
+import iconRequestsRoomNew from '@/assets/svg/requestsRoomNew.svg'
 import iconVolumeMax from '@/assets/svg/volumeMax.svg'
 import iconVolumeMid from '@/assets/svg/volumeMid.svg'
 import iconVolumeLow from '@/assets/svg/volumeLow.svg'
@@ -208,6 +211,9 @@ const pendingScreen = ref(false)
 const pendingQuality = ref(false)
 const settingsOpen = ref(false)
 const leaving = ref(false)
+const netReconnecting = ref(false)
+const lkReconnecting = computed(() => rtc.reconnecting.value)
+const isReconnecting = computed(() => netReconnecting.value || lkReconnecting.value)
 const openApps = ref(false)
 const appsCounts = reactive({ total: 0, unread: 0 })
 const isPrivate = ref(false)
@@ -273,8 +279,14 @@ function toggleSettings() {
   settingsOpen.value = next
   if (next) {
     openPanelFor.value = ''
+    openApps.value = false
     void rtc.refreshDevices().catch(() => {})
   }
+}
+function toggleApps() {
+  const next = !openApps.value
+  openApps.value = next
+  if (next) settingsOpen.value = false
 }
 function volumeIcon(val: number, enabled: boolean) {
   if (!enabled) return iconVolumeMute
@@ -341,6 +353,7 @@ function onVol(id: string, v: number) {
 function onDocClick() {
   openPanelFor.value = ''
   settingsOpen.value = false
+  openApps.value = false
   void rtc.resumeAudio()
 }
 
@@ -447,11 +460,29 @@ function connectSocket() {
     reconnectionDelayMax: 5000,
   })
 
+  try {
+    socket.value?.io.on('reconnect_attempt', () => { netReconnecting.value = true })
+    socket.value?.io.on('reconnect_error',   () => { netReconnecting.value = true })
+    socket.value?.io.on('reconnect_failed',  () => { netReconnecting.value = true })
+  } catch {}
+
   socket.value?.on('connect', async () => {
+    netReconnecting.value = false
     if (joinInFlight.value || joinedRoomId.value === rid) return
     try {
       const j:any = await safeJoin()
-      if (j?.ok) applyJoinAck(j)
+      if (j?.ok) {
+        applyJoinAck(j)
+        const room = rtc.lk.value as any
+        const st = room?.state ?? room?.connectionState
+        const lkConnected = !!room && st === 'connected'
+        const lkReconn    = !!room && st === 'reconnecting'
+        if (!lkConnected && !lkReconn) {
+          await rtc.connect(ws_url, j.token, { autoSubscribe: false })
+          rtc.setAudioSubscriptionsForAll(local.speakers)
+          rtc.setVideoSubscriptionsForAll(local.visibility)
+        }
+      }
     } catch {}
     if (pendingDeltas.length) {
       const merged = Object.assign({}, ...pendingDeltas.splice(0))
@@ -461,6 +492,7 @@ function connectSocket() {
   })
 
   socket.value?.on('disconnect', () => {
+    if (!leaving.value) netReconnecting.value = true
     joinedRoomId.value = null
     openPanelFor.value = ''
   })
@@ -766,14 +798,27 @@ onMounted(async () => {
     applyJoinAck(j)
     isPrivate.value = (j?.privacy || j?.room?.privacy) === 'private'
 
-    rtc.initRoom({
+    const bindLK = () => rtc.initRoom({
       onScreenShareEnded: async () => {
         if (isMyScreen.value) {
           screenOwnerId.value = ''
           try { await sendAck('screen', { on: false }) } catch {}
         }
       },
+      onDisconnected: async () => {
+        if (leaving.value) return
+        try {
+          const j:any = await safeJoin()
+          if (j?.ok) {
+            bindLK()
+            await rtc.connect(ws_url, j.token, { autoSubscribe: false })
+            rtc.setAudioSubscriptionsForAll(local.speakers)
+            rtc.setVideoSubscriptionsForAll(local.visibility)
+          }
+        } catch {}
+      },
     })
+    bindLK()
 
     await rtc.connect(ws_url, j.token, { autoSubscribe: false })
     rtc.setAudioSubscriptionsForAll(local.speakers)
@@ -912,12 +957,6 @@ onBeforeUnmount(() => {
         width: 30px;
         height: 30px;
       }
-      .apps-count {
-        margin-left: 4px;
-        &[data-unread="1"] {
-          color: $red;
-        }
-      }
     }
     .controls-side {
       display: flex;
@@ -939,5 +978,18 @@ onBeforeUnmount(() => {
       gap: 10px;
     }
   }
+}
+.reconnect-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(0, 0, 0, 0.5);
+  color: $fg;
+  font-family: Manrope-Medium;
+  font-size: 16px;
+  z-index: 1000;
+  pointer-events: none;
 }
 </style>

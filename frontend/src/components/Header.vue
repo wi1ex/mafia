@@ -12,6 +12,8 @@
     <div v-else class="user">
       <div class="bell" ref="nb_root">
         <button @click="nb_open=!nb_open" aria-label="Уведомления">
+          iconNotifBellNew
+          <img :src="appsCounts.unread > 0 ? iconRequestsRoomNew : iconRequestsRoom" alt="requests" />
           🔔 <span v-if="notif.unread>0" class="cnt">{{ notif.unread }}</span>
         </button>
         <div v-if="nb_open" class="panel" ref="nb_panel">
@@ -43,6 +45,8 @@ import { onMounted, onBeforeUnmount, watch, nextTick, ref } from 'vue'
 import { useAuthStore, useUserStore, useNotifStore } from '@/store'
 
 import defaultAvatar from "@/assets/svg/defaultAvatar.svg"
+import iconNotifBell from "@/assets/svg/notifBell.svg"
+import iconNotifBellNew from "@/assets/svg/notifBellNew.svg"
 
 const auth = useAuthStore()
 const user = useUserStore()
@@ -243,7 +247,7 @@ onBeforeUnmount(() => {
         font-size: 16px;
         cursor: pointer;
         .cnt {
-          background: #e33;
+          background-color: #e33;
           color: #fff;
           border-radius: 10px;
           padding: 3px 6px;
@@ -257,7 +261,7 @@ onBeforeUnmount(() => {
         width: 360px;
         max-height: 420px;
         overflow: auto;
-        background: #1e1e1e;
+        background-color: #1e1e1e;
         border-radius: 8px;
         padding: 8px;
         z-index: 100;

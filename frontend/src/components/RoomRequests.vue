@@ -1,7 +1,12 @@
 <template>
-  <div v-if="open" class="apps-overlay" @click.self="$emit('update:open', false)">
-    <div class="apps-panel">
-      <header><span>Заявки</span><button @click="$emit('update:open', false)">✕</button></header>
+  <Transition name="panel">
+    <div v-show="open" class="apps-panel" @click.stop>
+      <header>
+        <span>Заявки</span>
+        <button @click="$emit('update:open', false)" aria-label="Закрыть">
+          <img :src="iconClose" alt="close" />
+        </button>
+      </header>
       <ul v-if="apps.length" class="apps-list">
         <li v-for="u in apps" :key="u.id">
           <img v-minio-img="{ key: u.avatar_name ? `avatars/${u.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="" />
@@ -11,7 +16,7 @@
       </ul>
       <p v-else>Нет заявок</p>
     </div>
-  </div>
+  </Transition>
 </template>
 
 <script setup lang="ts">
@@ -19,6 +24,7 @@ import { ref, watch, onMounted, onBeforeUnmount, computed } from 'vue'
 import { api } from '@/services/axios'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
+import iconClose from '@/assets/svg/close.svg'
 
 const props = defineProps<{
   open: boolean
@@ -127,7 +133,6 @@ watch(() => props.roomId, async () => {
 })
 
 onMounted(() => {
-  void load()
   window.addEventListener('auth-room_invite', onInvite)
   window.addEventListener('auth-room_app_approved', onApproved)
   window.addEventListener('room-app-seen', onSeen)
@@ -141,49 +146,95 @@ onBeforeUnmount(() => {
 </script>
 
 <style lang="scss" scoped>
-.apps-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 3000;
-  .apps-panel {
-    min-width: 300px;
-    max-width: 420px;
-    max-height: 60vh;
-    overflow: auto;
-    background: #1e1e1e;
-    border-radius: 8px;
-    padding: 10px;
-    header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 8px;
+.apps-panel {
+  position: absolute;
+  right: 0;
+  bottom: 60px;
+  z-index: 20;
+  min-width: 300px;
+  max-width: 420px;
+  max-height: 60vh;
+  overflow: auto;
+  background-color: #1e1e1e;
+  border-radius: 8px;
+  padding: 10px;
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    span {
+      color: $fg;
+      font-weight: bold;
     }
-    .apps-list {
-      list-style: none;
-      margin: 0;
+    button {
+      background: none;
+      border: none;
+      color: $fg;
+      cursor: pointer;
+      font-size: 18px;
       padding: 0;
+      width: 24px;
+      height: 24px;
       display: flex;
-      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+  }
+  .apps-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    li {
+      display: flex;
+      align-items: center;
       gap: 8px;
-      li {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-      }
-      img {
-        width: 24px;
-        height: 24px;
-        border-radius: 50%;
-      }
-      button {
-        margin-left: auto;
+      padding: 8px;
+      border-radius: 4px;
+      background-color: rgba(255, 255, 255, 0.05);
+    }
+    img {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+    }
+    span {
+      color: $fg;
+      flex: 1;
+    }
+    button {
+      margin-left: auto;
+      padding: 4px 8px;
+      background-color: $red;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      &:active {
+        background-color: darken($red, 10%);
       }
     }
   }
+  p {
+    color: $grey;
+    text-align: center;
+    margin: 0;
+    padding: 16px 0;
+  }
 }
+
+.panel-enter-active,
+.panel-leave-active {
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+.panel-enter-from,
+.panel-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
 </style>

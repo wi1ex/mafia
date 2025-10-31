@@ -1,31 +1,38 @@
 <template>
-  <div v-show="open" class="settings" aria-label="Настройки устройств" @click.stop>
-    <div class="quality">
-      <span>Качество видео</span>
-      <div class="quality-toggle">
-        <span :data-active="vq==='sd' ? 1 : 0">SD</span>
-        <input type="range" min="0" max="1" step="1" :value="vq==='hd' ? 1 : 0" :disabled="vqDisabled" @input="onVQInput" aria-label="Качество видео" />
-        <span :data-active="vq==='hd' ? 1 : 0">HD</span>
+  <Transition name="panel">
+    <div v-show="open" class="settings" aria-label="Настройки устройств" @click.stop>
+      <button class="close" @click="$emit('close')" aria-label="Закрыть">
+        <img :src="iconClose" alt="close" />
+      </button>
+      <div class="quality">
+        <span>Качество видео</span>
+        <div class="quality-toggle">
+          <span :data-active="vq==='sd' ? 1 : 0">SD</span>
+          <input type="range" min="0" max="1" step="1" :value="vq==='hd' ? 1 : 0" :disabled="vqDisabled" @input="onVQInput" aria-label="Качество видео" />
+          <span :data-active="vq==='hd' ? 1 : 0">HD</span>
+        </div>
       </div>
-    </div>
 
-    <label>
-      <span>Микрофон</span>
-      <select :value="micId" @change="onChange('audioinput', $event)" :disabled="mics.length===0">
-        <option v-for="d in mics" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Микрофон не обнаружен' }}</option>
-      </select>
-    </label>
-    <label>
-      <span>Камера</span>
-      <select :value="camId" @change="onChange('videoinput', $event)" :disabled="cams.length===0">
-        <option v-for="d in cams" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Камера не обнаружена' }}</option>
-      </select>
-    </label>
-  </div>
+      <label>
+        <span>Микрофон</span>
+        <select :value="micId" @change="onChange('audioinput', $event)" :disabled="mics.length===0">
+          <option v-for="d in mics" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Микрофон не обнаружен' }}</option>
+        </select>
+      </label>
+      <label>
+        <span>Камера</span>
+        <select :value="camId" @change="onChange('videoinput', $event)" :disabled="cams.length===0">
+          <option v-for="d in cams" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Камера не обнаружена' }}</option>
+        </select>
+      </label>
+    </div>
+  </Transition>
 </template>
 
 <script setup lang="ts">
 import type { VQ } from '@/services/rtc'
+
+import iconClose from '@/assets/svg/close.svg'
 
 type Dev = {
   deviceId: string
@@ -46,6 +53,7 @@ const emit = defineEmits<{
   'update:camId': [string]
   'update:vq': [VQ]
   'device-change': ['audioinput' | 'videoinput']
+  'close': []
 }>()
 
 function onVQInput(e: Event) {
@@ -74,6 +82,18 @@ function onChange(kind: 'audioinput'|'videoinput', e: Event) {
   border-radius: 5px;
   background-color: $dark;
   z-index: 20;
+  .close {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 24px;
+    height: 24px;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: $fg;
+    cursor: pointer;
+  }
   .quality {
     display: flex;
     align-items: center;
@@ -122,4 +142,14 @@ function onChange(kind: 'audioinput'|'videoinput', e: Event) {
     }
   }
 }
+
+.panel-enter-active,
+.panel-leave-active {
+  transition: opacity 0.18s ease, transform 0.18s ease; }
+.panel-enter-from,
+.panel-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
 </style>

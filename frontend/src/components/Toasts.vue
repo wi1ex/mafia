@@ -8,14 +8,20 @@
 
       <div v-if="t.user" class="user">
         <img v-minio-img="{ key: t.user.avatar_name ? `avatars/${t.user.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="" />
-        <span class="user-name">{{ t.user.username || ('user' + t.user.id) }}</span>
+        <span class="user-name">
+          {{ t.user.username || ('user' + t.user.id) }}
+        </span>
       </div>
 
       <p class="text">{{ t.text }}</p>
 
       <div class="actions">
-        <button v-if="t.action" @click="run(t)">{{ t.action.label }}</button>
-        <button class="close" @click="closeManual(t)">✕</button>
+        <button v-if="t.action" @click="run(t)">
+          {{ t.action.label }}
+        </button>
+        <button class="close" @click="closeManual(t)">
+          <img :src="iconClose" alt="close" />
+        </button>
       </div>
     </div>
   </div>
@@ -28,6 +34,7 @@ import { useNotifStore } from '@/store/modules/notif'
 import { api } from '@/services/axios'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
+import iconClose from '@/assets/svg/close.svg'
 
 const router = useRouter()
 const notif = useNotifStore()
@@ -139,7 +146,7 @@ onMounted(() => {
 <style lang="scss" scoped>
 .toasts {
   position: fixed;
-  right: 10px;
+  left: 10px;
   bottom: 10px;
   display: flex;
   flex-direction: column;
@@ -149,7 +156,7 @@ onMounted(() => {
 .toast {
   min-width: 280px;
   max-width: 420px;
-  background: #2a2a2a;
+  background-color: #2a2a2a;
   color: #fff;
   border-radius: 6px;
   padding: 10px 12px;
@@ -200,7 +207,7 @@ onMounted(() => {
   justify-content: flex-end;
 }
 .actions > button {
-  background: #444;
+  background-color: #444;
   color: #fff;
   border: none;
   border-radius: 4px;
@@ -208,6 +215,6 @@ onMounted(() => {
   cursor: pointer;
 }
 .actions > .close {
-  background: #555;
+  background-color: #555;
 }
 </style>

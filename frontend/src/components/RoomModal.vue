@@ -1,6 +1,11 @@
 <template>
   <div class="overlay" @click.self="$emit('close')">
     <div class="modal">
+      <div class="actions">
+        <button @click="$emit('close')">
+          <img :src="iconClose" alt="close" />
+        </button>
+      </div>
       <h3>Новая комната</h3>
       <input v-model.trim="title" placeholder="Название" maxlength="32" />
       <label>Лимит: {{ limit }}</label>
@@ -11,7 +16,6 @@
       </div>
       <div class="actions">
         <button :disabled="busy || !ok" @click="create">Создать</button>
-        <button @click="$emit('close')">Отмена</button>
       </div>
     </div>
   </div>
@@ -21,6 +25,8 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { api } from '@/services/axios'
 import { useUserStore } from '@/store'
+
+import iconClose from '@/assets/svg/close.svg'
 
 const user = useUserStore()
 
@@ -84,14 +90,14 @@ onMounted(() => {
 .overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background-color: rgba(0, 0, 0, 0.6);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
 }
 .modal {
-  background: #1e1e1e;
+  background-color: #1e1e1e;
   padding: 16px;
   border-radius: 8px;
   min-width: 320px;
