@@ -30,6 +30,7 @@ import iconClose from '@/assets/svg/close.svg'
 
 const props = defineProps<{
   open: boolean
+  anchor?: HTMLElement | null
 }>()
 const emit = defineEmits<{
   'update:open': [boolean]
@@ -101,7 +102,9 @@ function bindDoc() {
   onDocDown = (e: Event) => {
     const t = e.target as Node | null
     if (!t) return
-    if (!root.value?.contains(t)) emitClose()
+    if (root.value?.contains(t)) return
+    if (props.anchor && props.anchor.contains(t)) return
+    emitClose()
   }
   document.addEventListener('pointerdown', onDocDown, true)
 }
@@ -111,6 +114,13 @@ function unbindDoc() {
 }
 
 function emitClose() { emit('update:open', false) }
+
+function onAfterLeave() {
+  try { obs?.disconnect() } catch {}
+  unbindScroll()
+  unbindResize()
+  unbindDoc()
+}
 
 watch(() => notif.items.length, async () => {
   if (!props.open) return
@@ -134,12 +144,6 @@ watch(() => props.open, async v => {
     unbindDoc()
   }
 })
-
-function onAfterLeave() {
-  try { obs?.disconnect() } catch {}
-  unbindScroll()
-  unbindResize()
-}
 
 onBeforeUnmount(() => {
   try { obs?.disconnect() } catch {}

@@ -10,13 +10,14 @@
     </div>
 
     <div v-else class="user">
-      <div class="bell">
-        <button @click="nb_open = !nb_open" aria-label="Уведомления">
+      <div class="bell" ref="bellEl">
+        <button @click.stop="onToggleNotifs" :aria-expanded="nb_open" aria-label="Уведомления">
           <img :src="notif.unread > 0 ? iconNotifBellNew : iconNotifBell" alt="requests" />
         </button>
 
         <Notifs
           v-model:open="nb_open"
+          :anchor="bellEl"
         />
       </div>
 
@@ -44,6 +45,12 @@ const user = useUserStore()
 const notif = useNotifStore()
 
 const nb_open = ref(false)
+const bellEl = ref<HTMLElement | null>(null)
+
+function onToggleNotifs() {
+  nb_open.value = !nb_open.value
+}
+
 const BOT = import.meta.env.VITE_TG_BOT_NAME as string || ''
 const BUILD = import.meta.env.VITE_BUILD_ID as string || ''
 const SIZE: 'large' | 'medium' | 'small' = 'large'

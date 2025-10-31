@@ -22,7 +22,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { api } from '@/services/axios'
 import { useUserStore } from '@/store'
 
@@ -83,6 +83,14 @@ watch(privacy, v => { try { localStorage.setItem('room:lastPrivacy', v) } catch 
 
 onMounted(() => {
   if (!title.value) title.value = defaultTitle()
+  const prev = document.documentElement.style.overflow
+  document.documentElement.style.overflow = 'hidden'
+  ;(onMounted as any).__prevOverflow = prev
+})
+
+onBeforeUnmount(() => {
+  const prev = (onMounted as any).__prevOverflow as string | undefined
+  document.documentElement.style.overflow = prev ?? ''
 })
 </script>
 

@@ -217,7 +217,7 @@ onBeforeUnmount(() => {
       margin-left: auto;
       padding: 4px 8px;
       background-color: $green;
-      color: white;
+      color: $bg;
       border: none;
       border-radius: 4px;
       cursor: pointer;
