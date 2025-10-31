@@ -103,6 +103,7 @@
       <div class="controls-side right">
         <button v-if="myRole === 'host' && isPrivate" @click.stop="toggleApps" :aria-expanded="openApps" aria-label="Заявки">
           <img :src="appsCounts.unread > 0 ? iconRequestsRoomNew : iconRequestsRoom" alt="requests" />
+<!--          {{ appsCounts.total }}-->
         </button>
         <button @click.stop="toggleSettings" :aria-expanded="settingsOpen" aria-label="Настройки устройств">
           <img :src="iconSettings" alt="settings" />
@@ -120,14 +121,14 @@
         @device-change="(kind) => rtc.onDeviceChange(kind)"
         @close="settingsOpen=false"
       />
-    </div>
 
-    <RoomRequests
-      v-if="myRole === 'host' && isPrivate"
-      v-model:open="openApps"
-      :room-id="rid"
-      @counts="(p) => { appsCounts.total = p.total; appsCounts.unread = p.unread }"
-    />
+      <RoomRequests
+        v-if="myRole === 'host' && isPrivate"
+        v-model:open="openApps"
+        :room-id="rid"
+        @counts="(p) => { appsCounts.total = p.total; appsCounts.unread = p.unread }"
+      />
+    </div>
   </section>
 </template>
 

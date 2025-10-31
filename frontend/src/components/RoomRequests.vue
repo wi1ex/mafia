@@ -1,5 +1,5 @@
 <template>
-  <Transition name="panel">
+  <Transition name="panel" @after-leave="onAfterLeave">
     <div v-show="open" class="apps-panel" @click.stop>
       <header>
         <span>Заявки</span>
@@ -14,7 +14,7 @@
           <button @click="approve(u.id)">Разрешить вход</button>
         </li>
       </ul>
-      <p v-else>Нет заявок</p>
+      <p v-else-if="showEmpty">Нет заявок</p>
     </div>
   </Transition>
 </template>
@@ -37,6 +37,8 @@ const emit = defineEmits<{
 
 const apps = ref<{id: number; username?: string; avatar_name?: string|null}[]>([])
 const seenKey = computed(() => `room:${props.roomId}:apps_seen`)
+const isLoading = ref(false)
+const showEmpty = computed(() => !isLoading.value && apps.value.length === 0)
 let inFlight = false
 
 function loadSeen(): Set<number> {
@@ -49,7 +51,7 @@ function saveSeen(ids: number[]) {
 
 let seen = loadSeen()
 function recomputeCounts() {
-  const ids = apps.value.map(x=>x.id)
+  const ids = apps.value.map(x => x.id)
   const total = ids.length
   const unread = ids.filter(id => !seen.has(id)).length
   emit('counts', { total, unread })
@@ -58,13 +60,17 @@ function recomputeCounts() {
 async function load() {
   if (inFlight) return
   inFlight = true
+  isLoading.value = true
   try {
     const { data } = await api.get(`/rooms/${props.roomId}/requests`)
     apps.value = data
-    recomputeCounts()
   }
-  catch { recomputeCounts() }
-  finally { inFlight = false }
+  catch {}
+  finally {
+    recomputeCounts()
+    inFlight = false
+    isLoading.value = false
+  }
 }
 
 async function approve(uid: number) {
@@ -116,15 +122,18 @@ function onApproved(e: any) {
   }
 }
 
+function onAfterLeave() {
+  apps.value = []
+  isLoading.value = false
+}
+
 watch(() => props.open, async on => {
   if (on) {
     await load()
     seen = new Set(apps.value.map(x => x.id))
     saveSeen([...seen])
     recomputeCounts()
-  } else {
-    apps.value = []
-  }
+  } else {}
 })
 
 watch(() => props.roomId, async () => {
@@ -215,7 +224,7 @@ onBeforeUnmount(() => {
       cursor: pointer;
       font-size: 12px;
       &:active {
-        background-color: darken($red, 10%);
+        background-color: rgba($red, 0.1);
       }
     }
   }
@@ -236,5 +245,4 @@ onBeforeUnmount(() => {
   opacity: 0;
   transform: translateY(8px);
 }
-
 </style>

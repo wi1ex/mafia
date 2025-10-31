@@ -1,9 +1,12 @@
 <template>
   <Transition name="panel">
     <div v-show="open" class="settings" aria-label="Настройки устройств" @click.stop>
-      <button class="close" @click="$emit('close')" aria-label="Закрыть">
-        <img :src="iconClose" alt="close" />
-      </button>
+      <header>
+        <span>Настройки</span>
+        <button @click="$emit('close')" aria-label="Закрыть">
+          <img :src="iconClose" alt="close" />
+        </button>
+      </header>
       <div class="quality">
         <span>Качество видео</span>
         <div class="quality-toggle">
@@ -82,17 +85,28 @@ function onChange(kind: 'audioinput'|'videoinput', e: Event) {
   border-radius: 5px;
   background-color: $dark;
   z-index: 20;
-  .close {
-    position: absolute;
-    top: 6px;
-    right: 6px;
-    width: 24px;
-    height: 24px;
-    border: 0;
-    border-radius: 4px;
-    background: transparent;
-    color: $fg;
-    cursor: pointer;
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    span {
+      color: $fg;
+      font-weight: bold;
+    }
+    button {
+      background: none;
+      border: none;
+      color: $fg;
+      cursor: pointer;
+      font-size: 18px;
+      padding: 0;
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
   }
   .quality {
     display: flex;
@@ -151,5 +165,4 @@ function onChange(kind: 'audioinput'|'videoinput', e: Event) {
   opacity: 0;
   transform: translateY(8px);
 }
-
 </style>
