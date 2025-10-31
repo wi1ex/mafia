@@ -270,24 +270,31 @@ function stateIcon(kind: IconKind, id: string) {
   if (isBlocked(id, kind)) return STATE_ICONS[kind].blk
   return isOn(id, kind) ? STATE_ICONS[kind].on : STATE_ICONS[kind].off
 }
+function closePanels(except?: 'card'|'apps'|'settings') {
+  if (except !== 'card') openPanelFor.value = ''
+  if (except !== 'apps') openApps.value = false
+  if (except !== 'settings') settingsOpen.value = false
+}
 const toggleTilePanel = (id: string) => {
   if (id === localId.value) return
-  settingsOpen.value = false
-  openPanelFor.value = openPanelFor.value === id ? '' : id
+  const next = openPanelFor.value === id ? '' : id
+  closePanels('card')
+  openPanelFor.value = next
 }
 function toggleSettings() {
   const next = !settingsOpen.value
+  closePanels('settings')
   settingsOpen.value = next
-  if (next) {
-    openPanelFor.value = ''
-    openApps.value = false
-    void rtc.refreshDevices().catch(() => {})
-  }
+  if (next) void rtc.refreshDevices().catch(() => {})
 }
 function toggleApps() {
   const next = !openApps.value
+  closePanels('apps')
   openApps.value = next
-  if (next) settingsOpen.value = false
+}
+function onDocClick() {
+  closePanels()
+  void rtc.resumeAudio()
 }
 function volumeIcon(val: number, enabled: boolean) {
   if (!enabled) return iconVolumeMute
@@ -349,12 +356,6 @@ function norm01(v: unknown, fallback: 0 | 1): 0 | 1 {
 function onVol(id: string, v: number) {
   volUi[id] = v
   rtc.setUserVolume(id, v)
-  void rtc.resumeAudio()
-}
-function onDocClick() {
-  openPanelFor.value = ''
-  settingsOpen.value = false
-  openApps.value = false
   void rtc.resumeAudio()
 }
 
