@@ -11,10 +11,8 @@
 
     <div v-else class="user">
       <div class="bell" ref="nb_root">
-        <button @click="nb_open=!nb_open" aria-label="Уведомления">
-          iconNotifBellNew
-          <img :src="appsCounts.unread > 0 ? iconRequestsRoomNew : iconRequestsRoom" alt="requests" />
-          🔔 <span v-if="notif.unread>0" class="cnt">{{ notif.unread }}</span>
+        <button @click="nb_open = !nb_open" aria-label="Уведомления">
+          <img :src="notif.unread > 0 ? iconNotifBellNew : iconNotifBell" alt="requests" />
         </button>
         <div v-if="nb_open" class="panel" ref="nb_panel">
           <div class="head">
@@ -246,13 +244,6 @@ onBeforeUnmount(() => {
         background-color: $dark;
         font-size: 16px;
         cursor: pointer;
-        .cnt {
-          background-color: #e33;
-          color: #fff;
-          border-radius: 10px;
-          padding: 3px 6px;
-          font-size: 12px;
-        }
       }
       .panel {
         position: absolute;
