@@ -102,8 +102,10 @@
 
       <div class="controls-side right">
         <button v-if="myRole === 'host' && isPrivate" @click.stop="toggleApps" :aria-expanded="openApps" aria-label="Заявки">
-          <img :src="appsCounts.unread > 0 ? iconRequestsRoomNew : iconRequestsRoom" alt="requests" />
-<!--          {{ appsCounts.total }}-->
+          <img :src="iconRequestsRoom" alt="requests" />
+          <span class="count-total" :class="{ unread: appsCounts.unread > 0 }">
+            {{ appsCounts.total < 100 ? appsCounts.total : '∞' }}
+          </span>
         </button>
         <button @click.stop="toggleSettings" :aria-expanded="settingsOpen" aria-label="Настройки устройств">
           <img :src="iconSettings" alt="settings" />
@@ -148,7 +150,6 @@ import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
 import iconLeaveRoom from '@/assets/svg/leaveRoom.svg'
 import iconSettings from '@/assets/svg/settings.svg'
 import iconRequestsRoom from '@/assets/svg/requestsRoom.svg'
-import iconRequestsRoomNew from '@/assets/svg/requestsRoomNew.svg'
 import iconVolumeMax from '@/assets/svg/volumeMax.svg'
 import iconVolumeMid from '@/assets/svg/volumeMid.svg'
 import iconVolumeLow from '@/assets/svg/volumeLow.svg'
@@ -971,6 +972,25 @@ onBeforeUnmount(() => {
       img {
         width: 30px;
         height: 30px;
+      }
+      .count-total {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: absolute;
+        top: 5px;
+        right: 5px;
+        width: 17px;
+        height: 17px;
+        border-radius: 50%;
+        background-color: $red;
+        color: $fg;
+        font-size: 12px;
+        font-family: Manrope-Medium;
+        line-height: 1;
+        &.unread {
+          background-color: $lead;
+        }
       }
     }
     .controls-side {

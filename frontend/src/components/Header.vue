@@ -13,7 +13,7 @@
       <div class="bell" ref="bellEl">
         <button @click.stop="onToggleNotifs" :aria-expanded="nb_open" aria-label="Уведомления">
           <img :src="iconNotifBell" alt="bells" />
-          <span v-if="notif.unread > 0">{{ notif.unread }}</span>
+          <span v-if="notif.unread > 0">{{ notif.unread < 100 ? notif.unread : '∞' }}</span>
         </button>
 
         <Notifs
@@ -39,7 +39,6 @@ import Notifs from '@/components/Notifs.vue'
 
 import defaultAvatar from "@/assets/svg/defaultAvatar.svg"
 import iconNotifBell from "@/assets/svg/notifBell.svg"
-import iconNotifBellNew from "@/assets/svg/notifBellNew.svg"
 
 const auth = useAuthStore()
 const user = useUserStore()
@@ -142,6 +141,10 @@ onBeforeUnmount(() => { delete (window as any).__tg_cb__ })
       position: relative;
       border-radius: 5px;
       button {
+        display: flex;
+        position: relative;
+        align-items: center;
+        justify-content: center;
         padding: 0 10px;
         height: 40px;
         border-radius: 5px;
@@ -154,8 +157,18 @@ onBeforeUnmount(() => { delete (window as any).__tg_cb__ })
           height: 24px;
         }
         span {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          position: absolute;
+          top: 5px;
+          right: 5px;
+          width: 17px;
+          height: 17px;
+          border-radius: 50%;
+          background-color: $red;
           color: $fg;
-          font-size: 16px;
+          font-size: 12px;
           font-family: Manrope-Medium;
           line-height: 1;
         }
