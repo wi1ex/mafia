@@ -744,7 +744,13 @@ const toggleScreen = async () => {
         const reason = rtc.getLastScreenShareError?.()
         alert(reason === 'canceled' ? 'Трансляция отменена' : 'Ошибка публикации видеопотока или доступ отклонён')
       }
-    } else await rtc.stopScreenShare()
+    } else {
+      await rtc.stopScreenShare()
+      const prev = screenOwnerId.value
+      screenOwnerId.value = ''
+      try { await sendAck('screen', { on: false, target: Number(localId.value) }) } catch {}
+      if (prev) delete volUi[rtc.screenKey(prev)]
+    }
   } finally { pendingScreen.value = false }
 }
 
@@ -805,6 +811,13 @@ onMounted(async () => {
         if (isMyScreen.value) {
           screenOwnerId.value = ''
           try { await sendAck('screen', { on: false }) } catch {}
+        }
+      },
+      onRemoteScreenShareEnded: (id: string) => {
+        if (screenOwnerId.value === id) {
+          const prev = screenOwnerId.value
+          screenOwnerId.value = ''
+          if (prev) delete volUi[rtc.screenKey(prev)]
         }
       },
       onDisconnected: async () => {

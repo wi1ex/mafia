@@ -55,6 +55,7 @@ export type UseRTC = {
   getLastScreenShareError: () => 'canceled' | 'failed' | null
   initRoom: (opts?: {
     onScreenShareEnded?: () => void | Promise<void>
+    onRemoteScreenShareEnded?: (id: string) => void | Promise<void>
     publishDefaults?: ConstructorParameters<typeof LkRoom>[0]['publishDefaults']
     audioCaptureDefaults?: ConstructorParameters<typeof LkRoom>[0]['audioCaptureDefaults']
     videoCaptureDefaults?: ConstructorParameters<typeof LkRoom>[0]['videoCaptureDefaults']
@@ -809,7 +810,7 @@ export function useRTC(): UseRTC {
         try { t.attach(a) } catch { destroyAudioGraph(aid) }
         try { applyVolume(aid) } catch {}
         try { void resumeAudio() } catch {}
-        try { void a.play() } catch {}
+        a.play().catch(() => {})
       }
     })
 
@@ -819,6 +820,7 @@ export function useRTC(): UseRTC {
         const isScreenV = (pub as RemoteTrackPublication).source === Track.Source.ScreenShare
         const el = isScreenV ? screenVideoEls.get(id) : videoEls.get(id)
         if (el) { try { t.detach(el) } catch {} }
+        if (isScreenV) { try { opts?.onRemoteScreenShareEnded?.(id) } catch {} }
       } else if (t.kind === Track.Kind.Audio) {
         const isScreenA = (pub as RemoteTrackPublication).source === Track.Source.ScreenShareAudio
         const aid = isScreenA ? screenKey(id) : id
