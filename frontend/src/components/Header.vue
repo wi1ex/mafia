@@ -12,7 +12,8 @@
     <div v-else class="user">
       <div class="bell" ref="bellEl">
         <button @click.stop="onToggleNotifs" :aria-expanded="nb_open" aria-label="Уведомления">
-          <img :src="notif.unread > 0 ? iconNotifBellNew : iconNotifBell" alt="requests" />
+          <img :src="iconNotifBell" alt="bells" />
+          <span v-if="notif.unread > 0">{{ notif.unread }}</span>
         </button>
 
         <Notifs
@@ -23,7 +24,7 @@
 
       <router-link to="/profile" class="profile-link" aria-label="Профиль">
         <img v-minio-img="{ key: user.user?.avatar_name ? `avatars/${user.user.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="Аватар" />
-        <span class="nick" aria-live="polite">{{ user.user?.username || 'User' }}</span>
+        <span aria-live="polite">{{ user.user?.username || 'User' }}</span>
       </router-link>
 
       <button class="btn" type="button" @click="logout">Выйти</button>
@@ -133,10 +134,6 @@ onBeforeUnmount(() => { delete (window as any).__tg_cb__ })
     color: $fg;
     font-size: 16px;
   }
-  .note {
-    max-width: 460px;
-    color: $fg;
-  }
   .user {
     display: flex;
     align-items: center;
@@ -152,6 +149,16 @@ onBeforeUnmount(() => { delete (window as any).__tg_cb__ })
         background-color: $dark;
         font-size: 16px;
         cursor: pointer;
+        img {
+          width: 24px;
+          height: 24px;
+        }
+        span {
+          color: $fg;
+          font-size: 16px;
+          font-family: Manrope-Medium;
+          line-height: 1;
+        }
       }
     }
     .profile-link {
@@ -170,7 +177,7 @@ onBeforeUnmount(() => { delete (window as any).__tg_cb__ })
         border-radius: 50%;
         object-fit: cover;
       }
-      .nick {
+      span {
         color: $fg;
         font-size: 16px;
       }
