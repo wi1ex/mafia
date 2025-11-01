@@ -167,7 +167,7 @@ onBeforeUnmount(() => { delete (window as any).__tg_cb__ })
           height: 17px;
           border-radius: 50%;
           background-color: $red;
-          color: $fg;
+          color: $white;
           font-size: 12px;
           font-family: Manrope-Medium;
           line-height: 1;

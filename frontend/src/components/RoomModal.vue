@@ -107,7 +107,7 @@ onBeforeUnmount(() => {
 .modal {
   background-color: #1e1e1e;
   padding: 15px;
-  border-radius: 10px;
+  border-radius: 5px;
   min-width: 320px;
   display: flex;
   flex-direction: column;

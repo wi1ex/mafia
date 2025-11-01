@@ -301,6 +301,9 @@ async def update_blocks(r, rid: int, actor_uid: int, actor_role: str, target_uid
     if actor_role == "host" and target_role == "admin":
         return {}, {"__error__": "forbidden"}
 
+    if actor_role == target_role:
+        return {}, {"__error__": "forbidden"}
+
     incoming = {k: _norm01(changes_bool[k]) for k in KEYS_BLOCK if k in changes_bool}
     if not incoming:
         return {}, {}

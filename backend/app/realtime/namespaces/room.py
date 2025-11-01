@@ -228,11 +228,14 @@ async def screen(sid, data) -> ScreenAck:
         if target != actor_uid:
             role_in_room = await r.hget(f"room:{rid}:user:{actor_uid}:info", "role")
             actor_role = str(role_in_room or sess.get("role") or "user")
+            trg_role = str(await r.hget(f"room:{rid}:user:{target}:info", "role") or "user")
             if actor_role not in ("admin", "host"):
                 return {"ok": False, "error": "forbidden", "status": 403}
 
-            trg_role = str(await r.hget(f"room:{rid}:user:{target}:info", "role") or "user")
             if actor_role == "host" and trg_role == "admin":
+                return {"ok": False, "error": "forbidden", "status": 403}
+
+            if actor_role == trg_role:
                 return {"ok": False, "error": "forbidden", "status": 403}
 
         if want_on and target == actor_uid:
@@ -303,6 +306,10 @@ async def moderate(sid, data) -> ModerateAck:
         r = get_redis()
         role_in_room = await r.hget(f"room:{rid}:user:{actor_uid}:info", "role")
         actor_role = str(role_in_room or sess.get("role") or "user")
+        trg_role = str(await r.hget(f"room:{rid}:user:{target}:info", "role") or "user")
+        if actor_role == trg_role:
+            return {"ok": False, "error": "forbidden", "status": 403}
+
         applied, forced_off = await update_blocks(r, rid, actor_uid, actor_role, target, norm)
         if "__error__" in forced_off:
             err = forced_off["__error__"]
@@ -375,11 +382,13 @@ async def kick(sid, data):
         role_in_room = await r.hget(f"room:{rid}:user:{actor_uid}:info", "role")
         actor_role = str(role_in_room or sess.get("role") or "user")
         trg_role = str(await r.hget(f"room:{rid}:user:{target}:info", "role") or "user")
-
         if actor_role not in ("admin", "host"):
             return {"ok": False, "error": "forbidden", "status": 403}
 
         if actor_role == "host" and trg_role == "admin":
+            return {"ok": False, "error": "forbidden", "status": 403}
+
+        if actor_role == trg_role:
             return {"ok": False, "error": "forbidden", "status": 403}
 
         await r.srem(f"room:{rid}:allow", str(target))

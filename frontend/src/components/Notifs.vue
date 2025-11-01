@@ -162,7 +162,7 @@ onBeforeUnmount(() => {
   max-height: 420px;
   overflow: auto;
   background-color: #1e1e1e;
-  border-radius: 10px;
+  border-radius: 5px;
   padding: 10px;
   z-index: 100;
   .head {

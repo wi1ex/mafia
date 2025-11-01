@@ -392,8 +392,10 @@ function canModerate(targetId: string): boolean {
   if (targetId === localId.value) return false
   const me = myRole.value
   const trg = rol(targetId)
-  if (me === 'admin') return true
-  return me === 'host' && trg !== 'admin'
+  if (me === trg) return false
+  if (me === 'admin') return trg !== 'admin'
+  if (me === 'host')  return trg !== 'admin' && trg !== 'host'
+  return false
 }
 
 async function toggleBlock(targetId: string, key: keyof BlockState) {
@@ -957,6 +959,7 @@ onBeforeUnmount(() => {
     height: 40px;
     button {
       display: flex;
+      position: relative;
       align-items: center;
       justify-content: center;
       padding: 0;
@@ -979,17 +982,17 @@ onBeforeUnmount(() => {
         justify-content: center;
         position: absolute;
         top: 5px;
-        right: 5px;
+        right: 7px;
         width: 17px;
         height: 17px;
         border-radius: 50%;
-        background-color: $red;
-        color: $fg;
+        background-color: $grey;
+        color: $white;
         font-size: 12px;
         font-family: Manrope-Medium;
         line-height: 1;
         &.unread {
-          background-color: $lead;
+          background-color: $red;
         }
       }
     }
