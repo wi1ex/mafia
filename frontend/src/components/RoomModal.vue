@@ -106,8 +106,8 @@ onBeforeUnmount(() => {
 }
 .modal {
   background-color: #1e1e1e;
-  padding: 16px;
-  border-radius: 8px;
+  padding: 15px;
+  border-radius: 10px;
   min-width: 320px;
   display: flex;
   flex-direction: column;
@@ -115,28 +115,28 @@ onBeforeUnmount(() => {
 }
 .actions {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   justify-content: flex-end;
 }
 .privacy {
   display: flex;
-  gap: 12px;
+  gap: 10px;
 }
 
 .overlay-enter-active,
 .overlay-leave-active {
-  transition: opacity 0.18s ease;
+  transition: opacity 0.25s ease-in-out;
 }
 .overlay-enter-from,
 .overlay-leave-to {
   opacity: 0;
 }
 .modal {
-  transform: translateY(8px);
-  transition: transform 0.18s ease;
+  transform: translateY(10px);
+  transition: transform 0.25s ease-in-out;
 }
 .overlay-enter-from .modal,
 .overlay-leave-to .modal {
-  transform: translateY(16px);
+  transform: translateY(15px);
 }
 </style>

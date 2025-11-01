@@ -286,10 +286,10 @@ onBeforeUnmount(() => {
 <style scoped lang="scss">
 .profile {
   &.card {
-    padding: 12px 16px;
+    padding: 10px;
   }
   .btn {
-    padding: 8px 12px;
+    padding: 10px;
     border-radius: 5px;
     cursor: pointer;
     background-color: $green;
@@ -310,14 +310,14 @@ onBeforeUnmount(() => {
     }
   }
   .hint {
-    margin-top: 4px;
+    margin-top: 5px;
     color: $grey;
     font-size: 12px;
   }
   .page-actions {
     display: flex;
     justify-content: flex-start;
-    margin-bottom: 24px;
+    margin-bottom: 25px;
     .btn {
       text-decoration: none;
     }
@@ -325,9 +325,9 @@ onBeforeUnmount(() => {
   .tabs {
     display: flex;
     gap: 10px;
-    margin-bottom: 12px;
+    margin-bottom: 10px;
     .tab {
-      padding: 8px 12px;
+      padding: 10px;
       border-radius: 5px;
       border: 1px solid rgba(255, 255, 255, 0.15);
       background-color: $bg;
@@ -350,7 +350,7 @@ onBeforeUnmount(() => {
   .block {
     border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: 5px;
-    padding: 12px;
+    padding: 10px;
     .title {
       margin: 0 0 10px;
       color: $fg;
@@ -378,7 +378,7 @@ onBeforeUnmount(() => {
       gap: 10px;
       align-items: center;
       .input {
-        padding: 8px 10px;
+        padding: 10px;
         border-radius: 5px;
         border: 1px solid $fg;
         color: $fg;
@@ -401,7 +401,7 @@ onBeforeUnmount(() => {
       background-color: $bg;
       border: 1px solid rgba(255, 255, 255, 0.15);
       border-radius: 5px;
-      padding: 16px;
+      padding: 15px;
       display: flex;
       flex-direction: column;
       gap: 10px;

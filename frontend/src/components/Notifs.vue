@@ -162,21 +162,21 @@ onBeforeUnmount(() => {
   max-height: 420px;
   overflow: auto;
   background-color: #1e1e1e;
-  border-radius: 8px;
-  padding: 8px;
+  border-radius: 10px;
+  padding: 10px;
   z-index: 100;
   .head {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 6px;
+    margin-bottom: 5px;
     span {
       color: $fg;
       font-weight: bold;
     }
     .actions {
       display: inline-flex;
-      gap: 6px;
+      gap: 5px;
       align-items: center;
       .markall {
         background: none;
@@ -204,7 +204,7 @@ onBeforeUnmount(() => {
   }
   .list {
     .item {
-      padding: 8px;
+      padding: 10px;
       border-bottom: 1px solid #333;
     }
     .item.unread p {
@@ -214,18 +214,18 @@ onBeforeUnmount(() => {
       color: $grey;
       text-align: center;
       margin: 0;
-      padding: 16px 0;
+      padding: 15px 0;
     }
   }
 }
 
 .panel-enter-active,
 .panel-leave-active {
-  transition: opacity 0.18s ease, transform 0.18s ease;
+  transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
 }
 .panel-enter-from,
 .panel-leave-to {
   opacity: 0;
-  transform: translateY(8px);
+  transform: translateY(10px);
 }
 </style>

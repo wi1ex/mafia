@@ -150,7 +150,7 @@ onMounted(() => {
   bottom: 10px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   z-index: 2000;
 }
 .toast {
@@ -158,24 +158,24 @@ onMounted(() => {
   max-width: 420px;
   background-color: #2a2a2a;
   color: #fff;
-  border-radius: 6px;
-  padding: 10px 12px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  border-radius: 5px;
+  padding: 10px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
   opacity: 1;
   transform: translateY(0);
   transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
   will-change: opacity, transform;
   &.closing {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(10px);
     pointer-events: none;
   }
 }
 .head {
   display: flex;
   justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 4px;
+  gap: 10px;
+  margin-bottom: 5px;
 }
 .title {
   font-weight: 600;
@@ -187,8 +187,8 @@ onMounted(() => {
 .user {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin: 6px 0 4px;
+  gap: 10px;
+  margin: 5px 0 5px;
 }
 .user img {
   width: 28px;
@@ -199,19 +199,19 @@ onMounted(() => {
   font-weight: 500;
 }
 .text {
-  margin: 6px 0 8px;
+  margin: 5px 0 10px;
 }
 .actions {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   justify-content: flex-end;
 }
 .actions > button {
   background-color: #444;
   color: #fff;
   border: none;
-  border-radius: 4px;
-  padding: 4px 8px;
+  border-radius: 5px;
+  padding: 5px 10px;
   cursor: pointer;
 }
 .actions > .close {

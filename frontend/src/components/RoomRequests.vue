@@ -164,13 +164,13 @@ onBeforeUnmount(() => {
   min-height: 300px;
   overflow: auto;
   background-color: #1e1e1e;
-  border-radius: 8px;
+  border-radius: 10px;
   padding: 10px;
   header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 8px;
+    margin-bottom: 10px;
     span {
       color: $fg;
       font-weight: bold;
@@ -195,13 +195,13 @@ onBeforeUnmount(() => {
     padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 10px;
     li {
       display: flex;
       align-items: center;
-      gap: 8px;
-      padding: 8px;
-      border-radius: 4px;
+      gap: 10px;
+      padding: 10px;
+      border-radius: 5px;
       background-color: rgba(255, 255, 255, 0.05);
     }
     img {
@@ -215,11 +215,11 @@ onBeforeUnmount(() => {
     }
     button {
       margin-left: auto;
-      padding: 4px 8px;
+      padding: 5px 10px;
       background-color: $green;
       color: $bg;
       border: none;
-      border-radius: 4px;
+      border-radius: 5px;
       cursor: pointer;
       font-size: 12px;
     }
@@ -228,17 +228,17 @@ onBeforeUnmount(() => {
     color: $grey;
     text-align: center;
     margin: 0;
-    padding: 16px 0;
+    padding: 15px 0;
   }
 }
 
 .panel-enter-active,
 .panel-leave-active {
-  transition: opacity 0.18s ease, transform 0.18s ease;
+  transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
 }
 .panel-enter-from,
 .panel-leave-to {
   opacity: 0;
-  transform: translateY(8px);
+  transform: translateY(10px);
 }
 </style>

@@ -357,7 +357,7 @@ onBeforeUnmount(() => {
         font-size: 24px;
       }
       input {
-        padding: 8px 10px;
+        padding: 10px;
         border-radius: 5px;
         border: 1px solid $fg;
         color: $fg;
@@ -412,7 +412,7 @@ onBeforeUnmount(() => {
           .item_meta {
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 5px;
             .owner_ava {
               width: 18px;
               height: 18px;
@@ -420,8 +420,8 @@ onBeforeUnmount(() => {
               object-fit: cover;
             }
             .badge {
-              padding: 0 6px;
-              border-radius: 4px;
+              padding: 0 5px;
+              border-radius: 5px;
               font-size: 12px;
               background-color: $graphite;
               &[data-kind="priv"] {
@@ -495,7 +495,7 @@ onBeforeUnmount(() => {
         .owner {
           display: inline-flex;
           align-items: center;
-          gap: 6px;
+          gap: 5px;
           .owner_ava {
             width: 18px;
             height: 18px;

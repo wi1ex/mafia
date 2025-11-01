@@ -89,7 +89,6 @@ function onChange(kind: 'audioinput'|'videoinput', e: Event) {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 8px;
     span {
       color: $fg;
       font-weight: bold;
@@ -112,14 +111,14 @@ function onChange(kind: 'audioinput'|'videoinput', e: Event) {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 10px;
+    margin: 10px 0;
     span {
       color: $fg;
     }
     .quality-toggle {
       display: inline-flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
       input[type="range"] {
         width: 72px;
         height: 10px;
@@ -159,10 +158,10 @@ function onChange(kind: 'audioinput'|'videoinput', e: Event) {
 
 .panel-enter-active,
 .panel-leave-active {
-  transition: opacity 0.18s ease, transform 0.18s ease; }
+  transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out; }
 .panel-enter-from,
 .panel-leave-to {
   opacity: 0;
-  transform: translateY(8px);
+  transform: translateY(10px);
 }
 </style>
