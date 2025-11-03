@@ -80,13 +80,13 @@ function update(el: ElEx, binding: DirectiveBinding<MinioVal>) {
   loadInto(el, binding.value)
 }
 
-function unmount(el: ElEx, binding: DirectiveBinding<MinioVal>) {
+function unmount(el: ElEx, _binding: DirectiveBinding<MinioVal>) {
   try { el.__m_obs?.disconnect() } catch {}
   el.__m_obs = null
   el.__m_req = 0
-  const { key } = (binding.value ?? {}) as any
-  if (key) {
-    try { releaseImageURL(key) } catch {}
+  if (el.__m_key) {
+    try { releaseImageURL(el.__m_key) } catch {}
+    el.__m_key = undefined
   }
 }
 

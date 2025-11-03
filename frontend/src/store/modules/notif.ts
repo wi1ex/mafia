@@ -12,9 +12,23 @@ type Note = {
 export const useNotifStore = defineStore('notif', () => {
   const items = ref<Note[]>([])
   const unread = ref(0)
+
   let inited = false
   let onNotifyEv: ((e: any) => void) | null = null
   let onRoomAppEv: ((e: any) => void) | null = null
+
+  const pending = new Set<number>()
+  let flushing = false
+  let tFlush: number | undefined
+  let backoffMs = 0
+
+  function scheduleFlush() {
+    if (tFlush) return
+    tFlush = window.setTimeout(() => {
+      tFlush = undefined
+      void flush()
+    }, Math.max(300, backoffMs))
+  }
 
   async function fetchAll() {
     const { data } = await api.get('/notifs')
@@ -24,6 +38,8 @@ export const useNotifStore = defineStore('notif', () => {
 
   function ensureWS() {
     if (inited) return
+    if (onNotifyEv) window.removeEventListener('auth-notify', onNotifyEv)
+    if (onRoomAppEv) window.removeEventListener('auth-room_invite', onRoomAppEv)
     onNotifyEv = (e: any) => {
       const p = e?.detail as Note
       if (!p) return
@@ -39,19 +55,6 @@ export const useNotifStore = defineStore('notif', () => {
     window.addEventListener('auth-notify', onNotifyEv)
     window.addEventListener('auth-room_invite', onRoomAppEv)
     inited = true
-  }
-
-  const pending = new Set<number>()
-  let flushing = false
-  let tFlush: number | undefined
-  let backoffMs = 0
-
-  function scheduleFlush() {
-    if (tFlush) return
-    tFlush = window.setTimeout(() => {
-      tFlush = undefined
-      void flush()
-    }, Math.max(300, backoffMs))
   }
 
   async function flush() {
@@ -91,5 +94,13 @@ export const useNotifStore = defineStore('notif', () => {
     unread.value = 0
   }
 
-  return { items, unread, fetchAll, ensureWS, markReadVisible, markAll }
+  return {
+    items,
+    unread,
+
+    fetchAll,
+    ensureWS,
+    markReadVisible,
+    markAll
+  }
 })

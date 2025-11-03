@@ -75,10 +75,16 @@ async function withStore<T>(mode: IDBTransactionMode, fn: (st: IDBObjectStore) =
   return new Promise<T>((resolve, reject) => {
     const tx = db.transaction(STORE, mode)
     const st = tx.objectStore(STORE)
-    tx.oncomplete = () => resolve(res!)
-    tx.onerror = () => reject(tx.error)
-    let res: T
-    ;(async () => { try { res = await fn(st) } catch (e) { reject(e) } })()
+    let result!: T
+    tx.oncomplete = () => resolve(result)
+    tx.onabort = () => reject(tx.error || new Error('idb_tx_aborted'))
+    tx.onerror = () => reject(tx.error || new Error('idb_tx_error'))
+    ;(async () => {
+      try { result = await fn(st) } catch (e) {
+        try { tx.abort() } catch {}
+        reject(e)
+      }
+    })()
   })
 }
 
@@ -91,11 +97,16 @@ async function get(key: string): Promise<Stored | undefined> {
 }
 
 async function put(val: Stored): Promise<void> {
-  await withStore('readwrite', st => new Promise<void>((resolve, reject) => {
-    const req = st.put(val)
-    req.onsuccess = () => resolve()
-    req.onerror = () => reject(req.error)
-  }))
+  try {
+    await withStore('readwrite', st => new Promise<void>((resolve, reject) => {
+      const req = st.put(val)
+      req.onsuccess = () => resolve()
+      req.onerror = () => reject(req.error)
+    }))
+  } catch (e:any) {
+    if (e?.name === 'QuotaExceededError') { return }
+    throw e
+  }
 }
 
 export function parseAvatarVersion(name: string): number {
