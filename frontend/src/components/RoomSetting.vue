@@ -78,7 +78,7 @@ function onChange(kind: 'audioinput'|'videoinput', e: Event) {
   position: absolute;
   flex-direction: column;
   right: 0;
-  bottom: 60px;
+  bottom: 50px;
   padding: 10px;
   gap: 10px;
   min-width: 250px;

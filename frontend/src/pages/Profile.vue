@@ -31,7 +31,7 @@
           <button class="btn" @click="saveNick" :disabled="busyNick || nick === me.username || !validNick">{{ busyNick ? '...' : 'Сохранить' }}</button>
         </div>
         <div class="hint">
-          2–20 символов: латиница, кириллица, цифры, <code>. _ -</code>.
+          2–20 символов: латиница, кириллица, цифры, символы <code>( . _ - )</code>.
         </div>
       </div>
 
@@ -62,7 +62,7 @@ const modalEl = ref<HTMLDivElement | null>(null)
 
 const nick = ref('')
 const busyNick = ref(false)
-const validNick = computed(() => /^[a-zA-Zа-яА-Я0-9._-]{2,20}$/.test(nick.value) && !/^user/i.test(nick.value))
+const validNick = computed(() => /^[a-zA-Zа-яА-Я0-9._\-()]{2,20}$/.test(nick.value) && !/^user/i.test(nick.value))
 
 async function loadMe() {
   const { data } = await api.get('/users/profile_info')

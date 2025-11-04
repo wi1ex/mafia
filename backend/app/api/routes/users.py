@@ -39,7 +39,7 @@ async def update_username(payload: UsernameUpdateIn, ident: Identity = Depends(g
     uid = int(ident["id"])
     new = (payload.username or "").strip()
 
-    USERNAME_RE = re.compile(r"^[a-zA-Zа-яА-Я0-9._-]{2,20}$")
+    USERNAME_RE = re.compile(r"^[a-zA-Zа-яА-Я0-9._\-()]{2,20}$")
     if not USERNAME_RE.match(new):
         raise HTTPException(status_code=422, detail="invalid_username_format")
 

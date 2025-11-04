@@ -1,5 +1,6 @@
 <template>
-  <div class="overlay" @click.self="$emit('close')">
+  <div class="overlay" @pointerdown.self="armed = true" @pointerup.self="armed && $emit('close')"
+       @pointerleave.self="armed = false" @pointercancel.self="armed = false">
     <div class="modal">
       <div class="actions">
         <button @click="$emit('close')">
@@ -30,6 +31,7 @@ import iconClose from '@/assets/svg/close.svg'
 
 const user = useUserStore()
 
+const armed = ref(false)
 const busy = ref(false)
 const emit = defineEmits<{ (e: 'close'): void; (e: 'created', room: any): void }>()
 
@@ -43,7 +45,7 @@ const title = ref(defaultTitle())
 
 const initLimit = (() => {
   const v = Number(localStorage.getItem('room:lastLimit'))
-  return Number.isFinite(v) ? clamp(v,2,12) : 12
+  return Number.isFinite(v) ? clamp(v,2,12) : 11
 })()
 const limit = ref<number>(initLimit)
 

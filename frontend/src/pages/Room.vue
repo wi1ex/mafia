@@ -481,7 +481,7 @@ function connectSocket() {
         const room = rtc.lk.value as any
         const st = room?.state ?? room?.connectionState
         const lkConnected = !!room && st === 'connected'
-        const lkReconn    = !!room && st === 'reconnecting'
+        const lkReconn = !!room && st === 'reconnecting'
         if (!lkConnected && !lkReconn) {
           await rtc.connect(ws_url, j.token, { autoSubscribe: false })
           rtc.setAudioSubscriptionsForAll(local.speakers)
@@ -614,6 +614,8 @@ function ensurePeer(id: string) {
 }
 
 function applyJoinAck(j: any) {
+  isPrivate.value = (j?.privacy || j?.room?.privacy) === 'private'
+
   positionByUser.clear()
   for (const [uid, pos] of Object.entries(j.positions || {})) {
     const p = Number(pos)
@@ -807,7 +809,6 @@ onMounted(async () => {
 
     await rtc.refreshDevices()
     applyJoinAck(j)
-    isPrivate.value = (j?.privacy || j?.room?.privacy) === 'private'
 
     const bindLK = () => rtc.initRoom({
       onScreenShareEnded: async () => {
@@ -828,6 +829,7 @@ onMounted(async () => {
         try {
           const j:any = await safeJoin()
           if (j?.ok) {
+            applyJoinAck(j)
             bindLK()
             await rtc.connect(ws_url, j.token, { autoSubscribe: false })
             rtc.setAudioSubscriptionsForAll(local.speakers)

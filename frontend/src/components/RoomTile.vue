@@ -220,7 +220,7 @@ onUpdated(() => setClosedWidth())
         width: calc(100% - 10px);
         height: 20px;
         border-radius: 5px;
-        background-color: rgba($graphite, 0.75);
+        background-color: $graphite;
         -webkit-overflow-scrolling: touch;
         img {
           width: 20px;
@@ -250,10 +250,10 @@ onUpdated(() => setClosedWidth())
           height: 25px;
           border: none;
           border-radius: 5px;
-          background-color: rgba($graphite, 0.75);
+          background-color: $graphite;
           cursor: pointer;
           &.red-button {
-            background-color: rgba($red, 0.75);
+            background-color: $red;
           }
           img {
             width: 20px;

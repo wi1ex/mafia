@@ -70,8 +70,12 @@ function mountTGWidget() {
   const box = document.getElementById('tg-login')
   if (!box || box.children.length) return
   window.__tg_cb__ = async (u: any) => {
-    try { auth.wipeLocalForNewLogin() } catch {}
+    const prevUid = Number(localStorage.getItem('user:lastUid') || 0)
+    const nextUid = Number(u?.id || 0)
+    const userChanged = prevUid !== nextUid
+    try { auth.wipeLocalForNewLogin?.({ userChanged }) } catch {}
     await auth.signInWithTelegram(u)
+    try { localStorage.setItem('user:lastUid', String(nextUid)) } catch {}
   }
   const s = document.createElement('script')
   s.async = true

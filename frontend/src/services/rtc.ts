@@ -20,7 +20,7 @@ setLogLevel(LogLevel.error)
 
 export type DeviceKind = 'audioinput' | 'videoinput'
 export type VQ = 'sd' | 'hd'
-const LS = { mic: 'audioDeviceId', cam: 'videoDeviceId', vq: 'videoQuality', perm: 'mediaPermProbed' }
+const LS = { mic: 'audioDeviceId', cam: 'videoDeviceId', vq: 'room:videoQuality', perm: 'mediaPermProbed' }
 
 const error = (...a: unknown[]) => console.error('[RTC]', ...a)
 

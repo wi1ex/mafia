@@ -31,7 +31,8 @@
       </ul>
     </div>
 
-    <aside class="right" aria-live="polite" ref="rightEl" @click.self="clearSelection">
+    <aside class="right" aria-live="polite" ref="rightEl" @pointerdown.self="selArmed = true"
+           @pointerup.self="selArmed && clearSelection()" @pointerleave.self="selArmed = false" @pointercancel.self="selArmed = false">
       <div v-if="!selectedId" class="placeholder">Выберите комнату для отображения информации</div>
 
       <div v-else class="room-info">
@@ -117,6 +118,7 @@ const listEl = ref<HTMLElement | null>(null)
 const rightEl = ref<HTMLElement | null>(null)
 const suppressedAutoselect = ref(true)
 
+const selArmed = ref(false)
 const entering = ref(false)
 const infoTimers = new Map<number, number>()
 const infoInFlight = new Set<number>()

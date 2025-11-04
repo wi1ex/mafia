@@ -37,6 +37,21 @@ export const useAuthStore = defineStore('auth', () => {
   let unsubFA: (() => void) | null = null
   let unsubINC: (() => void) | null = null
 
+  function delLS(keys: string[]) {
+    for (const k of keys) { try { localStorage.removeItem(k) } catch {} }
+  }
+
+  function scanAndDel(prefixes: string[]) {
+    const extra: string[] = []
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i)!
+        if (prefixes.some(p => k.startsWith(p))) extra.push(k)
+      }
+    } catch {}
+    delLS(extra)
+  }
+
   function bindBus() {
     if (busInited) return
     initSessionBus()
@@ -142,17 +157,23 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  function wipeLocalForNewLogin() {
+  function wipeLocalAlways() {
     try {
-      const toDel = new Set([ 'audioDeviceId', 'videoDeviceId', 'videoQuality', 'mediaPermProbed', 'room:lastLimit', 'room:lastPrivacy' ])
-      const extra: string[] = []
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i)!
-        if (k.startsWith('vol:') || k.startsWith('auth:') || k.startsWith('loglevel:')) extra.push(k)
-      }
-      ;[...toDel, ...extra].forEach((k:any) => { try { localStorage.removeItem(k) } catch {} })
+      delLS(['audioDeviceId', 'videoDeviceId', 'mediaPermProbed'])
+      scanAndDel(['vol:', 'auth:', 'loglevel:'])
       try { sessionStorage.clear() } catch {}
     } catch {}
+  }
+
+  function wipeLocalOnAccountChange() {
+    try {
+      delLS(['room:videoQuality', 'room:lastLimit', 'room:lastPrivacy'])
+    } catch {}
+  }
+
+  function wipeLocalForNewLogin(opts?: { userChanged?: boolean }) {
+    wipeLocalAlways()
+    if (opts?.userChanged) wipeLocalOnAccountChange()
   }
 
   async function signInWithTelegram(tg: TgUser): Promise<void> {

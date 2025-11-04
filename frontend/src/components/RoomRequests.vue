@@ -158,7 +158,7 @@ onBeforeUnmount(() => {
 .apps-panel {
   position: absolute;
   right: 0;
-  bottom: 60px;
+  bottom: 50px;
   z-index: 20;
   min-width: 300px;
   min-height: 300px;
