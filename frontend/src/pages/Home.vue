@@ -281,8 +281,8 @@ function startWS() {
     autoConnect: true,
     reconnection: true,
     reconnectionAttempts: Infinity,
-    reconnectionDelay: 500,
-    reconnectionDelayMax: 5000,
+    reconnectionDelay: 200,
+    reconnectionDelayMax: 2000,
   })
 
   sio.value.on('connect', syncRoomsSnapshot)

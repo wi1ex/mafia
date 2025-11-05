@@ -80,8 +80,8 @@ export function startAuthSocket(opts?: {
     upgrade: true,
     reconnection: true,
     reconnectionAttempts: Infinity,
-    reconnectionDelay: 500,
-    reconnectionDelayMax: 5000,
+    reconnectionDelay: 200,
+    reconnectionDelayMax: 2000,
   })
   if (opts?.onForceLogout) authSocket.on('force_logout', opts.onForceLogout)
   if (opts?.onNotify) authSocket.on('notify', opts.onNotify)

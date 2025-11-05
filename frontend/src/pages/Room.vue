@@ -497,8 +497,8 @@ function connectSocket() {
     autoConnect: true,
     reconnection: true,
     reconnectionAttempts: Infinity,
-    reconnectionDelay: 500,
-    reconnectionDelayMax: 5000,
+    reconnectionDelay: 200,
+    reconnectionDelayMax: 2000,
   })
 
   try {
