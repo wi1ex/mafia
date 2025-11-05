@@ -245,6 +245,53 @@ const videoQuality = computed<VQ>({
 
 const rerr = (...a: unknown[]) => console.error('[ROOM]', ...a)
 
+const lastJoinToken = ref<string>('')
+let rejoinTimer: number | null = null
+let rejoinBackoff = 500
+function stopRejoinLoop() {
+  if (rejoinTimer) { try { clearTimeout(rejoinTimer) } catch {} rejoinTimer = null }
+  rejoinBackoff = 500
+}
+async function rejoinTick() {
+  if (leaving.value) return stopRejoinLoop()
+  if (!socket.value?.connected) {
+    rejoinBackoff = 500
+    rejoinTimer = window.setTimeout(rejoinTick, rejoinBackoff)
+    return
+  }
+  if (joinedRoomId.value !== rid) {
+    const j: any = await safeJoin().catch(() => null)
+    if (j?.ok) {
+      applyJoinAck(j)
+      if (typeof j.token === 'string') lastJoinToken.value = j.token
+      rejoinBackoff = 500
+    } else {
+      rejoinBackoff = Math.min(Math.round(rejoinBackoff * 1.6), 8000)
+      rejoinTimer = window.setTimeout(rejoinTick, rejoinBackoff)
+      return
+    }
+  }
+  const room = rtc.lk.value as any
+  const st = room?.state ?? room?.connectionState
+  const lkConnected = !!room && st === 'connected'
+  const lkReconn = !!room && st === 'reconnecting'
+  if (!lkConnected && !lkReconn && lastJoinToken.value) {
+    try {
+      await rtc.connect(ws_url, lastJoinToken.value, { autoSubscribe: false, maxRetries: 5 })
+      rtc.setAudioSubscriptionsForAll(local.speakers)
+      rtc.setVideoSubscriptionsForAll(local.visibility)
+      rejoinBackoff = 500
+    } catch {
+      rejoinBackoff = Math.min(Math.round(rejoinBackoff * 1.6), 8000)
+    }
+  }
+  rejoinTimer = window.setTimeout(rejoinTick, rejoinBackoff)
+}
+function startRejoinLoop() {
+  if (rejoinTimer) return
+  rejoinTick()
+}
+
 function avatarKey(id: string): string {
   const name = avatarByUser.get(id) || ''
   if (!name) return ''
@@ -319,7 +366,7 @@ function volumeIconForStream(key: string) {
 }
 
 type Ack = { ok: boolean; status?: number; [k: string]: any } | null
-async function sendAck(event: string, payload: any, timeoutMs = 5000): Promise<Ack> {
+async function sendAck(event: string, payload: any, timeoutMs = 15000): Promise<Ack> {
   try {
     return await socket.value!.timeout(timeoutMs).emitWithAck(event, payload)
   } catch (e:any) {
@@ -498,26 +545,12 @@ function connectSocket() {
     socket.value?.io.on('reconnect_attempt', () => { netReconnecting.value = true })
     socket.value?.io.on('reconnect_error',   () => { netReconnecting.value = true })
     socket.value?.io.on('reconnect_failed',  () => { netReconnecting.value = true })
+    socket.value?.io.on('reconnect',         () => { netReconnecting.value = false })
   } catch {}
 
   socket.value?.on('connect', async () => {
     netReconnecting.value = false
-    if (joinInFlight.value || joinedRoomId.value === rid) return
-    try {
-      const j:any = await safeJoin()
-      if (j?.ok) {
-        applyJoinAck(j)
-        const room = rtc.lk.value as any
-        const st = room?.state ?? room?.connectionState
-        const lkConnected = !!room && st === 'connected'
-        const lkReconn = !!room && st === 'reconnecting'
-        if (!lkConnected && !lkReconn) {
-          await rtc.connect(ws_url, j.token, { autoSubscribe: false })
-          rtc.setAudioSubscriptionsForAll(local.speakers)
-          rtc.setVideoSubscriptionsForAll(local.visibility)
-        }
-      }
-    } catch {}
+    startRejoinLoop()
     if (pendingDeltas.length) {
       const merged = Object.assign({}, ...pendingDeltas.splice(0))
       const resp = await sendAck('state', merged)
@@ -529,6 +562,7 @@ function connectSocket() {
     if (!leaving.value) netReconnecting.value = true
     joinedRoomId.value = null
     openPanelFor.value = ''
+    startRejoinLoop()
   })
 
   socket.value.on('force_logout', async () => {
@@ -643,6 +677,7 @@ function ensurePeer(id: string) {
 }
 
 function applyJoinAck(j: any) {
+  if (typeof j?.token === 'string') lastJoinToken.value = j.token
   isPrivate.value = (j?.privacy || j?.room?.privacy) === 'private'
   const game = j.game // game параметры доступны при входе
 
@@ -857,16 +892,8 @@ onMounted(async () => {
       },
       onDisconnected: async () => {
         if (leaving.value) return
-        try {
-          const j:any = await safeJoin()
-          if (j?.ok) {
-            applyJoinAck(j)
-            bindLK()
-            await rtc.connect(ws_url, j.token, { autoSubscribe: false })
-            rtc.setAudioSubscriptionsForAll(local.speakers)
-            rtc.setVideoSubscriptionsForAll(local.visibility)
-          }
-        } catch {}
+        bindLK()
+        startRejoinLoop()
       },
     })
     bindLK()
@@ -874,6 +901,7 @@ onMounted(async () => {
     await rtc.connect(ws_url, j.token, { autoSubscribe: false })
     rtc.setAudioSubscriptionsForAll(local.speakers)
     rtc.setVideoSubscriptionsForAll(local.visibility)
+    startRejoinLoop()
 
     if (camOn.value && !blockedSelf.value.cam) {
       const ok = await rtc.enable('videoinput')
@@ -902,6 +930,7 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  stopRejoinLoop()
   void onLeave(false)
 })
 </script>

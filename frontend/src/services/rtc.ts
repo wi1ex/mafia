@@ -773,6 +773,10 @@ export function useRTC(): UseRTC {
       void resumeAudio()
     })
 
+    room.on(RoomEvent.ConnectionStateChanged, (state: any) => {
+      try { reconnecting.value = String(state) === 'reconnecting' } catch {}
+    })
+
     room.on(RoomEvent.Disconnected, () => {
       reconnecting.value = false
       cleanupMedia()
@@ -902,7 +906,7 @@ export function useRTC(): UseRTC {
     connectInFlight = (async () => {
       await room.connect(wsUrl, token, {
         autoSubscribe: opts?.autoSubscribe ?? false,
-        maxRetries: opts?.maxRetries ?? 2,
+        maxRetries: opts?.maxRetries ?? 5,
         peerConnectionTimeout: opts?.peerConnectionTimeout ?? 20_000,
         websocketTimeout: opts?.websocketTimeout ?? 10_000,
       })
