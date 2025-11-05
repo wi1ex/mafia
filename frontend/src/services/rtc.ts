@@ -773,10 +773,6 @@ export function useRTC(): UseRTC {
       void resumeAudio()
     })
 
-    room.on(RoomEvent.ConnectionStateChanged, (state: any) => {
-      try { reconnecting.value = String(state) === 'reconnecting' } catch {}
-    })
-
     room.on(RoomEvent.Disconnected, () => {
       reconnecting.value = false
       cleanupMedia()

@@ -245,51 +245,11 @@ const videoQuality = computed<VQ>({
 
 const rerr = (...a: unknown[]) => console.error('[ROOM]', ...a)
 
-const lastJoinToken = ref<string>('')
-let rejoinTimer: number | null = null
-let rejoinBackoff = 500
-function stopRejoinLoop() {
-  if (rejoinTimer) { try { clearTimeout(rejoinTimer) } catch {} rejoinTimer = null }
-  rejoinBackoff = 500
-}
-async function rejoinTick() {
-  if (leaving.value) return stopRejoinLoop()
-  if (!socket.value?.connected) {
-    rejoinBackoff = 500
-    rejoinTimer = window.setTimeout(rejoinTick, rejoinBackoff)
-    return
-  }
-  if (joinedRoomId.value !== rid) {
-    const j: any = await safeJoin().catch(() => null)
-    if (j?.ok) {
-      applyJoinAck(j)
-      if (typeof j.token === 'string') lastJoinToken.value = j.token
-      rejoinBackoff = 500
-    } else {
-      rejoinBackoff = Math.min(Math.round(rejoinBackoff * 1.6), 8000)
-      rejoinTimer = window.setTimeout(rejoinTick, rejoinBackoff)
-      return
-    }
-  }
-  const room = rtc.lk.value as any
-  const st = room?.state ?? room?.connectionState
-  const lkConnected = !!room && st === 'connected'
-  const lkReconn = !!room && st === 'reconnecting'
-  if (!lkConnected && !lkReconn && lastJoinToken.value) {
-    try {
-      await rtc.connect(ws_url, lastJoinToken.value, { autoSubscribe: false, maxRetries: 5 })
-      rtc.setAudioSubscriptionsForAll(local.speakers)
-      rtc.setVideoSubscriptionsForAll(local.visibility)
-      rejoinBackoff = 500
-    } catch {
-      rejoinBackoff = Math.min(Math.round(rejoinBackoff * 1.6), 8000)
-    }
-  }
-  rejoinTimer = window.setTimeout(rejoinTick, rejoinBackoff)
-}
-function startRejoinLoop() {
-  if (rejoinTimer) return
-  rejoinTick()
+let reloading = false
+function hardReload() {
+  if (reloading) return
+  reloading = true
+  window.location.reload()
 }
 
 function avatarKey(id: string): string {
@@ -550,7 +510,6 @@ function connectSocket() {
 
   socket.value?.on('connect', async () => {
     netReconnecting.value = false
-    startRejoinLoop()
     if (pendingDeltas.length) {
       const merged = Object.assign({}, ...pendingDeltas.splice(0))
       const resp = await sendAck('state', merged)
@@ -562,7 +521,6 @@ function connectSocket() {
     if (!leaving.value) netReconnecting.value = true
     joinedRoomId.value = null
     openPanelFor.value = ''
-    startRejoinLoop()
   })
 
   socket.value.on('force_logout', async () => {
@@ -677,7 +635,6 @@ function ensurePeer(id: string) {
 }
 
 function applyJoinAck(j: any) {
-  if (typeof j?.token === 'string') lastJoinToken.value = j.token
   isPrivate.value = (j?.privacy || j?.room?.privacy) === 'private'
   const game = j.game // game параметры доступны при входе
 
@@ -892,8 +849,8 @@ onMounted(async () => {
       },
       onDisconnected: async () => {
         if (leaving.value) return
-        bindLK()
-        startRejoinLoop()
+        if (navigator.onLine) hardReload()
+        else netReconnecting.value = true
       },
     })
     bindLK()
@@ -901,7 +858,6 @@ onMounted(async () => {
     await rtc.connect(ws_url, j.token, { autoSubscribe: false })
     rtc.setAudioSubscriptionsForAll(local.speakers)
     rtc.setVideoSubscriptionsForAll(local.visibility)
-    startRejoinLoop()
 
     if (camOn.value && !blockedSelf.value.cam) {
       const ok = await rtc.enable('videoinput')
@@ -930,9 +886,11 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
-  stopRejoinLoop()
   void onLeave(false)
 })
+
+window.addEventListener('offline', () => { netReconnecting.value = true })
+window.addEventListener('online',  () => { if (netReconnecting.value) hardReload() })
 </script>
 
 <style scoped lang="scss">
