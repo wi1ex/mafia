@@ -143,12 +143,15 @@ export const useAuthStore = defineStore('auth', () => {
     if (ready.value) return
     bindBus()
     addAuthExpiredListener(() => { void localSignOut() })
-
     await checkConsistencyNow()
     if (isForeignActive()) {
-      foreign.value = true
-      ready.value = true
-      return
+      await new Promise(r => setTimeout(r, 0))
+      await checkConsistencyNow()
+      if (isForeignActive()) {
+        foreign.value = true
+        ready.value = true
+        return
+      }
     }
     try {
       const data = await refreshAccessTokenFull(false)
@@ -165,7 +168,8 @@ export const useAuthStore = defineStore('auth', () => {
   function wipeLocalAlways() {
     try {
       delLS(['audioDeviceId', 'videoDeviceId', 'mediaPermProbed'])
-      scanAndDel(['vol:', 'auth:', 'loglevel:'])
+      scanAndDel(['vol:', 'loglevel:'])
+      delLS(['auth:sid', 'auth:lock'])
       try { sessionStorage.clear() } catch {}
     } catch {}
   }
