@@ -38,8 +38,7 @@ const incSubs = new Set<InconsistencyCb>()
 
 const now = () => Date.now()
 const navType = () => (performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming|undefined)?.type
-const BOOT_TS = Date.now()
-const BOOT_WINDOW_MS = 4000
+
 const isReload = () => {
   const t = navType()
   if (t === 'reload') return true
@@ -138,7 +137,7 @@ function acquireOrTakeover(): boolean {
     setForeign(false)
     return true
   }
-  if (lock.owner.deviceId === DEVICE_ID && (isReload() || (now() - BOOT_TS) <= BOOT_WINDOW_MS)) {
+  if (isReload() && lock.owner.deviceId === DEVICE_ID) {
     writeLock({ owner: { deviceId: DEVICE_ID, tabId: TAB_ID }, hb: now(), sid: currentSid || lock.sid })
     setForeign(false)
     return true
