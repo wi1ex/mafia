@@ -9,6 +9,8 @@ from .security import decode_token
 from ..core.db import SessionLocal
 from ..models.user import User
 
+log = structlog.get_logger()
+
 
 class LoggingMiddleware:
     def __init__(self, app: ASGIApp):
@@ -38,7 +40,6 @@ class LoggingMiddleware:
             path=scope.get("path"),
         )
 
-        log = structlog.get_logger()
         log.info("request.start")
         t0 = time.perf_counter()
         headers_sent = False
@@ -64,8 +65,8 @@ class LoggingMiddleware:
             log.info("request.end", duration_ms=round(dur_ms, 2))
             try:
                 structlog.contextvars.clear_contextvars()
-            except Exception:
-                pass
+            except Exception as e:
+                log.warning("request.clear_ctx_failed", err=type(e).__name__)
 
 
 class LastLoginTouchMiddleware:
@@ -107,7 +108,7 @@ class LastLoginTouchMiddleware:
                             async with SessionLocal() as s:
                                 await s.execute(update(User).where(User.id == uid).values(last_login_at=func.now()))
                                 await s.commit()
-            except Exception:
-                pass
+            except Exception as e:
+                log.warning("last_touch.failed", err=type(e).__name__)
 
         return await self.app(scope, receive, send)

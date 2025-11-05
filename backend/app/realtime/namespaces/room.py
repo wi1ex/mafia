@@ -15,6 +15,10 @@ from ..utils import (
     apply_state,
     gc_empty_room,
     get_room_snapshot,
+    merge_ready_into_snapshot,
+    get_positions_map,
+    build_game_from_raw,
+    persist_join_user_info,
     get_blocks_snapshot,
     get_roles_snapshot,
     get_profiles_snapshot,
@@ -68,8 +72,7 @@ async def join(sid, data) -> JoinAck:
         if not params:
             return {"ok": False, "error": "room_not_found", "status": 404}
 
-        creator = int(params.get("creator") or 0)
-        if (creator != uid) and ((params.get("privacy") or "open") == "private"):
+        if (int(params.get("creator") or 0) != uid) and ((params.get("privacy") or "open") == "private"):
             allowed = await r.sismember(f"room:{rid}:allow", str(uid))
             if not allowed:
                 pending = await r.sismember(f"room:{rid}:pending", str(uid))
@@ -84,28 +87,23 @@ async def join(sid, data) -> JoinAck:
             log.warning("sio.join.room_full", rid=rid, uid=uid)
             return {"ok": False, "error": "room_is_full", "status": 409}
 
-        un = sess.get("username")
-        av = sess.get("avatar_name")
-        mp = {}
-        if isinstance(un, str) and un.strip():
-            mp["username"] = un.strip()
-        if isinstance(av, str) and av.strip():
-            mp["avatar_name"] = av.strip()
-        if mp:
-            await r.hset(f"room:{rid}:user:{uid}:info", mapping=mp)
+        await persist_join_user_info(r, rid, uid, sess.get("username"), sess.get("avatar_name"))
         await sio.enter_room(sid,
                              f"room:{rid}",
                              namespace="/room")
 
         snapshot = await get_room_snapshot(r, rid)
+        snapshot = await merge_ready_into_snapshot(r, rid, snapshot)
         blocked = await get_blocks_snapshot(r, rid)
         roles = await get_roles_snapshot(r, rid)
         profiles = await get_profiles_snapshot(r, rid)
+
         me_prof = profiles.get(str(uid)) or {}
-        ev_username = (me_prof.get("username") or un or f"user{uid}")
-        ev_avatar = me_prof.get("avatar_name") or av or None
+        ev_username = (me_prof.get("username") or sess.get("username") or f"user{uid}")
+        ev_avatar = me_prof.get("avatar_name") or sess.get("avatar_name") or None
         eff_role = roles.get(str(uid), base_role)
         epoch = int(await r.incr(f"room:{rid}:user:{uid}:epoch"))
+
         await sio.save_session(sid,
                                {"uid": uid,
                                 "rid": rid,
@@ -157,11 +155,12 @@ async def join(sid, data) -> JoinAck:
                        skip_sid=sid,
                        namespace="/room")
 
-        pairs = await r.zrange(f"room:{rid}:positions", 0, -1, withscores=True)
-        positions = {str(int(m)): int(s) for m, s in pairs}
+        positions = await get_positions_map(r, rid)
         owner_raw = await r.get(f"room:{rid}:screen_owner")
         owner = int(owner_raw) if owner_raw else 0
         token = make_livekit_token(identity=str(uid), name=ev_username, room=str(rid))
+        game = build_game_from_raw(await r.hgetall(f"room:{rid}:game"))
+
         return {
             "ok": True,
             "room_id": rid,
@@ -174,6 +173,7 @@ async def join(sid, data) -> JoinAck:
             "roles": roles,
             "profiles": profiles,
             "screen_owner": owner,
+            "game": game,
         }
 
     except Exception:
@@ -181,8 +181,7 @@ async def join(sid, data) -> JoinAck:
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:state:{uid or 'nouid'}:{rid or 0}", limit=30, window_s=1,
-                  session_ns="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:state:{uid or 'nouid'}:{rid or 0}", limit=30, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
 async def state(sid, data) -> StateAck:
     try:
@@ -207,8 +206,7 @@ async def state(sid, data) -> StateAck:
         return {"ok": False}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:screen:{uid or 'nouid'}:{rid or 0}", limit=5, window_s=1,
-                  session_ns="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:screen:{uid or 'nouid'}:{rid or 0}", limit=5, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
 async def screen(sid, data) -> ScreenAck:
     try:
@@ -279,8 +277,7 @@ async def screen(sid, data) -> ScreenAck:
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:moderate:{uid or 'nouid'}:{rid or 0}", limit=30,
-                  window_s=1, session_ns="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:moderate:{uid or 'nouid'}:{rid or 0}", limit=30, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
 async def moderate(sid, data) -> ModerateAck:
     try:
@@ -359,8 +356,7 @@ async def moderate(sid, data) -> ModerateAck:
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:kick:{uid or 'nouid'}:{rid or 0}", limit=5, window_s=1,
-                  session_ns="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:kick:{uid or 'nouid'}:{rid or 0}", limit=5, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
 async def kick(sid, data):
     try:

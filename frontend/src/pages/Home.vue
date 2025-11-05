@@ -60,6 +60,23 @@
           <span>Приватность: {{ (selectedRoom?.privacy === 'private') ? 'закрытая' : 'открытая' }}</span>
         </div>
 
+        <div class="ri-game" v-if="info?.game">
+          <p class="ri-subtitle">Параметры игры</p>
+          <ul class="game-list">
+            <li><b>Режим:</b> {{ info!.game!.mode === 'normal' ? 'Обычный' : 'Рейтинг' }}</li>
+            <li><b>Формат:</b> {{ info!.game!.format === 'hosted' ? 'С ведущим' : 'Без ведущего' }}</li>
+            <li><b>Лимит зрителей:</b> {{ info!.game!.spectators_limit }}</li>
+            <li><b>Опции:</b>
+              <span>
+                {{ info!.game!.vote_at_zero ? 'Голосование в нуле' : '' }}
+                {{ info!.game!.vote_three ? (info!.game!.vote_at_zero ? ', ' : '') + 'Подъём троих' : '' }}
+                {{ info!.game!.speech30_at_3_fouls ? ((info!.game!.vote_at_zero || info!.game!.vote_three) ? ', ' : '') + '30с при 3 фолах' : '' }}
+                {{ info!.game!.extra30_at_2_fouls ? ((info!.game!.vote_at_zero || info!.game!.vote_three || info!.game!.speech30_at_3_fouls) ? ', ' : '') + '+30с за 2 фола' : '' }}
+              </span>
+            </li>
+          </ul>
+        </div>
+
         <div class="ri-members">
           <p class="ri-subtitle">Участники: {{ selectedRoom?.occupancy ?? 0 }}/{{ selectedRoom?.user_limit ?? 0 }}</p>
           <div v-if="(info?.members?.length ?? 0) === 0" class="muted">Пока никого</div>
@@ -105,7 +122,18 @@ type RoomInfoMember = {
   avatar_name?: string | null
   screen?: boolean
 }
-type RoomMembers = { members: RoomInfoMember[] }
+type RoomMembers = {
+  members: RoomInfoMember[]
+}
+type Game = {
+  mode: 'normal' | 'rating'
+  format: 'hosted' | 'nohost'
+  spectators_limit: number
+  vote_at_zero: boolean
+  vote_three: boolean
+  speech30_at_3_fouls: boolean
+  extra30_at_2_fouls: boolean
+}
 type Access = 'approved'|'pending'|'none'
 
 const router = useRouter()
@@ -123,7 +151,7 @@ const entering = ref(false)
 const infoTimers = new Map<number, number>()
 const infoInFlight = new Set<number>()
 const selectedId = ref<number | null>(null)
-const info = ref<RoomMembers | null>(null)
+const info = ref<(RoomMembers & { game?: Game }) | null>(null)
 
 const openCreate = ref(false)
 const access = ref<Access>('approved')
@@ -179,7 +207,7 @@ async function fetchRoomInfo(id: number) {
   if (infoInFlight.has(id)) return
   infoInFlight.add(id)
   try {
-    const { data } = await api.get<RoomMembers>(`/rooms/${id}/info`, { __skipAuth: true })
+    const { data } = await api.get<RoomMembers & { game?: Game }>(`/rooms/${id}/info`, { __skipAuth: true })
     info.value = data
   } catch {
     info.value = null
@@ -504,6 +532,17 @@ onBeforeUnmount(() => {
             border-radius: 50%;
             object-fit: cover;
           }
+        }
+      }
+      .ri-game {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        .game-list {
+          margin: 0;
+          padding-left: 15px;
+          display: grid;
+          gap: 5px;
         }
       }
       .ri-members {

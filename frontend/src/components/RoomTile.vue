@@ -2,6 +2,10 @@
   <div class="tile" :class="[{ speaking }, side && 'side']" tabindex="0">
     <video v-show="showVideo" :ref="videoRef" playsinline autoplay :muted="id === localId" :style="{ objectFit: fitContain ? 'contain' : 'cover' }" />
 
+    <div class="ready-badge" v-if="isReady(id)" aria-hidden="true">
+      <img :src="iconReady" alt="ready" />
+    </div>
+
     <div v-show="!showVideo" class="ava-wrap">
       <img v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar, lazy: false }" alt="" />
     </div>
@@ -12,6 +16,7 @@
         <img v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar, lazy: false }" alt="" />
         <span>{{ userName(id) }}</span>
         <div class="status">
+          <img v-if="isReady(id)" :src="iconReady" alt="ready" />
           <img v-if="isBlocked(id,'mic') || !isOn(id,'mic')" :src="stateIcon('mic', id)" alt="mic" />
           <img v-if="isBlocked(id,'cam') || !isOn(id,'cam')" :src="stateIcon('cam', id)" alt="cam" />
           <img v-if="isBlocked(id,'speakers') || !isOn(id,'speakers')" :src="stateIcon('speakers', id)" alt="spk" />
@@ -46,6 +51,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUpdated, ref, watch } from 'vue'
 
+import iconReady from '@/assets/svg/ready.svg'
 import iconLeaveRoom from '@/assets/svg/leaveRoom.svg'
 
 type IconKind = 'mic' | 'cam' | 'speakers' | 'visibility' | 'screen'
@@ -68,6 +74,7 @@ const props = withDefaults(defineProps<{
   userName: (id: string) => string
   avatarKey: (id: string) => string
   canModerate: (id: string) => boolean
+  isReady: (id: string) => boolean
 }>(), { side: false })
 
 defineEmits<{
@@ -120,6 +127,24 @@ onUpdated(() => setClosedWidth())
     object-fit: cover;
     border-radius: 5px;
     background-color: $black;
+  }
+  .ready-badge {
+    display: flex;
+    position: absolute;
+    align-items: center;
+    justify-content: center;
+    left: 5px;
+    bottom: 5px;
+    width: 30px;
+    height: 30px;
+    border-radius: 5px;
+    backdrop-filter: blur(5px);
+    background-color: rgba($dark, 0.75);
+    z-index: 3;
+    img {
+      width: 20px;
+      height: 20px;
+    }
   }
   .ava-wrap {
     display: flex;

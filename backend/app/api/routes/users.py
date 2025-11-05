@@ -1,5 +1,6 @@
 from __future__ import annotations
 import re
+from contextlib import suppress
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
@@ -115,10 +116,8 @@ async def delete_avatar(ident: Identity = Depends(get_identity), db: AsyncSessio
     uid = int(ident["id"])
     await db.execute(update(User).where(User.id == uid).values(avatar_name=None))
     await db.commit()
-    try:
+    with suppress(Exception):
         delete_avatars(uid)
-    except Exception:
-        pass
 
     await log_action(
         db,

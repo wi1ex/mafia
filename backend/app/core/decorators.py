@@ -150,8 +150,8 @@ def rate_limited(key: Union[str, Callable[..., str]], *, limit: int, window_s: i
             if cnt == 1 and not created:
                 try:
                     await r.expire(k, window_s)
-                except Exception:
-                    pass
+                except Exception as e:
+                    log.warning("rate_limit.expire_failed", key=k, window_s=window_s, err=type(e).__name__)
 
             if cnt > limit:
                 try:
@@ -197,8 +197,8 @@ def rate_limited_sio(key: Union[str, KeyBuilder], *, limit: int, window_s: int, 
                 if cnt == 1 and not created:
                     try:
                         await r.expire(k, window_s)
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        log.warning("sio.rate_limit.expire_failed", key=k, window_s=window_s, err=type(e).__name__)
 
                 if cnt > limit:
                     try:

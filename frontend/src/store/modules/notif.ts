@@ -7,6 +7,8 @@ type Note = {
   text: string
   created_at: string
   read: boolean
+  room_id?: number
+  room_title?: string
 }
 
 export const useNotifStore = defineStore('notif', () => {
@@ -45,10 +47,14 @@ export const useNotifStore = defineStore('notif', () => {
       if (!p) return
       items.value.unshift({ ...p, read: false })
       unread.value++
-      const m = /#(\d+)/.exec(p.text || '')
-      if (m) {
-        const roomId = Number(m[1])
-        if (Number.isFinite(roomId)) window.dispatchEvent(new CustomEvent('room-approved', { detail: { roomId } }))
+      const ridFromPayload = Number.isFinite(Number((p as any)?.room_id)) ? Number((p as any).room_id) : NaN
+      const ridFromText = (() => {
+        const m = /#(\d+)/.exec(p.text || '')
+        return m ? Number(m[1]) : NaN
+      })()
+      const roomId = Number.isFinite(ridFromPayload) ? ridFromPayload : ridFromText
+      if (Number.isFinite(roomId)) {
+        window.dispatchEvent(new CustomEvent('room-approved', { detail: { roomId } }))
       }
     }
     onRoomAppEv = (_e: any) => {}

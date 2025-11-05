@@ -1,9 +1,10 @@
 from __future__ import annotations
 import asyncio
-from fastapi import APIRouter, Depends, status, HTTPException
 from sqlalchemy import select
+from contextlib import suppress
 from sqlalchemy.ext.asyncio import AsyncSession
-from ..utils import emit_rooms_upsert
+from fastapi import APIRouter, Depends, status, HTTPException
+from ..utils import emit_rooms_upsert, serialize_game_for_redis, game_from_redis_to_model
 from ...core.clients import get_redis
 from ...core.decorators import log_route, rate_limited, require_room_creator
 from ...core.logging import log_action
@@ -15,7 +16,7 @@ from ...models.notif import Notif
 from ...realtime.sio import sio
 from ...realtime.utils import gc_empty_room
 from ...schemas.common import Identity, Ok
-from ...schemas.room import RoomIdOut, RoomCreateIn, RoomInfoOut, RoomInfoMemberOut, RoomAccessOut
+from ...schemas.room import RoomIdOut, RoomCreateIn, RoomInfoOut, RoomInfoMemberOut, RoomAccessOut, GameParams
 from ...schemas.user import UserOut
 
 router = APIRouter()
@@ -40,12 +41,26 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
     if mine >= 3:
         raise HTTPException(status_code=409, detail="rooms_limit_user")
 
-    room = Room(title=title, user_limit=payload.user_limit, privacy=payload.privacy, creator=uid, creator_name=creator_name)
+    gp = payload.game or GameParams()
+    game_dict = {"mode": gp.mode,
+                 "format": gp.format,
+                 "spectators_limit": int(gp.spectators_limit),
+                 "vote_at_zero": bool(gp.vote_at_zero),
+                 "vote_three": bool(gp.vote_three),
+                 "speech30_at_3_fouls": bool(gp.speech30_at_3_fouls),
+                 "extra30_at_2_fouls": bool(gp.extra30_at_2_fouls)}
+
+    room = Room(title=title,
+                user_limit=payload.user_limit,
+                privacy=payload.privacy,
+                creator=uid,
+                creator_name=creator_name,
+                game=game_dict)
     session.add(room)
     await session.commit()
     await session.refresh(room)
 
-    data = {
+    params_data = {
         "id": room.id,
         "title": room.title,
         "user_limit": room.user_limit,
@@ -54,9 +69,11 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
         "created_at": room.created_at.isoformat(),
         "privacy": payload.privacy,
     }
+    game_data = serialize_game_for_redis(game_dict)
 
     async with r.pipeline() as p:
-        await p.hset(f"room:{room.id}:params", mapping=data)
+        await p.hset(f"room:{room.id}:params", mapping=params_data)
+        await p.hset(f"room:{room.id}:game", mapping=game_data)
         await p.zadd("rooms:index", {str(room.id): int(room.created_at.timestamp())})
         await p.sadd(f"user:{uid}:rooms", str(room.id))
         await p.set(f"room:{room.id}:empty_since", int(room.created_at.timestamp()), ex=3600*24*30)
@@ -116,7 +133,10 @@ async def room_info(room_id: int, session: AsyncSession = Depends(get_session)) 
             )
         )
 
-    return RoomInfoOut(members=members)
+    raw_game = await r.hgetall(f"room:{room_id}:game")
+    game = game_from_redis_to_model(raw_game)
+    
+    return RoomInfoOut(members=members, game=game)
 
 
 @log_route("rooms.access")
@@ -169,15 +189,13 @@ async def apply(room_id: int, ident: Identity = Depends(get_identity), db: Async
     await r.sadd(f"room:{room_id}:pending", str(uid))
 
     user = await db.get(User, uid)
-    try:
+    with suppress(Exception):
         await sio.emit("room_invite",
                        {"room_id": room_id,
                         "room_title": title,
                         "user": {"id": uid, "username": user.username, "avatar_name": user.avatar_name}},
                        room=f"user:{creator}",
                        namespace="/auth")
-    except Exception:
-        pass
 
     await log_action(
         db,
@@ -224,8 +242,10 @@ async def approve(room_id: int, user_id: int, ident: Identity = Depends(get_iden
     if int(params.get("creator") or 0) != int(ident["id"]):
         raise HTTPException(status_code=403, detail="forbidden")
 
-    await r.srem(f"room:{room_id}:pending", str(user_id))
-    await r.sadd(f"room:{room_id}:allow", str(user_id))
+    async with r.pipeline(transaction=True) as p:
+        await p.srem(f"room:{room_id}:pending", str(user_id))
+        await p.sadd(f"room:{room_id}:allow", str(user_id))
+        await p.execute()
 
     title = (params.get("title") or "").strip()
     note = Notif(user_id=int(user_id), text=f"Вход в комнату #{room_id}: \"{title}\" одобрен")
@@ -233,10 +253,12 @@ async def approve(room_id: int, user_id: int, ident: Identity = Depends(get_iden
     await db.commit()
     await db.refresh(note)
 
-    try:
+    with suppress(Exception):
         await sio.emit("notify",
                        {"id": note.id,
                         "text": note.text,
+                        "room_id": room_id,
+                        "room_title": title,
                         "created_at": note.created_at.isoformat()},
                        room=f"user:{user_id}",
                        namespace="/auth")
@@ -244,8 +266,6 @@ async def approve(room_id: int, user_id: int, ident: Identity = Depends(get_iden
                        {"room_id": room_id, "user_id": user_id},
                        room=f"user:{int(ident['id'])}",
                        namespace="/auth")
-    except Exception:
-        pass
 
     await log_action(
         db,

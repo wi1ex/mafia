@@ -77,7 +77,12 @@ export const useAuthStore = defineStore('auth', () => {
           try {
             window.dispatchEvent(new CustomEvent('auth-notify', { detail: p }))
             const text = String(p?.text || '')
-            const m = /#(\d+)/.exec(text)
+            const ridFromPayload = Number.isFinite(Number((p as any)?.room_id)) ? Number((p as any).room_id) : NaN
+            const ridFromText = (() => {
+              const m = /#(\d+)/.exec(text)
+              return m ? Number(m[1]) : NaN
+            })()
+            const rid = Number.isFinite(ridFromPayload) ? ridFromPayload : ridFromText
             window.dispatchEvent(new CustomEvent('toast', {
               detail: {
                 id: p.id,
@@ -85,7 +90,7 @@ export const useAuthStore = defineStore('auth', () => {
                 kind: 'approve',
                 text,
                 date: p.created_at,
-                action: m ? { kind: 'route', label: 'Перейти', to: `/room/${m[1]}` } : undefined,
+                action: Number.isFinite(rid) ? { kind: 'route', label: 'Перейти', to: `/room/${rid}` } : undefined,
               }
             }))
           } catch {}
@@ -167,7 +172,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   function wipeLocalOnAccountChange() {
     try {
-      delLS(['room:videoQuality', 'room:lastLimit', 'room:lastPrivacy'])
+      delLS(['room:videoQuality', 'room:lastLimit', 'room:lastPrivacy', 'room:lastGame'])
     } catch {}
   }
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 import re
 import time
+from contextlib import suppress
 from fastapi import APIRouter, HTTPException, Query
 from ...core.decorators import log_route
 from ...services.storage_minio import presign_key
@@ -28,16 +29,13 @@ async def presign(key: str = Query(..., description="")) -> dict:
     now = int(time.time())
     cache_key = f"presign:{key}"
 
-    try:
+    with suppress(Exception):
         cached = await r.get(cache_key)
         if cached:
             url, exp_s = cached.split("|", 1)
             exp = int(exp_s)
             if exp - now > 30:
                 return {"url": url, "expires_in": exp - now}
-
-    except Exception:
-        pass
 
     try:
         url, ttl = presign_key(key, expires_hours=1)
@@ -52,9 +50,7 @@ async def presign(key: str = Query(..., description="")) -> dict:
 
     exp = now + ttl
     cache_ttl = max(30, min(ttl - 30, 1 * 3600))
-    try:
+    with suppress(Exception):
         await r.setex(cache_key, cache_ttl, f"{url}|{exp}")
-    except Exception:
-        pass
 
     return {"url": url, "expires_in": ttl}

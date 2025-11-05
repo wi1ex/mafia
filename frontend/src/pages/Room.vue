@@ -15,6 +15,7 @@
         :default-avatar="defaultAvatar"
         :volume-icon="volumeIconForUser(id)"
         :state-icon="stateIcon"
+        :is-ready="isReady"
         :is-on="isOn"
         :is-blocked="isBlocked"
         :user-name="userName"
@@ -61,6 +62,7 @@
           :can-moderate="canModerate"
           :speakers-on="speakersOn"
           :open-panel-for="openPanelFor"
+          :is-ready="isReady"
           :vol="volUi[id] ?? rtc.getUserVolume(id)"
           @toggle-panel="toggleTilePanel"
           @vol-input="onVol"
@@ -83,6 +85,9 @@
         </button>
       </div>
       <div v-else class="controls">
+        <button @click="toggleReady" :aria-pressed="readyOn">
+          <img :src="readyOn ? iconReady : iconClose" alt="ready" />
+        </button>
         <button @click="toggleMic" :disabled="pending.mic || blockedSelf.mic" :aria-pressed="micOn">
           <img :src="stateIcon('mic', localId)" alt="mic" />
         </button>
@@ -146,6 +151,7 @@ import RoomTile from '@/components/RoomTile.vue'
 import RoomSetting from '@/components/RoomSetting.vue'
 import RoomRequests from '@/components/RoomRequests.vue'
 
+import iconClose from '@/assets/svg/close.svg'
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
 import iconLeaveRoom from '@/assets/svg/leaveRoom.svg'
 import iconSettings from '@/assets/svg/settings.svg'
@@ -154,6 +160,7 @@ import iconVolumeMax from '@/assets/svg/volumeMax.svg'
 import iconVolumeMid from '@/assets/svg/volumeMid.svg'
 import iconVolumeLow from '@/assets/svg/volumeLow.svg'
 import iconVolumeMute from '@/assets/svg/volumeMute.svg'
+import iconReady from '@/assets/svg/ready.svg'
 import iconMicOn from '@/assets/svg/micOn.svg'
 import iconMicOff from '@/assets/svg/micOff.svg'
 import iconMicBlocked from '@/assets/svg/micBlocked.svg'
@@ -176,6 +183,7 @@ type StatusState = {
   cam: State01
   speakers: State01
   visibility: State01
+  ready?: State01
 }
 type BlockState = StatusState & { screen: State01 }
 type IconKind = keyof StatusState | 'screen'
@@ -362,6 +370,7 @@ function onVol(id: string, v: number) {
 
 function rol(id: string): string { return rolesByUser.get(id) || 'user' }
 const myRole = computed(() => rol(localId.value))
+
 function isOn(id: string, kind: IconKind) {
   if (kind === 'screen') return !!id && id === screenOwnerId.value
   if (id === localId.value) {
@@ -373,10 +382,12 @@ function isOn(id: string, kind: IconKind) {
   const st = statusByUser.get(id)
   return st ? st[kind] === 1 : true
 }
+
 function isBlocked(id: string, kind: IconKind) {
   const st = blockByUser.get(id)
   return st ? st[kind] === 1 : false
 }
+
 const blockedSelf = computed<BlockState>(() => {
   const s = blockByUser.get(localId.value)
   return {
@@ -387,6 +398,23 @@ const blockedSelf = computed<BlockState>(() => {
     screen: s?.screen ?? 0,
   }
 })
+
+const readyOn = computed({
+  get: () => (statusByUser.get(localId.value)?.ready ?? 0) === 1,
+  set: (v: boolean) => {
+    const cur = statusByUser.get(localId.value) ?? { mic: 1, cam: 1, speakers: 1, visibility: 1, ready: 0 }
+    statusByUser.set(localId.value, { ...cur, ready: v ? 1 : 0 })
+  }
+})
+const isReady = (id: string) => (statusByUser.get(id)?.ready ?? 0) === 1
+
+async function toggleReady() {
+  const want = !readyOn.value
+  readyOn.value = want
+  try {
+    await publishState({ ready: want })
+  } catch {}
+}
 
 function canModerate(targetId: string): boolean {
   if (targetId === localId.value) return false
@@ -418,6 +446,7 @@ function applyPeerState(uid: string, patch: any) {
     cam:        pick01(patch?.cam, cur.cam),
     speakers:   pick01(patch?.speakers, cur.speakers),
     visibility: pick01(patch?.visibility, cur.visibility),
+    ready:      pick01(patch?.ready, cur.ready ?? 0),
   })
 }
 function applyBlocks(uid: string, patch: any) {
@@ -615,6 +644,7 @@ function ensurePeer(id: string) {
 
 function applyJoinAck(j: any) {
   isPrivate.value = (j?.privacy || j?.room?.privacy) === 'private'
+  const game = j.game // game параметры доступны при входе
 
   positionByUser.clear()
   for (const [uid, pos] of Object.entries(j.positions || {})) {
@@ -629,6 +659,7 @@ function applyJoinAck(j: any) {
       cam:        pick01(st.cam, 0),
       speakers:   pick01(st.speakers, 1),
       visibility: pick01(st.visibility, 1),
+      ready:      pick01(st.ready, 0),
     })
   }
 
