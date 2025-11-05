@@ -108,29 +108,44 @@ const initialGame: Game = (() => {
 })()
 const game = ref<Game>(initialGame)
 
+type RoomBasic = { title?: string; user_limit?: number; privacy?: 'open'|'private' }
+const initialBasic: RoomBasic = (() => {
+  try {
+    const raw = localStorage.getItem('room:lastRoom')
+    return raw ? JSON.parse(raw) as RoomBasic : {}
+  } catch { return {} }
+})()
+
 const defaultTitle = () => {
   const name = (user.user?.username || '').trim()
   const id = user.user?.id
   const nick = name || (Number.isFinite(id) ? `user${id}` : 'user')
   return `Комната ${nick}`
 }
-const title = ref(defaultTitle())
+const title = ref((initialBasic.title || defaultTitle()).slice(0, 32))
 
-const initLimit = (() => {
-  const v = Number(localStorage.getItem('room:lastLimit'))
-  return Number.isFinite(v) ? clamp(v,2,12) : 11
+const initialLimit = (() => {
+  const v = Number(initialBasic.user_limit)
+  return Number.isFinite(v) ? clamp(v, 2, 12) : 11
 })()
-const limit = ref<number>(initLimit)
+const limit = ref<number>(initialLimit)
 
-const initPrivacy = (() => {
-  const v = (localStorage.getItem('room:lastPrivacy') || '').trim()
-  return v === 'private' ? 'private' : 'open'
-})()
-const privacy = ref<'open'|'private'>(initPrivacy)
+const privacy = ref<'open'|'private'>(initialBasic.privacy === 'private' ? 'private' : 'open')
 
 const ok = computed(() => title.value.length > 0 && limit.value >= 2 && limit.value <= 12)
 
 function clamp(n: number, min: number, max: number) { return Math.max(min, Math.min(max, n)) }
+
+function saveBasic() {
+  try {
+    const payload: RoomBasic = {
+      title: title.value,
+      user_limit: clamp(limit.value, 2, 12),
+      privacy: privacy.value,
+    }
+    localStorage.setItem('room:lastRoom', JSON.stringify(payload))
+  } catch {}
+}
 
 async function create() {
   if (!ok.value || busy.value) return
@@ -142,6 +157,7 @@ async function create() {
       privacy: privacy.value,
       game: { ...game.value },
     }
+    saveBasic()
     const { data } = await api.post('/rooms', payload)
     emit('created', data)
   } catch (e: any) {
@@ -158,9 +174,7 @@ async function create() {
 
 watch(() => user.user, () => { if (!title.value) title.value = defaultTitle() })
 
-watch(limit, v => { try { localStorage.setItem('room:lastLimit', String(clamp(v,2,12))) } catch {} })
-
-watch(privacy, v => { try { localStorage.setItem('room:lastPrivacy', v) } catch {} })
+watch([title, limit, privacy], () => { saveBasic() })
 
 watch(game, (v) => { try { localStorage.setItem('room:lastGame', JSON.stringify(v)) } catch {} }, { deep: true })
 

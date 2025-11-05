@@ -641,6 +641,7 @@ async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
         await _del_scan(f"room:{rid}:user:*:state")
         await _del_scan(f"room:{rid}:user:*:meta")
         await _del_scan(f"room:{rid}:user:*:block")
+        await _del_scan(f"room:{rid}:user:*:epoch")
         await r.delete(
             f"room:{rid}:members",
             f"room:{rid}:positions",

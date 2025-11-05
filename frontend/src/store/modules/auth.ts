@@ -172,7 +172,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   function wipeLocalOnAccountChange() {
     try {
-      delLS(['room:videoQuality', 'room:lastLimit', 'room:lastPrivacy', 'room:lastGame'])
+      delLS(['room:videoQuality', 'room:lastRoom', 'room:lastGame'])
     } catch {}
   }
 

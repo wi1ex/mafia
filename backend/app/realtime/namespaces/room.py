@@ -102,7 +102,11 @@ async def join(sid, data) -> JoinAck:
         ev_username = (me_prof.get("username") or sess.get("username") or f"user{uid}")
         ev_avatar = me_prof.get("avatar_name") or sess.get("avatar_name") or None
         eff_role = roles.get(str(uid), base_role)
+
         epoch = int(await r.incr(f"room:{rid}:user:{uid}:epoch"))
+        exp_ok = await r.expire(f"room:{rid}:user:{uid}:epoch", 86400)
+        if not exp_ok:
+            log.warning("sio.join.epoch_expire_not_set", rid=rid, uid=uid)
 
         await sio.save_session(sid,
                                {"uid": uid,
@@ -396,6 +400,12 @@ async def kick(sid, data):
                        namespace="/room")
 
         occ, _, pos_updates = await leave_room_atomic(r, rid, target)
+
+        try:
+            await r.delete(f"room:{rid}:user:{target}:epoch")
+        except Exception as e:
+            log.warning("sio.kick.epoch_delete_failed", rid=rid, target_uid=target, err=type(e).__name__)
+
         await sio.emit("member_left",
                        {"user_id": target},
                        room=f"room:{rid}",
@@ -464,6 +474,11 @@ async def disconnect(sid):
             occ, gc_seq, pos_updates = await leave_room_atomic(r, rid, uid)
         else:
             occ, gc_seq, pos_updates = (int(await r.scard(f"room:{rid}:members") or 0), 0, [])
+
+        try:
+            await r.delete(f"room:{rid}:user:{uid}:epoch")
+        except Exception as e:
+            log.warning("sio.disconnect.epoch_delete_failed", rid=rid, uid=uid, err=type(e).__name__)
 
         await sio.leave_room(sid,
                              f"room:{rid}",

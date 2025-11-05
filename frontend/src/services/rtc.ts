@@ -88,6 +88,7 @@ export type UseRTC = {
 }
 
 export function useRTC(): UseRTC {
+  let connectInFlight: Promise<void> | null = null
   const lk = ref<LkRoom | null>(null)
   const localId = ref('')
   const peerIds = ref<string[]>([])
@@ -724,12 +725,21 @@ export function useRTC(): UseRTC {
 
   function initRoom(opts?: {
     onScreenShareEnded?: () => void | Promise<void>
+    onRemoteScreenShareEnded?: (id: string) => void | Promise<void>
     publishDefaults?: ConstructorParameters<typeof LkRoom>[0]['publishDefaults']
     audioCaptureDefaults?: ConstructorParameters<typeof LkRoom>[0]['audioCaptureDefaults']
     videoCaptureDefaults?: ConstructorParameters<typeof LkRoom>[0]['videoCaptureDefaults']
     onDisconnected?: () => void | Promise<void>
   }): LkRoom {
-    if (lk.value) return lk.value
+    if (lk.value) {
+      const st: string | undefined = (lk.value as any)?.state ?? (lk.value as any)?.connectionState
+      if (st === 'disconnected') {
+        try { lk.value.removeAllListeners?.() } catch {}
+        lk.value = null
+      } else {
+        return lk.value
+      }
+    }
     const room = new LkRoom({
       dynacast: true,
       publishDefaults: {
@@ -766,6 +776,8 @@ export function useRTC(): UseRTC {
     room.on(RoomEvent.Disconnected, () => {
       reconnecting.value = false
       cleanupMedia()
+      try { room.removeAllListeners?.() } catch {}
+      lk.value = null
       try { opts?.onDisconnected?.() } catch {}
     })
 
@@ -883,23 +895,30 @@ export function useRTC(): UseRTC {
     websocketTimeout?: number
   }) {
     const room = lk.value ?? initRoom()
-    await room.connect(wsUrl, token, {
-      autoSubscribe: opts?.autoSubscribe ?? false,
-      maxRetries: opts?.maxRetries ?? 2,
-      peerConnectionTimeout: opts?.peerConnectionTimeout ?? 20_000,
-      websocketTimeout: opts?.websocketTimeout ?? 10_000,
-    })
+    if (connectInFlight) {
+      await connectInFlight
+      return
+    }
+    connectInFlight = (async () => {
+      await room.connect(wsUrl, token, {
+        autoSubscribe: opts?.autoSubscribe ?? false,
+        maxRetries: opts?.maxRetries ?? 2,
+        peerConnectionTimeout: opts?.peerConnectionTimeout ?? 20_000,
+        websocketTimeout: opts?.websocketTimeout ?? 10_000,
+      })
 
-    localId.value = String(room.localParticipant.identity)
-    const ids: string[] = [localId.value]
-    room.remoteParticipants.forEach(p => ids.push(String(p.identity)))
-    peerIds.value = [...new Set([...peerIds.value, ...ids])]
+      localId.value = String(room.localParticipant.identity)
+      const ids: string[] = [localId.value]
+      room.remoteParticipants.forEach(p => ids.push(String(p.identity)))
+      peerIds.value = [...new Set([...peerIds.value, ...ids])]
 
-    room.remoteParticipants.forEach(p => applySubsFor(p))
-    if (wantAudio.value) { void resumeAudio() }
+      room.remoteParticipants.forEach(p => applySubsFor(p))
+      if (wantAudio.value) { void resumeAudio() }
 
-    await refreshDevices()
-    refreshAudibleIds()
+      await refreshDevices()
+      refreshAudibleIds()
+    })()
+    try { await connectInFlight } finally { connectInFlight = null }
   }
 
   async function disconnect() {
