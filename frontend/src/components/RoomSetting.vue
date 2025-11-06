@@ -79,9 +79,8 @@ function onChange(kind: 'audioinput'|'videoinput', e: Event) {
   flex-direction: column;
   right: 0;
   bottom: 50px;
-  padding: 10px;
   gap: 10px;
-  min-width: 250px;
+  width: 400px;
   border-radius: 5px;
   background-color: $dark;
   z-index: 20;
@@ -89,6 +88,9 @@ function onChange(kind: 'audioinput'|'videoinput', e: Event) {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    padding: 10px;
+    border-radius: 5px;
+    background-color: $graphite;
     span {
       color: $fg;
       font-weight: bold;
@@ -111,7 +113,7 @@ function onChange(kind: 'audioinput'|'videoinput', e: Event) {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin: 10px 0;
+    padding: 10px;
     span {
       color: $fg;
     }
@@ -120,7 +122,7 @@ function onChange(kind: 'audioinput'|'videoinput', e: Event) {
       align-items: center;
       gap: 10px;
       input[type="range"] {
-        width: 72px;
+        width: 40px;
         height: 10px;
         accent-color: $fg;
         cursor: pointer;
@@ -136,6 +138,7 @@ function onChange(kind: 'audioinput'|'videoinput', e: Event) {
   label {
     display: flex;
     flex-direction: column;
+    padding: 0 10px 10px;
     gap: 5px;
     span {
       color: $fg;

@@ -325,7 +325,11 @@ function volumeIconForStream(key: string) {
   return volumeIcon(volUi[key] ?? rtc.getUserVolume(key), speakersOn.value && !isBlocked(screenOwnerId.value,'speakers'))
 }
 
-type Ack = { ok: boolean; status?: number; [k: string]: any } | null
+type Ack = {
+  ok: boolean
+  status?: number
+  [k: string]: any
+} | null
 async function sendAck(event: string, payload: any, timeoutMs = 15000): Promise<Ack> {
   try {
     return await socket.value!.timeout(timeoutMs).emitWithAck(event, payload)

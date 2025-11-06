@@ -34,7 +34,6 @@ onMounted(async () => {
 })
 </script>
 
-
 <style lang="scss" scoped>
 .rotate-overlay {
   display: none;

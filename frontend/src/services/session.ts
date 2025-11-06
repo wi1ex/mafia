@@ -42,7 +42,7 @@ const navType = () => (performance.getEntriesByType('navigation')[0] as Performa
 const isReload = () => {
   const t = navType()
   if (t === 'reload') return true
-  return (performance as any)?.navigation?.type === 1;
+  return (performance as any)?.navigation?.type === 1
 }
 
 function rid(): string {

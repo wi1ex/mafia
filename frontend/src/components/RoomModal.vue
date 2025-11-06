@@ -108,7 +108,11 @@ const initialGame: Game = (() => {
 })()
 const game = ref<Game>(initialGame)
 
-type RoomBasic = { title?: string; user_limit?: number; privacy?: 'open'|'private' }
+type RoomBasic = {
+  title?: string
+  user_limit?: number
+  privacy?: 'open'|'private'
+}
 const initialBasic: RoomBasic = (() => {
   try {
     const raw = localStorage.getItem('room:lastRoom')

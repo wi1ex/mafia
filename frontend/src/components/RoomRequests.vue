@@ -11,7 +11,9 @@
         <li v-for="u in apps" :key="u.id">
           <img v-minio-img="{ key: u.avatar_name ? `avatars/${u.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="" />
           <span>{{ u.username || ('user' + u.id) }}</span>
-          <button @click="approve(u.id)">Разрешить вход</button>
+          <button @click="approve(u.id)">
+            <img :src="iconReady" alt="approve" />
+          </button>
         </li>
       </ul>
       <p v-else-if="showEmpty">Нет заявок</p>
@@ -24,6 +26,7 @@ import { ref, watch, onMounted, onBeforeUnmount, computed } from 'vue'
 import { api } from '@/services/axios'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
+import iconReady from '@/assets/svg/ready.svg'
 import iconClose from '@/assets/svg/close.svg'
 
 const props = defineProps<{
@@ -156,21 +159,24 @@ onBeforeUnmount(() => {
 
 <style scoped lang="scss">
 .apps-panel {
+  display: flex;
+  flex-direction: column;
   position: absolute;
   right: 0;
   bottom: 50px;
-  z-index: 20;
-  min-width: 300px;
-  min-height: 300px;
-  overflow: auto;
-  background-color: #1e1e1e;
+  width: 400px;
+  min-height: 150px;
   border-radius: 5px;
-  padding: 10px;
+  background-color: #1e1e1e;
+  overflow: auto;
+  z-index: 20;
   header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 10px;
+    padding: 10px;
+    border-radius: 5px;
+    background-color: $graphite;
     span {
       color: $fg;
       font-weight: bold;
@@ -191,7 +197,7 @@ onBeforeUnmount(() => {
   }
   .apps-list {
     list-style: none;
-    margin: 0;
+    margin: 10px;
     padding: 0;
     display: flex;
     flex-direction: column;
@@ -199,10 +205,10 @@ onBeforeUnmount(() => {
     li {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 5px;
       padding: 10px;
       border-radius: 5px;
-      background-color: rgba(255, 255, 255, 0.05);
+      background-color: $graphite;
     }
     img {
       width: 24px;
@@ -222,6 +228,10 @@ onBeforeUnmount(() => {
       border-radius: 5px;
       cursor: pointer;
       font-size: 12px;
+      img {
+        width: 20px;
+        height: 20px;
+      }
     }
   }
   p {
