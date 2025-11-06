@@ -17,11 +17,11 @@ from ..core.security import decode_token
 __all__ = [
     "KEYS_STATE",
     "KEYS_BLOCK",
-    "KEYS_META",
     "validate_auth",
     "apply_state",
     "get_room_snapshot",
     "merge_ready_into_snapshot",
+    "set_ready",
     "get_positions_map",
     "build_game_from_raw",
     "persist_join_user_info",
@@ -43,7 +43,6 @@ log = structlog.get_logger()
 
 KEYS_STATE: tuple[str, ...] = ("mic", "cam", "speakers", "visibility", )
 KEYS_BLOCK: tuple[str, ...] = (*KEYS_STATE, "screen", )
-KEYS_META: tuple[str, ...] = ("ready", )
 
 JOIN_LUA = r'''
 -- KEYS: params, members, positions, info, empty_since
@@ -200,8 +199,7 @@ async def validate_auth(auth: Any) -> Tuple[int, str, str, Optional[str]] | None
 
 async def apply_state(r, rid: int, uid: int, data: Mapping[str, Any]) -> Dict[str, str]:
     incoming_state = {k: _norm01(data[k]) for k in KEYS_STATE if k in data}
-    incoming_meta = {k: _norm01(data[k]) for k in KEYS_META if k in data}
-    if not (incoming_state or incoming_meta):
+    if not incoming_state:
         return {}
 
     changed: Dict[str, str] = {}
@@ -217,15 +215,17 @@ async def apply_state(r, rid: int, uid: int, data: Mapping[str, Any]) -> Dict[st
                 await r.hset(f"room:{rid}:user:{uid}:state", mapping=upd)
                 changed.update(upd)
 
-    if incoming_meta:
-        cur_vals = await r.hmget(f"room:{rid}:user:{uid}:meta", *KEYS_META)
-        cur_m = {k: (v if v is not None else "") for k, v in zip(KEYS_META, cur_vals)}
-        upd_m = {k: v for k, v in incoming_meta.items() if cur_m.get(k) != v}
-        if upd_m:
-            await r.hset(f"room:{rid}:user:{uid}:meta", mapping=upd_m)
-            changed.update(upd_m)
-
     return changed
+
+
+async def set_ready(r, rid: int, uid: int, v: Any) -> Optional[str]:
+    if _norm01(v) == "1":
+        added = await r.sadd(f"room:{rid}:ready", str(uid))
+        return "1" if int(added or 0) > 0 else None
+
+    else:
+        removed = await r.srem(f"room:{rid}:ready", str(uid))
+        return "0" if int(removed or 0) > 0 else None
 
 
 async def get_room_snapshot(r, rid: int) -> Dict[str, Dict[str, str]]:
@@ -240,26 +240,9 @@ async def get_room_snapshot(r, rid: int) -> Dict[str, Dict[str, str]]:
     return {str(uid): (st or {}) for uid, st in zip(ids, states)}
 
 
-async def get_ready_snapshot(r, rid: int) -> Dict[str, Dict[str, str]]:
-    ids = await r.smembers(f"room:{rid}:members")
-    if not ids:
-        return {}
-
-    async with r.pipeline() as p:
-        for uid in ids:
-            await p.hgetall(f"room:{rid}:user:{uid}:meta")
-        metas = await p.execute()
-
-    out: Dict[str, Dict[str, str]] = {}
-    for uid, row in zip(ids, metas):
-        if row and "ready" in row:
-            out[str(uid)] = {"ready": "1" if str(row.get("ready") or "0") == "1" else "0"}
-
-    return out
-
-
 async def merge_ready_into_snapshot(r, rid: int, snapshot: Dict[str, Dict[str, str]]) -> Dict[str, Dict[str, str]]:
-    ready_snap = await get_ready_snapshot(r, rid)
+    ready_ids = await r.smembers(f"room:{rid}:ready")
+    ready_snap = {str(uid): {"ready": "1"} for uid in ready_ids} if ready_ids else {}
     for k, v in ready_snap.items():
         ss = snapshot.get(k) or {}
         snapshot[k] = {**ss, **v}
@@ -298,10 +281,6 @@ async def persist_join_user_info(r, rid: int, uid: int, username: Optional[str],
             await r.hset(f"room:{rid}:user:{uid}:info", mapping=mp)
         except Exception:
             log.warning("join.persist_info.failed", rid=rid, uid=uid)
-    try:
-        await r.hset(f"room:{rid}:user:{uid}:meta", mapping={"ready": "0"})
-    except Exception:
-        log.warning("sio.join.ready_reset_failed", rid=rid, uid=uid)
 
 
 async def get_blocks_snapshot(r, rid: int) -> Dict[str, Dict[str, str]]:
@@ -639,7 +618,6 @@ async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
 
         await _del_scan(f"room:{rid}:user:*:info")
         await _del_scan(f"room:{rid}:user:*:state")
-        await _del_scan(f"room:{rid}:user:*:meta")
         await _del_scan(f"room:{rid}:user:*:block")
         await _del_scan(f"room:{rid}:user:*:epoch")
         await r.delete(
@@ -656,6 +634,7 @@ async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
             f"room:{rid}:screen_time",
             f"room:{rid}:screen_owner",
             f"room:{rid}:screen_started_at",
+            f"room:{rid}:ready",
         )
         await r.zrem("rooms:index", str(rid))
     finally:

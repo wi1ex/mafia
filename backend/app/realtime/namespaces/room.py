@@ -16,6 +16,7 @@ from ..utils import (
     gc_empty_room,
     get_room_snapshot,
     merge_ready_into_snapshot,
+    set_ready,
     get_positions_map,
     build_game_from_raw,
     persist_join_user_info,
@@ -88,6 +89,10 @@ async def join(sid, data) -> JoinAck:
             return {"ok": False, "error": "room_is_full", "status": 409}
 
         await persist_join_user_info(r, rid, uid, sess.get("username"), sess.get("avatar_name"))
+        try:
+            await r.srem(f"room:{rid}:ready", str(uid))
+        except Exception:
+            log.warning("sio.join.ready_reset_failed", rid=rid, uid=uid)
         await sio.enter_room(sid,
                              f"room:{rid}",
                              namespace="/room")
@@ -197,10 +202,16 @@ async def state(sid, data) -> StateAck:
             return {"ok": False}
 
         r = get_redis()
-        applied = await apply_state(r, rid, uid, data or {})
-        if applied:
+        payload = data or {}
+        applied = await apply_state(r, rid, uid, payload)
+        changed = dict(applied)
+        if "ready" in payload:
+            newv = await set_ready(r, rid, uid, payload.get("ready"))
+            if newv is not None:
+                changed["ready"] = newv
+        if changed:
             await sio.emit("state_changed",
-                           {"user_id": uid, **applied},
+                           {"user_id": uid, **changed},
                            room=f"room:{rid}",
                            namespace="/room")
         return {"ok": True}
@@ -400,7 +411,10 @@ async def kick(sid, data):
                        namespace="/room")
 
         occ, _, pos_updates = await leave_room_atomic(r, rid, target)
-
+        try:
+            await r.srem(f"room:{rid}:ready", str(target))
+        except Exception as e:
+            log.warning("sio.kick.ready_delete_failed", rid=rid, target_uid=target, err=type(e).__name__)
         try:
             await r.delete(f"room:{rid}:user:{target}:epoch")
         except Exception as e:
@@ -475,6 +489,10 @@ async def disconnect(sid):
         else:
             occ, gc_seq, pos_updates = (int(await r.scard(f"room:{rid}:members") or 0), 0, [])
 
+        try:
+            await r.srem(f"room:{rid}:ready", str(uid))
+        except Exception as e:
+            log.warning("sio.disconnect.ready_delete_failed", rid=rid, uid=uid, err=type(e).__name__)
         try:
             await r.delete(f"room:{rid}:user:{uid}:epoch")
         except Exception as e:

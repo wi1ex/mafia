@@ -696,7 +696,7 @@ function applyJoinAck(j: any) {
 }
 
 const pendingDeltas: any[] = []
-async function publishState(delta: Partial<{ mic: boolean; cam: boolean; speakers: boolean; visibility: boolean }>) {
+async function publishState(delta: Partial<{ mic: boolean; cam: boolean; speakers: boolean; visibility: boolean; ready: boolean }>) {
   if (!socket.value || !socket.value.connected) {
     pendingDeltas.push(delta)
     return false
