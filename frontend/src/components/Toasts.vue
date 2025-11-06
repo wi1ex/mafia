@@ -208,7 +208,10 @@ onMounted(() => {
 }
 .actions > button {
   background-color: #444;
-  color: #fff;
+  color: $fg;
+  font-size: 14px;
+  font-family: Manrope-Medium;
+  line-height: 1;
   border: none;
   border-radius: 5px;
   padding: 5px 10px;

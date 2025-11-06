@@ -157,7 +157,7 @@ onBeforeUnmount(() => {
 .panel {
   position: absolute;
   right: 0;
-  top: 44px;
+  top: 40px;
   width: 360px;
   max-height: 420px;
   overflow: auto;

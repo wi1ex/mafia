@@ -132,17 +132,19 @@ function onAfterLeave() {
 
 watch(() => props.open, async on => {
   if (on) {
-    await load()
+    if (!apps.value.length) {
+      await load()
+    }
     seen = new Set(apps.value.map(x => x.id))
     saveSeen([...seen])
     recomputeCounts()
-  } else {}
+  }
 })
 
 watch(() => props.roomId, async () => {
   seen = loadSeen()
   await load()
-})
+}, { immediate: true })
 
 onMounted(() => {
   window.addEventListener('auth-room_invite', onInvite)
@@ -160,85 +162,90 @@ onBeforeUnmount(() => {
 <style scoped lang="scss">
 .apps-panel {
   display: flex;
-  flex-direction: column;
   position: absolute;
+  flex-direction: column;
   right: 0;
   bottom: 50px;
   width: 400px;
-  min-height: 150px;
+  min-height: 200px;
+  max-height: 400px;
   border-radius: 5px;
-  background-color: #1e1e1e;
-  overflow: auto;
+  background-color: $dark;
   z-index: 20;
   header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 10px;
+    padding: 15px 10px;
     border-radius: 5px;
     background-color: $graphite;
     span {
-      color: $fg;
+      font-size: 20px;
       font-weight: bold;
     }
     button {
-      background: none;
-      border: none;
-      color: $fg;
-      cursor: pointer;
-      font-size: 18px;
-      padding: 0;
-      width: 24px;
-      height: 24px;
       display: flex;
       align-items: center;
       justify-content: center;
+      padding: 0;
+      width: 30px;
+      height: 30px;
+      border: none;
+      background: none;
+      cursor: pointer;
+      img {
+        width: 25px;
+        height: 25px;
+      }
     }
   }
   .apps-list {
-    list-style: none;
-    margin: 10px;
-    padding: 0;
     display: flex;
     flex-direction: column;
+    margin: 10px;
+    padding: 0;
     gap: 10px;
+    overflow-y: auto;
+    scrollbar-width: none;
+    list-style: none;
     li {
       display: flex;
       align-items: center;
-      gap: 5px;
       padding: 10px;
+      gap: 5px;
       border-radius: 5px;
       background-color: $graphite;
-    }
-    img {
-      width: 24px;
-      height: 24px;
-      border-radius: 50%;
-    }
-    span {
-      color: $fg;
-      flex: 1;
-    }
-    button {
-      margin-left: auto;
-      padding: 5px 10px;
-      background-color: $green;
-      color: $bg;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-      font-size: 12px;
       img {
-        width: 20px;
-        height: 20px;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+      }
+      span {
+        flex: 1;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      button {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 30px;
+        border: none;
+        border-radius: 5px;
+        background-color: $lead;
+        cursor: pointer;
+        img {
+          width: 20px;
+          height: 20px;
+        }
       }
     }
   }
   p {
     color: $grey;
-    text-align: center;
-    margin: 0;
-    padding: 15px 0;
+    margin: auto;
   }
 }
 

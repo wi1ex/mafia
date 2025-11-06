@@ -640,7 +640,7 @@ function ensurePeer(id: string) {
 
 function applyJoinAck(j: any) {
   isPrivate.value = (j?.privacy || j?.room?.privacy) === 'private'
-  const game = j.game // game параметры доступны при входе
+  const game = j.game
 
   positionByUser.clear()
   for (const [uid, pos] of Object.entries(j.positions || {})) {
@@ -905,6 +905,17 @@ window.addEventListener('online',  () => { if (netReconnecting.value) hardReload
   padding: 10px;
   gap: 10px;
   overflow: hidden;
+  .reconnect-overlay {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(0, 0, 0, 0.5);
+    color: $fg;
+    z-index: 1000;
+    pointer-events: none;
+  }
   .grid {
     display: grid;
     width: calc(100vw - 20px);
@@ -1040,18 +1051,5 @@ window.addEventListener('online',  () => { if (netReconnecting.value) hardReload
       gap: 10px;
     }
   }
-}
-.reconnect-overlay {
-  position: fixed;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: rgba(0, 0, 0, 0.5);
-  color: $fg;
-  font-family: Manrope-Medium;
-  font-size: 16px;
-  z-index: 1000;
-  pointer-events: none;
 }
 </style>

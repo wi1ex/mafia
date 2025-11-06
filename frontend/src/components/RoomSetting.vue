@@ -88,25 +88,27 @@ function onChange(kind: 'audioinput'|'videoinput', e: Event) {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 10px;
+    padding: 15px 10px;
     border-radius: 5px;
     background-color: $graphite;
     span {
-      color: $fg;
+      font-size: 20px;
       font-weight: bold;
     }
     button {
-      background: none;
-      border: none;
-      color: $fg;
-      cursor: pointer;
-      font-size: 18px;
-      padding: 0;
-      width: 24px;
-      height: 24px;
       display: flex;
       align-items: center;
       justify-content: center;
+      padding: 0;
+      width: 30px;
+      height: 30px;
+      border: none;
+      background: none;
+      cursor: pointer;
+      img {
+        width: 25px;
+        height: 25px;
+      }
     }
   }
   .quality {
@@ -114,9 +116,6 @@ function onChange(kind: 'audioinput'|'videoinput', e: Event) {
     align-items: center;
     justify-content: space-between;
     padding: 10px;
-    span {
-      color: $fg;
-    }
     .quality-toggle {
       display: inline-flex;
       align-items: center;
@@ -140,15 +139,12 @@ function onChange(kind: 'audioinput'|'videoinput', e: Event) {
     flex-direction: column;
     padding: 0 10px 10px;
     gap: 5px;
-    span {
-      color: $fg;
-    }
     select {
       padding: 5px;
       border-radius: 5px;
       background-color: $bg;
       color: $fg;
-      font-size: 14px;
+      font-size: 12px;
       font-family: Manrope-Medium;
       line-height: 1;
       &:disabled {

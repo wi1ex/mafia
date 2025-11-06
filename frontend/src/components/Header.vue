@@ -27,7 +27,7 @@
         <span aria-live="polite">{{ user.user?.username || 'User' }}</span>
       </router-link>
 
-      <button class="btn" type="button" @click="logout">Выйти</button>
+      <button class="logout-btn" type="button" @click="logout">Выйти</button>
     </div>
   </header>
 </template>
@@ -133,9 +133,7 @@ onBeforeUnmount(() => { delete (window as any).__tg_cb__ })
     padding: 0 10px;
     height: 40px;
     border-radius: 5px;
-    background-color: $dark;
-    color: $fg;
-    font-size: 16px;
+    background-color: $graphite;
   }
   .user {
     display: flex;
@@ -151,10 +149,9 @@ onBeforeUnmount(() => { delete (window as any).__tg_cb__ })
         justify-content: center;
         padding: 0 10px;
         height: 40px;
-        border-radius: 5px;
         border: none;
-        background-color: $dark;
-        font-size: 16px;
+        border-radius: 5px;
+        background-color: $graphite;
         cursor: pointer;
         img {
           width: 24px;
@@ -186,8 +183,7 @@ onBeforeUnmount(() => { delete (window as any).__tg_cb__ })
       gap: 5px;
       height: 40px;
       border-radius: 5px;
-      background-color: $lead;
-      text-decoration: none;
+      background-color: $graphite;
       img {
         width: 24px;
         height: 24px;
@@ -196,17 +192,19 @@ onBeforeUnmount(() => { delete (window as any).__tg_cb__ })
       }
       span {
         color: $fg;
-        font-size: 16px;
+        text-decoration: none;
       }
     }
-    .btn {
+    .logout-btn {
       padding: 0 10px;
       height: 40px;
       border-radius: 5px;
       border: none;
-      background-color: $dark;
+      background-color: $graphite;
       color: $fg;
       font-size: 16px;
+      font-family: Manrope-Medium;
+      line-height: 1;
       cursor: pointer;
     }
   }

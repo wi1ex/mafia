@@ -395,7 +395,7 @@ onBeforeUnmount(() => {
       }
       button {
         padding: 0 10px;
-        height: 33px;
+        height: 30px;
         border-radius: 5px;
         border: none;
         background-color: $green;
