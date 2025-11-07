@@ -1,26 +1,18 @@
 <template>
   <div class="toasts" @transitionend="onTransEnd">
     <div v-for="t in items" :key="t.key" class="toast" :data-key="t.key" :class="{ closing: t._closing }">
-      <div class="head">
-        <strong class="title">{{ t.title }}</strong>
-      </div>
-
-      <div v-if="t.kind === 'app' && t.user" class="user">
-        <img v-minio-img="{ key: t.user.avatar_name ? `avatars/${t.user.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="" />
-        <span class="user-name">
-          {{ t.user.username || ('user' + t.user.id) }}
-        </span>
-      </div>
-
-      <p v-if="t.kind !== 'app' && t.text" class="text">{{ t.text }}</p>
-
-      <div class="actions">
-        <button v-if="(t.kind === 'app' || t.kind === 'approve') && t.action" @click="run(t)">
-          {{ t.action.label }}
-        </button>
-        <button class="close" @click="closeManual(t)">
+      <header>
+        <span>{{ t.title }}</span>
+        <button @click="closeManual(t)">
           <img :src="iconClose" alt="close" />
         </button>
+      </header>
+
+      <div class="user">
+        <img v-if="t.kind === 'app' && t.user" v-minio-img="{ key: t.user.avatar_name ? `avatars/${t.user.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="" />
+        <span v-if="t.kind === 'app' && t.user">{{ t.user.username || ('user' + t.user.id) }}</span>
+        <button v-if="(t.kind === 'app' || t.kind === 'approve') && t.action" @click="run(t)">{{ t.action.label }}</button>
+        <p v-if="t.kind !== 'app' && t.text">{{ t.text }}</p>
       </div>
     </div>
   </div>
@@ -136,75 +128,94 @@ onMounted(() => {
 
 <style scoped lang="scss">
 .toasts {
+  display: flex;
   position: fixed;
+  flex-direction: column;
   left: 10px;
   bottom: 10px;
-  display: flex;
-  flex-direction: column;
   gap: 10px;
   z-index: 2000;
-}
-.toast {
-  min-width: 280px;
-  max-width: 420px;
-  background-color: #2a2a2a;
-  color: #fff;
-  border-radius: 5px;
-  padding: 10px;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
-  opacity: 1;
-  transform: translateY(0);
-  transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
-  will-change: opacity, transform;
-  &.closing {
-    opacity: 0;
-    transform: translateY(10px);
-    pointer-events: none;
+  .toast {
+    display: flex;
+    flex-direction: column;
+    width: 400px;
+    border-radius: 5px;
+    background-color: $dark;
+    padding: 10px;
+    box-shadow: 0 5px 15px rgba($black, 0.75);
+    opacity: 1;
+    transform: translateY(0);
+    transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
+    will-change: opacity, transform;
+    &.closing {
+      opacity: 0;
+      transform: translateY(10px);
+      pointer-events: none;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px;
+      border-radius: 5px;
+      background-color: $graphite;
+      span {
+        font-size: 20px;
+        font-weight: bold;
+      }
+      button {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        width: 30px;
+        height: 30px;
+        border: none;
+        background: none;
+        cursor: pointer;
+        img {
+          width: 25px;
+          height: 25px;
+        }
+      }
+    }
+    .user {
+      display: flex;
+      align-items: center;
+      padding: 5px;
+      gap: 5px;
+      border-radius: 5px;
+      background-color: $graphite;
+      img {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+      }
+      span {
+        flex: 1;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      button {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 5px 10px;
+        height: 30px;
+        border: none;
+        border-radius: 5px;
+        background-color: $lead;
+        color: $fg;
+        font-size: 16px;
+        font-family: Manrope-Medium;
+        line-height: 1;
+        cursor: pointer;
+      }
+      p {
+        margin: 5px 0 10px;
+      }
+    }
   }
-}
-.head {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 5px;
-}
-.title {
-  font-weight: 600;
-}
-.user {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 5px 0 5px;
-}
-.user img {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-}
-.user-name {
-  font-weight: 500;
-}
-.text {
-  margin: 5px 0 10px;
-}
-.actions {
-  display: flex;
-  gap: 10px;
-  justify-content: flex-end;
-}
-.actions > button {
-  background-color: #444;
-  color: $fg;
-  font-size: 14px;
-  font-family: Manrope-Medium;
-  line-height: 1;
-  border: none;
-  border-radius: 5px;
-  padding: 5px 10px;
-  cursor: pointer;
-}
-.actions > .close {
-  background-color: #555;
 }
 </style>

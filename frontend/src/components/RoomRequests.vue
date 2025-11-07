@@ -11,9 +11,7 @@
         <li v-for="u in apps" :key="u.id">
           <img v-minio-img="{ key: u.avatar_name ? `avatars/${u.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="" />
           <span>{{ u.username || ('user' + u.id) }}</span>
-          <button @click="approve(u.id)">
-            <img :src="iconReady" alt="approve" />
-          </button>
+          <button @click="approve(u.id)">Одобрить</button>
         </li>
       </ul>
       <p v-else-if="showEmpty">Нет заявок</p>
@@ -26,7 +24,6 @@ import { ref, watch, onMounted, onBeforeUnmount, computed } from 'vue'
 import { api } from '@/services/axios'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
-import iconReady from '@/assets/svg/ready.svg'
 import iconClose from '@/assets/svg/close.svg'
 
 const props = defineProps<{
@@ -230,16 +227,16 @@ onBeforeUnmount(() => {
         display: flex;
         align-items: center;
         justify-content: center;
-        width: 40px;
+        padding: 5px 10px;
         height: 30px;
         border: none;
         border-radius: 5px;
         background-color: $lead;
+        color: $fg;
+        font-size: 16px;
+        font-family: Manrope-Medium;
+        line-height: 1;
         cursor: pointer;
-        img {
-          width: 20px;
-          height: 20px;
-        }
       }
     }
   }

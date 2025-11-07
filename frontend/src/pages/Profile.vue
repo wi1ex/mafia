@@ -390,7 +390,7 @@ onBeforeUnmount(() => {
   .modal {
     position: fixed;
     inset: 0;
-    background-color: rgba(0, 0, 0, 0.5);
+    background-color: rgba($black, 0.5);
     backdrop-filter: blur(5px);
     display: flex;
     align-items: center;

@@ -94,7 +94,7 @@ export function startAuthSocket(opts?: { onForceLogout?: () => void }): Socket {
       kind: 'app',
       room_id: p.room_id,
       user: p.user,
-      action: { kind: 'api', label: 'Разрешить', url: `/rooms/${p.room_id}/requests/${p.user.id}/approve`, method: 'post' },
+      action: { kind: 'api', label: 'Одобрить', url: `/rooms/${p.room_id}/requests/${p.user.id}/approve`, method: 'post' },
       read: true,
       ttl_ms: 10000,
     }
