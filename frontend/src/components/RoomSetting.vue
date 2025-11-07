@@ -88,7 +88,7 @@ function onChange(kind: 'audioinput'|'videoinput', e: Event) {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 15px 10px;
+    padding: 10px;
     border-radius: 5px;
     background-color: $graphite;
     span {

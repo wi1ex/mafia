@@ -3,20 +3,19 @@
     <div v-for="t in items" :key="t.key" class="toast" :data-key="t.key" :class="{ closing: t._closing }">
       <div class="head">
         <strong class="title">{{ t.title }}</strong>
-        <time class="date">{{ fmt(t.date) }}</time>
       </div>
 
-      <div v-if="t.user" class="user">
+      <div v-if="t.kind === 'app' && t.user" class="user">
         <img v-minio-img="{ key: t.user.avatar_name ? `avatars/${t.user.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="" />
         <span class="user-name">
           {{ t.user.username || ('user' + t.user.id) }}
         </span>
       </div>
 
-      <p v-if="t.text" class="text">{{ t.text }}</p>
+      <p v-if="t.kind !== 'app' && t.text" class="text">{{ t.text }}</p>
 
       <div class="actions">
-        <button v-if="t.action" @click="run(t)">
+        <button v-if="(t.kind === 'app' || t.kind === 'approve') && t.action" @click="run(t)">
           {{ t.action.label }}
         </button>
         <button class="close" @click="closeManual(t)">
@@ -75,8 +74,6 @@ type ToastItem = {
 
 const items = ref<ToastItem[]>([])
 
-function fmt(ts: number){ return new Date(ts).toLocaleString() }
-
 async function close(t: ToastItem) {
   items.value = items.value.filter(x => x !== t)
 }
@@ -100,8 +97,6 @@ async function run(t: ToastItem) {
     } else {
       const m = (t.action.method || 'post').toLowerCase()
       await (api as any)[m](t.action.url, t.action.body)
-      const rx = /\/rooms\/(\d+)\/requests\/(\d+)\/approve/
-      const mm = rx.exec(t.action.url)
     }
   } finally { await closeManual(t) }
 }
@@ -126,7 +121,7 @@ onMounted(() => {
       date: d.date ? Number(new Date(d.date)) : Date.now(),
       kind: d.kind || 'info',
       action: d.action,
-      ttl: Number.isFinite(d.ttl_ms) ? d.ttl_ms : (d.action ? 8000 : 5000),
+      ttl: Number.isFinite(d.ttl_ms) ? d.ttl_ms : (d.action ? 10000 : 5000),
       user: d.user,
       room_id: Number.isFinite(d.room_id) ? Number(d.room_id) : undefined,
     }
@@ -175,10 +170,6 @@ onMounted(() => {
 }
 .title {
   font-weight: 600;
-}
-.date {
-  color: #bbb;
-  font-size: 12px;
 }
 .user {
   display: flex;

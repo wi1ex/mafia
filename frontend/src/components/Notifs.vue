@@ -22,12 +22,6 @@
             <span class="user-name">{{ it.user.username || ('user' + it.user.id) }}</span>
           </div>
           <p v-if="it.text" class="text">{{ it.text }}</p>
-          <div class="actions">
-            <button v-if="it.action" @click="run(it)"> {{ it.action.label }} </button>
-            <button class="close" @click="closeManual(it)" aria-label="Закрыть">
-              <img :src="iconClose" alt="close" />
-            </button>
-          </div>
         </article>
         <p v-if="notif.items.length === 0" class="empty">Нет уведомлений</p>
       </div>
@@ -37,25 +31,10 @@
 
 <script setup lang="ts">
 import { ref, watch, nextTick, onBeforeUnmount } from 'vue'
-import { api } from '@/services/axios'
-import { useRouter } from 'vue-router'
 import { useNotifStore } from '@/store'
 
 import iconClose from '@/assets/svg/close.svg'
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
-
-const router = useRouter()
-
-async function run(it: any) {
-  const a = it.action
-  if (!a) return
-  if (a.kind === 'route') await router.push(a.to)
-  else await (api as any)[(a.method || 'post').toLowerCase()](a.url, a.body)
-  await closeManual(it)
-}
-async function closeManual(it: any) {
-  try { await notif.markReadVisible([it.id]) } catch {}
-}
 
 const props = defineProps<{
   open: boolean
@@ -194,7 +173,7 @@ onBeforeUnmount(() => {
   border-radius: 5px;
   padding: 10px;
   z-index: 100;
-  .head {
+  > .head {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -235,9 +214,39 @@ onBeforeUnmount(() => {
     .item {
       padding: 10px;
       border-bottom: 1px solid #333;
+      .head {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 5px;
+        .title {
+          font-weight: 600;
+        }
+        .date  {
+          color: #bbb;
+          font-size: 12px;
+        }
+      }
+      .user {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 5px 0;
+        img {
+          width: 28px;
+          height: 28px;
+          border-radius: 50%;
+        }
+        .user-name {
+          font-weight: 500;
+        }
+      }
+      .text {
+        margin: 5px 0 0;
+      }
     }
-    .item.unread p {
-      font-weight: 600;
+    .item.unread .title {
+      font-weight: 700;
     }
     .empty {
       color: $grey;

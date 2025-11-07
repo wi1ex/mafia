@@ -211,6 +211,15 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  h3 {
+    margin: 0 0 5px;
+    color: $fg;
+    font-size: 18px;
+    font-weight: 600;
+  }
+  input[type="text"], input:not([type]), input[type="range"] {
+    font: inherit;
+  }
 }
 .actions {
   display: flex;

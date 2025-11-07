@@ -89,15 +89,14 @@ export function startAuthSocket(opts?: { onForceLogout?: () => void }): Socket {
   authSocket.on('room_invite', (p:any) => {
     window.dispatchEvent(new CustomEvent('auth-room_invite', { detail: p }))
     const dto = {
-      title: 'Заявка',
-      text: `Заявка в комнату #${p.room_id}: ${p.room_title || ''}`,
+      title: 'Заявка в комнату от',
       date: new Date().toISOString(),
       kind: 'app',
       room_id: p.room_id,
       user: p.user,
-      action: { kind: 'api', label: 'Разрешить вход', url: `/rooms/${p.room_id}/requests/${p.user.id}/approve`, method: 'post' },
+      action: { kind: 'api', label: 'Разрешить', url: `/rooms/${p.room_id}/requests/${p.user.id}/approve`, method: 'post' },
       read: true,
-      ttl_ms: 8000,
+      ttl_ms: 10000,
     }
     window.dispatchEvent(new CustomEvent('toast', { detail: dto }))
   })

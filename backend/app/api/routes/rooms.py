@@ -202,7 +202,7 @@ async def apply(room_id: int, ident: Identity = Depends(get_identity), db: Async
         user_id=uid,
         username=ident["username"],
         action="room_apply",
-        details=f"Подана заявка в комнату room_id={room_id} title={title} creator={creator}",
+        details=f"Подача заявки в комнату room_id={room_id} title={title} creator={creator}",
     )
 
     return Ok()
@@ -247,19 +247,8 @@ async def approve(room_id: int, user_id: int, ident: Identity = Depends(get_iden
         await p.sadd(f"room:{room_id}:allow", str(user_id))
         await p.execute()
 
-    title = (params.get("title") or "").strip()
-    payload = {
-        "title": "Одобрено",
-        "text": f"Ваша заявка в комнату #{room_id} принята",
-        "kind": "approve",
-        "room_id": room_id,
-        "action": {"kind": "route", "label": "Перейти", "to": f"/room/{room_id}"},
-        "ttl_ms": 8000,
-    }
-    note = Notif(user_id=int(user_id),
-                 title="Одобрено",
-                 text=payload["text"],
-                 payload=payload)
+    title_room = (params.get("title") or "").strip()
+    note = Notif(user_id=int(user_id), title="Одобрено", text=f"Ваша заявка в комнату «{title_room}» одобрена")
     db.add(note)
     await db.commit()
     await db.refresh(note)
@@ -270,10 +259,10 @@ async def approve(room_id: int, user_id: int, ident: Identity = Depends(get_iden
                         "title": note.title,
                         "text": note.text,
                         "date": note.created_at.isoformat(),
-                        "kind": payload["kind"],
+                        "kind": "approve",
                         "room_id": room_id,
-                        "action": payload["action"],
-                        "ttl_ms": payload["ttl_ms"],
+                        "action": {"kind": "route", "label": "Перейти", "to": f"/room/{room_id}"},
+                        "ttl_ms": 10000,
                         "read": False},
                        room=f"user:{user_id}",
                        namespace="/auth")
@@ -287,7 +276,7 @@ async def approve(room_id: int, user_id: int, ident: Identity = Depends(get_iden
         user_id=int(ident["id"]),
         username=ident["username"],
         action="room_approve",
-        details=f"Одобрена заявка в комнату room_id={room_id} title={title} target_user={user_id}",
+        details=f"Одобрена заявка в комнату room_id={room_id} title={title_room} target_user={user_id}",
     )
 
     return Ok()

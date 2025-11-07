@@ -68,7 +68,8 @@ export const useNotifStore = defineStore('notif', () => {
       const p = e?.detail as Note
       if (!p) return
       if (p.kind !== 'app') {
-        items.value.unshift(p)
+        const { action, ...clean } = p as any
+        items.value.unshift(clean)
         if (!p.read) unread.value++
       }
     }
