@@ -68,11 +68,7 @@ export function createPublicSocket(namespace: string, opts?: IoOpts): Socket {
 
 let authSocket: Socket | null = null
 
-export function startAuthSocket(opts?: {
-  onForceLogout?: () => void
-  onNotify?: (p: any) => void
-  onRoomApp?: (p: any) => void
-}): Socket {
+export function startAuthSocket(opts?: { onForceLogout?: () => void }): Socket {
   if (authSocket) return authSocket
   authSocket = createAuthedSocket('/auth', {
     path: '/ws/socket.io',
@@ -84,13 +80,30 @@ export function startAuthSocket(opts?: {
     reconnectionDelayMax: 2000,
   })
   if (opts?.onForceLogout) authSocket.on('force_logout', opts.onForceLogout)
-  if (opts?.onNotify) authSocket.on('notify', opts.onNotify)
-  if (opts?.onRoomApp) authSocket.on('room_invite', opts.onRoomApp)
+
+  authSocket.on('notify', (p:any) => {
+    window.dispatchEvent(new CustomEvent('auth-notify', { detail: p }))
+    window.dispatchEvent(new CustomEvent('toast', { detail: p }))
+  })
+
+  authSocket.on('room_invite', (p:any) => {
+    window.dispatchEvent(new CustomEvent('auth-room_invite', { detail: p }))
+    const dto = {
+      title: 'Заявка',
+      text: `Заявка в комнату #${p.room_id}: ${p.room_title || ''}`,
+      date: new Date().toISOString(),
+      kind: 'app',
+      room_id: p.room_id,
+      user: p.user,
+      action: { kind: 'api', label: 'Разрешить вход', url: `/rooms/${p.room_id}/requests/${p.user.id}/approve`, method: 'post' },
+      read: true,
+      ttl_ms: 8000,
+    }
+    window.dispatchEvent(new CustomEvent('toast', { detail: dto }))
+  })
 
   authSocket.on('room_app_approved', (p:any) => {
-    try {
-      window.dispatchEvent(new CustomEvent('auth-room_app_approved', { detail: p }))
-    } catch {}
+    window.dispatchEvent(new CustomEvent('auth-room_app_approved', { detail: p }))
   })
 
   return authSocket

@@ -13,8 +13,21 @@
 
       <div class="list" ref="list">
         <article v-for="it in notif.items" :key="it.id" class="item" :data-id="it.id" :class="{ unread: !it.read }">
-          <p>{{ it.text }}</p>
-          <time>{{ new Date(it.created_at).toLocaleString() }}</time>
+          <div class="head">
+            <strong class="title">{{ it.title }}</strong>
+            <time class="date">{{ new Date(it.date).toLocaleString() }}</time>
+          </div>
+          <div v-if="it.user" class="user">
+            <img v-minio-img="{ key: it.user.avatar_name ? `avatars/${it.user.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="" />
+            <span class="user-name">{{ it.user.username || ('user' + it.user.id) }}</span>
+          </div>
+          <p v-if="it.text" class="text">{{ it.text }}</p>
+          <div class="actions">
+            <button v-if="it.action" @click="run(it)"> {{ it.action.label }} </button>
+            <button class="close" @click="closeManual(it)" aria-label="Закрыть">
+              <img :src="iconClose" alt="close" />
+            </button>
+          </div>
         </article>
         <p v-if="notif.items.length === 0" class="empty">Нет уведомлений</p>
       </div>
@@ -24,9 +37,25 @@
 
 <script setup lang="ts">
 import { ref, watch, nextTick, onBeforeUnmount } from 'vue'
+import { api } from '@/services/axios'
+import { useRouter } from 'vue-router'
 import { useNotifStore } from '@/store'
 
 import iconClose from '@/assets/svg/close.svg'
+import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
+
+const router = useRouter()
+
+async function run(it: any) {
+  const a = it.action
+  if (!a) return
+  if (a.kind === 'route') await router.push(a.to)
+  else await (api as any)[(a.method || 'post').toLowerCase()](a.url, a.body)
+  await closeManual(it)
+}
+async function closeManual(it: any) {
+  try { await notif.markReadVisible([it.id]) } catch {}
+}
 
 const props = defineProps<{
   open: boolean

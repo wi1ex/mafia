@@ -12,6 +12,7 @@ import { onMounted, watchEffect, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/store'
 import { useUserStore } from '@/store'
+import { useNotifStore } from '@/store'
 import Header from '@/components/Header.vue'
 import Toast from '@/components/Toasts.vue'
 
@@ -30,7 +31,12 @@ watchEffect(() => {
 
 onMounted(async () => {
   await auth.init()
-  if (auth.isAuthed) { try { await user.fetchMe() } catch {} }
+  if (auth.isAuthed) {
+    try { await user.fetchMe() } catch {}
+    const notif = useNotifStore()
+    notif.ensureWS()
+    try { await notif.fetchAll() } catch {}
+  }
 })
 </script>
 

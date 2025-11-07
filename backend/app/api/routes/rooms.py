@@ -248,7 +248,18 @@ async def approve(room_id: int, user_id: int, ident: Identity = Depends(get_iden
         await p.execute()
 
     title = (params.get("title") or "").strip()
-    note = Notif(user_id=int(user_id), text=f"Вход в комнату #{room_id}: \"{title}\" одобрен")
+    payload = {
+        "title": "Одобрено",
+        "text": f"Ваша заявка в комнату #{room_id} принята",
+        "kind": "approve",
+        "room_id": room_id,
+        "action": {"kind": "route", "label": "Перейти", "to": f"/room/{room_id}"},
+        "ttl_ms": 8000,
+    }
+    note = Notif(user_id=int(user_id),
+                 title="Одобрено",
+                 text=payload["text"],
+                 payload=payload)
     db.add(note)
     await db.commit()
     await db.refresh(note)
@@ -256,10 +267,14 @@ async def approve(room_id: int, user_id: int, ident: Identity = Depends(get_iden
     with suppress(Exception):
         await sio.emit("notify",
                        {"id": note.id,
+                        "title": note.title,
                         "text": note.text,
+                        "date": note.created_at.isoformat(),
+                        "kind": payload["kind"],
                         "room_id": room_id,
-                        "room_title": title,
-                        "created_at": note.created_at.isoformat()},
+                        "action": payload["action"],
+                        "ttl_ms": payload["ttl_ms"],
+                        "read": False},
                        room=f"user:{user_id}",
                        namespace="/auth")
         await sio.emit("room_app_approved",

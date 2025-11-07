@@ -13,7 +13,7 @@
         </span>
       </div>
 
-      <p class="text">{{ t.text }}</p>
+      <p v-if="t.text" class="text">{{ t.text }}</p>
 
       <div class="actions">
         <button v-if="t.action" @click="run(t)">
@@ -30,7 +30,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { useNotifStore } from '@/store/modules/notif'
+import { useNotifStore } from '@/store'
 import { api } from '@/services/axios'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
@@ -60,9 +60,8 @@ type ToastUser = {
 
 type ToastItem = {
   key: number
-  noteId?: number
   title: string
-  text: string
+  text?: string
   date: number
   kind?: string
   action?: ToastAction
@@ -70,6 +69,8 @@ type ToastItem = {
   user?: ToastUser
   room_id?: number
   _closing?: boolean
+  read?: boolean
+  id?: number
 }
 
 const items = ref<ToastItem[]>([])
@@ -86,7 +87,7 @@ async function closeManual(t: ToastItem){
       window.dispatchEvent(new CustomEvent('room-app-seen', { detail: { room_id: t.room_id, user_id: t.user.id } }))
     } catch {}
   }
-  try { if (t.noteId) await notif.markReadVisible([t.noteId]) } catch {}
+  try { if (t.id && t.kind !== 'app') await notif.markReadVisible([t.id]) } catch {}
   t._closing = true
   setTimeout(() => { void close(t) }, 300)
 }
@@ -101,11 +102,6 @@ async function run(t: ToastItem) {
       await (api as any)[m](t.action.url, t.action.body)
       const rx = /\/rooms\/(\d+)\/requests\/(\d+)\/approve/
       const mm = rx.exec(t.action.url)
-      if (mm) {
-        window.dispatchEvent(new CustomEvent('auth-room_app_approved', {
-          detail: { room_id: Number(mm[1]), user_id: Number(mm[2]) }
-        }))
-      }
     }
   } finally { await closeManual(t) }
 }
@@ -124,13 +120,13 @@ onMounted(() => {
     const key = Date.now() + Math.random()
     const t: ToastItem = {
       key,
-      noteId: d.id,
-      title: d.title || 'Уведомление',
-      text: String(d.text || ''),
+      id: d.id,
+      title: d.title ?? 'Уведомление',
+      text: d.text ? String(d.text) : undefined,
       date: d.date ? Number(new Date(d.date)) : Date.now(),
       kind: d.kind || 'info',
       action: d.action,
-      ttl: Number.isFinite(d.ttl) ? d.ttl : (d.action ? 8000 : 5000),
+      ttl: Number.isFinite(d.ttl_ms) ? d.ttl_ms : (d.action ? 8000 : 5000),
       user: d.user,
       room_id: Number.isFinite(d.room_id) ? Number(d.room_id) : undefined,
     }

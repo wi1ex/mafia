@@ -71,52 +71,7 @@ export const useAuthStore = defineStore('auth', () => {
     bindBus()
     setSid(sessionId.value)
     if (connect) {
-      startAuthSocket({
-        onForceLogout: () => { void localSignOut() },
-        onNotify: (p) => {
-          try {
-            window.dispatchEvent(new CustomEvent('auth-notify', { detail: p }))
-            const text = String(p?.text || '')
-            const ridFromPayload = Number.isFinite(Number((p as any)?.room_id)) ? Number((p as any).room_id) : NaN
-            const ridFromText = (() => {
-              const m = /#(\d+)/.exec(text)
-              return m ? Number(m[1]) : NaN
-            })()
-            const rid = Number.isFinite(ridFromPayload) ? ridFromPayload : ridFromText
-            window.dispatchEvent(new CustomEvent('toast', {
-              detail: {
-                id: p.id,
-                title: 'Одобрено',
-                kind: 'approve',
-                text,
-                date: p.created_at,
-                action: Number.isFinite(rid) ? { kind: 'route', label: 'Перейти', to: `/room/${rid}` } : undefined,
-              }
-            }))
-          } catch {}
-        },
-        onRoomApp: (p) => {
-          try {
-            window.dispatchEvent(new CustomEvent('auth-room_invite', { detail: p }))
-            const text = `Заявка в комнату #${p.room_id}: ${p.room_title} — ${p.user?.username || ('user' + p.user?.id)}`
-            window.dispatchEvent(new CustomEvent('toast', {
-              detail: {
-                title: 'Заявка',
-                kind: 'app',
-                text,
-                room_id: p.room_id,
-                user: p.user,
-                action: {
-                  kind: 'api',
-                  label: 'Разрешить вход',
-                  url: `/rooms/${p.room_id}/requests/${p.user.id}/approve`,
-                  method: 'post',
-                },
-              },
-            }))
-          } catch {}
-        }
-      })
+      startAuthSocket({ onForceLogout: () => { void localSignOut() } })
     }
     ready.value = true
   }
@@ -132,7 +87,7 @@ export const useAuthStore = defineStore('auth', () => {
     foreign.value = isForeignActive()
     ready.value = true
     try {
-      const { useUserStore } = await import('@/store/modules/user')
+      const { useUserStore } = await import('@/store')
       useUserStore().clear()
     } catch {}
   }
@@ -188,7 +143,7 @@ export const useAuthStore = defineStore('auth', () => {
   async function signInWithTelegram(tg: TgUser): Promise<void> {
     const { data } = await api.post('/auth/telegram', tg)
     await applySession(data)
-    const { useUserStore } = await import('@/store/modules/user')
+    const { useUserStore } = await import('@/store')
     await useUserStore().fetchMe()
   }
 

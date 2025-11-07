@@ -20,7 +20,21 @@ async def list_notifs(limit: int = 50, ident: Identity = Depends(get_identity), 
     uid = int(ident["id"])
     lim = max(1, min(200, limit))
     q = await db.execute(select(Notif).where(Notif.user_id == uid).order_by(Notif.id.desc()).limit(lim))
-    items = [NotifOut(id=n.id, text=n.text, created_at=n.created_at.isoformat(), read=(n.read_at is not None)) for n in q.scalars().all()]
+    items: list[NotifOut] = []
+    for n in q.scalars().all():
+        p = n.payload or {}
+        items.append(NotifOut(
+            id=n.id,
+            title=p.get("title") or n.title or "Уведомление",
+            text=p.get("text") or (n.text or None),
+            date=n.created_at,
+            kind=p.get("kind"),
+            room_id=p.get("room_id"),
+            user=p.get("user"),
+            action=p.get("action"),
+            read=(n.read_at is not None),
+            ttl_ms=p.get("ttl_ms"),
+        ))
     total_unread = await db.scalar(select(func.count()).select_from(Notif).where(Notif.user_id == uid, Notif.read_at.is_(None)))
 
     return NotifsListOut(items=items, unread_count=int(total_unread or 0))

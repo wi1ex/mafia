@@ -2,13 +2,35 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { api } from '@/services/axios'
 
-type Note = {
+type NotifUser = {
   id: number
-  text: string
-  created_at: string
-  read: boolean
+  username?: string
+  avatar_name?: string | null
+}
+type NotifAction =
+  | {
+  kind: 'route'
+  label: string
+  to: string
+}
+  | {
+  kind: 'api'
+  label: string
+  url: string
+  method?: 'get'|'post'|'put'|'delete'
+  body?: any
+}
+export type Note = {
+  id: number
+  title: string
+  text?: string
+  date: string
+  kind?: string
   room_id?: number
-  room_title?: string
+  user?: NotifUser
+  action?: NotifAction
+  read: boolean
+  ttl_ms?: number
 }
 
 export const useNotifStore = defineStore('notif', () => {
@@ -45,16 +67,9 @@ export const useNotifStore = defineStore('notif', () => {
     onNotifyEv = (e: any) => {
       const p = e?.detail as Note
       if (!p) return
-      items.value.unshift({ ...p, read: false })
-      unread.value++
-      const ridFromPayload = Number.isFinite(Number((p as any)?.room_id)) ? Number((p as any).room_id) : NaN
-      const ridFromText = (() => {
-        const m = /#(\d+)/.exec(p.text || '')
-        return m ? Number(m[1]) : NaN
-      })()
-      const roomId = Number.isFinite(ridFromPayload) ? ridFromPayload : ridFromText
-      if (Number.isFinite(roomId)) {
-        window.dispatchEvent(new CustomEvent('room-approved', { detail: { roomId } }))
+      if (p.kind !== 'app') {
+        items.value.unshift(p)
+        if (!p.read) unread.value++
       }
     }
     onRoomAppEv = (_e: any) => {}
