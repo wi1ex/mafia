@@ -92,7 +92,7 @@ function onChange(kind: 'audioinput'|'videoinput', e: Event) {
     border-radius: 5px;
     background-color: $graphite;
     span {
-      font-size: 20px;
+      font-size: 18px;
       font-weight: bold;
     }
     button {

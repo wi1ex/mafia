@@ -177,7 +177,7 @@ onBeforeUnmount(() => {
     border-radius: 5px;
     background-color: $graphite;
     span {
-      font-size: 20px;
+      font-size: 18px;
       font-weight: bold;
     }
     button {
@@ -227,13 +227,13 @@ onBeforeUnmount(() => {
         display: flex;
         align-items: center;
         justify-content: center;
-        padding: 5px 10px;
+        padding: 10px;
         height: 30px;
         border: none;
         border-radius: 5px;
         background-color: $green;
-        color: $fg;
-        font-size: 16px;
+        color: $bg;
+        font-size: 14px;
         font-family: Manrope-Medium;
         line-height: 1;
         cursor: pointer;

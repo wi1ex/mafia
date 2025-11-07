@@ -157,8 +157,9 @@ onMounted(() => {
       align-items: center;
       padding: 10px;
       border-radius: 5px;
+      background-color: $graphite;
       span {
-        font-size: 20px;
+        font-size: 18px;
         font-weight: bold;
       }
       button {
@@ -180,7 +181,8 @@ onMounted(() => {
     .user {
       display: flex;
       align-items: center;
-      padding: 10px;
+      justify-content: space-between;
+      padding: 20px 10px;
       gap: 5px;
       border-radius: 5px;
       img {
@@ -194,23 +196,23 @@ onMounted(() => {
         overflow: hidden;
         text-overflow: ellipsis;
       }
+      p {
+        margin: 0;
+      }
       button {
         display: flex;
         align-items: center;
         justify-content: center;
-        padding: 5px 10px;
+        padding: 10px;
         height: 30px;
         border: none;
         border-radius: 5px;
         background-color: $green;
-        color: $fg;
-        font-size: 16px;
+        color: $bg;
+        font-size: 14px;
         font-family: Manrope-Medium;
         line-height: 1;
         cursor: pointer;
-      }
-      p {
-        margin: 5px 0 10px;
       }
     }
   }
