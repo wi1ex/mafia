@@ -11,8 +11,8 @@
       <div class="user">
         <img v-if="t.kind === 'app' && t.user" v-minio-img="{ key: t.user.avatar_name ? `avatars/${t.user.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="" />
         <span v-if="t.kind === 'app' && t.user">{{ t.user.username || ('user' + t.user.id) }}</span>
-        <button v-if="(t.kind === 'app' || t.kind === 'approve') && t.action" @click="run(t)">{{ t.action.label }}</button>
         <p v-if="t.kind !== 'app' && t.text">{{ t.text }}</p>
+        <button v-if="(t.kind === 'app' || t.kind === 'approve') && t.action" @click="run(t)">{{ t.action.label }}</button>
       </div>
     </div>
   </div>
@@ -141,7 +141,6 @@ onMounted(() => {
     width: 400px;
     border-radius: 5px;
     background-color: $dark;
-    padding: 10px;
     box-shadow: 0 5px 15px rgba($black, 0.75);
     opacity: 1;
     transform: translateY(0);
@@ -158,7 +157,6 @@ onMounted(() => {
       align-items: center;
       padding: 10px;
       border-radius: 5px;
-      background-color: $graphite;
       span {
         font-size: 20px;
         font-weight: bold;
@@ -182,10 +180,9 @@ onMounted(() => {
     .user {
       display: flex;
       align-items: center;
-      padding: 5px;
+      padding: 10px;
       gap: 5px;
       border-radius: 5px;
-      background-color: $graphite;
       img {
         width: 30px;
         height: 30px;
@@ -205,7 +202,7 @@ onMounted(() => {
         height: 30px;
         border: none;
         border-radius: 5px;
-        background-color: $lead;
+        background-color: $green;
         color: $fg;
         font-size: 16px;
         font-family: Manrope-Medium;

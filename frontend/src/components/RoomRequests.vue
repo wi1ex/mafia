@@ -231,7 +231,7 @@ onBeforeUnmount(() => {
         height: 30px;
         border: none;
         border-radius: 5px;
-        background-color: $lead;
+        background-color: $green;
         color: $fg;
         font-size: 16px;
         font-family: Manrope-Medium;
