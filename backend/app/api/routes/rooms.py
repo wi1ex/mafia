@@ -248,7 +248,7 @@ async def approve(room_id: int, user_id: int, ident: Identity = Depends(get_iden
         await p.execute()
 
     title_room = (params.get("title") or "").strip()
-    note = Notif(user_id=int(user_id), title="Одобрено", text=f"Ваша заявка в комнату «{title_room}» одобрена")
+    note = Notif(user_id=int(user_id), title="Одобрено", text=f"Заявка в «{title_room}» одобрена")
     db.add(note)
     await db.commit()
     await db.refresh(note)

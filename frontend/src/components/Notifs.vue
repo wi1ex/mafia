@@ -1,15 +1,13 @@
 <template>
   <Transition name="panel" @after-leave="onAfterLeave">
     <div v-show="open" class="panel" ref="root" @click.stop>
-      <div class="head">
+      <header>
         <span>Уведомления</span>
-        <div class="actions">
-          <button v-if="notif.unread > 0" class="markall" @click="notif.markAll()">Отметить всё прочитанным</button>
-          <button class="close" @click="$emit('update:open', false)" aria-label="Закрыть">
-            <img :src="iconClose" alt="close" />
-          </button>
-        </div>
-      </div>
+        <button v-if="notif.unread > 0" class="markall" @click="notif.markAll()">Отметить всё прочитанным</button>
+        <button @click="$emit('update:open', false)" aria-label="Закрыть">
+          <img :src="iconClose" alt="close" />
+        </button>
+      </header>
 
       <div class="list" ref="list">
         <article v-for="it in notif.items" :key="it.id" class="item" :data-id="it.id" :class="{ unread: !it.read }">
@@ -165,60 +163,51 @@ onBeforeUnmount(() => {
 .panel {
   position: absolute;
   right: 0;
-  top: 40px;
+  top: 50px;
   width: 360px;
   max-height: 420px;
   overflow: auto;
-  background-color: #1e1e1e;
+  scrollbar-width: none;
+  background-color: $lead;
   border-radius: 5px;
-  padding: 10px;
   z-index: 100;
-  > .head {
+  header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 5px;
+    padding: 10px;
+    border-radius: 5px;
+    background-color: $graphite;
     span {
-      color: $fg;
+      font-size: 18px;
       font-weight: bold;
     }
-    .actions {
-      display: inline-flex;
-      gap: 5px;
+    button {
+      display: flex;
       align-items: center;
-      .markall {
-        background: none;
-        border: none;
-        color: $fg;
-        cursor: pointer;
-        font-size: 12px;
-      }
-      .close {
-        background: none;
-        border: none;
-        width: 24px;
-        height: 24px;
-        padding: 0;
-        cursor: pointer;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        img {
-          width: 18px;
-          height: 18px;
-        }
+      justify-content: center;
+      padding: 0;
+      width: 30px;
+      height: 30px;
+      border: none;
+      background: none;
+      cursor: pointer;
+      img {
+        width: 25px;
+        height: 25px;
       }
     }
   }
   .list {
+    margin: 10px;
     .item {
-      padding: 10px;
-      border-bottom: 1px solid #333;
+      padding: 10px 0;
+      border-top: 1px solid $grey;
       .head {
         display: flex;
         justify-content: space-between;
         gap: 10px;
-        margin-bottom: 5px;
+        margin-bottom: 10px;
         .title {
           font-weight: 600;
         }
