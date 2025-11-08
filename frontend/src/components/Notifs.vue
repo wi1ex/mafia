@@ -3,22 +3,18 @@
     <div v-show="open" class="panel" ref="root" @click.stop>
       <header>
         <span>Уведомления</span>
-        <button v-if="notif.unread > 0" class="markall" @click="notif.markAll()">Отметить всё прочитанным</button>
+<!--        <button v-if="notif.unread > 0" class="markall" @click="notif.markAll()">Отметить всё прочитанным</button>-->
         <button @click="$emit('update:open', false)" aria-label="Закрыть">
           <img :src="iconClose" alt="close" />
         </button>
       </header>
 
       <div class="list" ref="list">
-        <article v-for="it in notif.items" :key="it.id" class="item" :data-id="it.id" :class="{ unread: !it.read }">
-          <div class="head">
-            <strong class="title">{{ it.title }}</strong>
-            <time class="date">{{ new Date(it.date).toLocaleString() }}</time>
-          </div>
-          <div v-if="it.user" class="user">
-            <img v-minio-img="{ key: it.user.avatar_name ? `avatars/${it.user.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="" />
-            <span class="user-name">{{ it.user.username || ('user' + it.user.id) }}</span>
-          </div>
+        <article class="item" v-for="it in notif.items" :key="it.id" :data-id="it.id" :class="{ unread: !it.read }">
+          <header>
+            <span>{{ it.title }}</span>
+            <time>{{ new Date(it.date).toLocaleString() }}</time>
+          </header>
           <p v-if="it.text" class="text">{{ it.text }}</p>
         </article>
         <p v-if="notif.items.length === 0" class="empty">Нет уведомлений</p>
@@ -161,15 +157,16 @@ onBeforeUnmount(() => {
 
 <style scoped lang="scss">
 .panel {
+  display: flex;
   position: absolute;
+  flex-direction: column;
   right: 0;
   top: 50px;
-  width: 360px;
-  max-height: 420px;
-  overflow: auto;
-  scrollbar-width: none;
-  background-color: $lead;
+  width: 400px;
+  min-height: 200px;
+  max-height: 400px;
   border-radius: 5px;
+  background-color: $graphite;
   z-index: 100;
   header {
     display: flex;
@@ -177,7 +174,7 @@ onBeforeUnmount(() => {
     align-items: center;
     padding: 10px;
     border-radius: 5px;
-    background-color: $graphite;
+    background-color: $lead;
     span {
       font-size: 18px;
       font-weight: bold;
@@ -199,43 +196,37 @@ onBeforeUnmount(() => {
     }
   }
   .list {
+    display: flex;
+    flex-direction: column;
     margin: 10px;
+    padding: 0;
+    gap: 10px;
+    overflow-y: auto;
+    scrollbar-width: none;
     .item {
+      display: flex;
+      align-items: center;
       padding: 10px 0;
+      gap: 5px;
+      border-radius: 5px;
+      background-color: $lead;
       border-top: 1px solid $grey;
-      .head {
+      header {
         display: flex;
         justify-content: space-between;
         gap: 10px;
         margin-bottom: 10px;
-        .title {
-          font-weight: 600;
+        span {
+          color: $fg;
         }
-        .date  {
-          color: #bbb;
+        time {
+          color: $grey;
           font-size: 12px;
         }
       }
-      .user {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        margin: 5px 0;
-        img {
-          width: 28px;
-          height: 28px;
-          border-radius: 50%;
-        }
-        .user-name {
-          font-weight: 500;
-        }
-      }
       .text {
-        margin: 5px 0 0;
+        color: $fg;
       }
-    }
-    .item.unread .title {
-      font-weight: 700;
     }
     .empty {
       color: $grey;

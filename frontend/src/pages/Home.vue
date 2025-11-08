@@ -330,9 +330,16 @@ function stopWS() {
   sio.value = null
 }
 
-const onRoomApproved = (e: any) => {
-  const rid = Number(e?.detail?.roomId)
-  if (selectedId.value && rid === selectedId.value) access.value = 'approved'
+function onAuthNotify(e: any) {
+  const d = e?.detail
+  if (!d) return
+  if (d.kind === 'approve') {
+    const rid = Number(d.room_id)
+    if (selectedId.value && rid === selectedId.value) {
+      access.value = 'approved'
+      void fetchRoomInfo(rid)
+    }
+  }
 }
 
 watch(selectedId, (id) => {
@@ -352,7 +359,7 @@ onMounted(() => {
   const f = Number(route.query.focus)
   if (Number.isFinite(f)) selectRoom(f)
 
-  window.addEventListener('room-approved', onRoomApproved)
+  window.addEventListener('auth-notify', onAuthNotify)
 })
 
 onBeforeUnmount(() => {
@@ -360,7 +367,7 @@ onBeforeUnmount(() => {
   infoTimers.clear()
   stopWS()
   try { document.removeEventListener('pointerdown', onGlobalPointerDown, { capture: true } as any) } catch {}
-  try { window.removeEventListener('room-approved', onRoomApproved) } catch {}
+  try { window.removeEventListener('auth-notify', onAuthNotify) } catch {}
 })
 </script>
 

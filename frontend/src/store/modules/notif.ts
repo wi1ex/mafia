@@ -2,35 +2,12 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { api } from '@/services/axios'
 
-type NotifUser = {
-  id: number
-  username?: string
-  avatar_name?: string | null
-}
-type NotifAction =
-  | {
-  kind: 'route'
-  label: string
-  to: string
-}
-  | {
-  kind: 'api'
-  label: string
-  url: string
-  method?: 'get'|'post'|'put'|'delete'
-  body?: any
-}
 export type Note = {
   id: number
   title: string
   text?: string
   date: string
-  kind?: string
-  room_id?: number
-  user?: NotifUser
-  action?: NotifAction
   read: boolean
-  ttl_ms?: number
 }
 
 export const useNotifStore = defineStore('notif', () => {
