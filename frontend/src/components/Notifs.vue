@@ -205,19 +205,22 @@ onBeforeUnmount(() => {
     scrollbar-width: none;
     .item {
       display: flex;
+      flex-direction: column;
       align-items: center;
-      padding: 10px 0;
-      gap: 5px;
+      padding: 10px;
+      gap: 15px;
       border-radius: 5px;
       background-color: $lead;
-      border-top: 1px solid $grey;
       header {
         display: flex;
         justify-content: space-between;
+        margin: 0;
+        padding: 0;
         gap: 10px;
-        margin-bottom: 10px;
+        width: 100%;
         span {
-          color: $fg;
+          margin: 0;
+          font-size: 16px;
         }
         time {
           color: $grey;
@@ -225,14 +228,15 @@ onBeforeUnmount(() => {
         }
       }
       .text {
+        margin: 0;
+        width: 100%;
         color: $fg;
       }
     }
     .empty {
       color: $grey;
       text-align: center;
-      margin: 0;
-      padding: 15px 0;
+      margin: 55px;
     }
   }
 }
