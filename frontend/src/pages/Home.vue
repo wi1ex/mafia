@@ -17,7 +17,7 @@
       <ul v-else class="list" ref="listEl">
         <li class="item" v-for="r in sortedRooms" :key="r.id" :class="{ active: r.id === selectedId }" tabindex="0" @click="selectRoom(r.id)">
           <div class="item_main">
-            <span class="item_title">Комната #{{ r.id }}: {{ r.title }}</span>
+            <span class="item_title">#{{ r.id }}: {{ r.title }}</span>
             <div class="item_meta">
               <span>({{ r.occupancy }}/{{ r.user_limit }})</span>
               <span class="badge" :data-kind="r.privacy === 'private' ? 'priv' : 'open'">
@@ -49,7 +49,7 @@
             </template>
             <div v-else class="muted">Авторизуйтесь, чтобы войти</div>
           </div>
-          <p class="ri-name">Комната #{{ selectedRoom?.id }}: {{ selectedRoom?.title }}</p>
+          <p class="ri-name">#{{ selectedRoom?.id }}: {{ selectedRoom?.title }}</p>
         </div>
 
         <div class="ri-meta">

@@ -7,11 +7,11 @@
           <img :src="iconClose" alt="close" />
         </button>
       </div>
-      <h3>Новая комната</h3>
+      <h3>Создать комнату</h3>
 
       <div class="tabs">
-        <button :class="{active: tab==='room'}" @click="tab='room'">Комната</button>
-        <button :class="{active: tab==='game'}" @click="tab='game'">Игра</button>
+        <button :class="{active: tab==='room'}" @click="tab='room'">Параметры комнаты</button>
+        <button :class="{active: tab==='game'}" @click="tab='game'">Параметры игры</button>
       </div>
 
       <template v-if="tab==='room'">
