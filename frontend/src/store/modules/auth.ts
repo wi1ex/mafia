@@ -122,7 +122,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   function wipeLocalAlways() {
     try {
-      delLS(['audioDeviceId', 'videoDeviceId', 'mediaPermProbed'])
+      delLS(['audioDeviceId', 'videoDeviceId', 'mediaPermProbed', 'room:ns', 'room:mirror'])
       scanAndDel(['vol:', 'loglevel:'])
       delLS(['auth:sid', 'auth:lock'])
       try { sessionStorage.clear() } catch {}

@@ -35,13 +35,12 @@ __all__ = [
     "update_blocks",
     "claim_screen",
     "release_screen",
-    "get_room_brief",
     "get_rooms_brief",
 ]
 
 log = structlog.get_logger()
 
-KEYS_STATE: tuple[str, ...] = ("mic", "cam", "speakers", "visibility", )
+KEYS_STATE: tuple[str, ...] = ("mic", "cam", "speakers", "visibility", "mirror", )
 KEYS_BLOCK: tuple[str, ...] = (*KEYS_STATE, "screen", )
 
 JOIN_LUA = r'''
@@ -58,7 +57,7 @@ local base_role = ARGV[3]
 local now       = tonumber(ARGV[4])
 
 local lim = tonumber(redis.call('HGET', params, 'user_limit') or '0')
-if not lim or lim <= 0 then return {-2,0,0,0} end
+if not lim or lim <= 0 then return {-3,0,0,0} end
 
 local creator = tonumber(redis.call('HGET', params, 'creator') or '0')
 local eff_role = (uid == creator) and 'host' or base_role
@@ -290,11 +289,11 @@ async def get_blocks_snapshot(r, rid: int) -> Dict[str, Dict[str, str]]:
 
     async with r.pipeline() as p:
         for uid in ids:
-            await p.hgetall(f"room:{rid}:user:{uid}:block")
-        res = await p.execute()
-    out: Dict[str, Dict[str, str]] = {}
-    for uid, row in zip(ids, res):
-        out[str(uid)] = {k: ("1" if v == "1" else "0") for k, v in (row or {}).items() if k in KEYS_BLOCK}
+            await p.hmget(f"room:{rid}:user:{uid}:block", *KEYS_BLOCK)
+        rows = await p.execute()
+    out = {}
+    for uid, vals in zip(ids, rows):
+        out[str(uid)] = {k: ("1" if (v == "1") else "0") for k, v in zip(KEYS_BLOCK, (vals or []))}
     return out
 
 
@@ -411,49 +410,70 @@ async def account_screen_time(r, rid: int, uid: int) -> None:
     started = await r.get(f"room:{rid}:screen_started_at")
     if not started:
         return
-    try:
-        dt = int(time()) - int(started)
-    except Exception:
-        dt = 0
+
+    dt = int(time()) - int(started)
     if dt > 0:
+        dt = min(dt, 4 * 3600)
         await r.hincrby(f"room:{rid}:screen_time", str(uid), dt)
     await r.delete(f"room:{rid}:screen_started_at")
 
 
-async def get_room_brief(r, rid: int) -> Optional[dict]:
-    fields = ("id", "title", "user_limit", "creator", "creator_name", "created_at", "privacy")
-    _id, title, user_limit, creator, creator_name, created_at, privacy = await r.hmget(f"room:{rid}:params", *fields)
-    if not (_id and title and user_limit and creator and creator_name and created_at):
-        return None
-
-    creator_id = int(creator)
-    creator_avatar_name: Optional[str] = None
-    occ = int(await r.scard(f"room:{rid}:members") or 0)
-    try:
-        async with SessionLocal() as s:
-            u = await s.get(User, creator_id)
-            if u:
-                creator_avatar_name = cast(Optional[str], u.avatar_name)
-    except Exception:
-        creator_avatar_name = None
-
-    return {
-        "id": int(_id),
-        "title": str(title),
-        "user_limit": int(user_limit),
-        "creator": creator_id,
-        "creator_name": str(creator_name),
-        "created_at": str(created_at),
-        "privacy": str(privacy or "open"),
-        "occupancy": occ,
-        "creator_avatar_name": creator_avatar_name,
-    }
-
-
 async def get_rooms_brief(r, ids: Iterable[int]) -> List[dict]:
-    tasks = [get_room_brief(r, int(rid)) for rid in ids]
-    res = await asyncio.gather(*tasks, return_exceptions=False)
-    return [x for x in res if x]
+    ids_list = [int(x) for x in ids]
+    if not ids_list:
+        return []
+
+    fields = ("id", "title", "user_limit", "creator", "creator_name", "creator_avatar_name", "created_at", "privacy")
+    async with r.pipeline() as p:
+        for rid in ids_list:
+            await p.hmget(f"room:{rid}:params", *fields)
+            await p.scard(f"room:{rid}:members")
+        raw = await p.execute()
+
+    briefs: List[dict] = []
+    need_db: set[int] = set()
+
+    for i in range(0, len(raw), 2):
+        vals = raw[i]
+        occ = int(raw[i+1] or 0)
+        if not vals:
+            continue
+
+        _id, title, user_limit, creator, creator_name, creator_avatar_name, created_at, privacy = vals
+        if not (_id and title and user_limit and creator and creator_name and created_at):
+            continue
+
+        creator_id = int(creator)
+        avatar = creator_avatar_name if creator_avatar_name is not None else None
+        if avatar is None:
+            need_db.add(creator_id)
+
+        briefs.append({
+            "id": int(_id),
+            "title": str(title),
+            "user_limit": int(user_limit),
+            "creator": creator_id,
+            "creator_name": str(creator_name),
+            "creator_avatar_name": avatar,
+            "created_at": str(created_at),
+            "privacy": str(privacy or "open"),
+            "occupancy": occ,
+        })
+
+    if need_db:
+        try:
+            async with SessionLocal() as s:
+                res = await s.execute(select(User.id, User.avatar_name).where(User.id.in_(need_db)))
+                avatar_by_uid = {int(uid): cast(Optional[str], av) for uid, av in res.all()}
+        except Exception:
+            log.exception("rooms.brief.db_error")
+            avatar_by_uid = {}
+
+        for b in briefs:
+            if b["creator_avatar_name"] is None:
+                b["creator_avatar_name"] = avatar_by_uid.get(b["creator"])
+
+    return briefs
 
 
 async def join_room_atomic(r, rid: int, uid: int, role: str):

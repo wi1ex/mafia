@@ -14,7 +14,7 @@ from ...models.room import Room
 from ...models.user import User
 from ...models.notif import Notif
 from ...realtime.sio import sio
-from ...realtime.utils import gc_empty_room
+from ...realtime.utils import gc_empty_room, get_profiles_snapshot
 from ...schemas.common import Identity, Ok
 from ...schemas.room import RoomIdOut, RoomCreateIn, RoomInfoOut, RoomInfoMemberOut, RoomAccessOut, GameParams
 from ...schemas.user import UserOut
@@ -60,12 +60,14 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
     await session.commit()
     await session.refresh(room)
 
+    u = await session.get(User, uid)
     params_data = {
         "id": room.id,
         "title": room.title,
         "user_limit": room.user_limit,
         "creator": room.creator,
         "creator_name": creator_name,
+        "creator_avatar_name": u.avatar_name if u else None,
         "created_at": room.created_at.isoformat(),
         "privacy": payload.privacy,
     }
@@ -104,7 +106,7 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
 
 @log_route("rooms.room_info")
 @router.get("/{room_id}/info", response_model=RoomInfoOut, response_model_exclude_none=True)
-async def room_info(room_id: int, session: AsyncSession = Depends(get_session)) -> RoomInfoOut:
+async def room_info(room_id: int) -> RoomInfoOut:
     r = get_redis()
     params = await r.hgetall(f"room:{room_id}:params")
     if not params:
@@ -115,20 +117,15 @@ async def room_info(room_id: int, session: AsyncSession = Depends(get_session)) 
     owner_raw = await r.get(f"room:{room_id}:screen_owner")
     screen_owner = int(owner_raw) if owner_raw else 0
 
-    users_map: dict[int, User] = {}
-    if order_ids:
-        rows = await session.execute(select(User).where(User.id.in_(order_ids)))
-        for u in rows.scalars().all():
-            users_map[int(u.id)] = u
-
+    profiles = await get_profiles_snapshot(r, room_id)
     members: list[RoomInfoMemberOut] = []
     for uid in order_ids:
-        u = users_map.get(uid)
+        p = profiles.get(str(uid)) or {}
         members.append(
             RoomInfoMemberOut(
                 id=uid,
-                username=(u.username if u else None),
-                avatar_name=(u.avatar_name if u else None),
+                username=p.get("username"),
+                avatar_name=p.get("avatar_name"),
                 screen=(True if screen_owner and uid == screen_owner else None),
             )
         )

@@ -20,7 +20,14 @@ setLogLevel(LogLevel.error)
 
 export type DeviceKind = 'audioinput' | 'videoinput'
 export type VQ = 'sd' | 'hd'
-const LS = { mic: 'audioDeviceId', cam: 'videoDeviceId', vq: 'room:videoQuality', perm: 'mediaPermProbed' }
+const LS = {
+  mic: 'audioDeviceId',
+  cam: 'videoDeviceId',
+  vq: 'room:videoQuality',
+  perm: 'mediaPermProbed',
+  ns: 'room:ns',
+  mirror: 'room:mirror',
+}
 
 const error = (...a: unknown[]) => console.error('[RTC]', ...a)
 
@@ -42,6 +49,7 @@ export type UseRTC = {
   selectedMicId: Ref<string>
   selectedCamId: Ref<string>
   remoteQuality: Ref<VQ>
+  nsOn: Ref<boolean>
   videoRef: (id: string) => (el: HTMLVideoElement | null) => void
   reconnecting: Ref<boolean>
   screenVideoRef: (id: string) => (el: HTMLVideoElement | null) => void
@@ -70,6 +78,7 @@ export type UseRTC = {
   setAudioSubscriptionsForAll: (on: boolean) => void
   setVideoSubscriptionsForAll: (on: boolean) => void
   setRemoteQualityForAll: (q: VQ) => void
+  setAudioProcessing: (on: boolean) => Promise<void>
   refreshDevices: () => Promise<void>
   fallback: (kind: DeviceKind) => Promise<void>
   onDeviceChange: (kind: DeviceKind) => Promise<void>
@@ -561,7 +570,7 @@ export function useRTC(): UseRTC {
     }
     try {
       if (kind === 'audioinput') {
-        await room.localParticipant.setMicrophoneEnabled(true, { deviceId: { exact: id } } as any)
+        await room.localParticipant.setMicrophoneEnabled(true, audioOptionsFor(id))
       } else {
         await room.localParticipant.setCameraEnabled(true, { deviceId: { exact: id }, resolution: highVideoQuality.resolution } as any)
       }
@@ -576,7 +585,7 @@ export function useRTC(): UseRTC {
       if (!nextId) return false
       try {
         if (kind === 'audioinput') {
-          await room.localParticipant.setMicrophoneEnabled(true, { deviceId: { exact: nextId } } as any)
+          await room.localParticipant.setMicrophoneEnabled(true, audioOptionsFor(nextId))
         } else {
           await room.localParticipant.setCameraEnabled(true, { deviceId: { exact: nextId }, resolution: highVideoQuality.resolution } as any)
         }
@@ -584,7 +593,7 @@ export function useRTC(): UseRTC {
       } catch (e2:any) {
         error('enable retry exact failed', { kind, name: e2?.name })
         try {
-          if (kind === 'audioinput') await room.localParticipant.setMicrophoneEnabled(true)
+          if (kind === 'audioinput') await room.localParticipant.setMicrophoneEnabled(true, audioOptionsFor(undefined))
           else await room.localParticipant.setCameraEnabled(true, { resolution: highVideoQuality.resolution } as any)
           return true
         } catch (e3:any) {
@@ -639,6 +648,7 @@ export function useRTC(): UseRTC {
   }
 
   const remoteQuality = ref<VQ>((loadLS(LS.vq) as VQ) === 'sd' ? 'sd' : 'hd')
+  const nsOn = ref<boolean>((loadLS(LS.ns) ?? '1') === '1')
 
   function setRemoteQualityForAll(q: VQ) {
     const changed = remoteQuality.value !== q
@@ -653,6 +663,28 @@ export function useRTC(): UseRTC {
         if (pub.kind === Track.Kind.Video && pub.isSubscribed) applyVideoQuality(pub as RemoteTrackPublication)
       })
     })
+  }
+
+  function audioOptionsFor(deviceId?: string) {
+    return {
+      deviceId: deviceId ? ({ exact: deviceId } as any) : undefined,
+      echoCancellation: nsOn.value,
+      noiseSuppression: nsOn.value,
+      autoGainControl: true,
+    } as any
+  }
+
+  async function setAudioProcessing(on: boolean) {
+    nsOn.value = on
+    saveLS(LS.ns, on ? '1' : '0')
+    const room = lk.value
+    if (!room) return
+    const pub = room.localParticipant.getTrackPublications()
+      .find(p => p.kind === Track.Kind.Audio && (p as any).source === Track.Source.Microphone && !!p.track)
+    if (pub) {
+      try { await room.localParticipant.setMicrophoneEnabled(false) } catch {}
+      try { await room.localParticipant.setMicrophoneEnabled(true, audioOptionsFor(selectedMicId.value)) } catch {}
+    }
   }
 
   function cleanupPeer(id: string) {
@@ -945,6 +977,7 @@ export function useRTC(): UseRTC {
     cams,
     LS,
     remoteQuality,
+    nsOn,
     selectedMicId,
     selectedCamId,
     permProbed,
@@ -969,6 +1002,7 @@ export function useRTC(): UseRTC {
     clearProbeFlag,
     disable,
     setRemoteQualityForAll,
+    setAudioProcessing,
     isSpeaking,
     setUserVolume,
     getUserVolume,

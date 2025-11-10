@@ -1,10 +1,19 @@
 from __future__ import annotations
-from typing import Optional, Dict, Any
 import structlog
+from typing import Optional, Dict, Any, cast, Literal
+from ..core.db import SessionLocal
 from ..core.clients import get_redis
-from ..realtime.utils import get_room_brief
+from ..models.user import User
 from ..realtime.sio import sio
 from ..schemas.room import GameParams
+
+__all__ = [
+    "serialize_game_for_redis",
+    "game_from_redis_to_model",
+    "get_room_brief",
+    "emit_rooms_upsert",
+    "broadcast_creator_rooms",
+]
 
 log = structlog.get_logger()
 
@@ -39,6 +48,31 @@ def game_from_redis_to_model(raw_game: Dict[str, Any]) -> GameParams:
     )
 
 
+async def get_room_brief(r, rid: int) -> Optional[dict]:
+    fields = ("id", "title", "user_limit", "creator", "creator_name", "creator_avatar_name", "created_at", "privacy")
+    _id, title, user_limit, creator, creator_name, creator_avatar_name, created_at, privacy = await r.hmget(f"room:{rid}:params", *fields)
+    if not (_id and title and user_limit and creator and creator_name and created_at):
+        return None
+
+    occ = int(await r.scard(f"room:{rid}:members") or 0)
+    if creator_avatar_name is None:
+        async with SessionLocal() as s:
+            u = await s.get(User, int(creator))
+            creator_avatar_name = cast(Optional[str], u.avatar_name) if u else None
+
+    return {
+        "id": int(_id),
+        "title": str(title),
+        "user_limit": int(user_limit),
+        "creator": int(creator),
+        "creator_name": str(creator_name),
+        "creator_avatar_name": creator_avatar_name,
+        "created_at": str(created_at),
+        "privacy": str(privacy or "open"),
+        "occupancy": occ,
+    }
+
+
 async def emit_rooms_upsert(rid: int) -> None:
     r = get_redis()
     try:
@@ -58,20 +92,32 @@ async def emit_rooms_upsert(rid: int) -> None:
         log.warning("rooms.upsert.emit_failed", rid=rid, err=type(e).__name__)
 
 
-async def broadcast_creator_rooms(uid: int, update_name: Optional[str] = None) -> None:
+async def broadcast_creator_rooms(uid: int, *, update_name: Optional[str] = None, avatar: Literal["keep", "set", "delete"] = "keep", avatar_name: Optional[str] = None, ) -> None:
     r = get_redis()
     ids = [int(x) for x in (await r.smembers(f"user:{uid}:rooms") or [])]
     if not ids:
         return
 
-    if update_name is not None:
-        try:
-            async with r.pipeline() as p:
-                for rid in ids:
-                    await p.hset(f"room:{rid}:params", mapping={"creator_name": update_name})
-                await p.execute()
-        except Exception as e:
-            log.warning("rooms.creator_name.batch_failed", uid=uid, err=type(e).__name__)
+    try:
+        async with r.pipeline() as p:
+            for rid in ids:
+                mp = {}
+                if update_name is not None:
+                    mp["creator_name"] = update_name
+
+                if avatar == "set":
+                    if avatar_name is None:
+                        log.warning("rooms.creator.avatar_set_missing_name", uid=uid, rid=rid)
+                    else:
+                        mp["creator_avatar_name"] = str(avatar_name)
+                elif avatar == "delete":
+                    await p.hdel(f"room:{rid}:params", "creator_avatar_name")
+
+                if mp:
+                    await p.hset(f"room:{rid}:params", mapping=mp)
+            await p.execute()
+    except Exception as e:
+        log.warning("rooms.creator.batch_failed", uid=uid, err=type(e).__name__)
 
     for rid in ids:
         try:

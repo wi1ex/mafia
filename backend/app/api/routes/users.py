@@ -105,7 +105,7 @@ async def upload_avatar(file: UploadFile = File(...), ident: Identity = Depends(
         details="Изменение аватара",
     )
 
-    await broadcast_creator_rooms(uid)
+    await broadcast_creator_rooms(uid, avatar="set", avatar_name=name)
     return AvatarUploadOut(avatar_name=name)
 
 
@@ -127,5 +127,5 @@ async def delete_avatar(ident: Identity = Depends(get_identity), db: AsyncSessio
         details="Удаление аватара",
     )
 
-    await broadcast_creator_rooms(uid)
+    await broadcast_creator_rooms(uid, avatar="delete")
     return Ok()

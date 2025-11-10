@@ -7,12 +7,29 @@
           <img :src="iconClose" alt="close" />
         </button>
       </header>
-      <div class="quality">
+      <div class="row">
         <span>Качество видео</span>
-        <div class="quality-toggle">
+        <div class="toggle">
           <span :data-active="vq==='sd' ? 1 : 0">SD</span>
           <input type="range" min="0" max="1" step="1" :value="vq==='hd' ? 1 : 0" :disabled="vqDisabled" @input="onVQInput" aria-label="Качество видео" />
           <span :data-active="vq==='hd' ? 1 : 0">HD</span>
+        </div>
+      </div>
+      
+      <div class="row">
+        <span>Шумо- и эхоподавление</span>
+        <div class="toggle">
+          <span :data-active="!nsOn ? 1 : 0">Откл</span>
+          <input type="range" min="0" max="1" step="1" :value="nsOn ? 1 : 0" @input="onNsInput" aria-label="Шум/эхо" />
+          <span :data-active="nsOn ? 1 : 0">Вкл</span>
+        </div>
+      </div>
+      <div class="row">
+        <span>Зеркальность камеры</span>
+        <div class="toggle">
+          <span :data-active="!mirrorOn ? 1 : 0">Откл</span>
+          <input type="range" min="0" max="1" step="1" :value="mirrorOn ? 1 : 0" @input="onMirrorInput" aria-label="Зеркальность" />
+          <span :data-active="mirrorOn ? 1 : 0">Вкл</span>
         </div>
       </div>
 
@@ -50,11 +67,15 @@ defineProps<{
   camId: string
   vq?: VQ
   vqDisabled?: boolean
+  nsOn: boolean
+  mirrorOn: boolean
 }>()
 const emit = defineEmits<{
   'update:micId': [string]
   'update:camId': [string]
   'update:vq': [VQ]
+  'update:nsOn': [boolean]
+  'update:mirrorOn': [boolean]
   'device-change': ['audioinput' | 'videoinput']
   'close': []
 }>()
@@ -69,6 +90,16 @@ function onChange(kind: 'audioinput'|'videoinput', e: Event) {
   if (kind === 'audioinput') emit('update:micId', val)
   else emit('update:camId', val)
   emit('device-change', kind)
+}
+
+function onNsInput(e: Event) {
+  const n = Number((e.target as HTMLInputElement).value)
+  emit('update:nsOn', n >= 1)
+}
+
+function onMirrorInput(e: Event) {
+  const n = Number((e.target as HTMLInputElement).value)
+  emit('update:mirrorOn', n >= 1)
 }
 </script>
 
@@ -111,12 +142,12 @@ function onChange(kind: 'audioinput'|'videoinput', e: Event) {
       }
     }
   }
-  .quality {
+  .row {
     display: flex;
     align-items: center;
     justify-content: space-between;
     padding: 10px;
-    .quality-toggle {
+    .toggle {
       display: inline-flex;
       align-items: center;
       gap: 10px;

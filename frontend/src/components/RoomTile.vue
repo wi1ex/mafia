@@ -1,6 +1,7 @@
 <template>
   <div class="tile" :class="[{ speaking }, side && 'side']" tabindex="0">
-    <video v-show="showVideo" :ref="videoRef" playsinline autoplay :muted="id === localId" :style="{ objectFit: fitContain ? 'contain' : 'cover' }" />
+    <video v-show="showVideo" :ref="videoRef" playsinline autoplay :muted="id === localId" :class="{ mirrored: isMirrored(id) }"
+           :style="{ objectFit: fitContain ? 'contain' : 'cover' }" />
 
     <div class="ready-badge" v-if="isReady(id)" aria-hidden="true">
       <img :src="iconReady" alt="ready" />
@@ -74,6 +75,7 @@ const props = withDefaults(defineProps<{
   avatarKey: (id: string) => string
   canModerate: (id: string) => boolean
   isReady: (id: string) => boolean
+  isMirrored: (id: string) => boolean
 }>(), { side: false })
 
 defineEmits<{
@@ -126,6 +128,9 @@ onUpdated(() => setClosedWidth())
     object-fit: cover;
     border-radius: 5px;
     background-color: $black;
+    &.mirrored {
+      transform: scaleX(-1);
+    }
   }
   .ready-badge {
     display: flex;

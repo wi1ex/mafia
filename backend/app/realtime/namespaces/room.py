@@ -80,9 +80,9 @@ async def join(sid, data) -> JoinAck:
                 return {"ok": False, "error": "private_room", "status": 403, "pending": bool(pending)}
 
         occ, pos, already, pos_updates = await join_room_atomic(r, rid, uid, base_role)
-        if occ == -2:
-            log.warning("sio.join.room_not_found", rid=rid, uid=uid)
-            return {"ok": False, "error": "room_not_found", "status": 404}
+        if occ == -3:
+            log.warning("sio.join.room_closed", rid=rid, uid=uid)
+            return {"ok": False, "error": "room_closed", "status": 410}
 
         if occ == -1:
             log.warning("sio.join.room_full", rid=rid, uid=uid)
@@ -268,12 +268,15 @@ async def screen(sid, data) -> ScreenAck:
             await sio.emit("rooms_stream",
                            {"id": rid, "owner": target},
                            namespace="/rooms")
-            await r.set(f"room:{rid}:screen_started_at", str(int(time())), nx=True)
+            await r.set(f"room:{rid}:screen_started_at", str(int(time())), nx=True, ex=86400)
             return {"ok": True, "on": True}
 
         cur = await r.get(f"room:{rid}:screen_owner")
         if cur and int(cur) == target:
-            await account_screen_time(r, rid, target)
+            if not bool((data or {}).get("canceled")):
+                await account_screen_time(r, rid, target)
+            else:
+                await r.delete(f"room:{rid}:screen_started_at")
 
         changed = await release_screen(r, rid, target)
         if changed:
@@ -409,6 +412,18 @@ async def kick(sid, data):
                         "by": {"user_id": actor_uid, "role": actor_role}},
                        room=f"user:{target}",
                        namespace="/room")
+
+        cur = await r.get(f"room:{rid}:screen_owner")
+        if cur and int(cur) == target:
+            await account_screen_time(r, rid, target)
+            await r.delete(f"room:{rid}:screen_owner")
+            await sio.emit("screen_owner",
+                           {"user_id": None},
+                           room=f"room:{rid}",
+                           namespace="/room")
+            await sio.emit("rooms_stream",
+                           {"id": rid, "owner": None},
+                           namespace="/rooms")
 
         occ, _, pos_updates = await leave_room_atomic(r, rid, target)
         try:

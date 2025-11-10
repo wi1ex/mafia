@@ -24,6 +24,7 @@
         :speakers-on="speakersOn"
         :open-panel-for="openPanelFor"
         :vol="volUi[id] ?? rtc.getUserVolume(id)"
+        :is-mirrored="isMirrored"
         @toggle-panel="toggleTilePanel"
         @vol-input="onVol"
         @block="(key, uid) => toggleBlock(uid, key)"
@@ -64,6 +65,7 @@
           :open-panel-for="openPanelFor"
           :is-ready="isReady"
           :vol="volUi[id] ?? rtc.getUserVolume(id)"
+          :is-mirrored="isMirrored"
           @toggle-panel="toggleTilePanel"
           @vol-input="onVol"
           @block="(key, uid) => toggleBlock(uid, key)"
@@ -124,6 +126,8 @@
         v-model:micId="selectedMicId"
         v-model:camId="selectedCamId"
         v-model:vq="videoQuality"
+        v-model:nsOn="nsOn"
+        v-model:mirrorOn="mirrorOn"
         :vq-disabled="pendingQuality"
         @device-change="(kind) => rtc.onDeviceChange(kind)"
         @close="settingsOpen=false"
@@ -184,6 +188,7 @@ type StatusState = {
   speakers: State01
   visibility: State01
   ready?: State01
+  mirror?: State01
 }
 type BlockState = StatusState & { screen: State01 }
 type IconKind = keyof StatusState | 'screen'
@@ -240,6 +245,23 @@ const videoQuality = computed<VQ>({
     if (pendingQuality.value) return
     pendingQuality.value = true
     try { rtc.setRemoteQualityForAll(v) } finally { pendingQuality.value = false }
+  },
+})
+
+const nsOn = computed({
+  get: () => rtc.nsOn.value,
+  set: (v: boolean) => { void rtc.setAudioProcessing(v) },
+})
+
+const isMirrored = (id: string) => (statusByUser.get(id)?.mirror ?? 0) === 1
+const mirrorOn = computed({
+  get: () => isMirrored(localId.value),
+  set: async (v: boolean) => {
+    rtc.saveLS(rtc.LS.mirror, v ? '1' : '0')
+    const id = localId.value
+    const cur = statusByUser.get(id) ?? { mic: 1, cam: 1, speakers: 1, visibility: 1, ready: 0, mirror: 0 }
+    statusByUser.set(id, { ...cur, mirror: v ? 1 : 0 })
+    try { await publishState({ mirror: v }) } catch {}
   },
 })
 
@@ -458,6 +480,7 @@ function applyPeerState(uid: string, patch: any) {
     speakers:   pick01(patch?.speakers, cur.speakers),
     visibility: pick01(patch?.visibility, cur.visibility),
     ready:      pick01(patch?.ready, cur.ready ?? 0),
+    mirror:     pick01(patch?.mirror, cur.mirror ?? 0),
   })
 }
 function applyBlocks(uid: string, patch: any) {
@@ -656,6 +679,7 @@ function applyJoinAck(j: any) {
       speakers:   pick01(st.speakers, 1),
       visibility: pick01(st.visibility, 1),
       ready:      pick01(st.ready, 0),
+      mirror:     pick01((st as any).mirror, 0),
     })
   }
 
@@ -771,7 +795,7 @@ const toggleScreen = async () => {
         return
       }
       if (!ok) {
-        await sendAck('screen', { on: false })
+        await sendAck('screen', { on: false, canceled: true })
         screenOwnerId.value = ''
         const reason = rtc.getLastScreenShareError?.()
         alert(reason === 'canceled' ? 'Трансляция отменена' : 'Ошибка публикации видеопотока или доступ отклонён')
@@ -829,7 +853,10 @@ onMounted(async () => {
         await router.replace({ name: 'home', query: { focus: String(rid) } })
         return
       }
-      alert(j?.status === 404 ? 'Комната не найдена' : j?.status === 409 ? 'Комната заполнена' : 'Ошибка входа в комнату')
+      alert(j?.status === 404 ? 'Комната не найдена'
+        : j?.status === 410 ? 'Комната закрыта'
+        : j?.status === 409 ? 'Комната заполнена'
+        : 'Ошибка входа в комнату')
       await router.replace('/')
       return
     }
@@ -876,6 +903,15 @@ onMounted(async () => {
         micOn.value = false
         void publishState({ mic: false })
       }
+    }
+
+    const hasLsMirror = rtc.loadLS(rtc.LS.mirror)
+    if (hasLsMirror == null) {
+      rtc.saveLS(rtc.LS.mirror, '0')
+      if (isMirrored(localId.value)) { void publishState({ mirror: false }) }
+    } else {
+      const want = hasLsMirror === '1'
+      if (isMirrored(localId.value) !== want) { void publishState({ mirror: want }) }
     }
 
     document.addEventListener('click', onDocClick)
