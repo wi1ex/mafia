@@ -8,47 +8,59 @@
         </button>
       </header>
 
-      <div class="rows">
-        <div class="row">
-          <span>Шумо- и эхоподавление</span>
-          <div class="toggle">
-            <span :data-active="!nsOn ? 1 : 0">Откл</span>
-            <input type="range" min="0" max="1" step="1" :value="nsOn ? 1 : 0" @input="onNsInput" aria-label="Шум/эхо" />
-            <span :data-active="nsOn ? 1 : 0">Вкл</span>
+      <div class="change-devices">
+        <div class="switch-div">
+          <div class="switch-text">Шумо- и эхоподавление:</div>
+          <label class="switch">
+            <input type="checkbox" :checked="nsOn" @change="onToggleNs" aria-label="Шумоподавление" />
+            <div class="slider">
+              <div class="slider-text" aria-hidden="true">Откл</div>
+              <div class="slider-text" aria-hidden="true">Вкл</div>
+            </div>
+          </label>
+        </div>
+
+        <div class="switch-div">
+          <div class="switch-text">Отражение камеры:</div>
+          <label class="switch">
+            <input type="checkbox" :checked="mirrorOn" @change="onToggleMirror" aria-label="Зеркальность" />
+            <div class="slider">
+              <div class="slider-text" aria-hidden="true">Откл</div>
+              <div class="slider-text" aria-hidden="true">Вкл</div>
+            </div>
+          </label>
+        </div>
+
+        <div class="switch-div">
+          <div class="switch-text">Качество видео:</div>
+          <label class="switch">
+            <input type="checkbox" :checked="vq === 'hd'" :disabled="vqDisabled" @change="onToggleVQ" aria-label="Качество видео: SD/HD" />
+            <div class="slider">
+              <div class="slider-text" aria-hidden="true">SD</div>
+              <div class="slider-text" aria-hidden="true">HD</div>
+            </div>
+          </label>
+        </div>
+
+        <div class="switch-title-device">
+          <div class="switch-title">Выбор камеры:</div>
+          <div class="switch-device" role="listbox" aria-label="Список камер">
+            <div class="switch-device-item" v-for="d in cams" :key="d.deviceId" role="option" :aria-selected="d.deviceId === camId" @click="pickDevice('videoinput', d.deviceId)" >
+              <div class="switch-device-item-text">{{ d.label || 'Камера' }}</div>
+              <img :src="iconCheck" alt="" v-if="d.deviceId === camId" />
+            </div>
           </div>
         </div>
 
-        <div class="row">
-          <span>Зеркальность камеры</span>
-          <div class="toggle">
-            <span :data-active="!mirrorOn ? 1 : 0">Откл</span>
-            <input type="range" min="0" max="1" step="1" :value="mirrorOn ? 1 : 0" @input="onMirrorInput" aria-label="Зеркальность" />
-            <span :data-active="mirrorOn ? 1 : 0">Вкл</span>
+        <div class="switch-title-device">
+          <div class="switch-title">Выбор микрофона:</div>
+          <div class="switch-device" role="listbox" aria-label="Список микрофонов">
+            <div class="switch-device-item" v-for="d in mics" :key="d.deviceId" role="option" :aria-selected="d.deviceId === micId" @click="pickDevice('audioinput', d.deviceId)" >
+              <div class="switch-device-item-text">{{ d.label || 'Микрофон' }}</div>
+              <img :src="iconCheck" alt="" v-if="d.deviceId === micId" />
+            </div>
           </div>
         </div>
-
-        <div class="row">
-          <span>Качество видео</span>
-          <div class="toggle">
-            <span :data-active="vq==='sd' ? 1 : 0">SD</span>
-            <input type="range" min="0" max="1" step="1" :value="vq==='hd' ? 1 : 0" :disabled="vqDisabled" @input="onVQInput" aria-label="Качество видео" />
-            <span :data-active="vq==='hd' ? 1 : 0">HD</span>
-          </div>
-        </div>
-
-        <label>
-          <span>Микрофон</span>
-          <select :value="micId" @change="onChange('audioinput', $event)" :disabled="mics.length===0">
-            <option v-for="d in mics" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Микрофон не обнаружен' }}</option>
-          </select>
-        </label>
-
-        <label>
-          <span>Камера</span>
-          <select :value="camId" @change="onChange('videoinput', $event)" :disabled="cams.length===0">
-            <option v-for="d in cams" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Камера не обнаружена' }}</option>
-          </select>
-        </label>
       </div>
     </div>
   </Transition>
@@ -58,13 +70,14 @@
 import type { VQ } from '@/services/rtc'
 
 import iconClose from '@/assets/svg/close.svg'
+import iconCheck from '@/assets/svg/ready.svg'
 
 type Dev = {
   deviceId: string
   label: string
 }
 
-defineProps<{
+const props = defineProps<{
   open: boolean
   mics: Dev[]
   cams: Dev[]
@@ -75,6 +88,7 @@ defineProps<{
   nsOn: boolean
   mirrorOn: boolean
 }>()
+
 const emit = defineEmits<{
   'update:micId': [string]
   'update:camId': [string]
@@ -85,26 +99,23 @@ const emit = defineEmits<{
   'close': []
 }>()
 
-function onVQInput(e: Event) {
-  const n = Number((e.target as HTMLInputElement).value)
-  emit('update:vq', n >= 1 ? 'hd' : 'sd')
+function onToggleVQ(e: Event) {
+  const on = (e.target as HTMLInputElement).checked
+  emit('update:vq', on ? 'hd' : 'sd')
 }
 
-function onChange(kind: 'audioinput'|'videoinput', e: Event) {
-  const val = (e.target as HTMLSelectElement).value
-  if (kind === 'audioinput') emit('update:micId', val)
-  else emit('update:camId', val)
+function onToggleNs(e: Event) {
+  emit('update:nsOn', (e.target as HTMLInputElement).checked)
+}
+
+function onToggleMirror(e: Event) {
+  emit('update:mirrorOn', (e.target as HTMLInputElement).checked)
+}
+
+function pickDevice(kind: 'audioinput'|'videoinput', id: string) {
+  if (kind === 'audioinput') emit('update:micId', id)
+  else emit('update:camId', id)
   emit('device-change', kind)
-}
-
-function onNsInput(e: Event) {
-  const n = Number((e.target as HTMLInputElement).value)
-  emit('update:nsOn', n >= 1)
-}
-
-function onMirrorInput(e: Event) {
-  const n = Number((e.target as HTMLInputElement).value)
-  emit('update:mirrorOn', n >= 1)
 }
 </script>
 
@@ -147,48 +158,109 @@ function onMirrorInput(e: Event) {
       }
     }
   }
-  .row {
+  .change-devices {
     display: flex;
     flex-direction: column;
-    .row {
+    align-items: flex-start;
+    padding: 17px;
+    gap: 17px;
+    background-color: $dark;
+    .switch-div {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 10px;
-      .toggle {
-        display: inline-flex;
-        align-items: center;
-        gap: 10px;
-        input[type="range"] {
-          width: 40px;
-          height: 10px;
-          accent-color: $fg;
+      width: 100%;
+      .switch-text {
+        font-size: 16px;
+        color: $fg;
+        line-height: 100%;
+      }
+      .switch {
+        position: relative;
+        display: inline-block;
+        width: 140px;
+        height: 30px;
+        input {
+          position: absolute;
+          opacity: 0;
+          width: 0;
+          height: 0;
+        }
+        .slider {
+          display: flex;
+          align-items: center;
+          justify-content: space-around;
+          position: absolute;
+          inset: 0;
           cursor: pointer;
+          background-color: $graphite;
+          border-radius: 5px;
+          .slider-text {
+            font-size: 14px;
+            color: $grey;
+          }
         }
-        span[data-active="1"] {
-          color: $fg;
+        .slider:before {
+          content: "";
+          position: absolute;
+          top: 3px;
+          left: 3px;
+          width: 64px;
+          height: 24px;
+          background-color: $fg;
+          border-radius: 4px;
+          transition: transform 0.25s ease-in-out;
         }
-        span[data-active="0"] {
-          color: $grey;
+        input:checked + .slider:before {
+          transform: translateX(70px);
+        }
+        input:disabled + .slider {
+          opacity: 0.5;
+          cursor: not-allowed;
         }
       }
     }
-    label {
+    .switch-title-device {
       display: flex;
       flex-direction: column;
-      padding: 0 10px 10px;
-      gap: 5px;
-      select {
-        padding: 5px;
-        border-radius: 5px;
-        background-color: $bg;
+      width: 100%;
+      gap: 10px;
+      .switch-title {
+        font-size: 16px;
         color: $fg;
-        font-size: 12px;
-        font-family: Manrope-Medium;
-        line-height: 1;
-        &:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
+      }
+      .switch-device {
+        width: 100%;
+        max-height: 140px;
+        border: 1px solid $graphite;
+        overflow-y: auto;
+        scrollbar-width: thin;
+        scrollbar-color: $grey transparent;
+        .switch-device-item {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 7px 15px;
+          height: 34px;
+          cursor: pointer;
+          background: none;
+          &:hover {
+            background-color: $graphite;
+          }
+          .switch-device-item-text {
+            font-size: 14px;
+            color: $fg;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: calc(100% - 30px);
+          }
+          img {
+            width: 20px;
+            height: 20px;
+            object-fit: cover;
+            filter: none;
+          }
         }
       }
     }
