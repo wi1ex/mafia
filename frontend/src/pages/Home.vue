@@ -38,15 +38,10 @@
       <div v-else class="room-info">
         <div class="ri-title">
           <div class="ri-actions">
-            <template v-if="auth.isAuthed && selectedRoom">
-              <button v-if="selectedRoom.privacy === 'open' && !isFullRoom(selectedRoom)" :disabled="entering" @click="onEnter">{{ entering ? 'Вхожу...' : 'Войти в комнату' }}</button>
-              <template v-else-if="selectedRoom.privacy === 'private'">
-                <button v-if="access==='approved' && !isFullRoom(selectedRoom)" :disabled="entering" @click="onEnter">{{ entering ? 'Вхожу...' : 'Войти в комнату' }}</button>
-                <button v-else-if="access==='none'" :disabled="false" @click="onApply">Подать заявку</button>
-                <button v-else disabled>Заявка отправлена</button>
-              </template>
-              <div v-else class="muted">Комната заполнена</div>
-            </template>
+            <button v-if="ctaState==='enter'" :disabled="entering" @click="onEnter">{{ enterLabel }}</button>
+            <div v-else-if="ctaState==='full'" class="muted">Комната заполнена</div>
+            <button v-else-if="ctaState==='apply'" @click="onApply">Подать заявку</button>
+            <button v-else-if="ctaState==='pending'" disabled>Заявка отправлена</button>
             <div v-else class="muted">Авторизуйтесь, чтобы войти</div>
           </div>
           <p class="ri-name">#{{ selectedRoom?.id }}: {{ selectedRoom?.title }}</p>
@@ -57,23 +52,16 @@
             <img class="owner_ava" v-minio-img="{ key: selectedRoom?.creator_avatar_name ? `avatars/${selectedRoom!.creator_avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="" />
             <span>Владелец: {{ selectedRoom?.creator_name }}</span>
           </span>
-          <span>Приватность: {{ (selectedRoom?.privacy === 'private') ? 'закрытая' : 'открытая' }}</span>
+          <span>Приватность: {{ isOpen ? 'открытая' : 'закрытая' }}</span>
         </div>
 
-        <div class="ri-game" v-if="info?.game">
+        <div class="ri-game" v-if="game">
           <p class="ri-subtitle">Параметры игры</p>
           <ul class="game-list">
-            <li><b>Режим:</b> {{ info!.game!.mode === 'normal' ? 'Обычный' : 'Рейтинг' }}</li>
-            <li><b>Формат:</b> {{ info!.game!.format === 'hosted' ? 'С ведущим' : 'Без ведущего' }}</li>
-            <li><b>Лимит зрителей:</b> {{ info!.game!.spectators_limit }}</li>
-            <li><b>Опции:</b>
-              <span>
-                {{ info!.game!.vote_at_zero ? 'Голосование в нуле' : '' }}
-                {{ info!.game!.vote_three ? (info!.game!.vote_at_zero ? ', ' : '') + 'Подъём троих' : '' }}
-                {{ info!.game!.speech30_at_3_fouls ? ((info!.game!.vote_at_zero || info!.game!.vote_three) ? ', ' : '') + '30с при 3 фолах' : '' }}
-                {{ info!.game!.extra30_at_2_fouls ? ((info!.game!.vote_at_zero || info!.game!.vote_three || info!.game!.speech30_at_3_fouls) ? ', ' : '') + '+30с за 2 фола' : '' }}
-              </span>
-            </li>
+            <li><b>Режим:</b> {{ game.mode === 'normal' ? 'Обычный' : 'Рейтинг' }}</li>
+            <li><b>Формат:</b> {{ game.format === 'hosted' ? 'С ведущим' : 'Без ведущего' }}</li>
+            <li><b>Лимит зрителей:</b> {{ game.spectators_limit }}</li>
+            <li><b>Опции:</b> <span>{{ gameOptions }}</span></li>
           </ul>
         </div>
 
@@ -81,7 +69,7 @@
           <p class="ri-subtitle">Участники: {{ selectedRoom?.occupancy ?? 0 }}/{{ selectedRoom?.user_limit ?? 0 }}</p>
           <div v-if="(info?.members?.length ?? 0) === 0" class="muted">Пока никого</div>
           <ul v-else class="ri-grid">
-            <li class="ri-user" v-for="m in info!.members" :key="m.id">
+            <li class="ri-user" v-for="m in (info?.members || [])" :key="m.id">
               <img v-minio-img="{ key: m.avatar_name ? `avatars/${m.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="" />
               <p class="ri-u-name">{{ m.username || ('user' + m.id) }}</p>
               <img v-if="m.screen" :src="iconScreenOn" alt="streaming" />
@@ -154,14 +142,41 @@ const selectedId = ref<number | null>(null)
 const info = ref<(RoomMembers & { game?: Game }) | null>(null)
 
 const openCreate = ref(false)
-const access = ref<Access>('approved')
+const access = ref<Access>('none')
 
 const selectedRoom = computed(() => selectedId.value ? (roomsMap.get(selectedId.value) || null) : null)
 const sortedRooms = computed(() => Array.from(roomsMap.values()).sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at)))
 
+const isOpen = computed(() => selectedRoom.value?.privacy === 'open')
+const isFull = computed(() => selectedRoom.value ? isFullRoom(selectedRoom.value) : false)
+const enterLabel = computed(() => entering.value ? 'Вхожу...' : 'Войти в комнату')
+type Cta = 'login'|'enter'|'full'|'apply'|'pending'
+const ctaState = computed<Cta>(() => {
+  if (!auth.isAuthed || !selectedRoom.value) return 'login'
+  if (isOpen.value) return isFull.value ? 'full' : 'enter'
+  if (access.value === 'approved') return isFull.value ? 'full' : 'enter'
+  if (access.value === 'none') return 'apply'
+  return 'pending'
+})
+
+const game = computed(() => info.value?.game)
+const gameOptions = computed(() => {
+  const g = game.value
+  if (!g) return ''
+  const parts: string[] = []
+  if (g.vote_at_zero) parts.push('Голосование в нуле')
+  if (g.vote_three) parts.push('Подъём троих')
+  if (g.speech30_at_3_fouls) parts.push('30с при 3 фолах')
+  if (g.extra30_at_2_fouls) parts.push('+30с за 2 фола')
+  return parts.join(', ')
+})
+
 function isFullRoom(r: Room) { return r.occupancy >= r.user_limit }
 
-function upsert(r: Room) { roomsMap.set(r.id, { ...(roomsMap.get(r.id) || {} as Room), ...r }) }
+function upsert(r: Room) {
+  const cur = roomsMap.get(r.id)
+  roomsMap.set(r.id, cur ? { ...cur, ...r } : r)
+}
 
 function remove(id: number) {
   roomsMap.delete(id)
@@ -221,6 +236,7 @@ function selectRoom(id: number) {
   suppressedAutoselect.value = false
   const prevId = selectedId.value
   selectedId.value = id
+  access.value = 'none'
   if (prevId != null) {
     const t = infoTimers.get(prevId)
     if (t) {
@@ -229,6 +245,18 @@ function selectRoom(id: number) {
     }
   }
   void fetchRoomInfo(id)
+}
+
+function scheduleInfoRefresh(id: number, delay: number) {
+  const prev = infoTimers.get(id)
+  if (prev) {
+    try { clearTimeout(prev) } catch {}
+  }
+  const t = window.setTimeout(() => {
+    if (selectedId.value === id) void fetchRoomInfo(id)
+    infoTimers.delete(id)
+  }, delay)
+  infoTimers.set(id, t)
 }
 
 function clearSelection() {
@@ -297,30 +325,11 @@ function startWS() {
   sio.value.on('rooms_occupancy', async (p: { id: number; occupancy: number }) => {
     const cur = roomsMap.get(p.id)
     if (cur) roomsMap.set(p.id, { ...cur, occupancy: p.occupancy })
-    if (selectedId.value === p.id) {
-      const prev = infoTimers.get(p.id)
-      if (prev) window.clearTimeout(prev)
-      const roomId = p.id
-      const t = window.setTimeout(() => {
-        if (selectedId.value !== roomId) return
-        void fetchRoomInfo(roomId)
-        infoTimers.delete(roomId)
-      }, 500)
-      infoTimers.set(p.id, t)
-    }
+    if (selectedId.value === p.id) scheduleInfoRefresh(p.id, 300)
   })
 
   sio.value.on('rooms_stream', (p: { id: number; owner: number | null }) => {
-    if (selectedId.value !== p.id) return
-    const prev = infoTimers.get(p.id)
-    if (prev) window.clearTimeout(prev)
-    const roomId = p.id
-    const t = window.setTimeout(() => {
-      if (selectedId.value !== roomId) return
-      void fetchRoomInfo(roomId)
-      infoTimers.delete(roomId)
-    }, 300)
-    infoTimers.set(p.id, t)
+    if (selectedId.value === p.id) scheduleInfoRefresh(p.id, 300)
   })
 }
 
@@ -342,8 +351,8 @@ function onAuthNotify(e: any) {
   }
 }
 
-watch(selectedId, (id) => {
-  if (id) { void fetchAccess(id) }
+watch([selectedId, () => auth.isAuthed], ([id, ok]) => {
+  if (ok && id) void fetchAccess(id as number)
 })
 
 watch(() => route.query.focus, (v) => {
@@ -353,12 +362,9 @@ watch(() => route.query.focus, (v) => {
 
 onMounted(() => {
   startWS()
-
   document.addEventListener('pointerdown', onGlobalPointerDown, { capture: true })
-
   const f = Number(route.query.focus)
   if (Number.isFinite(f)) selectRoom(f)
-
   window.addEventListener('auth-notify', onAuthNotify)
 })
 
