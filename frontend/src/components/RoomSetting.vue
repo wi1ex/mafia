@@ -46,20 +46,24 @@
 
         <div class="switch-device-div">
           <span>Выбор камеры:</span>
-          <div class="switch-device" role="listbox" aria-label="Список камер">
-            <div class="switch-device-item" :class="{ active: d.deviceId === camId }" v-for="d in cams" :key="d.deviceId" role="option" :aria-selected="d.deviceId === camId" @click="pickDevice('videoinput', d.deviceId)" >
-              <span>{{ d.label || 'Камера' }}</span>
-            </div>
-          </div>
+          <UiSelect
+            v-model="camIdProxy"
+            :items="cams"
+            placeholder="Камера"
+            fallback="Камера"
+            aria-label="Список камер"
+          />
         </div>
 
         <div class="switch-device-div">
           <span>Выбор микрофона:</span>
-          <div class="switch-device" role="listbox" aria-label="Список микрофонов">
-            <div class="switch-device-item" :class="{ active: d.deviceId === micId }" v-for="d in mics" :key="d.deviceId" role="option" :aria-selected="d.deviceId === micId" @click="pickDevice('audioinput', d.deviceId)" >
-              <span>{{ d.label || 'Микрофон' }}</span>
-            </div>
-          </div>
+          <UiSelect
+            v-model="micIdProxy"
+            :items="mics"
+            placeholder="Микрофон"
+            fallback="Микрофон"
+            aria-label="Список микрофонов"
+          />
         </div>
       </div>
     </div>
@@ -68,9 +72,9 @@
 
 <script setup lang="ts">
 import type { VQ } from '@/services/rtc'
+import UiSelect from '@/components/UiSelect.vue'
 
 import iconClose from '@/assets/svg/close.svg'
-import iconCheck from '@/assets/svg/ready.svg'
 
 type Dev = {
   deviceId: string
@@ -98,6 +102,16 @@ const emit = defineEmits<{
   'device-change': ['audioinput' | 'videoinput']
   'close': []
 }>()
+
+const micIdProxy = computed({
+  get: () => props.micId,
+  set: (v: string) => { pickDevice('audioinput', v) }
+})
+
+const camIdProxy = computed({
+  get: () => props.camId,
+  set: (v: string) => { pickDevice('videoinput', v) }
+})
 
 function onToggleVQ(e: Event) {
   const on = (e.target as HTMLInputElement).checked
@@ -225,35 +239,6 @@ function pickDevice(kind: 'audioinput'|'videoinput', id: string) {
       flex-direction: column;
       width: 100%;
       gap: 5px;
-      .switch-device {
-        width: 100%;
-        max-height: 110px;
-        border: 1px solid $graphite;
-        scrollbar-width: thin;
-        scrollbar-color: $grey transparent;
-        overflow-y: auto;
-        .switch-device-item {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          margin: 5px 5px;
-          padding: 5px 5px;
-          height: 20px;
-          border-radius: 5px;
-          transition: background-color 0.25s ease-in-out;
-          cursor: pointer;
-          span {
-            font-size: 12px;
-            color: $fg;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-          }
-          &.active {
-            background-color: $graphite;
-          }
-        }
-      }
     }
   }
 }
