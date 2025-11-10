@@ -22,7 +22,7 @@
           </div>
 
           <div class="switch">
-            <span>Отражение камеры:</span>
+            <span>Зеркальность камеры:</span>
             <label>
               <input type="checkbox" :checked="mirrorOn" @change="onToggleMirror" aria-label="Зеркальность" />
               <div class="slider">
@@ -164,12 +164,12 @@ function pickDevice(kind: 'audioinput'|'videoinput', id: string) {
     flex-direction: column;
     align-items: flex-start;
     padding: 10px;
-    gap: 10px;
+    gap: 20px;
     background-color: $dark;
     .switch-div {
       display: flex;
       flex-direction: column;
-      gap: 5px;
+      gap: 10px;
       width: 100%;
       .switch {
         display: flex;
@@ -195,8 +195,10 @@ function pickDevice(kind: 'audioinput'|'videoinput', id: string) {
             background-color: $graphite;
             border-radius: 5px;
             span {
+              position: relative;
               font-size: 14px;
-              color: $grey;
+              color: $fg;
+              transition: color 0.5s ease-in-out;
             }
           }
           .slider:before {
@@ -215,7 +217,7 @@ function pickDevice(kind: 'audioinput'|'videoinput', id: string) {
           }
           input:not(:checked) + .slider span:first-child,
           input:checked + .slider span:last-child {
-            color: $fg;
+            color: $bg;
           }
         }
       }
@@ -227,19 +229,19 @@ function pickDevice(kind: 'audioinput'|'videoinput', id: string) {
       gap: 5px;
       .switch-device {
         width: 100%;
-        max-height: 140px;
+        max-height: 100px;
         border: 1px solid $graphite;
-        overflow-y: auto;
         scrollbar-width: thin;
         scrollbar-color: $grey transparent;
+        overflow-y: auto;
         .switch-device-item {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding: 7px 15px;
-          height: 34px;
+          margin: 0 10px;
+          padding: 10px 0;
+          height: 20px;
           cursor: pointer;
-          background: none;
           span {
             font-size: 12px;
             color: $fg;
@@ -249,11 +251,15 @@ function pickDevice(kind: 'audioinput'|'videoinput', id: string) {
             max-width: calc(100% - 30px);
           }
           img {
-            width: 20px;
-            height: 20px;
-            object-fit: cover;
-            filter: none;
+            padding: 3px;
+            width: 14px;
+            height: 14px;
+            border-radius: 5px;
+            background-color: $graphite;
           }
+        }
+        .switch-device-item:not(:last-child) {
+          border-bottom: 1px solid $lead;
         }
       }
     }
