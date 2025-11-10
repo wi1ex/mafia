@@ -5,14 +5,16 @@
       <img :src="open ? iconArrowUp : iconArrowDown" alt="arrow" />
     </button>
 
-    <ul v-show="open" :id="listId" role="listbox" :aria-activedescendant="activeId" ref="menu" @keydown="onMenuKeydown" tabindex="-1" >
-      <li v-for="(it, i) in items" :key="it.deviceId" class="option" :id="optId(i)" role="option" :aria-selected="String(it.deviceId === modelValue)"
-          :class="{ active: i === activeIndex, selected: it.deviceId === modelValue }" @click="select(it.deviceId)" @mouseenter="activeIndex = i">
-        <span>{{ it.label || fallback }}</span>
-        <img v-if="it.deviceId === modelValue" :src="iconReady" alt="ready" />
-      </li>
-      <li v-if="items.length === 0" class="empty" aria-disabled="true">Нет устройств</li>
-    </ul>
+    <Transition name="menu">
+      <ul v-show="open" :id="listId" role="listbox" :aria-activedescendant="activeId" ref="menu" @keydown="onMenuKeydown" tabindex="-1">
+        <li v-for="(it, i) in items" :key="it.deviceId" class="option" :id="optId(i)" role="option" :aria-selected="String(it.deviceId === modelValue)"
+            :class="{ active: i === activeIndex, selected: it.deviceId === modelValue }" @click="select(it.deviceId)" @mouseenter="activeIndex = i">
+          <span>{{ it.label || fallback }}</span>
+          <img v-if="it.deviceId === modelValue" :src="iconReady" alt="ready" />
+        </li>
+        <li v-if="items.length === 0" class="empty" aria-disabled="true">Нет устройств</li>
+      </ul>
+    </Transition>
   </div>
   </template>
 
@@ -42,6 +44,7 @@ const root = ref<HTMLElement|null>(null)
 const menu = ref<HTMLElement|null>(null)
 const listId = `ls-${Math.random().toString(36).slice(2)}`
 const activeIndex = ref(0)
+let suppressNextDocClick = false
 
 const placeholder = computed(() => props.placeholder ?? 'Выбрать…')
 const fallback = computed(() => props.fallback ?? 'Устройство')
@@ -108,11 +111,27 @@ function scrollActiveIntoView() {
 
 function onDocPointerDown(ev: PointerEvent) {
   const t = ev.target as Node
-  if (!root.value?.contains(t)) close()
+  if (open.value && !root.value?.contains(t)) {
+    close()
+    suppressNextDocClick = true
+  }
 }
 
-onMounted(() => document.addEventListener('pointerdown', onDocPointerDown, { capture: true }))
-onBeforeUnmount(() => document.removeEventListener('pointerdown', onDocPointerDown, { capture: true } as any))
+function onDocClickCapture(e: MouseEvent) {
+  if (suppressNextDocClick) {
+    e.stopPropagation()
+    suppressNextDocClick = false
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('pointerdown', onDocPointerDown, { capture: true })
+  document.addEventListener('click', onDocClickCapture, { capture: true })
+})
+onBeforeUnmount(() => {
+  document.removeEventListener('pointerdown', onDocPointerDown, { capture: true } as any)
+  document.removeEventListener('click', onDocClickCapture, { capture: true } as any)
+})
 </script>
 
 <style scoped lang="scss">
@@ -152,14 +171,10 @@ ul {
   margin: 0;
   padding: 0;
   width: calc(100% - 2px);
-  max-height: 160px;
   border: 1px solid $lead;
   border-radius: 5px;
   background-color: $graphite;
-  outline: none;
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: $grey transparent;
+  transform-origin: bottom;
   .option {
     display: flex;
     align-items: center;
@@ -179,12 +194,8 @@ ul {
       height: 15px;
     }
   }
-  .option.active {
-    background-color: $graphite;
-  }
-  .option.selected {
-    background-color: $lead;
-  }
+  .option.active,
+  .option.selected,
   .option.active.selected {
     background-color: $lead;
   }
@@ -193,5 +204,16 @@ ul {
     color: $grey;
     font-size: 14px;
   }
+}
+
+.menu-enter-active,
+.menu-leave-active {
+  transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
+  will-change: opacity, transform;
+}
+.menu-enter-from,
+.menu-leave-to {
+  opacity: 0;
+  transform: translateY(6px) scale(0.98);
 }
 </style>
