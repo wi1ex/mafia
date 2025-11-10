@@ -71,6 +71,7 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { VQ } from '@/services/rtc'
 import UiSelect from '@/components/UiSelect.vue'
 
