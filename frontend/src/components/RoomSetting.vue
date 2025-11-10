@@ -7,44 +7,49 @@
           <img :src="iconClose" alt="close" />
         </button>
       </header>
-      <div class="row">
-        <span>Качество видео</span>
-        <div class="toggle">
-          <span :data-active="vq==='sd' ? 1 : 0">SD</span>
-          <input type="range" min="0" max="1" step="1" :value="vq==='hd' ? 1 : 0" :disabled="vqDisabled" @input="onVQInput" aria-label="Качество видео" />
-          <span :data-active="vq==='hd' ? 1 : 0">HD</span>
-        </div>
-      </div>
-      
-      <div class="row">
-        <span>Шумо- и эхоподавление</span>
-        <div class="toggle">
-          <span :data-active="!nsOn ? 1 : 0">Откл</span>
-          <input type="range" min="0" max="1" step="1" :value="nsOn ? 1 : 0" @input="onNsInput" aria-label="Шум/эхо" />
-          <span :data-active="nsOn ? 1 : 0">Вкл</span>
-        </div>
-      </div>
-      <div class="row">
-        <span>Зеркальность камеры</span>
-        <div class="toggle">
-          <span :data-active="!mirrorOn ? 1 : 0">Откл</span>
-          <input type="range" min="0" max="1" step="1" :value="mirrorOn ? 1 : 0" @input="onMirrorInput" aria-label="Зеркальность" />
-          <span :data-active="mirrorOn ? 1 : 0">Вкл</span>
-        </div>
-      </div>
 
-      <label>
-        <span>Микрофон</span>
-        <select :value="micId" @change="onChange('audioinput', $event)" :disabled="mics.length===0">
-          <option v-for="d in mics" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Микрофон не обнаружен' }}</option>
-        </select>
-      </label>
-      <label>
-        <span>Камера</span>
-        <select :value="camId" @change="onChange('videoinput', $event)" :disabled="cams.length===0">
-          <option v-for="d in cams" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Камера не обнаружена' }}</option>
-        </select>
-      </label>
+      <div class="rows">
+        <div class="row">
+          <span>Шумо- и эхоподавление</span>
+          <div class="toggle">
+            <span :data-active="!nsOn ? 1 : 0">Откл</span>
+            <input type="range" min="0" max="1" step="1" :value="nsOn ? 1 : 0" @input="onNsInput" aria-label="Шум/эхо" />
+            <span :data-active="nsOn ? 1 : 0">Вкл</span>
+          </div>
+        </div>
+
+        <div class="row">
+          <span>Зеркальность камеры</span>
+          <div class="toggle">
+            <span :data-active="!mirrorOn ? 1 : 0">Откл</span>
+            <input type="range" min="0" max="1" step="1" :value="mirrorOn ? 1 : 0" @input="onMirrorInput" aria-label="Зеркальность" />
+            <span :data-active="mirrorOn ? 1 : 0">Вкл</span>
+          </div>
+        </div>
+
+        <div class="row">
+          <span>Качество видео</span>
+          <div class="toggle">
+            <span :data-active="vq==='sd' ? 1 : 0">SD</span>
+            <input type="range" min="0" max="1" step="1" :value="vq==='hd' ? 1 : 0" :disabled="vqDisabled" @input="onVQInput" aria-label="Качество видео" />
+            <span :data-active="vq==='hd' ? 1 : 0">HD</span>
+          </div>
+        </div>
+
+        <label>
+          <span>Микрофон</span>
+          <select :value="micId" @change="onChange('audioinput', $event)" :disabled="mics.length===0">
+            <option v-for="d in mics" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Микрофон не обнаружен' }}</option>
+          </select>
+        </label>
+
+        <label>
+          <span>Камера</span>
+          <select :value="camId" @change="onChange('videoinput', $event)" :disabled="cams.length===0">
+            <option v-for="d in cams" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Камера не обнаружена' }}</option>
+          </select>
+        </label>
+      </div>
     </div>
   </Transition>
 </template>
@@ -144,43 +149,47 @@ function onMirrorInput(e: Event) {
   }
   .row {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 10px;
-    .toggle {
-      display: inline-flex;
+    flex-direction: column;
+    .row {
+      display: flex;
       align-items: center;
-      gap: 10px;
-      input[type="range"] {
-        width: 40px;
-        height: 10px;
-        accent-color: $fg;
-        cursor: pointer;
-      }
-      span[data-active="1"] {
-        color: $fg;
-      }
-      span[data-active="0"] {
-        color: $grey;
+      justify-content: space-between;
+      padding: 10px;
+      .toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        input[type="range"] {
+          width: 40px;
+          height: 10px;
+          accent-color: $fg;
+          cursor: pointer;
+        }
+        span[data-active="1"] {
+          color: $fg;
+        }
+        span[data-active="0"] {
+          color: $grey;
+        }
       }
     }
-  }
-  label {
-    display: flex;
-    flex-direction: column;
-    padding: 0 10px 10px;
-    gap: 5px;
-    select {
-      padding: 5px;
-      border-radius: 5px;
-      background-color: $bg;
-      color: $fg;
-      font-size: 12px;
-      font-family: Manrope-Medium;
-      line-height: 1;
-      &:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
+    label {
+      display: flex;
+      flex-direction: column;
+      padding: 0 10px 10px;
+      gap: 5px;
+      select {
+        padding: 5px;
+        border-radius: 5px;
+        background-color: $bg;
+        color: $fg;
+        font-size: 12px;
+        font-family: Manrope-Medium;
+        line-height: 1;
+        &:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
       }
     }
   }
