@@ -57,9 +57,8 @@
         <div class="switch-device-div">
           <span>Выбор микрофона:</span>
           <div class="switch-device" role="listbox" aria-label="Список микрофонов">
-            <div class="switch-device-item" v-for="d in mics" :key="d.deviceId" role="option" :aria-selected="d.deviceId === micId" @click="pickDevice('audioinput', d.deviceId)" >
+            <div class="switch-device-item" :class="{ active: d.deviceId === micId }" v-for="d in mics" :key="d.deviceId" role="option" :aria-selected="d.deviceId === micId" @click="pickDevice('audioinput', d.deviceId)" >
               <span>{{ d.label || 'Микрофон' }}</span>
-              <img :src="iconCheck" alt="" v-if="d.deviceId === micId" />
             </div>
           </div>
         </div>
@@ -229,7 +228,7 @@ function pickDevice(kind: 'audioinput'|'videoinput', id: string) {
       gap: 5px;
       .switch-device {
         width: 100%;
-        max-height: 100px;
+        max-height: 112px;
         border: 1px solid $graphite;
         scrollbar-width: thin;
         scrollbar-color: $grey transparent;
@@ -238,9 +237,11 @@ function pickDevice(kind: 'audioinput'|'videoinput', id: string) {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          margin: 0 10px;
-          padding: 10px 0;
+          margin: 5px 5px;
+          padding: 5px 5px;
           height: 20px;
+          border-radius: 5px;
+          transition: background-color 0.25s ease-in-out;
           cursor: pointer;
           span {
             font-size: 12px;
@@ -248,18 +249,10 @@ function pickDevice(kind: 'audioinput'|'videoinput', id: string) {
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            max-width: calc(100% - 30px);
           }
-          img {
-            padding: 3px;
-            width: 14px;
-            height: 14px;
-            border-radius: 5px;
+          &.active {
             background-color: $graphite;
           }
-        }
-        .switch-device-item:not(:last-child) {
-          border-bottom: 1px solid $lead;
         }
       }
     }

@@ -10,7 +10,7 @@
       </header>
 
       <div class="list" ref="list">
-        <article class="item" v-for="it in notif.items" :key="it.id" :data-id="it.id" :class="{ unread: !it.read }">
+        <article class="item" v-for="it in notif.items" :key="it.id" :data-id="it.id">
           <header>
             <span>{{ it.title }}</span>
             <time>{{ new Date(it.date).toLocaleString() }}</time>
