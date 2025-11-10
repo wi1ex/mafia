@@ -201,6 +201,7 @@ onBeforeUnmount(() => {
     margin: 10px;
     padding: 0;
     gap: 10px;
+    border-radius: 5px;
     overflow-y: auto;
     scrollbar-width: none;
     .item {

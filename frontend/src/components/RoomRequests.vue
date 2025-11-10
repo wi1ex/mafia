@@ -7,7 +7,7 @@
           <img :src="iconClose" alt="close" />
         </button>
       </header>
-      <ul v-if="apps.length" class="apps-list">
+      <ul v-if="apps.length">
         <li v-for="u in apps" :key="u.id">
           <img v-minio-img="{ key: u.avatar_name ? `avatars/${u.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="" />
           <span>{{ u.username || ('user' + u.id) }}</span>
@@ -199,12 +199,13 @@ onBeforeUnmount(() => {
       }
     }
   }
-  .apps-list {
+  ul {
     display: flex;
     flex-direction: column;
     margin: 10px;
     padding: 0;
     gap: 10px;
+    border-radius: 5px;
     overflow-y: auto;
     scrollbar-width: none;
     list-style: none;

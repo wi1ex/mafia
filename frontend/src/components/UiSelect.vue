@@ -1,15 +1,15 @@
 <template>
   <div class="ui-select" :class="{ open }" ref="root" role="combobox" :aria-expanded="String(open)" :aria-controls="listId" aria-haspopup="listbox" >
     <button type="button" @click="toggle" @keydown="onTriggerKeydown" :aria-label="ariaLabel" >
-      <span class="value">{{ currentLabel || placeholder }}</span>
-      <span class="chev">▾</span>
+      <span>{{ currentLabel || placeholder }}</span>
+      <img :src="open ? iconArrowUp : iconArrowDown" alt="arrow" />
     </button>
 
     <ul v-show="open" :id="listId" role="listbox" :aria-activedescendant="activeId" ref="menu" @keydown="onMenuKeydown" tabindex="-1" >
-      <li v-for="(it, i) in items" :key="it.deviceId" class="option" :id="optId(i)" role="option"
-        :aria-selected="it.deviceId === modelValue" @click="select(it.deviceId)" @mouseenter="activeIndex = i" >
-        <span class="label">{{ it.label || fallback }}</span>
-        <span v-if="it.deviceId === modelValue" class="check">✓</span>
+      <li v-for="(it, i) in items" :key="it.deviceId" class="option" :id="optId(i)" role="option" :aria-selected="String(it.deviceId === modelValue)"
+          :class="{ active: i === activeIndex, selected: it.deviceId === modelValue }" @click="select(it.deviceId)" @mouseenter="activeIndex = i">
+        <span>{{ it.label || fallback }}</span>
+        <img v-if="it.deviceId === modelValue" :src="iconReady" alt="ready" />
       </li>
       <li v-if="items.length === 0" class="empty" aria-disabled="true">Нет устройств</li>
     </ul>
@@ -18,6 +18,10 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+
+import iconArrowDown from '@/assets/svg/arrow_down.svg'
+import iconArrowUp from '@/assets/svg/arrow_up.svg'
+import iconReady from '@/assets/svg/ready.svg'
 
 type Dev = {
   deviceId: string
@@ -121,66 +125,73 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', onDocPointerDo
     justify-content: space-between;
     width: 100%;
     height: 30px;
-    border: 1px solid $graphite;
+    border: 1px solid $lead;
     border-radius: 5px;
     background-color: $dark;
-    padding: 0 8px;
+    padding: 0 10px;
     cursor: pointer;
-    .value {
-      flex: 1 1 auto;
-      min-width: 0;
+    span {
       color: $fg;
-      font-size: 12px;
+      font-size: 14px;
+      font-family: Manrope-Medium;
+      line-height: 1;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
-    .chev {
-      margin-left: 8px;
+    img {
+      width: 15px;
+      height: 15px;
     }
   }
 }
 ul {
   position: absolute;
   z-index: 30;
-  top: calc(100% + 4px);
-  left: 0;
-  width: 100%;
+  bottom: 0;
+  margin: 0;
+  padding: 0;
+  width: calc(100% - 2px);
   max-height: 160px;
-  overflow-y: auto;
-  border: 1px solid $graphite;
+  border: 1px solid $lead;
   border-radius: 5px;
-  background-color: $dark;
-  padding: 4px 0;
+  background-color: $graphite;
   outline: none;
+  overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: $grey transparent;
   .option {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 8px;
-    padding: 6px 8px;
+    padding: 10px;
     cursor: pointer;
     transition: background-color 0.25s ease-in-out;
-    .label {
-      font-size: 12px;
+    span {
+      font-size: 14px;
       color: $fg;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
-    .check {
-      font-size: 12px;
+    img {
+      width: 15px;
+      height: 15px;
     }
   }
-  .option[aria-selected="true"] {
+  .option.active {
     background-color: $graphite;
   }
+  .option.selected {
+    background-color: $lead;
+  }
+  .option.active.selected {
+    background-color: $lead;
+  }
   .empty {
-    padding: 6px 8px;
+    padding: 10px;
     color: $grey;
-    font-size: 12px;
+    font-size: 14px;
   }
 }
 </style>

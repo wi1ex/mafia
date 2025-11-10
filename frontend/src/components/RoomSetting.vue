@@ -178,6 +178,7 @@ function pickDevice(kind: 'audioinput'|'videoinput', id: string) {
     align-items: flex-start;
     padding: 10px;
     gap: 20px;
+    border-radius: 5px;
     background-color: $dark;
     .switch-div {
       display: flex;
