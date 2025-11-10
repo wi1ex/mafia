@@ -242,7 +242,11 @@ async def approve(room_id: int, user_id: int, ident: Identity = Depends(get_iden
     async with r.pipeline(transaction=True) as p:
         await p.srem(f"room:{room_id}:pending", str(user_id))
         await p.sadd(f"room:{room_id}:allow", str(user_id))
-        await p.execute()
+        res = await p.execute()
+
+    added = int(res[1] or 0)
+    if added == 0:
+        return Ok()
 
     title_room = (params.get("title") or "").strip()
     note = Notif(user_id=int(user_id), title="Одобрено", text=f"Заявка в «{title_room}» одобрена")

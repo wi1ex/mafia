@@ -80,8 +80,11 @@ async function approve(uid: number) {
     seen.delete(uid)
     saveSeen([...seen])
     recomputeCounts()
-  }
-  catch { alert('Ошибка') }
+
+    window.dispatchEvent(new CustomEvent('auth-room_app_approved', {
+      detail: { room_id: props.roomId, user_id: uid }
+    }))
+  } catch { alert('Ошибка') }
 }
 
 function onInvite(e: any) {
@@ -185,7 +188,7 @@ onBeforeUnmount(() => {
       align-items: center;
       justify-content: center;
       padding: 0;
-      width: 30px;
+      width: 25px;
       height: 30px;
       border: none;
       background: none;

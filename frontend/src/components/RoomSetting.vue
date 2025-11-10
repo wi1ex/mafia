@@ -47,9 +47,8 @@
         <div class="switch-device-div">
           <span>Выбор камеры:</span>
           <div class="switch-device" role="listbox" aria-label="Список камер">
-            <div class="switch-device-item" v-for="d in cams" :key="d.deviceId" role="option" :aria-selected="d.deviceId === camId" @click="pickDevice('videoinput', d.deviceId)" >
+            <div class="switch-device-item" :class="{ active: d.deviceId === camId }" v-for="d in cams" :key="d.deviceId" role="option" :aria-selected="d.deviceId === camId" @click="pickDevice('videoinput', d.deviceId)" >
               <span>{{ d.label || 'Камера' }}</span>
-              <img :src="iconCheck" alt="" v-if="d.deviceId === camId" />
             </div>
           </div>
         </div>
@@ -147,7 +146,7 @@ function pickDevice(kind: 'audioinput'|'videoinput', id: string) {
       align-items: center;
       justify-content: center;
       padding: 0;
-      width: 30px;
+      width: 25px;
       height: 30px;
       border: none;
       background: none;
@@ -228,7 +227,7 @@ function pickDevice(kind: 'audioinput'|'videoinput', id: string) {
       gap: 5px;
       .switch-device {
         width: 100%;
-        max-height: 112px;
+        max-height: 110px;
         border: 1px solid $graphite;
         scrollbar-width: thin;
         scrollbar-color: $grey transparent;

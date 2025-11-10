@@ -184,7 +184,7 @@ onBeforeUnmount(() => {
       align-items: center;
       justify-content: center;
       padding: 0;
-      width: 30px;
+      width: 25px;
       height: 30px;
       border: none;
       background: none;

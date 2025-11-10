@@ -19,7 +19,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { useNotifStore } from '@/store'
 import { api } from '@/services/axios'
@@ -101,6 +101,18 @@ function onTransEnd(e: TransitionEvent) {
   if (t && t._closing) { void close(t) }
 }
 
+function onApproved(e: any) {
+  const p = e?.detail || {}
+  const rid = Number(p.room_id)
+  const uid = Number(p.user_id)
+  if (!Number.isFinite(rid) || !Number.isFinite(uid)) return
+  const targets = items.value.filter(t => t.kind === 'app' && t.room_id === rid && t.user?.id === uid)
+  for (const t of targets) {
+    t._closing = true
+    setTimeout(() => { void close(t) }, 300)
+  }
+}
+
 onMounted(() => {
   window.addEventListener('toast', (e: any) => {
     const d = e?.detail || {}
@@ -123,6 +135,11 @@ onMounted(() => {
       window.setTimeout(() => { void close(t) }, 600)
     }, t.ttl!)
   })
+  window.addEventListener('auth-room_app_approved', onApproved)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('auth-room_app_approved', onApproved)
 })
 </script>
 
@@ -167,7 +184,7 @@ onMounted(() => {
         align-items: center;
         justify-content: center;
         padding: 0;
-        width: 30px;
+        width: 25px;
         height: 30px;
         border: none;
         background: none;
