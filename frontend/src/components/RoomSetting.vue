@@ -128,8 +128,13 @@ function onToggleMirror(e: Event) {
 }
 
 function pickDevice(kind: 'audioinput'|'videoinput', id: string) {
-  if (kind === 'audioinput') emit('update:micId', id)
-  else emit('update:camId', id)
+  if (kind === 'audioinput') {
+    if (id === props.micId) return
+    emit('update:micId', id)
+  } else {
+    if (id === props.camId) return
+    emit('update:camId', id)
+  }
   emit('device-change', kind)
 }
 </script>

@@ -66,6 +66,10 @@ function focusMenu() {
 function close() { open.value = false }
 
 function select(id: string) {
+  if (id === props.modelValue) {
+    close()
+    return
+  }
   emit('update:modelValue', id)
   emit('change', id)
   close()
