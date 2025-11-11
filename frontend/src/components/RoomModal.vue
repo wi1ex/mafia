@@ -245,7 +245,7 @@ onBeforeUnmount(() => {
 }
 .overlay-enter-from .modal,
 .overlay-leave-to .modal {
-  transform: translateY(30px);
+  transform: translateY(-30px);
 }
 .tabs {
   display: flex;

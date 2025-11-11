@@ -165,7 +165,7 @@ onBeforeUnmount(() => {
     will-change: opacity, transform;
     &.closing {
       opacity: 0;
-      transform: translateY(-30px);
+      transform: translateY(30px);
       pointer-events: none;
     }
     header {

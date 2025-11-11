@@ -193,6 +193,7 @@ function onDocPointerDown(ev: PointerEvent) {
   if (clickedOutsideCam || clickedOutsideMic) {
     closeDropdowns()
     suppressNextDocClick = true
+    ev.stopPropagation?.()
   }
 }
 function onDocClickCapture(e: MouseEvent) {
@@ -406,7 +407,7 @@ onBeforeUnmount(() => {
 .menu-enter-from,
 .menu-leave-to {
   opacity: 0;
-  transform: translateY(-30px);
+  transform: translateY(30px);
 }
 .panel-enter-active,
 .panel-leave-active {
@@ -414,6 +415,6 @@ onBeforeUnmount(() => {
 .panel-enter-from,
 .panel-leave-to {
   opacity: 0;
-  transform: translateY(-30px);
+  transform: translateY(30px);
 }
 </style>
