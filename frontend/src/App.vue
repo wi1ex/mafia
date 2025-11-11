@@ -1,7 +1,7 @@
 <template>
   <Header v-if="!isRoom" />
   <div class="rotate-overlay">
-    <div class="rotate-box">Поверните устройство в горизонтальную ориентацию</div>
+    <div class="rotate-box">Поверните устройство</div>
   </div>
   <router-view />
   <Toast />
