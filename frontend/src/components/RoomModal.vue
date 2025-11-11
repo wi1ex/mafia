@@ -240,12 +240,12 @@ onBeforeUnmount(() => {
   opacity: 0;
 }
 .modal {
-  transform: translateY(10px);
+  transform: translateY(0);
   transition: transform 0.25s ease-in-out;
 }
 .overlay-enter-from .modal,
 .overlay-leave-to .modal {
-  transform: translateY(15px);
+  transform: translateY(30px);
 }
 .tabs {
   display: flex;

@@ -249,6 +249,6 @@ onBeforeUnmount(() => {
 .panel-enter-from,
 .panel-leave-to {
   opacity: 0;
-  transform: translateY(10px);
+  transform: translateY(30px);
 }
 </style>
