@@ -261,9 +261,8 @@ onBeforeUnmount(() => {
   .change-devices {
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
     padding: 10px;
-    gap: 20px;
+    gap: 10px;
     border-radius: 5px;
     background-color: $dark;
     .switch-div {
@@ -277,8 +276,8 @@ onBeforeUnmount(() => {
         justify-content: space-between;
         label {
           position: relative;
-          width: 140px;
-          height: 30px;
+          width: 120px;
+          height: 25px;
           input {
             position: absolute;
             opacity: 0;
@@ -292,8 +291,9 @@ onBeforeUnmount(() => {
             position: absolute;
             inset: 0;
             cursor: pointer;
-            background-color: $graphite;
+            border: 1px solid $lead;
             border-radius: 5px;
+            background-color: $graphite;
             span {
               position: relative;
               font-size: 14px;
@@ -304,16 +304,16 @@ onBeforeUnmount(() => {
           .slider:before {
             content: "";
             position: absolute;
-            top: 3px;
-            left: 3px;
-            width: 64px;
-            height: 24px;
+            top: 0;
+            left: 0;
+            width: 58px;
+            height: 23px;
             background-color: $fg;
             border-radius: 5px;
             transition: transform 0.25s ease-in-out;
           }
           input:checked + .slider:before {
-            transform: translateX(70px);
+            transform: translateX(60px);
           }
           input:not(:checked) + .slider span:first-child,
           input:checked + .slider span:last-child {
@@ -342,6 +342,7 @@ onBeforeUnmount(() => {
           padding: 0 10px;
           cursor: pointer;
           span {
+            height: 16px;
             color: $fg;
             font-size: 14px;
             font-family: Manrope-Medium;
@@ -369,12 +370,13 @@ onBeforeUnmount(() => {
         transform-origin: bottom;
         .option {
           display: flex;
-          align-items: center;
+          align-items: flex-start;
           justify-content: space-between;
           padding: 10px;
           cursor: pointer;
           transition: background-color 0.25s ease-in-out;
           span {
+            height: 16px;
             font-size: 14px;
             color: $fg;
             white-space: nowrap;
@@ -411,7 +413,8 @@ onBeforeUnmount(() => {
 }
 .panel-enter-active,
 .panel-leave-active {
-  transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out; }
+  transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
+}
 .panel-enter-from,
 .panel-leave-to {
   opacity: 0;
