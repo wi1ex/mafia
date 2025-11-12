@@ -21,6 +21,7 @@
           <div class="range">
             <span>Лимит: {{ limit }}</span>
             <div class="range-wrap">
+              <div class="range-dead" :style="deadZoneStyle" aria-hidden="true"></div>
               <div class="range-track" :style="rangeFillStyle" aria-hidden="true"></div>
               <input class="range-native" type="range" min="0" max="12" step="1" v-model.number="limit" aria-label="Лимит участников" />
             </div>
@@ -139,6 +140,10 @@ const rangePct = computed(() => {
   return Math.max(0, Math.min(100, p))
 })
 const rangeFillStyle = computed(() => ({ '--fill': `${rangePct.value}%` }))
+
+const DEAD_MIN = 2
+const deadPct = computed(() => Math.max(0, Math.min(100, ((DEAD_MIN - RANGE_MIN) * 100) / (RANGE_MAX - RANGE_MIN))))
+const deadZoneStyle = computed(() => ({ '--dead': `${deadPct.value}%` }))
 
 const SPECT_MIN = 0
 const SPECT_MAX = 10
@@ -275,6 +280,8 @@ watch([title, limit, privacy], () => { saveBasic() })
 
 watch(limit, (v) => { if (v < GAME_LIMIT_MIN && tab.value === 'game') tab.value = 'room' })
 
+watch(limit, (v) => { if (v < 2) limit.value = 2 }, { flush: 'sync' })
+
 watch(game, (v) => { try { localStorage.setItem('room:lastGame', JSON.stringify(v)) } catch {} }, { deep: true })
 
 onMounted(() => {
@@ -382,6 +389,17 @@ onBeforeUnmount(() => {
           .range-wrap {
             position: relative;
             height: 20px;
+          }
+          .range-dead {
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: var(--dead);
+            border-radius: 5px;
+            z-index: 3;
+            pointer-events: auto;
+            cursor: not-allowed;
           }
           .range-track {
             position: absolute;
