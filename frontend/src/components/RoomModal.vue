@@ -11,47 +11,92 @@
 
       <div class="modal-div">
         <div class="tabs">
-          <button :class="{active: tab === 'room'}" @click="tab='room'">Параметры комнаты</button>
-          <button :class="{active: tab === 'game'}" @click="tab='game'">Параметры игры</button>
+          <button :class="{active: tab === 'room'}" @click="tab='room'">Комната</button>
+          <button :class="{active: tab === 'game'}" @click="tab='game'">Игра</button>
         </div>
 
-        <div v-if="tab === 'room'" class="room-params">
+        <div v-if="tab === 'room'" class="params">
           <input v-model.trim="title" placeholder="Название" maxlength="32" />
+
           <label>Лимит: {{ limit }}</label>
           <input type="range" min="2" max="12" step="1" v-model.number="limit" />
-          <div class="privacy">
-            <label><input type="radio" value="open" v-model="privacy" /> Открытая</label>
-            <label><input type="radio" value="private" v-model="privacy" /> Закрытая</label>
+
+          <div class="switch">
+            <span>Приватность:</span>
+            <label>
+              <input type="checkbox" v-model="isPrivate" aria-label="Приватность: открытая/закрытая" />
+              <div class="slider">
+                <span>Открытая</span>
+                <span>Закрытая</span>
+              </div>
+            </label>
           </div>
         </div>
 
-        <div v-else class="game-params">
-          <div class="field">
-            <label>Режим</label>
-            <div class="row">
-              <label><input type="radio" value="normal" v-model="game.mode" /> Обычный</label>
-              <label><input type="radio" value="rating" v-model="game.mode" disabled /> Рейтинг (скоро)</label>
-            </div>
+        <div v-else class="params">
+          <div class="switch">
+            <span>Режим:</span>
+            <label>
+              <input type="checkbox" v-model="isRating" disabled aria-label="Режим: обычный/рейтинг" />
+              <div class="slider">
+                <span>Обычный</span>
+                <span>Рейтинг</span>
+              </div>
+            </label>
           </div>
-          <div class="field">
-            <label>Формат</label>
-            <div class="row">
-              <label><input type="radio" value="hosted" v-model="game.format" /> С ведущим</label>
-              <label><input type="radio" value="nohost" v-model="game.format" disabled /> Без ведущего (скоро)</label>
-            </div>
+          <div class="switch">
+            <span>Формат:</span>
+            <label>
+              <input type="checkbox" v-model="isNoHost" disabled aria-label="Формат: с ведущим/без ведущего" />
+              <div class="slider">
+                <span>С вед.</span>
+                <span>Без вед.</span>
+              </div>
+            </label>
           </div>
-          <div class="field">
-            <label>Лимит зрителей: {{ game.spectators_limit }}</label>
-            <input type="range" min="0" max="10" step="1" v-model.number="game.spectators_limit" disabled />
+
+          <label>Лимит зрителей: {{ game.spectators_limit }}</label>
+          <input type="range" min="0" max="10" step="1" v-model.number="game.spectators_limit" disabled />
+
+          <div class="switch">
+            <span>Голосование в нуле:</span>
+            <label>
+              <input type="checkbox" v-model="game.vote_at_zero" disabled aria-label="Голосование в нуле" />
+              <div class="slider">
+                <span>Выкл</span>
+                <span>Вкл</span>
+              </div>
+            </label>
           </div>
-          <div class="field">
-            <label>Доп. параметры</label>
-            <div class="col">
-              <label><input type="checkbox" v-model="game.vote_at_zero" disabled /> Голосование в нуле</label>
-              <label><input type="checkbox" v-model="game.vote_three" disabled /> Голосование за подъём троих</label>
-              <label><input type="checkbox" v-model="game.speech30_at_3_fouls" disabled /> Речь 30с при трёх фолах</label>
-              <label><input type="checkbox" v-model="game.extra30_at_2_fouls" disabled /> +30с к речи за 2 фола</label>
-            </div>
+          <div class="switch">
+            <span>Подъём троих:</span>
+            <label>
+              <input type="checkbox" v-model="game.vote_three" disabled aria-label="Подъём троих" />
+              <div class="slider">
+                <span>Выкл</span>
+                <span>Вкл</span>
+              </div>
+            </label>
+          </div>
+          <div class="switch">
+            <span>30с при 3 фолах:</span>
+            <label>
+              <input type="checkbox" v-model="game.speech30_at_3_fouls" disabled aria-label="30 секунд при 3 фолах" />
+              <div class="slider">
+                <span>Выкл</span>
+                <span>Вкл</span>
+              </div>
+            </label>
+          </div>
+          <div class="switch">
+            <span>30с за 2 фола:</span>
+            <label>
+              <input type="checkbox" v-model="game.extra30_at_2_fouls" disabled aria-label="30 секунд за 2 фола" />
+              <div class="slider">
+                <span>Выкл</span>
+                <span>Вкл</span>
+              </div>
+            </label>
           </div>
         </div>
       </div>
@@ -139,6 +184,19 @@ const limit = ref<number>(initialLimit)
 const privacy = ref<'open'|'private'>(initialBasic.privacy === 'private' ? 'private' : 'open')
 
 const ok = computed(() => title.value.length > 0 && limit.value >= 2 && limit.value <= 12)
+
+const isPrivate = computed<boolean>({
+  get: () => privacy.value === 'private',
+  set: v => { privacy.value = v ? 'private' : 'open' }
+})
+const isRating = computed<boolean>({
+  get: () => game.value.mode === 'rating',
+  set: v => { game.value.mode = v ? 'rating' : 'normal' }
+})
+const isNoHost = computed<boolean>({
+  get: () => game.value.format === 'nohost',
+  set: v => { game.value.format = v ? 'nohost' : 'hosted' }
+})
 
 function clamp(n: number, min: number, max: number) { return Math.max(min, Math.min(max, n)) }
 
@@ -242,44 +300,93 @@ onBeforeUnmount(() => {
     .modal-div {
       display: flex;
       flex-direction: column;
-      padding: 10px;
-      gap: 10px;
+      padding: 20px 10px;
+      gap: 20px;
+      min-height: 300px;
       border-radius: 5px;
       background-color: $dark;
       .tabs {
         display: flex;
-        gap: 10px;
-        margin: 5px 0 10px;
+        align-items: flex-end;
+        width: 100%;
+        height: 40px;
+        border-bottom: 3px solid $grey;
+        border-radius: 0 0 3px 3px;
         button {
-          padding: 5px 10px;
+          width: 50%;
+          height: 30px;
           border: none;
-          border-radius: 5px;
+          border-radius: 5px 5px 0 0;
           background-color: $graphite;
           color: $fg;
           font-size: 16px;
           font-family: Manrope-Medium;
           line-height: 1;
           cursor: pointer;
+          transition: height 0.25s ease-in-out, background-color 0.25s ease-in-out;
           &.active {
+            height: 40px;
             background-color: $lead;
           }
         }
       }
-      .room-params {
-
-        .privacy {
-
-        }
-      }
-      .game-params {
-
-        .field {
-
-          .row {
-
-          }
-          .col {
-
+      .params {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        .switch {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          label {
+            position: relative;
+            width: 120px;
+            height: 25px;
+            input {
+              position: absolute;
+              opacity: 0;
+              width: 0;
+              height: 0;
+            }
+            .slider {
+              display: flex;
+              align-items: center;
+              justify-content: space-around;
+              position: absolute;
+              inset: 0;
+              cursor: pointer;
+              border: 1px solid $lead;
+              border-radius: 5px;
+              background-color: $graphite;
+              span {
+                position: relative;
+                font-size: 14px;
+                color: $fg;
+                transition: color 0.5s ease-in-out;
+              }
+            }
+            .slider:before {
+              content: "";
+              position: absolute;
+              top: 0;
+              left: 0;
+              width: 58px;
+              height: 23px;
+              background-color: $fg;
+              border-radius: 5px;
+              transition: transform 0.25s ease-in-out;
+            }
+            input:checked + .slider:before {
+              transform: translateX(60px);
+            }
+            input:not(:checked) + .slider span:first-child,
+            input:checked + .slider span:last-child {
+              color: $bg;
+            }
+            input:disabled + .slider {
+              opacity: 0.5;
+              cursor: not-allowed;
+            }
           }
         }
       }

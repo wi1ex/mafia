@@ -298,7 +298,7 @@ onBeforeUnmount(() => {
               position: relative;
               font-size: 14px;
               color: $fg;
-              transition: color 0.5s ease-in-out;
+              transition: color 0.25s ease-in-out;
             }
           }
           .slider:before {
