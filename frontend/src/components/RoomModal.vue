@@ -60,8 +60,13 @@
             </label>
           </div>
 
-          <label>Лимит зрителей: {{ game.spectators_limit }}</label>
-          <input type="range" min="0" max="10" step="1" v-model.number="game.spectators_limit" disabled />
+          <div class="range is-disabled">
+            <span class="range-label">Лимит зрителей: {{ game.spectators_limit }}</span>
+            <div class="range-wrap">
+              <div class="range-track" :style="rangeSpectFillStyle" aria-hidden="true"></div>
+              <input class="range-native" type="range" min="0" max="10" step="1" v-model.number="game.spectators_limit" disabled aria-label="Лимит зрителей" />
+            </div>
+          </div>
 
           <div class="switch">
             <span>Слом в нуле:</span>
@@ -128,10 +133,16 @@ const busy = ref(false)
 const tab = ref<'room'|'game'>('room')
 
 const rangePct = computed(() => {
-  const p = ((limit.value - 2) * 100) / (12 - 2)
+  const p = (limit.value - 2) * 10
   return Math.max(0, Math.min(100, p))
 })
 const rangeFillStyle = computed(() => ({ '--fill': `${rangePct.value}%` }))
+
+const rangeSpectPct = computed(() => {
+  const p = game.value.spectators_limit * 10
+  return Math.max(0, Math.min(100, p))
+})
+const rangeSpectFillStyle = computed(() => ({ '--fill': `${rangeSpectPct.value}%` }))
 
 const emit = defineEmits<{
   (e: 'close'): void
@@ -420,6 +431,12 @@ onBeforeUnmount(() => {
             outline-offset: 2px;
           }
           .range-native:disabled {
+            cursor: not-allowed;
+          }
+          .range.is-disabled {
+            opacity: 0.5;
+          }
+          .range.is-disabled .range-native {
             cursor: not-allowed;
           }
         }
