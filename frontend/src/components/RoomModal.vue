@@ -2,59 +2,61 @@
   <div class="overlay" @pointerdown.self="armed = true" @pointerup.self="armed && $emit('close')"
        @pointerleave.self="armed = false" @pointercancel.self="armed = false">
     <div class="modal">
-      <div class="actions">
-        <button @click="$emit('close')">
+      <header>
+        <span>Создать комнату</span>
+        <button @click="$emit('close')" aria-label="Закрыть">
           <img :src="iconClose" alt="close" />
         </button>
+      </header>
+
+      <div class="modal-div">
+        <div class="tabs">
+          <button :class="{active: tab === 'room'}" @click="tab='room'">Параметры комнаты</button>
+          <button :class="{active: tab === 'game'}" @click="tab='game'">Параметры игры</button>
+        </div>
+
+        <div v-if="tab === 'room'" class="room-params">
+          <input v-model.trim="title" placeholder="Название" maxlength="32" />
+          <label>Лимит: {{ limit }}</label>
+          <input type="range" min="2" max="12" step="1" v-model.number="limit" />
+          <div class="privacy">
+            <label><input type="radio" value="open" v-model="privacy" /> Открытая</label>
+            <label><input type="radio" value="private" v-model="privacy" /> Закрытая</label>
+          </div>
+        </div>
+
+        <div v-else class="game-params">
+          <div class="field">
+            <label>Режим</label>
+            <div class="row">
+              <label><input type="radio" value="normal" v-model="game.mode" /> Обычный</label>
+              <label><input type="radio" value="rating" v-model="game.mode" disabled /> Рейтинг (скоро)</label>
+            </div>
+          </div>
+          <div class="field">
+            <label>Формат</label>
+            <div class="row">
+              <label><input type="radio" value="hosted" v-model="game.format" /> С ведущим</label>
+              <label><input type="radio" value="nohost" v-model="game.format" disabled /> Без ведущего (скоро)</label>
+            </div>
+          </div>
+          <div class="field">
+            <label>Лимит зрителей: {{ game.spectators_limit }}</label>
+            <input type="range" min="0" max="10" step="1" v-model.number="game.spectators_limit" disabled />
+          </div>
+          <div class="field">
+            <label>Доп. параметры</label>
+            <div class="col">
+              <label><input type="checkbox" v-model="game.vote_at_zero" disabled /> Голосование в нуле</label>
+              <label><input type="checkbox" v-model="game.vote_three" disabled /> Голосование за подъём троих</label>
+              <label><input type="checkbox" v-model="game.speech30_at_3_fouls" disabled /> Речь 30с при трёх фолах</label>
+              <label><input type="checkbox" v-model="game.extra30_at_2_fouls" disabled /> +30с к речи за 2 фола</label>
+            </div>
+          </div>
+        </div>
       </div>
-      <h3>Создать комнату</h3>
 
-      <div class="tabs">
-        <button :class="{active: tab==='room'}" @click="tab='room'">Параметры комнаты</button>
-        <button :class="{active: tab==='game'}" @click="tab='game'">Параметры игры</button>
-      </div>
-
-      <template v-if="tab==='room'">
-        <input v-model.trim="title" placeholder="Название" maxlength="32" />
-        <label>Лимит: {{ limit }}</label>
-        <input type="range" min="2" max="12" step="1" v-model.number="limit" />
-        <div class="privacy">
-          <label><input type="radio" value="open" v-model="privacy" /> Открытая</label>
-          <label><input type="radio" value="private" v-model="privacy" /> Закрытая</label>
-        </div>
-      </template>
-
-      <template v-else>
-        <div class="field">
-          <label>Режим</label>
-          <div class="row">
-            <label><input type="radio" value="normal" v-model="game.mode" /> Обычный</label>
-            <label><input type="radio" value="rating" v-model="game.mode" disabled /> Рейтинг (скоро)</label>
-          </div>
-        </div>
-        <div class="field">
-          <label>Формат</label>
-          <div class="row">
-            <label><input type="radio" value="hosted" v-model="game.format" /> С ведущим</label>
-            <label><input type="radio" value="nohost" v-model="game.format" disabled /> Без ведущего (скоро)</label>
-          </div>
-        </div>
-        <div class="field">
-          <label>Лимит зрителей: {{ game.spectators_limit }}</label>
-          <input type="range" min="0" max="10" step="1" v-model.number="game.spectators_limit" disabled />
-        </div>
-        <div class="field">
-          <label>Доп. параметры</label>
-          <div class="col">
-            <label><input type="checkbox" v-model="game.vote_at_zero" disabled /> Голосование в нуле</label>
-            <label><input type="checkbox" v-model="game.vote_three" disabled /> Голосование за подъём троих</label>
-            <label><input type="checkbox" v-model="game.speech30_at_3_fouls" disabled /> Речь 30с при трёх фолах</label>
-            <label><input type="checkbox" v-model="game.extra30_at_2_fouls" disabled /> +30с к речи за 2 фола</label>
-          </div>
-        </div>
-      </template>
-      
-      <div class="actions">
+      <div class="create-room">
         <button :disabled="busy || !ok" @click="create">Создать</button>
       </div>
     </div>
@@ -196,39 +198,96 @@ onBeforeUnmount(() => {
 <style scoped lang="scss">
 .overlay {
   position: fixed;
-  inset: 0;
-  background-color: rgba($black, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
+  inset: 0;
+  background-color: rgba($black, 0.75);
   z-index: 1000;
-}
-.modal {
-  background-color: #1e1e1e;
-  padding: 15px;
-  border-radius: 5px;
-  min-width: 320px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  h3 {
-    margin: 0 0 5px;
-    color: $fg;
-    font-size: 18px;
-    font-weight: 600;
+  .modal {
+    display: flex;
+    flex-direction: column;
+    width: 400px;
+    border-radius: 5px;
+    background-color: $dark;
+    transform: translateY(0);
+    transition: transform 0.25s ease-in-out;
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px;
+      border-radius: 5px;
+      background-color: $graphite;
+      span {
+        font-size: 18px;
+        font-weight: bold;
+      }
+      button {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        width: 25px;
+        height: 30px;
+        border: none;
+        background: none;
+        cursor: pointer;
+        img {
+          width: 25px;
+          height: 25px;
+        }
+      }
+    }
+    .modal-div {
+      display: flex;
+      flex-direction: column;
+      padding: 10px;
+      gap: 10px;
+      border-radius: 5px;
+      background-color: $dark;
+      .tabs {
+        display: flex;
+        gap: 10px;
+        margin: 5px 0 10px;
+        button {
+          padding: 5px 10px;
+          border: none;
+          border-radius: 5px;
+          background-color: $graphite;
+          color: $fg;
+          font-size: 16px;
+          font-family: Manrope-Medium;
+          line-height: 1;
+          cursor: pointer;
+          &.active {
+            background-color: $lead;
+          }
+        }
+      }
+      .room-params {
+
+        .privacy {
+
+        }
+      }
+      .game-params {
+
+        .field {
+
+          .row {
+
+          }
+          .col {
+
+          }
+        }
+      }
+    }
+    .create-room {
+
+    }
   }
-  input[type="text"], input:not([type]), input[type="range"] {
-    font: inherit;
-  }
-}
-.actions {
-  display: flex;
-  gap: 10px;
-  justify-content: flex-end;
-}
-.privacy {
-  display: flex;
-  gap: 10px;
 }
 
 .overlay-enter-active,
@@ -239,43 +298,8 @@ onBeforeUnmount(() => {
 .overlay-leave-to {
   opacity: 0;
 }
-.modal {
-  transform: translateY(0);
-  transition: transform 0.25s ease-in-out;
-}
 .overlay-enter-from .modal,
 .overlay-leave-to .modal {
   transform: translateY(-30px);
-}
-.tabs {
-  display: flex;
-  gap: 10px;
-  margin: 5px 0 10px;
-  button {
-    padding: 5px 10px;
-    border: none;
-    border-radius: 5px;
-    background-color: #2a2a2a;
-    color: #ddd;
-    cursor: pointer;
-    &.active {
-      background-color: #3a3a3a;
-    }
-  }
-}
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-.row {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-.col {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
 }
 </style>

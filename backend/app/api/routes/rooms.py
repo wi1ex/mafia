@@ -72,9 +72,10 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
         "privacy": payload.privacy,
     }
     game_data = serialize_game_for_redis(game_dict)
+    params_clean = {k: v for k, v in params_data.items() if v is not None}
 
     async with r.pipeline() as p:
-        await p.hset(f"room:{room.id}:params", mapping=params_data)
+        await p.hset(f"room:{room.id}:params", mapping=params_clean)
         await p.hset(f"room:{room.id}:game", mapping=game_data)
         await p.zadd("rooms:index", {str(room.id): int(room.created_at.timestamp())})
         await p.sadd(f"user:{uid}:rooms", str(room.id))

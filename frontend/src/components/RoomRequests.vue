@@ -223,6 +223,7 @@ onBeforeUnmount(() => {
       }
       span {
         flex: 1;
+        height: 18px;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;

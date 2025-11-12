@@ -158,7 +158,6 @@ onBeforeUnmount(() => {
     width: 400px;
     border-radius: 5px;
     background-color: $dark;
-    box-shadow: 0 5px 15px rgba($black, 0.75);
     opacity: 1;
     transform: translateY(0);
     transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
@@ -209,6 +208,7 @@ onBeforeUnmount(() => {
       }
       span {
         flex: 1;
+        height: 18px;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;

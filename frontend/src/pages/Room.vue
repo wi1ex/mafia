@@ -947,7 +947,7 @@ window.addEventListener('online',  () => { if (netReconnecting.value) hardReload
     display: flex;
     align-items: center;
     justify-content: center;
-    background-color: rgba($black, 0.5);
+    background-color: rgba($black, 0.75);
     color: $fg;
     z-index: 1000;
     pointer-events: none;
