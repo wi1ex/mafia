@@ -19,7 +19,7 @@
           <input v-model.trim="title" placeholder="Название" maxlength="32" />
 
           <div class="range">
-            <span class="range-label">Лимит: {{ limit }}</span>
+            <span>Лимит: {{ limit }}</span>
             <div class="range-wrap">
               <div class="range-track" :style="rangeFillStyle" aria-hidden="true"></div>
               <input class="range-native" type="range" min="2" max="12" step="1" v-model.number="limit" aria-label="Лимит участников" />
@@ -61,7 +61,7 @@
           </div>
 
           <div class="range is-disabled">
-            <span class="range-label">Лимит зрителей: {{ game.spectators_limit }}</span>
+            <span>Лимит зрителей: {{ game.spectators_limit }}</span>
             <div class="range-wrap">
               <div class="range-track" :style="rangeSpectFillStyle" aria-hidden="true"></div>
               <input class="range-native" type="range" min="0" max="10" step="1" v-model.number="game.spectators_limit" disabled aria-label="Лимит зрителей" />
@@ -132,14 +132,18 @@ const armed = ref(false)
 const busy = ref(false)
 const tab = ref<'room'|'game'>('room')
 
+const RANGE_MIN = 0
+const RANGE_MAX = 12
 const rangePct = computed(() => {
-  const p = (limit.value - 2) * 10
+  const p = ((limit.value - RANGE_MIN) * 100) / (RANGE_MAX - RANGE_MIN)
   return Math.max(0, Math.min(100, p))
 })
 const rangeFillStyle = computed(() => ({ '--fill': `${rangePct.value}%` }))
 
+const SPECT_MIN = 0
+const SPECT_MAX = 10
 const rangeSpectPct = computed(() => {
-  const p = game.value.spectators_limit * 10
+  const p = ((game.value.spectators_limit - SPECT_MIN) * 100) / (SPECT_MAX - SPECT_MIN)
   return Math.max(0, Math.min(100, p))
 })
 const rangeSpectFillStyle = computed(() => ({ '--fill': `${rangeSpectPct.value}%` }))
@@ -361,18 +365,15 @@ onBeforeUnmount(() => {
         .range {
           display: flex;
           flex-direction: column;
-          gap: 6px;
-          .range-label {
-            color: $fg;
-          }
+          gap: 5px;
           .range-wrap {
             position: relative;
-            height: 28px;
+            height: 20px;
           }
           .range-track {
             position: absolute;
             inset: 0;
-            border-radius: 14px;
+            border-radius: 5px;
             border: 1px solid $lead;
             background-color: $graphite;
             overflow: hidden;
@@ -382,7 +383,7 @@ onBeforeUnmount(() => {
             position: absolute;
             inset: 0 auto 0 0;
             width: var(--fill);
-            background-color: $lead;
+            background-color: $fg;
             border-radius: inherit;
           }
           .range-native {
