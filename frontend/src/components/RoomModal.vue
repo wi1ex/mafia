@@ -11,18 +11,18 @@
 
       <div class="modal-div">
         <div class="tabs">
-          <button :class="{active: tab === 'room'}" @click="tab='room'">Комната</button>
-          <button :class="{active: tab === 'game'}" @click="tab='game'">Игра</button>
+          <button :class="{active: tab === 'room'}" @click="openTab('room')">Комната</button>
+          <button :class="{active: tab === 'game'}" @click="openTab('game')" :disabled="!canOpenGameTab" :aria-disabled="!canOpenGameTab">Игра</button>
         </div>
 
-        <div v-if="tab === 'room'" class="params">
+        <div v-show="tab === 'room'" class="params">
           <input v-model.trim="title" placeholder="Название" maxlength="32" />
 
           <div class="range">
             <span>Лимит: {{ limit }}</span>
             <div class="range-wrap">
               <div class="range-track" :style="rangeFillStyle" aria-hidden="true"></div>
-              <input class="range-native" type="range" min="2" max="12" step="1" v-model.number="limit" aria-label="Лимит участников" />
+              <input class="range-native" type="range" min="0" max="12" step="1" v-model.number="limit" aria-label="Лимит участников" />
             </div>
           </div>
 
@@ -38,7 +38,7 @@
           </div>
         </div>
 
-        <div v-else class="params">
+        <div v-show="tab === 'game'" class="params">
           <div class="switch">
             <span>Режим:</span>
             <label>
@@ -147,6 +147,13 @@ const rangeSpectPct = computed(() => {
   return Math.max(0, Math.min(100, p))
 })
 const rangeSpectFillStyle = computed(() => ({ '--fill': `${rangeSpectPct.value}%` }))
+
+const GAME_LIMIT_MIN = 10
+const canOpenGameTab = computed(() => limit.value >= GAME_LIMIT_MIN)
+function openTab(t: 'room' | 'game') {
+  if (t === 'game' && !canOpenGameTab.value) return
+  tab.value = t
+}
 
 const emit = defineEmits<{
   (e: 'close'): void
@@ -266,6 +273,8 @@ watch(() => user.user, () => { if (!title.value) title.value = defaultTitle() })
 
 watch([title, limit, privacy], () => { saveBasic() })
 
+watch(limit, (v) => { if (v < GAME_LIMIT_MIN && tab.value === 'game') tab.value = 'room' })
+
 watch(game, (v) => { try { localStorage.setItem('room:lastGame', JSON.stringify(v)) } catch {} }, { deep: true })
 
 onMounted(() => {
@@ -353,6 +362,10 @@ onBeforeUnmount(() => {
           &.active {
             height: 40px;
             background-color: $lead;
+          }
+          &:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
           }
         }
       }
