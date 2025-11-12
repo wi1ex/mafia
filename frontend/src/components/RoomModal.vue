@@ -22,7 +22,7 @@
                 <input id="room-title" v-model.trim="title" :maxlength="TITLE_MAX" placeholder=" " autocomplete="off" />
                 <label for="room-title">Название комнаты</label>
                 <div class="underline"><span :style="titleUnderlineStyle"></span></div>
-                <div class="meta"><span id="room-title-hint" class="counter">{{ title.length }}/{{ TITLE_MAX }}</span></div>
+                <div class="meta"><span id="room-title-hint">{{ title.length }}/{{ TITLE_MAX }}</span></div>
               </div>
 
               <div class="range">
@@ -48,7 +48,7 @@
 
             <div v-else key="game" class="params">
               <div class="range is-disabled">
-                <span>Лимит зрителей: {{ game.spectators_limit }}/{{ SPECT_MAX }}}</span>
+                <span>Лимит зрителей: {{ game.spectators_limit }}/{{ SPECT_MAX }}</span>
                 <div class="range-wrap">
                   <div class="range-track" :style="rangeSpectFillStyle" aria-hidden="true"></div>
                   <input class="range-native" type="range" :min="SPECT_MIN" :max="SPECT_MAX" step="1" v-model.number="game.spectators_limit" disabled aria-label="Лимит зрителей" />
@@ -372,7 +372,7 @@ onBeforeUnmount(() => {
       background-color: $dark;
       .tab-viewport {
         position: relative;
-        max-height: 128px;
+        height: 135px;
         overflow-y: auto;
         overflow-x: hidden;
         scrollbar-width: none;
@@ -381,12 +381,12 @@ onBeforeUnmount(() => {
         display: flex;
         align-items: flex-end;
         width: 100%;
-        height: 40px;
+        height: 30px;
         border-bottom: 3px solid $grey;
         border-radius: 0 0 3px 3px;
         button {
           width: 50%;
-          height: 30px;
+          height: 25px;
           border: none;
           border-radius: 5px 5px 0 0;
           background-color: $graphite;
@@ -397,7 +397,7 @@ onBeforeUnmount(() => {
           cursor: pointer;
           transition: height 0.25s ease-in-out, background-color 0.25s ease-in-out;
           &.active {
-            height: 40px;
+            height: 30px;
             background-color: $lead;
           }
           &:disabled {
@@ -410,54 +410,50 @@ onBeforeUnmount(() => {
         display: flex;
         flex-direction: column;
         gap: 10px;
-
-
-
-
-
         .ui-input {
           position: relative;
           display: block;
           width: 100%;
           input {
-            width: 100%;
-            height: 44px;
-            padding: 18px 44px 6px 12px;
+            width: calc(100% - 22px);
+            padding: 20px 10px 5px;
             border: 1px solid $lead;
-            border-radius: 8px;
+            border-radius: 5px 5px 0 0;
             background-color: $graphite;
             color: $fg;
             font-size: 16px;
+            font-family: Manrope-Medium;
             line-height: 1;
             outline: none;
-            transition: box-shadow 0.25s ease-in-out, border-color 0.25s ease-in-out, background-color 0.25s ease-in-out;
+            transition: border-color 0.25s ease-in-out, background-color 0.25s ease-in-out;
           }
           input::placeholder {
             color: transparent;
           }
           label {
             position: absolute;
-            left: 12px;
             top: 50%;
+            left: 12px;
+            color: $fg;
             transform: translateY(-50%);
-            font-size: 14px;
-            color: $grey;
             pointer-events: none;
-            transition: top 0.25s ease-in-out, transform 0.25s ease-in-out, font-size 0.25s ease-in-out, color 0.25s ease-in-out;
+            transition: all 0.25s ease-in-out;
           }
           .underline {
             position: absolute;
             left: 0;
             right: 0;
-            bottom: 0;
-            height: 2px;
+            bottom: -3px;
+            height: 3px;
+            border-radius: 0 0 3px 3px;
             overflow: hidden;
             span {
               position: absolute;
-              left: 0; bottom: 0;
-              height: 2px;
+              left: 0;
+              bottom: 0;
+              height: 3px;
               width: 0;
-              background: $fg;
+              background-color: $fg;
               transition: width 0.25s ease-in-out;
             }
           }
@@ -465,40 +461,34 @@ onBeforeUnmount(() => {
             content: "";
             position: absolute;
             inset: 0;
-            background: $lead;
-            opacity: 0.35;
+            background-color: $lead;
           }
           .meta {
             position: absolute;
-            top: 6px;
+            top: 5px;
             right: 10px;
-            font-size: 12px;
-            line-height: 1;
-            color: $grey;
             pointer-events: none;
+            span {
+              font-size: 12px;
+              color: $grey;
+            }
           }
           .ui-input.invalid input {
-            border-color: rgba(239, 68, 68, 0.65);
+            border-color: rgba($red, 0.75);
           }
           .ui-input.invalid label {
-            color: rgba(239, 68, 68, 0.9);
+            color: $red;
           }
         }
         .ui-input:focus-within label,
         .ui-input input:not(:placeholder-shown) + label,
         .ui-input.filled label {
-          top: 8px;
+          top: 5px;
+          left: 10px;
           transform: none;
           font-size: 12px;
-          color: $fg;
+          color: $grey;
         }
-        .ui-input:focus-within input {
-          box-shadow: 0 0 0 3px rgba($lead, 0.25);
-        }
-
-
-
-
         .range {
           display: flex;
           flex-direction: column;
@@ -654,7 +644,7 @@ onBeforeUnmount(() => {
       justify-content: center;
       padding: 10px 0 20px 0;
       button {
-        width: 33%;
+        width: calc(100% - 20px);
         height: 30px;
         border: none;
         border-radius: 5px;
