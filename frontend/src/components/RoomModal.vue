@@ -18,8 +18,13 @@
         <div v-if="tab === 'room'" class="params">
           <input v-model.trim="title" placeholder="Название" maxlength="32" />
 
-          <label>Лимит: {{ limit }}</label>
-          <input type="range" min="2" max="12" step="1" v-model.number="limit" />
+          <div class="range">
+            <span class="range-label">Лимит: {{ limit }}</span>
+            <div class="range-wrap">
+              <div class="range-track" :style="rangeFillStyle" aria-hidden="true"></div>
+              <input class="range-native" type="range" min="2" max="12" step="1" v-model.number="limit" aria-label="Лимит участников" />
+            </div>
+          </div>
 
           <div class="switch">
             <span>Приватность:</span>
@@ -59,9 +64,9 @@
           <input type="range" min="0" max="10" step="1" v-model.number="game.spectators_limit" disabled />
 
           <div class="switch">
-            <span>Голосование в нуле:</span>
+            <span>Слом в нуле:</span>
             <label>
-              <input type="checkbox" v-model="game.vote_at_zero" disabled aria-label="Голосование в нуле" />
+              <input type="checkbox" v-model="game.vote_at_zero" disabled aria-label="Слом в нуле" />
               <div class="slider">
                 <span>Выкл</span>
                 <span>Вкл</span>
@@ -79,9 +84,9 @@
             </label>
           </div>
           <div class="switch">
-            <span>30с при 3 фолах:</span>
+            <span>30с речи при 3 фолах:</span>
             <label>
-              <input type="checkbox" v-model="game.speech30_at_3_fouls" disabled aria-label="30 секунд при 3 фолах" />
+              <input type="checkbox" v-model="game.speech30_at_3_fouls" disabled aria-label="30с речи при 3 фолах" />
               <div class="slider">
                 <span>Выкл</span>
                 <span>Вкл</span>
@@ -89,9 +94,9 @@
             </label>
           </div>
           <div class="switch">
-            <span>30с за 2 фола:</span>
+            <span>За 2 фола +30с к речи:</span>
             <label>
-              <input type="checkbox" v-model="game.extra30_at_2_fouls" disabled aria-label="30 секунд за 2 фола" />
+              <input type="checkbox" v-model="game.extra30_at_2_fouls" disabled aria-label="За 2 фола +30с к речи" />
               <div class="slider">
                 <span>Выкл</span>
                 <span>Вкл</span>
@@ -121,6 +126,12 @@ let prevOverflow = ''
 const armed = ref(false)
 const busy = ref(false)
 const tab = ref<'room'|'game'>('room')
+
+const rangePct = computed(() => {
+  const p = ((limit.value - 2) * 100) / (12 - 2)
+  return Math.max(0, Math.min(100, p))
+})
+const rangeFillStyle = computed(() => ({ '--fill': `${rangePct.value}%` }))
 
 const emit = defineEmits<{
   (e: 'close'): void
@@ -302,7 +313,7 @@ onBeforeUnmount(() => {
       flex-direction: column;
       padding: 20px 10px;
       gap: 20px;
-      min-height: 300px;
+      min-height: 400px;
       border-radius: 5px;
       background-color: $dark;
       .tabs {
@@ -334,14 +345,95 @@ onBeforeUnmount(() => {
         display: flex;
         flex-direction: column;
         gap: 10px;
+
+
+        .range {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          .range-label {
+            color: $fg;
+          }
+          .range-wrap {
+            position: relative;
+            height: 28px;
+          }
+          .range-track {
+            position: absolute;
+            inset: 0;
+            border-radius: 14px;
+            border: 1px solid $lead;
+            background-color: $graphite;
+            overflow: hidden;
+          }
+          .range-track::after {
+            content: "";
+            position: absolute;
+            inset: 0 auto 0 0;
+            width: var(--fill);
+            background-color: $lead;
+            border-radius: inherit;
+          }
+          .range-native {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            background: none;
+            cursor: pointer;
+            z-index: 2;
+            -webkit-appearance: none;
+            appearance: none;
+          }
+          .range-native::-webkit-slider-runnable-track {
+            background: transparent;
+            height: 100%;
+          }
+          .range-native::-moz-range-track {
+            background: transparent;
+            height: 100%;
+          }
+          .range-native::-ms-track {
+            background: transparent;
+            color: transparent;
+            border: none;
+            height: 100%;
+          }
+          .range-native::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 1px;
+            height: 100%;
+            background: transparent;
+            border: none;
+          }
+          .range-native::-moz-range-thumb {
+            width: 1px;
+            height: 100%;
+            background: transparent;
+            border: none;
+          }
+          .range-native:focus-visible {
+            outline: 2px solid $lead;
+            outline-offset: 2px;
+          }
+          .range-native:disabled {
+            cursor: not-allowed;
+          }
+        }
+
+
+
         .switch {
           display: flex;
           align-items: center;
           justify-content: space-between;
           label {
             position: relative;
-            width: 120px;
-            height: 25px;
+            width: 200px;
+            height: 30px;
             input {
               position: absolute;
               opacity: 0;
@@ -360,9 +452,9 @@ onBeforeUnmount(() => {
               background-color: $graphite;
               span {
                 position: relative;
-                font-size: 14px;
+                font-size: 16px;
                 color: $fg;
-                transition: color 0.5s ease-in-out;
+                transition: color 0.25s ease-in-out;
               }
             }
             .slider:before {
@@ -370,14 +462,14 @@ onBeforeUnmount(() => {
               position: absolute;
               top: 0;
               left: 0;
-              width: 58px;
-              height: 23px;
+              width: 98px;
+              height: 28px;
               background-color: $fg;
               border-radius: 5px;
               transition: transform 0.25s ease-in-out;
             }
             input:checked + .slider:before {
-              transform: translateX(60px);
+              transform: translateX(100px);
             }
             input:not(:checked) + .slider span:first-child,
             input:checked + .slider span:last-child {
