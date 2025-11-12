@@ -18,17 +18,19 @@
         <div class="tab-viewport">
           <Transition :name="tabTrans" mode="out-in">
             <div v-if="tab === 'room'" key="room" class="params">
-              <div class="roomname">
-                <span>Название комнаты:</span>
-                <input v-model.trim="title" placeholder="Название" maxlength="32" />
+              <div class="ui-input" :class="{ filled: !!title, invalid: !title }">
+                <input id="room-title" v-model.trim="title" :maxlength="TITLE_MAX" placeholder=" " autocomplete="off" />
+                <label for="room-title">Название комнаты</label>
+                <div class="underline"><span :style="titleUnderlineStyle"></span></div>
+                <div class="meta"><span id="room-title-hint" class="counter">{{ title.length }}/{{ TITLE_MAX }}</span></div>
               </div>
 
               <div class="range">
-                <span>Лимит: {{ limit }}/12</span>
+                <span>Лимит: {{ limit }}/{{ RANGE_MAX }}</span>
                 <div class="range-wrap">
                   <div class="range-dead" :style="deadZoneStyle" aria-hidden="true"></div>
                   <div class="range-track" :style="rangeFillStyle" aria-hidden="true"></div>
-                  <input class="range-native" type="range" min="0" max="12" step="1" v-model.number="limit" aria-label="Лимит участников" />
+                  <input class="range-native" type="range" :min="RANGE_MIN" :max="RANGE_MAX" step="1" v-model.number="limit" aria-label="Лимит участников" />
                 </div>
               </div>
 
@@ -45,6 +47,14 @@
             </div>
 
             <div v-else key="game" class="params">
+              <div class="range is-disabled">
+                <span>Лимит зрителей: {{ game.spectators_limit }}/{{ SPECT_MAX }}}</span>
+                <div class="range-wrap">
+                  <div class="range-track" :style="rangeSpectFillStyle" aria-hidden="true"></div>
+                  <input class="range-native" type="range" :min="SPECT_MIN" :max="SPECT_MAX" step="1" v-model.number="game.spectators_limit" disabled aria-label="Лимит зрителей" />
+                </div>
+              </div>
+
               <div class="switch">
                 <span>Режим:</span>
                 <label>
@@ -55,6 +65,7 @@
                   </div>
                 </label>
               </div>
+
               <div class="switch">
                 <span>Судья:</span>
                 <label>
@@ -66,54 +77,47 @@
                 </label>
               </div>
 
-              <div class="range is-disabled">
-                <span>Лимит зрителей: {{ game.spectators_limit }}/10</span>
-                <div class="range-wrap">
-                  <div class="range-track" :style="rangeSpectFillStyle" aria-hidden="true"></div>
-                  <input class="range-native" type="range" min="0" max="10" step="1" v-model.number="game.spectators_limit" disabled aria-label="Лимит зрителей" />
-                </div>
-              </div>
+<!--              <div class="switch">-->
+<!--                <span>Слом в нуле:</span>-->
+<!--                <label>-->
+<!--                  <input type="checkbox" v-model="game.vote_at_zero" disabled aria-label="Слом в нуле" />-->
+<!--                  <div class="slider">-->
+<!--                    <span>Выкл</span>-->
+<!--                    <span>Вкл</span>-->
+<!--                  </div>-->
+<!--                </label>-->
+<!--              </div>-->
+<!--              <div class="switch">-->
+<!--                <span>Подъём троих:</span>-->
+<!--                <label>-->
+<!--                  <input type="checkbox" v-model="game.vote_three" disabled aria-label="Подъём троих" />-->
+<!--                  <div class="slider">-->
+<!--                    <span>Выкл</span>-->
+<!--                    <span>Вкл</span>-->
+<!--                  </div>-->
+<!--                </label>-->
+<!--              </div>-->
+<!--              <div class="switch">-->
+<!--                <span>30с речи при 3 фолах:</span>-->
+<!--                <label>-->
+<!--                  <input type="checkbox" v-model="game.speech30_at_3_fouls" disabled aria-label="30с речи при 3 фолах" />-->
+<!--                  <div class="slider">-->
+<!--                    <span>Выкл</span>-->
+<!--                    <span>Вкл</span>-->
+<!--                  </div>-->
+<!--                </label>-->
+<!--              </div>-->
+<!--              <div class="switch">-->
+<!--                <span>За 2 фола +30с к речи:</span>-->
+<!--                <label>-->
+<!--                  <input type="checkbox" v-model="game.extra30_at_2_fouls" disabled aria-label="За 2 фола +30с к речи" />-->
+<!--                  <div class="slider">-->
+<!--                    <span>Выкл</span>-->
+<!--                    <span>Вкл</span>-->
+<!--                  </div>-->
+<!--                </label>-->
+<!--              </div>-->
 
-              <div class="switch">
-                <span>Слом в нуле:</span>
-                <label>
-                  <input type="checkbox" v-model="game.vote_at_zero" disabled aria-label="Слом в нуле" />
-                  <div class="slider">
-                    <span>Выкл</span>
-                    <span>Вкл</span>
-                  </div>
-                </label>
-              </div>
-              <div class="switch">
-                <span>Подъём троих:</span>
-                <label>
-                  <input type="checkbox" v-model="game.vote_three" disabled aria-label="Подъём троих" />
-                  <div class="slider">
-                    <span>Выкл</span>
-                    <span>Вкл</span>
-                  </div>
-                </label>
-              </div>
-              <div class="switch">
-                <span>30с речи при 3 фолах:</span>
-                <label>
-                  <input type="checkbox" v-model="game.speech30_at_3_fouls" disabled aria-label="30с речи при 3 фолах" />
-                  <div class="slider">
-                    <span>Выкл</span>
-                    <span>Вкл</span>
-                  </div>
-                </label>
-              </div>
-              <div class="switch">
-                <span>За 2 фола +30с к речи:</span>
-                <label>
-                  <input type="checkbox" v-model="game.extra30_at_2_fouls" disabled aria-label="За 2 фола +30с к речи" />
-                  <div class="slider">
-                    <span>Выкл</span>
-                    <span>Вкл</span>
-                  </div>
-                </label>
-              </div>
             </div>
           </Transition>
         </div>
@@ -163,6 +167,13 @@ const rangeSpectPct = computed(() => {
   return Math.max(0, Math.min(100, p))
 })
 const rangeSpectFillStyle = computed(() => ({ '--fill': `${rangeSpectPct.value}%` }))
+
+const TITLE_MAX = 32
+const titlePct = computed(() => {
+  const used = Math.min(TITLE_MAX, Math.max(0, title.value.length))
+  return (used / TITLE_MAX) * 100
+})
+const titleUnderlineStyle = computed(() => ({ width: `${titlePct.value}%` }))
 
 const GAME_LIMIT_MIN = 10
 const canOpenGameTab = computed(() => limit.value >= GAME_LIMIT_MIN)
@@ -399,11 +410,95 @@ onBeforeUnmount(() => {
         display: flex;
         flex-direction: column;
         gap: 10px;
-        .roomname {
-          display: flex;
-          flex-direction: column;
-          gap: 5px;
+
+
+
+
+
+        .ui-input {
+          position: relative;
+          display: block;
+          width: 100%;
+          input {
+            width: 100%;
+            height: 44px;
+            padding: 18px 44px 6px 12px;
+            border: 1px solid $lead;
+            border-radius: 8px;
+            background-color: $graphite;
+            color: $fg;
+            font-size: 16px;
+            line-height: 1;
+            outline: none;
+            transition: box-shadow 0.25s ease-in-out, border-color 0.25s ease-in-out, background-color 0.25s ease-in-out;
+          }
+          input::placeholder {
+            color: transparent;
+          }
+          label {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 14px;
+            color: $grey;
+            pointer-events: none;
+            transition: top 0.25s ease-in-out, transform 0.25s ease-in-out, font-size 0.25s ease-in-out, color 0.25s ease-in-out;
+          }
+          .underline {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            height: 2px;
+            overflow: hidden;
+            span {
+              position: absolute;
+              left: 0; bottom: 0;
+              height: 2px;
+              width: 0;
+              background: $fg;
+              transition: width 0.25s ease-in-out;
+            }
+          }
+          .underline::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: $lead;
+            opacity: 0.35;
+          }
+          .meta {
+            position: absolute;
+            top: 6px;
+            right: 10px;
+            font-size: 12px;
+            line-height: 1;
+            color: $grey;
+            pointer-events: none;
+          }
+          .ui-input.invalid input {
+            border-color: rgba(239, 68, 68, 0.65);
+          }
+          .ui-input.invalid label {
+            color: rgba(239, 68, 68, 0.9);
+          }
         }
+        .ui-input:focus-within label,
+        .ui-input input:not(:placeholder-shown) + label,
+        .ui-input.filled label {
+          top: 8px;
+          transform: none;
+          font-size: 12px;
+          color: $fg;
+        }
+        .ui-input:focus-within input {
+          box-shadow: 0 0 0 3px rgba($lead, 0.25);
+        }
+
+
+
+
         .range {
           display: flex;
           flex-direction: column;
@@ -411,83 +506,83 @@ onBeforeUnmount(() => {
           .range-wrap {
             position: relative;
             height: 20px;
-          }
-          .range-dead {
-            position: absolute;
-            left: 0;
-            top: 0;
-            bottom: 0;
-            width: var(--dead);
-            border-radius: 5px;
-            z-index: 3;
-            pointer-events: auto;
-            cursor: pointer;
-          }
-          .range-track {
-            position: absolute;
-            inset: 0;
-            border-radius: 5px;
-            border: 1px solid $lead;
-            background-color: $graphite;
-            overflow: hidden;
-          }
-          .range-track::after {
-            content: "";
-            position: absolute;
-            inset: 0 auto 0 0;
-            width: var(--fill);
-            background-color: $fg;
-            border-radius: inherit;
-            transition: width 0.25s ease-in-out;
-            will-change: width;
-          }
-          .range-native {
-            position: absolute;
-            inset: 0;
-            width: 100%;
-            height: 100%;
-            margin: 0;
-            padding: 0;
-            background: none;
-            cursor: pointer;
-            z-index: 2;
-            -webkit-appearance: none;
-            appearance: none;
-          }
-          .range-native::-webkit-slider-runnable-track {
-            background: transparent;
-            height: 100%;
-          }
-          .range-native::-moz-range-track {
-            background: transparent;
-            height: 100%;
-          }
-          .range-native::-ms-track {
-            background: transparent;
-            color: transparent;
-            border: none;
-            height: 100%;
-          }
-          .range-native::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 1px;
-            height: 100%;
-            background: transparent;
-            border: none;
-          }
-          .range-native::-moz-range-thumb {
-            width: 1px;
-            height: 100%;
-            background: transparent;
-            border: none;
-          }
-          .range-native:focus-visible {
-            outline: 2px solid $lead;
-            outline-offset: 2px;
-          }
-          .range-native:disabled {
-            cursor: not-allowed;
+            .range-dead {
+              position: absolute;
+              left: 0;
+              top: 0;
+              bottom: 0;
+              width: var(--dead);
+              border-radius: 5px;
+              z-index: 3;
+              pointer-events: auto;
+              cursor: pointer;
+            }
+            .range-track {
+              position: absolute;
+              inset: 0;
+              border-radius: 5px;
+              border: 1px solid $lead;
+              background-color: $graphite;
+              overflow: hidden;
+            }
+            .range-track::after {
+              content: "";
+              position: absolute;
+              inset: 0 auto 0 0;
+              width: var(--fill);
+              background-color: $fg;
+              border-radius: inherit;
+              transition: width 0.25s ease-in-out;
+              will-change: width;
+            }
+            .range-native {
+              position: absolute;
+              inset: 0;
+              width: 100%;
+              height: 100%;
+              margin: 0;
+              padding: 0;
+              background: none;
+              cursor: pointer;
+              z-index: 2;
+              -webkit-appearance: none;
+              appearance: none;
+            }
+            .range-native::-webkit-slider-runnable-track {
+              background: transparent;
+              height: 100%;
+            }
+            .range-native::-moz-range-track {
+              background: transparent;
+              height: 100%;
+            }
+            .range-native::-ms-track {
+              background: transparent;
+              color: transparent;
+              border: none;
+              height: 100%;
+            }
+            .range-native::-webkit-slider-thumb {
+              -webkit-appearance: none;
+              appearance: none;
+              width: 1px;
+              height: 100%;
+              background: transparent;
+              border: none;
+            }
+            .range-native::-moz-range-thumb {
+              width: 1px;
+              height: 100%;
+              background: transparent;
+              border: none;
+            }
+            .range-native:focus-visible {
+              outline: 2px solid $lead;
+              outline-offset: 2px;
+            }
+            .range-native:disabled {
+              cursor: not-allowed;
+            }
           }
           .range.is-disabled {
             opacity: 0.5;
@@ -582,7 +677,7 @@ onBeforeUnmount(() => {
 .slide-left-leave-active,
 .slide-right-enter-active,
 .slide-right-leave-active {
-  transition: transform 0.25s ease-in-out, opacity 0.25s ease-in-out;
+  transition: transform 0.15s ease-in-out, opacity 0.15s ease-in-out;
 }
 .slide-left-enter-from {
   transform: translateX(60px);
