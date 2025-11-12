@@ -18,11 +18,13 @@
         <div class="tab-viewport">
           <Transition :name="tabTrans" mode="out-in">
             <div v-if="tab === 'room'" key="room" class="params">
-              <span>Название комнаты:</span>
-              <input v-model.trim="title" placeholder="Название" maxlength="32" />
+              <div class="roomname">
+                <span>Название комнаты:</span>
+                <input v-model.trim="title" placeholder="Название" maxlength="32" />
+              </div>
 
               <div class="range">
-                <span>Лимит: {{ limit }}</span>
+                <span>Лимит: {{ limit }}/12</span>
                 <div class="range-wrap">
                   <div class="range-dead" :style="deadZoneStyle" aria-hidden="true"></div>
                   <div class="range-track" :style="rangeFillStyle" aria-hidden="true"></div>
@@ -54,18 +56,18 @@
                 </label>
               </div>
               <div class="switch">
-                <span>Формат:</span>
+                <span>Судья:</span>
                 <label>
                   <input type="checkbox" v-model="isNoHost" disabled aria-label="Формат: с ведущим/без ведущего" />
                   <div class="slider">
-                    <span>С вед.</span>
-                    <span>Без вед.</span>
+                    <span>Ведущий</span>
+                    <span>Автомат</span>
                   </div>
                 </label>
               </div>
 
               <div class="range is-disabled">
-                <span>Лимит зрителей: {{ game.spectators_limit }}</span>
+                <span>Лимит зрителей: {{ game.spectators_limit }}/10</span>
                 <div class="range-wrap">
                   <div class="range-track" :style="rangeSpectFillStyle" aria-hidden="true"></div>
                   <input class="range-native" type="range" min="0" max="10" step="1" v-model.number="game.spectators_limit" disabled aria-label="Лимит зрителей" />
@@ -353,15 +355,16 @@ onBeforeUnmount(() => {
     .modal-div {
       display: flex;
       flex-direction: column;
-      padding: 20px 10px;
+      padding: 20px;
       gap: 20px;
-      min-height: 315px;
       border-radius: 5px;
       background-color: $dark;
       .tab-viewport {
         position: relative;
-        min-height: 220px;
-        overflow: hidden;
+        max-height: 133px;
+        overflow-y: auto;
+        overflow-x: hidden;
+        scrollbar-width: thin;
       }
       .tabs {
         display: flex;
@@ -396,6 +399,11 @@ onBeforeUnmount(() => {
         display: flex;
         flex-direction: column;
         gap: 10px;
+        .roomname {
+          display: flex;
+          flex-direction: column;
+          gap: 5px;
+        }
         .range {
           display: flex;
           flex-direction: column;
@@ -494,7 +502,7 @@ onBeforeUnmount(() => {
           justify-content: space-between;
           label {
             position: relative;
-            width: 180px;
+            width: 170px;
             height: 25px;
             input {
               position: absolute;
@@ -524,14 +532,14 @@ onBeforeUnmount(() => {
               position: absolute;
               top: 0;
               left: 0;
-              width: 88px;
+              width: 83px;
               height: 23px;
               background-color: $fg;
               border-radius: 5px;
               transition: transform 0.25s ease-in-out;
             }
             input:checked + .slider:before {
-              transform: translateX(90px);
+              transform: translateX(85px);
             }
             input:not(:checked) + .slider span:first-child,
             input:checked + .slider span:last-child {
