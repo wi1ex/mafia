@@ -15,101 +15,105 @@
           <button :class="{active: tab === 'game'}" @click="openTab('game')" :disabled="!canOpenGameTab" :aria-disabled="!canOpenGameTab">Игра</button>
         </div>
 
-        <div v-show="tab === 'room'" class="params">
-          <span>Название комнаты:</span>
-          <input v-model.trim="title" placeholder="Название" maxlength="32" />
+        <div class="tab-viewport">
+          <Transition :name="tabTrans" mode="out-in">
+            <div v-if="tab === 'room'" key="room" class="params">
+              <span>Название комнаты:</span>
+              <input v-model.trim="title" placeholder="Название" maxlength="32" />
 
-          <div class="range">
-            <span>Лимит: {{ limit }}</span>
-            <div class="range-wrap">
-              <div class="range-dead" :style="deadZoneStyle" aria-hidden="true"></div>
-              <div class="range-track" :style="rangeFillStyle" aria-hidden="true"></div>
-              <input class="range-native" type="range" min="0" max="12" step="1" v-model.number="limit" aria-label="Лимит участников" />
+              <div class="range">
+                <span>Лимит: {{ limit }}</span>
+                <div class="range-wrap">
+                  <div class="range-dead" :style="deadZoneStyle" aria-hidden="true"></div>
+                  <div class="range-track" :style="rangeFillStyle" aria-hidden="true"></div>
+                  <input class="range-native" type="range" min="0" max="12" step="1" v-model.number="limit" aria-label="Лимит участников" />
+                </div>
+              </div>
+
+              <div class="switch">
+                <span>Приватность:</span>
+                <label>
+                  <input type="checkbox" v-model="isPrivate" aria-label="Приватность: открытая/закрытая" />
+                  <div class="slider">
+                    <span>Открытая</span>
+                    <span>Закрытая</span>
+                  </div>
+                </label>
+              </div>
             </div>
-          </div>
 
-          <div class="switch">
-            <span>Приватность:</span>
-            <label>
-              <input type="checkbox" v-model="isPrivate" aria-label="Приватность: открытая/закрытая" />
-              <div class="slider">
-                <span>Открытая</span>
-                <span>Закрытая</span>
+            <div v-else key="game" class="params">
+              <div class="switch">
+                <span>Режим:</span>
+                <label>
+                  <input type="checkbox" v-model="isRating" disabled aria-label="Режим: обычный/рейтинг" />
+                  <div class="slider">
+                    <span>Обычный</span>
+                    <span>Рейтинг</span>
+                  </div>
+                </label>
               </div>
-            </label>
-          </div>
-        </div>
+              <div class="switch">
+                <span>Формат:</span>
+                <label>
+                  <input type="checkbox" v-model="isNoHost" disabled aria-label="Формат: с ведущим/без ведущего" />
+                  <div class="slider">
+                    <span>С вед.</span>
+                    <span>Без вед.</span>
+                  </div>
+                </label>
+              </div>
 
-        <div v-show="tab === 'game'" class="params">
-          <div class="switch">
-            <span>Режим:</span>
-            <label>
-              <input type="checkbox" v-model="isRating" disabled aria-label="Режим: обычный/рейтинг" />
-              <div class="slider">
-                <span>Обычный</span>
-                <span>Рейтинг</span>
+              <div class="range is-disabled">
+                <span>Лимит зрителей: {{ game.spectators_limit }}</span>
+                <div class="range-wrap">
+                  <div class="range-track" :style="rangeSpectFillStyle" aria-hidden="true"></div>
+                  <input class="range-native" type="range" min="0" max="10" step="1" v-model.number="game.spectators_limit" disabled aria-label="Лимит зрителей" />
+                </div>
               </div>
-            </label>
-          </div>
-          <div class="switch">
-            <span>Формат:</span>
-            <label>
-              <input type="checkbox" v-model="isNoHost" disabled aria-label="Формат: с ведущим/без ведущего" />
-              <div class="slider">
-                <span>С вед.</span>
-                <span>Без вед.</span>
-              </div>
-            </label>
-          </div>
 
-          <div class="range is-disabled">
-            <span>Лимит зрителей: {{ game.spectators_limit }}</span>
-            <div class="range-wrap">
-              <div class="range-track" :style="rangeSpectFillStyle" aria-hidden="true"></div>
-              <input class="range-native" type="range" min="0" max="10" step="1" v-model.number="game.spectators_limit" disabled aria-label="Лимит зрителей" />
+              <div class="switch">
+                <span>Слом в нуле:</span>
+                <label>
+                  <input type="checkbox" v-model="game.vote_at_zero" disabled aria-label="Слом в нуле" />
+                  <div class="slider">
+                    <span>Выкл</span>
+                    <span>Вкл</span>
+                  </div>
+                </label>
+              </div>
+              <div class="switch">
+                <span>Подъём троих:</span>
+                <label>
+                  <input type="checkbox" v-model="game.vote_three" disabled aria-label="Подъём троих" />
+                  <div class="slider">
+                    <span>Выкл</span>
+                    <span>Вкл</span>
+                  </div>
+                </label>
+              </div>
+              <div class="switch">
+                <span>30с речи при 3 фолах:</span>
+                <label>
+                  <input type="checkbox" v-model="game.speech30_at_3_fouls" disabled aria-label="30с речи при 3 фолах" />
+                  <div class="slider">
+                    <span>Выкл</span>
+                    <span>Вкл</span>
+                  </div>
+                </label>
+              </div>
+              <div class="switch">
+                <span>За 2 фола +30с к речи:</span>
+                <label>
+                  <input type="checkbox" v-model="game.extra30_at_2_fouls" disabled aria-label="За 2 фола +30с к речи" />
+                  <div class="slider">
+                    <span>Выкл</span>
+                    <span>Вкл</span>
+                  </div>
+                </label>
+              </div>
             </div>
-          </div>
-
-          <div class="switch">
-            <span>Слом в нуле:</span>
-            <label>
-              <input type="checkbox" v-model="game.vote_at_zero" disabled aria-label="Слом в нуле" />
-              <div class="slider">
-                <span>Выкл</span>
-                <span>Вкл</span>
-              </div>
-            </label>
-          </div>
-          <div class="switch">
-            <span>Подъём троих:</span>
-            <label>
-              <input type="checkbox" v-model="game.vote_three" disabled aria-label="Подъём троих" />
-              <div class="slider">
-                <span>Выкл</span>
-                <span>Вкл</span>
-              </div>
-            </label>
-          </div>
-          <div class="switch">
-            <span>30с речи при 3 фолах:</span>
-            <label>
-              <input type="checkbox" v-model="game.speech30_at_3_fouls" disabled aria-label="30с речи при 3 фолах" />
-              <div class="slider">
-                <span>Выкл</span>
-                <span>Вкл</span>
-              </div>
-            </label>
-          </div>
-          <div class="switch">
-            <span>За 2 фола +30с к речи:</span>
-            <label>
-              <input type="checkbox" v-model="game.extra30_at_2_fouls" disabled aria-label="За 2 фола +30с к речи" />
-              <div class="slider">
-                <span>Выкл</span>
-                <span>Вкл</span>
-              </div>
-            </label>
-          </div>
+          </Transition>
         </div>
       </div>
 
@@ -133,6 +137,10 @@ let prevOverflow = ''
 const armed = ref(false)
 const busy = ref(false)
 const tab = ref<'room'|'game'>('room')
+const lastTab = ref<'room'|'game'>('room')
+const tabTrans = computed(() =>
+  (lastTab.value === 'room' && tab.value === 'game') ? 'slide-left' : 'slide-right'
+)
 
 const RANGE_MIN = 0
 const RANGE_MAX = 12
@@ -279,6 +287,8 @@ watch(() => user.user, () => { if (!title.value) title.value = defaultTitle() })
 
 watch([title, limit, privacy], () => { saveBasic() })
 
+watch(tab, (next, prev) => { lastTab.value = (prev ?? 'room') as 'room'|'game' })
+
 watch(limit, (v) => { if (v < GAME_LIMIT_MIN && tab.value === 'game') tab.value = 'room' })
 
 watch(limit, (v) => { if (v < 2) limit.value = 2 }, { flush: 'sync' })
@@ -348,6 +358,11 @@ onBeforeUnmount(() => {
       min-height: 315px;
       border-radius: 5px;
       background-color: $dark;
+      .tab-viewport {
+        position: relative;
+        min-height: 220px;
+        overflow: hidden;
+      }
       .tabs {
         display: flex;
         align-items: flex-end;
@@ -553,6 +568,29 @@ onBeforeUnmount(() => {
       }
     }
   }
+}
+
+.slide-left-enter-active,
+.slide-left-leave-active,
+.slide-right-enter-active,
+.slide-right-leave-active {
+  transition: transform 0.25s ease-in-out, opacity 0.25s ease-in-out;
+}
+.slide-left-enter-from {
+  transform: translateX(60px);
+  opacity: 0;
+}
+.slide-left-leave-to {
+  transform: translateX(-60px);
+  opacity: 0;
+}
+.slide-right-enter-from {
+  transform: translateX(-60px);
+  opacity: 0;
+}
+.slide-right-leave-to {
+  transform: translateX(60px);
+  opacity: 0;
 }
 
 .overlay-enter-active,
