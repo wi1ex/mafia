@@ -16,6 +16,7 @@
         </div>
 
         <div v-show="tab === 'room'" class="params">
+          <span>Название комнаты:</span>
           <input v-model.trim="title" placeholder="Название" maxlength="32" />
 
           <div class="range">
@@ -344,7 +345,7 @@ onBeforeUnmount(() => {
       flex-direction: column;
       padding: 20px 10px;
       gap: 20px;
-      min-height: 400px;
+      min-height: 315px;
       border-radius: 5px;
       background-color: $dark;
       .tabs {
@@ -380,8 +381,6 @@ onBeforeUnmount(() => {
         display: flex;
         flex-direction: column;
         gap: 10px;
-
-
         .range {
           display: flex;
           flex-direction: column;
@@ -399,7 +398,7 @@ onBeforeUnmount(() => {
             border-radius: 5px;
             z-index: 3;
             pointer-events: auto;
-            cursor: not-allowed;
+            cursor: pointer;
           }
           .range-track {
             position: absolute;
@@ -416,6 +415,8 @@ onBeforeUnmount(() => {
             width: var(--fill);
             background-color: $fg;
             border-radius: inherit;
+            transition: width 0.25s ease-in-out;
+            will-change: width;
           }
           .range-native {
             position: absolute;
@@ -472,17 +473,14 @@ onBeforeUnmount(() => {
             cursor: not-allowed;
           }
         }
-
-
-
         .switch {
           display: flex;
           align-items: center;
           justify-content: space-between;
           label {
             position: relative;
-            width: 200px;
-            height: 30px;
+            width: 180px;
+            height: 25px;
             input {
               position: absolute;
               opacity: 0;
@@ -501,7 +499,7 @@ onBeforeUnmount(() => {
               background-color: $graphite;
               span {
                 position: relative;
-                font-size: 16px;
+                font-size: 14px;
                 color: $fg;
                 transition: color 0.25s ease-in-out;
               }
@@ -511,14 +509,14 @@ onBeforeUnmount(() => {
               position: absolute;
               top: 0;
               left: 0;
-              width: 98px;
-              height: 28px;
+              width: 88px;
+              height: 23px;
               background-color: $fg;
               border-radius: 5px;
               transition: transform 0.25s ease-in-out;
             }
             input:checked + .slider:before {
-              transform: translateX(100px);
+              transform: translateX(90px);
             }
             input:not(:checked) + .slider span:first-child,
             input:checked + .slider span:last-child {
@@ -533,7 +531,26 @@ onBeforeUnmount(() => {
       }
     }
     .create-room {
-
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px 0;
+      button {
+        width: 50%;
+        height: 40px;
+        border: none;
+        border-radius: 5px;
+        background-color: $fg;
+        color: $bg;
+        font-size: 16px;
+        font-family: Manrope-Medium;
+        line-height: 1;
+        cursor: pointer;
+        &:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+      }
     }
   }
 }
