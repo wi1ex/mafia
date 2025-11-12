@@ -355,16 +355,16 @@ onBeforeUnmount(() => {
     .modal-div {
       display: flex;
       flex-direction: column;
-      padding: 20px;
+      padding: 10px;
       gap: 20px;
       border-radius: 5px;
       background-color: $dark;
       .tab-viewport {
         position: relative;
-        max-height: 133px;
+        max-height: 128px;
         overflow-y: auto;
         overflow-x: hidden;
-        scrollbar-width: thin;
+        scrollbar-width: none;
       }
       .tabs {
         display: flex;
@@ -557,10 +557,10 @@ onBeforeUnmount(() => {
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 20px 0;
+      padding: 10px 0 20px 0;
       button {
-        width: 50%;
-        height: 40px;
+        width: 33%;
+        height: 30px;
         border: none;
         border-radius: 5px;
         background-color: $fg;
