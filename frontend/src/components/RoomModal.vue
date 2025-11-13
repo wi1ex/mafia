@@ -131,7 +131,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, watchEffect, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { api } from '@/services/axios'
 import { useUserStore } from '@/store'
 
@@ -143,9 +143,7 @@ const armed = ref(false)
 const busy = ref(false)
 const tab = ref<'room'|'game'>('room')
 const lastTab = ref<'room'|'game'>('room')
-const tabTrans = computed(() =>
-  (lastTab.value === 'room' && tab.value === 'game') ? 'slide-left' : 'slide-right'
-)
+const tabTrans = computed(() => (lastTab.value === 'room' && tab.value === 'game') ? 'slide-left' : 'slide-right')
 let prevOverflow = ''
 let prevTab: 'room'|'game' = tab.value
 
@@ -227,6 +225,7 @@ const initialBasic: RoomBasic = (() => {
     return raw ? JSON.parse(raw) as RoomBasic : {}
   } catch { return {} }
 })()
+const hadStoredTitle = typeof initialBasic.title === 'string' && initialBasic.title.length > 0
 
 const defaultTitle = () => {
   const name = (user.user?.username || '').trim()
@@ -323,15 +322,14 @@ watch(limit, (v) => {
   if (v < GAME_LIMIT_MIN && tab.value === 'game') tab.value = 'room'
 }, { flush: 'sync' })
 
-watchEffect(() => {
-  if (!_title.value) _title.value = defaultTitle()
-})
+watch(() => user.user, () => { if (!hadStoredTitle && !_title.value) _title.value = defaultTitle() }, { flush: 'post' })
 
 watch(() => JSON.stringify(game.value), (json) => {
   try { localStorage.setItem('room:lastGame', json) } catch {}
 })
 
 onMounted(() => {
+  if (!hadStoredTitle && !_title.value) _title.value = defaultTitle()
   prevOverflow = document.documentElement.style.overflow
   document.documentElement.style.overflow = 'hidden'
 })
