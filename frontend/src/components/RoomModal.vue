@@ -47,14 +47,6 @@
             </div>
 
             <div v-else key="game" class="params">
-              <div class="range is-disabled">
-                <span>Лимит зрителей: {{ game.spectators_limit }}/{{ SPECT_MAX }}</span>
-                <div class="range-wrap">
-                  <div class="range-track" :style="rangeSpectFillStyle" aria-hidden="true"></div>
-                  <input class="range-native" type="range" :min="SPECT_MIN" :max="SPECT_MAX" step="1" v-model.number="game.spectators_limit" disabled aria-label="Лимит зрителей" />
-                </div>
-              </div>
-
               <div class="switch">
                 <span>Режим:</span>
                 <label>
@@ -75,6 +67,14 @@
                     <span>Автомат</span>
                   </div>
                 </label>
+              </div>
+
+              <div class="range is-disabled">
+                <span>Лимит зрителей: {{ game.spectators_limit }}/{{ SPECT_MAX }}</span>
+                <div class="range-wrap">
+                  <div class="range-track" :style="rangeSpectFillStyle" aria-hidden="true"></div>
+                  <input class="range-native" type="range" :min="SPECT_MIN" :max="SPECT_MAX" step="1" v-model.number="game.spectators_limit" disabled aria-label="Лимит зрителей" />
+                </div>
               </div>
 
 <!--              <div class="switch">-->
@@ -498,6 +498,9 @@ onBeforeUnmount(() => {
           }
           &.invalid label {
             color: $red;
+          }
+          &.invalid .underline::before {
+            background-color: rgba($red, 0.75);
           }
         }
         .ui-input:focus-within label,
