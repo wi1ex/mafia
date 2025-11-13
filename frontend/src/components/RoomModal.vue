@@ -25,15 +25,6 @@
                 <div class="meta"><span id="room-title-hint">{{ title.length }}/{{ TITLE_MAX }}</span></div>
               </div>
 
-              <div class="range">
-                <span>Лимит: {{ limit }}/{{ RANGE_MAX }}</span>
-                <div class="range-wrap">
-                  <div class="range-dead" :style="deadZoneStyle" @click="limit = DEAD_MIN"></div>
-                  <div class="range-track" :style="rangeFillStyle" aria-hidden="true"></div>
-                  <input class="range-native" type="range" :min="RANGE_MIN" :max="RANGE_MAX" step="1" v-model.number="limit" aria-label="Лимит участников" />
-                </div>
-              </div>
-
               <div class="switch">
                 <span>Приватность:</span>
                 <label>
@@ -43,6 +34,15 @@
                     <span>Закрытая</span>
                   </div>
                 </label>
+              </div>
+
+              <div class="range">
+                <span>Лимит: {{ limit }}/{{ RANGE_MAX }}</span>
+                <div class="range-wrap">
+                  <div class="range-dead" :style="deadZoneStyle" @click="limit = DEAD_MIN"></div>
+                  <div class="range-track" :style="rangeFillStyle" aria-hidden="true"></div>
+                  <input class="range-native" type="range" :min="RANGE_MIN" :max="RANGE_MAX" step="1" v-model.number="limit" aria-label="Лимит участников" />
+                </div>
               </div>
             </div>
 
@@ -386,13 +386,14 @@ onBeforeUnmount(() => {
     .modal-div {
       display: flex;
       flex-direction: column;
-      padding: 10px;
-      gap: 20px;
-      border-radius: 5px;
+      padding: 10px 10px 0;
       background-color: $dark;
       .tab-viewport {
         position: relative;
-        height: 135px;
+        height: 165px;
+        border-top: 3px solid $lead;
+        border-left: 3px solid $lead;
+        border-right: 3px solid $lead;
         overflow-y: auto;
         overflow-x: hidden;
         scrollbar-width: none;
@@ -402,8 +403,6 @@ onBeforeUnmount(() => {
         align-items: flex-end;
         width: 100%;
         height: 30px;
-        border-bottom: 3px solid $grey;
-        border-radius: 0 0 3px 3px;
         button {
           width: 50%;
           height: 25px;
@@ -429,7 +428,8 @@ onBeforeUnmount(() => {
       .params {
         display: flex;
         flex-direction: column;
-        gap: 10px;
+        padding: 10px;
+        gap: 15px;
         .ui-input {
           position: relative;
           display: block;
@@ -662,12 +662,12 @@ onBeforeUnmount(() => {
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 10px 0 20px 0;
+      padding: 0 0 10px;
       button {
         width: calc(100% - 20px);
         height: 30px;
         border: none;
-        border-radius: 5px;
+        border-radius: 0 0 5px 5px;
         background-color: $fg;
         color: $bg;
         font-size: 16px;
