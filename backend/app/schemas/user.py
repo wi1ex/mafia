@@ -1,5 +1,15 @@
-from typing import Optional
+import unicodedata
+from typing import Any, Optional
 from pydantic import BaseModel, Field
+from pydantic.functional_validators import BeforeValidator
+from typing_extensions import Annotated
+
+def _sanitize_username(v: Any) -> str:
+    s = unicodedata.normalize("NFKC", str(v or ""))
+    s = s.strip()
+    return s
+
+UsernameClean = Annotated[str, BeforeValidator(_sanitize_username)]
 
 
 class UserOut(BaseModel):
@@ -10,7 +20,7 @@ class UserOut(BaseModel):
 
 
 class UsernameUpdateIn(BaseModel):
-    username: str = Field(min_length=2, max_length=20)
+    username: UsernameClean = Field(min_length=2, max_length=20)
 
 
 class UsernameUpdateOut(BaseModel):

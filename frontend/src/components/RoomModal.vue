@@ -19,7 +19,7 @@
           <Transition :name="tabTrans" mode="out-in">
             <div v-if="tab === 'room'" key="room" class="params">
               <div class="ui-input" :class="{ filled: !!title, invalid: !title }">
-                <input id="room-title" v-model.trim="title" :maxlength="TITLE_MAX" placeholder=" " autocomplete="off" />
+                <input id="room-title" v-model.trim="title" :maxlength="TITLE_MAX" placeholder=" " autocomplete="off" :aria-invalid="!title" aria-describedby="room-title-hint" />
                 <label for="room-title">Название комнаты</label>
                 <div class="underline"><span :style="titleUnderlineStyle"></span></div>
                 <div class="meta"><span id="room-title-hint">{{ title.length }}/{{ TITLE_MAX }}</span></div>
@@ -28,7 +28,7 @@
               <div class="range">
                 <span>Лимит: {{ limit }}/{{ RANGE_MAX }}</span>
                 <div class="range-wrap">
-                  <div class="range-dead" :style="deadZoneStyle" aria-hidden="true"></div>
+                  <div class="range-dead" :style="deadZoneStyle" @click="limit = DEAD_MIN"></div>
                   <div class="range-track" :style="rangeFillStyle" aria-hidden="true"></div>
                   <input class="range-native" type="range" :min="RANGE_MIN" :max="RANGE_MAX" step="1" v-model.number="limit" aria-label="Лимит участников" />
                 </div>
@@ -131,7 +131,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, watchEffect, onMounted, onBeforeUnmount } from 'vue'
 import { api } from '@/services/axios'
 import { useUserStore } from '@/store'
 
@@ -139,7 +139,6 @@ import iconClose from '@/assets/svg/close.svg'
 
 const user = useUserStore()
 
-let prevOverflow = ''
 const armed = ref(false)
 const busy = ref(false)
 const tab = ref<'room'|'game'>('room')
@@ -147,6 +146,8 @@ const lastTab = ref<'room'|'game'>('room')
 const tabTrans = computed(() =>
   (lastTab.value === 'room' && tab.value === 'game') ? 'slide-left' : 'slide-right'
 )
+let prevOverflow = ''
+let prevTab: 'room'|'game' = tab.value
 
 const RANGE_MIN = 0
 const RANGE_MAX = 12
@@ -154,11 +155,11 @@ const rangePct = computed(() => {
   const p = ((limit.value - RANGE_MIN) * 100) / (RANGE_MAX - RANGE_MIN)
   return Math.max(0, Math.min(100, p))
 })
-const rangeFillStyle = computed(() => ({ '--fill': `${rangePct.value}%` }))
+const rangeFillStyle = computed<Record<string, string>>(() => ({ '--fill': `${rangePct.value}%` }))
 
 const DEAD_MIN = 2
 const deadPct = computed(() => Math.max(0, Math.min(100, ((DEAD_MIN - RANGE_MIN) * 100) / (RANGE_MAX - RANGE_MIN))))
-const deadZoneStyle = computed(() => ({ '--dead': `${deadPct.value}%` }))
+const deadZoneStyle = computed<Record<string, string>>(() => ({ '--dead': `${deadPct.value}%` }))
 
 const SPECT_MIN = 0
 const SPECT_MAX = 10
@@ -166,7 +167,7 @@ const rangeSpectPct = computed(() => {
   const p = ((game.value.spectators_limit - SPECT_MIN) * 100) / (SPECT_MAX - SPECT_MIN)
   return Math.max(0, Math.min(100, p))
 })
-const rangeSpectFillStyle = computed(() => ({ '--fill': `${rangeSpectPct.value}%` }))
+const rangeSpectFillStyle = computed<Record<string, string>>(() => ({ '--fill': `${rangeSpectPct.value}%` }))
 
 const TITLE_MAX = 32
 const titlePct = computed(() => {
@@ -233,7 +234,11 @@ const defaultTitle = () => {
   const nick = name || (Number.isFinite(id) ? `user${id}` : 'user')
   return `Комната ${nick}`
 }
-const title = ref((initialBasic.title || defaultTitle()).slice(0, 32))
+const _title = ref((initialBasic.title || defaultTitle()).slice(0, TITLE_MAX))
+const title = computed({
+  get: () => _title.value,
+  set: v => { _title.value = sanitizeTitle(v, TITLE_MAX) }
+})
 
 const initialLimit = (() => {
   const v = Number(initialBasic.user_limit)
@@ -296,20 +301,37 @@ async function create() {
   } finally { busy.value = false }
 }
 
-watch(() => user.user, () => { if (!title.value) title.value = defaultTitle() })
+function sanitizeTitle(s: string, max = 32): string {
+  return (s ?? "")
+    .normalize("NFKC")
+    .replace(/[\u0000-\u001F\u007F]/g, "")
+    .replace(/[\u200B-\u200F\u202A-\u202E\u2066-\u2069]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, max)
+}
 
-watch([title, limit, privacy], () => { saveBasic() })
+watch([title, limit, privacy], saveBasic, { flush: 'post' })
 
-watch(tab, (next, prev) => { lastTab.value = (prev ?? 'room') as 'room'|'game' })
+watch(tab, (cur) => {
+  lastTab.value = prevTab
+  prevTab = cur
+})
 
-watch(limit, (v) => { if (v < GAME_LIMIT_MIN && tab.value === 'game') tab.value = 'room' })
+watch(limit, (v) => {
+  if (v < 2) limit.value = 2
+  if (v < GAME_LIMIT_MIN && tab.value === 'game') tab.value = 'room'
+}, { flush: 'sync' })
 
-watch(limit, (v) => { if (v < 2) limit.value = 2 }, { flush: 'sync' })
+watchEffect(() => {
+  if (!_title.value) _title.value = defaultTitle()
+})
 
-watch(game, (v) => { try { localStorage.setItem('room:lastGame', JSON.stringify(v)) } catch {} }, { deep: true })
+watch(() => JSON.stringify(game.value), (json) => {
+  try { localStorage.setItem('room:lastGame', json) } catch {}
+})
 
 onMounted(() => {
-  if (!title.value) title.value = defaultTitle()
   prevOverflow = document.documentElement.style.overflow
   document.documentElement.style.overflow = 'hidden'
 })
@@ -473,10 +495,10 @@ onBeforeUnmount(() => {
               color: $grey;
             }
           }
-          .ui-input.invalid input {
+          &.invalid input {
             border-color: rgba($red, 0.75);
           }
-          .ui-input.invalid label {
+          &.invalid label {
             color: $red;
           }
         }

@@ -1,7 +1,7 @@
 from __future__ import annotations
 import io
-import mimetypes
 import time
+from PIL import Image, ImageOps
 from datetime import timedelta
 from typing import Optional, Tuple
 from urllib.parse import urlparse
@@ -20,6 +20,25 @@ ALLOWED_CT = {
     "image/png": ".png",
 }
 MAX_BYTES = 5 * 1024 * 1024
+MAX_PIXELS = 4096 * 4096
+MAX_SIDE = 1024
+
+
+def _reencode_safe(content: bytes, ct_hint: Optional[str]) -> tuple[bytes, str] | None:
+    im = Image.open(io.BytesIO(content))
+    im = ImageOps.exif_transpose(im)
+    if im.width * im.height > MAX_PIXELS:
+        return None
+
+    im = im.convert("RGB")
+    im.thumbnail((MAX_SIDE, MAX_SIDE), resample=Image.Resampling.LANCZOS)
+    buf = io.BytesIO()
+    if (ct_hint or "").lower() == "image/png":
+        im.save(buf, format="PNG", optimize=True)
+        return buf.getvalue(), "image/png"
+
+    im.save(buf, format="JPEG", quality=90, optimize=True)
+    return buf.getvalue(), "image/jpeg"
 
 
 def ensure_bucket(minio_client: Optional[Minio] = None) -> None:
@@ -103,9 +122,19 @@ def put_avatar(user_id: int, content: bytes, content_type: str | None) -> Option
         return None
 
     ct_hdr = (content_type or "").split(";")[0].strip().lower()
-    ct = ct_hdr if ct_hdr in ALLOWED_CT else _sniff_ct(content)
+    ct_guess = _sniff_ct(content)
+    ct = ct_hdr if ct_hdr in ALLOWED_CT else ct_guess
     if ct not in ALLOWED_CT:
         log.warning("avatar.put.unsupported_type", user_id=user_id, content_type=ct or content_type)
+        return None
+
+    try:
+        content, ct = _reencode_safe(content, ct)
+        if content is None or ct not in ALLOWED_CT:
+            return None
+
+    except Exception:
+        log.warning("avatar.put.decode_failed", user_id=user_id)
         return None
 
     minio = get_minio_private()
@@ -123,7 +152,7 @@ def put_avatar(user_id: int, content: bytes, content_type: str | None) -> Option
             log.warning("avatar.remove_old_errors", user_id=user_id, errors=errs)
 
     try:
-        minio.put_object(_bucket, obj, io.BytesIO(content), length=len(content), content_type=ct or mimetypes.types_map.get(ext, "image/jpeg"))
+        minio.put_object(_bucket, obj, io.BytesIO(content), length=len(content), content_type=ct)
         return name
 
     except S3Error as e:

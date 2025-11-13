@@ -1,7 +1,8 @@
 from __future__ import annotations
 import re
+import unicodedata
 from contextlib import suppress
-from sqlalchemy import select, update
+from sqlalchemy import select, update, exists, func, literal, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from ..utils import broadcast_creator_rooms
@@ -38,7 +39,10 @@ async def profile_info(ident: Identity = Depends(get_identity), db: AsyncSession
 @router.patch("/username", response_model=UsernameUpdateOut)
 async def update_username(payload: UsernameUpdateIn, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UsernameUpdateOut:
     uid = int(ident["id"])
-    new = (payload.username or "").strip()
+    raw = (payload.username or "")
+    new = unicodedata.normalize("NFKC", raw).strip()
+    if any(ord(ch) < 32 or ch == "\x7f" for ch in new):
+        raise HTTPException(status_code=422, detail="invalid_username_format")
 
     USERNAME_RE = re.compile(r"^[a-zA-Zа-яА-Я0-9._\-()]{2,20}$")
     if not USERNAME_RE.match(new):
@@ -54,8 +58,8 @@ async def update_username(payload: UsernameUpdateIn, ident: Identity = Depends(g
     if user.username == new:
         return UsernameUpdateOut(username=user.username)
 
-    exists = await db.scalar(select(1).where(User.username == new, User.id != uid).limit(1))
-    if exists:
+    exists_case_ins = await db.scalar(select(exists().where(and_(func.lower(User.username) == func.lower(literal(new)), User.id != uid))))
+    if exists_case_ins:
         raise HTTPException(status_code=409, detail="username_taken")
 
     await db.execute(update(User).where(User.id == uid).values(username=new))

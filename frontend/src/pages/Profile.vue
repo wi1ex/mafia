@@ -27,7 +27,7 @@
       <div class="block">
         <h3 class="title">Никнейм</h3>
         <div class="nick-row">
-          <input class="input" v-model.trim="nick" maxlength="20" :disabled="busyNick" placeholder="Никнейм" />
+          <input class="input" v-model.trim="nick" maxlength="20" :disabled="busyNick" placeholder="Никнейм" autocomplete="off" inputmode="text" />
           <button class="btn" @click="saveNick" :disabled="busyNick || nick === me.username || !validNick">{{ busyNick ? '...' : 'Сохранить' }}</button>
         </div>
         <div class="hint">
@@ -50,7 +50,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onBeforeUnmount, reactive, ref } from 'vue'
+import { computed, nextTick, onMounted, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { api, refreshAccessTokenFull } from '@/services/axios'
 import { useUserStore } from '@/store'
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
@@ -87,6 +87,7 @@ async function saveNick() {
     const d  = e?.response?.data?.detail
     if (st === 409 && d === 'username_taken') alert('Ник уже занят')
     else if (st === 422 && d === 'reserved_prefix') alert('Ник не должен начинаться с "user"')
+    else if (st === 422 && d === 'invalid_username_format') alert('Недопустимый формат никнейма')
     else alert('Не удалось сохранить ник')
   } finally { busyNick.value = false }
 }
@@ -260,6 +261,8 @@ async function applyCrop() {
     const d  = e?.response?.data?.detail
     if (st === 415 || d === 'unsupported_media_type') alert('Только JPG/PNG')
     else if (st === 413) alert('Файл больше 5 МБ')
+    else if (st === 422 && d === 'empty_file') alert('Пустой файл')
+    else if (st === 422 && d === 'bad_image') alert('Некорректное изображение')
     else alert('Не удалось загрузить аватар')
   } finally { busyAva.value = false }
 }
@@ -273,6 +276,18 @@ async function onDeleteAvatar() {
     userStore.setAvatarName(null)
   } catch { alert('Не удалось удалить аватар') } finally { busyAva.value = false }
 }
+
+function sanitizeUsername(s: string, max = 20): string {
+  return (s ?? "")
+    .normalize("NFKC")
+    .trim()
+    .slice(0, max)
+}
+
+watch(nick, (v) => {
+  const clean = sanitizeUsername(v, 20)
+  if (v !== clean) nick.value = clean
+})
 
 onMounted(() => {
   loadMe().catch(() => {})
