@@ -142,8 +142,8 @@ function flashJustRead(ids: number[]) {
       el.classList.add('fade-just-read')
       window.setTimeout(() => {
         el.classList.remove('just-read', 'fade-just-read')
-      }, 250)
-    }, 3000)
+      }, 1000)
+    }, 2000)
   })
 }
 
