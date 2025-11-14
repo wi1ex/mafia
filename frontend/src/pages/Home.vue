@@ -44,39 +44,39 @@
         </header>
         <div class="ri-info">
           <div class="ri-meta">
-            <span>Параметры комнаты:</span>
+            <span class="header-text">Параметры комнаты:</span>
             <div class="ri-meta-div">
-              <span>Владелец:</span>
+              <span>Владелец</span>
               <div class="owner">
                 <img v-minio-img="{ key: selectedRoom?.creator_avatar_name ? `avatars/${selectedRoom!.creator_avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="" />
                 <span>{{ selectedRoom?.creator_name }}</span>
               </div>
             </div>
             <div class="ri-meta-div">
-              <span>Приватность:</span>
+              <span>Приватность</span>
               <span>{{ isOpen ? 'Открытая' : 'Закрытая' }}</span>
             </div>
           </div>
 
           <div class="ri-game" v-if="game">
-            <span>Параметры игры:</span>
+            <span class="header-text">Параметры игры:</span>
             <div class="ri-game-div">
-              <span>Режим:</span>
+              <span>Режим</span>
               <span>{{ game.mode === 'normal' ? 'Обычный' : 'Рейтинг' }}</span>
             </div>
             <div class="ri-game-div">
-              <span>Формат:</span>
+              <span>Формат</span>
               <span>{{ game.format === 'hosted' ? 'С ведущим' : 'Без ведущего' }}</span>
             </div>
             <div class="ri-game-div">
-              <span>Лимит зрителей:</span>
+              <span>Лимит зрителей</span>
               <span>{{ game.spectators_limit }}</span>
             </div>
   <!--          <span>{{ gameOptions }}</span>-->
           </div>
 
           <div class="ri-members">
-            <span>Участники ({{ selectedRoom?.occupancy ?? 0 }}/{{ selectedRoom?.user_limit ?? 0 }}):</span>
+            <span class="header-text">Участники ({{ selectedRoom?.occupancy ?? 0 }}/{{ selectedRoom?.user_limit ?? 0 }}):</span>
             <div v-if="(info?.members?.length ?? 0) === 0" class="muted">Пока никого</div>
             <ul v-else class="ri-grid">
               <li class="ri-user" v-for="m in (info?.members || [])" :key="m.id">
@@ -89,10 +89,10 @@
 
           <div class="ri-actions">
             <button v-if="ctaState==='enter'" :disabled="entering" @click="onEnter">{{ enterLabel }}</button>
-            <span v-else-if="ctaState==='full'">Комната заполнена</span>
+            <button v-else-if="ctaState==='full'" disabled>Комната заполнена</button>
             <button v-else-if="ctaState==='apply'" @click="onApply">Подать заявку</button>
             <button v-else-if="ctaState==='pending'" disabled>Заявка отправлена</button>
-            <span v-else>Авторизуйтесь, чтобы войти</span>
+            <button v-else disabled>Авторизуйтесь, чтобы войти</button>
           </div>
         </div>
       </div>
@@ -414,24 +414,12 @@ onBeforeUnmount(() => {
       display: flex;
       margin: 10px 0 20px;
       gap: 10px;
-      p {
-        margin: 0;
-        color: $fg;
-        font-size: 24px;
-      }
-      input {
-        padding: 10px;
-        border-radius: 5px;
-        border: 1px solid $fg;
-        color: $fg;
-        background-color: $bg;
-      }
       button {
         padding: 0 10px;
         height: 30px;
         border-radius: 5px;
         border: none;
-        background-color: $green;
+        background-color: $fg;
         color: $bg;
         cursor: pointer;
         &:disabled {
@@ -441,7 +429,7 @@ onBeforeUnmount(() => {
       }
     }
     .muted {
-      color: $grey;
+      color: $ashy;
     }
     .list {
       margin: 0;
@@ -462,8 +450,8 @@ onBeforeUnmount(() => {
         background: transparent;
         transition: border-color 0.25s ease-in-out, background-color 0.25s ease-in-out;
         &.active {
-          border-color: $blue;
-          background-color: rgba(14, 165, 233, 0.07);
+          border-color: $lead;
+          background-color: $graphite;
         }
         .item_main {
           display: flex;
@@ -545,10 +533,17 @@ onBeforeUnmount(() => {
         flex-direction: column;
         padding: 10px;
         gap: 10px;
+        .header-text {
+          margin-bottom: 5px;
+        }
         .ri-meta {
           display: flex;
           flex-direction: column;
+          padding: 10px;
           gap: 5px;
+          border-radius: 5px;
+          background-color: $graphite;
+          box-shadow: 3px 3px 5px rgba($black, 0.25);
           .ri-meta-div {
             display: flex;
             align-items: center;
@@ -574,7 +569,11 @@ onBeforeUnmount(() => {
         .ri-game {
           display: flex;
           flex-direction: column;
+          padding: 10px;
           gap: 5px;
+          border-radius: 5px;
+          background-color: $graphite;
+          box-shadow: 3px 3px 5px rgba($black, 0.25);
           .ri-game-div {
             display: flex;
             align-items: center;
@@ -589,7 +588,11 @@ onBeforeUnmount(() => {
         .ri-members {
           display: flex;
           flex-direction: column;
+          padding: 10px;
           gap: 5px;
+          border-radius: 5px;
+          background-color: $graphite;
+          box-shadow: 3px 3px 5px rgba($black, 0.25);
           .muted {
             height: 16px;
             font-size: 14px;
@@ -628,6 +631,7 @@ onBeforeUnmount(() => {
           display: flex;
           align-items: center;
           justify-content: center;
+          margin: 5px 0;
           button {
             display: flex;
             align-items: center;
@@ -636,7 +640,7 @@ onBeforeUnmount(() => {
             height: 40px;
             border: none;
             border-radius: 5px;
-            background-color: $green;
+            background-color: $fg;
             color: $bg;
             font-size: 16px;
             font-family: Manrope-Medium;
@@ -647,9 +651,6 @@ onBeforeUnmount(() => {
               opacity: 0.5;
               cursor: not-allowed;
             }
-          }
-          span {
-            color: $grey;
           }
         }
       }
