@@ -11,17 +11,6 @@
       <div class="change-devices">
         <div class="switch-div">
           <div class="switch">
-            <span>Шумо- и эхоподавление:</span>
-            <label>
-              <input type="checkbox" :checked="nsOn" @change="onToggleNs" aria-label="Шумоподавление" />
-              <div class="slider">
-                <span>Откл</span>
-                <span>Вкл</span>
-              </div>
-            </label>
-          </div>
-
-          <div class="switch">
             <span>Зеркальность камеры:</span>
             <label>
               <input type="checkbox" :checked="mirrorOn" @change="onToggleMirror" aria-label="Зеркальность" />
@@ -112,7 +101,6 @@ const props = defineProps<{
   camId: string
   vq?: VQ
   vqDisabled?: boolean
-  nsOn: boolean
   mirrorOn: boolean
 }>()
 
@@ -120,7 +108,6 @@ const emit = defineEmits<{
   'update:micId': [string]
   'update:camId': [string]
   'update:vq': [VQ]
-  'update:nsOn': [boolean]
   'update:mirrorOn': [boolean]
   'device-change': ['audioinput' | 'videoinput']
   'close': []
@@ -147,9 +134,6 @@ const camIdProxy = computed({
 function onToggleVQ(e: Event) {
   const on = (e.target as HTMLInputElement).checked
   emit('update:vq', on ? 'hd' : 'sd')
-}
-function onToggleNs(e: Event) {
-  emit('update:nsOn', (e.target as HTMLInputElement).checked)
 }
 function onToggleMirror(e: Event) {
   emit('update:mirrorOn', (e.target as HTMLInputElement).checked)
@@ -235,7 +219,7 @@ onBeforeUnmount(() => {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 10px;
+    padding: 5px 10px;
     border-radius: 5px;
     background-color: $graphite;
     span {

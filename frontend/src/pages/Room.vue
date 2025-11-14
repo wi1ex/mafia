@@ -126,7 +126,6 @@
         v-model:micId="selectedMicId"
         v-model:camId="selectedCamId"
         v-model:vq="videoQuality"
-        v-model:nsOn="nsOn"
         v-model:mirrorOn="mirrorOn"
         :vq-disabled="pendingQuality"
         @device-change="(kind) => rtc.onDeviceChange(kind)"
@@ -246,11 +245,6 @@ const videoQuality = computed<VQ>({
     pendingQuality.value = true
     try { rtc.setRemoteQualityForAll(v) } finally { pendingQuality.value = false }
   },
-})
-
-const nsOn = computed({
-  get: () => rtc.nsOn.value,
-  set: (v: boolean) => { void rtc.setAudioProcessing(v) },
 })
 
 const isMirrored = (id: string) => (statusByUser.get(id)?.mirror ?? 0) === 1

@@ -171,7 +171,7 @@ onBeforeUnmount(() => {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 10px;
+      padding: 5px 10px;
       border-radius: 5px;
       background-color: $graphite;
       span {
@@ -198,7 +198,7 @@ onBeforeUnmount(() => {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 20px 10px;
+      padding: 15px 10px;
       gap: 5px;
       border-radius: 5px;
       img {

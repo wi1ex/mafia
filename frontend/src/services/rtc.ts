@@ -25,7 +25,6 @@ const LS = {
   cam: 'videoDeviceId',
   vq: 'room:videoQuality',
   perm: 'mediaPermProbed',
-  ns: 'room:ns',
   mirror: 'room:mirror',
 }
 
@@ -49,7 +48,6 @@ export type UseRTC = {
   selectedMicId: Ref<string>
   selectedCamId: Ref<string>
   remoteQuality: Ref<VQ>
-  nsOn: Ref<boolean>
   videoRef: (id: string) => (el: HTMLVideoElement | null) => void
   reconnecting: Ref<boolean>
   screenVideoRef: (id: string) => (el: HTMLVideoElement | null) => void
@@ -78,7 +76,6 @@ export type UseRTC = {
   setAudioSubscriptionsForAll: (on: boolean) => void
   setVideoSubscriptionsForAll: (on: boolean) => void
   setRemoteQualityForAll: (q: VQ) => void
-  setAudioProcessing: (on: boolean) => Promise<void>
   refreshDevices: () => Promise<void>
   fallback: (kind: DeviceKind) => Promise<void>
   onDeviceChange: (kind: DeviceKind) => Promise<void>
@@ -648,7 +645,6 @@ export function useRTC(): UseRTC {
   }
 
   const remoteQuality = ref<VQ>((loadLS(LS.vq) as VQ) === 'sd' ? 'sd' : 'hd')
-  const nsOn = ref<boolean>((loadLS(LS.ns) ?? '1') === '1')
 
   function setRemoteQualityForAll(q: VQ) {
     const changed = remoteQuality.value !== q
@@ -668,23 +664,10 @@ export function useRTC(): UseRTC {
   function audioOptionsFor(deviceId?: string) {
     return {
       deviceId: deviceId ? ({ exact: deviceId } as any) : undefined,
-      echoCancellation: nsOn.value,
-      noiseSuppression: nsOn.value,
+      echoCancellation: true,
+      noiseSuppression: true,
       autoGainControl: true,
     } as any
-  }
-
-  async function setAudioProcessing(on: boolean) {
-    nsOn.value = on
-    saveLS(LS.ns, on ? '1' : '0')
-    const room = lk.value
-    if (!room) return
-    const pub = room.localParticipant.getTrackPublications()
-      .find(p => p.kind === Track.Kind.Audio && (p as any).source === Track.Source.Microphone && !!p.track)
-    if (pub) {
-      try { await room.localParticipant.setMicrophoneEnabled(false) } catch {}
-      try { await room.localParticipant.setMicrophoneEnabled(true, audioOptionsFor(selectedMicId.value)) } catch {}
-    }
   }
 
   function cleanupPeer(id: string) {
@@ -977,7 +960,6 @@ export function useRTC(): UseRTC {
     cams,
     LS,
     remoteQuality,
-    nsOn,
     selectedMicId,
     selectedCamId,
     permProbed,
@@ -1002,7 +984,6 @@ export function useRTC(): UseRTC {
     clearProbeFlag,
     disable,
     setRemoteQualityForAll,
-    setAudioProcessing,
     isSpeaking,
     setUserVolume,
     getUserVolume,

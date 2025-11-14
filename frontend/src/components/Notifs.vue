@@ -11,10 +11,10 @@
 
       <div class="list" ref="list">
         <article class="item" v-for="it in notif.items" :key="it.id" :data-id="it.id">
-          <header>
+          <div class="item-header">
             <span>{{ it.title }}</span>
             <time>{{ new Date(it.date).toLocaleString() }}</time>
-          </header>
+          </div>
           <p v-if="it.text" class="text">{{ it.text }}</p>
         </article>
         <p v-if="notif.items.length === 0" class="empty">Нет уведомлений</p>
@@ -48,7 +48,7 @@ let onScroll: ((e: Event) => void) | null = null
 let onDocDown: ((e: Event) => void) | null = null
 
 function attachObserver() {
-  if (!list.value || !root.value) return
+  if (!list.value) return
   try { obs?.disconnect() } catch {}
   obs = new IntersectionObserver((entries) => {
     const ids: number[] = []
@@ -58,13 +58,16 @@ function attachObserver() {
       const it = notif.items.find(x => x.id === id)
       if (it && !it.read) ids.push(id)
     }
-    if (ids.length) void notif.markReadVisible(ids)
-  }, { root: root.value, threshold: 0.5 })
+    if (ids.length) {
+      void notif.markReadVisible(ids)
+      flashJustRead(ids)
+    }
+  }, { root: list.value, threshold: 0.5 })
   queueMicrotask(() => list.value?.querySelectorAll('.item').forEach(el => obs?.observe(el)))
 }
 
 function markVisibleNow() {
-  if (!list.value || !root.value) return
+  if (!list.value) return
   const box = root.value.getBoundingClientRect()
   const ids: number[] = []
   list.value.querySelectorAll<HTMLElement>('.item').forEach(el => {
@@ -77,22 +80,25 @@ function markVisibleNow() {
       if (it && !it.read) ids.push(id)
     }
   })
-  if (ids.length) void notif.markReadVisible(ids)
+  if (ids.length) {
+    void notif.markReadVisible(ids)
+    flashJustRead(ids)
+  }
 }
 
 function bindScroll() {
-  if (!root.value || onScroll) return
+  if (!list.value || onScroll) return
   onScroll = () => markVisibleNow()
   root.value.addEventListener('scroll', onScroll, { passive: true })
 }
 function unbindScroll() {
-  if (root.value && onScroll) root.value.removeEventListener('scroll', onScroll)
+  if (list.value && onScroll) list.value.removeEventListener('scroll', onScroll)
   onScroll = null
 }
 function bindResize() {
-  if (ro || !root.value) return
+  if (ro || !list.value) return
   ro = new ResizeObserver(() => markVisibleNow())
-  ro.observe(root.value)
+  ro.observe(list.value)
 }
 function unbindResize() {
   try { ro?.disconnect() } catch {}
@@ -122,6 +128,18 @@ function onAfterLeave() {
   unbindScroll()
   unbindResize()
   unbindDoc()
+}
+
+function flashJustRead(ids: number[]) {
+  if (!list.value) return
+  ids.forEach((id) => {
+    const el = list.value!.querySelector<HTMLElement>(`.item[data-id="${id}"]`)
+    if (!el) return
+    el.classList.remove('just-read')
+    void el.offsetWidth
+    el.classList.add('just-read')
+    window.setTimeout(() => { el.classList.remove('just-read') }, 3000)
+  })
 }
 
 watch(() => notif.items.length, async () => {
@@ -172,7 +190,7 @@ onBeforeUnmount(() => {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 10px;
+    padding: 5px 10px;
     border-radius: 5px;
     background-color: $lead;
     span {
@@ -212,7 +230,7 @@ onBeforeUnmount(() => {
       gap: 15px;
       border-radius: 5px;
       background-color: $lead;
-      header {
+      .item-header {
         display: flex;
         justify-content: space-between;
         margin: 0;
@@ -250,5 +268,13 @@ onBeforeUnmount(() => {
 .panel-leave-to {
   opacity: 0;
   transform: translateY(-30px);
+}
+
+@keyframes notif-flash {
+  0%   { background-color: rgba($red, 0.25); }
+  100% { background-color: $lead; }
+}
+.item.just-read {
+  animation: notif-flash 3s ease-in-out forwards;
 }
 </style>

@@ -360,7 +360,7 @@ onBeforeUnmount(() => {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 10px;
+      padding: 5px 10px;
       border-radius: 5px;
       background-color: $graphite;
       span {
@@ -482,6 +482,7 @@ onBeforeUnmount(() => {
             position: absolute;
             inset: 0;
             background-color: $lead;
+            transition: background 0.25s ease-in-out;
           }
           .meta {
             position: absolute;
@@ -677,6 +678,7 @@ onBeforeUnmount(() => {
         font-family: Manrope-Medium;
         line-height: 1;
         cursor: pointer;
+        transition: opacity 0.25s ease-in-out;
         &:disabled {
           opacity: 0.5;
           cursor: not-allowed;

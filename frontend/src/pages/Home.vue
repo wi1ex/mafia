@@ -450,7 +450,7 @@ onBeforeUnmount(() => {
           align-items: baseline;
           gap: 10px;
           .item_title {
-            font-weight: 600;
+            font-weight: bold;
           }
           .item_meta {
             display: flex;
