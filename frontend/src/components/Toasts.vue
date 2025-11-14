@@ -162,7 +162,6 @@ onBeforeUnmount(() => {
     transform: translateY(0);
     transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
     will-change: opacity, transform;
-    animation: toast-in 0.25s ease-out both;
     &.closing {
       opacity: 0;
       transform: translateY(30px);
@@ -237,14 +236,4 @@ onBeforeUnmount(() => {
   }
 }
 
-@keyframes toast-in {
-  from {
-    opacity: 0;
-    transform: translateY(30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
 </style>
