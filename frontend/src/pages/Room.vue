@@ -636,7 +636,7 @@ async function safeJoin() {
   if (joinInFlight.value) return joinInFlight.value
   if (!socket.value!.connected) {
     await new Promise<void>((res, rej) => {
-      const t = setTimeout(() => rej(new Error('connect timeout')), 10000)
+      const t = setTimeout(() => rej(new Error('connect timeout')), 3000)
       socket.value!.once('connect', () => {
         clearTimeout(t)
         res()
