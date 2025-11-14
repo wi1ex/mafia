@@ -440,7 +440,7 @@ onBeforeUnmount(() => {
         cursor: pointer;
         color: $fg;
         background: transparent;
-        transition: border-color 0.25s ease-in-out, background 0.25s ease-in-out;
+        transition: border-color 0.25s ease-in-out, background-color 0.25s ease-in-out;
         &.active {
           border-color: $blue;
           background-color: rgba(14, 165, 233, 0.07);

@@ -1,6 +1,6 @@
 <template>
   <div class="toasts" @transitionend="onTransEnd">
-    <div v-for="t in items" :key="t.key" class="toast" :data-key="t.key" :class="{ closing: t._closing }">
+    <div v-for="t in items" :key="t.key" class="toast" :data-key="t.key" :class="{ closing: t._closing, appearing: t._appearing, show: t._show }">
       <header>
         <span>{{ t.title }}</span>
         <button @click="closeManual(t)">
@@ -60,6 +60,8 @@ type ToastItem = {
   user?: ToastUser
   room_id?: number
   _closing?: boolean
+  _appearing?: boolean
+  _show?: boolean
   read?: boolean
   id?: number
 }
@@ -98,7 +100,12 @@ function onTransEnd(e: TransitionEvent) {
   if (!el.classList.contains('toast')) return
   const k = Number(el.dataset.key)
   const t = items.value.find(x => x.key === k)
-  if (t && t._closing) { void close(t) }
+  if (!t) return
+  if (t._closing) {
+    void close(t)
+    return
+  }
+  if (t._appearing && t._show) t._appearing = false
 }
 
 function onApproved(e: any) {
@@ -114,7 +121,7 @@ function onApproved(e: any) {
 }
 
 onMounted(() => {
-  window.addEventListener('toast', (e: any) => {
+  const onToast = (e: any) => {
     const d = e?.detail || {}
     const key = Date.now() + Math.random()
     const t: ToastItem = {
@@ -128,17 +135,30 @@ onMounted(() => {
       ttl: Number.isFinite(d.ttl_ms) ? d.ttl_ms : (d.action ? 10000 : 5000),
       user: d.user,
       room_id: Number.isFinite(d.room_id) ? Number(d.room_id) : undefined,
+      _appearing: true,
+      _show: false,
     }
     items.value.push(t)
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => { t._show = true })
+    })
+
     window.setTimeout(() => {
       t._closing = true
       window.setTimeout(() => { void close(t) }, 600)
     }, t.ttl!)
-  })
+  }
+
+  window.addEventListener('toast', onToast)
   window.addEventListener('auth-room_app_approved', onApproved)
+
+  ;(onMounted as any)._onToast = onToast
 })
 
 onBeforeUnmount(() => {
+  const onToast = (onMounted as any)._onToast
+  if (onToast) window.removeEventListener('toast', onToast)
   window.removeEventListener('auth-room_app_approved', onApproved)
 })
 </script>
@@ -162,6 +182,14 @@ onBeforeUnmount(() => {
     transform: translateY(0);
     transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
     will-change: opacity, transform;
+    &.appearing {
+      opacity: 0;
+      transform: translateY(30px);
+    }
+    &.appearing.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
     &.closing {
       opacity: 0;
       transform: translateY(30px);
@@ -174,6 +202,7 @@ onBeforeUnmount(() => {
       padding: 5px 10px;
       border-radius: 5px;
       background-color: $graphite;
+      box-shadow: 0 3px 5px rgba($black, 0.25);
       span {
         font-size: 18px;
         font-weight: bold;

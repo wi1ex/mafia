@@ -179,6 +179,7 @@ onBeforeUnmount(() => {
     padding: 5px 10px;
     border-radius: 5px;
     background-color: $graphite;
+    box-shadow: 0 3px 5px rgba($black, 0.25);
     span {
       font-size: 18px;
       font-weight: bold;
@@ -206,6 +207,7 @@ onBeforeUnmount(() => {
     padding: 0;
     gap: 10px;
     border-radius: 5px;
+    box-shadow: 3px 3px 5px rgba($black, 0.25);
     overflow-y: auto;
     scrollbar-width: none;
     list-style: none;

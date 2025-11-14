@@ -11,23 +11,23 @@
       <div class="change-devices">
         <div class="switch-div">
           <div class="switch">
-            <span>Зеркальность камеры:</span>
-            <label>
-              <input type="checkbox" :checked="mirrorOn" @change="onToggleMirror" aria-label="Зеркальность" />
-              <div class="slider">
-                <span>Откл</span>
-                <span>Вкл</span>
-              </div>
-            </label>
-          </div>
-
-          <div class="switch">
             <span>Качество видео:</span>
             <label>
               <input type="checkbox" :checked="vq === 'hd'" :disabled="vqDisabled" @change="onToggleVQ" aria-label="Качество видео: SD/HD" />
               <div class="slider">
                 <span>SD</span>
                 <span>HD</span>
+              </div>
+            </label>
+          </div>
+
+          <div class="switch">
+            <span>Зеркальность камеры:</span>
+            <label>
+              <input type="checkbox" :checked="mirrorOn" @change="onToggleMirror" aria-label="Зеркальность" />
+              <div class="slider">
+                <span>Откл</span>
+                <span>Вкл</span>
               </div>
             </label>
           </div>
@@ -222,6 +222,7 @@ onBeforeUnmount(() => {
     padding: 5px 10px;
     border-radius: 5px;
     background-color: $graphite;
+    box-shadow: 0 3px 5px rgba($black, 0.25);
     span {
       font-size: 18px;
       font-weight: bold;

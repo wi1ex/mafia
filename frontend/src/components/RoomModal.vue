@@ -363,6 +363,7 @@ onBeforeUnmount(() => {
       padding: 5px 10px;
       border-radius: 5px;
       background-color: $graphite;
+      box-shadow: 0 3px 5px rgba($black, 0.25);
       span {
         font-size: 18px;
         font-weight: bold;
@@ -482,7 +483,7 @@ onBeforeUnmount(() => {
             position: absolute;
             inset: 0;
             background-color: $lead;
-            transition: background 0.25s ease-in-out;
+            transition: background-color 0.25s ease-in-out;
           }
           .meta {
             position: absolute;

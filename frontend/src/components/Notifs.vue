@@ -68,7 +68,7 @@ function attachObserver() {
 
 function markVisibleNow() {
   if (!list.value) return
-  const box = root.value.getBoundingClientRect()
+  const box = list.value.getBoundingClientRect()
   const ids: number[] = []
   list.value.querySelectorAll<HTMLElement>('.item').forEach(el => {
     const r = el.getBoundingClientRect()
@@ -89,7 +89,7 @@ function markVisibleNow() {
 function bindScroll() {
   if (!list.value || onScroll) return
   onScroll = () => markVisibleNow()
-  root.value.addEventListener('scroll', onScroll, { passive: true })
+  list.value.addEventListener('scroll', onScroll, { passive: true })
 }
 function unbindScroll() {
   if (list.value && onScroll) list.value.removeEventListener('scroll', onScroll)
@@ -135,10 +135,15 @@ function flashJustRead(ids: number[]) {
   ids.forEach((id) => {
     const el = list.value!.querySelector<HTMLElement>(`.item[data-id="${id}"]`)
     if (!el) return
-    el.classList.remove('just-read')
+    el.classList.remove('just-read', 'fade-just-read')
     void el.offsetWidth
     el.classList.add('just-read')
-    window.setTimeout(() => { el.classList.remove('just-read') }, 3000)
+    window.setTimeout(() => {
+      el.classList.add('fade-just-read')
+      window.setTimeout(() => {
+        el.classList.remove('just-read', 'fade-just-read')
+      }, 250)
+    }, 3000)
   })
 }
 
@@ -193,6 +198,7 @@ onBeforeUnmount(() => {
     padding: 5px 10px;
     border-radius: 5px;
     background-color: $lead;
+    box-shadow: 0 3px 5px rgba($black, 0.25);
     span {
       font-size: 18px;
       font-weight: bold;
@@ -230,6 +236,7 @@ onBeforeUnmount(() => {
       gap: 15px;
       border-radius: 5px;
       background-color: $lead;
+      box-shadow: 3px 3px 5px rgba($black, 0.25);
       .item-header {
         display: flex;
         justify-content: space-between;
@@ -252,6 +259,13 @@ onBeforeUnmount(() => {
         color: $fg;
       }
     }
+    .item.just-read {
+      background-color: rgba($red, 0.25);
+    }
+    .item.just-read.fade-just-read {
+      background-color: $lead;
+      transition: background-color 0.25s ease-in-out;
+    }
     .empty {
       color: $grey;
       text-align: center;
@@ -268,13 +282,5 @@ onBeforeUnmount(() => {
 .panel-leave-to {
   opacity: 0;
   transform: translateY(-30px);
-}
-
-@keyframes notif-flash {
-  0%   { background-color: rgba($red, 0.25); }
-  100% { background-color: $lead; }
-}
-.item.just-read {
-  animation: notif-flash 3s ease-in-out forwards;
 }
 </style>
