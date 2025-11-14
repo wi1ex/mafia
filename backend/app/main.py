@@ -7,7 +7,7 @@ from .api.router import api_router
 from .core.handlers import setup_exception_handlers
 from .core.lifespan import lifespan
 from .core.middleware import LoggingMiddleware, LastLoginTouchMiddleware
-from .realtime.sio import sio
+from .realtime.sio import sio, register_namespaces
 from .core.settings import settings
 
 
@@ -38,5 +38,6 @@ def build_fastapi() -> FastAPI:
 
 
 _fastapi = build_fastapi()
+register_namespaces()
 
 app = socketio.ASGIApp(sio, other_asgi_app=_fastapi, socketio_path="ws/socket.io")

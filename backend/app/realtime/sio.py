@@ -1,10 +1,12 @@
 from __future__ import annotations
 import socketio
 import structlog
+from importlib import import_module
 from ..core.settings import settings
 
 log = structlog.get_logger()
 
+_ns_loaded = False
 mgr = socketio.AsyncRedisManager(settings.redis_url)
 sio = socketio.AsyncServer(
     async_mode="asgi",
@@ -19,6 +21,12 @@ sio = socketio.AsyncServer(
     http_compression=True,
 )
 
-from .namespaces import rooms as _ns_rooms
-from .namespaces import room as _ns_room
-from .namespaces import auth as _ns_auth
+def register_namespaces() -> None:
+    global _ns_loaded
+    if _ns_loaded:
+        return
+
+    import_module('app.realtime.namespaces.rooms')
+    import_module('app.realtime.namespaces.room')
+    import_module('app.realtime.namespaces.auth')
+    _ns_loaded = True
