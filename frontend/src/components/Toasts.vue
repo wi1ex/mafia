@@ -1,6 +1,6 @@
 <template>
   <div class="toasts" @transitionend="onTransEnd">
-    <div v-for="t in items" :key="t.key" class="toast" :data-key="t.key" :class="{ closing: t._closing, appearing: t._appearing }" >
+    <div v-for="t in items" :key="t.key" class="toast" :data-key="t.key" :class="{ closing: t._closing }">
       <header>
         <span>{{ t.title }}</span>
         <button @click="closeManual(t)">
@@ -60,7 +60,6 @@ type ToastItem = {
   user?: ToastUser
   room_id?: number
   _closing?: boolean
-  _appearing?: boolean
   read?: boolean
   id?: number
 }
@@ -110,12 +109,12 @@ function onApproved(e: any) {
   const targets = items.value.filter(t => t.kind === 'app' && t.room_id === rid && t.user?.id === uid)
   for (const t of targets) {
     t._closing = true
-    setTimeout(() => { void close(t) }, 300)
+    setTimeout(() => { void close(t) }, 250)
   }
 }
 
 onMounted(() => {
-  const onToast = (e: any) => {
+  window.addEventListener('toast', (e: any) => {
     const d = e?.detail || {}
     const key = Date.now() + Math.random()
     const t: ToastItem = {
@@ -129,24 +128,17 @@ onMounted(() => {
       ttl: Number.isFinite(d.ttl_ms) ? d.ttl_ms : (d.action ? 10000 : 5000),
       user: d.user,
       room_id: Number.isFinite(d.room_id) ? Number(d.room_id) : undefined,
-      _appearing: true,
     }
     items.value.push(t)
-    requestAnimationFrame(() => { t._appearing = false })
     window.setTimeout(() => {
       t._closing = true
-      window.setTimeout(() => { void close(t) }, 600)
+      window.setTimeout(() => { void close(t) }, 500)
     }, t.ttl!)
-  }
-
-  window.addEventListener('toast', onToast)
+  })
   window.addEventListener('auth-room_app_approved', onApproved)
-  ;(onMounted as any)._onToast = onToast
 })
 
 onBeforeUnmount(() => {
-  const onToast = (onMounted as any)._onToast
-  if (onToast) window.removeEventListener('toast', onToast)
   window.removeEventListener('auth-room_app_approved', onApproved)
 })
 </script>
@@ -170,10 +162,6 @@ onBeforeUnmount(() => {
     transform: translateY(0);
     transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
     will-change: opacity, transform;
-    &.appearing {
-      opacity: 0;
-      transform: translateY(30px);
-    }
     &.closing {
       opacity: 0;
       transform: translateY(30px);
