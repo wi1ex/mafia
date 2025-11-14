@@ -19,7 +19,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useNotifStore } from '@/store'
 import { api } from '@/services/axios'
@@ -65,11 +65,12 @@ type ToastItem = {
 }
 
 const items = ref<ToastItem[]>([])
-const timers = new Map<number, number>()
+const timers = new Map<number, { ttl?: number; fb?: number }>()
 
 async function close(t: ToastItem) {
-  const id = timers.get(t.key)
-  if (id) clearTimeout(id)
+  const tms = timers.get(t.key)
+  if (tms?.ttl) clearTimeout(tms.ttl)
+  if (tms?.fb)  clearTimeout(tms.fb)
   timers.delete(t.key)
   items.value = items.value.filter(x => x !== t)
 }
@@ -117,7 +118,7 @@ function onApproved(e: any) {
 }
 
 onMounted(() => {
-  const onToast = (e: any) => {
+  const onToast = async (e: any) => {
     const d = e?.detail || {}
     const key = Date.now() + Math.random()
     const ttlMsNum = Number(d.ttl_ms)
@@ -138,14 +139,19 @@ onMounted(() => {
     }
     items.value.push(t)
 
+    await nextTick()
     requestAnimationFrame(() => {
       t._show = true
-      const id = window.setTimeout(() => {
+
+      const ttlId = window.setTimeout(() => {
         t._closing = true
-        const id2 = window.setTimeout(() => close(t), 600)
-        timers.set(key, id2)
+        const fbId = window.setTimeout(() => { void close(t) }, 600)
+        const rec = timers.get(key) || {}
+        rec.fb = fbId
+        timers.set(key, rec)
       }, t.ttl)
-      timers.set(key, id)
+
+      timers.set(key, { ttl: ttlId })
     })
   }
 
@@ -159,7 +165,10 @@ onBeforeUnmount(() => {
   const onToast = (onMounted as any)._onToast
   if (onToast) window.removeEventListener('toast', onToast)
   window.removeEventListener('auth-room_app_approved', onApproved)
-  timers.forEach(id => clearTimeout(id))
+  timers.forEach(t => {
+    if (t.ttl) clearTimeout(t.ttl)
+    if (t.fb)  clearTimeout(t.fb)
+  })
   timers.clear()
 })
 </script>
