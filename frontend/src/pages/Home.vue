@@ -42,57 +42,58 @@
             <img :src="iconClose" alt="close" />
           </button>
         </header>
-
-        <div class="ri-meta">
-          <span>Параметры комнаты:</span>
-          <div class="ri-meta-div">
-            <span>Владелец:</span>
-            <div class="owner">
-              <img v-minio-img="{ key: selectedRoom?.creator_avatar_name ? `avatars/${selectedRoom!.creator_avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="" />
-              <span>{{ selectedRoom?.creator_name }}</span>
+        <div class="ri-info">
+          <div class="ri-meta">
+            <span>Параметры комнаты:</span>
+            <div class="ri-meta-div">
+              <span>Владелец:</span>
+              <div class="owner">
+                <img v-minio-img="{ key: selectedRoom?.creator_avatar_name ? `avatars/${selectedRoom!.creator_avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="" />
+                <span>{{ selectedRoom?.creator_name }}</span>
+              </div>
+            </div>
+            <div class="ri-meta-div">
+              <span>Приватность:</span>
+              <span>{{ isOpen ? 'Открытая' : 'Закрытая' }}</span>
             </div>
           </div>
-          <div class="ri-meta-div">
-            <span>Приватность:</span>
-            <span>{{ isOpen ? 'Открытая' : 'Закрытая' }}</span>
-          </div>
-        </div>
 
-        <div class="ri-game" v-if="game">
-          <span>Параметры игры:</span>
-          <div class="ri-game-div">
-            <span>Режим:</span>
-            <span>{{ game.mode === 'normal' ? 'Обычный' : 'Рейтинг' }}</span>
+          <div class="ri-game" v-if="game">
+            <span>Параметры игры:</span>
+            <div class="ri-game-div">
+              <span>Режим:</span>
+              <span>{{ game.mode === 'normal' ? 'Обычный' : 'Рейтинг' }}</span>
+            </div>
+            <div class="ri-game-div">
+              <span>Формат:</span>
+              <span>{{ game.format === 'hosted' ? 'С ведущим' : 'Без ведущего' }}</span>
+            </div>
+            <div class="ri-game-div">
+              <span>Лимит зрителей:</span>
+              <span>{{ game.spectators_limit }}</span>
+            </div>
+  <!--          <span>{{ gameOptions }}</span>-->
           </div>
-          <div class="ri-game-div">
-            <span>Формат:</span>
-            <span>{{ game.format === 'hosted' ? 'С ведущим' : 'Без ведущего' }}</span>
-          </div>
-          <div class="ri-game-div">
-            <span>Лимит зрителей:</span>
-            <span>{{ game.spectators_limit }}</span>
-          </div>
-<!--          <span>{{ gameOptions }}</span>-->
-        </div>
 
-        <div class="ri-members">
-          <span>Участники ({{ selectedRoom?.occupancy ?? 0 }}/{{ selectedRoom?.user_limit ?? 0 }}):</span>
-          <div v-if="(info?.members?.length ?? 0) === 0" class="muted">Пока никого</div>
-          <ul v-else class="ri-grid">
-            <li class="ri-user" v-for="m in (info?.members || [])" :key="m.id">
-              <img v-minio-img="{ key: m.avatar_name ? `avatars/${m.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="" />
-              <span>{{ m.username || ('user' + m.id) }}</span>
-              <img v-if="m.screen" :src="iconScreenOn" alt="streaming" />
-            </li>
-          </ul>
-        </div>
+          <div class="ri-members">
+            <span>Участники ({{ selectedRoom?.occupancy ?? 0 }}/{{ selectedRoom?.user_limit ?? 0 }}):</span>
+            <div v-if="(info?.members?.length ?? 0) === 0" class="muted">Пока никого</div>
+            <ul v-else class="ri-grid">
+              <li class="ri-user" v-for="m in (info?.members || [])" :key="m.id">
+                <img v-minio-img="{ key: m.avatar_name ? `avatars/${m.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="" />
+                <span>{{ m.username || ('user' + m.id) }}</span>
+                <img v-if="m.screen" :src="iconScreenOn" alt="streaming" />
+              </li>
+            </ul>
+          </div>
 
-        <div class="ri-actions">
-          <button v-if="ctaState==='enter'" :disabled="entering" @click="onEnter">{{ enterLabel }}</button>
-          <span v-else-if="ctaState==='full'">Комната заполнена</span>
-          <button v-else-if="ctaState==='apply'" @click="onApply">Подать заявку</button>
-          <button v-else-if="ctaState==='pending'" disabled>Заявка отправлена</button>
-          <span v-else>Авторизуйтесь, чтобы войти</span>
+          <div class="ri-actions">
+            <button v-if="ctaState==='enter'" :disabled="entering" @click="onEnter">{{ enterLabel }}</button>
+            <span v-else-if="ctaState==='full'">Комната заполнена</span>
+            <button v-else-if="ctaState==='apply'" @click="onApply">Подать заявку</button>
+            <button v-else-if="ctaState==='pending'" disabled>Заявка отправлена</button>
+            <span v-else>Авторизуйтесь, чтобы войти</span>
+          </div>
         </div>
       </div>
     </aside>
@@ -502,7 +503,6 @@ onBeforeUnmount(() => {
     display: flex;
     position: sticky;
     flex-direction: column;
-    padding: 10px;
     border-radius: 5px;
     background-color: $dark;
     .placeholder {
@@ -512,126 +512,137 @@ onBeforeUnmount(() => {
     .room-info {
       display: flex;
       flex-direction: column;
-      gap: 20px;
-      header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 5px 10px;
-        border-radius: 5px;
-        background-color: $graphite;
-        box-shadow: 0 3px 5px rgba($black, 0.25);
-        span {
-          font-size: 18px;
-          font-weight: bold;
-        }
-        button {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 0;
-          width: 25px;
-          height: 30px;
-          border: none;
-          background: none;
-          cursor: pointer;
-          img {
-            width: 25px;
-            height: 25px;
-          }
-        }
-      }
-      .ri-meta {
+      padding: 10px;
+      .room-info {
         display: flex;
         flex-direction: column;
-        gap: 5px;
-        .ri-meta-div {
+        gap: 20px;
+        header {
           display: flex;
-          align-items: center;
           justify-content: space-between;
-          .owner {
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-            img {
-              width: 18px;
-              height: 18px;
-              border-radius: 50%;
-              object-fit: cover;
-            }
-          }
-        }
-      }
-      .ri-game {
-        display: flex;
-        flex-direction: column;
-        gap: 5px;
-        .ri-game-div {
-          display: flex;
           align-items: center;
-          justify-content: space-between;
-        }
-      }
-      .ri-members {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-        .muted {
-          width: 50%;
-          height: 35px;
+          padding: 5px 10px;
           border-radius: 5px;
           background-color: $graphite;
-        }
-        .ri-grid {
-          display: grid;
-          grid-template-columns: 1fr;
-          margin: 0;
-          padding: 0;
-          gap: 5px;
-          max-height: 420px;
-          list-style: none;
-          overflow: auto;
-          .ri-user {
+          box-shadow: 0 3px 5px rgba($black, 0.25);
+          span {
+            font-size: 18px;
+            font-weight: bold;
+          }
+          button {
             display: flex;
             align-items: center;
-            gap: 5px;
-            width: 100%;
+            justify-content: center;
+            padding: 0;
+            width: 25px;
             height: 30px;
+            border: none;
+            background: none;
+            cursor: pointer;
             img {
-              width: 24px;
-              height: 24px;
-              border-radius: 50%;
-              object-fit: cover;
+              width: 25px;
+              height: 25px;
             }
           }
         }
-      }
-      .ri-actions {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        button {
+        .ri-meta {
+          display: flex;
+          flex-direction: column;
+          gap: 5px;
+          .ri-meta-div {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            span {
+              font-size: 14px;
+            }
+            .owner {
+              display: inline-flex;
+              align-items: center;
+              gap: 5px;
+              img {
+                width: 18px;
+                height: 18px;
+                border-radius: 50%;
+                object-fit: cover;
+              }
+            }
+          }
+        }
+        .ri-game {
+          display: flex;
+          flex-direction: column;
+          gap: 5px;
+          .ri-game-div {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            span {
+              font-size: 14px;
+            }
+          }
+        }
+        .ri-members {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          .muted {
+            width: 50%;
+            height: 35px;
+            border-radius: 5px;
+            background-color: $graphite;
+          }
+          .ri-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            margin: 0;
+            padding: 0;
+            gap: 5px;
+            max-height: 420px;
+            list-style: none;
+            overflow: auto;
+            .ri-user {
+              display: flex;
+              align-items: center;
+              gap: 5px;
+              width: 100%;
+              height: 30px;
+              img {
+                width: 24px;
+                height: 24px;
+                border-radius: 50%;
+                object-fit: cover;
+              }
+            }
+          }
+        }
+        .ri-actions {
           display: flex;
           align-items: center;
           justify-content: center;
-          padding: 0 20px;
-          height: 40px;
-          border: none;
-          border-radius: 5px;
-          background-color: $green;
-          color: $bg;
-          font-size: 16px;
-          font-family: Manrope-Medium;
-          line-height: 1;
-          cursor: pointer;
-          transition: opacity 0.25s ease-in-out;
-          &:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
+          button {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 20px;
+            height: 40px;
+            border: none;
+            border-radius: 5px;
+            background-color: $green;
+            color: $bg;
+            font-size: 16px;
+            font-family: Manrope-Medium;
+            line-height: 1;
+            cursor: pointer;
+            transition: opacity 0.25s ease-in-out;
+            &:disabled {
+              opacity: 0.5;
+              cursor: not-allowed;
+            }
           }
-        }
-        span {
-          color: $grey;
+          span {
+            color: $grey;
+          }
         }
       }
     }
