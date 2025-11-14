@@ -3,59 +3,25 @@
     <div v-if="isReconnecting" class="reconnect-overlay" aria-live="polite">
       Восстанавливаем соединение…
     </div>
-    <div v-if="!isTheater" class="grid" :style="gridStyle">
-      <RoomTile
-        v-for="id in sortedPeerIds"
-        :key="id"
-        :id="id"
-        :local-id="localId"
-        :speaking="rtc.isSpeaking(id)"
-        :video-ref="stableVideoRef(id)"
-        :fit-contain="fitContainInGrid"
-        :default-avatar="defaultAvatar"
-        :volume-icon="volumeIconForUser(id)"
-        :state-icon="stateIcon"
-        :is-ready="isReady"
-        :is-on="isOn"
-        :is-blocked="isBlocked"
-        :user-name="userName"
-        :avatar-key="avatarKey"
-        :can-moderate="canModerate"
-        :speakers-on="speakersOn"
-        :open-panel-for="openPanelFor"
-        :vol="volUi[id] ?? rtc.getUserVolume(id)"
-        :is-mirrored="isMirrored"
-        @toggle-panel="toggleTilePanel"
-        @vol-input="onVol"
-        @block="(key, uid) => toggleBlock(uid, key)"
-        @kick="kickUser"
-      />
+
+    <div v-else-if="!uiReady" class="reconnect-overlay" aria-live="polite">
+      Загрузка комнаты…
     </div>
 
-    <div v-else class="theater">
-      <div class="stage">
-        <video :ref="stableScreenRef(screenOwnerId)" playsinline autoplay />
-
-        <div v-if="screenOwnerId !== localId && streamAudioKey" class="volume" @click.stop>
-          <img :src="volumeIconForStream(streamAudioKey)" alt="vol" />
-          <input type="range" min="0" max="200" :disabled="!speakersOn || isBlocked(screenOwnerId,'speakers')"
-                 :value="streamVol" @input="onVol(streamAudioKey, Number(($event.target as HTMLInputElement).value))" />
-          <span>{{ streamVol }}%</span>
-        </div>
-      </div>
-
-      <div class="sidebar">
+    <template v-else>
+      <div v-if="!isTheater" class="grid" :style="gridStyle">
         <RoomTile
           v-for="id in sortedPeerIds"
           :key="id"
           :id="id"
           :local-id="localId"
-          :side="true"
           :speaking="rtc.isSpeaking(id)"
           :video-ref="stableVideoRef(id)"
+          :fit-contain="fitContainInGrid"
           :default-avatar="defaultAvatar"
           :volume-icon="volumeIconForUser(id)"
           :state-icon="stateIcon"
+          :is-ready="isReady"
           :is-on="isOn"
           :is-blocked="isBlocked"
           :user-name="userName"
@@ -63,7 +29,6 @@
           :can-moderate="canModerate"
           :speakers-on="speakersOn"
           :open-panel-for="openPanelFor"
-          :is-ready="isReady"
           :vol="volUi[id] ?? rtc.getUserVolume(id)"
           :is-mirrored="isMirrored"
           @toggle-panel="toggleTilePanel"
@@ -72,73 +37,115 @@
           @kick="kickUser"
         />
       </div>
-    </div>
 
-    <div class="panel">
-      <div class="controls-side">
-        <button @click="onLeave" aria-label="Покинуть комнату">
-          <img :src="iconLeaveRoom" alt="leave" />
-        </button>
+      <div v-else class="theater">
+        <div class="stage">
+          <video :ref="stableScreenRef(screenOwnerId)" playsinline autoplay />
+
+          <div v-if="screenOwnerId !== localId && streamAudioKey" class="volume" @click.stop>
+            <img :src="volumeIconForStream(streamAudioKey)" alt="vol" />
+            <input type="range" min="0" max="200" :disabled="!speakersOn || isBlocked(screenOwnerId,'speakers')"
+                   :value="streamVol" @input="onVol(streamAudioKey, Number(($event.target as HTMLInputElement).value))" />
+            <span>{{ streamVol }}%</span>
+          </div>
+        </div>
+
+        <div class="sidebar">
+          <RoomTile
+            v-for="id in sortedPeerIds"
+            :key="id"
+            :id="id"
+            :local-id="localId"
+            :side="true"
+            :speaking="rtc.isSpeaking(id)"
+            :video-ref="stableVideoRef(id)"
+            :default-avatar="defaultAvatar"
+            :volume-icon="volumeIconForUser(id)"
+            :state-icon="stateIcon"
+            :is-on="isOn"
+            :is-blocked="isBlocked"
+            :user-name="userName"
+            :avatar-key="avatarKey"
+            :can-moderate="canModerate"
+            :speakers-on="speakersOn"
+            :open-panel-for="openPanelFor"
+            :is-ready="isReady"
+            :vol="volUi[id] ?? rtc.getUserVolume(id)"
+            :is-mirrored="isMirrored"
+            @toggle-panel="toggleTilePanel"
+            @vol-input="onVol"
+            @block="(key, uid) => toggleBlock(uid, key)"
+            @kick="kickUser"
+          />
+        </div>
       </div>
 
-      <div v-if="showPermProbe" class="controls">
-        <button class="probe" @click="rtc.probePermissions({ audio: true, video: true })">
-          Разрешить доступ к камере и микрофону
-        </button>
-      </div>
-      <div v-else class="controls">
-        <button @click="toggleReady" :aria-pressed="readyOn">
-          <img :src="readyOn ? iconReady : iconClose" alt="ready" />
-        </button>
-        <button @click="toggleMic" :disabled="pending.mic || blockedSelf.mic" :aria-pressed="micOn">
-          <img :src="stateIcon('mic', localId)" alt="mic" />
-        </button>
-        <button @click="toggleCam" :disabled="pending.cam || blockedSelf.cam" :aria-pressed="camOn">
-          <img :src="stateIcon('cam', localId)" alt="cam" />
-        </button>
-        <button @click="toggleSpeakers" :disabled="pending.speakers || blockedSelf.speakers" :aria-pressed="speakersOn">
-          <img :src="stateIcon('speakers', localId)" alt="speakers" />
-        </button>
-        <button @click="toggleVisibility" :disabled="pending.visibility || blockedSelf.visibility" :aria-pressed="visibilityOn">
-          <img :src="stateIcon('visibility', localId)" alt="visibility" />
-        </button>
-        <button @click="toggleScreen" :disabled="pendingScreen || (!!screenOwnerId && screenOwnerId !== localId) || blockedSelf.screen" :aria-pressed="isMyScreen">
-          <img :src="stateIcon('screen', localId)" alt="screen" />
-        </button>
-      </div>
+      <div class="panel">
+        <div class="controls-side">
+          <button @click="onLeave" aria-label="Покинуть комнату">
+            <img :src="iconLeaveRoom" alt="leave" />
+          </button>
+        </div>
 
-      <div class="controls-side right">
-        <button v-if="myRole === 'host' && isPrivate" @click.stop="toggleApps" :aria-expanded="openApps" aria-label="Заявки">
-          <img :src="iconRequestsRoom" alt="requests" />
-          <span class="count-total" :class="{ unread: appsCounts.unread > 0 }">
-            {{ appsCounts.total < 100 ? appsCounts.total : '∞' }}
-          </span>
-        </button>
-        <button @click.stop="toggleSettings" :aria-expanded="settingsOpen" aria-label="Настройки устройств">
-          <img :src="iconSettings" alt="settings" />
-        </button>
+        <div v-if="showPermProbe" class="controls">
+          <button class="probe" @click="rtc.probePermissions({ audio: true, video: true })">
+            Разрешить доступ к камере и микрофону
+          </button>
+        </div>
+        <div v-else class="controls">
+          <button @click="toggleReady" :aria-pressed="readyOn">
+            <img :src="readyOn ? iconReady : iconClose" alt="ready" />
+          </button>
+          <button @click="toggleMic" :disabled="pending.mic || blockedSelf.mic" :aria-pressed="micOn">
+            <img :src="stateIcon('mic', localId)" alt="mic" />
+          </button>
+          <button @click="toggleCam" :disabled="pending.cam || blockedSelf.cam" :aria-pressed="camOn">
+            <img :src="stateIcon('cam', localId)" alt="cam" />
+          </button>
+          <button @click="toggleSpeakers" :disabled="pending.speakers || blockedSelf.speakers" :aria-pressed="speakersOn">
+            <img :src="stateIcon('speakers', localId)" alt="speakers" />
+          </button>
+          <button @click="toggleVisibility" :disabled="pending.visibility || blockedSelf.visibility" :aria-pressed="visibilityOn">
+            <img :src="stateIcon('visibility', localId)" alt="visibility" />
+          </button>
+          <button @click="toggleScreen" :disabled="pendingScreen || (!!screenOwnerId && screenOwnerId !== localId) || blockedSelf.screen" :aria-pressed="isMyScreen">
+            <img :src="stateIcon('screen', localId)" alt="screen" />
+          </button>
+        </div>
+
+        <div class="controls-side right">
+          <button v-if="myRole === 'host' && isPrivate" @click.stop="toggleApps" :aria-expanded="openApps" aria-label="Заявки">
+            <img :src="iconRequestsRoom" alt="requests" />
+            <span class="count-total" :class="{ unread: appsCounts.unread > 0 }">
+              {{ appsCounts.total < 100 ? appsCounts.total : '∞' }}
+            </span>
+          </button>
+          <button @click.stop="toggleSettings" :aria-expanded="settingsOpen" aria-label="Настройки устройств">
+            <img :src="iconSettings" alt="settings" />
+          </button>
+        </div>
+
+        <RoomSetting
+          :open="settingsOpen"
+          :mics="mics"
+          :cams="cams"
+          v-model:micId="selectedMicId"
+          v-model:camId="selectedCamId"
+          v-model:vq="videoQuality"
+          v-model:mirrorOn="mirrorOn"
+          :vq-disabled="pendingQuality"
+          @device-change="(kind) => rtc.onDeviceChange(kind)"
+          @close="settingsOpen=false"
+        />
+
+        <RoomRequests
+          v-if="myRole === 'host' && isPrivate"
+          v-model:open="openApps"
+          :room-id="rid"
+          @counts="(p) => { appsCounts.total = p.total; appsCounts.unread = p.unread }"
+        />
       </div>
-
-      <RoomSetting
-        :open="settingsOpen"
-        :mics="mics"
-        :cams="cams"
-        v-model:micId="selectedMicId"
-        v-model:camId="selectedCamId"
-        v-model:vq="videoQuality"
-        v-model:mirrorOn="mirrorOn"
-        :vq-disabled="pendingQuality"
-        @device-change="(kind) => rtc.onDeviceChange(kind)"
-        @close="settingsOpen=false"
-      />
-
-      <RoomRequests
-        v-if="myRole === 'host' && isPrivate"
-        v-model:open="openApps"
-        :room-id="rid"
-        @counts="(p) => { appsCounts.total = p.total; appsCounts.unread = p.unread }"
-      />
-    </div>
+    </template>
   </section>
 </template>
 
@@ -224,6 +231,7 @@ const openPanelFor = ref<string>('')
 const pendingScreen = ref(false)
 const pendingQuality = ref(false)
 const settingsOpen = ref(false)
+const uiReady = ref(false)
 const leaving = ref(false)
 const netReconnecting = ref(false)
 const lkReconnecting = computed(() => rtc.reconnecting.value)
@@ -842,16 +850,18 @@ onMounted(async () => {
     connectSocket()
     const j:any = await safeJoin()
     if (!j?.ok) {
-      if (j?.status === 403 && j?.error === 'private_room') {
-        alert('Комната приватная')
-        await router.replace({ name: 'home', query: { focus: String(rid) } })
-        return
+      if (!leaving.value) {
+        if (j?.status === 403 && j?.error === 'private_room') {
+          alert('Комната приватная')
+          await router.replace({ name: 'home', query: { focus: String(rid) } })
+        } else {
+          alert(j?.status === 404 ? 'Комната не найдена'
+            : j?.status === 410 ? 'Комната закрыта'
+            : j?.status === 409 ? 'Комната заполнена'
+            : 'Ошибка входа в комнату')
+          await router.replace('/')
+        }
       }
-      alert(j?.status === 404 ? 'Комната не найдена'
-        : j?.status === 410 ? 'Комната закрыта'
-        : j?.status === 409 ? 'Комната заполнена'
-        : 'Ошибка входа в комнату')
-      await router.replace('/')
       return
     }
 
@@ -911,11 +921,15 @@ onMounted(async () => {
     document.addEventListener('click', onDocClick)
     document.addEventListener('visibilitychange', onBackgroundMaybeLeave, { passive: true })
     window.addEventListener('pagehide', onBackgroundMaybeLeave, { passive: true })
+
+    uiReady.value = true
   } catch {
     rerr('room onMounted fatal')
     try { await rtc.disconnect() } catch {}
-    alert('Ошибка входа в комнату')
-    await router.replace('/')
+    if (!leaving.value) {
+      alert('Ошибка входа в комнату')
+      await router.replace('/')
+    }
   }
 })
 
