@@ -23,7 +23,7 @@
               <span class="badge" :data-kind="r.privacy === 'private' ? 'priv' : 'open'">
                 {{ r.privacy === 'private' ? 'Приватная' : 'Открытая' }}
               </span>
-              <img class="owner_ava" v-minio-img="{ key: r.creator_avatar_name ? `avatars/${r.creator_avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="" />
+              <img v-minio-img="{ key: r.creator_avatar_name ? `avatars/${r.creator_avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="" />
               <span>Владелец: {{ r.creator_name }}</span>
             </div>
           </div>
@@ -36,30 +36,47 @@
       <div v-if="!selectedId" class="placeholder">Выберите комнату для отображения информации</div>
 
       <div v-else class="room-info">
-        <div class="ri-title">
-          <p class="ri-name">#{{ selectedRoom?.id }}: {{ selectedRoom?.title }}</p>
-        </div>
+        <header>
+          <span>#{{ selectedRoom?.id }}: {{ selectedRoom?.title }}</span>
+          <button @click="clearSelection" aria-label="Закрыть">
+            <img :src="iconClose" alt="close" />
+          </button>
+        </header>
 
         <div class="ri-meta">
-          <div class="owner">
-            <img v-minio-img="{ key: selectedRoom?.creator_avatar_name ? `avatars/${selectedRoom!.creator_avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="" />
-            <span>{{ selectedRoom?.creator_name }}</span>
+          <span>Параметры комнаты:</span>
+          <div class="ri-meta-div">
+            <span>Владелец:</span>
+            <div class="owner">
+              <img v-minio-img="{ key: selectedRoom?.creator_avatar_name ? `avatars/${selectedRoom!.creator_avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="" />
+              <span>{{ selectedRoom?.creator_name }}</span>
+            </div>
           </div>
-          <span>Приватность: {{ isOpen ? 'открытая' : 'закрытая' }}</span>
+          <div class="ri-meta-div">
+            <span>Приватность:</span>
+            <span>{{ isOpen ? 'Открытая' : 'Закрытая' }}</span>
+          </div>
         </div>
 
         <div class="ri-game" v-if="game">
-          <span>Параметры игры</span>
-          <ul class="game-list">
-            <li><b>Режим:</b> {{ game.mode === 'normal' ? 'Обычный' : 'Рейтинг' }}</li>
-            <li><b>Формат:</b> {{ game.format === 'hosted' ? 'С ведущим' : 'Без ведущего' }}</li>
-            <li><b>Лимит зрителей:</b> {{ game.spectators_limit }}</li>
-<!--            <li><b>Опции:</b> <span>{{ gameOptions }}</span></li>-->
-          </ul>
+          <span>Параметры игры:</span>
+          <div class="ri-game-div">
+            <span>Режим:</span>
+            <span>{{ game.mode === 'normal' ? 'Обычный' : 'Рейтинг' }}</span>
+          </div>
+          <div class="ri-game-div">
+            <span>Формат:</span>
+            <span>{{ game.format === 'hosted' ? 'С ведущим' : 'Без ведущего' }}</span>
+          </div>
+          <div class="ri-game-div">
+            <span>Лимит зрителей:</span>
+            <span>{{ game.spectators_limit }}</span>
+          </div>
+<!--          <span>{{ gameOptions }}</span>-->
         </div>
 
         <div class="ri-members">
-          <span>Участники: {{ selectedRoom?.occupancy ?? 0 }}/{{ selectedRoom?.user_limit ?? 0 }}</span>
+          <span>Участники ({{ selectedRoom?.occupancy ?? 0 }}/{{ selectedRoom?.user_limit ?? 0 }}):</span>
           <div v-if="(info?.members?.length ?? 0) === 0" class="muted">Пока никого</div>
           <ul v-else class="ri-grid">
             <li class="ri-user" v-for="m in (info?.members || [])" :key="m.id">
@@ -93,6 +110,7 @@ import RoomModal from '@/components/RoomModal.vue'
 
 import defaultAvatar from "@/assets/svg/defaultAvatar.svg"
 import iconScreenOn from '@/assets/svg/screenOn.svg'
+import iconClose from '@/assets/svg/close.svg'
 
 type Room = {
   id: number
@@ -457,12 +475,6 @@ onBeforeUnmount(() => {
             display: flex;
             align-items: center;
             gap: 5px;
-            .owner_ava {
-              width: 18px;
-              height: 18px;
-              border-radius: 50%;
-              object-fit: cover;
-            }
             .badge {
               padding: 0 5px;
               border-radius: 5px;
@@ -474,6 +486,12 @@ onBeforeUnmount(() => {
               &[data-kind="open"] {
                 background-color: rgba(34, 197, 94, 0.25);
               }
+            }
+            img {
+              width: 18px;
+              height: 18px;
+              border-radius: 50%;
+              object-fit: cover;
             }
           }
         }
@@ -495,45 +513,63 @@ onBeforeUnmount(() => {
       display: flex;
       flex-direction: column;
       gap: 20px;
-      .ri-title {
+      header {
         display: flex;
-        flex-direction: column;
+        justify-content: space-between;
         align-items: center;
-        gap: 10px;
-        .ri-name {
-          margin: 0;
-          color: $fg;
-          font-size: 24px;
+        padding: 5px 10px;
+        border-radius: 5px;
+        background-color: $graphite;
+        box-shadow: 0 3px 5px rgba($black, 0.25);
+        span {
+          font-size: 18px;
+          font-weight: bold;
+        }
+        button {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 0;
+          width: 25px;
+          height: 30px;
+          border: none;
+          background: none;
+          cursor: pointer;
+          img {
+            width: 25px;
+            height: 25px;
+          }
         }
       }
       .ri-meta {
         display: flex;
         flex-direction: column;
         gap: 5px;
-        .owner {
-          display: inline-flex;
+        .ri-meta-div {
+          display: flex;
           align-items: center;
-          gap: 5px;
-          img {
-            width: 18px;
-            height: 18px;
-            border-radius: 50%;
-            object-fit: cover;
+          justify-content: space-between;
+          .owner {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            img {
+              width: 18px;
+              height: 18px;
+              border-radius: 50%;
+              object-fit: cover;
+            }
           }
-        }
-        span {
-          color: $grey;
         }
       }
       .ri-game {
         display: flex;
         flex-direction: column;
         gap: 5px;
-        .game-list {
-          margin: 0;
-          padding-left: 15px;
-          display: grid;
-          gap: 5px;
+        .ri-game-div {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
         }
       }
       .ri-members {
@@ -572,6 +608,8 @@ onBeforeUnmount(() => {
       }
       .ri-actions {
         display: flex;
+        align-items: center;
+        justify-content: center;
         button {
           display: flex;
           align-items: center;
@@ -586,8 +624,9 @@ onBeforeUnmount(() => {
           font-family: Manrope-Medium;
           line-height: 1;
           cursor: pointer;
+          transition: opacity 0.25s ease-in-out;
           &:disabled {
-            opacity: 0.6;
+            opacity: 0.5;
             cursor: not-allowed;
           }
         }
