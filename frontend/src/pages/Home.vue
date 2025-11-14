@@ -1,9 +1,10 @@
 <template>
   <section class="card">
     <div class="left">
-      <div v-if="auth.isAuthed" class="create">
+      <header v-if="auth.isAuthed">
+        <span>Список комнат</span>
         <button @click="openCreate = true">Создать комнату</button>
-      </div>
+      </header>
 
       <Transition name="overlay">
         <RoomModal
@@ -78,7 +79,7 @@
           <div class="ri-members">
             <span class="header-text">Участники ({{ selectedRoom?.occupancy ?? 0 }}/{{ selectedRoom?.user_limit ?? 0 }}):</span>
             <div v-if="(info?.members?.length ?? 0) === 0" class="muted">Пока никого</div>
-            <ul v-else class="ri-grid">
+            <ul v-else class="ri-users">
               <li class="ri-user" v-for="m in (info?.members || [])" :key="m.id">
                 <img v-minio-img="{ key: m.avatar_name ? `avatars/${m.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="" />
                 <span>{{ m.username || ('user' + m.id) }}</span>
@@ -406,39 +407,56 @@ onBeforeUnmount(() => {
   .left {
     display: flex;
     flex-direction: column;
-    padding: 10px;
-    gap: 10px;
     border-radius: 5px;
     background-color: $dark;
-    .create {
+    header {
       display: flex;
-      margin: 10px 0 20px;
-      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px;
+      height: 40px;
+      border-radius: 5px;
+      background-color: $graphite;
+      box-shadow: 0 3px 5px rgba($black, 0.25);
+      span {
+        height: 24px;
+        font-size: 22px;
+        font-weight: bold;
+      }
       button {
-        padding: 0 10px;
-        height: 30px;
-        border-radius: 5px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 20px;
+        height: 40px;
         border: none;
+        border-radius: 5px;
         background-color: $fg;
         color: $bg;
+        font-size: 16px;
+        font-family: Manrope-Medium;
+        line-height: 1;
         cursor: pointer;
+        transition: opacity 0.25s ease-in-out;
         &:disabled {
-          opacity: 0.6;
+          opacity: 0.5;
           cursor: not-allowed;
         }
       }
     }
     .muted {
+      padding: 20px 10px;
       color: $ashy;
     }
     .list {
+      display: flex;
+      flex-direction: column;
       margin: 0;
-      padding: 0;
+      padding: 10px;
       gap: 5px;
       list-style: none;
       .item {
         display: flex;
-        grid-template-columns: 1fr auto;
         align-items: center;
         gap: 10px;
         padding: 10px 0;
@@ -598,9 +616,9 @@ onBeforeUnmount(() => {
             font-size: 14px;
             color: $ashy;
           }
-          .ri-grid {
-            display: grid;
-            grid-template-columns: 1fr;
+          .ri-users {
+            display: flex;
+            flex-direction: column;
             margin: 0;
             padding: 0;
             gap: 5px;
@@ -631,7 +649,6 @@ onBeforeUnmount(() => {
           display: flex;
           align-items: center;
           justify-content: center;
-          margin: 5px 0;
           button {
             display: flex;
             align-items: center;
