@@ -2,16 +2,16 @@ from __future__ import annotations
 from sqlalchemy import select, update, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import APIRouter, HTTPException, Depends, Response, Request, status
-from ...core.db import get_session
 from ...models.user import User
+from ...core.db import get_session
+from ...core.settings import settings
+from ...core.logging import log_action
+from ...core.decorators import log_route
 from ...core.security import verify_telegram_auth, create_access_token, parse_refresh_token
-from ...schemas.auth import TelegramAuthIn, AccessTokenOut
 from ...schemas.common import Ok
+from ...schemas.auth import TelegramAuthIn, AccessTokenOut
 from ...services.sessions import new_login_session, rotate_refresh, logout as sess_logout
 from ...services.storage_minio import download_telegram_photo, put_avatar
-from ...core.logging import log_action
-from ...core.settings import settings
-from ...core.decorators import log_route
 
 router = APIRouter()
 

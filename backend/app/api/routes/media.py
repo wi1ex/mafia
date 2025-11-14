@@ -3,9 +3,9 @@ import re
 import time
 from contextlib import suppress
 from fastapi import APIRouter, HTTPException, Query
+from ...core.clients import get_redis
 from ...core.decorators import log_route
 from ...services.storage_minio import presign_key
-from ...core.clients import get_redis
 
 router = APIRouter()
 

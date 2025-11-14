@@ -2,10 +2,9 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends
 from sqlalchemy import select, update, func
 from sqlalchemy.ext.asyncio import AsyncSession
-from ...core.decorators import log_route
 from ...core.db import get_session
 from ...core.security import get_identity
-from ...core.decorators import rate_limited
+from ...core.decorators import log_route, rate_limited
 from ...models.notif import Notif
 from ...schemas.common import Identity, Ok
 from ...schemas.notif import NotifsListOut, MarkReadIn, NotifOut

@@ -6,14 +6,14 @@ from sqlalchemy import select, update, exists, func, literal, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from ..utils import broadcast_creator_rooms
-from ...core.db import get_session
 from ...models.user import User
+from ...core.db import get_session
+from ...core.logging import log_action
 from ...core.security import get_identity
 from ...core.decorators import log_route, rate_limited
 from ...schemas.common import Identity, Ok
 from ...schemas.user import UserOut, UsernameUpdateIn, AvatarUploadOut, UsernameUpdateOut
 from ...services.storage_minio import put_avatar, delete_avatars, ALLOWED_CT, MAX_BYTES
-from ...core.logging import log_action
 
 router = APIRouter()
 
