@@ -1,6 +1,6 @@
 <template>
   <div class="toasts" @transitionend="onTransEnd">
-    <div v-for="t in items" :key="t.key" class="toast" :data-key="t.key" :class="{ closing: t._closing, show: t._show }">
+    <div v-for="t in items" :key="t.key" class="toast" :data-key="t.key" :class="{ closing: t._closing }">
       <header>
         <span>{{ t.title }}</span>
         <button @click="closeManual(t)">
@@ -19,7 +19,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { useNotifStore } from '@/store'
 import { api } from '@/services/axios'
@@ -56,32 +56,29 @@ type ToastItem = {
   date: number
   kind?: string
   action?: ToastAction
-  ttl: number
+  ttl?: number
   user?: ToastUser
   room_id?: number
-  id?: number
-  _show?: boolean
   _closing?: boolean
+  read?: boolean
+  id?: number
 }
 
 const items = ref<ToastItem[]>([])
-const timers = new Map<number, { ttl?: number; fb?: number }>()
 
 async function close(t: ToastItem) {
-  const tms = timers.get(t.key)
-  if (tms?.ttl) clearTimeout(tms.ttl)
-  if (tms?.fb)  clearTimeout(tms.fb)
-  timers.delete(t.key)
   items.value = items.value.filter(x => x !== t)
 }
 
 async function closeManual(t: ToastItem){
   if (t.kind === 'app' && t.user?.id && t.room_id) {
-    try { window.dispatchEvent(new CustomEvent('room-app-seen', { detail: { room_id: t.room_id, user_id: t.user.id } })) } catch {}
+    try {
+      window.dispatchEvent(new CustomEvent('room-app-seen', { detail: { room_id: t.room_id, user_id: t.user.id } }))
+    } catch {}
   }
   try { if (t.id && t.kind !== 'app') await notif.markReadVisible([t.id]) } catch {}
   t._closing = true
-  setTimeout(() => close(t), 300)
+  setTimeout(() => { void close(t) }, 300)
 }
 
 async function run(t: ToastItem) {
@@ -101,8 +98,7 @@ function onTransEnd(e: TransitionEvent) {
   if (!el.classList.contains('toast')) return
   const k = Number(el.dataset.key)
   const t = items.value.find(x => x.key === k)
-  if (!t) return
-  if (t._closing) close(t)
+  if (t && t._closing) { void close(t) }
 }
 
 function onApproved(e: any) {
@@ -118,12 +114,9 @@ function onApproved(e: any) {
 }
 
 onMounted(() => {
-  const onToast = async (e: any) => {
+  window.addEventListener('toast', (e: any) => {
     const d = e?.detail || {}
     const key = Date.now() + Math.random()
-    const ttlMsNum = Number(d.ttl_ms)
-    const ttl = Number.isFinite(ttlMsNum) ? ttlMsNum : (d.action ? 10000 : 5000)
-
     const t: ToastItem = {
       key,
       id: d.id,
@@ -132,44 +125,21 @@ onMounted(() => {
       date: d.date ? Number(new Date(d.date)) : Date.now(),
       kind: d.kind || 'info',
       action: d.action,
-      ttl,
+      ttl: Number.isFinite(d.ttl_ms) ? d.ttl_ms : (d.action ? 10000 : 5000),
       user: d.user,
       room_id: Number.isFinite(d.room_id) ? Number(d.room_id) : undefined,
-      _show: false,
     }
     items.value.push(t)
-
-    await nextTick()
-    requestAnimationFrame(() => {
-      t._show = true
-
-      const ttlId = window.setTimeout(() => {
-        t._closing = true
-        const fbId = window.setTimeout(() => { void close(t) }, 600)
-        const rec = timers.get(key) || {}
-        rec.fb = fbId
-        timers.set(key, rec)
-      }, t.ttl)
-
-      timers.set(key, { ttl: ttlId })
-    })
-  }
-
-  window.addEventListener('toast', onToast)
+    window.setTimeout(() => {
+      t._closing = true
+      window.setTimeout(() => { void close(t) }, 600)
+    }, t.ttl!)
+  })
   window.addEventListener('auth-room_app_approved', onApproved)
-
-  ;(onMounted as any)._onToast = onToast
 })
 
 onBeforeUnmount(() => {
-  const onToast = (onMounted as any)._onToast
-  if (onToast) window.removeEventListener('toast', onToast)
   window.removeEventListener('auth-room_app_approved', onApproved)
-  timers.forEach(t => {
-    if (t.ttl) clearTimeout(t.ttl)
-    if (t.fb)  clearTimeout(t.fb)
-  })
-  timers.clear()
 })
 </script>
 
@@ -188,14 +158,10 @@ onBeforeUnmount(() => {
     width: 400px;
     border-radius: 5px;
     background-color: $dark;
-    opacity: 0;
-    transform: translateY(30px);
+    opacity: 1;
+    transform: translateY(0);
     transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
     will-change: opacity, transform;
-    &.show {
-      opacity: 1;
-      transform: translateY(0);
-    }
     &.closing {
       opacity: 0;
       transform: translateY(30px);
