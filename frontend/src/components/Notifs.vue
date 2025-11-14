@@ -264,7 +264,7 @@ onBeforeUnmount(() => {
     }
     .item.just-read.fade-just-read {
       background-color: $lead;
-      transition: background-color 0.25s ease-in-out;
+      transition: background-color 1s ease-in-out;
     }
     .empty {
       color: $grey;
