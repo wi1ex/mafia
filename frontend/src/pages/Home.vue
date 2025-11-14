@@ -37,44 +37,45 @@
 
       <div v-else class="room-info">
         <div class="ri-title">
-          <div class="ri-actions">
-            <button v-if="ctaState==='enter'" :disabled="entering" @click="onEnter">{{ enterLabel }}</button>
-            <div v-else-if="ctaState==='full'" class="muted">Комната заполнена</div>
-            <button v-else-if="ctaState==='apply'" @click="onApply">Подать заявку</button>
-            <button v-else-if="ctaState==='pending'" disabled>Заявка отправлена</button>
-            <div v-else class="muted">Авторизуйтесь, чтобы войти</div>
-          </div>
           <p class="ri-name">#{{ selectedRoom?.id }}: {{ selectedRoom?.title }}</p>
         </div>
 
         <div class="ri-meta">
-          <span class="owner">
-            <img class="owner_ava" v-minio-img="{ key: selectedRoom?.creator_avatar_name ? `avatars/${selectedRoom!.creator_avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="" />
-            <span>Владелец: {{ selectedRoom?.creator_name }}</span>
-          </span>
+          <div class="owner">
+            <img v-minio-img="{ key: selectedRoom?.creator_avatar_name ? `avatars/${selectedRoom!.creator_avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="" />
+            <span>{{ selectedRoom?.creator_name }}</span>
+          </div>
           <span>Приватность: {{ isOpen ? 'открытая' : 'закрытая' }}</span>
         </div>
 
         <div class="ri-game" v-if="game">
-          <p class="ri-subtitle">Параметры игры</p>
+          <span>Параметры игры</span>
           <ul class="game-list">
             <li><b>Режим:</b> {{ game.mode === 'normal' ? 'Обычный' : 'Рейтинг' }}</li>
             <li><b>Формат:</b> {{ game.format === 'hosted' ? 'С ведущим' : 'Без ведущего' }}</li>
             <li><b>Лимит зрителей:</b> {{ game.spectators_limit }}</li>
-            <li><b>Опции:</b> <span>{{ gameOptions }}</span></li>
+<!--            <li><b>Опции:</b> <span>{{ gameOptions }}</span></li>-->
           </ul>
         </div>
 
         <div class="ri-members">
-          <p class="ri-subtitle">Участники: {{ selectedRoom?.occupancy ?? 0 }}/{{ selectedRoom?.user_limit ?? 0 }}</p>
+          <span>Участники: {{ selectedRoom?.occupancy ?? 0 }}/{{ selectedRoom?.user_limit ?? 0 }}</span>
           <div v-if="(info?.members?.length ?? 0) === 0" class="muted">Пока никого</div>
           <ul v-else class="ri-grid">
             <li class="ri-user" v-for="m in (info?.members || [])" :key="m.id">
               <img v-minio-img="{ key: m.avatar_name ? `avatars/${m.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="" />
-              <p class="ri-u-name">{{ m.username || ('user' + m.id) }}</p>
+              <span>{{ m.username || ('user' + m.id) }}</span>
               <img v-if="m.screen" :src="iconScreenOn" alt="streaming" />
             </li>
           </ul>
+        </div>
+
+        <div class="ri-actions">
+          <button v-if="ctaState==='enter'" :disabled="entering" @click="onEnter">{{ enterLabel }}</button>
+          <span v-else-if="ctaState==='full'">Комната заполнена</span>
+          <button v-else-if="ctaState==='apply'" @click="onApply">Подать заявку</button>
+          <button v-else-if="ctaState==='pending'" disabled>Заявка отправлена</button>
+          <span v-else>Авторизуйтесь, чтобы войти</span>
         </div>
       </div>
     </aside>
@@ -499,31 +500,6 @@ onBeforeUnmount(() => {
         flex-direction: column;
         align-items: center;
         gap: 10px;
-        .ri-actions {
-          display: flex;
-          button {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 0 20px;
-            height: 40px;
-            border: none;
-            border-radius: 5px;
-            background-color: $green;
-            color: $bg;
-            font-size: 16px;
-            font-family: Manrope-Medium;
-            line-height: 1;
-            cursor: pointer;
-            &:disabled {
-              opacity: 0.6;
-              cursor: not-allowed;
-            }
-          }
-          .muted {
-            color: $grey;
-          }
-        }
         .ri-name {
           margin: 0;
           color: $fg;
@@ -534,17 +510,19 @@ onBeforeUnmount(() => {
         display: flex;
         flex-direction: column;
         gap: 5px;
-        color: $grey;
         .owner {
           display: inline-flex;
           align-items: center;
           gap: 5px;
-          .owner_ava {
+          img {
             width: 18px;
             height: 18px;
             border-radius: 50%;
             object-fit: cover;
           }
+        }
+        span {
+          color: $grey;
         }
       }
       .ri-game {
@@ -562,11 +540,6 @@ onBeforeUnmount(() => {
         display: flex;
         flex-direction: column;
         gap: 10px;
-        .ri-subtitle {
-          margin: 0;
-          color: $fg;
-          font-size: 20px;
-        }
         .muted {
           width: 50%;
           height: 35px;
@@ -594,10 +567,32 @@ onBeforeUnmount(() => {
               border-radius: 50%;
               object-fit: cover;
             }
-            .ri-u-name {
-              margin: 0;
-            }
           }
+        }
+      }
+      .ri-actions {
+        display: flex;
+        button {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 0 20px;
+          height: 40px;
+          border: none;
+          border-radius: 5px;
+          background-color: $green;
+          color: $bg;
+          font-size: 16px;
+          font-family: Manrope-Medium;
+          line-height: 1;
+          cursor: pointer;
+          &:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+          }
+        }
+        span {
+          color: $grey;
         }
       }
     }
