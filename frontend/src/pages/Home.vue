@@ -513,38 +513,38 @@ onBeforeUnmount(() => {
       display: flex;
       flex-direction: column;
       padding: 10px;
-      .room-info {
+      header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 5px 10px;
+        border-radius: 5px;
+        background-color: $graphite;
+        box-shadow: 0 3px 5px rgba($black, 0.25);
+        span {
+          font-size: 18px;
+          font-weight: bold;
+        }
+        button {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 0;
+          width: 25px;
+          height: 30px;
+          border: none;
+          background: none;
+          cursor: pointer;
+          img {
+            width: 25px;
+            height: 25px;
+          }
+        }
+      }
+      .ri-info {
         display: flex;
         flex-direction: column;
         gap: 20px;
-        header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 5px 10px;
-          border-radius: 5px;
-          background-color: $graphite;
-          box-shadow: 0 3px 5px rgba($black, 0.25);
-          span {
-            font-size: 18px;
-            font-weight: bold;
-          }
-          button {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 0;
-            width: 25px;
-            height: 30px;
-            border: none;
-            background: none;
-            cursor: pointer;
-            img {
-              width: 25px;
-              height: 25px;
-            }
-          }
-        }
         .ri-meta {
           display: flex;
           flex-direction: column;
