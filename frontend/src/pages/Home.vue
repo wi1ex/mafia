@@ -37,7 +37,7 @@
 
       <div v-else class="room-info">
         <header>
-          <span>#{{ selectedRoom?.id }}: {{ selectedRoom?.title }}</span>
+          <span>{{ selectedRoom?.title }}</span>
           <button @click="clearSelection" aria-label="Закрыть">
             <img :src="iconClose" alt="close" />
           </button>
@@ -512,7 +512,6 @@ onBeforeUnmount(() => {
     .room-info {
       display: flex;
       flex-direction: column;
-      padding: 10px;
       header {
         display: flex;
         justify-content: space-between;
@@ -544,7 +543,8 @@ onBeforeUnmount(() => {
       .ri-info {
         display: flex;
         flex-direction: column;
-        gap: 20px;
+        padding: 10px;
+        gap: 10px;
         .ri-meta {
           display: flex;
           flex-direction: column;
@@ -554,15 +554,17 @@ onBeforeUnmount(() => {
             align-items: center;
             justify-content: space-between;
             span {
+              height: 16px;
               font-size: 14px;
+              color: $ashy;
             }
             .owner {
               display: inline-flex;
               align-items: center;
               gap: 5px;
               img {
-                width: 18px;
-                height: 18px;
+                width: 20px;
+                height: 20px;
                 border-radius: 50%;
                 object-fit: cover;
               }
@@ -578,19 +580,20 @@ onBeforeUnmount(() => {
             align-items: center;
             justify-content: space-between;
             span {
+              height: 16px;
               font-size: 14px;
+              color: $ashy;
             }
           }
         }
         .ri-members {
           display: flex;
           flex-direction: column;
-          gap: 10px;
+          gap: 5px;
           .muted {
-            width: 50%;
-            height: 35px;
-            border-radius: 5px;
-            background-color: $graphite;
+            height: 16px;
+            font-size: 14px;
+            color: $ashy;
           }
           .ri-grid {
             display: grid;
@@ -606,12 +609,17 @@ onBeforeUnmount(() => {
               align-items: center;
               gap: 5px;
               width: 100%;
-              height: 30px;
+              height: 20px;
               img {
-                width: 24px;
-                height: 24px;
+                width: 20px;
+                height: 20px;
                 border-radius: 50%;
                 object-fit: cover;
+              }
+              span {
+                height: 16px;
+                font-size: 14px;
+                color: $ashy;
               }
             }
           }
