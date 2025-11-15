@@ -2,7 +2,9 @@
   <section class="card">
     <div class="left">
       <header v-if="auth.isAuthed">
-        <span>Список комнат</span>
+        <div class="left">
+          <span>Список комнат</span>
+        </div>
         <button @click="openCreate = true">Создать комнату</button>
       </header>
 
@@ -34,69 +36,72 @@
 
     <aside class="right" aria-live="polite" ref="rightEl" @pointerdown.self="selArmed = true"
            @pointerup.self="selArmed && clearSelection()" @pointerleave.self="selArmed = false" @pointercancel.self="selArmed = false">
-      <div v-if="!selectedId" class="loading-overlay">Выберите комнату для отображения информации</div>
+      <Transition name="room-panel" mode="out-in">
+        <div v-if="selectedId" key="info" class="room-info">
+          <header>
+            <span>{{ selectedRoom?.title }}</span>
+            <button @click="clearSelection" aria-label="Закрыть">
+              <img :src="iconClose" alt="close" />
+            </button>
+          </header>
 
-      <div v-else class="room-info">
-        <header>
-          <span>{{ selectedRoom?.title }}</span>
-          <button @click="clearSelection" aria-label="Закрыть">
-            <img :src="iconClose" alt="close" />
-          </button>
-        </header>
-        <div class="ri-info">
-          <div class="ri-meta">
-            <span class="header-text">Параметры комнаты:</span>
-            <div class="ri-meta-div">
-              <span>Владелец</span>
-              <div class="owner">
-                <img v-minio-img="{ key: selectedRoom && selectedRoom.creator_avatar_name ? `avatars/${selectedRoom.creator_avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="" />
-                <span>{{ selectedRoom?.creator_name }}</span>
+          <div class="ri-info">
+            <div class="ri-meta">
+              <span class="header-text">Параметры комнаты:</span>
+              <div class="ri-meta-div">
+                <span>Владелец</span>
+                <div class="owner">
+                  <img v-minio-img="{ key: selectedRoom && selectedRoom.creator_avatar_name ? `avatars/${selectedRoom.creator_avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="" />
+                  <span>{{ selectedRoom?.creator_name }}</span>
+                </div>
+              </div>
+              <div class="ri-meta-div">
+                <span>Приватность</span>
+                <span>{{ isOpen ? 'Открытая' : 'Закрытая' }}</span>
               </div>
             </div>
-            <div class="ri-meta-div">
-              <span>Приватность</span>
-              <span>{{ isOpen ? 'Открытая' : 'Закрытая' }}</span>
-            </div>
-          </div>
 
-          <div class="ri-game" v-if="game">
-            <span class="header-text">Параметры игры:</span>
-            <div class="ri-game-div">
-              <span>Режим</span>
-              <span>{{ game.mode === 'normal' ? 'Обычный' : 'Рейтинг' }}</span>
+            <div class="ri-game" v-if="game">
+              <span class="header-text">Параметры игры:</span>
+              <div class="ri-game-div">
+                <span>Режим</span>
+                <span>{{ game.mode === 'normal' ? 'Обычный' : 'Рейтинг' }}</span>
+              </div>
+              <div class="ri-game-div">
+                <span>Формат</span>
+                <span>{{ game.format === 'hosted' ? 'С ведущим' : 'Без ведущего' }}</span>
+              </div>
+              <div class="ri-game-div">
+                <span>Лимит зрителей</span>
+                <span>{{ game.spectators_limit }}</span>
+              </div>
+    <!--          <span>{{ gameOptions }}</span>-->
             </div>
-            <div class="ri-game-div">
-              <span>Формат</span>
-              <span>{{ game.format === 'hosted' ? 'С ведущим' : 'Без ведущего' }}</span>
-            </div>
-            <div class="ri-game-div">
-              <span>Лимит зрителей</span>
-              <span>{{ game.spectators_limit }}</span>
-            </div>
-  <!--          <span>{{ gameOptions }}</span>-->
-          </div>
 
-          <div class="ri-members">
-            <span class="header-text">Участники ({{ selectedRoom?.occupancy ?? 0 }}/{{ selectedRoom?.user_limit ?? 0 }}):</span>
-            <div v-if="(info?.members?.length ?? 0) === 0" class="muted">Пока никого</div>
-            <ul v-else class="ri-users">
-              <li class="ri-user" v-for="m in (info?.members || [])" :key="m.id">
-                <img v-minio-img="{ key: m.avatar_name ? `avatars/${m.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="" />
-                <span>{{ m.username || ('user' + m.id) }}</span>
-                <img v-if="m.screen" :src="iconScreenOn" alt="streaming" />
-              </li>
-            </ul>
-          </div>
+            <div class="ri-members">
+              <span class="header-text">Участники ({{ selectedRoom?.occupancy ?? 0 }}/{{ selectedRoom?.user_limit ?? 0 }}):</span>
+              <div v-if="(info?.members?.length ?? 0) === 0" class="muted">Пока никого</div>
+              <ul v-else class="ri-users">
+                <li class="ri-user" v-for="m in (info?.members || [])" :key="m.id">
+                  <img v-minio-img="{ key: m.avatar_name ? `avatars/${m.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="" />
+                  <span>{{ m.username || ('user' + m.id) }}</span>
+                  <img v-if="m.screen" :src="iconScreenOn" alt="streaming" />
+                </li>
+              </ul>
+            </div>
 
-          <div class="ri-actions">
-            <button v-if="ctaState==='enter'" :disabled="entering" @click="onEnter">{{ enterLabel }}</button>
-            <button v-else-if="ctaState==='full'" disabled>Комната заполнена</button>
-            <button v-else-if="ctaState==='apply'" @click="onApply">Подать заявку</button>
-            <button v-else-if="ctaState==='pending'" disabled>Заявка отправлена</button>
-            <button v-else disabled>Авторизуйтесь, чтобы войти</button>
+            <div class="ri-actions">
+              <button v-if="ctaState==='enter'" :disabled="entering" @click="onEnter">{{ enterLabel }}</button>
+              <button v-else-if="ctaState==='full'" disabled>Комната заполнена</button>
+              <button v-else-if="ctaState==='apply'" @click="onApply">Подать заявку</button>
+              <button v-else-if="ctaState==='pending'" disabled>Заявка отправлена</button>
+              <button v-else disabled>Авторизуйтесь, чтобы войти</button>
+            </div>
           </div>
         </div>
-      </div>
+
+        <div v-else key="placeholder" class="loading-overlay">Выберите комнату для отображения информации</div>
+      </Transition>
     </aside>
   </section>
 </template>
@@ -434,11 +439,19 @@ onBeforeUnmount(() => {
       border-radius: 5px;
       background-color: $graphite;
       box-shadow: 0 3px 5px rgba($black, 0.25);
-      span {
-        margin-left: 10px;
-        height: 20px;
-        font-size: 18px;
-        font-weight: bold;
+      .rooms-text {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 20px;
+        height: 40px;
+        border-radius: 5px;
+        background-color: $lead;
+        span {
+          height: 20px;
+          font-size: 18px;
+          font-weight: bold;
+        }
       }
       button {
         display: flex;
@@ -482,7 +495,7 @@ onBeforeUnmount(() => {
         border-radius: 5px;
         cursor: pointer;
         color: $fg;
-        background: $graphite;
+        background-color: $graphite;
         transition: border-color 0.25s ease-in-out, background-color 0.25s ease-in-out;
         &.active {
           border-color: $grey;
@@ -533,6 +546,7 @@ onBeforeUnmount(() => {
     flex-direction: column;
     border-radius: 5px;
     background-color: $dark;
+    overflow: hidden;
     .loading-overlay {
       margin: auto;
       text-align: center;
@@ -549,13 +563,10 @@ onBeforeUnmount(() => {
         border-radius: 5px;
         background-color: $graphite;
         box-shadow: 0 3px 5px rgba($black, 0.25);
-        .rooms-text {
-          display: flex;
-          span {
-            height: 20px;
-            font-size: 18px;
-            font-weight: bold;
-          }
+        span {
+          height: 20px;
+          font-size: 18px;
+          font-weight: bold;
         }
         button {
           display: flex;
@@ -701,5 +712,26 @@ onBeforeUnmount(() => {
       }
     }
   }
+}
+
+.room-panel-enter-active,
+.room-panel-leave-active {
+  transition: transform 0.25s ease-in-out, opacity 0.25s ease-in-out;
+}
+.room-panel-enter-from,
+.room-panel-leave-to {
+  opacity: 0;
+}
+.room-panel-enter-to,
+.room-panel-leave-from {
+  opacity: 1;
+}
+.room-info.room-panel-enter-from,
+.room-info.room-panel-leave-to {
+  transform: translateX(100%);
+}
+.room-info.room-panel-enter-to,
+.room-info.room-panel-leave-from {
+  transform: translateX(0);
 }
 </style>
