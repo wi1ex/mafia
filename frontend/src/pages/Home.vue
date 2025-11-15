@@ -34,7 +34,6 @@
 
     <aside class="right" aria-live="polite" ref="rightEl" @pointerdown.self="selArmed = true"
            @pointerup.self="selArmed && clearSelection()" @pointerleave.self="selArmed = false" @pointercancel.self="selArmed = false">
-      <div v-if="infoLoading" class="loading-overlay">Загрузка…</div>
       <div v-if="!selectedId" class="loading-overlay">Выберите комнату для отображения информации</div>
 
       <div v-else class="room-info">
@@ -50,7 +49,7 @@
             <div class="ri-meta-div">
               <span>Владелец</span>
               <div class="owner">
-                <img v-minio-img="{ key: selectedRoom?.creator_avatar_name ? `avatars/${selectedRoom!.creator_avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="" />
+                <img v-minio-img="{ key: selectedRoom && selectedRoom.creator_avatar_name ? `avatars/${selectedRoom.creator_avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="" />
                 <span>{{ selectedRoom?.creator_name }}</span>
               </div>
             </div>
@@ -165,7 +164,6 @@ const info = ref<(RoomMembers & { game?: Game }) | null>(null)
 
 const selectedId = ref<number | null>(null)
 const pendingRoomId = ref<number | null>(null)
-const infoLoading = ref(false)
 let selectReqSeq = 0
 
 const openCreate = ref(false)
@@ -259,7 +257,7 @@ async function fetchRoomInfo(id: number, opts?: { silent?: boolean }): Promise<(
 }
 
 async function selectRoom(id: number) {
-  if (selectedId.value === id && !infoLoading.value) return
+  if (selectedId.value === id) return
   suppressedAutoselect.value = false
   access.value = 'none'
   const prevId = selectedId.value
@@ -272,10 +270,8 @@ async function selectRoom(id: number) {
   }
   const reqId = ++selectReqSeq
   pendingRoomId.value = id
-  infoLoading.value = true
   const data = await fetchRoomInfo(id, { silent: true })
   if (reqId !== selectReqSeq) return
-  infoLoading.value = false
   pendingRoomId.value = null
   if (!data) return
   selectedId.value = id
@@ -288,7 +284,6 @@ function clearSelection() {
   selectedId.value = null
   pendingRoomId.value = null
   info.value = null
-  infoLoading.value = false
   suppressedAutoselect.value = true
   selectReqSeq++
   if (prevId != null) {
@@ -420,7 +415,8 @@ onBeforeUnmount(() => {
 <style scoped lang="scss">
 .card {
   display: grid;
-  grid-template-columns: 1fr 400px;
+  grid-template-columns: minmax(0, 1fr) 400px;
+  align-items: flex-start;
   padding: 0 10px;
   gap: 10px;
   .left {
@@ -529,6 +525,11 @@ onBeforeUnmount(() => {
   .right {
     display: flex;
     position: sticky;
+    top: 10px;
+    width: 400px;
+    min-width: 400px;
+    max-width: 400px;
+    height: 400px;
     flex-direction: column;
     border-radius: 5px;
     background-color: $dark;
