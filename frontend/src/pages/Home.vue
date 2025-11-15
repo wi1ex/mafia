@@ -419,6 +419,8 @@ onBeforeUnmount(() => {
   align-items: flex-start;
   padding: 0 10px;
   gap: 10px;
+  overflow: auto;
+  scrollbar-width: none;
   .left {
     display: flex;
     flex-direction: column;
@@ -477,7 +479,8 @@ onBeforeUnmount(() => {
         display: flex;
         align-items: center;
         gap: 10px;
-        padding: 10px 0;
+        //padding: 10px;
+        padding: 100px;
         margin: 0;
         border: 1px solid transparent;
         border-radius: 5px;
@@ -525,11 +528,11 @@ onBeforeUnmount(() => {
   .right {
     display: flex;
     position: sticky;
-    top: 10px;
     width: 400px;
     min-width: 400px;
     max-width: 400px;
-    height: 400px;
+    min-height: 400px;
+    max-height: calc(100vh - 70px);
     flex-direction: column;
     border-radius: 5px;
     background-color: $dark;
@@ -672,6 +675,7 @@ onBeforeUnmount(() => {
           display: flex;
           align-items: center;
           justify-content: center;
+          margin-top: 5px;
           button {
             display: flex;
             align-items: center;
