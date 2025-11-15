@@ -25,6 +25,15 @@
                 <div class="meta"><span id="room-title-hint">{{ title.length }}/{{ TITLE_MAX }}</span></div>
               </div>
 
+              <div class="range">
+                <span>Лимит: {{ limit }}/{{ RANGE_MAX }}</span>
+                <div class="range-wrap">
+                  <div class="range-dead" :style="deadZoneStyle" @click="limit = DEAD_MIN"></div>
+                  <div class="range-track" :style="rangeFillStyle" aria-hidden="true"></div>
+                  <input class="range-native" type="range" :min="RANGE_MIN" :max="RANGE_MAX" step="1" v-model.number="limit" aria-label="Лимит участников" />
+                </div>
+              </div>
+
               <div class="switch">
                 <span>Приватность:</span>
                 <label>
@@ -35,18 +44,17 @@
                   </div>
                 </label>
               </div>
-
-              <div class="range">
-                <span>Лимит: {{ limit }}/{{ RANGE_MAX }}</span>
-                <div class="range-wrap">
-                  <div class="range-dead" :style="deadZoneStyle" @click="limit = DEAD_MIN"></div>
-                  <div class="range-track" :style="rangeFillStyle" aria-hidden="true"></div>
-                  <input class="range-native" type="range" :min="RANGE_MIN" :max="RANGE_MAX" step="1" v-model.number="limit" aria-label="Лимит участников" />
-                </div>
-              </div>
             </div>
 
             <div v-else key="game" class="params">
+              <div class="range is-disabled">
+                <span>Лимит зрителей: {{ game.spectators_limit }}/{{ SPECT_MAX }}</span>
+                <div class="range-wrap">
+                  <div class="range-track" :style="rangeSpectFillStyle" aria-hidden="true"></div>
+                  <input class="range-native" type="range" :min="SPECT_MIN" :max="SPECT_MAX" step="1" v-model.number="game.spectators_limit" disabled aria-label="Лимит зрителей" />
+                </div>
+              </div>
+
               <div class="switch">
                 <span>Режим:</span>
                 <label>
@@ -67,14 +75,6 @@
                     <span>Автомат</span>
                   </div>
                 </label>
-              </div>
-
-              <div class="range is-disabled">
-                <span>Лимит зрителей: {{ game.spectators_limit }}/{{ SPECT_MAX }}</span>
-                <div class="range-wrap">
-                  <div class="range-track" :style="rangeSpectFillStyle" aria-hidden="true"></div>
-                  <input class="range-native" type="range" :min="SPECT_MIN" :max="SPECT_MAX" step="1" v-model.number="game.spectators_limit" disabled aria-label="Лимит зрителей" />
-                </div>
               </div>
 
 <!--              <div class="switch">-->
@@ -391,7 +391,7 @@ onBeforeUnmount(() => {
       background-color: $dark;
       .tab-viewport {
         position: relative;
-        height: 165px;
+        height: 175px;
         border-top: 3px solid $lead;
         border-left: 3px solid $lead;
         border-right: 3px solid $lead;
@@ -429,7 +429,7 @@ onBeforeUnmount(() => {
       .params {
         display: flex;
         flex-direction: column;
-        padding: 10px;
+        padding: 15px 10px;
         gap: 15px;
         .ui-input {
           position: relative;
@@ -669,13 +669,14 @@ onBeforeUnmount(() => {
       justify-content: center;
       padding: 0 0 10px;
       button {
+        padding: 0;
         width: calc(100% - 20px);
-        height: 30px;
+        height: 40px;
         border: none;
         border-radius: 0 0 5px 5px;
         background-color: $fg;
         color: $bg;
-        font-size: 16px;
+        font-size: 18px;
         font-family: Manrope-Medium;
         line-height: 1;
         cursor: pointer;

@@ -16,7 +16,7 @@
 
       <div v-if="sortedRooms.length === 0" class="muted">Пока пусто</div>
       <ul v-else class="list" ref="listEl">
-        <li class="item" v-for="r in sortedRooms" :key="r.id" :class="{ active: r.id === selectedId }" tabindex="0" @click="selectRoom(r.id)">
+        <li class="item" v-for="r in sortedRooms" :key="r.id" :class="{ active: r.id === selectedId || r.id === pendingRoomId }" tabindex="0" @click="selectRoom(r.id)">
           <div class="item_main">
             <span class="item_title">#{{ r.id }}: {{ r.title }}</span>
             <div class="item_meta">
@@ -34,7 +34,8 @@
 
     <aside class="right" aria-live="polite" ref="rightEl" @pointerdown.self="selArmed = true"
            @pointerup.self="selArmed && clearSelection()" @pointerleave.self="selArmed = false" @pointercancel.self="selArmed = false">
-      <div v-if="!selectedId" class="placeholder">Выберите комнату для отображения информации</div>
+      <div v-if="infoLoading" class="loading-overlay">Загрузка…</div>
+      <div v-if="!selectedId" class="loading-overlay">Выберите комнату для отображения информации</div>
 
       <div v-else class="room-info">
         <header>
@@ -157,10 +158,15 @@ const suppressedAutoselect = ref(true)
 
 const selArmed = ref(false)
 const entering = ref(false)
+
 const infoTimers = new Map<number, number>()
 const infoInFlight = new Set<number>()
-const selectedId = ref<number | null>(null)
 const info = ref<(RoomMembers & { game?: Game }) | null>(null)
+
+const selectedId = ref<number | null>(null)
+const pendingRoomId = ref<number | null>(null)
+const infoLoading = ref(false)
+let selectReqSeq = 0
 
 const openCreate = ref(false)
 const access = ref<Access>('none')
@@ -239,25 +245,24 @@ async function onApply() {
   catch (e: any) { alert('Ошибка отправки заявки') }
 }
 
-async function fetchRoomInfo(id: number) {
-  if (infoInFlight.has(id)) return
+async function fetchRoomInfo(id: number, opts?: { silent?: boolean }): Promise<(RoomMembers & { game?: Game }) | null> {
+  if (infoInFlight.has(id)) return null
   infoInFlight.add(id)
   try {
-    const { data } = await api.get<RoomMembers & { game?: Game }>(`/rooms/${id}/info`, { __skipAuth: true })
-    info.value = data
+    const { data } = await api.get<RoomMembers & { game?: Game }>(`/rooms/${id}/info`, { __skipAuth: true },)
+    if (!opts?.silent && selectedId.value === id) info.value = data
+    return data
   } catch {
-    info.value = null
-  } finally {
-    infoInFlight.delete(id)
-  }
+    if (!opts?.silent && selectedId.value === id) info.value = null
+    return null
+  } finally { infoInFlight.delete(id) }
 }
 
-function selectRoom(id: number) {
-  if (selectedId.value === id) return
+async function selectRoom(id: number) {
+  if (selectedId.value === id && !infoLoading.value) return
   suppressedAutoselect.value = false
-  const prevId = selectedId.value
-  selectedId.value = id
   access.value = 'none'
+  const prevId = selectedId.value
   if (prevId != null) {
     const t = infoTimers.get(prevId)
     if (t) {
@@ -265,7 +270,34 @@ function selectRoom(id: number) {
       infoTimers.delete(prevId)
     }
   }
-  void fetchRoomInfo(id)
+  const reqId = ++selectReqSeq
+  pendingRoomId.value = id
+  infoLoading.value = true
+  const data = await fetchRoomInfo(id, { silent: true })
+  if (reqId !== selectReqSeq) return
+  infoLoading.value = false
+  pendingRoomId.value = null
+  if (!data) return
+  selectedId.value = id
+  info.value = data
+}
+
+function clearSelection() {
+  if (selectedId.value == null && pendingRoomId.value == null) return
+  const prevId = selectedId.value ?? pendingRoomId.value
+  selectedId.value = null
+  pendingRoomId.value = null
+  info.value = null
+  infoLoading.value = false
+  suppressedAutoselect.value = true
+  selectReqSeq++
+  if (prevId != null) {
+    const t = infoTimers.get(prevId)
+    if (t) {
+      try { clearTimeout(t) } catch {}
+      infoTimers.delete(prevId)
+    }
+  }
 }
 
 function scheduleInfoRefresh(id: number, delay: number) {
@@ -278,19 +310,6 @@ function scheduleInfoRefresh(id: number, delay: number) {
     infoTimers.delete(id)
   }, delay)
   infoTimers.set(id, t)
-}
-
-function clearSelection() {
-  if (selectedId.value == null) return
-  const prevId = selectedId.value
-  selectedId.value = null
-  info.value = null
-  suppressedAutoselect.value = true
-  const t = infoTimers.get(prevId)
-  if (t) {
-    try { clearTimeout(t) } catch {}
-    infoTimers.delete(prevId)
-  }
 }
 
 function onGlobalPointerDown(e: PointerEvent) {
@@ -422,6 +441,9 @@ onBeforeUnmount(() => {
         height: 24px;
         font-size: 22px;
         font-weight: bold;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
       button {
         display: flex;
@@ -474,7 +496,6 @@ onBeforeUnmount(() => {
         .item_main {
           display: flex;
           align-items: baseline;
-          gap: 10px;
           .item_title {
             font-weight: bold;
           }
@@ -511,9 +532,10 @@ onBeforeUnmount(() => {
     flex-direction: column;
     border-radius: 5px;
     background-color: $dark;
-    .placeholder {
+    .loading-overlay {
       margin: auto;
       text-align: center;
+      color: $ashy;
     }
     .room-info {
       display: flex;
