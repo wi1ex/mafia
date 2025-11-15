@@ -2,7 +2,7 @@
   <section class="card">
     <div class="left">
       <header v-if="auth.isAuthed">
-        <div class="left">
+        <div class="rooms-text">
           <span>Список комнат</span>
         </div>
         <button @click="openCreate = true">Создать комнату</button>
@@ -716,7 +716,7 @@ onBeforeUnmount(() => {
 
 .room-panel-enter-active,
 .room-panel-leave-active {
-  transition: transform 0.25s ease-in-out, opacity 0.25s ease-in-out;
+  transition: transform 0.15s ease-in-out, opacity 0.15s ease-in-out;
 }
 .room-panel-enter-from,
 .room-panel-leave-to {
