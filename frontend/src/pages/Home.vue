@@ -430,18 +430,15 @@ onBeforeUnmount(() => {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 10px;
       height: 40px;
       border-radius: 5px;
       background-color: $graphite;
       box-shadow: 0 3px 5px rgba($black, 0.25);
       span {
-        height: 24px;
-        font-size: 22px;
+        margin-left: 10px;
+        height: 20px;
+        font-size: 18px;
         font-weight: bold;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
       }
       button {
         display: flex;
@@ -473,24 +470,23 @@ onBeforeUnmount(() => {
       flex-direction: column;
       margin: 0;
       padding: 10px;
-      gap: 5px;
+      gap: 10px;
       list-style: none;
       .item {
         display: flex;
         align-items: center;
         gap: 10px;
-        //padding: 10px;
-        padding: 100px;
+        padding: 10px;
         margin: 0;
         border: 1px solid transparent;
         border-radius: 5px;
         cursor: pointer;
         color: $fg;
-        background: transparent;
+        background: $graphite;
         transition: border-color 0.25s ease-in-out, background-color 0.25s ease-in-out;
         &.active {
-          border-color: $lead;
-          background-color: $graphite;
+          border-color: $grey;
+          background-color: $lead;
         }
         .item_main {
           display: flex;
@@ -528,6 +524,7 @@ onBeforeUnmount(() => {
   .right {
     display: flex;
     position: sticky;
+    top: 0;
     width: 400px;
     min-width: 400px;
     max-width: 400px;
@@ -552,9 +549,13 @@ onBeforeUnmount(() => {
         border-radius: 5px;
         background-color: $graphite;
         box-shadow: 0 3px 5px rgba($black, 0.25);
-        span {
-          font-size: 18px;
-          font-weight: bold;
+        .rooms-text {
+          display: flex;
+          span {
+            height: 20px;
+            font-size: 18px;
+            font-weight: bold;
+          }
         }
         button {
           display: flex;

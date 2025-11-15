@@ -126,7 +126,8 @@ onBeforeUnmount(() => { delete (window as any).__tg_cb__ })
   justify-content: space-between;
   padding: 0 10px;
   width: calc(100% - 20px);
-  height: 60px;
+  min-height: 60px;
+  max-height: 60px;
   .brand {
     display: flex;
     align-items: center;
@@ -184,6 +185,7 @@ onBeforeUnmount(() => { delete (window as any).__tg_cb__ })
       height: 40px;
       border-radius: 5px;
       background-color: $graphite;
+      text-decoration: none;
       img {
         width: 24px;
         height: 24px;
@@ -192,7 +194,6 @@ onBeforeUnmount(() => { delete (window as any).__tg_cb__ })
       }
       span {
         color: $fg;
-        text-decoration: none;
       }
     }
     .logout-btn {
