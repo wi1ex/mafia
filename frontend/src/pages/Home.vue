@@ -555,6 +555,8 @@ onBeforeUnmount(() => {
     .room-info {
       display: flex;
       flex-direction: column;
+      max-height: calc(100vh - 70px);
+      overflow: auto;
       header {
         display: flex;
         justify-content: space-between;
@@ -716,14 +718,16 @@ onBeforeUnmount(() => {
 
 .room-panel-enter-active,
 .room-panel-leave-active {
-  transition: transform 0.15s ease-in-out, opacity 0.15s ease-in-out;
+  transition: max-height 0.25s ease-in-out, transform 0.15s ease-in-out, opacity 0.15s ease-in-out;
 }
 .room-panel-enter-from,
 .room-panel-leave-to {
+  max-height: 400px;
   opacity: 0;
 }
 .room-panel-enter-to,
 .room-panel-leave-from {
+  max-height: calc(100vh - 70px);
   opacity: 1;
 }
 .room-info.room-panel-enter-from,
