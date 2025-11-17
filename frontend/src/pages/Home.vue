@@ -20,15 +20,15 @@
 
       <div v-else class="list" ref="listEl">
         <div class="list-header">
-          <span>ID</span>
+          <span>№</span>
           <span>Название</span>
           <span>Владелец</span>
-          <span>Лимит</span>
+          <span class="text-center">Лимит</span>
         </div>
 
         <ul class="list-body">
           <li class="item" v-for="r in sortedRooms" :key="r.id" :class="{ active: r.id === selectedId || r.id === pendingRoomId }" tabindex="0" @click="selectRoom(r.id)" >
-            <span>#{{ r.id }}</span>
+            <span>{{ r.id }}</span>
             <div class="cell-title" :title="r.title">
               <img :src="r.privacy === 'private' ? iconLockClose : iconLockOpen" alt="lock" />
               <span>{{ r.title }}</span>
@@ -37,7 +37,7 @@
               <img v-minio-img="{key: r.creator_avatar_name ? `avatars/${r.creator_avatar_name}` : '', placeholder: defaultAvatar, lazy: false}" alt="" />
               <span>{{ r.creator_name }}</span>
             </div>
-            <span>{{ r.occupancy }}/{{ r.user_limit }}</span>
+            <span class="text-center">{{ r.occupancy }}/{{ r.user_limit }}</span>
           </li>
         </ul>
       </div>
@@ -491,60 +491,49 @@ onBeforeUnmount(() => {
       padding: 20px 10px;
       color: $ashy;
     }
-
-
-
-
-
     .list {
       display: flex;
       flex-direction: column;
-      margin: 0;
       padding: 10px;
-      gap: 8px;
+      gap: 10px;
+      .text-center {
+        text-align: center;
+      }
       .list-header {
         display: grid;
-        grid-template-columns: 70px minmax(0, 2fr) 90px 120px minmax(0, 1.6fr);
-        padding: 6px 10px;
+        grid-template-columns: 10% 45% 30% 15%;
+        padding: 10px;
         border-radius: 5px;
-        background-color: $graphite;
+        background-color: $lead;
         box-shadow: 0 3px 5px rgba($black, 0.25);
-        font-size: 12px;
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-        color: $ashy;
         span {
-          display: flex;
-          align-items: center;
+          color: $fg;
+          letter-spacing: 2px;
         }
       }
       .list-body {
-        margin: 0;
-        padding: 0;
-        list-style: none;
         display: flex;
         flex-direction: column;
-        gap: 6px;
+        margin: 0;
+        padding: 0;
+        gap: 10px;
+        list-style: none;
         .item {
           display: grid;
-          grid-template-columns: 70px minmax(0, 2fr) 90px 120px minmax(0, 1.6fr);
+          grid-template-columns: 10% 45% 30% 15%;
           align-items: center;
-          padding: 8px 10px;
+          padding: 10px;
           border: 1px solid transparent;
           border-radius: 5px;
-          cursor: pointer;
-          color: $fg;
           background-color: $graphite;
+          cursor: pointer;
           transition: border-color 0.25s ease-in-out, background-color 0.25s ease-in-out;
           &.active {
             border-color: $grey;
             background-color: $lead;
           }
           span {
-            display: flex;
-            align-items: center;
-            min-width: 0;
-            font-weight: bold;
+            color: $ashy;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -556,18 +545,17 @@ onBeforeUnmount(() => {
             justify-content: flex-start;
             font-variant-numeric: tabular-nums;
             img {
-              width: 18px;
-              height: 18px;
+              width: 20px;
+              height: 20px;
             }
           }
           .cell-owner {
             display: flex;
             align-items: center;
-            min-width: 0;
-            gap: 6px;
+            gap: 5px;
             img {
-              width: 18px;
-              height: 18px;
+              width: 20px;
+              height: 20px;
               border-radius: 50%;
               object-fit: cover;
             }
@@ -576,11 +564,6 @@ onBeforeUnmount(() => {
       }
     }
   }
-
-
-
-
-
   .right {
     display: flex;
     position: sticky;
