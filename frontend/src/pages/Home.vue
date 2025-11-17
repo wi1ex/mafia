@@ -111,10 +111,10 @@
 <script setup lang="ts">
 import { onMounted, onBeforeUnmount, ref, computed, reactive, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { useAuthStore } from '@/store'
 import { Socket } from 'socket.io-client'
-import { api } from '@/services/axios'
 import { createPublicSocket } from '@/services/sio'
+import { api } from '@/services/axios'
+import { useAuthStore } from '@/store'
 import RoomModal from '@/components/RoomModal.vue'
 
 import defaultAvatar from "@/assets/svg/defaultAvatar.svg"
@@ -570,9 +570,13 @@ onBeforeUnmount(() => {
         background-color: $graphite;
         box-shadow: 0 3px 5px rgba($black, 0.25);
         span {
+          max-width: 550px;
           height: 20px;
           font-size: 18px;
           font-weight: bold;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
         button {
           display: flex;
@@ -756,4 +760,45 @@ onBeforeUnmount(() => {
 .room-info.room-panel-leave-from {
   transform: translateX(0);
 }
+
+@media (max-width: 1280px) {
+  .card {
+    grid-template-columns: minmax(0, 1fr) 300px;
+    .right {
+      width: 300px;
+      min-width: 300px;
+      max-width: 300px;
+      .room-info {
+        width: 300px;
+        header span {
+          max-width: 250px;
+        }
+        .ri-info {
+          flex-direction: column;
+          padding: 10px 10px 0 10px;
+          max-height: 370px;
+          overflow: auto;
+          scrollbar-width: none;
+          .ri-meta-game {
+            width: 100%;
+            .ri-meta .ri-meta-div .owner .owner-name {
+              max-width: 100px;
+            }
+          }
+          .ri-members {
+            width: calc(100% - 20px);
+            .ri-users .ri-user span {
+              max-width: 210px;
+            }
+          }
+        }
+        .ri-actions {
+          position: static;
+          margin-top: 10px;
+        }
+      }
+    }
+  }
+}
+
 </style>
