@@ -1071,6 +1071,7 @@ window.addEventListener('online',  () => { if (netReconnecting.value) hardReload
         font-size: 12px;
         font-family: Manrope-Medium;
         line-height: 1;
+        transition: background-color 0.25s ease-in-out;
         &.unread {
           background-color: $red;
         }

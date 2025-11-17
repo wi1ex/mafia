@@ -356,22 +356,25 @@ onBeforeUnmount(() => {
   flex-direction: column;
   padding: 10px;
   border-radius: 5px;
-  background-color: $graphite;
+  background-color: $dark;
   .btn {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 0 10px;
+    padding: 0 20px;
     height: 40px;
     border: none;
     border-radius: 5px;
     background-color: $fg;
+    font-size: 14px;
     color: $bg;
     font-family: Manrope-Medium;
     line-height: 1;
     text-decoration: none;
     cursor: pointer;
+    transition: opacity 0.25s ease-in-out, color 0.25s ease-in-out, border-radius 0.25s ease-in-out, background-color 0.25s ease-in-out;
     &.nav {
+      font-size: 16px;
       border-radius: 5px 5px 0 0;
     }
     &.grey {
@@ -394,7 +397,7 @@ onBeforeUnmount(() => {
   }
   header {
     display: flex;
-    align-items: center;
+    align-items: flex-end;
     justify-content: space-between;
     border-bottom: 3px solid $lead;
     .tabs {
@@ -413,7 +416,7 @@ onBeforeUnmount(() => {
         font-family: Manrope-Medium;
         line-height: 1;
         cursor: pointer;
-        transition: height 0.25s ease-in-out, background-color 0.25s ease-in-out;
+        transition: opacity 0.25s ease-in-out, height 0.25s ease-in-out, background-color 0.25s ease-in-out;
         &.active {
           height: 40px;
           background-color: $lead;
@@ -447,21 +450,21 @@ onBeforeUnmount(() => {
           img {
             width: 120px;
             height: 120px;
-            border-radius: 50%;
             object-fit: cover;
-            background-color: $black;
+            border-radius: 50%;
           }
           .actions {
             display: flex;
             flex-direction: column;
-            gap: 10px;
             align-items: flex-end;
+            gap: 10px;
           }
         }
         .nick-row {
           display: flex;
-          gap: 10px;
           align-items: center;
+          margin-bottom: 5px;
+          gap: 10px;
           .ui-input {
             flex: 1 1 auto;
             max-width: 320px;
