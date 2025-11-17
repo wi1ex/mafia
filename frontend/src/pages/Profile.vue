@@ -12,7 +12,7 @@
           История игр
         </button>
       </nav>
-      <router-link class="btn" :to="{ name: 'home' }" aria-label="На главную">На главную</router-link>
+      <router-link class="btn nav" :to="{ name: 'home' }" aria-label="На главную">На главную</router-link>
     </header>
 
     <Transition name="tab-fade" mode="out-in">
@@ -45,7 +45,7 @@
                   <span id="profile-nick-hint">{{ nick.length }}/{{ NICK_MAX }}</span>
                 </div>
               </div>
-              <button class="btn" @click="saveNick" :disabled="busyNick || nick === me.username || !validNick">
+              <button class="btn confirm" @click="saveNick" :disabled="busyNick || nick === me.username || !validNick">
                 {{ busyNick ? '...' : 'Сохранить' }}
               </button>
             </div>
@@ -66,7 +66,7 @@
               </div>
               <div class="modal-actions">
                 <button class="btn danger" @click="cancelCrop">Отменить</button>
-                <button class="btn" @click="applyCrop" :disabled="busyAva">Загрузить</button>
+                <button class="btn green" @click="applyCrop" :disabled="busyAva">Загрузить</button>
               </div>
             </div>
           </div>
@@ -352,22 +352,40 @@ onBeforeUnmount(() => {
 
 <style scoped lang="scss">
 .profile {
+  display: flex;
+  flex-direction: column;
   padding: 10px;
+  border-radius: 5px;
+  background-color: $graphite;
   .btn {
-    padding: 10px;
-    border-radius: 5px;
-    cursor: pointer;
-    background-color: $graphite;
-    color: $fg;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 10px;
+    height: 40px;
     border: none;
+    border-radius: 5px;
+    background-color: $fg;
+    color: $bg;
+    font-family: Manrope-Medium;
+    line-height: 1;
+    text-decoration: none;
+    cursor: pointer;
+    &.nav {
+      border-radius: 5px 5px 0 0;
+    }
+    &.grey {
+      background-color: $lead;
+      color: $fg;
+    }
+    &.confirm {
+      background-color: $green;
+    }
     &.primary {
       background-color: $blue;
-      border-color: $blue;
     }
     &.danger {
       background-color: $red;
-      border-color: $red;
-      color: $fg;
     }
     &:disabled {
       opacity: 0.5;
@@ -378,26 +396,26 @@ onBeforeUnmount(() => {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    border-bottom: 3px solid $lead;
     .tabs {
       display: flex;
       align-items: flex-end;
       width: 50%;
       height: 30px;
-      margin: 10px 0 15px;
       .tab {
-        flex: 1 1 0;
-        height: 25px;
+        width: 200px;
+        height: 30px;
         border: none;
         border-radius: 5px 5px 0 0;
         background-color: $graphite;
         color: $fg;
-        font-size: 16px;
+        font-size: 18px;
         font-family: Manrope-Medium;
         line-height: 1;
         cursor: pointer;
         transition: height 0.25s ease-in-out, background-color 0.25s ease-in-out;
         &.active {
-          height: 30px;
+          height: 40px;
           background-color: $lead;
         }
         &:disabled {
@@ -408,17 +426,18 @@ onBeforeUnmount(() => {
     }
   }
   .tab-panel {
-    margin-top: 5px;
+    margin-top: 10px;
     .grid {
       display: grid;
       gap: 10px;
       grid-template-columns: 1fr 1fr;
       .block {
-        border: 1px solid $lead;
+        border: 3px solid $lead;
         border-radius: 5px;
-        padding: 10px;
+        padding: 15px;
         h3 {
-          margin: 0 0 10px;
+          margin: 0 0 20px;
+          font-size: 20px;
           color: $fg;
         }
         .avatar-row {
@@ -655,7 +674,7 @@ onBeforeUnmount(() => {
 
 .tab-fade-enter-active,
 .tab-fade-leave-active {
-  transition: opacity 0.25s ease-in-out;
+  transition: opacity 0.15s ease-in-out;
 }
 .tab-fade-enter-from,
 .tab-fade-leave-to {
