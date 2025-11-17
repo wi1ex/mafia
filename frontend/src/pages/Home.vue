@@ -559,8 +559,8 @@ onBeforeUnmount(() => {
       display: flex;
       position: relative;
       flex-direction: column;
-      width: 600px;
-      height: 480px;
+      width: 100%;
+      height: 100%;
       header {
         display: flex;
         justify-content: space-between;
@@ -768,15 +768,17 @@ onBeforeUnmount(() => {
       width: 300px;
       min-width: 300px;
       max-width: 300px;
+      min-height: 270px;
+      height: 270px;
+      max-height: 270px;
       .room-info {
-        width: 300px;
         header span {
           max-width: 250px;
         }
         .ri-info {
           flex-direction: column;
           padding: 10px 10px 0 10px;
-          max-height: 370px;
+          max-height: 160px;
           overflow: auto;
           scrollbar-width: none;
           .ri-meta-game {
