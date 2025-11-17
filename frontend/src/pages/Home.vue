@@ -17,21 +17,30 @@
       </Transition>
 
       <div v-if="sortedRooms.length === 0" class="muted">Пока пусто</div>
-      <ul v-else class="list" ref="listEl">
-        <li class="item" v-for="r in sortedRooms" :key="r.id" :class="{ active: r.id === selectedId || r.id === pendingRoomId }" tabindex="0" @click="selectRoom(r.id)">
-          <div class="item_main">
-            <span class="item_title">#{{ r.id }}: {{ r.title }}</span>
-            <div class="item_meta">
-              <span>({{ r.occupancy }}/{{ r.user_limit }})</span>
-              <span class="badge" :data-kind="r.privacy === 'private' ? 'priv' : 'open'">
-                {{ r.privacy === 'private' ? 'Приватная' : 'Открытая' }}
-              </span>
-              <img v-minio-img="{ key: r.creator_avatar_name ? `avatars/${r.creator_avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="" />
-              <span>Владелец: {{ r.creator_name }}</span>
+
+      <div v-else class="list" ref="listEl">
+        <div class="list-header">
+          <span>ID</span>
+          <span>Название</span>
+          <span>Владелец</span>
+          <span>Лимит</span>
+        </div>
+
+        <ul class="list-body">
+          <li class="item" v-for="r in sortedRooms" :key="r.id" :class="{ active: r.id === selectedId || r.id === pendingRoomId }" tabindex="0" @click="selectRoom(r.id)" >
+            <span>#{{ r.id }}</span>
+            <div class="cell-title" :title="r.title">
+              <img :src="r.privacy === 'private' ? iconLockClose : iconLockOpen" alt="lock" />
+              <span>{{ r.title }}</span>
             </div>
-          </div>
-        </li>
-      </ul>
+            <div class="cell-owner">
+              <img v-minio-img="{key: r.creator_avatar_name ? `avatars/${r.creator_avatar_name}` : '', placeholder: defaultAvatar, lazy: false}" alt="" />
+              <span>{{ r.creator_name }}</span>
+            </div>
+            <span>{{ r.occupancy }}/{{ r.user_limit }}</span>
+          </li>
+        </ul>
+      </div>
     </div>
 
     <aside class="right" aria-live="polite" ref="rightEl" @pointerdown.self="selArmed = true"
@@ -119,6 +128,8 @@ import RoomModal from '@/components/RoomModal.vue'
 
 import defaultAvatar from "@/assets/svg/defaultAvatar.svg"
 import iconScreenOn from '@/assets/svg/screenOn.svg'
+import iconLockOpen from '@/assets/svg/lock_open.svg'
+import iconLockClose from '@/assets/svg/lock_close.svg'
 import iconClose from '@/assets/svg/close.svg'
 
 type Room = {
@@ -480,51 +491,80 @@ onBeforeUnmount(() => {
       padding: 20px 10px;
       color: $ashy;
     }
+
+
+
+
+
     .list {
       display: flex;
       flex-direction: column;
       margin: 0;
       padding: 10px;
-      gap: 10px;
-      list-style: none;
-      .item {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 10px;
-        margin: 0;
-        border: 1px solid transparent;
+      gap: 8px;
+      .list-header {
+        display: grid;
+        grid-template-columns: 70px minmax(0, 2fr) 90px 120px minmax(0, 1.6fr);
+        padding: 6px 10px;
         border-radius: 5px;
-        cursor: pointer;
-        color: $fg;
         background-color: $graphite;
-        transition: border-color 0.25s ease-in-out, background-color 0.25s ease-in-out;
-        &.active {
-          border-color: $grey;
-          background-color: $lead;
-        }
-        .item_main {
+        box-shadow: 0 3px 5px rgba($black, 0.25);
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: $ashy;
+        span {
           display: flex;
-          align-items: baseline;
-          .item_title {
-            font-weight: bold;
+          align-items: center;
+        }
+      }
+      .list-body {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        .item {
+          display: grid;
+          grid-template-columns: 70px minmax(0, 2fr) 90px 120px minmax(0, 1.6fr);
+          align-items: center;
+          padding: 8px 10px;
+          border: 1px solid transparent;
+          border-radius: 5px;
+          cursor: pointer;
+          color: $fg;
+          background-color: $graphite;
+          transition: border-color 0.25s ease-in-out, background-color 0.25s ease-in-out;
+          &.active {
+            border-color: $grey;
+            background-color: $lead;
           }
-          .item_meta {
+          span {
             display: flex;
             align-items: center;
-            gap: 5px;
-            .badge {
-              padding: 0 5px;
-              border-radius: 5px;
-              font-size: 12px;
-              background-color: $graphite;
-              &[data-kind="priv"] {
-                background-color: rgba(239, 68, 68, 0.25);
-              }
-              &[data-kind="open"] {
-                background-color: rgba(34, 197, 94, 0.25);
-              }
+            min-width: 0;
+            font-weight: bold;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+          .cell-title {
+            display: flex;
+            align-items: center;
+            min-width: 0;
+            justify-content: flex-start;
+            font-variant-numeric: tabular-nums;
+            img {
+              width: 18px;
+              height: 18px;
             }
+          }
+          .cell-owner {
+            display: flex;
+            align-items: center;
+            min-width: 0;
+            gap: 6px;
             img {
               width: 18px;
               height: 18px;
@@ -536,6 +576,11 @@ onBeforeUnmount(() => {
       }
     }
   }
+
+
+
+
+
   .right {
     display: flex;
     position: sticky;
@@ -768,9 +813,9 @@ onBeforeUnmount(() => {
       width: 300px;
       min-width: 300px;
       max-width: 300px;
-      min-height: 270px;
-      height: 270px;
-      max-height: 270px;
+      min-height: 240px;
+      height: 240px;
+      max-height: 240px;
       .room-info {
         header span {
           max-width: 250px;
@@ -778,7 +823,7 @@ onBeforeUnmount(() => {
         .ri-info {
           flex-direction: column;
           padding: 10px 10px 0 10px;
-          max-height: 160px;
+          max-height: 130px;
           overflow: auto;
           scrollbar-width: none;
           .ri-meta-game {
