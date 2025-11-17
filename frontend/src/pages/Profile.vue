@@ -1,5 +1,5 @@
 <template>
-  <section class="profile card">
+  <section class="profile">
     <div class="page-actions">
       <router-link class="btn" :to="{ name: 'home' }" aria-label="На главную">На главную</router-link>
     </div>
@@ -301,16 +301,14 @@ onBeforeUnmount(() => {
 
 <style scoped lang="scss">
 .profile {
-  &.card {
-    padding: 10px;
-  }
+  padding: 10px;
   .btn {
     padding: 10px;
     border-radius: 5px;
     cursor: pointer;
     background-color: $graphite;
     color: $fg;
-    border: 1px solid $lead;
+    border: none;
     &.primary {
       background-color: $blue;
       border-color: $blue;

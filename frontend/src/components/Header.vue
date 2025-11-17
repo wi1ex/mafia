@@ -1,33 +1,31 @@
 <template>
   <header class="bar">
-    <router-link class="profile-link" :to="{ name: 'home' }" aria-label="DECEIT.games">DECEIT.games (v{{ BUILD }})</router-link>
+    <router-link class="btn" :to="{ name: 'home' }" aria-label="DECEIT.games">DECEIT.games (v{{ BUILD }})</router-link>
 
     <div v-if="!auth.isAuthed && !auth.foreignActive">
       <div id="tg-login" />
     </div>
-    <div v-else-if="!auth.isAuthed && auth.foreignActive" class="placeholder">
+    <div v-else-if="!auth.isAuthed && auth.foreignActive" class="btn">
       <span>Вы уже авторизованы в соседней вкладке</span>
     </div>
-
     <div v-else class="user">
       <div class="bell" ref="bellEl">
         <button @click.stop="onToggleNotifs" :aria-expanded="nb_open" aria-label="Уведомления">
           <img :src="iconNotifBell" alt="bells" />
           <span v-if="notif.unread > 0">{{ notif.unread < 100 ? notif.unread : '∞' }}</span>
         </button>
-
         <Notifs
           v-model:open="nb_open"
           :anchor="bellEl"
         />
       </div>
 
-      <router-link to="/profile" class="profile-link" aria-label="Профиль">
+      <router-link to="/profile" class="btn" aria-label="Профиль">
         <img v-minio-img="{ key: user.user?.avatar_name ? `avatars/${user.user.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="Аватар" />
         <span aria-live="polite">{{ user.user?.username || 'User' }}</span>
       </router-link>
 
-      <button class="logout-btn" type="button" @click="logout">Выйти</button>
+      <button class="btn" type="button" @click="logout">Выйти</button>
     </div>
   </header>
 </template>
@@ -129,33 +127,28 @@ onBeforeUnmount(() => { delete (window as any).__tg_cb__ })
   min-height: 60px;
   height: 60px;
   max-height: 60px;
-  .profile-link {
+  .btn {
     display: flex;
     align-items: center;
     justify-content: center;
     padding: 0 10px;
     gap: 5px;
     height: 40px;
+    border: none;
     border-radius: 5px;
     background-color: $graphite;
+    color: $fg;
+    font-size: 16px;
+    font-family: Manrope-Medium;
+    line-height: 1;
     text-decoration: none;
+    cursor: pointer;
     img {
       width: 24px;
       height: 24px;
       border-radius: 50%;
       object-fit: cover;
     }
-    span {
-      color: $fg;
-    }
-  }
-  .placeholder {
-    display: flex;
-    align-items: center;
-    padding: 0 10px;
-    height: 40px;
-    border-radius: 5px;
-    background-color: $graphite;
   }
   .user {
     display: flex;
@@ -196,18 +189,6 @@ onBeforeUnmount(() => { delete (window as any).__tg_cb__ })
           line-height: 1;
         }
       }
-    }
-    .logout-btn {
-      padding: 0 10px;
-      height: 40px;
-      border-radius: 5px;
-      border: none;
-      background-color: $graphite;
-      color: $fg;
-      font-size: 16px;
-      font-family: Manrope-Medium;
-      line-height: 1;
-      cursor: pointer;
     }
   }
 }
