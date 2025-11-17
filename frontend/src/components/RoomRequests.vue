@@ -171,6 +171,7 @@ onBeforeUnmount(() => {
   max-height: 400px;
   border-radius: 5px;
   background-color: $dark;
+  box-shadow: 3px 3px 5px rgba($black, 0.25);
   z-index: 20;
   header {
     display: flex;

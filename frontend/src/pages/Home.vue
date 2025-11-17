@@ -29,13 +29,13 @@
         <ul class="list-body">
           <li class="item" v-for="r in sortedRooms" :key="r.id" :class="{ active: r.id === selectedId || r.id === pendingRoomId }" tabindex="0" @click="selectRoom(r.id)" >
             <span>{{ r.id }}</span>
-            <div class="cell-title" :title="r.title">
+            <div class="cell" :title="r.title">
               <img :src="r.privacy === 'private' ? iconLockClose : iconLockOpen" alt="lock" />
               <span>{{ r.title }}</span>
             </div>
-            <div class="cell-owner">
-              <img v-minio-img="{key: r.creator_avatar_name ? `avatars/${r.creator_avatar_name}` : '', placeholder: defaultAvatar, lazy: false}" alt="" />
-              <span>{{ r.creator_name }}</span>
+            <div class="cell">
+              <img class="user-avatar" v-minio-img="{key: r.creator_avatar_name ? `avatars/${r.creator_avatar_name}` : '', placeholder: defaultAvatar, lazy: false}" alt="" />
+              <span class="user-name">{{ r.creator_name }}</span>
             </div>
             <span class="text-center">{{ r.occupancy }}/{{ r.user_limit }}</span>
           </li>
@@ -460,6 +460,7 @@ onBeforeUnmount(() => {
         height: 40px;
         border-radius: 5px;
         background-color: $lead;
+        box-shadow: 3px 3px 5px rgba($black, 0.25);
         span {
           height: 20px;
           font-size: 18px;
@@ -505,7 +506,7 @@ onBeforeUnmount(() => {
         padding: 10px;
         border-radius: 5px;
         background-color: $lead;
-        box-shadow: 0 3px 5px rgba($black, 0.25);
+        box-shadow: 3px 3px 5px rgba($black, 0.25);
         span {
           color: $fg;
           letter-spacing: 2px;
@@ -526,6 +527,7 @@ onBeforeUnmount(() => {
           border: 1px solid transparent;
           border-radius: 5px;
           background-color: $graphite;
+          box-shadow: 3px 3px 5px rgba($black, 0.25);
           cursor: pointer;
           transition: border-color 0.25s ease-in-out, background-color 0.25s ease-in-out;
           &.active {
@@ -538,26 +540,20 @@ onBeforeUnmount(() => {
             overflow: hidden;
             text-overflow: ellipsis;
           }
-          .cell-title {
-            display: flex;
-            align-items: center;
-            min-width: 0;
-            justify-content: flex-start;
-            font-variant-numeric: tabular-nums;
-            img {
-              width: 20px;
-              height: 20px;
-            }
-          }
-          .cell-owner {
+          .cell {
             display: flex;
             align-items: center;
             gap: 5px;
             img {
               width: 20px;
               height: 20px;
+            }
+            .user-avatar {
               border-radius: 50%;
               object-fit: cover;
+            }
+            .user-name {
+              height: 18px;
             }
           }
         }

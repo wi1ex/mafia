@@ -53,6 +53,7 @@
 import { computed, nextTick, onMounted, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { api, refreshAccessTokenFull } from '@/services/axios'
 import { useUserStore } from '@/store'
+
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
 
 const userStore = useUserStore()
@@ -307,9 +308,9 @@ onBeforeUnmount(() => {
     padding: 10px;
     border-radius: 5px;
     cursor: pointer;
-    background-color: $green;
-    color: $bg;
-    border: 1px solid $green;
+    background-color: $graphite;
+    color: $fg;
+    border: 1px solid $lead;
     &.primary {
       background-color: $blue;
       border-color: $blue;

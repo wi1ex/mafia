@@ -997,6 +997,7 @@ window.addEventListener('online',  () => { if (netReconnecting.value) hardReload
         border-radius: 5px;
         background-color: rgba($dark, 0.75);
         backdrop-filter: blur(5px);
+        box-shadow: 3px 3px 5px rgba($black, 0.25);
         -webkit-overflow-scrolling: touch;
         img {
           width: 20px;

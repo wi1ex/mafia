@@ -1,11 +1,11 @@
 <template>
   <header class="bar">
-    <div class="brand" aria-label="Mafia">DECEIT.games (v{{ BUILD }})</div>
+    <router-link class="profile-link" :to="{ name: 'home' }" aria-label="DECEIT.games">DECEIT.games (v{{ BUILD }})</router-link>
 
     <div v-if="!auth.isAuthed && !auth.foreignActive">
       <div id="tg-login" />
     </div>
-    <div v-else-if="!auth.isAuthed && auth.foreignActive" class="brand">
+    <div v-else-if="!auth.isAuthed && auth.foreignActive" class="placeholder">
       <span>Вы уже авторизованы в соседней вкладке</span>
     </div>
 
@@ -127,8 +127,29 @@ onBeforeUnmount(() => { delete (window as any).__tg_cb__ })
   padding: 0 10px;
   width: calc(100% - 20px);
   min-height: 60px;
+  height: 60px;
   max-height: 60px;
-  .brand {
+  .profile-link {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 10px;
+    gap: 5px;
+    height: 40px;
+    border-radius: 5px;
+    background-color: $graphite;
+    text-decoration: none;
+    img {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      object-fit: cover;
+    }
+    span {
+      color: $fg;
+    }
+  }
+  .placeholder {
     display: flex;
     align-items: center;
     padding: 0 10px;
@@ -174,26 +195,6 @@ onBeforeUnmount(() => { delete (window as any).__tg_cb__ })
           font-family: Manrope-Medium;
           line-height: 1;
         }
-      }
-    }
-    .profile-link {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0 10px;
-      gap: 5px;
-      height: 40px;
-      border-radius: 5px;
-      background-color: $graphite;
-      text-decoration: none;
-      img {
-        width: 24px;
-        height: 24px;
-        border-radius: 50%;
-        object-fit: cover;
-      }
-      span {
-        color: $fg;
       }
     }
     .logout-btn {

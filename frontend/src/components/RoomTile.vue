@@ -142,6 +142,7 @@ onUpdated(() => setClosedWidth())
     border-radius: 5px;
     backdrop-filter: blur(5px);
     background-color: rgba($dark, 0.75);
+    box-shadow: 3px 3px 5px rgba($black, 0.25);
     z-index: 3;
     img {
       width: 20px;
@@ -175,6 +176,7 @@ onUpdated(() => setClosedWidth())
     border-radius: 5px;
     backdrop-filter: blur(5px);
     background-color: rgba($dark, 0.75);
+    box-shadow: 3px 3px 5px rgba($black, 0.25);
     z-index: 5;
     transition: inline-size 0.25s ease-out, block-size 0.25s ease-out;
     &[data-open="1"] {
@@ -248,6 +250,7 @@ onUpdated(() => setClosedWidth())
         height: 20px;
         border-radius: 5px;
         background-color: $graphite;
+        box-shadow: 3px 3px 5px rgba($black, 0.25);
         -webkit-overflow-scrolling: touch;
         img {
           width: 20px;
@@ -278,6 +281,7 @@ onUpdated(() => setClosedWidth())
           border: none;
           border-radius: 5px;
           background-color: $graphite;
+          box-shadow: 3px 3px 5px rgba($black, 0.25);
           cursor: pointer;
           &.red-button {
             background-color: $red;

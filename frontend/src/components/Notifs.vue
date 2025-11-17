@@ -190,6 +190,7 @@ onBeforeUnmount(() => {
   max-height: 400px;
   border-radius: 5px;
   background-color: $graphite;
+  box-shadow: 3px 3px 5px rgba($black, 0.25);
   z-index: 100;
   header {
     display: flex;

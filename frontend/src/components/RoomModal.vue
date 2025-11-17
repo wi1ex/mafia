@@ -432,9 +432,10 @@ onBeforeUnmount(() => {
         padding: 15px 10px;
         gap: 15px;
         .ui-input {
-          position: relative;
           display: block;
+          position: relative;
           width: 100%;
+          box-shadow: 3px 3px 5px rgba($black, 0.25);
           input {
             width: calc(100% - 22px);
             padding: 20px 10px 5px;
@@ -521,6 +522,7 @@ onBeforeUnmount(() => {
           .range-wrap {
             position: relative;
             height: 20px;
+            box-shadow: 3px 3px 5px rgba($black, 0.25);
             .range-dead {
               position: absolute;
               left: 0;
@@ -614,6 +616,7 @@ onBeforeUnmount(() => {
             position: relative;
             width: 170px;
             height: 25px;
+            box-shadow: 3px 3px 5px rgba($black, 0.25);
             input {
               position: absolute;
               opacity: 0;

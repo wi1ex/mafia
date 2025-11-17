@@ -214,6 +214,7 @@ onBeforeUnmount(() => {
   width: 400px;
   border-radius: 5px;
   background-color: $dark;
+  box-shadow: 3px 3px 5px rgba($black, 0.25);
   z-index: 20;
   header {
     display: flex;
@@ -263,6 +264,7 @@ onBeforeUnmount(() => {
           position: relative;
           width: 120px;
           height: 25px;
+          box-shadow: 3px 3px 5px rgba($black, 0.25);
           input {
             position: absolute;
             opacity: 0;
@@ -315,6 +317,7 @@ onBeforeUnmount(() => {
       .ui-select {
         position: relative;
         width: 100%;
+        box-shadow: 3px 3px 5px rgba($black, 0.25);
         button {
           display: flex;
           align-items: center;
