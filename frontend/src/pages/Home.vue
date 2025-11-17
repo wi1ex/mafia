@@ -53,7 +53,7 @@
                   <span>Владелец</span>
                   <div class="owner">
                     <img v-minio-img="{ key: selectedRoom && selectedRoom.creator_avatar_name ? `avatars/${selectedRoom.creator_avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="" />
-                    <span>{{ selectedRoom?.creator_name }}</span>
+                    <span class="owner-name">{{ selectedRoom?.creator_name }}</span>
                   </div>
                 </div>
                 <div class="ri-meta-div">
@@ -543,9 +543,9 @@ onBeforeUnmount(() => {
     width: 600px;
     min-width: 600px;
     max-width: 600px;
-    min-height: 600px;
-    height: 600px;
-    max-height: 600px;
+    min-height: 480px;
+    height: 480px;
+    max-height: 480px;
     flex-direction: column;
     border-radius: 5px;
     background-color: $dark;
@@ -557,7 +557,10 @@ onBeforeUnmount(() => {
     }
     .room-info {
       display: flex;
+      position: relative;
       flex-direction: column;
+      width: 600px;
+      height: 480px;
       header {
         display: flex;
         justify-content: space-between;
@@ -589,11 +592,13 @@ onBeforeUnmount(() => {
       }
       .ri-info {
         display: flex;
-        flex-direction: column;
         padding: 10px;
         gap: 10px;
         .ri-meta-game {
           display: flex;
+          flex-direction: column;
+          gap: 10px;
+          width: calc(60% - 15px);
           .ri-meta {
             display: flex;
             flex-direction: column;
@@ -620,6 +625,12 @@ onBeforeUnmount(() => {
                   height: 20px;
                   border-radius: 50%;
                   object-fit: cover;
+                }
+                .owner-name {
+                  max-width: 130px;
+                  white-space: nowrap;
+                  overflow: hidden;
+                  text-overflow: ellipsis;
                 }
               }
             }
@@ -649,6 +660,7 @@ onBeforeUnmount(() => {
           flex-direction: column;
           padding: 10px;
           gap: 5px;
+          width: calc(40% - 15px);
           border-radius: 5px;
           background-color: $graphite;
           box-shadow: 3px 3px 5px rgba($black, 0.25);
@@ -663,9 +675,7 @@ onBeforeUnmount(() => {
             margin: 0;
             padding: 0;
             gap: 5px;
-            max-height: 420px;
             list-style: none;
-            overflow: auto;
             .ri-user {
               display: flex;
               align-items: center;
@@ -679,22 +689,28 @@ onBeforeUnmount(() => {
                 object-fit: cover;
               }
               span {
+                max-width: 167px;
                 height: 16px;
                 font-size: 14px;
                 color: $ashy;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
               }
             }
           }
         }
         .header-text {
-          margin-bottom: 5px;
+          margin-bottom: 10px;
         }
       }
       .ri-actions {
         display: flex;
+        position: absolute;
         align-items: center;
         justify-content: center;
-        margin-top: 5px;
+        bottom: 20px;
+        width: 100%;
         button {
           display: flex;
           align-items: center;
