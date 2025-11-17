@@ -1,8 +1,6 @@
 <template>
   <section class="profile">
-    <div class="page-actions">
-      <router-link class="btn" :to="{ name: 'home' }" aria-label="На главную">На главную</router-link>
-    </div>
+    <router-link class="btn" :to="{ name: 'home' }" aria-label="На главную">На главную</router-link>
 
     <nav class="tabs" aria-label="Профиль">
       <button class="tab active" aria-selected="true">Личные данные</button>
@@ -12,33 +10,51 @@
 
     <div class="grid">
       <div class="block">
-        <h3 class="title">Аватар</h3>
+        <h3>Аватар</h3>
         <div class="avatar-row">
-          <img class="avatar" v-minio-img="{ key: me.avatar_name ? `avatars/${me.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="Текущий аватар" />
+          <img v-minio-img="{ key: me.avatar_name ? `avatars/${me.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="Текущий аватар" />
           <div class="actions">
             <input ref="fileEl" type="file" accept="image/jpeg,image/png" @change="onPick" hidden />
             <button class="btn primary" @click="fileEl?.click()" :disabled="busyAva">Изменить аватар</button>
             <button class="btn danger" v-if="me.avatar_name" @click="onDeleteAvatar" :disabled="busyAva">Удалить</button>
-            <div class="hint">JPG/PNG, до 5 МБ</div>
+            <span class="hint">JPG/PNG, до 5 МБ</span>
           </div>
         </div>
       </div>
 
       <div class="block">
-        <h3 class="title">Никнейм</h3>
+        <h3>Никнейм</h3>
         <div class="nick-row">
-          <input class="input" v-model.trim="nick" maxlength="20" :disabled="busyNick" placeholder="Никнейм" autocomplete="off" inputmode="text" />
-          <button class="btn" @click="saveNick" :disabled="busyNick || nick === me.username || !validNick">{{ busyNick ? '...' : 'Сохранить' }}</button>
+          <div class="ui-input" :class="{ filled: !!nick, invalid: nick && !validNick }">
+            <input id="profile-nick" v-model.trim="nick" :maxlength="NICK_MAX" :disabled="busyNick" placeholder=" "
+                   autocomplete="off" inputmode="text" :aria-invalid="nick && !validNick" aria-describedby="profile-nick-hint" />
+            <label for="profile-nick">Никнейм</label>
+            <div class="underline">
+              <span :style="nickUnderlineStyle"></span>
+            </div>
+            <div class="meta">
+              <span id="profile-nick-hint">{{ nick.length }}/{{ NICK_MAX }}</span>
+            </div>
+          </div>
+          <button class="btn" @click="saveNick" :disabled="busyNick || nick === me.username || !validNick">
+            {{ busyNick ? '...' : 'Сохранить' }}
+          </button>
         </div>
-        <div class="hint">
-          2–20 символов: латиница, кириллица, цифры, символы <code>( . _ - )</code>.
-        </div>
+        <span class="hint">
+          2–{{ NICK_MAX }} символов: латиница, кириллица, цифры, символы <code>()._-</code>
+        </span>
       </div>
 
       <div v-if="crop.show" ref="modalEl" class="modal" @keydown.esc="cancelCrop" tabindex="0" aria-modal="true" aria-label="Кадрирование аватара" >
         <div class="modal-body">
           <canvas ref="canvasEl" @mousedown="dragStart" @mousemove="dragMove" @mouseup="dragStop" @mouseleave="dragStop" @wheel.passive="onWheel" />
-          <input class="range" type="range" aria-label="Масштаб" :min="crop.min" :max="crop.max" step="0.01" :value="crop.scale" @input="onRange" />
+          <div class="range range--avatar">
+            <span>Масштаб</span>
+            <div class="range-wrap">
+              <div class="range-track" :style="cropRangeFillStyle" aria-hidden="true"></div>
+              <input class="range-native" type="range" aria-label="Масштаб" :min="crop.min" :max="crop.max" step="0.01" :value="crop.scale" @input="onRange" />
+            </div>
+          </div>
           <div class="modal-actions">
             <button class="btn danger" @click="cancelCrop">Отменить</button>
             <button class="btn" @click="applyCrop" :disabled="busyAva">Загрузить</button>
@@ -63,7 +79,17 @@ const modalEl = ref<HTMLDivElement | null>(null)
 
 const nick = ref('')
 const busyNick = ref(false)
-const validNick = computed(() => /^[a-zA-Zа-яА-Я0-9._\-()]{2,20}$/.test(nick.value) && !/^user/i.test(nick.value))
+const validNick = computed(() =>
+  new RegExp(`^[a-zA-Zа-яА-Я0-9._\\-()]{2,${NICK_MAX}}$`).test(nick.value) &&
+  !/^user/i.test(nick.value)
+)
+
+const NICK_MAX = 20
+const nickPct = computed(() => {
+  const used = Math.min(NICK_MAX, Math.max(0, nick.value.length))
+  return (used / NICK_MAX) * 100
+})
+const nickUnderlineStyle = computed(() => ({ width: `${nickPct.value}%` }))
 
 async function loadMe() {
   const { data } = await api.get('/users/profile_info')
@@ -115,6 +141,16 @@ function clamp(v:number, lo:number, hi:number) { return Math.min(hi, Math.max(lo
 function fitContain(imgW: number, imgH: number, boxW: number, boxH: number) {
   return Math.min(boxW / imgW, boxH / imgH)
 }
+
+const cropRangePct = computed(() => {
+  if (crop.max === crop.min) return 0
+  const p = ((crop.scale - crop.min) * 100) / (crop.max - crop.min)
+  return Math.max(0, Math.min(100, p))
+})
+
+const cropRangeFillStyle = computed<Record<string, string>>(() => ({
+  '--fill': `${cropRangePct.value}%`,
+}))
 
 function scaleTo(next: number) {
   if (!crop.img || !canvasEl.value) return
@@ -278,15 +314,12 @@ async function onDeleteAvatar() {
   } catch { alert('Не удалось удалить аватар') } finally { busyAva.value = false }
 }
 
-function sanitizeUsername(s: string, max = 20): string {
-  return (s ?? "")
-    .normalize("NFKC")
-    .trim()
-    .slice(0, max)
+function sanitizeUsername(s: string, max = NICK_MAX): string {
+  return (s ?? "").normalize("NFKC").trim().slice(0, max)
 }
 
 watch(nick, (v) => {
-  const clean = sanitizeUsername(v, 20)
+  const clean = sanitizeUsername(v, NICK_MAX)
   if (v !== clean) nick.value = clean
 })
 
@@ -323,35 +356,30 @@ onBeforeUnmount(() => {
       cursor: not-allowed;
     }
   }
-  .hint {
-    margin-top: 5px;
-    color: $grey;
-    font-size: 12px;
-  }
-  .page-actions {
-    display: flex;
-    justify-content: flex-start;
-    margin-bottom: 25px;
-    .btn {
-      text-decoration: none;
-    }
-  }
   .tabs {
     display: flex;
-    gap: 10px;
-    margin-bottom: 10px;
+    align-items: flex-end;
+    width: 100%;
+    height: 30px;
+    margin: 10px 0 15px;
     .tab {
-      padding: 10px;
-      border-radius: 5px;
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      background-color: $bg;
+      flex: 1 1 0;
+      height: 25px;
+      border: none;
+      border-radius: 5px 5px 0 0;
+      background-color: $graphite;
       color: $fg;
+      font-size: 16px;
+      font-family: Manrope-Medium;
+      line-height: 1;
+      cursor: pointer;
+      transition: height 0.25s ease-in-out, background-color 0.25s ease-in-out;
       &.active {
-        border-color: $blue;
-        background-color: rgba(14, 165, 233, 0.07);
+        height: 30px;
+        background-color: $lead;
       }
       &:disabled {
-        opacity: 0.6;
+        opacity: 0.5;
         cursor: not-allowed;
       }
     }
@@ -360,79 +388,237 @@ onBeforeUnmount(() => {
     display: grid;
     gap: 10px;
     grid-template-columns: 1fr 1fr;
-  }
-  .block {
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 5px;
-    padding: 10px;
-    .title {
-      margin: 0 0 10px;
-      color: $fg;
-    }
-    .avatar-row {
-      display: flex;
-      gap: 10px;
-      align-items: center;
-      .avatar {
-        width: 120px;
-        height: 120px;
-        border-radius: 50%;
-        object-fit: cover;
-        background-color: $black;
+    .block {
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 5px;
+      padding: 10px;
+      h3 {
+        margin: 0 0 10px;
+        color: $fg;
       }
-      .actions {
+      .avatar-row {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        img {
+          width: 120px;
+          height: 120px;
+          border-radius: 50%;
+          object-fit: cover;
+          background-color: $black;
+        }
+        .actions {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          align-items: flex-end;
+        }
+      }
+      .nick-row {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        .ui-input {
+          flex: 1 1 auto;
+          max-width: 320px;
+          display: block;
+          position: relative;
+          width: 100%;
+          box-shadow: 3px 3px 5px rgba($black, 0.25);
+          input {
+            width: calc(100% - 22px);
+            padding: 20px 10px 5px;
+            border: 1px solid $lead;
+            border-radius: 5px 5px 0 0;
+            background-color: $graphite;
+            color: $fg;
+            font-size: 16px;
+            font-family: Manrope-Medium;
+            line-height: 1;
+            outline: none;
+            transition: border-color 0.25s ease-in-out, background-color 0.25s ease-in-out;
+          }
+          input::placeholder {
+            color: transparent;
+          }
+          label {
+            position: absolute;
+            top: 50%;
+            left: 12px;
+            color: $fg;
+            transform: translateY(-50%);
+            pointer-events: none;
+            transition: all 0.25s ease-in-out;
+          }
+          .underline {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: -3px;
+            height: 3px;
+            border-radius: 0 0 3px 3px;
+            overflow: hidden;
+            span {
+              position: absolute;
+              left: 0;
+              bottom: 0;
+              height: 3px;
+              width: 0;
+              background-color: $fg;
+              transition: width 0.25s ease-in-out;
+            }
+          }
+          .underline::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background-color: $lead;
+            transition: background-color 0.25s ease-in-out;
+          }
+          .meta {
+            position: absolute;
+            top: 5px;
+            right: 10px;
+            pointer-events: none;
+            span {
+              font-size: 12px;
+              color: $grey;
+            }
+          }
+          &.invalid input {
+            border-color: rgba($red, 0.75);
+          }
+          &.invalid label {
+            color: $red;
+          }
+          &.invalid .underline::before {
+            background-color: rgba($red, 0.75);
+          }
+        }
+        .ui-input:focus-within label,
+        .ui-input input:not(:placeholder-shown) + label,
+        .ui-input.filled label {
+          top: 5px;
+          left: 10px;
+          transform: none;
+          font-size: 12px;
+          color: $grey;
+        }
+      }
+      .hint {
+        margin-top: 5px;
+        color: $grey;
+        font-size: 12px;
+      }
+    }
+    .modal {
+      position: fixed;
+      inset: 0;
+      background-color: rgba($black, 0.75);
+      backdrop-filter: blur(5px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 50;
+      overscroll-behavior: contain;
+      .modal-body {
+        background-color: $bg;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 5px;
+        padding: 15px;
         display: flex;
         flex-direction: column;
         gap: 10px;
-        align-items: flex-end;
-      }
-    }
-    .nick-row {
-      display: flex;
-      gap: 10px;
-      align-items: center;
-      .input {
-        padding: 10px;
-        border-radius: 5px;
-        border: 1px solid $fg;
-        color: $fg;
-        background-color: $bg;
-        min-width: 240px;
-      }
-    }
-  }
-  .modal {
-    position: fixed;
-    inset: 0;
-    background-color: rgba($black, 0.75);
-    backdrop-filter: blur(5px);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 50;
-    overscroll-behavior: contain;
-    .modal-body {
-      background-color: $bg;
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      border-radius: 5px;
-      padding: 15px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      canvas {
-        background-color: $black;
-        border-radius: 5px;
-        width: 240px;
-        height: 240px;
-      }
-      .range {
-        width: 100%;
-        accent-color: $fg;
-      }
-      .modal-actions {
-        display: flex;
-        gap: 10px;
-        justify-content: space-between;
+        canvas {
+          background-color: $black;
+          border-radius: 5px;
+          width: 240px;
+          height: 240px;
+        }
+        .range {
+          display: flex;
+          flex-direction: column;
+          gap: 5px;
+          .range-wrap {
+            position: relative;
+            height: 20px;
+            box-shadow: 3px 3px 5px rgba($black, 0.25);
+            .range-track {
+              position: absolute;
+              inset: 0;
+              border-radius: 5px;
+              border: 1px solid $lead;
+              background-color: $graphite;
+              overflow: hidden;
+            }
+            .range-track::after {
+              content: "";
+              position: absolute;
+              inset: 0 auto 0 0;
+              width: var(--fill);
+              background-color: $fg;
+              border-radius: inherit;
+              transition: width 0.25s ease-in-out;
+              will-change: width;
+            }
+            .range-native {
+              position: absolute;
+              inset: 0;
+              width: 100%;
+              height: 100%;
+              margin: 0;
+              padding: 0;
+              background: none;
+              cursor: pointer;
+              z-index: 2;
+              -webkit-appearance: none;
+              appearance: none;
+            }
+            .range-native::-webkit-slider-runnable-track {
+              background: transparent;
+              height: 100%;
+            }
+            .range-native::-moz-range-track {
+              background: transparent;
+              height: 100%;
+            }
+            .range-native::-ms-track {
+              background: transparent;
+              color: transparent;
+              border: none;
+              height: 100%;
+            }
+            .range-native::-webkit-slider-thumb {
+              -webkit-appearance: none;
+              appearance: none;
+              width: 1px;
+              height: 100%;
+              background: transparent;
+              border: none;
+            }
+            .range-native::-moz-range-thumb {
+              width: 1px;
+              height: 100%;
+              background: transparent;
+              border: none;
+            }
+            .range-native:focus-visible {
+              outline: 2px solid $lead;
+              outline-offset: 2px;
+            }
+            .range-native:disabled {
+              cursor: not-allowed;
+            }
+          }
+        }
+        .range.range--avatar {
+          margin-top: 5px;
+        }
+        .modal-actions {
+          display: flex;
+          gap: 10px;
+          justify-content: space-between;
+        }
       }
     }
   }
