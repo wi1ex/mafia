@@ -46,36 +46,38 @@
           </header>
 
           <div class="ri-info">
-            <div class="ri-meta">
-              <span class="header-text">Параметры комнаты:</span>
-              <div class="ri-meta-div">
-                <span>Владелец</span>
-                <div class="owner">
-                  <img v-minio-img="{ key: selectedRoom && selectedRoom.creator_avatar_name ? `avatars/${selectedRoom.creator_avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="" />
-                  <span>{{ selectedRoom?.creator_name }}</span>
+            <div class="ri-meta-game">
+              <div class="ri-meta">
+                <span class="header-text">Параметры комнаты:</span>
+                <div class="ri-meta-div">
+                  <span>Владелец</span>
+                  <div class="owner">
+                    <img v-minio-img="{ key: selectedRoom && selectedRoom.creator_avatar_name ? `avatars/${selectedRoom.creator_avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="" />
+                    <span>{{ selectedRoom?.creator_name }}</span>
+                  </div>
+                </div>
+                <div class="ri-meta-div">
+                  <span>Приватность</span>
+                  <span>{{ isOpen ? 'Открытая' : 'Закрытая' }}</span>
                 </div>
               </div>
-              <div class="ri-meta-div">
-                <span>Приватность</span>
-                <span>{{ isOpen ? 'Открытая' : 'Закрытая' }}</span>
-              </div>
-            </div>
 
-            <div class="ri-game" v-if="game">
-              <span class="header-text">Параметры игры:</span>
-              <div class="ri-game-div">
-                <span>Режим</span>
-                <span>{{ game.mode === 'normal' ? 'Обычный' : 'Рейтинг' }}</span>
+              <div class="ri-game" v-if="game">
+                <span class="header-text">Параметры игры:</span>
+                <div class="ri-game-div">
+                  <span>Режим</span>
+                  <span>{{ game.mode === 'normal' ? 'Обычный' : 'Рейтинг' }}</span>
+                </div>
+                <div class="ri-game-div">
+                  <span>Формат</span>
+                  <span>{{ game.format === 'hosted' ? 'С ведущим' : 'Без ведущего' }}</span>
+                </div>
+                <div class="ri-game-div">
+                  <span>Лимит зрителей</span>
+                  <span>{{ game.spectators_limit }}</span>
+                </div>
+      <!--          <span>{{ gameOptions }}</span>-->
               </div>
-              <div class="ri-game-div">
-                <span>Формат</span>
-                <span>{{ game.format === 'hosted' ? 'С ведущим' : 'Без ведущего' }}</span>
-              </div>
-              <div class="ri-game-div">
-                <span>Лимит зрителей</span>
-                <span>{{ game.spectators_limit }}</span>
-              </div>
-    <!--          <span>{{ gameOptions }}</span>-->
             </div>
 
             <div class="ri-members">
@@ -89,14 +91,14 @@
                 </li>
               </ul>
             </div>
+          </div>
 
-            <div class="ri-actions">
-              <button v-if="ctaState==='enter'" :disabled="entering" @click="onEnter">{{ enterLabel }}</button>
-              <button v-else-if="ctaState==='full'" disabled>Комната заполнена</button>
-              <button v-else-if="ctaState==='apply'" @click="onApply">Подать заявку</button>
-              <button v-else-if="ctaState==='pending'" disabled>Заявка отправлена</button>
-              <button v-else disabled>Авторизуйтесь, чтобы войти</button>
-            </div>
+          <div class="ri-actions">
+            <button v-if="ctaState==='enter'" :disabled="entering" @click="onEnter">{{ enterLabel }}</button>
+            <button v-else-if="ctaState==='full'" disabled>Комната заполнена</button>
+            <button v-else-if="ctaState==='apply'" @click="onApply">Подать заявку</button>
+            <button v-else-if="ctaState==='pending'" disabled>Заявка отправлена</button>
+            <button v-else disabled>Авторизуйтесь, чтобы войти</button>
           </div>
         </div>
 
@@ -420,7 +422,7 @@ onBeforeUnmount(() => {
 <style scoped lang="scss">
 .card {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 400px;
+  grid-template-columns: minmax(0, 1fr) 600px;
   align-items: flex-start;
   padding: 0 10px;
   gap: 10px;
@@ -538,11 +540,12 @@ onBeforeUnmount(() => {
     display: flex;
     position: sticky;
     top: 0;
-    width: 400px;
-    min-width: 400px;
-    max-width: 400px;
-    min-height: 400px;
-    max-height: calc(100vh - 70px);
+    width: 600px;
+    min-width: 600px;
+    max-width: 600px;
+    min-height: 600px;
+    height: 600px;
+    max-height: 600px;
     flex-direction: column;
     border-radius: 5px;
     background-color: $dark;
@@ -589,55 +592,55 @@ onBeforeUnmount(() => {
         flex-direction: column;
         padding: 10px;
         gap: 10px;
-        .header-text {
-          margin-bottom: 5px;
-        }
-        .ri-meta {
+        .ri-meta-game {
           display: flex;
-          flex-direction: column;
-          padding: 10px;
-          gap: 5px;
-          border-radius: 5px;
-          background-color: $graphite;
-          box-shadow: 3px 3px 5px rgba($black, 0.25);
-          .ri-meta-div {
+          .ri-meta {
             display: flex;
-            align-items: center;
-            justify-content: space-between;
-            span {
-              height: 16px;
-              font-size: 14px;
-              color: $ashy;
-            }
-            .owner {
-              display: inline-flex;
+            flex-direction: column;
+            padding: 10px;
+            gap: 5px;
+            border-radius: 5px;
+            background-color: $graphite;
+            box-shadow: 3px 3px 5px rgba($black, 0.25);
+            .ri-meta-div {
+              display: flex;
               align-items: center;
-              gap: 5px;
-              img {
-                width: 20px;
-                height: 20px;
-                border-radius: 50%;
-                object-fit: cover;
+              justify-content: space-between;
+              span {
+                height: 16px;
+                font-size: 14px;
+                color: $ashy;
+              }
+              .owner {
+                display: inline-flex;
+                align-items: center;
+                gap: 5px;
+                img {
+                  width: 20px;
+                  height: 20px;
+                  border-radius: 50%;
+                  object-fit: cover;
+                }
               }
             }
           }
-        }
-        .ri-game {
-          display: flex;
-          flex-direction: column;
-          padding: 10px;
-          gap: 5px;
-          border-radius: 5px;
-          background-color: $graphite;
-          box-shadow: 3px 3px 5px rgba($black, 0.25);
-          .ri-game-div {
+          .ri-game {
             display: flex;
-            align-items: center;
-            justify-content: space-between;
-            span {
-              height: 16px;
-              font-size: 14px;
-              color: $ashy;
+            flex-direction: column;
+            padding: 10px;
+            gap: 5px;
+            border-radius: 5px;
+            background-color: $graphite;
+            box-shadow: 3px 3px 5px rgba($black, 0.25);
+            .ri-game-div {
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              span {
+                height: 16px;
+                font-size: 14px;
+                color: $ashy;
+              }
             }
           }
         }
@@ -683,30 +686,33 @@ onBeforeUnmount(() => {
             }
           }
         }
-        .ri-actions {
+        .header-text {
+          margin-bottom: 5px;
+        }
+      }
+      .ri-actions {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-top: 5px;
+        button {
           display: flex;
           align-items: center;
           justify-content: center;
-          margin-top: 5px;
-          button {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 0 20px;
-            height: 40px;
-            border: none;
-            border-radius: 5px;
-            background-color: $fg;
-            color: $bg;
-            font-size: 16px;
-            font-family: Manrope-Medium;
-            line-height: 1;
-            cursor: pointer;
-            transition: opacity 0.25s ease-in-out;
-            &:disabled {
-              opacity: 0.5;
-              cursor: not-allowed;
-            }
+          padding: 0 20px;
+          height: 40px;
+          border: none;
+          border-radius: 5px;
+          background-color: $fg;
+          color: $bg;
+          font-size: 16px;
+          font-family: Manrope-Medium;
+          line-height: 1;
+          cursor: pointer;
+          transition: opacity 0.25s ease-in-out;
+          &:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
           }
         }
       }
