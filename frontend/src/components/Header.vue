@@ -29,10 +29,11 @@
 
         <Transition name="user-menu">
           <div v-if="um_open" class="user-menu-dropdown" role="menu">
-            <router-link to="/profile" class="user-menu-item border-line" role="menuitem" @click="closeUserMenu">
+            <router-link to="/profile" class="user-menu-item" role="menuitem" @click="closeUserMenu">
               <img :src="iconProfile" alt="profile" />
               <span>Личный кабинет</span>
             </router-link>
+            <div class="border-line"></div>
             <button type="button" class="user-menu-item" role="menuitem" @click="onLogoutClick">
               <img :src="iconLogout" alt="logout" />
               <span>Выйти</span>
@@ -257,6 +258,9 @@ onBeforeUnmount(() => {
         background-color: $graphite;
         box-shadow: 3px 3px 5px rgba($black, 0.25);
         z-index: 20;
+        .border-line {
+          border-bottom: 1px solid $grey;
+        }
         .user-menu-item {
           display: flex;
           align-items: center;
@@ -284,9 +288,6 @@ onBeforeUnmount(() => {
             font-family: Manrope-Medium;
             line-height: 1;
           }
-        }
-        .user-menu-item.border-line {
-          border-bottom: 1px solid $grey;
         }
       }
     }
