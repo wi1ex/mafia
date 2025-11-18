@@ -597,10 +597,6 @@ onBeforeUnmount(() => {
                 border: 1px solid $lead;
                 background-color: $graphite;
                 overflow: hidden;
-                transition: background-color 0.25s ease-in-out;
-                &:hover {
-                  background-color: $lead;
-                }
               }
               .range-track::after {
                 content: "";

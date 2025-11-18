@@ -283,8 +283,15 @@ onUpdated(() => setClosedWidth())
           background-color: $graphite;
           box-shadow: 3px 3px 5px rgba($black, 0.25);
           cursor: pointer;
+          transition: background-color 0.25s ease-in-out;
+          &:hover {
+            background-color: $lead;
+          }
           &.red-button {
-            background-color: $red;
+            background-color: rgba($red, 0.75);
+            &:hover {
+              background-color: $red;
+            }
           }
           img {
             width: 20px;

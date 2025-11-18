@@ -278,10 +278,6 @@ onBeforeUnmount(() => {
             border: 1px solid $lead;
             border-radius: 5px;
             background-color: $graphite;
-            transition: background-color 0.25s ease-in-out;
-            &:hover {
-              background-color: $lead;
-            }
             span {
               position: relative;
               font-size: 14px;
@@ -298,10 +294,7 @@ onBeforeUnmount(() => {
             height: 23px;
             background-color: $fg;
             border-radius: 5px;
-            transition: transform 0.25s ease-in-out, background-color 0.25s ease-in-out;
-            &:hover {
-              background-color: $white;
-            }
+            transition: transform 0.25s ease-in-out;
           }
           input:checked + .slider:before {
             transform: translateX(60px);
