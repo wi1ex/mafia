@@ -20,12 +20,19 @@
         />
       </div>
 
-      <router-link to="/profile" class="btn" aria-label="Профиль">
-        <img v-minio-img="{ key: user.user?.avatar_name ? `avatars/${user.user.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="Аватар" />
-        <span aria-live="polite">{{ user.user?.username || 'User' }}</span>
-      </router-link>
+      <div class="user-menu" ref="userMenuEl">
+        <button class="btn" type="button" @click.stop="onToggleUserMenu" :aria-expanded="um_open" aria-haspopup="true">
+          <img v-minio-img="{ key: user.user?.avatar_name ? `avatars/${user.user.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="Аватар" />
+          <span aria-live="polite">{{ user.user?.username || 'User' }}</span>
+        </button>
 
-      <button class="btn" type="button" @click="logout">Выйти</button>
+        <Transition name="user-menu">
+          <div v-if="um_open" class="user-menu-dropdown" role="menu">
+            <router-link to="/profile" class="user-menu-item" role="menuitem" @click="closeUserMenu">Профиль</router-link>
+            <button type="button" class="user-menu-item" role="menuitem" @click="onLogoutClick">Выйти</button>
+          </div>
+        </Transition>
+      </div>
     </div>
   </header>
 </template>
@@ -44,9 +51,27 @@ const notif = useNotifStore()
 
 const nb_open = ref(false)
 const bellEl = ref<HTMLElement | null>(null)
+const um_open = ref(false)
+const userMenuEl = ref<HTMLElement | null>(null)
 
 function onToggleNotifs() {
   nb_open.value = !nb_open.value
+}
+function onToggleUserMenu() {
+  um_open.value = !um_open.value
+}
+function closeUserMenu() {
+  um_open.value = false
+}
+async function onLogoutClick() {
+  closeUserMenu()
+  await logout()
+}
+function onGlobalPointerDown(e: PointerEvent) {
+  if (!um_open.value) return
+  const target = e.target as Node | null
+  if (target && userMenuEl.value && userMenuEl.value.contains(target)) return
+  um_open.value = false
 }
 
 const BOT = import.meta.env.VITE_TG_BOT_NAME as string || ''
@@ -112,9 +137,13 @@ onMounted(async () => {
     notif.ensureWS()
     await notif.fetchAll()
   }
+  document.addEventListener('pointerdown', onGlobalPointerDown)
 })
 
-onBeforeUnmount(() => { delete (window as any).__tg_cb__ })
+onBeforeUnmount(() => {
+  delete (window as any).__tg_cb__
+  document.removeEventListener('pointerdown', onGlobalPointerDown)
+})
 </script>
 
 <style scoped lang="scss">
@@ -190,6 +219,48 @@ onBeforeUnmount(() => { delete (window as any).__tg_cb__ })
         }
       }
     }
+    .user-menu {
+      position: relative;
+      .user-menu-dropdown {
+        position: absolute;
+        right: 0;
+        top: calc(100% + 6px);
+        display: flex;
+        flex-direction: column;
+        min-width: 140px;
+        padding: 5px 0;
+        border-radius: 5px;
+        background-color: $dark;
+        box-shadow: 0 8px 15px rgba($black, 0.5);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        z-index: 20;
+      }
+      .user-menu-item {
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        padding: 8px 12px;
+        width: 100%;
+        border: none;
+        background: none;
+        color: $fg;
+        font-size: 14px;
+        font-family: Manrope-Medium;
+        text-decoration: none;
+        cursor: pointer;
+        text-align: left;
+      }
+    }
   }
+}
+
+.user-menu-enter-active,
+.user-menu-leave-active {
+  transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
+}
+.user-menu-enter-from,
+.user-menu-leave-to {
+  opacity: 0;
+  transform: translateY(-30px);
 }
 </style>
