@@ -326,6 +326,10 @@ onBeforeUnmount(() => {
           background-color: $dark;
           padding: 0 10px;
           cursor: pointer;
+          transition: background-color 0.25s ease-in-out;
+          &:hover {
+            background-color: $graphite;
+          }
           span {
             height: 16px;
             color: $fg;

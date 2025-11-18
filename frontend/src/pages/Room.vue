@@ -1049,8 +1049,12 @@ window.addEventListener('online',  () => { if (netReconnecting.value) hardReload
       border-radius: 5px;
       background-color: $dark;
       cursor: pointer;
+      transition: background-color 0.25s ease-in-out;
       &:disabled {
         cursor: not-allowed;
+      }
+      &:hover {
+        background-color: $graphite;
       }
       img {
         width: 30px;

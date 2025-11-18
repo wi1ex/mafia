@@ -460,7 +460,6 @@ onBeforeUnmount(() => {
         height: 40px;
         border-radius: 5px;
         background-color: $lead;
-        box-shadow: 3px 3px 5px rgba($black, 0.25);
         span {
           height: 20px;
           font-size: 18px;
@@ -537,6 +536,9 @@ onBeforeUnmount(() => {
             border-color: $grey;
             background-color: $lead;
             box-shadow: none;
+          }
+          &:hover {
+            background-color: $lead;
           }
           span {
             color: $ashy;

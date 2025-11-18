@@ -683,10 +683,13 @@ onBeforeUnmount(() => {
         font-family: Manrope-Medium;
         line-height: 1;
         cursor: pointer;
-        transition: opacity 0.25s ease-in-out;
+        transition: opacity 0.25s ease-in-out, background-color 0.25s ease-in-out;
         &:disabled {
           opacity: 0.5;
           cursor: not-allowed;
+        }
+        &:hover {
+          background-color: $white;
         }
       }
     }
