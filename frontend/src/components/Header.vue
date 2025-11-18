@@ -31,7 +31,7 @@
           <div v-if="um_open" class="user-menu-dropdown" role="menu">
             <router-link to="/profile" class="user-menu-item" role="menuitem" @click="closeUserMenu">
               <img :src="iconProfile" alt="profile" />
-              <span>Профиль</span>
+              <span>Личный кабинет</span>
             </router-link>
             <button type="button" class="user-menu-item" role="menuitem" @click="onLogoutClick">
               <img :src="iconLogout" alt="logout" />
@@ -182,6 +182,10 @@ onBeforeUnmount(() => {
     line-height: 1;
     text-decoration: none;
     cursor: pointer;
+    transition: background-color 0.25s ease-in-out;
+    &:hover {
+      background-color: $lead;
+    }
     img {
       width: 24px;
       height: 24px;
@@ -215,6 +219,10 @@ onBeforeUnmount(() => {
         border-radius: 5px;
         background-color: $graphite;
         cursor: pointer;
+        transition: background-color 0.25s ease-in-out;
+        &:hover {
+          background-color: $lead;
+        }
         img {
           width: 24px;
           height: 24px;
@@ -257,24 +265,24 @@ onBeforeUnmount(() => {
           width: 200px;
           height: 50px;
           border: none;
+          border-radius: 5px;
           background: none;
           text-decoration: none;
           cursor: pointer;
           transition: background-color 0.25s ease-in-out;
+          &:hover {
+            background-color: $lead;
+          }
           img {
             margin-left: 15px;
             width: 20px;
             height: 20px;
           }
           span {
-            height: 18px;
             color: $fg;
             font-size: 16px;
             font-family: Manrope-Medium;
             line-height: 1;
-          }
-          &:hover {
-            background-color: $lead;
           }
         }
       }
