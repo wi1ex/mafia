@@ -255,7 +255,7 @@ onBeforeUnmount(() => {
         max-width: 200px;
         border-radius: 5px;
         background-color: $graphite;
-        box-shadow: 3px 3px 5px rgba($black, 0.25);
+        //box-shadow: 3px 3px 5px rgba($black, 0.25);
         z-index: 20;
         a {
           border-bottom: 1px solid $grey;
