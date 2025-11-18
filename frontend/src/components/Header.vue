@@ -269,12 +269,12 @@ onBeforeUnmount(() => {
           width: 200px;
           height: 50px;
           border: none;
+          border-radius: 5px;
           background: none;
           text-decoration: none;
           cursor: pointer;
           transition: background-color 0.25s ease-in-out;
           &:hover {
-            border-radius: 5px;
             background-color: $lead;
           }
           img {
