@@ -39,7 +39,6 @@
             <button type="button" @click="toggleCamDd" :aria-expanded="String(camOpen)" aria-label="Список камер">
               <span>{{ camLabel }}</span>
               <img :src="iconArrowDown" alt="arrow" />
-<!--              <img :src="open ? iconArrowUp : iconArrowDown" alt="arrow" />-->
             </button>
             <Transition name="menu">
               <ul v-show="camOpen" role="listbox">
@@ -60,7 +59,6 @@
             <button type="button" @click="toggleMicDd" :aria-expanded="String(micOpen)" aria-label="Список микрофонов">
               <span>{{ micLabel }}</span>
               <img :src="iconArrowDown" alt="arrow" />
-<!--              <img :src="open ? iconArrowUp : iconArrowDown" alt="arrow" />-->
             </button>
             <Transition name="menu">
               <ul v-show="micOpen" role="listbox">
@@ -85,8 +83,7 @@ import type { VQ } from '@/services/rtc'
 
 import iconClose from '@/assets/svg/close.svg'
 import iconReady from '@/assets/svg/ready.svg'
-import iconArrowUp from '@/assets/svg/arrow_up.svg'
-import iconArrowDown from '@/assets/svg/arrow_down.svg'
+import iconArrowDown from '@/assets/svg/arrowDown.svg'
 
 type Dev = {
   deviceId: string

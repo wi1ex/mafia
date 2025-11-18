@@ -52,7 +52,7 @@
 import { computed, nextTick, onMounted, onUpdated, ref, watch } from 'vue'
 
 import iconReady from '@/assets/svg/ready.svg'
-import iconLeaveRoom from '@/assets/svg/leaveRoom.svg'
+import iconLeaveRoom from '@/assets/svg/leave.svg'
 
 type IconKind = 'mic' | 'cam' | 'speakers' | 'visibility' | 'screen'
 

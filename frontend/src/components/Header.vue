@@ -24,12 +24,19 @@
         <button class="btn" type="button" @click.stop="onToggleUserMenu" :aria-expanded="um_open" aria-haspopup="true">
           <img v-minio-img="{ key: user.user?.avatar_name ? `avatars/${user.user.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="Аватар" />
           <span aria-live="polite">{{ user.user?.username || 'User' }}</span>
+          <img :src="iconArrowDown" alt="arrow" :style="{ transform: um_open ? 'rotate(180deg)' : 'none'}" />
         </button>
 
         <Transition name="user-menu">
           <div v-if="um_open" class="user-menu-dropdown" role="menu">
-            <router-link to="/profile" class="user-menu-item" role="menuitem" @click="closeUserMenu">Профиль</router-link>
-            <button type="button" class="user-menu-item" role="menuitem" @click="onLogoutClick">Выйти</button>
+            <router-link to="/profile" class="user-menu-item" role="menuitem" @click="closeUserMenu">
+              <img :src="iconProfile" alt="profile" />
+              <span>Профиль</span>
+            </router-link>
+            <button type="button" class="user-menu-item" role="menuitem" @click="onLogoutClick">
+              <img :src="iconLogout" alt="logout" />
+              <span>Выйти</span>
+            </button>
           </div>
         </Transition>
       </div>
@@ -44,6 +51,9 @@ import Notifs from '@/components/Notifs.vue'
 
 import defaultAvatar from "@/assets/svg/defaultAvatar.svg"
 import iconNotifBell from "@/assets/svg/notifBell.svg"
+import iconLogout from '@/assets/svg/leave.svg'
+import iconProfile from "@/assets/svg/profile.svg"
+import iconArrowDown from '@/assets/svg/arrowDown.svg'
 
 const auth = useAuthStore()
 const user = useUserStore()
@@ -177,6 +187,7 @@ onBeforeUnmount(() => {
       height: 24px;
       border-radius: 50%;
       object-fit: cover;
+      transition: transform 0.25s ease-in-out;
     }
   }
   .user {
@@ -212,7 +223,7 @@ onBeforeUnmount(() => {
           height: 17px;
           border-radius: 50%;
           background-color: $red;
-          color: $white;
+          color: $fg;
           font-size: 12px;
           font-family: Manrope-Medium;
           line-height: 1;
@@ -224,31 +235,34 @@ onBeforeUnmount(() => {
       .user-menu-dropdown {
         position: absolute;
         right: 0;
-        top: calc(100% + 6px);
-        display: flex;
-        flex-direction: column;
-        min-width: 140px;
-        padding: 5px 0;
+        top: 50px;
+        min-width: 200px;
+        max-width: 200px;
         border-radius: 5px;
-        background-color: $dark;
-        box-shadow: 0 8px 15px rgba($black, 0.5);
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        background-color: $graphite;
+        box-shadow: 3px 3px 5px rgba($black, 0.25);
         z-index: 20;
-      }
-      .user-menu-item {
-        display: flex;
-        align-items: center;
-        justify-content: flex-start;
-        padding: 8px 12px;
-        width: 100%;
-        border: none;
-        background: none;
-        color: $fg;
-        font-size: 14px;
-        font-family: Manrope-Medium;
-        text-decoration: none;
-        cursor: pointer;
-        text-align: left;
+        .user-menu-item {
+          display: flex;
+          align-items: center;
+          padding: 15px;
+          gap: 5px;
+          width: calc(100% - 30px);
+          border: none;
+          background: none;
+          text-decoration: none;
+          cursor: pointer;
+          img {
+            width: 16px;
+            height: 16px;
+          }
+          span {
+            color: $fg;
+            font-size: 16px;
+            font-family: Manrope-Medium;
+            line-height: 1;
+          }
+        }
       }
     }
   }

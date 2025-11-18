@@ -128,8 +128,8 @@ import RoomModal from '@/components/RoomModal.vue'
 
 import defaultAvatar from "@/assets/svg/defaultAvatar.svg"
 import iconScreenOn from '@/assets/svg/screenOn.svg'
-import iconLockOpen from '@/assets/svg/lock_open.svg'
-import iconLockClose from '@/assets/svg/lock_close.svg'
+import iconLockOpen from '@/assets/svg/lockOpen.svg'
+import iconLockClose from '@/assets/svg/lockClose.svg'
 import iconClose from '@/assets/svg/close.svg'
 
 type Room = {

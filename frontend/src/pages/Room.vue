@@ -163,7 +163,7 @@ import RoomRequests from '@/components/RoomRequests.vue'
 
 import iconClose from '@/assets/svg/close.svg'
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
-import iconLeaveRoom from '@/assets/svg/leaveRoom.svg'
+import iconLeaveRoom from '@/assets/svg/leave.svg'
 import iconSettings from '@/assets/svg/settings.svg'
 import iconRequestsRoom from '@/assets/svg/requestsRoom.svg'
 import iconVolumeMax from '@/assets/svg/volumeMax.svg'
