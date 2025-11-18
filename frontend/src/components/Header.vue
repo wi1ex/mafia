@@ -187,6 +187,13 @@ onBeforeUnmount(() => {
       height: 24px;
       border-radius: 50%;
       object-fit: cover;
+    }
+    .arrow {
+      margin-left: 5px;
+      width: 16px;
+      height: 16px;
+      border-radius: 0;
+      object-fit: none;
       transition: transform 0.25s ease-in-out;
     }
   }
@@ -245,22 +252,29 @@ onBeforeUnmount(() => {
         .user-menu-item {
           display: flex;
           align-items: center;
-          padding: 15px;
+          padding: 0;
           gap: 5px;
-          width: calc(100% - 30px);
+          width: 200px;
+          height: 50px;
           border: none;
           background: none;
           text-decoration: none;
           cursor: pointer;
+          transition: background-color 0.25s ease-in-out;
           img {
-            width: 16px;
-            height: 16px;
+            margin-left: 15px;
+            width: 20px;
+            height: 20px;
           }
           span {
+            height: 18px;
             color: $fg;
             font-size: 16px;
             font-family: Manrope-Medium;
             line-height: 1;
+          }
+          &:hover {
+            background-color: $lead;
           }
         }
       }
