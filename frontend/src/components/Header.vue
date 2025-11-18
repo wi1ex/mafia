@@ -257,9 +257,6 @@ onBeforeUnmount(() => {
         background-color: $graphite;
         box-shadow: 3px 3px 5px rgba($black, 0.25);
         z-index: 20;
-        .border-line {
-          border-bottom: 1px solid $grey;
-        }
         .user-menu-item {
           display: flex;
           align-items: center;
@@ -287,6 +284,9 @@ onBeforeUnmount(() => {
             font-family: Manrope-Medium;
             line-height: 1;
           }
+        }
+        .user-menu-item.border-line {
+          border-bottom: 1px solid $grey;
         }
       }
     }
