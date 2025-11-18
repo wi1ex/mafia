@@ -403,10 +403,10 @@ onBeforeUnmount(() => {
         display: flex;
         align-items: flex-end;
         width: 100%;
-        height: 30px;
+        height: 40px;
         button {
           width: 50%;
-          height: 25px;
+          height: 30px;
           border: none;
           border-radius: 5px 5px 0 0;
           background-color: $graphite;
@@ -417,7 +417,7 @@ onBeforeUnmount(() => {
           cursor: pointer;
           transition: height 0.25s ease-in-out, background-color 0.25s ease-in-out;
           &.active {
-            height: 30px;
+            height: 40px;
             background-color: $lead;
           }
           &:disabled {
@@ -697,7 +697,7 @@ onBeforeUnmount(() => {
 .slide-left-leave-active,
 .slide-right-enter-active,
 .slide-right-leave-active {
-  transition: transform 0.15s ease-in-out, opacity 0.15s ease-in-out;
+  transition: transform 0.15s ease-out, opacity 0.25s ease-out;
 }
 .slide-left-enter-from {
   transform: translateX(60px);

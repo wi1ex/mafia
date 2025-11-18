@@ -233,7 +233,7 @@ onUpdated(() => setClosedWidth())
     }
     .card-body-enter-active,
     .card-body-leave-active {
-      transition: opacity 0.15s ease-out, transform 0.15s ease-out;
+      transition: transform 0.15s ease-out, opacity 0.25s ease-out;
     }
     .card-body {
       display: flex;

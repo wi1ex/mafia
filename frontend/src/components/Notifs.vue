@@ -4,6 +4,7 @@
       <header>
         <span>Уведомления</span>
 <!--        <button v-if="notif.unread > 0" class="markall" @click="notif.markAll()">Отметить всё прочитанным</button>-->
+        <button class="markall" @click="notif.markAll()">Отметить всё прочитанным</button>
         <button @click="$emit('update:open', false)" aria-label="Закрыть">
           <img :src="iconClose" alt="close" />
         </button>

@@ -1,11 +1,11 @@
 <template>
   <section class="card">
     <div class="left">
-      <header v-if="auth.isAuthed">
+      <header>
         <div class="rooms-text">
           <span>Список комнат</span>
         </div>
-        <button @click="openCreate = true">Создать комнату</button>
+        <button v-if="auth.isAuthed" @click="openCreate = true">Создать комнату</button>
       </header>
 
       <Transition name="overlay">
@@ -529,10 +529,11 @@ onBeforeUnmount(() => {
           background-color: $graphite;
           box-shadow: 3px 3px 5px rgba($black, 0.25);
           cursor: pointer;
-          transition: border-color 0.25s ease-in-out, background-color 0.25s ease-in-out;
+          transition: border-color 0.25s ease-in-out, background-color 0.25s ease-in-out, box-shadow 0.25s ease-in-out;
           &.active {
             border-color: $grey;
             background-color: $lead;
+            box-shadow: none;
           }
           span {
             color: $ashy;
@@ -766,7 +767,7 @@ onBeforeUnmount(() => {
 
 .room-panel-enter-active,
 .room-panel-leave-active {
-  transition: transform 0.15s ease-in-out, opacity 0.15s ease-in-out;
+  transition: transform 0.15s ease-out, opacity 0.25s ease-out;
 }
 .room-panel-enter-from,
 .room-panel-leave-to {
@@ -801,7 +802,7 @@ onBeforeUnmount(() => {
         }
         .ri-info {
           flex-direction: column;
-          padding: 10px 10px 0 10px;
+          padding: 10px 10px 5px;
           max-height: 130px;
           overflow: auto;
           scrollbar-width: none;
@@ -820,7 +821,7 @@ onBeforeUnmount(() => {
         }
         .ri-actions {
           position: static;
-          margin-top: 10px;
+          margin-top: 5px;
         }
       }
     }
