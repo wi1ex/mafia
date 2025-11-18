@@ -3,8 +3,7 @@
     <div v-show="open" class="panel" ref="root" @click.stop>
       <header>
         <span>Уведомления</span>
-<!--        <button v-if="notif.unread > 0" class="markall" @click="notif.markAll()">Отметить всё прочитанным</button>-->
-        <button class="markall" @click="notif.markAll()">Отметить всё прочитанным</button>
+        <button v-if="notif.unread > 0" class="markall" @click="notif.markAll()">Отметить всё прочитанным</button>
         <button @click="$emit('update:open', false)" aria-label="Закрыть">
           <img :src="iconClose" alt="close" />
         </button>
@@ -219,6 +218,17 @@ onBeforeUnmount(() => {
         width: 25px;
         height: 25px;
       }
+    }
+    .markall {
+      padding: 0 10px;
+      width: fit-content;
+      height: 25px;
+      border-radius: 5px;
+      background-color: $fg;
+      color: $bg;
+      font-size: 12px;
+      font-family: Manrope-Medium;
+      line-height: 1;
     }
   }
   .list {
