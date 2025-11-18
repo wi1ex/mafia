@@ -29,7 +29,7 @@
 
         <Transition name="user-menu">
           <div v-if="um_open" class="user-menu-dropdown" role="menu">
-            <router-link to="/profile" class="user-menu-item" role="menuitem" @click="closeUserMenu">
+            <router-link to="/profile" class="user-menu-item border-line" role="menuitem" @click="closeUserMenu">
               <img :src="iconProfile" alt="profile" />
               <span>Личный кабинет</span>
             </router-link>
@@ -257,7 +257,7 @@ onBeforeUnmount(() => {
         background-color: $graphite;
         box-shadow: 3px 3px 5px rgba($black, 0.25);
         z-index: 20;
-        a {
+        .border-line {
           border-bottom: 1px solid $grey;
         }
         .user-menu-item {
