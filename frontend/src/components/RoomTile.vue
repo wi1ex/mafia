@@ -178,10 +178,7 @@ onUpdated(() => setClosedWidth())
     background-color: rgba($dark, 0.75);
     box-shadow: 3px 3px 5px rgba($black, 0.25);
     z-index: 5;
-    transition: background-color 0.25s ease-in-out, inline-size 0.25s ease-out, block-size 0.25s ease-out;
-    &:hover {
-      background-color: rgba($graphite, 0.75);
-    }
+    transition: inline-size 0.25s ease-out, block-size 0.25s ease-out;
     &[data-open="1"] {
       inline-size: 250px;
       block-size: 138px;

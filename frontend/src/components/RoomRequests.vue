@@ -239,12 +239,16 @@ onBeforeUnmount(() => {
         height: 30px;
         border: none;
         border-radius: 5px;
-        background-color: $green;
+        background-color: rgba($green, 0.75);
         color: $bg;
         font-size: 14px;
         font-family: Manrope-Medium;
         line-height: 1;
         cursor: pointer;
+        transition: background-color 0.25s ease-in-out;
+        &:hover {
+          background-color: $green;
+        }
       }
     }
   }
