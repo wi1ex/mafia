@@ -24,7 +24,7 @@
               <img v-minio-img="{ key: me.avatar_name ? `avatars/${me.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="Текущий аватар" />
               <div class="actions">
                 <input ref="fileEl" type="file" accept="image/jpeg,image/png" @change="onPick" hidden />
-                <button class="btn grey" @click="fileEl?.click()" :disabled="busyAva">Изменить</button>
+                <button class="btn confirm" @click="fileEl?.click()" :disabled="busyAva">Изменить</button>
                 <span class="hint">JPG/PNG, до 5 МБ</span>
                 <button class="btn danger" v-if="me.avatar_name" @click="onDeleteAvatar" :disabled="busyAva">Удалить</button>
               </div>
@@ -55,7 +55,7 @@
           <div v-if="crop.show" ref="modalEl" class="modal" @keydown.esc="cancelCrop" tabindex="0" aria-modal="true" aria-label="Кадрирование аватара" >
             <div class="modal-body">
               <canvas ref="canvasEl" @mousedown="dragStart" @mousemove="dragMove" @mouseup="dragStop" @mouseleave="dragStop" @wheel.passive="onWheel" />
-              <div class="range range--avatar">
+              <div class="range">
                 <span>Масштаб</span>
                 <div class="range-wrap">
                   <div class="range-track" :style="cropRangeFillStyle" aria-hidden="true"></div>
@@ -64,7 +64,7 @@
               </div>
               <div class="modal-actions">
                 <button class="btn danger" @click="cancelCrop">Отменить</button>
-                <button class="btn green" @click="applyCrop" :disabled="busyAva">Загрузить</button>
+                <button class="btn confirm" @click="applyCrop" :disabled="busyAva">Загрузить</button>
               </div>
             </div>
           </div>
@@ -205,7 +205,8 @@ async function onPick(e: Event) {
     document.body.style.overflow = 'hidden'
     const canvas = canvasEl.value!
     const dpr = Math.max(1, window.devicePixelRatio || 1)
-    const S = 240
+    const viewportH = window.innerHeight || document.documentElement.clientHeight || 0
+    const S = viewportH > 500 ? 400 : 200
     canvas.width = S * dpr
     canvas.height = S * dpr
     canvas.style.width = S + 'px'
@@ -372,19 +373,25 @@ onBeforeUnmount(() => {
     text-decoration: none;
     cursor: pointer;
     transition: opacity 0.25s ease-in-out, color 0.25s ease-in-out, border-radius 0.25s ease-in-out, background-color 0.25s ease-in-out;
+    &:hover {
+      background-color: $white;
+    }
     &.nav {
       font-size: 16px;
       border-radius: 5px 5px 0 0;
     }
-    &.grey {
-      background-color: $lead;
-      color: $fg;
-    }
     &.confirm {
-      background-color: $green;
+      background-color: rgba($green, 0.75);
+      &:hover {
+        background-color: $green;
+      }
     }
     &.danger {
-      background-color: $red;
+      background-color: rgba($red, 0.75);
+      color: $fg;
+      &:hover {
+        background-color: $red;
+      }
     }
     &:disabled {
       opacity: 0.5;
@@ -399,7 +406,7 @@ onBeforeUnmount(() => {
     .tabs {
       display: flex;
       align-items: flex-end;
-      width: 50%;
+      width: 66%;
       height: 30px;
       .tab {
         width: 200px;
@@ -554,28 +561,29 @@ onBeforeUnmount(() => {
         }
       }
       .modal {
+        display: flex;
         position: fixed;
+        align-items: center;
+        justify-content: center;
         inset: 0;
         background-color: rgba($black, 0.75);
         backdrop-filter: blur(5px);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 50;
         overscroll-behavior: contain;
+        z-index: 50;
         .modal-body {
-          background-color: $bg;
-          border: 1px solid $lead;
-          border-radius: 5px;
-          padding: 15px;
           display: flex;
           flex-direction: column;
+          padding: 10px;
           gap: 10px;
+          border: 1px solid $graphite;
+          border-radius: 5px;
+          background-color: $dark;
           canvas {
-            background-color: $black;
+            align-self: center;
+            width: 200px;
+            height: 200px;
             border-radius: 5px;
-            width: 240px;
-            height: 240px;
+            background-color: $black;
           }
           .range {
             display: flex;
@@ -653,13 +661,10 @@ onBeforeUnmount(() => {
               }
             }
           }
-          .range.range--avatar {
-            margin-top: 5px;
-          }
           .modal-actions {
             display: flex;
-            gap: 10px;
             justify-content: space-between;
+            gap: 10px;
           }
         }
       }
@@ -679,14 +684,12 @@ onBeforeUnmount(() => {
   opacity: 0;
 }
 
-
 @media (max-width: 1280px) {
-  .profile {
-    header .tabs {
-      width: calc(100% * 2 / 3);
-    }
-    .tab-panel .grid {
-      grid-template-columns: 1fr 1fr;
+  .profile .tab-panel .grid {
+    grid-template-columns: 1fr 1fr;
+    .modal .modal-body canvas {
+      width: 200px;
+      height: 200px;
     }
   }
 }
