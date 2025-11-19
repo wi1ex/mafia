@@ -279,10 +279,11 @@ onBeforeUnmount(() => {
           }
           img {
             margin-left: 15px;
-            width: 20px;
-            height: 20px;
+            width: 24px;
+            height: 24px;
           }
           span {
+            height: 18px;
             color: $fg;
             font-size: 16px;
             font-family: Manrope-Medium;

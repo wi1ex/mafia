@@ -24,9 +24,9 @@
               <img v-minio-img="{ key: me.avatar_name ? `avatars/${me.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="Текущий аватар" />
               <div class="actions">
                 <input ref="fileEl" type="file" accept="image/jpeg,image/png" @change="onPick" hidden />
-                <button class="btn primary" @click="fileEl?.click()" :disabled="busyAva">Изменить аватар</button>
-                <button class="btn danger" v-if="me.avatar_name" @click="onDeleteAvatar" :disabled="busyAva">Удалить</button>
+                <button class="btn grey" @click="fileEl?.click()" :disabled="busyAva">Изменить</button>
                 <span class="hint">JPG/PNG, до 5 МБ</span>
+                <button class="btn danger" v-if="me.avatar_name" @click="onDeleteAvatar" :disabled="busyAva">Удалить</button>
               </div>
             </div>
           </div>
@@ -49,9 +49,7 @@
                 {{ busyNick ? '...' : 'Сохранить' }}
               </button>
             </div>
-            <span class="hint">
-              2–{{ NICK_MAX }} символов: латиница, кириллица, цифры, символы <code>()._-</code>
-            </span>
+            <span class="hint"><code>латиница, кириллица, цифры, символы ()._-</code></span>
           </div>
 
           <div v-if="crop.show" ref="modalEl" class="modal" @keydown.esc="cancelCrop" tabindex="0" aria-modal="true" aria-label="Кадрирование аватара" >
@@ -354,6 +352,7 @@ onBeforeUnmount(() => {
 .profile {
   display: flex;
   flex-direction: column;
+  margin: 0 10px;
   padding: 10px;
   border-radius: 5px;
   background-color: $dark;
@@ -383,9 +382,6 @@ onBeforeUnmount(() => {
     }
     &.confirm {
       background-color: $green;
-    }
-    &.primary {
-      background-color: $blue;
     }
     &.danger {
       background-color: $red;
@@ -433,7 +429,7 @@ onBeforeUnmount(() => {
     .grid {
       display: grid;
       gap: 10px;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: 1fr 1fr 1fr;
       .block {
         border: 3px solid $lead;
         border-radius: 5px;
@@ -448,15 +444,14 @@ onBeforeUnmount(() => {
           gap: 10px;
           align-items: center;
           img {
-            width: 120px;
-            height: 120px;
+            width: 150px;
+            height: 150px;
             object-fit: cover;
             border-radius: 50%;
           }
           .actions {
             display: flex;
             flex-direction: column;
-            align-items: flex-end;
             gap: 10px;
           }
         }
@@ -553,9 +548,9 @@ onBeforeUnmount(() => {
           }
         }
         .hint {
-          margin-top: 5px;
           color: $grey;
-          font-size: 12px;
+          font-size: 14px;
+          text-align: center;
         }
       }
       .modal {
@@ -682,6 +677,18 @@ onBeforeUnmount(() => {
 .tab-fade-enter-from,
 .tab-fade-leave-to {
   opacity: 0;
+}
+
+
+@media (max-width: 1280px) {
+  .profile {
+    header .tabs {
+      width: calc(100% * 2 / 3);
+    }
+    .tab-panel .grid {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
 }
 </style>
 
