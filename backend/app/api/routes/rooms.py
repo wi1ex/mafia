@@ -4,7 +4,7 @@ from sqlalchemy import select
 from contextlib import suppress
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import APIRouter, Depends, status, HTTPException
-from ..utils import emit_rooms_upsert, serialize_game_for_redis, game_from_redis_to_model
+from ..utils import emit_rooms_upsert, serialize_game_for_redis, game_from_redis_to_model, build_room_members_for_info
 from ...core.clients import get_redis
 from ...core.decorators import log_route, rate_limited, require_room_creator
 from ...core.logging import log_action
@@ -14,7 +14,7 @@ from ...models.room import Room
 from ...models.user import User
 from ...models.notif import Notif
 from ...realtime.sio import sio
-from ...realtime.utils import gc_empty_room, get_profiles_snapshot
+from ...realtime.utils import gc_empty_room
 from ...schemas.common import Identity, Ok
 from ...schemas.room import RoomIdOut, RoomCreateIn, RoomInfoOut, RoomInfoMemberOut, RoomAccessOut, GameParams
 from ...schemas.user import UserOut
@@ -113,27 +113,23 @@ async def room_info(room_id: int) -> RoomInfoOut:
     if not params:
         raise HTTPException(status_code=404, detail="room_not_found")
 
-    order_raw = await r.zrange(f"room:{room_id}:positions", 0, -1)
-    order_ids = [int(uid) for uid in order_raw]
-    owner_raw = await r.get(f"room:{room_id}:screen_owner")
-    screen_owner = int(owner_raw) if owner_raw else 0
-
-    profiles = await get_profiles_snapshot(r, room_id)
-    members: list[RoomInfoMemberOut] = []
-    for uid in order_ids:
-        p = profiles.get(str(uid)) or {}
-        members.append(
-            RoomInfoMemberOut(
-                id=uid,
-                username=p.get("username"),
-                avatar_name=p.get("avatar_name"),
-                screen=(True if screen_owner and uid == screen_owner else None),
-            )
-        )
-
+    raw_members = await build_room_members_for_info(r, room_id)
     raw_game = await r.hgetall(f"room:{room_id}:game")
     game = game_from_redis_to_model(raw_game)
-    
+
+    members = [
+        RoomInfoMemberOut(
+            id=m["id"],
+            username=m.get("username"),
+            avatar_name=m.get("avatar_name"),
+            screen=m.get("screen"),
+            role=m.get("role"),
+            slot=m.get("slot"),
+            alive=m.get("alive"),
+        )
+        for m in raw_members
+    ]
+
     return RoomInfoOut(members=members, game=game)
 
 

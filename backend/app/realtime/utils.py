@@ -428,14 +428,19 @@ async def get_rooms_brief(r, ids: Iterable[int]) -> List[dict]:
         for rid in ids_list:
             await p.hmget(f"room:{rid}:params", *fields)
             await p.scard(f"room:{rid}:members")
+            await p.hget(f"room:{rid}:game_state", "phase")
+            await p.scard(f"room:{rid}:game_alive")
         raw = await p.execute()
 
     briefs: List[dict] = []
     need_db: set[int] = set()
 
-    for i in range(0, len(raw), 2):
+    for i in range(0, len(raw), 4):
         vals = raw[i]
-        occ = int(raw[i+1] or 0)
+        occ_members = int(raw[i+1] or 0)
+        phase_raw = raw[i+2]
+        alive_cnt = int(raw[i+3] or 0)
+
         if not vals:
             continue
 
@@ -448,6 +453,9 @@ async def get_rooms_brief(r, ids: Iterable[int]) -> List[dict]:
         if avatar is None:
             need_db.add(creator_id)
 
+        phase = str(phase_raw or "idle")
+        in_game = phase != "idle"
+        occupancy = alive_cnt if in_game else occ_members
         briefs.append({
             "id": int(_id),
             "title": str(title),
@@ -457,7 +465,9 @@ async def get_rooms_brief(r, ids: Iterable[int]) -> List[dict]:
             "creator_avatar_name": avatar,
             "created_at": str(created_at),
             "privacy": str(privacy or "open"),
-            "occupancy": occ,
+            "occupancy": occupancy,
+            "in_game": in_game,
+            "game_phase": phase,
         })
 
     if need_db:
@@ -655,6 +665,10 @@ async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
             f"room:{rid}:screen_owner",
             f"room:{rid}:screen_started_at",
             f"room:{rid}:ready",
+            f"room:{rid}:game_state",
+            f"room:{rid}:game_seats",
+            f"room:{rid}:game_players",
+            f"room:{rid}:game_alive",
         )
         await r.zrem("rooms:index", str(rid))
     finally:

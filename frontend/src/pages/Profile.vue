@@ -5,10 +5,10 @@
         <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'profile' }" :aria-selected="activeTab === 'profile'" @click="activeTab = 'profile'">
           Личные данные
         </button>
-        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'stats' }" :aria-selected="activeTab === 'stats'" @click="activeTab = 'stats'">
+        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'stats' }" :aria-selected="activeTab === 'stats'" @click="activeTab = 'stats'" disabled>
           Статистика
         </button>
-        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'history' }" :aria-selected="activeTab === 'history'" @click="activeTab = 'history'">
+        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'history' }" :aria-selected="activeTab === 'history'" @click="activeTab = 'history'" disabled>
           История игр
         </button>
       </nav>
@@ -24,7 +24,7 @@
               <img v-minio-img="{ key: me.avatar_name ? `avatars/${me.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="Текущий аватар" />
               <div class="actions">
                 <input ref="fileEl" type="file" accept="image/jpeg,image/png" @change="onPick" hidden />
-                <button class="btn confirm" @click="fileEl?.click()" :disabled="busyAva">Изменить</button>
+                <button class="btn" @click="fileEl?.click()" :disabled="busyAva">Изменить</button>
                 <span class="hint">JPG/PNG, до 5 МБ</span>
                 <button class="btn danger" v-if="me.avatar_name" @click="onDeleteAvatar" :disabled="busyAva">Удалить</button>
               </div>

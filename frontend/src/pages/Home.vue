@@ -31,7 +31,7 @@
             <span>{{ r.id }}</span>
             <div class="cell" :title="r.title">
               <img :src="r.privacy === 'private' ? iconLockClose : iconLockOpen" alt="lock" />
-              <span>{{ r.title }}</span>
+              <span>{{ r.in_game ? 'игра' : 'набор' }} | {{ r.title }}</span>
             </div>
             <div class="cell">
               <img class="user-avatar" v-minio-img="{key: r.creator_avatar_name ? `avatars/${r.creator_avatar_name}` : '', placeholder: defaultAvatar, lazy: false}" alt="" />
@@ -48,7 +48,7 @@
       <Transition name="room-panel" mode="out-in">
         <div v-if="selectedId" key="info" class="room-info">
           <header>
-            <span>{{ selectedRoom?.title }}</span>
+            <span>{{ selectedRoom.in_game ? 'игра' : 'набор' }} | {{ selectedRoom?.title }}</span>
             <button @click="clearSelection" aria-label="Закрыть">
               <img :src="iconClose" alt="close" />
             </button>
@@ -93,7 +93,9 @@
               <span class="header-text">Участники ({{ selectedRoom?.occupancy ?? 0 }}/{{ selectedRoom?.user_limit ?? 0 }}):</span>
               <div v-if="(info?.members?.length ?? 0) === 0" class="muted">Пока никого</div>
               <ul v-else class="ri-users">
-                <li class="ri-user" v-for="m in (info?.members || [])" :key="m.id">
+                <li class="ri-user" v-for="m in sortedMembers" :key="m.id" :class="{ dead: m.role === 'player' && m.alive === false }">
+                  <span v-if="m.role === 'head'">Ведущий: </span>
+                  <span v-else-if="m.role === 'player' && m.slot != null">{{ m.slot }}. </span>
                   <img v-minio-img="{ key: m.avatar_name ? `avatars/${m.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="" />
                   <span>{{ m.username || ('user' + m.id) }}</span>
                   <img v-if="m.screen" :src="iconScreenOn" alt="streaming" />
@@ -107,6 +109,7 @@
             <button v-else-if="ctaState==='full'" disabled>Комната заполнена</button>
             <button v-else-if="ctaState==='apply'" @click="onApply">Подать заявку</button>
             <button v-else-if="ctaState==='pending'" disabled>Заявка отправлена</button>
+            <button v-else-if="ctaState==='in_game'" disabled>Идёт игра</button>
             <button v-else disabled>Авторизуйтесь, чтобы войти</button>
           </div>
         </div>
@@ -142,12 +145,17 @@ type Room = {
   creator_avatar_name?: string | null
   created_at: string
   occupancy: number
+  in_game?: boolean
+  game_phase?: string
 }
 type RoomInfoMember = {
   id: number
   username?: string
   avatar_name?: string | null
   screen?: boolean
+  role?: 'head' | 'player' | 'observer'
+  slot?: number | null
+  alive?: boolean | null
 }
 type RoomMembers = {
   members: RoomInfoMember[]
@@ -190,14 +198,34 @@ const access = ref<Access>('none')
 const selectedRoom = computed(() => selectedId.value ? (roomsMap.get(selectedId.value) || null) : null)
 const sortedRooms = computed(() => Array.from(roomsMap.values()).sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at)))
 
+const sortedMembers = computed<RoomInfoMember[]>(() => {
+  const members = info.value?.members || []
+  return [...members].sort((a, b) => {
+    const ra = a.role === 'head' ? 0 : a.role === 'player' ? 1 : 2
+    const rb = b.role === 'head' ? 0 : b.role === 'player' ? 1 : 2
+    if (ra !== rb) return ra - rb
+    if (a.role === 'player' && b.role === 'player') {
+      const sa = a.slot ?? 999
+      const sb = b.slot ?? 999
+      if (sa !== sb) return sa - sb
+    }
+    const na = a.username || ''
+    const nb = b.username || ''
+    return na.localeCompare(nb)
+  })
+})
+
 const isOpen = computed(() => selectedRoom.value?.privacy === 'open')
 const isFull = computed(() => selectedRoom.value ? isFullRoom(selectedRoom.value) : false)
 const enterLabel = computed(() => entering.value ? 'Вхожу...' : 'Войти в комнату')
-type Cta = 'login'|'enter'|'full'|'apply'|'pending'
+type Cta = 'login' | 'enter' | 'full' | 'apply' | 'pending' | 'in_game'
 const ctaState = computed<Cta>(() => {
-  if (!auth.isAuthed || !selectedRoom.value) return 'login'
-  if (isOpen.value) return isFull.value ? 'full' : 'enter'
+  const room = selectedRoom.value
+  if (!auth.isAuthed || !room) return 'login'
+  const inGame = room.in_game === true
+  if (room.privacy === 'open') return isFull.value ? 'full' : 'enter'
   if (access.value === 'approved') return isFull.value ? 'full' : 'enter'
+  if (inGame) return 'in_game'
   if (access.value === 'none') return 'apply'
   return 'pending'
 })
@@ -730,6 +758,9 @@ onBeforeUnmount(() => {
                 white-space: nowrap;
                 overflow: hidden;
                 text-overflow: ellipsis;
+              }
+              &.dead {
+                opacity: 0.5;
               }
             }
           }

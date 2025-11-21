@@ -1,5 +1,6 @@
 from __future__ import annotations
 import asyncio
+import random
 from time import time
 import structlog
 from ..sio import sio
@@ -7,7 +8,8 @@ from ...core.clients import get_redis
 from ...core.decorators import rate_limited_sio
 from ...core.logging import log_action
 from ...core.db import SessionLocal
-from ...schemas.realtime import StateAck, ModerateAck, JoinAck, ScreenAck
+from ...core.settings import settings
+from ...schemas.realtime import StateAck, ModerateAck, JoinAck, ScreenAck, GameStartAck
 from ...services.livekit_tokens import make_livekit_token
 from ..utils import (
     KEYS_STATE,
@@ -30,6 +32,7 @@ from ..utils import (
     claim_screen,
     release_screen,
     account_screen_time,
+    get_rooms_brief,
 )
 
 log = structlog.get_logger()
@@ -78,6 +81,16 @@ async def join(sid, data) -> JoinAck:
             if not allowed:
                 pending = await r.sismember(f"room:{rid}:pending", str(uid))
                 return {"ok": False, "error": "private_room", "status": 403, "pending": bool(pending)}
+
+        raw_gstate = await r.hgetall(f"room:{rid}:game_state")
+        phase = str(raw_gstate.get("phase") or "idle")
+        if phase != "idle":
+            head_raw = raw_gstate.get("head")
+            head_id = int(head_raw) if head_raw else 0
+            game_players_set = await r.smembers(f"room:{rid}:game_players")
+            allowed_ids = {head_id} | {int(x) for x in (game_players_set or [])}
+            if uid not in allowed_ids:
+                return {"ok": False, "error": "game_in_progress", "status": 409}
 
         occ, pos, already, pos_updates = await join_room_atomic(r, rid, uid, base_role)
         if occ == -3:
@@ -138,9 +151,15 @@ async def join(sid, data) -> JoinAck:
                                namespace="/room")
 
         if not already:
+            phase = str((await r.hget(f"room:{rid}:game_state", "phase")) or "idle")
+            if phase != "idle":
+                alive_occ = int(await r.scard(f"room:{rid}:game_alive") or 0)
+                occ_to_send = alive_occ
+            else:
+                occ_to_send = occ
+
             await sio.emit("rooms_occupancy",
-                           {"id": rid,
-                            "occupancy": occ},
+                           {"id": rid, "occupancy": occ_to_send},
                            namespace="/rooms")
         await sio.emit("member_joined",
                        {"user_id": uid,
@@ -170,6 +189,24 @@ async def join(sid, data) -> JoinAck:
         token = make_livekit_token(identity=str(uid), name=ev_username, room=str(rid))
         game = build_game_from_raw(await r.hgetall(f"room:{rid}:game"))
 
+        raw_gstate = await r.hgetall(f"room:{rid}:game_state")
+        raw_seats = await r.hgetall(f"room:{rid}:game_seats")
+        players_set = await r.smembers(f"room:{rid}:game_players")
+        alive_set = await r.smembers(f"room:{rid}:game_alive")
+        phase = str(raw_gstate.get("phase") or "idle")
+        seats_map: dict[str, int] = {}
+        for k, v in (raw_seats or {}).items():
+            try:
+                seats_map[str(int(k))] = int(v)
+            except Exception:
+                continue
+
+        game_runtime = {"phase": phase,
+                        "min_ready": int(getattr(settings, "GAME_MIN_READY_PLAYERS", 10)),
+                        "seats": seats_map,
+                        "players": [int(x) for x in (players_set or [])],
+                        "alive": [int(x) for x in (alive_set or [])]}
+
         return {
             "ok": True,
             "room_id": rid,
@@ -183,6 +220,7 @@ async def join(sid, data) -> JoinAck:
             "profiles": profiles,
             "screen_owner": owner,
             "game": game,
+            "game_runtime": game_runtime,
         }
 
     except Exception:
@@ -444,8 +482,23 @@ async def kick(sid, data):
                            {"updates": [{"user_id": u, "position": p} for u, p in pos_updates]},
                            room=f"room:{rid}",
                            namespace="/room")
+
+        try:
+            phase = str(await r.hget(f"room:{rid}:game_state", "phase") or "idle")
+        except Exception:
+            phase = "idle"
+
+        if phase != "idle":
+            try:
+                alive_occ = int(await r.scard(f"room:{rid}:game_alive") or 0)
+            except Exception:
+                alive_occ = occ
+            occ_to_send = alive_occ
+        else:
+            occ_to_send = occ
+
         await sio.emit("rooms_occupancy",
-                       {"id": rid, "occupancy": occ},
+                       {"id": rid, "occupancy": occ_to_send},
                        namespace="/rooms")
 
         async with SessionLocal() as s:
@@ -461,6 +514,153 @@ async def kick(sid, data):
 
     except Exception:
         log.exception("sio.kick.error", sid=sid)
+        return {"ok": False, "error": "internal", "status": 500}
+
+
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_start:{uid or 'nouid'}:{rid or 0}", limit=5, window_s=1, session_ns="/room")
+@sio.event(namespace="/room")
+async def game_start(sid, data) -> GameStartAck:
+    try:
+        data = data or {}
+        confirm = bool(data.get("confirm"))
+        sess = await sio.get_session(sid, namespace="/room")
+        uid = int(sess["uid"])
+        rid = int(sess.get("rid") or 0)
+        if not rid:
+            return {"ok": False, "error": "no_room", "status": 400}
+
+        r = get_redis()
+        params = await r.hgetall(f"room:{rid}:params")
+        if not params:
+            return {"ok": False, "error": "room_not_found", "status": 404}
+
+        role_in_room = await r.hget(f"room:{rid}:user:{uid}:info", "role")
+        actor_role = str(role_in_room or sess.get("role") or "user")
+        if actor_role != "host":
+            return {"ok": False, "error": "forbidden", "status": 403}
+
+        raw_gstate = await r.hgetall(f"room:{rid}:game_state")
+        cur_phase = str(raw_gstate.get("phase") or "idle")
+        if cur_phase != "idle":
+            return {"ok": False, "error": "already_started", "status": 409}
+
+        if not await r.sismember(f"room:{rid}:members", str(uid)):
+            return {"ok": False, "error": "not_in_room", "status": 403}
+
+        min_ready = int(getattr(settings, "GAME_MIN_READY_PLAYERS", 10))
+        members = await r.smembers(f"room:{rid}:members")
+        members_cnt = len(members or [])
+        ready_ids = await r.smembers(f"room:{rid}:ready")
+        ready_cnt = len(ready_ids or [])
+        if not (members_cnt == min_ready + 1 and ready_cnt == min_ready and str(uid) not in ready_ids and (members_cnt - ready_cnt) == 1):
+            return {"ok": False, "error": "not_enough_ready", "status": 400}
+
+        streaming_owner_raw = await r.get(f"room:{rid}:screen_owner")
+        streaming_owner = int(streaming_owner_raw) if streaming_owner_raw else 0
+        blocking_users: list[int] = []
+        members_for_block_check = await r.smembers(f"room:{rid}:members")
+        if members_for_block_check:
+            async with r.pipeline() as p:
+                for pid in members_for_block_check:
+                    await p.hmget(f"room:{rid}:user:{pid}:block", *KEYS_BLOCK)
+                rows = await p.execute()
+            for pid, row in zip(members_for_block_check, rows):
+                if any((v or "0") == "1" for v in (row or [])):
+                    try:
+                        blocking_users.append(int(pid))
+                    except Exception:
+                        continue
+
+        if streaming_owner or blocking_users:
+            return {
+                "ok": False,
+                "status": 409,
+                "error": "streaming_present" if streaming_owner else "blocked_params",
+                "room_id": rid,
+                "streaming_owner": streaming_owner,
+                "blocking_users": blocking_users,
+            }
+
+        if not confirm:
+            return {
+                "ok": True,
+                "status": 200,
+                "room_id": rid,
+                "can_start": True,
+                "min_ready": min_ready,
+            }
+
+        player_ids = [str(x) for x in ready_ids]
+        random.shuffle(player_ids)
+        seats: dict[str, int] = {}
+        slot = 1
+        for pid in player_ids:
+            seats[pid] = slot
+            slot += 1
+        seats[str(uid)] = 11
+        now = int(time())
+        async with r.pipeline() as p:
+            await p.hset(f"room:{rid}:game_state",
+                         mapping={
+                             "phase": "roles_pick",
+                             "started_at": str(now),
+                             "started_by": str(uid),
+                             "head": str(uid),
+                         })
+            if seats:
+                await p.hset(f"room:{rid}:game_seats", mapping={k: str(v) for k, v in seats.items()})
+
+            if player_ids:
+                await p.delete(f"room:{rid}:game_players", f"room:{rid}:game_alive")
+                await p.sadd(f"room:{rid}:game_players", *player_ids)
+                await p.sadd(f"room:{rid}:game_alive", *player_ids)
+            await p.delete(f"room:{rid}:ready")
+            await p.execute()
+
+        payload: GameStartAck = {
+            "ok": True,
+            "status": 200,
+            "room_id": rid,
+            "phase": "roles_pick",
+            "min_ready": min_ready,
+            "seats": {k: int(v) for k, v in seats.items()},
+        }
+
+        await sio.emit("game_started",
+                       payload,
+                       room=f"room:{rid}",
+                       namespace="/room")
+
+        alive_cnt = len(player_ids)
+        await sio.emit("rooms_occupancy",
+                       {"id": rid, "occupancy": alive_cnt},
+                       namespace="/rooms")
+
+        try:
+            briefs = await get_rooms_brief(r, [rid])
+            if briefs:
+                await sio.emit("rooms_upsert",
+                               briefs[0],
+                               namespace="/rooms")
+        except Exception:
+            log.exception("sio.game_start.rooms_upsert_failed", rid=rid)
+
+        try:
+            async with SessionLocal() as s:
+                await log_action(
+                    s,
+                    user_id=uid,
+                    username=str(sess.get("username") or f"user{uid}"),
+                    action="game_start",
+                    details=f"Запуск игры room_id={rid} members={members_cnt} ready={ready_cnt}",
+                )
+        except Exception:
+            log.exception("sio.game_start.log_failed", rid=rid, uid=uid)
+
+        return payload
+
+    except Exception:
+        log.exception("sio.game_start.error", sid=sid)
         return {"ok": False, "error": "internal", "status": 500}
 
 
@@ -526,9 +726,23 @@ async def disconnect(sid):
                            {"updates": [{"user_id": u, "position": p} for u, p in pos_updates]},
                            room=f"room:{rid}",
                            namespace="/room")
+
+        try:
+            phase = str(await r.hget(f"room:{rid}:game_state", "phase") or "idle")
+        except Exception:
+            phase = "idle"
+
+        if phase != "idle":
+            try:
+                alive_occ = int(await r.scard(f"room:{rid}:game_alive") or 0)
+            except Exception:
+                alive_occ = occ
+            occ_to_send = alive_occ
+        else:
+            occ_to_send = occ
+
         await sio.emit("rooms_occupancy",
-                       {"id": rid,
-                        "occupancy": occ},
+                       {"id": rid, "occupancy": occ_to_send},
                        namespace="/rooms")
 
         base_role = str(sess.get("base_role") or "user")

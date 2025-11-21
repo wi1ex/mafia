@@ -1,18 +1,18 @@
 from __future__ import annotations
 import structlog
-from typing import Optional, Dict, Any, cast, Literal
-from ..core.db import SessionLocal
+from typing import Optional, Dict, Any, Literal
 from ..core.clients import get_redis
-from ..models.user import User
-from ..realtime.sio import sio
 from ..schemas.room import GameParams
+from ..realtime.sio import sio
+from ..realtime.utils import get_profiles_snapshot, get_rooms_brief
 
 __all__ = [
     "serialize_game_for_redis",
     "game_from_redis_to_model",
-    "get_room_brief",
     "emit_rooms_upsert",
     "broadcast_creator_rooms",
+    "get_room_game_runtime",
+    "build_room_members_for_info",
 ]
 
 log = structlog.get_logger()
@@ -48,35 +48,11 @@ def game_from_redis_to_model(raw_game: Dict[str, Any]) -> GameParams:
     )
 
 
-async def get_room_brief(r, rid: int) -> Optional[dict]:
-    fields = ("id", "title", "user_limit", "creator", "creator_name", "creator_avatar_name", "created_at", "privacy")
-    _id, title, user_limit, creator, creator_name, creator_avatar_name, created_at, privacy = await r.hmget(f"room:{rid}:params", *fields)
-    if not (_id and title and user_limit and creator and creator_name and created_at):
-        return None
-
-    occ = int(await r.scard(f"room:{rid}:members") or 0)
-    if creator_avatar_name is None:
-        async with SessionLocal() as s:
-            u = await s.get(User, int(creator))
-            creator_avatar_name = cast(Optional[str], u.avatar_name) if u else None
-
-    return {
-        "id": int(_id),
-        "title": str(title),
-        "user_limit": int(user_limit),
-        "creator": int(creator),
-        "creator_name": str(creator_name),
-        "creator_avatar_name": creator_avatar_name,
-        "created_at": str(created_at),
-        "privacy": str(privacy or "open"),
-        "occupancy": occ,
-    }
-
-
 async def emit_rooms_upsert(rid: int) -> None:
     r = get_redis()
     try:
-        item = await get_room_brief(r, rid)
+        items = await get_rooms_brief(r, [rid])
+        item = items[0] if items else None
     except Exception as e:
         log.exception("rooms.upsert.prepare_failed", rid=rid, err=type(e).__name__)
         return
@@ -124,3 +100,87 @@ async def broadcast_creator_rooms(uid: int, *, update_name: Optional[str] = None
             await emit_rooms_upsert(rid)
         except Exception as e:
             log.warning("rooms.upsert.iter_failed", rid=rid, err=type(e).__name__)
+
+
+async def get_room_game_runtime(r, room_id: int) -> Dict[str, Any]:
+    raw_gstate = await r.hgetall(f"room:{room_id}:game_state")
+    raw_seats = await r.hgetall(f"room:{room_id}:game_seats")
+    players_set = await r.smembers(f"room:{room_id}:game_players")
+    alive_set = await r.smembers(f"room:{room_id}:game_alive")
+    phase = str(raw_gstate.get("phase") or "idle")
+
+    try:
+        head_uid = int(raw_gstate.get("head") or 0)
+    except Exception:
+        head_uid = 0
+
+    seats_map: Dict[int, int] = {}
+    for k, v in (raw_seats or {}).items():
+        try:
+            seats_map[int(k)] = int(v)
+        except Exception:
+            continue
+
+    def _to_int_set(vals) -> set[int]:
+        out: set[int] = set()
+        for x in vals or []:
+            try:
+                out.add(int(x))
+            except Exception:
+                continue
+        return out
+
+    players = _to_int_set(players_set)
+    alive_players = _to_int_set(alive_set)
+
+    return {
+        "phase": phase,
+        "head": head_uid,
+        "seats": seats_map,
+        "players": players,
+        "alive": alive_players,
+    }
+
+
+async def build_room_members_for_info(r, room_id: int) -> list[Dict[str, Any]]:
+    order_raw = await r.zrange(f"room:{room_id}:positions", 0, -1)
+    order_ids = [int(uid) for uid in order_raw]
+    owner_raw = await r.get(f"room:{room_id}:screen_owner")
+    screen_owner = int(owner_raw) if owner_raw else 0
+    profiles = await get_profiles_snapshot(r, room_id)
+    game_rt = await get_room_game_runtime(r, room_id)
+    phase: str = game_rt["phase"]
+    head_uid: int = game_rt["head"]
+    seats_map: Dict[int, int] = game_rt["seats"]
+    players: set[int] = game_rt["players"]
+    alive_players: set[int] = game_rt["alive"]
+
+    raw_members: list[Dict[str, Any]] = []
+    for uid in order_ids:
+        p = profiles.get(str(uid)) or {}
+        role = None
+        slot = None
+        alive = None
+        if phase != "idle":
+            if uid == head_uid:
+                role = "head"
+            elif uid in players:
+                role = "player"
+                slot = seats_map.get(uid)
+                alive = uid in alive_players
+            else:
+                role = "observer"
+
+        raw_members.append(
+            {
+                "id": uid,
+                "username": p.get("username"),
+                "avatar_name": p.get("avatar_name"),
+                "screen": True if screen_owner and uid == screen_owner else None,
+                "role": role,
+                "slot": slot,
+                "alive": alive,
+            }
+        )
+
+    return raw_members

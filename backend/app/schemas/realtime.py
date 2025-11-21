@@ -17,6 +17,7 @@ class JoinAck(TypedDict, total=False):
     screen_owner: int
     pending: bool
     game: dict
+    game_runtime: dict
 
 
 class RoomListItem(TypedDict):
@@ -29,6 +30,8 @@ class RoomListItem(TypedDict):
     creator_avatar_name: Optional[str]
     created_at: str
     occupancy: int
+    in_game: bool
+    game_phase: str
 
 
 class RoomsListAck(TypedDict):
@@ -54,3 +57,16 @@ class ScreenAck(TypedDict, total=False):
     error: str
     status: int
     owner: int
+
+
+class GameStartAck(TypedDict, total=False):
+    ok: bool
+    status: int
+    error: str
+    room_id: int
+    phase: str
+    min_ready: int
+    seats: Dict[str, int]
+    can_start: bool
+    streaming_owner: int
+    blocking_users: List[int]

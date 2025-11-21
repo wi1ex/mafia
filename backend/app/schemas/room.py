@@ -45,6 +45,9 @@ class RoomInfoMemberOut(BaseModel):
     username: Optional[str] = None
     avatar_name: Optional[str] = None
     screen: Optional[bool] = None
+    role: Optional[Literal["head", "player", "observer"]] = None
+    slot: Optional[int] = None
+    alive: Optional[bool] = None
 
 
 class RoomInfoOut(BaseModel):

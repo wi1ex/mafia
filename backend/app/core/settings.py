@@ -35,6 +35,8 @@ class Settings(BaseSettings):
 
     BACKEND_CORS_ORIGINS: List[str] = []
 
+    GAME_MIN_READY_PLAYERS: int = 10
+
     @property
     def pg_dsn(self) -> str:
         return (f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"

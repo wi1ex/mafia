@@ -10,32 +10,32 @@
 
     <template v-else>
       <div v-if="!isTheater" class="grid" :style="gridStyle">
-        <RoomTile
-          v-for="id in sortedPeerIds"
-          :key="id"
-          :id="id"
-          :local-id="localId"
-          :speaking="rtc.isSpeaking(id)"
-          :video-ref="stableVideoRef(id)"
-          :fit-contain="fitContainInGrid"
-          :default-avatar="defaultAvatar"
-          :volume-icon="volumeIconForUser(id)"
-          :state-icon="stateIcon"
-          :is-ready="isReady"
-          :is-on="isOn"
-          :is-blocked="isBlocked"
-          :user-name="userName"
-          :avatar-key="avatarKey"
-          :can-moderate="canModerate"
-          :speakers-on="speakersOn"
-          :open-panel-for="openPanelFor"
-          :vol="volUi[id] ?? rtc.getUserVolume(id)"
-          :is-mirrored="isMirrored"
-          @toggle-panel="toggleTilePanel"
-          @vol-input="onVol"
-          @block="(key, uid) => toggleBlock(uid, key)"
-          @kick="kickUser"
-        />
+        <div v-for="id in sortedPeerIds" :key="id" class="grid-cell" :style="tileGridStyle(id)">
+          <RoomTile
+            :id="id"
+            :local-id="localId"
+            :speaking="rtc.isSpeaking(id)"
+            :video-ref="stableVideoRef(id)"
+            :fit-contain="fitContainInGrid"
+            :default-avatar="defaultAvatar"
+            :volume-icon="volumeIconForUser(id)"
+            :state-icon="stateIcon"
+            :is-ready="isReady"
+            :is-on="isOn"
+            :is-blocked="isBlocked"
+            :user-name="userName"
+            :avatar-key="avatarKey"
+            :can-moderate="canModerate"
+            :speakers-on="speakersOn"
+            :open-panel-for="openPanelFor"
+            :vol="volUi[id] ?? rtc.getUserVolume(id)"
+            :is-mirrored="isMirrored"
+            @toggle-panel="toggleTilePanel"
+            @vol-input="onVol"
+            @block="(key, uid) => toggleBlock(uid, key)"
+            @kick="kickUser"
+          />
+        </div>
       </div>
 
       <div v-else class="theater">
@@ -93,28 +93,63 @@
           </button>
         </div>
         <div v-else class="controls">
-          <button @click="toggleReady" :aria-pressed="readyOn">
-            <img :src="readyOn ? iconReady : iconClose" alt="ready" />
-          </button>
-          <button @click="toggleMic" :disabled="pending.mic || blockedSelf.mic" :aria-pressed="micOn">
-            <img :src="stateIcon('mic', localId)" alt="mic" />
-          </button>
-          <button @click="toggleCam" :disabled="pending.cam || blockedSelf.cam" :aria-pressed="camOn">
-            <img :src="stateIcon('cam', localId)" alt="cam" />
-          </button>
-          <button @click="toggleSpeakers" :disabled="pending.speakers || blockedSelf.speakers" :aria-pressed="speakersOn">
-            <img :src="stateIcon('speakers', localId)" alt="speakers" />
-          </button>
-          <button @click="toggleVisibility" :disabled="pending.visibility || blockedSelf.visibility" :aria-pressed="visibilityOn">
-            <img :src="stateIcon('visibility', localId)" alt="visibility" />
-          </button>
-          <button @click="toggleScreen" :disabled="pendingScreen || (!!screenOwnerId && screenOwnerId !== localId) || blockedSelf.screen" :aria-pressed="isMyScreen">
-            <img :src="stateIcon('screen', localId)" alt="screen" />
-          </button>
+          <div v-if="gamePhase === 'idle'">
+            <button v-if="canShowStartGame" @click="startGame" :disabled="startingGame" aria-label="Запустить игру">
+              <img :src="iconReady" alt="start" />
+            </button>
+            <button v-else @click="toggleReady" :aria-pressed="readyOn" aria-label="Готовность">
+              <img :src="readyOn ? iconReady : iconClose" alt="ready" />
+            </button>
+            <button @click="toggleMic" :disabled="pending.mic || blockedSelf.mic" :aria-pressed="micOn">
+              <img :src="stateIcon('mic', localId)" alt="mic" />
+            </button>
+            <button @click="toggleCam" :disabled="pending.cam || blockedSelf.cam" :aria-pressed="camOn">
+              <img :src="stateIcon('cam', localId)" alt="cam" />
+            </button>
+            <button @click="toggleSpeakers" :disabled="pending.speakers || blockedSelf.speakers" :aria-pressed="speakersOn">
+              <img :src="stateIcon('speakers', localId)" alt="speakers" />
+            </button>
+            <button @click="toggleVisibility" :disabled="pending.visibility || blockedSelf.visibility" :aria-pressed="visibilityOn">
+              <img :src="stateIcon('visibility', localId)" alt="visibility" />
+            </button>
+            <button @click="toggleScreen" :disabled="pendingScreen || (!!screenOwnerId && screenOwnerId !== localId) || blockedSelf.screen" :aria-pressed="isMyScreen">
+              <img :src="stateIcon('screen', localId)" alt="screen" />
+            </button>
+          </div>
+
+          <div v-else-if="myGameRole === 'head'">
+            <button @click="toggleMic" :disabled="pending.mic || blockedSelf.mic" :aria-pressed="micOn">
+              <img :src="stateIcon('mic', localId)" alt="mic" />
+            </button>
+            <button @click="toggleCam" :disabled="pending.cam || blockedSelf.cam" :aria-pressed="camOn">
+              <img :src="stateIcon('cam', localId)" alt="cam" />
+            </button>
+          </div>
+
+          <div v-else-if="myGameRole === 'player'">
+          </div>
+
+          <div v-else>
+            <button @click="toggleMic" :disabled="pending.mic || blockedSelf.mic" :aria-pressed="micOn">
+              <img :src="stateIcon('mic', localId)" alt="mic" />
+            </button>
+            <button @click="toggleCam" :disabled="pending.cam || blockedSelf.cam" :aria-pressed="camOn">
+              <img :src="stateIcon('cam', localId)" alt="cam" />
+            </button>
+            <button @click="toggleSpeakers" :disabled="pending.speakers || blockedSelf.speakers" :aria-pressed="speakersOn">
+              <img :src="stateIcon('speakers', localId)" alt="speakers" />
+            </button>
+            <button @click="toggleVisibility" :disabled="pending.visibility || blockedSelf.visibility" :aria-pressed="visibilityOn">
+              <img :src="stateIcon('visibility', localId)" alt="visibility" />
+            </button>
+            <button @click="toggleScreen" :disabled="pendingScreen || (!!screenOwnerId && screenOwnerId !== localId) || blockedSelf.screen" :aria-pressed="isMyScreen">
+              <img :src="stateIcon('screen', localId)" alt="screen" />
+            </button>
+          </div>
         </div>
 
         <div class="controls-side right">
-          <button v-if="myRole === 'host' && isPrivate" @click.stop="toggleApps" :aria-expanded="openApps" aria-label="Заявки">
+          <button v-if="myRole === 'host' && isPrivate && gamePhase === 'idle'" @click.stop="toggleApps" :aria-expanded="openApps" aria-label="Заявки">
             <img :src="iconRequestsRoom" alt="requests" />
             <span class="count-total" :class="{ unread: appsCounts.unread > 0 }">
               {{ appsCounts.total < 100 ? appsCounts.total : '∞' }}
@@ -139,7 +174,7 @@
         />
 
         <RoomRequests
-          v-if="myRole === 'host' && isPrivate"
+          v-if="myRole === 'host' && isPrivate && gamePhase === 'idle'"
           v-model:open="openApps"
           :room-id="rid"
           @counts="(p) => { appsCounts.total = p.total; appsCounts.unread = p.unread }"
@@ -209,6 +244,13 @@ const UA = navigator.userAgent || ''
 const IS_MOBILE = (navigator as any).userAgentData?.mobile === true || /Android|iPhone|iPad|iPod|Mobile/i.test(UA)
   || (window.matchMedia?.('(pointer: coarse)').matches && /Android|iPhone|iPad|iPod|Mobile|Tablet|Touch/i.test(UA))
 
+const GAME_COLUMN_INDEX: Record<number, number> = {
+  1: 5, 2: 7, 3: 7, 4: 7, 5: 5, 6: 3, 7: 1, 8: 1, 9: 1, 10: 3, 11: 4,
+}
+const GAME_ROW_INDEX: Record<number, number> = {
+  1: 1, 2: 1, 3: 3, 4: 5, 5: 5, 6: 5, 7: 5, 8: 3, 9: 1, 10: 1, 11: 3,
+}
+
 const rid = Number(route.params.id)
 const local = reactive({ mic: false, cam: false, speakers: true, visibility: true })
 const pending = reactive<{ [k in keyof typeof local]: boolean }>({ mic: false, cam: false, speakers: false, visibility: false })
@@ -245,6 +287,89 @@ const isMyScreen = computed(() => !!localId.value && screenOwnerId.value === loc
 const streamAudioKey = computed(() => screenOwnerId.value ? rtc.screenKey(screenOwnerId.value) : '')
 const streamVol = computed(() => streamAudioKey.value ? (volUi[streamAudioKey.value] ?? rtc.getUserVolume(streamAudioKey.value)) : 100)
 const fitContainInGrid = computed(() => !isTheater.value && sortedPeerIds.value.length < 3)
+
+const startingGame = ref(false)
+const minReadyToStart = ref<number>(10)
+const gamePhase = ref<'idle' | 'roles_pick' | 'mafia_talk' | 'day' | 'night'>('idle')
+const seatsByUser = reactive<Record<string, number>>({})
+
+const myGameRole = computed<'head' | 'player' | 'none'>(() => {
+  const id = localId.value
+  if (!id) return 'none'
+  const seat = seatsByUser[id]
+  if (!seat) return 'none'
+  return seat === 11 ? 'head' : 'player'
+})
+const readyCount = computed(() => {
+  let cnt = 0
+  statusByUser.forEach((st) => { if ((st.ready ?? 0) === 1) cnt++ })
+  return cnt
+})
+const totalPlayers = computed(() => sortedPeerIds.value.length)
+const canShowStartGame = computed(() => {
+  if (!localId.value) return false
+  if (gamePhase.value !== 'idle') return false
+  if (myRole.value !== 'host') return false
+  const total = totalPlayers.value
+  const ready = readyCount.value
+  const st = statusByUser.get(localId.value)
+  const meReady = (st?.ready ?? 0) === 1
+  return total === minReadyToStart.value + 1 && ready === minReadyToStart.value && !meReady
+})
+
+async function startGame() {
+  if (startingGame.value || !socket.value) return
+  startingGame.value = true
+  try {
+    const check = await sendAck('game_start', { confirm: false })
+    if (!check?.ok) {
+      const code = check?.error
+      const st = check?.status
+      if (st === 400 && code === 'not_enough_ready') {
+        alert('Недостаточно готовых игроков для старта игры')
+      } else if (st === 403 && code === 'forbidden') {
+        alert('Только владелец комнаты может запустить игру')
+      } else if (st === 403 && code === 'not_in_room') {
+        alert('Вы не в комнате')
+      } else if (st === 409 && code === 'streaming_present') {
+        alert('В комнате есть активный стрим. Остановите трансляцию перед запуском игры.')
+      } else if (st === 409 && code === 'blocked_params') {
+        alert('У одного или нескольких игроков есть блокировки микрофона/камеры/звука/видимости. Снимите блокировки и повторите попытку.')
+      } else if (st === 409 && code === 'already_started') {
+        alert('Игра уже запущена')
+      } else {
+        alert('Не удалось подготовить запуск игры')
+      }
+      return
+    }
+
+    if (!confirm('Запустить игру для всех готовых игроков?')) return
+
+    const resp = await sendAck('game_start', { confirm: true })
+    if (!resp?.ok) {
+      const code = resp?.error
+      const st = resp?.status
+      if (st === 400 && code === 'not_enough_ready') {
+        alert('Недостаточно готовых игроков для старта игры')
+      } else if (st === 403 && code === 'forbidden') {
+        alert('Только владелец комнаты может запустить игру')
+      } else if (st === 403 && code === 'not_in_room') {
+        alert('Вы не в комнате')
+      } else if (st === 409 && code === 'streaming_present') {
+        alert('В комнате есть активный стрим. Остановите трансляцию перед запуском игры.')
+      } else if (st === 409 && code === 'blocked_params') {
+        alert('У одного или нескольких игроков есть блокировки микрофона/камеры/звука/видимости. Снимите блокировки и повторите попытку.')
+      } else if (st === 409 && code === 'already_started') {
+        alert('Игра уже запущена')
+      } else {
+        alert('Не удалось запустить игру')
+      }
+      return
+    }
+  } finally {
+    startingGame.value = false
+  }
+}
 
 const videoQuality = computed<VQ>({
   get: () => rtc.remoteQuality.value,
@@ -378,11 +503,29 @@ const sortedPeerIds = computed(() => {
   })
 })
 const gridStyle = computed(() => {
+  if (gamePhase.value !== 'idle') {
+    return {
+      gridTemplateColumns: 'repeat(8, 1fr)',
+      gridTemplateRows: 'repeat(6, 1fr)',
+    }
+  }
   const count = sortedPeerIds.value.length
   const cols = count <= 2 ? 2 : count <= 6 ? 3 : 4
   const rows = count <= 2 ? 1 : count <= 6 ? 2 : 3
   return { gridTemplateColumns: `repeat(${cols}, 1fr)`, gridTemplateRows: `repeat(${rows}, 1fr)` }
 })
+
+const tileGridStyle = (id: string) => {
+  if (gamePhase.value === 'idle') return {}
+  const pos = seatsByUser[id]
+  if (!pos) return {}
+  const col = GAME_COLUMN_INDEX[pos] ?? 1
+  const row = GAME_ROW_INDEX[pos] ?? 1
+  return {
+    gridColumn: `${col} / span 2`,
+    gridRow: `${row} / span 2`,
+  }
+}
 
 const isEmpty = (v: any) => v === undefined || v === null || v === ''
 const pick01 = (v: any, fallback: 0 | 1) => isEmpty(v) ? fallback : norm01(v, fallback)
@@ -628,6 +771,10 @@ function connectSocket() {
     if (openPanelFor.value === rtc.screenKey(prev)) openPanelFor.value = ''
     if (prev) delete volUi[rtc.screenKey(prev)]
   })
+
+  socket.value?.on('game_started', (p: any) => {
+    applyGameStarted(p)
+  })
 }
 
 async function safeJoin() {
@@ -661,6 +808,52 @@ function ensurePeer(id: string) {
   if (!rtc.peerIds.value.includes(id)) {
     rtc.peerIds.value = [...rtc.peerIds.value, id]
   }
+}
+
+async function enforceInitialGameControls() {
+  const id = localId.value
+  if (!id) return
+  const seat = seatsByUser[id]
+  if (!seat) return
+  if (seat === 11) {
+    if (!speakersOn.value) {
+      await toggleSpeakers()
+    }
+    if (!visibilityOn.value) {
+      await toggleVisibility()
+    }
+    return
+  }
+  if (micOn.value) {
+    await toggleMic()
+  }
+  if (!camOn.value && !blockedSelf.value.cam) {
+    await toggleCam()
+  }
+  if (!speakersOn.value && !blockedSelf.value.speakers) {
+    await toggleSpeakers()
+  }
+  if (visibilityOn.value) {
+    await toggleVisibility()
+  }
+}
+
+function applyGameStarted(p: any) {
+  gamePhase.value = (p?.phase as any) || 'roles_pick'
+  if (p?.min_ready != null) {
+    const v = Number(p.min_ready)
+    if (Number.isFinite(v) && v > 0) minReadyToStart.value = v
+  }
+  const seats = (p?.seats || {}) as Record<string, any>
+  Object.keys(seatsByUser).forEach((k) => { delete seatsByUser[k] })
+  for (const [uid, seat] of Object.entries(seats)) {
+    const n = Number(seat)
+    if (Number.isFinite(n) && n > 0) seatsByUser[String(uid)] = n
+  }
+  statusByUser.forEach((st, uid) => {
+    statusByUser.set(uid, { ...st, ready: 0 as 0 })
+  })
+  void enforceInitialGameControls()
 }
 
 function applyJoinAck(j: any) {
@@ -722,6 +915,18 @@ function applyJoinAck(j: any) {
     const isUserId = statusByUser.has(k)
     const isKeep = keepKey && k === keepKey
     if (!isUserId && !isKeep) delete volUi[k]
+  }
+
+  const gr = j.game_runtime || {}
+  const mr = Number(gr.min_ready)
+  if (Number.isFinite(mr) && mr > 0) minReadyToStart.value = mr
+  else minReadyToStart.value = Number(game?.min_ready_for_start) || minReadyToStart.value
+  gamePhase.value = (gr.phase as any) || 'idle'
+  const seats = (gr.seats || {}) as Record<string, any>
+  Object.keys(seatsByUser).forEach((k) => { delete seatsByUser[k] })
+  for (const [uid, seat] of Object.entries(seats)) {
+    const n = Number(seat)
+    if (Number.isFinite(n) && n > 0) seatsByUser[String(uid)] = n
   }
 }
 
@@ -854,6 +1059,9 @@ onMounted(async () => {
         if (j?.status === 403 && j?.error === 'private_room') {
           alert('Комната приватная')
           await router.replace({ name: 'home', query: { focus: String(rid) } })
+        } else if (j?.status === 409 && j?.error === 'game_in_progress') {
+          alert('В комнате идёт игра')
+          await router.replace({ name: 'home', query: { focus: String(rid) } })
         } else {
           alert(j?.status === 404 ? 'Комната не найдена'
             : j?.status === 410 ? 'Комната закрыта'
@@ -965,6 +1173,9 @@ window.addEventListener('online',  () => { if (netReconnecting.value) hardReload
     width: calc(100vw - 20px);
     height: calc(100dvh - 70px);
     gap: 10px;
+    .grid-cell {
+      position: relative;
+    }
   }
   .theater {
     display: grid;
