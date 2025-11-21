@@ -31,7 +31,8 @@
             <span>{{ r.id }}</span>
             <div class="cell" :title="r.title">
               <img :src="r.privacy === 'private' ? iconLockClose : iconLockOpen" alt="lock" />
-              <span>{{ r.in_game ? 'игра' : 'набор' }} | {{ r.title }}</span>
+              <span class="in-game">{{ r.in_game ? 'game' : 'lobby' }}</span>
+              <span>{{ r.title }}</span>
             </div>
             <div class="cell">
               <img class="user-avatar" v-minio-img="{key: r.creator_avatar_name ? `avatars/${r.creator_avatar_name}` : '', placeholder: defaultAvatar, lazy: false}" alt="" />
@@ -48,7 +49,7 @@
       <Transition name="room-panel" mode="out-in">
         <div v-if="selectedId" key="info" class="room-info">
           <header>
-            <span>{{ selectedRoom.in_game ? 'игра' : 'набор' }} | {{ selectedRoom?.title }}</span>
+            <span>{{ selectedRoom?.title }}</span>
             <button @click="clearSelection" aria-label="Закрыть">
               <img :src="iconClose" alt="close" />
             </button>
@@ -568,6 +569,10 @@ onBeforeUnmount(() => {
           &:hover {
             background-color: $lead;
           }
+          img {
+            width: 20px;
+            height: 20px;
+          }
           span {
             color: $ashy;
             white-space: nowrap;
@@ -578,9 +583,8 @@ onBeforeUnmount(() => {
             display: flex;
             align-items: center;
             gap: 5px;
-            img {
-              width: 20px;
-              height: 20px;
+            .in-game {
+              background-color: grey;
             }
             .user-avatar {
               border-radius: 50%;

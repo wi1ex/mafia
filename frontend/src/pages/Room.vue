@@ -10,32 +10,33 @@
 
     <template v-else>
       <div v-if="!isTheater" class="grid" :style="gridStyle">
-        <div v-for="id in sortedPeerIds" :key="id" class="grid-cell" :style="tileGridStyle(id)">
-          <RoomTile
-            :id="id"
-            :local-id="localId"
-            :speaking="rtc.isSpeaking(id)"
-            :video-ref="stableVideoRef(id)"
-            :fit-contain="fitContainInGrid"
-            :default-avatar="defaultAvatar"
-            :volume-icon="volumeIconForUser(id)"
-            :state-icon="stateIcon"
-            :is-ready="isReady"
-            :is-on="isOn"
-            :is-blocked="isBlocked"
-            :user-name="userName"
-            :avatar-key="avatarKey"
-            :can-moderate="canModerate"
-            :speakers-on="speakersOn"
-            :open-panel-for="openPanelFor"
-            :vol="volUi[id] ?? rtc.getUserVolume(id)"
-            :is-mirrored="isMirrored"
-            @toggle-panel="toggleTilePanel"
-            @vol-input="onVol"
-            @block="(key, uid) => toggleBlock(uid, key)"
-            @kick="kickUser"
-          />
-        </div>
+        <RoomTile
+          v-for="id in sortedPeerIds"
+          :key="id"
+          :style="tileGridStyle(id)"
+          :id="id"
+          :local-id="localId"
+          :speaking="rtc.isSpeaking(id)"
+          :video-ref="stableVideoRef(id)"
+          :fit-contain="fitContainInGrid"
+          :default-avatar="defaultAvatar"
+          :volume-icon="volumeIconForUser(id)"
+          :state-icon="stateIcon"
+          :is-ready="isReady"
+          :is-on="isOn"
+          :is-blocked="isBlocked"
+          :user-name="userName"
+          :avatar-key="avatarKey"
+          :can-moderate="canModerate"
+          :speakers-on="speakersOn"
+          :open-panel-for="openPanelFor"
+          :vol="volUi[id] ?? rtc.getUserVolume(id)"
+          :is-mirrored="isMirrored"
+          @toggle-panel="toggleTilePanel"
+          @vol-input="onVol"
+          @block="(key, uid) => toggleBlock(uid, key)"
+          @kick="kickUser"
+        />
       </div>
 
       <div v-else class="theater">
@@ -93,59 +94,27 @@
           </button>
         </div>
         <div v-else class="controls">
-          <div v-if="gamePhase === 'idle'">
-            <button v-if="canShowStartGame" @click="startGame" :disabled="startingGame" aria-label="Запустить игру">
-              <img :src="iconReady" alt="start" />
-            </button>
-            <button v-else @click="toggleReady" :aria-pressed="readyOn" aria-label="Готовность">
-              <img :src="readyOn ? iconReady : iconClose" alt="ready" />
-            </button>
-            <button @click="toggleMic" :disabled="pending.mic || blockedSelf.mic" :aria-pressed="micOn">
-              <img :src="stateIcon('mic', localId)" alt="mic" />
-            </button>
-            <button @click="toggleCam" :disabled="pending.cam || blockedSelf.cam" :aria-pressed="camOn">
-              <img :src="stateIcon('cam', localId)" alt="cam" />
-            </button>
-            <button @click="toggleSpeakers" :disabled="pending.speakers || blockedSelf.speakers" :aria-pressed="speakersOn">
-              <img :src="stateIcon('speakers', localId)" alt="speakers" />
-            </button>
-            <button @click="toggleVisibility" :disabled="pending.visibility || blockedSelf.visibility" :aria-pressed="visibilityOn">
-              <img :src="stateIcon('visibility', localId)" alt="visibility" />
-            </button>
-            <button @click="toggleScreen" :disabled="pendingScreen || (!!screenOwnerId && screenOwnerId !== localId) || blockedSelf.screen" :aria-pressed="isMyScreen">
-              <img :src="stateIcon('screen', localId)" alt="screen" />
-            </button>
-          </div>
-
-          <div v-else-if="myGameRole === 'head'">
-            <button @click="toggleMic" :disabled="pending.mic || blockedSelf.mic" :aria-pressed="micOn">
-              <img :src="stateIcon('mic', localId)" alt="mic" />
-            </button>
-            <button @click="toggleCam" :disabled="pending.cam || blockedSelf.cam" :aria-pressed="camOn">
-              <img :src="stateIcon('cam', localId)" alt="cam" />
-            </button>
-          </div>
-
-          <div v-else-if="myGameRole === 'player'">
-          </div>
-
-          <div v-else>
-            <button @click="toggleMic" :disabled="pending.mic || blockedSelf.mic" :aria-pressed="micOn">
-              <img :src="stateIcon('mic', localId)" alt="mic" />
-            </button>
-            <button @click="toggleCam" :disabled="pending.cam || blockedSelf.cam" :aria-pressed="camOn">
-              <img :src="stateIcon('cam', localId)" alt="cam" />
-            </button>
-            <button @click="toggleSpeakers" :disabled="pending.speakers || blockedSelf.speakers" :aria-pressed="speakersOn">
-              <img :src="stateIcon('speakers', localId)" alt="speakers" />
-            </button>
-            <button @click="toggleVisibility" :disabled="pending.visibility || blockedSelf.visibility" :aria-pressed="visibilityOn">
-              <img :src="stateIcon('visibility', localId)" alt="visibility" />
-            </button>
-            <button @click="toggleScreen" :disabled="pendingScreen || (!!screenOwnerId && screenOwnerId !== localId) || blockedSelf.screen" :aria-pressed="isMyScreen">
-              <img :src="stateIcon('screen', localId)" alt="screen" />
-            </button>
-          </div>
+          <button v-if="gamePhase === 'idle' && canShowStartGame" @click="startGame" :disabled="startingGame" aria-label="Запустить игру">
+            <img :src="iconReady" alt="start" />
+          </button>
+          <button v-if="gamePhase === 'idle' && !canShowStartGame" @click="toggleReady" :aria-pressed="readyOn" aria-label="Готовность">
+            <img :src="readyOn ? iconReady : iconClose" alt="ready" />
+          </button>
+          <button v-if="gamePhase === 'idle' || myGameRole === 'head'" @click="toggleMic" :disabled="pending.mic || blockedSelf.mic" :aria-pressed="micOn">
+            <img :src="stateIcon('mic', localId)" alt="mic" />
+          </button>
+          <button v-if="gamePhase === 'idle' || myGameRole === 'head'" @click="toggleCam" :disabled="pending.cam || blockedSelf.cam" :aria-pressed="camOn">
+            <img :src="stateIcon('cam', localId)" alt="cam" />
+          </button>
+          <button v-if="gamePhase === 'idle'" @click="toggleSpeakers" :disabled="pending.speakers || blockedSelf.speakers" :aria-pressed="speakersOn">
+            <img :src="stateIcon('speakers', localId)" alt="speakers" />
+          </button>
+          <button v-if="gamePhase === 'idle'" @click="toggleVisibility" :disabled="pending.visibility || blockedSelf.visibility" :aria-pressed="visibilityOn">
+            <img :src="stateIcon('visibility', localId)" alt="visibility" />
+          </button>
+          <button v-if="gamePhase === 'idle'" @click="toggleScreen" :disabled="pendingScreen || (!!screenOwnerId && screenOwnerId !== localId) || blockedSelf.screen" :aria-pressed="isMyScreen">
+            <img :src="stateIcon('screen', localId)" alt="screen" />
+          </button>
         </div>
 
         <div class="controls-side right">
@@ -289,7 +258,7 @@ const streamVol = computed(() => streamAudioKey.value ? (volUi[streamAudioKey.va
 const fitContainInGrid = computed(() => !isTheater.value && sortedPeerIds.value.length < 3)
 
 const startingGame = ref(false)
-const minReadyToStart = ref<number>(10)
+const minReadyToStart = ref<number>(4)
 const gamePhase = ref<'idle' | 'roles_pick' | 'mafia_talk' | 'day' | 'night'>('idle')
 const seatsByUser = reactive<Record<string, number>>({})
 
@@ -1173,9 +1142,6 @@ window.addEventListener('online',  () => { if (netReconnecting.value) hardReload
     width: calc(100vw - 20px);
     height: calc(100dvh - 70px);
     gap: 10px;
-    .grid-cell {
-      position: relative;
-    }
   }
   .theater {
     display: grid;
