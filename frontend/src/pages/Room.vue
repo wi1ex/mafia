@@ -295,39 +295,39 @@ async function startGame() {
       const code = check?.error
       const st = check?.status
       if (st === 400 && code === 'not_enough_ready') {
-        alert('Недостаточно готовых игроков для старта игры')
+        alert('Недостаточно готовых игроков для запуска игры')
       } else if (st === 403 && code === 'forbidden') {
         alert('Только владелец комнаты может запустить игру')
       } else if (st === 403 && code === 'not_in_room') {
         alert('Вы не в комнате')
       } else if (st === 409 && code === 'streaming_present') {
-        alert('В комнате есть активный стрим. Остановите трансляцию перед запуском игры.')
+        alert('Остановите трансляции перед запуском игры')
       } else if (st === 409 && code === 'blocked_params') {
-        alert('У одного или нескольких игроков есть блокировки микрофона/камеры/звука/видимости. Снимите блокировки и повторите попытку.')
+        alert('Снимите блокировки перед запуском игры')
       } else if (st === 409 && code === 'already_started') {
         alert('Игра уже запущена')
       } else {
-        alert('Не удалось подготовить запуск игры')
+        alert('Не удалось запустить игру')
       }
       return
     }
 
-    if (!confirm('Запустить игру для всех готовых игроков?')) return
+    if (!confirm('Начать игру?')) return
 
     const resp = await sendAck('game_start', { confirm: true })
     if (!resp?.ok) {
       const code = resp?.error
       const st = resp?.status
       if (st === 400 && code === 'not_enough_ready') {
-        alert('Недостаточно готовых игроков для старта игры')
+        alert('Недостаточно готовых игроков для запуска игры')
       } else if (st === 403 && code === 'forbidden') {
         alert('Только владелец комнаты может запустить игру')
       } else if (st === 403 && code === 'not_in_room') {
         alert('Вы не в комнате')
       } else if (st === 409 && code === 'streaming_present') {
-        alert('В комнате есть активный стрим. Остановите трансляцию перед запуском игры.')
+        alert('Остановите трансляции перед запуском игры')
       } else if (st === 409 && code === 'blocked_params') {
-        alert('У одного или нескольких игроков есть блокировки микрофона/камеры/звука/видимости. Снимите блокировки и повторите попытку.')
+        alert('Снимите блокировки перед запуском игры')
       } else if (st === 409 && code === 'already_started') {
         alert('Игра уже запущена')
       } else {
@@ -1181,7 +1181,7 @@ window.addEventListener('online',  () => { if (netReconnecting.value) hardReload
           height: 20px;
         }
         input[type="range"] {
-          width: 120px;
+          min-width: calc(100% - 66px);
           height: 10px;
           accent-color: $fg;
           cursor: pointer;

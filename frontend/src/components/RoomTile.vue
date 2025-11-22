@@ -114,6 +114,7 @@ onUpdated(() => setClosedWidth())
 .tile {
   position: relative;
   min-width: 0;
+  min-height: 0;
   border-radius: 5px;
   border: 2px solid transparent;
   transition: border-color 0.25s ease-in-out;
@@ -171,7 +172,7 @@ onUpdated(() => setClosedWidth())
     padding: 5px 10px;
     inline-size: var(--w-closed, auto);
     block-size: 30px;
-    max-inline-size: 250px;
+    max-inline-size: calc(100% - 30px);
     will-change: inline-size, block-size;
     border-radius: 5px;
     backdrop-filter: blur(5px);
@@ -189,7 +190,7 @@ onUpdated(() => setClosedWidth())
       flex-wrap: nowrap;
       padding: 0;
       gap: 5px;
-      max-inline-size: 250px;
+      max-inline-size: 100%;
       height: 30px;
       border: none;
       background: none;
@@ -257,7 +258,7 @@ onUpdated(() => setClosedWidth())
           height: 20px;
         }
         input[type="range"] {
-          min-width: 174px;
+          min-width: calc(100% - 66px);
           height: 10px;
           accent-color: $fg;
           cursor: pointer;
@@ -276,7 +277,7 @@ onUpdated(() => setClosedWidth())
           align-items: center;
           justify-content: center;
           padding: 0;
-          min-width: calc(200px / 6);
+          min-width: calc((100% - 50px) / 6);
           height: 25px;
           border: none;
           border-radius: 5px;
@@ -304,5 +305,7 @@ onUpdated(() => setClosedWidth())
 }
 .tile.side {
   aspect-ratio: 16 / 9;
+  min-width: 280px;
+  min-height: 158px;
 }
 </style>
