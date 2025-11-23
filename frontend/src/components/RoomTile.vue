@@ -91,12 +91,27 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
 const cardEl = ref<HTMLElement | null>(null)
 const headEl = ref<HTMLButtonElement | null>(null)
 
+// function setClosedWidth() {
+//   const head = headEl.value
+//   const card = cardEl.value
+//   if (!head || !card) return
+//   const w = Math.min(Math.ceil(head.scrollWidth) + 1, 250)
+//   card.style.setProperty('--w-closed', `${w}px`)
+// }
+
+let measuring = false
+
 function setClosedWidth() {
+  if (measuring) return
   const head = headEl.value
   const card = cardEl.value
   if (!head || !card) return
-  const w = Math.min(Math.ceil(head.scrollWidth) + 1, 250)
+
+  measuring = true
+  card.style.setProperty('--w-closed', 'auto')
+  const w = Math.min(Math.ceil(head.scrollWidth), 250)
   card.style.setProperty('--w-closed', `${w}px`)
+  measuring = false
 }
 
 watch(openPanel, async () => {
@@ -107,7 +122,7 @@ onMounted(async () => {
   await nextTick()
   setClosedWidth()
 })
-onUpdated(() => setClosedWidth())
+// onUpdated(() => setClosedWidth())
 </script>
 
 <style scoped lang="scss">
