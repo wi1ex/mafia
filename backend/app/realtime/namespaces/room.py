@@ -519,7 +519,7 @@ async def kick(sid, data):
 
 @rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_leave:{uid or 'nouid'}:{rid or 0}", limit=5, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
-async def game_leave(sid):
+async def game_leave(sid, data):
     try:
         sess = await sio.get_session(sid, namespace="/room")
         uid = int(sess["uid"])

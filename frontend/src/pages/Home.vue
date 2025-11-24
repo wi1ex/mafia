@@ -62,7 +62,6 @@
                 <div class="ri-meta-div">
                   <span>Статус</span>
                   <span class="status-room" :class="{ runned: selectedRoom.in_game }">{{ selectedRoom.in_game ? 'game' : 'lobby' }}</span>
-                  <span>{{ selectedRoom.in_game ? 'game' : 'lobby' }}</span>
                 </div>
                 <div class="ri-meta-div">
                   <span>Владелец</span>
@@ -100,8 +99,8 @@
               <div v-if="(info?.members?.length ?? 0) === 0" class="muted">Пока никого</div>
               <ul v-else class="ri-users">
                 <li class="ri-user" v-for="m in sortedMembers" :key="m.id" :class="{ dead: m.role === 'player' && m.alive === false }">
-                  <span v-if="m.role === 'head'">Ведущий: </span>
-                  <span v-else-if="m.role === 'player' && m.slot != null">{{ m.slot }}. </span>
+                  <span v-if="m.role === 'head'" class="user-numb">В. </span>
+                  <span v-else-if="m.role === 'player' && m.slot != null" class="user-numb">{{ m.slot }}. </span>
                   <img v-minio-img="{ key: m.avatar_name ? `avatars/${m.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="" />
                   <span>{{ m.username || ('user' + m.id) }}</span>
                   <img v-if="m.screen" :src="iconScreenOn" alt="streaming" />
@@ -111,7 +110,7 @@
           </div>
 
           <div class="ri-actions">
-            <button v-if="ctaState==='enter'" :disabled="entering" @click="onEnter">{{ enterLabel }}</button>
+            <button v-if="ctaState==='enter'" :disabled="entering" @click="onEnter">{{ entering.value ? 'Вхожу...' : 'Войти в комнату' }}</button>
             <button v-else-if="ctaState==='full'" disabled>Комната заполнена</button>
             <button v-else-if="ctaState==='apply'" @click="onApply">Подать заявку</button>
             <button v-else-if="ctaState==='pending'" disabled>Заявка отправлена</button>
@@ -223,15 +222,21 @@ const sortedMembers = computed<RoomInfoMember[]>(() => {
 
 const isOpen = computed(() => selectedRoom.value?.privacy === 'open')
 const isFull = computed(() => selectedRoom.value ? isFullRoom(selectedRoom.value) : false)
-const enterLabel = computed(() => entering.value ? 'Вхожу...' : 'Войти в комнату')
+const currentUserId = computed(() => auth.user?.id ?? null)
+const isGameParticipant = computed(() => {
+  const room = selectedRoom.value
+  const uid = currentUserId.value
+  const members = info.value?.members ?? []
+  if (!room || !room.in_game || !uid) return false
+  return members.some((m) => m.id === uid && (m.role === 'head' || m.role === 'player'))
+})
+
 type Cta = 'login' | 'enter' | 'full' | 'apply' | 'pending' | 'in_game'
 const ctaState = computed<Cta>(() => {
   const room = selectedRoom.value
   if (!auth.isAuthed || !room) return 'login'
-  const inGame = room.in_game === true
-  if (room.privacy === 'open') return isFull.value ? 'full' : 'enter'
-  if (access.value === 'approved') return isFull.value ? 'full' : 'enter'
-  if (inGame) return 'in_game'
+  if (room.in_game === true) return isGameParticipant.value ? 'enter' : 'in_game'
+  if (room.privacy === 'open' || access.value === 'approved') return isFull.value ? 'full' : 'enter'
   if (access.value === 'none') return 'apply'
   return 'pending'
 })
@@ -590,11 +595,11 @@ onBeforeUnmount(() => {
             gap: 5px;
             .status-room {
               padding: 3px 0;
-              width: 50px;
+              width: 45px;
               border-radius: 5px;
               background-color: $fg;
               color: $bg;
-              font-size: 14px;
+              font-size: 12px;
               text-align: center;
               &.runned {
                 background-color: $green;
@@ -698,11 +703,11 @@ onBeforeUnmount(() => {
               }
               .status-room {
                 padding: 3px 0;
-                width: 50px;
+                width: 45px;
                 border-radius: 5px;
                 background-color: $fg;
                 color: $bg;
-                font-size: 14px;
+                font-size: 12px;
                 text-align: center;
                 &.runned {
                   background-color: $green;
@@ -788,6 +793,9 @@ onBeforeUnmount(() => {
                 white-space: nowrap;
                 overflow: hidden;
                 text-overflow: ellipsis;
+              }
+              .user-numb {
+                font-variant-numeric: tabular-nums;
               }
               &.dead {
                 opacity: 0.5;

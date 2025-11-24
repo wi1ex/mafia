@@ -96,19 +96,21 @@ function setClosedWidth() {
   const head = headEl.value
   const card = cardEl.value
   if (!head || !card) return
-  const w = Math.min(Math.ceil(head.scrollWidth), 250)
+  const w = Math.min(Math.ceil(head.scrollWidth) + 1, 250)
   card.style.setProperty('--w-closed', `${w}px`)
 }
 
 watch(openPanel, async () => {
-  await nextTick()
-  setClosedWidth()
+  if (wasOpen && !isOpen) {
+    await nextTick()
+    setClosedWidth()
+  }
 })
 onMounted(async () => {
   await nextTick()
   setClosedWidth()
 })
-onUpdated(() => setClosedWidth())
+// onUpdated(() => setClosedWidth())
 </script>
 
 <style scoped lang="scss">
