@@ -601,28 +601,43 @@ export function useRTC(): UseRTC {
     }
   }
 
-  function setSubscriptions(kind: Track.Kind, on: boolean) {
-    const room = lk.value
-    if (!room) return
-    room.remoteParticipants.forEach(p => {
-      p.getTrackPublications().forEach(pub => {
-        if (pub.kind === kind) { try { pub.setSubscribed(on) } catch {} }
-      })
-    })
-  }
   const setAudioSubscriptionsForAll = (on: boolean) => {
     wantAudio.value = on
-    setSubscriptions(Track.Kind.Audio, on)
-    if (!on) audibleIds.value = new Set()
-    else {
+    const room = lk.value
+    if (room) {
+      room.remoteParticipants.forEach(p => {
+        p.getTrackPublications().forEach(pub => {
+          if (pub.kind === Track.Kind.Audio) {
+            try { pub.setSubscribed(on) } catch {}
+          }
+        })
+      })
+    }
+    if (!on) {
+      audibleIds.value = new Set()
+    } else {
       refreshAudibleIds()
       void resumeAudio()
     }
   }
   const setVideoSubscriptionsForAll = (on: boolean) => {
     wantVideo.value = on
-    setSubscriptions(Track.Kind.Video, on)
+    const room = lk.value
+    if (!room) return
+
+    room.remoteParticipants.forEach(p => {
+      p.getTrackPublications().forEach(pub => {
+        if (pub.kind !== Track.Kind.Video) return
+        const rpub = pub as RemoteTrackPublication
+        const isScreen = rpub.source === Track.Source.ScreenShare
+        try {
+          rpub.setSubscribed(isScreen || on)
+          if (rpub.isSubscribed) applyVideoQuality(rpub)
+        } catch {}
+      })
+    })
   }
+
   function applyVideoQuality(pub: RemoteTrackPublication) {
     if (pub.kind !== Track.Kind.Video || !pub.isSubscribed) return
     try {
@@ -636,16 +651,17 @@ export function useRTC(): UseRTC {
         return
       }
       if (pub.kind === Track.Kind.Video) {
+        const rpub = pub as RemoteTrackPublication
+        const isScreen = rpub.source === Track.Source.ScreenShare
         try {
-          pub.setSubscribed(wantVideo.value)
-          if (wantVideo.value) applyVideoQuality(pub as RemoteTrackPublication)
+          rpub.setSubscribed(isScreen || wantVideo.value)
+          if (rpub.isSubscribed) applyVideoQuality(rpub)
         } catch {}
       }
     })
   }
 
   const remoteQuality = ref<VQ>((loadLS(LS.vq) as VQ) === 'sd' ? 'sd' : 'hd')
-
   function setRemoteQualityForAll(q: VQ) {
     const changed = remoteQuality.value !== q
     if (changed) {

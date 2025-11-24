@@ -16,7 +16,7 @@
               :aria-disabled="id === localId" @click.stop="$emit('toggle-panel', id)" :aria-expanded="openPanel">
         <img v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar, lazy: false }" alt="" />
         <span>{{ userName(id) }}</span>
-        <div class="status">
+        <div class="status" v-if="showStates">
           <img v-if="isBlocked(id,'mic') || !isOn(id,'mic')" :src="stateIcon('mic', id)" alt="mic" />
           <img v-if="isBlocked(id,'cam') || !isOn(id,'cam')" :src="stateIcon('cam', id)" alt="cam" />
           <img v-if="isBlocked(id,'speakers') || !isOn(id,'speakers')" :src="stateIcon('speakers', id)" alt="spk" />
@@ -76,7 +76,8 @@ const props = withDefaults(defineProps<{
   canModerate: (id: string) => boolean
   isReady: (id: string) => boolean
   isMirrored: (id: string) => boolean
-}>(), { side: false })
+  showStates?: boolean
+}>(), { side: false, showStates: true })
 
 defineEmits<{
   (e: 'toggle-panel', id: string): void
@@ -91,27 +92,12 @@ const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked
 const cardEl = ref<HTMLElement | null>(null)
 const headEl = ref<HTMLButtonElement | null>(null)
 
-// function setClosedWidth() {
-//   const head = headEl.value
-//   const card = cardEl.value
-//   if (!head || !card) return
-//   const w = Math.min(Math.ceil(head.scrollWidth) + 1, 250)
-//   card.style.setProperty('--w-closed', `${w}px`)
-// }
-
-let measuring = false
-
 function setClosedWidth() {
-  if (measuring) return
   const head = headEl.value
   const card = cardEl.value
   if (!head || !card) return
-
-  measuring = true
-  card.style.setProperty('--w-closed', 'auto')
   const w = Math.min(Math.ceil(head.scrollWidth), 250)
   card.style.setProperty('--w-closed', `${w}px`)
-  measuring = false
 }
 
 watch(openPanel, async () => {
@@ -122,7 +108,7 @@ onMounted(async () => {
   await nextTick()
   setClosedWidth()
 })
-// onUpdated(() => setClosedWidth())
+onUpdated(() => setClosedWidth())
 </script>
 
 <style scoped lang="scss">

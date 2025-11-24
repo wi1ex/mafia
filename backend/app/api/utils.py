@@ -2,6 +2,8 @@ from __future__ import annotations
 import structlog
 from typing import Optional, Dict, Any, Literal
 from ..core.clients import get_redis
+from ..core.db import SessionLocal
+from ..models.user import User
 from ..schemas.room import GameParams
 from ..realtime.sio import sio
 from ..realtime.utils import get_profiles_snapshot, get_rooms_brief
@@ -147,20 +149,39 @@ async def build_room_members_for_info(r, room_id: int) -> list[Dict[str, Any]]:
     order_ids = [int(uid) for uid in order_raw]
     owner_raw = await r.get(f"room:{room_id}:screen_owner")
     screen_owner = int(owner_raw) if owner_raw else 0
-    profiles = await get_profiles_snapshot(r, room_id)
+
     game_rt = await get_room_game_runtime(r, room_id)
     phase: str = game_rt["phase"]
     head_uid: int = game_rt["head"]
     seats_map: Dict[int, int] = game_rt["seats"]
     players: set[int] = game_rt["players"]
     alive_players: set[int] = game_rt["alive"]
+    seen = set(order_ids)
+    extra_players = [uid for uid in players if uid not in seen]
+    all_ids = order_ids + extra_players
+    if not all_ids:
+        return []
+
+    profiles = await get_profiles_snapshot(r, room_id)
+    missing = [uid for uid in all_ids if str(uid) not in profiles]
+
+    if missing:
+        try:
+            async with SessionLocal() as s:
+                for uid in missing:
+                    u = await s.get(User, uid)
+                    if u:
+                        profiles[str(uid)] = {"username": u.username, "avatar_name": u.avatar_name}
+        except Exception:
+            log.exception("room.info.extra_profiles_failed", rid=room_id)
 
     raw_members: list[Dict[str, Any]] = []
-    for uid in order_ids:
+    for uid in all_ids:
         p = profiles.get(str(uid)) or {}
         role = None
         slot = None
         alive = None
+
         if phase != "idle":
             if uid == head_uid:
                 role = "head"

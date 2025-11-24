@@ -430,16 +430,18 @@ async def get_rooms_brief(r, ids: Iterable[int]) -> List[dict]:
             await p.scard(f"room:{rid}:members")
             await p.hget(f"room:{rid}:game_state", "phase")
             await p.scard(f"room:{rid}:game_alive")
+            await p.scard(f"room:{rid}:game_players")
         raw = await p.execute()
 
     briefs: List[dict] = []
     need_db: set[int] = set()
 
-    for i in range(0, len(raw), 4):
+    for i in range(0, len(raw), 5):
         vals = raw[i]
         occ_members = int(raw[i+1] or 0)
         phase_raw = raw[i+2]
         alive_cnt = int(raw[i+3] or 0)
+        players_total = int(raw[i+4] or 0)
 
         if not vals:
             continue
@@ -456,10 +458,12 @@ async def get_rooms_brief(r, ids: Iterable[int]) -> List[dict]:
         phase = str(phase_raw or "idle")
         in_game = phase != "idle"
         occupancy = alive_cnt if in_game else occ_members
+        eff_limit = players_total if in_game and players_total > 0 else int(user_limit)
+
         briefs.append({
             "id": int(_id),
             "title": str(title),
-            "user_limit": int(user_limit),
+            "user_limit": eff_limit,
             "creator": creator_id,
             "creator_name": str(creator_name),
             "creator_avatar_name": avatar,

@@ -32,6 +32,7 @@
           :open-panel-for="openPanelFor"
           :vol="volUi[id] ?? rtc.getUserVolume(id)"
           :is-mirrored="isMirrored"
+          :show-states="gamePhase === 'idle' || isGameHead(id)"
           @toggle-panel="toggleTilePanel"
           @vol-input="onVol"
           @block="(key, uid) => toggleBlock(uid, key)"
@@ -73,6 +74,7 @@
             :is-ready="isReady"
             :vol="volUi[id] ?? rtc.getUserVolume(id)"
             :is-mirrored="isMirrored"
+            :show-states="gamePhase === 'idle' || isGameHead(id)"
             @toggle-panel="toggleTilePanel"
             @vol-input="onVol"
             @block="(key, uid) => toggleBlock(uid, key)"
@@ -82,9 +84,15 @@
       </div>
 
       <div class="panel">
-        <div class="controls-side">
+        <div class="controls-side left">
           <button @click="onLeave" aria-label="Покинуть комнату">
             <img :src="iconLeaveRoom" alt="leave" />
+          </button>
+          <button v-if="gamePhase !== 'idle' && myGameRole === 'player'" @click="leaveGame" aria-label="Выйти из игры">
+            <img :src="iconKillPlayer" alt="leave-game" />
+          </button>
+          <button v-if="gamePhase !== 'idle' && myGameRole === 'head'" @click="endGame" :disabled="endingGame" aria-label="Завершить игру">
+            <img :src="iconGameStop" alt="end-game" />
           </button>
         </div>
 
@@ -95,7 +103,7 @@
         </div>
         <div v-else class="controls">
           <button v-if="gamePhase === 'idle' && canShowStartGame" @click="startGame" :disabled="startingGame" aria-label="Запустить игру">
-            <img :src="iconReady" alt="start" />
+            <img :src="iconGameStart" alt="start" />
           </button>
           <button v-if="gamePhase === 'idle' && !canShowStartGame" @click="toggleReady" :aria-pressed="readyOn" aria-label="Готовность">
             <img :src="readyOn ? iconReady : iconClose" alt="ready" />
@@ -165,8 +173,8 @@ import RoomTile from '@/components/RoomTile.vue'
 import RoomSetting from '@/components/RoomSetting.vue'
 import RoomRequests from '@/components/RoomRequests.vue'
 
-import iconClose from '@/assets/svg/close.svg'
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
+import iconClose from '@/assets/svg/close.svg'
 import iconLeaveRoom from '@/assets/svg/leave.svg'
 import iconSettings from '@/assets/svg/settings.svg'
 import iconRequestsRoom from '@/assets/svg/requestsRoom.svg'
@@ -174,7 +182,12 @@ import iconVolumeMax from '@/assets/svg/volumeMax.svg'
 import iconVolumeMid from '@/assets/svg/volumeMid.svg'
 import iconVolumeLow from '@/assets/svg/volumeLow.svg'
 import iconVolumeMute from '@/assets/svg/volumeMute.svg'
+
 import iconReady from '@/assets/svg/ready.svg'
+import iconKillPlayer from '@/assets/svg/killPlayer.svg'
+import iconGameStart from '@/assets/svg/gameStart.svg'
+import iconGameStop from '@/assets/svg/gameStop.svg'
+
 import iconMicOn from '@/assets/svg/micOn.svg'
 import iconMicOff from '@/assets/svg/micOff.svg'
 import iconMicBlocked from '@/assets/svg/micBlocked.svg'
@@ -258,9 +271,11 @@ const streamVol = computed(() => streamAudioKey.value ? (volUi[streamAudioKey.va
 const fitContainInGrid = computed(() => !isTheater.value && sortedPeerIds.value.length < 3)
 
 const startingGame = ref(false)
+const endingGame = ref(false)
 const minReadyToStart = ref<number>(4)
 const gamePhase = ref<'idle' | 'roles_pick' | 'mafia_talk' | 'day' | 'night'>('idle')
 const seatsByUser = reactive<Record<string, number>>({})
+const isGameHead = (id: string) => seatsByUser[id] === 11
 
 const myGameRole = computed<'head' | 'player' | 'none'>(() => {
   const id = localId.value
@@ -278,13 +293,33 @@ const totalPlayers = computed(() => sortedPeerIds.value.length)
 const canShowStartGame = computed(() => {
   if (!localId.value) return false
   if (gamePhase.value !== 'idle') return false
-  if (myRole.value !== 'host') return false
   const total = totalPlayers.value
   const ready = readyCount.value
   const st = statusByUser.get(localId.value)
   const meReady = (st?.ready ?? 0) === 1
-  return total === minReadyToStart.value + 1 && ready === minReadyToStart.value && !meReady
+  const min = minReadyToStart.value
+  const nonReady = total - ready
+  return !meReady && total === min + 1 && ready === min && nonReady === 1
 })
+
+async function leaveGame() {
+  if (!socket.value) return
+  if (!confirm('Вы хотите покинуть игровой стол?')) return
+  const resp = await sendAck('game_leave', {})
+  if (!resp?.ok) {
+    const code = resp?.error
+    const st = resp?.status
+    if (st === 400 && code === 'no_game') {
+      alert('Игра не запущена')
+    } else if (st === 400 && code === 'not_player') {
+      alert('Вы не участвуете в этой игре')
+    } else if (st === 400 && code === 'already_dead') {
+      alert('Вы уже выбыли из игры')
+    } else {
+      alert('Не удалось выйти из игры')
+    }
+  }
+}
 
 async function startGame() {
   if (startingGame.value || !socket.value) return
@@ -297,7 +332,9 @@ async function startGame() {
       if (st === 400 && code === 'not_enough_ready') {
         alert('Недостаточно готовых игроков для запуска игры')
       } else if (st === 403 && code === 'forbidden') {
-        alert('Только владелец комнаты может запустить игру')
+        alert('Недостаточно прав для запуска игры')
+      } else if (st === 409 && code === 'already_in_other_game') {
+        alert('Некоторые участники уже играют в другой комнате')
       } else if (st === 403 && code === 'not_in_room') {
         alert('Вы не в комнате')
       } else if (st === 409 && code === 'streaming_present') {
@@ -311,9 +348,7 @@ async function startGame() {
       }
       return
     }
-
     if (!confirm('Начать игру?')) return
-
     const resp = await sendAck('game_start', { confirm: true })
     if (!resp?.ok) {
       const code = resp?.error
@@ -321,7 +356,9 @@ async function startGame() {
       if (st === 400 && code === 'not_enough_ready') {
         alert('Недостаточно готовых игроков для запуска игры')
       } else if (st === 403 && code === 'forbidden') {
-        alert('Только владелец комнаты может запустить игру')
+        alert('Недостаточно прав для запуска игры')
+      } else if (st === 409 && code === 'already_in_other_game') {
+        alert('Некоторые участники уже играют в другой комнате')
       } else if (st === 403 && code === 'not_in_room') {
         alert('Вы не в комнате')
       } else if (st === 409 && code === 'streaming_present') {
@@ -335,9 +372,40 @@ async function startGame() {
       }
       return
     }
-  } finally {
-    startingGame.value = false
-  }
+  } finally { startingGame.value = false }
+}
+
+async function endGame() {
+  if (endingGame.value || !socket.value) return
+  if (!confirm('Завершить текущую игру?')) return
+  endingGame.value = true
+  try {
+    const check = await sendAck('game_end', { confirm: false })
+    if (!check?.ok) {
+      const code = check?.error
+      const st = check?.status
+      if (st === 400 && code === 'no_game') {
+        alert('Игра не запущена')
+      } else if (st === 403 && code === 'forbidden') {
+        alert('Недостаточно прав для завершения игры')
+      } else {
+        alert('Не удалось завершить игру')
+      }
+      return
+    }
+    const resp = await sendAck('game_end', { confirm: true })
+    if (!resp?.ok) {
+      const code = resp?.error
+      const st = resp?.status
+      if (st === 400 && code === 'no_game') {
+        alert('Игра не запущена')
+      } else if (st === 403 && code === 'forbidden') {
+        alert('Недостаточно прав для завершения игры')
+      } else {
+        alert('Не удалось завершить игру')
+      }
+    }
+  } finally { endingGame.value = false }
 }
 
 const videoQuality = computed<VQ>({
@@ -744,6 +812,10 @@ function connectSocket() {
   socket.value?.on('game_started', (p: any) => {
     applyGameStarted(p)
   })
+
+  socket.value?.on('game_ended', (p: any) => {
+    applyGameEnded(p)
+  })
 }
 
 async function safeJoin() {
@@ -823,6 +895,11 @@ function applyGameStarted(p: any) {
     statusByUser.set(uid, { ...st, ready: 0 as 0 })
   })
   void enforceInitialGameControls()
+}
+
+function applyGameEnded(_p: any) {
+  gamePhase.value = 'idle'
+  Object.keys(seatsByUser).forEach((k) => { delete seatsByUser[k] })
 }
 
 function applyJoinAck(j: any) {
@@ -1262,6 +1339,9 @@ window.addEventListener('online',  () => { if (netReconnecting.value) hardReload
       display: flex;
       gap: 10px;
       min-width: 130px;
+      &.left {
+        justify-content: flex-start;
+      }
       &.right {
         justify-content: flex-end;
       }

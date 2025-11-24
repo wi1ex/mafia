@@ -70,3 +70,4 @@ class GameStartAck(TypedDict, total=False):
     can_start: bool
     streaming_owner: int
     blocking_users: List[int]
+    conflict_users: List[int]

@@ -31,7 +31,7 @@
             <span>{{ r.id }}</span>
             <div class="cell" :title="r.title">
               <img :src="r.privacy === 'private' ? iconLockClose : iconLockOpen" alt="lock" />
-              <span class="in-game">{{ r.in_game ? 'game' : 'lobby' }}</span>
+              <span class="status-room" :class="{ runned: r.in_game }">{{ r.in_game ? 'game' : 'lobby' }}</span>
               <span>{{ r.title }}</span>
             </div>
             <div class="cell">
@@ -59,6 +59,11 @@
             <div class="ri-meta-game">
               <div class="ri-meta">
                 <span class="header-text">Параметры комнаты:</span>
+                <div class="ri-meta-div">
+                  <span>Статус</span>
+                  <span class="status-room" :class="{ runned: r.in_game }">{{ r.in_game ? 'game' : 'lobby' }}</span>
+                  <span>{{ selectedRoom.in_game ? 'game' : 'lobby' }}</span>
+                </div>
                 <div class="ri-meta-div">
                   <span>Владелец</span>
                   <div class="owner">
@@ -583,8 +588,17 @@ onBeforeUnmount(() => {
             display: flex;
             align-items: center;
             gap: 5px;
-            .in-game {
-              background-color: grey;
+            .status-room {
+              padding: 3px 0;
+              width: 50px;
+              border-radius: 5px;
+              background-color: $fg;
+              color: $bg;
+              font-size: 14px;
+              text-align: center;
+              &.runned {
+                background-color: $green;
+              }
             }
             .user-avatar {
               border-radius: 50%;
@@ -681,6 +695,18 @@ onBeforeUnmount(() => {
                 height: 16px;
                 font-size: 14px;
                 color: $ashy;
+              }
+              .status-room {
+                padding: 3px 0;
+                width: 50px;
+                border-radius: 5px;
+                background-color: $fg;
+                color: $bg;
+                font-size: 14px;
+                text-align: center;
+                &.runned {
+                  background-color: $green;
+                }
               }
               .owner {
                 display: inline-flex;
