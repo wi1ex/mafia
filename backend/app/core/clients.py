@@ -29,7 +29,7 @@ def _build_redis() -> redis.Redis:
 
 def _build_minio_private() -> Minio:
     return Minio(
-        settings.MINIO_ENDPOINT,
+        endpoint=settings.MINIO_ENDPOINT,
         access_key=settings.MINIO_ROOT_USER,
         secret_key=settings.MINIO_ROOT_PASSWORD,
         secure=False,
@@ -38,7 +38,7 @@ def _build_minio_private() -> Minio:
 
 def _build_minio_public() -> Minio:
     return Minio(
-        settings.DOMAIN,
+        endpoint=settings.DOMAIN,
         access_key=settings.MINIO_ROOT_USER,
         secret_key=settings.MINIO_ROOT_PASSWORD,
         region="us-east-1",
