@@ -43,9 +43,9 @@ def _reencode_safe(content: bytes, ct_hint: Optional[str]) -> tuple[bytes, str] 
 
 def ensure_bucket(minio_client: Optional[Minio] = None) -> None:
     minio = minio_client or get_minio_private()
-    if not minio.bucket_exists(_bucket):
+    if not minio.bucket_exists(bucket_name=_bucket):
         try:
-            minio.make_bucket(_bucket)
+            minio.make_bucket(bucket_name=_bucket)
             log.info("minio.bucket.created", bucket=_bucket)
         except S3Error as e:
             if e.code not in ("BucketAlreadyOwnedByYou", "BucketAlreadyExists"):
@@ -143,16 +143,16 @@ def put_avatar(user_id: int, content: bytes, content_type: str | None) -> Option
     name = f"{user_id}-{int(time.time())}{ext}"
     obj = f"avatars/{name}"
     prefix = f"avatars/{user_id}-"
-    to_delete = [DeleteObject(o.object_name) for o in minio.list_objects(_bucket, prefix=prefix, recursive=True)]
+    to_delete = [DeleteObject(o.object_name) for o in minio.list_objects(bucket_name=_bucket, prefix=prefix, recursive=True)]
     if to_delete:
         errs = []
-        for err in minio.remove_objects(_bucket, to_delete):
+        for err in minio.remove_objects(bucket_name=_bucket, delete_object_list=to_delete):
             errs.append({"object": getattr(err, "name", None), "code": getattr(err, "code", None)})
         if errs:
             log.warning("avatar.remove_old_errors", user_id=user_id, errors=errs)
 
     try:
-        minio.put_object(_bucket, obj, io.BytesIO(content), length=len(content), content_type=ct)
+        minio.put_object(bucket_name=_bucket, object_name=obj, data=io.BytesIO(content), length=len(content), content_type=ct)
         return name
 
     except S3Error as e:
@@ -168,12 +168,13 @@ def delete_avatars(user_id: int) -> int:
     minio = get_minio_private()
     ensure_bucket(minio)
     prefix = f"avatars/{user_id}-"
-    to_delete = [DeleteObject(o.object_name) for o in minio.list_objects(_bucket, prefix=prefix, recursive=True)]
+
+    to_delete = [DeleteObject(o.object_name) for o in minio.list_objects(bucket_name=_bucket, prefix=prefix, recursive=True)]
     if not to_delete:
         return 0
 
     errs = []
-    for err in minio.remove_objects(_bucket, to_delete):
+    for err in minio.remove_objects(bucket_name=_bucket, delete_object_list=to_delete):
         errs.append({"object": getattr(err, "name", None), "code": getattr(err, "code", None)})
     if errs:
         log.warning("avatar.remove.errors", user_id=user_id, errors=errs)
@@ -184,7 +185,7 @@ def presign_key(key: str, *, expires_hours: int = 1) -> tuple[str, int]:
     minio_pub = get_minio_public()
     minio_priv = get_minio_private()
     try:
-        minio_priv.stat_object(_bucket, key)
+        minio_priv.stat_object(bucket_name=_bucket, object_name=key)
     except S3Error as e:
         if e.code == "NoSuchKey":
             log.warning("media.presign.not_found", key=key)
@@ -194,7 +195,7 @@ def presign_key(key: str, *, expires_hours: int = 1) -> tuple[str, int]:
         raise
 
     try:
-        url = minio_pub.presigned_get_object(_bucket, key, expires=timedelta(hours=expires_hours))
+        url = minio_pub.presigned_get_object(bucket_name=_bucket, object_name=key, expires=timedelta(hours=expires_hours))
         return url, int(expires_hours * 3600)
 
     except S3Error as e:
