@@ -61,7 +61,7 @@
                 <span class="header-text">Параметры комнаты:</span>
                 <div class="ri-meta-div">
                   <span>Статус</span>
-                  <span class="status-room" :class="{ runned: r.in_game }">{{ r.in_game ? 'game' : 'lobby' }}</span>
+                  <span class="status-room" :class="{ runned: selectedRoom.in_game }">{{ selectedRoom.in_game ? 'game' : 'lobby' }}</span>
                   <span>{{ selectedRoom.in_game ? 'game' : 'lobby' }}</span>
                 </div>
                 <div class="ri-meta-div">
