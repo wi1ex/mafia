@@ -88,11 +88,11 @@
           <button @click="onLeave" aria-label="Покинуть комнату">
             <img :src="iconLeaveRoom" alt="leave" />
           </button>
-          <button v-if="gamePhase !== 'idle' && myGameRole === 'player'" @click="leaveGame" aria-label="Выйти из игры">
-            <img :src="iconKillPlayer" alt="leave-game" />
-          </button>
           <button v-if="gamePhase !== 'idle' && myGameRole === 'head'" @click="endGame" :disabled="endingGame" aria-label="Завершить игру">
             <img :src="iconGameStop" alt="end-game" />
+          </button>
+          <button v-if="gamePhase !== 'idle' && myGameRole === 'player' && amIAlive" @click="leaveGame" aria-label="Выйти из игры">
+            <img :src="iconKillPlayer" alt="leave-game" />
           </button>
         </div>
 
@@ -277,6 +277,18 @@ const gamePhase = ref<'idle' | 'roles_pick' | 'mafia_talk' | 'day' | 'night'>('i
 const seatsByUser = reactive<Record<string, number>>({})
 const isGameHead = (id: string) => seatsByUser[id] === 11
 
+const gamePlayers = reactive(new Set<string>())
+const gameAlive = reactive(new Set<string>())
+const amIAlive = computed(() => {
+  if (gamePhase.value === 'idle') return true
+  const id = localId.value
+  if (!id) return false
+  const seat = seatsByUser[id]
+  if (!seat) return false
+  if (seat === 11) return true
+  return gameAlive.has(id)
+})
+
 const myGameRole = computed<'head' | 'player' | 'none'>(() => {
   const id = localId.value
   if (!id) return 'none'
@@ -314,11 +326,16 @@ async function leaveGame() {
     } else if (st === 400 && code === 'not_player') {
       alert('Вы не участвуете в этой игре')
     } else if (st === 400 && code === 'already_dead') {
+      const id = localId.value
+      if (id) gameAlive.delete(id)
       alert('Вы уже выбыли из игры')
     } else {
       alert('Не удалось выйти из игры')
     }
+    return
   }
+  const id = localId.value
+  if (id) gameAlive.delete(id)
 }
 
 async function startGame() {
@@ -689,6 +706,8 @@ function purgePeerUI(id: string) {
   rolesByUser.delete(id)
   nameByUser.delete(id)
   avatarByUser.delete(id)
+  gamePlayers.delete(id)
+  gameAlive.delete(id)
   videoRefMemo.delete(id)
   screenRefMemo.delete(id)
   if (openPanelFor.value === id || openPanelFor.value === rtc.screenKey(id)) openPanelFor.value = ''
@@ -894,12 +913,22 @@ function applyGameStarted(p: any) {
   statusByUser.forEach((st, uid) => {
     statusByUser.set(uid, { ...st, ready: 0 as 0 })
   })
+  gamePlayers.clear()
+  gameAlive.clear()
+  for (const [uid, seat] of Object.entries(seatsByUser)) {
+    if (seat && seat !== 11) {
+      gamePlayers.add(uid)
+      gameAlive.add(uid)
+    }
+  }
   void enforceInitialGameControls()
 }
 
 function applyGameEnded(_p: any) {
   gamePhase.value = 'idle'
   Object.keys(seatsByUser).forEach((k) => { delete seatsByUser[k] })
+  gamePlayers.clear()
+  gameAlive.clear()
 }
 
 function applyJoinAck(j: any) {
@@ -973,6 +1002,21 @@ function applyJoinAck(j: any) {
   for (const [uid, seat] of Object.entries(seats)) {
     const n = Number(seat)
     if (Number.isFinite(n) && n > 0) seatsByUser[String(uid)] = n
+  }
+
+  gamePlayers.clear()
+  gameAlive.clear()
+  const grPlayers = Array.isArray(gr.players) ? gr.players.map((x: any) => String(x)) : []
+  const grAlive = Array.isArray(gr.alive) ? gr.alive.map((x: any) => String(x)) : []
+  for (const uid of grPlayers) gamePlayers.add(uid)
+  for (const uid of grAlive) gameAlive.add(uid)
+  if (gamePhase.value !== 'idle' && gamePlayers.size === 0) {
+    for (const [uid, seat] of Object.entries(seatsByUser)) {
+      if (seat && seat !== 11) {
+        gamePlayers.add(uid)
+        gameAlive.add(uid)
+      }
+    }
   }
 }
 

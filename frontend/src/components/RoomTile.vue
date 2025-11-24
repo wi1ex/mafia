@@ -100,7 +100,7 @@ function setClosedWidth() {
   card.style.setProperty('--w-closed', `${w}px`)
 }
 
-watch(openPanel, async () => {
+watch(openPanel, async (isOpen, wasOpen) => {
   if (wasOpen && !isOpen) {
     await nextTick()
     setClosedWidth()

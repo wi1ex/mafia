@@ -110,7 +110,7 @@
           </div>
 
           <div class="ri-actions">
-            <button v-if="ctaState==='enter'" :disabled="entering" @click="onEnter">{{ entering.value ? 'Вхожу...' : 'Войти в комнату' }}</button>
+            <button v-if="ctaState==='enter'" :disabled="entering" @click="onEnter">Войти в комнату</button>
             <button v-else-if="ctaState==='full'" disabled>Комната заполнена</button>
             <button v-else-if="ctaState==='apply'" @click="onApply">Подать заявку</button>
             <button v-else-if="ctaState==='pending'" disabled>Заявка отправлена</button>
@@ -131,7 +131,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { Socket } from 'socket.io-client'
 import { createPublicSocket } from '@/services/sio'
 import { api } from '@/services/axios'
-import { useAuthStore } from '@/store'
+import { useAuthStore, useUserStore } from '@/store'
 import RoomModal from '@/components/RoomModal.vue'
 
 import defaultAvatar from "@/assets/svg/defaultAvatar.svg"
@@ -179,6 +179,7 @@ type Access = 'approved'|'pending'|'none'
 const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
+const userStore = useUserStore()
 
 const roomsMap = reactive(new Map<number, Room>())
 const sio = ref<Socket | null>(null)
@@ -222,20 +223,20 @@ const sortedMembers = computed<RoomInfoMember[]>(() => {
 
 const isOpen = computed(() => selectedRoom.value?.privacy === 'open')
 const isFull = computed(() => selectedRoom.value ? isFullRoom(selectedRoom.value) : false)
-const currentUserId = computed(() => auth.user?.id ?? null)
+const currentUserId = computed(() => userStore.user?.id ?? null)
 const isGameParticipant = computed(() => {
   const room = selectedRoom.value
   const uid = currentUserId.value
   const members = info.value?.members ?? []
   if (!room || !room.in_game || !uid) return false
-  return members.some((m) => m.id === uid && (m.role === 'head' || m.role === 'player'))
+  return members.some(m => m.id === uid && (m.role === 'head' || m.role === 'player'))
 })
 
 type Cta = 'login' | 'enter' | 'full' | 'apply' | 'pending' | 'in_game'
 const ctaState = computed<Cta>(() => {
   const room = selectedRoom.value
   if (!auth.isAuthed || !room) return 'login'
-  if (room.in_game === true) return isGameParticipant.value ? 'enter' : 'in_game'
+  if (room.in_game) return isGameParticipant.value ? 'enter' : 'in_game'
   if (room.privacy === 'open' || access.value === 'approved') return isFull.value ? 'full' : 'enter'
   if (access.value === 'none') return 'apply'
   return 'pending'
@@ -703,11 +704,11 @@ onBeforeUnmount(() => {
               }
               .status-room {
                 padding: 3px 0;
-                width: 45px;
+                width: 50px;
                 border-radius: 5px;
                 background-color: $fg;
                 color: $bg;
-                font-size: 12px;
+                font-size: 14px;
                 text-align: center;
                 &.runned {
                   background-color: $green;
