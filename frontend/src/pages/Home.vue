@@ -544,7 +544,7 @@ onBeforeUnmount(() => {
       }
       .list-header {
         display: grid;
-        grid-template-columns: 10% 45% 30% 15%;
+        grid-template-columns: 10% 50% 25% 15%;
         padding: 10px;
         border-radius: 5px;
         background-color: $lead;
@@ -563,7 +563,7 @@ onBeforeUnmount(() => {
         list-style: none;
         .item {
           display: grid;
-          grid-template-columns: 10% 45% 30% 15%;
+          grid-template-columns: 10% 50% 25% 15%;
           align-items: center;
           padding: 10px;
           border: 1px solid transparent;

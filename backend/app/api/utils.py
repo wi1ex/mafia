@@ -156,9 +156,14 @@ async def build_room_members_for_info(r, room_id: int) -> list[Dict[str, Any]]:
     seats_map: Dict[int, int] = game_rt["seats"]
     players: set[int] = game_rt["players"]
     alive_players: set[int] = game_rt["alive"]
-    seen = set(order_ids)
+    seen: set[int] = set(order_ids)
+    all_ids: list[int] = list(order_ids)
+
+    if phase != "idle" and head_uid and head_uid not in seen:
+        all_ids.append(head_uid)
+    seen.add(head_uid)
     extra_players = [uid for uid in players if uid not in seen]
-    all_ids = order_ids + extra_players
+    all_ids.extend(extra_players)
     if not all_ids:
         return []
 

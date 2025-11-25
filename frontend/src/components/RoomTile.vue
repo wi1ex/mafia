@@ -110,7 +110,7 @@ onMounted(async () => {
   await nextTick()
   setClosedWidth()
 })
-// onUpdated(() => setClosedWidth())
+onUpdated(() => setClosedWidth())
 </script>
 
 <style scoped lang="scss">
