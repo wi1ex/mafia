@@ -33,6 +33,8 @@
           :vol="volUi[id] ?? rtc.getUserVolume(id)"
           :is-mirrored="isMirrored"
           :show-states="gamePhase === 'idle' || isGameHead(id)"
+          :is-dead="isDead"
+          :dead-avatar="iconKillPlayer"
           @toggle-panel="toggleTilePanel"
           @vol-input="onVol"
           @block="(key, uid) => toggleBlock(uid, key)"
@@ -75,6 +77,8 @@
             :vol="volUi[id] ?? rtc.getUserVolume(id)"
             :is-mirrored="isMirrored"
             :show-states="gamePhase === 'idle' || isGameHead(id)"
+            :is-dead="isDead"
+            :dead-avatar="iconKillPlayer"
             @toggle-panel="toggleTilePanel"
             @vol-input="onVol"
             @block="(key, uid) => toggleBlock(uid, key)"
@@ -276,6 +280,12 @@ const minReadyToStart = ref<number>(4)
 const gamePhase = ref<'idle' | 'roles_pick' | 'mafia_talk' | 'day' | 'night'>('idle')
 const seatsByUser = reactive<Record<string, number>>({})
 const isGameHead = (id: string) => seatsByUser[id] === 11
+const isDead = (id: string) => {
+  if (gamePhase.value === 'idle') return false
+  const seat = seatsByUser[id]
+  if (!seat || seat === 11) return false
+  return !gameAlive.has(id)
+}
 
 const gamePlayers = reactive(new Set<string>())
 const gameAlive = reactive(new Set<string>())
@@ -650,11 +660,12 @@ async function toggleReady() {
 
 function canModerate(targetId: string): boolean {
   if (targetId === localId.value) return false
+  if (gamePhase.value !== 'idle') return false
   const me = myRole.value
   const trg = rol(targetId)
   if (me === trg) return false
   if (me === 'admin') return trg !== 'admin'
-  if (me === 'host')  return trg !== 'admin' && trg !== 'host'
+  if (me === 'host') return trg !== 'admin' && trg !== 'host'
   return false
 }
 
@@ -835,6 +846,12 @@ function connectSocket() {
   socket.value?.on('game_ended', (p: any) => {
     applyGameEnded(p)
   })
+
+  socket.value?.on('game_player_left', (p: any) => {
+    const uid = String(p?.user_id ?? '')
+    if (!uid) return
+    gameAlive.delete(uid)
+  })
 }
 
 async function safeJoin() {
@@ -884,17 +901,11 @@ async function enforceInitialGameControls() {
     }
     return
   }
-  if (micOn.value) {
-    await toggleMic()
-  }
   if (!camOn.value && !blockedSelf.value.cam) {
     await toggleCam()
   }
   if (!speakersOn.value && !blockedSelf.value.speakers) {
     await toggleSpeakers()
-  }
-  if (visibilityOn.value) {
-    await toggleVisibility()
   }
 }
 
@@ -1400,6 +1411,44 @@ window.addEventListener('online',  () => { if (netReconnecting.value) hardReload
     .controls {
       display: flex;
       gap: 10px;
+    }
+  }
+}
+@media (max-width: 1280px) {
+  .room {
+    padding: 5px;
+    gap: 5px;
+    .grid {
+      width: calc(100vw - 10px);
+      height: calc(100dvh - 40px);
+      gap: 5px;
+    }
+    .theater {
+      width: calc(100vw - 10px);
+      height: calc(100dvh - 40px);
+      gap: 5px;
+      .sidebar {
+        gap: 5px;
+      }
+    }
+    .panel {
+      width: calc(100vw - 10px);
+      height: 25px;
+      button {
+        width: 35px;
+        height: 25px;
+        img {
+          width: 20px;
+          height: 20px;
+        }
+      }
+      .controls-side {
+        gap: 5px;
+        min-width: 75px;
+      }
+      .controls {
+        gap: 5px;
+      }
     }
   }
 }

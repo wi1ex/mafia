@@ -8,7 +8,8 @@
     </div>
 
     <div v-show="!showVideo" class="ava-wrap">
-      <img v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar, lazy: false }" alt="" />
+      <img v-if="!isDead(id) || !deadAvatar" v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar, lazy: false }" alt="" />
+      <img v-else :src="deadAvatar" alt="" />
     </div>
 
     <div class="user-card" ref="cardEl" :data-open="openPanel ? 1 : 0" @click.stop>
@@ -77,7 +78,14 @@ const props = withDefaults(defineProps<{
   isReady: (id: string) => boolean
   isMirrored: (id: string) => boolean
   showStates?: boolean
-}>(), { side: false, showStates: true })
+  isDead?: (id: string) => boolean
+  deadAvatar?: string
+}>(), {
+  side: false,
+  showStates: true,
+  isDead: () => false,
+  deadAvatar: '',
+})
 
 defineEmits<{
   (e: 'toggle-panel', id: string): void
@@ -87,7 +95,7 @@ defineEmits<{
 }>()
 
 const openPanel = computed(() => props.openPanelFor === props.id)
-const showVideo = computed(() => props.isOn(props.id, 'cam') && !props.isBlocked(props.id, 'cam'))
+const showVideo = computed(() => !props.isDead(props.id) && props.isOn(props.id, 'cam') && !props.isBlocked(props.id, 'cam'))
 
 const cardEl = ref<HTMLElement | null>(null)
 const headEl = ref<HTMLButtonElement | null>(null)
@@ -310,5 +318,28 @@ onUpdated(() => setClosedWidth())
   aspect-ratio: 16 / 9;
   min-width: 280px;
   min-height: 158px;
+}
+@media (max-width: 1280px) {
+  .tile {
+    .user-card {
+      left: 3px;
+      top: 3px;
+      padding: 0 5px;
+      max-inline-size: calc(100% - 15px);
+      &[data-open="1"] {
+        block-size: 123px;
+      }
+      .card-body {
+        margin-top: 0;
+        gap: 5px;
+        .admin-row {
+          gap: 5px;
+          button {
+            min-width: calc((100% - 25px) / 6);
+          }
+        }
+      }
+    }
+  }
 }
 </style>

@@ -358,9 +358,23 @@ async def moderate(sid, data) -> ModerateAck:
 
         r = get_redis()
         role_in_room = await r.hget(f"room:{rid}:user:{actor_uid}:info", "role")
-        actor_role = str(role_in_room or sess.get("role") or "user")
+        base_actor_role = str(role_in_room or sess.get("role") or "user")
         trg_role = str(await r.hget(f"room:{rid}:user:{target}:info", "role") or "user")
-        if actor_role == trg_role:
+        raw_gstate = await r.hgetall(f"room:{rid}:game_state")
+        phase = str(raw_gstate.get("phase") or "idle")
+        actor_role = base_actor_role
+        if phase != "idle":
+            try:
+                head_uid = int(raw_gstate.get("head") or 0)
+            except Exception:
+                head_uid = 0
+
+            if actor_uid != head_uid:
+                return {"ok": False, "error": "forbidden", "status": 403}
+
+            actor_role = "head"
+
+        if actor_role != "head" and actor_role == trg_role:
             return {"ok": False, "error": "forbidden", "status": 403}
 
         applied, forced_off = await update_blocks(r, rid, actor_uid, actor_role, target, norm)
@@ -533,6 +547,11 @@ async def game_leave(sid, data):
         if phase == "idle":
             return {"ok": False, "error": "no_game", "status": 400}
 
+        try:
+            head_uid = int(raw_gstate.get("head") or 0)
+        except Exception:
+            head_uid = 0
+
         is_player = await r.sismember(f"room:{rid}:game_players", str(uid))
         if not is_player:
             return {"ok": False, "error": "not_player", "status": 400}
@@ -551,6 +570,35 @@ async def game_leave(sid, data):
         await sio.emit("rooms_occupancy",
                        {"id": rid, "occupancy": alive_cnt},
                        namespace="/rooms")
+
+        try:
+            await sio.emit("game_player_left",
+                           {"room_id": rid, "user_id": uid},
+                           room=f"room:{rid}",
+                           namespace="/room")
+        except Exception:
+            log.exception("sio.game_leave.notify_failed", rid=rid, uid=uid)
+
+        if head_uid and head_uid != uid:
+            try:
+                applied, forced_off = await update_blocks(r, rid, head_uid, "head", uid, {"mic": True, "cam": True})
+            except Exception:
+                log.exception("sio.game_leave.autoblock_failed", rid=rid, head=head_uid, target=uid)
+            else:
+                if forced_off:
+                    await sio.emit("state_changed",
+                                   {"user_id": uid, **forced_off},
+                                   room=f"room:{rid}",
+                                   namespace="/room")
+                if applied:
+                    row = await r.hgetall(f"room:{rid}:user:{uid}:block")
+                    full = {k: ("1" if (row or {}).get(k) == "1" else "0") for k in KEYS_BLOCK}
+                    await sio.emit("moderation",
+                                   {"user_id": uid,
+                                    "blocks": full,
+                                    "by": {"user_id": head_uid, "role": "head"}},
+                                   room=f"room:{rid}",
+                                   namespace="/room")
 
         try:
             async with SessionLocal() as s:
@@ -718,6 +766,33 @@ async def game_start(sid, data) -> GameStartAck:
                 await p.sadd(f"room:{rid}:game_alive", *player_ids)
             await p.delete(f"room:{rid}:ready")
             await p.execute()
+
+        if player_ids and head_uid:
+            for pid in player_ids:
+                try:
+                    target_uid = int(pid)
+                except Exception:
+                    continue
+                try:
+                    applied, forced_off = await update_blocks(r, rid, head_uid, "head", target_uid, {"mic": True, "visibility": True})
+                except Exception:
+                    log.exception("sio.game_start.autoblock_failed", rid=rid, head=head_uid, target=pid)
+                    continue
+
+                if forced_off:
+                    await sio.emit("state_changed",
+                                   {"user_id": target_uid, **forced_off},
+                                   room=f"room:{rid}",
+                                   namespace="/room")
+                if applied:
+                    row = await r.hgetall(f"room:{rid}:user:{target_uid}:block")
+                    full = {k: ("1" if (row or {}).get(k) == "1" else "0") for k in KEYS_BLOCK}
+                    await sio.emit("moderation",
+                                   {"user_id": target_uid,
+                                    "blocks": full,
+                                    "by": {"user_id": head_uid, "role": "head"}},
+                                   room=f"room:{rid}",
+                                   namespace="/room")
 
         payload: GameStartAck = {
             "ok": True,
