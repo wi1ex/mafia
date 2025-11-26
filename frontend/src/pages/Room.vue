@@ -909,6 +909,25 @@ async function enforceInitialGameControls() {
   }
 }
 
+function restoreAfterGameEnd() {
+  const id = localId.value
+  if (!id) return
+  const wasPlayer = gamePlayers.has(id)
+  if (!wasPlayer) return
+  if (!speakersOn.value && !blockedSelf.value.speakers) {
+    void toggleSpeakers()
+  }
+  if (!visibilityOn.value && !blockedSelf.value.visibility) {
+    void toggleVisibility()
+  }
+  if (!micOn.value && !blockedSelf.value.mic) {
+    void toggleMic()
+  }
+  if (!camOn.value && !blockedSelf.value.cam) {
+    void toggleCam()
+  }
+}
+
 function applyGameStarted(p: any) {
   gamePhase.value = (p?.phase as any) || 'roles_pick'
   if (p?.min_ready != null) {
@@ -936,10 +955,13 @@ function applyGameStarted(p: any) {
 }
 
 function applyGameEnded(_p: any) {
+  const id = localId.value
+  const wasPlayer = id ? gamePlayers.has(id) : false
   gamePhase.value = 'idle'
   Object.keys(seatsByUser).forEach((k) => { delete seatsByUser[k] })
   gamePlayers.clear()
   gameAlive.clear()
+  if (wasPlayer) { restoreAfterGameEnd() }
 }
 
 function applyJoinAck(j: any) {

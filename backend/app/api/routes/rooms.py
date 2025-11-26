@@ -16,7 +16,7 @@ from ...models.notif import Notif
 from ...realtime.sio import sio
 from ...realtime.utils import gc_empty_room
 from ...schemas.common import Identity, Ok
-from ...schemas.room import RoomIdOut, RoomCreateIn, RoomInfoOut, RoomInfoMemberOut, RoomAccessOut, GameParams
+from ...schemas.room import RoomIdOut, RoomCreateIn, RoomInfoOut, RoomInfoMemberOut, RoomAccessOut
 from ...schemas.user import UserOut
 
 router = APIRouter()
@@ -41,7 +41,7 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
     if mine >= 3:
         raise HTTPException(status_code=409, detail="rooms_limit_user")
 
-    gp = payload.game or GameParams()
+    gp = payload.game
     game_dict = {"mode": gp.mode,
                  "format": gp.format,
                  "spectators_limit": int(gp.spectators_limit),

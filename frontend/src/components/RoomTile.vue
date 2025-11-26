@@ -12,8 +12,8 @@
       <img v-else :src="deadAvatar" alt="" />
     </div>
 
-    <div class="user-card" ref="cardEl" :data-open="openPanel ? 1 : 0" @click.stop>
-      <button class="card-head" ref="headEl" :disabled="id === localId"
+    <div class="user-card" :data-open="openPanel ? 1 : 0" @click.stop>
+      <button class="card-head" :disabled="id === localId"
               :aria-disabled="id === localId" @click.stop="$emit('toggle-panel', id)" :aria-expanded="openPanel">
         <img v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar, lazy: false }" alt="" />
         <span>{{ userName(id) }}</span>
@@ -50,7 +50,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUpdated, ref, watch } from 'vue'
+import { computed } from 'vue'
 
 import iconReady from '@/assets/svg/ready.svg'
 import iconLeaveRoom from '@/assets/svg/leave.svg'
@@ -97,29 +97,6 @@ defineEmits<{
 const openPanel = computed(() => props.openPanelFor === props.id)
 const showVideo = computed(() => !props.isDead(props.id) && props.isOn(props.id, 'cam') && !props.isBlocked(props.id, 'cam'))
 
-const cardEl = ref<HTMLElement | null>(null)
-const headEl = ref<HTMLButtonElement | null>(null)
-
-function setClosedWidth() {
-  const head = headEl.value
-  const card = cardEl.value
-  if (!head || !card) return
-  const rect = head.getBoundingClientRect()
-  const w = Math.min(Math.ceil(rect.width) + 1, 250)
-  card.style.setProperty('--w-closed', `${w}px`)
-}
-
-watch(openPanel, async (isOpen, wasOpen) => {
-  if (wasOpen && !isOpen) {
-    await nextTick()
-    setClosedWidth()
-  }
-})
-onMounted(async () => {
-  await nextTick()
-  setClosedWidth()
-})
-onUpdated(() => setClosedWidth())
 </script>
 
 <style scoped lang="scss">
@@ -182,9 +159,9 @@ onUpdated(() => setClosedWidth())
     left: 5px;
     top: 5px;
     padding: 5px 10px;
-    inline-size: var(--w-closed, auto);
+    inline-size: max-content;
+    max-inline-size: min(250px, calc(100% - 30px));
     block-size: 30px;
-    max-inline-size: calc(100% - 30px);
     will-change: inline-size, block-size;
     border-radius: 5px;
     backdrop-filter: blur(5px);
@@ -193,7 +170,7 @@ onUpdated(() => setClosedWidth())
     z-index: 5;
     transition: inline-size 0.25s ease-out, block-size 0.25s ease-out;
     &[data-open="1"] {
-      inline-size: 250px;
+      inline-size: min(250px, calc(100% - 30px));
       block-size: 138px;
     }
     .card-head {
@@ -327,8 +304,9 @@ onUpdated(() => setClosedWidth())
       left: 3px;
       top: 3px;
       padding: 0 5px;
-      max-inline-size: calc(100% - 15px);
+      max-inline-size: min(250px, calc(100% - 15px));
       &[data-open="1"] {
+        inline-size: min(250px, calc(100% - 15px));
         block-size: 118px;
       }
       .card-body {
