@@ -758,8 +758,6 @@ function purgePeerUI(id: string) {
   rolesByUser.delete(id)
   nameByUser.delete(id)
   avatarByUser.delete(id)
-  gamePlayers.delete(id)
-  gameAlive.delete(id)
   videoRefMemo.delete(id)
   screenRefMemo.delete(id)
   if (openPanelFor.value === id || openPanelFor.value === rtc.screenKey(id)) openPanelFor.value = ''

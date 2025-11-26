@@ -15,7 +15,7 @@
     <div class="user-card" :data-open="openPanel ? 1 : 0" @click.stop>
       <button class="card-head" :disabled="id === localId"
               :aria-disabled="id === localId" @click.stop="$emit('toggle-panel', id)" :aria-expanded="openPanel">
-        <img v-if="seat != null && seatIcon" :src="seatIcon" alt="seat" />
+        <img v-if="seat != null && seatIcon" class="user-slot" :src="seatIcon" alt="seat" />
         <img class="user-avatar" v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar, lazy: false }" alt="" />
         <span>{{ userName(id) }}</span>
         <div class="status" v-if="showStates">
@@ -192,11 +192,12 @@ const showVideo = computed(() => !props.isDead(props.id) && props.isOn(props.id,
       &:disabled {
         cursor: default;
       }
-      img {
-        width: 20px;
-        height: 20px;
+      .user-slot {
+        height: 25px;
       }
       .user-avatar {
+        width: 20px;
+        height: 20px;
         border-radius: 50%;
         object-fit: cover;
       }
