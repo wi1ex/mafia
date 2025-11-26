@@ -112,7 +112,7 @@
           <div class="ri-actions">
             <button v-if="ctaState==='enter'" :disabled="entering" @click="onEnter">Войти в комнату</button>
             <button v-else-if="ctaState==='full'" disabled>Комната заполнена</button>
-            <button v-else-if="ctaState==='apply'" @click="onApply">Подать заявку</button>
+            <button v-else-if="ctaState==='apply'" :disabled="applying" @click="onApply">Подать заявку</button>
             <button v-else-if="ctaState==='pending'" disabled>Заявка отправлена</button>
             <button v-else-if="ctaState==='in_game'" disabled>Идёт игра</button>
             <button v-else disabled>Авторизуйтесь, чтобы войти</button>
@@ -189,6 +189,7 @@ const suppressedAutoselect = ref(true)
 
 const selArmed = ref(false)
 const entering = ref(false)
+const applying = ref(false)
 
 const infoTimers = new Map<number, number>()
 const infoInFlight = new Set<number>()
@@ -292,13 +293,24 @@ async function fetchAccess(id: number) {
 }
 
 async function onApply() {
-  const id = selectedRoom.value?.id
-  if (!id) return
+  const roomId = selectedRoom.value?.id
+  if (!roomId || applying.value) return
+  applying.value = true
   try {
-    await api.post(`/rooms/${id}/apply`)
-    access.value='pending'
-  }
-  catch (e: any) { alert('Ошибка отправки заявки') }
+    await api.post(`/rooms/${roomId}/apply`)
+    access.value = 'pending'
+  } catch (e: any) {
+    const detail = e?.response?.data?.detail
+    if (detail === 'room_not_found') {
+      alert('Комната не найдена')
+      clearSelection()
+    } else if (detail === 'not_private') {
+      access.value = 'approved'
+      alert('Комната уже открыта, можно зайти без заявки')
+    } else {
+      alert('Ошибка при отправке заявки')
+    }
+  } finally { applying.value = false }
 }
 
 async function fetchRoomInfo(id: number, opts?: { silent?: boolean }): Promise<(RoomMembers & { game?: Game }) | null> {

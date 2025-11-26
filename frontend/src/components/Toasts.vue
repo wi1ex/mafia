@@ -240,4 +240,11 @@ onBeforeUnmount(() => {
   }
 }
 
+@media (max-width: 1280px) {
+  .toasts {
+    left: 5px;
+    bottom: 5px;
+    gap: 5px;
+  }
+}
 </style>

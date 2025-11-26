@@ -864,14 +864,42 @@ async def game_end(sid, data):
         except Exception:
             head_uid = 0
 
-        role_in_room = await r.hget(f"room:{rid}:user:{uid}:info", "role")
-        actor_role = str(role_in_room or sess.get("role") or "user")
-
-        if uid != head_uid and actor_role != "host":
+        if not head_uid or uid != head_uid:
             return {"ok": False, "error": "forbidden", "status": 403}
 
         if not confirm:
             return {"ok": True, "status": 200, "room_id": rid, "can_end": True}
+
+        try:
+            players_set = await r.smembers(f"room:{rid}:game_players")
+        except Exception:
+            log.exception("sio.game_end.load_players_failed", rid=rid)
+            players_set = set()
+
+        for v in (players_set or []):
+            try:
+                target_uid = int(v)
+            except Exception:
+                continue
+            if target_uid == head_uid:
+                continue
+            try:
+                applied, forced_off = await update_blocks(r, rid, head_uid, "head", target_uid,
+                                                          {"mic": False, "cam": False, "speakers": False, "visibility": False})
+            except Exception:
+                log.exception("sio.game_end.auto_unblock_failed", rid=rid, head=head_uid, target=target_uid)
+                continue
+            if "__error__" in forced_off:
+                continue
+            if applied:
+                row = await r.hgetall(f"room:{rid}:user:{target_uid}:block")
+                full = {k: ("1" if (row or {}).get(k) == "1" else "0") for k in KEYS_BLOCK}
+                await sio.emit("moderation",
+                               {"user_id": target_uid,
+                                "blocks": full,
+                                "by": {"user_id": head_uid, "role": "head"}},
+                               room=f"room:{rid}",
+                               namespace="/room")
 
         async with r.pipeline() as p:
             await p.delete(

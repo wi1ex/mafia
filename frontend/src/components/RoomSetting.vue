@@ -412,4 +412,10 @@ onBeforeUnmount(() => {
   opacity: 0;
   transform: translateY(30px);
 }
+
+@media (max-width: 1280px) {
+  .settings {
+    bottom: 30px;
+  }
+}
 </style>

@@ -267,4 +267,10 @@ onBeforeUnmount(() => {
   opacity: 0;
   transform: translateY(30px);
 }
+
+@media (max-width: 1280px) {
+  .apps-panel {
+    bottom: 30px;
+  }
+}
 </style>

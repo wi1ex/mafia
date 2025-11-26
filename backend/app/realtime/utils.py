@@ -334,12 +334,27 @@ async def get_profiles_snapshot(r, rid: int) -> dict[str, dict[str, str | None]]
     if need_db:
         async with SessionLocal() as s:
             res = await s.execute(select(User.id, User.username, User.avatar_name).where(User.id.in_(need_db)))
-            for uid_i, un_db, av_db in res.all():
-                cur = out[str(uid_i)]
-                if cur["avatar_name"] is None:
-                    cur["avatar_name"] = av_db
-                if cur["username"] is None:
+            db_rows = res.all()
+
+        async with r.pipeline() as p:
+            for uid_i, un_db, av_db in db_rows:
+                key = str(uid_i)
+                cur = out.get(key) or {"username": None, "avatar_name": None}
+                if cur["username"] is None and un_db is not None:
                     cur["username"] = un_db
+                if cur["avatar_name"] is None and av_db is not None:
+                    cur["avatar_name"] = av_db
+                out[key] = cur
+
+                mp: dict[str, str] = {}
+                if cur["username"] is not None:
+                    mp["username"] = str(cur["username"])
+                if cur["avatar_name"] is not None:
+                    mp["avatar_name"] = str(cur["avatar_name"])
+                if mp:
+                    await p.hset(f"room:{rid}:user:{uid_i}:info", mapping=mp)
+            await p.execute()
+
     return out
 
 

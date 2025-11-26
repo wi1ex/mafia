@@ -104,7 +104,8 @@ function setClosedWidth() {
   const head = headEl.value
   const card = cardEl.value
   if (!head || !card) return
-  const w = Math.min(Math.ceil(head.scrollWidth) + 1, 250)
+  const rect = head.getBoundingClientRect()
+  const w = Math.min(Math.ceil(rect.width) + 1, 250)
   card.style.setProperty('--w-closed', `${w}px`)
 }
 
@@ -319,6 +320,7 @@ onUpdated(() => setClosedWidth())
   min-width: 280px;
   min-height: 158px;
 }
+
 @media (max-width: 1280px) {
   .tile {
     .user-card {
@@ -327,11 +329,14 @@ onUpdated(() => setClosedWidth())
       padding: 0 5px;
       max-inline-size: calc(100% - 15px);
       &[data-open="1"] {
-        block-size: 123px;
+        block-size: 118px;
       }
       .card-body {
         margin-top: 0;
         gap: 5px;
+        .volume {
+          height: 15px;
+        }
         .admin-row {
           gap: 5px;
           button {

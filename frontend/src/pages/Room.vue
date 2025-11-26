@@ -944,7 +944,7 @@ function applyGameEnded(_p: any) {
 
 function applyJoinAck(j: any) {
   isPrivate.value = (j?.privacy || j?.room?.privacy) === 'private'
-  const game = j.game
+  // const game = j.game
 
   positionByUser.clear()
   for (const [uid, pos] of Object.entries(j.positions || {})) {
@@ -1006,7 +1006,6 @@ function applyJoinAck(j: any) {
   const gr = j.game_runtime || {}
   const mr = Number(gr.min_ready)
   if (Number.isFinite(mr) && mr > 0) minReadyToStart.value = mr
-  else minReadyToStart.value = Number(game?.min_ready_for_start) || minReadyToStart.value
   gamePhase.value = (gr.phase as any) || 'idle'
   const seats = (gr.seats || {}) as Record<string, any>
   Object.keys(seatsByUser).forEach((k) => { delete seatsByUser[k] })
@@ -1031,8 +1030,16 @@ function applyJoinAck(j: any) {
   }
 }
 
-const pendingDeltas: any[] = []
-async function publishState(delta: Partial<{ mic: boolean; cam: boolean; speakers: boolean; visibility: boolean; ready: boolean }>) {
+type PublishDelta = Partial<{
+  mic: boolean
+  cam: boolean
+  speakers: boolean
+  visibility: boolean
+  ready: boolean
+  mirror: boolean
+}>
+const pendingDeltas: PublishDelta[] = []
+async function publishState(delta: PublishDelta) {
   if (!socket.value || !socket.value.connected) {
     pendingDeltas.push(delta)
     return false
@@ -1053,11 +1060,11 @@ const toggleFactory = (k: keyof typeof local, onEnable?: () => Promise<boolean |
       const okLocal = (await onEnable?.()) !== false
       if (!okLocal) return
       local[k] = true
-      try { await publishState({ [k]: true } as any) } catch {}
+      try { await publishState({ [k]: true } as PublishDelta) } catch {}
     } else {
       await onDisable?.()
       local[k] = false
-      try { await publishState({ [k]: false } as any) } catch {}
+      try { await publishState({ [k]: false } as PublishDelta) } catch {}
     }
   } finally { pending[k] = false }
 }
@@ -1414,6 +1421,7 @@ window.addEventListener('online',  () => { if (netReconnecting.value) hardReload
     }
   }
 }
+
 @media (max-width: 1280px) {
   .room {
     padding: 5px;
@@ -1440,6 +1448,13 @@ window.addEventListener('online',  () => { if (netReconnecting.value) hardReload
         img {
           width: 20px;
           height: 20px;
+        }
+        .count-total {
+          top: 3px;
+          right: 5px;
+          width: 12px;
+          height: 12px;
+          font-size: 10px;
         }
       }
       .controls-side {
