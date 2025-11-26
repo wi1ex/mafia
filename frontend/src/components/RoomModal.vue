@@ -72,7 +72,7 @@
                   <input type="checkbox" v-model="isNoHost" disabled aria-label="Формат: с ведущим/без ведущего" />
                   <div class="slider">
                     <span>Ведущий</span>
-                    <span>Автомат</span>
+                    <span>Авто</span>
                   </div>
                 </label>
               </div>
@@ -174,7 +174,7 @@ const titlePct = computed(() => {
 })
 const titleUnderlineStyle = computed(() => ({ width: `${titlePct.value}%` }))
 
-const GAME_LIMIT_MIN = 10
+const GAME_LIMIT_MIN = 5
 const canOpenGameTab = computed(() => limit.value >= GAME_LIMIT_MIN)
 function openTab(t: 'room' | 'game') {
   if (t === 'game' && !canOpenGameTab.value) return
