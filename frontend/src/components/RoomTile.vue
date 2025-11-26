@@ -15,7 +15,8 @@
     <div class="user-card" :data-open="openPanel ? 1 : 0" @click.stop>
       <button class="card-head" :disabled="id === localId"
               :aria-disabled="id === localId" @click.stop="$emit('toggle-panel', id)" :aria-expanded="openPanel">
-        <img v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar, lazy: false }" alt="" />
+        <img v-if="seat != null && seatIcon" :src="seatIcon" alt="seat" />
+        <img class="user-avatar" v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar, lazy: false }" alt="" />
         <span>{{ userName(id) }}</span>
         <div class="status" v-if="showStates">
           <img v-if="isBlocked(id,'mic') || !isOn(id,'mic')" :src="stateIcon('mic', id)" alt="mic" />
@@ -80,11 +81,15 @@ const props = withDefaults(defineProps<{
   showStates?: boolean
   isDead?: (id: string) => boolean
   deadAvatar?: string
+  seat?: number | null
+  seatIcon?: string | null
 }>(), {
   side: false,
   showStates: true,
   isDead: () => false,
   deadAvatar: '',
+  seat: null,
+  seatIcon: null,
 })
 
 defineEmits<{
@@ -190,6 +195,8 @@ const showVideo = computed(() => !props.isDead(props.id) && props.isOn(props.id,
       img {
         width: 20px;
         height: 20px;
+      }
+      .user-avatar {
         border-radius: 50%;
         object-fit: cover;
       }

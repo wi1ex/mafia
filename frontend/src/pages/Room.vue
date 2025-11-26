@@ -35,6 +35,8 @@
           :show-states="gamePhase === 'idle' || isGameHead(id)"
           :is-dead="isDead"
           :dead-avatar="iconKillPlayer"
+          :seat="seatIndex(id)"
+          :seat-icon="seatIconForUser(id)"
           @toggle-panel="toggleTilePanel"
           @vol-input="onVol"
           @block="(key, uid) => toggleBlock(uid, key)"
@@ -45,7 +47,6 @@
       <div v-else class="theater">
         <div class="stage">
           <video :ref="stableScreenRef(screenOwnerId)" playsinline autoplay />
-
           <div v-if="screenOwnerId !== localId && streamAudioKey" class="volume" @click.stop>
             <img :src="volumeIconForStream(streamAudioKey)" alt="vol" />
             <input type="range" min="0" max="200" :disabled="!speakersOn || isBlocked(screenOwnerId,'speakers')"
@@ -79,6 +80,8 @@
             :show-states="gamePhase === 'idle' || isGameHead(id)"
             :is-dead="isDead"
             :dead-avatar="iconKillPlayer"
+            :seat="seatIndex(id)"
+            :seat-icon="seatIconForUser(id)"
             @toggle-panel="toggleTilePanel"
             @vol-input="onVol"
             @block="(key, uid) => toggleBlock(uid, key)"
@@ -208,6 +211,18 @@ import iconScreenOn from '@/assets/svg/screenOn.svg'
 import iconScreenOff from '@/assets/svg/screenOff.svg'
 import iconScreenBlocked from '@/assets/svg/screenBlocked.svg'
 
+import iconSlotHead from '@/assets/svg/slotHead.svg'
+import iconSlot1 from '@/assets/svg/slot1.svg'
+import iconSlot2 from '@/assets/svg/slot2.svg'
+import iconSlot3 from '@/assets/svg/slot3.svg'
+import iconSlot4 from '@/assets/svg/slot4.svg'
+import iconSlot5 from '@/assets/svg/slot5.svg'
+import iconSlot6 from '@/assets/svg/slot6.svg'
+import iconSlot7 from '@/assets/svg/slot7.svg'
+import iconSlot8 from '@/assets/svg/slot8.svg'
+import iconSlot9 from '@/assets/svg/slot9.svg'
+import iconSlot0 from '@/assets/svg/slot10.svg'
+
 type State01 = 0 | 1
 type StatusState = {
   mic: State01
@@ -285,6 +300,32 @@ const isDead = (id: string) => {
   const seat = seatsByUser[id]
   if (!seat || seat === 11) return false
   return !gameAlive.has(id)
+}
+const seatIndex = (id: string): number | null => {
+  const s = seatsByUser[id]
+  return Number.isFinite(s) && s > 0 ? s : null
+}
+function seatIconBySeat(seat: number | null | undefined): string {
+  if (!seat) return ''
+  switch (seat) {
+    case 11: return iconSlotHead
+    case 1:  return iconSlot1
+    case 2:  return iconSlot2
+    case 3:  return iconSlot3
+    case 4:  return iconSlot4
+    case 5:  return iconSlot5
+    case 6:  return iconSlot6
+    case 7:  return iconSlot7
+    case 8:  return iconSlot8
+    case 9:  return iconSlot9
+    case 10: return iconSlot0
+    default: return ''
+  }
+}
+function seatIconForUser(id: string): string {
+  if (gamePhase.value === 'idle') return ''
+  const s = seatIndex(id)
+  return seatIconBySeat(s)
 }
 
 const gamePlayers = reactive(new Set<string>())
@@ -887,6 +928,20 @@ function ensurePeer(id: string) {
   }
 }
 
+function optimisticUnblockSelfAfterGame() {
+  const id = localId.value
+  if (!id) return
+  const cur = blockByUser.get(id)
+  if (!cur) return
+  blockByUser.set(id, {
+    mic: 0,
+    cam: 0,
+    speakers: 0,
+    visibility: 0,
+    screen: cur.screen ?? 0,
+  })
+}
+
 async function enforceInitialGameControls() {
   const id = localId.value
   if (!id) return
@@ -909,13 +964,14 @@ async function enforceInitialGameControls() {
   }
 }
 
-function restoreAfterGameEnd() {
+async function restoreAfterGameEnd() {
   const id = localId.value
   if (!id) return
-  if (!speakersOn.value && !blockedSelf.value.speakers) void toggleSpeakers()
-  if (!visibilityOn.value && !blockedSelf.value.visibility) void toggleVisibility()
-  if (!micOn.value && !blockedSelf.value.mic) void toggleMic()
-  if (!camOn.value && !blockedSelf.value.cam) void toggleCam()
+  optimisticUnblockSelfAfterGame()
+  if (!speakersOn.value) await toggleSpeakers()
+  if (!visibilityOn.value) await toggleVisibility()
+  if (!micOn.value) await toggleMic()
+  if (!camOn.value) await toggleCam()
 }
 
 function applyGameStarted(p: any) {
@@ -950,7 +1006,7 @@ function applyGameEnded(_p: any) {
   Object.keys(seatsByUser).forEach((k) => { delete seatsByUser[k] })
   gamePlayers.clear()
   gameAlive.clear()
-  if (roleBeforeEnd === 'player') restoreAfterGameEnd()
+  if (roleBeforeEnd === 'player') void restoreAfterGameEnd()
 }
 
 function applyJoinAck(j: any) {
