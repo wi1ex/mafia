@@ -9,7 +9,7 @@
       </header>
 
       <div class="user">
-        <img v-if="t.kind === 'app' && t.user" v-minio-img="{ key: t.user.avatar_name ? `avatars/${t.user.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="" />
+        <img v-if="t.kind === 'app' && t.user" v-minio-img="{ key: t.user.avatar_name ? `avatars/${t.user.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
         <span v-if="t.kind === 'app' && t.user">{{ t.user.username || ('user' + t.user.id) }}</span>
         <p v-if="t.kind !== 'app' && t.text">{{ t.text }}</p>
         <button v-if="(t.kind === 'app' || t.kind === 'approve') && t.action" @click="run(t)">{{ t.action.label }}</button>

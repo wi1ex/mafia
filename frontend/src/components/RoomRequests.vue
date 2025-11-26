@@ -9,7 +9,7 @@
       </header>
       <ul v-if="apps.length">
         <li v-for="u in apps" :key="u.id">
-          <img v-minio-img="{ key: u.avatar_name ? `avatars/${u.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="" />
+          <img v-minio-img="{ key: u.avatar_name ? `avatars/${u.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
           <span>{{ u.username || ('user' + u.id) }}</span>
           <button @click="approve(u.id)">Одобрить</button>
         </li>

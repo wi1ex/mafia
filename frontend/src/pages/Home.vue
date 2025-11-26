@@ -35,7 +35,7 @@
               <span>{{ r.title }}</span>
             </div>
             <div class="cell">
-              <img class="user-avatar" v-minio-img="{key: r.creator_avatar_name ? `avatars/${r.creator_avatar_name}` : '', placeholder: defaultAvatar, lazy: false}" alt="" />
+              <img class="user-avatar" v-minio-img="{key: r.creator_avatar_name ? `avatars/${r.creator_avatar_name}` : '', placeholder: defaultAvatar, lazy: false}" alt="avatar" />
               <span class="user-name">{{ r.creator_name }}</span>
             </div>
             <span class="text-center">{{ r.occupancy }}/{{ r.user_limit }}</span>
@@ -66,7 +66,7 @@
                 <div class="ri-meta-div">
                   <span>Владелец</span>
                   <div class="owner">
-                    <img v-minio-img="{ key: selectedRoom && selectedRoom.creator_avatar_name ? `avatars/${selectedRoom.creator_avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="" />
+                    <img v-minio-img="{ key: selectedRoom && selectedRoom.creator_avatar_name ? `avatars/${selectedRoom.creator_avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
                     <span class="owner-name">{{ selectedRoom?.creator_name }}</span>
                   </div>
                 </div>
@@ -101,7 +101,7 @@
                 <li class="ri-user" v-for="m in sortedMembers" :key="m.id" :class="{ dead: m.role === 'player' && m.alive === false }">
                   <span v-if="m.role === 'head'" class="user-numb">В. </span>
                   <span v-else-if="m.role === 'player' && m.slot != null" class="user-numb">{{ m.slot }}. </span>
-                  <img v-minio-img="{ key: m.avatar_name ? `avatars/${m.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="" />
+                  <img v-minio-img="{ key: m.avatar_name ? `avatars/${m.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
                   <span>{{ m.username || ('user' + m.id) }}</span>
                   <img v-if="m.screen" :src="iconScreenOn" alt="streaming" />
                 </li>

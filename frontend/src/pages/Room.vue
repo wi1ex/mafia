@@ -37,6 +37,8 @@
           :dead-avatar="iconKillPlayer"
           :seat="seatIndex(id)"
           :seat-icon="seatIconForUser(id)"
+          :offline="offlineInGame.has(id)"
+          :offline-avatar="iconLowSignal"
           @toggle-panel="toggleTilePanel"
           @vol-input="onVol"
           @block="(key, uid) => toggleBlock(uid, key)"
@@ -82,6 +84,8 @@
             :dead-avatar="iconKillPlayer"
             :seat="seatIndex(id)"
             :seat-icon="seatIconForUser(id)"
+            :offline="offlineInGame.has(id)"
+            :offline-avatar="iconLowSignal"
             @toggle-panel="toggleTilePanel"
             @vol-input="onVol"
             @block="(key, uid) => toggleBlock(uid, key)"
@@ -191,6 +195,7 @@ import iconVolumeLow from '@/assets/svg/volumeLow.svg'
 import iconVolumeMute from '@/assets/svg/volumeMute.svg'
 
 import iconReady from '@/assets/svg/ready.svg'
+import iconLowSignal from '@/assets/svg/lowSignal.svg'
 import iconKillPlayer from '@/assets/svg/killPlayer.svg'
 import iconGameStart from '@/assets/svg/gameStart.svg'
 import iconGameStop from '@/assets/svg/gameStop.svg'
@@ -330,6 +335,7 @@ function seatIconForUser(id: string): string {
 
 const gamePlayers = reactive(new Set<string>())
 const gameAlive = reactive(new Set<string>())
+const offlineInGame = reactive(new Set<string>())
 const amIAlive = computed(() => {
   if (gamePhase.value === 'idle') return true
   const id = localId.value
@@ -601,7 +607,17 @@ function ensureOk(resp: Ack, msgByCode: Record<number, string>, netMsg: string):
 
 const showPermProbe = computed(() => (!rtc.hasAudioInput.value && !rtc.hasVideoInput.value) || !rtc.permProbed.value)
 const sortedPeerIds = computed(() => {
-  return [...peerIds.value].sort((a, b) => {
+  const idsSet = new Set<string>(peerIds.value)
+  if (gamePhase.value !== 'idle') {
+    for (const uid of Object.keys(seatsByUser)) { idsSet.add(String(uid)) }
+  }
+  const ids = Array.from(idsSet)
+  return ids.sort((a, b) => {
+    if (gamePhase.value !== 'idle') {
+      const sa = seatsByUser[a]
+      const sb = seatsByUser[b]
+      if (sa && sb && sa !== sb) return sa - sb
+    }
     const pa = positionByUser.get(a) ?? Number.POSITIVE_INFINITY
     const pb = positionByUser.get(b) ?? Number.POSITIVE_INFINITY
     return pa !== pb ? pa - pb : String(a).localeCompare(String(b))
@@ -760,6 +776,7 @@ function purgePeerUI(id: string) {
   avatarByUser.delete(id)
   videoRefMemo.delete(id)
   screenRefMemo.delete(id)
+  offlineInGame.delete(id)
   if (openPanelFor.value === id || openPanelFor.value === rtc.screenKey(id)) openPanelFor.value = ''
   delete volUi[id]
   delete volUi[rtc.screenKey(id)]
@@ -813,6 +830,7 @@ function connectSocket() {
 
   socket.value.on('member_joined', (p: any) => {
     const id = String(p.user_id)
+    offlineInGame.delete(id)
     ensurePeer(id)
     applyPeerState(id, p?.state || {})
     if (p?.role) rolesByUser.set(id, String(p.role))
@@ -825,6 +843,13 @@ function connectSocket() {
 
   socket.value.on('member_left', (p: any) => {
     const id = String(p.user_id)
+    const seat = seatsByUser[id]
+    const isInGameNow = gamePhase.value !== 'idle' && Number.isFinite(seat) && seat > 0
+    if (isInGameNow) {
+      offlineInGame.add(id)
+      rtc.cleanupPeer(id)
+      return
+    }
     purgePeerUI(id)
     rtc.cleanupPeer(id)
   })
@@ -973,6 +998,7 @@ async function restoreAfterGameEnd() {
 }
 
 function applyGameStarted(p: any) {
+  offlineInGame.clear()
   gamePhase.value = (p?.phase as any) || 'roles_pick'
   if (p?.min_ready != null) {
     const v = Number(p.min_ready)
@@ -1004,6 +1030,14 @@ function applyGameEnded(_p: any) {
   Object.keys(seatsByUser).forEach((k) => { delete seatsByUser[k] })
   gamePlayers.clear()
   gameAlive.clear()
+  const connectedIds = new Set(rtc.peerIds.value)
+  const toDrop: string[] = []
+  statusByUser.forEach((_st, uid) => { if (!connectedIds.has(uid)) toDrop.push(uid) })
+  for (const uid of toDrop) {
+    purgePeerUI(uid)
+    rtc.cleanupPeer(uid)
+  }
+  offlineInGame.clear()
   if (roleBeforeEnd === 'player') void restoreAfterGameEnd()
 }
 
@@ -1092,6 +1126,14 @@ function applyJoinAck(j: any) {
         gameAlive.add(uid)
       }
     }
+  }
+
+  offlineInGame.clear()
+  if (gamePhase.value !== 'idle') {
+    const snapshotIds = new Set(Object.keys(j.snapshot || {}))
+    const seatIds = Object.keys(seatsByUser)
+    const allInGameIds = new Set<string>([...grPlayers, ...seatIds].map(String))
+    for (const uid of allInGameIds) { if (!snapshotIds.has(uid)) offlineInGame.add(uid) }
   }
 }
 
