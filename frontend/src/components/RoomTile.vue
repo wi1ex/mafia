@@ -265,7 +265,7 @@ const rolePickDurationSec = computed(() => {
     }
     .card-body-enter-active,
     .card-body-leave-active {
-      transition: transform 0.15s ease-out, opacity 0.25s ease-out;
+      transition: transform 0.25s ease-out, opacity 0.25s ease-out;
     }
     .card-body {
       display: flex;

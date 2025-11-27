@@ -700,7 +700,7 @@ onBeforeUnmount(() => {
 .slide-left-leave-active,
 .slide-right-enter-active,
 .slide-right-leave-active {
-  transition: transform 0.15s ease-out, opacity 0.25s ease-out;
+  transition: transform 0.25s ease-out, opacity 0.25s ease-out;
 }
 .slide-left-enter-from {
   transform: translateX(60px);

@@ -854,7 +854,7 @@ onBeforeUnmount(() => {
 
 .room-panel-enter-active,
 .room-panel-leave-active {
-  transition: transform 0.15s ease-out, opacity 0.25s ease-out;
+  transition: transform 0.25s ease-out, opacity 0.25s ease-out;
 }
 .room-panel-enter-from,
 .room-panel-leave-to {

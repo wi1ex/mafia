@@ -677,7 +677,7 @@ onBeforeUnmount(() => {
 
 .tab-fade-enter-active,
 .tab-fade-leave-active {
-  transition: opacity 0.15s ease-in-out;
+  transition: opacity 0.25s ease-in-out;
 }
 .tab-fade-enter-from,
 .tab-fade-leave-to {
