@@ -345,10 +345,9 @@ const showRoleTimer = computed(() => props.rolePickOwnerId === props.id)
     .role-timer-bar {
       width: 100%;
       height: 100%;
-      background: linear-gradient(to right, red 0%, yellow 50%, green 100%);
-      transform-origin: left center;
-      animation: role-timer-decrease linear forwards;
-      animation-duration: 10s;
+      background: linear-gradient(to right, green 0%, yellow 50%, red 100%);
+      clip-path: inset(0 0 0 0);
+      animation: role-timer-decrease var(--role-timer-duration, 10s) linear forwards;
     }
   }
 }
@@ -359,8 +358,8 @@ const showRoleTimer = computed(() => props.rolePickOwnerId === props.id)
 }
 
 @keyframes role-timer-decrease {
-  from { transform: scaleX(1); }
-  to   { transform: scaleX(0); }
+  from { clip-path: inset(0 0 0 0); }
+  to   { clip-path: inset(0 0 0 100%); }
 }
 
 @media (max-width: 1280px) {
