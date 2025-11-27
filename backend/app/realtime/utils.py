@@ -663,7 +663,8 @@ async def advance_roles_turn(r, rid: int, *, auto: bool) -> None:
             return
 
     seq = int(raw_state.get("roles_turn_seq") or 0) + 1
-    deadline = started_at + settings.ROLE_PICK_SECONDS
+    deadline_ts = started_at + settings.ROLE_PICK_SECONDS
+    remaining = max(deadline_ts - int(time()), 0)
     async with r.pipeline() as p:
         await p.hset(
             f"room:{rid}:game_state",
@@ -680,14 +681,14 @@ async def advance_roles_turn(r, rid: int, *, auto: bool) -> None:
     await sio.emit("game_roles_turn",
                    {"room_id": rid,
                     "user_id": cur_uid,
-                    "deadline": deadline,
+                    "deadline": remaining,
                     "picked": list(assigned),
                     "order": players,
                     "taken_cards": taken_indexes},
                    room=f"room:{rid}",
                    namespace="/room")
 
-    asyncio.create_task(roles_timeout_job(rid, seq, deadline))
+    asyncio.create_task(roles_timeout_job(rid, seq, deadline_ts))
 
 
 async def get_rooms_brief(r, ids: Iterable[int]) -> List[dict]:

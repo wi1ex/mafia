@@ -223,6 +223,8 @@ async def join(sid, data) -> JoinAck:
                 roles_turn_started = 0
 
             if roles_turn_uid and roles_turn_started:
+                now = int(time())
+                remaining = max(roles_turn_started + settings.ROLE_PICK_SECONDS - now, 0)
                 raw_taken = await r.hgetall(f"room:{rid}:roles_taken")
 
                 assigned_ids: list[int] = []
@@ -251,7 +253,7 @@ async def join(sid, data) -> JoinAck:
                 order_ids = [uid for _, uid in ordered]
                 game_runtime["roles_pick"] = {
                     "turn_uid": roles_turn_uid,
-                    "deadline": roles_turn_started + settings.ROLE_PICK_SECONDS,
+                    "deadline": remaining,
                     "picked": assigned_ids,
                     "order": order_ids,
                     "taken_cards": taken_cards,

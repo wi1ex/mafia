@@ -1061,10 +1061,9 @@ function connectSocket() {
     rolePick.activeUserId = String(p?.user_id || '')
     rolePick.order = Array.isArray(p?.order) ? p.order.map((x: any) => String(x)) : []
     rolePick.picked = new Set((p?.picked || []).map((x: any) => String(x)))
-    const deadlineSec = Number(p?.deadline || 0)
-    rolePick.deadline = deadlineSec
-    const deadlineMs = deadlineSec > 0 ? deadlineSec * 1000 : 0
-    rolePick.remainingMs = deadlineMs > 0 ? Math.max(deadlineMs - Date.now(), 0) : 0
+    const remainingSec = Number(p?.deadline || 0)
+    rolePick.deadline = remainingSec
+    rolePick.remainingMs = remainingSec > 0 ? remainingSec * 1000 : 0
     const takenRaw = Array.isArray(p?.taken_cards) ? p.taken_cards : []
     rolePick.takenCards = takenRaw.map((x: any) => Number(x)).filter((n: number) => Number.isFinite(n) && n > 0)
     syncRoleOverlayWithTurn()
@@ -1372,9 +1371,9 @@ function applyJoinAck(j: any) {
     rolePick.activeUserId = String(rp.turn_uid || '')
     rolePick.order = Array.isArray(rp.order) ? rp.order.map((x: any) => String(x)) : []
     rolePick.picked = new Set((rp.picked || []).map((x: any) => String(x)))
-    const deadlineSec = Number(rp.deadline || 0)
-    rolePick.deadline = deadlineSec
-    const deadlineMs = deadlineSec > 0 ? deadlineSec * 1000 : 0
+    const remainingSec = Number(rp.deadline || 0)
+    rolePick.deadline = remainingSec
+    rolePick.remainingMs = remainingSec > 0 ? remainingSec * 1000 : 0
     rolePick.remainingMs = deadlineMs > 0 ? Math.max(deadlineMs - Date.now(), 0) : 0
     const takenRaw = Array.isArray(rp.taken_cards) ? rp.taken_cards : []
     rolePick.takenCards = takenRaw.map((x: any) => Number(x)).filter((n: number) => Number.isFinite(n) && n > 0)
