@@ -1765,7 +1765,7 @@ window.addEventListener('online',  () => { if (netReconnecting.value) hardReload
         border-radius: 5px;
         background: transparent;
         cursor: pointer;
-        transition: transform 0.25s ease-in-out;
+        transition: transform 0.25s ease-in-out, opacity 0.25s ease-in-out;
         &.is-taken:not(.is-revealed) {
           pointer-events: none;
           .role-card-inner {
@@ -1785,7 +1785,7 @@ window.addEventListener('online',  () => { if (netReconnecting.value) hardReload
         }
         .role-card-inner {
           position: relative;
-          padding-top: 100%;
+          height: 100%;
           box-shadow: 3px 3px 5px rgba($black, 0.25);
           transform-style: preserve-3d;
           transition: transform 0.5s ease-in-out;
