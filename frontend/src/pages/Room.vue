@@ -1739,11 +1739,6 @@ window.addEventListener('online',  () => { if (netReconnecting.value) hardReload
       gap: 10px;
     }
   }
-
-
-
-
-
   .role-overlay {
     display: flex;
     position: fixed;
@@ -1759,6 +1754,7 @@ window.addEventListener('online',  () => { if (netReconnecting.value) hardReload
       padding: 30px;
       gap: 30px;
       width: calc(100% - 100px);
+      height: calc(100% - 100px);
       border-radius: 5px;
       background-color: $dark;
       perspective: 1000px;
@@ -1769,11 +1765,19 @@ window.addEventListener('online',  () => { if (netReconnecting.value) hardReload
         border-radius: 5px;
         background: transparent;
         cursor: pointer;
+        transition: transform 0.25s ease-in-out;
         &.is-taken:not(.is-revealed) {
           pointer-events: none;
           .role-card-inner {
             visibility: hidden;
           }
+        }
+        &.is-revealed:disabled {
+          opacity: 1;
+          cursor: default;
+        }
+        &:hover:enabled:not(.is-revealed) {
+          transform: scale(1.05);
         }
         &:disabled {
           opacity: 0.5;
@@ -1781,11 +1785,10 @@ window.addEventListener('online',  () => { if (netReconnecting.value) hardReload
         }
         .role-card-inner {
           position: relative;
-          width: 100%;
-          padding-top: 150%;
+          padding-top: 100%;
           box-shadow: 3px 3px 5px rgba($black, 0.25);
           transform-style: preserve-3d;
-          transition: transform 0.25s ease-in-out;
+          transition: transform 0.5s ease-in-out;
           .role-card-face {
             position: absolute;
             inset: 0;
@@ -1796,7 +1799,6 @@ window.addEventListener('online',  () => { if (netReconnecting.value) hardReload
               width: 100%;
               height: 100%;
               object-fit: cover;
-              display: block;
             }
             &.back {
               transform: rotateY(0deg);
@@ -1806,18 +1808,8 @@ window.addEventListener('online',  () => { if (netReconnecting.value) hardReload
             }
           }
         }
-        &.is-revealed:disabled {
-          opacity: 1;
-          cursor: default;
-        }
         &.is-revealed .role-card-inner {
           transform: rotateY(180deg);
-        }
-        &:hover:enabled:not(.is-revealed) .role-card-inner {
-          transform: scale(1.1);
-        }
-        &.is-revealed:hover:enabled .role-card-inner {
-          transform: scale(1.1) rotateY(180deg);
         }
       }
     }
@@ -1870,6 +1862,12 @@ window.addEventListener('online',  () => { if (netReconnecting.value) hardReload
         padding: 0 10px;
         font-size: 12px;
       }
+    }
+    .role-overlay .role-overlay-inner {
+      padding: 10px;
+      gap: 10px;
+      width: calc(100% - 40px);
+      height: calc(100% - 40px);
     }
   }
 }
