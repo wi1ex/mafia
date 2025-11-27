@@ -341,10 +341,11 @@ const showRoleTimer = computed(() => props.rolePickOwnerId === props.id)
     background-color: rgba($dark, 0.7);
     overflow: hidden;
     z-index: 6;
+
     .role-timer-bar {
       width: 100%;
       height: 100%;
-      background-color: $green;
+      background: linear-gradient(to right, red 0%, yellow 50%, green 100%);
       transform-origin: left center;
       animation: role-timer-decrease linear forwards;
       animation-duration: 10s;

@@ -179,24 +179,17 @@
 
       <div v-if=" gamePhase === 'roles_pick' && roleOverlayMode !== 'hidden' && (roleOverlayMode === 'reveal' || rolePick.activeUserId === localId)" class="role-overlay" >
         <div class="role-overlay-inner">
-          <span v-if="roleOverlayMode === 'pick'">Выбор роли</span>
-          <span v-else>Ваша роль</span>
-          <span v-if="roleOverlayMode === 'pick'">Выберите одну из доступных карт</span>
-          <span v-else-if="myGameRoleKind">Ваша роль: {{ gameRoleShort(myGameRoleKind) }}</span>
-
-          <div class="role-cards">
-            <button v-for="n in roleCardsToRender" :key="n" class="role-card" @click="canClickCard(n) && pickRoleCard(n)" :disabled="!canClickCard(n)"
-              :class="{ 'is-revealed': roleOverlayMode === 'reveal' && roleOverlayCard === n && myGameRoleKind }">
-              <div class="role-card-inner">
-                <div class="role-card-face role-card-back">
-                  <img :src="iconCardBack" alt="back" />
-                </div>
-                <div class="role-card-face role-card-front">
-                  <img v-if="myGameRoleKind" :src="ROLE_IMAGES[myGameRoleKind]" alt="role" />
-                </div>
+          <button v-for="n in roleCardsToRender" :key="n" class="role-card" @click="canClickCard(n) && pickRoleCard(n)" :disabled="!canClickCard(n)"
+            :class="{ 'is-revealed': roleOverlayMode === 'reveal' && roleOverlayCard === n && myGameRoleKind, 'is-taken': takenCardSet.has(n) }">
+            <div class="role-card-inner">
+              <div class="role-card-face role-card-back">
+                <img :src="iconCardBack" alt="back" />
               </div>
-            </button>
-          </div>
+              <div class="role-card-face role-card-front">
+                <img v-if="myGameRoleKind" :src="ROLE_IMAGES[myGameRoleKind]" alt="role" />
+              </div>
+            </div>
+          </button>
         </div>
       </div>
     </template>
@@ -390,7 +383,7 @@ function seatIconForUser(id: string): string {
 
 const ALL_ROLE_CARDS = Array.from({ length: 10 }, (_, i) => i + 1)
 const takenCardSet = computed(() => new Set(rolePick.takenCards))
-const roleCardsToRender = computed(() => ALL_ROLE_CARDS.filter(n => !takenCardSet.value.has(n)))
+const roleCardsToRender = computed(() => ALL_ROLE_CARDS)
 const canClickCard = (n: number) =>
   roleOverlayMode.value === 'pick' &&
   !pickingRole.value &&
@@ -422,15 +415,6 @@ function roleVisibleOnTile(id: string): boolean {
   const isHead = myGameRole.value === 'head'
   if (isHead && rolesVisibleForHead.value) return true
   return isSelf
-}
-
-function gameRoleShort(role: GameRoleKind): string {
-  switch (role) {
-    case 'mafia':   return 'Мафия'
-    case 'don':     return 'Дон'
-    case 'sheriff': return 'Шериф'
-    case 'citizen': return 'Мирный житель'
-  }
 }
 
 function roleIconForTile(id: string): string {
@@ -487,6 +471,22 @@ const canShowStartGame = computed(() => {
   const nonReady = total - ready
   return !meReady && total === min + 1 && ready === min && nonReady === 1
 })
+
+function resetRolesUiState() {
+  rolePick.activeUserId = ''
+  rolePick.order = []
+  rolePick.picked = new Set<string>()
+  rolePick.deadline = 0
+  rolePick.takenCards = []
+  roleOverlayMode.value = 'hidden'
+  roleOverlayCard.value = null
+  if (roleOverlayTimerId.value != null) {
+    clearTimeout(roleOverlayTimerId.value)
+    roleOverlayTimerId.value = null
+  }
+  gameRolesByUser.clear()
+  rolesVisibleForHead.value = false
+}
 
 async function leaveGame() {
   if (!socket.value) return
@@ -1200,6 +1200,7 @@ async function restoreAfterGameEnd() {
 }
 
 function applyGameStarted(p: any) {
+  resetRolesUiState()
   offlineInGame.clear()
   gamePhase.value = (p?.phase as any) || 'roles_pick'
   if (p?.min_ready != null) {
@@ -1227,6 +1228,7 @@ function applyGameStarted(p: any) {
 }
 
 function applyGameEnded(_p: any) {
+  resetRolesUiState()
   const roleBeforeEnd = myGameRole.value
   gamePhase.value = 'idle'
   Object.keys(seatsByUser).forEach((k) => { delete seatsByUser[k] })
@@ -1749,20 +1751,18 @@ window.addEventListener('online',  () => { if (netReconnecting.value) hardReload
     align-items: center;
     justify-content: center;
     backdrop-filter: blur(5px);
-    background-color: rgba($black, 0.85);
+    background-color: rgba($black, 0.75);
     .role-overlay-inner {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 10px;
+      perspective: 1000px;
       padding: 20px;
       width: calc(100% - 70px);
       border-radius: 5px;
       background-color: $dark;
-      box-shadow: 0 0 20px rgba($black, 0.6);
+      box-shadow: 3px 3px 5px rgba($black, 0.25);
       text-align: center;
-      .role-cards {
-        display: grid;
-        grid-template-columns: repeat(5, minmax(0, 1fr));
-        gap: 10px;
-        perspective: 1000px;
-      }
       .role-card {
         position: relative;
         border-radius: 5px;
@@ -1770,6 +1770,12 @@ window.addEventListener('online',  () => { if (netReconnecting.value) hardReload
         padding: 0;
         cursor: pointer;
         background: transparent;
+        &.is-taken {
+          pointer-events: none;
+        }
+        &.is-taken .role-card-inner {
+          visibility: hidden;
+        }
         &:disabled {
           opacity: 0.4;
           cursor: default;
@@ -1779,7 +1785,7 @@ window.addEventListener('online',  () => { if (netReconnecting.value) hardReload
           width: 100%;
           padding-top: 150%;
           transform-style: preserve-3d;
-          transition: transform 0.6s ease-in-out;
+          transition: transform 0.25s ease-in-out, box-shadow 0.25s ease-in-out;
         }
         .role-card-face {
           position: absolute;
@@ -1804,12 +1810,12 @@ window.addEventListener('online',  () => { if (netReconnecting.value) hardReload
           transform: rotateY(180deg);
         }
         &:hover:enabled:not(.is-revealed) .role-card-inner {
-          transform: translateZ(8px) scale(1.05);
-          box-shadow: 0 3px 6px rgba($black, 0.4);
+          transform: translateZ(8px) scale(1.1);
+          box-shadow: 3px 3px 5px rgba($black, 0.25);
         }
         &.is-revealed:hover:enabled .role-card-inner {
           transform: translateZ(8px) scale(1.05) rotateY(180deg);
-          box-shadow: 0 3px 6px rgba($black, 0.4);
+          box-shadow: 3px 3px 5px rgba($black, 0.25);
         }
       }
     }
