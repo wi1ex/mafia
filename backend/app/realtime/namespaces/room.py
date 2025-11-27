@@ -2,6 +2,8 @@ from __future__ import annotations
 import asyncio
 import random
 from time import time
+from typing import Any
+
 import structlog
 from ..sio import sio
 from ...core.clients import get_redis
@@ -195,6 +197,7 @@ async def join(sid, data) -> JoinAck:
         raw_seats = await r.hgetall(f"room:{rid}:game_seats")
         players_set = await r.smembers(f"room:{rid}:game_players")
         alive_set = await r.smembers(f"room:{rid}:game_alive")
+        raw_roles = await r.hgetall(f"room:{rid}:game_roles")
         phase = str(raw_gstate.get("phase") or "idle")
         seats_map: dict[str, int] = {}
         for k, v in (raw_seats or {}).items():
@@ -203,14 +206,60 @@ async def join(sid, data) -> JoinAck:
             except Exception:
                 continue
 
-        game_runtime = {"phase": phase,
-                        "min_ready": settings.GAME_MIN_READY_PLAYERS,
-                        "seats": seats_map,
-                        "players": [int(x) for x in (players_set or [])],
-                        "alive": [int(x) for x in (alive_set or [])]}
+        game_runtime: dict[str, Any] = {"phase": phase,
+                                        "min_ready": settings.GAME_MIN_READY_PLAYERS,
+                                        "seats": seats_map,
+                                        "players": [int(x) for x in (players_set or [])],
+                                        "alive": [int(x) for x in (alive_set or [])]}
+
+        if phase == "roles_pick":
+            try:
+                roles_turn_uid = int(raw_gstate.get("roles_turn_uid") or 0)
+            except Exception:
+                roles_turn_uid = 0
+            try:
+                roles_turn_started = int(raw_gstate.get("roles_turn_started") or 0)
+            except Exception:
+                roles_turn_started = 0
+
+            if roles_turn_uid and roles_turn_started:
+                raw_taken = await r.hgetall(f"room:{rid}:roles_taken")
+
+                assigned_ids: list[int] = []
+                for k in (raw_roles or {}).keys():
+                    try:
+                        assigned_ids.append(int(k))
+                    except Exception:
+                        continue
+
+                taken_cards: list[int] = []
+                for idx_s in (raw_taken or {}).keys():
+                    try:
+                        taken_cards.append(int(idx_s))
+                    except Exception:
+                        continue
+
+                ordered: list[tuple[int, int]] = []
+                for uid_s, seat in seats_map.items():
+                    try:
+                        uid_i = int(uid_s)
+                    except Exception:
+                        continue
+                    if seat and seat != 11:
+                        ordered.append((seat, uid_i))
+                ordered.sort(key=lambda t: t[0])
+                order_ids = [uid for _, uid in ordered]
+                game_runtime["roles_pick"] = {
+                    "turn_uid": roles_turn_uid,
+                    "deadline": roles_turn_started + settings.ROLE_PICK_SECONDS,
+                    "picked": assigned_ids,
+                    "order": order_ids,
+                    "taken_cards": taken_cards,
+                }
 
         raw_roles = await r.hgetall(f"room:{rid}:game_roles")
-        my_game_role = raw_roles.get(str(uid))
+        roles_map = {str(k): str(v) for k, v in (raw_roles or {}).items()}
+        my_game_role = roles_map.get(str(uid))
         game_roles_view: dict[str, str] = {}
 
         try:
@@ -219,11 +268,24 @@ async def join(sid, data) -> JoinAck:
             head_uid = 0
 
         roles_done = str(raw_gstate.get("roles_done") or "0") == "1"
-        if my_game_role:
-            game_roles_view[str(uid)] = str(my_game_role)
-
-        if roles_done and head_uid and uid == head_uid:
-            game_roles_view = {str(k): str(v) for k, v in (raw_roles or {}).items()}
+        if roles_done:
+            if head_uid and uid == head_uid:
+                game_roles_view = dict(roles_map)
+            elif my_game_role == "mafia":
+                subset: dict[str, str] = {k: v for k, v in roles_map.items() if v in ("mafia", "don")}
+                if my_game_role:
+                    subset[str(uid)] = my_game_role
+                game_roles_view = subset
+            elif my_game_role == "don":
+                subset = {k: v for k, v in roles_map.items() if v == "mafia"}
+                if my_game_role:
+                    subset[str(uid)] = my_game_role
+                game_roles_view = subset
+            elif my_game_role:
+                game_roles_view[str(uid)] = my_game_role
+        else:
+            if my_game_role:
+                game_roles_view[str(uid)] = my_game_role
 
         return {
             "ok": True,

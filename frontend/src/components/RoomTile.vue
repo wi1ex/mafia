@@ -52,8 +52,8 @@
         </div>
       </Transition>
     </div>
-    <div v-if="showRoleTimer" class="role-timer">
-      <div class="role-timer-bar" />
+    <div v-if="showRoleTimer && isRolePickOwner && rolePickDurationSec > 0" class="role-timer">
+      <div class="role-timer-bar" :style="{ animationDuration: rolePickDurationSec + 's' }" />
     </div>
   </div>
 </template>
@@ -94,6 +94,7 @@ const props = withDefaults(defineProps<{
   offline?: boolean
   offlineAvatar?: string
   rolePickOwnerId?: string
+  rolePickRemainingMs?: number
   gameRole?: string
 }>(), {
   side: false,
@@ -122,6 +123,12 @@ const showVideo = computed(() =>
 )
 const openPanel = computed(() => props.openPanelFor === props.id)
 const showRoleTimer = computed(() => props.rolePickOwnerId === props.id)
+const isRolePickOwner = computed(() => props.rolePickOwnerId === props.id)
+const rolePickDurationSec = computed(() => {
+  const ms = props.rolePickRemainingMs ?? 0
+  if (!ms || ms <= 0) return 0
+  return Math.max(ms / 1000, 0.1)
+})
 
 </script>
 
@@ -341,7 +348,7 @@ const showRoleTimer = computed(() => props.rolePickOwnerId === props.id)
       height: 100%;
       background: linear-gradient(to right, red 0%, yellow 50%, green 100%);
       clip-path: inset(0 0 0 0);
-      animation: role-timer-decrease 10s linear forwards;
+      animation: role-timer-decrease linear forwards;
     }
   }
 }

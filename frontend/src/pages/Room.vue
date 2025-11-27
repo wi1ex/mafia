@@ -40,6 +40,7 @@
           :offline="offlineInGame.has(id)"
           :offline-avatar="iconLowSignal"
           :role-pick-owner-id="rolePick.activeUserId"
+          :role-pick-remaining-ms="rolePick.remainingMs"
           :game-role="roleIconForTile(id)"
           @toggle-panel="toggleTilePanel"
           @vol-input="onVol"
@@ -90,6 +91,7 @@
             :offline="offlineInGame.has(id)"
             :offline-avatar="iconLowSignal"
             :role-pick-owner-id="rolePick.activeUserId"
+            :role-pick-remaining-ms="rolePick.remainingMs"
             :game-role="roleIconForTile(id)"
             @toggle-panel="toggleTilePanel"
             @vol-input="onVol"
@@ -206,8 +208,8 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { Socket } from 'socket.io-client'
 import { useAuthStore } from '@/store'
-import { useRTC } from '@/services/rtc'
 import type { VQ } from '@/services/rtc'
+import { useRTC } from '@/services/rtc'
 import { createAuthedSocket } from '@/services/sio'
 import RoomTile from '@/components/RoomTile.vue'
 import RoomSetting from '@/components/RoomSetting.vue'
@@ -409,6 +411,7 @@ const rolePick = reactive({
   picked: new Set<string>(),
   deadline: 0,
   takenCards: [] as number[],
+  remainingMs: 0,
 })
 const roleOverlayMode = ref<'hidden' | 'pick' | 'reveal'>('hidden')
 const roleOverlayCard = ref<number | null>(null)
@@ -423,10 +426,17 @@ const myGameRoleKind = computed<GameRoleKind | null>(() => {
 function roleVisibleOnTile(id: string): boolean {
   const role = gameRolesByUser.get(id)
   if (!role) return false
-  const isSelf = id === localId.value
+  const me = localId.value
+  if (!me) return false
+  const myRole = gameRolesByUser.get(me)
+  const isSelf = id === me
   const isHead = myGameRole.value === 'head'
+  if (isSelf) return true
   if (isHead && rolesVisibleForHead.value) return true
-  return isSelf
+  if (!myRole) return false
+  if (myRole === 'mafia') return role === 'mafia' || role === 'don'
+  if (myRole === 'don') return role === 'mafia'
+  return false
 }
 
 function roleIconForTile(id: string): string {
@@ -490,6 +500,7 @@ function resetRolesUiState() {
   rolePick.picked = new Set<string>()
   rolePick.deadline = 0
   rolePick.takenCards = []
+  rolePick.remainingMs = 0
   roleOverlayMode.value = 'hidden'
   roleOverlayCard.value = null
   if (roleOverlayTimerId.value != null) {
@@ -1047,20 +1058,16 @@ function connectSocket() {
   })
 
   socket.value?.on('game_roles_turn', (p: any) => {
-    const uid = String(p?.user_id || '')
-    rolePick.activeUserId = uid
+    rolePick.activeUserId = String(p?.user_id || '')
     rolePick.order = Array.isArray(p?.order) ? p.order.map((x: any) => String(x)) : []
     rolePick.picked = new Set((p?.picked || []).map((x: any) => String(x)))
-    rolePick.deadline = Number(p?.deadline || 0)
+    const deadlineSec = Number(p?.deadline || 0)
+    rolePick.deadline = deadlineSec
+    const deadlineMs = deadlineSec > 0 ? deadlineSec * 1000 : 0
+    rolePick.remainingMs = deadlineMs > 0 ? Math.max(deadlineMs - Date.now(), 0) : 0
     const takenRaw = Array.isArray(p?.taken_cards) ? p.taken_cards : []
     rolePick.takenCards = takenRaw.map((x: any) => Number(x)).filter((n: number) => Number.isFinite(n) && n > 0)
-    if (uid === localId.value && !myGameRoleKind.value) {
-      roleOverlayMode.value = 'pick'
-      roleOverlayCard.value = null
-      pickingRole.value = false
-    } else if (roleOverlayMode.value === 'pick' && uid !== localId.value) {
-      roleOverlayMode.value = 'hidden'
-    }
+    syncRoleOverlayWithTurn()
   })
 
   socket.value?.on('game_roles_picked', (p: any) => {
@@ -1075,6 +1082,7 @@ function connectSocket() {
     ) {
       rolePick.activeUserId = ''
       rolePick.deadline = 0
+      rolePick.remainingMs = 0
     }
   })
 
@@ -1257,6 +1265,28 @@ function applyGameEnded(_p: any) {
   if (roleBeforeEnd === 'player') void restoreAfterGameEnd()
 }
 
+function syncRoleOverlayWithTurn() {
+  const me = localId.value
+  const uid = rolePick.activeUserId
+  if (!me || !uid || gamePhase.value !== 'roles_pick') {
+    if (roleOverlayMode.value === 'pick') {
+      roleOverlayMode.value = 'hidden'
+      roleOverlayCard.value = null
+      pickingRole.value = false
+    }
+    return
+  }
+  if (uid === me && !myGameRoleKind.value) {
+    roleOverlayMode.value = 'pick'
+    roleOverlayCard.value = null
+    pickingRole.value = false
+  } else if (roleOverlayMode.value === 'pick' && uid !== me) {
+    roleOverlayMode.value = 'hidden'
+    roleOverlayCard.value = null
+    pickingRole.value = false
+  }
+}
+
 function applyJoinAck(j: any) {
   isPrivate.value = (j?.privacy || j?.room?.privacy) === 'private'
   // const game = j.game
@@ -1336,12 +1366,34 @@ function applyJoinAck(j: any) {
   for (const [uid, role] of Object.entries(grRoles)) {
     gameRolesByUser.set(String(uid), role as GameRoleKind)
   }
-  rolesVisibleForHead.value = myGameRole.value === 'head' && Object.keys(grRoles).length > 1
+
+  const rp = (gr as any).roles_pick
+  if (gr.phase === 'roles_pick' && rp && typeof rp === 'object') {
+    rolePick.activeUserId = String(rp.turn_uid || '')
+    rolePick.order = Array.isArray(rp.order) ? rp.order.map((x: any) => String(x)) : []
+    rolePick.picked = new Set((rp.picked || []).map((x: any) => String(x)))
+    const deadlineSec = Number(rp.deadline || 0)
+    rolePick.deadline = deadlineSec
+    const deadlineMs = deadlineSec > 0 ? deadlineSec * 1000 : 0
+    rolePick.remainingMs = deadlineMs > 0 ? Math.max(deadlineMs - Date.now(), 0) : 0
+    const takenRaw = Array.isArray(rp.taken_cards) ? rp.taken_cards : []
+    rolePick.takenCards = takenRaw.map((x: any) => Number(x)).filter((n: number) => Number.isFinite(n) && n > 0)
+  } else {
+    rolePick.activeUserId = ''
+    rolePick.order = []
+    rolePick.picked = new Set<string>()
+    rolePick.deadline = 0
+    rolePick.remainingMs = 0
+    rolePick.takenCards = []
+  }
 
   const grPlayers = Array.isArray(gr.players) ? gr.players.map((x: any) => String(x)) : []
   const grAlive = Array.isArray(gr.alive) ? gr.alive.map((x: any) => String(x)) : []
   for (const uid of grPlayers) gamePlayers.add(uid)
   for (const uid of grAlive) gameAlive.add(uid)
+  const playersCount = gamePlayers.size
+  const rolesCount = Object.keys(grRoles).length
+  rolesVisibleForHead.value = playersCount > 0 && rolesCount >= playersCount
   if (gamePhase.value !== 'idle' && gamePlayers.size === 0) {
     for (const [uid, seat] of Object.entries(seatsByUser)) {
       if (seat && seat !== 11) {
@@ -1484,6 +1536,9 @@ function onBackgroundMaybeLeave(e?: PageTransitionEvent) {
   if (!IS_MOBILE) return
   if (document.visibilityState === 'hidden' || (e && (e as any).persisted === true)) void onLeave()
 }
+
+watch(() => [rolePick.activeUserId, localId.value, myGameRoleKind.value, gamePhase.value],
+  () => { syncRoleOverlayWithTurn() })
 
 watch(() => auth.isAuthed, (ok) => { if (!ok) { void onLeave() } })
 

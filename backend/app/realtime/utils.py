@@ -567,6 +567,16 @@ async def advance_roles_turn(r, rid: int, *, auto: bool) -> None:
 
     if not remaining:
         await r.hset(f"room:{rid}:game_state", "roles_done", "1")
+        roles_map: dict[int, str] = {}
+        for uid_s, role_s in (raw_roles or {}).items():
+            try:
+                uid_i = int(uid_s)
+            except Exception:
+                continue
+            if role_s is None:
+                continue
+            roles_map[uid_i] = str(role_s)
+
         try:
             head_uid = int(raw_state.get("head") or 0)
         except Exception:
@@ -575,9 +585,28 @@ async def advance_roles_turn(r, rid: int, *, auto: bool) -> None:
         if head_uid:
             await sio.emit("game_roles_reveal",
                            {"room_id": rid,
-                            "roles": {str(k): str(v) for k, v in (raw_roles or {}).items()}},
+                            "roles": {str(uid): role for uid, role in roles_map.items()}},
                            room=f"user:{head_uid}",
                            namespace="/room")
+
+        mafia_ids = [uid for uid, role in roles_map.items() if role == "mafia"]
+        don_ids = [uid for uid, role in roles_map.items() if role == "don"]
+        mafia_view = {str(uid): role for uid, role in roles_map.items() if role in ("mafia", "don")}
+        don_view = {str(uid): role for uid, role in roles_map.items() if role == "mafia"}
+        for uid in mafia_ids:
+            await sio.emit("game_roles_reveal",
+                           {"room_id": rid,
+                            "roles": mafia_view},
+                           room=f"user:{uid}",
+                           namespace="/room")
+
+        for uid in don_ids:
+            await sio.emit("game_roles_reveal",
+                           {"room_id": rid,
+                            "roles": don_view},
+                           room=f"user:{uid}",
+                           namespace="/room")
+
         await sio.emit("game_roles_state",
                        {"room_id": rid,
                         "done": True,
