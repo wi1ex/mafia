@@ -177,22 +177,27 @@
         />
       </div>
 
-      <div v-if=" gamePhase === 'roles_pick' && roleOverlayMode !== 'hidden' && (roleOverlayMode === 'reveal' || rolePick.activeUserId === localId)" class="role-overlay" >
-        <div class="role-overlay-inner">
-          <button v-for="n in roleCardsToRender" :key="n" class="role-card" @click="canClickCard(n) && pickRoleCard(n)" :disabled="!canClickCard(n)"
-            :class="{ 'is-revealed': roleOverlayMode === 'reveal' && roleOverlayCard === n && myGameRoleKind, 'is-taken': takenCardSet.has(n) }">
-            <div class="role-card-inner">
-              <div class="role-card-face back">
-                <img :src="iconCardBack" alt="card" />
+      <Transition name="role-overlay-fade">
+        <div v-if="gamePhase === 'roles_pick' && roleOverlayMode !== 'hidden' && (roleOverlayMode === 'reveal' || rolePick.activeUserId === localId)" class="role-overlay">
+          <div class="role-overlay-inner">
+            <button v-for="n in roleCardsToRender" :key="n" class="role-card" @click="canClickCard(n) && pickRoleCard(n)" :disabled="!canClickCard(n)"
+              :class="{ 'is-revealed': roleOverlayMode === 'reveal' && roleOverlayCard === n && myGameRoleKind, 'is-taken': takenCardSet.has(n) }">
+              <div class="role-card-inner">
+                <div class="role-card-face back">
+                  <img :src="iconCardBack" alt="card" />
+                </div>
+                <div class="role-card-face front">
+                  <img v-if="myGameRoleKind" :src="ROLE_IMAGES[myGameRoleKind]" alt="role" />
+                </div>
               </div>
-              <div class="role-card-face front">
-                <img v-if="myGameRoleKind" :src="ROLE_IMAGES[myGameRoleKind]" alt="role" />
-              </div>
-            </div>
-          </button>
+            </button>
+          </div>
         </div>
-      </div>
+      </Transition>
     </template>
+    <div class="role-preload" aria-hidden="true">
+      <img v-for="src in ROLE_CARD_IMAGES" :key="src" :src="src" alt="" loading="eager" />
+    </div>
   </section>
 </template>
 
@@ -292,6 +297,13 @@ const GAME_ROW_INDEX: Record<number, number> = {
   1: 1, 2: 1, 3: 3, 4: 5, 5: 5, 6: 5, 7: 5, 8: 3, 9: 1, 10: 1, 11: 3,
 }
 
+const ROLE_CARD_IMAGES = [
+  iconCardBack,
+  iconCardCitizen,
+  iconCardMafia,
+  iconCardDon,
+  iconCardSheriff,
+]
 const ROLE_IMAGES: Record<GameRoleKind, string> = {
   citizen: iconCardCitizen,
   mafia:   iconCardMafia,
@@ -1752,10 +1764,9 @@ window.addEventListener('online',  () => { if (netReconnecting.value) hardReload
       display: grid;
       grid-template-columns: repeat(5, minmax(0, 1fr));
       padding: 30px;
-      gap: 30px;
-      width: calc(100% - 100px);
-      height: calc(100% - 100px);
-      border-radius: 5px;
+      gap: 50px;
+      width: calc(100% - 60px);
+      height: calc(100% - 60px);
       background-color: $dark;
       perspective: 1000px;
       .role-card {
@@ -1777,7 +1788,7 @@ window.addEventListener('online',  () => { if (netReconnecting.value) hardReload
           cursor: default;
         }
         &:hover:enabled:not(.is-revealed) {
-          transform: scale(1.05);
+          transform: scale(1.1);
         }
         &:disabled {
           opacity: 0.5;
@@ -1792,8 +1803,8 @@ window.addEventListener('online',  () => { if (netReconnecting.value) hardReload
           .role-card-face {
             position: absolute;
             inset: 0;
-            backface-visibility: hidden;
             border-radius: 5px;
+            backface-visibility: hidden;
             overflow: hidden;
             img {
               width: 100%;
@@ -1814,6 +1825,34 @@ window.addEventListener('online',  () => { if (netReconnecting.value) hardReload
       }
     }
   }
+  .role-preload {
+    position: absolute;
+    inset: 0;
+    width: 0;
+    height: 0;
+    overflow: hidden;
+    opacity: 0;
+    pointer-events: none;
+    img {
+      width: 0;
+      height: 0;
+    }
+  }
+}
+
+.role-overlay-fade-enter-active,
+.role-overlay-fade-leave-active {
+  transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
+}
+.role-overlay-fade-enter-from,
+.role-overlay-fade-leave-to {
+  opacity: 0;
+  transform: scale(0.95);
+}
+.role-overlay-fade-enter-to,
+.role-overlay-fade-leave-from {
+  opacity: 1;
+  transform: scale(1);
 }
 
 @media (max-width: 1280px) {
@@ -1864,10 +1903,10 @@ window.addEventListener('online',  () => { if (netReconnecting.value) hardReload
       }
     }
     .role-overlay .role-overlay-inner {
-      padding: 10px;
-      gap: 10px;
-      width: calc(100% - 40px);
-      height: calc(100% - 40px);
+      padding: 15px;
+      gap: 25px;
+      width: calc(100% - 30px);
+      height: calc(100% - 30px);
     }
   }
 }

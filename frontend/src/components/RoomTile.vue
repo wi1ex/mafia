@@ -326,12 +326,6 @@ const showRoleTimer = computed(() => props.rolePickOwnerId === props.id)
       }
     }
   }
-
-
-
-
-
-
   .role-timer {
     position: absolute;
     left: 0;
