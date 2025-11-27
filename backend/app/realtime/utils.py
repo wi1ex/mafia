@@ -625,7 +625,11 @@ async def advance_roles_turn(r, rid: int, *, auto: bool) -> None:
                            room=f"user:{cur_uid}",
                            namespace="/room")
 
-            await sio.emit("game_roles_picked", {...})
+            await sio.emit("game_roles_picked",
+                           {"room_id": rid,
+                            "user_id": cur_uid},
+                           room=f"room:{rid}",
+                           namespace="/room")
             await advance_roles_turn(r, rid, auto=False)
             return
 
