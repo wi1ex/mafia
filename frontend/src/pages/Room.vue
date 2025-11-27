@@ -177,7 +177,7 @@
         />
       </div>
 
-      <div v-if="gamePhase === 'roles_pick' && rolePick.activeUserId === localId && roleOverlayMode !== 'hidden'" class="role-overlay" >
+      <div v-if=" gamePhase === 'roles_pick' && roleOverlayMode !== 'hidden' && (roleOverlayMode === 'reveal' || rolePick.activeUserId === localId)" class="role-overlay" >
         <div class="role-overlay-inner">
           <span v-if="roleOverlayMode === 'pick'">Выбор роли</span>
           <span v-else>Ваша роль</span>
@@ -185,13 +185,15 @@
           <span v-else-if="myGameRoleKind">Ваша роль: {{ gameRoleShort(myGameRoleKind) }}</span>
 
           <div class="role-cards">
-            <button v-for="n in roleCardsToRender" :key="n" class="role-card" @click="roleOverlayMode === 'pick' && pickRoleCard(n)"
-              :disabled="roleOverlayMode !== 'pick' || pickingRole || rolePick.picked.has(localId!)">
-              <div v-if="roleOverlayMode === 'reveal' && roleOverlayCard === n && myGameRoleKind">
-                <img :src="ROLE_IMAGES[myGameRoleKind]" alt="role" />
-              </div>
-              <div v-else>
-                <img :src="iconCardBack" alt="back" />
+            <button v-for="n in roleCardsToRender" :key="n" class="role-card" @click="canClickCard(n) && pickRoleCard(n)" :disabled="!canClickCard(n)"
+              :class="{ 'is-revealed': roleOverlayMode === 'reveal' && roleOverlayCard === n && myGameRoleKind }">
+              <div class="role-card-inner">
+                <div class="role-card-face role-card-back">
+                  <img :src="iconCardBack" alt="back" />
+                </div>
+                <div class="role-card-face role-card-front">
+                  <img v-if="myGameRoleKind" :src="ROLE_IMAGES[myGameRoleKind]" alt="role" />
+                </div>
               </div>
             </button>
           </div>
@@ -387,6 +389,13 @@ function seatIconForUser(id: string): string {
 }
 
 const ALL_ROLE_CARDS = Array.from({ length: 10 }, (_, i) => i + 1)
+const takenCardSet = computed(() => new Set(rolePick.takenCards))
+const roleCardsToRender = computed(() => ALL_ROLE_CARDS.filter(n => !takenCardSet.value.has(n)))
+const canClickCard = (n: number) =>
+  roleOverlayMode.value === 'pick' &&
+  !pickingRole.value &&
+  !rolePick.picked.has(localId.value!) &&
+  !takenCardSet.value.has(n)
 const gameRolesByUser = reactive(new Map<string, GameRoleKind>())
 const rolesVisibleForHead = ref(false)
 const rolePick = reactive({
@@ -404,13 +413,6 @@ const myGameRoleKind = computed<GameRoleKind | null>(() => {
   const id = localId.value
   if (!id) return null
   return gameRolesByUser.get(id) ?? null
-})
-const roleCardsToRender = computed(() => {
-  if (roleOverlayMode.value === 'pick') {
-    const taken = new Set(rolePick.takenCards)
-    return ALL_ROLE_CARDS.filter(n => !taken.has(n))
-  }
-  return ALL_ROLE_CARDS
 })
 
 function roleVisibleOnTile(id: string): boolean {
@@ -1053,6 +1055,15 @@ function connectSocket() {
     const uid = String(p?.user_id || '')
     if (!uid) return
     rolePick.picked.add(uid)
+    const remaining = rolePick.order.filter(id => !rolePick.picked.has(id))
+    if (
+      remaining.length === 0 &&
+      rolePick.activeUserId === uid &&
+      roleOverlayMode.value !== 'pick'
+    ) {
+      rolePick.activeUserId = ''
+      rolePick.deadline = 0
+    }
   })
 
   socket.value?.on('game_role_assigned', (p: any) => {
@@ -1741,8 +1752,7 @@ window.addEventListener('online',  () => { if (netReconnecting.value) hardReload
     background-color: rgba($black, 0.85);
     .role-overlay-inner {
       padding: 20px;
-      max-width: 600px;
-      width: calc(100% - 40px);
+      width: calc(100% - 70px);
       border-radius: 5px;
       background-color: $dark;
       box-shadow: 0 0 20px rgba($black, 0.6);
@@ -1751,24 +1761,55 @@ window.addEventListener('online',  () => { if (netReconnecting.value) hardReload
         display: grid;
         grid-template-columns: repeat(5, minmax(0, 1fr));
         gap: 10px;
+        perspective: 1000px;
       }
       .role-card {
-        height: 80px;
+        position: relative;
         border-radius: 5px;
-        border: 2px solid $graphite;
-        background-color: $black;
-        color: $fg;
-        font-size: 24px;
+        border: none;
+        padding: 0;
         cursor: pointer;
-        transition: transform 0.15s ease-out, box-shadow 0.15s ease-out, background-color 0.15s ease-out;
-        &:hover:enabled {
-          transform: translateY(-2px);
-          box-shadow: 0 3px 6px rgba($black, 0.4);
-          background-color: $graphite;
-        }
+        background: transparent;
         &:disabled {
           opacity: 0.4;
           cursor: default;
+        }
+        .role-card-inner {
+          position: relative;
+          width: 100%;
+          padding-top: 150%;
+          transform-style: preserve-3d;
+          transition: transform 0.6s ease-in-out;
+        }
+        .role-card-face {
+          position: absolute;
+          inset: 0;
+          backface-visibility: hidden;
+          border-radius: 5px;
+          overflow: hidden;
+          img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+          }
+        }
+        .role-card-back {
+          transform: rotateY(0deg);
+        }
+        .role-card-front {
+          transform: rotateY(180deg);
+        }
+        &.is-revealed .role-card-inner {
+          transform: rotateY(180deg);
+        }
+        &:hover:enabled:not(.is-revealed) .role-card-inner {
+          transform: translateZ(8px) scale(1.05);
+          box-shadow: 0 3px 6px rgba($black, 0.4);
+        }
+        &.is-revealed:hover:enabled .role-card-inner {
+          transform: translateZ(8px) scale(1.05) rotateY(180deg);
+          box-shadow: 0 3px 6px rgba($black, 0.4);
         }
       }
     }
