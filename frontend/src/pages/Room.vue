@@ -185,7 +185,7 @@
           <span v-else-if="myGameRoleKind">Ваша роль: {{ gameRoleShort(myGameRoleKind) }}</span>
 
           <div class="role-cards">
-            <button v-for="n in 10" :key="n" class="role-card" @click="roleOverlayMode === 'pick' && pickRoleCard(n)"
+            <button v-for="n in roleCardsToRender" :key="n" class="role-card" @click="roleOverlayMode === 'pick' && pickRoleCard(n)"
               :disabled="roleOverlayMode !== 'pick' || pickingRole || rolePick.picked.has(localId!)">
               <div v-if="roleOverlayMode === 'reveal' && roleOverlayCard === n && myGameRoleKind">
                 <img :src="ROLE_IMAGES[myGameRoleKind]" alt="role" />
@@ -386,6 +386,7 @@ function seatIconForUser(id: string): string {
   return seatIconBySeat(s)
 }
 
+const ALL_ROLE_CARDS = Array.from({ length: 10 }, (_, i) => i + 1)
 const gameRolesByUser = reactive(new Map<string, GameRoleKind>())
 const rolesVisibleForHead = ref(false)
 const rolePick = reactive({
@@ -393,6 +394,7 @@ const rolePick = reactive({
   order: [] as string[],
   picked: new Set<string>(),
   deadline: 0,
+  takenCards: [] as number[],
 })
 const roleOverlayMode = ref<'hidden' | 'pick' | 'reveal'>('hidden')
 const roleOverlayCard = ref<number | null>(null)
@@ -402,6 +404,13 @@ const myGameRoleKind = computed<GameRoleKind | null>(() => {
   const id = localId.value
   if (!id) return null
   return gameRolesByUser.get(id) ?? null
+})
+const roleCardsToRender = computed(() => {
+  if (roleOverlayMode.value === 'pick') {
+    const taken = new Set(rolePick.takenCards)
+    return ALL_ROLE_CARDS.filter(n => !taken.has(n))
+  }
+  return ALL_ROLE_CARDS
 })
 
 function roleVisibleOnTile(id: string): boolean {
@@ -1029,12 +1038,15 @@ function connectSocket() {
     rolePick.order = Array.isArray(p?.order) ? p.order.map((x: any) => String(x)) : []
     rolePick.picked = new Set((p?.picked || []).map((x: any) => String(x)))
     rolePick.deadline = Number(p?.deadline || 0)
-
+    const takenRaw = Array.isArray(p?.taken_cards) ? p.taken_cards : []
+    rolePick.takenCards = takenRaw.map((x: any) => Number(x)).filter((n: number) => Number.isFinite(n) && n > 0)
     if (uid === localId.value && !myGameRoleKind.value) {
       roleOverlayMode.value = 'pick'
       roleOverlayCard.value = null
       pickingRole.value = false
-    } else if (roleOverlayMode.value === 'pick' && uid !== localId.value) { roleOverlayMode.value = 'hidden' }
+    } else if (roleOverlayMode.value === 'pick' && uid !== localId.value) {
+      roleOverlayMode.value = 'hidden'
+    }
   })
 
   socket.value?.on('game_roles_picked', (p: any) => {
@@ -1735,14 +1747,6 @@ window.addEventListener('online',  () => { if (netReconnecting.value) hardReload
       background-color: $dark;
       box-shadow: 0 0 20px rgba($black, 0.6);
       text-align: center;
-      h2 {
-        margin-bottom: 10px;
-        font-size: 24px;
-        font-family: Manrope-Medium;
-      }
-      p {
-        margin-bottom: 20px;
-      }
       .role-cards {
         display: grid;
         grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -1812,6 +1816,10 @@ window.addEventListener('online',  () => { if (netReconnecting.value) hardReload
       }
       .controls {
         gap: 5px;
+      }
+      .probe {
+        padding: 0 10px;
+        font-size: 12px;
       }
     }
   }

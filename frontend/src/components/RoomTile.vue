@@ -8,7 +8,7 @@
     </div>
 
     <div class="icon-badge right" v-if="gameRole" aria-hidden="true">
-      <img :src="iconRole" alt="role" />
+      <img :src="gameRole" alt="role" />
     </div>
 
     <div v-show="!showVideo" class="ava-wrap">
@@ -219,6 +219,7 @@ const showRoleTimer = computed(() => props.rolePickOwnerId === props.id)
         cursor: default;
       }
       .user-slot {
+        width: 25px;
         height: 25px;
       }
       .user-avatar {

@@ -603,23 +603,34 @@ async def advance_roles_turn(r, rid: int, *, auto: bool) -> None:
     if auto and now - started_at >= settings.ROLE_PICK_SECONDS:
         ok, role, _ = await assign_role_for_user(r, rid, cur_uid, card_index=None)
         if ok and role:
+            card_idx = None
+            try:
+                taken = await r.hgetall(f"room:{rid}:roles_taken")
+                for i, u_s in (taken or {}).items():
+                    try:
+                        if int(u_s) == cur_uid:
+                            card_idx = int(i)
+                            break
+                    except Exception:
+                        continue
+            except Exception:
+                card_idx = None
+
+            payload = {"room_id": rid, "user_id": cur_uid, "role": role}
+            if card_idx is not None:
+                payload["card"] = card_idx
+
             await sio.emit("game_role_assigned",
-                           {"room_id": rid,
-                            "user_id": cur_uid,
-                            "role": role},
+                           payload,
                            room=f"user:{cur_uid}",
                            namespace="/room")
-            await sio.emit("game_roles_picked",
-                           {"room_id": rid,
-                            "user_id": cur_uid},
-                           room=f"room:{rid}",
-                           namespace="/room")
-        await advance_roles_turn(r, rid, auto=False)
-        return
+
+            await sio.emit("game_roles_picked", {...})
+            await advance_roles_turn(r, rid, auto=False)
+            return
 
     seq = int(raw_state.get("roles_turn_seq") or 0) + 1
     deadline = started_at + settings.ROLE_PICK_SECONDS
-
     async with r.pipeline() as p:
         await p.hset(
             f"room:{rid}:game_state",
@@ -631,12 +642,15 @@ async def advance_roles_turn(r, rid: int, *, auto: bool) -> None:
         )
         await p.execute()
 
+    raw_taken = await r.hgetall(f"room:{rid}:roles_taken")
+    taken_indexes = [int(i) for i in (raw_taken or {}).keys()]
     await sio.emit("game_roles_turn",
                    {"room_id": rid,
                     "user_id": cur_uid,
                     "deadline": deadline,
                     "picked": list(assigned),
-                    "order": players},
+                    "order": players,
+                    "taken_cards": taken_indexes},
                    room=f"room:{rid}",
                    namespace="/room")
 
