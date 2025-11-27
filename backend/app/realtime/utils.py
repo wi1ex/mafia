@@ -1,5 +1,6 @@
 from __future__ import annotations
 import asyncio
+from random import shuffle
 import structlog
 from time import time
 from sqlalchemy import select
@@ -7,7 +8,9 @@ from redis.exceptions import ResponseError
 from jwt import ExpiredSignatureError
 from datetime import datetime, timezone
 from typing import Any, Tuple, Dict, Mapping, cast, Optional, List, Iterable
+from .sio import sio
 from ..core.db import SessionLocal
+from ..core.settings import settings
 from ..models.room import Room
 from ..models.user import User
 from ..core.clients import get_redis
@@ -36,6 +39,11 @@ __all__ = [
     "claim_screen",
     "release_screen",
     "get_rooms_brief",
+    "init_roles_deck",
+    "get_players_in_seat_order",
+    "assign_role_for_user",
+    "roles_timeout_job",
+    "advance_roles_turn",
 ]
 
 log = structlog.get_logger()
@@ -434,6 +442,207 @@ async def account_screen_time(r, rid: int, uid: int) -> None:
     await r.delete(f"room:{rid}:screen_started_at")
 
 
+async def init_roles_deck(r, rid: int) -> None:
+    roles = list(settings.ROLE_DECK)
+    shuffle(roles)
+    mapping = {str(i + 1): roles[i] for i in range(len(roles))}
+    now = int(time())
+    async with r.pipeline() as p:
+        await p.delete(
+            f"room:{rid}:roles_cards",
+            f"room:{rid}:roles_taken",
+            f"room:{rid}:game_roles",
+        )
+        await p.hset(f"room:{rid}:roles_cards", mapping=mapping)
+        await p.hset(
+            f"room:{rid}:game_state",
+            mapping={
+                "roles_turn_uid": "0",
+                "roles_turn_started": str(now),
+                "roles_turn_seq": "0",
+                "roles_done": "0",
+            },
+        )
+        await p.execute()
+
+
+async def get_players_in_seat_order(r, rid: int) -> list[int]:
+    raw_seats = await r.hgetall(f"room:{rid}:game_seats")
+    players: list[tuple[int, int]] = []
+    for uid_s, seat_s in (raw_seats or {}).items():
+        try:
+            uid = int(uid_s)
+            seat = int(seat_s)
+        except Exception:
+            continue
+        if seat and seat != 11:
+            players.append((seat, uid))
+    players.sort(key=lambda x: x[0])
+    return [uid for _, uid in players]
+
+
+async def assign_role_for_user(r, rid: int, uid: int, *, card_index: int | None) -> tuple[bool, str | None, str | None]:
+    existing = await r.hget(f"room:{rid}:game_roles", str(uid))
+    if existing:
+        return False, None, "already_has_role"
+
+    cards = await r.hgetall(f"room:{rid}:roles_cards")
+    if not cards:
+        return False, None, "no_deck"
+
+    taken = await r.hgetall(f"room:{rid}:roles_taken")
+    taken_idx = {int(i) for i in (taken or {}).keys()}
+
+    idx: int
+    if card_index is not None:
+        idx = int(card_index)
+        if idx < 1 or idx > len(cards):
+            return False, None, "bad_card"
+
+        if idx in taken_idx:
+            return False, None, "card_taken"
+
+    else:
+        free = [i for i in range(1, len(cards) + 1) if i not in taken_idx]
+        if not free:
+            return False, None, "no_free_cards"
+
+        idx = free[0]
+
+    role = cards.get(str(idx))
+    if not role:
+        return False, None, "bad_card"
+
+    now = int(time())
+    async with r.pipeline() as p:
+        await p.hset(f"room:{rid}:roles_taken", str(idx), str(uid))
+        await p.hset(f"room:{rid}:game_roles", str(uid), role)
+        await p.hset(
+            f"room:{rid}:game_state",
+            mapping={
+                "roles_last_pick_user": str(uid),
+                "roles_last_pick_at": str(now),
+            },
+        )
+        await p.execute()
+
+    return True, str(role), None
+
+
+async def roles_timeout_job(rid: int, seq: int, deadline: int) -> None:
+    delay = max(0, deadline - int(time()))
+    if delay > 0:
+        await asyncio.sleep(delay + 0.05)
+
+    r = get_redis()
+    raw_state = await r.hgetall(f"room:{rid}:game_state")
+    phase = str(raw_state.get("phase") or "idle")
+    if phase != "roles_pick":
+        return
+
+    try:
+        cur_seq = int(raw_state.get("roles_turn_seq") or 0)
+    except Exception:
+        return
+
+    if cur_seq != seq:
+        return
+
+    await advance_roles_turn(r, rid, auto=True)
+
+
+async def advance_roles_turn(r, rid: int, *, auto: bool) -> None:
+    raw_state = await r.hgetall(f"room:{rid}:game_state")
+    phase = str(raw_state.get("phase") or "idle")
+    if phase != "roles_pick":
+        return
+
+    players = await get_players_in_seat_order(r, rid)
+    if not players:
+        return
+
+    raw_roles = await r.hgetall(f"room:{rid}:game_roles")
+    assigned = {int(k) for k in (raw_roles or {}).keys()}
+    remaining = [uid for uid in players if uid not in assigned]
+
+    if not remaining:
+        await r.hset(f"room:{rid}:game_state", "roles_done", "1")
+        try:
+            head_uid = int(raw_state.get("head") or 0)
+        except Exception:
+            head_uid = 0
+
+        if head_uid:
+            await sio.emit("game_roles_reveal",
+                           {"room_id": rid,
+                            "roles": {str(k): str(v) for k, v in (raw_roles or {}).items()}},
+                           room=f"user:{head_uid}",
+                           namespace="/room")
+        await sio.emit("game_roles_state",
+                       {"room_id": rid,
+                        "done": True,
+                        "picked": list(assigned)},
+                       room=f"room:{rid}",
+                       namespace="/room")
+        return
+
+    now = int(time())
+    try:
+        cur_uid = int(raw_state.get("roles_turn_uid") or 0)
+    except Exception:
+        cur_uid = 0
+    try:
+        started_at = int(raw_state.get("roles_turn_started") or 0)
+    except Exception:
+        started_at = now
+
+    if cur_uid not in remaining:
+        cur_uid = remaining[0]
+        started_at = now
+
+    if auto and now - started_at >= settings.ROLE_PICK_SECONDS:
+        ok, role, _ = await assign_role_for_user(r, rid, cur_uid, card_index=None)
+        if ok and role:
+            await sio.emit("game_role_assigned",
+                           {"room_id": rid,
+                            "user_id": cur_uid,
+                            "role": role},
+                           room=f"user:{cur_uid}",
+                           namespace="/room")
+            await sio.emit("game_roles_picked",
+                           {"room_id": rid,
+                            "user_id": cur_uid},
+                           room=f"room:{rid}",
+                           namespace="/room")
+        await advance_roles_turn(r, rid, auto=False)
+        return
+
+    seq = int(raw_state.get("roles_turn_seq") or 0) + 1
+    deadline = started_at + settings.ROLE_PICK_SECONDS
+
+    async with r.pipeline() as p:
+        await p.hset(
+            f"room:{rid}:game_state",
+            mapping={
+                "roles_turn_uid": str(cur_uid),
+                "roles_turn_started": str(started_at),
+                "roles_turn_seq": str(seq),
+            },
+        )
+        await p.execute()
+
+    await sio.emit("game_roles_turn",
+                   {"room_id": rid,
+                    "user_id": cur_uid,
+                    "deadline": deadline,
+                    "picked": list(assigned),
+                    "order": players},
+                   room=f"room:{rid}",
+                   namespace="/room")
+
+    asyncio.create_task(roles_timeout_job(rid, seq, deadline))
+
+
 async def get_rooms_brief(r, ids: Iterable[int]) -> List[dict]:
     ids_list = [int(x) for x in ids]
     if not ids_list:
@@ -689,6 +898,9 @@ async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
             f"room:{rid}:game_seats",
             f"room:{rid}:game_players",
             f"room:{rid}:game_alive",
+            f"room:{rid}:roles_cards",
+            f"room:{rid}:roles_taken",
+            f"room:{rid}:game_roles",
         )
         await r.zrem("rooms:index", str(rid))
     finally:

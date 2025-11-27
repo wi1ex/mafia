@@ -9,7 +9,7 @@ from ...core.decorators import rate_limited_sio
 from ...core.logging import log_action
 from ...core.db import SessionLocal
 from ...core.settings import settings
-from ...schemas.realtime import StateAck, ModerateAck, JoinAck, ScreenAck, GameStartAck
+from ...schemas.realtime import StateAck, ModerateAck, JoinAck, ScreenAck, GameStartAck, GameRolePickAck
 from ...services.livekit_tokens import make_livekit_token
 from ..utils import (
     KEYS_STATE,
@@ -33,6 +33,8 @@ from ..utils import (
     release_screen,
     account_screen_time,
     get_rooms_brief,
+    init_roles_deck,
+    advance_roles_turn, assign_role_for_user,
 )
 
 log = structlog.get_logger()
@@ -202,10 +204,26 @@ async def join(sid, data) -> JoinAck:
                 continue
 
         game_runtime = {"phase": phase,
-                        "min_ready": int(getattr(settings, "GAME_MIN_READY_PLAYERS", 10)),
+                        "min_ready": settings.GAME_MIN_READY_PLAYERS,
                         "seats": seats_map,
                         "players": [int(x) for x in (players_set or [])],
                         "alive": [int(x) for x in (alive_set or [])]}
+
+        raw_roles = await r.hgetall(f"room:{rid}:game_roles")
+        my_game_role = raw_roles.get(str(uid))
+        game_roles_view: dict[str, str] = {}
+
+        try:
+            head_uid = int(raw_gstate.get("head") or 0)
+        except Exception:
+            head_uid = 0
+
+        roles_done = str(raw_gstate.get("roles_done") or "0") == "1"
+        if my_game_role:
+            game_roles_view[str(uid)] = str(my_game_role)
+
+        if roles_done and head_uid and uid == head_uid:
+            game_roles_view = {str(k): str(v) for k, v in (raw_roles or {}).items()}
 
         return {
             "ok": True,
@@ -221,6 +239,8 @@ async def join(sid, data) -> JoinAck:
             "screen_owner": owner,
             "game": game,
             "game_runtime": game_runtime,
+            "game_roles": game_roles_view,
+            "my_game_role": my_game_role,
         }
 
     except Exception:
@@ -644,7 +664,7 @@ async def game_start(sid, data) -> GameStartAck:
         if not await r.sismember(f"room:{rid}:members", str(uid)):
             return {"ok": False, "error": "not_in_room", "status": 403}
 
-        min_ready = int(getattr(settings, "GAME_MIN_READY_PLAYERS", 10))
+        min_ready = settings.GAME_MIN_READY_PLAYERS
         members = await r.smembers(f"room:{rid}:members")
         members = members or set()
         ready_ids = await r.smembers(f"room:{rid}:ready")
@@ -767,6 +787,8 @@ async def game_start(sid, data) -> GameStartAck:
             await p.delete(f"room:{rid}:ready")
             await p.execute()
 
+        await init_roles_deck(r, rid)
+
         if player_ids and head_uid:
             for pid in player_ids:
                 try:
@@ -834,10 +856,71 @@ async def game_start(sid, data) -> GameStartAck:
         except Exception:
             log.exception("sio.game_start.log_failed", rid=rid, uid=uid)
 
+        await advance_roles_turn(r, rid, auto=False)
+
         return payload
 
     except Exception:
         log.exception("sio.game_start.error", sid=sid)
+        return {"ok": False, "error": "internal", "status": 500}
+
+
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_roles_pick:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
+@sio.event(namespace="/room")
+async def game_roles_pick(sid, data) -> GameRolePickAck:
+    try:
+        data = data or {}
+        sess = await sio.get_session(sid, namespace="/room")
+        uid = int(sess["uid"])
+        rid = int(sess.get("rid") or 0)
+        if not rid:
+            return {"ok": False, "error": "no_room", "status": 400}
+
+        r = get_redis()
+        raw_state = await r.hgetall(f"room:{rid}:game_state")
+        phase = str(raw_state.get("phase") or "idle")
+        if phase != "roles_pick":
+            return {"ok": False, "error": "bad_phase", "status": 400}
+
+        try:
+            turn_uid = int(raw_state.get("roles_turn_uid") or 0)
+        except Exception:
+            turn_uid = 0
+        if uid != turn_uid:
+            return {"ok": False, "error": "not_your_turn", "status": 403}
+
+        card = int(data.get("card") or 0)
+        if card <= 0:
+            return {"ok": False, "error": "bad_card", "status": 400}
+
+        ok, role, err = await assign_role_for_user(r, rid, uid, card_index=card)
+        if not ok or role is None:
+            status = 400
+            if err in ("bad_card", "card_taken", "already_has_role"):
+                status = 409
+            error_msg = err if err is not None else "failed"
+            return {"ok": False, "error": error_msg, "status": status}
+
+        await sio.emit("game_role_assigned",
+                       {"room_id": rid,
+                        "user_id": uid,
+                        "role": role,
+                        "card": card},
+                       room=f"user:{uid}",
+                       namespace="/room")
+
+        await sio.emit("game_roles_picked",
+                       {"room_id": rid,
+                        "user_id": uid},
+                       room=f"room:{rid}",
+                       namespace="/room")
+
+        await advance_roles_turn(r, rid, auto=False)
+
+        return {"ok": True, "status": 200, "room_id": rid, "role": role}
+
+    except Exception:
+        log.exception("sio.game_roles_pick.error", sid=sid, data=bool(data))
         return {"ok": False, "error": "internal", "status": 500}
 
 

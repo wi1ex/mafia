@@ -39,10 +39,13 @@
           :seat-icon="seatIconForUser(id)"
           :offline="offlineInGame.has(id)"
           :offline-avatar="iconLowSignal"
+          :role-pick-owner-id="rolePick.activeUserId"
+          :game-role="roleIconForTile(id)"
           @toggle-panel="toggleTilePanel"
           @vol-input="onVol"
           @block="(key, uid) => toggleBlock(uid, key)"
           @kick="kickUser"
+
         />
       </div>
 
@@ -86,6 +89,8 @@
             :seat-icon="seatIconForUser(id)"
             :offline="offlineInGame.has(id)"
             :offline-avatar="iconLowSignal"
+            :role-pick-owner-id="rolePick.activeUserId"
+            :game-role="roleIconForTile(id)"
             @toggle-panel="toggleTilePanel"
             @vol-input="onVol"
             @block="(key, uid) => toggleBlock(uid, key)"
@@ -113,6 +118,9 @@
           </button>
         </div>
         <div v-else class="controls">
+          <button v-if="gamePhase === 'roles_pick' && myGameRole === 'head' && rolesVisibleForHead" @click="goToMafiaTalk" aria-label="Перейти к договорке">
+            <img :src="iconGameStart" alt="next-phase" />
+          </button>
           <button v-if="gamePhase === 'idle' && canShowStartGame" @click="startGame" :disabled="startingGame" aria-label="Запустить игру">
             <img :src="iconGameStart" alt="start" />
           </button>
@@ -168,6 +176,27 @@
           @counts="(p) => { appsCounts.total = p.total; appsCounts.unread = p.unread }"
         />
       </div>
+
+      <div v-if="gamePhase === 'roles_pick' && rolePick.activeUserId === localId && roleOverlayMode !== 'hidden'" class="role-overlay" >
+        <div class="role-overlay-inner">
+          <span v-if="roleOverlayMode === 'pick'">Выбор роли</span>
+          <span v-else>Ваша роль</span>
+          <span v-if="roleOverlayMode === 'pick'">Выберите одну из доступных карт</span>
+          <span v-else-if="myGameRoleKind">Ваша роль: {{ gameRoleShort(myGameRoleKind) }}</span>
+
+          <div class="role-cards">
+            <button v-for="n in 10" :key="n" class="role-card" @click="roleOverlayMode === 'pick' && pickRoleCard(n)"
+              :disabled="roleOverlayMode !== 'pick' || pickingRole || rolePick.picked.has(localId!)">
+              <div v-if="roleOverlayMode === 'reveal' && roleOverlayCard === n && myGameRoleKind">
+                <img :src="ROLE_IMAGES[myGameRoleKind]" alt="role" />
+              </div>
+              <div v-else>
+                <img :src="iconCardBack" alt="back" />
+              </div>
+            </button>
+          </div>
+        </div>
+      </div>
     </template>
   </section>
 </template>
@@ -216,6 +245,16 @@ import iconScreenOn from '@/assets/svg/screenOn.svg'
 import iconScreenOff from '@/assets/svg/screenOff.svg'
 import iconScreenBlocked from '@/assets/svg/screenBlocked.svg'
 
+import iconRoleCitizen from '@/assets/images/roleCitizen.png'
+import iconRoleMafia from '@/assets/images/roleMafia.png'
+import iconRoleDon from '@/assets/images/roleDon.png'
+import iconRoleSheriff from '@/assets/images/roleSheriff.png'
+import iconCardBack from '@/assets/images/cardBack.png'
+import iconCardCitizen from '@/assets/images/cardCitizen.png'
+import iconCardMafia from '@/assets/images/cardMafia.png'
+import iconCardDon from '@/assets/images/cardDon.png'
+import iconCardSheriff from '@/assets/images/cardSheriff.png'
+
 import iconSlotHead from '@/assets/svg/slotHead.svg'
 import iconSlot1 from '@/assets/svg/slot1.svg'
 import iconSlot2 from '@/assets/svg/slot2.svg'
@@ -239,6 +278,7 @@ type StatusState = {
 }
 type BlockState = StatusState & { screen: State01 }
 type IconKind = keyof StatusState | 'screen'
+type GameRoleKind = 'citizen' | 'mafia' | 'don' | 'sheriff'
 
 const route = useRoute()
 const router = useRouter()
@@ -255,6 +295,19 @@ const GAME_COLUMN_INDEX: Record<number, number> = {
 }
 const GAME_ROW_INDEX: Record<number, number> = {
   1: 1, 2: 1, 3: 3, 4: 5, 5: 5, 6: 5, 7: 5, 8: 3, 9: 1, 10: 1, 11: 3,
+}
+
+const ROLE_IMAGES: Record<GameRoleKind, string> = {
+  citizen: iconCardCitizen,
+  mafia:   iconCardMafia,
+  don:     iconCardDon,
+  sheriff: iconCardSheriff,
+}
+const ROLE_BADGE_ICONS: Record<GameRoleKind, string> = {
+  citizen: iconRoleCitizen,
+  mafia:   iconRoleMafia,
+  don:     iconRoleDon,
+  sheriff: iconRoleSheriff,
 }
 
 const rid = Number(route.params.id)
@@ -331,6 +384,59 @@ function seatIconForUser(id: string): string {
   if (gamePhase.value === 'idle') return ''
   const s = seatIndex(id)
   return seatIconBySeat(s)
+}
+
+const gameRolesByUser = reactive(new Map<string, GameRoleKind>())
+const rolesVisibleForHead = ref(false)
+const rolePick = reactive({
+  activeUserId: '',
+  order: [] as string[],
+  picked: new Set<string>(),
+  deadline: 0,
+})
+const roleOverlayMode = ref<'hidden' | 'pick' | 'reveal'>('hidden')
+const roleOverlayCard = ref<number | null>(null)
+const roleOverlayTimerId = ref<number | null>(null)
+const pickingRole = ref(false)
+const myGameRoleKind = computed<GameRoleKind | null>(() => {
+  const id = localId.value
+  if (!id) return null
+  return gameRolesByUser.get(id) ?? null
+})
+
+function roleVisibleOnTile(id: string): boolean {
+  const role = gameRolesByUser.get(id)
+  if (!role) return false
+  const isSelf = id === localId.value
+  const isHead = myGameRole.value === 'head'
+  if (isHead && rolesVisibleForHead.value) return true
+  return isSelf
+}
+
+function gameRoleShort(role: GameRoleKind): string {
+  switch (role) {
+    case 'mafia':   return 'Мафия'
+    case 'don':     return 'Дон'
+    case 'sheriff': return 'Шериф'
+    case 'citizen': return 'Мирный житель'
+  }
+}
+
+function roleIconForTile(id: string): string {
+  const role = gameRolesByUser.get(id)
+  if (!role) return ''
+  if (!roleVisibleOnTile(id)) return ''
+  return ROLE_BADGE_ICONS[role] || ''
+}
+
+async function goToMafiaTalk() {
+  if (!socket.value) return
+  const resp = await sendAck('game_phase_next', { from: 'roles_pick', to: 'mafia_talk' })
+  if (!resp?.ok) {
+    alert('Не удалось перейти к договорке')
+    return
+  }
+  gamePhase.value = 'mafia_talk'
 }
 
 const gamePlayers = reactive(new Set<string>())
@@ -916,6 +1022,56 @@ function connectSocket() {
     if (!uid) return
     gameAlive.delete(uid)
   })
+
+  socket.value?.on('game_roles_turn', (p: any) => {
+    const uid = String(p?.user_id || '')
+    rolePick.activeUserId = uid
+    rolePick.order = Array.isArray(p?.order) ? p.order.map((x: any) => String(x)) : []
+    rolePick.picked = new Set((p?.picked || []).map((x: any) => String(x)))
+    rolePick.deadline = Number(p?.deadline || 0)
+
+    if (uid === localId.value && !myGameRoleKind.value) {
+      roleOverlayMode.value = 'pick'
+      roleOverlayCard.value = null
+      pickingRole.value = false
+    } else if (roleOverlayMode.value === 'pick' && uid !== localId.value) { roleOverlayMode.value = 'hidden' }
+  })
+
+  socket.value?.on('game_roles_picked', (p: any) => {
+    const uid = String(p?.user_id || '')
+    if (!uid) return
+    rolePick.picked.add(uid)
+  })
+
+  socket.value?.on('game_role_assigned', (p: any) => {
+    const uid = String(p?.user_id || '')
+    const role = String(p?.role || '')
+    if (!uid || !role) return
+    gameRolesByUser.set(uid, role as GameRoleKind)
+    if (uid === localId.value) {
+      roleOverlayMode.value = 'reveal'
+      roleOverlayCard.value = Number(p?.card || 0) || null
+      if (roleOverlayTimerId.value != null) {
+        clearTimeout(roleOverlayTimerId.value)
+      }
+      roleOverlayTimerId.value = window.setTimeout(() => {
+        roleOverlayMode.value = 'hidden'
+        roleOverlayTimerId.value = null
+      }, 5000)
+    }
+  })
+
+  socket.value?.on('game_roles_reveal', (p: any) => {
+    const roles = (p?.roles || {}) as Record<string, string>
+    for (const [uid, role] of Object.entries(roles)) { gameRolesByUser.set(String(uid), role as GameRoleKind) }
+    if (myGameRole.value === 'head') rolesVisibleForHead.value = true
+  })
+
+  socket.value?.on('game_roles_state', (p: any) => {
+    if (p?.done) {
+      // флаг можно использовать, если нужно
+    }
+  })
 }
 
 async function safeJoin() {
@@ -948,6 +1104,29 @@ async function safeJoin() {
 function ensurePeer(id: string) {
   if (!rtc.peerIds.value.includes(id)) {
     rtc.peerIds.value = [...rtc.peerIds.value, id]
+  }
+}
+
+async function pickRoleCard(card: number) {
+  if (!socket.value || pickingRole.value) return
+  if (card <= 0) return
+  pickingRole.value = true
+  try {
+    const resp = await sendAck('game_roles_pick', { card })
+    if (!resp?.ok) {
+      const code = resp?.error
+      const st = resp?.status
+      if (st === 403 && code === 'not_your_turn') {
+        alert('Сейчас ход другого игрока')
+      } else if (st === 409 && code === 'card_taken') {
+        alert('Эта карточка уже занята, обновите окно')
+      } else {
+        alert('Не удалось выбрать роль')
+      }
+      return
+    }
+  } finally {
+    pickingRole.value = false
   }
 }
 
@@ -1115,6 +1294,13 @@ function applyJoinAck(j: any) {
 
   gamePlayers.clear()
   gameAlive.clear()
+  gameRolesByUser.clear()
+  const grRoles = j.game_roles || {}
+  for (const [uid, role] of Object.entries(grRoles)) {
+    gameRolesByUser.set(String(uid), role as GameRoleKind)
+  }
+  rolesVisibleForHead.value = myGameRole.value === 'head' && Object.keys(grRoles).length > 1
+
   const grPlayers = Array.isArray(gr.players) ? gr.players.map((x: any) => String(x)) : []
   const grAlive = Array.isArray(gr.alive) ? gr.alive.map((x: any) => String(x)) : []
   for (const uid of grPlayers) gamePlayers.add(uid)
@@ -1525,6 +1711,62 @@ window.addEventListener('online',  () => { if (netReconnecting.value) hardReload
     .controls {
       display: flex;
       gap: 10px;
+    }
+  }
+
+
+
+
+
+  .role-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 900;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(5px);
+    background-color: rgba($black, 0.85);
+    .role-overlay-inner {
+      padding: 20px;
+      max-width: 600px;
+      width: calc(100% - 40px);
+      border-radius: 5px;
+      background-color: $dark;
+      box-shadow: 0 0 20px rgba($black, 0.6);
+      text-align: center;
+      h2 {
+        margin-bottom: 10px;
+        font-size: 24px;
+        font-family: Manrope-Medium;
+      }
+      p {
+        margin-bottom: 20px;
+      }
+      .role-cards {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 10px;
+      }
+      .role-card {
+        height: 80px;
+        border-radius: 5px;
+        border: 2px solid $graphite;
+        background-color: $black;
+        color: $fg;
+        font-size: 24px;
+        cursor: pointer;
+        transition: transform 0.15s ease-out, box-shadow 0.15s ease-out, background-color 0.15s ease-out;
+        &:hover:enabled {
+          transform: translateY(-2px);
+          box-shadow: 0 3px 6px rgba($black, 0.4);
+          background-color: $graphite;
+        }
+        &:disabled {
+          opacity: 0.4;
+          cursor: default;
+        }
+      }
     }
   }
 }

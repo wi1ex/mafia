@@ -18,6 +18,8 @@ class JoinAck(TypedDict, total=False):
     pending: bool
     game: dict
     game_runtime: dict
+    game_roles: Dict[str, str]
+    my_game_role: Optional[str]
 
 
 class RoomListItem(TypedDict):
@@ -71,3 +73,11 @@ class GameStartAck(TypedDict, total=False):
     streaming_owner: int
     blocking_users: List[int]
     conflict_users: List[int]
+
+
+class GameRolePickAck(TypedDict, total=False):
+    ok: bool
+    status: int
+    error: str
+    room_id: int
+    role: str

@@ -3,8 +3,12 @@
     <video v-show="showVideo" :ref="videoRef" playsinline autoplay :muted="id === localId" :class="{ mirrored: isMirrored(id) }"
            :style="{ objectFit: fitContain ? 'contain' : 'cover' }" />
 
-    <div class="ready-badge" v-if="isReady(id)" aria-hidden="true">
+    <div class="icon-badge left" v-if="isReady(id)" aria-hidden="true">
       <img :src="iconReady" alt="ready" />
+    </div>
+
+    <div class="icon-badge right" v-if="gameRole" aria-hidden="true">
+      <img :src="iconRole" alt="role" />
     </div>
 
     <div v-show="!showVideo" class="ava-wrap">
@@ -48,6 +52,9 @@
         </div>
       </Transition>
     </div>
+    <div v-if="showRoleTimer" class="role-timer">
+      <div class="role-timer-bar" />
+    </div>
   </div>
 </template>
 
@@ -86,6 +93,8 @@ const props = withDefaults(defineProps<{
   seatIcon?: string | null
   offline?: boolean
   offlineAvatar?: string
+  rolePickOwnerId?: string
+  gameRole?: string
 }>(), {
   side: false,
   fitContain: false,
@@ -105,13 +114,14 @@ defineEmits<{
   (e: 'kick', id: string): void
 }>()
 
-const openPanel = computed(() => props.openPanelFor === props.id)
 const showVideo = computed(() =>
   !props.offline &&
   !props.isDead(props.id) &&
   props.isOn(props.id, 'cam') &&
   !props.isBlocked(props.id, 'cam'),
 )
+const openPanel = computed(() => props.openPanelFor === props.id)
+const showRoleTimer = computed(() => props.rolePickOwnerId === props.id)
 
 </script>
 
@@ -120,7 +130,7 @@ const showVideo = computed(() =>
   position: relative;
   min-width: 0;
   min-height: 0;
-  border-radius: 5px;
+  border-radius: 7px;
   border: 2px solid transparent;
   transition: border-color 0.25s ease-in-out;
   &.speaking {
@@ -136,12 +146,11 @@ const showVideo = computed(() =>
       transform: scaleX(-1);
     }
   }
-  .ready-badge {
+  .icon-badge {
     display: flex;
     position: absolute;
     align-items: center;
     justify-content: center;
-    left: 5px;
     bottom: 5px;
     width: 30px;
     height: 30px;
@@ -153,6 +162,12 @@ const showVideo = computed(() =>
     img {
       width: 20px;
       height: 20px;
+    }
+    &.left {
+      left: 5px;
+    }
+    &.right {
+      right: 5px;
     }
   }
   .ava-wrap {
@@ -310,11 +325,40 @@ const showVideo = computed(() =>
       }
     }
   }
+
+
+
+
+
+
+  .role-timer {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 4px;
+    background-color: rgba($dark, 0.7);
+    overflow: hidden;
+    z-index: 6;
+    .role-timer-bar {
+      width: 100%;
+      height: 100%;
+      background-color: $green;
+      transform-origin: left center;
+      animation: role-timer-decrease linear forwards;
+      animation-duration: 10s;
+    }
+  }
 }
 .tile.side {
   aspect-ratio: 16 / 9;
   min-width: 280px;
   min-height: 158px;
+}
+
+@keyframes role-timer-decrease {
+  from { transform: scaleX(1); }
+  to   { transform: scaleX(0); }
 }
 
 @media (max-width: 1280px) {
