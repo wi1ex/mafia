@@ -65,6 +65,7 @@ export type UseRTC = {
     publishDefaults?: ConstructorParameters<typeof LkRoom>[0]['publishDefaults']
     audioCaptureDefaults?: ConstructorParameters<typeof LkRoom>[0]['audioCaptureDefaults']
     videoCaptureDefaults?: ConstructorParameters<typeof LkRoom>[0]['videoCaptureDefaults']
+    onDisconnected?: () => void | Promise<void>
   }) => LkRoom
   connect: (wsUrl: string, token: string, opts?: {
     autoSubscribe?: boolean
@@ -1007,6 +1008,7 @@ export function useRTC(): UseRTC {
     setUserVolume,
     getUserVolume,
     resumeAudio,
+    autoplayUnlocked,
     prepareScreenShare,
     publishPreparedScreen,
     cancelPreparedScreen,

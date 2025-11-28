@@ -196,8 +196,8 @@
           </div>
         </div>
       </Transition>
-      <div v-if="mediaGateVisible" class="reconnect-overlay" @click.stop="onMediaGateClick">
-        Нажмите для продолжения
+      <div v-if="mediaGateVisible" class="reconnect-overlay media-gate" @click.stop="onMediaGateClick">
+        Нажмите чтобы продолжить
       </div>
     </template>
     <div class="role-preload" aria-hidden="true">
@@ -1511,15 +1511,14 @@ const toggleScreen = async () => {
   } finally { pendingScreen.value = false }
 }
 
-async function onMediaGateClick() {
-  needInitialMediaUnlock.value = false
-  closePanels()
-  try { await rtc.resumeAudio() } catch {}
+async function enableInitialMedia(): Promise<boolean> {
   const tasks: Promise<void>[] = []
+  let failed = false
   if (camOn.value && !blockedSelf.value.cam) {
     tasks.push((async () => {
       const ok = await rtc.enable('videoinput')
       if (!ok) {
+        failed = true
         camOn.value = false
         try { await publishState({ cam: false }) } catch {}
       }
@@ -1529,12 +1528,21 @@ async function onMediaGateClick() {
     tasks.push((async () => {
       const ok = await rtc.enable('audioinput')
       if (!ok) {
+        failed = true
         micOn.value = false
         try { await publishState({ mic: false }) } catch {}
       }
     })())
   }
   if (tasks.length) { try { await Promise.all(tasks) } catch {} }
+  return failed
+}
+
+async function onMediaGateClick() {
+  needInitialMediaUnlock.value = false
+  closePanels()
+  try { await rtc.resumeAudio() } catch {}
+  await enableInitialMedia()
 }
 
 async function onLeave(goHome = true) {
@@ -1567,8 +1575,11 @@ function onBackgroundMaybeLeave(e?: PageTransitionEvent) {
   if (document.visibilityState === 'hidden' || (e && (e as any).persisted === true)) void onLeave()
 }
 
-watch(() => [rolePick.activeUserId, localId.value, myGameRoleKind.value, gamePhase.value],
-  () => { syncRoleOverlayWithTurn() })
+function handleOffline() { netReconnecting.value = true }
+
+function handleOnline() { if (netReconnecting.value) hardReload() }
+
+watch(() => [rolePick.activeUserId, localId.value, myGameRoleKind.value, gamePhase.value], () => { syncRoleOverlayWithTurn() })
 
 watch(() => auth.isAuthed, (ok) => { if (!ok) { void onLeave() } })
 
@@ -1626,7 +1637,10 @@ onMounted(async () => {
     rtc.setVideoSubscriptionsForAll(local.visibility)
     const wantInitialCam = camOn.value && !blockedSelf.value.cam
     const wantInitialMic = micOn.value && !blockedSelf.value.mic
-    if (wantInitialCam || wantInitialMic) needInitialMediaUnlock.value = true
+    if (wantInitialCam || wantInitialMic) {
+      const failed = await enableInitialMedia()
+      if (failed) needInitialMediaUnlock.value = true
+    }
 
     const hasLsMirror = rtc.loadLS(rtc.LS.mirror)
     if (hasLsMirror == null) {
@@ -1640,6 +1654,8 @@ onMounted(async () => {
     document.addEventListener('click', onDocClick)
     document.addEventListener('visibilitychange', onBackgroundMaybeLeave, { passive: true })
     window.addEventListener('pagehide', onBackgroundMaybeLeave, { passive: true })
+    window.addEventListener('offline', handleOffline)
+    window.addEventListener('online', handleOnline)
 
     uiReady.value = true
   } catch {
@@ -1653,11 +1669,10 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  window.removeEventListener('offline', handleOffline)
+  window.removeEventListener('online', handleOnline)
   void onLeave(false)
 })
-
-window.addEventListener('offline', () => { netReconnecting.value = true })
-window.addEventListener('online',  () => { if (netReconnecting.value) hardReload() })
 </script>
 
 <style scoped lang="scss">
@@ -1679,6 +1694,10 @@ window.addEventListener('online',  () => { if (netReconnecting.value) hardReload
     color: $fg;
     z-index: 1000;
     pointer-events: none;
+    &.media-gate {
+      pointer-events: auto;
+      cursor: pointer;
+    }
   }
   .grid {
     display: grid;
