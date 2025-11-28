@@ -14,7 +14,7 @@
     <div v-show="!showVideo" class="ava-wrap">
       <img v-if="isDead(id) && deadAvatar" :src="deadAvatar" alt="dead" />
       <img v-else-if="offline && offlineAvatar" :src="offlineAvatar" alt="offline" />
-      <img v-else v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar, lazy: false }" alt="avatar" />
+      <img v-else class="avatar" v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar, lazy: false }" alt="avatar" />
     </div>
 
     <div class="user-card" :data-open="openPanel ? 1 : 0" @click.stop>
@@ -188,8 +188,10 @@ const rolePickDurationSec = computed(() => {
     z-index: 1;
     img {
       height: 40%;
-      border-radius: 50%;
       user-select: none;
+    }
+    .avatar {
+      border-radius: 50%;
     }
   }
   .user-card {
