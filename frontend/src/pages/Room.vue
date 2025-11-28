@@ -42,11 +42,12 @@
           :role-pick-owner-id="rolePick.activeUserId"
           :role-pick-remaining-ms="rolePick.remainingMs"
           :game-role="roleIconForTile(id)"
+          :hidden-by-visibility="hiddenByVisibility(id)"
+          :visibility-hidden-avatar="visOffAvatar(id)"
           @toggle-panel="toggleTilePanel"
           @vol-input="onVol"
           @block="(key, uid) => toggleBlock(uid, key)"
           @kick="kickUser"
-
         />
       </div>
 
@@ -93,6 +94,8 @@
             :role-pick-owner-id="rolePick.activeUserId"
             :role-pick-remaining-ms="rolePick.remainingMs"
             :game-role="roleIconForTile(id)"
+            :hidden-by-visibility="hiddenByVisibility(id)"
+            :visibility-hidden-avatar="visOffAvatar(id)"
             @toggle-panel="toggleTilePanel"
             @vol-input="onVol"
             @block="(key, uid) => toggleBlock(uid, key)"
@@ -228,12 +231,6 @@ import iconVolumeMid from '@/assets/svg/volumeMid.svg'
 import iconVolumeLow from '@/assets/svg/volumeLow.svg'
 import iconVolumeMute from '@/assets/svg/volumeMute.svg'
 
-import iconReady from '@/assets/svg/ready.svg'
-import iconLowSignal from '@/assets/svg/lowSignal.svg'
-import iconKillPlayer from '@/assets/svg/killPlayer.svg'
-import iconGameStart from '@/assets/svg/gameStart.svg'
-import iconGameStop from '@/assets/svg/gameStop.svg'
-
 import iconMicOn from '@/assets/svg/micOn.svg'
 import iconMicOff from '@/assets/svg/micOff.svg'
 import iconMicBlocked from '@/assets/svg/micBlocked.svg'
@@ -249,6 +246,13 @@ import iconVisBlocked from '@/assets/svg/visBlocked.svg'
 import iconScreenOn from '@/assets/svg/screenOn.svg'
 import iconScreenOff from '@/assets/svg/screenOff.svg'
 import iconScreenBlocked from '@/assets/svg/screenBlocked.svg'
+
+import iconReady from '@/assets/svg/ready.svg'
+import iconLowSignal from '@/assets/svg/lowSignal.svg'
+import iconKillPlayer from '@/assets/svg/killPlayer.svg'
+import iconSleepPlayer from '@/assets/svg/sleepPlayer.svg'
+import iconGameStart from '@/assets/svg/gameStart.svg'
+import iconGameStop from '@/assets/svg/gameStop.svg'
 
 import iconRoleCitizen from '@/assets/images/roleCitizen.png'
 import iconRoleMafia from '@/assets/images/roleMafia.png'
@@ -363,7 +367,7 @@ const mediaGateVisible = computed(() => uiReady.value && !isReconnecting.value &
 
 const startingGame = ref(false)
 const endingGame = ref(false)
-const minReadyToStart = ref<number>(4)
+const minReadyToStart = ref<number>(5)
 const gamePhase = ref<'idle' | 'roles_pick' | 'mafia_talk' | 'day' | 'night'>('idle')
 const seatsByUser = reactive<Record<string, number>>({})
 const isGameHead = (id: string) => seatsByUser[id] === 11
@@ -398,6 +402,19 @@ function seatIconForUser(id: string): string {
   if (gamePhase.value === 'idle') return ''
   const s = seatIndex(id)
   return seatIconBySeat(s)
+}
+function hiddenByVisibility(id: string): boolean {
+  if (id === localId.value) return false
+  if (visibilityOn.value) return false
+  if (gamePhase.value !== 'idle') {
+    if (offlineInGame.has(id)) return false
+    if (isDead(id)) return false
+  }
+  return true
+}
+function visOffAvatar(id: string): string {
+  if (!hiddenByVisibility(id)) return ''
+  return gamePhase.value === 'idle' ? iconVisOff : iconSleepPlayer
 }
 
 const ALL_ROLE_CARDS = Array.from({ length: 10 }, (_, i) => i + 1)

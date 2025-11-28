@@ -174,7 +174,7 @@ const titlePct = computed(() => {
 })
 const titleUnderlineStyle = computed(() => ({ width: `${titlePct.value}%` }))
 
-const GAME_LIMIT_MIN = 5
+const GAME_LIMIT_MIN = 6
 const canOpenGameTab = computed(() => limit.value >= GAME_LIMIT_MIN)
 function openTab(t: 'room' | 'game') {
   if (t === 'game' && !canOpenGameTab.value) return
@@ -635,8 +635,10 @@ onBeforeUnmount(() => {
               background-color: $graphite;
               span {
                 position: relative;
-                font-size: 14px;
+                width: 100%;
                 color: $fg;
+                font-size: 14px;
+                text-align: center;
                 transition: color 0.25s ease-in-out;
               }
             }

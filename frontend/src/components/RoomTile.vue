@@ -14,6 +14,7 @@
     <div v-show="!showVideo" class="ava-wrap">
       <img v-if="isDead(id) && deadAvatar" :src="deadAvatar" alt="dead" />
       <img v-else-if="offline && offlineAvatar" :src="offlineAvatar" alt="offline" />
+      <img v-else-if="hiddenByVisibility && visibilityHiddenAvatar" :src="visibilityHiddenAvatar" alt="hidden" />
       <img v-else class="avatar" v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar, lazy: false }" alt="avatar" />
     </div>
 
@@ -96,6 +97,8 @@ const props = withDefaults(defineProps<{
   rolePickOwnerId?: string
   rolePickRemainingMs?: number
   gameRole?: string
+  hiddenByVisibility?: boolean
+  visibilityHiddenAvatar?: string
 }>(), {
   side: false,
   fitContain: false,
@@ -106,6 +109,8 @@ const props = withDefaults(defineProps<{
   seatIcon: null,
   offline: false,
   offlineAvatar: '',
+  hiddenByVisibility: false,
+  visibilityHiddenAvatar: '',
 })
 
 defineEmits<{
@@ -116,6 +121,7 @@ defineEmits<{
 }>()
 
 const showVideo = computed(() =>
+  !props.hiddenByVisibility &&
   !props.offline &&
   !props.isDead(props.id) &&
   props.isOn(props.id, 'cam') &&

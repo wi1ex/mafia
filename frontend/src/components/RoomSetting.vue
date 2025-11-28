@@ -280,8 +280,10 @@ onBeforeUnmount(() => {
             background-color: $graphite;
             span {
               position: relative;
-              font-size: 14px;
+              width: 100%;
               color: $fg;
+              font-size: 14px;
+              text-align: center;
               transition: color 0.25s ease-in-out;
             }
           }
