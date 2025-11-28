@@ -405,7 +405,7 @@ const canClickCard = (n: number) =>
   !takenCardSet.value.has(n)
 const gameRolesByUser = reactive(new Map<string, GameRoleKind>())
 const rolesVisibleForHead = ref(false)
-const ROLE_PICK_LATENCY_MS = 750
+const ROLE_PICK_LATENCY_MS = 1500
 const rolePick = reactive({
   activeUserId: '',
   order: [] as string[],
