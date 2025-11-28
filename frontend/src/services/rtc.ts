@@ -90,6 +90,7 @@ export type UseRTC = {
   setUserVolume: (id: string, v: number) => void
   getUserVolume: (id: string) => number
   resumeAudio: () => Promise<void>
+  autoplayUnlocked: Ref<boolean>
   cleanupPeer: (id: string) => void
 }
 
@@ -246,14 +247,16 @@ export function useRTC(): UseRTC {
     return v
   }
   let resumeBusy = false
+  const autoplayUnlocked = ref(false)
   async function resumeAudio() {
     if (resumeBusy) return
     resumeBusy = true
     try {
       if (audioCtx && audioCtx.state !== 'running') { await audioCtx.resume() }
-      const plays = []
+      const plays: Promise<unknown>[] = []
       for (const a of audioEls.values()) plays.push(a.play().catch(() => {}))
       await Promise.allSettled(plays)
+      autoplayUnlocked.value = true
     } finally {
       queueMicrotask(() => { resumeBusy = false })
     }

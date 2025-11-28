@@ -115,7 +115,7 @@
         </div>
 
         <div v-if="showPermProbe" class="controls">
-          <button class="probe" @click="rtc.probePermissions({ audio: true, video: true })">
+          <button class="probe" @click="onProbeClick">
             Разрешить доступ к камере и микрофону
           </button>
         </div>
@@ -196,6 +196,9 @@
           </div>
         </div>
       </Transition>
+      <div v-if="mediaGateVisible" class="reconnect-overlay" @click.stop="onMediaGateClick">
+        Нажмите для продолжения
+      </div>
     </template>
     <div class="role-preload" aria-hidden="true">
       <img v-for="src in ROLE_CARD_IMAGES" :key="src" :src="src" alt="" loading="eager" />
@@ -346,6 +349,7 @@ const leaving = ref(false)
 const netReconnecting = ref(false)
 const lkReconnecting = computed(() => rtc.reconnecting.value)
 const isReconnecting = computed(() => netReconnecting.value || lkReconnecting.value)
+const needInitialMediaUnlock = ref(false)
 const openApps = ref(false)
 const appsCounts = reactive({ total: 0, unread: 0 })
 const isPrivate = ref(false)
@@ -355,6 +359,7 @@ const isMyScreen = computed(() => !!localId.value && screenOwnerId.value === loc
 const streamAudioKey = computed(() => screenOwnerId.value ? rtc.screenKey(screenOwnerId.value) : '')
 const streamVol = computed(() => streamAudioKey.value ? (volUi[streamAudioKey.value] ?? rtc.getUserVolume(streamAudioKey.value)) : 100)
 const fitContainInGrid = computed(() => !isTheater.value && sortedPeerIds.value.length < 3)
+const mediaGateVisible = computed(() => uiReady.value && !isReconnecting.value && needInitialMediaUnlock.value)
 
 const startingGame = ref(false)
 const endingGame = ref(false)
@@ -405,7 +410,7 @@ const canClickCard = (n: number) =>
   !takenCardSet.value.has(n)
 const gameRolesByUser = reactive(new Map<string, GameRoleKind>())
 const rolesVisibleForHead = ref(false)
-const ROLE_PICK_LATENCY_MS = 2000
+const ROLE_PICK_LATENCY_MS = 1500
 const rolePick = reactive({
   activeUserId: '',
   order: [] as string[],
@@ -744,7 +749,12 @@ function ensureOk(resp: Ack, msgByCode: Record<number, string>, netMsg: string):
   return false
 }
 
-const showPermProbe = computed(() => (!rtc.hasAudioInput.value && !rtc.hasVideoInput.value) || !rtc.permProbed.value)
+const showPermProbe = computed(() => !rtc.hasAudioInput.value && !rtc.hasVideoInput.value)
+async function onProbeClick() {
+  try { await rtc.resumeAudio() } catch {}
+  await rtc.probePermissions({ audio: true, video: true })
+}
+
 const sortedPeerIds = computed(() => {
   const idsSet = new Set<string>(peerIds.value)
   if (gamePhase.value !== 'idle') {
@@ -1061,9 +1071,7 @@ function connectSocket() {
     rolePick.order = Array.isArray(p?.order) ? p.order.map((x: any) => String(x)) : []
     rolePick.picked = new Set((p?.picked || []).map((x: any) => String(x)))
     const remainingSec = Number(p?.deadline || 0)
-    const rawMs = remainingSec > 0 ? remainingSec * 1000 : 0
-    // rolePick.remainingMs = Math.max(rawMs - ROLE_PICK_LATENCY_MS, 0)
-    rolePick.remainingMs = rawMs
+    rolePick.remainingMs = remainingSec > 0 ? remainingSec * 1000 : 0
     const takenRaw = Array.isArray(p?.taken_cards) ? p.taken_cards : []
     rolePick.takenCards = takenRaw.map((x: any) => Number(x)).filter((n: number) => Number.isFinite(n) && n > 0)
     syncRoleOverlayWithTurn()
@@ -1503,6 +1511,32 @@ const toggleScreen = async () => {
   } finally { pendingScreen.value = false }
 }
 
+async function onMediaGateClick() {
+  needInitialMediaUnlock.value = false
+  closePanels()
+  try { await rtc.resumeAudio() } catch {}
+  const tasks: Promise<void>[] = []
+  if (camOn.value && !blockedSelf.value.cam) {
+    tasks.push((async () => {
+      const ok = await rtc.enable('videoinput')
+      if (!ok) {
+        camOn.value = false
+        try { await publishState({ cam: false }) } catch {}
+      }
+    })())
+  }
+  if (micOn.value && !blockedSelf.value.mic) {
+    tasks.push((async () => {
+      const ok = await rtc.enable('audioinput')
+      if (!ok) {
+        micOn.value = false
+        try { await publishState({ mic: false }) } catch {}
+      }
+    })())
+  }
+  if (tasks.length) { try { await Promise.all(tasks) } catch {} }
+}
+
 async function onLeave(goHome = true) {
   if (leaving.value) return
   leaving.value = true
@@ -1590,21 +1624,9 @@ onMounted(async () => {
     await rtc.connect(ws_url, j.token, { autoSubscribe: false })
     rtc.setAudioSubscriptionsForAll(local.speakers)
     rtc.setVideoSubscriptionsForAll(local.visibility)
-
-    if (camOn.value && !blockedSelf.value.cam) {
-      const ok = await rtc.enable('videoinput')
-      if (!ok) {
-        camOn.value = false
-        void publishState({ cam: false })
-      }
-    }
-    if (micOn.value && !blockedSelf.value.mic) {
-      const ok = await rtc.enable('audioinput')
-      if (!ok) {
-        micOn.value = false
-        void publishState({ mic: false })
-      }
-    }
+    const wantInitialCam = camOn.value && !blockedSelf.value.cam
+    const wantInitialMic = micOn.value && !blockedSelf.value.mic
+    if (wantInitialCam || wantInitialMic) needInitialMediaUnlock.value = true
 
     const hasLsMirror = rtc.loadLS(rtc.LS.mirror)
     if (hasLsMirror == null) {
