@@ -405,11 +405,11 @@ const canClickCard = (n: number) =>
   !takenCardSet.value.has(n)
 const gameRolesByUser = reactive(new Map<string, GameRoleKind>())
 const rolesVisibleForHead = ref(false)
+const ROLE_PICK_LATENCY_MS = 250
 const rolePick = reactive({
   activeUserId: '',
   order: [] as string[],
   picked: new Set<string>(),
-  deadline: 0,
   takenCards: [] as number[],
   remainingMs: 0,
 })
@@ -498,7 +498,6 @@ function resetRolesUiState() {
   rolePick.activeUserId = ''
   rolePick.order = []
   rolePick.picked = new Set<string>()
-  rolePick.deadline = 0
   rolePick.takenCards = []
   rolePick.remainingMs = 0
   roleOverlayMode.value = 'hidden'
@@ -1062,8 +1061,8 @@ function connectSocket() {
     rolePick.order = Array.isArray(p?.order) ? p.order.map((x: any) => String(x)) : []
     rolePick.picked = new Set((p?.picked || []).map((x: any) => String(x)))
     const remainingSec = Number(p?.deadline || 0)
-    rolePick.deadline = remainingSec
-    rolePick.remainingMs = remainingSec > 0 ? remainingSec * 1000 : 0
+    const rawMs = remainingSec > 0 ? remainingSec * 1000 : 0
+    rolePick.remainingMs = Math.max(rawMs - ROLE_PICK_LATENCY_MS, 0)
     const takenRaw = Array.isArray(p?.taken_cards) ? p.taken_cards : []
     rolePick.takenCards = takenRaw.map((x: any) => Number(x)).filter((n: number) => Number.isFinite(n) && n > 0)
     syncRoleOverlayWithTurn()
@@ -1080,7 +1079,6 @@ function connectSocket() {
       roleOverlayMode.value !== 'pick'
     ) {
       rolePick.activeUserId = ''
-      rolePick.deadline = 0
       rolePick.remainingMs = 0
     }
   })
@@ -1372,15 +1370,14 @@ function applyJoinAck(j: any) {
     rolePick.order = Array.isArray(rp.order) ? rp.order.map((x: any) => String(x)) : []
     rolePick.picked = new Set((rp.picked || []).map((x: any) => String(x)))
     const remainingSec = Number(rp.deadline || 0)
-    rolePick.deadline = remainingSec
-    rolePick.remainingMs = remainingSec > 0 ? remainingSec * 1000 : 0
+    const rawMs = remainingSec > 0 ? remainingSec * 1000 : 0
+    rolePick.remainingMs = Math.max(rawMs - ROLE_PICK_LATENCY_MS, 0)
     const takenRaw = Array.isArray(rp.taken_cards) ? rp.taken_cards : []
     rolePick.takenCards = takenRaw.map((x: any) => Number(x)).filter((n: number) => Number.isFinite(n) && n > 0)
   } else {
     rolePick.activeUserId = ''
     rolePick.order = []
     rolePick.picked = new Set<string>()
-    rolePick.deadline = 0
     rolePick.remainingMs = 0
     rolePick.takenCards = []
   }
