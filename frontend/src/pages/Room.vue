@@ -405,7 +405,7 @@ const canClickCard = (n: number) =>
   !takenCardSet.value.has(n)
 const gameRolesByUser = reactive(new Map<string, GameRoleKind>())
 const rolesVisibleForHead = ref(false)
-const ROLE_PICK_LATENCY_MS = 1500
+const ROLE_PICK_LATENCY_MS = 2000
 const rolePick = reactive({
   activeUserId: '',
   order: [] as string[],
@@ -1062,7 +1062,8 @@ function connectSocket() {
     rolePick.picked = new Set((p?.picked || []).map((x: any) => String(x)))
     const remainingSec = Number(p?.deadline || 0)
     const rawMs = remainingSec > 0 ? remainingSec * 1000 : 0
-    rolePick.remainingMs = Math.max(rawMs - ROLE_PICK_LATENCY_MS, 0)
+    // rolePick.remainingMs = Math.max(rawMs - ROLE_PICK_LATENCY_MS, 0)
+    rolePick.remainingMs = rawMs
     const takenRaw = Array.isArray(p?.taken_cards) ? p.taken_cards : []
     rolePick.takenCards = takenRaw.map((x: any) => Number(x)).filter((n: number) => Number.isFinite(n) && n > 0)
     syncRoleOverlayWithTurn()
