@@ -143,7 +143,7 @@ async def join(sid, data) -> JoinAck:
                     else:
                         ns = dict(st or {})
                         if "visibility" in ns:
-                            ns["visibility"] = "0"
+                            ns["visibility"] = "1"
                         safe_snapshot[uk] = ns
                 snapshot = safe_snapshot
 
@@ -155,7 +155,7 @@ async def join(sid, data) -> JoinAck:
                     else:
                         nb = dict(bl or {})
                         if "visibility" in nb:
-                            nb["visibility"] = "1"
+                            nb["visibility"] = "0"
                         safe_blocked[uk] = nb
                 blocked = safe_blocked
 
