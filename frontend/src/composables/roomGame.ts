@@ -611,7 +611,7 @@ export function useRoomGame(localId: Ref<string>) {
     roleOverlayCard,
     startingGame,
     endingGame,
-
+    mafiaTalk,
     myGameRole,
     myGameRoleKind,
     amIAlive,
@@ -624,7 +624,6 @@ export function useRoomGame(localId: Ref<string>) {
     seatIconForUser,
     canClickCard,
     roleIconForTile,
-
     applyFromJoinAck,
     handleGameStarted,
     handleGameEnded,
@@ -636,7 +635,6 @@ export function useRoomGame(localId: Ref<string>) {
     handleGameRolesState,
     handleGamePhaseChange,
     shouldHighlightMafiaTile,
-
     goToMafiaTalk,
     finishMafiaTalk,
     leaveGame,

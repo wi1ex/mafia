@@ -216,7 +216,7 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { Socket } from 'socket.io-client'
 import { useAuthStore } from '@/store'
-import { useRoomGame, type SendAckFn, type Ack } from '@/composables/roomGame'
+import { useRoomGame, type SendAckFn, type Ack, type GamePhase } from '@/composables/roomGame'
 import { useRTC, type VQ } from '@/composables/rtc'
 import { createAuthedSocket } from '@/services/sio'
 import RoomTile from '@/components/RoomTile.vue'
@@ -850,7 +850,10 @@ function connectSocket() {
   })
 
   socket.value?.on('game_phase_change', (p: any) => {
+    const prevPhase = gamePhase.value as GamePhase
     game.handleGamePhaseChange(p)
+    const to = (p?.to ? String(p.to) : gamePhase.value) as GamePhase
+    handleGamePhaseChangeUi(prevPhase, to)
   })
 }
 
@@ -931,6 +934,36 @@ async function restoreAfterGameEnd() {
   if (!visibilityOn.value) await toggleVisibility()
   if (!micOn.value) await toggleMic()
   if (!camOn.value) await toggleCam()
+}
+
+async function applyMafiaTalkStartForLocal(): Promise<void> {
+  const roleKind = myGameRoleKind.value
+  if (roleKind !== 'mafia' && roleKind !== 'don') return
+  if (visibilityOn.value) return
+  if (blockedSelf.value.visibility) return
+  try {
+    await toggleVisibility()
+  } catch {}
+}
+
+async function applyMafiaTalkEndForLocal(): Promise<void> {
+  const roleKind = myGameRoleKind.value
+  if (roleKind !== 'mafia' && roleKind !== 'don') return
+  if (!visibilityOn.value) return
+  if (blockedSelf.value.visibility) return
+  try {
+    await toggleVisibility()
+  } catch {}
+}
+
+function handleGamePhaseChangeUi(prev: GamePhase, next: GamePhase): void {
+  if (prev === 'roles_pick' && next === 'mafia_talk') {
+    void applyMafiaTalkStartForLocal()
+    return
+  }
+  if (prev === 'mafia_talk' && next === 'day') {
+    void applyMafiaTalkEndForLocal()
+  }
 }
 
 function applyJoinAck(j: any) {
