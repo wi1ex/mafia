@@ -131,7 +131,7 @@
           <button v-if="gamePhase === 'roles_pick' && myGameRole === 'head' && rolesVisibleForHead" @click="goToMafiaTalkUi" aria-label="Перейти к договорке">
             <img :src="iconTalkMafia" alt="next-phase" />
           </button>
-          <button v-if="gamePhase === 'mafia_talk' && myGameRole === 'head' && mafiaTalkRemainingMs <= 0" @click="finishMafiaTalkUi" aria-label="Завершить договорку">
+          <button v-if="gamePhase === 'mafia_talk_start' && myGameRole === 'head' && mafiaTalkRemainingMs <= 0" @click="finishMafiaTalkUi" aria-label="Завершить договорку">
             <img :src="iconTalkMafia" alt="finish-mafia-talk" />
           </button>
 
@@ -957,11 +957,11 @@ async function applyMafiaTalkEndForLocal(): Promise<void> {
 }
 
 function handleGamePhaseChangeUi(prev: GamePhase, next: GamePhase): void {
-  if (prev === 'roles_pick' && next === 'mafia_talk') {
+  if (prev === 'roles_pick' && next === 'mafia_talk_start') {
     void applyMafiaTalkStartForLocal()
     return
   }
-  if (prev === 'mafia_talk' && next === 'day') {
+  if (prev === 'mafia_talk_start' && next === 'mafia_talk_end') {
     void applyMafiaTalkEndForLocal()
   }
 }

@@ -370,7 +370,7 @@ async def moderate(sid, data) -> ModerateAck:
         applied, forced_off = await update_blocks(r, rid, actor_uid, actor_role, target, norm)
         if "__error__" in forced_off:
             err = forced_off["__error__"]
-            return {"ok": False, "error": err, "status": 404 if err == "user_not_in_room" else 403}
+            return {"ok": False, "error": err, "status": 403}
 
         if forced_off:
             await sio.emit("state_changed",
@@ -917,7 +917,7 @@ async def game_phase_next(sid, data):
         if want_from and want_from != cur_phase:
             return {"ok": False, "error": "bad_phase_from", "status": 400}
 
-        if cur_phase == "roles_pick" and want_to == "mafia_talk":
+        if cur_phase == "roles_pick" and want_to == "mafia_talk_start":
             roles_done = str(raw_gstate.get("roles_done") or "0") == "1"
             if not roles_done:
                 return {"ok": False, "error": "roles_not_done", "status": 400}
@@ -974,7 +974,7 @@ async def game_phase_next(sid, data):
                 await p.hset(
                     f"room:{rid}:game_state",
                     mapping={
-                        "phase": "mafia_talk",
+                        "phase": "mafia_talk_start",
                         "mafia_talk_started": str(now_ts),
                         "mafia_talk_duration": str(duration),
                     },
@@ -987,21 +987,21 @@ async def game_phase_next(sid, data):
                 "status": 200,
                 "room_id": rid,
                 "from": cur_phase,
-                "to": "mafia_talk",
-                "mafia_talk": {"deadline": remaining},
+                "to": "mafia_talk_start",
+                "mafia_talk_start": {"deadline": remaining},
             }
 
             await sio.emit("game_phase_change",
                            {"room_id": rid,
                             "from": cur_phase,
-                            "to": "mafia_talk",
-                            "mafia_talk": {"deadline": remaining}},
+                            "to": "mafia_talk_start",
+                            "mafia_talk_start": {"deadline": remaining}},
                            room=f"room:{rid}",
                            namespace="/room")
 
             return payload
 
-        if cur_phase == "mafia_talk" and want_to == "day":
+        if cur_phase == "mafia_talk_start" and want_to == "mafia_talk_end":
             raw_roles = await r.hgetall(f"room:{rid}:game_roles")
             roles_map: dict[int, str] = {}
             for k, v in (raw_roles or {}).items():
@@ -1054,7 +1054,7 @@ async def game_phase_next(sid, data):
                                    namespace="/room")
 
             async with r.pipeline() as p:
-                await p.hset(f"room:{rid}:game_state", mapping={"phase": "day"})
+                await p.hset(f"room:{rid}:game_state", mapping={"phase": "mafia_talk_end"})
                 await p.hdel(f"room:{rid}:game_state", "mafia_talk_started", "mafia_talk_duration")
                 await p.execute()
 
@@ -1063,13 +1063,13 @@ async def game_phase_next(sid, data):
                 "status": 200,
                 "room_id": rid,
                 "from": cur_phase,
-                "to": "day",
+                "to": "mafia_talk_end",
             }
 
             await sio.emit("game_phase_change",
                            {"room_id": rid,
                             "from": cur_phase,
-                            "to": "day"},
+                            "to": "mafia_talk_end"},
                            room=f"room:{rid}",
                            namespace="/room")
 
@@ -1129,8 +1129,10 @@ async def game_end(sid, data):
             except Exception:
                 log.exception("sio.game_end.auto_unblock_failed", rid=rid, head=head_uid, target=target_uid)
                 continue
+
             if "__error__" in forced_off:
                 continue
+
             if applied:
                 row = await r.hgetall(f"room:{rid}:user:{target_uid}:block")
                 full = {k: ("1" if (row or {}).get(k) == "1" else "0") for k in KEYS_BLOCK}

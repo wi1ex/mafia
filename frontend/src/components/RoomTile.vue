@@ -24,8 +24,7 @@
         <img v-if="seat != null && seatIcon" class="user-slot" :src="seatIcon" alt="seat" />
         <img class="user-avatar" v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar, lazy: false }" alt="avatar" />
         <span>{{ userName(id) }}</span>
-<!--        <div class="status" v-if="!inGame || isGameHead">-->
-        <div class="status">
+        <div class="status" v-if="!inGame || isGameHead">
           <img v-if="isBlocked(id,'mic') || !isOn(id,'mic')" :src="stateIcon('mic', id)" alt="mic" />
           <img v-if="isBlocked(id,'cam') || !isOn(id,'cam')" :src="stateIcon('cam', id)" alt="cam" />
           <img v-if="isBlocked(id,'speakers') || !isOn(id,'speakers')" :src="stateIcon('speakers', id)" alt="spk" />

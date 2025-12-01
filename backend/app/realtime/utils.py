@@ -371,9 +371,6 @@ async def get_profiles_snapshot(r, rid: int) -> dict[str, dict[str, str | None]]
 
 
 async def update_blocks(r, rid: int, actor_uid: int, actor_role: str, target_uid: int, changes_bool: Mapping[str, Any]) -> tuple[Dict[str, str], Dict[str, str]]:
-    if not await r.sismember(f"room:{rid}:members", str(target_uid)):
-        return {}, {"__error__": "user_not_in_room"}
-
     role = await r.hget(f"room:{rid}:user:{target_uid}:info", "role")
     target_role = str(role or "user")
     if actor_uid == target_uid:
@@ -1056,7 +1053,7 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
                 "taken_cards": taken_cards,
             }
 
-    if phase == "mafia_talk":
+    if phase == "mafia_talk_start":
         try:
             mafia_started = int(raw_gstate.get("mafia_talk_started") or 0)
         except Exception:
@@ -1069,7 +1066,7 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
         if mafia_started and mafia_duration > 0:
             now_ts = int(time())
             remaining = max(mafia_started + mafia_duration - now_ts, 0)
-            game_runtime["mafia_talk"] = {"deadline": remaining}
+            game_runtime["mafia_talk_start"] = {"deadline": remaining}
 
     roles_map = {str(k): str(v) for k, v in (raw_roles or {}).items()}
     my_game_role = roles_map.get(str(uid))

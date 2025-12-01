@@ -22,7 +22,7 @@ import iconSlot8 from '@/assets/svg/slot8.svg'
 import iconSlot9 from '@/assets/svg/slot9.svg'
 import iconSlot0 from '@/assets/svg/slot10.svg'
 
-export type GamePhase = 'idle' | 'roles_pick' | 'mafia_talk' | 'day' | 'night'
+export type GamePhase = 'idle' | 'roles_pick' | 'mafia_talk_start' | 'mafia_talk_end' | 'day' | 'night'
 export type GameRoleKind = 'citizen' | 'mafia' | 'don' | 'sheriff'
 
 export type Ack = {
@@ -65,7 +65,7 @@ const ROLE_BADGE_ICONS: Record<GameRoleKind, string> = {
 }
 
 const ALL_ROLE_CARDS = Array.from({ length: 10 }, (_, i) => i + 1)
-const ROLE_PICK_LATENCY_MS = 1500
+const LATENCY_MS = 1500
 
 export function useRoomGame(localId: Ref<string>) {
   const gamePhase = ref<GamePhase>('idle')
@@ -280,7 +280,7 @@ export function useRoomGame(localId: Ref<string>) {
       rolePick.picked = new Set((rp.picked || []).map((x: any) => String(x)))
       const remainingSec = Number(rp.deadline || 0)
       const rawMs = remainingSec > 0 ? remainingSec * 1000 : 0
-      rolePick.remainingMs = Math.max(rawMs - ROLE_PICK_LATENCY_MS, 0)
+      rolePick.remainingMs = Math.max(rawMs - LATENCY_MS, 0)
       rolePick.takenCards = normalizeCards(rp.taken_cards)
     } else {
       rolePick.activeUserId = ''
@@ -290,8 +290,8 @@ export function useRoomGame(localId: Ref<string>) {
       rolePick.takenCards = []
     }
 
-    const mt = (gr as any).mafia_talk
-    if (phase === 'mafia_talk' && mt && typeof mt === 'object') {
+    const mt = (gr as any).mafia_talk_start
+    if (phase === 'mafia_talk_start' && mt && typeof mt === 'object') {
       const remainingSec = Number(mt.deadline || 0)
       const rawMs = remainingSec > 0 ? remainingSec * 1000 : 0
       setMafiaTalkRemainingMs(rawMs)
@@ -416,7 +416,7 @@ export function useRoomGame(localId: Ref<string>) {
   watch(() => [rolePick.activeUserId, localId.value, myGameRoleKind.value, gamePhase.value], () => { syncRoleOverlayWithTurn() })
 
   async function goToMafiaTalk(sendAck: SendAckFn): Promise<void> {
-    const resp = await sendAck('game_phase_next', { from: 'roles_pick', to: 'mafia_talk' })
+    const resp = await sendAck('game_phase_next', { from: 'roles_pick', to: 'mafia_talk_start' })
     if (!resp?.ok) {
       alert('Не удалось перейти к договорке')
       return
@@ -424,7 +424,7 @@ export function useRoomGame(localId: Ref<string>) {
   }
 
   function setMafiaTalkRemainingMs(ms: number) {
-    const safe = Math.max(ms, 0)
+    const safe = Math.max(ms - LATENCY_MS, 0)
     mafiaTalk.remainingMs = safe
     if (mafiaTalkTimerId.value != null) {
       clearTimeout(mafiaTalkTimerId.value)
@@ -441,8 +441,8 @@ export function useRoomGame(localId: Ref<string>) {
   function handleGamePhaseChange(p: any) {
     const to = String(p?.to || '') as GamePhase
     gamePhase.value = to
-    if (to === 'mafia_talk') {
-      const mt = p?.mafia_talk
+    if (to === 'mafia_talk_start') {
+      const mt = p?.mafia_talk_start
       const remainingSec = Number(mt?.deadline || 0)
       const ms = remainingSec > 0 ? remainingSec * 1000 : 0
       setMafiaTalkRemainingMs(ms)
@@ -452,7 +452,7 @@ export function useRoomGame(localId: Ref<string>) {
   }
 
   async function finishMafiaTalk(sendAck: SendAckFn): Promise<void> {
-    const resp = await sendAck('game_phase_next', { from: 'mafia_talk', to: 'day' })
+    const resp = await sendAck('game_phase_next', { from: 'mafia_talk_start', to: 'mafia_talk_end' })
     if (!resp?.ok) {
       alert('Не удалось завершить договорку')
       return
@@ -579,7 +579,7 @@ export function useRoomGame(localId: Ref<string>) {
   }
 
   function shouldHighlightMafiaTile(id: string): boolean {
-    if (gamePhase.value !== 'mafia_talk') return false
+    if (gamePhase.value !== 'mafia_talk_start') return false
     const role = gameRolesByUser.get(id)
     if (!role) return false
     if (role !== 'mafia' && role !== 'don') return false
