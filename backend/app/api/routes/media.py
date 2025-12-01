@@ -1,11 +1,11 @@
 from __future__ import annotations
-import re
 import time
 from contextlib import suppress
 from fastapi import APIRouter, HTTPException, Query
 from ...core.clients import get_redis
 from ...core.decorators import log_route
 from ...services.storage_minio import presign_key
+from ..utils import validate_object_key_for_presign
 
 router = APIRouter()
 
@@ -13,17 +13,7 @@ router = APIRouter()
 @log_route("media.presign")
 @router.get("/presign")
 async def presign(key: str = Query(..., description="")) -> dict:
-    ALLOWED_PREFIXES = ("avatars/",)
-    KEY_RE = re.compile(r"^[a-zA-Z0-9._/-]{3,256}$")
-
-    if not key or not KEY_RE.match(key):
-        raise HTTPException(status_code=400, detail="bad_key")
-
-    if not any(key.startswith(p) for p in ALLOWED_PREFIXES):
-        raise HTTPException(status_code=403, detail="forbidden_prefix")
-
-    if ".." in key or "//" in key or key.endswith("/"):
-        raise HTTPException(status_code=400, detail="bad_key")
+    validate_object_key_for_presign(key)
 
     r = get_redis()
     now = int(time.time())

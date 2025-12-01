@@ -79,7 +79,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
-import type { VQ } from '@/services/rtc'
+import type { VQ } from '@/composables/rtc'
 
 import iconClose from '@/assets/svg/close.svg'
 import iconReady from '@/assets/svg/ready.svg'

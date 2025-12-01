@@ -1,8 +1,12 @@
 <template>
   <section class="room">
-    <div v-if="isReconnecting" class="reconnect-overlay" aria-live="polite">Восстанавливаем соединение…</div>
+    <div v-if="isReconnecting" class="reconnect-overlay" aria-live="polite">
+      Восстанавливаем соединение…
+    </div>
 
-    <div v-else-if="!uiReady" class="reconnect-overlay" aria-live="polite">Загрузка комнаты…</div>
+    <div v-else-if="!uiReady" class="reconnect-overlay" aria-live="polite">
+      Загрузка комнаты…
+    </div>
 
     <template v-else>
       <div v-if="!isTheater" class="grid" :style="gridStyle">
@@ -28,16 +32,16 @@
           :open-panel-for="openPanelFor"
           :vol="volUi[id] ?? rtc.getUserVolume(id)"
           :is-mirrored="isMirrored"
-          :show-states="gamePhase === 'idle' || game.isGameHead(id)"
-          :is-dead="game.isDead"
+          :show-states="gamePhase === 'idle' || isGameHead(id)"
+          :is-dead="isDead"
           :dead-avatar="iconKillPlayer"
-          :seat="game.seatIndex(id)"
-          :seat-icon="game.seatIconForUser(id)"
+          :seat="seatIndex(id)"
+          :seat-icon="seatIconForUser(id)"
           :offline="offlineInGame.has(id)"
           :offline-avatar="iconLowSignal"
           :role-pick-owner-id="rolePick.activeUserId"
           :role-pick-remaining-ms="rolePick.remainingMs"
-          :game-role="game.roleIconForTile(id)"
+          :game-role="roleIconForTile(id)"
           :hidden-by-visibility="hiddenByVisibility(id)"
           :visibility-hidden-avatar="visOffAvatar(id)"
           @toggle-panel="toggleTilePanel"
@@ -80,16 +84,16 @@
             :is-ready="isReady"
             :vol="volUi[id] ?? rtc.getUserVolume(id)"
             :is-mirrored="isMirrored"
-            :show-states="gamePhase === 'idle' || game.isGameHead(id)"
-            :is-dead="game.isDead"
+            :show-states="gamePhase === 'idle' || isGameHead(id)"
+            :is-dead="isDead"
             :dead-avatar="iconKillPlayer"
-            :seat="game.seatIndex(id)"
-            :seat-icon="game.seatIconForUser(id)"
+            :seat="seatIndex(id)"
+            :seat-icon="seatIconForUser(id)"
             :offline="offlineInGame.has(id)"
             :offline-avatar="iconLowSignal"
             :role-pick-owner-id="rolePick.activeUserId"
             :role-pick-remaining-ms="rolePick.remainingMs"
-            :game-role="game.roleIconForTile(id)"
+            :game-role="roleIconForTile(id)"
             :hidden-by-visibility="hiddenByVisibility(id)"
             :visibility-hidden-avatar="visOffAvatar(id)"
             @toggle-panel="toggleTilePanel"
@@ -105,22 +109,24 @@
           <button @click="onLeave" aria-label="Покинуть комнату">
             <img :src="iconLeaveRoom" alt="leave" />
           </button>
-          <button v-if="gamePhase !== 'idle' && myGameRole === 'head'" @click="endGameUi" :disabled="endingGame" aria-label="Завершить игру">
+          <button v-if="gamePhase !== 'idle' && myGameRole === 'head'" @click="endGame" :disabled="endingGame" aria-label="Завершить игру">
             <img :src="iconGameStop" alt="end-game" />
           </button>
-          <button v-if="gamePhase !== 'idle' && myGameRole === 'player' && amIAlive" @click="leaveGameUi" aria-label="Выйти из игры">
+          <button v-if="gamePhase !== 'idle' && myGameRole === 'player' && amIAlive" @click="leaveGame" aria-label="Выйти из игры">
             <img :src="iconKillPlayer" alt="leave-game" />
           </button>
         </div>
 
         <div v-if="showPermProbe" class="controls">
-          <button class="probe" @click="onProbeClick">Разрешить доступ к камере и микрофону</button>
+          <button class="probe" @click="onProbeClick">
+            Разрешить доступ к камере и микрофону
+          </button>
         </div>
         <div v-else class="controls">
-          <button v-if="gamePhase === 'roles_pick' && myGameRole === 'head' && rolesVisibleForHead" @click="goToMafiaTalkUi" aria-label="Перейти к договорке">
+          <button v-if="gamePhase === 'roles_pick' && myGameRole === 'head' && rolesVisibleForHead" @click="goToMafiaTalk" aria-label="Перейти к договорке">
             <img :src="iconTalkMafia" alt="next-phase" />
           </button>
-          <button v-if="gamePhase === 'idle' && canShowStartGame" @click="startGameUi" :disabled="startingGame" aria-label="Запустить игру">
+          <button v-if="gamePhase === 'idle' && canShowStartGame" @click="startGame" :disabled="startingGame" aria-label="Запустить игру">
             <img :src="iconGameStart" alt="start" />
           </button>
           <button v-if="gamePhase === 'idle' && !canShowStartGame" @click="toggleReady" :aria-pressed="readyOn" aria-label="Готовность">
@@ -146,7 +152,9 @@
         <div class="controls-side right">
           <button v-if="myRole === 'host' && isPrivate && gamePhase === 'idle'" @click.stop="toggleApps" :aria-expanded="openApps" aria-label="Заявки">
             <img :src="iconRequestsRoom" alt="requests" />
-            <span class="count-total" :class="{ unread: appsCounts.unread > 0 }">{{ appsCounts.total < 100 ? appsCounts.total : '∞' }}</span>
+            <span class="count-total" :class="{ unread: appsCounts.unread > 0 }">
+              {{ appsCounts.total < 100 ? appsCounts.total : '∞' }}
+            </span>
           </button>
           <button @click.stop="toggleSettings" :aria-expanded="settingsOpen" aria-label="Настройки устройств">
             <img :src="iconSettings" alt="settings" />
@@ -177,7 +185,7 @@
       <Transition name="role-overlay-fade">
         <div v-if="gamePhase === 'roles_pick' && roleOverlayMode !== 'hidden' && (roleOverlayMode === 'reveal' || rolePick.activeUserId === localId)" class="role-overlay">
           <div class="role-overlay-inner">
-            <button v-for="n in roleCardsToRender" :key="n" class="role-card" @click="game.canClickCard(n) && pickRoleCardUi(n)" :disabled="!game.canClickCard(n)"
+            <button v-for="n in roleCardsToRender" :key="n" class="role-card" @click="canClickCard(n) && pickRoleCard(n)" :disabled="!canClickCard(n)"
               :class="{ 'is-revealed': roleOverlayMode === 'reveal' && roleOverlayCard === n && myGameRoleKind, 'is-taken': takenCardSet.has(n) }">
               <div class="role-card-inner">
                 <div class="role-card-face back">
@@ -191,7 +199,9 @@
           </div>
         </div>
       </Transition>
-      <div v-if="mediaGateVisible" class="reconnect-overlay media-gate" @click.stop="onMediaGateClick">Нажмите чтобы продолжить…</div>
+      <div v-if="mediaGateVisible" class="reconnect-overlay media-gate" @click.stop="onMediaGateClick">
+        Нажмите чтобы продолжить
+      </div>
     </template>
     <div class="role-preload" aria-hidden="true">
       <img v-for="src in ROLE_CARD_IMAGES" :key="src" :src="src" alt="" loading="eager" />
@@ -204,7 +214,6 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { Socket } from 'socket.io-client'
 import { useAuthStore } from '@/store'
-import { useRoomGame, type SendAckFn, type Ack } from '@/composables/roomGame'
 import { useRTC, type VQ } from '@/composables/rtc'
 import { createAuthedSocket } from '@/services/sio'
 import RoomTile from '@/components/RoomTile.vue'
@@ -212,23 +221,14 @@ import RoomSetting from '@/components/RoomSetting.vue'
 import RoomRequests from '@/components/RoomRequests.vue'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
-import iconVolumeMax from '@/assets/svg/volumeMax.svg'
-import iconVolumeMid from '@/assets/svg/volumeMid.svg'
-import iconVolumeLow from '@/assets/svg/volumeLow.svg'
-import iconVolumeMute from '@/assets/svg/volumeMute.svg'
-
 import iconClose from '@/assets/svg/close.svg'
 import iconLeaveRoom from '@/assets/svg/leave.svg'
 import iconSettings from '@/assets/svg/settings.svg'
 import iconRequestsRoom from '@/assets/svg/requestsRoom.svg'
-import iconReady from '@/assets/svg/ready.svg'
-import iconGameStart from '@/assets/svg/gameStart.svg'
-import iconTalkMafia from '@/assets/svg/talkMafia.svg'
-import iconGameStop from '@/assets/svg/gameStop.svg'
-import iconCardBack from '@/assets/images/cardBack.png'
-import iconLowSignal from '@/assets/svg/lowSignal.svg'
-import iconKillPlayer from '@/assets/svg/killPlayer.svg'
-import iconSleepPlayer from '@/assets/svg/sleepPlayer.svg'
+import iconVolumeMax from '@/assets/svg/volumeMax.svg'
+import iconVolumeMid from '@/assets/svg/volumeMid.svg'
+import iconVolumeLow from '@/assets/svg/volumeLow.svg'
+import iconVolumeMute from '@/assets/svg/volumeMute.svg'
 
 import iconMicOn from '@/assets/svg/micOn.svg'
 import iconMicOff from '@/assets/svg/micOff.svg'
@@ -246,6 +246,36 @@ import iconScreenOn from '@/assets/svg/screenOn.svg'
 import iconScreenOff from '@/assets/svg/screenOff.svg'
 import iconScreenBlocked from '@/assets/svg/screenBlocked.svg'
 
+import iconReady from '@/assets/svg/ready.svg'
+import iconLowSignal from '@/assets/svg/lowSignal.svg'
+import iconKillPlayer from '@/assets/svg/killPlayer.svg'
+import iconSleepPlayer from '@/assets/svg/sleepPlayer.svg'
+import iconGameStart from '@/assets/svg/gameStart.svg'
+import iconTalkMafia from '@/assets/svg/talkMafia.svg'
+import iconGameStop from '@/assets/svg/gameStop.svg'
+
+import iconRoleCitizen from '@/assets/images/roleCitizen.png'
+import iconRoleMafia from '@/assets/images/roleMafia.png'
+import iconRoleDon from '@/assets/images/roleDon.png'
+import iconRoleSheriff from '@/assets/images/roleSheriff.png'
+import iconCardBack from '@/assets/images/cardBack.png'
+import iconCardCitizen from '@/assets/images/cardCitizen.png'
+import iconCardMafia from '@/assets/images/cardMafia.png'
+import iconCardDon from '@/assets/images/cardDon.png'
+import iconCardSheriff from '@/assets/images/cardSheriff.png'
+
+import iconSlotHead from '@/assets/svg/slotHead.svg'
+import iconSlot1 from '@/assets/svg/slot1.svg'
+import iconSlot2 from '@/assets/svg/slot2.svg'
+import iconSlot3 from '@/assets/svg/slot3.svg'
+import iconSlot4 from '@/assets/svg/slot4.svg'
+import iconSlot5 from '@/assets/svg/slot5.svg'
+import iconSlot6 from '@/assets/svg/slot6.svg'
+import iconSlot7 from '@/assets/svg/slot7.svg'
+import iconSlot8 from '@/assets/svg/slot8.svg'
+import iconSlot9 from '@/assets/svg/slot9.svg'
+import iconSlot0 from '@/assets/svg/slot10.svg'
+
 type State01 = 0 | 1
 type StatusState = {
   mic: State01
@@ -257,22 +287,44 @@ type StatusState = {
 }
 type BlockState = StatusState & { screen: State01 }
 type IconKind = keyof StatusState | 'screen'
+type GameRoleKind = 'citizen' | 'mafia' | 'don' | 'sheriff'
 
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
-
 const rtc = useRTC()
 const { localId, mics, cams, selectedMicId, selectedCamId, peerIds } = rtc
-
-const game = useRoomGame(localId)
-const { GAME_COLUMN_INDEX, GAME_ROW_INDEX, ROLE_IMAGES, ROLE_CARD_IMAGES,
-  gamePhase, minReadyToStart, seatsByUser, offlineInGame, rolesVisibleForHead, rolePick, roleOverlayMode, roleOverlayCard,
-  startingGame, endingGame, myGameRole, myGameRoleKind, amIAlive, takenCardSet, roleCardsToRender } = game
 
 const UA = navigator.userAgent || ''
 const IS_MOBILE = (navigator as any).userAgentData?.mobile === true || /Android|iPhone|iPad|iPod|Mobile/i.test(UA)
   || (window.matchMedia?.('(pointer: coarse)').matches && /Android|iPhone|iPad|iPod|Mobile|Tablet|Touch/i.test(UA))
+
+const GAME_COLUMN_INDEX: Record<number, number> = {
+  1: 5, 2: 7, 3: 7, 4: 7, 5: 5, 6: 3, 7: 1, 8: 1, 9: 1, 10: 3, 11: 4,
+}
+const GAME_ROW_INDEX: Record<number, number> = {
+  1: 1, 2: 1, 3: 3, 4: 5, 5: 5, 6: 5, 7: 5, 8: 3, 9: 1, 10: 1, 11: 3,
+}
+
+const ROLE_CARD_IMAGES = [
+  iconCardBack,
+  iconCardCitizen,
+  iconCardMafia,
+  iconCardDon,
+  iconCardSheriff,
+]
+const ROLE_IMAGES: Record<GameRoleKind, string> = {
+  citizen: iconCardCitizen,
+  mafia:   iconCardMafia,
+  don:     iconCardDon,
+  sheriff: iconCardSheriff,
+}
+const ROLE_BADGE_ICONS: Record<GameRoleKind, string> = {
+  citizen: iconRoleCitizen,
+  mafia:   iconRoleMafia,
+  don:     iconRoleDon,
+  sheriff: iconRoleSheriff,
+}
 
 const rid = Number(route.params.id)
 const local = reactive({ mic: false, cam: false, speakers: true, visibility: true })
@@ -313,12 +365,50 @@ const streamVol = computed(() => streamAudioKey.value ? (volUi[streamAudioKey.va
 const fitContainInGrid = computed(() => !isTheater.value && sortedPeerIds.value.length < 3)
 const mediaGateVisible = computed(() => uiReady.value && !isReconnecting.value && needInitialMediaUnlock.value)
 
+const startingGame = ref(false)
+const endingGame = ref(false)
+const minReadyToStart = ref<number>(5)
+const gamePhase = ref<'idle' | 'roles_pick' | 'mafia_talk' | 'day' | 'night'>('idle')
+const seatsByUser = reactive<Record<string, number>>({})
+const isGameHead = (id: string) => seatsByUser[id] === 11
+const isDead = (id: string) => {
+  if (gamePhase.value === 'idle') return false
+  const seat = seatsByUser[id]
+  if (!seat || seat === 11) return false
+  return !gameAlive.has(id)
+}
+const seatIndex = (id: string): number | null => {
+  const s = seatsByUser[id]
+  return Number.isFinite(s) && s > 0 ? s : null
+}
+function seatIconBySeat(seat: number | null | undefined): string {
+  if (!seat) return ''
+  switch (seat) {
+    case 11: return iconSlotHead
+    case 1:  return iconSlot1
+    case 2:  return iconSlot2
+    case 3:  return iconSlot3
+    case 4:  return iconSlot4
+    case 5:  return iconSlot5
+    case 6:  return iconSlot6
+    case 7:  return iconSlot7
+    case 8:  return iconSlot8
+    case 9:  return iconSlot9
+    case 10: return iconSlot0
+    default: return ''
+  }
+}
+function seatIconForUser(id: string): string {
+  if (gamePhase.value === 'idle') return ''
+  const s = seatIndex(id)
+  return seatIconBySeat(s)
+}
 function hiddenByVisibility(id: string): boolean {
   if (id === localId.value) return false
   if (visibilityOn.value) return false
   if (gamePhase.value !== 'idle') {
     if (offlineInGame.has(id)) return false
-    if (game.isDead(id)) return false
+    if (isDead(id)) return false
   }
   return true
 }
@@ -327,6 +417,87 @@ function visOffAvatar(id: string): string {
   return gamePhase.value === 'idle' ? iconVisOff : iconSleepPlayer
 }
 
+const ALL_ROLE_CARDS = Array.from({ length: 10 }, (_, i) => i + 1)
+const takenCardSet = computed(() => new Set(rolePick.takenCards))
+const roleCardsToRender = computed(() => ALL_ROLE_CARDS)
+const canClickCard = (n: number) =>
+  roleOverlayMode.value === 'pick' &&
+  !pickingRole.value &&
+  !rolePick.picked.has(localId.value!) &&
+  !takenCardSet.value.has(n)
+const gameRolesByUser = reactive(new Map<string, GameRoleKind>())
+const rolesVisibleForHead = ref(false)
+const ROLE_PICK_LATENCY_MS = 1500
+const rolePick = reactive({
+  activeUserId: '',
+  order: [] as string[],
+  picked: new Set<string>(),
+  takenCards: [] as number[],
+  remainingMs: 0,
+})
+const roleOverlayMode = ref<'hidden' | 'pick' | 'reveal'>('hidden')
+const roleOverlayCard = ref<number | null>(null)
+const roleOverlayTimerId = ref<number | null>(null)
+const pickingRole = ref(false)
+const myGameRoleKind = computed<GameRoleKind | null>(() => {
+  const id = localId.value
+  if (!id) return null
+  return gameRolesByUser.get(id) ?? null
+})
+
+function roleVisibleOnTile(id: string): boolean {
+  const role = gameRolesByUser.get(id)
+  if (!role) return false
+  const me = localId.value
+  if (!me) return false
+  const myRole = gameRolesByUser.get(me)
+  const isSelf = id === me
+  const isHead = myGameRole.value === 'head'
+  if (isSelf) return true
+  if (isHead && rolesVisibleForHead.value) return true
+  if (!myRole) return false
+  if (myRole === 'mafia') return role === 'mafia' || role === 'don'
+  if (myRole === 'don') return role === 'mafia'
+  return false
+}
+
+function roleIconForTile(id: string): string {
+  const role = gameRolesByUser.get(id)
+  if (!role) return ''
+  if (!roleVisibleOnTile(id)) return ''
+  return ROLE_BADGE_ICONS[role] || ''
+}
+
+async function goToMafiaTalk() {
+  if (!socket.value) return
+  const resp = await sendAck('game_phase_next', { from: 'roles_pick', to: 'mafia_talk' })
+  if (!resp?.ok) {
+    alert('Не удалось перейти к договорке')
+    return
+  }
+  gamePhase.value = 'mafia_talk'
+}
+
+const gamePlayers = reactive(new Set<string>())
+const gameAlive = reactive(new Set<string>())
+const offlineInGame = reactive(new Set<string>())
+const amIAlive = computed(() => {
+  if (gamePhase.value === 'idle') return true
+  const id = localId.value
+  if (!id) return false
+  const seat = seatsByUser[id]
+  if (!seat) return false
+  if (seat === 11) return true
+  return gameAlive.has(id)
+})
+
+const myGameRole = computed<'head' | 'player' | 'none'>(() => {
+  const id = localId.value
+  if (!id) return 'none'
+  const seat = seatsByUser[id]
+  if (!seat) return 'none'
+  return seat === 11 ? 'head' : 'player'
+})
 const readyCount = computed(() => {
   let cnt = 0
   statusByUser.forEach((st) => { if ((st.ready ?? 0) === 1) cnt++ })
@@ -344,6 +515,133 @@ const canShowStartGame = computed(() => {
   const nonReady = total - ready
   return !meReady && total === min + 1 && ready === min && nonReady === 1
 })
+
+function resetRolesUiState() {
+  rolePick.activeUserId = ''
+  rolePick.order = []
+  rolePick.picked = new Set<string>()
+  rolePick.takenCards = []
+  rolePick.remainingMs = 0
+  roleOverlayMode.value = 'hidden'
+  roleOverlayCard.value = null
+  if (roleOverlayTimerId.value != null) {
+    clearTimeout(roleOverlayTimerId.value)
+    roleOverlayTimerId.value = null
+  }
+  gameRolesByUser.clear()
+  rolesVisibleForHead.value = false
+}
+
+async function leaveGame() {
+  if (!socket.value) return
+  if (!confirm('Вы хотите покинуть игровой стол?')) return
+  const resp = await sendAck('game_leave', {})
+  if (!resp?.ok) {
+    const code = resp?.error
+    const st = resp?.status
+    if (st === 400 && code === 'no_game') {
+      alert('Игра не запущена')
+    } else if (st === 400 && code === 'not_player') {
+      alert('Вы не участвуете в этой игре')
+    } else if (st === 400 && code === 'already_dead') {
+      const id = localId.value
+      if (id) gameAlive.delete(id)
+      alert('Вы уже выбыли из игры')
+    } else {
+      alert('Не удалось выйти из игры')
+    }
+    return
+  }
+  const id = localId.value
+  if (id) gameAlive.delete(id)
+}
+
+async function startGame() {
+  if (startingGame.value || !socket.value) return
+  startingGame.value = true
+  try {
+    const check = await sendAck('game_start', { confirm: false })
+    if (!check?.ok) {
+      const code = check?.error
+      const st = check?.status
+      if (st === 400 && code === 'not_enough_ready') {
+        alert('Недостаточно готовых игроков для запуска игры')
+      } else if (st === 403 && code === 'forbidden') {
+        alert('Недостаточно прав для запуска игры')
+      } else if (st === 409 && code === 'already_in_other_game') {
+        alert('Некоторые участники уже играют в другой комнате')
+      } else if (st === 403 && code === 'not_in_room') {
+        alert('Вы не в комнате')
+      } else if (st === 409 && code === 'streaming_present') {
+        alert('Остановите трансляции перед запуском игры')
+      } else if (st === 409 && code === 'blocked_params') {
+        alert('Снимите блокировки перед запуском игры')
+      } else if (st === 409 && code === 'already_started') {
+        alert('Игра уже запущена')
+      } else {
+        alert('Не удалось запустить игру')
+      }
+      return
+    }
+    if (!confirm('Начать игру?')) return
+    const resp = await sendAck('game_start', { confirm: true })
+    if (!resp?.ok) {
+      const code = resp?.error
+      const st = resp?.status
+      if (st === 400 && code === 'not_enough_ready') {
+        alert('Недостаточно готовых игроков для запуска игры')
+      } else if (st === 403 && code === 'forbidden') {
+        alert('Недостаточно прав для запуска игры')
+      } else if (st === 409 && code === 'already_in_other_game') {
+        alert('Некоторые участники уже играют в другой комнате')
+      } else if (st === 403 && code === 'not_in_room') {
+        alert('Вы не в комнате')
+      } else if (st === 409 && code === 'streaming_present') {
+        alert('Остановите трансляции перед запуском игры')
+      } else if (st === 409 && code === 'blocked_params') {
+        alert('Снимите блокировки перед запуском игры')
+      } else if (st === 409 && code === 'already_started') {
+        alert('Игра уже запущена')
+      } else {
+        alert('Не удалось запустить игру')
+      }
+      return
+    }
+  } finally { startingGame.value = false }
+}
+
+async function endGame() {
+  if (endingGame.value || !socket.value) return
+  if (!confirm('Завершить текущую игру?')) return
+  endingGame.value = true
+  try {
+    const check = await sendAck('game_end', { confirm: false })
+    if (!check?.ok) {
+      const code = check?.error
+      const st = check?.status
+      if (st === 400 && code === 'no_game') {
+        alert('Игра не запущена')
+      } else if (st === 403 && code === 'forbidden') {
+        alert('Недостаточно прав для завершения игры')
+      } else {
+        alert('Не удалось завершить игру')
+      }
+      return
+    }
+    const resp = await sendAck('game_end', { confirm: true })
+    if (!resp?.ok) {
+      const code = resp?.error
+      const st = resp?.status
+      if (st === 400 && code === 'no_game') {
+        alert('Игра не запущена')
+      } else if (st === 403 && code === 'forbidden') {
+        alert('Недостаточно прав для завершения игры')
+      } else {
+        alert('Не удалось завершить игру')
+      }
+    }
+  } finally { endingGame.value = false }
+}
 
 const videoQuality = computed<VQ>({
   get: () => rtc.remoteQuality.value,
@@ -448,6 +746,11 @@ function volumeIconForStream(key: string) {
   return volumeIcon(volUi[key] ?? rtc.getUserVolume(key), speakersOn.value && !isBlocked(screenOwnerId.value,'speakers'))
 }
 
+type Ack = {
+  ok: boolean
+  status?: number
+  [k: string]: any
+} | null
 async function sendAck(event: string, payload: any, timeoutMs = 15000): Promise<Ack> {
   try {
     return await socket.value!.timeout(timeoutMs).emitWithAck(event, payload)
@@ -462,13 +765,6 @@ function ensureOk(resp: Ack, msgByCode: Record<number, string>, netMsg: string):
   alert((code && msgByCode[code]) || netMsg)
   return false
 }
-
-const sendAckGame: SendAckFn = (event, payload, timeoutMs) => sendAck(event, payload, timeoutMs)
-const goToMafiaTalkUi = () => game.goToMafiaTalk(sendAckGame)
-const leaveGameUi = () => game.leaveGame(sendAckGame)
-const startGameUi = () => game.startGame(sendAckGame)
-const endGameUi = () => game.endGame(sendAckGame)
-const pickRoleCardUi = (card: number) => game.pickRoleCard(card, sendAckGame)
 
 const showPermProbe = computed(() => !rtc.hasAudioInput.value && !rtc.hasVideoInput.value)
 async function onProbeClick() {
@@ -653,18 +949,6 @@ function purgePeerUI(id: string) {
   if (screenOwnerId.value === id) screenOwnerId.value = ''
 }
 
-function clearScreenVolume(id: string | null | undefined) {
-  if (!id) return
-  delete volUi[rtc.screenKey(id)]
-}
-
-function setScreenOwner(id: string) {
-  const prev = screenOwnerId.value
-  screenOwnerId.value = id
-  if (openPanelFor.value === rtc.screenKey(prev)) openPanelFor.value = ''
-  clearScreenVolume(prev)
-}
-
 function connectSocket() {
   if (socket.value && socket.value.connected) return
   socket.value = createAuthedSocket('/room', {
@@ -779,53 +1063,80 @@ function connectSocket() {
   })
 
   socket.value.on('screen_owner', (p: any) => {
-    setScreenOwner(p?.user_id ? String(p.user_id) : '')
+    const prev = screenOwnerId.value
+    screenOwnerId.value = p?.user_id ? String(p.user_id) : ''
+    if (openPanelFor.value === rtc.screenKey(prev)) openPanelFor.value = ''
+    if (prev) delete volUi[rtc.screenKey(prev)]
   })
 
   socket.value?.on('game_started', (p: any) => {
-    game.handleGameStarted(p)
-    statusByUser.forEach((st, uid) => {
-      statusByUser.set(uid, { ...st, ready: 0 as 0 })
-    })
-    void enforceInitialGameControls()
+    applyGameStarted(p)
   })
 
   socket.value?.on('game_ended', (p: any) => {
-    const roleBeforeEnd = game.handleGameEnded(p)
-    const connectedIds = new Set(rtc.peerIds.value)
-    const toDrop: string[] = []
-    statusByUser.forEach((_st, uid) => {
-      if (!connectedIds.has(uid)) toDrop.push(uid)
-    })
-    for (const uid of toDrop) {
-      purgePeerUI(uid)
-      rtc.cleanupPeer(uid)
-    }
-    if (roleBeforeEnd === 'player') void restoreAfterGameEnd()
+    applyGameEnded(p)
   })
 
   socket.value?.on('game_player_left', (p: any) => {
-    game.handleGamePlayerLeft(p)
+    const uid = String(p?.user_id ?? '')
+    if (!uid) return
+    gameAlive.delete(uid)
   })
 
   socket.value?.on('game_roles_turn', (p: any) => {
-    game.handleGameRolesTurn(p)
+    rolePick.activeUserId = String(p?.user_id || '')
+    rolePick.order = Array.isArray(p?.order) ? p.order.map((x: any) => String(x)) : []
+    rolePick.picked = new Set((p?.picked || []).map((x: any) => String(x)))
+    const remainingSec = Number(p?.deadline || 0)
+    rolePick.remainingMs = remainingSec > 0 ? remainingSec * 1000 : 0
+    const takenRaw = Array.isArray(p?.taken_cards) ? p.taken_cards : []
+    rolePick.takenCards = takenRaw.map((x: any) => Number(x)).filter((n: number) => Number.isFinite(n) && n > 0)
+    syncRoleOverlayWithTurn()
   })
 
   socket.value?.on('game_roles_picked', (p: any) => {
-    game.handleGameRolesPicked(p)
+    const uid = String(p?.user_id || '')
+    if (!uid) return
+    rolePick.picked.add(uid)
+    const remaining = rolePick.order.filter(id => !rolePick.picked.has(id))
+    if (
+      remaining.length === 0 &&
+      rolePick.activeUserId === uid &&
+      roleOverlayMode.value !== 'pick'
+    ) {
+      rolePick.activeUserId = ''
+      rolePick.remainingMs = 0
+    }
   })
 
   socket.value?.on('game_role_assigned', (p: any) => {
-    game.handleGameRoleAssigned(p)
+    const uid = String(p?.user_id || '')
+    const role = String(p?.role || '')
+    if (!uid || !role) return
+    gameRolesByUser.set(uid, role as GameRoleKind)
+    if (uid === localId.value) {
+      roleOverlayMode.value = 'reveal'
+      roleOverlayCard.value = Number(p?.card || 0) || null
+      if (roleOverlayTimerId.value != null) {
+        clearTimeout(roleOverlayTimerId.value)
+      }
+      roleOverlayTimerId.value = window.setTimeout(() => {
+        roleOverlayMode.value = 'hidden'
+        roleOverlayTimerId.value = null
+      }, 5000)
+    }
   })
 
   socket.value?.on('game_roles_reveal', (p: any) => {
-    game.handleGameRolesReveal(p)
+    const roles = (p?.roles || {}) as Record<string, string>
+    for (const [uid, role] of Object.entries(roles)) { gameRolesByUser.set(String(uid), role as GameRoleKind) }
+    if (myGameRole.value === 'head') rolesVisibleForHead.value = true
   })
 
   socket.value?.on('game_roles_state', (p: any) => {
-    game.handleGameRolesState(p)
+    if (p?.done) {
+      // флаг можно использовать, если нужно
+    }
   })
 }
 
@@ -859,6 +1170,29 @@ async function safeJoin() {
 function ensurePeer(id: string) {
   if (!rtc.peerIds.value.includes(id)) {
     rtc.peerIds.value = [...rtc.peerIds.value, id]
+  }
+}
+
+async function pickRoleCard(card: number) {
+  if (!socket.value || pickingRole.value) return
+  if (card <= 0) return
+  pickingRole.value = true
+  try {
+    const resp = await sendAck('game_roles_pick', { card })
+    if (!resp?.ok) {
+      const code = resp?.error
+      const st = resp?.status
+      if (st === 403 && code === 'not_your_turn') {
+        alert('Сейчас ход другого игрока')
+      } else if (st === 409 && code === 'card_taken') {
+        alert('Эта карточка уже занята, обновите окно')
+      } else {
+        alert('Не удалось выбрать роль')
+      }
+      return
+    }
+  } finally {
+    pickingRole.value = false
   }
 }
 
@@ -906,6 +1240,74 @@ async function restoreAfterGameEnd() {
   if (!visibilityOn.value) await toggleVisibility()
   if (!micOn.value) await toggleMic()
   if (!camOn.value) await toggleCam()
+}
+
+function applyGameStarted(p: any) {
+  resetRolesUiState()
+  offlineInGame.clear()
+  gamePhase.value = (p?.phase as any) || 'roles_pick'
+  if (p?.min_ready != null) {
+    const v = Number(p.min_ready)
+    if (Number.isFinite(v) && v > 0) minReadyToStart.value = v
+  }
+  const seats = (p?.seats || {}) as Record<string, any>
+  Object.keys(seatsByUser).forEach((k) => { delete seatsByUser[k] })
+  for (const [uid, seat] of Object.entries(seats)) {
+    const n = Number(seat)
+    if (Number.isFinite(n) && n > 0) seatsByUser[String(uid)] = n
+  }
+  statusByUser.forEach((st, uid) => {
+    statusByUser.set(uid, { ...st, ready: 0 as 0 })
+  })
+  gamePlayers.clear()
+  gameAlive.clear()
+  for (const [uid, seat] of Object.entries(seatsByUser)) {
+    if (seat && seat !== 11) {
+      gamePlayers.add(uid)
+      gameAlive.add(uid)
+    }
+  }
+  void enforceInitialGameControls()
+}
+
+function applyGameEnded(_p: any) {
+  resetRolesUiState()
+  const roleBeforeEnd = myGameRole.value
+  gamePhase.value = 'idle'
+  Object.keys(seatsByUser).forEach((k) => { delete seatsByUser[k] })
+  gamePlayers.clear()
+  gameAlive.clear()
+  const connectedIds = new Set(rtc.peerIds.value)
+  const toDrop: string[] = []
+  statusByUser.forEach((_st, uid) => { if (!connectedIds.has(uid)) toDrop.push(uid) })
+  for (const uid of toDrop) {
+    purgePeerUI(uid)
+    rtc.cleanupPeer(uid)
+  }
+  offlineInGame.clear()
+  if (roleBeforeEnd === 'player') void restoreAfterGameEnd()
+}
+
+function syncRoleOverlayWithTurn() {
+  const me = localId.value
+  const uid = rolePick.activeUserId
+  if (!me || !uid || gamePhase.value !== 'roles_pick') {
+    if (roleOverlayMode.value === 'pick') {
+      roleOverlayMode.value = 'hidden'
+      roleOverlayCard.value = null
+      pickingRole.value = false
+    }
+    return
+  }
+  if (uid === me && !myGameRoleKind.value) {
+    roleOverlayMode.value = 'pick'
+    roleOverlayCard.value = null
+    pickingRole.value = false
+  } else if (roleOverlayMode.value === 'pick' && uid !== me) {
+    roleOverlayMode.value = 'hidden'
+    roleOverlayCard.value = null
+    pickingRole.value = false
+  }
 }
 
 function applyJoinAck(j: any) {
@@ -969,8 +1371,66 @@ function applyJoinAck(j: any) {
     if (!isUserId && !isKeep) delete volUi[k]
   }
 
-  const snapshotIds = Object.keys(j.snapshot || {})
-  game.applyFromJoinAck(j, snapshotIds)
+  const gr = j.game_runtime || {}
+  const mr = Number(gr.min_ready)
+  if (Number.isFinite(mr) && mr > 0) minReadyToStart.value = mr
+  gamePhase.value = (gr.phase as any) || 'idle'
+  const seats = (gr.seats || {}) as Record<string, any>
+  Object.keys(seatsByUser).forEach((k) => { delete seatsByUser[k] })
+  for (const [uid, seat] of Object.entries(seats)) {
+    const n = Number(seat)
+    if (Number.isFinite(n) && n > 0) seatsByUser[String(uid)] = n
+  }
+
+  gamePlayers.clear()
+  gameAlive.clear()
+  gameRolesByUser.clear()
+  const grRoles = j.game_roles || {}
+  for (const [uid, role] of Object.entries(grRoles)) {
+    gameRolesByUser.set(String(uid), role as GameRoleKind)
+  }
+
+  const rp = (gr as any).roles_pick
+  if (gr.phase === 'roles_pick' && rp && typeof rp === 'object') {
+    rolePick.activeUserId = String(rp.turn_uid || '')
+    rolePick.order = Array.isArray(rp.order) ? rp.order.map((x: any) => String(x)) : []
+    rolePick.picked = new Set((rp.picked || []).map((x: any) => String(x)))
+    const remainingSec = Number(rp.deadline || 0)
+    const rawMs = remainingSec > 0 ? remainingSec * 1000 : 0
+    rolePick.remainingMs = Math.max(rawMs - ROLE_PICK_LATENCY_MS, 0)
+    const takenRaw = Array.isArray(rp.taken_cards) ? rp.taken_cards : []
+    rolePick.takenCards = takenRaw.map((x: any) => Number(x)).filter((n: number) => Number.isFinite(n) && n > 0)
+  } else {
+    rolePick.activeUserId = ''
+    rolePick.order = []
+    rolePick.picked = new Set<string>()
+    rolePick.remainingMs = 0
+    rolePick.takenCards = []
+  }
+
+  const grPlayers = Array.isArray(gr.players) ? gr.players.map((x: any) => String(x)) : []
+  const grAlive = Array.isArray(gr.alive) ? gr.alive.map((x: any) => String(x)) : []
+  for (const uid of grPlayers) gamePlayers.add(uid)
+  for (const uid of grAlive) gameAlive.add(uid)
+  const playersCount = gamePlayers.size
+  const rolesCount = Object.keys(grRoles).length
+  rolesVisibleForHead.value = playersCount > 0 && rolesCount >= playersCount
+  if (gamePhase.value !== 'idle' && gamePlayers.size === 0) {
+    for (const [uid, seat] of Object.entries(seatsByUser)) {
+      if (seat && seat !== 11) {
+        gamePlayers.add(uid)
+        gameAlive.add(uid)
+      }
+    }
+  }
+
+  offlineInGame.clear()
+  if (gamePhase.value !== 'idle') {
+    const snapshotIds = new Set(Object.keys(j.snapshot || {}))
+    const seatIds = Object.keys(seatsByUser)
+    const allInGameIds = new Set<string>([...grPlayers, ...seatIds].map(String))
+    for (const uid of allInGameIds) { if (!snapshotIds.has(uid)) offlineInGame.add(uid) }
+  }
 }
 
 type PublishDelta = Partial<{
@@ -1060,8 +1520,10 @@ const toggleScreen = async () => {
       }
     } else {
       await rtc.stopScreenShare()
-      setScreenOwner('')
+      const prev = screenOwnerId.value
+      screenOwnerId.value = ''
       try { await sendAck('screen', { on: false, target: Number(localId.value) }) } catch {}
+      if (prev) delete volUi[rtc.screenKey(prev)]
     }
   } finally { pendingScreen.value = false }
 }
@@ -1100,23 +1562,6 @@ async function onMediaGateClick() {
   await enableInitialMedia()
 }
 
-async function handleJoinFailure(j: any) {
-  if (leaving.value) return
-  if (j?.status === 403 && j?.error === 'private_room') {
-    alert('Комната приватная')
-    await router.replace({ name: 'home', query: { focus: String(rid) } })
-  } else if (j?.status === 409 && j?.error === 'game_in_progress') {
-    alert('В комнате идёт игра')
-    await router.replace({ name: 'home', query: { focus: String(rid) } })
-  } else {
-    alert(j?.status === 404 ? 'Комната не найдена'
-      : j?.status === 410 ? 'Комната закрыта'
-      : j?.status === 409 ? 'Комната заполнена'
-      : 'Ошибка входа в комнату')
-    await router.replace('/')
-  }
-}
-
 async function onLeave(goHome = true) {
   if (leaving.value) return
   leaving.value = true
@@ -1151,16 +1596,31 @@ function handleOffline() { netReconnecting.value = true }
 
 function handleOnline() { if (netReconnecting.value) hardReload() }
 
+watch(() => [rolePick.activeUserId, localId.value, myGameRoleKind.value, gamePhase.value], () => { syncRoleOverlayWithTurn() })
+
 watch(() => auth.isAuthed, (ok) => { if (!ok) { void onLeave() } })
 
 onMounted(async () => {
   try {
     if (!auth.ready) { try { await auth.init() } catch {} }
     connectSocket()
-
     const j:any = await safeJoin()
     if (!j?.ok) {
-      await handleJoinFailure(j)
+      if (!leaving.value) {
+        if (j?.status === 403 && j?.error === 'private_room') {
+          alert('Комната приватная')
+          await router.replace({ name: 'home', query: { focus: String(rid) } })
+        } else if (j?.status === 409 && j?.error === 'game_in_progress') {
+          alert('В комнате идёт игра')
+          await router.replace({ name: 'home', query: { focus: String(rid) } })
+        } else {
+          alert(j?.status === 404 ? 'Комната не найдена'
+            : j?.status === 410 ? 'Комната закрыта'
+            : j?.status === 409 ? 'Комната заполнена'
+            : 'Ошибка входа в комнату')
+          await router.replace('/')
+        }
+      }
       return
     }
 
@@ -1175,7 +1635,11 @@ onMounted(async () => {
         }
       },
       onRemoteScreenShareEnded: (id: string) => {
-        if (screenOwnerId.value === id) setScreenOwner('')
+        if (screenOwnerId.value === id) {
+          const prev = screenOwnerId.value
+          screenOwnerId.value = ''
+          if (prev) delete volUi[rtc.screenKey(prev)]
+        }
       },
       onDisconnected: async () => {
         if (leaving.value) return

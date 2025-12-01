@@ -44,14 +44,19 @@ __all__ = [
     "assign_role_for_user",
     "roles_timeout_job",
     "advance_roles_turn",
+    "emit_rooms_occupancy_safe",
+    "get_game_runtime_and_roles_view",
 ]
 
 log = structlog.get_logger()
 
-KEYS_STATE: tuple[str, ...] = ("mic", "cam", "speakers", "visibility", "mirror", )
-KEYS_BLOCK: tuple[str, ...] = (*KEYS_STATE, "screen", )
+_join_sha: str | None = None
+_leave_sha: str | None = None
 
-JOIN_LUA = r'''
+KEYS_STATE: tuple[str, ...] = ("mic", "cam", "speakers", "visibility", "mirror")
+KEYS_BLOCK: tuple[str, ...] = (*KEYS_STATE, "screen")
+
+JOIN_LUA = r"""
 -- KEYS: params, members, positions, info, empty_since
 local params       = KEYS[1]
 local members      = KEYS[2]
@@ -109,9 +114,9 @@ redis.call('ZADD', positions, new_pos, uid)
 redis.call('HSET', info, 'join_date', now, 'role', eff_role)
 redis.call('DEL', empty_since)
 return {new_pos, new_pos, 0, 0}
-'''
+"""
 
-LEAVE_LUA = r'''
+LEAVE_LUA = r"""
 -- KEYS: members, positions, info, empty_since, gc_seq, visitors
 local members      = KEYS[1]
 local positions    = KEYS[2]
@@ -152,13 +157,10 @@ for i=1,#ids do
   table.insert(updates, sc)
 end
 return {occ, 0, #updates/2, unpack(updates)}
-'''
-
-_join_sha = None
-_leave_sha = None
+"""
 
 
-async def _ensure_scripts(r):
+async def ensure_scripts(r):
     global _join_sha, _leave_sha
     if _join_sha is None:
         _join_sha = await r.script_load(JOIN_LUA)
@@ -166,7 +168,7 @@ async def _ensure_scripts(r):
         _leave_sha = await r.script_load(LEAVE_LUA)
 
 
-def _norm01(v: Any) -> str:
+def norm01(v: Any) -> str:
     if isinstance(v, bool):
         return "1" if v else "0"
 
@@ -205,34 +207,34 @@ async def validate_auth(auth: Any) -> Tuple[int, str, str, Optional[str]] | None
 
 
 async def apply_state(r, rid: int, uid: int, data: Mapping[str, Any]) -> Dict[str, str]:
-    incoming_state = {k: _norm01(data[k]) for k in KEYS_STATE if k in data}
+    incoming_state = {k: norm01(data[k]) for k in KEYS_STATE if k in data}
     if not incoming_state:
         return {}
 
     changed: Dict[str, str] = {}
-    if incoming_state:
-        block_vals = await r.hmget(f"room:{rid}:user:{uid}:block", *KEYS_BLOCK)
-        blocked = {k: (v == "1") for k, v in zip(KEYS_BLOCK, block_vals)}
-        incoming_state = {k: v for k, v in incoming_state.items() if not (blocked.get(k, False) and v == "1")}
-        if incoming_state:
-            cur_vals = await r.hmget(f"room:{rid}:user:{uid}:state", *KEYS_STATE)
-            cur = {k: (v if v is not None else "") for k, v in zip(KEYS_STATE, cur_vals)}
-            upd = {k: v for k, v in incoming_state.items() if cur.get(k) != v}
-            if upd:
-                await r.hset(f"room:{rid}:user:{uid}:state", mapping=upd)
-                changed.update(upd)
+    block_vals = await r.hmget(f"room:{rid}:user:{uid}:block", *KEYS_BLOCK)
+    blocked = {k: (v == "1") for k, v in zip(KEYS_BLOCK, block_vals)}
+    incoming_state = {k: v for k, v in incoming_state.items() if not (blocked.get(k, False) and v == "1")}
+    if not incoming_state:
+        return {}
+
+    cur_vals = await r.hmget(f"room:{rid}:user:{uid}:state", *KEYS_STATE)
+    cur = {k: (v if v is not None else "") for k, v in zip(KEYS_STATE, cur_vals)}
+    upd = {k: v for k, v in incoming_state.items() if cur.get(k) != v}
+    if upd:
+        await r.hset(f"room:{rid}:user:{uid}:state", mapping=upd)
+        changed.update(upd)
 
     return changed
 
 
 async def set_ready(r, rid: int, uid: int, v: Any) -> Optional[str]:
-    if _norm01(v) == "1":
+    if norm01(v) == "1":
         added = await r.sadd(f"room:{rid}:ready", str(uid))
         return "1" if int(added or 0) > 0 else None
 
-    else:
-        removed = await r.srem(f"room:{rid}:ready", str(uid))
-        return "0" if int(removed or 0) > 0 else None
+    removed = await r.srem(f"room:{rid}:ready", str(uid))
+    return "0" if int(removed or 0) > 0 else None
 
 
 async def get_room_snapshot(r, rid: int) -> Dict[str, Dict[str, str]]:
@@ -253,7 +255,6 @@ async def merge_ready_into_snapshot(r, rid: int, snapshot: Dict[str, Dict[str, s
     for k, v in ready_snap.items():
         ss = snapshot.get(k) or {}
         snapshot[k] = {**ss, **v}
-
     return snapshot
 
 
@@ -264,7 +265,8 @@ async def get_positions_map(r, rid: int) -> Dict[str, int]:
 
 def build_game_from_raw(raw_game: Mapping[str, Any]) -> Dict[str, Any]:
     def b1(v: Any, default_true: bool = True) -> str:
-        return "1" if str((v if v is not None else ("1" if default_true else "0"))).strip() in ("1", "true", "True") else "0"
+        default = "1" if default_true else "0"
+        return "1" if str((v if v is not None else default)).strip() in ("1", "true", "True") else "0"
 
     return {
         "mode": str(raw_game.get("mode") or "normal"),
@@ -299,7 +301,8 @@ async def get_blocks_snapshot(r, rid: int) -> Dict[str, Dict[str, str]]:
         for uid in ids:
             await p.hmget(f"room:{rid}:user:{uid}:block", *KEYS_BLOCK)
         rows = await p.execute()
-    out = {}
+
+    out: Dict[str, Dict[str, str]] = {}
     for uid, vals in zip(ids, rows):
         out[str(uid)] = {k: ("1" if (v == "1") else "0") for k, v in zip(KEYS_BLOCK, (vals or []))}
     return out
@@ -314,6 +317,7 @@ async def get_roles_snapshot(r, rid: int) -> Dict[str, str]:
         for uid in ids:
             await p.hget(f"room:{rid}:user:{uid}:info", "role")
         roles = await p.execute()
+
     out: Dict[str, str] = {}
     for uid, role in zip(ids, roles):
         if role:
@@ -385,7 +389,7 @@ async def update_blocks(r, rid: int, actor_uid: int, actor_role: str, target_uid
         if actor_role == target_role:
             return {}, {"__error__": "forbidden"}
 
-    incoming = {k: _norm01(changes_bool[k]) for k in KEYS_BLOCK if k in changes_bool}
+    incoming = {k: norm01(changes_bool[k]) for k in KEYS_BLOCK if k in changes_bool}
     if not incoming:
         return {}, {}
 
@@ -396,6 +400,7 @@ async def update_blocks(r, rid: int, actor_uid: int, actor_role: str, target_uid
         return {}, {}
 
     await r.hset(f"room:{rid}:user:{target_uid}:block", mapping=to_apply)
+
     forced_off: Dict[str, str] = {}
     turn_off_keys = [k for k, v in to_apply.items() if v == "1" and k in KEYS_STATE]
     if turn_off_keys:
@@ -405,6 +410,7 @@ async def update_blocks(r, rid: int, actor_uid: int, actor_role: str, target_uid
                 forced_off[k] = "0"
         if forced_off:
             await r.hset(f"room:{rid}:user:{target_uid}:state", mapping=forced_off)
+
     return to_apply, forced_off
 
 
@@ -437,7 +443,7 @@ async def account_screen_time(r, rid: int, uid: int) -> None:
 
     dt = int(time()) - int(started)
     if dt > 0:
-        dt = min(dt, 4 * 3600)
+        dt = min(dt, 4*3600)
         await r.hincrby(f"room:{rid}:screen_time", str(uid), dt)
     await r.delete(f"room:{rid}:screen_started_at")
 
@@ -446,7 +452,7 @@ async def init_roles_deck(r, rid: int) -> None:
     roles = list(settings.ROLE_DECK)
     shuffle(roles)
     mapping = {str(i + 1): roles[i] for i in range(len(roles))}
-    now = int(time())
+    now_ts = int(time())
     async with r.pipeline() as p:
         await p.delete(
             f"room:{rid}:roles_cards",
@@ -458,7 +464,7 @@ async def init_roles_deck(r, rid: int) -> None:
             f"room:{rid}:game_state",
             mapping={
                 "roles_turn_uid": "0",
-                "roles_turn_started": str(now),
+                "roles_turn_started": str(now_ts),
                 "roles_turn_seq": "0",
                 "roles_done": "0",
             },
@@ -513,7 +519,7 @@ async def assign_role_for_user(r, rid: int, uid: int, *, card_index: int | None)
     if not role:
         return False, None, "bad_card"
 
-    now = int(time())
+    now_ts = int(time())
     async with r.pipeline() as p:
         await p.hset(f"room:{rid}:roles_taken", str(idx), str(uid))
         await p.hset(f"room:{rid}:game_roles", str(uid), role)
@@ -521,7 +527,7 @@ async def assign_role_for_user(r, rid: int, uid: int, *, card_index: int | None)
             f"room:{rid}:game_state",
             mapping={
                 "roles_last_pick_user": str(uid),
-                "roles_last_pick_at": str(now),
+                "roles_last_pick_at": str(now_ts),
             },
         )
         await p.execute()
@@ -567,6 +573,7 @@ async def advance_roles_turn(r, rid: int, *, auto: bool) -> None:
 
     if not remaining:
         await r.hset(f"room:{rid}:game_state", "roles_done", "1")
+
         roles_map: dict[int, str] = {}
         for uid_s, role_s in (raw_roles or {}).items():
             try:
@@ -615,7 +622,7 @@ async def advance_roles_turn(r, rid: int, *, auto: bool) -> None:
                        namespace="/room")
         return
 
-    now = int(time())
+    now_ts = int(time())
     try:
         cur_uid = int(raw_state.get("roles_turn_uid") or 0)
     except Exception:
@@ -623,16 +630,16 @@ async def advance_roles_turn(r, rid: int, *, auto: bool) -> None:
     try:
         started_at = int(raw_state.get("roles_turn_started") or 0)
     except Exception:
-        started_at = now
+        started_at = now_ts
 
     if cur_uid not in remaining:
         cur_uid = remaining[0]
-        started_at = now
+        started_at = now_ts
 
-    if auto and now - started_at >= settings.ROLE_PICK_SECONDS:
+    if auto and now_ts - started_at >= settings.ROLE_PICK_SECONDS:
         ok, role, _ = await assign_role_for_user(r, rid, cur_uid, card_index=None)
         if ok and role:
-            card_idx = None
+            card_idx: int | None = None
             try:
                 taken = await r.hgetall(f"room:{rid}:roles_taken")
                 for i, u_s in (taken or {}).items():
@@ -645,7 +652,7 @@ async def advance_roles_turn(r, rid: int, *, auto: bool) -> None:
             except Exception:
                 card_idx = None
 
-            payload = {"room_id": rid, "user_id": cur_uid, "role": role}
+            payload: dict[str, Any] = {"room_id": rid, "user_id": cur_uid, "role": role}
             if card_idx is not None:
                 payload["card"] = card_idx
 
@@ -664,7 +671,8 @@ async def advance_roles_turn(r, rid: int, *, auto: bool) -> None:
 
     seq = int(raw_state.get("roles_turn_seq") or 0) + 1
     deadline_ts = started_at + settings.ROLE_PICK_SECONDS
-    remaining = max(deadline_ts - int(time()), 0)
+    remaining_sec = max(deadline_ts - int(time()), 0)
+
     async with r.pipeline() as p:
         await p.hset(
             f"room:{rid}:game_state",
@@ -681,7 +689,7 @@ async def advance_roles_turn(r, rid: int, *, auto: bool) -> None:
     await sio.emit("game_roles_turn",
                    {"room_id": rid,
                     "user_id": cur_uid,
-                    "deadline": remaining,
+                    "deadline": remaining_sec,
                     "picked": list(assigned),
                     "order": players,
                     "taken_cards": taken_indexes},
@@ -711,10 +719,10 @@ async def get_rooms_brief(r, ids: Iterable[int]) -> List[dict]:
 
     for i in range(0, len(raw), 5):
         vals = raw[i]
-        occ_members = int(raw[i+1] or 0)
-        phase_raw = raw[i+2]
-        alive_cnt = int(raw[i+3] or 0)
-        players_total = int(raw[i+4] or 0)
+        occ_members = int(raw[i + 1] or 0)
+        phase_raw = raw[i + 2]
+        alive_cnt = int(raw[i + 3] or 0)
+        players_total = int(raw[i + 4] or 0)
 
         if not vals:
             continue
@@ -764,8 +772,8 @@ async def get_rooms_brief(r, ids: Iterable[int]) -> List[dict]:
 
 
 async def join_room_atomic(r, rid: int, uid: int, role: str):
-    await _ensure_scripts(r)
-    now = int(time())
+    await ensure_scripts(r)
+    now_ts = int(time())
     args = (
         5,
         f"room:{rid}:params",
@@ -773,7 +781,10 @@ async def join_room_atomic(r, rid: int, uid: int, role: str):
         f"room:{rid}:positions",
         f"room:{rid}:user:{uid}:info",
         f"room:{rid}:empty_since",
-        str(rid), str(uid), role, str(now),
+        str(rid),
+        str(uid),
+        role,
+        str(now_ts),
     )
 
     global _join_sha
@@ -791,14 +802,14 @@ async def join_room_atomic(r, rid: int, uid: int, role: str):
     pos = int(res[1])
     already = bool(int(res[2]))
     k = int(res[3])
-    tail = list(map(int, res[4:4+2*k]))
-    updates = [(tail[i], tail[i+1]) for i in range(0, 2*k, 2)]
+    tail = list(map(int, res[4: 4 + 2*k]))
+    updates = [(tail[i], tail[i + 1]) for i in range(0, 2*k, 2)]
     return occ, pos, already, updates
 
 
 async def leave_room_atomic(r, rid: int, uid: int):
-    await _ensure_scripts(r)
-    now = int(time())
+    await ensure_scripts(r)
+    now_ts = int(time())
     args = (
         6,
         f"room:{rid}:members",
@@ -807,7 +818,8 @@ async def leave_room_atomic(r, rid: int, uid: int):
         f"room:{rid}:empty_since",
         f"room:{rid}:gc_seq",
         f"room:{rid}:visitors",
-        str(uid), str(now),
+        str(uid),
+        str(now_ts),
     )
 
     global _leave_sha
@@ -824,8 +836,8 @@ async def leave_room_atomic(r, rid: int, uid: int):
     occ = int(res[0])
     gc_seq = int(res[1])
     k = int(res[2])
-    tail = list(map(int, res[3:3+2*k]))
-    updates = [(tail[i], tail[i+1]) for i in range(0, 2*k, 2)]
+    tail = list(map(int, res[3: 3 + 2*k]))
+    updates = [(tail[i], tail[i + 1]) for i in range(0, 2*k, 2)]
     return occ, gc_seq, updates
 
 
@@ -839,6 +851,7 @@ async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
     delay = max(0, 10 - (int(time()) - int(ts1)))
     if delay > 0:
         await asyncio.sleep(delay)
+
     ts2 = await r.get(f"room:{rid}:empty_since")
     if not ts2 or ts1 != ts2:
         log.warning("gc.skip.race_or_reset", rid=rid)
@@ -958,3 +971,119 @@ async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
             log.warning("gc.lock.release_failed", rid=rid, err=type(e).__name__)
 
     return True
+
+
+async def emit_rooms_occupancy_safe(r, rid: int, occ: int) -> None:
+    try:
+        phase = str(await r.hget(f"room:{rid}:game_state", "phase") or "idle")
+    except Exception:
+        phase = "idle"
+
+    if phase != "idle":
+        try:
+            alive_occ = int(await r.scard(f"room:{rid}:game_alive") or 0)
+        except Exception:
+            alive_occ = occ
+        occ_to_send = alive_occ
+    else:
+        occ_to_send = occ
+
+    await sio.emit("rooms_occupancy",
+                   {"id": rid,
+                    "occupancy": occ_to_send},
+                   namespace="/rooms")
+
+
+async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[str, Any], dict[str, str], Optional[str]]:
+    raw_gstate = await r.hgetall(f"room:{rid}:game_state")
+    raw_seats = await r.hgetall(f"room:{rid}:game_seats")
+    players_set = await r.smembers(f"room:{rid}:game_players")
+    alive_set = await r.smembers(f"room:{rid}:game_alive")
+    raw_roles = await r.hgetall(f"room:{rid}:game_roles")
+    phase = str(raw_gstate.get("phase") or "idle")
+
+    seats_map: dict[str, int] = {}
+    for k, v in (raw_seats or {}).items():
+        try:
+            seats_map[str(int(k))] = int(v)
+        except Exception:
+            continue
+
+    game_runtime: dict[str, Any] = {
+        "phase": phase,
+        "min_ready": settings.GAME_MIN_READY_PLAYERS,
+        "seats": seats_map,
+        "players": [int(x) for x in (players_set or [])],
+        "alive": [int(x) for x in (alive_set or [])],
+    }
+
+    if phase == "roles_pick":
+        try:
+            roles_turn_uid = int(raw_gstate.get("roles_turn_uid") or 0)
+        except Exception:
+            roles_turn_uid = 0
+        try:
+            roles_turn_started = int(raw_gstate.get("roles_turn_started") or 0)
+        except Exception:
+            roles_turn_started = 0
+
+        if roles_turn_uid and roles_turn_started:
+            now_ts = int(time())
+            remaining = max(roles_turn_started + settings.ROLE_PICK_SECONDS - now_ts, 0)
+            raw_taken = await r.hgetall(f"room:{rid}:roles_taken")
+
+            assigned_ids: list[int] = []
+            for k in (raw_roles or {}).keys():
+                try:
+                    assigned_ids.append(int(k))
+                except Exception:
+                    continue
+
+            taken_cards: list[int] = []
+            for idx_s in (raw_taken or {}).keys():
+                try:
+                    taken_cards.append(int(idx_s))
+                except Exception:
+                    continue
+
+            order_ids = await get_players_in_seat_order(r, rid)
+
+            game_runtime["roles_pick"] = {
+                "turn_uid": roles_turn_uid,
+                "deadline": remaining,
+                "picked": assigned_ids,
+                "order": order_ids,
+                "taken_cards": taken_cards,
+            }
+
+    roles_map = {str(k): str(v) for k, v in (raw_roles or {}).items()}
+    my_game_role = roles_map.get(str(uid))
+
+    try:
+        head_uid = int(raw_gstate.get("head") or 0)
+    except Exception:
+        head_uid = 0
+
+    roles_done = str(raw_gstate.get("roles_done") or "0") == "1"
+    game_roles_view: dict[str, str] = {}
+
+    if roles_done:
+        if head_uid and uid == head_uid:
+            game_roles_view = dict(roles_map)
+        elif my_game_role == "mafia":
+            subset: dict[str, str] = {k: v for k, v in roles_map.items() if v in ("mafia", "don")}
+            if my_game_role:
+                subset[str(uid)] = my_game_role
+            game_roles_view = subset
+        elif my_game_role == "don":
+            subset = {k: v for k, v in roles_map.items() if v == "mafia"}
+            if my_game_role:
+                subset[str(uid)] = my_game_role
+            game_roles_view = subset
+        elif my_game_role:
+            game_roles_view[str(uid)] = my_game_role
+    else:
+        if my_game_role:
+            game_roles_view[str(uid)] = my_game_role
+
+    return game_runtime, game_roles_view, my_game_role

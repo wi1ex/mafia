@@ -1,6 +1,10 @@
 from __future__ import annotations
+import re
 import structlog
 from typing import Optional, Dict, Any, Literal
+from fastapi import HTTPException, status
+from sqlalchemy import update, func
+from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.clients import get_redis
 from ..core.db import SessionLocal
 from ..models.user import User
@@ -15,9 +19,15 @@ __all__ = [
     "broadcast_creator_rooms",
     "get_room_game_runtime",
     "build_room_members_for_info",
+    "get_room_params_or_404",
+    "touch_user_last_login",
+    "validate_object_key_for_presign",
 ]
 
 log = structlog.get_logger()
+
+PRESIGN_ALLOWED_PREFIXES: tuple[str, ...] = ("avatars/",)
+PRESIGN_KEY_RE = re.compile(r"^[a-zA-Z0-9._/-]{3,256}$")
 
 
 def serialize_game_for_redis(game_dict: Dict[str, Any]) -> Dict[str, str]:
@@ -32,21 +42,21 @@ def serialize_game_for_redis(game_dict: Dict[str, Any]) -> Dict[str, str]:
     }
 
 
+def raw_bool(value: Any, default: bool) -> bool:
+    if value is None:
+        return default
+    return str(value).strip() in ("1", "true", "True")
+
+
 def game_from_redis_to_model(raw_game: Dict[str, Any]) -> GameParams:
-    def b(v: Any, d: bool) -> bool:
-        if v is None:
-            return d
-
-        return str(v).strip() in ("1", "true", "True")
-
     return GameParams(
         mode=(raw_game.get("mode") or "normal"),
         format=(raw_game.get("format") or "hosted"),
         spectators_limit=int(raw_game.get("spectators_limit") or 0),
-        vote_at_zero=b(raw_game.get("vote_at_zero"), True),
-        vote_three=b(raw_game.get("vote_three"), True),
-        speech30_at_3_fouls=b(raw_game.get("speech30_at_3_fouls"), True),
-        extra30_at_2_fouls=b(raw_game.get("extra30_at_2_fouls"), True),
+        vote_at_zero=raw_bool(raw_game.get("vote_at_zero"), True),
+        vote_three=raw_bool(raw_game.get("vote_three"), True),
+        speech30_at_3_fouls=raw_bool(raw_game.get("speech30_at_3_fouls"), True),
+        extra30_at_2_fouls=raw_bool(raw_game.get("extra30_at_2_fouls"), True),
     )
 
 
@@ -70,7 +80,7 @@ async def emit_rooms_upsert(rid: int) -> None:
         log.warning("rooms.upsert.emit_failed", rid=rid, err=type(e).__name__)
 
 
-async def broadcast_creator_rooms(uid: int, *, update_name: Optional[str] = None, avatar: Literal["keep", "set", "delete"] = "keep", avatar_name: Optional[str] = None, ) -> None:
+async def broadcast_creator_rooms(uid: int, *, update_name: Optional[str] = None, avatar: Literal["keep", "set", "delete"] = "keep", avatar_name: Optional[str] = None) -> None:
     r = get_redis()
     ids = [int(x) for x in (await r.smembers(f"user:{uid}:rooms") or [])]
     if not ids:
@@ -79,20 +89,18 @@ async def broadcast_creator_rooms(uid: int, *, update_name: Optional[str] = None
     try:
         async with r.pipeline() as p:
             for rid in ids:
-                mp = {}
+                mapping: Dict[str, Any] = {}
                 if update_name is not None:
-                    mp["creator_name"] = update_name
-
+                    mapping["creator_name"] = update_name
                 if avatar == "set":
                     if avatar_name is None:
                         log.warning("rooms.creator.avatar_set_missing_name", uid=uid, rid=rid)
                     else:
-                        mp["creator_avatar_name"] = str(avatar_name)
+                        mapping["creator_avatar_name"] = str(avatar_name)
                 elif avatar == "delete":
                     await p.hdel(f"room:{rid}:params", "creator_avatar_name")
-
-                if mp:
-                    await p.hset(f"room:{rid}:params", mapping=mp)
+                if mapping:
+                    await p.hset(f"room:{rid}:params", mapping=mapping)
             await p.execute()
     except Exception as e:
         log.warning("rooms.creator.batch_failed", uid=uid, err=type(e).__name__)
@@ -102,6 +110,13 @@ async def broadcast_creator_rooms(uid: int, *, update_name: Optional[str] = None
             await emit_rooms_upsert(rid)
         except Exception as e:
             log.warning("rooms.upsert.iter_failed", rid=rid, err=type(e).__name__)
+
+
+async def get_room_params_or_404(r, room_id: int) -> Dict[str, Any]:
+    params = await r.hgetall(f"room:{room_id}:params")
+    if not params:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="room_not_found")
+    return params
 
 
 async def get_room_game_runtime(r, room_id: int) -> Dict[str, Any]:
@@ -210,3 +225,19 @@ async def build_room_members_for_info(r, room_id: int) -> list[Dict[str, Any]]:
         )
 
     return raw_members
+
+
+async def touch_user_last_login(db: AsyncSession, user_id: int) -> None:
+    await db.execute(update(User).where(User.id == user_id).values(last_login_at=func.now()))
+    await db.commit()
+
+
+def validate_object_key_for_presign(key: str) -> None:
+    if not key or not PRESIGN_KEY_RE.match(key):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="bad_key")
+
+    if not any(key.startswith(p) for p in PRESIGN_ALLOWED_PREFIXES):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="forbidden_prefix")
+
+    if ".." in key or "//" in key or key.endswith("/"):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="bad_key")

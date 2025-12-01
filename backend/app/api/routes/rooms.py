@@ -1,10 +1,9 @@
 from __future__ import annotations
 import asyncio
-from sqlalchemy import select
 from contextlib import suppress
-from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import APIRouter, Depends, status, HTTPException
-from ..utils import emit_rooms_upsert, serialize_game_for_redis, game_from_redis_to_model, build_room_members_for_info
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 from ...core.clients import get_redis
 from ...core.decorators import log_route, rate_limited, require_room_creator
 from ...core.logging import log_action
@@ -16,8 +15,21 @@ from ...models.notif import Notif
 from ...realtime.sio import sio
 from ...realtime.utils import gc_empty_room
 from ...schemas.common import Identity, Ok
-from ...schemas.room import RoomIdOut, RoomCreateIn, RoomInfoOut, RoomInfoMemberOut, RoomAccessOut
 from ...schemas.user import UserOut
+from ...schemas.room import (
+    RoomIdOut,
+    RoomCreateIn,
+    RoomInfoOut,
+    RoomInfoMemberOut,
+    RoomAccessOut,
+)
+from ..utils import (
+    emit_rooms_upsert,
+    serialize_game_for_redis,
+    game_from_redis_to_model,
+    build_room_members_for_info,
+    get_room_params_or_404,
+)
 
 router = APIRouter()
 
@@ -42,20 +54,24 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
         raise HTTPException(status_code=409, detail="rooms_limit_user")
 
     gp = payload.game
-    game_dict = {"mode": gp.mode,
-                 "format": gp.format,
-                 "spectators_limit": int(gp.spectators_limit),
-                 "vote_at_zero": bool(gp.vote_at_zero),
-                 "vote_three": bool(gp.vote_three),
-                 "speech30_at_3_fouls": bool(gp.speech30_at_3_fouls),
-                 "extra30_at_2_fouls": bool(gp.extra30_at_2_fouls)}
+    game_dict = {
+        "mode": gp.mode,
+        "format": gp.format,
+        "spectators_limit": int(gp.spectators_limit),
+        "vote_at_zero": bool(gp.vote_at_zero),
+        "vote_three": bool(gp.vote_three),
+        "speech30_at_3_fouls": bool(gp.speech30_at_3_fouls),
+        "extra30_at_2_fouls": bool(gp.extra30_at_2_fouls),
+    }
 
-    room = Room(title=title,
-                user_limit=payload.user_limit,
-                privacy=payload.privacy,
-                creator=uid,
-                creator_name=creator_name,
-                game=game_dict)
+    room = Room(
+        title=title,
+        user_limit=payload.user_limit,
+        privacy=payload.privacy,
+        creator=uid,
+        creator_name=creator_name,
+        game=game_dict,
+    )
     session.add(room)
     await session.commit()
     await session.refresh(room)
@@ -109,9 +125,7 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
 @router.get("/{room_id}/info", response_model=RoomInfoOut, response_model_exclude_none=True)
 async def room_info(room_id: int) -> RoomInfoOut:
     r = get_redis()
-    params = await r.hgetall(f"room:{room_id}:params")
-    if not params:
-        raise HTTPException(status_code=404, detail="room_not_found")
+    await get_room_params_or_404(r, room_id)
 
     raw_members = await build_room_members_for_info(r, room_id)
     raw_game = await r.hgetall(f"room:{room_id}:game")
@@ -138,9 +152,7 @@ async def room_info(room_id: int) -> RoomInfoOut:
 @router.get("/{room_id}/access", response_model=RoomAccessOut)
 async def access(room_id: int, ident: Identity = Depends(get_identity)) -> RoomAccessOut:
     r = get_redis()
-    params = await r.hgetall(f"room:{room_id}:params")
-    if not params:
-        raise HTTPException(status_code=404, detail="room_not_found")
+    params = await get_room_params_or_404(r, room_id)
 
     privacy = (params.get("privacy") or "open").strip()
     if privacy != "private":
@@ -164,9 +176,7 @@ async def access(room_id: int, ident: Identity = Depends(get_identity)) -> RoomA
 @router.post("/{room_id}/apply", response_model=Ok, status_code=202)
 async def apply(room_id: int, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> Ok:
     r = get_redis()
-    params = await r.hgetall(f"room:{room_id}:params")
-    if not params:
-        raise HTTPException(status_code=404, detail="room_not_found")
+    params = await get_room_params_or_404(r, room_id)
 
     if (params.get("privacy") or "open") != "private":
         raise HTTPException(status_code=400, detail="not_private")
@@ -183,21 +193,22 @@ async def apply(room_id: int, ident: Identity = Depends(get_identity), db: Async
     await r.sadd(f"room:{room_id}:pending", str(uid))
 
     user = await db.get(User, uid)
-    with suppress(Exception):
-        await sio.emit("room_invite",
-                       {"room_id": room_id,
-                        "room_title": title,
-                        "user": {"id": uid, "username": user.username, "avatar_name": user.avatar_name}},
-                       room=f"user:{creator}",
-                       namespace="/auth")
+    if user:
+        with suppress(Exception):
+            await sio.emit("room_invite",
+                           {"room_id": room_id,
+                            "room_title": title,
+                            "user": {"id": uid, "username": user.username, "avatar_name": user.avatar_name}},
+                           room=f"user:{creator}",
+                           namespace="/auth")
 
-    await log_action(
-        db,
-        user_id=uid,
-        username=ident["username"],
-        action="room_apply",
-        details=f"Подача заявки в комнату room_id={room_id} title={title} creator={creator}",
-    )
+        await log_action(
+            db,
+            user_id=uid,
+            username=ident["username"],
+            action="room_apply",
+            details=f"Подача заявки в комнату room_id={room_id} title={title} creator={creator}",
+        )
 
     return Ok()
 
@@ -208,9 +219,7 @@ async def apply(room_id: int, ident: Identity = Depends(get_identity), db: Async
 @router.get("/{room_id}/requests", response_model=list[UserOut])
 async def list_requests(room_id: int, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)):
     r = get_redis()
-    params = await r.hgetall(f"room:{room_id}:params")
-    if not params:
-        raise HTTPException(status_code=404, detail="room_not_found")
+    params = await get_room_params_or_404(r, room_id)
 
     if int(params.get("creator") or 0) != int(ident["id"]):
         raise HTTPException(status_code=403, detail="forbidden")
@@ -229,9 +238,7 @@ async def list_requests(room_id: int, ident: Identity = Depends(get_identity), d
 @router.post("/{room_id}/requests/{user_id}/approve", response_model=Ok)
 async def approve(room_id: int, user_id: int, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> Ok:
     r = get_redis()
-    params = await r.hgetall(f"room:{room_id}:params")
-    if not params:
-        raise HTTPException(status_code=404, detail="room_not_found")
+    params = await get_room_params_or_404(r, room_id)
 
     if int(params.get("creator") or 0) != int(ident["id"]):
         raise HTTPException(status_code=403, detail="forbidden")

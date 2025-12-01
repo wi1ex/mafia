@@ -1,5 +1,5 @@
 from __future__ import annotations
-from sqlalchemy import select, update, func
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import APIRouter, HTTPException, Depends, Response, Request, status
 from ...models.user import User
@@ -12,6 +12,7 @@ from ...schemas.common import Ok
 from ...schemas.auth import TelegramAuthIn, AccessTokenOut
 from ...services.sessions import new_login_session, rotate_refresh, logout as sess_logout
 from ...services.storage_minio import download_telegram_photo, put_avatar
+from ..utils import touch_user_last_login
 
 router = APIRouter()
 
@@ -28,7 +29,12 @@ async def telegram(payload: TelegramAuthIn, resp: Response, db: AsyncSession = D
     user = (await db.execute(select(User).where(User.id == uid))).scalar_one_or_none()
     if not user:
         new_user = True
-        username = payload.username[:20] if payload.username and not await db.scalar(select(1).where(User.username == payload.username[:20]).limit(1)) else f"user{uid}"
+        base_username = (payload.username or "")[:20]
+        if base_username:
+            exists = await db.scalar(select(1).where(User.username == base_username).limit(1))
+            username = base_username if not exists else f"user{uid}"
+        else:
+            username = f"user{uid}"
 
         filename = None
         if payload.photo_url:
@@ -49,12 +55,11 @@ async def telegram(payload: TelegramAuthIn, resp: Response, db: AsyncSession = D
         details=f"Вход пользователя: user_id={user.id} username={user.username}",
     )
 
-    at, sid = await new_login_session(resp, user_id=user.id, username=user.username, role=user.role)
+    access_token, sid = await new_login_session(resp, user_id=user.id, username=user.username, role=user.role)
 
-    await db.execute(update(User).where(User.id == user.id).values(last_login_at=func.now()))
-    await db.commit()
+    await touch_user_last_login(db, user.id)
 
-    return AccessTokenOut(access_token=at, sid=sid)
+    return AccessTokenOut(access_token=access_token, sid=sid)
 
 
 @log_route("auth.refresh")
@@ -72,12 +77,11 @@ async def refresh(resp: Response, request: Request, db: AsyncSession = Depends(g
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unknown user")
 
-    at = create_access_token(sub=uid, username=user.username, role=user.role, sid=sid or "", ttl_minutes=settings.ACCESS_EXP_MIN)
+    access_token = create_access_token(sub=uid, username=user.username, role=user.role, sid=sid or "", ttl_minutes=settings.ACCESS_EXP_MIN)
 
-    await db.execute(update(User).where(User.id == user.id).values(last_login_at=func.now()))
-    await db.commit()
+    await touch_user_last_login(db, user.id)
 
-    return AccessTokenOut(access_token=at, sid=sid or "")
+    return AccessTokenOut(access_token=access_token, sid=sid or "")
 
 
 @log_route("auth.logout")

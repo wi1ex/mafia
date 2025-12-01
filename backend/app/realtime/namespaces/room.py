@@ -2,8 +2,6 @@ from __future__ import annotations
 import asyncio
 import random
 from time import time
-from typing import Any
-
 import structlog
 from ..sio import sio
 from ...core.clients import get_redis
@@ -36,7 +34,10 @@ from ..utils import (
     account_screen_time,
     get_rooms_brief,
     init_roles_deck,
-    advance_roles_turn, assign_role_for_user,
+    advance_roles_turn,
+    assign_role_for_user,
+    emit_rooms_occupancy_safe,
+    get_game_runtime_and_roles_view,
 )
 
 log = structlog.get_logger()
@@ -80,7 +81,7 @@ async def join(sid, data) -> JoinAck:
         if not params:
             return {"ok": False, "error": "room_not_found", "status": 404}
 
-        if (int(params.get("creator") or 0) != uid) and ((params.get("privacy") or "open") == "private"):
+        if int(params.get("creator") or 0) != uid and (params.get("privacy") or "open") == "private":
             allowed = await r.sismember(f"room:{rid}:allow", str(uid))
             if not allowed:
                 pending = await r.sismember(f"room:{rid}:pending", str(uid))
@@ -121,7 +122,7 @@ async def join(sid, data) -> JoinAck:
         profiles = await get_profiles_snapshot(r, rid)
 
         me_prof = profiles.get(str(uid)) or {}
-        ev_username = (me_prof.get("username") or sess.get("username") or f"user{uid}")
+        ev_username = me_prof.get("username") or sess.get("username") or f"user{uid}"
         ev_avatar = me_prof.get("avatar_name") or sess.get("avatar_name") or None
         eff_role = roles.get(str(uid), base_role)
 
@@ -192,102 +193,7 @@ async def join(sid, data) -> JoinAck:
         owner = int(owner_raw) if owner_raw else 0
         token = make_livekit_token(identity=str(uid), name=ev_username, room=str(rid))
         game = build_game_from_raw(await r.hgetall(f"room:{rid}:game"))
-
-        raw_gstate = await r.hgetall(f"room:{rid}:game_state")
-        raw_seats = await r.hgetall(f"room:{rid}:game_seats")
-        players_set = await r.smembers(f"room:{rid}:game_players")
-        alive_set = await r.smembers(f"room:{rid}:game_alive")
-        raw_roles = await r.hgetall(f"room:{rid}:game_roles")
-        phase = str(raw_gstate.get("phase") or "idle")
-        seats_map: dict[str, int] = {}
-        for k, v in (raw_seats or {}).items():
-            try:
-                seats_map[str(int(k))] = int(v)
-            except Exception:
-                continue
-
-        game_runtime: dict[str, Any] = {"phase": phase,
-                                        "min_ready": settings.GAME_MIN_READY_PLAYERS,
-                                        "seats": seats_map,
-                                        "players": [int(x) for x in (players_set or [])],
-                                        "alive": [int(x) for x in (alive_set or [])]}
-
-        if phase == "roles_pick":
-            try:
-                roles_turn_uid = int(raw_gstate.get("roles_turn_uid") or 0)
-            except Exception:
-                roles_turn_uid = 0
-            try:
-                roles_turn_started = int(raw_gstate.get("roles_turn_started") or 0)
-            except Exception:
-                roles_turn_started = 0
-
-            if roles_turn_uid and roles_turn_started:
-                now = int(time())
-                remaining = max(roles_turn_started + settings.ROLE_PICK_SECONDS - now, 0)
-                raw_taken = await r.hgetall(f"room:{rid}:roles_taken")
-
-                assigned_ids: list[int] = []
-                for k in (raw_roles or {}).keys():
-                    try:
-                        assigned_ids.append(int(k))
-                    except Exception:
-                        continue
-
-                taken_cards: list[int] = []
-                for idx_s in (raw_taken or {}).keys():
-                    try:
-                        taken_cards.append(int(idx_s))
-                    except Exception:
-                        continue
-
-                ordered: list[tuple[int, int]] = []
-                for uid_s, seat in seats_map.items():
-                    try:
-                        uid_i = int(uid_s)
-                    except Exception:
-                        continue
-                    if seat and seat != 11:
-                        ordered.append((seat, uid_i))
-                ordered.sort(key=lambda t: t[0])
-                order_ids = [uid for _, uid in ordered]
-                game_runtime["roles_pick"] = {
-                    "turn_uid": roles_turn_uid,
-                    "deadline": remaining,
-                    "picked": assigned_ids,
-                    "order": order_ids,
-                    "taken_cards": taken_cards,
-                }
-
-        raw_roles = await r.hgetall(f"room:{rid}:game_roles")
-        roles_map = {str(k): str(v) for k, v in (raw_roles or {}).items()}
-        my_game_role = roles_map.get(str(uid))
-        game_roles_view: dict[str, str] = {}
-
-        try:
-            head_uid = int(raw_gstate.get("head") or 0)
-        except Exception:
-            head_uid = 0
-
-        roles_done = str(raw_gstate.get("roles_done") or "0") == "1"
-        if roles_done:
-            if head_uid and uid == head_uid:
-                game_roles_view = dict(roles_map)
-            elif my_game_role == "mafia":
-                subset: dict[str, str] = {k: v for k, v in roles_map.items() if v in ("mafia", "don")}
-                if my_game_role:
-                    subset[str(uid)] = my_game_role
-                game_roles_view = subset
-            elif my_game_role == "don":
-                subset = {k: v for k, v in roles_map.items() if v == "mafia"}
-                if my_game_role:
-                    subset[str(uid)] = my_game_role
-                game_roles_view = subset
-            elif my_game_role:
-                game_roles_view[str(uid)] = my_game_role
-        else:
-            if my_game_role:
-                game_roles_view[str(uid)] = my_game_role
+        game_runtime, game_roles_view, my_game_role = await get_game_runtime_and_roles_view(r, rid, uid)
 
         return {
             "ok": True,
@@ -581,23 +487,7 @@ async def kick(sid, data):
                            room=f"room:{rid}",
                            namespace="/room")
 
-        try:
-            phase = str(await r.hget(f"room:{rid}:game_state", "phase") or "idle")
-        except Exception:
-            phase = "idle"
-
-        if phase != "idle":
-            try:
-                alive_occ = int(await r.scard(f"room:{rid}:game_alive") or 0)
-            except Exception:
-                alive_occ = occ
-            occ_to_send = alive_occ
-        else:
-            occ_to_send = occ
-
-        await sio.emit("rooms_occupancy",
-                       {"id": rid, "occupancy": occ_to_send},
-                       namespace="/rooms")
+        await emit_rooms_occupancy_safe(r, rid, occ)
 
         async with SessionLocal() as s:
             await log_action(
@@ -832,12 +722,12 @@ async def game_start(sid, data) -> GameStartAck:
             seats[pid] = slot
             slot += 1
         seats[str(head_uid)] = 11
-        now = int(time())
+        now_ts = int(time())
         async with r.pipeline() as p:
             await p.hset(f"room:{rid}:game_state",
                          mapping={
                              "phase": "roles_pick",
-                             "started_at": str(now),
+                             "started_at": str(now_ts),
                              "started_by": str(uid),
                              "head": str(head_uid),
                          })
@@ -952,6 +842,14 @@ async def game_roles_pick(sid, data) -> GameRolePickAck:
             turn_uid = 0
         if uid != turn_uid:
             return {"ok": False, "error": "not_your_turn", "status": 403}
+
+        is_player = await r.sismember(f"room:{rid}:game_players", str(uid))
+        try:
+            head_uid = int(raw_state.get("head") or 0)
+        except Exception:
+            head_uid = 0
+        if not is_player and uid != head_uid:
+            return {"ok": False, "error": "not_player", "status": 403}
 
         card = int(data.get("card") or 0)
         if card <= 0:
@@ -1137,7 +1035,9 @@ async def disconnect(sid):
         if was_member:
             occ, gc_seq, pos_updates = await leave_room_atomic(r, rid, uid)
         else:
-            occ, gc_seq, pos_updates = (int(await r.scard(f"room:{rid}:members") or 0), 0, [])
+            occ = int(await r.scard(f"room:{rid}:members") or 0)
+            gc_seq = 0
+            pos_updates = []
 
         try:
             await r.srem(f"room:{rid}:ready", str(uid))
@@ -1162,23 +1062,7 @@ async def disconnect(sid):
                            room=f"room:{rid}",
                            namespace="/room")
 
-        try:
-            phase = str(await r.hget(f"room:{rid}:game_state", "phase") or "idle")
-        except Exception:
-            phase = "idle"
-
-        if phase != "idle":
-            try:
-                alive_occ = int(await r.scard(f"room:{rid}:game_alive") or 0)
-            except Exception:
-                alive_occ = occ
-            occ_to_send = alive_occ
-        else:
-            occ_to_send = occ
-
-        await sio.emit("rooms_occupancy",
-                       {"id": rid, "occupancy": occ_to_send},
-                       namespace="/rooms")
+        await emit_rooms_occupancy_safe(r, rid, occ)
 
         base_role = str(sess.get("base_role") or "user")
         await sio.save_session(sid,
@@ -1189,6 +1073,12 @@ async def disconnect(sid):
                                 "username": sess.get("username"),
                                 "avatar_name": sess.get("avatar_name")},
                                namespace="/room")
+
+        try:
+            phase = str(await r.hget(f"room:{rid}:game_state", "phase") or "idle")
+        except Exception:
+            phase = "idle"
+
         if occ == 0 and phase == "idle":
             async def _gc():
                 try:
