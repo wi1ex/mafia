@@ -30,14 +30,16 @@ from ..utils import (
     update_blocks,
     validate_auth,
     claim_screen,
-    release_screen,
-    account_screen_time,
     get_rooms_brief,
     init_roles_deck,
     advance_roles_turn,
     assign_role_for_user,
     emit_rooms_occupancy_safe,
     get_game_runtime_and_roles_view,
+    emit_state_changed_filtered,
+    emit_moderation_filtered,
+    can_act_on_user,
+    stop_screen_for_user,
 )
 
 log = structlog.get_logger()
@@ -121,6 +123,42 @@ async def join(sid, data) -> JoinAck:
         roles = await get_roles_snapshot(r, rid)
         profiles = await get_profiles_snapshot(r, rid)
 
+        if phase == "mafia_talk_start":
+            raw_game_roles = await r.hgetall(f"room:{rid}:game_roles")
+            my_game_role_full = str(raw_game_roles.get(str(uid)) or "")
+            try:
+                head_id = int(raw_gstate.get("head") or 0)
+            except Exception:
+                head_id = 0
+
+            is_head = uid == head_id
+            is_mafia_team = my_game_role_full in ("mafia", "don")
+
+            if not (is_head or is_mafia_team):
+                safe_snapshot: dict[str, dict[str, str]] = {}
+                for k, st in (snapshot or {}).items():
+                    uk = str(k)
+                    if uk == str(uid):
+                        safe_snapshot[uk] = dict(st or {})
+                    else:
+                        ns = dict(st or {})
+                        if "visibility" in ns:
+                            ns["visibility"] = "0"
+                        safe_snapshot[uk] = ns
+                snapshot = safe_snapshot
+
+                safe_blocked: dict[str, dict[str, str]] = {}
+                for k, bl in (blocked or {}).items():
+                    uk = str(k)
+                    if uk == str(uid):
+                        safe_blocked[uk] = dict(bl or {})
+                    else:
+                        nb = dict(bl or {})
+                        if "visibility" in nb:
+                            nb["visibility"] = "1"
+                        safe_blocked[uk] = nb
+                blocked = safe_blocked
+
         me_prof = profiles.get(str(uid)) or {}
         ev_username = me_prof.get("username") or sess.get("username") or f"user{uid}"
         ev_avatar = me_prof.get("avatar_name") or sess.get("avatar_name") or None
@@ -149,23 +187,11 @@ async def join(sid, data) -> JoinAck:
             if applied:
                 user_state = {**user_state, **applied}
                 snapshot[str(uid)] = user_state
-                await sio.emit("state_changed",
-                               {"user_id": uid, **applied},
-                               room=f"room:{rid}",
-                               skip_sid=sid,
-                               namespace="/room")
+                await emit_state_changed_filtered(r, rid, uid, applied)
 
         if not already:
-            phase = str((await r.hget(f"room:{rid}:game_state", "phase")) or "idle")
-            if phase != "idle":
-                alive_occ = int(await r.scard(f"room:{rid}:game_alive") or 0)
-                occ_to_send = alive_occ
-            else:
-                occ_to_send = occ
+            await emit_rooms_occupancy_safe(r, rid, occ)
 
-            await sio.emit("rooms_occupancy",
-                           {"id": rid, "occupancy": occ_to_send},
-                           namespace="/rooms")
         await sio.emit("member_joined",
                        {"user_id": uid,
                         "state": user_state,
@@ -238,10 +264,7 @@ async def state(sid, data) -> StateAck:
             if newv is not None:
                 changed["ready"] = newv
         if changed:
-            await sio.emit("state_changed",
-                           {"user_id": uid, **changed},
-                           room=f"room:{rid}",
-                           namespace="/room")
+            await emit_state_changed_filtered(r, rid, uid, changed)
         return {"ok": True}
 
     except Exception:
@@ -270,13 +293,7 @@ async def screen(sid, data) -> ScreenAck:
             role_in_room = await r.hget(f"room:{rid}:user:{actor_uid}:info", "role")
             actor_role = str(role_in_room or sess.get("role") or "user")
             trg_role = str(await r.hget(f"room:{rid}:user:{target}:info", "role") or "user")
-            if actor_role not in ("admin", "host"):
-                return {"ok": False, "error": "forbidden", "status": 403}
-
-            if actor_role == "host" and trg_role == "admin":
-                return {"ok": False, "error": "forbidden", "status": 403}
-
-            if actor_role == trg_role:
+            if not can_act_on_user(actor_role, trg_role):
                 return {"ok": False, "error": "forbidden", "status": 403}
 
         if want_on and target == actor_uid:
@@ -299,22 +316,8 @@ async def screen(sid, data) -> ScreenAck:
             await r.set(f"room:{rid}:screen_started_at", str(int(time())), nx=True, ex=86400)
             return {"ok": True, "on": True}
 
-        cur = await r.get(f"room:{rid}:screen_owner")
-        if cur and int(cur) == target:
-            if not bool((data or {}).get("canceled")):
-                await account_screen_time(r, rid, target)
-            else:
-                await r.delete(f"room:{rid}:screen_started_at")
-
-        changed = await release_screen(r, rid, target)
-        if changed:
-            await sio.emit("screen_owner",
-                           {"user_id": None},
-                           room=f"room:{rid}",
-                           namespace="/room")
-            await sio.emit("rooms_stream",
-                           {"id": rid, "owner": None},
-                           namespace="/rooms")
+        canceled = bool((data or {}).get("canceled"))
+        await stop_screen_for_user(r, rid, target, canceled=canceled)
 
         return {"ok": True, "on": False}
 
@@ -373,31 +376,15 @@ async def moderate(sid, data) -> ModerateAck:
             return {"ok": False, "error": err, "status": 403}
 
         if forced_off:
-            await sio.emit("state_changed",
-                           {"user_id": target, **forced_off},
-                           room=f"room:{rid}",
-                           namespace="/room")
+            await emit_state_changed_filtered(r, rid, target, forced_off)
+
         if applied:
             row = await r.hgetall(f"room:{rid}:user:{target}:block")
             full = {k: ("1" if (row or {}).get(k) == "1" else "0") for k in KEYS_BLOCK}
-            await sio.emit("moderation",
-                           {"user_id": target,
-                            "blocks": full,
-                            "by": {"user_id": actor_uid, "role": actor_role}},
-                           room=f"room:{rid}",
-                           namespace="/room")
+            await emit_moderation_filtered(r, rid, target, full, actor_uid, actor_role)
+
             if applied.get("screen") == "1":
-                cur = await r.get(f"room:{rid}:screen_owner")
-                if cur and int(cur) == target:
-                    await account_screen_time(r, rid, target)
-                    await r.delete(f"room:{rid}:screen_owner")
-                    await sio.emit("screen_owner",
-                                   {"user_id": None},
-                                   room=f"room:{rid}",
-                                   namespace="/room")
-                    await sio.emit("rooms_stream",
-                                   {"id": rid, "owner": None},
-                                   namespace="/rooms")
+                await stop_screen_for_user(r, rid, target)
 
         if applied or forced_off:
             async with SessionLocal() as s:
@@ -438,13 +425,7 @@ async def kick(sid, data):
         role_in_room = await r.hget(f"room:{rid}:user:{actor_uid}:info", "role")
         actor_role = str(role_in_room or sess.get("role") or "user")
         trg_role = str(await r.hget(f"room:{rid}:user:{target}:info", "role") or "user")
-        if actor_role not in ("admin", "host"):
-            return {"ok": False, "error": "forbidden", "status": 403}
-
-        if actor_role == "host" and trg_role == "admin":
-            return {"ok": False, "error": "forbidden", "status": 403}
-
-        if actor_role == trg_role:
+        if not can_act_on_user(actor_role, trg_role):
             return {"ok": False, "error": "forbidden", "status": 403}
 
         await r.srem(f"room:{rid}:allow", str(target))
@@ -455,17 +436,7 @@ async def kick(sid, data):
                        room=f"user:{target}",
                        namespace="/room")
 
-        cur = await r.get(f"room:{rid}:screen_owner")
-        if cur and int(cur) == target:
-            await account_screen_time(r, rid, target)
-            await r.delete(f"room:{rid}:screen_owner")
-            await sio.emit("screen_owner",
-                           {"user_id": None},
-                           room=f"room:{rid}",
-                           namespace="/room")
-            await sio.emit("rooms_stream",
-                           {"id": rid, "owner": None},
-                           namespace="/rooms")
+        await stop_screen_for_user(r, rid, target)
 
         occ, _, pos_updates = await leave_room_atomic(r, rid, target)
         try:
@@ -560,19 +531,11 @@ async def game_leave(sid, data):
                 log.exception("sio.game_leave.autoblock_failed", rid=rid, head=head_uid, target=uid)
             else:
                 if forced_off:
-                    await sio.emit("state_changed",
-                                   {"user_id": uid, **forced_off},
-                                   room=f"room:{rid}",
-                                   namespace="/room")
+                    await emit_state_changed_filtered(r, rid, uid, forced_off)
                 if applied:
                     row = await r.hgetall(f"room:{rid}:user:{uid}:block")
                     full = {k: ("1" if (row or {}).get(k) == "1" else "0") for k in KEYS_BLOCK}
-                    await sio.emit("moderation",
-                                   {"user_id": uid,
-                                    "blocks": full,
-                                    "by": {"user_id": head_uid, "role": "head"}},
-                                   room=f"room:{rid}",
-                                   namespace="/room")
+                    await emit_moderation_filtered(r, rid, uid, full, head_uid, "head")
 
         try:
             async with SessionLocal() as s:
@@ -756,19 +719,11 @@ async def game_start(sid, data) -> GameStartAck:
                     continue
 
                 if forced_off:
-                    await sio.emit("state_changed",
-                                   {"user_id": target_uid, **forced_off},
-                                   room=f"room:{rid}",
-                                   namespace="/room")
+                    await emit_state_changed_filtered(r, rid, target_uid, forced_off)
                 if applied:
                     row = await r.hgetall(f"room:{rid}:user:{target_uid}:block")
                     full = {k: ("1" if (row or {}).get(k) == "1" else "0") for k in KEYS_BLOCK}
-                    await sio.emit("moderation",
-                                   {"user_id": target_uid,
-                                    "blocks": full,
-                                    "by": {"user_id": head_uid, "role": "head"}},
-                                   room=f"room:{rid}",
-                                   namespace="/room")
+                    await emit_moderation_filtered(r, rid, target_uid, full, head_uid, "head")
 
         payload: GameStartAck = {
             "ok": True,
@@ -948,12 +903,7 @@ async def game_phase_next(sid, data):
                 if applied:
                     row = await r.hgetall(f"room:{rid}:user:{target_uid}:block")
                     full = {k: ("1" if (row or {}).get(k) == "1" else "0") for k in KEYS_BLOCK}
-                    await sio.emit("moderation",
-                                   {"user_id": target_uid,
-                                    "blocks": full,
-                                    "by": {"user_id": head_uid, "role": "head"}},
-                                   room=f"room:{rid}",
-                                   namespace="/room")
+                    await emit_moderation_filtered(r, rid, target_uid, full, head_uid, "head", phase_override="mafia_talk_start")
 
             if mafia_targets:
                 async with r.pipeline() as p:
@@ -962,11 +912,7 @@ async def game_phase_next(sid, data):
                     await p.execute()
 
                 for target_uid in mafia_targets:
-                    await sio.emit("state_changed",
-                                   {"user_id": target_uid,
-                                    "visibility": "1"},
-                                   room=f"room:{rid}",
-                                   namespace="/room")
+                    await emit_state_changed_filtered(r, rid, target_uid, {"visibility": "1"}, phase_override="mafia_talk_start")
 
             now_ts = int(time())
             duration = int(getattr(settings, "MAFIA_TALK_SECONDS", 60))
@@ -1022,11 +968,7 @@ async def game_phase_next(sid, data):
                     await p.execute()
 
                 for target_uid in mafia_targets:
-                    await sio.emit("state_changed",
-                                   {"user_id": target_uid,
-                                    "visibility": "0"},
-                                   room=f"room:{rid}",
-                                   namespace="/room")
+                    await emit_state_changed_filtered(r, rid, target_uid, {"visibility": "0"})
 
             for target_uid in mafia_targets:
                 try:
@@ -1039,19 +981,11 @@ async def game_phase_next(sid, data):
                     continue
 
                 if forced_off:
-                    await sio.emit("state_changed",
-                                   {"user_id": target_uid, **forced_off},
-                                   room=f"room:{rid}",
-                                   namespace="/room")
+                    await emit_state_changed_filtered(r, rid, target_uid, forced_off)
                 if applied:
                     row = await r.hgetall(f"room:{rid}:user:{target_uid}:block")
                     full = {k: ("1" if (row or {}).get(k) == "1" else "0") for k in KEYS_BLOCK}
-                    await sio.emit("moderation",
-                                   {"user_id": target_uid,
-                                    "blocks": full,
-                                    "by": {"user_id": head_uid, "role": "head"}},
-                                   room=f"room:{rid}",
-                                   namespace="/room")
+                    await emit_moderation_filtered(r, rid, target_uid, full, head_uid, "head")
 
             async with r.pipeline() as p:
                 await p.hset(f"room:{rid}:game_state", mapping={"phase": "mafia_talk_end"})
@@ -1070,6 +1004,28 @@ async def game_phase_next(sid, data):
                            {"room_id": rid,
                             "from": cur_phase,
                             "to": "mafia_talk_end"},
+                           room=f"room:{rid}",
+                           namespace="/room")
+
+            return payload
+
+        if cur_phase == "mafia_talk_end" and want_to == "day":
+            async with r.pipeline() as p:
+                await p.hset(f"room:{rid}:game_state", mapping={"phase": "day"})
+                await p.execute()
+
+            payload = {
+                "ok": True,
+                "status": 200,
+                "room_id": rid,
+                "from": cur_phase,
+                "to": "day",
+            }
+
+            await sio.emit("game_phase_change",
+                           {"room_id": rid,
+                            "from": cur_phase,
+                            "to": "day"},
                            room=f"room:{rid}",
                            namespace="/room")
 
@@ -1136,12 +1092,7 @@ async def game_end(sid, data):
             if applied:
                 row = await r.hgetall(f"room:{rid}:user:{target_uid}:block")
                 full = {k: ("1" if (row or {}).get(k) == "1" else "0") for k in KEYS_BLOCK}
-                await sio.emit("moderation",
-                               {"user_id": target_uid,
-                                "blocks": full,
-                                "by": {"user_id": head_uid, "role": "head"}},
-                               room=f"room:{rid}",
-                               namespace="/room")
+                await emit_moderation_filtered(r, rid, target_uid, full, head_uid, "head")
 
         async with r.pipeline() as p:
             await p.delete(
@@ -1158,7 +1109,8 @@ async def game_end(sid, data):
             occ = 0
 
         await sio.emit("rooms_occupancy",
-                       {"id": rid, "occupancy": occ},
+                       {"id": rid,
+                        "occupancy": occ},
                        namespace="/rooms")
 
         try:
@@ -1216,17 +1168,7 @@ async def disconnect(sid):
         if cur_epoch > sess_epoch:
             return
 
-        owner = await r.get(f"room:{rid}:screen_owner")
-        if owner and int(owner) == uid:
-            await account_screen_time(r, rid, uid)
-            await r.delete(f"room:{rid}:screen_owner")
-            await sio.emit("screen_owner",
-                           {"user_id": None},
-                           room=f"room:{rid}",
-                           namespace="/room")
-            await sio.emit("rooms_stream",
-                           {"id": rid, "owner": None},
-                           namespace="/rooms")
+        await stop_screen_for_user(r, rid, uid)
 
         was_member = await r.sismember(f"room:{rid}:members", str(uid))
         if was_member:

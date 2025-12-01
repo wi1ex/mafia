@@ -122,18 +122,18 @@
         </div>
 
         <div v-if="showPermProbe" class="controls">
-          <button class="probe" @click="onProbeClick">Разрешить доступ к камере и микрофону</button>
+          <button class="btn-text" @click="onProbeClick">Разрешить доступ к камере и микрофону</button>
         </div>
         <div v-else class="controls">
           <button v-if="gamePhase === 'idle' && canShowStartGame" @click="startGameUi" :disabled="startingGame" aria-label="Запустить игру">
             <img :src="iconGameStart" alt="start" />
           </button>
-          <button v-if="gamePhase === 'roles_pick' && myGameRole === 'head' && rolesVisibleForHead" @click="goToMafiaTalkUi" aria-label="Перейти к договорке">
-            <img :src="iconTalkMafia" alt="next-phase" />
-          </button>
-          <button v-if="gamePhase === 'mafia_talk_start' && myGameRole === 'head' && mafiaTalkRemainingMs <= 0" @click="finishMafiaTalkUi" aria-label="Завершить договорку">
-            <img :src="iconTalkMafia" alt="finish-mafia-talk" />
-          </button>
+          <button v-if="gamePhase === 'roles_pick' && myGameRole === 'head' && rolesVisibleForHead" class="btn-text"
+                  @click="goToMafiaTalkUi" aria-label="Перейти к договорке">Начать договорку</button>
+          <button v-if="gamePhase === 'mafia_talk_start' && myGameRole === 'head' && mafiaTalkRemainingMs <= 0" class="btn-text"
+                  @click="finishMafiaTalkUi" aria-label="Завершить договорку">Завершить договорку</button>
+          <button v-if="gamePhase === 'mafia_talk_end' && myGameRole === 'head'" class="btn-text"
+                  @click="startDayUi" aria-label="Начать день">Начать день</button>
 
           <button v-if="gamePhase === 'idle' && !canShowStartGame" @click="toggleReady" :aria-pressed="readyOn" aria-label="Готовность">
             <img :src="readyOn ? iconReady : iconClose" alt="ready" />
@@ -235,7 +235,6 @@ import iconSettings from '@/assets/svg/settings.svg'
 import iconRequestsRoom from '@/assets/svg/requestsRoom.svg'
 import iconReady from '@/assets/svg/ready.svg'
 import iconGameStart from '@/assets/svg/gameStart.svg'
-import iconTalkMafia from '@/assets/svg/talkMafia.svg'
 import iconGameStop from '@/assets/svg/gameStop.svg'
 import iconCardBack from '@/assets/images/cardBack.png'
 import iconLowSignal from '@/assets/svg/lowSignal.svg'
@@ -484,12 +483,13 @@ function ensureOk(resp: Ack, msgByCode: Record<number, string>, netMsg: string):
 }
 
 const sendAckGame: SendAckFn = (event, payload, timeoutMs) => sendAck(event, payload, timeoutMs)
+const startGameUi = () => game.startGame(sendAckGame)
+const leaveGameUi = () => game.leaveGame(sendAckGame)
+const pickRoleCardUi = (card: number) => game.pickRoleCard(card, sendAckGame)
 const goToMafiaTalkUi = () => game.goToMafiaTalk(sendAckGame)
 const finishMafiaTalkUi = () => game.finishMafiaTalk(sendAckGame)
-const leaveGameUi = () => game.leaveGame(sendAckGame)
-const startGameUi = () => game.startGame(sendAckGame)
+const startDayUi = () => game.startDay(sendAckGame)
 const endGameUi = () => game.endGame(sendAckGame)
-const pickRoleCardUi = (card: number) => game.pickRoleCard(card, sendAckGame)
 
 const showPermProbe = computed(() => !rtc.hasAudioInput.value && !rtc.hasVideoInput.value)
 async function onProbeClick() {
@@ -1442,7 +1442,7 @@ onBeforeUnmount(() => {
         justify-content: flex-end;
       }
     }
-    .probe {
+    .btn-text {
       width: fit-content;
       color: $fg;
       font-size: 16px;
@@ -1600,7 +1600,7 @@ onBeforeUnmount(() => {
       .controls {
         gap: 5px;
       }
-      .probe {
+      .btn-text {
         padding: 0 10px;
         font-size: 12px;
       }

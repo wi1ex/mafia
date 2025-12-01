@@ -459,6 +459,14 @@ export function useRoomGame(localId: Ref<string>) {
     }
   }
 
+  async function startDay(sendAck: SendAckFn): Promise<void> {
+    const resp = await sendAck('game_phase_next', { from: 'mafia_talk_end', to: 'day' })
+    if (!resp?.ok) {
+      alert('Не удалось начать день')
+      return
+    }
+  }
+
   async function leaveGame(sendAck: SendAckFn): Promise<void> {
     if (!confirm('Вы хотите покинуть игровой стол?')) return
     const resp = await sendAck('game_leave', {})
@@ -637,6 +645,7 @@ export function useRoomGame(localId: Ref<string>) {
     shouldHighlightMafiaTile,
     goToMafiaTalk,
     finishMafiaTalk,
+    startDay,
     leaveGame,
     startGame,
     endGame,

@@ -31,21 +31,21 @@ __all__ = [
     "get_blocks_snapshot",
     "get_roles_snapshot",
     "get_profiles_snapshot",
-    "account_screen_time",
     "join_room_atomic",
     "leave_room_atomic",
     "gc_empty_room",
     "update_blocks",
     "claim_screen",
-    "release_screen",
     "get_rooms_brief",
     "init_roles_deck",
-    "get_players_in_seat_order",
     "assign_role_for_user",
-    "roles_timeout_job",
     "advance_roles_turn",
     "emit_rooms_occupancy_safe",
     "get_game_runtime_and_roles_view",
+    "can_act_on_user",
+    "stop_screen_for_user",
+    "emit_state_changed_filtered",
+    "emit_moderation_filtered",
 ]
 
 log = structlog.get_logger()
@@ -377,13 +377,7 @@ async def update_blocks(r, rid: int, actor_uid: int, actor_role: str, target_uid
         return {}, {"__error__": "forbidden"}
 
     if actor_role != "head":
-        if actor_role not in ("admin", "host"):
-            return {}, {"__error__": "forbidden"}
-
-        if actor_role == "host" and target_role == "admin":
-            return {}, {"__error__": "forbidden"}
-
-        if actor_role == target_role:
+        if not can_act_on_user(actor_role, target_role):
             return {}, {"__error__": "forbidden"}
 
     incoming = {k: norm01(changes_bool[k]) for k in KEYS_BLOCK if k in changes_bool}
@@ -422,15 +416,6 @@ async def claim_screen(r, rid: int, uid: int) -> tuple[bool, int]:
 
     cur2 = await r.get(f"room:{rid}:screen_owner")
     return (int(cur2 or 0) == uid), (int(cur2) if cur2 else 0)
-
-
-async def release_screen(r, rid: int, uid: int) -> bool:
-    cur = await r.get(f"room:{rid}:screen_owner")
-    if cur and int(cur) == uid:
-        await r.delete(f"room:{rid}:screen_owner")
-        return True
-
-    return False
 
 
 async def account_screen_time(r, rid: int, uid: int) -> None:
@@ -1099,3 +1084,116 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
             game_roles_view[str(uid)] = my_game_role
 
     return game_runtime, game_roles_view, my_game_role
+
+
+def can_act_on_user(actor_role: str, target_role: str) -> bool:
+    if actor_role not in ("admin", "host"):
+        return False
+
+    if actor_role == "host" and target_role == "admin":
+        return False
+
+    if actor_role == target_role:
+        return False
+
+    return True
+
+
+async def stop_screen_for_user(r, rid: int, uid: int, *, canceled: bool = False) -> None:
+    cur = await r.get(f"room:{rid}:screen_owner")
+    if not cur or int(cur) != uid:
+        return
+
+    if canceled:
+        await r.delete(f"room:{rid}:screen_started_at")
+    else:
+        await account_screen_time(r, rid, uid)
+
+    await r.delete(f"room:{rid}:screen_owner")
+
+    await sio.emit("screen_owner",
+                   {"user_id": None},
+                   room=f"room:{rid}",
+                   namespace="/room")
+    await sio.emit("rooms_stream",
+                   {"id": rid,
+                    "owner": None},
+                   namespace="/rooms")
+
+
+async def get_mafia_talk_viewers(r, rid: int, subject_uid: int, phase_override: str | None = None) -> tuple[bool, set[int]]:
+    try:
+        raw_gstate = await r.hgetall(f"room:{rid}:game_state")
+    except Exception:
+        return False, set()
+
+    phase = str(phase_override or raw_gstate.get("phase") or "idle")
+    if phase != "mafia_talk_start":
+        return False, set()
+
+    try:
+        head_uid = int(raw_gstate.get("head") or 0)
+    except Exception:
+        head_uid = 0
+
+    try:
+        raw_roles = await r.hgetall(f"room:{rid}:game_roles")
+    except Exception:
+        raw_roles = {}
+
+    viewers: set[int] = set()
+    viewers.add(int(subject_uid))
+    if head_uid:
+        viewers.add(head_uid)
+
+    for k, v in (raw_roles or {}).items():
+        try:
+            uid_i = int(k)
+        except Exception:
+            continue
+        role = str(v or "")
+        if role in ("mafia", "don"):
+            viewers.add(uid_i)
+
+    return True, viewers
+
+
+async def emit_state_changed_filtered(r, rid: int, subject_uid: int, changed: dict[str, str], *, phase_override: str | None = None) -> None:
+    payload = {"user_id": subject_uid, **changed}
+    is_mafia_talk, viewers = await get_mafia_talk_viewers(r, rid, subject_uid, phase_override)
+
+    if not is_mafia_talk:
+        await sio.emit("state_changed",
+                       payload,
+                       room=f"room:{rid}",
+                       namespace="/room")
+        return
+
+    for uid in viewers:
+        await sio.emit("state_changed",
+                       payload,
+                       room=f"user:{uid}",
+                       namespace="/room")
+
+
+async def emit_moderation_filtered(r, rid: int, target_uid: int, blocks_full: dict[str, str], actor_uid: int, actor_role: str, *, phase_override: str | None = None) -> None:
+    payload = {
+        "user_id": target_uid,
+        "blocks": blocks_full,
+        "by": {"user_id": actor_uid, "role": actor_role},
+    }
+
+    is_mafia_talk, viewers = await get_mafia_talk_viewers(r, rid, target_uid, phase_override)
+
+    if not is_mafia_talk:
+        await sio.emit("moderation",
+                       payload,
+                       room=f"room:{rid}",
+                       namespace="/room")
+        return
+
+    for uid in viewers:
+        await sio.emit("moderation",
+                       payload,
+                       room=f"user:{uid}",
+                       namespace="/room")
