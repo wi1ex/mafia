@@ -1056,6 +1056,21 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
                 "taken_cards": taken_cards,
             }
 
+    if phase == "mafia_talk":
+        try:
+            mafia_started = int(raw_gstate.get("mafia_talk_started") or 0)
+        except Exception:
+            mafia_started = 0
+        try:
+            mafia_duration = int(raw_gstate.get("mafia_talk_duration") or settings.MAFIA_TALK_SECONDS)
+        except Exception:
+            mafia_duration = settings.MAFIA_TALK_SECONDS
+
+        if mafia_started and mafia_duration > 0:
+            now_ts = int(time())
+            remaining = max(mafia_started + mafia_duration - now_ts, 0)
+            game_runtime["mafia_talk"] = {"deadline": remaining}
+
     roles_map = {str(k): str(v) for k, v in (raw_roles or {}).items()}
     my_game_role = roles_map.get(str(uid))
 

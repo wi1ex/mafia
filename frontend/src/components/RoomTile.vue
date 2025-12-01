@@ -1,5 +1,5 @@
 <template>
-  <div class="tile" :class="[{ speaking }, side && 'side']" tabindex="0">
+  <div class="tile" :class="[{ speaking, mafia: mafiaMark }, side && 'side']" tabindex="0">
     <video v-show="showVideo" :ref="videoRef" playsinline autoplay :muted="id === localId" :class="{ mirrored: isMirrored(id) }"
            :style="{ objectFit: fitContain ? 'contain' : 'cover' }" />
 
@@ -18,13 +18,14 @@
       <img v-else class="avatar" v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar, lazy: false }" alt="avatar" />
     </div>
 
-    <div class="user-card" :data-open="openPanel ? 1 : 0" @click.stop>
+    <div class="user-card" :data-open="openPanel ? 1 : 0" :data-game="inGame ? 1 : 0" @click.stop>
       <button class="card-head" :disabled="id === localId"
               :aria-disabled="id === localId" @click.stop="$emit('toggle-panel', id)" :aria-expanded="openPanel">
         <img v-if="seat != null && seatIcon" class="user-slot" :src="seatIcon" alt="seat" />
         <img class="user-avatar" v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar, lazy: false }" alt="avatar" />
         <span>{{ userName(id) }}</span>
-        <div class="status" v-if="showStates">
+<!--        <div class="status" v-if="!inGame || isGameHead">-->
+        <div class="status">
           <img v-if="isBlocked(id,'mic') || !isOn(id,'mic')" :src="stateIcon('mic', id)" alt="mic" />
           <img v-if="isBlocked(id,'cam') || !isOn(id,'cam')" :src="stateIcon('cam', id)" alt="cam" />
           <img v-if="isBlocked(id,'speakers') || !isOn(id,'speakers')" :src="stateIcon('speakers', id)" alt="spk" />
@@ -53,8 +54,8 @@
         </div>
       </Transition>
     </div>
-    <div v-if="showRoleTimer && isRolePickOwner && rolePickDurationSec > 0" class="role-timer">
-      <div class="role-timer-bar" :style="{ animationDuration: rolePickDurationSec + 's' }" />
+    <div v-if="showTimeline && timelineDurationSec > 0" class="role-timer">
+      <div class="role-timer-bar" :style="{ animationDuration: timelineDurationSec + 's' }" />
     </div>
   </div>
 </template>
@@ -87,7 +88,7 @@ const props = withDefaults(defineProps<{
   canModerate: (id: string) => boolean
   isReady: (id: string) => boolean
   isMirrored: (id: string) => boolean
-  showStates?: boolean
+  isGameHead?: boolean
   isDead?: (id: string) => boolean
   deadAvatar?: string
   seat?: number | null
@@ -96,21 +97,31 @@ const props = withDefaults(defineProps<{
   offlineAvatar?: string
   rolePickOwnerId?: string
   rolePickRemainingMs?: number
+  mafiaTalkHostId?: string
+  mafiaTalkRemainingMs?: number
+  mafiaMark?: boolean
   gameRole?: string
   hiddenByVisibility?: boolean
   visibilityHiddenAvatar?: string
+  inGame?: boolean
 }>(), {
   side: false,
   fitContain: false,
-  showStates: true,
+  isGameHead: true,
   isDead: () => false,
   deadAvatar: '',
   seat: null,
   seatIcon: null,
   offline: false,
   offlineAvatar: '',
+  rolePickOwnerId: '',
+  rolePickRemainingMs: 0,
+  mafiaTalkHostId: '',
+  mafiaTalkRemainingMs: 0,
+  mafiaMark: false,
   hiddenByVisibility: false,
   visibilityHiddenAvatar: '',
+  inGame: false,
 })
 
 defineEmits<{
@@ -128,10 +139,13 @@ const showVideo = computed(() =>
   !props.isBlocked(props.id, 'cam'),
 )
 const openPanel = computed(() => props.openPanelFor === props.id)
-const showRoleTimer = computed(() => props.rolePickOwnerId === props.id)
-const isRolePickOwner = computed(() => props.rolePickOwnerId === props.id)
-const rolePickDurationSec = computed(() => {
-  const ms = props.rolePickRemainingMs ?? 0
+const hasRolePickTimer = computed(() => props.rolePickOwnerId === props.id && (props.rolePickRemainingMs ?? 0) > 0)
+const hasMafiaTalkTimer = computed(() => props.mafiaTalkHostId === props.id && (props.mafiaTalkRemainingMs ?? 0) > 0)
+const showTimeline = computed(() => hasRolePickTimer.value || hasMafiaTalkTimer.value)
+const timelineDurationSec = computed(() => {
+  let ms = 0
+  if (hasRolePickTimer.value) ms = props.rolePickRemainingMs ?? 0
+  else if (hasMafiaTalkTimer.value) ms = props.mafiaTalkRemainingMs ?? 0
   if (!ms || ms <= 0) return 0
   return Math.max(ms / 1000, 0.1)
 })
@@ -148,6 +162,12 @@ const rolePickDurationSec = computed(() => {
   transition: border-color 0.25s ease-in-out;
   &.speaking {
     border-color: $green;
+  }
+  &.mafia {
+    border-color: $red;
+  }
+  &.speaking.mafia {
+    border-color: $red;
   }
   video {
     width: 100%;
@@ -218,6 +238,9 @@ const rolePickDurationSec = computed(() => {
     &[data-open="1"] {
       inline-size: min(250px, calc(100% - 30px));
       block-size: 138px;
+    }
+    &[data-open="1"][data-game="1"] {
+      block-size: 103px;
     }
     .card-head {
       display: flex;
@@ -381,6 +404,9 @@ const rolePickDurationSec = computed(() => {
       &[data-open="1"] {
         inline-size: min(250px, calc(100% - 15px));
         block-size: 118px;
+      }
+      &[data-open="1"][data-game="1"] {
+        block-size: 83px;
       }
       .card-body {
         margin-top: 0;

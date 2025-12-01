@@ -28,7 +28,7 @@
           :open-panel-for="openPanelFor"
           :vol="volUi[id] ?? rtc.getUserVolume(id)"
           :is-mirrored="isMirrored"
-          :show-states="gamePhase === 'idle' || game.isGameHead(id)"
+          :is-game-head="game.isGameHead(id)"
           :is-dead="game.isDead"
           :dead-avatar="iconKillPlayer"
           :seat="game.seatIndex(id)"
@@ -37,9 +37,13 @@
           :offline-avatar="iconLowSignal"
           :role-pick-owner-id="rolePick.activeUserId"
           :role-pick-remaining-ms="rolePick.remainingMs"
+          :mafia-talk-host-id="headUserId"
+          :mafia-talk-remaining-ms="mafiaTalkRemainingMs"
+          :mafia-mark="game.shouldHighlightMafiaTile(id)"
           :game-role="game.roleIconForTile(id)"
           :hidden-by-visibility="hiddenByVisibility(id)"
           :visibility-hidden-avatar="visOffAvatar(id)"
+          :in-game="gamePhase !== 'idle'"
           @toggle-panel="toggleTilePanel"
           @vol-input="onVol"
           @block="(key, uid) => toggleBlock(uid, key)"
@@ -80,7 +84,7 @@
             :is-ready="isReady"
             :vol="volUi[id] ?? rtc.getUserVolume(id)"
             :is-mirrored="isMirrored"
-            :show-states="gamePhase === 'idle' || game.isGameHead(id)"
+            :is-game-head="game.isGameHead(id)"
             :is-dead="game.isDead"
             :dead-avatar="iconKillPlayer"
             :seat="game.seatIndex(id)"
@@ -89,9 +93,13 @@
             :offline-avatar="iconLowSignal"
             :role-pick-owner-id="rolePick.activeUserId"
             :role-pick-remaining-ms="rolePick.remainingMs"
+            :mafia-talk-host-id="headUserId"
+            :mafia-talk-remaining-ms="mafiaTalkRemainingMs"
+            :mafia-mark="game.shouldHighlightMafiaTile(id)"
             :game-role="game.roleIconForTile(id)"
             :hidden-by-visibility="hiddenByVisibility(id)"
             :visibility-hidden-avatar="visOffAvatar(id)"
+            :in-game="gamePhase !== 'idle'"
             @toggle-panel="toggleTilePanel"
             @vol-input="onVol"
             @block="(key, uid) => toggleBlock(uid, key)"
@@ -117,12 +125,16 @@
           <button class="probe" @click="onProbeClick">Разрешить доступ к камере и микрофону</button>
         </div>
         <div v-else class="controls">
-          <button v-if="gamePhase === 'roles_pick' && myGameRole === 'head' && rolesVisibleForHead" @click="goToMafiaTalkUi" aria-label="Перейти к договорке">
-            <img :src="iconTalkMafia" alt="next-phase" />
-          </button>
           <button v-if="gamePhase === 'idle' && canShowStartGame" @click="startGameUi" :disabled="startingGame" aria-label="Запустить игру">
             <img :src="iconGameStart" alt="start" />
           </button>
+          <button v-if="gamePhase === 'roles_pick' && myGameRole === 'head' && rolesVisibleForHead" @click="goToMafiaTalkUi" aria-label="Перейти к договорке">
+            <img :src="iconTalkMafia" alt="next-phase" />
+          </button>
+          <button v-if="gamePhase === 'mafia_talk' && myGameRole === 'head' && mafiaTalkRemainingMs <= 0" @click="finishMafiaTalkUi" aria-label="Завершить договорку">
+            <img :src="iconTalkMafia" alt="finish-mafia-talk" />
+          </button>
+
           <button v-if="gamePhase === 'idle' && !canShowStartGame" @click="toggleReady" :aria-pressed="readyOn" aria-label="Готовность">
             <img :src="readyOn ? iconReady : iconClose" alt="ready" />
           </button>
@@ -268,7 +280,7 @@ const { localId, mics, cams, selectedMicId, selectedCamId, peerIds } = rtc
 const game = useRoomGame(localId)
 const { GAME_COLUMN_INDEX, GAME_ROW_INDEX, ROLE_IMAGES, ROLE_CARD_IMAGES,
   gamePhase, minReadyToStart, seatsByUser, offlineInGame, rolesVisibleForHead, rolePick, roleOverlayMode, roleOverlayCard,
-  startingGame, endingGame, myGameRole, myGameRoleKind, amIAlive, takenCardSet, roleCardsToRender } = game
+  startingGame, endingGame, myGameRole, myGameRoleKind, amIAlive, takenCardSet, roleCardsToRender, mafiaTalk } = game
 
 const UA = navigator.userAgent || ''
 const IS_MOBILE = (navigator as any).userAgentData?.mobile === true || /Android|iPhone|iPad|iPod|Mobile/i.test(UA)
@@ -344,6 +356,14 @@ const canShowStartGame = computed(() => {
   const nonReady = total - ready
   return !meReady && total === min + 1 && ready === min && nonReady === 1
 })
+
+const headUserId = computed(() => {
+  for (const [uid, seat] of Object.entries(seatsByUser)) {
+    if (seat === 11) return uid
+  }
+  return ''
+})
+const mafiaTalkRemainingMs = computed(() => mafiaTalk.remainingMs)
 
 const videoQuality = computed<VQ>({
   get: () => rtc.remoteQuality.value,
@@ -465,6 +485,7 @@ function ensureOk(resp: Ack, msgByCode: Record<number, string>, netMsg: string):
 
 const sendAckGame: SendAckFn = (event, payload, timeoutMs) => sendAck(event, payload, timeoutMs)
 const goToMafiaTalkUi = () => game.goToMafiaTalk(sendAckGame)
+const finishMafiaTalkUi = () => game.finishMafiaTalk(sendAckGame)
 const leaveGameUi = () => game.leaveGame(sendAckGame)
 const startGameUi = () => game.startGame(sendAckGame)
 const endGameUi = () => game.endGame(sendAckGame)
@@ -826,6 +847,10 @@ function connectSocket() {
 
   socket.value?.on('game_roles_state', (p: any) => {
     game.handleGameRolesState(p)
+  })
+
+  socket.value?.on('game_phase_change', (p: any) => {
+    game.handleGamePhaseChange(p)
   })
 }
 
@@ -1421,7 +1446,7 @@ onBeforeUnmount(() => {
         border-radius: 5px;
         background: transparent;
         cursor: pointer;
-        transition: transform 0.25s ease-in-out, opacity 0.25s ease-in-out;
+        transition: transform 0.15s ease-in-out, opacity 0.25s ease-in-out;
         &.is-taken:not(.is-revealed) {
           pointer-events: none;
           .role-card-inner {

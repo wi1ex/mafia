@@ -36,8 +36,9 @@ class Settings(BaseSettings):
     BACKEND_CORS_ORIGINS: List[str] = []
 
     GAME_MIN_READY_PLAYERS: int = 5
-    ROLE_PICK_SECONDS: int = 60
+    ROLE_PICK_SECONDS: int = 10
     ROLE_DECK: tuple[str, ...] = ("citizen", "citizen", "citizen", "citizen", "citizen", "citizen", "mafia", "mafia", "don", "sheriff")
+    MAFIA_TALK_SECONDS: int = 60
 
     @property
     def pg_dsn(self) -> str:

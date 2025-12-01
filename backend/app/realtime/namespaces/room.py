@@ -886,6 +886,201 @@ async def game_roles_pick(sid, data) -> GameRolePickAck:
         return {"ok": False, "error": "internal", "status": 500}
 
 
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_phase_next:{uid or 'nouid'}:{rid or 0}", limit=5, window_s=1, session_ns="/room")
+@sio.event(namespace="/room")
+async def game_phase_next(sid, data):
+    try:
+        data = data or {}
+        want_from = str(data.get("from") or "")
+        want_to = str(data.get("to") or "")
+
+        sess = await sio.get_session(sid, namespace="/room")
+        uid = int(sess["uid"])
+        rid = int(sess.get("rid") or 0)
+        if not rid:
+            return {"ok": False, "error": "no_room", "status": 400}
+
+        r = get_redis()
+        raw_gstate = await r.hgetall(f"room:{rid}:game_state")
+        cur_phase = str(raw_gstate.get("phase") or "idle")
+        if cur_phase == "idle":
+            return {"ok": False, "error": "no_game", "status": 400}
+
+        try:
+            head_uid = int(raw_gstate.get("head") or 0)
+        except Exception:
+            head_uid = 0
+
+        if not head_uid or uid != head_uid:
+            return {"ok": False, "error": "forbidden", "status": 403}
+
+        if want_from and want_from != cur_phase:
+            return {"ok": False, "error": "bad_phase_from", "status": 400}
+
+        if cur_phase == "roles_pick" and want_to == "mafia_talk":
+            roles_done = str(raw_gstate.get("roles_done") or "0") == "1"
+            if not roles_done:
+                return {"ok": False, "error": "roles_not_done", "status": 400}
+
+            raw_roles = await r.hgetall(f"room:{rid}:game_roles")
+            roles_map: dict[int, str] = {}
+            for k, v in (raw_roles or {}).items():
+                try:
+                    uid_i = int(k)
+                except Exception:
+                    continue
+                if v is None:
+                    continue
+                roles_map[uid_i] = str(v)
+
+            mafia_targets = [u for u, role in roles_map.items() if role in ("mafia", "don")]
+
+            for target_uid in mafia_targets:
+                try:
+                    applied, forced_off = await update_blocks(r, rid, head_uid, "head", target_uid, {"visibility": False})
+                except Exception:
+                    log.exception("sio.game_phase_next.mafia_unblock_failed", rid=rid, head=head_uid, target=target_uid)
+                    continue
+
+                if "__error__" in forced_off:
+                    continue
+
+                if applied:
+                    row = await r.hgetall(f"room:{rid}:user:{target_uid}:block")
+                    full = {k: ("1" if (row or {}).get(k) == "1" else "0") for k in KEYS_BLOCK}
+                    await sio.emit("moderation",
+                                   {"user_id": target_uid,
+                                    "blocks": full,
+                                    "by": {"user_id": head_uid, "role": "head"}},
+                                   room=f"room:{rid}",
+                                   namespace="/room")
+
+            if mafia_targets:
+                async with r.pipeline() as p:
+                    for target_uid in mafia_targets:
+                        await p.hset(f"room:{rid}:user:{target_uid}:state", mapping={"visibility": "1"})
+                    await p.execute()
+
+                for target_uid in mafia_targets:
+                    await sio.emit("state_changed",
+                                   {"user_id": target_uid,
+                                    "visibility": "1"},
+                                   room=f"room:{rid}",
+                                   namespace="/room")
+
+            now_ts = int(time())
+            duration = int(getattr(settings, "MAFIA_TALK_SECONDS", 60))
+            async with r.pipeline() as p:
+                await p.hset(
+                    f"room:{rid}:game_state",
+                    mapping={
+                        "phase": "mafia_talk",
+                        "mafia_talk_started": str(now_ts),
+                        "mafia_talk_duration": str(duration),
+                    },
+                )
+                await p.execute()
+
+            remaining = duration
+            payload = {
+                "ok": True,
+                "status": 200,
+                "room_id": rid,
+                "from": cur_phase,
+                "to": "mafia_talk",
+                "mafia_talk": {"deadline": remaining},
+            }
+
+            await sio.emit("game_phase_change",
+                           {"room_id": rid,
+                            "from": cur_phase,
+                            "to": "mafia_talk",
+                            "mafia_talk": {"deadline": remaining}},
+                           room=f"room:{rid}",
+                           namespace="/room")
+
+            return payload
+
+        if cur_phase == "mafia_talk" and want_to == "day":
+            raw_roles = await r.hgetall(f"room:{rid}:game_roles")
+            roles_map: dict[int, str] = {}
+            for k, v in (raw_roles or {}).items():
+                try:
+                    uid_i = int(k)
+                except Exception:
+                    continue
+                if v is None:
+                    continue
+                roles_map[uid_i] = str(v)
+
+            mafia_targets = [u for u, role in roles_map.items() if role in ("mafia", "don")]
+
+            if mafia_targets:
+                async with r.pipeline() as p:
+                    for target_uid in mafia_targets:
+                        await p.hset(f"room:{rid}:user:{target_uid}:state", mapping={"visibility": "0"})
+                    await p.execute()
+
+                for target_uid in mafia_targets:
+                    await sio.emit("state_changed",
+                                   {"user_id": target_uid,
+                                    "visibility": "0"},
+                                   room=f"room:{rid}",
+                                   namespace="/room")
+
+            for target_uid in mafia_targets:
+                try:
+                    applied, forced_off = await update_blocks(r, rid, head_uid, "head", target_uid, {"visibility": True})
+                except Exception:
+                    log.exception("sio.game_phase_next.mafia_reblock_failed", rid=rid, head=head_uid, target=target_uid)
+                    continue
+
+                if "__error__" in forced_off:
+                    continue
+
+                if forced_off:
+                    await sio.emit("state_changed",
+                                   {"user_id": target_uid, **forced_off},
+                                   room=f"room:{rid}",
+                                   namespace="/room")
+                if applied:
+                    row = await r.hgetall(f"room:{rid}:user:{target_uid}:block")
+                    full = {k: ("1" if (row or {}).get(k) == "1" else "0") for k in KEYS_BLOCK}
+                    await sio.emit("moderation",
+                                   {"user_id": target_uid,
+                                    "blocks": full,
+                                    "by": {"user_id": head_uid, "role": "head"}},
+                                   room=f"room:{rid}",
+                                   namespace="/room")
+
+            async with r.pipeline() as p:
+                await p.hset(f"room:{rid}:game_state", mapping={"phase": "day"})
+                await p.hdel(f"room:{rid}:game_state", "mafia_talk_started", "mafia_talk_duration")
+                await p.execute()
+
+            payload = {
+                "ok": True,
+                "status": 200,
+                "room_id": rid,
+                "from": cur_phase,
+                "to": "day",
+            }
+
+            await sio.emit("game_phase_change",
+                           {"room_id": rid,
+                            "from": cur_phase,
+                            "to": "day"},
+                           room=f"room:{rid}",
+                           namespace="/room")
+
+            return payload
+
+        return {"ok": False, "error": "bad_transition", "status": 400, "from": cur_phase, "to": want_to}
+    except Exception:
+        log.exception("sio.game_phase_next.error", sid=sid, data=bool(data))
+        return {"ok": False, "error": "internal", "status": 500}
+
+
 @rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_end:{uid or 'nouid'}:{rid or 0}", limit=5, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
 async def game_end(sid, data):

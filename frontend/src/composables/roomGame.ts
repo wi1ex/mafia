@@ -89,6 +89,10 @@ export function useRoomGame(localId: Ref<string>) {
   const pickingRole = ref(false)
   const startingGame = ref(false)
   const endingGame = ref(false)
+  const mafiaTalk = reactive({
+    remainingMs: 0,
+  })
+  const mafiaTalkTimerId = ref<number | null>(null)
 
   const myGameRoleKind = computed<GameRoleKind | null>(() => {
     const id = localId.value
@@ -193,6 +197,7 @@ export function useRoomGame(localId: Ref<string>) {
     rolePick.picked = new Set<string>()
     rolePick.takenCards = []
     rolePick.remainingMs = 0
+
     roleOverlayMode.value = 'hidden'
     roleOverlayCard.value = null
     if (roleOverlayTimerId.value != null) {
@@ -201,6 +206,12 @@ export function useRoomGame(localId: Ref<string>) {
     }
     gameRolesByUser.clear()
     rolesVisibleForHead.value = false
+
+    mafiaTalk.remainingMs = 0
+    if (mafiaTalkTimerId.value != null) {
+      clearTimeout(mafiaTalkTimerId.value)
+      mafiaTalkTimerId.value = null
+    }
   }
 
   function syncRoleOverlayWithTurn() {
@@ -246,6 +257,7 @@ export function useRoomGame(localId: Ref<string>) {
     }
     const phase = (gr.phase as GamePhase) || 'idle'
     gamePhase.value = phase
+
     fillSeats((gr.seats || {}) as Record<string, any>)
 
     gamePlayers.clear()
@@ -276,6 +288,15 @@ export function useRoomGame(localId: Ref<string>) {
       rolePick.picked = new Set<string>()
       rolePick.remainingMs = 0
       rolePick.takenCards = []
+    }
+
+    const mt = (gr as any).mafia_talk
+    if (phase === 'mafia_talk' && mt && typeof mt === 'object') {
+      const remainingSec = Number(mt.deadline || 0)
+      const rawMs = remainingSec > 0 ? remainingSec * 1000 : 0
+      setMafiaTalkRemainingMs(rawMs)
+    } else {
+      setMafiaTalkRemainingMs(0)
     }
 
     const playersCount = gamePlayers.size
@@ -400,7 +421,42 @@ export function useRoomGame(localId: Ref<string>) {
       alert('Не удалось перейти к договорке')
       return
     }
-    gamePhase.value = 'mafia_talk'
+  }
+
+  function setMafiaTalkRemainingMs(ms: number) {
+    const safe = Math.max(ms, 0)
+    mafiaTalk.remainingMs = safe
+    if (mafiaTalkTimerId.value != null) {
+      clearTimeout(mafiaTalkTimerId.value)
+      mafiaTalkTimerId.value = null
+    }
+    if (safe > 0) {
+      mafiaTalkTimerId.value = window.setTimeout(() => {
+        mafiaTalk.remainingMs = 0
+        mafiaTalkTimerId.value = null
+      }, safe)
+    }
+  }
+
+  function handleGamePhaseChange(p: any) {
+    const to = String(p?.to || '') as GamePhase
+    gamePhase.value = to
+    if (to === 'mafia_talk') {
+      const mt = p?.mafia_talk
+      const remainingSec = Number(mt?.deadline || 0)
+      const ms = remainingSec > 0 ? remainingSec * 1000 : 0
+      setMafiaTalkRemainingMs(ms)
+    } else {
+      setMafiaTalkRemainingMs(0)
+    }
+  }
+
+  async function finishMafiaTalk(sendAck: SendAckFn): Promise<void> {
+    const resp = await sendAck('game_phase_next', { from: 'mafia_talk', to: 'day' })
+    if (!resp?.ok) {
+      alert('Не удалось завершить договорку')
+      return
+    }
   }
 
   async function leaveGame(sendAck: SendAckFn): Promise<void> {
@@ -522,6 +578,20 @@ export function useRoomGame(localId: Ref<string>) {
     }
   }
 
+  function shouldHighlightMafiaTile(id: string): boolean {
+    if (gamePhase.value !== 'mafia_talk') return false
+    const role = gameRolesByUser.get(id)
+    if (!role) return false
+    if (role !== 'mafia' && role !== 'don') return false
+    const me = localId.value
+    if (!me) return false
+    const mySeat = seatsByUser[me]
+    const isHead = mySeat === 11
+    const myRoleKind = gameRolesByUser.get(me) as GameRoleKind | undefined
+    if (isHead) return true
+    return myRoleKind === 'mafia' || myRoleKind === 'don'
+  }
+
   return {
     GAME_COLUMN_INDEX,
     GAME_ROW_INDEX,
@@ -564,8 +634,11 @@ export function useRoomGame(localId: Ref<string>) {
     handleGameRoleAssigned,
     handleGameRolesReveal,
     handleGameRolesState,
+    handleGamePhaseChange,
+    shouldHighlightMafiaTile,
 
     goToMafiaTalk,
+    finishMafiaTalk,
     leaveGame,
     startGame,
     endGame,
