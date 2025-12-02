@@ -9,7 +9,7 @@
     <div class="icon-badge right" v-if="gameRole" aria-hidden="true">
       <img :src="gameRole" alt="role" />
     </div>
-    <button v-if="!isDead(id)" class="icon-badge left" @click="$emit('foul', id)" :disabled="!canGiveFoul" aria-label="Выдать фол">
+    <button v-if="inGame && !isGameHead && !isDead(id)" class="icon-badge left" @click="$emit('foul', id)" :disabled="!canGiveFoul" aria-label="Выдать фол">
       <img :src="iconFoul" alt="foul" />
       <span>{{ foulsCount }}</span>
     </button>
@@ -199,16 +199,29 @@ const timelineDurationSec = computed(() => {
     align-items: center;
     justify-content: center;
     bottom: 5px;
+    padding: 0;
     width: 30px;
     height: 30px;
+    border: none;
     border-radius: 5px;
-    backdrop-filter: blur(5px);
     background-color: rgba($dark, 0.75);
+    backdrop-filter: blur(5px);
     box-shadow: 3px 3px 5px rgba($black, 0.25);
     z-index: 3;
     img {
       width: 20px;
       height: 20px;
+    }
+    span {
+      position: absolute;
+      top: 5px;
+      right: 12px;
+      color: $fg;
+      font-size: 20px;
+      font-family: Manrope-Medium;
+      line-height: 1;
+      font-weight: bold;
+      transition: background-color 0.25s ease-in-out;
     }
     &:disabled {
       cursor: default;

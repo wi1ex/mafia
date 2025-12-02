@@ -1541,6 +1541,7 @@ onBeforeUnmount(() => {
       }
     }
     .btn-text {
+      padding: 0 20px;
       width: fit-content;
       color: $fg;
       font-size: 16px;
@@ -1699,7 +1700,6 @@ onBeforeUnmount(() => {
         gap: 5px;
       }
       .btn-text {
-        padding: 0 10px;
         font-size: 12px;
       }
     }
