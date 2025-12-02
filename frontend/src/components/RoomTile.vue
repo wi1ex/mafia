@@ -1,15 +1,18 @@
 <template>
-  <div class="tile" :class="[{ speaking, mafia: mafiaMark }, side && 'side']" tabindex="0">
+  <div class="tile" :class="[{ speaking, mafia: redMark }, side && 'side']" tabindex="0">
     <video v-show="showVideo" :ref="videoRef" playsinline autoplay :muted="id === localId" :class="{ mirrored: isMirrored(id) }"
            :style="{ objectFit: fitContain ? 'contain' : 'cover' }" />
 
     <div class="icon-badge left" v-if="isReady(id)" aria-hidden="true">
       <img :src="iconReady" alt="ready" />
     </div>
-
     <div class="icon-badge right" v-if="gameRole" aria-hidden="true">
       <img :src="gameRole" alt="role" />
     </div>
+    <button v-if="!isDead(id)" class="icon-badge left" @click="$emit('foul', id)" :disabled="!canGiveFoul" aria-label="Выдать фол">
+      <img :src="iconFoul" alt="foul" />
+      <span>{{ foulsCount }}</span>
+    </button>
 
     <div v-show="!showVideo" class="ava-wrap">
       <img v-if="isDead(id) && deadAvatar" :src="deadAvatar" alt="dead" />
@@ -64,6 +67,7 @@ import { computed } from 'vue'
 
 import iconReady from '@/assets/svg/ready.svg'
 import iconLeaveRoom from '@/assets/svg/leave.svg'
+import iconFoul from '@/assets/svg/foul.svg'
 
 type IconKind = 'mic' | 'cam' | 'speakers' | 'visibility' | 'screen'
 
@@ -98,11 +102,15 @@ const props = withDefaults(defineProps<{
   rolePickRemainingMs?: number
   mafiaTalkHostId?: string
   mafiaTalkRemainingMs?: number
-  mafiaMark?: boolean
+  daySpeechOwnerId?: string
+  daySpeechRemainingMs?: number
+  redMark?: boolean
   gameRole?: string
   hiddenByVisibility?: boolean
   visibilityHiddenAvatar?: string
   inGame?: boolean
+  foulsCount?: number
+  canGiveFoul?: boolean
 }>(), {
   side: false,
   fitContain: false,
@@ -117,10 +125,14 @@ const props = withDefaults(defineProps<{
   rolePickRemainingMs: 0,
   mafiaTalkHostId: '',
   mafiaTalkRemainingMs: 0,
-  mafiaMark: false,
+  daySpeechOwnerId: '',
+  daySpeechRemainingMs: 0,
+  redMark: false,
   hiddenByVisibility: false,
   visibilityHiddenAvatar: '',
   inGame: false,
+  foulsCount: 0,
+  canGiveFoul: false,
 })
 
 defineEmits<{
@@ -128,6 +140,7 @@ defineEmits<{
   (e: 'vol-input', id: string, v: number): void
   (e: 'block', key: 'mic'|'cam'|'speakers'|'visibility'|'screen', id: string): void
   (e: 'kick', id: string): void
+  (e: 'foul', id: string): void
 }>()
 
 const showVideo = computed(() =>
@@ -140,11 +153,13 @@ const showVideo = computed(() =>
 const openPanel = computed(() => props.openPanelFor === props.id)
 const hasRolePickTimer = computed(() => props.rolePickOwnerId === props.id && (props.rolePickRemainingMs ?? 0) > 0)
 const hasMafiaTalkTimer = computed(() => props.mafiaTalkHostId === props.id && (props.mafiaTalkRemainingMs ?? 0) > 0)
-const showTimeline = computed(() => hasRolePickTimer.value || hasMafiaTalkTimer.value)
+const hasDaySpeechTimer = computed(() => props.daySpeechOwnerId === props.id && (props.daySpeechRemainingMs ?? 0) > 0)
+const showTimeline = computed(() => hasRolePickTimer.value || hasMafiaTalkTimer.value || hasDaySpeechTimer.value)
 const timelineDurationSec = computed(() => {
   let ms = 0
   if (hasRolePickTimer.value) ms = props.rolePickRemainingMs ?? 0
   else if (hasMafiaTalkTimer.value) ms = props.mafiaTalkRemainingMs ?? 0
+  else if (hasDaySpeechTimer.value) ms = props.daySpeechRemainingMs ?? 0
   if (!ms || ms <= 0) return 0
   return Math.max(ms / 1000, 0.1)
 })
@@ -194,6 +209,9 @@ const timelineDurationSec = computed(() => {
     img {
       width: 20px;
       height: 20px;
+    }
+    &:disabled {
+      cursor: default;
     }
     &.left {
       left: 5px;

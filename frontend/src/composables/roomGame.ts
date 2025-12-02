@@ -22,7 +22,7 @@ import iconSlot8 from '@/assets/svg/slot8.svg'
 import iconSlot9 from '@/assets/svg/slot9.svg'
 import iconSlot0 from '@/assets/svg/slot10.svg'
 
-export type GamePhase = 'idle' | 'roles_pick' | 'mafia_talk_start' | 'mafia_talk_end' | 'day' | 'night'
+export type GamePhase = 'idle' | 'roles_pick' | 'mafia_talk_start' | 'mafia_talk_end' | 'day' | 'vote' | 'night'
 export type GameRoleKind = 'citizen' | 'mafia' | 'don' | 'sheriff'
 
 export type Ack = {
@@ -65,7 +65,6 @@ const ROLE_BADGE_ICONS: Record<GameRoleKind, string> = {
 }
 
 const ALL_ROLE_CARDS = Array.from({ length: 10 }, (_, i) => i + 1)
-const LATENCY_MS = 1500
 
 export function useRoomGame(localId: Ref<string>) {
   const gamePhase = ref<GamePhase>('idle')
@@ -75,6 +74,7 @@ export function useRoomGame(localId: Ref<string>) {
   const gameAlive = reactive(new Set<string>())
   const offlineInGame = reactive(new Set<string>())
   const gameRolesByUser = reactive(new Map<string, GameRoleKind>())
+  const gameFoulsByUser = reactive(new Map<string, number>())
   const rolesVisibleForHead = ref(false)
   const rolePick = reactive({
     activeUserId: '',
@@ -83,9 +83,9 @@ export function useRoomGame(localId: Ref<string>) {
     takenCards: [] as number[],
     remainingMs: 0,
   })
+  const roleOverlayTimerId = ref<number | null>(null)
   const roleOverlayMode = ref<'hidden' | 'pick' | 'reveal'>('hidden')
   const roleOverlayCard = ref<number | null>(null)
-  const roleOverlayTimerId = ref<number | null>(null)
   const pickingRole = ref(false)
   const startingGame = ref(false)
   const endingGame = ref(false)
@@ -93,6 +93,15 @@ export function useRoomGame(localId: Ref<string>) {
     remainingMs: 0,
   })
   const mafiaTalkTimerId = ref<number | null>(null)
+  const daySpeech = reactive({
+    openingId: '',
+    closingId: '',
+    currentId: '',
+    remainingMs: 0,
+  })
+  const daySpeechTimerId = ref<number | null>(null)
+  const daySpeechesDone = ref(false)
+  const foulActive = reactive(new Set<string>())
 
   const myGameRoleKind = computed<GameRoleKind | null>(() => {
     const id = localId.value
@@ -120,6 +129,27 @@ export function useRoomGame(localId: Ref<string>) {
 
   const takenCardSet = computed(() => new Set(rolePick.takenCards))
   const roleCardsToRender = computed(() => ALL_ROLE_CARDS)
+
+  const LATENCY_MS = 1500
+  function withLatency(rawMs: number): number {
+    if (!rawMs || rawMs <= 0) return 0
+    return Math.max(rawMs - LATENCY_MS, 0)
+  }
+  function setTimerWithLatency(target: { remainingMs: number }, ms: number, timerRef: Ref<number | null>, changed: boolean, onFinish?: () => void) {
+    const safe = !changed ? withLatency(ms) : ms
+    target.remainingMs = safe
+    if (timerRef.value != null) {
+      clearTimeout(timerRef.value)
+      timerRef.value = null
+    }
+    if (safe > 0) {
+      timerRef.value = window.setTimeout(() => {
+        target.remainingMs = 0
+        timerRef.value = null
+        if (onFinish) onFinish()
+      }, safe)
+    } else { if (onFinish) onFinish() }
+  }
 
   function isGameHead(id: string): boolean {
     return seatsByUser[id] === 11
@@ -206,12 +236,23 @@ export function useRoomGame(localId: Ref<string>) {
     }
     gameRolesByUser.clear()
     rolesVisibleForHead.value = false
+    gameFoulsByUser.clear()
 
     mafiaTalk.remainingMs = 0
     if (mafiaTalkTimerId.value != null) {
       clearTimeout(mafiaTalkTimerId.value)
       mafiaTalkTimerId.value = null
     }
+
+    daySpeech.openingId = ''
+    daySpeech.closingId = ''
+    daySpeech.currentId = ''
+    daySpeech.remainingMs = 0
+    if (daySpeechTimerId.value != null) {
+      clearTimeout(daySpeechTimerId.value)
+      daySpeechTimerId.value = null
+    }
+    daySpeechesDone.value = false
   }
 
   function syncRoleOverlayWithTurn() {
@@ -273,6 +314,13 @@ export function useRoomGame(localId: Ref<string>) {
       gameRolesByUser.set(String(uid), role as GameRoleKind)
     }
 
+    gameFoulsByUser.clear()
+    const gf = (join?.game_fouls || {}) as Record<string, any>
+    for (const [uid, cnt] of Object.entries(gf)) {
+      const n = Number(cnt)
+      if (Number.isFinite(n) && n > 0) gameFoulsByUser.set(String(uid), n)
+    }
+
     const rp = (gr as any).roles_pick
     if (phase === 'roles_pick' && rp && typeof rp === 'object') {
       rolePick.activeUserId = String(rp.turn_uid || '')
@@ -280,7 +328,7 @@ export function useRoomGame(localId: Ref<string>) {
       rolePick.picked = new Set((rp.picked || []).map((x: any) => String(x)))
       const remainingSec = Number(rp.deadline || 0)
       const rawMs = remainingSec > 0 ? remainingSec * 1000 : 0
-      rolePick.remainingMs = Math.max(rawMs - LATENCY_MS, 0)
+      rolePick.remainingMs = withLatency(rawMs)
       rolePick.takenCards = normalizeCards(rp.taken_cards)
     } else {
       rolePick.activeUserId = ''
@@ -294,9 +342,26 @@ export function useRoomGame(localId: Ref<string>) {
     if (phase === 'mafia_talk_start' && mt && typeof mt === 'object') {
       const remainingSec = Number(mt.deadline || 0)
       const rawMs = remainingSec > 0 ? remainingSec * 1000 : 0
-      setMafiaTalkRemainingMs(rawMs)
+      setMafiaTalkRemainingMs(rawMs, false)
     } else {
-      setMafiaTalkRemainingMs(0)
+      setMafiaTalkRemainingMs(0, false)
+    }
+
+    const dy = (gr as any).day
+    if (phase === 'day' && dy && typeof dy === 'object') {
+      daySpeech.openingId = String(dy.opening_uid || '')
+      daySpeech.closingId = String(dy.closing_uid || '')
+      const remainingSec = Number(dy.deadline || 0)
+      const rawMs = remainingSec > 0 ? remainingSec * 1000 : 0
+      daySpeech.currentId = rawMs > 0 ? String(dy.current_uid || '') : ''
+      setDaySpeechRemainingMs(rawMs, false)
+      daySpeechesDone.value = false
+    } else {
+      daySpeech.openingId = ''
+      daySpeech.closingId = ''
+      daySpeech.currentId = ''
+      setDaySpeechRemainingMs(0, false)
+      daySpeechesDone.value = false
     }
 
     const playersCount = gamePlayers.size
@@ -349,6 +414,7 @@ export function useRoomGame(localId: Ref<string>) {
     gamePlayers.clear()
     gameAlive.clear()
     offlineInGame.clear()
+    gameFoulsByUser.clear()
     return roleBeforeEnd
   }
 
@@ -356,6 +422,7 @@ export function useRoomGame(localId: Ref<string>) {
     const uid = String(p?.user_id ?? '')
     if (!uid) return
     gameAlive.delete(uid)
+    gameFoulsByUser.delete(uid)
   }
 
   function handleGameRolesTurn(p: any) {
@@ -409,8 +476,37 @@ export function useRoomGame(localId: Ref<string>) {
     if (myGameRole.value === 'head') rolesVisibleForHead.value = true
   }
 
-  function handleGameRolesState(_p: any) {
-    // Сейчас флаг p.done не используется.
+  function handleGameDaySpeech(p: any) {
+    const openingId = String(p?.opening_uid || '')
+    const closingId = String(p?.closing_uid || '')
+    const speakerId = String(p?.speaker_uid || '')
+    const remainingSec = Number(p?.deadline || 0)
+    const ms = remainingSec > 0 ? remainingSec * 1000 : 0
+    daySpeech.openingId = openingId
+    daySpeech.closingId = closingId
+    daySpeech.currentId = ms > 0 ? speakerId : ''
+    setDaySpeechRemainingMs(ms, true)
+  }
+
+  function handleGameFoul(p: any) {
+    const uid = String(p?.user_id || '')
+    const duration = Number(p?.duration || 0)
+    if (!uid) return
+    foulActive.add(uid)
+    const ms = duration > 0 ? duration * 1000 : 0
+    if (ms <= 0) return
+    window.setTimeout(() => {
+      foulActive.delete(uid)
+    }, ms)
+  }
+
+  function handleGameFouls(p: any) {
+    const fouls = (p?.fouls || {}) as Record<string, any>
+    gameFoulsByUser.clear()
+    for (const [uid, cnt] of Object.entries(fouls)) {
+      const n = Number(cnt)
+      if (Number.isFinite(n) && n > 0) gameFoulsByUser.set(String(uid), n)
+    }
   }
 
   watch(() => [rolePick.activeUserId, localId.value, myGameRoleKind.value, gamePhase.value], () => { syncRoleOverlayWithTurn() })
@@ -423,19 +519,12 @@ export function useRoomGame(localId: Ref<string>) {
     }
   }
 
-  function setMafiaTalkRemainingMs(ms: number) {
-    const safe = Math.max(ms - LATENCY_MS, 0)
-    mafiaTalk.remainingMs = safe
-    if (mafiaTalkTimerId.value != null) {
-      clearTimeout(mafiaTalkTimerId.value)
-      mafiaTalkTimerId.value = null
-    }
-    if (safe > 0) {
-      mafiaTalkTimerId.value = window.setTimeout(() => {
-        mafiaTalk.remainingMs = 0
-        mafiaTalkTimerId.value = null
-      }, safe)
-    }
+  function setMafiaTalkRemainingMs(ms: number, changed: boolean) {
+    setTimerWithLatency(mafiaTalk, ms, mafiaTalkTimerId, changed, mafiaTalkTimerId)
+  }
+
+  function setDaySpeechRemainingMs(ms: number, changed: boolean) {
+    setTimerWithLatency(daySpeech, ms, daySpeechTimerId, changed, () => { daySpeech.currentId = '' })
   }
 
   function handleGamePhaseChange(p: any) {
@@ -445,9 +534,24 @@ export function useRoomGame(localId: Ref<string>) {
       const mt = p?.mafia_talk_start
       const remainingSec = Number(mt?.deadline || 0)
       const ms = remainingSec > 0 ? remainingSec * 1000 : 0
-      setMafiaTalkRemainingMs(ms)
+      setMafiaTalkRemainingMs(ms, true)
     } else {
-      setMafiaTalkRemainingMs(0)
+      setMafiaTalkRemainingMs(0, true)
+    }
+
+    if (to === 'day') {
+      const dy = p?.day
+      daySpeech.openingId = String(dy?.opening_uid || '')
+      daySpeech.closingId = String(dy?.closing_uid || '')
+      daySpeech.currentId = ''
+      setDaySpeechRemainingMs(0, true)
+      daySpeechesDone.value = false
+    } else {
+      daySpeech.openingId = ''
+      daySpeech.closingId = ''
+      daySpeech.currentId = ''
+      setDaySpeechRemainingMs(0, true)
+      daySpeechesDone.value = false
     }
   }
 
@@ -600,6 +704,92 @@ export function useRoomGame(localId: Ref<string>) {
     return myRoleKind === 'mafia' || myRoleKind === 'don'
   }
 
+  async function passSpeech(sendAck: SendAckFn): Promise<void> {
+    const resp = await sendAck('game_speech_next', {})
+    if (!resp?.ok) {
+      const code = resp?.error
+      const st = resp?.status
+      if (st === 409 && code === 'day_speeches_done') {
+        alert('Все игроки уже высказались. Дальше — голосование.')
+        daySpeechesDone.value = true
+      } else if (st === 400 && code === 'bad_phase') {
+        alert('Сейчас не день.')
+      } else if (st === 403 && code === 'forbidden') {
+        alert('Только ведущий может передавать речь.')
+      } else {
+        alert('Не удалось передать речь')
+      }
+    }
+  }
+
+  async function takeFoul(sendAck: SendAckFn): Promise<number | null> {
+    const resp = await sendAck('game_foul', {})
+    if (!resp?.ok) {
+      const code = resp?.error
+      const st = resp?.status
+      if (st === 429 && code === 'too_soon') {
+      } else if (st === 400 && code === 'bad_phase') {
+        alert('Сейчас не день.')
+      } else if (st === 403 && code === 'not_alive') {
+        alert('Вы не участвуете или уже выбыли.')
+      } else if (st === 400 && code === 'no_room') {
+        alert('Вы не в комнате.')
+      } else {
+        alert('Не удалось взять фол')
+      }
+      return null
+    }
+    const durationSec = Number((resp as any).duration ?? 0)
+    const ms = durationSec > 0 ? durationSec * 1000 : 0
+    return ms || null
+  }
+
+  async function finishSpeech(sendAck: SendAckFn): Promise<void> {
+    const resp = await sendAck('game_speech_finish', {})
+    if (!resp?.ok) {
+      const code = resp?.error
+      const st = resp?.status
+      if (st === 400 && code === 'bad_phase') {
+        alert('Сейчас не день.')
+      } else if (st === 400 && code === 'no_speech') {
+        alert('Сейчас никто не выступает.')
+      } else if (st === 403 && code === 'forbidden') {
+        alert('Завершить речь может только ведущий или текущий игрок.')
+      } else if (st === 400 && code === 'not_alive') {
+        alert('Игрок уже выбыл из игры.')
+      } else {
+        alert('Не удалось завершить речь')
+      }
+    }
+  }
+
+  async function giveFoul(targetUserId: string, sendAck: SendAckFn): Promise<void> {
+    const uidNum = Number(targetUserId)
+    if (!uidNum) return
+    const resp = await sendAck('game_foul_set', { user_id: uidNum })
+    if (!resp?.ok) {
+      const code = resp?.error
+      const st = resp?.status
+      if (st === 409 && code === 'need_confirm_kill') {
+        const ok = confirm('4й фол удалить игрока. вы уверены?')
+        if (!ok) return
+        const resp2 = await sendAck('game_foul_set', { user_id: uidNum, confirm_kill: true })
+        if (!resp2?.ok) {
+          alert('Не удалось выдать фол')
+        }
+      } else if (st === 400 && code === 'bad_phase') {
+        alert('Фол можно выдать только днём или во время голосования.')
+      } else if (st === 403 && code === 'forbidden') {
+        alert('Фол может выдать только ведущий.')
+      } else if (st === 404 && code === 'not_alive') {
+        alert('Игрок уже выбыл из игры.')
+      } else {
+        alert('Не удалось выдать фол')
+      }
+      return
+    }
+  }
+
   return {
     GAME_COLUMN_INDEX,
     GAME_ROW_INDEX,
@@ -620,11 +810,15 @@ export function useRoomGame(localId: Ref<string>) {
     startingGame,
     endingGame,
     mafiaTalk,
+    daySpeech,
+    foulActive,
     myGameRole,
     myGameRoleKind,
     amIAlive,
     takenCardSet,
     roleCardsToRender,
+    gameFoulsByUser,
+    daySpeechesDone,
 
     isGameHead,
     isDead,
@@ -640,7 +834,8 @@ export function useRoomGame(localId: Ref<string>) {
     handleGameRolesPicked,
     handleGameRoleAssigned,
     handleGameRolesReveal,
-    handleGameRolesState,
+    handleGameDaySpeech,
+    handleGameFoul,
     handleGamePhaseChange,
     shouldHighlightMafiaTile,
     goToMafiaTalk,
@@ -650,5 +845,10 @@ export function useRoomGame(localId: Ref<string>) {
     startGame,
     endGame,
     pickRoleCard,
+    passSpeech,
+    takeFoul,
+    finishSpeech,
+    giveFoul,
+    handleGameFouls,
   }
 }

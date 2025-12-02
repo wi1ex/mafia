@@ -46,6 +46,11 @@ __all__ = [
     "stop_screen_for_user",
     "emit_state_changed_filtered",
     "emit_moderation_filtered",
+    "compute_day_opening_and_closing",
+    "get_alive_players_in_seat_order",
+    "schedule_foul_block",
+    "emit_game_fouls",
+    "day_speech_timeout_job",
 ]
 
 log = structlog.get_logger()
@@ -469,6 +474,91 @@ async def get_players_in_seat_order(r, rid: int) -> list[int]:
     return [uid for _, uid in players]
 
 
+async def get_alive_players_in_seat_order(r, rid: int) -> list[int]:
+    order = await get_players_in_seat_order(r, rid)
+    alive_raw = await r.smembers(f"room:{rid}:game_alive")
+    alive: set[int] = set()
+    for v in (alive_raw or []):
+        try:
+            alive.add(int(v))
+        except Exception:
+            continue
+
+    return [uid for uid in order if uid in alive]
+
+
+async def compute_day_opening_and_closing(r, rid: int, last_opening_uid: int | None) -> tuple[int, int, list[int]]:
+    alive_order = await get_alive_players_in_seat_order(r, rid)
+    if not alive_order:
+        return 0, 0, []
+
+    opening: int
+    if last_opening_uid and last_opening_uid in alive_order:
+        idx = alive_order.index(last_opening_uid)
+        opening = alive_order[(idx + 1) % len(alive_order)]
+    else:
+        opening = alive_order[0]
+
+    if len(alive_order) == 1:
+        closing = opening
+    else:
+        idx_open = alive_order.index(opening)
+        closing = alive_order[idx_open - 1] if idx_open > 0 else alive_order[-1]
+
+    return opening, closing, alive_order
+
+
+async def schedule_foul_block(rid: int, target_uid: int, head_uid: int, duration: int | None = None) -> None:
+    try:
+        sec = int(duration if duration is not None else settings.PLAYER_FOUL_SECONDS)
+    except Exception:
+        sec = 3
+
+    if sec <= 0:
+        sec = 3
+
+    await asyncio.sleep(max(0, sec))
+    r = get_redis()
+    try:
+        applied, forced_off = await update_blocks(r, rid, head_uid, "head", target_uid, {"mic": True})
+    except Exception:
+        log.exception("game_foul.reblock_failed", rid=rid, head=head_uid, target=target_uid)
+        return
+
+    if "__error__" in forced_off:
+        return
+
+    if forced_off:
+        await emit_state_changed_filtered(r, rid, target_uid, forced_off)
+    if applied:
+        row = await r.hgetall(f"room:{rid}:user:{target_uid}:block")
+        full = {k: ("1" if (row or {}).get(k) == "1" else "0") for k, v in row.items() if k in KEYS_BLOCK}
+        await emit_moderation_filtered(r, rid, target_uid, full, head_uid, "head")
+
+
+async def emit_game_fouls(r, rid: int) -> None:
+    try:
+        raw = await r.hgetall(f"room:{rid}:game_fouls")
+    except Exception:
+        log.exception("game_fouls.load_failed", rid=rid)
+        return
+
+    fouls: dict[str, int] = {}
+    for uid_s, cnt_s in (raw or {}).items():
+        try:
+            cnt = int(cnt_s or 0)
+        except Exception:
+            continue
+        if cnt > 0:
+            fouls[str(uid_s)] = cnt
+
+    await sio.emit("game_fouls",
+                   {"room_id": rid,
+                    "fouls": fouls},
+                   room=f"room:{rid}",
+                   namespace="/room")
+
+
 async def assign_role_for_user(r, rid: int, uid: int, *, card_index: int | None) -> tuple[bool, str | None, str | None]:
     existing = await r.hget(f"room:{rid}:game_roles", str(uid))
     if existing:
@@ -596,12 +686,6 @@ async def advance_roles_turn(r, rid: int, *, auto: bool) -> None:
                            room=f"user:{uid}",
                            namespace="/room")
 
-        await sio.emit("game_roles_state",
-                       {"room_id": rid,
-                        "done": True,
-                        "picked": list(assigned)},
-                       room=f"room:{rid}",
-                       namespace="/room")
         return
 
     now_ts = int(time())
@@ -679,6 +763,87 @@ async def advance_roles_turn(r, rid: int, *, auto: bool) -> None:
                    namespace="/room")
 
     asyncio.create_task(roles_timeout_job(rid, seq, deadline_ts))
+
+
+async def day_speech_timeout_job(rid: int, expected_started: int, expected_uid: int, duration: int) -> None:
+    try:
+        delay = int(duration)
+    except Exception:
+        delay = 0
+    if delay <= 0:
+        return
+
+    await asyncio.sleep(max(0, delay))
+
+    r = get_redis()
+    try:
+        raw_state = await r.hgetall(f"room:{rid}:game_state")
+    except Exception:
+        log.exception("day_speech_timeout.load_state_failed", rid=rid)
+        return
+
+    phase = str(raw_state.get("phase") or "idle")
+    if phase != "day":
+        return
+
+    try:
+        cur_started = int(raw_state.get("day_speech_started") or 0)
+        cur_duration = int(raw_state.get("day_speech_duration") or 0)
+        cur_uid = int(raw_state.get("day_current_uid") or 0)
+        head_uid = int(raw_state.get("head") or 0)
+    except Exception:
+        return
+
+    if not head_uid or cur_uid != expected_uid or cur_started != expected_started or cur_duration != duration:
+        return
+
+    if cur_uid != head_uid:
+        try:
+            applied, forced_off = await update_blocks(r, rid, head_uid, "head", cur_uid, {"mic": True})
+        except Exception:
+            log.exception("day_speech_timeout.block_failed", rid=rid, head=head_uid, target=cur_uid)
+        else:
+            if forced_off:
+                await emit_state_changed_filtered(r, rid, cur_uid, forced_off)
+            if applied:
+                row = await r.hgetall(f"room:{rid}:user:{cur_uid}:block")
+                full = {k: ("1" if (row or {}).get(k) == "1" else "0") for k, v in zip(KEYS_BLOCK, row.values())}
+                await emit_moderation_filtered(r, rid, cur_uid, full, head_uid, "head")
+
+    try:
+        opening_uid = int(raw_state.get("day_opening_uid") or 0)
+    except Exception:
+        opening_uid = 0
+    try:
+        closing_uid = int(raw_state.get("day_closing_uid") or 0)
+    except Exception:
+        closing_uid = 0
+
+    async with r.pipeline() as p:
+        await p.hset(
+            f"room:{rid}:game_state",
+            mapping={
+                "day_speech_started": "0",
+                "day_speech_duration": "0",
+            },
+        )
+        await p.execute()
+
+    payload = {
+        "room_id": rid,
+        "speaker_uid": expected_uid,
+        "opening_uid": opening_uid,
+        "closing_uid": closing_uid,
+        "deadline": 0,
+    }
+
+    try:
+        await sio.emit("game_day_speech",
+                       payload,
+                       room=f"room:{rid}",
+                       namespace="/room")
+    except Exception:
+        log.exception("day_speech_timeout.emit_failed", rid=rid, uid=expected_uid)
 
 
 async def get_rooms_brief(r, ids: Iterable[int]) -> List[dict]:
@@ -944,6 +1109,8 @@ async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
             f"room:{rid}:roles_cards",
             f"room:{rid}:roles_taken",
             f"room:{rid}:game_roles",
+            f"room:{rid}:game_fouls",
+            f"room:{rid}:game_short_speech_used",
         )
         await r.zrem("rooms:index", str(rid))
     finally:
@@ -1052,6 +1219,45 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
             now_ts = int(time())
             remaining = max(mafia_started + mafia_duration - now_ts, 0)
             game_runtime["mafia_talk_start"] = {"deadline": remaining}
+
+    if phase == "day":
+        try:
+            day_number = int(raw_gstate.get("day_number") or 0)
+        except Exception:
+            day_number = 0
+        try:
+            day_opening_uid = int(raw_gstate.get("day_opening_uid") or 0)
+        except Exception:
+            day_opening_uid = 0
+        try:
+            day_closing_uid = int(raw_gstate.get("day_closing_uid") or 0)
+        except Exception:
+            day_closing_uid = 0
+        try:
+            day_current_uid = int(raw_gstate.get("day_current_uid") or 0)
+        except Exception:
+            day_current_uid = 0
+        try:
+            speech_started = int(raw_gstate.get("day_speech_started") or 0)
+        except Exception:
+            speech_started = 0
+        try:
+            speech_duration = int(raw_gstate.get("day_speech_duration") or settings.PLAYER_TALK_SECONDS)
+        except Exception:
+            speech_duration = settings.PLAYER_TALK_SECONDS
+
+        remaining = 0
+        if speech_started and speech_duration > 0:
+            now_ts = int(time())
+            remaining = max(speech_started + speech_duration - now_ts, 0)
+
+        game_runtime["day"] = {
+            "number": day_number,
+            "opening_uid": day_opening_uid,
+            "closing_uid": day_closing_uid,
+            "current_uid": day_current_uid,
+            "deadline": remaining,
+        }
 
     roles_map = {str(k): str(v) for k, v in (raw_roles or {}).items()}
     my_game_role = roles_map.get(str(uid))

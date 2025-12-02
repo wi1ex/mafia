@@ -12,7 +12,7 @@
           :style="tileGridStyle(id)"
           :id="id"
           :local-id="localId"
-          :speaking="rtc.isSpeaking(id)"
+          :speaking="(game.daySpeech.currentId === id && game.daySpeech.remainingMs > 0) || rtc.isSpeaking(id)"
           :video-ref="stableVideoRef(id)"
           :fit-contain="fitContainInGrid"
           :default-avatar="defaultAvatar"
@@ -39,15 +39,20 @@
           :role-pick-remaining-ms="rolePick.remainingMs"
           :mafia-talk-host-id="headUserId"
           :mafia-talk-remaining-ms="mafiaTalkRemainingMs"
-          :mafia-mark="game.shouldHighlightMafiaTile(id)"
+          :red-mark="game.shouldHighlightMafiaTile(id) || game.foulActive.has(id)"
           :game-role="game.roleIconForTile(id)"
           :hidden-by-visibility="hiddenByVisibility(id)"
           :visibility-hidden-avatar="visOffAvatar(id)"
           :in-game="gamePhase !== 'idle'"
+          :day-speech-owner-id="game.daySpeech.currentId"
+          :day-speech-remaining-ms="game.daySpeech.remainingMs"
+          :fouls-count="gameFoulsByUser.get(id) ?? 0"
+          :can-give-foul="myGameRole === 'head' && (gamePhase === 'day' || gamePhase === 'vote') && !game.isDead(id) && id !== localId"
           @toggle-panel="toggleTilePanel"
           @vol-input="onVol"
           @block="(key, uid) => toggleBlock(uid, key)"
           @kick="kickUser"
+          @foul="onGiveFoul"
         />
       </div>
 
@@ -69,7 +74,7 @@
             :id="id"
             :local-id="localId"
             :side="true"
-            :speaking="rtc.isSpeaking(id)"
+            :speaking="(game.daySpeech.currentId === id && game.daySpeech.remainingMs > 0) || rtc.isSpeaking(id)"
             :video-ref="stableVideoRef(id)"
             :default-avatar="defaultAvatar"
             :volume-icon="volumeIconForUser(id)"
@@ -95,15 +100,20 @@
             :role-pick-remaining-ms="rolePick.remainingMs"
             :mafia-talk-host-id="headUserId"
             :mafia-talk-remaining-ms="mafiaTalkRemainingMs"
-            :mafia-mark="game.shouldHighlightMafiaTile(id)"
+            :red-mark="game.shouldHighlightMafiaTile(id) || game.foulActive.has(id)"
             :game-role="game.roleIconForTile(id)"
             :hidden-by-visibility="hiddenByVisibility(id)"
             :visibility-hidden-avatar="visOffAvatar(id)"
             :in-game="gamePhase !== 'idle'"
+            :day-speech-owner-id="game.daySpeech.currentId"
+            :day-speech-remaining-ms="game.daySpeech.remainingMs"
+            :fouls-count="gameFoulsByUser.get(id) ?? 0"
+            :can-give-foul="myGameRole === 'head' && (gamePhase === 'day' || gamePhase === 'vote') && !game.isDead(id) && id !== localId"
             @toggle-panel="toggleTilePanel"
             @vol-input="onVol"
             @block="(key, uid) => toggleBlock(uid, key)"
             @kick="kickUser"
+            @foul="onGiveFoul"
           />
         </div>
       </div>
@@ -125,16 +135,27 @@
           <button class="btn-text" @click="onProbeClick">Разрешить доступ к камере и микрофону</button>
         </div>
         <div v-else class="controls">
-          <button v-if="gamePhase === 'idle' && canShowStartGame" @click="startGameUi" :disabled="startingGame" aria-label="Запустить игру">
-            <img :src="iconGameStart" alt="start" />
-          </button>
           <button v-if="gamePhase === 'roles_pick' && myGameRole === 'head' && rolesVisibleForHead" class="btn-text"
                   @click="goToMafiaTalkUi" aria-label="Перейти к договорке">Начать договорку</button>
           <button v-if="gamePhase === 'mafia_talk_start' && myGameRole === 'head' && mafiaTalkRemainingMs <= 0" class="btn-text"
                   @click="finishMafiaTalkUi" aria-label="Завершить договорку">Завершить договорку</button>
           <button v-if="gamePhase === 'mafia_talk_end' && myGameRole === 'head'" class="btn-text"
                   @click="startDayUi" aria-label="Начать день">Начать день</button>
+          <button v-if="canFinishSpeechHead" class="btn-text"
+                  @click="finishSpeechUi" aria-label="Завершить речь">Завершить речь</button>
+          <button v-else-if="canPassSpeechHead" class="btn-text"
+                  @click="passSpeechUi" aria-label="Передать речь">Передать речь</button>
+          <button v-if="canStartVote" class="btn-text"
+                  @click="startVoteUi">Начать голосование</button>
 
+          <button v-if="canFinishSpeechSelf" class="btn-text"
+                  @click="finishSpeechUi">Завершить речь</button>
+          <button v-else-if="canTakeFoulSelf" class="btn-text"
+                  @click="takeFoulUi" :disabled="foulPending">Взять фол</button>
+
+          <button v-if="gamePhase === 'idle' && canShowStartGame" @click="startGameUi" :disabled="startingGame" aria-label="Запустить игру">
+            <img :src="iconGameStart" alt="start" />
+          </button>
           <button v-if="gamePhase === 'idle' && !canShowStartGame" @click="toggleReady" :aria-pressed="readyOn" aria-label="Готовность">
             <img :src="readyOn ? iconReady : iconClose" alt="ready" />
           </button>
@@ -278,8 +299,9 @@ const { localId, mics, cams, selectedMicId, selectedCamId, peerIds } = rtc
 
 const game = useRoomGame(localId)
 const { GAME_COLUMN_INDEX, GAME_ROW_INDEX, ROLE_IMAGES, ROLE_CARD_IMAGES,
-  gamePhase, minReadyToStart, seatsByUser, offlineInGame, rolesVisibleForHead, rolePick, roleOverlayMode, roleOverlayCard,
-  startingGame, endingGame, myGameRole, myGameRoleKind, amIAlive, takenCardSet, roleCardsToRender, mafiaTalk } = game
+  gamePhase, minReadyToStart, seatsByUser, offlineInGame, gameFoulsByUser,
+  rolesVisibleForHead, rolePick, roleCardsToRender, roleOverlayMode, roleOverlayCard,
+  startingGame, endingGame, myGameRole, myGameRoleKind, amIAlive, takenCardSet, mafiaTalk } = game
 
 const UA = navigator.userAgent || ''
 const IS_MOBILE = (navigator as any).userAgentData?.mobile === true || /Android|iPhone|iPad|iPod|Mobile/i.test(UA)
@@ -363,6 +385,45 @@ const headUserId = computed(() => {
   return ''
 })
 const mafiaTalkRemainingMs = computed(() => mafiaTalk.remainingMs)
+
+const isCurrentSpeaker = computed(() =>
+  gamePhase.value === 'day' &&
+  game.daySpeech.currentId === localId.value &&
+  game.daySpeech.remainingMs > 0,
+)
+
+const canFinishSpeechHead = computed(() =>
+  gamePhase.value === 'day' &&
+  myGameRole.value === 'head' &&
+  !!game.daySpeech.currentId &&
+  game.daySpeech.remainingMs > 0,
+)
+
+const canPassSpeechHead = computed(() =>
+  gamePhase.value === 'day' &&
+  myGameRole.value === 'head' &&
+  !game.daySpeech.currentId &&
+  !game.daySpeechesDone,
+)
+
+const canFinishSpeechSelf = computed(() =>
+  gamePhase.value === 'day' &&
+  myGameRole.value === 'player' &&
+  isCurrentSpeaker.value,
+)
+
+const canTakeFoulSelf = computed(() =>
+  gamePhase.value === 'day' &&
+  myGameRole.value === 'player' &&
+  amIAlive.value &&
+  !isCurrentSpeaker.value,
+)
+
+const canStartVote = computed(() =>
+  gamePhase.value === 'day' &&
+  myGameRole.value === 'head' &&
+  game.daySpeechesDone,
+)
 
 const videoQuality = computed<VQ>({
   get: () => rtc.remoteQuality.value,
@@ -484,12 +545,38 @@ function ensureOk(resp: Ack, msgByCode: Record<number, string>, netMsg: string):
 
 const sendAckGame: SendAckFn = (event, payload, timeoutMs) => sendAck(event, payload, timeoutMs)
 const startGameUi = () => game.startGame(sendAckGame)
+const endGameUi = () => game.endGame(sendAckGame)
 const leaveGameUi = () => game.leaveGame(sendAckGame)
 const pickRoleCardUi = (card: number) => game.pickRoleCard(card, sendAckGame)
 const goToMafiaTalkUi = () => game.goToMafiaTalk(sendAckGame)
 const finishMafiaTalkUi = () => game.finishMafiaTalk(sendAckGame)
 const startDayUi = () => game.startDay(sendAckGame)
-const endGameUi = () => game.endGame(sendAckGame)
+const passSpeechUi = () => game.passSpeech(sendAckGame)
+const finishSpeechUi = () => game.finishSpeech(sendAckGame)
+
+const foulPending = ref(false)
+async function takeFoulUi() {
+  if (foulPending.value) return
+  foulPending.value = true
+  try {
+    const ms = await game.takeFoul(sendAck)
+    if (!ms || ms <= 0) {
+      foulPending.value = false
+      return
+    }
+    window.setTimeout(() => {
+      foulPending.value = false
+    }, ms)
+  } catch { foulPending.value = false }
+}
+
+function onGiveFoul(id: string) {
+  void game.giveFoul(id, sendAck)
+}
+
+function startVoteUi() {
+  alert('Процесс голосования будет добавлен позже.')
+}
 
 const showPermProbe = computed(() => !rtc.hasAudioInput.value && !rtc.hasVideoInput.value)
 async function onProbeClick() {
@@ -845,16 +932,24 @@ function connectSocket() {
     game.handleGameRolesReveal(p)
   })
 
-  socket.value?.on('game_roles_state', (p: any) => {
-    game.handleGameRolesState(p)
-  })
-
   socket.value?.on('game_phase_change', (p: any) => {
     const prevPhase = gamePhase.value as GamePhase
     game.handleGamePhaseChange(p)
     const to = (p?.to ? String(p.to) : gamePhase.value) as GamePhase
     handleGamePhaseChangeUi(prevPhase, to)
   })
+
+  socket.value.on('game_day_speech', (p: any) => {
+    game.handleGameDaySpeech(p)
+  })
+
+  socket.value.on('game_foul', (p: any) => {
+    game.handleGameFoul(p)
+  })
+
+  socket.value.on('game_foul', game.handleGameFoul)
+
+  socket.value.on('game_fouls', game.handleGameFouls)
 }
 
 async function safeJoin() {
