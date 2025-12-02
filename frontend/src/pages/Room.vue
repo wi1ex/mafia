@@ -1367,7 +1367,7 @@ onMounted(async () => {
     window.addEventListener('online', handleOnline)
 
     uiReady.value = true
-  } catch {
+  } catch (err) {
     rerr('room onMounted fatal', err)
     try { await rtc.disconnect() } catch {}
     if (!leaving.value) {
