@@ -520,7 +520,7 @@ export function useRoomGame(localId: Ref<string>) {
   }
 
   function setMafiaTalkRemainingMs(ms: number, changed: boolean) {
-    setTimerWithLatency(mafiaTalk, ms, mafiaTalkTimerId, changed, mafiaTalkTimerId)
+    setTimerWithLatency(mafiaTalk, ms, mafiaTalkTimerId, changed)
   }
 
   function setDaySpeechRemainingMs(ms: number, changed: boolean) {
