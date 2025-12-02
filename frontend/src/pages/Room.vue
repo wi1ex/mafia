@@ -29,7 +29,7 @@
           :vol="volUi[id] ?? rtc.getUserVolume(id)"
           :is-mirrored="isMirrored"
           :is-game-head="game.isGameHead(id)"
-          :is-dead="game.isDead"
+          :is-dead="game.isDead(id)"
           :dead-avatar="iconKillPlayer"
           :seat="game.seatIndex(id)"
           :seat-icon="game.seatIconForUser(id)"
@@ -90,7 +90,7 @@
             :vol="volUi[id] ?? rtc.getUserVolume(id)"
             :is-mirrored="isMirrored"
             :is-game-head="game.isGameHead(id)"
-            :is-dead="game.isDead"
+            :is-dead="game.isDead(id)"
             :dead-avatar="iconKillPlayer"
             :seat="game.seatIndex(id)"
             :seat-icon="game.seatIconForUser(id)"
@@ -559,15 +559,18 @@ async function takeFoulUi() {
   if (foulPending.value) return
   foulPending.value = true
   try {
-    const ms = await game.takeFoul(sendAck)
-    if (!ms || ms <= 0) {
+    const ms = await game.takeFoul(sendAckGame)
+    const delay = typeof ms === 'number' && ms > 0 ? ms : 0
+    if (delay > 0) {
+      window.setTimeout(() => {
+        foulPending.value = false
+      }, delay)
+    } else {
       foulPending.value = false
-      return
     }
-    window.setTimeout(() => {
-      foulPending.value = false
-    }, ms)
-  } catch { foulPending.value = false }
+  } catch {
+    foulPending.value = false
+  }
 }
 
 function onGiveFoul(id: string) {
@@ -947,9 +950,9 @@ function connectSocket() {
     game.handleGameFoul(p)
   })
 
-  socket.value.on('game_foul', game.handleGameFoul)
-
-  socket.value.on('game_fouls', game.handleGameFouls)
+  socket.value.on('game_fouls', (p: any) => {
+    game.handleGameFouls(p)
+  })
 }
 
 async function safeJoin() {
@@ -1365,7 +1368,7 @@ onMounted(async () => {
 
     uiReady.value = true
   } catch {
-    rerr('room onMounted fatal')
+    rerr('room onMounted fatal', err)
     try { await rtc.disconnect() } catch {}
     if (!leaving.value) {
       alert('Ошибка входа в комнату')
