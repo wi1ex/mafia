@@ -9,10 +9,12 @@
     <div class="icon-badge right" v-if="gameRole" aria-hidden="true">
       <img :src="gameRole" alt="role" />
     </div>
-    <button v-if="inGame && !isGameHead && !isDead(id)" class="icon-badge left" @click="$emit('foul', id)" :disabled="!canGiveFoul" aria-label="Выдать фол">
+    <button v-if="inGame && !isGameHead && !isDead(id)" class="icon-badge left" @click="$emit('foul', id)" :disabled="!isGameHead" aria-label="Выдать фол">
       <img :src="iconFoul" alt="foul" />
       <span>{{ foulsCount }}</span>
     </button>
+
+    <div v-if="phaseLabel" class="phase-label">{{ phaseLabel }}</div>
 
     <div v-show="!showVideo" class="ava-wrap">
       <img v-if="isDead(id) && deadAvatar" :src="deadAvatar" alt="dead" />
@@ -110,7 +112,7 @@ const props = withDefaults(defineProps<{
   visibilityHiddenAvatar?: string
   inGame?: boolean
   foulsCount?: number
-  canGiveFoul?: boolean
+  phaseLabel?: string
 }>(), {
   side: false,
   fitContain: false,
@@ -132,7 +134,7 @@ const props = withDefaults(defineProps<{
   visibilityHiddenAvatar: '',
   inGame: false,
   foulsCount: 0,
-  canGiveFoul: false,
+  phaseLabel: '',
 })
 
 defineEmits<{
@@ -232,6 +234,16 @@ const timelineDurationSec = computed(() => {
     &.right {
       right: 5px;
     }
+  }
+  .phase-label {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 5px;
+    text-align: center;
+    font-size: 12px;
+    color: $fg;
+    z-index: 15;
   }
   .ava-wrap {
     display: flex;

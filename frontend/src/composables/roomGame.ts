@@ -777,8 +777,6 @@ export function useRoomGame(localId: Ref<string>) {
         if (!resp2?.ok) {
           alert('Не удалось выдать фол')
         }
-      } else if (st === 400 && code === 'bad_phase') {
-        alert('Фол можно выдать только днём или во время голосования.')
       } else if (st === 403 && code === 'forbidden') {
         alert('Фол может выдать только ведущий.')
       } else if (st === 404 && code === 'not_alive') {

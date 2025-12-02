@@ -47,7 +47,7 @@
           :day-speech-owner-id="game.daySpeech.currentId"
           :day-speech-remaining-ms="game.daySpeech.remainingMs"
           :fouls-count="gameFoulsByUser.get(id) ?? 0"
-          :can-give-foul="myGameRole === 'head' && (gamePhase === 'day' || gamePhase === 'vote') && !game.isDead(id) && id !== localId"
+          :phase-label="id === localId && myGameRole === 'head' ? phaseLabel : ''"
           @toggle-panel="toggleTilePanel"
           @vol-input="onVol"
           @block="(key, uid) => toggleBlock(uid, key)"
@@ -108,7 +108,7 @@
             :day-speech-owner-id="game.daySpeech.currentId"
             :day-speech-remaining-ms="game.daySpeech.remainingMs"
             :fouls-count="gameFoulsByUser.get(id) ?? 0"
-            :can-give-foul="myGameRole === 'head' && (gamePhase === 'day' || gamePhase === 'vote') && !game.isDead(id) && id !== localId"
+            :phase-label="id === localId && myGameRole === 'head' ? phaseLabel : ''"
             @toggle-panel="toggleTilePanel"
             @vol-input="onVol"
             @block="(key, uid) => toggleBlock(uid, key)"
@@ -139,7 +139,7 @@
                   @click="goToMafiaTalkUi" aria-label="Перейти к договорке">Начать договорку</button>
           <button v-if="gamePhase === 'mafia_talk_start' && myGameRole === 'head' && mafiaTalkRemainingMs <= 0" class="btn-text"
                   @click="finishMafiaTalkUi" aria-label="Завершить договорку">Завершить договорку</button>
-          <button v-if="gamePhase === 'mafia_talk_end' && myGameRole === 'head'" class="btn-text"
+          <button v-if="canStartDay" class="btn-text"
                   @click="startDayUi" aria-label="Начать день">Начать день</button>
           <button v-if="canFinishSpeechHead" class="btn-text"
                   @click="finishSpeechUi" aria-label="Завершить речь">Завершить речь</button>
@@ -386,6 +386,11 @@ const headUserId = computed(() => {
 })
 const mafiaTalkRemainingMs = computed(() => mafiaTalk.remainingMs)
 
+const canStartDay = computed(() =>
+  gamePhase.value === 'mafia_talk_end' &&
+  myGameRole.value === 'head',
+)
+
 const isCurrentSpeaker = computed(() =>
   gamePhase.value === 'day' &&
   game.daySpeech.currentId === localId.value &&
@@ -417,6 +422,8 @@ const canTakeFoulSelf = computed(() =>
   myGameRole.value === 'player' &&
   amIAlive.value &&
   !isCurrentSpeaker.value,
+  !!game.daySpeech.currentId &&
+  !game.daySpeechesDone,
 )
 
 const canStartVote = computed(() =>
@@ -424,6 +431,17 @@ const canStartVote = computed(() =>
   myGameRole.value === 'head' &&
   game.daySpeechesDone,
 )
+
+const phaseLabel = computed(() => {
+  if (gamePhase.value === 'idle') return ''
+  if (gamePhase.value === 'roles_pick') return 'Выбор ролей'
+  if (gamePhase.value === 'mafia_talk_start') return 'Договорка мафии'
+  if (gamePhase.value === 'mafia_talk_end') return ''
+  if (gamePhase.value === 'day') return ''
+  if (gamePhase.value === 'vote') return 'Голосование'
+  if (gamePhase.value === 'night') return 'Отстрелы и проверки'
+  return ''
+})
 
 const videoQuality = computed<VQ>({
   get: () => rtc.remoteQuality.value,

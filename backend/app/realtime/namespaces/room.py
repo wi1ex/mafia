@@ -1432,9 +1432,6 @@ async def game_foul_set(sid, data):
         if phase == "idle":
             return {"ok": False, "error": "no_game", "status": 400}
 
-        if phase not in ("day", "vote"):
-            return {"ok": False, "error": "bad_phase", "status": 400}
-
         try:
             head_uid = int(raw_gstate.get("head") or 0)
         except Exception:
