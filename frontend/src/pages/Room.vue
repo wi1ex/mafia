@@ -29,6 +29,7 @@
           :vol="volUi[id] ?? rtc.getUserVolume(id)"
           :is-mirrored="isMirrored"
           :is-game-head="game.isGameHead(id)"
+          :is-head="myGameRole.value === 'head'"
           :is-dead="game.isDead"
           :dead-avatar="iconKillPlayer"
           :seat="game.seatIndex(id)"
@@ -47,7 +48,7 @@
           :day-speech-owner-id="game.daySpeech.currentId"
           :day-speech-remaining-ms="game.daySpeech.remainingMs"
           :fouls-count="gameFoulsByUser.get(id) ?? 0"
-          :phase-label="id === localId && myGameRole === 'head' ? phaseLabel : ''"
+          :phase-label="phaseLabel"
           @toggle-panel="toggleTilePanel"
           @vol-input="onVol"
           @block="(key, uid) => toggleBlock(uid, key)"
@@ -90,6 +91,7 @@
             :vol="volUi[id] ?? rtc.getUserVolume(id)"
             :is-mirrored="isMirrored"
             :is-game-head="game.isGameHead(id)"
+            :is-head="myGameRole.value === 'head'"
             :is-dead="game.isDead"
             :dead-avatar="iconKillPlayer"
             :seat="game.seatIndex(id)"
@@ -299,7 +301,7 @@ const { localId, mics, cams, selectedMicId, selectedCamId, peerIds } = rtc
 
 const game = useRoomGame(localId)
 const { GAME_COLUMN_INDEX, GAME_ROW_INDEX, ROLE_IMAGES, ROLE_CARD_IMAGES,
-  gamePhase, minReadyToStart, seatsByUser, offlineInGame, gameFoulsByUser,
+  gamePhase, minReadyToStart, seatsByUser, offlineInGame, gameFoulsByUser, daySpeechesDone,
   rolesVisibleForHead, rolePick, roleCardsToRender, roleOverlayMode, roleOverlayCard,
   startingGame, endingGame, myGameRole, myGameRoleKind, amIAlive, takenCardSet, mafiaTalk } = game
 
@@ -408,7 +410,7 @@ const canPassSpeechHead = computed(() =>
   gamePhase.value === 'day' &&
   myGameRole.value === 'head' &&
   !game.daySpeech.currentId &&
-  !game.daySpeechesDone,
+  !daySpeechesDone.value,
 )
 
 const canFinishSpeechSelf = computed(() =>
@@ -421,15 +423,14 @@ const canTakeFoulSelf = computed(() =>
   gamePhase.value === 'day' &&
   myGameRole.value === 'player' &&
   amIAlive.value &&
-  !isCurrentSpeaker.value,
-  !!game.daySpeech.currentId &&
-  !game.daySpeechesDone,
+  !isCurrentSpeaker.value &&
+  !daySpeechesDone.value,
 )
 
 const canStartVote = computed(() =>
   gamePhase.value === 'day' &&
   myGameRole.value === 'head' &&
-  game.daySpeechesDone,
+  daySpeechesDone.value,
 )
 
 const phaseLabel = computed(() => {

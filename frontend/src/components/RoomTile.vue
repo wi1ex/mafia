@@ -9,12 +9,12 @@
     <div class="icon-badge right" v-if="gameRole" aria-hidden="true">
       <img :src="gameRole" alt="role" />
     </div>
-    <button v-if="inGame && !isGameHead && !isDead(id)" class="icon-badge left" @click="$emit('foul', id)" :disabled="!isGameHead" aria-label="Выдать фол">
+    <button v-if="inGame && seat != null && !isGameHead && !isDead(id)" class="icon-badge left" @click="$emit('foul', id)" :disabled="!isHead" aria-label="Выдать фол">
       <img :src="iconFoul" alt="foul" />
       <span>{{ foulsCount }}</span>
     </button>
 
-    <div v-if="phaseLabel" class="phase-label">{{ phaseLabel }}</div>
+    <div v-if="isGameHead" class="phase-label">{{ phaseLabel }}</div>
 
     <div v-show="!showVideo" class="ava-wrap">
       <img v-if="isDead(id) && deadAvatar" :src="deadAvatar" alt="dead" />
@@ -94,6 +94,7 @@ const props = withDefaults(defineProps<{
   isReady: (id: string) => boolean
   isMirrored: (id: string) => boolean
   isGameHead?: boolean
+  isHead?: boolean
   isDead?: (id: string) => boolean
   deadAvatar?: string
   seat?: number | null
@@ -116,7 +117,8 @@ const props = withDefaults(defineProps<{
 }>(), {
   side: false,
   fitContain: false,
-  isGameHead: true,
+  isGameHead: false,
+  isHead: false,
   isDead: () => false,
   deadAvatar: '',
   seat: null,
@@ -216,10 +218,10 @@ const timelineDurationSec = computed(() => {
     }
     span {
       position: absolute;
-      top: 5px;
-      right: 12px;
+      top: 6px;
+      right: 14px;
       color: $fg;
-      font-size: 20px;
+      font-size: 16px;
       font-family: Manrope-Medium;
       line-height: 1;
       font-weight: bold;

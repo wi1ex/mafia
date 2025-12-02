@@ -1,4 +1,4 @@
-import { computed, reactive, ref, watch, type Ref } from 'vue'
+import { computed, reactive, ref, type Ref, watch } from 'vue'
 
 import iconRoleCitizen from '@/assets/images/roleCitizen.png'
 import iconRoleMafia from '@/assets/images/roleMafia.png'
@@ -355,7 +355,8 @@ export function useRoomGame(localId: Ref<string>) {
       const rawMs = remainingSec > 0 ? remainingSec * 1000 : 0
       daySpeech.currentId = rawMs > 0 ? String(dy.current_uid || '') : ''
       setDaySpeechRemainingMs(rawMs, false)
-      daySpeechesDone.value = false
+      const rawDone = (dy as any).speeches_done
+      daySpeechesDone.value = rawDone === true || rawDone === 1 || rawDone === '1'
     } else {
       daySpeech.openingId = ''
       daySpeech.closingId = ''
@@ -482,10 +483,20 @@ export function useRoomGame(localId: Ref<string>) {
     const speakerId = String(p?.speaker_uid || '')
     const remainingSec = Number(p?.deadline || 0)
     const ms = remainingSec > 0 ? remainingSec * 1000 : 0
+
     daySpeech.openingId = openingId
     daySpeech.closingId = closingId
     daySpeech.currentId = ms > 0 ? speakerId : ''
     setDaySpeechRemainingMs(ms, true)
+
+    const rawDone = (p as any)?.speeches_done
+    const done = rawDone === true || rawDone === 1 || rawDone === '1'
+    const isActiveSpeech = ms > 0 && !!speakerId
+    if (isActiveSpeech) {
+      daySpeechesDone.value = false
+    } else if (done || (speakerId && closingId && speakerId === closingId)) {
+      daySpeechesDone.value = true
+    }
   }
 
   function handleGameFoul(p: any) {

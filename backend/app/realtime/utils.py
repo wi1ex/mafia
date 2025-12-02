@@ -819,14 +819,17 @@ async def day_speech_timeout_job(rid: int, expected_started: int, expected_uid: 
     except Exception:
         closing_uid = 0
 
+    day_speeches_done = False
     async with r.pipeline() as p:
-        await p.hset(
-            f"room:{rid}:game_state",
-            mapping={
-                "day_speech_started": "0",
-                "day_speech_duration": "0",
-            },
-        )
+        mapping: dict[str, str] = {
+            "day_speech_started": "0",
+            "day_speech_duration": "0",
+        }
+        if closing_uid and cur_uid == closing_uid:
+            mapping["day_last_opening_uid"] = str(opening_uid or 0)
+            mapping["day_speeches_done"] = "1"
+            day_speeches_done = True
+        await p.hset(f"room:{rid}:game_state", mapping=mapping)
         await p.execute()
 
     payload = {
@@ -836,6 +839,8 @@ async def day_speech_timeout_job(rid: int, expected_started: int, expected_uid: 
         "closing_uid": closing_uid,
         "deadline": 0,
     }
+    if day_speeches_done:
+        payload["speeches_done"] = True
 
     try:
         await sio.emit("game_day_speech",
@@ -1245,6 +1250,10 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
             speech_duration = int(raw_gstate.get("day_speech_duration") or settings.PLAYER_TALK_SECONDS)
         except Exception:
             speech_duration = settings.PLAYER_TALK_SECONDS
+        try:
+            speeches_done = str(raw_gstate.get("day_speeches_done") or "0") == "1"
+        except Exception:
+            speeches_done = False
 
         remaining = 0
         if speech_started and speech_duration > 0:
@@ -1257,6 +1266,7 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
             "closing_uid": day_closing_uid,
             "current_uid": day_current_uid,
             "deadline": remaining,
+            "speeches_done": speeches_done,
         }
 
     roles_map = {str(k): str(v) for k, v in (raw_roles or {}).items()}

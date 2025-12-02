@@ -542,17 +542,6 @@ async def game_leave(sid, data):
                             await emit_moderation_filtered(r, rid, uid, full, head_uid, "head")
 
                 try:
-                    await r.hset(
-                        f"room:{rid}:game_state",
-                        mapping={
-                            "day_speech_started": "0",
-                            "day_speech_duration": "0",
-                        },
-                    )
-                except Exception:
-                    log.exception("sio.game_leave.finish_speech_state_failed", rid=rid, uid=uid)
-
-                try:
                     opening_uid = int(raw_gstate.get("day_opening_uid") or 0)
                 except Exception:
                     opening_uid = 0
@@ -561,17 +550,32 @@ async def game_leave(sid, data):
                 except Exception:
                     closing_uid = 0
 
+                day_speeches_done = False
                 try:
+                    mapping = {
+                        "day_speech_started": "0",
+                        "day_speech_duration": "0",
+                    }
+                    if closing_uid and uid == closing_uid:
+                        mapping["day_last_opening_uid"] = str(opening_uid or 0)
+                        mapping["day_speeches_done"] = "1"
+                        day_speeches_done = True
+                    await r.hset(f"room:{rid}:game_state", mapping=mapping)
+                    payload = {
+                        "room_id": rid,
+                        "speaker_uid": uid,
+                        "opening_uid": opening_uid,
+                        "closing_uid": closing_uid,
+                        "deadline": 0,
+                    }
+                    if day_speeches_done:
+                        payload["speeches_done"] = True
                     await sio.emit("game_day_speech",
-                                   {"room_id": rid,
-                                    "speaker_uid": uid,
-                                    "opening_uid": opening_uid,
-                                    "closing_uid": closing_uid,
-                                    "deadline": 0},
+                                   payload,
                                    room=f"room:{rid}",
                                    namespace="/room")
                 except Exception:
-                    log.exception("sio.game_leave.finish_speech_emit_failed", rid=rid, uid=uid)
+                    log.exception("sio.game_leave.finish_speech_state_failed", rid=rid, uid=uid)
 
         await r.srem(f"room:{rid}:game_alive", str(uid))
 
@@ -1133,10 +1137,12 @@ async def game_phase_next(sid, data):
                 "day_opening_uid": str(opening_uid or 0),
                 "day_closing_uid": str(closing_uid or 0),
                 "day_current_uid": "0",
+                "day_speech_started": "0",
+                "day_speech_duration": "0",
+                "day_speeches_done": "0",
             }
             async with r.pipeline() as p:
                 await p.hset(f"room:{rid}:game_state", mapping=mapping)
-                await p.hdel(f"room:{rid}:game_state", "day_speech_started", "day_speech_duration")
                 await p.execute()
 
             payload = {
@@ -1220,6 +1226,7 @@ async def game_speech_next(sid, data):
                     mapping={
                         "day_opening_uid": str(opening_uid or 0),
                         "day_closing_uid": str(closing_uid or 0),
+                        "day_speeches_done": "0",
                     },
                 )
                 await p.execute()
@@ -1234,7 +1241,13 @@ async def game_speech_next(sid, data):
             next_uid = opening_uid
         else:
             if current_uid == closing_uid:
-                await r.hset(f"room:{rid}:game_state", mapping={"day_last_opening_uid": str(opening_uid)})
+                await r.hset(
+                    f"room:{rid}:game_state",
+                    mapping={
+                        "day_last_opening_uid": str(opening_uid or 0),
+                        "day_speeches_done": "1",
+                    },
+                )
                 return {"ok": False, "error": "day_speeches_done", "status": 409}
 
             if current_uid not in alive_order:
@@ -1361,11 +1374,6 @@ async def game_foul(sid, data):
             head_uid = 0
         if not head_uid:
             return {"ok": False, "error": "no_head", "status": 400}
-
-        try:
-            await r.hincrby(f"room:{rid}:game_fouls", str(uid), 1)
-        except Exception:
-            log.exception("game_foul.incr_failed", rid=rid, uid=uid)
 
         try:
             applied, forced_off = await update_blocks(r, rid, head_uid, "head", uid, {"mic": False})
@@ -1497,20 +1505,28 @@ async def game_foul_set(sid, data):
                     except Exception:
                         closing_uid = 0
 
+                    day_speeches_done = False
                     try:
-                        await r.hset(
-                            f"room:{rid}:game_state",
-                            mapping={
-                                "day_speech_started": "0",
-                                "day_speech_duration": "0",
-                            },
-                        )
+                        mapping = {
+                            "day_speech_started": "0",
+                            "day_speech_duration": "0",
+                        }
+                        if closing_uid and target_uid == closing_uid:
+                            mapping["day_last_opening_uid"] = str(opening_uid or 0)
+                            mapping["day_speeches_done"] = "1"
+                            day_speeches_done = True
+                        await r.hset(f"room:{rid}:game_state", mapping=mapping)
+                        payload = {
+                            "room_id": rid,
+                            "speaker_uid": target_uid,
+                            "opening_uid": opening_uid,
+                            "closing_uid": closing_uid,
+                            "deadline": 0,
+                        }
+                        if day_speeches_done:
+                            payload["speeches_done"] = True
                         await sio.emit("game_day_speech",
-                                       {"room_id": rid,
-                                        "speaker_uid": target_uid,
-                                        "opening_uid": opening_uid,
-                                        "closing_uid": closing_uid,
-                                        "deadline": 0},
+                                       payload,
                                        room=f"room:{rid}",
                                        namespace="/room")
                     except Exception:
@@ -1614,16 +1630,6 @@ async def game_speech_finish(sid, data):
                     full = {k: ("1" if (row or {}).get(k) == "1" else "0") for k in KEYS_BLOCK}
                     await emit_moderation_filtered(r, rid, current_uid, full, head_uid, "head")
 
-        async with r.pipeline() as p:
-            await p.hset(
-                f"room:{rid}:game_state",
-                mapping={
-                    "day_speech_started": "0",
-                    "day_speech_duration": "0",
-                },
-            )
-            await p.execute()
-
         try:
             opening_uid = int(raw_gstate.get("day_opening_uid") or 0)
         except Exception:
@@ -1633,6 +1639,19 @@ async def game_speech_finish(sid, data):
         except Exception:
             closing_uid = 0
 
+        day_speeches_done = False
+        async with r.pipeline() as p:
+            mapping: dict[str, str] = {
+                "day_speech_started": "0",
+                "day_speech_duration": "0",
+            }
+            if closing_uid and current_uid == closing_uid:
+                mapping["day_last_opening_uid"] = str(opening_uid or 0)
+                mapping["day_speeches_done"] = "1"
+                day_speeches_done = True
+            await p.hset(f"room:{rid}:game_state", mapping=mapping)
+            await p.execute()
+
         payload = {
             "room_id": rid,
             "speaker_uid": current_uid,
@@ -1640,6 +1659,8 @@ async def game_speech_finish(sid, data):
             "closing_uid": closing_uid,
             "deadline": 0,
         }
+        if day_speeches_done:
+            payload["speeches_done"] = True
 
         await sio.emit("game_day_speech",
                        payload,
