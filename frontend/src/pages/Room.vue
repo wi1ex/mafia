@@ -29,7 +29,7 @@
           :vol="volUi[id] ?? rtc.getUserVolume(id)"
           :is-mirrored="isMirrored"
           :is-game-head="game.isGameHead(id)"
-          :is-head="myGameRole.value === 'head'"
+          :is-head="myGameRole === 'head'"
           :is-dead="game.isDead"
           :dead-avatar="iconKillPlayer"
           :seat="game.seatIndex(id)"
@@ -91,7 +91,7 @@
             :vol="volUi[id] ?? rtc.getUserVolume(id)"
             :is-mirrored="isMirrored"
             :is-game-head="game.isGameHead(id)"
-            :is-head="myGameRole.value === 'head'"
+            :is-head="myGameRole === 'head'"
             :is-dead="game.isDead"
             :dead-avatar="iconKillPlayer"
             :seat="game.seatIndex(id)"
@@ -581,15 +581,14 @@ async function takeFoulUi() {
     const ms = await game.takeFoul(sendAckGame)
     const delay = typeof ms === 'number' && ms > 0 ? ms : 0
     if (delay > 0) {
-      window.setTimeout(() => {
-        foulPending.value = false
+      if (!micOn.value) try { await toggleMic() } catch {}
+      window.setTimeout(async () => {
+        try { if (micOn.value) await toggleMic() }
+        catch {}
+        finally { foulPending.value = false }
       }, delay)
-    } else {
-      foulPending.value = false
-    }
-  } catch {
-    foulPending.value = false
-  }
+    } else { foulPending.value = false }
+  } catch { foulPending.value = false }
 }
 
 function onGiveFoul(id: string) {
@@ -1058,9 +1057,7 @@ async function applyMafiaTalkStartForLocal(): Promise<void> {
   if (roleKind !== 'mafia' && roleKind !== 'don') return
   if (visibilityOn.value) return
   if (blockedSelf.value.visibility) return
-  try {
-    await toggleVisibility()
-  } catch {}
+  try { await toggleVisibility() } catch {}
 }
 
 async function applyMafiaTalkEndForLocal(): Promise<void> {
@@ -1068,19 +1065,19 @@ async function applyMafiaTalkEndForLocal(): Promise<void> {
   if (roleKind !== 'mafia' && roleKind !== 'don') return
   if (!visibilityOn.value) return
   if (blockedSelf.value.visibility) return
-  try {
-    await toggleVisibility()
-  } catch {}
+  try { await toggleVisibility() } catch {}
+}
+
+async function applyDayStartForLocal(): Promise<void> {
+  if (blockedSelf.value.visibility) return
+  if (visibilityOn.value) return
+  try { await toggleVisibility() } catch {}
 }
 
 function handleGamePhaseChangeUi(prev: GamePhase, next: GamePhase): void {
-  if (prev === 'roles_pick' && next === 'mafia_talk_start') {
-    void applyMafiaTalkStartForLocal()
-    return
-  }
-  if (prev === 'mafia_talk_start' && next === 'mafia_talk_end') {
-    void applyMafiaTalkEndForLocal()
-  }
+  if (prev === 'roles_pick' && next === 'mafia_talk_start') void applyMafiaTalkStartForLocal()
+  if (prev === 'mafia_talk_start' && next === 'mafia_talk_end') void applyMafiaTalkEndForLocal()
+  if (prev === 'mafia_talk_end' && next === 'day') void applyDayStartForLocal()
 }
 
 function applyJoinAck(j: any) {
@@ -1325,6 +1322,14 @@ function onBackgroundMaybeLeave(e?: PageTransitionEvent) {
 function handleOffline() { netReconnecting.value = true }
 
 function handleOnline() { if (netReconnecting.value) hardReload() }
+
+watch(isCurrentSpeaker, async (now, was) => {
+  if (now === was) return
+  try {
+    if (now) { if (!micOn.value) await toggleMic() }
+    else { if (micOn.value) await toggleMic() }
+  } catch {}
+})
 
 watch(() => auth.isAuthed, (ok) => { if (!ok) { void onLeave() } })
 

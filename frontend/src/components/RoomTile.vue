@@ -238,13 +238,17 @@ const timelineDurationSec = computed(() => {
     }
   }
   .phase-label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
     position: absolute;
     left: 0;
     right: 0;
     bottom: 5px;
-    text-align: center;
-    font-size: 12px;
+    height: 30px;
     color: $fg;
+    border-radius: 5px;
+    backdrop-filter: blur(5px);
     z-index: 15;
   }
   .ava-wrap {
@@ -440,6 +444,9 @@ const timelineDurationSec = computed(() => {
 
 @media (max-width: 1280px) {
   .tile {
+    .phase-label {
+      font-size: 12px;
+    }
     .user-card {
       left: 3px;
       top: 3px;
