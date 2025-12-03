@@ -291,8 +291,8 @@ async function create() {
   } catch (e: any) {
     const st = e?.response?.status
     const d = e?.response?.data?.detail
-    if (st === 409 && d === 'rooms_limit_global')      alert('Достигнут общий лимит активных комнат (100). Попробуйте позже.')
-    else if (st === 409 && d === 'rooms_limit_user')   alert('У вас уже 3 активные комнаты. Закройте одну и попробуйте снова.')
+    if (st === 409 && d === 'rooms_limit_global')      alert('Достигнут общий лимит комнат')
+    else if (st === 409 && d === 'rooms_limit_user')   alert('Достигнут личный лимит комнат')
     else if (st === 422 && d === 'title_empty')        alert('Название не должно быть пустым')
     else if (d && typeof d === 'object' && d.detail)   alert(String(d.detail))
     else if (typeof d === 'string' && d)               alert(d)

@@ -583,7 +583,7 @@ export function useRoomGame(localId: Ref<string>) {
   }
 
   async function leaveGame(sendAck: SendAckFn): Promise<void> {
-    if (!confirm('Вы хотите покинуть игровой стол?')) return
+    if (!confirm('Покинуть игру?')) return
     const resp = await sendAck('game_leave', {})
     if (!resp?.ok) {
       const code = resp?.error
@@ -613,7 +613,7 @@ export function useRoomGame(localId: Ref<string>) {
     } else if (st === 403 && code === 'forbidden') {
       alert('Недостаточно прав для запуска игры')
     } else if (st === 409 && code === 'already_in_other_game') {
-      alert('Некоторые участники уже играют в другой комнате')
+      alert('Некоторые пользователи являются живыми игроками в другой комнате')
     } else if (st === 403 && code === 'not_in_room') {
       alert('Вы не в комнате')
     } else if (st === 409 && code === 'streaming_present') {
@@ -661,7 +661,7 @@ export function useRoomGame(localId: Ref<string>) {
 
   async function endGame(sendAck: SendAckFn): Promise<void> {
     if (endingGame.value) return
-    if (!confirm('Завершить текущую игру?')) return
+    if (!confirm('Завершить игру?')) return
     endingGame.value = true
     try {
       const check = await sendAck('game_end', { confirm: false })
@@ -690,7 +690,7 @@ export function useRoomGame(localId: Ref<string>) {
         if (st === 403 && code === 'not_your_turn') {
           alert('Сейчас ход другого игрока')
         } else if (st === 409 && code === 'card_taken') {
-          alert('Эта карточка уже занята, обновите окно')
+          alert('Эта карта уже занята')
         } else {
           alert('Не удалось выбрать роль')
         }
@@ -721,12 +721,12 @@ export function useRoomGame(localId: Ref<string>) {
       const code = resp?.error
       const st = resp?.status
       if (st === 409 && code === 'day_speeches_done') {
-        alert('Все игроки уже высказались. Дальше — голосование.')
+        alert('Речи игроков завершены')
         daySpeechesDone.value = true
       } else if (st === 400 && code === 'bad_phase') {
-        alert('Сейчас не день.')
+        alert('Сейчас не фаза дня')
       } else if (st === 403 && code === 'forbidden') {
-        alert('Только ведущий может передавать речь.')
+        alert('Только ведущий может передавать речь')
       } else {
         alert('Не удалось передать речь')
       }
@@ -740,11 +740,11 @@ export function useRoomGame(localId: Ref<string>) {
       const st = resp?.status
       if (st === 429 && code === 'too_soon') {
       } else if (st === 400 && code === 'bad_phase') {
-        alert('Сейчас не день.')
+        alert('Сейчас не фаза дня')
       } else if (st === 403 && code === 'not_alive') {
-        alert('Вы не участвуете или уже выбыли.')
+        alert('Вы не являетесь игроком или уже выбыли')
       } else if (st === 400 && code === 'no_room') {
-        alert('Вы не в комнате.')
+        alert('Вы не в комнате')
       } else {
         alert('Не удалось взять фол')
       }
@@ -761,13 +761,13 @@ export function useRoomGame(localId: Ref<string>) {
       const code = resp?.error
       const st = resp?.status
       if (st === 400 && code === 'bad_phase') {
-        alert('Сейчас не день.')
+        alert('Сейчас не фаза дня')
       } else if (st === 400 && code === 'no_speech') {
-        alert('Сейчас никто не выступает.')
+        alert('Сейчас никто не говорит')
       } else if (st === 403 && code === 'forbidden') {
-        alert('Завершить речь может только ведущий или текущий игрок.')
+        alert('Завершить речь может только ведущий или текущий игрок')
       } else if (st === 400 && code === 'not_alive') {
-        alert('Игрок уже выбыл из игры.')
+        alert('Игрок уже выбыл из игры')
       } else {
         alert('Не удалось завершить речь')
       }
@@ -782,16 +782,16 @@ export function useRoomGame(localId: Ref<string>) {
       const code = resp?.error
       const st = resp?.status
       if (st === 409 && code === 'need_confirm_kill') {
-        const ok = confirm('4й фол удалить игрока. вы уверены?')
+        const ok = confirm('Удалить игрока?')
         if (!ok) return
         const resp2 = await sendAck('game_foul_set', { user_id: uidNum, confirm_kill: true })
         if (!resp2?.ok) {
           alert('Не удалось выдать фол')
         }
       } else if (st === 403 && code === 'forbidden') {
-        alert('Фол может выдать только ведущий.')
+        alert('Фол может выдать только ведущий')
       } else if (st === 404 && code === 'not_alive') {
-        alert('Игрок уже выбыл из игры.')
+        alert('Игрок уже выбыл из игры')
       } else {
         alert('Не удалось выдать фол')
       }

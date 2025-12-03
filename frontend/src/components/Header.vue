@@ -96,7 +96,7 @@ declare global {
 
 async function logout() {
   try { await auth.logout() }
-  finally { alert('Для "полного" выхода из аккаунта нажмите в Telegram "Terminate session" для этого сайта') }
+  finally { alert('Для "полного" выхода нажмите в Telegram "Terminate session"') }
 }
 
 function mountTGWidget() {

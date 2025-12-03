@@ -388,6 +388,26 @@ const headUserId = computed(() => {
 })
 const mafiaTalkRemainingMs = computed(() => mafiaTalk.remainingMs)
 
+const FINISH_SPEECH_DELAY_MS = 3000
+const finishSpeechUnlocked = ref(false)
+let finishSpeechTimer: number | null = null
+function resetFinishSpeechDelay() {
+  finishSpeechUnlocked.value = false
+  if (finishSpeechTimer !== null) {
+    clearTimeout(finishSpeechTimer)
+    finishSpeechTimer = null
+  }
+}
+function scheduleFinishSpeechUnlock() {
+  resetFinishSpeechDelay()
+  if (gamePhase.value !== 'day') return
+  if (!game.daySpeech.currentId || game.daySpeech.remainingMs <= 0) return
+  finishSpeechTimer = window.setTimeout(() => {
+    if ( gamePhase.value === 'day' && !!game.daySpeech.currentId && game.daySpeech.remainingMs > 0 ) finishSpeechUnlocked.value = true
+    finishSpeechTimer = null
+  }, FINISH_SPEECH_DELAY_MS)
+}
+
 const canStartDay = computed(() =>
   gamePhase.value === 'mafia_talk_end' &&
   myGameRole.value === 'head',
@@ -403,7 +423,8 @@ const canFinishSpeechHead = computed(() =>
   gamePhase.value === 'day' &&
   myGameRole.value === 'head' &&
   !!game.daySpeech.currentId &&
-  game.daySpeech.remainingMs > 0,
+  game.daySpeech.remainingMs > 0 &&
+  finishSpeechUnlocked.value,
 )
 
 const canPassSpeechHead = computed(() =>
@@ -416,7 +437,8 @@ const canPassSpeechHead = computed(() =>
 const canFinishSpeechSelf = computed(() =>
   gamePhase.value === 'day' &&
   myGameRole.value === 'player' &&
-  isCurrentSpeaker.value,
+  isCurrentSpeaker.value &&
+  finishSpeechUnlocked.value,
 )
 
 const canTakeFoulSelf = computed(() =>
@@ -596,7 +618,7 @@ function onGiveFoul(id: string) {
 }
 
 function startVoteUi() {
-  alert('Процесс голосования будет добавлен позже.')
+  alert('Процесс голосования будет добавлен позже')
 }
 
 const showPermProbe = computed(() => !rtc.hasAudioInput.value && !rtc.hasVideoInput.value)
@@ -733,7 +755,7 @@ async function toggleBlock(targetId: string, key: keyof BlockState) {
 
 async function kickUser(targetId: string) {
   if (!canModerate(targetId)) return
-  if (!confirm('Удалить пользователя из комнаты?')) return
+  if (!confirm('Удалить пользователя?')) return
   const resp = await sendAck('kick', { user_id: Number(targetId) })
   if (!ensureOk(resp, { 403: 'Недостаточно прав', 404: 'Пользователь не в комнате' }, 'Сеть/таймаут при удалении')) return
 }
@@ -962,6 +984,7 @@ function connectSocket() {
 
   socket.value.on('game_day_speech', (p: any) => {
     game.handleGameDaySpeech(p)
+    scheduleFinishSpeechUnlock()
   })
 
   socket.value.on('game_foul', (p: any) => {
@@ -1143,6 +1166,9 @@ function applyJoinAck(j: any) {
 
   const snapshotIds = Object.keys(j.snapshot || {})
   game.applyFromJoinAck(j, snapshotIds)
+
+  if (gamePhase.value === 'day' && game.daySpeech.currentId && game.daySpeech.remainingMs > 0) { scheduleFinishSpeechUnlock() }
+  else { resetFinishSpeechDelay() }
 }
 
 type PublishDelta = Partial<{
@@ -1228,7 +1254,7 @@ const toggleScreen = async () => {
         await sendAck('screen', { on: false, canceled: true })
         screenOwnerId.value = ''
         const reason = rtc.getLastScreenShareError?.()
-        alert(reason === 'canceled' ? 'Трансляция отменена' : 'Ошибка публикации видеопотока или доступ отклонён')
+        alert(reason === 'canceled' ? 'Трансляция отменена' : 'Ошибка публикации видеопотока')
       }
     } else {
       await rtc.stopScreenShare()
@@ -1275,7 +1301,7 @@ async function onMediaGateClick() {
 async function handleJoinFailure(j: any) {
   if (leaving.value) return
   if (j?.status === 403 && j?.error === 'private_room') {
-    alert('Комната приватная')
+    alert('Комната является приватной')
     await router.replace({ name: 'home', query: { focus: String(rid) } })
   } else if (j?.status === 409 && j?.error === 'game_in_progress') {
     alert('В комнате идёт игра')

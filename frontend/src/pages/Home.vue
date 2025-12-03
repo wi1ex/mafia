@@ -306,7 +306,7 @@ async function onApply() {
       clearSelection()
     } else if (detail === 'not_private') {
       access.value = 'approved'
-      alert('Комната уже открыта, можно зайти без заявки')
+      alert('Комната открыта, можно зайти без заявки')
     } else {
       alert('Ошибка при отправке заявки')
     }
