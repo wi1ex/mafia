@@ -1143,6 +1143,10 @@ async def game_phase_next(sid, data):
             }
             async with r.pipeline() as p:
                 await p.hset(f"room:{rid}:game_state", mapping=mapping)
+                await p.delete(
+                    f"room:{rid}:game_nominees",
+                    f"room:{rid}:game_nom_speakers",
+                )
                 await p.execute()
 
             payload = {
@@ -1577,6 +1581,101 @@ async def game_foul_set(sid, data):
         return {"ok": False, "error": "internal", "status": 500}
 
 
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_nominate:{uid or 'nouid'}:{rid or 0}", limit=20, window_s=1, session_ns="/room")
+@sio.event(namespace="/room")
+async def game_nominate(sid, data):
+    try:
+        data = data or {}
+        sess = await sio.get_session(sid, namespace="/room")
+        actor_uid = int(sess["uid"])
+        rid = int(sess.get("rid") or 0)
+        if not rid:
+            return {"ok": False, "error": "no_room", "status": 400}
+
+        try:
+            target_uid = int(data.get("user_id") or 0)
+        except Exception:
+            target_uid = 0
+        if not target_uid:
+            return {"ok": False, "error": "bad_request", "status": 400}
+
+        r = get_redis()
+        raw_gstate = await r.hgetall(f"room:{rid}:game_state")
+        phase = str(raw_gstate.get("phase") or "idle")
+        if phase != "day":
+            return {"ok": False, "error": "bad_phase", "status": 400}
+
+        try:
+            current_uid = int(raw_gstate.get("day_current_uid") or 0)
+        except Exception:
+            current_uid = 0
+        if current_uid != actor_uid:
+            return {"ok": False, "error": "not_your_speech", "status": 403}
+
+        is_actor_player = await r.sismember(f"room:{rid}:game_players", str(actor_uid))
+        is_actor_alive = await r.sismember(f"room:{rid}:game_alive", str(actor_uid))
+        if not (is_actor_player and is_actor_alive):
+            return {"ok": False, "error": "not_alive", "status": 403}
+
+        is_target_player = await r.sismember(f"room:{rid}:game_players", str(target_uid))
+        is_target_alive = await r.sismember(f"room:{rid}:game_alive", str(target_uid))
+        if not (is_target_player and is_target_alive):
+            return {"ok": False, "error": "target_not_alive", "status": 400}
+
+        already_speaker = await r.sismember(f"room:{rid}:game_nom_speakers", str(actor_uid))
+        if already_speaker:
+            return {"ok": False, "error": "already_nominated", "status": 409}
+
+        existing_idx = await r.hget(f"room:{rid}:game_nominees", str(target_uid))
+        if existing_idx is not None:
+            return {"ok": False, "error": "target_already_on_ballot", "status": 409}
+
+        try:
+            cur_cnt = int(await r.hlen(f"room:{rid}:game_nominees") or 0)
+        except Exception:
+            cur_cnt = 0
+        new_idx = cur_cnt + 1
+
+        async with r.pipeline() as p:
+            await p.hset(f"room:{rid}:game_nominees", str(target_uid), str(new_idx))
+            await p.sadd(f"room:{rid}:game_nom_speakers", str(actor_uid))
+            await p.execute()
+
+        tmp: list[tuple[int, int]] = []
+        raw_nominees = await r.hgetall(f"room:{rid}:game_nominees")
+        for uid_s, idx_s in (raw_nominees or {}).items():
+            try:
+                u = int(uid_s)
+                idx = int(idx_s or 0)
+            except Exception:
+                continue
+
+            if idx > 0:
+                tmp.append((idx, u))
+
+        tmp.sort(key=lambda t: t[0])
+        ordered: list[int] = [u for _, u in tmp]
+
+        payload = {
+            "room_id": rid,
+            "user_id": target_uid,
+            "by": actor_uid,
+            "index": new_idx,
+            "order": ordered,
+        }
+
+        await sio.emit("game_nominee_added",
+                       payload,
+                       room=f"room:{rid}",
+                       namespace="/room")
+
+        return {"ok": True, "status": 200, **payload}
+
+    except Exception:
+        log.exception("sio.game_nominate.error", sid=sid, data=bool(data))
+        return {"ok": False, "error": "internal", "status": 500}
+
+
 @rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_speech_finish:{uid or 'nouid'}:{rid or 0}", limit=20, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
 async def game_speech_finish(sid, data):
@@ -1739,6 +1838,8 @@ async def game_end(sid, data):
                 f"room:{rid}:game_alive",
                 f"room:{rid}:game_fouls",
                 f"room:{rid}:game_short_speech_used",
+                f"room:{rid}:game_nominees",
+                f"room:{rid}:game_nom_speakers",
             )
             await p.execute()
 

@@ -1116,6 +1116,8 @@ async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
             f"room:{rid}:game_roles",
             f"room:{rid}:game_fouls",
             f"room:{rid}:game_short_speech_used",
+            f"room:{rid}:game_nominees",
+            f"room:{rid}:game_nom_speakers",
         )
         await r.zrem("rooms:index", str(rid))
     finally:
@@ -1268,6 +1270,25 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
             "deadline": remaining,
             "speeches_done": speeches_done,
         }
+
+        try:
+            raw_nominees = await r.hgetall(f"room:{rid}:game_nominees")
+        except Exception:
+            raw_nominees = {}
+        tmp_nom: list[tuple[int, int]] = []
+        for uid_s, idx_s in (raw_nominees or {}).items():
+            try:
+                u = int(uid_s)
+                idx = int(idx_s or 0)
+            except Exception:
+                continue
+
+            if idx > 0:
+                tmp_nom.append((idx, u))
+
+        if tmp_nom:
+            tmp_nom.sort(key=lambda t: t[0])
+            game_runtime["day"]["nominees"] = [u for _, u in tmp_nom]
 
     roles_map = {str(k): str(v) for k, v in (raw_roles or {}).items()}
     my_game_role = roles_map.get(str(uid))

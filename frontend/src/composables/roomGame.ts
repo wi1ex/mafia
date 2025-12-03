@@ -103,6 +103,13 @@ export function useRoomGame(localId: Ref<string>) {
   const daySpeechesDone = ref(false)
   const foulActive = reactive(new Set<string>())
 
+  const dayNominees = reactive<string[]>([])
+  const nominatedThisSpeechByMe = ref(false)
+
+  const nomineeSeatNumbers = computed(() =>
+    dayNominees.map(uid => seatIndex(uid)).filter((s): s is number => s != null)
+  )
+
   const myGameRoleKind = computed<GameRoleKind | null>(() => {
     const id = localId.value
     if (!id) return null
@@ -253,6 +260,9 @@ export function useRoomGame(localId: Ref<string>) {
       daySpeechTimerId.value = null
     }
     daySpeechesDone.value = false
+
+    dayNominees.splice(0, dayNominees.length)
+    nominatedThisSpeechByMe.value = false
   }
 
   function syncRoleOverlayWithTurn() {
@@ -357,12 +367,25 @@ export function useRoomGame(localId: Ref<string>) {
       setDaySpeechRemainingMs(rawMs, false)
       const rawDone = (dy as any).speeches_done
       daySpeechesDone.value = rawDone === true || rawDone === 1 || rawDone === '1'
+
+      const rawNominees = (dy as any).nominees
+      dayNominees.splice(0, dayNominees.length)
+      if (Array.isArray(rawNominees)) {
+        for (const uid of rawNominees) {
+          const s = String(uid)
+          if (s) dayNominees.push(s)
+        }
+      }
+      nominatedThisSpeechByMe.value = false
     } else {
       daySpeech.openingId = ''
       daySpeech.closingId = ''
       daySpeech.currentId = ''
       setDaySpeechRemainingMs(0, false)
       daySpeechesDone.value = false
+
+      dayNominees.splice(0, dayNominees.length)
+      nominatedThisSpeechByMe.value = false
     }
 
     const playersCount = gamePlayers.size
@@ -494,8 +517,21 @@ export function useRoomGame(localId: Ref<string>) {
     const isActiveSpeech = ms > 0 && !!speakerId
     if (isActiveSpeech) {
       daySpeechesDone.value = false
+      if (speakerId !== localId.value) nominatedThisSpeechByMe.value = false
     } else if (done || (speakerId && closingId && speakerId === closingId)) {
       daySpeechesDone.value = true
+      nominatedThisSpeechByMe.value = false
+    }
+  }
+
+  function handleGameNomineeAdded(p: any) {
+    const orderRaw = p?.order
+    dayNominees.splice(0, dayNominees.length)
+    if (Array.isArray(orderRaw)) {
+      for (const uid of orderRaw) {
+        const s = String(uid)
+        if (s) dayNominees.push(s)
+      }
     }
   }
 
@@ -557,12 +593,67 @@ export function useRoomGame(localId: Ref<string>) {
       daySpeech.currentId = ''
       setDaySpeechRemainingMs(0, true)
       daySpeechesDone.value = false
+
+      dayNominees.splice(0, dayNominees.length)
+      nominatedThisSpeechByMe.value = false
     } else {
       daySpeech.openingId = ''
       daySpeech.closingId = ''
       daySpeech.currentId = ''
       setDaySpeechRemainingMs(0, true)
       daySpeechesDone.value = false
+
+      dayNominees.splice(0, dayNominees.length)
+      nominatedThisSpeechByMe.value = false
+    }
+  }
+
+  function canNominateTarget(id: string): boolean {
+    const me = localId.value
+    if (!me) return false
+    if (gamePhase.value !== 'day') return false
+    if (daySpeech.currentId !== me) return false
+    if (daySpeech.remainingMs <= 0) return false
+    if (!amIAlive.value) return false
+    if (!gamePlayers.has(id)) return false
+    if (!gameAlive.has(id)) return false
+    if (dayNominees.includes(id)) return false
+    return !nominatedThisSpeechByMe.value
+  }
+
+  async function nominateTarget(targetUserId: string, sendAck: SendAckFn): Promise<void> {
+    const uidNum = Number(targetUserId)
+    if (!uidNum) return
+    const resp = await sendAck('game_nominate', { user_id: uidNum })
+    if (!resp?.ok) {
+      const code = resp?.error
+      const st = resp?.status
+      if (st === 400 && code === 'bad_phase') {
+        alert('Сейчас не фаза дня')
+      } else if (st === 403 && code === 'not_your_speech') {
+        alert('Вы можете выставлять только во время своей речи')
+      } else if (st === 403 && code === 'not_alive') {
+        alert('Вы не являетесь живым игроком')
+      } else if (st === 400 && code === 'target_not_alive') {
+        alert('Игрок уже выбыл из игры')
+      } else if (st === 409 && code === 'already_nominated') {
+        alert('Вы уже выставили игрока в этой речи')
+      } else if (st === 409 && code === 'target_already_on_ballot') {
+        alert('Этот игрок уже выставлен')
+      } else {
+        alert('Не удалось выставить игрока на голосование')
+      }
+      return
+    }
+    nominatedThisSpeechByMe.value = true
+
+    const orderRaw = (resp as any).order
+    dayNominees.splice(0, dayNominees.length)
+    if (Array.isArray(orderRaw)) {
+      for (const uid of orderRaw) {
+        const s = String(uid)
+        if (s) dayNominees.push(s)
+      }
     }
   }
 
@@ -828,6 +919,8 @@ export function useRoomGame(localId: Ref<string>) {
     roleCardsToRender,
     gameFoulsByUser,
     daySpeechesDone,
+    dayNominees,
+    nomineeSeatNumbers,
 
     isGameHead,
     isDead,
@@ -859,5 +952,8 @@ export function useRoomGame(localId: Ref<string>) {
     finishSpeech,
     giveFoul,
     handleGameFouls,
+    handleGameNomineeAdded,
+    canNominateTarget,
+    nominateTarget,
   }
 }

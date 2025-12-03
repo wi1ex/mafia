@@ -6,16 +6,25 @@
     <div class="icon-badge left" v-if="isReady(id)" aria-hidden="true">
       <img :src="iconReady" alt="ready" />
     </div>
-    <div class="icon-badge right" v-if="gameRole" aria-hidden="true">
-      <img :src="gameRole" alt="role" />
-    </div>
+
     <button v-if="inGame && seat != null && !isGameHead && !isDead(id)" class="icon-badge button left"
             @click="$emit('foul', id)" :disabled="!isHead" aria-label="Выдать фол">
       <img :src="iconFoul" alt="foul" />
       <span>{{ foulsCount }}</span>
     </button>
+    <button v-if="showNominate" class="nominate-btn" @click="$emit('nominate', id)">Выставить</button>
+    <div class="icon-badge right" v-if="gameRole" aria-hidden="true">
+      <img :src="gameRole" alt="role" />
+    </div>
 
     <div v-if="isGameHead" class="phase-label">{{ phaseLabel }}</div>
+    <div v-if="isGameHead && showNominationsBar" class="nominations-bar">
+      <span v-if="!nominees || nominees.length === 0" class="nominations-text">Никто не выставлен</span>
+      <div v-else>
+        <span class="nominations-text">Выставлены:</span>
+        <span v-for="seatNum in nominees" :key="seatNum" class="nominations-badge">{{ seatNum }}</span>
+      </div>
+    </div>
 
     <div v-show="!showVideo" class="ava-wrap">
       <img v-if="isDead(id) && deadAvatar" :src="deadAvatar" alt="dead" />
@@ -115,6 +124,9 @@ const props = withDefaults(defineProps<{
   inGame?: boolean
   foulsCount?: number
   phaseLabel?: string
+  showNominate?: boolean
+  nominees?: number[]
+  showNominationsBar?: boolean
 }>(), {
   side: false,
   fitContain: false,
@@ -138,6 +150,9 @@ const props = withDefaults(defineProps<{
   inGame: false,
   foulsCount: 0,
   phaseLabel: '',
+  showNominate: false,
+  nominees: () => [],
+  showNominationsBar: false,
 })
 
 defineEmits<{
@@ -146,6 +161,7 @@ defineEmits<{
   (e: 'block', key: 'mic'|'cam'|'speakers'|'visibility'|'screen', id: string): void
   (e: 'kick', id: string): void
   (e: 'foul', id: string): void
+  (e: 'nominate', id: string): void
 }>()
 
 const showVideo = computed(() =>
@@ -229,11 +245,13 @@ const timelineDurationSec = computed(() => {
       font-variant-numeric: tabular-nums;
       transition: background-color 0.25s ease-in-out;
     }
-    &:disabled {
-      cursor: default;
-    }
     &.button {
       cursor: pointer;
+    }
+    &:disabled,
+    &.button:disabled {
+      cursor: default;
+      pointer-events: none;
     }
     &.left {
       left: 5px;
@@ -255,6 +273,60 @@ const timelineDurationSec = computed(() => {
     backdrop-filter: blur(5px);
     z-index: 15;
   }
+
+
+
+
+  .nominate-btn {
+    position: absolute;
+    left: 50%;
+    bottom: 8px;
+    transform: translateX(-50%);
+    padding: 2px 8px;
+    border-radius: 12px;
+    border: none;
+    font-size: 12px;
+    font-family: Manrope-Medium;
+    color: $fg;
+    background-color: rgba($dark, 0.9);
+    box-shadow: 3px 3px 5px rgba($black, 0.25);
+    cursor: pointer;
+    z-index: 12;
+    white-space: nowrap;
+  }
+  .nominations-bar {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 5px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 6px;
+    z-index: 13;
+    pointer-events: none;
+    .nominations-text {
+      color: $fg;
+      font-size: 12px;
+      font-family: Manrope-Medium;
+    }
+    .nominations-badge {
+      min-width: 22px;
+      height: 22px;
+      border-radius: 11px;
+      background-color: rgba($dark, 0.9);
+      box-shadow: 3px 3px 5px rgba($black, 0.25);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-family: Manrope-Bold;
+      color: $fg;
+    }
+  }
+
+
+
   .ava-wrap {
     display: flex;
     position: absolute;

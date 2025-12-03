@@ -49,11 +49,15 @@
           :day-speech-remaining-ms="game.daySpeech.remainingMs"
           :fouls-count="gameFoulsByUser.get(id) ?? 0"
           :phase-label="phaseLabel"
+          :show-nominate="game.canNominateTarget(id)"
+          :nominees="game.nomineeSeatNumbers"
+          :show-nominations-bar="id === headUserId && gamePhase === 'day'"
           @toggle-panel="toggleTilePanel"
           @vol-input="onVol"
           @block="(key, uid) => toggleBlock(uid, key)"
           @kick="kickUser"
           @foul="onGiveFoul"
+          @nominate="onNominate"
         />
       </div>
 
@@ -111,11 +115,15 @@
             :day-speech-remaining-ms="game.daySpeech.remainingMs"
             :fouls-count="gameFoulsByUser.get(id) ?? 0"
             :phase-label="id === localId && myGameRole === 'head' ? phaseLabel : ''"
+            :show-nominate="game.canNominateTarget(id)"
+            :nominees="game.nomineeSeatNumbers"
+            :show-nominations-bar="id === headUserId && gamePhase === 'day'"
             @toggle-panel="toggleTilePanel"
             @vol-input="onVol"
             @block="(key, uid) => toggleBlock(uid, key)"
             @kick="kickUser"
             @foul="onGiveFoul"
+            @nominate="onNominate"
           />
         </div>
       </div>
@@ -141,19 +149,17 @@
                   @click="goToMafiaTalkUi" aria-label="Перейти к договорке">Начать договорку</button>
           <button v-if="gamePhase === 'mafia_talk_start' && myGameRole === 'head' && mafiaTalkRemainingMs <= 0" class="btn-text"
                   @click="finishMafiaTalkUi" aria-label="Завершить договорку">Завершить договорку</button>
-          <button v-if="canStartDay" class="btn-text"
-                  @click="startDayUi" aria-label="Начать день">Начать день</button>
-          <button v-if="canFinishSpeechHead" class="btn-text"
-                  @click="finishSpeechUi" aria-label="Завершить речь">Завершить речь</button>
-          <button v-else-if="canPassSpeechHead" class="btn-text"
-                  @click="passSpeechUi" aria-label="Передать речь">Передать речь</button>
-          <button v-if="canStartVote" class="btn-text"
-                  @click="startVoteUi">Начать голосование</button>
+          <button v-if="canStartDay" class="btn-text" @click="startDayUi" aria-label="Начать день">Начать день</button>
+          <button v-if="canFinishSpeechHead" class="btn-text" @click="finishSpeechUi" aria-label="Завершить речь">Завершить речь</button>
+          <button v-else-if="canPassSpeechHead" class="btn-text" @click="passSpeechUi" aria-label="Передать речь">Передать речь</button>
+          <button v-if="canStartVote" class="btn-text" @click="startVoteUi">Начать голосование</button>
 
-          <button v-if="canFinishSpeechSelf" class="btn-text"
-                  @click="finishSpeechUi">Завершить речь</button>
-          <button v-else-if="canTakeFoulSelf" class="btn-text"
-                  @click="takeFoulUi" :disabled="foulPending">Взять фол</button>
+          <button v-if="canFinishSpeechSelf" class="btn-text" @click="finishSpeechUi">
+            <img :src="iconSkip" alt="finish speech" />
+          </button>
+          <button v-else-if="canTakeFoulSelf" class="btn-text" @click="takeFoulUi" :disabled="foulPending">
+            <img :src="iconTakeFoul" alt="take foul" />
+          </button>
 
           <button v-if="gamePhase === 'idle' && canShowStartGame" @click="startGameUi" :disabled="startingGame" aria-label="Запустить игру">
             <img :src="iconGameStart" alt="start" />
@@ -259,6 +265,8 @@ import iconRequestsRoom from '@/assets/svg/requestsRoom.svg'
 import iconReady from '@/assets/svg/ready.svg'
 import iconGameStart from '@/assets/svg/gameStart.svg'
 import iconGameStop from '@/assets/svg/gameStop.svg'
+import iconTakeFoul from '@/assets/svg/takeFoul.svg'
+import iconSkip from '@/assets/svg/skip.svg'
 import iconCardBack from '@/assets/images/cardBack.png'
 import iconLowSignal from '@/assets/svg/lowSignal.svg'
 import iconKillPlayer from '@/assets/svg/killPlayer.svg'
@@ -456,12 +464,8 @@ const canStartVote = computed(() =>
 )
 
 const phaseLabel = computed(() => {
-  if (gamePhase.value === 'idle') return ''
   if (gamePhase.value === 'roles_pick') return 'Выбор ролей'
   if (gamePhase.value === 'mafia_talk_start') return 'Договорка мафии'
-  if (gamePhase.value === 'mafia_talk_end') return ''
-  if (gamePhase.value === 'day') return ''
-  if (gamePhase.value === 'vote') return 'Голосование'
   if (gamePhase.value === 'night') return 'Отстрелы и проверки'
   return ''
 })
@@ -690,6 +694,10 @@ function onVol(id: string, v: number) {
 
 function rol(id: string): string { return rolesByUser.get(id) || 'user' }
 const myRole = computed(() => rol(localId.value))
+
+function onNominate(targetId: string) {
+  game.nominateTarget(targetId, sendAck)
+}
 
 function isOn(id: string, kind: IconKind) {
   if (kind === 'screen') return !!id && id === screenOwnerId.value
@@ -993,6 +1001,10 @@ function connectSocket() {
 
   socket.value.on('game_fouls', (p: any) => {
     game.handleGameFouls(p)
+  })
+
+  socket.value.on('game_nominee_added', (p: any) => {
+    game.handleGameNomineeAdded(p)
   })
 }
 
