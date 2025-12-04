@@ -463,17 +463,19 @@ const canStartVote = computed(() =>
   daySpeechesDone.value,
 )
 
+const allRolesPicked = computed(() => {
+  const order = rolePick.order
+  if (!Array.isArray(order) || order.length === 0) return false
+  return order.every(id => rolePick.picked.has(id))
+})
+
 const phaseLabel = computed(() => {
-  switch (gamePhase.value) {
-    case 'roles_pick':
-      return rolesVisibleForHead.value ? '' : 'Выбор ролей'
-    case 'mafia_talk_start':
-      return 'Договорка мафии'
-    case 'night':
-      return 'Отстрелы и проверки'
-    default:
-      return ''
+  if (gamePhase.value === 'roles_pick') {
+    return allRolesPicked.value ? '' : 'Выбор ролей'
   }
+  if (gamePhase.value === 'mafia_talk_start') return 'Договорка'
+  if (gamePhase.value === 'day') return 'День'
+  return ''
 })
 
 const videoQuality = computed<VQ>({

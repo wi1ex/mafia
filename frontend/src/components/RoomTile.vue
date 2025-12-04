@@ -10,7 +10,7 @@
     <button v-if="inGame && seat != null && !isGameHead && !isDead(id)" class="icon-badge button left"
             @click="$emit('foul', id)" :disabled="!isHead" aria-label="Выдать фол">
       <img :src="iconFoul" alt="foul" />
-      <span>{{ foulsCount }}</span>
+      <span>Выставить</span>
     </button>
     <button v-if="showNominate" class="nominate-btn" @click="$emit('nominate', id)">
       <img :src="iconLike" alt="nominate" />
@@ -231,8 +231,8 @@ const timelineDurationSec = computed(() => {
     box-shadow: 3px 3px 5px rgba($black, 0.25);
     z-index: 3;
     img {
-      width: 25px;
-      height: 25px;
+      width: 24px;
+      height: 24px;
     }
     span {
       position: absolute;
@@ -305,8 +305,8 @@ const timelineDurationSec = computed(() => {
     cursor: pointer;
     z-index: 3;
     img {
-      width: 25px;
-      height: 25px;
+      width: 24px;
+      height: 24px;
     }
     span {
       color: $fg;
@@ -369,8 +369,8 @@ const timelineDurationSec = computed(() => {
         cursor: default;
       }
       .user-slot {
-        width: 25px;
-        height: 25px;
+        width: 24px;
+        height: 24px;
       }
       .user-avatar {
         width: 20px;
