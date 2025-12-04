@@ -12,12 +12,15 @@
       <img :src="iconFoul" alt="foul" />
       <span>{{ foulsCount }}</span>
     </button>
-    <button v-if="showNominate" class="nominate-btn" @click="$emit('nominate', id)">Выставить</button>
+    <button v-if="showNominate" class="nominate-btn" @click="$emit('nominate', id)">
+      <img :src="iconLike" alt="nominate" />
+      <span>{{ foulsCount }}</span>
+    </button>
     <div class="icon-badge right" v-if="gameRole" aria-hidden="true">
       <img :src="gameRole" alt="role" />
     </div>
 
-    <div class="head-bar" v-if="isGameHead && !showNominationsBar">{{ phaseLabel }}</div>
+    <div class="head-bar" v-if="isGameHead && phaseLabel">{{ phaseLabel }}</div>
     <div class="head-bar" v-if="isGameHead && showNominationsBar">
       <span v-if="!Array.isArray(nominees) || nominees.length === 0">Никто не выставлен</span>
       <span v-else class="nominations-badge" v-for="seatNum in nominees" :key="seatNum">{{ seatNum }}</span>
@@ -54,7 +57,7 @@
             <span>{{ vol ?? 100 }}%</span>
           </div>
 
-          <div v-if="canModerate(id)" class="admin-row" aria-label="Блокировки">
+          <div v-if="!inGame && canModerate(id)" class="admin-row" aria-label="Блокировки">
             <button @click="$emit('block','mic',id)" aria-label="block mic"><img :src="stateIcon('mic', id)" alt="mic" /></button>
             <button @click="$emit('block','cam',id)" aria-label="block cam"><img :src="stateIcon('cam', id)" alt="cam" /></button>
             <button @click="$emit('block','speakers',id)" aria-label="block speakers"><img :src="stateIcon('speakers', id)" alt="spk" /></button>
@@ -77,6 +80,7 @@ import { computed } from 'vue'
 import iconReady from '@/assets/svg/ready.svg'
 import iconLeaveRoom from '@/assets/svg/leave.svg'
 import iconFoul from '@/assets/svg/foul.svg'
+import iconLike from '@/assets/svg/like.svg'
 
 type IconKind = 'mic' | 'cam' | 'speakers' | 'visibility' | 'screen'
 
@@ -298,12 +302,18 @@ const timelineDurationSec = computed(() => {
     background-color: rgba($dark, 0.75);
     backdrop-filter: blur(5px);
     box-shadow: 3px 3px 5px rgba($black, 0.25);
-    color: $fg;
-    font-size: 16px;
-    font-family: Manrope-Medium;
-    line-height: 1;
     cursor: pointer;
     z-index: 3;
+    img {
+      width: 25px;
+      height: 25px;
+    }
+    span {
+      color: $fg;
+      font-size: 16px;
+      font-family: Manrope-Medium;
+      line-height: 1;
+    }
   }
   .ava-wrap {
     display: flex;
@@ -534,16 +544,22 @@ const timelineDurationSec = computed(() => {
       bottom: 3px;
       padding: 0 10px;
       height: 20px;
-      font-size: 12px;
+      img {
+        width: 16px;
+        height: 16px;
+      }
+      span {
+        font-size: 12px;
+      }
     }
     .user-card {
       left: 3px;
       top: 3px;
       padding: 3px 5px;
-      max-inline-size: min(250px, calc(100% - 15px));
+      max-inline-size: min(160px, calc(100% - 15px));
       block-size: 16px;
       &[data-open="1"] {
-        inline-size: min(250px, calc(100% - 15px));
+        inline-size: min(160px, calc(100% - 15px));
         block-size: 85px;
       }
       &[data-open="1"][data-game="1"] {

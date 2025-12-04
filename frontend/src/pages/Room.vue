@@ -464,10 +464,16 @@ const canStartVote = computed(() =>
 )
 
 const phaseLabel = computed(() => {
-  if (gamePhase.value === 'roles_pick') return 'Выбор ролей'
-  if (gamePhase.value === 'mafia_talk_start') return 'Договорка мафии'
-  if (gamePhase.value === 'night') return 'Отстрелы и проверки'
-  return ''
+  switch (gamePhase.value) {
+    case 'roles_pick':
+      return rolesVisibleForHead.value ? '' : 'Выбор ролей'
+    case 'mafia_talk_start':
+      return 'Договорка мафии'
+    case 'night':
+      return 'Отстрелы и проверки'
+    default:
+      return ''
+  }
 })
 
 const videoQuality = computed<VQ>({
