@@ -106,9 +106,12 @@ export function useRoomGame(localId: Ref<string>) {
   const dayNominees = reactive<string[]>([])
   const nominatedThisSpeechByMe = ref(false)
 
-  const nomineeSeatNumbers = computed(() =>
-    dayNominees.map(uid => seatIndex(uid)).filter((s): s is number => s != null)
-  )
+  const nomineeSeatNumbers = computed<number[]>(() => {
+    const list = Array.isArray(dayNominees) ? dayNominees : []
+    const seats = list.map(uid => seatIndex(uid)).filter((s): s is number => s != null)
+    console.debug('[GAME] nomineeSeatNumbers', { dayNominees: [...list], seats })
+    return seats
+  })
 
   const myGameRoleKind = computed<GameRoleKind | null>(() => {
     const id = localId.value

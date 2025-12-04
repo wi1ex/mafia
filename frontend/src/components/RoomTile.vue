@@ -19,7 +19,7 @@
 
     <div v-if="isGameHead" class="phase-label">{{ phaseLabel }}</div>
     <div v-if="isGameHead && showNominationsBar" class="nominations-bar">
-      <span v-if="!nominees || nominees.length === 0" class="nominations-text">Никто не выставлен</span>
+      <span v-if="!Array.isArray(nominees) || nominees.length === 0" class="nominations-text">Никто не выставлен</span>
       <div v-else>
         <span class="nominations-text">Выставлены:</span>
         <span v-for="seatNum in nominees" :key="seatNum" class="nominations-badge">{{ seatNum }}</span>

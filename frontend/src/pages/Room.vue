@@ -50,7 +50,7 @@
           :fouls-count="gameFoulsByUser.get(id) ?? 0"
           :phase-label="phaseLabel"
           :show-nominate="game.canNominateTarget(id)"
-          :nominees="game.nomineeSeatNumbers"
+          :nominees="nomineeSeatNumbers"
           :show-nominations-bar="id === headUserId && gamePhase === 'day'"
           @toggle-panel="toggleTilePanel"
           @vol-input="onVol"
@@ -154,10 +154,10 @@
           <button v-else-if="canPassSpeechHead" class="btn-text" @click="passSpeechUi" aria-label="Передать речь">Передать речь</button>
           <button v-if="canStartVote" class="btn-text" @click="startVoteUi">Начать голосование</button>
 
-          <button v-if="canFinishSpeechSelf" class="btn-text" @click="finishSpeechUi">
+          <button v-if="canFinishSpeechSelf" @click="finishSpeechUi">
             <img :src="iconSkip" alt="finish speech" />
           </button>
-          <button v-else-if="canTakeFoulSelf" class="btn-text" @click="takeFoulUi" :disabled="foulPending">
+          <button v-else-if="canTakeFoulSelf" @click="takeFoulUi" :disabled="foulPending">
             <img :src="iconTakeFoul" alt="take foul" />
           </button>
 
@@ -310,7 +310,7 @@ const { localId, mics, cams, selectedMicId, selectedCamId, peerIds } = rtc
 const game = useRoomGame(localId)
 const { GAME_COLUMN_INDEX, GAME_ROW_INDEX, ROLE_IMAGES, ROLE_CARD_IMAGES,
   gamePhase, minReadyToStart, seatsByUser, offlineInGame, gameFoulsByUser, daySpeechesDone,
-  rolesVisibleForHead, rolePick, roleCardsToRender, roleOverlayMode, roleOverlayCard,
+  rolesVisibleForHead, rolePick, roleCardsToRender, roleOverlayMode, roleOverlayCard, nomineeSeatNumbers,
   startingGame, endingGame, myGameRole, myGameRoleKind, amIAlive, takenCardSet, mafiaTalk } = game
 
 const UA = navigator.userAgent || ''
