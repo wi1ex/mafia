@@ -1515,7 +1515,7 @@ onBeforeUnmount(() => {
         }
         input[type="range"] {
           min-width: calc(100% - 66px);
-          height: 10px;
+          height: 8px;
           accent-color: $fg;
           cursor: pointer;
         }

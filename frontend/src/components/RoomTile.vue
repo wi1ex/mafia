@@ -227,15 +227,15 @@ const timelineDurationSec = computed(() => {
     box-shadow: 3px 3px 5px rgba($black, 0.25);
     z-index: 3;
     img {
-      width: 20px;
-      height: 20px;
+      width: 25px;
+      height: 25px;
     }
     span {
       position: absolute;
-      top: 6px;
-      right: 14px;
+      top: 5px;
+      right: 12px;
       color: $fg;
-      font-size: 16px;
+      font-size: 20px;
       font-family: Manrope-Medium;
       line-height: 1;
       font-weight: bold;
@@ -423,7 +423,7 @@ const timelineDurationSec = computed(() => {
         }
         input[type="range"] {
           min-width: calc(100% - 66px);
-          height: 10px;
+          height: 8px;
           accent-color: $fg;
           cursor: pointer;
         }
@@ -500,16 +500,16 @@ const timelineDurationSec = computed(() => {
   .tile {
     .icon-badge {
       bottom: 3px;
-      width: 24px;
-      height: 24px;
+      width: 20px;
+      height: 20px;
       img {
-        width: 18px;
-        height: 18px;
+        width: 16px;
+        height: 16px;
       }
       span {
-        top: 5px;
-        right: 10px;
-        font-size: 14px;
+        top: 4px;
+        right: 8px;
+        font-size: 12px;
       }
       &.left {
         left: 3px;
@@ -533,50 +533,64 @@ const timelineDurationSec = computed(() => {
     .nominate-btn {
       bottom: 3px;
       padding: 0 10px;
-      height: 24px;
+      height: 20px;
       font-size: 12px;
     }
     .user-card {
       left: 3px;
       top: 3px;
-      padding: 0 5px;
+      padding: 3px 5px;
       max-inline-size: min(250px, calc(100% - 15px));
-      block-size: 24px;
+      block-size: 16px;
       &[data-open="1"] {
         inline-size: min(250px, calc(100% - 15px));
-        block-size: 118px;
+        block-size: 85px;
       }
       &[data-open="1"][data-game="1"] {
-        block-size: 83px;
+        block-size: 62px;
       }
       .card-head {
         gap: 3px;
-        height: 24px;
+        height: 16px;
         .user-slot {
-          width: 20px;
-          height: 20px;
-        }
-        .user-avatar {
           width: 16px;
           height: 16px;
         }
+        .user-avatar {
+          width: 14px;
+          height: 14px;
+        }
         span {
-          height: 16px;
-          font-size: 14px;
+          height: 12px;
+          font-size: 10px;
         }
         .status {
           gap: 3px;
           img {
-            width: 16px;
-            height: 16px;
+            width: 14px;
+            height: 14px;
           }
         }
       }
       .card-body {
-        margin-top: 0;
+        margin-top: 3px;
         gap: 5px;
         .volume {
-          height: 15px;
+          padding: 3px 5px;
+          gap: 3px;
+          height: 14px;
+          img {
+            width: 14px;
+            height: 14px;
+          }
+          input[type="range"] {
+            min-width: calc(100% - 50px);
+            height: 6px;
+          }
+          span {
+            min-width: 25px;
+            font-size: 10px;
+          }
         }
         .admin-row {
           gap: 5px;
