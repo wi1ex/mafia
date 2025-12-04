@@ -10,11 +10,11 @@
     <button v-if="inGame && seat != null && !isGameHead && !isDead(id)" class="icon-badge button left"
             @click="$emit('foul', id)" :disabled="!isHead" aria-label="Выдать фол">
       <img :src="iconFoul" alt="foul" />
-      <span>Выставить</span>
+      <span>{{ foulsCount }}</span>
     </button>
     <button v-if="showNominate" class="nominate-btn" @click="$emit('nominate', id)">
       <img :src="iconLike" alt="nominate" />
-      <span>{{ foulsCount }}</span>
+      <span>Выставить</span>
     </button>
     <div class="icon-badge right" v-if="gameRole" aria-hidden="true">
       <img :src="gameRole" alt="role" />
