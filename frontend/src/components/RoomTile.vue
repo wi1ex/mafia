@@ -18,12 +18,9 @@
     </div>
 
     <div class="head-bar" v-if="isGameHead && !showNominationsBar">{{ phaseLabel }}</div>
-    <div class="head-bar" v-if="isGameHead && showNominationsBar && (!Array.isArray(nominees) || nominees.length === 0)">
-      <span>Никто не выставлен</span>
-    </div>
-    <div class="head-bar" v-if="isGameHead && showNominationsBar && Array.isArray(nominees) && nominees.length > 0">
-      <span>Выставлены:</span>
-      <span class="nominations-badge" v-for="seatNum in nominees" :key="seatNum">{{ seatNum }}</span>
+    <div class="head-bar" v-if="isGameHead && showNominationsBar">
+      <span v-if="!Array.isArray(nominees) || nominees.length === 0">Никто не выставлен</span>
+      <span v-else class="nominations-badge" v-for="seatNum in nominees" :key="seatNum">{{ seatNum }}</span>
     </div>
 
     <div v-show="!showVideo" class="ava-wrap">
@@ -287,12 +284,15 @@ const timelineDurationSec = computed(() => {
     }
   }
   .nominate-btn {
-    position: absolute;
+    display: flex;
+    position: relative;
+    align-items: center;
+    justify-content: center;
     left: 50%;
     bottom: 5px;
     transform: translate(-50%);
     height: 30px;
-    padding: 5px 10px;
+    padding: 0 15px;
     border: none;
     border-radius: 5px;
     background-color: rgba($dark, 0.75);
@@ -498,17 +498,32 @@ const timelineDurationSec = computed(() => {
 
 @media (max-width: 1280px) {
   .tile {
+    .icon-badge {
+      width: 24px;
+      height: 24px;
+      img {
+        width: 20px;
+        height: 20px;
+      }
+      span {
+        top: 4px;
+        right: 11px;
+        font-size: 14px;
+      }
+    }
     .head-bar {
       height: 20px;
       font-size: 12px;
       .nominations-badge {
         width: 15px;
         height: 15px;
-        font-size: 12px;
+        border-radius: 3px;
+        font-size: 10px;
       }
     }
     .nominate-btn {
-      padding: 3px 5px;
+      padding: 0 10px;
+      height: 24px;
       font-size: 12px;
     }
     .user-card {
@@ -516,12 +531,36 @@ const timelineDurationSec = computed(() => {
       top: 3px;
       padding: 0 5px;
       max-inline-size: min(250px, calc(100% - 15px));
+      block-size: 24px;
       &[data-open="1"] {
         inline-size: min(250px, calc(100% - 15px));
         block-size: 118px;
       }
       &[data-open="1"][data-game="1"] {
         block-size: 83px;
+      }
+      .card-head {
+        gap: 3px;
+        height: 24px;
+        .user-slot {
+          width: 20px;
+          height: 20px;
+        }
+        .user-avatar {
+          width: 16px;
+          height: 16px;
+        }
+        span {
+          height: 16px;
+          font-size: 14px;
+        }
+        .status {
+          gap: 3px;
+          img {
+            width: 16px;
+            height: 16px;
+          }
+        }
       }
       .card-body {
         margin-top: 0;
