@@ -108,9 +108,7 @@ export function useRoomGame(localId: Ref<string>) {
 
   const nomineeSeatNumbers = computed<number[]>(() => {
     const list = Array.isArray(dayNominees) ? dayNominees : []
-    const seats = list.map(uid => seatIndex(uid)).filter((s): s is number => s != null)
-    console.debug('[GAME] nomineeSeatNumbers', { dayNominees: [...list], seats })
-    return seats
+    return list.map(uid => seatIndex(uid)).filter((s): s is number => s != null)
   })
 
   const myGameRoleKind = computed<GameRoleKind | null>(() => {

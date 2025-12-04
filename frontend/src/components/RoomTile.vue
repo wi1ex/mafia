@@ -17,13 +17,13 @@
       <img :src="gameRole" alt="role" />
     </div>
 
-    <div v-if="isGameHead" class="phase-label">{{ phaseLabel }}</div>
-    <div v-if="isGameHead && showNominationsBar" class="nominations-bar">
-      <span v-if="!Array.isArray(nominees) || nominees.length === 0" class="nominations-text">Никто не выставлен</span>
-      <div v-else>
-        <span class="nominations-text">Выставлены:</span>
-        <span v-for="seatNum in nominees" :key="seatNum" class="nominations-badge">{{ seatNum }}</span>
-      </div>
+    <div class="head-bar" v-if="isGameHead && !showNominationsBar">{{ phaseLabel }}</div>
+    <div class="head-bar" v-if="isGameHead && showNominationsBar && (!Array.isArray(nominees) || nominees.length === 0)">
+      <span>Никто не выставлен</span>
+    </div>
+    <div class="head-bar" v-if="isGameHead && showNominationsBar && Array.isArray(nominees) && nominees.length > 0">
+      <span>Выставлены:</span>
+      <span class="nominations-badge" v-for="seatNum in nominees" :key="seatNum">{{ seatNum }}</span>
     </div>
 
     <div v-show="!showVideo" class="ava-wrap">
@@ -260,7 +260,16 @@ const timelineDurationSec = computed(() => {
       right: 5px;
     }
   }
-  .phase-label {
+
+
+
+
+
+
+
+
+
+  .head-bar {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -268,15 +277,26 @@ const timelineDurationSec = computed(() => {
     left: 0;
     right: 0;
     bottom: 5px;
+    gap: 5px;
     height: 30px;
+    font-size: 16px;
     color: $fg;
     backdrop-filter: blur(5px);
     z-index: 15;
+    .nominations-badge {
+      min-width: 30px;
+      height: 30px;
+      border-radius: 11px;
+      background-color: rgba($dark, 0.9);
+      box-shadow: 3px 3px 5px rgba($black, 0.25);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-family: Manrope-Bold;
+      color: $fg;
+    }
   }
-
-
-
-
   .nominate-btn {
     position: absolute;
     left: 50%;
@@ -294,36 +314,10 @@ const timelineDurationSec = computed(() => {
     z-index: 12;
     white-space: nowrap;
   }
-  .nominations-bar {
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 5px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 6px;
-    z-index: 13;
-    pointer-events: none;
-    .nominations-text {
-      color: $fg;
-      font-size: 12px;
-      font-family: Manrope-Medium;
-    }
-    .nominations-badge {
-      min-width: 22px;
-      height: 22px;
-      border-radius: 11px;
-      background-color: rgba($dark, 0.9);
-      box-shadow: 3px 3px 5px rgba($black, 0.25);
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 12px;
-      font-family: Manrope-Bold;
-      color: $fg;
-    }
-  }
+
+
+
+
 
 
 
@@ -520,7 +514,7 @@ const timelineDurationSec = computed(() => {
 
 @media (max-width: 1280px) {
   .tile {
-    .phase-label {
+    .head-bar {
       font-size: 12px;
     }
     .user-card {
