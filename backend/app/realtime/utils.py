@@ -532,7 +532,7 @@ async def schedule_foul_block(rid: int, target_uid: int, head_uid: int, duration
         await emit_state_changed_filtered(r, rid, target_uid, forced_off)
     if applied:
         row = await r.hgetall(f"room:{rid}:user:{target_uid}:block")
-        full = {k: ("1" if (row or {}).get(k) == "1" else "0") for k, v in row.items() if k in KEYS_BLOCK}
+        full = {k: ("1" if (row or {}).get(k) == "1" else "0") for k in KEYS_BLOCK}
         await emit_moderation_filtered(r, rid, target_uid, full, head_uid, "head")
 
 
@@ -807,7 +807,7 @@ async def day_speech_timeout_job(rid: int, expected_started: int, expected_uid: 
                 await emit_state_changed_filtered(r, rid, cur_uid, forced_off)
             if applied:
                 row = await r.hgetall(f"room:{rid}:user:{cur_uid}:block")
-                full = {k: ("1" if (row or {}).get(k) == "1" else "0") for k, v in zip(KEYS_BLOCK, row.values())}
+                full = {k: ("1" if (row or {}).get(k) == "1" else "0") for k in KEYS_BLOCK}
                 await emit_moderation_filtered(r, rid, cur_uid, full, head_uid, "head")
 
     try:

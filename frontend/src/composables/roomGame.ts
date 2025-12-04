@@ -899,10 +899,7 @@ export function useRoomGame(localId: Ref<string>) {
     gamePhase,
     minReadyToStart,
     seatsByUser,
-    gamePlayers,
-    gameAlive,
     offlineInGame,
-    gameRolesByUser,
     rolesVisibleForHead,
     rolePick,
     roleOverlayMode,
@@ -919,7 +916,6 @@ export function useRoomGame(localId: Ref<string>) {
     roleCardsToRender,
     gameFoulsByUser,
     daySpeechesDone,
-    dayNominees,
     nomineeSeatNumbers,
 
     isGameHead,
