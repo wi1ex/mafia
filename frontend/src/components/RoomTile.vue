@@ -295,8 +295,9 @@ const timelineDurationSec = computed(() => {
     left: 50%;
     bottom: 5px;
     transform: translate(-50%);
+    padding: 0 10px;
+    gap: 5px;
     height: 30px;
-    padding: 0 15px;
     border: none;
     border-radius: 5px;
     background-color: rgba($dark, 0.75);
@@ -542,7 +543,8 @@ const timelineDurationSec = computed(() => {
     }
     .nominate-btn {
       bottom: 3px;
-      padding: 0 10px;
+      padding: 0 5px;
+      gap: 3px;
       height: 20px;
       img {
         width: 16px;

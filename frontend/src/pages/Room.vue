@@ -470,11 +470,9 @@ const allRolesPicked = computed(() => {
 })
 
 const phaseLabel = computed(() => {
-  if (gamePhase.value === 'roles_pick') {
-    return allRolesPicked.value ? '' : 'Выбор ролей'
-  }
+  if (gamePhase.value === 'roles_pick') return allRolesPicked.value ? '' : 'Выбор ролей'
   if (gamePhase.value === 'mafia_talk_start') return 'Договорка'
-  if (gamePhase.value === 'day') return 'День'
+  if (gamePhase.value === 'night') return 'Отстрелы и проверки'
   return ''
 })
 
