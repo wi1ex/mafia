@@ -260,15 +260,6 @@ const timelineDurationSec = computed(() => {
       right: 5px;
     }
   }
-
-
-
-
-
-
-
-
-
   .head-bar {
     display: flex;
     align-items: center;
@@ -284,43 +275,36 @@ const timelineDurationSec = computed(() => {
     backdrop-filter: blur(5px);
     z-index: 15;
     .nominations-badge {
-      min-width: 30px;
-      height: 30px;
-      border-radius: 11px;
-      background-color: rgba($dark, 0.9);
-      box-shadow: 3px 3px 5px rgba($black, 0.25);
-      display: inline-flex;
+      display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 12px;
-      font-family: Manrope-Bold;
+      width: 25px;
+      height: 25px;
+      border-radius: 5px;
+      background-color: $graphite;
+      font-size: 16px;
       color: $fg;
     }
   }
   .nominate-btn {
     position: absolute;
     left: 50%;
-    bottom: 8px;
-    transform: translateX(-50%);
-    padding: 2px 8px;
-    border-radius: 12px;
+    bottom: 5px;
+    transform: translate(-50%);
+    height: 30px;
+    padding: 5px 10px;
     border: none;
-    font-size: 12px;
-    font-family: Manrope-Medium;
-    color: $fg;
-    background-color: rgba($dark, 0.9);
+    border-radius: 5px;
+    background-color: rgba($dark, 0.75);
+    backdrop-filter: blur(5px);
     box-shadow: 3px 3px 5px rgba($black, 0.25);
+    color: $fg;
+    font-size: 16px;
+    font-family: Manrope-Medium;
+    line-height: 1;
     cursor: pointer;
-    z-index: 12;
-    white-space: nowrap;
+    z-index: 3;
   }
-
-
-
-
-
-
-
   .ava-wrap {
     display: flex;
     position: absolute;
@@ -351,7 +335,7 @@ const timelineDurationSec = computed(() => {
     backdrop-filter: blur(5px);
     background-color: rgba($dark, 0.75);
     box-shadow: 3px 3px 5px rgba($black, 0.25);
-    z-index: 5;
+    z-index: 15;
     transition: inline-size 0.25s ease-out, block-size 0.25s ease-out;
     &[data-open="1"] {
       inline-size: min(250px, calc(100% - 30px));
@@ -515,6 +499,16 @@ const timelineDurationSec = computed(() => {
 @media (max-width: 1280px) {
   .tile {
     .head-bar {
+      height: 20px;
+      font-size: 12px;
+      .nominations-badge {
+        width: 15px;
+        height: 15px;
+        font-size: 12px;
+      }
+    }
+    .nominate-btn {
+      padding: 3px 5px;
       font-size: 12px;
     }
     .user-card {
