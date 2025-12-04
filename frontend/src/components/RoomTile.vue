@@ -265,7 +265,7 @@ const timelineDurationSec = computed(() => {
     left: 0;
     right: 0;
     bottom: 5px;
-    gap: 5px;
+    gap: 10px;
     height: 30px;
     font-size: 16px;
     color: $fg;
@@ -275,17 +275,17 @@ const timelineDurationSec = computed(() => {
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 25px;
-      height: 25px;
+      width: 30px;
+      height: 30px;
       border-radius: 5px;
       background-color: $graphite;
-      font-size: 16px;
+      font-size: 18px;
       color: $fg;
     }
   }
   .nominate-btn {
     display: flex;
-    position: relative;
+    position: absolute;
     align-items: center;
     justify-content: center;
     left: 50%;
@@ -499,19 +499,28 @@ const timelineDurationSec = computed(() => {
 @media (max-width: 1280px) {
   .tile {
     .icon-badge {
+      bottom: 3px;
       width: 24px;
       height: 24px;
       img {
-        width: 20px;
-        height: 20px;
+        width: 18px;
+        height: 18px;
       }
       span {
-        top: 4px;
-        right: 11px;
+        top: 5px;
+        right: 10px;
         font-size: 14px;
+      }
+      &.left {
+        left: 3px;
+      }
+      &.right {
+        right: 3px;
       }
     }
     .head-bar {
+      bottom: 3px;
+      gap: 5px;
       height: 20px;
       font-size: 12px;
       .nominations-badge {
@@ -522,6 +531,7 @@ const timelineDurationSec = computed(() => {
       }
     }
     .nominate-btn {
+      bottom: 3px;
       padding: 0 10px;
       height: 24px;
       font-size: 12px;
@@ -575,6 +585,9 @@ const timelineDurationSec = computed(() => {
           }
         }
       }
+    }
+    .role-timer {
+      height: 3px;
     }
   }
 }
