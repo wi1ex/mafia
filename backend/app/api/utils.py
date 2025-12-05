@@ -35,10 +35,6 @@ def serialize_game_for_redis(game_dict: Dict[str, Any]) -> Dict[str, str]:
         "mode": str(game_dict["mode"]),
         "format": str(game_dict["format"]),
         "spectators_limit": str(int(game_dict["spectators_limit"])),
-        "vote_at_zero": "1" if game_dict["vote_at_zero"] else "0",
-        "vote_three": "1" if game_dict["vote_three"] else "0",
-        "speech30_at_3_fouls": "1" if game_dict["speech30_at_3_fouls"] else "0",
-        "extra30_at_2_fouls": "1" if game_dict["extra30_at_2_fouls"] else "0",
     }
 
 
@@ -53,10 +49,6 @@ def game_from_redis_to_model(raw_game: Dict[str, Any]) -> GameParams:
         mode=(raw_game.get("mode") or "normal"),
         format=(raw_game.get("format") or "hosted"),
         spectators_limit=int(raw_game.get("spectators_limit") or 0),
-        vote_at_zero=raw_bool(raw_game.get("vote_at_zero"), True),
-        vote_three=raw_bool(raw_game.get("vote_three"), True),
-        speech30_at_3_fouls=raw_bool(raw_game.get("speech30_at_3_fouls"), True),
-        extra30_at_2_fouls=raw_bool(raw_game.get("extra30_at_2_fouls"), True),
     )
 
 

@@ -76,48 +76,6 @@
                   </div>
                 </label>
               </div>
-
-<!--              <div class="switch">-->
-<!--                <span>Слом в нуле:</span>-->
-<!--                <label>-->
-<!--                  <input type="checkbox" v-model="game.vote_at_zero" disabled aria-label="Слом в нуле" />-->
-<!--                  <div class="slider">-->
-<!--                    <span>Выкл</span>-->
-<!--                    <span>Вкл</span>-->
-<!--                  </div>-->
-<!--                </label>-->
-<!--              </div>-->
-<!--              <div class="switch">-->
-<!--                <span>Подъём троих:</span>-->
-<!--                <label>-->
-<!--                  <input type="checkbox" v-model="game.vote_three" disabled aria-label="Подъём троих" />-->
-<!--                  <div class="slider">-->
-<!--                    <span>Выкл</span>-->
-<!--                    <span>Вкл</span>-->
-<!--                  </div>-->
-<!--                </label>-->
-<!--              </div>-->
-<!--              <div class="switch">-->
-<!--                <span>30с речи при 3 фолах:</span>-->
-<!--                <label>-->
-<!--                  <input type="checkbox" v-model="game.speech30_at_3_fouls" disabled aria-label="30с речи при 3 фолах" />-->
-<!--                  <div class="slider">-->
-<!--                    <span>Выкл</span>-->
-<!--                    <span>Вкл</span>-->
-<!--                  </div>-->
-<!--                </label>-->
-<!--              </div>-->
-<!--              <div class="switch">-->
-<!--                <span>За 2 фола +30с к речи:</span>-->
-<!--                <label>-->
-<!--                  <input type="checkbox" v-model="game.extra30_at_2_fouls" disabled aria-label="За 2 фола +30с к речи" />-->
-<!--                  <div class="slider">-->
-<!--                    <span>Выкл</span>-->
-<!--                    <span>Вкл</span>-->
-<!--                  </div>-->
-<!--                </label>-->
-<!--              </div>-->
-
             </div>
           </Transition>
         </div>
@@ -190,19 +148,11 @@ type Game = {
   mode: 'normal' | 'rating'
   format: 'hosted' | 'nohost'
   spectators_limit: number
-  vote_at_zero: boolean
-  vote_three: boolean
-  speech30_at_3_fouls: boolean
-  extra30_at_2_fouls: boolean
 }
 const gameDefault: Game = {
   mode: 'normal',
   format: 'hosted',
   spectators_limit: 0,
-  vote_at_zero: true,
-  vote_three: true,
-  speech30_at_3_fouls: true,
-  extra30_at_2_fouls: true,
 }
 const initialGame: Game = (() => {
   try {

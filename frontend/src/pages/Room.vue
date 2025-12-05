@@ -326,7 +326,6 @@ const speakersOn = computed({ get: () => local.speakers, set: v => { local.speak
 const visibilityOn = computed({ get: () => local.visibility, set: v => { local.visibility = v } })
 const socket = ref<Socket | null>(null)
 const joinInFlight = ref<Promise<any> | null>(null)
-const joinedRoomId = ref<number | null>(null)
 const statusByUser = reactive(new Map<string, StatusState>())
 const positionByUser = reactive(new Map<string, number>())
 const blockByUser  = reactive(new Map<string, BlockState>())
@@ -873,7 +872,6 @@ socket.value?.on('connect', async () => {
 
   socket.value?.on('disconnect', () => {
     if (!leaving.value) netReconnecting.value = true
-    joinedRoomId.value = null
     openPanelFor.value = ''
   })
 
@@ -1028,26 +1026,22 @@ socket.value?.on('connect', async () => {
 
 async function safeJoin() {
   if (!socket.value) connectSocket()
-  if (socket.value?.connected && joinedRoomId.value === rid && !joinInFlight.value) return { ok: true }
   if (joinInFlight.value) return joinInFlight.value
-  if (!socket.value!.connected) {
-    await new Promise<void>((res, rej) => {
-      const t = setTimeout(() => rej(new Error('connect timeout')), 3000)
-      socket.value!.once('connect', () => {
-        clearTimeout(t)
-        res()
+  const p = (async () => {
+    if (!socket.value!.connected) {
+      await new Promise<void>((res, rej) => {
+        const t = setTimeout(() => rej(new Error('connect timeout')), 3000)
+        socket.value!.once('connect', () => {
+          clearTimeout(t)
+          res()
+        })
       })
-    })
-    if (joinedRoomId.value === rid || joinInFlight.value) {
-      return joinInFlight.value || { ok: true }
     }
-  }
-  const p = sendAck('join', { room_id: rid, state: { ...local } })
+    return await sendAck('join', { room_id: rid, state: { ...local } })
+  })()
   joinInFlight.value = p
   try {
-    const ack = await p
-    if (ack?.ok) joinedRoomId.value = rid
-    return ack
+    return await p
   } finally {
     if (joinInFlight.value === p) joinInFlight.value = null
   }
@@ -1364,7 +1358,6 @@ async function onLeave(goHome = true) {
     const disc = rtc.disconnect().catch(() => {})
     if (goHome) await router.replace('/')
     await disc
-    joinedRoomId.value = null
   } finally {
     leaving.value = false
   }

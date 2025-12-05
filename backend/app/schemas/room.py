@@ -23,10 +23,6 @@ class GameParams(BaseModel):
     mode: Literal["normal", "rating"] = "normal"
     format: Literal["hosted", "nohost"] = "hosted"
     spectators_limit: int = Field(ge=0, le=10, default=0)
-    vote_at_zero: bool = True
-    vote_three: bool = True
-    speech30_at_3_fouls: bool = True
-    extra30_at_2_fouls: bool = True
 
 
 class RoomCreateIn(BaseModel):

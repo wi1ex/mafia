@@ -90,7 +90,6 @@
                   <span>Лимит зрителей</span>
                   <span>{{ game.spectators_limit }}</span>
                 </div>
-      <!--          <span>{{ gameOptions }}</span>-->
               </div>
             </div>
 
@@ -169,10 +168,6 @@ type Game = {
   mode: 'normal' | 'rating'
   format: 'hosted' | 'nohost'
   spectators_limit: number
-  vote_at_zero: boolean
-  vote_three: boolean
-  speech30_at_3_fouls: boolean
-  extra30_at_2_fouls: boolean
 }
 type Access = 'approved'|'pending'|'none'
 
@@ -242,18 +237,7 @@ const ctaState = computed<Cta>(() => {
   if (access.value === 'none') return 'apply'
   return 'pending'
 })
-
 const game = computed(() => info.value?.game)
-const gameOptions = computed(() => {
-  const g = game.value
-  if (!g) return ''
-  const parts: string[] = []
-  if (g.vote_at_zero) parts.push('Голосование в нуле')
-  if (g.vote_three) parts.push('Подъём троих')
-  if (g.speech30_at_3_fouls) parts.push('30с при 3 фолах')
-  if (g.extra30_at_2_fouls) parts.push('+30с за 2 фола')
-  return parts.join(', ')
-})
 
 function isFullRoom(r: Room) { return r.occupancy >= r.user_limit }
 

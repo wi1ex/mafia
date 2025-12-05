@@ -58,10 +58,6 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
         "mode": gp.mode,
         "format": gp.format,
         "spectators_limit": int(gp.spectators_limit),
-        "vote_at_zero": bool(gp.vote_at_zero),
-        "vote_three": bool(gp.vote_three),
-        "speech30_at_3_fouls": bool(gp.speech30_at_3_fouls),
-        "extra30_at_2_fouls": bool(gp.extra30_at_2_fouls),
     }
 
     room = Room(
