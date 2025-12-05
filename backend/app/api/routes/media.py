@@ -3,8 +3,8 @@ import time
 from contextlib import suppress
 from fastapi import APIRouter, HTTPException, Query
 from ...core.clients import get_redis
-from ...core.decorators import log_route
-from ...services.storage_minio import presign_key
+from ...security.decorators import log_route
+from ...services.minio import presign_key
 from ..utils import validate_object_key_for_presign
 
 router = APIRouter()

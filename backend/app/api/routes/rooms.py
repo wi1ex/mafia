@@ -5,9 +5,9 @@ from fastapi import APIRouter, Depends, status, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from ...core.clients import get_redis
-from ...core.decorators import log_route, rate_limited, require_room_creator
+from ...security.decorators import log_route, rate_limited, require_room_creator
 from ...core.logging import log_action
-from ...core.security import get_identity
+from ...security.auth_tokens import get_identity
 from ...core.db import get_session
 from ...models.room import Room
 from ...models.user import User

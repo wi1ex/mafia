@@ -850,14 +850,26 @@ function connectSocket() {
     socket.value?.io.on('reconnect',         () => { netReconnecting.value = false })
   } catch {}
 
-  socket.value?.on('connect', async () => {
-    netReconnecting.value = false
-    if (pendingDeltas.length) {
-      const merged = Object.assign({}, ...pendingDeltas.splice(0))
-      const resp = await sendAck('state', merged)
-      if (!resp?.ok) pendingDeltas.unshift(merged)
+socket.value?.on('connect', async () => {
+  netReconnecting.value = false
+  if (!leaving.value) {
+    const ack = await safeJoin()
+    if (!ack?.ok) {
+      if (ack?.status === 404 || ack?.status === 410) {
+        alert('Комната недоступна')
+        router.replace({ name: 'home' }).catch(() => {})
+        return
+      }
+      return
     }
-  })
+    applyJoinAck(ack)
+  }
+  if (pendingDeltas.length) {
+    const merged = Object.assign({}, ...pendingDeltas.splice(0))
+    const resp = await sendAck('state', merged)
+    if (!resp?.ok) pendingDeltas.unshift(merged)
+  }
+})
 
   socket.value?.on('disconnect', () => {
     if (!leaving.value) netReconnecting.value = true

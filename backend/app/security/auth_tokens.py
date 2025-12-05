@@ -7,7 +7,7 @@ import structlog
 from typing import Any, Dict
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from .clients import get_redis
+from ..core.clients import get_redis
 from ..core.settings import settings
 from ..schemas.common import Identity
 

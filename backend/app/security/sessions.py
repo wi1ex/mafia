@@ -3,7 +3,7 @@ import secrets
 import structlog
 from fastapi import Response
 from ..core.clients import get_redis
-from ..core.security import create_access_token, create_refresh_token, parse_refresh_token
+from ..security.auth_tokens import create_access_token, create_refresh_token, parse_refresh_token
 from ..realtime.sio import sio
 from ..core.settings import settings
 

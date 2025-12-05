@@ -7,7 +7,7 @@ from sqlalchemy import text
 from ..core.db import Base, engine
 from .clients import close_clients, get_redis, init_clients
 from .logging import configure_logging
-from ..services.storage_minio import ensure_bucket
+from ..services.minio import ensure_bucket
 from ..core.settings import settings
 
 

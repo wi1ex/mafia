@@ -9,11 +9,11 @@ from ..utils import broadcast_creator_rooms
 from ...models.user import User
 from ...core.db import get_session
 from ...core.logging import log_action
-from ...core.security import get_identity
-from ...core.decorators import log_route, rate_limited
+from ...security.auth_tokens import get_identity
+from ...security.decorators import log_route, rate_limited
 from ...schemas.common import Identity, Ok
 from ...schemas.user import UserOut, UsernameUpdateIn, AvatarUploadOut, UsernameUpdateOut
-from ...services.storage_minio import put_avatar, delete_avatars, ALLOWED_CT, MAX_BYTES
+from ...services.minio import put_avatar, delete_avatars, ALLOWED_CT, MAX_BYTES
 
 router = APIRouter()
 

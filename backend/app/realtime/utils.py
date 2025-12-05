@@ -15,7 +15,7 @@ from ..models.room import Room
 from ..models.user import User
 from ..core.clients import get_redis
 from ..core.logging import log_action
-from ..core.security import decode_token
+from ..security.auth_tokens import decode_token
 
 __all__ = [
     "KEYS_STATE",

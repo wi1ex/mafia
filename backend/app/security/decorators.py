@@ -6,7 +6,7 @@ from typing import Any, Callable, Awaitable, Union, Optional
 import structlog
 from fastapi import HTTPException, Depends
 from ..core.clients import get_redis
-from ..core.security import get_identity
+from ..security.auth_tokens import get_identity
 from ..realtime.sio import sio
 from ..schemas.common import Identity
 

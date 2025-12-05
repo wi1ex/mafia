@@ -5,12 +5,12 @@ from time import time
 import structlog
 from ..sio import sio
 from ...core.clients import get_redis
-from ...core.decorators import rate_limited_sio
+from ...security.decorators import rate_limited_sio
 from ...core.logging import log_action
 from ...core.db import SessionLocal
 from ...core.settings import settings
 from ...schemas.realtime import StateAck, ModerateAck, JoinAck, ScreenAck, GameStartAck, GameRolePickAck
-from ...services.livekit_tokens import make_livekit_token
+from ...services.livekit import make_livekit_token
 from ..utils import (
     KEYS_STATE,
     KEYS_BLOCK,
