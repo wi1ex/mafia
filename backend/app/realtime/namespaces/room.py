@@ -1651,19 +1651,6 @@ async def game_end(sid, data):
             except Exception:
                 continue
 
-        async with r.pipeline() as p:
-            await p.delete(
-                f"room:{rid}:game_state",
-                f"room:{rid}:game_seats",
-                f"room:{rid}:game_players",
-                f"room:{rid}:game_alive",
-                f"room:{rid}:game_fouls",
-                f"room:{rid}:game_short_speech_used",
-                f"room:{rid}:game_nominees",
-                f"room:{rid}:game_nom_speakers",
-            )
-            await p.execute()
-
         for target_uid in players_list:
             if target_uid == head_uid:
                 continue
@@ -1679,6 +1666,19 @@ async def game_end(sid, data):
                     await emit_state_changed_filtered(r, rid, target_uid, new_state, phase_override="idle")
             except Exception:
                 log.exception("sio.game_end.auto_state_enable_failed", rid=rid, target=target_uid)
+
+        async with r.pipeline() as p:
+            await p.delete(
+                f"room:{rid}:game_state",
+                f"room:{rid}:game_seats",
+                f"room:{rid}:game_players",
+                f"room:{rid}:game_alive",
+                f"room:{rid}:game_fouls",
+                f"room:{rid}:game_short_speech_used",
+                f"room:{rid}:game_nominees",
+                f"room:{rid}:game_nom_speakers",
+            )
+            await p.execute()
 
         try:
             occ = int(await r.scard(f"room:{rid}:members") or 0)
