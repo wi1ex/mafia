@@ -185,6 +185,9 @@
         </div>
 
         <div class="controls-side right">
+          <button v-if="game.canToggleKnownRoles" class="game-btn game-btn--secondary" @click="game.toggleKnownRolesVisibility">
+            <img :src="game.knownRolesVisible ? iconVisOnRoles : iconVisOffRoles" alt="roles" />
+          </button>
           <button v-if="myRole === 'host' && isPrivate && gamePhase === 'idle'" @click.stop="toggleApps" :aria-expanded="openApps" aria-label="Заявки">
             <img :src="iconRequestsRoom" alt="requests" />
             <span class="count-total" :class="{ unread: appsCounts.unread > 0 }">{{ appsCounts.total < 100 ? appsCounts.total : '∞' }}</span>
@@ -271,6 +274,8 @@ import iconCardBack from '@/assets/images/cardBack.png'
 import iconLowSignal from '@/assets/svg/lowSignal.svg'
 import iconKillPlayer from '@/assets/svg/killPlayer.svg'
 import iconSleepPlayer from '@/assets/svg/sleepPlayer.svg'
+import iconVisOnRoles from '@/assets/svg/visOnRoles.svg'
+import iconVisOffRoles from '@/assets/svg/visOffRoles.svg'
 
 import iconMicOn from '@/assets/svg/micOn.svg'
 import iconMicOff from '@/assets/svg/micOff.svg'
@@ -470,7 +475,7 @@ const allRolesPicked = computed(() => {
 
 const phaseLabel = computed(() => {
   if (gamePhase.value === 'roles_pick') return allRolesPicked.value ? '' : 'Выбор ролей'
-  if (gamePhase.value === 'mafia_talk_start') return 'Договорка'
+  if (gamePhase.value === 'mafia_talk_start') return 'Договорка мафии'
   if (gamePhase.value === 'night') return 'Отстрелы и проверки'
   return ''
 })

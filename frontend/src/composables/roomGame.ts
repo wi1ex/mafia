@@ -76,6 +76,8 @@ export function useRoomGame(localId: Ref<string>) {
   const gameRolesByUser = reactive(new Map<string, GameRoleKind>())
   const gameFoulsByUser = reactive(new Map<string, number>())
   const rolesVisibleForHead = ref(false)
+  const knownRolesVisible = ref(true)
+  const canToggleKnownRoles = computed(() => { return gamePhase.value !== 'idle' && !!myGameRoleKind.value })
   const rolePick = reactive({
     activeUserId: '',
     order: [] as string[],
@@ -137,6 +139,10 @@ export function useRoomGame(localId: Ref<string>) {
 
   const takenCardSet = computed(() => new Set(rolePick.takenCards))
   const roleCardsToRender = computed(() => ALL_ROLE_CARDS)
+
+  function toggleKnownRolesVisibility(): void {
+    knownRolesVisible.value = !knownRolesVisible.value
+  }
 
   const LATENCY_MS = 1500
   function withLatency(rawMs: number): number {
@@ -211,7 +217,8 @@ export function useRoomGame(localId: Ref<string>) {
     if (!role) return false
     const me = localId.value
     if (!me) return false
-    const myRole = gameRolesByUser.get(me)
+    if (!knownRolesVisible.value) return false
+    const myRole = gameRolesByUser.get(me) as GameRoleKind | undefined
     const isSelf = id === me
     const isHead = myGameRole.value === 'head'
     if (isSelf) return true
@@ -251,6 +258,7 @@ export function useRoomGame(localId: Ref<string>) {
     }
     gameRolesByUser.clear()
     rolesVisibleForHead.value = false
+    knownRolesVisible.value = true
     gameFoulsByUser.clear()
 
     mafiaTalk.remainingMs = 0
@@ -900,6 +908,8 @@ export function useRoomGame(localId: Ref<string>) {
     seatsByUser,
     offlineInGame,
     rolesVisibleForHead,
+    knownRolesVisible,
+    canToggleKnownRoles,
     rolePick,
     roleOverlayMode,
     roleOverlayCard,
@@ -950,5 +960,6 @@ export function useRoomGame(localId: Ref<string>) {
     handleGameNomineeAdded,
     canNominateTarget,
     nominateTarget,
+    toggleKnownRolesVisibility,
   }
 }

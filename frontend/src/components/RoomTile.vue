@@ -21,7 +21,7 @@
     </div>
 
     <div class="head-bar" v-if="isGameHead && phaseLabel">{{ phaseLabel }}</div>
-    <div class="head-bar" v-if="isGameHead && showNominationsBar">
+    <div class="head-bar" v-if="isGameHead && showNominationsBar" :class="{ nominate: Array.isArray(nominees) && nominees.length > 0 }">
       <span v-if="!Array.isArray(nominees) || nominees.length === 0">Никто не выставлен</span>
       <span v-else class="nominations-badge" v-for="seatNum in nominees" :key="seatNum">{{ seatNum }}</span>
     </div>
@@ -268,13 +268,19 @@ const timelineDurationSec = computed(() => {
     position: absolute;
     left: 0;
     right: 0;
-    bottom: 5px;
+    bottom: 0;
+    padding: 0 0 5px 0;
     gap: 10px;
     height: 30px;
     font-size: 16px;
     color: $fg;
+    border-radius: 0 0 5px 5px;
+    background-color: rgba($dark, 0.75);
     backdrop-filter: blur(5px);
     z-index: 15;
+    &.nominate {
+      background: none;
+    }
     .nominations-badge {
       display: flex;
       align-items: center;
@@ -486,7 +492,7 @@ const timelineDurationSec = computed(() => {
     border-radius: 0 0 7px 7px;
     background: transparent;
     overflow: hidden;
-    z-index: 10;
+    z-index: 20;
     .role-timer-bar {
       width: 100%;
       height: 100%;
@@ -530,10 +536,10 @@ const timelineDurationSec = computed(() => {
       }
     }
     .head-bar {
-      bottom: 3px;
+      padding: 0 0 3px 0;
       gap: 5px;
       height: 20px;
-      font-size: 12px;
+      font-size: 10px;
       .nominations-badge {
         width: 15px;
         height: 15px;
