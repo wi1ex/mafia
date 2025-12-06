@@ -1644,28 +1644,46 @@ async def game_end(sid, data):
             log.exception("sio.game_end.load_players_failed", rid=rid)
             players_set = set()
 
-        players_list: list[int] = []
         for v in (players_set or []):
             try:
-                players_list.append(int(v))
+                target_uid = int(v)
             except Exception:
                 continue
 
-        for target_uid in players_list:
             if target_uid == head_uid:
                 continue
-
             try:
-                await apply_blocks_and_emit(r, rid, actor_uid=head_uid, actor_role="head", target_uid=target_uid, changes_bool={"mic": False, "cam": False, "speakers": False, "visibility": False})
+                applied, forced_off = await apply_blocks_and_emit(r, rid, actor_uid=head_uid, actor_role="head", target_uid=target_uid,
+                                                                  changes_bool={"mic": False, "cam": False, "speakers": False, "visibility": False})
             except Exception:
                 log.exception("sio.game_end.auto_unblock_failed", rid=rid, head=head_uid, target=target_uid)
+                continue
 
-            try:
-                new_state = await apply_state(r, rid, target_uid, {"mic": True, "cam": True, "speakers": True, "visibility": True})
-                if new_state:
-                    await emit_state_changed_filtered(r, rid, target_uid, new_state, phase_override="idle")
-            except Exception:
-                log.exception("sio.game_end.auto_state_enable_failed", rid=rid, target=target_uid)
+            if "__error__" in forced_off:
+                continue
+
+        # players_list: list[int] = []
+        # for v in (players_set or []):
+        #     try:
+        #         players_list.append(int(v))
+        #     except Exception:
+        #         continue
+        #
+        # for target_uid in players_list:
+        #     if target_uid == head_uid:
+        #         continue
+        #
+        #     try:
+        #         await apply_blocks_and_emit(r, rid, actor_uid=head_uid, actor_role="head", target_uid=target_uid, changes_bool={"mic": False, "cam": False, "speakers": False, "visibility": False})
+        #     except Exception:
+        #         log.exception("sio.game_end.auto_unblock_failed", rid=rid, head=head_uid, target=target_uid)
+        #
+        #     try:
+        #         new_state = await apply_state(r, rid, target_uid, {"mic": True, "cam": True, "speakers": True, "visibility": True})
+        #         if new_state:
+        #             await emit_state_changed_filtered(r, rid, target_uid, new_state, phase_override="idle")
+        #     except Exception:
+        #         log.exception("sio.game_end.auto_state_enable_failed", rid=rid, target=target_uid)
 
         async with r.pipeline() as p:
             await p.delete(
@@ -1721,8 +1739,6 @@ async def game_end(sid, data):
     except Exception:
         log.exception("sio.game_end.error", sid=sid)
         return {"ok": False, "error": "internal", "status": 500}
-
-
 
 
 @sio.event(namespace="/room")
