@@ -671,7 +671,11 @@ async function onProbeClick() {
 const sortedPeerIds = computed(() => {
   const idsSet = new Set<string>(peerIds.value)
   if (gamePhase.value !== 'idle') {
-    for (const uid of Object.keys(seatsByUser)) { idsSet.add(String(uid)) }
+    for (const [uid, seat] of Object.entries(seatsByUser)) {
+      if (!seat) continue
+      if (!statusByUser.has(uid)) continue
+      idsSet.add(String(uid))
+    }
   }
   const ids = Array.from(idsSet)
   return ids.sort((a, b) => {
