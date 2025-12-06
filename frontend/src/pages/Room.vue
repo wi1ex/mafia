@@ -185,8 +185,8 @@
         </div>
 
         <div class="controls-side right">
-          <button v-if="game.canToggleKnownRoles" class="game-btn game-btn--secondary" @click="game.toggleKnownRolesVisibility">
-            <img :src="game.knownRolesVisible ? iconVisOnRoles : iconVisOffRoles" alt="roles" />
+          <button v-if="canToggleKnownRoles" @click="game.toggleKnownRolesVisibility">
+            <img :src="knownRolesVisible ? iconVisOnRoles : iconVisOffRoles" alt="roles" />
           </button>
           <button v-if="myRole === 'host' && isPrivate && gamePhase === 'idle'" @click.stop="toggleApps" :aria-expanded="openApps" aria-label="Заявки">
             <img :src="iconRequestsRoom" alt="requests" />
@@ -313,10 +313,37 @@ const rtc = useRTC()
 const { localId, mics, cams, selectedMicId, selectedCamId, peerIds } = rtc
 
 const game = useRoomGame(localId)
-const { GAME_COLUMN_INDEX, GAME_ROW_INDEX, ROLE_IMAGES, ROLE_CARD_IMAGES,
-  gamePhase, minReadyToStart, seatsByUser, offlineInGame, gameFoulsByUser, daySpeechesDone,
-  rolesVisibleForHead, rolePick, roleCardsToRender, roleOverlayMode, roleOverlayCard, nomineeSeatNumbers,
-  startingGame, endingGame, myGameRole, myGameRoleKind, amIAlive, takenCardSet, mafiaTalk } = game
+const {
+  GAME_COLUMN_INDEX,
+  GAME_ROW_INDEX,
+  ROLE_IMAGES,
+  ROLE_CARD_IMAGES,
+
+  gamePhase,
+  minReadyToStart,
+  seatsByUser,
+  offlineInGame,
+  gameFoulsByUser,
+  daySpeechesDone,
+
+  rolesVisibleForHead,
+  knownRolesVisible,
+  canToggleKnownRoles,
+
+  rolePick,
+  roleCardsToRender,
+  roleOverlayMode,
+  roleOverlayCard,
+  nomineeSeatNumbers,
+
+  startingGame,
+  endingGame,
+  myGameRole,
+  myGameRoleKind,
+  amIAlive,
+  takenCardSet,
+  mafiaTalk,
+} = game
 
 const UA = navigator.userAgent || ''
 const IS_MOBILE = (navigator as any).userAgentData?.mobile === true || /Android|iPhone|iPad|iPod|Mobile/i.test(UA)
@@ -1387,10 +1414,23 @@ watch(isCurrentSpeaker, async (now, was) => {
 
 watch(() => auth.isAuthed, (ok) => { if (!ok) { void onLeave() } })
 
+watch(gamePhase, (now, was) => {
+  if (was === 'idle' && now !== 'idle') knownRolesVisible.value = true
+})
+
+watch(knownRolesVisible, (val) => {
+  try { window.localStorage.setItem('roomRolesVisible', val ? '1' : '0') } catch {}
+})
+
 onMounted(async () => {
   try {
     if (!auth.ready) { try { await auth.init() } catch {} }
     connectSocket()
+
+    try {
+      const raw = window.localStorage.getItem('roomRolesVisible')
+      if (raw === '0' || raw === '1') knownRolesVisible.value = raw === '1'
+    } catch {}
 
     const j:any = await safeJoin()
     if (!j?.ok) {
