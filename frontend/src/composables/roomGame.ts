@@ -77,7 +77,9 @@ export function useRoomGame(localId: Ref<string>) {
   const gameFoulsByUser = reactive(new Map<string, number>())
   const rolesVisibleForHead = ref(false)
   const knownRolesVisible = ref(true)
-  const canToggleKnownRoles = computed(() => { return gamePhase.value !== 'idle' && myGameRole.value !== 'none' })
+  const canToggleKnownRoles = computed(() => {
+    return gamePhase.value !== 'idle' && myGameRole.value !== 'none'
+  })
   const rolePick = reactive({
     activeUserId: '',
     order: [] as string[],
