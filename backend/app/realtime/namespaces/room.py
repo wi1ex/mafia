@@ -1723,6 +1723,8 @@ async def game_end(sid, data):
         return {"ok": False, "error": "internal", "status": 500}
 
 
+
+
 @sio.event(namespace="/room")
 async def disconnect(sid):
     try:

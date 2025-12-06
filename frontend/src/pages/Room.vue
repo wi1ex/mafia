@@ -671,11 +671,7 @@ async function onProbeClick() {
 const sortedPeerIds = computed(() => {
   const idsSet = new Set<string>(peerIds.value)
   if (gamePhase.value !== 'idle') {
-    for (const [uid, seat] of Object.entries(seatsByUser)) {
-      if (!seat) continue
-      if (!statusByUser.has(uid)) continue
-      idsSet.add(String(uid))
-    }
+    for (const uid of Object.keys(seatsByUser)) { idsSet.add(String(uid)) }
   }
   const ids = Array.from(idsSet)
   return ids.sort((a, b) => {
@@ -1012,7 +1008,7 @@ socket.value?.on('connect', async () => {
       purgePeerUI(uid)
       rtc.cleanupPeer(uid)
     }
-    if (roleBeforeEnd === 'player') void restoreAfterGameEnd()
+    if (roleBeforeEnd === 'player' || roleBeforeEnd === 'head') void restoreAfterGameEnd()
   })
 
   socket.value?.on('game_player_left', (p: any) => {
@@ -1418,23 +1414,10 @@ watch(isCurrentSpeaker, async (now, was) => {
 
 watch(() => auth.isAuthed, (ok) => { if (!ok) { void onLeave() } })
 
-watch(gamePhase, (now, was) => {
-  if (was === 'idle' && now !== 'idle') knownRolesVisible.value = true
-})
-
-watch(knownRolesVisible, (val) => {
-  try { window.localStorage.setItem('roomRolesVisible', val ? '1' : '0') } catch {}
-})
-
 onMounted(async () => {
   try {
     if (!auth.ready) { try { await auth.init() } catch {} }
     connectSocket()
-
-    try {
-      const raw = window.localStorage.getItem('roomRolesVisible')
-      if (raw === '0' || raw === '1') knownRolesVisible.value = raw === '1'
-    } catch {}
 
     const j:any = await safeJoin()
     if (!j?.ok) {

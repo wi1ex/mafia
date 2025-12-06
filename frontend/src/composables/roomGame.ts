@@ -80,6 +80,13 @@ export function useRoomGame(localId: Ref<string>) {
   const canToggleKnownRoles = computed(() => {
     return gamePhase.value !== 'idle' && myGameRole.value !== 'none'
   })
+  if (typeof window !== 'undefined') {
+    try {
+      const raw = window.localStorage.getItem('roomRolesVisible')
+      if (raw === '0' || raw === '1') knownRolesVisible.value = raw === '1'
+    } catch {}
+  }
+
   const rolePick = reactive({
     activeUserId: '',
     order: [] as string[],
@@ -567,6 +574,11 @@ export function useRoomGame(localId: Ref<string>) {
   }
 
   watch(() => [rolePick.activeUserId, localId.value, myGameRoleKind.value, gamePhase.value], () => { syncRoleOverlayWithTurn() })
+
+  watch(knownRolesVisible, (val) => {
+    if (typeof window === 'undefined') return
+    try { window.localStorage.setItem('roomRolesVisible', val ? '1' : '0') } catch {}
+  })
 
   async function goToMafiaTalk(sendAck: SendAckFn): Promise<void> {
     const resp = await sendAck('game_phase_next', { from: 'roles_pick', to: 'mafia_talk_start' })
