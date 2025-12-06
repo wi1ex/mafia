@@ -143,6 +143,13 @@ export function useRoomGame(localId: Ref<string>) {
     if (!rawMs || rawMs <= 0) return 0
     return Math.max(rawMs - LATENCY_MS, 0)
   }
+  function secondsToMs(sec: any): number {
+    const n = Number(sec || 0)
+    return n > 0 ? n * 1000 : 0
+  }
+  function isTrueLike(v: any): boolean {
+    return v === true || v === 1 || v === '1'
+  }
   function setTimerWithLatency(target: { remainingMs: number }, ms: number, timerRef: Ref<number | null>, changed: boolean, onFinish?: () => void) {
     const safe = !changed ? withLatency(ms) : ms
     target.remainingMs = safe
@@ -337,8 +344,7 @@ export function useRoomGame(localId: Ref<string>) {
       rolePick.activeUserId = String(rp.turn_uid || '')
       rolePick.order = Array.isArray(rp.order) ? rp.order.map((x: any) => String(x)) : []
       rolePick.picked = new Set((rp.picked || []).map((x: any) => String(x)))
-      const remainingSec = Number(rp.deadline || 0)
-      const rawMs = remainingSec > 0 ? remainingSec * 1000 : 0
+      const rawMs = secondsToMs(rp.deadline)
       rolePick.remainingMs = withLatency(rawMs)
       rolePick.takenCards = normalizeCards(rp.taken_cards)
     } else {
@@ -351,8 +357,7 @@ export function useRoomGame(localId: Ref<string>) {
 
     const mt = (gr as any).mafia_talk_start
     if (phase === 'mafia_talk_start' && mt && typeof mt === 'object') {
-      const remainingSec = Number(mt.deadline || 0)
-      const rawMs = remainingSec > 0 ? remainingSec * 1000 : 0
+      const rawMs = secondsToMs(mt.deadline)
       setMafiaTalkRemainingMs(rawMs, false)
     } else {
       setMafiaTalkRemainingMs(0, false)
@@ -362,12 +367,10 @@ export function useRoomGame(localId: Ref<string>) {
     if (phase === 'day' && dy && typeof dy === 'object') {
       daySpeech.openingId = String(dy.opening_uid || '')
       daySpeech.closingId = String(dy.closing_uid || '')
-      const remainingSec = Number(dy.deadline || 0)
-      const rawMs = remainingSec > 0 ? remainingSec * 1000 : 0
+      const rawMs = secondsToMs(dy.deadline)
       daySpeech.currentId = rawMs > 0 ? String(dy.current_uid || '') : ''
       setDaySpeechRemainingMs(rawMs, false)
-      const rawDone = (dy as any).speeches_done
-      daySpeechesDone.value = rawDone === true || rawDone === 1 || rawDone === '1'
+      daySpeechesDone.value = isTrueLike((dy as any).speeches_done)
 
       const rawNominees = (dy as any).nominees
       dayNominees.splice(0, dayNominees.length)
@@ -505,16 +508,14 @@ export function useRoomGame(localId: Ref<string>) {
     const openingId = String(p?.opening_uid || '')
     const closingId = String(p?.closing_uid || '')
     const speakerId = String(p?.speaker_uid || '')
-    const remainingSec = Number(p?.deadline || 0)
-    const ms = remainingSec > 0 ? remainingSec * 1000 : 0
+    const ms = secondsToMs(p?.deadline)
 
     daySpeech.openingId = openingId
     daySpeech.closingId = closingId
     daySpeech.currentId = ms > 0 ? speakerId : ''
     setDaySpeechRemainingMs(ms, true)
 
-    const rawDone = (p as any)?.speeches_done
-    const done = rawDone === true || rawDone === 1 || rawDone === '1'
+    const done = isTrueLike((p as any)?.speeches_done)
     const isActiveSpeech = ms > 0 && !!speakerId
     if (isActiveSpeech) {
       daySpeechesDone.value = false
@@ -538,10 +539,9 @@ export function useRoomGame(localId: Ref<string>) {
 
   function handleGameFoul(p: any) {
     const uid = String(p?.user_id || '')
-    const duration = Number(p?.duration || 0)
     if (!uid) return
     foulActive.add(uid)
-    const ms = duration > 0 ? duration * 1000 : 0
+    const ms = secondsToMs(p?.duration)
     if (ms <= 0) return
     window.setTimeout(() => {
       foulActive.delete(uid)
@@ -580,8 +580,7 @@ export function useRoomGame(localId: Ref<string>) {
     gamePhase.value = to
     if (to === 'mafia_talk_start') {
       const mt = p?.mafia_talk_start
-      const remainingSec = Number(mt?.deadline || 0)
-      const ms = remainingSec > 0 ? remainingSec * 1000 : 0
+      const ms = secondsToMs(mt?.deadline)
       setMafiaTalkRemainingMs(ms, true)
     } else {
       setMafiaTalkRemainingMs(0, true)
@@ -842,8 +841,7 @@ export function useRoomGame(localId: Ref<string>) {
       }
       return null
     }
-    const durationSec = Number((resp as any).duration ?? 0)
-    const ms = durationSec > 0 ? durationSec * 1000 : 0
+    const ms = secondsToMs((resp as any).duration)
     return ms || null
   }
 

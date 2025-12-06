@@ -27,7 +27,6 @@ from ..utils import (
     get_profiles_snapshot,
     join_room_atomic,
     leave_room_atomic,
-    update_blocks,
     validate_auth,
     claim_screen,
     get_rooms_brief,
@@ -37,7 +36,6 @@ from ..utils import (
     emit_rooms_occupancy_safe,
     get_game_runtime_and_roles_view,
     emit_state_changed_filtered,
-    emit_moderation_filtered,
     can_act_on_user,
     stop_screen_for_user,
     compute_day_opening_and_closing,
@@ -45,6 +43,8 @@ from ..utils import (
     schedule_foul_block,
     emit_game_fouls,
     day_speech_timeout_job,
+    apply_blocks_and_emit,
+    finish_day_speech,
 )
 
 log = structlog.get_logger()
@@ -386,21 +386,14 @@ async def moderate(sid, data) -> ModerateAck:
         if actor_role != "head" and actor_role == trg_role:
             return {"ok": False, "error": "forbidden", "status": 403}
 
-        applied, forced_off = await update_blocks(r, rid, actor_uid, actor_role, target, norm)
+        applied, forced_off = await apply_blocks_and_emit(r, rid, actor_uid=actor_uid, actor_role=actor_role, target_uid=target, changes_bool=norm)
+
         if "__error__" in forced_off:
             err = forced_off["__error__"]
             return {"ok": False, "error": err, "status": 403}
 
-        if forced_off:
-            await emit_state_changed_filtered(r, rid, target, forced_off)
-
-        if applied:
-            row = await r.hgetall(f"room:{rid}:user:{target}:block")
-            full = {k: ("1" if (row or {}).get(k) == "1" else "0") for k in KEYS_BLOCK}
-            await emit_moderation_filtered(r, rid, target, full, actor_uid, actor_role)
-
-            if applied.get("screen") == "1":
-                await stop_screen_for_user(r, rid, target)
+        if applied.get("screen") == "1":
+            await stop_screen_for_user(r, rid, target)
 
         if applied or forced_off:
             async with SessionLocal() as s:
@@ -528,54 +521,14 @@ async def game_leave(sid, data):
                 current_uid = 0
 
             if current_uid == uid:
-                if head_uid and head_uid != uid:
-                    try:
-                        applied, forced_off = await update_blocks(r, rid, head_uid, "head", uid, {"mic": True})
-                    except Exception:
-                        log.exception("sio.game_leave.finish_speech_autoblock_failed", rid=rid, uid=uid, head=head_uid)
-                    else:
-                        if forced_off:
-                            await emit_state_changed_filtered(r, rid, uid, forced_off)
-                        if applied:
-                            row = await r.hgetall(f"room:{rid}:user:{uid}:block")
-                            full = {k: ("1" if (row or {}).get(k) == "1" else "0") for k in KEYS_BLOCK}
-                            await emit_moderation_filtered(r, rid, uid, full, head_uid, "head")
-
                 try:
-                    opening_uid = int(raw_gstate.get("day_opening_uid") or 0)
-                except Exception:
-                    opening_uid = 0
-                try:
-                    closing_uid = int(raw_gstate.get("day_closing_uid") or 0)
-                except Exception:
-                    closing_uid = 0
-
-                day_speeches_done = False
-                try:
-                    mapping = {
-                        "day_speech_started": "0",
-                        "day_speech_duration": "0",
-                    }
-                    if closing_uid and uid == closing_uid:
-                        mapping["day_last_opening_uid"] = str(opening_uid or 0)
-                        mapping["day_speeches_done"] = "1"
-                        day_speeches_done = True
-                    await r.hset(f"room:{rid}:game_state", mapping=mapping)
-                    payload = {
-                        "room_id": rid,
-                        "speaker_uid": uid,
-                        "opening_uid": opening_uid,
-                        "closing_uid": closing_uid,
-                        "deadline": 0,
-                    }
-                    if day_speeches_done:
-                        payload["speeches_done"] = True
+                    payload = await finish_day_speech(r, rid, raw_gstate, uid)
                     await sio.emit("game_day_speech",
                                    payload,
                                    room=f"room:{rid}",
                                    namespace="/room")
                 except Exception:
-                    log.exception("sio.game_leave.finish_speech_state_failed", rid=rid, uid=uid)
+                    log.exception("sio.game_leave.finish_speech_failed", rid=rid, uid=uid)
 
         await r.srem(f"room:{rid}:game_alive", str(uid))
 
@@ -598,16 +551,9 @@ async def game_leave(sid, data):
 
         if head_uid and head_uid != uid:
             try:
-                applied, forced_off = await update_blocks(r, rid, head_uid, "head", uid, {"mic": True, "cam": True})
+                await apply_blocks_and_emit(r, rid, actor_uid=head_uid, actor_role="head", target_uid=uid, changes_bool={"mic": True, "cam": True})
             except Exception:
                 log.exception("sio.game_leave.autoblock_failed", rid=rid, head=head_uid, target=uid)
-            else:
-                if forced_off:
-                    await emit_state_changed_filtered(r, rid, uid, forced_off)
-                if applied:
-                    row = await r.hgetall(f"room:{rid}:user:{uid}:block")
-                    full = {k: ("1" if (row or {}).get(k) == "1" else "0") for k in KEYS_BLOCK}
-                    await emit_moderation_filtered(r, rid, uid, full, head_uid, "head")
 
         try:
             async with SessionLocal() as s:
@@ -667,6 +613,9 @@ async def game_start(sid, data) -> GameStartAck:
             head_uid = int(not_ready_raw[0])
         except Exception:
             return {"ok": False, "error": "not_enough_ready", "status": 400}
+
+        if uid != head_uid:
+            return {"ok": False, "error": "forbidden", "status": 403}
 
         streaming_owner_raw = await r.get(f"room:{rid}:screen_owner")
         streaming_owner = int(streaming_owner_raw) if streaming_owner_raw else 0
@@ -790,17 +739,10 @@ async def game_start(sid, data) -> GameStartAck:
                 except Exception:
                     continue
                 try:
-                    applied, forced_off = await update_blocks(r, rid, head_uid, "head", target_uid, {"mic": True, "visibility": True})
+                    await apply_blocks_and_emit(r, rid, actor_uid=head_uid, actor_role="head", target_uid=target_uid, changes_bool={"mic": True, "visibility": True})
                 except Exception:
                     log.exception("sio.game_start.autoblock_failed", rid=rid, head=head_uid, target=pid)
                     continue
-
-                if forced_off:
-                    await emit_state_changed_filtered(r, rid, target_uid, forced_off)
-                if applied:
-                    row = await r.hgetall(f"room:{rid}:user:{target_uid}:block")
-                    full = {k: ("1" if (row or {}).get(k) == "1" else "0") for k in KEYS_BLOCK}
-                    await emit_moderation_filtered(r, rid, target_uid, full, head_uid, "head")
 
         payload: GameStartAck = {
             "ok": True,
@@ -969,18 +911,10 @@ async def game_phase_next(sid, data):
 
             for target_uid in mafia_targets:
                 try:
-                    applied, forced_off = await update_blocks(r, rid, head_uid, "head", target_uid, {"visibility": False})
+                    await apply_blocks_and_emit(r, rid, actor_uid=head_uid, actor_role="head", target_uid=target_uid, changes_bool={"visibility": False}, phase_override="mafia_talk_start")
                 except Exception:
                     log.exception("sio.game_phase_next.mafia_unblock_failed", rid=rid, head=head_uid, target=target_uid)
                     continue
-
-                if "__error__" in forced_off:
-                    continue
-
-                if applied:
-                    row = await r.hgetall(f"room:{rid}:user:{target_uid}:block")
-                    full = {k: ("1" if (row or {}).get(k) == "1" else "0") for k in KEYS_BLOCK}
-                    await emit_moderation_filtered(r, rid, target_uid, full, head_uid, "head", phase_override="mafia_talk_start")
 
             if mafia_targets:
                 async with r.pipeline() as p:
@@ -1049,20 +983,13 @@ async def game_phase_next(sid, data):
 
             for target_uid in mafia_targets:
                 try:
-                    applied, forced_off = await update_blocks(r, rid, head_uid, "head", target_uid, {"visibility": True})
+                    applied, forced_off = await apply_blocks_and_emit(r, rid, actor_uid=head_uid, actor_role="head", target_uid=target_uid, changes_bool={"visibility": True})
                 except Exception:
                     log.exception("sio.game_phase_next.mafia_reblock_failed", rid=rid, head=head_uid, target=target_uid)
                     continue
 
                 if "__error__" in forced_off:
                     continue
-
-                if forced_off:
-                    await emit_state_changed_filtered(r, rid, target_uid, forced_off)
-                if applied:
-                    row = await r.hgetall(f"room:{rid}:user:{target_uid}:block")
-                    full = {k: ("1" if (row or {}).get(k) == "1" else "0") for k in KEYS_BLOCK}
-                    await emit_moderation_filtered(r, rid, target_uid, full, head_uid, "head")
 
             async with r.pipeline() as p:
                 await p.hset(f"room:{rid}:game_state", mapping={"phase": "mafia_talk_end"})
@@ -1110,18 +1037,10 @@ async def game_phase_next(sid, data):
             if alive_ids and head_uid:
                 for target_uid in alive_ids:
                     try:
-                        applied, forced_off = await update_blocks(r, rid, head_uid, "head", target_uid, {"visibility": False})
+                        await apply_blocks_and_emit(r, rid, actor_uid=head_uid, actor_role="head", target_uid=target_uid, changes_bool={"visibility": False})
                     except Exception:
                         log.exception("sio.game_phase_next.day_unblock_visibility_failed", rid=rid, head=head_uid, target=target_uid)
                         continue
-
-                    if "__error__" in forced_off:
-                        continue
-
-                    if applied:
-                        row = await r.hgetall(f"room:{rid}:user:{target_uid}:block")
-                        full = {k: ("1" if (row or {}).get(k) == "1" else "0") for k in KEYS_BLOCK}
-                        await emit_moderation_filtered(r, rid, target_uid, full, head_uid, "head")
 
                 async with r.pipeline() as p:
                     for target_uid in alive_ids:
@@ -1294,18 +1213,13 @@ async def game_speech_next(sid, data):
 
         now_ts = int(time())
         try:
-            applied, forced_off = await update_blocks(r, rid, head_uid, "head", next_uid, {"mic": False})
+            applied, forced_off = await apply_blocks_and_emit(r, rid, actor_uid=head_uid, actor_role="head", target_uid=next_uid, changes_bool={"mic": False})
         except Exception:
             log.exception("game_speech_next.unblock_mic_failed", rid=rid, head=head_uid, target=next_uid)
             return {"ok": False, "error": "internal", "status": 500}
 
         if "__error__" in forced_off:
             return {"ok": False, "error": "forbidden", "status": 403}
-
-        if applied:
-            row = await r.hgetall(f"room:{rid}:user:{next_uid}:block")
-            full = {k: ("1" if (row or {}).get(k) == "1" else "0") for k in KEYS_BLOCK}
-            await emit_moderation_filtered(r, rid, next_uid, full, head_uid, "head")
 
         try:
             await r.hset(f"room:{rid}:user:{next_uid}:state", mapping={"mic": "1"})
@@ -1392,18 +1306,13 @@ async def game_foul(sid, data):
             return {"ok": False, "error": "no_head", "status": 400}
 
         try:
-            applied, forced_off = await update_blocks(r, rid, head_uid, "head", uid, {"mic": False})
+            applied, forced_off = await apply_blocks_and_emit(r, rid, actor_uid=head_uid, actor_role="head", target_uid=uid, changes_bool={"mic": False})
         except Exception:
             log.exception("game_foul.unblock_mic_failed", rid=rid, head=head_uid, target=uid)
             return {"ok": False, "error": "internal", "status": 500}
 
         if "__error__" in forced_off:
             return {"ok": False, "error": "forbidden", "status": 403}
-
-        if applied:
-            row = await r.hgetall(f"room:{rid}:user:{uid}:block")
-            full = {k: ("1" if (row or {}).get(k) == "1" else "0") for k in KEYS_BLOCK}
-            await emit_moderation_filtered(r, rid, uid, full, head_uid, "head")
 
         try:
             await r.hset(f"room:{rid}:user:{uid}:state", mapping={"mic": "1"})
@@ -1499,54 +1408,15 @@ async def game_foul_set(sid, data):
                 except Exception:
                     current_uid = 0
 
-                if current_uid == target_uid and head_uid and head_uid != target_uid:
+                if current_uid == target_uid:
                     try:
-                        applied, forced_off = await update_blocks(r, rid, head_uid, "head", target_uid, {"mic": True})
-                    except Exception:
-                        log.exception("game_foul_set.finish_speech_autoblock_failed", rid=rid, uid=target_uid, head=head_uid)
-                    else:
-                        if forced_off:
-                            await emit_state_changed_filtered(r, rid, target_uid, forced_off)
-                        if applied:
-                            row = await r.hgetall(f"room:{rid}:user:{target_uid}:block")
-                            full = {k: ("1" if (row or {}).get(k) == "1" else "0") for k in KEYS_BLOCK}
-                            await emit_moderation_filtered(r, rid, target_uid, full, head_uid, "head")
-
-                    try:
-                        opening_uid = int(raw_gstate.get("day_opening_uid") or 0)
-                    except Exception:
-                        opening_uid = 0
-                    try:
-                        closing_uid = int(raw_gstate.get("day_closing_uid") or 0)
-                    except Exception:
-                        closing_uid = 0
-
-                    day_speeches_done = False
-                    try:
-                        mapping = {
-                            "day_speech_started": "0",
-                            "day_speech_duration": "0",
-                        }
-                        if closing_uid and target_uid == closing_uid:
-                            mapping["day_last_opening_uid"] = str(opening_uid or 0)
-                            mapping["day_speeches_done"] = "1"
-                            day_speeches_done = True
-                        await r.hset(f"room:{rid}:game_state", mapping=mapping)
-                        payload = {
-                            "room_id": rid,
-                            "speaker_uid": target_uid,
-                            "opening_uid": opening_uid,
-                            "closing_uid": closing_uid,
-                            "deadline": 0,
-                        }
-                        if day_speeches_done:
-                            payload["speeches_done"] = True
+                        payload = await finish_day_speech(r, rid, raw_gstate, target_uid)
                         await sio.emit("game_day_speech",
                                        payload,
                                        room=f"room:{rid}",
                                        namespace="/room")
                     except Exception:
-                        log.exception("game_foul_set.finish_speech_state_failed", rid=rid, uid=target_uid)
+                        log.exception("game_foul_set.finish_speech_failed", rid=rid, uid=target_uid)
 
             await r.srem(f"room:{rid}:game_alive", str(target_uid))
             try:
@@ -1570,16 +1440,9 @@ async def game_foul_set(sid, data):
 
             if head_uid and head_uid != target_uid:
                 try:
-                    applied, forced_off = await update_blocks(r, rid, head_uid, "head", target_uid, {"mic": True, "cam": True})
+                    await apply_blocks_and_emit(r, rid, actor_uid=head_uid, actor_role="head", target_uid=target_uid, changes_bool={"mic": True, "cam": True})
                 except Exception:
                     log.exception("game_foul_set.autoblock_failed", rid=rid, head=head_uid, target=target_uid)
-                else:
-                    if forced_off:
-                        await emit_state_changed_filtered(r, rid, target_uid, forced_off)
-                    if applied:
-                        row = await r.hgetall(f"room:{rid}:user:{target_uid}:block")
-                        full = {k: ("1" if (row or {}).get(k) == "1" else "0") for k in KEYS_BLOCK}
-                        await emit_moderation_filtered(r, rid, target_uid, full, head_uid, "head")
 
         try:
             await emit_game_fouls(r, rid)
@@ -1728,50 +1591,11 @@ async def game_speech_finish(sid, data):
         if not is_alive:
             return {"ok": False, "error": "not_alive", "status": 400}
 
-        if current_uid != head_uid:
-            try:
-                applied, forced_off = await update_blocks(r, rid, head_uid, "head", current_uid, {"mic": True})
-            except Exception:
-                log.exception("sio.game_speech_finish.block_failed", rid=rid, head=head_uid, target=current_uid)
-            else:
-                if forced_off:
-                    await emit_state_changed_filtered(r, rid, current_uid, forced_off)
-                if applied:
-                    row = await r.hgetall(f"room:{rid}:user:{current_uid}:block")
-                    full = {k: ("1" if (row or {}).get(k) == "1" else "0") for k in KEYS_BLOCK}
-                    await emit_moderation_filtered(r, rid, current_uid, full, head_uid, "head")
-
         try:
-            opening_uid = int(raw_gstate.get("day_opening_uid") or 0)
+            payload = await finish_day_speech(r, rid, raw_gstate, current_uid)
         except Exception:
-            opening_uid = 0
-        try:
-            closing_uid = int(raw_gstate.get("day_closing_uid") or 0)
-        except Exception:
-            closing_uid = 0
-
-        day_speeches_done = False
-        async with r.pipeline() as p:
-            mapping: dict[str, str] = {
-                "day_speech_started": "0",
-                "day_speech_duration": "0",
-            }
-            if closing_uid and current_uid == closing_uid:
-                mapping["day_last_opening_uid"] = str(opening_uid or 0)
-                mapping["day_speeches_done"] = "1"
-                day_speeches_done = True
-            await p.hset(f"room:{rid}:game_state", mapping=mapping)
-            await p.execute()
-
-        payload = {
-            "room_id": rid,
-            "speaker_uid": current_uid,
-            "opening_uid": opening_uid,
-            "closing_uid": closing_uid,
-            "deadline": 0,
-        }
-        if day_speeches_done:
-            payload["speeches_done"] = True
+            log.exception("sio.game_speech_finish.finish_failed", rid=rid, uid=current_uid)
+            return {"ok": False, "error": "internal", "status": 500}
 
         await sio.emit("game_day_speech",
                        payload,
@@ -1828,19 +1652,14 @@ async def game_end(sid, data):
             if target_uid == head_uid:
                 continue
             try:
-                applied, forced_off = await update_blocks(r, rid, head_uid, "head", target_uid,
-                                                          {"mic": False, "cam": False, "speakers": False, "visibility": False})
+                applied, forced_off = await apply_blocks_and_emit(r, rid, actor_uid=head_uid, actor_role="head", target_uid=target_uid,
+                                                                  changes_bool={"mic": False, "cam": False, "speakers": False, "visibility": False})
             except Exception:
                 log.exception("sio.game_end.auto_unblock_failed", rid=rid, head=head_uid, target=target_uid)
                 continue
 
             if "__error__" in forced_off:
                 continue
-
-            if applied:
-                row = await r.hgetall(f"room:{rid}:user:{target_uid}:block")
-                full = {k: ("1" if (row or {}).get(k) == "1" else "0") for k in KEYS_BLOCK}
-                await emit_moderation_filtered(r, rid, target_uid, full, head_uid, "head")
 
         async with r.pipeline() as p:
             await p.delete(

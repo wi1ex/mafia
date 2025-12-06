@@ -34,7 +34,6 @@ __all__ = [
     "join_room_atomic",
     "leave_room_atomic",
     "gc_empty_room",
-    "update_blocks",
     "claim_screen",
     "get_rooms_brief",
     "init_roles_deck",
@@ -45,12 +44,13 @@ __all__ = [
     "can_act_on_user",
     "stop_screen_for_user",
     "emit_state_changed_filtered",
-    "emit_moderation_filtered",
     "compute_day_opening_and_closing",
     "get_alive_players_in_seat_order",
     "schedule_foul_block",
     "emit_game_fouls",
     "day_speech_timeout_job",
+    "apply_blocks_and_emit",
+    "finish_day_speech",
 ]
 
 log = structlog.get_logger()
@@ -410,6 +410,21 @@ async def update_blocks(r, rid: int, actor_uid: int, actor_role: str, target_uid
     return to_apply, forced_off
 
 
+async def apply_blocks_and_emit(r, rid: int, *, actor_uid: int, actor_role: str, target_uid: int, changes_bool: Mapping[str, Any], phase_override: str | None = None) -> tuple[Dict[str, str], Dict[str, str]]:
+    applied, forced_off = await update_blocks(r, rid, actor_uid, actor_role, target_uid, changes_bool)
+    if "__error__" in forced_off:
+        return applied, forced_off
+
+    if forced_off:
+        await emit_state_changed_filtered(r, rid, target_uid, forced_off, phase_override=phase_override)
+    if applied:
+        row = await r.hgetall(f"room:{rid}:user:{target_uid}:block")
+        full = {k: ("1" if (row or {}).get(k) == "1" else "0") for k in KEYS_BLOCK}
+        await emit_moderation_filtered(r, rid, target_uid, full, actor_uid, actor_role, phase_override=phase_override)
+
+    return applied, forced_off
+
+
 async def claim_screen(r, rid: int, uid: int) -> tuple[bool, int]:
     cur = await r.get(f"room:{rid}:screen_owner")
     if cur and int(cur) != uid:
@@ -520,7 +535,7 @@ async def schedule_foul_block(rid: int, target_uid: int, head_uid: int, duration
     await asyncio.sleep(max(0, sec))
     r = get_redis()
     try:
-        applied, forced_off = await update_blocks(r, rid, head_uid, "head", target_uid, {"mic": True})
+        _, forced_off = await apply_blocks_and_emit(r, rid, actor_uid=head_uid, actor_role="head", target_uid=target_uid, changes_bool={"mic": True})
     except Exception:
         log.exception("game_foul.reblock_failed", rid=rid, head=head_uid, target=target_uid)
         return
@@ -528,12 +543,53 @@ async def schedule_foul_block(rid: int, target_uid: int, head_uid: int, duration
     if "__error__" in forced_off:
         return
 
-    if forced_off:
-        await emit_state_changed_filtered(r, rid, target_uid, forced_off)
-    if applied:
-        row = await r.hgetall(f"room:{rid}:user:{target_uid}:block")
-        full = {k: ("1" if (row or {}).get(k) == "1" else "0") for k in KEYS_BLOCK}
-        await emit_moderation_filtered(r, rid, target_uid, full, head_uid, "head")
+
+async def finish_day_speech(r, rid: int, raw_gstate: Mapping[str, Any], speaker_uid: int) -> dict[str, Any]:
+    try:
+        head_uid = int(raw_gstate.get("head") or 0)
+    except Exception:
+        head_uid = 0
+
+    if head_uid and speaker_uid != head_uid:
+        try:
+            await apply_blocks_and_emit(r, rid, actor_uid=head_uid, actor_role="head", target_uid=speaker_uid, changes_bool={"mic": True})
+        except Exception:
+            log.exception("day_speech.finish.block_failed", rid=rid, head=head_uid, target=speaker_uid)
+
+    try:
+        opening_uid = int(raw_gstate.get("day_opening_uid") or 0)
+    except Exception:
+        opening_uid = 0
+    try:
+        closing_uid = int(raw_gstate.get("day_closing_uid") or 0)
+    except Exception:
+        closing_uid = 0
+
+    day_speeches_done = False
+    mapping: dict[str, str] = {
+        "day_speech_started": "0",
+        "day_speech_duration": "0",
+    }
+    if closing_uid and speaker_uid == closing_uid:
+        mapping["day_last_opening_uid"] = str(opening_uid or 0)
+        mapping["day_speeches_done"] = "1"
+        day_speeches_done = True
+
+    async with r.pipeline() as p:
+        await p.hset(f"room:{rid}:game_state", mapping=mapping)
+        await p.execute()
+
+    payload: dict[str, Any] = {
+        "room_id": rid,
+        "speaker_uid": speaker_uid,
+        "opening_uid": opening_uid,
+        "closing_uid": closing_uid,
+        "deadline": 0,
+    }
+    if day_speeches_done:
+        payload["speeches_done"] = True
+
+    return payload
 
 
 async def emit_game_fouls(r, rid: int) -> None:
@@ -797,50 +853,11 @@ async def day_speech_timeout_job(rid: int, expected_started: int, expected_uid: 
     if not head_uid or cur_uid != expected_uid or cur_started != expected_started or cur_duration != duration:
         return
 
-    if cur_uid != head_uid:
-        try:
-            applied, forced_off = await update_blocks(r, rid, head_uid, "head", cur_uid, {"mic": True})
-        except Exception:
-            log.exception("day_speech_timeout.block_failed", rid=rid, head=head_uid, target=cur_uid)
-        else:
-            if forced_off:
-                await emit_state_changed_filtered(r, rid, cur_uid, forced_off)
-            if applied:
-                row = await r.hgetall(f"room:{rid}:user:{cur_uid}:block")
-                full = {k: ("1" if (row or {}).get(k) == "1" else "0") for k in KEYS_BLOCK}
-                await emit_moderation_filtered(r, rid, cur_uid, full, head_uid, "head")
-
     try:
-        opening_uid = int(raw_state.get("day_opening_uid") or 0)
+        payload = await finish_day_speech(r, rid, raw_state, expected_uid)
     except Exception:
-        opening_uid = 0
-    try:
-        closing_uid = int(raw_state.get("day_closing_uid") or 0)
-    except Exception:
-        closing_uid = 0
-
-    day_speeches_done = False
-    async with r.pipeline() as p:
-        mapping: dict[str, str] = {
-            "day_speech_started": "0",
-            "day_speech_duration": "0",
-        }
-        if closing_uid and cur_uid == closing_uid:
-            mapping["day_last_opening_uid"] = str(opening_uid or 0)
-            mapping["day_speeches_done"] = "1"
-            day_speeches_done = True
-        await p.hset(f"room:{rid}:game_state", mapping=mapping)
-        await p.execute()
-
-    payload = {
-        "room_id": rid,
-        "speaker_uid": expected_uid,
-        "opening_uid": opening_uid,
-        "closing_uid": closing_uid,
-        "deadline": 0,
-    }
-    if day_speeches_done:
-        payload["speeches_done"] = True
+        log.exception("day_speech_timeout.finish_failed", rid=rid, uid=expected_uid)
+        return
 
     try:
         await sio.emit("game_day_speech",

@@ -337,22 +337,23 @@ export function useRTC(): UseRTC {
     return true
   }
 
-  const screenVideoRef = makeVideoRef({ elMap: screenVideoEls, source: Track.Source.ScreenShare })
-
   let preparedScreen: LocalTrack[] | null = null
+  const screenVideoRef = makeVideoRef({ elMap: screenVideoEls, source: Track.Source.ScreenShare })
+  function attachScreenTrackEndedHandlers(tracks: LocalTrack[]) {
+    tracks.forEach(t => {
+      const onEnded = async () => { try { await lk.value?.localParticipant.unpublishTrack(t) } catch {} }
+      t.mediaStreamTrack.addEventListener('ended', onEnded, { once: true })
+    })
+  }
+  async function createScreenTracks(audio: boolean): Promise<LocalTrack[]> {
+    const tracks = await createLocalScreenTracks({ audio, resolution: highScreenQuality.resolution })
+    attachScreenTrackEndedHandlers(tracks)
+    return tracks
+  }
   async function prepareScreenShare(opts?: { audio?: boolean }): Promise<boolean> {
     try {
       lastScreenShareError = null
-      preparedScreen = await createLocalScreenTracks({
-        audio: opts?.audio ?? true,
-        resolution: highScreenQuality.resolution,
-      })
-      preparedScreen.forEach(t => {
-        const onEnded = async () => {
-          try { await lk.value?.localParticipant.unpublishTrack(t) } catch {}
-        }
-        t.mediaStreamTrack.addEventListener('ended', onEnded, { once: true })
-      })
+      preparedScreen = await createScreenTracks(opts?.audio ?? true)
       return true
     } catch (e: any) {
       if (isUserCancel(e)) {
@@ -361,16 +362,7 @@ export function useRTC(): UseRTC {
         return false
       }
       try {
-        preparedScreen = await createLocalScreenTracks({
-          audio: false,
-          resolution: highScreenQuality.resolution,
-        })
-        preparedScreen.forEach(t => {
-          const onEnded = async () => {
-            try { await lk.value?.localParticipant.unpublishTrack(t) } catch {}
-          }
-          t.mediaStreamTrack.addEventListener('ended', onEnded, { once: true })
-        })
+        preparedScreen = await createScreenTracks(false)
         return true
       } catch (e2: any) {
         lastScreenShareError = isUserCancel(e2) ? 'canceled' : 'failed'
