@@ -194,6 +194,22 @@ async def join(sid, data) -> JoinAck:
                 snapshot[str(uid)] = user_state
                 await emit_state_changed_filtered(r, rid, uid, applied)
 
+        if phase == "idle":
+            my_block = (blocked or {}).get(str(uid)) or {}
+            auto_on: dict[str, str] = {}
+            speakers_blocked = str(my_block.get("speakers") or "0") == "1"
+            visibility_blocked = str(my_block.get("visibility") or "0") == "1"
+            if not speakers_blocked and user_state.get("speakers") != "1":
+                auto_on["speakers"] = "1"
+            if not visibility_blocked and user_state.get("visibility") != "1":
+                auto_on["visibility"] = "1"
+            if auto_on:
+                applied2 = await apply_state(r, rid, uid, auto_on)
+                if applied2:
+                    user_state = {**user_state, **applied2}
+                    snapshot[str(uid)] = user_state
+                    await emit_state_changed_filtered(r, rid, uid, applied2)
+
         if not already:
             await emit_rooms_occupancy_safe(r, rid, occ)
 

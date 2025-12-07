@@ -459,35 +459,35 @@ const timelineDurationSec = computed(() => {
           opacity: 0.5;
         }
         input[type="range"]:focus-visible {
-          outline: 2px solid $fg;
-          outline-offset: 2px;
+          outline: 1px solid $fg;
+          outline-offset: 1px;
         }
         input[type="range"]::-webkit-slider-runnable-track {
-          height: 4px;
-          border-radius: 2px;
-          background-color: rgba($fg, 0.3);
+          height: 6px;
+          border-radius: 3px;
+          background-color: $grey;
         }
         input[type="range"]::-webkit-slider-thumb {
           -webkit-appearance: none;
           appearance: none;
-          width: 12px;
-          height: 12px;
+          width: 16px;
+          height: 16px;
           border-radius: 50%;
           background-color: $fg;
-          border: 2px solid $dark;
-          margin-top: calc(-12px / 2 + 2px);
+          border: 3px solid $dark;
+          margin-top: calc(-16px / 2 + 3px);
         }
         input[type="range"]::-moz-range-track {
-          height: 4px;
-          border-radius: 2px;
-          background-color: rgba($fg, 0.3);
+          height: 6px;
+          border-radius: 3px;
+          background-color: $grey;
         }
         input[type="range"]::-moz-range-thumb {
-          width: 12px;
-          height: 12px;
+          width: 16px;
+          height: 16px;
           border-radius: 50%;
           background-color: $fg;
-          border: 2px solid $dark;
+          border: 3px solid $dark;
         }
       }
       .admin-row {
@@ -651,8 +651,27 @@ const timelineDurationSec = computed(() => {
             height: 6px;
           }
           span {
-            min-width: 25px;
+            min-width: 26px;
             font-size: 10px;
+          }
+          input[type="range"]::-webkit-slider-runnable-track {
+            height: 4px;
+            border-radius: 2px;
+          }
+          input[type="range"]::-webkit-slider-thumb {
+            width: 8px;
+            height: 8px;
+            border: 2px solid $dark;
+            margin-top: calc(-8px / 2 + 2px);
+          }
+          input[type="range"]::-moz-range-track {
+            height: 4px;
+            border-radius: 2px;
+          }
+          input[type="range"]::-moz-range-thumb {
+            width: 8px;
+            height: 8px;
+            border: 2px solid $dark;
           }
         }
         .admin-row {
