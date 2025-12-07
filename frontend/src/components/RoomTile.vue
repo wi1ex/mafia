@@ -659,18 +659,18 @@ const timelineDurationSec = computed(() => {
             border-radius: 2px;
           }
           input[type="range"]::-webkit-slider-thumb {
-            width: 8px;
-            height: 8px;
+            width: 12px;
+            height: 12px;
             border: 2px solid $dark;
-            margin-top: calc(-8px / 2 + 2px);
+            margin-top: calc(-12px / 2 + 2px);
           }
           input[type="range"]::-moz-range-track {
             height: 4px;
             border-radius: 2px;
           }
           input[type="range"]::-moz-range-thumb {
-            width: 8px;
-            height: 8px;
+            width: 12px;
+            height: 12px;
             border: 2px solid $dark;
           }
         }

@@ -650,14 +650,8 @@ async def game_start(sid, data) -> GameStartAck:
                         continue
 
         if streaming_owner or blocking_users:
-            return {
-                "ok": False,
-                "status": 409,
-                "error": "streaming_present" if streaming_owner else "blocked_params",
-                "room_id": rid,
-                "streaming_owner": streaming_owner,
-                "blocking_users": blocking_users,
-            }
+            return {"ok": False, "status": 409, "error": "streaming_present" if streaming_owner else "blocked_params",
+                    "room_id": rid, "streaming_owner": streaming_owner, "blocking_users": blocking_users}
 
         conflict_users: set[int] = set()
         participants: set[int] = {head_uid} | {int(x) for x in (ready_ids or [])}
@@ -697,22 +691,10 @@ async def game_start(sid, data) -> GameStartAck:
                     break
 
         if conflict_users:
-            return {
-                "ok": False,
-                "status": 409,
-                "error": "already_in_other_game",
-                "room_id": rid,
-                "conflict_users": list(conflict_users),
-            }
+            return {"ok": False, "status": 409, "error": "already_in_other_game", "room_id": rid, "conflict_users": list(conflict_users)}
 
         if not confirm:
-            return {
-                "ok": True,
-                "status": 200,
-                "room_id": rid,
-                "can_start": True,
-                "min_ready": min_ready,
-            }
+            return {"ok": True, "status": 200, "room_id": rid, "can_start": True, "min_ready": min_ready}
 
         player_ids = [str(x) for x in ready_ids if str(x) != str(head_uid)]
         random.shuffle(player_ids)
@@ -1710,6 +1692,9 @@ async def game_end(sid, data):
                 f"room:{rid}:game_short_speech_used",
                 f"room:{rid}:game_nominees",
                 f"room:{rid}:game_nom_speakers",
+                f"room:{rid}:roles_cards",
+                f"room:{rid}:roles_taken",
+                f"room:{rid}:game_roles",
             )
             await p.execute()
 

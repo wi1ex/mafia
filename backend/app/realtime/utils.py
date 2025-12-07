@@ -1190,6 +1190,9 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
         "alive": [int(x) for x in (alive_set or [])],
     }
 
+    if phase == "idle":
+        return game_runtime, {}, None
+
     if phase == "roles_pick":
         try:
             roles_turn_uid = int(raw_gstate.get("roles_turn_uid") or 0)

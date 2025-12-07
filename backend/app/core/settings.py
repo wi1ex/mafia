@@ -41,7 +41,7 @@ class Settings(BaseSettings):
     MAFIA_TALK_SECONDS: int = 60
     PLAYER_TALK_SECONDS: int = 60
     PLAYER_TALK_SHORT_SECONDS: int = 30
-    PLAYER_FOUL_SECONDS: int = 3
+    PLAYER_FOUL_SECONDS: int = 4
 
     @property
     def pg_dsn(self) -> str:
