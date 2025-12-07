@@ -500,6 +500,7 @@ export function useRoomGame(localId: Ref<string>) {
     if (!uid || !role) return
     gameRolesByUser.set(uid, role as GameRoleKind)
     if (uid === localId.value) {
+      knownRolesVisible.value = true
       roleOverlayMode.value = 'reveal'
       roleOverlayCard.value = Number(p?.card || 0) || null
       if (roleOverlayTimerId.value != null) {

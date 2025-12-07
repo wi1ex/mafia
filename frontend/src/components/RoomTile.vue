@@ -435,19 +435,59 @@ const timelineDurationSec = computed(() => {
         box-shadow: 3px 3px 5px rgba($black, 0.25);
         -webkit-overflow-scrolling: touch;
         img {
+          flex: 0 0 auto;
           width: 20px;
           height: 20px;
         }
         input[type="range"] {
-          min-width: calc(100% - 66px);
+          flex: 1 1 auto;
+          min-width: 0;
           height: 8px;
           accent-color: $fg;
           cursor: pointer;
+          appearance: none;
+          background: transparent;
         }
         span {
+          flex: 0 0 auto;
           min-width: 32px;
           text-align: center;
           font-size: 12px;
+        }
+        input[type="range"]:disabled {
+          cursor: default;
+          opacity: 0.5;
+        }
+        input[type="range"]:focus-visible {
+          outline: 2px solid $fg;
+          outline-offset: 2px;
+        }
+        input[type="range"]::-webkit-slider-runnable-track {
+          height: 4px;
+          border-radius: 2px;
+          background-color: rgba($fg, 0.3);
+        }
+        input[type="range"]::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          appearance: none;
+          width: 12px;
+          height: 12px;
+          border-radius: 50%;
+          background-color: $fg;
+          border: 2px solid $dark;
+          margin-top: calc(-12px / 2 + 2px);
+        }
+        input[type="range"]::-moz-range-track {
+          height: 4px;
+          border-radius: 2px;
+          background-color: rgba($fg, 0.3);
+        }
+        input[type="range"]::-moz-range-thumb {
+          width: 12px;
+          height: 12px;
+          border-radius: 50%;
+          background-color: $fg;
+          border: 2px solid $dark;
         }
       }
       .admin-row {
@@ -608,7 +648,6 @@ const timelineDurationSec = computed(() => {
             height: 14px;
           }
           input[type="range"] {
-            min-width: calc(100% - 50px);
             height: 6px;
           }
           span {
