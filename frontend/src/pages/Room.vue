@@ -55,7 +55,7 @@
           :show-nominations-bar="id === headUserId && (gamePhase === 'day' || gamePhase === 'vote')"
           :show-vote-button="id === headUserId && gamePhase === 'vote' && !vote.done && myGameRole === 'player' && amIAlive && game.canPressVoteButton()"
           :vote-enabled="id === headUserId && gamePhase === 'vote' && game.canPressVoteButton()"
-          :has-voted="votedUsers.has(id)"
+          :has-voted="votedThisRound.has(id)"
           @toggle-panel="toggleTilePanel"
           @vol-input="onVol"
           @block="(key, uid) => toggleBlock(uid, key)"
@@ -126,7 +126,7 @@
             :show-nominations-bar="id === headUserId && (gamePhase === 'day' || gamePhase === 'vote')"
             :show-vote-button="id === headUserId && gamePhase === 'vote' && !vote.done && myGameRole === 'player' && amIAlive && game.canPressVoteButton()"
             :vote-enabled="id === headUserId && gamePhase === 'vote' && game.canPressVoteButton()"
-            :has-voted="votedUsers.has(id)"
+            :has-voted="votedThisRound.has(id)"
             @toggle-panel="toggleTilePanel"
             @vol-input="onVol"
             @block="(key, uid) => toggleBlock(uid, key)"
@@ -340,7 +340,7 @@ const {
   seatsByUser,
   offlineInGame,
   gameFoulsByUser,
-  votedUsers,
+  votedThisRound,
   daySpeechesDone,
 
   rolesVisibleForHead,
@@ -363,7 +363,6 @@ const {
   mafiaTalk,
   vote,
   voteStartedForCurrent,
-  iVoted,
 } = game
 
 const UA = navigator.userAgent || ''

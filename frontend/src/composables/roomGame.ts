@@ -117,6 +117,7 @@ export function useRoomGame(localId: Ref<string>) {
   })
   const voteTimerId = ref<number | null>(null)
   const votedUsers = reactive(new Set<string>())
+  const votedThisRound = reactive(new Set<string>())
   const voteStartedForCurrent = ref(false)
   const daySpeechTimerId = ref<number | null>(null)
   const daySpeechesDone = ref(false)
@@ -162,12 +163,6 @@ export function useRoomGame(localId: Ref<string>) {
     return seatIndex(vote.currentId)
   })
 
-  const iVoted = computed(() => {
-    const id = localId.value
-    if (!id) return false
-    return votedUsers.has(id)
-  })
-
   function canPressVoteButton(): boolean {
     const me = localId.value
     if (!me) return false
@@ -176,7 +171,7 @@ export function useRoomGame(localId: Ref<string>) {
     if (vote.remainingMs <= 0) return false
     if (!amIAlive.value) return false
     if (myGameRole.value !== 'player') return false
-    return !iVoted.value
+    return votedUsers.has(me)
   }
 
   function setVoteRemainingMs(ms: number, changed: boolean) {
@@ -330,6 +325,7 @@ export function useRoomGame(localId: Ref<string>) {
       voteTimerId.value = null
     }
     votedUsers.clear()
+    votedThisRound.clear()
     voteStartedForCurrent.value = false
   }
 
@@ -465,6 +461,7 @@ export function useRoomGame(localId: Ref<string>) {
       voteStartedForCurrent.value = rawMs > 0
 
       votedUsers.clear()
+      votedThisRound.clear()
       nominatedThisSpeechByMe.value = false
     } else {
       daySpeech.openingId = ''
@@ -480,6 +477,7 @@ export function useRoomGame(localId: Ref<string>) {
       setVoteRemainingMs(0, false)
       vote.done = false
       votedUsers.clear()
+      votedThisRound.clear()
       voteStartedForCurrent.value = false
     }
 
@@ -664,6 +662,7 @@ export function useRoomGame(localId: Ref<string>) {
       voteStartedForCurrent.value = false
     } else if (newId !== prevId) {
       voteStartedForCurrent.value = ms > 0
+      votedThisRound.clear()
     } else if (ms > 0) {
       voteStartedForCurrent.value = true
     }
@@ -683,6 +682,9 @@ export function useRoomGame(localId: Ref<string>) {
     const target = String(p?.target_id || '')
     if (!uid || !target) return
     votedUsers.add(uid)
+    if (target === vote.currentId) {
+      votedThisRound.add(uid)
+    }
   }
 
   function handleGameVoteResult(p: any) {
@@ -704,16 +706,6 @@ export function useRoomGame(localId: Ref<string>) {
         }
       }
     }
-  }
-
-  function resetVoteState(): void {
-    vote.currentId = ''
-    setVoteRemainingMs(0, true)
-    vote.done = false
-    votedUsers.clear()
-    dayNominees.splice(0, dayNominees.length)
-    voteStartedForCurrent.value = false
-    voteResultLeaders.splice(0, voteResultLeaders.length)
   }
 
   async function finishVote(sendAck: SendAckFn): Promise<void> {
@@ -806,6 +798,7 @@ export function useRoomGame(localId: Ref<string>) {
       vote.done = isTrueLike(vt?.done)
 
       votedUsers.clear()
+      votedThisRound.clear()
       nominatedThisSpeechByMe.value = false
       voteStartedForCurrent.value = ms > 0
     } else {
@@ -822,6 +815,7 @@ export function useRoomGame(localId: Ref<string>) {
       setVoteRemainingMs(0, true)
       vote.done = false
       votedUsers.clear()
+      votedThisRound.clear()
       voteStartedForCurrent.value = false
     }
   }
@@ -1208,8 +1202,8 @@ export function useRoomGame(localId: Ref<string>) {
     nomineeSeatNumbers,
     vote,
     votedUsers,
+    votedThisRound,
     currentNomineeSeat,
-    iVoted,
     voteStartedForCurrent,
     voteResultLeaders,
 
