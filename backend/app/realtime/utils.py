@@ -1011,143 +1011,6 @@ async def leave_room_atomic(r, rid: int, uid: int):
     return occ, gc_seq, updates
 
 
-async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
-    r = get_redis()
-    ts1 = await r.get(f"room:{rid}:empty_since")
-    if not ts1:
-        log.warning("gc.skip.no_empty_since", rid=rid)
-        return False
-
-    delay = max(0, 10 - (int(time()) - int(ts1)))
-    if delay > 0:
-        await asyncio.sleep(delay)
-
-    ts2 = await r.get(f"room:{rid}:empty_since")
-    if not ts2 or ts1 != ts2:
-        log.warning("gc.skip.race_or_reset", rid=rid)
-        return False
-
-    if expected_seq is not None:
-        cur_seq = int(await r.get(f"room:{rid}:gc_seq") or 0)
-        if cur_seq != expected_seq:
-            log.warning("gc.skip.seq_mismatch", rid=rid, expected=expected_seq, current=cur_seq)
-            return False
-
-    if int(await r.scard(f"room:{rid}:members") or 0) > 0:
-        log.warning("gc.skip.not_empty_anymore", rid=rid)
-        return False
-
-    got = await r.set(f"room:{rid}:gc_lock", "1", nx=True, ex=20)
-    if not got:
-        log.warning("gc.skip.no_lock", rid=rid)
-        return False
-
-    try:
-        raw = await r.hgetall(f"room:{rid}:visitors")
-        visitors_map: dict[int, int] = {}
-        for k, v in (raw or {}).items():
-            try:
-                visitors_map[int(k)] = int(v or 0)
-            except Exception:
-                continue
-
-        owner = await r.get(f"room:{rid}:screen_owner")
-        started = await r.get(f"room:{rid}:screen_started_at")
-        if owner and started:
-            try:
-                dt = int(time()) - int(started)
-                if dt > 0:
-                    await r.hincrby(f"room:{rid}:screen_time", str(int(owner)), dt)
-            except Exception as e:
-                log.warning("gc.screen_time.flush_failed", rid=rid, err=type(e).__name__)
-
-        raw_scr = await r.hgetall(f"room:{rid}:screen_time")
-        screen_map_sec: dict[int, int] = {}
-        for k, v in (raw_scr or {}).items():
-            try:
-                screen_map_sec[int(k)] = int(v or 0)
-            except Exception:
-                continue
-
-        try:
-            async with SessionLocal() as s:
-                rm = await s.get(Room, rid)
-                if rm:
-                    rm_title = rm.title
-                    rm_user_limit = rm.user_limit
-                    rm_creator = cast(int, rm.creator)
-                    rm_creator_name = cast(str, rm.creator_name)
-                    unique_visitors = len(set(visitors_map.keys()))
-                    if unique_visitors <= 1:
-                        await s.delete(rm)
-                    else:
-                        rm.visitors = {**(rm.visitors or {}), **{str(k): v for k, v in visitors_map.items()}}
-                        rm.screen_time = {**(rm.screen_time or {}), **{str(uid): max(0, sec) for uid, sec in screen_map_sec.items()}}
-                        rm.deleted_at = datetime.now(timezone.utc)
-
-                    await r.srem(f"user:{rm_creator}:rooms", str(rid))
-                    await log_action(
-                        s,
-                        user_id=rm_creator,
-                        username=rm_creator_name,
-                        action="room_deleted",
-                        details=f"Удаление комнаты room_id={rid} title={rm_title} user_limit={rm_user_limit} count_users={unique_visitors}",
-                    )
-        except Exception:
-            log.exception("gc.db.persist_failed", rid=rid)
-            raise
-
-        async def _del_scan(pattern: str, count: int = 200):
-            cursor = 0
-            while True:
-                cursor, keys = await r.scan(cursor=cursor, match=pattern, count=count)
-                if keys:
-                    await r.unlink(*keys)
-                if cursor == 0:
-                    break
-
-        await _del_scan(f"room:{rid}:user:*:info")
-        await _del_scan(f"room:{rid}:user:*:state")
-        await _del_scan(f"room:{rid}:user:*:block")
-        await _del_scan(f"room:{rid}:user:*:epoch")
-        await r.delete(
-            f"room:{rid}:members",
-            f"room:{rid}:positions",
-            f"room:{rid}:visitors",
-            f"room:{rid}:params",
-            f"room:{rid}:game",
-            f"room:{rid}:gc_seq",
-            f"room:{rid}:empty_since",
-            f"room:{rid}:gc_lock",
-            f"room:{rid}:allow",
-            f"room:{rid}:pending",
-            f"room:{rid}:screen_time",
-            f"room:{rid}:screen_owner",
-            f"room:{rid}:screen_started_at",
-            f"room:{rid}:ready",
-            f"room:{rid}:game_state",
-            f"room:{rid}:game_seats",
-            f"room:{rid}:game_players",
-            f"room:{rid}:game_alive",
-            f"room:{rid}:roles_cards",
-            f"room:{rid}:roles_taken",
-            f"room:{rid}:game_roles",
-            f"room:{rid}:game_fouls",
-            f"room:{rid}:game_short_speech_used",
-            f"room:{rid}:game_nominees",
-            f"room:{rid}:game_nom_speakers",
-            f"room:{rid}:game_votes",
-        )
-        await r.zrem("rooms:index", str(rid))
-    finally:
-        try:
-            await r.delete(f"room:{rid}:gc_lock")
-        except Exception as e:
-            log.warning("gc.lock.release_failed", rid=rid, err=type(e).__name__)
-
-    return True
-
-
 async def emit_rooms_occupancy_safe(r, rid: int, occ: int) -> None:
     try:
         phase = str(await r.hget(f"room:{rid}:game_state", "phase") or "idle")
@@ -1493,3 +1356,140 @@ async def emit_moderation_filtered(r, rid: int, target_uid: int, blocks_full: di
                        payload,
                        room=f"user:{uid}",
                        namespace="/room")
+
+
+async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
+    r = get_redis()
+    ts1 = await r.get(f"room:{rid}:empty_since")
+    if not ts1:
+        log.warning("gc.skip.no_empty_since", rid=rid)
+        return False
+
+    delay = max(0, 10 - (int(time()) - int(ts1)))
+    if delay > 0:
+        await asyncio.sleep(delay)
+
+    ts2 = await r.get(f"room:{rid}:empty_since")
+    if not ts2 or ts1 != ts2:
+        log.warning("gc.skip.race_or_reset", rid=rid)
+        return False
+
+    if expected_seq is not None:
+        cur_seq = int(await r.get(f"room:{rid}:gc_seq") or 0)
+        if cur_seq != expected_seq:
+            log.warning("gc.skip.seq_mismatch", rid=rid, expected=expected_seq, current=cur_seq)
+            return False
+
+    if int(await r.scard(f"room:{rid}:members") or 0) > 0:
+        log.warning("gc.skip.not_empty_anymore", rid=rid)
+        return False
+
+    got = await r.set(f"room:{rid}:gc_lock", "1", nx=True, ex=20)
+    if not got:
+        log.warning("gc.skip.no_lock", rid=rid)
+        return False
+
+    try:
+        raw = await r.hgetall(f"room:{rid}:visitors")
+        visitors_map: dict[int, int] = {}
+        for k, v in (raw or {}).items():
+            try:
+                visitors_map[int(k)] = int(v or 0)
+            except Exception:
+                continue
+
+        owner = await r.get(f"room:{rid}:screen_owner")
+        started = await r.get(f"room:{rid}:screen_started_at")
+        if owner and started:
+            try:
+                dt = int(time()) - int(started)
+                if dt > 0:
+                    await r.hincrby(f"room:{rid}:screen_time", str(int(owner)), dt)
+            except Exception as e:
+                log.warning("gc.screen_time.flush_failed", rid=rid, err=type(e).__name__)
+
+        raw_scr = await r.hgetall(f"room:{rid}:screen_time")
+        screen_map_sec: dict[int, int] = {}
+        for k, v in (raw_scr or {}).items():
+            try:
+                screen_map_sec[int(k)] = int(v or 0)
+            except Exception:
+                continue
+
+        try:
+            async with SessionLocal() as s:
+                rm = await s.get(Room, rid)
+                if rm:
+                    rm_title = rm.title
+                    rm_user_limit = rm.user_limit
+                    rm_creator = cast(int, rm.creator)
+                    rm_creator_name = cast(str, rm.creator_name)
+                    unique_visitors = len(set(visitors_map.keys()))
+                    if unique_visitors <= 1:
+                        await s.delete(rm)
+                    else:
+                        rm.visitors = {**(rm.visitors or {}), **{str(k): v for k, v in visitors_map.items()}}
+                        rm.screen_time = {**(rm.screen_time or {}), **{str(uid): max(0, sec) for uid, sec in screen_map_sec.items()}}
+                        rm.deleted_at = datetime.now(timezone.utc)
+
+                    await r.srem(f"user:{rm_creator}:rooms", str(rid))
+                    await log_action(
+                        s,
+                        user_id=rm_creator,
+                        username=rm_creator_name,
+                        action="room_deleted",
+                        details=f"Удаление комнаты room_id={rid} title={rm_title} user_limit={rm_user_limit} count_users={unique_visitors}",
+                    )
+        except Exception:
+            log.exception("gc.db.persist_failed", rid=rid)
+            raise
+
+        async def _del_scan(pattern: str, count: int = 200):
+            cursor = 0
+            while True:
+                cursor, keys = await r.scan(cursor=cursor, match=pattern, count=count)
+                if keys:
+                    await r.unlink(*keys)
+                if cursor == 0:
+                    break
+
+        await _del_scan(f"room:{rid}:user:*:info")
+        await _del_scan(f"room:{rid}:user:*:state")
+        await _del_scan(f"room:{rid}:user:*:block")
+        await _del_scan(f"room:{rid}:user:*:epoch")
+        await r.delete(
+            f"room:{rid}:members",
+            f"room:{rid}:positions",
+            f"room:{rid}:visitors",
+            f"room:{rid}:params",
+            f"room:{rid}:game",
+            f"room:{rid}:gc_seq",
+            f"room:{rid}:empty_since",
+            f"room:{rid}:gc_lock",
+            f"room:{rid}:allow",
+            f"room:{rid}:pending",
+            f"room:{rid}:screen_time",
+            f"room:{rid}:screen_owner",
+            f"room:{rid}:screen_started_at",
+            f"room:{rid}:ready",
+            f"room:{rid}:game_state",
+            f"room:{rid}:game_seats",
+            f"room:{rid}:game_players",
+            f"room:{rid}:game_alive",
+            f"room:{rid}:roles_cards",
+            f"room:{rid}:roles_taken",
+            f"room:{rid}:game_roles",
+            f"room:{rid}:game_fouls",
+            f"room:{rid}:game_short_speech_used",
+            f"room:{rid}:game_nominees",
+            f"room:{rid}:game_nom_speakers",
+            f"room:{rid}:game_votes",
+        )
+        await r.zrem("rooms:index", str(rid))
+    finally:
+        try:
+            await r.delete(f"room:{rid}:gc_lock")
+        except Exception as e:
+            log.warning("gc.lock.release_failed", rid=rid, err=type(e).__name__)
+
+    return True

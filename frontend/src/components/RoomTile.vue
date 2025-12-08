@@ -357,28 +357,32 @@ const timelineDurationSec = computed(() => {
     align-items: center;
     justify-content: center;
     left: 50%;
-    bottom: 50px;
-    transform: translate(-50%);
-    padding: 0 10px;
-    gap: 5px;
-    height: 30px;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    padding: 0 20px;
+    gap: 10px;
+    height: 40px;
     border: none;
     border-radius: 5px;
-    background-color: rgba($dark, 0.75);
+    background-color: $green;
     backdrop-filter: blur(5px);
     box-shadow: 3px 3px 5px rgba($black, 0.25);
     cursor: pointer;
     z-index: 3;
     &:disabled {
+      background-color: rgba($dark, 0.75);
       cursor: default;
+      span {
+        color: $fg;
+      }
     }
     img {
-      width: 24px;
-      height: 24px;
+      width: 32px;
+      height: 32px;
     }
     span {
-      color: $fg;
-      font-size: 16px;
+      color: $bg;
+      font-size: 20px;
       font-family: Manrope-Medium;
       line-height: 1;
     }
@@ -659,6 +663,18 @@ const timelineDurationSec = computed(() => {
       }
       span {
         font-size: 12px;
+      }
+    }
+    .vote-btn {
+      padding: 0 10px;
+      gap: 5px;
+      height: 30px;
+      img {
+        width: 24px;
+        height: 24px;
+      }
+      span {
+        font-size: 16px;
       }
     }
     .user-card {

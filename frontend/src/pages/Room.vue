@@ -53,7 +53,7 @@
           :nominees="nomineeSeatNumbers"
           :current-nominee-seat="id === headUserId ? currentNomineeSeat : null"
           :show-nominations-bar="id === headUserId && (gamePhase === 'day' || gamePhase === 'vote')"
-          :show-vote-button="id === headUserId && gamePhase === 'vote' && !vote.done && vote.remainingMs > 0"
+          :show-vote-button="id === headUserId && gamePhase === 'vote' && !vote.done && myGameRole === 'player' && amIAlive && !iVoted"
           :vote-enabled="id === headUserId && gamePhase === 'vote' && game.canPressVoteButton()"
           :has-voted="votedUsers.has(id)"
           @toggle-panel="toggleTilePanel"
@@ -124,7 +124,7 @@
             :nominees="game.nomineeSeatNumbers"
             :current-nominee-seat="id === headUserId ? currentNomineeSeat : null"
             :show-nominations-bar="id === headUserId && (gamePhase === 'day' || gamePhase === 'vote')"
-            :show-vote-button="id === headUserId && gamePhase === 'vote' && !vote.done && vote.remainingMs > 0"
+            :show-vote-button="id === headUserId && gamePhase === 'vote' && !vote.done && myGameRole === 'player' && amIAlive && !iVoted"
             :vote-enabled="id === headUserId && gamePhase === 'vote' && game.canPressVoteButton()"
             :has-voted="votedUsers.has(id)"
             @toggle-panel="toggleTilePanel"
@@ -165,6 +165,9 @@
           <button v-if="canStartVote" class="btn-text" @click="startVoteUi">Начать голосование</button>
           <button v-if="gamePhase === 'vote' && myGameRole === 'head' && !vote.done && vote.remainingMs === 0" class="btn-text" @click="onHeadVoteControl">
             {{ !voteStartedForCurrent ? 'Голосование за ' + (currentNomineeSeat ?? '') : 'Продолжить' }}
+          </button>
+          <button v-if="gamePhase === 'vote' && myGameRole === 'head' && vote.done" class="btn-text" @click="finishVoteUi">
+            Завершить голосование
           </button>
 
           <button v-if="canFinishSpeechSelf" @click="finishSpeechUi">
@@ -360,6 +363,7 @@ const {
   mafiaTalk,
   vote,
   voteStartedForCurrent,
+  iVoted,
 } = game
 
 const UA = navigator.userAgent || ''
@@ -653,6 +657,7 @@ const startDayUi = () => game.startDay(sendAckGame)
 const passSpeechUi = () => game.passSpeech(sendAckGame)
 const finishSpeechUi = () => game.finishSpeech(sendAckGame)
 const startVoteUi = () => game.startVotePhase(sendAckGame)
+const finishVoteUi = () => game.finishVote()
 
 function onGiveFoul(id: string) {
   void game.giveFoul(id, sendAckGame)

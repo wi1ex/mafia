@@ -663,6 +663,7 @@ export function useRoomGame(localId: Ref<string>) {
       voteStartedForCurrent.value = false
     } else if (newId !== prevId) {
       voteStartedForCurrent.value = ms > 0
+      votedUsers.clear()
     } else if (ms > 0) {
       voteStartedForCurrent.value = true
     }
@@ -684,6 +685,12 @@ export function useRoomGame(localId: Ref<string>) {
     votedUsers.add(uid)
   }
 
+  function finishVote(): void {
+    vote.currentId = ''
+    setVoteRemainingMs(0, true)
+    votedUsers.clear()
+    dayNominees.splice(0, dayNominees.length)
+  }
 
   watch(() => [rolePick.activeUserId, localId.value, myGameRoleKind.value, gamePhase.value], () => { syncRoleOverlayWithTurn() })
 
@@ -1163,6 +1170,7 @@ export function useRoomGame(localId: Ref<string>) {
     startCurrentCandidateVote,
     goToNextCandidate,
     voteForCurrent,
+    finishVote,
     handleGameVoteState,
     handleGameVoted,
     isGameHead,
@@ -1182,8 +1190,6 @@ export function useRoomGame(localId: Ref<string>) {
     handleGameDaySpeech,
     handleGameFoul,
     handleGamePhaseChange,
-    handleGameVoteState,
-    handleGameVoted,
     shouldHighlightMafiaTile,
     goToMafiaTalk,
     finishMafiaTalk,
