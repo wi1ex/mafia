@@ -117,6 +117,7 @@ export function useRoomGame(localId: Ref<string>) {
   })
   const voteTimerId = ref<number | null>(null)
   const votedUsers = reactive(new Set<string>())
+  const voteStartedForCurrent = ref(false)
   const daySpeechTimerId = ref<number | null>(null)
   const daySpeechesDone = ref(false)
   const foulActive = reactive(new Set<string>())
@@ -173,6 +174,7 @@ export function useRoomGame(localId: Ref<string>) {
     if (vote.done) return false
     if (vote.remainingMs <= 0) return false
     if (!amIAlive.value) return false
+    if (myGameRole.value !== 'player') return false
     return !iVoted.value
   }
 
@@ -318,6 +320,16 @@ export function useRoomGame(localId: Ref<string>) {
 
     dayNominees.splice(0, dayNominees.length)
     nominatedThisSpeechByMe.value = false
+
+    vote.currentId = ''
+    vote.remainingMs = 0
+    vote.done = false
+    if (voteTimerId.value != null) {
+      clearTimeout(voteTimerId.value)
+      voteTimerId.value = null
+    }
+    votedUsers.clear()
+    voteStartedForCurrent.value = false
   }
 
   function syncRoleOverlayWithTurn() {
@@ -449,6 +461,7 @@ export function useRoomGame(localId: Ref<string>) {
       const rawMs = secondsToMs(vt.deadline)
       setVoteRemainingMs(rawMs, false)
       vote.done = isTrueLike((vt as any).done)
+      voteStartedForCurrent.value = rawMs > 0
 
       votedUsers.clear()
       nominatedThisSpeechByMe.value = false
@@ -466,6 +479,7 @@ export function useRoomGame(localId: Ref<string>) {
       setVoteRemainingMs(0, false)
       vote.done = false
       votedUsers.clear()
+      voteStartedForCurrent.value = false
     }
 
     const playersCount = gamePlayers.size
@@ -637,10 +651,21 @@ export function useRoomGame(localId: Ref<string>) {
   function handleGameVoteState(p: any) {
     const vt = p?.vote
     if (!vt || typeof vt !== 'object') return
-    vote.currentId = String(vt.current_uid || '')
+    const prevId = vote.currentId
+    const newId = String(vt.current_uid || '')
     const ms = secondsToMs(vt.deadline)
+
+    vote.currentId = newId
     setVoteRemainingMs(ms, true)
     vote.done = isTrueLike(vt.done)
+
+    if (!newId) {
+      voteStartedForCurrent.value = false
+    } else if (newId !== prevId) {
+      voteStartedForCurrent.value = ms > 0
+    } else if (ms > 0) {
+      voteStartedForCurrent.value = true
+    }
 
     const rawNominees = vt.nominees
     if (Array.isArray(rawNominees)) {
@@ -728,6 +753,7 @@ export function useRoomGame(localId: Ref<string>) {
 
       votedUsers.clear()
       nominatedThisSpeechByMe.value = false
+      voteStartedForCurrent.value = ms > 0
     } else {
       daySpeech.openingId = ''
       daySpeech.closingId = ''
@@ -742,6 +768,7 @@ export function useRoomGame(localId: Ref<string>) {
       setVoteRemainingMs(0, true)
       vote.done = false
       votedUsers.clear()
+      voteStartedForCurrent.value = false
     }
   }
 
@@ -1129,6 +1156,7 @@ export function useRoomGame(localId: Ref<string>) {
     votedUsers,
     currentNomineeSeat,
     iVoted,
+    voteStartedForCurrent,
 
     canPressVoteButton,
     startVotePhase,

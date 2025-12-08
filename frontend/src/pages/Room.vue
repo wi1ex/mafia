@@ -164,7 +164,7 @@
           <button v-else-if="canPassSpeechHead" class="btn-text" @click="passSpeechUi" aria-label="Передать речь">Передать речь</button>
           <button v-if="canStartVote" class="btn-text" @click="startVoteUi">Начать голосование</button>
           <button v-if="gamePhase === 'vote' && myGameRole === 'head' && !vote.done && vote.remainingMs === 0" class="btn-text" @click="onHeadVoteControl">
-            {{ vote.currentId ? 'Продолжить' : 'Голосование за ' + (currentNomineeSeat ?? '') }}
+            {{ !voteStartedForCurrent ? 'Голосование за ' + (currentNomineeSeat ?? '') : 'Продолжить' }}
           </button>
 
           <button v-if="canFinishSpeechSelf" @click="finishSpeechUi">
@@ -359,6 +359,7 @@ const {
   takenCardSet,
   mafiaTalk,
   vote,
+  voteStartedForCurrent,
 } = game
 
 const UA = navigator.userAgent || ''
@@ -681,9 +682,12 @@ function onHeadVoteControl() {
     void game.startCurrentCandidateVote(sendAckGame)
     return
   }
+  if (!voteStartedForCurrent.value) {
+    void game.startCurrentCandidateVote(sendAckGame)
+    return
+  }
   if (vote.remainingMs <= 0) {
     void game.goToNextCandidate(sendAckGame)
-    return
   }
 }
 

@@ -7,7 +7,7 @@
       <img :src="iconReady" alt="ready" />
     </div>
 
-    <img class="icon-voted" :src="iconLikeGreen" alt="voted" />
+    <img v-if="hasVoted" class="icon-voted" :src="iconLikeGreen" alt="voted" />
     <button v-if="inGame && seat != null && !isGameHead && !isDead(id)" class="icon-badge button left"
             @click="$emit('foul', id)" :disabled="!isHead" aria-label="Выдать фол">
       <img :src="iconFoul" alt="foul" />
@@ -282,7 +282,7 @@ const timelineDurationSec = computed(() => {
     position: absolute;
     top: 50%;
     left: 50%;
-    width: 75%;
+    height: 90%;
     transform: translate(-50%, -50%);
     pointer-events: none;
   }
