@@ -1136,6 +1136,7 @@ async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
             f"room:{rid}:game_short_speech_used",
             f"room:{rid}:game_nominees",
             f"room:{rid}:game_nom_speakers",
+            f"room:{rid}:game_votes",
         )
         await r.zrem("rooms:index", str(rid))
     finally:
@@ -1292,24 +1293,9 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
             "speeches_done": speeches_done,
         }
 
-        try:
-            raw_nominees = await r.hgetall(f"room:{rid}:game_nominees")
-        except Exception:
-            raw_nominees = {}
-        tmp_nom: list[tuple[int, int]] = []
-        for uid_s, idx_s in (raw_nominees or {}).items():
-            try:
-                u = int(uid_s)
-                idx = int(idx_s or 0)
-            except Exception:
-                continue
-
-            if idx > 0:
-                tmp_nom.append((idx, u))
-
-        if tmp_nom:
-            tmp_nom.sort(key=lambda t: t[0])
-            game_runtime["day"]["nominees"] = [u for _, u in tmp_nom]
+        nominees = await get_nominees_in_order(r, rid)
+        if nominees:
+            game_runtime["day"]["nominees"] = nominees
 
     if phase == "vote":
         try:
@@ -1334,26 +1320,7 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
             now_ts = int(time())
             remaining = max(vote_started + vote_duration - now_ts, 0)
 
-        try:
-            raw_nominees = await r.hgetall(f"room:{rid}:game_nominees")
-        except Exception:
-            raw_nominees = {}
-
-        tmp_nom: list[tuple[int, int]] = []
-        for uid_s, idx_s in (raw_nominees or {}).items():
-            try:
-                u = int(uid_s)
-                idx = int(idx_s or 0)
-            except Exception:
-                continue
-            if idx > 0:
-                tmp_nom.append((idx, u))
-
-        nominees_order: list[int] = []
-        if tmp_nom:
-            tmp_nom.sort(key=lambda t: t[0])
-            nominees_order = [u for _, u in tmp_nom]
-
+        nominees_order = await get_nominees_in_order(r, rid)
         game_runtime["vote"] = {
             "current_uid": vote_current_uid,
             "deadline": remaining,
@@ -1361,17 +1328,14 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
             "done": vote_done,
         }
 
-    roles_map = {str(k): str(v) for k, v in (raw_roles or {}).items()}
-    my_game_role = roles_map.get(str(uid))
-
     try:
         head_uid = int(raw_gstate.get("head") or 0)
     except Exception:
         head_uid = 0
-
+    roles_map = {str(k): str(v) for k, v in (raw_roles or {}).items()}
+    my_game_role = roles_map.get(str(uid))
     roles_done = str(raw_gstate.get("roles_done") or "0") == "1"
     game_roles_view: dict[str, str] = {}
-
     if roles_done:
         if head_uid and uid == head_uid:
             game_roles_view = dict(roles_map)

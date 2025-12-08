@@ -723,6 +723,9 @@ async def game_start(sid, data) -> GameStartAck:
                     f"room:{rid}:game_alive",
                     f"room:{rid}:game_fouls",
                     f"room:{rid}:game_short_speech_used",
+                    f"room:{rid}:game_nominees",
+                    f"room:{rid}:game_nom_speakers",
+                    f"room:{rid}:game_votes",
                 )
                 await p.sadd(f"room:{rid}:game_players", *player_ids)
                 await p.sadd(f"room:{rid}:game_alive", *player_ids)
@@ -1663,7 +1666,6 @@ async def game_vote_control(sid, data):
         except Exception:
             current_uid = 0
 
-        cur_idx = 0
         if current_uid and current_uid in nominees:
             cur_idx = nominees.index(current_uid)
         else:
@@ -1911,7 +1913,6 @@ async def game_vote(sid, data):
                 await p.execute()
 
             nominees = await get_nominees_in_order(r, rid)
-
             await sio.emit("game_vote_state",
                            {"room_id": rid,
                             "vote": {"current_uid": nominee_uid,
@@ -2074,6 +2075,7 @@ async def game_end(sid, data):
                 f"room:{rid}:roles_cards",
                 f"room:{rid}:roles_taken",
                 f"room:{rid}:game_roles",
+                f"room:{rid}:game_votes",
             )
             await p.execute()
 

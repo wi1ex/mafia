@@ -411,6 +411,7 @@ export function useRoomGame(localId: Ref<string>) {
     }
 
     const dy = (gr as any).day
+    const vt = (gr as any).vote
     if (phase === 'day' && dy && typeof dy === 'object') {
       daySpeech.openingId = String(dy.opening_uid || '')
       daySpeech.closingId = String(dy.closing_uid || '')

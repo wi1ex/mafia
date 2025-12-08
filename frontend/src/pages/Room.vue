@@ -53,7 +53,7 @@
           :nominees="nomineeSeatNumbers"
           :current-nominee-seat="id === headUserId ? currentNomineeSeat : null"
           :show-nominations-bar="id === headUserId && (gamePhase === 'day' || gamePhase === 'vote')"
-          :show-vote-button="id === headUserId && gamePhase === 'vote' && !vote.done"
+          :show-vote-button="id === headUserId && gamePhase === 'vote' && !vote.done && vote.remainingMs > 0"
           :vote-enabled="id === headUserId && gamePhase === 'vote' && game.canPressVoteButton()"
           :has-voted="votedUsers.has(id)"
           @toggle-panel="toggleTilePanel"
@@ -124,7 +124,7 @@
             :nominees="game.nomineeSeatNumbers"
             :current-nominee-seat="id === headUserId ? currentNomineeSeat : null"
             :show-nominations-bar="id === headUserId && (gamePhase === 'day' || gamePhase === 'vote')"
-            :show-vote-button="id === headUserId && gamePhase === 'vote' && !vote.done"
+            :show-vote-button="id === headUserId && gamePhase === 'vote' && !vote.done && vote.remainingMs > 0"
             :vote-enabled="id === headUserId && gamePhase === 'vote' && game.canPressVoteButton()"
             :has-voted="votedUsers.has(id)"
             @toggle-panel="toggleTilePanel"
@@ -163,6 +163,9 @@
           <button v-if="canFinishSpeechHead" class="btn-text" @click="finishSpeechUi" aria-label="Завершить речь">Завершить речь</button>
           <button v-else-if="canPassSpeechHead" class="btn-text" @click="passSpeechUi" aria-label="Передать речь">Передать речь</button>
           <button v-if="canStartVote" class="btn-text" @click="startVoteUi">Начать голосование</button>
+          <button v-if="gamePhase === 'vote' && myGameRole === 'head' && !vote.done && vote.remainingMs === 0" class="btn-text" @click="onHeadVoteControl">
+            {{ vote.currentId ? 'Продолжить' : 'Голосование за ' + (currentNomineeSeat ?? '') }}
+          </button>
 
           <button v-if="canFinishSpeechSelf" @click="finishSpeechUi">
             <img :src="iconSkip" alt="finish speech" />
@@ -355,6 +358,7 @@ const {
   amIAlive,
   takenCardSet,
   mafiaTalk,
+  vote,
 } = game
 
 const UA = navigator.userAgent || ''
@@ -647,6 +651,11 @@ const finishMafiaTalkUi = () => game.finishMafiaTalk(sendAckGame)
 const startDayUi = () => game.startDay(sendAckGame)
 const passSpeechUi = () => game.passSpeech(sendAckGame)
 const finishSpeechUi = () => game.finishSpeech(sendAckGame)
+const startVoteUi = () => game.startVotePhase(sendAckGame)
+
+function onGiveFoul(id: string) {
+  void game.giveFoul(id, sendAckGame)
+}
 
 const foulPending = ref(false)
 async function takeFoulUi() {
@@ -666,12 +675,16 @@ async function takeFoulUi() {
   } catch { foulPending.value = false }
 }
 
-function onGiveFoul(id: string) {
-  void game.giveFoul(id, sendAck)
-}
-
-function startVoteUi() {
-  alert('Процесс голосования будет добавлен позже')
+function onHeadVoteControl() {
+  if (gamePhase.value !== 'vote' || myGameRole.value !== 'head' || vote.done) return
+  if (!vote.currentId) {
+    void game.startCurrentCandidateVote(sendAckGame)
+    return
+  }
+  if (vote.remainingMs <= 0) {
+    void game.goToNextCandidate(sendAckGame)
+    return
+  }
 }
 
 const showPermProbe = computed(() => !rtc.hasAudioInput.value && !rtc.hasVideoInput.value)
