@@ -110,10 +110,16 @@ export function useRoomGame(localId: Ref<string>) {
     currentId: '',
     remainingMs: 0,
   })
+  const vote = reactive({
+    currentId: '',
+    remainingMs: 0,
+    done: false,
+  })
+  const voteTimerId = ref<number | null>(null)
+  const votedUsers = reactive(new Set<string>())
   const daySpeechTimerId = ref<number | null>(null)
   const daySpeechesDone = ref(false)
   const foulActive = reactive(new Set<string>())
-
   const dayNominees = reactive<string[]>([])
   const nominatedThisSpeechByMe = ref(false)
 
@@ -148,6 +154,31 @@ export function useRoomGame(localId: Ref<string>) {
 
   const takenCardSet = computed(() => new Set(rolePick.takenCards))
   const roleCardsToRender = computed(() => ALL_ROLE_CARDS)
+
+  const currentNomineeSeat = computed<number | null>(() => {
+    if (!vote.currentId) return null
+    return seatIndex(vote.currentId)
+  })
+
+  const iVoted = computed(() => {
+    const id = localId.value
+    if (!id) return false
+    return votedUsers.has(id)
+  })
+
+  function canPressVoteButton(): boolean {
+    const me = localId.value
+    if (!me) return false
+    if (gamePhase.value !== 'vote') return false
+    if (vote.done) return false
+    if (vote.remainingMs <= 0) return false
+    if (!amIAlive.value) return false
+    return !iVoted.value
+  }
+
+  function setVoteRemainingMs(ms: number, changed: boolean) {
+    setTimerWithLatency(vote, ms, voteTimerId, changed)
+  }
 
   function toggleKnownRolesVisibility(): void {
     knownRolesVisible.value = !knownRolesVisible.value
@@ -397,6 +428,29 @@ export function useRoomGame(localId: Ref<string>) {
         }
       }
       nominatedThisSpeechByMe.value = false
+    } else if (phase === 'vote' && vt && typeof vt === 'object') {
+      daySpeech.openingId = ''
+      daySpeech.closingId = ''
+      daySpeech.currentId = ''
+      setDaySpeechRemainingMs(0, false)
+      daySpeechesDone.value = true
+
+      const rawNominees = (vt as any).nominees
+      dayNominees.splice(0, dayNominees.length)
+      if (Array.isArray(rawNominees)) {
+        for (const uid of rawNominees) {
+          const s = String(uid)
+          if (s) dayNominees.push(s)
+        }
+      }
+
+      vote.currentId = String(vt.current_uid || '')
+      const rawMs = secondsToMs(vt.deadline)
+      setVoteRemainingMs(rawMs, false)
+      vote.done = isTrueLike((vt as any).done)
+
+      votedUsers.clear()
+      nominatedThisSpeechByMe.value = false
     } else {
       daySpeech.openingId = ''
       daySpeech.closingId = ''
@@ -406,6 +460,11 @@ export function useRoomGame(localId: Ref<string>) {
 
       dayNominees.splice(0, dayNominees.length)
       nominatedThisSpeechByMe.value = false
+
+      vote.currentId = ''
+      setVoteRemainingMs(0, false)
+      vote.done = false
+      votedUsers.clear()
     }
 
     const playersCount = gamePlayers.size
@@ -574,6 +633,32 @@ export function useRoomGame(localId: Ref<string>) {
     }
   }
 
+  function handleGameVoteState(p: any) {
+    const vt = p?.vote
+    if (!vt || typeof vt !== 'object') return
+    vote.currentId = String(vt.current_uid || '')
+    const ms = secondsToMs(vt.deadline)
+    setVoteRemainingMs(ms, true)
+    vote.done = isTrueLike(vt.done)
+
+    const rawNominees = vt.nominees
+    if (Array.isArray(rawNominees)) {
+      dayNominees.splice(0, dayNominees.length)
+      for (const uid of rawNominees) {
+        const s = String(uid)
+        if (s) dayNominees.push(s)
+      }
+    }
+  }
+
+  function handleGameVoted(p: any) {
+    const uid = String(p?.user_id || '')
+    const target = String(p?.target_id || '')
+    if (!uid || !target) return
+    votedUsers.add(uid)
+  }
+
+
   watch(() => [rolePick.activeUserId, localId.value, myGameRoleKind.value, gamePhase.value], () => { syncRoleOverlayWithTurn() })
 
   watch(knownRolesVisible, (val) => {
@@ -618,6 +703,30 @@ export function useRoomGame(localId: Ref<string>) {
 
       dayNominees.splice(0, dayNominees.length)
       nominatedThisSpeechByMe.value = false
+    } else if (to === 'vote') {
+      const vt = p?.vote
+      daySpeech.openingId = ''
+      daySpeech.closingId = ''
+      daySpeech.currentId = ''
+      setDaySpeechRemainingMs(0, true)
+      daySpeechesDone.value = true
+
+      dayNominees.splice(0, dayNominees.length)
+      const rawNominees = vt?.nominees
+      if (Array.isArray(rawNominees)) {
+        for (const uid of rawNominees) {
+          const s = String(uid)
+          if (s) dayNominees.push(s)
+        }
+      }
+
+      vote.currentId = String(vt?.current_uid || '')
+      const ms = secondsToMs(vt?.deadline)
+      setVoteRemainingMs(ms, true)
+      vote.done = isTrueLike(vt?.done)
+
+      votedUsers.clear()
+      nominatedThisSpeechByMe.value = false
     } else {
       daySpeech.openingId = ''
       daySpeech.closingId = ''
@@ -627,6 +736,11 @@ export function useRoomGame(localId: Ref<string>) {
 
       dayNominees.splice(0, dayNominees.length)
       nominatedThisSpeechByMe.value = false
+
+      vote.currentId = ''
+      setVoteRemainingMs(0, true)
+      vote.done = false
+      votedUsers.clear()
     }
   }
 
@@ -676,6 +790,76 @@ export function useRoomGame(localId: Ref<string>) {
         const s = String(uid)
         if (s) dayNominees.push(s)
       }
+    }
+  }
+
+  async function startVotePhase(sendAck: SendAckFn): Promise<void> {
+    const resp = await sendAck('game_phase_next', { from: 'day', to: 'vote' })
+    if (!resp?.ok) {
+      const st = resp?.status
+      const code = resp?.error
+      if (st === 400 && code === 'speeches_not_done') {
+        alert('Сначала нужно закончить речи')
+      } else if (st === 409 && code === 'no_nominees') {
+        alert('Никто не выставлен – можно переходить к ночи')
+      } else {
+        alert('Не удалось начать голосование')
+      }
+    }
+  }
+
+  async function startCurrentCandidateVote(sendAck: SendAckFn): Promise<void> {
+    const resp = await sendAck('game_vote_control', { action: 'start' })
+    if (!resp?.ok) {
+      const st = resp?.status
+      const code = resp?.error
+      if (st === 400 && code === 'bad_phase') {
+        alert('Сейчас не фаза голосования')
+      } else if (st === 403 && code === 'forbidden') {
+        alert('Только ведущий может управлять голосованием')
+      } else if (st === 409 && code === 'vote_done') {
+        alert('Голосование уже завершено')
+      } else {
+        alert('Не удалось запустить голосование за кандидата')
+      }
+    }
+  }
+
+  async function goToNextCandidate(sendAck: SendAckFn): Promise<void> {
+    const resp = await sendAck('game_vote_control', { action: 'next' })
+    if (!resp?.ok) {
+      const st = resp?.status
+      const code = resp?.error
+      if (st === 409 && code === 'vote_in_progress') {
+        alert('Сначала дождитесь окончания голосования за текущего кандидата')
+      } else if (st === 403 && code === 'forbidden') {
+        alert('Только ведущий может управлять голосованием')
+      } else {
+        alert('Не удалось перейти к следующему кандидату')
+      }
+    }
+  }
+
+  async function voteForCurrent(sendAck: SendAckFn): Promise<void> {
+    if (!canPressVoteButton()) return
+    const resp = await sendAck('game_vote', {})
+    if (!resp?.ok) {
+      const st = resp?.status
+      const code = resp?.error
+      if (st === 400 && code === 'bad_phase') {
+        alert('Сейчас не фаза голосования')
+      } else if (st === 403 && code === 'not_alive') {
+        alert('Только живые игроки могут голосовать')
+      } else if (st === 409 && code === 'already_voted') {
+        alert('Вы уже проголосовали')
+      } else if (st === 409 && (code === 'no_active_vote' || code === 'vote_window_closed')) {
+        alert('Время голосования за этого кандидата вышло')
+      } else if (st === 409 && code === 'vote_done') {
+        alert('Голосование уже завершено')
+      } else {
+        alert('Не удалось проголосовать')
+      }
+      return
     }
   }
 
@@ -940,7 +1124,18 @@ export function useRoomGame(localId: Ref<string>) {
     gameFoulsByUser,
     daySpeechesDone,
     nomineeSeatNumbers,
+    vote,
+    votedUsers,
+    currentNomineeSeat,
+    iVoted,
 
+    canPressVoteButton,
+    startVotePhase,
+    startCurrentCandidateVote,
+    goToNextCandidate,
+    voteForCurrent,
+    handleGameVoteState,
+    handleGameVoted,
     isGameHead,
     isDead,
     seatIndex,
@@ -958,6 +1153,8 @@ export function useRoomGame(localId: Ref<string>) {
     handleGameDaySpeech,
     handleGameFoul,
     handleGamePhaseChange,
+    handleGameVoteState,
+    handleGameVoted,
     shouldHighlightMafiaTile,
     goToMafiaTalk,
     finishMafiaTalk,

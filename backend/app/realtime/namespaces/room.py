@@ -45,6 +45,7 @@ from ..utils import (
     day_speech_timeout_job,
     apply_blocks_and_emit,
     finish_day_speech,
+    get_nominees_in_order,
 )
 
 log = structlog.get_logger()
@@ -1091,6 +1092,80 @@ async def game_phase_next(sid, data):
 
             return payload
 
+        if cur_phase == "day" and want_to == "vote":
+            speeches_done = str(raw_gstate.get("day_speeches_done") or "0") == "1"
+            if not speeches_done:
+                return {"ok": False, "error": "speeches_not_done", "status": 400}
+
+            try:
+                raw_nominees = await r.hgetall(f"room:{rid}:game_nominees")
+            except Exception:
+                raw_nominees = {}
+
+            tmp_nom: list[tuple[int, int]] = []
+            for uid_s, idx_s in (raw_nominees or {}).items():
+                try:
+                    u = int(uid_s)
+                    idx = int(idx_s or 0)
+                except Exception:
+                    continue
+                if idx > 0:
+                    tmp_nom.append((idx, u))
+
+            if not tmp_nom:
+                return {"ok": False, "error": "no_nominees", "status": 409}
+
+            tmp_nom.sort(key=lambda t: t[0])
+            ordered = [u for _, u in tmp_nom]
+            first_uid = ordered[0] if ordered else 0
+            try:
+                vote_duration = int(getattr(settings, "VOTE_SECONDS", 3))
+            except Exception:
+                vote_duration = 3
+            if vote_duration <= 0:
+                vote_duration = 3
+
+            async with r.pipeline() as p:
+                await p.hset(
+                    f"room:{rid}:game_state",
+                    mapping={
+                        "phase": "vote",
+                        "vote_current_uid": str(first_uid or 0),
+                        "vote_started": "0",
+                        "vote_duration": str(vote_duration),
+                        "vote_done": "0",
+                    },
+                )
+                await p.delete(f"room:{rid}:game_votes")
+                await p.execute()
+
+            payload = {
+                "ok": True,
+                "status": 200,
+                "room_id": rid,
+                "from": cur_phase,
+                "to": "vote",
+                "vote": {
+                    "nominees": ordered,
+                    "current_uid": first_uid,
+                    "deadline": 0,
+                    "done": False,
+                },
+            }
+
+            await sio.emit("game_phase_change",
+                           {"room_id": rid,
+                            "from": cur_phase,
+                            "to": "vote",
+                            "vote": {"nominees": ordered,
+                                     "current_uid": first_uid,
+                                     "deadline": 0,
+                                     "done": False}},
+                           room=f"room:{rid}",
+                           namespace="/room")
+
+            return payload
+
         return {"ok": False, "error": "bad_transition", "status": 400, "from": cur_phase, "to": want_to}
     except Exception:
         log.exception("sio.game_phase_next.error", sid=sid, data=bool(data))
@@ -1546,6 +1621,310 @@ async def game_nominate(sid, data):
 
     except Exception:
         log.exception("sio.game_nominate.error", sid=sid, data=bool(data))
+        return {"ok": False, "error": "internal", "status": 500}
+
+
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_vote_control:{uid or 'nouid'}:{rid or 0}", limit=20, window_s=1, session_ns="/room")
+@sio.event(namespace="/room")
+async def game_vote_control(sid, data):
+    try:
+        data = data or {}
+        action = str(data.get("action") or "")
+        sess = await sio.get_session(sid, namespace="/room")
+        actor_uid = int(sess["uid"])
+        rid = int(sess.get("rid") or 0)
+        if not rid:
+            return {"ok": False, "error": "no_room", "status": 400}
+
+        r = get_redis()
+        raw_gstate = await r.hgetall(f"room:{rid}:game_state")
+        phase = str(raw_gstate.get("phase") or "idle")
+        if phase != "vote":
+            return {"ok": False, "error": "bad_phase", "status": 400}
+
+        try:
+            head_uid = int(raw_gstate.get("head") or 0)
+        except Exception:
+            head_uid = 0
+
+        if not head_uid or actor_uid != head_uid:
+            return {"ok": False, "error": "forbidden", "status": 403}
+
+        vote_done = str(raw_gstate.get("vote_done") or "0") == "1"
+        if vote_done:
+            return {"ok": False, "error": "vote_done", "status": 409}
+
+        nominees = await get_nominees_in_order(r, rid)
+        if not nominees:
+            return {"ok": False, "error": "no_nominees", "status": 409}
+
+        try:
+            current_uid = int(raw_gstate.get("vote_current_uid") or 0)
+        except Exception:
+            current_uid = 0
+
+        cur_idx = 0
+        if current_uid and current_uid in nominees:
+            cur_idx = nominees.index(current_uid)
+        else:
+            current_uid = nominees[0]
+            cur_idx = 0
+
+        total_nominees = len(nominees)
+
+        try:
+            vote_duration = int(raw_gstate.get("vote_duration") or getattr(settings, "VOTE_SECONDS", 3))
+        except Exception:
+            vote_duration = getattr(settings, "VOTE_SECONDS", 3)
+        if vote_duration <= 0:
+            vote_duration = 3
+
+        alive_raw = await r.smembers(f"room:{rid}:game_alive")
+        alive_ids: set[int] = set()
+        for v in (alive_raw or []):
+            try:
+                alive_ids.add(int(v))
+            except Exception:
+                continue
+
+        votes_raw = await r.hkeys(f"room:{rid}:game_votes")
+        voted_ids: set[int] = set()
+        for v in (votes_raw or []):
+            try:
+                voted_ids.add(int(v))
+            except Exception:
+                continue
+
+        if alive_ids and alive_ids.issubset(voted_ids):
+            async with r.pipeline() as p:
+                await p.hset(f"room:{rid}:game_state", mapping={"vote_done": "1", "vote_started": "0"})
+                await p.execute()
+
+            await sio.emit("game_vote_state",
+                           {"room_id": rid,
+                            "vote": {"current_uid": current_uid,
+                                     "deadline": 0,
+                                     "nominees": nominees,
+                                     "done": True}},
+                           room=f"room:{rid}",
+                           namespace="/room")
+            return {"ok": True, "status": 200, "room_id": rid, "done": True}
+
+        is_last = (cur_idx == total_nominees - 1)
+        if action == "start":
+            if is_last:
+                to_auto_vote = [uid for uid in alive_ids if uid not in voted_ids]
+                if to_auto_vote:
+                    async with r.pipeline() as p:
+                        for voter in to_auto_vote:
+                            await p.hset(f"room:{rid}:game_votes", str(voter), str(current_uid))
+                        await p.hset(f"room:{rid}:game_state", mapping={"vote_done": "1", "vote_started": "0"})
+                        await p.execute()
+                    for voter in to_auto_vote:
+                        await sio.emit("game_voted",
+                                       {"room_id": rid,
+                                        "user_id": voter,
+                                        "target_id": current_uid,
+                                        "auto": True},
+                                       room=f"room:{rid}",
+                                       namespace="/room")
+                else:
+                    async with r.pipeline() as p:
+                        await p.hset(f"room:{rid}:game_state", mapping={"vote_done": "1", "vote_started": "0"})
+                        await p.execute()
+
+                await sio.emit("game_vote_state",
+                               {"room_id": rid,
+                                "vote": {"current_uid": current_uid,
+                                         "deadline": 0,
+                                         "nominees": nominees,
+                                         "done": True}},
+                               room=f"room:{rid}",
+                               namespace="/room")
+                return {"ok": True, "status": 200, "room_id": rid, "done": True}
+
+            now_ts = int(time())
+            async with r.pipeline() as p:
+                await p.hset(
+                    f"room:{rid}:game_state",
+                    mapping={
+                        "vote_current_uid": str(current_uid),
+                        "vote_started": str(now_ts),
+                        "vote_duration": str(vote_duration),
+                    },
+                )
+                await p.execute()
+
+            await sio.emit("game_vote_state",
+                           {"room_id": rid,
+                            "vote": {"current_uid": current_uid,
+                                     "deadline": vote_duration,
+                                     "nominees": nominees,
+                                     "done": False}},
+                           room=f"room:{rid}",
+                           namespace="/room")
+            return {"ok": True, "status": 200, "room_id": rid, "current_uid": current_uid}
+
+        elif action == "next":
+            now_ts = int(time())
+            try:
+                vote_started = int(raw_gstate.get("vote_started") or 0)
+            except Exception:
+                vote_started = 0
+
+            if vote_started and now_ts < vote_started + vote_duration:
+                return {"ok": False, "error": "vote_in_progress", "status": 409}
+
+            next_idx = cur_idx + 1
+            if next_idx >= total_nominees:
+                to_auto_vote = [uid for uid in alive_ids if uid not in voted_ids]
+                if to_auto_vote:
+                    async with r.pipeline() as p:
+                        for voter in to_auto_vote:
+                            await p.hset(f"room:{rid}:game_votes", str(voter), str(current_uid))
+                        await p.hset(f"room:{rid}:game_state", mapping={"vote_done": "1", "vote_started": "0"})
+                        await p.execute()
+                    for voter in to_auto_vote:
+                        await sio.emit("game_voted",
+                                       {"room_id": rid,
+                                        "user_id": voter,
+                                        "target_id": current_uid,
+                                        "auto": True},
+                                       room=f"room:{rid}",
+                                       namespace="/room")
+                else:
+                    async with r.pipeline() as p:
+                        await p.hset(f"room:{rid}:game_state", mapping={"vote_done": "1", "vote_started": "0"})
+                        await p.execute()
+
+                await sio.emit("game_vote_state",
+                               {"room_id": rid,
+                                "vote": {"current_uid": current_uid,
+                                         "deadline": 0,
+                                         "nominees": nominees,
+                                         "done": True}},
+                               room=f"room:{rid}",
+                               namespace="/room")
+                return {"ok": True, "status": 200, "room_id": rid, "done": True}
+
+            next_uid = nominees[next_idx]
+            async with r.pipeline() as p:
+                await p.hset(f"room:{rid}:game_state", mapping={"vote_current_uid": str(next_uid), "vote_started": "0"})
+                await p.execute()
+
+            await sio.emit("game_vote_state",
+                           {"room_id": rid,
+                            "vote": {"current_uid": next_uid,
+                                     "deadline": 0,
+                                     "nominees": nominees,
+                                     "done": False}},
+                           room=f"room:{rid}",
+                           namespace="/room")
+            return {"ok": True, "status": 200, "room_id": rid, "current_uid": next_uid}
+
+        else:
+            return {"ok": False, "error": "bad_action", "status": 400}
+
+    except Exception:
+        log.exception("sio.game_vote_control.error", sid=sid, data=bool(data))
+        return {"ok": False, "error": "internal", "status": 500}
+
+
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_vote:{uid or 'nouid'}:{rid or 0}", limit=60, window_s=1, session_ns="/room")
+@sio.event(namespace="/room")
+async def game_vote(sid, data):
+    try:
+        data = data or {}
+        sess = await sio.get_session(sid, namespace="/room")
+        uid = int(sess["uid"])
+        rid = int(sess.get("rid") or 0)
+        if not rid:
+            return {"ok": False, "error": "no_room", "status": 400}
+
+        r = get_redis()
+        raw_gstate = await r.hgetall(f"room:{rid}:game_state")
+        phase = str(raw_gstate.get("phase") or "idle")
+        if phase != "vote":
+            return {"ok": False, "error": "bad_phase", "status": 400}
+
+        vote_done = str(raw_gstate.get("vote_done") or "0") == "1"
+        if vote_done:
+            return {"ok": False, "error": "vote_done", "status": 409}
+
+        is_player = await r.sismember(f"room:{rid}:game_players", str(uid))
+        is_alive = await r.sismember(f"room:{rid}:game_alive", str(uid))
+        if not (is_player and is_alive):
+            return {"ok": False, "error": "not_alive", "status": 403}
+
+        try:
+            nominee_uid = int(raw_gstate.get("vote_current_uid") or 0)
+        except Exception:
+            nominee_uid = 0
+        if not nominee_uid:
+            return {"ok": False, "error": "no_active_vote", "status": 409}
+
+        try:
+            vote_started = int(raw_gstate.get("vote_started") or 0)
+        except Exception:
+            vote_started = 0
+        try:
+            vote_duration = int(raw_gstate.get("vote_duration") or getattr(settings, "VOTE_SECONDS", 3))
+        except Exception:
+            vote_duration = getattr(settings, "VOTE_SECONDS", 3)
+
+        now_ts = int(time())
+        if not vote_started or vote_duration <= 0 or now_ts > vote_started + vote_duration:
+            return {"ok": False, "error": "vote_window_closed", "status": 409}
+
+        existing = await r.hget(f"room:{rid}:game_votes", str(uid))
+        if existing is not None:
+            return {"ok": False, "error": "already_voted", "status": 409}
+
+        await r.hset(f"room:{rid}:game_votes", str(uid), str(nominee_uid))
+        await sio.emit("game_voted",
+                       {"room_id": rid,
+                        "user_id": uid,
+                        "target_id": nominee_uid,
+                        "auto": False},
+                       room=f"room:{rid}",
+                       namespace="/room")
+
+        alive_raw = await r.smembers(f"room:{rid}:game_alive")
+        alive_ids: set[int] = set()
+        for v in (alive_raw or []):
+            try:
+                alive_ids.add(int(v))
+            except Exception:
+                continue
+
+        votes_raw = await r.hkeys(f"room:{rid}:game_votes")
+        voted_ids: set[int] = set()
+        for v in (votes_raw or []):
+            try:
+                voted_ids.add(int(v))
+            except Exception:
+                continue
+
+        if alive_ids and alive_ids.issubset(voted_ids):
+            async with r.pipeline() as p:
+                await p.hset(f"room:{rid}:game_state", mapping={"vote_done": "1", "vote_started": "0"})
+                await p.execute()
+
+            nominees = await get_nominees_in_order(r, rid)
+
+            await sio.emit("game_vote_state",
+                           {"room_id": rid,
+                            "vote": {"current_uid": nominee_uid,
+                                     "deadline": 0,
+                                     "nominees": nominees,
+                                     "done": True}},
+                           room=f"room:{rid}",
+                           namespace="/room")
+
+        return {"ok": True, "status": 200, "room_id": rid, "user_id": uid, "target_id": nominee_uid}
+
+    except Exception:
+        log.exception("sio.game_vote.error", sid=sid, data=bool(data))
         return {"ok": False, "error": "internal", "status": 500}
 
 

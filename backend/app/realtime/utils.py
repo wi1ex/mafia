@@ -41,6 +41,7 @@ __all__ = [
     "advance_roles_turn",
     "emit_rooms_occupancy_safe",
     "get_game_runtime_and_roles_view",
+    "get_nominees_in_order",
     "can_act_on_user",
     "stop_screen_for_user",
     "emit_state_changed_filtered",
@@ -1310,6 +1311,56 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
             tmp_nom.sort(key=lambda t: t[0])
             game_runtime["day"]["nominees"] = [u for _, u in tmp_nom]
 
+    if phase == "vote":
+        try:
+            vote_current_uid = int(raw_gstate.get("vote_current_uid") or 0)
+        except Exception:
+            vote_current_uid = 0
+        try:
+            vote_started = int(raw_gstate.get("vote_started") or 0)
+        except Exception:
+            vote_started = 0
+        try:
+            vote_duration = int(raw_gstate.get("vote_duration") or getattr(settings, "VOTE_SECONDS", 3))
+        except Exception:
+            vote_duration = getattr(settings, "VOTE_SECONDS", 3)
+        try:
+            vote_done = str(raw_gstate.get("vote_done") or "0") == "1"
+        except Exception:
+            vote_done = False
+
+        remaining = 0
+        if vote_started and vote_duration > 0:
+            now_ts = int(time())
+            remaining = max(vote_started + vote_duration - now_ts, 0)
+
+        try:
+            raw_nominees = await r.hgetall(f"room:{rid}:game_nominees")
+        except Exception:
+            raw_nominees = {}
+
+        tmp_nom: list[tuple[int, int]] = []
+        for uid_s, idx_s in (raw_nominees or {}).items():
+            try:
+                u = int(uid_s)
+                idx = int(idx_s or 0)
+            except Exception:
+                continue
+            if idx > 0:
+                tmp_nom.append((idx, u))
+
+        nominees_order: list[int] = []
+        if tmp_nom:
+            tmp_nom.sort(key=lambda t: t[0])
+            nominees_order = [u for _, u in tmp_nom]
+
+        game_runtime["vote"] = {
+            "current_uid": vote_current_uid,
+            "deadline": remaining,
+            "nominees": nominees_order,
+            "done": vote_done,
+        }
+
     roles_map = {str(k): str(v) for k, v in (raw_roles or {}).items()}
     my_game_role = roles_map.get(str(uid))
 
@@ -1341,6 +1392,30 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
             game_roles_view[str(uid)] = my_game_role
 
     return game_runtime, game_roles_view, my_game_role
+
+
+async def get_nominees_in_order(r, rid: int) -> list[int]:
+    try:
+        raw_nominees = await r.hgetall(f"room:{rid}:game_nominees")
+    except Exception:
+        raw_nominees = {}
+
+    tmp: list[tuple[int, int]] = []
+    for uid_s, idx_s in (raw_nominees or {}).items():
+        try:
+            u = int(uid_s)
+            idx = int(idx_s or 0)
+        except Exception:
+            continue
+        if idx > 0:
+            tmp.append((idx, u))
+
+    if not tmp:
+        return []
+
+    tmp.sort(key=lambda t: t[0])
+
+    return [u for _, u in tmp]
 
 
 def can_act_on_user(actor_role: str, target_role: str) -> bool:

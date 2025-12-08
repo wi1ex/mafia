@@ -51,13 +51,18 @@
           :phase-label="phaseLabel"
           :show-nominate="game.canNominateTarget(id)"
           :nominees="nomineeSeatNumbers"
-          :show-nominations-bar="id === headUserId && gamePhase === 'day'"
+          :current-nominee-seat="id === headUserId ? currentNomineeSeat : null"
+          :show-nominations-bar="id === headUserId && (gamePhase === 'day' || gamePhase === 'vote')"
+          :show-vote-button="id === headUserId && gamePhase === 'vote' && !vote.done"
+          :vote-enabled="id === headUserId && gamePhase === 'vote' && game.canPressVoteButton()"
+          :has-voted="votedUsers.has(id)"
           @toggle-panel="toggleTilePanel"
           @vol-input="onVol"
           @block="(key, uid) => toggleBlock(uid, key)"
           @kick="kickUser"
           @foul="onGiveFoul"
           @nominate="onNominate"
+          @vote="onVote"
         />
       </div>
 
@@ -117,13 +122,18 @@
             :phase-label="id === localId && myGameRole === 'head' ? phaseLabel : ''"
             :show-nominate="game.canNominateTarget(id)"
             :nominees="game.nomineeSeatNumbers"
-            :show-nominations-bar="id === headUserId && gamePhase === 'day'"
+            :current-nominee-seat="id === headUserId ? currentNomineeSeat : null"
+            :show-nominations-bar="id === headUserId && (gamePhase === 'day' || gamePhase === 'vote')"
+            :show-vote-button="id === headUserId && gamePhase === 'vote' && !vote.done"
+            :vote-enabled="id === headUserId && gamePhase === 'vote' && game.canPressVoteButton()"
+            :has-voted="votedUsers.has(id)"
             @toggle-panel="toggleTilePanel"
             @vol-input="onVol"
             @block="(key, uid) => toggleBlock(uid, key)"
             @kick="kickUser"
             @foul="onGiveFoul"
             @nominate="onNominate"
+            @vote="onVote"
           />
         </div>
       </div>
@@ -324,6 +334,7 @@ const {
   seatsByUser,
   offlineInGame,
   gameFoulsByUser,
+  votedUsers,
   daySpeechesDone,
 
   rolesVisibleForHead,
@@ -335,6 +346,7 @@ const {
   roleOverlayMode,
   roleOverlayCard,
   nomineeSeatNumbers,
+  currentNomineeSeat,
 
   startingGame,
   endingGame,
@@ -736,6 +748,10 @@ function onNominate(targetId: string) {
   game.nominateTarget(targetId, sendAck)
 }
 
+const onVote = () => {
+  game.voteForCurrent(sendAck)
+}
+
 function isOn(id: string, kind: IconKind) {
   if (kind === 'screen') return !!id && id === screenOwnerId.value
   if (id === localId.value) {
@@ -1053,6 +1069,14 @@ socket.value?.on('connect', async () => {
 
   socket.value.on('game_nominee_added', (p: any) => {
     game.handleGameNomineeAdded(p)
+  })
+
+  socket.value.on('game_vote_state', (p: any) => {
+    game.handleGameVoteState(p)
+  })
+
+  socket.value.on('game_voted', (p: any) => {
+    game.handleGameVoted(p)
   })
 }
 

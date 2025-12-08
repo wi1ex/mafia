@@ -7,6 +7,10 @@
       <img :src="iconReady" alt="ready" />
     </div>
 
+    <div class="icon-voted" v-if="hasVoted" aria-hidden="true">
+      <img :src="iconLike" alt="voted" />
+    </div>
+
     <button v-if="inGame && seat != null && !isGameHead && !isDead(id)" class="icon-badge button left"
             @click="$emit('foul', id)" :disabled="!isHead" aria-label="Выдать фол">
       <img :src="iconFoul" alt="foul" />
@@ -20,10 +24,16 @@
       <img :src="gameRole" alt="role" />
     </div>
 
+    <button v-if="isGameHead && showVoteButton" class="vote-btn" :disabled="!voteEnabled" @click="$emit('vote')">
+      <img :src="iconLike" alt="vote" />
+      <span>Голосовать</span>
+    </button>
     <div class="head-bar" v-if="isGameHead && phaseLabel">{{ phaseLabel }}</div>
     <div class="head-bar" v-if="isGameHead && showNominationsBar" :class="{ nominate: Array.isArray(nominees) && nominees.length > 0 }">
       <span v-if="!Array.isArray(nominees) || nominees.length === 0">Никто не выставлен</span>
-      <span v-else class="nominations-badge" v-for="seatNum in nominees" :key="seatNum">{{ seatNum }}</span>
+      <span v-else class="nominations-badge" v-for="seatNum in nominees" :key="seatNum" :class="{ current: currentNomineeSeat === seatNum }">
+        {{ seatNum }}
+      </span>
     </div>
 
     <div v-show="!showVideo" class="ava-wrap">
@@ -128,6 +138,10 @@ const props = withDefaults(defineProps<{
   showNominate?: boolean
   nominees?: number[]
   showNominationsBar?: boolean
+  currentNomineeSeat?: number | null
+  showVoteButton?: boolean
+  voteEnabled?: boolean
+  hasVoted?: boolean
 }>(), {
   side: false,
   fitContain: false,
@@ -154,6 +168,10 @@ const props = withDefaults(defineProps<{
   showNominate: false,
   nominees: () => [],
   showNominationsBar: false,
+  currentNomineeSeat: null,
+  showVoteButton: false,
+  voteEnabled: false,
+  hasVoted: false,
 })
 
 defineEmits<{
@@ -163,6 +181,7 @@ defineEmits<{
   (e: 'kick', id: string): void
   (e: 'foul', id: string): void
   (e: 'nominate', id: string): void
+  (e: 'vote', id: string): void
 }>()
 
 const showVideo = computed(() =>
@@ -261,6 +280,25 @@ const timelineDurationSec = computed(() => {
       right: 5px;
     }
   }
+  .icon-voted {
+    display: flex;
+    position: absolute;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    width: 120px;
+    height: 120px;
+    border: none;
+    border-radius: 5px;
+    background-color: rgba($dark, 0.75);
+    backdrop-filter: blur(5px);
+    box-shadow: 3px 3px 5px rgba($black, 0.25);
+    z-index: 3;
+    img {
+      width: 100px;
+      height: 100px;
+    }
+  }
   .head-bar {
     display: flex;
     align-items: center;
@@ -291,6 +329,10 @@ const timelineDurationSec = computed(() => {
       background-color: $graphite;
       font-size: 18px;
       color: $fg;
+      &.current {
+        background-color: $green;
+        color: $bg;
+      }
     }
   }
   .nominate-btn {
@@ -310,7 +352,39 @@ const timelineDurationSec = computed(() => {
     backdrop-filter: blur(5px);
     box-shadow: 3px 3px 5px rgba($black, 0.25);
     cursor: pointer;
+    z-index: 20;
+    img {
+      width: 24px;
+      height: 24px;
+    }
+    span {
+      color: $fg;
+      font-size: 16px;
+      font-family: Manrope-Medium;
+      line-height: 1;
+    }
+  }
+  .vote-btn {
+    display: flex;
+    position: absolute;
+    align-items: center;
+    justify-content: center;
+    left: 50%;
+    bottom: 5px;
+    transform: translate(-50%);
+    padding: 0 10px;
+    gap: 5px;
+    height: 30px;
+    border: none;
+    border-radius: 5px;
+    background-color: rgba($dark, 0.75);
+    backdrop-filter: blur(5px);
+    box-shadow: 3px 3px 5px rgba($black, 0.25);
+    cursor: pointer;
     z-index: 3;
+    &:disabled {
+      cursor: default;
+    }
     img {
       width: 24px;
       height: 24px;
