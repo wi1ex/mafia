@@ -7,10 +7,7 @@
       <img :src="iconReady" alt="ready" />
     </div>
 
-    <div class="icon-voted" v-if="hasVoted" aria-hidden="true">
-      <img :src="iconLike" alt="voted" />
-    </div>
-
+    <img class="icon-voted" :src="iconLikeGreen" alt="voted" />
     <button v-if="inGame && seat != null && !isGameHead && !isDead(id)" class="icon-badge button left"
             @click="$emit('foul', id)" :disabled="!isHead" aria-label="Выдать фол">
       <img :src="iconFoul" alt="foul" />
@@ -91,6 +88,7 @@ import iconReady from '@/assets/svg/ready.svg'
 import iconLeaveRoom from '@/assets/svg/leave.svg'
 import iconFoul from '@/assets/svg/foul.svg'
 import iconLike from '@/assets/svg/like.svg'
+import iconLikeGreen from '@/assets/svg/likeGreen.svg'
 
 type IconKind = 'mic' | 'cam' | 'speakers' | 'visibility' | 'screen'
 
@@ -281,23 +279,12 @@ const timelineDurationSec = computed(() => {
     }
   }
   .icon-voted {
-    display: flex;
     position: absolute;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    width: 120px;
-    height: 120px;
-    border: none;
-    border-radius: 5px;
-    background-color: rgba($dark, 0.75);
-    backdrop-filter: blur(5px);
-    box-shadow: 3px 3px 5px rgba($black, 0.25);
-    z-index: 3;
-    img {
-      width: 100px;
-      height: 100px;
-    }
+    top: 50%;
+    left: 50%;
+    width: 75%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
   }
   .head-bar {
     display: flex;
@@ -370,7 +357,7 @@ const timelineDurationSec = computed(() => {
     align-items: center;
     justify-content: center;
     left: 50%;
-    bottom: 5px;
+    bottom: 50px;
     transform: translate(-50%);
     padding: 0 10px;
     gap: 5px;
