@@ -470,12 +470,12 @@ const timelineDurationSec = computed(() => {
         input[type="range"]::-webkit-slider-thumb {
           -webkit-appearance: none;
           appearance: none;
-          width: 16px;
-          height: 16px;
+          width: 18px;
+          height: 18px;
           border-radius: 50%;
           background-color: $fg;
           border: 3px solid $dark;
-          margin-top: calc(-16px / 2 + 3px);
+          margin-top: calc(-18px / 2 + 3px);
         }
         input[type="range"]::-moz-range-track {
           height: 6px;
@@ -669,8 +669,8 @@ const timelineDurationSec = computed(() => {
             border-radius: 2px;
           }
           input[type="range"]::-moz-range-thumb {
-            width: 12px;
-            height: 12px;
+            width: 8px;
+            height: 8px;
             border: 2px solid $dark;
           }
         }

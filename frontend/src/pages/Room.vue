@@ -1538,34 +1538,70 @@ onBeforeUnmount(() => {
       }
       .volume {
         display: flex;
-        position: absolute;
         align-items: center;
         justify-content: space-between;
-        top: 5px;
-        left: 5px;
         padding: 5px;
         gap: 5px;
-        width: min-content;
+        width: calc(100% - 10px);
         height: 20px;
         border-radius: 5px;
-        background-color: rgba($dark, 0.75);
-        backdrop-filter: blur(5px);
+        background-color: $graphite;
         box-shadow: 3px 3px 5px rgba($black, 0.25);
         -webkit-overflow-scrolling: touch;
         img {
+          flex: 0 0 auto;
           width: 20px;
           height: 20px;
         }
         input[type="range"] {
-          min-width: calc(100% - 66px);
+          flex: 1 1 auto;
+          min-width: 0;
           height: 8px;
           accent-color: $fg;
           cursor: pointer;
+          appearance: none;
+          background: transparent;
         }
         span {
+          flex: 0 0 auto;
           min-width: 32px;
           text-align: center;
           font-size: 12px;
+        }
+        input[type="range"]:disabled {
+          cursor: default;
+          opacity: 0.5;
+        }
+        input[type="range"]:focus-visible {
+          outline: 1px solid $fg;
+          outline-offset: 1px;
+        }
+        input[type="range"]::-webkit-slider-runnable-track {
+          height: 6px;
+          border-radius: 3px;
+          background-color: $grey;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          appearance: none;
+          width: 18px;
+          height: 18px;
+          border-radius: 50%;
+          background-color: $fg;
+          border: 3px solid $dark;
+          margin-top: calc(-18px / 2 + 3px);
+        }
+        input[type="range"]::-moz-range-track {
+          height: 6px;
+          border-radius: 3px;
+          background-color: $grey;
+        }
+        input[type="range"]::-moz-range-thumb {
+          width: 16px;
+          height: 16px;
+          border-radius: 50%;
+          background-color: $fg;
+          border: 3px solid $dark;
         }
       }
     }
@@ -1775,6 +1811,43 @@ onBeforeUnmount(() => {
       width: calc(100vw - 10px);
       height: calc(100dvh - 40px);
       gap: 5px;
+      .stage {
+        .volume {
+          padding: 3px 5px;
+          gap: 3px;
+          height: 14px;
+          img {
+            width: 14px;
+            height: 14px;
+          }
+          input[type="range"] {
+            height: 6px;
+          }
+          span {
+            min-width: 26px;
+            font-size: 10px;
+          }
+          input[type="range"]::-webkit-slider-runnable-track {
+            height: 4px;
+            border-radius: 2px;
+          }
+          input[type="range"]::-webkit-slider-thumb {
+            width: 12px;
+            height: 12px;
+            border: 2px solid $dark;
+            margin-top: calc(-12px / 2 + 2px);
+          }
+          input[type="range"]::-moz-range-track {
+            height: 4px;
+            border-radius: 2px;
+          }
+          input[type="range"]::-moz-range-thumb {
+            width: 8px;
+            height: 8px;
+            border: 2px solid $dark;
+          }
+        }
+      }
       .sidebar {
         gap: 5px;
       }
