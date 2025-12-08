@@ -1538,14 +1538,18 @@ onBeforeUnmount(() => {
       }
       .volume {
         display: flex;
+        position: absolute;
         align-items: center;
         justify-content: space-between;
+        top: 5px;
+        left: 5px;
         padding: 5px;
         gap: 5px;
-        width: calc(100% - 10px);
+        width: 20%;
         height: 20px;
         border-radius: 5px;
-        background-color: $graphite;
+        background-color: rgba($dark, 0.75);
+        backdrop-filter: blur(5px);
         box-shadow: 3px 3px 5px rgba($black, 0.25);
         -webkit-overflow-scrolling: touch;
         img {
@@ -1813,8 +1817,11 @@ onBeforeUnmount(() => {
       gap: 5px;
       .stage {
         .volume {
+          top: 3px;
+          left: 3px;
           padding: 3px 5px;
           gap: 3px;
+          width: 30%;
           height: 14px;
           img {
             width: 14px;
