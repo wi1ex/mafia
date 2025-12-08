@@ -53,7 +53,7 @@
           :nominees="nomineeSeatNumbers"
           :current-nominee-seat="id === headUserId ? currentNomineeSeat : null"
           :show-nominations-bar="id === headUserId && (gamePhase === 'day' || gamePhase === 'vote')"
-          :show-vote-button="id === headUserId && gamePhase === 'vote' && !vote.done && myGameRole === 'player' && amIAlive && !iVoted"
+          :show-vote-button="id === headUserId && gamePhase === 'vote' && !vote.done && myGameRole === 'player' && amIAlive && game.canPressVoteButton()"
           :vote-enabled="id === headUserId && gamePhase === 'vote' && game.canPressVoteButton()"
           :has-voted="votedUsers.has(id)"
           @toggle-panel="toggleTilePanel"
@@ -124,7 +124,7 @@
             :nominees="game.nomineeSeatNumbers"
             :current-nominee-seat="id === headUserId ? currentNomineeSeat : null"
             :show-nominations-bar="id === headUserId && (gamePhase === 'day' || gamePhase === 'vote')"
-            :show-vote-button="id === headUserId && gamePhase === 'vote' && !vote.done && myGameRole === 'player' && amIAlive && !iVoted"
+            :show-vote-button="id === headUserId && gamePhase === 'vote' && !vote.done && myGameRole === 'player' && amIAlive && game.canPressVoteButton()"
             :vote-enabled="id === headUserId && gamePhase === 'vote' && game.canPressVoteButton()"
             :has-voted="votedUsers.has(id)"
             @toggle-panel="toggleTilePanel"
@@ -439,7 +439,6 @@ const canShowStartGame = computed(() => {
   const nonReady = total - ready
   return !meReady && total === min + 1 && ready === min && nonReady === 1
 })
-
 const headUserId = computed(() => {
   for (const [uid, seat] of Object.entries(seatsByUser)) {
     if (seat === 11) return uid
@@ -657,7 +656,7 @@ const startDayUi = () => game.startDay(sendAckGame)
 const passSpeechUi = () => game.passSpeech(sendAckGame)
 const finishSpeechUi = () => game.finishSpeech(sendAckGame)
 const startVoteUi = () => game.startVotePhase(sendAckGame)
-const finishVoteUi = () => game.finishVote()
+const finishVoteUi = () => game.finishVote(sendAckGame)
 
 function onGiveFoul(id: string) {
   void game.giveFoul(id, sendAckGame)
@@ -1099,6 +1098,10 @@ socket.value?.on('connect', async () => {
 
   socket.value.on('game_voted', (p: any) => {
     game.handleGameVoted(p)
+  })
+
+  socket.value.on('game_vote_result', (p: any) => {
+    game.handleGameVoteResult(p)
   })
 }
 

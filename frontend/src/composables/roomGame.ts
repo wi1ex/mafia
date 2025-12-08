@@ -123,6 +123,7 @@ export function useRoomGame(localId: Ref<string>) {
   const foulActive = reactive(new Set<string>())
   const dayNominees = reactive<string[]>([])
   const nominatedThisSpeechByMe = ref(false)
+  const voteResultLeaders = reactive<string[]>([])
 
   const nomineeSeatNumbers = computed<number[]>(() => {
     const list = Array.isArray(dayNominees) ? dayNominees : []
@@ -663,7 +664,6 @@ export function useRoomGame(localId: Ref<string>) {
       voteStartedForCurrent.value = false
     } else if (newId !== prevId) {
       voteStartedForCurrent.value = ms > 0
-      votedUsers.clear()
     } else if (ms > 0) {
       voteStartedForCurrent.value = true
     }
@@ -685,11 +685,57 @@ export function useRoomGame(localId: Ref<string>) {
     votedUsers.add(uid)
   }
 
-  function finishVote(): void {
+  function handleGameVoteResult(p: any) {
+    const leadersRaw = p?.leaders
+    voteResultLeaders.splice(0, voteResultLeaders.length)
+    if (Array.isArray(leadersRaw)) {
+      for (const uid of leadersRaw) {
+        const s = String(uid)
+        if (s) voteResultLeaders.push(s)
+      }
+    }
+    const nomineesRaw = p?.nominees
+    dayNominees.splice(0, dayNominees.length)
+    if (Array.isArray(nomineesRaw)) {
+      for (const uid of nomineesRaw) {
+        const s = String(uid)
+        if (s && voteResultLeaders.includes(s)) {
+          dayNominees.push(s)
+        }
+      }
+    }
+  }
+
+  function resetVoteState(): void {
     vote.currentId = ''
     setVoteRemainingMs(0, true)
+    vote.done = false
     votedUsers.clear()
     dayNominees.splice(0, dayNominees.length)
+    voteStartedForCurrent.value = false
+    voteResultLeaders.splice(0, voteResultLeaders.length)
+  }
+
+  async function finishVote(sendAck: SendAckFn): Promise<void> {
+    const resp = await sendAck('game_vote_finish', {})
+    if (!resp?.ok) {
+      const st = resp?.status
+      const code = resp?.error
+      if (st === 400 && code === 'bad_phase') {
+        alert('Сейчас не фаза голосования')
+      } else if (st === 403 && code === 'forbidden') {
+        alert('Только ведущий может завершать голосование')
+      } else if (st === 409 && code === 'vote_not_done') {
+        alert('Голосование еще не завершено')
+      } else if (st === 409 && code === 'no_nominees') {
+        alert('Никто не выставлен')
+      } else if (st === 409 && code === 'no_leaders') {
+        alert('Нет лидеров голосования')
+      } else {
+        alert('Не удалось завершить голосование')
+      }
+      return
+    }
   }
 
   watch(() => [rolePick.activeUserId, localId.value, myGameRoleKind.value, gamePhase.value], () => { syncRoleOverlayWithTurn() })
@@ -743,6 +789,7 @@ export function useRoomGame(localId: Ref<string>) {
       daySpeech.currentId = ''
       setDaySpeechRemainingMs(0, true)
       daySpeechesDone.value = true
+      voteResultLeaders.splice(0, voteResultLeaders.length)
 
       dayNominees.splice(0, dayNominees.length)
       const rawNominees = vt?.nominees
@@ -1164,7 +1211,9 @@ export function useRoomGame(localId: Ref<string>) {
     currentNomineeSeat,
     iVoted,
     voteStartedForCurrent,
+    voteResultLeaders,
 
+    handleGameVoteResult,
     canPressVoteButton,
     startVotePhase,
     startCurrentCandidateVote,
@@ -1207,5 +1256,6 @@ export function useRoomGame(localId: Ref<string>) {
     canNominateTarget,
     nominateTarget,
     toggleKnownRolesVisibility,
+    finishVote,
   }
 }

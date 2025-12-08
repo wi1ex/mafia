@@ -1929,6 +1929,75 @@ async def game_vote(sid, data):
         return {"ok": False, "error": "internal", "status": 500}
 
 
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_vote_finish:{uid or 'nouid'}:{rid or 0}", limit=20, window_s=1, session_ns="/room")
+@sio.event(namespace="/room")
+async def game_vote_finish(sid, data):
+    try:
+        data = data or {}
+        sess = await sio.get_session(sid, namespace="/room")
+        actor_uid = int(sess["uid"])
+        rid = int(sess.get("rid") or 0)
+        if not rid:
+            return {"ok": False, "error": "no_room", "status": 400}
+
+        r = get_redis()
+        raw_gstate = await r.hgetall(f"room:{rid}:game_state")
+        phase = str(raw_gstate.get("phase") or "idle")
+        if phase != "vote":
+            return {"ok": False, "error": "bad_phase", "status": 400}
+
+        try:
+            head_uid = int(raw_gstate.get("head") or 0)
+        except Exception:
+            head_uid = 0
+
+        if not head_uid or actor_uid != head_uid:
+            return {"ok": False, "error": "forbidden", "status": 403}
+
+        vote_done = str(raw_gstate.get("vote_done") or "0") == "1"
+        if not vote_done:
+            return {"ok": False, "error": "vote_not_done", "status": 409}
+
+        nominees = await get_nominees_in_order(r, rid)
+        if not nominees:
+            return {"ok": False, "error": "no_nominees", "status": 409}
+
+        try:
+            raw_votes = await r.hgetall(f"room:{rid}:game_votes")
+        except Exception:
+            raw_votes = {}
+
+        counts: dict[int, int] = {uid: 0 for uid in nominees}
+        for _voter_s, target_s in (raw_votes or {}).items():
+            try:
+                t = int(target_s or 0)
+            except Exception:
+                continue
+            if t in counts:
+                counts[t] = counts.get(t, 0) + 1
+
+        max_votes = max(counts.values()) if counts else 0
+        if max_votes <= 0:
+            return {"ok": False, "error": "no_leaders", "status": 409}
+
+        leaders: list[int] = [uid for uid in nominees if counts.get(uid, 0) == max_votes]
+        payload = {
+            "room_id": rid,
+            "nominees": nominees,
+            "leaders": leaders,
+            "counts": {str(uid): int(counts.get(uid, 0)) for uid in nominees},
+        }
+        await sio.emit("game_vote_result",
+                       payload,
+                       room=f"room:{rid}",
+                       namespace="/room")
+        return {"ok": True, "status": 200, **payload}
+
+    except Exception:
+        log.exception("sio.game_vote_finish.error", sid=sid, data=bool(data))
+        return {"ok": False, "error": "internal", "status": 500}
+
+
 @rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_speech_finish:{uid or 'nouid'}:{rid or 0}", limit=20, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
 async def game_speech_finish(sid, data):

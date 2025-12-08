@@ -14,7 +14,7 @@
       <span>{{ foulsCount }}</span>
     </button>
     <button v-if="showNominate" class="nominate-btn" @click="$emit('nominate', id)">
-      <img :src="iconLike" alt="nominate" />
+      <img :src="iconLikeWhite" alt="nominate" />
       <span>Выставить</span>
     </button>
     <div class="icon-badge right" v-if="gameRole" aria-hidden="true">
@@ -22,8 +22,8 @@
     </div>
 
     <button v-if="isGameHead && showVoteButton" class="vote-btn" :disabled="!voteEnabled" @click="$emit('vote')">
-      <img :src="iconLike" alt="vote" />
-      <span>Голосовать</span>
+      <img :src="voteEnabled ? iconLikeBlack : iconLikeWhite" alt="vote" />
+      <span>Проголосовать</span>
     </button>
     <div class="head-bar" v-if="isGameHead && phaseLabel">{{ phaseLabel }}</div>
     <div class="head-bar" v-if="isGameHead && showNominationsBar" :class="{ nominate: Array.isArray(nominees) && nominees.length > 0 }">
@@ -87,8 +87,9 @@ import { computed } from 'vue'
 import iconReady from '@/assets/svg/ready.svg'
 import iconLeaveRoom from '@/assets/svg/leave.svg'
 import iconFoul from '@/assets/svg/foul.svg'
-import iconLike from '@/assets/svg/like.svg'
+import iconLikeWhite from '@/assets/svg/likeWhite.svg'
 import iconLikeGreen from '@/assets/svg/likeGreen.svg'
+import iconLikeBlack from '@/assets/svg/likeBlack.svg'
 
 type IconKind = 'mic' | 'cam' | 'speakers' | 'visibility' | 'screen'
 
@@ -359,9 +360,9 @@ const timelineDurationSec = computed(() => {
     left: 50%;
     top: 50%;
     transform: translate(-50%, -50%);
-    padding: 0 20px;
-    gap: 10px;
-    height: 40px;
+    padding: 0 15px;
+    gap: 5px;
+    height: 50px;
     border: none;
     border-radius: 5px;
     background-color: $green;
@@ -667,14 +668,14 @@ const timelineDurationSec = computed(() => {
     }
     .vote-btn {
       padding: 0 10px;
-      gap: 5px;
+      gap: 3px;
       height: 30px;
       img {
-        width: 24px;
-        height: 24px;
+        width: 20px;
+        height: 20px;
       }
       span {
-        font-size: 16px;
+        font-size: 14px;
       }
     }
     .user-card {
