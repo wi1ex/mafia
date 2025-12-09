@@ -48,7 +48,7 @@ from ..utils import (
     get_nominees_in_order,
     get_alive_and_voted_ids,
     enrich_game_runtime_with_vote,
-    get_game_fouls,
+    get_game_fouls, vote_speech_timeout_job, finish_vote_speech,
 )
 
 log = structlog.get_logger()
@@ -513,6 +513,27 @@ async def game_leave(sid, data):
         if phase == "idle":
             return {"ok": False, "error": "no_game", "status": 400}
 
+        vote_aborted = False
+        if phase == "vote":
+            try:
+                async with r.pipeline() as p:
+                    await p.hset(
+                        f"room:{rid}:game_state",
+                        mapping={
+                            "vote_done": "1",
+                            "vote_started": "0",
+                            "vote_aborted": "1",
+                            "vote_speech_uid": "0",
+                            "vote_speech_started": "0",
+                            "vote_speech_duration": "0",
+                            "vote_speech_kind": "",
+                        },
+                    )
+                    await p.execute()
+                vote_aborted = True
+            except Exception:
+                log.exception("sio.game_leave.abort_vote_failed", rid=rid, uid=uid)
+
         try:
             head_uid = int(raw_gstate.get("head") or 0)
         except Exception:
@@ -566,6 +587,16 @@ async def game_leave(sid, data):
                 await apply_blocks_and_emit(r, rid, actor_uid=head_uid, actor_role="head", target_uid=uid, changes_bool={"mic": True, "cam": True})
             except Exception:
                 log.exception("sio.game_leave.autoblock_failed", rid=rid, head=head_uid, target=uid)
+
+        if vote_aborted:
+            try:
+                await sio.emit("game_vote_aborted",
+                               {"room_id": rid,
+                                "user_id": uid},
+                               room=f"room:{rid}",
+                               namespace="/room")
+            except Exception:
+                log.exception("sio.game_leave.vote_aborted_notify_failed", rid=rid, uid=uid)
 
         try:
             async with SessionLocal() as s:
@@ -1101,7 +1132,7 @@ async def game_phase_next(sid, data):
 
             first_uid = ordered[0]
             try:
-                vote_duration = int(getattr(settings, "VOTE_SECONDS", 3))
+                vote_duration = settings.VOTE_SECONDS
             except Exception:
                 vote_duration = 3
             if vote_duration <= 0:
@@ -1640,9 +1671,9 @@ async def game_vote_control(sid, data):
         total_nominees = len(nominees)
 
         try:
-            vote_duration = int(raw_gstate.get("vote_duration") or getattr(settings, "VOTE_SECONDS", 3))
+            vote_duration = int(raw_gstate.get("vote_duration") or settings.VOTE_SECONDS)
         except Exception:
-            vote_duration = getattr(settings, "VOTE_SECONDS", 3)
+            vote_duration = settings.VOTE_SECONDS
         if vote_duration <= 0:
             vote_duration = 3
 
@@ -1820,9 +1851,9 @@ async def game_vote(sid, data):
         except Exception:
             vote_started = 0
         try:
-            vote_duration = int(raw_gstate.get("vote_duration") or getattr(settings, "VOTE_SECONDS", 3))
+            vote_duration = int(raw_gstate.get("vote_duration") or settings.VOTE_SECONDS)
         except Exception:
-            vote_duration = getattr(settings, "VOTE_SECONDS", 3)
+            vote_duration = settings.VOTE_SECONDS
 
         now_ts = int(time())
         if not vote_started or vote_duration <= 0 or now_ts > vote_started + vote_duration:
@@ -1926,6 +1957,27 @@ async def game_vote_finish(sid, data):
                        payload,
                        room=f"room:{rid}",
                        namespace="/room")
+
+        leaders_str = ",".join(str(uid) for uid in leaders)
+        async with r.pipeline() as p:
+            await p.hset(
+                f"room:{rid}:game_state",
+                mapping={
+                    "vote_leaders_order": leaders_str,
+                    "vote_leader_idx": "0",
+                    "vote_speech_uid": "0",
+                    "vote_speech_started": "0",
+                    "vote_speech_duration": "0",
+                    "vote_speech_kind": "",
+                    "vote_aborted": "0",
+                },
+            )
+            mp_nominees = {str(uid): str(i + 1) for i, uid in enumerate(leaders)}
+            await p.delete(f"room:{rid}:game_nominees")
+            if mp_nominees:
+                await p.hset(f"room:{rid}:game_nominees", mapping=mp_nominees)
+            await p.execute()
+
         return {"ok": True, "status": 200, **payload}
 
     except Exception:
@@ -1947,7 +1999,7 @@ async def game_speech_finish(sid, data):
         r = get_redis()
         raw_gstate = await r.hgetall(f"room:{rid}:game_state")
         phase = str(raw_gstate.get("phase") or "idle")
-        if phase != "day":
+        if phase not in ("day", "vote"):
             return {"ok": False, "error": "bad_phase", "status": 400}
 
         try:
@@ -1955,10 +2007,16 @@ async def game_speech_finish(sid, data):
         except Exception:
             head_uid = 0
 
-        try:
-            current_uid = int(raw_gstate.get("day_current_uid") or 0)
-        except Exception:
-            current_uid = 0
+        if phase == "day":
+            try:
+                current_uid = int(raw_gstate.get("day_current_uid") or 0)
+            except Exception:
+                current_uid = 0
+        else:
+            try:
+                current_uid = int(raw_gstate.get("vote_speech_uid") or 0)
+            except Exception:
+                current_uid = 0
 
         if not current_uid:
             return {"ok": False, "error": "no_speech", "status": 400}
@@ -1974,7 +2032,10 @@ async def game_speech_finish(sid, data):
             return {"ok": False, "error": "not_alive", "status": 400}
 
         try:
-            payload = await finish_day_speech(r, rid, raw_gstate, current_uid)
+            if phase == "day":
+                payload = await finish_day_speech(r, rid, raw_gstate, current_uid)
+            else:
+                payload = await finish_vote_speech(r, rid, raw_gstate, current_uid)
         except Exception:
             log.exception("sio.game_speech_finish.finish_failed", rid=rid, uid=current_uid)
             return {"ok": False, "error": "internal", "status": 500}
@@ -1983,11 +2044,254 @@ async def game_speech_finish(sid, data):
                        payload,
                        room=f"room:{rid}",
                        namespace="/room")
-
         return {"ok": True, "status": 200, **payload}
 
     except Exception:
         log.exception("sio.game_speech_finish.error", sid=sid, data=bool(data))
+        return {"ok": False, "error": "internal", "status": 500}
+
+
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_vote_speech_next:{uid or 'nouid'}:{rid or 0}", limit=20, window_s=1, session_ns="/room")
+@sio.event(namespace="/room")
+async def game_vote_speech_next(sid, data):
+    try:
+        data = data or {}
+        sess = await sio.get_session(sid, namespace="/room")
+        actor_uid = int(sess["uid"])
+        rid = int(sess.get("rid") or 0)
+        if not rid:
+            return {"ok": False, "error": "no_room", "status": 400}
+
+        r = get_redis()
+        raw_gstate = await r.hgetall(f"room:{rid}:game_state")
+        phase = str(raw_gstate.get("phase") or "idle")
+        if phase != "vote":
+            return {"ok": False, "error": "bad_phase", "status": 400}
+
+        try:
+            head_uid = int(raw_gstate.get("head") or 0)
+        except Exception:
+            head_uid = 0
+        if not head_uid or actor_uid != head_uid:
+            return {"ok": False, "error": "forbidden", "status": 403}
+
+        vote_done = str(raw_gstate.get("vote_done") or "0") == "1"
+        if not vote_done:
+            return {"ok": False, "error": "vote_not_done", "status": 409}
+
+        try:
+            cur_speaker = int(raw_gstate.get("vote_speech_uid") or 0)
+            speech_started = int(raw_gstate.get("vote_speech_started") or 0)
+            speech_duration = int(raw_gstate.get("vote_speech_duration") or 0)
+        except Exception:
+            cur_speaker = 0
+            speech_started = 0
+            speech_duration = 0
+
+        now_ts = int(time())
+        if cur_speaker and speech_started and speech_duration > 0 and now_ts < speech_started + speech_duration:
+            return {"ok": False, "error": "speech_in_progress", "status": 409}
+
+        leaders_raw = str(raw_gstate.get("vote_leaders_order") or "")
+        leaders: list[int] = []
+        for part in leaders_raw.split(","):
+            part = part.strip()
+            if not part:
+                continue
+            try:
+                leaders.append(int(part))
+            except Exception:
+                continue
+
+        if not leaders:
+            return {"ok": False, "error": "no_leaders", "status": 409}
+
+        try:
+            leader_idx = int(raw_gstate.get("vote_leader_idx") or 0)
+        except Exception:
+            leader_idx = 0
+
+        total = len(leaders)
+        if leader_idx >= total:
+            return {"ok": False, "error": "no_more_leaders", "status": 409}
+
+        target_uid = leaders[leader_idx]
+        is_player = await r.sismember(f"room:{rid}:game_players", str(target_uid))
+        is_alive = await r.sismember(f"room:{rid}:game_alive", str(target_uid))
+        if not (is_player and is_alive):
+            async with r.pipeline() as p:
+                await p.hset(f"room:{rid}:game_state", "vote_leader_idx", str(leader_idx + 1))
+                await p.execute()
+            return await game_vote_speech_next(sid, data)
+
+        try:
+            full_sec = settings.PLAYER_TALK_SECONDS
+        except Exception:
+            full_sec = 60
+        try:
+            short_sec = settings.PLAYER_TALK_SHORT_SECONDS
+        except Exception:
+            short_sec = 30
+        if short_sec <= 0:
+            short_sec = full_sec
+
+        if total == 1:
+            kind = "farewell"
+            duration = full_sec
+        else:
+            kind = "defence"
+            duration = short_sec
+
+        try:
+            _, forced_off = await apply_blocks_and_emit(r, rid, actor_uid=head_uid, actor_role="head", target_uid=target_uid, changes_bool={"mic": False})
+        except Exception:
+            log.exception("game_vote_speech_next.unblock_mic_failed", rid=rid, head=head_uid, target=target_uid)
+            return {"ok": False, "error": "internal", "status": 500}
+
+        if "__error__" in forced_off:
+            return {"ok": False, "error": "forbidden", "status": 403}
+
+        try:
+            await r.hset(f"room:{rid}:user:{target_uid}:state", mapping={"mic": "1"})
+            await emit_state_changed_filtered(r, rid, target_uid, {"mic": "1"})
+        except Exception:
+            log.exception("game_vote_speech_next.mic_state_on_failed", rid=rid, uid=target_uid)
+
+        now_ts = int(time())
+        async with r.pipeline() as p:
+            await p.hset(
+                f"room:{rid}:game_state",
+                mapping={
+                    "vote_leader_idx": str(leader_idx + 1),
+                    "vote_speech_uid": str(target_uid),
+                    "vote_speech_started": str(now_ts),
+                    "vote_speech_duration": str(duration),
+                    "vote_speech_kind": kind,
+                },
+            )
+            await p.execute()
+
+        asyncio.create_task(vote_speech_timeout_job(rid, now_ts, target_uid, duration))
+
+        payload = {
+            "room_id": rid,
+            "speaker_uid": target_uid,
+            "opening_uid": target_uid,
+            "closing_uid": target_uid,
+            "deadline": duration,
+            "vote_speech_kind": kind,
+        }
+
+        await sio.emit("game_day_speech",
+                       payload,
+                       room=f"room:{rid}",
+                       namespace="/room")
+        return {"ok": True, "status": 200, **payload}
+
+    except Exception:
+        log.exception("sio.game_vote_speech_next.error", sid=sid, data=bool(data))
+        return {"ok": False, "error": "internal", "status": 500}
+
+
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_vote_restart:{uid or 'nouid'}:{rid or 0}", limit=20, window_s=1, session_ns="/room")
+@sio.event(namespace="/room")
+async def game_vote_restart(sid, data):
+    try:
+        data = data or {}
+        sess = await sio.get_session(sid, namespace="/room")
+        actor_uid = int(sess["uid"])
+        rid = int(sess.get("rid") or 0)
+        if not rid:
+            return {"ok": False, "error": "no_room", "status": 400}
+
+        r = get_redis()
+        raw_gstate = await r.hgetall(f"room:{rid}:game_state")
+        phase = str(raw_gstate.get("phase") or "idle")
+        if phase != "vote":
+            return {"ok": False, "error": "bad_phase", "status": 400}
+
+        try:
+            head_uid = int(raw_gstate.get("head") or 0)
+        except Exception:
+            head_uid = 0
+        if not head_uid or actor_uid != head_uid:
+            return {"ok": False, "error": "forbidden", "status": 403}
+
+        vote_done = str(raw_gstate.get("vote_done") or "0") == "1"
+        if not vote_done:
+            return {"ok": False, "error": "vote_not_done", "status": 409}
+
+        leaders_raw = str(raw_gstate.get("vote_leaders_order") or "")
+        leaders: list[int] = []
+        for part in leaders_raw.split(","):
+            part = part.strip()
+            if not part:
+                continue
+            try:
+                leaders.append(int(part))
+            except Exception:
+                continue
+
+        try:
+            leader_idx = int(raw_gstate.get("vote_leader_idx") or 0)
+        except Exception:
+            leader_idx = 0
+
+        if len(leaders) > 1 and leader_idx < len(leaders):
+            return {"ok": False, "error": "speeches_not_done", "status": 409}
+
+        ordered = await get_nominees_in_order(r, rid)
+        if not ordered:
+            return {"ok": False, "error": "no_nominees", "status": 409}
+
+        first_uid = ordered[0]
+        try:
+            vote_duration = settings.VOTE_SECONDS
+        except Exception:
+            vote_duration = 3
+        if vote_duration <= 0:
+            vote_duration = 3
+
+        async with r.pipeline() as p:
+            await p.hset(
+                f"room:{rid}:game_state",
+                mapping={
+                    "vote_current_uid": str(first_uid or 0),
+                    "vote_started": "0",
+                    "vote_duration": str(vote_duration),
+                    "vote_done": "0",
+                    "vote_aborted": "0",
+                    "vote_speech_uid": "0",
+                    "vote_speech_started": "0",
+                    "vote_speech_duration": "0",
+                    "vote_speech_kind": "",
+                },
+            )
+            await p.delete(f"room:{rid}:game_votes")
+            await p.execute()
+
+        payload = {
+            "ok": True,
+            "status": 200,
+            "room_id": rid,
+            "vote": {
+                "nominees": ordered,
+                "current_uid": first_uid,
+                "deadline": 0,
+                "done": False,
+                "aborted": False,
+            },
+        }
+
+        await sio.emit("game_vote_state",
+                       {"room_id": rid,
+                        "vote": payload["vote"]},
+                       room=f"room:{rid}",
+                       namespace="/room")
+        return payload
+
+    except Exception:
+        log.exception("sio.game_vote_restart.error", sid=sid, data=bool(data))
         return {"ok": False, "error": "internal", "status": 500}
 
 

@@ -51,6 +51,8 @@ __all__ = [
     "schedule_foul_block",
     "emit_game_fouls",
     "day_speech_timeout_job",
+    "finish_vote_speech",
+    "vote_speech_timeout_job",
     "apply_blocks_and_emit",
     "finish_day_speech",
     "get_game_fouls",
@@ -882,6 +884,120 @@ async def day_speech_timeout_job(rid: int, expected_started: int, expected_uid: 
         log.exception("day_speech_timeout.emit_failed", rid=rid, uid=expected_uid)
 
 
+async def finish_vote_speech(r, rid: int, raw_gstate: Mapping[str, Any], speaker_uid: int) -> dict[str, Any]:
+    try:
+        head_uid = int(raw_gstate.get("head") or 0)
+    except Exception:
+        head_uid = 0
+
+    if head_uid and speaker_uid != head_uid:
+        try:
+            await apply_blocks_and_emit(r, rid, actor_uid=head_uid, actor_role="head", target_uid=speaker_uid, changes_bool={"mic": True})
+        except Exception:
+            log.exception("vote_speech.finish.block_failed", rid=rid, head=head_uid, target=speaker_uid)
+
+    kind = str(raw_gstate.get("vote_speech_kind") or "")
+    killed = False
+    if kind == "farewell":
+        await r.srem(f"room:{rid}:game_alive", str(speaker_uid))
+        try:
+            alive_cnt = int(await r.scard(f"room:{rid}:game_alive") or 0)
+        except Exception:
+            alive_cnt = 0
+
+        await sio.emit("rooms_occupancy",
+                       {"id": rid,
+                        "occupancy": alive_cnt},
+                       namespace="/rooms")
+
+        try:
+            await sio.emit("game_player_left",
+                           {"room_id": rid,
+                            "user_id": speaker_uid},
+                           room=f"room:{rid}",
+                           namespace="/room")
+        except Exception:
+            log.exception("vote_speech.player_left_notify_failed", rid=rid, uid=speaker_uid)
+
+        if head_uid and head_uid != speaker_uid:
+            try:
+                await apply_blocks_and_emit(r, rid, actor_uid=head_uid, actor_role="head", target_uid=speaker_uid, changes_bool={"mic": True, "cam": True})
+            except Exception:
+                log.exception("vote_speech.autoblock_failed", rid=rid, head=head_uid, target=speaker_uid)
+
+        killed = True
+
+    async with r.pipeline() as p:
+        await p.hset(
+            f"room:{rid}:game_state",
+            mapping={
+                "vote_speech_uid": "0",
+                "vote_speech_started": "0",
+                "vote_speech_duration": "0",
+                "vote_speech_kind": "",
+            },
+        )
+        await p.execute()
+
+    payload: dict[str, Any] = {
+        "room_id": rid,
+        "speaker_uid": speaker_uid,
+        "opening_uid": 0,
+        "closing_uid": 0,
+        "deadline": 0,
+    }
+    if killed:
+        payload["killed"] = True
+
+    return payload
+
+
+async def vote_speech_timeout_job(rid: int, expected_started: int, expected_uid: int, duration: int) -> None:
+    try:
+        delay = int(duration)
+    except Exception:
+        delay = 0
+    if delay <= 0:
+        return
+
+    await asyncio.sleep(max(0, delay))
+
+    r = get_redis()
+    try:
+        raw_state = await r.hgetall(f"room:{rid}:game_state")
+    except Exception:
+        log.exception("vote_speech_timeout.load_state_failed", rid=rid)
+        return
+
+    phase = str(raw_state.get("phase") or "idle")
+    if phase != "vote":
+        return
+
+    try:
+        cur_started = int(raw_state.get("vote_speech_started") or 0)
+        cur_duration = int(raw_state.get("vote_speech_duration") or 0)
+        cur_uid = int(raw_state.get("vote_speech_uid") or 0)
+    except Exception:
+        return
+
+    if cur_uid != expected_uid or cur_started != expected_started or cur_duration != duration:
+        return
+
+    try:
+        payload = await finish_vote_speech(r, rid, raw_state, expected_uid)
+    except Exception:
+        log.exception("vote_speech_timeout.finish_failed", rid=rid, uid=expected_uid)
+        return
+
+    try:
+        await sio.emit("game_day_speech",
+                       payload,
+                       room=f"room:{rid}",
+                       namespace="/room")
+    except Exception:
+        log.exception("vote_speech_timeout.emit_failed", rid=rid, uid=expected_uid)
+
+
 async def get_rooms_brief(r, ids: Iterable[int]) -> List[dict]:
     ids_list = [int(x) for x in ids]
     if not ids_list:
@@ -1237,6 +1353,10 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
             vote_done = str(raw_gstate.get("vote_done") or "0") == "1"
         except Exception:
             vote_done = False
+        try:
+            vote_aborted = str(raw_gstate.get("vote_aborted") or "0") == "1"
+        except Exception:
+            vote_aborted = False
 
         remaining = 0
         if vote_started and vote_duration > 0:
@@ -1249,6 +1369,7 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
             "deadline": remaining,
             "nominees": nominees_order,
             "done": vote_done,
+            "aborted": vote_aborted,
         }
 
     try:

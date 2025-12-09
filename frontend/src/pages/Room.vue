@@ -170,6 +170,9 @@
             {{ !voteStartedForCurrent ? 'Голосование за ' + (currentNomineeSeat ?? '') : 'Продолжить' }}
           </button>
           <button v-if="gamePhase === 'vote' && myGameRole === 'head' && vote.done && !voteResultShown" class="btn-text" @click="finishVoteUi">Завершить голосование</button>
+          <button v-if="canStartLeaderSpeech" class="btn-text" @click="startLeaderSpeechUi">Передать речь</button>
+          <button v-if="canRestartVoteForLeaders" class="btn-text" @click="startVoteUi">Начать голосование</button>
+          <button v-if="canShowNight" class="btn-text" @click="goToNightUi">Ночь</button>
 
           <button v-if="canFinishSpeechSelf" @click="finishSpeechUi">
             <img :src="iconSkip" alt="finish speech" />
@@ -364,9 +367,10 @@ const {
   mafiaTalk,
   vote,
   voteStartedForCurrent,
-  voteResultLeaders,
   gameAlive,
+  voteResultLeaders,
   voteResultShown,
+  voteAborted,
 } = game
 
 const navUserAgent = navigator.userAgent || ''
@@ -531,6 +535,34 @@ const canStartVote = computed(() =>
   daySpeechesDone.value,
 )
 
+const canStartLeaderSpeech = computed(() => {
+  if (gamePhase.value !== 'vote') return false
+  if (myGameRole.value !== 'head') return false
+  if (!vote.done) return false
+  if (voteAborted.value) return false
+  if (!voteResultLeaders.length) return false
+  return !game.daySpeech.currentId
+})
+
+const canRestartVoteForLeaders = computed(() => {
+  if (gamePhase.value !== 'vote') return false
+  if (myGameRole.value !== 'head') return false
+  if (!vote.done) return false
+  if (voteAborted.value) return false
+  if (voteResultLeaders.length <= 1) return false
+  return !game.daySpeech.currentId
+})
+
+const canShowNight = computed(() => {
+  if (gamePhase.value !== 'vote') return false
+  if (myGameRole.value !== 'head') return false
+  if (voteAborted.value) return true
+  if (!vote.done) return false
+  if (voteResultLeaders.length !== 1) return false
+  const leaderId = voteResultLeaders[0]
+  return !gameAlive.has(leaderId)
+})
+
 const allRolesPicked = computed(() => {
   const order = rolePick.order
   if (!Array.isArray(order) || order.length === 0) return false
@@ -674,6 +706,12 @@ const passSpeechUi = () => game.passSpeech(sendAckGame)
 const finishSpeechUi = () => game.finishSpeech(sendAckGame)
 const startVoteUi = () => game.startVotePhase(sendAckGame)
 const finishVoteUi = () => game.finishVote(sendAckGame)
+const startLeaderSpeechUi = () => game.startLeaderSpeech(sendAckGame)
+const restartVoteForLeadersUi = () => game.restartVoteForLeaders(sendAckGame)
+
+function goToNightUi() {
+  alert('Фаза ночи: в разработке')
+}
 
 function onGiveFoul(id: string) {
   void game.giveFoul(id, sendAckGame)
@@ -1119,6 +1157,10 @@ socket.value?.on('connect', async () => {
 
   socket.value.on('game_vote_result', (p: any) => {
     game.handleGameVoteResult(p)
+  })
+
+  socket.value.on('game_vote_aborted', (p: any) => {
+    game.handleGameVoteAborted(p)
   })
 }
 
