@@ -42,6 +42,7 @@ __all__ = [
     "emit_rooms_occupancy_safe",
     "get_game_runtime_and_roles_view",
     "get_nominees_in_order",
+    "get_alive_and_voted_ids",
     "can_act_on_user",
     "stop_screen_for_user",
     "emit_state_changed_filtered",
@@ -1243,6 +1244,26 @@ async def get_nominees_in_order(r, rid: int) -> list[int]:
     tmp.sort(key=lambda t: t[0])
 
     return [u for _, u in tmp]
+
+
+async def get_alive_and_voted_ids(r, rid: int) -> tuple[set[int], set[int]]:
+    alive_raw = await r.smembers(f"room:{rid}:game_alive")
+    alive_ids: set[int] = set()
+    for v in (alive_raw or []):
+        try:
+            alive_ids.add(int(v))
+        except Exception:
+            continue
+
+    votes_raw = await r.hkeys(f"room:{rid}:game_votes")
+    voted_ids: set[int] = set()
+    for v in (votes_raw or []):
+        try:
+            voted_ids.add(int(v))
+        except Exception:
+            continue
+
+    return alive_ids, voted_ids
 
 
 def can_act_on_user(actor_role: str, target_role: str) -> bool:

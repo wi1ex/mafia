@@ -209,6 +209,54 @@ export function useRoomGame(localId: Ref<string>) {
       }, safe)
     } else { if (onFinish) onFinish() }
   }
+  
+  function replaceIds(target: string[], raw: any, filter?: (id: string) => boolean) {
+    target.splice(0, target.length)
+    if (!Array.isArray(raw)) return
+    for (const uid of raw) {
+      const s = String(uid)
+      if (!s) continue
+      if (filter && !filter(s)) continue
+      target.push(s)
+    }
+  }
+
+  function resetDaySpeechState(changed: boolean) {
+    daySpeech.openingId = ''
+    daySpeech.closingId = ''
+    daySpeech.currentId = ''
+    setDaySpeechRemainingMs(0, changed)
+    daySpeechesDone.value = false
+  }
+
+  function resetVoteState(changed: boolean) {
+    vote.currentId = ''
+    setVoteRemainingMs(0, changed)
+    vote.done = false
+    votedUsers.clear()
+    votedThisRound.clear()
+    voteStartedForCurrent.value = false
+  }
+
+  function fillPlayersFromSeats() {
+    gamePlayers.clear()
+    gameAlive.clear()
+    for (const [uid, seat] of Object.entries(seatsByUser)) {
+      if (seat && seat !== 11) {
+        gamePlayers.add(uid)
+        gameAlive.add(uid)
+      }
+    }
+  }
+
+  function syncGameFouls(raw: any) {
+    gameFoulsByUser.clear()
+    const fouls = (raw || {}) as Record<string, any>
+    for (const [uid, cnt] of Object.entries(fouls)) {
+      const n = Number(cnt)
+      if (Number.isFinite(n) && n > 0) gameFoulsByUser.set(String(uid), n)
+    }
+  }
 
   function isGameHead(id: string): boolean {
     return seatsByUser[id] === 11
@@ -287,7 +335,6 @@ export function useRoomGame(localId: Ref<string>) {
     rolePick.picked = new Set<string>()
     rolePick.takenCards = []
     rolePick.remainingMs = 0
-
     roleOverlayMode.value = 'hidden'
     roleOverlayCard.value = null
     if (roleOverlayTimerId.value != null) {
@@ -297,36 +344,15 @@ export function useRoomGame(localId: Ref<string>) {
     gameRolesByUser.clear()
     rolesVisibleForHead.value = false
     gameFoulsByUser.clear()
-
     mafiaTalk.remainingMs = 0
     if (mafiaTalkTimerId.value != null) {
       clearTimeout(mafiaTalkTimerId.value)
       mafiaTalkTimerId.value = null
     }
-
-    daySpeech.openingId = ''
-    daySpeech.closingId = ''
-    daySpeech.currentId = ''
-    daySpeech.remainingMs = 0
-    if (daySpeechTimerId.value != null) {
-      clearTimeout(daySpeechTimerId.value)
-      daySpeechTimerId.value = null
-    }
-    daySpeechesDone.value = false
-
-    dayNominees.splice(0, dayNominees.length)
+    resetDaySpeechState(false)
+    replaceIds(dayNominees, undefined)
     nominatedThisSpeechByMe.value = false
-
-    vote.currentId = ''
-    vote.remainingMs = 0
-    vote.done = false
-    if (voteTimerId.value != null) {
-      clearTimeout(voteTimerId.value)
-      voteTimerId.value = null
-    }
-    votedUsers.clear()
-    votedThisRound.clear()
-    voteStartedForCurrent.value = false
+    resetVoteState(false)
   }
 
   function syncRoleOverlayWithTurn() {
@@ -372,29 +398,19 @@ export function useRoomGame(localId: Ref<string>) {
     }
     const phase = (gr.phase as GamePhase) || 'idle'
     gamePhase.value = phase
-
     fillSeats((gr.seats || {}) as Record<string, any>)
-
     gamePlayers.clear()
     gameAlive.clear()
     const grPlayers = Array.isArray(gr.players) ? gr.players.map((x: any) => String(x)) : []
     const grAlive = Array.isArray(gr.alive) ? gr.alive.map((x: any) => String(x)) : []
     for (const uid of grPlayers) gamePlayers.add(uid)
     for (const uid of grAlive) gameAlive.add(uid)
-
     gameRolesByUser.clear()
     const grRoles = join?.game_roles || {}
     for (const [uid, role] of Object.entries(grRoles)) {
       gameRolesByUser.set(String(uid), role as GameRoleKind)
     }
-
-    gameFoulsByUser.clear()
-    const gf = (join?.game_fouls || {}) as Record<string, any>
-    for (const [uid, cnt] of Object.entries(gf)) {
-      const n = Number(cnt)
-      if (Number.isFinite(n) && n > 0) gameFoulsByUser.set(String(uid), n)
-    }
-
+    syncGameFouls(join?.game_fouls)
     const rp = (gr as any).roles_pick
     if (phase === 'roles_pick' && rp && typeof rp === 'object') {
       rolePick.activeUserId = String(rp.turn_uid || '')
@@ -410,7 +426,6 @@ export function useRoomGame(localId: Ref<string>) {
       rolePick.remainingMs = 0
       rolePick.takenCards = []
     }
-
     const mt = (gr as any).mafia_talk_start
     if (phase === 'mafia_talk_start' && mt && typeof mt === 'object') {
       const rawMs = secondsToMs(mt.deadline)
@@ -418,7 +433,6 @@ export function useRoomGame(localId: Ref<string>) {
     } else {
       setMafiaTalkRemainingMs(0, false)
     }
-
     const dy = (gr as any).day
     const vt = (gr as any).vote
     if (phase === 'day' && dy && typeof dy === 'object') {
@@ -428,71 +442,30 @@ export function useRoomGame(localId: Ref<string>) {
       daySpeech.currentId = rawMs > 0 ? String(dy.current_uid || '') : ''
       setDaySpeechRemainingMs(rawMs, false)
       daySpeechesDone.value = isTrueLike((dy as any).speeches_done)
-
-      const rawNominees = (dy as any).nominees
-      dayNominees.splice(0, dayNominees.length)
-      if (Array.isArray(rawNominees)) {
-        for (const uid of rawNominees) {
-          const s = String(uid)
-          if (s) dayNominees.push(s)
-        }
-      }
+      replaceIds(dayNominees, (dy as any).nominees)
       nominatedThisSpeechByMe.value = false
     } else if (phase === 'vote' && vt && typeof vt === 'object') {
-      daySpeech.openingId = ''
-      daySpeech.closingId = ''
-      daySpeech.currentId = ''
-      setDaySpeechRemainingMs(0, false)
+      resetDaySpeechState(false)
       daySpeechesDone.value = true
-
-      const rawNominees = (vt as any).nominees
-      dayNominees.splice(0, dayNominees.length)
-      if (Array.isArray(rawNominees)) {
-        for (const uid of rawNominees) {
-          const s = String(uid)
-          if (s) dayNominees.push(s)
-        }
-      }
-
+      replaceIds(dayNominees, (vt as any).nominees)
       vote.currentId = String(vt.current_uid || '')
       const rawMs = secondsToMs(vt.deadline)
       setVoteRemainingMs(rawMs, false)
       vote.done = isTrueLike((vt as any).done)
       voteStartedForCurrent.value = rawMs > 0
-
       votedUsers.clear()
       votedThisRound.clear()
       nominatedThisSpeechByMe.value = false
     } else {
-      daySpeech.openingId = ''
-      daySpeech.closingId = ''
-      daySpeech.currentId = ''
-      setDaySpeechRemainingMs(0, false)
-      daySpeechesDone.value = false
-
-      dayNominees.splice(0, dayNominees.length)
+      resetDaySpeechState(false)
+      replaceIds(dayNominees, undefined)
       nominatedThisSpeechByMe.value = false
-
-      vote.currentId = ''
-      setVoteRemainingMs(0, false)
-      vote.done = false
-      votedUsers.clear()
-      votedThisRound.clear()
-      voteStartedForCurrent.value = false
+      resetVoteState(false)
     }
-
     const playersCount = gamePlayers.size
     const rolesCount = gameRolesByUser.size
     rolesVisibleForHead.value = playersCount > 0 && rolesCount >= playersCount
-    if (phase !== 'idle' && gamePlayers.size === 0) {
-      for (const [uid, seat] of Object.entries(seatsByUser)) {
-        if (seat && seat !== 11) {
-          gamePlayers.add(uid)
-          gameAlive.add(uid)
-        }
-      }
-    }
-
+    if (phase !== 'idle' && gamePlayers.size === 0) fillPlayersFromSeats()
     offlineInGame.clear()
     if (phase !== 'idle') {
       const snapshotSet = new Set<string>(snapshotIds ?? [])
@@ -513,14 +486,7 @@ export function useRoomGame(localId: Ref<string>) {
       if (Number.isFinite(v) && v > 0) minReadyToStart.value = v
     }
     fillSeats((payload?.seats || {}) as Record<string, any>)
-    gamePlayers.clear()
-    gameAlive.clear()
-    for (const [uid, seat] of Object.entries(seatsByUser)) {
-      if (seat && seat !== 11) {
-        gamePlayers.add(uid)
-        gameAlive.add(uid)
-      }
-    }
+    fillPlayersFromSeats()
   }
 
   function handleGameEnded(_payload: any): 'head' | 'player' | 'none' {
@@ -618,13 +584,7 @@ export function useRoomGame(localId: Ref<string>) {
 
   function handleGameNomineeAdded(p: any) {
     const orderRaw = p?.order
-    dayNominees.splice(0, dayNominees.length)
-    if (Array.isArray(orderRaw)) {
-      for (const uid of orderRaw) {
-        const s = String(uid)
-        if (s) dayNominees.push(s)
-      }
-    }
+    replaceIds(dayNominees, orderRaw)
   }
 
   function handleGameFoul(p: any) {
@@ -639,12 +599,7 @@ export function useRoomGame(localId: Ref<string>) {
   }
 
   function handleGameFouls(p: any) {
-    const fouls = (p?.fouls || {}) as Record<string, any>
-    gameFoulsByUser.clear()
-    for (const [uid, cnt] of Object.entries(fouls)) {
-      const n = Number(cnt)
-      if (Number.isFinite(n) && n > 0) gameFoulsByUser.set(String(uid), n)
-    }
+    syncGameFouls(p?.fouls)
   }
 
   function handleGameVoteState(p: any) {
@@ -653,11 +608,9 @@ export function useRoomGame(localId: Ref<string>) {
     const prevId = vote.currentId
     const newId = String(vt.current_uid || '')
     const ms = secondsToMs(vt.deadline)
-
     vote.currentId = newId
     setVoteRemainingMs(ms, true)
     vote.done = isTrueLike(vt.done)
-
     if (!newId) {
       voteStartedForCurrent.value = false
     } else if (newId !== prevId) {
@@ -666,15 +619,7 @@ export function useRoomGame(localId: Ref<string>) {
     } else if (ms > 0) {
       voteStartedForCurrent.value = true
     }
-
-    const rawNominees = vt.nominees
-    if (Array.isArray(rawNominees)) {
-      dayNominees.splice(0, dayNominees.length)
-      for (const uid of rawNominees) {
-        const s = String(uid)
-        if (s) dayNominees.push(s)
-      }
-    }
+    replaceIds(dayNominees, vt.nominees)
   }
 
   function handleGameVoted(p: any) {
@@ -689,23 +634,9 @@ export function useRoomGame(localId: Ref<string>) {
 
   function handleGameVoteResult(p: any) {
     const leadersRaw = p?.leaders
-    voteResultLeaders.splice(0, voteResultLeaders.length)
-    if (Array.isArray(leadersRaw)) {
-      for (const uid of leadersRaw) {
-        const s = String(uid)
-        if (s) voteResultLeaders.push(s)
-      }
-    }
+    replaceIds(voteResultLeaders, leadersRaw)
     const nomineesRaw = p?.nominees
-    dayNominees.splice(0, dayNominees.length)
-    if (Array.isArray(nomineesRaw)) {
-      for (const uid of nomineesRaw) {
-        const s = String(uid)
-        if (s && voteResultLeaders.includes(s)) {
-          dayNominees.push(s)
-        }
-      }
-    }
+    replaceIds(dayNominees, nomineesRaw, s => voteResultLeaders.includes(s))
   }
 
   async function finishVote(sendAck: SendAckFn): Promise<void> {
@@ -763,60 +694,32 @@ export function useRoomGame(localId: Ref<string>) {
     } else {
       setMafiaTalkRemainingMs(0, true)
     }
-
     if (to === 'day') {
       const dy = p?.day
+      resetDaySpeechState(true)
       daySpeech.openingId = String(dy?.opening_uid || '')
       daySpeech.closingId = String(dy?.closing_uid || '')
-      daySpeech.currentId = ''
-      setDaySpeechRemainingMs(0, true)
-      daySpeechesDone.value = false
-
-      dayNominees.splice(0, dayNominees.length)
+      replaceIds(dayNominees, undefined)
       nominatedThisSpeechByMe.value = false
     } else if (to === 'vote') {
       const vt = p?.vote
-      daySpeech.openingId = ''
-      daySpeech.closingId = ''
-      daySpeech.currentId = ''
-      setDaySpeechRemainingMs(0, true)
+      resetDaySpeechState(true)
       daySpeechesDone.value = true
-      voteResultLeaders.splice(0, voteResultLeaders.length)
-
-      dayNominees.splice(0, dayNominees.length)
-      const rawNominees = vt?.nominees
-      if (Array.isArray(rawNominees)) {
-        for (const uid of rawNominees) {
-          const s = String(uid)
-          if (s) dayNominees.push(s)
-        }
-      }
-
+      replaceIds(voteResultLeaders, undefined)
+      replaceIds(dayNominees, vt?.nominees)
       vote.currentId = String(vt?.current_uid || '')
       const ms = secondsToMs(vt?.deadline)
       setVoteRemainingMs(ms, true)
       vote.done = isTrueLike(vt?.done)
-
       votedUsers.clear()
       votedThisRound.clear()
       nominatedThisSpeechByMe.value = false
       voteStartedForCurrent.value = ms > 0
     } else {
-      daySpeech.openingId = ''
-      daySpeech.closingId = ''
-      daySpeech.currentId = ''
-      setDaySpeechRemainingMs(0, true)
-      daySpeechesDone.value = false
-
-      dayNominees.splice(0, dayNominees.length)
+      resetDaySpeechState(true)
+      replaceIds(dayNominees, undefined)
       nominatedThisSpeechByMe.value = false
-
-      vote.currentId = ''
-      setVoteRemainingMs(0, true)
-      vote.done = false
-      votedUsers.clear()
-      votedThisRound.clear()
-      voteStartedForCurrent.value = false
+      resetVoteState(true)
     }
   }
 
@@ -858,15 +761,8 @@ export function useRoomGame(localId: Ref<string>) {
       return
     }
     nominatedThisSpeechByMe.value = true
-
     const orderRaw = (resp as any).order
-    dayNominees.splice(0, dayNominees.length)
-    if (Array.isArray(orderRaw)) {
-      for (const uid of orderRaw) {
-        const s = String(uid)
-        if (s) dayNominees.push(s)
-      }
-    }
+    replaceIds(dayNominees, orderRaw)
   }
 
   async function startVotePhase(sendAck: SendAckFn): Promise<void> {

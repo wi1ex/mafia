@@ -46,6 +46,7 @@ from ..utils import (
     apply_blocks_and_emit,
     finish_day_speech,
     get_nominees_in_order,
+    get_alive_and_voted_ids,
 )
 
 log = structlog.get_logger()
@@ -1100,27 +1101,11 @@ async def game_phase_next(sid, data):
             if not speeches_done:
                 return {"ok": False, "error": "speeches_not_done", "status": 400}
 
-            try:
-                raw_nominees = await r.hgetall(f"room:{rid}:game_nominees")
-            except Exception:
-                raw_nominees = {}
-
-            tmp_nom: list[tuple[int, int]] = []
-            for uid_s, idx_s in (raw_nominees or {}).items():
-                try:
-                    u = int(uid_s)
-                    idx = int(idx_s or 0)
-                except Exception:
-                    continue
-                if idx > 0:
-                    tmp_nom.append((idx, u))
-
-            if not tmp_nom:
+            ordered = await get_nominees_in_order(r, rid)
+            if not ordered:
                 return {"ok": False, "error": "no_nominees", "status": 409}
 
-            tmp_nom.sort(key=lambda t: t[0])
-            ordered = [u for _, u in tmp_nom]
-            first_uid = ordered[0] if ordered else 0
+            first_uid = ordered[0]
             try:
                 vote_duration = int(getattr(settings, "VOTE_SECONDS", 3))
             except Exception:
@@ -1592,21 +1577,7 @@ async def game_nominate(sid, data):
             await p.sadd(f"room:{rid}:game_nom_speakers", str(actor_uid))
             await p.execute()
 
-        tmp: list[tuple[int, int]] = []
-        raw_nominees = await r.hgetall(f"room:{rid}:game_nominees")
-        for uid_s, idx_s in (raw_nominees or {}).items():
-            try:
-                u = int(uid_s)
-                idx = int(idx_s or 0)
-            except Exception:
-                continue
-
-            if idx > 0:
-                tmp.append((idx, u))
-
-        tmp.sort(key=lambda t: t[0])
-        ordered: list[int] = [u for _, u in tmp]
-
+        ordered = await get_nominees_in_order(r, rid)
         payload = {
             "room_id": rid,
             "user_id": target_uid,
@@ -1681,22 +1652,7 @@ async def game_vote_control(sid, data):
         if vote_duration <= 0:
             vote_duration = 3
 
-        alive_raw = await r.smembers(f"room:{rid}:game_alive")
-        alive_ids: set[int] = set()
-        for v in (alive_raw or []):
-            try:
-                alive_ids.add(int(v))
-            except Exception:
-                continue
-
-        votes_raw = await r.hkeys(f"room:{rid}:game_votes")
-        voted_ids: set[int] = set()
-        for v in (votes_raw or []):
-            try:
-                voted_ids.add(int(v))
-            except Exception:
-                continue
-
+        alive_ids, voted_ids = await get_alive_and_voted_ids(r, rid)
         if alive_ids and alive_ids.issubset(voted_ids):
             async with r.pipeline() as p:
                 await p.hset(f"room:{rid}:game_state", mapping={"vote_done": "1", "vote_started": "0"})
@@ -1891,22 +1847,7 @@ async def game_vote(sid, data):
                        room=f"room:{rid}",
                        namespace="/room")
 
-        alive_raw = await r.smembers(f"room:{rid}:game_alive")
-        alive_ids: set[int] = set()
-        for v in (alive_raw or []):
-            try:
-                alive_ids.add(int(v))
-            except Exception:
-                continue
-
-        votes_raw = await r.hkeys(f"room:{rid}:game_votes")
-        voted_ids: set[int] = set()
-        for v in (votes_raw or []):
-            try:
-                voted_ids.add(int(v))
-            except Exception:
-                continue
-
+        alive_ids, voted_ids = await get_alive_and_voted_ids(r, rid)
         if alive_ids and alive_ids.issubset(voted_ids):
             async with r.pipeline() as p:
                 await p.hset(f"room:{rid}:game_state", mapping={"vote_done": "1", "vote_started": "0"})

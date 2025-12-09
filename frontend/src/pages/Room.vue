@@ -365,9 +365,9 @@ const {
   voteStartedForCurrent,
 } = game
 
-const UA = navigator.userAgent || ''
-const IS_MOBILE = (navigator as any).userAgentData?.mobile === true || /Android|iPhone|iPad|iPod|Mobile/i.test(UA)
-  || (window.matchMedia?.('(pointer: coarse)').matches && /Android|iPhone|iPad|iPod|Mobile|Tablet|Touch/i.test(UA))
+const navUserAgent = navigator.userAgent || ''
+const IS_MOBILE = (navigator as any).userAgentData?.mobile === true || /Android|iPhone|iPad|iPod|Mobile/i.test(navUserAgent)
+  || (window.matchMedia?.('(pointer: coarse)').matches && /Android|iPhone|iPad|iPod|Mobile|Tablet|Touch/i.test(navUserAgent))
 
 const rid = Number(route.params.id)
 const local = reactive({ mic: false, cam: false, speakers: true, visibility: true })
