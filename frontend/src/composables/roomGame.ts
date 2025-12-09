@@ -448,13 +448,28 @@ export function useRoomGame(localId: Ref<string>) {
       resetDaySpeechState(false)
       daySpeechesDone.value = true
       replaceIds(dayNominees, (vt as any).nominees)
-      vote.currentId = String(vt.current_uid || '')
-      const rawMs = secondsToMs(vt.deadline)
+      const curId = String((vt as any).current_uid || '')
+      vote.currentId = curId
+      const rawMs = secondsToMs((vt as any).deadline)
       setVoteRemainingMs(rawMs, false)
       vote.done = isTrueLike((vt as any).done)
       voteStartedForCurrent.value = rawMs > 0
       votedUsers.clear()
       votedThisRound.clear()
+      const votedRaw = (vt as any).voted
+      if (Array.isArray(votedRaw)) {
+        for (const uid of votedRaw) {
+          const s = String(uid)
+          if (s) votedUsers.add(s)
+        }
+      }
+      const votedCurRaw = (vt as any).voted_for_current
+      if (Array.isArray(votedCurRaw) && curId) {
+        for (const uid of votedCurRaw) {
+          const s = String(uid)
+          if (s) votedThisRound.add(s)
+        }
+      }
       nominatedThisSpeechByMe.value = false
     } else {
       resetDaySpeechState(false)

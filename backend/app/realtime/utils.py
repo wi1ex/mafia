@@ -53,6 +53,8 @@ __all__ = [
     "day_speech_timeout_job",
     "apply_blocks_and_emit",
     "finish_day_speech",
+    "get_game_fouls",
+    "enrich_game_runtime_with_vote",
 ]
 
 log = structlog.get_logger()
@@ -594,12 +596,12 @@ async def finish_day_speech(r, rid: int, raw_gstate: Mapping[str, Any], speaker_
     return payload
 
 
-async def emit_game_fouls(r, rid: int) -> None:
+async def get_game_fouls(r, rid: int) -> dict[str, int]:
     try:
         raw = await r.hgetall(f"room:{rid}:game_fouls")
     except Exception:
         log.exception("game_fouls.load_failed", rid=rid)
-        return
+        return {}
 
     fouls: dict[str, int] = {}
     for uid_s, cnt_s in (raw or {}).items():
@@ -609,6 +611,16 @@ async def emit_game_fouls(r, rid: int) -> None:
             continue
         if cnt > 0:
             fouls[str(uid_s)] = cnt
+
+    return fouls
+
+
+async def emit_game_fouls(r, rid: int) -> None:
+    try:
+        fouls = await get_game_fouls(r, rid)
+    except Exception:
+        log.exception("game_fouls.load_failed", rid=rid)
+        return
 
     await sio.emit("game_fouls",
                    {"room_id": rid,
@@ -1031,6 +1043,53 @@ async def emit_rooms_occupancy_safe(r, rid: int, occ: int) -> None:
                    {"id": rid,
                     "occupancy": occ_to_send},
                    namespace="/rooms")
+
+
+async def enrich_game_runtime_with_vote(r, rid: int, game_runtime: Mapping[str, Any], raw_gstate: Mapping[str, Any]) -> dict[str, Any]:
+    try:
+        if isinstance(game_runtime, dict) and "phase" in game_runtime:
+            phase_cur = str(game_runtime.get("phase") or "idle")
+        else:
+            phase_cur = str(raw_gstate.get("phase") or "idle")
+    except Exception:
+        phase_cur = "idle"
+
+    if phase_cur != "vote":
+        return dict(game_runtime)
+
+    try:
+        vote_section = dict(game_runtime.get("vote") or {})
+    except Exception:
+        vote_section = {}
+
+    try:
+        current_nominee = int(vote_section.get("current_uid") or raw_gstate.get("vote_current_uid") or 0)
+    except Exception:
+        current_nominee = 0
+
+    raw_votes = await r.hgetall(f"room:{rid}:game_votes")
+    voted_ids: list[int] = []
+    voted_for_current: list[int] = []
+
+    for k, v in (raw_votes or {}).items():
+        try:
+            voter = int(k)
+        except Exception:
+            continue
+        voted_ids.append(voter)
+        try:
+            target = int(v or 0)
+        except Exception:
+            target = 0
+        if target and target == current_nominee:
+            voted_for_current.append(voter)
+
+    vote_section["voted"] = voted_ids
+    vote_section["voted_for_current"] = voted_for_current
+    out = dict(game_runtime)
+    out["vote"] = vote_section
+
+    return out
 
 
 async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[str, Any], dict[str, str], Optional[str]]:

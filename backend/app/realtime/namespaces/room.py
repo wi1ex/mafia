@@ -47,6 +47,8 @@ from ..utils import (
     finish_day_speech,
     get_nominees_in_order,
     get_alive_and_voted_ids,
+    enrich_game_runtime_with_vote,
+    get_game_fouls,
 )
 
 log = structlog.get_logger()
@@ -243,16 +245,8 @@ async def join(sid, data) -> JoinAck:
         token = make_livekit_token(identity=str(uid), name=ev_username, room=str(rid))
         game = build_game_from_raw(await r.hgetall(f"room:{rid}:game"))
         game_runtime, game_roles_view, my_game_role = await get_game_runtime_and_roles_view(r, rid, uid)
-
-        raw_fouls = await r.hgetall(f"room:{rid}:game_fouls")
-        game_fouls: dict[str, int] = {}
-        for k, v in (raw_fouls or {}).items():
-            try:
-                n = int(v or 0)
-            except Exception:
-                continue
-            if n > 0:
-                game_fouls[str(k)] = n
+        game_runtime = await enrich_game_runtime_with_vote(r, rid, game_runtime, raw_gstate)
+        game_fouls = await get_game_fouls(r, rid)
 
         return {
             "ok": True,
