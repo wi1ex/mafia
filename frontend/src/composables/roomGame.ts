@@ -171,7 +171,7 @@ export function useRoomGame(localId: Ref<string>) {
     if (vote.remainingMs <= 0) return false
     if (!amIAlive.value) return false
     if (myGameRole.value !== 'player') return false
-    return votedUsers.has(me)
+    return !votedUsers.has(me)
   }
 
   function setVoteRemainingMs(ms: number, changed: boolean) {
@@ -565,12 +565,10 @@ export function useRoomGame(localId: Ref<string>) {
     const closingId = String(p?.closing_uid || '')
     const speakerId = String(p?.speaker_uid || '')
     const ms = secondsToMs(p?.deadline)
-
     daySpeech.openingId = openingId
     daySpeech.closingId = closingId
     daySpeech.currentId = ms > 0 ? speakerId : ''
     setDaySpeechRemainingMs(ms, true)
-
     const done = isTrueLike((p as any)?.speeches_done)
     const isActiveSpeech = ms > 0 && !!speakerId
     if (isActiveSpeech) {
