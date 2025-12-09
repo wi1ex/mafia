@@ -26,11 +26,17 @@
       <span>Проголосовать</span>
     </button>
     <div class="head-bar" v-if="isGameHead && phaseLabel">{{ phaseLabel }}</div>
-    <div class="head-bar" v-if="isGameHead && showNominationsBar" :class="{ nominate: Array.isArray(nominees) && nominees.length > 0 }">
-      <span v-if="!Array.isArray(nominees) || nominees.length === 0">Никто не выставлен</span>
-      <span v-else class="nominations-badge" v-for="seatNum in nominees" :key="seatNum" :class="{ current: currentNomineeSeat === seatNum }">
-        {{ seatNum }}
-      </span>
+    <div class="head-bar" v-if="isGameHead && showNominationsBar"
+         :class="{ nominate: (!offlineSeatsInGame || offlineSeatsInGame.length === 0) && Array.isArray(nominees) && nominees.length > 0 }">
+      <template v-if="offlineSeatsInGame && offlineSeatsInGame.length > 0">
+        <span>Нет соединения с {{ offlineSeatsInGame.join(', ') }}</span>
+      </template>
+      <template v-else>
+        <span v-if="!Array.isArray(nominees) || nominees.length === 0">Никто не выставлен</span>
+        <span v-else class="nominations-badge" v-for="seatNum in nominees" :key="seatNum" :class="{ current: currentNomineeSeat === seatNum }">
+          {{ seatNum }}
+        </span>
+      </template>
     </div>
 
     <div v-show="!showVideo" class="ava-wrap">
@@ -141,6 +147,7 @@ const props = withDefaults(defineProps<{
   showVoteButton?: boolean
   voteEnabled?: boolean
   hasVoted?: boolean
+  offlineSeatsInGame?: number[]
 }>(), {
   side: false,
   fitContain: false,
@@ -171,6 +178,7 @@ const props = withDefaults(defineProps<{
   showVoteButton: false,
   voteEnabled: false,
   hasVoted: false,
+  offlineSeatsInGame: () => [],
 })
 
 defineEmits<{

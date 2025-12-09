@@ -53,6 +53,7 @@
           :nominees="nomineeSeatNumbers"
           :current-nominee-seat="id === headUserId ? currentNomineeSeat : null"
           :show-nominations-bar="id === headUserId && (gamePhase === 'day' || gamePhase === 'vote')"
+          :offline-seats-in-game="id === headUserId && gamePhase === 'vote' ? offlineAliveSeatNumbers : []"
           :show-vote-button="amIAlive && game.canPressVoteButton()"
           :vote-enabled="game.canPressVoteButton()"
           :has-voted="votedThisRound.has(id)"
@@ -124,8 +125,9 @@
             :nominees="game.nomineeSeatNumbers"
             :current-nominee-seat="id === headUserId ? currentNomineeSeat : null"
             :show-nominations-bar="id === headUserId && (gamePhase === 'day' || gamePhase === 'vote')"
-            :show-vote-button="id === headUserId && gamePhase === 'vote' && !vote.done && myGameRole === 'player' && amIAlive && game.canPressVoteButton()"
-            :vote-enabled="id === headUserId && gamePhase === 'vote' && game.canPressVoteButton()"
+            :offline-seats-in-game="id === headUserId && gamePhase === 'vote' ? offlineAliveSeatNumbers : []"
+            :show-vote-button="amIAlive && game.canPressVoteButton()"
+            :vote-enabled="game.canPressVoteButton()"
             :has-voted="votedThisRound.has(id)"
             @toggle-panel="toggleTilePanel"
             @vol-input="onVol"
@@ -163,12 +165,11 @@
           <button v-if="canFinishSpeechHead" class="btn-text" @click="finishSpeechUi" aria-label="Завершить речь">Завершить речь</button>
           <button v-else-if="canPassSpeechHead" class="btn-text" @click="passSpeechUi" aria-label="Передать речь">Передать речь</button>
           <button v-if="canStartVote" class="btn-text" @click="startVoteUi">Начать голосование</button>
-          <button v-if="gamePhase === 'vote' && myGameRole === 'head' && !vote.done && vote.remainingMs === 0" class="btn-text" @click="onHeadVoteControl">
+          <button v-if="gamePhase === 'vote' && myGameRole === 'head' && !vote.done && vote.remainingMs === 0"
+                  class="btn-text" :disabled="hasOfflineAlivePlayers" @click="onHeadVoteControl">
             {{ !voteStartedForCurrent ? 'Голосование за ' + (currentNomineeSeat ?? '') : 'Продолжить' }}
           </button>
-          <button v-if="gamePhase === 'vote' && myGameRole === 'head' && vote.done" class="btn-text" @click="finishVoteUi">
-            Завершить голосование
-          </button>
+          <button v-if="gamePhase === 'vote' && myGameRole === 'head' && vote.done && !voteResultShown" class="btn-text" @click="finishVoteUi">Завершить голосование</button>
 
           <button v-if="canFinishSpeechSelf" @click="finishSpeechUi">
             <img :src="iconSkip" alt="finish speech" />
@@ -363,6 +364,9 @@ const {
   mafiaTalk,
   vote,
   voteStartedForCurrent,
+  voteResultLeaders,
+  gameAlive,
+  voteResultShown,
 } = game
 
 const navUserAgent = navigator.userAgent || ''
@@ -445,6 +449,20 @@ const headUserId = computed(() => {
   return ''
 })
 const mafiaTalkRemainingMs = computed(() => mafiaTalk.remainingMs)
+
+const offlineAliveSeatNumbers = computed<number[]>(() => {
+  const result: number[] = []
+  for (const uid of gameAlive as Set<string>) {
+    if (!offlineInGame.has(uid)) continue
+    const seat = seatsByUser[uid]
+    if (Number.isFinite(seat) && seat && seat !== 11) {
+      result.push(seat)
+    }
+  }
+  result.sort((a, b) => a - b)
+  return result
+})
+const hasOfflineAlivePlayers = computed(() => offlineAliveSeatNumbers.value.length > 0)
 
 const FINISH_SPEECH_DELAY_MS = 3000
 const finishSpeechUnlocked = ref(false)
@@ -1692,6 +1710,7 @@ onBeforeUnmount(() => {
       cursor: pointer;
       transition: background-color 0.25s ease-in-out;
       &:disabled {
+        opacity: 0.5;
         cursor: not-allowed;
       }
       &:hover {

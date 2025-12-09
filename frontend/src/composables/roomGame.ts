@@ -125,6 +125,7 @@ export function useRoomGame(localId: Ref<string>) {
   const dayNominees = reactive<string[]>([])
   const nominatedThisSpeechByMe = ref(false)
   const voteResultLeaders = reactive<string[]>([])
+  const voteResultShown = ref(false)
 
   const nomineeSeatNumbers = computed<number[]>(() => {
     const list = Array.isArray(dayNominees) ? dayNominees : []
@@ -236,6 +237,7 @@ export function useRoomGame(localId: Ref<string>) {
     votedUsers.clear()
     votedThisRound.clear()
     voteStartedForCurrent.value = false
+    voteResultShown.value = false
   }
 
   function fillPlayersFromSeats() {
@@ -646,6 +648,9 @@ export function useRoomGame(localId: Ref<string>) {
   }
 
   function handleGameVoteResult(p: any) {
+    voteResultShown.value = true
+    votedUsers.clear()
+    votedThisRound.clear()
     const leadersRaw = p?.leaders
     replaceIds(voteResultLeaders, leadersRaw)
     const nomineesRaw = p?.nominees
@@ -672,6 +677,9 @@ export function useRoomGame(localId: Ref<string>) {
       }
       return
     }
+    voteResultShown.value = true
+    votedUsers.clear()
+    votedThisRound.clear()
   }
 
   watch(() => [rolePick.activeUserId, localId.value, myGameRoleKind.value, gamePhase.value], () => { syncRoleOverlayWithTurn() })
@@ -719,6 +727,7 @@ export function useRoomGame(localId: Ref<string>) {
       resetDaySpeechState(true)
       daySpeechesDone.value = true
       replaceIds(voteResultLeaders, undefined)
+      voteResultShown.value = false
       replaceIds(dayNominees, vt?.nominees)
       vote.currentId = String(vt?.current_uid || '')
       const ms = secondsToMs(vt?.deadline)
@@ -1115,6 +1124,8 @@ export function useRoomGame(localId: Ref<string>) {
     currentNomineeSeat,
     voteStartedForCurrent,
     voteResultLeaders,
+    voteResultShown,
+    gameAlive,
 
     handleGameVoteResult,
     canPressVoteButton,
