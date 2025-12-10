@@ -29,7 +29,7 @@
           :vol="volUi[id] ?? rtc.getUserVolume(id)"
           :is-mirrored="isMirrored"
           :is-game-head="game.isGameHead(id)"
-          :is-head="myGameRole === 'head'"
+          :is-head="isHead"
           :is-dead="game.isDead"
           :dead-avatar="iconKillPlayer"
           :seat="game.seatIndex(id)"
@@ -90,6 +90,7 @@
             :default-avatar="defaultAvatar"
             :volume-icon="volumeIconForUser(id)"
             :state-icon="stateIcon"
+            :is-ready="isReady"
             :is-on="isOn"
             :is-blocked="isBlocked"
             :user-name="userName"
@@ -97,11 +98,10 @@
             :can-moderate="canModerate"
             :speakers-on="speakersOn"
             :open-panel-for="openPanelFor"
-            :is-ready="isReady"
             :vol="volUi[id] ?? rtc.getUserVolume(id)"
             :is-mirrored="isMirrored"
             :is-game-head="game.isGameHead(id)"
-            :is-head="myGameRole === 'head'"
+            :is-head="isHead"
             :is-dead="game.isDead"
             :dead-avatar="iconKillPlayer"
             :seat="game.seatIndex(id)"
@@ -120,9 +120,9 @@
             :day-speech-owner-id="game.daySpeech.currentId"
             :day-speech-remaining-ms="game.daySpeech.remainingMs"
             :fouls-count="gameFoulsByUser.get(id) ?? 0"
-            :phase-label="id === localId && myGameRole === 'head' ? phaseLabel : ''"
+            :phase-label="phaseLabel"
             :show-nominate="game.canNominateTarget(id)"
-            :nominees="game.nomineeSeatNumbers"
+            :nominees="nomineeSeatNumbers"
             :current-nominee-seat="id === headUserId ? currentNomineeSeat : null"
             :show-nominations-bar="id === headUserId && (gamePhase === 'day' || gamePhase === 'vote')"
             :offline-seats-in-game="id === headUserId && gamePhase === 'vote' ? offlineAliveSeatNumbers : []"
@@ -145,7 +145,7 @@
           <button @click="onLeave" aria-label="Покинуть комнату">
             <img :src="iconLeaveRoom" alt="leave" />
           </button>
-          <button v-if="gamePhase !== 'idle' && myGameRole === 'head'" @click="endGameUi" :disabled="endingGame" aria-label="Завершить игру">
+          <button v-if="gamePhase !== 'idle' && isHead" @click="endGameUi" :disabled="endingGame" aria-label="Завершить игру">
             <img :src="iconGameStop" alt="end-game" />
           </button>
           <button v-if="gamePhase !== 'idle' && myGameRole === 'player' && amIAlive" @click="leaveGameUi" aria-label="Выйти из игры">
@@ -157,21 +157,21 @@
           <button class="btn-text" @click="onProbeClick">Разрешить доступ к камере и микрофону</button>
         </div>
         <div v-else class="controls">
-          <button v-if="gamePhase === 'roles_pick' && myGameRole === 'head' && rolesVisibleForHead" class="btn-text"
+          <button v-if="gamePhase === 'roles_pick' && isHead && rolesVisibleForHead" class="btn-text"
                   @click="goToMafiaTalkUi" aria-label="Перейти к договорке">Начать договорку</button>
-          <button v-if="gamePhase === 'mafia_talk_start' && myGameRole === 'head' && mafiaTalkRemainingMs <= 0" class="btn-text"
+          <button v-if="gamePhase === 'mafia_talk_start' && isHead && mafiaTalkRemainingMs <= 0" class="btn-text"
                   @click="finishMafiaTalkUi" aria-label="Завершить договорку">Завершить договорку</button>
           <button v-if="canStartDay" class="btn-text" @click="startDayUi" aria-label="Начать день">Начать день</button>
           <button v-if="canFinishSpeechHead" class="btn-text" @click="finishSpeechUi" aria-label="Завершить речь">Завершить речь</button>
           <button v-else-if="canPassSpeechHead" class="btn-text" @click="passSpeechUi" aria-label="Передать речь">Передать речь</button>
           <button v-if="canStartVote" class="btn-text" @click="startVoteUi">Начать голосование</button>
-          <button v-if="gamePhase === 'vote' && myGameRole === 'head' && !vote.done && vote.remainingMs === 0"
+          <button v-if="gamePhase === 'vote' && isHead && !vote.done && vote.remainingMs === 0"
                   class="btn-text" :disabled="hasOfflineAlivePlayers" @click="onHeadVoteControl">
             {{ !voteStartedForCurrent ? 'Голосование за ' + (currentNomineeSeat ?? '') : 'Продолжить' }}
           </button>
-          <button v-if="gamePhase === 'vote' && myGameRole === 'head' && vote.done && !voteResultShown" class="btn-text" @click="finishVoteUi">Завершить голосование</button>
+          <button v-if="gamePhase === 'vote' && isHead && vote.done && !voteResultShown" class="btn-text" @click="finishVoteUi">Завершить голосование</button>
           <button v-if="canStartLeaderSpeech" class="btn-text" @click="startLeaderSpeechUi">Передать речь</button>
-          <button v-if="canRestartVoteForLeaders" class="btn-text" @click="startVoteUi">Начать голосование</button>
+          <button v-if="canRestartVoteForLeaders" class="btn-text" @click="restartVoteForLeadersUi">Начать голосование</button>
           <button v-if="canShowNight" class="btn-text" @click="goToNightUi">Ночь</button>
 
           <button v-if="canFinishSpeechSelf" @click="finishSpeechUi">
@@ -187,10 +187,10 @@
           <button v-if="gamePhase === 'idle' && !canShowStartGame" @click="toggleReady" :aria-pressed="readyOn" aria-label="Готовность">
             <img :src="readyOn ? iconReady : iconClose" alt="ready" />
           </button>
-          <button v-if="gamePhase === 'idle' || myGameRole === 'head'" @click="toggleMic" :disabled="pending.mic || blockedSelf.mic" :aria-pressed="micOn">
+          <button v-if="gamePhase === 'idle' || isHead" @click="toggleMic" :disabled="pending.mic || blockedSelf.mic" :aria-pressed="micOn">
             <img :src="stateIcon('mic', localId)" alt="mic" />
           </button>
-          <button v-if="gamePhase === 'idle' || myGameRole === 'head'" @click="toggleCam" :disabled="pending.cam || blockedSelf.cam" :aria-pressed="camOn">
+          <button v-if="gamePhase === 'idle' || isHead" @click="toggleCam" :disabled="pending.cam || blockedSelf.cam" :aria-pressed="camOn">
             <img :src="stateIcon('cam', localId)" alt="cam" />
           </button>
           <button v-if="gamePhase === 'idle'" @click="toggleSpeakers" :disabled="pending.speakers || blockedSelf.speakers" :aria-pressed="speakersOn">
@@ -361,6 +361,7 @@ const {
   startingGame,
   endingGame,
   myGameRole,
+  isHead,
   myGameRoleKind,
   amIAlive,
   takenCardSet,
@@ -371,6 +372,8 @@ const {
   voteResultLeaders,
   voteResultShown,
   voteAborted,
+  voteLeaderSpeechesDone,
+  voteLeaderKilled,
 } = game
 
 const navUserAgent = navigator.userAgent || ''
@@ -490,7 +493,7 @@ function scheduleFinishSpeechUnlock() {
 
 const canStartDay = computed(() =>
   gamePhase.value === 'mafia_talk_end' &&
-  myGameRole.value === 'head',
+  isHead.value,
 )
 
 const isCurrentSpeaker = computed(() =>
@@ -499,27 +502,28 @@ const isCurrentSpeaker = computed(() =>
   game.daySpeech.remainingMs > 0,
 )
 
-const canFinishSpeechHead = computed(() =>
-  gamePhase.value === 'day' &&
-  myGameRole.value === 'head' &&
-  !!game.daySpeech.currentId &&
-  game.daySpeech.remainingMs > 0 &&
-  finishSpeechUnlocked.value,
-)
+const canFinishSpeechHead = computed(() => {
+  if (!isHead.value) return false
+  if (gamePhase.value !== 'day' && gamePhase.value !== 'vote') return false
+  if (!game.daySpeech.currentId) return false
+  return game.daySpeech.remainingMs > 0
+})
 
-const canPassSpeechHead = computed(() =>
-  gamePhase.value === 'day' &&
-  myGameRole.value === 'head' &&
-  !game.daySpeech.currentId &&
-  !daySpeechesDone.value,
-)
+const canPassSpeechHead = computed(() => {
+  if (!isHead.value) return false
+  if (gamePhase.value !== 'day') return false
+  if (!game.daySpeech.currentId) return false
+  return game.daySpeech.remainingMs > 0
+})
 
-const canFinishSpeechSelf = computed(() =>
-  gamePhase.value === 'day' &&
-  myGameRole.value === 'player' &&
-  isCurrentSpeaker.value &&
-  finishSpeechUnlocked.value,
-)
+const canFinishSpeechSelf = computed(() => {
+  const me = localId.value
+  if (!me) return false
+  if (!amIAlive.value) return false
+  if (gamePhase.value !== 'day' && gamePhase.value !== 'vote') return false
+  if (game.daySpeech.currentId !== me) return false
+  return game.daySpeech.remainingMs > 0
+})
 
 const canTakeFoulSelf = computed(() =>
   gamePhase.value === 'day' &&
@@ -529,38 +533,37 @@ const canTakeFoulSelf = computed(() =>
   !daySpeechesDone.value,
 )
 
-const canStartVote = computed(() =>
-  gamePhase.value === 'day' &&
-  myGameRole.value === 'head' &&
-  daySpeechesDone.value,
-)
+const canStartVote = computed(() => {
+  if (!isHead.value) return false
+  if (gamePhase.value !== 'day') return false
+  return daySpeechesDone.value && nomineeSeatNumbers.value.length > 0
+})
 
 const canStartLeaderSpeech = computed(() => {
+  if (!isHead.value) return false
   if (gamePhase.value !== 'vote') return false
-  if (myGameRole.value !== 'head') return false
   if (!vote.done) return false
+  if (!voteResultShown.value) return false
   if (voteAborted.value) return false
-  if (!voteResultLeaders.length) return false
-  return !game.daySpeech.currentId
+  if (voteResultLeaders.value.length === 0) return false
+  if (voteLeaderSpeechesDone.value) return false
+  return game.daySpeech.remainingMs <= 0
 })
 
 const canRestartVoteForLeaders = computed(() => {
+  if (!isHead.value) return false
   if (gamePhase.value !== 'vote') return false
-  if (myGameRole.value !== 'head') return false
   if (!vote.done) return false
+  if (!voteResultShown.value) return false
   if (voteAborted.value) return false
-  if (voteResultLeaders.length <= 1) return false
-  return !game.daySpeech.currentId
+  if (voteResultLeaders.value.length <= 1) return false
+  return voteLeaderSpeechesDone.value
 })
 
 const canShowNight = computed(() => {
+  if (!isHead.value) return false
   if (gamePhase.value !== 'vote') return false
-  if (myGameRole.value !== 'head') return false
-  if (voteAborted.value) return true
-  if (!vote.done) return false
-  if (voteResultLeaders.length !== 1) return false
-  const leaderId = voteResultLeaders[0]
-  return !gameAlive.has(leaderId)
+  return voteAborted.value || voteLeaderKilled.value
 })
 
 const allRolesPicked = computed(() => {
@@ -736,7 +739,7 @@ async function takeFoulUi() {
 }
 
 function onHeadVoteControl() {
-  if (gamePhase.value !== 'vote' || myGameRole.value !== 'head' || vote.done) return
+  if (gamePhase.value !== 'vote' || !isHead.value || vote.done) return
   if (!vote.currentId) {
     void game.startCurrentCandidateVote(sendAckGame)
     return

@@ -127,6 +127,8 @@ export function useRoomGame(localId: Ref<string>) {
   const voteResultLeaders = reactive<string[]>([])
   const voteResultShown = ref(false)
   const voteAborted = ref(false)
+  const voteLeaderSpeechesDone = ref(false)
+  const voteLeaderKilled = ref(false)
 
   const nomineeSeatNumbers = computed<number[]>(() => {
     const list = Array.isArray(dayNominees) ? dayNominees : []
@@ -146,6 +148,8 @@ export function useRoomGame(localId: Ref<string>) {
     if (!seat) return 'none'
     return seat === 11 ? 'head' : 'player'
   })
+
+  const isHead = computed(() => myGameRole.value === 'head')
 
   const amIAlive = computed(() => {
     if (gamePhase.value === 'idle') return true
@@ -240,6 +244,8 @@ export function useRoomGame(localId: Ref<string>) {
     votedThisRound.clear()
     voteStartedForCurrent.value = false
     voteResultShown.value = false
+    voteLeaderSpeechesDone.value = false
+    voteLeaderKilled.value = false
   }
 
   function fillPlayersFromSeats() {
@@ -310,9 +316,8 @@ export function useRoomGame(localId: Ref<string>) {
     if (!knownRolesVisible.value) return false
     const myRole = gameRolesByUser.get(me) as GameRoleKind | undefined
     const isSelf = id === me
-    const isHead = myGameRole.value === 'head'
     if (isSelf) return true
-    if (isHead && rolesVisibleForHead.value) return true
+    if (isHead.value && rolesVisibleForHead.value) return true
     if (!myRole) return false
     if (myRole === 'mafia') return role === 'mafia' || role === 'don'
     if (myRole === 'don') return role === 'mafia'
@@ -598,6 +603,7 @@ export function useRoomGame(localId: Ref<string>) {
       daySpeechesDone.value = true
       nominatedThisSpeechByMe.value = false
     }
+    if (gamePhase.value === 'vote' && isTrueLike((p as any)?.killed)) voteLeaderKilled.value = true
   }
 
   function handleGameNomineeAdded(p: any) {
@@ -662,6 +668,8 @@ export function useRoomGame(localId: Ref<string>) {
   function handleGameVoteResult(p: any) {
     voteAborted.value = false
     voteResultShown.value = true
+    voteLeaderSpeechesDone.value = false
+    voteLeaderKilled.value = false
     votedUsers.clear()
     votedThisRound.clear()
     const leadersRaw = p?.leaders
@@ -721,6 +729,10 @@ export function useRoomGame(localId: Ref<string>) {
   function handleGamePhaseChange(p: any) {
     const to = String(p?.to || '') as GamePhase
     gamePhase.value = to
+    if (to !== 'vote') {
+      voteLeaderSpeechesDone.value = false
+      voteLeaderKilled.value = false
+    }
     if (to === 'mafia_talk_start') {
       const mt = p?.mafia_talk_start
       const ms = secondsToMs(mt?.deadline)
@@ -741,6 +753,8 @@ export function useRoomGame(localId: Ref<string>) {
       daySpeechesDone.value = true
       replaceIds(voteResultLeaders, undefined)
       voteResultShown.value = false
+      voteLeaderSpeechesDone.value = false
+      voteLeaderKilled.value = false
       replaceIds(dayNominees, vt?.nominees)
       vote.currentId = String(vt?.current_uid || '')
       const ms = secondsToMs(vt?.deadline)
@@ -1018,10 +1032,8 @@ export function useRoomGame(localId: Ref<string>) {
     if (role !== 'mafia' && role !== 'don') return false
     const me = localId.value
     if (!me) return false
-    const mySeat = seatsByUser[me]
-    const isHead = mySeat === 11
     const myRoleKind = gameRolesByUser.get(me) as GameRoleKind | undefined
-    if (isHead) return true
+    if (isHead.value) return true
     return myRoleKind === 'mafia' || myRoleKind === 'don'
   }
 
@@ -1125,10 +1137,13 @@ export function useRoomGame(localId: Ref<string>) {
         alert('Нет лидеров голосования')
       } else if (st === 409 && code === 'no_more_leaders') {
         alert('Все лидеры уже выступили — можно начинать новое голосование')
+        voteLeaderSpeechesDone.value = true
       } else {
         alert('Не удалось передать речь лидеру')
       }
+      return
     }
+    voteLeaderSpeechesDone.value = false
   }
 
   async function restartVoteForLeaders(sendAck: SendAckFn): Promise<void> {
@@ -1149,6 +1164,11 @@ export function useRoomGame(localId: Ref<string>) {
       } else {
         alert('Не удалось начать повторное голосование')
       }
+    } else {
+      voteLeaderSpeechesDone.value = false
+      voteLeaderKilled.value = false
+      voteResultShown.value = false
+      replaceIds(voteResultLeaders, undefined)
     }
   }
 
@@ -1174,6 +1194,7 @@ export function useRoomGame(localId: Ref<string>) {
     daySpeech,
     foulActive,
     myGameRole,
+    isHead,
     myGameRoleKind,
     amIAlive,
     takenCardSet,
@@ -1190,6 +1211,8 @@ export function useRoomGame(localId: Ref<string>) {
     voteResultShown,
     gameAlive,
     voteAborted,
+    voteLeaderSpeechesDone,
+    voteLeaderKilled,
 
     handleGameVoteResult,
     handleGameVoteAborted,
@@ -1235,7 +1258,6 @@ export function useRoomGame(localId: Ref<string>) {
     canNominateTarget,
     nominateTarget,
     toggleKnownRolesVisibility,
-    finishVote,
     restartVoteForLeaders,
     startLeaderSpeech,
   }

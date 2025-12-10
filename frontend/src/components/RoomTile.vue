@@ -29,7 +29,7 @@
     <div class="head-bar" v-if="isGameHead && showNominationsBar"
          :class="{ nominate: (!offlineSeatsInGame || offlineSeatsInGame.length === 0) && Array.isArray(nominees) && nominees.length > 0 }">
       <template v-if="offlineSeatsInGame && offlineSeatsInGame.length > 0">
-        <span>Нет соединения с {{ offlineSeatsInGame.join(', ') }}</span>
+        <span>Ожидаем игроков: {{ offlineSeatsInGame.join(', ') }}</span>
       </template>
       <template v-else>
         <span v-if="!Array.isArray(nominees) || nominees.length === 0">Никто не выставлен</span>
