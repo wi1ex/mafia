@@ -512,8 +512,8 @@ const canFinishSpeechHead = computed(() => {
 const canPassSpeechHead = computed(() => {
   if (!isHead.value) return false
   if (gamePhase.value !== 'day') return false
-  if (!game.daySpeech.currentId) return false
-  return game.daySpeech.remainingMs > 0
+  if (daySpeechesDone.value) return false
+  return !(game.daySpeech.currentId && game.daySpeech.remainingMs > 0)
 })
 
 const canFinishSpeechSelf = computed(() => {
