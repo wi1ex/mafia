@@ -483,10 +483,10 @@ function resetFinishSpeechDelay() {
 }
 function scheduleFinishSpeechUnlock() {
   resetFinishSpeechDelay()
-  if (gamePhase.value !== 'day') return
+  if (gamePhase.value !== 'day' && gamePhase.value !== 'vote') return
   if (!game.daySpeech.currentId || game.daySpeech.remainingMs <= 0) return
   finishSpeechTimer = window.setTimeout(() => {
-    if ( gamePhase.value === 'day' && !!game.daySpeech.currentId && game.daySpeech.remainingMs > 0 ) finishSpeechUnlocked.value = true
+    if ((gamePhase.value === 'day' || gamePhase.value === 'vote') && !!game.daySpeech.currentId && game.daySpeech.remainingMs > 0) finishSpeechUnlocked.value = true
     finishSpeechTimer = null
   }, FINISH_SPEECH_DELAY_MS)
 }
@@ -497,7 +497,7 @@ const canStartDay = computed(() =>
 )
 
 const isCurrentSpeaker = computed(() =>
-  gamePhase.value === 'day' &&
+  (gamePhase.value === 'day' || gamePhase.value === 'vote') &&
   game.daySpeech.currentId === localId.value &&
   game.daySpeech.remainingMs > 0,
 )
@@ -506,6 +506,7 @@ const canFinishSpeechHead = computed(() => {
   if (!isHead.value) return false
   if (gamePhase.value !== 'day' && gamePhase.value !== 'vote') return false
   if (!game.daySpeech.currentId) return false
+  if (!finishSpeechUnlocked.value) return false
   return game.daySpeech.remainingMs > 0
 })
 
@@ -522,6 +523,7 @@ const canFinishSpeechSelf = computed(() => {
   if (!amIAlive.value) return false
   if (gamePhase.value !== 'day' && gamePhase.value !== 'vote') return false
   if (game.daySpeech.currentId !== me) return false
+  if (!finishSpeechUnlocked.value) return false
   return game.daySpeech.remainingMs > 0
 })
 
@@ -545,7 +547,7 @@ const canStartLeaderSpeech = computed(() => {
   if (!vote.done) return false
   if (!voteResultShown.value) return false
   if (voteAborted.value) return false
-  if (voteResultLeaders.value.length === 0) return false
+  if (voteResultLeaders.length === 0) return false
   if (voteLeaderSpeechesDone.value) return false
   return game.daySpeech.remainingMs <= 0
 })
@@ -556,7 +558,7 @@ const canRestartVoteForLeaders = computed(() => {
   if (!vote.done) return false
   if (!voteResultShown.value) return false
   if (voteAborted.value) return false
-  if (voteResultLeaders.value.length <= 1) return false
+  if (voteResultLeaders.length <= 1) return false
   return voteLeaderSpeechesDone.value
 })
 
@@ -1334,8 +1336,8 @@ function applyJoinAck(j: any) {
   const snapshotIds = Object.keys(j.snapshot || {})
   game.applyFromJoinAck(j, snapshotIds)
 
-  if (gamePhase.value === 'day' && game.daySpeech.currentId && game.daySpeech.remainingMs > 0) { scheduleFinishSpeechUnlock() }
-  else { resetFinishSpeechDelay() }
+  if ((gamePhase.value === 'day' || gamePhase.value === 'vote') && game.daySpeech.currentId && game.daySpeech.remainingMs > 0) scheduleFinishSpeechUnlock()
+  else resetFinishSpeechDelay()
 }
 
 type PublishDelta = Partial<{
