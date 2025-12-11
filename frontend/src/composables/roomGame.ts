@@ -663,7 +663,7 @@ export function useRoomGame(localId: Ref<string>) {
     replaceIds(dayNominees, vt.nominees)
   }
 
-  function handleGameVoteAborted(p: any) {
+  function handleGameVoteAborted(_p: any) {
     voteAborted.value = true
     vote.done = true
     setVoteRemainingMs(0, true)

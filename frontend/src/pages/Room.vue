@@ -492,16 +492,15 @@ function scheduleFinishSpeechUnlock() {
   }, FINISH_SPEECH_DELAY_MS)
 }
 
-const canStartDay = computed(() =>
-  gamePhase.value === 'mafia_talk_end' &&
-  isHead.value,
-)
+const canStartDay = computed(() => {
+  return gamePhase.value === 'mafia_talk_end' && isHead.value
+})
 
-const isCurrentSpeaker = computed(() =>
-  (gamePhase.value === 'day' || gamePhase.value === 'vote') &&
-  game.daySpeech.currentId === localId.value &&
-  game.daySpeech.remainingMs > 0,
-)
+const isCurrentSpeaker = computed(() => {
+  return ((gamePhase.value === 'day' || gamePhase.value === 'vote') &&
+    game.daySpeech.currentId === localId.value &&
+    game.daySpeech.remainingMs > 0)
+})
 
 const canFinishSpeechHead = computed(() => {
   if (!isHead.value) return false
@@ -528,12 +527,12 @@ const canFinishSpeechSelf = computed(() => {
   return game.daySpeech.remainingMs > 0
 })
 
-const canTakeFoulSelf = computed(() =>
-  (gamePhase.value === 'day' || gamePhase.value === 'vote') &&
-  myGameRole.value === 'player' &&
-  amIAlive.value &&
-  !isCurrentSpeaker.value
-)
+const canTakeFoulSelf = computed(() => {
+  return ((gamePhase.value === 'day' || gamePhase.value === 'vote') &&
+    myGameRole.value === 'player' &&
+    amIAlive.value &&
+    !isCurrentSpeaker.value)
+})
 
 const canStartVote = computed(() => {
   if (!isHead.value) return false
@@ -566,24 +565,26 @@ const canRestartVoteForLeaders = computed(() => {
   return voteLeaderSpeechesDone.value
 })
 
-const singleNomineeFirstDay = computed(() =>
-  isHead.value &&
-  gamePhase.value === 'day' &&
-  daySpeechesDone.value &&
-  dayNumber.value === 1 &&
-  nomineeSeatNumbers.value.length === 1
-)
+const singleNomineeFirstDay = computed(() => {
+  return (isHead.value &&
+    gamePhase.value === 'day' &&
+    daySpeechesDone.value &&
+    dayNumber.value === 1 &&
+    nomineeSeatNumbers.value.length === 1)
+})
 
-const canShowNightAfterVote = computed(() =>
-  isHead.value &&
-  gamePhase.value === 'vote' &&
-  vote.done &&
-  voteLeaderSpeechesDone.value
-)
+const canShowNightAfterVote = computed(() => {
+  if (!isHead.value) return false
+  if (gamePhase.value !== 'vote') return false
+  if (!vote.done) return false
+  if (!voteLeaderSpeechesDone.value) return false
+  if (voteAborted.value || voteResultLeaders.length <= 1) return true
+  return voteLeaderKilled.value
+})
 
-const canShowNight = computed(() =>
-  canShowNightAfterVote.value || singleNomineeFirstDay.value
-)
+const canShowNight = computed(() => {
+  return canShowNightAfterVote.value || singleNomineeFirstDay.value
+})
 
 const allRolesPicked = computed(() => {
   const order = rolePick.order
