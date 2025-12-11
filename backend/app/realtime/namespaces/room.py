@@ -1366,7 +1366,7 @@ async def game_foul(sid, data):
         r = get_redis()
         raw_gstate = await r.hgetall(f"room:{rid}:game_state")
         phase = str(raw_gstate.get("phase") or "idle")
-        if phase != "day":
+        if phase not in ("day", "vote"):
             return {"ok": False, "error": "bad_phase", "status": 400}
 
         is_player = await r.sismember(f"room:{rid}:game_players", str(uid))
