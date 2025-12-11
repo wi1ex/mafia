@@ -77,6 +77,7 @@ export function useRoomGame(localId: Ref<string>) {
   const gameFoulsByUser = reactive(new Map<string, number>())
   const rolesVisibleForHead = ref(false)
   const knownRolesVisible = ref(true)
+  const dayNumber = ref(0)
   const canToggleKnownRoles = computed(() => {
     return gamePhase.value !== 'idle' && myGameRole.value !== 'none'
   })
@@ -445,6 +446,8 @@ export function useRoomGame(localId: Ref<string>) {
     const dy = (gr as any).day
     const vt = (gr as any).vote
     if (phase === 'day' && dy && typeof dy === 'object') {
+      const num = Number((dy as any).number || 0)
+      dayNumber.value = Number.isFinite(num) && num > 0 ? num : 0
       daySpeech.openingId = String(dy.opening_uid || '')
       daySpeech.closingId = String(dy.closing_uid || '')
       const rawMs = secondsToMs(dy.deadline)
@@ -590,12 +593,15 @@ export function useRoomGame(localId: Ref<string>) {
     const closingId = String(p?.closing_uid || '')
     const speakerId = String(p?.speaker_uid || '')
     const ms = secondsToMs(p?.deadline)
+
     daySpeech.openingId = openingId
     daySpeech.closingId = closingId
     daySpeech.currentId = ms > 0 ? speakerId : ''
     setDaySpeechRemainingMs(ms, true)
+
     const done = isTrueLike((p as any)?.speeches_done)
     const isActiveSpeech = ms > 0 && !!speakerId
+
     if (isActiveSpeech) {
       daySpeechesDone.value = false
       if (speakerId !== localId.value) nominatedThisSpeechByMe.value = false
@@ -603,6 +609,12 @@ export function useRoomGame(localId: Ref<string>) {
       daySpeechesDone.value = true
       nominatedThisSpeechByMe.value = false
     }
+
+    if (gamePhase.value === 'vote') {
+      if (isActiveSpeech) voteLeaderSpeechesDone.value = false
+      else if (done || (speakerId && closingId && speakerId === closingId)) voteLeaderSpeechesDone.value = true
+    }
+
     if (gamePhase.value === 'vote' && isTrueLike((p as any)?.killed)) voteLeaderKilled.value = true
   }
 
@@ -653,6 +665,9 @@ export function useRoomGame(localId: Ref<string>) {
     setVoteRemainingMs(0, true)
     votedUsers.clear()
     votedThisRound.clear()
+
+    vote.currentId = ''
+    voteStartedForCurrent.value = false
   }
 
   function handleGameVoted(p: any) {
@@ -672,8 +687,14 @@ export function useRoomGame(localId: Ref<string>) {
     voteLeaderKilled.value = false
     votedUsers.clear()
     votedThisRound.clear()
+
+    vote.currentId = ''
+    voteStartedForCurrent.value = false
+    setVoteRemainingMs(0, true)
+
     const leadersRaw = p?.leaders
     replaceIds(voteResultLeaders, leadersRaw)
+
     const nomineesRaw = p?.nominees
     replaceIds(dayNominees, nomineesRaw, s => voteResultLeaders.includes(s))
   }
@@ -742,6 +763,8 @@ export function useRoomGame(localId: Ref<string>) {
     }
     if (to === 'day') {
       const dy = p?.day
+      const num = Number(dy?.number || 0)
+      dayNumber.value = Number.isFinite(num) && num > 0 ? num : 0
       resetDaySpeechState(true)
       daySpeech.openingId = String(dy?.opening_uid || '')
       daySpeech.closingId = String(dy?.closing_uid || '')
@@ -769,6 +792,7 @@ export function useRoomGame(localId: Ref<string>) {
       replaceIds(dayNominees, undefined)
       nominatedThisSpeechByMe.value = false
       resetVoteState(true)
+      dayNumber.value = 0
     }
   }
 
@@ -1213,6 +1237,7 @@ export function useRoomGame(localId: Ref<string>) {
     voteAborted,
     voteLeaderSpeechesDone,
     voteLeaderKilled,
+    dayNumber,
 
     handleGameVoteResult,
     handleGameVoteAborted,

@@ -372,6 +372,7 @@ const {
   voteResultLeaders,
   voteResultShown,
   voteAborted,
+  dayNumber,
   voteLeaderSpeechesDone,
   voteLeaderKilled,
 } = game
@@ -538,7 +539,10 @@ const canTakeFoulSelf = computed(() =>
 const canStartVote = computed(() => {
   if (!isHead.value) return false
   if (gamePhase.value !== 'day') return false
-  return daySpeechesDone.value && nomineeSeatNumbers.value.length > 0
+  if (!daySpeechesDone.value) return false
+  const cnt = nomineeSeatNumbers.value.length
+  if (cnt <= 0) return false
+  return !(dayNumber.value === 1 && cnt === 1)
 })
 
 const canStartLeaderSpeech = computed(() => {
@@ -547,6 +551,7 @@ const canStartLeaderSpeech = computed(() => {
   if (!vote.done) return false
   if (!voteResultShown.value) return false
   if (voteAborted.value) return false
+  if (voteLeaderKilled.value) return false
   if (voteResultLeaders.length === 0) return false
   if (voteLeaderSpeechesDone.value) return false
   return game.daySpeech.remainingMs <= 0
@@ -562,11 +567,24 @@ const canRestartVoteForLeaders = computed(() => {
   return voteLeaderSpeechesDone.value
 })
 
-const canShowNight = computed(() => {
-  if (!isHead.value) return false
-  if (gamePhase.value !== 'vote') return false
-  return voteAborted.value || voteLeaderKilled.value
-})
+const singleNomineeFirstDay = computed(() =>
+  isHead.value &&
+  gamePhase.value === 'day' &&
+  daySpeechesDone.value &&
+  dayNumber.value === 1 &&
+  nomineeSeatNumbers.value.length === 1
+)
+
+const canShowNightAfterVote = computed(() =>
+  isHead.value &&
+  gamePhase.value === 'vote' &&
+  vote.done &&
+  voteLeaderSpeechesDone.value
+)
+
+const canShowNight = computed(() =>
+  canShowNightAfterVote.value || singleNomineeFirstDay.value
+)
 
 const allRolesPicked = computed(() => {
   const order = rolePick.order
@@ -1659,6 +1677,7 @@ onBeforeUnmount(() => {
         padding: 5px;
         gap: 5px;
         width: 20%;
+        max-width: 250px;
         height: 20px;
         border-radius: 5px;
         background-color: rgba($dark, 0.75);
@@ -1936,6 +1955,7 @@ onBeforeUnmount(() => {
           padding: 3px 5px;
           gap: 3px;
           width: 30%;
+          max-width: 250px;
           height: 14px;
           img {
             width: 14px;
