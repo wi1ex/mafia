@@ -600,6 +600,7 @@ export function useRoomGame(localId: Ref<string>) {
     setDaySpeechRemainingMs(ms, true)
 
     const done = isTrueLike((p as any)?.speeches_done)
+    const killed = isTrueLike((p as any)?.killed)
     const isActiveSpeech = ms > 0 && !!speakerId
 
     if (isActiveSpeech) {
@@ -611,11 +612,14 @@ export function useRoomGame(localId: Ref<string>) {
     }
 
     if (gamePhase.value === 'vote') {
-      if (isActiveSpeech) voteLeaderSpeechesDone.value = false
-      else if (done || (speakerId && closingId && speakerId === closingId)) voteLeaderSpeechesDone.value = true
+      if (isActiveSpeech) {
+        voteLeaderSpeechesDone.value = false
+        voteLeaderKilled.value = false
+      } else if (done || killed || (speakerId && closingId && speakerId === closingId)) {
+        voteLeaderSpeechesDone.value = true
+        if (killed) voteLeaderKilled.value = true
+      }
     }
-
-    if (gamePhase.value === 'vote' && isTrueLike((p as any)?.killed)) voteLeaderKilled.value = true
   }
 
   function handleGameNomineeAdded(p: any) {

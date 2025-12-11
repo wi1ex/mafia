@@ -529,11 +529,10 @@ const canFinishSpeechSelf = computed(() => {
 })
 
 const canTakeFoulSelf = computed(() =>
-  gamePhase.value === 'day' &&
+  (gamePhase.value === 'day' || gamePhase.value === 'vote') &&
   myGameRole.value === 'player' &&
   amIAlive.value &&
-  !isCurrentSpeaker.value &&
-  !daySpeechesDone.value,
+  !isCurrentSpeaker.value
 )
 
 const canStartVote = computed(() => {
@@ -1677,7 +1676,7 @@ onBeforeUnmount(() => {
         padding: 5px;
         gap: 5px;
         width: 20%;
-        max-width: 250px;
+        max-width: 200px;
         height: 20px;
         border-radius: 5px;
         background-color: rgba($dark, 0.75);
@@ -1955,7 +1954,7 @@ onBeforeUnmount(() => {
           padding: 3px 5px;
           gap: 3px;
           width: 30%;
-          max-width: 250px;
+          max-width: 200px;
           height: 14px;
           img {
             width: 14px;
