@@ -898,6 +898,7 @@ async def finish_vote_speech(r, rid: int, raw_gstate: Mapping[str, Any], speaker
 
     kind = str(raw_gstate.get("vote_speech_kind") or "")
     killed = False
+    speeches_done = False
     if kind == "farewell":
         await r.srem(f"room:{rid}:game_alive", str(speaker_uid))
         try:
@@ -926,6 +927,26 @@ async def finish_vote_speech(r, rid: int, raw_gstate: Mapping[str, Any], speaker
                 log.exception("vote_speech.autoblock_failed", rid=rid, head=head_uid, target=speaker_uid)
 
         killed = True
+        speeches_done = True
+
+    elif kind != "farewell":
+        try:
+            leaders_raw = str(raw_gstate.get("vote_leaders_order") or "")
+            leaders: list[int] = []
+            for part in leaders_raw.split(","):
+                part = part.strip()
+                if not part:
+                    continue
+                try:
+                    leaders.append(int(part))
+                except Exception:
+                    continue
+
+            leader_idx = int(raw_gstate.get("vote_leader_idx") or 0)
+            if leaders and leader_idx >= len(leaders):
+                speeches_done = True
+        except Exception:
+            speeches_done = False
 
     async with r.pipeline() as p:
         await p.hset(
@@ -948,6 +969,8 @@ async def finish_vote_speech(r, rid: int, raw_gstate: Mapping[str, Any], speaker
     }
     if killed:
         payload["killed"] = True
+    if speeches_done:
+        payload["speeches_done"] = True
 
     return payload
 
