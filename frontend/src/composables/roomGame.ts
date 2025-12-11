@@ -455,7 +455,7 @@ export function useRoomGame(localId: Ref<string>) {
       setDaySpeechRemainingMs(rawMs, false)
       daySpeechesDone.value = isTrueLike((dy as any).speeches_done)
       replaceIds(dayNominees, (dy as any).nominees)
-      nominatedThisSpeechByMe.value = false
+      nominatedThisSpeechByMe.value = isTrueLike((dy as any).nominated_this_speech)
     } else if (phase === 'vote' && vt && typeof vt === 'object') {
       resetDaySpeechState(false)
       daySpeechesDone.value = true
@@ -467,6 +467,7 @@ export function useRoomGame(localId: Ref<string>) {
       vote.done = isTrueLike((vt as any).done)
       voteAborted.value = isTrueLike((vt as any).aborted)
       voteStartedForCurrent.value = rawMs > 0
+
       votedUsers.clear()
       votedThisRound.clear()
       const votedRaw = (vt as any).voted
@@ -484,6 +485,33 @@ export function useRoomGame(localId: Ref<string>) {
         }
       }
       nominatedThisSpeechByMe.value = false
+      const leadersRaw = (vt as any).leaders
+      if (Array.isArray(leadersRaw)) {
+        replaceIds(voteResultLeaders, leadersRaw)
+      } else {
+        replaceIds(voteResultLeaders, undefined)
+      }
+
+      const speech = (vt as any).speech
+      if (speech && typeof speech === 'object') {
+        const spId = String((speech as any).speaker_uid || '')
+        const spMs = secondsToMs((speech as any).deadline)
+        daySpeech.openingId = spId
+        daySpeech.closingId = spId
+        daySpeech.currentId = spMs > 0 && spId ? spId : ''
+        setDaySpeechRemainingMs(spMs, false)
+        daySpeechesDone.value = false
+        voteLeaderSpeechesDone.value = false
+        voteLeaderKilled.value = false
+      } else {
+        setDaySpeechRemainingMs(0, false)
+        daySpeech.currentId = ''
+        const done = isTrueLike((vt as any).speeches_done)
+        daySpeechesDone.value = done
+        voteLeaderSpeechesDone.value = done
+        voteLeaderKilled.value = false
+      }
+      voteResultShown.value = isTrueLike((vt as any).results_ready)
     } else {
       resetDaySpeechState(false)
       replaceIds(dayNominees, undefined)

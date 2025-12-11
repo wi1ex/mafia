@@ -956,6 +956,7 @@ async def finish_vote_speech(r, rid: int, raw_gstate: Mapping[str, Any], speaker
                 "vote_speech_started": "0",
                 "vote_speech_duration": "0",
                 "vote_speech_kind": "",
+                "vote_speeches_done": "1" if speeches_done else "0",
             },
         )
         await p.execute()
@@ -1359,6 +1360,25 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
         if nominees:
             game_runtime["day"]["nominees"] = nominees
 
+        try:
+            nominated_raw = await r.smembers(f"room:{rid}:game_nom_speakers")
+        except Exception:
+            nominated_raw = set()
+
+        nominated_ids: list[int] = []
+        for v in (nominated_raw or []):
+            try:
+                nominated_ids.append(int(v))
+            except Exception:
+                continue
+
+        game_runtime["day"]["nominated_speakers"] = nominated_ids
+        my_nominated = False
+        if uid and day_current_uid == uid and not speeches_done:
+            my_nominated = uid in nominated_ids
+        if my_nominated:
+            game_runtime["day"]["nominated_this_speech"] = True
+
     if phase == "vote":
         try:
             vote_current_uid = int(raw_gstate.get("vote_current_uid") or 0)
@@ -1369,9 +1389,9 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
         except Exception:
             vote_started = 0
         try:
-            vote_duration = int(raw_gstate.get("vote_duration") or getattr(settings, "VOTE_SECONDS", 3))
+            vote_duration = int(raw_gstate.get("vote_duration") or settings.VOTE_SECONDS)
         except Exception:
-            vote_duration = getattr(settings, "VOTE_SECONDS", 3)
+            vote_duration = settings.VOTE_SECONDS
         try:
             vote_done = str(raw_gstate.get("vote_done") or "0") == "1"
         except Exception:
@@ -1380,29 +1400,89 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
             vote_aborted = str(raw_gstate.get("vote_aborted") or "0") == "1"
         except Exception:
             vote_aborted = False
+        try:
+            vote_results_ready = str(raw_gstate.get("vote_results_ready") or "0") == "1"
+        except Exception:
+            vote_results_ready = False
+        try:
+            vote_speeches_done = str(raw_gstate.get("vote_speeches_done") or "0") == "1"
+        except Exception:
+            vote_speeches_done = False
+        try:
+            vote_speech_uid = int(raw_gstate.get("vote_speech_uid") or 0)
+        except Exception:
+            vote_speech_uid = 0
+        try:
+            vote_speech_started = int(raw_gstate.get("vote_speech_started") or 0)
+        except Exception:
+            vote_speech_started = 0
+        try:
+            vote_speech_duration = int(raw_gstate.get("vote_speech_duration") or 0)
+        except Exception:
+            vote_speech_duration = 0
+        try:
+            vote_speech_kind = str(raw_gstate.get("vote_speech_kind") or "")
+        except Exception:
+            vote_speech_kind = ""
 
         remaining = 0
         if vote_started and vote_duration > 0:
             now_ts = int(time())
             remaining = max(vote_started + vote_duration - now_ts, 0)
 
+        speech_remaining = 0
+        if vote_speech_uid and vote_speech_started and vote_speech_duration > 0:
+            now_ts = int(time())
+            speech_remaining = max(vote_speech_started + vote_speech_duration - now_ts, 0)
+
+        leaders_raw = str(raw_gstate.get("vote_leaders_order") or "")
+        leaders: list[int] = []
+        for part in leaders_raw.split(","):
+            part = part.strip()
+            if not part:
+                continue
+            try:
+                leaders.append(int(part))
+            except Exception:
+                continue
+
+        try:
+            leader_idx = int(raw_gstate.get("vote_leader_idx") or 0)
+        except Exception:
+            leader_idx = 0
+
         nominees_order = await get_nominees_in_order(r, rid)
-        game_runtime["vote"] = {
+        vote_section: dict[str, Any] = {
             "current_uid": vote_current_uid,
             "deadline": remaining,
             "nominees": nominees_order,
             "done": vote_done,
             "aborted": vote_aborted,
+            "results_ready": vote_results_ready,
+            "speeches_done": vote_speeches_done,
         }
+
+        if leaders:
+            vote_section["leaders"] = leaders
+            vote_section["leader_idx"] = leader_idx
+        if speech_remaining > 0 and vote_speech_uid:
+            vote_section["speech"] = {
+                "speaker_uid": vote_speech_uid,
+                "deadline": speech_remaining,
+                "kind": vote_speech_kind,
+            }
+        game_runtime["vote"] = vote_section
 
     try:
         head_uid = int(raw_gstate.get("head") or 0)
     except Exception:
         head_uid = 0
+
     roles_map = {str(k): str(v) for k, v in (raw_roles or {}).items()}
     my_game_role = roles_map.get(str(uid))
     roles_done = str(raw_gstate.get("roles_done") or "0") == "1"
     game_roles_view: dict[str, str] = {}
+
     if roles_done:
         if head_uid and uid == head_uid:
             game_roles_view = dict(roles_map)

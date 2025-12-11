@@ -527,6 +527,8 @@ async def game_leave(sid, data):
                             "vote_speech_started": "0",
                             "vote_speech_duration": "0",
                             "vote_speech_kind": "",
+                            "vote_results_ready": "0",
+                            "vote_speeches_done": "0",
                         },
                     )
                     await p.execute()
@@ -1147,6 +1149,8 @@ async def game_phase_next(sid, data):
                         "vote_started": "0",
                         "vote_duration": str(vote_duration),
                         "vote_done": "0",
+                        "vote_results_ready": "0",
+                        "vote_speeches_done": "0",
                     },
                 )
                 await p.delete(f"room:{rid}:game_votes")
@@ -1970,6 +1974,8 @@ async def game_vote_finish(sid, data):
                     "vote_speech_duration": "0",
                     "vote_speech_kind": "",
                     "vote_aborted": "0",
+                    "vote_results_ready": "1",
+                    "vote_speeches_done": "0",
                 },
             )
             mp_nominees = {str(uid): str(i + 1) for i, uid in enumerate(leaders)}
@@ -2265,6 +2271,8 @@ async def game_vote_restart(sid, data):
                     "vote_speech_started": "0",
                     "vote_speech_duration": "0",
                     "vote_speech_kind": "",
+                    "vote_results_ready": "0",
+                    "vote_speeches_done": "0",
                 },
             )
             await p.delete(f"room:{rid}:game_votes")
