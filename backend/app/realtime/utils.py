@@ -1215,7 +1215,7 @@ async def enrich_game_runtime_with_vote(r, rid: int, game_runtime: Mapping[str, 
     except Exception:
         results_ready = str(raw_gstate.get("vote_results_ready") or "0") == "1"
 
-    if done or aborted or results_ready:
+    if aborted or results_ready:
         vote_section.pop("voted", None)
         vote_section.pop("voted_for_current", None)
         out = dict(game_runtime)
@@ -1445,7 +1445,7 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
         except Exception:
             vote_speech_kind = ""
 
-        if vote_done or vote_aborted or vote_results_ready:
+        if vote_aborted or vote_results_ready:
             vote_current_uid = 0
 
         remaining = 0

@@ -460,18 +460,23 @@ export function useRoomGame(localId: Ref<string>) {
       resetDaySpeechState(false)
       daySpeechesDone.value = true
       replaceIds(dayNominees, (vt as any).nominees)
+
       const rawMs = secondsToMs((vt as any).deadline)
       setVoteRemainingMs(rawMs, false)
+
       const done = isTrueLike((vt as any).done)
+      const aborted = isTrueLike((vt as any).aborted)
+      const resultsReady = isTrueLike((vt as any).results_ready)
       vote.done = done
-      voteAborted.value = isTrueLike((vt as any).aborted)
+      voteAborted.value = aborted
+      voteResultShown.value = resultsReady
       voteStartedForCurrent.value = isTrueLike((vt as any).started)
 
       votedUsers.clear()
       votedThisRound.clear()
 
       const curIdRaw  = String((vt as any).current_uid || '')
-      if (done) {
+      if (aborted || resultsReady) {
         vote.currentId = ''
         voteStartedForCurrent.value = false
       } else {
@@ -494,11 +499,8 @@ export function useRoomGame(localId: Ref<string>) {
       
       nominatedThisSpeechByMe.value = false
       const leadersRaw = (vt as any).leaders
-      if (Array.isArray(leadersRaw)) {
-        replaceIds(voteResultLeaders, leadersRaw)
-      } else {
-        replaceIds(voteResultLeaders, undefined)
-      }
+      if (Array.isArray(leadersRaw)) replaceIds(voteResultLeaders, leadersRaw)
+      else replaceIds(voteResultLeaders, undefined)
 
       const speech = (vt as any).speech
       if (speech && typeof speech === 'object') {
