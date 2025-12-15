@@ -131,6 +131,20 @@ export function useRoomGame(localId: Ref<string>) {
   const voteLeaderSpeechesDone = ref(false)
   const voteLeaderKilled = ref(false)
 
+  const night = reactive({
+    stage: 'sleep' as 'sleep' | 'shoot' | 'shoot_done' | 'checks' | 'checks_done',
+    remainingMs: 0,
+    killOk: false,
+    killUid: '',
+    hasResult: false,
+  })
+  const nightTimerId = ref<number | null>(null)
+  const myNightShotTarget = ref<string>('')
+  const myNightCheckTarget = ref<string>('')
+  const nightKnownByMe = reactive(new Map<string, GameRoleKind>())
+  const nightCheckedByMe = reactive(new Set<string>())
+  const headNightPicks = reactive(new Map<string, number>())
+
   const nomineeSeatNumbers = computed<number[]>(() => {
     const list = Array.isArray(dayNominees) ? dayNominees : []
     return list.map(uid => seatIndex(uid)).filter((s): s is number => s != null)
@@ -169,6 +183,10 @@ export function useRoomGame(localId: Ref<string>) {
     if (!vote.currentId) return null
     return seatIndex(vote.currentId)
   })
+
+  function setNightRemainingMs(ms: number, changed: boolean) {
+    setTimerWithLatency(night, ms, nightTimerId, changed)
+  }
 
   function canPressVoteButton(): boolean {
     const me = localId.value
@@ -363,6 +381,36 @@ export function useRoomGame(localId: Ref<string>) {
     replaceIds(dayNominees, undefined)
     nominatedThisSpeechByMe.value = false
     resetVoteState(false)
+    
+    night.stage = 'sleep'
+    night.remainingMs = 0
+    night.killOk = false
+    night.killUid = ''
+    night.hasResult = false
+    if (nightTimerId.value != null) {
+      clearTimeout(nightTimerId.value)
+      nightTimerId.value = null
+    }
+    myNightShotTarget.value = ''
+    myNightCheckTarget.value = ''
+    nightKnownByMe.clear()
+    nightCheckedByMe.clear()
+    headNightPicks.clear()
+  }
+
+  function nightKnownRoleIconForTile(id: string): string {
+    if (gamePhase.value === 'idle') return ''
+    const me = localId.value
+    if (!me) return ''
+    const myRole = gameRolesByUser.get(me)
+    if (myRole !== 'don' && myRole !== 'sheriff') return ''
+    const rr = nightKnownByMe.get(id)
+    if (!rr) return ''
+    return ROLE_BADGE_ICONS[rr] || ''
+  }
+
+  function effectiveRoleIconForTile(id: string): string {
+    return nightKnownRoleIconForTile(id) || roleIconForTile(id)
   }
 
   function syncRoleOverlayWithTurn() {
@@ -443,8 +491,11 @@ export function useRoomGame(localId: Ref<string>) {
     } else {
       setMafiaTalkRemainingMs(0, false)
     }
+
     const dy = (gr as any).day
     const vt = (gr as any).vote
+    const nt = (gr as any).night
+
     if (phase === 'day' && dy && typeof dy === 'object') {
       const num = Number((dy as any).number || 0)
       dayNumber.value = Number.isFinite(num) && num > 0 ? num : 0
@@ -456,6 +507,18 @@ export function useRoomGame(localId: Ref<string>) {
       daySpeechesDone.value = isTrueLike((dy as any).speeches_done)
       replaceIds(dayNominees, (dy as any).nominees)
       nominatedThisSpeechByMe.value = isTrueLike((dy as any).nominated_this_speech)
+
+      const lastNight = (gr as any).night
+      const hasNightPayload = !!lastNight && typeof lastNight === 'object' && ('kill_ok' in lastNight || 'kill_uid' in lastNight)
+      if (hasNightPayload) {
+        night.killOk = isTrueLike((lastNight as any).kill_ok)
+        night.killUid = String((lastNight as any).kill_uid || '')
+        night.hasResult = dayNumber.value >= 2
+      } else {
+        night.killOk = false
+        night.killUid = ''
+        night.hasResult = false
+      }
     } else if (phase === 'vote' && vt && typeof vt === 'object') {
       resetDaySpeechState(false)
       daySpeechesDone.value = true
@@ -522,11 +585,36 @@ export function useRoomGame(localId: Ref<string>) {
         voteLeaderKilled.value = false
       }
       voteResultShown.value = isTrueLike((vt as any).results_ready)
+    } else if (phase === 'night' && nt && typeof nt === 'object') {
+      night.stage = String((nt as any).stage || 'sleep') as any
+      const ms = secondsToMs((nt as any).deadline)
+      setNightRemainingMs(ms, false)
+      myNightShotTarget.value = ''
+      myNightCheckTarget.value = ''
+      headNightPicks.clear()
+      nightCheckedByMe.clear()
+      nightKnownByMe.clear()
+      const checkedRaw = (nt as any).checked
+      if (Array.isArray(checkedRaw)) {
+        for (const u of checkedRaw) {
+          const s = String(u)
+          if (s) nightCheckedByMe.add(s)
+        }
+      }
+      const knownRaw = (nt as any).known
+      if (knownRaw && typeof knownRaw === 'object') {
+        for (const [u, rr] of Object.entries(knownRaw)) {
+          const role = String(rr) as GameRoleKind
+          nightKnownByMe.set(String(u), role)
+        }
+      }
     } else {
       resetDaySpeechState(false)
       replaceIds(dayNominees, undefined)
       nominatedThisSpeechByMe.value = false
       resetVoteState(false)
+      setNightRemainingMs(0, false)
+      night.stage = 'sleep'
     }
     const playersCount = gamePlayers.size
     const rolesCount = gameRolesByUser.size
@@ -803,6 +891,30 @@ export function useRoomGame(localId: Ref<string>) {
     } else {
       setMafiaTalkRemainingMs(0, true)
     }
+    if (to === 'night') {
+      resetDaySpeechState(true)
+      resetVoteState(true)
+      const nt = p?.night
+      night.stage = String(nt?.stage || 'sleep') as any
+      setNightRemainingMs(secondsToMs(nt?.deadline), true)
+      night.hasResult = false
+      myNightShotTarget.value = ''
+      myNightCheckTarget.value = ''
+      headNightPicks.clear()
+
+      const checkedRaw = (nt as any)?.checked
+      if (Array.isArray(checkedRaw)) {
+        nightCheckedByMe.clear()
+        for (const u of checkedRaw) nightCheckedByMe.add(String(u))
+      }
+      const knownRaw = (nt as any)?.known
+      if (knownRaw && typeof knownRaw === 'object') {
+        nightKnownByMe.clear()
+        for (const [u, rr] of Object.entries(knownRaw)) nightKnownByMe.set(String(u), String(rr) as GameRoleKind)
+      }
+
+      return
+    }
     if (to === 'day') {
       const dy = p?.day
       const num = Number(dy?.number || 0)
@@ -812,6 +924,11 @@ export function useRoomGame(localId: Ref<string>) {
       daySpeech.closingId = String(dy?.closing_uid || '')
       replaceIds(dayNominees, undefined)
       nominatedThisSpeechByMe.value = false
+      const n = (p as any)?.night
+      night.killOk = isTrueLike(n?.kill_ok)
+      night.killUid = String(n?.kill_uid || '')
+      night.hasResult = String((p as any)?.from || '') === 'night'
+      headNightPicks.clear()
     } else if (to === 'vote') {
       const vt = p?.vote
       resetDaySpeechState(true)
@@ -849,6 +966,97 @@ export function useRoomGame(localId: Ref<string>) {
     if (!gameAlive.has(id)) return false
     if (dayNominees.includes(id)) return false
     return !nominatedThisSpeechByMe.value
+  }
+  
+  function handleGameNightState(p: any) {
+    const nt = p?.night
+    if (!nt || typeof nt !== 'object') return
+    night.stage = String(nt.stage || 'sleep') as any
+    setNightRemainingMs(secondsToMs(nt.deadline), true)
+
+    if (night.stage === 'shoot') {
+      myNightShotTarget.value = ''
+      headNightPicks.clear()
+    } else if (night.stage === 'checks') {
+      myNightCheckTarget.value = ''
+      headNightPicks.clear()
+    } else if (night.stage === 'checks_done') {
+      // ждём номера проверок от ведущего (game_night_head_picks)
+    }
+  }
+
+  function handleGameNightHeadPicks(p: any) {
+    const picks = (p?.picks || {}) as Record<string, any>
+    headNightPicks.clear()
+    for (const [uid, seat] of Object.entries(picks)) {
+      const n = Number(seat)
+      if (Number.isFinite(n) && n > 0) headNightPicks.set(String(uid), n)
+    }
+  }
+
+  function handleGameNightReveal(p: any) {
+    const tid = String(p?.target_id || '')
+    const rr = String(p?.shown_role || '') as GameRoleKind
+    if (!tid || !rr) return
+    nightKnownByMe.set(tid, rr)
+    nightCheckedByMe.add(tid)
+  }
+
+  function canShootTarget(targetId: string): boolean {
+    if (gamePhase.value !== 'night') return false
+    if (night.stage !== 'shoot') return false
+    if (night.remainingMs <= 0) return false
+    if (!amIAlive.value) return false
+    const me = localId.value
+    if (!me) return false
+    const myRole = gameRolesByUser.get(me)
+    if (myRole !== 'mafia' && myRole !== 'don') return false
+    if (myNightShotTarget.value) return false
+    return gamePlayers.has(targetId)
+  }
+
+  function canCheckTarget(targetId: string): boolean {
+    if (gamePhase.value !== 'night') return false
+    if (night.stage !== 'checks') return false
+    if (night.remainingMs <= 0) return false
+    if (!amIAlive.value) return false
+    const me = localId.value
+    if (!me) return false
+    if (targetId === me) return false
+    const myRole = gameRolesByUser.get(me)
+    if (myRole !== 'don' && myRole !== 'sheriff') return false
+    if (myNightCheckTarget.value) return false
+    if (!gamePlayers.has(targetId)) return false
+    if (nightCheckedByMe.has(targetId)) return false
+    if (myRole === 'don') {
+      const tr = gameRolesByUser.get(targetId)
+      if (tr === 'mafia' || tr === 'don') return false
+    }
+    return true
+  }
+
+  async function shootTarget(targetUserId: string, sendAck: SendAckFn): Promise<void> {
+    const uidNum = Number(targetUserId)
+    if (!uidNum) return
+    const resp = await sendAck('game_night_shoot', { user_id: uidNum })
+    if (resp?.ok) myNightShotTarget.value = targetUserId
+  }
+
+  async function checkTarget(targetUserId: string, sendAck: SendAckFn): Promise<void> {
+    const uidNum = Number(targetUserId)
+    if (!uidNum) return
+    const resp = await sendAck('game_night_check', { user_id: uidNum })
+    if (resp?.ok) myNightCheckTarget.value = targetUserId
+  }
+
+  async function startNightShoot(sendAck: SendAckFn): Promise<void> {
+    const resp = await sendAck('game_night_shoot_start', {})
+    if (!resp?.ok) alert('Не удалось начать отстрел мафии')
+  }
+
+  async function startNightChecks(sendAck: SendAckFn): Promise<void> {
+    const resp = await sendAck('game_night_checks_start', {})
+    if (!resp?.ok) alert('Не удалось начать проверки')
   }
 
   async function nominateTarget(targetUserId: string, sendAck: SendAckFn): Promise<void> {
@@ -1282,7 +1490,20 @@ export function useRoomGame(localId: Ref<string>) {
     voteLeaderSpeechesDone,
     voteLeaderKilled,
     dayNumber,
+    night,
+    headNightPicks,
+    nightKnownByMe,
 
+    effectiveRoleIconForTile,
+    canShootTarget,
+    canCheckTarget,
+    shootTarget,
+    checkTarget,
+    startNightShoot,
+    startNightChecks,
+    handleGameNightState,
+    handleGameNightHeadPicks,
+    handleGameNightReveal,
     handleGameVoteResult,
     handleGameVoteAborted,
     canPressVoteButton,

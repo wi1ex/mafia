@@ -48,7 +48,12 @@ from ..utils import (
     get_nominees_in_order,
     get_alive_and_voted_ids,
     enrich_game_runtime_with_vote,
-    get_game_fouls, vote_speech_timeout_job, finish_vote_speech,
+    get_game_fouls,
+    vote_speech_timeout_job,
+    finish_vote_speech,
+    emit_game_night_state,
+    night_stage_timeout_job,
+    compute_night_kill, finish_day_prelude_speech,
 )
 
 log = structlog.get_logger()
@@ -754,6 +759,8 @@ async def game_start(sid, data) -> GameStartAck:
                     f"room:{rid}:game_nominees",
                     f"room:{rid}:game_nom_speakers",
                     f"room:{rid}:game_votes",
+                    f"room:{rid}:game_checked:don",
+                    f"room:{rid}:game_checked:sheriff",
                 )
                 await p.sadd(f"room:{rid}:game_players", *player_ids)
                 await p.sadd(f"room:{rid}:game_alive", *player_ids)
@@ -1183,6 +1190,241 @@ async def game_phase_next(sid, data):
 
             return payload
 
+        if cur_phase == "day" and want_to == "night":
+            speeches_done = str(raw_gstate.get("day_speeches_done") or "0") == "1"
+            if not speeches_done:
+                return {"ok": False, "error": "speeches_not_done", "status": 400}
+
+            async with r.pipeline() as p:
+                await p.hset(
+                    f"room:{rid}:game_state",
+                    mapping={
+                        "phase": "night",
+                        "night_stage": "sleep",
+                        "night_shoot_started": "0",
+                        "night_shoot_duration": "0",
+                        "night_check_started": "0",
+                        "night_check_duration": "0",
+                        "night_kill_uid": "0",
+                        "night_kill_ok": "0",
+                        "day_prelude_uid": "0",
+                        "day_prelude_pending": "0",
+                        "day_prelude_active": "0",
+                        "day_prelude_done": "0",
+                    },
+                )
+                await p.delete(f"room:{rid}:night_shots", f"room:{rid}:night_checks")
+                await p.execute()
+
+            players_raw = await r.smembers(f"room:{rid}:game_players")
+            player_ids: list[int] = []
+            for v in (players_raw or []):
+                try:
+                    player_ids.append(int(v))
+                except Exception:
+                    continue
+
+            if head_uid and head_uid not in player_ids:
+                player_ids2 = list(player_ids) + [head_uid]
+            else:
+                player_ids2 = list(player_ids)
+
+            for target_uid in player_ids:
+                try:
+                    await apply_blocks_and_emit(r, rid, actor_uid=head_uid, actor_role="head", target_uid=target_uid, changes_bool={"visibility": True, "mic": True})
+                except Exception:
+                    log.exception("night.start.block_failed", rid=rid, head=head_uid, target=target_uid)
+
+            async with r.pipeline() as p:
+                for target_uid in player_ids2:
+                    await p.hset(f"room:{rid}:user:{target_uid}:state", mapping={"visibility": "0", "mic": "0"})
+                await p.execute()
+
+            for target_uid in player_ids2:
+                try:
+                    await emit_state_changed_filtered(r, rid, target_uid, {"visibility": "0", "mic": "0"}, phase_override="night")
+                except Exception:
+                    log.exception("night.start.emit_state_failed", rid=rid, uid=target_uid)
+
+            await sio.emit("game_phase_change",
+                           {"room_id": rid,
+                            "from": cur_phase,
+                            "to": "night",
+                            "night": {"stage": "sleep", "deadline": 0}},
+                           room=f"room:{rid}",
+                           namespace="/room")
+            return {"ok": True, "status": 200, "room_id": rid, "from": cur_phase, "to": "night"}
+
+        if cur_phase == "vote" and want_to == "night":
+            vote_done = str(raw_gstate.get("vote_done") or "0") == "1"
+            vote_aborted = str(raw_gstate.get("vote_aborted") or "0") == "1"
+            vote_speeches_done = str(raw_gstate.get("vote_speeches_done") or "0") == "1"
+            vote_results_ready = str(raw_gstate.get("vote_results_ready") or "0") == "1"
+
+            if not vote_done:
+                return {"ok": False, "error": "vote_not_done", "status": 400}
+
+            if not vote_aborted and vote_results_ready and not vote_speeches_done:
+                return {"ok": False, "error": "speeches_not_done", "status": 400}
+
+            async with r.pipeline() as p:
+                await p.hset(
+                    f"room:{rid}:game_state",
+                    mapping={
+                        "phase": "night",
+                        "night_stage": "sleep",
+                        "night_shoot_started": "0",
+                        "night_shoot_duration": "0",
+                        "night_check_started": "0",
+                        "night_check_duration": "0",
+                        "night_kill_uid": "0",
+                        "night_kill_ok": "0",
+                        "day_prelude_uid": "0",
+                        "day_prelude_pending": "0",
+                        "day_prelude_active": "0",
+                        "day_prelude_done": "0",
+                    },
+                )
+                await p.delete(f"room:{rid}:night_shots", f"room:{rid}:night_checks")
+                await p.execute()
+
+            players_raw = await r.smembers(f"room:{rid}:game_players")
+            player_ids: list[int] = []
+            for v in (players_raw or []):
+                try:
+                    player_ids.append(int(v))
+                except Exception:
+                    continue
+
+            if head_uid and head_uid not in player_ids:
+                player_ids2 = list(player_ids) + [head_uid]
+            else:
+                player_ids2 = list(player_ids)
+
+            for target_uid in player_ids:
+                try:
+                    await apply_blocks_and_emit(r, rid, actor_uid=head_uid, actor_role="head", target_uid=target_uid, changes_bool={"visibility": True, "mic": True})
+                except Exception:
+                    log.exception("night.start.block_failed", rid=rid, head=head_uid, target=target_uid)
+
+            async with r.pipeline() as p:
+                for target_uid in player_ids2:
+                    await p.hset(f"room:{rid}:user:{target_uid}:state", mapping={"visibility": "0", "mic": "0"})
+                await p.execute()
+
+            for target_uid in player_ids2:
+                await emit_state_changed_filtered(r, rid, target_uid, {"visibility": "0", "mic": "0"}, phase_override="night")
+
+            await sio.emit("game_phase_change",
+                           {"room_id": rid,
+                            "from": cur_phase,
+                            "to": "night",
+                            "night": {"stage": "sleep", "deadline": 0}},
+                           room=f"room:{rid}",
+                           namespace="/room")
+            return {"ok": True, "status": 200, "room_id": rid, "from": cur_phase, "to": "night"}
+
+        if cur_phase == "night" and want_to == "day":
+            stage = str(raw_gstate.get("night_stage") or "sleep")
+            if stage != "checks_done":
+                return {"ok": False, "error": "night_not_finished", "status": 409, "night_stage": stage}
+
+            killed_uid, ok = await compute_night_kill(r, rid)
+            if ok and killed_uid:
+                try:
+                    await r.srem(f"room:{rid}:game_alive", str(killed_uid))
+                except Exception:
+                    log.exception("night.day.srem_alive_failed", rid=rid, uid=killed_uid)
+
+                try:
+                    alive_cnt = int(await r.scard(f"room:{rid}:game_alive") or 0)
+                except Exception:
+                    alive_cnt = 0
+                await sio.emit("rooms_occupancy", {"id": rid, "occupancy": alive_cnt}, namespace="/rooms")
+                await sio.emit("game_player_left", {"room_id": rid, "user_id": killed_uid}, room=f"room:{rid}", namespace="/room")
+
+            try:
+                day_number = int(raw_gstate.get("day_number") or 0)
+            except Exception:
+                day_number = 0
+            try:
+                last_opening_uid = int(raw_gstate.get("day_last_opening_uid") or 0)
+            except Exception:
+                last_opening_uid = 0
+
+            opening_uid, closing_uid, alive_order = await compute_day_opening_and_closing(r, rid, last_opening_uid)
+            new_day_number = day_number + 1 if opening_uid else day_number
+            players_raw = await r.smembers(f"room:{rid}:game_players")
+            player_ids: list[int] = []
+            for v in (players_raw or []):
+                try:
+                    player_ids.append(int(v))
+                except Exception:
+                    continue
+
+            if head_uid and head_uid not in player_ids:
+                player_ids2 = list(player_ids) + [head_uid]
+            else:
+                player_ids2 = list(player_ids)
+
+            for target_uid in player_ids:
+                try:
+                    await apply_blocks_and_emit(r, rid, actor_uid=head_uid, actor_role="head", target_uid=target_uid, changes_bool={"visibility": False})
+                except Exception:
+                    log.exception("night.day.unblock_visibility_failed", rid=rid, head=head_uid, target=target_uid)
+
+            async with r.pipeline() as p:
+                for target_uid in player_ids2:
+                    await p.hset(f"room:{rid}:user:{target_uid}:state", mapping={"visibility": "1"})
+                await p.execute()
+            for target_uid in player_ids2:
+                await emit_state_changed_filtered(r, rid, target_uid, {"visibility": "1"})
+
+            mapping = {
+                "phase": "day",
+                "day_number": str(new_day_number),
+                "day_opening_uid": str(opening_uid or 0),
+                "day_closing_uid": str(closing_uid or 0),
+                "day_current_uid": "0",
+                "day_speech_started": "0",
+                "day_speech_duration": "0",
+                "day_speeches_done": "0",
+                "night_kill_uid": str(killed_uid or 0),
+                "night_kill_ok": "1" if ok else "0",
+                "day_prelude_uid": str(killed_uid or 0),
+                "day_prelude_pending": "1" if ok and killed_uid else "0",
+                "day_prelude_active": "0",
+                "day_prelude_done": "0",
+                "night_stage": "",
+                "night_shoot_started": "0",
+                "night_shoot_duration": "0",
+                "night_check_started": "0",
+                "night_check_duration": "0",
+            }
+            async with r.pipeline() as p:
+                await p.hset(f"room:{rid}:game_state", mapping=mapping)
+                await p.delete(f"room:{rid}:game_nominees", f"room:{rid}:game_nom_speakers", f"room:{rid}:game_votes")
+                await p.execute()
+
+            payload = {
+                "ok": True,
+                "status": 200,
+                "room_id": rid,
+                "from": cur_phase,
+                "to": "day",
+                "day": {"number": new_day_number, "opening_uid": opening_uid, "closing_uid": closing_uid},
+                "night": {"kill_uid": killed_uid or 0, "kill_ok": bool(ok)},
+            }
+            await sio.emit("game_phase_change",
+                           {"room_id": rid,
+                            "from": cur_phase,
+                            "to": "day",
+                            "day": payload["day"],
+                            "night": payload["night"]},
+                           room=f"room:{rid}",
+                           namespace="/room")
+            return payload
+
         return {"ok": False, "error": "bad_transition", "status": 400, "from": cur_phase, "to": want_to}
     except Exception:
         log.exception("sio.game_phase_next.error", sid=sid, data=bool(data))
@@ -1263,7 +1505,21 @@ async def game_speech_next(sid, data):
 
         next_uid: int
         if not current_uid:
-            next_uid = opening_uid
+            try:
+                pre_uid = int(raw_gstate.get("day_prelude_uid") or 0)
+            except Exception:
+                pre_uid = 0
+            pre_pending = str(raw_gstate.get("day_prelude_pending") or "0") == "1"
+            if pre_uid and pre_pending:
+                next_uid = pre_uid
+                await r.hset(f"room:{rid}:game_state",
+                             mapping={
+                                 "day_prelude_pending": "0",
+                                 "day_prelude_active": "1",
+                                 "day_prelude_done": "0"
+                             })
+            else:
+                next_uid = opening_uid
         else:
             if current_uid == closing_uid:
                 await r.hset(
@@ -1285,21 +1541,28 @@ async def game_speech_next(sid, data):
         if next_uid not in alive_order:
             return {"ok": False, "error": "bad_next_speaker", "status": 400}
 
+        pre_active = str(raw_gstate.get("day_prelude_active") or "0") == "1"
+        try:
+            pre_uid2 = int(raw_gstate.get("day_prelude_uid") or 0)
+        except Exception:
+            pre_uid2 = 0
+
         duration = settings.PLAYER_TALK_SECONDS
         use_short = False
-        try:
-            foul_raw = await r.hget(f"room:{rid}:game_fouls", str(next_uid))
-            foul_cnt = int(foul_raw or 0)
-        except Exception:
-            foul_cnt = 0
+        if not (pre_active and pre_uid2 and next_uid == pre_uid2):
+            try:
+                foul_raw = await r.hget(f"room:{rid}:game_fouls", str(next_uid))
+                foul_cnt = int(foul_raw or 0)
+            except Exception:
+                foul_cnt = 0
 
-        short_seconds = settings.PLAYER_TALK_SHORT_SECONDS
-        if foul_cnt >= 3 and short_seconds > 0:
-            short_used_raw = await r.hget(f"room:{rid}:game_short_speech_used", str(next_uid))
-            short_used = str(short_used_raw or "0") == "1"
-            if not short_used:
-                duration = short_seconds
-                use_short = True
+            short_seconds = settings.PLAYER_TALK_SHORT_SECONDS
+            if foul_cnt >= 3 and short_seconds > 0:
+                short_used_raw = await r.hget(f"room:{rid}:game_short_speech_used", str(next_uid))
+                short_used = str(short_used_raw or "0") == "1"
+                if not short_used:
+                    duration = short_seconds
+                    use_short = True
 
         now_ts = int(time())
         try:
@@ -2045,13 +2308,22 @@ async def game_speech_finish(sid, data):
         if actor_uid not in (head_uid, current_uid):
             return {"ok": False, "error": "forbidden", "status": 403}
 
-        is_alive = await r.sismember(f"room:{rid}:game_alive", str(current_uid))
-        if not is_alive:
-            return {"ok": False, "error": "not_alive", "status": 400}
+        pre_active = str(raw_gstate.get("day_prelude_active") or "0") == "1"
+        try:
+            pre_uid = int(raw_gstate.get("day_prelude_uid") or 0)
+        except Exception:
+            pre_uid = 0
+        if not (phase == "day" and pre_active and pre_uid and current_uid == pre_uid):
+            is_alive = await r.sismember(f"room:{rid}:game_alive", str(current_uid))
+            if not is_alive:
+                return {"ok": False, "error": "not_alive", "status": 400}
 
         try:
             if phase == "day":
-                payload = await finish_day_speech(r, rid, raw_gstate, current_uid)
+                if pre_active and pre_uid and current_uid == pre_uid:
+                    payload = await finish_day_prelude_speech(r, rid, raw_gstate, current_uid)
+                else:
+                    payload = await finish_day_speech(r, rid, raw_gstate, current_uid)
             else:
                 payload = await finish_vote_speech(r, rid, raw_gstate, current_uid)
         except Exception:
@@ -2315,6 +2587,297 @@ async def game_vote_restart(sid, data):
         return {"ok": False, "error": "internal", "status": 500}
 
 
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:night_shoot_start:{uid or 'nouid'}:{rid or 0}", limit=20, window_s=1, session_ns="/room")
+@sio.event(namespace="/room")
+async def game_night_shoot_start(sid, data):
+    try:
+        sess = await sio.get_session(sid, namespace="/room")
+        uid = int(sess["uid"])
+        rid = int(sess.get("rid") or 0)
+        if not rid:
+            return {"ok": False, "error": "no_room", "status": 400}
+
+        r = get_redis()
+        g = await r.hgetall(f"room:{rid}:game_state")
+        if str(g.get("phase") or "idle") != "night":
+            return {"ok": False, "error": "bad_phase", "status": 400}
+
+        try:
+            head_uid = int(g.get("head") or 0)
+        except Exception:
+            head_uid = 0
+        if not head_uid or uid != head_uid:
+            return {"ok": False, "error": "forbidden", "status": 403}
+
+        stage = str(g.get("night_stage") or "sleep")
+        if stage != "sleep":
+            return {"ok": False, "error": "bad_stage", "status": 409}
+
+        now_ts = int(time())
+        try:
+            dur = settings.NIGHT_ACTION_SECONDS
+        except Exception:
+            dur = 10
+        if dur <= 0:
+            dur = 10
+
+        async with r.pipeline() as p:
+            await p.hset(
+                f"room:{rid}:game_state",
+                mapping={
+                    "night_stage": "shoot",
+                    "night_shoot_started": str(now_ts),
+                    "night_shoot_duration": str(dur),
+                },
+            )
+            await p.delete(f"room:{rid}:night_shots")
+            await p.execute()
+
+        g2 = dict(g)
+        g2["night_stage"] = "shoot"
+        g2["night_shoot_started"] = str(now_ts)
+        g2["night_shoot_duration"] = str(dur)
+        await emit_game_night_state(rid, g2)
+        asyncio.create_task(night_stage_timeout_job(rid, "shoot", now_ts, dur, "shoot_done"))
+        return {"ok": True, "status": 200, "room_id": rid}
+
+    except Exception:
+        log.exception("sio.game_night_shoot_start.error", sid=sid)
+        return {"ok": False, "error": "internal", "status": 500}
+
+
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:night_shoot:{uid or 'nouid'}:{rid or 0}", limit=60, window_s=1, session_ns="/room")
+@sio.event(namespace="/room")
+async def game_night_shoot(sid, data):
+    try:
+        data = data or {}
+        sess = await sio.get_session(sid, namespace="/room")
+        uid = int(sess["uid"])
+        rid = int(sess.get("rid") or 0)
+        if not rid:
+            return {"ok": False, "error": "no_room", "status": 400}
+
+        target_uid = int(data.get("user_id") or 0)
+        if not target_uid:
+            return {"ok": False, "error": "bad_request", "status": 400}
+
+        r = get_redis()
+        g = await r.hgetall(f"room:{rid}:game_state")
+        if str(g.get("phase") or "idle") != "night":
+            return {"ok": False, "error": "bad_phase", "status": 400}
+
+        if str(g.get("night_stage") or "sleep") != "shoot":
+            return {"ok": False, "error": "bad_stage", "status": 409}
+
+        try:
+            started = int(g.get("night_shoot_started") or 0)
+            dur = int(g.get("night_shoot_duration") or 0)
+        except Exception:
+            started, dur = 0, 0
+        now_ts = int(time())
+        if not started or dur <= 0 or now_ts > started + dur:
+            return {"ok": False, "error": "window_closed", "status": 409}
+
+        is_player = await r.sismember(f"room:{rid}:game_players", str(uid))
+        is_alive = await r.sismember(f"room:{rid}:game_alive", str(uid))
+        if not (is_player and is_alive):
+            return {"ok": False, "error": "not_alive", "status": 403}
+
+        role = str((await r.hget(f"room:{rid}:game_roles", str(uid))) or "")
+        if role not in ("mafia", "don"):
+            return {"ok": False, "error": "forbidden", "status": 403}
+
+        if not await r.sismember(f"room:{rid}:game_players", str(target_uid)):
+            return {"ok": False, "error": "bad_target", "status": 400}
+
+        existing = await r.hget(f"room:{rid}:night_shots", str(uid))
+        if existing is not None:
+            return {"ok": False, "error": "already_chosen", "status": 409}
+
+        await r.hset(f"room:{rid}:night_shots", str(uid), str(target_uid))
+        try:
+            head_uid = int(g.get("head") or 0)
+        except Exception:
+            head_uid = 0
+        if head_uid:
+            try:
+                seat = int((await r.hget(f"room:{rid}:game_seats", str(target_uid))) or 0)
+            except Exception:
+                seat = 0
+            await sio.emit("game_night_head_pick",
+                           {"room_id": rid,
+                            "kind": "shoot",
+                            "by": uid,
+                            "seat": seat,
+                            "target_id": target_uid},
+                           room=f"user:{head_uid}",
+                           namespace="/room")
+        return {"ok": True, "status": 200, "room_id": rid, "user_id": uid, "target_id": target_uid}
+
+    except Exception:
+        log.exception("sio.game_night_shoot.error", sid=sid)
+        return {"ok": False, "error": "internal", "status": 500}
+
+
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:night_checks_start:{uid or 'nouid'}:{rid or 0}", limit=20, window_s=1, session_ns="/room")
+@sio.event(namespace="/room")
+async def game_night_checks_start(sid, data):
+    try:
+        sess = await sio.get_session(sid, namespace="/room")
+        uid = int(sess["uid"])
+        rid = int(sess.get("rid") or 0)
+        if not rid:
+            return {"ok": False, "error": "no_room", "status": 400}
+
+        r = get_redis()
+        g = await r.hgetall(f"room:{rid}:game_state")
+        if str(g.get("phase") or "idle") != "night":
+            return {"ok": False, "error": "bad_phase", "status": 400}
+
+        try:
+            head_uid = int(g.get("head") or 0)
+        except Exception:
+            head_uid = 0
+        if not head_uid or uid != head_uid:
+            return {"ok": False, "error": "forbidden", "status": 403}
+
+        stage = str(g.get("night_stage") or "sleep")
+        if stage != "shoot_done":
+            return {"ok": False, "error": "bad_stage", "status": 409}
+
+        now_ts = int(time())
+        try:
+            dur = settings.NIGHT_ACTION_SECONDS
+        except Exception:
+            dur = 10
+        if dur <= 0:
+            dur = 10
+
+        async with r.pipeline() as p:
+            await p.hset(
+                f"room:{rid}:game_state",
+                mapping={
+                    "night_stage": "checks",
+                    "night_check_started": str(now_ts),
+                    "night_check_duration": str(dur),
+                },
+            )
+            await p.delete(f"room:{rid}:night_checks")
+            await p.execute()
+
+        g2 = dict(g)
+        g2["night_stage"] = "checks"
+        g2["night_check_started"] = str(now_ts)
+        g2["night_check_duration"] = str(dur)
+        await emit_game_night_state(rid, g2)
+        asyncio.create_task(night_stage_timeout_job(rid, "checks", now_ts, dur, "checks_done"))
+        return {"ok": True, "status": 200, "room_id": rid}
+
+    except Exception:
+        log.exception("sio.game_night_checks_start.error", sid=sid)
+        return {"ok": False, "error": "internal", "status": 500}
+
+
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:night_check:{uid or 'nouid'}:{rid or 0}", limit=20, window_s=1, session_ns="/room")
+@sio.event(namespace="/room")
+async def game_night_check(sid, data):
+    try:
+        data = data or {}
+        sess = await sio.get_session(sid, namespace="/room")
+        uid = int(sess["uid"])
+        rid = int(sess.get("rid") or 0)
+        if not rid:
+            return {"ok": False, "error": "no_room", "status": 400}
+
+        target_uid = int(data.get("user_id") or 0)
+        if not target_uid:
+            return {"ok": False, "error": "bad_request", "status": 400}
+
+        r = get_redis()
+        g = await r.hgetall(f"room:{rid}:game_state")
+        if str(g.get("phase") or "idle") != "night":
+            return {"ok": False, "error": "bad_phase", "status": 400}
+
+        if str(g.get("night_stage") or "sleep") != "checks":
+            return {"ok": False, "error": "bad_stage", "status": 409}
+
+        try:
+            started = int(g.get("night_check_started") or 0)
+            dur = int(g.get("night_check_duration") or 0)
+        except Exception:
+            started, dur = 0, 0
+        now_ts = int(time())
+        if not started or dur <= 0 or now_ts > started + dur:
+            return {"ok": False, "error": "window_closed", "status": 409}
+
+        is_player = await r.sismember(f"room:{rid}:game_players", str(uid))
+        is_alive = await r.sismember(f"room:{rid}:game_alive", str(uid))
+        if not (is_player and is_alive):
+            return {"ok": False, "error": "not_alive", "status": 403}
+
+        my_role = str((await r.hget(f"room:{rid}:game_roles", str(uid))) or "")
+        if my_role not in ("don", "sheriff"):
+            return {"ok": False, "error": "forbidden", "status": 403}
+
+        if target_uid == uid:
+            return {"ok": False, "error": "bad_target", "status": 400}
+
+        if not await r.sismember(f"room:{rid}:game_players", str(target_uid)):
+            return {"ok": False, "error": "bad_target", "status": 400}
+
+        checked_key = f"room:{rid}:game_checked:{my_role}"
+        if await r.sismember(checked_key, str(target_uid)):
+            return {"ok": False, "error": "already_checked", "status": 409}
+
+        if my_role == "don":
+            tr = str((await r.hget(f"room:{rid}:game_roles", str(target_uid))) or "")
+            if tr in ("mafia", "don"):
+                return {"ok": False, "error": "bad_target", "status": 400}
+
+        existing = await r.hget(f"room:{rid}:night_checks", str(uid))
+        if existing is not None:
+            return {"ok": False, "error": "already_chosen", "status": 409}
+
+        await r.hset(f"room:{rid}:night_checks", str(uid), str(target_uid))
+        await r.sadd(checked_key, str(target_uid))
+
+        try:
+            head_uid = int(g.get("head") or 0)
+        except Exception:
+            head_uid = 0
+        if head_uid:
+            try:
+                seat = int((await r.hget(f"room:{rid}:game_seats", str(target_uid))) or 0)
+            except Exception:
+                seat = 0
+            await sio.emit("game_night_head_pick",
+                           {"room_id": rid,
+                            "kind": "checks",
+                            "by": uid,
+                            "seat": seat,
+                            "target_id": target_uid},
+                           room=f"user:{head_uid}",
+                           namespace="/room")
+
+        target_role = str((await r.hget(f"room:{rid}:game_roles", str(target_uid))) or "")
+        if my_role == "sheriff":
+            shown = "mafia" if target_role in ("mafia", "don") else "citizen"
+        else:
+            shown = "sheriff" if target_role == "sheriff" else "citizen"
+
+        await sio.emit("game_night_reveal",
+                       {"room_id": rid,
+                        "target_id": target_uid,
+                        "shown_role": shown},
+                       room=f"user:{uid}",
+                       namespace="/room")
+        return {"ok": True, "status": 200, "room_id": rid, "user_id": uid, "target_id": target_uid}
+
+    except Exception:
+        log.exception("sio.game_night_check.error", sid=sid)
+        return {"ok": False, "error": "internal", "status": 500}
+
+
 @rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_end:{uid or 'nouid'}:{rid or 0}", limit=5, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
 async def game_end(sid, data):
@@ -2404,6 +2967,10 @@ async def game_end(sid, data):
                 f"room:{rid}:roles_taken",
                 f"room:{rid}:game_roles",
                 f"room:{rid}:game_votes",
+                f"room:{rid}:night_shots",
+                f"room:{rid}:night_checks",
+                f"room:{rid}:game_checked:don",
+                f"room:{rid}:game_checked:sheriff",
             )
             await p.execute()
 

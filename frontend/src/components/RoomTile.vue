@@ -13,9 +13,19 @@
       <img :src="iconFoul" alt="foul" />
       <span>{{ foulsCount }}</span>
     </button>
+
+    <div v-if="pickNumber != null && pickNumber > 0" class="icon-badge left">{{ pickNumber }}</div>
     <button v-if="showNominate" class="nominate-btn" @click="$emit('nominate', id)">
       <img :src="iconLikeWhite" alt="nominate" />
       <span>Выставить</span>
+    </button>
+    <button v-if="showShoot" class="nominate-btn" @click="$emit('shoot', id)">
+      <img :src="iconLikeWhite" alt="shoot" />
+      <span>Выстрелить</span>
+    </button>
+    <button v-if="showCheck" class="nominate-btn" @click="$emit('check', id)">
+      <img :src="iconLikeWhite" alt="check" />
+      <span>Проверить</span>
     </button>
     <div class="icon-badge right" v-if="gameRole" aria-hidden="true">
       <img :src="gameRole" alt="role" />
@@ -148,6 +158,11 @@ const props = withDefaults(defineProps<{
   voteEnabled?: boolean
   hasVoted?: boolean
   offlineSeatsInGame?: number[]
+  showShoot?: boolean
+  showCheck?: boolean
+  pickNumber?: number | null
+  nightOwnerId?: string
+  nightRemainingMs?: number
 }>(), {
   side: false,
   fitContain: false,
@@ -179,6 +194,11 @@ const props = withDefaults(defineProps<{
   voteEnabled: false,
   hasVoted: false,
   offlineSeatsInGame: () => [],
+  showShoot: false,
+  showCheck: false,
+  pickNumber: null,
+  nightOwnerId: '',
+  nightRemainingMs: 0,
 })
 
 defineEmits<{
@@ -189,6 +209,8 @@ defineEmits<{
   (e: 'foul', id: string): void
   (e: 'nominate', id: string): void
   (e: 'vote', id: string): void
+  (e: 'shoot', id: string): void
+  (e: 'check', id: string): void
 }>()
 
 const showVideo = computed(() =>
@@ -202,12 +224,14 @@ const openPanel = computed(() => props.openPanelFor === props.id)
 const hasRolePickTimer = computed(() => props.rolePickOwnerId === props.id && (props.rolePickRemainingMs ?? 0) > 0)
 const hasMafiaTalkTimer = computed(() => props.mafiaTalkHostId === props.id && (props.mafiaTalkRemainingMs ?? 0) > 0)
 const hasDaySpeechTimer = computed(() => props.daySpeechOwnerId === props.id && (props.daySpeechRemainingMs ?? 0) > 0)
-const showTimeline = computed(() => hasRolePickTimer.value || hasMafiaTalkTimer.value || hasDaySpeechTimer.value)
+const hasNightTimer = computed(() => props.nightOwnerId === props.id && (props.nightRemainingMs ?? 0) > 0)
+const showTimeline = computed(() => hasRolePickTimer.value || hasMafiaTalkTimer.value || hasDaySpeechTimer.value || hasNightTimer.value)
 const timelineDurationSec = computed(() => {
   let ms = 0
   if (hasRolePickTimer.value) ms = props.rolePickRemainingMs ?? 0
   else if (hasMafiaTalkTimer.value) ms = props.mafiaTalkRemainingMs ?? 0
   else if (hasDaySpeechTimer.value) ms = props.daySpeechRemainingMs ?? 0
+  else if (hasNightTimer.value) ms = props.nightRemainingMs ?? 0
   if (!ms || ms <= 0) return 0
   return Math.max(ms / 1000, 0.1)
 })

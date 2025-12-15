@@ -57,6 +57,10 @@ __all__ = [
     "finish_day_speech",
     "get_game_fouls",
     "enrich_game_runtime_with_vote",
+    "emit_game_night_state",
+    "night_stage_timeout_job",
+    "compute_night_kill",
+    "finish_day_prelude_speech",
 ]
 
 log = structlog.get_logger()
@@ -870,7 +874,17 @@ async def day_speech_timeout_job(rid: int, expected_started: int, expected_uid: 
         return
 
     try:
-        payload = await finish_day_speech(r, rid, raw_state, expected_uid)
+        prelude_active = str(raw_state.get("day_prelude_active") or "0") == "1"
+        prelude_uid = int(raw_state.get("day_prelude_uid") or 0)
+    except Exception:
+        prelude_active = False
+        prelude_uid = 0
+
+    try:
+        if prelude_active and prelude_uid and expected_uid == prelude_uid:
+            payload = await finish_day_prelude_speech(r, rid, raw_state, expected_uid)
+        else:
+            payload = await finish_day_speech(r, rid, raw_state, expected_uid)
     except Exception:
         log.exception("day_speech_timeout.finish_failed", rid=rid, uid=expected_uid)
         return
@@ -1020,6 +1034,256 @@ async def vote_speech_timeout_job(rid: int, expected_started: int, expected_uid:
                        namespace="/room")
     except Exception:
         log.exception("vote_speech_timeout.emit_failed", rid=rid, uid=expected_uid)
+        
+        
+async def emit_game_night_state(rid: int, raw_gstate: Mapping[str, Any]) -> None:
+    phase = str(raw_gstate.get("phase") or "idle")
+    if phase != "night":
+        return
+
+    stage = str(raw_gstate.get("night_stage") or "sleep")
+    now_ts = int(time())
+    deadline = 0
+    if stage == "shoot":
+        try:
+            started = int(raw_gstate.get("night_shoot_started") or 0)
+            dur = int(raw_gstate.get("night_shoot_duration") or 0)
+        except Exception:
+            started, dur = 0, 0
+        if started and dur > 0:
+            deadline = max(started + dur - now_ts, 0)
+    elif stage == "checks":
+        try:
+            started = int(raw_gstate.get("night_check_started") or 0)
+            dur = int(raw_gstate.get("night_check_duration") or 0)
+        except Exception:
+            started, dur = 0, 0
+        if started and dur > 0:
+            deadline = max(started + dur - now_ts, 0)
+
+    await sio.emit("game_night_state",
+                   {"room_id": rid, 
+                    "night": {"stage": stage, "deadline": deadline}},
+                   room=f"room:{rid}",
+                   namespace="/room")
+
+
+def seat_of(seats_map: Mapping[str, Any], uid: int) -> int:
+    try:
+        return int(seats_map.get(str(uid)) or 0)
+    except Exception:
+        return 0
+
+
+async def compute_night_kill(r, rid: int) -> tuple[int, bool]:
+    raw_roles = await r.hgetall(f"room:{rid}:game_roles")
+    roles_map: dict[int, str] = {}
+    for k, v in (raw_roles or {}).items():
+        try:
+            roles_map[int(k)] = str(v or "")
+        except Exception:
+            continue
+
+    alive_raw = await r.smembers(f"room:{rid}:game_alive")
+    alive: set[int] = set()
+    for v in (alive_raw or []):
+        try:
+            alive.add(int(v))
+        except Exception:
+            continue
+
+    shooters = [u for u, role in roles_map.items() if role in ("mafia", "don") and u in alive]
+    if not shooters:
+        return 0, False
+
+    shots_raw = await r.hgetall(f"room:{rid}:night_shots")
+    targets: list[int] = []
+    for u in shooters:
+        try:
+            t = int((shots_raw or {}).get(str(u)) or 0)
+        except Exception:
+            t = 0
+        targets.append(t)
+
+    if any(t <= 0 for t in targets):
+        return 0, False
+
+    first = targets[0]
+    if any(t != first for t in targets):
+        return 0, False
+
+    if first not in alive:
+        return 0, False
+
+    return first, True
+
+
+async def get_night_head_picks(r, rid: int, kind: str) -> dict[str, int]:
+    raw_roles = await r.hgetall(f"room:{rid}:game_roles")
+    roles_map: dict[int, str] = {}
+    for k, v in (raw_roles or {}).items():
+        try:
+            roles_map[int(k)] = str(v or "")
+        except Exception:
+            continue
+
+    alive_raw = await r.smembers(f"room:{rid}:game_alive")
+    alive: set[int] = set()
+    for v in (alive_raw or []):
+        try:
+            alive.add(int(v))
+        except Exception:
+            continue
+
+    seats = await r.hgetall(f"room:{rid}:game_seats")
+
+    if kind == "shoot":
+        actors = [u for u, role in roles_map.items() if role in ("mafia", "don") and u in alive]
+        raw = await r.hgetall(f"room:{rid}:night_shots")
+    else:
+        actors = [u for u, role in roles_map.items() if role in ("don", "sheriff") and u in alive]
+        raw = await r.hgetall(f"room:{rid}:night_checks")
+
+    out: dict[str, int] = {}
+    for u in actors:
+        try:
+            t = int((raw or {}).get(str(u)) or 0)
+        except Exception:
+            t = 0
+        if t > 0:
+            out[str(u)] = seat_of(seats, t)
+    return out
+
+
+async def night_stage_timeout_job(rid: int, expected_stage: str, expected_started: int, duration: int, next_stage: str) -> None:
+    try:
+        delay = int(duration)
+    except Exception:
+        delay = 0
+    if delay <= 0:
+        return
+
+    await asyncio.sleep(max(0, delay))
+    r = get_redis()
+    try:
+        raw = await r.hgetall(f"room:{rid}:game_state")
+    except Exception:
+        return
+
+    if str(raw.get("phase") or "idle") != "night":
+        return
+
+    stage = str(raw.get("night_stage") or "sleep")
+    if stage != expected_stage:
+        return
+
+    if expected_stage == "shoot":
+        try:
+            cur_started = int(raw.get("night_shoot_started") or 0)
+            cur_dur = int(raw.get("night_shoot_duration") or 0)
+        except Exception:
+            return
+
+        if cur_started != expected_started or cur_dur != duration:
+            return
+
+        async with r.pipeline() as p:
+            await p.hset(
+                f"room:{rid}:game_state",
+                mapping={
+                    "night_stage": next_stage,
+                    "night_shoot_started": "0",
+                    "night_shoot_duration": "0",
+                },
+            )
+            await p.execute()
+        raw2 = dict(raw)
+        raw2["night_stage"] = next_stage
+        raw2["night_shoot_started"] = "0"
+        raw2["night_shoot_duration"] = "0"
+        await emit_game_night_state(rid, raw2)
+
+        try:
+            head_uid = int(raw.get("head") or 0)
+        except Exception:
+            head_uid = 0
+        if head_uid:
+            picks = await get_night_head_picks(r, rid, "shoot")
+            await sio.emit("game_night_head_picks",
+                           {"room_id": rid,
+                            "kind": "shoot",
+                            "picks": picks},
+                           room=f"user:{head_uid}",
+                           namespace="/room")
+        return
+
+    if expected_stage == "checks":
+        try:
+            cur_started = int(raw.get("night_check_started") or 0)
+            cur_dur = int(raw.get("night_check_duration") or 0)
+        except Exception:
+            return
+
+        if cur_started != expected_started or cur_dur != duration:
+            return
+
+        async with r.pipeline() as p:
+            await p.hset(
+                f"room:{rid}:game_state",
+                mapping={
+                    "night_stage": next_stage,
+                    "night_check_started": "0",
+                    "night_check_duration": "0",
+                },
+            )
+            await p.execute()
+
+        raw2 = dict(raw)
+        raw2["night_stage"] = next_stage
+        raw2["night_check_started"] = "0"
+        raw2["night_check_duration"] = "0"
+        await emit_game_night_state(rid, raw2)
+        try:
+            head_uid = int(raw.get("head") or 0)
+        except Exception:
+            head_uid = 0
+        if head_uid:
+            picks = await get_night_head_picks(r, rid, "checks")
+            await sio.emit("game_night_head_picks",
+                           {"room_id": rid,
+                            "kind": "checks",
+                            "picks": picks},
+                           room=f"user:{head_uid}",
+                           namespace="/room")
+        return
+
+
+async def finish_day_prelude_speech(r, rid: int, raw_gstate: Mapping[str, Any], speaker_uid: int) -> dict[str, Any]:
+    try:
+        head_uid = int(raw_gstate.get("head") or 0)
+    except Exception:
+        head_uid = 0
+
+    if head_uid and speaker_uid != head_uid:
+        try:
+            await apply_blocks_and_emit(r, rid, actor_uid=head_uid, actor_role="head", target_uid=speaker_uid, changes_bool={"mic": True})
+        except Exception:
+            log.exception("day_prelude.finish.block_failed", rid=rid, head=head_uid, target=speaker_uid)
+
+    async with r.pipeline() as p:
+        await p.hset(
+            f"room:{rid}:game_state",
+            mapping={
+                "day_current_uid": "0",
+                "day_speech_started": "0",
+                "day_speech_duration": "0",
+                "day_prelude_active": "0",
+                "day_prelude_done": "1",
+            },
+        )
+        await p.execute()
+
+    return {"room_id": rid, "speaker_uid": speaker_uid, "opening_uid": 0, "closing_uid": 0, "deadline": 0}
 
 
 async def get_rooms_brief(r, ids: Iterable[int]) -> List[dict]:
@@ -1202,10 +1466,10 @@ async def enrich_game_runtime_with_vote(r, rid: int, game_runtime: Mapping[str, 
     except Exception:
         vote_section = {}
 
-    try:
-        done = bool(vote_section.get("done"))
-    except Exception:
-        done = str(raw_gstate.get("vote_done") or "0") == "1"
+    # try:
+    #     done = bool(vote_section.get("done"))
+    # except Exception:
+    #     done = str(raw_gstate.get("vote_done") or "0") == "1"
     try:
         aborted = bool(vote_section.get("aborted"))
     except Exception:
@@ -1376,6 +1640,31 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
             "speeches_done": speeches_done,
         }
 
+        try:
+            nk_uid = int(raw_gstate.get("night_kill_uid") or 0)
+        except Exception:
+            nk_uid = 0
+
+        ok = str(raw_gstate.get("night_kill_ok") or "0") == "1"
+        try:
+            pre_uid = int(raw_gstate.get("day_prelude_uid") or 0)
+        except Exception:
+            pre_uid = 0
+
+        pre_pending = str(raw_gstate.get("day_prelude_pending") or "0") == "1"
+        pre_active = str(raw_gstate.get("day_prelude_active") or "0") == "1"
+        pre_done = str(raw_gstate.get("day_prelude_done") or "0") == "1"
+
+        if nk_uid or ok:
+            game_runtime["day"]["night"] = {"kill_uid": nk_uid, "kill_ok": ok}
+        if pre_uid:
+            game_runtime["day"]["prelude"] = {
+                "uid": pre_uid,
+                "pending": pre_pending,
+                "active": pre_active,
+                "done": pre_done,
+            }
+
         nominees = await get_nominees_in_order(r, rid)
         if nominees:
             game_runtime["day"]["nominees"] = nominees
@@ -1497,6 +1786,82 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
                 "kind": vote_speech_kind,
             }
         game_runtime["vote"] = vote_section
+
+    if phase == "night":
+        stage = str(raw_gstate.get("night_stage") or "sleep")
+        now_ts = int(time())
+        deadline = 0
+
+        if stage == "shoot":
+            try:
+                started = int(raw_gstate.get("night_shoot_started") or 0)
+                dur = int(raw_gstate.get("night_shoot_duration") or 0)
+            except Exception:
+                started, dur = 0, 0
+            if started and dur > 0:
+                deadline = max(started + dur - now_ts, 0)
+        elif stage == "checks":
+            try:
+                started = int(raw_gstate.get("night_check_started") or 0)
+                dur = int(raw_gstate.get("night_check_duration") or 0)
+            except Exception:
+                started, dur = 0, 0
+            if started and dur > 0:
+                deadline = max(started + dur - now_ts, 0)
+
+        night_section: dict[str, Any] = {"stage": stage, "deadline": deadline}
+        roles_map = {str(k): str(v) for k, v in (raw_roles or {}).items()}
+        my_role = roles_map.get(str(uid)) or ""
+        try:
+            head_uid_n = int(raw_gstate.get("head") or 0)
+        except Exception:
+            head_uid_n = 0
+        if head_uid_n and uid == head_uid_n:
+            if stage in ("shoot", "shoot_done"):
+                picks = await get_night_head_picks(r, rid, "shoot")
+                night_section["head_picks"] = {"kind": "shoot", "picks": picks}
+            elif stage in ("checks", "checks_done"):
+                picks = await get_night_head_picks(r, rid, "checks")
+                night_section["head_picks"] = {"kind": "checks", "picks": picks}
+
+        if stage in ("shoot", "shoot_done") and my_role in ("mafia", "don"):
+            try:
+                my_t = int((await r.hget(f"room:{rid}:night_shots", str(uid))) or 0)
+            except Exception:
+                my_t = 0
+            if my_t:
+                night_section["my_shot"] = {"target_id": my_t, "seat": seat_of(seats_map, my_t)}
+
+        if stage in ("checks", "checks_done") and my_role in ("don", "sheriff"):
+            try:
+                my_t = int((await r.hget(f"room:{rid}:night_checks", str(uid))) or 0)
+            except Exception:
+                my_t = 0
+            if my_t:
+                night_section["my_check"] = {"target_id": my_t, "seat": seat_of(seats_map, my_t)}
+
+        if my_role in ("don", "sheriff"):
+            checked_key = f"room:{rid}:game_checked:{my_role}"
+            checked_raw = await r.smembers(checked_key)
+            checked_ids: list[int] = []
+            for v in (checked_raw or []):
+                try:
+                    checked_ids.append(int(v))
+                except Exception:
+                    continue
+
+            night_section["checked"] = checked_ids
+            known: dict[str, str] = {}
+            for tu in checked_ids:
+                tr = roles_map.get(str(tu)) or ""
+                if my_role == "sheriff":
+                    known[str(tu)] = "mafia" if tr in ("mafia", "don") else "citizen"
+                else:
+                    known[str(tu)] = "sheriff" if tr == "sheriff" else "citizen"
+
+            night_section["known"] = known
+
+        game_runtime["night"] = night_section
 
     try:
         head_uid = int(raw_gstate.get("head") or 0)

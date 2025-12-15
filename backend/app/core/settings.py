@@ -42,6 +42,7 @@ class Settings(BaseSettings):
     PLAYER_TALK_SECONDS: int = 60
     PLAYER_TALK_SHORT_SECONDS: int = 30
     PLAYER_FOUL_SECONDS: int = 4
+    NIGHT_ACTION_SECONDS: int = 10
     VOTE_SECONDS: int = 5  # 3
 
     @property

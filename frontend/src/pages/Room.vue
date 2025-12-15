@@ -41,7 +41,7 @@
           :mafia-talk-host-id="headUserId"
           :mafia-talk-remaining-ms="mafiaTalkRemainingMs"
           :red-mark="game.shouldHighlightMafiaTile(id) || game.foulActive.has(id)"
-          :game-role="game.roleIconForTile(id)"
+          :game-role="game.effectiveRoleIconForTile(id)"
           :hidden-by-visibility="hiddenByVisibility(id)"
           :visibility-hidden-avatar="visOffAvatar(id)"
           :in-game="gamePhase !== 'idle'"
@@ -49,6 +49,11 @@
           :day-speech-remaining-ms="game.daySpeech.remainingMs"
           :fouls-count="gameFoulsByUser.get(id) ?? 0"
           :phase-label="phaseLabel"
+          :night-owner-id="headUserId"
+          :night-remaining-ms="night.remainingMs"
+          :show-shoot="game.canShootTarget(id)"
+          :show-check="game.canCheckTarget(id)"
+          :pick-number="isHead ? (headNightPicks.get(id) ?? null) : null"
           :show-nominate="game.canNominateTarget(id)"
           :nominees="nomineeSeatNumbers"
           :current-nominee-seat="id === headUserId ? currentNomineeSeat : null"
@@ -64,6 +69,8 @@
           @foul="onGiveFoul"
           @nominate="onNominate"
           @vote="onVote"
+          @shoot="shootTargetUi"
+          @check="checkTargetUi"
         />
       </div>
 
@@ -113,7 +120,7 @@
             :mafia-talk-host-id="headUserId"
             :mafia-talk-remaining-ms="mafiaTalkRemainingMs"
             :red-mark="game.shouldHighlightMafiaTile(id) || game.foulActive.has(id)"
-            :game-role="game.roleIconForTile(id)"
+            :game-role="game.effectiveRoleIconForTile(id)"
             :hidden-by-visibility="hiddenByVisibility(id)"
             :visibility-hidden-avatar="visOffAvatar(id)"
             :in-game="gamePhase !== 'idle'"
@@ -121,6 +128,11 @@
             :day-speech-remaining-ms="game.daySpeech.remainingMs"
             :fouls-count="gameFoulsByUser.get(id) ?? 0"
             :phase-label="phaseLabel"
+            :night-owner-id="headUserId"
+            :night-remaining-ms="night.remainingMs"
+            :show-shoot="game.canShootTarget(id)"
+            :show-check="game.canCheckTarget(id)"
+            :pick-number="isHead ? (headNightPicks.get(id) ?? null) : null"
             :show-nominate="game.canNominateTarget(id)"
             :nominees="nomineeSeatNumbers"
             :current-nominee-seat="id === headUserId ? currentNomineeSeat : null"
@@ -136,6 +148,8 @@
             @foul="onGiveFoul"
             @nominate="onNominate"
             @vote="onVote"
+            @shoot="shootTargetUi"
+            @check="checkTargetUi"
           />
         </div>
       </div>
@@ -173,6 +187,9 @@
           <button v-if="canStartLeaderSpeech" class="btn-text" @click="startLeaderSpeechUi">Передать речь</button>
           <button v-if="canRestartVoteForLeaders" class="btn-text" @click="restartVoteForLeadersUi">Начать голосование</button>
           <button v-if="canShowNight" class="btn-text" @click="goToNightUi">Ночь</button>
+          <button v-if="gamePhase === 'night' && isHead && night.stage === 'sleep'" class="btn-text" @click="startNightShootUi">Отстрел мафии</button>
+          <button v-if="gamePhase === 'night' && isHead && night.stage === 'shoot_done'" class="btn-text" @click="startNightChecksUi">Проверки</button>
+          <button v-if="gamePhase === 'night' && isHead && night.stage === 'checks_done'" class="btn-text" @click="startDayFromNightUi">День</button>
 
           <button v-if="canFinishSpeechSelf" @click="finishSpeechUi">
             <img :src="iconSkip" alt="finish speech" />
@@ -375,6 +392,8 @@ const {
   dayNumber,
   voteLeaderSpeechesDone,
   voteLeaderKilled,
+  night,
+  headNightPicks,
 } = game
 
 const navUserAgent = navigator.userAgent || ''
@@ -595,7 +614,20 @@ const allRolesPicked = computed(() => {
 const phaseLabel = computed(() => {
   if (gamePhase.value === 'roles_pick') return allRolesPicked.value ? '' : 'Выбор ролей'
   if (gamePhase.value === 'mafia_talk_start') return 'Договорка мафии'
-  if (gamePhase.value === 'night') return 'Отстрелы и проверки'
+  if (gamePhase.value === 'night') {
+    if (night.stage === 'shoot') return 'Отстрел мафии'
+    if (night.stage === 'checks') return 'Проверки дона и шерифа'
+    return ''
+  }
+  if (gamePhase.value === 'day') {
+    if (night.hasResult) {
+      if (night.killOk && night.killUid) {
+        const seat = game.seatIndex(night.killUid)
+        return `Убит ${seat ?? ''}`
+      }
+      return 'Несострел'
+    }
+  }
   return ''
 })
 
@@ -731,9 +763,30 @@ const startVoteUi = () => game.startVotePhase(sendAckGame)
 const finishVoteUi = () => game.finishVote(sendAckGame)
 const startLeaderSpeechUi = () => game.startLeaderSpeech(sendAckGame)
 const restartVoteForLeadersUi = () => game.restartVoteForLeaders(sendAckGame)
+const shootTargetUi = (targetId: string) => game.shootTarget(targetId, sendAckGame)
+const checkTargetUi = (targetId: string) => game.checkTarget(targetId, sendAckGame)
+const startNightShootUi = () => game.startNightShoot(sendAckGame)
+const startNightChecksUi = () => game.startNightChecks(sendAckGame)
 
-function goToNightUi() {
-  alert('Фаза ночи: в разработке')
+async function goToNightUi() {
+  if (!isHead.value) return
+  const from = gamePhase.value
+  if (from !== 'day' && from !== 'vote') return
+  const resp = await sendAck('game_phase_next', { from, to: 'night' })
+  if (!resp?.ok) {
+    const st = resp?.status
+    const code = resp?.error
+    if (st === 400 && code === 'bad_phase') alert('Сейчас нельзя перейти в ночь')
+    else if (st === 403 && code === 'forbidden') alert('Только ведущий может начать ночь')
+    else if (st === 409 && code === 'speeches_not_done') alert('Сначала нужно закончить речи')
+    else if (st === 409 && code === 'vote_not_done') alert('Сначала завершите голосование')
+    else alert('Не удалось перейти в ночь')
+  }
+}
+
+async function startDayFromNightUi() {
+  const resp = await sendAck('game_phase_next', { from: 'night', to: 'day' })
+  if (!resp?.ok) alert('Не удалось начать день')
 }
 
 function onGiveFoul(id: string) {
@@ -1185,6 +1238,18 @@ socket.value?.on('connect', async () => {
   socket.value.on('game_vote_aborted', (p: any) => {
     game.handleGameVoteAborted(p)
   })
+
+  socket.value.on('game_night_state', (p: any) => {
+    game.handleGameNightState(p)
+  })
+
+  socket.value.on('game_night_head_picks', (p: any) => {
+    game.handleGameNightHeadPicks(p)
+  })
+
+  socket.value.on('game_night_reveal', (p: any) => {
+    game.handleGameNightReveal(p)
+  })
 }
 
 async function safeJoin() {
@@ -1284,10 +1349,16 @@ async function applyDayStartForLocal(): Promise<void> {
   try { await toggleVisibility() } catch {}
 }
 
+async function applyNightStartForLocal(): Promise<void> {
+  try { if (!blockedSelf.value.mic && micOn.value) await toggleMic() } catch {}
+  try { if (!blockedSelf.value.visibility && visibilityOn.value) await toggleVisibility() } catch {}
+}
+
 function handleGamePhaseChangeUi(prev: GamePhase, next: GamePhase): void {
   if (prev === 'roles_pick' && next === 'mafia_talk_start') void applyMafiaTalkStartForLocal()
   if (prev === 'mafia_talk_start' && next === 'mafia_talk_end') void applyMafiaTalkEndForLocal()
-  if (prev === 'mafia_talk_end' && next === 'day') void applyDayStartForLocal()
+  if (next === 'night') void applyNightStartForLocal()
+  if ((prev === 'mafia_talk_end' && next === 'day') || (prev === 'night' && next === 'day')) void applyDayStartForLocal()
 }
 
 function applyJoinAck(j: any) {
