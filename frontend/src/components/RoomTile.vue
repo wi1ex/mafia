@@ -38,15 +38,13 @@
       <span>Проголосовать</span>
     </button>
     <div class="head-bar" v-if="isGameHead && phaseLabel">{{ phaseLabel }}</div>
-    <div class="head-bar" v-if="isGameHead && showNominationsBar" :class="{ nominate: (!offlineSeatsInGame || offlineSeatsInGame.length === 0) && Array.isArray(nominees) && nominees.length > 0 }">
-      <template v-if="offlineSeatsInGame && offlineSeatsInGame.length > 0">
-        <span>Ожидаем игроков: {{ offlineSeatsInGame.join(', ') }}</span>
-      </template>
-      <template v-else-if="Array.isArray(nominees) && nominees.length > 0">
-        <span class="nominations-badge" v-for="seatNum in nominees" :key="seatNum" :class="{ current: currentNomineeSeat === seatNum }">
-          {{ seatNum }}
-        </span>
-      </template>
+    <div class="head-bar" v-else-if="isGameHead && showNominationsBar && offlineSeatsInGame && offlineSeatsInGame.length > 0">
+      <span>Ожидаем игроков: {{ offlineSeatsInGame.join(', ') }}</span>
+    </div>
+    <div class="head-bar nominate" v-if="isGameHead && showNominationsBar && Array.isArray(nominees) && nominees.length > 0">
+      <span class="nominations-badge" v-for="seatNum in nominees" :key="seatNum" :class="{ current: currentNomineeSeat === seatNum }">
+        {{ seatNum }}
+      </span>
     </div>
 
     <div v-show="!showVideo" class="ava-wrap">
