@@ -14,7 +14,9 @@
       <span>{{ foulsCount }}</span>
     </button>
 
-    <div v-if="pickNumber != null && pickNumber > 0" class="icon-badge left">{{ pickNumber }}</div>
+    <div v-if="pickNumber != null && pickNumber > 0" class="nominate-btn pick-number">
+      Выстрелил в {{ pickNumber }}
+    </div>
     <button v-if="showNominate" class="nominate-btn" @click="$emit('nominate', id)">
       <img :src="iconLikeWhite" alt="nominate" />
       <span>Выставить</span>
@@ -36,14 +38,12 @@
       <span>Проголосовать</span>
     </button>
     <div class="head-bar" v-if="isGameHead && phaseLabel">{{ phaseLabel }}</div>
-    <div class="head-bar" v-if="isGameHead && showNominationsBar"
-         :class="{ nominate: (!offlineSeatsInGame || offlineSeatsInGame.length === 0) && Array.isArray(nominees) && nominees.length > 0 }">
+    <div class="head-bar" v-if="isGameHead && showNominationsBar" :class="{ nominate: (!offlineSeatsInGame || offlineSeatsInGame.length === 0) && Array.isArray(nominees) && nominees.length > 0 }">
       <template v-if="offlineSeatsInGame && offlineSeatsInGame.length > 0">
         <span>Ожидаем игроков: {{ offlineSeatsInGame.join(', ') }}</span>
       </template>
-      <template v-else>
-        <span v-if="!Array.isArray(nominees) || nominees.length === 0">Никто не выставлен</span>
-        <span v-else class="nominations-badge" v-for="seatNum in nominees" :key="seatNum" :class="{ current: currentNomineeSeat === seatNum }">
+      <template v-else-if="Array.isArray(nominees) && nominees.length > 0">
+        <span class="nominations-badge" v-for="seatNum in nominees" :key="seatNum" :class="{ current: currentNomineeSeat === seatNum }">
           {{ seatNum }}
         </span>
       </template>
@@ -373,6 +373,9 @@ const timelineDurationSec = computed(() => {
     box-shadow: 3px 3px 5px rgba($black, 0.25);
     cursor: pointer;
     z-index: 20;
+    &.pick-number {
+      cursor: default;
+    }
     img {
       width: 24px;
       height: 24px;
