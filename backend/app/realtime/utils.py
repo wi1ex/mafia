@@ -1203,6 +1203,26 @@ async def enrich_game_runtime_with_vote(r, rid: int, game_runtime: Mapping[str, 
         vote_section = {}
 
     try:
+        done = bool(vote_section.get("done"))
+    except Exception:
+        done = str(raw_gstate.get("vote_done") or "0") == "1"
+    try:
+        aborted = bool(vote_section.get("aborted"))
+    except Exception:
+        aborted = str(raw_gstate.get("vote_aborted") or "0") == "1"
+    try:
+        results_ready = bool(vote_section.get("results_ready"))
+    except Exception:
+        results_ready = str(raw_gstate.get("vote_results_ready") or "0") == "1"
+
+    if done or aborted or results_ready:
+        vote_section.pop("voted", None)
+        vote_section.pop("voted_for_current", None)
+        out = dict(game_runtime)
+        out["vote"] = vote_section
+        return out
+
+    try:
         current_nominee = int(vote_section.get("current_uid") or raw_gstate.get("vote_current_uid") or 0)
     except Exception:
         current_nominee = 0
@@ -1424,6 +1444,9 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
             vote_speech_kind = str(raw_gstate.get("vote_speech_kind") or "")
         except Exception:
             vote_speech_kind = ""
+
+        if vote_done or vote_aborted or vote_results_ready:
+            vote_current_uid = 0
 
         remaining = 0
         if vote_started and vote_duration > 0:

@@ -460,30 +460,38 @@ export function useRoomGame(localId: Ref<string>) {
       resetDaySpeechState(false)
       daySpeechesDone.value = true
       replaceIds(dayNominees, (vt as any).nominees)
-      const curId = String((vt as any).current_uid || '')
-      vote.currentId = curId
       const rawMs = secondsToMs((vt as any).deadline)
       setVoteRemainingMs(rawMs, false)
-      vote.done = isTrueLike((vt as any).done)
+      const done = isTrueLike((vt as any).done)
+      vote.done = done
       voteAborted.value = isTrueLike((vt as any).aborted)
       voteStartedForCurrent.value = rawMs > 0
 
       votedUsers.clear()
       votedThisRound.clear()
-      const votedRaw = (vt as any).voted
-      if (Array.isArray(votedRaw)) {
-        for (const uid of votedRaw) {
-          const s = String(uid)
-          if (s) votedUsers.add(s)
+
+      const curIdRaw  = String((vt as any).current_uid || '')
+      if (done) {
+        vote.currentId = ''
+        voteStartedForCurrent.value = false
+      } else {
+        vote.currentId = curIdRaw
+        const votedRaw = (vt as any).voted
+        if (Array.isArray(votedRaw)) {
+          for (const uid of votedRaw) {
+            const s = String(uid)
+            if (s) votedUsers.add(s)
+          }
+        }
+        const votedCurRaw = (vt as any).voted_for_current
+        if (Array.isArray(votedCurRaw) && curIdRaw) {
+          for (const uid of votedCurRaw) {
+            const s = String(uid)
+            if (s) votedThisRound.add(s)
+          }
         }
       }
-      const votedCurRaw = (vt as any).voted_for_current
-      if (Array.isArray(votedCurRaw) && curId) {
-        for (const uid of votedCurRaw) {
-          const s = String(uid)
-          if (s) votedThisRound.add(s)
-        }
-      }
+      
       nominatedThisSpeechByMe.value = false
       const leadersRaw = (vt as any).leaders
       if (Array.isArray(leadersRaw)) {
