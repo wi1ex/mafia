@@ -773,7 +773,7 @@ function onHeadVoteControl() {
   }
 }
 
-const showPermProbe = computed(() => !rtc.hasAudioInput.value && !rtc.hasVideoInput.value)
+const showPermProbe = computed(() => !rtc.hasAudioInput.value || !rtc.hasVideoInput.value)
 async function onProbeClick() {
   try { await rtc.resumeAudio() } catch {}
   await rtc.probePermissions({ audio: true, video: true })
@@ -1008,7 +1008,7 @@ socket.value?.on('connect', async () => {
       }
       return
     }
-    applyJoinAck(ack)
+    if (uiReady.value) applyJoinAck(ack)
   }
   if (pendingDeltas.length) {
     const merged = Object.assign({}, ...pendingDeltas.splice(0))

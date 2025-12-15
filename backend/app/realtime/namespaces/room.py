@@ -1699,6 +1699,18 @@ async def game_vote_control(sid, data):
 
         is_last = (cur_idx == total_nominees - 1)
         if action == "start":
+            try:
+                vote_started = int(raw_gstate.get("vote_started") or 0)
+            except Exception:
+                vote_started = 0
+
+            if vote_started:
+                now_ts = int(time())
+                if vote_duration > 0 and now_ts < vote_started + vote_duration:
+                    return {"ok": False, "error": "vote_in_progress", "status": 409}
+
+                return {"ok": False, "error": "vote_already_ended", "status": 409}
+
             if is_last:
                 to_auto_vote = [uid for uid in alive_ids if uid not in voted_ids]
                 if to_auto_vote:

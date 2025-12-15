@@ -1475,6 +1475,7 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
             leader_idx = 0
 
         nominees_order = await get_nominees_in_order(r, rid)
+        started_flag = bool(vote_started) and not (vote_done or vote_aborted or vote_results_ready)
         vote_section: dict[str, Any] = {
             "current_uid": vote_current_uid,
             "deadline": remaining,
@@ -1483,6 +1484,7 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
             "aborted": vote_aborted,
             "results_ready": vote_results_ready,
             "speeches_done": vote_speeches_done,
+            "started": started_flag,
         }
 
         if leaders:

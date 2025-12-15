@@ -465,7 +465,7 @@ export function useRoomGame(localId: Ref<string>) {
       const done = isTrueLike((vt as any).done)
       vote.done = done
       voteAborted.value = isTrueLike((vt as any).aborted)
-      voteStartedForCurrent.value = rawMs > 0
+      voteStartedForCurrent.value = isTrueLike((vt as any).started)
 
       votedUsers.clear()
       votedThisRound.clear()
@@ -908,6 +908,8 @@ export function useRoomGame(localId: Ref<string>) {
         alert('Сейчас не фаза голосования')
       } else if (st === 403 && code === 'forbidden') {
         alert('Только ведущий может управлять голосованием')
+      } else if (st === 409 && code === 'vote_already_ended') {
+        alert('Голосование за этого кандидата уже завершено')
       } else if (st === 409 && code === 'vote_done') {
         alert('Голосование уже завершено')
       } else {
