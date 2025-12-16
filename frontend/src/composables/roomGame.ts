@@ -731,6 +731,17 @@ export function useRoomGame(localId: Ref<string>) {
     const killed = isTrueLike((p as any)?.killed)
     const isActiveSpeech = ms > 0 && !!speakerId
 
+    const nightPayload = (p as any)?.night
+    if (nightPayload && typeof nightPayload === 'object') {
+      night.killOk = isTrueLike((nightPayload as any).kill_ok)
+      night.killUid = String((nightPayload as any).kill_uid || '')
+      night.hasResult = night.killOk && !!night.killUid
+    } else if (isTrueLike((p as any)?.prelude)) {
+      night.killOk = false
+      night.killUid = ''
+      night.hasResult = false
+    }
+
     if (
       gamePhase.value === 'day' &&
       killed &&
