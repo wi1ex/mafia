@@ -41,7 +41,7 @@
     <div class="head-bar" v-else-if="isGameHead && showNominationsBar && offlineSeatsInGame && offlineSeatsInGame.length > 0">
       <span>Ожидаем игроков: {{ offlineSeatsInGame.join(', ') }}</span>
     </div>
-    <div class="head-bar nominate" v-if="isGameHead && showNominationsBar && Array.isArray(nominees) && nominees.length > 0">
+    <div class="head-bar nominate" v-else-if="isGameHead && showNominationsBar && Array.isArray(nominees) && nominees.length > 0">
       <span class="nominations-badge" v-for="seatNum in nominees" :key="seatNum" :class="{ current: currentNomineeSeat === seatNum }">
         {{ seatNum }}
       </span>

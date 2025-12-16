@@ -225,6 +225,12 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     knownRolesVisible.value = !knownRolesVisible.value
   }
 
+  function ensureKnownRolesVisible(): void {
+    if (myGameRoleKind.value === 'don' || myGameRoleKind.value === 'sheriff') {
+      knownRolesVisible.value = true
+    }
+  }
+
   const LATENCY_MS = 1500
   function withLatency(rawMs: number): number {
     if (!rawMs || rawMs <= 0) return 0
@@ -1126,7 +1132,10 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     const uidNum = Number(targetUserId)
     if (!uidNum) return
     const resp = await sendAck('game_night_check', { user_id: uidNum })
-    if (resp?.ok) myNightCheckTarget.value = targetUserId
+    if (resp?.ok) {
+      myNightCheckTarget.value = targetUserId
+      ensureKnownRolesVisible()
+    }
   }
 
   async function startNightShoot(sendAck: SendAckFn): Promise<void> {

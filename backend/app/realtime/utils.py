@@ -68,6 +68,7 @@ __all__ = [
     "process_player_death",
     "require_ctx",
     "ensure_can_act_role",
+    "get_active_fouls",
 ]
 
 log = structlog.get_logger()
@@ -1042,7 +1043,27 @@ async def compute_day_opening_and_closing(r, rid: int, last_opening_uid: int | N
     return opening, closing, alive_order
 
 
-async def schedule_foul_block(rid: int, target_uid: int, head_uid: int, duration: int | None = None) -> None:
+async def get_active_fouls(r, rid: int) -> dict[int, int]:
+    try:
+        raw = await r.hgetall(f"room:{rid}:foul_active")
+    except Exception:
+        return {}
+
+    now_ts = int(time())
+    active: dict[int, int] = {}
+    for uid_s, until_s in (raw or {}).items():
+        try:
+            uid = int(uid_s)
+            until_ts = int(until_s or 0)
+        except Exception:
+            continue
+        if until_ts > now_ts:
+            active[uid] = until_ts - now_ts
+
+    return active
+
+
+async def schedule_foul_block(rid: int, target_uid: int, head_uid: int, duration: int | None = None, *, expected_until: int | None = None) -> None:
     try:
         sec = int(duration if duration is not None else settings.PLAYER_FOUL_SECONDS)
     except Exception:
@@ -1053,6 +1074,15 @@ async def schedule_foul_block(rid: int, target_uid: int, head_uid: int, duration
 
     await asyncio.sleep(max(0, sec))
     r = get_redis()
+    if expected_until is not None:
+        try:
+            cur_until_raw = await r.hget(f"room:{rid}:foul_active", str(target_uid))
+            cur_until = int(cur_until_raw or 0)
+        except Exception:
+            cur_until = 0
+        if cur_until != expected_until:
+            return
+
     try:
         _, forced_off = await apply_blocks_and_emit(r, rid, actor_uid=head_uid, actor_role="head", target_uid=target_uid, changes_bool={"mic": True})
     except Exception:
@@ -1061,6 +1091,11 @@ async def schedule_foul_block(rid: int, target_uid: int, head_uid: int, duration
 
     if "__error__" in forced_off:
         return
+
+    try:
+        await r.hdel(f"room:{rid}:foul_active", str(target_uid))
+    except Exception:
+        log.warning("game_foul.cleanup_failed", rid=rid, uid=target_uid)
 
 
 async def finish_day_speech(r, rid: int, raw_gstate: Mapping[str, Any], speaker_uid: int) -> dict[str, Any]:
