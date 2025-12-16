@@ -1332,18 +1332,6 @@ async def game_phase_next(sid, data):
                 return {"ok": False, "error": "night_not_finished", "status": 409, "night_stage": stage}
 
             killed_uid, ok = await compute_night_kill(r, rid)
-            if ok and killed_uid:
-                try:
-                    await r.srem(f"room:{rid}:game_alive", str(killed_uid))
-                except Exception:
-                    log.exception("night.day.srem_alive_failed", rid=rid, uid=killed_uid)
-
-                try:
-                    alive_cnt = int(await r.scard(f"room:{rid}:game_alive") or 0)
-                except Exception:
-                    alive_cnt = 0
-                await sio.emit("rooms_occupancy", {"id": rid, "occupancy": alive_cnt}, namespace="/rooms")
-
             try:
                 day_number = int(raw_gstate.get("day_number") or 0)
             except Exception:
@@ -1353,7 +1341,8 @@ async def game_phase_next(sid, data):
             except Exception:
                 last_opening_uid = 0
 
-            opening_uid, closing_uid, alive_order = await compute_day_opening_and_closing(r, rid, last_opening_uid)
+            exclude_ids = [killed_uid] if ok and killed_uid else None
+            opening_uid, closing_uid, alive_order = await compute_day_opening_and_closing(r, rid, last_opening_uid, exclude_ids)
             new_day_number = day_number + 1 if opening_uid else day_number
             players_raw = await r.smembers(f"room:{rid}:game_players")
             player_ids: list[int] = []

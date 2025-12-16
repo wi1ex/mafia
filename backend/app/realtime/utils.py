@@ -676,8 +676,16 @@ async def get_alive_players_in_seat_order(r, rid: int) -> list[int]:
     return [uid for uid in order if uid in alive]
 
 
-async def compute_day_opening_and_closing(r, rid: int, last_opening_uid: int | None) -> tuple[int, int, list[int]]:
-    alive_order = await get_alive_players_in_seat_order(r, rid)
+async def compute_day_opening_and_closing(r, rid: int, last_opening_uid: int | None, exclude: Iterable[int] | None = None) -> tuple[int, int, list[int]]:
+    exclude_set: set[int] = set()
+    for v in (exclude or []):
+        try:
+            exclude_set.add(int(v))
+        except Exception:
+            continue
+
+    alive_order_raw = await get_alive_players_in_seat_order(r, rid)
+    alive_order = [uid for uid in alive_order_raw if uid not in exclude_set]
     if not alive_order:
         return 0, 0, []
 
