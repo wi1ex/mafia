@@ -28,6 +28,7 @@ from ..utils import (
     join_room_atomic,
     leave_room_atomic,
     validate_auth,
+    build_game_context,
     claim_screen,
     get_rooms_brief,
     init_roles_deck,
@@ -510,14 +511,15 @@ async def kick(sid, data):
 async def game_leave(sid, data):
     try:
         sess = await sio.get_session(sid, namespace="/room")
-        uid = int(sess["uid"])
-        rid = int(sess.get("rid") or 0)
-        if not rid:
-            return {"ok": False, "error": "no_room", "status": 400}
+        ctx, err = await build_game_context(sid)
+        if err:
+            return err
 
-        r = get_redis()
-        raw_gstate = await r.hgetall(f"room:{rid}:game_state")
-        phase = str(raw_gstate.get("phase") or "idle")
+        uid = ctx.uid
+        rid = ctx.rid
+        r = ctx.r
+        raw_gstate = ctx.gstate
+        phase = ctx.phase
         if phase == "idle":
             return {"ok": False, "error": "no_game", "status": 400}
 
@@ -544,11 +546,7 @@ async def game_leave(sid, data):
             except Exception:
                 log.exception("sio.game_leave.abort_vote_failed", rid=rid, uid=uid)
 
-        try:
-            head_uid = int(raw_gstate.get("head") or 0)
-        except Exception:
-            head_uid = 0
-
+        head_uid = ctx.head_uid
         is_player = await r.sismember(f"room:{rid}:game_players", str(uid))
         if not is_player:
             return {"ok": False, "error": "not_player", "status": 400}
@@ -558,11 +556,7 @@ async def game_leave(sid, data):
             return {"ok": False, "error": "already_dead", "status": 400}
 
         if phase == "day":
-            try:
-                current_uid = int(raw_gstate.get("day_current_uid") or 0)
-            except Exception:
-                current_uid = 0
-
+            current_uid = ctx.gint("day_current_uid")
             if current_uid == uid:
                 try:
                     payload = await finish_day_speech(r, rid, raw_gstate, uid)
@@ -611,18 +605,18 @@ async def game_start(sid, data) -> GameStartAck:
         data = data or {}
         confirm = bool(data.get("confirm"))
         sess = await sio.get_session(sid, namespace="/room")
-        uid = int(sess["uid"])
-        rid = int(sess.get("rid") or 0)
-        if not rid:
-            return {"ok": False, "error": "no_room", "status": 400}
+        ctx, err = await build_game_context(sid)
+        if err:
+            return err
 
-        r = get_redis()
+        uid = ctx.uid
+        rid = ctx.rid
+        r = ctx.r
         params = await r.hgetall(f"room:{rid}:params")
         if not params:
             return {"ok": False, "error": "room_not_found", "status": 404}
 
-        raw_gstate = await r.hgetall(f"room:{rid}:game_state")
-        cur_phase = str(raw_gstate.get("phase") or "idle")
+        cur_phase = ctx.phase
         if cur_phase != "idle":
             return {"ok": False, "error": "already_started", "status": 409}
 
@@ -815,30 +809,23 @@ async def game_start(sid, data) -> GameStartAck:
 async def game_roles_pick(sid, data) -> GameRolePickAck:
     try:
         data = data or {}
-        sess = await sio.get_session(sid, namespace="/room")
-        uid = int(sess["uid"])
-        rid = int(sess.get("rid") or 0)
-        if not rid:
-            return {"ok": False, "error": "no_room", "status": 400}
+        ctx, err = await build_game_context(sid)
+        if err:
+            return err
 
-        r = get_redis()
-        raw_state = await r.hgetall(f"room:{rid}:game_state")
-        phase = str(raw_state.get("phase") or "idle")
+        uid = ctx.uid
+        rid = ctx.rid
+        r = ctx.r
+        phase = ctx.phase
         if phase != "roles_pick":
             return {"ok": False, "error": "bad_phase", "status": 400}
 
-        try:
-            turn_uid = int(raw_state.get("roles_turn_uid") or 0)
-        except Exception:
-            turn_uid = 0
+        turn_uid = ctx.gint("roles_turn_uid")
         if uid != turn_uid:
             return {"ok": False, "error": "not_your_turn", "status": 403}
 
         is_player = await r.sismember(f"room:{rid}:game_players", str(uid))
-        try:
-            head_uid = int(raw_state.get("head") or 0)
-        except Exception:
-            head_uid = 0
+        head_uid = ctx.head_uid
         if not is_player and uid != head_uid:
             return {"ok": False, "error": "not_player", "status": 403}
 
@@ -885,23 +872,19 @@ async def game_phase_next(sid, data):
         want_from = str(data.get("from") or "")
         want_to = str(data.get("to") or "")
 
-        sess = await sio.get_session(sid, namespace="/room")
-        uid = int(sess["uid"])
-        rid = int(sess.get("rid") or 0)
-        if not rid:
-            return {"ok": False, "error": "no_room", "status": 400}
+        ctx, err = await build_game_context(sid)
+        if err:
+            return err
 
-        r = get_redis()
-        raw_gstate = await r.hgetall(f"room:{rid}:game_state")
-        cur_phase = str(raw_gstate.get("phase") or "idle")
+        uid = ctx.uid
+        rid = ctx.rid
+        r = ctx.r
+        raw_gstate = ctx.gstate
+        cur_phase = ctx.phase
         if cur_phase == "idle":
             return {"ok": False, "error": "no_game", "status": 400}
 
-        try:
-            head_uid = int(raw_gstate.get("head") or 0)
-        except Exception:
-            head_uid = 0
-
+        head_uid = ctx.head_uid
         if not head_uid or uid != head_uid:
             return {"ok": False, "error": "forbidden", "status": 403}
 
@@ -1031,18 +1014,10 @@ async def game_phase_next(sid, data):
             return payload
 
         if cur_phase == "mafia_talk_end" and want_to == "day":
-            try:
-                day_number = int(raw_gstate.get("day_number") or 0)
-            except Exception:
-                day_number = 0
-            try:
-                last_opening_uid = int(raw_gstate.get("day_last_opening_uid") or 0)
-            except Exception:
-                last_opening_uid = 0
-
+            day_number = ctx.gint("day_number")
+            last_opening_uid = ctx.gint("day_last_opening_uid")
             opening_uid, closing_uid, alive_order = await compute_day_opening_and_closing(r, rid, last_opening_uid)
             new_day_number = day_number + 1 if opening_uid else day_number
-
             alive_raw = await r.smembers(f"room:{rid}:game_alive")
             alive_ids: list[int] = []
             for v in (alive_raw or []):
@@ -1310,15 +1285,8 @@ async def game_phase_next(sid, data):
                 return {"ok": False, "error": "night_not_finished", "status": 409, "night_stage": stage}
 
             killed_uid, ok = await compute_night_kill(r, rid)
-            try:
-                day_number = int(raw_gstate.get("day_number") or 0)
-            except Exception:
-                day_number = 0
-            try:
-                last_opening_uid = int(raw_gstate.get("day_last_opening_uid") or 0)
-            except Exception:
-                last_opening_uid = 0
-
+            day_number = ctx.gint("day_number")
+            last_opening_uid = ctx.gint("day_last_opening_uid")
             exclude_ids = [killed_uid] if ok and killed_uid else None
             opening_uid, closing_uid, alive_order = await compute_day_opening_and_closing(r, rid, last_opening_uid, exclude_ids)
             new_day_number = day_number + 1 if opening_uid else day_number
@@ -1404,43 +1372,26 @@ async def game_phase_next(sid, data):
 async def game_speech_next(sid, data):
     try:
         data = data or {}
-        sess = await sio.get_session(sid, namespace="/room")
-        actor_uid = int(sess["uid"])
-        rid = int(sess.get("rid") or 0)
-        if not rid:
-            return {"ok": False, "error": "no_room", "status": 400}
+        ctx, err = await build_game_context(sid)
+        if err:
+            return err
 
-        r = get_redis()
-        raw_gstate = await r.hgetall(f"room:{rid}:game_state")
-        phase = str(raw_gstate.get("phase") or "idle")
+        actor_uid = ctx.uid
+        rid = ctx.rid
+        r = ctx.r
+        raw_gstate = ctx.gstate
+        phase = ctx.phase
         if phase != "day":
             return {"ok": False, "error": "bad_phase", "status": 400}
 
-        try:
-            head_uid = int(raw_gstate.get("head") or 0)
-        except Exception:
-            head_uid = 0
-
+        head_uid = ctx.head_uid
         if not head_uid or actor_uid != head_uid:
             return {"ok": False, "error": "forbidden", "status": 403}
 
-        try:
-            opening_uid = int(raw_gstate.get("day_opening_uid") or 0)
-        except Exception:
-            opening_uid = 0
-        try:
-            closing_uid = int(raw_gstate.get("day_closing_uid") or 0)
-        except Exception:
-            closing_uid = 0
-        try:
-            current_uid = int(raw_gstate.get("day_current_uid") or 0)
-        except Exception:
-            current_uid = 0
-        try:
-            last_opening_uid = int(raw_gstate.get("day_last_opening_uid") or 0)
-        except Exception:
-            last_opening_uid = 0
-
+        opening_uid = ctx.gint("day_opening_uid")
+        closing_uid = ctx.gint("day_closing_uid")
+        current_uid = ctx.gint("day_current_uid")
+        last_opening_uid = ctx.gint("day_last_opening_uid")
         if not opening_uid or not closing_uid:
             opening_uid, closing_uid, alive_order = await compute_day_opening_and_closing(r, rid, last_opening_uid)
             async with r.pipeline() as p:
@@ -1474,10 +1425,7 @@ async def game_speech_next(sid, data):
         next_uid: int
         is_prelude_next = False
         if not current_uid:
-            try:
-                pre_uid = int(raw_gstate.get("day_prelude_uid") or 0)
-            except Exception:
-                pre_uid = 0
+            pre_uid = ctx.gint("day_prelude_uid")
             pre_pending = str(raw_gstate.get("day_prelude_pending") or "0") == "1"
             if pre_uid and pre_pending:
                 next_uid = pre_uid
@@ -1512,11 +1460,7 @@ async def game_speech_next(sid, data):
             return {"ok": False, "error": "bad_next_speaker", "status": 400}
 
         pre_active = str(raw_gstate.get("day_prelude_active") or "0") == "1"
-        try:
-            pre_uid2 = int(raw_gstate.get("day_prelude_uid") or 0)
-        except Exception:
-            pre_uid2 = 0
-
+        pre_uid2 = ctx.gint("day_prelude_uid")
         duration = settings.PLAYER_TALK_SECONDS
         use_short = False
         if not (pre_active and pre_uid2 and next_uid == pre_uid2):
@@ -1592,22 +1536,21 @@ async def game_speech_next(sid, data):
 async def game_foul(sid, data):
     try:
         data = data or {}
-        sess = await sio.get_session(sid, namespace="/room")
-        uid = int(sess["uid"])
-        rid = int(sess.get("rid") or 0)
-        if not rid:
-            return {"ok": False, "error": "no_room", "status": 400}
+        ctx, err = await build_game_context(sid)
+        if err:
+            return err
 
-        r = get_redis()
-        raw_gstate = await r.hgetall(f"room:{rid}:game_state")
-        phase = str(raw_gstate.get("phase") or "idle")
+        uid = ctx.uid
+        rid = ctx.rid
+        r = ctx.r
+        raw_gstate = ctx.gstate
+        phase = ctx.phase
         if phase not in ("day", "vote"):
             return {"ok": False, "error": "bad_phase", "status": 400}
 
-        is_player = await r.sismember(f"room:{rid}:game_players", str(uid))
-        is_alive = await r.sismember(f"room:{rid}:game_alive", str(uid))
-        if not is_player or not is_alive:
-            return {"ok": False, "error": "not_alive", "status": 403}
+        err = await ctx.ensure_player()
+        if err:
+            return err
 
         try:
             foul_seconds = settings.PLAYER_FOUL_SECONDS
@@ -1623,10 +1566,7 @@ async def game_foul(sid, data):
 
         await r.set(key_cd, "1", ex=foul_seconds)
 
-        try:
-            head_uid = int(raw_gstate.get("head") or 0)
-        except Exception:
-            head_uid = 0
+        head_uid = ctx.head_uid
         if not head_uid:
             return {"ok": False, "error": "no_head", "status": 400}
 
@@ -1672,35 +1612,30 @@ async def game_foul(sid, data):
 async def game_foul_set(sid, data):
     try:
         data = data or {}
-        sess = await sio.get_session(sid, namespace="/room")
-        actor_uid = int(sess["uid"])
-        rid = int(sess.get("rid") or 0)
-        if not rid:
-            return {"ok": False, "error": "no_room", "status": 400}
+        ctx, err = await build_game_context(sid)
+        if err:
+            return err
 
+        actor_uid = ctx.uid
+        rid = ctx.rid
         target_uid = int(data.get("user_id") or 0)
         if not target_uid:
             return {"ok": False, "error": "bad_request", "status": 400}
 
         confirm_kill = bool(data.get("confirm_kill"))
-
-        r = get_redis()
-        raw_gstate = await r.hgetall(f"room:{rid}:game_state")
-        phase = str(raw_gstate.get("phase") or "idle")
+        r = ctx.r
+        raw_gstate = ctx.gstate
+        phase = ctx.phase
         if phase == "idle":
             return {"ok": False, "error": "no_game", "status": 400}
 
-        try:
-            head_uid = int(raw_gstate.get("head") or 0)
-        except Exception:
-            head_uid = 0
-
+        head_uid = ctx.head_uid
         if not head_uid or actor_uid != head_uid:
             return {"ok": False, "error": "forbidden", "status": 403}
 
-        is_player = await r.sismember(f"room:{rid}:game_players", str(target_uid))
-        if not is_player:
-            return {"ok": False, "error": "not_player", "status": 400}
+        err = await ctx.ensure_player(target_uid, alive_required=False, error="not_player", status=400)
+        if err:
+            return err
 
         is_alive = await r.sismember(f"room:{rid}:game_alive", str(target_uid))
         if not is_alive:
@@ -1728,11 +1663,7 @@ async def game_foul_set(sid, data):
         if foul_after >= 4:
             killed = True
             if phase == "day":
-                try:
-                    current_uid = int(raw_gstate.get("day_current_uid") or 0)
-                except Exception:
-                    current_uid = 0
-
+                current_uid = ctx.gint("day_current_uid")
                 if current_uid == target_uid:
                     try:
                         payload = await finish_day_speech(r, rid, raw_gstate, target_uid)
@@ -1762,12 +1693,12 @@ async def game_foul_set(sid, data):
 async def game_nominate(sid, data):
     try:
         data = data or {}
-        sess = await sio.get_session(sid, namespace="/room")
-        actor_uid = int(sess["uid"])
-        rid = int(sess.get("rid") or 0)
-        if not rid:
-            return {"ok": False, "error": "no_room", "status": 400}
+        ctx, err = await build_game_context(sid)
+        if err:
+            return err
 
+        actor_uid = ctx.uid
+        rid = ctx.rid
         try:
             target_uid = int(data.get("user_id") or 0)
         except Exception:
@@ -1775,36 +1706,28 @@ async def game_nominate(sid, data):
         if not target_uid:
             return {"ok": False, "error": "bad_request", "status": 400}
 
-        r = get_redis()
-        raw_gstate = await r.hgetall(f"room:{rid}:game_state")
-        phase = str(raw_gstate.get("phase") or "idle")
+        r = ctx.r
+        raw_gstate = ctx.gstate
+        phase = ctx.phase
         if phase != "day":
             return {"ok": False, "error": "bad_phase", "status": 400}
 
-        try:
-            current_uid = int(raw_gstate.get("day_current_uid") or 0)
-        except Exception:
-            current_uid = 0
+        current_uid = ctx.gint("day_current_uid")
         if current_uid != actor_uid:
             return {"ok": False, "error": "not_your_speech", "status": 403}
 
         pre_active = str(raw_gstate.get("day_prelude_active") or "0") == "1"
-        try:
-            pre_uid = int(raw_gstate.get("day_prelude_uid") or 0)
-        except Exception:
-            pre_uid = 0
+        pre_uid = ctx.gint("day_prelude_uid")
         if pre_active and pre_uid and current_uid == pre_uid:
             return {"ok": False, "error": "prelude_no_nomination", "status": 409}
 
-        is_actor_player = await r.sismember(f"room:{rid}:game_players", str(actor_uid))
-        is_actor_alive = await r.sismember(f"room:{rid}:game_alive", str(actor_uid))
-        if not (is_actor_player and is_actor_alive):
-            return {"ok": False, "error": "not_alive", "status": 403}
+        err = await ctx.ensure_player()
+        if err:
+            return err
 
-        is_target_player = await r.sismember(f"room:{rid}:game_players", str(target_uid))
-        is_target_alive = await r.sismember(f"room:{rid}:game_alive", str(target_uid))
-        if not (is_target_player and is_target_alive):
-            return {"ok": False, "error": "target_not_alive", "status": 400}
+        err = await ctx.ensure_player(target_uid, error="target_not_alive", status=400)
+        if err:
+            return err
 
         already_speaker = await r.sismember(f"room:{rid}:game_nom_speakers", str(actor_uid))
         if already_speaker:
@@ -1852,23 +1775,19 @@ async def game_vote_control(sid, data):
     try:
         data = data or {}
         action = str(data.get("action") or "")
-        sess = await sio.get_session(sid, namespace="/room")
-        actor_uid = int(sess["uid"])
-        rid = int(sess.get("rid") or 0)
-        if not rid:
-            return {"ok": False, "error": "no_room", "status": 400}
+        ctx, err = await build_game_context(sid)
+        if err:
+            return err
 
-        r = get_redis()
-        raw_gstate = await r.hgetall(f"room:{rid}:game_state")
-        phase = str(raw_gstate.get("phase") or "idle")
+        actor_uid = ctx.uid
+        rid = ctx.rid
+        r = ctx.r
+        raw_gstate = ctx.gstate
+        phase = ctx.phase
         if phase != "vote":
             return {"ok": False, "error": "bad_phase", "status": 400}
 
-        try:
-            head_uid = int(raw_gstate.get("head") or 0)
-        except Exception:
-            head_uid = 0
-
+        head_uid = ctx.head_uid
         if not head_uid or actor_uid != head_uid:
             return {"ok": False, "error": "forbidden", "status": 403}
 
@@ -1880,11 +1799,7 @@ async def game_vote_control(sid, data):
         if not nominees:
             return {"ok": False, "error": "no_nominees", "status": 409}
 
-        try:
-            current_uid = int(raw_gstate.get("vote_current_uid") or 0)
-        except Exception:
-            current_uid = 0
-
+        current_uid = ctx.gint("vote_current_uid")
         if current_uid and current_uid in nominees:
             cur_idx = nominees.index(current_uid)
         else:
@@ -1892,11 +1807,7 @@ async def game_vote_control(sid, data):
             cur_idx = 0
 
         total_nominees = len(nominees)
-
-        try:
-            vote_duration = int(raw_gstate.get("vote_duration") or settings.VOTE_SECONDS)
-        except Exception:
-            vote_duration = settings.VOTE_SECONDS
+        vote_duration = ctx.gint("vote_duration", settings.VOTE_SECONDS)
         if vote_duration <= 0:
             vote_duration = 3
 
@@ -2053,15 +1964,15 @@ async def game_vote_control(sid, data):
 async def game_vote(sid, data):
     try:
         data = data or {}
-        sess = await sio.get_session(sid, namespace="/room")
-        uid = int(sess["uid"])
-        rid = int(sess.get("rid") or 0)
-        if not rid:
-            return {"ok": False, "error": "no_room", "status": 400}
+        ctx, err = await build_game_context(sid)
+        if err:
+            return err
 
-        r = get_redis()
-        raw_gstate = await r.hgetall(f"room:{rid}:game_state")
-        phase = str(raw_gstate.get("phase") or "idle")
+        uid = ctx.uid
+        rid = ctx.rid
+        r = ctx.r
+        raw_gstate = ctx.gstate
+        phase = ctx.phase
         if phase != "vote":
             return {"ok": False, "error": "bad_phase", "status": 400}
 
@@ -2069,27 +1980,16 @@ async def game_vote(sid, data):
         if vote_done:
             return {"ok": False, "error": "vote_done", "status": 409}
 
-        is_player = await r.sismember(f"room:{rid}:game_players", str(uid))
-        is_alive = await r.sismember(f"room:{rid}:game_alive", str(uid))
-        if not (is_player and is_alive):
-            return {"ok": False, "error": "not_alive", "status": 403}
+        err = await ctx.ensure_player()
+        if err:
+            return err
 
-        try:
-            nominee_uid = int(raw_gstate.get("vote_current_uid") or 0)
-        except Exception:
-            nominee_uid = 0
+        nominee_uid = ctx.gint("vote_current_uid")
         if not nominee_uid:
             return {"ok": False, "error": "no_active_vote", "status": 409}
 
-        try:
-            vote_started = int(raw_gstate.get("vote_started") or 0)
-        except Exception:
-            vote_started = 0
-        try:
-            vote_duration = int(raw_gstate.get("vote_duration") or settings.VOTE_SECONDS)
-        except Exception:
-            vote_duration = settings.VOTE_SECONDS
-
+        vote_started = ctx.gint("vote_started")
+        vote_duration = ctx.gint("vote_duration", settings.VOTE_SECONDS)
         now_ts = int(time())
         if not vote_started or vote_duration <= 0 or now_ts > vote_started + vote_duration:
             return {"ok": False, "error": "vote_window_closed", "status": 409}
@@ -2135,23 +2035,19 @@ async def game_vote(sid, data):
 async def game_vote_finish(sid, data):
     try:
         data = data or {}
-        sess = await sio.get_session(sid, namespace="/room")
-        actor_uid = int(sess["uid"])
-        rid = int(sess.get("rid") or 0)
-        if not rid:
-            return {"ok": False, "error": "no_room", "status": 400}
+        ctx, err = await build_game_context(sid)
+        if err:
+            return err
 
-        r = get_redis()
-        raw_gstate = await r.hgetall(f"room:{rid}:game_state")
-        phase = str(raw_gstate.get("phase") or "idle")
+        actor_uid = ctx.uid
+        rid = ctx.rid
+        r = ctx.r
+        raw_gstate = ctx.gstate
+        phase = ctx.phase
         if phase != "vote":
             return {"ok": False, "error": "bad_phase", "status": 400}
 
-        try:
-            head_uid = int(raw_gstate.get("head") or 0)
-        except Exception:
-            head_uid = 0
-
+        head_uid = ctx.head_uid
         if not head_uid or actor_uid != head_uid:
             return {"ok": False, "error": "forbidden", "status": 403}
 
@@ -2227,37 +2123,27 @@ async def game_vote_finish(sid, data):
 async def game_speech_finish(sid, data):
     try:
         data = data or {}
-        sess = await sio.get_session(sid, namespace="/room")
-        actor_uid = int(sess["uid"])
-        rid = int(sess.get("rid") or 0)
-        if not rid:
-            return {"ok": False, "error": "no_room", "status": 400}
+        ctx, err = await build_game_context(sid)
+        if err:
+            return err
 
-        r = get_redis()
-        raw_gstate = await r.hgetall(f"room:{rid}:game_state")
-        phase = str(raw_gstate.get("phase") or "idle")
+        actor_uid = ctx.uid
+        rid = ctx.rid
+        r = ctx.r
+        raw_gstate = ctx.gstate
+        phase = ctx.phase
         if phase not in ("day", "vote"):
             return {"ok": False, "error": "bad_phase", "status": 400}
 
-        try:
-            head_uid = int(raw_gstate.get("head") or 0)
-        except Exception:
-            head_uid = 0
-
         if phase == "day":
-            try:
-                current_uid = int(raw_gstate.get("day_current_uid") or 0)
-            except Exception:
-                current_uid = 0
+            current_uid = ctx.gint("day_current_uid")
         else:
-            try:
-                current_uid = int(raw_gstate.get("vote_speech_uid") or 0)
-            except Exception:
-                current_uid = 0
+            current_uid = ctx.gint("vote_speech_uid")
 
         if not current_uid:
             return {"ok": False, "error": "no_speech", "status": 400}
 
+        head_uid = ctx.head_uid
         if not head_uid:
             return {"ok": False, "error": "no_head", "status": 400}
 
@@ -2302,22 +2188,19 @@ async def game_speech_finish(sid, data):
 async def game_vote_speech_next(sid, data):
     try:
         data = data or {}
-        sess = await sio.get_session(sid, namespace="/room")
-        actor_uid = int(sess["uid"])
-        rid = int(sess.get("rid") or 0)
-        if not rid:
-            return {"ok": False, "error": "no_room", "status": 400}
+        ctx, err = await build_game_context(sid)
+        if err:
+            return err
 
-        r = get_redis()
-        raw_gstate = await r.hgetall(f"room:{rid}:game_state")
-        phase = str(raw_gstate.get("phase") or "idle")
+        actor_uid = ctx.uid
+        rid = ctx.rid
+        r = ctx.r
+        raw_gstate = ctx.gstate
+        phase = ctx.phase
         if phase != "vote":
             return {"ok": False, "error": "bad_phase", "status": 400}
 
-        try:
-            head_uid = int(raw_gstate.get("head") or 0)
-        except Exception:
-            head_uid = 0
+        head_uid = ctx.head_uid
         if not head_uid or actor_uid != head_uid:
             return {"ok": False, "error": "forbidden", "status": 403}
 
@@ -2325,15 +2208,9 @@ async def game_vote_speech_next(sid, data):
         if not vote_done:
             return {"ok": False, "error": "vote_not_done", "status": 409}
 
-        try:
-            cur_speaker = int(raw_gstate.get("vote_speech_uid") or 0)
-            speech_started = int(raw_gstate.get("vote_speech_started") or 0)
-            speech_duration = int(raw_gstate.get("vote_speech_duration") or 0)
-        except Exception:
-            cur_speaker = 0
-            speech_started = 0
-            speech_duration = 0
-
+        cur_speaker = ctx.gint("vote_speech_uid")
+        speech_started = ctx.gint("vote_speech_started")
+        speech_duration = ctx.gint("vote_speech_duration")
         now_ts = int(time())
         if cur_speaker and speech_started and speech_duration > 0 and now_ts < speech_started + speech_duration:
             return {"ok": False, "error": "speech_in_progress", "status": 409}
@@ -2352,11 +2229,7 @@ async def game_vote_speech_next(sid, data):
         if not leaders:
             return {"ok": False, "error": "no_leaders", "status": 409}
 
-        try:
-            leader_idx = int(raw_gstate.get("vote_leader_idx") or 0)
-        except Exception:
-            leader_idx = 0
-
+        leader_idx = ctx.gint("vote_leader_idx")
         total = len(leaders)
         if leader_idx >= total:
             return {"ok": False, "error": "no_more_leaders", "status": 409}
@@ -2444,22 +2317,19 @@ async def game_vote_speech_next(sid, data):
 async def game_vote_restart(sid, data):
     try:
         data = data or {}
-        sess = await sio.get_session(sid, namespace="/room")
-        actor_uid = int(sess["uid"])
-        rid = int(sess.get("rid") or 0)
-        if not rid:
-            return {"ok": False, "error": "no_room", "status": 400}
+        ctx, err = await build_game_context(sid)
+        if err:
+            return err
 
-        r = get_redis()
-        raw_gstate = await r.hgetall(f"room:{rid}:game_state")
-        phase = str(raw_gstate.get("phase") or "idle")
+        actor_uid = ctx.uid
+        rid = ctx.rid
+        r = ctx.r
+        raw_gstate = ctx.gstate
+        phase = ctx.phase
         if phase != "vote":
             return {"ok": False, "error": "bad_phase", "status": 400}
 
-        try:
-            head_uid = int(raw_gstate.get("head") or 0)
-        except Exception:
-            head_uid = 0
+        head_uid = ctx.head_uid
         if not head_uid or actor_uid != head_uid:
             return {"ok": False, "error": "forbidden", "status": 403}
 
@@ -2478,11 +2348,7 @@ async def game_vote_restart(sid, data):
             except Exception:
                 continue
 
-        try:
-            leader_idx = int(raw_gstate.get("vote_leader_idx") or 0)
-        except Exception:
-            leader_idx = 0
-
+        leader_idx = ctx.gint("vote_leader_idx")
         if len(leaders) > 1 and leader_idx < len(leaders):
             return {"ok": False, "error": "speeches_not_done", "status": 409}
 
@@ -2547,21 +2413,18 @@ async def game_vote_restart(sid, data):
 @sio.event(namespace="/room")
 async def game_night_shoot_start(sid, data):
     try:
-        sess = await sio.get_session(sid, namespace="/room")
-        uid = int(sess["uid"])
-        rid = int(sess.get("rid") or 0)
-        if not rid:
-            return {"ok": False, "error": "no_room", "status": 400}
+        ctx, err = await build_game_context(sid)
+        if err:
+            return err
 
-        r = get_redis()
-        g = await r.hgetall(f"room:{rid}:game_state")
-        if str(g.get("phase") or "idle") != "night":
+        uid = ctx.uid
+        rid = ctx.rid
+        r = ctx.r
+        g = ctx.gstate
+        if ctx.phase != "night":
             return {"ok": False, "error": "bad_phase", "status": 400}
 
-        try:
-            head_uid = int(g.get("head") or 0)
-        except Exception:
-            head_uid = 0
+        head_uid = ctx.head_uid
         if not head_uid or uid != head_uid:
             return {"ok": False, "error": "forbidden", "status": 403}
 
@@ -2607,44 +2470,42 @@ async def game_night_shoot_start(sid, data):
 async def game_night_shoot(sid, data):
     try:
         data = data or {}
-        sess = await sio.get_session(sid, namespace="/room")
-        uid = int(sess["uid"])
-        rid = int(sess.get("rid") or 0)
-        if not rid:
-            return {"ok": False, "error": "no_room", "status": 400}
+        ctx, err = await build_game_context(sid)
+        if err:
+            return err
+
+        uid = ctx.uid
+        rid = ctx.rid
 
         target_uid = int(data.get("user_id") or 0)
         if not target_uid:
             return {"ok": False, "error": "bad_request", "status": 400}
 
-        r = get_redis()
-        g = await r.hgetall(f"room:{rid}:game_state")
-        if str(g.get("phase") or "idle") != "night":
+        r = ctx.r
+        g = ctx.gstate
+        if ctx.phase != "night":
             return {"ok": False, "error": "bad_phase", "status": 400}
 
         if str(g.get("night_stage") or "sleep") != "shoot":
             return {"ok": False, "error": "bad_stage", "status": 409}
 
-        try:
-            started = int(g.get("night_shoot_started") or 0)
-            dur = int(g.get("night_shoot_duration") or 0)
-        except Exception:
-            started, dur = 0, 0
+        started = ctx.gint("night_shoot_started")
+        dur = ctx.gint("night_shoot_duration")
         now_ts = int(time())
         if not started or dur <= 0 or now_ts > started + dur:
             return {"ok": False, "error": "window_closed", "status": 409}
 
-        is_player = await r.sismember(f"room:{rid}:game_players", str(uid))
-        is_alive = await r.sismember(f"room:{rid}:game_alive", str(uid))
-        if not (is_player and is_alive):
-            return {"ok": False, "error": "not_alive", "status": 403}
+        err = await ctx.ensure_player()
+        if err:
+            return err
 
         role = str((await r.hget(f"room:{rid}:game_roles", str(uid))) or "")
         if role not in ("mafia", "don"):
             return {"ok": False, "error": "forbidden", "status": 403}
 
-        if not await r.sismember(f"room:{rid}:game_players", str(target_uid)):
-            return {"ok": False, "error": "bad_target", "status": 400}
+        err = await ctx.ensure_player(target_uid, alive_required=False, error="bad_target", status=400)
+        if err:
+            return err
 
         existing = await r.hget(f"room:{rid}:night_shots", str(uid))
         if existing is not None:
@@ -2673,21 +2534,18 @@ async def game_night_shoot(sid, data):
 @sio.event(namespace="/room")
 async def game_night_checks_start(sid, data):
     try:
-        sess = await sio.get_session(sid, namespace="/room")
-        uid = int(sess["uid"])
-        rid = int(sess.get("rid") or 0)
-        if not rid:
-            return {"ok": False, "error": "no_room", "status": 400}
+        ctx, err = await build_game_context(sid)
+        if err:
+            return err
 
-        r = get_redis()
-        g = await r.hgetall(f"room:{rid}:game_state")
-        if str(g.get("phase") or "idle") != "night":
+        uid = ctx.uid
+        rid = ctx.rid
+        r = ctx.r
+        g = ctx.gstate
+        if ctx.phase != "night":
             return {"ok": False, "error": "bad_phase", "status": 400}
 
-        try:
-            head_uid = int(g.get("head") or 0)
-        except Exception:
-            head_uid = 0
+        head_uid = ctx.head_uid
         if not head_uid or uid != head_uid:
             return {"ok": False, "error": "forbidden", "status": 403}
 
@@ -2733,37 +2591,33 @@ async def game_night_checks_start(sid, data):
 async def game_night_check(sid, data):
     try:
         data = data or {}
-        sess = await sio.get_session(sid, namespace="/room")
-        uid = int(sess["uid"])
-        rid = int(sess.get("rid") or 0)
-        if not rid:
-            return {"ok": False, "error": "no_room", "status": 400}
+        ctx, err = await build_game_context(sid)
+        if err:
+            return err
 
+        uid = ctx.uid
+        rid = ctx.rid
         target_uid = int(data.get("user_id") or 0)
         if not target_uid:
             return {"ok": False, "error": "bad_request", "status": 400}
 
-        r = get_redis()
-        g = await r.hgetall(f"room:{rid}:game_state")
-        if str(g.get("phase") or "idle") != "night":
+        r = ctx.r
+        g = ctx.gstate
+        if ctx.phase != "night":
             return {"ok": False, "error": "bad_phase", "status": 400}
 
         if str(g.get("night_stage") or "sleep") != "checks":
             return {"ok": False, "error": "bad_stage", "status": 409}
 
-        try:
-            started = int(g.get("night_check_started") or 0)
-            dur = int(g.get("night_check_duration") or 0)
-        except Exception:
-            started, dur = 0, 0
+        started = ctx.gint("night_check_started")
+        dur = ctx.gint("night_check_duration")
         now_ts = int(time())
         if not started or dur <= 0 or now_ts > started + dur:
             return {"ok": False, "error": "window_closed", "status": 409}
 
-        is_player = await r.sismember(f"room:{rid}:game_players", str(uid))
-        is_alive = await r.sismember(f"room:{rid}:game_alive", str(uid))
-        if not (is_player and is_alive):
-            return {"ok": False, "error": "not_alive", "status": 403}
+        err = await ctx.ensure_player()
+        if err:
+            return err
 
         my_role = str((await r.hget(f"room:{rid}:game_roles", str(uid))) or "")
         if my_role not in ("don", "sheriff"):
@@ -2772,8 +2626,9 @@ async def game_night_check(sid, data):
         if target_uid == uid:
             return {"ok": False, "error": "bad_target", "status": 400}
 
-        if not await r.sismember(f"room:{rid}:game_players", str(target_uid)):
-            return {"ok": False, "error": "bad_target", "status": 400}
+        err = await ctx.ensure_player(target_uid, alive_required=False, error="bad_target", status=400)
+        if err:
+            return err
 
         checked_key = f"room:{rid}:game_checked:{my_role}"
         if await r.sismember(checked_key, str(target_uid)):
@@ -2827,22 +2682,19 @@ async def game_end(sid, data):
         data = data or {}
         confirm = bool(data.get("confirm"))
         sess = await sio.get_session(sid, namespace="/room")
-        uid = int(sess["uid"])
-        rid = int(sess.get("rid") or 0)
-        if not rid:
-            return {"ok": False, "error": "no_room", "status": 400}
+        ctx, err = await build_game_context(sid)
+        if err:
+            return err
 
-        r = get_redis()
-        raw_gstate = await r.hgetall(f"room:{rid}:game_state")
-        phase = str(raw_gstate.get("phase") or "idle")
+        uid = ctx.uid
+        rid = ctx.rid
+        r = ctx.r
+        raw_gstate = ctx.gstate
+        phase = ctx.phase
         if phase == "idle":
             return {"ok": False, "error": "no_game", "status": 400}
 
-        try:
-            head_uid = int(raw_gstate.get("head") or 0)
-        except Exception:
-            head_uid = 0
-
+        head_uid = ctx.head_uid
         if not head_uid or uid != head_uid:
             return {"ok": False, "error": "forbidden", "status": 403}
 

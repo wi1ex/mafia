@@ -8,6 +8,7 @@ from redis.exceptions import ResponseError
 from jwt import ExpiredSignatureError
 from datetime import datetime, timezone
 from typing import Any, Tuple, Dict, Mapping, cast, Optional, List, Iterable
+from dataclasses import dataclass
 from .sio import sio
 from ..core.db import SessionLocal
 from ..core.settings import settings
@@ -20,6 +21,8 @@ from ..security.auth_tokens import decode_token
 __all__ = [
     "KEYS_STATE",
     "KEYS_BLOCK",
+    "GameActionContext",
+    "build_game_context",
     "validate_auth",
     "apply_state",
     "get_room_snapshot",
@@ -175,6 +178,69 @@ for i=1,#ids do
 end
 return {occ, 0, #updates/2, unpack(updates)}
 """
+
+
+@dataclass
+class GameActionContext:
+    uid: int
+    rid: int
+    r: Any
+    gstate: Mapping[str, str]
+    phase: str
+    head_uid: int
+
+
+    def gint(self, key: str, default: int = 0) -> int:
+        raw = self.gstate.get(key)
+        if raw is None or raw == "":
+            return default
+        try:
+            return int(raw)
+        except Exception:
+            return default
+
+
+    def ensure_phase(self, allowed: Iterable[str] | str, *, error: str = "bad_phase", status: int = 400):
+        allowed_set = {allowed} if isinstance(allowed, str) else set(allowed or [])
+        if allowed_set and self.phase not in allowed_set:
+            return {"ok": False, "error": error, "status": status}
+        return None
+
+
+    def ensure_head(self, *, error: str = "forbidden", status: int = 403):
+        if not self.head_uid or self.head_uid != self.uid:
+            return {"ok": False, "error": error, "status": status}
+        return None
+
+
+    async def ensure_player(self, target_uid: int | None = None, *, alive_required: bool = True, error: str = "not_alive", status: int = 403):
+        uid = self.uid if target_uid is None else target_uid
+        is_player = await self.r.sismember(f"room:{self.rid}:game_players", str(uid))
+        if not is_player:
+            return {"ok": False, "error": error, "status": status}
+
+        if alive_required:
+            is_alive = await self.r.sismember(f"room:{self.rid}:game_alive", str(uid))
+            if not is_alive:
+                return {"ok": False, "error": error, "status": status}
+        return None
+
+
+async def build_game_context(sid, *, namespace="/room") -> tuple[GameActionContext | None, dict | None]:
+    sess = await sio.get_session(sid, namespace=namespace)
+    uid = int(sess["uid"])
+    rid = int(sess.get("rid") or 0)
+    if not rid:
+        return None, {"ok": False, "error": "no_room", "status": 400}
+
+    r = get_redis()
+    raw_gstate = await r.hgetall(f"room:{rid}:game_state") or {}
+    phase = str(raw_gstate.get("phase") or "idle")
+    try:
+        head_uid = int(raw_gstate.get("head") or 0)
+    except Exception:
+        head_uid = 0
+    return GameActionContext(uid=uid, rid=rid, r=r, gstate=raw_gstate, phase=phase, head_uid=head_uid), None
 
 
 async def ensure_scripts(r):
