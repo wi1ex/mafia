@@ -31,7 +31,7 @@
           :is-game-head="game.isGameHead(id)"
           :is-head="isHead"
           :is-dead="game.isDead"
-          :dead-avatar="iconKillPlayer"
+          :dead-avatar="deadAvatar(id)"
           :seat="game.seatIndex(id)"
           :seat-icon="game.seatIconForUser(id)"
           :offline="offlineInGame.has(id)"
@@ -111,7 +111,7 @@
             :is-game-head="game.isGameHead(id)"
             :is-head="isHead"
             :is-dead="game.isDead"
-            :dead-avatar="iconKillPlayer"
+            :dead-avatar="deadAvatar(id)"
             :seat="game.seatIndex(id)"
             :seat-icon="game.seatIconForUser(id)"
             :offline="offlineInGame.has(id)"
@@ -310,9 +310,12 @@ import iconGameStop from '@/assets/svg/gameStop.svg'
 import iconTakeFoul from '@/assets/svg/takeFoul.svg'
 import iconSkip from '@/assets/svg/skip.svg'
 import iconCardBack from '@/assets/images/cardBack.png'
-import iconLowSignal from '@/assets/svg/lowSignal.svg'
-import iconKillPlayer from '@/assets/svg/killPlayer.svg'
-import iconSleepPlayer from '@/assets/svg/sleepPlayer.svg'
+import iconSleepPlayer from '@/assets/images/sleepPlayer.png'
+import iconLowSignal from '@/assets/images/lowSignal.png'
+import iconKillPlayer from '@/assets/images/killPlayer.png'
+import iconVotedPlayer from '@/assets/images/votedPlayer.png'
+import iconFouledPlayer from '@/assets/images/fouledPlayer.png'
+import iconKLeavePlayer from '@/assets/images/leavePlayer.png'
 import iconVisOnRoles from '@/assets/svg/visOnRoles.svg'
 import iconVisOffRoles from '@/assets/svg/visOffRoles.svg'
 
@@ -459,6 +462,19 @@ const readyCount = computed(() => {
   statusByUser.forEach((st) => { if ((st.ready ?? 0) === 1) cnt++ })
   return cnt
 })
+
+type DeathReasonKind = 'suicide' | 'foul' | 'vote' | 'night' | string
+const DEAD_ICON_BY_REASON: Record<DeathReasonKind, string> = {
+  suicide: iconKLeavePlayer,
+  foul: iconFouledPlayer,
+  vote: iconVotedPlayer,
+  night: iconKillPlayer,
+}
+const deadAvatar = (id: string): string => {
+  const reason = game.deathReason(id) as DeathReasonKind
+  return DEAD_ICON_BY_REASON[reason] || iconKillPlayer
+}
+
 const totalPlayers = computed(() => sortedPeerIds.value.length)
 const canShowStartGame = computed(() => {
   if (!localId.value) return false

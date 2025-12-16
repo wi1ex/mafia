@@ -69,6 +69,7 @@ __all__ = [
     "require_ctx",
     "ensure_can_act_role",
     "get_active_fouls",
+    "get_game_deaths",
 ]
 
 log = structlog.get_logger()
@@ -1196,6 +1197,26 @@ async def emit_game_fouls(r, rid: int) -> None:
                    namespace="/room")
 
 
+async def get_game_deaths(r, rid: int) -> dict[str, str]:
+    try:
+        raw = await r.hgetall(f"room:{rid}:game_deaths")
+    except Exception:
+        log.exception("game_deaths.load_failed", rid=rid)
+        return {}
+
+    out: dict[str, str] = {}
+    for uid_s, reason in (raw or {}).items():
+        if not uid_s:
+            continue
+        try:
+            int(uid_s)
+        except Exception:
+            continue
+        out[str(uid_s)] = str(reason or "")
+
+    return out
+
+
 async def assign_role_for_user(r, rid: int, uid: int, *, card_index: int | None) -> tuple[bool, str | None, str | None]:
     existing = await r.hget(f"room:{rid}:game_roles", str(uid))
     if existing:
@@ -1463,7 +1484,7 @@ async def finish_vote_speech(r, rid: int, raw_gstate: Mapping[str, Any], speaker
     killed = False
     speeches_done = False
     if kind == "farewell":
-        await process_player_death(r, rid, speaker_uid, head_uid=head_uid, phase_override="vote")
+        await process_player_death(r, rid, speaker_uid, head_uid=head_uid, phase_override="vote", reason="vote")
         killed = True
         speeches_done = True
     else:
@@ -1715,7 +1736,7 @@ async def emit_night_head_picks(r, rid: int, kind: str, head_uid: int) -> None:
                    namespace="/room")
 
 
-async def process_player_death(r, rid: int, user_id: int, *, head_uid: int | None = None, actor_role: str = "head", phase_override: str | None = None) -> bool:
+async def process_player_death(r, rid: int, user_id: int, *, head_uid: int | None = None, actor_role: str = "head", phase_override: str | None = None, reason: str | None = None) -> bool:
     removed = int(await r.srem(f"room:{rid}:game_alive", str(user_id)) or 0) > 0
     if removed:
         try:
@@ -1741,11 +1762,18 @@ async def process_player_death(r, rid: int, user_id: int, *, head_uid: int | Non
     except Exception:
         log.exception("process_player_death.emit_state_failed", rid=rid, uid=user_id)
 
+    if reason and removed:
+        try:
+            await r.hset(f"room:{rid}:game_deaths", str(user_id), str(reason))
+        except Exception:
+            log.warning("process_player_death.reason_save_failed", rid=rid, uid=user_id)
+
     if removed:
         try:
             await sio.emit("game_player_left",
                            {"room_id": rid,
-                            "user_id": user_id},
+                            "user_id": user_id,
+                            "reason": reason or ""},
                            room=f"room:{rid}",
                            namespace="/room")
         except Exception:
@@ -1764,7 +1792,7 @@ async def process_player_death(r, rid: int, user_id: int, *, head_uid: int | Non
 async def finish_day_prelude_speech(r, rid: int, raw_gstate: Mapping[str, Any], speaker_uid: int) -> dict[str, Any]:
     ctx = GameActionContext.from_raw_state(uid=speaker_uid, rid=rid, r=r, raw_state=raw_gstate)
     head_uid = ctx.head_uid
-    await process_player_death(r, rid, speaker_uid, head_uid=head_uid, phase_override="day")
+    await process_player_death(r, rid, speaker_uid, head_uid=head_uid, phase_override="day", reason="night")
 
     if head_uid and speaker_uid != head_uid:
         try:

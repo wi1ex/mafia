@@ -131,6 +131,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   const voteAborted = ref(false)
   const voteLeaderSpeechesDone = ref(false)
   const voteLeaderKilled = ref(false)
+  const deathReasonByUser = reactive(new Map<string, string>())
 
   const night = reactive({
     stage: 'sleep' as 'sleep' | 'shoot' | 'shoot_done' | 'checks' | 'checks_done',
@@ -322,6 +323,10 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     return !gameAlive.has(id)
   }
 
+  function deathReason(id: string): string {
+    return deathReasonByUser.get(id) || ''
+  }
+
   function seatIndex(id: string): number | null {
     const s = seatsByUser[id]
     return Number.isFinite(s) && s > 0 ? s : null
@@ -494,6 +499,15 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       gameRolesByUser.set(String(uid), role as GameRoleKind)
     }
     syncGameFouls(join?.game_fouls)
+    deathReasonByUser.clear()
+    const deathsRaw = join?.game_deaths || {}
+    if (deathsRaw && typeof deathsRaw === 'object') {
+      for (const [uid, reason] of Object.entries(deathsRaw)) {
+        const key = String(uid)
+        const val = String(reason || '')
+        if (key) deathReasonByUser.set(key, val)
+      }
+    }
     const rp = (gr as any).roles_pick
     if (phase === 'roles_pick' && rp && typeof rp === 'object') {
       rolePick.activeUserId = String(rp.turn_uid || '')
@@ -681,6 +695,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   function handleGameStarted(payload: any) {
     resetRolesUiState()
     offlineInGame.clear()
+    deathReasonByUser.clear()
     gamePhase.value = (payload?.phase as GamePhase) || 'roles_pick'
     if (payload?.min_ready != null) {
       const v = Number(payload.min_ready)
@@ -699,6 +714,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     gameAlive.clear()
     offlineInGame.clear()
     gameFoulsByUser.clear()
+    deathReasonByUser.clear()
     return roleBeforeEnd
   }
 
@@ -707,6 +723,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     if (!uid) return
     gameAlive.delete(uid)
     gameFoulsByUser.delete(uid)
+    if (p?.reason) deathReasonByUser.set(uid, String(p.reason))
   }
 
   function handleGameRolesTurn(p: any) {
@@ -1605,6 +1622,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     handleGameVoted,
     isGameHead,
     isDead,
+    deathReason,
     seatIndex,
     seatIconForUser,
     canClickCard,

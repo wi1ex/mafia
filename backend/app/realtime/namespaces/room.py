@@ -2,7 +2,6 @@ from __future__ import annotations
 import asyncio
 import random
 from time import time
-from typing import Iterable
 import structlog
 from ..sio import sio
 from ...core.clients import get_redis
@@ -60,6 +59,7 @@ from ..utils import (
     require_ctx,
     ensure_can_act_role,
     get_active_fouls,
+    get_game_deaths,
 )
 
 log = structlog.get_logger()
@@ -262,6 +262,7 @@ async def join(sid, data) -> JoinAck:
         game_runtime, game_roles_view, my_game_role = await get_game_runtime_and_roles_view(r, rid, uid)
         game_runtime = await enrich_game_runtime_with_vote(r, rid, game_runtime, raw_gstate)
         game_fouls = await get_game_fouls(r, rid)
+        game_deaths = await get_game_deaths(r, rid)
 
         payload = {
             "ok": True,
@@ -280,6 +281,7 @@ async def join(sid, data) -> JoinAck:
             "game_roles": game_roles_view,
             "my_game_role": my_game_role,
             "game_fouls": game_fouls,
+            "game_deaths": game_deaths,
         }
 
         return payload
@@ -577,8 +579,7 @@ async def game_leave(sid, data):
                 except Exception:
                     log.exception("sio.game_leave.finish_speech_failed", rid=rid, uid=uid)
 
-        await process_player_death(r, rid, uid, head_uid=head_uid, phase_override=phase)
-
+        await process_player_death(r, rid, uid, head_uid=head_uid, phase_override=phase, reason="suicide")
         if vote_aborted:
             try:
                 await sio.emit("game_vote_aborted",
@@ -739,6 +740,7 @@ async def game_start(sid, data) -> GameStartAck:
                     f"room:{rid}:game_players",
                     f"room:{rid}:game_alive",
                     f"room:{rid}:game_fouls",
+                    f"room:{rid}:game_deaths",
                     f"room:{rid}:game_short_speech_used",
                     f"room:{rid}:game_nominees",
                     f"room:{rid}:game_nom_speakers",
@@ -1190,11 +1192,6 @@ async def game_phase_next(sid, data):
 
             active_fouls_map = await get_active_fouls(r, rid)
             active_foul_ids = set(active_fouls_map.keys())
-            if head_uid and head_uid not in player_ids:
-                player_ids2 = list(player_ids) + [head_uid]
-            else:
-                player_ids2 = list(player_ids)
-
             for target_uid in player_ids:
                 if target_uid in active_foul_ids:
                     continue
@@ -1204,13 +1201,13 @@ async def game_phase_next(sid, data):
                     log.exception("night.start.block_failed", rid=rid, head=head_uid, target=target_uid)
 
             async with r.pipeline() as p:
-                for target_uid in player_ids2:
+                for target_uid in player_ids:
                     if target_uid in active_foul_ids:
                         continue
                     await p.hset(f"room:{rid}:user:{target_uid}:state", mapping={"visibility": "0", "mic": "0"})
                 await p.execute()
 
-            for target_uid in player_ids2:
+            for target_uid in player_ids:
                 if target_uid in active_foul_ids:
                     continue
                 try:
@@ -1270,11 +1267,6 @@ async def game_phase_next(sid, data):
 
             active_fouls_map = await get_active_fouls(r, rid)
             active_foul_ids = set(active_fouls_map.keys())
-            if head_uid and head_uid not in player_ids:
-                player_ids2 = list(player_ids) + [head_uid]
-            else:
-                player_ids2 = list(player_ids)
-
             for target_uid in player_ids:
                 if target_uid in active_foul_ids:
                     continue
@@ -1284,13 +1276,13 @@ async def game_phase_next(sid, data):
                     log.exception("night.start.block_failed", rid=rid, head=head_uid, target=target_uid)
 
             async with r.pipeline() as p:
-                for target_uid in player_ids2:
+                for target_uid in player_ids:
                     if target_uid in active_foul_ids:
                         continue
                     await p.hset(f"room:{rid}:user:{target_uid}:state", mapping={"visibility": "0", "mic": "0"})
                 await p.execute()
 
-            for target_uid in player_ids2:
+            for target_uid in player_ids:
                 if target_uid in active_foul_ids:
                     continue
                 await emit_state_changed_filtered(r, rid, target_uid, {"visibility": "0", "mic": "0"}, phase_override="night")
@@ -1323,11 +1315,6 @@ async def game_phase_next(sid, data):
                 except Exception:
                     continue
 
-            if head_uid and head_uid not in player_ids:
-                player_ids2 = list(player_ids) + [head_uid]
-            else:
-                player_ids2 = list(player_ids)
-
             for target_uid in player_ids:
                 try:
                     await apply_blocks_and_emit(r, rid, actor_uid=head_uid, actor_role="head", target_uid=target_uid, changes_bool={"visibility": False})
@@ -1335,10 +1322,10 @@ async def game_phase_next(sid, data):
                     log.exception("night.day.unblock_visibility_failed", rid=rid, head=head_uid, target=target_uid)
 
             async with r.pipeline() as p:
-                for target_uid in player_ids2:
+                for target_uid in player_ids:
                     await p.hset(f"room:{rid}:user:{target_uid}:state", mapping={"visibility": "1"})
                 await p.execute()
-            for target_uid in player_ids2:
+            for target_uid in player_ids:
                 await emit_state_changed_filtered(r, rid, target_uid, {"visibility": "1"})
 
             mapping = {
@@ -1704,8 +1691,7 @@ async def game_foul_set(sid, data):
                                        namespace="/room")
                     except Exception:
                         log.exception("game_foul_set.finish_speech_failed", rid=rid, uid=target_uid)
-
-            await process_player_death(r, rid, target_uid, head_uid=head_uid, phase_override=phase)
+            await process_player_death(r, rid, target_uid, head_uid=head_uid, phase_override=phase, reason="foul")
 
         try:
             await emit_game_fouls(r, rid)
@@ -2784,6 +2770,7 @@ async def game_end(sid, data):
                 f"room:{rid}:game_players",
                 f"room:{rid}:game_alive",
                 f"room:{rid}:game_fouls",
+                f"room:{rid}:game_deaths",
                 f"room:{rid}:game_short_speech_used",
                 f"room:{rid}:game_nominees",
                 f"room:{rid}:game_nom_speakers",
