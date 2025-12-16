@@ -821,8 +821,10 @@ async function takeFoulUi() {
     if (delay > 0) {
       if (!micOn.value) try { await toggleMic() } catch {}
       window.setTimeout(async () => {
-        try { if (micOn.value) await toggleMic() }
-        catch {}
+        try {
+          const speakingNow = isCurrentSpeaker.value
+          if (!speakingNow && micOn.value) await toggleMic()
+        } catch {}
         finally { foulPending.value = false }
       }, delay)
     } else { foulPending.value = false }
@@ -1335,6 +1337,22 @@ async function enforceInitialGameControls() {
   }
 }
 
+async function forceMicOffLocal() {
+  if (!micOn.value) return
+  try { await toggleMic() } catch {}
+  if (micOn.value) {
+    local.mic = false
+    try { await rtc.disable('audioinput') } catch {}
+    try { await publishState({ mic: false }) } catch {}
+  }
+}
+
+async function enforceMicAfterJoin() {
+  if (gamePhase.value === 'idle') return
+  if (isCurrentSpeaker.value) return
+  await forceMicOffLocal()
+}
+
 async function restoreAfterGameEnd() {
   const id = localId.value
   if (!id) return
@@ -1450,6 +1468,7 @@ function applyJoinAck(j: any) {
 
   if ((gamePhase.value === 'day' || gamePhase.value === 'vote') && game.daySpeech.currentId && game.daySpeech.remainingMs > 0) scheduleFinishSpeechUnlock()
   else resetFinishSpeechDelay()
+  void enforceMicAfterJoin()
 }
 
 type PublishDelta = Partial<{
