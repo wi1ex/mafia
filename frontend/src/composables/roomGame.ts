@@ -524,6 +524,11 @@ export function useRoomGame(localId: Ref<string>) {
         night.killUid = ''
         night.hasResult = false
       }
+      if (daySpeech.currentId || daySpeechesDone.value) {
+        night.killOk = false
+        night.killUid = ''
+        night.hasResult = false
+      }
     } else if (phase === 'vote' && vt && typeof vt === 'object') {
       resetDaySpeechState(false)
       daySpeechesDone.value = true
