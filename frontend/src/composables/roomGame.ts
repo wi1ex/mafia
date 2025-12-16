@@ -203,6 +203,191 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     return seatIndex(vote.currentId)
   })
 
+  const headUserId = computed(() => {
+    for (const [uid, seat] of Object.entries(seatsByUser)) {
+      if (seat === 11) return uid
+    }
+    return ''
+  })
+
+  const mafiaTalkRemainingMs = computed(() => mafiaTalk.remainingMs)
+
+  const offlineAliveSeatNumbers = computed<number[]>(() => {
+    const result: number[] = []
+    for (const uid of gameAlive) {
+      if (!offlineInGame.has(uid)) continue
+      const seat = seatsByUser[uid]
+      if (Number.isFinite(seat) && seat && seat !== 11) result.push(seat)
+    }
+    result.sort((a, b) => a - b)
+    return result
+  })
+  const hasOfflineAlivePlayers = computed(() => offlineAliveSeatNumbers.value.length > 0)
+
+  const headPickKind = computed<'shoot' | 'check' | ''>(() => {
+    if (!isHead.value) return ''
+    if (gamePhase.value !== 'night') return ''
+    const st = String(night.stage || '')
+    if (st.startsWith('checks')) return 'check'
+    if (st.startsWith('shoot')) return 'shoot'
+    return ''
+  })
+
+  const allRolesPicked = computed(() => {
+    const order = rolePick.order
+    if (!Array.isArray(order) || order.length === 0) return false
+    return order.every(id => rolePick.picked.has(id))
+  })
+
+  const phaseLabel = computed(() => {
+    if (gamePhase.value === 'roles_pick') return allRolesPicked.value ? '' : 'Выбор ролей'
+    if (gamePhase.value === 'mafia_talk_start') return 'Договорка мафии'
+    if (gamePhase.value === 'night') {
+      if (night.stage === 'shoot') return 'Отстрелы мафии'
+      if (night.stage === 'checks') return 'Проверки дона и шерифа'
+      return ''
+    }
+    if (gamePhase.value === 'day') {
+      if (night.hasResult) {
+        if (night.killOk && night.killUid) {
+          const seat = seatIndex(night.killUid)
+          return `Убит ${seat ?? ''}`
+        }
+        return 'Несострел'
+      }
+    }
+    return ''
+  })
+
+  const FINISH_SPEECH_DELAY_MS = 3000
+  const finishSpeechUnlocked = ref(false)
+  let finishSpeechTimer: number | null = null
+  function resetFinishSpeechDelay() {
+    finishSpeechUnlocked.value = false
+    if (finishSpeechTimer !== null) {
+      clearTimeout(finishSpeechTimer)
+      finishSpeechTimer = null
+    }
+  }
+  function scheduleFinishSpeechUnlock() {
+    resetFinishSpeechDelay()
+    if (gamePhase.value !== 'day' && gamePhase.value !== 'vote') return
+    if (!daySpeech.currentId || daySpeech.remainingMs <= 0) return
+    finishSpeechTimer = window.setTimeout(() => {
+      if ((gamePhase.value === 'day' || gamePhase.value === 'vote') && !!daySpeech.currentId && daySpeech.remainingMs > 0) {
+        finishSpeechUnlocked.value = true
+      }
+      finishSpeechTimer = null
+    }, FINISH_SPEECH_DELAY_MS)
+  }
+
+  const canStartDay = computed(() => gamePhase.value === 'mafia_talk_end' && isHead.value)
+
+  const isCurrentSpeaker = computed(() => {
+    return (
+      (gamePhase.value === 'day' || gamePhase.value === 'vote') &&
+      daySpeech.currentId === localId.value &&
+      daySpeech.remainingMs > 0
+    )
+  })
+
+  const canFinishSpeechHead = computed(() => {
+    if (!isHead.value) return false
+    if (gamePhase.value !== 'day' && gamePhase.value !== 'vote') return false
+    if (!daySpeech.currentId) return false
+    if (!finishSpeechUnlocked.value) return false
+    return daySpeech.remainingMs > 0
+  })
+
+  const canPassSpeechHead = computed(() => {
+    if (!isHead.value) return false
+    if (gamePhase.value !== 'day') return false
+    if (daySpeechesDone.value) return false
+    return !(daySpeech.currentId && daySpeech.remainingMs > 0)
+  })
+
+  const canFinishSpeechSelf = computed(() => {
+    const me = localId.value
+    if (!me) return false
+    if (!amIAlive.value) return false
+    if (gamePhase.value !== 'day' && gamePhase.value !== 'vote') return false
+    if (daySpeech.currentId !== me) return false
+    if (!finishSpeechUnlocked.value) return false
+    return daySpeech.remainingMs > 0
+  })
+
+  const canTakeFoulSelf = computed(() => {
+    return (
+      (gamePhase.value === 'day' || gamePhase.value === 'vote') &&
+      myGameRole.value === 'player' &&
+      amIAlive.value &&
+      !isCurrentSpeaker.value
+    )
+  })
+
+  const canStartVote = computed(() => {
+    if (!isHead.value) return false
+    if (gamePhase.value !== 'day') return false
+    if (!daySpeechesDone.value) return false
+    const cnt = nomineeSeatNumbers.value.length
+    if (cnt <= 0) return false
+    return !(dayNumber.value === 1 && cnt === 1)
+  })
+
+  const canStartLeaderSpeech = computed(() => {
+    if (!isHead.value) return false
+    if (gamePhase.value !== 'vote') return false
+    if (!vote.done) return false
+    if (!voteResultShown.value) return false
+    if (voteAborted.value) return false
+    if (voteLeaderKilled.value) return false
+    if (voteResultLeaders.length === 0) return false
+    if (voteLeaderSpeechesDone.value) return false
+    return daySpeech.remainingMs <= 0
+  })
+
+  const canRestartVoteForLeaders = computed(() => {
+    if (!isHead.value) return false
+    if (gamePhase.value !== 'vote') return false
+    if (!vote.done) return false
+    if (!voteResultShown.value) return false
+    if (voteAborted.value) return false
+    if (voteResultLeaders.length <= 1) return false
+    return voteLeaderSpeechesDone.value
+  })
+
+  const noNomineesAfterDay = computed(() => {
+    return (
+      isHead.value &&
+      gamePhase.value === 'day' &&
+      daySpeechesDone.value &&
+      nomineeSeatNumbers.value.length === 0
+    )
+  })
+
+  const singleNomineeFirstDay = computed(() => {
+    return (
+      isHead.value &&
+      gamePhase.value === 'day' &&
+      daySpeechesDone.value &&
+      dayNumber.value === 1 &&
+      nomineeSeatNumbers.value.length === 1
+    )
+  })
+
+  const canShowNightAfterVote = computed(() => {
+    if (!isHead.value) return false
+    if (gamePhase.value !== 'vote') return false
+    if (!vote.done) return false
+    if (!voteLeaderSpeechesDone.value) return false
+    if (voteAborted.value || voteResultLeaders.length <= 1) return true
+    return voteLeaderKilled.value
+  })
+
+  const canShowNight = computed(() => {
+    return canShowNightAfterVote.value || singleNomineeFirstDay.value || noNomineesAfterDay.value
+  })
+
   function setNightRemainingMs(ms: number, changed: boolean) {
     setTimerWithLatency(night, ms, nightTimerId, changed)
   }
@@ -945,6 +1130,11 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     try { window.localStorage.setItem('roomRolesVisible', val ? '1' : '0') } catch {}
   })
 
+  watch(() => [gamePhase.value, daySpeech.currentId, daySpeech.remainingMs], (_v, _ov, onCleanup) => {
+      scheduleFinishSpeechUnlock()
+      onCleanup(() => resetFinishSpeechDelay())
+  }, { immediate: true })
+
   async function goToMafiaTalk(sendAck: SendAckFn): Promise<void> {
     const resp = await sendAck('game_phase_next', { from: 'roles_pick', to: 'mafia_talk_start' })
     if (!resp?.ok) {
@@ -1554,6 +1744,49 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     }
   }
 
+  async function goToNight(sendAck: SendAckFn): Promise<boolean> {
+    if (!isHead.value) return false
+    const from = gamePhase.value
+    if (from !== 'day' && from !== 'vote') return false
+    const resp = await sendAck('game_phase_next', { from, to: 'night' })
+    if (!resp?.ok) {
+      const st = resp?.status
+      const code = resp?.error
+      if (st === 400 && code === 'bad_phase') alert('Сейчас нельзя перейти в ночь')
+      else if (st === 403 && code === 'forbidden') alert('Только ведущий может начать ночь')
+      else if (st === 409 && code === 'speeches_not_done') alert('Сначала нужно закончить речи')
+      else if (st === 409 && code === 'vote_not_done') alert('Сначала завершите голосование')
+      else alert('Не удалось перейти в ночь')
+      return false
+    }
+    return true
+  }
+
+  async function startDayFromNight(sendAck: SendAckFn): Promise<boolean> {
+    if (gamePhase.value !== 'night') return false
+    const resp = await sendAck('game_phase_next', { from: 'night', to: 'day' })
+    if (!resp?.ok) {
+      alert('Не удалось начать день')
+      return false
+    }
+    return true
+  }
+
+  async function headVoteControl(sendAck: SendAckFn): Promise<void> {
+    if (gamePhase.value !== 'vote' || !isHead.value || vote.done) return
+    if (!vote.currentId) {
+      await startCurrentCandidateVote(sendAck)
+      return
+    }
+    if (!voteStartedForCurrent.value) {
+      await startCurrentCandidateVote(sendAck)
+      return
+    }
+    if (vote.remainingMs <= 0) {
+      await goToNextCandidate(sendAck)
+    }
+  }
+
   return {
     GAME_COLUMN_INDEX,
     GAME_ROW_INDEX,
@@ -1563,6 +1796,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     gamePhase,
     minReadyToStart,
     seatsByUser,
+    headUserId,
     offlineInGame,
     rolesVisibleForHead,
     knownRolesVisible,
@@ -1573,6 +1807,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     startingGame,
     endingGame,
     mafiaTalk,
+    mafiaTalkRemainingMs,
     daySpeech,
     foulActive,
     myGameRole,
@@ -1598,6 +1833,20 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     dayNumber,
     night,
     headNightPicks,
+    offlineAliveSeatNumbers,
+    hasOfflineAlivePlayers,
+    headPickKind,
+    phaseLabel,
+    isCurrentSpeaker,
+    canStartDay,
+    canFinishSpeechHead,
+    canPassSpeechHead,
+    canFinishSpeechSelf,
+    canTakeFoulSelf,
+    canStartVote,
+    canStartLeaderSpeech,
+    canRestartVoteForLeaders,
+    canShowNight,
     nightKnownByMe,
 
     effectiveRoleIconForTile,
@@ -1614,8 +1863,6 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     handleGameVoteAborted,
     canPressVoteButton,
     startVotePhase,
-    startCurrentCandidateVote,
-    goToNextCandidate,
     voteForCurrent,
     finishVote,
     handleGameVoteState,
@@ -1656,5 +1903,8 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     toggleKnownRolesVisibility,
     restartVoteForLeaders,
     startLeaderSpeech,
+    goToNight,
+    startDayFromNight,
+    headVoteControl,
   }
 }

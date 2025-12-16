@@ -213,13 +213,7 @@ defineEmits<{
   (e: 'check', id: string): void
 }>()
 
-const showVideo = computed(() =>
-  !props.hiddenByVisibility &&
-  !props.offline &&
-  !props.isDead(props.id) &&
-  props.isOn(props.id, 'cam') &&
-  !props.isBlocked(props.id, 'cam'),
-)
+const showVideo = computed(() => !props.hiddenByVisibility && !props.offline && !props.isDead(props.id) && props.isOn(props.id, 'cam') && !props.isBlocked(props.id, 'cam'))
 const openPanel = computed(() => props.openPanelFor === props.id)
 const hasRolePickTimer = computed(() => props.rolePickOwnerId === props.id && (props.rolePickRemainingMs ?? 0) > 0)
 const hasMafiaTalkTimer = computed(() => props.mafiaTalkHostId === props.id && (props.mafiaTalkRemainingMs ?? 0) > 0)
