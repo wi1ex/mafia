@@ -584,12 +584,13 @@ async def game_leave(sid, data):
                        namespace="/rooms")
 
         try:
-            await apply_blocks_and_emit(r, rid, actor_uid=head_uid or uid, actor_role="head", target_uid=uid, changes_bool={"visibility": False})
+            await apply_blocks_and_emit(r, rid, actor_uid=head_uid or uid, actor_role="head", target_uid=uid,
+                                        changes_bool={"mic": True, "cam": True, "speakers": False, "visibility": False})
         except Exception:
             log.exception("sio.game_leave.unblock_visibility_failed", rid=rid, head=head_uid, target=uid)
         try:
-            await r.hset(f"room:{rid}:user:{uid}:state", mapping={"visibility": "1"})
-            await emit_state_changed_filtered(r, rid, uid, {"visibility": "1"})
+            await r.hset(f"room:{rid}:user:{uid}:state", mapping={"mic": "0", "cam": "0", "speakers": "1", "visibility": "1"})
+            await emit_state_changed_filtered(r, rid, uid, {"mic": "0", "cam": "0", "speakers": "1", "visibility": "1"})
         except Exception:
             log.exception("sio.game_leave.state_on_failed", rid=rid, uid=uid)
 
