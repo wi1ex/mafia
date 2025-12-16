@@ -1959,7 +1959,7 @@ async def get_mafia_talk_viewers(r, rid: int, subject_uid: int, phase_override: 
     return True, viewers
 
 
-async def _emit_mafia_filtered(event: str, payload: dict[str, Any], r, rid: int, subject_uid: int, *, phase_override: str | None = None) -> None:
+async def emit_mafia_filtered(event: str, payload: dict[str, Any], r, rid: int, subject_uid: int, *, phase_override: str | None = None) -> None:
     is_mafia_talk, viewers = await get_mafia_talk_viewers(r, rid, subject_uid, phase_override)
     if not is_mafia_talk:
         await sio.emit(event, payload, room=f"room:{rid}", namespace="/room")
@@ -1971,7 +1971,7 @@ async def _emit_mafia_filtered(event: str, payload: dict[str, Any], r, rid: int,
 
 async def emit_state_changed_filtered(r, rid: int, subject_uid: int, changed: dict[str, str], *, phase_override: str | None = None) -> None:
     payload = {"user_id": subject_uid, **changed}
-    await _emit_mafia_filtered("state_changed", payload, r, rid, subject_uid, phase_override=phase_override)
+    await emit_mafia_filtered("state_changed", payload, r, rid, subject_uid, phase_override=phase_override)
 
 
 async def emit_moderation_filtered(r, rid: int, target_uid: int, blocks_full: dict[str, str], actor_uid: int, actor_role: str, *, phase_override: str | None = None) -> None:
@@ -1980,7 +1980,7 @@ async def emit_moderation_filtered(r, rid: int, target_uid: int, blocks_full: di
         "blocks": blocks_full,
         "by": {"user_id": actor_uid, "role": actor_role},
     }
-    await _emit_mafia_filtered("moderation", payload, r, rid, target_uid, phase_override=phase_override)
+    await emit_mafia_filtered("moderation", payload, r, rid, target_uid, phase_override=phase_override)
 
 
 async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:

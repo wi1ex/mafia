@@ -1460,11 +1460,11 @@ async def game_speech_next(sid, data):
         if (not is_prelude_next) and (next_uid not in alive_order):
             return {"ok": False, "error": "bad_next_speaker", "status": 400}
 
-        pre_active = str(raw_gstate.get("day_prelude_active") or "0") == "1"
-        pre_uid2 = ctx.gint("day_prelude_uid")
         duration = settings.PLAYER_TALK_SECONDS
         use_short = False
-        if not (pre_active and pre_uid2 and next_uid == pre_uid2):
+        is_prelude_active_now = is_prelude_next or (str(raw_gstate.get("day_prelude_active") or "0") == "1")
+        pre_uid2 = ctx.gint("day_prelude_uid")
+        if not (is_prelude_active_now and pre_uid2 and next_uid == pre_uid2):
             try:
                 foul_raw = await r.hget(f"room:{rid}:game_fouls", str(next_uid))
                 foul_cnt = int(foul_raw or 0)
