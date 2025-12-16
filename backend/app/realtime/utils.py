@@ -1083,6 +1083,33 @@ async def schedule_foul_block(rid: int, target_uid: int, head_uid: int, duration
         if cur_until != expected_until:
             return
 
+    keep_mic_on = False
+    try:
+        raw_state = await r.hgetall(f"room:{rid}:game_state")
+    except Exception:
+        raw_state = None
+    if raw_state:
+        try:
+            phase = str(raw_state.get("phase") or "")
+            if phase == "day":
+                cur_uid = int(raw_state.get("day_current_uid") or 0)
+                started = int(raw_state.get("day_speech_started") or 0)
+                duration_cur = int(raw_state.get("day_speech_duration") or 0)
+                keep_mic_on = cur_uid == target_uid and started > 0 and duration_cur > 0
+            elif phase == "vote":
+                cur_uid = int(raw_state.get("vote_speech_uid") or 0)
+                started = int(raw_state.get("vote_speech_started") or 0)
+                duration_cur = int(raw_state.get("vote_speech_duration") or 0)
+                keep_mic_on = cur_uid == target_uid and started > 0 and duration_cur > 0
+        except Exception:
+            log.exception("game_foul.check_speech_failed", rid=rid, uid=target_uid)
+    if keep_mic_on:
+        try:
+            await r.hdel(f"room:{rid}:foul_active", str(target_uid))
+        except Exception:
+            log.warning("game_foul.skip_off_cleanup_failed", rid=rid, uid=target_uid)
+        return
+
     try:
         _, forced_off = await apply_blocks_and_emit(r, rid, actor_uid=head_uid, actor_role="head", target_uid=target_uid, changes_bool={"mic": True})
     except Exception:

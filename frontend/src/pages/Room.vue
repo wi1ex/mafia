@@ -1368,7 +1368,9 @@ async function applyDayStartForLocal(): Promise<void> {
 }
 
 async function applyNightStartForLocal(): Promise<void> {
-  try { if (!blockedSelf.value.mic && micOn.value) await toggleMic() } catch {}
+  const me = localId.value
+  const hasActiveFoul = !!(me && game.foulActive.has(me)) || foulPending.value
+  try { if (!hasActiveFoul && !blockedSelf.value.mic && micOn.value) await toggleMic() } catch {}
   try { if (!blockedSelf.value.visibility && visibilityOn.value) await toggleVisibility() } catch {}
 }
 
@@ -1382,6 +1384,9 @@ function handleGamePhaseChangeUi(prev: GamePhase, next: GamePhase): void {
 function applyJoinAck(j: any) {
   isPrivate.value = (j?.privacy || j?.room?.privacy) === 'private'
   // const game = j.game
+  const me = localId.value
+  if (me) game.foulActive.delete(me)
+  foulPending.value = false
 
   positionByUser.clear()
   for (const [uid, pos] of Object.entries(j.positions || {})) {

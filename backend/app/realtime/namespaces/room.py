@@ -130,6 +130,10 @@ async def join(sid, data) -> JoinAck:
 
         await persist_join_user_info(r, rid, uid, sess.get("username"), sess.get("avatar_name"))
         try:
+            await r.hdel(f"room:{rid}:foul_active", str(uid))
+        except Exception:
+            log.warning("sio.join.clear_foul_active_failed", rid=rid, uid=uid)
+        try:
             await r.srem(f"room:{rid}:ready", str(uid))
         except Exception:
             log.warning("sio.join.ready_reset_failed", rid=rid, uid=uid)
