@@ -189,16 +189,57 @@ class GameActionContext:
     phase: str
     head_uid: int
 
-
-    def gint(self, key: str, default: int = 0) -> int:
-        raw = self.gstate.get(key)
-        if raw is None or raw == "":
+    @staticmethod
+    def as_int(v: Any, default: int = 0) -> int:
+        if v is None or v == "":
             return default
         try:
-            return int(raw)
+            return int(v)
         except Exception:
             return default
 
+    @classmethod
+    def from_raw_state(cls, *, uid: int, rid: int, r: Any, raw_state: Mapping[str, Any] | None, phase_override: str | None = None) -> "GameActionContext":
+        raw = raw_state or {}
+        phase = str(phase_override or raw.get("phase") or "idle")
+        head_uid = cls.as_int(raw.get("head"), 0)
+        return cls(uid=uid, rid=rid, r=r, gstate=raw, phase=phase, head_uid=head_uid)
+
+    def gstr(self, key: str, default: str = "") -> str:
+        raw = self.gstate.get(key)
+        if raw is None:
+            return default
+        val = str(raw)
+        return val if val else default
+
+    def gint(self, key: str, default: int = 0) -> int:
+        return self.as_int(self.gstate.get(key), default)
+
+    def gbool(self, key: str, default: bool = False) -> bool:
+        raw = self.gstate.get(key)
+        if raw is None or raw == "":
+            return default
+        return str(raw).strip() == "1"
+
+    def gcsv_ints(self, key: str) -> list[int]:
+        raw = str(self.gstate.get(key) or "")
+        out: list[int] = []
+        for part in raw.split(","):
+            part = part.strip()
+            if not part:
+                continue
+            try:
+                out.append(int(part))
+            except Exception:
+                continue
+        return out
+
+    def deadline(self, started_key: str, duration_key: str, *, default_duration: int | None = None) -> int:
+        started = self.gint(started_key)
+        duration = self.gint(duration_key, default_duration if default_duration is not None else 0)
+        if started <= 0 or duration <= 0:
+            return 0
+        return max(started + duration - int(time()), 0)
 
     def ensure_phase(self, allowed: Iterable[str] | str, *, error: str = "bad_phase", status: int = 400):
         allowed_set = {allowed} if isinstance(allowed, str) else set(allowed or [])
@@ -206,12 +247,10 @@ class GameActionContext:
             return {"ok": False, "error": error, "status": status}
         return None
 
-
     def ensure_head(self, *, error: str = "forbidden", status: int = 403):
         if not self.head_uid or self.head_uid != self.uid:
             return {"ok": False, "error": error, "status": status}
         return None
-
 
     async def ensure_player(self, target_uid: int | None = None, *, alive_required: bool = True, error: str = "not_alive", status: int = 403):
         uid = self.uid if target_uid is None else target_uid
@@ -235,12 +274,8 @@ async def build_game_context(sid, *, namespace="/room") -> tuple[GameActionConte
 
     r = get_redis()
     raw_gstate = await r.hgetall(f"room:{rid}:game_state") or {}
-    phase = str(raw_gstate.get("phase") or "idle")
-    try:
-        head_uid = int(raw_gstate.get("head") or 0)
-    except Exception:
-        head_uid = 0
-    return GameActionContext(uid=uid, rid=rid, r=r, gstate=raw_gstate, phase=phase, head_uid=head_uid), None
+    ctx = GameActionContext.from_raw_state(uid=uid, rid=rid, r=r, raw_state=raw_gstate)
+    return ctx, None
 
 
 async def ensure_scripts(r):
@@ -794,26 +829,16 @@ async def schedule_foul_block(rid: int, target_uid: int, head_uid: int, duration
 
 
 async def finish_day_speech(r, rid: int, raw_gstate: Mapping[str, Any], speaker_uid: int) -> dict[str, Any]:
-    try:
-        head_uid = int(raw_gstate.get("head") or 0)
-    except Exception:
-        head_uid = 0
-
+    ctx = GameActionContext.from_raw_state(uid=speaker_uid, rid=rid, r=r, raw_state=raw_gstate)
+    head_uid = ctx.head_uid
     if head_uid and speaker_uid != head_uid:
         try:
             await apply_blocks_and_emit(r, rid, actor_uid=head_uid, actor_role="head", target_uid=speaker_uid, changes_bool={"mic": True})
         except Exception:
             log.exception("day_speech.finish.block_failed", rid=rid, head=head_uid, target=speaker_uid)
 
-    try:
-        opening_uid = int(raw_gstate.get("day_opening_uid") or 0)
-    except Exception:
-        opening_uid = 0
-    try:
-        closing_uid = int(raw_gstate.get("day_closing_uid") or 0)
-    except Exception:
-        closing_uid = 0
-
+    opening_uid = ctx.gint("day_opening_uid")
+    closing_uid = ctx.gint("day_closing_uid")
     day_speeches_done = False
     mapping: dict[str, str] = {
         "day_speech_started": "0",
@@ -1097,28 +1122,19 @@ async def day_speech_timeout_job(rid: int, expected_started: int, expected_uid: 
         log.exception("day_speech_timeout.load_state_failed", rid=rid)
         return
 
-    phase = str(raw_state.get("phase") or "idle")
-    if phase != "day":
+    ctx = GameActionContext.from_raw_state(uid=expected_uid, rid=rid, r=r, raw_state=raw_state)
+    if ctx.phase != "day":
         return
 
-    try:
-        cur_started = int(raw_state.get("day_speech_started") or 0)
-        cur_duration = int(raw_state.get("day_speech_duration") or 0)
-        cur_uid = int(raw_state.get("day_current_uid") or 0)
-        head_uid = int(raw_state.get("head") or 0)
-    except Exception:
-        return
-
+    cur_started = ctx.gint("day_speech_started")
+    cur_duration = ctx.gint("day_speech_duration")
+    cur_uid = ctx.gint("day_current_uid")
+    head_uid = ctx.head_uid
     if not head_uid or cur_uid != expected_uid or cur_started != expected_started or cur_duration != duration:
         return
 
-    try:
-        prelude_active = str(raw_state.get("day_prelude_active") or "0") == "1"
-        prelude_uid = int(raw_state.get("day_prelude_uid") or 0)
-    except Exception:
-        prelude_active = False
-        prelude_uid = 0
-
+    prelude_active = ctx.gbool("day_prelude_active")
+    prelude_uid = ctx.gint("day_prelude_uid")
     try:
         if prelude_active and prelude_uid and expected_uid == prelude_uid:
             payload = await finish_day_prelude_speech(r, rid, raw_state, expected_uid)
@@ -1138,43 +1154,26 @@ async def day_speech_timeout_job(rid: int, expected_started: int, expected_uid: 
 
 
 async def finish_vote_speech(r, rid: int, raw_gstate: Mapping[str, Any], speaker_uid: int) -> dict[str, Any]:
-    try:
-        head_uid = int(raw_gstate.get("head") or 0)
-    except Exception:
-        head_uid = 0
-
+    ctx = GameActionContext.from_raw_state(uid=speaker_uid, rid=rid, r=r, raw_state=raw_gstate)
+    head_uid = ctx.head_uid
     if head_uid and speaker_uid != head_uid:
         try:
             await apply_blocks_and_emit(r, rid, actor_uid=head_uid, actor_role="head", target_uid=speaker_uid, changes_bool={"mic": True})
         except Exception:
             log.exception("vote_speech.finish.block_failed", rid=rid, head=head_uid, target=speaker_uid)
 
-    kind = str(raw_gstate.get("vote_speech_kind") or "")
+    kind = ctx.gstr("vote_speech_kind")
     killed = False
     speeches_done = False
     if kind == "farewell":
         await process_player_death(r, rid, speaker_uid, head_uid=head_uid, phase_override="vote")
         killed = True
         speeches_done = True
-
-    elif kind != "farewell":
-        try:
-            leaders_raw = str(raw_gstate.get("vote_leaders_order") or "")
-            leaders: list[int] = []
-            for part in leaders_raw.split(","):
-                part = part.strip()
-                if not part:
-                    continue
-                try:
-                    leaders.append(int(part))
-                except Exception:
-                    continue
-
-            leader_idx = int(raw_gstate.get("vote_leader_idx") or 0)
-            if leaders and leader_idx >= len(leaders):
-                speeches_done = True
-        except Exception:
-            speeches_done = False
+    else:
+        leaders = ctx.gcsv_ints("vote_leaders_order")
+        leader_idx = ctx.gint("vote_leader_idx")
+        if leaders and leader_idx >= len(leaders):
+            speeches_done = True
 
     async with r.pipeline() as p:
         await p.hset(
@@ -1221,17 +1220,13 @@ async def vote_speech_timeout_job(rid: int, expected_started: int, expected_uid:
         log.exception("vote_speech_timeout.load_state_failed", rid=rid)
         return
 
-    phase = str(raw_state.get("phase") or "idle")
-    if phase != "vote":
+    ctx = GameActionContext.from_raw_state(uid=expected_uid, rid=rid, r=r, raw_state=raw_state)
+    if ctx.phase != "vote":
         return
 
-    try:
-        cur_started = int(raw_state.get("vote_speech_started") or 0)
-        cur_duration = int(raw_state.get("vote_speech_duration") or 0)
-        cur_uid = int(raw_state.get("vote_speech_uid") or 0)
-    except Exception:
-        return
-
+    cur_started = ctx.gint("vote_speech_started")
+    cur_duration = ctx.gint("vote_speech_duration")
+    cur_uid = ctx.gint("vote_speech_uid")
     if cur_uid != expected_uid or cur_started != expected_started or cur_duration != duration:
         return
 
@@ -1251,32 +1246,19 @@ async def vote_speech_timeout_job(rid: int, expected_started: int, expected_uid:
         
         
 async def emit_game_night_state(rid: int, raw_gstate: Mapping[str, Any]) -> None:
-    phase = str(raw_gstate.get("phase") or "idle")
-    if phase != "night":
+    ctx = GameActionContext.from_raw_state(uid=0, rid=rid, r=None, raw_state=raw_gstate)
+    if ctx.phase != "night":
         return
 
-    stage = str(raw_gstate.get("night_stage") or "sleep")
-    now_ts = int(time())
+    stage = ctx.gstr("night_stage", "sleep")
     deadline = 0
     if stage == "shoot":
-        try:
-            started = int(raw_gstate.get("night_shoot_started") or 0)
-            dur = int(raw_gstate.get("night_shoot_duration") or 0)
-        except Exception:
-            started, dur = 0, 0
-        if started and dur > 0:
-            deadline = max(started + dur - now_ts, 0)
+        deadline = ctx.deadline("night_shoot_started", "night_shoot_duration")
     elif stage == "checks":
-        try:
-            started = int(raw_gstate.get("night_check_started") or 0)
-            dur = int(raw_gstate.get("night_check_duration") or 0)
-        except Exception:
-            started, dur = 0, 0
-        if started and dur > 0:
-            deadline = max(started + dur - now_ts, 0)
+        deadline = ctx.deadline("night_check_started", "night_check_duration")
 
     await sio.emit("game_night_state",
-                   {"room_id": rid, 
+                   {"room_id": rid,
                     "night": {"stage": stage, "deadline": deadline}},
                    room=f"room:{rid}",
                    namespace="/room")
@@ -1383,20 +1365,17 @@ async def night_stage_timeout_job(rid: int, expected_stage: str, expected_starte
     except Exception:
         return
 
-    if str(raw.get("phase") or "idle") != "night":
+    ctx = GameActionContext.from_raw_state(uid=0, rid=rid, r=r, raw_state=raw)
+    if ctx.phase != "night":
         return
 
-    stage = str(raw.get("night_stage") or "sleep")
+    stage = ctx.gstr("night_stage", "sleep")
     if stage != expected_stage:
         return
 
     if expected_stage == "shoot":
-        try:
-            cur_started = int(raw.get("night_shoot_started") or 0)
-            cur_dur = int(raw.get("night_shoot_duration") or 0)
-        except Exception:
-            return
-
+        cur_started = ctx.gint("night_shoot_started")
+        cur_dur = ctx.gint("night_shoot_duration")
         if cur_started != expected_started or cur_dur != duration:
             return
 
@@ -1419,12 +1398,8 @@ async def night_stage_timeout_job(rid: int, expected_stage: str, expected_starte
         return
 
     if expected_stage == "checks":
-        try:
-            cur_started = int(raw.get("night_check_started") or 0)
-            cur_dur = int(raw.get("night_check_duration") or 0)
-        except Exception:
-            return
-
+        cur_started = ctx.gint("night_check_started")
+        cur_dur = ctx.gint("night_check_duration")
         if cur_started != expected_started or cur_dur != duration:
             return
 
@@ -1514,11 +1489,8 @@ async def process_player_death(r, rid: int, user_id: int, *, head_uid: int | Non
 
 
 async def finish_day_prelude_speech(r, rid: int, raw_gstate: Mapping[str, Any], speaker_uid: int) -> dict[str, Any]:
-    try:
-        head_uid = int(raw_gstate.get("head") or 0)
-    except Exception:
-        head_uid = 0
-
+    ctx = GameActionContext.from_raw_state(uid=speaker_uid, rid=rid, r=r, raw_state=raw_gstate)
+    head_uid = ctx.head_uid
     await process_player_death(r, rid, speaker_uid, head_uid=head_uid, phase_override="day")
 
     if head_uid and speaker_uid != head_uid:
@@ -1547,34 +1519,23 @@ async def finish_day_prelude_speech(r, rid: int, raw_gstate: Mapping[str, Any], 
 
 
 async def enrich_game_runtime_with_vote(r, rid: int, game_runtime: Mapping[str, Any], raw_gstate: Mapping[str, Any]) -> dict[str, Any]:
-    try:
-        if isinstance(game_runtime, dict) and "phase" in game_runtime:
-            phase_cur = str(game_runtime.get("phase") or "idle")
-        else:
-            phase_cur = str(raw_gstate.get("phase") or "idle")
-    except Exception:
-        phase_cur = "idle"
+    if isinstance(game_runtime, dict) and "phase" in game_runtime:
+        phase_cur = str(game_runtime.get("phase") or "idle")
+    else:
+        phase_cur = str(raw_gstate.get("phase") or "idle")
 
-    if phase_cur != "vote":
+    ctx = GameActionContext.from_raw_state(uid=0, rid=rid, r=r, raw_state=raw_gstate, phase_override=phase_cur)
+    if ctx.phase != "vote":
         return dict(game_runtime)
 
-    try:
+    if isinstance(game_runtime, dict):
         vote_section = dict(game_runtime.get("vote") or {})
-    except Exception:
-        vote_section = {}
-
-    # try:
-    #     done = bool(vote_section.get("done"))
-    # except Exception:
-    #     done = str(raw_gstate.get("vote_done") or "0") == "1"
-    try:
         aborted = bool(vote_section.get("aborted"))
-    except Exception:
-        aborted = str(raw_gstate.get("vote_aborted") or "0") == "1"
-    try:
         results_ready = bool(vote_section.get("results_ready"))
-    except Exception:
-        results_ready = str(raw_gstate.get("vote_results_ready") or "0") == "1"
+    else:
+        vote_section = {}
+        aborted = ctx.gbool("vote_aborted")
+        results_ready = ctx.gbool("vote_results_ready")
 
     if aborted or results_ready:
         vote_section.pop("voted", None)
@@ -1583,15 +1544,16 @@ async def enrich_game_runtime_with_vote(r, rid: int, game_runtime: Mapping[str, 
         out["vote"] = vote_section
         return out
 
+    current_nominee = ctx.gint("vote_current_uid")
     try:
-        current_nominee = int(vote_section.get("current_uid") or raw_gstate.get("vote_current_uid") or 0)
+        if isinstance(vote_section, dict):
+            current_nominee = int(vote_section.get("current_uid") or current_nominee)
     except Exception:
-        current_nominee = 0
+        current_nominee = ctx.gint("vote_current_uid")
 
     raw_votes = await r.hgetall(f"room:{rid}:game_votes")
     voted_ids: list[int] = []
     voted_for_current: list[int] = []
-
     for k, v in (raw_votes or {}).items():
         try:
             voter = int(k)
@@ -1619,8 +1581,9 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
     players_set = await r.smembers(f"room:{rid}:game_players")
     alive_set = await r.smembers(f"room:{rid}:game_alive")
     raw_roles = await r.hgetall(f"room:{rid}:game_roles")
-    phase = str(raw_gstate.get("phase") or "idle")
 
+    ctx = GameActionContext.from_raw_state(uid=uid, rid=rid, r=r, raw_state=raw_gstate)
+    phase = ctx.phase
     seats_map: dict[str, int] = {}
     for k, v in (raw_seats or {}).items():
         try:
@@ -1628,6 +1591,7 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
         except Exception:
             continue
 
+    roles_map: dict[str, str] = {str(k): str(v) for k, v in (raw_roles or {}).items()}
     game_runtime: dict[str, Any] = {
         "phase": phase,
         "min_ready": settings.GAME_MIN_READY_PLAYERS,
@@ -1640,22 +1604,15 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
         return game_runtime, {}, None
 
     if phase == "roles_pick":
-        try:
-            roles_turn_uid = int(raw_gstate.get("roles_turn_uid") or 0)
-        except Exception:
-            roles_turn_uid = 0
-        try:
-            roles_turn_started = int(raw_gstate.get("roles_turn_started") or 0)
-        except Exception:
-            roles_turn_started = 0
+        roles_turn_uid = ctx.gint("roles_turn_uid")
+        roles_turn_started = ctx.gint("roles_turn_started")
 
         if roles_turn_uid and roles_turn_started:
-            now_ts = int(time())
-            remaining = max(roles_turn_started + settings.ROLE_PICK_SECONDS - now_ts, 0)
+            remaining = ctx.deadline("roles_turn_started", "roles_turn_duration", default_duration=settings.ROLE_PICK_SECONDS)
             raw_taken = await r.hgetall(f"room:{rid}:roles_taken")
 
             assigned_ids: list[int] = []
-            for k in (raw_roles or {}).keys():
+            for k in roles_map.keys():
                 try:
                     assigned_ids.append(int(k))
                 except Exception:
@@ -1679,54 +1636,19 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
             }
 
     if phase == "mafia_talk_start":
-        try:
-            mafia_started = int(raw_gstate.get("mafia_talk_started") or 0)
-        except Exception:
-            mafia_started = 0
-        try:
-            mafia_duration = int(raw_gstate.get("mafia_talk_duration") or settings.MAFIA_TALK_SECONDS)
-        except Exception:
-            mafia_duration = settings.MAFIA_TALK_SECONDS
-
+        mafia_started = ctx.gint("mafia_talk_started")
+        mafia_duration = ctx.gint("mafia_talk_duration", settings.MAFIA_TALK_SECONDS)
         if mafia_started and mafia_duration > 0:
-            now_ts = int(time())
-            remaining = max(mafia_started + mafia_duration - now_ts, 0)
+            remaining = ctx.deadline("mafia_talk_started", "mafia_talk_duration", default_duration=settings.MAFIA_TALK_SECONDS)
             game_runtime["mafia_talk_start"] = {"deadline": remaining}
 
     if phase == "day":
-        try:
-            day_number = int(raw_gstate.get("day_number") or 0)
-        except Exception:
-            day_number = 0
-        try:
-            day_opening_uid = int(raw_gstate.get("day_opening_uid") or 0)
-        except Exception:
-            day_opening_uid = 0
-        try:
-            day_closing_uid = int(raw_gstate.get("day_closing_uid") or 0)
-        except Exception:
-            day_closing_uid = 0
-        try:
-            day_current_uid = int(raw_gstate.get("day_current_uid") or 0)
-        except Exception:
-            day_current_uid = 0
-        try:
-            speech_started = int(raw_gstate.get("day_speech_started") or 0)
-        except Exception:
-            speech_started = 0
-        try:
-            speech_duration = int(raw_gstate.get("day_speech_duration") or settings.PLAYER_TALK_SECONDS)
-        except Exception:
-            speech_duration = settings.PLAYER_TALK_SECONDS
-        try:
-            speeches_done = str(raw_gstate.get("day_speeches_done") or "0") == "1"
-        except Exception:
-            speeches_done = False
-
-        remaining = 0
-        if speech_started and speech_duration > 0:
-            now_ts = int(time())
-            remaining = max(speech_started + speech_duration - now_ts, 0)
+        day_number = ctx.gint("day_number")
+        day_opening_uid = ctx.gint("day_opening_uid")
+        day_closing_uid = ctx.gint("day_closing_uid")
+        day_current_uid = ctx.gint("day_current_uid")
+        speeches_done = ctx.gbool("day_speeches_done")
+        remaining = ctx.deadline("day_speech_started", "day_speech_duration", default_duration=settings.PLAYER_TALK_SECONDS)
 
         game_runtime["day"] = {
             "number": day_number,
@@ -1737,20 +1659,13 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
             "speeches_done": speeches_done,
         }
 
-        try:
-            nk_uid = int(raw_gstate.get("night_kill_uid") or 0)
-        except Exception:
-            nk_uid = 0
-        ok = str(raw_gstate.get("night_kill_ok") or "0") == "1"
-        pre_pending = str(raw_gstate.get("day_prelude_pending") or "0") == "1"
-        pre_active = str(raw_gstate.get("day_prelude_active") or "0") == "1"
-        pre_done = str(raw_gstate.get("day_prelude_done") or "0") == "1"
+        nk_uid = ctx.gint("night_kill_uid")
+        ok = ctx.gbool("night_kill_ok")
+        pre_pending = ctx.gbool("day_prelude_pending")
+        pre_active = ctx.gbool("day_prelude_active")
+        pre_done = ctx.gbool("day_prelude_done")
         game_runtime["day"]["night"] = {"kill_uid": nk_uid, "kill_ok": ok}
-
-        try:
-            pre_uid = int(raw_gstate.get("day_prelude_uid") or 0)
-        except Exception:
-            pre_uid = 0
+        pre_uid = ctx.gint("day_prelude_uid")
         if pre_uid:
             game_runtime["day"]["prelude"] = {
                 "uid": pre_uid,
@@ -1783,79 +1698,23 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
             game_runtime["day"]["nominated_this_speech"] = True
 
     if phase == "vote":
-        try:
-            vote_current_uid = int(raw_gstate.get("vote_current_uid") or 0)
-        except Exception:
-            vote_current_uid = 0
-        try:
-            vote_started = int(raw_gstate.get("vote_started") or 0)
-        except Exception:
-            vote_started = 0
-        try:
-            vote_duration = int(raw_gstate.get("vote_duration") or settings.VOTE_SECONDS)
-        except Exception:
-            vote_duration = settings.VOTE_SECONDS
-        try:
-            vote_done = str(raw_gstate.get("vote_done") or "0") == "1"
-        except Exception:
-            vote_done = False
-        try:
-            vote_aborted = str(raw_gstate.get("vote_aborted") or "0") == "1"
-        except Exception:
-            vote_aborted = False
-        try:
-            vote_results_ready = str(raw_gstate.get("vote_results_ready") or "0") == "1"
-        except Exception:
-            vote_results_ready = False
-        try:
-            vote_speeches_done = str(raw_gstate.get("vote_speeches_done") or "0") == "1"
-        except Exception:
-            vote_speeches_done = False
-        try:
-            vote_speech_uid = int(raw_gstate.get("vote_speech_uid") or 0)
-        except Exception:
-            vote_speech_uid = 0
-        try:
-            vote_speech_started = int(raw_gstate.get("vote_speech_started") or 0)
-        except Exception:
-            vote_speech_started = 0
-        try:
-            vote_speech_duration = int(raw_gstate.get("vote_speech_duration") or 0)
-        except Exception:
-            vote_speech_duration = 0
-        try:
-            vote_speech_kind = str(raw_gstate.get("vote_speech_kind") or "")
-        except Exception:
-            vote_speech_kind = ""
-
+        vote_current_uid = ctx.gint("vote_current_uid")
+        vote_started = ctx.gint("vote_started")
+        vote_duration = ctx.gint("vote_duration", settings.VOTE_SECONDS)
+        vote_done = ctx.gbool("vote_done")
+        vote_aborted = ctx.gbool("vote_aborted")
+        vote_results_ready = ctx.gbool("vote_results_ready")
+        vote_speeches_done = ctx.gbool("vote_speeches_done")
+        vote_speech_uid = ctx.gint("vote_speech_uid")
+        vote_speech_duration = ctx.gint("vote_speech_duration")
+        vote_speech_kind = ctx.gstr("vote_speech_kind")
         if vote_aborted or vote_results_ready:
             vote_current_uid = 0
 
-        remaining = 0
-        if vote_started and vote_duration > 0:
-            now_ts = int(time())
-            remaining = max(vote_started + vote_duration - now_ts, 0)
-
-        speech_remaining = 0
-        if vote_speech_uid and vote_speech_started and vote_speech_duration > 0:
-            now_ts = int(time())
-            speech_remaining = max(vote_speech_started + vote_speech_duration - now_ts, 0)
-
-        leaders_raw = str(raw_gstate.get("vote_leaders_order") or "")
-        leaders: list[int] = []
-        for part in leaders_raw.split(","):
-            part = part.strip()
-            if not part:
-                continue
-            try:
-                leaders.append(int(part))
-            except Exception:
-                continue
-
-        try:
-            leader_idx = int(raw_gstate.get("vote_leader_idx") or 0)
-        except Exception:
-            leader_idx = 0
+        remaining = ctx.deadline("vote_started", "vote_duration", default_duration=settings.VOTE_SECONDS)
+        speech_remaining = ctx.deadline("vote_speech_started", "vote_speech_duration")
+        leaders = ctx.gcsv_ints("vote_leaders_order")
+        leader_idx = ctx.gint("vote_leader_idx")
 
         nominees_order = await get_nominees_in_order(r, rid)
         started_flag = bool(vote_started) and not (vote_done or vote_aborted or vote_results_ready)
@@ -1882,34 +1741,16 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
         game_runtime["vote"] = vote_section
 
     if phase == "night":
-        stage = str(raw_gstate.get("night_stage") or "sleep")
-        now_ts = int(time())
+        stage = ctx.gstr("night_stage", "sleep")
         deadline = 0
-
         if stage == "shoot":
-            try:
-                started = int(raw_gstate.get("night_shoot_started") or 0)
-                dur = int(raw_gstate.get("night_shoot_duration") or 0)
-            except Exception:
-                started, dur = 0, 0
-            if started and dur > 0:
-                deadline = max(started + dur - now_ts, 0)
+            deadline = ctx.deadline("night_shoot_started", "night_shoot_duration")
         elif stage == "checks":
-            try:
-                started = int(raw_gstate.get("night_check_started") or 0)
-                dur = int(raw_gstate.get("night_check_duration") or 0)
-            except Exception:
-                started, dur = 0, 0
-            if started and dur > 0:
-                deadline = max(started + dur - now_ts, 0)
+            deadline = ctx.deadline("night_check_started", "night_check_duration")
 
         night_section: dict[str, Any] = {"stage": stage, "deadline": deadline}
-        roles_map = {str(k): str(v) for k, v in (raw_roles or {}).items()}
         my_role = roles_map.get(str(uid)) or ""
-        try:
-            head_uid_n = int(raw_gstate.get("head") or 0)
-        except Exception:
-            head_uid_n = 0
+        head_uid_n = ctx.head_uid
         if head_uid_n and uid == head_uid_n:
             if stage in ("shoot", "shoot_done"):
                 picks = await get_night_head_picks(r, rid, "shoot")
@@ -1919,18 +1760,12 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
                 night_section["head_picks"] = {"kind": "checks", "picks": picks}
 
         if stage in ("shoot", "shoot_done") and my_role in ("mafia", "don"):
-            try:
-                my_t = int((await r.hget(f"room:{rid}:night_shots", str(uid))) or 0)
-            except Exception:
-                my_t = 0
+            my_t = ctx.as_int(await r.hget(f"room:{rid}:night_shots", str(uid)))
             if my_t:
                 night_section["my_shot"] = {"target_id": my_t, "seat": seat_of(seats_map, my_t)}
 
         if stage in ("checks", "checks_done") and my_role in ("don", "sheriff"):
-            try:
-                my_t = int((await r.hget(f"room:{rid}:night_checks", str(uid))) or 0)
-            except Exception:
-                my_t = 0
+            my_t = ctx.as_int(await r.hget(f"room:{rid}:night_checks", str(uid)))
             if my_t:
                 night_section["my_check"] = {"target_id": my_t, "seat": seat_of(seats_map, my_t)}
 
@@ -1957,16 +1792,10 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
 
         game_runtime["night"] = night_section
 
-    try:
-        head_uid = int(raw_gstate.get("head") or 0)
-    except Exception:
-        head_uid = 0
-
-    roles_map = {str(k): str(v) for k, v in (raw_roles or {}).items()}
     my_game_role = roles_map.get(str(uid))
-    roles_done = str(raw_gstate.get("roles_done") or "0") == "1"
+    head_uid = ctx.head_uid
+    roles_done = ctx.gbool("roles_done")
     game_roles_view: dict[str, str] = {}
-
     if roles_done:
         if head_uid and uid == head_uid:
             game_roles_view = dict(roles_map)
