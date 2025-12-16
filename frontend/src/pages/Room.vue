@@ -595,6 +595,13 @@ const canRestartVoteForLeaders = computed(() => {
   return voteLeaderSpeechesDone.value
 })
 
+const noNomineesAfterDay = computed(() => {
+  return (isHead.value &&
+    gamePhase.value === 'day' &&
+    daySpeechesDone.value &&
+    nomineeSeatNumbers.value.length === 0)
+})
+
 const singleNomineeFirstDay = computed(() => {
   return (isHead.value &&
     gamePhase.value === 'day' &&
@@ -613,7 +620,7 @@ const canShowNightAfterVote = computed(() => {
 })
 
 const canShowNight = computed(() => {
-  return canShowNightAfterVote.value || singleNomineeFirstDay.value
+  return canShowNightAfterVote.value || singleNomineeFirstDay.value || noNomineesAfterDay.value
 })
 
 const allRolesPicked = computed(() => {
