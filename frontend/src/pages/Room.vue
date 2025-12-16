@@ -177,13 +177,13 @@
                   @click="goToMafiaTalkUi" aria-label="Перейти к договорке">Начать договорку</button>
           <button v-if="gamePhase === 'mafia_talk_start' && isHead && mafiaTalkRemainingMs <= 0" class="btn-text"
                   @click="finishMafiaTalkUi" aria-label="Завершить договорку">Завершить договорку</button>
-          <button v-if="canStartDay" class="btn-text" @click="startDayUi" aria-label="Начать день">Начать день</button>
+          <button v-if="canStartDay" class="btn-text" @click="startDayUi" aria-label="Начать день">День</button>
           <button v-if="canFinishSpeechHead" class="btn-text" @click="finishSpeechUi" aria-label="Завершить речь">Завершить речь</button>
           <button v-else-if="canPassSpeechHead" class="btn-text" @click="passSpeechUi" aria-label="Передать речь">Передать речь</button>
           <button v-if="canStartVote" class="btn-text" @click="startVoteUi">Начать голосование</button>
           <button v-if="gamePhase === 'vote' && isHead && !vote.done && vote.remainingMs === 0"
                   class="btn-text" :disabled="hasOfflineAlivePlayers" @click="onHeadVoteControl">
-            {{ !voteStartedForCurrent ? 'Голосование за ' + (currentNomineeSeat ?? '') : 'Продолжить' }}
+            {{ !voteStartedForCurrent ? 'Голосование за ' + (currentNomineeSeat ?? '') : 'Далее' }}
           </button>
           <button v-if="gamePhase === 'vote' && isHead && vote.done && !voteResultShown" class="btn-text" @click="finishVoteUi">Завершить голосование</button>
           <button v-if="canStartLeaderSpeech" class="btn-text" @click="startLeaderSpeechUi">Передать речь</button>
