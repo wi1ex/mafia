@@ -513,7 +513,7 @@ export function useRoomGame(localId: Ref<string>) {
       replaceIds(dayNominees, (dy as any).nominees)
       nominatedThisSpeechByMe.value = isTrueLike((dy as any).nominated_this_speech)
 
-      const lastNight = (gr as any).night
+      const lastNight = (dy as any).night ?? nt
       const hasNightPayload = !!lastNight && typeof lastNight === 'object' && ('kill_ok' in lastNight || 'kill_uid' in lastNight)
       if (hasNightPayload) {
         night.killOk = isTrueLike((lastNight as any).kill_ok)
