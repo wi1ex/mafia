@@ -1845,6 +1845,14 @@ async def game_nominate(sid, data):
         if current_uid != actor_uid:
             return {"ok": False, "error": "not_your_speech", "status": 403}
 
+        pre_active = str(raw_gstate.get("day_prelude_active") or "0") == "1"
+        try:
+            pre_uid = int(raw_gstate.get("day_prelude_uid") or 0)
+        except Exception:
+            pre_uid = 0
+        if pre_active and pre_uid and current_uid == pre_uid:
+            return {"ok": False, "error": "prelude_no_nomination", "status": 409}
+
         is_actor_player = await r.sismember(f"room:{rid}:game_players", str(actor_uid))
         is_actor_alive = await r.sismember(f"room:{rid}:game_alive", str(actor_uid))
         if not (is_actor_player and is_actor_alive):

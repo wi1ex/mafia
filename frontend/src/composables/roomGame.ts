@@ -514,7 +514,8 @@ export function useRoomGame(localId: Ref<string>) {
       if (hasNightPayload) {
         night.killOk = isTrueLike((lastNight as any).kill_ok)
         night.killUid = String((lastNight as any).kill_uid || '')
-        night.hasResult = dayNumber.value >= 2
+        if (night.killOk && night.killUid) night.hasResult = gameAlive.has(night.killUid)
+        else night.hasResult = !daySpeech.currentId
       } else {
         night.killOk = false
         night.killUid = ''
@@ -730,6 +731,19 @@ export function useRoomGame(localId: Ref<string>) {
     const killed = isTrueLike((p as any)?.killed)
     const isActiveSpeech = ms > 0 && !!speakerId
 
+    if (
+      gamePhase.value === 'day' &&
+      killed &&
+      night.hasResult &&
+      night.killOk &&
+      night.killUid &&
+      speakerId === night.killUid
+    ) {
+      night.hasResult = false
+      night.killOk = false
+      night.killUid = ''
+    }
+
     if (isActiveSpeech) {
       daySpeechesDone.value = false
       if (speakerId !== localId.value) nominatedThisSpeechByMe.value = false
@@ -913,7 +927,6 @@ export function useRoomGame(localId: Ref<string>) {
         nightKnownByMe.clear()
         for (const [u, rr] of Object.entries(knownRaw)) nightKnownByMe.set(String(u), String(rr) as GameRoleKind)
       }
-
       return
     }
     if (to === 'day') {
@@ -960,9 +973,22 @@ export function useRoomGame(localId: Ref<string>) {
     }
   }
 
+  function isNightVictimFarewellSpeech(me: string): boolean {
+    return (
+      gamePhase.value === 'day' &&
+      night.hasResult &&
+      night.killOk &&
+      !!night.killUid &&
+      me === night.killUid &&
+      daySpeech.currentId === me &&
+      daySpeech.remainingMs > 0
+    )
+  }
+
   function canNominateTarget(id: string): boolean {
     const me = localId.value
     if (!me) return false
+    if (isNightVictimFarewellSpeech(me)) return false
     if (gamePhase.value !== 'day') return false
     if (daySpeech.currentId !== me) return false
     if (daySpeech.remainingMs <= 0) return false

@@ -15,7 +15,7 @@
     </button>
 
     <div v-if="pickNumber != null && pickNumber > 0" class="nominate-btn pick-number">
-      {{ pickKind === 'check' ? 'Проверил' : 'Выстрелил в' }} {{ pickNumber }}
+      <span>{{ pickKind === 'check' ? 'Проверил' : 'Выстрелил в' }} {{ pickNumber }}</span>
     </div>
     <button v-if="showNominate" class="nominate-btn" @click="$emit('nominate', id)">
       <img :src="iconLikeWhite" alt="nominate" />

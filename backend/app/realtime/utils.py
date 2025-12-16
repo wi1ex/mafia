@@ -1360,6 +1360,7 @@ async def night_stage_timeout_job(rid: int, expected_stage: str, expected_starte
                 },
             )
             await p.execute()
+
         raw2 = dict(raw)
         raw2["night_stage"] = next_stage
         raw2["night_shoot_started"] = "0"
@@ -1399,6 +1400,7 @@ async def night_stage_timeout_job(rid: int, expected_stage: str, expected_starte
 async def emit_night_head_picks(r, rid: int, kind: str, head_uid: int) -> None:
     if not head_uid:
         return
+
     try:
         picks = await get_night_head_picks(r, rid, kind)
     except Exception:
@@ -1421,6 +1423,20 @@ async def finish_day_prelude_speech(r, rid: int, raw_gstate: Mapping[str, Any], 
     except Exception:
         head_uid = 0
 
+    try:
+        removed = int(await r.srem(f"room:{rid}:game_alive", str(speaker_uid)) or 0)
+    except Exception:
+        removed = 0
+    if removed:
+        try:
+            alive_cnt = int(await r.scard(f"room:{rid}:game_alive") or 0)
+        except Exception:
+            alive_cnt = 0
+        await sio.emit("rooms_occupancy",
+                       {"id": rid,
+                        "occupancy": alive_cnt},
+                       namespace="/rooms")
+
     if head_uid and speaker_uid != head_uid:
         try:
             await apply_blocks_and_emit(r, rid, actor_uid=head_uid, actor_role="head", target_uid=speaker_uid, changes_bool={"mic": True})
@@ -1436,6 +1452,9 @@ async def finish_day_prelude_speech(r, rid: int, raw_gstate: Mapping[str, Any], 
                 "day_speech_duration": "0",
                 "day_prelude_active": "0",
                 "day_prelude_done": "1",
+                "night_kill_uid": "0",
+                "night_kill_ok": "0",
+                "day_prelude_uid": "0",
             },
         )
         await p.execute()
@@ -1455,7 +1474,7 @@ async def finish_day_prelude_speech(r, rid: int, raw_gstate: Mapping[str, Any], 
         except Exception:
             log.exception("day_prelude.autoblock_failed", rid=rid, head=head_uid, target=speaker_uid)
 
-    return {"room_id": rid, "speaker_uid": speaker_uid, "opening_uid": 0, "closing_uid": 0, "deadline": 0, "prelude": True}
+    return {"room_id": rid, "speaker_uid": speaker_uid, "opening_uid": 0, "closing_uid": 0, "deadline": 0, "prelude": True, "night": {"kill_uid": 0, "kill_ok": False}}
 
 
 async def enrich_game_runtime_with_vote(r, rid: int, game_runtime: Mapping[str, Any], raw_gstate: Mapping[str, Any]) -> dict[str, Any]:
