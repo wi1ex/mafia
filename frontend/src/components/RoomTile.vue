@@ -433,7 +433,7 @@ const timelineDurationSec = computed(() => {
     border-radius: 5px;
     z-index: 1;
     img {
-      height: 40%;
+      height: 70%;
       user-select: none;
     }
     .avatar {

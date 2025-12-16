@@ -165,7 +165,7 @@
             <img :src="iconGameStop" alt="end-game" />
           </button>
           <button v-if="gamePhase !== 'idle' && myGameRole === 'player' && amIAlive" @click="leaveGameUi" aria-label="Выйти из игры">
-            <img :src="iconKillPlayer" alt="leave-game" />
+            <img :src="iconDeadPlayer" alt="leave-game" />
           </button>
         </div>
 
@@ -309,13 +309,14 @@ import iconGameStart from '@/assets/svg/gameStart.svg'
 import iconGameStop from '@/assets/svg/gameStop.svg'
 import iconTakeFoul from '@/assets/svg/takeFoul.svg'
 import iconSkip from '@/assets/svg/skip.svg'
+import iconDeadPlayer from '@/assets/svg/deadPlayer.svg'
 import iconCardBack from '@/assets/images/cardBack.png'
 import iconSleepPlayer from '@/assets/images/sleepPlayer.png'
 import iconLowSignal from '@/assets/images/lowSignal.png'
 import iconKillPlayer from '@/assets/images/killPlayer.png'
 import iconVotedPlayer from '@/assets/images/votedPlayer.png'
 import iconFouledPlayer from '@/assets/images/fouledPlayer.png'
-import iconKLeavePlayer from '@/assets/images/leavePlayer.png'
+import iconLeavePlayer from '@/assets/images/leavePlayer.png'
 import iconVisOnRoles from '@/assets/svg/visOnRoles.svg'
 import iconVisOffRoles from '@/assets/svg/visOffRoles.svg'
 
@@ -465,7 +466,7 @@ const readyCount = computed(() => {
 
 type DeathReasonKind = 'suicide' | 'foul' | 'vote' | 'night' | string
 const DEAD_ICON_BY_REASON: Record<DeathReasonKind, string> = {
-  suicide: iconKLeavePlayer,
+  suicide: iconLeavePlayer,
   foul: iconFouledPlayer,
   vote: iconVotedPlayer,
   night: iconKillPlayer,
