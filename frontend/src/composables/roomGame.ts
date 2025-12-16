@@ -597,6 +597,13 @@ export function useRoomGame(localId: Ref<string>) {
       myNightShotTarget.value = ''
       myNightCheckTarget.value = ''
       headNightPicks.clear()
+      const headPicksRaw = (nt as any).head_picks
+      if (headPicksRaw && typeof headPicksRaw === 'object') {
+        for (const [uid, seat] of Object.entries(headPicksRaw.picks || {})) {
+          const n = Number(seat)
+          if (Number.isFinite(n) && n > 0) headNightPicks.set(String(uid), n)
+        }
+      }
       nightCheckedByMe.clear()
       nightKnownByMe.clear()
       const checkedRaw = (nt as any).checked
