@@ -1683,7 +1683,7 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
         pre_active = str(raw_gstate.get("day_prelude_active") or "0") == "1"
         pre_done = str(raw_gstate.get("day_prelude_done") or "0") == "1"
 
-        if nk_uid or ok:
+        if ("night_kill_uid" in raw_gstate) or ("night_kill_ok" in raw_gstate) or nk_uid or ok:
             game_runtime["day"]["night"] = {"kill_uid": nk_uid, "kill_ok": ok}
         if pre_uid:
             game_runtime["day"]["prelude"] = {

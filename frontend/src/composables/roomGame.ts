@@ -111,6 +111,7 @@ export function useRoomGame(localId: Ref<string>) {
     currentId: '',
     remainingMs: 0,
   })
+  const currentFarewellSpeech = ref(false)
   const vote = reactive({
     currentId: '',
     remainingMs: 0,
@@ -506,6 +507,9 @@ export function useRoomGame(localId: Ref<string>) {
       daySpeech.currentId = rawMs > 0 ? String(dy.current_uid || '') : ''
       setDaySpeechRemainingMs(rawMs, false)
       daySpeechesDone.value = isTrueLike((dy as any).speeches_done)
+      const preludeSection = (dy as any).prelude
+      const preludeActive = !!(preludeSection && typeof preludeSection === 'object' && isTrueLike((preludeSection as any).active))
+      currentFarewellSpeech.value = preludeActive || false
       replaceIds(dayNominees, (dy as any).nominees)
       nominatedThisSpeechByMe.value = isTrueLike((dy as any).nominated_this_speech)
 
@@ -514,8 +518,7 @@ export function useRoomGame(localId: Ref<string>) {
       if (hasNightPayload) {
         night.killOk = isTrueLike((lastNight as any).kill_ok)
         night.killUid = String((lastNight as any).kill_uid || '')
-        if (night.killOk && night.killUid) night.hasResult = gameAlive.has(night.killUid)
-        else night.hasResult = !daySpeech.currentId
+        night.hasResult = true
       } else {
         night.killOk = false
         night.killUid = ''
@@ -742,14 +745,8 @@ export function useRoomGame(localId: Ref<string>) {
       night.hasResult = false
     }
 
-    if (
-      gamePhase.value === 'day' &&
-      killed &&
-      night.hasResult &&
-      night.killOk &&
-      night.killUid &&
-      speakerId === night.killUid
-    ) {
+    currentFarewellSpeech.value = isActiveSpeech && (isTrueLike((p as any)?.prelude) || killed)
+    if (isActiveSpeech && night.hasResult) {
       night.hasResult = false
       night.killOk = false
       night.killUid = ''
@@ -999,6 +996,7 @@ export function useRoomGame(localId: Ref<string>) {
   function canNominateTarget(id: string): boolean {
     const me = localId.value
     if (!me) return false
+    if (currentFarewellSpeech.value) return false
     if (isNightVictimFarewellSpeech(me)) return false
     if (gamePhase.value !== 'day') return false
     if (daySpeech.currentId !== me) return false
