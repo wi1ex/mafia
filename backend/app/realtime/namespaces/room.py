@@ -28,7 +28,6 @@ from ..utils import (
     join_room_atomic,
     leave_room_atomic,
     validate_auth,
-    build_game_context,
     claim_screen,
     get_rooms_brief,
     init_roles_deck,
@@ -37,7 +36,6 @@ from ..utils import (
     emit_rooms_occupancy_safe,
     get_game_runtime_and_roles_view,
     emit_state_changed_filtered,
-    can_act_on_user,
     stop_screen_for_user,
     compute_day_opening_and_closing,
     get_alive_players_in_seat_order,
@@ -58,6 +56,8 @@ from ..utils import (
     finish_day_prelude_speech,
     emit_night_head_picks,
     process_player_death,
+    require_ctx,
+    ensure_can_act_role,
 )
 
 log = structlog.get_logger()
@@ -330,8 +330,9 @@ async def screen(sid, data) -> ScreenAck:
             role_in_room = await r.hget(f"room:{rid}:user:{actor_uid}:info", "role")
             actor_role = str(role_in_room or sess.get("role") or "user")
             trg_role = str(await r.hget(f"room:{rid}:user:{target}:info", "role") or "user")
-            if not can_act_on_user(actor_role, trg_role):
-                return {"ok": False, "error": "forbidden", "status": 403}
+            err = ensure_can_act_role(actor_role, trg_role)
+            if err:
+                return err
 
         if want_on and target == actor_uid:
             bl = await r.hget(f"room:{rid}:user:{actor_uid}:block", "screen")
@@ -455,8 +456,9 @@ async def kick(sid, data):
         role_in_room = await r.hget(f"room:{rid}:user:{actor_uid}:info", "role")
         actor_role = str(role_in_room or sess.get("role") or "user")
         trg_role = str(await r.hget(f"room:{rid}:user:{target}:info", "role") or "user")
-        if not can_act_on_user(actor_role, trg_role):
-            return {"ok": False, "error": "forbidden", "status": 403}
+        err = ensure_can_act_role(actor_role, trg_role)
+        if err:
+            return err
 
         await r.srem(f"room:{rid}:allow", str(target))
         await r.srem(f"room:{rid}:pending", str(target))
@@ -511,7 +513,7 @@ async def kick(sid, data):
 async def game_leave(sid, data):
     try:
         sess = await sio.get_session(sid, namespace="/room")
-        ctx, err = await build_game_context(sid)
+        ctx, err = await require_ctx(sid)
         if err:
             return err
 
@@ -605,7 +607,7 @@ async def game_start(sid, data) -> GameStartAck:
         data = data or {}
         confirm = bool(data.get("confirm"))
         sess = await sio.get_session(sid, namespace="/room")
-        ctx, err = await build_game_context(sid)
+        ctx, err = await require_ctx(sid)
         if err:
             return err
 
@@ -809,7 +811,7 @@ async def game_start(sid, data) -> GameStartAck:
 async def game_roles_pick(sid, data) -> GameRolePickAck:
     try:
         data = data or {}
-        ctx, err = await build_game_context(sid)
+        ctx, err = await require_ctx(sid, allowed_phases="roles_pick")
         if err:
             return err
 
@@ -871,8 +873,7 @@ async def game_phase_next(sid, data):
         data = data or {}
         want_from = str(data.get("from") or "")
         want_to = str(data.get("to") or "")
-
-        ctx, err = await build_game_context(sid)
+        ctx, err = await require_ctx(sid)
         if err:
             return err
 
@@ -1372,7 +1373,7 @@ async def game_phase_next(sid, data):
 async def game_speech_next(sid, data):
     try:
         data = data or {}
-        ctx, err = await build_game_context(sid)
+        ctx, err = await require_ctx(sid, allowed_phases="day", require_head=True)
         if err:
             return err
 
@@ -1536,7 +1537,7 @@ async def game_speech_next(sid, data):
 async def game_foul(sid, data):
     try:
         data = data or {}
-        ctx, err = await build_game_context(sid)
+        ctx, err = await require_ctx(sid, allowed_phases=("day", "vote"))
         if err:
             return err
 
@@ -1612,7 +1613,7 @@ async def game_foul(sid, data):
 async def game_foul_set(sid, data):
     try:
         data = data or {}
-        ctx, err = await build_game_context(sid)
+        ctx, err = await require_ctx(sid, require_head=True)
         if err:
             return err
 
@@ -1693,7 +1694,7 @@ async def game_foul_set(sid, data):
 async def game_nominate(sid, data):
     try:
         data = data or {}
-        ctx, err = await build_game_context(sid)
+        ctx, err = await require_ctx(sid, allowed_phases="day")
         if err:
             return err
 
@@ -1775,7 +1776,7 @@ async def game_vote_control(sid, data):
     try:
         data = data or {}
         action = str(data.get("action") or "")
-        ctx, err = await build_game_context(sid)
+        ctx, err = await require_ctx(sid, allowed_phases="vote", require_head=True)
         if err:
             return err
 
@@ -1964,7 +1965,7 @@ async def game_vote_control(sid, data):
 async def game_vote(sid, data):
     try:
         data = data or {}
-        ctx, err = await build_game_context(sid)
+        ctx, err = await require_ctx(sid, allowed_phases="vote")
         if err:
             return err
 
@@ -2035,7 +2036,7 @@ async def game_vote(sid, data):
 async def game_vote_finish(sid, data):
     try:
         data = data or {}
-        ctx, err = await build_game_context(sid)
+        ctx, err = await require_ctx(sid, allowed_phases="vote", require_head=True)
         if err:
             return err
 
@@ -2123,7 +2124,7 @@ async def game_vote_finish(sid, data):
 async def game_speech_finish(sid, data):
     try:
         data = data or {}
-        ctx, err = await build_game_context(sid)
+        ctx, err = await require_ctx(sid, allowed_phases=("day", "vote"))
         if err:
             return err
 
@@ -2188,7 +2189,7 @@ async def game_speech_finish(sid, data):
 async def game_vote_speech_next(sid, data):
     try:
         data = data or {}
-        ctx, err = await build_game_context(sid)
+        ctx, err = await require_ctx(sid, allowed_phases="vote", require_head=True)
         if err:
             return err
 
@@ -2317,7 +2318,7 @@ async def game_vote_speech_next(sid, data):
 async def game_vote_restart(sid, data):
     try:
         data = data or {}
-        ctx, err = await build_game_context(sid)
+        ctx, err = await require_ctx(sid, allowed_phases="vote", require_head=True)
         if err:
             return err
 
@@ -2413,7 +2414,7 @@ async def game_vote_restart(sid, data):
 @sio.event(namespace="/room")
 async def game_night_shoot_start(sid, data):
     try:
-        ctx, err = await build_game_context(sid)
+        ctx, err = await require_ctx(sid, allowed_phases="night", require_head=True)
         if err:
             return err
 
@@ -2470,13 +2471,12 @@ async def game_night_shoot_start(sid, data):
 async def game_night_shoot(sid, data):
     try:
         data = data or {}
-        ctx, err = await build_game_context(sid)
+        ctx, err = await require_ctx(sid, allowed_phases="night")
         if err:
             return err
 
         uid = ctx.uid
         rid = ctx.rid
-
         target_uid = int(data.get("user_id") or 0)
         if not target_uid:
             return {"ok": False, "error": "bad_request", "status": 400}
@@ -2534,7 +2534,7 @@ async def game_night_shoot(sid, data):
 @sio.event(namespace="/room")
 async def game_night_checks_start(sid, data):
     try:
-        ctx, err = await build_game_context(sid)
+        ctx, err = await require_ctx(sid, allowed_phases="night", require_head=True)
         if err:
             return err
 
@@ -2591,7 +2591,7 @@ async def game_night_checks_start(sid, data):
 async def game_night_check(sid, data):
     try:
         data = data or {}
-        ctx, err = await build_game_context(sid)
+        ctx, err = await require_ctx(sid, allowed_phases="night")
         if err:
             return err
 
@@ -2682,7 +2682,7 @@ async def game_end(sid, data):
         data = data or {}
         confirm = bool(data.get("confirm"))
         sess = await sio.get_session(sid, namespace="/room")
-        ctx, err = await build_game_context(sid)
+        ctx, err = await require_ctx(sid, require_head=True)
         if err:
             return err
 

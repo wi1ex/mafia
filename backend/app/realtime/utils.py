@@ -66,6 +66,8 @@ __all__ = [
     "finish_day_prelude_speech",
     "emit_night_head_picks",
     "process_player_death",
+    "require_ctx",
+    "ensure_can_act_role",
 ]
 
 log = structlog.get_logger()
@@ -265,6 +267,203 @@ class GameActionContext:
         return None
 
 
+class GameStateView:
+    def __init__(self, ctx: GameActionContext, *, roles_map: Mapping[str, str], seats_map: Mapping[str, int]):
+        self.ctx = ctx
+        self.roles_map = dict(roles_map)
+        self.seats_map = dict(seats_map)
+
+    async def roles_pick(self, r, rid: int) -> dict[str, Any] | None:
+        roles_turn_uid = self.ctx.gint("roles_turn_uid")
+        roles_turn_started = self.ctx.gint("roles_turn_started")
+        if not (roles_turn_uid and roles_turn_started):
+            return None
+
+        remaining = self.ctx.deadline("roles_turn_started", "roles_turn_duration", default_duration=settings.ROLE_PICK_SECONDS)
+        raw_taken = await r.hgetall(f"room:{rid}:roles_taken")
+        assigned_ids = hash_keys_to_int_list(self.roles_map)
+        taken_cards = hash_keys_to_int_list(raw_taken)
+        order_ids = await get_players_in_seat_order(r, rid)
+        return {
+            "turn_uid": roles_turn_uid,
+            "deadline": remaining,
+            "picked": assigned_ids,
+            "order": order_ids,
+            "taken_cards": taken_cards,
+        }
+
+    def mafia_talk(self) -> dict[str, Any] | None:
+        mafia_started = self.ctx.gint("mafia_talk_started")
+        mafia_duration = self.ctx.gint("mafia_talk_duration", settings.MAFIA_TALK_SECONDS)
+        if mafia_started and mafia_duration > 0:
+            remaining = self.ctx.deadline("mafia_talk_started", "mafia_talk_duration", default_duration=settings.MAFIA_TALK_SECONDS)
+            return {"deadline": remaining}
+        return None
+
+    async def day(self, r, rid: int, uid: int) -> dict[str, Any] | None:
+        day_number = self.ctx.gint("day_number")
+        day_opening_uid = self.ctx.gint("day_opening_uid")
+        day_closing_uid = self.ctx.gint("day_closing_uid")
+        day_current_uid = self.ctx.gint("day_current_uid")
+        speeches_done = self.ctx.gbool("day_speeches_done")
+        remaining = self.ctx.deadline("day_speech_started", "day_speech_duration", default_duration=settings.PLAYER_TALK_SECONDS)
+
+        day_section: dict[str, Any] = {
+            "number": day_number,
+            "opening_uid": day_opening_uid,
+            "closing_uid": day_closing_uid,
+            "current_uid": day_current_uid,
+            "deadline": remaining,
+            "speeches_done": speeches_done,
+        }
+
+        nk_uid = self.ctx.gint("night_kill_uid")
+        ok = self.ctx.gbool("night_kill_ok")
+        pre_pending = self.ctx.gbool("day_prelude_pending")
+        pre_active = self.ctx.gbool("day_prelude_active")
+        pre_done = self.ctx.gbool("day_prelude_done")
+        day_section["night"] = {"kill_uid": nk_uid, "kill_ok": ok}
+
+        pre_uid = self.ctx.gint("day_prelude_uid")
+        if pre_uid:
+            day_section["prelude"] = {
+                "uid": pre_uid,
+                "pending": pre_pending,
+                "active": pre_active,
+                "done": pre_done,
+            }
+
+        nominees = await get_nominees_in_order(r, rid)
+        if nominees:
+            day_section["nominees"] = nominees
+
+        try:
+            nominated_ids = list(await smembers_ints(r, f"room:{rid}:game_nom_speakers"))
+        except Exception:
+            nominated_ids = []
+
+        day_section["nominated_speakers"] = nominated_ids
+        if uid and day_current_uid == uid and not speeches_done and uid in nominated_ids:
+            day_section["nominated_this_speech"] = True
+
+        return day_section
+
+    async def vote(self, r, rid: int) -> dict[str, Any] | None:
+        vote_current_uid = self.ctx.gint("vote_current_uid")
+        vote_started = self.ctx.gint("vote_started")
+        vote_duration = self.ctx.gint("vote_duration", settings.VOTE_SECONDS)
+        vote_done = self.ctx.gbool("vote_done")
+        vote_aborted = self.ctx.gbool("vote_aborted")
+        vote_results_ready = self.ctx.gbool("vote_results_ready")
+        vote_speeches_done = self.ctx.gbool("vote_speeches_done")
+        vote_speech_uid = self.ctx.gint("vote_speech_uid")
+        vote_speech_duration = self.ctx.gint("vote_speech_duration")
+        vote_speech_kind = self.ctx.gstr("vote_speech_kind")
+
+        if vote_aborted or vote_results_ready:
+            vote_current_uid = 0
+
+        remaining = self.ctx.deadline("vote_started", "vote_duration", default_duration=settings.VOTE_SECONDS)
+        speech_remaining = self.ctx.deadline("vote_speech_started", "vote_speech_duration")
+
+        leaders = self.ctx.gcsv_ints("vote_leaders_order")
+        leader_idx = self.ctx.gint("vote_leader_idx")
+        nominees_order = await get_nominees_in_order(r, rid)
+        started_flag = bool(vote_started) and not (vote_done or vote_aborted or vote_results_ready)
+        vote_section: dict[str, Any] = {
+            "current_uid": vote_current_uid,
+            "deadline": remaining,
+            "nominees": nominees_order,
+            "done": vote_done,
+            "aborted": vote_aborted,
+            "results_ready": vote_results_ready,
+            "speeches_done": vote_speeches_done,
+            "started": started_flag,
+        }
+
+        if leaders:
+            vote_section["leaders"] = leaders
+            vote_section["leader_idx"] = leader_idx
+        if speech_remaining > 0 and vote_speech_uid:
+            vote_section["speech"] = {
+                "speaker_uid": vote_speech_uid,
+                "deadline": speech_remaining,
+                "kind": vote_speech_kind,
+            }
+        return vote_section
+
+    async def night(self, r, rid: int, uid: int) -> dict[str, Any] | None:
+        stage = self.ctx.gstr("night_stage", "sleep")
+        deadline = 0
+        if stage == "shoot":
+            deadline = self.ctx.deadline("night_shoot_started", "night_shoot_duration")
+        elif stage == "checks":
+            deadline = self.ctx.deadline("night_check_started", "night_check_duration")
+
+        night_section: dict[str, Any] = {"stage": stage, "deadline": deadline}
+        my_role = self.roles_map.get(str(uid)) or ""
+        head_uid_n = self.ctx.head_uid
+        if head_uid_n and uid == head_uid_n:
+            if stage in ("shoot", "shoot_done"):
+                picks = await get_night_head_picks(r, rid, "shoot")
+                night_section["head_picks"] = {"kind": "shoot", "picks": picks}
+            elif stage in ("checks", "checks_done"):
+                picks = await get_night_head_picks(r, rid, "checks")
+                night_section["head_picks"] = {"kind": "checks", "picks": picks}
+
+        if stage in ("shoot", "shoot_done") and my_role in ("mafia", "don"):
+            my_t = self.ctx.as_int(await r.hget(f"room:{rid}:night_shots", str(uid)))
+            if my_t:
+                night_section["my_shot"] = {"target_id": my_t, "seat": seat_of(self.seats_map, my_t)}
+
+        if stage in ("checks", "checks_done") and my_role in ("don", "sheriff"):
+            my_t = self.ctx.as_int(await r.hget(f"room:{rid}:night_checks", str(uid)))
+            if my_t:
+                night_section["my_check"] = {"target_id": my_t, "seat": seat_of(self.seats_map, my_t)}
+
+        if my_role in ("don", "sheriff"):
+            checked_key = f"room:{rid}:game_checked:{my_role}"
+            checked_ids = list(await smembers_ints(r, checked_key))
+
+            night_section["checked"] = checked_ids
+            known: dict[str, str] = {}
+            for tu in checked_ids:
+                tr = self.roles_map.get(str(tu)) or ""
+                if my_role == "sheriff":
+                    known[str(tu)] = "mafia" if tr in ("mafia", "don") else "citizen"
+                else:
+                    known[str(tu)] = "sheriff" if tr == "sheriff" else "citizen"
+
+            night_section["known"] = known
+
+        return night_section
+
+
+async def require_ctx(sid, *, namespace="/room", allowed_phases: str | Iterable[str] | None = None, require_head: bool = False):
+    ctx, err = await build_game_context(sid, namespace=namespace)
+    if err:
+        return None, err
+
+    if allowed_phases is not None:
+        check = ctx.ensure_phase(allowed_phases)
+        if check:
+            return None, check
+
+    if require_head:
+        check = ctx.ensure_head()
+        if check:
+            return None, check
+
+    return ctx, None
+
+
+def ensure_can_act_role(actor_role: str, target_role: str, *, error: str = "forbidden", status: int = 403):
+    if not can_act_on_user(actor_role, target_role):
+        return {"ok": False, "error": error, "status": status}
+
+    return None
+
+
 async def build_game_context(sid, *, namespace="/room") -> tuple[GameActionContext | None, dict | None]:
     sess = await sio.get_session(sid, namespace=namespace)
     uid = int(sess["uid"])
@@ -291,6 +490,49 @@ def norm01(v: Any) -> str:
         return "1" if v else "0"
 
     return "1" if str(v).strip().lower() in {"1", "true"} else "0"
+
+
+async def smembers_ints(r, key: str) -> set[int]:
+    raw = await r.smembers(key)
+    out: set[int] = set()
+    for v in (raw or []):
+        try:
+            out.add(int(v))
+        except Exception:
+            continue
+    return out
+
+
+async def hkeys_ints(r, key: str) -> set[int]:
+    raw = await r.hkeys(key)
+    out: set[int] = set()
+    for v in (raw or []):
+        try:
+            out.add(int(v))
+        except Exception:
+            continue
+    return out
+
+
+async def hgetall_int_map(r, key: str) -> dict[int, int]:
+    raw = await r.hgetall(key)
+    out: dict[int, int] = {}
+    for k, v in (raw or {}).items():
+        try:
+            out[int(k)] = int(v or 0)
+        except Exception:
+            continue
+    return out
+
+
+def hash_keys_to_int_list(raw: Mapping[Any, Any] | None) -> list[int]:
+    out: list[int] = []
+    for k in (raw or {}).keys():
+        try:
+            out.append(int(k))
+        except Exception:
+            continue
+    return out
 
 
 async def validate_auth(auth: Any) -> Tuple[int, str, str, Optional[str]] | None:
@@ -767,14 +1009,7 @@ async def emit_rooms_occupancy_safe(r, rid: int, occ: int) -> None:
 
 async def get_alive_players_in_seat_order(r, rid: int) -> list[int]:
     order = await get_players_in_seat_order(r, rid)
-    alive_raw = await r.smembers(f"room:{rid}:game_alive")
-    alive: set[int] = set()
-    for v in (alive_raw or []):
-        try:
-            alive.add(int(v))
-        except Exception:
-            continue
-
+    alive = await smembers_ints(r, f"room:{rid}:game_alive")
     return [uid for uid in order if uid in alive]
 
 
@@ -1280,27 +1515,13 @@ async def compute_night_kill(r, rid: int) -> tuple[int, bool]:
         except Exception:
             continue
 
-    alive_raw = await r.smembers(f"room:{rid}:game_alive")
-    alive: set[int] = set()
-    for v in (alive_raw or []):
-        try:
-            alive.add(int(v))
-        except Exception:
-            continue
-
+    alive = await smembers_ints(r, f"room:{rid}:game_alive")
     shooters = [u for u, role in roles_map.items() if role in ("mafia", "don") and u in alive]
     if not shooters:
         return 0, False
 
-    shots_raw = await r.hgetall(f"room:{rid}:night_shots")
-    targets: list[int] = []
-    for u in shooters:
-        try:
-            t = int((shots_raw or {}).get(str(u)) or 0)
-        except Exception:
-            t = 0
-        targets.append(t)
-
+    shots_map = await hgetall_int_map(r, f"room:{rid}:night_shots")
+    targets: list[int] = [shots_map.get(u, 0) for u in shooters]
     if any(t <= 0 for t in targets):
         return 0, False
 
@@ -1323,28 +1544,18 @@ async def get_night_head_picks(r, rid: int, kind: str) -> dict[str, int]:
         except Exception:
             continue
 
-    alive_raw = await r.smembers(f"room:{rid}:game_alive")
-    alive: set[int] = set()
-    for v in (alive_raw or []):
-        try:
-            alive.add(int(v))
-        except Exception:
-            continue
-
+    alive = await smembers_ints(r, f"room:{rid}:game_alive")
     seats = await r.hgetall(f"room:{rid}:game_seats")
     if kind == "shoot":
         actors = [u for u, role in roles_map.items() if role in ("mafia", "don") and u in alive]
-        raw = await r.hgetall(f"room:{rid}:night_shots")
+        raw_map = await hgetall_int_map(r, f"room:{rid}:night_shots")
     else:
         actors = [u for u, role in roles_map.items() if role in ("don", "sheriff") and u in alive]
-        raw = await r.hgetall(f"room:{rid}:night_checks")
+        raw_map = await hgetall_int_map(r, f"room:{rid}:night_checks")
 
     out: dict[str, int] = {}
     for u in actors:
-        try:
-            t = int((raw or {}).get(str(u)) or 0)
-        except Exception:
-            t = 0
+        t = raw_map.get(u, 0)
         if t > 0:
             out[str(u)] = seat_of(seats, t)
     return out
@@ -1551,19 +1762,11 @@ async def enrich_game_runtime_with_vote(r, rid: int, game_runtime: Mapping[str, 
     except Exception:
         current_nominee = ctx.gint("vote_current_uid")
 
-    raw_votes = await r.hgetall(f"room:{rid}:game_votes")
+    raw_votes = await hgetall_int_map(r, f"room:{rid}:game_votes")
     voted_ids: list[int] = []
     voted_for_current: list[int] = []
-    for k, v in (raw_votes or {}).items():
-        try:
-            voter = int(k)
-        except Exception:
-            continue
+    for voter, target in (raw_votes or {}).items():
         voted_ids.append(voter)
-        try:
-            target = int(v or 0)
-        except Exception:
-            target = 0
         if target and target == current_nominee:
             voted_for_current.append(voter)
 
@@ -1571,15 +1774,14 @@ async def enrich_game_runtime_with_vote(r, rid: int, game_runtime: Mapping[str, 
     vote_section["voted_for_current"] = voted_for_current
     out = dict(game_runtime)
     out["vote"] = vote_section
-
     return out
 
 
 async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[str, Any], dict[str, str], Optional[str]]:
     raw_gstate = await r.hgetall(f"room:{rid}:game_state")
     raw_seats = await r.hgetall(f"room:{rid}:game_seats")
-    players_set = await r.smembers(f"room:{rid}:game_players")
-    alive_set = await r.smembers(f"room:{rid}:game_alive")
+    players_set = await smembers_ints(r, f"room:{rid}:game_players")
+    alive_set = await smembers_ints(r, f"room:{rid}:game_alive")
     raw_roles = await r.hgetall(f"room:{rid}:game_roles")
 
     ctx = GameActionContext.from_raw_state(uid=uid, rid=rid, r=r, raw_state=raw_gstate)
@@ -1592,205 +1794,42 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
             continue
 
     roles_map: dict[str, str] = {str(k): str(v) for k, v in (raw_roles or {}).items()}
+    view = GameStateView(ctx, roles_map=roles_map, seats_map=seats_map)
     game_runtime: dict[str, Any] = {
         "phase": phase,
         "min_ready": settings.GAME_MIN_READY_PLAYERS,
         "seats": seats_map,
-        "players": [int(x) for x in (players_set or [])],
-        "alive": [int(x) for x in (alive_set or [])],
+        "players": list(players_set),
+        "alive": list(alive_set),
     }
 
     if phase == "idle":
         return game_runtime, {}, None
 
     if phase == "roles_pick":
-        roles_turn_uid = ctx.gint("roles_turn_uid")
-        roles_turn_started = ctx.gint("roles_turn_started")
-
-        if roles_turn_uid and roles_turn_started:
-            remaining = ctx.deadline("roles_turn_started", "roles_turn_duration", default_duration=settings.ROLE_PICK_SECONDS)
-            raw_taken = await r.hgetall(f"room:{rid}:roles_taken")
-
-            assigned_ids: list[int] = []
-            for k in roles_map.keys():
-                try:
-                    assigned_ids.append(int(k))
-                except Exception:
-                    continue
-
-            taken_cards: list[int] = []
-            for idx_s in (raw_taken or {}).keys():
-                try:
-                    taken_cards.append(int(idx_s))
-                except Exception:
-                    continue
-
-            order_ids = await get_players_in_seat_order(r, rid)
-
-            game_runtime["roles_pick"] = {
-                "turn_uid": roles_turn_uid,
-                "deadline": remaining,
-                "picked": assigned_ids,
-                "order": order_ids,
-                "taken_cards": taken_cards,
-            }
+        roles_pick_section = await view.roles_pick(r, rid)
+        if roles_pick_section:
+            game_runtime["roles_pick"] = roles_pick_section
 
     if phase == "mafia_talk_start":
-        mafia_started = ctx.gint("mafia_talk_started")
-        mafia_duration = ctx.gint("mafia_talk_duration", settings.MAFIA_TALK_SECONDS)
-        if mafia_started and mafia_duration > 0:
-            remaining = ctx.deadline("mafia_talk_started", "mafia_talk_duration", default_duration=settings.MAFIA_TALK_SECONDS)
-            game_runtime["mafia_talk_start"] = {"deadline": remaining}
+        mafia_section = view.mafia_talk()
+        if mafia_section:
+            game_runtime["mafia_talk_start"] = mafia_section
 
     if phase == "day":
-        day_number = ctx.gint("day_number")
-        day_opening_uid = ctx.gint("day_opening_uid")
-        day_closing_uid = ctx.gint("day_closing_uid")
-        day_current_uid = ctx.gint("day_current_uid")
-        speeches_done = ctx.gbool("day_speeches_done")
-        remaining = ctx.deadline("day_speech_started", "day_speech_duration", default_duration=settings.PLAYER_TALK_SECONDS)
-
-        game_runtime["day"] = {
-            "number": day_number,
-            "opening_uid": day_opening_uid,
-            "closing_uid": day_closing_uid,
-            "current_uid": day_current_uid,
-            "deadline": remaining,
-            "speeches_done": speeches_done,
-        }
-
-        nk_uid = ctx.gint("night_kill_uid")
-        ok = ctx.gbool("night_kill_ok")
-        pre_pending = ctx.gbool("day_prelude_pending")
-        pre_active = ctx.gbool("day_prelude_active")
-        pre_done = ctx.gbool("day_prelude_done")
-        game_runtime["day"]["night"] = {"kill_uid": nk_uid, "kill_ok": ok}
-        pre_uid = ctx.gint("day_prelude_uid")
-        if pre_uid:
-            game_runtime["day"]["prelude"] = {
-                "uid": pre_uid,
-                "pending": pre_pending,
-                "active": pre_active,
-                "done": pre_done,
-            }
-
-        nominees = await get_nominees_in_order(r, rid)
-        if nominees:
-            game_runtime["day"]["nominees"] = nominees
-
-        try:
-            nominated_raw = await r.smembers(f"room:{rid}:game_nom_speakers")
-        except Exception:
-            nominated_raw = set()
-
-        nominated_ids: list[int] = []
-        for v in (nominated_raw or []):
-            try:
-                nominated_ids.append(int(v))
-            except Exception:
-                continue
-
-        game_runtime["day"]["nominated_speakers"] = nominated_ids
-        my_nominated = False
-        if uid and day_current_uid == uid and not speeches_done:
-            my_nominated = uid in nominated_ids
-        if my_nominated:
-            game_runtime["day"]["nominated_this_speech"] = True
+        day_section = await view.day(r, rid, uid)
+        if day_section:
+            game_runtime["day"] = day_section
 
     if phase == "vote":
-        vote_current_uid = ctx.gint("vote_current_uid")
-        vote_started = ctx.gint("vote_started")
-        vote_duration = ctx.gint("vote_duration", settings.VOTE_SECONDS)
-        vote_done = ctx.gbool("vote_done")
-        vote_aborted = ctx.gbool("vote_aborted")
-        vote_results_ready = ctx.gbool("vote_results_ready")
-        vote_speeches_done = ctx.gbool("vote_speeches_done")
-        vote_speech_uid = ctx.gint("vote_speech_uid")
-        vote_speech_duration = ctx.gint("vote_speech_duration")
-        vote_speech_kind = ctx.gstr("vote_speech_kind")
-        if vote_aborted or vote_results_ready:
-            vote_current_uid = 0
-
-        remaining = ctx.deadline("vote_started", "vote_duration", default_duration=settings.VOTE_SECONDS)
-        speech_remaining = ctx.deadline("vote_speech_started", "vote_speech_duration")
-        leaders = ctx.gcsv_ints("vote_leaders_order")
-        leader_idx = ctx.gint("vote_leader_idx")
-
-        nominees_order = await get_nominees_in_order(r, rid)
-        started_flag = bool(vote_started) and not (vote_done or vote_aborted or vote_results_ready)
-        vote_section: dict[str, Any] = {
-            "current_uid": vote_current_uid,
-            "deadline": remaining,
-            "nominees": nominees_order,
-            "done": vote_done,
-            "aborted": vote_aborted,
-            "results_ready": vote_results_ready,
-            "speeches_done": vote_speeches_done,
-            "started": started_flag,
-        }
-
-        if leaders:
-            vote_section["leaders"] = leaders
-            vote_section["leader_idx"] = leader_idx
-        if speech_remaining > 0 and vote_speech_uid:
-            vote_section["speech"] = {
-                "speaker_uid": vote_speech_uid,
-                "deadline": speech_remaining,
-                "kind": vote_speech_kind,
-            }
-        game_runtime["vote"] = vote_section
+        vote_section = await view.vote(r, rid)
+        if vote_section:
+            game_runtime["vote"] = vote_section
 
     if phase == "night":
-        stage = ctx.gstr("night_stage", "sleep")
-        deadline = 0
-        if stage == "shoot":
-            deadline = ctx.deadline("night_shoot_started", "night_shoot_duration")
-        elif stage == "checks":
-            deadline = ctx.deadline("night_check_started", "night_check_duration")
-
-        night_section: dict[str, Any] = {"stage": stage, "deadline": deadline}
-        my_role = roles_map.get(str(uid)) or ""
-        head_uid_n = ctx.head_uid
-        if head_uid_n and uid == head_uid_n:
-            if stage in ("shoot", "shoot_done"):
-                picks = await get_night_head_picks(r, rid, "shoot")
-                night_section["head_picks"] = {"kind": "shoot", "picks": picks}
-            elif stage in ("checks", "checks_done"):
-                picks = await get_night_head_picks(r, rid, "checks")
-                night_section["head_picks"] = {"kind": "checks", "picks": picks}
-
-        if stage in ("shoot", "shoot_done") and my_role in ("mafia", "don"):
-            my_t = ctx.as_int(await r.hget(f"room:{rid}:night_shots", str(uid)))
-            if my_t:
-                night_section["my_shot"] = {"target_id": my_t, "seat": seat_of(seats_map, my_t)}
-
-        if stage in ("checks", "checks_done") and my_role in ("don", "sheriff"):
-            my_t = ctx.as_int(await r.hget(f"room:{rid}:night_checks", str(uid)))
-            if my_t:
-                night_section["my_check"] = {"target_id": my_t, "seat": seat_of(seats_map, my_t)}
-
-        if my_role in ("don", "sheriff"):
-            checked_key = f"room:{rid}:game_checked:{my_role}"
-            checked_raw = await r.smembers(checked_key)
-            checked_ids: list[int] = []
-            for v in (checked_raw or []):
-                try:
-                    checked_ids.append(int(v))
-                except Exception:
-                    continue
-
-            night_section["checked"] = checked_ids
-            known: dict[str, str] = {}
-            for tu in checked_ids:
-                tr = roles_map.get(str(tu)) or ""
-                if my_role == "sheriff":
-                    known[str(tu)] = "mafia" if tr in ("mafia", "don") else "citizen"
-                else:
-                    known[str(tu)] = "sheriff" if tr == "sheriff" else "citizen"
-
-            night_section["known"] = known
-
-        game_runtime["night"] = night_section
+        night_section = await view.night(r, rid, uid)
+        if night_section:
+            game_runtime["night"] = night_section
 
     my_game_role = roles_map.get(str(uid))
     head_uid = ctx.head_uid
@@ -1843,22 +1882,8 @@ async def get_nominees_in_order(r, rid: int) -> list[int]:
 
 
 async def get_alive_and_voted_ids(r, rid: int) -> tuple[set[int], set[int]]:
-    alive_raw = await r.smembers(f"room:{rid}:game_alive")
-    alive_ids: set[int] = set()
-    for v in (alive_raw or []):
-        try:
-            alive_ids.add(int(v))
-        except Exception:
-            continue
-
-    votes_raw = await r.hkeys(f"room:{rid}:game_votes")
-    voted_ids: set[int] = set()
-    for v in (votes_raw or []):
-        try:
-            voted_ids.add(int(v))
-        except Exception:
-            continue
-
+    alive_ids = await smembers_ints(r, f"room:{rid}:game_alive")
+    voted_ids = await hkeys_ints(r, f"room:{rid}:game_votes")
     return alive_ids, voted_ids
 
 
@@ -1934,22 +1959,19 @@ async def get_mafia_talk_viewers(r, rid: int, subject_uid: int, phase_override: 
     return True, viewers
 
 
-async def emit_state_changed_filtered(r, rid: int, subject_uid: int, changed: dict[str, str], *, phase_override: str | None = None) -> None:
-    payload = {"user_id": subject_uid, **changed}
+async def _emit_mafia_filtered(event: str, payload: dict[str, Any], r, rid: int, subject_uid: int, *, phase_override: str | None = None) -> None:
     is_mafia_talk, viewers = await get_mafia_talk_viewers(r, rid, subject_uid, phase_override)
-
     if not is_mafia_talk:
-        await sio.emit("state_changed",
-                       payload,
-                       room=f"room:{rid}",
-                       namespace="/room")
+        await sio.emit(event, payload, room=f"room:{rid}", namespace="/room")
         return
 
     for uid in viewers:
-        await sio.emit("state_changed",
-                       payload,
-                       room=f"user:{uid}",
-                       namespace="/room")
+        await sio.emit(event, payload, room=f"user:{uid}", namespace="/room")
+
+
+async def emit_state_changed_filtered(r, rid: int, subject_uid: int, changed: dict[str, str], *, phase_override: str | None = None) -> None:
+    payload = {"user_id": subject_uid, **changed}
+    await _emit_mafia_filtered("state_changed", payload, r, rid, subject_uid, phase_override=phase_override)
 
 
 async def emit_moderation_filtered(r, rid: int, target_uid: int, blocks_full: dict[str, str], actor_uid: int, actor_role: str, *, phase_override: str | None = None) -> None:
@@ -1958,21 +1980,7 @@ async def emit_moderation_filtered(r, rid: int, target_uid: int, blocks_full: di
         "blocks": blocks_full,
         "by": {"user_id": actor_uid, "role": actor_role},
     }
-
-    is_mafia_talk, viewers = await get_mafia_talk_viewers(r, rid, target_uid, phase_override)
-
-    if not is_mafia_talk:
-        await sio.emit("moderation",
-                       payload,
-                       room=f"room:{rid}",
-                       namespace="/room")
-        return
-
-    for uid in viewers:
-        await sio.emit("moderation",
-                       payload,
-                       room=f"user:{uid}",
-                       namespace="/room")
+    await _emit_mafia_filtered("moderation", payload, r, rid, target_uid, phase_override=phase_override)
 
 
 async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
