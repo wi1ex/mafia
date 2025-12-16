@@ -189,7 +189,7 @@
           <button v-if="canStartLeaderSpeech" class="btn-text" @click="startLeaderSpeechUi">Передать речь</button>
           <button v-if="canRestartVoteForLeaders" class="btn-text" @click="restartVoteForLeadersUi">Начать голосование</button>
           <button v-if="canShowNight" class="btn-text" @click="goToNightUi">Ночь</button>
-          <button v-if="gamePhase === 'night' && isHead && night.stage === 'sleep'" class="btn-text" @click="startNightShootUi">Отстрел мафии</button>
+          <button v-if="gamePhase === 'night' && isHead && night.stage === 'sleep'" class="btn-text" @click="startNightShootUi">Стрельба</button>
           <button v-if="gamePhase === 'night' && isHead && night.stage === 'shoot_done'" class="btn-text" @click="startNightChecksUi">Проверки</button>
           <button v-if="gamePhase === 'night' && isHead && night.stage === 'checks_done'" class="btn-text" @click="startDayFromNightUi">День</button>
 
@@ -351,7 +351,8 @@ const auth = useAuthStore()
 const rtc = useRTC()
 const { localId, mics, cams, selectedMicId, selectedCamId, peerIds } = rtc
 
-const game = useRoomGame(localId)
+const rid = Number(route.params.id)
+const game = useRoomGame(localId, ref(rid))
 const {
   GAME_COLUMN_INDEX,
   GAME_ROW_INDEX,
@@ -402,7 +403,6 @@ const navUserAgent = navigator.userAgent || ''
 const IS_MOBILE = (navigator as any).userAgentData?.mobile === true || /Android|iPhone|iPad|iPod|Mobile/i.test(navUserAgent)
   || (window.matchMedia?.('(pointer: coarse)').matches && /Android|iPhone|iPad|iPod|Mobile|Tablet|Touch/i.test(navUserAgent))
 
-const rid = Number(route.params.id)
 const local = reactive({ mic: false, cam: false, speakers: true, visibility: true })
 const pending = reactive<{ [k in keyof typeof local]: boolean }>({ mic: false, cam: false, speakers: false, visibility: false })
 const micOn = computed({ get: () => local.mic, set: v => { local.mic = v } })
@@ -633,7 +633,7 @@ const phaseLabel = computed(() => {
   if (gamePhase.value === 'roles_pick') return allRolesPicked.value ? '' : 'Выбор ролей'
   if (gamePhase.value === 'mafia_talk_start') return 'Договорка мафии'
   if (gamePhase.value === 'night') {
-    if (night.stage === 'shoot') return 'Отстрел мафии'
+    if (night.stage === 'shoot') return 'Отстрелы мафии'
     if (night.stage === 'checks') return 'Проверки дона и шерифа'
     return ''
   }

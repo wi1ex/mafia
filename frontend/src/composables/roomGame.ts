@@ -66,7 +66,7 @@ const ROLE_BADGE_ICONS: Record<GameRoleKind, string> = {
 
 const ALL_ROLE_CARDS = Array.from({ length: 10 }, (_, i) => i + 1)
 
-export function useRoomGame(localId: Ref<string>) {
+export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>) {
   const gamePhase = ref<GamePhase>('idle')
   const minReadyToStart = ref<number>(5)
   const seatsByUser = reactive<Record<string, number>>({})
@@ -139,7 +139,24 @@ export function useRoomGame(localId: Ref<string>) {
     killUid: '',
     hasResult: false,
   })
+  const nightResultClearedDay = ref(0)
   const nightTimerId = ref<number | null>(null)
+  const roomKey = () => String(roomId?.value ?? '')
+  const loadNightResultCleared = () => {
+    if (typeof window === 'undefined') return 0
+    try {
+      const raw = window.sessionStorage.getItem(`nightResultCleared:${roomKey()}`)
+      const n = Number(raw || 0)
+      return Number.isFinite(n) && n > 0 ? n : 0
+    } catch {
+      return 0
+    }
+  }
+  const persistNightResultCleared = (day: number) => {
+    if (typeof window === 'undefined') return
+    try { window.sessionStorage.setItem(`nightResultCleared:${roomKey()}`, String(day)) } catch {}
+  }
+  nightResultClearedDay.value = loadNightResultCleared()
   const myNightShotTarget = ref<string>('')
   const myNightCheckTarget = ref<string>('')
   const nightKnownByMe = reactive(new Map<string, GameRoleKind>())
@@ -501,6 +518,8 @@ export function useRoomGame(localId: Ref<string>) {
     if (phase === 'day' && dy && typeof dy === 'object') {
       const num = Number((dy as any).number || 0)
       dayNumber.value = Number.isFinite(num) && num > 0 ? num : 0
+      const cleared = loadNightResultCleared()
+      if (cleared > nightResultClearedDay.value) nightResultClearedDay.value = cleared
       daySpeech.openingId = String(dy.opening_uid || '')
       daySpeech.closingId = String(dy.closing_uid || '')
       const rawMs = secondsToMs(dy.deadline)
@@ -515,7 +534,8 @@ export function useRoomGame(localId: Ref<string>) {
 
       const lastNight = (dy as any).night ?? nt
       const hasNightPayload = !!lastNight && typeof lastNight === 'object' && ('kill_ok' in lastNight || 'kill_uid' in lastNight)
-      if (hasNightPayload) {
+      const hadNight = hasNightPayload && dayNumber.value > 1
+      if (hadNight) {
         night.killOk = isTrueLike((lastNight as any).kill_ok)
         night.killUid = String((lastNight as any).kill_uid || '')
         night.hasResult = true
@@ -524,10 +544,14 @@ export function useRoomGame(localId: Ref<string>) {
         night.killUid = ''
         night.hasResult = false
       }
-      if (daySpeech.currentId || daySpeechesDone.value) {
+      if (daySpeech.currentId || daySpeechesDone.value || nightResultClearedDay.value >= dayNumber.value) {
         night.killOk = false
         night.killUid = ''
         night.hasResult = false
+        if (nightResultClearedDay.value < dayNumber.value && (daySpeech.currentId || daySpeechesDone.value)) {
+          nightResultClearedDay.value = dayNumber.value
+          persistNightResultCleared(dayNumber.value)
+        }
       }
     } else if (phase === 'vote' && vt && typeof vt === 'object') {
       resetDaySpeechState(false)
@@ -762,6 +786,8 @@ export function useRoomGame(localId: Ref<string>) {
       night.hasResult = false
       night.killOk = false
       night.killUid = ''
+      nightResultClearedDay.value = dayNumber.value
+      persistNightResultCleared(dayNumber.value)
     }
 
     if (isActiveSpeech) {
@@ -1105,7 +1131,7 @@ export function useRoomGame(localId: Ref<string>) {
 
   async function startNightShoot(sendAck: SendAckFn): Promise<void> {
     const resp = await sendAck('game_night_shoot_start', {})
-    if (!resp?.ok) alert('Не удалось начать отстрел мафии')
+    if (!resp?.ok) alert('Не удалось начать отстрелы мафии')
   }
 
   async function startNightChecks(sendAck: SendAckFn): Promise<void> {
