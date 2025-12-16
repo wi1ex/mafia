@@ -62,6 +62,7 @@ __all__ = [
     "compute_night_kill",
     "finish_day_prelude_speech",
     "emit_night_head_picks",
+    "process_player_death",
 ]
 
 log = structlog.get_logger()
@@ -1086,32 +1087,7 @@ async def finish_vote_speech(r, rid: int, raw_gstate: Mapping[str, Any], speaker
     killed = False
     speeches_done = False
     if kind == "farewell":
-        await r.srem(f"room:{rid}:game_alive", str(speaker_uid))
-        try:
-            alive_cnt = int(await r.scard(f"room:{rid}:game_alive") or 0)
-        except Exception:
-            alive_cnt = 0
-
-        await sio.emit("rooms_occupancy",
-                       {"id": rid,
-                        "occupancy": alive_cnt},
-                       namespace="/rooms")
-
-        try:
-            await sio.emit("game_player_left",
-                           {"room_id": rid,
-                            "user_id": speaker_uid},
-                           room=f"room:{rid}",
-                           namespace="/room")
-        except Exception:
-            log.exception("vote_speech.player_left_notify_failed", rid=rid, uid=speaker_uid)
-
-        if head_uid and head_uid != speaker_uid:
-            try:
-                await apply_blocks_and_emit(r, rid, actor_uid=head_uid, actor_role="head", target_uid=speaker_uid, changes_bool={"mic": True, "cam": True})
-            except Exception:
-                log.exception("vote_speech.autoblock_failed", rid=rid, head=head_uid, target=speaker_uid)
-
+        await process_player_death(r, rid, speaker_uid, head_uid=head_uid, phase_override="vote")
         killed = True
         speeches_done = True
 
@@ -1425,16 +1401,8 @@ async def emit_night_head_picks(r, rid: int, kind: str, head_uid: int) -> None:
                    namespace="/room")
 
 
-async def finish_day_prelude_speech(r, rid: int, raw_gstate: Mapping[str, Any], speaker_uid: int) -> dict[str, Any]:
-    try:
-        head_uid = int(raw_gstate.get("head") or 0)
-    except Exception:
-        head_uid = 0
-
-    try:
-        removed = int(await r.srem(f"room:{rid}:game_alive", str(speaker_uid)) or 0)
-    except Exception:
-        removed = 0
+async def process_player_death(r, rid: int, user_id: int, *, head_uid: int | None = None, actor_role: str = "head", phase_override: str | None = None) -> bool:
+    removed = int(await r.srem(f"room:{rid}:game_alive", str(user_id)) or 0) > 0
     if removed:
         try:
             alive_cnt = int(await r.scard(f"room:{rid}:game_alive") or 0)
@@ -1444,6 +1412,48 @@ async def finish_day_prelude_speech(r, rid: int, raw_gstate: Mapping[str, Any], 
                        {"id": rid,
                         "occupancy": alive_cnt},
                        namespace="/rooms")
+
+    block_map = {"mic": "1", "cam": "1", "speakers": "0", "visibility": "0", "screen": "0"}
+    await r.hset(f"room:{rid}:user:{user_id}:block", mapping=block_map)
+    try:
+        await emit_moderation_filtered(r, rid, user_id, block_map, head_uid if head_uid else user_id, actor_role, phase_override=phase_override)
+    except Exception:
+        log.exception("process_player_death.emit_moderation_failed", rid=rid, uid=user_id)
+
+    state_map = {"mic": "0", "cam": "0", "speakers": "1", "visibility": "1"}
+    await r.hset(f"room:{rid}:user:{user_id}:state", mapping=state_map)
+    try:
+        await emit_state_changed_filtered(r, rid, user_id, state_map, phase_override=phase_override)
+    except Exception:
+        log.exception("process_player_death.emit_state_failed", rid=rid, uid=user_id)
+
+    if removed:
+        try:
+            await sio.emit("game_player_left",
+                           {"room_id": rid,
+                            "user_id": user_id},
+                           room=f"room:{rid}",
+                           namespace="/room")
+        except Exception:
+            log.exception("process_player_death.player_left_emit_failed", rid=rid, uid=user_id)
+
+    if head_uid and head_uid != user_id:
+        try:
+            await apply_blocks_and_emit(r, rid, actor_uid=head_uid, actor_role="head", target_uid=user_id, phase_override=phase_override,
+                                        changes_bool={"mic": True, "cam": True, "speakers": False, "visibility": False})
+        except Exception:
+            log.exception("process_player_death.autoblock_failed", rid=rid, head=head_uid, target=user_id)
+
+    return removed
+
+
+async def finish_day_prelude_speech(r, rid: int, raw_gstate: Mapping[str, Any], speaker_uid: int) -> dict[str, Any]:
+    try:
+        head_uid = int(raw_gstate.get("head") or 0)
+    except Exception:
+        head_uid = 0
+
+    await process_player_death(r, rid, speaker_uid, head_uid=head_uid, phase_override="day")
 
     if head_uid and speaker_uid != head_uid:
         try:
@@ -1466,21 +1476,6 @@ async def finish_day_prelude_speech(r, rid: int, raw_gstate: Mapping[str, Any], 
             },
         )
         await p.execute()
-
-    try:
-        await sio.emit("game_player_left",
-                       {"room_id": rid,
-                        "user_id": speaker_uid},
-                       room=f"room:{rid}",
-                       namespace="/room")
-    except Exception:
-        log.exception("day_prelude.player_left_emit_failed", rid=rid, uid=speaker_uid)
-
-    if head_uid and head_uid != speaker_uid:
-        try:
-            await apply_blocks_and_emit(r, rid, actor_uid=head_uid, actor_role="head", target_uid=speaker_uid, changes_bool={"mic": True, "cam": True})
-        except Exception:
-            log.exception("day_prelude.autoblock_failed", rid=rid, head=head_uid, target=speaker_uid)
 
     return {"room_id": rid, "speaker_uid": speaker_uid, "opening_uid": 0, "closing_uid": 0, "deadline": 0, "prelude": True, "night": {"kill_uid": 0, "kill_ok": False}}
 

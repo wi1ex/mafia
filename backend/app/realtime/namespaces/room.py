@@ -56,6 +56,7 @@ from ..utils import (
     compute_night_kill,
     finish_day_prelude_speech,
     emit_night_head_picks,
+    process_player_death,
 )
 
 log = structlog.get_logger()
@@ -572,41 +573,7 @@ async def game_leave(sid, data):
                 except Exception:
                     log.exception("sio.game_leave.finish_speech_failed", rid=rid, uid=uid)
 
-        await r.srem(f"room:{rid}:game_alive", str(uid))
-
-        try:
-            alive_cnt = int(await r.scard(f"room:{rid}:game_alive") or 0)
-        except Exception:
-            alive_cnt = 0
-
-        await sio.emit("rooms_occupancy",
-                       {"id": rid, "occupancy": alive_cnt},
-                       namespace="/rooms")
-
-        try:
-            await apply_blocks_and_emit(r, rid, actor_uid=head_uid or uid, actor_role="head", target_uid=uid,
-                                        changes_bool={"mic": True, "cam": True, "speakers": False, "visibility": False})
-        except Exception:
-            log.exception("sio.game_leave.unblock_visibility_failed", rid=rid, head=head_uid, target=uid)
-        try:
-            await r.hset(f"room:{rid}:user:{uid}:state", mapping={"mic": "0", "cam": "0", "speakers": "1", "visibility": "1"})
-            await emit_state_changed_filtered(r, rid, uid, {"mic": "0", "cam": "0", "speakers": "1", "visibility": "1"})
-        except Exception:
-            log.exception("sio.game_leave.state_on_failed", rid=rid, uid=uid)
-
-        try:
-            await sio.emit("game_player_left",
-                           {"room_id": rid, "user_id": uid},
-                           room=f"room:{rid}",
-                           namespace="/room")
-        except Exception:
-            log.exception("sio.game_leave.notify_failed", rid=rid, uid=uid)
-
-        if head_uid and head_uid != uid:
-            try:
-                await apply_blocks_and_emit(r, rid, actor_uid=head_uid, actor_role="head", target_uid=uid, changes_bool={"mic": True, "cam": True})
-            except Exception:
-                log.exception("sio.game_leave.autoblock_failed", rid=rid, head=head_uid, target=uid)
+        await process_player_death(r, rid, uid, head_uid=head_uid, phase_override=phase)
 
         if vote_aborted:
             try:
@@ -1776,31 +1743,7 @@ async def game_foul_set(sid, data):
                     except Exception:
                         log.exception("game_foul_set.finish_speech_failed", rid=rid, uid=target_uid)
 
-            await r.srem(f"room:{rid}:game_alive", str(target_uid))
-            try:
-                alive_cnt = int(await r.scard(f"room:{rid}:game_alive") or 0)
-            except Exception:
-                alive_cnt = 0
-
-            await sio.emit("rooms_occupancy",
-                           {"id": rid,
-                            "occupancy": alive_cnt},
-                           namespace="/rooms")
-
-            try:
-                await sio.emit("game_player_left",
-                               {"room_id": rid,
-                                "user_id": target_uid},
-                               room=f"room:{rid}",
-                               namespace="/room")
-            except Exception:
-                log.exception("game_foul_set.player_left_notify_failed", rid=rid, uid=target_uid)
-
-            if head_uid and head_uid != target_uid:
-                try:
-                    await apply_blocks_and_emit(r, rid, actor_uid=head_uid, actor_role="head", target_uid=target_uid, changes_bool={"mic": True, "cam": True})
-                except Exception:
-                    log.exception("game_foul_set.autoblock_failed", rid=rid, head=head_uid, target=target_uid)
+            await process_player_death(r, rid, target_uid, head_uid=head_uid, phase_override=phase)
 
         try:
             await emit_game_fouls(r, rid)
