@@ -1672,19 +1672,16 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
             nk_uid = int(raw_gstate.get("night_kill_uid") or 0)
         except Exception:
             nk_uid = 0
-
         ok = str(raw_gstate.get("night_kill_ok") or "0") == "1"
+        pre_pending = str(raw_gstate.get("day_prelude_pending") or "0") == "1"
+        pre_active = str(raw_gstate.get("day_prelude_active") or "0") == "1"
+        pre_done = str(raw_gstate.get("day_prelude_done") or "0") == "1"
+        game_runtime["day"]["night"] = {"kill_uid": nk_uid, "kill_ok": ok}
+
         try:
             pre_uid = int(raw_gstate.get("day_prelude_uid") or 0)
         except Exception:
             pre_uid = 0
-
-        pre_pending = str(raw_gstate.get("day_prelude_pending") or "0") == "1"
-        pre_active = str(raw_gstate.get("day_prelude_active") or "0") == "1"
-        pre_done = str(raw_gstate.get("day_prelude_done") or "0") == "1"
-
-        if ("night_kill_uid" in raw_gstate) or ("night_kill_ok" in raw_gstate) or nk_uid or ok:
-            game_runtime["day"]["night"] = {"kill_uid": nk_uid, "kill_ok": ok}
         if pre_uid:
             game_runtime["day"]["prelude"] = {
                 "uid": pre_uid,
