@@ -15,7 +15,7 @@
     </button>
 
     <div v-if="pickNumber != null && pickNumber > 0" class="nominate-btn pick-number">
-      Выстрелил в {{ pickNumber }}
+      {{ pickKind === 'check' ? 'Проверил' : 'Выстрелил в' }} {{ pickNumber }}
     </div>
     <button v-if="showNominate" class="nominate-btn" @click="$emit('nominate', id)">
       <img :src="iconLikeWhite" alt="nominate" />
@@ -159,6 +159,7 @@ const props = withDefaults(defineProps<{
   showShoot?: boolean
   showCheck?: boolean
   pickNumber?: number | null
+  pickKind?: 'shoot' | 'check' | ''
   nightOwnerId?: string
   nightRemainingMs?: number
 }>(), {
@@ -195,6 +196,7 @@ const props = withDefaults(defineProps<{
   showShoot: false,
   showCheck: false,
   pickNumber: null,
+  pickKind: '',
   nightOwnerId: '',
   nightRemainingMs: 0,
 })

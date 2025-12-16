@@ -402,6 +402,7 @@ export function useRoomGame(localId: Ref<string>) {
     if (gamePhase.value === 'idle') return ''
     const me = localId.value
     if (!me) return ''
+    if (!knownRolesVisible.value) return ''
     const myRole = gameRolesByUser.get(me)
     if (myRole !== 'don' && myRole !== 'sheriff') return ''
     const rr = nightKnownByMe.get(id)
@@ -922,6 +923,10 @@ export function useRoomGame(localId: Ref<string>) {
       resetDaySpeechState(true)
       daySpeech.openingId = String(dy?.opening_uid || '')
       daySpeech.closingId = String(dy?.closing_uid || '')
+      const ms = secondsToMs(dy?.deadline)
+      daySpeech.currentId = ms > 0 ? String(dy?.current_uid || '') : ''
+      setDaySpeechRemainingMs(ms, true)
+
       replaceIds(dayNominees, undefined)
       nominatedThisSpeechByMe.value = false
       const n = (p as any)?.night
@@ -971,17 +976,19 @@ export function useRoomGame(localId: Ref<string>) {
   function handleGameNightState(p: any) {
     const nt = p?.night
     if (!nt || typeof nt !== 'object') return
-    night.stage = String(nt.stage || 'sleep') as any
+    const prevStage = night.stage
+    const nextStage = String(nt.stage || 'sleep') as any
+    const stageChanged = nextStage !== prevStage
+    night.stage = nextStage
     setNightRemainingMs(secondsToMs(nt.deadline), true)
 
-    if (night.stage === 'shoot') {
+    if (!stageChanged) return
+    if (nextStage === 'shoot') {
       myNightShotTarget.value = ''
       headNightPicks.clear()
-    } else if (night.stage === 'checks') {
+    } else if (nextStage === 'checks') {
       myNightCheckTarget.value = ''
       headNightPicks.clear()
-    } else if (night.stage === 'checks_done') {
-      // ждём номера проверок от ведущего (game_night_head_picks)
     }
   }
 
@@ -1519,7 +1526,6 @@ export function useRoomGame(localId: Ref<string>) {
     seatIndex,
     seatIconForUser,
     canClickCard,
-    roleIconForTile,
     applyFromJoinAck,
     handleGameStarted,
     handleGameEnded,

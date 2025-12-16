@@ -53,7 +53,9 @@ from ..utils import (
     finish_vote_speech,
     emit_game_night_state,
     night_stage_timeout_job,
-    compute_night_kill, finish_day_prelude_speech,
+    compute_night_kill,
+    finish_day_prelude_speech,
+    emit_night_head_picks,
 )
 
 log = structlog.get_logger()
@@ -1341,7 +1343,6 @@ async def game_phase_next(sid, data):
                 except Exception:
                     alive_cnt = 0
                 await sio.emit("rooms_occupancy", {"id": rid, "occupancy": alive_cnt}, namespace="/rooms")
-                await sio.emit("game_player_left", {"room_id": rid, "user_id": killed_uid}, room=f"room:{rid}", namespace="/room")
 
             try:
                 day_number = int(raw_gstate.get("day_number") or 0)
@@ -1504,6 +1505,7 @@ async def game_speech_next(sid, data):
             return {"ok": False, "error": "no_alive_players", "status": 400}
 
         next_uid: int
+        is_prelude_next = False
         if not current_uid:
             try:
                 pre_uid = int(raw_gstate.get("day_prelude_uid") or 0)
@@ -1512,6 +1514,7 @@ async def game_speech_next(sid, data):
             pre_pending = str(raw_gstate.get("day_prelude_pending") or "0") == "1"
             if pre_uid and pre_pending:
                 next_uid = pre_uid
+                is_prelude_next = True
                 await r.hset(f"room:{rid}:game_state",
                              mapping={
                                  "day_prelude_pending": "0",
@@ -1538,7 +1541,7 @@ async def game_speech_next(sid, data):
                 idx = alive_order.index(current_uid)
                 next_uid = alive_order[(idx + 1) % len(alive_order)]
 
-        if next_uid not in alive_order:
+        if (not is_prelude_next) and (next_uid not in alive_order):
             return {"ok": False, "error": "bad_next_speaker", "status": 400}
 
         pre_active = str(raw_gstate.get("day_prelude_active") or "0") == "1"
@@ -1603,6 +1606,8 @@ async def game_speech_next(sid, data):
             "closing_uid": closing_uid,
             "deadline": remaining,
         }
+        if is_prelude_next:
+            payload["prelude"] = True
 
         await sio.emit("game_day_speech",
                        payload,
@@ -2696,23 +2701,17 @@ async def game_night_shoot(sid, data):
 
         await r.hset(f"room:{rid}:night_shots", str(uid), str(target_uid))
         try:
+            seat = int((await r.hget(f"room:{rid}:game_seats", str(target_uid))) or 0)
+        except Exception:
+            seat = 0
+        try:
             head_uid = int(g.get("head") or 0)
         except Exception:
             head_uid = 0
         if head_uid:
-            try:
-                seat = int((await r.hget(f"room:{rid}:game_seats", str(target_uid))) or 0)
-            except Exception:
-                seat = 0
-            await sio.emit("game_night_head_pick",
-                           {"room_id": rid,
-                            "kind": "shoot",
-                            "by": uid,
-                            "seat": seat,
-                            "target_id": target_uid},
-                           room=f"user:{head_uid}",
-                           namespace="/room")
-        return {"ok": True, "status": 200, "room_id": rid, "user_id": uid, "target_id": target_uid}
+            await emit_night_head_picks(r, rid, "shoot", head_uid)
+
+        return {"ok": True, "status": 200, "room_id": rid, "user_id": uid, "target_id": target_uid, "kind": "shoot", "seat": seat}
 
     except Exception:
         log.exception("sio.game_night_shoot.error", sid=sid)
@@ -2840,24 +2839,16 @@ async def game_night_check(sid, data):
 
         await r.hset(f"room:{rid}:night_checks", str(uid), str(target_uid))
         await r.sadd(checked_key, str(target_uid))
-
+        try:
+            seat = int((await r.hget(f"room:{rid}:game_seats", str(target_uid))) or 0)
+        except Exception:
+            seat = 0
         try:
             head_uid = int(g.get("head") or 0)
         except Exception:
             head_uid = 0
         if head_uid:
-            try:
-                seat = int((await r.hget(f"room:{rid}:game_seats", str(target_uid))) or 0)
-            except Exception:
-                seat = 0
-            await sio.emit("game_night_head_pick",
-                           {"room_id": rid,
-                            "kind": "checks",
-                            "by": uid,
-                            "seat": seat,
-                            "target_id": target_uid},
-                           room=f"user:{head_uid}",
-                           namespace="/room")
+            await emit_night_head_picks(r, rid, "checks", head_uid)
 
         target_role = str((await r.hget(f"room:{rid}:game_roles", str(target_uid))) or "")
         if my_role == "sheriff":
@@ -2871,7 +2862,7 @@ async def game_night_check(sid, data):
                         "shown_role": shown},
                        room=f"user:{uid}",
                        namespace="/room")
-        return {"ok": True, "status": 200, "room_id": rid, "user_id": uid, "target_id": target_uid}
+        return {"ok": True, "status": 200, "room_id": rid, "user_id": uid, "target_id": target_uid, "kind": "checks", "seat": seat}
 
     except Exception:
         log.exception("sio.game_night_check.error", sid=sid)

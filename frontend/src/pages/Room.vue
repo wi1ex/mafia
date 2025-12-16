@@ -54,6 +54,7 @@
           :show-shoot="game.canShootTarget(id)"
           :show-check="game.canCheckTarget(id)"
           :pick-number="isHead ? (headNightPicks.get(id) ?? null) : null"
+          :pick-kind="headPickKind"
           :show-nominate="game.canNominateTarget(id)"
           :nominees="nomineeSeatNumbers"
           :current-nominee-seat="id === headUserId ? currentNomineeSeat : null"
@@ -133,6 +134,7 @@
             :show-shoot="game.canShootTarget(id)"
             :show-check="game.canCheckTarget(id)"
             :pick-number="isHead ? (headNightPicks.get(id) ?? null) : null"
+            :pick-kind="headPickKind"
             :show-nominate="game.canNominateTarget(id)"
             :nominees="nomineeSeatNumbers"
             :current-nominee-seat="id === headUserId ? currentNomineeSeat : null"
@@ -490,6 +492,15 @@ const offlineAliveSeatNumbers = computed<number[]>(() => {
   return result
 })
 const hasOfflineAlivePlayers = computed(() => offlineAliveSeatNumbers.value.length > 0)
+
+const headPickKind = computed<'shoot' | 'check' | ''>(() => {
+  if (!isHead.value) return ''
+  if (gamePhase.value !== 'night') return ''
+  const st = String(night.stage || '')
+  if (st.startsWith('checks')) return 'check'
+  if (st.startsWith('shoot')) return 'shoot'
+  return ''
+})
 
 const FINISH_SPEECH_DELAY_MS = 3000
 const finishSpeechUnlocked = ref(false)

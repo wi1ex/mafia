@@ -61,6 +61,7 @@ __all__ = [
     "night_stage_timeout_job",
     "compute_night_kill",
     "finish_day_prelude_speech",
+    "emit_night_head_picks",
 ]
 
 log = structlog.get_logger()
@@ -497,6 +498,169 @@ async def get_players_in_seat_order(r, rid: int) -> list[int]:
             players.append((seat, uid))
     players.sort(key=lambda x: x[0])
     return [uid for _, uid in players]
+
+
+async def get_rooms_brief(r, ids: Iterable[int]) -> List[dict]:
+    ids_list = [int(x) for x in ids]
+    if not ids_list:
+        return []
+
+    fields = ("id", "title", "user_limit", "creator", "creator_name", "creator_avatar_name", "created_at", "privacy")
+    async with r.pipeline() as p:
+        for rid in ids_list:
+            await p.hmget(f"room:{rid}:params", *fields)
+            await p.scard(f"room:{rid}:members")
+            await p.hget(f"room:{rid}:game_state", "phase")
+            await p.scard(f"room:{rid}:game_alive")
+            await p.scard(f"room:{rid}:game_players")
+        raw = await p.execute()
+
+    briefs: List[dict] = []
+    need_db: set[int] = set()
+
+    for i in range(0, len(raw), 5):
+        vals = raw[i]
+        occ_members = int(raw[i + 1] or 0)
+        phase_raw = raw[i + 2]
+        alive_cnt = int(raw[i + 3] or 0)
+        players_total = int(raw[i + 4] or 0)
+
+        if not vals:
+            continue
+
+        _id, title, user_limit, creator, creator_name, creator_avatar_name, created_at, privacy = vals
+        if not (_id and title and user_limit and creator and creator_name and created_at):
+            continue
+
+        creator_id = int(creator)
+        avatar = creator_avatar_name if creator_avatar_name is not None else None
+        if avatar is None:
+            need_db.add(creator_id)
+
+        phase = str(phase_raw or "idle")
+        in_game = phase != "idle"
+        occupancy = alive_cnt if in_game else occ_members
+        eff_limit = players_total if in_game and players_total > 0 else int(user_limit)
+
+        briefs.append({
+            "id": int(_id),
+            "title": str(title),
+            "user_limit": eff_limit,
+            "creator": creator_id,
+            "creator_name": str(creator_name),
+            "creator_avatar_name": avatar,
+            "created_at": str(created_at),
+            "privacy": str(privacy or "open"),
+            "occupancy": occupancy,
+            "in_game": in_game,
+            "game_phase": phase,
+        })
+
+    if need_db:
+        try:
+            async with SessionLocal() as s:
+                res = await s.execute(select(User.id, User.avatar_name).where(User.id.in_(need_db)))
+                avatar_by_uid = {int(uid): cast(Optional[str], av) for uid, av in res.all()}
+        except Exception:
+            log.exception("rooms.brief.db_error")
+            avatar_by_uid = {}
+
+        for b in briefs:
+            if b["creator_avatar_name"] is None:
+                b["creator_avatar_name"] = avatar_by_uid.get(b["creator"])
+
+    return briefs
+
+
+async def join_room_atomic(r, rid: int, uid: int, role: str):
+    await ensure_scripts(r)
+    now_ts = int(time())
+    args = (
+        5,
+        f"room:{rid}:params",
+        f"room:{rid}:members",
+        f"room:{rid}:positions",
+        f"room:{rid}:user:{uid}:info",
+        f"room:{rid}:empty_since",
+        str(rid),
+        str(uid),
+        role,
+        str(now_ts),
+    )
+
+    global _join_sha
+    try:
+        res = await r.evalsha(_join_sha, *args)
+    except ResponseError as e:
+        if "NOSCRIPT" in str(e):
+            _join_sha = await r.script_load(JOIN_LUA)
+            res = await r.evalsha(_join_sha, *args)
+        else:
+            log.exception("join.lua_error", rid=rid, uid=uid)
+            raise
+
+    occ = int(res[0])
+    pos = int(res[1])
+    already = bool(int(res[2]))
+    k = int(res[3])
+    tail = list(map(int, res[4: 4 + 2*k]))
+    updates = [(tail[i], tail[i + 1]) for i in range(0, 2*k, 2)]
+    return occ, pos, already, updates
+
+
+async def leave_room_atomic(r, rid: int, uid: int):
+    await ensure_scripts(r)
+    now_ts = int(time())
+    args = (
+        6,
+        f"room:{rid}:members",
+        f"room:{rid}:positions",
+        f"room:{rid}:user:{uid}:info",
+        f"room:{rid}:empty_since",
+        f"room:{rid}:gc_seq",
+        f"room:{rid}:visitors",
+        str(uid),
+        str(now_ts),
+    )
+
+    global _leave_sha
+    try:
+        res = await r.evalsha(_leave_sha, *args)
+    except ResponseError as e:
+        if "NOSCRIPT" in str(e):
+            _leave_sha = await r.script_load(LEAVE_LUA)
+            res = await r.evalsha(_leave_sha, *args)
+        else:
+            log.exception("leave.lua_error", rid=rid, uid=uid)
+            raise
+
+    occ = int(res[0])
+    gc_seq = int(res[1])
+    k = int(res[2])
+    tail = list(map(int, res[3: 3 + 2*k]))
+    updates = [(tail[i], tail[i + 1]) for i in range(0, 2*k, 2)]
+    return occ, gc_seq, updates
+
+
+async def emit_rooms_occupancy_safe(r, rid: int, occ: int) -> None:
+    try:
+        phase = str(await r.hget(f"room:{rid}:game_state", "phase") or "idle")
+    except Exception:
+        phase = "idle"
+
+    if phase != "idle":
+        try:
+            alive_occ = int(await r.scard(f"room:{rid}:game_alive") or 0)
+        except Exception:
+            alive_occ = occ
+        occ_to_send = alive_occ
+    else:
+        occ_to_send = occ
+
+    await sio.emit("rooms_occupancy",
+                   {"id": rid,
+                    "occupancy": occ_to_send},
+                   namespace="/rooms")
 
 
 async def get_alive_players_in_seat_order(r, rid: int) -> list[int]:
@@ -1136,7 +1300,6 @@ async def get_night_head_picks(r, rid: int, kind: str) -> dict[str, int]:
             continue
 
     seats = await r.hgetall(f"room:{rid}:game_seats")
-
     if kind == "shoot":
         actors = [u for u, role in roles_map.items() if role in ("mafia", "don") and u in alive]
         raw = await r.hgetall(f"room:{rid}:night_shots")
@@ -1202,19 +1365,6 @@ async def night_stage_timeout_job(rid: int, expected_stage: str, expected_starte
         raw2["night_shoot_started"] = "0"
         raw2["night_shoot_duration"] = "0"
         await emit_game_night_state(rid, raw2)
-
-        try:
-            head_uid = int(raw.get("head") or 0)
-        except Exception:
-            head_uid = 0
-        if head_uid:
-            picks = await get_night_head_picks(r, rid, "shoot")
-            await sio.emit("game_night_head_picks",
-                           {"room_id": rid,
-                            "kind": "shoot",
-                            "picks": picks},
-                           room=f"user:{head_uid}",
-                           namespace="/room")
         return
 
     if expected_stage == "checks":
@@ -1243,19 +1393,26 @@ async def night_stage_timeout_job(rid: int, expected_stage: str, expected_starte
         raw2["night_check_started"] = "0"
         raw2["night_check_duration"] = "0"
         await emit_game_night_state(rid, raw2)
-        try:
-            head_uid = int(raw.get("head") or 0)
-        except Exception:
-            head_uid = 0
-        if head_uid:
-            picks = await get_night_head_picks(r, rid, "checks")
-            await sio.emit("game_night_head_picks",
-                           {"room_id": rid,
-                            "kind": "checks",
-                            "picks": picks},
-                           room=f"user:{head_uid}",
-                           namespace="/room")
         return
+
+
+async def emit_night_head_picks(r, rid: int, kind: str, head_uid: int) -> None:
+    if not head_uid:
+        return
+    try:
+        picks = await get_night_head_picks(r, rid, kind)
+    except Exception:
+        log.exception("night.head_picks.build_failed", rid=rid, kind=kind)
+        return
+
+    action = "shoot" if kind == "shoot" else "check"
+    await sio.emit("game_night_head_picks",
+                   {"room_id": rid,
+                    "kind": kind,
+                    "action": action,
+                    "picks": picks},
+                   room=f"user:{head_uid}",
+                   namespace="/room")
 
 
 async def finish_day_prelude_speech(r, rid: int, raw_gstate: Mapping[str, Any], speaker_uid: int) -> dict[str, Any]:
@@ -1283,170 +1440,22 @@ async def finish_day_prelude_speech(r, rid: int, raw_gstate: Mapping[str, Any], 
         )
         await p.execute()
 
-    return {"room_id": rid, "speaker_uid": speaker_uid, "opening_uid": 0, "closing_uid": 0, "deadline": 0}
-
-
-async def get_rooms_brief(r, ids: Iterable[int]) -> List[dict]:
-    ids_list = [int(x) for x in ids]
-    if not ids_list:
-        return []
-
-    fields = ("id", "title", "user_limit", "creator", "creator_name", "creator_avatar_name", "created_at", "privacy")
-    async with r.pipeline() as p:
-        for rid in ids_list:
-            await p.hmget(f"room:{rid}:params", *fields)
-            await p.scard(f"room:{rid}:members")
-            await p.hget(f"room:{rid}:game_state", "phase")
-            await p.scard(f"room:{rid}:game_alive")
-            await p.scard(f"room:{rid}:game_players")
-        raw = await p.execute()
-
-    briefs: List[dict] = []
-    need_db: set[int] = set()
-
-    for i in range(0, len(raw), 5):
-        vals = raw[i]
-        occ_members = int(raw[i + 1] or 0)
-        phase_raw = raw[i + 2]
-        alive_cnt = int(raw[i + 3] or 0)
-        players_total = int(raw[i + 4] or 0)
-
-        if not vals:
-            continue
-
-        _id, title, user_limit, creator, creator_name, creator_avatar_name, created_at, privacy = vals
-        if not (_id and title and user_limit and creator and creator_name and created_at):
-            continue
-
-        creator_id = int(creator)
-        avatar = creator_avatar_name if creator_avatar_name is not None else None
-        if avatar is None:
-            need_db.add(creator_id)
-
-        phase = str(phase_raw or "idle")
-        in_game = phase != "idle"
-        occupancy = alive_cnt if in_game else occ_members
-        eff_limit = players_total if in_game and players_total > 0 else int(user_limit)
-
-        briefs.append({
-            "id": int(_id),
-            "title": str(title),
-            "user_limit": eff_limit,
-            "creator": creator_id,
-            "creator_name": str(creator_name),
-            "creator_avatar_name": avatar,
-            "created_at": str(created_at),
-            "privacy": str(privacy or "open"),
-            "occupancy": occupancy,
-            "in_game": in_game,
-            "game_phase": phase,
-        })
-
-    if need_db:
-        try:
-            async with SessionLocal() as s:
-                res = await s.execute(select(User.id, User.avatar_name).where(User.id.in_(need_db)))
-                avatar_by_uid = {int(uid): cast(Optional[str], av) for uid, av in res.all()}
-        except Exception:
-            log.exception("rooms.brief.db_error")
-            avatar_by_uid = {}
-
-        for b in briefs:
-            if b["creator_avatar_name"] is None:
-                b["creator_avatar_name"] = avatar_by_uid.get(b["creator"])
-
-    return briefs
-
-
-async def join_room_atomic(r, rid: int, uid: int, role: str):
-    await ensure_scripts(r)
-    now_ts = int(time())
-    args = (
-        5,
-        f"room:{rid}:params",
-        f"room:{rid}:members",
-        f"room:{rid}:positions",
-        f"room:{rid}:user:{uid}:info",
-        f"room:{rid}:empty_since",
-        str(rid),
-        str(uid),
-        role,
-        str(now_ts),
-    )
-
-    global _join_sha
     try:
-        res = await r.evalsha(_join_sha, *args)
-    except ResponseError as e:
-        if "NOSCRIPT" in str(e):
-            _join_sha = await r.script_load(JOIN_LUA)
-            res = await r.evalsha(_join_sha, *args)
-        else:
-            log.exception("join.lua_error", rid=rid, uid=uid)
-            raise
-
-    occ = int(res[0])
-    pos = int(res[1])
-    already = bool(int(res[2]))
-    k = int(res[3])
-    tail = list(map(int, res[4: 4 + 2*k]))
-    updates = [(tail[i], tail[i + 1]) for i in range(0, 2*k, 2)]
-    return occ, pos, already, updates
-
-
-async def leave_room_atomic(r, rid: int, uid: int):
-    await ensure_scripts(r)
-    now_ts = int(time())
-    args = (
-        6,
-        f"room:{rid}:members",
-        f"room:{rid}:positions",
-        f"room:{rid}:user:{uid}:info",
-        f"room:{rid}:empty_since",
-        f"room:{rid}:gc_seq",
-        f"room:{rid}:visitors",
-        str(uid),
-        str(now_ts),
-    )
-
-    global _leave_sha
-    try:
-        res = await r.evalsha(_leave_sha, *args)
-    except ResponseError as e:
-        if "NOSCRIPT" in str(e):
-            _leave_sha = await r.script_load(LEAVE_LUA)
-            res = await r.evalsha(_leave_sha, *args)
-        else:
-            log.exception("leave.lua_error", rid=rid, uid=uid)
-            raise
-
-    occ = int(res[0])
-    gc_seq = int(res[1])
-    k = int(res[2])
-    tail = list(map(int, res[3: 3 + 2*k]))
-    updates = [(tail[i], tail[i + 1]) for i in range(0, 2*k, 2)]
-    return occ, gc_seq, updates
-
-
-async def emit_rooms_occupancy_safe(r, rid: int, occ: int) -> None:
-    try:
-        phase = str(await r.hget(f"room:{rid}:game_state", "phase") or "idle")
+        await sio.emit("game_player_left",
+                       {"room_id": rid,
+                        "user_id": speaker_uid},
+                       room=f"room:{rid}",
+                       namespace="/room")
     except Exception:
-        phase = "idle"
+        log.exception("day_prelude.player_left_emit_failed", rid=rid, uid=speaker_uid)
 
-    if phase != "idle":
+    if head_uid and head_uid != speaker_uid:
         try:
-            alive_occ = int(await r.scard(f"room:{rid}:game_alive") or 0)
+            await apply_blocks_and_emit(r, rid, actor_uid=head_uid, actor_role="head", target_uid=speaker_uid, changes_bool={"mic": True, "cam": True})
         except Exception:
-            alive_occ = occ
-        occ_to_send = alive_occ
-    else:
-        occ_to_send = occ
+            log.exception("day_prelude.autoblock_failed", rid=rid, head=head_uid, target=speaker_uid)
 
-    await sio.emit("rooms_occupancy",
-                   {"id": rid,
-                    "occupancy": occ_to_send},
-                   namespace="/rooms")
+    return {"room_id": rid, "speaker_uid": speaker_uid, "opening_uid": 0, "closing_uid": 0, "deadline": 0, "prelude": True}
 
 
 async def enrich_game_runtime_with_vote(r, rid: int, game_runtime: Mapping[str, Any], raw_gstate: Mapping[str, Any]) -> dict[str, Any]:
