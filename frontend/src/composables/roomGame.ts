@@ -306,6 +306,30 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     }, PASS_SPEECH_DELAY_MS)
   }
 
+  const START_MAFIA_TALK_DELAY_MS = 3000
+  const startMafiaTalkUnlocked = ref(false)
+  let startMafiaTalkTimer: number | null = null
+  function resetStartMafiaTalkDelay() {
+    startMafiaTalkUnlocked.value = false
+    if (startMafiaTalkTimer !== null) {
+      clearTimeout(startMafiaTalkTimer)
+      startMafiaTalkTimer = null
+    }
+  }
+  function scheduleStartMafiaTalkUnlock() {
+    resetStartMafiaTalkDelay()
+    if (typeof window === 'undefined') return
+    if (!isHead.value) return
+    if (gamePhase.value !== 'roles_pick') return
+    if (!rolesVisibleForHead.value) return
+    startMafiaTalkTimer = window.setTimeout(() => {
+      if (isHead.value && gamePhase.value === 'roles_pick' && rolesVisibleForHead.value) {
+        startMafiaTalkUnlocked.value = true
+      }
+      startMafiaTalkTimer = null
+    }, START_MAFIA_TALK_DELAY_MS)
+  }
+
   const canStartDay = computed(() => gamePhase.value === 'mafia_talk_end' && isHead.value)
 
   const isCurrentSpeaker = computed(() => {
@@ -389,7 +413,12 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   })
 
   const canHeadGoToMafiaTalkControl = computed(() => {
-    return gamePhase.value === 'roles_pick' && isHead.value && rolesVisibleForHead.value
+    return (
+      gamePhase.value === 'roles_pick' &&
+      isHead.value &&
+      rolesVisibleForHead.value &&
+      startMafiaTalkUnlocked.value
+    )
   })
 
   const canHeadFinishMafiaTalkControl = computed(() => {
@@ -403,7 +432,8 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   const canStartLeaderSpeech = computed(() => {
     if (!isHead.value) return false
     if (gamePhase.value !== 'vote') return false
-    if (!vote.done) return false
+    const liftPassed = voteLiftState.value === 'passed'
+    if (!liftPassed && !vote.done) return false
     if (!voteResultShown.value) return false
     if (voteAborted.value) return false
     if (voteLeaderKilled.value) return false
@@ -446,6 +476,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   const canShowNightAfterVote = computed(() => {
     if (!isHead.value) return false
     if (gamePhase.value !== 'vote') return false
+    if (voteLiftState.value === 'failed') return true
     if (!vote.done) return false
     if (!voteLeaderSpeechesDone.value) return false
     if (voteAborted.value || voteResultLeaders.length <= 1) return true
@@ -649,6 +680,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     rolePick.remainingMs = 0
     roleOverlayMode.value = 'hidden'
     roleOverlayCard.value = null
+    resetStartMafiaTalkDelay()
     if (roleOverlayTimerId.value != null) {
       clearTimeout(roleOverlayTimerId.value)
       roleOverlayTimerId.value = null
@@ -1008,6 +1040,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     }
   }
 
+  const ROLE_REVEAL_MS = 3000
   function handleGameRoleAssigned(p: any) {
     const uid = String(p?.user_id || '')
     const role = String(p?.role || '')
@@ -1023,7 +1056,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       roleOverlayTimerId.value = window.setTimeout(() => {
         roleOverlayMode.value = 'hidden'
         roleOverlayTimerId.value = null
-      }, 5000)
+      }, ROLE_REVEAL_MS)
     }
   }
 
@@ -1257,6 +1290,11 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   watch(() => [isHead.value, gamePhase.value, daySpeechesDone.value, daySpeech.currentId, daySpeech.remainingMs], (_v, _ov, onCleanup) => {
       schedulePassSpeechUnlock()
       onCleanup(() => resetPassSpeechDelay())
+  }, { immediate: true })
+
+  watch(() => [isHead.value, gamePhase.value, rolesVisibleForHead.value], (_v, _ov, onCleanup) => {
+      scheduleStartMafiaTalkUnlock()
+      onCleanup(() => resetStartMafiaTalkDelay())
   }, { immediate: true })
 
   async function goToMafiaTalk(sendAck: SendAckFn): Promise<void> {
