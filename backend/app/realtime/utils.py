@@ -383,6 +383,9 @@ class GameStateView:
             "started": started_flag,
         }
 
+        vote_lift_state = self.ctx.gstr("vote_lift_state")
+        if vote_lift_state:
+            vote_section["lift_state"] = vote_lift_state
         if leaders:
             vote_section["leaders"] = leaders
             vote_section["leader_idx"] = leader_idx

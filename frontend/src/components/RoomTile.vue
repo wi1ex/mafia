@@ -42,7 +42,7 @@
       <span>Ожидаем игроков: {{ offlineSeatsInGame.join(', ') }}</span>
     </div>
     <div class="head-bar nominate" v-else-if="isGameHead && showNominationsBar && Array.isArray(nominees) && nominees.length > 0">
-      <span class="nominations-badge" v-for="seatNum in nominees" :key="seatNum" :class="{ current: currentNomineeSeat === seatNum }">
+      <span class="nominations-badge" v-for="seatNum in nominees" :key="seatNum" :class="{ current: currentNomineeSeat === seatNum || liftNomineesSet.has(seatNum) }">
         {{ seatNum }}
       </span>
     </div>
@@ -150,6 +150,7 @@ const props = withDefaults(defineProps<{
   phaseLabel?: string
   showNominate?: boolean
   nominees?: number[]
+  liftNominees?: number[]
   showNominationsBar?: boolean
   currentNomineeSeat?: number | null
   showVoteButton?: boolean
@@ -187,6 +188,7 @@ const props = withDefaults(defineProps<{
   phaseLabel: '',
   showNominate: false,
   nominees: () => [],
+  liftNominees: () => [],
   showNominationsBar: false,
   currentNomineeSeat: null,
   showVoteButton: false,
@@ -215,6 +217,7 @@ defineEmits<{
 
 const showVideo = computed(() => !props.hiddenByVisibility && !props.offline && !props.isDead(props.id) && props.isOn(props.id, 'cam') && !props.isBlocked(props.id, 'cam'))
 const openPanel = computed(() => props.openPanelFor === props.id)
+const liftNomineesSet = computed(() => new Set(props.liftNominees || []))
 const hasRolePickTimer = computed(() => props.rolePickOwnerId === props.id && (props.rolePickRemainingMs ?? 0) > 0)
 const hasMafiaTalkTimer = computed(() => props.mafiaTalkHostId === props.id && (props.mafiaTalkRemainingMs ?? 0) > 0)
 const hasDaySpeechTimer = computed(() => props.daySpeechOwnerId === props.id && (props.daySpeechRemainingMs ?? 0) > 0)

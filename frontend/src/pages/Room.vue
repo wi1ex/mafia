@@ -57,12 +57,13 @@
           :pick-kind="headPickKind"
           :show-nominate="game.canNominateTarget(id)"
           :nominees="nomineeSeatNumbers"
+          :lift-nominees="id === headUserId && liftHighlightNominees ? nomineeSeatNumbers : []"
           :current-nominee-seat="id === headUserId ? currentNomineeSeat : null"
           :show-nominations-bar="id === headUserId && (gamePhase === 'day' || gamePhase === 'vote')"
           :offline-seats-in-game="id === headUserId && gamePhase === 'vote' ? offlineAliveSeatNumbers : []"
           :show-vote-button="amIAlive && game.canPressVoteButton()"
           :vote-enabled="game.canPressVoteButton()"
-          :has-voted="votedThisRound.has(id)"
+          :has-voted="(isLiftVoting ? votedUsers : votedThisRound).has(id)"
           @toggle-panel="toggleTilePanel"
           @vol-input="onVol"
           @block="(key, uid) => toggleBlock(uid, key)"
@@ -137,12 +138,13 @@
             :pick-kind="headPickKind"
             :show-nominate="game.canNominateTarget(id)"
             :nominees="nomineeSeatNumbers"
+            :lift-nominees="id === headUserId && liftHighlightNominees ? nomineeSeatNumbers : []"
             :current-nominee-seat="id === headUserId ? currentNomineeSeat : null"
             :show-nominations-bar="id === headUserId && (gamePhase === 'day' || gamePhase === 'vote')"
             :offline-seats-in-game="id === headUserId && gamePhase === 'vote' ? offlineAliveSeatNumbers : []"
             :show-vote-button="amIAlive && game.canPressVoteButton()"
             :vote-enabled="game.canPressVoteButton()"
-            :has-voted="votedThisRound.has(id)"
+            :has-voted="(isLiftVoting ? votedUsers : votedThisRound).has(id)"
             @toggle-panel="toggleTilePanel"
             @vol-input="onVol"
             @block="(key, uid) => toggleBlock(uid, key)"
@@ -173,10 +175,8 @@
           <button class="btn-text" @click="onProbeClick">Разрешить доступ к камере и микрофону</button>
         </div>
         <div v-else class="controls">
-          <button v-if="gamePhase === 'roles_pick' && isHead && rolesVisibleForHead" class="btn-text"
-                  @click="goToMafiaTalkUi" aria-label="Перейти к договорке">Начать договорку</button>
-          <button v-if="gamePhase === 'mafia_talk_start' && isHead && mafiaTalkRemainingMs <= 0" class="btn-text"
-                  @click="finishMafiaTalkUi" aria-label="Завершить договорку">Завершить договорку</button>
+          <button v-if="canHeadGoToMafiaTalkControl" class="btn-text" @click="goToMafiaTalkUi" aria-label="Перейти к договорке">Начать договорку</button>
+          <button v-if="canHeadFinishMafiaTalkControl" class="btn-text" @click="finishMafiaTalkUi" aria-label="Завершить договорку">Завершить договорку</button>
           <button v-if="canStartDay" class="btn-text" @click="startDayUi" aria-label="Начать день">День</button>
           <button v-if="canFinishSpeechHead" class="btn-text" @click="finishSpeechUi" aria-label="Завершить речь">Завершить речь</button>
           <button v-else-if="canPassSpeechHead" class="btn-text" @click="passSpeechUi" aria-label="Передать речь">Передать речь</button>
@@ -184,7 +184,9 @@
           <button v-if="canHeadVoteControl" class="btn-text" :disabled="hasOfflineAlivePlayers" @click="onHeadVoteControl">
             {{ !voteStartedForCurrent ? 'Голосование за ' + (currentNomineeSeat ?? '') : 'Далее' }}
           </button>
-          <button v-if="gamePhase === 'vote' && isHead && vote.done && !voteResultShown" class="btn-text" @click="finishVoteUi">Завершить голосование</button>
+          <button v-if="canHeadFinishVoteControl" class="btn-text" @click="finishVoteUi">Завершить голосование</button>
+          <button v-if="canPrepareVoteLift" class="btn-text" @click="prepareVoteLiftUi">Далее</button>
+          <button v-if="canStartVoteLift" class="btn-text" @click="startVoteLiftUi">Голосование за подъём</button>
           <button v-if="canStartLeaderSpeech" class="btn-text" @click="startLeaderSpeechUi">Передать речь</button>
           <button v-if="canRestartVoteForLeaders" class="btn-text" @click="restartVoteForLeadersUi">Начать голосование</button>
           <button v-if="canShowNight" class="btn-text" @click="goToNightUi">Ночь</button>
@@ -368,7 +370,7 @@ const {
   offlineInGame,
   gameFoulsByUser,
   votedThisRound,
-  rolesVisibleForHead,
+  votedUsers,
   knownRolesVisible,
   canToggleKnownRoles,
   rolePick,
@@ -385,9 +387,7 @@ const {
   amIAlive,
   takenCardSet,
   mafiaTalkRemainingMs,
-  vote,
   voteStartedForCurrent,
-  voteResultShown,
   night,
   headNightPicks,
   headUserId,
@@ -403,6 +403,13 @@ const {
   canTakeFoulSelf,
   canStartVote,
   canHeadVoteControl,
+  canPrepareVoteLift,
+  canStartVoteLift,
+  isLiftVoting,
+  liftHighlightNominees,
+  canHeadGoToMafiaTalkControl,
+  canHeadFinishMafiaTalkControl,
+  canHeadFinishVoteControl,
   canHeadNightShootControl,
   canHeadNightCheckControl,
   canHeadDayFromNightControl,
@@ -627,6 +634,8 @@ const passSpeechUi = () => game.passSpeech(sendAckGame)
 const finishSpeechUi = () => game.finishSpeech(sendAckGame)
 const startVoteUi = () => game.startVotePhase(sendAckGame)
 const finishVoteUi = () => game.finishVote(sendAckGame)
+const prepareVoteLiftUi = () => game.prepareVoteLift(sendAckGame)
+const startVoteLiftUi = () => game.startVoteLift(sendAckGame)
 const startLeaderSpeechUi = () => game.startLeaderSpeech(sendAckGame)
 const restartVoteForLeadersUi = () => game.restartVoteForLeaders(sendAckGame)
 const shootTargetUi = (targetId: string) => game.shootTarget(targetId, sendAckGame)
@@ -1193,8 +1202,8 @@ async function applyDayStartForLocal(): Promise<void> {
 async function applyNightStartForLocal(): Promise<void> {
   const me = localId.value
   const hasActiveFoul = !!(me && game.foulActive.has(me)) || foulPending.value
-  try { if (!hasActiveFoul && !blockedSelf.value.mic && micOn.value) await toggleMic() } catch {}
-  try { if (!blockedSelf.value.visibility && visibilityOn.value) await toggleVisibility() } catch {}
+  try { if (!isHead.value && !hasActiveFoul && !blockedSelf.value.mic && micOn.value) await toggleMic() } catch {}
+  try { if (!isHead.value && !blockedSelf.value.visibility && visibilityOn.value) await toggleVisibility() } catch {}
 }
 
 function handleGamePhaseChangeUi(prev: GamePhase, next: GamePhase): void {

@@ -131,6 +131,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   const voteAborted = ref(false)
   const voteLeaderSpeechesDone = ref(false)
   const voteLeaderKilled = ref(false)
+  const voteLiftState = ref<'none' | 'ready' | 'prepared' | 'voting' | 'passed' | 'failed'>('none')
   const deathReasonByUser = reactive(new Map<string, string>())
 
   const night = reactive({
@@ -360,8 +361,20 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   })
 
   const canHeadVoteControl = computed(() => {
+    if (voteLiftState.value !== 'none') return false
     return gamePhase.value === 'vote' && isHead.value && !vote.done && vote.remainingMs === 0
   })
+
+  const canPrepareVoteLift = computed(() => {
+    return isHead.value && gamePhase.value === 'vote' && voteResultShown.value && voteLiftState.value === 'ready'
+  })
+
+  const canStartVoteLift = computed(() => {
+    return isHead.value && gamePhase.value === 'vote' && voteLiftState.value === 'prepared'
+  })
+
+  const isLiftVoting = computed(() => voteLiftState.value === 'voting')
+  const liftHighlightNominees = computed(() => ['prepared', 'voting', 'passed'].includes(voteLiftState.value))
 
   const canHeadNightShootControl = computed(() => {
     return gamePhase === 'night' && isHead && night.stage === 'sleep'
@@ -375,6 +388,18 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     return gamePhase === 'night' && isHead && night.stage === 'checks_done'
   })
 
+  const canHeadGoToMafiaTalkControl = computed(() => {
+    return gamePhase === 'roles_pick' && isHead && rolesVisibleForHead
+  })
+
+  const canHeadFinishMafiaTalkControl = computed(() => {
+    return gamePhase === 'mafia_talk_start' && isHead && mafiaTalkRemainingMs <= 0
+  })
+
+  const canHeadFinishVoteControl = computed(() => {
+    return gamePhase === 'vote' && isHead && vote.done && !voteResultShown
+  })
+
   const canStartLeaderSpeech = computed(() => {
     if (!isHead.value) return false
     if (gamePhase.value !== 'vote') return false
@@ -382,6 +407,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     if (!voteResultShown.value) return false
     if (voteAborted.value) return false
     if (voteLeaderKilled.value) return false
+    if (['ready', 'prepared', 'voting', 'failed'].includes(voteLiftState.value)) return false
     if (voteResultLeaders.length === 0) return false
     if (voteLeaderSpeechesDone.value) return false
     return daySpeech.remainingMs <= 0
@@ -393,6 +419,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     if (!vote.done) return false
     if (!voteResultShown.value) return false
     if (voteAborted.value) return false
+    if (voteLiftState.value !== 'none') return false
     if (voteResultLeaders.length <= 1) return false
     return voteLeaderSpeechesDone.value
   })
@@ -437,6 +464,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     const me = localId.value
     if (!me) return false
     if (gamePhase.value !== 'vote') return false
+    if (voteLiftState.value !== 'none' && voteLiftState.value !== 'voting') return false
     if (vote.done) return false
     if (vote.remainingMs <= 0) return false
     if (!amIAlive.value) return false
@@ -516,6 +544,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     voteResultShown.value = false
     voteLeaderSpeechesDone.value = false
     voteLeaderKilled.value = false
+    voteLiftState.value = 'none'
   }
 
   function fillPlayersFromSeats() {
@@ -810,10 +839,12 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       const done = isTrueLike((vt as any).done)
       const aborted = isTrueLike((vt as any).aborted)
       const resultsReady = isTrueLike((vt as any).results_ready)
+      const liftStateRaw = String((vt as any).lift_state || '')
       vote.done = done
       voteAborted.value = aborted
       voteResultShown.value = resultsReady
       voteStartedForCurrent.value = isTrueLike((vt as any).started)
+      voteLiftState.value = liftStateRaw ? (liftStateRaw as typeof voteLiftState.value) : 'none'
 
       votedUsers.clear()
       votedThisRound.clear()
@@ -1084,10 +1115,13 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     const prevId = vote.currentId
     const newId = String(vt.current_uid || '')
     const ms = secondsToMs(vt.deadline)
+    const liftStateRaw = String((vt as any).lift_state || '')
+    voteLiftState.value = liftStateRaw ? (liftStateRaw as typeof voteLiftState.value) : 'none'
     vote.currentId = newId
     setVoteRemainingMs(ms, true)
     vote.done = isTrueLike(vt.done)
     voteAborted.value = isTrueLike((vt as any).aborted)
+    voteResultShown.value = isTrueLike((vt as any).results_ready)
     if (!newId) {
       voteStartedForCurrent.value = false
     } else if (newId !== prevId) {
@@ -1108,14 +1142,16 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
 
     vote.currentId = ''
     voteStartedForCurrent.value = false
+    voteLiftState.value = 'none'
   }
 
   function handleGameVoted(p: any) {
     const uid = String(p?.user_id || '')
-    const target = String(p?.target_id || '')
-    if (!uid || !target) return
+    const target = String(p?.target_id ?? '')
+    const lift = isTrueLike((p as any)?.lift)
+    if (!uid || (!target && !lift)) return
     votedUsers.add(uid)
-    if (target === vote.currentId) {
+    if (lift || target === vote.currentId) {
       votedThisRound.add(uid)
     }
   }
@@ -1132,11 +1168,21 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     voteStartedForCurrent.value = false
     setVoteRemainingMs(0, true)
 
+    const liftStateRaw = String((p as any)?.lift_state || '')
+    const liftResult = liftStateRaw ? (liftStateRaw as typeof voteLiftState.value) : 'none'
+    voteLiftState.value = liftResult
+
     const leadersRaw = p?.leaders
-    replaceIds(voteResultLeaders, leadersRaw)
+    if (liftResult === 'failed') {
+      voteLeaderSpeechesDone.value = true
+      replaceIds(voteResultLeaders, [])
+    } else {
+      replaceIds(voteResultLeaders, leadersRaw)
+    }
 
     const nomineesRaw = p?.nominees
-    replaceIds(dayNominees, nomineesRaw, s => voteResultLeaders.includes(s))
+    if (liftResult === 'failed') replaceIds(dayNominees, [])
+    else replaceIds(dayNominees, nomineesRaw, s => voteResultLeaders.includes(s))
   }
 
   async function finishVote(sendAck: SendAckFn): Promise<void> {
@@ -1160,6 +1206,37 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       return
     }
     voteResultShown.value = true
+    votedUsers.clear()
+    votedThisRound.clear()
+  }
+
+  async function prepareVoteLift(sendAck: SendAckFn): Promise<void> {
+    const resp = await sendAck('game_vote_lift_prepare', {})
+    if (!resp?.ok) {
+      const st = resp?.status
+      const code = resp?.error
+      if (st === 400 && code === 'bad_phase') alert('Сейчас нельзя продолжить голосование')
+      else if (st === 403 && code === 'forbidden') alert('Только ведущий может продолжить')
+      else if (st === 409 && code === 'lift_not_ready') alert('Продолжение недоступно')
+      else if (st === 409 && code === 'vote_not_ready') alert('Результаты голосования ещё не готовы')
+      else alert('Не удалось продолжить голосование')
+      return
+    }
+  }
+
+  async function startVoteLift(sendAck: SendAckFn): Promise<void> {
+    const resp = await sendAck('game_vote_lift_start', {})
+    if (!resp?.ok) {
+      const st = resp?.status
+      const code = resp?.error
+      if (st === 400 && code === 'bad_phase') alert('Сейчас нельзя начать голосование за подъём')
+      else if (st === 403 && code === 'forbidden') alert('Только ведущий может начать голосование за подъём')
+      else if (st === 409 && code === 'lift_not_ready') alert('Голосование за подъём недоступно')
+      else if (st === 409 && code === 'no_nominees') alert('Нет кандидатов для голосования')
+      else alert('Не удалось начать голосование за подъём')
+      return
+    }
+    voteResultShown.value = false
     votedUsers.clear()
     votedThisRound.clear()
   }
@@ -1787,6 +1864,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       voteLeaderKilled.value = false
       voteResultShown.value = false
       replaceIds(voteResultLeaders, undefined)
+      voteLiftState.value = 'none'
     }
   }
 
@@ -1819,6 +1897,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   }
 
   async function headVoteControl(sendAck: SendAckFn): Promise<void> {
+    if (voteLiftState.value !== 'none') return
     if (gamePhase.value !== 'vote' || !isHead.value || vote.done) return
     if (!vote.currentId) {
       await startCurrentCandidateVote(sendAck)
@@ -1891,6 +1970,13 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     canTakeFoulSelf,
     canStartVote,
     canHeadVoteControl,
+    canPrepareVoteLift,
+    canStartVoteLift,
+    isLiftVoting,
+    liftHighlightNominees,
+    canHeadGoToMafiaTalkControl,
+    canHeadFinishMafiaTalkControl,
+    canHeadFinishVoteControl,
     canHeadNightShootControl,
     canHeadNightCheckControl,
     canHeadDayFromNightControl,
@@ -1915,6 +2001,8 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     startVotePhase,
     voteForCurrent,
     finishVote,
+    prepareVoteLift,
+    startVoteLift,
     handleGameVoteState,
     handleGameVoted,
     isGameHead,

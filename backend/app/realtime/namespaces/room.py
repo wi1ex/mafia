@@ -551,6 +551,8 @@ async def game_leave(sid, data):
                             "vote_speech_kind": "",
                             "vote_results_ready": "0",
                             "vote_speeches_done": "0",
+                            "vote_prev_leaders": "",
+                            "vote_lift_state": "",
                         },
                     )
                     await p.execute()
@@ -1124,6 +1126,8 @@ async def game_phase_next(sid, data):
                         "vote_done": "0",
                         "vote_results_ready": "0",
                         "vote_speeches_done": "0",
+                        "vote_prev_leaders": "",
+                        "vote_lift_state": "",
                     },
                 )
                 await p.delete(f"room:{rid}:game_votes")
@@ -1177,6 +1181,8 @@ async def game_phase_next(sid, data):
                         "day_prelude_pending": "0",
                         "day_prelude_active": "0",
                         "day_prelude_done": "0",
+                        "vote_prev_leaders": "",
+                        "vote_lift_state": "",
                     },
                 )
                 await p.delete(f"room:{rid}:night_shots", f"room:{rid}:night_checks")
@@ -1808,6 +1814,10 @@ async def game_vote_control(sid, data):
         if not head_uid or actor_uid != head_uid:
             return {"ok": False, "error": "forbidden", "status": 403}
 
+        vote_lift_state = str(raw_gstate.get("vote_lift_state") or "")
+        if vote_lift_state:
+            return {"ok": False, "error": "lift_in_progress", "status": 409}
+
         vote_done = str(raw_gstate.get("vote_done") or "0") == "1"
         if vote_done:
             return {"ok": False, "error": "vote_done", "status": 409}
@@ -2001,8 +2011,10 @@ async def game_vote(sid, data):
         if err:
             return err
 
+        vote_lift_state = str(raw_gstate.get("vote_lift_state") or "")
+        is_lift_vote = vote_lift_state == "voting"
         nominee_uid = ctx.gint("vote_current_uid")
-        if not nominee_uid:
+        if not nominee_uid and not is_lift_vote:
             return {"ok": False, "error": "no_active_vote", "status": 409}
 
         vote_started = ctx.gint("vote_started")
@@ -2015,12 +2027,14 @@ async def game_vote(sid, data):
         if existing is not None:
             return {"ok": False, "error": "already_voted", "status": 409}
 
-        await r.hset(f"room:{rid}:game_votes", str(uid), str(nominee_uid))
+        store_value = "1" if is_lift_vote else str(nominee_uid)
+        await r.hset(f"room:{rid}:game_votes", str(uid), store_value)
         await sio.emit("game_voted",
                        {"room_id": rid,
                         "user_id": uid,
-                        "target_id": nominee_uid,
-                        "auto": False},
+                        "target_id": 0 if is_lift_vote else nominee_uid,
+                        "auto": False,
+                        "lift": is_lift_vote},
                        room=f"room:{rid}",
                        namespace="/room")
 
@@ -2033,14 +2047,15 @@ async def game_vote(sid, data):
             nominees = await get_nominees_in_order(r, rid)
             await sio.emit("game_vote_state",
                            {"room_id": rid,
-                            "vote": {"current_uid": nominee_uid,
+                            "vote": {"current_uid": 0 if is_lift_vote else nominee_uid,
                                      "deadline": 0,
                                      "nominees": nominees,
-                                     "done": True}},
+                                     "done": True,
+                                     "lift_state": vote_lift_state if is_lift_vote else ""}},
                            room=f"room:{rid}",
                            namespace="/room")
 
-        return {"ok": True, "status": 200, "room_id": rid, "user_id": uid, "target_id": nominee_uid}
+        return {"ok": True, "status": 200, "room_id": rid, "user_id": uid, "target_id": 0 if is_lift_vote else nominee_uid}
 
     except Exception:
         log.exception("sio.game_vote.error", sid=sid, data=bool(data))
@@ -2072,6 +2087,7 @@ async def game_vote_finish(sid, data):
         if not vote_done:
             return {"ok": False, "error": "vote_not_done", "status": 409}
 
+        vote_lift_state = str(raw_gstate.get("vote_lift_state") or "")
         nominees = await get_nominees_in_order(r, rid)
         if not nominees:
             return {"ok": False, "error": "no_nominees", "status": 409}
@@ -2080,6 +2096,56 @@ async def game_vote_finish(sid, data):
             raw_votes = await r.hgetall(f"room:{rid}:game_votes")
         except Exception:
             raw_votes = {}
+
+        if vote_lift_state == "voting":
+            alive_ids, voted_ids = await get_alive_and_voted_ids(r, rid)
+            yes_cnt = len(voted_ids)
+            alive_cnt = len(alive_ids)
+            passed = alive_cnt > 0 and yes_cnt > (alive_cnt / 2)
+            leaders = list(nominees) if passed else []
+            leaders_str = ",".join(str(uid) for uid in leaders)
+
+            payload = {
+                "room_id": rid,
+                "nominees": nominees,
+                "leaders": leaders,
+                "lift": True,
+                "lift_state": "passed" if passed else "failed",
+                "yes": yes_cnt,
+                "alive": alive_cnt,
+                "counts": {str(uid): 0 for uid in nominees},
+            }
+
+            async with r.pipeline() as p:
+                mapping = {
+                    "vote_leaders_order": leaders_str,
+                    "vote_leader_idx": "0",
+                    "vote_speech_uid": "0",
+                    "vote_speech_started": "0",
+                    "vote_speech_duration": "0",
+                    "vote_speech_kind": "",
+                    "vote_aborted": "0",
+                    "vote_results_ready": "1",
+                    "vote_speeches_done": "0" if passed else "1",
+                    "vote_prev_leaders": "",
+                    "vote_lift_state": "passed" if passed else "failed",
+                    "vote_done": "1",
+                    "vote_started": "0",
+                    "vote_current_uid": "0",
+                }
+                await p.hset(f"room:{rid}:game_state", mapping=mapping)
+                await p.delete(f"room:{rid}:game_votes")
+                await p.delete(f"room:{rid}:game_nominees")
+                if passed and leaders:
+                    mp_nominees = {str(uid): str(i + 1) for i, uid in enumerate(leaders)}
+                    await p.hset(f"room:{rid}:game_nominees", mapping=mp_nominees)
+                await p.execute()
+
+            await sio.emit("game_vote_result",
+                           payload,
+                           room=f"room:{rid}",
+                           namespace="/room")
+            return {"ok": True, "status": 200, **payload}
 
         counts: dict[int, int] = {uid: 0 for uid in nominees}
         for _voter_s, target_s in (raw_votes or {}).items():
@@ -2095,12 +2161,18 @@ async def game_vote_finish(sid, data):
             return {"ok": False, "error": "no_leaders", "status": 409}
 
         leaders: list[int] = [uid for uid in nominees if counts.get(uid, 0) == max_votes]
+        prev_leaders = ctx.gcsv_ints("vote_prev_leaders")
+        repeated = bool(prev_leaders) and len(prev_leaders) == len(leaders) and set(prev_leaders) == set(leaders) and len(leaders) > 1
+        lift_state_new = "ready" if repeated else ""
         payload = {
             "room_id": rid,
             "nominees": nominees,
             "leaders": leaders,
             "counts": {str(uid): int(counts.get(uid, 0)) for uid in nominees},
         }
+        if lift_state_new:
+            payload["lift_state"] = lift_state_new
+
         await sio.emit("game_vote_result",
                        payload,
                        room=f"room:{rid}",
@@ -2119,7 +2191,9 @@ async def game_vote_finish(sid, data):
                     "vote_speech_kind": "",
                     "vote_aborted": "0",
                     "vote_results_ready": "1",
-                    "vote_speeches_done": "0",
+                    "vote_speeches_done": "1" if lift_state_new else "0",
+                    "vote_prev_leaders": leaders_str,
+                    "vote_lift_state": lift_state_new,
                 },
             )
             mp_nominees = {str(uid): str(i + 1) for i, uid in enumerate(leaders)}
@@ -2132,6 +2206,149 @@ async def game_vote_finish(sid, data):
 
     except Exception:
         log.exception("sio.game_vote_finish.error", sid=sid, data=bool(data))
+        return {"ok": False, "error": "internal", "status": 500}
+
+
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_vote_lift_prepare:{uid or 'nouid'}:{rid or 0}", limit=20, window_s=1, session_ns="/room")
+@sio.event(namespace="/room")
+async def game_vote_lift_prepare(sid, data):
+    try:
+        data = data or {}
+        ctx, err = await require_ctx(sid, allowed_phases="vote", require_head=True)
+        if err:
+            return err
+
+        actor_uid = ctx.uid
+        rid = ctx.rid
+        r = ctx.r
+        raw_gstate = ctx.gstate
+        if ctx.phase != "vote":
+            return {"ok": False, "error": "bad_phase", "status": 400}
+
+        head_uid = ctx.head_uid
+        if not head_uid or actor_uid != head_uid:
+            return {"ok": False, "error": "forbidden", "status": 403}
+
+        vote_lift_state = str(raw_gstate.get("vote_lift_state") or "")
+        vote_results_ready = str(raw_gstate.get("vote_results_ready") or "0") == "1"
+        if vote_lift_state not in ("ready", "prepared"):
+            return {"ok": False, "error": "lift_not_ready", "status": 409}
+
+        if not vote_results_ready:
+            return {"ok": False, "error": "vote_not_ready", "status": 409}
+
+        async with r.pipeline() as p:
+            await p.hset(f"room:{rid}:game_state", mapping={"vote_lift_state": "prepared"})
+            await p.execute()
+
+        nominees = await get_nominees_in_order(r, rid)
+        vote_section = {
+            "current_uid": 0,
+            "deadline": 0,
+            "nominees": nominees,
+            "done": True,
+            "aborted": ctx.gbool("vote_aborted"),
+            "results_ready": vote_results_ready,
+            "speeches_done": ctx.gbool("vote_speeches_done"),
+            "lift_state": "prepared",
+        }
+        leaders = ctx.gcsv_ints("vote_leaders_order")
+        if leaders:
+            vote_section["leaders"] = leaders
+            vote_section["leader_idx"] = ctx.gint("vote_leader_idx")
+
+        await sio.emit("game_vote_state",
+                       {"room_id": rid, "vote": vote_section},
+                       room=f"room:{rid}",
+                       namespace="/room")
+
+        return {"ok": True, "status": 200, "room_id": rid, "vote_lift_state": "prepared"}
+
+    except Exception:
+        log.exception("sio.game_vote_lift_prepare.error", sid=sid, data=bool(data))
+        return {"ok": False, "error": "internal", "status": 500}
+
+
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_vote_lift_start:{uid or 'nouid'}:{rid or 0}", limit=20, window_s=1, session_ns="/room")
+@sio.event(namespace="/room")
+async def game_vote_lift_start(sid, data):
+    try:
+        data = data or {}
+        ctx, err = await require_ctx(sid, allowed_phases="vote", require_head=True)
+        if err:
+            return err
+
+        actor_uid = ctx.uid
+        rid = ctx.rid
+        r = ctx.r
+        raw_gstate = ctx.gstate
+        if ctx.phase != "vote":
+            return {"ok": False, "error": "bad_phase", "status": 400}
+
+        head_uid = ctx.head_uid
+        if not head_uid or actor_uid != head_uid:
+            return {"ok": False, "error": "forbidden", "status": 403}
+
+        vote_lift_state = str(raw_gstate.get("vote_lift_state") or "")
+        if vote_lift_state not in ("ready", "prepared"):
+            return {"ok": False, "error": "lift_not_ready", "status": 409}
+
+        nominees = await get_nominees_in_order(r, rid)
+        if not nominees:
+            return {"ok": False, "error": "no_nominees", "status": 409}
+
+        try:
+            vote_duration = settings.VOTE_SECONDS
+        except Exception:
+            vote_duration = 3
+        if vote_duration <= 0:
+            vote_duration = 3
+
+        now_ts = int(time())
+        async with r.pipeline() as p:
+            await p.hset(
+                f"room:{rid}:game_state",
+                mapping={
+                    "vote_started": str(now_ts),
+                    "vote_duration": str(vote_duration),
+                    "vote_done": "0",
+                    "vote_aborted": "0",
+                    "vote_results_ready": "0",
+                    "vote_speeches_done": "0",
+                    "vote_current_uid": "0",
+                    "vote_lift_state": "voting",
+                    "vote_leader_idx": "0",
+                    "vote_speech_uid": "0",
+                    "vote_speech_started": "0",
+                    "vote_speech_duration": "0",
+                    "vote_speech_kind": "",
+                },
+            )
+            await p.delete(f"room:{rid}:game_votes")
+            await p.execute()
+
+        payload = {
+            "ok": True,
+            "status": 200,
+            "room_id": rid,
+            "vote": {
+                "current_uid": 0,
+                "deadline": vote_duration,
+                "nominees": nominees,
+                "done": False,
+                "aborted": False,
+                "lift_state": "voting",
+            },
+        }
+        await sio.emit("game_vote_state",
+                       {"room_id": rid, "vote": payload["vote"]},
+                       room=f"room:{rid}",
+                       namespace="/room")
+
+        return payload
+
+    except Exception:
+        log.exception("sio.game_vote_lift_start.error", sid=sid, data=bool(data))
         return {"ok": False, "error": "internal", "status": 500}
 
 
@@ -2228,6 +2445,7 @@ async def game_vote_speech_next(sid, data):
         cur_speaker = ctx.gint("vote_speech_uid")
         speech_started = ctx.gint("vote_speech_started")
         speech_duration = ctx.gint("vote_speech_duration")
+        vote_lift_state = ctx.gstr("vote_lift_state")
         now_ts = int(time())
         if cur_speaker and speech_started and speech_duration > 0 and now_ts < speech_started + speech_duration:
             return {"ok": False, "error": "speech_in_progress", "status": 409}
@@ -2271,7 +2489,10 @@ async def game_vote_speech_next(sid, data):
         if short_sec <= 0:
             short_sec = full_sec
 
-        if total == 1:
+        if vote_lift_state == "passed":
+            kind = "farewell"
+            duration = full_sec
+        elif total == 1:
             kind = "farewell"
             duration = full_sec
         else:
@@ -2396,6 +2617,7 @@ async def game_vote_restart(sid, data):
                     "vote_speech_kind": "",
                     "vote_results_ready": "0",
                     "vote_speeches_done": "0",
+                    "vote_lift_state": "",
                 },
             )
             await p.delete(f"room:{rid}:game_votes")
