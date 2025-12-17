@@ -1484,15 +1484,16 @@ async def finish_vote_speech(r, rid: int, raw_gstate: Mapping[str, Any], speaker
             log.exception("vote_speech.finish.block_failed", rid=rid, head=head_uid, target=speaker_uid)
 
     kind = ctx.gstr("vote_speech_kind")
+    leaders = ctx.gcsv_ints("vote_leaders_order")
+    leader_idx = ctx.gint("vote_leader_idx")
     killed = False
     speeches_done = False
     if kind == "farewell":
         await process_player_death(r, rid, speaker_uid, head_uid=head_uid, phase_override="vote", reason="vote")
         killed = True
-        speeches_done = True
+        if leaders and leader_idx >= len(leaders):
+            speeches_done = True
     else:
-        leaders = ctx.gcsv_ints("vote_leaders_order")
-        leader_idx = ctx.gint("vote_leader_idx")
         if leaders and leader_idx >= len(leaders):
             speeches_done = True
 

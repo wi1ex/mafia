@@ -330,6 +330,39 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     }, START_MAFIA_TALK_DELAY_MS)
   }
 
+  const LEADER_SPEECH_DELAY_MS = 1000
+  const leaderSpeechUnlocked = ref(false)
+  let leaderSpeechTimer: number | null = null
+  function resetLeaderSpeechDelay() {
+    leaderSpeechUnlocked.value = false
+    if (leaderSpeechTimer !== null) {
+      clearTimeout(leaderSpeechTimer)
+      leaderSpeechTimer = null
+    }
+  }
+  function leaderSpeechEligibleNow(): boolean {
+    if (!isHead.value) return false
+    if (gamePhase.value !== 'vote') return false
+    const liftPassed = voteLiftState.value === 'passed'
+    if (!liftPassed && !vote.done) return false
+    if (!voteResultShown.value) return false
+    if (voteAborted.value) return false
+    if (voteLeaderKilled.value) return false
+    if (['ready', 'prepared', 'voting', 'failed'].includes(voteLiftState.value)) return false
+    if (voteResultLeaders.length === 0) return false
+    if (voteLeaderSpeechesDone.value) return false
+    return daySpeech.remainingMs <= 0
+  }
+  function scheduleLeaderSpeechUnlock() {
+    resetLeaderSpeechDelay()
+    if (typeof window === 'undefined') return
+    if (!leaderSpeechEligibleNow()) return
+    leaderSpeechTimer = window.setTimeout(() => {
+      if (leaderSpeechEligibleNow()) leaderSpeechUnlocked.value = true
+      leaderSpeechTimer = null
+    }, LEADER_SPEECH_DELAY_MS)
+  }
+
   const canStartDay = computed(() => gamePhase.value === 'mafia_talk_end' && isHead.value)
 
   const isCurrentSpeaker = computed(() => {
@@ -436,17 +469,8 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   })
 
   const canStartLeaderSpeech = computed(() => {
-    if (!isHead.value) return false
-    if (gamePhase.value !== 'vote') return false
-    const liftPassed = voteLiftState.value === 'passed'
-    if (!liftPassed && !vote.done) return false
-    if (!voteResultShown.value) return false
-    if (voteAborted.value) return false
-    if (voteLeaderKilled.value) return false
-    if (['ready', 'prepared', 'voting', 'failed'].includes(voteLiftState.value)) return false
-    if (voteResultLeaders.length === 0) return false
-    if (voteLeaderSpeechesDone.value) return false
-    return daySpeech.remainingMs <= 0
+    if (!leaderSpeechUnlocked.value) return false
+    return leaderSpeechEligibleNow()
   })
 
   const canRestartVoteForLeaders = computed(() => {
@@ -582,6 +606,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     voteLeaderSpeechesDone.value = false
     voteLeaderKilled.value = false
     voteLiftState.value = 'none'
+    resetLeaderSpeechDelay()
   }
 
   function fillPlayersFromSeats() {
@@ -687,6 +712,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     roleOverlayMode.value = 'hidden'
     roleOverlayCard.value = null
     resetStartMafiaTalkDelay()
+    resetLeaderSpeechDelay()
     if (roleOverlayTimerId.value != null) {
       clearTimeout(roleOverlayTimerId.value)
       roleOverlayTimerId.value = null
@@ -1121,9 +1147,14 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       if (isActiveSpeech) {
         voteLeaderSpeechesDone.value = false
         voteLeaderKilled.value = false
-      } else if (done || killed || (speakerId && closingId && speakerId === closingId)) {
+      } else if (done) {
         voteLeaderSpeechesDone.value = true
-        if (killed) voteLeaderKilled.value = true
+        voteLeaderKilled.value = killed
+      } else if (killed && voteLiftState.value !== 'passed') {
+        voteLeaderSpeechesDone.value = true
+        voteLeaderKilled.value = true
+      } else if (speakerId && closingId && speakerId === closingId) {
+        voteLeaderSpeechesDone.value = true
       }
     }
   }
@@ -1301,6 +1332,23 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   watch(() => [isHead.value, gamePhase.value, rolesVisibleForHead.value], (_v, _ov, onCleanup) => {
       scheduleStartMafiaTalkUnlock()
       onCleanup(() => resetStartMafiaTalkDelay())
+  }, { immediate: true })
+
+  watch(() => [
+    isHead.value,
+    gamePhase.value,
+    vote.done,
+    voteResultShown.value,
+    voteAborted.value,
+    voteLeaderKilled.value,
+    voteLiftState.value,
+    voteResultLeaders.length,
+    voteLeaderSpeechesDone.value,
+    daySpeech.currentId,
+    daySpeech.remainingMs,
+  ], (_v, _ov, onCleanup) => {
+      scheduleLeaderSpeechUnlock()
+      onCleanup(() => resetLeaderSpeechDelay())
   }, { immediate: true })
 
   async function goToMafiaTalk(sendAck: SendAckFn): Promise<void> {
