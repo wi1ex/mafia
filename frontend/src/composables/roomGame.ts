@@ -377,27 +377,27 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   const liftHighlightNominees = computed(() => ['prepared', 'voting', 'passed'].includes(voteLiftState.value))
 
   const canHeadNightShootControl = computed(() => {
-    return gamePhase === 'night' && isHead && night.stage === 'sleep'
+    return gamePhase.value === 'night' && isHead.value && night.stage === 'sleep'
   })
 
   const canHeadNightCheckControl = computed(() => {
-    return gamePhase === 'night' && isHead && night.stage === 'shoot_done'
+    return gamePhase.value === 'night' && isHead.value && night.stage === 'shoot_done'
   })
 
   const canHeadDayFromNightControl = computed(() => {
-    return gamePhase === 'night' && isHead && night.stage === 'checks_done'
+    return gamePhase.value === 'night' && isHead.value && night.stage === 'checks_done'
   })
 
   const canHeadGoToMafiaTalkControl = computed(() => {
-    return gamePhase === 'roles_pick' && isHead && rolesVisibleForHead
+    return gamePhase.value === 'roles_pick' && isHead.value && rolesVisibleForHead.value
   })
 
   const canHeadFinishMafiaTalkControl = computed(() => {
-    return gamePhase === 'mafia_talk_start' && isHead && mafiaTalkRemainingMs <= 0
+    return gamePhase.value === 'mafia_talk_start' && isHead.value && mafiaTalkRemainingMs.value <= 0
   })
 
   const canHeadFinishVoteControl = computed(() => {
-    return gamePhase === 'vote' && isHead && vote.done && !voteResultShown
+    return gamePhase.value === 'vote' && isHead.value && vote.done && !voteResultShown.value
   })
 
   const canStartLeaderSpeech = computed(() => {
