@@ -182,10 +182,10 @@
           <button v-else-if="canPassSpeechHead" class="btn-text" @click="passSpeechUi" aria-label="Передать речь">Передать речь</button>
           <button v-if="canStartVote" class="btn-text" @click="startVoteUi">Начать голосование</button>
           <button v-if="canHeadVoteControl" class="btn-text" :disabled="hasOfflineAlivePlayers" @click="onHeadVoteControl">
-            {{ !voteStartedForCurrent ? 'Голосование за ' + (currentNomineeSeat ?? '') : 'Далее' }}
+            {{ !voteStartedForCurrent ? 'Голосование за ' + (currentNomineeSeat ?? '') : 'Продолжить' }}
           </button>
           <button v-if="canHeadFinishVoteControl" class="btn-text" @click="finishVoteUi">Завершить голосование</button>
-          <button v-if="canPrepareVoteLift" class="btn-text" @click="prepareVoteLiftUi">Далее</button>
+          <button v-if="canPrepareVoteLift" class="btn-text" @click="prepareVoteLiftUi">Продолжить</button>
           <button v-if="canStartVoteLift" class="btn-text" @click="startVoteLiftUi">Голосование за подъём</button>
           <button v-if="canStartLeaderSpeech" class="btn-text" @click="startLeaderSpeechUi">Передать речь</button>
           <button v-if="canRestartVoteForLeaders" class="btn-text" @click="restartVoteForLeadersUi">Начать голосование</button>

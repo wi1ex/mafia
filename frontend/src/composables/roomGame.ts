@@ -1159,6 +1159,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   function handleGameVoteResult(p: any) {
     voteAborted.value = false
     voteResultShown.value = true
+    vote.done = true
     voteLeaderSpeechesDone.value = false
     voteLeaderKilled.value = false
     votedUsers.clear()
