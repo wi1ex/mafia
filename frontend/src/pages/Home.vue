@@ -202,6 +202,9 @@ const sortedRooms = computed(() => Array.from(roomsMap.values()).sort((a, b) => 
 
 const sortedMembers = computed<RoomInfoMember[]>(() => {
   const members = info.value?.members || []
+  const inGame = !!selectedRoom.value?.in_game
+  if (!inGame) return [...members]
+
   return [...members].sort((a, b) => {
     const ra = a.role === 'head' ? 0 : a.role === 'player' ? 1 : 2
     const rb = b.role === 'head' ? 0 : b.role === 'player' ? 1 : 2

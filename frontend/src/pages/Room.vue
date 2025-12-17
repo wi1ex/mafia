@@ -181,8 +181,7 @@
           <button v-if="canFinishSpeechHead" class="btn-text" @click="finishSpeechUi" aria-label="Завершить речь">Завершить речь</button>
           <button v-else-if="canPassSpeechHead" class="btn-text" @click="passSpeechUi" aria-label="Передать речь">Передать речь</button>
           <button v-if="canStartVote" class="btn-text" @click="startVoteUi">Начать голосование</button>
-          <button v-if="gamePhase === 'vote' && isHead && !vote.done && vote.remainingMs === 0"
-                  class="btn-text" :disabled="hasOfflineAlivePlayers" @click="onHeadVoteControl">
+          <button v-if="canHeadVoteControl" class="btn-text" :disabled="hasOfflineAlivePlayers" @click="onHeadVoteControl">
             {{ !voteStartedForCurrent ? 'Голосование за ' + (currentNomineeSeat ?? '') : 'Далее' }}
           </button>
           <button v-if="gamePhase === 'vote' && isHead && vote.done && !voteResultShown" class="btn-text" @click="finishVoteUi">Завершить голосование</button>
@@ -403,6 +402,7 @@ const {
   canFinishSpeechSelf,
   canTakeFoulSelf,
   canStartVote,
+  canHeadVoteControl,
   canStartLeaderSpeech,
   canRestartVoteForLeaders,
   canShowNight,
