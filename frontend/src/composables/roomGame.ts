@@ -259,32 +259,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     return ''
   })
 
-  const FINISH_SPEECH_DELAY_MS = 3000 
-  const HEAD_BUTTON_DELAY_MS = 1000
-  function createDelayGate(delayMs: number, isAvailable: () => boolean) {
-    const unlocked = ref(false)
-    let timer: number | null = null
-    function reset() {
-      unlocked.value = false
-      if (timer !== null) {
-        clearTimeout(timer)
-        timer = null
-      }
-    }
-    function schedule() {
-      reset()
-      if (!isAvailable()) return
-      if (typeof window === 'undefined') {
-        unlocked.value = true
-        return
-      }
-      timer = window.setTimeout(() => {
-        if (isAvailable()) unlocked.value = true
-        timer = null
-      }, delayMs)
-    }
-    return { unlocked, reset, schedule }
-  }
+  const FINISH_SPEECH_DELAY_MS = 3000
   const finishSpeechUnlocked = ref(false)
   let finishSpeechTimer: number | null = null
   function resetFinishSpeechDelay() {
@@ -305,6 +280,30 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       finishSpeechTimer = null
     }, FINISH_SPEECH_DELAY_MS)
   }
+  
+  const PASS_SPEECH_DELAY_MS = 1000
+  const passSpeechUnlocked = ref(false)
+  let passSpeechTimer: number | null = null
+  function resetPassSpeechDelay() {
+    passSpeechUnlocked.value = false
+    if (passSpeechTimer !== null) {
+      clearTimeout(passSpeechTimer)
+      passSpeechTimer = null
+    }
+  }
+  function schedulePassSpeechUnlock() {
+    resetPassSpeechDelay()
+    if (!isHead.value) return
+    if (gamePhase.value !== 'day') return
+    if (daySpeechesDone.value) return
+    if (daySpeech.currentId && daySpeech.remainingMs > 0) return
+    passSpeechTimer = window.setTimeout(() => {
+      if (isHead.value && gamePhase.value === 'day' && !daySpeechesDone.value && !(daySpeech.currentId && daySpeech.remainingMs > 0)) {
+        passSpeechUnlocked.value = true
+      }
+      passSpeechTimer = null
+    }, PASS_SPEECH_DELAY_MS)
+  }
 
   const canStartDay = computed(() => gamePhase.value === 'mafia_talk_end' && isHead.value)
 
@@ -324,14 +323,13 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     return daySpeech.remainingMs > 0
   })
 
-  const canPassSpeechHeadRaw = computed(() => {
+  const canPassSpeechHead = computed(() => {
     if (!isHead.value) return false
     if (gamePhase.value !== 'day') return false
     if (daySpeechesDone.value) return false
+    if (!passSpeechUnlocked.value) return false
     return !(daySpeech.currentId && daySpeech.remainingMs > 0)
   })
-  const passSpeechGate = createDelayGate(HEAD_BUTTON_DELAY_MS, () => canPassSpeechHeadRaw.value)
-  const canPassSpeechHead = computed(() => canPassSpeechHeadRaw.value && passSpeechGate.unlocked.value)
 
   const canFinishSpeechSelf = computed(() => {
     const me = localId.value
@@ -361,12 +359,23 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     return !(dayNumber.value === 1 && cnt === 1)
   })
 
-  const canHeadVoteControlRaw = computed(() => {
+  const canHeadVoteControl = computed(() => {
     return gamePhase.value === 'vote' && isHead.value && !vote.done && vote.remainingMs === 0
   })
-  const headVoteControlGate = createDelayGate(HEAD_BUTTON_DELAY_MS, () => canHeadVoteControlRaw.value)
-  const canHeadVoteControl = computed(() => canHeadVoteControlRaw.value && headVoteControlGate.unlocked.value)
-  const canStartLeaderSpeechRaw = computed(() => {
+
+  const canHeadNightShootControl = computed(() => {
+    return gamePhase === 'night' && isHead && night.stage === 'sleep'
+  })
+
+  const canHeadNightCheckControl = computed(() => {
+    return gamePhase === 'night' && isHead && night.stage === 'shoot_done'
+  })
+
+  const canHeadDayFromNightControl = computed(() => {
+    return gamePhase === 'night' && isHead && night.stage === 'checks_done'
+  })
+
+  const canStartLeaderSpeech = computed(() => {
     if (!isHead.value) return false
     if (gamePhase.value !== 'vote') return false
     if (!vote.done) return false
@@ -377,8 +386,6 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     if (voteLeaderSpeechesDone.value) return false
     return daySpeech.remainingMs <= 0
   })
-  const leaderSpeechGate = createDelayGate(HEAD_BUTTON_DELAY_MS, () => canStartLeaderSpeechRaw.value)
-  const canStartLeaderSpeech = computed(() => canStartLeaderSpeechRaw.value && leaderSpeechGate.unlocked.value)
 
   const canRestartVoteForLeaders = computed(() => {
     if (!isHead.value) return false
@@ -418,11 +425,9 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     return voteLeaderKilled.value
   })
 
-  const canShowNightRaw = computed(() => {
+  const canShowNight = computed(() => {
     return canShowNightAfterVote.value || singleNomineeFirstDay.value || noNomineesAfterDay.value
   })
-  const nightGate = createDelayGate(HEAD_BUTTON_DELAY_MS, () => canShowNightRaw.value)
-  const canShowNight = computed(() => canShowNightRaw.value && nightGate.unlocked.value)
 
   function setNightRemainingMs(ms: number, changed: boolean) {
     setTimerWithLatency(night, ms, nightTimerId, changed)
@@ -1171,28 +1176,9 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       onCleanup(() => resetFinishSpeechDelay())
   }, { immediate: true })
 
-  watch(canPassSpeechHeadRaw, (want, _was, onCleanup) => {
-    if (want) passSpeechGate.schedule()
-    else passSpeechGate.reset()
-    onCleanup(() => passSpeechGate.reset())
-  }, { immediate: true })
-
-  watch(canStartLeaderSpeechRaw, (want, _was, onCleanup) => {
-    if (want) leaderSpeechGate.schedule()
-    else leaderSpeechGate.reset()
-    onCleanup(() => leaderSpeechGate.reset())
-  }, { immediate: true })
-
-  watch(canHeadVoteControlRaw, (want, _was, onCleanup) => {
-    if (want) headVoteControlGate.schedule()
-    else headVoteControlGate.reset()
-    onCleanup(() => headVoteControlGate.reset())
-  }, { immediate: true })
-
-  watch(canShowNightRaw, (want, _was, onCleanup) => {
-    if (want) nightGate.schedule()
-    else nightGate.reset()
-    onCleanup(() => nightGate.reset())
+  watch(() => [isHead.value, gamePhase.value, daySpeechesDone.value, daySpeech.currentId, daySpeech.remainingMs], (_v, _ov, onCleanup) => {
+      schedulePassSpeechUnlock()
+      onCleanup(() => resetPassSpeechDelay())
   }, { immediate: true })
 
   async function goToMafiaTalk(sendAck: SendAckFn): Promise<void> {
@@ -1905,6 +1891,9 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     canTakeFoulSelf,
     canStartVote,
     canHeadVoteControl,
+    canHeadNightShootControl,
+    canHeadNightCheckControl,
+    canHeadDayFromNightControl,
     canStartLeaderSpeech,
     canRestartVoteForLeaders,
     canShowNight,

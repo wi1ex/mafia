@@ -188,9 +188,9 @@
           <button v-if="canStartLeaderSpeech" class="btn-text" @click="startLeaderSpeechUi">Передать речь</button>
           <button v-if="canRestartVoteForLeaders" class="btn-text" @click="restartVoteForLeadersUi">Начать голосование</button>
           <button v-if="canShowNight" class="btn-text" @click="goToNightUi">Ночь</button>
-          <button v-if="gamePhase === 'night' && isHead && night.stage === 'sleep'" class="btn-text" @click="startNightShootUi">Стрельба</button>
-          <button v-if="gamePhase === 'night' && isHead && night.stage === 'shoot_done'" class="btn-text" @click="startNightChecksUi">Проверки</button>
-          <button v-if="gamePhase === 'night' && isHead && night.stage === 'checks_done'" class="btn-text" @click="startDayFromNightUi">День</button>
+          <button v-if="canHeadNightShootControl" class="btn-text" @click="startNightShootUi">Стрельба</button>
+          <button v-if="canHeadNightCheckControl" class="btn-text" @click="startNightChecksUi">Проверки</button>
+          <button v-if="canHeadDayFromNightControl" class="btn-text" @click="startDayFromNightUi">День</button>
 
           <button v-if="canFinishSpeechSelf" @click="finishSpeechUi">
             <img :src="iconSkip" alt="finish speech" />
@@ -403,6 +403,9 @@ const {
   canTakeFoulSelf,
   canStartVote,
   canHeadVoteControl,
+  canHeadNightShootControl,
+  canHeadNightCheckControl,
+  canHeadDayFromNightControl,
   canStartLeaderSpeech,
   canRestartVoteForLeaders,
   canShowNight,
@@ -680,10 +683,7 @@ const sortedPeerIds = computed(() => {
 })
 const gridStyle = computed(() => {
   if (gamePhase.value !== 'idle') {
-    return {
-      gridTemplateColumns: 'repeat(8, 1fr)',
-      gridTemplateRows: 'repeat(6, 1fr)',
-    }
+    return { gridTemplateColumns: 'repeat(8, 1fr)', gridTemplateRows: 'repeat(6, 1fr)' }
   }
   const count = sortedPeerIds.value.length
   const cols = count <= 2 ? 2 : count <= 6 ? 3 : 4
@@ -697,10 +697,7 @@ const tileGridStyle = (id: string) => {
   if (!pos) return {}
   const col = GAME_COLUMN_INDEX[pos] ?? 1
   const row = GAME_ROW_INDEX[pos] ?? 1
-  return {
-    gridColumn: `${col} / span 2`,
-    gridRow: `${row} / span 2`,
-  }
+  return { gridColumn: `${col} / span 2`, gridRow: `${row} / span 2` }
 }
 
 const isEmpty = (v: any) => v === undefined || v === null || v === ''
