@@ -2083,11 +2083,11 @@ async def game_vote_finish(sid, data):
         if not head_uid or actor_uid != head_uid:
             return {"ok": False, "error": "forbidden", "status": 403}
 
+        vote_lift_state = str(raw_gstate.get("vote_lift_state") or "")
         vote_done = str(raw_gstate.get("vote_done") or "0") == "1"
-        if not vote_done:
+        if not vote_done and vote_lift_state != "voting":
             return {"ok": False, "error": "vote_not_done", "status": 409}
 
-        vote_lift_state = str(raw_gstate.get("vote_lift_state") or "")
         nominees = await get_nominees_in_order(r, rid)
         if not nominees:
             return {"ok": False, "error": "no_nominees", "status": 409}

@@ -426,7 +426,13 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   })
 
   const canHeadFinishVoteControl = computed(() => {
-    return gamePhase.value === 'vote' && isHead.value && vote.done && !voteResultShown.value
+    if (gamePhase.value !== 'vote' || !isHead.value) return false
+    if (voteResultShown.value) return false
+    if (voteLiftState.value === 'voting') {
+      return vote.done || vote.remainingMs <= 0
+    }
+    if (voteLiftState.value !== 'none') return false
+    return vote.done
   })
 
   const canStartLeaderSpeech = computed(() => {
