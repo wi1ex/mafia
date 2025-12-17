@@ -1437,6 +1437,14 @@ async def game_speech_next(sid, data):
                     )
                     await p.execute()
 
+        if alive_order and opening_uid in alive_order and closing_uid not in alive_order:
+            if len(alive_order) == 1:
+                closing_uid = opening_uid
+            else:
+                idx_open = alive_order.index(opening_uid)
+                closing_uid = alive_order[idx_open - 1] if idx_open > 0 else alive_order[-1]
+            await r.hset(f"room:{rid}:game_state", mapping={"day_closing_uid": str(closing_uid or 0)})
+
         if not alive_order or not opening_uid:
             return {"ok": False, "error": "no_alive_players", "status": 400}
 
@@ -1476,6 +1484,31 @@ async def game_speech_next(sid, data):
 
         if (not is_prelude_next) and (next_uid not in alive_order):
             return {"ok": False, "error": "bad_next_speaker", "status": 400}
+
+        if not is_prelude_next and current_uid and next_uid == opening_uid:
+            await r.hset(
+                f"room:{rid}:game_state",
+                mapping={
+                    "day_last_opening_uid": str(opening_uid or 0),
+                    "day_speeches_done": "1",
+                    "day_current_uid": "0",
+                    "day_speech_started": "0",
+                    "day_speech_duration": "0",
+                },
+            )
+            payload = {
+                "room_id": rid,
+                "speaker_uid": 0,
+                "opening_uid": opening_uid,
+                "closing_uid": closing_uid,
+                "deadline": 0,
+                "speeches_done": True,
+            }
+            await sio.emit("game_day_speech",
+                           payload,
+                           room=f"room:{rid}",
+                           namespace="/room")
+            return {"ok": True, "status": 200, **payload}
 
         duration = settings.PLAYER_TALK_SECONDS
         use_short = False

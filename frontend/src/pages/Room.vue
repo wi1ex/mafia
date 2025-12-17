@@ -186,7 +186,7 @@
           </button>
           <button v-if="canHeadFinishVoteControl" class="btn-text" @click="finishVoteUi">Завершить голосование</button>
           <button v-if="canPrepareVoteLift" class="btn-text" @click="prepareVoteLiftUi">Продолжить</button>
-          <button v-if="canStartVoteLift" class="btn-text" @click="startVoteLiftUi">Голосование за подъём</button>
+          <button v-if="canStartVoteLift" class="btn-text" :disabled="hasOfflineAlivePlayers" @click="startVoteLiftUi">Голосование за подъём</button>
           <button v-if="canStartLeaderSpeech" class="btn-text" @click="startLeaderSpeechUi">Передать речь</button>
           <button v-if="canRestartVoteForLeaders" class="btn-text" @click="restartVoteForLeadersUi">Начать голосование</button>
           <button v-if="canShowNight" class="btn-text" @click="goToNightUi">Ночь</button>
