@@ -2164,6 +2164,10 @@ async def game_vote_finish(sid, data):
         prev_leaders = ctx.gcsv_ints("vote_prev_leaders")
         repeated = bool(prev_leaders) and len(prev_leaders) == len(leaders) and set(prev_leaders) == set(leaders) and len(leaders) > 1
         lift_state_new = "ready" if repeated else ""
+        all_alive_leaders = False
+        if repeated and leaders:
+            alive_ids, _ = await get_alive_and_voted_ids(r, rid)
+            all_alive_leaders = bool(alive_ids) and set(leaders) == set(alive_ids)
         payload = {
             "room_id": rid,
             "nominees": nominees,
@@ -2172,6 +2176,11 @@ async def game_vote_finish(sid, data):
         }
         if lift_state_new:
             payload["lift_state"] = lift_state_new
+        if all_alive_leaders:
+            payload["leaders"] = []
+            payload["speeches_done"] = True
+            lift_state_new = ""
+            payload.pop("lift_state", None)
 
         await sio.emit("game_vote_result",
                        payload,
@@ -2183,7 +2192,7 @@ async def game_vote_finish(sid, data):
             await p.hset(
                 f"room:{rid}:game_state",
                 mapping={
-                    "vote_leaders_order": leaders_str,
+                    "vote_leaders_order": "" if all_alive_leaders else leaders_str,
                     "vote_leader_idx": "0",
                     "vote_speech_uid": "0",
                     "vote_speech_started": "0",
@@ -2191,15 +2200,18 @@ async def game_vote_finish(sid, data):
                     "vote_speech_kind": "",
                     "vote_aborted": "0",
                     "vote_results_ready": "1",
-                    "vote_speeches_done": "1" if lift_state_new else "0",
-                    "vote_prev_leaders": leaders_str,
+                    "vote_speeches_done": "1" if (lift_state_new or all_alive_leaders) else "0",
+                    "vote_prev_leaders": leaders_str if not all_alive_leaders else "",
                     "vote_lift_state": lift_state_new,
                 },
             )
-            mp_nominees = {str(uid): str(i + 1) for i, uid in enumerate(leaders)}
-            await p.delete(f"room:{rid}:game_nominees")
-            if mp_nominees:
-                await p.hset(f"room:{rid}:game_nominees", mapping=mp_nominees)
+            if all_alive_leaders:
+                await p.delete(f"room:{rid}:game_nominees")
+            else:
+                mp_nominees = {str(uid): str(i + 1) for i, uid in enumerate(leaders)}
+                await p.delete(f"room:{rid}:game_nominees")
+                if mp_nominees:
+                    await p.hset(f"room:{rid}:game_nominees", mapping=mp_nominees)
             await p.execute()
 
         return {"ok": True, "status": 200, **payload}

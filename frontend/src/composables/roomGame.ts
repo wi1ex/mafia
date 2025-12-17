@@ -1230,7 +1230,8 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     voteAborted.value = false
     voteResultShown.value = true
     vote.done = true
-    voteLeaderSpeechesDone.value = false
+    const speechesDone = isTrueLike((p as any)?.speeches_done)
+    voteLeaderSpeechesDone.value = speechesDone
     voteLeaderKilled.value = false
     votedUsers.clear()
     votedThisRound.clear()
@@ -1247,12 +1248,15 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     if (liftResult === 'failed') {
       voteLeaderSpeechesDone.value = true
       replaceIds(voteResultLeaders, [])
+    } else if (speechesDone && (!leadersRaw || (Array.isArray(leadersRaw) && leadersRaw.length === 0))) {
+      voteLeaderSpeechesDone.value = true
+      replaceIds(voteResultLeaders, [])
     } else {
       replaceIds(voteResultLeaders, leadersRaw)
     }
 
     const nomineesRaw = p?.nominees
-    if (liftResult === 'failed') replaceIds(dayNominees, [])
+    if (liftResult === 'failed' || voteLeaderSpeechesDone.value) replaceIds(dayNominees, [])
     else replaceIds(dayNominees, nomineesRaw, s => voteResultLeaders.includes(s))
   }
 
