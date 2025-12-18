@@ -1009,10 +1009,14 @@ socket.value?.on('connect', async () => {
     setScreenOwner(p?.user_id ? String(p.user_id) : '')
   })
 
-  socket.value?.on('game_started', async (p: any) => {
-    showGameStartOverlay(1250)
+  socket.value?.on('game_starting', async (p: any) => {
+    const delayMs = Number(p?.delay_ms || 0)
+    const ms = Number.isFinite(delayMs) && delayMs > 0 ? delayMs : 1000
+    showGameStartOverlay(ms + 250)
     await nextTick()
-    await new Promise<void>(resolve => window.setTimeout(resolve, 250))
+  })
+
+  socket.value?.on('game_started', (p: any) => {
     game.handleGameStarted(p)
     statusByUser.forEach((st, uid) => {
       statusByUser.set(uid, { ...st, ready: 0 as 0 })

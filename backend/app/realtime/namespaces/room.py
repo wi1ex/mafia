@@ -755,6 +755,16 @@ async def game_start(sid, data) -> GameStartAck:
         if not confirm:
             return {"ok": True, "status": 200, "room_id": rid, "can_start": True, "min_ready": min_ready}
 
+        try:
+            await sio.emit("game_starting",
+                           {"room_id": rid, "delay_ms": 1000},
+                           room=f"room:{rid}",
+                           namespace="/room")
+        except Exception:
+            log.exception("sio.game_start.game_starting_emit_failed", rid=rid)
+
+        await asyncio.sleep(0.5)
+
         player_ids = [str(x) for x in ready_ids if str(x) != str(head_uid)]
         random.shuffle(player_ids)
         seats: dict[str, int] = {}
