@@ -5,6 +5,9 @@
     <div v-else-if="!uiReady" class="reconnect-overlay" aria-live="polite">Загрузка комнаты…</div>
 
     <template v-else>
+      <Transition name="fade">
+        <div v-if="gameStartOverlayVisible" class="reconnect-overlay" aria-live="polite">Запуск игры…</div>
+      </Transition>
       <div v-if="!isTheater" class="grid" :style="gridStyle">
         <RoomTile
           v-for="id in sortedPeerIds"
@@ -286,7 +289,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { Socket } from 'socket.io-client'
 import { useAuthStore } from '@/store'
@@ -461,6 +464,17 @@ const streamAudioKey = computed(() => screenOwnerId.value ? rtc.screenKey(screen
 const streamVol = computed(() => streamAudioKey.value ? (volUi[streamAudioKey.value] ?? rtc.getUserVolume(streamAudioKey.value)) : 100)
 const fitContainInGrid = computed(() => !isTheater.value && sortedPeerIds.value.length < 3)
 const mediaGateVisible = computed(() => uiReady.value && !isReconnecting.value && needInitialMediaUnlock.value)
+
+const gameStartOverlayVisible = ref(false)
+let gameStartOverlayTimerId: number | null = null
+function showGameStartOverlay(ms = 1000) {
+  gameStartOverlayVisible.value = true
+  if (gameStartOverlayTimerId != null) window.clearTimeout(gameStartOverlayTimerId)
+  gameStartOverlayTimerId = window.setTimeout(() => {
+    gameStartOverlayVisible.value = false
+    gameStartOverlayTimerId = null
+  }, ms)
+}
 
 function hiddenByVisibility(id: string): boolean {
   if (id === localId.value) return false
@@ -995,7 +1009,9 @@ socket.value?.on('connect', async () => {
     setScreenOwner(p?.user_id ? String(p.user_id) : '')
   })
 
-  socket.value?.on('game_started', (p: any) => {
+  socket.value?.on('game_started', async (p: any) => {
+    showGameStartOverlay(1000)
+    await nextTick()
     game.handleGameStarted(p)
     statusByUser.forEach((st, uid) => {
       statusByUser.set(uid, { ...st, ready: 0 as 0 })
@@ -1542,6 +1558,7 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   window.removeEventListener('offline', handleOffline)
   window.removeEventListener('online', handleOnline)
+  if (gameStartOverlayTimerId != null) window.clearTimeout(gameStartOverlayTimerId)
   void onLeave(false)
 })
 </script>
@@ -1846,6 +1863,14 @@ onBeforeUnmount(() => {
   }
 }
 
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.25s ease-in-out;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
 .role-overlay-fade-enter-active,
 .role-overlay-fade-leave-active {
   transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;

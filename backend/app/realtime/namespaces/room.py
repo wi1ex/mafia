@@ -3138,20 +3138,18 @@ async def game_end(sid, data):
                 continue
 
         for target_uid in players_list:
-            if target_uid == head_uid:
-                continue
-
-            try:
-                await apply_blocks_and_emit(r, rid, actor_uid=head_uid, actor_role="head", target_uid=target_uid, phase_override="idle",
-                                            changes_bool={"mic": False, "cam": False, "speakers": False, "visibility": False})
-            except Exception:
-                log.exception("sio.game_end.auto_unblock_failed", rid=rid, head=head_uid, target=target_uid)
+            if target_uid != head_uid:
+                try:
+                    await apply_blocks_and_emit(r, rid, actor_uid=head_uid, actor_role="head", target_uid=target_uid, phase_override="idle",
+                                                changes_bool={"mic": False, "cam": False, "speakers": False, "visibility": False})
+                except Exception:
+                    log.exception("sio.game_end.auto_unblock_failed", rid=rid, head=head_uid, target=target_uid)
 
             if target_uid not in member_ids:
                 continue
 
             try:
-                new_state = await apply_state(r, rid, target_uid, {"mic": True, "cam": True, "speakers": True, "visibility": True})
+                new_state = await apply_state(r, rid, target_uid, {"mic": False, "cam": True, "speakers": True, "visibility": True})
                 if new_state:
                     await emit_state_changed_filtered(r, rid, target_uid, new_state, phase_override="idle")
             except Exception:
