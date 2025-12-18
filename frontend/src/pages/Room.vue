@@ -6,7 +6,7 @@
 
     <template v-else>
       <Transition name="fade">
-        <div v-if="gameStartOverlayVisible" class="reconnect-overlay" aria-live="polite">Запуск игры…</div>
+        <div v-if="gameStartOverlayVisible" class="reconnect-overlay load-game" aria-live="polite">Запуск игры…</div>
       </Transition>
       <div v-if="!isTheater" class="grid" :style="gridStyle">
         <RoomTile
@@ -1010,8 +1010,9 @@ socket.value?.on('connect', async () => {
   })
 
   socket.value?.on('game_started', async (p: any) => {
-    showGameStartOverlay(1000)
+    showGameStartOverlay(1250)
     await nextTick()
+    await new Promise<void>(resolve => window.setTimeout(resolve, 250))
     game.handleGameStarted(p)
     statusByUser.forEach((st, uid) => {
       statusByUser.set(uid, { ...st, ready: 0 as 0 })
@@ -1190,10 +1191,10 @@ async function restoreAfterGameEnd() {
   const id = localId.value
   if (!id) return
   optimisticUnblockSelfAfterGame()
+  if (micOn.value) await toggleMic()
+  if (!camOn.value) await toggleCam()
   if (!speakersOn.value) await toggleSpeakers()
   if (!visibilityOn.value) await toggleVisibility()
-  if (!micOn.value) await toggleMic()
-  if (!camOn.value) await toggleCam()
 }
 
 async function applyMafiaTalkStartForLocal(): Promise<void> {
@@ -1582,6 +1583,9 @@ onBeforeUnmount(() => {
     color: $fg;
     z-index: 1000;
     pointer-events: none;
+    &.load-game {
+      background-color: $black;
+    }
     &.media-gate {
       pointer-events: auto;
       cursor: pointer;
