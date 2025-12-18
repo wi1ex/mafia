@@ -60,6 +60,7 @@
           :lift-nominees="id === headUserId && liftHighlightNominees ? nomineeSeatNumbers : []"
           :current-nominee-seat="id === headUserId ? currentNomineeSeat : null"
           :show-nominations-bar="id === headUserId && (gamePhase === 'day' || gamePhase === 'vote')"
+          :vote-blocked="id === headUserId ? voteBlocked : false"
           :offline-seats-in-game="id === headUserId && gamePhase === 'vote' ? offlineAliveSeatNumbers : []"
           :show-vote-button="amIAlive && game.canPressVoteButton()"
           :vote-enabled="game.canPressVoteButton()"
@@ -141,6 +142,7 @@
             :lift-nominees="id === headUserId && liftHighlightNominees ? nomineeSeatNumbers : []"
             :current-nominee-seat="id === headUserId ? currentNomineeSeat : null"
             :show-nominations-bar="id === headUserId && (gamePhase === 'day' || gamePhase === 'vote')"
+            :vote-blocked="id === headUserId ? voteBlocked : false"
             :offline-seats-in-game="id === headUserId && gamePhase === 'vote' ? offlineAliveSeatNumbers : []"
             :show-vote-button="amIAlive && game.canPressVoteButton()"
             :vote-enabled="game.canPressVoteButton()"
@@ -388,6 +390,7 @@ const {
   takenCardSet,
   mafiaTalkRemainingMs,
   voteStartedForCurrent,
+  voteBlocked,
   night,
   headNightPicks,
   headUserId,

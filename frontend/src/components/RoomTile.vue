@@ -38,6 +38,7 @@
       <span>Проголосовать</span>
     </button>
     <div class="head-bar" v-if="isGameHead && phaseLabel">{{ phaseLabel }}</div>
+    <div class="head-bar" v-else-if="isGameHead && voteBlocked">Голосования не будет</div>
     <div class="head-bar" v-else-if="isGameHead && showNominationsBar && offlineSeatsInGame && offlineSeatsInGame.length > 0">
       <span>Ожидаем игроков: {{ offlineSeatsInGame.join(', ') }}</span>
     </div>
@@ -152,6 +153,7 @@ const props = withDefaults(defineProps<{
   nominees?: number[]
   liftNominees?: number[]
   showNominationsBar?: boolean
+  voteBlocked?: boolean
   currentNomineeSeat?: number | null
   showVoteButton?: boolean
   voteEnabled?: boolean
@@ -190,6 +192,7 @@ const props = withDefaults(defineProps<{
   nominees: () => [],
   liftNominees: () => [],
   showNominationsBar: false,
+  voteBlocked: false,
   currentNomineeSeat: null,
   showVoteButton: false,
   voteEnabled: false,

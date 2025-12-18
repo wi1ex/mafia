@@ -70,6 +70,8 @@ __all__ = [
     "ensure_can_act_role",
     "get_active_fouls",
     "get_game_deaths",
+    "block_vote_and_clear",
+    "should_block_vote_on_death",
 ]
 
 log = structlog.get_logger()
@@ -317,6 +319,7 @@ class GameStateView:
             "current_uid": day_current_uid,
             "deadline": remaining,
             "speeches_done": speeches_done,
+            "vote_blocked": self.ctx.gbool("vote_blocked")
         }
 
         nk_uid = self.ctx.gint("night_kill_uid")
@@ -353,14 +356,14 @@ class GameStateView:
     async def vote(self, r, rid: int) -> dict[str, Any] | None:
         vote_current_uid = self.ctx.gint("vote_current_uid")
         vote_started = self.ctx.gint("vote_started")
-        vote_duration = self.ctx.gint("vote_duration", settings.VOTE_SECONDS)
         vote_done = self.ctx.gbool("vote_done")
         vote_aborted = self.ctx.gbool("vote_aborted")
         vote_results_ready = self.ctx.gbool("vote_results_ready")
         vote_speeches_done = self.ctx.gbool("vote_speeches_done")
         vote_speech_uid = self.ctx.gint("vote_speech_uid")
-        vote_speech_duration = self.ctx.gint("vote_speech_duration")
         vote_speech_kind = self.ctx.gstr("vote_speech_kind")
+        vote_duration = self.ctx.gint("vote_duration", settings.VOTE_SECONDS)
+        vote_speech_duration = self.ctx.gint("vote_speech_duration")
 
         if vote_aborted or vote_results_ready:
             vote_current_uid = 0
@@ -381,6 +384,7 @@ class GameStateView:
             "results_ready": vote_results_ready,
             "speeches_done": vote_speeches_done,
             "started": started_flag,
+            "blocked": self.ctx.gbool("vote_blocked")
         }
 
         vote_lift_state = self.ctx.gstr("vote_lift_state")
@@ -1160,6 +1164,7 @@ async def finish_day_speech(r, rid: int, raw_gstate: Mapping[str, Any], speaker_
         "opening_uid": opening_uid,
         "closing_uid": closing_uid,
         "deadline": 0,
+        "vote_blocked": ctx.gbool("vote_blocked"),
     }
     if day_speeches_done:
         payload["speeches_done"] = True
@@ -1820,7 +1825,96 @@ async def finish_day_prelude_speech(r, rid: int, raw_gstate: Mapping[str, Any], 
         )
         await p.execute()
 
-    return {"room_id": rid, "speaker_uid": speaker_uid, "opening_uid": 0, "closing_uid": 0, "deadline": 0, "prelude": True, "night": {"kill_uid": 0, "kill_ok": False}}
+    return {
+        "room_id": rid,
+        "speaker_uid": speaker_uid,
+        "opening_uid": 0,
+        "closing_uid": 0,
+        "deadline": 0,
+        "prelude": True,
+        "night": {"kill_uid": 0, "kill_ok": False},
+        "vote_blocked": ctx.gbool("vote_blocked")
+    }
+
+
+def parse_leaders(raw_state: Mapping[str, Any]) -> list[int]:
+    leaders_raw = str(raw_state.get("vote_leaders_order") or "")
+    leaders: list[int] = []
+    for part in leaders_raw.split(","):
+        part = part.strip()
+        if not part:
+            continue
+        try:
+            leaders.append(int(part))
+        except Exception:
+            continue
+
+    return leaders
+
+
+def should_block_vote_on_death(raw_state: Mapping[str, Any], victim_uid: int) -> tuple[bool, bool, list[int]]:
+    phase = str(raw_state.get("phase") or "")
+    vote_results_ready = str(raw_state.get("vote_results_ready") or "0") == "1"
+    vote_lift_state = str(raw_state.get("vote_lift_state") or "")
+    leaders = parse_leaders(raw_state)
+    unique_leader = len(leaders) == 1
+
+    if phase == "vote":
+        if vote_lift_state == "voting":
+            return True, False, leaders
+
+        if not vote_results_ready or not unique_leader:
+            return True, False, leaders
+
+        if victim_uid in leaders:
+            return True, False, leaders
+
+        return False, True, leaders
+
+    if phase == "day":
+        return True, False, leaders
+
+    if phase == "night":
+        return False, True, leaders
+
+    return False, True, leaders
+
+
+async def block_vote_and_clear(r, rid: int, *, reason: str = "", phase: str = "") -> None:
+    async with r.pipeline() as p:
+        mapping = {"vote_blocked": "1"}
+        if phase == "vote":
+            mapping.update({
+                "vote_done": "1",
+                "vote_started": "0",
+                "vote_aborted": "1",
+                "vote_results_ready": "0",
+                "vote_speeches_done": "0",
+                "vote_prev_leaders": "",
+                "vote_lift_state": "",
+                "vote_leaders_order": "",
+                "vote_leader_idx": "0",
+                "vote_speech_uid": "0",
+                "vote_speech_started": "0",
+                "vote_speech_duration": "0",
+                "vote_speech_kind": "",
+                "vote_current_uid": "0",
+            })
+        await p.hset(f"room:{rid}:game_state", mapping=mapping)
+        await p.delete(f"room:{rid}:game_nominees")
+        await p.delete(f"room:{rid}:game_nom_speakers")
+        if phase == "vote":
+            await p.delete(f"room:{rid}:game_votes")
+        await p.execute()
+
+    payload = {"room_id": rid, "blocked": True, "reason": reason or "", "nominees": []}
+    try:
+        await sio.emit("game_vote_aborted",
+                       payload,
+                       room=f"room:{rid}",
+                       namespace="/room")
+    except Exception:
+        log.exception("vote_blocked.emit_failed", rid=rid)
 
 
 async def enrich_game_runtime_with_vote(r, rid: int, game_runtime: Mapping[str, Any], raw_gstate: Mapping[str, Any]) -> dict[str, Any]:

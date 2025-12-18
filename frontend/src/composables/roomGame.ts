@@ -132,6 +132,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   const voteLeaderSpeechesDone = ref(false)
   const voteLeaderKilled = ref(false)
   const voteLiftState = ref<'none' | 'ready' | 'prepared' | 'voting' | 'passed' | 'failed'>('none')
+  const voteBlocked = ref(false)
   const deathReasonByUser = reactive(new Map<string, string>())
 
   const night = reactive({
@@ -411,6 +412,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   const canStartVote = computed(() => {
     if (!isHead.value) return false
     if (gamePhase.value !== 'day') return false
+    if (voteBlocked.value) return false
     if (!daySpeechesDone.value) return false
     const cnt = nomineeSeatNumbers.value.length
     if (cnt <= 0) return false
@@ -461,6 +463,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   const canHeadFinishVoteControl = computed(() => {
     if (gamePhase.value !== 'vote' || !isHead.value) return false
     if (voteResultShown.value) return false
+    if (voteBlocked.value) return false
     if (voteLiftState.value === 'voting') {
       return vote.done || vote.remainingMs <= 0
     }
@@ -599,6 +602,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     setVoteRemainingMs(0, changed)
     vote.done = false
     voteAborted.value = false
+    voteBlocked.value = false
     votedUsers.clear()
     votedThisRound.clear()
     voteStartedForCurrent.value = false
@@ -1105,6 +1109,14 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     const closingId = String(p?.closing_uid || '')
     const speakerId = String(p?.speaker_uid || '')
     const ms = secondsToMs(p?.deadline)
+    if ('vote_blocked' in (p as any)) {
+      const blocked = isTrueLike((p as any).vote_blocked)
+      voteBlocked.value = blocked
+      if (blocked) {
+        replaceIds(dayNominees, [])
+        nominatedThisSpeechByMe.value = false
+      }
+    }
 
     daySpeech.openingId = openingId
     daySpeech.closingId = closingId
@@ -1191,6 +1203,11 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     setVoteRemainingMs(ms, true)
     vote.done = isTrueLike(vt.done)
     voteAborted.value = isTrueLike((vt as any).aborted)
+    if ('blocked' in (vt as any)) {
+      voteBlocked.value = isTrueLike((vt as any).blocked)
+    } else if (gamePhase.value === 'vote') {
+      voteBlocked.value = false
+    }
     voteResultShown.value = isTrueLike((vt as any).results_ready)
     if (!newId) {
       voteStartedForCurrent.value = false
@@ -1206,6 +1223,8 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   function handleGameVoteAborted(_p: any) {
     voteAborted.value = true
     vote.done = true
+    const blocked = isTrueLike((_p as any)?.blocked)
+    if (blocked) voteBlocked.value = true
     setVoteRemainingMs(0, true)
     votedUsers.clear()
     votedThisRound.clear()
@@ -1213,6 +1232,13 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     vote.currentId = ''
     voteStartedForCurrent.value = false
     voteLiftState.value = 'none'
+    voteLeaderSpeechesDone.value = true
+    voteLeaderKilled.value = false
+    replaceIds(voteResultLeaders, [])
+    nominatedThisSpeechByMe.value = false
+    const nomineesRaw = (_p as any)?.nominees
+    if (Array.isArray(nomineesRaw)) replaceIds(dayNominees, nomineesRaw)
+    else if (blocked) replaceIds(dayNominees, [])
   }
 
   function handleGameVoted(p: any) {
@@ -1230,6 +1256,11 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     voteAborted.value = false
     voteResultShown.value = true
     vote.done = true
+    if ('blocked' in (p as any)) {
+      voteBlocked.value = isTrueLike((p as any).blocked)
+    } else {
+      voteBlocked.value = false
+    }
     const speechesDone = isTrueLike((p as any)?.speeches_done)
     voteLeaderSpeechesDone.value = speechesDone
     voteLeaderKilled.value = false
@@ -1473,6 +1504,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     if (daySpeech.currentId !== me) return false
     if (daySpeech.remainingMs <= 0) return false
     if (!amIAlive.value) return false
+    if (voteBlocked.value) return false
     if (!gamePlayers.has(id)) return false
     if (!gameAlive.has(id)) return false
     if (dayNominees.includes(id)) return false
@@ -1594,6 +1626,8 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
         alert('Вы уже выставили игрока в этой речи')
       } else if (st === 409 && code === 'target_already_on_ballot') {
         alert('Этот игрок уже выставлен')
+      } else if (st === 409 && code === 'vote_blocked') {
+        alert('Голосования не будет — нельзя выставлять игроков')
       } else {
         alert('Не удалось выставить игрока на голосование')
       }
@@ -2052,6 +2086,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     voteAborted,
     voteLeaderSpeechesDone,
     voteLeaderKilled,
+    voteBlocked,
     dayNumber,
     night,
     headNightPicks,
