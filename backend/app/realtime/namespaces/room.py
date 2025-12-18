@@ -61,7 +61,7 @@ from ..utils import (
     get_active_fouls,
     get_game_deaths,
     block_vote_and_clear,
-    should_block_vote_on_death,
+    decide_vote_blocks_on_death,
 )
 
 log = structlog.get_logger()
@@ -627,7 +627,7 @@ async def game_leave(sid, data):
 
         removed = await process_player_death(r, rid, uid, head_uid=head_uid, phase_override=phase, reason="suicide")
         if removed:
-            block_now, block_next, _ = should_block_vote_on_death(raw_gstate, uid)
+            block_now, block_next, _ = await decide_vote_blocks_on_death(r, rid, raw_gstate, uid)
             if block_now:
                 await block_vote_and_clear(r, rid, reason="suicide", phase=phase)
             if block_next:
@@ -1820,7 +1820,7 @@ async def game_foul_set(sid, data):
             if not handled_by_predefined_farewell:
                 removed = await process_player_death(r, rid, target_uid, head_uid=head_uid, phase_override=phase, reason="foul")
                 if removed:
-                    block_now, block_next, _ = should_block_vote_on_death(raw_gstate, target_uid)
+                    block_now, block_next, _ = await decide_vote_blocks_on_death(r, rid, raw_gstate, target_uid)
                     if block_now:
                         await block_vote_and_clear(r, rid, reason="foul", phase=phase)
                     if block_next:
