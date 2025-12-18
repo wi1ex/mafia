@@ -524,7 +524,6 @@ async def kick(sid, data):
 @sio.event(namespace="/room")
 async def game_leave(sid, data):
     try:
-        sess = await sio.get_session(sid, namespace="/room")
         ctx, err = await require_ctx(sid)
         if err:
             return err
@@ -548,15 +547,34 @@ async def game_leave(sid, data):
 
         if phase == "day":
             current_uid = ctx.gint("day_current_uid")
+            pre_active = ctx.gbool("day_prelude_active")
+            pre_uid = ctx.gint("day_prelude_uid")
             if current_uid == uid:
                 try:
-                    payload = await finish_day_speech(r, rid, raw_gstate, uid)
+                    if pre_active and pre_uid and pre_uid == uid:
+                        payload = await finish_day_prelude_speech(r, rid, raw_gstate, uid)
+                    else:
+                        payload = await finish_day_speech(r, rid, raw_gstate, uid)
                     await sio.emit("game_day_speech",
                                    payload,
                                    room=f"room:{rid}",
                                    namespace="/room")
                 except Exception:
                     log.exception("sio.game_leave.finish_speech_failed", rid=rid, uid=uid)
+
+        if phase == "vote":
+            vote_speaker_uid = ctx.gint("vote_speech_uid")
+            if vote_speaker_uid == uid:
+                try:
+                    payload = await finish_vote_speech(r, rid, raw_gstate, uid)
+                    await sio.emit("game_day_speech",
+                                   payload,
+                                   room=f"room:{rid}",
+                                   namespace="/room")
+                except Exception:
+                    log.exception("sio.game_leave.finish_vote_speech_failed", rid=rid, uid=uid)
+
+            return {"ok": True, "status": 200, "room_id": rid}
 
         removed = await process_player_death(r, rid, uid, head_uid=head_uid, phase_override=phase, reason="suicide")
         if removed:
@@ -568,18 +586,6 @@ async def game_leave(sid, data):
                     await r.hset(f"room:{rid}:game_state", mapping={"vote_blocked_next": "1"})
                 except Exception:
                     log.exception("sio.game_leave.mark_vote_blocked_next_failed", rid=rid)
-
-        try:
-            async with SessionLocal() as s:
-                await log_action(
-                    s,
-                    user_id=uid,
-                    username=str(sess.get("username") or f"user{uid}"),
-                    action="game_leave",
-                    details=f"Выход из игры room_id={rid}",
-                )
-        except Exception:
-            log.exception("sio.game_leave.log_failed", rid=rid, uid=uid)
 
         return {"ok": True, "status": 200, "room_id": rid}
 
@@ -1602,7 +1608,6 @@ async def game_foul(sid, data):
         uid = ctx.uid
         rid = ctx.rid
         r = ctx.r
-        raw_gstate = ctx.gstate
         phase = ctx.phase
         if phase not in ("day", "vote"):
             return {"ok": False, "error": "bad_phase", "status": 400}
@@ -1727,11 +1732,18 @@ async def game_foul_set(sid, data):
         killed = False
         if foul_after >= 4:
             killed = True
+            handled_by_predefined_farewell = False
             if phase == "day":
                 current_uid = ctx.gint("day_current_uid")
+                pre_active = ctx.gbool("day_prelude_active")
+                pre_uid = ctx.gint("day_prelude_uid")
                 if current_uid == target_uid:
                     try:
-                        payload = await finish_day_speech(r, rid, raw_gstate, target_uid)
+                        if pre_active and pre_uid and pre_uid == target_uid:
+                            payload = await finish_day_prelude_speech(r, rid, raw_gstate, target_uid)
+                            handled_by_predefined_farewell = True
+                        else:
+                            payload = await finish_day_speech(r, rid, raw_gstate, target_uid)
                         await sio.emit("game_day_speech",
                                        payload,
                                        room=f"room:{rid}",
@@ -1739,16 +1751,32 @@ async def game_foul_set(sid, data):
                     except Exception:
                         log.exception("game_foul_set.finish_speech_failed", rid=rid, uid=target_uid)
 
-            removed = await process_player_death(r, rid, target_uid, head_uid=head_uid, phase_override=phase, reason="foul")
-            if removed:
-                block_now, block_next, _ = should_block_vote_on_death(raw_gstate, target_uid)
-                if block_now:
-                    await block_vote_and_clear(r, rid, reason="foul", phase=phase)
-                if block_next:
+            if phase == "vote":
+                vote_speaker_uid = ctx.gint("vote_speech_uid")
+                vote_kind = ctx.gstr("vote_speech_kind")
+                if vote_speaker_uid == target_uid:
                     try:
-                        await r.hset(f"room:{rid}:game_state", mapping={"vote_blocked_next": "1"})
+                        payload = await finish_vote_speech(r, rid, raw_gstate, target_uid)
+                        await sio.emit("game_day_speech",
+                                       payload,
+                                       room=f"room:{rid}",
+                                       namespace="/room")
                     except Exception:
-                        log.exception("game_foul_set.mark_vote_blocked_next_failed", rid=rid)
+                        log.exception("game_foul_set.finish_vote_speech_failed", rid=rid, uid=target_uid)
+                    if vote_kind == "farewell":
+                        handled_by_predefined_farewell = True
+
+            if not handled_by_predefined_farewell:
+                removed = await process_player_death(r, rid, target_uid, head_uid=head_uid, phase_override=phase, reason="foul")
+                if removed:
+                    block_now, block_next, _ = should_block_vote_on_death(raw_gstate, target_uid)
+                    if block_now:
+                        await block_vote_and_clear(r, rid, reason="foul", phase=phase)
+                    if block_next:
+                        try:
+                            await r.hset(f"room:{rid}:game_state", mapping={"vote_blocked_next": "1"})
+                        except Exception:
+                            log.exception("game_foul_set.mark_vote_blocked_next_failed", rid=rid)
 
         try:
             await emit_game_fouls(r, rid)
@@ -3021,7 +3049,6 @@ async def game_end(sid, data):
         uid = ctx.uid
         rid = ctx.rid
         r = ctx.r
-        raw_gstate = ctx.gstate
         phase = ctx.phase
         if phase == "idle":
             return {"ok": False, "error": "no_game", "status": 400}
