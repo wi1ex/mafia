@@ -545,6 +545,7 @@ async def game_leave(sid, data):
         if not was_alive:
             return {"ok": False, "error": "already_dead", "status": 400}
 
+        handled_by_predefined_farewell = False
         if phase == "day":
             current_uid = ctx.gint("day_current_uid")
             pre_active = ctx.gbool("day_prelude_active")
@@ -553,6 +554,7 @@ async def game_leave(sid, data):
                 try:
                     if pre_active and pre_uid and pre_uid == uid:
                         payload = await finish_day_prelude_speech(r, rid, raw_gstate, uid)
+                        handled_by_predefined_farewell = True
                     else:
                         payload = await finish_day_speech(r, rid, raw_gstate, uid)
                     await sio.emit("game_day_speech",
@@ -564,6 +566,49 @@ async def game_leave(sid, data):
 
         if phase == "vote":
             vote_speaker_uid = ctx.gint("vote_speech_uid")
+            vote_kind = ctx.gstr("vote_speech_kind")
+            vote_results_ready = ctx.gbool("vote_results_ready")
+            leaders = ctx.gcsv_ints("vote_leaders_order")
+            if vote_results_ready and not vote_speaker_uid and len(leaders) == 1 and leaders[0] == uid:
+                removed = await process_player_death(r, rid, uid, head_uid=head_uid, phase_override=phase, reason="suicide")
+                if removed:
+                    async with r.pipeline() as p:
+                        await p.hset(
+                            f"room:{rid}:game_state",
+                            mapping={
+                                "vote_done": "1",
+                                "vote_started": "0",
+                                "vote_aborted": "1",
+                                "vote_results_ready": "0",
+                                "vote_speeches_done": "1",
+                                "vote_prev_leaders": "",
+                                "vote_lift_state": "",
+                                "vote_leaders_order": "",
+                                "vote_leader_idx": "0",
+                                "vote_speech_uid": "0",
+                                "vote_speech_started": "0",
+                                "vote_speech_duration": "0",
+                                "vote_speech_kind": "",
+                                "vote_current_uid": "0",
+                            },
+                        )
+                        await p.delete(
+                            f"room:{rid}:game_nominees",
+                            f"room:{rid}:game_nom_speakers",
+                            f"room:{rid}:game_votes",
+                        )
+                        await p.execute()
+
+                    await sio.emit("game_vote_aborted",
+                                   {"room_id": rid,
+                                    "blocked": False,
+                                    "reason": "leader_suicide",
+                                    "nominees": []},
+                                   room=f"room:{rid}",
+                                   namespace="/room")
+
+                return {"ok": True, "status": 200, "room_id": rid}
+
             if vote_speaker_uid == uid:
                 try:
                     payload = await finish_vote_speech(r, rid, raw_gstate, uid)
@@ -574,6 +619,10 @@ async def game_leave(sid, data):
                 except Exception:
                     log.exception("sio.game_leave.finish_vote_speech_failed", rid=rid, uid=uid)
 
+                if vote_kind == "farewell":
+                    handled_by_predefined_farewell = True
+
+        if handled_by_predefined_farewell:
             return {"ok": True, "status": 200, "room_id": rid}
 
         removed = await process_player_death(r, rid, uid, head_uid=head_uid, phase_override=phase, reason="suicide")
@@ -1740,7 +1789,7 @@ async def game_foul_set(sid, data):
                 if current_uid == target_uid:
                     try:
                         if pre_active and pre_uid and pre_uid == target_uid:
-                            payload = await finish_day_prelude_speech(r, rid, raw_gstate, target_uid)
+                            payload = await finish_day_prelude_speech(r, rid, raw_gstate, target_uid, reason_override="foul")
                             handled_by_predefined_farewell = True
                         else:
                             payload = await finish_day_speech(r, rid, raw_gstate, target_uid)
@@ -1756,15 +1805,17 @@ async def game_foul_set(sid, data):
                 vote_kind = ctx.gstr("vote_speech_kind")
                 if vote_speaker_uid == target_uid:
                     try:
-                        payload = await finish_vote_speech(r, rid, raw_gstate, target_uid)
+                        if vote_kind == "farewell":
+                            payload = await finish_vote_speech(r, rid, raw_gstate, target_uid, reason_override="foul")
+                            handled_by_predefined_farewell = True
+                        else:
+                            payload = await finish_vote_speech(r, rid, raw_gstate, target_uid)
                         await sio.emit("game_day_speech",
                                        payload,
                                        room=f"room:{rid}",
                                        namespace="/room")
                     except Exception:
                         log.exception("game_foul_set.finish_vote_speech_failed", rid=rid, uid=target_uid)
-                    if vote_kind == "farewell":
-                        handled_by_predefined_farewell = True
 
             if not handled_by_predefined_farewell:
                 removed = await process_player_death(r, rid, target_uid, head_uid=head_uid, phase_override=phase, reason="foul")

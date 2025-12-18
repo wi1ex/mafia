@@ -1479,7 +1479,7 @@ async def day_speech_timeout_job(rid: int, expected_started: int, expected_uid: 
         log.exception("day_speech_timeout.emit_failed", rid=rid, uid=expected_uid)
 
 
-async def finish_vote_speech(r, rid: int, raw_gstate: Mapping[str, Any], speaker_uid: int) -> dict[str, Any]:
+async def finish_vote_speech(r, rid: int, raw_gstate: Mapping[str, Any], speaker_uid: int, *, reason_override: str | None = None) -> dict[str, Any]:
     ctx = GameActionContext.from_raw_state(uid=speaker_uid, rid=rid, r=r, raw_state=raw_gstate)
     head_uid = ctx.head_uid
     if head_uid and speaker_uid != head_uid:
@@ -1494,7 +1494,7 @@ async def finish_vote_speech(r, rid: int, raw_gstate: Mapping[str, Any], speaker
     killed = False
     speeches_done = False
     if kind == "farewell":
-        await process_player_death(r, rid, speaker_uid, head_uid=head_uid, phase_override="vote", reason="vote")
+        await process_player_death(r, rid, speaker_uid, head_uid=head_uid, phase_override="vote", reason=reason_override or "vote")
         killed = True
         if leaders and leader_idx >= len(leaders):
             speeches_done = True
@@ -1798,10 +1798,10 @@ async def process_player_death(r, rid: int, user_id: int, *, head_uid: int | Non
     return removed
 
 
-async def finish_day_prelude_speech(r, rid: int, raw_gstate: Mapping[str, Any], speaker_uid: int) -> dict[str, Any]:
+async def finish_day_prelude_speech(r, rid: int, raw_gstate: Mapping[str, Any], speaker_uid: int, *, reason_override: str | None = None) -> dict[str, Any]:
     ctx = GameActionContext.from_raw_state(uid=speaker_uid, rid=rid, r=r, raw_state=raw_gstate)
     head_uid = ctx.head_uid
-    await process_player_death(r, rid, speaker_uid, head_uid=head_uid, phase_override="day", reason="night")
+    await process_player_death(r, rid, speaker_uid, head_uid=head_uid, phase_override="day", reason=reason_override or "night")
 
     if head_uid and speaker_uid != head_uid:
         try:

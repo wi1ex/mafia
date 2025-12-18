@@ -1868,12 +1868,12 @@ onBeforeUnmount(() => {
     .grid {
       width: calc(100vw - 10px);
       height: calc(100dvh - 40px);
-      gap: 5px;
+      gap: 3px;
     }
     .theater {
       width: calc(100vw - 10px);
       height: calc(100dvh - 40px);
-      gap: 5px;
+      gap: 3px;
       .stage {
         .volume {
           top: 3px;
@@ -1938,11 +1938,7 @@ onBeforeUnmount(() => {
         }
       }
       .controls-side {
-        gap: 5px;
-        min-width: 75px;
-      }
-      .controls {
-        gap: 5px;
+        min-width: 80px;
       }
       .btn-text {
         font-size: 12px;
