@@ -570,7 +570,7 @@ async def game_leave(sid, data):
             vote_results_ready = ctx.gbool("vote_results_ready")
             leaders = ctx.gcsv_ints("vote_leaders_order")
             if vote_results_ready and not vote_speaker_uid and len(leaders) == 1 and leaders[0] == uid:
-                removed = await process_player_death(r, rid, uid, head_uid=head_uid, phase_override=phase, reason="suicide")
+                removed = await process_player_death(r, rid, uid, head_uid=head_uid, phase_override=phase, reason="vote")
                 if removed:
                     async with r.pipeline() as p:
                         await p.hset(
