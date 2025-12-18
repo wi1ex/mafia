@@ -73,6 +73,7 @@ __all__ = [
     "block_vote_and_clear",
     "should_block_vote_on_death",
     "decide_vote_blocks_on_death",
+    "get_positive_setting_int",
 ]
 
 log = structlog.get_logger()
@@ -465,6 +466,20 @@ async def require_ctx(sid, *, namespace="/room", allowed_phases: str | Iterable[
             return None, check
 
     return ctx, None
+
+
+def get_positive_setting_int(attr: str, default: int) -> int:
+    try:
+        raw = getattr(settings, attr)
+    except Exception:
+        return int(default)
+
+    try:
+        val = int(raw)
+    except Exception:
+        return int(default)
+
+    return val if val > 0 else int(default)
 
 
 def ensure_can_act_role(actor_role: str, target_role: str, *, error: str = "forbidden", status: int = 403):

@@ -62,6 +62,7 @@ from ..utils import (
     get_game_deaths,
     block_vote_and_clear,
     decide_vote_blocks_on_death,
+    get_positive_setting_int,
 )
 
 log = structlog.get_logger()
@@ -1169,13 +1170,7 @@ async def game_phase_next(sid, data):
                 return {"ok": False, "error": "no_nominees", "status": 409}
 
             first_uid = ordered[0]
-            try:
-                vote_duration = settings.VOTE_SECONDS
-            except Exception:
-                vote_duration = 3
-            if vote_duration <= 0:
-                vote_duration = 3
-
+            vote_duration = get_positive_setting_int("VOTE_SECONDS", 3)
             async with r.pipeline() as p:
                 await p.hset(
                     f"room:{rid}:game_state",
@@ -1582,7 +1577,7 @@ async def game_speech_next(sid, data):
                            namespace="/room")
             return {"ok": True, "status": 200, **payload}
 
-        duration = settings.PLAYER_TALK_SECONDS
+        duration = get_positive_setting_int("PLAYER_TALK_SECONDS", 60)
         use_short = False
         is_prelude_active_now = is_prelude_next or (str(raw_gstate.get("day_prelude_active") or "0") == "1")
         pre_uid2 = ctx.gint("day_prelude_uid")
@@ -1593,7 +1588,7 @@ async def game_speech_next(sid, data):
             except Exception:
                 foul_cnt = 0
 
-            short_seconds = settings.PLAYER_TALK_SHORT_SECONDS
+            short_seconds = get_positive_setting_int("PLAYER_TALK_SHORT_SECONDS", duration)
             if foul_cnt >= 3 and short_seconds > 0:
                 short_used_raw = await r.hget(f"room:{rid}:game_short_speech_used", str(next_uid))
                 short_used = str(short_used_raw or "0") == "1"
@@ -1977,7 +1972,7 @@ async def game_vote_control(sid, data):
             cur_idx = 0
 
         total_nominees = len(nominees)
-        vote_duration = ctx.gint("vote_duration", settings.VOTE_SECONDS)
+        vote_duration = ctx.gint("vote_duration", get_positive_setting_int("VOTE_SECONDS", 3))
         if vote_duration <= 0:
             vote_duration = 3
 
@@ -2161,7 +2156,7 @@ async def game_vote(sid, data):
             return {"ok": False, "error": "no_active_vote", "status": 409}
 
         vote_started = ctx.gint("vote_started")
-        vote_duration = ctx.gint("vote_duration", settings.VOTE_SECONDS)
+        vote_duration = ctx.gint("vote_duration", get_positive_setting_int("VOTE_SECONDS", 3))
         now_ts = int(time())
         if not vote_started or vote_duration <= 0 or now_ts > vote_started + vote_duration:
             return {"ok": False, "error": "vote_window_closed", "status": 409}
@@ -2460,14 +2455,8 @@ async def game_vote_lift_start(sid, data):
         if not nominees:
             return {"ok": False, "error": "no_nominees", "status": 409}
 
-        try:
-            vote_duration = settings.VOTE_SECONDS
-        except Exception:
-            vote_duration = 3
-        if vote_duration <= 0:
-            vote_duration = 3
-
         now_ts = int(time())
+        vote_duration = get_positive_setting_int("VOTE_SECONDS", 3)
         async with r.pipeline() as p:
             await p.hset(
                 f"room:{rid}:game_state",
@@ -2614,17 +2603,7 @@ async def game_vote_speech_next(sid, data):
         if cur_speaker and speech_started and speech_duration > 0 and now_ts < speech_started + speech_duration:
             return {"ok": False, "error": "speech_in_progress", "status": 409}
 
-        leaders_raw = str(raw_gstate.get("vote_leaders_order") or "")
-        leaders: list[int] = []
-        for part in leaders_raw.split(","):
-            part = part.strip()
-            if not part:
-                continue
-            try:
-                leaders.append(int(part))
-            except Exception:
-                continue
-
+        leaders = ctx.gcsv_ints("vote_leaders_order")
         if not leaders:
             return {"ok": False, "error": "no_leaders", "status": 409}
 
@@ -2642,14 +2621,8 @@ async def game_vote_speech_next(sid, data):
                 await p.execute()
             return await game_vote_speech_next(sid, data)
 
-        try:
-            full_sec = settings.PLAYER_TALK_SECONDS
-        except Exception:
-            full_sec = 60
-        try:
-            short_sec = settings.PLAYER_TALK_SHORT_SECONDS
-        except Exception:
-            short_sec = 30
+        full_sec = get_positive_setting_int("PLAYER_TALK_SECONDS", 60)
+        short_sec = get_positive_setting_int("PLAYER_TALK_SHORT_SECONDS", 30)
         if short_sec <= 0:
             short_sec = full_sec
 
@@ -2739,17 +2712,7 @@ async def game_vote_restart(sid, data):
         if not vote_done:
             return {"ok": False, "error": "vote_not_done", "status": 409}
 
-        leaders_raw = str(raw_gstate.get("vote_leaders_order") or "")
-        leaders: list[int] = []
-        for part in leaders_raw.split(","):
-            part = part.strip()
-            if not part:
-                continue
-            try:
-                leaders.append(int(part))
-            except Exception:
-                continue
-
+        leaders = ctx.gcsv_ints("vote_leaders_order")
         leader_idx = ctx.gint("vote_leader_idx")
         if len(leaders) > 1 and leader_idx < len(leaders):
             return {"ok": False, "error": "speeches_not_done", "status": 409}
@@ -2759,13 +2722,7 @@ async def game_vote_restart(sid, data):
             return {"ok": False, "error": "no_nominees", "status": 409}
 
         first_uid = ordered[0]
-        try:
-            vote_duration = settings.VOTE_SECONDS
-        except Exception:
-            vote_duration = 3
-        if vote_duration <= 0:
-            vote_duration = 3
-
+        vote_duration = get_positive_setting_int("VOTE_SECONDS", 3)
         async with r.pipeline() as p:
             await p.hset(
                 f"room:{rid}:game_state",
