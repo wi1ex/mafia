@@ -33,7 +33,7 @@
       <img :src="gameRole" alt="role" />
     </div>
 
-    <div v-else-if="showFarewellButtons" class="farewell-buttons">
+    <div v-if="showFarewellButtons" class="farewell-buttons">
       <button @click="$emit('farewell','citizen', id)">
         <img :src="iconLikeWhite" alt="like" />
       </button>
