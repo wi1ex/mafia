@@ -59,6 +59,9 @@
           :pick-number="isHead ? (headNightPicks.get(id) ?? null) : null"
           :pick-kind="headPickKind"
           :show-nominate="game.canNominateTarget(id)"
+          :farewell-summary="game.farewellSummaryForUser(id)"
+          :farewell-choice="game.activeFarewellChoiceForTarget(id)"
+          :show-farewell-buttons="game.canMakeFarewellChoice(id)"
           :nominees="nomineeSeatNumbers"
           :lift-nominees="id === headUserId && liftHighlightNominees ? nomineeSeatNumbers : []"
           :current-nominee-seat="id === headUserId ? currentNomineeSeat : null"
@@ -77,6 +80,7 @@
           @vote="onVote"
           @shoot="shootTargetUi"
           @check="checkTargetUi"
+          @farewell="onFarewell"
         />
       </div>
 
@@ -141,6 +145,9 @@
             :pick-number="isHead ? (headNightPicks.get(id) ?? null) : null"
             :pick-kind="headPickKind"
             :show-nominate="game.canNominateTarget(id)"
+            :farewell-summary="game.farewellSummaryForUser(id)"
+            :farewell-choice="game.activeFarewellChoiceForTarget(id)"
+            :show-farewell-buttons="game.canMakeFarewellChoice(id)"
             :nominees="nomineeSeatNumbers"
             :lift-nominees="id === headUserId && liftHighlightNominees ? nomineeSeatNumbers : []"
             :current-nominee-seat="id === headUserId ? currentNomineeSeat : null"
@@ -159,6 +166,7 @@
             @vote="onVote"
             @shoot="shootTargetUi"
             @check="checkTargetUi"
+            @farewell="onFarewell"
           />
         </div>
       </div>
@@ -293,7 +301,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } 
 import { useRoute, useRouter } from 'vue-router'
 import type { Socket } from 'socket.io-client'
 import { useAuthStore } from '@/store'
-import { useRoomGame, type SendAckFn, type Ack, type GamePhase } from '@/composables/roomGame'
+import { useRoomGame, type SendAckFn, type Ack, type GamePhase, type FarewellVerdict } from '@/composables/roomGame'
 import { useRTC, type VQ } from '@/composables/rtc'
 import { createAuthedSocket } from '@/services/sio'
 import RoomTile from '@/components/RoomTile.vue'
@@ -752,6 +760,11 @@ function onNominate(targetId: string) {
   game.nominateTarget(targetId, sendAck)
 }
 
+function onFarewell(verdict: FarewellVerdict, targetId: string) {
+  if (!game.canMakeFarewellChoice(targetId)) return
+  void game.markFarewellChoice(targetId, verdict, sendAckGame)
+}
+
 const onVote = () => {
   game.voteForCurrent(sendAck)
 }
@@ -1079,6 +1092,10 @@ socket.value?.on('connect', async () => {
 
   socket.value.on('game_nominee_added', (p: any) => {
     game.handleGameNomineeAdded(p)
+  })
+
+  socket.value.on('game_farewell_update', (p: any) => {
+    game.handleGameFarewellUpdate(p)
   })
 
   socket.value.on('game_vote_state', (p: any) => {

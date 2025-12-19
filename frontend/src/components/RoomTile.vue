@@ -33,6 +33,19 @@
       <img :src="gameRole" alt="role" />
     </div>
 
+    <div v-if="farewellChoice" class="farewell-label" :class="farewellChoice">
+      {{ farewellChoice === 'citizen' ? 'Мирный' : 'Мафия' }}
+    </div>
+    <div v-else-if="showFarewellButtons" class="farewell-buttons">
+      <button class="farewell-btn citizen" @click="$emit('farewell','citizen', id)">Мирный</button>
+      <button class="farewell-btn mafia" @click="$emit('farewell','mafia', id)">Мафия</button>
+    </div>
+    <div v-if="farewellSummary && farewellSummary.length && isDead(id)" class="farewell-summary">
+      <span v-for="item in farewellSummary" :key="item.targetId" class="farewell-dot" :class="item.verdict">
+        {{ item.seat ?? '?' }}
+      </span>
+    </div>
+
     <button v-if="isGameHead && showVoteButton" class="vote-btn" :disabled="!voteEnabled" @click="$emit('vote')">
       <img :src="voteEnabled ? iconLikeBlack : iconLikeWhite" alt="vote" />
       <span>Проголосовать</span>
@@ -150,6 +163,9 @@ const props = withDefaults(defineProps<{
   foulsCount?: number
   phaseLabel?: string
   showNominate?: boolean
+  farewellSummary?: { targetId: string, seat: number | null, verdict: 'citizen' | 'mafia' }[]
+  farewellChoice?: 'citizen' | 'mafia' | ''
+  showFarewellButtons?: boolean
   nominees?: number[]
   liftNominees?: number[]
   showNominationsBar?: boolean
@@ -189,6 +205,9 @@ const props = withDefaults(defineProps<{
   foulsCount: 0,
   phaseLabel: '',
   showNominate: false,
+  farewellSummary: () => [],
+  farewellChoice: '',
+  showFarewellButtons: false,
   nominees: () => [],
   liftNominees: () => [],
   showNominationsBar: false,
@@ -216,6 +235,7 @@ defineEmits<{
   (e: 'vote', id: string): void
   (e: 'shoot', id: string): void
   (e: 'check', id: string): void
+  (e: 'farewell', verdict: 'citizen' | 'mafia', id: string): void
 }>()
 
 const showVideo = computed(() => !props.hiddenByVisibility && !props.offline && !props.isDead(props.id) && props.isOn(props.id, 'cam') && !props.isBlocked(props.id, 'cam'))
@@ -387,6 +407,98 @@ const timelineDurationSec = computed(() => {
       line-height: 1;
     }
   }
+
+
+
+
+
+  .farewell-buttons {
+    position: absolute;
+    left: 50%;
+    bottom: 40px;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 8px;
+    z-index: 23;
+    .farewell-btn {
+      padding: 6px 10px;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-family: Manrope-Medium;
+      color: $bg;
+      cursor: pointer;
+      background-color: rgba($dark, 0.85);
+      box-shadow: 3px 3px 5px rgba($black, 0.25);
+      &.citizen {
+        background-color: $red;
+      }
+      &.mafia {
+        background-color: $graphite;
+        color: $fg;
+      }
+    }
+  }
+  .farewell-label {
+    position: absolute;
+    left: 50%;
+    bottom: 40px;
+    transform: translateX(-50%);
+    padding: 6px 12px;
+    border-radius: 6px;
+    background-color: rgba($dark, 0.85);
+    box-shadow: 3px 3px 5px rgba($black, 0.25);
+    color: $fg;
+    font-size: 16px;
+    font-family: Manrope-Medium;
+    line-height: 1;
+    z-index: 23;
+    text-transform: uppercase;
+    &.citizen {
+      background-color: rgba($red, 0.9);
+      color: $bg;
+    }
+    &.mafia {
+      background-color: rgba($black, 0.9);
+      color: $fg;
+    }
+  }
+  .farewell-summary {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    max-width: 45%;
+    z-index: 22;
+    .farewell-dot {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      font-size: 14px;
+      font-family: Manrope-Medium;
+      color: $bg;
+      background-color: $graphite;
+      border: 2px solid rgba($bg, 0.15);
+      box-shadow: 3px 3px 5px rgba($black, 0.25);
+      &.citizen {
+        background-color: $red;
+      }
+      &.mafia {
+        background-color: $black;
+        color: $fg;
+      }
+    }
+  }
+
+
+
+
+
   .vote-btn {
     display: flex;
     position: absolute;
@@ -702,6 +814,37 @@ const timelineDurationSec = computed(() => {
         font-size: 12px;
       }
     }
+
+
+
+
+
+
+    .farewell-buttons {
+      bottom: 30px;
+      gap: 5px;
+      .farewell-btn {
+        padding: 4px 6px;
+        font-size: 10px;
+      }
+    }
+    .farewell-label {
+      bottom: 30px;
+      padding: 4px 6px;
+      font-size: 10px;
+    }
+    .farewell-summary {
+      gap: 4px;
+      .farewell-dot {
+        width: 20px;
+        height: 20px;
+        font-size: 10px;
+      }
+    }
+
+
+
+
     .vote-btn {
       padding: 0 10px;
       gap: 3px;

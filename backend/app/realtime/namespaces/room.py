@@ -2,6 +2,7 @@ from __future__ import annotations
 import asyncio
 import random
 from time import time
+from typing import Any
 import structlog
 from ..sio import sio
 from ...core.clients import get_redis
@@ -60,6 +61,10 @@ from ..utils import (
     ensure_can_act_role,
     get_active_fouls,
     get_game_deaths,
+    get_farewell_wills,
+    get_farewell_limits,
+    get_farewell_wills_for,
+    ensure_farewell_limit,
     block_vote_and_clear,
     decide_vote_blocks_on_death,
     get_positive_setting_int,
@@ -266,6 +271,8 @@ async def join(sid, data) -> JoinAck:
         game_runtime = await enrich_game_runtime_with_vote(r, rid, game_runtime, raw_gstate)
         game_fouls = await get_game_fouls(r, rid)
         game_deaths = await get_game_deaths(r, rid)
+        farewell_wills = await get_farewell_wills(r, rid)
+        farewell_limits = await get_farewell_limits(r, rid)
 
         payload = {
             "ok": True,
@@ -285,6 +292,8 @@ async def join(sid, data) -> JoinAck:
             "my_game_role": my_game_role,
             "game_fouls": game_fouls,
             "game_deaths": game_deaths,
+            "farewell_wills": farewell_wills,
+            "farewell_limits": farewell_limits,
         }
 
         return payload
@@ -800,6 +809,8 @@ async def game_start(sid, data) -> GameStartAck:
                     f"room:{rid}:game_votes",
                     f"room:{rid}:game_checked:don",
                     f"room:{rid}:game_checked:sheriff",
+                    f"room:{rid}:game_farewell_wills",
+                    f"room:{rid}:game_farewell_limits",
                 )
                 await p.sadd(f"room:{rid}:game_players", *player_ids)
                 await p.sadd(f"room:{rid}:game_alive", *player_ids)
@@ -1628,6 +1639,15 @@ async def game_speech_next(sid, data):
         asyncio.create_task(day_speech_timeout_job(rid, now_ts, next_uid, duration))
 
         remaining = duration
+        farewell_section: dict[str, Any] | None = None
+        if is_prelude_next:
+            try:
+                limit = await ensure_farewell_limit(r, rid, next_uid)
+                wills_for = await get_farewell_wills_for(r, rid, next_uid)
+                farewell_section = {"limit": limit, "wills": wills_for}
+            except Exception:
+                log.exception("game_speech_next.farewell_build_failed", rid=rid, uid=next_uid)
+
         payload = {
             "room_id": rid,
             "speaker_uid": next_uid,
@@ -1638,6 +1658,8 @@ async def game_speech_next(sid, data):
         }
         if is_prelude_next:
             payload["prelude"] = True
+        if farewell_section:
+            payload["farewell"] = farewell_section
 
         await sio.emit("game_day_speech",
                        payload,
@@ -1927,6 +1949,107 @@ async def game_nominate(sid, data):
 
     except Exception:
         log.exception("sio.game_nominate.error", sid=sid, data=bool(data))
+        return {"ok": False, "error": "internal", "status": 500}
+
+
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_farewell_mark:{uid or 'nouid'}:{rid or 0}", limit=20, window_s=1, session_ns="/room")
+@sio.event(namespace="/room")
+async def game_farewell_mark(sid, data):
+    try:
+        data = data or {}
+        ctx, err = await require_ctx(sid, allowed_phases=("day", "vote"))
+        if err:
+            return err
+
+        speaker_uid = ctx.uid
+        rid = ctx.rid
+        r = ctx.r
+        try:
+            target_uid = int(data.get("user_id") or 0)
+        except Exception:
+            target_uid = 0
+        if not target_uid:
+            return {"ok": False, "error": "bad_request", "status": 400}
+
+        verdict_raw = str(data.get("verdict") or data.get("color") or "")
+        verdict = verdict_raw if verdict_raw in ("citizen", "mafia") else ""
+        if not verdict:
+            return {"ok": False, "error": "bad_request", "status": 400}
+
+        phase = ctx.phase
+        now_ts = int(time())
+        if phase == "day":
+            cur_uid = ctx.gint("day_current_uid")
+            started = ctx.gint("day_speech_started")
+            duration = ctx.gint("day_speech_duration")
+            pre_active = ctx.gbool("day_prelude_active")
+            pre_uid = ctx.gint("day_prelude_uid")
+            speech_in_progress = cur_uid == speaker_uid and started > 0 and duration > 0 and now_ts < started + duration
+            farewell_active = speech_in_progress and pre_active and pre_uid and pre_uid == cur_uid
+        elif phase == "vote":
+            cur_uid = ctx.gint("vote_speech_uid")
+            started = ctx.gint("vote_speech_started")
+            duration = ctx.gint("vote_speech_duration")
+            kind = ctx.gstr("vote_speech_kind")
+            vote_done = ctx.gbool("vote_done") or ctx.gbool("vote_results_ready") or ctx.gbool("vote_aborted")
+            speech_in_progress = cur_uid == speaker_uid and started > 0 and duration > 0 and now_ts < started + duration and not vote_done
+            farewell_active = speech_in_progress and kind == "farewell"
+        else:
+            return {"ok": False, "error": "bad_phase", "status": 400}
+
+        if not speech_in_progress:
+            return {"ok": False, "error": "no_active_speech", "status": 409}
+
+        if not farewell_active:
+            return {"ok": False, "error": "not_farewell", "status": 409}
+
+        if target_uid == speaker_uid:
+            return {"ok": False, "error": "self_target", "status": 400}
+
+        err = await ctx.ensure_player(target_uid, error="target_not_alive", status=404)
+        if err:
+            return err
+
+        is_alive = await r.sismember(f"room:{rid}:game_alive", str(target_uid))
+        if not is_alive:
+            return {"ok": False, "error": "target_not_alive", "status": 404}
+
+        limit = await ensure_farewell_limit(r, rid, speaker_uid)
+        wills_for = await get_farewell_wills_for(r, rid, speaker_uid)
+        used = len(wills_for)
+        if limit <= 0 or used >= limit:
+            return {"ok": False, "error": "limit_reached", "status": 409, "limit": limit, "used": used}
+
+        tgt_key = f"{speaker_uid}:{target_uid}"
+        if str(target_uid) in wills_for:
+            return {"ok": False, "error": "already_marked", "status": 409, "limit": limit, "used": used}
+
+        try:
+            await r.hset(f"room:{rid}:game_farewell_wills", tgt_key, verdict)
+        except Exception:
+            log.exception("game_farewell_mark.save_failed", rid=rid, uid=speaker_uid, target=target_uid)
+            return {"ok": False, "error": "internal", "status": 500}
+
+        wills_for[str(target_uid)] = verdict
+        payload = {
+            "room_id": rid,
+            "speaker_uid": speaker_uid,
+            "target_uid": target_uid,
+            "verdict": verdict,
+            "wills": wills_for,
+            "limit": limit,
+            "remaining": max(limit - len(wills_for), 0),
+        }
+
+        await sio.emit("game_farewell_update",
+                       payload,
+                       room=f"room:{rid}",
+                       namespace="/room")
+
+        return {"ok": True, "status": 200, **payload}
+
+    except Exception:
+        log.exception("sio.game_farewell_mark.error", sid=sid, data=bool(data))
         return {"ok": False, "error": "internal", "status": 500}
 
 
@@ -2667,6 +2790,15 @@ async def game_vote_speech_next(sid, data):
 
         asyncio.create_task(vote_speech_timeout_job(rid, now_ts, target_uid, duration))
 
+        farewell_section: dict[str, Any] | None = None
+        if kind == "farewell":
+            try:
+                limit = await ensure_farewell_limit(r, rid, target_uid)
+                wills_for = await get_farewell_wills_for(r, rid, target_uid)
+                farewell_section = {"limit": limit, "wills": wills_for}
+            except Exception:
+                log.exception("game_vote_speech_next.farewell_build_failed", rid=rid, uid=target_uid)
+
         payload = {
             "room_id": rid,
             "speaker_uid": target_uid,
@@ -2675,6 +2807,8 @@ async def game_vote_speech_next(sid, data):
             "deadline": duration,
             "vote_speech_kind": kind,
         }
+        if farewell_section:
+            payload["farewell"] = farewell_section
 
         await sio.emit("game_day_speech",
                        payload,
@@ -3141,6 +3275,8 @@ async def game_end(sid, data):
                 f"room:{rid}:night_checks",
                 f"room:{rid}:game_checked:don",
                 f"room:{rid}:game_checked:sheriff",
+                f"room:{rid}:game_farewell_wills",
+                f"room:{rid}:game_farewell_limits",
             )
             await p.execute()
 

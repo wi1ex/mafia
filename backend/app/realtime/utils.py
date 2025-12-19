@@ -53,6 +53,10 @@ __all__ = [
     "get_alive_players_in_seat_order",
     "schedule_foul_block",
     "emit_game_fouls",
+    "get_farewell_wills",
+    "get_farewell_wills_for",
+    "get_farewell_limits",
+    "ensure_farewell_limit",
     "day_speech_timeout_job",
     "finish_vote_speech",
     "vote_speech_timeout_job",
@@ -339,6 +343,13 @@ class GameStateView:
                 "active": pre_active,
                 "done": pre_done,
             }
+            if pre_active and pre_uid == day_current_uid:
+                try:
+                    limit = await ensure_farewell_limit(r, rid, pre_uid)
+                    wills_for = await get_farewell_wills_for(r, rid, pre_uid)
+                    day_section["farewell"] = {"limit": limit, "wills": wills_for}
+                except Exception:
+                    log.exception("day.farewell_section.failed", rid=rid, uid=pre_uid)
 
         nominees = await get_nominees_in_order(r, rid)
         if nominees:
@@ -401,6 +412,14 @@ class GameStateView:
                 "deadline": speech_remaining,
                 "kind": vote_speech_kind,
             }
+            if vote_speech_kind == "farewell":
+                try:
+                    limit = await ensure_farewell_limit(r, rid, vote_speech_uid)
+                    wills_for = await get_farewell_wills_for(r, rid, vote_speech_uid)
+                    vote_section["farewell"] = {"limit": limit, "wills": wills_for}
+                except Exception:
+                    log.exception("vote.farewell_section.failed", rid=rid, uid=vote_speech_uid)
+
         return vote_section
 
     async def night(self, r, rid: int, uid: int) -> dict[str, Any] | None:
@@ -1239,6 +1258,91 @@ async def get_game_deaths(r, rid: int) -> dict[str, str]:
         out[str(uid_s)] = str(reason or "")
 
     return out
+
+
+async def get_farewell_wills(r, rid: int) -> dict[str, dict[str, str]]:
+    try:
+        raw = await r.hgetall(f"room:{rid}:game_farewell_wills")
+    except Exception:
+        log.exception("farewell_wills.load_failed", rid=rid)
+        return {}
+
+    out: dict[str, dict[str, str]] = {}
+    for k_raw, verdict_raw in (raw or {}).items():
+        if not k_raw:
+            continue
+        try:
+            speaker_s, target_s = str(k_raw).split(":", 1)
+        except Exception:
+            continue
+        if not speaker_s or not target_s:
+            continue
+        verdict = str(verdict_raw or "")
+        if verdict not in ("citizen", "mafia"):
+            continue
+        bucket = out.get(speaker_s)
+        if bucket is None:
+            bucket = {}
+            out[speaker_s] = bucket
+        bucket[target_s] = verdict
+
+    return out
+
+
+async def get_farewell_wills_for(r, rid: int, speaker_uid: int) -> dict[str, str]:
+    all_wills = await get_farewell_wills(r, rid)
+    return all_wills.get(str(speaker_uid), {})
+
+
+async def get_farewell_limits(r, rid: int) -> dict[str, int]:
+    try:
+        raw = await r.hgetall(f"room:{rid}:game_farewell_limits")
+    except Exception:
+        log.exception("farewell_limits.load_failed", rid=rid)
+        return {}
+
+    out: dict[str, int] = {}
+    for uid_s, lim_s in (raw or {}).items():
+        if not uid_s:
+            continue
+        try:
+            lim = int(lim_s or 0)
+        except Exception:
+            continue
+        out[str(uid_s)] = lim if lim > 0 else 0
+
+    return out
+
+
+async def compute_farewell_limit(r, rid: int, speaker_uid: int) -> int:
+    alive = await smembers_ints(r, f"room:{rid}:game_alive")
+    others = len([u for u in alive if u != speaker_uid])
+    if others <= 0:
+        return 0
+
+    return max(others // 2, 0)
+
+
+async def ensure_farewell_limit(r, rid: int, speaker_uid: int) -> int:
+    try:
+        existing_raw = await r.hget(f"room:{rid}:game_farewell_limits", str(speaker_uid))
+    except Exception:
+        existing_raw = None
+    if existing_raw is not None:
+        try:
+            cur = int(existing_raw or 0)
+        except Exception:
+            cur = 0
+        if cur >= 0:
+            return cur
+
+    limit = await compute_farewell_limit(r, rid, speaker_uid)
+    try:
+        await r.hset(f"room:{rid}:game_farewell_limits", str(speaker_uid), str(limit))
+    except Exception:
+        log.warning("farewell_limit.save_failed", rid=rid, uid=speaker_uid)
+
+    return limit
 
 
 async def assign_role_for_user(r, rid: int, uid: int, *, card_index: int | None) -> tuple[bool, str | None, str | None]:
@@ -2166,6 +2270,20 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
         night_section = await view.night(r, rid, uid)
         if night_section:
             game_runtime["night"] = night_section
+
+    try:
+        farewell_wills = await get_farewell_wills(r, rid)
+        if farewell_wills:
+            game_runtime["farewell_wills"] = farewell_wills
+    except Exception:
+        log.exception("game_runtime.farewell_wills_failed", rid=rid)
+
+    try:
+        farewell_limits = await get_farewell_limits(r, rid)
+        if farewell_limits:
+            game_runtime["farewell_limits"] = farewell_limits
+    except Exception:
+        log.exception("game_runtime.farewell_limits_failed", rid=rid)
 
     my_game_role = roles_map.get(str(uid))
     head_uid = ctx.head_uid
