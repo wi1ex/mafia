@@ -422,6 +422,9 @@ const timelineDurationSec = computed(() => {
     gap: 10px;
     z-index: 20;
     button {
+      display: flex;
+      align-items: center;
+      justify-content: center;
       padding: 0;
       width: 30px;
       height: 30px;
@@ -823,7 +826,7 @@ const timelineDurationSec = computed(() => {
     .farewell-buttons {
       bottom: 3px;
       gap: 5px;
-      .farewell-btn {
+      button {
         width: 20px;
         height: 20px;
         img {
