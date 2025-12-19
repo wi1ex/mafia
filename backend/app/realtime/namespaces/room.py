@@ -2516,7 +2516,10 @@ async def game_vote_restart_current(sid, data):
         r = ctx.r
         raw_gstate = ctx.gstate
         current_uid = ctx.gint("vote_current_uid")
-        if not current_uid:
+        target_uid = int(data.get("user_id") or 0)
+        if target_uid <= 0:
+            target_uid = current_uid
+        if not target_uid:
             return {"ok": False, "error": "no_current_vote", "status": 409}
 
         vote_lift_state = str(raw_gstate.get("vote_lift_state") or "")
@@ -2531,19 +2534,19 @@ async def game_vote_restart_current(sid, data):
         if not nominees:
             return {"ok": False, "error": "no_nominees", "status": 409}
 
-        if current_uid not in nominees:
+        if target_uid not in nominees:
             return {"ok": False, "error": "no_current_vote", "status": 409}
 
         vote_duration = ctx.gint("vote_duration", get_positive_setting_int("VOTE_SECONDS", 3))
         if vote_duration <= 0:
             vote_duration = 3
 
-        now_ts = int(time())
         async with r.pipeline() as p:
             await p.hset(
                 f"room:{rid}:game_state",
                 mapping={
-                    "vote_started": str(now_ts),
+                    "vote_current_uid": str(target_uid),
+                    "vote_started": "0",
                     "vote_duration": str(vote_duration),
                     "vote_done": "0",
                     "vote_aborted": "0",
@@ -2557,15 +2560,21 @@ async def game_vote_restart_current(sid, data):
             await p.delete(f"room:{rid}:game_votes")
             await p.execute()
 
+        payload_vote = {
+            "current_uid": target_uid,
+            "deadline": 0,
+            "nominees": nominees,
+            "done": False,
+            "restart": True,
+        }
+
         await sio.emit("game_vote_state",
                        {"room_id": rid,
-                        "vote": {"current_uid": current_uid,
-                                 "deadline": vote_duration,
-                                 "nominees": nominees,
-                                 "done": False}},
+                        "vote": payload_vote},
                        room=f"room:{rid}",
                        namespace="/room")
-        return {"ok": True, "status": 200, "room_id": rid, "current_uid": current_uid}
+
+        return {"ok": True, "status": 200, "room_id": rid, **payload_vote}
 
     except Exception:
         log.exception("sio.game_vote_restart_current.error", sid=sid, data=bool(data))

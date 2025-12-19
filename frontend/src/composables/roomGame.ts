@@ -1364,6 +1364,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       voteBlocked.value = false
     }
     voteResultShown.value = isTrueLike((vt as any).results_ready)
+    const isRestart = isTrueLike((vt as any).restart)
     if (!newId) {
       voteStartedForCurrent.value = false
       revotePromptCandidate.value = ''
@@ -1371,8 +1372,13 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       voteStartedForCurrent.value = ms > 0
       votedThisRound.clear()
       if (revotePromptCandidate.value && revotePromptCandidate.value !== newId) revotePromptCandidate.value = ''
-    } else if (ms > 0) {
-      voteStartedForCurrent.value = true
+    } else {
+      voteStartedForCurrent.value = ms > 0
+    }
+    if (isRestart) {
+      voteStartedForCurrent.value = false
+      votedUsers.clear()
+      votedThisRound.clear()
     }
     replaceIds(dayNominees, vt.nominees)
   }
@@ -1866,8 +1872,11 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     }
   }
 
-  async function restartCurrentVote(sendAck: SendAckFn): Promise<void> {
-    const resp = await sendAck('game_vote_restart_current', {})
+  async function restartCurrentVote(sendAck: SendAckFn, targetId?: string): Promise<void> {
+    const payload: Record<string, any> = {}
+    const t = Number(targetId || vote.currentId || 0)
+    if (Number.isFinite(t) && t > 0) payload.user_id = t
+    const resp = await sendAck('game_vote_restart_current', payload)
     if (!resp?.ok) {
       const st = resp?.status
       const code = resp?.error
@@ -1888,7 +1897,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       }
       return
     }
-    voteStartedForCurrent.value = true
+    voteStartedForCurrent.value = false
     votedUsers.clear()
     votedThisRound.clear()
   }
@@ -1906,7 +1915,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     const targetSeat = seatIndex(cur)
     const targetLabel = targetSeat != null ? targetSeat : 'кандидата'
     const ok = confirm(`Игрок ${seatLeft} покидал комнату во время голосования. Переголосовать за ${targetLabel}?`)
-    if (ok) void restartCurrentVote(sendAck)
+    if (ok) void restartCurrentVote(sendAck, cur)
   }
 
   async function goToNextCandidate(sendAck: SendAckFn): Promise<void> {
