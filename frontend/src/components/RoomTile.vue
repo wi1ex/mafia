@@ -13,6 +13,9 @@
       <img :src="iconFoul" alt="foul" />
       <span>{{ foulsCount }}</span>
     </button>
+    <div v-if="farewellSummary && farewellSummary.length" class="farewell-summary">
+      <span v-for="item in farewellSummary" :key="item.targetId" :class="item.verdict">{{ item.seat ?? '?' }}</span>
+    </div>
 
     <div v-if="pickNumber != null && pickNumber > 0" class="nominate-btn pick-number">
       <span>{{ pickKind === 'check' ? 'Проверил' : 'Выстрелил в' }} {{ pickNumber }}</span>
@@ -32,7 +35,6 @@
     <div class="icon-badge right" v-if="gameRole" aria-hidden="true">
       <img :src="gameRole" alt="role" />
     </div>
-
     <div v-if="showFarewellButtons" class="farewell-buttons">
       <button @click="$emit('farewell','citizen', id)">
         <img :src="iconLikeWhite" alt="like" />
@@ -40,9 +42,6 @@
       <button @click="$emit('farewell','mafia', id)">
         <img class="dislike" :src="iconLikeWhite" alt="dislike" />
       </button>
-    </div>
-    <div v-if="farewellSummary && farewellSummary.length" class="farewell-summary">
-      <span v-for="item in farewellSummary" :key="item.targetId" :class="item.verdict">{{ item.seat ?? '?' }}</span>
     </div>
 
     <button v-if="isGameHead && showVoteButton" class="vote-btn" :disabled="!voteEnabled" @click="$emit('vote')">
@@ -62,6 +61,7 @@
 
     <div v-show="!showVideo" class="ava-wrap">
       <img v-if="isDead(id) && deadAvatar" :src="deadAvatar" alt="dead" />
+      <img v-else-if="isSleeping && sleepAvatar" :src="sleepAvatar" alt="sleep" />
       <img v-else-if="offline && offlineAvatar" :src="offlineAvatar" alt="offline" />
       <img v-else-if="hiddenByVisibility && visibilityHiddenAvatar" :src="visibilityHiddenAvatar" alt="hidden" />
       <img v-else class="avatar" v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar, lazy: false }" alt="avatar" />
@@ -159,6 +159,8 @@ const props = withDefaults(defineProps<{
   redMark?: boolean
   gameRole?: string
   hiddenByVisibility?: boolean
+  isSleeping?: boolean
+  sleepAvatar?: string
   visibilityHiddenAvatar?: string
   inGame?: boolean
   foulsCount?: number
@@ -192,6 +194,8 @@ const props = withDefaults(defineProps<{
   seatIcon: null,
   offline: false,
   offlineAvatar: '',
+  isSleeping: false,
+  sleepAvatar: '',
   rolePickOwnerId: '',
   rolePickRemainingMs: 0,
   mafiaTalkHostId: '',
@@ -237,7 +241,7 @@ defineEmits<{
   (e: 'farewell', verdict: 'citizen' | 'mafia', id: string): void
 }>()
 
-const showVideo = computed(() => !props.hiddenByVisibility && !props.offline && !props.isDead(props.id) && props.isOn(props.id, 'cam') && !props.isBlocked(props.id, 'cam'))
+const showVideo = computed(() => !props.hiddenByVisibility && !props.offline && !props.isSleeping && !props.isDead(props.id) && props.isOn(props.id, 'cam') && !props.isBlocked(props.id, 'cam'))
 const openPanel = computed(() => props.openPanelFor === props.id)
 const liftNomineesSet = computed(() => new Set(props.liftNominees || []))
 const hasRolePickTimer = computed(() => props.rolePickOwnerId === props.id && (props.rolePickRemainingMs ?? 0) > 0)

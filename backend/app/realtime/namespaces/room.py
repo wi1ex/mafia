@@ -69,6 +69,7 @@ from ..utils import (
     decide_vote_blocks_on_death,
     get_positive_setting_int,
     compute_farewell_allowed,
+    perform_game_end,
 )
 
 log = structlog.get_logger()
@@ -535,6 +536,7 @@ async def kick(sid, data):
 @sio.event(namespace="/room")
 async def game_leave(sid, data):
     try:
+        sess = await sio.get_session(sid, namespace="/room")
         ctx, err = await require_ctx(sid)
         if err:
             return err
@@ -646,6 +648,11 @@ async def game_leave(sid, data):
                     await r.hset(f"room:{rid}:game_state", mapping={"vote_blocked_next": "1"})
                 except Exception:
                     log.exception("sio.game_leave.mark_vote_blocked_next_failed", rid=rid)
+            if phase in ("roles_pick", "mafia_talk_start", "mafia_talk_end"):
+                try:
+                    await perform_game_end(ctx, sess, confirm=True, allow_non_head=True, reason="early_leave_before_day")
+                except Exception:
+                    log.exception("sio.game_leave.auto_game_end_failed", rid=rid, uid=uid)
 
         return {"ok": True, "status": 200, "room_id": rid}
 
@@ -2496,6 +2503,75 @@ async def game_vote_finish(sid, data):
         return {"ok": False, "error": "internal", "status": 500}
 
 
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_vote_restart_current:{uid or 'nouid'}:{rid or 0}", limit=20, window_s=1, session_ns="/room")
+@sio.event(namespace="/room")
+async def game_vote_restart_current(sid, data):
+    try:
+        data = data or {}
+        ctx, err = await require_ctx(sid, allowed_phases="vote", require_head=True)
+        if err:
+            return err
+
+        rid = ctx.rid
+        r = ctx.r
+        raw_gstate = ctx.gstate
+        current_uid = ctx.gint("vote_current_uid")
+        if not current_uid:
+            return {"ok": False, "error": "no_current_vote", "status": 409}
+
+        vote_lift_state = str(raw_gstate.get("vote_lift_state") or "")
+        if vote_lift_state:
+            return {"ok": False, "error": "lift_in_progress", "status": 409}
+
+        vote_done = str(raw_gstate.get("vote_done") or "0") == "1"
+        if vote_done:
+            return {"ok": False, "error": "vote_done", "status": 409}
+
+        nominees = await get_nominees_in_order(r, rid)
+        if not nominees:
+            return {"ok": False, "error": "no_nominees", "status": 409}
+
+        if current_uid not in nominees:
+            return {"ok": False, "error": "no_current_vote", "status": 409}
+
+        vote_duration = ctx.gint("vote_duration", get_positive_setting_int("VOTE_SECONDS", 3))
+        if vote_duration <= 0:
+            vote_duration = 3
+
+        now_ts = int(time())
+        async with r.pipeline() as p:
+            await p.hset(
+                f"room:{rid}:game_state",
+                mapping={
+                    "vote_started": str(now_ts),
+                    "vote_duration": str(vote_duration),
+                    "vote_done": "0",
+                    "vote_aborted": "0",
+                    "vote_results_ready": "0",
+                    "vote_speech_uid": "0",
+                    "vote_speech_started": "0",
+                    "vote_speech_duration": "0",
+                    "vote_speech_kind": "",
+                },
+            )
+            await p.delete(f"room:{rid}:game_votes")
+            await p.execute()
+
+        await sio.emit("game_vote_state",
+                       {"room_id": rid,
+                        "vote": {"current_uid": current_uid,
+                                 "deadline": vote_duration,
+                                 "nominees": nominees,
+                                 "done": False}},
+                       room=f"room:{rid}",
+                       namespace="/room")
+        return {"ok": True, "status": 200, "room_id": rid, "current_uid": current_uid}
+
+    except Exception:
+        log.exception("sio.game_vote_restart_current.error", sid=sid, data=bool(data))
+        return {"ok": False, "error": "internal", "status": 500}
+
+
 @rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_vote_lift_prepare:{uid or 'nouid'}:{rid or 0}", limit=20, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
 async def game_vote_lift_prepare(sid, data):
@@ -3205,125 +3281,7 @@ async def game_end(sid, data):
         if err:
             return err
 
-        uid = ctx.uid
-        rid = ctx.rid
-        r = ctx.r
-        phase = ctx.phase
-        if phase == "idle":
-            return {"ok": False, "error": "no_game", "status": 400}
-
-        head_uid = ctx.head_uid
-        if not head_uid or uid != head_uid:
-            return {"ok": False, "error": "forbidden", "status": 403}
-
-        if not confirm:
-            return {"ok": True, "status": 200, "room_id": rid, "can_end": True}
-
-        try:
-            players_set = await r.smembers(f"room:{rid}:game_players")
-        except Exception:
-            log.exception("sio.game_end.load_players_failed", rid=rid)
-            players_set = set()
-
-        players_list: list[int] = []
-        for v in (players_set or []):
-            try:
-                players_list.append(int(v))
-            except Exception:
-                continue
-
-        try:
-            members_set = await r.smembers(f"room:{rid}:members")
-        except Exception:
-            log.exception("sio.game_end.load_members_failed", rid=rid)
-            members_set = set()
-
-        member_ids: set[int] = set()
-        for v in (members_set or []):
-            try:
-                member_ids.add(int(v))
-            except Exception:
-                continue
-
-        for target_uid in players_list:
-            if target_uid != head_uid:
-                try:
-                    await apply_blocks_and_emit(r, rid, actor_uid=head_uid, actor_role="head", target_uid=target_uid, phase_override="idle",
-                                                changes_bool={"mic": False, "cam": False, "speakers": False, "visibility": False})
-                except Exception:
-                    log.exception("sio.game_end.auto_unblock_failed", rid=rid, head=head_uid, target=target_uid)
-
-            if target_uid not in member_ids:
-                continue
-
-            try:
-                new_state = await apply_state(r, rid, target_uid, {"mic": False, "cam": True, "speakers": True, "visibility": True})
-                if new_state:
-                    await emit_state_changed_filtered(r, rid, target_uid, new_state, phase_override="idle")
-            except Exception:
-                log.exception("sio.game_end.auto_state_enable_failed", rid=rid, target=target_uid)
-
-        async with r.pipeline() as p:
-            await p.delete(
-                f"room:{rid}:game_state",
-                f"room:{rid}:game_seats",
-                f"room:{rid}:game_players",
-                f"room:{rid}:game_alive",
-                f"room:{rid}:game_fouls",
-                f"room:{rid}:game_deaths",
-                f"room:{rid}:game_short_speech_used",
-                f"room:{rid}:game_nominees",
-                f"room:{rid}:game_nom_speakers",
-                f"room:{rid}:roles_cards",
-                f"room:{rid}:roles_taken",
-                f"room:{rid}:game_roles",
-                f"room:{rid}:game_votes",
-                f"room:{rid}:night_shots",
-                f"room:{rid}:night_checks",
-                f"room:{rid}:game_checked:don",
-                f"room:{rid}:game_checked:sheriff",
-                f"room:{rid}:game_farewell_wills",
-                f"room:{rid}:game_farewell_limits",
-            )
-            await p.execute()
-
-        try:
-            occ = int(await r.scard(f"room:{rid}:members") or 0)
-        except Exception:
-            occ = 0
-
-        await sio.emit("rooms_occupancy",
-                       {"id": rid,
-                        "occupancy": occ},
-                       namespace="/rooms")
-
-        try:
-            briefs = await get_rooms_brief(r, [rid])
-            if briefs:
-                await sio.emit("rooms_upsert",
-                               briefs[0],
-                               namespace="/rooms")
-        except Exception:
-            log.exception("sio.game_end.rooms_upsert_failed", rid=rid)
-
-        await sio.emit("game_ended",
-                       {"room_id": rid},
-                       room=f"room:{rid}",
-                       namespace="/room")
-
-        try:
-            async with SessionLocal() as s:
-                await log_action(
-                    s,
-                    user_id=uid,
-                    username=str(sess.get("username") or f"user{uid}"),
-                    action="game_end",
-                    details=f"Завершение игры room_id={rid} phase={phase}",
-                )
-        except Exception:
-            log.exception("sio.game_end.log_failed", rid=rid, uid=uid)
-
-        return {"ok": True, "status": 200, "room_id": rid}
+        return await perform_game_end(ctx, sess, confirm=confirm, reason="manual")
 
     except Exception:
         log.exception("sio.game_end.error", sid=sid)

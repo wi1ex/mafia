@@ -122,6 +122,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     remainingMs: 0,
     done: false,
   })
+  const revotePromptCandidate = ref('')
   const voteTimerId = ref<number | null>(null)
   const votedUsers = reactive(new Set<string>())
   const votedThisRound = reactive(new Set<string>())
@@ -834,13 +835,6 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     return out
   }
 
-  function activeFarewellChoiceForTarget(targetId: string): FarewellVerdict | '' {
-    const speakerId = activeFarewellSpeakerId.value
-    if (!speakerId) return ''
-    const verdict = farewellWills.get(speakerId)?.get(targetId)
-    return verdict ?? ''
-  }
-
   function canMakeFarewellChoice(targetId: string): boolean {
     const me = localId.value
     if (!me) return false
@@ -1171,6 +1165,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     offlineInGame.clear()
     gameFoulsByUser.clear()
     deathReasonByUser.clear()
+    revotePromptCandidate.value = ''
     return roleBeforeEnd
   }
 
@@ -1371,9 +1366,11 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     voteResultShown.value = isTrueLike((vt as any).results_ready)
     if (!newId) {
       voteStartedForCurrent.value = false
+      revotePromptCandidate.value = ''
     } else if (newId !== prevId) {
       voteStartedForCurrent.value = ms > 0
       votedThisRound.clear()
+      if (revotePromptCandidate.value && revotePromptCandidate.value !== newId) revotePromptCandidate.value = ''
     } else if (ms > 0) {
       voteStartedForCurrent.value = true
     }
@@ -1390,6 +1387,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     votedThisRound.clear()
 
     vote.currentId = ''
+    revotePromptCandidate.value = ''
     voteStartedForCurrent.value = false
     voteLiftState.value = 'none'
     voteLeaderSpeechesDone.value = true
@@ -1428,6 +1426,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     votedThisRound.clear()
 
     vote.currentId = ''
+    revotePromptCandidate.value = ''
     voteStartedForCurrent.value = false
     setVoteRemainingMs(0, true)
 
@@ -1865,6 +1864,49 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
         alert('Не удалось запустить голосование за кандидата')
       }
     }
+  }
+
+  async function restartCurrentVote(sendAck: SendAckFn): Promise<void> {
+    const resp = await sendAck('game_vote_restart_current', {})
+    if (!resp?.ok) {
+      const st = resp?.status
+      const code = resp?.error
+      if (st === 400 && code === 'bad_phase') {
+        alert('Сейчас не фаза голосования')
+      } else if (st === 403 && code === 'forbidden') {
+        alert('Переголосование может запустить только ведущий')
+      } else if (st === 409 && code === 'vote_done') {
+        alert('Голосование уже завершено')
+      } else if (st === 409 && code === 'no_current_vote') {
+        alert('Нет активной кандидатуры для голосования')
+      } else if (st === 409 && code === 'no_nominees') {
+        alert('Нет кандидатов для голосования')
+      } else if (st === 409 && code === 'lift_in_progress') {
+        alert('Идёт голосование за подъём — переголосование недоступно')
+      } else {
+        alert('Не удалось перезапустить голосование по текущему кандидату')
+      }
+      return
+    }
+    voteStartedForCurrent.value = true
+    votedUsers.clear()
+    votedThisRound.clear()
+  }
+
+  function maybeAskRevoteOnDisconnect(userId: string, sendAck: SendAckFn): void {
+    if (!isHead.value) return
+    if (gamePhase.value !== 'vote') return
+    const cur = vote.currentId
+    if (!cur || vote.remainingMs <= 0) return
+    if (isDead(userId)) return
+    const seatLeft = seatIndex(userId)
+    if (!seatLeft || seatLeft === 11) return
+    if (revotePromptCandidate.value === cur) return
+    revotePromptCandidate.value = cur
+    const targetSeat = seatIndex(cur)
+    const targetLabel = targetSeat != null ? targetSeat : 'кандидата'
+    const ok = confirm(`Игрок ${seatLeft} покидал комнату во время голосования. Переголосовать за ${targetLabel}?`)
+    if (ok) void restartCurrentVote(sendAck)
   }
 
   async function goToNextCandidate(sendAck: SendAckFn): Promise<void> {
@@ -2307,7 +2349,6 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     nightKnownByMe,
 
     farewellSummaryForUser,
-    activeFarewellChoiceForTarget,
     canMakeFarewellChoice,
     effectiveRoleIconForTile,
     canShootTarget,
@@ -2325,6 +2366,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     startVotePhase,
     voteForCurrent,
     finishVote,
+    maybeAskRevoteOnDisconnect,
     prepareVoteLift,
     startVoteLift,
     handleGameVoteState,

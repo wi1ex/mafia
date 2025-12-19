@@ -46,6 +46,8 @@
           :red-mark="game.shouldHighlightMafiaTile(id) || game.foulActive.has(id)"
           :game-role="game.effectiveRoleIconForTile(id)"
           :hidden-by-visibility="hiddenByVisibility(id)"
+          :is-sleeping="isSleeping(id)"
+          :sleep-avatar="iconSleepPlayer"
           :visibility-hidden-avatar="visOffAvatar(id)"
           :in-game="gamePhase !== 'idle'"
           :day-speech-owner-id="game.daySpeech.currentId"
@@ -60,7 +62,6 @@
           :pick-kind="headPickKind"
           :show-nominate="game.canNominateTarget(id)"
           :farewell-summary="game.farewellSummaryForUser(id)"
-          :farewell-choice="game.activeFarewellChoiceForTarget(id)"
           :show-farewell-buttons="game.canMakeFarewellChoice(id)"
           :nominees="nomineeSeatNumbers"
           :lift-nominees="id === headUserId && liftHighlightNominees ? nomineeSeatNumbers : []"
@@ -132,6 +133,8 @@
             :red-mark="game.shouldHighlightMafiaTile(id) || game.foulActive.has(id)"
             :game-role="game.effectiveRoleIconForTile(id)"
             :hidden-by-visibility="hiddenByVisibility(id)"
+            :is-sleeping="isSleeping(id)"
+            :sleep-avatar="iconSleepPlayer"
             :visibility-hidden-avatar="visOffAvatar(id)"
             :in-game="gamePhase !== 'idle'"
             :day-speech-owner-id="game.daySpeech.currentId"
@@ -146,7 +149,6 @@
             :pick-kind="headPickKind"
             :show-nominate="game.canNominateTarget(id)"
             :farewell-summary="game.farewellSummaryForUser(id)"
-            :farewell-choice="game.activeFarewellChoiceForTarget(id)"
             :show-farewell-buttons="game.canMakeFarewellChoice(id)"
             :nominees="nomineeSeatNumbers"
             :lift-nominees="id === headUserId && liftHighlightNominees ? nomineeSeatNumbers : []"
@@ -193,18 +195,18 @@
           <button v-if="canStartDay" class="btn-text" @click="startDayUi" aria-label="Начать день">День</button>
           <button v-if="canFinishSpeechHead" class="btn-text" @click="finishSpeechUi" aria-label="Завершить речь">Завершить речь</button>
           <button v-else-if="canPassSpeechHead" class="btn-text" @click="passSpeechUi" aria-label="Передать речь">Передать речь</button>
-          <button v-if="canStartVote" class="btn-text" @click="startVoteUi">Начать голосование</button>
+          <button v-if="canStartVote" class="btn-text" :disabled="hasOfflineAlivePlayers" @click="startVoteUi">Начать голосование</button>
           <button v-if="canHeadVoteControl" class="btn-text" :disabled="hasOfflineAlivePlayers" @click="onHeadVoteControl">
             {{ !voteStartedForCurrent ? 'Голосование за ' + (currentNomineeSeat ?? '') : 'Продолжить' }}
           </button>
           <button v-if="canHeadFinishVoteControl" class="btn-text" @click="finishVoteUi">Завершить голосование</button>
-          <button v-if="canPrepareVoteLift" class="btn-text" @click="prepareVoteLiftUi">Продолжить</button>
+          <button v-if="canPrepareVoteLift" class="btn-text" :disabled="hasOfflineAlivePlayers" @click="prepareVoteLiftUi">Продолжить</button>
           <button v-if="canStartVoteLift" class="btn-text" :disabled="hasOfflineAlivePlayers" @click="startVoteLiftUi">Голосование за подъём</button>
           <button v-if="canStartLeaderSpeech" class="btn-text" @click="startLeaderSpeechUi">Передать речь</button>
           <button v-if="canRestartVoteForLeaders" class="btn-text" @click="restartVoteForLeadersUi">Начать голосование</button>
-          <button v-if="canShowNight" class="btn-text" @click="goToNightUi">Ночь</button>
-          <button v-if="canHeadNightShootControl" class="btn-text" @click="startNightShootUi">Стрельба</button>
-          <button v-if="canHeadNightCheckControl" class="btn-text" @click="startNightChecksUi">Проверки</button>
+          <button v-if="canShowNight" class="btn-text" :disabled="hasOfflineAlivePlayers" @click="goToNightUi">Ночь</button>
+          <button v-if="canHeadNightShootControl" class="btn-text" :disabled="hasOfflineAlivePlayers" @click="startNightShootUi">Стрельба</button>
+          <button v-if="canHeadNightCheckControl" class="btn-text" :disabled="hasOfflineAlivePlayers" @click="startNightChecksUi">Проверки</button>
           <button v-if="canHeadDayFromNightControl" class="btn-text" @click="startDayFromNightUi">День</button>
 
           <button v-if="canFinishSpeechSelf" @click="finishSpeechUi">
@@ -492,6 +494,12 @@ function hiddenByVisibility(id: string): boolean {
     if (game.isDead(id)) return false
   }
   return true
+}
+function isSleeping(id: string): boolean {
+  if (gamePhase.value !== 'night') return false
+  const seat = game.seatIndex(id)
+  if (!seat || seat === 11) return false
+  return !game.isDead(id)
 }
 function visOffAvatar(id: string): string {
   if (!hiddenByVisibility(id)) return ''
@@ -968,6 +976,7 @@ socket.value?.on('connect', async () => {
     const seat = seatsByUser[id]
     const isInGameNow = gamePhase.value !== 'idle' && Number.isFinite(seat) && seat > 0
     if (isInGameNow) {
+      game.maybeAskRevoteOnDisconnect(id, sendAckGame)
       offlineInGame.add(id)
       rtc.cleanupPeer(id)
       return
@@ -1038,6 +1047,10 @@ socket.value?.on('connect', async () => {
   })
 
   socket.value?.on('game_ended', (p: any) => {
+    const reason = String(p?.reason || '')
+    if (reason === 'early_leave_before_day') {
+      alert('Игра была остановлена т.к. игрок покинул игру до ее начала')
+    }
     const roleBeforeEnd = game.handleGameEnded(p)
     const connectedIds = new Set(rtc.peerIds.value)
     const toDrop: string[] = []

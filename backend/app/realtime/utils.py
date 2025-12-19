@@ -79,6 +79,7 @@ __all__ = [
     "should_block_vote_on_death",
     "decide_vote_blocks_on_death",
     "get_positive_setting_int",
+    "perform_game_end",
 ]
 
 log = structlog.get_logger()
@@ -2472,6 +2473,133 @@ async def emit_moderation_filtered(r, rid: int, target_uid: int, blocks_full: di
         "by": {"user_id": actor_uid, "role": actor_role},
     }
     await emit_mafia_filtered("moderation", payload, r, rid, target_uid, phase_override=phase_override)
+
+
+async def perform_game_end(ctx, sess: Optional[dict[str, Any]], *, confirm: bool, allow_non_head: bool = False, reason: str = "manual") -> dict[str, Any]:
+    uid = ctx.uid
+    rid = ctx.rid
+    r = ctx.r
+    phase = ctx.phase
+    if phase == "idle":
+        return {"ok": False, "error": "no_game", "status": 400}
+
+    head_uid = ctx.head_uid
+    if not head_uid:
+        if not allow_non_head:
+            return {"ok": False, "error": "forbidden", "status": 403}
+
+        head_uid = uid
+
+    if not allow_non_head and uid != head_uid:
+        return {"ok": False, "error": "forbidden", "status": 403}
+
+    if not confirm:
+        return {"ok": True, "status": 200, "room_id": rid, "can_end": True}
+
+    try:
+        players_set = await r.smembers(f"room:{rid}:game_players")
+    except Exception:
+        log.exception("sio.game_end.load_players_failed", rid=rid)
+        players_set = set()
+
+    players_list: list[int] = []
+    for v in (players_set or []):
+        try:
+            players_list.append(int(v))
+        except Exception:
+            continue
+
+    try:
+        members_set = await r.smembers(f"room:{rid}:members")
+    except Exception:
+        log.exception("sio.game_end.load_members_failed", rid=rid)
+        members_set = set()
+
+    member_ids: set[int] = set()
+    for v in (members_set or []):
+        try:
+            member_ids.add(int(v))
+        except Exception:
+            continue
+
+    for target_uid in players_list:
+        if target_uid != head_uid:
+            try:
+                await apply_blocks_and_emit(r, rid, actor_uid=head_uid, actor_role="head", target_uid=target_uid, phase_override="idle",
+                                            changes_bool={"mic": False, "cam": False, "speakers": False, "visibility": False})
+            except Exception:
+                log.exception("sio.game_end.auto_unblock_failed", rid=rid, head=head_uid, target=target_uid)
+
+        if target_uid not in member_ids:
+            continue
+
+        try:
+            new_state = await apply_state(r, rid, target_uid, {"mic": False, "cam": True, "speakers": True, "visibility": True})
+            if new_state:
+                await emit_state_changed_filtered(r, rid, target_uid, new_state, phase_override="idle")
+        except Exception:
+            log.exception("sio.game_end.auto_state_enable_failed", rid=rid, target=target_uid)
+
+    async with r.pipeline() as p:
+        await p.delete(
+            f"room:{rid}:game_state",
+            f"room:{rid}:game_seats",
+            f"room:{rid}:game_players",
+            f"room:{rid}:game_alive",
+            f"room:{rid}:game_fouls",
+            f"room:{rid}:game_deaths",
+            f"room:{rid}:game_short_speech_used",
+            f"room:{rid}:game_nominees",
+            f"room:{rid}:game_nom_speakers",
+            f"room:{rid}:roles_cards",
+            f"room:{rid}:roles_taken",
+            f"room:{rid}:game_roles",
+            f"room:{rid}:game_votes",
+            f"room:{rid}:night_shots",
+            f"room:{rid}:night_checks",
+            f"room:{rid}:game_checked:don",
+            f"room:{rid}:game_checked:sheriff",
+            f"room:{rid}:game_farewell_wills",
+            f"room:{rid}:game_farewell_limits",
+        )
+        await p.execute()
+
+    try:
+        occ = int(await r.scard(f"room:{rid}:members") or 0)
+    except Exception:
+        occ = 0
+
+    await sio.emit("rooms_occupancy",
+                   {"id": rid,
+                    "occupancy": occ},
+                   namespace="/rooms")
+
+    try:
+        briefs = await get_rooms_brief(r, [rid])
+        if briefs:
+            await sio.emit("rooms_upsert",
+                           briefs[0],
+                           namespace="/rooms")
+    except Exception:
+        log.exception("sio.game_end.rooms_upsert_failed", rid=rid)
+
+    await sio.emit("game_ended",
+                   {"room_id": rid, "reason": reason},
+                   room=f"room:{rid}",
+                   namespace="/room")
+
+    try:
+        async with SessionLocal() as s:
+            await log_action(
+                s,
+                user_id=uid,
+                username=str(sess.get("username") or f"user{uid}"),
+                action="game_end",
+                details=f"Завершение игры room_id={rid} phase={phase} reason={reason}")
+    except Exception:
+        log.exception("sio.game_end.log_failed", rid=rid, uid=uid)
+
+    return {"ok": True, "status": 200, "room_id": rid, "reason": reason}
 
 
 async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
