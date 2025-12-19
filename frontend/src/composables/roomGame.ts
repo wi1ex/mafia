@@ -1365,6 +1365,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     }
     voteResultShown.value = isTrueLike((vt as any).results_ready)
     const isRestart = isTrueLike((vt as any).restart)
+    const cleared = Array.isArray((vt as any).cleared_voters) ? (vt as any).cleared_voters.map((x: any) => String(x)) : []
     if (!newId) {
       voteStartedForCurrent.value = false
       revotePromptCandidate.value = ''
@@ -1377,8 +1378,10 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     }
     if (isRestart) {
       voteStartedForCurrent.value = false
-      votedUsers.clear()
-      votedThisRound.clear()
+      for (const uid of cleared) {
+        votedUsers.delete(uid)
+        votedThisRound.delete(uid)
+      }
     }
     replaceIds(dayNominees, vt.nominees)
   }

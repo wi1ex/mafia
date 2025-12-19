@@ -2537,6 +2537,23 @@ async def game_vote_restart_current(sid, data):
         if target_uid not in nominees:
             return {"ok": False, "error": "no_current_vote", "status": 409}
 
+        try:
+            raw_votes = await r.hgetall(f"room:{rid}:game_votes")
+        except Exception:
+            raw_votes = {}
+        remaining_votes: dict[str, str] = {}
+        cleared_voters: list[int] = []
+        for voter_raw, target_raw in (raw_votes or {}).items():
+            try:
+                voter = int(voter_raw)
+                tgt = int(target_raw)
+            except Exception:
+                continue
+            if tgt == target_uid:
+                cleared_voters.append(voter)
+            else:
+                remaining_votes[str(voter)] = str(tgt)
+
         vote_duration = ctx.gint("vote_duration", get_positive_setting_int("VOTE_SECONDS", 3))
         if vote_duration <= 0:
             vote_duration = 3
@@ -2558,6 +2575,8 @@ async def game_vote_restart_current(sid, data):
                 },
             )
             await p.delete(f"room:{rid}:game_votes")
+            if remaining_votes:
+                await p.hset(f"room:{rid}:game_votes", mapping=remaining_votes)
             await p.execute()
 
         payload_vote = {
@@ -2566,6 +2585,7 @@ async def game_vote_restart_current(sid, data):
             "nominees": nominees,
             "done": False,
             "restart": True,
+            "cleared_voters": cleared_voters,
         }
 
         await sio.emit("game_vote_state",

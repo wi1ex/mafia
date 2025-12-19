@@ -742,7 +742,7 @@ const timelineDurationSec = computed(() => {
       }
       span {
         top: 4px;
-        right: 8px;
+        right: 9px;
         font-size: 12px;
       }
       &.left {
