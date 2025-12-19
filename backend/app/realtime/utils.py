@@ -345,7 +345,7 @@ class GameStateView:
             }
             if pre_active and pre_uid == day_current_uid:
                 try:
-                    limit = await ensure_farewell_limit(r, rid, pre_uid)
+                    limit = await ensure_farewell_limit(r, rid, pre_uid, mode="killed")
                     wills_for = await get_farewell_wills_for(r, rid, pre_uid)
                     day_section["farewell"] = {"limit": limit, "wills": wills_for}
                 except Exception:
@@ -414,7 +414,7 @@ class GameStateView:
             }
             if vote_speech_kind == "farewell":
                 try:
-                    limit = await ensure_farewell_limit(r, rid, vote_speech_uid)
+                    limit = await ensure_farewell_limit(r, rid, vote_speech_uid, mode="voted")
                     wills_for = await get_farewell_wills_for(r, rid, vote_speech_uid)
                     vote_section["farewell"] = {"limit": limit, "wills": wills_for}
                 except Exception:
@@ -1314,16 +1314,23 @@ async def get_farewell_limits(r, rid: int) -> dict[str, int]:
     return out
 
 
-async def compute_farewell_limit(r, rid: int, speaker_uid: int) -> int:
-    alive = await smembers_ints(r, f"room:{rid}:game_alive")
-    others = len([u for u in alive if u != speaker_uid])
-    if others <= 0:
+def farewell_formula(x: int) -> int:
+    if x <= 0:
         return 0
 
-    return max(others // 2, 0)
+    return (x // 2) + ((x + (x // 6)) // 3)
 
 
-async def ensure_farewell_limit(r, rid: int, speaker_uid: int) -> int:
+async def compute_farewell_limit(r, rid: int, speaker_uid: int, *, mode: str = "killed") -> int:
+    alive = await smembers_ints(r, f"room:{rid}:game_alive")
+    others = len([u for u in alive if u != speaker_uid])
+    if mode == "voted":
+        return max(farewell_formula(others - 1), 0)
+
+    return max(farewell_formula(others), 0)
+
+
+async def ensure_farewell_limit(r, rid: int, speaker_uid: int, *, mode: str = "killed") -> int:
     try:
         existing_raw = await r.hget(f"room:{rid}:game_farewell_limits", str(speaker_uid))
     except Exception:
@@ -1336,7 +1343,7 @@ async def ensure_farewell_limit(r, rid: int, speaker_uid: int) -> int:
         if cur >= 0:
             return cur
 
-    limit = await compute_farewell_limit(r, rid, speaker_uid)
+    limit = await compute_farewell_limit(r, rid, speaker_uid, mode=mode)
     try:
         await r.hset(f"room:{rid}:game_farewell_limits", str(speaker_uid), str(limit))
     except Exception:

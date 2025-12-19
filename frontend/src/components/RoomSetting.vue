@@ -212,7 +212,7 @@ onBeforeUnmount(() => {
   border-radius: 5px;
   background-color: $dark;
   box-shadow: 3px 3px 5px rgba($black, 0.25);
-  z-index: 20;
+  z-index: 25;
   header {
     display: flex;
     justify-content: space-between;

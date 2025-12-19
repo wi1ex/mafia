@@ -22,20 +22,17 @@
       <span>Выставить</span>
     </button>
     <button v-if="showShoot" class="nominate-btn" @click="$emit('shoot', id)">
-      <img :src="iconLikeWhite" alt="shoot" />
+      <img :src="iconKill" alt="shoot" />
       <span>Выстрелить</span>
     </button>
     <button v-if="showCheck" class="nominate-btn" @click="$emit('check', id)">
-      <img :src="iconLikeWhite" alt="check" />
+      <img :src="iconCheck" alt="check" />
       <span>Проверить</span>
     </button>
     <div class="icon-badge right" v-if="gameRole" aria-hidden="true">
       <img :src="gameRole" alt="role" />
     </div>
 
-    <div v-if="farewellChoice" class="farewell-label" :class="farewellChoice">
-      {{ farewellChoice === 'citizen' ? 'Мирный' : 'Мафия' }}
-    </div>
     <div v-else-if="showFarewellButtons" class="farewell-buttons">
       <button @click="$emit('farewell','citizen', id)">
         <img :src="iconLikeWhite" alt="like" />
@@ -43,6 +40,9 @@
       <button @click="$emit('farewell','mafia', id)">
         <img class="dislike" :src="iconLikeWhite" alt="dislike" />
       </button>
+    </div>
+    <div v-if="farewellChoice" class="nominate-btn pick-number" :class="farewellChoice">
+      <img :src="iconLikeWhite" alt="farewell" :class="{ dislike: farewellChoice !== 'citizen' }"/>
     </div>
     <div v-if="farewellSummary && farewellSummary.length && isDead(id)" class="farewell-summary">
       <span v-for="item in farewellSummary" :key="item.targetId" class="farewell-dot" :class="item.verdict">
@@ -122,6 +122,8 @@ import iconFoul from '@/assets/svg/foul.svg'
 import iconLikeWhite from '@/assets/svg/likeWhite.svg'
 import iconLikeGreen from '@/assets/svg/likeGreen.svg'
 import iconLikeBlack from '@/assets/svg/likeBlack.svg'
+import iconCheck from '@/assets/svg/check.svg'
+import iconKill from '@/assets/svg/kill.svg'
 
 type IconKind = 'mic' | 'cam' | 'speakers' | 'visibility' | 'screen'
 
@@ -359,7 +361,7 @@ const timelineDurationSec = computed(() => {
     border-radius: 0 0 5px 5px;
     background-color: rgba($dark, 0.75);
     backdrop-filter: blur(5px);
-    z-index: 15;
+    z-index: 10;
     &.nominate {
       background: none;
     }
@@ -400,6 +402,9 @@ const timelineDurationSec = computed(() => {
     &.pick-number {
       cursor: default;
     }
+    .dislike {
+      transform: rotate(180deg);
+    }
     img {
       width: 24px;
       height: 24px;
@@ -420,7 +425,7 @@ const timelineDurationSec = computed(() => {
     bottom: 5px;
     transform: translate(-50%);
     gap: 10px;
-    z-index: 20;
+    z-index: 15;
     button {
       display: flex;
       align-items: center;
@@ -443,71 +448,31 @@ const timelineDurationSec = computed(() => {
       }
     }
   }
-
-
-
-
-
-  .farewell-label {
-    position: absolute;
-    left: 50%;
-    bottom: 40px;
-    transform: translateX(-50%);
-    padding: 6px 12px;
-    border-radius: 6px;
-    background-color: rgba($dark, 0.85);
-    box-shadow: 3px 3px 5px rgba($black, 0.25);
-    color: $fg;
-    font-size: 16px;
-    font-family: Manrope-Medium;
-    line-height: 1;
-    z-index: 23;
-    text-transform: uppercase;
-    &.citizen {
-      background-color: rgba($red, 0.9);
-      color: $bg;
-    }
-    &.mafia {
-      background-color: rgba($black, 0.9);
-      color: $fg;
-    }
-  }
   .farewell-summary {
-    position: absolute;
-    top: 6px;
-    right: 6px;
     display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    max-width: 45%;
-    z-index: 22;
-    .farewell-dot {
+    position: absolute;
+    align-items: center;
+    justify-content: center;
+    left: 50%;
+    bottom: 5px;
+    transform: translate(-50%);
+    gap: 5px;
+    z-index: 15;
+    span {
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 28px;
-      height: 28px;
-      border-radius: 50%;
-      font-size: 14px;
-      font-family: Manrope-Medium;
-      color: $bg;
+      width: 30px;
+      height: 30px;
+      border-radius: 5px;
+      border: none;
       background-color: $graphite;
-      border: 2px solid rgba($bg, 0.15);
       box-shadow: 3px 3px 5px rgba($black, 0.25);
       &.citizen {
         background-color: $red;
       }
-      &.mafia {
-        background-color: $black;
-        color: $fg;
-      }
     }
   }
-
-
-
-
-
   .vote-btn {
     display: flex;
     position: absolute;
@@ -575,7 +540,7 @@ const timelineDurationSec = computed(() => {
     backdrop-filter: blur(5px);
     background-color: rgba($dark, 0.75);
     box-shadow: 3px 3px 5px rgba($black, 0.25);
-    z-index: 15;
+    z-index: 20;
     transition: inline-size 0.25s ease-out, block-size 0.25s ease-out;
     &[data-open="1"] {
       inline-size: min(250px, calc(100% - 30px));
@@ -835,29 +800,15 @@ const timelineDurationSec = computed(() => {
         }
       }
     }
-
-
-
-
-
-
-    .farewell-label {
-      bottom: 30px;
-      padding: 4px 6px;
-      font-size: 10px;
-    }
     .farewell-summary {
-      gap: 4px;
-      .farewell-dot {
+      bottom: 3px;
+      gap: 3px;
+      span {
         width: 20px;
         height: 20px;
-        font-size: 10px;
+        font-size: 12px;
       }
     }
-
-
-
-
     .vote-btn {
       padding: 0 10px;
       gap: 3px;
