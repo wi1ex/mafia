@@ -41,13 +41,8 @@
         <img class="dislike" :src="iconLikeWhite" alt="dislike" />
       </button>
     </div>
-    <div v-if="farewellChoice" class="nominate-btn pick-number" :class="farewellChoice">
-      <img :src="iconLikeWhite" alt="farewell" :class="{ dislike: farewellChoice !== 'citizen' }"/>
-    </div>
-    <div v-if="farewellSummary && farewellSummary.length && isDead(id)" class="farewell-summary">
-      <span v-for="item in farewellSummary" :key="item.targetId" class="farewell-dot" :class="item.verdict">
-        {{ item.seat ?? '?' }}
-      </span>
+    <div v-if="farewellSummary && farewellSummary.length" class="farewell-summary">
+      <span v-for="item in farewellSummary" :key="item.targetId" :class="item.verdict">{{ item.seat ?? '?' }}</span>
     </div>
 
     <button v-if="isGameHead && showVoteButton" class="vote-btn" :disabled="!voteEnabled" @click="$emit('vote')">
@@ -170,7 +165,6 @@ const props = withDefaults(defineProps<{
   phaseLabel?: string
   showNominate?: boolean
   farewellSummary?: { targetId: string, seat: number | null, verdict: 'citizen' | 'mafia' }[]
-  farewellChoice?: 'citizen' | 'mafia' | ''
   showFarewellButtons?: boolean
   nominees?: number[]
   liftNominees?: number[]
@@ -212,7 +206,6 @@ const props = withDefaults(defineProps<{
   phaseLabel: '',
   showNominate: false,
   farewellSummary: () => [],
-  farewellChoice: '',
   showFarewellButtons: false,
   nominees: () => [],
   liftNominees: () => [],
@@ -402,9 +395,6 @@ const timelineDurationSec = computed(() => {
     &.pick-number {
       cursor: default;
     }
-    .dislike {
-      transform: rotate(180deg);
-    }
     img {
       width: 24px;
       height: 24px;
@@ -454,7 +444,7 @@ const timelineDurationSec = computed(() => {
     align-items: center;
     justify-content: center;
     left: 50%;
-    bottom: 5px;
+    bottom: 6px;
     transform: translate(-50%);
     gap: 5px;
     z-index: 15;
@@ -462,8 +452,8 @@ const timelineDurationSec = computed(() => {
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 30px;
-      height: 30px;
+      width: 28px;
+      height: 28px;
       border-radius: 5px;
       border: none;
       background-color: $graphite;
@@ -801,12 +791,12 @@ const timelineDurationSec = computed(() => {
       }
     }
     .farewell-summary {
-      bottom: 3px;
+      bottom: 4px;
       gap: 3px;
       span {
-        width: 20px;
-        height: 20px;
-        font-size: 12px;
+        width: 18px;
+        height: 18px;
+        font-size: 10px;
       }
     }
     .vote-btn {
