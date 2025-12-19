@@ -844,8 +844,8 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     if (!me) return false
     if (!currentFarewellSpeech.value) return false
     if (activeFarewellSpeakerId.value !== me) return false
-    if (daySpeech.remainingMs <= 0) return false
-    if (!gamePlayers.has(targetId)) return false
+    const seat = seatIndex(targetId)
+    if (seat == null || seat === 11) return false
     if (!gameAlive.has(targetId)) return false
     if (targetId === me) return false
     const limit = farewellLimitForUser(me)
