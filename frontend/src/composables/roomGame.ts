@@ -265,7 +265,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     return ''
   })
 
-  const FINISH_SPEECH_DELAY_MS = 3000
+  const FINISH_SPEECH_DELAY_MS = 1000
   const finishSpeechUnlocked = ref(false)
   let finishSpeechTimer: number | null = null
   function resetFinishSpeechDelay() {
@@ -844,6 +844,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     if (!me) return false
     if (!currentFarewellSpeech.value) return false
     if (activeFarewellSpeakerId.value !== me) return false
+    if (daySpeech.remainingMs <= 0) return false
     if (!gamePlayers.has(targetId)) return false
     if (!gameAlive.has(targetId)) return false
     if (targetId === me) return false
@@ -1537,7 +1538,11 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   }
 
   function setDaySpeechRemainingMs(ms: number, changed: boolean) {
-    setTimerWithLatency(daySpeech, ms, daySpeechTimerId, changed, () => { daySpeech.currentId = '' })
+    setTimerWithLatency(daySpeech, ms, daySpeechTimerId, changed, () => {
+      daySpeech.currentId = ''
+      currentFarewellSpeech.value = false
+      activeFarewellSpeakerId.value = ''
+    })
   }
 
   function handleGamePhaseChange(p: any) {

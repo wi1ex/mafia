@@ -39,7 +39,7 @@ class Settings(BaseSettings):
     ROLE_PICK_SECONDS: int = 10
     ROLE_DECK: tuple[str, ...] = ("citizen", "citizen", "citizen", "citizen", "citizen", "citizen", "mafia", "mafia", "don", "sheriff")
     MAFIA_TALK_SECONDS: int = 5  # 60
-    PLAYER_TALK_SECONDS: int = 60
+    PLAYER_TALK_SECONDS: int = 600  # 60
     PLAYER_TALK_SHORT_SECONDS: int = 30
     PLAYER_FOUL_SECONDS: int = 4
     NIGHT_ACTION_SECONDS: int = 10
