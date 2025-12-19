@@ -1984,7 +1984,7 @@ async def game_farewell_mark(sid, data):
             duration = ctx.gint("day_speech_duration")
             pre_active = ctx.gbool("day_prelude_active")
             pre_uid = ctx.gint("day_prelude_uid")
-            speech_in_progress = cur_uid == speaker_uid and started > 0 and duration > 0 and now_ts < started + duration
+            speech_in_progress = cur_uid == speaker_uid and (started <= 0 or duration <= 0 or now_ts <= started + duration)
             farewell_active = speech_in_progress and pre_active and pre_uid and pre_uid == cur_uid
         elif phase == "vote":
             cur_uid = ctx.gint("vote_speech_uid")
@@ -1992,7 +1992,7 @@ async def game_farewell_mark(sid, data):
             duration = ctx.gint("vote_speech_duration")
             kind = ctx.gstr("vote_speech_kind")
             vote_done = ctx.gbool("vote_done") or ctx.gbool("vote_results_ready") or ctx.gbool("vote_aborted")
-            speech_in_progress = cur_uid == speaker_uid and started > 0 and duration > 0 and now_ts < started + duration and not vote_done
+            speech_in_progress = cur_uid == speaker_uid and not vote_done and (started <= 0 or duration <= 0 or now_ts <= started + duration)
             farewell_active = speech_in_progress and kind == "farewell"
         else:
             return {"ok": False, "error": "bad_phase", "status": 400}

@@ -37,8 +37,12 @@
       {{ farewellChoice === 'citizen' ? 'Мирный' : 'Мафия' }}
     </div>
     <div v-else-if="showFarewellButtons" class="farewell-buttons">
-      <button class="farewell-btn citizen" @click="$emit('farewell','citizen', id)">Мирный</button>
-      <button class="farewell-btn mafia" @click="$emit('farewell','mafia', id)">Мафия</button>
+      <button @click="$emit('farewell','citizen', id)">
+        <img :src="iconLikeWhite" alt="like" />
+      </button>
+      <button @click="$emit('farewell','mafia', id)">
+        <img class="dislike" :src="iconLikeWhite" alt="dislike" />
+      </button>
     </div>
     <div v-if="farewellSummary && farewellSummary.length && isDead(id)" class="farewell-summary">
       <span v-for="item in farewellSummary" :key="item.targetId" class="farewell-dot" :class="item.verdict">
@@ -407,38 +411,40 @@ const timelineDurationSec = computed(() => {
       line-height: 1;
     }
   }
-
-
-
-
-
   .farewell-buttons {
-    position: absolute;
-    left: 50%;
-    bottom: 40px;
-    transform: translateX(-50%);
     display: flex;
-    gap: 8px;
-    z-index: 23;
-    .farewell-btn {
-      padding: 6px 10px;
+    position: absolute;
+    align-items: center;
+    justify-content: center;
+    left: 50%;
+    bottom: 5px;
+    transform: translate(-50%);
+    gap: 10px;
+    z-index: 20;
+    button {
+      padding: 0;
+      width: 30px;
+      height: 30px;
       border: none;
-      border-radius: 6px;
-      font-size: 14px;
-      font-family: Manrope-Medium;
-      color: $bg;
-      cursor: pointer;
-      background-color: rgba($dark, 0.85);
+      border-radius: 5px;
+      background-color: rgba($dark, 0.75);
+      backdrop-filter: blur(5px);
       box-shadow: 3px 3px 5px rgba($black, 0.25);
-      &.citizen {
-        background-color: $red;
+      cursor: pointer;
+      img {
+        width: 24px;
+        height: 24px;
       }
-      &.mafia {
-        background-color: $graphite;
-        color: $fg;
+      .dislike {
+        transform: rotate(180deg);
       }
     }
   }
+
+
+
+
+
   .farewell-label {
     position: absolute;
     left: 50%;
@@ -814,20 +820,24 @@ const timelineDurationSec = computed(() => {
         font-size: 12px;
       }
     }
-
-
-
-
-
-
     .farewell-buttons {
-      bottom: 30px;
+      bottom: 3px;
       gap: 5px;
       .farewell-btn {
-        padding: 4px 6px;
-        font-size: 10px;
+        width: 20px;
+        height: 20px;
+        img {
+          width: 16px;
+          height: 16px;
+        }
       }
     }
+
+
+
+
+
+
     .farewell-label {
       bottom: 30px;
       padding: 4px 6px;
