@@ -1977,33 +1977,48 @@ async def game_farewell_mark(sid, data):
             return {"ok": False, "error": "bad_request", "status": 400}
 
         phase = ctx.phase
-        now_ts = int(time())
+        debug_info: dict[str, Any] = {
+            "phase": phase,
+            "speaker_uid": speaker_uid,
+            "target_uid": target_uid,
+        }
         if phase == "day":
             cur_uid = ctx.gint("day_current_uid")
-            started = ctx.gint("day_speech_started")
-            duration = ctx.gint("day_speech_duration")
             pre_active = ctx.gbool("day_prelude_active")
             pre_uid = ctx.gint("day_prelude_uid")
-            duration_check = started <= 0 or duration <= 0 or now_ts <= started + duration
-            speech_in_progress = cur_uid == speaker_uid and duration_check
+            speech_in_progress = cur_uid == speaker_uid
             farewell_active = speech_in_progress and pre_active and pre_uid and pre_uid == cur_uid
+            debug_info.update({
+                "cur_uid": cur_uid,
+                "pre_active": pre_active,
+                "pre_uid": pre_uid,
+                "speech_in_progress": speech_in_progress,
+                "farewell_active": farewell_active,
+            })
         elif phase == "vote":
             cur_uid = ctx.gint("vote_speech_uid")
-            started = ctx.gint("vote_speech_started")
-            duration = ctx.gint("vote_speech_duration")
             kind = ctx.gstr("vote_speech_kind")
             vote_results_ready = ctx.gbool("vote_results_ready")
             vote_aborted = ctx.gbool("vote_aborted")
-            duration_check = started <= 0 or duration <= 0 or now_ts <= started + duration
-            speech_in_progress = cur_uid == speaker_uid and not vote_results_ready and not vote_aborted and duration_check
+            speech_in_progress = cur_uid == speaker_uid and not vote_results_ready and not vote_aborted
             farewell_active = speech_in_progress and kind == "farewell"
+            debug_info.update({
+                "cur_uid": cur_uid,
+                "kind": kind,
+                "vote_results_ready": vote_results_ready,
+                "vote_aborted": vote_aborted,
+                "speech_in_progress": speech_in_progress,
+                "farewell_active": farewell_active,
+            })
         else:
             return {"ok": False, "error": "bad_phase", "status": 400}
 
         if not speech_in_progress:
+            log.warning("game_farewell_mark.no_active_speech", **debug_info)
             return {"ok": False, "error": "no_active_speech", "status": 409}
 
         if not farewell_active:
+            log.warning("game_farewell_mark.not_farewell", **debug_info)
             return {"ok": False, "error": "not_farewell", "status": 409}
 
         if target_uid == speaker_uid:
