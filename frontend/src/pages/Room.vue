@@ -46,8 +46,6 @@
           :red-mark="game.shouldHighlightMafiaTile(id) || game.foulActive.has(id)"
           :game-role="game.effectiveRoleIconForTile(id)"
           :hidden-by-visibility="hiddenByVisibility(id)"
-          :is-sleeping="isSleeping(id)"
-          :sleep-avatar="iconSleepPlayer"
           :visibility-hidden-avatar="visOffAvatar(id)"
           :in-game="gamePhase !== 'idle'"
           :day-speech-owner-id="game.daySpeech.currentId"
@@ -133,8 +131,6 @@
             :red-mark="game.shouldHighlightMafiaTile(id) || game.foulActive.has(id)"
             :game-role="game.effectiveRoleIconForTile(id)"
             :hidden-by-visibility="hiddenByVisibility(id)"
-            :is-sleeping="isSleeping(id)"
-            :sleep-avatar="iconSleepPlayer"
             :visibility-hidden-avatar="visOffAvatar(id)"
             :in-game="gamePhase !== 'idle'"
             :day-speech-owner-id="game.daySpeech.currentId"
@@ -195,7 +191,7 @@
           <button v-if="canStartDay" class="btn-text" @click="startDayUi" aria-label="Начать день">День</button>
           <button v-if="canFinishSpeechHead" class="btn-text" @click="finishSpeechUi" aria-label="Завершить речь">Завершить речь</button>
           <button v-else-if="canPassSpeechHead" class="btn-text" @click="passSpeechUi" aria-label="Передать речь">Передать речь</button>
-          <button v-if="canStartVote" class="btn-text" :disabled="hasOfflineAlivePlayers" @click="startVoteUi">Начать голосование</button>
+          <button v-if="canStartVote" class="btn-text" @click="startVoteUi">Начать голосование</button>
           <button v-if="canHeadVoteControl" class="btn-text" :disabled="hasOfflineAlivePlayers" @click="onHeadVoteControl">
             {{ !voteStartedForCurrent ? 'Голосование за ' + (currentNomineeSeat ?? '') : 'Продолжить' }}
           </button>
@@ -494,12 +490,6 @@ function hiddenByVisibility(id: string): boolean {
     if (game.isDead(id)) return false
   }
   return true
-}
-function isSleeping(id: string): boolean {
-  if (gamePhase.value !== 'night') return false
-  const seat = game.seatIndex(id)
-  if (!seat || seat === 11) return false
-  return !game.isDead(id)
 }
 function visOffAvatar(id: string): string {
   if (!hiddenByVisibility(id)) return ''
