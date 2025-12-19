@@ -486,7 +486,7 @@ function hiddenByVisibility(id: string): boolean {
   if (id === localId.value) return false
   if (visibilityOn.value) return false
   if (gamePhase.value !== 'idle') {
-    if (offlineInGame.has(id)) return false
+    // if (offlineInGame.has(id)) return false
     if (game.isDead(id)) return false
   }
   return true
