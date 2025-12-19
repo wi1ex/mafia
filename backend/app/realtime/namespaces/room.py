@@ -2000,7 +2000,7 @@ async def game_farewell_mark(sid, data):
             kind = ctx.gstr("vote_speech_kind")
             vote_results_ready = ctx.gbool("vote_results_ready")
             vote_aborted = ctx.gbool("vote_aborted")
-            speech_in_progress = cur_uid == speaker_uid and not vote_results_ready and not vote_aborted
+            speech_in_progress = cur_uid == speaker_uid and not vote_aborted
             farewell_active = speech_in_progress and kind == "farewell"
             debug_info.update({
                 "cur_uid": cur_uid,
