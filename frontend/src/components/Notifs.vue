@@ -295,4 +295,10 @@ onBeforeUnmount(() => {
   opacity: 0;
   transform: translateY(-30px);
 }
+
+@media (max-width: 1280px) {
+  .panel {
+    max-height: calc(100dvh - 70px);
+  }
+}
 </style>

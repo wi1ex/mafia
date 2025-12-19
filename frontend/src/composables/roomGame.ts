@@ -123,6 +123,12 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     done: false,
   })
   const revotePromptCandidate = ref('')
+  const revotePrompt = reactive({
+    active: false,
+    candidateId: '',
+    seatLeft: null as number | null,
+    targetSeat: null as number | null,
+  })
   const voteTimerId = ref<number | null>(null)
   const votedUsers = reactive(new Set<string>())
   const votedThisRound = reactive(new Set<string>())
@@ -1911,6 +1917,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     const cur = vote.currentId
     if (!cur || vote.remainingMs <= 0) return
     if (isDead(userId)) return
+    if (votedUsers.has(userId)) return
     const seatLeft = seatIndex(userId)
     if (!seatLeft || seatLeft === 11) return
     if (revotePromptCandidate.value === cur) return

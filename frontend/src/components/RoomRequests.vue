@@ -271,6 +271,7 @@ onBeforeUnmount(() => {
 @media (max-width: 1280px) {
   .apps-panel {
     bottom: 30px;
+    max-height: calc(100dvh - 40px);
   }
 }
 </style>
