@@ -68,6 +68,7 @@ from ..utils import (
     block_vote_and_clear,
     decide_vote_blocks_on_death,
     get_positive_setting_int,
+    compute_farewell_allowed,
 )
 
 log = structlog.get_logger()
@@ -1644,7 +1645,8 @@ async def game_speech_next(sid, data):
             try:
                 limit = await ensure_farewell_limit(r, rid, next_uid, mode="killed")
                 wills_for = await get_farewell_wills_for(r, rid, next_uid)
-                farewell_section = {"limit": limit, "wills": wills_for}
+                allowed = await compute_farewell_allowed(r, rid, next_uid, mode="killed")
+                farewell_section = {"limit": limit, "wills": wills_for, "allowed": allowed}
             except Exception:
                 log.exception("game_speech_next.farewell_build_failed", rid=rid, uid=next_uid)
 
@@ -2010,6 +2012,13 @@ async def game_farewell_mark(sid, data):
             return {"ok": False, "error": "target_not_alive", "status": 404}
 
         mode = "voted" if phase == "vote" else "killed"
+        try:
+            allowed = await compute_farewell_allowed(r, rid, speaker_uid, mode=mode)
+        except Exception:
+            allowed = True
+        if not allowed:
+            return {"ok": False, "error": "farewell_forbidden", "status": 409}
+
         limit = await ensure_farewell_limit(r, rid, speaker_uid, mode=mode)
         wills_for = await get_farewell_wills_for(r, rid, speaker_uid)
         used = len(wills_for)
@@ -2035,6 +2044,7 @@ async def game_farewell_mark(sid, data):
             "wills": wills_for,
             "limit": limit,
             "remaining": max(limit - len(wills_for), 0),
+            "allowed": allowed,
         }
 
         await sio.emit("game_farewell_update",
@@ -2791,7 +2801,8 @@ async def game_vote_speech_next(sid, data):
             try:
                 limit = await ensure_farewell_limit(r, rid, target_uid, mode="voted")
                 wills_for = await get_farewell_wills_for(r, rid, target_uid)
-                farewell_section = {"limit": limit, "wills": wills_for}
+                allowed = await compute_farewell_allowed(r, rid, target_uid, mode="voted")
+                farewell_section = {"limit": limit, "wills": wills_for, "allowed": allowed}
             except Exception:
                 log.exception("game_vote_speech_next.farewell_build_failed", rid=rid, uid=target_uid)
 

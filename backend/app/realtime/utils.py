@@ -56,6 +56,7 @@ __all__ = [
     "get_farewell_wills",
     "get_farewell_wills_for",
     "get_farewell_limits",
+    "compute_farewell_allowed",
     "ensure_farewell_limit",
     "day_speech_timeout_job",
     "finish_vote_speech",
@@ -347,7 +348,8 @@ class GameStateView:
                 try:
                     limit = await ensure_farewell_limit(r, rid, pre_uid, mode="killed")
                     wills_for = await get_farewell_wills_for(r, rid, pre_uid)
-                    day_section["farewell"] = {"limit": limit, "wills": wills_for}
+                    allowed = await compute_farewell_allowed(r, rid, pre_uid, mode="killed")
+                    day_section["farewell"] = {"limit": limit, "wills": wills_for, "allowed": allowed}
                 except Exception:
                     log.exception("day.farewell_section.failed", rid=rid, uid=pre_uid)
 
@@ -416,7 +418,8 @@ class GameStateView:
                 try:
                     limit = await ensure_farewell_limit(r, rid, vote_speech_uid, mode="voted")
                     wills_for = await get_farewell_wills_for(r, rid, vote_speech_uid)
-                    vote_section["farewell"] = {"limit": limit, "wills": wills_for}
+                    allowed = await compute_farewell_allowed(r, rid, vote_speech_uid, mode="voted")
+                    vote_section["farewell"] = {"limit": limit, "wills": wills_for, "allowed": allowed}
                 except Exception:
                     log.exception("vote.farewell_section.failed", rid=rid, uid=vote_speech_uid)
 
@@ -1328,6 +1331,33 @@ async def compute_farewell_limit(r, rid: int, speaker_uid: int, *, mode: str = "
         return max(farewell_formula(others - 1), 0)
 
     return max(farewell_formula(others), 0)
+
+
+async def compute_farewell_allowed(r, rid: int, speaker_uid: int, *, mode: str = "killed") -> bool:
+    alive = await smembers_ints(r, f"room:{rid}:game_alive")
+    others = [u for u in alive if u != speaker_uid]
+    x = len(others)
+
+    try:
+        raw_roles = await r.hgetall(f"room:{rid}:game_roles")
+    except Exception:
+        raw_roles = {}
+
+    mafia_count = 0
+    for k, role in (raw_roles or {}).items():
+        try:
+            uid = int(k)
+        except Exception:
+            continue
+        if uid not in others:
+            continue
+        if str(role or "") in ("mafia", "don"):
+            mafia_count += 1
+
+    if mode == "voted":
+        return (x - 1) > 2 * mafia_count
+
+    return x > 2 * mafia_count
 
 
 async def ensure_farewell_limit(r, rid: int, speaker_uid: int, *, mode: str = "killed") -> int:

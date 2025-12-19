@@ -114,6 +114,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   })
   const currentFarewellSpeech = ref(false)
   const activeFarewellSpeakerId = ref('')
+  const activeFarewellAllowed = ref(true)
   const farewellLimits = reactive(new Map<string, number>())
   const farewellWills = reactive(new Map<string, Map<string, FarewellVerdict>>())
   const vote = reactive({
@@ -601,6 +602,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     daySpeechesDone.value = false
     currentFarewellSpeech.value = false
     activeFarewellSpeakerId.value = ''
+    activeFarewellAllowed.value = true
   }
 
   function resetVoteState(changed: boolean) {
@@ -844,6 +846,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     if (!me) return false
     if (!currentFarewellSpeech.value) return false
     if (activeFarewellSpeakerId.value !== me) return false
+    if (!activeFarewellAllowed.value) return false
     const seat = seatIndex(targetId)
     if (seat == null || seat === 11) return false
     if (!gameAlive.has(targetId)) return false
@@ -895,6 +898,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     const mr = Number(gr.min_ready)
     syncFarewellWills(join?.farewell_wills ?? (gr as any).farewell_wills)
     syncFarewellLimits(join?.farewell_limits ?? (gr as any).farewell_limits)
+    activeFarewellAllowed.value = true
     if (Number.isFinite(mr) && mr > 0) {
       minReadyToStart.value = mr
     }
@@ -968,6 +972,9 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
         const lim = Number((farewellSection as any).limit)
         if (Number.isFinite(lim) && lim >= 0) farewellLimits.set(daySpeech.currentId, Math.floor(lim))
         upsertFarewellForSpeaker(daySpeech.currentId, (farewellSection as any).wills)
+        if ('allowed' in (farewellSection as any)) {
+          activeFarewellAllowed.value = isTrueLike((farewellSection as any).allowed)
+        }
       }
       const farewellActive = !!(daySpeech.currentId && daySpeech.remainingMs > 0 && ((preludeActive && preludeUid && daySpeech.currentId === preludeUid) || farewellSection))
       currentFarewellSpeech.value = farewellActive
@@ -1062,6 +1069,11 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
             const lim = Number((farewellSection as any).limit)
             if (Number.isFinite(lim) && lim >= 0) farewellLimits.set(spId, Math.floor(lim))
             upsertFarewellForSpeaker(spId, (farewellSection as any).wills)
+            if ('allowed' in (farewellSection as any)) {
+              activeFarewellAllowed.value = isTrueLike((farewellSection as any).allowed)
+            } else {
+              activeFarewellAllowed.value = true
+            }
           }
           const active = spMs > 0 && !!spId
           currentFarewellSpeech.value = active
@@ -1069,6 +1081,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
         } else {
           currentFarewellSpeech.value = false
           activeFarewellSpeakerId.value = ''
+          activeFarewellAllowed.value = true
         }
       } else {
         setDaySpeechRemainingMs(0, false)
@@ -1079,6 +1092,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
         voteLeaderKilled.value = false
         currentFarewellSpeech.value = false
         activeFarewellSpeakerId.value = ''
+        activeFarewellAllowed.value = true
       }
       voteResultShown.value = isTrueLike((vt as any).results_ready)
     } else if (phase === 'night' && nt && typeof nt === 'object') {
@@ -1226,11 +1240,17 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     const closingId = String(p?.closing_uid || '')
     const speakerId = String(p?.speaker_uid || '')
     const ms = secondsToMs(p?.deadline)
+    activeFarewellAllowed.value = true
     const farewellSection = (p as any)?.farewell
     if (farewellSection && typeof farewellSection === 'object' && speakerId) {
       const lim = Number((farewellSection as any).limit)
       if (Number.isFinite(lim) && lim >= 0) farewellLimits.set(speakerId, Math.floor(lim))
       upsertFarewellForSpeaker(speakerId, (farewellSection as any).wills)
+      if ('allowed' in (farewellSection as any)) {
+        activeFarewellAllowed.value = isTrueLike((farewellSection as any).allowed)
+      } else {
+        activeFarewellAllowed.value = true
+      }
     }
     if ('vote_blocked' in (p as any)) {
       const blocked = isTrueLike((p as any).vote_blocked)
@@ -1265,6 +1285,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     const isFarewellSpeech = isActiveSpeech && (isTrueLike((p as any)?.prelude) || killed || voteSpeechKind === 'farewell' || !!farewellSection)
     currentFarewellSpeech.value = isFarewellSpeech
     activeFarewellSpeakerId.value = isFarewellSpeech ? speakerId : ''
+    if (!isFarewellSpeech) activeFarewellAllowed.value = true
     if (isActiveSpeech && night.hasResult) {
       night.hasResult = false
       night.killOk = false
