@@ -48,6 +48,7 @@
 <script setup lang="ts">
 import { onMounted, onBeforeUnmount, watch, nextTick, ref } from 'vue'
 import { useAuthStore, useUserStore, useNotifStore } from '@/store'
+import { alertDialog } from '@/services/confirm'
 import Notifs from '@/components/Notifs.vue'
 
 import defaultAvatar from "@/assets/svg/defaultAvatar.svg"
@@ -96,7 +97,7 @@ declare global {
 
 async function logout() {
   try { await auth.logout() }
-  finally { alert('Для "полного" выхода нажмите в Telegram "Terminate session"') }
+  finally { await alertDialog('Для "полного" выхода нажмите в Telegram "Terminate session"') }
 }
 
 function mountTGWidget() {

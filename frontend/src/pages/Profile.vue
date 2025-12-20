@@ -82,7 +82,7 @@
 import { computed, nextTick, onMounted, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { api, refreshAccessTokenFull } from '@/services/axios'
 import { useUserStore } from '@/store'
-import { confirmDialog } from '@/services/confirm'
+import { confirmDialog, alertDialog } from '@/services/confirm'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
 
@@ -129,10 +129,10 @@ async function saveNick() {
   } catch (e: any) {
     const st = e?.response?.status
     const d  = e?.response?.data?.detail
-    if (st === 409 && d === 'username_taken') alert('Ник уже занят')
-    else if (st === 422 && d === 'reserved_prefix') alert('Ник не должен начинаться с "user"')
-    else if (st === 422 && d === 'invalid_username_format') alert('Недопустимый формат никнейма')
-    else alert('Не удалось сохранить ник')
+    if (st === 409 && d === 'username_taken')               await alertDialog('Данный никнейм уже занят')
+    else if (st === 422 && d === 'reserved_prefix')         await alertDialog('Никнейм не должен начинаться с "user"')
+    else if (st === 422 && d === 'invalid_username_format') await alertDialog('Недопустимый формат никнейма')
+    else                                                    await alertDialog('Не удалось сохранить никнейм')
   } finally { busyNick.value = false }
 }
 
@@ -187,11 +187,11 @@ async function onPick(e: Event) {
   ;(e.target as HTMLInputElement).value = ''
   if (!f) return
   if (!['image/jpeg', 'image/png'].includes(f.type)) {
-    alert('Только JPG/PNG')
+    await alertDialog('К загрузке допустимы только форматы JPG/PNG')
     return
   }
   if (f.size > 5 * 1024 * 1024) {
-    alert('Файл больше 5 МБ')
+    await alertDialog('К загрузке допустимы только файлы менее 5 Мбайт')
     return
   }
   const url = URL.createObjectURL(f)
@@ -223,7 +223,7 @@ async function onPick(e: Event) {
   }
   img.onerror = () => {
     URL.revokeObjectURL(url)
-    alert('Не удалось открыть изображение')
+    await alertDialog('Не удалось открыть изображение')
   }
   img.src = url
 }
@@ -302,7 +302,7 @@ async function applyCrop() {
     tctx.drawImage(img, crop.x * k, crop.y * k, img.width * crop.scale * k, img.height * crop.scale * k)
     const blob: Blob = await new Promise((res, rej) => tmp.toBlob(b => b ? res(b) : rej(new Error('toBlob')), crop.type === 'image/png' ? 'image/png' : 'image/jpeg', 0.92))
     if (blob.size > 5 * 1024 * 1024) {
-      alert('Получившийся файл больше 5 МБ')
+      await alertDialog('Получившийся файл оказался больше 5 Мбайт')
       return
     }
     const fd = new FormData()
@@ -314,11 +314,11 @@ async function applyCrop() {
   } catch (e: any) {
     const st = e?.response?.status
     const d  = e?.response?.data?.detail
-    if (st === 415 || d === 'unsupported_media_type') alert('Только JPG/PNG')
-    else if (st === 413) alert('Файл больше 5 МБ')
-    else if (st === 422 && d === 'empty_file') alert('Пустой файл')
-    else if (st === 422 && d === 'bad_image') alert('Некорректное изображение')
-    else alert('Не удалось загрузить аватар')
+    if (st === 415 || d === 'unsupported_media_type') await alertDialog('К загрузке допустимы только форматы JPG/PNG')
+    else if (st === 413)                              await alertDialog('К загрузке допустимы только файлы менее 5 Мбайт')
+    else if (st === 422 && d === 'empty_file')        await alertDialog('Не удалось прочитать файл')
+    else if (st === 422 && d === 'bad_image')         await alertDialog('Некорректное изображение')
+    else                                              await alertDialog('Не удалось загрузить аватар')
   } finally { busyAva.value = false }
 }
 
@@ -335,7 +335,9 @@ async function onDeleteAvatar() {
     await api.delete('/users/avatar')
     me.avatar_name = null
     userStore.setAvatarName(null)
-  } catch { alert('Не удалось удалить аватар') } finally { busyAva.value = false }
+  }
+  catch { await alertDialog('Не удалось удалить аватар') }
+  finally { busyAva.value = false }
 }
 
 function sanitizeUsername(s: string, max = NICK_MAX): string {

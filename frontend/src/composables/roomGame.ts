@@ -1,5 +1,5 @@
 import { computed, reactive, ref, type Ref, watch } from 'vue'
-import { confirmDialog } from '@/services/confirm'
+import { confirmDialog, alertDialog } from '@/services/confirm'
 
 import iconRoleCitizen from '@/assets/images/roleCitizen.png'
 import iconRoleMafia from '@/assets/images/roleMafia.png'

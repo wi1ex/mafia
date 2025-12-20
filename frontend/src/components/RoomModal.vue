@@ -91,6 +91,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { api } from '@/services/axios'
+import { alertDialog } from '@/services/confirm'
 import { useUserStore } from '@/store'
 
 import iconClose from '@/assets/svg/close.svg'
@@ -241,12 +242,12 @@ async function create() {
   } catch (e: any) {
     const st = e?.response?.status
     const d = e?.response?.data?.detail
-    if (st === 409 && d === 'rooms_limit_global')      alert('Достигнут общий лимит комнат')
-    else if (st === 409 && d === 'rooms_limit_user')   alert('Достигнут личный лимит комнат')
-    else if (st === 422 && d === 'title_empty')        alert('Название не должно быть пустым')
-    else if (d && typeof d === 'object' && d.detail)   alert(String(d.detail))
-    else if (typeof d === 'string' && d)               alert(d)
-    else                                               alert('Ошибка создания комнаты')
+    if (st === 409 && d === 'rooms_limit_global')      await alertDialog('Достигнут общий лимит комнат')
+    else if (st === 409 && d === 'rooms_limit_user')   await alertDialog('Достигнут личный лимит комнат')
+    else if (st === 422 && d === 'title_empty')        await alertDialog('Название не должно быть пустым')
+    else if (d && typeof d === 'object' && d.detail)   await alertDialog(String(d.detail))
+    else if (typeof d === 'string' && d)               await alertDialog(d)
+    else                                               await alertDialog('Ошибка создания комнаты')
   } finally { busy.value = false }
 }
 

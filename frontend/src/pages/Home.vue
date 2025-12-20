@@ -129,6 +129,7 @@ import { onMounted, onBeforeUnmount, ref, computed, reactive, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { Socket } from 'socket.io-client'
 import { createPublicSocket } from '@/services/sio'
+import { alertDialog } from '@/services/confirm'
 import { api } from '@/services/axios'
 import { useAuthStore, useUserStore } from '@/store'
 import RoomModal from '@/components/RoomModal.vue'
@@ -289,13 +290,13 @@ async function onApply() {
   } catch (e: any) {
     const detail = e?.response?.data?.detail
     if (detail === 'room_not_found') {
-      alert('Комната не найдена')
+      await alertDialog('Комната не найдена')
       clearSelection()
     } else if (detail === 'not_private') {
       access.value = 'approved'
-      alert('Комната открыта, можно зайти без заявки')
+      await alertDialog('Комната открыта, можно зайти без заявки')
     } else {
-      alert('Ошибка при отправке заявки')
+      await alertDialog('Ошибка при отправке заявки')
     }
   } finally { applying.value = false }
 }

@@ -301,7 +301,7 @@ import type { Socket } from 'socket.io-client'
 import { useAuthStore } from '@/store'
 import { useRoomGame, type SendAckFn, type Ack, type GamePhase, type FarewellVerdict } from '@/composables/roomGame'
 import { useRTC, type VQ } from '@/composables/rtc'
-import { confirmDialog } from '@/services/confirm'
+import { confirmDialog, alertDialog } from '@/services/confirm'
 import { createAuthedSocket } from '@/services/sio'
 import RoomTile from '@/components/RoomTile.vue'
 import RoomSetting from '@/components/RoomSetting.vue'
@@ -642,7 +642,7 @@ async function sendAck(event: string, payload: any, timeoutMs = 15000): Promise<
 function ensureOk(resp: Ack, msgByCode: Record<number, string>, netMsg: string): boolean {
   if (resp && resp.ok) return true
   const code = resp?.status
-  alert((code && msgByCode[code]) || netMsg)
+  await alertDialog('(code && msgByCode[code]) || netMsg')
   return false
 }
 
@@ -925,7 +925,7 @@ socket.value?.on('connect', async () => {
     const ack = await safeJoin()
     if (!ack?.ok) {
       if (ack?.status === 404 || ack?.status === 410) {
-        alert('Комната недоступна')
+        await alertDialog('Комната недоступна')
         router.replace({ name: 'home' }).catch(() => {})
         return
       }
@@ -1046,7 +1046,7 @@ socket.value?.on('connect', async () => {
   socket.value?.on('game_ended', (p: any) => {
     const reason = String(p?.reason || '')
     if (reason === 'early_leave_before_day') {
-      alert('Игра была остановлена т.к. игрок покинул игру до ее начала')
+      void alertDialog('Игра была остановлена т.к. игрок покинул игру до ее начала')
     }
     const roleBeforeEnd = game.handleGameEnded(p)
     const connectedIds = new Set(rtc.peerIds.value)
@@ -1402,8 +1402,8 @@ const toggleScreen = async () => {
       const resp = await sendAck('screen', { on: true })
       if (!resp || !resp.ok) {
         if (resp?.status === 409 && resp?.owner) screenOwnerId.value = String(resp.owner)
-        else if (resp?.status === 403 && resp?.error === 'blocked') alert('Стрим запрещён администратором')
-        else alert('Не удалось начать трансляцию')
+        else if (resp?.status === 403 && resp?.error === 'blocked') await alertDialog('Стрим запрещён администратором')
+        else await alertDialog('Не удалось запустить трансляцию')
         return
       }
       const ok = await rtc.startScreenShare({ audio: true })
@@ -1415,7 +1415,7 @@ const toggleScreen = async () => {
         await sendAck('screen', { on: false, canceled: true })
         screenOwnerId.value = ''
         const reason = rtc.getLastScreenShareError?.()
-        alert(reason === 'canceled' ? 'Трансляция отменена' : 'Ошибка публикации видеопотока')
+        await alertDialog(reason === 'canceled' ? 'Трансляция отменена' : 'Ошибка публикации видеопотока')
       }
     } else {
       await rtc.stopScreenShare()
@@ -1462,16 +1462,13 @@ async function onMediaGateClick() {
 async function handleJoinFailure(j: any) {
   if (leaving.value) return
   if (j?.status === 403 && j?.error === 'private_room') {
-    alert('Комната является приватной')
+    await alertDialog('Комната является приватной')
     await router.replace({ name: 'home', query: { focus: String(rid) } })
   } else if (j?.status === 409 && j?.error === 'game_in_progress') {
-    alert('В комнате идёт игра')
+    await alertDialog('В комнате идёт игра')
     await router.replace({ name: 'home', query: { focus: String(rid) } })
   } else {
-    alert(j?.status === 404 ? 'Комната не найдена'
-      : j?.status === 410 ? 'Комната закрыта'
-      : j?.status === 409 ? 'Комната заполнена'
-      : 'Ошибка входа в комнату')
+    await alertDialog('j?.status === 404 ? \'Комната не найдена\' : j?.status === 410 ? \'Комната закрыта\' : j?.status === 409 ? \'Комната заполнена\' : \'Ошибка входа в комнату\'')
     await router.replace('/')
   }
 }
@@ -1581,7 +1578,7 @@ onMounted(async () => {
     rerr('room onMounted fatal', err)
     try { await rtc.disconnect() } catch {}
     if (!leaving.value) {
-      alert('Ошибка входа в комнату')
+      await alertDialog('Ошибка входа в комнату')
       await router.replace('/')
     }
   }

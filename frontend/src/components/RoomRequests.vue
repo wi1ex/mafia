@@ -25,6 +25,7 @@ import { api } from '@/services/axios'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
 import iconClose from '@/assets/svg/close.svg'
+import { alertDialog } from '@/services/confirm'
 
 const props = defineProps<{
   open: boolean
@@ -84,7 +85,7 @@ async function approve(uid: number) {
     window.dispatchEvent(new CustomEvent('auth-room_app_approved', {
       detail: { room_id: props.roomId, user_id: uid }
     }))
-  } catch { alert('Ошибка') }
+  } catch { await alertDialog('Возникла непредвиденная ошибка') }
 }
 
 function onInvite(e: any) {
