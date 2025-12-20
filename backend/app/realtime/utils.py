@@ -68,6 +68,10 @@ __all__ = [
     "emit_game_night_state",
     "night_stage_timeout_job",
     "compute_night_kill",
+    "best_move_payload_from_state",
+    "build_night_reset_mapping",
+    "apply_night_start_blocks",
+    "apply_day_visibility_unblock",
     "finish_day_prelude_speech",
     "emit_night_head_picks",
     "process_player_death",
@@ -75,6 +79,7 @@ __all__ = [
     "ensure_can_act_role",
     "get_active_fouls",
     "get_game_deaths",
+    "get_player_ids",
     "block_vote_and_clear",
     "should_block_vote_on_death",
     "decide_vote_blocks_on_death",
@@ -1110,6 +1115,93 @@ async def get_active_fouls(r, rid: int) -> dict[int, int]:
     return active
 
 
+async def get_player_ids(r, rid: int) -> list[int]:
+    players_raw = await r.smembers(f"room:{rid}:game_players")
+    player_ids: list[int] = []
+    for v in (players_raw or []):
+        try:
+            player_ids.append(int(v))
+        except Exception:
+            continue
+    return player_ids
+
+
+def build_night_reset_mapping(*, include_vote_meta: bool) -> dict[str, str]:
+    mapping = {
+        "phase": "night",
+        "night_stage": "sleep",
+        "night_shoot_started": "0",
+        "night_shoot_duration": "0",
+        "night_check_started": "0",
+        "night_check_duration": "0",
+        "night_kill_uid": "0",
+        "night_kill_ok": "0",
+        "day_prelude_uid": "0",
+        "day_prelude_pending": "0",
+        "day_prelude_active": "0",
+        "day_prelude_done": "0",
+        "best_move_uid": "0",
+        "best_move_active": "0",
+        "best_move_targets": "",
+        "vote_blocked": "0",
+    }
+    if include_vote_meta:
+        mapping["vote_prev_leaders"] = ""
+        mapping["vote_lift_state"] = ""
+    return mapping
+
+
+async def apply_night_start_blocks(r, rid: int, *, head_uid: int, emit_safe: bool) -> None:
+    player_ids = await get_player_ids(r, rid)
+    active_fouls_map = await get_active_fouls(r, rid)
+    active_foul_ids = set(active_fouls_map.keys())
+    for target_uid in player_ids:
+        if target_uid in active_foul_ids:
+            continue
+        try:
+            await apply_blocks_and_emit(r, rid, actor_uid=head_uid, actor_role="head", target_uid=target_uid,
+                                        changes_bool={"visibility": True, "mic": True})
+        except Exception:
+            log.exception("night.start.block_failed", rid=rid, head=head_uid, target=target_uid)
+
+    async with r.pipeline() as p:
+        for target_uid in player_ids:
+            if target_uid in active_foul_ids:
+                continue
+            await p.hset(f"room:{rid}:user:{target_uid}:state", mapping={"visibility": "0", "mic": "0"})
+        await p.execute()
+
+    for target_uid in player_ids:
+        if target_uid in active_foul_ids:
+            continue
+        if emit_safe:
+            try:
+                await emit_state_changed_filtered(r, rid, target_uid, {"visibility": "0", "mic": "0"}, phase_override="night")
+            except Exception:
+                log.exception("night.start.emit_state_failed", rid=rid, uid=target_uid)
+        else:
+            await emit_state_changed_filtered(r, rid, target_uid, {"visibility": "0", "mic": "0"}, phase_override="night")
+
+
+async def apply_day_visibility_unblock(r, rid: int, *, head_uid: int, player_ids: list[int] | None = None) -> list[int]:
+    if player_ids is None:
+        player_ids = await get_player_ids(r, rid)
+
+    for target_uid in player_ids:
+        try:
+            await apply_blocks_and_emit(r, rid, actor_uid=head_uid, actor_role="head", target_uid=target_uid, changes_bool={"visibility": False})
+        except Exception:
+            log.exception("night.day.unblock_visibility_failed", rid=rid, head=head_uid, target=target_uid)
+
+    async with r.pipeline() as p:
+        for target_uid in player_ids:
+            await p.hset(f"room:{rid}:user:{target_uid}:state", mapping={"visibility": "1"})
+        await p.execute()
+    for target_uid in player_ids:
+        await emit_state_changed_filtered(r, rid, target_uid, {"visibility": "1"})
+    return player_ids
+
+
 async def schedule_foul_block(rid: int, target_uid: int, head_uid: int, duration: int | None = None, *, expected_until: int | None = None) -> None:
     try:
         sec = int(duration if duration is not None else settings.PLAYER_FOUL_SECONDS)
@@ -1947,14 +2039,12 @@ async def night_stage_timeout_job(rid: int, expected_stage: str, expected_starte
                         "best_move_uid": str(best_move_uid),
                         "best_move_active": "0",
                         "best_move_targets": "",
-                        "best_move_target_uid": "0",
                     },
                 )
                 await p.execute()
             raw2["best_move_uid"] = str(best_move_uid)
             raw2["best_move_active"] = "0"
             raw2["best_move_targets"] = ""
-            raw2["best_move_target_uid"] = "0"
 
         await emit_game_night_state(rid, raw2)
 
@@ -2060,7 +2150,6 @@ async def finish_day_prelude_speech(r, rid: int, raw_gstate: Mapping[str, Any], 
                 "best_move_uid": "0",
                 "best_move_active": "0",
                 "best_move_targets": "",
-                "best_move_target_uid": "0",
             },
         )
         await p.execute()

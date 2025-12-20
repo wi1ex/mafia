@@ -38,6 +38,7 @@ from ..utils import (
     get_game_runtime_and_roles_view,
     emit_state_changed_filtered,
     stop_screen_for_user,
+    GameActionContext,
     compute_day_opening_and_closing,
     get_alive_players_in_seat_order,
     schedule_foul_block,
@@ -54,12 +55,15 @@ from ..utils import (
     emit_game_night_state,
     night_stage_timeout_job,
     compute_night_kill,
+    best_move_payload_from_state,
+    build_night_reset_mapping,
+    apply_night_start_blocks,
+    apply_day_visibility_unblock,
     finish_day_prelude_speech,
     emit_night_head_picks,
     process_player_death,
     require_ctx,
     ensure_can_act_role,
-    get_active_fouls,
     get_game_deaths,
     get_farewell_wills,
     get_farewell_limits,
@@ -804,7 +808,6 @@ async def game_start(sid, data) -> GameStartAck:
                              "best_move_uid": "0",
                              "best_move_active": "0",
                              "best_move_targets": "",
-                             "best_move_target_uid": "0",
                          })
             if seats:
                 await p.hset(f"room:{rid}:game_seats", mapping={k: str(v) for k, v in seats.items()})
@@ -1247,65 +1250,11 @@ async def game_phase_next(sid, data):
                 return {"ok": False, "error": "speeches_not_done", "status": 400}
 
             async with r.pipeline() as p:
-                await p.hset(
-                    f"room:{rid}:game_state",
-                    mapping={
-                        "phase": "night",
-                        "night_stage": "sleep",
-                        "night_shoot_started": "0",
-                        "night_shoot_duration": "0",
-                        "night_check_started": "0",
-                        "night_check_duration": "0",
-                        "night_kill_uid": "0",
-                        "night_kill_ok": "0",
-                        "day_prelude_uid": "0",
-                        "day_prelude_pending": "0",
-                        "day_prelude_active": "0",
-                        "day_prelude_done": "0",
-                        "best_move_uid": "0",
-                        "best_move_active": "0",
-                        "best_move_targets": "",
-                        "best_move_target_uid": "0",
-                        "vote_prev_leaders": "",
-                        "vote_lift_state": "",
-                        "vote_blocked": "0",
-                    },
-                )
+                await p.hset(f"room:{rid}:game_state", mapping=build_night_reset_mapping(include_vote_meta=True))
                 await p.delete(f"room:{rid}:night_shots", f"room:{rid}:night_checks")
                 await p.execute()
 
-            players_raw = await r.smembers(f"room:{rid}:game_players")
-            player_ids: list[int] = []
-            for v in (players_raw or []):
-                try:
-                    player_ids.append(int(v))
-                except Exception:
-                    continue
-
-            active_fouls_map = await get_active_fouls(r, rid)
-            active_foul_ids = set(active_fouls_map.keys())
-            for target_uid in player_ids:
-                if target_uid in active_foul_ids:
-                    continue
-                try:
-                    await apply_blocks_and_emit(r, rid, actor_uid=head_uid, actor_role="head", target_uid=target_uid, changes_bool={"visibility": True, "mic": True})
-                except Exception:
-                    log.exception("night.start.block_failed", rid=rid, head=head_uid, target=target_uid)
-
-            async with r.pipeline() as p:
-                for target_uid in player_ids:
-                    if target_uid in active_foul_ids:
-                        continue
-                    await p.hset(f"room:{rid}:user:{target_uid}:state", mapping={"visibility": "0", "mic": "0"})
-                await p.execute()
-
-            for target_uid in player_ids:
-                if target_uid in active_foul_ids:
-                    continue
-                try:
-                    await emit_state_changed_filtered(r, rid, target_uid, {"visibility": "0", "mic": "0"}, phase_override="night")
-                except Exception:
-                    log.exception("night.start.emit_state_failed", rid=rid, uid=target_uid)
+            await apply_night_start_blocks(r, rid, head_uid=head_uid, emit_safe=True)
 
             await sio.emit("game_phase_change",
                            {"room_id": rid,
@@ -1329,60 +1278,11 @@ async def game_phase_next(sid, data):
                 return {"ok": False, "error": "speeches_not_done", "status": 400}
 
             async with r.pipeline() as p:
-                await p.hset(
-                    f"room:{rid}:game_state",
-                    mapping={
-                        "phase": "night",
-                        "night_stage": "sleep",
-                        "night_shoot_started": "0",
-                        "night_shoot_duration": "0",
-                        "night_check_started": "0",
-                        "night_check_duration": "0",
-                        "night_kill_uid": "0",
-                        "night_kill_ok": "0",
-                        "day_prelude_uid": "0",
-                        "day_prelude_pending": "0",
-                        "day_prelude_active": "0",
-                        "day_prelude_done": "0",
-                        "best_move_uid": "0",
-                        "best_move_active": "0",
-                        "best_move_targets": "",
-                        "best_move_target_uid": "0",
-                        "vote_blocked": "0",
-                    },
-                )
+                await p.hset(f"room:{rid}:game_state", mapping=build_night_reset_mapping(include_vote_meta=False))
                 await p.delete(f"room:{rid}:night_shots", f"room:{rid}:night_checks")
                 await p.execute()
 
-            players_raw = await r.smembers(f"room:{rid}:game_players")
-            player_ids: list[int] = []
-            for v in (players_raw or []):
-                try:
-                    player_ids.append(int(v))
-                except Exception:
-                    continue
-
-            active_fouls_map = await get_active_fouls(r, rid)
-            active_foul_ids = set(active_fouls_map.keys())
-            for target_uid in player_ids:
-                if target_uid in active_foul_ids:
-                    continue
-                try:
-                    await apply_blocks_and_emit(r, rid, actor_uid=head_uid, actor_role="head", target_uid=target_uid, changes_bool={"visibility": True, "mic": True})
-                except Exception:
-                    log.exception("night.start.block_failed", rid=rid, head=head_uid, target=target_uid)
-
-            async with r.pipeline() as p:
-                for target_uid in player_ids:
-                    if target_uid in active_foul_ids:
-                        continue
-                    await p.hset(f"room:{rid}:user:{target_uid}:state", mapping={"visibility": "0", "mic": "0"})
-                await p.execute()
-
-            for target_uid in player_ids:
-                if target_uid in active_foul_ids:
-                    continue
-                await emit_state_changed_filtered(r, rid, target_uid, {"visibility": "0", "mic": "0"}, phase_override="night")
+            await apply_night_start_blocks(r, rid, head_uid=head_uid, emit_safe=False)
 
             await sio.emit("game_phase_change",
                            {"room_id": rid,
@@ -1411,26 +1311,7 @@ async def game_phase_next(sid, data):
             new_day_number = day_number + 1 if opening_uid else day_number
             vote_blocked_next = str(raw_gstate.get("vote_blocked_next") or "0") == "1"
             vote_blocked_val = "1" if vote_blocked_next else "0"
-            players_raw = await r.smembers(f"room:{rid}:game_players")
-            player_ids: list[int] = []
-            for v in (players_raw or []):
-                try:
-                    player_ids.append(int(v))
-                except Exception:
-                    continue
-
-            for target_uid in player_ids:
-                try:
-                    await apply_blocks_and_emit(r, rid, actor_uid=head_uid, actor_role="head", target_uid=target_uid, changes_bool={"visibility": False})
-                except Exception:
-                    log.exception("night.day.unblock_visibility_failed", rid=rid, head=head_uid, target=target_uid)
-
-            async with r.pipeline() as p:
-                for target_uid in player_ids:
-                    await p.hset(f"room:{rid}:user:{target_uid}:state", mapping={"visibility": "1"})
-                await p.execute()
-            for target_uid in player_ids:
-                await emit_state_changed_filtered(r, rid, target_uid, {"visibility": "1"})
+            await apply_day_visibility_unblock(r, rid, head_uid=head_uid)
 
             mapping = {
                 "phase": "day",
@@ -2109,12 +1990,16 @@ async def game_best_move_start(sid, data):
             return {"ok": False, "error": "already_active", "status": 409}
 
         try:
-            await r.hset(f"room:{rid}:game_state", mapping={"best_move_active": "1", "best_move_target_uid": "0"})
+            await r.hset(f"room:{rid}:game_state", mapping={"best_move_active": "1"})
         except Exception:
             log.exception("game_best_move_start.save_failed", rid=rid, uid=ctx.uid)
             return {"ok": False, "error": "internal", "status": 500}
 
-        payload = {"room_id": rid, "best_move": {"uid": best_uid, "active": True, "targets": ctx.gcsv_ints("best_move_targets")}}
+        raw_state = dict(ctx.gstate)
+        raw_state["best_move_uid"] = str(best_uid)
+        raw_state["best_move_active"] = "1"
+        best_move = best_move_payload_from_state(GameActionContext.from_raw_state(uid=ctx.uid, rid=rid, r=r, raw_state=raw_state), include_empty=True)
+        payload = {"room_id": rid, "best_move": best_move}
         await sio.emit("game_best_move_update",
                        payload,
                        room=f"room:{rid}",
@@ -2183,11 +2068,16 @@ async def game_best_move_mark(sid, data):
             log.exception("game_best_move_mark.save_failed", rid=rid, uid=speaker_uid, target=target_uid)
             return {"ok": False, "error": "internal", "status": 500}
 
+        raw_state = dict(ctx.gstate)
+        raw_state["best_move_uid"] = str(best_uid)
+        raw_state["best_move_active"] = "1"
+        raw_state["best_move_targets"] = targets_raw
+        best_move = best_move_payload_from_state(GameActionContext.from_raw_state(uid=ctx.uid, rid=rid, r=r, raw_state=raw_state), include_empty=True)
         payload = {
             "room_id": rid,
             "speaker_uid": speaker_uid,
             "target_uid": target_uid,
-            "best_move": {"uid": best_uid, "active": True, "targets": updated_targets},
+            "best_move": best_move,
         }
         await sio.emit("game_best_move_update",
                        payload,
