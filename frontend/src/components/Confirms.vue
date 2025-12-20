@@ -2,8 +2,10 @@
   <Transition name="confirm">
     <div v-if="state.open" class="overlay">
       <div class="modal" :role="dialogRole" aria-modal="true" :aria-labelledby="titleId">
-        <header :id="titleId">{{ state.title }}</header>
-        <span>{{ state.text }}</span>
+        <header :id="titleId">
+          <span class="title">{{ state.title }}</span>
+        </header>
+        <span class="text">{{ state.text }}</span>
         <div class="actions">
           <button v-if="isConfirm" @click="onCancel">{{ state.cancelText }}</button>
           <button class="confirm" @click="onConfirm">{{ state.confirmText }}</button>
@@ -53,26 +55,31 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   inset: 0;
-  background-color: rgba($black, 0.65);
-  backdrop-filter: blur(2px);
+  background-color: rgba($black, 0.75);
+  backdrop-filter: blur(5px);
   z-index: 3000;
   .modal {
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    width: min(90vw, 420px);
-    padding: 16px 18px;
-    border-radius: 6px;
-    background-color: $graphite;
-    box-shadow: 0 10px 25px rgba($black, 0.35);
+    padding: 20px;
+    gap: 10px;
+    width: min(40%, 400px);
+    border-radius: 5px;
+    background-color: $dark;
     header {
-      font-size: 18px;
-      font-family: Manrope-SemiBold;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 5px 10px;
+      border-radius: 5px;
+      background-color: $graphite;
+      box-shadow: 0 3px 5px rgba($black, 0.25);
+      .title {
+        font-size: 18px;
+        font-weight: bold;
+      }
     }
-    span {
-      margin: 0;
-      color: $fg;
-      line-height: 1.4;
+    .text {
       white-space: pre-line;
     }
     .actions {
@@ -83,19 +90,19 @@ onBeforeUnmount(() => {
         display: flex;
         align-items: center;
         justify-content: center;
-        padding: 0 16px;
-        height: 34px;
+        padding: 10px;
+        height: 30px;
         border: none;
         border-radius: 5px;
-        background-color: $lead;
-        color: $fg;
+        background-color: $graphite;
+        color: $bg;
         font-size: 14px;
         font-family: Manrope-Medium;
         line-height: 1;
         cursor: pointer;
-        transition: background-color 0.25s ease-in-out, opacity 0.25s ease-in-out;
+        transition: background-color 0.25s ease-in-out;
         &:hover {
-          background-color: $dark;
+          background-color: $lead;
         }
         &.confirm {
           background-color: rgba($green, 0.75);
@@ -118,18 +125,4 @@ onBeforeUnmount(() => {
   opacity: 0;
 }
 
-@media (max-width: 1280px) {
-  .overlay {
-    .modal {
-      width: min(92vw, 360px);
-      padding: 14px 16px;
-      .actions {
-        flex-direction: column-reverse;
-        button {
-          width: 100%;
-        }
-      }
-    }
-  }
-}
 </style>

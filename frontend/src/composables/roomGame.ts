@@ -124,12 +124,6 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     done: false,
   })
   const revotePromptCandidate = ref('')
-  const revotePrompt = reactive({
-    active: false,
-    candidateId: '',
-    seatLeft: null as number | null,
-    targetSeat: null as number | null,
-  })
   const voteTimerId = ref<number | null>(null)
   const votedUsers = reactive(new Set<string>())
   const votedThisRound = reactive(new Set<string>())
@@ -1990,7 +1984,13 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   }
 
   async function leaveGame(sendAck: SendAckFn): Promise<void> {
-    if (!confirm('Покинуть игру?')) return
+    const ok = await confirmDialog({
+      title: 'Покинуть игру',
+      text: 'Вы уверены что хотите покинуть игру?',
+      confirmText: 'Покинуть',
+      cancelText: 'Отмена',
+    })
+    if (!ok) return
     const resp = await sendAck('game_leave', {})
     if (!resp?.ok) {
       const code = resp?.error
@@ -2043,7 +2043,13 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
         handleGameStartError(check)
         return
       }
-      if (!confirm('Начать игру?')) return
+      const ok = await confirmDialog({
+        title: 'Запуск игры',
+        text: 'Вы уверены что хотите начать игру?',
+        confirmText: 'Начать',
+        cancelText: 'Отмена',
+      })
+      if (!ok) return
       const resp = await sendAck('game_start', { confirm: true })
       if (!resp?.ok) {
         handleGameStartError(resp)
@@ -2068,7 +2074,13 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
 
   async function endGame(sendAck: SendAckFn): Promise<void> {
     if (endingGame.value) return
-    if (!confirm('Завершить игру?')) return
+    const ok = await confirmDialog({
+      title: 'Завершение игры',
+      text: 'Вы уверены что хотите завершить игру?',
+      confirmText: 'Завершить',
+      cancelText: 'Отмена',
+    })
+    if (!ok) return
     endingGame.value = true
     try {
       const check = await sendAck('game_end', { confirm: false })
@@ -2186,7 +2198,12 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       const code = resp?.error
       const st = resp?.status
       if (st === 409 && code === 'need_confirm_kill') {
-        const ok = confirm('Удалить игрока?')
+        const ok = await confirmDialog({
+          title: 'Удаление игрока',
+          text: 'Вы уверены что хотите удалить игрока?',
+          confirmText: 'Удалить',
+          cancelText: 'Отмена',
+        })
         if (!ok) return
         const resp2 = await sendAck('game_foul_set', { user_id: uidNum, confirm_kill: true })
         if (!resp2?.ok) {

@@ -301,6 +301,7 @@ import type { Socket } from 'socket.io-client'
 import { useAuthStore } from '@/store'
 import { useRoomGame, type SendAckFn, type Ack, type GamePhase, type FarewellVerdict } from '@/composables/roomGame'
 import { useRTC, type VQ } from '@/composables/rtc'
+import { confirmDialog } from '@/services/confirm'
 import { createAuthedSocket } from '@/services/sio'
 import RoomTile from '@/components/RoomTile.vue'
 import RoomSetting from '@/components/RoomSetting.vue'
@@ -831,7 +832,13 @@ async function toggleBlock(targetId: string, key: keyof BlockState) {
 
 async function kickUser(targetId: string) {
   if (!canModerate(targetId)) return
-  if (!confirm('Удалить пользователя?')) return
+  const ok = await confirmDialog({
+    title: 'Удаление пользователя',
+    text: 'Вы уверены что хотите удалить пользователя?',
+    confirmText: 'Удалить',
+    cancelText: 'Отмена',
+  })
+  if (!ok) return
   const resp = await sendAck('kick', { user_id: Number(targetId) })
   if (!ensureOk(resp, { 403: 'Недостаточно прав', 404: 'Пользователь не в комнате' }, 'Сеть/таймаут при удалении')) return
 }

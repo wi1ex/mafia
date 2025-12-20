@@ -352,7 +352,6 @@ const timelineDurationSec = computed(() => {
     color: $fg;
     border-radius: 0 0 5px 5px;
     background-color: rgba($dark, 0.75);
-    backdrop-filter: blur(5px);
     z-index: 10;
     &.nominate {
       background: none;
@@ -755,7 +754,7 @@ const timelineDurationSec = computed(() => {
     .head-bar {
       padding: 0 0 3px 0;
       gap: 5px;
-      height: 20px;
+      height: 15px;
       font-size: 10px;
       .nominations-badge {
         width: 15px;

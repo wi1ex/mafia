@@ -82,6 +82,7 @@
 import { computed, nextTick, onMounted, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { api, refreshAccessTokenFull } from '@/services/axios'
 import { useUserStore } from '@/store'
+import { confirmDialog } from '@/services/confirm'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
 
@@ -322,7 +323,13 @@ async function applyCrop() {
 }
 
 async function onDeleteAvatar() {
-  if (!confirm('Удалить аватар?')) return
+  const ok = await confirmDialog({
+    title: 'Удаление аватара',
+    text: 'Вы уверены что хотите удалить аватар?',
+    confirmText: 'Удалить',
+    cancelText: 'Отмена',
+  })
+  if (!ok) return
   busyAva.value = true
   try {
     await api.delete('/users/avatar')
