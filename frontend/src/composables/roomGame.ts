@@ -1,4 +1,5 @@
 import { computed, reactive, ref, type Ref, watch } from 'vue'
+import { confirmDialog } from '@/services/confirm'
 
 import iconRoleCitizen from '@/assets/images/roleCitizen.png'
 import iconRoleMafia from '@/assets/images/roleMafia.png'
@@ -1924,8 +1925,14 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     revotePromptCandidate.value = cur
     const targetSeat = seatIndex(cur)
     const targetLabel = targetSeat != null ? targetSeat : 'кандидата'
-    const ok = confirm(`Игрок ${seatLeft} покидал комнату во время голосования. Переголосовать за ${targetLabel}?`)
-    if (ok) void restartCurrentVote(sendAck, cur)
+    void confirmDialog({
+      title: 'Переголосование',
+      text: `Игрок ${seatLeft} покидал комнату во время голосования. Переголосовать за ${targetLabel}?`,
+      confirmText: 'Переголосовать',
+      cancelText: 'Отмена',
+    }).then((ok) => {
+      if (ok) void restartCurrentVote(sendAck, cur)
+    })
   }
 
   async function goToNextCandidate(sendAck: SendAckFn): Promise<void> {

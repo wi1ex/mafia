@@ -4,6 +4,7 @@
     <div class="rotate-box">Поверните устройство</div>
   </div>
   <router-view />
+  <Confirms />
   <Toast />
 </template>
 
@@ -15,6 +16,7 @@ import { useUserStore } from '@/store'
 import { useNotifStore } from '@/store'
 import Header from '@/components/Header.vue'
 import Toast from '@/components/Toasts.vue'
+import Confirms from '@/components/Confirms.vue'
 
 const route = useRoute()
 const router = useRouter()
