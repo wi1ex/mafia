@@ -121,7 +121,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   const bestMove = reactive({
     uid: '',
     active: false,
-    targetId: '',
+    targets: [] as string[],
   })
   const vote = reactive({
     currentId: '',
@@ -468,7 +468,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   const canStartDayFromNight = computed(() => {
     if (!canHeadDayFromNightControl.value) return false
     if (!bestMove.uid) return true
-    return bestMove.active && !!bestMove.targetId
+    return bestMove.active && bestMove.targets.length > 0
   })
 
   const canHeadGoToMafiaTalkControl = computed(() => {
@@ -697,7 +697,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   function resetBestMoveState() {
     bestMove.uid = ''
     bestMove.active = false
-    bestMove.targetId = ''
+    bestMove.targets = []
   }
 
   function syncBestMove(raw: any) {
@@ -708,17 +708,30 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     const uidNum = Number((raw as any).uid || (raw as any).user_id || 0)
     const targetNum = Number((raw as any).target_uid || (raw as any).targetId || 0)
     const uid = uidNum > 0 ? String(uidNum) : ''
+    const rawTargets = (raw as any).targets
+    const rawTargetsList = Array.isArray(rawTargets) ? rawTargets : []
+    const nextTargets: string[] = []
+    const seen = new Set<string>()
+    for (const item of rawTargetsList) {
+      const n = Number(item)
+      if (!Number.isFinite(n) || n <= 0) continue
+      const id = String(n)
+      if (seen.has(id)) continue
+      seen.add(id)
+      nextTargets.push(id)
+    }
+    if (!nextTargets.length && targetNum > 0) nextTargets.push(String(targetNum))
     bestMove.uid = uid
     bestMove.active = isTrueLike((raw as any).active) && !!uid
-    bestMove.targetId = targetNum > 0 ? String(targetNum) : ''
+    bestMove.targets = nextTargets
     if (!uid) {
       bestMove.active = false
-      bestMove.targetId = ''
+      bestMove.targets = []
     }
   }
 
   function isBestMoveMarked(id: string): boolean {
-    return !!bestMove.targetId && bestMove.targetId === id
+    return bestMove.targets.includes(id)
   }
 
   function isGameHead(id: string): boolean {
@@ -903,7 +916,8 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     if (gamePhase.value !== 'night') return false
     if (!bestMove.active) return false
     if (bestMove.uid !== me) return false
-    if (bestMove.targetId) return false
+    if (bestMove.targets.length >= 3) return false
+    if (bestMove.targets.includes(targetId)) return false
     if (!gamePlayers.has(targetId)) return false
     if (!gameAlive.has(targetId)) return false
     return targetId !== me
@@ -1928,8 +1942,10 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     if (!resp?.ok) {
       const st = resp?.status
       const code = resp?.error
-      if (st === 409 && code === 'already_marked') {
-        void alertDialog('Вы уже выбрали лучший ход')
+      if (st === 409 && code === 'limit_reached') {
+        void alertDialog('Можно выбрать только 3 кандидатов')
+      } else if (st === 409 && code === 'already_marked') {
+        void alertDialog('Вы уже отметили этого игрока')
       } else if (st === 404 && code === 'target_not_alive') {
         void alertDialog('Игрок уже выбыл из игры')
       } else if (st === 409 && code === 'best_move_inactive') {

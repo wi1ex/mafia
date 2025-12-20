@@ -1793,11 +1793,11 @@ async def compute_night_kill(r, rid: int) -> tuple[int, bool]:
 def best_move_payload_from_state(ctx: GameActionContext, *, include_empty: bool = False) -> dict[str, Any] | None:
     best_uid = ctx.gint("best_move_uid")
     active = ctx.gbool("best_move_active")
-    target_uid = ctx.gint("best_move_target_uid")
-    if not include_empty and not (best_uid or active or target_uid):
+    targets = ctx.gcsv_ints("best_move_targets")
+    if not include_empty and not (best_uid or active or targets):
         return None
 
-    return {"uid": best_uid, "active": active, "target_uid": target_uid}
+    return {"uid": best_uid, "active": active, "targets": targets}
 
 
 async def compute_best_move_eligible(r, rid: int, victim_uid: int) -> bool:
@@ -1939,12 +1939,14 @@ async def night_stage_timeout_job(rid: int, expected_stage: str, expected_starte
                     mapping={
                         "best_move_uid": str(best_move_uid),
                         "best_move_active": "0",
+                        "best_move_targets": "",
                         "best_move_target_uid": "0",
                     },
                 )
                 await p.execute()
             raw2["best_move_uid"] = str(best_move_uid)
             raw2["best_move_active"] = "0"
+            raw2["best_move_targets"] = ""
             raw2["best_move_target_uid"] = "0"
 
         await emit_game_night_state(rid, raw2)
@@ -2050,6 +2052,7 @@ async def finish_day_prelude_speech(r, rid: int, raw_gstate: Mapping[str, Any], 
                 "day_prelude_uid": "0",
                 "best_move_uid": "0",
                 "best_move_active": "0",
+                "best_move_targets": "",
                 "best_move_target_uid": "0",
             },
         )
@@ -2058,7 +2061,7 @@ async def finish_day_prelude_speech(r, rid: int, raw_gstate: Mapping[str, Any], 
     try:
         await sio.emit("game_best_move_update",
                        {"room_id": rid,
-                        "best_move": {"uid": 0, "active": False, "target_uid": 0}},
+                        "best_move": {"uid": 0, "active": False, "targets": []}},
                        room=f"room:{rid}",
                        namespace="/room")
     except Exception:

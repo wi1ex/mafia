@@ -210,7 +210,7 @@
           <button v-if="canHeadNightShootControl" class="btn-text" :disabled="hasOfflineAlivePlayers" @click="startNightShootUi">Стрельба</button>
           <button v-if="canHeadNightCheckControl" class="btn-text" :disabled="hasOfflineAlivePlayers" @click="startNightChecksUi">Проверки</button>        
           <button v-if="canHeadBestMoveControl" class="btn-text" @click="startBestMoveUi">Лучший ход {{ bestMoveSeat ?? '?' }}</button>
-          <button v-if="canHeadDayFromNightControl" class="btn-text" :disabled="!canStartDayFromNight" @click="startDayFromNightUi">День</button>
+          <button v-if="canHeadDayFromNightControl" class="btn-text" @click="startDayFromNightUi">День</button>
 
           <button v-if="canFinishSpeechSelf" @click="finishSpeechUi">
             <img :src="iconSkip" alt="finish speech" />
@@ -434,7 +434,6 @@ const {
   canHeadNightCheckControl,
   canHeadBestMoveControl,
   canHeadDayFromNightControl,
-  canStartDayFromNight,
   bestMoveSeat,
   canStartLeaderSpeech,
   canRestartVoteForLeaders,

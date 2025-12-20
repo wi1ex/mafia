@@ -803,6 +803,7 @@ async def game_start(sid, data) -> GameStartAck:
                              "vote_blocked_next": "0",
                              "best_move_uid": "0",
                              "best_move_active": "0",
+                             "best_move_targets": "",
                              "best_move_target_uid": "0",
                          })
             if seats:
@@ -1263,6 +1264,7 @@ async def game_phase_next(sid, data):
                         "day_prelude_done": "0",
                         "best_move_uid": "0",
                         "best_move_active": "0",
+                        "best_move_targets": "",
                         "best_move_target_uid": "0",
                         "vote_prev_leaders": "",
                         "vote_lift_state": "",
@@ -1344,6 +1346,7 @@ async def game_phase_next(sid, data):
                         "day_prelude_done": "0",
                         "best_move_uid": "0",
                         "best_move_active": "0",
+                        "best_move_targets": "",
                         "best_move_target_uid": "0",
                         "vote_blocked": "0",
                     },
@@ -1397,11 +1400,11 @@ async def game_phase_next(sid, data):
 
             best_move_uid = ctx.gint("best_move_uid")
             best_move_active = ctx.gbool("best_move_active")
-            best_move_target_uid = ctx.gint("best_move_target_uid")
+            best_move_targets = ctx.gcsv_ints("best_move_targets")
             if best_move_uid and not best_move_active:
                 return {"ok": False, "error": "best_move_required", "status": 409, "user_id": best_move_uid}
 
-            if best_move_uid and not best_move_target_uid:
+            if best_move_uid and not best_move_targets:
                 return {"ok": False, "error": "best_move_pending", "status": 409, "user_id": best_move_uid}
 
             killed_uid, ok = await compute_night_kill(r, rid)
@@ -2115,7 +2118,7 @@ async def game_best_move_start(sid, data):
             log.exception("game_best_move_start.save_failed", rid=rid, uid=ctx.uid)
             return {"ok": False, "error": "internal", "status": 500}
 
-        payload = {"room_id": rid, "best_move": {"uid": best_uid, "active": True, "target_uid": 0}}
+        payload = {"room_id": rid, "best_move": {"uid": best_uid, "active": True, "targets": ctx.gcsv_ints("best_move_targets")}}
         await sio.emit("game_best_move_update",
                        payload,
                        room=f"room:{rid}",
@@ -2127,7 +2130,7 @@ async def game_best_move_start(sid, data):
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_best_move_mark:{uid or 'nouid'}:{rid or 0}", limit=60, window_s=1, session_ns="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_best_move_mark:{uid or 'nouid'}:{rid or 0}", limit=20, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
 async def game_best_move_mark(sid, data):
     try:
@@ -2156,9 +2159,6 @@ async def game_best_move_mark(sid, data):
         if speaker_uid != best_uid:
             return {"ok": False, "error": "forbidden", "status": 403}
 
-        if ctx.gint("best_move_target_uid"):
-            return {"ok": False, "error": "already_marked", "status": 409}
-
         try:
             target_uid = int(data.get("user_id") or 0)
         except Exception:
@@ -2168,12 +2168,21 @@ async def game_best_move_mark(sid, data):
         if target_uid == speaker_uid:
             return {"ok": False, "error": "self_target", "status": 400}
 
+        existing_targets = ctx.gcsv_ints("best_move_targets")
+        if target_uid in existing_targets:
+            return {"ok": False, "error": "already_marked", "status": 409}
+
+        if len(existing_targets) >= 3:
+            return {"ok": False, "error": "limit_reached", "status": 409}
+
         is_alive = await r.sismember(f"room:{rid}:game_alive", str(target_uid))
         if not is_alive:
             return {"ok": False, "error": "target_not_alive", "status": 404}
 
+        updated_targets = [*existing_targets, target_uid]
+        targets_raw = ",".join(str(v) for v in updated_targets)
         try:
-            await r.hset(f"room:{rid}:game_state", mapping={"best_move_target_uid": str(target_uid)})
+            await r.hset(f"room:{rid}:game_state", mapping={"best_move_targets": targets_raw})
         except Exception:
             log.exception("game_best_move_mark.save_failed", rid=rid, uid=speaker_uid, target=target_uid)
             return {"ok": False, "error": "internal", "status": 500}
@@ -2182,7 +2191,7 @@ async def game_best_move_mark(sid, data):
             "room_id": rid,
             "speaker_uid": speaker_uid,
             "target_uid": target_uid,
-            "best_move": {"uid": best_uid, "active": True, "target_uid": target_uid},
+            "best_move": {"uid": best_uid, "active": True, "targets": updated_targets},
         }
         await sio.emit("game_best_move_update",
                        payload,
