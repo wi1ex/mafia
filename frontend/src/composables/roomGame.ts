@@ -118,6 +118,11 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   const activeFarewellAllowed = ref(true)
   const farewellLimits = reactive(new Map<string, number>())
   const farewellWills = reactive(new Map<string, Map<string, FarewellVerdict>>())
+  const bestMove = reactive({
+    uid: '',
+    active: false,
+    targetId: '',
+  })
   const vote = reactive({
     currentId: '',
     remainingMs: 0,
@@ -450,8 +455,20 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     return gamePhase.value === 'night' && isHead.value && night.stage === 'shoot_done'
   })
 
+  const bestMovePending = computed(() => !!bestMove.uid && !bestMove.active)
+  const bestMoveSeat = computed(() => (bestMove.uid ? seatIndex(bestMove.uid) : null))
+  const canHeadBestMoveControl = computed(() => {
+    return gamePhase.value === 'night' && isHead.value && night.stage === 'checks_done' && bestMovePending.value
+  })
+
   const canHeadDayFromNightControl = computed(() => {
-    return gamePhase.value === 'night' && isHead.value && night.stage === 'checks_done'
+    return gamePhase.value === 'night' && isHead.value && night.stage === 'checks_done' && (!bestMove.uid || bestMove.active)
+  })
+
+  const canStartDayFromNight = computed(() => {
+    if (!canHeadDayFromNightControl.value) return false
+    if (!bestMove.uid) return true
+    return bestMove.active && !!bestMove.targetId
   })
 
   const canHeadGoToMafiaTalkControl = computed(() => {
@@ -677,6 +694,33 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     }
   }
 
+  function resetBestMoveState() {
+    bestMove.uid = ''
+    bestMove.active = false
+    bestMove.targetId = ''
+  }
+
+  function syncBestMove(raw: any) {
+    if (!raw || typeof raw !== 'object') {
+      resetBestMoveState()
+      return
+    }
+    const uidNum = Number((raw as any).uid || (raw as any).user_id || 0)
+    const targetNum = Number((raw as any).target_uid || (raw as any).targetId || 0)
+    const uid = uidNum > 0 ? String(uidNum) : ''
+    bestMove.uid = uid
+    bestMove.active = isTrueLike((raw as any).active) && !!uid
+    bestMove.targetId = targetNum > 0 ? String(targetNum) : ''
+    if (!uid) {
+      bestMove.active = false
+      bestMove.targetId = ''
+    }
+  }
+
+  function isBestMoveMarked(id: string): boolean {
+    return !!bestMove.targetId && bestMove.targetId === id
+  }
+
   function isGameHead(id: string): boolean {
     return seatsByUser[id] === 11
   }
@@ -853,6 +897,18 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     return (map?.size ?? 0) < limit
   }
 
+  function canMakeBestMoveChoice(targetId: string): boolean {
+    const me = localId.value
+    if (!me) return false
+    if (gamePhase.value !== 'night') return false
+    if (!bestMove.active) return false
+    if (bestMove.uid !== me) return false
+    if (bestMove.targetId) return false
+    if (!gamePlayers.has(targetId)) return false
+    if (!gameAlive.has(targetId)) return false
+    return targetId !== me
+  }
+
   function syncRoleOverlayWithTurn() {
     const me = localId.value
     const uid = rolePick.activeUserId
@@ -893,6 +949,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     const mr = Number(gr.min_ready)
     syncFarewellWills(join?.farewell_wills ?? (gr as any).farewell_wills)
     syncFarewellLimits(join?.farewell_limits ?? (gr as any).farewell_limits)
+    syncBestMove(join?.best_move ?? (gr as any).best_move)
     activeFarewellAllowed.value = true
     if (Number.isFinite(mr) && mr > 0) {
       minReadyToStart.value = mr
@@ -1145,6 +1202,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
 
   function handleGameStarted(payload: any) {
     resetRolesUiState()
+    resetBestMoveState()
     offlineInGame.clear()
     deathReasonByUser.clear()
     gamePhase.value = (payload?.phase as GamePhase) || 'roles_pick'
@@ -1159,6 +1217,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   function handleGameEnded(_payload: any): 'head' | 'player' | 'none' {
     const roleBeforeEnd = myGameRole.value
     resetRolesUiState()
+    resetBestMoveState()
     gamePhase.value = 'idle'
     Object.keys(seatsByUser).forEach((k) => { delete seatsByUser[k] })
     gamePlayers.clear()
@@ -1329,6 +1388,13 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     }
     if ((p as any)?.wills) {
       upsertFarewellForSpeaker(speakerId, (p as any).wills)
+    }
+  }
+
+  function handleGameBestMoveUpdate(p: any) {
+    const payload = (p as any)?.best_move
+    if (payload && typeof payload === 'object') {
+      syncBestMove(payload)
     }
   }
 
@@ -1592,6 +1658,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     if (to === 'night') {
       resetDaySpeechState(true)
       resetVoteState(true)
+      resetBestMoveState()
       const nt = p?.night
       night.stage = String(nt?.stage || 'sleep') as any
       setNightRemainingMs(secondsToMs(nt?.deadline), true)
@@ -1692,7 +1759,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     const stageChanged = nextStage !== prevStage
     night.stage = nextStage
     setNightRemainingMs(secondsToMs(nt.deadline), true)
-
+    if ('best_move' in (nt as any)) syncBestMove((nt as any).best_move)
     if (!stageChanged) return
     if (nextStage === 'shoot') {
       myNightShotTarget.value = ''
@@ -1834,6 +1901,45 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       return
     }
     handleGameFarewellUpdate(resp)
+  }
+
+  async function startBestMove(sendAck: SendAckFn): Promise<void> {
+    if (!isHead.value) return
+    const resp = await sendAck('game_best_move_start', {})
+    if (!resp?.ok) {
+      const st = resp?.status
+      const code = resp?.error
+      if (st === 409 && code === 'best_move_unavailable') {
+        void alertDialog('Лучший ход недоступен')
+      } else if (st === 409 && code === 'night_not_finished') {
+        void alertDialog('Ночь ещё не завершена')
+      } else {
+        void alertDialog('Не удалось начать лучший ход')
+      }
+      return
+    }
+    handleGameBestMoveUpdate(resp)
+  }
+
+  async function markBestMoveChoice(targetUserId: string, sendAck: SendAckFn): Promise<void> {
+    const uidNum = Number(targetUserId)
+    if (!uidNum) return
+    const resp = await sendAck('game_best_move_mark', { user_id: uidNum })
+    if (!resp?.ok) {
+      const st = resp?.status
+      const code = resp?.error
+      if (st === 409 && code === 'already_marked') {
+        void alertDialog('Вы уже выбрали лучший ход')
+      } else if (st === 404 && code === 'target_not_alive') {
+        void alertDialog('Игрок уже выбыл из игры')
+      } else if (st === 409 && code === 'best_move_inactive') {
+        void alertDialog('Лучший ход пока недоступен')
+      } else {
+        void alertDialog('Не удалось выбрать лучший ход')
+      }
+      return
+    }
+    handleGameBestMoveUpdate(resp)
   }
 
   async function startVotePhase(sendAck: SendAckFn): Promise<void> {
@@ -2295,7 +2401,15 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     if (gamePhase.value !== 'night') return false
     const resp = await sendAck('game_phase_next', { from: 'night', to: 'day' })
     if (!resp?.ok) {
-       void alertDialog('Не удалось начать день')
+      const st = resp?.status
+      const code = resp?.error
+      if (st === 409 && code === 'best_move_required') {
+        void alertDialog('Сначала запустите лучший ход')
+      } else if (st === 409 && code === 'best_move_pending') {
+        void alertDialog('Сначала выберите лучший ход')
+      } else {
+        void alertDialog('Не удалось начать день')
+      }
       return false
     }
     return true
@@ -2385,7 +2499,10 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     canHeadFinishVoteControl,
     canHeadNightShootControl,
     canHeadNightCheckControl,
+    canHeadBestMoveControl,
     canHeadDayFromNightControl,
+    canStartDayFromNight,
+    bestMoveSeat,
     canStartLeaderSpeech,
     canRestartVoteForLeaders,
     canShowNight,
@@ -2393,6 +2510,8 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
 
     farewellSummaryForUser,
     canMakeFarewellChoice,
+    canMakeBestMoveChoice,
+    isBestMoveMarked,
     effectiveRoleIconForTile,
     canShootTarget,
     canCheckTarget,
@@ -2400,6 +2519,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     checkTarget,
     startNightShoot,
     startNightChecks,
+    startBestMove,
     handleGameNightState,
     handleGameNightHeadPicks,
     handleGameNightReveal,
@@ -2414,6 +2534,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     startVoteLift,
     handleGameVoteState,
     handleGameVoted,
+    handleGameBestMoveUpdate,
     isGameHead,
     isDead,
     deathReason,
@@ -2449,6 +2570,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     canNominateTarget,
     nominateTarget,
     markFarewellChoice,
+    markBestMoveChoice,
     toggleKnownRolesVisibility,
     restartVoteForLeaders,
     startLeaderSpeech,

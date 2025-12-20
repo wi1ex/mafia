@@ -801,6 +801,9 @@ async def game_start(sid, data) -> GameStartAck:
                              "head": str(head_uid),
                              "vote_blocked": "0",
                              "vote_blocked_next": "0",
+                             "best_move_uid": "0",
+                             "best_move_active": "0",
+                             "best_move_target_uid": "0",
                          })
             if seats:
                 await p.hset(f"room:{rid}:game_seats", mapping={k: str(v) for k, v in seats.items()})
@@ -1258,6 +1261,9 @@ async def game_phase_next(sid, data):
                         "day_prelude_pending": "0",
                         "day_prelude_active": "0",
                         "day_prelude_done": "0",
+                        "best_move_uid": "0",
+                        "best_move_active": "0",
+                        "best_move_target_uid": "0",
                         "vote_prev_leaders": "",
                         "vote_lift_state": "",
                         "vote_blocked": "0",
@@ -1336,6 +1342,9 @@ async def game_phase_next(sid, data):
                         "day_prelude_pending": "0",
                         "day_prelude_active": "0",
                         "day_prelude_done": "0",
+                        "best_move_uid": "0",
+                        "best_move_active": "0",
+                        "best_move_target_uid": "0",
                         "vote_blocked": "0",
                     },
                 )
@@ -1385,6 +1394,15 @@ async def game_phase_next(sid, data):
             stage = str(raw_gstate.get("night_stage") or "sleep")
             if stage != "checks_done":
                 return {"ok": False, "error": "night_not_finished", "status": 409, "night_stage": stage}
+
+            best_move_uid = ctx.gint("best_move_uid")
+            best_move_active = ctx.gbool("best_move_active")
+            best_move_target_uid = ctx.gint("best_move_target_uid")
+            if best_move_uid and not best_move_active:
+                return {"ok": False, "error": "best_move_required", "status": 409, "user_id": best_move_uid}
+
+            if best_move_uid and not best_move_target_uid:
+                return {"ok": False, "error": "best_move_pending", "status": 409, "user_id": best_move_uid}
 
             killed_uid, ok = await compute_night_kill(r, rid)
             day_number = ctx.gint("day_number")
@@ -1961,7 +1979,7 @@ async def game_nominate(sid, data):
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_farewell_mark:{uid or 'nouid'}:{rid or 0}", limit=20, window_s=1, session_ns="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_farewell_mark:{uid or 'nouid'}:{rid or 0}", limit=60, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
 async def game_farewell_mark(sid, data):
     try:
@@ -2063,6 +2081,117 @@ async def game_farewell_mark(sid, data):
 
     except Exception:
         log.exception("sio.game_farewell_mark.error", sid=sid, data=bool(data))
+        return {"ok": False, "error": "internal", "status": 500}
+
+
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_best_move_start:{uid or 'nouid'}:{rid or 0}", limit=20, window_s=1, session_ns="/room")
+@sio.event(namespace="/room")
+async def game_best_move_start(sid, data):
+    try:
+        data = data or {}
+        ctx, err = await require_ctx(sid, allowed_phases="night", require_head=True)
+        if err:
+            return err
+
+        rid = ctx.rid
+        r = ctx.r
+        if ctx.phase != "night":
+            return {"ok": False, "error": "bad_phase", "status": 400}
+
+        stage = ctx.gstr("night_stage", "sleep")
+        if stage != "checks_done":
+            return {"ok": False, "error": "night_not_finished", "status": 409, "night_stage": stage}
+
+        best_uid = ctx.gint("best_move_uid")
+        if not best_uid:
+            return {"ok": False, "error": "best_move_unavailable", "status": 409}
+
+        if ctx.gbool("best_move_active"):
+            return {"ok": False, "error": "already_active", "status": 409}
+
+        try:
+            await r.hset(f"room:{rid}:game_state", mapping={"best_move_active": "1", "best_move_target_uid": "0"})
+        except Exception:
+            log.exception("game_best_move_start.save_failed", rid=rid, uid=ctx.uid)
+            return {"ok": False, "error": "internal", "status": 500}
+
+        payload = {"room_id": rid, "best_move": {"uid": best_uid, "active": True, "target_uid": 0}}
+        await sio.emit("game_best_move_update",
+                       payload,
+                       room=f"room:{rid}",
+                       namespace="/room")
+        return {"ok": True, "status": 200, **payload}
+
+    except Exception:
+        log.exception("sio.game_best_move_start.error", sid=sid, data=bool(data))
+        return {"ok": False, "error": "internal", "status": 500}
+
+
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_best_move_mark:{uid or 'nouid'}:{rid or 0}", limit=60, window_s=1, session_ns="/room")
+@sio.event(namespace="/room")
+async def game_best_move_mark(sid, data):
+    try:
+        data = data or {}
+        ctx, err = await require_ctx(sid, allowed_phases="night")
+        if err:
+            return err
+
+        rid = ctx.rid
+        r = ctx.r
+        if ctx.phase != "night":
+            return {"ok": False, "error": "bad_phase", "status": 400}
+
+        stage = ctx.gstr("night_stage", "sleep")
+        if stage != "checks_done":
+            return {"ok": False, "error": "night_not_finished", "status": 409, "night_stage": stage}
+
+        best_uid = ctx.gint("best_move_uid")
+        if not best_uid:
+            return {"ok": False, "error": "best_move_unavailable", "status": 409}
+
+        if not ctx.gbool("best_move_active"):
+            return {"ok": False, "error": "best_move_inactive", "status": 409}
+
+        speaker_uid = ctx.uid
+        if speaker_uid != best_uid:
+            return {"ok": False, "error": "forbidden", "status": 403}
+
+        if ctx.gint("best_move_target_uid"):
+            return {"ok": False, "error": "already_marked", "status": 409}
+
+        try:
+            target_uid = int(data.get("user_id") or 0)
+        except Exception:
+            target_uid = 0
+        if not target_uid:
+            return {"ok": False, "error": "bad_request", "status": 400}
+        if target_uid == speaker_uid:
+            return {"ok": False, "error": "self_target", "status": 400}
+
+        is_alive = await r.sismember(f"room:{rid}:game_alive", str(target_uid))
+        if not is_alive:
+            return {"ok": False, "error": "target_not_alive", "status": 404}
+
+        try:
+            await r.hset(f"room:{rid}:game_state", mapping={"best_move_target_uid": str(target_uid)})
+        except Exception:
+            log.exception("game_best_move_mark.save_failed", rid=rid, uid=speaker_uid, target=target_uid)
+            return {"ok": False, "error": "internal", "status": 500}
+
+        payload = {
+            "room_id": rid,
+            "speaker_uid": speaker_uid,
+            "target_uid": target_uid,
+            "best_move": {"uid": best_uid, "active": True, "target_uid": target_uid},
+        }
+        await sio.emit("game_best_move_update",
+                       payload,
+                       room=f"room:{rid}",
+                       namespace="/room")
+        return {"ok": True, "status": 200, **payload}
+
+    except Exception:
+        log.exception("sio.game_best_move_mark.error", sid=sid, data=bool(data))
         return {"ok": False, "error": "internal", "status": 500}
 
 

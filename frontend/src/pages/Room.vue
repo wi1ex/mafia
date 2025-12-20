@@ -56,9 +56,11 @@
           :night-remaining-ms="night.remainingMs"
           :show-shoot="game.canShootTarget(id)"
           :show-check="game.canCheckTarget(id)"
-          :pick-number="isHead ? (headNightPicks.get(id) ?? null) : null"
+          :pick-number="isHead ? (headNightPicks.get(id) ?? null) : null"   
           :pick-kind="headPickKind"
           :show-nominate="game.canNominateTarget(id)"
+          :best-move-marked="game.isBestMoveMarked(id)"
+          :show-best-move-button="game.canMakeBestMoveChoice(id)"
           :farewell-summary="game.farewellSummaryForUser(id)"
           :show-farewell-buttons="game.canMakeFarewellChoice(id)"
           :nominees="nomineeSeatNumbers"
@@ -80,6 +82,7 @@
           @shoot="shootTargetUi"
           @check="checkTargetUi"
           @farewell="onFarewell"
+          @best-move="onBestMove"
         />
       </div>
 
@@ -144,8 +147,10 @@
             :pick-number="isHead ? (headNightPicks.get(id) ?? null) : null"
             :pick-kind="headPickKind"
             :show-nominate="game.canNominateTarget(id)"
+            :best-move-marked="game.isBestMoveMarked(id)"
+            :show-best-move-button="game.canMakeBestMoveChoice(id)"
             :farewell-summary="game.farewellSummaryForUser(id)"
-            :show-farewell-buttons="game.canMakeFarewellChoice(id)"
+            :show-farewell-buttons="game.canMakeFarewellChoice(id)"        
             :nominees="nomineeSeatNumbers"
             :lift-nominees="id === headUserId && liftHighlightNominees ? nomineeSeatNumbers : []"
             :current-nominee-seat="id === headUserId ? currentNomineeSeat : null"
@@ -165,6 +170,7 @@
             @shoot="shootTargetUi"
             @check="checkTargetUi"
             @farewell="onFarewell"
+            @best-move="onBestMove"
           />
         </div>
       </div>
@@ -202,8 +208,9 @@
           <button v-if="canRestartVoteForLeaders" class="btn-text" @click="restartVoteForLeadersUi">Начать голосование</button>
           <button v-if="canShowNight" class="btn-text" :disabled="hasOfflineAlivePlayers" @click="goToNightUi">Ночь</button>
           <button v-if="canHeadNightShootControl" class="btn-text" :disabled="hasOfflineAlivePlayers" @click="startNightShootUi">Стрельба</button>
-          <button v-if="canHeadNightCheckControl" class="btn-text" :disabled="hasOfflineAlivePlayers" @click="startNightChecksUi">Проверки</button>
-          <button v-if="canHeadDayFromNightControl" class="btn-text" @click="startDayFromNightUi">День</button>
+          <button v-if="canHeadNightCheckControl" class="btn-text" :disabled="hasOfflineAlivePlayers" @click="startNightChecksUi">Проверки</button>        
+          <button v-if="canHeadBestMoveControl" class="btn-text" @click="startBestMoveUi">Лучший ход {{ bestMoveSeat ?? '?' }}</button>
+          <button v-if="canHeadDayFromNightControl" class="btn-text" :disabled="!canStartDayFromNight" @click="startDayFromNightUi">День</button>
 
           <button v-if="canFinishSpeechSelf" @click="finishSpeechUi">
             <img :src="iconSkip" alt="finish speech" />
@@ -425,7 +432,10 @@ const {
   canHeadFinishVoteControl,
   canHeadNightShootControl,
   canHeadNightCheckControl,
+  canHeadBestMoveControl,
   canHeadDayFromNightControl,
+  canStartDayFromNight,
+  bestMoveSeat,
   canStartLeaderSpeech,
   canRestartVoteForLeaders,
   canShowNight,
@@ -666,8 +676,9 @@ const shootTargetUi = (targetId: string) => game.shootTarget(targetId, sendAckGa
 const checkTargetUi = (targetId: string) => game.checkTarget(targetId, sendAckGame)
 const startNightShootUi = () => game.startNightShoot(sendAckGame)
 const startNightChecksUi = () => game.startNightChecks(sendAckGame)
+const startBestMoveUi = () => game.startBestMove(sendAckGame)
 const goToNightUi = () => game.goToNight(sendAckGame)
-const startDayFromNightUi = () => game.startDayFromNight(sendAckGame)
+const startDayFromNightUi = () => game.startDayFromNight(sendAckGame)      
 const onHeadVoteControl = () => game.headVoteControl(sendAckGame)
 const onGiveFoul = (targetId: string) => game.giveFoul(targetId, sendAckGame)
 
@@ -762,6 +773,11 @@ function onNominate(targetId: string) {
 function onFarewell(verdict: FarewellVerdict, targetId: string) {
   if (!game.canMakeFarewellChoice(targetId)) return
   void game.markFarewellChoice(targetId, verdict, sendAckGame)
+}
+
+function onBestMove(targetId: string) {
+  if (!game.canMakeBestMoveChoice(targetId)) return
+  void game.markBestMoveChoice(targetId, sendAckGame)
 }
 
 const onVote = () => {
@@ -1106,6 +1122,10 @@ socket.value?.on('connect', async () => {
 
   socket.value.on('game_farewell_update', (p: any) => {
     game.handleGameFarewellUpdate(p)
+  })
+
+  socket.value.on('game_best_move_update', (p: any) => {
+    game.handleGameBestMoveUpdate(p)
   })
 
   socket.value.on('game_vote_state', (p: any) => {

@@ -1,5 +1,5 @@
 <template>
-  <div class="tile" :class="[{ speaking, mafia: redMark }, side && 'side']" tabindex="0">
+  <div class="tile" :class="[{ speaking, mafia: redMark, 'best-move': bestMoveMarked }, side && 'side']" tabindex="0">
     <video v-show="showVideo" :ref="videoRef" playsinline autoplay :muted="id === localId" :class="{ mirrored: isMirrored(id) }"
            :style="{ objectFit: fitContain ? 'contain' : 'cover' }" />
 
@@ -32,6 +32,9 @@
       <img :src="iconCheck" alt="check" />
       <span>Проверить</span>
     </button>
+    <button v-if="showBestMoveButton" class="nominate-btn best-move-btn" @click="$emit('best-move', id)" aria-label="Лучший ход">
+      <span>Лучший ход</span>
+    </button>
     <div class="icon-badge right" v-if="gameRole" aria-hidden="true">
       <img :src="gameRole" alt="role" />
     </div>
@@ -40,7 +43,7 @@
         <img :src="iconLikeWhite" alt="like" />
       </button>
       <button @click="$emit('farewell','mafia', id)">
-        <img class="dislike" :src="iconLikeWhite" alt="dislike" />
+        <img :src="iconDislikeWhite" alt="dislike" />
       </button>
     </div>
 
@@ -116,6 +119,7 @@ import iconFoul from '@/assets/svg/foul.svg'
 import iconLikeWhite from '@/assets/svg/likeWhite.svg'
 import iconLikeGreen from '@/assets/svg/likeGreen.svg'
 import iconLikeBlack from '@/assets/svg/likeBlack.svg'
+import iconDislikeWhite from '@/assets/svg/dislikeWhite.svg'
 import iconCheck from '@/assets/svg/check.svg'
 import iconKill from '@/assets/svg/kill.svg'
 
@@ -163,6 +167,8 @@ const props = withDefaults(defineProps<{
   foulsCount?: number
   phaseLabel?: string
   showNominate?: boolean
+  showBestMoveButton?: boolean
+  bestMoveMarked?: boolean
   farewellSummary?: { targetId: string, seat: number | null, verdict: 'citizen' | 'mafia' }[]
   showFarewellButtons?: boolean
   nominees?: number[]
@@ -204,6 +210,8 @@ const props = withDefaults(defineProps<{
   foulsCount: 0,
   phaseLabel: '',
   showNominate: false,
+  showBestMoveButton: false,
+  bestMoveMarked: false,
   farewellSummary: () => [],
   showFarewellButtons: false,
   nominees: () => [],
@@ -234,6 +242,7 @@ defineEmits<{
   (e: 'shoot', id: string): void
   (e: 'check', id: string): void
   (e: 'farewell', verdict: 'citizen' | 'mafia', id: string): void
+  (e: 'best-move', id: string): void
 }>()
 
 const showVideo = computed(() => !props.hiddenByVisibility && !props.offline && !props.isDead(props.id) && props.isOn(props.id, 'cam') && !props.isBlocked(props.id, 'cam'))
@@ -272,6 +281,9 @@ const timelineDurationSec = computed(() => {
   }
   &.speaking.mafia {
     border-color: $red;
+  }
+  &.best-move {
+    border-color: $orange;
   }
   video {
     width: 100%;
@@ -430,9 +442,6 @@ const timelineDurationSec = computed(() => {
       img {
         width: 24px;
         height: 24px;
-      }
-      .dislike {
-        transform: rotate(180deg);
       }
     }
   }

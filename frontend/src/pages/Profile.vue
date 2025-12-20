@@ -24,9 +24,15 @@
               <img v-minio-img="{ key: me.avatar_name ? `avatars/${me.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="Текущий аватар" />
               <div class="actions">
                 <input ref="fileEl" type="file" accept="image/jpeg,image/png" @change="onPick" hidden />
-                <button class="btn" @click="fileEl?.click()" :disabled="busyAva">Изменить</button>
+                <button class="btn" @click="fileEl?.click()" :disabled="busyAva">
+                  <img :src="iconEdit" alt="edit" />
+                  Изменить
+                </button>
                 <span class="hint">JPG/PNG, до 5 МБ</span>
-                <button class="btn danger" v-if="me.avatar_name" @click="onDeleteAvatar" :disabled="busyAva">Удалить</button>
+                <button class="btn danger" v-if="me.avatar_name" @click="onDeleteAvatar" :disabled="busyAva">
+                  <img :src="iconDelete" alt="delete" />
+                  Удалить
+                </button>
               </div>
             </div>
           </div>
@@ -46,6 +52,7 @@
                 </div>
               </div>
               <button class="btn confirm" @click="saveNick" :disabled="busyNick || nick === me.username || !validNick">
+                <img :src="iconSave" alt="save" />
                 {{ busyNick ? '...' : 'Сохранить' }}
               </button>
             </div>
@@ -85,6 +92,9 @@ import { useUserStore } from '@/store'
 import { confirmDialog, alertDialog } from '@/services/confirm'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
+import iconSave from '@/assets/svg/save.svg'
+import iconEdit from '@/assets/svg/edit.svg'
+import iconDelete from '@/assets/svg/delete.svg'
 
 const userStore = useUserStore()
 
@@ -406,6 +416,10 @@ onBeforeUnmount(() => {
       opacity: 0.5;
       cursor: not-allowed;
     }
+    img {
+      width: 24px;
+      height: 24px;
+    }
   }
   header {
     display: flex;
@@ -460,8 +474,8 @@ onBeforeUnmount(() => {
           gap: 10px;
           align-items: center;
           img {
-            width: 150px;
-            height: 150px;
+            width: 115px;
+            height: 115px;
             object-fit: cover;
             border-radius: 50%;
           }

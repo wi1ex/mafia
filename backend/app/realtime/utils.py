@@ -1742,9 +1742,14 @@ async def emit_game_night_state(rid: int, raw_gstate: Mapping[str, Any]) -> None
     elif stage == "checks":
         deadline = ctx.deadline("night_check_started", "night_check_duration")
 
+    night_payload = {"stage": stage, "deadline": deadline}
+    best_move = best_move_payload_from_state(ctx, include_empty=True)
+    if best_move is not None:
+        night_payload["best_move"] = best_move
+
     await sio.emit("game_night_state",
                    {"room_id": rid,
-                    "night": {"stage": stage, "deadline": deadline}},
+                    "night": night_payload},
                    room=f"room:{rid}",
                    namespace="/room")
 
@@ -1783,6 +1788,42 @@ async def compute_night_kill(r, rid: int) -> tuple[int, bool]:
         return 0, False
 
     return first, True
+
+
+def best_move_payload_from_state(ctx: GameActionContext, *, include_empty: bool = False) -> dict[str, Any] | None:
+    best_uid = ctx.gint("best_move_uid")
+    active = ctx.gbool("best_move_active")
+    target_uid = ctx.gint("best_move_target_uid")
+    if not include_empty and not (best_uid or active or target_uid):
+        return None
+
+    return {"uid": best_uid, "active": active, "target_uid": target_uid}
+
+
+async def compute_best_move_eligible(r, rid: int, victim_uid: int) -> bool:
+    if not victim_uid:
+        return False
+
+    try:
+        deaths_cnt = int(await r.hlen(f"room:{rid}:game_deaths") or 0)
+    except Exception:
+        deaths_cnt = 0
+    if deaths_cnt > 0:
+        return False
+
+    try:
+        alive_cnt = int(await r.scard(f"room:{rid}:game_alive") or 0)
+    except Exception:
+        alive_cnt = 0
+    if alive_cnt < 9:
+        return False
+
+    try:
+        is_alive = await r.sismember(f"room:{rid}:game_alive", str(victim_uid))
+    except Exception:
+        return False
+
+    return bool(is_alive)
 
 
 async def get_night_head_picks(r, rid: int, kind: str) -> dict[str, int]:
@@ -1879,7 +1920,35 @@ async def night_stage_timeout_job(rid: int, expected_stage: str, expected_starte
         raw2["night_stage"] = next_stage
         raw2["night_check_started"] = "0"
         raw2["night_check_duration"] = "0"
+        if next_stage == "checks_done":
+            best_move_uid = 0
+            try:
+                killed_uid, ok = await compute_night_kill(r, rid)
+            except Exception:
+                killed_uid, ok = 0, False
+            if ok and killed_uid:
+                try:
+                    allowed = await compute_best_move_eligible(r, rid, killed_uid)
+                except Exception:
+                    allowed = False
+                if allowed:
+                    best_move_uid = killed_uid
+            async with r.pipeline() as p:
+                await p.hset(
+                    f"room:{rid}:game_state",
+                    mapping={
+                        "best_move_uid": str(best_move_uid),
+                        "best_move_active": "0",
+                        "best_move_target_uid": "0",
+                    },
+                )
+                await p.execute()
+            raw2["best_move_uid"] = str(best_move_uid)
+            raw2["best_move_active"] = "0"
+            raw2["best_move_target_uid"] = "0"
+
         await emit_game_night_state(rid, raw2)
+
         return
 
 
@@ -1979,9 +2048,21 @@ async def finish_day_prelude_speech(r, rid: int, raw_gstate: Mapping[str, Any], 
                 "night_kill_uid": "0",
                 "night_kill_ok": "0",
                 "day_prelude_uid": "0",
+                "best_move_uid": "0",
+                "best_move_active": "0",
+                "best_move_target_uid": "0",
             },
         )
         await p.execute()
+
+    try:
+        await sio.emit("game_best_move_update",
+                       {"room_id": rid,
+                        "best_move": {"uid": 0, "active": False, "target_uid": 0}},
+                       room=f"room:{rid}",
+                       namespace="/room")
+    except Exception:
+        log.exception("day_prelude.best_move_clear_failed", rid=rid, uid=speaker_uid)
 
     return {
         "room_id": rid,
@@ -2322,6 +2403,10 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
             game_runtime["farewell_limits"] = farewell_limits
     except Exception:
         log.exception("game_runtime.farewell_limits_failed", rid=rid)
+
+    best_move = best_move_payload_from_state(ctx)
+    if best_move is not None:
+        game_runtime["best_move"] = best_move
 
     my_game_role = roles_map.get(str(uid))
     head_uid = ctx.head_uid
