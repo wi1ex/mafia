@@ -85,7 +85,7 @@ async function approve(uid: number) {
     window.dispatchEvent(new CustomEvent('auth-room_app_approved', {
       detail: { room_id: props.roomId, user_id: uid }
     }))
-  } catch { await alertDialog('Возникла непредвиденная ошибка') }
+  } catch { void alertDialog('Возникла непредвиденная ошибка') }
 }
 
 function onInvite(e: any) {

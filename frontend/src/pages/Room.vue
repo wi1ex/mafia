@@ -642,7 +642,7 @@ async function sendAck(event: string, payload: any, timeoutMs = 15000): Promise<
 function ensureOk(resp: Ack, msgByCode: Record<number, string>, netMsg: string): boolean {
   if (resp && resp.ok) return true
   const code = resp?.status
-  await alertDialog('(code && msgByCode[code]) || netMsg')
+  void alertDialog((code && msgByCode[code]) || netMsg)
   return false
 }
 
@@ -925,7 +925,7 @@ socket.value?.on('connect', async () => {
     const ack = await safeJoin()
     if (!ack?.ok) {
       if (ack?.status === 404 || ack?.status === 410) {
-        await alertDialog('Комната недоступна')
+        void alertDialog('Комната недоступна')
         router.replace({ name: 'home' }).catch(() => {})
         return
       }
@@ -1402,8 +1402,8 @@ const toggleScreen = async () => {
       const resp = await sendAck('screen', { on: true })
       if (!resp || !resp.ok) {
         if (resp?.status === 409 && resp?.owner) screenOwnerId.value = String(resp.owner)
-        else if (resp?.status === 403 && resp?.error === 'blocked') await alertDialog('Стрим запрещён администратором')
-        else await alertDialog('Не удалось запустить трансляцию')
+        else if (resp?.status === 403 && resp?.error === 'blocked') void alertDialog('Стрим запрещён администратором')
+        else void alertDialog('Не удалось запустить трансляцию')
         return
       }
       const ok = await rtc.startScreenShare({ audio: true })
@@ -1415,7 +1415,7 @@ const toggleScreen = async () => {
         await sendAck('screen', { on: false, canceled: true })
         screenOwnerId.value = ''
         const reason = rtc.getLastScreenShareError?.()
-        await alertDialog(reason === 'canceled' ? 'Трансляция отменена' : 'Ошибка публикации видеопотока')
+        void alertDialog(reason === 'canceled' ? 'Трансляция отменена' : 'Ошибка публикации видеопотока')
       }
     } else {
       await rtc.stopScreenShare()
@@ -1462,13 +1462,13 @@ async function onMediaGateClick() {
 async function handleJoinFailure(j: any) {
   if (leaving.value) return
   if (j?.status === 403 && j?.error === 'private_room') {
-    await alertDialog('Комната является приватной')
+    void alertDialog('Комната является приватной')
     await router.replace({ name: 'home', query: { focus: String(rid) } })
   } else if (j?.status === 409 && j?.error === 'game_in_progress') {
-    await alertDialog('В комнате идёт игра')
+    void alertDialog('В комнате идёт игра')
     await router.replace({ name: 'home', query: { focus: String(rid) } })
   } else {
-    await alertDialog('j?.status === 404 ? \'Комната не найдена\' : j?.status === 410 ? \'Комната закрыта\' : j?.status === 409 ? \'Комната заполнена\' : \'Ошибка входа в комнату\'')
+    void alertDialog('j?.status === 404 ? \'Комната не найдена\' : j?.status === 410 ? \'Комната закрыта\' : j?.status === 409 ? \'Комната заполнена\' : \'Ошибка входа в комнату\'')
     await router.replace('/')
   }
 }
@@ -1578,7 +1578,7 @@ onMounted(async () => {
     rerr('room onMounted fatal', err)
     try { await rtc.disconnect() } catch {}
     if (!leaving.value) {
-      await alertDialog('Ошибка входа в комнату')
+      void alertDialog('Ошибка входа в комнату')
       await router.replace('/')
     }
   }

@@ -1466,17 +1466,17 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       const st = resp?.status
       const code = resp?.error
       if (st === 400 && code === 'bad_phase') {
-        alert('Сейчас не фаза голосования')
+         void alertDialog('Сейчас не фаза голосования')
       } else if (st === 403 && code === 'forbidden') {
-        alert('Только ведущий может завершать голосование')
+         void alertDialog('Только ведущий может завершать голосование')
       } else if (st === 409 && code === 'vote_not_done') {
-        alert('Голосование еще не завершено')
+         void alertDialog('Голосование еще не завершено')
       } else if (st === 409 && code === 'no_nominees') {
-        alert('Никто не выставлен')
+         void alertDialog('Никто не выставлен')
       } else if (st === 409 && code === 'no_leaders') {
-        alert('Нет лидеров голосования')
+         void alertDialog('Нет лидеров голосования')
       } else {
-        alert('Не удалось завершить голосование')
+         void alertDialog('Не удалось завершить голосование')
       }
       return
     }
@@ -1490,11 +1490,11 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     if (!resp?.ok) {
       const st = resp?.status
       const code = resp?.error
-      if (st === 400 && code === 'bad_phase') alert('Сейчас нельзя продолжить голосование')
-      else if (st === 403 && code === 'forbidden') alert('Только ведущий может продолжить')
-      else if (st === 409 && code === 'lift_not_ready') alert('Продолжение недоступно')
-      else if (st === 409 && code === 'vote_not_ready') alert('Результаты голосования ещё не готовы')
-      else alert('Не удалось продолжить голосование')
+      if (st === 400 && code === 'bad_phase')  void alertDialog('Сейчас нельзя продолжить голосование')
+      else if (st === 403 && code === 'forbidden')  void alertDialog('Только ведущий может продолжить')
+      else if (st === 409 && code === 'lift_not_ready')  void alertDialog('Продолжение недоступно')
+      else if (st === 409 && code === 'vote_not_ready')  void alertDialog('Результаты голосования ещё не готовы')
+      else  void alertDialog('Не удалось продолжить голосование')
       return
     }
   }
@@ -1504,11 +1504,11 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     if (!resp?.ok) {
       const st = resp?.status
       const code = resp?.error
-      if (st === 400 && code === 'bad_phase') alert('Сейчас нельзя начать голосование за подъём')
-      else if (st === 403 && code === 'forbidden') alert('Только ведущий может начать голосование за подъём')
-      else if (st === 409 && code === 'lift_not_ready') alert('Голосование за подъём недоступно')
-      else if (st === 409 && code === 'no_nominees') alert('Нет кандидатов для голосования')
-      else alert('Не удалось начать голосование за подъём')
+      if (st === 400 && code === 'bad_phase')  void alertDialog('Сейчас нельзя начать голосование за подъём')
+      else if (st === 403 && code === 'forbidden')  void alertDialog('Только ведущий может начать голосование за подъём')
+      else if (st === 409 && code === 'lift_not_ready')  void alertDialog('Голосование за подъём недоступно')
+      else if (st === 409 && code === 'no_nominees')  void alertDialog('Нет кандидатов для голосования')
+      else  void alertDialog('Не удалось начать голосование за подъём')
       return
     }
     voteResultShown.value = false
@@ -1558,7 +1558,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   async function goToMafiaTalk(sendAck: SendAckFn): Promise<void> {
     const resp = await sendAck('game_phase_next', { from: 'roles_pick', to: 'mafia_talk_start' })
     if (!resp?.ok) {
-      alert('Не удалось перейти к договорке')
+       void alertDialog('Не удалось перейти к договорке')
       return
     }
   }
@@ -1772,12 +1772,12 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
 
   async function startNightShoot(sendAck: SendAckFn): Promise<void> {
     const resp = await sendAck('game_night_shoot_start', {})
-    if (!resp?.ok) alert('Не удалось начать отстрелы мафии')
+    if (!resp?.ok)  void alertDialog('Не удалось начать отстрелы мафии')
   }
 
   async function startNightChecks(sendAck: SendAckFn): Promise<void> {
     const resp = await sendAck('game_night_checks_start', {})
-    if (!resp?.ok) alert('Не удалось начать проверки')
+    if (!resp?.ok)  void alertDialog('Не удалось начать проверки')
   }
 
   async function nominateTarget(targetUserId: string, sendAck: SendAckFn): Promise<void> {
@@ -1788,21 +1788,21 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       const code = resp?.error
       const st = resp?.status
       if (st === 400 && code === 'bad_phase') {
-        alert('Сейчас не фаза дня')
+         void alertDialog('Сейчас не фаза дня')
       } else if (st === 403 && code === 'not_your_speech') {
-        alert('Вы можете выставлять только во время своей речи')
+         void alertDialog('Вы можете выставлять только во время своей речи')
       } else if (st === 403 && code === 'not_alive') {
-        alert('Вы не являетесь живым игроком')
+         void alertDialog('Вы не являетесь живым игроком')
       } else if (st === 400 && code === 'target_not_alive') {
-        alert('Игрок уже выбыл из игры')
+         void alertDialog('Игрок уже выбыл из игры')
       } else if (st === 409 && code === 'already_nominated') {
-        alert('Вы уже выставили игрока в этой речи')
+         void alertDialog('Вы уже выставили игрока в этой речи')
       } else if (st === 409 && code === 'target_already_on_ballot') {
-        alert('Этот игрок уже выставлен')
+         void alertDialog('Этот игрок уже выставлен')
       } else if (st === 409 && code === 'vote_blocked') {
-        alert('Голосования не будет — нельзя выставлять игроков')
+         void alertDialog('Голосования не будет — нельзя выставлять игроков')
       } else {
-        alert('Не удалось выставить игрока на голосование')
+         void alertDialog('Не удалось выставить игрока на голосование')
       }
       return
     }
@@ -1819,17 +1819,17 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       const st = resp?.status
       const code = resp?.error
       if (st === 409 && code === 'limit_reached') {
-        alert('Лимит завещаний исчерпан')
+         void alertDialog('Лимит завещаний исчерпан')
       } else if (st === 409 && code === 'already_marked') {
-        alert('Вы уже оставили завещание по этому игроку')
+         void alertDialog('Вы уже оставили завещание по этому игроку')
       } else if (st === 404 && code === 'target_not_alive') {
-        alert('Игрок уже выбыл и не может быть отмечен')
+         void alertDialog('Игрок уже выбыл и не может быть отмечен')
       } else if (st === 409 && code === 'no_active_speech') {
-        alert('Речь завершена, завещание недоступно')
+         void alertDialog('Речь завершена, завещание недоступно')
       } else if (st === 409 && code === 'not_farewell') {
-        alert('Сейчас нельзя оставлять завещание')
+         void alertDialog('Сейчас нельзя оставлять завещание')
       } else {
-        alert('Не удалось сохранить завещание')
+         void alertDialog('Не удалось сохранить завещание')
       }
       return
     }
@@ -1843,11 +1843,11 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
         const st = resp?.status
         const code = resp?.error
         if (st === 400 && code === 'speeches_not_done') {
-          alert('Сначала нужно закончить речи')
+           void alertDialog('Сначала нужно закончить речи')
         } else if (st === 409 && code === 'no_nominees') {
-          alert('Никто не выставлен – можно переходить к ночи')
+           void alertDialog('Никто не выставлен – можно переходить к ночи')
         } else {
-          alert('Не удалось начать голосование')
+           void alertDialog('Не удалось начать голосование')
         }
       }
       return
@@ -1863,15 +1863,15 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       const st = resp?.status
       const code = resp?.error
       if (st === 400 && code === 'bad_phase') {
-        alert('Сейчас не фаза голосования')
+         void alertDialog('Сейчас не фаза голосования')
       } else if (st === 403 && code === 'forbidden') {
-        alert('Только ведущий может управлять голосованием')
+         void alertDialog('Только ведущий может управлять голосованием')
       } else if (st === 409 && code === 'vote_already_ended') {
-        alert('Голосование за этого кандидата уже завершено')
+         void alertDialog('Голосование за этого кандидата уже завершено')
       } else if (st === 409 && code === 'vote_done') {
-        alert('Голосование уже завершено')
+         void alertDialog('Голосование уже завершено')
       } else {
-        alert('Не удалось запустить голосование за кандидата')
+         void alertDialog('Не удалось запустить голосование за кандидата')
       }
     }
   }
@@ -1885,19 +1885,19 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       const st = resp?.status
       const code = resp?.error
       if (st === 400 && code === 'bad_phase') {
-        alert('Сейчас не фаза голосования')
+         void alertDialog('Сейчас не фаза голосования')
       } else if (st === 403 && code === 'forbidden') {
-        alert('Переголосование может запустить только ведущий')
+         void alertDialog('Переголосование может запустить только ведущий')
       } else if (st === 409 && code === 'vote_done') {
-        alert('Голосование уже завершено')
+         void alertDialog('Голосование уже завершено')
       } else if (st === 409 && code === 'no_current_vote') {
-        alert('Нет активной кандидатуры для голосования')
+         void alertDialog('Нет активной кандидатуры для голосования')
       } else if (st === 409 && code === 'no_nominees') {
-        alert('Нет кандидатов для голосования')
+         void alertDialog('Нет кандидатов для голосования')
       } else if (st === 409 && code === 'lift_in_progress') {
-        alert('Идёт голосование за подъём — переголосование недоступно')
+         void alertDialog('Идёт голосование за подъём — переголосование недоступно')
       } else {
-        alert('Не удалось перезапустить голосование по текущему кандидату')
+         void alertDialog('Не удалось перезапустить голосование по текущему кандидату')
       }
       return
     }
@@ -1935,11 +1935,11 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       const st = resp?.status
       const code = resp?.error
       if (st === 409 && code === 'vote_in_progress') {
-        alert('Сначала дождитесь окончания голосования за текущего кандидата')
+         void alertDialog('Сначала дождитесь окончания голосования за текущего кандидата')
       } else if (st === 403 && code === 'forbidden') {
-        alert('Только ведущий может управлять голосованием')
+         void alertDialog('Только ведущий может управлять голосованием')
       } else {
-        alert('Не удалось перейти к следующему кандидату')
+         void alertDialog('Не удалось перейти к следующему кандидату')
       }
     }
   }
@@ -1951,17 +1951,17 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       const st = resp?.status
       const code = resp?.error
       if (st === 400 && code === 'bad_phase') {
-        alert('Сейчас не фаза голосования')
+         void alertDialog('Сейчас не фаза голосования')
       } else if (st === 403 && code === 'not_alive') {
-        alert('Только живые игроки могут голосовать')
+         void alertDialog('Только живые игроки могут голосовать')
       } else if (st === 409 && code === 'already_voted') {
-        alert('Вы уже проголосовали')
+         void alertDialog('Вы уже проголосовали')
       } else if (st === 409 && (code === 'no_active_vote' || code === 'vote_window_closed')) {
-        alert('Время голосования за этого кандидата вышло')
+         void alertDialog('Время голосования за этого кандидата вышло')
       } else if (st === 409 && code === 'vote_done') {
-        alert('Голосование уже завершено')
+         void alertDialog('Голосование уже завершено')
       } else {
-        alert('Не удалось проголосовать')
+         void alertDialog('Не удалось проголосовать')
       }
       return
     }
@@ -1970,7 +1970,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   async function finishMafiaTalk(sendAck: SendAckFn): Promise<void> {
     const resp = await sendAck('game_phase_next', { from: 'mafia_talk_start', to: 'mafia_talk_end' })
     if (!resp?.ok) {
-      alert('Не удалось завершить договорку')
+       void alertDialog('Не удалось завершить договорку')
       return
     }
   }
@@ -1978,7 +1978,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   async function startDay(sendAck: SendAckFn): Promise<void> {
     const resp = await sendAck('game_phase_next', { from: 'mafia_talk_end', to: 'day' })
     if (!resp?.ok) {
-      alert('Не удалось начать день')
+       void alertDialog('Не удалось начать день')
       return
     }
   }
@@ -1997,14 +1997,14 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       const st = resp?.status
       const id = localId.value
       if (st === 400 && code === 'no_game') {
-        alert('Игра не запущена')
+         void alertDialog('Игра не запущена')
       } else if (st === 400 && code === 'not_player') {
-        alert('Вы не участвуете в этой игре')
+         void alertDialog('Вы не участвуете в этой игре')
       } else if (st === 400 && code === 'already_dead') {
         if (id) gameAlive.delete(id)
-        alert('Вы уже выбыли из игры')
+         void alertDialog('Вы уже выбыли из игры')
       } else {
-        alert('Не удалось выйти из игры')
+         void alertDialog('Не удалось выйти из игры')
       }
       return
     }
@@ -2016,21 +2016,21 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     const code = resp?.error
     const st = resp?.status
     if (st === 400 && code === 'not_enough_ready') {
-      alert('Недостаточно готовых игроков для запуска игры')
+       void alertDialog('Недостаточно готовых игроков для запуска игры')
     } else if (st === 403 && code === 'forbidden') {
-      alert('Недостаточно прав для запуска игры')
+       void alertDialog('Недостаточно прав для запуска игры')
     } else if (st === 409 && code === 'already_in_other_game') {
-      alert('Некоторые пользователи являются живыми игроками в другой комнате')
+       void alertDialog('Некоторые пользователи являются живыми игроками в другой комнате')
     } else if (st === 403 && code === 'not_in_room') {
-      alert('Вы не в комнате')
+       void alertDialog('Вы не в комнате')
     } else if (st === 409 && code === 'streaming_present') {
-      alert('Остановите трансляции перед запуском игры')
+       void alertDialog('Остановите трансляции перед запуском игры')
     } else if (st === 409 && code === 'blocked_params') {
-      alert('Снимите блокировки перед запуском игры')
+       void alertDialog('Снимите блокировки перед запуском игры')
     } else if (st === 409 && code === 'already_started') {
-      alert('Игра уже запущена')
+       void alertDialog('Игра уже запущена')
     } else {
-      alert('Не удалось запустить игру')
+       void alertDialog('Не удалось запустить игру')
     }
   }
 
@@ -2064,11 +2064,11 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     const code = resp?.error
     const st = resp?.status
     if (st === 400 && code === 'no_game') {
-      alert('Игра не запущена')
+       void alertDialog('Игра не запущена')
     } else if (st === 403 && code === 'forbidden') {
-      alert('Недостаточно прав для завершения игры')
+       void alertDialog('Недостаточно прав для завершения игры')
     } else {
-      alert('Не удалось завершить игру')
+       void alertDialog('Не удалось завершить игру')
     }
   }
 
@@ -2107,11 +2107,11 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
         const code = resp?.error
         const st = resp?.status
         if (st === 403 && code === 'not_your_turn') {
-          alert('Сейчас ход другого игрока')
+           void alertDialog('Сейчас ход другого игрока')
         } else if (st === 409 && code === 'card_taken') {
-          alert('Эта карта уже занята')
+           void alertDialog('Эта карта уже занята')
         } else {
-          alert('Не удалось выбрать роль')
+           void alertDialog('Не удалось выбрать роль')
         }
         return
       }
@@ -2138,14 +2138,14 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       const code = resp?.error
       const st = resp?.status
       if (st === 409 && code === 'day_speeches_done') {
-        alert('Речи игроков завершены')
+         void alertDialog('Речи игроков завершены')
         daySpeechesDone.value = true
       } else if (st === 400 && code === 'bad_phase') {
-        alert('Сейчас не фаза дня')
+         void alertDialog('Сейчас не фаза дня')
       } else if (st === 403 && code === 'forbidden') {
-        alert('Только ведущий может передавать речь')
+         void alertDialog('Только ведущий может передавать речь')
       } else {
-        alert('Не удалось передать речь')
+         void alertDialog('Не удалось передать речь')
       }
     }
   }
@@ -2157,13 +2157,13 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       const st = resp?.status
       if (st === 429 && code === 'too_soon') {
       } else if (st === 400 && code === 'bad_phase') {
-        alert('Сейчас не фаза дня')
+         void alertDialog('Сейчас не фаза дня')
       } else if (st === 403 && code === 'not_alive') {
-        alert('Вы не являетесь игроком или уже выбыли')
+         void alertDialog('Вы не являетесь игроком или уже выбыли')
       } else if (st === 400 && code === 'no_room') {
-        alert('Вы не в комнате')
+         void alertDialog('Вы не в комнате')
       } else {
-        alert('Не удалось взять фол')
+         void alertDialog('Не удалось взять фол')
       }
       return null
     }
@@ -2177,15 +2177,15 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       const code = resp?.error
       const st = resp?.status
       if (st === 400 && code === 'bad_phase') {
-        alert('Сейчас не фаза дня')
+         void alertDialog('Сейчас не фаза дня')
       } else if (st === 400 && code === 'no_speech') {
-        alert('Сейчас никто не говорит')
+         void alertDialog('Сейчас никто не говорит')
       } else if (st === 403 && code === 'forbidden') {
-        alert('Завершить речь может только ведущий или текущий игрок')
+         void alertDialog('Завершить речь может только ведущий или текущий игрок')
       } else if (st === 400 && code === 'not_alive') {
-        alert('Игрок уже выбыл из игры')
+         void alertDialog('Игрок уже выбыл из игры')
       } else {
-        alert('Не удалось завершить речь')
+         void alertDialog('Не удалось завершить речь')
       }
     }
   }
@@ -2207,14 +2207,14 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
         if (!ok) return
         const resp2 = await sendAck('game_foul_set', { user_id: uidNum, confirm_kill: true })
         if (!resp2?.ok) {
-          alert('Не удалось выдать фол')
+           void alertDialog('Не удалось выдать фол')
         }
       } else if (st === 403 && code === 'forbidden') {
-        alert('Фол может выдать только ведущий')
+         void alertDialog('Фол может выдать только ведущий')
       } else if (st === 404 && code === 'not_alive') {
-        alert('Игрок уже выбыл из игры')
+         void alertDialog('Игрок уже выбыл из игры')
       } else {
-        alert('Не удалось выдать фол')
+         void alertDialog('Не удалось выдать фол')
       }
       return
     }
@@ -2226,20 +2226,20 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       const st = resp?.status
       const code = resp?.error
       if (st === 400 && code === 'bad_phase') {
-        alert('Сейчас не фаза голосования')
+         void alertDialog('Сейчас не фаза голосования')
       } else if (st === 403 && code === 'forbidden') {
-        alert('Только ведущий может передавать оправдательную/прощальную речь')
+         void alertDialog('Только ведущий может передавать оправдательную/прощальную речь')
       } else if (st === 409 && code === 'vote_not_done') {
-        alert('Сначала завершите голосование')
+         void alertDialog('Сначала завершите голосование')
       } else if (st === 409 && code === 'speech_in_progress') {
-        alert('Сейчас уже идёт речь игрока')
+         void alertDialog('Сейчас уже идёт речь игрока')
       } else if (st === 409 && code === 'no_leaders') {
-        alert('Нет лидеров голосования')
+         void alertDialog('Нет лидеров голосования')
       } else if (st === 409 && code === 'no_more_leaders') {
-        alert('Все лидеры уже выступили — можно начинать новое голосование')
+         void alertDialog('Все лидеры уже выступили — можно начинать новое голосование')
         voteLeaderSpeechesDone.value = true
       } else {
-        alert('Не удалось передать речь лидеру')
+         void alertDialog('Не удалось передать речь лидеру')
       }
       return
     }
@@ -2252,17 +2252,17 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       const st = resp?.status
       const code = resp?.error
       if (st === 400 && code === 'bad_phase') {
-        alert('Сейчас не фаза голосования')
+         void alertDialog('Сейчас не фаза голосования')
       } else if (st === 403 && code === 'forbidden') {
-        alert('Только ведущий может начинать голосование')
+         void alertDialog('Только ведущий может начинать голосование')
       } else if (st === 409 && code === 'vote_not_done') {
-        alert('Сначала завершите голосование')
+         void alertDialog('Сначала завершите голосование')
       } else if (st === 409 && code === 'speeches_not_done') {
-        alert('Сначала проведите оправдательные речи всех лидеров')
+         void alertDialog('Сначала проведите оправдательные речи всех лидеров')
       } else if (st === 409 && code === 'no_nominees') {
-        alert('Нет кандидатов для повторного голосования')
+         void alertDialog('Нет кандидатов для повторного голосования')
       } else {
-        alert('Не удалось начать повторное голосование')
+         void alertDialog('Не удалось начать повторное голосование')
       }
     } else {
       voteLeaderSpeechesDone.value = false
@@ -2281,11 +2281,11 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     if (!resp?.ok) {
       const st = resp?.status
       const code = resp?.error
-      if (st === 400 && code === 'bad_phase') alert('Сейчас нельзя перейти в ночь')
-      else if (st === 403 && code === 'forbidden') alert('Только ведущий может начать ночь')
-      else if (st === 409 && code === 'speeches_not_done') alert('Сначала нужно закончить речи')
-      else if (st === 409 && code === 'vote_not_done') alert('Сначала завершите голосование')
-      else alert('Не удалось перейти в ночь')
+      if (st === 400 && code === 'bad_phase')  void alertDialog('Сейчас нельзя перейти в ночь')
+      else if (st === 403 && code === 'forbidden')  void alertDialog('Только ведущий может начать ночь')
+      else if (st === 409 && code === 'speeches_not_done')  void alertDialog('Сначала нужно закончить речи')
+      else if (st === 409 && code === 'vote_not_done')  void alertDialog('Сначала завершите голосование')
+      else  void alertDialog('Не удалось перейти в ночь')
       return false
     }
     return true
@@ -2295,7 +2295,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     if (gamePhase.value !== 'night') return false
     const resp = await sendAck('game_phase_next', { from: 'night', to: 'day' })
     if (!resp?.ok) {
-      alert('Не удалось начать день')
+       void alertDialog('Не удалось начать день')
       return false
     }
     return true

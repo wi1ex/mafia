@@ -290,13 +290,13 @@ async function onApply() {
   } catch (e: any) {
     const detail = e?.response?.data?.detail
     if (detail === 'room_not_found') {
-      await alertDialog('Комната не найдена')
+      void alertDialog('Комната не найдена')
       clearSelection()
     } else if (detail === 'not_private') {
       access.value = 'approved'
-      await alertDialog('Комната открыта, можно зайти без заявки')
+      void alertDialog('Комната открыта, можно зайти без заявки')
     } else {
-      await alertDialog('Ошибка при отправке заявки')
+      void alertDialog('Ошибка при отправке заявки')
     }
   } finally { applying.value = false }
 }
