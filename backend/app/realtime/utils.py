@@ -1815,7 +1815,7 @@ async def compute_best_move_eligible(r, rid: int, victim_uid: int) -> bool:
         alive_cnt = int(await r.scard(f"room:{rid}:game_alive") or 0)
     except Exception:
         alive_cnt = 0
-    if alive_cnt < 9:
+    if alive_cnt < settings.GAME_MIN_READY_PLAYERS - 1:
         return False
 
     try:
@@ -2219,7 +2219,7 @@ async def decide_vote_blocks_on_death(r, rid: int, raw_state: Mapping[str, Any],
         vote_duration = 0
     if vote_duration <= 0:
         try:
-            vote_duration = int(settings.VOTE_SECONDS)
+            vote_duration = settings.VOTE_SECONDS
         except Exception:
             vote_duration = 0
 

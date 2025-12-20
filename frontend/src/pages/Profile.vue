@@ -21,16 +21,16 @@
           <div class="block">
             <h3>Аватар</h3>
             <div class="avatar-row">
-              <img v-minio-img="{ key: me.avatar_name ? `avatars/${me.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="Текущий аватар" />
+              <img class="avatar-img" v-minio-img="{ key: me.avatar_name ? `avatars/${me.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="Текущий аватар" />
               <div class="actions">
                 <input ref="fileEl" type="file" accept="image/jpeg,image/png" @change="onPick" hidden />
-                <button class="btn" @click="fileEl?.click()" :disabled="busyAva">
-                  <img :src="iconEdit" alt="edit" />
+                <button class="btn dark" @click="fileEl?.click()" :disabled="busyAva">
+                  <img class="btn-img" :src="iconEdit" alt="edit" />
                   Изменить
                 </button>
                 <span class="hint">JPG/PNG, до 5 МБ</span>
                 <button class="btn danger" v-if="me.avatar_name" @click="onDeleteAvatar" :disabled="busyAva">
-                  <img :src="iconDelete" alt="delete" />
+                  <img class="btn-img" :src="iconDelete" alt="delete" />
                   Удалить
                 </button>
               </div>
@@ -52,7 +52,7 @@
                 </div>
               </div>
               <button class="btn confirm" @click="saveNick" :disabled="busyNick || nick === me.username || !validNick">
-                <img :src="iconSave" alt="save" />
+                <img class="btn-img" :src="iconSave" alt="save" />
                 {{ busyNick ? '...' : 'Сохранить' }}
               </button>
             </div>
@@ -381,6 +381,7 @@ onBeforeUnmount(() => {
     align-items: center;
     justify-content: center;
     padding: 0 20px;
+    gap: 5px;
     height: 40px;
     border: none;
     border-radius: 5px;
@@ -399,6 +400,13 @@ onBeforeUnmount(() => {
       font-size: 16px;
       border-radius: 5px 5px 0 0;
     }
+    &.dark {
+      background-color: $lead;
+      color: $fg;
+      &:hover {
+        background-color: $grey;
+      }
+    }
     &.confirm {
       background-color: rgba($green, 0.75);
       &:hover {
@@ -416,7 +424,7 @@ onBeforeUnmount(() => {
       opacity: 0.5;
       cursor: not-allowed;
     }
-    img {
+    .btn-img {
       width: 24px;
       height: 24px;
     }
@@ -473,7 +481,7 @@ onBeforeUnmount(() => {
           display: flex;
           gap: 10px;
           align-items: center;
-          img {
+          .avatar-img {
             width: 115px;
             height: 115px;
             object-fit: cover;
