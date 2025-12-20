@@ -404,7 +404,7 @@ onBeforeUnmount(() => {
       background-color: $lead;
       color: $fg;
       &:hover {
-        background-color: $grey;
+        background-color: rgba($grey, 0.5);
       }
     }
     &.confirm {

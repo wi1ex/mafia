@@ -1815,7 +1815,7 @@ async def compute_best_move_eligible(r, rid: int, victim_uid: int) -> bool:
         alive_cnt = int(await r.scard(f"room:{rid}:game_alive") or 0)
     except Exception:
         alive_cnt = 0
-    if alive_cnt < settings.GAME_MIN_READY_PLAYERS - 1:
+    if alive_cnt < settings.GAME_MIN_READY_PLAYERS - 2:
         return False
 
     try:

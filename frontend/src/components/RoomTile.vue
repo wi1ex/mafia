@@ -20,19 +20,19 @@
     <div v-if="pickNumber != null && pickNumber > 0" class="nominate-btn pick-number">
       <span>{{ pickKind === 'check' ? 'Проверил' : 'Выстрелил в' }} {{ pickNumber }}</span>
     </div>
-    <button v-if="showNominate" class="nominate-btn" @click="$emit('nominate', id)">
+    <button v-if="showNominate" class="nominate-btn" @click="$emit('nominate', id)" aria-label="Выставить">
       <img :src="iconLikeWhite" alt="nominate" />
       <span>Выставить</span>
     </button>
-    <button v-if="showShoot" class="nominate-btn" @click="$emit('shoot', id)">
+    <button v-if="showShoot" class="nominate-btn" @click="$emit('shoot', id)" aria-label="Выстрелить">
       <img :src="iconKill" alt="shoot" />
       <span>Выстрелить</span>
     </button>
-    <button v-if="showCheck" class="nominate-btn" @click="$emit('check', id)">
+    <button v-if="showCheck" class="nominate-btn" @click="$emit('check', id)" aria-label="Проверить">
       <img :src="iconCheck" alt="check" />
       <span>Проверить</span>
     </button>
-    <button v-if="showBestMoveButton" class="nominate-btn best-move-btn" @click="$emit('best-move', id)" aria-label="Лучший ход">
+    <button v-if="showBestMoveButton" class="nominate-btn" @click="$emit('best-move', id)" aria-label="Лучший ход">
       <span>Лучший ход</span>
     </button>
     <div class="icon-badge right" v-if="gameRole" aria-hidden="true">
