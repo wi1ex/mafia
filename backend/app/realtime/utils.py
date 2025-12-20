@@ -1805,17 +1805,24 @@ async def compute_best_move_eligible(r, rid: int, victim_uid: int) -> bool:
         return False
 
     try:
+        day_number = int(await r.hget(f"room:{rid}:game_state", "day_number") or 0)
+    except Exception:
+        day_number = 0
+    if day_number != 1:
+        return False
+
+    try:
         deaths_cnt = int(await r.hlen(f"room:{rid}:game_deaths") or 0)
     except Exception:
         deaths_cnt = 0
-    if deaths_cnt > 0:
+    if deaths_cnt > 1:
         return False
 
     try:
         alive_cnt = int(await r.scard(f"room:{rid}:game_alive") or 0)
     except Exception:
         alive_cnt = 0
-    if alive_cnt < settings.GAME_MIN_READY_PLAYERS - 2:
+    if alive_cnt < settings.GAME_MIN_READY_PLAYERS - 1:
         return False
 
     try:
