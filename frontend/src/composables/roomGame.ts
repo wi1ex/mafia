@@ -2044,7 +2044,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
         return
       }
       const ok = await confirmDialog({
-        title: 'Запуск игры',
+        title: 'Начало игры',
         text: 'Вы уверены что хотите начать игру?',
         confirmText: 'Начать',
         cancelText: 'Отмена',

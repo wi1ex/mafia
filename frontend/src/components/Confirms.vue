@@ -61,8 +61,7 @@ onBeforeUnmount(() => {
   .modal {
     display: flex;
     flex-direction: column;
-    padding: 20px;
-    gap: 10px;
+    gap: 15px;
     width: min(40%, 400px);
     border-radius: 5px;
     background-color: $dark;
@@ -70,7 +69,7 @@ onBeforeUnmount(() => {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 5px 10px;
+      padding: 15px;
       border-radius: 5px;
       background-color: $graphite;
       box-shadow: 0 3px 5px rgba($black, 0.25);
@@ -80,22 +79,25 @@ onBeforeUnmount(() => {
       }
     }
     .text {
+      margin: 0 15px;
+      line-height: 1.25;
       white-space: pre-line;
     }
     .actions {
       display: flex;
       justify-content: flex-end;
-      gap: 10px;
+      margin: 0 15px 15px;
+      gap: 15px;
       button {
         display: flex;
         align-items: center;
         justify-content: center;
-        padding: 10px;
+        padding: 15px;
         height: 30px;
         border: none;
         border-radius: 5px;
         background-color: $graphite;
-        color: $bg;
+        color: $fg;
         font-size: 14px;
         font-family: Manrope-Medium;
         line-height: 1;
