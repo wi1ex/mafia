@@ -1400,12 +1400,8 @@ async def game_phase_next(sid, data):
 
             best_move_uid = ctx.gint("best_move_uid")
             best_move_active = ctx.gbool("best_move_active")
-            best_move_targets = ctx.gcsv_ints("best_move_targets")
             if best_move_uid and not best_move_active:
                 return {"ok": False, "error": "best_move_required", "status": 409, "user_id": best_move_uid}
-
-            if best_move_uid and not best_move_targets:
-                return {"ok": False, "error": "best_move_pending", "status": 409, "user_id": best_move_uid}
 
             killed_uid, ok = await compute_night_kill(r, rid)
             day_number = ctx.gint("day_number")

@@ -376,7 +376,55 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     }, LEADER_SPEECH_DELAY_MS)
   }
 
-  const canStartDay = computed(() => gamePhase.value === 'mafia_talk_end' && isHead.value)
+  const DAY_BUTTON_DELAY_MS = 1000
+  const startDayUnlocked = ref(false)
+  let startDayTimer: number | null = null
+  function resetStartDayDelay() {
+    startDayUnlocked.value = false
+    if (startDayTimer !== null) {
+      clearTimeout(startDayTimer)
+      startDayTimer = null
+    }
+  }
+  function canShowStartDayNow(): boolean {
+    return gamePhase.value === 'mafia_talk_end' && isHead.value
+  }
+  function scheduleStartDayUnlock() {
+    resetStartDayDelay()
+    if (typeof window === 'undefined') return
+    if (!canShowStartDayNow()) return
+    startDayTimer = window.setTimeout(() => {
+      if (canShowStartDayNow()) startDayUnlocked.value = true
+      startDayTimer = null
+    }, DAY_BUTTON_DELAY_MS)
+  }
+
+  const dayFromNightUnlocked = ref(false)
+  let dayFromNightTimer: number | null = null
+  function resetDayFromNightDelay() {
+    dayFromNightUnlocked.value = false
+    if (dayFromNightTimer !== null) {
+      clearTimeout(dayFromNightTimer)
+      dayFromNightTimer = null
+    }
+  }
+  function canShowDayFromNightNow(): boolean {
+    return gamePhase.value === 'night'
+      && isHead.value
+      && night.stage === 'checks_done'
+      && (!bestMove.uid || bestMove.active)
+  }
+  function scheduleDayFromNightUnlock() {
+    resetDayFromNightDelay()
+    if (typeof window === 'undefined') return
+    if (!canShowDayFromNightNow()) return
+    dayFromNightTimer = window.setTimeout(() => {
+      if (canShowDayFromNightNow()) dayFromNightUnlocked.value = true
+      dayFromNightTimer = null
+    }, DAY_BUTTON_DELAY_MS)
+  }
+
+  const canStartDay = computed(() => canShowStartDayNow() && startDayUnlocked.value)
 
   const isCurrentSpeaker = computed(() => {
     return (
@@ -462,13 +510,11 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   })
 
   const canHeadDayFromNightControl = computed(() => {
-    return gamePhase.value === 'night' && isHead.value && night.stage === 'checks_done' && (!bestMove.uid || bestMove.active)
+    return canShowDayFromNightNow() && dayFromNightUnlocked.value
   })
 
   const canStartDayFromNight = computed(() => {
-    if (!canHeadDayFromNightControl.value) return false
-    if (!bestMove.uid) return true
-    return bestMove.active && bestMove.targets.length > 0
+    return canShowDayFromNightNow()
   })
 
   const canHeadGoToMafiaTalkControl = computed(() => {
@@ -1618,6 +1664,16 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       onCleanup(() => resetStartMafiaTalkDelay())
   }, { immediate: true })
 
+  watch(() => [isHead.value, gamePhase.value], (_v, _ov, onCleanup) => {
+      scheduleStartDayUnlock()
+      onCleanup(() => resetStartDayDelay())
+  }, { immediate: true })
+
+  watch(() => [isHead.value, gamePhase.value, night.stage, bestMove.uid, bestMove.active], (_v, _ov, onCleanup) => {
+      scheduleDayFromNightUnlock()
+      onCleanup(() => resetDayFromNightDelay())
+  }, { immediate: true })
+
   watch(() => [
     isHead.value,
     gamePhase.value,
@@ -2421,8 +2477,6 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       const code = resp?.error
       if (st === 409 && code === 'best_move_required') {
         void alertDialog('Сначала запустите лучший ход')
-      } else if (st === 409 && code === 'best_move_pending') {
-        void alertDialog('Сначала выберите лучший ход')
       } else {
         void alertDialog('Не удалось начать день')
       }
