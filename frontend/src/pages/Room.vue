@@ -1061,10 +1061,7 @@ socket.value?.on('connect', async () => {
 
   socket.value?.on('game_finished', (p: any) => {
     game.handleGameFinished(p)
-    local.mic = true
-    local.cam = true
-    local.speakers = true
-    local.visibility = true
+    if (myGameRole.value === 'player' || myGameRole.value === 'head') void restoreAfterGameEnd()
   })
 
   socket.value?.on('game_ended', (p: any) => {

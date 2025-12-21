@@ -797,6 +797,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   }
 
   function isDead(id: string): boolean {
+    if (gameFinished.value) return false
     if (gamePhase.value === 'idle') return false
     const seat = seatsByUser[id]
     if (!seat || seat === 11) return false
