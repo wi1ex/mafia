@@ -509,7 +509,6 @@ function hiddenByVisibility(id: string): boolean {
   if (id === localId.value) return false
   if (visibilityOn.value) return false
   if (gamePhase.value !== 'idle') {
-    // if (offlineInGame.has(id)) return false
     if (game.isDead(id)) return false
   }
   return true
@@ -1077,11 +1076,8 @@ socket.value?.on('connect', async () => {
   })
 
   socket.value?.on('game_ended', (p: any) => {
-    const reason = String(p?.reason || '')
     showGameEndOverlay()
-    if (reason === 'early_leave_before_day') {
-      void alertDialog('Игра была остановлена т.к. игрок покинул игру до ее начала')
-    }
+    await nextTick()
     const roleBeforeEnd = game.handleGameEnded(p)
     const connectedIds = new Set(rtc.peerIds.value)
     const toDrop: string[] = []
@@ -1093,6 +1089,10 @@ socket.value?.on('connect', async () => {
       rtc.cleanupPeer(uid)
     }
     if (roleBeforeEnd === 'player' || roleBeforeEnd === 'head') void restoreAfterGameEnd()
+    const reason = String(p?.reason || '')
+    if (reason === 'early_leave_before_day') {
+      void alertDialog('Игра была остановлена т.к. игрок покинул игру до ее начала')
+    }
   })
 
   socket.value?.on('game_player_left', (p: any) => {
