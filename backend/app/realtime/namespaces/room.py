@@ -2506,24 +2506,23 @@ async def game_vote_finish(sid, data):
                 },
             )
         else:
-            current_uid = ctx.gint("vote_current_uid")
-            voters: list[int] = []
+            votes_by_target: dict[str, list[int]] = {str(uid): [] for uid in nominees}
             for voter_s, target_s in (raw_votes or {}).items():
                 try:
                     voter_i = int(voter_s)
                     target_i = int(target_s or 0)
                 except Exception:
                     continue
-                if voter_i > 0 and target_i == current_uid:
-                    voters.append(voter_i)
-            if current_uid:
+                if voter_i > 0 and target_i in nominees:
+                    votes_by_target[str(target_i)].append(voter_i)
+            if nominees:
                 await log_game_action(
                     r,
                     rid,
                     {
                         "type": "vote",
-                        "target_id": current_uid,
-                        "by": voters,
+                        "targets": nominees,
+                        "votes": votes_by_target,
                         "day": day_number,
                     },
                 )
@@ -3283,16 +3282,6 @@ async def game_night_shoot(sid, data):
             return {"ok": False, "error": "already_chosen", "status": 409}
 
         await r.hset(f"room:{rid}:night_shots", str(uid), str(target_uid))
-        await log_game_action(
-            r,
-            rid,
-            {
-                "type": "night_shoot",
-                "actor_id": uid,
-                "target_id": target_uid,
-                "day": ctx.gint("day_number"),
-            },
-        )
         try:
             seat = int((await r.hget(f"room:{rid}:game_seats", str(target_uid))) or 0)
         except Exception:
@@ -3458,7 +3447,7 @@ async def game_night_check(sid, data):
                 "type": "night_check",
                 "actor_id": uid,
                 "target_id": target_uid,
-                "shown_role": shown,
+                "target_role": target_role,
                 "checker_role": my_role,
                 "day": ctx.gint("day_number"),
             },

@@ -1304,6 +1304,11 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     if (result === 'red' || result === 'black' || result === 'draw') {
       gameResult.value = result as GameResult
       knownRolesVisible.value = true
+      farewellWills.clear()
+      farewellLimits.clear()
+      currentFarewellSpeech.value = false
+      activeFarewellSpeakerId.value = ''
+      activeFarewellAllowed.value = true
     } else {
       gameResult.value = ''
     }
@@ -1498,6 +1503,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   function handleGameBestMoveUpdate(p: any) {
     const payload = (p as any)?.best_move
     if (payload && typeof payload === 'object') {
+      if (isTrueLike((payload as any).active)) headNightPicks.clear()
       syncBestMove(payload)
     }
   }

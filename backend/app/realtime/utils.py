@@ -1394,19 +1394,6 @@ async def finish_day_speech(r, rid: int, raw_gstate: Mapping[str, Any], speaker_
     if day_speeches_done:
         payload["speeches_done"] = True
 
-    speech_seconds = speech_elapsed_seconds(ctx.gint("day_speech_started"), ctx.gint("day_speech_duration"))
-    await log_game_action(
-        r,
-        rid,
-        {
-            "type": "speech",
-            "kind": "day",
-            "actor_id": speaker_uid,
-            "seconds": speech_seconds,
-            "day": get_day_number(raw_gstate),
-        },
-    )
-
     return payload
 
 
@@ -1883,19 +1870,6 @@ async def finish_vote_speech(r, rid: int, raw_gstate: Mapping[str, Any], speaker
         payload["killed"] = True
     if speeches_done:
         payload["speeches_done"] = True
-
-    speech_seconds = speech_elapsed_seconds(ctx.gint("vote_speech_started"), ctx.gint("vote_speech_duration"))
-    await log_game_action(
-        r,
-        rid,
-        {
-            "type": "speech",
-            "kind": "farewell" if kind == "farewell" else "vote",
-            "actor_id": speaker_uid,
-            "seconds": speech_seconds,
-            "day": get_day_number(raw_gstate),
-        },
-    )
 
     return payload
 
@@ -2450,7 +2424,9 @@ async def finish_game(r, rid: int, *, result: str, head_uid: int | None = None, 
         except Exception:
             log.exception("game_finish.load_room_db_failed", rid=rid)
 
-    if room_owner_id > 0:
+    phase = str(raw_state.get("phase") or "")
+    skip_save = phase in ("roles_pick", "mafia_talk_start", "mafia_talk_end")
+    if room_owner_id > 0 and not skip_save:
         try:
             started_ts = int(raw_state.get("started_at") or 0)
         except Exception:
@@ -2480,6 +2456,8 @@ async def finish_game(r, rid: int, *, result: str, head_uid: int | None = None, 
                 await s.commit()
         except Exception:
             log.exception("game_finish.save_failed", rid=rid)
+    elif skip_save:
+        log.info("game_finish.skip_save_early_phase", rid=rid, phase=phase, result=result)
     else:
         log.warning("game_finish.owner_missing", rid=rid)
 
@@ -2632,19 +2610,6 @@ async def finish_day_prelude_speech(r, rid: int, raw_gstate: Mapping[str, Any], 
                        namespace="/room")
     except Exception:
         log.exception("day_prelude.best_move_clear_failed", rid=rid, uid=speaker_uid)
-
-    speech_seconds = speech_elapsed_seconds(ctx.gint("day_speech_started"), ctx.gint("day_speech_duration"))
-    await log_game_action(
-        r,
-        rid,
-        {
-            "type": "speech",
-            "kind": "prelude",
-            "actor_id": speaker_uid,
-            "seconds": speech_seconds,
-            "day": get_day_number(raw_gstate),
-        },
-    )
 
     return {
         "room_id": rid,
