@@ -69,6 +69,8 @@ from ..utils import (
     get_farewell_limits,
     get_farewell_wills_for,
     ensure_farewell_limit,
+    log_game_action,
+    store_last_votes_snapshot,
     block_vote_and_clear,
     decide_vote_blocks_on_death,
     get_positive_setting_int,
@@ -827,6 +829,8 @@ async def game_start(sid, data) -> GameStartAck:
                     f"room:{rid}:game_nominees",
                     f"room:{rid}:game_nom_speakers",
                     f"room:{rid}:game_votes",
+                    f"room:{rid}:game_actions",
+                    f"room:{rid}:game_votes_last",
                     f"room:{rid}:game_checked:don",
                     f"room:{rid}:game_checked:sheriff",
                     f"room:{rid}:game_farewell_wills",
@@ -1761,6 +1765,24 @@ async def game_foul_set(sid, data):
             log.exception("game_foul_set.incr_failed", rid=rid, target=target_uid)
             return {"ok": False, "error": "internal", "status": 500}
 
+        speech_uid = 0
+        if phase == "day" and ctx.gint("day_speech_started") > 0:
+            speech_uid = ctx.gint("day_current_uid")
+        elif phase == "vote" and ctx.gint("vote_speech_started") > 0:
+            speech_uid = ctx.gint("vote_speech_uid")
+        await log_game_action(
+            r,
+            rid,
+            {
+                "type": "foul",
+                "actor_id": head_uid,
+                "target_id": target_uid,
+                "count": int(foul_after),
+                "speech_uid": speech_uid,
+                "day": ctx.gint("day_number"),
+            },
+        )
+
         killed = False
         if foul_after >= 4:
             killed = True
@@ -1887,6 +1909,17 @@ async def game_nominate(sid, data):
             await p.sadd(f"room:{rid}:game_nom_speakers", str(actor_uid))
             await p.execute()
 
+        await log_game_action(
+            r,
+            rid,
+            {
+                "type": "nominate",
+                "actor_id": actor_uid,
+                "target_id": target_uid,
+                "day": ctx.gint("day_number"),
+            },
+        )
+
         ordered = await get_nominees_in_order(r, rid)
         payload = {
             "room_id": rid,
@@ -2000,6 +2033,19 @@ async def game_farewell_mark(sid, data):
             "remaining": max(limit - len(wills_for), 0),
             "allowed": allowed,
         }
+
+        await log_game_action(
+            r,
+            rid,
+            {
+                "type": "farewell",
+                "actor_id": speaker_uid,
+                "target_id": target_uid,
+                "verdict": verdict,
+                "mode": mode,
+                "day": ctx.gint("day_number"),
+            },
+        )
 
         await sio.emit("game_farewell_update",
                        payload,
@@ -2116,6 +2162,18 @@ async def game_best_move_mark(sid, data):
         except Exception:
             log.exception("game_best_move_mark.save_failed", rid=rid, uid=speaker_uid, target=target_uid)
             return {"ok": False, "error": "internal", "status": 500}
+
+        await log_game_action(
+            r,
+            rid,
+            {
+                "type": "best_move",
+                "actor_id": speaker_uid,
+                "target_id": target_uid,
+                "targets": updated_targets,
+                "day": ctx.gint("day_number"),
+            },
+        )
 
         raw_state = dict(ctx.gstate)
         raw_state["best_move_uid"] = str(best_uid)
@@ -2376,6 +2434,18 @@ async def game_vote(sid, data):
 
         store_value = "1" if is_lift_vote else str(nominee_uid)
         await r.hset(f"room:{rid}:game_votes", str(uid), store_value)
+
+        action: dict[str, Any] = {"type": "vote", "actor_id": uid, "day": ctx.gint("day_number")}
+        if is_lift_vote:
+            try:
+                action["targets"] = await get_nominees_in_order(r, rid)
+            except Exception:
+                action["targets"] = []
+            action["lift"] = True
+        else:
+            action["target_id"] = nominee_uid
+        await log_game_action(r, rid, action)
+
         await sio.emit("game_voted",
                        {"room_id": rid,
                         "user_id": uid,
@@ -2449,6 +2519,19 @@ async def game_vote_finish(sid, data):
             raw_votes = await r.hgetall(f"room:{rid}:game_votes")
         except Exception:
             raw_votes = {}
+
+        if vote_lift_state != "voting":
+            votes_map: dict[int, int] = {}
+            for voter_s, target_s in (raw_votes or {}).items():
+                try:
+                    voter_i = int(voter_s)
+                    target_i = int(target_s or 0)
+                except Exception:
+                    continue
+                if voter_i > 0:
+                    votes_map[voter_i] = target_i
+            if votes_map:
+                await store_last_votes_snapshot(r, rid, votes_map)
 
         if vote_lift_state == "voting":
             alive_ids, voted_ids = await get_alive_and_voted_ids(r, rid)
@@ -3192,6 +3275,16 @@ async def game_night_shoot(sid, data):
             return {"ok": False, "error": "already_chosen", "status": 409}
 
         await r.hset(f"room:{rid}:night_shots", str(uid), str(target_uid))
+        await log_game_action(
+            r,
+            rid,
+            {
+                "type": "night_shoot",
+                "actor_id": uid,
+                "target_id": target_uid,
+                "day": ctx.gint("day_number"),
+            },
+        )
         try:
             seat = int((await r.hget(f"room:{rid}:game_seats", str(target_uid))) or 0)
         except Exception:
@@ -3349,6 +3442,19 @@ async def game_night_check(sid, data):
             shown = "mafia" if target_role in ("mafia", "don") else "citizen"
         else:
             shown = "sheriff" if target_role == "sheriff" else "citizen"
+
+        await log_game_action(
+            r,
+            rid,
+            {
+                "type": "night_check",
+                "actor_id": uid,
+                "target_id": target_uid,
+                "shown_role": shown,
+                "checker_role": my_role,
+                "day": ctx.gint("day_number"),
+            },
+        )
 
         await sio.emit("game_night_reveal",
                        {"room_id": rid,

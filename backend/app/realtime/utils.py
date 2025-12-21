@@ -1,5 +1,6 @@
 from __future__ import annotations
 import asyncio
+import json
 from random import shuffle
 import structlog
 from time import time
@@ -14,6 +15,7 @@ from ..core.db import SessionLocal
 from ..core.settings import settings
 from ..models.room import Room
 from ..models.user import User
+from ..models.game import Game
 from ..core.clients import get_redis
 from ..core.logging import log_action
 from ..security.auth_tokens import decode_token
@@ -58,6 +60,10 @@ __all__ = [
     "get_farewell_limits",
     "compute_farewell_allowed",
     "ensure_farewell_limit",
+    "log_game_action",
+    "load_game_actions",
+    "store_last_votes_snapshot",
+    "get_last_votes_snapshot",
     "day_speech_timeout_job",
     "finish_vote_speech",
     "vote_speech_timeout_job",
@@ -477,6 +483,93 @@ class GameStateView:
             night_section["known"] = known
 
         return night_section
+
+
+def get_day_number(raw_state: Mapping[str, Any]) -> int:
+    try:
+        return int(raw_state.get("day_number") or 0)
+
+    except Exception:
+        return 0
+
+
+def speech_elapsed_seconds(started: int, duration: int) -> int:
+    if started <= 0 or duration <= 0:
+        return 0
+
+    return max(0, min(int(time()) - started, duration))
+
+
+async def log_game_action(r, rid: int, action: Mapping[str, Any]) -> None:
+    try:
+        payload = dict(action)
+        if "ts" not in payload:
+            payload["ts"] = int(time())
+        raw = json.dumps(payload, ensure_ascii=True, separators=(",", ":"))
+        await r.rpush(f"room:{rid}:game_actions", raw)
+    except Exception:
+        log.exception("game_actions.log_failed", rid=rid, action=action.get("type"))
+
+
+async def load_game_actions(r, rid: int) -> list[dict[str, Any]]:
+    try:
+        raw_items = await r.lrange(f"room:{rid}:game_actions", 0, -1)
+    except Exception:
+        log.exception("game_actions.load_failed", rid=rid)
+        return []
+
+    out: list[dict[str, Any]] = []
+    for item in raw_items or []:
+        if item is None:
+            continue
+        if isinstance(item, bytes):
+            item = item.decode("utf-8", "ignore")
+        try:
+            obj = json.loads(str(item))
+        except Exception:
+            continue
+        if isinstance(obj, dict):
+            out.append(obj)
+    return out
+
+
+async def store_last_votes_snapshot(r, rid: int, votes: Mapping[int, int]) -> None:
+    try:
+        payload = {str(k): int(v) for k, v in votes.items() if int(k) > 0}
+        raw = json.dumps(payload, ensure_ascii=True, separators=(",", ":"))
+        await r.set(f"room:{rid}:game_votes_last", raw, ex=86400)
+    except Exception:
+        log.exception("game_actions.last_votes_save_failed", rid=rid)
+
+
+async def get_last_votes_snapshot(r, rid: int) -> dict[int, int]:
+    try:
+        raw = await r.get(f"room:{rid}:game_votes_last")
+    except Exception:
+        log.exception("game_actions.last_votes_load_failed", rid=rid)
+        return {}
+
+    if not raw:
+        return {}
+
+    if isinstance(raw, bytes):
+        raw = raw.decode("utf-8", "ignore")
+    try:
+        data = json.loads(str(raw))
+    except Exception:
+        return {}
+
+    if not isinstance(data, dict):
+        return {}
+
+    out: dict[int, int] = {}
+    for k, v in data.items():
+        try:
+            out[int(k)] = int(v)
+        except Exception:
+            continue
+
+    return out
 
 
 async def require_ctx(sid, *, namespace="/room", allowed_phases: str | Iterable[str] | None = None, require_head: bool = False):
@@ -1301,6 +1394,19 @@ async def finish_day_speech(r, rid: int, raw_gstate: Mapping[str, Any], speaker_
     if day_speeches_done:
         payload["speeches_done"] = True
 
+    speech_seconds = speech_elapsed_seconds(ctx.gint("day_speech_started"), ctx.gint("day_speech_duration"))
+    await log_game_action(
+        r,
+        rid,
+        {
+            "type": "speech",
+            "kind": "day",
+            "actor_id": speaker_uid,
+            "seconds": speech_seconds,
+            "day": get_day_number(raw_gstate),
+        },
+    )
+
     return payload
 
 
@@ -1778,6 +1884,19 @@ async def finish_vote_speech(r, rid: int, raw_gstate: Mapping[str, Any], speaker
     if speeches_done:
         payload["speeches_done"] = True
 
+    speech_seconds = speech_elapsed_seconds(ctx.gint("vote_speech_started"), ctx.gint("vote_speech_duration"))
+    await log_game_action(
+        r,
+        rid,
+        {
+            "type": "speech",
+            "kind": "farewell" if kind == "farewell" else "vote",
+            "actor_id": speaker_uid,
+            "seconds": speech_seconds,
+            "day": get_day_number(raw_gstate),
+        },
+    )
+
     return payload
 
 
@@ -1870,17 +1989,33 @@ async def compute_night_kill(r, rid: int) -> tuple[int, bool]:
 
     shots_map = await hgetall_int_map(r, f"room:{rid}:night_shots")
     targets: list[int] = [shots_map.get(u, 0) for u in shooters]
-    if any(t <= 0 for t in targets):
-        return 0, False
+    kill_uid = 0
+    ok = False
+    if targets and not any(t <= 0 for t in targets):
+        first = targets[0]
+        if not any(t != first for t in targets) and first in alive:
+            kill_uid = first
+            ok = True
 
-    first = targets[0]
-    if any(t != first for t in targets):
-        return 0, False
+    try:
+        day_number = int(await r.hget(f"room:{rid}:game_state", "day_number") or 0)
+    except Exception:
+        day_number = 0
 
-    if first not in alive:
-        return 0, False
+    await log_game_action(
+        r,
+        rid,
+        {
+            "type": "night_shoot_result",
+            "day": day_number,
+            "shooters": shooters,
+            "shots": shots_map,
+            "kill_uid": kill_uid,
+            "kill_ok": ok,
+        },
+    )
 
-    return first, True
+    return kill_uid, ok
 
 
 def best_move_payload_from_state(ctx: GameActionContext, *, include_empty: bool = False) -> dict[str, Any] | None:
@@ -2103,6 +2238,61 @@ async def process_player_death(r, rid: int, user_id: int, *, head_uid: int | Non
             await r.hset(f"room:{rid}:game_deaths", str(user_id), str(reason))
         except Exception:
             log.warning("process_player_death.reason_save_failed", rid=rid, uid=user_id)
+        try:
+            raw_state = await r.hgetall(f"room:{rid}:game_state")
+        except Exception:
+            raw_state = {}
+
+        action: dict[str, Any] = {
+            "type": "death",
+            "reason": str(reason),
+            "target_id": user_id,
+            "day": get_day_number(raw_state),
+        }
+        if reason == "vote":
+            voters: list[int] = []
+            votes = await get_last_votes_snapshot(r, rid)
+            if not votes:
+                try:
+                    raw_votes = await r.hgetall(f"room:{rid}:game_votes")
+                except Exception:
+                    raw_votes = {}
+                for voter_s, target_s in (raw_votes or {}).items():
+                    try:
+                        voter_i = int(voter_s)
+                        target_i = int(target_s or 0)
+                    except Exception:
+                        continue
+                    if voter_i > 0:
+                        votes[voter_i] = target_i
+            for voter_i, target_i in (votes or {}).items():
+                if target_i == user_id:
+                    voters.append(int(voter_i))
+            if voters:
+                action["by"] = voters
+        elif reason == "night":
+            shooters: list[int] = []
+            try:
+                raw_shots = await r.hgetall(f"room:{rid}:night_shots")
+            except Exception:
+                raw_shots = {}
+            for shooter_s, target_s in (raw_shots or {}).items():
+                try:
+                    shooter_i = int(shooter_s)
+                    target_i = int(target_s or 0)
+                except Exception:
+                    continue
+                if shooter_i > 0 and target_i == user_id:
+                    shooters.append(shooter_i)
+            if shooters:
+                action["by"] = shooters
+        elif reason == "foul":
+            if head_uid:
+                action["by"] = [head_uid]
+        elif reason == "suicide":
+            action["by"] = [user_id]
+
+        await log_game_action(r, rid, action)
 
     if removed:
         try:
@@ -2196,7 +2386,8 @@ async def finish_game(r, rid: int, *, result: str, head_uid: int | None = None, 
         except Exception:
             head_uid = 0
 
-    await r.hset(f"room:{rid}:game_state", mapping={"game_finished": "1", "game_result": result})
+    finished_ts = int(time())
+    await r.hset(f"room:{rid}:game_state", mapping={"game_finished": "1", "game_result": result, "finished_at": str(finished_ts)})
 
     try:
         raw_roles = await r.hgetall(f"room:{rid}:game_roles")
@@ -2210,6 +2401,66 @@ async def finish_game(r, rid: int, *, result: str, head_uid: int | None = None, 
     except Exception:
         log.exception("game_finish.load_players_failed", rid=rid)
         players_set = set()
+
+    player_ids: list[int] = []
+    for v in (players_set or []):
+        try:
+            uid_i = int(v)
+        except Exception:
+            continue
+        if uid_i > 0:
+            player_ids.append(uid_i)
+
+    actions = await load_game_actions(r, rid)
+
+    room_owner_id = 0
+    try:
+        params = await r.hgetall(f"room:{rid}:params")
+        room_owner_id = int(params.get("creator") or 0)
+    except Exception:
+        log.exception("game_finish.load_room_params_failed", rid=rid)
+
+    if room_owner_id <= 0:
+        try:
+            async with SessionLocal() as s:
+                room = await s.get(Room, rid)
+                if room:
+                    room_owner_id = int(room.creator)
+        except Exception:
+            log.exception("game_finish.load_room_db_failed", rid=rid)
+
+    if room_owner_id > 0:
+        try:
+            started_ts = int(raw_state.get("started_at") or 0)
+        except Exception:
+            started_ts = 0
+        if started_ts <= 0:
+            started_ts = finished_ts
+        started_at = datetime.fromtimestamp(started_ts, tz=timezone.utc)
+        finished_at = datetime.fromtimestamp(finished_ts, tz=timezone.utc)
+
+        points_map = {str(uid): 0 for uid in player_ids}
+        mmr_map = {str(uid): 0 for uid in player_ids}
+        try:
+            async with SessionLocal() as s:
+                s.add(
+                    Game(
+                        room_id=rid,
+                        room_owner_id=room_owner_id,
+                        result=result,
+                        started_at=started_at,
+                        finished_at=finished_at,
+                        roles=roles_map,
+                        points=points_map,
+                        mmr=mmr_map,
+                        actions=actions,
+                    )
+                )
+                await s.commit()
+        except Exception:
+            log.exception("game_finish.save_failed", rid=rid)
+    else:
+        log.warning("game_finish.owner_missing", rid=rid)
 
     try:
         members_set = await r.smembers(f"room:{rid}:members")
@@ -2258,12 +2509,12 @@ async def finish_game(r, rid: int, *, result: str, head_uid: int | None = None, 
                    room=f"room:{rid}",
                    namespace="/room")
 
-    asyncio.create_task(_schedule_auto_game_end(rid, reason=reason))
+    asyncio.create_task(schedule_auto_game_end(rid, reason=reason))
 
     return True
 
 
-async def _schedule_auto_game_end(rid: int, *, reason: str) -> None:
+async def schedule_auto_game_end(rid: int, *, reason: str) -> None:
     await asyncio.sleep(5)
 
     r = get_redis()
@@ -2347,6 +2598,19 @@ async def finish_day_prelude_speech(r, rid: int, raw_gstate: Mapping[str, Any], 
                        namespace="/room")
     except Exception:
         log.exception("day_prelude.best_move_clear_failed", rid=rid, uid=speaker_uid)
+
+    speech_seconds = speech_elapsed_seconds(ctx.gint("day_speech_started"), ctx.gint("day_speech_duration"))
+    await log_game_action(
+        r,
+        rid,
+        {
+            "type": "speech",
+            "kind": "prelude",
+            "actor_id": speaker_uid,
+            "seconds": speech_seconds,
+            "day": get_day_number(raw_gstate),
+        },
+    )
 
     return {
         "room_id": rid,
@@ -2924,6 +3188,8 @@ async def perform_game_end(ctx, sess: Optional[dict[str, Any]], *, confirm: bool
             f"room:{rid}:game_alive",
             f"room:{rid}:game_fouls",
             f"room:{rid}:game_deaths",
+            f"room:{rid}:game_actions",
+            f"room:{rid}:game_votes_last",
             f"room:{rid}:game_short_speech_used",
             f"room:{rid}:game_nominees",
             f"room:{rid}:game_nom_speakers",
