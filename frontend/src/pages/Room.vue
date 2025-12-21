@@ -6,7 +6,7 @@
 
     <template v-else>
       <Transition name="fade">
-        <div v-if="gameStartOverlayVisible" class="reconnect-overlay load-game" aria-live="polite">Запуск игры…</div>
+        <div v-if="gameOverlayVisible" class="reconnect-overlay load-game" aria-live="polite">{{ gameOverlayText }}</div>
       </Transition>
       <div v-if="!isTheater" class="grid" :style="gridStyle">
         <RoomTile
@@ -483,13 +483,25 @@ const fitContainInGrid = computed(() => !isTheater.value && sortedPeerIds.value.
 const mediaGateVisible = computed(() => uiReady.value && !isReconnecting.value && needInitialMediaUnlock.value)
 
 const gameStartOverlayVisible = ref(false)
+const gameEndOverlayVisible = ref(false)
+const gameOverlayVisible = computed(() => gameStartOverlayVisible.value || gameEndOverlayVisible.value)
+const gameOverlayText = computed(() => gameEndOverlayVisible.value ? 'Завершение игры…' : 'Запуск игры…')
 let gameStartOverlayTimerId: number | null = null
+let gameEndOverlayTimerId: number | null = null
 function showGameStartOverlay(ms = 1000) {
   gameStartOverlayVisible.value = true
   if (gameStartOverlayTimerId != null) window.clearTimeout(gameStartOverlayTimerId)
   gameStartOverlayTimerId = window.setTimeout(() => {
     gameStartOverlayVisible.value = false
     gameStartOverlayTimerId = null
+  }, ms)
+}
+function showGameEndOverlay(ms = 1000) {
+  gameEndOverlayVisible.value = true
+  if (gameEndOverlayTimerId != null) window.clearTimeout(gameEndOverlayTimerId)
+  gameEndOverlayTimerId = window.setTimeout(() => {
+    gameEndOverlayVisible.value = false
+    gameEndOverlayTimerId = null
   }, ms)
 }
 
@@ -1061,11 +1073,13 @@ socket.value?.on('connect', async () => {
 
   socket.value?.on('game_finished', (p: any) => {
     game.handleGameFinished(p)
+    showGameEndOverlay()
     if (myGameRole.value === 'player' || myGameRole.value === 'head') void restoreAfterGameEnd()
   })
 
   socket.value?.on('game_ended', (p: any) => {
     const reason = String(p?.reason || '')
+    if (!gameFinished.value) showGameEndOverlay()
     if (reason === 'early_leave_before_day') {
       void alertDialog('Игра была остановлена т.к. игрок покинул игру до ее начала')
     }
@@ -1613,6 +1627,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('offline', handleOffline)
   window.removeEventListener('online', handleOnline)
   if (gameStartOverlayTimerId != null) window.clearTimeout(gameStartOverlayTimerId)
+  if (gameEndOverlayTimerId != null) window.clearTimeout(gameEndOverlayTimerId)
   void onLeave(false)
 })
 </script>
