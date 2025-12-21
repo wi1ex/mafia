@@ -4,7 +4,7 @@ import json
 from random import shuffle
 import structlog
 from time import time
-from sqlalchemy import select
+from sqlalchemy import select, func
 from redis.exceptions import ResponseError
 from jwt import ExpiredSignatureError
 from datetime import datetime, timezone
@@ -1531,15 +1531,21 @@ async def compute_farewell_allowed(r, rid: int, speaker_uid: int, *, mode: str =
         raw_roles = {}
 
     mafia_count = 0
+    speaker_role = None
     for k, role in (raw_roles or {}).items():
         try:
             uid = int(k)
         except Exception:
             continue
+        if uid == speaker_uid:
+            speaker_role = role
         if uid not in others:
             continue
         if str(role or "") in ("mafia", "don"):
             mafia_count += 1
+
+    if str(speaker_role or "") in ("mafia", "don") and mafia_count == 0:
+        return False
 
     if mode == "voted":
         return (x - 1) > 2 * mafia_count
@@ -2551,9 +2557,30 @@ async def schedule_auto_game_end(rid: int, *, reason: str) -> None:
             if actor_uid:
                 break
 
+    sess: dict[str, Any] = {}
+    if actor_uid:
+        username: str | None = None
+        try:
+            raw_username = await r.hget(f"room:{rid}:user:{actor_uid}:info", "username")
+        except Exception:
+            raw_username = None
+        if raw_username:
+            username = str(raw_username)
+        else:
+            try:
+                async with SessionLocal() as s:
+                    row = await s.execute(select(User.username).where(User.id == actor_uid))
+                    rec = row.first()
+                    if rec and rec[0]:
+                        username = str(rec[0])
+            except Exception:
+                log.exception("game_finish.auto_end.load_username_failed", rid=rid, uid=actor_uid)
+        if username:
+            sess["username"] = username
+
     ctx = GameActionContext.from_raw_state(uid=actor_uid or 0, rid=rid, r=r, raw_state=raw_state)
     try:
-        await perform_game_end(ctx, {}, confirm=True, allow_non_head=True, reason=reason)
+        await perform_game_end(ctx, sess, confirm=True, allow_non_head=True, reason=reason)
     except Exception:
         log.exception("game_finish.auto_end.failed", rid=rid)
 
@@ -3030,7 +3057,7 @@ def can_act_on_user(actor_role: str, target_role: str) -> bool:
     return True
 
 
-async def stop_screen_for_user(r, rid: int, uid: int, *, canceled: bool = False) -> None:
+async def stop_screen_for_user(r, rid: int, uid: int, *, canceled: bool = False, actor_uid: int | None = None, actor_username: str | None = None, actor_role: str | None = None) -> None:
     cur = await r.get(f"room:{rid}:screen_owner")
     if not cur or int(cur) != uid:
         return
@@ -3050,6 +3077,25 @@ async def stop_screen_for_user(r, rid: int, uid: int, *, canceled: bool = False)
                    {"id": rid,
                     "owner": None},
                    namespace="/rooms")
+
+    try:
+        log_uid = actor_uid if actor_uid is not None else uid
+        log_username = actor_username or f"user{log_uid}"
+        details = f"Остановка стрима room_id={rid} target_user={uid}"
+        if actor_uid is not None and actor_uid != uid:
+            details += f" actor_user={actor_uid}"
+            if actor_role:
+                details += f" actor_role={actor_role}"
+        async with SessionLocal() as s:
+            await log_action(
+                s,
+                user_id=log_uid,
+                username=log_username,
+                action="stream_stop",
+                details=details,
+            )
+    except Exception:
+        log.exception("sio.stream_stop.log_failed", rid=rid, uid=uid, actor=actor_uid)
 
 
 async def get_mafia_talk_viewers(r, rid: int, subject_uid: int, phase_override: str | None = None) -> tuple[bool, set[int]]:
@@ -3133,7 +3179,27 @@ async def perform_game_end(ctx, sess: Optional[dict[str, Any]], *, confirm: bool
         return {"ok": False, "error": "forbidden", "status": 403}
 
     if not confirm:
-        return {"ok": True, "status": 200, "room_id": rid, "can_end": True}
+        return {"ok": True, "status": 200, "room_id": rid, "can_end": True}     
+
+    game_result = ctx.gstr("game_result")
+    black_alive: int | None = None
+    if game_result == "black" or reason == "victory_black":
+        try:
+            alive_ids = await smembers_ints(r, f"room:{rid}:game_alive")
+        except Exception:
+            log.exception("sio.game_end.load_alive_failed", rid=rid)
+            alive_ids = set()
+        try:
+            raw_roles = await r.hgetall(f"room:{rid}:game_roles")
+        except Exception:
+            log.exception("sio.game_end.load_roles_failed", rid=rid)
+            raw_roles = {}
+
+        black_alive = 0
+        for alive_uid in alive_ids:
+            role = str(raw_roles.get(str(alive_uid)) or "")
+            if role in ("mafia", "don"):
+                black_alive += 1
 
     try:
         players_set = await r.smembers(f"room:{rid}:game_players")
@@ -3231,12 +3297,15 @@ async def perform_game_end(ctx, sess: Optional[dict[str, Any]], *, confirm: bool
 
     try:
         async with SessionLocal() as s:
+            details = f"Завершение игры room_id={rid} phase={phase} reason={reason}"
+            if black_alive is not None:
+                details += f" black_alive={black_alive}"
             await log_action(
                 s,
                 user_id=uid,
                 username=str(sess.get("username") or f"user{uid}"),
                 action="game_end",
-                details=f"Завершение игры room_id={rid} phase={phase} reason={reason}")
+                details=details)
     except Exception:
         log.exception("sio.game_end.log_failed", rid=rid, uid=uid)
 
@@ -3306,24 +3375,51 @@ async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
                 rm = await s.get(Room, rid)
                 if rm:
                     rm_title = rm.title
-                    rm_user_limit = rm.user_limit
                     rm_creator = cast(int, rm.creator)
                     rm_creator_name = cast(str, rm.creator_name)
                     unique_visitors = len(set(visitors_map.keys()))
+
+                    now_dt = datetime.now(timezone.utc)
+                    screen_time_patch = {str(uid): max(0, sec) for uid, sec in screen_map_sec.items()}
+                    merged_screen_time = {**(rm.screen_time or {}), **screen_time_patch}
+                    total_stream_sec = 0
+                    for v in merged_screen_time.values():
+                        try:
+                            total_stream_sec += int(v or 0)
+                        except Exception:
+                            continue
+
+                    games_count = 0
+                    try:
+                        res = await s.execute(select(func.count(Game.id)).where(Game.room_id == rid))
+                        games_count = int(res.scalar() or 0)
+                    except Exception:
+                        log.exception("gc.room_games_count_failed", rid=rid)
+                    try:
+                        lifetime_sec = int((now_dt - rm.created_at).total_seconds())
+                    except Exception:
+                        lifetime_sec = None
+
                     if unique_visitors <= 1:
                         await s.delete(rm)
                     else:
                         rm.visitors = {**(rm.visitors or {}), **{str(k): v for k, v in visitors_map.items()}}
-                        rm.screen_time = {**(rm.screen_time or {}), **{str(uid): max(0, sec) for uid, sec in screen_map_sec.items()}}
-                        rm.deleted_at = datetime.now(timezone.utc)
+                        rm.screen_time = merged_screen_time
+                        rm.deleted_at = now_dt
 
                     await r.srem(f"user:{rm_creator}:rooms", str(rid))
+                    details = f"Удаление комнаты room_id={rid} title={rm_title} count_users={unique_visitors}"
+                    if lifetime_sec is not None:
+                        details += f" lifetime_sec={lifetime_sec}"
+                    details += f" total_stream_sec={total_stream_sec}"
+                    if games_count > 0:
+                        details += f" games_count={games_count}"
                     await log_action(
                         s,
                         user_id=rm_creator,
                         username=rm_creator_name,
                         action="room_deleted",
-                        details=f"Удаление комнаты room_id={rid} title={rm_title} user_limit={rm_user_limit} count_users={unique_visitors}",
+                        details=details,
                     )
         except Exception:
             log.exception("gc.db.persist_failed", rid=rid)

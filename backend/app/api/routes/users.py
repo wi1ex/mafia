@@ -62,6 +62,7 @@ async def update_username(payload: UsernameUpdateIn, ident: Identity = Depends(g
     if exists_case_ins:
         raise HTTPException(status_code=409, detail="username_taken")
 
+    old_username = user.username
     await db.execute(update(User).where(User.id == uid).values(username=new))
     await db.commit()
 
@@ -70,7 +71,7 @@ async def update_username(payload: UsernameUpdateIn, ident: Identity = Depends(g
         user_id=uid,
         username=new,
         action="username_updated",
-        details=f"Изменение никнейма: {user.username} -> {new}",
+        details=f"Изменение никнейма: {old_username} -> {new}",
     )
 
     await broadcast_creator_rooms(uid, update_name=new)

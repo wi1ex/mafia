@@ -346,6 +346,9 @@ async def screen(sid, data) -> ScreenAck:
     try:
         sess = await sio.get_session(sid, namespace="/room")
         actor_uid = int(sess["uid"])
+        actor_user_name = str(sess.get("username") or f"user{actor_uid}")
+        actor_role = None
+
         rid = int(sess.get("rid") or 0)
         if not rid:
             return {"ok": False, "error": "no_room", "status": 400}
@@ -383,10 +386,26 @@ async def screen(sid, data) -> ScreenAck:
                            {"id": rid, "owner": target},
                            namespace="/rooms")
             await r.set(f"room:{rid}:screen_started_at", str(int(time())), nx=True, ex=86400)
+            try:
+                details = f"Старт стрима room_id={rid} target_user={target}"
+                if actor_uid != target:
+                    details += f" actor_user={actor_uid}"
+                    if actor_role:
+                        details += f" actor_role={actor_role}"
+                async with SessionLocal() as s:
+                    await log_action(
+                        s,
+                        user_id=actor_uid,
+                        username=actor_user_name,
+                        action="stream_start",
+                        details=details,
+                    )
+            except Exception:
+                log.exception("sio.stream_start.log_failed", rid=rid, uid=actor_uid, target=target)
             return {"ok": True, "on": True}
 
         canceled = bool((data or {}).get("canceled"))
-        await stop_screen_for_user(r, rid, target, canceled=canceled)
+        await stop_screen_for_user(r, rid, target, canceled=canceled, actor_uid=actor_uid, actor_username=actor_user_name, actor_role=actor_role)
 
         return {"ok": True, "on": False}
 
@@ -446,7 +465,7 @@ async def moderate(sid, data) -> ModerateAck:
             return {"ok": False, "error": err, "status": 403}
 
         if applied.get("screen") == "1":
-            await stop_screen_for_user(r, rid, target)
+            await stop_screen_for_user(r, rid, target, actor_uid=actor_uid, actor_username=actor_user_name, actor_role=actor_role)
 
         if applied or forced_off:
             async with SessionLocal() as s:
@@ -455,7 +474,7 @@ async def moderate(sid, data) -> ModerateAck:
                     user_id=actor_uid,
                     username=actor_user_name,
                     action="room_blocks",
-                    details=f"Блокировка в комнате room_id={rid} target_user={target} actor_role={actor_role} applied={applied} forced_off={forced_off}",
+                    details=f"Блокировка в комнате room_id={rid} target_user={target} actor_role={actor_role} applied={applied}",
                 )
 
         return {"ok": True, "applied": applied, "forced_off": forced_off}
@@ -499,7 +518,7 @@ async def kick(sid, data):
                        room=f"user:{target}",
                        namespace="/room")
 
-        await stop_screen_for_user(r, rid, target)
+        await stop_screen_for_user(r, rid, target, actor_uid=actor_uid, actor_username=actor_user_name, actor_role=actor_role)
 
         occ, _, pos_updates = await leave_room_atomic(r, rid, target)
         try:
@@ -890,7 +909,7 @@ async def game_start(sid, data) -> GameStartAck:
                     user_id=uid,
                     username=str(sess.get("username") or f"user{uid}"),
                     action="game_start",
-                    details=f"Запуск игры room_id={rid} ready={ready_cnt}",
+                    details=f"Запуск игры room_id={rid}",
                 )
         except Exception:
             log.exception("sio.game_start.log_failed", rid=rid, uid=uid)
@@ -3501,6 +3520,7 @@ async def disconnect(sid):
             return
 
         uid = int(sess["uid"])
+        actor_user_name = str(sess.get("username") or f"user{uid}")
         rid = int(sess.get("rid") or 0)
         if not rid:
             return
@@ -3515,7 +3535,7 @@ async def disconnect(sid):
         if cur_epoch > sess_epoch:
             return
 
-        await stop_screen_for_user(r, rid, uid)
+        await stop_screen_for_user(r, rid, uid, actor_uid=uid, actor_username=actor_user_name)
 
         was_member = await r.sismember(f"room:{rid}:members", str(uid))
         if was_member:
