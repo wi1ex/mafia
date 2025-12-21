@@ -74,6 +74,7 @@ from ..utils import (
     get_positive_setting_int,
     compute_farewell_allowed,
     perform_game_end,
+    finish_game,
 )
 
 log = structlog.get_logger()
@@ -803,6 +804,10 @@ async def game_start(sid, data) -> GameStartAck:
                              "started_at": str(now_ts),
                              "started_by": str(uid),
                              "head": str(head_uid),
+                             "game_finished": "0",
+                             "game_result": "",
+                             "draw_base_day": "0",
+                             "draw_base_alive": "0",
                              "vote_blocked": "0",
                              "vote_blocked_next": "0",
                              "best_move_uid": "0",
@@ -1249,8 +1254,21 @@ async def game_phase_next(sid, data):
             if not speeches_done:
                 return {"ok": False, "error": "speeches_not_done", "status": 400}
 
+            draw_base_day = ctx.gint("draw_base_day")
+            draw_mapping: dict[str, str] = {}
+            if draw_base_day <= 0:
+                try:
+                    alive_cnt = int(await r.scard(f"room:{rid}:game_alive") or 0)
+                except Exception:
+                    alive_cnt = 0
+                draw_mapping = {"draw_base_day": str(ctx.gint("day_number")),
+                                "draw_base_alive": str(alive_cnt)}
+
             async with r.pipeline() as p:
-                await p.hset(f"room:{rid}:game_state", mapping=build_night_reset_mapping(include_vote_meta=True))
+                mapping = build_night_reset_mapping(include_vote_meta=True)
+                if draw_mapping:
+                    mapping.update(draw_mapping)
+                await p.hset(f"room:{rid}:game_state", mapping=mapping)
                 await p.delete(f"room:{rid}:night_shots", f"room:{rid}:night_checks")
                 await p.execute()
 
@@ -1277,8 +1295,21 @@ async def game_phase_next(sid, data):
             if not vote_aborted and vote_results_ready and not vote_speeches_done:
                 return {"ok": False, "error": "speeches_not_done", "status": 400}
 
+            draw_base_day = ctx.gint("draw_base_day")
+            draw_mapping: dict[str, str] = {}
+            if draw_base_day <= 0:
+                try:
+                    alive_cnt = int(await r.scard(f"room:{rid}:game_alive") or 0)
+                except Exception:
+                    alive_cnt = 0
+                draw_mapping = {"draw_base_day": str(ctx.gint("day_number")),
+                                "draw_base_alive": str(alive_cnt)}
+
             async with r.pipeline() as p:
-                await p.hset(f"room:{rid}:game_state", mapping=build_night_reset_mapping(include_vote_meta=False))
+                mapping = build_night_reset_mapping(include_vote_meta=False)
+                if draw_mapping:
+                    mapping.update(draw_mapping)
+                await p.hset(f"room:{rid}:game_state", mapping=mapping)
                 await p.delete(f"room:{rid}:night_shots", f"room:{rid}:night_checks")
                 await p.execute()
 
@@ -1304,6 +1335,14 @@ async def game_phase_next(sid, data):
                 return {"ok": False, "error": "best_move_required", "status": 409, "user_id": best_move_uid}
 
             killed_uid, ok = await compute_night_kill(r, rid)
+            draw_base_day = ctx.gint("draw_base_day")
+            draw_base_alive = ctx.gint("draw_base_alive")
+            try:
+                alive_cnt = int(await r.scard(f"room:{rid}:game_alive") or 0)
+            except Exception:
+                alive_cnt = 0
+
+            draw_should_reset = bool(ok and killed_uid)
             day_number = ctx.gint("day_number")
             last_opening_uid = ctx.gint("day_last_opening_uid")
             exclude_ids = [killed_uid] if ok and killed_uid else None
@@ -1336,6 +1375,10 @@ async def game_phase_next(sid, data):
                 "vote_blocked": vote_blocked_val,
                 "vote_blocked_next": "0",
             }
+            if draw_should_reset:
+                mapping["draw_base_day"] = "0"
+                mapping["draw_base_alive"] = "0"
+
             async with r.pipeline() as p:
                 await p.hset(f"room:{rid}:game_state", mapping=mapping)
                 await p.delete(f"room:{rid}:game_nominees", f"room:{rid}:game_nom_speakers", f"room:{rid}:game_votes")
@@ -1361,6 +1404,12 @@ async def game_phase_next(sid, data):
                             "night": payload["night"]},
                            room=f"room:{rid}",
                            namespace="/room")
+            if not draw_should_reset and draw_base_day > 0 and alive_cnt == draw_base_alive and new_day_number >= draw_base_day + 3:
+                try:
+                    await finish_game(r, rid, result="draw", head_uid=head_uid, reason="draw")
+                except Exception:
+                    log.exception("sio.game_finish.draw_failed", rid=rid)
+
             return payload
 
         return {"ok": False, "error": "bad_transition", "status": 400, "from": cur_phase, "to": want_to}

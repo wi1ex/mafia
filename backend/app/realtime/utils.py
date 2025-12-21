@@ -85,6 +85,7 @@ __all__ = [
     "decide_vote_blocks_on_death",
     "get_positive_setting_int",
     "perform_game_end",
+    "finish_game",
 ]
 
 log = structlog.get_logger()
@@ -2121,12 +2122,196 @@ async def process_player_death(r, rid: int, user_id: int, *, head_uid: int | Non
         except Exception:
             log.exception("process_player_death.autoblock_failed", rid=rid, head=head_uid, target=user_id)
 
+    if removed:
+        try:
+            await r.hset(f"room:{rid}:game_state", mapping={"draw_base_day": "0", "draw_base_alive": "0"})
+        except Exception:
+            log.warning("process_player_death.draw_reset_failed", rid=rid, uid=user_id)
+
+        try:
+            await maybe_finish_game_after_death(r, rid, head_uid=head_uid)
+        except Exception:
+            log.exception("process_player_death.finish_check_failed", rid=rid, uid=user_id)
+
     return removed
+
+
+async def maybe_finish_game_after_death(r, rid: int, *, head_uid: int | None = None) -> bool:
+    try:
+        raw_state = await r.hgetall(f"room:{rid}:game_state")
+    except Exception:
+        log.exception("game_finish.load_state_failed", rid=rid)
+        return False
+
+    if not raw_state or str(raw_state.get("game_finished") or "0") == "1":
+        return False
+
+    alive_ids = await smembers_ints(r, f"room:{rid}:game_alive")
+    alive_cnt = len(alive_ids)
+    if alive_cnt <= 0:
+        return False
+
+    try:
+        raw_roles = await r.hgetall(f"room:{rid}:game_roles")
+    except Exception:
+        raw_roles = {}
+
+    black_cnt = 0
+    for uid in alive_ids:
+        role = str(raw_roles.get(str(uid)) or "")
+        if role in ("mafia", "don"):
+            black_cnt += 1
+
+    if black_cnt == 0:
+        return await finish_game(r, rid, result="red", head_uid=head_uid, reason="victory_red")
+
+    if black_cnt * 2 >= alive_cnt:
+        return await finish_game(r, rid, result="black", head_uid=head_uid, reason="victory_black")
+
+    return False
+
+
+async def finish_game(r, rid: int, *, result: str, head_uid: int | None = None, reason: str = "auto_finish") -> bool:
+    if result not in ("red", "black", "draw"):
+        return False
+
+    try:
+        raw_state = await r.hgetall(f"room:{rid}:game_state")
+    except Exception:
+        log.exception("game_finish.load_state_failed", rid=rid)
+        return False
+
+    if not raw_state:
+        return False
+
+    if str(raw_state.get("phase") or "idle") == "idle":
+        return False
+
+    if str(raw_state.get("game_finished") or "0") == "1":
+        return False
+
+    if head_uid is None:
+        try:
+            head_uid = int(raw_state.get("head") or 0)
+        except Exception:
+            head_uid = 0
+
+    await r.hset(f"room:{rid}:game_state", mapping={"game_finished": "1", "game_result": result})
+
+    try:
+        raw_roles = await r.hgetall(f"room:{rid}:game_roles")
+    except Exception:
+        raw_roles = {}
+
+    roles_map = {str(k): str(v) for k, v in (raw_roles or {}).items() if v is not None}
+
+    try:
+        players_set = await r.smembers(f"room:{rid}:game_players")
+    except Exception:
+        log.exception("game_finish.load_players_failed", rid=rid)
+        players_set = set()
+
+    try:
+        members_set = await r.smembers(f"room:{rid}:members")
+    except Exception:
+        log.exception("game_finish.load_members_failed", rid=rid)
+        members_set = set()
+
+    member_ids: set[int] = set()
+    for v in (members_set or []):
+        try:
+            member_ids.add(int(v))
+        except Exception:
+            continue
+
+    target_ids: list[int] = []
+    for v in (players_set or []):
+        try:
+            uid_i = int(v)
+        except Exception:
+            continue
+        if uid_i in member_ids:
+            target_ids.append(uid_i)
+
+    actor_uid = head_uid or 0
+    for target_uid in target_ids:
+        if actor_uid and actor_uid == target_uid:
+            continue
+        try:
+            await apply_blocks_and_emit(r, rid, actor_uid=actor_uid, actor_role="head", target_uid=target_uid, phase_override="idle",
+                                        changes_bool={"mic": False, "cam": False, "speakers": False, "visibility": False})
+        except Exception:
+            log.exception("game_finish.auto_unblock_failed", rid=rid, head=actor_uid, target=target_uid)
+
+    for target_uid in target_ids:
+        try:
+            new_state = await apply_state(r, rid, target_uid, {"mic": True, "cam": True, "speakers": True, "visibility": True})
+            if new_state:
+                await emit_state_changed_filtered(r, rid, target_uid, new_state, phase_override="idle")
+        except Exception:
+            log.exception("game_finish.auto_state_enable_failed", rid=rid, target=target_uid)
+
+    await sio.emit("game_finished",
+                   {"room_id": rid,
+                    "result": result,
+                    "roles": roles_map},
+                   room=f"room:{rid}",
+                   namespace="/room")
+
+    asyncio.create_task(_schedule_auto_game_end(rid, reason=reason))
+
+    return True
+
+
+async def _schedule_auto_game_end(rid: int, *, reason: str) -> None:
+    await asyncio.sleep(5)
+
+    r = get_redis()
+    try:
+        raw_state = await r.hgetall(f"room:{rid}:game_state")
+    except Exception:
+        log.exception("game_finish.auto_end.load_state_failed", rid=rid)
+        return
+
+    if not raw_state:
+        return
+
+    if str(raw_state.get("game_finished") or "0") != "1":
+        return
+
+    if str(raw_state.get("phase") or "idle") == "idle":
+        return
+
+    try:
+        head_uid = int(raw_state.get("head") or 0)
+    except Exception:
+        head_uid = 0
+
+    actor_uid = head_uid
+    if actor_uid <= 0:
+        try:
+            members = await r.smembers(f"room:{rid}:members")
+        except Exception:
+            members = set()
+        for v in (members or []):
+            try:
+                actor_uid = int(v)
+            except Exception:
+                continue
+            if actor_uid:
+                break
+
+    ctx = GameActionContext.from_raw_state(uid=actor_uid or 0, rid=rid, r=r, raw_state=raw_state)
+    try:
+        await perform_game_end(ctx, {}, confirm=True, allow_non_head=True, reason=reason)
+    except Exception:
+        log.exception("game_finish.auto_end.failed", rid=rid)
 
 
 async def finish_day_prelude_speech(r, rid: int, raw_gstate: Mapping[str, Any], speaker_uid: int, *, reason_override: str | None = None) -> dict[str, Any]:
     ctx = GameActionContext.from_raw_state(uid=speaker_uid, rid=rid, r=r, raw_state=raw_gstate)
     head_uid = ctx.head_uid
+
     await process_player_death(r, rid, speaker_uid, head_uid=head_uid, phase_override="day", reason=reason_override or "night")
 
     if head_uid and speaker_uid != head_uid:
@@ -2460,6 +2645,10 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
         "players": list(players_set),
         "alive": list(alive_set),
     }
+    finished = ctx.gbool("game_finished")
+    if finished:
+        game_runtime["finished"] = True
+        game_runtime["result"] = ctx.gstr("game_result")
 
     if phase == "idle":
         return game_runtime, {}, None
@@ -2511,7 +2700,9 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
     head_uid = ctx.head_uid
     roles_done = ctx.gbool("roles_done")
     game_roles_view: dict[str, str] = {}
-    if roles_done:
+    if finished:
+        game_roles_view = dict(roles_map)
+    elif roles_done:
         if head_uid and uid == head_uid:
             game_roles_view = dict(roles_map)
         elif my_game_role == "mafia":
@@ -2664,6 +2855,7 @@ async def perform_game_end(ctx, sess: Optional[dict[str, Any]], *, confirm: bool
     rid = ctx.rid
     r = ctx.r
     phase = ctx.phase
+    sess = sess or {}
     if phase == "idle":
         return {"ok": False, "error": "no_game", "status": 400}
 

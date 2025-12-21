@@ -25,6 +25,7 @@ import iconSlot0 from '@/assets/svg/slot10.svg'
 
 export type GamePhase = 'idle' | 'roles_pick' | 'mafia_talk_start' | 'mafia_talk_end' | 'day' | 'vote' | 'night'
 export type GameRoleKind = 'citizen' | 'mafia' | 'don' | 'sheriff'
+export type GameResult = 'red' | 'black' | 'draw' | ''
 
 export type Ack = {
   ok: boolean
@@ -79,9 +80,11 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   const gameFoulsByUser = reactive(new Map<string, number>())
   const rolesVisibleForHead = ref(false)
   const knownRolesVisible = ref(true)
+  const gameResult = ref<GameResult>('')
+  const gameFinished = computed(() => gameResult.value !== '')
   const dayNumber = ref(0)
   const canToggleKnownRoles = computed(() => {
-    return gamePhase.value !== 'idle' && myGameRole.value !== 'none'
+    return !gameFinished.value && gamePhase.value !== 'idle' && myGameRole.value !== 'none'
   })
   if (typeof window !== 'undefined') {
     try {
@@ -253,7 +256,15 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     return order.every(id => rolePick.picked.has(id))
   })
 
+  const gameResultLabel = computed(() => {
+    if (gameResult.value === 'black') return 'Победа мафии!'
+    if (gameResult.value === 'red') return 'Победа мирных!'
+    if (gameResult.value === 'draw') return 'Ничья'
+    return ''
+  })
+
   const phaseLabel = computed(() => {
+    if (gameResultLabel.value) return gameResultLabel.value
     if (gamePhase.value === 'roles_pick') return allRolesPicked.value ? '' : 'Выбор ролей'
     if (gamePhase.value === 'mafia_talk_start') return 'Договорка мафии'
     if (gamePhase.value === 'night') {
@@ -595,6 +606,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   }
 
   function canPressVoteButton(): boolean {
+    if (gameFinished.value) return false
     const me = localId.value
     if (!me) return false
     if (gamePhase.value !== 'vote') return false
@@ -829,6 +841,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     if (!role) return false
     const me = localId.value
     if (!me) return false
+    if (gameFinished.value) return true
     if (!knownRolesVisible.value) return false
     const myRole = gameRolesByUser.get(me) as GameRoleKind | undefined
     const isSelf = id === me
@@ -862,6 +875,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     rolePick.remainingMs = 0
     roleOverlayMode.value = 'hidden'
     roleOverlayCard.value = null
+    gameResult.value = ''
     resetStartMafiaTalkDelay()
     resetLeaderSpeechDelay()
     if (roleOverlayTimerId.value != null) {
@@ -914,6 +928,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   }
 
   function effectiveRoleIconForTile(id: string): string {
+    if (gameFinished.value) return roleIconForTile(id)
     return nightKnownRoleIconForTile(id) || roleIconForTile(id)
   }
 
@@ -940,6 +955,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   }
 
   function canMakeFarewellChoice(targetId: string): boolean {
+    if (gameFinished.value) return false
     const me = localId.value
     if (!me) return false
     if (!currentFarewellSpeech.value) return false
@@ -957,6 +973,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   }
 
   function canMakeBestMoveChoice(targetId: string): boolean {
+    if (gameFinished.value) return false
     const me = localId.value
     if (!me) return false
     if (gamePhase.value !== 'night') return false
@@ -1016,6 +1033,13 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     }
     const phase = (gr.phase as GamePhase) || 'idle'
     gamePhase.value = phase
+    const rawResult = String((gr as any).result || '')
+    if (rawResult === 'red' || rawResult === 'black' || rawResult === 'draw') {
+      gameResult.value = rawResult as GameResult
+      knownRolesVisible.value = true
+    } else {
+      gameResult.value = ''
+    }
     fillSeats((gr.seats || {}) as Record<string, any>)
     gamePlayers.clear()
     gameAlive.clear()
@@ -1272,6 +1296,25 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     }
     fillSeats((payload?.seats || {}) as Record<string, any>)
     fillPlayersFromSeats()
+  }
+
+  function handleGameFinished(payload: any) {
+    const result = String(payload?.result || '')
+    if (result === 'red' || result === 'black' || result === 'draw') {
+      gameResult.value = result as GameResult
+      knownRolesVisible.value = true
+    } else {
+      gameResult.value = ''
+    }
+
+    const roles = payload?.roles
+    if (roles && typeof roles === 'object') {
+      gameRolesByUser.clear()
+      for (const [uid, role] of Object.entries(roles)) {
+        gameRolesByUser.set(String(uid), role as GameRoleKind)
+      }
+      rolesVisibleForHead.value = true
+    }
   }
 
   function handleGameEnded(_payload: any): 'head' | 'player' | 'none' {
@@ -1806,6 +1849,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   }
 
   function canNominateTarget(id: string): boolean {
+    if (gameFinished.value) return false
     const me = localId.value
     if (!me) return false
     if (currentFarewellSpeech.value) return false
@@ -1858,6 +1902,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   }
 
   function canShootTarget(targetId: string): boolean {
+    if (gameFinished.value) return false
     if (gamePhase.value !== 'night') return false
     if (night.stage !== 'shoot') return false
     if (night.remainingMs <= 0) return false
@@ -1871,6 +1916,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   }
 
   function canCheckTarget(targetId: string): boolean {
+    if (gameFinished.value) return false
     if (gamePhase.value !== 'night') return false
     if (night.stage !== 'checks') return false
     if (night.remainingMs <= 0) return false
@@ -2552,6 +2598,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     hasOfflineAlivePlayers,
     headPickKind,
     phaseLabel,
+    gameFinished,
     isCurrentSpeaker,
     canStartDay,
     canFinishSpeechHead,
@@ -2613,6 +2660,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     canClickCard,
     applyFromJoinAck,
     handleGameStarted,
+    handleGameFinished,
     handleGameEnded,
     handleGamePlayerLeft,
     handleGameRolesTurn,

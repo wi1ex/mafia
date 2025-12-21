@@ -150,7 +150,7 @@
             :best-move-marked="game.isBestMoveMarked(id)"
             :show-best-move-button="game.canMakeBestMoveChoice(id)"
             :farewell-summary="game.farewellSummaryForUser(id)"
-            :show-farewell-buttons="game.canMakeFarewellChoice(id)"        
+            :show-farewell-buttons="game.canMakeFarewellChoice(id)"
             :nominees="nomineeSeatNumbers"
             :lift-nominees="id === headUserId && liftHighlightNominees ? nomineeSeatNumbers : []"
             :current-nominee-seat="id === headUserId ? currentNomineeSeat : null"
@@ -191,7 +191,7 @@
         <div v-if="showPermProbe" class="controls">
           <button class="btn-text" @click="onProbeClick">Разрешить доступ к камере и микрофону</button>
         </div>
-        <div v-else class="controls">
+        <div v-else-if="!gameFinished" class="controls">
           <button v-if="canHeadGoToMafiaTalkControl" class="btn-text" @click="goToMafiaTalkUi" aria-label="Перейти к договорке">Начать договорку</button>
           <button v-if="canHeadFinishMafiaTalkControl" class="btn-text" @click="finishMafiaTalkUi" aria-label="Завершить договорку">Завершить договорку</button>
           <button v-if="canStartDay" class="btn-text" @click="startDayUi" aria-label="Начать день">День</button>
@@ -415,6 +415,7 @@ const {
   hasOfflineAlivePlayers,
   headPickKind,
   phaseLabel,
+  gameFinished,
   isCurrentSpeaker,
   canStartDay,
   canFinishSpeechHead,
@@ -1056,6 +1057,14 @@ socket.value?.on('connect', async () => {
       statusByUser.set(uid, { ...st, ready: 0 as 0 })
     })
     void enforceInitialGameControls()
+  })
+
+  socket.value?.on('game_finished', (p: any) => {
+    game.handleGameFinished(p)
+    local.mic = true
+    local.cam = true
+    local.speakers = true
+    local.visibility = true
   })
 
   socket.value?.on('game_ended', (p: any) => {
