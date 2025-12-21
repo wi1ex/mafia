@@ -1075,7 +1075,7 @@ socket.value?.on('connect', async () => {
     if (myGameRole.value === 'player' || myGameRole.value === 'head') void restoreAfterGameEnd()
   })
 
-  socket.value?.on('game_ended', (p: any) => {
+  socket.value?.on('game_ended', async (p: any) => {
     const reason = String(p?.reason || '')
     if (reason === 'early_leave_before_day') {
       void alertDialog('Игра была остановлена т.к. игрок покинул игру до ее начала')
