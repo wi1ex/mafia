@@ -1077,11 +1077,12 @@ socket.value?.on('connect', async () => {
 
   socket.value?.on('game_ended', async (p: any) => {
     const reason = String(p?.reason || '')
-    if (reason === 'early_leave_before_day') {
-      void alertDialog('Игра была остановлена т.к. игрок покинул игру до ее начала')
-    } else {
+    if (reason !== 'early_leave_before_day') {
       showGameEndOverlay()
       await nextTick()
+      await new Promise((resolve) => window.setTimeout(resolve, 250))
+    } else {
+      void alertDialog('Игра была остановлена т.к. игрок покинул игру до ее начала')
     }
     const roleBeforeEnd = game.handleGameEnded(p)
     const connectedIds = new Set(rtc.peerIds.value)
