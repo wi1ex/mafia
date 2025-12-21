@@ -2034,19 +2034,6 @@ async def game_farewell_mark(sid, data):
             "allowed": allowed,
         }
 
-        await log_game_action(
-            r,
-            rid,
-            {
-                "type": "farewell",
-                "actor_id": speaker_uid,
-                "target_id": target_uid,
-                "verdict": verdict,
-                "mode": mode,
-                "day": ctx.gint("day_number"),
-            },
-        )
-
         await sio.emit("game_farewell_update",
                        payload,
                        room=f"room:{rid}",
@@ -2162,18 +2149,6 @@ async def game_best_move_mark(sid, data):
         except Exception:
             log.exception("game_best_move_mark.save_failed", rid=rid, uid=speaker_uid, target=target_uid)
             return {"ok": False, "error": "internal", "status": 500}
-
-        await log_game_action(
-            r,
-            rid,
-            {
-                "type": "best_move",
-                "actor_id": speaker_uid,
-                "target_id": target_uid,
-                "targets": updated_targets,
-                "day": ctx.gint("day_number"),
-            },
-        )
 
         raw_state = dict(ctx.gstate)
         raw_state["best_move_uid"] = str(best_uid)
@@ -2435,17 +2410,6 @@ async def game_vote(sid, data):
         store_value = "1" if is_lift_vote else str(nominee_uid)
         await r.hset(f"room:{rid}:game_votes", str(uid), store_value)
 
-        action: dict[str, Any] = {"type": "vote", "actor_id": uid, "day": ctx.gint("day_number")}
-        if is_lift_vote:
-            try:
-                action["targets"] = await get_nominees_in_order(r, rid)
-            except Exception:
-                action["targets"] = []
-            action["lift"] = True
-        else:
-            action["target_id"] = nominee_uid
-        await log_game_action(r, rid, action)
-
         await sio.emit("game_voted",
                        {"room_id": rid,
                         "user_id": uid,
@@ -2519,6 +2483,50 @@ async def game_vote_finish(sid, data):
             raw_votes = await r.hgetall(f"room:{rid}:game_votes")
         except Exception:
             raw_votes = {}
+
+        day_number = ctx.gint("day_number")
+        if vote_lift_state == "voting":
+            voters: list[int] = []
+            for voter_s in (raw_votes or {}).keys():
+                try:
+                    voter_i = int(voter_s)
+                except Exception:
+                    continue
+                if voter_i > 0:
+                    voters.append(voter_i)
+            await log_game_action(
+                r,
+                rid,
+                {
+                    "type": "vote",
+                    "lift": True,
+                    "targets": nominees,
+                    "by": voters,
+                    "day": day_number,
+                },
+            )
+        else:
+            current_uid = ctx.gint("vote_current_uid")
+            voters: list[int] = []
+            for voter_s, target_s in (raw_votes or {}).items():
+                try:
+                    voter_i = int(voter_s)
+                    target_i = int(target_s or 0)
+                except Exception:
+                    continue
+                if voter_i > 0 and target_i == current_uid:
+                    voters.append(voter_i)
+            if current_uid:
+                await log_game_action(
+                    r,
+                    rid,
+                    {
+                        "type": "vote",
+                        "target_id": current_uid,
+                        "by": voters,
+                        "day": day_number,
+                    },
+                )
 
         if vote_lift_state != "voting":
             votes_map: dict[int, int] = {}

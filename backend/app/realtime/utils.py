@@ -1973,7 +1973,7 @@ def seat_of(seats_map: Mapping[str, Any], uid: int) -> int:
         return 0
 
 
-async def compute_night_kill(r, rid: int) -> tuple[int, bool]:
+async def compute_night_kill(r, rid: int, *, log_action_bool: bool = True) -> tuple[int, bool]:
     raw_roles = await r.hgetall(f"room:{rid}:game_roles")
     roles_map: dict[int, str] = {}
     for k, v in (raw_roles or {}).items():
@@ -2002,18 +2002,19 @@ async def compute_night_kill(r, rid: int) -> tuple[int, bool]:
     except Exception:
         day_number = 0
 
-    await log_game_action(
-        r,
-        rid,
-        {
-            "type": "night_shoot_result",
-            "day": day_number,
-            "shooters": shooters,
-            "shots": shots_map,
-            "kill_uid": kill_uid,
-            "kill_ok": ok,
-        },
-    )
+    if log_action_bool:
+        await log_game_action(
+            r,
+            rid,
+            {
+                "type": "night_shoot_result",
+                "day": day_number,
+                "shooters": shooters,
+                "shots": shots_map,
+                "kill_uid": kill_uid,
+                "kill_ok": ok,
+            },
+        )
 
     return kill_uid, ok
 
@@ -2158,7 +2159,7 @@ async def night_stage_timeout_job(rid: int, expected_stage: str, expected_starte
         if next_stage == "checks_done":
             best_move_uid = 0
             try:
-                killed_uid, ok = await compute_night_kill(r, rid)
+                killed_uid, ok = await compute_night_kill(r, rid, log_action_bool=False)
             except Exception:
                 killed_uid, ok = 0, False
             if ok and killed_uid:
@@ -2243,11 +2244,31 @@ async def process_player_death(r, rid: int, user_id: int, *, head_uid: int | Non
         except Exception:
             raw_state = {}
 
+        day_number = get_day_number(raw_state)
+        if reason in ("vote", "night"):
+            try:
+                wills_for = await get_farewell_wills_for(r, rid, user_id)
+            except Exception:
+                wills_for = {}
+            if wills_for:
+                mode = "voted" if reason == "vote" else "killed"
+                await log_game_action(
+                    r,
+                    rid,
+                    {
+                        "type": "farewell",
+                        "actor_id": user_id,
+                        "wills": wills_for,
+                        "mode": mode,
+                        "day": day_number,
+                    },
+                )
+
         action: dict[str, Any] = {
             "type": "death",
             "reason": str(reason),
             "target_id": user_id,
-            "day": get_day_number(raw_state),
+            "day": day_number,
         }
         if reason == "vote":
             voters: list[int] = []
@@ -2562,6 +2583,19 @@ async def schedule_auto_game_end(rid: int, *, reason: str) -> None:
 async def finish_day_prelude_speech(r, rid: int, raw_gstate: Mapping[str, Any], speaker_uid: int, *, reason_override: str | None = None) -> dict[str, Any]:
     ctx = GameActionContext.from_raw_state(uid=speaker_uid, rid=rid, r=r, raw_state=raw_gstate)
     head_uid = ctx.head_uid
+
+    best_move_uid = ctx.gint("best_move_uid")
+    if best_move_uid:
+        await log_game_action(
+            r,
+            rid,
+            {
+                "type": "best_move",
+                "actor_id": best_move_uid,
+                "targets": ctx.gcsv_ints("best_move_targets"),
+                "day": get_day_number(raw_gstate),
+            },
+        )
 
     await process_player_death(r, rid, speaker_uid, head_uid=head_uid, phase_override="day", reason=reason_override or "night")
 
