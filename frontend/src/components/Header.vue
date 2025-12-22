@@ -1,6 +1,9 @@
 <template>
   <header class="bar">
-    <router-link class="btn" :to="{ name: 'home' }" aria-label="DECEIT.games">DECEIT.games (v{{ BUILD }})</router-link>
+    <div class="links">
+      <router-link class="btn" :to="{ name: 'home' }" aria-label="DECEIT.games">DECEIT.games (v{{ BUILD }})</router-link>
+      <router-link class="btn" :to="{ name: 'admin' }" aria-label="DECEIT.games">Админ-панель</router-link>
+    </div>
 
     <div v-if="!auth.isAuthed && !auth.foreignActive">
       <div v-if="settings.registrationEnabled" id="tg-login" />
@@ -170,6 +173,11 @@ onBeforeUnmount(() => {
   min-height: 60px;
   height: 60px;
   max-height: 60px;
+  .links {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
   .btn {
     display: flex;
     align-items: center;

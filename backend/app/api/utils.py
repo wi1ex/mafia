@@ -1,6 +1,9 @@
 from __future__ import annotations
+import asyncio
+import calendar
 import re
 import structlog
+from datetime import date, datetime, timezone, timedelta
 from typing import Optional, Dict, Any, Literal
 from fastapi import HTTPException, status
 from sqlalchemy import update, func
@@ -8,9 +11,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.clients import get_redis
 from ..core.db import SessionLocal
 from ..models.user import User
+from ..schemas.admin import SiteSettingsOut, GameSettingsOut
 from ..schemas.room import GameParams
 from ..realtime.sio import sio
-from ..realtime.utils import get_profiles_snapshot, get_rooms_brief
+from ..realtime.utils import get_profiles_snapshot, get_rooms_brief, gc_empty_room
 
 __all__ = [
     "serialize_game_for_redis",
@@ -22,6 +26,11 @@ __all__ = [
     "get_room_params_or_404",
     "touch_user_last_login",
     "validate_object_key_for_presign",
+    "parse_month_range",
+    "parse_day_range",
+    "site_settings_out",
+    "game_settings_out",
+    "schedule_room_gc",
 ]
 
 log = structlog.get_logger()
@@ -49,6 +58,57 @@ def game_from_redis_to_model(raw_game: Dict[str, Any]) -> GameParams:
         mode=(raw_game.get("mode") or "normal"),
         format=(raw_game.get("format") or "hosted"),
         spectators_limit=int(raw_game.get("spectators_limit") or 0),
+    ) 
+
+
+def parse_month_range(month_raw: str | None) -> tuple[datetime, datetime]:
+    if not month_raw:
+        today = date.today()
+        year = today.year
+        month = today.month
+    else:
+        try:
+            year_s, month_s = month_raw.split("-", 1)
+            year = int(year_s)
+            month = int(month_s)
+        except Exception:
+            raise HTTPException(status_code=422, detail="invalid_month")
+
+        if month < 1 or month > 12:
+            raise HTTPException(status_code=422, detail="invalid_month")
+
+    start = datetime(year, month, 1, tzinfo=timezone.utc)
+    last_day = calendar.monthrange(year, month)[1]
+    end = datetime(year, month, last_day, tzinfo=timezone.utc) + timedelta(days=1)
+    return start, end
+
+
+def parse_day_range(day: date) -> tuple[datetime, datetime]:
+    start = datetime(day.year, day.month, day.day, tzinfo=timezone.utc)
+    end = start + timedelta(days=1)
+    return start, end
+
+
+def site_settings_out(row) -> SiteSettingsOut:
+    return SiteSettingsOut(
+        registration_enabled=bool(row.registration_enabled),
+        rooms_can_create=bool(row.rooms_can_create),
+        games_can_start=bool(row.games_can_start),
+        rooms_limit_global=int(row.rooms_limit_global),
+        rooms_limit_per_user=int(row.rooms_limit_per_user),
+    )
+
+
+def game_settings_out(row) -> GameSettingsOut:
+    return GameSettingsOut(
+        game_min_ready_players=int(row.game_min_ready_players),
+        role_pick_seconds=int(row.role_pick_seconds),
+        mafia_talk_seconds=int(row.mafia_talk_seconds),
+        player_talk_seconds=int(row.player_talk_seconds),
+        player_talk_short_seconds=int(row.player_talk_short_seconds),
+        player_foul_seconds=int(row.player_foul_seconds),
+        night_action_seconds=int(row.night_action_seconds),
+        vote_seconds=int(row.vote_seconds),
     )
 
 
@@ -70,6 +130,19 @@ async def emit_rooms_upsert(rid: int) -> None:
                        namespace="/rooms")
     except Exception as e:
         log.warning("rooms.upsert.emit_failed", rid=rid, err=type(e).__name__)
+
+
+async def gc_room_after_delay(rid: int, delay_s: int = 12) -> None:
+    await asyncio.sleep(delay_s)
+    removed = await gc_empty_room(rid)
+    if removed:
+        await sio.emit("rooms_remove",
+                       {"id": rid},
+                       namespace="/rooms")
+
+
+def schedule_room_gc(rid: int, delay_s: int = 12) -> None:
+    asyncio.create_task(gc_room_after_delay(rid, delay_s))
 
 
 async def broadcast_creator_rooms(uid: int, *, update_name: Optional[str] = None, avatar: Literal["keep", "set", "delete"] = "keep", avatar_name: Optional[str] = None) -> None:

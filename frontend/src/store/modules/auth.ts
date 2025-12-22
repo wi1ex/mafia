@@ -7,6 +7,7 @@ import {
   addAuthExpiredListener,
   refreshAccessTokenFull,
 } from '@/services/axios'
+import { alertDialog } from '@/services/confirm'
 import {
   initSessionBus,
   setSid,
@@ -141,10 +142,20 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function signInWithTelegram(tg: TgUser): Promise<void> {
-    const { data } = await api.post('/auth/telegram', tg)
-    await applySession(data)
-    const { useUserStore } = await import('@/store')
-    await useUserStore().fetchMe()
+    try {
+      const { data } = await api.post('/auth/telegram', tg)
+      await applySession(data)
+      const { useUserStore } = await import('@/store')
+      await useUserStore().fetchMe()
+    } catch (e: any) {
+      const st = e?.response?.status
+      const detail = e?.response?.data?.detail
+      if (st === 403 && detail === 'registration_disabled') {
+        void alertDialog('Регистрация временно недоступна')
+      } else {
+        void alertDialog('Не удалось войти через Telegram')
+      }
+    }
   }
 
   async function logout(): Promise<void> {

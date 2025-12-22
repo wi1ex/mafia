@@ -1,5 +1,4 @@
 from __future__ import annotations
-import asyncio
 from contextlib import suppress
 from fastapi import APIRouter, Depends, status, HTTPException
 from sqlalchemy import select
@@ -13,7 +12,6 @@ from ...models.room import Room
 from ...models.user import User
 from ...models.notif import Notif
 from ...realtime.sio import sio
-from ...realtime.utils import gc_empty_room
 from ...schemas.common import Identity, Ok
 from ...schemas.user import UserOut
 from ...schemas.room import (
@@ -30,6 +28,7 @@ from ..utils import (
     game_from_redis_to_model,
     build_room_members_for_info,
     get_room_params_or_404,
+    schedule_room_gc,
 )
 
 router = APIRouter()
@@ -101,15 +100,7 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
 
     await emit_rooms_upsert(room.id)
 
-    async def _gc_soon(rid: int) -> None:
-        await asyncio.sleep(12)
-        removed = await gc_empty_room(rid)
-        if removed:
-            await sio.emit("rooms_remove",
-                           {"id": rid},
-                           namespace="/rooms")
-
-    asyncio.create_task(_gc_soon(room.id))
+    schedule_room_gc(room.id)
 
     await log_action(
         session,

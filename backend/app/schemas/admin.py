@@ -1,5 +1,6 @@
 from __future__ import annotations
-from typing import Optional
+from datetime import datetime
+from typing import Optional, List, Literal
 from pydantic import BaseModel, Field
 
 
@@ -50,3 +51,82 @@ class PublicSettingsOut(BaseModel):
     registration_enabled: bool
     rooms_can_create: bool
     games_can_start: bool
+
+
+class RegistrationsPoint(BaseModel):
+    date: str
+    count: int
+
+
+class SiteStatsOut(BaseModel):
+    total_users: int
+    registrations: List[RegistrationsPoint]
+    total_rooms: int
+    total_room_minutes: int
+    total_stream_minutes: int
+    active_rooms: int
+    active_room_users: int
+    online_users: int
+
+
+class AdminLogOut(BaseModel):
+    id: int
+    user_id: Optional[int] = None
+    username: Optional[str] = None
+    action: str
+    details: str
+    created_at: datetime
+
+
+class AdminLogsOut(BaseModel):
+    total: int
+    items: List[AdminLogOut]
+
+
+class AdminLogActionsOut(BaseModel):
+    actions: List[str]
+
+
+class AdminRoomOut(BaseModel):
+    id: int
+    creator: int
+    creator_name: str
+    title: str
+    user_limit: int
+    privacy: str
+    created_at: datetime
+    deleted_at: Optional[datetime] = None
+    visitors_count: int
+    stream_minutes: int
+    has_stream: bool
+
+
+class AdminRoomsOut(BaseModel):
+    total: int
+    items: List[AdminRoomOut]
+
+
+class AdminUserOut(BaseModel):
+    id: int
+    username: Optional[str] = None
+    avatar_name: Optional[str] = None
+    role: str
+    registered_at: datetime
+    last_login_at: datetime
+    rooms_created: int
+    room_minutes: int
+    stream_minutes: int
+
+
+class AdminUsersOut(BaseModel):
+    total: int
+    items: List[AdminUserOut]
+
+
+class AdminUserRoleIn(BaseModel):
+    role: Literal["admin", "user"]
+
+
+class AdminUserRoleOut(BaseModel):
+    id: int
+    role: str

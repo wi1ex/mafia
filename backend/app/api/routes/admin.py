@@ -1,7 +1,14 @@
 from __future__ import annotations
-from fastapi import APIRouter, Depends
+from typing import cast
+from datetime import date, datetime, timezone, timedelta
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import select, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
+from ...core.clients import get_redis
 from ...core.db import get_session
+from ...models.log import AppLog
+from ...models.room import Room
+from ...models.user import User
 from ...security.decorators import log_route, require_roles_deco
 from ...security.parameters import ensure_app_settings, get_cached_settings, sync_cache_from_row
 from ...schemas.admin import (
@@ -11,32 +18,26 @@ from ...schemas.admin import (
     GameSettingsOut,
     GameSettingsUpdateIn,
     PublicSettingsOut,
+    SiteStatsOut,
+    RegistrationsPoint,
+    AdminLogOut,
+    AdminLogsOut,
+    AdminLogActionsOut,
+    AdminRoomOut,
+    AdminRoomsOut,
+    AdminUserOut,
+    AdminUsersOut,
+    AdminUserRoleIn,
+    AdminUserRoleOut,
+)
+from ..utils import (
+    parse_month_range,
+    parse_day_range,
+    site_settings_out,
+    game_settings_out,
 )
 
 router = APIRouter()
-
-
-def _site_out(row) -> SiteSettingsOut:
-    return SiteSettingsOut(
-        registration_enabled=bool(row.registration_enabled),
-        rooms_can_create=bool(row.rooms_can_create),
-        games_can_start=bool(row.games_can_start),
-        rooms_limit_global=int(row.rooms_limit_global),
-        rooms_limit_per_user=int(row.rooms_limit_per_user),
-    )
-
-
-def _game_out(row) -> GameSettingsOut:
-    return GameSettingsOut(
-        game_min_ready_players=int(row.game_min_ready_players),
-        role_pick_seconds=int(row.role_pick_seconds),
-        mafia_talk_seconds=int(row.mafia_talk_seconds),
-        player_talk_seconds=int(row.player_talk_seconds),
-        player_talk_short_seconds=int(row.player_talk_short_seconds),
-        player_foul_seconds=int(row.player_foul_seconds),
-        night_action_seconds=int(row.night_action_seconds),
-        vote_seconds=int(row.vote_seconds),
-    )
 
 
 @log_route("admin.settings_public")
@@ -55,7 +56,7 @@ async def public_settings() -> PublicSettingsOut:
 @router.get("/settings", response_model=AdminSettingsOut)
 async def get_settings(session: AsyncSession = Depends(get_session)) -> AdminSettingsOut:
     row = await ensure_app_settings(session)
-    return AdminSettingsOut(site=_site_out(row), game=_game_out(row))
+    return AdminSettingsOut(site=site_settings_out(row), game=game_settings_out(row))
 
 
 @log_route("admin.settings_site_update")
@@ -72,7 +73,7 @@ async def update_site_settings(payload: SiteSettingsUpdateIn, session: AsyncSess
         await session.refresh(row)
     sync_cache_from_row(row)
 
-    return _site_out(row)
+    return site_settings_out(row)
 
 
 @log_route("admin.settings_game_update")
@@ -89,4 +90,278 @@ async def update_game_settings(payload: GameSettingsUpdateIn, session: AsyncSess
         await session.refresh(row)
     sync_cache_from_row(row)
 
-    return _game_out(row)
+    return game_settings_out(row)
+
+
+@log_route("admin.stats")
+@require_roles_deco("admin")
+@router.get("/stats", response_model=SiteStatsOut)
+async def site_stats(month: str | None = None, session: AsyncSession = Depends(get_session)) -> SiteStatsOut:
+    start_dt, end_dt = parse_month_range(month)
+
+    total_users = int(await session.scalar(select(func.count(User.id))) or 0)
+    total_rooms = int(await session.scalar(select(func.count(Room.id))) or 0)
+
+    rows = await session.execute(
+        select(func.date_trunc("day", User.registered_at).label("day"), func.count(User.id))
+        .where(User.registered_at >= start_dt, User.registered_at < end_dt)
+        .group_by("day")
+        .order_by("day")
+    )
+    reg_map: dict[str, int] = {}
+    for day, cnt in rows.all():
+        try:
+            reg_map[day.date().isoformat()] = int(cnt or 0)
+        except Exception:
+            continue
+
+    registrations: list[RegistrationsPoint] = []
+    day_cursor = start_dt.date()
+    end_date = (end_dt - timedelta(days=1)).date()
+    while day_cursor <= end_date:
+        key = day_cursor.isoformat()
+        registrations.append(RegistrationsPoint(date=key, count=reg_map.get(key, 0)))
+        day_cursor = day_cursor + timedelta(days=1)
+
+    total_room_seconds = 0
+    total_stream_seconds = 0
+    rooms_rows = await session.execute(select(Room.created_at, Room.deleted_at, Room.screen_time))
+    now_dt = datetime.now(timezone.utc)
+    for created_at, deleted_at, screen_time in rooms_rows.all():
+        try:
+            end_ts = deleted_at or now_dt
+            total_room_seconds += int((end_ts - created_at).total_seconds())
+        except Exception:
+            pass
+        if isinstance(screen_time, dict):
+            for v in screen_time.values():
+                try:
+                    total_stream_seconds += int(v or 0)
+                except Exception:
+                    continue
+
+    r = get_redis()
+    rids = await r.zrange("rooms:index", 0, -1)
+    active_rooms = 0
+    active_room_users = 0
+    if rids:
+        async with r.pipeline() as p:
+            for rid in rids:
+                await p.scard(f"room:{int(rid)}:members")
+            counts = await p.execute()
+        for cnt in counts:
+            try:
+                val = int(cnt or 0)
+            except Exception:
+                val = 0
+            if val > 0:
+                active_rooms += 1
+                active_room_users += val
+
+    online_users = int(await r.scard("online:users") or 0)
+
+    return SiteStatsOut(
+        total_users=total_users,
+        registrations=registrations,
+        total_rooms=total_rooms,
+        total_room_minutes=total_room_seconds // 60,
+        total_stream_minutes=total_stream_seconds // 60,
+        active_rooms=active_rooms,
+        active_room_users=active_room_users,
+        online_users=online_users,
+    )
+
+
+@log_route("admin.logs.actions")
+@require_roles_deco("admin")
+@router.get("/logs/actions", response_model=AdminLogActionsOut)
+async def log_actions(session: AsyncSession = Depends(get_session)) -> AdminLogActionsOut:
+    rows = await session.execute(select(AppLog.action).distinct().order_by(AppLog.action))
+    actions = [str(r[0]) for r in rows.all() if r and r[0] is not None]
+
+    return AdminLogActionsOut(actions=actions)
+
+
+@log_route("admin.logs.list")
+@require_roles_deco("admin")
+@router.get("/logs", response_model=AdminLogsOut)
+async def logs_list(page: int = 1, limit: int = 20, action: str | None = None, username: str | None = None, day: date | None = None, session: AsyncSession = Depends(get_session)) -> AdminLogsOut:
+    limit = 100 if limit == 100 else 20
+    page = max(page, 1)
+    offset = (page - 1) * limit
+
+    filters = []
+    if action and action != "all":
+        filters.append(AppLog.action == action)
+    if username:
+        filters.append(AppLog.username.ilike(f"%{username}%"))
+    if day:
+        start_day, end_day = parse_day_range(day)
+        filters.append(AppLog.created_at >= start_day)
+        filters.append(AppLog.created_at < end_day)
+
+    total = int(await session.scalar(select(func.count(AppLog.id)).where(*filters)) or 0)
+    rows = await session.execute(select(AppLog).where(*filters).order_by(AppLog.id.desc()).offset(offset).limit(limit))
+    items = [
+        AdminLogOut(
+            id=row.id,
+            user_id=row.user_id,
+            username=row.username,
+            action=row.action,
+            details=row.details,
+            created_at=row.created_at,
+        )
+        for row in rows.scalars().all()
+    ]
+
+    return AdminLogsOut(total=total, items=items)
+
+
+@log_route("admin.rooms.list")
+@require_roles_deco("admin")
+@router.get("/rooms", response_model=AdminRoomsOut)
+async def rooms_list(page: int = 1, limit: int = 20, username: str | None = None, stream_only: bool | None = None, session: AsyncSession = Depends(get_session)) -> AdminRoomsOut:
+    limit = 100 if limit == 100 else 20
+    page = max(page, 1)
+    offset = (page - 1) * limit
+
+    query = select(Room)
+    filters = []
+    if username:
+        rows = await session.execute(select(User.id).where(User.username.ilike(f"%{username}%")))
+        ids = [int(x[0]) for x in rows.all()]
+        if not ids:
+            return AdminRoomsOut(total=0, items=[])
+
+        id_strs = [str(i) for i in ids]
+        user_filters = [Room.creator.in_(ids)]
+        user_filters += [Room.visitors.has_key(i) for i in id_strs]
+        user_filters += [Room.screen_time.has_key(i) for i in id_strs]
+        filters.append(or_(*user_filters))
+
+    if stream_only:
+        filters.append(func.jsonb_object_length(Room.screen_time) > 0)
+
+    if filters:
+        query = query.where(*filters)
+
+    total = int(await session.scalar(select(func.count(Room.id)).where(*filters)) or 0)
+    rows = await session.execute(query.order_by(Room.id.desc()).offset(offset).limit(limit))
+    items: list[AdminRoomOut] = []
+    for room in rows.scalars().all():
+        visitors_count = len(room.visitors or {})
+        stream_seconds = 0
+        for v in (room.screen_time or {}).values():
+            try:
+                stream_seconds += int(v or 0)
+            except Exception:
+                continue
+        items.append(
+            AdminRoomOut(
+                id=room.id,
+                creator=int(room.creator),
+                creator_name=room.creator_name,
+                title=room.title,
+                user_limit=room.user_limit,
+                privacy=room.privacy,
+                created_at=room.created_at,
+                deleted_at=room.deleted_at,
+                visitors_count=visitors_count,
+                stream_minutes=stream_seconds // 60,
+                has_stream=stream_seconds > 0,
+            )
+        )
+
+    return AdminRoomsOut(total=total, items=items)
+
+
+@log_route("admin.users.list")
+@require_roles_deco("admin")
+@router.get("/users", response_model=AdminUsersOut)
+async def users_list(page: int = 1, limit: int = 20, username: str | None = None, session: AsyncSession = Depends(get_session),) -> AdminUsersOut:
+    limit = 100 if limit == 100 else 20
+    page = max(page, 1)
+    offset = (page - 1) * limit
+
+    filters = []
+    if username:
+        filters.append(User.username.ilike(f"%{username}%"))
+
+    total = int(await session.scalar(select(func.count(User.id)).where(*filters)) or 0)
+    rows = await session.execute(select(User).where(*filters).order_by(User.id.desc()).offset(offset).limit(limit))
+    users = rows.scalars().all()
+    ids = [int(u.id) for u in users]
+    id_set = set(ids)
+
+    rooms_created: dict[int, int] = {uid: 0 for uid in ids}
+    room_seconds: dict[int, int] = {uid: 0 for uid in ids}
+    stream_seconds: dict[int, int] = {uid: 0 for uid in ids}
+
+    if ids:
+        counts = await session.execute(select(Room.creator, func.count(Room.id)).where(Room.creator.in_(ids)).group_by(Room.creator))
+        for creator, cnt in counts.all():
+            try:
+                rooms_created[int(creator)] = int(cnt or 0)
+            except Exception:
+                continue
+
+        id_strs = [str(i) for i in ids]
+        room_filters = [Room.creator.in_(ids)]
+        room_filters += [Room.visitors.has_key(i) for i in id_strs]
+        room_filters += [Room.screen_time.has_key(i) for i in id_strs]
+        room_rows = await session.execute(select(Room.visitors, Room.screen_time).where(or_(*room_filters)))
+        for visitors, screen_time in room_rows.all():
+            if isinstance(visitors, dict):
+                for k, v in visitors.items():
+                    try:
+                        uid = int(k)
+                    except Exception:
+                        continue
+                    if uid in id_set:
+                        try:
+                            room_seconds[uid] += int(v or 0)
+                        except Exception:
+                            continue
+            if isinstance(screen_time, dict):
+                for k, v in screen_time.items():
+                    try:
+                        uid = int(k)
+                    except Exception:
+                        continue
+                    if uid in id_set:
+                        try:
+                            stream_seconds[uid] += int(v or 0)
+                        except Exception:
+                            continue
+
+    items = [
+        AdminUserOut(
+            id=int(u.id),
+            username=u.username,
+            avatar_name=u.avatar_name,
+            role=u.role,
+            registered_at=u.registered_at,
+            last_login_at=u.last_login_at,
+            rooms_created=rooms_created.get(int(u.id), 0),
+            room_minutes=room_seconds.get(int(u.id), 0) // 60,
+            stream_minutes=stream_seconds.get(int(u.id), 0) // 60,
+        )
+        for u in users
+    ]
+
+    return AdminUsersOut(total=total, items=items)
+
+
+@log_route("admin.users.role")
+@require_roles_deco("admin")
+@router.patch("/users/{user_id}/role", response_model=AdminUserRoleOut)
+async def update_user_role(user_id: int, payload: AdminUserRoleIn, session: AsyncSession = Depends(get_session)) -> AdminUserRoleOut:
+    user = await session.get(User, int(user_id))
+    if not user:
+        raise HTTPException(status_code=404, detail="user_not_found")
+
+    user.role = payload.role
+    await session.commit()
+    await session.refresh(user)
+
+    return AdminUserRoleOut(id=cast(int, user.id), role=user.role)
