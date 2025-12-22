@@ -215,14 +215,18 @@ class GameActionContext:
     phase: str
     head_uid: int
 
+
     @staticmethod
     def as_int(v: Any, default: int = 0) -> int:
         if v is None or v == "":
             return default
+
         try:
             return int(v)
+
         except Exception:
             return default
+
 
     @classmethod
     def from_raw_state(cls, *, uid: int, rid: int, r: Any, raw_state: Mapping[str, Any] | None, phase_override: str | None = None) -> "GameActionContext":
@@ -231,21 +235,27 @@ class GameActionContext:
         head_uid = cls.as_int(raw.get("head"), 0)
         return cls(uid=uid, rid=rid, r=r, gstate=raw, phase=phase, head_uid=head_uid)
 
+
     def gstr(self, key: str, default: str = "") -> str:
         raw = self.gstate.get(key)
         if raw is None:
             return default
+
         val = str(raw)
         return val if val else default
 
+
     def gint(self, key: str, default: int = 0) -> int:
         return self.as_int(self.gstate.get(key), default)
+
 
     def gbool(self, key: str, default: bool = False) -> bool:
         raw = self.gstate.get(key)
         if raw is None or raw == "":
             return default
+
         return str(raw).strip() == "1"
+
 
     def gcsv_ints(self, key: str) -> list[int]:
         raw = str(self.gstate.get(key) or "")
@@ -260,23 +270,30 @@ class GameActionContext:
                 continue
         return out
 
+
     def deadline(self, started_key: str, duration_key: str, *, default_duration: int | None = None) -> int:
         started = self.gint(started_key)
         duration = self.gint(duration_key, default_duration if default_duration is not None else 0)
         if started <= 0 or duration <= 0:
             return 0
+
         return max(started + duration - int(time()), 0)
+
 
     def ensure_phase(self, allowed: Iterable[str] | str, *, error: str = "bad_phase", status: int = 400):
         allowed_set = {allowed} if isinstance(allowed, str) else set(allowed or [])
         if allowed_set and self.phase not in allowed_set:
             return {"ok": False, "error": error, "status": status}
+
         return None
+
 
     def ensure_head(self, *, error: str = "forbidden", status: int = 403):
         if not self.head_uid or self.head_uid != self.uid:
             return {"ok": False, "error": error, "status": status}
+
         return None
+
 
     async def ensure_player(self, target_uid: int | None = None, *, alive_required: bool = True, error: str = "not_alive", status: int = 403):
         uid = self.uid if target_uid is None else target_uid
@@ -288,6 +305,7 @@ class GameActionContext:
             is_alive = await self.r.sismember(f"room:{self.rid}:game_alive", str(uid))
             if not is_alive:
                 return {"ok": False, "error": error, "status": status}
+
         return None
 
 
@@ -296,6 +314,7 @@ class GameStateView:
         self.ctx = ctx
         self.roles_map = dict(roles_map)
         self.seats_map = dict(seats_map)
+
 
     async def roles_pick(self, r, rid: int) -> dict[str, Any] | None:
         roles_turn_uid = self.ctx.gint("roles_turn_uid")
@@ -316,13 +335,16 @@ class GameStateView:
             "taken_cards": taken_cards,
         }
 
+
     def mafia_talk(self) -> dict[str, Any] | None:
         mafia_started = self.ctx.gint("mafia_talk_started")
         mafia_duration = self.ctx.gint("mafia_talk_duration", settings.MAFIA_TALK_SECONDS)
         if mafia_started and mafia_duration > 0:
             remaining = self.ctx.deadline("mafia_talk_started", "mafia_talk_duration", default_duration=settings.MAFIA_TALK_SECONDS)
             return {"deadline": remaining}
+
         return None
+
 
     async def day(self, r, rid: int, uid: int) -> dict[str, Any] | None:
         day_number = self.ctx.gint("day_number")
@@ -381,6 +403,7 @@ class GameStateView:
 
         return day_section
 
+
     async def vote(self, r, rid: int) -> dict[str, Any] | None:
         vote_current_uid = self.ctx.gint("vote_current_uid")
         vote_started = self.ctx.gint("vote_started")
@@ -437,6 +460,7 @@ class GameStateView:
                     log.exception("vote.farewell_section.failed", rid=rid, uid=vote_speech_uid)
 
         return vote_section
+
 
     async def night(self, r, rid: int, uid: int) -> dict[str, Any] | None:
         stage = self.ctx.gstr("night_stage", "sleep")
