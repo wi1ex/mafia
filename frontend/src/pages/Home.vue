@@ -5,7 +5,7 @@
         <div class="rooms-text">
           <span>Список комнат</span>
         </div>
-        <button v-if="auth.isAuthed" @click="openCreate = true">Создать комнату</button>
+        <button v-if="auth.isAuthed && settings.roomsCanCreate" @click="openCreate = true">Создать комнату</button>
       </header>
 
       <Transition name="overlay">
@@ -131,7 +131,7 @@ import { Socket } from 'socket.io-client'
 import { createPublicSocket } from '@/services/sio'
 import { alertDialog } from '@/services/confirm'
 import { api } from '@/services/axios'
-import { useAuthStore, useUserStore } from '@/store'
+import { useAuthStore, useUserStore, useSettingsStore } from '@/store'
 import RoomModal from '@/components/RoomModal.vue'
 
 import defaultAvatar from "@/assets/svg/defaultAvatar.svg"
@@ -176,6 +176,7 @@ const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
 const userStore = useUserStore()
+const settings = useSettingsStore()
 
 const roomsMap = reactive(new Map<number, Room>())
 const sio = ref<Socket | null>(null)

@@ -23,6 +23,7 @@ from ...schemas.room import (
     RoomInfoMemberOut,
     RoomAccessOut,
 )
+from ...security.parameters import get_cached_settings
 from ..utils import (
     emit_rooms_upsert,
     serialize_game_for_redis,
@@ -40,17 +41,21 @@ router = APIRouter()
 async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get_session), ident: Identity = Depends(get_identity)) -> RoomIdOut:
     uid = int(ident["id"])
     creator_name = ident["username"]
+    app_settings = get_cached_settings()
+    if not app_settings.rooms_can_create:
+        raise HTTPException(status_code=403, detail="rooms_create_disabled")
+
     title = (payload.title or "").strip()
     if not title:
         raise HTTPException(status_code=422, detail="title_empty")
 
     r = get_redis()
     total = int(await r.zcard("rooms:index") or 0)
-    if total >= 100:
+    if total >= app_settings.rooms_limit_global:
         raise HTTPException(status_code=409, detail="rooms_limit_global")
 
     mine = int(await r.scard(f"user:{uid}:rooms") or 0)
-    if mine >= 3:
+    if mine >= app_settings.rooms_limit_per_user:
         raise HTTPException(status_code=409, detail="rooms_limit_user")
 
     gp = payload.game

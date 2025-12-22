@@ -14,6 +14,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/store'
 import { useUserStore } from '@/store'
 import { useNotifStore } from '@/store'
+import { useSettingsStore } from '@/store'
 import Header from '@/components/Header.vue'
 import Toast from '@/components/Toasts.vue'
 import Confirms from '@/components/Confirms.vue'
@@ -22,6 +23,7 @@ const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 const user = useUserStore()
+const settings = useSettingsStore()
 
 const isRoom = computed(() => route.name === 'room')
 
@@ -32,6 +34,7 @@ watchEffect(() => {
 })
 
 onMounted(async () => {
+  try { await settings.fetchPublic() } catch {}
   await auth.init()
   if (auth.isAuthed) {
     try { await user.fetchMe() } catch {}

@@ -9,7 +9,7 @@ from ...core.clients import get_redis
 from ...security.decorators import rate_limited_sio
 from ...core.logging import log_action
 from ...core.db import SessionLocal
-from ...core.settings import settings
+from ...security.parameters import get_cached_settings
 from ...schemas.realtime import StateAck, ModerateAck, JoinAck, ScreenAck, GameStartAck, GameRolePickAck
 from ...services.livekit import make_livekit_token
 from ..utils import (
@@ -712,7 +712,11 @@ async def game_start(sid, data) -> GameStartAck:
         if not await r.sismember(f"room:{rid}:members", str(uid)):
             return {"ok": False, "error": "not_in_room", "status": 403}
 
-        min_ready = settings.GAME_MIN_READY_PLAYERS
+        app_settings = get_cached_settings()
+        if not app_settings.games_can_start:
+            return {"ok": False, "error": "game_start_disabled", "status": 403}
+
+        min_ready = app_settings.game_min_ready_players
         members = await r.smembers(f"room:{rid}:members")
         members = members or set()
         ready_ids = await r.smembers(f"room:{rid}:ready")
@@ -1044,7 +1048,7 @@ async def game_phase_next(sid, data):
                     await emit_state_changed_filtered(r, rid, target_uid, {"visibility": "1"}, phase_override="mafia_talk_start")
 
             now_ts = int(time())
-            duration = settings.MAFIA_TALK_SECONDS
+            duration = get_cached_settings().mafia_talk_seconds
             async with r.pipeline() as p:
                 await p.hset(
                     f"room:{rid}:game_state",
@@ -1672,7 +1676,7 @@ async def game_foul(sid, data):
             return err
 
         try:
-            foul_seconds = settings.PLAYER_FOUL_SECONDS
+            foul_seconds = get_cached_settings().player_foul_seconds
         except Exception:
             foul_seconds = 3
 
@@ -3224,7 +3228,7 @@ async def game_night_shoot_start(sid, data):
 
         now_ts = int(time())
         try:
-            dur = settings.NIGHT_ACTION_SECONDS
+            dur = get_cached_settings().night_action_seconds
         except Exception:
             dur = 10
         if dur <= 0:
@@ -3352,7 +3356,7 @@ async def game_night_checks_start(sid, data):
 
         now_ts = int(time())
         try:
-            dur = settings.NIGHT_ACTION_SECONDS
+            dur = get_cached_settings().night_action_seconds
         except Exception:
             dur = 10
         if dur <= 0:

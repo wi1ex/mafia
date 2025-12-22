@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory, type RouteRecordRaw, type RouteLocationNormalized } from 'vue-router'
-import { useAuthStore } from '@/store'
+import { useAuthStore, useUserStore } from '@/store'
 
 const BASE_TITLE = 'Deceit'
 
@@ -14,6 +14,12 @@ const routes: RouteRecordRaw[] = [
     name: 'profile',
     component: () => import('@/pages/Profile.vue'),
     meta: { requiresAuth: true, title: 'Профиль' },
+  },
+  {
+    path: '/admin',
+    name: 'admin',
+    component: () => import('@/pages/Admin.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, title: 'Админ-панель' },
   },
   {
     path: '/room/:id(\\d+)',
@@ -42,6 +48,14 @@ router.beforeEach(async (to) => {
   const auth = useAuthStore()
   if (!auth.ready) await auth.init()
   if (!auth.isAuthed) return { name: 'home' }
+
+  if (to.meta?.requiresAdmin) {
+    const user = useUserStore()
+    if (!user.user) {
+      try { await user.fetchMe() } catch {}
+    }
+    if (user.user?.role !== 'admin') return { name: 'home' }
+  }
 
   if (to.name === 'room') {
     const id = Number(to.params.id)

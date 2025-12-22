@@ -4,10 +4,11 @@ from contextlib import asynccontextmanager
 from typing import AsyncIterator
 import structlog
 from sqlalchemy import text
-from ..core.db import Base, engine
+from ..core.db import Base, engine, SessionLocal
 from .clients import close_clients, get_redis, init_clients
 from .logging import configure_logging
 from ..services.minio import ensure_bucket
+from ..security.parameters import ensure_app_settings
 from ..core.settings import settings
 
 
@@ -23,6 +24,8 @@ async def lifespan(app) -> AsyncIterator[None]:
         async with engine.begin() as conn:
             await conn.execute(text("SELECT 1"))
             await conn.run_sync(Base.metadata.create_all)
+        async with SessionLocal() as session:
+            await ensure_app_settings(session)
     except Exception:
         log.exception("app.startup.db_failed")
         raise

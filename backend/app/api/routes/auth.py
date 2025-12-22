@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException, Depends, Response, Request, status
 from ...models.user import User
 from ...core.db import get_session
 from ...core.settings import settings
+from ...security.parameters import get_cached_settings
 from ...core.logging import log_action
 from ...security.decorators import log_route
 from ...security.auth_tokens import verify_telegram_auth, create_access_token, parse_refresh_token
@@ -20,6 +21,9 @@ router = APIRouter()
 @log_route("auth.telegram")
 @router.post("/telegram", response_model=AccessTokenOut)
 async def telegram(payload: TelegramAuthIn, resp: Response, db: AsyncSession = Depends(get_session)) -> AccessTokenOut:
+    if not get_cached_settings().registration_enabled:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="registration_disabled")
+
     data_for_sig = payload.model_dump(exclude_none=True)
     if not verify_telegram_auth(data_for_sig):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid telegram auth")

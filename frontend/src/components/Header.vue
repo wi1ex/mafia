@@ -3,7 +3,7 @@
     <router-link class="btn" :to="{ name: 'home' }" aria-label="DECEIT.games">DECEIT.games (v{{ BUILD }})</router-link>
 
     <div v-if="!auth.isAuthed && !auth.foreignActive">
-      <div id="tg-login" />
+      <div v-if="settings.registrationEnabled" id="tg-login" />
     </div>
     <div v-else-if="!auth.isAuthed && auth.foreignActive" class="btn">
       <span>Вы уже авторизованы в соседней вкладке</span>
@@ -47,7 +47,7 @@
 
 <script setup lang="ts">
 import { onMounted, onBeforeUnmount, watch, nextTick, ref } from 'vue'
-import { useAuthStore, useUserStore, useNotifStore } from '@/store'
+import { useAuthStore, useUserStore, useNotifStore, useSettingsStore } from '@/store'
 import { alertDialog } from '@/services/confirm'
 import Notifs from '@/components/Notifs.vue'
 
@@ -60,6 +60,7 @@ import iconArrowDown from '@/assets/svg/arrowDown.svg'
 const auth = useAuthStore()
 const user = useUserStore()
 const notif = useNotifStore()
+const settings = useSettingsStore()
 
 const nb_open = ref(false)
 const bellEl = ref<HTMLElement | null>(null)
@@ -101,6 +102,7 @@ async function logout() {
 }
 
 function mountTGWidget() {
+  if (!settings.registrationEnabled) return
   if (!BOT) return
   const box = document.getElementById('tg-login')
   if (!box || box.children.length) return
@@ -124,8 +126,8 @@ function mountTGWidget() {
   box.appendChild(s)
 }
 
-watch([() => auth.isAuthed, () => auth.foreignActive], async () => {
-  if (!auth.isAuthed && !auth.foreignActive) {
+watch([() => auth.isAuthed, () => auth.foreignActive, () => settings.registrationEnabled], async () => {
+  if (!auth.isAuthed && !auth.foreignActive && settings.registrationEnabled) {
     await nextTick()
     mountTGWidget()
   } else {
@@ -141,7 +143,7 @@ watch(() => auth.isAuthed, async ok => {
 })
 
 onMounted(async () => {
-  if (!auth.isAuthed && !auth.foreignActive) {
+  if (!auth.isAuthed && !auth.foreignActive && settings.registrationEnabled) {
     await nextTick()
     mountTGWidget()
   }

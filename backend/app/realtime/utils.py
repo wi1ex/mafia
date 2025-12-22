@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from .sio import sio
 from ..core.db import SessionLocal
 from ..core.settings import settings
+from ..security.parameters import get_cached_settings
 from ..models.room import Room
 from ..models.user import User
 from ..models.game import Game
@@ -206,6 +207,18 @@ return {occ, 0, #updates/2, unpack(updates)}
 """
 
 
+SETTING_MAP = {
+    "GAME_MIN_READY_PLAYERS": "game_min_ready_players",
+    "ROLE_PICK_SECONDS": "role_pick_seconds",
+    "MAFIA_TALK_SECONDS": "mafia_talk_seconds",
+    "PLAYER_TALK_SECONDS": "player_talk_seconds",
+    "PLAYER_TALK_SHORT_SECONDS": "player_talk_short_seconds",
+    "PLAYER_FOUL_SECONDS": "player_foul_seconds",
+    "NIGHT_ACTION_SECONDS": "night_action_seconds",
+    "VOTE_SECONDS": "vote_seconds",
+}
+
+
 @dataclass
 class GameActionContext:
     uid: int
@@ -322,7 +335,11 @@ class GameStateView:
         if not (roles_turn_uid and roles_turn_started):
             return None
 
-        remaining = self.ctx.deadline("roles_turn_started", "roles_turn_duration", default_duration=settings.ROLE_PICK_SECONDS)
+        remaining = self.ctx.deadline(
+            "roles_turn_started",
+            "roles_turn_duration",
+            default_duration=get_cached_settings().role_pick_seconds,
+        )
         raw_taken = await r.hgetall(f"room:{rid}:roles_taken")
         assigned_ids = hash_keys_to_int_list(self.roles_map)
         taken_cards = hash_keys_to_int_list(raw_taken)
@@ -338,9 +355,13 @@ class GameStateView:
 
     def mafia_talk(self) -> dict[str, Any] | None:
         mafia_started = self.ctx.gint("mafia_talk_started")
-        mafia_duration = self.ctx.gint("mafia_talk_duration", settings.MAFIA_TALK_SECONDS)
+        mafia_duration = self.ctx.gint("mafia_talk_duration", get_cached_settings().mafia_talk_seconds)
         if mafia_started and mafia_duration > 0:
-            remaining = self.ctx.deadline("mafia_talk_started", "mafia_talk_duration", default_duration=settings.MAFIA_TALK_SECONDS)
+            remaining = self.ctx.deadline(
+                "mafia_talk_started",
+                "mafia_talk_duration",
+                default_duration=get_cached_settings().mafia_talk_seconds,
+            )
             return {"deadline": remaining}
 
         return None
@@ -352,7 +373,11 @@ class GameStateView:
         day_closing_uid = self.ctx.gint("day_closing_uid")
         day_current_uid = self.ctx.gint("day_current_uid")
         speeches_done = self.ctx.gbool("day_speeches_done")
-        remaining = self.ctx.deadline("day_speech_started", "day_speech_duration", default_duration=settings.PLAYER_TALK_SECONDS)
+        remaining = self.ctx.deadline(
+            "day_speech_started",
+            "day_speech_duration",
+            default_duration=get_cached_settings().player_talk_seconds,
+        )
 
         day_section: dict[str, Any] = {
             "number": day_number,
@@ -413,13 +438,17 @@ class GameStateView:
         vote_speeches_done = self.ctx.gbool("vote_speeches_done")
         vote_speech_uid = self.ctx.gint("vote_speech_uid")
         vote_speech_kind = self.ctx.gstr("vote_speech_kind")
-        vote_duration = self.ctx.gint("vote_duration", settings.VOTE_SECONDS)
+        vote_duration = self.ctx.gint("vote_duration", get_cached_settings().vote_seconds)
         vote_speech_duration = self.ctx.gint("vote_speech_duration")
 
         if vote_aborted or vote_results_ready:
             vote_current_uid = 0
 
-        remaining = self.ctx.deadline("vote_started", "vote_duration", default_duration=settings.VOTE_SECONDS)
+        remaining = self.ctx.deadline(
+            "vote_started",
+            "vote_duration",
+            default_duration=get_cached_settings().vote_seconds,
+        )
         speech_remaining = self.ctx.deadline("vote_speech_started", "vote_speech_duration")
 
         leaders = self.ctx.gcsv_ints("vote_leaders_order")
@@ -615,10 +644,11 @@ async def require_ctx(sid, *, namespace="/room", allowed_phases: str | Iterable[
 
 
 def get_positive_setting_int(attr: str, default: int) -> int:
-    try:
-        raw = getattr(settings, attr)
-    except Exception:
-        return int(default)
+    key = SETTING_MAP.get(attr)
+    if key:
+        raw = getattr(get_cached_settings(), key, None)
+    else:
+        raw = getattr(settings, attr, None)
 
     try:
         val = int(raw)
@@ -1322,7 +1352,7 @@ async def apply_day_visibility_unblock(r, rid: int, *, head_uid: int, player_ids
 
 async def schedule_foul_block(rid: int, target_uid: int, head_uid: int, duration: int | None = None, *, expected_until: int | None = None) -> None:
     try:
-        sec = int(duration if duration is not None else settings.PLAYER_FOUL_SECONDS)
+        sec = int(duration if duration is not None else get_cached_settings().player_foul_seconds)
     except Exception:
         sec = 3
 
@@ -1742,7 +1772,7 @@ async def advance_roles_turn(r, rid: int, *, auto: bool) -> None:
         cur_uid = remaining[0]
         started_at = now_ts
 
-    if auto and now_ts - started_at >= settings.ROLE_PICK_SECONDS:
+    if auto and now_ts - started_at >= get_cached_settings().role_pick_seconds:
         ok, role, _ = await assign_role_for_user(r, rid, cur_uid, card_index=None)
         if ok and role:
             card_idx: int | None = None
@@ -1776,7 +1806,7 @@ async def advance_roles_turn(r, rid: int, *, auto: bool) -> None:
             return
 
     seq = int(raw_state.get("roles_turn_seq") or 0) + 1
-    deadline_ts = started_at + settings.ROLE_PICK_SECONDS
+    deadline_ts = started_at + get_cached_settings().role_pick_seconds
     remaining_sec = max(deadline_ts - int(time()), 0)
 
     async with r.pipeline() as p:
@@ -2055,7 +2085,7 @@ async def compute_best_move_eligible(r, rid: int, victim_uid: int) -> bool:
         alive_cnt = int(await r.scard(f"room:{rid}:game_alive") or 0)
     except Exception:
         alive_cnt = 0
-    if alive_cnt < settings.GAME_MIN_READY_PLAYERS - 1:
+    if alive_cnt < get_cached_settings().game_min_ready_players - 1:
         return False
 
     try:
@@ -2817,7 +2847,7 @@ async def decide_vote_blocks_on_death(r, rid: int, raw_state: Mapping[str, Any],
         vote_duration = 0
     if vote_duration <= 0:
         try:
-            vote_duration = settings.VOTE_SECONDS
+            vote_duration = get_cached_settings().vote_seconds
         except Exception:
             vote_duration = 0
 
@@ -2954,7 +2984,7 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
     view = GameStateView(ctx, roles_map=roles_map, seats_map=seats_map)
     game_runtime: dict[str, Any] = {
         "phase": phase,
-        "min_ready": settings.GAME_MIN_READY_PLAYERS,
+        "min_ready": get_cached_settings().game_min_ready_players,
         "seats": seats_map,
         "players": list(players_set),
         "alive": list(alive_set),
