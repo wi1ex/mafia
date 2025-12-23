@@ -25,6 +25,7 @@ __all__ = [
     "build_room_members_for_info",
     "get_room_params_or_404",
     "touch_user_last_login",
+    "touch_user_last_visit",
     "validate_object_key_for_presign",
     "parse_month_range",
     "parse_day_range",
@@ -292,8 +293,13 @@ async def build_room_members_for_info(r, room_id: int) -> list[Dict[str, Any]]:
     return raw_members
 
 
-async def touch_user_last_login(db: AsyncSession, user_id: int) -> None:
+async def touch_user_last_login(db: AsyncSession, user_id: int) -> None:        
     await db.execute(update(User).where(User.id == user_id).values(last_login_at=func.now()))
+    await db.commit()
+
+
+async def touch_user_last_visit(db: AsyncSession, user_id: int) -> None:
+    await db.execute(update(User).where(User.id == user_id).values(last_visit_at=func.now()))
     await db.commit()
 
 

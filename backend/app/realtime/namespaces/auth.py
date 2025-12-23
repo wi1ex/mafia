@@ -3,6 +3,8 @@ import structlog
 from ..sio import sio
 from ..utils import validate_auth
 from ...core.clients import get_redis
+from ...core.db import SessionLocal
+from ...api.utils import touch_user_last_visit
 
 log = structlog.get_logger()
 
@@ -21,6 +23,11 @@ async def connect(sid, environ, auth):
         await r.sadd("online:users", str(uid))
     except Exception:
         log.warning("auth.connect.online_track_failed", uid=uid)
+    try:
+        async with SessionLocal() as s:
+            await touch_user_last_visit(s, uid)
+    except Exception:
+        log.warning("auth.connect.last_visit_failed", uid=uid)
     await sio.save_session(sid,
                            {"uid": uid},
                            namespace="/auth")
@@ -44,6 +51,11 @@ async def disconnect(sid):
     except Exception:
         cnt = 0
     if cnt <= 0:
+        try:
+            async with SessionLocal() as s:
+                await touch_user_last_visit(s, uid)
+        except Exception:
+            log.warning("auth.disconnect.last_visit_failed", uid=uid)
         try:
             async with r.pipeline() as p:
                 await p.delete(f"online:user:{uid}")

@@ -153,14 +153,6 @@
         </div>
 
         <div v-else-if="activeTab === 'stats'">
-          <div class="filters">
-            <label class="field">
-              <span>Месяц</span>
-              <input type="month" v-model="statsMonth" :disabled="statsLoading" />
-            </label>
-            <button class="btn dark" :disabled="statsLoading" @click="loadStats">Обновить</button>
-          </div>
-
           <div v-if="statsLoading" class="loading">Загрузка...</div>
           <div v-else class="stats">
             <div class="stats-grid">
@@ -204,6 +196,14 @@
               </div>
               <div class="chart-legend">Регистрации по дням</div>
             </div>
+          </div>
+
+          <div class="filters">
+            <label class="field">
+              <span>Месяц</span>
+              <input type="month" v-model="statsMonth" :disabled="statsLoading" />
+            </label>
+            <button class="btn dark" :disabled="statsLoading" @click="loadStats">Обновить</button>
           </div>
         </div>
 
@@ -854,10 +854,9 @@ onMounted(() => {
       align-items: flex-end;
       flex: 1 1 600px;
       flex-wrap: wrap;
-      gap: 5px;
       height: auto;
       .tab {
-        width: 220px;
+        width: 175px;
         height: 30px;
         border: none;
         border-radius: 5px 5px 0 0;
@@ -1071,7 +1070,7 @@ onMounted(() => {
       flex-wrap: wrap;
       align-items: flex-end;
       gap: 10px;
-      margin-bottom: 10px;
+      margin: 10px 0;
       .field {
         display: flex;
         flex-direction: column;
@@ -1141,6 +1140,7 @@ onMounted(() => {
             gap: 5px;
             width: 15px;
             flex: 0 0 15px;
+            height: 100%;
             .bar {
               width: 100%;
               background-color: $lead;
