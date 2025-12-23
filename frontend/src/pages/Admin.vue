@@ -196,12 +196,11 @@
                 </div>
                 <div class="filters">
                   <label class="field">
-                    <span>Месяц</span>
+                    <span>Отобразить за</span>
                     <input type="month" v-model="statsMonth" :disabled="statsLoading" />
                   </label>
                 </div>
               </div>
-              <div class="chart-legend">Количество зарегистрированных по дням</div>
             </div>
           </div>
         </div>
@@ -304,7 +303,7 @@
                   <th>Создана</th>
                   <th>Удалена</th>
                   <th>Посетители</th>
-                  <th>Время стрима (мин)</th>
+                  <th>Стримы (мин)</th>
                 </tr>
               </thead>
               <tbody>
@@ -394,13 +393,13 @@
                   <th>ID</th>
                   <th>Никнейм</th>
                   <th>Роль</th>
-                  <th>Дата регистрации</th>
+                  <th>Регистрация</th>
                   <th>Последний вход</th>
                   <th>Последний онлайн</th>
-                  <th>Комнат создано</th>
-                  <th>Время в комнатах (мин)</th>
-                  <th>Время стримов (мин)</th>
-                  <th>Администрирование</th>
+                  <th>Комнаты</th>
+                  <th>В комнатах (мин)</th>
+                  <th>Стримил (мин)</th>
+                  <th>Админка</th>
                 </tr>
               </thead>
               <tbody>
@@ -1081,7 +1080,7 @@ onMounted(() => {
             width: calc(100% - 22px);
             padding: 20px 10px 5px;
             border: 1px solid $lead;
-            border-radius: 5px 5px 0 0;
+            border-radius: 5px;
             background-color: $graphite;
             color: $fg;
             font-size: 16px;
@@ -1230,11 +1229,11 @@ onMounted(() => {
           background-color: $graphite;
           .label {
             font-size: 12px;
-            color: $grey;
+            color: $fg;
           }
           .value {
             font-size: 20px;
-            color: $fg;
+            color: $green;
           }
         }
       }
@@ -1278,7 +1277,7 @@ onMounted(() => {
             .bar {
               position: relative;
               width: 100%;
-              background-color: $lead;
+              background-color: $fg;
               border-radius: 3px 3px 0 0;
               transition: height 0.25s ease-in-out;
               .bar-value {
@@ -1296,11 +1295,6 @@ onMounted(() => {
               color: $grey;
             }
           }
-        }
-        .chart-legend {
-          margin-top: 10px;
-          font-size: 12px;
-          color: $grey;
         }
       }
     }
@@ -1421,5 +1415,61 @@ onMounted(() => {
 }
 
 @media (max-width: 1280px) {
+  .admin {
+    header {
+      .tabs {
+        .tab {
+          height: 25px;
+          font-size: 12px;
+          &.active {
+            height: 30px;
+          }
+        }
+      }
+    }
+    .btn {
+      padding: 0 5px;
+      gap: 3px;
+      height: 25px;
+      font-size: 14px;
+      &.nav {
+        padding: 0 10px;
+        font-size: 12px;
+      }
+      .btn-img {
+        width: 16px;
+        height: 16px;
+      }
+    }
+    .tab-panel {
+      .stats {
+        .chart {
+          padding: 5px;
+          .chart-grid {
+            gap: 3px;
+          }
+        }
+      }
+      .table {
+        th {
+          padding: 3px;
+          font-size: 12px;
+        }
+        td {
+          padding: 3px;
+          font-size: 10px;
+        }
+        .user-avatar {
+          width: 16px;
+          height: 16px;
+        }
+        .tooltip {
+          .tooltip-body {
+            padding: 5px;
+          }
+        }
+      }
+    }
+  }
 }
 </style>
