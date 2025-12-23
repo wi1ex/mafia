@@ -624,7 +624,7 @@ function formatRoomGame(row: RoomRow): string {
 
 function registrationHeight(count: number): string {
   const max = registrationsMax.value || 1
-  const pct = Math.round((count / max) * 100)
+  const pct = Math.round((count / max) * 85)
   return `${Math.max(2, pct)}%`
 }
 
