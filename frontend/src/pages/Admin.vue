@@ -83,9 +83,10 @@
                 <label for="rooms-limit-user">Лимит комнат на пользователя</label>
               </div>
             </div>
-          </div>
-          <div class="form-actions">
-            <button class="btn dark" :disabled="savingSite || !isSiteDirty" @click="saveSite">Сохранить</button>
+
+            <div class="form-actions">
+              <button class="btn confirm" :disabled="savingSite || !isSiteDirty" @click="saveSite">Сохранить</button>
+            </div>
           </div>
         </div>
 
@@ -137,8 +138,9 @@
               <label for="vote-seconds">Голосование (сек)</label>
             </div>
           </div>
+
           <div class="form-actions">
-            <button class="btn dark" :disabled="savingGame || !isGameDirty" @click="saveGame">Сохранить</button>
+            <button class="btn confirm" :disabled="savingGame || !isGameDirty" @click="saveGame">Сохранить</button>
           </div>
         </div>
 
@@ -209,7 +211,7 @@
             </label>
             <label class="field">
               <span>Никнейм</span>
-              <input type="text" v-model.trim="logsUser" :disabled="logsLoading" placeholder="Ник" />
+              <input type="text" v-model.trim="logsUser" :disabled="logsLoading" placeholder="Никнейм" />
             </label>
             <label class="field">
               <span>Дата</span>
@@ -259,7 +261,7 @@
           <div class="filters">
             <label class="field">
               <span>Никнейм</span>
-              <input type="text" v-model.trim="roomsUser" :disabled="roomsLoading" placeholder="Ник" />
+              <input type="text" v-model.trim="roomsUser" :disabled="roomsLoading" placeholder="Никнейм" />
             </label>
             <label class="field">
               <span>Наличие стримов</span>
@@ -302,8 +304,32 @@
                   <td>{{ formatRoomGame(row) }}</td>
                   <td>{{ formatDateTime(row.created_at) }}</td>
                   <td>{{ row.deleted_at ? formatDateTime(row.deleted_at) : '-' }}</td>
-                  <td>{{ row.visitors_count }}</td>
-                  <td>{{ row.stream_minutes }}</td>
+                  <td>
+                    <div class="tooltip" tabindex="0">
+                      <span class="tooltip-value">{{ row.visitors_count }}</span>
+                      <div class="tooltip-body">
+                        <div v-if="row.visitors.length === 0" class="tooltip-empty">Нет данных</div>
+                        <div v-else class="tooltip-list">
+                          <div v-for="item in row.visitors" :key="`visitor-${row.id}-${item.id}`" class="tooltip-row">
+                            {{ formatRoomUserStat(item) }}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="tooltip" tabindex="0">
+                      <span class="tooltip-value">{{ row.stream_minutes }}</span>
+                      <div class="tooltip-body">
+                        <div v-if="row.streamers.length === 0" class="tooltip-empty">Нет данных</div>
+                        <div v-else class="tooltip-list">
+                          <div v-for="item in row.streamers" :key="`stream-${row.id}-${item.id}`" class="tooltip-row">
+                            {{ formatRoomUserStat(item) }}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </td>
                 </tr>
                 <tr v-if="rooms.length === 0">
                   <td colspan="9" class="muted">Нет данных</td>
@@ -322,7 +348,7 @@
           <div class="filters">
             <label class="field">
               <span>Никнейм</span>
-              <input type="text" v-model.trim="usersUser" :disabled="usersLoading" placeholder="Ник" />
+              <input type="text" v-model.trim="usersUser" :disabled="usersLoading" placeholder="Никнейм" />
             </label>
             <label class="field">
               <span>Отображать по</span>
@@ -362,7 +388,7 @@
                   <td>{{ row.room_minutes }}</td>
                   <td>{{ row.stream_minutes }}</td>
                   <td>
-                    <button class="btn dark" :disabled="usersRoleBusy[row.id]" @click="toggleUserRole(row)">
+                    <button class="btn danger" :disabled="usersRoleBusy[row.id]" @click="toggleUserRole(row)">
                       {{ row.role === 'admin' ? 'Снять ADMIN' : 'Выдать ADMIN' }}
                     </button>
                   </td>
@@ -433,6 +459,12 @@ type LogRow = {
   created_at: string
 }
 
+type RoomUserStat = {
+  id: number
+  username?: string | null
+  minutes: number
+}
+
 type RoomRow = {
   id: number
   creator: number
@@ -446,7 +478,9 @@ type RoomRow = {
   game_format: string
   spectators_limit: number
   visitors_count: number
+  visitors: RoomUserStat[]
   stream_minutes: number
+  streamers: RoomUserStat[]
   has_stream: boolean
 }
 
@@ -536,6 +570,17 @@ function normalizeInt(value: number): number {
   return Number.isFinite(value) ? value : 0
 }
 
+function normalizeRoomUsers(value: unknown): RoomUserStat[] {
+  if (!Array.isArray(value)) return []
+  return value
+    .map((item: any) => ({
+      id: Number(item?.id) || 0,
+      username: item?.username ?? null,
+      minutes: Number(item?.minutes) || 0,
+    }))
+    .filter(item => item.id > 0)
+}
+
 function snapshotSite(): string {
   return JSON.stringify({
     registration_enabled: Boolean(site.registration_enabled),
@@ -600,6 +645,11 @@ function formatRoomGame(row: RoomRow): string {
   const judge = row.game_format === 'nohost' ? 'Авто' : 'Ведущий'
   const spectators = Number.isFinite(row.spectators_limit) ? row.spectators_limit : 0
   return `Режим: ${mode}, Судья: ${judge}, Зрители: ${spectators}`
+}
+
+function formatRoomUserStat(item: RoomUserStat): string {
+  const minutes = Number.isFinite(item.minutes) ? item.minutes : 0
+  return `ID ${item.id} | ${item.username || '-'} | ${minutes} мин`
 }
 
 function registrationHeight(count: number): string {
@@ -723,7 +773,12 @@ async function loadRooms(): Promise<void> {
     }
     if (roomsUser.value) params.username = roomsUser.value
     const { data } = await api.get('/admin/rooms', { params })
-    rooms.value = Array.isArray(data?.items) ? data.items : []
+    const items = Array.isArray(data?.items) ? data.items : []
+    rooms.value = items.map((item: any) => ({
+      ...item,
+      visitors: normalizeRoomUsers(item?.visitors),
+      streamers: normalizeRoomUsers(item?.streamers),
+    }))
     roomsTotal.value = Number.isFinite(data?.total) ? data.total : 0
   } catch {
     void alertDialog('Не удалось загрузить комнаты')
@@ -889,10 +944,10 @@ onMounted(() => {
     .tabs {
       display: flex;
       align-items: flex-end;
-      width: 85%;
+      width: 80%;
       height: 30px;
       .tab {
-        width: 175px;
+        width: 200px;
         height: 30px;
         border: none;
         border-radius: 5px 5px 0 0;
@@ -1091,13 +1146,10 @@ onMounted(() => {
         }
       }
       .form-actions {
+        display: flex;
+        justify-content: flex-end;
         grid-column: 1 / -1;
       }
-    }
-    .form-actions {
-      margin-top: 10px;
-      display: flex;
-      justify-content: flex-end;
     }
     .filters {
       display: flex;
@@ -1225,19 +1277,64 @@ onMounted(() => {
       border-collapse: collapse;
       color: $fg;
       font-family: Manrope-Medium;
-      th,
-      td {
+      th {
         padding: 10px;
         border-bottom: 1px solid $lead;
-        vertical-align: top;
-      }
-      th {
         font-size: 16px;
         color: $grey;
         text-align: left;
       }
       td {
+        padding: 10px;
+        border-bottom: 1px solid $lead;
         font-size: 14px;
+      }
+      .tooltip {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        cursor: default;
+        .tooltip-value {
+          border-bottom: 1px dashed $grey;
+        }
+        .tooltip-body {
+          position: absolute;
+          top: calc(100% + 10px);
+          left: 0;
+          min-width: 220px;
+          max-width: 320px;
+          max-height: 200px;
+          overflow: auto;
+          padding: 10px;
+          border: 1px solid $lead;
+          border-radius: 5px;
+          background-color: $graphite;
+          box-shadow: 0 5px 15px rgba($black, 0.25);
+          opacity: 0;
+          transform: translateY(-5px);
+          pointer-events: none;
+          transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
+          z-index: 10;
+        }
+        .tooltip-list {
+          display: flex;
+          flex-direction: column;
+          gap: 5px;
+        }
+        .tooltip-row {
+          font-size: 12px;
+          color: $fg;
+        }
+        .tooltip-empty {
+          font-size: 12px;
+          color: $grey;
+        }
+        &:hover .tooltip-body,
+        &:focus-within .tooltip-body {
+          opacity: 1;
+          transform: translateY(0);
+          pointer-events: auto;
+        }
       }
     }
     .pager {

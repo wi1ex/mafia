@@ -23,6 +23,7 @@ from ...schemas.admin import (
     AdminLogOut,
     AdminLogsOut,
     AdminLogActionsOut,
+    AdminRoomUserStat,
     AdminRoomOut,
     AdminRoomsOut,
     AdminUserOut,
@@ -240,8 +241,33 @@ async def rooms_list(page: int = 1, limit: int = 20, username: str | None = None
 
     total = int(await session.scalar(select(func.count(Room.id)).where(*filters)) or 0)
     rows = await session.execute(query.order_by(Room.created_at.desc(), Room.id.desc()).offset(offset).limit(limit))
+    rooms = rows.scalars().all()
+    user_ids: set[int] = set()
+    for room in rooms:
+        if isinstance(room.visitors, dict):
+            for k in room.visitors.keys():
+                try:
+                    user_ids.add(int(k))
+                except Exception:
+                    continue
+        if isinstance(room.screen_time, dict):
+            for k in room.screen_time.keys():
+                try:
+                    user_ids.add(int(k))
+                except Exception:
+                    continue
+
+    name_map: dict[int, str | None] = {}
+    if user_ids:
+        rows_users = await session.execute(select(User.id, User.username).where(User.id.in_(user_ids)))
+        for uid, username in rows_users.all():
+            try:
+                name_map[int(uid)] = username
+            except Exception:
+                continue
+
     items: list[AdminRoomOut] = []
-    for room in rows.scalars().all():
+    for room in rooms:
         visitors_count = len(room.visitors or {})
         stream_seconds = 0
         for v in (room.screen_time or {}).values():
@@ -256,6 +282,36 @@ async def rooms_list(page: int = 1, limit: int = 20, username: str | None = None
             spectators_limit = int(game.get("spectators_limit") or 0)
         except Exception:
             spectators_limit = 0
+        visitors_items: list[AdminRoomUserStat] = []
+        raw_visitors = room.visitors or {}
+        if isinstance(raw_visitors, dict):
+            for k, v in raw_visitors.items():
+                try:
+                    uid = int(k)
+                except Exception:
+                    continue
+                try:
+                    minutes = int(v or 0) // 60
+                except Exception:
+                    minutes = 0
+                visitors_items.append(AdminRoomUserStat(id=uid, username=name_map.get(uid), minutes=minutes))
+        visitors_items.sort(key=lambda item: item.minutes, reverse=True)
+
+        stream_items: list[AdminRoomUserStat] = []
+        raw_stream = room.screen_time or {}
+        if isinstance(raw_stream, dict):
+            for k, v in raw_stream.items():
+                try:
+                    uid = int(k)
+                except Exception:
+                    continue
+                try:
+                    minutes = int(v or 0) // 60
+                except Exception:
+                    minutes = 0
+                stream_items.append(AdminRoomUserStat(id=uid, username=name_map.get(uid), minutes=minutes))
+        stream_items.sort(key=lambda item: item.minutes, reverse=True)
+
         items.append(
             AdminRoomOut(
                 id=room.id,
@@ -270,7 +326,9 @@ async def rooms_list(page: int = 1, limit: int = 20, username: str | None = None
                 game_format=game_format,
                 spectators_limit=spectators_limit,
                 visitors_count=visitors_count,
+                visitors=visitors_items,
                 stream_minutes=stream_seconds // 60,
+                streamers=stream_items,
                 has_stream=stream_seconds > 0,
             )
         )

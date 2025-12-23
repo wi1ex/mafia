@@ -86,6 +86,12 @@ class AdminLogActionsOut(BaseModel):
     actions: List[str]
 
 
+class AdminRoomUserStat(BaseModel):
+    id: int
+    username: Optional[str] = None
+    minutes: int
+
+
 class AdminRoomOut(BaseModel):
     id: int
     creator: int
@@ -99,7 +105,9 @@ class AdminRoomOut(BaseModel):
     game_format: str
     spectators_limit: int
     visitors_count: int
+    visitors: List[AdminRoomUserStat]
     stream_minutes: int
+    streamers: List[AdminRoomUserStat]
     has_stream: bool
 
 
