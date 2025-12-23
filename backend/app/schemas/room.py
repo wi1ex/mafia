@@ -23,6 +23,10 @@ class GameParams(BaseModel):
     mode: Literal["normal", "rating"] = "normal"
     format: Literal["hosted", "nohost"] = "hosted"
     spectators_limit: int = Field(ge=0, le=10, default=0)
+    break_at_zero: bool = Field(default=True)
+    lift_2x_at_zero: bool = Field(default=True)
+    lift_3x: bool = Field(default=True)
+    lift_5x: bool = Field(default=True)
 
 
 class RoomCreateIn(BaseModel):

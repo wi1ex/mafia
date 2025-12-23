@@ -7,6 +7,9 @@
 
     <div v-if="!auth.isAuthed && !auth.foreignActive">
       <div v-if="settings.registrationEnabled" id="tg-login" />
+      <div v-else class="btn">
+        <span>Авторизация временно отключена</span>
+      </div>
     </div>
     <div v-else-if="!auth.isAuthed && auth.foreignActive" class="btn">
       <span>Вы уже авторизованы в соседней вкладке</span>

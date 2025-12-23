@@ -825,18 +825,21 @@ async def get_positions_map(r, rid: int) -> Dict[str, int]:
 
 
 def build_game_from_raw(raw_game: Mapping[str, Any]) -> Dict[str, Any]:
-    # def b1(v: Any, default_true: bool = True) -> str:
-    #     default = "1" if default_true else "0"
-    #     return "1" if str((v if v is not None else default)).strip() in ("1", "true", "True") else "0"
+    def b1(v: Any, default: bool = True) -> bool:
+        if v is None:
+            return default
+        if isinstance(v, bool):
+            return v
+        return str(v).strip().lower() in ("1", "true")
 
     return {
         "mode": str(raw_game.get("mode") or "normal"),
         "format": str(raw_game.get("format") or "hosted"),
         "spectators_limit": int(raw_game.get("spectators_limit") or 0),
-        # "vote_at_zero": b1(raw_game.get("vote_at_zero"), True),
-        # "vote_three": b1(raw_game.get("vote_three"), True),
-        # "speech30_at_3_fouls": b1(raw_game.get("speech30_at_3_fouls"), True),
-        # "extra30_at_2_fouls": b1(raw_game.get("extra30_at_2_fouls"), True),
+        "break_at_zero": b1(raw_game.get("break_at_zero"), True),
+        "lift_2x_at_zero": b1(raw_game.get("lift_2x_at_zero"), True),
+        "lift_3x": b1(raw_game.get("lift_3x"), True),
+        "lift_5x": b1(raw_game.get("lift_5x"), True),
     }
 
 

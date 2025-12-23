@@ -47,14 +47,6 @@
             </div>
 
             <div v-else key="game" class="params">
-              <div class="range is-disabled">
-                <span>Лимит зрителей: {{ game.spectators_limit }}/{{ SPECT_MAX }}</span>
-                <div class="range-wrap">
-                  <div class="range-track" :style="rangeSpectFillStyle" aria-hidden="true"></div>
-                  <input class="range-native" type="range" :min="SPECT_MIN" :max="SPECT_MAX" step="1" v-model.number="game.spectators_limit" disabled aria-label="Лимит зрителей" />
-                </div>
-              </div>
-
               <div class="switch">
                 <span>Режим:</span>
                 <label>
@@ -73,6 +65,58 @@
                   <div class="slider">
                     <span>Ведущий</span>
                     <span>Авто</span>
+                  </div>
+                </label>
+              </div>
+
+              <div class="range is-disabled">
+                <span>Лимит зрителей: {{ game.spectators_limit }}/{{ SPECT_MAX }}</span>
+                <div class="range-wrap">
+                  <div class="range-track" :style="rangeSpectFillStyle" aria-hidden="true"></div>
+                  <input class="range-native" type="range" :min="SPECT_MIN" :max="SPECT_MAX" step="1" v-model.number="game.spectators_limit" disabled aria-label="Лимит зрителей" />
+                </div>
+              </div>
+
+              <div class="switch">
+                <span>Слом в нуле:</span>
+                <label>
+                  <input type="checkbox" v-model="game.break_at_zero" aria-label="Слом в нуле" />
+                  <div class="slider">
+                    <span>Откл</span>
+                    <span>Вкл</span>
+                  </div>
+                </label>
+              </div>
+
+              <div class="switch">
+                <span>Подъем 2х в нуле:</span>
+                <label>
+                  <input type="checkbox" v-model="game.lift_2x_at_zero" aria-label="Подъем 2х в нуле" />
+                  <div class="slider">
+                    <span>Откл</span>
+                    <span>Вкл</span>
+                  </div>
+                </label>
+              </div>
+
+              <div class="switch">
+                <span>Подъем 3х:</span>
+                <label>
+                  <input type="checkbox" v-model="game.lift_3x" aria-label="Подъем 3х" />
+                  <div class="slider">
+                    <span>Откл</span>
+                    <span>Вкл</span>
+                  </div>
+                </label>
+              </div>
+
+              <div class="switch">
+                <span>Подъем 5х:</span>
+                <label>
+                  <input type="checkbox" v-model="game.lift_5x" aria-label="Подъем 5х" />
+                  <div class="slider">
+                    <span>Откл</span>
+                    <span>Вкл</span>
                   </div>
                 </label>
               </div>
@@ -149,11 +193,19 @@ type Game = {
   mode: 'normal' | 'rating'
   format: 'hosted' | 'nohost'
   spectators_limit: number
+  break_at_zero: boolean
+  lift_2x_at_zero: boolean
+  lift_3x: boolean
+  lift_5x: boolean
 }
 const gameDefault: Game = {
   mode: 'normal',
   format: 'hosted',
   spectators_limit: 0,
+  break_at_zero: true,
+  lift_2x_at_zero: true,
+  lift_3x: true,
+  lift_5x: true,
 }
 const initialGame: Game = (() => {
   try {

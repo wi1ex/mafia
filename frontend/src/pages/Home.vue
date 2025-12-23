@@ -5,7 +5,7 @@
         <div class="rooms-text">
           <span>Список комнат</span>
         </div>
-        <button v-if="auth.isAuthed && settings.roomsCanCreate" @click="openCreate = true">Создать комнату</button>
+        <button @click="openCreate = true" :disabled="!settings.roomsCanCreate || !auth.isAuthed">Создать комнату</button>
       </header>
 
       <Transition name="overlay">
@@ -90,6 +90,22 @@
                   <span>Лимит зрителей</span>
                   <span>{{ game.spectators_limit }}</span>
                 </div>
+                <div class="ri-game-div">
+                  <span>Слом в нуле</span>
+                  <span>{{ game.break_at_zero ? 'Вкл' : 'Откл' }}</span>
+                </div>
+                <div class="ri-game-div">
+                  <span>Подъем 2х в нуле</span>
+                  <span>{{ game.lift_2x_at_zero ? 'Вкл' : 'Откл' }}</span>
+                </div>
+                <div class="ri-game-div">
+                  <span>Подъем 3х</span>
+                  <span>{{ game.lift_3x ? 'Вкл' : 'Откл' }}</span>
+                </div>
+                <div class="ri-game-div">
+                  <span>Подъем 5х</span>
+                  <span>{{ game.lift_5x ? 'Вкл' : 'Откл' }}</span>
+                </div>
               </div>
             </div>
 
@@ -169,6 +185,10 @@ type Game = {
   mode: 'normal' | 'rating'
   format: 'hosted' | 'nohost'
   spectators_limit: number
+  break_at_zero: boolean
+  lift_2x_at_zero: boolean
+  lift_3x: boolean
+  lift_5x: boolean
 }
 type Access = 'approved'|'pending'|'none'
 
