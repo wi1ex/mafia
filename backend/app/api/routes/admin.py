@@ -123,16 +123,10 @@ async def site_stats(month: str | None = None, session: AsyncSession = Depends(g
         registrations.append(RegistrationsPoint(date=key, count=reg_map.get(key, 0)))
         day_cursor = day_cursor + timedelta(days=1)
 
-    total_room_seconds = 0
     total_stream_seconds = 0
     rooms_rows = await session.execute(select(Room.created_at, Room.deleted_at, Room.screen_time))
     now_dt = datetime.now(timezone.utc)
     for created_at, deleted_at, screen_time in rooms_rows.all():
-        try:
-            end_ts = deleted_at or now_dt
-            total_room_seconds += int((end_ts - created_at).total_seconds())
-        except Exception:
-            pass
         if isinstance(screen_time, dict):
             for v in screen_time.values():
                 try:
@@ -164,7 +158,6 @@ async def site_stats(month: str | None = None, session: AsyncSession = Depends(g
         total_users=total_users,
         registrations=registrations,
         total_rooms=total_rooms,
-        total_room_minutes=total_room_seconds // 60,
         total_stream_minutes=total_stream_seconds // 60,
         active_rooms=active_rooms,
         active_room_users=active_room_users,
@@ -240,7 +233,7 @@ async def rooms_list(page: int = 1, limit: int = 20, username: str | None = None
         filters.append(or_(*user_filters))
 
     if stream_only:
-        filters.append(func.jsonb_object_length(Room.screen_time) > 0)
+        filters.append(Room.screen_time != {})
 
     if filters:
         query = query.where(*filters)

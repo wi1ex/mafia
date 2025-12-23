@@ -62,7 +62,6 @@ class SiteStatsOut(BaseModel):
     total_users: int
     registrations: List[RegistrationsPoint]
     total_rooms: int
-    total_room_minutes: int
     total_stream_minutes: int
     active_rooms: int
     active_room_users: int

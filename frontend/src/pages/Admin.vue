@@ -43,8 +43,8 @@
                 <label>
                   <input type="checkbox" v-model="site.registration_enabled" :disabled="savingSite" aria-label="Регистрация" />
                   <div class="slider">
-                    <span>Нет</span>
-                    <span>Да</span>
+                    <span>Откл</span>
+                    <span>Вкл</span>
                   </div>
                 </label>
               </div>
@@ -53,8 +53,8 @@
                 <label>
                   <input type="checkbox" v-model="site.rooms_can_create" :disabled="savingSite" aria-label="Создание комнат" />
                   <div class="slider">
-                    <span>Нет</span>
-                    <span>Да</span>
+                    <span>Откл</span>
+                    <span>Вкл</span>
                   </div>
                 </label>
               </div>
@@ -63,8 +63,8 @@
                 <label>
                   <input type="checkbox" v-model="site.games_can_start" :disabled="savingSite" aria-label="Запуск игр" />
                   <div class="slider">
-                    <span>Нет</span>
-                    <span>Да</span>
+                    <span>Откл</span>
+                    <span>Вкл</span>
                   </div>
                 </label>
               </div>
@@ -95,7 +95,7 @@
             <div class="ui-input" :class="{ filled: Number.isFinite(game.game_min_ready_players) }">
               <input id="game-min-ready" v-model.number="game.game_min_ready_players" type="number" min="1" step="1"
                      placeholder=" " autocomplete="off" inputmode="numeric" :disabled="savingGame" />
-              <label for="game-min-ready">Минимум готовых игроков</label>
+              <label for="game-min-ready">Количество игроков для старта</label>
             </div>
             <div class="ui-input" :class="{ filled: Number.isFinite(game.role_pick_seconds) }">
               <input id="role-pick-seconds" v-model.number="game.role_pick_seconds" type="number" min="1" step="1"
@@ -105,12 +105,12 @@
             <div class="ui-input" :class="{ filled: Number.isFinite(game.mafia_talk_seconds) }">
               <input id="mafia-talk-seconds" v-model.number="game.mafia_talk_seconds" type="number" min="1" step="1"
                      placeholder=" " autocomplete="off" inputmode="numeric" :disabled="savingGame" />
-              <label for="mafia-talk-seconds">Обсуждение мафии (сек)</label>
+              <label for="mafia-talk-seconds">Договорка мафии (сек)</label>
             </div>
             <div class="ui-input" :class="{ filled: Number.isFinite(game.night_action_seconds) }">
               <input id="night-action-seconds" v-model.number="game.night_action_seconds" type="number" min="1" step="1"
                      placeholder=" " autocomplete="off" inputmode="numeric" :disabled="savingGame" />
-              <label for="night-action-seconds">Ночные действия (сек)</label>
+              <label for="night-action-seconds">Отстрелы и проверки (сек)</label>
             </div>
           </div>
 
@@ -124,7 +124,7 @@
             <div class="ui-input" :class="{ filled: Number.isFinite(game.player_talk_short_seconds) }">
               <input id="player-talk-short-seconds" v-model.number="game.player_talk_short_seconds" type="number"
                      min="1" step="1" placeholder=" " autocomplete="off" inputmode="numeric" :disabled="savingGame" />
-              <label for="player-talk-short-seconds">Короткая речь (сек)</label>
+              <label for="player-talk-short-seconds">Речь при 3х фолах (сек)</label>
             </div>
             <div class="ui-input" :class="{ filled: Number.isFinite(game.player_foul_seconds) }">
               <input id="player-foul-seconds" v-model.number="game.player_foul_seconds" type="number" min="1" step="1"
@@ -147,19 +147,15 @@
           <div v-else class="stats">
             <div class="stats-grid">
               <div class="stat-card">
-                <span class="label">Пользователи</span>
+                <span class="label">Всего пользователей</span>
                 <span class="value">{{ stats.total_users }}</span>
               </div>
               <div class="stat-card">
-                <span class="label">Комнаты (всего)</span>
+                <span class="label">Всего комнат</span>
                 <span class="value">{{ stats.total_rooms }}</span>
               </div>
               <div class="stat-card">
-                <span class="label">Минуты комнат</span>
-                <span class="value">{{ stats.total_room_minutes }}</span>
-              </div>
-              <div class="stat-card">
-                <span class="label">Минуты трансляций</span>
+                <span class="label">Всего стримов (мин)</span>
                 <span class="value">{{ stats.total_stream_minutes }}</span>
               </div>
               <div class="stat-card">
@@ -171,7 +167,7 @@
                 <span class="value">{{ stats.active_room_users }}</span>
               </div>
               <div class="stat-card">
-                <span class="label">Онлайн на сайте</span>
+                <span class="label">Онлайн</span>
                 <span class="value">{{ stats.online_users }}</span>
               </div>
             </div>
@@ -197,7 +193,7 @@
                   </label>
                 </div>
               </div>
-              <div class="chart-legend">Регистрации по дням</div>
+              <div class="chart-legend">Количество зарегистрированных по дням</div>
             </div>
           </div>
         </div>
@@ -205,14 +201,14 @@
         <div v-else-if="activeTab === 'logs'">
           <div class="filters">
             <label class="field">
-              <span>Action</span>
+              <span>Событие</span>
               <select v-model="logsAction" :disabled="logsLoading">
                 <option value="all">Все</option>
                 <option v-for="act in logActions" :key="act" :value="act">{{ act }}</option>
               </select>
             </label>
             <label class="field">
-              <span>Ник</span>
+              <span>Никнейм</span>
               <input type="text" v-model.trim="logsUser" :disabled="logsLoading" placeholder="Ник" />
             </label>
             <label class="field">
@@ -220,7 +216,7 @@
               <input type="date" v-model="logsDay" :disabled="logsLoading" />
             </label>
             <label class="field">
-              <span>Показать</span>
+              <span>Отображать по</span>
               <select v-model.number="logsLimit" :disabled="logsLoading">
                 <option :value="20">20</option>
                 <option :value="100">100</option>
@@ -234,9 +230,9 @@
               <thead>
                 <tr>
                   <th>Дата</th>
-                  <th>Ник</th>
-                  <th>Action</th>
-                  <th>Details</th>
+                  <th>Никнейм</th>
+                  <th>Событие</th>
+                  <th>Описание</th>
                 </tr>
               </thead>
               <tbody>
@@ -262,18 +258,18 @@
         <div v-else-if="activeTab === 'rooms'">
           <div class="filters">
             <label class="field">
-              <span>Ник</span>
+              <span>Никнейм</span>
               <input type="text" v-model.trim="roomsUser" :disabled="roomsLoading" placeholder="Ник" />
             </label>
             <label class="field">
-              <span>Трансляции</span>
+              <span>Наличие стримов</span>
               <select v-model="roomsStreamOnly" :disabled="roomsLoading">
-                <option :value="false">Все</option>
-                <option :value="true">Только с трансляцией</option>
+                <option :value="false">Все комнаты</option>
+                <option :value="true">Только со стримом</option>
               </select>
             </label>
             <label class="field">
-              <span>Показать</span>
+              <span>Отображать по</span>
               <select v-model.number="roomsLimit" :disabled="roomsLoading">
                 <option :value="20">20</option>
                 <option :value="100">100</option>
@@ -294,7 +290,7 @@
                   <th>Создана</th>
                   <th>Удалена</th>
                   <th>Посетители</th>
-                  <th>Мин. стрима</th>
+                  <th>Время стрима (мин)</th>
                 </tr>
               </thead>
               <tbody>
@@ -325,11 +321,11 @@
         <div v-else>
           <div class="filters">
             <label class="field">
-              <span>Ник</span>
+              <span>Никнейм</span>
               <input type="text" v-model.trim="usersUser" :disabled="usersLoading" placeholder="Ник" />
             </label>
             <label class="field">
-              <span>Показать</span>
+              <span>Отображать по</span>
               <select v-model.number="usersLimit" :disabled="usersLoading">
                 <option :value="20">20</option>
                 <option :value="100">100</option>
@@ -343,15 +339,15 @@
               <thead>
                 <tr>
                   <th>ID</th>
-                  <th>Ник</th>
+                  <th>Никнейм</th>
                   <th>Роль</th>
-                  <th>Регистрация</th>
+                  <th>Дата регистрации</th>
                   <th>Последний вход</th>
                   <th>Последний онлайн</th>
                   <th>Комнат создано</th>
-                  <th>Мин. в комнатах</th>
-                  <th>Мин. стрима</th>
-                  <th>Действие</th>
+                  <th>Время в комнатах (мин)</th>
+                  <th>Время стримов (мин)</th>
+                  <th>Администрирование</th>
                 </tr>
               </thead>
               <tbody>
@@ -422,7 +418,6 @@ type SiteStats = {
   total_users: number
   registrations: RegistrationPoint[]
   total_rooms: number
-  total_room_minutes: number
   total_stream_minutes: number
   active_rooms: number
   active_room_users: number
@@ -505,7 +500,6 @@ const stats = reactive<SiteStats>({
   total_users: 0,
   registrations: [],
   total_rooms: 0,
-  total_room_minutes: 0,
   total_stream_minutes: 0,
   active_rooms: 0,
   active_room_users: 0,
@@ -676,7 +670,6 @@ async function loadStats(): Promise<void> {
       total_users: data?.total_users ?? 0,
       registrations: Array.isArray(data?.registrations) ? data.registrations : [],
       total_rooms: data?.total_rooms ?? 0,
-      total_room_minutes: data?.total_room_minutes ?? 0,
       total_stream_minutes: data?.total_stream_minutes ?? 0,
       active_rooms: data?.active_rooms ?? 0,
       active_room_users: data?.active_room_users ?? 0,
@@ -882,9 +875,11 @@ onMounted(() => {
 .admin {
   display: flex;
   flex-direction: column;
-  margin: 0 10px;
+  margin: 0 10px 10px;
   padding: 10px;
   border-radius: 5px;
+  overflow-x: hidden;
+  scrollbar-width: none;
   background-color: $dark;
   header {
     display: flex;
