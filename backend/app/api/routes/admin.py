@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import cast
-from datetime import date, datetime, timezone, timedelta
+from datetime import date
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,11 +19,9 @@ from ...schemas.admin import (
     GameSettingsUpdateIn,
     PublicSettingsOut,
     SiteStatsOut,
-    RegistrationsPoint,
     AdminLogOut,
     AdminLogsOut,
     AdminLogActionsOut,
-    AdminRoomUserStat,
     AdminRoomOut,
     AdminRoomsOut,
     AdminUserOut,
@@ -36,6 +34,18 @@ from ..utils import (
     parse_day_range,
     site_settings_out,
     game_settings_out,
+    normalize_pagination,
+    build_registrations_series,
+    calc_total_stream_seconds,
+    fetch_active_rooms_stats,
+    fetch_online_users_count,
+    fetch_user_avatar_map,
+    fetch_user_name_avatar_maps,
+    collect_room_user_ids,
+    parse_room_game_params,
+    build_room_user_stats,
+    sum_room_stream_seconds,
+    aggregate_user_room_stats,
 )
 
 router = APIRouter()
@@ -102,58 +112,12 @@ async def site_stats(month: str | None = None, session: AsyncSession = Depends(g
 
     total_users = int(await session.scalar(select(func.count(User.id))) or 0)
     total_rooms = int(await session.scalar(select(func.count(Room.id))) or 0)
-
-    rows = await session.execute(
-        select(func.date_trunc("day", User.registered_at).label("day"), func.count(User.id))
-        .where(User.registered_at >= start_dt, User.registered_at < end_dt)
-        .group_by("day")
-        .order_by("day")
-    )
-    reg_map: dict[str, int] = {}
-    for day, cnt in rows.all():
-        try:
-            reg_map[day.date().isoformat()] = int(cnt or 0)
-        except Exception:
-            continue
-
-    registrations: list[RegistrationsPoint] = []
-    day_cursor = start_dt.date()
-    end_date = (end_dt - timedelta(days=1)).date()
-    while day_cursor <= end_date:
-        key = day_cursor.isoformat()
-        registrations.append(RegistrationsPoint(date=key, count=reg_map.get(key, 0)))
-        day_cursor = day_cursor + timedelta(days=1)
-
-    total_stream_seconds = 0
-    rooms_rows = await session.execute(select(Room.created_at, Room.deleted_at, Room.screen_time))
-    now_dt = datetime.now(timezone.utc)
-    for created_at, deleted_at, screen_time in rooms_rows.all():
-        if isinstance(screen_time, dict):
-            for v in screen_time.values():
-                try:
-                    total_stream_seconds += int(v or 0)
-                except Exception:
-                    continue
+    registrations = await build_registrations_series(session, start_dt, end_dt)
+    total_stream_seconds = await calc_total_stream_seconds(session)
 
     r = get_redis()
-    rids = await r.zrange("rooms:index", 0, -1)
-    active_rooms = 0
-    active_room_users = 0
-    if rids:
-        async with r.pipeline() as p:
-            for rid in rids:
-                await p.scard(f"room:{int(rid)}:members")
-            counts = await p.execute()
-        for cnt in counts:
-            try:
-                val = int(cnt or 0)
-            except Exception:
-                val = 0
-            if val > 0:
-                active_rooms += 1
-                active_room_users += val
-
-    online_users = int(await r.scard("online:users") or 0)
+    active_rooms, active_room_users = await fetch_active_rooms_stats(r)
+    online_users = await fetch_online_users_count(r)
 
     return SiteStatsOut(
         total_users=total_users,
@@ -180,9 +144,7 @@ async def log_actions(session: AsyncSession = Depends(get_session)) -> AdminLogA
 @require_roles_deco("admin")
 @router.get("/logs", response_model=AdminLogsOut)
 async def logs_list(page: int = 1, limit: int = 20, action: str | None = None, username: str | None = None, day: date | None = None, session: AsyncSession = Depends(get_session)) -> AdminLogsOut:
-    limit = 100 if limit == 100 else 20
-    page = max(page, 1)
-    offset = (page - 1) * limit
+    limit, page, offset = normalize_pagination(page, limit)
 
     filters = []
     if action and action != "all":
@@ -205,14 +167,7 @@ async def logs_list(page: int = 1, limit: int = 20, action: str | None = None, u
             except Exception:
                 continue
 
-    avatar_map: dict[int, str | None] = {}
-    if user_ids:
-        rows_users = await session.execute(select(User.id, User.avatar_name).where(User.id.in_(user_ids)))
-        for uid, avatar_name in rows_users.all():
-            try:
-                avatar_map[int(uid)] = avatar_name
-            except Exception:
-                continue
+    avatar_map = await fetch_user_avatar_map(session, user_ids)
 
     items = [
         AdminLogOut(
@@ -234,9 +189,7 @@ async def logs_list(page: int = 1, limit: int = 20, action: str | None = None, u
 @require_roles_deco("admin")
 @router.get("/rooms", response_model=AdminRoomsOut)
 async def rooms_list(page: int = 1, limit: int = 20, username: str | None = None, stream_only: bool | None = None, session: AsyncSession = Depends(get_session)) -> AdminRoomsOut:
-    limit = 100 if limit == 100 else 20
-    page = max(page, 1)
-    offset = (page - 1) * limit
+    limit, page, offset = normalize_pagination(page, limit)
 
     query = select(Room)
     filters = []
@@ -249,7 +202,6 @@ async def rooms_list(page: int = 1, limit: int = 20, username: str | None = None
         id_strs = [str(i) for i in ids]
         user_filters = [Room.creator.in_(ids)]
         user_filters += [Room.visitors.has_key(i) for i in id_strs]
-        user_filters += [Room.screen_time.has_key(i) for i in id_strs]
         filters.append(or_(*user_filters))
 
     if stream_only:
@@ -261,82 +213,16 @@ async def rooms_list(page: int = 1, limit: int = 20, username: str | None = None
     total = int(await session.scalar(select(func.count(Room.id)).where(*filters)) or 0)
     rows = await session.execute(query.order_by(Room.created_at.desc(), Room.id.desc()).offset(offset).limit(limit))
     rooms = rows.scalars().all()
-    user_ids: set[int] = set()
-    for room in rooms:
-        try:
-            user_ids.add(int(room.creator))
-        except Exception:
-            pass
-        if isinstance(room.visitors, dict):
-            for k in room.visitors.keys():
-                try:
-                    user_ids.add(int(k))
-                except Exception:
-                    continue
-        if isinstance(room.screen_time, dict):
-            for k in room.screen_time.keys():
-                try:
-                    user_ids.add(int(k))
-                except Exception:
-                    continue
-
-    name_map: dict[int, str | None] = {}
-    avatar_map: dict[int, str | None] = {}
-    if user_ids:
-        rows_users = await session.execute(select(User.id, User.username, User.avatar_name).where(User.id.in_(user_ids)))
-        for uid, username, avatar_name in rows_users.all():
-            try:
-                uid_int = int(uid)
-            except Exception:
-                continue
-            name_map[uid_int] = username
-            avatar_map[uid_int] = avatar_name
+    user_ids = collect_room_user_ids(rooms)
+    name_map, avatar_map = await fetch_user_name_avatar_maps(session, user_ids)
 
     items: list[AdminRoomOut] = []
     for room in rooms:
         visitors_count = len(room.visitors or {})
-        stream_seconds = 0
-        for v in (room.screen_time or {}).values():
-            try:
-                stream_seconds += int(v or 0)
-            except Exception:
-                continue
-        game = room.game or {}
-        game_mode = str(game.get("mode") or "normal")
-        game_format = str(game.get("format") or "hosted")
-        try:
-            spectators_limit = int(game.get("spectators_limit") or 0)
-        except Exception:
-            spectators_limit = 0
-        visitors_items: list[AdminRoomUserStat] = []
-        raw_visitors = room.visitors or {}
-        if isinstance(raw_visitors, dict):
-            for k, v in raw_visitors.items():
-                try:
-                    uid = int(k)
-                except Exception:
-                    continue
-                try:
-                    minutes = int(v or 0) // 60
-                except Exception:
-                    minutes = 0
-                visitors_items.append(AdminRoomUserStat(id=uid, username=name_map.get(uid), avatar_name=avatar_map.get(uid), minutes=minutes))
-        visitors_items.sort(key=lambda item: item.minutes, reverse=True)
-
-        stream_items: list[AdminRoomUserStat] = []
-        raw_stream = room.screen_time or {}
-        if isinstance(raw_stream, dict):
-            for k, v in raw_stream.items():
-                try:
-                    uid = int(k)
-                except Exception:
-                    continue
-                try:
-                    minutes = int(v or 0) // 60
-                except Exception:
-                    minutes = 0
-                stream_items.append(AdminRoomUserStat(id=uid, username=name_map.get(uid), avatar_name=avatar_map.get(uid), minutes=minutes))
-        stream_items.sort(key=lambda item: item.minutes, reverse=True)
+        stream_seconds = sum_room_stream_seconds(room.screen_time)
+        game_mode, game_format, spectators_limit = parse_room_game_params(room.game)
+        visitors_items = build_room_user_stats(room.visitors, name_map, avatar_map)
+        stream_items = build_room_user_stats(room.screen_time, name_map, avatar_map)
 
         items.append(
             AdminRoomOut(
@@ -367,9 +253,7 @@ async def rooms_list(page: int = 1, limit: int = 20, username: str | None = None
 @require_roles_deco("admin")
 @router.get("/users", response_model=AdminUsersOut)
 async def users_list(page: int = 1, limit: int = 20, username: str | None = None, session: AsyncSession = Depends(get_session),) -> AdminUsersOut:
-    limit = 100 if limit == 100 else 20
-    page = max(page, 1)
-    offset = (page - 1) * limit
+    limit, page, offset = normalize_pagination(page, limit)
 
     filters = []
     if username:
@@ -379,48 +263,7 @@ async def users_list(page: int = 1, limit: int = 20, username: str | None = None
     rows = await session.execute(select(User).where(*filters).order_by(User.registered_at.desc(), User.id.desc()).offset(offset).limit(limit))
     users = rows.scalars().all()
     ids = [int(u.id) for u in users]
-    id_set = set(ids)
-
-    rooms_created: dict[int, int] = {uid: 0 for uid in ids}
-    room_seconds: dict[int, int] = {uid: 0 for uid in ids}
-    stream_seconds: dict[int, int] = {uid: 0 for uid in ids}
-
-    if ids:
-        counts = await session.execute(select(Room.creator, func.count(Room.id)).where(Room.creator.in_(ids)).group_by(Room.creator))
-        for creator, cnt in counts.all():
-            try:
-                rooms_created[int(creator)] = int(cnt or 0)
-            except Exception:
-                continue
-
-        id_strs = [str(i) for i in ids]
-        room_filters = [Room.creator.in_(ids)]
-        room_filters += [Room.visitors.has_key(i) for i in id_strs]
-        room_filters += [Room.screen_time.has_key(i) for i in id_strs]
-        room_rows = await session.execute(select(Room.visitors, Room.screen_time).where(or_(*room_filters)))
-        for visitors, screen_time in room_rows.all():
-            if isinstance(visitors, dict):
-                for k, v in visitors.items():
-                    try:
-                        uid = int(k)
-                    except Exception:
-                        continue
-                    if uid in id_set:
-                        try:
-                            room_seconds[uid] += int(v or 0)
-                        except Exception:
-                            continue
-            if isinstance(screen_time, dict):
-                for k, v in screen_time.items():
-                    try:
-                        uid = int(k)
-                    except Exception:
-                        continue
-                    if uid in id_set:
-                        try:
-                            stream_seconds[uid] += int(v or 0)
-                        except Exception:
-                            continue
+    rooms_created, room_seconds, stream_seconds = await aggregate_user_room_stats(session, ids)
 
     items = [
         AdminUserOut(

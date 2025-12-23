@@ -4,14 +4,15 @@ import calendar
 import re
 import structlog
 from datetime import date, datetime, timezone, timedelta
-from typing import Optional, Dict, Any, Literal
+from typing import Optional, Dict, Any, Literal, Sequence
 from fastapi import HTTPException, status
-from sqlalchemy import update, func
+from sqlalchemy import update, func, select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.clients import get_redis
 from ..core.db import SessionLocal
+from ..models.room import Room
 from ..models.user import User
-from ..schemas.admin import SiteSettingsOut, GameSettingsOut
+from ..schemas.admin import SiteSettingsOut, GameSettingsOut, RegistrationsPoint, AdminRoomUserStat
 from ..schemas.room import GameParams
 from ..realtime.sio import sio
 from ..realtime.utils import get_profiles_snapshot, get_rooms_brief, gc_empty_room
@@ -32,6 +33,18 @@ __all__ = [
     "site_settings_out",
     "game_settings_out",
     "schedule_room_gc",
+    "normalize_pagination",
+    "build_registrations_series",
+    "calc_total_stream_seconds",
+    "fetch_active_rooms_stats",
+    "fetch_online_users_count",
+    "fetch_user_avatar_map",
+    "fetch_user_name_avatar_maps",
+    "collect_room_user_ids",
+    "parse_room_game_params",
+    "build_room_user_stats",
+    "sum_room_stream_seconds",
+    "aggregate_user_room_stats",
 ]
 
 log = structlog.get_logger()
@@ -59,7 +72,7 @@ def game_from_redis_to_model(raw_game: Dict[str, Any]) -> GameParams:
         mode=(raw_game.get("mode") or "normal"),
         format=(raw_game.get("format") or "hosted"),
         spectators_limit=int(raw_game.get("spectators_limit") or 0),
-    ) 
+    )
 
 
 def parse_month_range(month_raw: str | None) -> tuple[datetime, datetime]:
@@ -111,6 +124,223 @@ def game_settings_out(row) -> GameSettingsOut:
         night_action_seconds=int(row.night_action_seconds),
         vote_seconds=int(row.vote_seconds),
     )
+
+
+def normalize_pagination(page: int, limit: int) -> tuple[int, int, int]:
+    norm_limit = 100 if limit == 100 else 20
+    norm_page = max(page, 1)
+    offset = (norm_page - 1) * norm_limit
+    return norm_limit, norm_page, offset
+
+
+async def build_registrations_series(session: AsyncSession, start_dt: datetime, end_dt: datetime) -> list[RegistrationsPoint]:
+    rows = await session.execute(
+        select(func.date_trunc("day", User.registered_at).label("day"), func.count(User.id))
+        .where(User.registered_at >= start_dt, User.registered_at < end_dt)
+        .group_by("day")
+        .order_by("day")
+    )
+    reg_map: dict[str, int] = {}
+    for day, cnt in rows.all():
+        try:
+            reg_map[day.date().isoformat()] = int(cnt or 0)
+        except Exception:
+            continue
+
+    registrations: list[RegistrationsPoint] = []
+    day_cursor = start_dt.date()
+    end_date = (end_dt - timedelta(days=1)).date()
+    while day_cursor <= end_date:
+        key = day_cursor.isoformat()
+        registrations.append(RegistrationsPoint(date=key, count=reg_map.get(key, 0)))
+        day_cursor = day_cursor + timedelta(days=1)
+
+    return registrations
+
+
+async def calc_total_stream_seconds(session: AsyncSession) -> int:
+    total_stream_seconds = 0
+    rooms_rows = await session.execute(select(Room.created_at, Room.deleted_at, Room.screen_time))
+    for _created_at, _deleted_at, screen_time in rooms_rows.all():
+        if isinstance(screen_time, dict):
+            for v in screen_time.values():
+                try:
+                    total_stream_seconds += int(v or 0)
+                except Exception:
+                    continue
+
+    return total_stream_seconds
+
+
+async def fetch_active_rooms_stats(r) -> tuple[int, int]:
+    rids = await r.zrange("rooms:index", 0, -1)
+    active_rooms = 0
+    active_room_users = 0
+    if rids:
+        async with r.pipeline() as p:
+            for rid in rids:
+                await p.scard(f"room:{int(rid)}:members")
+            counts = await p.execute()
+        for cnt in counts:
+            try:
+                val = int(cnt or 0)
+            except Exception:
+                val = 0
+            if val > 0:
+                active_rooms += 1
+                active_room_users += val
+
+    return active_rooms, active_room_users
+
+
+async def fetch_online_users_count(r) -> int:
+    return int(await r.scard("online:users") or 0)
+
+
+async def fetch_user_avatar_map(session: AsyncSession, user_ids: set[int]) -> dict[int, str | None]:
+    avatar_map: dict[int, str | None] = {}
+    if not user_ids:
+        return avatar_map
+
+    rows_users = await session.execute(select(User.id, User.avatar_name).where(User.id.in_(user_ids)))
+    for uid, avatar_name in rows_users.all():
+        try:
+            avatar_map[int(uid)] = avatar_name
+        except Exception:
+            continue
+
+    return avatar_map
+
+
+async def fetch_user_name_avatar_maps(session: AsyncSession, user_ids: set[int]) -> tuple[dict[int, str | None], dict[int, str | None]]:
+    name_map: dict[int, str | None] = {}
+    avatar_map: dict[int, str | None] = {}
+    if not user_ids:
+        return name_map, avatar_map
+
+    rows_users = await session.execute(select(User.id, User.username, User.avatar_name).where(User.id.in_(user_ids)))
+    for uid, username, avatar_name in rows_users.all():
+        try:
+            uid_int = int(uid)
+        except Exception:
+            continue
+        name_map[uid_int] = username
+        avatar_map[uid_int] = avatar_name
+
+    return name_map, avatar_map
+
+
+def collect_room_user_ids(rooms: Sequence[Room]) -> set[int]:
+    user_ids: set[int] = set()
+    for room in rooms:
+        try:
+            user_ids.add(int(room.creator))
+        except Exception:
+            pass
+        if isinstance(room.visitors, dict):
+            for k in room.visitors.keys():
+                try:
+                    user_ids.add(int(k))
+                except Exception:
+                    continue
+        if isinstance(room.screen_time, dict):
+            for k in room.screen_time.keys():
+                try:
+                    user_ids.add(int(k))
+                except Exception:
+                    continue
+
+    return user_ids
+
+
+def parse_room_game_params(game: dict | None) -> tuple[str, str, int]:
+    game = game or {}
+    game_mode = str(game.get("mode") or "normal")
+    game_format = str(game.get("format") or "hosted")
+    try:
+        spectators_limit = int(game.get("spectators_limit") or 0)
+    except Exception:
+        spectators_limit = 0
+
+    return game_mode, game_format, spectators_limit
+
+
+def build_room_user_stats(raw_map: dict | None, name_map: dict[int, str | None], avatar_map: dict[int, str | None]) -> list[AdminRoomUserStat]:
+    items: list[AdminRoomUserStat] = []
+    if isinstance(raw_map, dict):
+        for k, v in raw_map.items():
+            try:
+                uid = int(k)
+            except Exception:
+                continue
+            try:
+                minutes = int(v or 0) // 60
+            except Exception:
+                minutes = 0
+            items.append(AdminRoomUserStat(id=uid, username=name_map.get(uid), avatar_name=avatar_map.get(uid), minutes=minutes))
+    items.sort(key=lambda item: item.minutes, reverse=True)
+
+    return items
+
+
+def sum_room_stream_seconds(screen_time: dict | None) -> int:
+    total = 0
+    if isinstance(screen_time, dict):
+        for v in screen_time.values():
+            try:
+                total += int(v or 0)
+            except Exception:
+                continue
+
+    return total
+
+
+async def aggregate_user_room_stats(session: AsyncSession, ids: list[int]) -> tuple[dict[int, int], dict[int, int], dict[int, int]]:
+    rooms_created: dict[int, int] = {uid: 0 for uid in ids}
+    room_seconds: dict[int, int] = {uid: 0 for uid in ids}
+    stream_seconds: dict[int, int] = {uid: 0 for uid in ids}
+
+    if not ids:
+        return rooms_created, room_seconds, stream_seconds
+
+    counts = await session.execute(select(Room.creator, func.count(Room.id)).where(Room.creator.in_(ids)).group_by(Room.creator))
+    for creator, cnt in counts.all():
+        try:
+            rooms_created[int(creator)] = int(cnt or 0)
+        except Exception:
+            continue
+
+    id_strs = [str(i) for i in ids]
+    room_filters = [Room.creator.in_(ids)]
+    room_filters += [Room.visitors.has_key(i) for i in id_strs]
+    room_filters += [Room.screen_time.has_key(i) for i in id_strs]
+    room_rows = await session.execute(select(Room.visitors, Room.screen_time).where(or_(*room_filters)))
+    id_set = set(ids)
+    for visitors, screen_time in room_rows.all():
+        if isinstance(visitors, dict):
+            for k, v in visitors.items():
+                try:
+                    uid = int(k)
+                except Exception:
+                    continue
+                if uid in id_set:
+                    try:
+                        room_seconds[uid] += int(v or 0)
+                    except Exception:
+                        continue
+        if isinstance(screen_time, dict):
+            for k, v in screen_time.items():
+                try:
+                    uid = int(k)
+                except Exception:
+                    continue
+                if uid in id_set:
+                    try:
+                        stream_seconds[uid] += int(v or 0)
+                    except Exception:
+                        continue
+
+    return rooms_created, room_seconds, stream_seconds
 
 
 async def emit_rooms_upsert(rid: int) -> None:
@@ -182,6 +412,7 @@ async def get_room_params_or_404(r, room_id: int) -> Dict[str, Any]:
     params = await r.hgetall(f"room:{room_id}:params")
     if not params:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="room_not_found")
+
     return params
 
 
@@ -293,7 +524,7 @@ async def build_room_members_for_info(r, room_id: int) -> list[Dict[str, Any]]:
     return raw_members
 
 
-async def touch_user_last_login(db: AsyncSession, user_id: int) -> None:        
+async def touch_user_last_login(db: AsyncSession, user_id: int) -> None:
     await db.execute(update(User).where(User.id == user_id).values(last_login_at=func.now()))
     await db.commit()
 
