@@ -203,7 +203,6 @@
               <span>Месяц</span>
               <input type="month" v-model="statsMonth" :disabled="statsLoading" />
             </label>
-            <button class="btn dark" :disabled="statsLoading" @click="loadStats">Обновить</button>
           </div>
         </div>
 
@@ -231,7 +230,6 @@
                 <option :value="100">100</option>
               </select>
             </label>
-            <button class="btn dark" :disabled="logsLoading" @click="applyLogs">Показать</button>
             <button class="btn" :disabled="logsLoading" @click="resetLogs">Сбросить</button>
           </div>
 
@@ -286,7 +284,6 @@
                 <option :value="100">100</option>
               </select>
             </label>
-            <button class="btn dark" :disabled="roomsLoading" @click="applyRooms">Показать</button>
             <button class="btn" :disabled="roomsLoading" @click="resetRooms">Сбросить</button>
           </div>
 
@@ -344,7 +341,6 @@
                 <option :value="100">100</option>
               </select>
             </label>
-            <button class="btn dark" :disabled="usersLoading" @click="applyUsers">Показать</button>
             <button class="btn" :disabled="usersLoading" @click="resetUsers">Сбросить</button>
           </div>
 
@@ -398,7 +394,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, reactive, computed } from 'vue'
+import { onMounted, ref, reactive, computed, watch } from 'vue'
 import { api } from '@/services/axios'
 import { alertDialog } from '@/services/confirm'
 import { useSettingsStore } from '@/store'
@@ -539,6 +535,9 @@ const usersPage = ref(1)
 const usersLimit = ref(20)
 const usersUser = ref('')
 const usersRoleBusy = reactive<Record<number, boolean>>({})
+let logsUserTimer: number | undefined
+let roomsUserTimer: number | undefined
+let usersUserTimer: number | undefined
 
 function normalizeInt(value: number): number {
   return Number.isFinite(value) ? value : 0
@@ -823,15 +822,73 @@ async function toggleUserRole(row: UserRow): Promise<void> {
   }
 }
 
+watch(activeTab, (tab) => {
+  if (tab === 'stats') {
+    void loadStats()
+    return
+  }
+  if (tab === 'logs') {
+    void loadLogActions()
+    void loadLogs()
+    return
+  }
+  if (tab === 'rooms') {
+    void loadRooms()
+    return
+  }
+  if (tab === 'users') {
+    void loadUsers()
+  }
+})
+
+watch(statsMonth, () => {
+  if (activeTab.value !== 'stats') return
+  void loadStats()
+})
+
+watch([logsAction, logsLimit, logsDay], () => {
+  logsPage.value = 1
+  if (activeTab.value !== 'logs') return
+  void loadLogs()
+})
+
+watch(logsUser, () => {
+  logsPage.value = 1
+  if (activeTab.value !== 'logs') return
+  if (logsUserTimer) window.clearTimeout(logsUserTimer)
+  logsUserTimer = window.setTimeout(() => { void loadLogs() }, 500)
+})
+
+watch([roomsStreamOnly, roomsLimit], () => {
+  roomsPage.value = 1
+  if (activeTab.value !== 'rooms') return
+  void loadRooms()
+})
+
+watch(roomsUser, () => {
+  roomsPage.value = 1
+  if (activeTab.value !== 'rooms') return
+  if (roomsUserTimer) window.clearTimeout(roomsUserTimer)
+  roomsUserTimer = window.setTimeout(() => { void loadRooms() }, 500)
+})
+
+watch(usersLimit, () => {
+  usersPage.value = 1
+  if (activeTab.value !== 'users') return
+  void loadUsers()
+})
+
+watch(usersUser, () => {
+  usersPage.value = 1
+  if (activeTab.value !== 'users') return
+  if (usersUserTimer) window.clearTimeout(usersUserTimer)
+  usersUserTimer = window.setTimeout(() => { void loadUsers() }, 500)
+})
+
 onMounted(() => {
   const now = new Date()
   statsMonth.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
   void loadSettings()
-  void loadStats()
-  void loadLogActions()
-  void loadLogs()
-  void loadRooms()
-  void loadUsers()
 })
 </script>
 
