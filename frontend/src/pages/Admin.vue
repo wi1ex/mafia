@@ -76,13 +76,11 @@
                 <input id="rooms-limit-global" v-model.number="site.rooms_limit_global" type="number" min="1" step="1"
                        placeholder=" " autocomplete="off" inputmode="numeric" :disabled="savingSite" />
                 <label for="rooms-limit-global">Общий лимит комнат</label>
-                <div class="underline"><span></span></div>
               </div>
               <div class="ui-input" :class="{ filled: Number.isFinite(site.rooms_limit_per_user) }">
                 <input id="rooms-limit-user" v-model.number="site.rooms_limit_per_user" type="number" min="1" step="1"
                        placeholder=" " autocomplete="off" inputmode="numeric" :disabled="savingSite" />
                 <label for="rooms-limit-user">Лимит комнат на пользователя</label>
-                <div class="underline"><span></span></div>
               </div>
             </div>
           </div>
@@ -98,25 +96,21 @@
               <input id="game-min-ready" v-model.number="game.game_min_ready_players" type="number" min="1" step="1"
                      placeholder=" " autocomplete="off" inputmode="numeric" :disabled="savingGame" />
               <label for="game-min-ready">Минимум готовых игроков</label>
-              <div class="underline"><span></span></div>
             </div>
             <div class="ui-input" :class="{ filled: Number.isFinite(game.role_pick_seconds) }">
               <input id="role-pick-seconds" v-model.number="game.role_pick_seconds" type="number" min="1" step="1"
                      placeholder=" " autocomplete="off" inputmode="numeric" :disabled="savingGame" />
               <label for="role-pick-seconds">Выбор ролей (сек)</label>
-              <div class="underline"><span></span></div>
             </div>
             <div class="ui-input" :class="{ filled: Number.isFinite(game.mafia_talk_seconds) }">
               <input id="mafia-talk-seconds" v-model.number="game.mafia_talk_seconds" type="number" min="1" step="1"
                      placeholder=" " autocomplete="off" inputmode="numeric" :disabled="savingGame" />
               <label for="mafia-talk-seconds">Обсуждение мафии (сек)</label>
-              <div class="underline"><span></span></div>
             </div>
             <div class="ui-input" :class="{ filled: Number.isFinite(game.night_action_seconds) }">
               <input id="night-action-seconds" v-model.number="game.night_action_seconds" type="number" min="1" step="1"
                      placeholder=" " autocomplete="off" inputmode="numeric" :disabled="savingGame" />
               <label for="night-action-seconds">Ночные действия (сек)</label>
-              <div class="underline"><span></span></div>
             </div>
           </div>
 
@@ -126,25 +120,21 @@
               <input id="player-talk-seconds" v-model.number="game.player_talk_seconds" type="number" min="1" step="1"
                      placeholder=" " autocomplete="off" inputmode="numeric" :disabled="savingGame" />
               <label for="player-talk-seconds">Речь игрока (сек)</label>
-              <div class="underline"><span></span></div>
             </div>
             <div class="ui-input" :class="{ filled: Number.isFinite(game.player_talk_short_seconds) }">
               <input id="player-talk-short-seconds" v-model.number="game.player_talk_short_seconds" type="number"
                      min="1" step="1" placeholder=" " autocomplete="off" inputmode="numeric" :disabled="savingGame" />
               <label for="player-talk-short-seconds">Короткая речь (сек)</label>
-              <div class="underline"><span></span></div>
             </div>
             <div class="ui-input" :class="{ filled: Number.isFinite(game.player_foul_seconds) }">
               <input id="player-foul-seconds" v-model.number="game.player_foul_seconds" type="number" min="1" step="1"
                      placeholder=" " autocomplete="off" inputmode="numeric" :disabled="savingGame" />
               <label for="player-foul-seconds">Фол (сек)</label>
-              <div class="underline"><span></span></div>
             </div>
             <div class="ui-input" :class="{ filled: Number.isFinite(game.vote_seconds) }">
               <input id="vote-seconds" v-model.number="game.vote_seconds" type="number" min="1" step="1"
                      placeholder=" " autocomplete="off" inputmode="numeric" :disabled="savingGame" />
               <label for="vote-seconds">Голосование (сек)</label>
-              <div class="underline"><span></span></div>
             </div>
           </div>
           <div class="form-actions">
@@ -200,16 +190,15 @@
                     <span class="bar-label">{{ point.date.slice(-2) }}</span>
                   </div>
                 </div>
+                <div class="filters">
+                  <label class="field">
+                    <span>Месяц</span>
+                    <input type="month" v-model="statsMonth" :disabled="statsLoading" />
+                  </label>
+                </div>
               </div>
               <div class="chart-legend">Регистрации по дням</div>
             </div>
-          </div>
-
-          <div class="filters">
-            <label class="field">
-              <span>Месяц</span>
-              <input type="month" v-model="statsMonth" :disabled="statsLoading" />
-            </label>
           </div>
         </div>
 
@@ -237,7 +226,6 @@
                 <option :value="100">100</option>
               </select>
             </label>
-            <button class="btn" :disabled="logsLoading" @click="resetLogs">Сбросить</button>
           </div>
 
           <div v-if="logsLoading" class="loading">Загрузка...</div>
@@ -291,7 +279,6 @@
                 <option :value="100">100</option>
               </select>
             </label>
-            <button class="btn" :disabled="roomsLoading" @click="resetRooms">Сбросить</button>
           </div>
 
           <div v-if="roomsLoading" class="loading">Загрузка...</div>
@@ -348,7 +335,6 @@
                 <option :value="100">100</option>
               </select>
             </label>
-            <button class="btn" :disabled="usersLoading" @click="resetUsers">Сбросить</button>
           </div>
 
           <div v-if="usersLoading" class="loading">Загрузка...</div>
@@ -381,7 +367,7 @@
                   <td>{{ row.stream_minutes }}</td>
                   <td>
                     <button class="btn dark" :disabled="usersRoleBusy[row.id]" @click="toggleUserRole(row)">
-                      {{ row.role === 'admin' ? 'Снять админа' : 'Сделать админом' }}
+                      {{ row.role === 'admin' ? 'Снять ADMIN' : 'Выдать ADMIN' }}
                     </button>
                   </td>
                 </tr>
@@ -772,20 +758,6 @@ async function loadUsers(): Promise<void> {
   }
 }
 
-function applyLogs(): void {
-  logsPage.value = 1
-  void loadLogs()
-}
-
-function resetLogs(): void {
-  logsAction.value = 'all'
-  logsUser.value = ''
-  logsDay.value = ''
-  logsLimit.value = 20
-  logsPage.value = 1
-  void loadLogs()
-}
-
 function nextLogs(): void {
   if (logsPage.value >= logsPages.value) return
   logsPage.value += 1
@@ -798,19 +770,6 @@ function prevLogs(): void {
   void loadLogs()
 }
 
-function applyRooms(): void {
-  roomsPage.value = 1
-  void loadRooms()
-}
-
-function resetRooms(): void {
-  roomsUser.value = ''
-  roomsStreamOnly.value = false
-  roomsLimit.value = 20
-  roomsPage.value = 1
-  void loadRooms()
-}
-
 function nextRooms(): void {
   if (roomsPage.value >= roomsPages.value) return
   roomsPage.value += 1
@@ -821,18 +780,6 @@ function prevRooms(): void {
   if (roomsPage.value <= 1) return
   roomsPage.value -= 1
   void loadRooms()
-}
-
-function applyUsers(): void {
-  usersPage.value = 1
-  void loadUsers()
-}
-
-function resetUsers(): void {
-  usersUser.value = ''
-  usersLimit.value = 20
-  usersPage.value = 1
-  void loadUsers()
 }
 
 function nextUsers(): void {
@@ -943,14 +890,12 @@ onMounted(() => {
     display: flex;
     align-items: flex-end;
     justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 10px;
+    border-bottom: 3px solid $lead;
     .tabs {
       display: flex;
       align-items: flex-end;
-      flex: 1 1 600px;
-      flex-wrap: wrap;
-      height: auto;
+      width: 85%;
+      height: 30px;
       .tab {
         width: 175px;
         height: 30px;
@@ -1005,17 +950,32 @@ onMounted(() => {
         background-color: rgba($grey, 0.5);
       }
     }
+    &.confirm {
+      background-color: rgba($green, 0.75);
+      &:hover {
+        background-color: $green;
+      }
+    }
+    &.danger {
+      background-color: rgba($red, 0.75);
+      color: $fg;
+      &:hover {
+        background-color: $red;
+      }
+    }
     &:disabled {
       opacity: 0.5;
       cursor: not-allowed;
+    }
+    .btn-img {
+      width: 20px;
+      height: 20px;
     }
   }
   .tab-panel {
     margin-top: 10px;
     .loading {
       padding: 20px;
-      color: $fg;
-      font-family: Manrope-Medium;
     }
     .grid {
       display: grid;
@@ -1060,31 +1020,6 @@ onMounted(() => {
             pointer-events: none;
             transition: all 0.25s ease-in-out;
           }
-          .underline {
-            position: absolute;
-            left: 0;
-            right: 0;
-            bottom: -3px;
-            height: 3px;
-            border-radius: 0 0 3px 3px;
-            overflow: hidden;
-            span {
-              position: absolute;
-              left: 0;
-              bottom: 0;
-              height: 3px;
-              width: 0;
-              background-color: $fg;
-              transition: width 0.25s ease-in-out;
-            }
-            &::before {
-              content: "";
-              position: absolute;
-              inset: 0;
-              background-color: $lead;
-              transition: background-color 0.25s ease-in-out;
-            }
-          }
           &:focus-within label,
           input:not(:placeholder-shown) + label,
           &.filled label {
@@ -1096,13 +1031,12 @@ onMounted(() => {
           }
         }
         .ui-input + .ui-input {
-          margin-top: 12px;
+          margin-top: 10px;
         }
         .switch {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          gap: 10px;
           label {
             position: relative;
             width: 170px;
@@ -1130,26 +1064,35 @@ onMounted(() => {
                 color: $fg;
                 font-size: 14px;
                 text-align: center;
-                z-index: 2;
-              }
-              &::before {
-                content: "";
-                position: absolute;
-                left: 0;
-                width: 50%;
-                height: 100%;
-                border-radius: 5px;
-                background-color: $lead;
-                transition: transform 0.25s ease-in-out;
+                transition: color 0.25s ease-in-out;
               }
             }
-            input:checked + .slider::before {
-              transform: translateX(100%);
+            .slider:before {
+              content: "";
+              position: absolute;
+              top: 0;
+              left: 0;
+              width: 83px;
+              height: 23px;
+              background-color: $fg;
+              border-radius: 5px;
+              transition: transform 0.25s ease-in-out;
+            }
+            input:checked + .slider:before {
+              transform: translateX(85px);
+            }
+            input:not(:checked) + .slider span:first-child,
+            input:checked + .slider span:last-child {
+              color: $bg;
+            }
+            input:disabled + .slider {
+              opacity: 0.5;
+              cursor: not-allowed;
             }
           }
         }
         .switch + .switch {
-          margin-top: 12px;
+          margin-top: 10px;
         }
       }
       .form-actions {
@@ -1157,14 +1100,14 @@ onMounted(() => {
       }
     }
     .form-actions {
-      margin-top: 15px;
+      margin-top: 10px;
       display: flex;
       justify-content: flex-end;
     }
     .filters {
       display: flex;
       flex-wrap: wrap;
-      align-items: flex-end;
+      align-items: flex-start;
       gap: 10px;
       margin: 10px 0;
       .field {
@@ -1229,11 +1172,11 @@ onMounted(() => {
           display: flex;
           flex-direction: column;
           justify-content: space-between;
-          height: 180px;
-          padding: 5px 0;
-          font-size: 10px;
+          height: 185px;
+          padding: 2px 0;
+          font-size: 14px;
           color: $grey;
-          min-width: 28px;
+          min-width: 10px;
           text-align: right;
         }
         .chart-grid {
@@ -1289,12 +1232,12 @@ onMounted(() => {
       font-family: Manrope-Medium;
       th,
       td {
-        padding: 5px 10px;
+        padding: 10px;
         border-bottom: 1px solid $lead;
         vertical-align: top;
       }
       th {
-        font-size: 12px;
+        font-size: 16px;
         color: $grey;
         text-align: left;
       }

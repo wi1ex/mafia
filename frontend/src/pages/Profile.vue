@@ -437,7 +437,7 @@ onBeforeUnmount(() => {
     .tabs {
       display: flex;
       align-items: flex-end;
-      width: 66%;
+      width: 85%;
       height: 30px;
       .tab {
         width: 200px;
