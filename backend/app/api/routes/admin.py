@@ -246,7 +246,7 @@ async def rooms_list(page: int = 1, limit: int = 20, username: str | None = None
         query = query.where(*filters)
 
     total = int(await session.scalar(select(func.count(Room.id)).where(*filters)) or 0)
-    rows = await session.execute(query.order_by(Room.id.desc()).offset(offset).limit(limit))
+    rows = await session.execute(query.order_by(Room.created_at.desc(), Room.id.desc()).offset(offset).limit(limit))
     items: list[AdminRoomOut] = []
     for room in rows.scalars().all():
         visitors_count = len(room.visitors or {})
@@ -256,6 +256,13 @@ async def rooms_list(page: int = 1, limit: int = 20, username: str | None = None
                 stream_seconds += int(v or 0)
             except Exception:
                 continue
+        game = room.game or {}
+        game_mode = str(game.get("mode") or "normal")
+        game_format = str(game.get("format") or "hosted")
+        try:
+            spectators_limit = int(game.get("spectators_limit") or 0)
+        except Exception:
+            spectators_limit = 0
         items.append(
             AdminRoomOut(
                 id=room.id,
@@ -266,6 +273,9 @@ async def rooms_list(page: int = 1, limit: int = 20, username: str | None = None
                 privacy=room.privacy,
                 created_at=room.created_at,
                 deleted_at=room.deleted_at,
+                game_mode=game_mode,
+                game_format=game_format,
+                spectators_limit=spectators_limit,
                 visitors_count=visitors_count,
                 stream_minutes=stream_seconds // 60,
                 has_stream=stream_seconds > 0,
@@ -288,7 +298,7 @@ async def users_list(page: int = 1, limit: int = 20, username: str | None = None
         filters.append(User.username.ilike(f"%{username}%"))
 
     total = int(await session.scalar(select(func.count(User.id)).where(*filters)) or 0)
-    rows = await session.execute(select(User).where(*filters).order_by(User.id.desc()).offset(offset).limit(limit))
+    rows = await session.execute(select(User).where(*filters).order_by(User.registered_at.desc(), User.id.desc()).offset(offset).limit(limit))
     users = rows.scalars().all()
     ids = [int(u.id) for u in users]
     id_set = set(ids)
@@ -342,6 +352,7 @@ async def users_list(page: int = 1, limit: int = 20, username: str | None = None
             role=u.role,
             registered_at=u.registered_at,
             last_login_at=u.last_login_at,
+            last_visit_at=u.last_visit_at,
             rooms_created=rooms_created.get(int(u.id), 0),
             room_minutes=room_seconds.get(int(u.id), 0) // 60,
             stream_minutes=stream_seconds.get(int(u.id), 0) // 60,

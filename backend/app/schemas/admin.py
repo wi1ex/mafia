@@ -96,6 +96,9 @@ class AdminRoomOut(BaseModel):
     privacy: str
     created_at: datetime
     deleted_at: Optional[datetime] = None
+    game_mode: str
+    game_format: str
+    spectators_limit: int
     visitors_count: int
     stream_minutes: int
     has_stream: bool
@@ -113,6 +116,7 @@ class AdminUserOut(BaseModel):
     role: str
     registered_at: datetime
     last_login_at: datetime
+    last_visit_at: datetime
     rooms_created: int
     room_minutes: int
     stream_minutes: int

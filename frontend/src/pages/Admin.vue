@@ -188,10 +188,17 @@
 
             <div class="chart">
               <div v-if="stats.registrations.length === 0" class="muted">Нет данных</div>
-              <div v-else class="chart-grid">
-                <div v-for="point in stats.registrations" :key="point.date" class="chart-bar">
-                  <div class="bar" :style="{ height: registrationHeight(point.count) }" />
-                  <span class="bar-label">{{ point.date.slice(-2) }}</span>
+              <div v-else class="chart-body">
+                <div class="chart-axis">
+                  <span v-for="tick in registrationTicks" :key="tick">{{ tick }}</span>
+                </div>
+                <div class="chart-grid">
+                  <div v-for="point in stats.registrations" :key="point.date" class="chart-bar">
+                    <div class="bar" :style="{ height: registrationHeight(point.count) }">
+                      <span class="bar-value">{{ point.count }}</span>
+                    </div>
+                    <span class="bar-label">{{ point.date.slice(-2) }}</span>
+                  </div>
                 </div>
               </div>
               <div class="chart-legend">Регистрации по дням</div>
@@ -296,11 +303,11 @@
                   <th>Название</th>
                   <th>Владелец</th>
                   <th>Приватность</th>
+                  <th>Параметры игры</th>
                   <th>Создана</th>
                   <th>Удалена</th>
                   <th>Посетители</th>
                   <th>Мин. стрима</th>
-                  <th>Стрим</th>
                 </tr>
               </thead>
               <tbody>
@@ -309,11 +316,11 @@
                   <td>{{ row.title }}</td>
                   <td>{{ row.creator_name }}</td>
                   <td>{{ row.privacy }}</td>
+                  <td>{{ formatRoomGame(row) }}</td>
                   <td>{{ formatDateTime(row.created_at) }}</td>
                   <td>{{ row.deleted_at ? formatDateTime(row.deleted_at) : '-' }}</td>
                   <td>{{ row.visitors_count }}</td>
                   <td>{{ row.stream_minutes }}</td>
-                  <td>{{ row.has_stream ? 'да' : 'нет' }}</td>
                 </tr>
                 <tr v-if="rooms.length === 0">
                   <td colspan="9" class="muted">Нет данных</td>
@@ -354,6 +361,7 @@
                   <th>Роль</th>
                   <th>Регистрация</th>
                   <th>Последний вход</th>
+                  <th>Последний онлайн</th>
                   <th>Комнат создано</th>
                   <th>Мин. в комнатах</th>
                   <th>Мин. стрима</th>
@@ -367,6 +375,7 @@
                   <td>{{ row.role }}</td>
                   <td>{{ formatDateTime(row.registered_at) }}</td>
                   <td>{{ formatDateTime(row.last_login_at) }}</td>
+                  <td>{{ formatDateTime(row.last_visit_at) }}</td>
                   <td>{{ row.rooms_created }}</td>
                   <td>{{ row.room_minutes }}</td>
                   <td>{{ row.stream_minutes }}</td>
@@ -377,7 +386,7 @@
                   </td>
                 </tr>
                 <tr v-if="users.length === 0">
-                  <td colspan="9" class="muted">Нет данных</td>
+                  <td colspan="10" class="muted">Нет данных</td>
                 </tr>
               </tbody>
             </table>
@@ -452,6 +461,9 @@ type RoomRow = {
   privacy: string
   created_at: string
   deleted_at?: string | null
+  game_mode: string
+  game_format: string
+  spectators_limit: number
   visitors_count: number
   stream_minutes: number
   has_stream: boolean
@@ -464,6 +476,7 @@ type UserRow = {
   role: string
   registered_at: string
   last_login_at: string
+  last_visit_at: string
   rooms_created: number
   room_minutes: number
   stream_minutes: number
@@ -575,12 +588,38 @@ const registrationsMax = computed(() => {
   const vals = stats.registrations.map(p => p.count)
   return Math.max(1, ...vals)
 })
+const registrationTicks = computed(() => {
+  const max = Math.max(1, registrationsMax.value)
+  if (max <= 4) {
+    return Array.from({ length: max + 1 }, (_, i) => max - i)
+  }
+  const step = max / 4
+  const raw = [max, max - step, max - step * 2, max - step * 3, 0]
+  const out: number[] = []
+  const seen = new Set<number>()
+  for (const val of raw) {
+    const rounded = Math.round(val)
+    if (!seen.has(rounded)) {
+      seen.add(rounded)
+      out.push(rounded)
+    }
+  }
+  if (!seen.has(0)) out.push(0)
+  return out
+})
 
 function formatDateTime(value?: string | null): string {
   if (!value) return '-'
   const dt = new Date(value)
   if (Number.isNaN(dt.getTime())) return '-'
   return dt.toLocaleString()
+}
+
+function formatRoomGame(row: RoomRow): string {
+  const mode = row.game_mode === 'rating' ? 'Рейтинг' : 'Обычный'
+  const judge = row.game_format === 'nohost' ? 'Авто' : 'Ведущий'
+  const spectators = Number.isFinite(row.spectators_limit) ? row.spectators_limit : 0
+  return `Режим: ${mode}, Судья: ${judge}, Зрители: ${spectators}`
 }
 
 function registrationHeight(count: number): string {
@@ -1182,6 +1221,21 @@ onMounted(() => {
         border: 1px solid $lead;
         border-radius: 5px;
         background-color: $graphite;
+        .chart-body {
+          display: flex;
+          gap: 8px;
+        }
+        .chart-axis {
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          height: 180px;
+          padding: 5px 0;
+          font-size: 10px;
+          color: $grey;
+          min-width: 28px;
+          text-align: right;
+        }
         .chart-grid {
           display: flex;
           align-items: flex-end;
@@ -1189,6 +1243,7 @@ onMounted(() => {
           height: 180px;
           overflow-x: auto;
           padding: 5px 3px;
+          flex: 1;
           .chart-bar {
             display: flex;
             flex-direction: column;
@@ -1199,10 +1254,20 @@ onMounted(() => {
             flex: 0 0 15px;
             height: 100%;
             .bar {
+              position: relative;
               width: 100%;
               background-color: $lead;
               border-radius: 3px 3px 0 0;
               transition: height 0.25s ease-in-out;
+              .bar-value {
+                position: absolute;
+                top: -14px;
+                left: 50%;
+                transform: translateX(-50%);
+                font-size: 10px;
+                color: $fg;
+                white-space: nowrap;
+              }
             }
             .bar-label {
               font-size: 10px;
