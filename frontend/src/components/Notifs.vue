@@ -13,7 +13,7 @@
         <article class="item" v-for="it in notif.items" :key="it.id" :data-id="it.id">
           <div class="item-header">
             <span>{{ it.title }}</span>
-            <time>{{ new Date(it.date).toLocaleString() }}</time>
+            <time>{{ formatLocalDateTime(it.date) }}</time>
           </div>
           <p v-if="it.text" class="text">{{ it.text }}</p>
         </article>
@@ -26,6 +26,7 @@
 <script setup lang="ts">
 import { ref, watch, nextTick, onBeforeUnmount } from 'vue'
 import { useNotifStore } from '@/store'
+import { formatLocalDateTime } from '@/services/datetime'
 
 import iconClose from '@/assets/svg/close.svg'
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'

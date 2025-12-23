@@ -245,7 +245,7 @@
               </thead>
               <tbody>
                 <tr v-for="row in logs" :key="row.id">
-                  <td>{{ formatDateTime(row.created_at) }}</td>
+                  <td>{{ formatLocalDateTime(row.created_at) }}</td>
                   <td>
                     <div v-if="row.username" class="user-cell">
                       <img class="user-avatar" v-minio-img="{ key: row.avatar_name ? `avatars/${row.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
@@ -319,8 +319,8 @@
                   </td>
                   <td>{{ row.privacy }}</td>
                   <td>{{ formatRoomGame(row) }}</td>
-                  <td>{{ formatDateTime(row.created_at) }}</td>
-                  <td>{{ row.deleted_at ? formatDateTime(row.deleted_at) : '-' }}</td>
+                  <td>{{ formatLocalDateTime(row.created_at) }}</td>
+                  <td>{{ row.deleted_at ? formatLocalDateTime(row.deleted_at) : '-' }}</td>
                   <td>
                     <div class="tooltip" tabindex="0">
                       <span class="tooltip-value">{{ row.visitors_count }}</span>
@@ -414,14 +414,15 @@
                     <span v-else>-</span>
                   </td>
                   <td>{{ row.role }}</td>
-                  <td>{{ formatDateTime(row.registered_at) }}</td>
-                  <td>{{ formatDateTime(row.last_login_at) }}</td>
-                  <td>{{ formatDateTime(row.last_visit_at) }}</td>
+                  <td>{{ formatLocalDateTime(row.registered_at) }}</td>
+                  <td>{{ formatLocalDateTime(row.last_login_at) }}</td>
+                  <td>{{ formatLocalDateTime(row.last_visit_at) }}</td>
                   <td>{{ row.rooms_created }}</td>
                   <td>{{ row.room_minutes }}</td>
                   <td>{{ row.stream_minutes }}</td>
                   <td>
                     <button class="btn danger" :disabled="usersRoleBusy[row.id]" @click="toggleUserRole(row)">
+                      <img class="btn-img" :src="iconJudge" alt="judge" />
                       {{ row.role === 'admin' ? 'Снять ADMIN' : 'Выдать ADMIN' }}
                     </button>
                   </td>
@@ -447,9 +448,11 @@
 import { onMounted, ref, reactive, computed, watch } from 'vue'
 import { api } from '@/services/axios'
 import { alertDialog } from '@/services/confirm'
+import { formatLocalDateTime } from '@/services/datetime'
 import { useSettingsStore } from '@/store'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
+import iconJudge from '@/assets/svg/judge.svg'
 import iconSave from '@/assets/svg/save.svg'
 
 type SiteSettings = {
@@ -672,13 +675,6 @@ const registrationTicks = computed(() => {
   if (!seen.has(0)) out.push(0)
   return out
 })
-
-function formatDateTime(value?: string | null): string {
-  if (!value) return '-'
-  const dt = new Date(value)
-  if (Number.isNaN(dt.getTime())) return '-'
-  return dt.toLocaleString()
-}
 
 function formatRoomGame(row: RoomRow): string {
   const mode = row.game_mode === 'rating' ? 'Рейтинг' : 'Обычный'
@@ -1354,7 +1350,7 @@ onMounted(() => {
         .tooltip-body {
           position: absolute;
           top: calc(100% + 10px);
-          left: 0;
+          right: 0;
           min-width: 220px;
           max-width: 320px;
           max-height: 200px;
