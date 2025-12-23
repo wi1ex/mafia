@@ -85,7 +85,10 @@
             </div>
 
             <div class="form-actions">
-              <button class="btn confirm" :disabled="savingSite || !isSiteDirty" @click="saveSite">Сохранить</button>
+              <button class="btn confirm" :disabled="savingSite || !isSiteDirty" @click="saveSite">
+                <img class="btn-img" :src="iconSave" alt="save" />
+                Сохранить
+              </button>
             </div>
           </div>
         </div>
@@ -140,7 +143,10 @@
           </div>
 
           <div class="form-actions">
-            <button class="btn confirm" :disabled="savingGame || !isGameDirty" @click="saveGame">Сохранить</button>
+            <button class="btn confirm" :disabled="savingGame || !isGameDirty" @click="saveGame">
+              <img class="btn-img" :src="iconSave" alt="save" />
+              Сохранить
+            </button>
           </div>
         </div>
 
@@ -240,7 +246,13 @@
               <tbody>
                 <tr v-for="row in logs" :key="row.id">
                   <td>{{ formatDateTime(row.created_at) }}</td>
-                  <td>{{ row.username || '-' }}</td>
+                  <td>
+                    <div v-if="row.username" class="user-cell">
+                      <img class="user-avatar" v-minio-img="{ key: row.avatar_name ? `avatars/${row.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
+                      <span>{{ row.username }}</span>
+                    </div>
+                    <span v-else>-</span>
+                  </td>
                   <td>{{ row.action }}</td>
                   <td>{{ row.details }}</td>
                 </tr>
@@ -299,7 +311,12 @@
                 <tr v-for="row in rooms" :key="row.id">
                   <td>{{ row.id }}</td>
                   <td>{{ row.title }}</td>
-                  <td>{{ row.creator_name }}</td>
+                  <td>
+                    <div class="user-cell">
+                      <img class="user-avatar" v-minio-img="{ key: row.creator_avatar_name ? `avatars/${row.creator_avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
+                      <span>{{ row.creator_name }}</span>
+                    </div>
+                  </td>
                   <td>{{ row.privacy }}</td>
                   <td>{{ formatRoomGame(row) }}</td>
                   <td>{{ formatDateTime(row.created_at) }}</td>
@@ -311,7 +328,12 @@
                         <div v-if="row.visitors.length === 0" class="tooltip-empty">Нет данных</div>
                         <div v-else class="tooltip-list">
                           <div v-for="item in row.visitors" :key="`visitor-${row.id}-${item.id}`" class="tooltip-row">
-                            {{ formatRoomUserStat(item) }}
+                            <span class="tooltip-id">ID {{ item.id }}</span>
+                            <div class="user-cell compact">
+                              <img class="user-avatar" v-minio-img="{ key: item.avatar_name ? `avatars/${item.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
+                              <span>{{ item.username || '-' }}</span>
+                            </div>
+                            <span class="tooltip-minutes">{{ item.minutes }} мин</span>
                           </div>
                         </div>
                       </div>
@@ -324,7 +346,12 @@
                         <div v-if="row.streamers.length === 0" class="tooltip-empty">Нет данных</div>
                         <div v-else class="tooltip-list">
                           <div v-for="item in row.streamers" :key="`stream-${row.id}-${item.id}`" class="tooltip-row">
-                            {{ formatRoomUserStat(item) }}
+                            <span class="tooltip-id">ID {{ item.id }}</span>
+                            <div class="user-cell compact">
+                              <img class="user-avatar" v-minio-img="{ key: item.avatar_name ? `avatars/${item.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
+                              <span>{{ item.username || '-' }}</span>
+                            </div>
+                            <span class="tooltip-minutes">{{ item.minutes }} мин</span>
                           </div>
                         </div>
                       </div>
@@ -379,7 +406,13 @@
               <tbody>
                 <tr v-for="row in users" :key="row.id">
                   <td>{{ row.id }}</td>
-                  <td>{{ row.username || '-' }}</td>
+                  <td>
+                    <div v-if="row.username" class="user-cell">
+                      <img class="user-avatar" v-minio-img="{ key: row.avatar_name ? `avatars/${row.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
+                      <span>{{ row.username }}</span>
+                    </div>
+                    <span v-else>-</span>
+                  </td>
                   <td>{{ row.role }}</td>
                   <td>{{ formatDateTime(row.registered_at) }}</td>
                   <td>{{ formatDateTime(row.last_login_at) }}</td>
@@ -415,6 +448,9 @@ import { onMounted, ref, reactive, computed, watch } from 'vue'
 import { api } from '@/services/axios'
 import { alertDialog } from '@/services/confirm'
 import { useSettingsStore } from '@/store'
+
+import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
+import iconSave from '@/assets/svg/save.svg'
 
 type SiteSettings = {
   registration_enabled: boolean
@@ -454,6 +490,7 @@ type LogRow = {
   id: number
   user_id?: number | null
   username?: string | null
+  avatar_name?: string | null
   action: string
   details: string
   created_at: string
@@ -462,6 +499,7 @@ type LogRow = {
 type RoomUserStat = {
   id: number
   username?: string | null
+  avatar_name?: string | null
   minutes: number
 }
 
@@ -469,6 +507,7 @@ type RoomRow = {
   id: number
   creator: number
   creator_name: string
+  creator_avatar_name?: string | null
   title: string
   user_limit: number
   privacy: string
@@ -576,6 +615,7 @@ function normalizeRoomUsers(value: unknown): RoomUserStat[] {
     .map((item: any) => ({
       id: Number(item?.id) || 0,
       username: item?.username ?? null,
+      avatar_name: item?.avatar_name ?? null,
       minutes: Number(item?.minutes) || 0,
     }))
     .filter(item => item.id > 0)
@@ -645,11 +685,6 @@ function formatRoomGame(row: RoomRow): string {
   const judge = row.game_format === 'nohost' ? 'Авто' : 'Ведущий'
   const spectators = Number.isFinite(row.spectators_limit) ? row.spectators_limit : 0
   return `Режим: ${mode}, Судья: ${judge}, Зрители: ${spectators}`
-}
-
-function formatRoomUserStat(item: RoomUserStat): string {
-  const minutes = Number.isFinite(item.minutes) ? item.minutes : 0
-  return `ID ${item.id} | ${item.username || '-'} | ${minutes} мин`
 }
 
 function registrationHeight(count: number): string {
@@ -776,6 +811,7 @@ async function loadRooms(): Promise<void> {
     const items = Array.isArray(data?.items) ? data.items : []
     rooms.value = items.map((item: any) => ({
       ...item,
+      creator_avatar_name: item?.creator_avatar_name ?? null,
       visitors: normalizeRoomUsers(item?.visitors),
       streamers: normalizeRoomUsers(item?.streamers),
     }))
@@ -1289,6 +1325,24 @@ onMounted(() => {
         border-bottom: 1px solid $lead;
         font-size: 14px;
       }
+      .user-cell {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        &.compact {
+          gap: 5px;
+        }
+      }
+      .user-avatar {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        object-fit: cover;
+      }
+      .user-cell.compact .user-avatar {
+        width: 16px;
+        height: 16px;
+      }
       .tooltip {
         position: relative;
         display: inline-flex;
@@ -1322,8 +1376,16 @@ onMounted(() => {
           gap: 5px;
         }
         .tooltip-row {
+          display: flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 5px;
           font-size: 12px;
           color: $fg;
+        }
+        .tooltip-id,
+        .tooltip-minutes {
+          color: $grey;
         }
         .tooltip-empty {
           font-size: 12px;

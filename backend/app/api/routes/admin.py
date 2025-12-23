@@ -196,16 +196,35 @@ async def logs_list(page: int = 1, limit: int = 20, action: str | None = None, u
 
     total = int(await session.scalar(select(func.count(AppLog.id)).where(*filters)) or 0)
     rows = await session.execute(select(AppLog).where(*filters).order_by(AppLog.id.desc()).offset(offset).limit(limit))
+    logs = rows.scalars().all()
+    user_ids: set[int] = set()
+    for row in logs:
+        if row.user_id:
+            try:
+                user_ids.add(int(row.user_id))
+            except Exception:
+                continue
+
+    avatar_map: dict[int, str | None] = {}
+    if user_ids:
+        rows_users = await session.execute(select(User.id, User.avatar_name).where(User.id.in_(user_ids)))
+        for uid, avatar_name in rows_users.all():
+            try:
+                avatar_map[int(uid)] = avatar_name
+            except Exception:
+                continue
+
     items = [
         AdminLogOut(
             id=row.id,
             user_id=row.user_id,
             username=row.username,
+            avatar_name=avatar_map.get(int(row.user_id)) if row.user_id else None,
             action=row.action,
             details=row.details,
             created_at=row.created_at,
         )
-        for row in rows.scalars().all()
+        for row in logs
     ]
 
     return AdminLogsOut(total=total, items=items)
@@ -244,6 +263,10 @@ async def rooms_list(page: int = 1, limit: int = 20, username: str | None = None
     rooms = rows.scalars().all()
     user_ids: set[int] = set()
     for room in rooms:
+        try:
+            user_ids.add(int(room.creator))
+        except Exception:
+            pass
         if isinstance(room.visitors, dict):
             for k in room.visitors.keys():
                 try:
@@ -258,13 +281,16 @@ async def rooms_list(page: int = 1, limit: int = 20, username: str | None = None
                     continue
 
     name_map: dict[int, str | None] = {}
+    avatar_map: dict[int, str | None] = {}
     if user_ids:
-        rows_users = await session.execute(select(User.id, User.username).where(User.id.in_(user_ids)))
-        for uid, username in rows_users.all():
+        rows_users = await session.execute(select(User.id, User.username, User.avatar_name).where(User.id.in_(user_ids)))
+        for uid, username, avatar_name in rows_users.all():
             try:
-                name_map[int(uid)] = username
+                uid_int = int(uid)
             except Exception:
                 continue
+            name_map[uid_int] = username
+            avatar_map[uid_int] = avatar_name
 
     items: list[AdminRoomOut] = []
     for room in rooms:
@@ -294,7 +320,7 @@ async def rooms_list(page: int = 1, limit: int = 20, username: str | None = None
                     minutes = int(v or 0) // 60
                 except Exception:
                     minutes = 0
-                visitors_items.append(AdminRoomUserStat(id=uid, username=name_map.get(uid), minutes=minutes))
+                visitors_items.append(AdminRoomUserStat(id=uid, username=name_map.get(uid), avatar_name=avatar_map.get(uid), minutes=minutes))
         visitors_items.sort(key=lambda item: item.minutes, reverse=True)
 
         stream_items: list[AdminRoomUserStat] = []
@@ -309,7 +335,7 @@ async def rooms_list(page: int = 1, limit: int = 20, username: str | None = None
                     minutes = int(v or 0) // 60
                 except Exception:
                     minutes = 0
-                stream_items.append(AdminRoomUserStat(id=uid, username=name_map.get(uid), minutes=minutes))
+                stream_items.append(AdminRoomUserStat(id=uid, username=name_map.get(uid), avatar_name=avatar_map.get(uid), minutes=minutes))
         stream_items.sort(key=lambda item: item.minutes, reverse=True)
 
         items.append(
@@ -317,6 +343,7 @@ async def rooms_list(page: int = 1, limit: int = 20, username: str | None = None
                 id=room.id,
                 creator=int(room.creator),
                 creator_name=room.creator_name,
+                creator_avatar_name=avatar_map.get(int(room.creator)),
                 title=room.title,
                 user_limit=room.user_limit,
                 privacy=room.privacy,

@@ -72,6 +72,7 @@ class AdminLogOut(BaseModel):
     id: int
     user_id: Optional[int] = None
     username: Optional[str] = None
+    avatar_name: Optional[str] = None
     action: str
     details: str
     created_at: datetime
@@ -89,6 +90,7 @@ class AdminLogActionsOut(BaseModel):
 class AdminRoomUserStat(BaseModel):
     id: int
     username: Optional[str] = None
+    avatar_name: Optional[str] = None
     minutes: int
 
 
@@ -96,6 +98,7 @@ class AdminRoomOut(BaseModel):
     id: int
     creator: int
     creator_name: str
+    creator_avatar_name: Optional[str] = None
     title: str
     user_limit: int
     privacy: str
