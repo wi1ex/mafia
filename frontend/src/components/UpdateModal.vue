@@ -212,4 +212,25 @@ function close() {
 .overlay-leave-to {
   opacity: 0;
 }
+
+@media (max-width: 1280px) {
+  .overlay {
+    .modal {
+      .btn {
+        padding: 0 10px;
+        height: 30px;
+        .btn-img {
+          width: 16px;
+          height: 16px;
+        }
+      }
+      .ui-input {
+        textarea {
+          min-height: 60px;
+          max-height: 60px;
+        }
+      }
+    }
+  }
+}
 </style>
