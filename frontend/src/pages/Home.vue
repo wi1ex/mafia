@@ -95,16 +95,12 @@
                   <span>{{ game.break_at_zero ? 'Вкл' : 'Откл' }}</span>
                 </div>
                 <div class="ri-game-div">
-                  <span>Подъем 2х в нуле</span>
-                  <span>{{ game.lift_2x_at_zero ? 'Вкл' : 'Откл' }}</span>
+                  <span>Подъем в нуле</span>
+                  <span>{{ game.lift_at_zero ? 'Вкл' : 'Откл' }}</span>
                 </div>
                 <div class="ri-game-div">
-                  <span>Подъем 3х</span>
+                  <span>Подъем 3х при 9х</span>
                   <span>{{ game.lift_3x ? 'Вкл' : 'Откл' }}</span>
-                </div>
-                <div class="ri-game-div">
-                  <span>Подъем 5х</span>
-                  <span>{{ game.lift_5x ? 'Вкл' : 'Откл' }}</span>
                 </div>
               </div>
             </div>
@@ -186,9 +182,8 @@ type Game = {
   format: 'hosted' | 'nohost'
   spectators_limit: number
   break_at_zero: boolean
-  lift_2x_at_zero: boolean
+  lift_at_zero: boolean
   lift_3x: boolean
-  lift_5x: boolean
 }
 type Access = 'approved'|'pending'|'none'
 

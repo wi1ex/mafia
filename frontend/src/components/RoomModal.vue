@@ -35,7 +35,7 @@
               </div>
 
               <div class="switch">
-                <span>Приватность:</span>
+                <span class="switch-label">Приватность:</span>
                 <label>
                   <input type="checkbox" v-model="isPrivate" aria-label="Приватность: открытая/закрытая" />
                   <div class="slider">
@@ -47,8 +47,16 @@
             </div>
 
             <div v-else key="game" class="params">
+              <div class="range is-disabled">
+                <span>Лимит зрителей: {{ game.spectators_limit }}/{{ SPECT_MAX }}</span>
+                <div class="range-wrap">
+                  <div class="range-track" :style="rangeSpectFillStyle" aria-hidden="true"></div>
+                  <input class="range-native" type="range" :min="SPECT_MIN" :max="SPECT_MAX" step="1" v-model.number="game.spectators_limit" disabled aria-label="Лимит зрителей" />
+                </div>
+              </div>
+
               <div class="switch">
-                <span>Режим:</span>
+                <span class="switch-label">Режим:</span>
                 <label>
                   <input type="checkbox" v-model="isRating" disabled aria-label="Режим: обычный/рейтинг" />
                   <div class="slider">
@@ -59,7 +67,7 @@
               </div>
 
               <div class="switch">
-                <span>Судья:</span>
+                <span class="switch-label">Судья:</span>
                 <label>
                   <input type="checkbox" v-model="isNoHost" disabled aria-label="Формат: с ведущим/без ведущего" />
                   <div class="slider">
@@ -69,16 +77,8 @@
                 </label>
               </div>
 
-              <div class="range is-disabled">
-                <span>Лимит зрителей: {{ game.spectators_limit }}/{{ SPECT_MAX }}</span>
-                <div class="range-wrap">
-                  <div class="range-track" :style="rangeSpectFillStyle" aria-hidden="true"></div>
-                  <input class="range-native" type="range" :min="SPECT_MIN" :max="SPECT_MAX" step="1" v-model.number="game.spectators_limit" disabled aria-label="Лимит зрителей" />
-                </div>
-              </div>
-
               <div class="switch">
-                <span>Слом в нуле:</span>
+                <span class="switch-label">Слом в нуле:</span>
                 <label>
                   <input type="checkbox" v-model="game.break_at_zero" aria-label="Слом в нуле" />
                   <div class="slider">
@@ -89,9 +89,9 @@
               </div>
 
               <div class="switch">
-                <span>Подъем 2х в нуле:</span>
+                <span class="switch-label">Подъем в нуле:</span>
                 <label>
-                  <input type="checkbox" v-model="game.lift_2x_at_zero" aria-label="Подъем 2х в нуле" />
+                  <input type="checkbox" v-model="game.lift_at_zero" aria-label="Подъем в нуле" />
                   <div class="slider">
                     <span>Откл</span>
                     <span>Вкл</span>
@@ -100,20 +100,9 @@
               </div>
 
               <div class="switch">
-                <span>Подъем 3х:</span>
+                <span class="switch-label">Подъем 3х при 9х:</span>
                 <label>
                   <input type="checkbox" v-model="game.lift_3x" aria-label="Подъем 3х" />
-                  <div class="slider">
-                    <span>Откл</span>
-                    <span>Вкл</span>
-                  </div>
-                </label>
-              </div>
-
-              <div class="switch">
-                <span>Подъем 5х:</span>
-                <label>
-                  <input type="checkbox" v-model="game.lift_5x" aria-label="Подъем 5х" />
                   <div class="slider">
                     <span>Откл</span>
                     <span>Вкл</span>
@@ -194,25 +183,28 @@ type Game = {
   format: 'hosted' | 'nohost'
   spectators_limit: number
   break_at_zero: boolean
-  lift_2x_at_zero: boolean
+  lift_at_zero: boolean
   lift_3x: boolean
-  lift_5x: boolean
 }
 const gameDefault: Game = {
   mode: 'normal',
   format: 'hosted',
   spectators_limit: 0,
   break_at_zero: true,
-  lift_2x_at_zero: true,
+  lift_at_zero: true,
   lift_3x: true,
-  lift_5x: true,
 }
 const initialGame: Game = (() => {
   try {
     const raw = localStorage.getItem('room:lastGame')
     if (!raw) return gameDefault
-    const parsed = JSON.parse(raw)
-    return { ...gameDefault, ...parsed }
+    const parsed = JSON.parse(raw) as Partial<Game> & { lift_2x_at_zero?: boolean }
+    const liftAtZero = typeof parsed.lift_at_zero === 'boolean'
+      ? parsed.lift_at_zero
+      : (typeof parsed.lift_2x_at_zero === 'boolean' ? parsed.lift_2x_at_zero : undefined)
+    const merged: Game = { ...gameDefault, ...parsed }
+    if (typeof liftAtZero === 'boolean') merged.lift_at_zero = liftAtZero
+    return merged
   } catch { return gameDefault }
 })()
 const game = ref<Game>(initialGame)
@@ -433,7 +425,7 @@ onBeforeUnmount(() => {
       .params {
         display: flex;
         flex-direction: column;
-        padding: 15px 10px;
+        padding: 10px;
         gap: 15px;
         .ui-input {
           display: block;
@@ -616,6 +608,9 @@ onBeforeUnmount(() => {
           display: flex;
           align-items: center;
           justify-content: space-between;
+          .switch-label {
+            height: 18px;
+          }
           label {
             position: relative;
             width: 170px;

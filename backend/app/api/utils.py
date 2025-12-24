@@ -59,9 +59,8 @@ def serialize_game_for_redis(game_dict: Dict[str, Any]) -> Dict[str, str]:
         "format": str(game_dict["format"]),
         "spectators_limit": str(int(game_dict["spectators_limit"])),
         "break_at_zero": "1" if raw_bool(game_dict.get("break_at_zero"), True) else "0",
-        "lift_2x_at_zero": "1" if raw_bool(game_dict.get("lift_2x_at_zero"), True) else "0",
+        "lift_at_zero": "1" if raw_bool(game_dict.get("lift_at_zero"), True) else "0",
         "lift_3x": "1" if raw_bool(game_dict.get("lift_3x"), True) else "0",
-        "lift_5x": "1" if raw_bool(game_dict.get("lift_5x"), True) else "0",
     }
 
 
@@ -77,9 +76,8 @@ def game_from_redis_to_model(raw_game: Dict[str, Any]) -> GameParams:
         format=(raw_game.get("format") or "hosted"),
         spectators_limit=int(raw_game.get("spectators_limit") or 0),
         break_at_zero=raw_bool(raw_game.get("break_at_zero"), True),
-        lift_2x_at_zero=raw_bool(raw_game.get("lift_2x_at_zero"), True),
+        lift_at_zero=raw_bool(raw_game.get("lift_at_zero"), True),
         lift_3x=raw_bool(raw_game.get("lift_3x"), True),
-        lift_5x=raw_bool(raw_game.get("lift_5x"), True),
     )
 
 

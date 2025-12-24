@@ -845,9 +845,8 @@ def build_game_from_raw(raw_game: Mapping[str, Any]) -> Dict[str, Any]:
         "format": str(raw_game.get("format") or "hosted"),
         "spectators_limit": int(raw_game.get("spectators_limit") or 0),
         "break_at_zero": game_flag(raw_game, "break_at_zero", True),
-        "lift_2x_at_zero": game_flag(raw_game, "lift_2x_at_zero", True),
+        "lift_at_zero": game_flag(raw_game, "lift_at_zero", True),
         "lift_3x": game_flag(raw_game, "lift_3x", True),
-        "lift_5x": game_flag(raw_game, "lift_5x", True),
     }
 
 

@@ -2644,12 +2644,15 @@ async def game_vote_finish(sid, data):
                         raw_game = await r.hgetall(f"room:{rid}:game")
                     except Exception:
                         raw_game = {}
-                    if leaders_cnt == 2 and day_number == 1:
-                        lift_forbidden = not game_flag(raw_game, "lift_2x_at_zero", True)
-                    elif leaders_cnt == 3:
-                        lift_forbidden = not game_flag(raw_game, "lift_3x", True)
-                    elif leaders_cnt == 5:
-                        lift_forbidden = not game_flag(raw_game, "lift_5x", True)
+                    if day_number == 1 and not game_flag(raw_game, "lift_at_zero", True):
+                        lift_forbidden = True
+                    elif leaders_cnt == 3 and not game_flag(raw_game, "lift_3x", True):
+                        try:
+                            players_total = int(await r.scard(f"room:{rid}:game_players") or 0)
+                        except Exception:
+                            players_total = 0
+                        if players_total == 9:
+                            lift_forbidden = True
 
         no_elimination = all_alive_leaders or lift_forbidden
         if lift_forbidden:

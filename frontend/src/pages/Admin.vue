@@ -39,7 +39,7 @@
             <div class="block">
               <h3>Доступ</h3>
               <div class="switch">
-                <span>Регистрация</span>
+                <span class="switch-label">Регистрация</span>
                 <label>
                   <input type="checkbox" v-model="site.registration_enabled" :disabled="savingSite" aria-label="Регистрация" />
                   <div class="slider">
@@ -49,7 +49,7 @@
                 </label>
               </div>
               <div class="switch">
-                <span>Создание комнат</span>
+                <span class="switch-label">Создание комнат</span>
                 <label>
                   <input type="checkbox" v-model="site.rooms_can_create" :disabled="savingSite" aria-label="Создание комнат" />
                   <div class="slider">
@@ -59,7 +59,7 @@
                 </label>
               </div>
               <div class="switch">
-                <span>Запуск игр</span>
+                <span class="switch-label">Запуск игр</span>
                 <label>
                   <input type="checkbox" v-model="site.games_can_start" :disabled="savingSite" aria-label="Запуск игр" />
                   <div class="slider">
@@ -1118,6 +1118,9 @@ onMounted(() => {
           display: flex;
           align-items: center;
           justify-content: space-between;
+          .switch-label {
+            height: 18px;
+          }
           label {
             position: relative;
             width: 170px;

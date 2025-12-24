@@ -11,7 +11,7 @@
       <div class="change-devices">
         <div class="switch-div">
           <div class="switch">
-            <span>Качество видео:</span>
+            <span class="switch-label">Качество видео:</span>
             <label>
               <input type="checkbox" :checked="vq === 'hd'" :disabled="vqDisabled" @change="onToggleVQ" aria-label="Качество видео: SD/HD" />
               <div class="slider">
@@ -22,7 +22,7 @@
           </div>
 
           <div class="switch">
-            <span>Зеркальность камеры:</span>
+            <span class="switch-label">Зеркальность камеры:</span>
             <label>
               <input type="checkbox" :checked="mirrorOn" @change="onToggleMirror" aria-label="Зеркальность" />
               <div class="slider">
@@ -257,6 +257,9 @@ onBeforeUnmount(() => {
         display: flex;
         align-items: center;
         justify-content: space-between;
+        .switch-label {
+          height: 18px;
+        }
         label {
           position: relative;
           width: 120px;
