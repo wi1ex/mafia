@@ -259,7 +259,7 @@ def collect_room_user_ids(rooms: Sequence[Room]) -> set[int]:
     return user_ids
 
 
-def parse_room_game_params(game: dict | None) -> tuple[str, str, int]:
+def parse_room_game_params(game: dict | None) -> dict[str, Any]:
     game = game or {}
     game_mode = str(game.get("mode") or "normal")
     game_format = str(game.get("format") or "hosted")
@@ -268,7 +268,14 @@ def parse_room_game_params(game: dict | None) -> tuple[str, str, int]:
     except Exception:
         spectators_limit = 0
 
-    return game_mode, game_format, spectators_limit
+    return {
+        "mode": game_mode,
+        "format": game_format,
+        "spectators_limit": spectators_limit,
+        "break_at_zero": raw_bool(game.get("break_at_zero"), True),
+        "lift_at_zero": raw_bool(game.get("lift_at_zero"), True),
+        "lift_3x": raw_bool(game.get("lift_3x"), True),
+    }
 
 
 def build_room_user_stats(raw_map: dict | None, name_map: dict[int, str | None], avatar_map: dict[int, str | None]) -> list[AdminRoomUserStat]:

@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ...core.clients import get_redis
 from ...core.db import get_session
 from ...models.log import AppLog
+from ...models.game import Game
 from ...models.room import Room
 from ...models.user import User
 from ...security.decorators import log_route, require_roles_deco
@@ -23,6 +24,7 @@ from ...schemas.admin import (
     AdminLogsOut,
     AdminLogActionsOut,
     AdminRoomOut,
+    AdminRoomGameOut,
     AdminRoomsOut,
     AdminUserOut,
     AdminUsersOut,
@@ -215,14 +217,30 @@ async def rooms_list(page: int = 1, limit: int = 20, username: str | None = None
     rooms = rows.scalars().all()
     user_ids = collect_room_user_ids(rooms)
     name_map, avatar_map = await fetch_user_name_avatar_maps(session, user_ids)
+    room_ids = [int(room.id) for room in rooms]
+    games_map: dict[int, list[str]] = {}
+    if room_ids:
+        game_rows = await session.execute(
+            select(Game.room_id, Game.result, Game.started_at, Game.id)
+            .where(Game.room_id.in_(room_ids))
+            .order_by(Game.room_id.asc(), Game.started_at.asc(), Game.id.asc())
+        )
+        for room_id, result, _started_at, _game_id in game_rows.all():
+            try:
+                rid_int = int(room_id)
+            except Exception:
+                continue
+            games_map.setdefault(rid_int, []).append(str(result))
 
     items: list[AdminRoomOut] = []
     for room in rooms:
         visitors_count = len(room.visitors or {})
         stream_seconds = sum_room_stream_seconds(room.screen_time)
-        game_mode, game_format, spectators_limit = parse_room_game_params(room.game)
+        game_params = parse_room_game_params(room.game)
         visitors_items = build_room_user_stats(room.visitors, name_map, avatar_map)
         stream_items = build_room_user_stats(room.screen_time, name_map, avatar_map)
+        room_games = games_map.get(int(room.id), [])
+        game_items = [AdminRoomGameOut(number=index + 1, result=result) for index, result in enumerate(room_games)]
 
         items.append(
             AdminRoomOut(
@@ -235,11 +253,15 @@ async def rooms_list(page: int = 1, limit: int = 20, username: str | None = None
                 privacy=room.privacy,
                 created_at=room.created_at,
                 deleted_at=room.deleted_at,
-                game_mode=game_mode,
-                game_format=game_format,
-                spectators_limit=spectators_limit,
+                game_mode=game_params["mode"],
+                game_format=game_params["format"],
+                spectators_limit=game_params["spectators_limit"],
+                break_at_zero=game_params["break_at_zero"],
+                lift_at_zero=game_params["lift_at_zero"],
+                lift_3x=game_params["lift_3x"],
                 visitors_count=visitors_count,
                 visitors=visitors_items,
+                games=game_items,
                 stream_minutes=stream_seconds // 60,
                 streamers=stream_items,
                 has_stream=stream_seconds > 0,

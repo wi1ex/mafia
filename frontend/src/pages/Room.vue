@@ -1534,7 +1534,7 @@ async function handleJoinFailure(j: any) {
     void alertDialog('Лимит зрителей исчерпан')
     await router.replace({ name: 'home', query: { focus: String(rid) } })
   } else {
-    void alertDialog('j?.status === 404 ? \'Комната не найдена\' : j?.status === 410 ? \'Комната закрыта\' : j?.status === 409 ? \'Комната заполнена\' : \'Ошибка входа в комнату\'')
+    void alertDialog(j?.status === 404 ? 'Комната не найдена' : j?.status === 410 ? 'Комната закрыта' : j?.status === 409 ? 'Комната заполнена' : 'Ошибка входа в комнату')
     await router.replace('/')
   }
 }

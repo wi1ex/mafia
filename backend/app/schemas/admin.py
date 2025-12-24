@@ -94,6 +94,11 @@ class AdminRoomUserStat(BaseModel):
     minutes: int
 
 
+class AdminRoomGameOut(BaseModel):
+    number: int
+    result: Literal["red", "black", "draw"]
+
+
 class AdminRoomOut(BaseModel):
     id: int
     creator: int
@@ -107,8 +112,12 @@ class AdminRoomOut(BaseModel):
     game_mode: str
     game_format: str
     spectators_limit: int
+    break_at_zero: bool
+    lift_at_zero: bool
+    lift_3x: bool
     visitors_count: int
     visitors: List[AdminRoomUserStat]
+    games: List[AdminRoomGameOut]
     stream_minutes: int
     streamers: List[AdminRoomUserStat]
     has_stream: bool

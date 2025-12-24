@@ -826,7 +826,7 @@ const timelineDurationSec = computed(() => {
       block-size: 16px;
       &[data-open="1"] {
         inline-size: min(160px, calc(100% - 15px));
-        block-size: 85px;
+        block-size: 90px;
       }
       &[data-open="1"][data-game="1"] {
         block-size: 62px;
@@ -896,6 +896,11 @@ const timelineDurationSec = computed(() => {
           gap: 5px;
           button {
             min-width: calc((100% - 25px) / 6);
+            height: 20px;
+            img {
+              width: 14px;
+              height: 14px;
+            }
           }
         }
       }

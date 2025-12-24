@@ -303,6 +303,7 @@
                   <th>Создана</th>
                   <th>Удалена</th>
                   <th>Посетители</th>
+                  <th>Игры</th>
                   <th>Стримы (мин)</th>
                 </tr>
               </thead>
@@ -340,6 +341,20 @@
                   </td>
                   <td>
                     <div class="tooltip" tabindex="0">
+                      <span class="tooltip-value">{{ row.games.length }}</span>
+                      <div class="tooltip-body">
+                        <div v-if="row.games.length === 0" class="tooltip-empty">Нет данных</div>
+                        <div v-else class="tooltip-list">
+                          <div v-for="item in row.games" :key="`game-${row.id}-${item.number}`" class="tooltip-row">
+                            <span class="tooltip-id">Игра {{ item.number }}</span>
+                            <span class="tooltip-minutes">{{ formatRoomGameResult(item.result) }}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="tooltip" tabindex="0">
                       <span class="tooltip-value">{{ row.stream_minutes }}</span>
                       <div class="tooltip-body">
                         <div v-if="row.streamers.length === 0" class="tooltip-empty">Нет данных</div>
@@ -358,7 +373,7 @@
                   </td>
                 </tr>
                 <tr v-if="rooms.length === 0">
-                  <td colspan="9" class="muted">Нет данных</td>
+                  <td colspan="10" class="muted">Нет данных</td>
                 </tr>
               </tbody>
             </table>
@@ -505,6 +520,11 @@ type RoomUserStat = {
   minutes: number
 }
 
+type RoomGameStat = {
+  number: number
+  result: string
+}
+
 type RoomRow = {
   id: number
   creator: number
@@ -518,8 +538,12 @@ type RoomRow = {
   game_mode: string
   game_format: string
   spectators_limit: number
+  break_at_zero: boolean
+  lift_at_zero: boolean
+  lift_3x: boolean
   visitors_count: number
   visitors: RoomUserStat[]
+  games: RoomGameStat[]
   stream_minutes: number
   streamers: RoomUserStat[]
   has_stream: boolean
@@ -623,6 +647,16 @@ function normalizeRoomUsers(value: unknown): RoomUserStat[] {
     .filter(item => item.id > 0)
 }
 
+function normalizeRoomGames(value: unknown): RoomGameStat[] {
+  if (!Array.isArray(value)) return []
+  return value
+    .map((item: any) => ({
+      number: Number(item?.number) || 0,
+      result: String(item?.result || ''),
+    }))
+    .filter(item => item.number > 0 && item.result)
+}
+
 function snapshotSite(): string {
   return JSON.stringify({
     registration_enabled: Boolean(site.registration_enabled),
@@ -679,7 +713,17 @@ function formatRoomGame(row: RoomRow): string {
   const mode = row.game_mode === 'rating' ? 'Рейтинг' : 'Обычный'
   const judge = row.game_format === 'nohost' ? 'Авто' : 'Ведущий'
   const spectators = Number.isFinite(row.spectators_limit) ? row.spectators_limit : 0
-  return `Режим: ${mode}, Судья: ${judge}, Зрители: ${spectators}`
+  const breakAtZero = row.break_at_zero ? 'Вкл' : 'Выкл'
+  const liftAtZero = row.lift_at_zero ? 'Вкл' : 'Выкл'
+  const lift3x = row.lift_3x ? 'Вкл' : 'Выкл'
+  return `Режим: ${mode}, Судья: ${judge}, Зрители: ${spectators}, Слом в нуле: ${breakAtZero}, Подъем в нуле: ${liftAtZero}, Подъем 3х: ${lift3x}`
+}
+
+function formatRoomGameResult(result: string): string {
+  if (result === 'red') return 'Победа мирных'
+  if (result === 'black') return 'Победа мафии'
+  if (result === 'draw') return 'Ничья'
+  return result || '-'
 }
 
 function registrationHeight(count: number): string {
@@ -807,7 +851,11 @@ async function loadRooms(): Promise<void> {
     rooms.value = items.map((item: any) => ({
       ...item,
       creator_avatar_name: item?.creator_avatar_name ?? null,
+      break_at_zero: Boolean(item?.break_at_zero),
+      lift_at_zero: Boolean(item?.lift_at_zero),
+      lift_3x: Boolean(item?.lift_3x),
       visitors: normalizeRoomUsers(item?.visitors),
+      games: normalizeRoomGames(item?.games),
       streamers: normalizeRoomUsers(item?.streamers),
     }))
     roomsTotal.value = Number.isFinite(data?.total) ? data.total : 0
