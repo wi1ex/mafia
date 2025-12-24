@@ -141,9 +141,10 @@ onBeforeUnmount(() => {
       gap: 15px;
       border-radius: 5px;
       background-color: $lead;
-      box-shadow: 3px 3px 5px rgba($black, 0.25);
+      box-shadow: 0 3px 5px rgba($black, 0.25);
       .item-header {
         display: flex;
+        align-items: center;
         justify-content: space-between;
         margin: 0;
         padding: 0;
@@ -151,7 +152,8 @@ onBeforeUnmount(() => {
         width: 100%;
         span {
           margin: 0;
-          font-size: 16px;
+          font-size: 18px;
+          font-weight: bold;
         }
         time {
           color: $grey;
@@ -162,7 +164,6 @@ onBeforeUnmount(() => {
         margin: 0;
         width: 100%;
         color: $fg;
-        white-space: pre-wrap;
       }
     }
     .empty {
