@@ -2483,6 +2483,33 @@ async def finish_game(r, rid: int, *, result: str, head_uid: int | None = None, 
 
     roles_map = {str(k): str(v) for k, v in (raw_roles or {}).items() if v is not None}
 
+    seats_map: dict[str, int] = {}
+    try:
+        raw_seats = await r.hgetall(f"room:{rid}:game_seats")
+    except Exception:
+        log.exception("game_finish.load_seats_failed", rid=rid)
+        raw_seats = {}
+    for k, v in (raw_seats or {}).items():
+        try:
+            uid_i = int(k)
+            seat_i = int(v)
+        except Exception:
+            continue
+        if seat_i > 0 and seat_i != 11:
+            seats_map[str(uid_i)] = seat_i
+
+    try:
+        alive_ids = await smembers_ints(r, f"room:{rid}:game_alive")
+    except Exception:
+        log.exception("game_finish.load_alive_failed", rid=rid)
+        alive_ids = set()
+
+    black_alive_at_finish = 0
+    for uid in (alive_ids or set()):
+        role = roles_map.get(str(uid))
+        if role in ("mafia", "don"):
+            black_alive_at_finish += 1
+
     try:
         players_set = await r.smembers(f"room:{rid}:game_players")
     except Exception:
@@ -2536,13 +2563,16 @@ async def finish_game(r, rid: int, *, result: str, head_uid: int | None = None, 
                     Game(
                         room_id=rid,
                         room_owner_id=room_owner_id,
+                        head_id=head_uid if head_uid and head_uid > 0 else None,
                         result=result,
                         started_at=started_at,
                         finished_at=finished_at,
                         roles=roles_map,
+                        seats=seats_map,
                         points=points_map,
                         mmr=mmr_map,
                         actions=actions,
+                        black_alive_at_finish=black_alive_at_finish,
                     )
                 )
                 await s.commit()
