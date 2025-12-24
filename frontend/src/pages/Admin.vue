@@ -176,7 +176,7 @@
                   <td>{{ row.version }}</td>
                   <td class="desc">{{ row.description }}</td>
                   <td>
-                    <button class="btn" @click="openEditUpdate(row)">
+                    <button class="btn dark" @click="openEditUpdate(row)">
                       <img class="btn-img" :src="iconEdit" alt="edit" />
                       Изменить
                     </button>

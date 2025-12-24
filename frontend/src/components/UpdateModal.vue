@@ -24,7 +24,7 @@
             </div>
           </div>
           <div class="modal-actions">
-            <button class="btn" @click="close">Отмена</button>
+            <button class="btn dark" @click="close">Отмена</button>
             <button class="btn confirm" :disabled="saving || !canSave" @click="$emit('save')">
               <img v-if="saveIcon" class="btn-img" :src="saveIcon" alt="save" />
               Сохранить
@@ -72,15 +72,14 @@ function close() {
   background-color: rgba($black, 0.75);
   z-index: 1000;
   .modal {
-    width: 520px;
+    width: 400px;
     max-width: calc(100% - 30px);
-    border-radius: 8px;
+    border-radius: 5px;
     background-color: $graphite;
-    box-shadow: 0 10px 30px rgba($black, 0.4);
-    padding: 15px;
+    padding: 10px;
     display: flex;
     flex-direction: column;
-    gap: 15px;
+    gap: 10px;
     .btn {
       display: flex;
       align-items: center;
@@ -104,6 +103,13 @@ function close() {
         background-color: rgba($green, 0.75);
         &:hover {
           background-color: $green;
+        }
+      }
+      &.dark {
+        background-color: $lead;
+        color: $fg;
+        &:hover {
+          background-color: rgba($grey, 0.5);
         }
       }
       &:disabled {
@@ -138,7 +144,7 @@ function close() {
     .modal-body {
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 10px;
     }
     .ui-input {
       display: block;
@@ -164,8 +170,8 @@ function close() {
         color: transparent;
       }
       textarea {
-        resize: vertical;
-        min-height: 120px;
+        resize: none;
+        min-height: 80px;
       }
       label {
         position: absolute;
