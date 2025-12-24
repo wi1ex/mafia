@@ -47,11 +47,12 @@
             </div>
 
             <div v-else key="game" class="params">
-              <div class="range is-disabled">
+<!--              <div class="range is-disabled">-->
+              <div class="range">
                 <span>Лимит зрителей: {{ game.spectators_limit }}/{{ SPECT_MAX }}</span>
                 <div class="range-wrap">
                   <div class="range-track" :style="rangeSpectFillStyle" aria-hidden="true"></div>
-                  <input class="range-native" type="range" :min="SPECT_MIN" :max="SPECT_MAX" step="1" v-model.number="game.spectators_limit" disabled aria-label="Лимит зрителей" />
+                  <input class="range-native" type="range" :min="SPECT_MIN" :max="SPECT_MAX" step="1" v-model.number="game.spectators_limit" aria-label="Лимит зрителей" />
                 </div>
               </div>
 
@@ -166,7 +167,7 @@ const titlePct = computed(() => {
 })
 const titleUnderlineStyle = computed(() => ({ width: `${titlePct.value}%` }))
 
-const GAME_LIMIT_MIN = 6
+const GAME_LIMIT_MIN = 5
 const canOpenGameTab = computed(() => limit.value >= GAME_LIMIT_MIN)
 function openTab(t: 'room' | 'game') {
   if (t === 'game' && !canOpenGameTab.value) return

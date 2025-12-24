@@ -139,7 +139,12 @@ async def room_info(room_id: int) -> RoomInfoOut:
         for m in raw_members
     ]
 
-    return RoomInfoOut(members=members, game=game)
+    try:
+        spectators_count = int(await r.scard(f"room:{room_id}:spectators") or 0)
+    except Exception:
+        spectators_count = 0
+
+    return RoomInfoOut(members=members, game=game, spectators_count=spectators_count)
 
 
 @log_route("rooms.access")

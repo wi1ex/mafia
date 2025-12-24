@@ -71,7 +71,7 @@ const ALL_ROLE_CARDS = Array.from({ length: 10 }, (_, i) => i + 1)
 
 export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>) {
   const gamePhase = ref<GamePhase>('idle')
-  const minReadyToStart = ref<number>(5)
+  const minReadyToStart = ref<number>(4)
   const seatsByUser = reactive<Record<string, number>>({})
   const gamePlayers = reactive(new Set<string>())
   const gameAlive = reactive(new Set<string>())

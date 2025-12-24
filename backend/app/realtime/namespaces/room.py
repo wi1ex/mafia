@@ -129,22 +129,50 @@ async def join(sid, data) -> JoinAck:
 
         raw_gstate = await r.hgetall(f"room:{rid}:game_state")
         phase = str(raw_gstate.get("phase") or "idle")
+        spectator_mode = False
         if phase != "idle":
             head_raw = raw_gstate.get("head")
             head_id = int(head_raw) if head_raw else 0
             game_players_set = await r.smembers(f"room:{rid}:game_players")
             allowed_ids = {head_id} | {int(x) for x in (game_players_set or [])}
             if uid not in allowed_ids:
-                return {"ok": False, "error": "game_in_progress", "status": 409}
+                try:
+                    raw_game = await r.hgetall(f"room:{rid}:game")
+                except Exception:
+                    raw_game = {}
+                try:
+                    spectators_limit = int(raw_game.get("spectators_limit") or 0)
+                except Exception:
+                    spectators_limit = 0
+                if spectators_limit <= 0:
+                    return {"ok": False, "error": "game_in_progress", "status": 409}
+                try:
+                    already_spectator = await r.sismember(f"room:{rid}:spectators", str(uid))
+                except Exception:
+                    already_spectator = False
+                if not already_spectator:
+                    try:
+                        spectators_count = int(await r.scard(f"room:{rid}:spectators") or 0)
+                    except Exception:
+                        spectators_count = 0
+                    if spectators_count >= spectators_limit:
+                        return {"ok": False, "error": "spectators_full", "status": 409}
+                    await r.sadd(f"room:{rid}:spectators", str(uid))
+                spectator_mode = True
 
-        occ, pos, already, pos_updates = await join_room_atomic(r, rid, uid, base_role)
-        if occ == -3:
-            log.warning("sio.join.room_closed", rid=rid, uid=uid)
-            return {"ok": False, "error": "room_closed", "status": 410}
+        occ = 0
+        pos = 0
+        already = False
+        pos_updates = []
+        if not spectator_mode:
+            occ, pos, already, pos_updates = await join_room_atomic(r, rid, uid, base_role)
+            if occ == -3:
+                log.warning("sio.join.room_closed", rid=rid, uid=uid)
+                return {"ok": False, "error": "room_closed", "status": 410}
 
-        if occ == -1:
-            log.warning("sio.join.room_full", rid=rid, uid=uid)
-            return {"ok": False, "error": "room_is_full", "status": 409}
+            if occ == -1:
+                log.warning("sio.join.room_full", rid=rid, uid=uid)
+                return {"ok": False, "error": "room_is_full", "status": 409}
 
         await persist_join_user_info(r, rid, uid, sess.get("username"), sess.get("avatar_name"))
         try:
@@ -218,59 +246,62 @@ async def join(sid, data) -> JoinAck:
                                 "base_role": base_role,
                                 "username": ev_username,
                                 "avatar_name": ev_avatar,
-                                "epoch": epoch},
+                                "epoch": epoch,
+                                "spectator": spectator_mode},
                                namespace="/room")
 
-        incoming = (data.get("state") or {}) if isinstance(data, dict) else {}
-        user_state = {k: str(v) for k, v in (snapshot.get(str(uid)) or {}).items()}
-        to_fill = {k: incoming[k] for k in KEYS_STATE if k in incoming and k not in user_state}
-        if to_fill:
-            applied = await apply_state(r, rid, uid, to_fill)
-            if applied:
-                user_state = {**user_state, **applied}
-                snapshot[str(uid)] = user_state
-                await emit_state_changed_filtered(r, rid, uid, applied)
-
-        if phase == "idle":
-            my_block = (blocked or {}).get(str(uid)) or {}
-            auto_on: dict[str, str] = {}
-            speakers_blocked = str(my_block.get("speakers") or "0") == "1"
-            visibility_blocked = str(my_block.get("visibility") or "0") == "1"
-            if not speakers_blocked and user_state.get("speakers") != "1":
-                auto_on["speakers"] = "1"
-            if not visibility_blocked and user_state.get("visibility") != "1":
-                auto_on["visibility"] = "1"
-            if auto_on:
-                applied2 = await apply_state(r, rid, uid, auto_on)
-                if applied2:
-                    user_state = {**user_state, **applied2}
+        user_state: dict[str, str] = {}
+        if not spectator_mode:
+            incoming = (data.get("state") or {}) if isinstance(data, dict) else {}
+            user_state = {k: str(v) for k, v in (snapshot.get(str(uid)) or {}).items()}
+            to_fill = {k: incoming[k] for k in KEYS_STATE if k in incoming and k not in user_state}
+            if to_fill:
+                applied = await apply_state(r, rid, uid, to_fill)
+                if applied:
+                    user_state = {**user_state, **applied}
                     snapshot[str(uid)] = user_state
-                    await emit_state_changed_filtered(r, rid, uid, applied2)
+                    await emit_state_changed_filtered(r, rid, uid, applied)
 
-        if not already:
-            await emit_rooms_occupancy_safe(r, rid, occ)
+            if phase == "idle":
+                my_block = (blocked or {}).get(str(uid)) or {}
+                auto_on: dict[str, str] = {}
+                speakers_blocked = str(my_block.get("speakers") or "0") == "1"
+                visibility_blocked = str(my_block.get("visibility") or "0") == "1"
+                if not speakers_blocked and user_state.get("speakers") != "1":
+                    auto_on["speakers"] = "1"
+                if not visibility_blocked and user_state.get("visibility") != "1":
+                    auto_on["visibility"] = "1"
+                if auto_on:
+                    applied2 = await apply_state(r, rid, uid, auto_on)
+                    if applied2:
+                        user_state = {**user_state, **applied2}
+                        snapshot[str(uid)] = user_state
+                        await emit_state_changed_filtered(r, rid, uid, applied2)
 
-        await sio.emit("member_joined",
-                       {"user_id": uid,
-                        "state": user_state,
-                        "role": eff_role,
-                        "blocks": blocked.get(str(uid)) or {},
-                        "username": ev_username,
-                        "avatar_name": ev_avatar},
-                       room=f"room:{rid}",
-                       skip_sid=sid,
-                       namespace="/room")
+            if not already:
+                await emit_rooms_occupancy_safe(r, rid, occ)
 
-        if pos_updates:
-            await sio.emit("positions",
-                           {"updates": [{"user_id": u, "position": p} for u, p in pos_updates]},
+            await sio.emit("member_joined",
+                           {"user_id": uid,
+                            "state": user_state,
+                            "role": eff_role,
+                            "blocks": blocked.get(str(uid)) or {},
+                            "username": ev_username,
+                            "avatar_name": ev_avatar},
                            room=f"room:{rid}",
+                           skip_sid=sid,
                            namespace="/room")
-        await sio.emit("positions",
-                       {"updates": [{"user_id": uid, "position": pos}]},
-                       room=f"room:{rid}",
-                       skip_sid=sid,
-                       namespace="/room")
+
+            if pos_updates:
+                await sio.emit("positions",
+                               {"updates": [{"user_id": u, "position": p} for u, p in pos_updates]},
+                               room=f"room:{rid}",
+                               namespace="/room")
+            await sio.emit("positions",
+                           {"updates": [{"user_id": uid, "position": pos}]},
+                           room=f"room:{rid}",
+                           skip_sid=sid,
+                           namespace="/room")
 
         positions = await get_positions_map(r, rid)
         owner_raw = await r.get(f"room:{rid}:screen_owner")
@@ -325,6 +356,15 @@ async def state(sid, data) -> StateAck:
             return {"ok": False}
 
         r = get_redis()
+        is_spectator = bool(sess.get("spectator"))
+        if not is_spectator:
+            try:
+                is_spectator = await r.sismember(f"room:{rid}:spectators", str(uid))
+            except Exception:
+                is_spectator = False
+        if is_spectator:
+            return {"ok": True}
+
         payload = data or {}
         applied = await apply_state(r, rid, uid, payload)
         changed = dict(applied)
@@ -3552,6 +3592,17 @@ async def disconnect(sid):
             return
 
         r = get_redis()
+        is_spectator = bool(sess.get("spectator"))
+        if not is_spectator:
+            try:
+                is_spectator = await r.sismember(f"room:{rid}:spectators", str(uid))
+            except Exception:
+                is_spectator = False
+        if is_spectator:
+            try:
+                await r.srem(f"room:{rid}:spectators", str(uid))
+            except Exception:
+                log.warning("sio.disconnect.spectator_remove_failed", rid=rid, uid=uid)
         try:
             sess_epoch = int(sess.get("epoch") or 0)
         except Exception:

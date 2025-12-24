@@ -720,9 +720,14 @@ async function onProbeClick() {
 }
 
 const sortedPeerIds = computed(() => {
-  const idsSet = new Set<string>(peerIds.value)
+  const idsSet = new Set<string>()
   if (gamePhase.value !== 'idle') {
     for (const uid of Object.keys(seatsByUser)) { idsSet.add(String(uid)) }
+  } else {
+    positionByUser.forEach((_pos, uid) => idsSet.add(uid))
+  }
+  if (idsSet.size === 0) {
+    peerIds.value.forEach((id) => idsSet.add(id))
   }
   const ids = Array.from(idsSet)
   return ids.sort((a, b) => {
@@ -1506,6 +1511,9 @@ async function handleJoinFailure(j: any) {
     await router.replace({ name: 'home', query: { focus: String(rid) } })
   } else if (j?.status === 409 && j?.error === 'game_in_progress') {
     void alertDialog('В комнате идёт игра')
+    await router.replace({ name: 'home', query: { focus: String(rid) } })
+  } else if (j?.status === 409 && j?.error === 'spectators_full') {
+    void alertDialog('Лимит зрителей исчерпан')
     await router.replace({ name: 'home', query: { focus: String(rid) } })
   } else {
     void alertDialog('j?.status === 404 ? \'Комната не найдена\' : j?.status === 410 ? \'Комната закрыта\' : j?.status === 409 ? \'Комната заполнена\' : \'Ошибка входа в комнату\'')

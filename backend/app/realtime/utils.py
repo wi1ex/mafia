@@ -3376,6 +3376,25 @@ async def perform_game_end(ctx, sess: Optional[dict[str, Any]], *, confirm: bool
     except Exception:
         log.exception("sio.game_end.rooms_upsert_failed", rid=rid)
 
+    try:
+        spectators = await r.smembers(f"room:{rid}:spectators")
+    except Exception:
+        spectators = set()
+    if spectators:
+        for v in spectators:
+            try:
+                uid_i = int(v)
+            except Exception:
+                continue
+            await sio.emit("force_leave",
+                           {"room_id": rid, "reason": "game_end"},
+                           room=f"user:{uid_i}",
+                           namespace="/room")
+        try:
+            await r.delete(f"room:{rid}:spectators")
+        except Exception:
+            log.exception("sio.game_end.spectators_clear_failed", rid=rid)
+
     await sio.emit("game_ended",
                    {"room_id": rid, "reason": reason},
                    room=f"room:{rid}",
@@ -3527,6 +3546,7 @@ async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
             f"room:{rid}:visitors",
             f"room:{rid}:params",
             f"room:{rid}:game",
+            f"room:{rid}:spectators",
             f"room:{rid}:gc_seq",
             f"room:{rid}:empty_since",
             f"room:{rid}:gc_lock",

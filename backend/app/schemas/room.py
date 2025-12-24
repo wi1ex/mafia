@@ -52,6 +52,7 @@ class RoomInfoMemberOut(BaseModel):
 class RoomInfoOut(BaseModel):
     members: List[RoomInfoMemberOut] = Field(default_factory=list)
     game: Optional[GameParams] = None
+    spectators_count: int = 0
 
 
 class RoomAccessOut(BaseModel):

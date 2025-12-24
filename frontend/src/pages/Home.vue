@@ -125,6 +125,8 @@
             <button v-else-if="ctaState==='full'" disabled>Комната заполнена</button>
             <button v-else-if="ctaState==='apply'" :disabled="applying" @click="onApply">Подать заявку</button>
             <button v-else-if="ctaState==='pending'" disabled>Заявка отправлена</button>
+            <button v-else-if="ctaState==='watch'" :disabled="entering" @click="onEnter">Смотреть</button>
+            <button v-else-if="ctaState==='spectators_full'" disabled>Лимит зрителей</button>
             <button v-else-if="ctaState==='in_game'" disabled>Идёт игра</button>
             <button v-else disabled>Авторизуйтесь, чтобы войти</button>
           </div>
@@ -176,6 +178,7 @@ type RoomInfoMember = {
 }
 type RoomMembers = {
   members: RoomInfoMember[]
+  spectators_count?: number
 }
 type Game = {
   mode: 'normal' | 'rating'
@@ -248,11 +251,18 @@ const isGameParticipant = computed(() => {
   return members.some(m => m.id === uid && (m.role === 'head' || m.role === 'player'))
 })
 
-type Cta = 'login' | 'enter' | 'full' | 'apply' | 'pending' | 'in_game'
+type Cta = 'login' | 'enter' | 'full' | 'apply' | 'pending' | 'in_game' | 'watch' | 'spectators_full'
 const ctaState = computed<Cta>(() => {
   const room = selectedRoom.value
   if (!auth.isAuthed || !room) return 'login'
-  if (room.in_game) return isGameParticipant.value ? 'enter' : 'in_game'
+  if (room.in_game) {
+    if (room.privacy === 'private' && access.value !== 'approved') return 'in_game'
+    if (isGameParticipant.value) return 'enter'
+    const limit = info.value?.game?.spectators_limit ?? 0
+    const count = info.value?.spectators_count ?? 0
+    if (limit <= 0) return 'in_game'
+    return count < limit ? 'watch' : 'spectators_full'
+  }
   if (room.privacy === 'open' || access.value === 'approved') return isFull.value ? 'full' : 'enter'
   if (access.value === 'none') return 'apply'
   return 'pending'
