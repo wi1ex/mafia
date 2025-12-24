@@ -1311,7 +1311,7 @@ async function applyNightStartForLocal(): Promise<void> {
 
 async function enforceSpectatorPhaseVisibility(phase: GamePhase): Promise<void> {
   if (!isSpectatorInGame.value) return
-  const shouldHide = phase === 'night' || phase === 'mafia_talk_start' || phase === 'mafia_talk_end'
+  const shouldHide = phase === 'roles_pick' || phase === 'night' || phase === 'mafia_talk_start' || phase === 'mafia_talk_end'
   try {
     if (shouldHide && visibilityOn.value && !blockedSelf.value.visibility) await toggleVisibility()
     if (!shouldHide && !visibilityOn.value && !blockedSelf.value.visibility) await toggleVisibility()
