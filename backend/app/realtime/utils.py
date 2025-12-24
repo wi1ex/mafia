@@ -3486,12 +3486,9 @@ async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
                     except Exception:
                         lifetime_sec = None
 
-                    if unique_visitors <= 1:
-                        await s.delete(rm)
-                    else:
-                        rm.visitors = {**(rm.visitors or {}), **{str(k): v for k, v in visitors_map.items()}}
-                        rm.screen_time = merged_screen_time
-                        rm.deleted_at = now_dt
+                    rm.visitors = {**(rm.visitors or {}), **{str(k): v for k, v in visitors_map.items()}}
+                    rm.screen_time = merged_screen_time
+                    rm.deleted_at = now_dt
 
                     await r.srem(f"user:{rm_creator}:rooms", str(rid))
                     details = f"Удаление комнаты room_id={rid} title={rm_title} count_users={unique_visitors}"
