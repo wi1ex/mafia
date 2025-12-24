@@ -1,4 +1,5 @@
 export * from './modules/auth'
 export * from './modules/user'
 export * from './modules/notif'
+export * from './modules/updates'
 export * from './modules/settings'

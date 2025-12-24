@@ -10,8 +10,11 @@ from ...models.log import AppLog
 from ...models.game import Game
 from ...models.room import Room
 from ...models.user import User
+from ...models.update import SiteUpdate
+from ...realtime.sio import sio
 from ...security.decorators import log_route, require_roles_deco
 from ...security.parameters import ensure_app_settings, get_cached_settings, sync_cache_from_row
+from ...schemas.updates import AdminUpdateIn, AdminUpdateOut, AdminUpdatesOut
 from ...schemas.admin import (
     AdminSettingsOut,
     SiteSettingsOut,
@@ -319,3 +322,58 @@ async def update_user_role(user_id: int, payload: AdminUserRoleIn, session: Asyn
     await session.refresh(user)
 
     return AdminUserRoleOut(id=cast(int, user.id), role=user.role)
+
+
+@log_route("admin.updates.list")
+@require_roles_deco("admin")
+@router.get("/updates", response_model=AdminUpdatesOut)
+async def updates_list(session: AsyncSession = Depends(get_session)) -> AdminUpdatesOut:
+    rows = await session.execute(select(SiteUpdate).order_by(SiteUpdate.update_date.desc(), SiteUpdate.id.desc()))
+    items = [
+        AdminUpdateOut(
+            id=row.id,
+            version=row.version,
+            date=row.update_date,
+            description=row.description,
+        )
+        for row in rows.scalars().all()
+    ]
+
+    return AdminUpdatesOut(items=items)
+
+
+@log_route("admin.updates.create")
+@require_roles_deco("admin")
+@router.post("/updates", response_model=AdminUpdateOut)
+async def updates_create(payload: AdminUpdateIn, session: AsyncSession = Depends(get_session)) -> AdminUpdateOut:
+    row = SiteUpdate(
+        version=payload.version,
+        update_date=payload.date,
+        description=payload.description,
+    )
+    session.add(row)
+    await session.commit()
+    await session.refresh(row)
+    try:
+        await sio.emit("site_update", {"id": row.id}, namespace="/auth")
+    except Exception:
+        pass
+
+    return AdminUpdateOut(id=row.id, version=row.version, date=row.update_date, description=row.description)
+
+
+@log_route("admin.updates.update")
+@require_roles_deco("admin")
+@router.patch("/updates/{update_id}", response_model=AdminUpdateOut)
+async def updates_update(update_id: int, payload: AdminUpdateIn, session: AsyncSession = Depends(get_session)) -> AdminUpdateOut:
+    row = await session.get(SiteUpdate, int(update_id))
+    if not row:
+        raise HTTPException(status_code=404, detail="update_not_found")
+
+    row.version = payload.version
+    row.update_date = payload.date
+    row.description = payload.description
+    await session.commit()
+    await session.refresh(row)
+
+    return AdminUpdateOut(id=row.id, version=row.version, date=row.update_date, description=row.description)

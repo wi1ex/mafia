@@ -344,7 +344,7 @@ async def join(sid, data) -> JoinAck:
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:state:{uid or 'nouid'}:{rid or 0}", limit=30, window_s=1, session_ns="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:state:{uid or 'nouid'}:{rid or 0}", limit=5, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
 async def state(sid, data) -> StateAck:
     try:
@@ -455,7 +455,7 @@ async def screen(sid, data) -> ScreenAck:
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:moderate:{uid or 'nouid'}:{rid or 0}", limit=30, window_s=1, session_ns="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:moderate:{uid or 'nouid'}:{rid or 0}", limit=5, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
 async def moderate(sid, data) -> ModerateAck:
     try:
@@ -968,7 +968,7 @@ async def game_start(sid, data) -> GameStartAck:
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_roles_pick:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_roles_pick:{uid or 'nouid'}:{rid or 0}", limit=5, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
 async def game_roles_pick(sid, data) -> GameRolePickAck:
     try:
@@ -1486,7 +1486,7 @@ async def game_phase_next(sid, data):
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_speech_next:{uid or 'nouid'}:{rid or 0}", limit=20, window_s=1, session_ns="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_speech_next:{uid or 'nouid'}:{rid or 0}", limit=5, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
 async def game_speech_next(sid, data):
     try:
@@ -1696,7 +1696,7 @@ async def game_speech_next(sid, data):
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_foul:{uid or 'nouid'}:{rid or 0}", limit=60, window_s=1, session_ns="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_foul:{uid or 'nouid'}:{rid or 0}", limit=5, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
 async def game_foul(sid, data):
     try:
@@ -1777,7 +1777,7 @@ async def game_foul(sid, data):
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_foul_set:{uid or 'nouid'}:{rid or 0}", limit=60, window_s=1, session_ns="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_foul_set:{uid or 'nouid'}:{rid or 0}", limit=5, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
 async def game_foul_set(sid, data):
     try:
@@ -1910,7 +1910,7 @@ async def game_foul_set(sid, data):
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_nominate:{uid or 'nouid'}:{rid or 0}", limit=20, window_s=1, session_ns="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_nominate:{uid or 'nouid'}:{rid or 0}", limit=5, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
 async def game_nominate(sid, data):
     try:
@@ -2005,7 +2005,7 @@ async def game_nominate(sid, data):
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_farewell_mark:{uid or 'nouid'}:{rid or 0}", limit=60, window_s=1, session_ns="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_farewell_mark:{uid or 'nouid'}:{rid or 0}", limit=5, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
 async def game_farewell_mark(sid, data):
     try:
@@ -2110,7 +2110,7 @@ async def game_farewell_mark(sid, data):
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_best_move_start:{uid or 'nouid'}:{rid or 0}", limit=20, window_s=1, session_ns="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_best_move_start:{uid or 'nouid'}:{rid or 0}", limit=5, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
 async def game_best_move_start(sid, data):
     try:
@@ -2157,7 +2157,7 @@ async def game_best_move_start(sid, data):
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_best_move_mark:{uid or 'nouid'}:{rid or 0}", limit=20, window_s=1, session_ns="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_best_move_mark:{uid or 'nouid'}:{rid or 0}", limit=5, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
 async def game_best_move_mark(sid, data):
     try:
@@ -2236,7 +2236,7 @@ async def game_best_move_mark(sid, data):
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_vote_control:{uid or 'nouid'}:{rid or 0}", limit=20, window_s=1, session_ns="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_vote_control:{uid or 'nouid'}:{rid or 0}", limit=5, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
 async def game_vote_control(sid, data):
     try:
@@ -2430,7 +2430,7 @@ async def game_vote_control(sid, data):
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_vote:{uid or 'nouid'}:{rid or 0}", limit=60, window_s=1, session_ns="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_vote:{uid or 'nouid'}:{rid or 0}", limit=5, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
 async def game_vote(sid, data):
     try:
@@ -2513,7 +2513,7 @@ async def game_vote(sid, data):
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_vote_finish:{uid or 'nouid'}:{rid or 0}", limit=20, window_s=1, session_ns="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_vote_finish:{uid or 'nouid'}:{rid or 0}", limit=5, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
 async def game_vote_finish(sid, data):
     try:
@@ -2751,7 +2751,7 @@ async def game_vote_finish(sid, data):
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_vote_restart_current:{uid or 'nouid'}:{rid or 0}", limit=20, window_s=1, session_ns="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_vote_restart_current:{uid or 'nouid'}:{rid or 0}", limit=5, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
 async def game_vote_restart_current(sid, data):
     try:
@@ -2849,7 +2849,7 @@ async def game_vote_restart_current(sid, data):
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_vote_lift_prepare:{uid or 'nouid'}:{rid or 0}", limit=20, window_s=1, session_ns="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_vote_lift_prepare:{uid or 'nouid'}:{rid or 0}", limit=5, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
 async def game_vote_lift_prepare(sid, data):
     try:
@@ -2909,7 +2909,7 @@ async def game_vote_lift_prepare(sid, data):
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_vote_lift_start:{uid or 'nouid'}:{rid or 0}", limit=20, window_s=1, session_ns="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_vote_lift_start:{uid or 'nouid'}:{rid or 0}", limit=5, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
 async def game_vote_lift_start(sid, data):
     try:
@@ -2987,7 +2987,7 @@ async def game_vote_lift_start(sid, data):
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_speech_finish:{uid or 'nouid'}:{rid or 0}", limit=20, window_s=1, session_ns="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_speech_finish:{uid or 'nouid'}:{rid or 0}", limit=5, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
 async def game_speech_finish(sid, data):
     try:
@@ -3052,7 +3052,7 @@ async def game_speech_finish(sid, data):
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_vote_speech_next:{uid or 'nouid'}:{rid or 0}", limit=20, window_s=1, session_ns="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_vote_speech_next:{uid or 'nouid'}:{rid or 0}", limit=5, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
 async def game_vote_speech_next(sid, data):
     try:
@@ -3181,7 +3181,7 @@ async def game_vote_speech_next(sid, data):
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_vote_restart:{uid or 'nouid'}:{rid or 0}", limit=20, window_s=1, session_ns="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_vote_restart:{uid or 'nouid'}:{rid or 0}", limit=5, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
 async def game_vote_restart(sid, data):
     try:
@@ -3265,7 +3265,7 @@ async def game_vote_restart(sid, data):
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:night_shoot_start:{uid or 'nouid'}:{rid or 0}", limit=20, window_s=1, session_ns="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:night_shoot_start:{uid or 'nouid'}:{rid or 0}", limit=5, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
 async def game_night_shoot_start(sid, data):
     try:
@@ -3321,7 +3321,7 @@ async def game_night_shoot_start(sid, data):
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:night_shoot:{uid or 'nouid'}:{rid or 0}", limit=60, window_s=1, session_ns="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:night_shoot:{uid or 'nouid'}:{rid or 0}", limit=5, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
 async def game_night_shoot(sid, data):
     try:
@@ -3393,7 +3393,7 @@ async def game_night_shoot(sid, data):
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:night_checks_start:{uid or 'nouid'}:{rid or 0}", limit=20, window_s=1, session_ns="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:night_checks_start:{uid or 'nouid'}:{rid or 0}", limit=5, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
 async def game_night_checks_start(sid, data):
     try:
@@ -3449,7 +3449,7 @@ async def game_night_checks_start(sid, data):
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:night_check:{uid or 'nouid'}:{rid or 0}", limit=20, window_s=1, session_ns="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:night_check:{uid or 'nouid'}:{rid or 0}", limit=5, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
 async def game_night_check(sid, data):
     try:

@@ -35,7 +35,7 @@ router = APIRouter()
 
 
 @log_route("rooms.create_room")
-@rate_limited(lambda ident, **_: f"rl:create_room:{ident['id']}", limit=5, window_s=60)
+@rate_limited(lambda ident, **_: f"rl:create_room:{ident['id']}", limit=10, window_s=60)
 @router.post("", response_model=RoomIdOut, status_code=status.HTTP_201_CREATED)
 async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get_session), ident: Identity = Depends(get_identity)) -> RoomIdOut:
     uid = int(ident["id"])

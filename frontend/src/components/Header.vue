@@ -15,6 +15,17 @@
       <span>Вы уже авторизованы в соседней вкладке</span>
     </div>
     <div v-else class="user">
+      <div class="bell" ref="updatesEl">
+        <button @click.stop="onToggleUpdates" :aria-expanded="updates_open" aria-label="Обновления">
+          <img :src="iconInfo" alt="updates" />
+          <span v-if="updates.unread > 0">{{ updates.unread < 100 ? updates.unread : '∞' }}</span>
+        </button>
+        <Updates
+          v-model:open="updates_open"
+          :anchor="updatesEl"
+        />
+      </div>
+
       <div class="bell" ref="bellEl">
         <button @click.stop="onToggleNotifs" :aria-expanded="nb_open" aria-label="Уведомления">
           <img :src="iconNotifBell" alt="bells" />
@@ -53,12 +64,14 @@
 
 <script setup lang="ts">
 import { onMounted, onBeforeUnmount, watch, nextTick, ref } from 'vue'
-import { useAuthStore, useUserStore, useNotifStore, useSettingsStore } from '@/store'
+import { useAuthStore, useUserStore, useNotifStore, useSettingsStore, useUpdatesStore } from '@/store'
 import { alertDialog } from '@/services/confirm'
 import Notifs from '@/components/Notifs.vue'
+import Updates from '@/components/Updates.vue'
 
 import defaultAvatar from "@/assets/svg/defaultAvatar.svg"
 import iconNotifBell from "@/assets/svg/notifBell.svg"
+import iconInfo from "@/assets/svg/info.svg"
 import iconLogout from '@/assets/svg/leave.svg'
 import iconProfile from "@/assets/svg/profile.svg"
 import iconArrowDown from '@/assets/svg/arrowDown.svg'
@@ -66,15 +79,23 @@ import iconArrowDown from '@/assets/svg/arrowDown.svg'
 const auth = useAuthStore()
 const user = useUserStore()
 const notif = useNotifStore()
+const updates = useUpdatesStore()
 const settings = useSettingsStore()
 
 const nb_open = ref(false)
 const bellEl = ref<HTMLElement | null>(null)
+const updates_open = ref(false)
+const updatesEl = ref<HTMLElement | null>(null)
 const um_open = ref(false)
 const userMenuEl = ref<HTMLElement | null>(null)
 
 function onToggleNotifs() {
+  updates_open.value = false
   nb_open.value = !nb_open.value
+}
+function onToggleUpdates() {
+  nb_open.value = false
+  updates_open.value = !updates_open.value
 }
 function onToggleUserMenu() {
   um_open.value = !um_open.value
@@ -145,6 +166,8 @@ watch(() => auth.isAuthed, async ok => {
   if (ok) {
     notif.ensureWS()
     await notif.fetchAll()
+    updates.ensureWS()
+    await updates.fetchAll()
   }
 })
 
@@ -156,6 +179,8 @@ onMounted(async () => {
   if (auth.isAuthed) {
     notif.ensureWS()
     await notif.fetchAll()
+    updates.ensureWS()
+    await updates.fetchAll()
   }
   document.addEventListener('pointerdown', onGlobalPointerDown)
 })

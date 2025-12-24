@@ -10,6 +10,10 @@
                 :aria-selected="activeTab === 'game'" @click="activeTab = 'game'">
           Параметры игры
         </button>
+        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'updates' }"
+                :aria-selected="activeTab === 'updates'" @click="activeTab = 'updates'">
+          Обновления
+        </button>
         <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'stats' }"
                 :aria-selected="activeTab === 'stats'" @click="activeTab = 'stats'">
           Статистика
@@ -147,6 +151,42 @@
               <img class="btn-img" :src="iconSave" alt="save" />
               Сохранить
             </button>
+          </div>
+        </div>
+
+        <div v-else-if="activeTab === 'updates'">
+          <div class="updates-toolbar">
+            <button class="btn confirm" @click="openCreateUpdate">
+              <img class="btn-img" :src="iconSave" alt="save" />
+              Добавить
+            </button>
+          </div>
+
+          <div v-if="updatesLoading" class="loading">Загрузка...</div>
+          <div v-else>
+            <table class="table updates-table">
+              <thead>
+                <tr>
+                  <th>Дата</th>
+                  <th>Версия</th>
+                  <th>Описание</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="row in updates" :key="row.id">
+                  <td>{{ formatLocalDateTime(row.date, DATE_ONLY) }}</td>
+                  <td>{{ row.version }}</td>
+                  <td class="desc">{{ row.description }}</td>
+                  <td>
+                    <button class="btn" @click="openEditUpdate(row)">Изменить</button>
+                  </td>
+                </tr>
+                <tr v-if="updates.length === 0">
+                  <td colspan="4" class="muted">Нет обновлений</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
 
@@ -455,6 +495,39 @@
         </div>
       </div>
     </Transition>
+
+    <Transition name="overlay">
+      <div v-if="updateModalOpen" class="modal-overlay" @click.self="closeUpdateModal">
+        <div class="modal" role="dialog" aria-modal="true" :aria-label="updateEditing ? 'Редактировать обновление' : 'Новое обновление'">
+          <header>
+            <span>{{ updateEditing ? 'Редактировать обновление' : 'Новое обновление' }}</span>
+            <button class="icon" @click="closeUpdateModal" aria-label="Закрыть">
+              <img :src="iconClose" alt="close" />
+            </button>
+          </header>
+          <div class="modal-body">
+            <div class="ui-input" :class="{ filled: Boolean(updateForm.version) }">
+              <input id="update-version" v-model.trim="updateForm.version" type="text" placeholder=" " autocomplete="off" />
+              <label for="update-version">Версия</label>
+            </div>
+            <div class="ui-input" :class="{ filled: Boolean(updateForm.date) }">
+              <input id="update-date" v-model="updateForm.date" type="date" placeholder=" " autocomplete="off" />
+              <label for="update-date">Дата</label>
+            </div>
+            <div class="ui-input textarea" :class="{ filled: Boolean(updateForm.description) }">
+              <textarea id="update-desc" v-model.trim="updateForm.description" rows="5" placeholder=" "></textarea>
+              <label for="update-desc">Описание</label>
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button class="btn" @click="closeUpdateModal">Отмена</button>
+            <button class="btn confirm" :disabled="updateSaving || !canSaveUpdate" @click="saveUpdate">
+              Сохранить
+            </button>
+          </div>
+        </div>
+      </div>
+    </Transition>
   </section>
 </template>
 
@@ -468,6 +541,13 @@ import { useSettingsStore } from '@/store'
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
 import iconJudge from '@/assets/svg/judge.svg'
 import iconSave from '@/assets/svg/save.svg'
+import iconClose from '@/assets/svg/close.svg'
+
+const DATE_ONLY: Intl.DateTimeFormatOptions = {
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+}
 
 type SiteSettings = {
   registration_enabled: boolean
@@ -562,7 +642,14 @@ type UserRow = {
   stream_minutes: number
 }
 
-const activeTab = ref<'site' | 'game' | 'stats' | 'logs' | 'rooms' | 'users'>('site')
+type UpdateRow = {
+  id: number
+  version: string
+  date: string
+  description: string
+}
+
+const activeTab = ref<'site' | 'game' | 'updates' | 'stats' | 'logs' | 'rooms' | 'users'>('site')
 const loading = ref(true)
 const savingSite = ref(false)
 const savingGame = ref(false)
@@ -570,6 +657,7 @@ const statsLoading = ref(false)
 const logsLoading = ref(false)
 const roomsLoading = ref(false)
 const usersLoading = ref(false)
+const updatesLoading = ref(false)
 
 const site = reactive<SiteSettings>({
   registration_enabled: true,
@@ -627,6 +715,11 @@ const usersPage = ref(1)
 const usersLimit = ref(20)
 const usersUser = ref('')
 const usersRoleBusy = reactive<Record<number, boolean>>({})
+const updates = ref<UpdateRow[]>([])
+const updateModalOpen = ref(false)
+const updateSaving = ref(false)
+const updateEditing = ref<UpdateRow | null>(null)
+const updateForm = reactive({ version: '', date: '', description: '' })
 let logsUserTimer: number | undefined
 let roomsUserTimer: number | undefined
 let usersUserTimer: number | undefined
@@ -707,6 +800,9 @@ const registrationTicks = computed(() => {
   }
   if (!seen.has(0)) out.push(0)
   return out
+})
+const canSaveUpdate = computed(() => {
+  return Boolean(updateForm.version.trim() && updateForm.date && updateForm.description.trim())
 })
 
 function formatRoomGame(row: RoomRow): string {
@@ -885,6 +981,67 @@ async function loadUsers(): Promise<void> {
   }
 }
 
+async function loadUpdates(): Promise<void> {
+  if (updatesLoading.value) return
+  updatesLoading.value = true
+  try {
+    const { data } = await api.get('/admin/updates')
+    updates.value = Array.isArray(data?.items) ? data.items : []
+  } catch {
+    updates.value = []
+    void alertDialog('Не удалось загрузить обновления')
+  } finally {
+    updatesLoading.value = false
+  }
+}
+
+function resetUpdateForm(row?: UpdateRow | null) {
+  updateForm.version = row?.version || ''
+  updateForm.date = row?.date ? String(row.date).slice(0, 10) : ''
+  updateForm.description = row?.description || ''
+}
+
+function openCreateUpdate() {
+  updateEditing.value = null
+  resetUpdateForm()
+  updateModalOpen.value = true
+}
+
+function openEditUpdate(row: UpdateRow) {
+  updateEditing.value = row
+  resetUpdateForm(row)
+  updateModalOpen.value = true
+}
+
+function closeUpdateModal() {
+  updateModalOpen.value = false
+}
+
+async function saveUpdate(): Promise<void> {
+  if (updateSaving.value || !canSaveUpdate.value) return
+  updateSaving.value = true
+  const payload = {
+    version: updateForm.version.trim(),
+    date: updateForm.date,
+    description: updateForm.description.trim(),
+  }
+  try {
+    if (updateEditing.value) {
+      await api.patch(`/admin/updates/${updateEditing.value.id}`, payload)
+      void alertDialog('Обновление сохранено')
+    } else {
+      await api.post('/admin/updates', payload)
+      void alertDialog('Обновление добавлено')
+    }
+    updateModalOpen.value = false
+    await loadUpdates()
+  } catch {
+    void alertDialog('Не удалось сохранить обновление')
+  } finally {
+    updateSaving.value = false
+  }
+}
+
 function nextLogs(): void {
   if (logsPage.value >= logsPages.value) return
   logsPage.value += 1
@@ -936,6 +1093,10 @@ async function toggleUserRole(row: UserRow): Promise<void> {
 }
 
 watch(activeTab, (tab) => {
+  if (tab === 'updates') {
+    void loadUpdates()
+    return
+  }
   if (tab === 'stats') {
     void loadStats()
     return
@@ -1440,6 +1601,69 @@ onMounted(() => {
         }
       }
     }
+    .updates-toolbar {
+      display: flex;
+      justify-content: flex-end;
+      margin-bottom: 10px;
+    }
+    .updates-table .desc {
+      white-space: pre-wrap;
+      max-width: 520px;
+    }
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba($black, 0.6);
+      z-index: 200;
+    }
+    .modal {
+      width: 520px;
+      max-width: calc(100% - 30px);
+      border-radius: 8px;
+      background-color: $graphite;
+      box-shadow: 0 10px 30px rgba($black, 0.4);
+      padding: 15px;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        span {
+          font-size: 18px;
+          font-family: Manrope-Medium;
+        }
+        .icon {
+          width: 28px;
+          height: 28px;
+          border: none;
+          background: none;
+          cursor: pointer;
+          img {
+            width: 20px;
+            height: 20px;
+          }
+        }
+      }
+      .modal-body {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .ui-input.textarea textarea {
+        resize: vertical;
+        min-height: 120px;
+      }
+      .modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+      }
+    }
     .pager {
       margin-top: 10px;
       display: flex;
@@ -1462,6 +1686,15 @@ onMounted(() => {
 }
 .tab-fade-enter-from,
 .tab-fade-leave-to {
+  opacity: 0;
+}
+
+.overlay-enter-active,
+.overlay-leave-active {
+  transition: opacity 0.25s ease-in-out;
+}
+.overlay-enter-from,
+.overlay-leave-to {
   opacity: 0;
 }
 
