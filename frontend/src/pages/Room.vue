@@ -481,6 +481,11 @@ const streamAudioKey = computed(() => screenOwnerId.value ? rtc.screenKey(screen
 const streamVol = computed(() => streamAudioKey.value ? (volUi[streamAudioKey.value] ?? rtc.getUserVolume(streamAudioKey.value)) : 100)
 const fitContainInGrid = computed(() => !isTheater.value && sortedPeerIds.value.length < 3)
 const mediaGateVisible = computed(() => uiReady.value && !isReconnecting.value && needInitialMediaUnlock.value)
+const isSpectatorInGame = computed(() => {
+  const id = localId.value
+  if (!id || gamePhase.value === 'idle') return false
+  return !seatsByUser[id]
+})
 
 const gameStartOverlayVisible = ref(false)
 const gameEndOverlayVisible = ref(false)
@@ -1260,6 +1265,7 @@ async function forceMicOffLocal() {
 async function enforceMicAfterJoin() {
   if (gamePhase.value === 'idle') return
   if (isCurrentSpeaker.value) return
+  if (isSpectatorInGame.value) return
   await forceMicOffLocal()
 }
 
@@ -1296,10 +1302,20 @@ async function applyDayStartForLocal(): Promise<void> {
 }
 
 async function applyNightStartForLocal(): Promise<void> {
+  if (isSpectatorInGame.value) return
   const me = localId.value
   const hasActiveFoul = !!(me && game.foulActive.has(me)) || foulPending.value
   try { if (!isHead.value && !hasActiveFoul && !blockedSelf.value.mic && micOn.value) await toggleMic() } catch {}
   try { if (!isHead.value && !blockedSelf.value.visibility && visibilityOn.value) await toggleVisibility() } catch {}
+}
+
+async function enforceSpectatorPhaseVisibility(phase: GamePhase): Promise<void> {
+  if (!isSpectatorInGame.value) return
+  const shouldHide = phase === 'night' || phase === 'mafia_talk_start' || phase === 'mafia_talk_end'
+  try {
+    if (shouldHide && visibilityOn.value && !blockedSelf.value.visibility) await toggleVisibility()
+    if (!shouldHide && !visibilityOn.value && !blockedSelf.value.visibility) await toggleVisibility()
+  } catch {}
 }
 
 function handleGamePhaseChangeUi(prev: GamePhase, next: GamePhase): void {
@@ -1307,6 +1323,7 @@ function handleGamePhaseChangeUi(prev: GamePhase, next: GamePhase): void {
   if (prev === 'mafia_talk_start' && next === 'mafia_talk_end') void applyMafiaTalkEndForLocal()
   if (next === 'night') void applyNightStartForLocal()
   if ((prev === 'mafia_talk_end' && next === 'day') || (prev === 'night' && next === 'day')) void applyDayStartForLocal()
+  void enforceSpectatorPhaseVisibility(next)
 }
 
 function applyJoinAck(j: any) {
@@ -1375,6 +1392,7 @@ function applyJoinAck(j: any) {
   const snapshotIds = Object.keys(j.snapshot || {})
   game.applyFromJoinAck(j, snapshotIds)
   void enforceMicAfterJoin()
+  void enforceSpectatorPhaseVisibility(gamePhase.value)
 }
 
 type PublishDelta = Partial<{
@@ -1556,6 +1574,7 @@ function handleOnline() { if (netReconnecting.value) hardReload() }
 
 watch(isCurrentSpeaker, async (now, was) => {
   if (now === was) return
+  if (isSpectatorInGame.value) return
   try {
     if (now) { if (!micOn.value) await toggleMic() }
     else { if (micOn.value) await toggleMic() }

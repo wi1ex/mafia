@@ -306,7 +306,7 @@ async def join(sid, data) -> JoinAck:
         positions = await get_positions_map(r, rid)
         owner_raw = await r.get(f"room:{rid}:screen_owner")
         owner = int(owner_raw) if owner_raw else 0
-        token = make_livekit_token(identity=str(uid), name=ev_username, room=str(rid))
+        token = make_livekit_token(identity=str(uid), name=ev_username, room=str(rid), can_publish=not spectator_mode)
         game = build_game_from_raw(await r.hgetall(f"room:{rid}:game"))
         game_runtime, game_roles_view, my_game_role = await get_game_runtime_and_roles_view(r, rid, uid)
         game_runtime = await enrich_game_runtime_with_vote(r, rid, game_runtime, raw_gstate)
