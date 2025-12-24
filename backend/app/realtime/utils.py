@@ -33,6 +33,7 @@ __all__ = [
     "set_ready",
     "get_positions_map",
     "build_game_from_raw",
+    "game_flag",
     "persist_join_user_info",
     "get_blocks_snapshot",
     "get_roles_snapshot",
@@ -693,6 +694,20 @@ def norm01(v: Any) -> str:
     return "1" if str(v).strip().lower() in {"1", "true"} else "0"
 
 
+def game_flag(raw_game: Mapping[str, Any] | None, key: str, default: bool = True) -> bool:
+    if not raw_game:
+        return default
+
+    v = raw_game.get(key)
+    if v is None:
+        return default
+
+    if isinstance(v, bool):
+        return v
+
+    return str(v).strip().lower() in ("1", "true")
+
+
 async def smembers_ints(r, key: str) -> set[int]:
     raw = await r.smembers(key)
     out: set[int] = set()
@@ -825,21 +840,14 @@ async def get_positions_map(r, rid: int) -> Dict[str, int]:
 
 
 def build_game_from_raw(raw_game: Mapping[str, Any]) -> Dict[str, Any]:
-    def b1(v: Any, default: bool = True) -> bool:
-        if v is None:
-            return default
-        if isinstance(v, bool):
-            return v
-        return str(v).strip().lower() in ("1", "true")
-
     return {
         "mode": str(raw_game.get("mode") or "normal"),
         "format": str(raw_game.get("format") or "hosted"),
         "spectators_limit": int(raw_game.get("spectators_limit") or 0),
-        "break_at_zero": b1(raw_game.get("break_at_zero"), True),
-        "lift_2x_at_zero": b1(raw_game.get("lift_2x_at_zero"), True),
-        "lift_3x": b1(raw_game.get("lift_3x"), True),
-        "lift_5x": b1(raw_game.get("lift_5x"), True),
+        "break_at_zero": game_flag(raw_game, "break_at_zero", True),
+        "lift_2x_at_zero": game_flag(raw_game, "lift_2x_at_zero", True),
+        "lift_3x": game_flag(raw_game, "lift_3x", True),
+        "lift_5x": game_flag(raw_game, "lift_5x", True),
     }
 
 
@@ -1582,6 +1590,19 @@ async def compute_farewell_allowed(r, rid: int, speaker_uid: int, *, mode: str =
     others = [u for u in alive if u != speaker_uid]
     x = len(others)
 
+    if mode == "voted":
+        try:
+            raw_game = await r.hgetall(f"room:{rid}:game")
+        except Exception:
+            raw_game = {}
+        if not game_flag(raw_game, "break_at_zero", True):
+            try:
+                day_number = int(await r.hget(f"room:{rid}:game_state", "day_number") or 0)
+            except Exception:
+                day_number = 0
+            if day_number == 1:
+                return False
+
     try:
         raw_roles = await r.hgetall(f"room:{rid}:game_roles")
     except Exception:
@@ -1901,8 +1922,17 @@ async def finish_vote_speech(r, rid: int, raw_gstate: Mapping[str, Any], speaker
     killed = False
     speeches_done = False
     if kind == "farewell":
-        await process_player_death(r, rid, speaker_uid, head_uid=head_uid, phase_override="vote", reason=reason_override or "vote")
-        killed = True
+        skip_death = False
+        if ctx.gint("day_number") == 1 and len(leaders) == 1:
+            try:
+                raw_game = await r.hgetall(f"room:{rid}:game")
+            except Exception:
+                raw_game = {}
+            if not game_flag(raw_game, "break_at_zero", True):
+                skip_death = True
+        if not skip_death:
+            await process_player_death(r, rid, speaker_uid, head_uid=head_uid, phase_override="vote", reason=reason_override or "vote")
+            killed = True
         if leaders and leader_idx >= len(leaders):
             speeches_done = True
     else:

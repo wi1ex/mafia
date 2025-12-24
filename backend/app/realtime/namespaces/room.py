@@ -22,6 +22,7 @@ from ..utils import (
     set_ready,
     get_positions_map,
     build_game_from_raw,
+    game_flag,
     persist_join_user_info,
     get_blocks_snapshot,
     get_roles_snapshot,
@@ -2632,9 +2633,27 @@ async def game_vote_finish(sid, data):
         repeated = bool(prev_leaders) and len(prev_leaders) == len(leaders) and set(prev_leaders) == set(leaders) and len(leaders) > 1
         lift_state_new = "ready" if repeated else ""
         all_alive_leaders = False
+        lift_forbidden = False
         if repeated and leaders:
             alive_ids, _ = await get_alive_and_voted_ids(r, rid)
             all_alive_leaders = bool(alive_ids) and set(leaders) == set(alive_ids)
+            if not all_alive_leaders:
+                leaders_cnt = len(leaders)
+                if leaders_cnt in (2, 3, 5):
+                    try:
+                        raw_game = await r.hgetall(f"room:{rid}:game")
+                    except Exception:
+                        raw_game = {}
+                    if leaders_cnt == 2 and day_number == 1:
+                        lift_forbidden = not game_flag(raw_game, "lift_2x_at_zero", True)
+                    elif leaders_cnt == 3:
+                        lift_forbidden = not game_flag(raw_game, "lift_3x", True)
+                    elif leaders_cnt == 5:
+                        lift_forbidden = not game_flag(raw_game, "lift_5x", True)
+
+        no_elimination = all_alive_leaders or lift_forbidden
+        if lift_forbidden:
+            lift_state_new = ""
         payload = {
             "room_id": rid,
             "nominees": nominees,
@@ -2643,7 +2662,7 @@ async def game_vote_finish(sid, data):
         }
         if lift_state_new:
             payload["lift_state"] = lift_state_new
-        if all_alive_leaders:
+        if no_elimination:
             payload["leaders"] = []
             payload["speeches_done"] = True
             lift_state_new = ""
@@ -2659,7 +2678,7 @@ async def game_vote_finish(sid, data):
             await p.hset(
                 f"room:{rid}:game_state",
                 mapping={
-                    "vote_leaders_order": "" if all_alive_leaders else leaders_str,
+                    "vote_leaders_order": "" if no_elimination else leaders_str,
                     "vote_leader_idx": "0",
                     "vote_speech_uid": "0",
                     "vote_speech_started": "0",
@@ -2667,13 +2686,13 @@ async def game_vote_finish(sid, data):
                     "vote_speech_kind": "",
                     "vote_aborted": "0",
                     "vote_results_ready": "1",
-                    "vote_speeches_done": "1" if (lift_state_new or all_alive_leaders) else "0",
-                    "vote_prev_leaders": leaders_str if not all_alive_leaders else "",
+                    "vote_speeches_done": "1" if (lift_state_new or no_elimination) else "0",
+                    "vote_prev_leaders": leaders_str if not no_elimination else "",
                     "vote_lift_state": lift_state_new,
                     "vote_blocked": "0",
                 },
             )
-            if all_alive_leaders:
+            if no_elimination:
                 await p.delete(f"room:{rid}:game_nominees")
             else:
                 mp_nominees = {str(uid): str(i + 1) for i, uid in enumerate(leaders)}
