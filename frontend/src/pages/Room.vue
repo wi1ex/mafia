@@ -1583,6 +1583,11 @@ watch(isCurrentSpeaker, async (now, was) => {
 
 watch(() => auth.isAuthed, (ok) => { if (!ok) { void onLeave() } })
 
+watch(localId, (id, prev) => {
+  if (!id || id === prev) return
+  void enforceSpectatorPhaseVisibility(gamePhase.value)
+})
+
 onMounted(async () => {
   try {
     if (!auth.ready) { try { await auth.init() } catch {} }

@@ -190,7 +190,7 @@ type Game = {
 const gameDefault: Game = {
   mode: 'normal',
   format: 'hosted',
-  spectators_limit: 0,
+  spectators_limit: 10,
   break_at_zero: true,
   lift_at_zero: true,
   lift_3x: true,
