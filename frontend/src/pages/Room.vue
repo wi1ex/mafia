@@ -250,10 +250,26 @@
             <img :src="iconRequestsRoom" alt="requests" />
             <span class="count-total" :class="{ unread: appsCounts.unread > 0 }">{{ appsCounts.total < 100 ? appsCounts.total : '∞' }}</span>
           </button>
+          <button v-if="gamePhase !== 'idle'" @click.stop="toggleMusicSettings" :aria-expanded="musicSettingsOpen" aria-label="Панель управления">
+            <img :src="iconVolumeMid" alt="controls" />
+          </button>
           <button @click.stop="toggleSettings" :aria-expanded="settingsOpen" aria-label="Настройки устройств">
             <img :src="iconSettings" alt="settings" />
           </button>
         </div>
+
+        <RoomRequests
+          v-if="myRole === 'host' && isPrivate && gamePhase === 'idle'"
+          v-model:open="openApps"
+          :room-id="rid"
+          @counts="(p) => { appsCounts.total = p.total; appsCounts.unread = p.unread }"
+        />
+
+        <RoomMusicSetting
+          :open="musicSettingsOpen"
+          v-model:volume="bgmVolume"
+          @close="musicSettingsOpen=false"
+        />
 
         <RoomSetting
           :open="settingsOpen"
@@ -266,13 +282,6 @@
           :vq-disabled="pendingQuality"
           @device-change="(kind) => rtc.onDeviceChange(kind)"
           @close="settingsOpen=false"
-        />
-
-        <RoomRequests
-          v-if="myRole === 'host' && isPrivate && gamePhase === 'idle'"
-          v-model:open="openApps"
-          :room-id="rid"
-          @counts="(p) => { appsCounts.total = p.total; appsCounts.unread = p.unread }"
         />
       </div>
 
@@ -312,6 +321,7 @@ import { confirmDialog, alertDialog } from '@/services/confirm'
 import { createAuthedSocket } from '@/services/sio'
 import RoomTile from '@/components/RoomTile.vue'
 import RoomSetting from '@/components/RoomSetting.vue'
+import RoomMusicSetting from '@/components/RoomMusicSetting.vue'
 import RoomRequests from '@/components/RoomRequests.vue'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
@@ -322,6 +332,7 @@ import iconVolumeMute from '@/assets/svg/volumeMute.svg'
 
 import iconClose from '@/assets/svg/close.svg'
 import iconLeaveRoom from '@/assets/svg/leave.svg'
+import iconControls from '@/assets/svg/controls.svg'
 import iconSettings from '@/assets/svg/settings.svg'
 import iconRequestsRoom from '@/assets/svg/requestsRoom.svg'
 import iconReady from '@/assets/svg/ready.svg'
@@ -465,6 +476,7 @@ const openPanelFor = ref<string>('')
 const pendingScreen = ref(false)
 const pendingQuality = ref(false)
 const settingsOpen = ref(false)
+const musicSettingsOpen = ref(false)
 const uiReady = ref(false)
 const leaving = ref(false)
 const netReconnecting = ref(false)
@@ -618,10 +630,11 @@ function stateIcon(kind: IconKind, id: string) {
   if (isBlocked(id, kind)) return STATE_ICONS[kind].blk
   return isOn(id, kind) ? STATE_ICONS[kind].on : STATE_ICONS[kind].off
 }
-function closePanels(except?: 'card'|'apps'|'settings') {
+function closePanels(except?: 'card'|'apps'|'settings'|'music') {
   if (except !== 'card') openPanelFor.value = ''
   if (except !== 'apps') openApps.value = false
   if (except !== 'settings') settingsOpen.value = false
+  if (except !== 'music') musicSettingsOpen.value = false
 }
 const toggleTilePanel = (id: string) => {
   if (id === localId.value) return
@@ -640,9 +653,15 @@ function toggleApps() {
   closePanels('apps')
   openApps.value = next
 }
+function toggleMusicSettings() {
+  const next = !musicSettingsOpen.value
+  closePanels('music')
+  musicSettingsOpen.value = next
+}
 function onDocClick() {
   closePanels()
   void rtc.resumeAudio()
+  void ensureBgmPlayback()
 }
 function volumeIcon(val: number, enabled: boolean) {
   if (!enabled) return iconVolumeMute
@@ -656,6 +675,113 @@ function volumeIconForStream(key: string) {
   if (!key) return iconVolumeMute
   return volumeIcon(volUi[key] ?? rtc.getUserVolume(key), speakersOn.value && !isBlocked(screenOwnerId.value,'speakers'))
 }
+
+const BGM_VOLUME_LS = 'bgm:volume'
+const BGM_DEFAULT_VOLUME = 50
+const BGM_MAX_VOLUME = 1
+const BGM_SOURCES = {
+  rolesPick: '/audio/sleep.mp3',
+  mafiaTalk: '/audio/sleep.mp3',
+  night: '/audio/sleep.mp3',
+} as const
+
+const bgmAudio = ref<HTMLAudioElement | null>(null)
+const bgmVolume = ref<number>(loadBgmVolume())
+
+function clampBgmVolume(v: number) {
+  if (!Number.isFinite(v)) return BGM_DEFAULT_VOLUME
+  return Math.min(100, Math.max(0, Math.round(v)))
+}
+function loadBgmVolume(): number {
+  if (typeof window === 'undefined') return BGM_DEFAULT_VOLUME
+  try {
+    const raw = window.localStorage.getItem(BGM_VOLUME_LS)
+    if (raw == null) return BGM_DEFAULT_VOLUME
+    const parsed = Number(raw)
+    return clampBgmVolume(parsed)
+  } catch {
+    return BGM_DEFAULT_VOLUME
+  }
+}
+function saveBgmVolume(v: number) {
+  if (typeof window === 'undefined') return
+  try { window.localStorage.setItem(BGM_VOLUME_LS, String(v)) } catch {}
+}
+function resolveBgmUrl(src: string) {
+  if (typeof window === 'undefined') return src
+  try { return new URL(src, window.location.origin).toString() } catch { return src }
+}
+function ensureBgmAudio(): HTMLAudioElement {
+  if (bgmAudio.value) return bgmAudio.value
+  const el = new Audio()
+  el.loop = true
+  el.preload = 'auto'
+  bgmAudio.value = el
+  applyBgmVolume()
+  return el
+}
+function applyBgmVolume() {
+  const el = bgmAudio.value
+  if (!el) return
+  const scaled = (clampBgmVolume(bgmVolume.value) / 100) * BGM_MAX_VOLUME
+  el.volume = Math.min(1, Math.max(0, scaled))
+}
+function stopBgm() {
+  const el = bgmAudio.value
+  if (!el) return
+  try { el.pause() } catch {}
+  try { el.currentTime = 0 } catch {}
+}
+function destroyBgm() {
+  const el = bgmAudio.value
+  if (!el) return
+  stopBgm()
+  try { el.src = '' } catch {}
+  bgmAudio.value = null
+}
+
+const bgmSource = computed(() => {
+  if (gamePhase.value === 'roles_pick') return BGM_SOURCES.rolesPick
+  if (gamePhase.value === 'mafia_talk_start' || gamePhase.value === 'mafia_talk_end') return BGM_SOURCES.mafiaTalk
+  if (gamePhase.value === 'night') return BGM_SOURCES.night
+  return ''
+})
+
+function ensureBgmPlayback() {
+  const src = bgmSource.value
+  if (!src) {
+    stopBgm()
+    return
+  }
+  const el = ensureBgmAudio()
+  const resolved = resolveBgmUrl(src)
+  if (resolved && el.src !== resolved) el.src = src
+  applyBgmVolume()
+  void el.play().catch(() => {})
+}
+
+watch(bgmVolume, (v) => {
+  const next = clampBgmVolume(v)
+  if (next !== v) {
+    bgmVolume.value = next
+    return
+  }
+  saveBgmVolume(next)
+  applyBgmVolume()
+}, { immediate: true })
+
+watch(bgmSource, (src) => {
+  if (!src) {
+    stopBgm()
+    return
+  }
+  const el = ensureBgmAudio()
+  const resolved = resolveBgmUrl(src)
+  if (resolved && el.src !== resolved) el.src = src
+  try { el.currentTime = 0 } catch {}
+  applyBgmVolume()
+  void el.play().catch(() => {})
+}, { immediate: true })
 
 async function sendAck(event: string, payload: any, timeoutMs = 15000): Promise<Ack> {
   try {
@@ -1519,6 +1645,7 @@ async function onMediaGateClick() {
   needInitialMediaUnlock.value = false
   closePanels()
   try { await rtc.resumeAudio() } catch {}
+  ensureBgmPlayback()
   await enableInitialMedia()
 }
 
@@ -1661,6 +1788,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('online', handleOnline)
   if (gameStartOverlayTimerId != null) window.clearTimeout(gameStartOverlayTimerId)
   if (gameEndOverlayTimerId != null) window.clearTimeout(gameEndOverlayTimerId)
+  destroyBgm()
   void onLeave(false)
 })
 </script>
