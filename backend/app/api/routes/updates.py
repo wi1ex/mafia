@@ -1,5 +1,5 @@
 from __future__ import annotations
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -62,7 +62,7 @@ async def mark_read(payload: MarkUpdatesReadIn, ident: Identity = Depends(get_id
 
     existing_rows = await db.execute(select(UpdateRead.update_id).where(UpdateRead.user_id == uid, UpdateRead.update_id.in_(ids)))
     existing = {int(r[0]) for r in existing_rows.all() if r and r[0] is not None}
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     for upd_id in ids:
         if upd_id in existing:
             continue
