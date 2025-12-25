@@ -87,7 +87,7 @@
         <div v-show="openPanel" class="card-body" @click.stop>
           <div v-if="id !== localId" class="volume">
             <img :src="volumeIcon" alt="vol" />
-            <input type="range" min="0" max="200" :disabled="!speakersOn || isBlocked(id,'speakers')"
+            <input type="range" min="0" max="200" step="5" :disabled="!speakersOn || isBlocked(id,'speakers')"
                    :value="vol ?? 100" @input="$emit('vol-input', id, Number(($event.target as HTMLInputElement).value))" />
             <span>{{ vol ?? 100 }}%</span>
           </div>

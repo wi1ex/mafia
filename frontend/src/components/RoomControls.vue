@@ -10,12 +10,12 @@
       <div class="controls">
         <div class="switch-div">
           <div v-if="canToggleKnownRoles" class="switch">
-            <span class="switch-label">Показ ролей:</span>
+            <span class="switch-label">Видимость ролей:</span>
             <label>
               <input type="checkbox" :checked="knownRolesVisible" @change="onToggleKnownRoles" aria-label="Показ ролей" />
               <div class="slider">
-                <span>Откл</span>
-                <span>Вкл</span>
+                <span>Скрыть</span>
+                <span>Показать</span>
               </div>
             </label>
           </div>
@@ -25,7 +25,7 @@
           <span class="volume-text">Громкость музыки:</span>
           <div class="volume">
             <img :src="volumeIcon" alt="vol" />
-            <input type="range" min="0" max="100" :value="volume" aria-label="Громкость фоновой музыки" @input="onVolumeInput" />
+            <input type="range" min="0" max="100" step="5" :value="volume" aria-label="Громкость фоновой музыки" @input="onVolumeInput" />
             <span>{{ volume }}%</span>
           </div>
         </div>
@@ -120,7 +120,7 @@ function onToggleKnownRoles() {
         }
         label {
           position: relative;
-          width: 120px;
+          width: 200px;
           height: 25px;
           box-shadow: 3px 3px 5px rgba($black, 0.25);
           input {
@@ -153,14 +153,14 @@ function onToggleKnownRoles() {
             position: absolute;
             top: 0;
             left: 0;
-            width: 58px;
+            width: 98px;
             height: 23px;
             background-color: $fg;
             border-radius: 5px;
             transition: transform 0.25s ease-in-out;
           }
           input:checked + .slider:before {
-            transform: translateX(60px);
+            transform: translateX(100px);
           }
           input:not(:checked) + .slider span:first-child,
           input:checked + .slider span:last-child {
@@ -171,12 +171,13 @@ function onToggleKnownRoles() {
     }
     .volume-block {
       display: flex;
-      flex-direction: column;
-      gap: 8px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
       .volume-text {
-        height: 16px;
+        height: 18px;
         color: $fg;
-        font-size: 14px;
+        font-size: 16px;
       }
       .volume {
         display: flex;
@@ -184,7 +185,7 @@ function onToggleKnownRoles() {
         justify-content: space-between;
         padding: 5px;
         gap: 5px;
-        width: calc(100% - 10px);
+        width: 190px;
         height: 20px;
         border-radius: 5px;
         background-color: $graphite;

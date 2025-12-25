@@ -91,7 +91,7 @@
           <video :ref="stableScreenRef(screenOwnerId)" playsinline autoplay />
           <div v-if="screenOwnerId !== localId && streamAudioKey" class="volume" @click.stop>
             <img :src="volumeIconForStream(streamAudioKey)" alt="vol" />
-            <input type="range" min="0" max="200" :disabled="!speakersOn || isBlocked(screenOwnerId,'speakers')"
+            <input type="range" min="0" max="200" step="5" :disabled="!speakersOn || isBlocked(screenOwnerId,'speakers')"
                    :value="streamVol" @input="onVol(streamAudioKey, Number(($event.target as HTMLInputElement).value))" />
             <span>{{ streamVol }}%</span>
           </div>
