@@ -2,13 +2,9 @@
   <section class="admin">
     <header>
       <nav class="tabs" aria-label="Админ" role="tablist">
-        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'site' }"
-                :aria-selected="activeTab === 'site'" @click="activeTab = 'site'">
-          Параметры сайта
-        </button>
-        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'game' }"
-                :aria-selected="activeTab === 'game'" @click="activeTab = 'game'">
-          Параметры игры
+        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'settings' }"
+                :aria-selected="activeTab === 'settings'" @click="activeTab = 'settings'">
+          Параметры
         </button>
         <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'updates' }"
                 :aria-selected="activeTab === 'updates'" @click="activeTab = 'updates'">
@@ -38,14 +34,14 @@
       <div :key="activeTab" class="tab-panel">
         <div v-if="loading" class="loading">Загрузка...</div>
 
-        <div v-else-if="activeTab === 'site'">
+        <div v-else-if="activeTab === 'settings'">
           <div class="grid">
             <div class="block">
               <h3>Доступ</h3>
               <div class="switch">
                 <span class="switch-label">Регистрация</span>
                 <label>
-                  <input type="checkbox" v-model="site.registration_enabled" :disabled="savingSite" aria-label="Регистрация" />
+                  <input type="checkbox" v-model="site.registration_enabled" :disabled="savingSettings" aria-label="Регистрация" />
                   <div class="slider">
                     <span>Откл</span>
                     <span>Вкл</span>
@@ -55,7 +51,7 @@
               <div class="switch">
                 <span class="switch-label">Создание комнат</span>
                 <label>
-                  <input type="checkbox" v-model="site.rooms_can_create" :disabled="savingSite" aria-label="Создание комнат" />
+                  <input type="checkbox" v-model="site.rooms_can_create" :disabled="savingSettings" aria-label="Создание комнат" />
                   <div class="slider">
                     <span>Откл</span>
                     <span>Вкл</span>
@@ -65,7 +61,7 @@
               <div class="switch">
                 <span class="switch-label">Запуск игр</span>
                 <label>
-                  <input type="checkbox" v-model="site.games_can_start" :disabled="savingSite" aria-label="Запуск игр" />
+                  <input type="checkbox" v-model="site.games_can_start" :disabled="savingSettings" aria-label="Запуск игр" />
                   <div class="slider">
                     <span>Откл</span>
                     <span>Вкл</span>
@@ -78,79 +74,70 @@
               <h3>Лимиты комнат</h3>
               <div class="ui-input" :class="{ filled: Number.isFinite(site.rooms_limit_global) }">
                 <input id="rooms-limit-global" v-model.number="site.rooms_limit_global" type="number" min="1" step="1"
-                       placeholder=" " autocomplete="off" inputmode="numeric" :disabled="savingSite" />
+                       placeholder=" " autocomplete="off" inputmode="numeric" :disabled="savingSettings" />
                 <label for="rooms-limit-global">Общий лимит комнат</label>
               </div>
               <div class="ui-input" :class="{ filled: Number.isFinite(site.rooms_limit_per_user) }">
                 <input id="rooms-limit-user" v-model.number="site.rooms_limit_per_user" type="number" min="1" step="1"
-                       placeholder=" " autocomplete="off" inputmode="numeric" :disabled="savingSite" />
+                       placeholder=" " autocomplete="off" inputmode="numeric" :disabled="savingSettings" />
                 <label for="rooms-limit-user">Лимит комнат на пользователя</label>
               </div>
             </div>
 
+            <div class="block">
+              <h3>Роли и ночь</h3>
+              <div class="ui-input" :class="{ filled: Number.isFinite(game.game_min_ready_players) }">
+                <input id="game-min-ready" v-model.number="game.game_min_ready_players" type="number" min="1" step="1"
+                       placeholder=" " autocomplete="off" inputmode="numeric" :disabled="savingSettings" />
+                <label for="game-min-ready">Количество игроков для старта</label>
+              </div>
+              <div class="ui-input" :class="{ filled: Number.isFinite(game.role_pick_seconds) }">
+                <input id="role-pick-seconds" v-model.number="game.role_pick_seconds" type="number" min="1" step="1"
+                       placeholder=" " autocomplete="off" inputmode="numeric" :disabled="savingSettings" />
+                <label for="role-pick-seconds">Выбор ролей (сек)</label>
+              </div>
+              <div class="ui-input" :class="{ filled: Number.isFinite(game.mafia_talk_seconds) }">
+                <input id="mafia-talk-seconds" v-model.number="game.mafia_talk_seconds" type="number" min="1" step="1"
+                       placeholder=" " autocomplete="off" inputmode="numeric" :disabled="savingSettings" />
+                <label for="mafia-talk-seconds">Договорка мафии (сек)</label>
+              </div>
+              <div class="ui-input" :class="{ filled: Number.isFinite(game.night_action_seconds) }">
+                <input id="night-action-seconds" v-model.number="game.night_action_seconds" type="number" min="1" step="1"
+                       placeholder=" " autocomplete="off" inputmode="numeric" :disabled="savingSettings" />
+                <label for="night-action-seconds">Отстрелы и проверки (сек)</label>
+              </div>
+            </div>
+
+            <div class="block">
+              <h3>День и голосование</h3>
+              <div class="ui-input" :class="{ filled: Number.isFinite(game.player_talk_seconds) }">
+                <input id="player-talk-seconds" v-model.number="game.player_talk_seconds" type="number" min="1" step="1"
+                       placeholder=" " autocomplete="off" inputmode="numeric" :disabled="savingSettings" />
+                <label for="player-talk-seconds">Речь игрока (сек)</label>
+              </div>
+              <div class="ui-input" :class="{ filled: Number.isFinite(game.player_talk_short_seconds) }">
+                <input id="player-talk-short-seconds" v-model.number="game.player_talk_short_seconds" type="number"
+                       min="1" step="1" placeholder=" " autocomplete="off" inputmode="numeric" :disabled="savingSettings" />
+                <label for="player-talk-short-seconds">Речь при 3х фолах (сек)</label>
+              </div>
+              <div class="ui-input" :class="{ filled: Number.isFinite(game.player_foul_seconds) }">
+                <input id="player-foul-seconds" v-model.number="game.player_foul_seconds" type="number" min="1" step="1"
+                       placeholder=" " autocomplete="off" inputmode="numeric" :disabled="savingSettings" />
+                <label for="player-foul-seconds">Фол (сек)</label>
+              </div>
+              <div class="ui-input" :class="{ filled: Number.isFinite(game.vote_seconds) }">
+                <input id="vote-seconds" v-model.number="game.vote_seconds" type="number" min="1" step="1"
+                       placeholder=" " autocomplete="off" inputmode="numeric" :disabled="savingSettings" />
+                <label for="vote-seconds">Голосование (сек)</label>
+              </div>
+            </div>
+
             <div class="form-actions">
-              <button class="btn confirm" :disabled="savingSite || !isSiteDirty" @click="saveSite">
+              <button class="btn confirm" :disabled="savingSettings || !isSettingsDirty" @click="saveSettings">
                 <img class="btn-img" :src="iconSave" alt="save" />
                 Сохранить
               </button>
             </div>
-          </div>
-        </div>
-
-        <div v-else-if="activeTab === 'game'" class="grid">
-          <div class="block">
-            <h3>Роли и ночь</h3>
-            <div class="ui-input" :class="{ filled: Number.isFinite(game.game_min_ready_players) }">
-              <input id="game-min-ready" v-model.number="game.game_min_ready_players" type="number" min="1" step="1"
-                     placeholder=" " autocomplete="off" inputmode="numeric" :disabled="savingGame" />
-              <label for="game-min-ready">Количество игроков для старта</label>
-            </div>
-            <div class="ui-input" :class="{ filled: Number.isFinite(game.role_pick_seconds) }">
-              <input id="role-pick-seconds" v-model.number="game.role_pick_seconds" type="number" min="1" step="1"
-                     placeholder=" " autocomplete="off" inputmode="numeric" :disabled="savingGame" />
-              <label for="role-pick-seconds">Выбор ролей (сек)</label>
-            </div>
-            <div class="ui-input" :class="{ filled: Number.isFinite(game.mafia_talk_seconds) }">
-              <input id="mafia-talk-seconds" v-model.number="game.mafia_talk_seconds" type="number" min="1" step="1"
-                     placeholder=" " autocomplete="off" inputmode="numeric" :disabled="savingGame" />
-              <label for="mafia-talk-seconds">Договорка мафии (сек)</label>
-            </div>
-            <div class="ui-input" :class="{ filled: Number.isFinite(game.night_action_seconds) }">
-              <input id="night-action-seconds" v-model.number="game.night_action_seconds" type="number" min="1" step="1"
-                     placeholder=" " autocomplete="off" inputmode="numeric" :disabled="savingGame" />
-              <label for="night-action-seconds">Отстрелы и проверки (сек)</label>
-            </div>
-          </div>
-
-          <div class="block">
-            <h3>День и голосование</h3>
-            <div class="ui-input" :class="{ filled: Number.isFinite(game.player_talk_seconds) }">
-              <input id="player-talk-seconds" v-model.number="game.player_talk_seconds" type="number" min="1" step="1"
-                     placeholder=" " autocomplete="off" inputmode="numeric" :disabled="savingGame" />
-              <label for="player-talk-seconds">Речь игрока (сек)</label>
-            </div>
-            <div class="ui-input" :class="{ filled: Number.isFinite(game.player_talk_short_seconds) }">
-              <input id="player-talk-short-seconds" v-model.number="game.player_talk_short_seconds" type="number"
-                     min="1" step="1" placeholder=" " autocomplete="off" inputmode="numeric" :disabled="savingGame" />
-              <label for="player-talk-short-seconds">Речь при 3х фолах (сек)</label>
-            </div>
-            <div class="ui-input" :class="{ filled: Number.isFinite(game.player_foul_seconds) }">
-              <input id="player-foul-seconds" v-model.number="game.player_foul_seconds" type="number" min="1" step="1"
-                     placeholder=" " autocomplete="off" inputmode="numeric" :disabled="savingGame" />
-              <label for="player-foul-seconds">Фол (сек)</label>
-            </div>
-            <div class="ui-input" :class="{ filled: Number.isFinite(game.vote_seconds) }">
-              <input id="vote-seconds" v-model.number="game.vote_seconds" type="number" min="1" step="1"
-                     placeholder=" " autocomplete="off" inputmode="numeric" :disabled="savingGame" />
-              <label for="vote-seconds">Голосование (сек)</label>
-            </div>
-          </div>
-
-          <div class="form-actions">
-            <button class="btn confirm" :disabled="savingGame || !isGameDirty" @click="saveGame">
-              <img class="btn-img" :src="iconSave" alt="save" />
-              Сохранить
-            </button>
           </div>
         </div>
 
@@ -709,10 +696,9 @@ type UpdateRow = {
   description: string
 }
 
-const activeTab = ref<'site' | 'game' | 'updates' | 'stats' | 'logs' | 'rooms' | 'users'>('site')
+const activeTab = ref<'settings' | 'updates' | 'stats' | 'logs' | 'rooms' | 'users'>('settings')
 const loading = ref(true)
-const savingSite = ref(false)
-const savingGame = ref(false)
+const savingSettings = ref(false)
 const statsLoading = ref(false)
 const logsLoading = ref(false)
 const roomsLoading = ref(false)
@@ -848,6 +834,7 @@ function snapshotGame(): string {
 
 const isSiteDirty = computed(() => siteSnapshot.value !== snapshotSite())
 const isGameDirty = computed(() => gameSnapshot.value !== snapshotGame())
+const isSettingsDirty = computed(() => isSiteDirty.value || isGameDirty.value)
 const logsPages = computed(() => Math.max(1, Math.ceil(logsTotal.value / logsLimit.value)))
 const roomsPages = computed(() => Math.max(1, Math.ceil(roomsTotal.value / roomsLimit.value)))
 const usersPages = computed(() => Math.max(1, Math.ceil(usersTotal.value / usersLimit.value)))
@@ -918,38 +905,44 @@ async function loadSettings(): Promise<void> {
   }
 }
 
-async function saveSite(): Promise<void> {
-  if (savingSite.value) return
-  savingSite.value = true
+async function saveSettings(): Promise<void> {
+  if (savingSettings.value) return
+  savingSettings.value = true
   try {
-    const { data } = await api.patch('/admin/settings/site', site)
-    Object.assign(site, data || {})
+    const payload = {
+      site: {
+        registration_enabled: Boolean(site.registration_enabled),
+        rooms_can_create: Boolean(site.rooms_can_create),
+        games_can_start: Boolean(site.games_can_start),
+        rooms_limit_global: normalizeInt(site.rooms_limit_global),
+        rooms_limit_per_user: normalizeInt(site.rooms_limit_per_user),
+      },
+      game: {
+        game_min_ready_players: normalizeInt(game.game_min_ready_players),
+        role_pick_seconds: normalizeInt(game.role_pick_seconds),
+        mafia_talk_seconds: normalizeInt(game.mafia_talk_seconds),
+        player_talk_seconds: normalizeInt(game.player_talk_seconds),
+        player_talk_short_seconds: normalizeInt(game.player_talk_short_seconds),
+        player_foul_seconds: normalizeInt(game.player_foul_seconds),
+        night_action_seconds: normalizeInt(game.night_action_seconds),
+        vote_seconds: normalizeInt(game.vote_seconds),
+      },
+    }
+    const { data } = await api.patch('/admin/settings', payload)
+    Object.assign(site, data?.site || {})
+    Object.assign(game, data?.game || {})
     siteSnapshot.value = snapshotSite()
+    gameSnapshot.value = snapshotGame()
     settingsStore.applyPublic({
       registration_enabled: site.registration_enabled,
       rooms_can_create: site.rooms_can_create,
       games_can_start: site.games_can_start,
     })
-    void alertDialog('Настройки сайта сохранены')
+    void alertDialog('Настройки сохранены')
   } catch {
-    void alertDialog('Не удалось сохранить настройки сайта')
+    void alertDialog('Не удалось сохранить настройки')
   } finally {
-    savingSite.value = false
-  }
-}
-
-async function saveGame(): Promise<void> {
-  if (savingGame.value) return
-  savingGame.value = true
-  try {
-    const { data } = await api.patch('/admin/settings/game', game)
-    Object.assign(game, data || {})
-    gameSnapshot.value = snapshotGame()
-    void alertDialog('Настройки игры сохранены')
-  } catch {
-    void alertDialog('Не удалось сохранить настройки игры')
-  } finally {
-    savingGame.value = false
+    savingSettings.value = false
   }
 }
 
@@ -1645,8 +1638,8 @@ onMounted(() => {
         }
         .tooltip-body {
           position: absolute;
-          top: calc(100% + 10px);
-          right: 0;
+          bottom: calc(100% - 35px);
+          right: 15px;
           min-width: 220px;
           max-width: 320px;
           max-height: 200px;

@@ -17,10 +17,7 @@ from ...security.parameters import ensure_app_settings, get_cached_settings, syn
 from ...schemas.updates import AdminUpdateIn, AdminUpdateOut, AdminUpdatesOut
 from ...schemas.admin import (
     AdminSettingsOut,
-    SiteSettingsOut,
-    SiteSettingsUpdateIn,
-    GameSettingsOut,
-    GameSettingsUpdateIn,
+    AdminSettingsUpdateIn,
     PublicSettingsOut,
     SiteStatsOut,
     PeriodStatsOut,
@@ -74,41 +71,28 @@ async def public_settings() -> PublicSettingsOut:
 @router.get("/settings", response_model=AdminSettingsOut)
 async def get_settings(session: AsyncSession = Depends(get_session)) -> AdminSettingsOut:
     row = await ensure_app_settings(session)
+
     return AdminSettingsOut(site=site_settings_out(row), game=game_settings_out(row))
 
 
-@log_route("admin.settings_site_update")
+@log_route("admin.settings_update")
 @require_roles_deco("admin")
-@router.patch("/settings/site", response_model=SiteSettingsOut)
-async def update_site_settings(payload: SiteSettingsUpdateIn, session: AsyncSession = Depends(get_session)) -> SiteSettingsOut:
+@router.patch("/settings", response_model=AdminSettingsOut)
+async def update_settings(payload: AdminSettingsUpdateIn, session: AsyncSession = Depends(get_session)) -> AdminSettingsOut:
     row = await ensure_app_settings(session)
     data = payload.model_dump(exclude_unset=True)
-    for key, value in data.items():
+    site_data = data.get("site") or {}
+    game_data = data.get("game") or {}
+    combined = {**site_data, **game_data}
+    for key, value in combined.items():
         setattr(row, key, value)
 
-    if data:
+    if combined:
         await session.commit()
         await session.refresh(row)
     sync_cache_from_row(row)
 
-    return site_settings_out(row)
-
-
-@log_route("admin.settings_game_update")
-@require_roles_deco("admin")
-@router.patch("/settings/game", response_model=GameSettingsOut)
-async def update_game_settings(payload: GameSettingsUpdateIn, session: AsyncSession = Depends(get_session)) -> GameSettingsOut:
-    row = await ensure_app_settings(session)
-    data = payload.model_dump(exclude_unset=True)
-    for key, value in data.items():
-        setattr(row, key, value)
-
-    if data:
-        await session.commit()
-        await session.refresh(row)
-    sync_cache_from_row(row)
-
-    return game_settings_out(row)
+    return AdminSettingsOut(site=site_settings_out(row), game=game_settings_out(row))
 
 
 @log_route("admin.stats")
@@ -131,24 +115,12 @@ async def site_stats(month: str | None = None, session: AsyncSession = Depends(g
     r = get_redis()
     active_rooms, active_room_users = await fetch_active_rooms_stats(r)
     online_users = await fetch_online_users_count(r)
-    day_online_users = int(await session.scalar(select(func.count(User.id)).where(
-        User.last_visit_at >= day_start, User.last_visit_at < now
-    )) or 0)
-    month_online_users = int(await session.scalar(select(func.count(User.id)).where(
-        User.last_visit_at >= month_start, User.last_visit_at < now
-    )) or 0)
-    day_rooms = int(await session.scalar(select(func.count(Room.id)).where(
-        Room.created_at >= day_start, Room.created_at < now
-    )) or 0)
-    month_rooms = int(await session.scalar(select(func.count(Room.id)).where(
-        Room.created_at >= month_start, Room.created_at < now
-    )) or 0)
-    day_games = int(await session.scalar(select(func.count(Game.id)).where(
-        Game.finished_at >= day_start, Game.finished_at < now
-    )) or 0)
-    month_games = int(await session.scalar(select(func.count(Game.id)).where(
-        Game.finished_at >= month_start, Game.finished_at < now
-    )) or 0)
+    day_online_users = int(await session.scalar(select(func.count(User.id)).where(User.last_visit_at >= day_start, User.last_visit_at < now)) or 0)
+    month_online_users = int(await session.scalar(select(func.count(User.id)).where(User.last_visit_at >= month_start, User.last_visit_at < now)) or 0)
+    day_rooms = int(await session.scalar(select(func.count(Room.id)).where(Room.created_at >= day_start, Room.created_at < now)) or 0)
+    month_rooms = int(await session.scalar(select(func.count(Room.id)).where(Room.created_at >= month_start, Room.created_at < now)) or 0)
+    day_games = int(await session.scalar(select(func.count(Game.id)).where(Game.finished_at >= day_start, Game.finished_at < now)) or 0)
+    month_games = int(await session.scalar(select(func.count(Game.id)).where(Game.finished_at >= month_start, Game.finished_at < now)) or 0)
 
     return SiteStatsOut(
         total_users=total_users,

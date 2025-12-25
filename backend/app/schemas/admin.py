@@ -47,6 +47,11 @@ class AdminSettingsOut(BaseModel):
     game: GameSettingsOut
 
 
+class AdminSettingsUpdateIn(BaseModel):
+    site: Optional[SiteSettingsUpdateIn] = None
+    game: Optional[GameSettingsUpdateIn] = None
+
+
 class PublicSettingsOut(BaseModel):
     registration_enabled: bool
     rooms_can_create: bool
