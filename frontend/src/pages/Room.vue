@@ -1867,7 +1867,7 @@ onBeforeUnmount(() => {
   }
   .theater {
     display: grid;
-    grid-template-columns: 1fr 284px;
+    grid-template-columns: 1fr 244px;
     width: calc(100vw - 20px);
     height: calc(100dvh - 70px);
     gap: 10px;
@@ -1959,7 +1959,7 @@ onBeforeUnmount(() => {
     .sidebar {
       display: flex;
       flex-direction: column;
-      width: 284px;
+      width: 244px;
       gap: 10px;
       overflow-y: auto;
       scrollbar-width: none;

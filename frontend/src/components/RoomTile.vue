@@ -728,8 +728,8 @@ const timelineDurationSec = computed(() => {
 }
 .tile.side {
   aspect-ratio: 16 / 9;
-  min-width: 280px;
-  min-height: 158px;
+  min-width: 240px;
+  min-height: 135px;
 }
 
 @keyframes role-timer-decrease {

@@ -194,7 +194,7 @@
                 <span class="value">{{ stats.total_games }}</span>
               </div>
               <div class="stat-card">
-                <span class="label">Всего стримов (мин)</span>
+                <span class="label">Всего стримы (мин)</span>
                 <span class="value">{{ stats.total_stream_minutes }}</span>
               </div>
               <div class="stat-card">
@@ -221,7 +221,7 @@
                 <span class="value">{{ stats.last_day.rooms }}</span>
               </div>
               <div class="stat-card">
-                <span class="label">Стримов за сутки (мин)</span>
+                <span class="label">Стримы за сутки (мин)</span>
                 <span class="value">{{ stats.last_day.stream_minutes }}</span>
               </div>
               <div class="stat-card">
@@ -240,7 +240,7 @@
                 <span class="value">{{ stats.last_month.rooms }}</span>
               </div>
               <div class="stat-card">
-                <span class="label">Стримов за месяц (мин)</span>
+                <span class="label">Стримы за месяц (мин)</span>
                 <span class="value">{{ stats.last_month.stream_minutes }}</span>
               </div>
               <div class="stat-card">
@@ -372,7 +372,7 @@
                   <th>Создана</th>
                   <th>Удалена</th>
                   <th>Посетители</th>
-                  <th>Стримеры</th>
+                  <th>Стримы (мин)</th>
                   <th>Игры</th>
                   <th>Зрители</th>
                 </tr>
@@ -501,7 +501,7 @@
                   <th>Последний онлайн</th>
                   <th>Комнаты</th>
                   <th>В комнатах (мин)</th>
-                  <th>Стримил (мин)</th>
+                  <th>Стримы (мин)</th>
                   <th>Игры</th>
                   <th>Ведущий</th>
                   <th>Зритель (мин)</th>
