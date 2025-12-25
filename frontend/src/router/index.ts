@@ -2,6 +2,7 @@ import { createRouter, createWebHistory, type RouteRecordRaw, type RouteLocation
 import { useAuthStore, useUserStore } from '@/store'
 
 const BASE_TITLE = 'Deceit'
+const BASE_DESCRIPTION = 'Играйте в мафию онлайн бесплатно, общайтесь в комнатах с трансляциями'
 
 const routes: RouteRecordRaw[] = [
   {
@@ -13,19 +14,19 @@ const routes: RouteRecordRaw[] = [
     path: '/profile',
     name: 'profile',
     component: () => import('@/pages/Profile.vue'),
-    meta: { requiresAuth: true, title: 'Профиль' },
+    meta: { requiresAuth: true, title: 'Профиль', robots: 'noindex, nofollow' },
   },
   {
     path: '/admin',
     name: 'admin',
     component: () => import('@/pages/Admin.vue'),
-    meta: { requiresAuth: true, requiresAdmin: true, title: 'Админ-панель' },
+    meta: { requiresAuth: true, requiresAdmin: true, title: 'Админ-панель', robots: 'noindex, nofollow' },
   },
   {
     path: '/room/:id(\\d+)',
     name: 'room',
     component: () => import('@/pages/Room.vue'),
-    meta: { requiresAuth: true, title: 'Комната' },
+    meta: { requiresAuth: true, title: 'Комната', robots: 'noindex, nofollow' },
   },
   { path: '/:pathMatch(.*)*', redirect: { name: 'home' } },
 ]
@@ -40,6 +41,35 @@ function setTitle(to: RouteLocationNormalized): void {
   const t = (to.meta?.title as string | undefined) ?? ''
   const id = to.name === 'room' ? String(to.params.id ?? '') : ''
   document.title = t ? `${t}${id ? ` #${id}` : ''}` : BASE_TITLE
+}
+
+function ensureMeta(name: string, content: string): void {
+  let el = document.querySelector(`meta[name="${name}"]`) as HTMLMetaElement | null
+  if (!el) {
+    el = document.createElement('meta')
+    el.setAttribute('name', name)
+    document.head.appendChild(el)
+  }
+  el.setAttribute('content', content)
+}
+
+function ensureCanonical(href: string): void {
+  let el = document.querySelector('link[rel="canonical"]') as HTMLLinkElement | null
+  if (!el) {
+    el = document.createElement('link')
+    el.setAttribute('rel', 'canonical')
+    document.head.appendChild(el)
+  }
+  el.setAttribute('href', href)
+}
+
+function setMeta(to: RouteLocationNormalized): void {
+  const description = (to.meta?.description as string | undefined) ?? BASE_DESCRIPTION
+  const robots = (to.meta?.robots as string | undefined) ?? 'index, follow'
+  ensureMeta('description', description)
+  ensureMeta('robots', robots)
+  const base = window.location?.origin || ''
+  ensureCanonical(base ? `${base}${to.path}` : to.path)
 }
 
 router.beforeEach(async (to) => {
@@ -64,7 +94,10 @@ router.beforeEach(async (to) => {
   return true
 })
 
-router.afterEach((to) => setTitle(to))
+router.afterEach((to) => {
+  setTitle(to)
+  setMeta(to)
+})
 
 router.onError((err) => {
   const msg = String(err?.message || '')
