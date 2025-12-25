@@ -1093,6 +1093,7 @@ async def game_phase_next(sid, data):
 
             now_ts = int(time())
             duration = get_cached_settings().mafia_talk_seconds
+            bgm_seed = random.randint(1, 2**31 - 1)
             async with r.pipeline() as p:
                 await p.hset(
                     f"room:{rid}:game_state",
@@ -1100,6 +1101,7 @@ async def game_phase_next(sid, data):
                         "phase": "mafia_talk_start",
                         "mafia_talk_started": str(now_ts),
                         "mafia_talk_duration": str(duration),
+                        "bgm_seed": str(bgm_seed),
                     },
                 )
                 await p.execute()
@@ -1112,13 +1114,15 @@ async def game_phase_next(sid, data):
                 "from": cur_phase,
                 "to": "mafia_talk_start",
                 "mafia_talk_start": {"deadline": remaining},
+                "bgm_seed": bgm_seed,
             }
 
             await sio.emit("game_phase_change",
                            {"room_id": rid,
                             "from": cur_phase,
                             "to": "mafia_talk_start",
-                            "mafia_talk_start": {"deadline": remaining}},
+                            "mafia_talk_start": {"deadline": remaining},
+                            "bgm_seed": bgm_seed},
                            room=f"room:{rid}",
                            namespace="/room")
 
@@ -1157,8 +1161,9 @@ async def game_phase_next(sid, data):
                 if "__error__" in forced_off:
                     continue
 
+            bgm_seed = random.randint(1, 2**31 - 1)
             async with r.pipeline() as p:
-                await p.hset(f"room:{rid}:game_state", mapping={"phase": "mafia_talk_end"})
+                await p.hset(f"room:{rid}:game_state", mapping={"phase": "mafia_talk_end", "bgm_seed": str(bgm_seed)})
                 await p.hdel(f"room:{rid}:game_state", "mafia_talk_started", "mafia_talk_duration")
                 await p.execute()
 
@@ -1168,12 +1173,14 @@ async def game_phase_next(sid, data):
                 "room_id": rid,
                 "from": cur_phase,
                 "to": "mafia_talk_end",
+                "bgm_seed": bgm_seed,
             }
 
             await sio.emit("game_phase_change",
                            {"room_id": rid,
                             "from": cur_phase,
-                            "to": "mafia_talk_end"},
+                            "to": "mafia_talk_end",
+                            "bgm_seed": bgm_seed},
                            room=f"room:{rid}",
                            namespace="/room")
 
@@ -1335,8 +1342,10 @@ async def game_phase_next(sid, data):
                 draw_mapping = {"draw_base_day": str(ctx.gint("day_number")),
                                 "draw_base_alive": str(alive_cnt)}
 
+            bgm_seed = random.randint(1, 2**31 - 1)
             async with r.pipeline() as p:
                 mapping = build_night_reset_mapping(include_vote_meta=True)
+                mapping["bgm_seed"] = str(bgm_seed)
                 if draw_mapping:
                     mapping.update(draw_mapping)
                 await p.hset(f"room:{rid}:game_state", mapping=mapping)
@@ -1349,10 +1358,11 @@ async def game_phase_next(sid, data):
                            {"room_id": rid,
                             "from": cur_phase,
                             "to": "night",
-                            "night": {"stage": "sleep", "deadline": 0}},
+                            "night": {"stage": "sleep", "deadline": 0},
+                            "bgm_seed": bgm_seed},
                            room=f"room:{rid}",
                            namespace="/room")
-            return {"ok": True, "status": 200, "room_id": rid, "from": cur_phase, "to": "night"}
+            return {"ok": True, "status": 200, "room_id": rid, "from": cur_phase, "to": "night", "bgm_seed": bgm_seed}
 
         if cur_phase == "vote" and want_to == "night":
             vote_done = str(raw_gstate.get("vote_done") or "0") == "1"
@@ -1376,8 +1386,10 @@ async def game_phase_next(sid, data):
                 draw_mapping = {"draw_base_day": str(ctx.gint("day_number")),
                                 "draw_base_alive": str(alive_cnt)}
 
+            bgm_seed = random.randint(1, 2**31 - 1)
             async with r.pipeline() as p:
                 mapping = build_night_reset_mapping(include_vote_meta=False)
+                mapping["bgm_seed"] = str(bgm_seed)
                 if draw_mapping:
                     mapping.update(draw_mapping)
                 await p.hset(f"room:{rid}:game_state", mapping=mapping)
@@ -1390,10 +1402,11 @@ async def game_phase_next(sid, data):
                            {"room_id": rid,
                             "from": cur_phase,
                             "to": "night",
-                            "night": {"stage": "sleep", "deadline": 0}},
+                            "night": {"stage": "sleep", "deadline": 0},
+                            "bgm_seed": bgm_seed},
                            room=f"room:{rid}",
                            namespace="/room")
-            return {"ok": True, "status": 200, "room_id": rid, "from": cur_phase, "to": "night"}
+            return {"ok": True, "status": 200, "room_id": rid, "from": cur_phase, "to": "night", "bgm_seed": bgm_seed}
 
         if cur_phase == "night" and want_to == "day":
             stage = str(raw_gstate.get("night_stage") or "sleep")

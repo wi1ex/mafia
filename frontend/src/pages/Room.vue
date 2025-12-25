@@ -1272,6 +1272,7 @@ socket.value?.on('connect', async () => {
     const prevPhase = gamePhase.value as GamePhase
     game.handleGamePhaseChange(p)
     const to = (p?.to ? String(p.to) : gamePhase.value) as GamePhase
+    if (p?.bgm_seed != null) setBgmSeed(p.bgm_seed)
     handleGamePhaseChangeUi(prevPhase, to)
   })
 
