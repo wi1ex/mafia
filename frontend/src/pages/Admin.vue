@@ -343,9 +343,9 @@
                   <th>Создана</th>
                   <th>Удалена</th>
                   <th>Посетители</th>
-                  <th>Зрители</th>
+                  <th>Стримеры</th>
                   <th>Игры</th>
-                  <th>Стримы (мин)</th>
+                  <th>Зрители</th>
                 </tr>
               </thead>
               <tbody>
@@ -382,11 +382,11 @@
                   </td>
                   <td>
                     <div class="tooltip" tabindex="0">
-                      <span class="tooltip-value">{{ row.spectators_count }}</span>
+                      <span class="tooltip-value">{{ row.stream_minutes }}</span>
                       <div class="tooltip-body">
-                        <div v-if="row.spectators.length === 0" class="tooltip-empty">Нет данных</div>
+                        <div v-if="row.streamers.length === 0" class="tooltip-empty">Нет данных</div>
                         <div v-else class="tooltip-list">
-                          <div v-for="item in row.spectators" :key="`spectator-${row.id}-${item.id}`" class="tooltip-row">
+                          <div v-for="item in row.streamers" :key="`stream-${row.id}-${item.id}`" class="tooltip-row">
                             <span class="tooltip-id">ID {{ item.id }}</span>
                             <div class="user-cell compact">
                               <img class="user-avatar" v-minio-img="{ key: item.avatar_name ? `avatars/${item.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
@@ -414,11 +414,11 @@
                   </td>
                   <td>
                     <div class="tooltip" tabindex="0">
-                      <span class="tooltip-value">{{ row.stream_minutes }}</span>
+                      <span class="tooltip-value">{{ row.spectators_count }}</span>
                       <div class="tooltip-body">
-                        <div v-if="row.streamers.length === 0" class="tooltip-empty">Нет данных</div>
+                        <div v-if="row.spectators.length === 0" class="tooltip-empty">Нет данных</div>
                         <div v-else class="tooltip-list">
-                          <div v-for="item in row.streamers" :key="`stream-${row.id}-${item.id}`" class="tooltip-row">
+                          <div v-for="item in row.spectators" :key="`spectator-${row.id}-${item.id}`" class="tooltip-row">
                             <span class="tooltip-id">ID {{ item.id }}</span>
                             <div class="user-cell compact">
                               <img class="user-avatar" v-minio-img="{ key: item.avatar_name ? `avatars/${item.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
