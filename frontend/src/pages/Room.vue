@@ -800,13 +800,29 @@ watch(bgmShouldPlay, (on, was) => {
 }, { immediate: true })
 
 async function sendAck(event: string, payload: any, timeoutMs = 15000): Promise<Ack> {
+  const s = socket.value
+  if (!s) return null
   try {
-    return await socket.value!.timeout(timeoutMs).emitWithAck(event, payload)
+    return await s.timeout(timeoutMs).emitWithAck(event, payload)
   } catch (e:any) {
     rerr('ack fail', { event, payload, name: e?.name, message: e?.message })
     return null
   }
 }
+
+async function stopScreenBeforeLeave() {
+  if (!isMyScreen.value) return
+  const target = Number(localId.value)
+  if (!Number.isFinite(target)) return
+  const s = socket.value
+  if (!s) return
+  try {
+    const resp = await s.timeout(1500).emitWithAck('screen', { on: false, target })
+    if (resp?.ok) return
+  } catch {}
+  try { s.emit('screen', { on: false, target }) } catch {}
+}
+
 function ensureOk(resp: Ack, msgByCode: Record<number, string>, netMsg: string): boolean {
   if (resp && resp.ok) return true
   const code = resp?.status
@@ -1694,6 +1710,7 @@ async function onLeave(goHome = true) {
     window.removeEventListener('pagehide', onBackgroundMaybeLeave)
   } catch {}
   try {
+    await stopScreenBeforeLeave()
     const s = socket.value
     socket.value = null
     if (s) {
@@ -1710,8 +1727,11 @@ async function onLeave(goHome = true) {
 }
 
 function onBackgroundMaybeLeave(e?: PageTransitionEvent) {
-  if (!IS_MOBILE) return
-  if (document.visibilityState === 'hidden' || (e && (e as any).persisted === true)) void onLeave()
+  const isPageHide = !!(e && (e as any).type === 'pagehide')
+  if (!IS_MOBILE && !isPageHide) return
+  if (document.visibilityState === 'hidden' || isPageHide || (e && (e as any).persisted === true)) {
+    void onLeave(!isPageHide)
+  }
 }
 
 function handleOffline() { netReconnecting.value = true }

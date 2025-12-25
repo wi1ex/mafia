@@ -8,7 +8,7 @@
         </button>
       </header>
       <div class="controls">
-        <div class="switch-div">
+        <div v-if="canToggleKnownRoles" class="switch-div">
           <div v-if="canToggleKnownRoles" class="switch">
             <span class="switch-label">Видимость ролей:</span>
             <label>

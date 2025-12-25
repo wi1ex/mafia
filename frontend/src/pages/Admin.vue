@@ -203,6 +203,10 @@
                 <span class="value">{{ stats.total_rooms }}</span>
               </div>
               <div class="stat-card">
+                <span class="label">Всего игр</span>
+                <span class="value">{{ stats.total_games }}</span>
+              </div>
+              <div class="stat-card">
                 <span class="label">Всего стримов (мин)</span>
                 <span class="value">{{ stats.total_stream_minutes }}</span>
               </div>
@@ -217,6 +221,44 @@
               <div class="stat-card">
                 <span class="label">Онлайн</span>
                 <span class="value">{{ stats.online_users }}</span>
+              </div>
+            </div>
+            <div class="stats-subtitle">За сутки</div>
+            <div class="stats-grid stats-grid--compact">
+              <div class="stat-card">
+                <span class="label">Онлайн за сутки</span>
+                <span class="value">{{ stats.last_day.online_users }}</span>
+              </div>
+              <div class="stat-card">
+                <span class="label">Комнат за сутки</span>
+                <span class="value">{{ stats.last_day.rooms }}</span>
+              </div>
+              <div class="stat-card">
+                <span class="label">Стримов за сутки (мин)</span>
+                <span class="value">{{ stats.last_day.stream_minutes }}</span>
+              </div>
+              <div class="stat-card">
+                <span class="label">Игр за сутки</span>
+                <span class="value">{{ stats.last_day.games }}</span>
+              </div>
+            </div>
+            <div class="stats-subtitle">За месяц</div>
+            <div class="stats-grid stats-grid--compact">
+              <div class="stat-card">
+                <span class="label">Онлайн за месяц</span>
+                <span class="value">{{ stats.last_month.online_users }}</span>
+              </div>
+              <div class="stat-card">
+                <span class="label">Комнат за месяц</span>
+                <span class="value">{{ stats.last_month.rooms }}</span>
+              </div>
+              <div class="stat-card">
+                <span class="label">Стримов за месяц (мин)</span>
+                <span class="value">{{ stats.last_month.stream_minutes }}</span>
+              </div>
+              <div class="stat-card">
+                <span class="label">Игр за месяц</span>
+                <span class="value">{{ stats.last_month.games }}</span>
               </div>
             </div>
 
@@ -473,6 +515,9 @@
                   <th>Комнаты</th>
                   <th>В комнатах (мин)</th>
                   <th>Стримил (мин)</th>
+                  <th>Игры</th>
+                  <th>Ведущий</th>
+                  <th>Зритель (мин)</th>
                   <th>Админка</th>
                 </tr>
               </thead>
@@ -493,6 +538,9 @@
                   <td>{{ row.rooms_created }}</td>
                   <td>{{ row.room_minutes }}</td>
                   <td>{{ row.stream_minutes }}</td>
+                  <td>{{ row.games_played }}</td>
+                  <td>{{ row.games_hosted }}</td>
+                  <td>{{ row.spectator_minutes }}</td>
                   <td>
                     <button class="btn danger" :disabled="usersRoleBusy[row.id]" @click="toggleUserRole(row)">
                       <img class="btn-img" :src="iconJudge" alt="judge" />
@@ -501,7 +549,7 @@
                   </td>
                 </tr>
                 <tr v-if="users.length === 0">
-                  <td colspan="10" class="muted">Нет данных</td>
+                  <td colspan="13" class="muted">Нет данных</td>
                 </tr>
               </tbody>
             </table>
@@ -570,14 +618,24 @@ type RegistrationPoint = {
   count: number
 }
 
+type PeriodStats = {
+  games: number
+  online_users: number
+  rooms: number
+  stream_minutes: number
+}
+
 type SiteStats = {
   total_users: number
   registrations: RegistrationPoint[]
   total_rooms: number
+  total_games: number
   total_stream_minutes: number
   active_rooms: number
   active_room_users: number
   online_users: number
+  last_day: PeriodStats
+  last_month: PeriodStats
 }
 
 type LogRow = {
@@ -639,6 +697,9 @@ type UserRow = {
   rooms_created: number
   room_minutes: number
   stream_minutes: number
+  games_played: number
+  games_hosted: number
+  spectator_minutes: number
 }
 
 type UpdateRow = {
@@ -686,10 +747,23 @@ const stats = reactive<SiteStats>({
   total_users: 0,
   registrations: [],
   total_rooms: 0,
+  total_games: 0,
   total_stream_minutes: 0,
   active_rooms: 0,
   active_room_users: 0,
   online_users: 0,
+  last_day: {
+    games: 0,
+    online_users: 0,
+    rooms: 0,
+    stream_minutes: 0,
+  },
+  last_month: {
+    games: 0,
+    online_users: 0,
+    rooms: 0,
+    stream_minutes: 0,
+  },
 })
 
 const logActions = ref<string[]>([])
@@ -889,10 +963,23 @@ async function loadStats(): Promise<void> {
       total_users: data?.total_users ?? 0,
       registrations: Array.isArray(data?.registrations) ? data.registrations : [],
       total_rooms: data?.total_rooms ?? 0,
+      total_games: data?.total_games ?? 0,
       total_stream_minutes: data?.total_stream_minutes ?? 0,
       active_rooms: data?.active_rooms ?? 0,
       active_room_users: data?.active_room_users ?? 0,
       online_users: data?.online_users ?? 0,
+      last_day: {
+        games: data?.last_day?.games ?? 0,
+        online_users: data?.last_day?.online_users ?? 0,
+        rooms: data?.last_day?.rooms ?? 0,
+        stream_minutes: data?.last_day?.stream_minutes ?? 0,
+      },
+      last_month: {
+        games: data?.last_month?.games ?? 0,
+        online_users: data?.last_month?.online_users ?? 0,
+        rooms: data?.last_month?.rooms ?? 0,
+        stream_minutes: data?.last_month?.stream_minutes ?? 0,
+      },
     })
   } catch {
     void alertDialog('Не удалось загрузить статистику')
@@ -1423,10 +1510,17 @@ onMounted(() => {
       display: flex;
       flex-direction: column;
       gap: 15px;
+      .stats-subtitle {
+        font-size: 14px;
+        color: $grey;
+      }
       .stats-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
         gap: 10px;
+        &.stats-grid--compact {
+          grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        }
         .stat-card {
           display: flex;
           flex-direction: column;
