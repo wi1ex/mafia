@@ -206,7 +206,7 @@
                 <span class="value">{{ stats.active_room_users }}</span>
               </div>
               <div class="stat-card">
-                <span class="label">Онлайн</span>
+                <span class="label">Онлайн текущий</span>
                 <span class="value">{{ stats.online_users }}</span>
               </div>
             </div>

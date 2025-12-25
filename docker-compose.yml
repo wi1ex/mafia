@@ -90,6 +90,19 @@ services:
     build: ./backend
     container_name: backend
     env_file: .env
+    environment:
+      GUNICORN_CMD_ARGS: >-
+        --bind 0.0.0.0:8000
+        --workers ${WORKERS:-1}
+        --threads ${THREADS:-1}
+        --keep-alive 75
+        --timeout 60
+        --graceful-timeout 20
+        --backlog 2048
+        --forwarded-allow-ips=*
+        --log-level info
+        --access-logfile -
+        --error-logfile -
     depends_on:
       - db
       - redis
