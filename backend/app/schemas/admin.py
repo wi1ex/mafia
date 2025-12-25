@@ -117,6 +117,8 @@ class AdminRoomOut(BaseModel):
     lift_3x: bool
     visitors_count: int
     visitors: List[AdminRoomUserStat]
+    spectators_count: int
+    spectators: List[AdminRoomUserStat]
     games: List[AdminRoomGameOut]
     stream_minutes: int
     streamers: List[AdminRoomUserStat]

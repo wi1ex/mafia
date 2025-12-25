@@ -249,6 +249,12 @@ def collect_room_user_ids(rooms: Sequence[Room]) -> set[int]:
                     user_ids.add(int(k))
                 except Exception:
                     continue
+        if isinstance(room.spectators_time, dict):
+            for k in room.spectators_time.keys():
+                try:
+                    user_ids.add(int(k))
+                except Exception:
+                    continue
         if isinstance(room.screen_time, dict):
             for k in room.screen_time.keys():
                 try:

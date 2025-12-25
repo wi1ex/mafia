@@ -678,10 +678,12 @@ function volumeIconForStream(key: string) {
 const BGM_VOLUME_LS = 'bgm:volume'
 const BGM_DEFAULT_VOLUME = 50
 const BGM_MAX_VOLUME = 1
-const BGM_FILES = Object.values(
-  import.meta.glob('@/assets/music/*.mp3', { eager: true, as: 'url' })
-) as string[]
 const BGM_ACTIVE_PHASES: GamePhase[] = ['roles_pick', 'mafia_talk_start', 'mafia_talk_end', 'night']
+const BGM_FILES = Object.entries(
+  import.meta.glob('@/assets/music/*.mp3', { eager: true, as: 'url' })
+)
+  .sort(([a], [b]) => a.localeCompare(b))
+  .map(([, v]) => v as string)
 
 const bgmAudio = ref<HTMLAudioElement | null>(null)
 const bgmVolume = ref<number>(loadBgmVolume())

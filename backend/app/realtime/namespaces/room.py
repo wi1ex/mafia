@@ -78,6 +78,7 @@ from ..utils import (
     compute_farewell_allowed,
     perform_game_end,
     finish_game,
+    record_spectator_leave,
 )
 
 log = structlog.get_logger()
@@ -146,6 +147,7 @@ async def join(sid, data) -> JoinAck:
                     spectators_limit = 0
                 if spectators_limit <= 0:
                     return {"ok": False, "error": "game_in_progress", "status": 409}
+
                 try:
                     already_spectator = await r.sismember(f"room:{rid}:spectators", str(uid))
                 except Exception:
@@ -157,8 +159,14 @@ async def join(sid, data) -> JoinAck:
                         spectators_count = 0
                     if spectators_count >= spectators_limit:
                         return {"ok": False, "error": "spectators_full", "status": 409}
+
                     await r.sadd(f"room:{rid}:spectators", str(uid))
+
                 spectator_mode = True
+                try:
+                    await r.hset(f"room:{rid}:spectators_join", mapping={str(uid): str(int(time()))})
+                except Exception:
+                    log.warning("spectator.join_time_failed", rid=rid, uid=uid)
 
         occ = 0
         pos = 0
@@ -3615,10 +3623,7 @@ async def disconnect(sid):
             except Exception:
                 is_spectator = False
         if is_spectator:
-            try:
-                await r.srem(f"room:{rid}:spectators", str(uid))
-            except Exception:
-                log.warning("sio.disconnect.spectator_remove_failed", rid=rid, uid=uid)
+            await record_spectator_leave(r, rid, uid, int(time()))
         try:
             sess_epoch = int(sess.get("epoch") or 0)
         except Exception:

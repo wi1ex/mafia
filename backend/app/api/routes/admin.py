@@ -207,6 +207,7 @@ async def rooms_list(page: int = 1, limit: int = 20, username: str | None = None
         id_strs = [str(i) for i in ids]
         user_filters = [Room.creator.in_(ids)]
         user_filters += [Room.visitors.has_key(i) for i in id_strs]
+        user_filters += [Room.spectators_time.has_key(i) for i in id_strs]
         filters.append(or_(*user_filters))
 
     if stream_only:
@@ -238,9 +239,11 @@ async def rooms_list(page: int = 1, limit: int = 20, username: str | None = None
     items: list[AdminRoomOut] = []
     for room in rooms:
         visitors_count = len(room.visitors or {})
+        spectators_count = len(room.spectators_time or {})
         stream_seconds = sum_room_stream_seconds(room.screen_time)
         game_params = parse_room_game_params(room.game)
         visitors_items = build_room_user_stats(room.visitors, name_map, avatar_map)
+        spectators_items = build_room_user_stats(room.spectators_time, name_map, avatar_map)
         stream_items = build_room_user_stats(room.screen_time, name_map, avatar_map)
         room_games = games_map.get(int(room.id), [])
         game_items = [AdminRoomGameOut(number=index + 1, result=result) for index, result in enumerate(room_games)]
@@ -264,6 +267,8 @@ async def rooms_list(page: int = 1, limit: int = 20, username: str | None = None
                 lift_3x=game_params["lift_3x"],
                 visitors_count=visitors_count,
                 visitors=visitors_items,
+                spectators_count=spectators_count,
+                spectators=spectators_items,
                 games=game_items,
                 stream_minutes=stream_seconds // 60,
                 streamers=stream_items,

@@ -94,6 +94,7 @@ __all__ = [
     "get_positive_setting_int",
     "perform_game_end",
     "finish_game",
+    "record_spectator_leave",
 ]
 
 log = structlog.get_logger()
@@ -3276,6 +3277,32 @@ async def emit_moderation_filtered(r, rid: int, target_uid: int, blocks_full: di
     await emit_mafia_filtered("moderation", payload, r, rid, target_uid, phase_override=phase_override)
 
 
+async def record_spectator_leave(r, rid: int, uid: int, now_ts: int) -> None:
+    try:
+        raw_join = await r.hget(f"room:{rid}:spectators_join", str(uid))
+    except Exception:
+        raw_join = None
+    if raw_join:
+        try:
+            join_ts = int(raw_join or 0)
+        except Exception:
+            join_ts = 0
+        dt = now_ts - join_ts
+        if dt > 0:
+            try:
+                await r.hincrby(f"room:{rid}:spectators_time", str(uid), dt)
+            except Exception:
+                log.warning("spectator.leave.time_failed", rid=rid, uid=uid)
+    try:
+        await r.hdel(f"room:{rid}:spectators_join", str(uid))
+    except Exception:
+        log.warning("spectator.leave.join_cleanup_failed", rid=rid, uid=uid)
+    try:
+        await r.srem(f"room:{rid}:spectators", str(uid))
+    except Exception:
+        log.warning("spectator.leave.remove_failed", rid=rid, uid=uid)
+
+
 async def perform_game_end(ctx, sess: Optional[dict[str, Any]], *, confirm: bool, allow_non_head: bool = False, reason: str = "manual") -> dict[str, Any]:
     uid = ctx.uid
     rid = ctx.rid
@@ -3408,6 +3435,25 @@ async def perform_game_end(ctx, sess: Optional[dict[str, Any]], *, confirm: bool
         log.exception("sio.game_end.rooms_upsert_failed", rid=rid)
 
     try:
+        raw_spec_join = await r.hgetall(f"room:{rid}:spectators_join")
+        if raw_spec_join:
+            now_ts = int(time())
+            for k, v in raw_spec_join.items():
+                try:
+                    uid_i = int(k)
+                    join_ts = int(v or 0)
+                except Exception:
+                    continue
+                dt = now_ts - join_ts
+                if dt > 0:
+                    try:
+                        await r.hincrby(f"room:{rid}:spectators_time", str(uid_i), dt)
+                    except Exception:
+                        log.warning("game_end.spectators_time.flush_failed", rid=rid, uid=uid_i)
+    except Exception:
+        log.exception("sio.game_end.spectators_join_failed", rid=rid)
+
+    try:
         spectators = await r.smembers(f"room:{rid}:spectators")
     except Exception:
         spectators = set()
@@ -3421,10 +3467,10 @@ async def perform_game_end(ctx, sess: Optional[dict[str, Any]], *, confirm: bool
                            {"room_id": rid, "reason": "game_end"},
                            room=f"user:{uid_i}",
                            namespace="/room")
-        try:
-            await r.delete(f"room:{rid}:spectators")
-        except Exception:
-            log.exception("sio.game_end.spectators_clear_failed", rid=rid)
+    try:
+        await r.delete(f"room:{rid}:spectators", f"room:{rid}:spectators_join")
+    except Exception:
+        log.exception("sio.game_end.spectators_clear_failed", rid=rid)
 
     await sio.emit("game_ended",
                    {"room_id": rid, "reason": reason},
@@ -3488,6 +3534,22 @@ async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
             except Exception:
                 continue
 
+        raw_spec_join = await r.hgetall(f"room:{rid}:spectators_join")
+        if raw_spec_join:
+            now_ts = int(time())
+            for k, v in raw_spec_join.items():
+                try:
+                    uid_i = int(k)
+                    join_ts = int(v or 0)
+                except Exception:
+                    continue
+                dt = now_ts - join_ts
+                if dt > 0:
+                    try:
+                        await r.hincrby(f"room:{rid}:spectators_time", str(uid_i), dt)
+                    except Exception:
+                        log.warning("gc.spectators_time.flush_failed", rid=rid, uid=uid_i)
+
         owner = await r.get(f"room:{rid}:screen_owner")
         started = await r.get(f"room:{rid}:screen_started_at")
         if owner and started:
@@ -3506,6 +3568,14 @@ async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
             except Exception:
                 continue
 
+        raw_spec = await r.hgetall(f"room:{rid}:spectators_time")
+        spectators_map_sec: dict[int, int] = {}
+        for k, v in (raw_spec or {}).items():
+            try:
+                spectators_map_sec[int(k)] = int(v or 0)
+            except Exception:
+                continue
+
         try:
             async with SessionLocal() as s:
                 rm = await s.get(Room, rid)
@@ -3518,6 +3588,8 @@ async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
                     now_dt = datetime.now(timezone.utc)
                     screen_time_patch = {str(uid): max(0, sec) for uid, sec in screen_map_sec.items()}
                     merged_screen_time = {**(rm.screen_time or {}), **screen_time_patch}
+                    spectators_time_patch = {str(uid): max(0, sec) for uid, sec in spectators_map_sec.items()}
+                    merged_spectators_time = {**(rm.spectators_time or {}), **spectators_time_patch}
                     total_stream_sec = 0
                     for v in merged_screen_time.values():
                         try:
@@ -3538,6 +3610,7 @@ async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
 
                     rm.visitors = {**(rm.visitors or {}), **{str(k): v for k, v in visitors_map.items()}}
                     rm.screen_time = merged_screen_time
+                    rm.spectators_time = merged_spectators_time
                     rm.deleted_at = now_dt
 
                     await r.srem(f"user:{rm_creator}:rooms", str(rid))
@@ -3578,6 +3651,8 @@ async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
             f"room:{rid}:params",
             f"room:{rid}:game",
             f"room:{rid}:spectators",
+            f"room:{rid}:spectators_time",
+            f"room:{rid}:spectators_join",
             f"room:{rid}:gc_seq",
             f"room:{rid}:empty_since",
             f"room:{rid}:gc_lock",

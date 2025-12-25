@@ -343,6 +343,7 @@
                   <th>Создана</th>
                   <th>Удалена</th>
                   <th>Посетители</th>
+                  <th>Зрители</th>
                   <th>Игры</th>
                   <th>Стримы (мин)</th>
                 </tr>
@@ -368,6 +369,24 @@
                         <div v-if="row.visitors.length === 0" class="tooltip-empty">Нет данных</div>
                         <div v-else class="tooltip-list">
                           <div v-for="item in row.visitors" :key="`visitor-${row.id}-${item.id}`" class="tooltip-row">
+                            <span class="tooltip-id">ID {{ item.id }}</span>
+                            <div class="user-cell compact">
+                              <img class="user-avatar" v-minio-img="{ key: item.avatar_name ? `avatars/${item.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
+                              <span>{{ item.username || '-' }}</span>
+                            </div>
+                            <span class="tooltip-minutes">{{ item.minutes }} мин</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="tooltip" tabindex="0">
+                      <span class="tooltip-value">{{ row.spectators_count }}</span>
+                      <div class="tooltip-body">
+                        <div v-if="row.spectators.length === 0" class="tooltip-empty">Нет данных</div>
+                        <div v-else class="tooltip-list">
+                          <div v-for="item in row.spectators" :key="`spectator-${row.id}-${item.id}`" class="tooltip-row">
                             <span class="tooltip-id">ID {{ item.id }}</span>
                             <div class="user-cell compact">
                               <img class="user-avatar" v-minio-img="{ key: item.avatar_name ? `avatars/${item.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
@@ -413,7 +432,7 @@
                   </td>
                 </tr>
                 <tr v-if="rooms.length === 0">
-                  <td colspan="10" class="muted">Нет данных</td>
+                  <td colspan="11" class="muted">Нет данных</td>
                 </tr>
               </tbody>
             </table>
@@ -601,6 +620,8 @@ type RoomRow = {
   lift_3x: boolean
   visitors_count: number
   visitors: RoomUserStat[]
+  spectators_count: number
+  spectators: RoomUserStat[]
   games: RoomGameStat[]
   stream_minutes: number
   streamers: RoomUserStat[]
@@ -929,6 +950,7 @@ async function loadRooms(): Promise<void> {
       lift_at_zero: Boolean(item?.lift_at_zero),
       lift_3x: Boolean(item?.lift_3x),
       visitors: normalizeRoomUsers(item?.visitors),
+      spectators: normalizeRoomUsers(item?.spectators),
       games: normalizeRoomGames(item?.games),
       streamers: normalizeRoomUsers(item?.streamers),
     }))
