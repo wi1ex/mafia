@@ -518,8 +518,9 @@ export function useRTC(): UseRTC {
       mics.value = list.filter(d => d.kind === 'audioinput')
       cams.value = list.filter(d => d.kind === 'videoinput')
       const labelsKnown = [...mics.value, ...cams.value].some(d => (d.label ?? '').trim().length > 0)
-      if (mics.value.length === 0 && cams.value.length === 0) { permProbed.value = false }
-      if (isSafari && !labelsKnown) { permProbed.value = false }
+      if (labelsKnown) { setPermFlag(true) }
+      else if (mics.value.length === 0 && cams.value.length === 0) { setPermFlag(false) }
+      else if (isSafari && !labelsKnown) { setPermFlag(false) }
       hasAudioInput.value = mics.value.length > 0
       hasVideoInput.value = cams.value.length > 0
       if (!mics.value.find(d => d.deviceId === selectedMicId.value)) {

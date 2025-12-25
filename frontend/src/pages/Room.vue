@@ -876,7 +876,7 @@ async function takeFoulUi() {
   } catch { foulPending.value = false }
 }
 
-const showPermProbe = computed(() => !rtc.hasAudioInput.value || !rtc.hasVideoInput.value)
+const showPermProbe = computed(() => !rtc.permProbed.value || !rtc.hasAudioInput.value || !rtc.hasVideoInput.value)
 async function onProbeClick() {
   try { await rtc.resumeAudio() } catch {}
   await rtc.probePermissions({ audio: true, video: true })
