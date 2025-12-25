@@ -248,7 +248,7 @@
             <span class="count-total" :class="{ unread: appsCounts.unread > 0 }">{{ appsCounts.total < 100 ? appsCounts.total : '∞' }}</span>
           </button>
           <button v-if="gamePhase !== 'idle'" @click.stop="toggleMusicSettings" :aria-expanded="musicSettingsOpen" aria-label="Панель управления">
-            <img :src="iconVolumeMid" alt="controls" />
+            <img :src="iconControls" alt="controls" />
           </button>
           <button @click.stop="toggleSettings" :aria-expanded="settingsOpen" aria-label="Настройки устройств">
             <img :src="iconSettings" alt="settings" />

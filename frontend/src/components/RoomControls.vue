@@ -8,18 +8,21 @@
         </button>
       </header>
       <div class="controls">
-        <div v-if="canToggleKnownRoles" class="switch">
-          <span class="switch-label">Показ ролей:</span>
-          <label>
-            <input type="checkbox" :checked="knownRolesVisible" aria-label="Показ ролей" @change="onToggleKnownRoles" />
-            <div class="slider">
-              <span>Откл</span>
-              <span>Вкл</span>
-            </div>
-          </label>
+        <div class="switch-div">
+          <div v-if="canToggleKnownRoles" class="switch">
+            <span class="switch-label">Показ ролей:</span>
+            <label>
+              <input type="checkbox" :checked="knownRolesVisible" @change="onToggleKnownRoles" aria-label="Показ ролей" />
+              <div class="slider">
+                <span>Откл</span>
+                <span>Вкл</span>
+              </div>
+            </label>
+          </div>
         </div>
+
         <div class="volume-block">
-          <span>Громкость музыки:</span>
+          <span class="volume-text">Громкость музыки:</span>
           <div class="volume">
             <img :src="iconVolumeMid" alt="vol" />
             <input type="range" min="0" max="100" :value="volume" aria-label="Громкость фоновой музыки" @input="onVolumeInput" />
@@ -63,7 +66,7 @@ function onToggleKnownRoles() {
   flex-direction: column;
   right: 0;
   bottom: 50px;
-  width: 320px;
+  width: 400px;
   border-radius: 5px;
   background-color: $dark;
   box-shadow: 3px 3px 5px rgba($black, 0.25);
@@ -103,63 +106,66 @@ function onToggleKnownRoles() {
     gap: 10px;
     border-radius: 5px;
     background-color: $dark;
-    .switch {
+    .switch-div {
       display: flex;
-      align-items: center;
-      justify-content: space-between;
+      flex-direction: column;
       gap: 10px;
-      .switch-label {
-        height: 18px;
-        color: $fg;
-        font-size: 14px;
-      }
-      label {
-        position: relative;
-        width: 120px;
-        height: 25px;
-        box-shadow: 3px 3px 5px rgba($black, 0.25);
-        input {
-          position: absolute;
-          opacity: 0;
-          width: 0;
-          height: 0;
+      width: 100%;
+      .switch {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        .switch-label {
+          height: 18px;
         }
-        .slider {
-          display: flex;
-          align-items: center;
-          justify-content: space-around;
-          position: absolute;
-          inset: 0;
-          cursor: pointer;
-          border: 1px solid $lead;
-          border-radius: 5px;
-          background-color: $graphite;
-          span {
-            position: relative;
-            width: 100%;
-            color: $fg;
-            font-size: 14px;
-            text-align: center;
-            transition: color 0.25s ease-in-out;
+        label {
+          position: relative;
+          width: 120px;
+          height: 25px;
+          box-shadow: 3px 3px 5px rgba($black, 0.25);
+          input {
+            position: absolute;
+            opacity: 0;
+            width: 0;
+            height: 0;
           }
-        }
-        .slider:before {
-          content: "";
-          position: absolute;
-          top: 0;
-          left: 0;
-          width: 58px;
-          height: 23px;
-          background-color: $fg;
-          border-radius: 5px;
-          transition: transform 0.25s ease-in-out;
-        }
-        input:checked + .slider:before {
-          transform: translateX(60px);
-        }
-        input:not(:checked) + .slider span:first-child,
-        input:checked + .slider span:last-child {
-          color: $bg;
+          .slider {
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
+            position: absolute;
+            inset: 0;
+            cursor: pointer;
+            border: 1px solid $lead;
+            border-radius: 5px;
+            background-color: $graphite;
+            span {
+              position: relative;
+              width: 100%;
+              color: $fg;
+              font-size: 14px;
+              text-align: center;
+              transition: color 0.25s ease-in-out;
+            }
+          }
+          .slider:before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 58px;
+            height: 23px;
+            background-color: $fg;
+            border-radius: 5px;
+            transition: transform 0.25s ease-in-out;
+          }
+          input:checked + .slider:before {
+            transform: translateX(60px);
+          }
+          input:not(:checked) + .slider span:first-child,
+          input:checked + .slider span:last-child {
+            color: $bg;
+          }
         }
       }
     }
@@ -167,78 +173,78 @@ function onToggleKnownRoles() {
       display: flex;
       flex-direction: column;
       gap: 8px;
-      span {
+      .volume-text {
         height: 16px;
         color: $fg;
         font-size: 14px;
       }
-    }
-    .volume {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 5px;
-      gap: 5px;
-      width: calc(100% - 10px);
-      height: 20px;
-      border-radius: 5px;
-      background-color: $graphite;
-      box-shadow: 3px 3px 5px rgba($black, 0.25);
-      -webkit-overflow-scrolling: touch;
-      img {
-        flex: 0 0 auto;
-        width: 20px;
+      .volume {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 5px;
+        gap: 5px;
+        width: calc(100% - 10px);
         height: 20px;
-      }
-      input[type="range"] {
-        flex: 1 1 auto;
-        min-width: 0;
-        height: 8px;
-        accent-color: $fg;
-        cursor: pointer;
-        appearance: none;
-        background: transparent;
-      }
-      span {
-        flex: 0 0 auto;
-        min-width: 32px;
-        text-align: center;
-        font-size: 12px;
-      }
-      input[type="range"]:disabled {
-        cursor: default;
-        opacity: 0.5;
-      }
-      input[type="range"]:focus-visible {
-        outline: 1px solid $fg;
-        outline-offset: 1px;
-      }
-      input[type="range"]::-webkit-slider-runnable-track {
-        height: 6px;
-        border-radius: 3px;
-        background-color: $grey;
-      }
-      input[type="range"]::-webkit-slider-thumb {
-        -webkit-appearance: none;
-        appearance: none;
-        width: 18px;
-        height: 18px;
-        border-radius: 50%;
-        background-color: $fg;
-        border: 3px solid $dark;
-        margin-top: calc(-18px / 2 + 3px);
-      }
-      input[type="range"]::-moz-range-track {
-        height: 6px;
-        border-radius: 3px;
-        background-color: $grey;
-      }
-      input[type="range"]::-moz-range-thumb {
-        width: 16px;
-        height: 16px;
-        border-radius: 50%;
-        background-color: $fg;
-        border: 3px solid $dark;
+        border-radius: 5px;
+        background-color: $graphite;
+        box-shadow: 3px 3px 5px rgba($black, 0.25);
+        -webkit-overflow-scrolling: touch;
+        img {
+          flex: 0 0 auto;
+          width: 20px;
+          height: 20px;
+        }
+        input[type="range"] {
+          flex: 1 1 auto;
+          min-width: 0;
+          height: 8px;
+          accent-color: $fg;
+          cursor: pointer;
+          appearance: none;
+          background: transparent;
+        }
+        span {
+          flex: 0 0 auto;
+          min-width: 32px;
+          text-align: center;
+          font-size: 12px;
+        }
+        input[type="range"]:disabled {
+          cursor: default;
+          opacity: 0.5;
+        }
+        input[type="range"]:focus-visible {
+          outline: 1px solid $fg;
+          outline-offset: 1px;
+        }
+        input[type="range"]::-webkit-slider-runnable-track {
+          height: 6px;
+          border-radius: 3px;
+          background-color: $grey;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          appearance: none;
+          width: 18px;
+          height: 18px;
+          border-radius: 50%;
+          background-color: $fg;
+          border: 3px solid $dark;
+          margin-top: calc(-18px / 2 + 3px);
+        }
+        input[type="range"]::-moz-range-track {
+          height: 6px;
+          border-radius: 3px;
+          background-color: $grey;
+        }
+        input[type="range"]::-moz-range-thumb {
+          width: 16px;
+          height: 16px;
+          border-radius: 50%;
+          background-color: $fg;
+          border: 3px solid $dark;
+        }
       }
     }
   }

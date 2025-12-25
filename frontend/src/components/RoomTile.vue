@@ -70,8 +70,7 @@
     </div>
 
     <div class="user-card" :data-open="openPanel ? 1 : 0" :data-game="inGame ? 1 : 0" @click.stop>
-      <button class="card-head" :disabled="id === localId"
-              :aria-disabled="id === localId" @click.stop="$emit('toggle-panel', id)" :aria-expanded="openPanel">
+      <button class="card-head" :disabled="id === localId" :aria-disabled="id === localId" @click.stop="$emit('toggle-panel', id)" :aria-expanded="openPanel">
         <img v-if="seat != null && seatIcon" class="user-slot" :src="seatIcon" alt="seat" />
         <img class="user-avatar" v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar, lazy: false }" alt="avatar" />
         <span>{{ userName(id) }}</span>
