@@ -243,9 +243,6 @@
         </div>
 
         <div class="controls-side right">
-          <button v-if="canToggleKnownRoles" @click="game.toggleKnownRolesVisibility">
-            <img :src="knownRolesVisible ? iconVisOnRoles : iconVisOffRoles" alt="roles" />
-          </button>
           <button v-if="myRole === 'host' && isPrivate && gamePhase === 'idle'" @click.stop="toggleApps" :aria-expanded="openApps" aria-label="Заявки">
             <img :src="iconRequestsRoom" alt="requests" />
             <span class="count-total" :class="{ unread: appsCounts.unread > 0 }">{{ appsCounts.total < 100 ? appsCounts.total : '∞' }}</span>
@@ -265,9 +262,12 @@
           @counts="(p) => { appsCounts.total = p.total; appsCounts.unread = p.unread }"
         />
 
-        <RoomMusicSetting
+        <RoomControls
           :open="musicSettingsOpen"
           v-model:volume="bgmVolume"
+          :can-toggle-known-roles="canToggleKnownRoles"
+          :known-roles-visible="knownRolesVisible"
+          @toggle-known-roles="game.toggleKnownRolesVisibility"
           @close="musicSettingsOpen=false"
         />
 
@@ -321,7 +321,7 @@ import { confirmDialog, alertDialog } from '@/services/confirm'
 import { createAuthedSocket } from '@/services/sio'
 import RoomTile from '@/components/RoomTile.vue'
 import RoomSetting from '@/components/RoomSetting.vue'
-import RoomMusicSetting from '@/components/RoomMusicSetting.vue'
+import RoomControls from '@/components/RoomControls.vue'
 import RoomRequests from '@/components/RoomRequests.vue'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
@@ -348,8 +348,6 @@ import iconKillPlayer from '@/assets/images/killPlayer.png'
 import iconVotedPlayer from '@/assets/images/votedPlayer.png'
 import iconFouledPlayer from '@/assets/images/fouledPlayer.png'
 import iconLeavePlayer from '@/assets/images/leavePlayer.png'
-import iconVisOnRoles from '@/assets/svg/visOnRoles.svg'
-import iconVisOffRoles from '@/assets/svg/visOffRoles.svg'
 
 import iconMicOn from '@/assets/svg/micOn.svg'
 import iconMicOff from '@/assets/svg/micOff.svg'
@@ -679,14 +677,20 @@ function volumeIconForStream(key: string) {
 const BGM_VOLUME_LS = 'bgm:volume'
 const BGM_DEFAULT_VOLUME = 50
 const BGM_MAX_VOLUME = 1
-const BGM_SOURCES = {
-  rolesPick: '/audio/sleep.mp3',
-  mafiaTalk: '/audio/sleep.mp3',
-  night: '/audio/sleep.mp3',
-} as const
+const BGM_FILES = Object.values(
+  import.meta.glob('@/assets/music/*.mp3', { eager: true, as: 'url' })
+) as string[]
+const BGM_ACTIVE_PHASES: GamePhase[] = ['roles_pick', 'mafia_talk_start', 'mafia_talk_end', 'night']
 
 const bgmAudio = ref<HTMLAudioElement | null>(null)
 const bgmVolume = ref<number>(loadBgmVolume())
+const bgmCurrentSrc = ref<string>('')
+
+function pickRandomBgmSource(): string {
+  if (!BGM_FILES.length) return ''
+  const idx = Math.floor(Math.random() * BGM_FILES.length)
+  return BGM_FILES[idx]
+}
 
 function clampBgmVolume(v: number) {
   if (!Number.isFinite(v)) return BGM_DEFAULT_VOLUME
@@ -731,6 +735,7 @@ function stopBgm() {
   if (!el) return
   try { el.pause() } catch {}
   try { el.currentTime = 0 } catch {}
+  bgmCurrentSrc.value = ''
 }
 function destroyBgm() {
   const el = bgmAudio.value
@@ -740,22 +745,26 @@ function destroyBgm() {
   bgmAudio.value = null
 }
 
-const bgmSource = computed(() => {
-  if (gamePhase.value === 'roles_pick') return BGM_SOURCES.rolesPick
-  if (gamePhase.value === 'mafia_talk_start' || gamePhase.value === 'mafia_talk_end') return BGM_SOURCES.mafiaTalk
-  if (gamePhase.value === 'night') return BGM_SOURCES.night
-  return ''
-})
+const bgmShouldPlay = computed(() => BGM_ACTIVE_PHASES.includes(gamePhase.value))
 
 function ensureBgmPlayback() {
-  const src = bgmSource.value
-  if (!src) {
+  if (!bgmShouldPlay.value) {
+    stopBgm()
+    return
+  }
+  if (!BGM_FILES.length) {
     stopBgm()
     return
   }
   const el = ensureBgmAudio()
+  if (!bgmCurrentSrc.value) bgmCurrentSrc.value = pickRandomBgmSource()
+  const src = bgmCurrentSrc.value
+  if (!src) return
   const resolved = resolveBgmUrl(src)
-  if (resolved && el.src !== resolved) el.src = src
+  if (resolved && el.src !== resolved) {
+    el.src = src
+    try { el.currentTime = 0 } catch {}
+  }
   applyBgmVolume()
   void el.play().catch(() => {})
 }
@@ -770,17 +779,13 @@ watch(bgmVolume, (v) => {
   applyBgmVolume()
 }, { immediate: true })
 
-watch(bgmSource, (src) => {
-  if (!src) {
+watch(bgmShouldPlay, (on, was) => {
+  if (!on) {
     stopBgm()
     return
   }
-  const el = ensureBgmAudio()
-  const resolved = resolveBgmUrl(src)
-  if (resolved && el.src !== resolved) el.src = src
-  try { el.currentTime = 0 } catch {}
-  applyBgmVolume()
-  void el.play().catch(() => {})
+  if (!was) bgmCurrentSrc.value = ''
+  ensureBgmPlayback()
 }, { immediate: true })
 
 async function sendAck(event: string, payload: any, timeoutMs = 15000): Promise<Ack> {
