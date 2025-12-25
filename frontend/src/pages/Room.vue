@@ -265,6 +265,7 @@
         <RoomControls
           :open="musicSettingsOpen"
           v-model:volume="bgmVolume"
+          :volume-icon="volumeIcon(bgmVolume, bgmShouldPlay)"
           :can-toggle-known-roles="canToggleKnownRoles"
           :known-roles-visible="knownRolesVisible"
           @toggle-known-roles="game.toggleKnownRolesVisibility"
@@ -685,11 +686,19 @@ const BGM_ACTIVE_PHASES: GamePhase[] = ['roles_pick', 'mafia_talk_start', 'mafia
 const bgmAudio = ref<HTMLAudioElement | null>(null)
 const bgmVolume = ref<number>(loadBgmVolume())
 const bgmCurrentSrc = ref<string>('')
+const bgmSeed = ref<number>(0)
 
-function pickRandomBgmSource(): string {
+function pickSeededBgmSource(seed: number): string {
   if (!BGM_FILES.length) return ''
-  const idx = Math.floor(Math.random() * BGM_FILES.length)
+  const base = seed || rid || 0
+  const idx = Math.abs(base) % BGM_FILES.length
   return BGM_FILES[idx]
+}
+function setBgmSeed(seed: unknown) {
+  const n = Number(seed)
+  bgmSeed.value = Number.isFinite(n) ? Math.floor(n) : 0
+  bgmCurrentSrc.value = ''
+  if (bgmShouldPlay.value) ensureBgmPlayback()
 }
 
 function clampBgmVolume(v: number) {
@@ -757,7 +766,7 @@ function ensureBgmPlayback() {
     return
   }
   const el = ensureBgmAudio()
-  if (!bgmCurrentSrc.value) bgmCurrentSrc.value = pickRandomBgmSource()
+  if (!bgmCurrentSrc.value) bgmCurrentSrc.value = pickSeededBgmSource(bgmSeed.value)
   const src = bgmCurrentSrc.value
   if (!src) return
   const resolved = resolveBgmUrl(src)
@@ -1204,6 +1213,7 @@ socket.value?.on('connect', async () => {
   })
 
   socket.value?.on('game_started', (p: any) => {
+    setBgmSeed(p?.bgm_seed)
     game.handleGameStarted(p)
     statusByUser.forEach((st, uid) => {
       statusByUser.set(uid, { ...st, ready: 0 as 0 })
@@ -1522,6 +1532,7 @@ function applyJoinAck(j: any) {
 
   const snapshotIds = Object.keys(j.snapshot || {})
   game.applyFromJoinAck(j, snapshotIds)
+  setBgmSeed(j?.game_runtime?.bgm_seed)
   void enforceMicAfterJoin()
   void enforceSpectatorPhaseVisibility(gamePhase.value)
 }

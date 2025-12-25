@@ -24,7 +24,7 @@
         <div class="volume-block">
           <span class="volume-text">Громкость музыки:</span>
           <div class="volume">
-            <img :src="iconVolumeMid" alt="vol" />
+            <img :src="volumeIcon" alt="vol" />
             <input type="range" min="0" max="100" :value="volume" aria-label="Громкость фоновой музыки" @input="onVolumeInput" />
             <span>{{ volume }}%</span>
           </div>
@@ -36,11 +36,11 @@
 
 <script setup lang="ts">
 import iconClose from '@/assets/svg/close.svg'
-import iconVolumeMid from '@/assets/svg/volumeMid.svg'
 
 defineProps<{
   open: boolean
   volume: number
+  volumeIcon: string
   canToggleKnownRoles: boolean
   knownRolesVisible: boolean
 }>()

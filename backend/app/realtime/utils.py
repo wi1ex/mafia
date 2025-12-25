@@ -3050,6 +3050,7 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
         "seats": seats_map,
         "players": list(players_set),
         "alive": list(alive_set),
+        "bgm_seed": ctx.gint("bgm_seed"),
     }
     finished = ctx.gbool("game_finished")
     if finished:

@@ -863,11 +863,13 @@ async def game_start(sid, data) -> GameStartAck:
             slot += 1
         seats[str(head_uid)] = 11
         now_ts = int(time())
+        bgm_seed = random.randint(1, 2**31 - 1)
         async with r.pipeline() as p:
             await p.hset(f"room:{rid}:game_state",
                          mapping={
                              "phase": "roles_pick",
                              "started_at": str(now_ts),
+                             "bgm_seed": str(bgm_seed),
                              "started_by": str(uid),
                              "head": str(head_uid),
                              "game_finished": "0",
@@ -926,6 +928,7 @@ async def game_start(sid, data) -> GameStartAck:
             "phase": "roles_pick",
             "min_ready": min_ready,
             "seats": {k: int(v) for k, v in seats.items()},
+            "bgm_seed": bgm_seed,
         }
 
         await sio.emit("game_started",

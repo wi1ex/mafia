@@ -73,6 +73,7 @@ class GameStartAck(TypedDict, total=False):
     streaming_owner: int
     blocking_users: List[int]
     conflict_users: List[int]
+    bgm_seed: int
 
 
 class GameRolePickAck(TypedDict, total=False):
