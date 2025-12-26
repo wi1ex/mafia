@@ -786,7 +786,6 @@ const timelineDurationSec = computed(() => {
     }
     .farewell-buttons {
       bottom: 3px;
-      gap: 5px;
       button {
         width: 20px;
         height: 20px;
