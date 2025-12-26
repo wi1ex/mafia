@@ -34,6 +34,7 @@ watchEffect(() => {
 })
 
 onMounted(async () => {
+  settings.ensureWS()
   try { await settings.fetchPublic() } catch {}
   await auth.init()
   if (auth.isAuthed) {

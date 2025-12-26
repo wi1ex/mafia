@@ -434,6 +434,10 @@ function startWS() {
 
   sio.value.on('connect', syncRoomsSnapshot)
 
+  sio.value.on('settings_update', () => {
+    void settings.fetchPublic()
+  })
+
   sio.value.on('rooms_upsert', (r: Room) => {
     upsert(r)
     if (!selectedId.value && !suppressedAutoselect.value) selectRoom(r.id)

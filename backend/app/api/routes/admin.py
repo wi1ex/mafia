@@ -91,7 +91,14 @@ async def update_settings(payload: AdminSettingsUpdateIn, session: AsyncSession 
     if combined:
         await session.commit()
         await session.refresh(row)
+
     sync_cache_from_row(row)
+    if combined:
+        try:
+            await sio.emit("settings_update", {"ok": True}, namespace="/auth")
+            await sio.emit("settings_update", {"ok": True}, namespace="/rooms")
+        except Exception:
+            pass
 
     return AdminSettingsOut(site=site_settings_out(row), game=game_settings_out(row))
 

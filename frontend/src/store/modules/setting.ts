@@ -15,6 +15,8 @@ export const useSettingsStore = defineStore('settings', () => {
   const gamesCanStart = ref(true)
   const gameMinReadyPlayers = ref(4)
   const ready = ref(false)
+  let inited = false
+  let onSettingsEv: ((e: any) => void) | null = null
 
   function applyPublic(data: PublicSettings) {
     registrationEnabled.value = Boolean(data.registration_enabled)
@@ -33,6 +35,14 @@ export const useSettingsStore = defineStore('settings', () => {
     }
   }
 
+  function ensureWS() {
+    if (inited) return
+    if (onSettingsEv) window.removeEventListener('auth-settings_update', onSettingsEv)
+    onSettingsEv = () => { void fetchPublic() }
+    window.addEventListener('auth-settings_update', onSettingsEv)
+    inited = true
+  }
+
   return {
     registrationEnabled,
     roomsCanCreate,
@@ -42,5 +52,6 @@ export const useSettingsStore = defineStore('settings', () => {
 
     fetchPublic,
     applyPublic,
+    ensureWS,
   }
 })
