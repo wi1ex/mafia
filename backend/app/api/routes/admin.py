@@ -63,6 +63,7 @@ async def public_settings() -> PublicSettingsOut:
         registration_enabled=settings.registration_enabled,
         rooms_can_create=settings.rooms_can_create,
         games_can_start=settings.games_can_start,
+        game_min_ready_players=settings.game_min_ready_players,
     )
 
 

@@ -937,6 +937,7 @@ async function saveSettings(): Promise<void> {
       registration_enabled: site.registration_enabled,
       rooms_can_create: site.rooms_can_create,
       games_can_start: site.games_can_start,
+      game_min_ready_players: game.game_min_ready_players,
     })
     void alertDialog('Настройки сохранены')
   } catch {

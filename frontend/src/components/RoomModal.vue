@@ -126,11 +126,12 @@
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { api } from '@/services/axios'
 import { alertDialog } from '@/services/confirm'
-import { useUserStore } from '@/store'
+import { useUserStore, useSettingsStore } from '@/store'
 
 import iconClose from '@/assets/svg/close.svg'
 
 const user = useUserStore()
+const settings = useSettingsStore()
 
 const armed = ref(false)
 const busy = ref(false)
@@ -167,8 +168,11 @@ const titlePct = computed(() => {
 })
 const titleUnderlineStyle = computed(() => ({ width: `${titlePct.value}%` }))
 
-const GAME_LIMIT_MIN = 5
-const canOpenGameTab = computed(() => limit.value >= GAME_LIMIT_MIN)
+const gameLimitMin = computed(() => {
+  const minReady = Number(settings.gameMinReadyPlayers)
+  return Number.isFinite(minReady) && minReady > 0 ? minReady + 1 : 11
+})
+const canOpenGameTab = computed(() => limit.value >= gameLimitMin.value)
 function openTab(t: 'room' | 'game') {
   if (t === 'game' && !canOpenGameTab.value) return
   tab.value = t
@@ -314,9 +318,9 @@ watch(tab, (cur) => {
   prevTab = cur
 })
 
-watch(limit, (v) => {
+watch([limit, gameLimitMin], ([v, min]) => {
   if (v < 2) limit.value = 2
-  if (v < GAME_LIMIT_MIN && tab.value === 'game') tab.value = 'room'
+  if (v < min && tab.value === 'game') tab.value = 'room'
 }, { flush: 'sync' })
 
 watch(() => user.user, () => { if (!hadStoredTitle && !_title.value) _title.value = defaultTitle() }, { flush: 'post' })

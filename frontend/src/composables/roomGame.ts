@@ -1,5 +1,6 @@
 import { computed, reactive, ref, type Ref, watch } from 'vue'
 import { confirmDialog, alertDialog } from '@/services/confirm'
+import { useSettingsStore } from '@/store'
 
 import iconRoleCitizen from '@/assets/images/roleCitizen.png'
 import iconRoleMafia from '@/assets/images/roleMafia.png'
@@ -70,8 +71,12 @@ const ROLE_BADGE_ICONS: Record<GameRoleKind, string> = {
 const ALL_ROLE_CARDS = Array.from({ length: 10 }, (_, i) => i + 1)
 
 export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>) {
+  const settings = useSettingsStore()
   const gamePhase = ref<GamePhase>('idle')
-  const minReadyToStart = ref<number>(4)
+  const initialMinReady = Number(settings.gameMinReadyPlayers)
+  const minReadyToStart = ref<number>(
+    Number.isFinite(initialMinReady) && initialMinReady > 0 ? initialMinReady : 4,
+  )
   const seatsByUser = reactive<Record<string, number>>({})
   const gamePlayers = reactive(new Set<string>())
   const gameAlive = reactive(new Set<string>())
@@ -1740,6 +1745,11 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       scheduleLeaderSpeechUnlock()
       onCleanup(() => resetLeaderSpeechDelay())
   }, { immediate: true })
+
+  watch(() => settings.gameMinReadyPlayers, (value) => {
+      const v = Number(value)
+      if (Number.isFinite(v) && v > 0 && gamePhase.value === 'idle') minReadyToStart.value = v
+  })
 
   async function goToMafiaTalk(sendAck: SendAckFn): Promise<void> {
     const resp = await sendAck('game_phase_next', { from: 'roles_pick', to: 'mafia_talk_start' })

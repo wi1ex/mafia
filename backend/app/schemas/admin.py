@@ -56,6 +56,7 @@ class PublicSettingsOut(BaseModel):
     registration_enabled: bool
     rooms_can_create: bool
     games_can_start: bool
+    game_min_ready_players: int
 
 
 class RegistrationsPoint(BaseModel):
