@@ -1,7 +1,7 @@
 <template>
   <header class="bar">
     <div class="links">
-      <router-link class="btn" :to="{ name: 'home' }" aria-label="DECEIT.games">DECEIT.games (v{{ BUILD }})</router-link>
+      <router-link class="btn" :to="{ name: 'home' }" aria-label="DECEIT.games">deceit.games v{{ BUILD }}</router-link>
       <router-link v-if="user.user?.role === 'admin'" class="btn" :to="{ name: 'admin' }" aria-label="Админ-панель">Админ-панель</router-link>
     </div>
 

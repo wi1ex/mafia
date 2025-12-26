@@ -1,7 +1,7 @@
 <template>
   <Teleport to="body">
     <Transition name="overlay">
-      <div v-if="open" class="overlay" @click.self="close">
+      <div v-if="open" class="overlay" @pointerdown.self="armed = true" @pointerup.self="armed && close()" @pointerleave.self="armed = false" @pointercancel.self="armed = false">
         <div class="modal" role="dialog" aria-modal="true" :aria-label="title">
           <header>
             <span>{{ title }}</span>
@@ -37,6 +37,7 @@
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue'
 import iconClose from '@/assets/svg/close.svg'
 
 defineProps<{
@@ -56,6 +57,8 @@ const emit = defineEmits<{
   'update:open': [boolean]
   'save': []
 }>()
+
+const armed = ref(false)
 
 function close() {
   emit('update:open', false)

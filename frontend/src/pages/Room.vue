@@ -318,6 +318,7 @@ import type { Socket } from 'socket.io-client'
 import { useAuthStore } from '@/store'
 import { useRoomGame, type SendAckFn, type Ack, type GamePhase, type FarewellVerdict } from '@/composables/roomGame'
 import { useRTC, type VQ } from '@/composables/rtc'
+import { api } from '@/services/axios'
 import { confirmDialog, alertDialog } from '@/services/confirm'
 import { createAuthedSocket } from '@/services/sio'
 import RoomTile from '@/components/RoomTile.vue'
@@ -1687,18 +1688,23 @@ async function onMediaGateClick() {
 async function handleJoinFailure(j: any) {
   if (leaving.value) return
   if (j?.status === 403 && j?.error === 'private_room') {
-    void alertDialog('Комната является приватной')
+    try { await api.post(`/rooms/${rid}/apply`) } catch {}
+    void alertDialog('Комната приватная, запрос в комнату отправлен')
     await router.replace({ name: 'home', query: { focus: String(rid) } })
-  } else if (j?.status === 409 && j?.error === 'game_in_progress') {
-    void alertDialog('В комнате идёт игра')
-    await router.replace({ name: 'home', query: { focus: String(rid) } })
-  } else if (j?.status === 409 && j?.error === 'spectators_full') {
-    void alertDialog('Лимит зрителей исчерпан')
-    await router.replace({ name: 'home', query: { focus: String(rid) } })
-  } else {
-    void alertDialog(j?.status === 404 ? 'Комната не найдена' : j?.status === 410 ? 'Комната закрыта' : j?.status === 409 ? 'Комната заполнена' : 'Ошибка входа в комнату')
-    await router.replace('/')
+    return
   }
+  if (j?.status === 409 && j?.error === 'room_is_full') {
+    void alertDialog('Комната заполнена')
+    await router.replace({ name: 'home', query: { focus: String(rid) } })
+    return
+  }
+  if (j?.status === 409 && (j?.error === 'game_in_progress' || j?.error === 'spectators_full')) {
+    void alertDialog('В комнате нет мест для зрителей')
+    await router.replace({ name: 'home', query: { focus: String(rid) } })
+    return
+  }
+  void alertDialog(j?.status === 404 ? 'Комната не найдена' : j?.status === 410 ? 'Комната закрыта' : j?.status === 409 ? 'Комната заполнена' : 'Ошибка входа в комнату')
+  await router.replace('/')
 }
 
 async function onLeave(goHome = true) {
