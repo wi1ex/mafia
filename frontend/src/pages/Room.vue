@@ -2213,7 +2213,7 @@ onBeforeUnmount(() => {
         }
       }
       .sidebar {
-        gap: 5px;
+        gap: 1px;
       }
     }
     .panel {

@@ -529,7 +529,7 @@ const timelineDurationSec = computed(() => {
     top: 5px;
     padding: 5px 10px;
     inline-size: max-content;
-    max-inline-size: min(250px, calc(100% - 30px));
+    max-inline-size: min(210px, calc(100% - 30px));
     block-size: 30px;
     will-change: inline-size, block-size;
     border-radius: 5px;
@@ -539,7 +539,7 @@ const timelineDurationSec = computed(() => {
     z-index: 20;
     transition: inline-size 0.25s ease-out, block-size 0.25s ease-out;
     &[data-open="1"] {
-      inline-size: min(250px, calc(100% - 30px));
+      inline-size: min(210px, calc(100% - 30px));
       block-size: 138px;
     }
     &[data-open="1"][data-game="1"] {
@@ -560,12 +560,12 @@ const timelineDurationSec = computed(() => {
         cursor: default;
       }
       .user-slot {
-        width: 24px;
-        height: 24px;
+        width: 28px;
+        height: 28px;
       }
       .user-avatar {
-        width: 20px;
-        height: 20px;
+        width: 24px;
+        height: 24px;
         border-radius: 50%;
         object-fit: cover;
       }
@@ -676,13 +676,13 @@ const timelineDurationSec = computed(() => {
       }
       .admin-row {
         display: flex;
-        gap: 10px;
+        gap: 5px;
         button {
           display: flex;
           align-items: center;
           justify-content: center;
           padding: 0;
-          min-width: calc((100% - 50px) / 6);
+          min-width: calc((100% - 25px) / 6);
           height: 25px;
           border: none;
           border-radius: 5px;
@@ -700,8 +700,8 @@ const timelineDurationSec = computed(() => {
             }
           }
           img {
-            width: 20px;
-            height: 20px;
+            width: 18px;
+            height: 18px;
           }
         }
       }
@@ -828,7 +828,7 @@ const timelineDurationSec = computed(() => {
         block-size: 90px;
       }
       &[data-open="1"][data-game="1"] {
-        block-size: 62px;
+        block-size: 65px;
       }
       .card-head {
         gap: 3px;
@@ -892,9 +892,7 @@ const timelineDurationSec = computed(() => {
           }
         }
         .admin-row {
-          gap: 5px;
           button {
-            min-width: calc((100% - 25px) / 6);
             height: 20px;
             img {
               width: 14px;
