@@ -32,6 +32,7 @@ const error = (...a: unknown[]) => console.error('[RTC]', ...a)
 
 const UA = navigator.userAgent || ''
 const isSafari = /Safari/.test(UA) && !/Chrome|Chromium|Edg/.test(UA)
+const isIOS = /iPad|iPhone|iPod/.test(UA) || (UA.includes('Macintosh') && navigator.maxTouchPoints > 1)
 
 const saveLS = (k: string, v: string) => { try { localStorage.setItem(k, v) } catch {} }
 const loadLS = (k: string) => { try { return localStorage.getItem(k) } catch { return null } }
@@ -109,6 +110,7 @@ export function useRTC(): UseRTC {
   const selectedCamId = ref<string>('')
   const wantAudio = ref(true)
   const wantVideo = ref(true)
+  // Persisted probe state; on iOS we only set true after successful gUM.
   const permProbed = ref<boolean>(loadLS(LS.perm) === '1')
   const hasAudioInput = ref(false)
   const hasVideoInput = ref(false)
@@ -518,7 +520,9 @@ export function useRTC(): UseRTC {
       mics.value = list.filter(d => d.kind === 'audioinput')
       cams.value = list.filter(d => d.kind === 'videoinput')
       const labelsKnown = [...mics.value, ...cams.value].some(d => (d.label ?? '').trim().length > 0)
-      if (labelsKnown) { setPermFlag(true) }
+      if (labelsKnown) {
+        if (!isIOS) setPermFlag(true)
+      }
       else if (mics.value.length === 0 && cams.value.length === 0) { setPermFlag(false) }
       else if (isSafari && !labelsKnown) { setPermFlag(false) }
       hasAudioInput.value = mics.value.length > 0
@@ -549,7 +553,7 @@ export function useRTC(): UseRTC {
           permProbed.value = false
           return false
         }
-        permProbed.value = true
+        setPermFlag(true)
       } catch (e:any) {
         error('enable: gUM to populate devices failed', { kind, name: e?.name })
         permProbed.value = false
@@ -568,10 +572,11 @@ export function useRTC(): UseRTC {
       } else {
         await room.localParticipant.setCameraEnabled(true, { deviceId: { exact: id }, resolution: highVideoQuality.resolution } as any)
       }
+      setPermFlag(true)
       return true
     } catch (e:any) {
       error('enable exact failed', { kind, id, name: e?.name })
-      if (e?.name === 'NotAllowedError' || e?.name === 'SecurityError') {
+      if (e?.name === 'NotAllowedError' || e?.name === 'SecurityError' || e?.name === 'AbortError' || e?.name === 'NotReadableError') {
         permProbed.value = false
       }
       await fallback(kind)
@@ -583,15 +588,20 @@ export function useRTC(): UseRTC {
         } else {
           await room.localParticipant.setCameraEnabled(true, { deviceId: { exact: nextId }, resolution: highVideoQuality.resolution } as any)
         }
+        setPermFlag(true)
         return true
       } catch (e2:any) {
         error('enable retry exact failed', { kind, name: e2?.name })
         try {
           if (kind === 'audioinput') await room.localParticipant.setMicrophoneEnabled(true, audioOptionsFor(undefined))
           else await room.localParticipant.setCameraEnabled(true, { resolution: highVideoQuality.resolution } as any)
+          setPermFlag(true)
           return true
         } catch (e3:any) {
           error('enable final failed', { kind, name: e3?.name, message: e3?.message })
+          if (e3?.name === 'NotAllowedError' || e3?.name === 'SecurityError' || e3?.name === 'AbortError' || e3?.name === 'NotReadableError') {
+            permProbed.value = false
+          }
           return false
         }
       }
