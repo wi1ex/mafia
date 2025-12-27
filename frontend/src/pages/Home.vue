@@ -909,7 +909,6 @@ onBeforeUnmount(() => {
           padding: 10px 10px 5px;
           max-height: 130px;
           overflow: auto;
-          scrollbar-width: none;
           .ri-meta-game {
             width: 100%;
             .ri-meta .ri-meta-div .owner .owner-name {

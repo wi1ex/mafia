@@ -391,7 +391,7 @@ onBeforeUnmount(() => {
       background-color: $dark;
       .tab-viewport {
         position: relative;
-        height: 175px;
+        height: 265px;
         border-top: 3px solid $lead;
         border-left: 3px solid $lead;
         border-right: 3px solid $lead;
@@ -735,5 +735,20 @@ onBeforeUnmount(() => {
 .overlay-enter-from .modal,
 .overlay-leave-to .modal {
   transform: translateY(-30px);
+}
+
+@media (max-width: 1280px) {
+  .overlay {
+    .modal {
+      .modal-div {
+        .tab-viewport {
+          scrollbar-width: auto;
+        }
+        .params {
+          gap: 10px;
+        }
+      }
+    }
+  }
 }
 </style>
