@@ -319,6 +319,20 @@ export function useRTC(): UseRTC {
 
   function clearProbeFlag() { setPermFlag(false) }
 
+  async function shouldProbeAv(): Promise<boolean> {
+    const perms = navigator.permissions
+    if (!perms?.query) return !permProbed.value
+    try {
+      const [cam, mic] = await Promise.all([
+        perms.query({ name: 'camera' as PermissionName }),
+        perms.query({ name: 'microphone' as PermissionName }),
+      ])
+      return cam.state !== 'granted' || mic.state !== 'granted'
+    } catch {
+      return !permProbed.value
+    }
+  }
+
   async function disable(kind: DeviceKind) {
     try {
       if (kind === 'audioinput') await lk.value?.localParticipant.setMicrophoneEnabled(false)
@@ -543,7 +557,7 @@ export function useRTC(): UseRTC {
   async function enable(kind: DeviceKind): Promise<boolean> {
     const room = lk.value
     if (!room) return false
-    if (!isIOS && !permProbed.value) {
+    if (!isIOS && await shouldProbeAv()) {
       await probePermissions({ audio: true, video: true })
     }
     if ((kind === 'audioinput' ? mics.value.length : cams.value.length) === 0) {
