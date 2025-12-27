@@ -1,8 +1,16 @@
 <template>
   <header class="bar">
     <div class="links">
-      <router-link class="btn" :to="{ name: 'home' }" aria-label="DECEIT.games">deceit.games v{{ BUILD }}</router-link>
-      <router-link v-if="user.user?.role === 'admin'" class="btn" :to="{ name: 'admin' }" aria-label="Админ-панель">Админ-панель</router-link>
+      <router-link class="btn" :to="{ name: 'home' }" aria-label="DECEIT.games">=
+        <span>deceit.games v{{ BUILD }}</span>
+      </router-link>
+      <router-link v-if="user.user?.role === 'admin'" class="btn" :to="{ name: 'admin' }" aria-label="Админ-панель">
+        <span>Админ-панель</span>
+      </router-link>
+      <a class="btn" href="https://t.me/tribute/app?startapp=dCvc" target="_blank" rel="noopener noreferrer" aria-label="Поддержать">
+        <img :src="iconCard" alt="card" />
+        <span>Поддержать</span>
+      </a>
     </div>
 
     <div v-if="!auth.isAuthed && !auth.foreignActive">
@@ -72,6 +80,7 @@ import Updates from '@/components/Updates.vue'
 import defaultAvatar from "@/assets/svg/defaultAvatar.svg"
 import iconNotifBell from "@/assets/svg/notifBell.svg"
 import iconInfo from "@/assets/svg/info.svg"
+import iconCard from "@/assets/svg/card.svg"
 import iconLogout from '@/assets/svg/leave.svg'
 import iconProfile from "@/assets/svg/profile.svg"
 import iconArrowDown from '@/assets/svg/arrowDown.svg'
@@ -216,15 +225,17 @@ onBeforeUnmount(() => {
     border: none;
     border-radius: 5px;
     background-color: $graphite;
-    color: $fg;
-    font-size: 16px;
-    font-family: Manrope-Medium;
-    line-height: 1;
-    text-decoration: none;
     cursor: pointer;
     transition: background-color 0.25s ease-in-out;
     &:hover {
       background-color: $lead;
+    }
+    span {
+      color: $fg;
+      font-size: 16px;
+      font-family: Manrope-Medium;
+      line-height: 1;
+      text-decoration: none;
     }
     img {
       width: 24px;
