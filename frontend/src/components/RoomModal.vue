@@ -742,6 +742,7 @@ onBeforeUnmount(() => {
     .modal {
       .modal-div {
         .tab-viewport {
+          height: 155px;
           scrollbar-width: auto;
         }
         .params {

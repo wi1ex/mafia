@@ -885,7 +885,8 @@ const showPermProbe = computed(() =>
 async function onProbeClick() {
   try { await rtc.resumeAudio() } catch {}
   await rtc.probePermissions({ audio: true, video: true })
-  needInitialMediaUnlock.value = await enableInitialMedia()
+  await enableInitialMedia()
+  needInitialMediaUnlock.value = false
 }
 
 const sortedPeerIds = computed(() => {
@@ -1706,10 +1707,11 @@ async function enableInitialMedia(): Promise<boolean> {
 }
 
 async function onMediaGateClick() {
+  needInitialMediaUnlock.value = false
   closePanels()
   try { await rtc.resumeAudio() } catch {}
   ensureBgmPlayback()
-  needInitialMediaUnlock.value = await enableInitialMedia()
+  await enableInitialMedia()
 }
 
 async function handleJoinFailure(j: any) {
