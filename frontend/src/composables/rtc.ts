@@ -110,8 +110,7 @@ export function useRTC(): UseRTC {
   const selectedCamId = ref<string>('')
   const wantAudio = ref(true)
   const wantVideo = ref(true)
-  // Persisted probe state; on iOS we only set true after successful gUM.
-  const permProbed = ref<boolean>(loadLS(LS.perm) === '1')
+  const permProbed = ref<boolean>(!isIOS && loadLS(LS.perm) === '1')
   const hasAudioInput = ref(false)
   const hasVideoInput = ref(false)
   const activeSpeakers = ref<Set<string>>(new Set())

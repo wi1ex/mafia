@@ -316,10 +316,10 @@ import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } 
 import { useRoute, useRouter } from 'vue-router'
 import type { Socket } from 'socket.io-client'
 import { useAuthStore } from '@/store'
-import { useRoomGame, type SendAckFn, type Ack, type GamePhase, type FarewellVerdict } from '@/composables/roomGame'
+import { type Ack, type FarewellVerdict, type GamePhase, type SendAckFn, useRoomGame } from '@/composables/roomGame'
 import { useRTC, type VQ } from '@/composables/rtc'
 import { api } from '@/services/axios'
-import { confirmDialog, alertDialog } from '@/services/confirm'
+import { alertDialog, confirmDialog } from '@/services/confirm'
 import { createAuthedSocket } from '@/services/sio'
 import RoomTile from '@/components/RoomTile.vue'
 import RoomSetting from '@/components/RoomSetting.vue'
@@ -457,6 +457,7 @@ const IS_MOBILE = (navigator as any).userAgentData?.mobile === true || /Android|
   || (window.matchMedia?.('(pointer: coarse)').matches && /Android|iPhone|iPad|iPod|Mobile|Tablet|Touch/i.test(navUserAgent))
 
 const local = reactive({ mic: false, cam: false, speakers: true, visibility: true })
+const desiredMedia = reactive({ mic: false, cam: false })
 const pending = reactive<{ [k in keyof typeof local]: boolean }>({ mic: false, cam: false, speakers: false, visibility: false })
 const micOn = computed({ get: () => local.mic, set: v => { local.mic = v } })
 const camOn = computed({ get: () => local.cam, set: v => { local.cam = v } })
@@ -877,10 +878,14 @@ async function takeFoulUi() {
   } catch { foulPending.value = false }
 }
 
-const showPermProbe = computed(() => !rtc.permProbed.value || !rtc.hasAudioInput.value || !rtc.hasVideoInput.value)
+const needsMediaAccess = computed(() => desiredMedia.cam || desiredMedia.mic)
+const showPermProbe = computed(() =>
+  needsMediaAccess.value && (!rtc.permProbed.value || !rtc.hasAudioInput.value || !rtc.hasVideoInput.value)
+)
 async function onProbeClick() {
   try { await rtc.resumeAudio() } catch {}
   await rtc.probePermissions({ audio: true, video: true })
+  needInitialMediaUnlock.value = await enableInitialMedia()
 }
 
 const sortedPeerIds = computed(() => {
@@ -1061,8 +1066,16 @@ function applyBlocks(uid: string, patch: any) {
   })
 }
 function applySelfPref(pref: any) {
-  if (!isEmpty(pref?.mic)) local.mic = norm01(pref.mic, local.mic ? 1 : 0) === 1
-  if (!isEmpty(pref?.cam)) local.cam = norm01(pref.cam, local.cam ? 1 : 0) === 1
+  if (!isEmpty(pref?.mic)) {
+    const next = norm01(pref.mic, local.mic ? 1 : 0) === 1
+    local.mic = next
+    desiredMedia.mic = next
+  }
+  if (!isEmpty(pref?.cam)) {
+    const next = norm01(pref.cam, local.cam ? 1 : 0) === 1
+    local.cam = next
+    desiredMedia.cam = next
+  }
   if (!isEmpty(pref?.speakers)) local.speakers = norm01(pref.speakers, local.speakers ? 1 : 0) === 1
   if (!isEmpty(pref?.visibility)) local.visibility = norm01(pref.visibility, local.visibility ? 1 : 0) === 1
 }
@@ -1195,10 +1208,12 @@ socket.value?.on('connect', async () => {
     if (uid === String(localId.value)) {
       if ('cam' in blocks && norm01(blocks.cam, 0) === 1) {
         local.cam = false
+        desiredMedia.cam = false
         try { await rtc.disable('videoinput') } catch {}
       }
       if ('mic' in blocks && norm01(blocks.mic, 0) === 1) {
         local.mic = false
+        desiredMedia.mic = false
         try { await rtc.disable('audioinput') } catch {}
       }
       if ('speakers' in blocks && norm01(blocks.speakers, 0) === 1) {
@@ -1418,6 +1433,7 @@ async function forceMicOffLocal() {
   try { await toggleMic() } catch {}
   if (micOn.value) {
     local.mic = false
+    desiredMedia.mic = false
     try { await rtc.disable('audioinput') } catch {}
     try { await publishState({ mic: false }) } catch {}
   }
@@ -1583,6 +1599,8 @@ const toggleFactory = (k: keyof typeof local, onEnable?: () => Promise<boolean |
   try {
     pending[k] = true
     const want = !local[k]
+    if (k === 'mic') desiredMedia.mic = want
+    if (k === 'cam') desiredMedia.cam = want
     if (want) {
       const okLocal = (await onEnable?.()) !== false
       if (!okLocal) return
@@ -1653,23 +1671,33 @@ const toggleScreen = async () => {
 async function enableInitialMedia(): Promise<boolean> {
   const tasks: Promise<void>[] = []
   let failed = false
-  if (camOn.value && !blockedSelf.value.cam) {
+  if (desiredMedia.cam && !blockedSelf.value.cam) {
     tasks.push((async () => {
       const ok = await rtc.enable('videoinput')
       if (!ok) {
         failed = true
         camOn.value = false
         try { await publishState({ cam: false }) } catch {}
+        return
+      }
+      if (!camOn.value) {
+        camOn.value = true
+        try { await publishState({ cam: true }) } catch {}
       }
     })())
   }
-  if (micOn.value && !blockedSelf.value.mic) {
+  if (desiredMedia.mic && !blockedSelf.value.mic) {
     tasks.push((async () => {
       const ok = await rtc.enable('audioinput')
       if (!ok) {
         failed = true
         micOn.value = false
         try { await publishState({ mic: false }) } catch {}
+        return
+      }
+      if (!micOn.value) {
+        micOn.value = true
+        try { await publishState({ mic: true }) } catch {}
       }
     })())
   }
@@ -1678,11 +1706,10 @@ async function enableInitialMedia(): Promise<boolean> {
 }
 
 async function onMediaGateClick() {
-  needInitialMediaUnlock.value = false
   closePanels()
   try { await rtc.resumeAudio() } catch {}
   ensureBgmPlayback()
-  await enableInitialMedia()
+  needInitialMediaUnlock.value = await enableInitialMedia()
 }
 
 async function handleJoinFailure(j: any) {
@@ -1795,8 +1822,8 @@ onMounted(async () => {
     await rtc.connect(ws_url, j.token, { autoSubscribe: false })
     rtc.setAudioSubscriptionsForAll(local.speakers)
     rtc.setVideoSubscriptionsForAll(local.visibility)
-    const wantInitialCam = camOn.value && !blockedSelf.value.cam
-    const wantInitialMic = micOn.value && !blockedSelf.value.mic
+    const wantInitialCam = desiredMedia.cam && !blockedSelf.value.cam
+    const wantInitialMic = desiredMedia.mic && !blockedSelf.value.mic
     if (wantInitialCam || wantInitialMic) {
       const failed = await enableInitialMedia()
       if (failed) needInitialMediaUnlock.value = true
