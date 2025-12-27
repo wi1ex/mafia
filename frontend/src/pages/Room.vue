@@ -879,12 +879,20 @@ async function takeFoulUi() {
 }
 
 const needsMediaAccess = computed(() => desiredMedia.cam || desiredMedia.mic)
-const showPermProbe = computed(() =>
-  needsMediaAccess.value && (!rtc.permProbed.value || !rtc.hasAudioInput.value || !rtc.hasVideoInput.value)
-)
+const showPermProbe = computed(() => {
+  if (!needsMediaAccess.value) return false
+  const needAudio = desiredMedia.mic && !rtc.hasAudioInput.value
+  const needVideo = desiredMedia.cam && !rtc.hasVideoInput.value
+  return !rtc.permProbed.value || needAudio || needVideo
+})
+async function requestMediaPermissions() {
+  if (!needsMediaAccess.value) return
+  if (!showPermProbe.value) return
+  await rtc.probePermissions({ audio: desiredMedia.mic, video: desiredMedia.cam })
+}
 async function onProbeClick() {
   try { await rtc.resumeAudio() } catch {}
-  await rtc.probePermissions({ audio: true, video: true })
+  await requestMediaPermissions()
   await enableInitialMedia()
   needInitialMediaUnlock.value = false
 }
@@ -1711,6 +1719,7 @@ async function onMediaGateClick() {
   closePanels()
   try { await rtc.resumeAudio() } catch {}
   ensureBgmPlayback()
+  await requestMediaPermissions()
   await enableInitialMedia()
 }
 
