@@ -1,7 +1,7 @@
 <template>
   <header class="bar">
     <div class="links">
-      <router-link class="btn" :to="{ name: 'home' }" aria-label="DECEIT.games">=
+      <router-link class="btn" :to="{ name: 'home' }" aria-label="DECEIT.games">
         <span>deceit.games v{{ BUILD }}</span>
       </router-link>
       <router-link v-if="user.user?.role === 'admin'" class="btn" :to="{ name: 'admin' }" aria-label="Админ-панель">
@@ -225,6 +225,7 @@ onBeforeUnmount(() => {
     border: none;
     border-radius: 5px;
     background-color: $graphite;
+    text-decoration: none;
     cursor: pointer;
     transition: background-color 0.25s ease-in-out;
     &:hover {
@@ -235,7 +236,6 @@ onBeforeUnmount(() => {
       font-size: 16px;
       font-family: Manrope-Medium;
       line-height: 1;
-      text-decoration: none;
     }
     img {
       width: 24px;
