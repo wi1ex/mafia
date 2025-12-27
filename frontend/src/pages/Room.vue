@@ -892,8 +892,10 @@ async function requestMediaPermissions() {
   if (IS_IOS) {
     const ok = await rtc.probePermissions({ audio: true, video: true })
     if (ok) return
+    await rtc.probePermissions({ audio: desiredMedia.mic, video: desiredMedia.cam })
+    return
   }
-  await rtc.probePermissions({ audio: desiredMedia.mic, video: desiredMedia.cam })
+  await rtc.probePermissions({ audio: true, video: true })
 }
 async function onProbeClick() {
   try { await rtc.resumeAudio() } catch {}

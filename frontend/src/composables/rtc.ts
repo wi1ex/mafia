@@ -543,6 +543,9 @@ export function useRTC(): UseRTC {
   async function enable(kind: DeviceKind): Promise<boolean> {
     const room = lk.value
     if (!room) return false
+    if (!isIOS && !permProbed.value) {
+      await probePermissions({ audio: true, video: true })
+    }
     if ((kind === 'audioinput' ? mics.value.length : cams.value.length) === 0) {
       try {
         const perms = kind === 'audioinput' ? { audio: true, video: false } : { audio: false, video: true }

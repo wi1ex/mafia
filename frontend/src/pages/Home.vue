@@ -23,7 +23,7 @@
           <span>№</span>
           <span>Название</span>
           <span>Владелец</span>
-          <span class="text-center">Лимит</span>
+          <span class="text-center">Участники</span>
         </div>
 
         <ul class="list-body">
@@ -79,16 +79,16 @@
               <div class="ri-game" v-if="game">
                 <span class="header-text">Параметры игры:</span>
                 <div class="ri-game-div">
+                  <span>Зрители</span>
+                  <span>?/{{ game.spectators_limit }}</span>
+                </div>
+                <div class="ri-game-div">
                   <span>Режим</span>
                   <span>{{ game.mode === 'normal' ? 'Обычный' : 'Рейтинг' }}</span>
                 </div>
                 <div class="ri-game-div">
                   <span>Формат</span>
                   <span>{{ game.format === 'hosted' ? 'С ведущим' : 'Без ведущего' }}</span>
-                </div>
-                <div class="ri-game-div">
-                  <span>Лимит зрителей</span>
-                  <span>{{ game.spectators_limit }}</span>
                 </div>
                 <div class="ri-game-div">
                   <span>Слом в нуле</span>
