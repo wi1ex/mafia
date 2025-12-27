@@ -455,6 +455,7 @@ const {
 const navUserAgent = navigator.userAgent || ''
 const IS_MOBILE = (navigator as any).userAgentData?.mobile === true || /Android|iPhone|iPad|iPod|Mobile/i.test(navUserAgent)
   || (window.matchMedia?.('(pointer: coarse)').matches && /Android|iPhone|iPad|iPod|Mobile|Tablet|Touch/i.test(navUserAgent))
+const IS_IOS = /iPad|iPhone|iPod/.test(navUserAgent) || (navUserAgent.includes('Macintosh') && navigator.maxTouchPoints > 1)
 
 const local = reactive({ mic: false, cam: false, speakers: true, visibility: true })
 const desiredMedia = reactive({ mic: false, cam: false })
@@ -888,6 +889,10 @@ const showPermProbe = computed(() => {
 async function requestMediaPermissions() {
   if (!needsMediaAccess.value) return
   if (!showPermProbe.value) return
+  if (IS_IOS) {
+    const ok = await rtc.probePermissions({ audio: true, video: true })
+    if (ok) return
+  }
   await rtc.probePermissions({ audio: desiredMedia.mic, video: desiredMedia.cam })
 }
 async function onProbeClick() {
