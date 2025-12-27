@@ -1233,16 +1233,24 @@ async def compute_day_opening_and_closing(r, rid: int, last_opening_uid: int | N
         except Exception:
             continue
 
-    alive_order_raw = await get_alive_players_in_seat_order(r, rid)
-    alive_order = [uid for uid in alive_order_raw if uid not in exclude_set]
+    seat_order = await get_players_in_seat_order(r, rid)
+    alive_set = await smembers_ints(r, f"room:{rid}:game_alive")
+    if exclude_set:
+        alive_set.difference_update(exclude_set)
+    alive_order = [uid for uid in seat_order if uid in alive_set]
     if not alive_order:
         return 0, 0, []
 
-    opening: int
-    if last_opening_uid and last_opening_uid in alive_order:
-        idx = alive_order.index(last_opening_uid)
-        opening = alive_order[(idx + 1) % len(alive_order)]
-    else:
+    opening: int | None = None
+    if last_opening_uid and last_opening_uid in seat_order:
+        start_idx = seat_order.index(last_opening_uid)
+        total = len(seat_order)
+        for step in range(1, total + 1):
+            cand = seat_order[(start_idx + step) % total]
+            if cand in alive_set:
+                opening = cand
+                break
+    if opening is None:
         opening = alive_order[0]
 
     if len(alive_order) == 1:
