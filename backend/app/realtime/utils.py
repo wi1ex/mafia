@@ -4,7 +4,7 @@ import json
 from random import shuffle
 import structlog
 from time import time
-from sqlalchemy import select, func
+from sqlalchemy import select, func, delete
 from redis.exceptions import ResponseError
 from jwt import ExpiredSignatureError
 from datetime import datetime, timezone
@@ -3584,6 +3584,8 @@ async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
             except Exception:
                 continue
 
+        unique_user_ids = set(visitors_map.keys()) | set(screen_map_sec.keys()) | set(spectators_map_sec.keys())
+        unique_user_count = len(unique_user_ids)
         try:
             async with SessionLocal() as s:
                 rm = await s.get(Room, rid)
@@ -3611,30 +3613,37 @@ async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
                         games_count = int(res.scalar() or 0)
                     except Exception:
                         log.exception("gc.room_games_count_failed", rid=rid)
-                    try:
-                        lifetime_sec = int((now_dt - rm.created_at).total_seconds())
-                    except Exception:
-                        lifetime_sec = None
-
-                    rm.visitors = {**(rm.visitors or {}), **{str(k): v for k, v in visitors_map.items()}}
-                    rm.screen_time = merged_screen_time
-                    rm.spectators_time = merged_spectators_time
-                    rm.deleted_at = now_dt
-
-                    await r.srem(f"user:{rm_creator}:rooms", str(rid))
-                    details = f"Удаление комнаты room_id={rid} title={rm_title} count_users={unique_visitors}"
-                    if lifetime_sec is not None:
-                        details += f" lifetime_sec={lifetime_sec}"
-                    details += f" total_stream_sec={total_stream_sec}"
-                    if games_count > 0:
-                        details += f" games_count={games_count}"
-                    await log_action(
-                        s,
-                        user_id=rm_creator,
-                        username=rm_creator_name,
-                        action="room_deleted",
-                        details=details,
-                    )
+                    purge_room = unique_user_count <= 1 and games_count == 0
+                    if purge_room:
+                        await s.execute(delete(Room).where(Room.id == rid))
+                        await s.commit()
+                        await r.srem(f"user:{rm_creator}:rooms", str(rid))
+                        log.info("gc.room.purged_single_user", rid=rid, creator=rm_creator)
+                    else:
+                        try:
+                            lifetime_sec = int((now_dt - rm.created_at).total_seconds())
+                        except Exception:
+                            lifetime_sec = None
+                        
+                        rm.visitors = {**(rm.visitors or {}), **{str(k): v for k, v in visitors_map.items()}}
+                        rm.screen_time = merged_screen_time
+                        rm.spectators_time = merged_spectators_time
+                        rm.deleted_at = now_dt
+                        
+                        await r.srem(f"user:{rm_creator}:rooms", str(rid))
+                        details = f"Удаление комнаты room_id={rid} title={rm_title} count_users={unique_visitors}"
+                        if lifetime_sec is not None:
+                            details += f" lifetime_sec={lifetime_sec}"
+                        details += f" total_stream_sec={total_stream_sec}"
+                        if games_count > 0:
+                            details += f" games_count={games_count}"
+                        await log_action(
+                            s,
+                            user_id=rm_creator,
+                            username=rm_creator_name,
+                            action="room_deleted",
+                            details=details,
+                        )
         except Exception:
             log.exception("gc.db.persist_failed", rid=rid)
             raise

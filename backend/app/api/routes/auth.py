@@ -87,7 +87,7 @@ async def telegram(payload: TelegramAuthIn, resp: Response, db: AsyncSession = D
 
     await touch_user_last_login(db, user.id)
 
-    return AccessTokenOut(access_token=access_token, sid=sid)
+    return AccessTokenOut(access_token=access_token, sid=sid, is_new=new_user)
 
 
 @log_route("auth.refresh")

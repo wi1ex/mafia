@@ -122,14 +122,20 @@ async def join(sid, data) -> JoinAck:
         if not params:
             return {"ok": False, "error": "room_not_found", "status": 404}
 
-        if int(params.get("creator") or 0) != uid and (params.get("privacy") or "open") == "private":
+        allowed = True
+        pending = False
+        is_private = (params.get("privacy") or "open") == "private"
+        is_creator = int(params.get("creator") or 0) == uid
+        if is_private and not is_creator:
             allowed = await r.sismember(f"room:{rid}:allow", str(uid))
             if not allowed:
                 pending = await r.sismember(f"room:{rid}:pending", str(uid))
-                return {"ok": False, "error": "private_room", "status": 403, "pending": bool(pending)}
 
         raw_gstate = await r.hgetall(f"room:{rid}:game_state")
         phase = str(raw_gstate.get("phase") or "idle")
+        if is_private and not is_creator and not allowed and phase == "idle":
+            return {"ok": False, "error": "private_room", "status": 403, "pending": bool(pending)}
+
         spectator_mode = False
         if phase != "idle":
             head_raw = raw_gstate.get("head")

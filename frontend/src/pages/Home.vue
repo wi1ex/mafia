@@ -256,7 +256,6 @@ const ctaState = computed<Cta>(() => {
   const room = selectedRoom.value
   if (!auth.isAuthed || !room) return 'login'
   if (room.in_game) {
-    if (room.privacy === 'private' && access.value !== 'approved') return 'in_game'
     if (isGameParticipant.value) return 'enter'
     const limit = info.value?.game?.spectators_limit ?? 0
     const count = info.value?.spectators_count ?? 0

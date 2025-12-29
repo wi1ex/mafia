@@ -7,7 +7,7 @@ import {
   addAuthExpiredListener,
   refreshAccessTokenFull,
 } from '@/services/axios'
-import { alertDialog } from '@/services/confirm'
+import { alertDialog, confirmDialog } from '@/services/confirm'
 import {
   initSessionBus,
   setSid,
@@ -144,9 +144,21 @@ export const useAuthStore = defineStore('auth', () => {
   async function signInWithTelegram(tg: TgUser): Promise<void> {
     try {
       const { data } = await api.post('/auth/telegram', tg)
+      const isNew = Boolean((data as any)?.is_new)
       await applySession(data)
       const { useUserStore } = await import('@/store')
       await useUserStore().fetchMe()
+      if (isNew) {
+        const ok = await confirmDialog({
+          text: 'Изменить аватар и никнейм можно в Личном кабинете',
+          confirmText: 'Изменить',
+          cancelText: 'Позже',
+        })
+        if (ok) {
+          const { default: router } = await import('@/router')
+          router.push({ name: 'profile' }).catch(() => {})
+        }
+      }
     } catch (e: any) {
       const st = e?.response?.status
       const detail = e?.response?.data?.detail

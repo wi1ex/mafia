@@ -1,5 +1,6 @@
 from __future__ import annotations
 from typing import cast
+from contextlib import suppress
 from datetime import date, datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select, func, or_
@@ -13,7 +14,7 @@ from ...models.user import User
 from ...models.update import SiteUpdate
 from ...realtime.sio import sio
 from ...security.decorators import log_route, require_roles_deco
-from ...security.parameters import ensure_app_settings, get_cached_settings, sync_cache_from_row
+from ...security.parameters import ensure_app_settings, sync_cache_from_row, refresh_app_settings
 from ...schemas.updates import AdminUpdateIn, AdminUpdateOut, AdminUpdatesOut
 from ...schemas.admin import (
     AdminSettingsOut,
@@ -57,8 +58,8 @@ router = APIRouter()
 
 @log_route("admin.settings_public")
 @router.get("/settings/public", response_model=PublicSettingsOut)
-async def public_settings() -> PublicSettingsOut:
-    settings = get_cached_settings()
+async def public_settings(session: AsyncSession = Depends(get_session)) -> PublicSettingsOut:
+    settings = await refresh_app_settings(session)
     return PublicSettingsOut(
         registration_enabled=settings.registration_enabled,
         rooms_can_create=settings.rooms_can_create,
@@ -94,8 +95,10 @@ async def update_settings(payload: AdminSettingsUpdateIn, session: AsyncSession 
 
     sync_cache_from_row(row)
     if combined:
+        with suppress(Exception):
+            await get_redis().publish("settings:update", "1")
         try:
-            await sio.emit("settings_update", {"ok": True}, namespace="/auth")
+            await sio.emit("settings_update", {"ok": True}, namespace="/auth")  
             await sio.emit("settings_update", {"ok": True}, namespace="/rooms")
         except Exception:
             pass
