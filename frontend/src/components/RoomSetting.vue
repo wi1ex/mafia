@@ -33,7 +33,7 @@
           </div>
         </div>
         <template v-else>
-          <div v-if="canToggleKnownRoles" class="switch-div">
+          <div v-if="!isSpectator && canToggleKnownRoles" class="switch-div">
             <div class="switch switch-wide">
               <span class="switch-label">Видимость ролей:</span>
               <label>
@@ -56,7 +56,7 @@
           </div>
         </template>
 
-        <div class="switch-device-div">
+        <div v-if="!isSpectator" class="switch-device-div">
           <span>Выбор камеры:</span>
           <div class="ui-select" ref="camRoot" :class="{ open: camOpen }">
             <button type="button" @click="toggleCamDd" :aria-expanded="String(camOpen)" aria-label="Список камер">
@@ -76,7 +76,7 @@
           </div>
         </div>
 
-        <div class="switch-device-div">
+        <div v-if="!isSpectator" class="switch-device-div">
           <span>Выбор микрофона:</span>
           <div class="ui-select" ref="micRoot" :class="{ open: micOpen }">
             <button type="button" @click="toggleMicDd" :aria-expanded="String(micOpen)" aria-label="Список микрофонов">
@@ -116,6 +116,7 @@ type Dev = {
 const props = defineProps<{
   open: boolean
   inGame: boolean
+  isSpectator?: boolean
   mics: Dev[]
   cams: Dev[]
   micId: string

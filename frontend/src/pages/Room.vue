@@ -262,6 +262,7 @@
         <RoomSetting
           :open="settingsOpen"
           :in-game="gamePhase !== 'idle'"
+          :is-spectator="isSpectatorInGame"
           :mics="mics"
           :cams="cams"
           v-model:micId="selectedMicId"
