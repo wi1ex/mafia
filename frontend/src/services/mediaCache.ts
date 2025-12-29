@@ -15,9 +15,17 @@ type UrlRec = {
   url: string
   refs: number
 }
+type PresignRec = {
+  url: string
+  expMs: number
+}
 const urlMap = new Map<string, UrlRec>()
 const urlOrder: string[] = []
 const URL_MAX = 300
+const presignCache = new Map<string, PresignRec>()
+const presignInflight = new Map<string, Promise<string>>()
+const PRESIGN_SKEW_MS = 30_000
+const PRESIGN_MAX = 500
 
 function _evictLRU(limit = URL_MAX) {
   let guard = urlOrder.length + 1
@@ -42,6 +50,14 @@ function rememberURL(key: string, url: string) {
   if (idx !== -1) urlOrder.splice(idx, 1)
   urlOrder.push(key)
   _evictLRU()
+}
+
+function rememberPresign(key: string, url: string, expMs: number) {
+  presignCache.set(key, { url, expMs })
+  if (presignCache.size > PRESIGN_MAX) {
+    const first = presignCache.keys().next().value as string | undefined
+    if (first) presignCache.delete(first)
+  }
 }
 
 export function retainImageURL(key: string) {
@@ -115,8 +131,24 @@ export function parseAvatarVersion(name: string): number {
 }
 
 export async function presign(key: string): Promise<string> {
-  const { data } = await api.get('/media/presign', { params: { key }, __skipAuth: true })
-  return String(data?.url || '')
+  const now = Date.now()
+  const cached = presignCache.get(key)
+  if (cached && cached.expMs - now > PRESIGN_SKEW_MS) return cached.url
+  const inflight = presignInflight.get(key)
+  if (inflight) return inflight
+  const req = (async () => {
+    const { data } = await api.get('/media/presign', { params: { key }, __skipAuth: true })
+    const url = String(data?.url || '')
+    const ttlMs = Math.max(0, Number(data?.expires_in || 0) * 1000)
+    if (url) rememberPresign(key, url, now + ttlMs)
+    return url
+  })()
+  presignInflight.set(key, req)
+  try {
+    return await req
+  } finally {
+    presignInflight.delete(key)
+  }
 }
 
 export async function fetchBlobByPresign(key: string): Promise<Blob> {
