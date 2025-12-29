@@ -5,6 +5,7 @@ import time
 import jwt
 import structlog
 from typing import Any, Dict
+from jwt import ExpiredSignatureError, InvalidTokenError
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from ..core.clients import get_redis
@@ -47,6 +48,14 @@ def parse_refresh_token(raw: str) -> tuple[bool, int, str, str]:
             return False, 0, "", ""
 
         return True, uid, sid, jti
+
+    except ExpiredSignatureError:
+        log.info("jwt.expired")
+        return False, 0, "", ""
+
+    except InvalidTokenError as e:
+        log.warning("jwt.invalid", err=type(e).__name__)
+        return False, 0, "", ""
 
     except Exception as e:
         log.exception("jwt.decode_failed", err=type(e).__name__)
@@ -112,6 +121,14 @@ async def get_identity(creds: HTTPAuthorizationCredentials = Depends(HTTPBearer(
 
     except HTTPException:
         raise
+
+    except ExpiredSignatureError:
+        log.info("auth.expired_token")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
+
+    except InvalidTokenError as e:
+        log.warning("auth.invalid_token", err=type(e).__name__)
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
 
     except Exception as e:
         log.exception("auth.decode_failed", err=type(e).__name__)

@@ -1015,8 +1015,8 @@ export function useRTC(): UseRTC {
       await room.connect(wsUrl, token, {
         autoSubscribe: opts?.autoSubscribe ?? false,
         maxRetries: opts?.maxRetries ?? 5,
-        peerConnectionTimeout: opts?.peerConnectionTimeout ?? 5_000,
-        websocketTimeout: opts?.websocketTimeout ?? 3_000,
+        peerConnectionTimeout: opts?.peerConnectionTimeout ?? 8_000,
+        websocketTimeout: opts?.websocketTimeout ?? 5_000,
       })
 
       localId.value = String(room.localParticipant.identity)

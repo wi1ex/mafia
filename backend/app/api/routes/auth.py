@@ -1,6 +1,7 @@
 from __future__ import annotations
 from datetime import datetime, timezone
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import APIRouter, HTTPException, Depends, Response, Request, status
 from ...models.user import User
@@ -51,18 +52,28 @@ async def telegram(payload: TelegramAuthIn, resp: Response, db: AsyncSession = D
 
         user = User(id=uid, username=username, role="user", avatar_name=filename)
         db.add(user)
-        await db.commit()
 
         try:
-            rows = await db.execute(select(SiteUpdate.id))
-            ids = [int(r[0]) for r in rows.all() if r and r[0] is not None]
-            if ids:
-                now = datetime.now(timezone.utc)
-                for upd_id in ids:
-                    db.add(UpdateRead(user_id=uid, update_id=upd_id, read_at=now))
-                await db.commit()
-        except Exception:
+            await db.commit()
+        except IntegrityError:
             await db.rollback()
+            user = (await db.execute(select(User).where(User.id == uid))).scalar_one_or_none()
+            if user:
+                new_user = False
+            else:
+                raise
+
+        if new_user:
+            try:
+                rows = await db.execute(select(SiteUpdate.id))
+                ids = [int(r[0]) for r in rows.all() if r and r[0] is not None]
+                if ids:
+                    now = datetime.now(timezone.utc)
+                    for upd_id in ids:
+                        db.add(UpdateRead(user_id=uid, update_id=upd_id, read_at=now))
+                    await db.commit()
+            except Exception:
+                await db.rollback()
 
     await log_action(
         db,
