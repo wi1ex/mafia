@@ -309,9 +309,9 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   function scheduleFinishSpeechUnlock() {
     resetFinishSpeechDelay()
     if (gamePhase.value !== 'day' && gamePhase.value !== 'vote') return
-    if (!daySpeech.currentId || daySpeech.remainingMs <= 0) return
+    if (!daySpeech.currentId) return
     finishSpeechTimer = window.setTimeout(() => {
-      if ((gamePhase.value === 'day' || gamePhase.value === 'vote') && !!daySpeech.currentId && daySpeech.remainingMs > 0) {
+      if ((gamePhase.value === 'day' || gamePhase.value === 'vote') && !!daySpeech.currentId) {
         finishSpeechUnlocked.value = true
       }
       finishSpeechTimer = null
@@ -333,9 +333,9 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     if (!isHead.value) return
     if (gamePhase.value !== 'day') return
     if (daySpeechesDone.value) return
-    if (daySpeech.currentId && daySpeech.remainingMs > 0) return
+    if (daySpeech.currentId) return
     passSpeechTimer = window.setTimeout(() => {
-      if (isHead.value && gamePhase.value === 'day' && !daySpeechesDone.value && !(daySpeech.currentId && daySpeech.remainingMs > 0)) {
+      if (isHead.value && gamePhase.value === 'day' && !daySpeechesDone.value && !daySpeech.currentId) {
         passSpeechUnlocked.value = true
       }
       passSpeechTimer = null
@@ -387,7 +387,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     if (['ready', 'prepared', 'voting', 'failed'].includes(voteLiftState.value)) return false
     if (voteResultLeaders.length === 0) return false
     if (voteLeaderSpeechesDone.value) return false
-    return daySpeech.remainingMs <= 0
+    return !daySpeech.currentId
   }
   function scheduleLeaderSpeechUnlock() {
     resetLeaderSpeechDelay()
@@ -452,8 +452,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   const isCurrentSpeaker = computed(() => {
     return (
       (gamePhase.value === 'day' || gamePhase.value === 'vote') &&
-      daySpeech.currentId === localId.value &&
-      daySpeech.remainingMs > 0
+      daySpeech.currentId === localId.value
     )
   })
 
@@ -462,7 +461,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     if (gamePhase.value !== 'day' && gamePhase.value !== 'vote') return false
     if (!daySpeech.currentId) return false
     if (!finishSpeechUnlocked.value) return false
-    return daySpeech.remainingMs > 0
+    return true
   })
 
   const canPassSpeechHead = computed(() => {
@@ -470,7 +469,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     if (gamePhase.value !== 'day') return false
     if (daySpeechesDone.value) return false
     if (!passSpeechUnlocked.value) return false
-    return !(daySpeech.currentId && daySpeech.remainingMs > 0)
+    return !daySpeech.currentId
   })
 
   const canFinishSpeechSelf = computed(() => {
@@ -480,7 +479,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     if (gamePhase.value !== 'day' && gamePhase.value !== 'vote') return false
     if (daySpeech.currentId !== me) return false
     if (!finishSpeechUnlocked.value) return false
-    return daySpeech.remainingMs > 0
+    return true
   })
 
   const canTakeFoulSelf = computed(() => {
@@ -1110,7 +1109,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       daySpeech.openingId = String(dy.opening_uid || '')
       daySpeech.closingId = String(dy.closing_uid || '')
       const rawMs = secondsToMs(dy.deadline)
-      daySpeech.currentId = rawMs > 0 ? String(dy.current_uid || '') : ''
+      daySpeech.currentId = String(dy.current_uid || '')
       setDaySpeechRemainingMs(rawMs, false)
       daySpeechesDone.value = isTrueLike((dy as any).speeches_done)
       const preludeSection = (dy as any).prelude
@@ -1126,7 +1125,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
           activeFarewellAllowed.value = isTrueLike((farewellSection as any).allowed)
         }
       }
-      const farewellActive = !!(daySpeech.currentId && daySpeech.remainingMs > 0 && ((preludeActive && preludeUid && daySpeech.currentId === preludeUid) || farewellSection))
+      const farewellActive = !!(daySpeech.currentId && ((preludeActive && preludeUid && daySpeech.currentId === preludeUid) || farewellSection))
       currentFarewellSpeech.value = farewellActive
       activeFarewellSpeakerId.value = farewellActive ? daySpeech.currentId : ''
       replaceIds(dayNominees, (dy as any).nominees)
@@ -1214,7 +1213,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
         const spMs = secondsToMs((speech as any).deadline)
         daySpeech.openingId = spId
         daySpeech.closingId = spId
-        daySpeech.currentId = spMs > 0 && spId ? spId : ''
+        daySpeech.currentId = spId
         setDaySpeechRemainingMs(spMs, false)
         daySpeechesDone.value = false
         voteLeaderSpeechesDone.value = false
@@ -1232,7 +1231,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
               activeFarewellAllowed.value = true
             }
           }
-          const active = spMs > 0 && !!spId
+          const active = !!spId
           currentFarewellSpeech.value = active
           activeFarewellSpeakerId.value = active ? spId : ''
         } else {
@@ -1802,11 +1801,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   }
 
   function setDaySpeechRemainingMs(ms: number, changed: boolean) {
-    setTimerWithLatency(daySpeech, ms, daySpeechTimerId, changed, () => {
-      daySpeech.currentId = ''
-      currentFarewellSpeech.value = false
-      activeFarewellSpeakerId.value = ''
-    })
+    setTimerWithLatency(daySpeech, ms, daySpeechTimerId, changed)
   }
 
   function handleGamePhaseChange(p: any) {
@@ -1855,7 +1850,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       daySpeech.openingId = String(dy?.opening_uid || '')
       daySpeech.closingId = String(dy?.closing_uid || '')
       const ms = secondsToMs(dy?.deadline)
-      daySpeech.currentId = ms > 0 ? String(dy?.current_uid || '') : ''
+      daySpeech.currentId = String(dy?.current_uid || '')
       setDaySpeechRemainingMs(ms, true)
 
       replaceIds(dayNominees, undefined)
@@ -1898,8 +1893,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       night.killOk &&
       !!night.killUid &&
       me === night.killUid &&
-      daySpeech.currentId === me &&
-      daySpeech.remainingMs > 0
+      daySpeech.currentId === me
     )
   }
 
@@ -1911,7 +1905,6 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     if (isNightVictimFarewellSpeech(me)) return false
     if (gamePhase.value !== 'day') return false
     if (daySpeech.currentId !== me) return false
-    if (daySpeech.remainingMs <= 0) return false
     if (!amIAlive.value) return false
     if (voteBlocked.value) return false
     if (!gamePlayers.has(id)) return false

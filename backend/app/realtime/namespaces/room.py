@@ -44,14 +44,12 @@ from ..utils import (
     get_alive_players_in_seat_order,
     schedule_foul_block,
     emit_game_fouls,
-    day_speech_timeout_job,
     apply_blocks_and_emit,
     finish_day_speech,
     get_nominees_in_order,
     get_alive_and_voted_ids,
     enrich_game_runtime_with_vote,
     get_game_fouls,
-    vote_speech_timeout_job,
     finish_vote_speech,
     emit_game_night_state,
     night_stage_timeout_job,
@@ -1683,8 +1681,6 @@ async def game_speech_next(sid, data):
                 await p.hset(f"room:{rid}:game_short_speech_used", str(next_uid), "1")
             await p.execute()
 
-        asyncio.create_task(day_speech_timeout_job(rid, now_ts, next_uid, duration))
-
         remaining = duration
         farewell_section: dict[str, Any] | None = None
         if is_prelude_next:
@@ -3175,8 +3171,6 @@ async def game_vote_speech_next(sid, data):
                 },
             )
             await p.execute()
-
-        asyncio.create_task(vote_speech_timeout_job(rid, now_ts, target_uid, duration))
 
         farewell_section: dict[str, Any] | None = None
         if kind == "farewell":

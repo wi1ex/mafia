@@ -633,7 +633,7 @@ onBeforeUnmount(() => {
             gap: 5px;
             .status-room {
               padding: 3px 0;
-              width: 45px;
+              min-width: 45px;
               border-radius: 5px;
               background-color: $fg;
               color: $bg;
