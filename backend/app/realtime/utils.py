@@ -32,7 +32,6 @@ __all__ = [
     "merge_ready_into_snapshot",
     "set_ready",
     "get_positions_map",
-    "build_game_from_raw",
     "game_flag",
     "persist_join_user_info",
     "get_blocks_snapshot",
@@ -839,17 +838,6 @@ async def merge_ready_into_snapshot(r, rid: int, snapshot: Dict[str, Dict[str, s
 async def get_positions_map(r, rid: int) -> Dict[str, int]:
     pairs = await r.zrange(f"room:{rid}:positions", 0, -1, withscores=True)
     return {str(int(m)): int(s) for m, s in pairs}
-
-
-def build_game_from_raw(raw_game: Mapping[str, Any]) -> Dict[str, Any]:
-    return {
-        "mode": str(raw_game.get("mode") or "normal"),
-        "format": str(raw_game.get("format") or "hosted"),
-        "spectators_limit": int(raw_game.get("spectators_limit") or 0),
-        "break_at_zero": game_flag(raw_game, "break_at_zero", True),
-        "lift_at_zero": game_flag(raw_game, "lift_at_zero", True),
-        "lift_3x": game_flag(raw_game, "lift_3x", True),
-    }
 
 
 async def persist_join_user_info(r, rid: int, uid: int, username: Optional[str], avatar_name: Optional[str]) -> None:

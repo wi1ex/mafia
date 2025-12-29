@@ -297,6 +297,7 @@
           </div>
         </div>
       </Transition>
+
       <div v-if="mediaGateVisible" class="reconnect-overlay media-gate" @click.stop="onMediaGateClick">Нажмите чтобы продолжить…</div>
     </template>
     <div class="role-preload" aria-hidden="true">
@@ -1422,7 +1423,6 @@ function handleGamePhaseChangeUi(prev: GamePhase, next: GamePhase): void {
 
 function applyJoinAck(j: any) {
   isPrivate.value = (j?.privacy || j?.room?.privacy) === 'private'
-  // const game = j.game
   const me = localId.value
   if (me) game.foulActive.delete(me)
   foulPending.value = false

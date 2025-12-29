@@ -21,7 +21,6 @@ from ..utils import (
     merge_ready_into_snapshot,
     set_ready,
     get_positions_map,
-    build_game_from_raw,
     game_flag,
     persist_join_user_info,
     get_blocks_snapshot,
@@ -325,7 +324,6 @@ async def join(sid, data) -> JoinAck:
         owner_raw = await r.get(f"room:{rid}:screen_owner")
         owner = int(owner_raw) if owner_raw else 0
         token = make_livekit_token(identity=str(uid), name=ev_username, room=str(rid), can_publish=not spectator_mode)
-        game = build_game_from_raw(await r.hgetall(f"room:{rid}:game"))
         game_runtime, game_roles_view, my_game_role = await get_game_runtime_and_roles_view(r, rid, uid)
         game_runtime = await enrich_game_runtime_with_vote(r, rid, game_runtime, raw_gstate)
         game_fouls = await get_game_fouls(r, rid)
@@ -345,7 +343,6 @@ async def join(sid, data) -> JoinAck:
             "roles": roles,
             "profiles": profiles,
             "screen_owner": owner,
-            "game": game,
             "game_runtime": game_runtime,
             "game_roles": game_roles_view,
             "my_game_role": my_game_role,

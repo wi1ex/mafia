@@ -16,7 +16,6 @@ class JoinAck(TypedDict, total=False):
     profiles: Dict[str, Dict[str, Optional[str]]]
     screen_owner: int
     pending: bool
-    game: dict
     game_runtime: dict
     game_roles: Dict[str, str]
     my_game_role: Optional[str]

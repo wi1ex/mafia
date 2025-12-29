@@ -478,7 +478,7 @@ export function useRTC(): UseRTC {
     }
     destroyAudioGraph(id)
     a.muted = false
-    a.volume = Math.min(1, Math.max(0, (want || 100) / 100))
+    a.volume = Math.min(1, Math.max(0, ((want ?? 100) / 100)))
   }
 
   function setUserVolume(id: string, v: number) {
@@ -860,7 +860,11 @@ export function useRTC(): UseRTC {
     if ((kind === 'audioinput' ? mics.value.length : cams.value.length) === 0) {
       try {
         const perms = kind === 'audioinput' ? { audio: true, video: false } : { audio: false, video: true }
-        await navigator.mediaDevices.getUserMedia(perms)
+
+        // await navigator.mediaDevices.getUserMedia(perms)
+        const stream = await navigator.mediaDevices.getUserMedia(perms)
+        try { stream.getTracks().forEach(t => { try { t.stop() } catch {} }) } catch {}
+
         await refreshDevices()
         if ((kind === 'audioinput' ? mics.value.length : cams.value.length) === 0) {
           setPermState(kind === 'audioinput' ? { audio: false } : { video: false })
