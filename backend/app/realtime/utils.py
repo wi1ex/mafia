@@ -47,6 +47,7 @@ __all__ = [
     "assign_role_for_user",
     "advance_roles_turn",
     "emit_rooms_occupancy_safe",
+    "emit_rooms_spectators_safe",
     "get_game_runtime_and_roles_view",
     "get_nominees_in_order",
     "get_alive_and_voted_ids",
@@ -1216,6 +1217,19 @@ async def emit_rooms_occupancy_safe(r, rid: int, occ: int) -> None:
     await sio.emit("rooms_occupancy",
                    {"id": rid,
                     "occupancy": occ_to_send},
+                   namespace="/rooms")
+
+
+async def emit_rooms_spectators_safe(r, rid: int, count: int | None = None) -> None:
+    if count is None:
+        try:
+            count = int(await r.scard(f"room:{rid}:spectators") or 0)
+        except Exception:
+            count = 0
+
+    await sio.emit("rooms_spectators",
+                   {"id": rid,
+                    "spectators_count": count},
                    namespace="/rooms")
 
 
@@ -3309,6 +3323,7 @@ async def record_spectator_leave(r, rid: int, uid: int, now_ts: int) -> None:
         await r.srem(f"room:{rid}:spectators", str(uid))
     except Exception:
         log.warning("spectator.leave.remove_failed", rid=rid, uid=uid)
+    await emit_rooms_spectators_safe(r, rid)
 
 
 async def perform_game_end(ctx, sess: Optional[dict[str, Any]], *, confirm: bool, allow_non_head: bool = False, reason: str = "manual") -> dict[str, Any]:
@@ -3479,6 +3494,7 @@ async def perform_game_end(ctx, sess: Optional[dict[str, Any]], *, confirm: bool
         await r.delete(f"room:{rid}:spectators", f"room:{rid}:spectators_join")
     except Exception:
         log.exception("sio.game_end.spectators_clear_failed", rid=rid)
+    await emit_rooms_spectators_safe(r, rid)
 
     await sio.emit("game_ended",
                    {"room_id": rid, "reason": reason},

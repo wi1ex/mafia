@@ -36,6 +36,7 @@ from ..utils import (
     advance_roles_turn,
     assign_role_for_user,
     emit_rooms_occupancy_safe,
+    emit_rooms_spectators_safe,
     get_game_runtime_and_roles_view,
     emit_state_changed_filtered,
     stop_screen_for_user,
@@ -137,6 +138,7 @@ async def join(sid, data) -> JoinAck:
             return {"ok": False, "error": "private_room", "status": 403, "pending": bool(pending)}
 
         spectator_mode = False
+        spectator_added = False
         if phase != "idle":
             head_raw = raw_gstate.get("head")
             head_id = int(head_raw) if head_raw else 0
@@ -166,13 +168,15 @@ async def join(sid, data) -> JoinAck:
                     if spectators_count >= spectators_limit:
                         return {"ok": False, "error": "spectators_full", "status": 409}
 
-                    await r.sadd(f"room:{rid}:spectators", str(uid))
+                    spectator_added = bool(await r.sadd(f"room:{rid}:spectators", str(uid)))
 
                 spectator_mode = True
                 try:
                     await r.hset(f"room:{rid}:spectators_join", mapping={str(uid): str(int(time()))})
                 except Exception:
                     log.warning("spectator.join_time_failed", rid=rid, uid=uid)
+                if spectator_added:
+                    await emit_rooms_spectators_safe(r, rid)
 
         occ = 0
         pos = 0

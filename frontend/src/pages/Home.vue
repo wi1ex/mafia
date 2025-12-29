@@ -450,6 +450,15 @@ function startWS() {
     if (selectedId.value === p.id) scheduleInfoRefresh(p.id, 300)
   })
 
+  sio.value.on('rooms_spectators', (p: { id: number; spectators_count: number }) => {
+    if (selectedId.value !== p.id) return
+    if (info.value) {
+      info.value = { ...info.value, spectators_count: p.spectators_count }
+    } else {
+      scheduleInfoRefresh(p.id, 300)
+    }
+  })
+
   sio.value.on('rooms_stream', (p: { id: number; owner: number | null }) => {
     if (selectedId.value === p.id) scheduleInfoRefresh(p.id, 300)
   })
