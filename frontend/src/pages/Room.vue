@@ -733,7 +733,6 @@ const leaveGameUi = () => game.leaveGame(sendAckGame)
 const pickRoleCardUi = (card: number) => game.pickRoleCard(card, sendAckGame)
 const goToMafiaTalkUi = () => game.goToMafiaTalk(sendAckGame)
 const finishMafiaTalkUi = () => game.finishMafiaTalk(sendAckGame)
-const startDayUi = () => game.startDay(sendAckGame)
 const passSpeechUi = () => game.passSpeech(sendAckGame)
 const finishSpeechUi = () => game.finishSpeech(sendAckGame)
 const startVoteUi = () => game.startVotePhase(sendAckGame)
@@ -746,11 +745,12 @@ const shootTargetUi = (targetId: string) => game.shootTarget(targetId, sendAckGa
 const checkTargetUi = (targetId: string) => game.checkTarget(targetId, sendAckGame)
 const startNightShootUi = () => game.startNightShoot(sendAckGame)
 const startNightChecksUi = () => game.startNightChecks(sendAckGame)
-const startBestMoveUi = () => game.startBestMove(sendAckGame)
 const goToNightUi = () => game.goToNight(sendAckGame)
-const startDayFromNightUi = () => game.startDayFromNight(sendAckGame)      
 const onHeadVoteControl = () => game.headVoteControl(sendAckGame)
 const onGiveFoul = (targetId: string) => game.giveFoul(targetId, sendAckGame)
+const startBestMoveUi = () => game.startBestMove(sendAckGame)
+const startDayFromNightUi = () => game.startDayFromNight(sendAckGame)
+const startDayUi = () => game.startDay(sendAckGame)
 
 const foulPending = ref(false)
 async function takeFoulUi() {
@@ -1253,6 +1253,7 @@ socket.value?.on('connect', async () => {
 
   socket.value.on('game_best_move_update', (p: any) => {
     game.handleGameBestMoveUpdate(p)
+    if ((p as any)?.best_move?.active) rtc.setBgmPlaying(false)
   })
 
   socket.value.on('game_vote_state', (p: any) => {

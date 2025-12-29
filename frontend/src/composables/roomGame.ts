@@ -273,6 +273,13 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     if (gamePhase.value === 'roles_pick') return allRolesPicked.value ? '' : 'Выбор ролей'
     if (gamePhase.value === 'mafia_talk_start') return 'Договорка мафии'
     if (gamePhase.value === 'night') {
+      if (bestMove.active && night.hasResult) {
+        if (night.killOk && night.killUid) {
+          const seat = seatIndex(night.killUid)
+          return `Убит ${seat ?? ''}`
+        }
+        return 'Несострел'
+      }
       if (night.stage === 'shoot') return 'Отстрелы мафии'
       if (night.stage === 'checks') return 'Проверки дона и шерифа'
       return ''
@@ -1455,7 +1462,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     currentFarewellSpeech.value = isFarewellSpeech
     activeFarewellSpeakerId.value = isFarewellSpeech ? speakerId : ''
     if (!isFarewellSpeech) activeFarewellAllowed.value = true
-    if (isActiveSpeech && night.hasResult) {
+    if (!isActiveSpeech && night.hasResult) {
       night.hasResult = false
       night.killOk = false
       night.killUid = ''
@@ -1510,6 +1517,12 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     if (payload && typeof payload === 'object') {
       if (isTrueLike((payload as any).active)) headNightPicks.clear()
       syncBestMove(payload)
+    }
+    const nightPayload = (p as any)?.night
+    if (nightPayload && typeof nightPayload === 'object') {
+      night.killOk = isTrueLike((nightPayload as any).kill_ok)
+      night.killUid = String((nightPayload as any).kill_uid || '')
+      night.hasResult = night.killOk && !!night.killUid
     }
   }
 

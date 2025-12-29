@@ -2169,7 +2169,12 @@ async def game_best_move_start(sid, data):
         raw_state["best_move_uid"] = str(best_uid)
         raw_state["best_move_active"] = "1"
         best_move = best_move_payload_from_state(GameActionContext.from_raw_state(uid=ctx.uid, rid=rid, r=r, raw_state=raw_state), include_empty=True)
-        payload = {"room_id": rid, "best_move": best_move}
+        killed_uid, kill_ok = await compute_night_kill(r, rid, log_action_bool=False)
+        payload = {
+            "room_id": rid,
+            "best_move": best_move,
+            "night": {"kill_uid": killed_uid, "kill_ok": kill_ok},
+        }
         await sio.emit("game_best_move_update",
                        payload,
                        room=f"room:{rid}",
