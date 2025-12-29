@@ -3113,6 +3113,12 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
     best_move = best_move_payload_from_state(ctx)
     if best_move is not None:
         game_runtime["best_move"] = best_move
+        if best_move.get("active"):
+            try:
+                killed_uid, ok = await compute_night_kill(r, rid, log_action_bool=False)
+                game_runtime["best_move_night"] = {"kill_uid": killed_uid, "kill_ok": ok}
+            except Exception:
+                log.exception("game_runtime.best_move_night_failed", rid=rid)
 
     my_game_role = roles_map.get(str(uid))
     head_uid = ctx.head_uid

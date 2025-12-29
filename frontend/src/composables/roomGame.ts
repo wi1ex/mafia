@@ -1256,6 +1256,15 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       night.stage = String((nt as any).stage || 'sleep') as any
       const ms = secondsToMs((nt as any).deadline)
       setNightRemainingMs(ms, false)
+      night.killOk = false
+      night.killUid = ''
+      night.hasResult = false
+      const bestMoveNight = (gr as any).best_move_night
+      if (bestMove.active && bestMoveNight && typeof bestMoveNight === 'object') {
+        night.killOk = isTrueLike((bestMoveNight as any).kill_ok)
+        night.killUid = String((bestMoveNight as any).kill_uid || '')
+        night.hasResult = night.killOk && !!night.killUid
+      }
       myNightShotTarget.value = ''
       myNightCheckTarget.value = ''
       headNightPicks.clear()
