@@ -776,6 +776,7 @@ const wantsAudioRequest = computed(() => desiredMedia.mic || (desiredMedia.cam &
 const wantsVideoRequest = computed(() => desiredMedia.cam || (desiredMedia.mic && rtc.hasVideoInput.value))
 const needsMediaAccess = computed(() => wantsAudioRequest.value || wantsVideoRequest.value)
 const showPermProbe = computed(() => {
+  if (isSpectatorInGame.value) return false
   if (!needsMediaAccess.value) return false
   const needAudio = wantsAudioRequest.value && (!rtc.hasAudioInput.value || !rtc.permAudio.value)
   const needVideo = wantsVideoRequest.value && (!rtc.hasVideoInput.value || !rtc.permVideo.value)
@@ -783,6 +784,7 @@ const showPermProbe = computed(() => {
 })
 
 async function requestMediaPermissions(opts?: { force?: boolean }) {
+  if (isSpectatorInGame.value) return
   if (!needsMediaAccess.value) return
   const audio = wantsAudioRequest.value
   const video = wantsVideoRequest.value
@@ -800,6 +802,7 @@ async function requestMediaPermissions(opts?: { force?: boolean }) {
   await rtc.probePermissions({ audio, video })
 }
 async function onProbeClick() {
+  if (isSpectatorInGame.value) return
   try { await rtc.resumeAudio() } catch {}
   await rtc.unlockBgmOnGesture()
   await requestMediaPermissions()
@@ -1586,6 +1589,7 @@ const toggleScreen = async () => {
 }
 
 async function enableInitialMedia(): Promise<boolean> {
+  if (isSpectatorInGame.value) return false
   let failed = false
   if (desiredMedia.cam && !blockedSelf.value.cam) {
     const ok = await rtc.enable('videoinput')
