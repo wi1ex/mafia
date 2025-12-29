@@ -317,6 +317,7 @@ import { useRoute, useRouter } from 'vue-router'
 import type { Socket } from 'socket.io-client'
 import { useAuthStore } from '@/store'
 import { type Ack, type FarewellVerdict, type GamePhase, type SendAckFn, useRoomGame } from '@/composables/roomGame'
+import { Track } from 'livekit-client'
 import { useRTC, type VQ } from '@/composables/rtc'
 import { api } from '@/services/axios'
 import { alertDialog, confirmDialog } from '@/services/confirm'
@@ -455,7 +456,6 @@ const {
 const navUserAgent = navigator.userAgent || ''
 const IS_MOBILE = (navigator as any).userAgentData?.mobile === true || /Android|iPhone|iPad|iPod|Mobile/i.test(navUserAgent)
   || (window.matchMedia?.('(pointer: coarse)').matches && /Android|iPhone|iPad|iPod|Mobile|Tablet|Touch/i.test(navUserAgent))
-const IS_IOS = /iPad|iPhone|iPod/.test(navUserAgent) || (navUserAgent.includes('Macintosh') && navigator.maxTouchPoints > 1)
 
 const local = reactive({ mic: false, cam: false, speakers: true, visibility: true })
 const desiredMedia = reactive({ mic: false, cam: false })
@@ -882,26 +882,27 @@ async function takeFoulUi() {
 const needsMediaAccess = computed(() => desiredMedia.cam || desiredMedia.mic)
 const showPermProbe = computed(() => {
   if (!needsMediaAccess.value) return false
-  const needAudio = desiredMedia.mic && !rtc.hasAudioInput.value
-  const needVideo = desiredMedia.cam && !rtc.hasVideoInput.value
-  return !rtc.permProbed.value || needAudio || needVideo
+  const needAudio = desiredMedia.mic && (!rtc.hasAudioInput.value || !rtc.permAudio.value)
+  const needVideo = desiredMedia.cam && (!rtc.hasVideoInput.value || !rtc.permVideo.value)
+  return needAudio || needVideo
 })
 async function requestMediaPermissions() {
   if (!needsMediaAccess.value) return
   if (!showPermProbe.value) return
-  if (IS_IOS) {
+  const audio = desiredMedia.mic
+  const video = desiredMedia.cam
+  if (!audio && !video) return
+  const needAny = (audio && !rtc.permAudio.value) || (video && !rtc.permVideo.value)
+  if (needAny) {
     const ok = await rtc.probePermissions({ audio: true, video: true })
     if (ok) return
-    await rtc.probePermissions({ audio: desiredMedia.mic, video: desiredMedia.cam })
-    return
   }
-  await rtc.probePermissions({ audio: true, video: true })
+  await rtc.probePermissions({ audio, video })
 }
 async function onProbeClick() {
   try { await rtc.resumeAudio() } catch {}
   await requestMediaPermissions()
-  await enableInitialMedia()
-  needInitialMediaUnlock.value = false
+  needInitialMediaUnlock.value = await enableInitialMedia()
 }
 
 const sortedPeerIds = computed(() => {
@@ -1653,6 +1654,24 @@ const toggleVisibility = toggleFactory('visibility',
   async () => rtc.setVideoSubscriptionsForAll(false),
 )
 
+function hasLocalTrackOnce(kind: 'mic' | 'cam'): boolean {
+  const room = rtc.lk.value
+  if (!room) return false
+  const pubs = room.localParticipant.getTrackPublications() ?? []
+  return pubs.some((pub: any) => {
+    if (kind === 'mic') {
+      return pub.kind === Track.Kind.Audio && pub.source === Track.Source.Microphone && !!pub.track
+    }
+    return pub.kind === Track.Kind.Video && pub.source === Track.Source.Camera && !!pub.track
+  })
+}
+
+async function ensureLocalTrack(kind: 'mic' | 'cam'): Promise<boolean> {
+  if (hasLocalTrackOnce(kind)) return true
+  await new Promise(resolve => window.setTimeout(resolve, 150))
+  return hasLocalTrackOnce(kind)
+}
+
 const toggleScreen = async () => {
   if (pendingScreen.value) return
   pendingScreen.value = true
@@ -1685,39 +1704,31 @@ const toggleScreen = async () => {
 }
 
 async function enableInitialMedia(): Promise<boolean> {
-  const tasks: Promise<void>[] = []
   let failed = false
   if (desiredMedia.cam && !blockedSelf.value.cam) {
-    tasks.push((async () => {
-      const ok = await rtc.enable('videoinput')
-      if (!ok) {
-        failed = true
-        camOn.value = false
-        try { await publishState({ cam: false }) } catch {}
-        return
-      }
-      if (!camOn.value) {
-        camOn.value = true
-        try { await publishState({ cam: true }) } catch {}
-      }
-    })())
+    const ok = await rtc.enable('videoinput')
+    const hasTrack = ok ? await ensureLocalTrack('cam') : false
+    if (!ok || !hasTrack) {
+      failed = true
+      camOn.value = false
+      try { await publishState({ cam: false }) } catch {}
+    } else if (!camOn.value) {
+      camOn.value = true
+      try { await publishState({ cam: true }) } catch {}
+    }
   }
   if (desiredMedia.mic && !blockedSelf.value.mic) {
-    tasks.push((async () => {
-      const ok = await rtc.enable('audioinput')
-      if (!ok) {
-        failed = true
-        micOn.value = false
-        try { await publishState({ mic: false }) } catch {}
-        return
-      }
-      if (!micOn.value) {
-        micOn.value = true
-        try { await publishState({ mic: true }) } catch {}
-      }
-    })())
+    const ok = await rtc.enable('audioinput')
+    const hasTrack = ok ? await ensureLocalTrack('mic') : false
+    if (!ok || !hasTrack) {
+      failed = true
+      micOn.value = false
+      try { await publishState({ mic: false }) } catch {}
+    } else if (!micOn.value) {
+      micOn.value = true
+      try { await publishState({ mic: true }) } catch {}
+    }
   }
-  if (tasks.length) { try { await Promise.all(tasks) } catch {} }
   return failed
 }
 
@@ -1727,7 +1738,7 @@ async function onMediaGateClick() {
   try { await rtc.resumeAudio() } catch {}
   ensureBgmPlayback()
   await requestMediaPermissions()
-  await enableInitialMedia()
+  needInitialMediaUnlock.value = await enableInitialMedia()
 }
 
 async function handleJoinFailure(j: any) {

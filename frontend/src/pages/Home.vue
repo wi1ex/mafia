@@ -23,7 +23,7 @@
           <span>№</span>
           <span>Название</span>
           <span>Владелец</span>
-          <span class="text-center">Участники</span>
+          <span class="text-center">Лимит</span>
         </div>
 
         <ul class="list-body">
@@ -893,6 +893,29 @@ onBeforeUnmount(() => {
 @media (max-width: 1280px) {
   .card {
     grid-template-columns: minmax(0, 1fr) 300px;
+    .left {
+      .list {
+        .text-center {
+          font-size: 14px;
+        }
+        .list-header {
+          span {
+            font-size: 14px;
+            letter-spacing: 1px;
+          }
+        }
+        .list-body {
+          .item {
+            .cell {
+              .user-name {
+                height: 16px;
+                font-size: 14px;
+              }
+            }
+          }
+        }
+      }
+    }
     .right {
       width: 300px;
       min-width: 300px;

@@ -25,7 +25,7 @@
               </div>
 
               <div class="range">
-                <span>Лимит: {{ limit }}/{{ RANGE_MAX }}</span>
+                <span>Лимит участников: {{ limit }}/{{ RANGE_MAX }}</span>
                 <div class="range-wrap">
                   <div class="range-dead" :style="deadZoneStyle" @click="limit = DEAD_MIN"></div>
                   <div class="range-track" :style="rangeFillStyle" aria-hidden="true"></div>

@@ -31,11 +31,23 @@ const LS = {
 const error = (...a: unknown[]) => console.error('[RTC]', ...a)
 
 const UA = navigator.userAgent || ''
-const isSafari = /Safari/.test(UA) && !/Chrome|Chromium|Edg/.test(UA)
 const isIOS = /iPad|iPhone|iPod/.test(UA) || (UA.includes('Macintosh') && navigator.maxTouchPoints > 1)
 
 const saveLS = (k: string, v: string) => { try { localStorage.setItem(k, v) } catch {} }
 const loadLS = (k: string) => { try { return localStorage.getItem(k) } catch { return null } }
+
+type PermState = { audio: boolean; video: boolean }
+function readPermState(): PermState {
+  const raw = loadLS(LS.perm)
+  if (!raw) return { audio: false, video: false }
+  if (raw === '1') return { audio: true, video: true }
+  try {
+    const parsed = JSON.parse(raw)
+    return { audio: parsed?.audio === true, video: parsed?.video === true }
+  } catch {
+    return { audio: false, video: false }
+  }
+}
 
 export type UseRTC = {
   lk: Ref<LkRoom | null>
@@ -82,6 +94,8 @@ export type UseRTC = {
   fallback: (kind: DeviceKind) => Promise<void>
   onDeviceChange: (kind: DeviceKind) => Promise<void>
   enable: (kind: DeviceKind) => Promise<boolean>
+  permAudio: Ref<boolean>
+  permVideo: Ref<boolean>
   permProbed: Ref<boolean>
   probePermissions: (opts?: { audio?: boolean; video?: boolean | MediaTrackConstraints }) => Promise<boolean>
   clearProbeFlag: () => void
@@ -110,7 +124,10 @@ export function useRTC(): UseRTC {
   const selectedCamId = ref<string>('')
   const wantAudio = ref(true)
   const wantVideo = ref(true)
-  const permProbed = ref<boolean>(!isIOS && loadLS(LS.perm) === '1')
+  const permInit = readPermState()
+  const permAudio = ref<boolean>(permInit.audio)
+  const permVideo = ref<boolean>(permInit.video)
+  const permProbed = ref<boolean>(permInit.audio || permInit.video)
   const hasAudioInput = ref(false)
   const hasVideoInput = ref(false)
   const activeSpeakers = ref<Set<string>>(new Set())
@@ -293,44 +310,69 @@ export function useRTC(): UseRTC {
     return undefined
   }
 
-  function setPermFlag(v: boolean) {
+  function persistPermState() {
     try {
-      permProbed.value = v
-      if (v) localStorage.setItem(LS.perm, '1')
-      else localStorage.removeItem(LS.perm)
+      saveLS(LS.perm, JSON.stringify({ audio: permAudio.value, video: permVideo.value }))
     } catch {}
   }
+  function setPermState(next: Partial<PermState>) {
+    let changed = false
+    if (typeof next.audio === 'boolean' && next.audio !== permAudio.value) {
+      permAudio.value = next.audio
+      changed = true
+    }
+    if (typeof next.video === 'boolean' && next.video !== permVideo.value) {
+      permVideo.value = next.video
+      changed = true
+    }
+    if (changed) {
+      permProbed.value = permAudio.value || permVideo.value
+      persistPermState()
+    }
+  }
 
+  let probeInFlight: Promise<boolean> | null = null
   async function probePermissions(opts?: { audio?: boolean; video?: boolean | MediaTrackConstraints }): Promise<boolean> {
     const audio = opts?.audio ?? true
     const video = opts?.video ?? true
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio, video })
-      stream.getTracks().forEach(t => { try { t.stop() } catch {} })
-      await refreshDevices()
-      setPermFlag(true)
-      return true
-    } catch (e:any) {
-      error('probePermissions fail', { name: e?.name, message: e?.message })
-      setPermFlag(false)
-      return false
-    }
+    if (!audio && !video) return true
+    if (probeInFlight) return probeInFlight
+    probeInFlight = (async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio, video })
+        stream.getTracks().forEach(t => { try { t.stop() } catch {} })
+        await refreshDevices()
+        setPermState({
+          audio: audio ? true : permAudio.value,
+          video: video ? true : permVideo.value,
+        })
+        return true
+      } catch (e:any) {
+        error('probePermissions fail', { name: e?.name, message: e?.message })
+        setPermState({
+          audio: audio ? false : permAudio.value,
+          video: video ? false : permVideo.value,
+        })
+        return false
+      } finally {
+        probeInFlight = null
+      }
+    })()
+    return probeInFlight
   }
 
-  function clearProbeFlag() { setPermFlag(false) }
+  function clearProbeFlag() { setPermState({ audio: false, video: false }) }
 
-  async function shouldProbeAv(): Promise<boolean> {
+  async function shouldProbeKind(kind: DeviceKind): Promise<boolean> {
     const perms = navigator.permissions
-    if (!perms?.query) return !permProbed.value
-    try {
-      const [cam, mic] = await Promise.all([
-        perms.query({ name: 'camera' as PermissionName }),
-        perms.query({ name: 'microphone' as PermissionName }),
-      ])
-      return cam.state !== 'granted' || mic.state !== 'granted'
-    } catch {
-      return !permProbed.value
+    if (perms?.query) {
+      try {
+        const name = kind === 'audioinput' ? 'microphone' : 'camera'
+        const res = await perms.query({ name: name as PermissionName })
+        return res.state !== 'granted'
+      } catch {}
     }
+    return kind === 'audioinput' ? !permAudio.value : !permVideo.value
   }
 
   async function disable(kind: DeviceKind) {
@@ -532,12 +574,25 @@ export function useRTC(): UseRTC {
       const list = await navigator.mediaDevices.enumerateDevices()
       mics.value = list.filter(d => d.kind === 'audioinput')
       cams.value = list.filter(d => d.kind === 'videoinput')
-      const labelsKnown = [...mics.value, ...cams.value].some(d => (d.label ?? '').trim().length > 0)
-      if (labelsKnown) {
-        if (!isIOS) setPermFlag(true)
+      const micLabelsKnown = mics.value.some(d => (d.label ?? '').trim().length > 0)
+      const camLabelsKnown = cams.value.some(d => (d.label ?? '').trim().length > 0)
+      if (!isIOS) {
+        if (micLabelsKnown) setPermState({ audio: true })
+        if (camLabelsKnown) setPermState({ video: true })
       }
-      else if (mics.value.length === 0 && cams.value.length === 0) { setPermFlag(false) }
-      else if (isSafari && !labelsKnown) { setPermFlag(false) }
+      const perms = navigator.permissions
+      if (perms?.query) {
+        try {
+          const [camPerm, micPerm] = await Promise.all([
+            perms.query({ name: 'camera' as PermissionName }),
+            perms.query({ name: 'microphone' as PermissionName }),
+          ])
+          if (micPerm.state === 'granted') setPermState({ audio: true })
+          if (micPerm.state === 'denied') setPermState({ audio: false })
+          if (camPerm.state === 'granted') setPermState({ video: true })
+          if (camPerm.state === 'denied') setPermState({ video: false })
+        } catch {}
+      }
       hasAudioInput.value = mics.value.length > 0
       hasVideoInput.value = cams.value.length > 0
       if (!mics.value.find(d => d.deviceId === selectedMicId.value)) {
@@ -550,15 +605,15 @@ export function useRTC(): UseRTC {
       }
     } catch (e) {
       error('refreshDevices', e)
-      permProbed.value = false
+      setPermState({ audio: false, video: false })
     }
   }
 
   async function enable(kind: DeviceKind): Promise<boolean> {
     const room = lk.value
     if (!room) return false
-    if (!isIOS && await shouldProbeAv()) {
-      await probePermissions({ audio: true, video: true })
+    if (!isIOS && await shouldProbeKind(kind)) {
+      await probePermissions({ audio: kind === 'audioinput', video: kind === 'videoinput' })
     }
     if ((kind === 'audioinput' ? mics.value.length : cams.value.length) === 0) {
       try {
@@ -566,13 +621,13 @@ export function useRTC(): UseRTC {
         await navigator.mediaDevices.getUserMedia(perms)
         await refreshDevices()
         if ((kind === 'audioinput' ? mics.value.length : cams.value.length) === 0) {
-          permProbed.value = false
+          setPermState(kind === 'audioinput' ? { audio: false } : { video: false })
           return false
         }
-        setPermFlag(true)
+        setPermState(kind === 'audioinput' ? { audio: true } : { video: true })
       } catch (e:any) {
         error('enable: gUM to populate devices failed', { kind, name: e?.name })
-        permProbed.value = false
+        setPermState(kind === 'audioinput' ? { audio: false } : { video: false })
         return false
       }
     }
@@ -588,12 +643,12 @@ export function useRTC(): UseRTC {
       } else {
         await room.localParticipant.setCameraEnabled(true, { deviceId: { exact: id }, resolution: highVideoQuality.resolution } as any)
       }
-      setPermFlag(true)
+      setPermState(kind === 'audioinput' ? { audio: true } : { video: true })
       return true
     } catch (e:any) {
       error('enable exact failed', { kind, id, name: e?.name })
       if (e?.name === 'NotAllowedError' || e?.name === 'SecurityError' || e?.name === 'AbortError' || e?.name === 'NotReadableError') {
-        permProbed.value = false
+        setPermState(kind === 'audioinput' ? { audio: false } : { video: false })
       }
       await fallback(kind)
       const nextId = kind === 'audioinput' ? selectedMicId.value : selectedCamId.value
@@ -604,19 +659,19 @@ export function useRTC(): UseRTC {
         } else {
           await room.localParticipant.setCameraEnabled(true, { deviceId: { exact: nextId }, resolution: highVideoQuality.resolution } as any)
         }
-        setPermFlag(true)
+        setPermState(kind === 'audioinput' ? { audio: true } : { video: true })
         return true
       } catch (e2:any) {
         error('enable retry exact failed', { kind, name: e2?.name })
         try {
           if (kind === 'audioinput') await room.localParticipant.setMicrophoneEnabled(true, audioOptionsFor(undefined))
           else await room.localParticipant.setCameraEnabled(true, { resolution: highVideoQuality.resolution } as any)
-          setPermFlag(true)
+          setPermState(kind === 'audioinput' ? { audio: true } : { video: true })
           return true
         } catch (e3:any) {
           error('enable final failed', { kind, name: e3?.name, message: e3?.message })
           if (e3?.name === 'NotAllowedError' || e3?.name === 'SecurityError' || e3?.name === 'AbortError' || e3?.name === 'NotReadableError') {
-            permProbed.value = false
+            setPermState(kind === 'audioinput' ? { audio: false } : { video: false })
           }
           return false
         }
@@ -1001,6 +1056,8 @@ export function useRTC(): UseRTC {
     remoteQuality,
     selectedMicId,
     selectedCamId,
+    permAudio,
+    permVideo,
     permProbed,
     hasAudioInput,
     hasVideoInput,
