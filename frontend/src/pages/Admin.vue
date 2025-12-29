@@ -400,7 +400,6 @@
                           <div v-for="item in row.visitors" :key="`visitor-${row.id}-${item.id}`" class="tooltip-row">
                             <span class="tooltip-id">ID {{ item.id }}</span>
                             <div class="user-cell compact">
-                              <img class="user-avatar" v-minio-img="{ key: item.avatar_name ? `avatars/${item.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
                               <span>{{ item.username || '-' }}</span>
                             </div>
                             <span class="tooltip-minutes">{{ item.minutes }} мин</span>
@@ -418,7 +417,6 @@
                           <div v-for="item in row.streamers" :key="`stream-${row.id}-${item.id}`" class="tooltip-row">
                             <span class="tooltip-id">ID {{ item.id }}</span>
                             <div class="user-cell compact">
-                              <img class="user-avatar" v-minio-img="{ key: item.avatar_name ? `avatars/${item.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
                               <span>{{ item.username || '-' }}</span>
                             </div>
                             <span class="tooltip-minutes">{{ item.minutes }} мин</span>
@@ -450,7 +448,6 @@
                           <div v-for="item in row.spectators" :key="`spectator-${row.id}-${item.id}`" class="tooltip-row">
                             <span class="tooltip-id">ID {{ item.id }}</span>
                             <div class="user-cell compact">
-                              <img class="user-avatar" v-minio-img="{ key: item.avatar_name ? `avatars/${item.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
                               <span>{{ item.username || '-' }}</span>
                             </div>
                             <span class="tooltip-minutes">{{ item.minutes }} мин</span>
@@ -638,7 +635,6 @@ type LogRow = {
 type RoomUserStat = {
   id: number
   username?: string | null
-  avatar_name?: string | null
   minutes: number
 }
 
@@ -793,7 +789,6 @@ function normalizeRoomUsers(value: unknown): RoomUserStat[] {
     .map((item: any) => ({
       id: Number(item?.id) || 0,
       username: item?.username ?? null,
-      avatar_name: item?.avatar_name ?? null,
       minutes: Number(item?.minutes) || 0,
     }))
     .filter(item => item.id > 0)

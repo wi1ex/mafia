@@ -343,7 +343,7 @@ def parse_room_game_params(game: dict | None) -> dict[str, Any]:
     }
 
 
-def build_room_user_stats(raw_map: dict | None, name_map: dict[int, str | None], avatar_map: dict[int, str | None]) -> list[AdminRoomUserStat]:
+def build_room_user_stats(raw_map: dict | None, name_map: dict[int, str | None]) -> list[AdminRoomUserStat]:
     items: list[AdminRoomUserStat] = []
     if isinstance(raw_map, dict):
         for k, v in raw_map.items():
@@ -355,7 +355,7 @@ def build_room_user_stats(raw_map: dict | None, name_map: dict[int, str | None],
                 minutes = int(v or 0) // 60
             except Exception:
                 minutes = 0
-            items.append(AdminRoomUserStat(id=uid, username=name_map.get(uid), avatar_name=avatar_map.get(uid), minutes=minutes))
+            items.append(AdminRoomUserStat(id=uid, username=name_map.get(uid), minutes=minutes))
     items.sort(key=lambda item: item.minutes, reverse=True)
 
     return items
