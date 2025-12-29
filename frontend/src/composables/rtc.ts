@@ -1,4 +1,4 @@
-import { ref, type Ref } from 'vue'
+import { ref, type Ref, watch } from 'vue'
 import {
   LocalTrackPublication,
   RemoteParticipant,
@@ -28,6 +28,15 @@ const LS = {
   perm: 'mediaPermProbed',
   mirror: 'room:mirror',
 }
+
+const BGM_VOLUME_LS = 'bgm:volume'
+const BGM_DEFAULT_VOLUME = 50
+const BGM_MAX_VOLUME = 1
+const BGM_FILES = Object.entries(
+  import.meta.glob('@/assets/music/*.mp3', { eager: true, as: 'url' })
+)
+  .sort(([a], [b]) => a.localeCompare(b))
+  .map(([, v]) => v as string)
 
 const error = (...a: unknown[]) => console.error('[RTC]', ...a)
 
@@ -108,6 +117,12 @@ export type UseRTC = {
   getUserVolume: (id: string) => number
   resumeAudio: () => Promise<void>
   autoplayUnlocked: Ref<boolean>
+  bgmVolume: Ref<number>
+  setBgmSeed: (seed: unknown, fallback?: number) => void
+  setBgmPlaying: (on: boolean) => void
+  ensureBgmPlayback: () => void
+  unlockBgmOnGesture: () => Promise<void>
+  destroyBgm: () => void
   cleanupPeer: (id: string) => void
 }
 
@@ -134,6 +149,16 @@ export function useRTC(): UseRTC {
   const activeSpeakers = ref<Set<string>>(new Set())
   const audibleIds = ref<Set<string>>(new Set())
   const reconnecting = ref<boolean>(false)
+  const bgmVolume = ref<number>(loadBgmVolume())
+  const bgmAudio = ref<HTMLAudioElement | null>(null)
+  const bgmCurrentSrc = ref<string>('')
+  const bgmSeed = ref<number>(0)
+  const bgmShouldPlay = ref<boolean>(false)
+  let bgmCtx: AudioContext | null = null
+  let bgmGain: GainNode | null = null
+  let bgmSource: MediaElementAudioSourceNode | null = null
+  let bgmUnlocked = false
+  const keepBgmAlive = isIOS
 
   const screenKey = (id: string) => `${id}#s`
   const isScreenKey = (key: string) => key.endsWith('#s')
@@ -197,6 +222,211 @@ export function useRTC(): UseRTC {
     }, 500)
     lsWriteTimers.set(id, t)
   }
+
+  function clampBgmVolume(v: number) {
+    if (!Number.isFinite(v)) return BGM_DEFAULT_VOLUME
+    return Math.min(100, Math.max(0, Math.round(v)))
+  }
+  function loadBgmVolume(): number {
+    if (typeof window === 'undefined') return BGM_DEFAULT_VOLUME
+    try {
+      const raw = window.localStorage.getItem(BGM_VOLUME_LS)
+      if (raw == null) return BGM_DEFAULT_VOLUME
+      const parsed = Number(raw)
+      return clampBgmVolume(parsed)
+    } catch {
+      return BGM_DEFAULT_VOLUME
+    }
+  }
+  function saveBgmVolume(v: number) {
+    if (typeof window === 'undefined') return
+    try { window.localStorage.setItem(BGM_VOLUME_LS, String(v)) } catch {}
+  }
+  function resolveBgmUrl(src: string) {
+    if (typeof window === 'undefined') return src
+    try { return new URL(src, window.location.origin).toString() } catch { return src }
+  }
+  function ensureBgmContext(): AudioContext | null {
+    if (bgmCtx) return bgmCtx
+    try {
+      bgmCtx = new (window.AudioContext || (window as any).webkitAudioContext)()
+      return bgmCtx
+    } catch {
+      bgmCtx = null
+      return null
+    }
+  }
+  function ensureBgmGraph(el: HTMLAudioElement) {
+    const ctx = ensureBgmContext()
+    if (!ctx) return
+    if (!bgmGain) {
+      bgmGain = ctx.createGain()
+      bgmGain.connect(ctx.destination)
+    }
+    if (bgmSource && (bgmSource as any).mediaElement === el) return
+    if (bgmSource) {
+      try { bgmSource.disconnect() } catch {}
+    }
+    try {
+      bgmSource = ctx.createMediaElementSource(el)
+      bgmSource.connect(bgmGain)
+    } catch {}
+  }
+  async function resumeBgmAudio() {
+    const ctx = ensureBgmContext()
+    if (!ctx) return
+    if (ctx.state === 'suspended') {
+      try { await ctx.resume() } catch {}
+    }
+  }
+  function pickSeededBgmSource(seedBase: number): string {
+    if (!BGM_FILES.length) return ''
+    const idx = Math.abs(seedBase) % BGM_FILES.length
+    return BGM_FILES[idx]
+  }
+  function setBgmSeed(seed: unknown, fallback = 0) {
+    const n = Number(seed)
+    const base = Number.isFinite(n) ? Math.floor(n) : Number(fallback || 0)
+    bgmSeed.value = Number.isFinite(base) ? Math.floor(base) : 0
+    bgmCurrentSrc.value = ''
+    if (bgmShouldPlay.value) ensureBgmPlayback()
+  }
+  function ensureBgmAudio(): HTMLAudioElement {
+    if (bgmAudio.value) return bgmAudio.value
+    const el = new Audio()
+    el.loop = true
+    el.preload = 'auto'
+    ;(el as any).playsInline = true
+    bgmAudio.value = el
+    ensureBgmGraph(el)
+    applyBgmVolume()
+    return el
+  }
+  function applyBgmVolume() {
+    const el = bgmAudio.value
+    if (!el) return
+    const scaled = (clampBgmVolume(bgmVolume.value) / 100) * BGM_MAX_VOLUME
+    const vol = Math.min(1, Math.max(0, scaled))
+    const muted = vol <= 0
+    if (bgmGain) {
+      bgmGain.gain.value = muted ? 0 : vol
+      el.volume = 1
+    } else {
+      el.volume = vol
+    }
+    el.muted = muted
+  }
+  function stopBgm() {
+    const el = bgmAudio.value
+    if (!el) return
+    if (keepBgmAlive && bgmUnlocked) {
+      el.muted = true
+      if (bgmGain) bgmGain.gain.value = 0
+      else el.volume = 0
+      return
+    }
+    try { el.pause() } catch {}
+    try { el.currentTime = 0 } catch {}
+    bgmCurrentSrc.value = ''
+  }
+  function destroyBgm() {
+    const el = bgmAudio.value
+    if (!el) return
+    stopBgm()
+    try { el.src = '' } catch {}
+    bgmAudio.value = null
+    if (bgmSource) {
+      try { bgmSource.disconnect() } catch {}
+      bgmSource = null
+    }
+    if (bgmGain) {
+      try { bgmGain.disconnect() } catch {}
+      bgmGain = null
+    }
+    if (bgmCtx) {
+      try { void bgmCtx.close() } catch {}
+      bgmCtx = null
+    }
+    bgmUnlocked = false
+  }
+  function ensureBgmPlayback() {
+    if (!bgmShouldPlay.value) {
+      stopBgm()
+      return
+    }
+    if (!BGM_FILES.length) {
+      stopBgm()
+      return
+    }
+    const el = ensureBgmAudio()
+    if (!bgmCurrentSrc.value) {
+      const base = bgmSeed.value || 0
+      bgmCurrentSrc.value = pickSeededBgmSource(base)
+    }
+    const src = bgmCurrentSrc.value
+    if (!src) return
+    const resolved = resolveBgmUrl(src)
+    if (resolved && el.src !== resolved) {
+      el.src = src
+      try { el.currentTime = 0 } catch {}
+    }
+    applyBgmVolume()
+    void resumeBgmAudio()
+    void el.play().then(() => { bgmUnlocked = true }).catch(() => {})
+  }
+  async function unlockBgmOnGesture() {
+    if (!keepBgmAlive) return
+    if (bgmUnlocked) return
+    if (!BGM_FILES.length) return
+    const el = ensureBgmAudio()
+    ensureBgmGraph(el)
+    await resumeBgmAudio()
+    if (!bgmCurrentSrc.value) {
+      const base = bgmSeed.value || 0
+      bgmCurrentSrc.value = pickSeededBgmSource(base)
+    }
+    const src = bgmCurrentSrc.value
+    if (!src) return
+    const resolved = resolveBgmUrl(src)
+    if (resolved && el.src !== resolved) {
+      el.src = src
+      try { el.currentTime = 0 } catch {}
+    }
+    el.muted = true
+    if (bgmGain) bgmGain.gain.value = 0
+    else el.volume = 0
+    try {
+      await el.play()
+      bgmUnlocked = true
+    } catch {}
+  }
+  function setBgmPlaying(on: boolean) {
+    const prev = bgmShouldPlay.value
+    if (on === prev) return
+    bgmShouldPlay.value = on
+    if (!on) {
+      stopBgm()
+      return
+    }
+    if (!prev) {
+      if (keepBgmAlive && bgmUnlocked) {
+        try { bgmAudio.value?.currentTime = 0 } catch {}
+      } else {
+        bgmCurrentSrc.value = ''
+      }
+    }
+    ensureBgmPlayback()
+  }
+
+  watch(bgmVolume, (v) => {
+    const next = clampBgmVolume(v)
+    if (next !== v) {
+      bgmVolume.value = next
+      return
+    }
+    saveBgmVolume(next)
+    applyBgmVolume()
+  }, { immediate: true })
 
   function ensureGainFor(id: string, el: HTMLAudioElement): GainNode {
     const ctx = getCtx()
@@ -1099,6 +1329,8 @@ export function useRTC(): UseRTC {
     screenVideoRef,
     videoRef,
     reconnecting,
+    autoplayUnlocked,
+    bgmVolume,
 
     initRoom,
     connect,
@@ -1119,7 +1351,11 @@ export function useRTC(): UseRTC {
     setUserVolume,
     getUserVolume,
     resumeAudio,
-    autoplayUnlocked,
+    setBgmSeed,
+    setBgmPlaying,
+    ensureBgmPlayback,
+    unlockBgmOnGesture,
+    destroyBgm,
     prepareScreenShare,
     publishPreparedScreen,
     cancelPreparedScreen,

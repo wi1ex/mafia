@@ -377,7 +377,8 @@ const router = useRouter()
 const auth = useAuthStore()
 
 const rtc = useRTC()
-const { localId, mics, cams, selectedMicId, selectedCamId, peerIds } = rtc
+const { localId, mics, cams, selectedMicId, selectedCamId, peerIds } = rtc      
+const bgmVolume = rtc.bgmVolume
 
 const rid = Number(route.params.id)
 const game = useRoomGame(localId, ref(rid))
@@ -670,7 +671,8 @@ function toggleApps() {
 function onDocClick() {
   closePanels()
   void rtc.resumeAudio()
-  void ensureBgmPlayback()
+  void rtc.unlockBgmOnGesture()
+  void rtc.ensureBgmPlayback()
 }
 function volumeIcon(val: number, enabled: boolean) {
   if (!enabled) return iconVolumeMute
@@ -685,128 +687,11 @@ function volumeIconForStream(key: string) {
   return volumeIcon(volUi[key] ?? rtc.getUserVolume(key), speakersOn.value && !isBlocked(screenOwnerId.value,'speakers'))
 }
 
-const BGM_VOLUME_LS = 'bgm:volume'
-const BGM_DEFAULT_VOLUME = 50
-const BGM_MAX_VOLUME = 1
 const BGM_ACTIVE_PHASES: GamePhase[] = ['roles_pick', 'mafia_talk_start', 'mafia_talk_end', 'night']
-const BGM_FILES = Object.entries(
-  import.meta.glob('@/assets/music/*.mp3', { eager: true, as: 'url' })
-)
-  .sort(([a], [b]) => a.localeCompare(b))
-  .map(([, v]) => v as string)
-
-const bgmAudio = ref<HTMLAudioElement | null>(null)
-const bgmVolume = ref<number>(loadBgmVolume())
-const bgmCurrentSrc = ref<string>('')
-const bgmSeed = ref<number>(0)
-
-function pickSeededBgmSource(seed: number): string {
-  if (!BGM_FILES.length) return ''
-  const base = seed || rid || 0
-  const idx = Math.abs(base) % BGM_FILES.length
-  return BGM_FILES[idx]
-}
-function setBgmSeed(seed: unknown) {
-  const n = Number(seed)
-  bgmSeed.value = Number.isFinite(n) ? Math.floor(n) : 0
-  bgmCurrentSrc.value = ''
-  if (bgmShouldPlay.value) ensureBgmPlayback()
-}
-
-function clampBgmVolume(v: number) {
-  if (!Number.isFinite(v)) return BGM_DEFAULT_VOLUME
-  return Math.min(100, Math.max(0, Math.round(v)))
-}
-function loadBgmVolume(): number {
-  if (typeof window === 'undefined') return BGM_DEFAULT_VOLUME
-  try {
-    const raw = window.localStorage.getItem(BGM_VOLUME_LS)
-    if (raw == null) return BGM_DEFAULT_VOLUME
-    const parsed = Number(raw)
-    return clampBgmVolume(parsed)
-  } catch {
-    return BGM_DEFAULT_VOLUME
-  }
-}
-function saveBgmVolume(v: number) {
-  if (typeof window === 'undefined') return
-  try { window.localStorage.setItem(BGM_VOLUME_LS, String(v)) } catch {}
-}
-function resolveBgmUrl(src: string) {
-  if (typeof window === 'undefined') return src
-  try { return new URL(src, window.location.origin).toString() } catch { return src }
-}
-function ensureBgmAudio(): HTMLAudioElement {
-  if (bgmAudio.value) return bgmAudio.value
-  const el = new Audio()
-  el.loop = true
-  el.preload = 'auto'
-  bgmAudio.value = el
-  applyBgmVolume()
-  return el
-}
-function applyBgmVolume() {
-  const el = bgmAudio.value
-  if (!el) return
-  const scaled = (clampBgmVolume(bgmVolume.value) / 100) * BGM_MAX_VOLUME
-  el.volume = Math.min(1, Math.max(0, scaled))
-}
-function stopBgm() {
-  const el = bgmAudio.value
-  if (!el) return
-  try { el.pause() } catch {}
-  try { el.currentTime = 0 } catch {}
-  bgmCurrentSrc.value = ''
-}
-function destroyBgm() {
-  const el = bgmAudio.value
-  if (!el) return
-  stopBgm()
-  try { el.src = '' } catch {}
-  bgmAudio.value = null
-}
-
 const bgmShouldPlay = computed(() => BGM_ACTIVE_PHASES.includes(gamePhase.value))
 
-function ensureBgmPlayback() {
-  if (!bgmShouldPlay.value) {
-    stopBgm()
-    return
-  }
-  if (!BGM_FILES.length) {
-    stopBgm()
-    return
-  }
-  const el = ensureBgmAudio()
-  if (!bgmCurrentSrc.value) bgmCurrentSrc.value = pickSeededBgmSource(bgmSeed.value)
-  const src = bgmCurrentSrc.value
-  if (!src) return
-  const resolved = resolveBgmUrl(src)
-  if (resolved && el.src !== resolved) {
-    el.src = src
-    try { el.currentTime = 0 } catch {}
-  }
-  applyBgmVolume()
-  void el.play().catch(() => {})
-}
-
-watch(bgmVolume, (v) => {
-  const next = clampBgmVolume(v)
-  if (next !== v) {
-    bgmVolume.value = next
-    return
-  }
-  saveBgmVolume(next)
-  applyBgmVolume()
-}, { immediate: true })
-
-watch(bgmShouldPlay, (on, was) => {
-  if (!on) {
-    stopBgm()
-    return
-  }
-  if (!was) bgmCurrentSrc.value = ''
-  ensureBgmPlayback()
+watch(bgmShouldPlay, (on) => {
+  rtc.setBgmPlaying(on)
 }, { immediate: true })
 
 async function sendAck(event: string, payload: any, timeoutMs = 15000): Promise<Ack> {
@@ -915,6 +800,7 @@ async function requestMediaPermissions(opts?: { force?: boolean }) {
 }
 async function onProbeClick() {
   try { await rtc.resumeAudio() } catch {}
+  await rtc.unlockBgmOnGesture()
   await requestMediaPermissions()
   needInitialMediaUnlock.value = await enableInitialMedia()
 }
@@ -1278,7 +1164,7 @@ socket.value?.on('connect', async () => {
   })
 
   socket.value?.on('game_started', (p: any) => {
-    setBgmSeed(p?.bgm_seed)
+    rtc.setBgmSeed(p?.bgm_seed, rid)
     game.handleGameStarted(p)
     statusByUser.forEach((st, uid) => {
       statusByUser.set(uid, { ...st, ready: 0 as 0 })
@@ -1337,7 +1223,7 @@ socket.value?.on('connect', async () => {
     const prevPhase = gamePhase.value as GamePhase
     game.handleGamePhaseChange(p)
     const to = (p?.to ? String(p.to) : gamePhase.value) as GamePhase
-    if (p?.bgm_seed != null) setBgmSeed(p.bgm_seed)
+    if (p?.bgm_seed != null) rtc.setBgmSeed(p.bgm_seed, rid)
     handleGamePhaseChangeUi(prevPhase, to)
   })
 
@@ -1599,7 +1485,7 @@ function applyJoinAck(j: any) {
 
   const snapshotIds = Object.keys(j.snapshot || {})
   game.applyFromJoinAck(j, snapshotIds)
-  setBgmSeed(j?.game_runtime?.bgm_seed)
+  rtc.setBgmSeed(j?.game_runtime?.bgm_seed, rid)
   void enforceMicAfterJoin()
   void enforceSpectatorPhaseVisibility(gamePhase.value)
 }
@@ -1730,7 +1616,8 @@ async function onMediaGateClick() {
   needInitialMediaUnlock.value = false
   closePanels()
   try { await rtc.resumeAudio() } catch {}
-  ensureBgmPlayback()
+  await rtc.unlockBgmOnGesture()
+  rtc.ensureBgmPlayback()
   await requestMediaPermissions({ force: true })
   needInitialMediaUnlock.value = await enableInitialMedia()
 }
@@ -1883,7 +1770,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('online', handleOnline)
   if (gameStartOverlayTimerId != null) window.clearTimeout(gameStartOverlayTimerId)
   if (gameEndOverlayTimerId != null) window.clearTimeout(gameEndOverlayTimerId)
-  destroyBgm()
+  rtc.destroyBgm()
   void onLeave(false)
 })
 </script>
