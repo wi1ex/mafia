@@ -1675,8 +1675,14 @@ function hasLocalTrackOnce(kind: 'mic' | 'cam'): boolean {
 
 async function ensureLocalTrack(kind: 'mic' | 'cam'): Promise<boolean> {
   if (hasLocalTrackOnce(kind)) return true
-  await new Promise(resolve => window.setTimeout(resolve, 150))
-  return hasLocalTrackOnce(kind)
+  const timeoutMs = IS_MOBILE ? 2000 : 600
+  const stepMs = 150
+  const start = Date.now()
+  while (Date.now() - start < timeoutMs) {
+    await new Promise(resolve => window.setTimeout(resolve, stepMs))
+    if (hasLocalTrackOnce(kind)) return true
+  }
+  return false
 }
 
 const toggleScreen = async () => {

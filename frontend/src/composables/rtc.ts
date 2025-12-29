@@ -371,9 +371,11 @@ export function useRTC(): UseRTC {
         const name = kind === 'audioinput' ? 'microphone' : 'camera'
         const res = await perms.query({ name: name as PermissionName })
         return res.state !== 'granted'
-      } catch {}
+      } catch {
+        return true
+      }
     }
-    return kind === 'audioinput' ? !permAudio.value : !permVideo.value
+    return true
   }
 
   async function disable(kind: DeviceKind) {
@@ -612,9 +614,13 @@ export function useRTC(): UseRTC {
 
   async function enable(kind: DeviceKind): Promise<boolean> {
     const room = lk.value
-    if (!room) return false
+    if (!room) {
+      error('enable: no room', { kind })
+      return false
+    }
     if (!isIOS && await shouldProbeKind(kind)) {
-      await probePermissions({ audio: kind === 'audioinput', video: kind === 'videoinput' })
+      const ok = await probePermissions({ audio: kind === 'audioinput', video: kind === 'videoinput' })
+      if (!ok) return false
     }
     if ((kind === 'audioinput' ? mics.value.length : cams.value.length) === 0) {
       try {
@@ -636,7 +642,10 @@ export function useRTC(): UseRTC {
     if (!id) {
       await fallback(kind)
       id = kind === 'audioinput' ? selectedMicId.value : selectedCamId.value
-      if (!id) return false
+      if (!id) {
+        error('enable: no device id', { kind })
+        return false
+      }
     }
     try {
       if (kind === 'audioinput') {

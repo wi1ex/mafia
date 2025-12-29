@@ -9,7 +9,7 @@
       </router-link>
       <a class="btn" href="https://t.me/tribute/app?startapp=dCvc" target="_blank" rel="noopener noreferrer" aria-label="Поддержать">
         <img :src="iconCard" alt="card" />
-        <span>Поддержать</span>
+        <span>Поддержать проект</span>
       </a>
     </div>
 
@@ -353,5 +353,33 @@ onBeforeUnmount(() => {
 .user-menu-leave-to {
   opacity: 0;
   transform: translateY(-30px);
+}
+
+@media (max-width: 1280px) {
+  .bar {
+    .btn {
+      span {
+        font-size: 14px;
+      }
+      img {
+        width: 20px;
+        height: 20px;
+      }
+      .arrow {
+        width: 14px;
+        height: 14px;
+      }
+    }
+    .user {
+      .bell {
+        button {
+          img {
+            width: 20px;
+            height: 20px;
+          }
+        }
+      }
+    }
+  }
 }
 </style>
