@@ -19,11 +19,13 @@ type PresignRec = {
   url: string
   expMs: number
 }
+type InflightKey = string
 const urlMap = new Map<string, UrlRec>()
 const urlOrder: string[] = []
 const URL_MAX = 300
 const presignCache = new Map<string, PresignRec>()
 const presignInflight = new Map<string, Promise<string>>()
+const blobInflight = new Map<InflightKey, Promise<string>>()
 const PRESIGN_SKEW_MS = 30_000
 const PRESIGN_MAX = 500
 
@@ -164,20 +166,35 @@ export async function getImageURL(key: string, version: number, loader?: (key: s
     rec.refs++
     return rec.url
   }
+  const inflightKey = `${key}|${version}`
+  const inflight = blobInflight.get(inflightKey)
+  if (inflight) {
+    const url = await inflight
+    retainImageURL(key)
+    return url
+  }
+  const loadPromise = (async () => {
+    try {
+      const cur = await get(key)
+      if (cur && cur.version === version) {
+        const cached = URL.createObjectURL(cur.blob)
+        rememberURL(key, cached)
+        return cached
+      }
+    } catch {}
+    const load = loader || fetchBlobByPresign
+    const blob = await load(key)
+    try { await put({ key, version, blob, ctype: blob.type }) } catch {}
+    const url = URL.createObjectURL(blob)
+    rememberURL(key, url)
+    return url
+  })()
+  blobInflight.set(inflightKey, loadPromise)
   try {
-    const cur = await get(key)
-    if (cur && cur.version === version) {
-      const cached = URL.createObjectURL(cur.blob)
-      rememberURL(key, cached)
-      retainImageURL(key)
-      return cached
-    }
-  } catch {}
-  const load = loader || fetchBlobByPresign
-  const blob = await load(key)
-  try { await put({ key, version, blob, ctype: blob.type }) } catch {}
-  const url = URL.createObjectURL(blob)
-  rememberURL(key, url)
-  retainImageURL(key)
-  return url
+    const url = await loadPromise
+    retainImageURL(key)
+    return url
+  } finally {
+    blobInflight.delete(inflightKey)
+  }
 }
