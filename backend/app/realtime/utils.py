@@ -399,7 +399,7 @@ class GameStateView:
         day_section["night"] = {"kill_uid": nk_uid, "kill_ok": ok}
 
         pre_uid = self.ctx.gint("day_prelude_uid")
-        if pre_uid:
+        if pre_uid or pre_done:
             day_section["prelude"] = {
                 "uid": pre_uid,
                 "pending": pre_pending,

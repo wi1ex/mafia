@@ -1115,6 +1115,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       daySpeechesDone.value = isTrueLike((dy as any).speeches_done)
       const preludeSection = (dy as any).prelude
       const preludeActive = !!(preludeSection && typeof preludeSection === 'object' && isTrueLike((preludeSection as any).active))
+      const preludeDone = isTrueLike((preludeSection as any)?.done)
       const preludeUid = String((preludeSection as any)?.uid || '')
       const farewellSection = (dy as any).farewell
       if (farewellSection && typeof farewellSection === 'object' && daySpeech.currentId) {
@@ -1143,11 +1144,18 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
         night.killUid = ''
         night.hasResult = false
       }
-      if (daySpeech.currentId || daySpeechesDone.value || nightResultClearedDay.value >= dayNumber.value) {
+      const isPreludeSpeech = preludeActive && preludeUid && daySpeech.currentId === preludeUid
+      const shouldClearNightResult = (
+        nightResultClearedDay.value >= dayNumber.value ||
+        daySpeechesDone.value ||
+        preludeDone ||
+        (!!daySpeech.currentId && !isPreludeSpeech)
+      )
+      if (shouldClearNightResult) {
         night.killOk = false
         night.killUid = ''
         night.hasResult = false
-        if (nightResultClearedDay.value < dayNumber.value && (daySpeech.currentId || daySpeechesDone.value)) {
+        if (dayNumber.value > 0 && nightResultClearedDay.value < dayNumber.value && (preludeDone || daySpeechesDone.value || (!!daySpeech.currentId && !isPreludeSpeech))) {
           nightResultClearedDay.value = dayNumber.value
           persistNightResultCleared(dayNumber.value)
         }
@@ -1445,6 +1453,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     const done = isTrueLike((p as any)?.speeches_done)
     const killed = isTrueLike((p as any)?.killed)
     const voteSpeechKind = String((p as any)?.vote_speech_kind || '')
+    const isPrelude = isTrueLike((p as any)?.prelude)
     const isActiveSpeech = ms > 0 && !!speakerId
 
     const nightPayload = (p as any)?.night
@@ -1452,22 +1461,29 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       night.killOk = isTrueLike((nightPayload as any).kill_ok)
       night.killUid = String((nightPayload as any).kill_uid || '')
       night.hasResult = night.killOk && !!night.killUid
-    } else if (isTrueLike((p as any)?.prelude)) {
-      night.killOk = false
-      night.killUid = ''
-      night.hasResult = false
     }
 
-    const isFarewellSpeech = isActiveSpeech && (isTrueLike((p as any)?.prelude) || killed || voteSpeechKind === 'farewell' || !!farewellSection)
+    const isFarewellSpeech = isActiveSpeech && (isPrelude || killed || voteSpeechKind === 'farewell' || !!farewellSection)
     currentFarewellSpeech.value = isFarewellSpeech
     activeFarewellSpeakerId.value = isFarewellSpeech ? speakerId : ''
     if (!isFarewellSpeech) activeFarewellAllowed.value = true
-    if (!isActiveSpeech && night.hasResult) {
+    const isPreludeFinished = isPrelude && ms <= 0
+    if (isPreludeFinished) {
       night.hasResult = false
       night.killOk = false
       night.killUid = ''
-      nightResultClearedDay.value = dayNumber.value
-      persistNightResultCleared(dayNumber.value)
+      if (dayNumber.value > 0 && nightResultClearedDay.value < dayNumber.value) {
+        nightResultClearedDay.value = dayNumber.value
+        persistNightResultCleared(dayNumber.value)
+      }
+    } else if (!isActiveSpeech && night.hasResult) {
+      night.hasResult = false
+      night.killOk = false
+      night.killUid = ''
+      if (dayNumber.value > 0 && nightResultClearedDay.value < dayNumber.value) {
+        nightResultClearedDay.value = dayNumber.value
+        persistNightResultCleared(dayNumber.value)
+      }
     }
 
     if (isActiveSpeech) {
