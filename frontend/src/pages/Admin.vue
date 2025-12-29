@@ -1620,10 +1620,6 @@ onMounted(() => {
         border-radius: 50%;
         object-fit: cover;
       }
-      .user-cell.compact .user-avatar {
-        width: 16px;
-        height: 16px;
-      }
       .tooltip {
         position: relative;
         display: inline-flex;
