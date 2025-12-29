@@ -40,15 +40,15 @@
     </div>
     <div v-if="showFarewellButtons" class="farewell-buttons">
       <button @click="$emit('farewell','citizen', id)">
-        <img :src="iconLikeWhite" alt="like" />
+        <img :src="iconRoleCitizen" alt="like" />
       </button>
       <button @click="$emit('farewell','mafia', id)">
-        <img :src="iconDislikeWhite" alt="dislike" />
+        <img :src="iconRoleMafia" alt="dislike" />
       </button>
     </div>
 
     <button v-if="isGameHead && showVoteButton" class="vote-btn" :disabled="!voteEnabled" @click="$emit('vote')">
-      <img :src="voteEnabled ? iconLikeBlack : iconLikeWhite" alt="vote" />
+      <img :src="iconLikeBlack" alt="vote" />
       <span>Проголосовать</span>
     </button>
     <div class="head-bar" v-if="isGameHead && phaseLabel">{{ phaseLabel }}</div>
@@ -115,8 +115,8 @@ import { computed } from 'vue'
 import iconReady from '@/assets/svg/ready.svg'
 import iconLeaveRoom from '@/assets/svg/leave.svg'
 import iconFoul from '@/assets/svg/foul.svg'
-import iconLikeWhite from '@/assets/svg/likeWhite.svg'
-import iconDislikeWhite from '@/assets/svg/dislikeWhite.svg'
+import iconRoleCitizen from '@/assets/images/roleCitizen.png'
+import iconRoleMafia from '@/assets/images/roleMafia.png'
 import iconLikeGreen from '@/assets/svg/likeGreen.svg'
 import iconLikeBlack from '@/assets/svg/likeBlack.svg'
 import iconCheck from '@/assets/svg/check.svg'
