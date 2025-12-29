@@ -577,7 +577,29 @@ const videoQuality = computed<VQ>({
   },
 })
 
-const isMirrored = (id: string) => (statusByUser.get(id)?.mirror ?? 0) === 1
+const storedVideoQuality = (): VQ => ((rtc.loadLS(rtc.LS.vq) as VQ) === 'sd' ? 'sd' : 'hd')
+const gameQualityForced = ref(false)
+function applyGameVideoQuality(force: boolean): void {
+  if (force) {
+    if (gameQualityForced.value) return
+    gameQualityForced.value = true
+    rtc.setRemoteQualityForAll('sd', { persist: false })
+    return
+  }
+  if (!gameQualityForced.value) return
+  gameQualityForced.value = false
+  rtc.setRemoteQualityForAll(storedVideoQuality(), { persist: false })
+}
+
+watch(gamePhase, (next, prev) => {
+  if (next !== 'idle') {
+    applyGameVideoQuality(true)
+  } else if (prev !== 'idle') {
+    applyGameVideoQuality(false)
+  }
+})
+
+const isMirrored = (id: string) => (statusByUser.get(id)?.mirror ?? 0) === 1    
 const mirrorOn = computed({
   get: () => isMirrored(localId.value),
   set: async (v: boolean) => {

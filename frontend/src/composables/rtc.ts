@@ -7,6 +7,7 @@ import {
   Room as LkRoom,
   RoomEvent,
   Track,
+  VideoPreset,
   VideoPresets,
   ScreenSharePresets,
   VideoQuality,
@@ -89,7 +90,7 @@ export type UseRTC = {
   disconnect: () => Promise<void>
   setAudioSubscriptionsForAll: (on: boolean) => void
   setVideoSubscriptionsForAll: (on: boolean) => void
-  setRemoteQualityForAll: (q: VQ) => void
+  setRemoteQualityForAll: (q: VQ, opts?: { persist?: boolean }) => void
   refreshDevices: () => Promise<void>
   fallback: (kind: DeviceKind) => Promise<void>
   onDeviceChange: (kind: DeviceKind) => Promise<void>
@@ -137,8 +138,8 @@ export function useRTC(): UseRTC {
   const screenKey = (id: string) => `${id}#s`
   const isScreenKey = (key: string) => key.endsWith('#s')
   const isSub = (pub: RemoteTrackPublication) => pub.isSubscribed
-  const lowVideoQuality = VideoPresets.h180
-  const highVideoQuality = VideoPresets.h540
+  const lowVideoQuality = new VideoPreset(320, 180, 150_000, 30)
+  const highVideoQuality = new VideoPreset(640, 360, 450_000, 30)
   const highScreenQuality = ScreenSharePresets.h720fps30
   let lastScreenShareError: 'canceled' | 'failed' | null = null
   const isUserCancel = (e: any) => {
@@ -740,12 +741,13 @@ export function useRTC(): UseRTC {
   }
 
   const remoteQuality = ref<VQ>((loadLS(LS.vq) as VQ) === 'sd' ? 'sd' : 'hd')
-  function setRemoteQualityForAll(q: VQ) {
+  function setRemoteQualityForAll(q: VQ, opts?: { persist?: boolean }) {
+    const persist = opts?.persist !== false
     const changed = remoteQuality.value !== q
     if (changed) {
       remoteQuality.value = q
-      saveLS(LS.vq, q)
     }
+    if (persist) saveLS(LS.vq, q)
     const room = lk.value
     if (!room) return
     room.remoteParticipants.forEach(p => {
@@ -852,7 +854,8 @@ export function useRTC(): UseRTC {
     const room = new LkRoom({
       dynacast: true,
       publishDefaults: {
-        videoCodec: 'vp8',
+        // videoCodec: 'vp8',
+        videoCodec: 'h264',
         red: true,
         dtx: true,
         simulcast: true,
