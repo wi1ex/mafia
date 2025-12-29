@@ -410,7 +410,7 @@ export function useRTC(): UseRTC {
     }
     if (!prev) {
       if (keepBgmAlive && bgmUnlocked) {
-        try { bgmAudio.value?.currentTime = 0 } catch {}
+        if (bgmAudio.value) try { bgmAudio.value.currentTime = 0 } catch {}
       } else {
         bgmCurrentSrc.value = ''
       }
