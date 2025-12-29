@@ -378,6 +378,20 @@ export function useRTC(): UseRTC {
     return true
   }
 
+  function buildProbeTargets(kind: DeviceKind): { audio: boolean; video: boolean } {
+    const hasAudio = hasAudioInput.value
+    const hasVideo = hasVideoInput.value
+    if (hasAudio && hasVideo) return { audio: true, video: true }
+    if (kind === 'audioinput') return { audio: true, video: false }
+    return { audio: false, video: true }
+  }
+
+  async function shouldProbeTargets(targets: { audio: boolean; video: boolean }): Promise<boolean> {
+    const needAudio = targets.audio && await shouldProbeKind('audioinput')
+    const needVideo = targets.video && await shouldProbeKind('videoinput')
+    return needAudio || needVideo
+  }
+
   async function disable(kind: DeviceKind) {
     try {
       if (kind === 'audioinput') await lk.value?.localParticipant.setMicrophoneEnabled(false)
@@ -612,16 +626,7 @@ export function useRTC(): UseRTC {
     }
   }
 
-  async function enable(kind: DeviceKind): Promise<boolean> {
-    const room = lk.value
-    if (!room) {
-      error('enable: no room', { kind })
-      return false
-    }
-    if (!isIOS && await shouldProbeKind(kind)) {
-      const ok = await probePermissions({ audio: kind === 'audioinput', video: kind === 'videoinput' })
-      if (!ok) return false
-    }
+  async function enableWithFallback(room: LkRoom, kind: DeviceKind): Promise<boolean> {
     if ((kind === 'audioinput' ? mics.value.length : cams.value.length) === 0) {
       try {
         const perms = kind === 'audioinput' ? { audio: true, video: false } : { audio: false, video: true }
@@ -687,6 +692,24 @@ export function useRTC(): UseRTC {
         }
       }
     }
+  }
+
+  async function enable(kind: DeviceKind): Promise<boolean> {
+    const room = lk.value
+    if (!room) {
+      error('enable: no room', { kind })
+      return false
+    }
+    const probeTargets = buildProbeTargets(kind)
+    if (await shouldProbeTargets(probeTargets)) {
+      const ok = await probePermissions(probeTargets)
+      if (!ok) return false
+    }
+    const ok = await enableWithFallback(room, kind)
+    if (ok) return true
+    const reprobeOk = await probePermissions(probeTargets)
+    if (!reprobeOk) return false
+    return await enableWithFallback(room, kind)
   }
 
   const setAudioSubscriptionsForAll = (on: boolean) => {
