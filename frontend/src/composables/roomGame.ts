@@ -290,6 +290,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
           const seat = seatIndex(night.killUid)
           return `Убит ${seat ?? ''}`
         }
+        if (dayNominees.length > 0) return ''
         return 'Несострел'
       }
     }
@@ -1741,12 +1742,12 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     try { window.localStorage.setItem('roomRolesVisible', val ? '1' : '0') } catch {}
   })
 
-  watch(() => [gamePhase.value, daySpeech.currentId, daySpeech.remainingMs], (_v, _ov, onCleanup) => {
+  watch(() => [gamePhase.value, daySpeech.currentId], (_v, _ov, onCleanup) => {
       scheduleFinishSpeechUnlock()
       onCleanup(() => resetFinishSpeechDelay())
   }, { immediate: true })
 
-  watch(() => [isHead.value, gamePhase.value, daySpeechesDone.value, daySpeech.currentId, daySpeech.remainingMs], (_v, _ov, onCleanup) => {
+  watch(() => [isHead.value, gamePhase.value, daySpeechesDone.value, daySpeech.currentId], (_v, _ov, onCleanup) => {
       schedulePassSpeechUnlock()
       onCleanup(() => resetPassSpeechDelay())
   }, { immediate: true })
@@ -1905,6 +1906,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     if (isNightVictimFarewellSpeech(me)) return false
     if (gamePhase.value !== 'day') return false
     if (daySpeech.currentId !== me) return false
+    if (daySpeech.remainingMs <= 0) return false
     if (!amIAlive.value) return false
     if (voteBlocked.value) return false
     if (!gamePlayers.has(id)) return false

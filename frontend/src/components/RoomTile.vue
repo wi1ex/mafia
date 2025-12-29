@@ -21,7 +21,7 @@
       <span>{{ pickKind === 'check' ? 'Проверил' : 'Выстрелил в' }} {{ pickNumber }}</span>
     </div>
     <button v-if="showNominate" class="nominate-btn" @click="$emit('nominate', id)" aria-label="Выставить">
-      <img :src="iconLikeWhite" alt="nominate" />
+      <img :src="iconLikeBlack" alt="nominate" />
       <span>Выставить</span>
     </button>
     <button v-if="showShoot" class="nominate-btn" @click="$emit('shoot', id)" aria-label="Выстрелить">
@@ -116,9 +116,9 @@ import iconReady from '@/assets/svg/ready.svg'
 import iconLeaveRoom from '@/assets/svg/leave.svg'
 import iconFoul from '@/assets/svg/foul.svg'
 import iconLikeWhite from '@/assets/svg/likeWhite.svg'
+import iconDislikeWhite from '@/assets/svg/dislikeWhite.svg'
 import iconLikeGreen from '@/assets/svg/likeGreen.svg'
 import iconLikeBlack from '@/assets/svg/likeBlack.svg'
-import iconDislikeWhite from '@/assets/svg/dislikeWhite.svg'
 import iconCheck from '@/assets/svg/check.svg'
 import iconKill from '@/assets/svg/kill.svg'
 
@@ -396,7 +396,7 @@ const timelineDurationSec = computed(() => {
     height: 30px;
     border: none;
     border-radius: 5px;
-    background-color: rgba($dark, 0.75);
+    background-color: rgba($green, 0.75);
     backdrop-filter: blur(5px);
     box-shadow: 3px 3px 5px rgba($black, 0.25);
     cursor: pointer;
@@ -409,7 +409,7 @@ const timelineDurationSec = computed(() => {
       height: 24px;
     }
     span {
-      color: $fg;
+      color: $bg;
       font-size: 16px;
       font-family: Manrope-Medium;
       line-height: 1;
