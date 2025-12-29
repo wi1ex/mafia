@@ -80,7 +80,7 @@
                 <span class="header-text">Параметры игры:</span>
                 <div class="ri-game-div">
                   <span>Зрители</span>
-                  <span>?/{{ game.spectators_limit }}</span>
+                  <span>{{ info?.spectators_count ?? 0 }}/{{ game.spectators_limit }}</span>
                 </div>
                 <div class="ri-game-div">
                   <span>Режим</span>

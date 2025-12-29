@@ -247,9 +247,6 @@
             <img :src="iconRequestsRoom" alt="requests" />
             <span class="count-total" :class="{ unread: appsCounts.unread > 0 }">{{ appsCounts.total < 100 ? appsCounts.total : '∞' }}</span>
           </button>
-          <button v-if="gamePhase !== 'idle'" @click.stop="toggleMusicSettings" :aria-expanded="musicSettingsOpen" aria-label="Панель управления">
-            <img :src="iconControls" alt="controls" />
-          </button>
           <button @click.stop="toggleSettings" :aria-expanded="settingsOpen" aria-label="Настройки устройств">
             <img :src="iconSettings" alt="settings" />
           </button>
@@ -262,26 +259,22 @@
           @counts="(p) => { appsCounts.total = p.total; appsCounts.unread = p.unread }"
         />
 
-        <RoomControls
-          :open="musicSettingsOpen"
-          v-model:volume="bgmVolume"
-          :volume-icon="volumeIcon(bgmVolume, bgmShouldPlay)"
-          :can-toggle-known-roles="canToggleKnownRoles"
-          :known-roles-visible="knownRolesVisible"
-          @toggle-known-roles="game.toggleKnownRolesVisibility"
-          @close="musicSettingsOpen=false"
-        />
-
         <RoomSetting
           :open="settingsOpen"
+          :in-game="gamePhase !== 'idle'"
           :mics="mics"
           :cams="cams"
           v-model:micId="selectedMicId"
           v-model:camId="selectedCamId"
           v-model:vq="videoQuality"
           v-model:mirrorOn="mirrorOn"
+          v-model:volume="bgmVolume"
+          :volume-icon="volumeIcon(bgmVolume, bgmShouldPlay)"
+          :can-toggle-known-roles="canToggleKnownRoles"
+          :known-roles-visible="knownRolesVisible"
           :vq-disabled="pendingQuality"
           @device-change="(kind) => rtc.onDeviceChange(kind)"
+          @toggle-known-roles="game.toggleKnownRolesVisibility"
           @close="settingsOpen=false"
         />
       </div>
@@ -324,7 +317,6 @@ import { alertDialog, confirmDialog } from '@/services/confirm'
 import { createAuthedSocket } from '@/services/sio'
 import RoomTile from '@/components/RoomTile.vue'
 import RoomSetting from '@/components/RoomSetting.vue'
-import RoomControls from '@/components/RoomControls.vue'
 import RoomRequests from '@/components/RoomRequests.vue'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
@@ -335,7 +327,6 @@ import iconVolumeMute from '@/assets/svg/volumeMute.svg'
 
 import iconClose from '@/assets/svg/close.svg'
 import iconLeaveRoom from '@/assets/svg/leave.svg'
-import iconControls from '@/assets/svg/controls.svg'
 import iconSettings from '@/assets/svg/settings.svg'
 import iconRequestsRoom from '@/assets/svg/requestsRoom.svg'
 import iconReady from '@/assets/svg/ready.svg'
@@ -478,7 +469,6 @@ const openPanelFor = ref<string>('')
 const pendingScreen = ref(false)
 const pendingQuality = ref(false)
 const settingsOpen = ref(false)
-const musicSettingsOpen = ref(false)
 const uiReady = ref(false)
 const leaving = ref(false)
 const netReconnecting = ref(false)
@@ -654,11 +644,10 @@ function stateIcon(kind: IconKind, id: string) {
   if (isBlocked(id, kind)) return STATE_ICONS[kind].blk
   return isOn(id, kind) ? STATE_ICONS[kind].on : STATE_ICONS[kind].off
 }
-function closePanels(except?: 'card'|'apps'|'settings'|'music') {
+function closePanels(except?: 'card'|'apps'|'settings') {
   if (except !== 'card') openPanelFor.value = ''
   if (except !== 'apps') openApps.value = false
   if (except !== 'settings') settingsOpen.value = false
-  if (except !== 'music') musicSettingsOpen.value = false
 }
 const toggleTilePanel = (id: string) => {
   if (id === localId.value) return
@@ -676,11 +665,6 @@ function toggleApps() {
   const next = !openApps.value
   closePanels('apps')
   openApps.value = next
-}
-function toggleMusicSettings() {
-  const next = !musicSettingsOpen.value
-  closePanels('music')
-  musicSettingsOpen.value = next
 }
 function onDocClick() {
   closePanels()

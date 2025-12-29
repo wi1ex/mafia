@@ -9,7 +9,7 @@
       </header>
 
       <div class="change-devices">
-        <div class="switch-div">
+        <div v-if="!inGame" class="switch-div">
           <div class="switch">
             <span class="switch-label">Качество видео:</span>
             <label>
@@ -32,6 +32,29 @@
             </label>
           </div>
         </div>
+        <template v-else>
+          <div v-if="canToggleKnownRoles" class="switch-div">
+            <div class="switch switch-wide">
+              <span class="switch-label">Видимость ролей:</span>
+              <label>
+                <input type="checkbox" :checked="knownRolesVisible" @change="onToggleKnownRoles" aria-label="Показ ролей" />
+                <div class="slider">
+                  <span>Скрыть</span>
+                  <span>Показать</span>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <div class="volume-block">
+            <span class="volume-text">Громкость музыки:</span>
+            <div class="volume">
+              <img :src="volumeIcon" alt="vol" />
+              <input type="range" min="0" max="100" step="5" :value="volume" aria-label="Громкость фоновой музыки" @input="onVolumeInput" />
+              <span>{{ volume }}%</span>
+            </div>
+          </div>
+        </template>
 
         <div class="switch-device-div">
           <span>Выбор камеры:</span>
@@ -92,6 +115,7 @@ type Dev = {
 
 const props = defineProps<{
   open: boolean
+  inGame: boolean
   mics: Dev[]
   cams: Dev[]
   micId: string
@@ -99,6 +123,10 @@ const props = defineProps<{
   vq?: VQ
   vqDisabled?: boolean
   mirrorOn: boolean
+  volume: number
+  volumeIcon: string
+  canToggleKnownRoles: boolean
+  knownRolesVisible: boolean
 }>()
 
 const emit = defineEmits<{
@@ -106,6 +134,8 @@ const emit = defineEmits<{
   'update:camId': [string]
   'update:vq': [VQ]
   'update:mirrorOn': [boolean]
+  'update:volume': [number]
+  'toggle-known-roles': []
   'device-change': ['audioinput' | 'videoinput']
   'close': []
 }>()
@@ -134,6 +164,12 @@ function onToggleVQ(e: Event) {
 }
 function onToggleMirror(e: Event) {
   emit('update:mirrorOn', (e.target as HTMLInputElement).checked)
+}
+function onVolumeInput(e: Event) {
+  emit('update:volume', Number((e.target as HTMLInputElement).value))
+}
+function onToggleKnownRoles() {
+  emit('toggle-known-roles')
 }
 function pickDevice(kind: 'audioinput'|'videoinput', id: string) {
   if (kind === 'audioinput') {
@@ -308,6 +344,96 @@ onBeforeUnmount(() => {
           input:checked + .slider span:last-child {
             color: $bg;
           }
+        }
+      }
+      .switch.switch-wide {
+        label {
+          width: 200px;
+          .slider:before {
+            width: 98px;
+          }
+          input:checked + .slider:before {
+            transform: translateX(100px);
+          }
+        }
+      }
+    }
+    .volume-block {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      .volume-text {
+        height: 18px;
+        color: $fg;
+        font-size: 16px;
+      }
+      .volume {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 5px;
+        gap: 5px;
+        width: 190px;
+        height: 20px;
+        border-radius: 5px;
+        background-color: $graphite;
+        box-shadow: 3px 3px 5px rgba($black, 0.25);
+        -webkit-overflow-scrolling: touch;
+        img {
+          flex: 0 0 auto;
+          width: 20px;
+          height: 20px;
+        }
+        input[type="range"] {
+          flex: 1 1 auto;
+          min-width: 0;
+          height: 8px;
+          accent-color: $fg;
+          cursor: pointer;
+          appearance: none;
+          background: transparent;
+        }
+        span {
+          flex: 0 0 auto;
+          min-width: 32px;
+          text-align: center;
+          font-size: 12px;
+        }
+        input[type="range"]:disabled {
+          cursor: default;
+          opacity: 0.5;
+        }
+        input[type="range"]:focus-visible {
+          outline: 1px solid $fg;
+          outline-offset: 1px;
+        }
+        input[type="range"]::-webkit-slider-runnable-track {
+          height: 6px;
+          border-radius: 3px;
+          background-color: $grey;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          appearance: none;
+          width: 18px;
+          height: 18px;
+          border-radius: 50%;
+          background-color: $fg;
+          border: 3px solid $dark;
+          margin-top: calc(-18px / 2 + 3px);
+        }
+        input[type="range"]::-moz-range-track {
+          height: 6px;
+          border-radius: 3px;
+          background-color: $grey;
+        }
+        input[type="range"]::-moz-range-thumb {
+          width: 16px;
+          height: 16px;
+          border-radius: 50%;
+          background-color: $fg;
+          border: 3px solid $dark;
         }
       }
     }
