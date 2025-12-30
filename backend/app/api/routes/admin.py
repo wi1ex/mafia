@@ -244,19 +244,19 @@ async def rooms_list(page: int = 1, limit: int = 20, username: str | None = None
     user_ids = collect_room_user_ids(rooms)
     name_map, avatar_map = await fetch_user_name_avatar_maps(session, user_ids)
     room_ids = [int(room.id) for room in rooms]
-    games_map: dict[int, list[str]] = {}
+    games_map: dict[int, list[tuple[str, datetime, datetime]]] = {}
     if room_ids:
         game_rows = await session.execute(
-            select(Game.room_id, Game.result, Game.started_at, Game.id)
+            select(Game.room_id, Game.result, Game.started_at, Game.finished_at, Game.id)
             .where(Game.room_id.in_(room_ids))
             .order_by(Game.room_id.asc(), Game.started_at.asc(), Game.id.asc())
         )
-        for room_id, result, _started_at, _game_id in game_rows.all():
+        for room_id, result, started_at, finished_at, _game_id in game_rows.all():
             try:
                 rid_int = int(room_id)
             except Exception:
                 continue
-            games_map.setdefault(rid_int, []).append(str(result))
+            games_map.setdefault(rid_int, []).append((str(result), started_at, finished_at))
 
     items: list[AdminRoomOut] = []
     for room in rooms:
@@ -268,7 +268,14 @@ async def rooms_list(page: int = 1, limit: int = 20, username: str | None = None
         spectators_items = build_room_user_stats(room.spectators_time, name_map)
         stream_items = build_room_user_stats(room.screen_time, name_map)
         room_games = games_map.get(int(room.id), [])
-        game_items = [AdminRoomGameOut(number=index + 1, result=result) for index, result in enumerate(room_games)]
+        game_items: list[AdminRoomGameOut] = []
+        for index, (result, started_at, finished_at) in enumerate(room_games):
+            try:
+                duration_sec = int((finished_at - started_at).total_seconds())
+            except Exception:
+                duration_sec = 0
+            duration_min = max(0, duration_sec // 60)
+            game_items.append(AdminRoomGameOut(number=index + 1, result=result, minutes=duration_min))
 
         items.append(
             AdminRoomOut(

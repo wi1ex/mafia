@@ -432,8 +432,8 @@
                         <div v-if="row.games.length === 0" class="tooltip-empty">Нет данных</div>
                         <div v-else class="tooltip-list">
                           <div v-for="item in row.games" :key="`game-${row.id}-${item.number}`" class="tooltip-row">
-                            <span class="tooltip-id">Игра {{ item.number }}</span>
-                            <span class="tooltip-minutes">{{ formatRoomGameResult(item.result) }}</span>
+                            <span class="tooltip-id">Игра {{ item.number }} - </span>
+                            <span class="tooltip-minutes">{{ formatRoomGameResult(item.result) }} ({{ item.minutes }} мин)</span>
                           </div>
                         </div>
                       </div>
@@ -641,6 +641,7 @@ type RoomUserStat = {
 type RoomGameStat = {
   number: number
   result: string
+  minutes: number
 }
 
 type RoomRow = {
@@ -800,6 +801,7 @@ function normalizeRoomGames(value: unknown): RoomGameStat[] {
     .map((item: any) => ({
       number: Number(item?.number) || 0,
       result: String(item?.result || ''),
+      minutes: Number(item?.minutes) || 0,
     }))
     .filter(item => item.number > 0 && item.result)
 }
