@@ -117,7 +117,9 @@ def site_settings_out(row) -> SiteSettingsOut:
     return SiteSettingsOut(
         registration_enabled=bool(row.registration_enabled),
         rooms_can_create=bool(row.rooms_can_create),
+        rooms_can_enter=bool(row.rooms_can_enter),
         games_can_start=bool(row.games_can_start),
+        streams_can_start=bool(row.streams_can_start),
         rooms_limit_global=int(row.rooms_limit_global),
         rooms_limit_per_user=int(row.rooms_limit_per_user),
     )

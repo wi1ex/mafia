@@ -118,7 +118,10 @@ async def join(sid, data) -> JoinAck:
         r = get_redis()
         params = await r.hgetall(f"room:{rid}:params")
         if not params:
-            return {"ok": False, "error": "room_not_found", "status": 404}
+            return {"ok": False, "error": "room_not_found", "status": 404}      
+
+        if not get_cached_settings().rooms_can_enter:
+            return {"ok": False, "error": "rooms_entry_disabled", "status": 403}
 
         allowed = True
         pending = False
@@ -410,6 +413,9 @@ async def screen(sid, data) -> ScreenAck:
         r = get_redis()
         want_on = bool((data or {}).get("on"))
         target = int((data or {}).get("target") or actor_uid)
+
+        if want_on and not get_cached_settings().streams_can_start:
+            return {"ok": False, "error": "streams_start_disabled", "status": 403}
 
         if not await r.sismember(f"room:{rid}:members", str(target)):
             return {"ok": False, "error": "not_in_room", "status": 403}

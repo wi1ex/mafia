@@ -11,7 +11,9 @@ from ..models.settings import AppSettings
 class AppSettingsSnapshot:
     registration_enabled: bool
     rooms_can_create: bool
+    rooms_can_enter: bool
     games_can_start: bool
+    streams_can_start: bool
     rooms_limit_global: int
     rooms_limit_per_user: int
     game_min_ready_players: int
@@ -31,7 +33,9 @@ def _defaults() -> AppSettingsSnapshot:
     return AppSettingsSnapshot(
         registration_enabled=True,
         rooms_can_create=True,
+        rooms_can_enter=True,
         games_can_start=True,
+        streams_can_start=True,
         rooms_limit_global=100,
         rooms_limit_per_user=3,
         game_min_ready_players=core_settings.GAME_MIN_READY_PLAYERS,
@@ -49,7 +53,9 @@ def _snapshot_from_row(row: AppSettings) -> AppSettingsSnapshot:
     return AppSettingsSnapshot(
         registration_enabled=bool(row.registration_enabled),
         rooms_can_create=bool(row.rooms_can_create),
+        rooms_can_enter=bool(row.rooms_can_enter),
         games_can_start=bool(row.games_can_start),
+        streams_can_start=bool(row.streams_can_start),
         rooms_limit_global=int(row.rooms_limit_global),
         rooms_limit_per_user=int(row.rooms_limit_per_user),
         game_min_ready_players=int(row.game_min_ready_players),
@@ -80,7 +86,9 @@ async def ensure_app_settings(session: AsyncSession) -> AppSettings:
             id=1,
             registration_enabled=defaults.registration_enabled,
             rooms_can_create=defaults.rooms_can_create,
+            rooms_can_enter=defaults.rooms_can_enter,
             games_can_start=defaults.games_can_start,
+            streams_can_start=defaults.streams_can_start,
             rooms_limit_global=defaults.rooms_limit_global,
             rooms_limit_per_user=defaults.rooms_limit_per_user,
             game_min_ready_players=defaults.game_min_ready_players,

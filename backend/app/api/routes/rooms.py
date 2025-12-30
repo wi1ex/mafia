@@ -151,6 +151,9 @@ async def room_info(room_id: int) -> RoomInfoOut:
 @rate_limited(lambda ident, room_id, **_: f"rl:rooms:access:{ident['id']}:{room_id}", limit=5, window_s=1)
 @router.get("/{room_id}/access", response_model=RoomAccessOut)
 async def access(room_id: int, ident: Identity = Depends(get_identity)) -> RoomAccessOut:
+    if not get_cached_settings().rooms_can_enter:
+        return RoomAccessOut(access="none")
+
     r = get_redis()
     params = await get_room_params_or_404(r, room_id)
 
@@ -175,6 +178,9 @@ async def access(room_id: int, ident: Identity = Depends(get_identity)) -> RoomA
 @rate_limited(lambda ident, room_id, **_: f"rl:rooms:apply:{ident['id']}:{room_id}", limit=5, window_s=1)
 @router.post("/{room_id}/apply", response_model=Ok, status_code=202)
 async def apply(room_id: int, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> Ok:
+    if not get_cached_settings().rooms_can_enter:
+        raise HTTPException(status_code=403, detail="rooms_entry_disabled")
+
     r = get_redis()
     params = await get_room_params_or_404(r, room_id)
 

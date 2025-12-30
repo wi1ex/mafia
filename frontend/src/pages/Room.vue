@@ -237,7 +237,7 @@
 <!--          <button v-if="gamePhase === 'idle'" @click="toggleVisibility" :disabled="pending.visibility || blockedSelf.visibility" :aria-pressed="visibilityOn">-->
 <!--            <img :src="stateIcon('visibility', localId)" alt="visibility" />-->
 <!--          </button>-->
-          <button v-if="gamePhase === 'idle' && !IS_MOBILE" @click="toggleScreen" :disabled="pendingScreen || (!!screenOwnerId && screenOwnerId !== localId) || blockedSelf.screen" :aria-pressed="isMyScreen">
+          <button v-if="gamePhase === 'idle' && !IS_MOBILE && settings.streamsCanStart" @click="toggleScreen" :disabled="pendingScreen || (!!screenOwnerId && screenOwnerId !== localId) || blockedSelf.screen" :aria-pressed="isMyScreen">
             <img :src="stateIcon('screen', localId)" alt="screen" />
           </button>
         </div>
@@ -310,7 +310,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { Socket } from 'socket.io-client'
-import { useAuthStore } from '@/store'
+import { useAuthStore, useSettingsStore } from '@/store'
 import { type Ack, type FarewellVerdict, type GamePhase, type SendAckFn, useRoomGame } from '@/composables/roomGame'
 import { Track } from 'livekit-client'
 import { useRTC, type VQ } from '@/composables/rtc'
@@ -376,6 +376,7 @@ type IconKind = keyof StatusState | 'screen'
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
+const settings = useSettingsStore()
 
 const rtc = useRTC()
 const { localId, mics, cams, selectedMicId, selectedCamId, peerIds } = rtc      
@@ -1069,11 +1070,7 @@ socket.value?.on('connect', async () => {
   if (!leaving.value) {
     const ack = await safeJoin()
     if (!ack?.ok) {
-      if (ack?.status === 404 || ack?.status === 410) {
-        void alertDialog('Комната недоступна')
-        router.replace({ name: 'home' }).catch(() => {})
-        return
-      }
+      await handleJoinFailure(ack)
       return
     }
     if (uiReady.value) applyJoinAck(ack)
@@ -1167,8 +1164,12 @@ socket.value?.on('connect', async () => {
     }
   })
 
-  socket.value.on('force_leave', async (_p:any) => {
+  socket.value.on('force_leave', async (p:any) => {
+    const reason = String(p?.reason || '')
     try { await onLeave() } catch {}
+    if (reason === 'admin_kick_all') {
+      void alertDialog('Упс! Кажется пришло обновление... через 5 минут все заработает!')
+    }
   })
 
   socket.value.on('screen_owner', (p: any) => {
@@ -1581,6 +1582,7 @@ const toggleScreen = async () => {
       const resp = await sendAck('screen', { on: true })
       if (!resp || !resp.ok) {
         if (resp?.status === 409 && resp?.owner) screenOwnerId.value = String(resp.owner)
+        else if (resp?.status === 403 && resp?.error === 'streams_start_disabled') void alertDialog('Запуск трансляций отключен')
         else if (resp?.status === 403 && resp?.error === 'blocked') void alertDialog('Стрим запрещён администратором')
         else void alertDialog('Не удалось запустить трансляцию')
         return
@@ -1647,6 +1649,11 @@ async function onMediaGateClick() {
 
 async function handleJoinFailure(j: any) {
   if (leaving.value) return
+  if (j?.status === 403 && j?.error === 'rooms_entry_disabled') {
+    void alertDialog('Вход в комнату заблокирован')
+    await router.replace({ name: 'home', query: { focus: String(rid) } })
+    return
+  }
   if (j?.status === 403 && j?.error === 'private_room') {
     try { await api.post(`/rooms/${rid}/apply`) } catch {}
     void alertDialog('Комната приватная, запрос в комнату отправлен')

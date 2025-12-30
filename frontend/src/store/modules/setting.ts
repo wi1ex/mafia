@@ -5,14 +5,18 @@ import { api } from '@/services/axios'
 export interface PublicSettings {
   registration_enabled: boolean
   rooms_can_create: boolean
+  rooms_can_enter: boolean
   games_can_start: boolean
+  streams_can_start: boolean
   game_min_ready_players: number
 }
 
 export const useSettingsStore = defineStore('settings', () => {
   const registrationEnabled = ref(true)
   const roomsCanCreate = ref(true)
+  const roomsCanEnter = ref(true)
   const gamesCanStart = ref(true)
+  const streamsCanStart = ref(true)
   const gameMinReadyPlayers = ref(4)
   const ready = ref(false)
   let inited = false
@@ -21,7 +25,9 @@ export const useSettingsStore = defineStore('settings', () => {
   function applyPublic(data: PublicSettings) {
     registrationEnabled.value = Boolean(data.registration_enabled)
     roomsCanCreate.value = Boolean(data.rooms_can_create)
+    roomsCanEnter.value = Boolean(data.rooms_can_enter)
     gamesCanStart.value = Boolean(data.games_can_start)
+    streamsCanStart.value = Boolean(data.streams_can_start)
     const minReady = Number(data.game_min_ready_players)
     if (Number.isFinite(minReady) && minReady > 0) gameMinReadyPlayers.value = minReady
   }
@@ -46,7 +52,9 @@ export const useSettingsStore = defineStore('settings', () => {
   return {
     registrationEnabled,
     roomsCanCreate,
+    roomsCanEnter,
     gamesCanStart,
+    streamsCanStart,
     gameMinReadyPlayers,
     ready,
 

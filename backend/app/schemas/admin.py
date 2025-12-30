@@ -1,13 +1,15 @@
 from __future__ import annotations
 from datetime import datetime
-from typing import Optional, List, Literal
+from typing import Optional, List, Literal, Any
 from pydantic import BaseModel, Field
 
 
 class SiteSettingsOut(BaseModel):
     registration_enabled: bool
     rooms_can_create: bool
+    rooms_can_enter: bool
     games_can_start: bool
+    streams_can_start: bool
     rooms_limit_global: int
     rooms_limit_per_user: int
 
@@ -15,7 +17,9 @@ class SiteSettingsOut(BaseModel):
 class SiteSettingsUpdateIn(BaseModel):
     registration_enabled: Optional[bool] = None
     rooms_can_create: Optional[bool] = None
+    rooms_can_enter: Optional[bool] = None
     games_can_start: Optional[bool] = None
+    streams_can_start: Optional[bool] = None
     rooms_limit_global: Optional[int] = Field(default=None, ge=1)
     rooms_limit_per_user: Optional[int] = Field(default=None, ge=1)
 
@@ -55,7 +59,9 @@ class AdminSettingsUpdateIn(BaseModel):
 class PublicSettingsOut(BaseModel):
     registration_enabled: bool
     rooms_can_create: bool
+    rooms_can_enter: bool
     games_can_start: bool
+    streams_can_start: bool
     game_min_ready_players: int
 
 
@@ -174,3 +180,38 @@ class AdminUserRoleIn(BaseModel):
 class AdminUserRoleOut(BaseModel):
     id: int
     role: str
+
+
+class AdminGameUserOut(BaseModel):
+    id: int
+    username: Optional[str] = None
+    avatar_name: Optional[str] = None
+
+
+class AdminGamePlayerOut(BaseModel):
+    seat: int
+    id: int
+    username: Optional[str] = None
+    avatar_name: Optional[str] = None
+    role: str
+    points: int
+    mmr: int
+
+
+class AdminGameOut(BaseModel):
+    id: int
+    room_id: int
+    owner: AdminGameUserOut
+    head: Optional[AdminGameUserOut] = None
+    result: str
+    black_alive_at_finish: int
+    started_at: datetime
+    finished_at: datetime
+    duration_seconds: int
+    players: List[AdminGamePlayerOut]
+    actions: List[Any]
+
+
+class AdminGamesOut(BaseModel):
+    total: int
+    items: List[AdminGameOut]

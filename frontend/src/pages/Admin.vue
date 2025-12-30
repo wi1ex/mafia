@@ -22,6 +22,10 @@
                 :aria-selected="activeTab === 'rooms'" @click="activeTab = 'rooms'">
           Комнаты
         </button>
+        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'games' }"
+                :aria-selected="activeTab === 'games'" @click="activeTab = 'games'">
+          Игры
+        </button>
         <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'users' }"
                 :aria-selected="activeTab === 'users'" @click="activeTab = 'users'">
           Пользователи
@@ -59,6 +63,16 @@
                 </label>
               </div>
               <div class="switch">
+                <span class="switch-label">Вход в комнату</span>
+                <label>
+                  <input type="checkbox" v-model="site.rooms_can_enter" :disabled="savingSettings" aria-label="Вход в комнату" />
+                  <div class="slider">
+                    <span>Откл</span>
+                    <span>Вкл</span>
+                  </div>
+                </label>
+              </div>
+              <div class="switch">
                 <span class="switch-label">Запуск игр</span>
                 <label>
                   <input type="checkbox" v-model="site.games_can_start" :disabled="savingSettings" aria-label="Запуск игр" />
@@ -67,6 +81,21 @@
                     <span>Вкл</span>
                   </div>
                 </label>
+              </div>
+              <div class="switch">
+                <span class="switch-label">Запуск трансляций</span>
+                <label>
+                  <input type="checkbox" v-model="site.streams_can_start" :disabled="savingSettings" aria-label="Запуск трансляций" />
+                  <div class="slider">
+                    <span>Откл</span>
+                    <span>Вкл</span>
+                  </div>
+                </label>
+              </div>
+              <div class="form-actions">
+                <button class="btn danger" :disabled="kickRoomsBusy" @click="kickAllRooms">
+                  Кик из комнат
+                </button>
               </div>
             </div>
 
@@ -166,6 +195,10 @@
                     <button class="btn dark" @click="openEditUpdate(row)">
                       <img class="btn-img" :src="iconEdit" alt="edit" />
                       Изменить
+                    </button>
+                    <button class="btn danger" :disabled="updatesDeleting[row.id]" @click="deleteUpdate(row)">
+                      <img class="btn-img" :src="iconDelete" alt="delete" />
+                      Удалить
                     </button>
                   </td>
                 </tr>
@@ -470,7 +503,90 @@
           </div>
         </div>
 
-        <div v-else>
+        <div v-else-if="activeTab === 'games'">
+          <div class="filters">
+            <label class="field">
+              <span>Никнейм</span>
+              <input type="text" v-model.trim="gamesUser" :disabled="gamesLoading" placeholder="Никнейм" />
+            </label>
+            <label class="field">
+              <span>Дата игры</span>
+              <input type="date" v-model="gamesDay" :disabled="gamesLoading" />
+            </label>
+            <label class="field">
+              <span>Отображать по</span>
+              <select v-model.number="gamesLimit" :disabled="gamesLoading">
+                <option :value="20">20</option>
+                <option :value="100">100</option>
+              </select>
+            </label>
+          </div>
+
+          <div v-if="gamesLoading" class="loading">Загрузка...</div>
+          <div v-else>
+            <table class="table games-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Комната</th>
+                  <th>Владелец</th>
+                  <th>Ведущий</th>
+                  <th>Результат</th>
+                  <th>Черных в живых</th>
+                  <th>Длительность</th>
+                  <th>Старт</th>
+                  <th>Игроки</th>
+                  <th>Действия</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="row in games" :key="row.id">
+                  <td>{{ row.id }}</td>
+                  <td>{{ row.room_id }}</td>
+                  <td>
+                    <div class="user-cell">
+                      <img class="user-avatar" v-minio-img="{ key: row.owner?.avatar_name ? `avatars/${row.owner.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
+                      <span>{{ row.owner?.username || ('user' + row.owner.id) }}</span>
+                    </div>
+                  </td>
+                  <td>
+                    <div v-if="row.head" class="user-cell">
+                      <img class="user-avatar" v-minio-img="{ key: row.head.avatar_name ? `avatars/${row.head.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
+                      <span>{{ row.head.username || ('user' + row.head.id) }}</span>
+                    </div>
+                    <span v-else>-</span>
+                  </td>
+                  <td>{{ formatRoomGameResult(row.result) }}</td>
+                  <td>{{ row.black_alive_at_finish }}</td>
+                  <td>{{ formatGameDuration(row.duration_seconds) }}</td>
+                  <td>{{ formatLocalDateTime(row.started_at) }}</td>
+                  <td class="players-cell">
+                    <ul v-if="row.players.length" class="players-list">
+                      <li v-for="p in row.players" :key="p.id">{{ formatGamePlayer(p) }}</li>
+                    </ul>
+                    <div v-else class="muted">Нет данных</div>
+                  </td>
+                  <td class="actions-cell">
+                    <ul v-if="row.actions.length" class="actions-list">
+                      <li v-for="(a, idx) in row.actions" :key="idx">{{ formatGameAction(a) }}</li>
+                    </ul>
+                    <div v-else class="muted">Нет данных</div>
+                  </td>
+                </tr>
+                <tr v-if="games.length === 0">
+                  <td colspan="10" class="muted">Нет данных</td>
+                </tr>
+              </tbody>
+            </table>
+            <div class="pager">
+              <button class="btn" :disabled="gamesPage <= 1" @click="prevGames">Назад</button>
+              <span>{{ gamesPage }} / {{ gamesPages }}</span>
+              <button class="btn" :disabled="gamesPage >= gamesPages" @click="nextGames">Вперед</button>
+            </div>
+          </div>
+        </div>
+
+        <div v-else-if="activeTab === 'users'">
           <div class="filters">
             <label class="field">
               <span>Никнейм</span>
@@ -562,7 +678,7 @@
 <script setup lang="ts">
 import { onMounted, ref, reactive, computed, watch } from 'vue'
 import { api } from '@/services/axios'
-import { alertDialog } from '@/services/confirm'
+import { alertDialog, confirmDialog } from '@/services/confirm'
 import { formatLocalDateTime } from '@/services/datetime'
 import { useSettingsStore } from '@/store'
 import UpdateModal from '@/components/UpdateModal.vue'
@@ -570,6 +686,7 @@ import UpdateModal from '@/components/UpdateModal.vue'
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
 import iconJudge from '@/assets/svg/judge.svg'
 import iconEdit from '@/assets/svg/edit.svg'
+import iconDelete from '@/assets/svg/delete.svg'
 import iconSave from '@/assets/svg/save.svg'
 
 const DATE_ONLY: Intl.DateTimeFormatOptions = {
@@ -581,7 +698,9 @@ const DATE_ONLY: Intl.DateTimeFormatOptions = {
 type SiteSettings = {
   registration_enabled: boolean
   rooms_can_create: boolean
+  rooms_can_enter: boolean
   games_can_start: boolean
+  streams_can_start: boolean
   rooms_limit_global: number
   rooms_limit_per_user: number
 }
@@ -686,6 +805,36 @@ type UserRow = {
   spectator_minutes: number
 }
 
+type GameUser = {
+  id: number
+  username?: string | null
+  avatar_name?: string | null
+}
+
+type GamePlayer = {
+  seat: number
+  id: number
+  username?: string | null
+  avatar_name?: string | null
+  role: string
+  points: number
+  mmr: number
+}
+
+type GameRow = {
+  id: number
+  room_id: number
+  owner: GameUser
+  head?: GameUser | null
+  result: string
+  black_alive_at_finish: number
+  started_at: string
+  finished_at: string
+  duration_seconds: number
+  players: GamePlayer[]
+  actions: any[]
+}
+
 type UpdateRow = {
   id: number
   version: string
@@ -693,19 +842,22 @@ type UpdateRow = {
   description: string
 }
 
-const activeTab = ref<'settings' | 'updates' | 'stats' | 'logs' | 'rooms' | 'users'>('settings')
+const activeTab = ref<'settings' | 'updates' | 'stats' | 'logs' | 'rooms' | 'games' | 'users'>('settings')
 const loading = ref(true)
 const savingSettings = ref(false)
 const statsLoading = ref(false)
 const logsLoading = ref(false)
 const roomsLoading = ref(false)
+const gamesLoading = ref(false)
 const usersLoading = ref(false)
 const updatesLoading = ref(false)
 
 const site = reactive<SiteSettings>({
   registration_enabled: true,
   rooms_can_create: true,
+  rooms_can_enter: true,
   games_can_start: true,
+  streams_can_start: true,
   rooms_limit_global: 100,
   rooms_limit_per_user: 3,
 })
@@ -765,6 +917,13 @@ const roomsLimit = ref(20)
 const roomsUser = ref('')
 const roomsStreamOnly = ref(false)
 
+const games = ref<GameRow[]>([])
+const gamesTotal = ref(0)
+const gamesPage = ref(1)
+const gamesLimit = ref(20)
+const gamesUser = ref('')
+const gamesDay = ref('')
+
 const users = ref<UserRow[]>([])
 const usersTotal = ref(0)
 const usersPage = ref(1)
@@ -776,8 +935,11 @@ const updateModalOpen = ref(false)
 const updateSaving = ref(false)
 const updateEditing = ref<UpdateRow | null>(null)
 const updateForm = reactive({ version: '', date: '', description: '' })
+const updatesDeleting = reactive<Record<number, boolean>>({})
+const kickRoomsBusy = ref(false)
 let logsUserTimer: number | undefined
 let roomsUserTimer: number | undefined
+let gamesUserTimer: number | undefined
 let usersUserTimer: number | undefined
 
 function normalizeInt(value: number): number {
@@ -810,7 +972,9 @@ function snapshotSite(): string {
   return JSON.stringify({
     registration_enabled: Boolean(site.registration_enabled),
     rooms_can_create: Boolean(site.rooms_can_create),
+    rooms_can_enter: Boolean(site.rooms_can_enter),
     games_can_start: Boolean(site.games_can_start),
+    streams_can_start: Boolean(site.streams_can_start),
     rooms_limit_global: normalizeInt(site.rooms_limit_global),
     rooms_limit_per_user: normalizeInt(site.rooms_limit_per_user),
   })
@@ -834,6 +998,7 @@ const isGameDirty = computed(() => gameSnapshot.value !== snapshotGame())
 const isSettingsDirty = computed(() => isSiteDirty.value || isGameDirty.value)
 const logsPages = computed(() => Math.max(1, Math.ceil(logsTotal.value / logsLimit.value)))
 const roomsPages = computed(() => Math.max(1, Math.ceil(roomsTotal.value / roomsLimit.value)))
+const gamesPages = computed(() => Math.max(1, Math.ceil(gamesTotal.value / gamesLimit.value)))
 const usersPages = computed(() => Math.max(1, Math.ceil(usersTotal.value / usersLimit.value)))
 const registrationsMax = computed(() => {
   const vals = stats.registrations.map(p => p.count)
@@ -879,6 +1044,32 @@ function formatRoomGameResult(result: string): string {
   return result || '-'
 }
 
+function formatRoleName(role: string): string {
+  if (role === 'citizen') return 'Мирный'
+  if (role === 'mafia') return 'Мафия'
+  if (role === 'don') return 'Дон'
+  if (role === 'sheriff') return 'Шериф'
+  return role || '-'
+}
+
+function formatGameDuration(seconds: number): string {
+  const total = Math.max(0, Number(seconds) || 0)
+  const mins = Math.floor(total / 60)
+  const secs = Math.floor(total % 60)
+  return `${mins}:${String(secs).padStart(2, '0')}`
+}
+
+function formatGamePlayer(player: GamePlayer): string {
+  const name = player.username || `user${player.id}`
+  const role = formatRoleName(player.role)
+  return `${player.seat}. ${name} ${role} ${player.points} ${player.mmr}`
+}
+
+function formatGameAction(action: any): string {
+  if (typeof action === 'string') return action
+  try { return JSON.stringify(action) } catch { return String(action) }
+}
+
 function registrationHeight(count: number): string {
   const max = registrationsMax.value || 1
   const pct = Math.round((count / max) * 85)
@@ -910,7 +1101,9 @@ async function saveSettings(): Promise<void> {
       site: {
         registration_enabled: Boolean(site.registration_enabled),
         rooms_can_create: Boolean(site.rooms_can_create),
+        rooms_can_enter: Boolean(site.rooms_can_enter),
         games_can_start: Boolean(site.games_can_start),
+        streams_can_start: Boolean(site.streams_can_start),
         rooms_limit_global: normalizeInt(site.rooms_limit_global),
         rooms_limit_per_user: normalizeInt(site.rooms_limit_per_user),
       },
@@ -933,7 +1126,9 @@ async function saveSettings(): Promise<void> {
     settingsStore.applyPublic({
       registration_enabled: site.registration_enabled,
       rooms_can_create: site.rooms_can_create,
+      rooms_can_enter: site.rooms_can_enter,
       games_can_start: site.games_can_start,
+      streams_can_start: site.streams_can_start,
       game_min_ready_players: game.game_min_ready_players,
     })
     void alertDialog('Настройки сохранены')
@@ -1040,6 +1235,33 @@ async function loadRooms(): Promise<void> {
   }
 }
 
+async function loadGames(): Promise<void> {
+  if (gamesLoading.value) return
+  gamesLoading.value = true
+  try {
+    const params: Record<string, any> = {
+      page: gamesPage.value,
+      limit: gamesLimit.value,
+    }
+    if (gamesUser.value) params.username = gamesUser.value
+    if (gamesDay.value) params.day = gamesDay.value
+    const { data } = await api.get('/admin/games', { params })
+    const items = Array.isArray(data?.items) ? data.items : []
+    games.value = items.map((item: any) => ({
+      ...item,
+      owner: item?.owner || { id: 0, username: null, avatar_name: null },
+      head: item?.head || null,
+      players: Array.isArray(item?.players) ? item.players : [],
+      actions: Array.isArray(item?.actions) ? item.actions : [],
+    }))
+    gamesTotal.value = Number.isFinite(data?.total) ? data.total : 0
+  } catch {
+    void alertDialog('Не удалось загрузить игры')
+  } finally {
+    gamesLoading.value = false
+  }
+}
+
 async function loadUsers(): Promise<void> {
   if (usersLoading.value) return
   usersLoading.value = true
@@ -1091,6 +1313,27 @@ function openEditUpdate(row: UpdateRow) {
   updateModalOpen.value = true
 }
 
+async function deleteUpdate(row: UpdateRow): Promise<void> {
+  if (updatesDeleting[row.id]) return
+  const ok = await confirmDialog({
+    title: 'Удалить обновление',
+    text: `Удалить обновление версии ${row.version}?`,
+    confirmText: 'Удалить',
+    cancelText: 'Отмена',
+  })
+  if (!ok) return
+  updatesDeleting[row.id] = true
+  try {
+    await api.delete(`/admin/updates/${row.id}`)
+    updates.value = updates.value.filter(item => item.id !== row.id)
+    void alertDialog('Обновление удалено')
+  } catch {
+    void alertDialog('Не удалось удалить обновление')
+  } finally {
+    updatesDeleting[row.id] = false
+  }
+}
+
 async function saveUpdate(): Promise<void> {
   if (updateSaving.value || !canSaveUpdate.value) return
   updateSaving.value = true
@@ -1116,6 +1359,26 @@ async function saveUpdate(): Promise<void> {
   }
 }
 
+async function kickAllRooms(): Promise<void> {
+  if (kickRoomsBusy.value) return
+  const ok = await confirmDialog({
+    title: 'Кик из комнат',
+    text: 'Кикнуть всех пользователей из всех активных комнат?',
+    confirmText: 'Кикнуть',
+    cancelText: 'Отмена',
+  })
+  if (!ok) return
+  kickRoomsBusy.value = true
+  try {
+    await api.post('/admin/rooms/kick')
+    void alertDialog('Пользователи кикнуты из комнат')
+  } catch {
+    void alertDialog('Не удалось кикнуть пользователей')
+  } finally {
+    kickRoomsBusy.value = false
+  }
+}
+
 function nextLogs(): void {
   if (logsPage.value >= logsPages.value) return
   logsPage.value += 1
@@ -1138,6 +1401,18 @@ function prevRooms(): void {
   if (roomsPage.value <= 1) return
   roomsPage.value -= 1
   void loadRooms()
+}
+
+function nextGames(): void {
+  if (gamesPage.value >= gamesPages.value) return
+  gamesPage.value += 1
+  void loadGames()
+}
+
+function prevGames(): void {
+  if (gamesPage.value <= 1) return
+  gamesPage.value -= 1
+  void loadGames()
 }
 
 function nextUsers(): void {
@@ -1184,6 +1459,10 @@ watch(activeTab, (tab) => {
     void loadRooms()
     return
   }
+  if (tab === 'games') {
+    void loadGames()
+    return
+  }
   if (tab === 'users') {
     void loadUsers()
   }
@@ -1218,6 +1497,19 @@ watch(roomsUser, () => {
   if (activeTab.value !== 'rooms') return
   if (roomsUserTimer) window.clearTimeout(roomsUserTimer)
   roomsUserTimer = window.setTimeout(() => { void loadRooms() }, 500)
+})
+
+watch([gamesLimit, gamesDay], () => {
+  gamesPage.value = 1
+  if (activeTab.value !== 'games') return
+  void loadGames()
+})
+
+watch(gamesUser, () => {
+  gamesPage.value = 1
+  if (activeTab.value !== 'games') return
+  if (gamesUserTimer) window.clearTimeout(gamesUserTimer)
+  gamesUserTimer = window.setTimeout(() => { void loadGames() }, 500)
 })
 
 watch(usersLimit, () => {
@@ -1607,6 +1899,20 @@ onMounted(() => {
         padding: 10px;
         border-bottom: 1px solid $lead;
         font-size: 14px;
+      }
+      .players-cell,
+      .actions-cell {
+        min-width: 240px;
+        white-space: normal;
+      }
+      .players-list,
+      .actions-list {
+        margin: 0;
+        padding-left: 18px;
+      }
+      .actions-list {
+        max-height: 180px;
+        overflow: auto;
       }
       .user-cell {
         display: inline-flex;

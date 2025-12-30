@@ -1,9 +1,10 @@
 from __future__ import annotations
 from typing import cast
 from contextlib import suppress
+from time import time
 from datetime import date, datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select, func, or_
+from sqlalchemy import select, func, or_, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from ...core.clients import get_redis
 from ...core.db import get_session
@@ -11,10 +12,12 @@ from ...models.log import AppLog
 from ...models.game import Game
 from ...models.room import Room
 from ...models.user import User
-from ...models.update import SiteUpdate
+from ...models.update import SiteUpdate, UpdateRead
 from ...realtime.sio import sio
+from ...realtime.utils import leave_room_atomic, stop_screen_for_user, emit_rooms_occupancy_safe, record_spectator_leave
 from ...security.decorators import log_route, require_roles_deco
 from ...security.parameters import ensure_app_settings, sync_cache_from_row, refresh_app_settings
+from ...schemas.common import Ok
 from ...schemas.updates import AdminUpdateIn, AdminUpdateOut, AdminUpdatesOut
 from ...schemas.admin import (
     AdminSettingsOut,
@@ -32,6 +35,10 @@ from ...schemas.admin import (
     AdminUsersOut,
     AdminUserRoleIn,
     AdminUserRoleOut,
+    AdminGameOut,
+    AdminGamesOut,
+    AdminGameUserOut,
+    AdminGamePlayerOut,
 )
 from ..utils import (
     parse_month_range,
@@ -63,7 +70,9 @@ async def public_settings(session: AsyncSession = Depends(get_session)) -> Publi
     return PublicSettingsOut(
         registration_enabled=settings.registration_enabled,
         rooms_can_create=settings.rooms_can_create,
+        rooms_can_enter=settings.rooms_can_enter,
         games_can_start=settings.games_can_start,
+        streams_can_start=settings.streams_can_start,
         game_min_ready_players=settings.game_min_ready_players,
     )
 
@@ -308,6 +317,204 @@ async def rooms_list(page: int = 1, limit: int = 20, username: str | None = None
     return AdminRoomsOut(total=total, items=items)
 
 
+@log_route("admin.rooms.kick_all")
+@require_roles_deco("admin")
+@router.post("/rooms/kick", response_model=Ok)
+async def rooms_kick_all() -> Ok:
+    r = get_redis()
+    try:
+        room_ids_raw = await r.zrange("rooms:index", 0, -1)
+    except Exception:
+        room_ids_raw = []
+
+    for raw_id in room_ids_raw:
+        try:
+            rid = int(raw_id)
+        except Exception:
+            continue
+
+        try:
+            members_raw = await r.smembers(f"room:{rid}:members")
+        except Exception:
+            members_raw = set()
+        try:
+            spectators_raw = await r.smembers(f"room:{rid}:spectators")
+        except Exception:
+            spectators_raw = set()
+
+        member_ids: set[int] = set()
+        for v in members_raw or []:
+            try:
+                member_ids.add(int(v))
+            except Exception:
+                continue
+
+        spectator_ids: set[int] = set()
+        for v in spectators_raw or []:
+            try:
+                spectator_ids.add(int(v))
+            except Exception:
+                continue
+
+        for uid in member_ids:
+            await sio.emit("force_leave",
+                           {"room_id": rid, "reason": "admin_kick_all"},
+                           room=f"user:{uid}",
+                           namespace="/room")
+            try:
+                await stop_screen_for_user(r, rid, uid)
+                occ, _, pos_updates = await leave_room_atomic(r, rid, uid)
+            except Exception:
+                continue
+
+            try:
+                await r.srem(f"room:{rid}:ready", str(uid))
+            except Exception:
+                pass
+            try:
+                await r.delete(f"room:{rid}:user:{uid}:epoch")
+            except Exception:
+                pass
+
+            await sio.emit("member_left",
+                           {"user_id": uid},
+                           room=f"room:{rid}",
+                           namespace="/room")
+            if pos_updates:
+                await sio.emit("positions",
+                               {"updates": [{"user_id": u, "position": p} for u, p in pos_updates]},
+                               room=f"room:{rid}",
+                               namespace="/room")
+            await emit_rooms_occupancy_safe(r, rid, occ)
+
+        for uid in spectator_ids - member_ids:
+            await sio.emit("force_leave",
+                           {"room_id": rid, "reason": "admin_kick_all"},
+                           room=f"user:{uid}",
+                           namespace="/room")
+            try:
+                await record_spectator_leave(r, rid, uid, int(time()))
+            except Exception:
+                pass
+
+    return Ok()
+
+
+@log_route("admin.games.list")
+@require_roles_deco("admin")
+@router.get("/games", response_model=AdminGamesOut)
+async def games_list(page: int = 1, limit: int = 20, username: str | None = None, day: date | None = None, session: AsyncSession = Depends(get_session)) -> AdminGamesOut:
+    limit, page, offset = normalize_pagination(page, limit)
+    filters = []
+    if day:
+        start_dt, end_dt = parse_day_range(day)
+        filters.append(Game.started_at >= start_dt)
+        filters.append(Game.started_at < end_dt)
+
+    if username:
+        rows = await session.execute(select(User.id).where(User.username.ilike(f"%{username}%")))
+        ids = [int(x[0]) for x in rows.all()]
+        if not ids:
+            return AdminGamesOut(total=0, items=[])
+
+        role_filters = [Game.roles.has_key(str(uid)) for uid in ids]
+        filters.append(or_(Game.head_id.in_(ids), *role_filters))
+
+    total = int(await session.scalar(select(func.count(Game.id)).where(*filters)) or 0)
+    rows = await session.execute(select(Game).where(*filters).order_by(Game.started_at.desc(), Game.id.desc()).offset(offset).limit(limit))
+    games = rows.scalars().all()
+
+    user_ids: set[int] = set()
+    for game in games:
+        try:
+            user_ids.add(int(game.room_owner_id))
+        except Exception:
+            pass
+        if game.head_id:
+            try:
+                user_ids.add(int(game.head_id))
+            except Exception:
+                pass
+        seats_map = game.seats or {}
+        if isinstance(seats_map, dict):
+            for uid in seats_map.keys():
+                try:
+                    user_ids.add(int(uid))
+                except Exception:
+                    continue
+
+    user_map: dict[int, tuple[str | None, str | None]] = {}
+    if user_ids:
+        rows = await session.execute(select(User.id, User.username, User.avatar_name).where(User.id.in_(user_ids)))
+        for uid, uname, ava in rows.all():
+            user_map[int(uid)] = (uname, ava)
+
+    items: list[AdminGameOut] = []
+    for game in games:
+        owner_id = int(game.room_owner_id)
+        owner_info = user_map.get(owner_id, (None, None))
+        owner = AdminGameUserOut(id=owner_id, username=owner_info[0], avatar_name=owner_info[1])
+
+        head = None
+        if game.head_id:
+            head_id = int(game.head_id)
+            head_info = user_map.get(head_id, (None, None))
+            head = AdminGameUserOut(id=head_id, username=head_info[0], avatar_name=head_info[1])
+
+        roles_map = game.roles or {}
+        seats_map = game.seats or {}
+        points_map = game.points or {}
+        mmr_map = game.mmr or {}
+
+        players: list[AdminGamePlayerOut] = []
+        if isinstance(seats_map, dict):
+            for uid_raw, seat_raw in seats_map.items():
+                try:
+                    uid = int(uid_raw)
+                    seat = int(seat_raw or 0)
+                except Exception:
+                    continue
+                if seat <= 0:
+                    continue
+
+                user_info = user_map.get(uid, (None, None))
+                role = str(roles_map.get(str(uid)) or "")
+                points = int(points_map.get(str(uid)) or 0)
+                mmr = int(mmr_map.get(str(uid)) or 0)
+                players.append(AdminGamePlayerOut(
+                    seat=seat,
+                    id=uid,
+                    username=user_info[0],
+                    avatar_name=user_info[1],
+                    role=role,
+                    points=points,
+                    mmr=mmr,
+                ))
+        players.sort(key=lambda p: p.seat)
+
+        try:
+            duration_seconds = int((game.finished_at - game.started_at).total_seconds())
+        except Exception:
+            duration_seconds = 0
+        duration_seconds = max(0, duration_seconds)
+
+        items.append(AdminGameOut(
+            id=int(game.id),
+            room_id=int(game.room_id),
+            owner=owner,
+            head=head,
+            result=str(game.result),
+            black_alive_at_finish=int(game.black_alive_at_finish),
+            started_at=game.started_at,
+            finished_at=game.finished_at,
+            duration_seconds=duration_seconds,
+            players=players,
+            actions=list(game.actions or []),
+        ))
+
+    return AdminGamesOut(total=total, items=items)
+
+
 @log_route("admin.users.list")
 @require_roles_deco("admin")
 @router.get("/users", response_model=AdminUsersOut)
@@ -414,3 +621,17 @@ async def updates_update(update_id: int, payload: AdminUpdateIn, session: AsyncS
     await session.refresh(row)
 
     return AdminUpdateOut(id=row.id, version=row.version, date=row.update_date, description=row.description)
+
+
+@log_route("admin.updates.delete")
+@require_roles_deco("admin")
+@router.delete("/updates/{update_id}", response_model=Ok)
+async def updates_delete(update_id: int, session: AsyncSession = Depends(get_session)) -> Ok:
+    row = await session.get(SiteUpdate, int(update_id))
+    if not row:
+        raise HTTPException(status_code=404, detail="update_not_found")
+
+    await session.execute(delete(UpdateRead).where(UpdateRead.update_id == int(update_id)))
+    await session.delete(row)
+    await session.commit()
+    return Ok()

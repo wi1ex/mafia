@@ -128,6 +128,7 @@
             <button v-else-if="ctaState==='watch'" :disabled="entering" @click="onEnter">Смотреть</button>
             <button v-else-if="ctaState==='spectators_full'" disabled>Лимит зрителей</button>
             <button v-else-if="ctaState==='in_game'" disabled>Идёт игра</button>
+            <button v-else-if="ctaState==='blocked'" disabled>Вход заблокирован</button>
             <button v-else disabled>Авторизуйтесь, чтобы войти</button>
           </div>
         </div>
@@ -251,9 +252,10 @@ const isGameParticipant = computed(() => {
   return members.some(m => m.id === uid && (m.role === 'head' || m.role === 'player'))
 })
 
-type Cta = 'login' | 'enter' | 'full' | 'apply' | 'pending' | 'in_game' | 'watch' | 'spectators_full'
+type Cta = 'login' | 'enter' | 'full' | 'apply' | 'pending' | 'in_game' | 'watch' | 'spectators_full' | 'blocked'
 const ctaState = computed<Cta>(() => {
   const room = selectedRoom.value
+  if (room && !settings.roomsCanEnter) return 'blocked'
   if (!auth.isAuthed || !room) return 'login'
   if (room.in_game) {
     if (isGameParticipant.value) return 'enter'
