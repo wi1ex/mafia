@@ -123,23 +123,26 @@ export const useAuthStore = defineStore('auth', () => {
 
   function wipeLocalAlways() {
     try {
-      delLS(['audioDeviceId', 'videoDeviceId', 'roomRolesVisible', 'room:mirror', 'bgm:volume'])
+      delLS([
+        'audioDeviceId',
+        'videoDeviceId',
+        'roomRolesVisible',
+        'room:mirror',
+        'bgm:volume',
+        'auth:sid',
+        'auth:lock',
+        'room:videoQuality',
+        'room:lastRoom',
+        'room:lastGame'
+      ])
       scanAndDel(['vol:', 'loglevel:', 'room:'])
-      delLS(['auth:sid', 'auth:lock'])
       try { sessionStorage.clear() } catch {}
-    } catch {}
-  }
-
-  function wipeLocalOnAccountChange() {
-    try {
-      delLS(['room:videoQuality', 'room:lastRoom', 'room:lastGame'])
     } catch {}
   }
 
   function wipeLocalForNewLogin(opts?: { userChanged?: boolean }) {
     if (!opts?.userChanged) return
     wipeLocalAlways()
-    wipeLocalOnAccountChange()
   }
 
   async function signInWithTelegram(tg: TgUser): Promise<void> {
