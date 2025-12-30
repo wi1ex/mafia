@@ -3610,21 +3610,17 @@ async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
                     merged_screen_time = {**(rm.screen_time or {}), **screen_time_patch}
                     spectators_time_patch = {str(uid): max(0, sec) for uid, sec in spectators_map_sec.items()}
                     merged_spectators_time = {**(rm.spectators_time or {}), **spectators_time_patch}
-                    total_stream_sec = 0
-                    for v in merged_screen_time.values():
-                        try:
-                            total_stream_sec += int(v or 0)
-                        except Exception:
-                            continue
 
-                    games_count = 0
-                    try:
-                        res = await s.execute(select(func.count(Game.id)).where(Game.room_id == rid))
-                        games_count = int(res.scalar() or 0)
-                    except Exception:
-                        log.exception("gc.room_games_count_failed", rid=rid)
-                    purge_room = unique_user_count <= 1 and games_count == 0
-                    if purge_room:
+                    if unique_user_count <= 1:
+                        details = f"Удаление комнаты room_id={rid} title={rm_title} count_users={unique_visitors}"
+                        await log_action(
+                            s,
+                            user_id=rm_creator,
+                            username=rm_creator_name,
+                            action="room_deleted",
+                            details=details,
+                            commit=False,
+                        )
                         await s.execute(delete(Room).where(Room.id == rid))
                         await s.commit()
                         await r.srem(f"user:{rm_creator}:rooms", str(rid))
@@ -3634,6 +3630,18 @@ async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
                             lifetime_sec = int((now_dt - rm.created_at).total_seconds())
                         except Exception:
                             lifetime_sec = None
+                        total_stream_sec = 0
+                        for v in merged_screen_time.values():
+                            try:
+                                total_stream_sec += int(v or 0)
+                            except Exception:
+                                continue
+                        games_count = 0
+                        try:
+                            res = await s.execute(select(func.count(Game.id)).where(Game.room_id == rid))
+                            games_count = int(res.scalar() or 0)
+                        except Exception:
+                            log.exception("gc.room_games_count_failed", rid=rid)
                         
                         rm.visitors = {**(rm.visitors or {}), **{str(k): v for k, v in visitors_map.items()}}
                         rm.screen_time = merged_screen_time
