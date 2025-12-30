@@ -1385,7 +1385,18 @@ async def schedule_foul_block(rid: int, target_uid: int, head_uid: int, duration
         sec = 3
 
     await asyncio.sleep(max(0, sec))
+
     r = get_redis()
+    try:
+        raw_state = await r.hgetall(f"room:{rid}:game_state")
+    except Exception:
+        raw_state = None
+
+    raw_state = raw_state or {}
+    phase = str(raw_state.get("phase") or "")
+    if phase == "idle":
+        return
+
     if expected_until is not None:
         try:
             cur_until_raw = await r.hget(f"room:{rid}:foul_active", str(target_uid))
@@ -1396,13 +1407,8 @@ async def schedule_foul_block(rid: int, target_uid: int, head_uid: int, duration
             return
 
     keep_mic_on = False
-    try:
-        raw_state = await r.hgetall(f"room:{rid}:game_state")
-    except Exception:
-        raw_state = None
     if raw_state:
         try:
-            phase = str(raw_state.get("phase") or "")
             if phase == "day":
                 cur_uid = int(raw_state.get("day_current_uid") or 0)
                 started = int(raw_state.get("day_speech_started") or 0)
@@ -1587,7 +1593,7 @@ def farewell_formula(x: int) -> int:
     if x <= 0:
         return 0
 
-    return (x // 2) + ((x + (x // 6)) // 3)
+    return (x // 2) + 1
 
 
 async def compute_farewell_limit(r, rid: int, speaker_uid: int, *, mode: str = "killed") -> int:

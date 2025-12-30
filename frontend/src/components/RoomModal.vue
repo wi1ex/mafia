@@ -171,7 +171,7 @@ const gameLimitMin = computed(() => {
   const minReady = Number(settings.gameMinReadyPlayers)
   return Number.isFinite(minReady) && minReady > 0 ? minReady + 1 : 11
 })
-const canOpenGameTab = computed(() => limit.value >= gameLimitMin.value)
+const canOpenGameTab = computed(() => limit.value === gameLimitMin.value)
 function openTab(t: 'room' | 'game') {
   if (t === 'game' && !canOpenGameTab.value) return
   tab.value = t

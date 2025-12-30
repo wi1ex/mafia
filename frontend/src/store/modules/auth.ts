@@ -53,6 +53,17 @@ export const useAuthStore = defineStore('auth', () => {
     delLS(extra)
   }
 
+  function scanAndDelContains(parts: string[]) {
+    const extra: string[] = []
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i)!
+        if (parts.some(p => k.includes(p))) extra.push(k)
+      }
+    } catch {}
+    delLS(extra)
+  }
+
   function bindBus() {
     if (busInited) return
     initSessionBus()
@@ -121,28 +132,19 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  function wipeLocalAlways() {
+  function wipeLocalForNewLogin(opts?: { userChanged?: boolean }) {
     try {
+      try { sessionStorage.clear() } catch {}
+      scanAndDelContains(['apps_seen'])
+      if (!opts?.userChanged) return
       delLS([
-        'audioDeviceId',
-        'videoDeviceId',
-        'roomRolesVisible',
-        'room:mirror',
-        'bgm:volume',
         'auth:sid',
         'auth:lock',
-        'room:videoQuality',
         'room:lastRoom',
         'room:lastGame'
       ])
       scanAndDel(['vol:', 'loglevel:', 'room:'])
-      try { sessionStorage.clear() } catch {}
     } catch {}
-  }
-
-  function wipeLocalForNewLogin(opts?: { userChanged?: boolean }) {
-    if (!opts?.userChanged) return
-    wipeLocalAlways()
   }
 
   async function signInWithTelegram(tg: TgUser): Promise<void> {
