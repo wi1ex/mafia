@@ -73,6 +73,7 @@
 <script setup lang="ts">
 import { onMounted, onBeforeUnmount, watch, nextTick, ref } from 'vue'
 import { useAuthStore, useUserStore, useNotifStore, useSettingsStore, useUpdatesStore } from '@/store'
+import { alertDialog } from '@/services/confirm'
 import Notifs from '@/components/Notifs.vue'
 import Updates from '@/components/Updates.vue'
 
@@ -123,7 +124,6 @@ function onGlobalPointerDown(e: PointerEvent) {
 }
 
 const BOT = import.meta.env.VITE_TG_BOT_NAME as string || ''
-const BOT_ID = Number(import.meta.env.VITE_TG_BOT_ID || 0)
 const BUILD = import.meta.env.VITE_BUILD_ID as string || ''
 const SIZE: 'large' | 'medium' | 'small' = 'large'
 let TG_LIB_ONCE = false
@@ -132,39 +132,9 @@ declare global {
   interface Window { __tg_cb__?: (u: any) => void }
 }
 
-function getTelegramLogoutUrl(): string | null {
-  if (!BOT_ID) return null
-  const params = new URLSearchParams({
-    bot_id: String(BOT_ID),
-    origin: window.location.origin,
-    return_to: window.location.href,
-  })
-  return `https://oauth.telegram.org/auth/logout?${params.toString()}`
-}
-
-function startTelegramHardLogout(): void {
-  const url = getTelegramLogoutUrl()
-  if (!url) return
-  try {
-    const popup = window.open(url, '_blank', 'popup,width=1,height=1,left=-1000,top=-1000')
-    if (popup) {
-      setTimeout(() => { try { popup.close() } catch {} }, 1200)
-      return
-    }
-  } catch {}
-  try {
-    const iframe = document.createElement('iframe')
-    iframe.src = url
-    iframe.style.display = 'none'
-    iframe.setAttribute('aria-hidden', 'true')
-    document.body.appendChild(iframe)
-    setTimeout(() => { try { iframe.remove() } catch {} }, 1200)
-  } catch {}
-}
-
 async function logout() {
-  startTelegramHardLogout()
-  await auth.logout()
+  try { await auth.logout() }
+  finally { void alertDialog('Для "полного" выхода нажмите в Telegram "Terminate session"') }
 }
 
 function mountTGWidget() {
