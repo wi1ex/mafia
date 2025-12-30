@@ -532,7 +532,6 @@
                   <th>Владелец</th>
                   <th>Ведущий</th>
                   <th>Результат</th>
-                  <th>Черных в живых</th>
                   <th>Длительность</th>
                   <th>Старт</th>
                   <th>Игроки</th>
@@ -556,8 +555,7 @@
                     </div>
                     <span v-else>-</span>
                   </td>
-                  <td>{{ formatRoomGameResult(row.result) }}</td>
-                  <td>{{ row.black_alive_at_finish }}</td>
+                  <td>{{ formatRoomGameResult(row.result) }} {{ row.black_alive_at_finish }}/{{ row.black_alive_at_finish }}</td>
                   <td>{{ formatGameDuration(row.duration_seconds) }}</td>
                   <td>{{ formatLocalDateTime(row.started_at) }}</td>
                   <td class="players-cell">
@@ -574,7 +572,7 @@
                   </td>
                 </tr>
                 <tr v-if="games.length === 0">
-                  <td colspan="10" class="muted">Нет данных</td>
+                  <td colspan="9" class="muted">Нет данных</td>
                 </tr>
               </tbody>
             </table>
@@ -1693,6 +1691,7 @@ onMounted(() => {
           display: flex;
           align-items: center;
           justify-content: space-between;
+          margin-bottom: 10px;
           .switch-label {
             height: 18px;
           }
@@ -1749,9 +1748,6 @@ onMounted(() => {
               cursor: not-allowed;
             }
           }
-        }
-        .switch + .switch {
-          margin-top: 10px;
         }
       }
       .form-actions {
