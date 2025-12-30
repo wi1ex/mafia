@@ -1614,8 +1614,15 @@ async def compute_farewell_allowed(r, rid: int, speaker_uid: int, *, mode: str =
                 day_number = int(await r.hget(f"room:{rid}:game_state", "day_number") or 0)
             except Exception:
                 day_number = 0
+
             if day_number == 1:
-                return False
+                try:
+                    lift_state = str(await r.hget(f"room:{rid}:game_state", "vote_lift_state") or "")
+                except Exception:
+                    lift_state = ""
+
+                if lift_state != "passed":
+                    return False
 
     try:
         raw_roles = await r.hgetall(f"room:{rid}:game_roles")
@@ -1937,16 +1944,18 @@ async def finish_vote_speech(r, rid: int, raw_gstate: Mapping[str, Any], speaker
     speeches_done = False
     if kind == "farewell":
         skip_death = False
-        if ctx.gint("day_number") == 1 and len(leaders) == 1:
-            try:
-                raw_game = await r.hgetall(f"room:{rid}:game")
-            except Exception:
-                raw_game = {}
-            if not game_flag(raw_game, "break_at_zero", True):
-                skip_death = True
+        try:
+            raw_game = await r.hgetall(f"room:{rid}:game")
+        except Exception:
+            raw_game = {}
+
+        if ctx.gint("day_number") == 1 and len(leaders) == 1 and not game_flag(raw_game, "break_at_zero", True):
+            skip_death = True
+
         if not skip_death:
             await process_player_death(r, rid, speaker_uid, head_uid=head_uid, phase_override="vote", reason=reason_override or "vote")
             killed = True
+
         if leaders and leader_idx >= len(leaders):
             speeches_done = True
     else:

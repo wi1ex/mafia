@@ -4,7 +4,7 @@
            :style="{ objectFit: fitContain ? 'contain' : 'cover' }" />
 
     <div class="icon-badge left" v-if="isReady(id)" aria-hidden="true">
-      <img :src="iconReady" alt="ready" />
+      <img :src="iconReadyGreen" alt="ready" />
     </div>
 
     <img v-if="hasVoted" class="icon-voted" :src="iconLikeGreen" alt="voted" />
@@ -112,7 +112,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
-import iconReady from '@/assets/svg/ready.svg'
+import iconReadyGreen from '@/assets/svg/readyGreen.svg'
 import iconLeaveRoom from '@/assets/svg/leave.svg'
 import iconFoul from '@/assets/svg/foul.svg'
 import iconRoleCitizen from '@/assets/images/roleCitizen.png'
@@ -728,8 +728,8 @@ const timelineDurationSec = computed(() => {
 }
 .tile.side {
   aspect-ratio: 16 / 9;
-  min-width: 240px;
-  min-height: 135px;
+  min-width: 320px;
+  min-height: 180px;
 }
 
 @keyframes role-timer-decrease {
@@ -904,6 +904,10 @@ const timelineDurationSec = computed(() => {
     .role-timer {
       height: 3px;
     }
+  }
+  .tile.side {
+    min-width: 240px;
+    min-height: 135px;
   }
 }
 </style>

@@ -68,7 +68,7 @@
                 <li v-for="it in cams" :key="it.deviceId" class="option" :aria-selected="it.deviceId === camId"
                     :class="{ selected: it.deviceId === camId }" @click="selectCam(it.deviceId)">
                   <span>{{ it.label || 'Камера' }}</span>
-                  <img v-if="it.deviceId === camId" :src="iconReady" alt="ready" />
+                  <img v-if="it.deviceId === camId" :src="iconReadyGreen" alt="ready" />
                 </li>
                 <li v-if="cams.length === 0" class="empty" aria-disabled="true">Нет устройств</li>
               </ul>
@@ -88,7 +88,7 @@
                 <li v-for="it in mics" :key="it.deviceId" class="option" :aria-selected="it.deviceId === micId"
                     :class="{ selected: it.deviceId === micId }" @click="selectMic(it.deviceId)">
                   <span>{{ it.label || 'Микрофон' }}</span>
-                  <img v-if="it.deviceId === micId" :src="iconReady" alt="ready" />
+                  <img v-if="it.deviceId === micId" :src="iconReadyGreen" alt="ready" />
                 </li>
                 <li v-if="mics.length === 0" class="empty" aria-disabled="true">Нет устройств</li>
               </ul>
@@ -105,7 +105,7 @@ import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import type { VQ } from '@/composables/rtc'
 
 import iconClose from '@/assets/svg/close.svg'
-import iconReady from '@/assets/svg/ready.svg'
+import iconReadyGreen from '@/assets/svg/readyGreen.svg'
 import iconArrowDown from '@/assets/svg/arrowDown.svg'
 
 type Dev = {

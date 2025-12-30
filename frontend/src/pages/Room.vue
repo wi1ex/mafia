@@ -180,7 +180,7 @@
           <button @click="onLeave" aria-label="Покинуть комнату">
             <img :src="iconLeaveRoom" alt="leave" />
           </button>
-          <button v-if="gamePhase !== 'idle' && isHead" @click="endGameUi" :disabled="endingGame" aria-label="Завершить игру">
+          <button v-if="gamePhase !== 'idle' && isHead && !gameFinished" @click="endGameUi" :disabled="endingGame" aria-label="Завершить игру">
             <img :src="iconGameStop" alt="end-game" />
           </button>
           <button v-if="gamePhase !== 'idle' && myGameRole === 'player' && amIAlive" @click="leaveGameUi" aria-label="Выйти из игры">
@@ -223,7 +223,7 @@
             <img :src="iconGameStart" alt="start" />
           </button>
           <button v-if="gamePhase === 'idle' && !canShowStartGame" @click="toggleReady" :aria-pressed="readyOn" aria-label="Готовность">
-            <img :src="readyOn ? iconReady : iconClose" alt="ready" />
+            <img :src="readyOn ? iconReadyGreen : iconReadyWhite" alt="ready" />
           </button>
           <button v-if="gamePhase === 'idle' || isHead" @click="toggleMic" :disabled="pending.mic || blockedSelf.mic" :aria-pressed="micOn">
             <img :src="stateIcon('mic', localId)" alt="mic" />
@@ -327,11 +327,11 @@ import iconVolumeMid from '@/assets/svg/volumeMid.svg'
 import iconVolumeLow from '@/assets/svg/volumeLow.svg'
 import iconVolumeMute from '@/assets/svg/volumeMute.svg'
 
-import iconClose from '@/assets/svg/close.svg'
 import iconLeaveRoom from '@/assets/svg/leave.svg'
 import iconSettings from '@/assets/svg/settings.svg'
 import iconRequestsRoom from '@/assets/svg/requestsRoom.svg'
-import iconReady from '@/assets/svg/ready.svg'
+import iconReadyWhite from '@/assets/svg/readyWhite.svg'
+import iconReadyGreen from '@/assets/svg/readyGreen.svg'
 import iconGameStart from '@/assets/svg/gameStart.svg'
 import iconGameStop from '@/assets/svg/gameStop.svg'
 import iconTakeFoul from '@/assets/svg/takeFoul.svg'
@@ -1843,7 +1843,7 @@ onBeforeUnmount(() => {
   }
   .theater {
     display: grid;
-    grid-template-columns: 1fr 244px;
+    grid-template-columns: 1fr 324px;
     width: calc(100vw - 20px);
     height: calc(100dvh - 70px);
     gap: 10px;
@@ -2144,6 +2144,7 @@ onBeforeUnmount(() => {
       gap: 3px;
     }
     .theater {
+      grid-template-columns: 1fr 244px;
       width: calc(100vw - 10px);
       height: calc(100dvh - 40px);
       gap: 3px;
@@ -2189,6 +2190,7 @@ onBeforeUnmount(() => {
         }
       }
       .sidebar {
+        width: 324px;
         gap: 1px;
       }
     }
