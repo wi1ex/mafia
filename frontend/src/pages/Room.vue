@@ -234,10 +234,10 @@
           <button v-if="gamePhase === 'idle'" @click="toggleSpeakers" :disabled="pending.speakers || blockedSelf.speakers" :aria-pressed="speakersOn">
             <img :src="stateIcon('speakers', localId)" alt="speakers" />
           </button>
-          <button v-if="gamePhase === 'idle'" @click="toggleVisibility" :disabled="pending.visibility || blockedSelf.visibility" :aria-pressed="visibilityOn">
-            <img :src="stateIcon('visibility', localId)" alt="visibility" />
-          </button>
-          <button v-if="gamePhase === 'idle'" @click="toggleScreen" :disabled="pendingScreen || (!!screenOwnerId && screenOwnerId !== localId) || blockedSelf.screen" :aria-pressed="isMyScreen">
+<!--          <button v-if="gamePhase === 'idle'" @click="toggleVisibility" :disabled="pending.visibility || blockedSelf.visibility" :aria-pressed="visibilityOn">-->
+<!--            <img :src="stateIcon('visibility', localId)" alt="visibility" />-->
+<!--          </button>-->
+          <button v-if="gamePhase === 'idle' && !IS_MOBILE" @click="toggleScreen" :disabled="pendingScreen || (!!screenOwnerId && screenOwnerId !== localId) || blockedSelf.screen" :aria-pressed="isMyScreen">
             <img :src="stateIcon('screen', localId)" alt="screen" />
           </button>
         </div>

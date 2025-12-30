@@ -430,17 +430,17 @@ const timelineDurationSec = computed(() => {
       align-items: center;
       justify-content: center;
       padding: 0;
-      width: 30px;
-      height: 30px;
+      width: 45px;
+      height: 45px;
       border: none;
       border-radius: 5px;
-      background-color: rgba($dark, 0.75);
+      background-color: rgba($green, 0.75);
       backdrop-filter: blur(5px);
       box-shadow: 3px 3px 5px rgba($black, 0.25);
       cursor: pointer;
       img {
-        width: 24px;
-        height: 24px;
+        width: 36px;
+        height: 36px;
       }
     }
   }
@@ -787,11 +787,11 @@ const timelineDurationSec = computed(() => {
     .farewell-buttons {
       bottom: 3px;
       button {
-        width: 20px;
-        height: 20px;
+        width: 30px;
+        height: 30px;
         img {
-          width: 16px;
-          height: 16px;
+          width: 24px;
+          height: 24px;
         }
       }
     }

@@ -159,6 +159,7 @@ watch(() => props.open, async v => {
   if (v) {
     await nextTick()
     bindDoc()
+    if (list.value) list.value.scrollTop = 0
     attachObserver()
     markVisibleNow()
     bindScroll()

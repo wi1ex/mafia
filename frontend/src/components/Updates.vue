@@ -7,7 +7,7 @@
           <img :src="iconClose" alt="close" />
         </button>
       </header>
-      <div class="list">
+      <div class="list" ref="list">
         <article class="item" v-for="it in updates.items" :key="it.id">
           <div class="item-header">
             <span>v{{ it.version }}</span>
@@ -40,6 +40,7 @@ const emit = defineEmits<{
 
 const updates = useUpdatesStore()
 const root = ref<HTMLElement | null>(null)
+const list = ref<HTMLElement | null>(null)
 let onDocDown: ((e: Event) => void) | null = null
 
 function bindDoc() {
@@ -70,6 +71,7 @@ async function markAllRead() {
 watch(() => props.open, async v => {
   if (v) {
     await nextTick()
+    if (list.value) list.value.scrollTop = 0
     bindDoc()
     void markAllRead()
   } else {
