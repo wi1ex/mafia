@@ -514,11 +514,21 @@ export function useRTC(): UseRTC {
     if (resumeBusy) return
     resumeBusy = true
     try {
-      if (audioCtx && audioCtx.state !== 'running') { await audioCtx.resume() }
+      const ua = (navigator as any).userActivation
+      const canPrime = !!(ua?.isActive || ua?.hasBeenActive)
+      if (!audioCtx && canPrime) { try { getCtx() } catch {} }
+      if (audioCtx && audioCtx.state !== 'running') {
+        try { await audioCtx.resume() } catch {}
+      }
       const plays: Promise<unknown>[] = []
-      for (const a of audioEls.values()) plays.push(a.play().catch(() => {}))
-      await Promise.allSettled(plays)
-      autoplayUnlocked.value = true
+      for (const a of audioEls.values()) {
+        try { plays.push(a.play()) } catch (err) { plays.push(Promise.reject(err)) }
+      }
+      const results = await Promise.allSettled(plays)
+      const played = results.some(r => r.status === 'fulfilled')
+      const ctxRunning = !!audioCtx && audioCtx.state === 'running'
+      const usesWebAudio = waState === 1
+      autoplayUnlocked.value = usesWebAudio ? ctxRunning : (ctxRunning || played)
     } finally {
       queueMicrotask(() => { resumeBusy = false })
     }

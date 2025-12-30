@@ -452,7 +452,6 @@ const IS_MOBILE = (navigator as any).userAgentData?.mobile === true || /Android|
   || (window.matchMedia?.('(pointer: coarse)').matches && /Android|iPhone|iPad|iPod|Mobile|Tablet|Touch/i.test(navUserAgent))
 const navEntry = (performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined)
 const navIsReload = navEntry?.type === 'reload' || (performance as any)?.navigation?.type === 1
-const userActivated = ref<boolean>(!!(navigator as any).userActivation?.hasBeenActive || !navIsReload)
 
 const local = reactive({ mic: false, cam: false, speakers: true, visibility: true })
 const desiredMedia = reactive({ mic: false, cam: false })
@@ -669,12 +668,7 @@ function toggleApps() {
   closePanels('apps')
   openApps.value = next
 }
-function markUserActivated() {
-  if (userActivated.value) return
-  userActivated.value = true
-}
 function onDocClick() {
-  markUserActivated()
   closePanels()
   void rtc.resumeAudio()
   void rtc.unlockBgmOnGesture()
@@ -923,7 +917,8 @@ const blockedSelf = computed<BlockState>(() => {
   }
 })
 const audioGateNeeded = computed(() => {
-  if (!navIsReload || userActivated.value) return false
+  if (!navIsReload) return false
+  if (rtc.autoplayUnlocked.value) return false
   if (!speakersOn.value || blockedSelf.value.speakers) return false
   if (gamePhase.value !== 'day' && gamePhase.value !== 'vote') return false
   const cur = game.daySpeech.currentId
@@ -1631,10 +1626,12 @@ async function enableInitialMedia(): Promise<boolean> {
 }
 
 async function onMediaGateClick() {
-  markUserActivated()
   needInitialMediaUnlock.value = false
   closePanels()
   try { await rtc.resumeAudio() } catch {}
+  if (speakersOn.value && !blockedSelf.value.speakers) {
+    rtc.setAudioSubscriptionsForAll(true)
+  }
   await rtc.unlockBgmOnGesture()
   rtc.ensureBgmPlayback()
   await requestMediaPermissions({ force: true })
