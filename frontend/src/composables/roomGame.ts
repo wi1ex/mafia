@@ -2649,6 +2649,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     voteAborted,
     voteLeaderSpeechesDone,
     voteLeaderKilled,
+    currentFarewellSpeech,
     voteBlocked,
     dayNumber,
     night,

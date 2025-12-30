@@ -68,7 +68,7 @@
           :current-nominee-seat="id === headUserId ? currentNomineeSeat : null"
           :show-nominations-bar="id === headUserId && (gamePhase === 'day' || gamePhase === 'vote')"
           :vote-blocked="id === headUserId ? voteBlocked : false"
-          :offline-seats-in-game="id === headUserId && gamePhase === 'vote' ? offlineAliveSeatNumbers : []"
+          :offline-seats-in-game="id === headUserId && gamePhase === 'vote' && !currentFarewellSpeech ? offlineAliveSeatNumbers : []"
           :show-vote-button="amIAlive && game.canPressVoteButton()"
           :vote-enabled="game.canPressVoteButton()"
           :has-voted="(isLiftVoting ? votedUsers : votedThisRound).has(id)"
@@ -156,7 +156,7 @@
             :current-nominee-seat="id === headUserId ? currentNomineeSeat : null"
             :show-nominations-bar="id === headUserId && (gamePhase === 'day' || gamePhase === 'vote')"
             :vote-blocked="id === headUserId ? voteBlocked : false"
-            :offline-seats-in-game="id === headUserId && gamePhase === 'vote' ? offlineAliveSeatNumbers : []"
+            :offline-seats-in-game="id === headUserId && gamePhase === 'vote' && !currentFarewellSpeech ? offlineAliveSeatNumbers : []"
             :show-vote-button="amIAlive && game.canPressVoteButton()"
             :vote-enabled="game.canPressVoteButton()"
             :has-voted="(isLiftVoting ? votedUsers : votedThisRound).has(id)"
@@ -422,6 +422,7 @@ const {
   headPickKind,
   phaseLabel,
   gameFinished,
+  currentFarewellSpeech,
   isCurrentSpeaker,
   canStartDay,
   canFinishSpeechHead,
