@@ -584,13 +584,11 @@ function applyGameVideoQuality(force: boolean): void {
   rtc.setRemoteQualityForAll(storedVideoQuality(), { persist: false })
 }
 
-watch(gamePhase, (next, prev) => {
-  if (next !== 'idle') {
-    applyGameVideoQuality(true)
-  } else if (prev !== 'idle') {
-    applyGameVideoQuality(false)
-  }
-})
+watch(gamePhase, (next) => {
+  const inGame = next !== 'idle'
+  applyGameVideoQuality(inGame)
+  void rtc.setCameraSimulcastEnabled(!inGame)
+}, { immediate: true })
 
 const isMirrored = (id: string) => (statusByUser.get(id)?.mirror ?? 0) === 1    
 const mirrorOn = computed({

@@ -71,6 +71,7 @@ export type UseRTC = {
   selectedMicId: Ref<string>
   selectedCamId: Ref<string>
   remoteQuality: Ref<VQ>
+  setCameraSimulcastEnabled: (enabled: boolean) => Promise<void>
   videoRef: (id: string) => (el: HTMLVideoElement | null) => void
   reconnecting: Ref<boolean>
   screenVideoRef: (id: string) => (el: HTMLVideoElement | null) => void
@@ -166,6 +167,17 @@ export function useRTC(): UseRTC {
   const lowVideoQuality = new VideoPreset(320, 180, 150_000, 30)
   const highVideoQuality = new VideoPreset(640, 360, 450_000, 30)
   const highScreenQuality = ScreenSharePresets.h720fps30
+  const cameraSimulcastEnabled = ref(true)
+  const cameraResolution = () => (cameraSimulcastEnabled.value ? highVideoQuality : lowVideoQuality)
+  const cameraOptions = (deviceId?: string) => ({
+    deviceId: deviceId ? ({ exact: deviceId } as any) : undefined,
+    resolution: cameraResolution().resolution,
+  } as any)
+  const cameraPublishOptions = () => (
+    cameraSimulcastEnabled.value
+      ? { simulcast: true, videoSimulcastLayers: [lowVideoQuality, highVideoQuality], videoEncoding: highVideoQuality.encoding }
+      : { simulcast: false, videoSimulcastLayers: undefined, videoEncoding: lowVideoQuality.encoding }
+  )
   let lastScreenShareError: 'canceled' | 'failed' | null = null
   const isUserCancel = (e: any) => {
     const n = e?.name
@@ -890,7 +902,7 @@ export function useRTC(): UseRTC {
       if (kind === 'audioinput') {
         await room.localParticipant.setMicrophoneEnabled(true, audioOptionsFor(id))
       } else {
-        await room.localParticipant.setCameraEnabled(true, { deviceId: { exact: id }, resolution: highVideoQuality.resolution } as any)
+        await room.localParticipant.setCameraEnabled(true, cameraOptions(id), cameraPublishOptions())
       }
       setPermState(kind === 'audioinput' ? { audio: true } : { video: true })
       return true
@@ -906,7 +918,7 @@ export function useRTC(): UseRTC {
         if (kind === 'audioinput') {
           await room.localParticipant.setMicrophoneEnabled(true, audioOptionsFor(nextId))
         } else {
-          await room.localParticipant.setCameraEnabled(true, { deviceId: { exact: nextId }, resolution: highVideoQuality.resolution } as any)
+          await room.localParticipant.setCameraEnabled(true, cameraOptions(nextId), cameraPublishOptions())
         }
         setPermState(kind === 'audioinput' ? { audio: true } : { video: true })
         return true
@@ -914,7 +926,7 @@ export function useRTC(): UseRTC {
         error('enable retry exact failed', { kind, name: e2?.name })
         try {
           if (kind === 'audioinput') await room.localParticipant.setMicrophoneEnabled(true, audioOptionsFor(undefined))
-          else await room.localParticipant.setCameraEnabled(true, { resolution: highVideoQuality.resolution } as any)
+          else await room.localParticipant.setCameraEnabled(true, cameraOptions(), cameraPublishOptions())
           setPermState(kind === 'audioinput' ? { audio: true } : { video: true })
           return true
         } catch (e3:any) {
@@ -925,6 +937,27 @@ export function useRTC(): UseRTC {
           return false
         }
       }
+    }
+  }
+
+  async function setCameraSimulcastEnabled(enabled: boolean): Promise<void> {
+    const changed = cameraSimulcastEnabled.value !== enabled
+    cameraSimulcastEnabled.value = enabled
+    if (!changed) return
+
+    const room = lk.value
+    if (!room) return
+    const pub = room.localParticipant.getTrackPublications()
+      .find(p => p.kind === Track.Kind.Video && (p as any).source === Track.Source.Camera)
+    if (!pub || !pub.track || (pub as any).isMuted) return
+    try { await room.localParticipant.unpublishTrack(pub.track) } catch {}
+    try { pub.track.stop() } catch {}
+    try {
+      await room.localParticipant.setCameraEnabled(true, cameraOptions(selectedCamId.value), cameraPublishOptions())
+    } catch {
+      try {
+        await room.localParticipant.setCameraEnabled(true, cameraOptions(), cameraPublishOptions())
+      } catch {}
     }
   }
 
@@ -1350,6 +1383,7 @@ export function useRTC(): UseRTC {
     probePermissions,
     clearProbeFlag,
     disable,
+    setCameraSimulcastEnabled,
     setRemoteQualityForAll,
     isSpeaking,
     setUserVolume,
