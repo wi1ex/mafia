@@ -137,8 +137,9 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   function wipeLocalForNewLogin(opts?: { userChanged?: boolean }) {
+    if (!opts?.userChanged) return
     wipeLocalAlways()
-    if (opts?.userChanged) wipeLocalOnAccountChange()
+    wipeLocalOnAccountChange()
   }
 
   async function signInWithTelegram(tg: TgUser): Promise<void> {

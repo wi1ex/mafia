@@ -117,6 +117,7 @@ services:
       dockerfile: nginx/Dockerfile
       args:
         VITE_TG_BOT_NAME: "${TG_BOT_NAME}"
+        VITE_TG_BOT_ID: "${TG_BOT_ID}"
         VITE_BUILD_ID: "${BUILD_ID}"
     container_name: nginx
     env_file: .env
