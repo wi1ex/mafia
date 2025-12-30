@@ -192,11 +192,11 @@
           <button class="btn-text" @click="onProbeClick">Разрешить доступ к камере и микрофону</button>
         </div>
         <div v-else-if="!gameFinished" class="controls">
-          <button v-if="canHeadGoToMafiaTalkControl" class="btn-text" @click="goToMafiaTalkUi" aria-label="Перейти к договорке">Начать договорку</button>
+          <button v-if="canShowHeadGoToMafiaTalkControl" class="btn-text" :disabled="!canHeadGoToMafiaTalkControl" @click="goToMafiaTalkUi" aria-label="Перейти к договорке">Начать договорку</button>
           <button v-if="canHeadFinishMafiaTalkControl" class="btn-text" @click="finishMafiaTalkUi" aria-label="Завершить договорку">Завершить договорку</button>
-          <button v-if="canStartDay" class="btn-text" @click="startDayUi" aria-label="Начать день">День</button>
-          <button v-if="canFinishSpeechHead" class="btn-text" @click="finishSpeechUi" aria-label="Завершить речь">Завершить речь</button>
-          <button v-else-if="canPassSpeechHead" class="btn-text" @click="passSpeechUi" aria-label="Передать речь">Передать речь</button>
+          <button v-if="canShowStartDay" class="btn-text" :disabled="!canStartDay" @click="startDayUi" aria-label="Начать день">День</button>
+          <button v-if="canShowFinishSpeechHead" class="btn-text" :disabled="!canFinishSpeechHead" @click="finishSpeechUi" aria-label="Завершить речь">Завершить речь</button>
+          <button v-else-if="canShowPassSpeechHead" class="btn-text" :disabled="!canPassSpeechHead" @click="passSpeechUi" aria-label="Передать речь">Передать речь</button>
           <button v-if="canStartVote" class="btn-text" @click="startVoteUi">Начать голосование</button>
           <button v-if="canHeadVoteControl" class="btn-text" :disabled="hasOfflineAlivePlayers" @click="onHeadVoteControl">
             {{ !voteStartedForCurrent ? 'Голосование за ' + (currentNomineeSeat ?? '') : 'Продолжить' }}
@@ -204,13 +204,13 @@
           <button v-if="canHeadFinishVoteControl" class="btn-text" @click="finishVoteUi">Завершить голосование</button>
           <button v-if="canPrepareVoteLift" class="btn-text" :disabled="hasOfflineAlivePlayers" @click="prepareVoteLiftUi">Продолжить</button>
           <button v-if="canStartVoteLift" class="btn-text" :disabled="hasOfflineAlivePlayers" @click="startVoteLiftUi">Голосование за подъём</button>
-          <button v-if="canStartLeaderSpeech" class="btn-text" @click="startLeaderSpeechUi">Передать речь</button>
+          <button v-if="canShowStartLeaderSpeech" class="btn-text" :disabled="!canStartLeaderSpeech" @click="startLeaderSpeechUi">Передать речь</button>
           <button v-if="canRestartVoteForLeaders" class="btn-text" @click="restartVoteForLeadersUi">Начать голосование</button>
           <button v-if="canShowNight" class="btn-text" :disabled="hasOfflineAlivePlayers" @click="goToNightUi">Ночь</button>
           <button v-if="canHeadNightShootControl" class="btn-text" :disabled="hasOfflineAlivePlayers" @click="startNightShootUi">Стрельба</button>
           <button v-if="canHeadNightCheckControl" class="btn-text" :disabled="hasOfflineAlivePlayers" @click="startNightChecksUi">Проверки</button>        
           <button v-if="canHeadBestMoveControl" class="btn-text" @click="startBestMoveUi">Лучший ход {{ bestMoveSeat ?? '?' }}</button>
-          <button v-if="canHeadDayFromNightControl" class="btn-text" @click="startDayFromNightUi">День</button>
+          <button v-if="canStartDayFromNight" class="btn-text" :disabled="!canHeadDayFromNightControl" @click="startDayFromNightUi">День</button>
 
           <button v-if="canFinishSpeechSelf" @click="finishSpeechUi">
             <img :src="iconSkip" alt="finish speech" />
@@ -424,8 +424,11 @@ const {
   gameFinished,
   currentFarewellSpeech,
   isCurrentSpeaker,
+  canShowStartDay,
   canStartDay,
+  canShowFinishSpeechHead,
   canFinishSpeechHead,
+  canShowPassSpeechHead,
   canPassSpeechHead,
   canFinishSpeechSelf,
   canTakeFoulSelf,
@@ -435,6 +438,7 @@ const {
   canStartVoteLift,
   isLiftVoting,
   liftHighlightNominees,
+  canShowHeadGoToMafiaTalkControl,
   canHeadGoToMafiaTalkControl,
   canHeadFinishMafiaTalkControl,
   canHeadFinishVoteControl,
@@ -442,7 +446,9 @@ const {
   canHeadNightCheckControl,
   canHeadBestMoveControl,
   canHeadDayFromNightControl,
+  canStartDayFromNight,
   bestMoveSeat,
+  canShowStartLeaderSpeech,
   canStartLeaderSpeech,
   canRestartVoteForLeaders,
   canShowNight,

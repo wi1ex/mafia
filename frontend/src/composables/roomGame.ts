@@ -448,7 +448,9 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     }, DAY_BUTTON_DELAY_MS)
   }
 
-  const canStartDay = computed(() => canShowStartDayNow() && startDayUnlocked.value)
+  const canShowStartDay = computed(() => canShowStartDayNow())
+
+  const canStartDay = computed(() => canShowStartDay.value && startDayUnlocked.value)
 
   const isCurrentSpeaker = computed(() => {
     const cur = daySpeech.currentId
@@ -461,20 +463,25 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     )
   })
 
-  const canFinishSpeechHead = computed(() => {
+  const canShowFinishSpeechHead = computed(() => {
     if (!isHead.value) return false
     if (gamePhase.value !== 'day' && gamePhase.value !== 'vote') return false
-    if (!daySpeech.currentId) return false
-    if (!finishSpeechUnlocked.value) return false
-    return true
+    return !!daySpeech.currentId
   })
 
-  const canPassSpeechHead = computed(() => {
+  const canFinishSpeechHead = computed(() => {
+    return canShowFinishSpeechHead.value && finishSpeechUnlocked.value
+  })
+
+  const canShowPassSpeechHead = computed(() => {
     if (!isHead.value) return false
     if (gamePhase.value !== 'day') return false
     if (daySpeechesDone.value) return false
-    if (!passSpeechUnlocked.value) return false
     return !daySpeech.currentId
+  })
+
+  const canPassSpeechHead = computed(() => {
+    return canShowPassSpeechHead.value && passSpeechUnlocked.value
   })
 
   const canFinishSpeechSelf = computed(() => {
@@ -483,8 +490,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     if (!amIAlive.value) return false
     if (gamePhase.value !== 'day' && gamePhase.value !== 'vote') return false
     if (daySpeech.currentId !== me) return false
-    if (!finishSpeechUnlocked.value) return false
-    return true
+    return finishSpeechUnlocked.value
   })
 
   const canTakeFoulSelf = computed(() => {
@@ -520,6 +526,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   })
 
   const isLiftVoting = computed(() => voteLiftState.value === 'voting')
+
   const liftHighlightNominees = computed(() => ['prepared', 'voting', 'passed'].includes(voteLiftState.value))
 
   const canHeadNightShootControl = computed(() => {
@@ -531,7 +538,9 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   })
 
   const bestMovePending = computed(() => !!bestMove.uid && !bestMove.active)
+
   const bestMoveSeat = computed(() => (bestMove.uid ? seatIndex(bestMove.uid) : null))
+
   const canHeadBestMoveControl = computed(() => {
     return gamePhase.value === 'night' && isHead.value && night.stage === 'checks_done' && bestMovePending.value
   })
@@ -544,13 +553,12 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     return canShowDayFromNightNow()
   })
 
+  const canShowHeadGoToMafiaTalkControl = computed(() => {
+    return gamePhase.value === 'roles_pick' && isHead.value && rolesVisibleForHead.value
+  })
+
   const canHeadGoToMafiaTalkControl = computed(() => {
-    return (
-      gamePhase.value === 'roles_pick' &&
-      isHead.value &&
-      rolesVisibleForHead.value &&
-      startMafiaTalkUnlocked.value
-    )
+    return canShowHeadGoToMafiaTalkControl.value && startMafiaTalkUnlocked.value
   })
 
   const canHeadFinishMafiaTalkControl = computed(() => {
@@ -568,9 +576,10 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     return vote.done
   })
 
+  const canShowStartLeaderSpeech = computed(() => leaderSpeechEligibleNow())
+
   const canStartLeaderSpeech = computed(() => {
-    if (!leaderSpeechUnlocked.value) return false
-    return leaderSpeechEligibleNow()
+    return canShowStartLeaderSpeech.value && leaderSpeechUnlocked.value
   })
 
   const canRestartVoteForLeaders = computed(() => {
@@ -2660,8 +2669,11 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     phaseLabel,
     gameFinished,
     isCurrentSpeaker,
+    canShowStartDay,
     canStartDay,
+    canShowFinishSpeechHead,
     canFinishSpeechHead,
+    canShowPassSpeechHead,
     canPassSpeechHead,
     canFinishSpeechSelf,
     canTakeFoulSelf,
@@ -2671,6 +2683,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     canStartVoteLift,
     isLiftVoting,
     liftHighlightNominees,
+    canShowHeadGoToMafiaTalkControl,
     canHeadGoToMafiaTalkControl,
     canHeadFinishMafiaTalkControl,
     canHeadFinishVoteControl,
@@ -2680,6 +2693,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     canHeadDayFromNightControl,
     canStartDayFromNight,
     bestMoveSeat,
+    canShowStartLeaderSpeech,
     canStartLeaderSpeech,
     canRestartVoteForLeaders,
     canShowNight,
