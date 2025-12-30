@@ -1693,6 +1693,23 @@ watch(isCurrentSpeaker, async (now, was) => {
   } catch {}
 })
 
+let speechAudioKickId: number | null = null
+function kickSpeechAudio() {
+  if (speechAudioKickId != null) return
+  speechAudioKickId = window.setTimeout(() => {
+    speechAudioKickId = null
+    if (!speakersOn.value || blockedSelf.value.speakers) return
+    rtc.setAudioSubscriptionsForAll(true)
+    void rtc.resumeAudio()
+  }, 100)
+}
+
+watch(() => [gamePhase.value, game.daySpeech.currentId, game.daySpeech.remainingMs, speakersOn.value, blockedSelf.value.speakers], ([phase, cur, ms]) => {
+  if ((phase !== 'day' && phase !== 'vote') || !cur) return
+  if ((ms ?? 0) > 0) return
+  kickSpeechAudio()
+}, { immediate: true })
+
 watch(() => auth.isAuthed, (ok) => { if (!ok) { void onLeave() } })
 
 watch(localId, (id, prev) => {
