@@ -451,9 +451,13 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   const canStartDay = computed(() => canShowStartDayNow() && startDayUnlocked.value)
 
   const isCurrentSpeaker = computed(() => {
+    const cur = daySpeech.currentId
+    const me = localId.value
     return (
       (gamePhase.value === 'day' || gamePhase.value === 'vote') &&
-      daySpeech.currentId === localId.value
+      !!cur &&
+      !!me &&
+      cur === me
     )
   })
 
@@ -1110,7 +1114,10 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       daySpeech.openingId = String(dy.opening_uid || '')
       daySpeech.closingId = String(dy.closing_uid || '')
       const rawMs = secondsToMs(dy.deadline)
-      daySpeech.currentId = String(dy.current_uid || '')
+      const speechActive = ('speech_active' in (dy as any))
+        ? isTrueLike((dy as any).speech_active)
+        : rawMs > 0
+      daySpeech.currentId = speechActive ? String(dy.current_uid || '') : ''
       setDaySpeechRemainingMs(rawMs, false)
       daySpeechesDone.value = isTrueLike((dy as any).speeches_done)
       const preludeSection = (dy as any).prelude

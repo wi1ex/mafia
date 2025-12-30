@@ -374,6 +374,9 @@ class GameStateView:
         day_opening_uid = self.ctx.gint("day_opening_uid")
         day_closing_uid = self.ctx.gint("day_closing_uid")
         day_current_uid = self.ctx.gint("day_current_uid")
+        day_speech_started = self.ctx.gint("day_speech_started")
+        day_speech_duration = self.ctx.gint("day_speech_duration")
+        speech_active = day_speech_started > 0 and day_speech_duration > 0
         speeches_done = self.ctx.gbool("day_speeches_done")
         remaining = self.ctx.deadline(
             "day_speech_started",
@@ -387,6 +390,7 @@ class GameStateView:
             "closing_uid": day_closing_uid,
             "current_uid": day_current_uid,
             "deadline": remaining,
+            "speech_active": speech_active,
             "speeches_done": speeches_done,
             "vote_blocked": self.ctx.gbool("vote_blocked")
         }
