@@ -450,6 +450,9 @@ const {
 const navUserAgent = navigator.userAgent || ''
 const IS_MOBILE = (navigator as any).userAgentData?.mobile === true || /Android|iPhone|iPad|iPod|Mobile/i.test(navUserAgent)
   || (window.matchMedia?.('(pointer: coarse)').matches && /Android|iPhone|iPad|iPod|Mobile|Tablet|Touch/i.test(navUserAgent))
+const navEntry = (performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined)
+const navIsReload = navEntry?.type === 'reload' || (performance as any)?.navigation?.type === 1
+const userActivated = ref<boolean>(!!(navigator as any).userActivation?.hasBeenActive || !navIsReload)
 
 const local = reactive({ mic: false, cam: false, speakers: true, visibility: true })
 const desiredMedia = reactive({ mic: false, cam: false })
@@ -487,7 +490,6 @@ const isMyScreen = computed(() => !!localId.value && screenOwnerId.value === loc
 const streamAudioKey = computed(() => screenOwnerId.value ? rtc.screenKey(screenOwnerId.value) : '')
 const streamVol = computed(() => streamAudioKey.value ? (volUi[streamAudioKey.value] ?? rtc.getUserVolume(streamAudioKey.value)) : 100)
 const fitContainInGrid = computed(() => !isTheater.value && sortedPeerIds.value.length < 3)
-const mediaGateVisible = computed(() => uiReady.value && !isReconnecting.value && needInitialMediaUnlock.value)
 const isSpectatorInGame = computed(() => {
   const id = localId.value
   if (!id || gamePhase.value === 'idle') return false
@@ -667,7 +669,12 @@ function toggleApps() {
   closePanels('apps')
   openApps.value = next
 }
+function markUserActivated() {
+  if (userActivated.value) return
+  userActivated.value = true
+}
 function onDocClick() {
+  markUserActivated()
   closePanels()
   void rtc.resumeAudio()
   void rtc.unlockBgmOnGesture()
@@ -915,6 +922,14 @@ const blockedSelf = computed<BlockState>(() => {
     screen: s?.screen ?? 0,
   }
 })
+const audioGateNeeded = computed(() => {
+  if (!navIsReload || userActivated.value) return false
+  if (!speakersOn.value || blockedSelf.value.speakers) return false
+  if (gamePhase.value !== 'day' && gamePhase.value !== 'vote') return false
+  const cur = game.daySpeech.currentId
+  return !(!cur || cur === localId.value)
+})
+const mediaGateVisible = computed(() => uiReady.value && !isReconnecting.value && (needInitialMediaUnlock.value || audioGateNeeded.value))
 
 const readyOn = computed({
   get: () => (statusByUser.get(localId.value)?.ready ?? 0) === 1,
@@ -1616,6 +1631,7 @@ async function enableInitialMedia(): Promise<boolean> {
 }
 
 async function onMediaGateClick() {
+  markUserActivated()
   needInitialMediaUnlock.value = false
   closePanels()
   try { await rtc.resumeAudio() } catch {}
