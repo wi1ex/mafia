@@ -43,6 +43,7 @@ from ..utils import (
     compute_day_opening_and_closing,
     get_alive_players_in_seat_order,
     schedule_foul_block,
+    maybe_block_foul_on_reconnect,
     emit_game_fouls,
     apply_blocks_and_emit,
     finish_day_speech,
@@ -193,10 +194,15 @@ async def join(sid, data) -> JoinAck:
                 return {"ok": False, "error": "room_is_full", "status": 409}
 
         await persist_join_user_info(r, rid, uid, sess.get("username"), sess.get("avatar_name"))
+
         try:
-            await r.hdel(f"room:{rid}:foul_active", str(uid))
+            foul_removed = int(await r.hdel(f"room:{rid}:foul_active", str(uid)) or 0)
         except Exception:
+            foul_removed = 0
             log.warning("sio.join.clear_foul_active_failed", rid=rid, uid=uid)
+        if foul_removed and not spectator_mode:
+            await maybe_block_foul_on_reconnect(r, rid, uid, raw_gstate)
+
         try:
             await r.srem(f"room:{rid}:ready", str(uid))
         except Exception:

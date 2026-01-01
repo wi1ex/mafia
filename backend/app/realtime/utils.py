@@ -56,6 +56,7 @@ __all__ = [
     "compute_day_opening_and_closing",
     "get_alive_players_in_seat_order",
     "schedule_foul_block",
+    "maybe_block_foul_on_reconnect",
     "emit_game_fouls",
     "get_farewell_wills",
     "get_farewell_wills_for",
@@ -977,6 +978,7 @@ async def apply_blocks_and_emit(r, rid: int, *, actor_uid: int, actor_role: str,
 
     if forced_off:
         await emit_state_changed_filtered(r, rid, target_uid, forced_off, phase_override=phase_override)
+
     if applied:
         row = await r.hgetall(f"room:{rid}:user:{target_uid}:block")
         full = {k: ("1" if (row or {}).get(k) == "1" else "0") for k in KEYS_BLOCK}
@@ -1421,6 +1423,7 @@ async def schedule_foul_block(rid: int, target_uid: int, head_uid: int, duration
                 keep_mic_on = cur_uid == target_uid and started > 0 and duration_cur > 0
         except Exception:
             log.exception("game_foul.check_speech_failed", rid=rid, uid=target_uid)
+
     if keep_mic_on:
         try:
             await r.hdel(f"room:{rid}:foul_active", str(target_uid))
@@ -1441,6 +1444,42 @@ async def schedule_foul_block(rid: int, target_uid: int, head_uid: int, duration
         await r.hdel(f"room:{rid}:foul_active", str(target_uid))
     except Exception:
         log.warning("game_foul.cleanup_failed", rid=rid, uid=target_uid)
+
+
+async def maybe_block_foul_on_reconnect(r, rid: int, uid: int, raw_gstate: Mapping[str, Any]) -> None:
+    phase = str(raw_gstate.get("phase") or "idle")
+    if phase not in ("day", "vote"):
+        return
+
+    try:
+        head_uid = int(raw_gstate.get("head") or 0)
+    except Exception:
+        head_uid = 0
+    if not head_uid or head_uid == uid:
+        return
+
+    keep_mic_on = False
+    try:
+        if phase == "day":
+            cur_uid = int(raw_gstate.get("day_current_uid") or 0)
+            started = int(raw_gstate.get("day_speech_started") or 0)
+            duration_cur = int(raw_gstate.get("day_speech_duration") or 0)
+            keep_mic_on = cur_uid == uid and started > 0 and duration_cur > 0
+        elif phase == "vote":
+            cur_uid = int(raw_gstate.get("vote_speech_uid") or 0)
+            started = int(raw_gstate.get("vote_speech_started") or 0)
+            duration_cur = int(raw_gstate.get("vote_speech_duration") or 0)
+            keep_mic_on = cur_uid == uid and started > 0 and duration_cur > 0
+    except Exception:
+        log.exception("foul_reconnect.check_failed", rid=rid, uid=uid)
+
+    if keep_mic_on:
+        return
+
+    try:
+        await apply_blocks_and_emit(r, rid, actor_uid=head_uid, actor_role="head", target_uid=uid, changes_bool={"mic": True})
+    except Exception:
+        log.exception("foul_reconnect.block_failed", rid=rid, uid=uid, head=head_uid)
 
 
 async def finish_day_speech(r, rid: int, raw_gstate: Mapping[str, Any], speaker_uid: int) -> dict[str, Any]:

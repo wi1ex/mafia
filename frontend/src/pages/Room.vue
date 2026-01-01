@@ -467,7 +467,6 @@ const backgroundState = reactive({
   active: false,
   mic: false,
   cam: false,
-  visibility: false,
   desiredMic: false,
   desiredCam: false,
 })
@@ -1713,13 +1712,11 @@ async function enterBackground(): Promise<void> {
   backgroundState.active = true
   backgroundState.mic = local.mic
   backgroundState.cam = local.cam
-  backgroundState.visibility = local.visibility
   backgroundState.desiredMic = desiredMedia.mic
   backgroundState.desiredCam = desiredMedia.cam
 
   if (local.mic && !blockedSelf.value.mic) { await toggleMic() }
   if (local.cam && !blockedSelf.value.cam) { await toggleCam() }
-  if (local.visibility && !blockedSelf.value.visibility) { await toggleVisibility() }
 }
 
 async function exitBackground(): Promise<void> {
@@ -1727,7 +1724,6 @@ async function exitBackground(): Promise<void> {
   const restore = {
     mic: backgroundState.mic,
     cam: backgroundState.cam,
-    visibility: backgroundState.visibility,
     desiredMic: backgroundState.desiredMic,
     desiredCam: backgroundState.desiredCam,
   }
@@ -1743,10 +1739,6 @@ async function exitBackground(): Promise<void> {
   if (restore.cam !== local.cam) {
     if (restore.cam && !blockedSelf.value.cam) { await toggleCam() }
     if (!restore.cam && local.cam) { await toggleCam() }
-  }
-  if (restore.visibility !== local.visibility) {
-    if (restore.visibility && !blockedSelf.value.visibility) { await toggleVisibility() }
-    if (!restore.visibility && local.visibility) { await toggleVisibility() }
   }
   void enforceSpectatorPhaseVisibility(gamePhase.value)
 }
