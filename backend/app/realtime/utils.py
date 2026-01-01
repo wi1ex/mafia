@@ -1392,9 +1392,11 @@ async def schedule_foul_block(rid: int, target_uid: int, head_uid: int, duration
     try:
         raw_state = await r.hgetall(f"room:{rid}:game_state")
     except Exception:
-        raw_state = None
+        raw_state = {}
 
-    raw_state = raw_state or {}
+    if not raw_state:
+        return
+
     phase = str(raw_state.get("phase") or "")
     if phase == "idle":
         return
