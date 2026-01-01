@@ -8,8 +8,7 @@
     </div>
 
     <img v-if="hasVoted" class="icon-voted" :src="iconLikeGreen" alt="voted" />
-    <button v-if="inGame && seat != null && !isGameHead && !isDead(id)" class="icon-badge button left"
-            @click="$emit('foul', id)" :disabled="!isHead" aria-label="Выдать фол">
+    <button v-if="inGame && seat != null && !isGameHead && !isDead(id)" class="icon-badge button left" @click="$emit('foul', id)" :disabled="!isHead" aria-label="Выдать фол">
       <img :src="iconFoul" alt="foul" />
       <span>{{ foulsCount }}</span>
     </button>

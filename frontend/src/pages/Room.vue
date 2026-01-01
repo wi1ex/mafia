@@ -463,6 +463,14 @@ const navIsReload = navEntry?.type === 'reload' || (performance as any)?.navigat
 
 const local = reactive({ mic: false, cam: false, speakers: true, visibility: true })
 const desiredMedia = reactive({ mic: false, cam: false })
+const backgroundState = reactive({
+  active: false,
+  mic: false,
+  cam: false,
+  visibility: false,
+  desiredMic: false,
+  desiredCam: false,
+})
 const pending = reactive<{ [k in keyof typeof local]: boolean }>({ mic: false, cam: false, speakers: false, visibility: false })
 const micOn = computed({ get: () => local.mic, set: v => { local.mic = v } })
 const camOn = computed({ get: () => local.cam, set: v => { local.cam = v } })
@@ -1679,8 +1687,9 @@ async function onLeave(goHome = true) {
   leaving.value = true
   try {
     document.removeEventListener('click', onDocClick)
-    document.removeEventListener('visibilitychange', onBackgroundMaybeLeave)
-    window.removeEventListener('pagehide', onBackgroundMaybeLeave)
+    document.removeEventListener('visibilitychange', onBackgroundVisibility)
+    window.removeEventListener('pagehide', onBackgroundVisibility)
+    window.removeEventListener('pageshow', onBackgroundVisibility)
   } catch {}
   try {
     await stopScreenBeforeLeave()
@@ -1699,11 +1708,62 @@ async function onLeave(goHome = true) {
   }
 }
 
-function onBackgroundMaybeLeave(e?: PageTransitionEvent) {
-  const isPageHide = !!(e && (e as any).type === 'pagehide')
-  if (!IS_MOBILE && !isPageHide) return
-  if (document.visibilityState === 'hidden' || isPageHide || (e && (e as any).persisted === true)) {
-    void onLeave(!isPageHide)
+async function enterBackground(): Promise<void> {
+  if (!IS_MOBILE || backgroundState.active) return
+  backgroundState.active = true
+  backgroundState.mic = local.mic
+  backgroundState.cam = local.cam
+  backgroundState.visibility = local.visibility
+  backgroundState.desiredMic = desiredMedia.mic
+  backgroundState.desiredCam = desiredMedia.cam
+
+  if (local.mic && !blockedSelf.value.mic) { await toggleMic() }
+  if (local.cam && !blockedSelf.value.cam) { await toggleCam() }
+  if (local.visibility && !blockedSelf.value.visibility) { await toggleVisibility() }
+}
+
+async function exitBackground(): Promise<void> {
+  if (!IS_MOBILE || !backgroundState.active) return
+  const restore = {
+    mic: backgroundState.mic,
+    cam: backgroundState.cam,
+    visibility: backgroundState.visibility,
+    desiredMic: backgroundState.desiredMic,
+    desiredCam: backgroundState.desiredCam,
+  }
+  backgroundState.active = false
+
+  desiredMedia.mic = restore.desiredMic
+  desiredMedia.cam = restore.desiredCam
+
+  if (restore.mic !== local.mic) {
+    if (restore.mic && !blockedSelf.value.mic) { await toggleMic() }
+    if (!restore.mic && local.mic) { await toggleMic() }
+  }
+  if (restore.cam !== local.cam) {
+    if (restore.cam && !blockedSelf.value.cam) { await toggleCam() }
+    if (!restore.cam && local.cam) { await toggleCam() }
+  }
+  if (restore.visibility !== local.visibility) {
+    if (restore.visibility && !blockedSelf.value.visibility) { await toggleVisibility() }
+    if (!restore.visibility && local.visibility) { await toggleVisibility() }
+  }
+  void enforceSpectatorPhaseVisibility(gamePhase.value)
+}
+
+function onBackgroundVisibility(e?: PageTransitionEvent) {
+  if (!IS_MOBILE) return
+  const type = (e as any)?.type
+  if (type === 'pageshow') {
+    void exitBackground()
+    return
+  }
+  if (document.visibilityState === 'hidden' || type === 'pagehide') {
+    void enterBackground()
+    return
+  }
+  if (document.visibilityState === 'visible') {
+    void exitBackground()
   }
 }
 
@@ -1796,8 +1856,9 @@ onMounted(async () => {
     }
 
     document.addEventListener('click', onDocClick)
-    document.addEventListener('visibilitychange', onBackgroundMaybeLeave, { passive: true })
-    window.addEventListener('pagehide', onBackgroundMaybeLeave, { passive: true })
+    document.addEventListener('visibilitychange', onBackgroundVisibility, { passive: true })
+    window.addEventListener('pagehide', onBackgroundVisibility, { passive: true })
+    window.addEventListener('pageshow', onBackgroundVisibility, { passive: true })
     window.addEventListener('offline', handleOffline)
     window.addEventListener('online', handleOnline)
 
