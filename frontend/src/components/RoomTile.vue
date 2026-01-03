@@ -95,7 +95,6 @@
             <button @click="$emit('block','mic',id)" aria-label="block mic"><img :src="stateIcon('mic', id)" alt="mic" /></button>
             <button @click="$emit('block','cam',id)" aria-label="block cam"><img :src="stateIcon('cam', id)" alt="cam" /></button>
             <button @click="$emit('block','speakers',id)" aria-label="block speakers"><img :src="stateIcon('speakers', id)" alt="spk" /></button>
-            <button @click="$emit('block','visibility',id)" aria-label="block visibility"><img :src="stateIcon('visibility', id)" alt="vis" /></button>
             <button @click="$emit('block','screen',id)" aria-label="block screen"><img :src="stateIcon('screen', id)" alt="scr" /></button>
             <button class="red-button" @click="$emit('kick', id)" aria-label="kick user"><img :src="iconLeaveRoom" alt="kick" /></button>
           </div>
@@ -232,7 +231,7 @@ const props = withDefaults(defineProps<{
 defineEmits<{
   (e: 'toggle-panel', id: string): void
   (e: 'vol-input', id: string, v: number): void
-  (e: 'block', key: 'mic'|'cam'|'speakers'|'visibility'|'screen', id: string): void
+  (e: 'block', key: 'mic'|'cam'|'speakers'|'screen', id: string): void
   (e: 'kick', id: string): void
   (e: 'foul', id: string): void
   (e: 'nominate', id: string): void
@@ -681,7 +680,7 @@ const timelineDurationSec = computed(() => {
           align-items: center;
           justify-content: center;
           padding: 0;
-          min-width: calc((100% - 25px) / 6);
+          min-width: calc((100% - 20px) / 5);
           height: 25px;
           border: none;
           border-radius: 5px;

@@ -212,12 +212,8 @@
           <button v-if="canHeadBestMoveControl" class="btn-text" @click="startBestMoveUi">Лучший ход {{ bestMoveSeat ?? '?' }}</button>
           <button v-if="canStartDayFromNight" class="btn-text" :disabled="!canHeadDayFromNightControl" @click="startDayFromNightUi">День</button>
 
-          <button v-if="canFinishSpeechSelf" @click="finishSpeechUi">
-            <img :src="iconSkip" alt="finish speech" />
-          </button>
-          <button v-else-if="canTakeFoulSelf" @click="takeFoulUi" :disabled="foulPending">
-            <img :src="iconTakeFoul" alt="take foul" />
-          </button>
+          <button v-if="canFinishSpeechSelf" @click="finishSpeechUi">Завершить речь</button>
+          <button v-else-if="canTakeFoulSelf" @click="takeFoulUi" :disabled="foulPending">Взять фол</button>
 
           <button v-if="gamePhase === 'idle' && canShowStartGame" @click="startGameUi" :disabled="startingGame" aria-label="Запустить игру">
             <img :src="iconGameStart" alt="start" />
@@ -234,9 +230,6 @@
           <button v-if="gamePhase === 'idle'" @click="toggleSpeakers" :disabled="pending.speakers || blockedSelf.speakers" :aria-pressed="speakersOn">
             <img :src="stateIcon('speakers', localId)" alt="speakers" />
           </button>
-<!--          <button v-if="gamePhase === 'idle'" @click="toggleVisibility" :disabled="pending.visibility || blockedSelf.visibility" :aria-pressed="visibilityOn">-->
-<!--            <img :src="stateIcon('visibility', localId)" alt="visibility" />-->
-<!--          </button>-->
           <button v-if="gamePhase === 'idle' && !IS_MOBILE && settings.streamsCanStart" @click="toggleScreen" :disabled="pendingScreen || (!!screenOwnerId && screenOwnerId !== localId) || blockedSelf.screen" :aria-pressed="isMyScreen">
             <img :src="stateIcon('screen', localId)" alt="screen" />
           </button>
@@ -332,8 +325,6 @@ import iconReadyWhite from '@/assets/svg/readyWhite.svg'
 import iconReadyGreen from '@/assets/svg/readyGreen.svg'
 import iconGameStart from '@/assets/svg/gameStart.svg'
 import iconGameStop from '@/assets/svg/gameStop.svg'
-import iconTakeFoul from '@/assets/svg/takeFoul.svg'
-import iconSkip from '@/assets/svg/skip.svg'
 import iconDeadPlayer from '@/assets/svg/deadPlayer.svg'
 import iconCardBack from '@/assets/images/cardBack.png'
 import iconSleepPlayer from '@/assets/images/sleepPlayer.png'
