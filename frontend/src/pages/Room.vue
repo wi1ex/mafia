@@ -1615,6 +1615,7 @@ async function enableInitialMedia(): Promise<boolean> {
 }
 
 async function onMediaGateClick() {
+  const needMediaUnlock = needInitialMediaUnlock.value
   needInitialMediaUnlock.value = false
   closePanels()
   try { await rtc.resumeAudio({ force: true }) } catch {}
@@ -1623,8 +1624,10 @@ async function onMediaGateClick() {
   }
   await rtc.unlockBgmOnGesture()
   rtc.ensureBgmPlayback()
-  await requestMediaPermissions({ force: true })
-  needInitialMediaUnlock.value = await enableInitialMedia()
+  if (needMediaUnlock) {
+    await requestMediaPermissions({ force: true })
+    needInitialMediaUnlock.value = await enableInitialMedia()
+  }
 }
 
 async function handleJoinFailure(j: any) {

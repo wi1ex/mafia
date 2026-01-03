@@ -516,12 +516,16 @@ export function useRTC(): UseRTC {
     return v
   }
   let resumeBusy = false
+  let resumeForceQueued = false
   const autoplayUnlocked = ref(false)
   async function resumeAudio(opts?: { force?: boolean }) {
-    if (resumeBusy) return
+    const force = opts?.force === true
+    if (resumeBusy) {
+      if (force) resumeForceQueued = true
+      return
+    }
     resumeBusy = true
     try {
-      const force = opts?.force === true
       const ua = (navigator as any).userActivation
       const canPrime = force || !ua || !!(ua?.isActive || ua?.hasBeenActive)
       if (!audioCtx && canPrime) { try { getCtx() } catch {} }
@@ -538,7 +542,13 @@ export function useRTC(): UseRTC {
       const usesWebAudio = waState === 1
       autoplayUnlocked.value = usesWebAudio ? ctxRunning : (ctxRunning || played)
     } finally {
-      queueMicrotask(() => { resumeBusy = false })
+      queueMicrotask(() => {
+        resumeBusy = false
+        if (resumeForceQueued) {
+          resumeForceQueued = false
+          void resumeAudio({ force: true })
+        }
+      })
     }
   }
 
