@@ -327,6 +327,11 @@ async def join(sid, data) -> JoinAck:
                            skip_sid=sid,
                            namespace="/room")
 
+        try:
+            user_limit = int(params.get("user_limit") or 0)
+        except Exception:
+            user_limit = 0
+
         positions = await get_positions_map(r, rid)
         owner_raw = await r.get(f"room:{rid}:screen_owner")
         owner = int(owner_raw) if owner_raw else 0
@@ -343,6 +348,7 @@ async def join(sid, data) -> JoinAck:
             "room_id": rid,
             "token": token,
             "privacy": str(params.get("privacy") or "open"),
+            "user_limit": user_limit,
             "snapshot": snapshot,
             "self_pref": user_state,
             "positions": positions,

@@ -8,6 +8,7 @@ class JoinAck(TypedDict, total=False):
     room_id: int
     token: str
     privacy: Literal["open", "private"]
+    user_limit: int
     snapshot: Dict[str, Dict[str, str]]
     self_pref: Dict[str, str]
     positions: Dict[str, int]

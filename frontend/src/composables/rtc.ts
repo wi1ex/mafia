@@ -21,6 +21,7 @@ setLogLevel(LogLevel.error)
 
 export type DeviceKind = 'audioinput' | 'videoinput'
 export type VQ = 'sd' | 'hd'
+export type CameraQuality = 'low' | 'high' | 'super'
 const LS = {
   mic: 'audioDeviceId',
   cam: 'videoDeviceId',
@@ -71,7 +72,7 @@ export type UseRTC = {
   selectedMicId: Ref<string>
   selectedCamId: Ref<string>
   remoteQuality: Ref<VQ>
-  setCameraSimulcastEnabled: (enabled: boolean) => Promise<void>
+  setCameraQuality: (quality: CameraQuality) => Promise<void>
   videoRef: (id: string) => (el: HTMLVideoElement | null) => void
   reconnecting: Ref<boolean>
   screenVideoRef: (id: string) => (el: HTMLVideoElement | null) => void
@@ -166,18 +167,24 @@ export function useRTC(): UseRTC {
   const isSub = (pub: RemoteTrackPublication) => pub.isSubscribed
   const lowVideoQuality = new VideoPreset(320, 180, 150_000, 30)
   const highVideoQuality = new VideoPreset(640, 360, 450_000, 30)
+  const superVideoQuality = VideoPresets.h720
   const highScreenQuality = ScreenSharePresets.h720fps30
-  const cameraSimulcastEnabled = ref(true)
-  const cameraResolution = () => (cameraSimulcastEnabled.value ? highVideoQuality : lowVideoQuality)
+  const cameraQuality = ref<CameraQuality>('high')
+  const cameraPresetFor = (quality: CameraQuality) => {
+    if (quality === 'low') return lowVideoQuality
+    if (quality === 'super') return superVideoQuality
+    return highVideoQuality
+  }
+  const cameraPreset = () => cameraPresetFor(cameraQuality.value)
   const cameraOptions = (deviceId?: string) => ({
     deviceId: deviceId ? ({ exact: deviceId } as any) : undefined,
-    resolution: cameraResolution().resolution,
+    resolution: cameraPreset().resolution,
   } as any)
-  const cameraPublishOptions = () => (
-    cameraSimulcastEnabled.value
-      ? { simulcast: true, videoSimulcastLayers: [lowVideoQuality, highVideoQuality], videoEncoding: highVideoQuality.encoding }
-      : { simulcast: false, videoSimulcastLayers: undefined, videoEncoding: lowVideoQuality.encoding }
-  )
+  const cameraPublishOptions = () => ({
+    simulcast: false,
+    videoSimulcastLayers: undefined,
+    videoEncoding: cameraPreset().encoding,
+  })
   let lastScreenShareError: 'canceled' | 'failed' | null = null
   const isUserCancel = (e: any) => {
     const n = e?.name
@@ -812,10 +819,11 @@ export function useRTC(): UseRTC {
   async function fallback(kind: DeviceKind): Promise<void> {
     await refreshDevices()
     const list = kind === 'audioinput' ? mics.value : cams.value
-    const setEnabled = (on: boolean) =>
-      kind === 'audioinput'
-        ? lk.value?.localParticipant.setMicrophoneEnabled(on)
-        : lk.value?.localParticipant.setCameraEnabled(on)
+    const setEnabled = (on: boolean) => {
+      if (kind === 'audioinput') return lk.value?.localParticipant.setMicrophoneEnabled(on)
+      if (!on) return lk.value?.localParticipant.setCameraEnabled(false)
+      return lk.value?.localParticipant.setCameraEnabled(true, cameraOptions(), cameraPublishOptions())
+    }
     if (list.length === 0) {
       try { await setEnabled(false) } catch {}
       if (kind === 'audioinput') {
@@ -950,9 +958,10 @@ export function useRTC(): UseRTC {
     }
   }
 
-  async function setCameraSimulcastEnabled(enabled: boolean): Promise<void> {
-    const changed = cameraSimulcastEnabled.value !== enabled
-    cameraSimulcastEnabled.value = enabled
+  async function setCameraQuality(quality: CameraQuality): Promise<void> {
+    const next = quality === 'low' || quality === 'super' ? quality : 'high'
+    const changed = cameraQuality.value !== next
+    cameraQuality.value = next
     if (!changed) return
 
     const room = lk.value
@@ -1049,7 +1058,7 @@ export function useRTC(): UseRTC {
     })
   }
 
-  const remoteQuality = ref<VQ>((loadLS(LS.vq) as VQ) === 'sd' ? 'sd' : 'hd')
+  const remoteQuality = ref<VQ>('hd')
   function setRemoteQualityForAll(q: VQ, opts?: { persist?: boolean }) {
     const persist = opts?.persist !== false
     const changed = remoteQuality.value !== q
@@ -1167,8 +1176,8 @@ export function useRTC(): UseRTC {
         videoCodec: 'h264',
         red: true,
         dtx: true,
-        simulcast: true,
-        videoSimulcastLayers: [lowVideoQuality, highVideoQuality],
+        simulcast: false,
+        videoSimulcastLayers: undefined,
         screenShareEncoding: highScreenQuality.encoding,
         screenShareSimulcastLayers: undefined,
         ...(opts?.publishDefaults || {})
@@ -1393,7 +1402,7 @@ export function useRTC(): UseRTC {
     probePermissions,
     clearProbeFlag,
     disable,
-    setCameraSimulcastEnabled,
+    setCameraQuality,
     setRemoteQualityForAll,
     isSpeaking,
     setUserVolume,

@@ -11,17 +11,6 @@
       <div class="change-devices">
         <div v-if="!inGame" class="switch-div">
           <div class="switch">
-            <span class="switch-label">Качество видео:</span>
-            <label>
-              <input type="checkbox" :checked="vq === 'hd'" :disabled="vqDisabled" @change="onToggleVQ" aria-label="Качество видео: SD/HD" />
-              <div class="slider">
-                <span>SD</span>
-                <span>HD</span>
-              </div>
-            </label>
-          </div>
-
-          <div class="switch">
             <span class="switch-label">Зеркальность камеры:</span>
             <label>
               <input type="checkbox" :checked="mirrorOn" @change="onToggleMirror" aria-label="Зеркальность" />
@@ -102,7 +91,6 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
-import type { VQ } from '@/composables/rtc'
 
 import iconClose from '@/assets/svg/close.svg'
 import iconReadyGreen from '@/assets/svg/readyGreen.svg'
@@ -121,8 +109,6 @@ const props = defineProps<{
   cams: Dev[]
   micId: string
   camId: string
-  vq?: VQ
-  vqDisabled?: boolean
   mirrorOn: boolean
   volume: number
   volumeIcon: string
@@ -133,7 +119,6 @@ const props = defineProps<{
 const emit = defineEmits<{
   'update:micId': [string]
   'update:camId': [string]
-  'update:vq': [VQ]
   'update:mirrorOn': [boolean]
   'update:volume': [number]
   'toggle-known-roles': []
@@ -159,10 +144,6 @@ const camIdProxy = computed({
   set: (v: string) => { pickDevice('videoinput', v) }
 })
 
-function onToggleVQ(e: Event) {
-  const on = (e.target as HTMLInputElement).checked
-  emit('update:vq', on ? 'hd' : 'sd')
-}
 function onToggleMirror(e: Event) {
   emit('update:mirrorOn', (e.target as HTMLInputElement).checked)
 }

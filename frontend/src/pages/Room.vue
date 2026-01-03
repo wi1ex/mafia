@@ -267,13 +267,11 @@
           :cams="cams"
           v-model:micId="selectedMicId"
           v-model:camId="selectedCamId"
-          v-model:vq="videoQuality"
           v-model:mirrorOn="mirrorOn"
           v-model:volume="bgmVolume"
           :volume-icon="volumeIcon(bgmVolume, bgmShouldPlay)"
           :can-toggle-known-roles="canToggleKnownRoles"
           :known-roles-visible="knownRolesVisible"
-          :vq-disabled="pendingQuality"
           @device-change="(kind) => rtc.onDeviceChange(kind)"
           @toggle-known-roles="game.toggleKnownRolesVisibility"
           @close="settingsOpen=false"
@@ -313,7 +311,7 @@ import type { Socket } from 'socket.io-client'
 import { useAuthStore, useSettingsStore } from '@/store'
 import { type Ack, type FarewellVerdict, type GamePhase, type SendAckFn, useRoomGame } from '@/composables/roomGame'
 import { Track } from 'livekit-client'
-import { useRTC, type VQ } from '@/composables/rtc'
+import { useRTC, type CameraQuality, type VQ } from '@/composables/rtc'
 import { api } from '@/services/axios'
 import { alertDialog, confirmDialog } from '@/services/confirm'
 import { createAuthedSocket } from '@/services/sio'
@@ -487,7 +485,6 @@ const volUi = reactive<Record<string, number>>({})
 const screenOwnerId = ref<string>('')
 const openPanelFor = ref<string>('')
 const pendingScreen = ref(false)
-const pendingQuality = ref(false)
 const settingsOpen = ref(false)
 const uiReady = ref(false)
 const leaving = ref(false)
@@ -498,6 +495,7 @@ const needInitialMediaUnlock = ref(false)
 const openApps = ref(false)
 const appsCounts = reactive({ total: 0, unread: 0 })
 const isPrivate = ref(false)
+const roomUserLimit = ref<number>(0)
 const ws_url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host
 const isTheater = computed(() => !!screenOwnerId.value)
 const isMyScreen = computed(() => !!localId.value && screenOwnerId.value === localId.value)
@@ -577,33 +575,21 @@ const canShowStartGame = computed(() => {
   return !meReady && total === min + 1 && ready === min && nonReady === 1
 })
 
-const videoQuality = computed<VQ>({
-  get: () => rtc.remoteQuality.value,
-  set: (v) => {
-    if (pendingQuality.value) return
-    pendingQuality.value = true
-    try { rtc.setRemoteQualityForAll(v) } finally { pendingQuality.value = false }
-  },
+const desiredCameraQuality = computed<CameraQuality>(() => {
+  if (screenOwnerId.value) return 'low'
+  if (gamePhase.value !== 'idle') return 'low'
+  if (roomUserLimit.value === 2) return 'super'
+  return 'high'
 })
 
-const storedVideoQuality = (): VQ => ((rtc.loadLS(rtc.LS.vq) as VQ) === 'sd' ? 'sd' : 'hd')
-const gameQualityForced = ref(false)
-function applyGameVideoQuality(force: boolean): void {
-  if (force) {
-    if (gameQualityForced.value) return
-    gameQualityForced.value = true
-    rtc.setRemoteQualityForAll('sd', { persist: false })
-    return
-  }
-  if (!gameQualityForced.value) return
-  gameQualityForced.value = false
-  rtc.setRemoteQualityForAll(storedVideoQuality(), { persist: false })
-}
+const autoRemoteQuality = computed<VQ>(() => (desiredCameraQuality.value === 'low' ? 'sd' : 'hd'))
 
-watch(gamePhase, (next) => {
-  const inGame = next !== 'idle'
-  applyGameVideoQuality(inGame)
-  void rtc.setCameraSimulcastEnabled(!inGame)
+watch(desiredCameraQuality, (quality) => {
+  void rtc.setCameraQuality(quality)
+}, { immediate: true })
+
+watch(autoRemoteQuality, (quality) => {
+  rtc.setRemoteQualityForAll(quality, { persist: false })
 }, { immediate: true })
 
 const isMirrored = (id: string) => (statusByUser.get(id)?.mirror ?? 0) === 1    
@@ -1450,6 +1436,8 @@ function handleGamePhaseChangeUi(prev: GamePhase, next: GamePhase): void {
 
 function applyJoinAck(j: any) {
   isPrivate.value = (j?.privacy || j?.room?.privacy) === 'private'
+  const limitRaw = Number(j?.user_limit ?? j?.room_user_limit ?? 0)
+  roomUserLimit.value = Number.isFinite(limitRaw) ? limitRaw : 0
   const me = localId.value
   if (me) game.foulActive.delete(me)
   foulPending.value = false
