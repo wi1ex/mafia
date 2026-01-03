@@ -213,7 +213,7 @@
           <button v-if="canStartDayFromNight" class="btn-text" :disabled="!canHeadDayFromNightControl" @click="startDayFromNightUi">День</button>
 
           <button v-if="canFinishSpeechSelf" class="btn-text" @click="finishSpeechUi">Завершить речь</button>
-          <button v-else-if="canTakeFoulSelf" class="btn-text" @click="takeFoulUi" :disabled="foulPending">Взять фол</button>
+          <button v-else-if="canShowTakeFoulSelf" class="btn-text" @click="takeFoulUi" :disabled="!canTakeFoulSelf || foulPending">Взять фол</button>
 
           <button v-if="gamePhase === 'idle' && canShowStartGame" @click="startGameUi" :disabled="startingGame" aria-label="Запустить игру">
             <img :src="iconGameStart" alt="start" />
@@ -421,6 +421,7 @@ const {
   canShowPassSpeechHead,
   canPassSpeechHead,
   canFinishSpeechSelf,
+  canShowTakeFoulSelf,
   canTakeFoulSelf,
   canStartVote,
   canHeadVoteControl,

@@ -343,6 +343,33 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     }, PASS_SPEECH_DELAY_MS)
   }
 
+  const TAKE_FOUL_DELAY_MS = 1000
+  const takeFoulUnlocked = ref(false)
+  let takeFoulTimer: number | null = null
+  function resetTakeFoulDelay() {
+    takeFoulUnlocked.value = false
+    if (takeFoulTimer !== null) {
+      clearTimeout(takeFoulTimer)
+      takeFoulTimer = null
+    }
+  }
+  function canTakeFoulSelfNow(): boolean {
+    return (
+      (gamePhase.value === 'day' || gamePhase.value === 'vote') &&
+      myGameRole.value === 'player' &&
+      amIAlive.value &&
+      !isCurrentSpeaker.value
+    )
+  }
+  function scheduleTakeFoulUnlock() {
+    resetTakeFoulDelay()
+    if (!canTakeFoulSelfNow()) return
+    takeFoulTimer = window.setTimeout(() => {
+      if (canTakeFoulSelfNow()) takeFoulUnlocked.value = true
+      takeFoulTimer = null
+    }, TAKE_FOUL_DELAY_MS)
+  }
+
   const START_MAFIA_TALK_DELAY_MS = 3000
   const startMafiaTalkUnlocked = ref(false)
   let startMafiaTalkTimer: number | null = null
@@ -493,13 +520,10 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     return finishSpeechUnlocked.value
   })
 
+  const canShowTakeFoulSelf = computed(() => canTakeFoulSelfNow())
+
   const canTakeFoulSelf = computed(() => {
-    return (
-      (gamePhase.value === 'day' || gamePhase.value === 'vote') &&
-      myGameRole.value === 'player' &&
-      amIAlive.value &&
-      !isCurrentSpeaker.value
-    )
+    return canShowTakeFoulSelf.value && takeFoulUnlocked.value
   })
 
   const canStartVote = computed(() => {
@@ -1768,6 +1792,11 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       onCleanup(() => resetPassSpeechDelay())
   }, { immediate: true })
 
+  watch(() => [gamePhase.value, myGameRole.value, amIAlive.value, isCurrentSpeaker.value], (_v, _ov, onCleanup) => {
+      scheduleTakeFoulUnlock()
+      onCleanup(() => resetTakeFoulDelay())
+  }, { immediate: true })
+
   watch(() => [isHead.value, gamePhase.value, rolesVisibleForHead.value], (_v, _ov, onCleanup) => {
       scheduleStartMafiaTalkUnlock()
       onCleanup(() => resetStartMafiaTalkDelay())
@@ -2676,6 +2705,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     canShowPassSpeechHead,
     canPassSpeechHead,
     canFinishSpeechSelf,
+    canShowTakeFoulSelf,
     canTakeFoulSelf,
     canStartVote,
     canHeadVoteControl,
