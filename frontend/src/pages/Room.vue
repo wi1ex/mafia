@@ -788,7 +788,7 @@ async function requestMediaPermissions(opts?: { force?: boolean }) {
 }
 async function onProbeClick() {
   if (isSpectatorInGame.value) return
-  try { await rtc.resumeAudio() } catch {}
+  try { await rtc.resumeAudio({ force: true }) } catch {}
   await rtc.unlockBgmOnGesture()
   await requestMediaPermissions()
   needInitialMediaUnlock.value = await enableInitialMedia()
@@ -1617,7 +1617,7 @@ async function enableInitialMedia(): Promise<boolean> {
 async function onMediaGateClick() {
   needInitialMediaUnlock.value = false
   closePanels()
-  try { await rtc.resumeAudio() } catch {}
+  try { await rtc.resumeAudio({ force: true }) } catch {}
   if (speakersOn.value && !blockedSelf.value.speakers) {
     rtc.setAudioSubscriptionsForAll(true)
   }

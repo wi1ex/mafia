@@ -117,7 +117,7 @@ export type UseRTC = {
   isSpeaking: (id: string) => boolean
   setUserVolume: (id: string, v: number) => void
   getUserVolume: (id: string) => number
-  resumeAudio: () => Promise<void>
+  resumeAudio: (opts?: { force?: boolean }) => Promise<void>
   autoplayUnlocked: Ref<boolean>
   bgmVolume: Ref<number>
   setBgmSeed: (seed: unknown, fallback?: number) => void
@@ -517,12 +517,13 @@ export function useRTC(): UseRTC {
   }
   let resumeBusy = false
   const autoplayUnlocked = ref(false)
-  async function resumeAudio() {
+  async function resumeAudio(opts?: { force?: boolean }) {
     if (resumeBusy) return
     resumeBusy = true
     try {
+      const force = opts?.force === true
       const ua = (navigator as any).userActivation
-      const canPrime = !!(ua?.isActive || ua?.hasBeenActive)
+      const canPrime = force || !ua || !!(ua?.isActive || ua?.hasBeenActive)
       if (!audioCtx && canPrime) { try { getCtx() } catch {} }
       if (audioCtx && audioCtx.state !== 'running') {
         try { await audioCtx.resume() } catch {}
@@ -624,6 +625,8 @@ export function useRTC(): UseRTC {
   function clearProbeFlag() { setPermState({ audio: false, video: false }) }
 
   async function shouldProbeKind(kind: DeviceKind): Promise<boolean> {
+    if (kind === 'audioinput' && permAudio.value) return false
+    if (kind === 'videoinput' && permVideo.value) return false
     const perms = navigator.permissions
     if (perms?.query) {
       try {
