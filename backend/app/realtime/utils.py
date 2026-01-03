@@ -48,6 +48,7 @@ __all__ = [
     "emit_rooms_occupancy_safe",
     "emit_rooms_spectators_safe",
     "get_game_runtime_and_roles_view",
+    "get_players_in_seat_order",
     "get_nominees_in_order",
     "get_alive_and_voted_ids",
     "can_act_on_user",
@@ -1338,7 +1339,7 @@ async def recompute_day_opening_and_closing_from_state(r, rid: int, raw_gstate: 
         return opening_uid, closing_uid
 
     try:
-        alive_set = await smembers_ints(r, f"room:{rid}:game_alive")
+        alive_set = await get_effective_alive_set(r, rid, seat_order)
     except Exception:
         alive_set = set()
     if not alive_set:

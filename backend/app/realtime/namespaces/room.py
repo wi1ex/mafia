@@ -43,6 +43,7 @@ from ..utils import (
     compute_day_opening_and_closing,
     recompute_day_opening_and_closing_from_state,
     get_alive_players_in_seat_order,
+    get_players_in_seat_order,
     schedule_foul_block,
     maybe_block_foul_on_reconnect,
     emit_game_fouls,
@@ -1618,7 +1619,27 @@ async def game_speech_next(sid, data):
 
             if current_uid not in alive_order:
                 opening_uid, closing_uid, alive_order = await compute_day_opening_and_closing(r, rid, last_opening_uid or opening_uid)
-                next_uid = opening_uid
+                next_uid = 0
+                try:
+                    seat_order = await get_players_in_seat_order(r, rid)
+                except Exception:
+                    seat_order = []
+
+                alive_set = set(alive_order)
+                if seat_order and alive_set and current_uid in seat_order:
+                    start_idx = seat_order.index(current_uid)
+                    total = len(seat_order)
+                    for step in range(1, total + 1):
+                        cand = seat_order[(start_idx + step) % total]
+                        if cand in alive_set:
+                            next_uid = cand
+                            break
+
+                if not next_uid and alive_order:
+                    next_uid = alive_order[0]
+                if not next_uid:
+                    next_uid = opening_uid
+
             else:
                 idx = alive_order.index(current_uid)
                 next_uid = alive_order[(idx + 1) % len(alive_order)]
