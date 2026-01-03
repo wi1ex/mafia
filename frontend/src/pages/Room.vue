@@ -289,7 +289,8 @@
         </div>
       </Transition>
 
-      <div v-if="mediaGateVisible" class="reconnect-overlay media-gate" @click.stop="onMediaGateClick">Нажмите чтобы продолжить…</div>
+      <div v-if="mediaGateVisible" class="reconnect-overlay media-gate" @click.stop.prevent="onMediaGateClick"
+           @touchstart.stop.prevent="onMediaGateClick" @pointerdown.stop.prevent="onMediaGateClick">Нажмите чтобы продолжить…</div>
     </template>
     <div class="role-preload" aria-hidden="true">
       <img v-for="src in ROLE_CARD_IMAGES" :key="src" :src="src" alt="" loading="eager" />
@@ -902,7 +903,6 @@ const blockedSelf = computed<BlockState>(() => {
   }
 })
 const audioGateNeeded = computed(() => {
-  if (!navIsReload) return false
   if (rtc.autoplayUnlocked.value) return false
   if (!speakersOn.value || blockedSelf.value.speakers) return false
   if (gamePhase.value !== 'day' && gamePhase.value !== 'vote') return false
@@ -1615,6 +1615,7 @@ async function enableInitialMedia(): Promise<boolean> {
 
 async function onMediaGateClick() {
   closePanels()
+  rtc.autoplayUnlocked.value = true
   try { await rtc.resumeAudio({ force: true }) } catch {}
   if (speakersOn.value && !blockedSelf.value.speakers) {
     rtc.setAudioSubscriptionsForAll(true)
