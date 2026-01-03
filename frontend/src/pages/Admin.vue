@@ -102,14 +102,19 @@
             <div class="block">
               <h3>Лимиты комнат</h3>
               <div class="ui-input" :class="{ filled: Number.isFinite(site.rooms_limit_global) }">
-                <input id="rooms-limit-global" v-model.number="site.rooms_limit_global" type="number" min="1" step="1"
+                <input id="rooms-limit-global" v-model.number="site.rooms_limit_global" type="number" min="1" max="100" step="1"
                        placeholder=" " autocomplete="off" inputmode="numeric" :disabled="savingSettings" />
                 <label for="rooms-limit-global">Общий лимит комнат</label>
               </div>
               <div class="ui-input" :class="{ filled: Number.isFinite(site.rooms_limit_per_user) }">
-                <input id="rooms-limit-user" v-model.number="site.rooms_limit_per_user" type="number" min="1" step="1"
+                <input id="rooms-limit-user" v-model.number="site.rooms_limit_per_user" type="number" min="1" max="10" step="1"
                        placeholder=" " autocomplete="off" inputmode="numeric" :disabled="savingSettings" />
                 <label for="rooms-limit-user">Лимит комнат на пользователя</label>
+              </div>
+              <div class="ui-input" :class="{ filled: Number.isFinite(site.rooms_empty_ttl_seconds) }">
+                <input id="rooms-empty-ttl-seconds" v-model.number="site.rooms_empty_ttl_seconds" type="number" min="10" max="300" step="1"
+                       placeholder=" " autocomplete="off" inputmode="numeric" :disabled="savingSettings" />
+                <label for="rooms-empty-ttl-seconds">Время жизни пустой комнаты (сек)</label>
               </div>
             </div>
 
@@ -701,6 +706,7 @@ type SiteSettings = {
   streams_can_start: boolean
   rooms_limit_global: number
   rooms_limit_per_user: number
+  rooms_empty_ttl_seconds: number
 }
 
 type GameSettings = {
@@ -858,6 +864,7 @@ const site = reactive<SiteSettings>({
   streams_can_start: true,
   rooms_limit_global: 100,
   rooms_limit_per_user: 3,
+  rooms_empty_ttl_seconds: 10,
 })
 
 const game = reactive<GameSettings>({
@@ -975,6 +982,7 @@ function snapshotSite(): string {
     streams_can_start: Boolean(site.streams_can_start),
     rooms_limit_global: normalizeInt(site.rooms_limit_global),
     rooms_limit_per_user: normalizeInt(site.rooms_limit_per_user),
+    rooms_empty_ttl_seconds: normalizeInt(site.rooms_empty_ttl_seconds),
   })
 }
 
@@ -1104,6 +1112,7 @@ async function saveSettings(): Promise<void> {
         streams_can_start: Boolean(site.streams_can_start),
         rooms_limit_global: normalizeInt(site.rooms_limit_global),
         rooms_limit_per_user: normalizeInt(site.rooms_limit_per_user),
+        rooms_empty_ttl_seconds: normalizeInt(site.rooms_empty_ttl_seconds),
       },
       game: {
         game_min_ready_players: normalizeInt(game.game_min_ready_players),

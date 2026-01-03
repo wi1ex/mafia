@@ -35,6 +35,8 @@ class Settings(BaseSettings):
 
     BACKEND_CORS_ORIGINS: List[str] = []
 
+    ROOMS_EMPTY_TTL_SECONDS: int = 10
+
     GAME_MIN_READY_PLAYERS: int = 10
     ROLE_PICK_SECONDS: int = 10
     ROLE_DECK: tuple[str, ...] = ("citizen", "citizen", "citizen", "citizen", "citizen", "citizen", "sheriff", "mafia", "mafia", "don")

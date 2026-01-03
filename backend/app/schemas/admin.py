@@ -12,6 +12,7 @@ class SiteSettingsOut(BaseModel):
     streams_can_start: bool
     rooms_limit_global: int
     rooms_limit_per_user: int
+    rooms_empty_ttl_seconds: int
 
 
 class SiteSettingsUpdateIn(BaseModel):
@@ -22,6 +23,7 @@ class SiteSettingsUpdateIn(BaseModel):
     streams_can_start: Optional[bool] = None
     rooms_limit_global: Optional[int] = Field(default=None, ge=1)
     rooms_limit_per_user: Optional[int] = Field(default=None, ge=1)
+    rooms_empty_ttl_seconds: Optional[int] = Field(default=None, ge=1)
 
 
 class GameSettingsOut(BaseModel):

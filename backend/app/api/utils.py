@@ -18,6 +18,7 @@ from ..schemas.admin import SiteSettingsOut, GameSettingsOut, RegistrationsPoint
 from ..schemas.room import GameParams
 from ..realtime.sio import sio
 from ..realtime.utils import get_profiles_snapshot, get_rooms_brief, gc_empty_room
+from ..security.parameters import get_cached_settings
 
 __all__ = [
     "serialize_game_for_redis",
@@ -122,6 +123,7 @@ def site_settings_out(row) -> SiteSettingsOut:
         streams_can_start=bool(row.streams_can_start),
         rooms_limit_global=int(row.rooms_limit_global),
         rooms_limit_per_user=int(row.rooms_limit_per_user),
+        rooms_empty_ttl_seconds=int(row.rooms_empty_ttl_seconds),
     )
 
 
@@ -487,8 +489,12 @@ async def emit_rooms_upsert(rid: int) -> None:
         log.warning("rooms.upsert.emit_failed", rid=rid, err=type(e).__name__)
 
 
-async def gc_room_after_delay(rid: int, delay_s: int = 12) -> None:
-    await asyncio.sleep(delay_s)
+async def gc_room_after_delay(rid: int, delay_s: int | None = None) -> None:
+    if delay_s is None:
+        delay_s = max(0, int(get_cached_settings().rooms_empty_ttl_seconds))
+
+    await asyncio.sleep(max(0, delay_s))
+
     removed = await gc_empty_room(rid)
     if removed:
         await sio.emit("rooms_remove",
@@ -496,7 +502,7 @@ async def gc_room_after_delay(rid: int, delay_s: int = 12) -> None:
                        namespace="/rooms")
 
 
-def schedule_room_gc(rid: int, delay_s: int = 12) -> None:
+def schedule_room_gc(rid: int, delay_s: int | None = None) -> None:
     asyncio.create_task(gc_room_after_delay(rid, delay_s))
 
 

@@ -16,6 +16,7 @@ class AppSettings(Base):
     streams_can_start: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
     rooms_limit_global: Mapped[int] = mapped_column(Integer, nullable=False, server_default="100")
     rooms_limit_per_user: Mapped[int] = mapped_column(Integer, nullable=False, server_default="3")
+    rooms_empty_ttl_seconds: Mapped[int] = mapped_column(Integer, nullable=False, server_default=str(settings.ROOMS_EMPTY_TTL_SECONDS))
     game_min_ready_players: Mapped[int] = mapped_column(Integer, nullable=False, server_default=str(settings.GAME_MIN_READY_PLAYERS))
     role_pick_seconds: Mapped[int] = mapped_column(Integer, nullable=False, server_default=str(settings.ROLE_PICK_SECONDS))
     mafia_talk_seconds: Mapped[int] = mapped_column(Integer, nullable=False, server_default=str(settings.MAFIA_TALK_SECONDS))

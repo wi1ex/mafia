@@ -3692,7 +3692,8 @@ async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
         log.warning("gc.skip.no_empty_since", rid=rid)
         return False
 
-    delay = max(0, 10 - (int(time()) - int(ts1)))
+    ttl_seconds = max(0, int(get_cached_settings().rooms_empty_ttl_seconds))
+    delay = max(0, ttl_seconds - (int(time()) - int(ts1)))
     if delay > 0:
         await asyncio.sleep(delay)
 
