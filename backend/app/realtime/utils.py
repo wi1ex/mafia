@@ -1230,8 +1230,34 @@ async def emit_rooms_spectators_safe(r, rid: int, count: int | None = None) -> N
 
 async def get_alive_players_in_seat_order(r, rid: int) -> list[int]:
     order = await get_players_in_seat_order(r, rid)
-    alive = await smembers_ints(r, f"room:{rid}:game_alive")
+    alive = await get_effective_alive_set(r, rid, order)
+
     return [uid for uid in order if uid in alive]
+
+
+async def get_effective_alive_set(r, rid: int, seat_order: list[int] | None = None) -> set[int]:
+    try:
+        alive_set = await smembers_ints(r, f"room:{rid}:game_alive")
+    except Exception:
+        alive_set = set()
+
+    if seat_order is None:
+        try:
+            seat_order = await get_players_in_seat_order(r, rid)
+        except Exception:
+            seat_order = []
+
+    if not seat_order:
+        return alive_set
+
+    try:
+        deaths = await hkeys_ints(r, f"room:{rid}:game_deaths")
+    except Exception:
+        deaths = set()
+
+    alive_from_deaths = set(seat_order) - deaths
+
+    return alive_from_deaths
 
 
 async def compute_day_opening_and_closing(r, rid: int, last_opening_uid: int | None, exclude: Iterable[int] | None = None) -> tuple[int, int, list[int]]:
@@ -1243,7 +1269,7 @@ async def compute_day_opening_and_closing(r, rid: int, last_opening_uid: int | N
             continue
 
     seat_order = await get_players_in_seat_order(r, rid)
-    alive_set = await smembers_ints(r, f"room:{rid}:game_alive")
+    alive_set = await get_effective_alive_set(r, rid, seat_order)
     if exclude_set:
         alive_set.difference_update(exclude_set)
     alive_order = [uid for uid in seat_order if uid in alive_set]
@@ -1259,6 +1285,7 @@ async def compute_day_opening_and_closing(r, rid: int, last_opening_uid: int | N
             if cand in alive_set:
                 opening = cand
                 break
+
     if opening is None:
         opening = alive_order[0]
 

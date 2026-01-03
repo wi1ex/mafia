@@ -212,8 +212,8 @@
           <button v-if="canHeadBestMoveControl" class="btn-text" @click="startBestMoveUi">Лучший ход {{ bestMoveSeat ?? '?' }}</button>
           <button v-if="canStartDayFromNight" class="btn-text" :disabled="!canHeadDayFromNightControl" @click="startDayFromNightUi">День</button>
 
-          <button v-if="canFinishSpeechSelf" @click="finishSpeechUi">Завершить речь</button>
-          <button v-else-if="canTakeFoulSelf" @click="takeFoulUi" :disabled="foulPending">Взять фол</button>
+          <button v-if="canFinishSpeechSelf" class="btn-text" @click="finishSpeechUi">Завершить речь</button>
+          <button v-else-if="canTakeFoulSelf" class="btn-text" @click="takeFoulUi" :disabled="foulPending">Взять фол</button>
 
           <button v-if="gamePhase === 'idle' && canShowStartGame" @click="startGameUi" :disabled="startingGame" aria-label="Запустить игру">
             <img :src="iconGameStart" alt="start" />
