@@ -536,11 +536,20 @@ export function useRTC(): UseRTC {
       for (const a of audioEls.values()) {
         try { plays.push(a.play()) } catch (err) { plays.push(Promise.reject(err)) }
       }
-      const results = await Promise.allSettled(plays)
+      if (force) {
+        autoplayUnlocked.value = true
+      }
+      const withTimeout = (p: Promise<unknown>) => Promise.race([
+        p,
+        new Promise(resolve => { setTimeout(resolve, 500) }),
+      ])
+      const results = await Promise.allSettled(plays.map(withTimeout))
       const played = results.some(r => r.status === 'fulfilled')
       const ctxRunning = !!audioCtx && audioCtx.state === 'running'
       const usesWebAudio = waState === 1
-      autoplayUnlocked.value = force || (usesWebAudio ? ctxRunning : (ctxRunning || played))
+      if (!force) {
+        autoplayUnlocked.value = usesWebAudio ? ctxRunning : (ctxRunning || played)
+      }
     } finally {
       queueMicrotask(() => {
         resumeBusy = false
