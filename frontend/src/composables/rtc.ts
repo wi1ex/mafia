@@ -533,13 +533,14 @@ export function useRTC(): UseRTC {
       el.playsInline = true
       el.muted = false
       el.volume = 0
+      el.loop = true
+      el.style.display = 'none'
+      if (!el.parentElement) document.body.appendChild(el)
       const playResult = el.play()
       await Promise.race([
         Promise.resolve(playResult),
         new Promise(resolve => { setTimeout(resolve, 500) }),
       ])
-      try { el.pause() } catch {}
-      try { el.currentTime = 0 } catch {}
     } catch {
       autoplayPrimed = false
     }

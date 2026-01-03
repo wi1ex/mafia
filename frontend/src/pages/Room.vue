@@ -1615,6 +1615,7 @@ async function enableInitialMedia(): Promise<boolean> {
 
 async function onMediaGateClick() {
   closePanels()
+  rtc.autoplayUnlocked.value = true
   if (speakersOn.value && !blockedSelf.value.speakers) {
     rtc.setAudioSubscriptionsForAll(true)
   }
