@@ -38,7 +38,6 @@ const BGM_FILES = Object.entries(
 )
   .sort(([a], [b]) => a.localeCompare(b))
   .map(([, v]) => v as string)
-const SILENT_WAV_SRC = 'data:audio/wav;base64,UklGRkQDAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YSADAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=='
 
 const error = (...a: unknown[]) => console.error('[RTC]', ...a)
 
@@ -519,65 +518,45 @@ export function useRTC(): UseRTC {
 
   let resumeBusy = false
   let resumeForceQueued = false
-  let autoplayPrimeEl: HTMLAudioElement | null = null
-  let autoplayPrimed = false
   const autoplayUnlocked = ref(false)
-  async function primeAutoplay(): Promise<void> {
-    if (autoplayPrimed) return
-    autoplayPrimed = true
-    try {
-      const el = autoplayPrimeEl ?? new Audio()
-      autoplayPrimeEl = el
-      el.preload = 'auto'
-      el.src = SILENT_WAV_SRC
-      el.playsInline = true
-      el.muted = false
-      el.volume = 0
-      el.loop = true
-      el.style.display = 'none'
-      if (!el.parentElement) document.body.appendChild(el)
-      const playResult = el.play()
-      await Promise.race([
-        Promise.resolve(playResult),
-        new Promise(resolve => { setTimeout(resolve, 500) }),
-      ])
-    } catch {
-      autoplayPrimed = false
-    }
-  }
-
   async function resumeAudio(opts?: { force?: boolean }) {
-    const force = opts?.force === true
+    const force = opts?.force === true || autoplayUnlocked.value
     if (resumeBusy) {
       if (force) resumeForceQueued = true
       return
     }
     resumeBusy = true
     try {
+      const wasUnlocked = autoplayUnlocked.value
       const ua = (navigator as any).userActivation
       const canPrime = force || !ua || !!(ua?.isActive || ua?.hasBeenActive)
       if (!audioCtx && canPrime) { try { getCtx() } catch {} }
-      if (audioCtx && audioCtx.state !== 'running') {
-        try { await audioCtx.resume() } catch {}
-      }
+      const ctxResume = (audioCtx && audioCtx.state !== 'running') ? audioCtx.resume().catch(() => {}) : null
       const plays: Promise<unknown>[] = []
       for (const a of audioEls.values()) {
         try { plays.push(a.play()) } catch (err) { plays.push(Promise.reject(err)) }
       }
-      if (force) {
-        autoplayUnlocked.value = true
-        await primeAutoplay()
-      }
+      if (force) autoplayUnlocked.value = true
       const withTimeout = (p: Promise<unknown>) => Promise.race([
         p,
         new Promise(resolve => { setTimeout(resolve, 500) }),
       ])
       const results = await Promise.allSettled(plays.map(withTimeout))
+      if (ctxResume) {
+        try {
+          await Promise.race([
+            ctxResume,
+            new Promise(resolve => { setTimeout(resolve, 500) }),
+          ])
+        } catch {}
+      }
       const played = results.some(r => r.status === 'fulfilled')
       const ctxRunning = !!audioCtx && audioCtx.state === 'running'
       const usesWebAudio = waState === 1
       if (!force) {
-        autoplayUnlocked.value = usesWebAudio ? ctxRunning : (ctxRunning || played)
+        const next = usesWebAudio ? ctxRunning : (ctxRunning || played)
+        if (next) autoplayUnlocked.value = true
+        else if (!wasUnlocked) autoplayUnlocked.value = false
       }
     } finally {
       queueMicrotask(() => {

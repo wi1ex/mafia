@@ -449,8 +449,6 @@ const {
 const navUserAgent = navigator.userAgent || ''
 const IS_MOBILE = (navigator as any).userAgentData?.mobile === true || /Android|iPhone|iPad|iPod|Mobile/i.test(navUserAgent)
   || (window.matchMedia?.('(pointer: coarse)').matches && /Android|iPhone|iPad|iPod|Mobile|Tablet|Touch/i.test(navUserAgent))
-const navEntry = (performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined)
-const navIsReload = navEntry?.type === 'reload' || (performance as any)?.navigation?.type === 1
 
 const local = reactive({ mic: false, cam: false, speakers: true, visibility: true })
 const desiredMedia = reactive({ mic: false, cam: false })
@@ -1613,15 +1611,15 @@ async function enableInitialMedia(): Promise<boolean> {
   return failed
 }
 
-async function onMediaGateClick() {
+function onMediaGateClick() {
   closePanels()
   rtc.autoplayUnlocked.value = true
   if (speakersOn.value && !blockedSelf.value.speakers) {
     rtc.setAudioSubscriptionsForAll(true)
   }
-  await rtc.unlockBgmOnGesture()
+  void rtc.resumeAudio({ force: true })
+  void rtc.unlockBgmOnGesture()
   rtc.ensureBgmPlayback()
-  try { await rtc.resumeAudio({ force: true }) } catch {}
 }
 
 async function handleJoinFailure(j: any) {
