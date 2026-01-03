@@ -453,13 +453,6 @@ const navIsReload = navEntry?.type === 'reload' || (performance as any)?.navigat
 
 const local = reactive({ mic: false, cam: false, speakers: true, visibility: true })
 const desiredMedia = reactive({ mic: false, cam: false })
-const backgroundState = reactive({
-  active: false,
-  mic: false,
-  cam: false,
-  desiredMic: false,
-  desiredCam: false,
-})
 const pending = reactive<{ [k in keyof typeof local]: boolean }>({ mic: false, cam: false, speakers: false, visibility: false })
 const micOn = computed({ get: () => local.mic, set: v => { local.mic = v } })
 const camOn = computed({ get: () => local.cam, set: v => { local.cam = v } })
@@ -1664,12 +1657,11 @@ async function handleJoinFailure(j: any) {
 async function onLeave(goHome = true) {
   if (leaving.value) return
   leaving.value = true
-  try {
-    document.removeEventListener('click', onDocClick)
-    document.removeEventListener('visibilitychange', onBackgroundVisibility)
-    window.removeEventListener('pagehide', onBackgroundVisibility)
-    window.removeEventListener('pageshow', onBackgroundVisibility)
-  } catch {}
+    try {
+      document.removeEventListener('click', onDocClick)
+      document.removeEventListener('visibilitychange', onBackgroundVisibility)
+      window.removeEventListener('pagehide', onBackgroundVisibility)
+    } catch {}
   try {
     await stopScreenBeforeLeave()
     const s = socket.value
@@ -1687,55 +1679,11 @@ async function onLeave(goHome = true) {
   }
 }
 
-async function enterBackground(): Promise<void> {
-  if (!IS_MOBILE || backgroundState.active) return
-  backgroundState.active = true
-  backgroundState.mic = local.mic
-  backgroundState.cam = local.cam
-  backgroundState.desiredMic = desiredMedia.mic
-  backgroundState.desiredCam = desiredMedia.cam
-
-  if (local.mic && !blockedSelf.value.mic) { await toggleMic() }
-  if (local.cam && !blockedSelf.value.cam) { await toggleCam() }
-}
-
-async function exitBackground(): Promise<void> {
-  if (!IS_MOBILE || !backgroundState.active) return
-  const restore = {
-    mic: backgroundState.mic,
-    cam: backgroundState.cam,
-    desiredMic: backgroundState.desiredMic,
-    desiredCam: backgroundState.desiredCam,
-  }
-  backgroundState.active = false
-
-  desiredMedia.mic = restore.desiredMic
-  desiredMedia.cam = restore.desiredCam
-
-  if (restore.mic !== local.mic) {
-    if (restore.mic && !blockedSelf.value.mic) { await toggleMic() }
-    if (!restore.mic && local.mic) { await toggleMic() }
-  }
-  if (restore.cam !== local.cam) {
-    if (restore.cam && !blockedSelf.value.cam) { await toggleCam() }
-    if (!restore.cam && local.cam) { await toggleCam() }
-  }
-  void enforceSpectatorPhaseVisibility(gamePhase.value)
-}
-
 function onBackgroundVisibility(e?: PageTransitionEvent) {
   if (!IS_MOBILE) return
   const type = (e as any)?.type
-  if (type === 'pageshow') {
-    void exitBackground()
-    return
-  }
   if (document.visibilityState === 'hidden' || type === 'pagehide') {
-    void enterBackground()
-    return
-  }
-  if (document.visibilityState === 'visible') {
-    void exitBackground()
+    void onLeave()
   }
 }
 
@@ -1830,7 +1778,6 @@ onMounted(async () => {
     document.addEventListener('click', onDocClick)
     document.addEventListener('visibilitychange', onBackgroundVisibility, { passive: true })
     window.addEventListener('pagehide', onBackgroundVisibility, { passive: true })
-    window.addEventListener('pageshow', onBackgroundVisibility, { passive: true })
     window.addEventListener('offline', handleOffline)
     window.addEventListener('online', handleOnline)
 
