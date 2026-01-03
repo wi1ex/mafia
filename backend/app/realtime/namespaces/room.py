@@ -41,6 +41,7 @@ from ..utils import (
     stop_screen_for_user,
     GameActionContext,
     compute_day_opening_and_closing,
+    recompute_day_opening_and_closing_from_state,
     get_alive_players_in_seat_order,
     schedule_foul_block,
     maybe_block_foul_on_reconnect,
@@ -1547,10 +1548,9 @@ async def game_speech_next(sid, data):
         if not head_uid or actor_uid != head_uid:
             return {"ok": False, "error": "forbidden", "status": 403}
 
-        opening_uid = ctx.gint("day_opening_uid")
-        closing_uid = ctx.gint("day_closing_uid")
         current_uid = ctx.gint("day_current_uid")
         last_opening_uid = ctx.gint("day_last_opening_uid")
+        opening_uid, closing_uid = await recompute_day_opening_and_closing_from_state(r, rid, raw_gstate)
         if not opening_uid or not closing_uid:
             opening_uid, closing_uid, alive_order = await compute_day_opening_and_closing(r, rid, last_opening_uid)
             async with r.pipeline() as p:

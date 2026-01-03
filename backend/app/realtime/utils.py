@@ -54,6 +54,7 @@ __all__ = [
     "stop_screen_for_user",
     "emit_state_changed_filtered",
     "compute_day_opening_and_closing",
+    "recompute_day_opening_and_closing_from_state",
     "get_alive_players_in_seat_order",
     "schedule_foul_block",
     "maybe_block_foul_on_reconnect",
@@ -1270,6 +1271,74 @@ async def compute_day_opening_and_closing(r, rid: int, last_opening_uid: int | N
     return opening, closing, alive_order
 
 
+async def recompute_day_opening_and_closing_from_state(r, rid: int, raw_gstate: Mapping[str, Any]) -> tuple[int, int]:
+    try:
+        opening_uid = int(raw_gstate.get("day_opening_uid") or 0)
+    except Exception:
+        opening_uid = 0
+    try:
+        closing_uid = int(raw_gstate.get("day_closing_uid") or 0)
+    except Exception:
+        closing_uid = 0
+
+    if not opening_uid:
+        return opening_uid, closing_uid
+
+    try:
+        seat_order = await get_players_in_seat_order(r, rid)
+    except Exception:
+        seat_order = []
+    if not seat_order:
+        return opening_uid, closing_uid
+
+    if opening_uid not in seat_order:
+        try:
+            last_opening_uid = int(raw_gstate.get("day_last_opening_uid") or 0)
+        except Exception:
+            last_opening_uid = 0
+        opening_uid, closing_uid, _ = await compute_day_opening_and_closing(r, rid, last_opening_uid)
+        if opening_uid and closing_uid:
+            try:
+                await r.hset(
+                    f"room:{rid}:game_state",
+                    mapping={
+                        "day_opening_uid": str(opening_uid),
+                        "day_closing_uid": str(closing_uid),
+                    },
+                )
+            except Exception:
+                log.exception("day_opening_closing.recompute_failed", rid=rid)
+        return opening_uid, closing_uid
+
+    try:
+        alive_set = await smembers_ints(r, f"room:{rid}:game_alive")
+    except Exception:
+        alive_set = set()
+    if not alive_set:
+        return opening_uid, closing_uid
+
+    idx_open = seat_order.index(opening_uid)
+    total = len(seat_order)
+    new_closing = 0
+    for step in range(1, total + 1):
+        cand = seat_order[(idx_open - step) % total]
+        if cand in alive_set:
+            new_closing = cand
+            break
+
+    if new_closing and new_closing != closing_uid:
+        try:
+            await r.hset(
+                f"room:{rid}:game_state",
+                mapping={"day_closing_uid": str(new_closing)},
+            )
+        except Exception:
+            log.exception("day_closing.recompute_failed", rid=rid)
+        closing_uid = new_closing
+
+    return opening_uid, closing_uid
+
+
 async def get_active_fouls(r, rid: int) -> dict[int, int]:
     try:
         raw = await r.hgetall(f"room:{rid}:foul_active")
@@ -1493,13 +1562,16 @@ async def finish_day_speech(r, rid: int, raw_gstate: Mapping[str, Any], speaker_
         except Exception:
             log.exception("day_speech.finish.block_failed", rid=rid, head=head_uid, target=speaker_uid)
 
-    opening_uid = ctx.gint("day_opening_uid")
-    closing_uid = ctx.gint("day_closing_uid")
+    opening_uid, closing_uid = await recompute_day_opening_and_closing_from_state(r, rid, raw_gstate)
     day_speeches_done = False
     mapping: dict[str, str] = {
         "day_speech_started": "0",
         "day_speech_duration": "0",
     }
+    if opening_uid:
+        mapping["day_opening_uid"] = str(opening_uid)
+    if closing_uid:
+        mapping["day_closing_uid"] = str(closing_uid)
     if closing_uid and speaker_uid == closing_uid:
         mapping["day_last_opening_uid"] = str(opening_uid or 0)
         mapping["day_speeches_done"] = "1"
@@ -2371,6 +2443,7 @@ async def process_player_death(r, rid: int, user_id: int, *, head_uid: int | Non
     except Exception:
         log.exception("process_player_death.emit_state_failed", rid=rid, uid=user_id)
 
+    raw_state: Mapping[str, Any] | None = None
     if reason and removed:
         try:
             await r.hset(f"room:{rid}:game_deaths", str(user_id), str(reason))
@@ -2451,6 +2524,16 @@ async def process_player_death(r, rid: int, user_id: int, *, head_uid: int | Non
             action["by"] = [user_id]
 
         await log_game_action(r, rid, action)
+
+    if removed:
+        if raw_state is None:
+            try:
+                raw_state = await r.hgetall(f"room:{rid}:game_state")
+            except Exception:
+                raw_state = {}
+        if raw_state and str(raw_state.get("phase") or "") == "day":
+            if str(raw_state.get("day_speeches_done") or "0") != "1":
+                await recompute_day_opening_and_closing_from_state(r, rid, raw_state)
 
     if removed:
         try:
