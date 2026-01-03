@@ -540,7 +540,7 @@ export function useRTC(): UseRTC {
       const played = results.some(r => r.status === 'fulfilled')
       const ctxRunning = !!audioCtx && audioCtx.state === 'running'
       const usesWebAudio = waState === 1
-      autoplayUnlocked.value = usesWebAudio ? ctxRunning : (ctxRunning || played)
+      autoplayUnlocked.value = force || (usesWebAudio ? ctxRunning : (ctxRunning || played))
     } finally {
       queueMicrotask(() => {
         resumeBusy = false
