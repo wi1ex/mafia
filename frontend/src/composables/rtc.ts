@@ -38,6 +38,7 @@ const BGM_FILES = Object.entries(
 )
   .sort(([a], [b]) => a.localeCompare(b))
   .map(([, v]) => v as string)
+const SILENT_WAV_SRC = 'data:audio/wav;base64,UklGRkQDAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YSADAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=='
 
 const error = (...a: unknown[]) => console.error('[RTC]', ...a)
 
@@ -515,9 +516,35 @@ export function useRTC(): UseRTC {
     }
     return v
   }
+
   let resumeBusy = false
   let resumeForceQueued = false
+  let autoplayPrimeEl: HTMLAudioElement | null = null
+  let autoplayPrimed = false
   const autoplayUnlocked = ref(false)
+  async function primeAutoplay(): Promise<void> {
+    if (autoplayPrimed) return
+    autoplayPrimed = true
+    try {
+      const el = autoplayPrimeEl ?? new Audio()
+      autoplayPrimeEl = el
+      el.preload = 'auto'
+      el.src = SILENT_WAV_SRC
+      el.playsInline = true
+      el.muted = false
+      el.volume = 0
+      const playResult = el.play()
+      await Promise.race([
+        Promise.resolve(playResult),
+        new Promise(resolve => { setTimeout(resolve, 500) }),
+      ])
+      try { el.pause() } catch {}
+      try { el.currentTime = 0 } catch {}
+    } catch {
+      autoplayPrimed = false
+    }
+  }
+
   async function resumeAudio(opts?: { force?: boolean }) {
     const force = opts?.force === true
     if (resumeBusy) {
@@ -538,6 +565,7 @@ export function useRTC(): UseRTC {
       }
       if (force) {
         autoplayUnlocked.value = true
+        await primeAutoplay()
       }
       const withTimeout = (p: Promise<unknown>) => Promise.race([
         p,

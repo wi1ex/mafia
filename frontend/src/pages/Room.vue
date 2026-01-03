@@ -1615,13 +1615,12 @@ async function enableInitialMedia(): Promise<boolean> {
 
 async function onMediaGateClick() {
   closePanels()
-  rtc.autoplayUnlocked.value = true
-  try { await rtc.resumeAudio({ force: true }) } catch {}
   if (speakersOn.value && !blockedSelf.value.speakers) {
     rtc.setAudioSubscriptionsForAll(true)
   }
   await rtc.unlockBgmOnGesture()
   rtc.ensureBgmPlayback()
+  try { await rtc.resumeAudio({ force: true }) } catch {}
 }
 
 async function handleJoinFailure(j: any) {
