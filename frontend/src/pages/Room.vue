@@ -476,7 +476,6 @@ const leaving = ref(false)
 const netReconnecting = ref(false)
 const lkReconnecting = computed(() => rtc.reconnecting.value)
 const isReconnecting = computed(() => netReconnecting.value || lkReconnecting.value)
-const needInitialMediaUnlock = ref(false)
 const openApps = ref(false)
 const appsCounts = reactive({ total: 0, unread: 0 })
 const isPrivate = ref(false)
@@ -791,7 +790,7 @@ async function onProbeClick() {
   try { await rtc.resumeAudio({ force: true }) } catch {}
   await rtc.unlockBgmOnGesture()
   await requestMediaPermissions()
-  needInitialMediaUnlock.value = await enableInitialMedia()
+  await enableInitialMedia()
 }
 
 const sortedPeerIds = computed(() => {
@@ -910,7 +909,7 @@ const audioGateNeeded = computed(() => {
   const cur = game.daySpeech.currentId
   return !(!cur || cur === localId.value)
 })
-const mediaGateVisible = computed(() => uiReady.value && !isReconnecting.value && (needInitialMediaUnlock.value || audioGateNeeded.value))
+const mediaGateVisible = computed(() => uiReady.value && !isReconnecting.value && audioGateNeeded.value)
 
 const readyOn = computed({
   get: () => (statusByUser.get(localId.value)?.ready ?? 0) === 1,
@@ -1615,8 +1614,6 @@ async function enableInitialMedia(): Promise<boolean> {
 }
 
 async function onMediaGateClick() {
-  const needMediaUnlock = needInitialMediaUnlock.value
-  needInitialMediaUnlock.value = false
   closePanels()
   try { await rtc.resumeAudio({ force: true }) } catch {}
   if (speakersOn.value && !blockedSelf.value.speakers) {
@@ -1624,10 +1621,6 @@ async function onMediaGateClick() {
   }
   await rtc.unlockBgmOnGesture()
   rtc.ensureBgmPlayback()
-  if (needMediaUnlock) {
-    await requestMediaPermissions({ force: true })
-    needInitialMediaUnlock.value = await enableInitialMedia()
-  }
 }
 
 async function handleJoinFailure(j: any) {
@@ -1765,8 +1758,7 @@ onMounted(async () => {
     const wantInitialCam = desiredMedia.cam && !blockedSelf.value.cam
     const wantInitialMic = desiredMedia.mic && !blockedSelf.value.mic
     if (wantInitialCam || wantInitialMic) {
-      const failed = await enableInitialMedia()
-      if (failed) needInitialMediaUnlock.value = true
+      await enableInitialMedia()
     }
 
     const hasLsMirror = rtc.loadLS(rtc.LS.mirror)
