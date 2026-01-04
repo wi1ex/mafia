@@ -1923,7 +1923,7 @@ onBeforeUnmount(() => {
     .sidebar {
       display: flex;
       flex-direction: column;
-      width: 244px;
+      width: 324px;
       gap: 10px;
       overflow-y: auto;
       scrollbar-width: none;
@@ -2178,7 +2178,7 @@ onBeforeUnmount(() => {
         }
       }
       .sidebar {
-        width: 324px;
+        width: 244px;
         gap: 1px;
       }
     }
