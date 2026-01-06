@@ -212,6 +212,7 @@ export function useRTC(): UseRTC {
   let waState: 0 | 1 | -1 = 0
   const getCtx = () => (audioCtx ??= new (window.AudioContext || (window as any).webkitAudioContext)())
   function webAudioAvailable(): boolean {
+    if (isIOS) return false
     if (waState === -1) return false
     try {
       getCtx()
@@ -527,6 +528,12 @@ export function useRTC(): UseRTC {
   let resumeForceQueued = false
   const autoplayUnlocked = ref(false)
   function primeAudioOnGesture() {
+    if (isIOS) {
+      audioEls.forEach((_el, id) => {
+        try { applyVolume(id) } catch {}
+      })
+      return
+    }
     if (waState === -1) waState = 0
     if (!webAudioAvailable()) return
     try {
@@ -560,9 +567,9 @@ export function useRTC(): UseRTC {
     try {
       const wasUnlocked = autoplayUnlocked.value
       const ua = (navigator as any).userActivation
-      const canPrime = force || !ua || !!(ua?.isActive || ua?.hasBeenActive)
+      const canPrime = !isIOS && (force || !ua || !!(ua?.isActive || ua?.hasBeenActive))
       if (!audioCtx && canPrime) { try { getCtx() } catch {} }
-      const ctxResume = (audioCtx && audioCtx.state !== 'running') ? audioCtx.resume().catch(() => {}) : null
+      const ctxResume = (!isIOS && audioCtx && audioCtx.state !== 'running') ? audioCtx.resume().catch(() => {}) : null
       const plays: Promise<unknown>[] = []
       for (const a of audioEls.values()) {
         try { plays.push(a.play()) } catch (err) { plays.push(Promise.reject(err)) }
