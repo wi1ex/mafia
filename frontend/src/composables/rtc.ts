@@ -118,6 +118,7 @@ export type UseRTC = {
   setUserVolume: (id: string, v: number) => void
   getUserVolume: (id: string) => number
   resumeAudio: (opts?: { force?: boolean }) => Promise<void>
+  primeAudioOnGesture: () => void
   autoplayUnlocked: Ref<boolean>
   bgmVolume: Ref<number>
   setBgmSeed: (seed: unknown, fallback?: number) => void
@@ -519,6 +520,26 @@ export function useRTC(): UseRTC {
   let resumeBusy = false
   let resumeForceQueued = false
   const autoplayUnlocked = ref(false)
+  function primeAudioOnGesture() {
+    if (!webAudioAvailable()) return
+    try {
+      const ctx = getCtx()
+      if (ctx.state === 'suspended') {
+        void ctx.resume().catch(() => {})
+      }
+      const gain = ctx.createGain()
+      gain.gain.value = 0
+      gain.connect(ctx.destination)
+      const src = ctx.createBufferSource()
+      src.buffer = ctx.createBuffer(1, 1, ctx.sampleRate)
+      src.connect(gain)
+      src.start(0)
+      src.onended = () => {
+        try { src.disconnect() } catch {}
+        try { gain.disconnect() } catch {}
+      }
+    } catch {}
+  }
   async function resumeAudio(opts?: { force?: boolean }) {
     const force = opts?.force === true || autoplayUnlocked.value
     if (resumeBusy) {
@@ -1438,6 +1459,7 @@ export function useRTC(): UseRTC {
     setUserVolume,
     getUserVolume,
     resumeAudio,
+    primeAudioOnGesture,
     setBgmSeed,
     setBgmPlaying,
     ensureBgmPlayback,

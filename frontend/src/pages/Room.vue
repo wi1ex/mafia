@@ -900,12 +900,15 @@ const blockedSelf = computed<BlockState>(() => {
     screen: s?.screen ?? 0,
   }
 })
+const hasRemotePeers = computed(() => {
+  const lid = localId.value
+  if (!lid) return false
+  return rtc.peerIds.value.some(id => id !== lid)
+})
 const audioGateNeeded = computed(() => {
   if (rtc.autoplayUnlocked.value) return false
   if (!speakersOn.value || blockedSelf.value.speakers) return false
-  if (gamePhase.value !== 'day' && gamePhase.value !== 'vote') return false
-  const cur = game.daySpeech.currentId
-  return !(!cur || cur === localId.value)
+  return hasRemotePeers.value
 })
 const mediaGateVisible = computed(() => uiReady.value && !isReconnecting.value && audioGateNeeded.value)
 
@@ -1614,10 +1617,12 @@ async function enableInitialMedia(): Promise<boolean> {
 function onMediaGateClick() {
   closePanels()
   rtc.autoplayUnlocked.value = true
+  rtc.primeAudioOnGesture()
   if (speakersOn.value && !blockedSelf.value.speakers) {
     rtc.setAudioSubscriptionsForAll(true)
   }
   void rtc.resumeAudio({ force: true })
+  window.setTimeout(() => { void rtc.resumeAudio({ force: true }) }, 250)
   void rtc.unlockBgmOnGesture()
   rtc.ensureBgmPlayback()
 }
