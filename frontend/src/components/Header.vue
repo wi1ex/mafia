@@ -2,7 +2,7 @@
   <header class="bar">
     <div class="links">
       <router-link class="btn" :to="{ name: 'home' }" aria-label="DECEIT.games">
-        <span>deceit.games v{{ BUILD }}</span>
+        <span>deceit.games {{ BUILD }}</span>
       </router-link>
       <router-link v-if="user.user?.role === 'admin'" class="btn" :to="{ name: 'admin' }" aria-label="Админ-панель">
         <span>Админ-панель</span>
