@@ -216,7 +216,12 @@ export function useRTC(): UseRTC {
       getCtx()
       waState = 1
       return true
-    } catch {
+    } catch (err) {
+      const name = (err as any)?.name
+      if (name === 'NotAllowedError' || name === 'SecurityError') {
+        waState = 0
+        return false
+      }
       waState = -1
       return false
     }
@@ -521,6 +526,7 @@ export function useRTC(): UseRTC {
   let resumeForceQueued = false
   const autoplayUnlocked = ref(false)
   function primeAudioOnGesture() {
+    if (waState === -1) waState = 0
     if (!webAudioAvailable()) return
     try {
       const ctx = getCtx()
@@ -538,6 +544,9 @@ export function useRTC(): UseRTC {
         try { src.disconnect() } catch {}
         try { gain.disconnect() } catch {}
       }
+      audioEls.forEach((_el, id) => {
+        try { applyVolume(id) } catch {}
+      })
     } catch {}
   }
   async function resumeAudio(opts?: { force?: boolean }) {
