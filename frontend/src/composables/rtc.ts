@@ -597,7 +597,8 @@ export function useRTC(): UseRTC {
       const usesWebAudio = waState === 1
       if (!force) {
         const next = usesWebAudio ? ctxRunning : (ctxRunning || played)
-        if (next) autoplayUnlocked.value = true
+        const canAutoUnlock = !isIOS || iosMicUnlockDone
+        if (canAutoUnlock && next) autoplayUnlocked.value = true
         else if (!wasUnlocked) autoplayUnlocked.value = false
       }
     } finally {
@@ -1080,10 +1081,15 @@ export function useRTC(): UseRTC {
       if (!ok) return false
     }
     const ok = await enableWithFallback(room, kind)
-    if (ok) return true
+    if (ok) {
+      if (isIOS && kind === 'audioinput') iosMicUnlockDone = true
+      return true
+    }
     const reprobeOk = await probePermissions(probeTargets)
     if (!reprobeOk) return false
-    return await enableWithFallback(room, kind)
+    const retryOk = await enableWithFallback(room, kind)
+    if (retryOk && isIOS && kind === 'audioinput') iosMicUnlockDone = true
+    return retryOk
   }
 
   const setAudioSubscriptionsForAll = (on: boolean) => {
@@ -1236,6 +1242,7 @@ export function useRTC(): UseRTC {
     waState = 0
     peerIds.value = []
     localId.value = ''
+    autoplayUnlocked.value = false
     try { preparedScreen?.forEach(t => t.stop()) } catch {}
     preparedScreen = null
     iosMicUnlockDone = false
