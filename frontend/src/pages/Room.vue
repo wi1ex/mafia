@@ -1170,7 +1170,7 @@ socket.value?.on('connect', async () => {
 
   socket.value?.on('game_finished', (p: any) => {
     game.handleGameFinished(p)
-    if (myGameRole.value === 'player' || myGameRole.value === 'head') void restoreAfterGameEnd()
+    if (myGameRole.value === 'player') void restoreAfterGameEnd()
   })
 
   socket.value?.on('game_ended', async (p: any) => {
@@ -1192,7 +1192,7 @@ socket.value?.on('connect', async () => {
       purgePeerUI(uid)
       rtc.cleanupPeer(uid)
     }
-    if (roleBeforeEnd === 'player' || roleBeforeEnd === 'head') void restoreAfterGameEnd()
+    if (roleBeforeEnd === 'player') void restoreAfterGameEnd()
   })
 
   socket.value?.on('game_player_left', (p: any) => {
