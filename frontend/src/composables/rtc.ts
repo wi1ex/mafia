@@ -39,7 +39,6 @@ const BGM_FILES = Object.entries(
   .sort(([a], [b]) => a.localeCompare(b))
   .map(([, v]) => v as string)
 
-const IOS_SILENT_WAV = 'data:audio/wav;base64,UklGRkQDAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YSADAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgA=='
 
 const error = (...a: unknown[]) => console.error('[RTC]', ...a)
 
@@ -212,8 +211,6 @@ export function useRTC(): UseRTC {
   const lsWriteTimers = new Map<string, number>()
   let audioCtx: AudioContext | null = null
   let waState: 0 | 1 | -1 = 0
-  let iosDummyAudio: HTMLAudioElement | null = null
-  let iosDummyStarted = false
   let iosMicUnlockAudio: HTMLAudioElement | null = null
   let iosMicUnlockStream: MediaStream | null = null
   let iosMicUnlockStarted = false
@@ -536,7 +533,6 @@ export function useRTC(): UseRTC {
   const autoplayUnlocked = ref(false)
   function primeAudioOnGesture() {
     if (isIOS) {
-      void playIosDummyAudio()
       void startIosMicUnlock()
       audioEls.forEach((_el, id) => {
         try { applyVolume(id) } catch {}
@@ -618,7 +614,6 @@ export function useRTC(): UseRTC {
 
   async function startAudio(): Promise<boolean> {
     if (isIOS) {
-      await playIosDummyAudio()
       if (wantAudio.value) {
         await startIosMicUnlock()
       }
@@ -1244,44 +1239,7 @@ export function useRTC(): UseRTC {
     localId.value = ''
     try { preparedScreen?.forEach(t => t.stop()) } catch {}
     preparedScreen = null
-    stopIosDummyAudio()
     stopIosMicUnlock()
-  }
-
-  function ensureIosDummyAudio(): HTMLAudioElement | null {
-    if (!isIOS) return null
-    if (iosDummyAudio) return iosDummyAudio
-    const el = new Audio()
-    el.src = IOS_SILENT_WAV
-    el.loop = true
-    el.preload = 'auto'
-    el.autoplay = false
-    ;(el as any).playsInline = true
-    el.muted = false
-    el.volume = 0
-    iosDummyAudio = el
-    try { document.body.appendChild(el) } catch {}
-    return el
-  }
-
-  async function playIosDummyAudio() {
-    if (!isIOS || iosDummyStarted) return
-    const el = ensureIosDummyAudio()
-    if (!el) return
-    el.muted = false
-    el.volume = 0
-    try {
-      await el.play()
-      iosDummyStarted = true
-    } catch {}
-  }
-
-  function stopIosDummyAudio() {
-    if (!iosDummyAudio) return
-    try { iosDummyAudio.pause() } catch {}
-    try { iosDummyAudio.remove() } catch {}
-    iosDummyAudio = null
-    iosDummyStarted = false
   }
 
   async function startIosMicUnlock(): Promise<boolean> {
