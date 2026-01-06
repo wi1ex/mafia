@@ -1081,6 +1081,9 @@ export function useRTC(): UseRTC {
       if (!ok) return false
     }
     const ok = await enableWithFallback(room, kind)
+    if (ok && kind === 'audioinput' && isIOS) {
+      stopIosMicUnlock()
+    }
     if (ok) return true
     const reprobeOk = await probePermissions(probeTargets)
     if (!reprobeOk) return false
@@ -1253,8 +1256,9 @@ export function useRTC(): UseRTC {
       el.preload = 'auto'
       ;(el as any).playsInline = true
       el.srcObject = stream
-      el.muted = false
+      el.muted = true
       el.volume = 0
+      el.style.display = 'none'
       iosMicUnlockAudio = el
       try { document.body.appendChild(el) } catch {}
       try { await el.play() } catch {}
