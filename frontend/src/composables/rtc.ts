@@ -1238,6 +1238,8 @@ export function useRTC(): UseRTC {
     localId.value = ''
     try { preparedScreen?.forEach(t => t.stop()) } catch {}
     preparedScreen = null
+    iosMicUnlockDone = false
+    iosMicUnlockInFlight = null
   }
 
   async function startIosMicUnlock(): Promise<boolean> {

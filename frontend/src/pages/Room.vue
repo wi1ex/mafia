@@ -449,6 +449,7 @@ const {
 const navUserAgent = navigator.userAgent || ''
 const IS_MOBILE = (navigator as any).userAgentData?.mobile === true || /Android|iPhone|iPad|iPod|Mobile/i.test(navUserAgent)
   || (window.matchMedia?.('(pointer: coarse)').matches && /Android|iPhone|iPad|iPod|Mobile|Tablet|Touch/i.test(navUserAgent))
+const IS_IOS = /iPad|iPhone|iPod/.test(navUserAgent) || (navUserAgent.includes('Macintosh') && navigator.maxTouchPoints > 1)
 
 const local = reactive({ mic: false, cam: false, speakers: true, visibility: true })
 const desiredMedia = reactive({ mic: false, cam: false })
@@ -1609,6 +1610,12 @@ async function enableInitialMedia(): Promise<boolean> {
     } else if (!micOn.value) {
       micOn.value = true
       try { await publishState({ mic: true }) } catch {}
+    }
+  }
+  if (IS_IOS && desiredMedia.cam && !desiredMedia.mic && !blockedSelf.value.mic) {
+    if (speakersOn.value && !blockedSelf.value.speakers) {
+      rtc.primeAudioOnGesture()
+      void rtc.startAudio()
     }
   }
   return failed
