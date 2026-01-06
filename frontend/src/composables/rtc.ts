@@ -168,7 +168,8 @@ export function useRTC(): UseRTC {
   const screenKey = (id: string) => `${id}#s`
   const isScreenKey = (key: string) => key.endsWith('#s')
   const isSub = (pub: RemoteTrackPublication) => pub.isSubscribed
-  const lowVideoQuality = VideoPresets.h180
+  // const lowVideoQuality = VideoPresets.h180
+  const lowVideoQuality = VideoPresets.h360
   const highVideoQuality = VideoPresets.h360
   const superVideoQuality = VideoPresets.h720
   const highScreenQuality = ScreenSharePresets.h720fps30
@@ -1294,7 +1295,7 @@ export function useRTC(): UseRTC {
     }
     const room = new LkRoom({
       dynacast: true,
-      webAudioMix: !isIOS,
+      // webAudioMix: !isIOS,
       publishDefaults: {
         // videoCodec: 'vp8',
         videoCodec: 'h264',
