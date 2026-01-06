@@ -211,10 +211,8 @@ export function useRTC(): UseRTC {
   const lsWriteTimers = new Map<string, number>()
   let audioCtx: AudioContext | null = null
   let waState: 0 | 1 | -1 = 0
-  let iosMicUnlockAudio: HTMLAudioElement | null = null
-  let iosMicUnlockStream: MediaStream | null = null
-  let iosMicUnlockStarted = false
-  let iosMicUnlockTimer: number | null = null
+  let iosMicUnlockDone = false
+  let iosMicUnlockInFlight: Promise<boolean> | null = null
   const getCtx = () => (audioCtx ??= new (window.AudioContext || (window as any).webkitAudioContext)())
   function webAudioAvailable(): boolean {
     if (isIOS) return false
@@ -1082,9 +1080,6 @@ export function useRTC(): UseRTC {
       if (!ok) return false
     }
     const ok = await enableWithFallback(room, kind)
-    if (ok && kind === 'audioinput' && isIOS) {
-      stopIosMicUnlock()
-    }
     if (ok) return true
     const reprobeOk = await probePermissions(probeTargets)
     if (!reprobeOk) return false
@@ -1243,69 +1238,32 @@ export function useRTC(): UseRTC {
     localId.value = ''
     try { preparedScreen?.forEach(t => t.stop()) } catch {}
     preparedScreen = null
-    stopIosMicUnlock()
   }
 
   async function startIosMicUnlock(): Promise<boolean> {
     if (!isIOS) return false
-    if (iosMicUnlockStarted) {
-      if (iosMicUnlockTimer == null) {
-        iosMicUnlockTimer = window.setTimeout(() => {
-          iosMicUnlockTimer = null
-          stopIosMicUnlock()
-        }, 1000)
-      }
-      return true
-    }
+    if (iosMicUnlockDone) return true
+    if (iosMicUnlockInFlight) return iosMicUnlockInFlight
     if (!navigator.mediaDevices?.getUserMedia) return false
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false })
-      iosMicUnlockStream = stream
-      const el = new Audio()
-      el.autoplay = true
-      el.preload = 'auto'
-      ;(el as any).playsInline = true
-      el.srcObject = stream
-      el.muted = true
-      el.volume = 0
-      el.style.display = 'none'
-      iosMicUnlockAudio = el
-      try { document.body.appendChild(el) } catch {}
-      try { await el.play() } catch {}
-      iosMicUnlockStarted = true
-      if (iosMicUnlockTimer != null) window.clearTimeout(iosMicUnlockTimer)
-      iosMicUnlockTimer = window.setTimeout(() => {
-        iosMicUnlockTimer = null
-        stopIosMicUnlock()
-      }, 1000)
-      return true
-    } catch {
-      return false
-    }
-  }
-
-  function stopIosMicUnlock() {
-    if (iosMicUnlockTimer != null) {
-      try { window.clearTimeout(iosMicUnlockTimer) } catch {}
-      iosMicUnlockTimer = null
-    }
-    if (iosMicUnlockAudio) {
-      try { (iosMicUnlockAudio as any).srcObject = null } catch {}
-      try { iosMicUnlockAudio.load() } catch {}
-      try { iosMicUnlockAudio.pause() } catch {}
-      try { iosMicUnlockAudio.remove() } catch {}
-      iosMicUnlockAudio = null
-    }
-    if (iosMicUnlockStream) {
+    iosMicUnlockInFlight = (async () => {
       try {
-        iosMicUnlockStream.getTracks().forEach(t => {
-          try { t.enabled = false } catch {}
-          try { t.stop() } catch {}
-        })
-      } catch {}
-      iosMicUnlockStream = null
-    }
-    iosMicUnlockStarted = false
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+        const tracks = stream.getTracks()
+        window.setTimeout(() => {
+          tracks.forEach(t => {
+            try { t.enabled = false } catch {}
+            try { t.stop() } catch {}
+          })
+        }, 1000)
+        iosMicUnlockDone = true
+        return true
+      } catch {
+        return false
+      } finally {
+        iosMicUnlockInFlight = null
+      }
+    })()
+    return iosMicUnlockInFlight
   }
 
   function initRoom(opts?: {
