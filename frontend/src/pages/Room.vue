@@ -656,6 +656,34 @@ function onDocClick() {
   void rtc.unlockBgmOnGesture()
   void rtc.ensureBgmPlayback()
 }
+function isEditableTarget(target: EventTarget | null): boolean {
+  const el = target as HTMLElement | null
+  if (!el) return false
+  const tag = el.tagName?.toLowerCase()
+  if (tag === 'input' || tag === 'textarea' || tag === 'select') return true
+  return el.isContentEditable
+}
+function onHotkey(e: KeyboardEvent) {
+  if (e.defaultPrevented || e.repeat) return
+  if (isEditableTarget(e.target)) return
+  if (gamePhase.value === 'idle') return
+
+  if (e.key === 'Enter') {
+    if (canShowTakeFoulSelf.value && canTakeFoulSelf.value && !foulPending.value) {
+      e.preventDefault()
+      e.stopPropagation()
+      void takeFoulUi()
+    }
+    return
+  }
+  if (e.code === 'Space' || e.key === ' ') {
+    if (game.canPressVoteButton()) {
+      e.preventDefault()
+      e.stopPropagation()
+      onVote()
+    }
+  }
+}
 function volumeIcon(val: number, enabled: boolean) {
   if (!enabled) return iconVolumeMute
   const v = Math.round(val)
@@ -1656,11 +1684,12 @@ async function handleJoinFailure(j: any) {
 async function onLeave(goHome = true) {
   if (leaving.value) return
   leaving.value = true
-    try {
+  try {
       document.removeEventListener('click', onDocClick)
       document.removeEventListener('visibilitychange', onBackgroundVisibility)
       window.removeEventListener('pagehide', onBackgroundVisibility)
-    } catch {}
+      window.removeEventListener('keydown', onHotkey)
+  } catch {}
   try {
     await stopScreenBeforeLeave()
     const s = socket.value
@@ -1776,6 +1805,7 @@ onMounted(async () => {
     }
 
     document.addEventListener('click', onDocClick)
+    window.addEventListener('keydown', onHotkey)
     document.addEventListener('visibilitychange', onBackgroundVisibility, { passive: true })
     window.addEventListener('pagehide', onBackgroundVisibility, { passive: true })
     window.addEventListener('offline', handleOffline)
@@ -1795,6 +1825,7 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   window.removeEventListener('offline', handleOffline)
   window.removeEventListener('online', handleOnline)
+  window.removeEventListener('keydown', onHotkey)
   if (gameStartOverlayTimerId != null) window.clearTimeout(gameStartOverlayTimerId)
   if (gameEndOverlayTimerId != null) window.clearTimeout(gameEndOverlayTimerId)
   rtc.destroyBgm()
