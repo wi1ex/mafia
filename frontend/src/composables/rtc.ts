@@ -1290,12 +1290,19 @@ export function useRTC(): UseRTC {
       iosMicUnlockTimer = null
     }
     if (iosMicUnlockAudio) {
+      try { (iosMicUnlockAudio as any).srcObject = null } catch {}
+      try { iosMicUnlockAudio.load() } catch {}
       try { iosMicUnlockAudio.pause() } catch {}
       try { iosMicUnlockAudio.remove() } catch {}
       iosMicUnlockAudio = null
     }
     if (iosMicUnlockStream) {
-      try { iosMicUnlockStream.getTracks().forEach(t => { try { t.stop() } catch {} }) } catch {}
+      try {
+        iosMicUnlockStream.getTracks().forEach(t => {
+          try { t.enabled = false } catch {}
+          try { t.stop() } catch {}
+        })
+      } catch {}
       iosMicUnlockStream = null
     }
     iosMicUnlockStarted = false
