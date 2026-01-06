@@ -119,6 +119,7 @@ export type UseRTC = {
   getUserVolume: (id: string) => number
   resumeAudio: (opts?: { force?: boolean }) => Promise<void>
   primeAudioOnGesture: () => void
+  startAudio: () => Promise<boolean>
   autoplayUnlocked: Ref<boolean>
   bgmVolume: Ref<number>
   setBgmSeed: (seed: unknown, fallback?: number) => void
@@ -596,6 +597,17 @@ export function useRTC(): UseRTC {
           void resumeAudio({ force: true })
         }
       })
+    }
+  }
+
+  async function startAudio(): Promise<boolean> {
+    const room = lk.value as any
+    if (!room || typeof room.startAudio !== 'function') return false
+    try {
+      await room.startAudio()
+      return true
+    } catch {
+      return false
     }
   }
 
@@ -1469,6 +1481,7 @@ export function useRTC(): UseRTC {
     getUserVolume,
     resumeAudio,
     primeAudioOnGesture,
+    startAudio,
     setBgmSeed,
     setBgmPlaying,
     ensureBgmPlayback,

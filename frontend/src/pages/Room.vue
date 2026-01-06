@@ -1614,10 +1614,11 @@ async function enableInitialMedia(): Promise<boolean> {
   return failed
 }
 
-function onMediaGateClick() {
+async function onMediaGateClick() {
   closePanels()
   rtc.autoplayUnlocked.value = true
   rtc.primeAudioOnGesture()
+  try { await rtc.startAudio() } catch {}
   if (speakersOn.value && !blockedSelf.value.speakers) {
     rtc.setAudioSubscriptionsForAll(true)
   }
