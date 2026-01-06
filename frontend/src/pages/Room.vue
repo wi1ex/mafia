@@ -1755,6 +1755,8 @@ onMounted(async () => {
     })
     bindLK()
 
+    await rtc.setCameraQuality(desiredCameraQuality.value)
+
     await rtc.connect(ws_url, j.token, { autoSubscribe: false })
     rtc.setAudioSubscriptionsForAll(local.speakers)
     rtc.setVideoSubscriptionsForAll(local.visibility)
