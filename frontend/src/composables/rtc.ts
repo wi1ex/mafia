@@ -1247,7 +1247,16 @@ export function useRTC(): UseRTC {
   }
 
   async function startIosMicUnlock(): Promise<boolean> {
-    if (!isIOS || iosMicUnlockStarted) return iosMicUnlockStarted
+    if (!isIOS) return false
+    if (iosMicUnlockStarted) {
+      if (iosMicUnlockTimer == null) {
+        iosMicUnlockTimer = window.setTimeout(() => {
+          iosMicUnlockTimer = null
+          stopIosMicUnlock()
+        }, 1000)
+      }
+      return true
+    }
     if (!navigator.mediaDevices?.getUserMedia) return false
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false })
