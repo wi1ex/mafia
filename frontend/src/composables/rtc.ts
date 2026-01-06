@@ -214,6 +214,7 @@ export function useRTC(): UseRTC {
   let iosMicUnlockAudio: HTMLAudioElement | null = null
   let iosMicUnlockStream: MediaStream | null = null
   let iosMicUnlockStarted = false
+  let iosMicUnlockTimer: number | null = null
   const getCtx = () => (audioCtx ??= new (window.AudioContext || (window as any).webkitAudioContext)())
   function webAudioAvailable(): boolean {
     if (isIOS) return false
@@ -1263,6 +1264,11 @@ export function useRTC(): UseRTC {
       try { document.body.appendChild(el) } catch {}
       try { await el.play() } catch {}
       iosMicUnlockStarted = true
+      if (iosMicUnlockTimer != null) window.clearTimeout(iosMicUnlockTimer)
+      iosMicUnlockTimer = window.setTimeout(() => {
+        iosMicUnlockTimer = null
+        stopIosMicUnlock()
+      }, 1000)
       return true
     } catch {
       return false
@@ -1270,6 +1276,10 @@ export function useRTC(): UseRTC {
   }
 
   function stopIosMicUnlock() {
+    if (iosMicUnlockTimer != null) {
+      try { window.clearTimeout(iosMicUnlockTimer) } catch {}
+      iosMicUnlockTimer = null
+    }
     if (iosMicUnlockAudio) {
       try { iosMicUnlockAudio.pause() } catch {}
       try { iosMicUnlockAudio.remove() } catch {}
