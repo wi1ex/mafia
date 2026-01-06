@@ -559,10 +559,8 @@ const canShowStartGame = computed(() => {
 })
 
 const desiredCameraQuality = computed<CameraQuality>(() => {
-  if (screenOwnerId.value) return 'low'
-  if (gamePhase.value !== 'idle') return 'low'
-  if (roomUserLimit.value === 2) return 'super'
-  return 'high'
+  if (roomUserLimit.value === 2 && !screenOwnerId.value) return 'high'
+  return 'low'
 })
 
 const autoRemoteQuality = computed<VQ>(() => (desiredCameraQuality.value === 'low' ? 'sd' : 'hd'))

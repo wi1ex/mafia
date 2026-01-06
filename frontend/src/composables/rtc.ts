@@ -21,7 +21,7 @@ setLogLevel(LogLevel.error)
 
 export type DeviceKind = 'audioinput' | 'videoinput'
 export type VQ = 'sd' | 'hd'
-export type CameraQuality = 'low' | 'high' | 'super'
+export type CameraQuality = 'low' | 'high'
 const LS = {
   mic: 'audioDeviceId',
   cam: 'videoDeviceId',
@@ -168,15 +168,12 @@ export function useRTC(): UseRTC {
   const screenKey = (id: string) => `${id}#s`
   const isScreenKey = (key: string) => key.endsWith('#s')
   const isSub = (pub: RemoteTrackPublication) => pub.isSubscribed
-  // const lowVideoQuality = VideoPresets.h180
   const lowVideoQuality = VideoPresets.h360
-  const highVideoQuality = VideoPresets.h360
-  const superVideoQuality = VideoPresets.h720
+  const highVideoQuality = VideoPresets.h720
   const highScreenQuality = ScreenSharePresets.h720fps30
-  const cameraQuality = ref<CameraQuality>('high')
+  const cameraQuality = ref<CameraQuality>('low')
   const cameraPresetFor = (quality: CameraQuality) => {
     if (quality === 'low') return lowVideoQuality
-    if (quality === 'super') return superVideoQuality
     return highVideoQuality
   }
   const cameraPreset = () => cameraPresetFor(cameraQuality.value)
@@ -1049,7 +1046,7 @@ export function useRTC(): UseRTC {
   }
 
   async function setCameraQuality(quality: CameraQuality): Promise<void> {
-    const next = quality === 'low' || quality === 'super' ? quality : 'high'
+    const next = quality === 'low' ? 'low' : 'high'
     const changed = cameraQuality.value !== next
     cameraQuality.value = next
     if (!changed) return
