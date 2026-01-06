@@ -214,6 +214,9 @@ export function useRTC(): UseRTC {
   let waState: 0 | 1 | -1 = 0
   let iosDummyAudio: HTMLAudioElement | null = null
   let iosDummyStarted = false
+  let iosMicUnlockAudio: HTMLAudioElement | null = null
+  let iosMicUnlockStream: MediaStream | null = null
+  let iosMicUnlockStarted = false
   const getCtx = () => (audioCtx ??= new (window.AudioContext || (window as any).webkitAudioContext)())
   function webAudioAvailable(): boolean {
     if (isIOS) return false
@@ -534,6 +537,7 @@ export function useRTC(): UseRTC {
   function primeAudioOnGesture() {
     if (isIOS) {
       void playIosDummyAudio()
+      void startIosMicUnlock()
       audioEls.forEach((_el, id) => {
         try { applyVolume(id) } catch {}
       })
@@ -615,6 +619,9 @@ export function useRTC(): UseRTC {
   async function startAudio(): Promise<boolean> {
     if (isIOS) {
       await playIosDummyAudio()
+      if (wantAudio.value) {
+        await startIosMicUnlock()
+      }
     }
     const room = lk.value as any
     if (!room || typeof room.startAudio !== 'function') return false
@@ -1238,6 +1245,7 @@ export function useRTC(): UseRTC {
     try { preparedScreen?.forEach(t => t.stop()) } catch {}
     preparedScreen = null
     stopIosDummyAudio()
+    stopIosMicUnlock()
   }
 
   function ensureIosDummyAudio(): HTMLAudioElement | null {
@@ -1274,6 +1282,42 @@ export function useRTC(): UseRTC {
     try { iosDummyAudio.remove() } catch {}
     iosDummyAudio = null
     iosDummyStarted = false
+  }
+
+  async function startIosMicUnlock(): Promise<boolean> {
+    if (!isIOS || iosMicUnlockStarted) return iosMicUnlockStarted
+    if (!navigator.mediaDevices?.getUserMedia) return false
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+      iosMicUnlockStream = stream
+      const el = new Audio()
+      el.autoplay = true
+      el.preload = 'auto'
+      ;(el as any).playsInline = true
+      el.srcObject = stream
+      el.muted = false
+      el.volume = 0
+      iosMicUnlockAudio = el
+      try { document.body.appendChild(el) } catch {}
+      try { await el.play() } catch {}
+      iosMicUnlockStarted = true
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  function stopIosMicUnlock() {
+    if (iosMicUnlockAudio) {
+      try { iosMicUnlockAudio.pause() } catch {}
+      try { iosMicUnlockAudio.remove() } catch {}
+      iosMicUnlockAudio = null
+    }
+    if (iosMicUnlockStream) {
+      try { iosMicUnlockStream.getTracks().forEach(t => { try { t.stop() } catch {} }) } catch {}
+      iosMicUnlockStream = null
+    }
+    iosMicUnlockStarted = false
   }
 
   function initRoom(opts?: {
