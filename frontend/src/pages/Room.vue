@@ -654,6 +654,7 @@ function toggleApps() {
 }
 function onDocClick() {
   closePanels()
+  void rtc.startAudio()
   void rtc.resumeAudio()
   void rtc.unlockBgmOnGesture()
   void rtc.ensureBgmPlayback()

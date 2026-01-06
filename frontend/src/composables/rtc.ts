@@ -1250,6 +1250,7 @@ export function useRTC(): UseRTC {
     }
     const room = new LkRoom({
       dynacast: true,
+      webAudioMix: !isIOS,
       publishDefaults: {
         // videoCodec: 'vp8',
         videoCodec: 'h264',
