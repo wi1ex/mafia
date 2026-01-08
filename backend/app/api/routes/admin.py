@@ -125,7 +125,10 @@ async def site_stats(month: str | None = None, session: AsyncSession = Depends(g
     start_dt, end_dt = parse_month_range(month)
     now = datetime.now(timezone.utc)
     day_start = now - timedelta(days=1)
-    month_start = datetime(now.year, now.month, 1, tzinfo=timezone.utc)
+    month_start = start_dt
+    month_end = end_dt if end_dt <= now else now
+    if month_end < month_start:
+        month_end = month_start
 
     total_users = int(await session.scalar(select(func.count(User.id))) or 0)
     total_rooms = int(await session.scalar(select(func.count(Room.id))) or 0)
@@ -134,7 +137,7 @@ async def site_stats(month: str | None = None, session: AsyncSession = Depends(g
     registrations_monthly = await build_registrations_monthly_series(session)
     total_stream_seconds = await calc_total_stream_seconds(session)
     day_stream_seconds = await calc_stream_seconds_in_range(session, day_start, now)
-    month_stream_seconds = await calc_stream_seconds_in_range(session, month_start, now)
+    month_stream_seconds = await calc_stream_seconds_in_range(session, month_start, month_end)
 
     r = get_redis()
     active_rooms, active_room_users = await fetch_active_rooms_stats(r)
@@ -148,11 +151,11 @@ async def site_stats(month: str | None = None, session: AsyncSession = Depends(g
         online_users_list = [OnlineUserOut(id=uid, username=name_map.get(uid)) for uid in online_ids_sorted]
 
     day_online_users = int(await session.scalar(select(func.count(User.id)).where(User.last_visit_at >= day_start, User.last_visit_at < now)) or 0)
-    month_online_users = int(await session.scalar(select(func.count(User.id)).where(User.last_visit_at >= month_start, User.last_visit_at < now)) or 0)
+    month_online_users = int(await session.scalar(select(func.count(User.id)).where(User.last_visit_at >= month_start, User.last_visit_at < month_end)) or 0)
     day_rooms = int(await session.scalar(select(func.count(Room.id)).where(Room.created_at >= day_start, Room.created_at < now)) or 0)
-    month_rooms = int(await session.scalar(select(func.count(Room.id)).where(Room.created_at >= month_start, Room.created_at < now)) or 0)
+    month_rooms = int(await session.scalar(select(func.count(Room.id)).where(Room.created_at >= month_start, Room.created_at < month_end)) or 0)
     day_games = int(await session.scalar(select(func.count(Game.id)).where(Game.finished_at >= day_start, Game.finished_at < now)) or 0)
-    month_games = int(await session.scalar(select(func.count(Game.id)).where(Game.finished_at >= month_start, Game.finished_at < now)) or 0)
+    month_games = int(await session.scalar(select(func.count(Game.id)).where(Game.finished_at >= month_start, Game.finished_at < month_end)) or 0)
 
     return SiteStatsOut(
         total_users=total_users,
