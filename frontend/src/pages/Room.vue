@@ -318,6 +318,7 @@ import iconVolumeMax from '@/assets/svg/volumeMax.svg'
 import iconVolumeMid from '@/assets/svg/volumeMid.svg'
 import iconVolumeLow from '@/assets/svg/volumeLow.svg'
 import iconVolumeMute from '@/assets/svg/volumeMute.svg'
+import gongAudioUrl from '@/assets/audio/gong.mp3'
 
 import iconLeaveRoom from '@/assets/svg/leave.svg'
 import iconSettings from '@/assets/svg/settings.svg'
@@ -703,6 +704,15 @@ const bgmShouldPlay = computed(() => BGM_ACTIVE_PHASES.includes(gamePhase.value)
 watch(bgmShouldPlay, (on) => {
   rtc.setBgmPlaying(on)
 }, { immediate: true })
+
+const speechGongAudio = new Audio(gongAudioUrl)
+speechGongAudio.preload = 'auto'
+
+function playSpeechGong(): void {
+  try { speechGongAudio.currentTime = 0 } catch {}
+  const res = speechGongAudio.play()
+  if (res && typeof res.catch === 'function') res.catch(() => {})
+}
 
 async function sendAck(event: string, payload: any, timeoutMs = 15000): Promise<Ack> {
   const s = socket.value
@@ -1744,6 +1754,19 @@ watch(() => [gamePhase.value, game.daySpeech.currentId, game.daySpeech.remaining
   if ((ms ?? 0) > 0) return
   kickSpeechAudio()
 }, { immediate: true })
+
+watch(
+  () => [gamePhase.value, game.daySpeech.currentId, game.daySpeech.remainingMs],
+  ([phase, cur, ms], [_prevPhase, prevCur, prevMs]) => {
+    if ((phase !== 'day' && phase !== 'vote') || !cur) return
+    if (prevCur !== cur) return
+    const before = Number(prevMs ?? 0)
+    const now = Number(ms ?? 0)
+    if (before <= 0 || now > 0) return
+    void rtc.resumeAudio({ force: true })
+    playSpeechGong()
+  }
+)
 
 watch(() => auth.isAuthed, (ok) => { if (!ok) { void onLeave() } })
 

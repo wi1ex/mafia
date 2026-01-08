@@ -27,7 +27,7 @@
               <div class="range">
                 <div class="range-label">
                   <span>Лимит участников: {{ limit }}/{{ RANGE_MAX }}</span>
-                  <span v-show="limit === 2" class="limit-badge" aria-label="Высокое качество">HD</span>
+                  <span v-if="limit === 2" class="limit-badge" aria-label="Высокое качество">HD</span>
                 </div>
                 <div class="range-wrap">
                   <div class="range-dead" :style="deadZoneStyle" @click="limit = DEAD_MIN"></div>
@@ -535,7 +535,6 @@ onBeforeUnmount(() => {
             font-size: 12px;
             font-weight: bold;
             letter-spacing: 1px;
-            transition: opacity 0.25s ease-in-out;
           }
           .range-wrap {
             position: relative;
