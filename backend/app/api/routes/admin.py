@@ -39,6 +39,7 @@ from ...schemas.admin import (
     AdminGamesOut,
     AdminGameUserOut,
     AdminGamePlayerOut,
+    OnlineUserOut,
 )
 from ..utils import (
     parse_month_range,
@@ -47,10 +48,12 @@ from ..utils import (
     game_settings_out,
     normalize_pagination,
     build_registrations_series,
+    build_registrations_monthly_series,
     calc_total_stream_seconds,
     calc_stream_seconds_in_range,
     fetch_active_rooms_stats,
     fetch_online_users_count,
+    fetch_online_user_ids,
     fetch_user_avatar_map,
     fetch_user_name_avatar_maps,
     collect_room_user_ids,
@@ -122,12 +125,13 @@ async def site_stats(month: str | None = None, session: AsyncSession = Depends(g
     start_dt, end_dt = parse_month_range(month)
     now = datetime.now(timezone.utc)
     day_start = now - timedelta(days=1)
-    month_start = now - timedelta(days=30)
+    month_start = datetime(now.year, now.month, 1, tzinfo=timezone.utc)
 
     total_users = int(await session.scalar(select(func.count(User.id))) or 0)
     total_rooms = int(await session.scalar(select(func.count(Room.id))) or 0)
     total_games = int(await session.scalar(select(func.count(Game.id))) or 0)
     registrations = await build_registrations_series(session, start_dt, end_dt)
+    registrations_monthly = await build_registrations_monthly_series(session)
     total_stream_seconds = await calc_total_stream_seconds(session)
     day_stream_seconds = await calc_stream_seconds_in_range(session, day_start, now)
     month_stream_seconds = await calc_stream_seconds_in_range(session, month_start, now)
@@ -135,6 +139,14 @@ async def site_stats(month: str | None = None, session: AsyncSession = Depends(g
     r = get_redis()
     active_rooms, active_room_users = await fetch_active_rooms_stats(r)
     online_users = await fetch_online_users_count(r)
+    online_ids = await fetch_online_user_ids(r)
+
+    online_users_list: list[OnlineUserOut] = []
+    if online_ids:
+        name_map, _ = await fetch_user_name_avatar_maps(session, set(online_ids))
+        online_ids_sorted = sorted(online_ids, key=lambda uid: (name_map.get(uid) or f"user{uid}").lower())
+        online_users_list = [OnlineUserOut(id=uid, username=name_map.get(uid)) for uid in online_ids_sorted]
+
     day_online_users = int(await session.scalar(select(func.count(User.id)).where(User.last_visit_at >= day_start, User.last_visit_at < now)) or 0)
     month_online_users = int(await session.scalar(select(func.count(User.id)).where(User.last_visit_at >= month_start, User.last_visit_at < now)) or 0)
     day_rooms = int(await session.scalar(select(func.count(Room.id)).where(Room.created_at >= day_start, Room.created_at < now)) or 0)
@@ -145,12 +157,14 @@ async def site_stats(month: str | None = None, session: AsyncSession = Depends(g
     return SiteStatsOut(
         total_users=total_users,
         registrations=registrations,
+        registrations_monthly=registrations_monthly,
         total_rooms=total_rooms,
         total_games=total_games,
         total_stream_minutes=total_stream_seconds // 60,
         active_rooms=active_rooms,
         active_room_users=active_room_users,
         online_users=online_users,
+        online_users_list=online_users_list,
         last_day=PeriodStatsOut(
             games=day_games,
             online_users=day_online_users,

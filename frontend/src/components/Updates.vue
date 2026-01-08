@@ -10,7 +10,7 @@
       <div class="list" ref="list">
         <article class="item" v-for="it in updates.items" :key="it.id">
           <div class="item-header">
-            <span>v{{ it.version }}</span>
+            <span>v{{ it.version }}b</span>
             <time>{{ formatLocalDateTime(it.date, DATE_ONLY) }}</time>
           </div>
           <p v-if="it.description" class="text">{{ it.description }}</p>

@@ -245,7 +245,18 @@
               </div>
               <div class="stat-card">
                 <span class="label">Онлайн текущий</span>
-                <span class="value">{{ stats.online_users }}</span>
+                <div class="tooltip" tabindex="0">
+                  <span class="value tooltip-value">{{ stats.online_users }}</span>
+                  <div class="tooltip-body">
+                    <div v-if="stats.online_users_list.length === 0" class="tooltip-empty">Нет данных</div>
+                    <div v-else class="tooltip-list">
+                      <div v-for="item in stats.online_users_list" :key="`online-${item.id}`" class="tooltip-row">
+                        <span class="tooltip-id">ID {{ item.id }}</span>
+                        <span>{{ item.username || `user${item.id}` }}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
             <div class="stats-subtitle">За сутки</div>
@@ -295,7 +306,7 @@
                 </div>
                 <div class="chart-grid">
                   <div v-for="point in stats.registrations" :key="point.date" class="chart-bar">
-                    <div class="bar" :style="{ height: registrationHeight(point.count) }">
+                    <div class="bar" :style="{ height: chartBarHeight(point.count, registrationsMax) }">
                       <span class="bar-value">{{ point.count }}</span>
                     </div>
                     <span class="bar-label">{{ point.date.slice(-2) }}</span>
@@ -306,6 +317,24 @@
                     <span>Отобразить за</span>
                     <input type="month" v-model="statsMonth" :disabled="statsLoading" />
                   </label>
+                </div>
+              </div>
+            </div>
+
+            <div class="chart chart--monthly">
+              <div class="chart-title">Регистрации по месяцам</div>
+              <div v-if="stats.registrations_monthly.length === 0" class="muted">Нет данных</div>
+              <div v-else class="chart-body">
+                <div class="chart-axis">
+                  <span v-for="tick in registrationMonthlyTicks" :key="tick">{{ tick }}</span>
+                </div>
+                <div class="chart-grid">
+                  <div v-for="point in stats.registrations_monthly" :key="point.date" class="chart-bar">
+                    <div class="bar" :style="{ height: chartBarHeight(point.count, registrationsMonthlyMax) }">
+                      <span class="bar-value">{{ point.count }}</span>
+                    </div>
+                    <span class="bar-label">{{ formatMonthLabel(point.date) }}</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -679,7 +708,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, reactive, computed, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { api } from '@/services/axios'
 import { alertDialog, confirmDialog } from '@/services/confirm'
 import { formatLocalDateTime } from '@/services/datetime'
@@ -725,6 +754,11 @@ type RegistrationPoint = {
   count: number
 }
 
+type OnlineUser = {
+  id: number
+  username?: string | null
+}
+
 type PeriodStats = {
   games: number
   online_users: number
@@ -735,12 +769,14 @@ type PeriodStats = {
 type SiteStats = {
   total_users: number
   registrations: RegistrationPoint[]
+  registrations_monthly: RegistrationPoint[]
   total_rooms: number
   total_games: number
   total_stream_minutes: number
   active_rooms: number
   active_room_users: number
   online_users: number
+  online_users_list: OnlineUser[]
   last_day: PeriodStats
   last_month: PeriodStats
 }
@@ -886,12 +922,14 @@ const statsMonth = ref('')
 const stats = reactive<SiteStats>({
   total_users: 0,
   registrations: [],
+  registrations_monthly: [],
   total_rooms: 0,
   total_games: 0,
   total_stream_minutes: 0,
   active_rooms: 0,
   active_room_users: 0,
   online_users: 0,
+  online_users_list: [],
   last_day: {
     games: 0,
     online_users: 0,
@@ -1010,8 +1048,12 @@ const registrationsMax = computed(() => {
   const vals = stats.registrations.map(p => p.count)
   return Math.max(1, ...vals)
 })
-const registrationTicks = computed(() => {
-  const max = Math.max(1, registrationsMax.value)
+const registrationsMonthlyMax = computed(() => {
+  const vals = stats.registrations_monthly.map(p => p.count)
+  return Math.max(1, ...vals)
+})
+function buildChartTicks(maxValue: number): number[] {
+  const max = Math.max(1, maxValue)
   if (max <= 4) {
     return Array.from({ length: max + 1 }, (_, i) => max - i)
   }
@@ -1028,7 +1070,9 @@ const registrationTicks = computed(() => {
   }
   if (!seen.has(0)) out.push(0)
   return out
-})
+}
+const registrationTicks = computed(() => buildChartTicks(registrationsMax.value))
+const registrationMonthlyTicks = computed(() => buildChartTicks(registrationsMonthlyMax.value))
 const canSaveUpdate = computed(() => {
   return Boolean(updateForm.version.trim() && updateForm.date && updateForm.description.trim())
 })
@@ -1076,10 +1120,43 @@ function formatGameAction(action: any): string {
   try { return JSON.stringify(action) } catch { return String(action) }
 }
 
-function registrationHeight(count: number): string {
-  const max = registrationsMax.value || 1
+const hiddenGameActionTypes = new Set(['nominate', 'foul'])
+
+function getGameActionType(action: any): string | null {
+  if (!action) return null
+  if (typeof action === 'string') {
+    if (hiddenGameActionTypes.has(action)) return action
+    try {
+      const parsed = JSON.parse(action)
+      if (parsed && typeof parsed === 'object') {
+        return (parsed as { type?: string }).type
+      }
+    } catch {}
+    return null
+  }
+  if (typeof action === 'object') {
+    return (action as { type?: string }).type
+  }
+  return null
+}
+
+function filterGameActions(actions: any[]): any[] {
+  return actions.filter(action => {
+    const actionType = getGameActionType(action)
+    return !actionType || !hiddenGameActionTypes.has(actionType)
+  })
+}
+
+function chartBarHeight(count: number, maxValue: number): string {
+  const max = maxValue || 1
   const pct = Math.round((count / max) * 85)
   return `${Math.max(2, pct)}%`
+}
+
+function formatMonthLabel(value: string): string {
+  const [year, month] = value.split('-', 2)
+  if (!year || !month) return value
+  return `${month}.${year.slice(-2)}`
 }
 
 async function loadSettings(): Promise<void> {
@@ -1155,12 +1232,14 @@ async function loadStats(): Promise<void> {
     Object.assign(stats, {
       total_users: data?.total_users ?? 0,
       registrations: Array.isArray(data?.registrations) ? data.registrations : [],
+      registrations_monthly: Array.isArray(data?.registrations_monthly) ? data.registrations_monthly : [],
       total_rooms: data?.total_rooms ?? 0,
       total_games: data?.total_games ?? 0,
       total_stream_minutes: data?.total_stream_minutes ?? 0,
       active_rooms: data?.active_rooms ?? 0,
       active_room_users: data?.active_room_users ?? 0,
       online_users: data?.online_users ?? 0,
+      online_users_list: Array.isArray(data?.online_users_list) ? data.online_users_list : [],
       last_day: {
         games: data?.last_day?.games ?? 0,
         online_users: data?.last_day?.online_users ?? 0,
@@ -1259,7 +1338,7 @@ async function loadGames(): Promise<void> {
       owner: item?.owner || { id: 0, username: null, avatar_name: null },
       head: item?.head || null,
       players: Array.isArray(item?.players) ? item.players : [],
-      actions: Array.isArray(item?.actions) ? item.actions : [],
+      actions: filterGameActions(Array.isArray(item?.actions) ? item.actions : []),
     }))
     gamesTotal.value = Number.isFinite(data?.total) ? data.total : 0
   } catch {
@@ -1827,11 +1906,70 @@ onMounted(() => {
           }
         }
       }
+      .tooltip {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        cursor: default;
+        .tooltip-value {
+          border-bottom: 1px dashed $grey;
+        }
+        .tooltip-body {
+          position: absolute;
+          bottom: calc(100% - 35px);
+          right: 15px;
+          min-width: 220px;
+          max-width: 320px;
+          max-height: 200px;
+          overflow: auto;
+          padding: 10px;
+          border: 1px solid $lead;
+          border-radius: 5px;
+          background-color: $graphite;
+          box-shadow: 0 5px 15px rgba($black, 0.25);
+          opacity: 0;
+          transform: translateY(-5px);
+          pointer-events: none;
+          transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
+          z-index: 10;
+        }
+        .tooltip-list {
+          display: flex;
+          flex-direction: column;
+          gap: 5px;
+        }
+        .tooltip-row {
+          display: flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 5px;
+          font-size: 12px;
+          color: $fg;
+        }
+        .tooltip-id {
+          color: $grey;
+        }
+        .tooltip-empty {
+          font-size: 12px;
+          color: $grey;
+        }
+        &:hover .tooltip-body,
+        &:focus-within .tooltip-body {
+          opacity: 1;
+          transform: translateY(0);
+          pointer-events: auto;
+        }
+      }
       .chart {
         padding: 10px;
         border: 1px solid $lead;
         border-radius: 5px;
         background-color: $graphite;
+        .chart-title {
+          font-size: 12px;
+          color: $grey;
+          margin-bottom: 8px;
+        }
         .chart-body {
           display: flex;
           gap: 8px;
@@ -1884,6 +2022,14 @@ onMounted(() => {
               font-size: 10px;
               color: $grey;
             }
+          }
+        }
+      }
+      .chart--monthly {
+        .chart-grid {
+          .chart-bar {
+            width: 28px;
+            flex: 0 0 28px;
           }
         }
       }

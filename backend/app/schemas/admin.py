@@ -72,6 +72,11 @@ class RegistrationsPoint(BaseModel):
     count: int
 
 
+class OnlineUserOut(BaseModel):
+    id: int
+    username: Optional[str] = None
+
+
 class PeriodStatsOut(BaseModel):
     games: int
     online_users: int
@@ -82,12 +87,14 @@ class PeriodStatsOut(BaseModel):
 class SiteStatsOut(BaseModel):
     total_users: int
     registrations: List[RegistrationsPoint]
+    registrations_monthly: List[RegistrationsPoint]
     total_rooms: int
     total_games: int
     total_stream_minutes: int
     active_rooms: int
     active_room_users: int
     online_users: int
+    online_users_list: List[OnlineUserOut]
     last_day: PeriodStatsOut
     last_month: PeriodStatsOut
 

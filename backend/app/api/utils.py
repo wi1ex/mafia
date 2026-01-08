@@ -38,10 +38,12 @@ __all__ = [
     "schedule_room_gc",
     "normalize_pagination",
     "build_registrations_series",
+    "build_registrations_monthly_series",
     "calc_total_stream_seconds",
     "calc_stream_seconds_in_range",
     "fetch_active_rooms_stats",
     "fetch_online_users_count",
+    "fetch_online_user_ids",
     "fetch_user_avatar_map",
     "fetch_user_name_avatar_maps",
     "collect_room_user_ids",
@@ -172,7 +174,52 @@ async def build_registrations_series(session: AsyncSession, start_dt: datetime, 
     return registrations
 
 
+async def build_registrations_monthly_series(session: AsyncSession) -> list[RegistrationsPoint]:
+    rows = await session.execute(select(func.date_trunc("month", User.registered_at).label("month"), func.count(User.id)).group_by("month").order_by("month"))
+    raw = rows.all()
+    if not raw:
+        return []
+
+    reg_map: dict[str, int] = {}
+    first_month = None
+    for month_dt, cnt in raw:
+        if not month_dt:
+            continue
+
+        key = f"{month_dt.year:04d}-{month_dt.month:02d}"
+        reg_map[key] = int(cnt or 0)
+        if first_month is None:
+            first_month = month_dt
+
+    if not first_month:
+        return []
+
+    start_year = first_month.year
+    start_month = first_month.month
+    now = datetime.now(timezone.utc)
+    end_year = now.year
+    end_month = now.month
+    monthly: list[RegistrationsPoint] = []
+    year = start_year
+    month = start_month
+    while (year, month) <= (end_year, end_month):
+        key = f"{year:04d}-{month:02d}"
+        monthly.append(RegistrationsPoint(date=key, count=reg_map.get(key, 0)))
+        if month == 12:
+            year += 1
+            month = 1
+        else:
+            month += 1
+
+    return monthly
+
+
 async def calc_total_stream_seconds(session: AsyncSession) -> int:
+    first_log = await session.scalar(select(func.min(AppLog.created_at)).where(AppLog.action.in_(("stream_start", "stream_stop"))))
+    if first_log:
+        now = datetime.now(timezone.utc)
+        return await calc_stream_seconds_in_range(session, first_log, now)
+
     total_stream_seconds = 0
     rooms_rows = await session.execute(select(Room.created_at, Room.deleted_at, Room.screen_time))
     for _created_at, _deleted_at, screen_time in rooms_rows.all():
@@ -264,6 +311,20 @@ async def fetch_active_rooms_stats(r) -> tuple[int, int]:
 
 async def fetch_online_users_count(r) -> int:
     return int(await r.scard("online:users") or 0)
+
+
+async def fetch_online_user_ids(r) -> list[int]:
+    raw_ids = await r.smembers("online:users")
+    ids: list[int] = []
+    for item in raw_ids or []:
+        try:
+            uid = int(item)
+        except Exception:
+            continue
+        if uid > 0:
+            ids.append(uid)
+
+    return ids
 
 
 async def fetch_user_avatar_map(session: AsyncSession, user_ids: set[int]) -> dict[int, str | None]:
