@@ -322,7 +322,6 @@
             </div>
 
             <div class="chart chart--monthly">
-              <div class="chart-title">Регистрации по месяцам</div>
               <div v-if="stats.registrations_monthly.length === 0" class="muted">Нет данных</div>
               <div v-else class="chart-body">
                 <div class="chart-axis">
@@ -1965,11 +1964,6 @@ onMounted(() => {
         border: 1px solid $lead;
         border-radius: 5px;
         background-color: $graphite;
-        .chart-title {
-          font-size: 12px;
-          color: $grey;
-          margin-bottom: 8px;
-        }
         .chart-body {
           display: flex;
           gap: 8px;
