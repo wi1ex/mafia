@@ -279,26 +279,32 @@
               </div>
             </div>
             <div class="stats-subtitle">За месяц</div>
-            <div class="stats-grid stats-grid--compact">
-              <div class="stat-card">
-                <span class="label">Онлайн за месяц</span>
-                <span class="value">{{ stats.last_month.online_users }}</span>
-              </div>
-              <div class="stat-card">
-                <span class="label">Комнат за месяц</span>
-                <span class="value">{{ stats.last_month.rooms }}</span>
-              </div>
-              <div class="stat-card">
-                <span class="label">Стримы за месяц (мин)</span>
-                <span class="value">{{ stats.last_month.stream_minutes }}</span>
-              </div>
-              <div class="stat-card">
-                <span class="label">Игр за месяц</span>
-                <span class="value">{{ stats.last_month.games }}</span>
-              </div>
-            </div>
 
             <div class="chart">
+              <div class="filters">
+                <label class="field">
+                  <span>Отобразить за</span>
+                  <input type="month" v-model="statsMonth" :disabled="statsLoading" />
+                </label>
+              </div>
+              <div class="stats-grid stats-grid--compact">
+                <div class="stat-card">
+                  <span class="label">Онлайн за месяц</span>
+                  <span class="value">{{ stats.last_month.online_users }}</span>
+                </div>
+                <div class="stat-card">
+                  <span class="label">Комнат за месяц</span>
+                  <span class="value">{{ stats.last_month.rooms }}</span>
+                </div>
+                <div class="stat-card">
+                  <span class="label">Стримы за месяц (мин)</span>
+                  <span class="value">{{ stats.last_month.stream_minutes }}</span>
+                </div>
+                <div class="stat-card">
+                  <span class="label">Игр за месяц</span>
+                  <span class="value">{{ stats.last_month.games }}</span>
+                </div>
+              </div>
               <div v-if="stats.registrations.length === 0" class="muted">Нет данных</div>
               <div v-else class="chart-body">
                 <div class="chart-axis">
@@ -311,12 +317,6 @@
                     </div>
                     <span class="bar-label">{{ point.date.slice(-2) }}</span>
                   </div>
-                </div>
-                <div class="filters">
-                  <label class="field">
-                    <span>Отобразить за</span>
-                    <input type="month" v-model="statsMonth" :disabled="statsLoading" />
-                  </label>
                 </div>
               </div>
             </div>
@@ -1966,7 +1966,8 @@ onMounted(() => {
         background-color: $graphite;
         .chart-body {
           display: flex;
-          gap: 8px;
+          margin-top: 10px;
+          gap: 10px;
         }
         .chart-axis {
           display: flex;
