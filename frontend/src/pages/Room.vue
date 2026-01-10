@@ -470,6 +470,7 @@ const rolesByUser = reactive(new Map<string, string>())
 const nameByUser = reactive(new Map<string, string>())
 const avatarByUser = reactive(new Map<string, string | null>())
 const volUi = reactive<Record<string, number>>({})
+const MIN_GAME_VOLUME = 50
 const screenOwnerId = ref<string>('')
 const openPanelFor = ref<string>('')
 const pendingScreen = ref(false)
@@ -898,9 +899,44 @@ function norm01(v: unknown, fallback: 0 | 1): 0 | 1 {
 }
 
 function onVol(id: string, v: number) {
-  volUi[id] = v
-  rtc.setUserVolume(id, v)
+  const next = enforceMinVolume(id, v)
+  volUi[id] = next
+  rtc.setUserVolume(id, next)
   void rtc.resumeAudio()
+}
+
+function shouldEnforceMinVolume(id: string): boolean {
+  if (gamePhase.value === 'idle') return false
+  if (!id || id === localId.value) return false
+  if (rtc.isScreenKey(id)) return false
+  if (myGameRole.value === 'none') return false
+  const seat = seatsByUser[id]
+  if (!seat || seat <= 0) return false
+  if (myGameRole.value === 'head') return seat !== 11
+  return true
+}
+
+function enforceMinVolume(id: string, v: number): number {
+  if (!shouldEnforceMinVolume(id)) return v
+  return v < MIN_GAME_VOLUME ? MIN_GAME_VOLUME : v
+}
+
+function enforceMinGameVolumes(): void {
+  if (gamePhase.value === 'idle') return
+  if (myGameRole.value === 'none') return
+  let changed = false
+  for (const [uid, seat] of Object.entries(seatsByUser)) {
+    if (!uid || uid === localId.value) continue
+    if (!seat || seat <= 0) continue
+    if (myGameRole.value === 'head' && seat === 11) continue
+    const current = volUi[uid] ?? rtc.getUserVolume(uid)
+    if (current < MIN_GAME_VOLUME) {
+      volUi[uid] = MIN_GAME_VOLUME
+      rtc.setUserVolume(uid, MIN_GAME_VOLUME)
+      changed = true
+    }
+  }
+  if (changed) void rtc.resumeAudio()
 }
 
 function rol(id: string): string { return rolesByUser.get(id) || 'user' }
@@ -1219,6 +1255,7 @@ socket.value?.on('connect', async () => {
     statusByUser.forEach((st, uid) => {
       statusByUser.set(uid, { ...st, ready: 0 as 0 })
     })
+    enforceMinGameVolumes()
     void enforceInitialGameControls()
   })
 

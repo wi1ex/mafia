@@ -512,8 +512,7 @@ export function useRTC(): UseRTC {
   function setUserVolume(id: string, v: number) {
     const vv = Math.min(200, Math.max(0, Math.round(v)))
     const cur = volumePrefs.get(id) ?? getSavedVol(id)
-    if (cur === vv) return
-    setSavedVol(id, vv)
+    if (cur !== vv) setSavedVol(id, vv)
     applyVolume(id, vv)
   }
   function getUserVolume(id: string): number {
