@@ -349,7 +349,7 @@ const timelineDurationSec = computed(() => {
       pointer-events: none;
       img {
         width: auto;
-        height: 60%;
+        height: 50%;
       }
     }
   }
