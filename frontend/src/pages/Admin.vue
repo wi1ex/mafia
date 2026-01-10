@@ -1910,12 +1910,13 @@ onMounted(() => {
         display: inline-flex;
         align-items: center;
         cursor: default;
+        width: fit-content;
         .tooltip-value {
           border-bottom: 1px dashed $grey;
         }
         .tooltip-body {
           position: absolute;
-          bottom: calc(100% - 35px);
+          top: calc(100% - 35px);
           right: 15px;
           min-width: 220px;
           max-width: 320px;
@@ -2079,12 +2080,13 @@ onMounted(() => {
         display: inline-flex;
         align-items: center;
         cursor: default;
+        width: fit-content;
         .tooltip-value {
           border-bottom: 1px dashed $grey;
         }
         .tooltip-body {
           position: absolute;
-          bottom: calc(100% - 35px);
+          top: calc(100% - 35px);
           right: 15px;
           min-width: 220px;
           max-width: 320px;
