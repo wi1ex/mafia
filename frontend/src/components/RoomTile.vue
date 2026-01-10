@@ -34,7 +34,7 @@
     <button v-if="showBestMoveButton" class="nominate-btn" @click="$emit('best-move', id)" aria-label="Лучший ход">
       <span>Лучший ход</span>
     </button>
-    <div class="icon-badge right" v-if="gameRole" aria-hidden="true">
+    <div class="icon-badge right" :class="{ finish: finishRoleBadge }" v-if="gameRole" aria-hidden="true">
       <img :src="gameRole" alt="role" />
     </div>
     <div v-if="showFarewellButtons" class="farewell-buttons">
@@ -158,6 +158,7 @@ const props = withDefaults(defineProps<{
   daySpeechRemainingMs?: number
   redMark?: boolean
   gameRole?: string
+  finishRoleBadge?: boolean
   hiddenByVisibility?: boolean
   visibilityHiddenAvatar?: string
   inGame?: boolean
@@ -203,6 +204,7 @@ const props = withDefaults(defineProps<{
   redMark: false,
   hiddenByVisibility: false,
   visibilityHiddenAvatar: '',
+  finishRoleBadge: false,
   inGame: false,
   foulsCount: 0,
   phaseLabel: '',
@@ -336,6 +338,21 @@ const timelineDurationSec = computed(() => {
     }
     &.right {
       right: 5px;
+    }
+    &.finish {
+      top: 50%;
+      left: 50%;
+      right: auto;
+      bottom: auto;
+      width: 90px;
+      height: 90px;
+      transform: translate(-50%, -50%);
+      cursor: default;
+      pointer-events: none;
+      img {
+        width: 72px;
+        height: 72px;
+      }
     }
   }
   .icon-voted {
@@ -755,6 +772,14 @@ const timelineDurationSec = computed(() => {
       }
       &.right {
         right: 3px;
+      }
+      &.finish {
+        width: 60px;
+        height: 60px;
+        img {
+          width: 48px;
+          height: 48px;
+        }
       }
     }
     .head-bar {

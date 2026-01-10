@@ -3171,13 +3171,21 @@ async def game_vote_speech_next(sid, data):
         short_sec = get_positive_setting_int("PLAYER_TALK_SHORT_SECONDS", 30)
         if short_sec <= 0:
             short_sec = full_sec
+        shorten_farewell = False
+        if total == 1 and ctx.gint("day_number") == 1:
+            try:
+                raw_game = await r.hgetall(f"room:{rid}:game")
+            except Exception:
+                raw_game = {}
+            if not game_flag(raw_game, "break_at_zero", True):
+                shorten_farewell = True
 
         if vote_lift_state == "passed":
             kind = "farewell"
             duration = full_sec
         elif total == 1:
             kind = "farewell"
-            duration = full_sec
+            duration = short_sec if shorten_farewell else full_sec
         else:
             kind = "defence"
             duration = short_sec

@@ -45,6 +45,7 @@
           :mafia-talk-remaining-ms="mafiaTalkRemainingMs"
           :red-mark="game.shouldHighlightMafiaTile(id) || game.foulActive.has(id)"
           :game-role="game.effectiveRoleIconForTile(id)"
+          :finish-role-badge="gameFinished"
           :hidden-by-visibility="hiddenByVisibility(id)"
           :visibility-hidden-avatar="visOffAvatar(id)"
           :in-game="gamePhase !== 'idle'"
@@ -133,6 +134,7 @@
             :mafia-talk-remaining-ms="mafiaTalkRemainingMs"
             :red-mark="game.shouldHighlightMafiaTile(id) || game.foulActive.has(id)"
             :game-role="game.effectiveRoleIconForTile(id)"
+            :finish-role-badge="gameFinished"
             :hidden-by-visibility="hiddenByVisibility(id)"
             :visibility-hidden-avatar="visOffAvatar(id)"
             :in-game="gamePhase !== 'idle'"
@@ -215,10 +217,10 @@
           <button v-if="canFinishSpeechSelf" class="btn-text" @click="finishSpeechUi">Завершить речь</button>
           <button v-else-if="canShowTakeFoulSelf" class="btn-text" @click="takeFoulUi" :disabled="!canTakeFoulSelf || foulPending">Взять фол</button>
 
-          <button v-if="gamePhase === 'idle' && canShowStartGame" @click="startGameUi" :disabled="startingGame" aria-label="Запустить игру">
+          <button v-if="gamePhase === 'idle' && canShowStartGame && canUseReadyStart" @click="startGameUi" :disabled="startingGame" aria-label="Запустить игру">
             <img :src="iconGameStart" alt="start" />
           </button>
-          <button v-if="gamePhase === 'idle' && !canShowStartGame" @click="toggleReady" :aria-pressed="readyOn" aria-label="Готовность">
+          <button v-if="gamePhase === 'idle' && !canShowStartGame && canUseReadyStart" @click="toggleReady" :aria-pressed="readyOn" aria-label="Готовность">
             <img :src="readyOn ? iconReadyGreen : iconReadyWhite" alt="ready" />
           </button>
           <button v-if="gamePhase === 'idle' || isHead" @click="toggleMic" :disabled="pending.mic || blockedSelf.mic" :aria-pressed="micOn">
@@ -307,7 +309,7 @@ import { type Ack, type FarewellVerdict, type GamePhase, type SendAckFn, useRoom
 import { Track } from 'livekit-client'
 import { useRTC, type CameraQuality, type VQ } from '@/composables/rtc'
 import { api } from '@/services/axios'
-import { alertDialog, confirmDialog } from '@/services/confirm'
+import { alertDialog, confirmDialog, useConfirmState } from '@/services/confirm'
 import { createAuthedSocket } from '@/services/sio'
 import RoomTile from '@/components/RoomTile.vue'
 import RoomSetting from '@/components/RoomSetting.vue'
@@ -368,6 +370,7 @@ const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 const settings = useSettingsStore()
+const confirmState = useConfirmState()
 
 const rtc = useRTC()
 const { localId, mics, cams, selectedMicId, selectedCamId, peerIds } = rtc      
@@ -547,6 +550,13 @@ const deadAvatar = (id: string): string => {
 }
 
 const totalPlayers = computed(() => sortedPeerIds.value.length)
+const canUseReadyStart = computed(() => {
+  const limit = roomUserLimit.value
+  const min = minReadyToStart.value
+  if (!Number.isFinite(limit) || !Number.isFinite(min)) return false
+  if (limit <= 0 || min <= 0) return false
+  return limit === min + 1
+})
 const canShowStartGame = computed(() => {
   if (!localId.value) return false
   if (gamePhase.value !== 'idle') return false
@@ -667,22 +677,24 @@ function isEditableTarget(target: EventTarget | null): boolean {
 function onHotkey(e: KeyboardEvent) {
   if (e.defaultPrevented || e.repeat) return
   if (isEditableTarget(e.target)) return
+  if (confirmState.open) return
   if (gamePhase.value === 'idle') return
 
-  if (e.key === 'Enter') {
+  const isEnter = e.key === 'Enter'
+  const isSpace = e.code === 'Space' || e.key === ' '
+  if (!isEnter && !isSpace) return
+
+  e.preventDefault()
+  e.stopPropagation()
+
+  if (isEnter) {
     if (canShowTakeFoulSelf.value && canTakeFoulSelf.value && !foulPending.value) {
-      e.preventDefault()
-      e.stopPropagation()
       void takeFoulUi()
     }
     return
   }
-  if (e.code === 'Space' || e.key === ' ') {
-    if (game.canPressVoteButton()) {
-      e.preventDefault()
-      e.stopPropagation()
-      onVote()
-    }
+  if (isSpace && game.canPressVoteButton()) {
+    onVote()
   }
 }
 function volumeIcon(val: number, enabled: boolean) {
@@ -746,7 +758,10 @@ function ensureOk(resp: Ack, msgByCode: Record<number, string>, netMsg: string):
 }
 
 const sendAckGame: SendAckFn = (event, payload, timeoutMs) => sendAck(event, payload, timeoutMs)
-const startGameUi = () => game.startGame(sendAckGame)
+const startGameUi = () => {
+  if (!canUseReadyStart.value) return
+  game.startGame(sendAckGame)
+}
 const endGameUi = () => game.endGame(sendAckGame)
 const leaveGameUi = () => game.leaveGame(sendAckGame)
 const pickRoleCardUi = (card: number) => game.pickRoleCard(card, sendAckGame)
@@ -958,6 +973,7 @@ const readyOn = computed({
 const isReady = (id: string) => (statusByUser.get(id)?.ready ?? 0) === 1
 
 async function toggleReady() {
+  if (!canUseReadyStart.value) return
   const want = !readyOn.value
   readyOn.value = want
   try {
