@@ -340,18 +340,16 @@ const timelineDurationSec = computed(() => {
       right: 5px;
     }
     &.finish {
-      top: 50%;
-      left: 50%;
-      right: auto;
-      bottom: auto;
-      width: 90px;
-      height: 90px;
-      transform: translate(-50%, -50%);
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba($dark, 0.25);
+      z-index: 25;
       cursor: default;
       pointer-events: none;
       img {
-        width: 72px;
-        height: 72px;
+        width: auto;
+        height: 60%;
       }
     }
   }
@@ -772,14 +770,6 @@ const timelineDurationSec = computed(() => {
       }
       &.right {
         right: 3px;
-      }
-      &.finish {
-        width: 60px;
-        height: 60px;
-        img {
-          width: 48px;
-          height: 48px;
-        }
       }
     }
     .head-bar {

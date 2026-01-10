@@ -471,6 +471,7 @@ const nameByUser = reactive(new Map<string, string>())
 const avatarByUser = reactive(new Map<string, string | null>())
 const volUi = reactive<Record<string, number>>({})
 const MIN_GAME_VOLUME = 50
+const volumeSnapTimers = new Map<string, number>()
 const screenOwnerId = ref<string>('')
 const openPanelFor = ref<string>('')
 const pendingScreen = ref(false)
@@ -898,9 +899,33 @@ function norm01(v: unknown, fallback: 0 | 1): 0 | 1 {
   return fallback
 }
 
+function clearVolumeSnap(id: string): void {
+  const tm = volumeSnapTimers.get(id)
+  if (tm != null) {
+    window.clearTimeout(tm)
+    volumeSnapTimers.delete(id)
+  }
+}
+
+function scheduleVolumeSnap(id: string, value: number): void {
+  clearVolumeSnap(id)
+  const tm = window.setTimeout(() => {
+    volUi[id] = value
+    volumeSnapTimers.delete(id)
+  }, 250)
+  volumeSnapTimers.set(id, tm)
+}
+
 function onVol(id: string, v: number) {
   const next = enforceMinVolume(id, v)
-  volUi[id] = next
+  const clamped = next !== v
+  if (clamped) {
+    volUi[id] = v
+    scheduleVolumeSnap(id, next)
+  } else {
+    clearVolumeSnap(id)
+    volUi[id] = next
+  }
   rtc.setUserVolume(id, next)
   void rtc.resumeAudio()
 }
@@ -931,6 +956,7 @@ function enforceMinGameVolumes(): void {
     if (myGameRole.value === 'head' && seat === 11) continue
     const current = volUi[uid] ?? rtc.getUserVolume(uid)
     if (current < MIN_GAME_VOLUME) {
+      clearVolumeSnap(uid)
       volUi[uid] = MIN_GAME_VOLUME
       rtc.setUserVolume(uid, MIN_GAME_VOLUME)
       changed = true
@@ -1094,6 +1120,8 @@ function purgePeerUI(id: string) {
   screenRefMemo.delete(id)
   offlineInGame.delete(id)
   if (openPanelFor.value === id || openPanelFor.value === rtc.screenKey(id)) openPanelFor.value = ''
+  clearVolumeSnap(id)
+  clearVolumeSnap(rtc.screenKey(id))
   delete volUi[id]
   delete volUi[rtc.screenKey(id)]
   if (screenOwnerId.value === id) screenOwnerId.value = ''
@@ -1101,6 +1129,7 @@ function purgePeerUI(id: string) {
 
 function clearScreenVolume(id: string | null | undefined) {
   if (!id) return
+  clearVolumeSnap(rtc.screenKey(id))
   delete volUi[rtc.screenKey(id)]
 }
 
@@ -1569,7 +1598,10 @@ function applyJoinAck(j: any) {
   for (const k in volUi) {
     const isUserId = statusByUser.has(k)
     const isKeep = keepKey && k === keepKey
-    if (!isUserId && !isKeep) delete volUi[k]
+    if (!isUserId && !isKeep) {
+      clearVolumeSnap(k)
+      delete volUi[k]
+    }
   }
 
   const snapshotIds = Object.keys(j.snapshot || {})
@@ -1902,6 +1934,8 @@ onBeforeUnmount(() => {
   window.removeEventListener('offline', handleOffline)
   window.removeEventListener('online', handleOnline)
   window.removeEventListener('keydown', onHotkey)
+  volumeSnapTimers.forEach((tm) => { try { window.clearTimeout(tm) } catch {} })
+  volumeSnapTimers.clear()
   if (gameStartOverlayTimerId != null) window.clearTimeout(gameStartOverlayTimerId)
   if (gameEndOverlayTimerId != null) window.clearTimeout(gameEndOverlayTimerId)
   rtc.destroyBgm()
