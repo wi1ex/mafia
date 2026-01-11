@@ -1874,6 +1874,8 @@ onMounted(async () => {
     await rtc.refreshDevices()
     applyJoinAck(j)
 
+    await rtc.setCameraQuality(desiredCameraQuality.value)
+
     const bindLK = () => rtc.initRoom({
       onScreenShareEnded: async () => {
         if (isMyScreen.value) {
@@ -1891,8 +1893,6 @@ onMounted(async () => {
       },
     })
     bindLK()
-
-    await rtc.setCameraQuality(desiredCameraQuality.value)
 
     await rtc.connect(ws_url, j.token, { autoSubscribe: false })
     rtc.setAudioSubscriptionsForAll(local.speakers)

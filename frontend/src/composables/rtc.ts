@@ -180,10 +180,14 @@ export function useRTC(): UseRTC {
   const cameraOptions = (deviceId?: string) => ({
     deviceId: deviceId ? ({ exact: deviceId } as any) : undefined,
     resolution: cameraPreset().resolution,
+    frameRate: cameraPreset().encoding.maxFramerate
+      ? { max: cameraPreset().encoding.maxFramerate }
+      : undefined,
   } as any)
   const cameraPublishOptions = () => ({
     simulcast: false,
     videoSimulcastLayers: undefined,
+    videoCodec: 'h264',
     videoEncoding: cameraPreset().encoding,
   })
   let lastScreenShareError: 'canceled' | 'failed' | null = null
@@ -1295,6 +1299,7 @@ export function useRTC(): UseRTC {
       publishDefaults: {
         // videoCodec: 'vp8',
         videoCodec: 'h264',
+        videoEncoding: cameraPreset().encoding,
         red: true,
         dtx: true,
         simulcast: false,
@@ -1310,7 +1315,8 @@ export function useRTC(): UseRTC {
         ...(opts?.audioCaptureDefaults || {})
       },
       videoCaptureDefaults: {
-        resolution: highVideoQuality.resolution,
+        resolution: cameraPreset().resolution,
+        frameRate: cameraPreset().encoding.maxFramerate,
         ...(opts?.videoCaptureDefaults || {})
       },
     })
