@@ -288,7 +288,37 @@ async def join(sid, data) -> JoinAck:
                     snapshot[str(uid)] = user_state
                     await emit_state_changed_filtered(r, rid, uid, applied)
 
+            had_bg_state = False
             if phase == "idle":
+                bg_key = f"room:{rid}:user:{uid}:bg_state"
+                try:
+                    raw_bg = await r.hgetall(bg_key)
+                except Exception:
+                    raw_bg = {}
+
+                bg_states: dict[str, str] = {}
+                for k, v in (raw_bg or {}).items():
+                    ks = k.decode("utf-8", "ignore") if isinstance(k, bytes) else str(k)
+                    if ks not in KEYS_STATE:
+                        continue
+                    vs = v.decode("utf-8", "ignore") if isinstance(v, bytes) else str(v)
+                    bg_states[ks] = vs
+
+                if bg_states:
+                    applied_bg = await apply_state(r, rid, uid, bg_states)
+                    if applied_bg:
+                        user_state = {**user_state, **applied_bg}
+                        snapshot[str(uid)] = user_state
+                        await emit_state_changed_filtered(r, rid, uid, applied_bg)
+                    had_bg_state = True
+
+                if raw_bg:
+                    try:
+                        await r.delete(bg_key)
+                    except Exception:
+                        log.warning("sio.bg_state.delete_failed", rid=rid, uid=uid)
+
+            if phase == "idle" and not had_bg_state:
                 my_block = (blocked or {}).get(str(uid)) or {}
                 auto_on: dict[str, str] = {}
                 speakers_blocked = str(my_block.get("speakers") or "0") == "1"
@@ -408,6 +438,96 @@ async def state(sid, data) -> StateAck:
 
     except Exception:
         log.exception("sio.state.error", sid=sid)
+        return {"ok": False}
+
+
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:bg_state:{uid or 'nouid'}:{rid or 0}", limit=5, window_s=1, session_ns="/room")
+@sio.event(namespace="/room")
+async def bg_state(sid, data):
+    try:
+        ctx, err = await require_ctx(sid, allowed_phases="idle")
+        if err:
+            return err
+
+        sess = await sio.get_session(sid, namespace="/room")
+        if sess.get("spectator"):
+            return {"ok": True}
+
+        payload = data or {}
+        states = payload.get("state") if isinstance(payload, dict) else None
+        if not isinstance(states, dict):
+            return {"ok": False, "error": "bad_state", "status": 400}
+
+        def to01(var: Any) -> str:
+            if isinstance(var, bool):
+                return "1" if var else "0"
+
+            s = str(var).strip().lower()
+            return "1" if s in {"1", "true"} else "0"
+
+        mapping: dict[str, str] = {}
+        for k, v in states.items():
+            if k in KEYS_STATE:
+                mapping[k] = to01(v)
+
+        if not mapping:
+            return {"ok": True, "saved": False}
+
+        r = ctx.r
+        key = f"room:{ctx.rid}:user:{ctx.uid}:bg_state"
+        await r.hset(key, mapping=mapping)
+        await r.expire(key, 600)
+
+        return {"ok": True, "saved": True}
+
+    except Exception:
+        log.exception("sio.bg_state.error", sid=sid)
+        return {"ok": False}
+
+
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:bg_restore:{uid or 'nouid'}:{rid or 0}", limit=5, window_s=1, session_ns="/room")
+@sio.event(namespace="/room")
+async def bg_restore(sid, data):
+    try:
+        ctx, err = await require_ctx(sid, allowed_phases="idle")
+        if err:
+            return err
+
+        sess = await sio.get_session(sid, namespace="/room")
+        if sess.get("spectator"):
+            return {"ok": True}
+
+        r = ctx.r
+        key = f"room:{ctx.rid}:user:{ctx.uid}:bg_state"
+        raw = await r.hgetall(key)
+        if not raw:
+            return {"ok": True, "state": None}
+
+        states: dict[str, str] = {}
+        for k, v in raw.items():
+            ks = k.decode("utf-8", "ignore") if isinstance(k, bytes) else str(k)
+            if ks not in KEYS_STATE:
+                continue
+
+            vs = v.decode("utf-8", "ignore") if isinstance(v, bytes) else str(v)
+            states[ks] = vs
+
+        applied = await apply_state(r, ctx.rid, ctx.uid, states)
+        if applied:
+            await emit_state_changed_filtered(r, ctx.rid, ctx.uid, applied)
+
+        vals = await r.hmget(f"room:{ctx.rid}:user:{ctx.uid}:state", *KEYS_STATE)
+        effective = {k: ("1" if (v == "1" or v == b"1") else "0") for k, v in zip(KEYS_STATE, (vals or []))}
+
+        try:
+            await r.delete(key)
+        except Exception:
+            log.warning("sio.bg_state.delete_failed", rid=ctx.rid, uid=ctx.uid)
+
+        return {"ok": True, "state": effective}
+
+    except Exception:
+        log.exception("sio.bg_restore.error", sid=sid)
         return {"ok": False}
 
 

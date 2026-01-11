@@ -504,6 +504,7 @@ const gameOverlayVisible = computed(() => gameStartOverlayVisible.value || gameE
 const gameOverlayText = computed(() => gameEndOverlayVisible.value ? 'Завершение игры…' : 'Запуск игры…')
 let gameStartOverlayTimerId: number | null = null
 let gameEndOverlayTimerId: number | null = null
+let bgRestorePending = false
 function showGameStartOverlay(ms = 1000) {
   gameStartOverlayVisible.value = true
   if (gameStartOverlayTimerId != null) window.clearTimeout(gameStartOverlayTimerId)
@@ -1170,6 +1171,7 @@ socket.value?.on('connect', async () => {
       return
     }
     if (uiReady.value) applyJoinAck(ack)
+    if (bgRestorePending) void restoreIdleStateFromServer()
   }
   if (pendingDeltas.length) {
     const merged = Object.assign({}, ...pendingDeltas.splice(0))
@@ -1814,8 +1816,58 @@ async function onLeave(goHome = true) {
   }
 }
 
+async function rememberIdleStateOnServer(): Promise<void> {
+  if (!IS_MOBILE) return
+  if (gamePhase.value !== 'idle') return
+  if (!socket.value || !socket.value.connected) return
+  try {
+    await sendAck('bg_state', {
+      state: {
+        mic: local.mic,
+        cam: local.cam,
+        speakers: local.speakers,
+        visibility: local.visibility,
+      },
+    })
+  } catch {}
+}
+
+async function restoreIdleStateFromServer(): Promise<void> {
+  if (!IS_MOBILE) return
+  if (gamePhase.value !== 'idle') return
+  if (!socket.value || !socket.value.connected) {
+    bgRestorePending = true
+    return
+  }
+
+  bgRestorePending = false
+  const resp = await sendAck('bg_restore', {})
+  if (!resp?.ok || !resp?.state) return
+  const st = resp.state
+  const nextMic = !blockedSelf.value.mic && norm01(st.mic, local.mic ? 1 : 0) === 1
+  const nextCam = !blockedSelf.value.cam && norm01(st.cam, local.cam ? 1 : 0) === 1
+  const nextSpeakers = !blockedSelf.value.speakers && norm01(st.speakers, local.speakers ? 1 : 0) === 1
+  const nextVisibility = !blockedSelf.value.visibility && norm01(st.visibility, local.visibility ? 1 : 0) === 1
+
+  desiredMedia.mic = nextMic
+  desiredMedia.cam = nextCam
+  local.mic = nextMic
+  local.cam = nextCam
+  local.speakers = nextSpeakers
+  local.visibility = nextVisibility
+
+  try { if (nextMic) await rtc.enable('audioinput'); else await rtc.disable('audioinput') } catch {}
+  try { if (nextCam) await rtc.enable('videoinput'); else await rtc.disable('videoinput') } catch {}
+  try { rtc.setAudioSubscriptionsForAll(nextSpeakers) } catch {}
+  try { rtc.setVideoSubscriptionsForAll(nextVisibility) } catch {}
+  if (nextSpeakers && !blockedSelf.value.speakers) {
+    try { void rtc.resumeAudio() } catch {}
+  }
+}
+
 async function applyBackgroundMute(): Promise<void> {
   if (backgrounded.value) return
+  await rememberIdleStateOnServer()
   backgrounded.value = true
 
   desiredMedia.mic = false
@@ -1852,9 +1904,14 @@ function onBackgroundVisibility(e?: PageTransitionEvent) {
   if (leaving.value) return
   const type = (e as any)?.type
   if (document.visibilityState === 'hidden' || type === 'pagehide') {
+    if (gamePhase.value !== 'idle') {
+      void onLeave()
+      return
+    }
     void applyBackgroundMute()
   } else if (backgrounded.value) {
     backgrounded.value = false
+    void restoreIdleStateFromServer()
   }
 }
 
