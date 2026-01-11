@@ -89,7 +89,7 @@
 
       <div v-else class="theater">
         <div class="stage">
-          <video :ref="stableScreenRef(screenOwnerId)" playsinline autoplay />
+          <video :ref="stableScreenRef(screenOwnerId)" playsinline autoplay muted />
           <div v-if="screenOwnerId !== localId && streamAudioKey" class="volume" @click.stop>
             <img :src="volumeIconForStream(streamAudioKey)" alt="vol" />
             <input type="range" min="0" max="200" step="5" :disabled="!speakersOn || isBlocked(screenOwnerId,'speakers')"
@@ -1753,6 +1753,8 @@ async function onMediaGateClick() {
   if (speakersOn.value && !blockedSelf.value.speakers) {
     rtc.setAudioSubscriptionsForAll(true)
   }
+  syncSubscriptionsFromState()
+  rtc.resumeVideo()
   void rtc.resumeAudio({ force: true })
   window.setTimeout(() => { void rtc.resumeAudio({ force: true }) }, 250)
   void rtc.unlockBgmOnGesture()

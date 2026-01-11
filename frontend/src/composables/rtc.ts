@@ -119,6 +119,7 @@ export type UseRTC = {
   setUserVolume: (id: string, v: number) => void
   getUserVolume: (id: string) => number
   resumeAudio: (opts?: { force?: boolean }) => Promise<void>
+  resumeVideo: () => void
   primeAudioOnGesture: () => void
   startAudio: () => Promise<boolean>
   autoplayUnlocked: Ref<boolean>
@@ -614,6 +615,16 @@ export function useRTC(): UseRTC {
     }
   }
 
+  function resumeVideo() {
+    const els = [...videoEls.values(), ...screenVideoEls.values()]
+    els.forEach((el) => {
+      try {
+        const p = el.play()
+        if (p && typeof p.catch === 'function') p.catch(() => {})
+      } catch {}
+    })
+  }
+
   async function startAudio(): Promise<boolean> {
     if (isIOS) {
       if (wantAudio.value) {
@@ -834,10 +845,10 @@ export function useRTC(): UseRTC {
     try { await lk.value?.localParticipant.setScreenShareEnabled(false) } catch {}
   }
 
-  function setBaseVideoAttrs(el: HTMLVideoElement, self: boolean) {
+  function setBaseVideoAttrs(el: HTMLVideoElement, _self: boolean) {
     el.autoplay = true
     el.playsInline = true
-    el.muted = self
+    el.muted = true
   }
   function attachBySource(room: LkRoom, id: string, src: Track.Source, el: HTMLVideoElement) {
     const p =
@@ -1536,6 +1547,7 @@ export function useRTC(): UseRTC {
     setUserVolume,
     getUserVolume,
     resumeAudio,
+    resumeVideo,
     primeAudioOnGesture,
     startAudio,
     setBgmSeed,
