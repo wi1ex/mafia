@@ -2684,6 +2684,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     voteResultLeaders,
     voteResultShown,
     gameAlive,
+    gameRolesByUser,
     voteAborted,
     voteLeaderSpeechesDone,
     voteLeaderKilled,

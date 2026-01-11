@@ -305,7 +305,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } 
 import { useRoute, useRouter } from 'vue-router'
 import type { Socket } from 'socket.io-client'
 import { useAuthStore, useSettingsStore } from '@/store'
-import { type Ack, type FarewellVerdict, type GamePhase, type SendAckFn, useRoomGame } from '@/composables/roomGame'
+import { type Ack, type FarewellVerdict, type GamePhase, type GameRoleKind, type SendAckFn, useRoomGame } from '@/composables/roomGame'
 import { Track } from 'livekit-client'
 import { useRTC, type CameraQuality, type VQ } from '@/composables/rtc'
 import { api } from '@/services/axios'
@@ -388,7 +388,9 @@ const {
   minReadyToStart,
   seatsByUser,
   offlineInGame,
+  gameAlive,
   gameFoulsByUser,
+  gameRolesByUser,
   votedThisRound,
   votedUsers,
   knownRolesVisible,
@@ -1884,6 +1886,76 @@ async function applyLocalStateFromServer(state: any, blocks: any): Promise<void>
   }
 }
 
+function roleTeam(kind: GameRoleKind | null | undefined): 'red' | 'black' | null {
+  if (kind === 'mafia' || kind === 'don') return 'black'
+  if (kind === 'citizen' || kind === 'sheriff') return 'red'
+  return null
+}
+
+function pickGroupState(ids: string[], key: keyof StatusState, fallback: boolean): boolean {
+  let on = 0
+  let off = 0
+  for (const id of ids) {
+    const st = statusByUser.get(id)
+    if (!st) continue
+    if (st[key] === 1) on += 1
+    else if (st[key] === 0) off += 1
+  }
+  if (!on && !off) return fallback
+  return on >= off
+}
+
+async function restoreAfterBackgroundInGame(): Promise<void> {
+  const me = localId.value
+  const aliveIds = Array.from(gameAlive, id => String(id))
+  const aliveOthers = aliveIds.filter(id => id && id !== me)
+  let basis = aliveOthers
+  const myTeam = roleTeam(myGameRoleKind.value)
+  if (myTeam) {
+    const sameTeam = aliveOthers.filter(id => roleTeam(gameRolesByUser.get(id) as GameRoleKind | undefined) === myTeam)
+    if (sameTeam.length) basis = sameTeam
+  }
+
+  const targetCam = pickGroupState(basis, 'cam', local.cam)
+  const targetVisibility = pickGroupState(basis, 'visibility', local.visibility)
+  const nextMic = isCurrentSpeaker.value && !blockedSelf.value.mic
+  const nextSpeakers = !blockedSelf.value.speakers
+  const nextCam = !blockedSelf.value.cam && targetCam
+  const nextVisibility = !blockedSelf.value.visibility && targetVisibility
+
+  const delta: PublishDelta = {}
+  if (local.mic !== nextMic) {
+    local.mic = nextMic
+    desiredMedia.mic = nextMic
+    delta.mic = nextMic
+    try { if (nextMic) await rtc.enable('audioinput'); else await rtc.disable('audioinput') } catch {}
+  }
+  if (local.cam !== nextCam) {
+    local.cam = nextCam
+    desiredMedia.cam = nextCam
+    delta.cam = nextCam
+    try { if (nextCam) await rtc.enable('videoinput'); else await rtc.disable('videoinput') } catch {}
+  }
+  if (local.speakers !== nextSpeakers) {
+    local.speakers = nextSpeakers
+    delta.speakers = nextSpeakers
+  }
+  if (local.visibility !== nextVisibility) {
+    local.visibility = nextVisibility
+    delta.visibility = nextVisibility
+  }
+
+  try { rtc.setAudioSubscriptionsForAll(nextSpeakers) } catch {}
+  try { rtc.setVideoSubscriptionsForAll(nextVisibility) } catch {}
+  if (nextSpeakers && !blockedSelf.value.speakers) {
+    try { void rtc.resumeAudio() } catch {}
+  }
+
+  if (Object.keys(delta).length) {
+    try { await publishState(delta) } catch {}
+  }
+}
+
 async function restoreAfterBackgroundFromServer(): Promise<void> {
   if (!IS_MOBILE) return
   if (!socket.value || !socket.value.connected) {
@@ -1892,7 +1964,8 @@ async function restoreAfterBackgroundFromServer(): Promise<void> {
   }
 
   bgRestorePending = false
-  const phase = backgroundedPhase ?? gamePhase.value
+  const nowPhase = gamePhase.value
+  const phase = nowPhase === 'idle' ? (backgroundedPhase ?? nowPhase) : nowPhase
   backgroundedPhase = null
   if (phase === 'idle') {
     const resp = await sendAck('bg_restore', {})
@@ -1901,9 +1974,9 @@ async function restoreAfterBackgroundFromServer(): Promise<void> {
       return
     }
   }
-  const resp = await sendAck('self_state', {})
-  if (!resp?.ok || !resp?.state) return
-  await applyLocalStateFromServer(resp.state, resp.blocked ?? resp.blocks)
+  if (phase !== 'idle') {
+    await restoreAfterBackgroundInGame()
+  }
 }
 
 async function applyBackgroundMute(): Promise<void> {
