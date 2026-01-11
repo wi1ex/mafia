@@ -453,10 +453,6 @@ const {
 const navUserAgent = navigator.userAgent || ''
 const IS_MOBILE = (navigator as any).userAgentData?.mobile === true || /Android|iPhone|iPad|iPod|Mobile/i.test(navUserAgent)
   || (window.matchMedia?.('(pointer: coarse)').matches && /Android|iPhone|iPad|iPod|Mobile|Tablet|Touch/i.test(navUserAgent))
-const RELOAD_MEDIA_KEY = `room:${rid}:reloadMedia`
-const RELOAD_MEDIA_MAX_AGE_MS = 5 * 60 * 1000
-let unloadInProgress = false
-let reloadRestorePending = IS_MOBILE && isReloadNavigation()
 
 const local = reactive({ mic: false, cam: false, speakers: true, visibility: true })
 const desiredMedia = reactive({ mic: false, cam: false })
@@ -501,66 +497,6 @@ const isSpectatorInGame = computed(() => {
   if (!id || gamePhase.value === 'idle') return false
   return !seatsByUser[id]
 })
-
-function isReloadNavigation(): boolean {
-  const nav = performance.getEntriesByType?.('navigation')?.[0] as PerformanceNavigationTiming | undefined
-  const type = nav?.type
-  if (type) return type === 'reload'
-  const legacy = (performance as any)?.navigation?.type
-  return legacy === 1
-}
-
-function saveReloadMediaState(): void {
-  if (!IS_MOBILE || unloadInProgress) return
-  try {
-    sessionStorage.setItem(RELOAD_MEDIA_KEY, JSON.stringify({
-      mic: local.mic,
-      cam: local.cam,
-      ts: Date.now(),
-    }))
-  } catch {}
-}
-
-function readReloadMediaState(): { mic: boolean; cam: boolean } | null {
-  if (!IS_MOBILE) return null
-  try {
-    const raw = sessionStorage.getItem(RELOAD_MEDIA_KEY)
-    if (!raw) return null
-    const parsed = JSON.parse(raw)
-    const ts = Number(parsed?.ts || 0)
-    if (ts && Date.now() - ts > RELOAD_MEDIA_MAX_AGE_MS) return null
-    return { mic: parsed?.mic === true, cam: parsed?.cam === true }
-  } catch {
-    return null
-  }
-}
-
-async function restoreMediaAfterReload(): Promise<void> {
-  if (!reloadRestorePending) return
-  reloadRestorePending = false
-  if (!IS_MOBILE || gamePhase.value !== 'idle') return
-  const saved = readReloadMediaState()
-  if (!saved) return
-  const delta: PublishDelta = {}
-  if (local.mic !== saved.mic) {
-    local.mic = saved.mic
-    desiredMedia.mic = saved.mic
-    delta.mic = saved.mic
-  }
-  if (local.cam !== saved.cam) {
-    local.cam = saved.cam
-    desiredMedia.cam = saved.cam
-    delta.cam = saved.cam
-  }
-  if (Object.keys(delta).length) {
-    try { await publishState(delta) } catch {}
-  }
-}
-
-watch(() => [local.mic, local.cam, backgrounded.value, leaving.value], ([, , bg, lv]) => {
-  if (bg || lv) return
-  saveReloadMediaState()
-}, { immediate: true })
 
 const gameStartOverlayVisible = ref(false)
 const gameEndOverlayVisible = ref(false)
@@ -1682,7 +1618,6 @@ function applyJoinAck(j: any) {
   rtc.setBgmSeed(j?.game_runtime?.bgm_seed, rid)
   void enforceMicAfterJoin()
   void enforceSpectatorPhaseVisibility(gamePhase.value)
-  void restoreMediaAfterReload()
   syncSubscriptionsFromState()
 }
 
@@ -1860,7 +1795,6 @@ async function onLeave(goHome = true) {
       document.removeEventListener('click', onDocClick)
       document.removeEventListener('visibilitychange', onBackgroundVisibility)
       window.removeEventListener('pagehide', onBackgroundVisibility)
-      window.removeEventListener('beforeunload', onBeforeUnload)
       window.removeEventListener('keydown', onHotkey)
   } catch {}
   try {
@@ -1882,7 +1816,6 @@ async function onLeave(goHome = true) {
 
 async function applyBackgroundMute(): Promise<void> {
   if (backgrounded.value) return
-  saveReloadMediaState()
   backgrounded.value = true
 
   desiredMedia.mic = false
@@ -1917,18 +1850,12 @@ async function applyBackgroundMute(): Promise<void> {
 function onBackgroundVisibility(e?: PageTransitionEvent) {
   if (!IS_MOBILE) return
   if (leaving.value) return
-  if (unloadInProgress) return
   const type = (e as any)?.type
   if (document.visibilityState === 'hidden' || type === 'pagehide') {
     void applyBackgroundMute()
   } else if (backgrounded.value) {
     backgrounded.value = false
   }
-}
-
-function onBeforeUnload() {
-  unloadInProgress = true
-  saveReloadMediaState()
 }
 
 function handleOffline() { netReconnecting.value = true }
@@ -2038,7 +1965,6 @@ onMounted(async () => {
     window.addEventListener('keydown', onHotkey)
     document.addEventListener('visibilitychange', onBackgroundVisibility, { passive: true })
     window.addEventListener('pagehide', onBackgroundVisibility, { passive: true })
-    window.addEventListener('beforeunload', onBeforeUnload)
     window.addEventListener('offline', handleOffline)
     window.addEventListener('online', handleOnline)
 
@@ -2057,7 +1983,6 @@ onBeforeUnmount(() => {
   window.removeEventListener('offline', handleOffline)
   window.removeEventListener('online', handleOnline)
   window.removeEventListener('keydown', onHotkey)
-  window.removeEventListener('beforeunload', onBeforeUnload)
   volumeSnapTimers.forEach((tm) => { try { window.clearTimeout(tm) } catch {} })
   volumeSnapTimers.clear()
   if (gameStartOverlayTimerId != null) window.clearTimeout(gameStartOverlayTimerId)
