@@ -505,6 +505,7 @@ const gameOverlayText = computed(() => gameEndOverlayVisible.value ? 'Завер
 let gameStartOverlayTimerId: number | null = null
 let gameEndOverlayTimerId: number | null = null
 let bgRestorePending = false
+let backgroundedPhase: GamePhase | null = null
 function showGameStartOverlay(ms = 1000) {
   gameStartOverlayVisible.value = true
   if (gameStartOverlayTimerId != null) window.clearTimeout(gameStartOverlayTimerId)
@@ -1171,7 +1172,7 @@ socket.value?.on('connect', async () => {
       return
     }
     if (uiReady.value) applyJoinAck(ack)
-    if (bgRestorePending) void restoreIdleStateFromServer()
+    if (bgRestorePending) void restoreAfterBackgroundFromServer()
   }
   if (pendingDeltas.length) {
     const merged = Object.assign({}, ...pendingDeltas.splice(0))
@@ -1832,22 +1833,27 @@ async function rememberIdleStateOnServer(): Promise<void> {
   } catch {}
 }
 
-async function restoreIdleStateFromServer(): Promise<void> {
-  if (!IS_MOBILE) return
-  if (gamePhase.value !== 'idle') return
-  if (!socket.value || !socket.value.connected) {
-    bgRestorePending = true
-    return
+function mergeBlockedState(blocks: any): BlockState {
+  const cur = blockedSelf.value
+  return {
+    mic: pick01(blocks?.mic, cur.mic),
+    cam: pick01(blocks?.cam, cur.cam),
+    speakers: pick01(blocks?.speakers, cur.speakers),
+    visibility: pick01(blocks?.visibility, cur.visibility),
+    screen: pick01(blocks?.screen, cur.screen),
   }
+}
 
-  bgRestorePending = false
-  const resp = await sendAck('bg_restore', {})
-  if (!resp?.ok || !resp?.state) return
-  const st = resp.state
-  const nextMic = !blockedSelf.value.mic && norm01(st.mic, local.mic ? 1 : 0) === 1
-  const nextCam = !blockedSelf.value.cam && norm01(st.cam, local.cam ? 1 : 0) === 1
-  const nextSpeakers = !blockedSelf.value.speakers && norm01(st.speakers, local.speakers ? 1 : 0) === 1
-  const nextVisibility = !blockedSelf.value.visibility && norm01(st.visibility, local.visibility ? 1 : 0) === 1
+async function applyLocalStateFromServer(state: any, blocks: any): Promise<void> {
+  if (!state || typeof state !== 'object') return
+  const lid = localId.value
+  const hasBlocks = !!blocks && typeof blocks === 'object'
+  if (lid && hasBlocks) applyBlocks(lid, blocks)
+  const mergedBlocks = hasBlocks ? mergeBlockedState(blocks) : blockedSelf.value
+  const nextMic = !mergedBlocks.mic && norm01(state.mic, local.mic ? 1 : 0) === 1
+  const nextCam = !mergedBlocks.cam && norm01(state.cam, local.cam ? 1 : 0) === 1
+  const nextSpeakers = !mergedBlocks.speakers && norm01(state.speakers, local.speakers ? 1 : 0) === 1
+  const nextVisibility = !mergedBlocks.visibility && norm01(state.visibility, local.visibility ? 1 : 0) === 1
 
   desiredMedia.mic = nextMic
   desiredMedia.cam = nextCam
@@ -1855,18 +1861,54 @@ async function restoreIdleStateFromServer(): Promise<void> {
   local.cam = nextCam
   local.speakers = nextSpeakers
   local.visibility = nextVisibility
+  if (lid) {
+    applyPeerState(lid, {
+      mic: nextMic ? 1 : 0,
+      cam: nextCam ? 1 : 0,
+      speakers: nextSpeakers ? 1 : 0,
+      visibility: nextVisibility ? 1 : 0,
+    })
+  }
+
+  if (mergedBlocks.screen && screenOwnerId.value === lid) {
+    try { await rtc.stopScreenShare() } catch {}
+    screenOwnerId.value = ''
+  }
 
   try { if (nextMic) await rtc.enable('audioinput'); else await rtc.disable('audioinput') } catch {}
   try { if (nextCam) await rtc.enable('videoinput'); else await rtc.disable('videoinput') } catch {}
   try { rtc.setAudioSubscriptionsForAll(nextSpeakers) } catch {}
   try { rtc.setVideoSubscriptionsForAll(nextVisibility) } catch {}
-  if (nextSpeakers && !blockedSelf.value.speakers) {
+  if (nextSpeakers && !mergedBlocks.speakers) {
     try { void rtc.resumeAudio() } catch {}
   }
 }
 
+async function restoreAfterBackgroundFromServer(): Promise<void> {
+  if (!IS_MOBILE) return
+  if (!socket.value || !socket.value.connected) {
+    bgRestorePending = true
+    return
+  }
+
+  bgRestorePending = false
+  const phase = backgroundedPhase ?? gamePhase.value
+  backgroundedPhase = null
+  if (phase === 'idle') {
+    const resp = await sendAck('bg_restore', {})
+    if (resp?.ok && resp?.state) {
+      await applyLocalStateFromServer(resp.state, resp.blocked ?? resp.blocks)
+      return
+    }
+  }
+  const resp = await sendAck('self_state', {})
+  if (!resp?.ok || !resp?.state) return
+  await applyLocalStateFromServer(resp.state, resp.blocked ?? resp.blocks)
+}
+
 async function applyBackgroundMute(): Promise<void> {
   if (backgrounded.value) return
+  backgroundedPhase = gamePhase.value
   await rememberIdleStateOnServer()
   backgrounded.value = true
 
@@ -1904,14 +1946,10 @@ function onBackgroundVisibility(e?: PageTransitionEvent) {
   if (leaving.value) return
   const type = (e as any)?.type
   if (document.visibilityState === 'hidden' || type === 'pagehide') {
-    if (gamePhase.value !== 'idle') {
-      void onLeave()
-      return
-    }
     void applyBackgroundMute()
   } else if (backgrounded.value) {
     backgrounded.value = false
-    void restoreIdleStateFromServer()
+    void restoreAfterBackgroundFromServer()
   }
 }
 

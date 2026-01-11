@@ -518,16 +518,43 @@ async def bg_restore(sid, data):
 
         vals = await r.hmget(f"room:{ctx.rid}:user:{ctx.uid}:state", *KEYS_STATE)
         effective = {k: ("1" if (v == "1" or v == b"1") else "0") for k, v in zip(KEYS_STATE, (vals or []))}
+        block_vals = await r.hmget(f"room:{ctx.rid}:user:{ctx.uid}:block", *KEYS_BLOCK)
+        blocked = {k: ("1" if (v == "1" or v == b"1") else "0") for k, v in zip(KEYS_BLOCK, (block_vals or []))}
 
         try:
             await r.delete(key)
         except Exception:
             log.warning("sio.bg_state.delete_failed", rid=ctx.rid, uid=ctx.uid)
 
-        return {"ok": True, "state": effective}
+        return {"ok": True, "state": effective, "blocked": blocked}
 
     except Exception:
         log.exception("sio.bg_restore.error", sid=sid)
+        return {"ok": False}
+
+
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:self_state:{uid or 'nouid'}:{rid or 0}", limit=5, window_s=1, session_ns="/room")
+@sio.event(namespace="/room")
+async def self_state(sid, data):
+    try:
+        ctx, err = await require_ctx(sid)
+        if err:
+            return err
+
+        sess = await sio.get_session(sid, namespace="/room")
+        if sess.get("spectator"):
+            return {"ok": True, "state": {}, "blocked": {}}
+
+        r = ctx.r
+        vals = await r.hmget(f"room:{ctx.rid}:user:{ctx.uid}:state", *KEYS_STATE)
+        state = {k: ("1" if (v == "1" or v == b"1") else "0") for k, v in zip(KEYS_STATE, (vals or []))}
+        block_vals = await r.hmget(f"room:{ctx.rid}:user:{ctx.uid}:block", *KEYS_BLOCK)
+        blocked = {k: ("1" if (v == "1" or v == b"1") else "0") for k, v in zip(KEYS_BLOCK, (block_vals or []))}
+
+        return {"ok": True, "state": state, "blocked": blocked}
+
+    except Exception:
+        log.exception("sio.self_state.error", sid=sid)
         return {"ok": False}
 
 
