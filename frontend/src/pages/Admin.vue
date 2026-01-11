@@ -434,6 +434,7 @@
                   <th>Название</th>
                   <th>Владелец</th>
                   <th>Приватность</th>
+                  <th>Лимит комнаты</th>
                   <th>Параметры игры</th>
                   <th>Создана</th>
                   <th>Удалена</th>
@@ -454,6 +455,7 @@
                     </div>
                   </td>
                   <td>{{ row.privacy }}</td>
+                  <td>{{ row.user_limit }}</td>
                   <td>{{ formatRoomGame(row) }}</td>
                   <td>{{ formatLocalDateTime(row.created_at) }}</td>
                   <td>{{ row.deleted_at ? formatLocalDateTime(row.deleted_at) : '-' }}</td>
@@ -524,7 +526,7 @@
                   </td>
                 </tr>
                 <tr v-if="rooms.length === 0">
-                  <td colspan="11" class="muted">Нет данных</td>
+                  <td colspan="12" class="muted">Нет данных</td>
                 </tr>
               </tbody>
             </table>
