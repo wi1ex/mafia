@@ -3801,36 +3801,97 @@ async def disconnect(sid):
 
         await stop_screen_for_user(r, rid, uid, actor_uid=uid, actor_username=actor_user_name)
 
-        was_member = await r.sismember(f"room:{rid}:members", str(uid))
-        if was_member:
-            occ, gc_seq, pos_updates = await leave_room_atomic(r, rid, uid)
-        else:
-            occ = int(await r.scard(f"room:{rid}:members") or 0)
-            gc_seq = 0
-            pos_updates = []
+        try:
+            phase = str(await r.hget(f"room:{rid}:game_state", "phase") or "idle")
+        except Exception:
+            phase = "idle"
 
-        try:
-            await r.srem(f"room:{rid}:ready", str(uid))
-        except Exception as e:
-            log.warning("sio.disconnect.ready_delete_failed", rid=rid, uid=uid, err=type(e).__name__)
-        try:
-            await r.delete(f"room:{rid}:user:{uid}:epoch")
-        except Exception as e:
-            log.warning("sio.disconnect.epoch_delete_failed", rid=rid, uid=uid, err=type(e).__name__)
+        async def leave_and_collect():
+            was_member = await r.sismember(f"room:{rid}:members", str(uid))
+            if was_member:
+                occ, gc_seq, pos_updates = await leave_room_atomic(r, rid, uid)
+            else:
+                occ = int(await r.scard(f"room:{rid}:members") or 0)
+                gc_seq = 0
+                pos_updates = []
+            return was_member, occ, gc_seq, pos_updates
+
+        async def cleanup_ready_epoch():
+            try:
+                await r.srem(f"room:{rid}:ready", str(uid))
+            except Exception as err:
+                log.warning("sio.disconnect.ready_delete_failed", rid=rid, uid=uid, err=type(err).__name__)
+            try:
+                await r.delete(f"room:{rid}:user:{uid}:epoch")
+            except Exception as err:
+                log.warning("sio.disconnect.epoch_delete_failed", rid=rid, uid=uid, err=type(err).__name__)
+
+        async def emit_leave_events(was_member, pos_updates):
+            if was_member:
+                await sio.emit("member_left",
+                               {"user_id": uid},
+                               room=f"room:{rid}",
+                               namespace="/room")
+            if pos_updates:
+                await sio.emit("positions",
+                               {"updates": [{"user_id": u, "position": p} for u, p in pos_updates]},
+                               room=f"room:{rid}",
+                               namespace="/room")
+
+        async def gc_if_empty(occ, gc_seq, *, schedule: bool):
+            if occ != 0 or phase != "idle":
+                return
+
+            async def _gc():
+                try:
+                    removed = await gc_empty_room(rid, expected_seq=gc_seq)
+                    if removed:
+                        await sio.emit("rooms_remove",
+                                       {"id": rid},
+                                       namespace="/rooms")
+                except Exception:
+                    log.exception("gc.failed", rid=rid)
+
+            if schedule:
+                asyncio.create_task(_gc())
+            else:
+                await _gc()
+
+        if phase == "idle":
+            try:
+                has_bg_state = await r.exists(f"room:{rid}:user:{uid}:bg_state")
+            except Exception:
+                has_bg_state = 0
+
+            if has_bg_state:
+                async def _bg_cleanup():
+                    await asyncio.sleep(605)
+
+                    try:
+                        cur_epoch = int(await r.get(f"room:{rid}:user:{uid}:epoch") or 0)
+                        if cur_epoch != sess_epoch:
+                            return
+
+                        was_member, occ, gc_seq, pos_updates = await leave_and_collect()
+                        await cleanup_ready_epoch()
+                        await emit_leave_events(was_member, pos_updates)
+                        await emit_rooms_occupancy_safe(r, rid, occ)
+                        await gc_if_empty(occ, gc_seq, schedule=False)
+
+                    except Exception:
+                        log.exception("sio.bg_disconnect.cleanup_failed", rid=rid, uid=uid)
+
+                asyncio.create_task(_bg_cleanup())
+
+                return
+
+        was_member, occ, gc_seq, pos_updates = await leave_and_collect()
+        await cleanup_ready_epoch()
 
         await sio.leave_room(sid,
                              f"room:{rid}",
                              namespace="/room")
-        if was_member:
-            await sio.emit("member_left",
-                           {"user_id": uid},
-                           room=f"room:{rid}",
-                           namespace="/room")
-        if pos_updates:
-            await sio.emit("positions",
-                           {"updates": [{"user_id": u, "position": p} for u, p in pos_updates]},
-                           room=f"room:{rid}",
-                           namespace="/room")
+        await emit_leave_events(was_member, pos_updates)
 
         await emit_rooms_occupancy_safe(r, rid, occ)
 
@@ -3844,23 +3905,7 @@ async def disconnect(sid):
                                 "avatar_name": sess.get("avatar_name")},
                                namespace="/room")
 
-        try:
-            phase = str(await r.hget(f"room:{rid}:game_state", "phase") or "idle")
-        except Exception:
-            phase = "idle"
-
-        if occ == 0 and phase == "idle":
-            async def _gc():
-                try:
-                    removed = await gc_empty_room(rid, expected_seq=gc_seq)
-                    if removed:
-                        await sio.emit("rooms_remove",
-                                       {"id": rid},
-                                       namespace="/rooms")
-                except Exception:
-                    log.exception("gc.failed", rid=rid)
-
-            asyncio.create_task(_gc())
+        await gc_if_empty(occ, gc_seq, schedule=True)
 
     except Exception:
         log.exception("sio.disconnect.error", sid=sid)
