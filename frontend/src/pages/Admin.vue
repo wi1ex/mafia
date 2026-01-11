@@ -259,26 +259,26 @@
                 </div>
               </div>
             </div>
-            <div class="stats-subtitle">За сутки</div>
+            <div class="stats-subtitle">За последние 24 часа</div>
             <div class="stats-grid stats-grid--compact">
               <div class="stat-card">
-                <span class="label">Онлайн за сутки</span>
+                <span class="label">Онлайн</span>
                 <span class="value">{{ stats.last_day.online_users }}</span>
               </div>
               <div class="stat-card">
-                <span class="label">Комнат за сутки</span>
+                <span class="label">Комнаты </span>
                 <span class="value">{{ stats.last_day.rooms }}</span>
               </div>
               <div class="stat-card">
-                <span class="label">Стримы за сутки (мин)</span>
+                <span class="label">Стримы (мин)</span>
                 <span class="value">{{ stats.last_day.stream_minutes }}</span>
               </div>
               <div class="stat-card">
-                <span class="label">Игр за сутки</span>
+                <span class="label">Игры</span>
                 <span class="value">{{ stats.last_day.games }}</span>
               </div>
             </div>
-            <div class="stats-subtitle">За месяц</div>
+            <div class="stats-subtitle">За календарный месяц</div>
 
             <div class="chart">
               <div class="filters">
