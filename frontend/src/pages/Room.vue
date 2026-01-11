@@ -1541,6 +1541,11 @@ function handleGamePhaseChangeUi(prev: GamePhase, next: GamePhase): void {
   void enforceSpectatorPhaseVisibility(next)
 }
 
+function syncSubscriptionsFromState(): void {
+  rtc.setAudioSubscriptionsForAll(local.speakers)
+  rtc.setVideoSubscriptionsForAll(local.visibility)
+}
+
 function applyJoinAck(j: any) {
   isPrivate.value = (j?.privacy || j?.room?.privacy) === 'private'
   const limitRaw = Number(j?.user_limit ?? j?.room_user_limit ?? 0)
@@ -1613,6 +1618,7 @@ function applyJoinAck(j: any) {
   rtc.setBgmSeed(j?.game_runtime?.bgm_seed, rid)
   void enforceMicAfterJoin()
   void enforceSpectatorPhaseVisibility(gamePhase.value)
+  syncSubscriptionsFromState()
 }
 
 type PublishDelta = Partial<{
