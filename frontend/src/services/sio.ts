@@ -67,6 +67,24 @@ export function createPublicSocket(namespace: string, opts?: IoOpts): Socket {
 }
 
 let authSocket: Socket | null = null
+const AUTH_HEARTBEAT_MS = 30000
+let authHeartbeatTimer: number | null = null
+
+function startAuthHeartbeat(s: Socket): void {
+  if (authHeartbeatTimer !== null) return
+  const send = () => {
+    if (!s.connected) return
+    try { s.emit('online_ping') } catch {}
+  }
+  authHeartbeatTimer = window.setInterval(send, AUTH_HEARTBEAT_MS)
+  send()
+}
+
+function stopAuthHeartbeat(): void {
+  if (authHeartbeatTimer === null) return
+  window.clearInterval(authHeartbeatTimer)
+  authHeartbeatTimer = null
+}
 
 export function startAuthSocket(opts?: { onForceLogout?: () => void }): Socket {
   if (authSocket) return authSocket
@@ -80,6 +98,9 @@ export function startAuthSocket(opts?: { onForceLogout?: () => void }): Socket {
     reconnectionDelayMax: 2000,
   })
   if (opts?.onForceLogout) authSocket.on('force_logout', opts.onForceLogout)
+  authSocket.on('connect', () => { startAuthHeartbeat(authSocket as Socket) })
+  authSocket.on('disconnect', stopAuthHeartbeat)
+  authSocket.on('close', stopAuthHeartbeat)
 
   authSocket.on('notify', (p:any) => {
     window.dispatchEvent(new CustomEvent('auth-notify', { detail: p }))
@@ -117,6 +138,7 @@ export function startAuthSocket(opts?: { onForceLogout?: () => void }): Socket {
 }
 
 export function stopAuthSocket(): void {
+  stopAuthHeartbeat()
   try { authSocket?.off?.() } catch {}
   try { authSocket?.close?.() } catch {}
   authSocket = null

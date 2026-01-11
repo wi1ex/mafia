@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     BACKEND_CORS_ORIGINS: List[str] = []
 
     ROOMS_EMPTY_TTL_SECONDS: int = 10
+    ONLINE_TTL_SECONDS: int = 120
 
     GAME_MIN_READY_PLAYERS: int = 10
     ROLE_PICK_SECONDS: int = 10

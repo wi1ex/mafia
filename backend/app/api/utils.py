@@ -1,8 +1,9 @@
 from __future__ import annotations
+import re
 import asyncio
 import calendar
-import re
 import structlog
+from time import time
 from datetime import date, datetime, timezone, timedelta
 from typing import Optional, Dict, Any, Literal, Sequence
 from fastapi import HTTPException, status
@@ -10,6 +11,7 @@ from sqlalchemy import update, func, select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.clients import get_redis
 from ..core.db import SessionLocal
+from ..core.settings import settings
 from ..models.game import Game
 from ..models.log import AppLog
 from ..models.room import Room
@@ -30,6 +32,7 @@ __all__ = [
     "get_room_params_or_404",
     "touch_user_last_login",
     "touch_user_last_visit",
+    "touch_user_online",
     "validate_object_key_for_presign",
     "parse_month_range",
     "parse_day_range",
@@ -288,6 +291,30 @@ async def calc_stream_seconds_in_range(session: AsyncSession, start_dt: datetime
     return total_seconds
 
 
+def online_cutoff_ts(now_ts: int | None = None) -> int:
+    ttl = max(1, int(settings.ONLINE_TTL_SECONDS))
+    if now_ts is None:
+        now_ts = int(time())
+
+    return int(now_ts) - ttl
+
+
+async def touch_user_online(r, user_id: int) -> None:
+    try:
+        uid = int(user_id)
+    except Exception:
+        return
+
+    if uid <= 0:
+        return
+
+    await r.zadd("online:users:seen", {str(uid): int(time())})
+
+
+async def prune_online_users(r, cutoff_ts: int) -> None:
+    await r.zremrangebyscore("online:users:seen", "-inf", int(cutoff_ts) - 1)
+
+
 async def fetch_active_rooms_stats(r) -> tuple[int, int]:
     rids = await r.zrange("rooms:index", 0, -1)
     active_rooms = 0
@@ -310,11 +337,16 @@ async def fetch_active_rooms_stats(r) -> tuple[int, int]:
 
 
 async def fetch_online_users_count(r) -> int:
-    return int(await r.scard("online:users") or 0)
+    cutoff = online_cutoff_ts()
+    await prune_online_users(r, cutoff)
+
+    return int(await r.zcount("online:users:seen", cutoff, "+inf") or 0)
 
 
 async def fetch_online_user_ids(r) -> list[int]:
-    raw_ids = await r.smembers("online:users")
+    cutoff = online_cutoff_ts()
+    await prune_online_users(r, cutoff)
+    raw_ids = await r.zrangebyscore("online:users:seen", cutoff, "+inf")
     ids: list[int] = []
     for item in raw_ids or []:
         try:
