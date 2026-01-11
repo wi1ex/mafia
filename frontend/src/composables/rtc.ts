@@ -189,6 +189,7 @@ export function useRTC(): UseRTC {
     videoSimulcastLayers: undefined,
     videoCodec: 'h264',
     videoEncoding: cameraPreset().encoding,
+    degradationPreference: 'maintain-framerate',
   })
   let lastScreenShareError: 'canceled' | 'failed' | null = null
   const isUserCancel = (e: any) => {
