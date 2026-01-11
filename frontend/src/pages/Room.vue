@@ -479,6 +479,7 @@ const settingsOpen = ref(false)
 const uiReady = ref(false)
 const leaving = ref(false)
 const netReconnecting = ref(false)
+const backgrounded = ref(false)
 const lkReconnecting = computed(() => rtc.reconnecting.value)
 const isReconnecting = computed(() => netReconnecting.value || lkReconnecting.value)
 const openApps = ref(false)
@@ -1441,6 +1442,7 @@ function optimisticUnblockSelfAfterGame() {
 }
 
 async function enforceInitialGameControls() {
+  if (backgrounded.value) return
   const id = localId.value
   if (!id) return
   const seat = seatsByUser[id]
@@ -1481,6 +1483,7 @@ async function enforceMicAfterJoin() {
 }
 
 async function restoreAfterGameEnd() {
+  if (backgrounded.value) return
   const id = localId.value
   if (!id) return
   optimisticUnblockSelfAfterGame()
@@ -1530,6 +1533,7 @@ async function enforceSpectatorPhaseVisibility(phase: GamePhase): Promise<void> 
 }
 
 function handleGamePhaseChangeUi(prev: GamePhase, next: GamePhase): void {
+  if (backgrounded.value) return
   if (prev === 'roles_pick' && next === 'mafia_talk_start') void applyMafiaTalkStartForLocal()
   if (prev === 'mafia_talk_start' && next === 'mafia_talk_end') void applyMafiaTalkEndForLocal()
   if (next === 'night') void applyNightStartForLocal()
@@ -1802,11 +1806,47 @@ async function onLeave(goHome = true) {
   }
 }
 
+async function applyBackgroundMute(): Promise<void> {
+  if (backgrounded.value) return
+  backgrounded.value = true
+
+  desiredMedia.mic = false
+  desiredMedia.cam = false
+
+  const delta: PublishDelta = {}
+  if (local.mic) {
+    local.mic = false
+    delta.mic = false
+  }
+  if (local.cam) {
+    local.cam = false
+    delta.cam = false
+  }
+  if (local.visibility) {
+    local.visibility = false
+    delta.visibility = false
+  }
+  try { await rtc.disable('audioinput') } catch {}
+  try { await rtc.disable('videoinput') } catch {}
+  try { rtc.setVideoSubscriptionsForAll(false) } catch {}
+  if (local.speakers && !blockedSelf.value.speakers) {
+    try { rtc.setAudioSubscriptionsForAll(true) } catch {}
+    try { void rtc.resumeAudio() } catch {}
+  }
+
+  if (Object.keys(delta).length) {
+    try { await publishState(delta) } catch {}
+  }
+}
+
 function onBackgroundVisibility(e?: PageTransitionEvent) {
   if (!IS_MOBILE) return
+  if (leaving.value) return
   const type = (e as any)?.type
   if (document.visibilityState === 'hidden' || type === 'pagehide') {
-    void onLeave()
+    void applyBackgroundMute()
+  } else if (backgrounded.value) {
+    backgrounded.value = false
   }
 }
 
@@ -1816,6 +1856,7 @@ function handleOnline() { if (netReconnecting.value) hardReload() }
 
 watch(isCurrentSpeaker, async (now, was) => {
   if (now === was) return
+  if (backgrounded.value) return
   if (isSpectatorInGame.value) return
   try {
     if (now) { if (!micOn.value) await toggleMic() }
