@@ -222,7 +222,19 @@ async def join(sid, data) -> JoinAck:
         snapshot = await merge_ready_into_snapshot(r, rid, snapshot)
         blocked = await get_blocks_snapshot(r, rid)
         roles = await get_roles_snapshot(r, rid)
-        profiles = await get_profiles_snapshot(r, rid)
+
+        extra_profile_ids: list[str] = []
+        if phase != "idle":
+            try:
+                extra_profile_ids = list(await r.hkeys(f"room:{rid}:game_seats") or [])
+            except Exception:
+                extra_profile_ids = []
+            if not extra_profile_ids:
+                try:
+                    extra_profile_ids = list(await r.smembers(f"room:{rid}:game_players") or [])
+                except Exception:
+                    extra_profile_ids = []
+        profiles = await get_profiles_snapshot(r, rid, extra_ids=extra_profile_ids)
 
         if phase == "mafia_talk_start":
             raw_game_roles = await r.hgetall(f"room:{rid}:game_roles")

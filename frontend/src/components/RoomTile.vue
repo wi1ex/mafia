@@ -78,7 +78,7 @@
           <img v-if="isBlocked(id,'cam') || !isOn(id,'cam')" :src="stateIcon('cam', id)" alt="cam" />
           <img v-if="isBlocked(id,'speakers') || !isOn(id,'speakers')" :src="stateIcon('speakers', id)" alt="spk" />
           <img v-if="isBlocked(id,'visibility') || !isOn(id,'visibility')" :src="stateIcon('visibility', id)" alt="vis" />
-          <img v-if="isBlocked(id,'screen')" :src="stateIcon('screen', id)" alt="scr" />
+          <img v-if="isBlocked(id,'screen') || isOn(id,'screen')" :src="stateIcon('screen', id)" alt="scr" />
         </div>
       </button>
 

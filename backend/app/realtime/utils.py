@@ -1030,10 +1030,28 @@ async def get_roles_snapshot(r, rid: int) -> Dict[str, str]:
     return out
 
 
-async def get_profiles_snapshot(r, rid: int) -> dict[str, dict[str, str | None]]:
+async def get_profiles_snapshot(r, rid: int, *, extra_ids: Iterable[int | str] | None = None) -> dict[str, dict[str, str | None]]:
     ids = await r.smembers(f"room:{rid}:members")
-    if not ids:
+    ids_set: set[str] = {str(uid) for uid in (ids or [])}
+    if extra_ids:
+        for uid in extra_ids:
+            if uid is None:
+                continue
+
+            if isinstance(uid, (bytes, bytearray)):
+                try:
+                    uid = uid.decode()
+                except Exception:
+                    continue
+
+            uid_s = str(uid)
+            if uid_s:
+                ids_set.add(uid_s)
+
+    if not ids_set:
         return {}
+
+    ids = list(ids_set)
 
     async with r.pipeline() as p:
         for uid in ids:
@@ -1041,12 +1059,15 @@ async def get_profiles_snapshot(r, rid: int) -> dict[str, dict[str, str | None]]
         rows = await p.execute()
 
     out: dict[str, dict[str, str | None]] = {}
-    need_db: list[int] = []
+    need_db: set[int] = set()
     for uid, (un, av) in zip(ids, rows):
         uid_s = str(uid)
         out[uid_s] = {"username": str(un) if un else None, "avatar_name": str(av) if av else None}
         if av is None or un is None:
-            need_db.append(int(uid))
+            try:
+                need_db.add(int(uid_s))
+            except Exception:
+                continue
 
     if need_db:
         async with SessionLocal() as s:
