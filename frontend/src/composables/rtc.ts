@@ -129,6 +129,7 @@ export type UseRTC = {
   ensureBgmPlayback: () => void
   unlockBgmOnGesture: () => Promise<void>
   destroyBgm: () => void
+  flushVolumePrefs: () => void
   cleanupPeer: (id: string) => void
 }
 
@@ -251,10 +252,24 @@ export function useRTC(): UseRTC {
     const prev = lsWriteTimers.get(id)
     if (prev) window.clearTimeout(prev)
     const t = window.setTimeout(() => {
-      try { localStorage.setItem(VOL_LS(id), String(vv)) } catch {}
+      persistVolumePref(id, vv)
       lsWriteTimers.delete(id)
     }, 500)
     lsWriteTimers.set(id, t)
+  }
+
+  function persistVolumePref(id: string, v: number) {
+    const vv = Math.min(200, Math.max(0, Math.round(v)))
+    try { localStorage.setItem(VOL_LS(id), String(vv)) } catch {}
+  }
+
+  function flushVolumePrefs() {
+    lsWriteTimers.forEach((tm, id) => {
+      try { window.clearTimeout(tm) } catch {}
+      const v = volumePrefs.get(id)
+      if (v != null) persistVolumePref(id, v)
+    })
+    lsWriteTimers.clear()
   }
 
   function clampBgmVolume(v: number) {
@@ -1200,6 +1215,8 @@ export function useRTC(): UseRTC {
         try { a.remove() } catch {}
         audioEls.delete(aid)
       }
+      const v = volumePrefs.get(aid)
+      if (v != null) persistVolumePref(aid, v)
       const tm = lsWriteTimers.get(aid)
       if (tm) { try { clearTimeout(tm) } catch {} lsWriteTimers.delete(aid) }
       destroyAudioGraph(aid)
@@ -1249,9 +1266,8 @@ export function useRTC(): UseRTC {
     } catch {}
     try { audioCtx?.close() } catch {}
     audioCtx = null
+    flushVolumePrefs()
     volumePrefs.clear()
-    lsWriteTimers.forEach(t => { try { window.clearTimeout(t) } catch {} })
-    lsWriteTimers.clear()
     waState = 0
     peerIds.value = []
     localId.value = ''
@@ -1555,6 +1571,7 @@ export function useRTC(): UseRTC {
     ensureBgmPlayback,
     unlockBgmOnGesture,
     destroyBgm,
+    flushVolumePrefs,
     prepareScreenShare,
     publishPreparedScreen,
     cancelPreparedScreen,

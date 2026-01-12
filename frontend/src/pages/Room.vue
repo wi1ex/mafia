@@ -470,7 +470,7 @@ const rolesByUser = reactive(new Map<string, string>())
 const nameByUser = reactive(new Map<string, string>())
 const avatarByUser = reactive(new Map<string, string | null>())
 const volUi = reactive<Record<string, number>>({})
-const MIN_GAME_VOLUME = 50
+const MIN_GAME_VOLUME = 20
 const volumeSnapTimers = new Map<string, number>()
 const screenOwnerId = ref<string>('')
 const openPanelFor = ref<string>('')
@@ -1999,10 +1999,12 @@ async function applyBackgroundMute(): Promise<void> {
 }
 
 function onBackgroundVisibility(e?: PageTransitionEvent) {
+  const type = (e as any)?.type
+  const hidden = document.visibilityState === 'hidden' || type === 'pagehide'
+  if (hidden) rtc.flushVolumePrefs()
   if (!IS_MOBILE) return
   if (leaving.value) return
-  const type = (e as any)?.type
-  if (document.visibilityState === 'hidden' || type === 'pagehide') {
+  if (hidden) {
     void applyBackgroundMute()
   } else if (backgrounded.value) {
     backgrounded.value = false
@@ -2143,6 +2145,7 @@ onBeforeUnmount(() => {
   volumeSnapTimers.clear()
   if (gameStartOverlayTimerId != null) window.clearTimeout(gameStartOverlayTimerId)
   if (gameEndOverlayTimerId != null) window.clearTimeout(gameEndOverlayTimerId)
+  rtc.flushVolumePrefs()
   rtc.destroyBgm()
   void onLeave(false)
 })
