@@ -388,7 +388,6 @@ const {
   minReadyToStart,
   seatsByUser,
   offlineInGame,
-  gameAlive,
   gameFoulsByUser,
   votedThisRound,
   votedUsers,
@@ -1881,7 +1880,7 @@ function gameReturnTargets(phase: GamePhase) {
   const isAlivePlayer = myGameRole.value === 'player' && amIAlive.value
   return {
     mic: isCurrentSpeaker.value,
-    cam: isDayVote && isAlivePlayer,
+    cam: isAlivePlayer,
     speakers: true,
     visibility: isDayVote || (isMafiaTalk && isBlackTeam(myGameRoleKind.value)),
   }

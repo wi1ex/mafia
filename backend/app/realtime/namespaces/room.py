@@ -334,6 +334,68 @@ async def join(sid, data) -> JoinAck:
                         snapshot[str(uid)] = user_state
                         await emit_state_changed_filtered(r, rid, uid, applied2)
 
+            if phase != "idle":
+                my_block = (blocked or {}).get(str(uid)) or {}
+
+                def is_blocked(k: str) -> bool:
+                    return str(my_block.get(k) or "0") == "1"
+
+                try:
+                    is_alive = bool(await r.sismember(f"room:{rid}:game_alive", str(uid)))
+                except Exception:
+                    is_alive = False
+                try:
+                    my_game_role_full = str((await r.hget(f"room:{rid}:game_roles", str(uid))) or "")
+                except Exception:
+                    my_game_role_full = ""
+                is_black = my_game_role_full in ("mafia", "don")
+
+                mic_on = False
+                if phase == "day":
+                    try:
+                        started = int(raw_gstate.get("day_speech_started") or 0)
+                        duration = int(raw_gstate.get("day_speech_duration") or 0)
+                        cur_uid = int(raw_gstate.get("day_current_uid") or 0)
+                    except Exception:
+                        started = 0
+                        duration = 0
+                        cur_uid = 0
+                    mic_on = started > 0 and duration > 0 and cur_uid == uid
+                elif phase == "vote":
+                    try:
+                        started = int(raw_gstate.get("vote_speech_started") or 0)
+                        duration = int(raw_gstate.get("vote_speech_duration") or 0)
+                        cur_uid = int(raw_gstate.get("vote_speech_uid") or 0)
+                    except Exception:
+                        started = 0
+                        duration = 0
+                        cur_uid = 0
+                    mic_on = started > 0 and duration > 0 and cur_uid == uid
+
+                cam_on = is_alive
+                speakers_on = True
+                visibility_on = phase in ("day", "vote") or (phase == "mafia_talk_start" and is_black)
+
+                if is_blocked("mic"):
+                    mic_on = False
+                if is_blocked("cam"):
+                    cam_on = False
+                if is_blocked("speakers"):
+                    speakers_on = False
+                if is_blocked("visibility"):
+                    visibility_on = False
+
+                desired_state = {
+                    "mic": "1" if mic_on else "0",
+                    "cam": "1" if cam_on else "0",
+                    "speakers": "1" if speakers_on else "0",
+                    "visibility": "1" if visibility_on else "0",
+                }
+                applied_rules = await apply_state(r, rid, uid, desired_state)
+                if applied_rules:
+                    user_state = {**user_state, **applied_rules}
+                    snapshot[str(uid)] = user_state
+
             if not already:
                 await emit_rooms_occupancy_safe(r, rid, occ)
 
