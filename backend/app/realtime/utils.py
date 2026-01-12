@@ -28,6 +28,11 @@ __all__ = [
     "build_game_context",
     "validate_auth",
     "apply_state",
+    "apply_bg_state_on_join",
+    "apply_join_idle_defaults",
+    "apply_join_phase_state",
+    "extract_state_mapping",
+    "get_user_state_and_block",
     "get_room_snapshot",
     "merge_ready_into_snapshot",
     "set_ready",
@@ -812,12 +817,143 @@ async def apply_state(r, rid: int, uid: int, data: Mapping[str, Any]) -> Dict[st
     return changed
 
 
+def _decode_redis_value(val: Any) -> str:
+    if isinstance(val, bytes):
+        return val.decode("utf-8", "ignore")
+
+    return str(val)
+
+
+def extract_state_mapping(raw: Mapping[Any, Any], keys: Iterable[str]) -> dict[str, str]:
+    out: dict[str, str] = {}
+    for k, v in (raw or {}).items():
+        ks = _decode_redis_value(k)
+        if ks not in keys:
+            continue
+        out[ks] = _decode_redis_value(v)
+
+    return out
+
+
+async def apply_bg_state_on_join(r, rid: int, uid: int) -> tuple[dict[str, str], bool]:
+    key = f"room:{rid}:user:{uid}:bg_state"
+    try:
+        raw_bg = await r.hgetall(key)
+    except Exception:
+        raw_bg = {}
+
+    bg_states = extract_state_mapping(raw_bg, KEYS_STATE)
+    had_bg_state = bool(bg_states)
+    applied: dict[str, str] = {}
+    if bg_states:
+        applied = await apply_state(r, rid, uid, bg_states)
+        if applied:
+            await emit_state_changed_filtered(r, rid, uid, applied)
+
+    if raw_bg:
+        try:
+            await r.delete(key)
+        except Exception:
+            log.warning("sio.bg_state.delete_failed", rid=rid, uid=uid)
+
+    return applied, had_bg_state
+
+
+async def apply_join_idle_defaults(r, rid: int, uid: int, *, user_state: Mapping[str, str], blocked: Mapping[str, Mapping[str, str]] | None) -> dict[str, str]:
+    my_block = (blocked or {}).get(str(uid)) or {}
+    speakers_blocked = str(my_block.get("speakers") or "0") == "1"
+    visibility_blocked = str(my_block.get("visibility") or "0") == "1"
+    auto_on: dict[str, str] = {}
+    if not speakers_blocked and user_state.get("speakers") != "1":
+        auto_on["speakers"] = "1"
+    if not visibility_blocked and user_state.get("visibility") != "1":
+        auto_on["visibility"] = "1"
+    if not auto_on:
+        return {}
+
+    applied = await apply_state(r, rid, uid, auto_on)
+    if applied:
+        await emit_state_changed_filtered(r, rid, uid, applied)
+
+    return applied
+
+
+async def apply_join_phase_state(r, rid: int, uid: int, *, phase: str, raw_gstate: Mapping[str, Any], blocked: Mapping[str, Mapping[str, str]] | None) -> dict[str, str]:
+    my_block = (blocked or {}).get(str(uid)) or {}
+
+    def is_blocked(k: str) -> bool:
+        return str(my_block.get(k) or "0") == "1"
+
+    try:
+        is_alive = bool(await r.sismember(f"room:{rid}:game_alive", str(uid)))
+    except Exception:
+        is_alive = False
+    try:
+        my_game_role_full = str((await r.hget(f"room:{rid}:game_roles", str(uid))) or "")
+    except Exception:
+        my_game_role_full = ""
+    is_black = my_game_role_full in ("mafia", "don")
+
+    mic_on = False
+    if phase == "day":
+        try:
+            started = int(raw_gstate.get("day_speech_started") or 0)
+            duration = int(raw_gstate.get("day_speech_duration") or 0)
+            cur_uid = int(raw_gstate.get("day_current_uid") or 0)
+        except Exception:
+            started = 0
+            duration = 0
+            cur_uid = 0
+        mic_on = started > 0 and duration > 0 and cur_uid == uid
+    elif phase == "vote":
+        try:
+            started = int(raw_gstate.get("vote_speech_started") or 0)
+            duration = int(raw_gstate.get("vote_speech_duration") or 0)
+            cur_uid = int(raw_gstate.get("vote_speech_uid") or 0)
+        except Exception:
+            started = 0
+            duration = 0
+            cur_uid = 0
+        mic_on = started > 0 and duration > 0 and cur_uid == uid
+
+    cam_on = is_alive
+    speakers_on = True
+    visibility_on = phase in ("day", "vote") or (phase == "mafia_talk_start" and is_black)
+
+    if is_blocked("mic"):
+        mic_on = False
+    if is_blocked("cam"):
+        cam_on = False
+    if is_blocked("speakers"):
+        speakers_on = False
+    if is_blocked("visibility"):
+        visibility_on = False
+
+    desired_state = {
+        "mic": "1" if mic_on else "0",
+        "cam": "1" if cam_on else "0",
+        "speakers": "1" if speakers_on else "0",
+        "visibility": "1" if visibility_on else "0",
+    }
+    return await apply_state(r, rid, uid, desired_state)
+
+
+async def get_user_state_and_block(r, rid: int, uid: int) -> tuple[dict[str, str], dict[str, str]]:
+    vals = await r.hmget(f"room:{rid}:user:{uid}:state", *KEYS_STATE)
+    state = {k: ("1" if (v == "1" or v == b"1") else "0") for k, v in zip(KEYS_STATE, (vals or []))}
+    block_vals = await r.hmget(f"room:{rid}:user:{uid}:block", *KEYS_BLOCK)
+    blocked = {k: ("1" if (v == "1" or v == b"1") else "0") for k, v in zip(KEYS_BLOCK, (block_vals or []))}
+
+    return state, blocked
+
+
 async def set_ready(r, rid: int, uid: int, v: Any) -> Optional[str]:
     if norm01(v) == "1":
         added = await r.sadd(f"room:{rid}:ready", str(uid))
         return "1" if int(added or 0) > 0 else None
 
     removed = await r.srem(f"room:{rid}:ready", str(uid))
+
     return "0" if int(removed or 0) > 0 else None
 
 
@@ -830,6 +966,7 @@ async def get_room_snapshot(r, rid: int) -> Dict[str, Dict[str, str]]:
         for uid in ids:
             await p.hgetall(f"room:{rid}:user:{uid}:state")
         states = await p.execute()
+
     return {str(uid): (st or {}) for uid, st in zip(ids, states)}
 
 
