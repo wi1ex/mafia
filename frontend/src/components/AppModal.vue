@@ -13,18 +13,18 @@
           <div class="section">
             <span>Android (Chrome)</span>
             <ol>
-              <li>Откройте меню браузера (⋮).</li>
-              <li>Выберите «Установить приложение» или «Добавить на главный экран».</li>
+              <li>Откройте меню браузера (⋮)</li>
+              <li>Выберите «Установить приложение» или «Добавить на главный экран»</li>
             </ol>
           </div>
           <div class="section">
-            <span>iPhone/iPad (Safari)</span>
+            <span>iPhone/iPad (Safari/Chrome)</span>
             <ol>
-              <li>Нажмите «Поделиться».</li>
-              <li>Выберите «На экран Домой».</li>
+              <li>Нажмите «Поделиться»</li>
+              <li>Выберите «На экран Домой»</li>
             </ol>
           </div>
-          <p class="note">Если вы открыли сайт внутри Telegram/Instagram, используйте «Открыть в браузере», иначе установка может быть недоступна.</p>
+          <p class="note">Если вы открыли сайт внутри Telegram, используйте «Открыть в браузере», иначе установка может быть недоступна</p>
         </div>
       </div>
     </div>
@@ -76,7 +76,6 @@ onBeforeUnmount(() => {
     display: flex;
     flex-direction: column;
     width: 400px;
-    max-width: 90vw;
     border-radius: 5px;
     background-color: $dark;
     transform: translateY(0);
@@ -119,12 +118,14 @@ onBeforeUnmount(() => {
         display: flex;
         flex-direction: column;
         gap: 5px;
+        span {
+          font-weight: bold;
+        }
         ol {
           display: flex;
           flex-direction: column;
           margin: 0;
           padding-left: 20px;
-          gap: 5px;
           li {
             font-size: 14px;
             line-height: 1.5;
@@ -134,7 +135,6 @@ onBeforeUnmount(() => {
       .note {
         font-size: 12px;
         color: $grey;
-        line-height: 1.5;
         margin: 0;
       }
     }

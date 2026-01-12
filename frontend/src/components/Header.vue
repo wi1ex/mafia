@@ -87,7 +87,7 @@ import defaultAvatar from "@/assets/svg/defaultAvatar.svg"
 import iconNotifBell from "@/assets/svg/notifBell.svg"
 import iconInfo from "@/assets/svg/info.svg"
 import iconCard from "@/assets/svg/card.svg"
-import iconInstall from "@/assets/svg/save.svg"
+import iconInstall from "@/assets/svg/install.svg"
 import iconLogout from '@/assets/svg/leave.svg'
 import iconProfile from "@/assets/svg/profile.svg"
 import iconArrowDown from '@/assets/svg/arrowDown.svg'
