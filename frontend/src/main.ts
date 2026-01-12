@@ -15,3 +15,9 @@ app.directive('minio-img', minioImg)
 installVersionWatcher(import.meta.env.VITE_BUILD_ID as string || '')
 
 app.mount('#app')
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {})
+  })
+}
