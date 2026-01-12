@@ -480,6 +480,7 @@ const uiReady = ref(false)
 const leaving = ref(false)
 const netReconnecting = ref(false)
 const backgrounded = ref(false)
+let joinPhaseApplyPending = false
 const lkReconnecting = computed(() => rtc.reconnecting.value)
 const isReconnecting = computed(() => netReconnecting.value || lkReconnecting.value)
 const openApps = ref(false)
@@ -1468,6 +1469,11 @@ async function enforceInitialGameControls() {
 }
 
 async function enforceReturnStateAfterJoin() {
+  if (gamePhase.value === 'idle') return
+  if (!localId.value) {
+    joinPhaseApplyPending = true
+    return
+  }
   await applyGameReturnState()
 }
 
@@ -2090,6 +2096,10 @@ onMounted(async () => {
     bindLK()
 
     await rtc.connect(ws_url, j.token, { autoSubscribe: false })
+    if (joinPhaseApplyPending && localId.value) {
+      joinPhaseApplyPending = false
+      await applyGameReturnState()
+    }
     rtc.setAudioSubscriptionsForAll(local.speakers)
     rtc.setVideoSubscriptionsForAll(local.visibility)
     const wantInitialCam = desiredMedia.cam && !blockedSelf.value.cam
