@@ -390,7 +390,6 @@ const {
   offlineInGame,
   gameAlive,
   gameFoulsByUser,
-  gameRolesByUser,
   votedThisRound,
   votedUsers,
   knownRolesVisible,
@@ -1469,22 +1468,8 @@ async function enforceInitialGameControls() {
   }
 }
 
-async function forceMicOffLocal() {
-  if (!micOn.value) return
-  try { await toggleMic() } catch {}
-  if (micOn.value) {
-    local.mic = false
-    desiredMedia.mic = false
-    try { await rtc.disable('audioinput') } catch {}
-    try { await publishState({ mic: false }) } catch {}
-  }
-}
-
-async function enforceMicAfterJoin() {
-  if (gamePhase.value === 'idle') return
-  if (isCurrentSpeaker.value) return
-  if (isSpectatorInGame.value) return
-  await forceMicOffLocal()
+async function enforceReturnStateAfterJoin() {
+  await applyGameReturnState()
 }
 
 async function restoreAfterGameEnd() {
@@ -1621,7 +1606,7 @@ function applyJoinAck(j: any) {
   const snapshotIds = Object.keys(j.snapshot || {})
   game.applyFromJoinAck(j, snapshotIds)
   rtc.setBgmSeed(j?.game_runtime?.bgm_seed, rid)
-  void enforceMicAfterJoin()
+  void enforceReturnStateAfterJoin()
   void enforceSpectatorPhaseVisibility(gamePhase.value)
   syncSubscriptionsFromState()
 }
@@ -1886,55 +1871,49 @@ async function applyLocalStateFromServer(state: any, blocks: any): Promise<void>
   }
 }
 
-function roleTeam(kind: GameRoleKind | null | undefined): 'red' | 'black' | null {
-  if (kind === 'mafia' || kind === 'don') return 'black'
-  if (kind === 'citizen' || kind === 'sheriff') return 'red'
-  return null
+function isBlackTeam(kind: GameRoleKind | null | undefined): boolean {
+  return kind === 'mafia' || kind === 'don'
 }
 
-function pickGroupState(ids: string[], key: keyof StatusState, fallback: boolean): boolean {
-  let on = 0
-  let off = 0
-  for (const id of ids) {
-    const st = statusByUser.get(id)
-    if (!st) continue
-    if (st[key] === 1) on += 1
-    else if (st[key] === 0) off += 1
+function gameReturnTargets(phase: GamePhase) {
+  const isDayVote = phase === 'day' || phase === 'vote'
+  const isMafiaTalk = phase === 'mafia_talk_start'
+  const isAlivePlayer = myGameRole.value === 'player' && amIAlive.value
+  return {
+    mic: isCurrentSpeaker.value,
+    cam: isDayVote && isAlivePlayer,
+    speakers: true,
+    visibility: isDayVote || (isMafiaTalk && isBlackTeam(myGameRoleKind.value)),
   }
-  if (!on && !off) return fallback
-  return on >= off
 }
 
-async function restoreAfterBackgroundInGame(): Promise<void> {
-  const me = localId.value
-  const aliveIds = Array.from(gameAlive, id => String(id))
-  const aliveOthers = aliveIds.filter(id => id && id !== me)
-  let basis = aliveOthers
-  const myTeam = roleTeam(myGameRoleKind.value)
-  if (myTeam) {
-    const sameTeam = aliveOthers.filter(id => roleTeam(gameRolesByUser.get(id) as GameRoleKind | undefined) === myTeam)
-    if (sameTeam.length) basis = sameTeam
-  }
-
-  const targetCam = pickGroupState(basis, 'cam', local.cam)
-  const targetVisibility = pickGroupState(basis, 'visibility', local.visibility)
-  const nextMic = isCurrentSpeaker.value && !blockedSelf.value.mic
-  const nextSpeakers = !blockedSelf.value.speakers
-  const nextCam = !blockedSelf.value.cam && targetCam
-  const nextVisibility = !blockedSelf.value.visibility && targetVisibility
+async function applyGameReturnState(): Promise<void> {
+  if (backgrounded.value) return
+  const phase = gamePhase.value
+  if (phase === 'idle') return
+  const target = gameReturnTargets(phase)
+  const nextMic = target.mic && !blockedSelf.value.mic
+  const nextCam = target.cam && !blockedSelf.value.cam
+  const nextSpeakers = target.speakers && !blockedSelf.value.speakers
+  const nextVisibility = target.visibility && !blockedSelf.value.visibility
+  const canTouchMedia = !!rtc.lk.value
 
   const delta: PublishDelta = {}
   if (local.mic !== nextMic) {
     local.mic = nextMic
     desiredMedia.mic = nextMic
     delta.mic = nextMic
-    try { if (nextMic) await rtc.enable('audioinput'); else await rtc.disable('audioinput') } catch {}
+    if (canTouchMedia) {
+      try { if (nextMic) await rtc.enable('audioinput'); else await rtc.disable('audioinput') } catch {}
+    }
   }
   if (local.cam !== nextCam) {
     local.cam = nextCam
     desiredMedia.cam = nextCam
     delta.cam = nextCam
-    try { if (nextCam) await rtc.enable('videoinput'); else await rtc.disable('videoinput') } catch {}
+    if (canTouchMedia) {
+      try { if (nextCam) await rtc.enable('videoinput'); else await rtc.disable('videoinput') } catch {}
+    }
   }
   if (local.speakers !== nextSpeakers) {
     local.speakers = nextSpeakers
@@ -1975,7 +1954,7 @@ async function restoreAfterBackgroundFromServer(): Promise<void> {
     }
   }
   if (phase !== 'idle') {
-    await restoreAfterBackgroundInGame()
+    await applyGameReturnState()
   }
 }
 
