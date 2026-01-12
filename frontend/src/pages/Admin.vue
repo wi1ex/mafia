@@ -1626,9 +1626,10 @@ onMounted(() => {
   margin: 0 10px 10px;
   padding: 10px;
   border-radius: 5px;
+  background-color: $dark;
   overflow-x: hidden;
   scrollbar-width: none;
-  background-color: $dark;
+  user-select: text;
   header {
     display: flex;
     align-items: flex-end;

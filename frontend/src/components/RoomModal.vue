@@ -28,6 +28,7 @@
                 <div class="range-label">
                   <span>Лимит участников: {{ limit }}/{{ RANGE_MAX }}</span>
                   <span v-if="limit === 2" class="limit-badge" aria-label="Высокое качество">HD</span>
+                  <span v-if="canOpenGameTab" class="limit-badge" aria-label="Лимит для игры">MAFIA</span>
                 </div>
                 <div class="range-wrap">
                   <div class="range-dead" :style="deadZoneStyle" @click="limit = DEAD_MIN"></div>
