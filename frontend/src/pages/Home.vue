@@ -20,7 +20,7 @@
 
       <div v-else class="list" ref="listEl">
         <div class="list-header">
-          <span>№</span>
+          <span>Статус</span>
           <span>Название</span>
           <span>Владелец</span>
           <span class="text-center">Лимит</span>
@@ -28,10 +28,11 @@
 
         <ul class="list-body">
           <li class="item" v-for="r in sortedRooms" :key="r.id" :class="{ active: r.id === selectedId || r.id === pendingRoomId }" tabindex="0" @click="selectRoom(r.id)" >
-            <span>{{ r.id }}</span>
+            <div class="cell">
+              <span class="status-room" :class="{ runned: r.in_game }">{{ r.in_game ? 'game' : 'lobby' }}</span>
+            </div>
             <div class="cell" :title="r.title">
               <img :src="r.privacy === 'private' ? iconLockClose : iconLockOpen" alt="lock" />
-              <span class="status-room" :class="{ runned: r.in_game }">{{ r.in_game ? 'game' : 'lobby' }}</span>
               <span>{{ r.title }}</span>
             </div>
             <div class="cell">
@@ -56,25 +57,39 @@
           </header>
 
           <div class="ri-info">
+            <div class="ri-members">
+              <span class="header-text">Участники ({{ selectedRoom?.occupancy ?? 0 }}/{{ selectedRoom?.user_limit ?? 0 }}):</span>
+              <div v-if="(info?.members?.length ?? 0) === 0" class="muted">Пока никого</div>
+              <ul v-else class="ri-users">
+                <li class="ri-user" v-for="m in sortedMembers" :key="m.id" :class="{ dead: m.role === 'player' && m.alive === false }">
+                  <span v-if="m.role === 'head'" class="user-numb">В. </span>
+                  <span v-else-if="m.role === 'player' && m.slot != null" class="user-numb">{{ m.slot }}. </span>
+                  <img v-minio-img="{ key: m.avatar_name ? `avatars/${m.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
+                  <span>{{ m.username || ('user' + m.id) }}</span>
+                  <img v-if="m.screen" :src="iconScreenOn" alt="streaming" />
+                </li>
+              </ul>
+            </div>
+
             <div class="ri-meta-game">
-              <div class="ri-meta">
-                <span class="header-text">Параметры комнаты:</span>
-                <div class="ri-meta-div">
-                  <span>Статус</span>
-                  <span class="status-room" :class="{ runned: selectedRoom.in_game }">{{ selectedRoom.in_game ? 'game' : 'lobby' }}</span>
-                </div>
-                <div class="ri-meta-div">
-                  <span>Владелец</span>
-                  <div class="owner">
-                    <img v-minio-img="{ key: selectedRoom && selectedRoom.creator_avatar_name ? `avatars/${selectedRoom.creator_avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
-                    <span class="owner-name">{{ selectedRoom?.creator_name }}</span>
-                  </div>
-                </div>
-                <div class="ri-meta-div">
-                  <span>Приватность</span>
-                  <span>{{ isOpen ? 'Открытая' : 'Закрытая' }}</span>
-                </div>
-              </div>
+<!--              <div class="ri-meta">-->
+<!--                <span class="header-text">Параметры комнаты:</span>-->
+<!--                <div class="ri-meta-div">-->
+<!--                  <span>Статус</span>-->
+<!--                  <span class="status-room" :class="{ runned: selectedRoom.in_game }">{{ selectedRoom.in_game ? 'game' : 'lobby' }}</span>-->
+<!--                </div>-->
+<!--                <div class="ri-meta-div">-->
+<!--                  <span>Владелец</span>-->
+<!--                  <div class="owner">-->
+<!--                    <img v-minio-img="{ key: selectedRoom && selectedRoom.creator_avatar_name ? `avatars/${selectedRoom.creator_avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />-->
+<!--                    <span class="owner-name">{{ selectedRoom?.creator_name }}</span>-->
+<!--                  </div>-->
+<!--                </div>-->
+<!--                <div class="ri-meta-div">-->
+<!--                  <span>Приватность</span>-->
+<!--                  <span>{{ isOpen ? 'Открытая' : 'Закрытая' }}</span>-->
+<!--                </div>-->
+<!--              </div>-->
 
               <div class="ri-game" v-if="game">
                 <span class="header-text">Параметры игры:</span>
@@ -103,20 +118,6 @@
                   <span>{{ game.lift_3x ? 'Вкл' : 'Откл' }}</span>
                 </div>
               </div>
-            </div>
-
-            <div class="ri-members">
-              <span class="header-text">Участники ({{ selectedRoom?.occupancy ?? 0 }}/{{ selectedRoom?.user_limit ?? 0 }}):</span>
-              <div v-if="(info?.members?.length ?? 0) === 0" class="muted">Пока никого</div>
-              <ul v-else class="ri-users">
-                <li class="ri-user" v-for="m in sortedMembers" :key="m.id" :class="{ dead: m.role === 'player' && m.alive === false }">
-                  <span v-if="m.role === 'head'" class="user-numb">В. </span>
-                  <span v-else-if="m.role === 'player' && m.slot != null" class="user-numb">{{ m.slot }}. </span>
-                  <img v-minio-img="{ key: m.avatar_name ? `avatars/${m.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
-                  <span>{{ m.username || ('user' + m.id) }}</span>
-                  <img v-if="m.screen" :src="iconScreenOn" alt="streaming" />
-                </li>
-              </ul>
             </div>
           </div>
 
@@ -583,14 +584,14 @@ onBeforeUnmount(() => {
       }
       .list-header {
         display: grid;
-        grid-template-columns: 10% 50% 25% 15%;
+        grid-template-columns: 15% 45% 25% 15%;
         padding: 10px;
         border-radius: 5px;
         background-color: $lead;
         box-shadow: 3px 3px 5px rgba($black, 0.25);
         span {
           color: $fg;
-          letter-spacing: 2px;
+          letter-spacing: 1.5px;
         }
       }
       .list-body {
@@ -602,7 +603,7 @@ onBeforeUnmount(() => {
         list-style: none;
         .item {
           display: grid;
-          grid-template-columns: 10% 50% 25% 15%;
+          grid-template-columns: 15% 45% 25% 15%;
           align-items: center;
           padding: 10px;
           border: 1px solid transparent;
