@@ -1,5 +1,5 @@
 <template>
-  <div class="tile" :class="[{ speaking, mafia: redMark, 'best-move': bestMoveMarked }, side && 'side']" tabindex="0">
+  <div class="tile" :class="[{ speaking, mafia: redMark, 'best-move': bestMoveMarked && !redMark }, side && 'side']" tabindex="0">
     <video v-show="showVideo" :ref="videoRef" playsinline autoplay muted :class="{ mirrored: isMirrored(id) }"
            :style="{ objectFit: fitContain ? 'contain' : 'cover' }" />
 

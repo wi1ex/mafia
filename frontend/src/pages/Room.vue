@@ -1217,7 +1217,7 @@ socket.value?.on('connect', async () => {
     if (isInGameNow) {
       game.maybeAskRevoteOnDisconnect(id, sendAckGame)
       offlineInGame.add(id)
-      rtc.cleanupPeer(id)
+      rtc.cleanupPeer(id, { keepVideo: true, keepScreen: true })
       return
     }
     purgePeerUI(id)

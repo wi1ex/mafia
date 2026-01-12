@@ -130,7 +130,7 @@ export type UseRTC = {
   unlockBgmOnGesture: () => Promise<void>
   destroyBgm: () => void
   flushVolumePrefs: () => void
-  cleanupPeer: (id: string) => void
+  cleanupPeer: (id: string, opts?: { keepVideo?: boolean; keepScreen?: boolean }) => void
 }
 
 export function useRTC(): UseRTC {
@@ -1206,7 +1206,17 @@ export function useRTC(): UseRTC {
     } as any
   }
 
-  function cleanupPeer(id: string) {
+  function cleanupPeer(id: string, opts?: { keepVideo?: boolean; keepScreen?: boolean }) {
+    const keepVideo = opts?.keepVideo === true
+    const keepScreen = opts?.keepScreen === true
+    const room = lk.value
+    const part = room ? getByIdentity(room, id) : undefined
+    if (part) {
+      part.getTrackPublications().forEach(pub => {
+        const t = pub.track
+        if (t) { try { t.detach() } catch {} }
+      })
+    }
     const aIds = [id, screenKey(id)]
     for (const aid of aIds) {
       const a = audioEls.get(aid)
@@ -1226,12 +1236,12 @@ export function useRTC(): UseRTC {
     const v = videoEls.get(id)
     if (v) {
       try { v.srcObject = null } catch {}
-      videoEls.delete(id)
+      if (!(keepVideo || v.isConnected)) videoEls.delete(id)
     }
     const sv = screenVideoEls.get(id)
     if (sv) {
       try { sv.srcObject = null } catch {}
-      screenVideoEls.delete(id)
+      if (!(keepScreen || sv.isConnected)) screenVideoEls.delete(id)
     }
 
     const sAud = new Set(audibleIds.value)
@@ -1411,12 +1421,17 @@ export function useRTC(): UseRTC {
       }
     })
 
-    room.on(RoomEvent.TrackUnsubscribed, (t: RemoteTrack, pub, part) => {
+    room.on(RoomEvent.TrackUnsubscribed, (t: RemoteTrack, pub, part) => {       
       const id = String(part.identity)
       if (t.kind === Track.Kind.Video) {
         const isScreenV = (pub as RemoteTrackPublication).source === Track.Source.ScreenShare
-        const el = isScreenV ? screenVideoEls.get(id) : videoEls.get(id)
-        if (el) { try { t.detach(el) } catch {} }
+        const el = isScreenV ? screenVideoEls.get(id) : videoEls.get(id)        
+        if (el) {
+          try { t.detach(el) } catch {}
+          try { el.srcObject = null } catch {}
+        } else {
+          try { t.detach() } catch {}
+        }
         if (isScreenV) { try { opts?.onRemoteScreenShareEnded?.(id) } catch {} }
       } else if (t.kind === Track.Kind.Audio) {
         const isScreenA = (pub as RemoteTrackPublication).source === Track.Source.ScreenShareAudio
@@ -1426,6 +1441,8 @@ export function useRTC(): UseRTC {
           try { t.detach(a) } catch {}
           a.muted = true
           a.volume = 0
+        } else {
+          try { t.detach() } catch {}
         }
         destroyAudioGraph(aid)
         const tm = lsWriteTimers.get(aid)
