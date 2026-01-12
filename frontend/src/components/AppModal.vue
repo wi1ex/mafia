@@ -10,6 +10,7 @@
           </button>
         </header>
         <div class="install-body">
+          <span>Чтобы развернуть сайт на весь экран вы можете установить страницу как приложение на ваше устройство. Иконка будет установлена на Главном экране</span>
           <div class="section">
             <span>Android (Chrome)</span>
             <ol>

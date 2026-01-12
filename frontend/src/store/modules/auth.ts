@@ -7,6 +7,7 @@ import {
   addAuthExpiredListener,
   refreshAccessTokenFull,
 } from '@/services/axios'
+import { isPwaMode } from '@/services/pwa'
 import { alertDialog, confirmDialog } from '@/services/confirm'
 import {
   initSessionBus,
@@ -149,7 +150,8 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function signInWithTelegram(tg: TgUser): Promise<void> {
     try {
-      const { data } = await api.post('/auth/telegram', tg)
+      const headers = isPwaMode() ? { 'X-PWA': '1' } : undefined
+      const { data } = await api.post('/auth/telegram', tg, headers ? { headers } : undefined)
       const isNew = Boolean((data as any)?.is_new)
       await applySession(data)
       const { useUserStore } = await import('@/store')

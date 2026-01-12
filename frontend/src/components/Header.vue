@@ -11,7 +11,7 @@
         <img :src="iconCard" alt="card" />
         <span>Поддержать</span>
       </a>
-      <button class="btn" type="button" @click="openInstall" :aria-expanded="installOpen" aria-haspopup="dialog" aria-label="Установить">
+      <button v-if="!isPwa" class="btn" type="button" @click="openInstall" :aria-expanded="installOpen" aria-haspopup="dialog" aria-label="Установить">
         <img :src="iconInstall" alt="install" />
         <span>Установить</span>
       </button>
@@ -79,6 +79,7 @@
 import { onMounted, onBeforeUnmount, watch, nextTick, ref } from 'vue'
 import { useAuthStore, useUserStore, useNotifStore, useSettingsStore, useUpdatesStore } from '@/store'
 import { alertDialog } from '@/services/confirm'
+import { isPwaMode } from '@/services/pwa'
 import Notifs from '@/components/Notifs.vue'
 import Updates from '@/components/Updates.vue'
 import AppModal from '@/components/AppModal.vue'
@@ -105,6 +106,7 @@ const updatesEl = ref<HTMLElement | null>(null)
 const um_open = ref(false)
 const userMenuEl = ref<HTMLElement | null>(null)
 const installOpen = ref(false)
+const isPwa = ref(isPwaMode())
 
 function onToggleNotifs() {
   updates_open.value = false

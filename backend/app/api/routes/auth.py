@@ -23,7 +23,7 @@ router = APIRouter()
 
 @log_route("auth.telegram")
 @router.post("/telegram", response_model=AccessTokenOut)
-async def telegram(payload: TelegramAuthIn, resp: Response, db: AsyncSession = Depends(get_session)) -> AccessTokenOut:
+async def telegram(payload: TelegramAuthIn, resp: Response, request: Request, db: AsyncSession = Depends(get_session)) -> AccessTokenOut:
     if not get_cached_settings().registration_enabled:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="registration_disabled")
 
@@ -75,11 +75,15 @@ async def telegram(payload: TelegramAuthIn, resp: Response, db: AsyncSession = D
             except Exception:
                 await db.rollback()
 
+    raw_pwa = (request.headers.get("x-pwa") or "").strip().lower()
+    is_pwa = raw_pwa in {"1", "true", "yes", "pwa"}
+    action = "register" if new_user else ("login_pwa" if is_pwa else "login")
+
     await log_action(
         db,
         user_id=user.id,
         username=user.username,
-        action="register" if new_user else "login",
+        action=action,
         details=f"Вход пользователя: user_id={user.id} username={user.username}",
     )
 
