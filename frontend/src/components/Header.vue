@@ -9,8 +9,12 @@
       </router-link>
       <a class="btn" href="https://t.me/tribute/app?startapp=dCvc" target="_blank" rel="noopener noreferrer" aria-label="Поддержать">
         <img :src="iconCard" alt="card" />
-        <span>Поддержать проект</span>
+        <span>Поддержать</span>
       </a>
+      <button class="btn" type="button" @click="openInstall" :aria-expanded="installOpen" aria-haspopup="dialog" aria-label="Установить">
+        <img :src="iconInstall" alt="install" />
+        <span>Установить</span>
+      </button>
     </div>
 
     <div v-if="!auth.isAuthed && !auth.foreignActive">
@@ -68,6 +72,7 @@
       </div>
     </div>
   </header>
+  <AppModal v-model:open="installOpen" />
 </template>
 
 <script setup lang="ts">
@@ -76,11 +81,13 @@ import { useAuthStore, useUserStore, useNotifStore, useSettingsStore, useUpdates
 import { alertDialog } from '@/services/confirm'
 import Notifs from '@/components/Notifs.vue'
 import Updates from '@/components/Updates.vue'
+import AppModal from '@/components/AppModal.vue'
 
 import defaultAvatar from "@/assets/svg/defaultAvatar.svg"
 import iconNotifBell from "@/assets/svg/notifBell.svg"
 import iconInfo from "@/assets/svg/info.svg"
 import iconCard from "@/assets/svg/card.svg"
+import iconInstall from "@/assets/svg/save.svg"
 import iconLogout from '@/assets/svg/leave.svg'
 import iconProfile from "@/assets/svg/profile.svg"
 import iconArrowDown from '@/assets/svg/arrowDown.svg'
@@ -97,6 +104,7 @@ const updates_open = ref(false)
 const updatesEl = ref<HTMLElement | null>(null)
 const um_open = ref(false)
 const userMenuEl = ref<HTMLElement | null>(null)
+const installOpen = ref(false)
 
 function onToggleNotifs() {
   updates_open.value = false
@@ -111,6 +119,9 @@ function onToggleUserMenu() {
 }
 function closeUserMenu() {
   um_open.value = false
+}
+function openInstall() {
+  installOpen.value = true
 }
 async function onLogoutClick() {
   closeUserMenu()
