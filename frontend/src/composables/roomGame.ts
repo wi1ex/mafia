@@ -2348,6 +2348,8 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
        void alertDialog('Остановите трансляции перед запуском игры')
     } else if (st === 409 && code === 'blocked_params') {
        void alertDialog('Снимите блокировки перед запуском игры')
+    } else if (st === 409 && code === 'media_off') {
+       void alertDialog('Все игроки должны включить звук/видимость')
     } else if (st === 409 && code === 'already_started') {
        void alertDialog('Игра уже запущена')
     } else {
