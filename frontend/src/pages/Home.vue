@@ -33,7 +33,7 @@
             </div>
             <div class="cell" :title="r.title">
               <img :src="r.privacy === 'private' ? iconLockClose : iconLockOpen" alt="lock" />
-              <span>{{ r.title }}</span>
+              <span class="user-name">{{ r.title }}</span>
             </div>
             <div class="cell">
               <img class="user-avatar" v-minio-img="{key: r.creator_avatar_name ? `avatars/${r.creator_avatar_name}` : '', placeholder: defaultAvatar, lazy: false}" alt="avatar" />
