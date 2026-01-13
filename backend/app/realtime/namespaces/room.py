@@ -2148,7 +2148,23 @@ async def game_nominate(sid, data):
             return {"ok": False, "error": "bad_phase", "status": 400}
 
         current_uid = ctx.gint("day_current_uid")
-        if current_uid != actor_uid:
+        if not current_uid:
+            return {"ok": False, "error": "no_active_speech", "status": 409}
+
+        try:
+            raw_game = await r.hgetall(f"room:{rid}:game")
+        except Exception:
+            raw_game = {}
+        nominate_mode = str(raw_game.get("nominate_mode") or "players")
+        if nominate_mode not in ("players", "head"):
+            nominate_mode = "players"
+
+        if nominate_mode == "head":
+            err = ctx.ensure_head(error="not_head", status=403)
+            if err:
+                return err
+
+        elif current_uid != actor_uid:
             return {"ok": False, "error": "not_your_speech", "status": 403}
 
         pre_active = str(raw_gstate.get("day_prelude_active") or "0") == "1"
@@ -2159,17 +2175,18 @@ async def game_nominate(sid, data):
         if str(raw_gstate.get("vote_blocked") or "0") == "1":
             return {"ok": False, "error": "vote_blocked", "status": 409}
 
-        err = await ctx.ensure_player()
-        if err:
-            return err
+        if nominate_mode != "head":
+            err = await ctx.ensure_player()
+            if err:
+                return err
 
         err = await ctx.ensure_player(target_uid, error="target_not_alive", status=400)
         if err:
             return err
 
-        already_speaker = await r.sismember(f"room:{rid}:game_nom_speakers", str(actor_uid))
+        already_speaker = await r.sismember(f"room:{rid}:game_nom_speakers", str(current_uid))
         if already_speaker:
-            return {"ok": False, "error": "already_nominated", "status": 409}
+            return {"ok": False, "error": "already_nominated", "status": 409}   
 
         existing_idx = await r.hget(f"room:{rid}:game_nominees", str(target_uid))
         if existing_idx is not None:
@@ -2183,7 +2200,7 @@ async def game_nominate(sid, data):
 
         async with r.pipeline() as p:
             await p.hset(f"room:{rid}:game_nominees", str(target_uid), str(new_idx))
-            await p.sadd(f"room:{rid}:game_nom_speakers", str(actor_uid))
+            await p.sadd(f"room:{rid}:game_nom_speakers", str(current_uid))
             await p.execute()
 
         await log_game_action(

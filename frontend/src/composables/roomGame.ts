@@ -84,6 +84,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   const gameRolesByUser = reactive(new Map<string, GameRoleKind>())
   const gameFoulsByUser = reactive(new Map<string, number>())
   const rolesVisibleForHead = ref(false)
+  const nominateMode = ref<'players' | 'head'>('players')
   const knownRolesVisible = ref(true)
   const gameResult = ref<GameResult>('')
   const gameFinished = computed(() => gameResult.value !== '')
@@ -1071,8 +1072,13 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     return arr.map((x: any) => Number(x)).filter((n: number) => Number.isFinite(n) && n > 0)
   }
 
+  function normalizeNominateMode(raw: any): 'players' | 'head' {
+    return String(raw || '') === 'head' ? 'head' : 'players'
+  }
+
   function applyFromJoinAck(join: any, snapshotIds?: string[]) {
     const gr = join?.game_runtime || {}
+    nominateMode.value = normalizeNominateMode((gr as any).nominate_mode)
     const mr = Number(gr.min_ready)
     syncFarewellWills(join?.farewell_wills ?? (gr as any).farewell_wills)
     syncFarewellLimits(join?.farewell_limits ?? (gr as any).farewell_limits)
@@ -1170,7 +1176,15 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       currentFarewellSpeech.value = farewellActive
       activeFarewellSpeakerId.value = farewellActive ? daySpeech.currentId : ''
       replaceIds(dayNominees, (dy as any).nominees)
-      nominatedThisSpeechByMe.value = isTrueLike((dy as any).nominated_this_speech)
+      const nominatedSpeakers = Array.isArray((dy as any).nominated_speakers)
+        ? (dy as any).nominated_speakers.map((v: any) => String(v))
+        : []
+      if (nominateMode.value === 'head') {
+        const speakerId = daySpeech.currentId
+        nominatedThisSpeechByMe.value = !!speakerId && nominatedSpeakers.includes(speakerId)
+      } else {
+        nominatedThisSpeechByMe.value = isTrueLike((dy as any).nominated_this_speech)
+      }
 
       const lastNight = (dy as any).night ?? nt
       const hasNightPayload = !!lastNight && typeof lastNight === 'object' && ('kill_ok' in lastNight || 'kill_uid' in lastNight)
@@ -1950,7 +1964,10 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     if (currentFarewellSpeech.value) return false
     if (isNightVictimFarewellSpeech(me)) return false
     if (gamePhase.value !== 'day') return false
-    if (daySpeech.currentId !== me) return false
+    if (nominateMode.value === 'head') {
+      if (!isHead.value) return false
+      if (!daySpeech.currentId) return false
+    } else if (daySpeech.currentId !== me) return false
     if (daySpeech.remainingMs <= 0) return false
     if (!amIAlive.value) return false
     if (voteBlocked.value) return false
@@ -2067,8 +2084,12 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       const st = resp?.status
       if (st === 400 && code === 'bad_phase') {
          void alertDialog('Сейчас не фаза дня')
+      } else if (st === 409 && code === 'no_active_speech') {
+         void alertDialog('Выставления доступны только во время речи игрока')
       } else if (st === 403 && code === 'not_your_speech') {
          void alertDialog('Вы можете выставлять только во время своей речи')
+      } else if (st === 403 && code === 'not_head') {
+         void alertDialog('Выставлять может только ведущий')
       } else if (st === 403 && code === 'not_alive') {
          void alertDialog('Вы не являетесь живым игроком')
       } else if (st === 400 && code === 'target_not_alive') {

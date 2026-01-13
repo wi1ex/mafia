@@ -82,6 +82,17 @@
               </div>
 
               <div class="switch">
+                <span class="switch-label">Выставления:</span>
+                <label>
+                  <input type="checkbox" v-model="isHeadNomination" aria-label="Выставления" />
+                  <div class="slider">
+                    <span>Ведущий</span>
+                    <span>Игрок</span>
+                  </div>
+                </label>
+              </div>
+
+              <div class="switch">
                 <span class="switch-label">Слом в нуле:</span>
                 <label>
                   <input type="checkbox" v-model="game.break_at_zero" aria-label="Слом в нуле" />
@@ -190,6 +201,7 @@ type Game = {
   mode: 'normal' | 'rating'
   format: 'hosted' | 'nohost'
   spectators_limit: number
+  nominate_mode: 'players' | 'head'
   break_at_zero: boolean
   lift_at_zero: boolean
   lift_3x: boolean
@@ -198,6 +210,7 @@ const gameDefault: Game = {
   mode: 'normal',
   format: 'hosted',
   spectators_limit: 10,
+  nominate_mode: 'players',
   break_at_zero: true,
   lift_at_zero: true,
   lift_3x: true,
@@ -212,6 +225,9 @@ const initialGame: Game = (() => {
       : (typeof parsed.lift_2x_at_zero === 'boolean' ? parsed.lift_2x_at_zero : undefined)
     const merged: Game = { ...gameDefault, ...parsed }
     if (typeof liftAtZero === 'boolean') merged.lift_at_zero = liftAtZero
+    if (merged.nominate_mode !== 'head' && merged.nominate_mode !== 'players') {
+      merged.nominate_mode = 'players'
+    }
     return merged
   } catch { return gameDefault }
 })()
@@ -263,6 +279,10 @@ const isRating = computed<boolean>({
 const isNoHost = computed<boolean>({
   get: () => game.value.format === 'nohost',
   set: v => { game.value.format = v ? 'nohost' : 'hosted' }
+})
+const isHeadNomination = computed<boolean>({
+  get: () => game.value.nominate_mode === 'head',
+  set: v => { game.value.nominate_mode = v ? 'head' : 'players' }
 })
 
 function clamp(n: number, min: number, max: number) { return Math.max(min, Math.min(max, n)) }

@@ -65,10 +65,14 @@ STREAM_LOG_RE = re.compile(r"room_id=(\d+)\s+target_user=(\d+)")
 
 
 def serialize_game_for_redis(game_dict: Dict[str, Any]) -> Dict[str, str]:
+    nominate_mode = str(game_dict.get("nominate_mode") or "players")
+    if nominate_mode not in ("players", "head"):
+        nominate_mode = "players"
     return {
         "mode": str(game_dict["mode"]),
         "format": str(game_dict["format"]),
         "spectators_limit": str(int(game_dict["spectators_limit"])),
+        "nominate_mode": nominate_mode,
         "break_at_zero": "1" if raw_bool(game_dict.get("break_at_zero"), True) else "0",
         "lift_at_zero": "1" if raw_bool(game_dict.get("lift_at_zero"), True) else "0",
         "lift_3x": "1" if raw_bool(game_dict.get("lift_3x"), True) else "0",
@@ -82,10 +86,14 @@ def raw_bool(value: Any, default: bool) -> bool:
 
 
 def game_from_redis_to_model(raw_game: Dict[str, Any]) -> GameParams:
+    nominate_mode = str(raw_game.get("nominate_mode") or "players")
+    if nominate_mode not in ("players", "head"):
+        nominate_mode = "players"
     return GameParams(
         mode=(raw_game.get("mode") or "normal"),
         format=(raw_game.get("format") or "hosted"),
         spectators_limit=int(raw_game.get("spectators_limit") or 0),
+        nominate_mode=nominate_mode,
         break_at_zero=raw_bool(raw_game.get("break_at_zero"), True),
         lift_at_zero=raw_bool(raw_game.get("lift_at_zero"), True),
         lift_3x=raw_bool(raw_game.get("lift_3x"), True),
@@ -426,6 +434,9 @@ def parse_room_game_params(game: dict | None) -> dict[str, Any]:
     game = game or {}
     game_mode = str(game.get("mode") or "normal")
     game_format = str(game.get("format") or "hosted")
+    nominate_mode = str(game.get("nominate_mode") or "players")
+    if nominate_mode not in ("players", "head"):
+        nominate_mode = "players"
     try:
         spectators_limit = int(game.get("spectators_limit") or 0)
     except Exception:
@@ -435,6 +446,7 @@ def parse_room_game_params(game: dict | None) -> dict[str, Any]:
         "mode": game_mode,
         "format": game_format,
         "spectators_limit": spectators_limit,
+        "nominate_mode": nominate_mode,
         "break_at_zero": raw_bool(game.get("break_at_zero"), True),
         "lift_at_zero": raw_bool(game.get("lift_at_zero"), True),
         "lift_3x": raw_bool(game.get("lift_3x"), True),

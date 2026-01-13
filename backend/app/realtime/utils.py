@@ -3368,6 +3368,7 @@ async def enrich_game_runtime_with_vote(r, rid: int, game_runtime: Mapping[str, 
 
 async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[str, Any], dict[str, str], Optional[str]]:
     raw_gstate = await r.hgetall(f"room:{rid}:game_state")
+    raw_game = await r.hgetall(f"room:{rid}:game")
     raw_seats = await r.hgetall(f"room:{rid}:game_seats")
     players_set = await smembers_ints(r, f"room:{rid}:game_players")
     alive_set = await smembers_ints(r, f"room:{rid}:game_alive")
@@ -3384,6 +3385,10 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
 
     roles_map: dict[str, str] = {str(k): str(v) for k, v in (raw_roles or {}).items()}
     view = GameStateView(ctx, roles_map=roles_map, seats_map=seats_map)
+    nominate_mode = str(raw_game.get("nominate_mode") or "players")
+    if nominate_mode not in ("players", "head"):
+        nominate_mode = "players"
+
     game_runtime: dict[str, Any] = {
         "phase": phase,
         "min_ready": get_cached_settings().game_min_ready_players,
@@ -3391,7 +3396,9 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
         "players": list(players_set),
         "alive": list(alive_set),
         "bgm_seed": ctx.gint("bgm_seed"),
+        "nominate_mode": nominate_mode,
     }
+
     finished = ctx.gbool("game_finished")
     if finished:
         game_runtime["finished"] = True
