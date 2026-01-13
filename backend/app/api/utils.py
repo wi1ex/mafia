@@ -53,6 +53,7 @@ __all__ = [
     "parse_room_game_params",
     "build_room_user_stats",
     "sum_room_stream_seconds",
+    "calc_avg_room_minutes",
     "aggregate_user_room_stats",
 ]
 
@@ -470,8 +471,31 @@ def sum_room_stream_seconds(screen_time: dict | None) -> int:
     return total
 
 
-async def aggregate_user_room_stats(session: AsyncSession, ids: list[int]) -> tuple[dict[int, int], dict[int, int], dict[int, int], dict[int, int], dict[int, int], dict[int, int]]:
+def calc_avg_room_minutes(rows: list[tuple[datetime, datetime | None]], now: datetime) -> int:
+    if not rows:
+        return 0
+
+    total_seconds = 0
+    count = 0
+    for created_at, deleted_at in rows:
+        if not created_at:
+            continue
+
+        end_at = deleted_at or now
+        if end_at < created_at:
+            continue
+
+        total_seconds += int((end_at - created_at).total_seconds())
+        count += 1
+    if count == 0:
+        return 0
+
+    return total_seconds // (count * 60)
+
+
+async def aggregate_user_room_stats(session: AsyncSession, ids: list[int]) -> tuple[dict[int, int], dict[int, int], dict[int, int], dict[int, int], dict[int, int], dict[int, int], dict[int, int]]:
     rooms_created: dict[int, int] = {uid: 0 for uid in ids}
+    room_lifetime_seconds: dict[int, int] = {uid: 0 for uid in ids}
     room_seconds: dict[int, int] = {uid: 0 for uid in ids}
     stream_seconds: dict[int, int] = {uid: 0 for uid in ids}
     spectator_seconds: dict[int, int] = {uid: 0 for uid in ids}
@@ -479,12 +503,31 @@ async def aggregate_user_room_stats(session: AsyncSession, ids: list[int]) -> tu
     games_hosted: dict[int, int] = {uid: 0 for uid in ids}
 
     if not ids:
-        return rooms_created, room_seconds, stream_seconds, spectator_seconds, games_played, games_hosted
+        return rooms_created, room_lifetime_seconds, room_seconds, stream_seconds, spectator_seconds, games_played, games_hosted
 
     counts = await session.execute(select(Room.creator, func.count(Room.id)).where(Room.creator.in_(ids)).group_by(Room.creator))
     for creator, cnt in counts.all():
         try:
             rooms_created[int(creator)] = int(cnt or 0)
+        except Exception:
+            continue
+
+    room_rows = await session.execute(select(Room.creator, Room.created_at, Room.deleted_at).where(Room.creator.in_(ids)))
+    now = datetime.now(timezone.utc)
+    for creator, created_at, deleted_at in room_rows.all():
+        try:
+            uid = int(creator)
+        except Exception:
+            continue
+        if uid not in room_lifetime_seconds:
+            continue
+        if not created_at:
+            continue
+        end_at = deleted_at or now
+        if end_at < created_at:
+            continue
+        try:
+            room_lifetime_seconds[uid] += int((end_at - created_at).total_seconds())
         except Exception:
             continue
 
@@ -559,7 +602,7 @@ async def aggregate_user_room_stats(session: AsyncSession, ids: list[int]) -> tu
             except Exception:
                 continue
 
-    return rooms_created, room_seconds, stream_seconds, spectator_seconds, games_played, games_hosted
+    return rooms_created, room_lifetime_seconds, room_seconds, stream_seconds, spectator_seconds, games_played, games_hosted
 
 
 async def emit_rooms_upsert(rid: int) -> None:
