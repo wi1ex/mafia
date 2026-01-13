@@ -419,7 +419,7 @@ onBeforeUnmount(() => {
       background-color: $dark;
       .tab-viewport {
         position: relative;
-        height: 265px;
+        height: 200px;
         border-top: 3px solid $lead;
         border-left: 3px solid $lead;
         border-right: 3px solid $lead;
