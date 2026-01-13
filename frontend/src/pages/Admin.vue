@@ -232,8 +232,8 @@
                 <span class="value">{{ stats.total_games }}</span>
               </div>
               <div class="stat-card">
-                <span class="label">Всего стримы (мин)</span>
-                <span class="value">{{ stats.total_stream_minutes }}</span>
+                <span class="label">Всего стримы</span>
+                <span class="value">{{ formatMinutes(stats.total_stream_minutes) }}</span>
               </div>
               <div class="stat-card">
                 <span class="label">Активные комнаты</span>
@@ -270,8 +270,8 @@
                 <span class="value">{{ stats.last_day.rooms }}</span>
               </div>
               <div class="stat-card">
-                <span class="label">Стримы (мин)</span>
-                <span class="value">{{ stats.last_day.stream_minutes }}</span>
+                <span class="label">Стримы</span>
+                <span class="value">{{ formatMinutes(stats.last_day.stream_minutes) }}</span>
               </div>
               <div class="stat-card">
                 <span class="label">Игры</span>
@@ -297,8 +297,8 @@
                   <span class="value">{{ stats.last_month.rooms }}</span>
                 </div>
                 <div class="stat-card">
-                  <span class="label">Стримы за месяц (мин)</span>
-                  <span class="value">{{ stats.last_month.stream_minutes }}</span>
+                  <span class="label">Стримы за месяц</span>
+                  <span class="value">{{ formatMinutes(stats.last_month.stream_minutes) }}</span>
                 </div>
                 <div class="stat-card">
                   <span class="label">Игр за месяц</span>
@@ -439,7 +439,7 @@
                   <th>Создана</th>
                   <th>Удалена</th>
                   <th>Посетители</th>
-                  <th>Стримы (мин)</th>
+                  <th>Стримы</th>
                   <th>Игры</th>
                   <th>Зрители</th>
                 </tr>
@@ -470,7 +470,7 @@
                             <div class="user-cell compact">
                               <span>{{ item.username || '-' }}</span>
                             </div>
-                            <span class="tooltip-minutes">{{ item.minutes }} мин</span>
+                            <span class="tooltip-minutes">{{ formatMinutes(item.minutes) }}</span>
                           </div>
                         </div>
                       </div>
@@ -478,7 +478,7 @@
                   </td>
                   <td>
                     <div class="tooltip" tabindex="0">
-                      <span class="tooltip-value">{{ row.stream_minutes }}</span>
+                      <span class="tooltip-value">{{ formatMinutes(row.stream_minutes) }}</span>
                       <div class="tooltip-body">
                         <div v-if="row.streamers.length === 0" class="tooltip-empty">Нет данных</div>
                         <div v-else class="tooltip-list">
@@ -487,7 +487,7 @@
                             <div class="user-cell compact">
                               <span>{{ item.username || '-' }}</span>
                             </div>
-                            <span class="tooltip-minutes">{{ item.minutes }} мин</span>
+                            <span class="tooltip-minutes">{{ formatMinutes(item.minutes) }}</span>
                           </div>
                         </div>
                       </div>
@@ -501,7 +501,7 @@
                         <div v-else class="tooltip-list">
                           <div v-for="item in row.games" :key="`game-${row.id}-${item.number}`" class="tooltip-row">
                             <span class="tooltip-id">Игра {{ item.number }} - </span>
-                            <span class="tooltip-minutes">{{ formatRoomGameResult(item.result) }} ({{ item.minutes }} мин)</span>
+                            <span class="tooltip-minutes">{{ formatRoomGameResult(item.result) }} ({{ formatMinutes(item.minutes) }})</span>
                           </div>
                         </div>
                       </div>
@@ -518,7 +518,7 @@
                             <div class="user-cell compact">
                               <span>{{ item.username || '-' }}</span>
                             </div>
-                            <span class="tooltip-minutes">{{ item.minutes }} мин</span>
+                            <span class="tooltip-minutes">{{ formatMinutes(item.minutes) }}</span>
                           </div>
                         </div>
                       </div>
@@ -646,11 +646,11 @@
                   <th>Последний вход</th>
                   <th>Последний онлайн</th>
                   <th>Комнаты</th>
-                  <th>В комнатах (мин)</th>
-                  <th>Стримы (мин)</th>
+                  <th>В комнатах</th>
+                  <th>Стримы</th>
                   <th>Игры</th>
                   <th>Ведущий</th>
-                  <th>Зритель (мин)</th>
+                  <th>Зритель</th>
                   <th>Админка</th>
                 </tr>
               </thead>
@@ -669,11 +669,11 @@
                   <td>{{ formatLocalDateTime(row.last_login_at) }}</td>
                   <td>{{ formatLocalDateTime(row.last_visit_at) }}</td>
                   <td>{{ row.rooms_created }}</td>
-                  <td>{{ row.room_minutes }}</td>
-                  <td>{{ row.stream_minutes }}</td>
+                  <td>{{ formatMinutes(row.room_minutes) }}</td>
+                  <td>{{ formatMinutes(row.stream_minutes) }}</td>
                   <td>{{ row.games_played }}</td>
                   <td>{{ row.games_hosted }}</td>
-                  <td>{{ row.spectator_minutes }}</td>
+                  <td>{{ formatMinutes(row.spectator_minutes) }}</td>
                   <td>
                     <button class="btn danger" :disabled="usersRoleBusy[row.id]" @click="toggleUserRole(row)">
                       <img class="btn-img" :src="iconJudge" alt="judge" />
@@ -1077,6 +1077,18 @@ const registrationMonthlyTicks = computed(() => buildChartTicks(registrationsMon
 const canSaveUpdate = computed(() => {
   return Boolean(updateForm.version.trim() && updateForm.date && updateForm.description.trim())
 })
+
+function formatMinutes(value: number): string {
+  const total = Math.max(0, Math.floor(Number(value) || 0))
+  const days = Math.floor(total / 1440)
+  const hours = Math.floor((total % 1440) / 60)
+  const minutes = total % 60
+  const parts: string[] = []
+  if (days > 0) parts.push(`${days}д`)
+  if (hours > 0) parts.push(`${hours}ч`)
+  if (minutes > 0 || parts.length === 0) parts.push(`${minutes}м`)
+  return parts.join(' ')
+}
 
 function formatRoomGame(row: RoomRow): string {
   const mode = row.game_mode === 'rating' ? 'Рейтинг' : 'Обычный'
@@ -1516,7 +1528,16 @@ function prevUsers(): void {
 
 async function toggleUserRole(row: UserRow): Promise<void> {
   if (usersRoleBusy[row.id]) return
-  const targetRole = row.role === 'admin' ? 'user' : 'admin'
+  const isAdmin = row.role === 'admin'
+  const targetRole = isAdmin ? 'user' : 'admin'
+  const userLabel = row.username ? `пользователю ${row.username}` : `пользователю #${row.id}`
+  const ok = await confirmDialog({
+    title: isAdmin ? 'Снять ADMIN' : 'Выдать ADMIN',
+    text: `${isAdmin ? 'Снять' : 'Выдать'} права администратора ${userLabel}?`,
+    confirmText: isAdmin ? 'Снять' : 'Выдать',
+    cancelText: 'Отмена',
+  })
+  if (!ok) return
   usersRoleBusy[row.id] = true
   try {
     const { data } = await api.patch(`/admin/users/${row.id}/role`, { role: targetRole })
