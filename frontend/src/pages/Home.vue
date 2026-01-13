@@ -107,7 +107,7 @@
                 </div>
                 <div class="ri-game-div">
                   <span>Выставления</span>
-                  <span>{{ game.nominate_mode === 'head' ? 'Ведущий' : 'Игроки' }}</span>
+                  <span>{{ game.nominate_mode === 'head' ? 'От ведущего' : 'От игроков' }}</span>
                 </div>
                 <div class="ri-game-div">
                   <span>Слом в нуле</span>
