@@ -289,19 +289,19 @@
               </div>
               <div class="stats-grid stats-grid--compact">
                 <div class="stat-card">
-                  <span class="label">Онлайн за месяц</span>
+                  <span class="label">Онлайн</span>
                   <span class="value">{{ stats.last_month.online_users }}</span>
                 </div>
                 <div class="stat-card">
-                  <span class="label">Комнат за месяц</span>
+                  <span class="label">Комнаты</span>
                   <span class="value">{{ stats.last_month.rooms }}</span>
                 </div>
                 <div class="stat-card">
-                  <span class="label">Стримы за месяц</span>
+                  <span class="label">Стримы</span>
                   <span class="value">{{ formatMinutes(stats.last_month.stream_minutes) }}</span>
                 </div>
                 <div class="stat-card">
-                  <span class="label">Игр за месяц</span>
+                  <span class="label">Игры</span>
                   <span class="value">{{ stats.last_month.games }}</span>
                 </div>
               </div>
