@@ -106,6 +106,10 @@
                   <span>{{ game.format === 'hosted' ? 'С ведущим' : 'Без ведущего' }}</span>
                 </div>
                 <div class="ri-game-div">
+                  <span>Выставления</span>
+                  <span>{{ game.nominate_mode === 'head' ? 'Ведущий' : 'Игроки' }}</span>
+                </div>
+                <div class="ri-game-div">
                   <span>Слом в нуле</span>
                   <span>{{ game.break_at_zero ? 'Вкл' : 'Откл' }}</span>
                 </div>
@@ -186,6 +190,7 @@ type Game = {
   mode: 'normal' | 'rating'
   format: 'hosted' | 'nohost'
   spectators_limit: number
+  nominate_mode: 'players' | 'head'
   break_at_zero: boolean
   lift_at_zero: boolean
   lift_3x: boolean

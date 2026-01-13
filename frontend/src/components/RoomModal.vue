@@ -84,7 +84,7 @@
               <div class="switch">
                 <span class="switch-label">Выставления:</span>
                 <label>
-                  <input type="checkbox" v-model="isHeadNomination" aria-label="Выставления" />
+                  <input type="checkbox" v-model="isPlayersNomination" aria-label="Выставления" />
                   <div class="slider">
                     <span>Ведущий</span>
                     <span>Игрок</span>
@@ -201,7 +201,7 @@ type Game = {
   mode: 'normal' | 'rating'
   format: 'hosted' | 'nohost'
   spectators_limit: number
-  nominate_mode: 'players' | 'head'
+  nominate_mode: 'head' | 'players'
   break_at_zero: boolean
   lift_at_zero: boolean
   lift_3x: boolean
@@ -220,14 +220,18 @@ const initialGame: Game = (() => {
     const raw = localStorage.getItem('room:lastGame')
     if (!raw) return gameDefault
     const parsed = JSON.parse(raw) as Partial<Game> & { lift_2x_at_zero?: boolean }
+    const merged: Game = { ...gameDefault }
+    if (parsed.mode === 'normal' || parsed.mode === 'rating') merged.mode = parsed.mode
+    if (parsed.format === 'hosted' || parsed.format === 'nohost') merged.format = parsed.format
+    if (parsed.nominate_mode === 'head' || parsed.nominate_mode === 'players') merged.nominate_mode = parsed.nominate_mode
+    const spect = Number(parsed.spectators_limit)
+    if (Number.isFinite(spect)) merged.spectators_limit = clamp(spect, SPECT_MIN, SPECT_MAX)
+    if (typeof parsed.break_at_zero === 'boolean') merged.break_at_zero = parsed.break_at_zero
     const liftAtZero = typeof parsed.lift_at_zero === 'boolean'
       ? parsed.lift_at_zero
       : (typeof parsed.lift_2x_at_zero === 'boolean' ? parsed.lift_2x_at_zero : undefined)
-    const merged: Game = { ...gameDefault, ...parsed }
     if (typeof liftAtZero === 'boolean') merged.lift_at_zero = liftAtZero
-    if (merged.nominate_mode !== 'head' && merged.nominate_mode !== 'players') {
-      merged.nominate_mode = 'players'
-    }
+    if (typeof parsed.lift_3x === 'boolean') merged.lift_3x = parsed.lift_3x
     return merged
   } catch { return gameDefault }
 })()
@@ -280,9 +284,9 @@ const isNoHost = computed<boolean>({
   get: () => game.value.format === 'nohost',
   set: v => { game.value.format = v ? 'nohost' : 'hosted' }
 })
-const isHeadNomination = computed<boolean>({
-  get: () => game.value.nominate_mode === 'head',
-  set: v => { game.value.nominate_mode = v ? 'head' : 'players' }
+const isPlayersNomination = computed<boolean>({
+  get: () => game.value.nominate_mode === 'players',
+  set: v => { game.value.nominate_mode = v ? 'players' : 'head' }
 })
 
 function clamp(n: number, min: number, max: number) { return Math.max(min, Math.min(max, n)) }
