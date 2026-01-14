@@ -57,9 +57,10 @@
           :night-remaining-ms="night.remainingMs"
           :show-shoot="game.canShootTarget(id)"
           :show-check="game.canCheckTarget(id)"
-          :pick-number="isHead ? (headNightPicks.get(id) ?? null) : null"   
+          :pick-number="isHead ? (headNightPicks.get(id) ?? null) : null"       
           :pick-kind="headPickKind"
           :show-nominate="game.canNominateTarget(id)"
+          :show-unnominate="game.canUnnominateTarget(id)"
           :best-move-marked="game.isBestMoveMarked(id)"
           :show-best-move-button="game.canMakeBestMoveChoice(id)"
           :farewell-summary="game.farewellSummaryForUser(id)"
@@ -79,6 +80,7 @@
           @kick="kickUser"
           @foul="onGiveFoul"
           @nominate="onNominate"
+          @unnominate="onUnnominate"
           @vote="onVote"
           @shoot="shootTargetUi"
           @check="checkTargetUi"
@@ -146,9 +148,10 @@
             :night-remaining-ms="night.remainingMs"
             :show-shoot="game.canShootTarget(id)"
             :show-check="game.canCheckTarget(id)"
-            :pick-number="isHead ? (headNightPicks.get(id) ?? null) : null"
+            :pick-number="isHead ? (headNightPicks.get(id) ?? null) : null"     
             :pick-kind="headPickKind"
             :show-nominate="game.canNominateTarget(id)"
+            :show-unnominate="game.canUnnominateTarget(id)"
             :best-move-marked="game.isBestMoveMarked(id)"
             :show-best-move-button="game.canMakeBestMoveChoice(id)"
             :farewell-summary="game.farewellSummaryForUser(id)"
@@ -168,6 +171,7 @@
             @kick="kickUser"
             @foul="onGiveFoul"
             @nominate="onNominate"
+            @unnominate="onUnnominate"
             @vote="onVote"
             @shoot="shootTargetUi"
             @check="checkTargetUi"
@@ -976,6 +980,10 @@ function onNominate(targetId: string) {
   game.nominateTarget(targetId, sendAck)
 }
 
+function onUnnominate(targetId: string) {
+  game.unnominateTarget(targetId, sendAck)
+}
+
 function onFarewell(verdict: FarewellVerdict, targetId: string) {
   if (!game.canMakeFarewellChoice(targetId)) return
   void game.markFarewellChoice(targetId, verdict, sendAckGame)
@@ -1363,6 +1371,9 @@ socket.value?.on('connect', async () => {
 
   socket.value.on('game_nominee_added', (p: any) => {
     game.handleGameNomineeAdded(p)
+  })
+  socket.value.on('game_nominee_removed', (p: any) => {
+    game.handleGameNomineeRemoved(p)
   })
 
   socket.value.on('game_farewell_update', (p: any) => {

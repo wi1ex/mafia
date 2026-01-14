@@ -147,6 +147,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   const foulActive = reactive(new Set<string>())
   const dayNominees = reactive<string[]>([])
   const nominatedThisSpeechByMe = ref(false)
+  const headNominationWindowOpen = ref(false)
   const voteResultLeaders = reactive<string[]>([])
   const voteResultShown = ref(false)
   const voteAborted = ref(false)
@@ -1175,13 +1176,15 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       const farewellActive = !!(daySpeech.currentId && ((preludeActive && preludeUid && daySpeech.currentId === preludeUid) || farewellSection))
       currentFarewellSpeech.value = farewellActive
       activeFarewellSpeakerId.value = farewellActive ? daySpeech.currentId : ''
-      replaceIds(dayNominees, (dy as any).nominees)
-      const nominatedSpeakers = Array.isArray((dy as any).nominated_speakers)
-        ? (dy as any).nominated_speakers.map((v: any) => String(v))
-        : []
       if (nominateMode.value === 'head') {
-        const speakerId = daySpeech.currentId
-        nominatedThisSpeechByMe.value = !!speakerId && nominatedSpeakers.includes(speakerId)
+        const curUid = String((dy as any).current_uid || '')
+        if ((curUid && !preludeActive) || daySpeechesDone.value) {
+          headNominationWindowOpen.value = true
+        }
+      }
+      replaceIds(dayNominees, (dy as any).nominees)
+      if (nominateMode.value === 'head') {
+        nominatedThisSpeechByMe.value = false
       } else {
         nominatedThisSpeechByMe.value = isTrueLike((dy as any).nominated_this_speech)
       }
@@ -1578,6 +1581,11 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     replaceIds(dayNominees, orderRaw)
   }
 
+  function handleGameNomineeRemoved(p: any) {
+    const orderRaw = p?.order
+    replaceIds(dayNominees, orderRaw)
+  }
+
   function handleGameFarewellUpdate(p: any) {
     const speakerId = String(p?.speaker_uid || '')
     if (!speakerId) return
@@ -1796,6 +1804,16 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     try { window.localStorage.setItem('roomRolesVisible', val ? '1' : '0') } catch {}
   })
 
+  watch(() => gamePhase.value, (next, prev) => {
+    if (next !== 'day' || prev !== 'day') headNominationWindowOpen.value = false
+  }, { immediate: true })
+
+  watch(() => [gamePhase.value, daySpeech.currentId, currentFarewellSpeech.value], ([phase, currentId, farewell]) => {
+    if (phase !== 'day') return
+    if (headNominationWindowOpen.value) return
+    if (currentId && !farewell) headNominationWindowOpen.value = true
+  }, { immediate: true })
+
   watch(() => [gamePhase.value, daySpeech.currentId], (_v, _ov, onCleanup) => {
       scheduleFinishSpeechUnlock()
       onCleanup(() => resetFinishSpeechDelay())
@@ -1966,15 +1984,33 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     if (gamePhase.value !== 'day') return false
     if (nominateMode.value === 'head') {
       if (!isHead.value) return false
-      if (!daySpeech.currentId) return false
+      if (!headNominationWindowOpen.value) return false
     } else if (daySpeech.currentId !== me) return false
-    if (daySpeech.remainingMs <= 0) return false
+    if (nominateMode.value !== 'head' && daySpeech.remainingMs <= 0) return false
     if (!amIAlive.value) return false
     if (voteBlocked.value) return false
     if (!gamePlayers.has(id)) return false
     if (!gameAlive.has(id)) return false
     if (dayNominees.includes(id)) return false
-    return !nominatedThisSpeechByMe.value
+    if (nominateMode.value !== 'head') return !nominatedThisSpeechByMe.value
+    return true
+  }
+
+  function canUnnominateTarget(id: string): boolean {
+    if (gameFinished.value) return false
+    const me = localId.value
+    if (!me) return false
+    if (currentFarewellSpeech.value) return false
+    if (isNightVictimFarewellSpeech(me)) return false
+    if (gamePhase.value !== 'day') return false
+    if (nominateMode.value !== 'head') return false
+    if (!isHead.value) return false
+    if (!headNominationWindowOpen.value) return false
+    if (!amIAlive.value) return false
+    if (voteBlocked.value) return false
+    if (!gamePlayers.has(id)) return false
+    if (!gameAlive.has(id)) return false
+    return dayNominees.includes(id)
   }
   
   function handleGameNightState(p: any) {
@@ -2105,7 +2141,35 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       }
       return
     }
-    nominatedThisSpeechByMe.value = true
+    if (nominateMode.value !== 'head') nominatedThisSpeechByMe.value = true
+    const orderRaw = (resp as any).order
+    replaceIds(dayNominees, orderRaw)
+  }
+
+  async function unnominateTarget(targetUserId: string, sendAck: SendAckFn): Promise<void> {
+    const uidNum = Number(targetUserId)
+    if (!uidNum) return
+    const resp = await sendAck('game_nominee_remove', { user_id: uidNum })
+    if (!resp?.ok) {
+      const code = resp?.error
+      const st = resp?.status
+      if (st === 400 && code === 'bad_phase') {
+         void alertDialog('Сейчас не фаза дня')
+      } else if (st === 409 && code === 'prelude_no_nomination') {
+         void alertDialog('Сейчас нельзя менять номинации')
+      } else if (st === 409 && code === 'vote_blocked') {
+         void alertDialog('Голосования не будет')
+      } else if (st === 409 && code === 'not_nominated') {
+         void alertDialog('Игрок уже снят с голосования')
+      } else if (st === 409 && code === 'no_nominees') {
+         void alertDialog('Список номинантов пуст')
+      } else if (st === 403 && code === 'not_head') {
+         void alertDialog('Снимать может только ведущий')
+      } else {
+         void alertDialog('Не удалось снять кандидата с голосования')
+      }
+      return
+    }
     const orderRaw = (resp as any).order
     replaceIds(dayNominees, orderRaw)
   }
@@ -2813,8 +2877,11 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     handleGameFouls,
     handleGameFarewellUpdate,
     handleGameNomineeAdded,
+    handleGameNomineeRemoved,
     canNominateTarget,
+    canUnnominateTarget,
     nominateTarget,
+    unnominateTarget,
     markFarewellChoice,
     markBestMoveChoice,
     toggleKnownRolesVisibility,

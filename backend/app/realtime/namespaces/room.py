@@ -2147,10 +2147,6 @@ async def game_nominate(sid, data):
         if phase != "day":
             return {"ok": False, "error": "bad_phase", "status": 400}
 
-        current_uid = ctx.gint("day_current_uid")
-        if not current_uid:
-            return {"ok": False, "error": "no_active_speech", "status": 409}
-
         try:
             raw_game = await r.hgetall(f"room:{rid}:game")
         except Exception:
@@ -2158,6 +2154,15 @@ async def game_nominate(sid, data):
         nominate_mode = str(raw_game.get("nominate_mode") or "players")
         if nominate_mode not in ("players", "head"):
             nominate_mode = "players"
+
+        current_uid = ctx.gint("day_current_uid")
+        speeches_done = ctx.gbool("day_speeches_done")
+        if nominate_mode != "head":
+            if not current_uid:
+                return {"ok": False, "error": "no_active_speech", "status": 409}
+
+        elif not current_uid and not speeches_done:
+            return {"ok": False, "error": "no_active_speech", "status": 409}
 
         if nominate_mode == "head":
             err = ctx.ensure_head(error="not_head", status=403)
@@ -2184,9 +2189,10 @@ async def game_nominate(sid, data):
         if err:
             return err
 
-        already_speaker = await r.sismember(f"room:{rid}:game_nom_speakers", str(current_uid))
-        if already_speaker:
-            return {"ok": False, "error": "already_nominated", "status": 409}   
+        if nominate_mode != "head":
+            already_speaker = await r.sismember(f"room:{rid}:game_nom_speakers", str(current_uid))
+            if already_speaker:
+                return {"ok": False, "error": "already_nominated", "status": 409}
 
         existing_idx = await r.hget(f"room:{rid}:game_nominees", str(target_uid))
         if existing_idx is not None:
@@ -2200,19 +2206,21 @@ async def game_nominate(sid, data):
 
         async with r.pipeline() as p:
             await p.hset(f"room:{rid}:game_nominees", str(target_uid), str(new_idx))
-            await p.sadd(f"room:{rid}:game_nom_speakers", str(current_uid))
+            if nominate_mode != "head":
+                await p.sadd(f"room:{rid}:game_nom_speakers", str(current_uid))
             await p.execute()
 
-        await log_game_action(
-            r,
-            rid,
-            {
-                "type": "nominate",
-                "actor_id": actor_uid,
-                "target_id": target_uid,
-                "day": ctx.gint("day_number"),
-            },
-        )
+        if nominate_mode != "head":
+            await log_game_action(
+                r,
+                rid,
+                {
+                    "type": "nominate",
+                    "actor_id": actor_uid,
+                    "target_id": target_uid,
+                    "day": ctx.gint("day_number"),
+                },
+            )
 
         ordered = await get_nominees_in_order(r, rid)
         payload = {
@@ -2232,6 +2240,92 @@ async def game_nominate(sid, data):
 
     except Exception:
         log.exception("sio.game_nominate.error", sid=sid, data=bool(data))
+        return {"ok": False, "error": "internal", "status": 500}
+
+
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_nominee_remove:{uid or 'nouid'}:{rid or 0}", limit=5, window_s=1, session_ns="/room")
+@sio.event(namespace="/room")
+async def game_nominee_remove(sid, data):
+    try:
+        data = data or {}
+        ctx, err = await require_ctx(sid, allowed_phases="day")
+        if err:
+            return err
+
+        actor_uid = ctx.uid
+        rid = ctx.rid
+        try:
+            target_uid = int(data.get("user_id") or 0)
+        except Exception:
+            target_uid = 0
+        if not target_uid:
+            return {"ok": False, "error": "bad_request", "status": 400}
+
+        r = ctx.r
+        raw_gstate = ctx.gstate
+        phase = ctx.phase
+        if phase != "day":
+            return {"ok": False, "error": "bad_phase", "status": 400}
+
+        try:
+            raw_game = await r.hgetall(f"room:{rid}:game")
+        except Exception:
+            raw_game = {}
+        nominate_mode = str(raw_game.get("nominate_mode") or "players")
+        if nominate_mode not in ("players", "head"):
+            nominate_mode = "players"
+        if nominate_mode != "head":
+            return {"ok": False, "error": "not_head", "status": 403}
+
+        err = ctx.ensure_head(error="not_head", status=403)
+        if err:
+            return err
+
+        pre_active = str(raw_gstate.get("day_prelude_active") or "0") == "1"
+        pre_uid = ctx.gint("day_prelude_uid")
+        current_uid = ctx.gint("day_current_uid")
+        if pre_active and pre_uid and current_uid == pre_uid:
+            return {"ok": False, "error": "prelude_no_nomination", "status": 409}
+
+        if str(raw_gstate.get("vote_blocked") or "0") == "1":
+            return {"ok": False, "error": "vote_blocked", "status": 409}
+
+        err = await ctx.ensure_player(target_uid, error="target_not_alive", status=400)
+        if err:
+            return err
+
+        ordered = await get_nominees_in_order(r, rid)
+        if not ordered:
+            return {"ok": False, "error": "no_nominees", "status": 409}
+
+        if target_uid not in ordered:
+            return {"ok": False, "error": "not_nominated", "status": 409}
+
+        ordered = [uid for uid in ordered if uid != target_uid]
+        async with r.pipeline() as p:
+            await p.delete(f"room:{rid}:game_nominees")
+            if ordered:
+                mapping = {str(uid): str(i + 1) for i, uid in enumerate(ordered)}
+                await p.hset(f"room:{rid}:game_nominees", mapping=mapping)
+            await p.execute()
+
+        # Ведущийские номинации не логируем.
+
+        payload = {
+            "room_id": rid,
+            "user_id": target_uid,
+            "by": actor_uid,
+            "order": ordered,
+        }
+        await sio.emit("game_nominee_removed",
+                       payload,
+                       room=f"room:{rid}",
+                       namespace="/room")
+
+        return {"ok": True, "status": 200, **payload}
+
+    except Exception:
+        log.exception("sio.game_nominee_remove.error", sid=sid, data=bool(data))
         return {"ok": False, "error": "internal", "status": 500}
 
 

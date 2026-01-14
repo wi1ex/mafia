@@ -19,6 +19,10 @@
     <div v-if="pickNumber != null && pickNumber > 0" class="nominate-btn pick-number">
       <span>{{ pickKind === 'check' ? 'Проверил' : 'Выстрелил в' }} {{ pickNumber }}</span>
     </div>
+    <button v-if="showUnnominate" class="nominate-btn red-btn" @click="$emit('unnominate', id)" aria-label="Откатить">
+      <img :src="iconClose" alt="unnominate" />
+      <span>Откатить</span>
+    </button>
     <button v-if="showNominate" class="nominate-btn" @click="$emit('nominate', id)" aria-label="Выставить">
       <img :src="iconLikeBlack" alt="nominate" />
       <span>Выставить</span>
@@ -119,6 +123,7 @@ import iconLikeGreen from '@/assets/svg/likeGreen.svg'
 import iconLikeBlack from '@/assets/svg/likeBlack.svg'
 import iconCheck from '@/assets/svg/check.svg'
 import iconKill from '@/assets/svg/kill.svg'
+import iconClose from '@/assets/svg/close.svg'
 
 type IconKind = 'mic' | 'cam' | 'speakers' | 'visibility' | 'screen'
 
@@ -165,6 +170,7 @@ const props = withDefaults(defineProps<{
   foulsCount?: number
   phaseLabel?: string
   showNominate?: boolean
+  showUnnominate?: boolean
   showBestMoveButton?: boolean
   bestMoveMarked?: boolean
   farewellSummary?: { targetId: string, seat: number | null, verdict: 'citizen' | 'mafia' }[]
@@ -209,6 +215,7 @@ const props = withDefaults(defineProps<{
   foulsCount: 0,
   phaseLabel: '',
   showNominate: false,
+  showUnnominate: false,
   showBestMoveButton: false,
   bestMoveMarked: false,
   farewellSummary: () => [],
@@ -237,6 +244,7 @@ defineEmits<{
   (e: 'kick', id: string): void
   (e: 'foul', id: string): void
   (e: 'nominate', id: string): void
+  (e: 'unnominate', id: string): void
   (e: 'vote', id: string): void
   (e: 'shoot', id: string): void
   (e: 'check', id: string): void
@@ -414,6 +422,9 @@ const timelineDurationSec = computed(() => {
     box-shadow: 3px 3px 5px rgba($black, 0.25);
     cursor: pointer;
     z-index: 20;
+    &.red-btn {
+      background-color: rgba($red, 0.75);
+    }
     &.pick-number {
       cursor: default;
     }
