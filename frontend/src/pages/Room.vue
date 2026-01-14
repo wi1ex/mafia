@@ -1215,6 +1215,7 @@ socket.value?.on('connect', async () => {
     const seat = seatsByUser[id]
     const isInGameNow = gamePhase.value !== 'idle' && Number.isFinite(seat) && seat > 0
     if (isInGameNow) {
+      positionByUser.delete(id)
       game.maybeAskRevoteOnDisconnect(id, sendAckGame)
       offlineInGame.add(id)
       rtc.cleanupPeer(id, { keepVideo: true, keepScreen: true })
@@ -1881,6 +1882,14 @@ function isBlackTeam(kind: GameRoleKind | null | undefined): boolean {
 }
 
 function gameReturnTargets(phase: GamePhase) {
+  if (isHead.value) {
+    return {
+      mic: false,
+      cam: false,
+      speakers: true,
+      visibility: true,
+    }
+  }
   const isDayVote = phase === 'day' || phase === 'vote'
   const isMafiaTalk = phase === 'mafia_talk_start'
   const isAlivePlayer = myGameRole.value === 'player' && amIAlive.value

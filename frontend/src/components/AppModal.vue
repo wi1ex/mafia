@@ -25,7 +25,6 @@
               <li>Выберите «На экран Домой»</li>
             </ol>
           </div>
-          <p class="note">Если вы открыли сайт внутри Telegram, используйте «Открыть в браузере», иначе установка может быть недоступна</p>
         </div>
       </div>
     </div>
@@ -132,11 +131,6 @@ onBeforeUnmount(() => {
             line-height: 1.5;
           }
         }
-      }
-      .note {
-        font-size: 12px;
-        color: $grey;
-        margin: 0;
       }
     }
   }

@@ -2368,9 +2368,9 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     } else if (st === 409 && code === 'streaming_present') {
        void alertDialog('Остановите трансляции перед запуском игры')
     } else if (st === 409 && code === 'blocked_params') {
-       void alertDialog('Снимите блокировки перед запуском игры')
+       void alertDialog('Снимите блокировки у некоторых пользователей перед запуском игры')
     } else if (st === 409 && code === 'media_off') {
-       void alertDialog('Все игроки должны включить звук/видимость')
+       void alertDialog('Есть пользователи у кого свернут браузер или выключен звук')
     } else if (st === 409 && code === 'already_started') {
        void alertDialog('Игра уже запущена')
     } else {
