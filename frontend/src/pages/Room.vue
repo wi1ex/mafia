@@ -309,9 +309,15 @@ import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } 
 import { useRoute, useRouter } from 'vue-router'
 import type { Socket } from 'socket.io-client'
 import { useAuthStore, useSettingsStore } from '@/store'
-import { type Ack, type FarewellVerdict, type GamePhase, type GameRoleKind, type SendAckFn, useRoomGame } from '@/composables/roomGame'
-import { Track } from 'livekit-client'
-import { useRTC, type CameraQuality, type VQ } from '@/composables/rtc'
+import {
+  type Ack,
+  type FarewellVerdict,
+  type GamePhase,
+  type GameRoleKind,
+  type SendAckFn,
+  useRoomGame
+} from '@/composables/roomGame'
+import { type CameraQuality, useRTC, type VQ } from '@/composables/rtc'
 import { api } from '@/services/axios'
 import { alertDialog, confirmDialog, useConfirmState } from '@/services/confirm'
 import { createAuthedSocket } from '@/services/sio'
@@ -496,7 +502,13 @@ const isTheater = computed(() => !!screenOwnerId.value)
 const isMyScreen = computed(() => !!localId.value && screenOwnerId.value === localId.value)
 const streamAudioKey = computed(() => screenOwnerId.value ? rtc.screenKey(screenOwnerId.value) : '')
 const streamVol = computed(() => streamAudioKey.value ? (volUi[streamAudioKey.value] ?? rtc.getUserVolume(streamAudioKey.value)) : 100)
-const fitContainInGrid = computed(() => !isTheater.value && sortedPeerIds.value.length < 3)
+const fitContainInGrid = computed(() => {
+  if (isTheater.value) return false
+  const count = sortedPeerIds.value.length
+  if (count >= 3) return false
+  const limit = roomUserLimit.value
+  return Number.isFinite(limit) && limit === 2
+})
 const isSpectatorInGame = computed(() => {
   const id = localId.value
   if (!id || gamePhase.value === 'idle') return false
