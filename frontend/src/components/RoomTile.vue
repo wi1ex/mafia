@@ -20,7 +20,7 @@
       <span>{{ pickKind === 'check' ? 'Проверил' : 'Выстрелил в' }} {{ pickNumber }}</span>
     </div>
     <button v-if="showUnnominate" class="nominate-btn red-btn" @click="$emit('unnominate', id)" aria-label="Откатить">
-      <img :src="iconClose" alt="unnominate" />
+      <img :src="iconCloseCircle" alt="unnominate" />
       <span>Откатить</span>
     </button>
     <button v-if="showNominate" class="nominate-btn" @click="$emit('nominate', id)" aria-label="Выставить">
@@ -123,7 +123,7 @@ import iconLikeGreen from '@/assets/svg/likeGreen.svg'
 import iconLikeBlack from '@/assets/svg/likeBlack.svg'
 import iconCheck from '@/assets/svg/check.svg'
 import iconKill from '@/assets/svg/kill.svg'
-import iconClose from '@/assets/svg/close.svg'
+import iconCloseCircle from '@/assets/svg/closeCircle.svg'
 
 type IconKind = 'mic' | 'cam' | 'speakers' | 'visibility' | 'screen'
 

@@ -647,6 +647,10 @@ onBeforeUnmount(() => {
               color: $bg;
               font-size: 12px;
               text-align: center;
+              &.duo {
+                background-color: $red;
+                color: $fg;
+              }
               &.runned {
                 background-color: $green;
               }
@@ -755,6 +759,10 @@ onBeforeUnmount(() => {
                 color: $bg;
                 font-size: 14px;
                 text-align: center;
+                &.duo {
+                  background-color: $red;
+                  color: $fg;
+                }
                 &.runned {
                   background-color: $green;
                 }
