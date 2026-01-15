@@ -1,5 +1,6 @@
 from __future__ import annotations
 from typing import cast
+import asyncio
 from contextlib import suppress
 from time import time
 from datetime import date, datetime, timezone, timedelta
@@ -14,7 +15,13 @@ from ...models.room import Room
 from ...models.user import User
 from ...models.update import SiteUpdate, UpdateRead
 from ...realtime.sio import sio
-from ...realtime.utils import leave_room_atomic, stop_screen_for_user, emit_rooms_occupancy_safe, record_spectator_leave
+from ...realtime.utils import (
+    leave_room_atomic,
+    stop_screen_for_user,
+    emit_rooms_occupancy_safe,
+    record_spectator_leave,
+    gc_empty_room,
+)
 from ...security.decorators import log_route, require_roles_deco
 from ...security.parameters import ensure_app_settings, sync_cache_from_row, refresh_app_settings
 from ...schemas.common import Ok
@@ -413,6 +420,7 @@ async def rooms_kick_all() -> Ok:
             except Exception:
                 continue
 
+        gc_seq_on_empty: int | None = None
         for uid in member_ids:
             await sio.emit("force_leave",
                            {"room_id": rid, "reason": "admin_kick_all"},
@@ -420,7 +428,9 @@ async def rooms_kick_all() -> Ok:
                            namespace="/room")
             try:
                 await stop_screen_for_user(r, rid, uid)
-                occ, _, pos_updates = await leave_room_atomic(r, rid, uid)
+                occ, gc_seq, pos_updates = await leave_room_atomic(r, rid, uid)
+                if occ == 0:
+                    gc_seq_on_empty = gc_seq
             except Exception:
                 continue
 
@@ -453,6 +463,27 @@ async def rooms_kick_all() -> Ok:
                 await record_spectator_leave(r, rid, uid, int(time()))
             except Exception:
                 pass
+
+        should_gc = gc_seq_on_empty is not None
+        if not should_gc:
+            try:
+                occ = int(await r.scard(f"room:{rid}:members") or 0)
+            except Exception:
+                occ = -1
+            should_gc = occ == 0
+        if should_gc:
+            rid_snapshot = rid
+            gc_seq_snapshot = gc_seq_on_empty
+
+            async def _gc():
+                with suppress(Exception):
+                    removed = await gc_empty_room(rid_snapshot, expected_seq=gc_seq_snapshot)
+                    if removed:
+                        await sio.emit("rooms_remove",
+                                       {"id": rid_snapshot},
+                                       namespace="/rooms")
+
+            asyncio.create_task(_gc())
 
     return Ok()
 
