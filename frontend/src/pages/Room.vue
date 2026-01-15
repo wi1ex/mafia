@@ -879,9 +879,11 @@ const gridStyle = computed(() => {
   if (gamePhase.value !== 'idle') {
     return { gridTemplateColumns: 'repeat(8, 1fr)', gridTemplateRows: 'repeat(6, 1fr)' }
   }
+  const limit = roomUserLimit.value
+  const isTwoSeatRoom = Number.isFinite(limit) && limit === 2
   const count = sortedPeerIds.value.length
-  const cols = count <= 2 ? 2 : count <= 6 ? 3 : 4
-  const rows = count <= 2 ? 1 : count <= 6 ? 2 : 3
+  const cols = count <= 2 ? (isTwoSeatRoom ? 2 : 3) : count <= 6 ? 3 : 4
+  const rows = count <= 2 ? (isTwoSeatRoom ? 1 : 2) : count <= 6 ? 2 : 3
   return { gridTemplateColumns: `repeat(${cols}, 1fr)`, gridTemplateRows: `repeat(${rows}, 1fr)` }
 })
 
