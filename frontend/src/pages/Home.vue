@@ -29,7 +29,7 @@
         <ul class="list-body">
           <li class="item" v-for="r in sortedRooms" :key="r.id" :class="{ active: r.id === selectedId || r.id === pendingRoomId }" tabindex="0" @click="selectRoom(r.id)" >
             <div class="cell">
-              <span class="status-room" :class="{ runned: r.in_game }">{{ r.user_limit === 2 ? 'duo' : (r.in_game ? 'game' : 'lobby') }}</span>
+              <span class="status-room" :class="{ runned: r.in_game, duo: r.user_limit === 2 }">{{ r.user_limit === 2 ? 'duo' : (r.in_game ? 'game' : 'lobby') }}</span>
             </div>
             <div class="cell" :title="r.title">
               <img :src="r.privacy === 'private' ? iconLockClose : iconLockOpen" alt="lock" />
