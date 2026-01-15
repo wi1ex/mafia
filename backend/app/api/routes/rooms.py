@@ -35,7 +35,7 @@ router = APIRouter()
 
 
 @log_route("rooms.create_room")
-@rate_limited(lambda ident, **_: f"rl:create_room:{ident['id']}", limit=10, window_s=60)
+@rate_limited(lambda ident, **_: f"rl:create_room:{ident['id']}", limit=20, window_s=60)
 @router.post("", response_model=RoomIdOut, status_code=status.HTTP_201_CREATED)
 async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get_session), ident: Identity = Depends(get_identity)) -> RoomIdOut:
     uid = int(ident["id"])
@@ -149,7 +149,7 @@ async def room_info(room_id: int) -> RoomInfoOut:
 
 
 @log_route("rooms.access")
-@rate_limited(lambda ident, room_id, **_: f"rl:rooms:access:{ident['id']}:{room_id}", limit=5, window_s=1)
+@rate_limited(lambda ident, room_id, **_: f"rl:rooms:access:{ident['id']}:{room_id}", limit=10, window_s=1)
 @router.get("/{room_id}/access", response_model=RoomAccessOut)
 async def access(room_id: int, ident: Identity = Depends(get_identity)) -> RoomAccessOut:
     if not get_cached_settings().rooms_can_enter:
@@ -176,7 +176,7 @@ async def access(room_id: int, ident: Identity = Depends(get_identity)) -> RoomA
 
 
 @log_route("rooms.apply")
-@rate_limited(lambda ident, room_id, **_: f"rl:rooms:apply:{ident['id']}:{room_id}", limit=5, window_s=1)
+@rate_limited(lambda ident, room_id, **_: f"rl:rooms:apply:{ident['id']}:{room_id}", limit=10, window_s=1)
 @router.post("/{room_id}/apply", response_model=Ok, status_code=202)
 async def apply(room_id: int, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> Ok:
     if not get_cached_settings().rooms_can_enter:
@@ -221,7 +221,7 @@ async def apply(room_id: int, ident: Identity = Depends(get_identity), db: Async
 
 
 @log_route("rooms.list_requests")
-@rate_limited(lambda ident, room_id, **_: f"rl:rooms:apps_list:{ident['id']}:{room_id}", limit=5, window_s=1)
+@rate_limited(lambda ident, room_id, **_: f"rl:rooms:apps_list:{ident['id']}:{room_id}", limit=10, window_s=1)
 @require_room_creator("room_id")
 @router.get("/{room_id}/requests", response_model=list[UserOut])
 async def list_requests(room_id: int, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)):
@@ -240,7 +240,7 @@ async def list_requests(room_id: int, ident: Identity = Depends(get_identity), d
 
 
 @log_route("rooms.approve")
-@rate_limited(lambda ident, room_id, user_id, **_: f"rl:rooms:approve:{ident['id']}:{room_id}", limit=5, window_s=1)
+@rate_limited(lambda ident, room_id, user_id, **_: f"rl:rooms:approve:{ident['id']}:{room_id}", limit=10, window_s=1)
 @require_room_creator("room_id")
 @router.post("/{room_id}/requests/{user_id}/approve", response_model=Ok)
 async def approve(room_id: int, user_id: int, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> Ok:

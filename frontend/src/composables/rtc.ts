@@ -1007,11 +1007,8 @@ export function useRTC(): UseRTC {
     if ((kind === 'audioinput' ? mics.value.length : cams.value.length) === 0) {
       try {
         const perms = kind === 'audioinput' ? { audio: true, video: false } : { audio: false, video: true }
-
-        // await navigator.mediaDevices.getUserMedia(perms)
         const stream = await navigator.mediaDevices.getUserMedia(perms)
         try { stream.getTracks().forEach(t => { try { t.stop() } catch {} }) } catch {}
-
         await refreshDevices()
         if ((kind === 'audioinput' ? mics.value.length : cams.value.length) === 0) {
           setPermState(kind === 'audioinput' ? { audio: false } : { video: false })
@@ -1203,7 +1200,7 @@ export function useRTC(): UseRTC {
       // echoCancellation: true,
       // noiseSuppression: true,
       // autoGainControl: true,
-      echoCancellation: false,
+      echoCancellation: true,
       noiseSuppression: false,
       autoGainControl: false,
     } as any
@@ -1336,9 +1333,7 @@ export function useRTC(): UseRTC {
     }
     const room = new LkRoom({
       dynacast: true,
-      // webAudioMix: !isIOS,
       publishDefaults: {
-        // videoCodec: 'vp8',
         videoCodec: 'h264',
         videoEncoding: cameraPreset().encoding,
         red: true,
@@ -1353,7 +1348,7 @@ export function useRTC(): UseRTC {
         // echoCancellation: true,
         // noiseSuppression: true,
         // autoGainControl: true,
-        echoCancellation: false,
+        echoCancellation: true,
         noiseSuppression: false,
         autoGainControl: false,
         ...(opts?.audioCaptureDefaults || {})

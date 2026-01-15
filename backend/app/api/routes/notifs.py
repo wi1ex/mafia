@@ -13,7 +13,7 @@ router = APIRouter()
 
 
 @log_route("notifs.list_notifs")
-@rate_limited(lambda ident, **_: f"rl:notif:list:{ident['id']}", limit=5, window_s=1)
+@rate_limited(lambda ident, **_: f"rl:notif:list:{ident['id']}", limit=10, window_s=1)
 @router.get("", response_model=NotifsListOut)
 async def list_notifs(limit: int = 50, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)):
     uid = int(ident["id"])
@@ -34,7 +34,7 @@ async def list_notifs(limit: int = 50, ident: Identity = Depends(get_identity), 
 
 
 @log_route("notifs.mark_read")
-@rate_limited(lambda ident, **_: f"rl:notif:mark:{ident['id']}", limit=10, window_s=1)
+@rate_limited(lambda ident, **_: f"rl:notif:mark:{ident['id']}", limit=20, window_s=1)
 @router.post("/mark_read", response_model=Ok)
 async def mark_read(payload: MarkReadIn, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> Ok:
     uid = int(ident["id"])

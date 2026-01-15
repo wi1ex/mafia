@@ -14,7 +14,7 @@ router = APIRouter()
 
 
 @log_route("updates.list")
-@rate_limited(lambda ident, **_: f"rl:updates:list:{ident['id']}", limit=5, window_s=1)
+@rate_limited(lambda ident, **_: f"rl:updates:list:{ident['id']}", limit=10, window_s=1)
 @router.get("", response_model=UpdatesListOut)
 async def list_updates(limit: int = 50, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UpdatesListOut:
     uid = int(ident["id"])
@@ -46,7 +46,7 @@ async def list_updates(limit: int = 50, ident: Identity = Depends(get_identity),
 
 
 @log_route("updates.mark_read")
-@rate_limited(lambda ident, **_: f"rl:updates:mark:{ident['id']}", limit=10, window_s=1)
+@rate_limited(lambda ident, **_: f"rl:updates:mark:{ident['id']}", limit=20, window_s=1)
 @router.post("/mark_read", response_model=Ok)
 async def mark_read(payload: MarkUpdatesReadIn, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> Ok:
     uid = int(ident["id"])

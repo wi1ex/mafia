@@ -9,7 +9,7 @@ from ...schemas.realtime import RoomsListAck
 log = structlog.get_logger()
 
 
-@rate_limited_sio(lambda sid, **__: f"rl:sio:rooms_list:{sid}", limit=5, window_s=1)
+@rate_limited_sio(lambda sid, **__: f"rl:sio:rooms_list:{sid}", limit=10, window_s=1)
 @sio.event(namespace="/rooms")
 async def rooms_list(sid) -> RoomsListAck:
     try:

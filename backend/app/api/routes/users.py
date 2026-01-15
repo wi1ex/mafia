@@ -19,7 +19,7 @@ router = APIRouter()
 
 
 @log_route("users.profile_info")
-@rate_limited(lambda ident, **_: f"rl:profile_info:{ident['id']}", limit=5, window_s=1)
+@rate_limited(lambda ident, **_: f"rl:profile_info:{ident['id']}", limit=10, window_s=1)
 @router.get("/profile_info", response_model=UserOut)
 async def profile_info(ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UserOut:
     user = await db.get(User, int(ident["id"]))
@@ -35,7 +35,7 @@ async def profile_info(ident: Identity = Depends(get_identity), db: AsyncSession
 
 
 @log_route("users.update_username")
-@rate_limited(lambda ident, **_: f"rl:update_username:{ident['id']}", limit=1, window_s=1)
+@rate_limited(lambda ident, **_: f"rl:update_username:{ident['id']}", limit=2, window_s=1)
 @router.patch("/username", response_model=UsernameUpdateOut)
 async def update_username(payload: UsernameUpdateIn, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UsernameUpdateOut:
     uid = int(ident["id"])
@@ -79,7 +79,7 @@ async def update_username(payload: UsernameUpdateIn, ident: Identity = Depends(g
 
 
 @log_route("users.upload_avatar")
-@rate_limited(lambda ident, **_: f"rl:upload_avatar:{ident['id']}", limit=1, window_s=1)
+@rate_limited(lambda ident, **_: f"rl:upload_avatar:{ident['id']}", limit=2, window_s=1)
 @router.post("/avatar", response_model=AvatarUploadOut)
 async def upload_avatar(file: UploadFile = File(...), ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> AvatarUploadOut:
     uid = int(ident["id"])
@@ -115,7 +115,7 @@ async def upload_avatar(file: UploadFile = File(...), ident: Identity = Depends(
 
 
 @log_route("users.delete_avatar")
-@rate_limited(lambda ident, **_: f"rl:delete_avatar:{ident['id']}", limit=1, window_s=1)
+@rate_limited(lambda ident, **_: f"rl:delete_avatar:{ident['id']}", limit=2, window_s=1)
 @router.delete("/avatar", response_model=Ok)
 async def delete_avatar(ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> Ok:
     uid = int(ident["id"])
