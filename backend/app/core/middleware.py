@@ -106,7 +106,7 @@ class LastLoginTouchMiddleware:
                     if cur and cur == sid:
                         if await r.set(f"user:{uid}:last_touch", "1", ex=self.ttl_s, nx=True):
                             async with SessionLocal() as s:
-                                await s.execute(update(User).where(User.id == uid).values(last_login_at=func.now()))
+                                await s.execute(update(User).where(User.id == uid).values(last_visit_at=func.now()))
                                 await s.commit()
             except Exception as e:
                 log.warning("last_touch.failed", err=type(e).__name__)

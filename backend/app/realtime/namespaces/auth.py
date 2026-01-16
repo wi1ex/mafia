@@ -4,6 +4,7 @@ from ..sio import sio
 from ..utils import validate_auth
 from ...core.clients import get_redis
 from ...core.db import SessionLocal
+from ...core.settings import settings
 from ...api.utils import touch_user_last_visit, touch_user_online
 
 log = structlog.get_logger()
@@ -51,6 +52,12 @@ async def online_ping(sid, data=None):
         await touch_user_online(r, uid)
     except Exception:
         log.warning("auth.ping.online_track_failed", uid=uid)
+    try:
+        if await r.set(f"user:{uid}:last_visit_touch", "1", ex=settings.ONLINE_TTL_SECONDS, nx=True):
+            async with SessionLocal() as s:
+                await touch_user_last_visit(s, uid)
+    except Exception:
+        log.warning("auth.ping.last_visit_failed", uid=uid)
 
 
 @sio.event(namespace="/auth")

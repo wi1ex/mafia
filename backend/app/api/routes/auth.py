@@ -88,9 +88,7 @@ async def telegram(payload: TelegramAuthIn, resp: Response, request: Request, db
     )
 
     access_token, sid = await new_login_session(resp, user_id=user.id, username=user.username, role=user.role)
-
     await touch_user_last_login(db, user.id)
-
     return AccessTokenOut(access_token=access_token, sid=sid, is_new=new_user)
 
 
@@ -110,9 +108,6 @@ async def refresh(resp: Response, request: Request, db: AsyncSession = Depends(g
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unknown user")
 
     access_token = create_access_token(sub=uid, username=user.username, role=user.role, sid=sid or "", ttl_minutes=settings.ACCESS_EXP_MIN)
-
-    await touch_user_last_login(db, user.id)
-
     return AccessTokenOut(access_token=access_token, sid=sid or "")
 
 
