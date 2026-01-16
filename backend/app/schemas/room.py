@@ -58,3 +58,11 @@ class RoomInfoOut(BaseModel):
 
 class RoomAccessOut(BaseModel):
     access: Literal["approved", "pending", "none"]
+
+
+class RoomRequestOut(BaseModel):
+    id: int
+    username: Optional[str] = None
+    avatar_name: Optional[str] = None
+    role: str
+    status: Literal["approved", "pending"]

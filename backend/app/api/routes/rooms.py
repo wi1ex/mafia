@@ -13,13 +13,13 @@ from ...models.user import User
 from ...models.notif import Notif
 from ...realtime.sio import sio
 from ...schemas.common import Identity, Ok
-from ...schemas.user import UserOut
 from ...schemas.room import (
     RoomIdOut,
     RoomCreateIn,
     RoomInfoOut,
     RoomInfoMemberOut,
     RoomAccessOut,
+    RoomRequestOut,
 )
 from ...security.parameters import get_cached_settings
 from ..utils import (
@@ -223,7 +223,7 @@ async def apply(room_id: int, ident: Identity = Depends(get_identity), db: Async
 @log_route("rooms.list_requests")
 @rate_limited(lambda ident, room_id, **_: f"rl:rooms:apps_list:{ident['id']}:{room_id}", limit=10, window_s=1)
 @require_room_creator("room_id")
-@router.get("/{room_id}/requests", response_model=list[UserOut])
+@router.get("/{room_id}/requests", response_model=list[RoomRequestOut])
 async def list_requests(room_id: int, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)):
     r = get_redis()
     params = await get_room_params_or_404(r, room_id)
@@ -231,12 +231,21 @@ async def list_requests(room_id: int, ident: Identity = Depends(get_identity), d
     if int(params.get("creator") or 0) != int(ident["id"]):
         raise HTTPException(status_code=403, detail="forbidden")
 
-    ids = list(map(int, await r.smembers(f"room:{room_id}:pending") or []))
+    pending_ids = {int(x) for x in (await r.smembers(f"room:{room_id}:pending") or [])}
+    allow_ids = {int(x) for x in (await r.smembers(f"room:{room_id}:allow") or [])}
+    ids = pending_ids | allow_ids
     if not ids:
         return []
 
     rows = await db.execute(select(User).where(User.id.in_(ids)))
-    return [UserOut(id=u.id, username=u.username, avatar_name=u.avatar_name, role=u.role) for u in rows.scalars().all()]
+    items: list[RoomRequestOut] = []
+    for u in rows.scalars().all():
+        uid = int(u.id)
+        status = "pending" if uid in pending_ids else "approved"
+        items.append(RoomRequestOut(id=uid, username=u.username, avatar_name=u.avatar_name, role=u.role, status=status))
+
+    items.sort(key=lambda item: (0 if item.status == "pending" else 1, (item.username or f"user{item.id}").lower()))
+    return items
 
 
 @log_route("rooms.approve")
@@ -289,6 +298,75 @@ async def approve(room_id: int, user_id: int, ident: Identity = Depends(get_iden
         username=ident["username"],
         action="room_approve",
         details=f"Одобрена заявка в комнату room_id={room_id} title={title_room} target_user={user_id}",
+    )
+
+    return Ok()
+
+
+@log_route("rooms.deny")
+@rate_limited(lambda ident, room_id, user_id, **_: f"rl:rooms:deny:{ident['id']}:{room_id}", limit=10, window_s=1)
+@require_room_creator("room_id")
+@router.post("/{room_id}/requests/{user_id}/deny", response_model=Ok)
+async def deny(room_id: int, user_id: int, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> Ok:
+    r = get_redis()
+    params = await get_room_params_or_404(r, room_id)
+
+    if int(params.get("creator") or 0) != int(ident["id"]):
+        raise HTTPException(status_code=403, detail="forbidden")
+
+    if (params.get("privacy") or "open") != "private":
+        raise HTTPException(status_code=400, detail="not_private")
+
+    raw_gstate = await r.hgetall(f"room:{room_id}:game_state")
+    phase = str(raw_gstate.get("phase") or "idle")
+    if phase != "idle":
+        raise HTTPException(status_code=409, detail="game_in_progress")
+
+    if not await r.sismember(f"room:{room_id}:allow", str(user_id)):
+        return Ok()
+
+    async with r.pipeline(transaction=True) as p:
+        await p.srem(f"room:{room_id}:allow", str(user_id))
+        await p.sadd(f"room:{room_id}:pending", str(user_id))
+        res = await p.execute()
+
+    removed = int(res[0] or 0)
+    if removed == 0:
+        return Ok()
+
+    title_room = (params.get("title") or "").strip()
+    note = Notif(user_id=int(user_id), title="Доступ к комнате отозван", text=f"Вход в «{title_room}» больше недоступен.")
+    db.add(note)
+    await db.commit()
+    await db.refresh(note)
+
+    with suppress(Exception):
+        await sio.emit("notify",
+                       {"id": note.id,
+                        "title": note.title,
+                        "text": note.text,
+                        "date": note.created_at.isoformat(),
+                        "kind": "info",
+                        "room_id": room_id,
+                        "ttl_ms": 10000,
+                        "read": False},
+                       room=f"user:{user_id}",
+                       namespace="/auth")
+        await sio.emit("room_app_revoked",
+                       {"room_id": room_id, "user_id": user_id},
+                       room=f"user:{int(ident['id'])}",
+                       namespace="/auth")
+        await sio.emit("room_app_revoked",
+                       {"room_id": room_id, "user_id": user_id},
+                       room=f"user:{user_id}",
+                       namespace="/auth")
+
+    await log_action(
+        db,
+        user_id=int(ident["id"]),
+        username=ident["username"],
+        action="room_revoke",
+        details=f"Доступ отозван room_id={room_id} title={title_room} target_user={user_id}",
     )
 
     return Ok()

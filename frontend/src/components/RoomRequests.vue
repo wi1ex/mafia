@@ -11,7 +11,8 @@
         <li v-for="u in apps" :key="u.id">
           <img v-minio-img="{ key: u.avatar_name ? `avatars/${u.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
           <span>{{ u.username || ('user' + u.id) }}</span>
-          <button @click="approve(u.id)">Одобрить</button>
+          <button v-if="u.status === 'pending'" class="btn-approve" @click="approve(u.id)">Одобрить</button>
+          <button v-else class="btn-deny" @click="deny(u.id)">Запретить</button>
         </li>
       </ul>
       <p v-else-if="showEmpty">Нет заявок</p>
@@ -27,6 +28,8 @@ import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
 import iconClose from '@/assets/svg/close.svg'
 import { alertDialog } from '@/services/confirm'
 
+type AppItem = {id: number; username?: string; avatar_name?: string|null; status: 'pending'|'approved'}
+
 const props = defineProps<{
   open: boolean
   roomId: number
@@ -36,7 +39,7 @@ const emit = defineEmits<{
   counts: [{ total: number; unread: number }]
 }>()
 
-const apps = ref<{id: number; username?: string; avatar_name?: string|null}[]>([])
+const apps = ref<AppItem[]>([])
 const seenKey = computed(() => `room:${props.roomId}:apps_seen`)
 const isLoading = ref(false)
 const showEmpty = computed(() => !isLoading.value && apps.value.length === 0)
@@ -64,7 +67,13 @@ async function load() {
   isLoading.value = true
   try {
     const { data } = await api.get(`/rooms/${props.roomId}/requests`)
-    apps.value = data
+    const raw = Array.isArray(data) ? data : []
+    apps.value = raw.map((u: any) => ({
+      id: Number(u.id),
+      username: u.username,
+      avatar_name: u.avatar_name ?? null,
+      status: u.status === 'approved' ? 'approved' : 'pending'
+    }))
   }
   catch {}
   finally {
@@ -77,8 +86,8 @@ async function load() {
 async function approve(uid: number) {
   try {
     await api.post(`/rooms/${props.roomId}/requests/${uid}/approve`)
-    apps.value = apps.value.filter(x => x.id !== uid)
-    seen.delete(uid)
+    apps.value = apps.value.map(x => x.id === uid ? { ...x, status: 'approved' } : x)
+    seen.add(uid)
     saveSeen([...seen])
     recomputeCounts()
 
@@ -88,14 +97,28 @@ async function approve(uid: number) {
   } catch { void alertDialog('Возникла непредвиденная ошибка') }
 }
 
+async function deny(uid: number) {
+    try {
+      await api.post(`/rooms/${props.roomId}/requests/${uid}/deny`)
+      apps.value = apps.value.map(x => x.id === uid ? { ...x, status: 'pending' } : x)
+      seen.add(uid)
+      saveSeen([...seen])
+      recomputeCounts()
+
+      window.dispatchEvent(new CustomEvent('auth-room_app_revoked', {
+        detail: { room_id: props.roomId, user_id: uid }
+      }))
+    } catch { void alertDialog('Возникла непредвиденная ошибка') }
+  }
+
 function onInvite(e: any) {
   const p = e?.detail
   if (Number(p?.room_id) !== props.roomId) return
   const uid = Number(p?.user?.id)
   if (!Number.isFinite(uid)) return
-  const u = { id: uid, username: p.user?.username, avatar_name: p.user?.avatar_name ?? null }
+  const u = { id: uid, username: p.user?.username, avatar_name: p.user?.avatar_name ?? null, status: 'pending' as const }
   if (!apps.value.some(x => x.id === uid)) apps.value = [u, ...apps.value]
-  else apps.value = apps.value.map(x => x.id === uid ? { ...x, ...u } : x)
+  else apps.value = apps.value.map(x => x.id === uid ? { ...x, ...u, status: 'pending' } : x)
   if (props.open) {
     seen.add(uid)
     saveSeen([...seen])
@@ -119,10 +142,27 @@ function onApproved(e: any) {
   const uid = Number(p?.user_id)
   if (!Number.isFinite(uid)) return
   if (apps.value.some(x => x.id === uid)) {
-    apps.value = apps.value.filter(x => x.id !== uid)
-    seen.delete(uid)
+    apps.value = apps.value.map(x => x.id === uid ? { ...x, status: 'approved' } : x)
+    seen.add(uid)
     saveSeen([...seen])
     recomputeCounts()
+  } else {
+    void load()
+  }
+}
+
+function onRevoked(e: any) {
+  const p = e?.detail
+  if (Number(p?.room_id) !== props.roomId) return
+  const uid = Number(p?.user_id)
+  if (!Number.isFinite(uid)) return
+  if (apps.value.some(x => x.id === uid)) {
+    apps.value = apps.value.map(x => x.id === uid ? { ...x, status: 'pending' } : x)
+    seen.add(uid)
+    saveSeen([...seen])
+    recomputeCounts()
+  } else {
+    void load()
   }
 }
 
@@ -150,12 +190,14 @@ watch(() => props.roomId, async () => {
 onMounted(() => {
   window.addEventListener('auth-room_invite', onInvite)
   window.addEventListener('auth-room_app_approved', onApproved)
+  window.addEventListener('auth-room_app_revoked', onRevoked)
   window.addEventListener('room-app-seen', onSeen)
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('auth-room_invite', onInvite)
   window.removeEventListener('auth-room_app_approved', onApproved)
+  window.removeEventListener('auth-room_app_revoked', onRevoked)
   window.removeEventListener('room-app-seen', onSeen)
 })
 </script>
@@ -240,15 +282,23 @@ onBeforeUnmount(() => {
         height: 30px;
         border: none;
         border-radius: 5px;
-        background-color: rgba($green, 0.75);
         color: $bg;
         font-size: 14px;
         font-family: Manrope-Medium;
         line-height: 1;
         cursor: pointer;
         transition: background-color 0.25s ease-in-out;
-        &:hover {
-          background-color: $green;
+        &.btn-approve {
+          background-color: rgba($green, 0.75);
+          &:hover {
+            background-color: $green;
+          }
+        }
+        &.btn-deny {
+          background-color: rgba($red, 0.75);
+          &:hover {
+            background-color: $red;
+          }
         }
       }
     }

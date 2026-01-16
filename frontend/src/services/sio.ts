@@ -134,6 +134,10 @@ export function startAuthSocket(opts?: { onForceLogout?: () => void }): Socket {
     window.dispatchEvent(new CustomEvent('auth-room_app_approved', { detail: p }))
   })
 
+  authSocket.on('room_app_revoked', (p:any) => {
+    window.dispatchEvent(new CustomEvent('auth-room_app_revoked', { detail: p }))
+  })
+
   return authSocket
 }
 

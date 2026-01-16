@@ -1562,6 +1562,7 @@ async function enforceSpectatorPhaseVisibility(phase: GamePhase): Promise<void> 
 
 function handleGamePhaseChangeUi(prev: GamePhase, next: GamePhase): void {
   if (backgrounded.value) return
+  if (prev === 'idle' && next !== 'idle') closePanels()
   if (prev === 'roles_pick' && next === 'mafia_talk_start') void applyMafiaTalkStartForLocal()
   if (prev === 'mafia_talk_start' && next === 'mafia_talk_end') void applyMafiaTalkEndForLocal()
   if (next === 'night') void applyNightStartForLocal()

@@ -704,8 +704,6 @@ async def kick(sid, data):
         if err:
             return err
 
-        await r.srem(f"room:{rid}:allow", str(target))
-        await r.srem(f"room:{rid}:pending", str(target))
         await sio.emit("force_leave",
                        {"room_id": rid,
                         "by": {"user_id": actor_uid, "role": actor_role}},

@@ -83,6 +83,7 @@ LOG_ACTIONS_KNOWN = {
     "register",
     "room_apply",
     "room_approve",
+    "room_revoke",
     "room_blocks",
     "room_created",
     "room_deleted",

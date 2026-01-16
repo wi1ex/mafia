@@ -10,16 +10,16 @@
           </button>
         </header>
         <div class="install-body">
-          <span>Чтобы развернуть сайт на весь экран вы можете установить страницу как приложение на ваше устройство. Иконка будет установлена на главном экране</span>
+          <span class="body-text">Установка позволяет использовать сайт в полноэкранном режиме. Иконка приложения будет добавлена на главный экран</span>
           <div class="section">
-            <span>Android (Chrome)</span>
+            <span class="body-title">Android (Chrome)</span>
             <ol>
               <li>Откройте меню браузера (⋮)</li>
               <li>Выберите «Установить приложение» или «Добавить на главный экран»</li>
             </ol>
           </div>
           <div class="section">
-            <span>iPhone/iPad (Safari/Chrome)</span>
+            <span class="body-title">iPhone/iPad (Safari/Chrome)</span>
             <ol>
               <li>Нажмите «Поделиться»</li>
               <li>Выберите «На экран Домой»</li>
@@ -114,11 +114,15 @@ onBeforeUnmount(() => {
       gap: 10px;
       padding: 10px;
       color: $fg;
+      .body-text {
+        font-size: 16px;
+      }
       .section {
         display: flex;
         flex-direction: column;
         gap: 5px;
-        span {
+        .body-title {
+          font-size: 16px;
           font-weight: bold;
         }
         ol {
@@ -147,5 +151,27 @@ onBeforeUnmount(() => {
 .install-modal-enter-from .install-modal,
 .install-modal-leave-to .install-modal {
   transform: translateY(-20px);
+}
+
+@media (max-width: 1280px) {
+  .install-overlay {
+    .install-modal {
+      .install-body {
+        .body-text {
+          font-size: 14px;
+        }
+        .section {
+          .body-title {
+            font-size: 14px;
+          }
+          ol {
+            li {
+              font-size: 12px;
+            }
+          }
+        }
+      }
+    }
+  }
 }
 </style>

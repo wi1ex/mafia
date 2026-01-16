@@ -490,6 +490,15 @@ function onAuthNotify(e: any) {
   }
 }
 
+function onAppRevoked(e: any) {
+  const p = e?.detail
+  const rid = Number(p?.room_id)
+  if (!Number.isFinite(rid)) return
+  if (selectedId.value && rid === selectedId.value) {
+    access.value = 'pending'
+  }
+}
+
 watch([selectedId, () => auth.isAuthed], ([id, ok]) => {
   if (ok && id) void fetchAccess(id as number)
 })
@@ -505,6 +514,7 @@ onMounted(() => {
   const f = Number(route.query.focus)
   if (Number.isFinite(f)) selectRoom(f)
   window.addEventListener('auth-notify', onAuthNotify)
+  window.addEventListener('auth-room_app_revoked', onAppRevoked)
 })
 
 onBeforeUnmount(() => {
@@ -513,6 +523,7 @@ onBeforeUnmount(() => {
   stopWS()
   try { document.removeEventListener('pointerdown', onGlobalPointerDown, { capture: true } as any) } catch {}
   try { window.removeEventListener('auth-notify', onAuthNotify) } catch {}
+  try { window.removeEventListener('auth-room_app_revoked', onAppRevoked) } catch {}
 })
 </script>
 
