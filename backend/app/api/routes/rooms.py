@@ -1,5 +1,6 @@
 from __future__ import annotations
 from contextlib import suppress
+from time import time
 from fastapi import APIRouter, Depends, status, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -197,7 +198,10 @@ async def apply(room_id: int, ident: Identity = Depends(get_identity), db: Async
     if await r.sismember(f"room:{room_id}:allow", str(uid)):
         return Ok()
 
-    await r.sadd(f"room:{room_id}:pending", str(uid))
+    async with r.pipeline(transaction=True) as p:
+        await p.sadd(f"room:{room_id}:pending", str(uid))
+        await p.zadd(f"room:{room_id}:requests", {str(uid): int(time())}, nx=True)
+        await p.execute()
 
     user = await db.get(User, uid)
     if user:
@@ -237,14 +241,37 @@ async def list_requests(room_id: int, ident: Identity = Depends(get_identity), d
     if not ids:
         return []
 
+    raw_order = await r.zrevrange(f"room:{room_id}:requests", 0, -1)
+    order_ids: list[int] = []
+    seen = set()
+    for raw in raw_order or []:
+        try:
+            uid = int(raw)
+        except Exception:
+            continue
+        if uid in ids and uid not in seen:
+            order_ids.append(uid)
+            seen.add(uid)
+
+    missing_ids = sorted(ids - seen)
+    if missing_ids:
+        async with r.pipeline(transaction=True) as p:
+            for idx, uid in enumerate(missing_ids):
+                await p.zadd(f"room:{room_id}:requests", {str(uid): -idx}, nx=True)
+            await p.execute()
+        order_ids.extend(missing_ids)
+
     rows = await db.execute(select(User).where(User.id.in_(ids)))
+    user_map = {int(u.id): u for u in rows.scalars().all()}
     items: list[RoomRequestOut] = []
-    for u in rows.scalars().all():
-        uid = int(u.id)
+    for uid in order_ids:
+        u = user_map.get(uid)
+        if not u:
+            continue
+
         status = "pending" if uid in pending_ids else "approved"
         items.append(RoomRequestOut(id=uid, username=u.username, avatar_name=u.avatar_name, role=u.role, status=status))
 
-    items.sort(key=lambda item: (0 if item.status == "pending" else 1, (item.username or f"user{item.id}").lower()))
     return items
 
 
@@ -262,6 +289,7 @@ async def approve(room_id: int, user_id: int, ident: Identity = Depends(get_iden
     async with r.pipeline(transaction=True) as p:
         await p.srem(f"room:{room_id}:pending", str(user_id))
         await p.sadd(f"room:{room_id}:allow", str(user_id))
+        await p.zadd(f"room:{room_id}:requests", {str(user_id): int(time())}, nx=True)
         res = await p.execute()
 
     added = int(res[1] or 0)
@@ -327,7 +355,8 @@ async def deny(room_id: int, user_id: int, ident: Identity = Depends(get_identit
 
     async with r.pipeline(transaction=True) as p:
         await p.srem(f"room:{room_id}:allow", str(user_id))
-        await p.sadd(f"room:{room_id}:pending", str(user_id))
+        await p.srem(f"room:{room_id}:pending", str(user_id))
+        await p.zrem(f"room:{room_id}:requests", str(user_id))
         res = await p.execute()
 
     removed = int(res[0] or 0)

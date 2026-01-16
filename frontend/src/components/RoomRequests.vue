@@ -98,16 +98,16 @@ async function approve(uid: number) {
 }
 
 async function deny(uid: number) {
-    try {
-      await api.post(`/rooms/${props.roomId}/requests/${uid}/deny`)
-      apps.value = apps.value.map(x => x.id === uid ? { ...x, status: 'pending' } : x)
-      seen.add(uid)
-      saveSeen([...seen])
-      recomputeCounts()
+  try {
+    await api.post(`/rooms/${props.roomId}/requests/${uid}/deny`)
+    apps.value = apps.value.filter(x => x.id !== uid)
+    seen.delete(uid)
+    saveSeen([...seen])
+    recomputeCounts()
 
-      window.dispatchEvent(new CustomEvent('auth-room_app_revoked', {
-        detail: { room_id: props.roomId, user_id: uid }
-      }))
+    window.dispatchEvent(new CustomEvent('auth-room_app_revoked', {
+      detail: { room_id: props.roomId, user_id: uid }
+    }))
     } catch { void alertDialog('Возникла непредвиденная ошибка') }
   }
 
@@ -157,8 +157,8 @@ function onRevoked(e: any) {
   const uid = Number(p?.user_id)
   if (!Number.isFinite(uid)) return
   if (apps.value.some(x => x.id === uid)) {
-    apps.value = apps.value.map(x => x.id === uid ? { ...x, status: 'pending' } : x)
-    seen.add(uid)
+    apps.value = apps.value.filter(x => x.id !== uid)
+    seen.delete(uid)
     saveSeen([...seen])
     recomputeCounts()
   } else {
@@ -173,9 +173,7 @@ function onAfterLeave() {
 
 watch(() => props.open, async on => {
   if (on) {
-    if (!apps.value.length) {
-      await load()
-    }
+    await load()
     seen = new Set(apps.value.map(x => x.id))
     saveSeen([...seen])
     recomputeCounts()

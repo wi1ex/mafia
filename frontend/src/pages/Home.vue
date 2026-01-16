@@ -495,7 +495,7 @@ function onAppRevoked(e: any) {
   const rid = Number(p?.room_id)
   if (!Number.isFinite(rid)) return
   if (selectedId.value && rid === selectedId.value) {
-    access.value = 'pending'
+    access.value = 'none'
   }
 }
 

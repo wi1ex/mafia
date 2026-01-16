@@ -4032,6 +4032,7 @@ async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
             f"room:{rid}:gc_lock",
             f"room:{rid}:allow",
             f"room:{rid}:pending",
+            f"room:{rid}:requests",
             f"room:{rid}:screen_time",
             f"room:{rid}:screen_owner",
             f"room:{rid}:screen_started_at",
