@@ -581,9 +581,17 @@ async def screen(sid, data) -> ScreenAck:
                            namespace="/rooms")
             await r.set(f"room:{rid}:screen_started_at", str(int(time())), nx=True, ex=86400)
             try:
+                try:
+                    target_username = await r.hget(f"room:{rid}:user:{target}:info", "username")
+                except Exception:
+                    target_username = None
                 details = f"Старт стрима room_id={rid} target_user={target}"
+                if target_username:
+                    details += f" target_username={target_username}"
                 if actor_uid != target:
                     details += f" actor_user={actor_uid}"
+                    if actor_user_name:
+                        details += f" actor_username={actor_user_name}"
                     if actor_role:
                         details += f" actor_role={actor_role}"
                 async with SessionLocal() as s:
@@ -662,13 +670,23 @@ async def moderate(sid, data) -> ModerateAck:
             await stop_screen_for_user(r, rid, target, actor_uid=actor_uid, actor_username=actor_user_name, actor_role=actor_role)
 
         if applied or forced_off:
+            try:
+                target_username = await r.hget(f"room:{rid}:user:{target}:info", "username")
+            except Exception:
+                target_username = None
+            details = f"Блокировка в комнате room_id={rid} target_user={target}"
+            if target_username:
+                details += f" target_username={target_username}"
+            if actor_user_name:
+                details += f" actor_username={actor_user_name}"
+            details += f" actor_role={actor_role} applied={applied}"
             async with SessionLocal() as s:
                 await log_action(
                     s,
                     user_id=actor_uid,
                     username=actor_user_name,
                     action="room_blocks",
-                    details=f"Блокировка в комнате room_id={rid} target_user={target} actor_role={actor_role} applied={applied}",
+                    details=details,
                 )
 
         return {"ok": True, "applied": applied, "forced_off": forced_off}
@@ -734,13 +752,23 @@ async def kick(sid, data):
 
         await emit_rooms_occupancy_safe(r, rid, occ)
 
+        try:
+            target_username = await r.hget(f"room:{rid}:user:{target}:info", "username")
+        except Exception:
+            target_username = None
+        details = f"Кик из комнаты room_id={rid} target_user={target}"
+        if target_username:
+            details += f" target_username={target_username}"
+        if actor_user_name:
+            details += f" actor_username={actor_user_name}"
+        details += f" actor_role={actor_role}"
         async with SessionLocal() as s:
             await log_action(
                 s,
                 user_id=actor_uid,
                 username=actor_user_name,
                 action="room_kick",
-                details=f"Кик из комнаты room_id={rid} target_user={target} actor_role={actor_role}",
+                details=details,
             )
 
         return {"ok": True}

@@ -3551,9 +3551,17 @@ async def stop_screen_for_user(r, rid: int, uid: int, *, canceled: bool = False,
     try:
         log_uid = actor_uid if actor_uid is not None else uid
         log_username = actor_username or f"user{log_uid}"
+        try:
+            target_username = await r.hget(f"room:{rid}:user:{uid}:info", "username")
+        except Exception:
+            target_username = None
         details = f"Остановка стрима room_id={rid} target_user={uid}"
+        if target_username:
+            details += f" target_username={target_username}"
         if actor_uid is not None and actor_uid != uid:
             details += f" actor_user={actor_uid}"
+            if actor_username:
+                details += f" actor_username={actor_username}"
             if actor_role:
                 details += f" actor_role={actor_role}"
         async with SessionLocal() as s:

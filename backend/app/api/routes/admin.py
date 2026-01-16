@@ -251,7 +251,7 @@ async def logs_list(page: int = 1, limit: int = 20, action: str | None = None, u
     if action and action != "all":
         filters.append(AppLog.action == action)
     if username:
-        filters.append(AppLog.username.ilike(f"%{username}%"))
+        filters.append(or_(AppLog.username.ilike(f"%{username}%"), AppLog.details.ilike(f"%{username}%")))
     if day:
         start_day, end_day = parse_day_range(day)
         filters.append(AppLog.created_at >= start_day)

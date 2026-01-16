@@ -191,6 +191,7 @@ async def apply(room_id: int, ident: Identity = Depends(get_identity), db: Async
 
     uid = int(ident["id"])
     creator = int(params.get("creator") or 0)
+    creator_name = str(params.get("creator_name") or "").strip()
     title = (params.get("title") or "").strip()
     if uid == creator:
         return Ok()
@@ -213,12 +214,15 @@ async def apply(room_id: int, ident: Identity = Depends(get_identity), db: Async
                            room=f"user:{creator}",
                            namespace="/auth")
 
+        details = f"Подача заявки в комнату room_id={room_id} title={title} creator={creator}"
+        if creator_name:
+            details += f" creator_username={creator_name}"
         await log_action(
             db,
             user_id=uid,
             username=ident["username"],
             action="room_apply",
-            details=f"Подача заявки в комнату room_id={room_id} title={title} creator={creator}",
+            details=details,
         )
 
     return Ok()
@@ -320,12 +324,17 @@ async def approve(room_id: int, user_id: int, ident: Identity = Depends(get_iden
                        room=f"user:{int(ident['id'])}",
                        namespace="/auth")
 
+    target_user = await db.get(User, int(user_id))
+    target_username = target_user.username if target_user else ""
+    details = f"Одобрена заявка в комнату room_id={room_id} title={title_room} target_user={user_id}"
+    if target_username:
+        details += f" target_username={target_username}"
     await log_action(
         db,
         user_id=int(ident["id"]),
         username=ident["username"],
         action="room_approve",
-        details=f"Одобрена заявка в комнату room_id={room_id} title={title_room} target_user={user_id}",
+        details=details,
     )
 
     return Ok()
@@ -390,12 +399,17 @@ async def deny(room_id: int, user_id: int, ident: Identity = Depends(get_identit
                        room=f"user:{user_id}",
                        namespace="/auth")
 
+    target_user = await db.get(User, int(user_id))
+    target_username = target_user.username if target_user else ""
+    details = f"Доступ к комнате отозван room_id={room_id} title={title_room} target_user={user_id}"
+    if target_username:
+        details += f" target_username={target_username}"
     await log_action(
         db,
         user_id=int(ident["id"]),
         username=ident["username"],
         action="room_revoke",
-        details=f"Доступ отозван room_id={room_id} title={title_room} target_user={user_id}",
+        details=details,
     )
 
     return Ok()
