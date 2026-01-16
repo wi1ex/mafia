@@ -314,7 +314,6 @@ const timelineDurationSec = computed(() => {
     border: none;
     border-radius: 5px;
     background-color: rgba($dark, 0.75);
-    backdrop-filter: blur(5px);
     box-shadow: 3px 3px 5px rgba($black, 0.25);
     z-index: 3;
     img {
@@ -418,7 +417,6 @@ const timelineDurationSec = computed(() => {
     border: none;
     border-radius: 5px;
     background-color: rgba($green, 0.75);
-    backdrop-filter: blur(5px);
     box-shadow: 3px 3px 5px rgba($black, 0.25);
     cursor: pointer;
     z-index: 20;
@@ -459,7 +457,6 @@ const timelineDurationSec = computed(() => {
       border: none;
       border-radius: 5px;
       background-color: rgba($green, 0.75);
-      backdrop-filter: blur(5px);
       box-shadow: 3px 3px 5px rgba($black, 0.25);
       cursor: pointer;
       img {
@@ -507,7 +504,6 @@ const timelineDurationSec = computed(() => {
     border: none;
     border-radius: 5px;
     background-color: $green;
-    backdrop-filter: blur(5px);
     box-shadow: 3px 3px 5px rgba($black, 0.25);
     cursor: pointer;
     z-index: 3;
@@ -557,7 +553,6 @@ const timelineDurationSec = computed(() => {
     block-size: 30px;
     will-change: inline-size, block-size;
     border-radius: 5px;
-    backdrop-filter: blur(5px);
     background-color: rgba($dark, 0.75);
     box-shadow: 3px 3px 5px rgba($black, 0.25);
     z-index: 20;

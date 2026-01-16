@@ -267,6 +267,7 @@
           v-model:micId="selectedMicId"
           v-model:camId="selectedCamId"
           v-model:mirrorOn="mirrorOn"
+          v-model:noiseSuppressionOn="noiseSuppressionOn"
           v-model:volume="bgmVolume"
           :volume-icon="volumeIcon(bgmVolume, bgmShouldPlay)"
           :can-toggle-known-roles="canToggleKnownRoles"
@@ -606,7 +607,7 @@ watch(autoRemoteQuality, (quality) => {
   rtc.setRemoteQualityForAll(quality, { persist: false })
 }, { immediate: true })
 
-const isMirrored = (id: string) => (statusByUser.get(id)?.mirror ?? 0) === 1    
+const isMirrored = (id: string) => (statusByUser.get(id)?.mirror ?? 0) === 1
 const mirrorOn = computed({
   get: () => isMirrored(localId.value),
   set: async (v: boolean) => {
@@ -615,6 +616,12 @@ const mirrorOn = computed({
     const cur = statusByUser.get(id) ?? { mic: 1, cam: 1, speakers: 1, visibility: 1, ready: 0, mirror: 0 }
     statusByUser.set(id, { ...cur, mirror: v ? 1 : 0 })
     try { await publishState({ mirror: v }) } catch {}
+  },
+})
+const noiseSuppressionOn = computed({
+  get: () => rtc.noiseSuppression.value,
+  set: (v: boolean) => {
+    void rtc.setNoiseSuppression(v)
   },
 })
 
@@ -1893,8 +1900,14 @@ async function applyLocalStateFromServer(state: any, blocks: any): Promise<void>
     screenOwnerId.value = ''
   }
 
-  try { if (nextMic) await rtc.enable('audioinput'); else await rtc.disable('audioinput') } catch {}
-  try { if (nextCam) await rtc.enable('videoinput'); else await rtc.disable('videoinput') } catch {}
+  try {
+    if (nextMic) await rtc.enable('audioinput')
+    else await rtc.disable('audioinput')
+  } catch {}
+  try {
+    if (nextCam) await rtc.enable('videoinput')
+    else await rtc.disable('videoinput')
+  } catch {}
   try { rtc.setAudioSubscriptionsForAll(nextSpeakers) } catch {}
   try { rtc.setVideoSubscriptionsForAll(nextVisibility) } catch {}
   if (nextSpeakers && !mergedBlocks.speakers) {
@@ -1943,7 +1956,10 @@ async function applyGameReturnState(): Promise<void> {
     desiredMedia.mic = nextMic
     delta.mic = nextMic
     if (canTouchMedia) {
-      try { if (nextMic) await rtc.enable('audioinput'); else await rtc.disable('audioinput') } catch {}
+      try {
+        if (nextMic) await rtc.enable('audioinput')
+        else await rtc.disable('audioinput')
+      } catch {}
     }
   }
   if (local.cam !== nextCam) {
@@ -1951,7 +1967,10 @@ async function applyGameReturnState(): Promise<void> {
     desiredMedia.cam = nextCam
     delta.cam = nextCam
     if (canTouchMedia) {
-      try { if (nextCam) await rtc.enable('videoinput'); else await rtc.disable('videoinput') } catch {}
+      try {
+        if (nextCam) await rtc.enable('videoinput')
+        else await rtc.disable('videoinput')
+      } catch {}
     }
   }
   if (local.speakers !== nextSpeakers) {
@@ -2249,7 +2268,6 @@ onBeforeUnmount(() => {
         height: 20px;
         border-radius: 5px;
         background-color: rgba($dark, 0.75);
-        backdrop-filter: blur(5px);
         box-shadow: 3px 3px 5px rgba($black, 0.25);
         -webkit-overflow-scrolling: touch;
         img {
