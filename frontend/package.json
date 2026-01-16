@@ -27,6 +27,6 @@
     "patch-package": "^8.0.1"
   },
   "overrides": {
-    "rollup": "4.53.0"
+    "rollup": "4.55.1"
   }
 }
