@@ -267,7 +267,6 @@
           v-model:micId="selectedMicId"
           v-model:camId="selectedCamId"
           v-model:mirrorOn="mirrorOn"
-          v-model:noiseSuppressionOn="noiseSuppressionOn"
           v-model:volume="bgmVolume"
           :volume-icon="volumeIcon(bgmVolume, bgmShouldPlay)"
           :can-toggle-known-roles="canToggleKnownRoles"
@@ -618,13 +617,6 @@ const mirrorOn = computed({
     try { await publishState({ mirror: v }) } catch {}
   },
 })
-const noiseSuppressionOn = computed({
-  get: () => rtc.noiseSuppression.value,
-  set: (v: boolean) => {
-    void rtc.setNoiseSuppression(v)
-  },
-})
-
 const rerr = (...a: unknown[]) => console.error('[ROOM]', ...a)
 
 let reloading = false

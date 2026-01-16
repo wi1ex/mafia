@@ -27,7 +27,6 @@ const LS = {
   cam: 'videoDeviceId',
   perm: 'mediaPermProbed',
   mirror: 'room:mirror',
-  noiseSuppression: 'room:noiseSuppression',
 }
 
 const BGM_VOLUME_LS = 'bgm:volume'
@@ -72,9 +71,7 @@ export type UseRTC = {
   loadLS: (k: string) => string | null
   selectedMicId: Ref<string>
   selectedCamId: Ref<string>
-  noiseSuppression: Ref<boolean>
   remoteQuality: Ref<VQ>
-  setNoiseSuppression: (on: boolean) => Promise<void>
   setCameraQuality: (quality: CameraQuality) => Promise<void>
   videoRef: (id: string) => (el: HTMLVideoElement | null) => void
   reconnecting: Ref<boolean>
@@ -147,9 +144,6 @@ export function useRTC(): UseRTC {
   const cams = ref<MediaDeviceInfo[]>([])
   const selectedMicId = ref<string>('')
   const selectedCamId = ref<string>('')
-  const initNoiseSuppression = loadLS(LS.noiseSuppression)
-  const noiseSuppression = ref<boolean>(initNoiseSuppression === '1')
-  if (initNoiseSuppression == null) saveLS(LS.noiseSuppression, '0')
   const wantAudio = ref(true)
   const wantVideo = ref(true)
   const permInit = readPermState()
@@ -1202,21 +1196,9 @@ export function useRTC(): UseRTC {
     return {
       deviceId: deviceId ? ({ exact: deviceId } as any) : undefined,
       echoCancellation: true,
-      noiseSuppression: noiseSuppression.value,
+      noiseSuppression: false,
       autoGainControl: true,
     } as any
-  }
-
-  async function setNoiseSuppression(on: boolean): Promise<void> {
-    noiseSuppression.value = on
-    saveLS(LS.noiseSuppression, on ? '1' : '0')
-    const room = lk.value
-    if (!room) return
-    const pub = room.localParticipant.getTrackPublications().find(p => p.kind === Track.Kind.Audio && (p as any).source === Track.Source.Microphone)
-    if (!pub || pub.isMuted || !pub.track) return
-    try {
-      await room.localParticipant.setMicrophoneEnabled(true, audioOptionsFor(selectedMicId.value || undefined))
-    } catch {}
   }
 
   function cleanupPeer(id: string, opts?: { keepVideo?: boolean; keepScreen?: boolean }) {
@@ -1345,12 +1327,12 @@ export function useRTC(): UseRTC {
       }
     }
     const room = new LkRoom({
-      dynacast: true,
+      dynacast: false,
       publishDefaults: {
         videoCodec: 'h264',
         videoEncoding: cameraPreset().encoding,
         red: true,
-        dtx: true,
+        dtx: false,
         simulcast: false,
         videoSimulcastLayers: undefined,
         screenShareEncoding: highScreenQuality.encoding,
@@ -1359,7 +1341,7 @@ export function useRTC(): UseRTC {
       },
       audioCaptureDefaults: {
         echoCancellation: true,
-        noiseSuppression: noiseSuppression.value,
+        noiseSuppression: false,
         autoGainControl: true,
         ...(opts?.audioCaptureDefaults || {})
       },
@@ -1559,7 +1541,6 @@ export function useRTC(): UseRTC {
     LS,
     selectedMicId,
     selectedCamId,
-    noiseSuppression,
     remoteQuality,
     permAudio,
     permVideo,
@@ -1588,7 +1569,6 @@ export function useRTC(): UseRTC {
     clearProbeFlag,
     disable,
     setCameraQuality,
-    setNoiseSuppression,
     isSpeaking,
     setUserVolume,
     getUserVolume,

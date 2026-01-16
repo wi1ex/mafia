@@ -22,18 +22,6 @@
               </label>
             </div>
           </div>
-          <div class="switch-div">
-            <div class="switch">
-              <span class="switch-label">Шумоподавление микрофона:</span>
-              <label>
-                <input type="checkbox" :checked="noiseSuppressionOn" @change="onToggleNoiseSuppression" aria-label="Шумоподавление" />
-                <div class="slider">
-                  <span>Откл</span>
-                  <span>Вкл</span>
-                </div>
-              </label>
-            </div>
-          </div>
         </template>
         <template v-else>
           <div v-if="!isSpectator && canToggleKnownRoles" class="switch-div">
@@ -124,7 +112,6 @@ const props = defineProps<{
   micId: string
   camId: string
   mirrorOn: boolean
-  noiseSuppressionOn: boolean
   volume: number
   volumeIcon: string
   canToggleKnownRoles: boolean
@@ -135,7 +122,6 @@ const emit = defineEmits<{
   'update:micId': [string]
   'update:camId': [string]
   'update:mirrorOn': [boolean]
-  'update:noiseSuppressionOn': [boolean]
   'update:volume': [number]
   'toggle-known-roles': []
   'device-change': ['audioinput' | 'videoinput']
@@ -162,9 +148,6 @@ const camIdProxy = computed({
 
 function onToggleMirror(e: Event) {
   emit('update:mirrorOn', (e.target as HTMLInputElement).checked)
-}
-function onToggleNoiseSuppression(e: Event) {
-  emit('update:noiseSuppressionOn', (e.target as HTMLInputElement).checked)
 }
 function onVolumeInput(e: Event) {
   emit('update:volume', Number((e.target as HTMLInputElement).value))
