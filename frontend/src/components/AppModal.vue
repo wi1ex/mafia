@@ -146,13 +146,12 @@ onBeforeUnmount(() => {
         }
       }
       .hide-install {
-        margin-top: 5px;
-        padding: 10px;
+        padding: 0;
         height: 30px;
         border: none;
         border-radius: 5px;
-        background-color: rgba($red, 0.75);
-        color: $bg;
+        background-color: $lead;
+        color: $fg;
         font-size: 14px;
         font-family: Manrope-Medium;
         line-height: 1;
@@ -193,12 +192,8 @@ onBeforeUnmount(() => {
           }
         }
         .hide-install {
-          margin-top: 5px;
-          padding: 10px;
-          height: 30px;
-          border-radius: 5px;
-          font-size: 14px;
-          line-height: 1;
+          height: 20px;
+          font-size: 12px;
         }
       }
     }

@@ -151,7 +151,7 @@ const BOT = import.meta.env.VITE_TG_BOT_NAME as string || ''
 const BUILD = import.meta.env.VITE_BUILD_ID as string || ''
 const SIZE: 'large' | 'medium' | 'small' = 'large'
 let TG_LIB_ONCE = false
-const showInstall = computed(() => !isPwa.value && !installHidden.value)
+const showInstall = computed(() => auth.isAuthed && !isPwa.value && !installHidden.value)
 
 declare global {
   interface Window { __tg_cb__?: (u: any) => void }
