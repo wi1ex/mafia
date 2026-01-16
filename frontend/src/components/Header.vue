@@ -12,7 +12,7 @@
         <img :src="iconCard" alt="card" />
         <span>Поддержать</span>
       </a>
-      <button v-if="!isPwa" class="btn" type="button" @click="openInstall" :aria-expanded="installOpen" aria-haspopup="dialog" aria-label="Установить">
+      <button v-if="showInstall" class="btn" type="button" @click="openInstall" :aria-expanded="installOpen" aria-haspopup="dialog" aria-label="Установить">
         <img :src="iconInstall" alt="install" />
         <span>Установить</span>
       </button>
@@ -73,11 +73,11 @@
       </div>
     </div>
   </header>
-  <AppModal v-model:open="installOpen" />
+  <AppModal v-model:open="installOpen" @hide-install="onHideInstall" />
 </template>
 
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, watch, nextTick, ref } from 'vue'
+import { onMounted, onBeforeUnmount, watch, nextTick, ref, computed } from 'vue'
 import { useAuthStore, useUserStore, useNotifStore, useSettingsStore, useUpdatesStore } from '@/store'
 import { alertDialog } from '@/services/confirm'
 import { isPwaMode } from '@/services/pwa'
@@ -107,6 +107,7 @@ const updatesEl = ref<HTMLElement | null>(null)
 const um_open = ref(false)
 const userMenuEl = ref<HTMLElement | null>(null)
 const installOpen = ref(false)
+const installHidden = ref(false)
 const isPwa = ref(isPwaMode())
 
 function onToggleNotifs() {
@@ -126,6 +127,15 @@ function closeUserMenu() {
 function openInstall() {
   installOpen.value = true
 }
+function readInstallHidden() {
+  try { installHidden.value = localStorage.getItem('ui:hide_install') === '1' }
+  catch { installHidden.value = false }
+}
+function onHideInstall() {
+  try { localStorage.setItem('ui:hide_install', '1') } catch {}
+  installHidden.value = true
+  installOpen.value = false
+}
 async function onLogoutClick() {
   closeUserMenu()
   await logout()
@@ -141,6 +151,7 @@ const BOT = import.meta.env.VITE_TG_BOT_NAME as string || ''
 const BUILD = import.meta.env.VITE_BUILD_ID as string || ''
 const SIZE: 'large' | 'medium' | 'small' = 'large'
 let TG_LIB_ONCE = false
+const showInstall = computed(() => !isPwa.value && !installHidden.value)
 
 declare global {
   interface Window { __tg_cb__?: (u: any) => void }
@@ -194,7 +205,12 @@ watch(() => auth.isAuthed, async ok => {
   }
 })
 
+watch(() => user.user?.id, () => {
+  readInstallHidden()
+})
+
 onMounted(async () => {
+  readInstallHidden()
   if (!auth.isAuthed && !auth.foreignActive && settings.registrationEnabled) {
     await nextTick()
     mountTGWidget()

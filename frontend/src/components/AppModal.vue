@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <Transition name="install-modal">
     <div v-if="open" class="install-overlay" role="dialog" aria-modal="true" @pointerdown.self="armed = true"
          @pointerup.self="armed && close()" @pointerleave.self="armed = false" @pointercancel.self="armed = false">
@@ -25,6 +25,7 @@
               <li>Выберите «На экран Домой»</li>
             </ol>
           </div>
+          <button class="hide-install" type="button" @click="hideInstall">Скрыть кнопку «Установить» с главного экрана</button>
         </div>
       </div>
     </div>
@@ -36,7 +37,10 @@ import { ref, watch, onBeforeUnmount } from 'vue'
 import iconClose from "@/assets/svg/close.svg"
 
 const props = defineProps<{ open: boolean }>()
-const emit = defineEmits<{ (e: 'update:open', value: boolean): void }>()
+const emit = defineEmits<{
+  (e: 'update:open', value: boolean): void
+  (e: 'hide-install'): void
+}>()
 
 const armed = ref(false)
 const prevOverflow = ref('')
@@ -54,6 +58,11 @@ watch(() => props.open, (open) => {
 function close() {
   emit('update:open', false)
   armed.value = false
+}
+
+function hideInstall() {
+  emit('hide-install')
+  close()
 }
 
 onBeforeUnmount(() => {
@@ -136,6 +145,19 @@ onBeforeUnmount(() => {
           }
         }
       }
+      .hide-install {
+        margin-top: 5px;
+        padding: 10px;
+        height: 30px;
+        border: none;
+        border-radius: 5px;
+        background-color: rgba($red, 0.75);
+        color: $bg;
+        font-size: 14px;
+        font-family: Manrope-Medium;
+        line-height: 1;
+        cursor: pointer;
+      }
     }
   }
 }
@@ -169,6 +191,14 @@ onBeforeUnmount(() => {
               font-size: 12px;
             }
           }
+        }
+        .hide-install {
+          margin-top: 5px;
+          padding: 10px;
+          height: 30px;
+          border-radius: 5px;
+          font-size: 14px;
+          line-height: 1;
         }
       }
     }

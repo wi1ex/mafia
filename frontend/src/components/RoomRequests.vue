@@ -280,7 +280,6 @@ onBeforeUnmount(() => {
         height: 30px;
         border: none;
         border-radius: 5px;
-        color: $bg;
         font-size: 14px;
         font-family: Manrope-Medium;
         line-height: 1;
@@ -288,12 +287,14 @@ onBeforeUnmount(() => {
         transition: background-color 0.25s ease-in-out;
         &.btn-approve {
           background-color: rgba($green, 0.75);
+          color: $bg;
           &:hover {
             background-color: $green;
           }
         }
         &.btn-deny {
           background-color: rgba($red, 0.75);
+          color: $fg;
           &:hover {
             background-color: $red;
           }
