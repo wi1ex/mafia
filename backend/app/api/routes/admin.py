@@ -67,7 +67,6 @@ from ..utils import (
     parse_room_game_params,
     build_room_user_stats,
     sum_room_stream_seconds,
-    calc_avg_room_minutes,
     aggregate_user_room_stats,
 )
 
@@ -185,28 +184,11 @@ async def site_stats(month: str | None = None, session: AsyncSession = Depends(g
     day_games = int(await session.scalar(select(func.count(Game.id)).where(Game.finished_at >= day_start, Game.finished_at < now)) or 0)
     month_games = int(await session.scalar(select(func.count(Game.id)).where(Game.finished_at >= month_start, Game.finished_at < month_end)) or 0)
 
-    total_rooms_avg_minutes = 0
-    day_rooms_avg_minutes = 0
-    month_rooms_avg_minutes = 0
-    if total_rooms > 0:
-        rows = await session.execute(select(Room.created_at, Room.deleted_at))
-        total_room_rows = [(created_at, deleted_at) for created_at, deleted_at in rows.all()]
-        total_rooms_avg_minutes = calc_avg_room_minutes(total_room_rows, now)
-    if day_rooms > 0:
-        rows = await session.execute(select(Room.created_at, Room.deleted_at).where(Room.created_at >= day_start, Room.created_at < now))
-        day_room_rows = [(created_at, deleted_at) for created_at, deleted_at in rows.all()]
-        day_rooms_avg_minutes = calc_avg_room_minutes(day_room_rows, now)
-    if month_rooms > 0:
-        rows = await session.execute(select(Room.created_at, Room.deleted_at).where(Room.created_at >= month_start, Room.created_at < month_end))
-        month_room_rows = [(created_at, deleted_at) for created_at, deleted_at in rows.all()]
-        month_rooms_avg_minutes = calc_avg_room_minutes(month_room_rows, now)
-
     return SiteStatsOut(
         total_users=total_users,
         registrations=registrations,
         registrations_monthly=registrations_monthly,
         total_rooms=total_rooms,
-        total_rooms_avg_minutes=total_rooms_avg_minutes,
         total_games=total_games,
         total_stream_minutes=total_stream_seconds // 60,
         active_rooms=active_rooms,
@@ -217,14 +199,12 @@ async def site_stats(month: str | None = None, session: AsyncSession = Depends(g
             games=day_games,
             online_users=day_online_users,
             rooms=day_rooms,
-            rooms_avg_minutes=day_rooms_avg_minutes,
             stream_minutes=day_stream_seconds // 60,
         ),
         last_month=PeriodStatsOut(
             games=month_games,
             online_users=month_online_users,
             rooms=month_rooms,
-            rooms_avg_minutes=month_rooms_avg_minutes,
             stream_minutes=month_stream_seconds // 60,
         ),
     )
@@ -618,14 +598,12 @@ async def users_list(page: int = 1, limit: int = 20, username: str | None = None
     rows = await session.execute(select(User).where(*filters).order_by(User.registered_at.desc(), User.id.desc()).offset(offset).limit(limit))
     users = rows.scalars().all()
     ids = [int(u.id) for u in users]
-    rooms_created, room_lifetime_seconds, room_seconds, stream_seconds, spectator_seconds, games_played, games_hosted = await aggregate_user_room_stats(session, ids)
+    rooms_created, room_seconds, stream_seconds, spectator_seconds, games_played, games_hosted = await aggregate_user_room_stats(session, ids)
 
     items: list[AdminUserOut] = []
     for u in users:
         uid = int(u.id)
         created = rooms_created.get(uid, 0)
-        lifetime_seconds = room_lifetime_seconds.get(uid, 0)
-        rooms_avg_minutes = (lifetime_seconds // created) // 60 if created > 0 else 0
         items.append(AdminUserOut(
             id=uid,
             username=u.username,
@@ -635,7 +613,6 @@ async def users_list(page: int = 1, limit: int = 20, username: str | None = None
             last_login_at=u.last_login_at,
             last_visit_at=u.last_visit_at,
             rooms_created=created,
-            rooms_avg_minutes=rooms_avg_minutes,
             room_minutes=room_seconds.get(uid, 0) // 60,
             stream_minutes=stream_seconds.get(uid, 0) // 60,
             games_played=games_played.get(uid, 0),

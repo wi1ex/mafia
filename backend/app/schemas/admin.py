@@ -81,7 +81,6 @@ class PeriodStatsOut(BaseModel):
     games: int
     online_users: int
     rooms: int
-    rooms_avg_minutes: int
     stream_minutes: int
 
 
@@ -90,7 +89,6 @@ class SiteStatsOut(BaseModel):
     registrations: List[RegistrationsPoint]
     registrations_monthly: List[RegistrationsPoint]
     total_rooms: int
-    total_rooms_avg_minutes: int
     total_games: int
     total_stream_minutes: int
     active_rooms: int
@@ -172,7 +170,6 @@ class AdminUserOut(BaseModel):
     last_login_at: datetime
     last_visit_at: datetime
     rooms_created: int
-    rooms_avg_minutes: int
     room_minutes: int
     stream_minutes: int
     games_played: int

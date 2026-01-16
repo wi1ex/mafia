@@ -225,7 +225,7 @@
               </div>
               <div class="stat-card">
                 <span class="label">Всего комнат</span>
-                <span class="value">{{ formatRoomsWithAvg(stats.total_rooms, stats.total_rooms_avg_minutes) }}</span>
+                <span class="value">{{ stats.total_rooms }}</span>
               </div>
               <div class="stat-card">
                 <span class="label">Всего игр</span>
@@ -267,7 +267,7 @@
               </div>
               <div class="stat-card">
                 <span class="label">Комнаты </span>
-                <span class="value">{{ formatRoomsWithAvg(stats.last_day.rooms, stats.last_day.rooms_avg_minutes) }}</span>
+                <span class="value">{{ stats.last_day.rooms }}</span>
               </div>
               <div class="stat-card">
                 <span class="label">Стримы</span>
@@ -294,7 +294,7 @@
                 </div>
                 <div class="stat-card">
                   <span class="label">Комнаты</span>
-                  <span class="value">{{ formatRoomsWithAvg(stats.last_month.rooms, stats.last_month.rooms_avg_minutes) }}</span>
+                  <span class="value">{{ stats.last_month.rooms }}</span>
                 </div>
                 <div class="stat-card">
                   <span class="label">Стримы</span>
@@ -668,7 +668,7 @@
                   <td>{{ formatLocalDateTime(row.registered_at) }}</td>
                   <td>{{ formatLocalDateTime(row.last_login_at) }}</td>
                   <td>{{ formatLocalDateTime(row.last_visit_at) }}</td>
-                  <td>{{ formatRoomsWithAvg(row.rooms_created, row.rooms_avg_minutes) }}</td>
+                  <td>{{ row.rooms_created }}</td>
                   <td>{{ formatMinutes(row.room_minutes) }}</td>
                   <td>{{ formatMinutes(row.stream_minutes) }}</td>
                   <td>{{ row.games_played }}</td>
@@ -764,7 +764,6 @@ type PeriodStats = {
   games: number
   online_users: number
   rooms: number
-  rooms_avg_minutes: number
   stream_minutes: number
 }
 
@@ -773,7 +772,6 @@ type SiteStats = {
   registrations: RegistrationPoint[]
   registrations_monthly: RegistrationPoint[]
   total_rooms: number
-  total_rooms_avg_minutes: number
   total_games: number
   total_stream_minutes: number
   active_rooms: number
@@ -841,7 +839,6 @@ type UserRow = {
   last_login_at: string
   last_visit_at: string
   rooms_created: number
-  rooms_avg_minutes: number
   room_minutes: number
   stream_minutes: number
   games_played: number
@@ -928,7 +925,6 @@ const stats = reactive<SiteStats>({
   registrations: [],
   registrations_monthly: [],
   total_rooms: 0,
-  total_rooms_avg_minutes: 0,
   total_games: 0,
   total_stream_minutes: 0,
   active_rooms: 0,
@@ -939,14 +935,12 @@ const stats = reactive<SiteStats>({
     games: 0,
     online_users: 0,
     rooms: 0,
-    rooms_avg_minutes: 0,
     stream_minutes: 0,
   },
   last_month: {
     games: 0,
     online_users: 0,
     rooms: 0,
-    rooms_avg_minutes: 0,
     stream_minutes: 0,
   },
 })
@@ -1094,11 +1088,6 @@ function formatMinutes(value: number): string {
   if (hours > 0) parts.push(`${hours}ч`)
   if (minutes > 0 || parts.length === 0) parts.push(`${minutes}м`)
   return parts.join(' ')
-}
-
-function formatRoomsWithAvg(count: number, avgMinutes: number): string {
-  const safeCount = Math.max(0, Math.floor(Number(count) || 0))
-  return `${safeCount} (${formatMinutes(avgMinutes)})`
 }
 
 function formatRoomGame(row: RoomRow): string {
@@ -1258,7 +1247,6 @@ async function loadStats(): Promise<void> {
       registrations: Array.isArray(data?.registrations) ? data.registrations : [],
       registrations_monthly: Array.isArray(data?.registrations_monthly) ? data.registrations_monthly : [],
       total_rooms: data?.total_rooms ?? 0,
-      total_rooms_avg_minutes: data?.total_rooms_avg_minutes ?? 0,
       total_games: data?.total_games ?? 0,
       total_stream_minutes: data?.total_stream_minutes ?? 0,
       active_rooms: data?.active_rooms ?? 0,
@@ -1269,14 +1257,12 @@ async function loadStats(): Promise<void> {
         games: data?.last_day?.games ?? 0,
         online_users: data?.last_day?.online_users ?? 0,
         rooms: data?.last_day?.rooms ?? 0,
-        rooms_avg_minutes: data?.last_day?.rooms_avg_minutes ?? 0,
         stream_minutes: data?.last_day?.stream_minutes ?? 0,
       },
       last_month: {
         games: data?.last_month?.games ?? 0,
         online_users: data?.last_month?.online_users ?? 0,
         rooms: data?.last_month?.rooms ?? 0,
-        rooms_avg_minutes: data?.last_month?.rooms_avg_minutes ?? 0,
         stream_minutes: data?.last_month?.stream_minutes ?? 0,
       },
     })
