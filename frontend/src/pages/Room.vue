@@ -1291,6 +1291,8 @@ socket.value?.on('connect', async () => {
     try { await onLeave() } catch {}
     if (reason === 'admin_kick_all') {
       void alertDialog('Упс! Кажется пришло обновление... через 5 минут все заработает!')
+    } else if (reason === 'room_kick') {
+      void alertDialog('Вас выгнали из комнаты')
     }
   })
 

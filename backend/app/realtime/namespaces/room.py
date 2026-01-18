@@ -724,6 +724,7 @@ async def kick(sid, data):
 
         await sio.emit("force_leave",
                        {"room_id": rid,
+                        "reason": "room_kick",
                         "by": {"user_id": actor_uid, "role": actor_role}},
                        room=f"user:{target}",
                        namespace="/room")

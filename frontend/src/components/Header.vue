@@ -151,6 +151,11 @@ const BOT = import.meta.env.VITE_TG_BOT_NAME as string || ''
 const BUILD = import.meta.env.VITE_BUILD_ID as string || ''
 const SIZE: 'large' | 'medium' | 'small' = 'large'
 let TG_LIB_ONCE = false
+const TG_WIDGET_MAX_ATTEMPTS = 3
+let tgWidgetAttempts = 0
+let tgWidgetLoading = false
+let tgRetryTimer: number | null = null
+let tgLoadTimer: number | null = null
 const showInstall = computed(() => auth.isAuthed && !isPwa.value && !installHidden.value)
 
 declare global {
@@ -159,14 +164,62 @@ declare global {
 
 async function logout() {
   try { await auth.logout() }
-  finally { void alertDialog('Для "полного" выхода нажмите в Telegram "Terminate session"') }
+  finally { void alertDialog('Для полного выхода нажмите в Telegram «Terminate session»') }
+}
+
+function clearTgTimers() {
+  if (tgRetryTimer !== null) {
+    window.clearTimeout(tgRetryTimer)
+    tgRetryTimer = null
+  }
+  if (tgLoadTimer !== null) {
+    window.clearTimeout(tgLoadTimer)
+    tgLoadTimer = null
+  }
+}
+
+function resetTgWidgetState() {
+  tgWidgetAttempts = 0
+  tgWidgetLoading = false
+  clearTgTimers()
+}
+
+function hasTgWidget(box: HTMLElement): boolean {
+  return Boolean(box.querySelector('iframe'))
+}
+
+function scheduleTgRetry() {
+  if (tgWidgetAttempts >= TG_WIDGET_MAX_ATTEMPTS) return
+  if (tgRetryTimer !== null) return
+  tgRetryTimer = window.setTimeout(() => {
+    tgRetryTimer = null
+    tgWidgetLoading = false
+    mountTGWidget()
+  }, 1000)
+}
+
+function scheduleTgLoadTimeout(box: HTMLElement) {
+  if (tgLoadTimer !== null) window.clearTimeout(tgLoadTimer)
+  tgLoadTimer = window.setTimeout(() => {
+    tgLoadTimer = null
+    if (!hasTgWidget(box)) {
+      tgWidgetLoading = false
+      scheduleTgRetry()
+    }
+  }, 2000)
 }
 
 function mountTGWidget() {
   if (!settings.registrationEnabled) return
   if (!BOT) return
   const box = document.getElementById('tg-login')
-  if (!box || box.children.length) return
+  if (!box) return
+  if (hasTgWidget(box)) return
+  if (tgWidgetLoading || tgWidgetAttempts >= TG_WIDGET_MAX_ATTEMPTS) return
+  tgWidgetLoading = true
+  tgWidgetAttempts += 1
+  clearTgTimers()
+  box.replaceChildren()
   window.__tg_cb__ = async (u: any) => {
     const prevUid = Number(localStorage.getItem('user:lastUid') || 0)
     const nextUid = Number(u?.id || 0)
@@ -184,15 +237,26 @@ function mountTGWidget() {
   s.dataset.onauth = '__tg_cb__(user)'
   s.setAttribute('data-tg-widget', TG_LIB_ONCE ? '0' : '1')
   TG_LIB_ONCE = true
+  s.onerror = () => {
+    tgWidgetLoading = false
+    clearTgTimers()
+    scheduleTgRetry()
+  }
+  s.onload = () => {
+    tgWidgetLoading = false
+  }
   box.appendChild(s)
+  scheduleTgLoadTimeout(box)
 }
 
 watch([() => auth.isAuthed, () => auth.foreignActive, () => settings.registrationEnabled], async () => {
   if (!auth.isAuthed && !auth.foreignActive && settings.registrationEnabled) {
+    resetTgWidgetState()
     await nextTick()
     mountTGWidget()
   } else {
     document.getElementById('tg-login')?.replaceChildren()
+    resetTgWidgetState()
   }
 }, { flush: 'post' })
 
@@ -212,6 +276,7 @@ watch(() => user.user?.id, () => {
 onMounted(async () => {
   readInstallHidden()
   if (!auth.isAuthed && !auth.foreignActive && settings.registrationEnabled) {
+    resetTgWidgetState()
     await nextTick()
     mountTGWidget()
   }
@@ -226,6 +291,7 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   delete (window as any).__tg_cb__
+  resetTgWidgetState()
   document.removeEventListener('pointerdown', onGlobalPointerDown)
 })
 </script>

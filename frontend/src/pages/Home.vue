@@ -600,7 +600,7 @@ onBeforeUnmount(() => {
       }
       .list-header {
         display: grid;
-        grid-template-columns: 15% 45% 25% 15%;
+        grid-template-columns: 10% 50% 30% 10%;
         padding: 10px;
         border-radius: 5px;
         background-color: $lead;
@@ -619,7 +619,7 @@ onBeforeUnmount(() => {
         list-style: none;
         .item {
           display: grid;
-          grid-template-columns: 15% 45% 25% 15%;
+          grid-template-columns: 10% 50% 30% 10%;
           align-items: center;
           padding: 10px;
           border: 1px solid transparent;
@@ -934,6 +934,7 @@ onBeforeUnmount(() => {
           font-size: 14px;
         }
         .list-header {
+          grid-template-columns: 15% 45% 25% 15%;
           span {
             font-size: 14px;
             letter-spacing: 1px;
@@ -941,6 +942,7 @@ onBeforeUnmount(() => {
         }
         .list-body {
           .item {
+            grid-template-columns: 15% 45% 25% 15%;
             .cell {
               .user-name {
                 height: 16px;
