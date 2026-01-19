@@ -225,12 +225,14 @@ onBeforeUnmount(() => {
   line-height: 1.5;
   width: 60%;
   margin: auto;
+  overflow: auto;
+  scrollbar-width: none;
   [id] {
     scroll-margin-top: 90px;
   }
   .rules-layout {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 240px;
+    grid-template-columns: minmax(0, 1fr) 300px;
     gap: 20px;
     align-items: start;
   }
@@ -242,7 +244,7 @@ onBeforeUnmount(() => {
   }
   .rules-toc {
     position: sticky;
-    top: 60px;
+    top: 0;
     align-self: start;
     .toc-card {
       display: flex;
