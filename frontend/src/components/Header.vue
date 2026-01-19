@@ -11,13 +11,13 @@
       <router-link v-if="user.user?.role === 'admin'" class="btn" :to="{ name: 'admin' }" aria-label="Админ-панель">
         <span data-nosnippet>Админ-панель</span>
       </router-link>
+      <button v-if="showInstall" class="btn" type="button" @click="openInstall" :aria-expanded="installOpen" aria-haspopup="dialog" aria-label="Установить">
+        <img :src="iconInstall" alt="" aria-hidden="true" />
+      </button>
       <a class="btn" href="https://t.me/tribute/app?startapp=dCvc" target="_blank" rel="noopener noreferrer" aria-label="Поддержать">
         <img :src="iconCard" alt="" aria-hidden="true" />
         <span data-nosnippet>Поддержать</span>
       </a>
-      <button v-if="showInstall" class="btn" type="button" @click="openInstall" :aria-expanded="installOpen" aria-haspopup="dialog" aria-label="Установить">
-        <img :src="iconInstall" alt="" aria-hidden="true" />
-      </button>
     </div>
 
     <div v-if="!auth.isAuthed && !auth.foreignActive">
