@@ -203,7 +203,11 @@ async def apply(room_id: int, ident: Identity = Depends(get_identity), db: Async
     async with r.pipeline(transaction=True) as p:
         await p.sadd(f"room:{room_id}:pending", str(uid))
         await p.zadd(f"room:{room_id}:requests", {str(uid): int(time())}, nx=True)
-        await p.execute()
+        res = await p.execute()
+
+    added_pending = int(res[0] or 0)
+    if added_pending == 0:
+        return Ok()
 
     user = await db.get(User, uid)
     if user:

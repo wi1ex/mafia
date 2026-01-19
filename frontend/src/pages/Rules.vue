@@ -1,7 +1,9 @@
 <template>
   <main class="rules">
-    <section class="hero">
-      <div class="hero-content">
+    <div class="rules-layout">
+      <div class="rules-content">
+        <section id="intro" class="hero">
+          <div class="hero-content">
         <p class="eyebrow">deceit.games</p>
         <h1>Правила сообщества</h1>
         <p class="lead">
@@ -28,7 +30,7 @@
           </div>
         </div>
       </div>
-      <aside class="hero-card">
+      <aside id="short" class="hero-card">
         <h2>Коротко</h2>
         <ul>
           <li>Уважайте игроков и ведущих, не переходите на личности.</li>
@@ -38,10 +40,10 @@
           <li>За нарушения — предупреждения, мьюты, баны.</li>
         </ul>
       </aside>
-    </section>
+        </section>
 
-    <section class="rules-grid">
-      <article class="rule-card">
+        <section class="rules-grid">
+          <article id="rule-respect" class="rule-card">
         <h3>1. Уважение и безопасность</h3>
         <p>Мы поддерживаем дружелюбную среду, где комфортно играть каждому.</p>
         <ul>
@@ -51,7 +53,7 @@
         </ul>
       </article>
 
-      <article class="rule-card">
+          <article id="rule-fair" class="rule-card">
         <h3>2. Честная игра</h3>
         <p>Мафия — игра логики и речи, а не внешних подсказок.</p>
         <ul>
@@ -61,7 +63,7 @@
         </ul>
       </article>
 
-      <article class="rule-card">
+          <article id="rule-behavior" class="rule-card">
         <h3>3. Поведение в комнате</h3>
         <p>Соблюдайте регламент, чтобы у всех были равные условия.</p>
         <ul>
@@ -71,7 +73,7 @@
         </ul>
       </article>
 
-      <article class="rule-card">
+          <article id="rule-profiles" class="rule-card">
         <h3>4. Ники и профили</h3>
         <p>Профиль — часть атмосферы и безопасности.</p>
         <ul>
@@ -81,7 +83,7 @@
         </ul>
       </article>
 
-      <article class="rule-card">
+          <article id="rule-streams" class="rule-card">
         <h3>5. Стримы и записи</h3>
         <p>Делитесь контентом ответственно.</p>
         <ul>
@@ -91,7 +93,7 @@
         </ul>
       </article>
 
-      <article class="rule-card">
+          <article id="rule-moderation" class="rule-card">
         <h3>6. Модерация и санкции</h3>
         <p>Мы действуем быстро и прозрачно, чтобы сохранить порядок.</p>
         <ul>
@@ -100,9 +102,9 @@
           <li>Повторные нарушения усиливают наказание.</li>
         </ul>
       </article>
-    </section>
+        </section>
 
-    <section class="notice">
+        <section id="serious" class="notice">
       <div class="notice-text">
         <h2>Что считается серьезным нарушением</h2>
         <p>
@@ -116,9 +118,9 @@
         <div class="notice-item">Сговор, подсказки, стрим-снайпинг</div>
         <div class="notice-item">Мошенничество и попытки доступа к чужим аккаунтам</div>
       </div>
-    </section>
+        </section>
 
-    <section class="footer-card">
+        <section id="acceptance" class="footer-card">
       <div class="footer-text">
         <h2>Принятие правил</h2>
         <p>
@@ -136,275 +138,470 @@
           <span class="value">Сохраняйте уважительный тон даже в острой дискуссии</span>
         </div>
       </div>
-    </section>
+        </section>
+      </div>
+
+      <aside class="rules-toc" aria-label="Содержание страницы">
+        <div class="toc-card">
+          <span class="toc-title">Содержание</span>
+          <nav class="toc-links">
+            <a
+              v-for="item in tocLinks"
+              :key="item.id"
+              :href="`#${item.id}`"
+              :class="{ active: activeId === item.id }"
+              :aria-current="activeId === item.id ? 'location' : undefined"
+              @click="onTocClick($event, item.id)"
+            >
+              {{ item.label }}
+            </a>
+          </nav>
+        </div>
+      </aside>
+    </div>
   </main>
 </template>
 
+<script setup lang="ts">
+import { onMounted, onBeforeUnmount, ref } from 'vue'
+
+type TocItem = {
+  id: string
+  label: string
+}
+
+const tocLinks: TocItem[] = [
+  { id: 'intro', label: 'Введение' },
+  { id: 'short', label: 'Коротко' },
+  { id: 'rule-respect', label: '1. Уважение и безопасность' },
+  { id: 'rule-fair', label: '2. Честная игра' },
+  { id: 'rule-behavior', label: '3. Поведение в комнате' },
+  { id: 'rule-profiles', label: '4. Ники и профили' },
+  { id: 'rule-streams', label: '5. Стримы и записи' },
+  { id: 'rule-moderation', label: '6. Модерация и санкции' },
+  { id: 'serious', label: 'Серьезные нарушения' },
+  { id: 'acceptance', label: 'Принятие правил' },
+]
+
+const activeId = ref(tocLinks[0]?.id ?? '')
+let observer: IntersectionObserver | null = null
+
+function setActive(id: string) {
+  if (id && activeId.value !== id) activeId.value = id
+}
+
+function onTocClick(event: MouseEvent, id: string) {
+  if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+    return
+  }
+  const el = document.getElementById(id)
+  if (!el) return
+  event.preventDefault()
+  setActive(id)
+  const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  el.scrollIntoView({ behavior: prefersReduced ? 'auto' : 'smooth', block: 'start' })
+  history.replaceState(null, '', `#${id}`)
+}
+
+function observeSections() {
+  const targets = tocLinks
+    .map(item => document.getElementById(item.id))
+    .filter((el): el is HTMLElement => Boolean(el))
+
+  if (!targets.length) return
+
+  observer = new IntersectionObserver((entries) => {
+    const visible = entries.filter(entry => entry.isIntersecting)
+    if (!visible.length) return
+    visible.sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)
+    const top = visible[0].target as HTMLElement
+    setActive(top.id)
+  }, {
+    rootMargin: '-30% 0px -60% 0px',
+    threshold: 0,
+  })
+
+  targets.forEach(el => observer?.observe(el))
+}
+
+onMounted(() => {
+  observeSections()
+  const hash = window.location.hash.replace('#', '')
+  if (hash && tocLinks.some(item => item.id === hash)) {
+    const el = document.getElementById(hash)
+    if (el) {
+      el.scrollIntoView({ behavior: 'auto', block: 'start' })
+      setActive(hash)
+    }
+  }
+})
+
+onBeforeUnmount(() => {
+  observer?.disconnect()
+  observer = null
+})
+</script>
+
 <style scoped lang="scss">
 .rules {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
   padding: 20px 10px 40px;
-  line-height: 1.45;
+  line-height: 1.5;
   user-select: text;
   color: $fg;
-}
 
-.hero {
-  position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
-  gap: 20px;
-  padding: 24px;
-  border-radius: 12px;
-  background: linear-gradient(145deg, rgba($lead, 0.95), rgba($dark, 0.95));
-  border: 1px solid rgba($grey, 0.25);
-  box-shadow: 0 18px 34px rgba($black, 0.45);
-  overflow: hidden;
-  animation: liftIn 0.6s ease-out both;
-}
+  [id] {
+    scroll-margin-top: 90px;
+  }
 
-.hero::before,
-.hero::after {
-  content: '';
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(0);
-  opacity: 0.9;
-}
-.hero::before {
-  width: 320px;
-  height: 320px;
-  top: -160px;
-  left: -120px;
-  background: radial-gradient(circle, rgba($orange, 0.35), transparent 70%);
-}
-.hero::after {
-  width: 360px;
-  height: 360px;
-  bottom: -200px;
-  right: -140px;
-  background: radial-gradient(circle, rgba($green, 0.25), transparent 70%);
-}
+  .rules-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 240px;
+    gap: 20px;
+    align-items: start;
+  }
 
-.hero-content {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
+  .rules-content {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    min-width: 0;
+  }
 
-.eyebrow {
-  margin: 0;
-  font-size: 12px;
-  letter-spacing: 2px;
-  text-transform: uppercase;
-  color: $ashy;
-}
+  .rules-toc {
+    position: sticky;
+    top: 80px;
+    align-self: start;
 
-h1 {
-  margin: 0;
-  font-size: 34px;
-  letter-spacing: 0.5px;
-}
+    .toc-card {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 16px;
+      border-radius: 10px;
+      background-color: $graphite;
+      border: 1px solid $grey;
+      box-shadow: 0 12px 24px rgba($black, 0.25);
+    }
 
-.lead {
-  margin: 0;
-  color: $fg;
-  max-width: 560px;
-}
+    .toc-title {
+      font-size: 12px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: $ashy;
+    }
 
-.tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
+    .toc-links {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
 
-.pill {
-  padding: 4px 12px;
-  border-radius: 999px;
-  border: 1px solid rgba($grey, 0.45);
-  background-color: rgba($black, 0.25);
-  font-size: 12px;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-}
+      a {
+        padding: 6px 8px;
+        border-radius: 6px;
+        border: 1px solid transparent;
+        background-color: $dark;
+        color: $fg;
+        font-size: 14px;
+        text-decoration: none;
+        transition: background-color 0.25s ease-in-out, border-color 0.25s ease-in-out, color 0.25s ease-in-out;
 
-.meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px 16px;
-}
+        &:hover {
+          background-color: $lead;
+          border-color: $grey;
+          color: $white;
+        }
 
-.meta-item {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  background-color: rgba($black, 0.25);
-  border: 1px solid rgba($grey, 0.2);
-  min-width: 160px;
-}
+        &.active {
+          background-color: $lead;
+          border-color: $orange;
+          color: $white;
+          box-shadow: inset 3px 0 0 $orange;
+        }
+      }
+    }
+  }
 
-.label {
-  font-size: 11px;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  color: $ashy;
-}
+  .hero {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    gap: 20px;
+    padding: 24px;
+    border-radius: 12px;
+    background: linear-gradient(to right, $lead, $dark);
+    border: 1px solid $grey;
+    box-shadow: 0 18px 35px rgba($black, 0.25);
+    overflow: hidden;
+    animation: liftIn 0.25s ease-out both;
 
-.value {
-  font-size: 14px;
-  color: $fg;
-}
+    &::before,
+    &::after {
+      content: '';
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(0);
+      opacity: 0.5;
+    }
 
-.hero-card {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 18px;
-  border-radius: 10px;
-  background-color: rgba($black, 0.3);
-  border: 1px solid rgba($grey, 0.3);
-}
+    &::before {
+      width: 320px;
+      height: 320px;
+      top: -160px;
+      left: -120px;
+      background: radial-gradient(circle, $orange, transparent 50%);
+    }
 
-.hero-card h2 {
-  margin: 0;
-  font-size: 18px;
-}
+    &::after {
+      width: 400px;
+      height: 400px;
+      bottom: -200px;
+      right: -130px;
+      background: radial-gradient(circle, $green, transparent 50%);
+    }
 
-.hero-card ul {
-  margin: 0;
-  padding-left: 18px;
-  display: grid;
-  gap: 8px;
-}
+    .hero-content {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
 
-.hero-card li {
-  color: $fg;
-}
+      .eyebrow {
+        margin: 0;
+        font-size: 12px;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        color: $ashy;
+      }
 
-.rules-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-}
+      h1 {
+        margin: 0;
+        font-size: 35px;
+        letter-spacing: 1px;
+      }
 
-.rule-card {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 18px;
-  border-radius: 10px;
-  background-color: $graphite;
-  border: 1px solid rgba($grey, 0.2);
-  box-shadow: 0 10px 22px rgba($black, 0.35);
-  animation: liftIn 0.6s ease-out both;
-}
+      .lead {
+        margin: 0;
+        color: $fg;
+        max-width: 550px;
+      }
 
-.rule-card h3 {
-  margin: 0;
-  font-size: 18px;
-  color: $fg;
-}
+      .tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
 
-.rule-card p {
-  margin: 0;
-  color: $ashy;
-}
+        .pill {
+          padding: 4px 12px;
+          border-radius: 50px;
+          border: 1px solid $grey;
+          background-color: $dark;
+          font-size: 12px;
+          letter-spacing: 1px;
+          text-transform: uppercase;
+        }
+      }
 
-.rule-card ul {
-  margin: 0;
-  padding-left: 18px;
-  display: grid;
-  gap: 6px;
-}
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px 16px;
 
-.rule-card li {
-  color: $fg;
-}
+        .meta-item {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          padding: 8px 10px;
+          border-radius: 8px;
+          background-color: $graphite;
+          border: 1px solid $grey;
+          min-width: 160px;
 
-.rules-grid .rule-card:nth-child(2) { animation-delay: 0.05s; }
-.rules-grid .rule-card:nth-child(3) { animation-delay: 0.1s; }
-.rules-grid .rule-card:nth-child(4) { animation-delay: 0.15s; }
-.rules-grid .rule-card:nth-child(5) { animation-delay: 0.2s; }
-.rules-grid .rule-card:nth-child(6) { animation-delay: 0.25s; }
+          .label {
+            font-size: 12px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            color: $ashy;
+          }
 
-.notice {
-  display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
-  gap: 18px;
-  padding: 20px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, rgba($graphite, 0.95), rgba($lead, 0.95));
-  border: 1px solid rgba($orange, 0.35);
-  box-shadow: 0 16px 30px rgba($black, 0.4);
-  animation: liftIn 0.6s ease-out both;
-}
+          .value {
+            font-size: 14px;
+            color: $fg;
+          }
+        }
+      }
+    }
 
-.notice-text h2 {
-  margin: 0 0 8px;
-  font-size: 20px;
-}
+    .hero-card {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 18px;
+      border-radius: 10px;
+      background-color: $graphite;
+      border: 1px solid $grey;
 
-.notice-text p {
-  margin: 0;
-  color: $ashy;
-}
+      h2 {
+        margin: 0;
+        font-size: 18px;
+      }
 
-.notice-list {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
+      ul {
+        margin: 0;
+        padding-left: 18px;
+        display: grid;
+        gap: 8px;
 
-.notice-item {
-  padding: 10px 12px;
-  border-radius: 8px;
-  background-color: rgba($black, 0.3);
-  border: 1px solid rgba($grey, 0.2);
-  font-size: 13px;
-  color: $fg;
-}
+        li {
+          color: $fg;
+        }
+      }
+    }
+  }
 
-.footer-card {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
-  align-items: center;
-  justify-content: space-between;
-  padding: 20px;
-  border-radius: 12px;
-  background-color: $graphite;
-  border: 1px solid rgba($grey, 0.25);
-  box-shadow: 0 12px 24px rgba($black, 0.35);
-  animation: liftIn 0.6s ease-out both;
-}
+  .rules-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
 
-.footer-text {
-  max-width: 620px;
-}
+    .rule-card {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 18px;
+      border-radius: 10px;
+      background-color: $graphite;
+      border: 1px solid $grey;
+      box-shadow: 0 10px 22px rgba($black, 0.25);
+      animation: liftIn 0.25s ease-out both;
 
-.footer-text h2 {
-  margin: 0 0 8px;
-  font-size: 20px;
-}
+      h3 {
+        margin: 0;
+        font-size: 18px;
+        color: $fg;
+      }
 
-.footer-text p {
-  margin: 0;
-  color: $ashy;
-}
+      p {
+        margin: 0;
+        color: $ashy;
+      }
 
-.footer-meta {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  min-width: 240px;
+      ul {
+        margin: 0;
+        padding-left: 18px;
+        display: grid;
+        gap: 6px;
+
+        li {
+          color: $fg;
+        }
+      }
+
+      &:nth-child(2) { animation-delay: 0.15s; }
+      &:nth-child(3) { animation-delay: 0.25s; }
+      &:nth-child(4) { animation-delay: 0.15s; }
+      &:nth-child(5) { animation-delay: 0.25s; }
+      &:nth-child(6) { animation-delay: 0.15s; }
+    }
+  }
+
+  .notice {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 18px;
+    padding: 20px;
+    border-radius: 12px;
+    background: linear-gradient(to right, $graphite, $lead);
+    border: 1px solid $orange;
+    box-shadow: 0 16px 30px rgba($black, 0.25);
+    animation: liftIn 0.25s ease-out both;
+
+    .notice-text {
+      h2 {
+        margin: 0 0 8px;
+        font-size: 20px;
+      }
+
+      p {
+        margin: 0;
+        color: $ashy;
+      }
+    }
+
+    .notice-list {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+
+      .notice-item {
+        padding: 10px 12px;
+        border-radius: 8px;
+        background-color: $dark;
+        border: 1px solid $grey;
+        font-size: 14px;
+        color: $fg;
+      }
+    }
+  }
+
+  .footer-card {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px;
+    border-radius: 12px;
+    background-color: $graphite;
+    border: 1px solid $grey;
+    box-shadow: 0 12px 24px rgba($black, 0.25);
+    animation: liftIn 0.25s ease-out both;
+
+    .footer-text {
+      max-width: 600px;
+
+      h2 {
+        margin: 0 0 8px;
+        font-size: 20px;
+      }
+
+      p {
+        margin: 0;
+        color: $ashy;
+      }
+    }
+
+    .footer-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-width: 240px;
+
+      .meta-item {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        padding: 8px 10px;
+        border-radius: 8px;
+        background-color: $graphite;
+        border: 1px solid $grey;
+
+        .label {
+          font-size: 12px;
+          letter-spacing: 1px;
+          text-transform: uppercase;
+          color: $ashy;
+        }
+
+        .value {
+          font-size: 14px;
+          color: $fg;
+        }
+      }
+    }
+  }
 }
 
 @keyframes liftIn {
@@ -418,42 +615,66 @@ h1 {
   }
 }
 
-@media (max-width: 1100px) {
-  .hero {
-    grid-template-columns: 1fr;
-  }
-  .rules-grid {
-    grid-template-columns: 1fr;
-  }
-  .notice {
-    grid-template-columns: 1fr;
-  }
-  .notice-list {
-    grid-template-columns: 1fr;
+@media (max-width: 1280px) {
+  .rules {
+    .rules-layout {
+      grid-template-columns: 1fr;
+    }
+
+    .rules-toc {
+      position: static;
+    }
+
+    .hero {
+      grid-template-columns: 1fr;
+    }
+
+    .rules-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .notice {
+      grid-template-columns: 1fr;
+    }
+
+    .notice-list {
+      grid-template-columns: 1fr;
+    }
   }
 }
 
-@media (max-width: 720px) {
-  .hero {
-    padding: 18px;
-  }
-  h1 {
-    font-size: 26px;
-  }
-  .meta-item {
-    min-width: 140px;
-  }
-  .footer-card {
-    align-items: flex-start;
+@media (max-width: 600px) {
+  .rules {
+    .hero {
+      padding: 18px;
+
+      .hero-content {
+        h1 {
+          font-size: 26px;
+        }
+
+        .meta {
+          .meta-item {
+            min-width: 120px;
+          }
+        }
+      }
+    }
+
+    .footer-card {
+      align-items: flex-start;
+    }
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .hero,
-  .rule-card,
-  .notice,
-  .footer-card {
-    animation: none;
+  .rules {
+    .hero,
+    .rule-card,
+    .notice,
+    .footer-card {
+      animation: none;
+    }
   }
 }
 </style>
