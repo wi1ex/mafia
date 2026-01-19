@@ -312,7 +312,7 @@
              @pointerdown.self="knockModalArmed = true" @pointerup.self="knockModalArmed && closeKnockModal()"
              @pointerleave.self="knockModalArmed = false" @pointercancel.self="knockModalArmed = false">
           <div class="knock-modal" @click.stop>
-            <span class="knock-title">Сколько раз хотите постучать?</span>
+            <span>Какое число хотите отстучать?</span>
             <div class="knock-grid">
               <button v-for="n in knockOptions" :key="n" type="button" @click="selectKnockCount(n)" :disabled="knockSending">{{ n }}</button>
             </div>
@@ -1462,7 +1462,7 @@ socket.value?.on('connect', async () => {
   socket.value.on('game_winked', (p: any) => {
     const seat = Number(p?.from_seat || 0)
     if (seat > 0) {
-      void alertDialog(`${seat}й игрок подмигнул Вам`)
+      void alertDialog(`${seat}й игрок подмигнул`)
     } else {
       void alertDialog('Игрок подмигнул Вам')
     }
@@ -1472,11 +1472,11 @@ socket.value?.on('connect', async () => {
     const seat = Number(p?.from_seat || 0)
     const count = Number(p?.count || 0)
     if (seat > 0 && count > 0) {
-      void alertDialog(`${seat}й игрок постучал вам ${count} раз`)
+      void alertDialog(`${seat}й игрок отстучал ${count}`)
     } else if (seat > 0) {
-      void alertDialog(`${seat}й игрок постучал вам`)
+      void alertDialog(`${seat}й игрок отстучал`)
     } else {
-      void alertDialog('Игрок постучал вам')
+      void alertDialog('Игрок отстучал вам')
     }
   })
 
@@ -2582,13 +2582,6 @@ onBeforeUnmount(() => {
       }
     }
   }
-
-
-
-
-
-
-
   .knock-overlay {
     display: flex;
     position: fixed;
@@ -2596,55 +2589,46 @@ onBeforeUnmount(() => {
     justify-content: center;
     inset: 0;
     background-color: rgba($black, 0.75);
-    z-index: 950;
+    z-index: 900;
     .knock-modal {
       display: flex;
       flex-direction: column;
-      gap: 15px;
-      width: 320px;
-      padding: 20px;
-      border-radius: 6px;
+      padding: 30px;
+      gap: 20px;
+      width: 400px;
+      border-radius: 5px;
       background-color: $dark;
-      border: 2px solid $lead;
-      box-shadow: 3px 3px 6px rgba($black, 0.3);
-    }
-    .knock-title {
-      text-align: center;
-      font-size: 16px;
-      font-family: Manrope-Medium;
-      color: $fg;
-    }
-    .knock-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(40px, 1fr));
-      gap: 10px;
-      button {
-        height: 36px;
-        border: none;
-        border-radius: 5px;
-        background-color: $graphite;
-        color: $fg;
-        font-size: 16px;
-        font-family: Manrope-Medium;
-        cursor: pointer;
-        transition: background-color 0.2s ease-in-out;
-        &:hover:enabled {
-          background-color: $lead;
-        }
-        &:disabled {
-          cursor: default;
-          opacity: 0.6;
+      box-shadow: 3px 3px 5px rgba($black, 0.25);
+      span {
+        text-align: center;
+        font-size: 20px;
+      }
+      .knock-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(20px, 1fr));
+        gap: 20px;
+        button {
+          padding: 0;
+          height: 40px;
+          border: none;
+          border-radius: 5px;
+          background-color: $graphite;
+          color: $fg;
+          font-size: 16px;
+          font-family: Manrope-Medium;
+          cursor: pointer;
+          transition: background-color 0.25s ease-in-out;
+          &:hover:enabled {
+            background-color: $lead;
+          }
+          &:disabled {
+            cursor: default;
+            opacity: 0.5;
+          }
         }
       }
     }
   }
-
-
-
-
-
-
-
   .role-preload {
     position: absolute;
     inset: 0;

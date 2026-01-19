@@ -370,7 +370,7 @@ const timelineDurationSec = computed(() => {
       bottom: 40px;
     }
     &.knock {
-      bottom: 75px;
+      left: 40px;
     }
     &.finish {
       inset: 0;
@@ -802,6 +802,12 @@ const timelineDurationSec = computed(() => {
       }
       &.right {
         right: 3px;
+      }
+      &.wink {
+        bottom: 26px;
+      }
+      &.knock {
+        left: 26px;
       }
     }
     .head-bar {
