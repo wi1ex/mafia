@@ -2,19 +2,19 @@
   <header class="bar">
     <div class="links">
       <router-link class="btn" :to="{ name: 'home' }" aria-label="DECEIT.games">
-        <span>deceit.games v0.8.5b</span>
+        <span data-nosnippet>deceit.games v0.8.5b</span>
 <!--        <span>deceit.games {{ BUILD }}</span>-->
       </router-link>
       <router-link v-if="user.user?.role === 'admin'" class="btn" :to="{ name: 'admin' }" aria-label="Админ-панель">
-        <span>Админ-панель</span>
+        <span data-nosnippet>Админ-панель</span>
       </router-link>
       <a class="btn" href="https://t.me/tribute/app?startapp=dCvc" target="_blank" rel="noopener noreferrer" aria-label="Поддержать">
-        <img :src="iconCard" alt="card" />
-        <span>Поддержать</span>
+        <img :src="iconCard" alt="" aria-hidden="true" />
+        <span data-nosnippet>Поддержать</span>
       </a>
       <button v-if="showInstall" class="btn" type="button" @click="openInstall" :aria-expanded="installOpen" aria-haspopup="dialog" aria-label="Установить">
-        <img :src="iconInstall" alt="install" />
-        <span>Установить</span>
+        <img :src="iconInstall" alt="" aria-hidden="true" />
+        <span data-nosnippet>Установить</span>
       </button>
     </div>
 

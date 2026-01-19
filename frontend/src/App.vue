@@ -1,7 +1,7 @@
 <template>
   <Header v-if="!isRoom" />
   <div class="rotate-overlay">
-    <div class="rotate-box">Поверните устройство</div>
+    <div class="rotate-box" data-nosnippet>Поверните устройство</div>
   </div>
   <router-view />
   <Confirms />
