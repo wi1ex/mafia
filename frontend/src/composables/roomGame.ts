@@ -2180,6 +2180,10 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   async function winkTarget(targetUserId: string, sendAck: SendAckFn): Promise<boolean> {
     const uidNum = Number(targetUserId)
     if (!uidNum) return false
+    if (gamePhase.value === 'idle' || !winkKnockAllowedPhase()) {
+      void alertDialog('Сейчас не фаза дня')
+      return false
+    }
     const resp = await sendAck('game_wink', { user_id: uidNum })
     if (!resp?.ok) {
       const code = resp?.error
@@ -2209,6 +2213,10 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   async function knockTarget(targetUserId: string, count: number, sendAck: SendAckFn): Promise<boolean> {
     const uidNum = Number(targetUserId)
     if (!uidNum) return false
+    if (gamePhase.value === 'idle' || !winkKnockAllowedPhase()) {
+      void alertDialog('Сейчас не фаза дня')
+      return false
+    }
     const resp = await sendAck('game_knock', { user_id: uidNum, count })
     if (!resp?.ok) {
       const code = resp?.error
