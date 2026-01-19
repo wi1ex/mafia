@@ -244,10 +244,9 @@ onBeforeUnmount(() => {
 
 <style scoped lang="scss">
 .rules {
-  padding: 20px 10px 40px;
   line-height: 1.5;
-  user-select: text;
-  color: $fg;
+  width: 60%;
+  margin: auto;
 
   [id] {
     scroll-margin-top: 90px;
@@ -269,7 +268,7 @@ onBeforeUnmount(() => {
 
   .rules-toc {
     position: sticky;
-    top: 80px;
+    top: 60px;
     align-self: start;
 
     .toc-card {
@@ -296,8 +295,8 @@ onBeforeUnmount(() => {
       gap: 6px;
 
       a {
-        padding: 6px 8px;
-        border-radius: 6px;
+        padding: 5px 15px;
+        border-radius: 5px;
         border: 1px solid transparent;
         background-color: $dark;
         color: $fg;
@@ -315,7 +314,7 @@ onBeforeUnmount(() => {
           background-color: $lead;
           border-color: $orange;
           color: $white;
-          box-shadow: inset 3px 0 0 $orange;
+          box-shadow: inset 8px 0 0 $orange;
         }
       }
     }
@@ -463,7 +462,7 @@ onBeforeUnmount(() => {
 
   .rules-grid {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(1, minmax(0, 1fr));
     gap: 16px;
 
     .rule-card {
@@ -552,7 +551,7 @@ onBeforeUnmount(() => {
     gap: 16px;
     align-items: center;
     justify-content: space-between;
-    padding: 20px;
+    padding: 20px 20px 400px;
     border-radius: 12px;
     background-color: $graphite;
     border: 1px solid $grey;
