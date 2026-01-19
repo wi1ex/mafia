@@ -2,6 +2,7 @@ User-agent: *
 Allow: /
 Disallow: /admin
 Disallow: /profile
+Disallow: /rules
 Disallow: /room
 Disallow: /api
 Disallow: /ws

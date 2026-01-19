@@ -5,6 +5,9 @@
         <span data-nosnippet>deceit.games v0.8.5b</span>
 <!--        <span>deceit.games {{ BUILD }}</span>-->
       </router-link>
+      <router-link class="btn" :to="{ name: 'rules' }" aria-label="Правила">
+        <img :src="iconInfo" alt="" aria-hidden="true" />
+      </router-link>
       <router-link v-if="user.user?.role === 'admin'" class="btn" :to="{ name: 'admin' }" aria-label="Админ-панель">
         <span data-nosnippet>Админ-панель</span>
       </router-link>
@@ -14,7 +17,6 @@
       </a>
       <button v-if="showInstall" class="btn" type="button" @click="openInstall" :aria-expanded="installOpen" aria-haspopup="dialog" aria-label="Установить">
         <img :src="iconInstall" alt="" aria-hidden="true" />
-        <span data-nosnippet>Установить</span>
       </button>
     </div>
 
@@ -30,7 +32,7 @@
     <div v-else class="user">
       <div class="bell" ref="updatesEl">
         <button @click.stop="onToggleUpdates" :aria-expanded="updates_open" aria-label="Обновления">
-          <img :src="iconInfo" alt="updates" />
+          <img :src="iconUpdates" alt="updates" />
           <span v-if="updates.unread > 0">{{ updates.unread < 100 ? updates.unread : '∞' }}</span>
         </button>
         <Updates
@@ -88,6 +90,7 @@ import AppModal from '@/components/AppModal.vue'
 import defaultAvatar from "@/assets/svg/defaultAvatar.svg"
 import iconNotifBell from "@/assets/svg/notifBell.svg"
 import iconInfo from "@/assets/svg/info.svg"
+import iconUpdates from "@/assets/svg/updates.svg"
 import iconCard from "@/assets/svg/card.svg"
 import iconInstall from "@/assets/svg/install.svg"
 import iconLogout from '@/assets/svg/leave.svg'

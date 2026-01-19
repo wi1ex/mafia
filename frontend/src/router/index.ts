@@ -11,6 +11,12 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/pages/Home.vue'),
   },
   {
+    path: '/rules',
+    name: 'rules',
+    component: () => import('@/pages/Rules.vue'),
+    meta: { title: 'Правила', robots: 'noindex, nofollow' },
+  },
+  {
     path: '/profile',
     name: 'profile',
     component: () => import('@/pages/Profile.vue'),
