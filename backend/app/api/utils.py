@@ -75,6 +75,7 @@ def serialize_game_for_redis(game_dict: Dict[str, Any]) -> Dict[str, str]:
         "break_at_zero": "1" if raw_bool(game_dict.get("break_at_zero"), True) else "0",
         "lift_at_zero": "1" if raw_bool(game_dict.get("lift_at_zero"), True) else "0",
         "lift_3x": "1" if raw_bool(game_dict.get("lift_3x"), True) else "0",
+        "wink_knock": "1" if raw_bool(game_dict.get("wink_knock"), True) else "0",
     }
 
 
@@ -96,6 +97,7 @@ def game_from_redis_to_model(raw_game: Dict[str, Any]) -> GameParams:
         break_at_zero=raw_bool(raw_game.get("break_at_zero"), True),
         lift_at_zero=raw_bool(raw_game.get("lift_at_zero"), True),
         lift_3x=raw_bool(raw_game.get("lift_3x"), True),
+        wink_knock=raw_bool(raw_game.get("wink_knock"), True),
     )
 
 
@@ -150,6 +152,8 @@ def game_settings_out(row) -> GameSettingsOut:
         player_foul_seconds=int(row.player_foul_seconds),
         night_action_seconds=int(row.night_action_seconds),
         vote_seconds=int(row.vote_seconds),
+        winks_limit=int(row.winks_limit),
+        knocks_limit=int(row.knocks_limit),
     )
 
 
@@ -449,6 +453,7 @@ def parse_room_game_params(game: dict | None) -> dict[str, Any]:
         "break_at_zero": raw_bool(game.get("break_at_zero"), True),
         "lift_at_zero": raw_bool(game.get("lift_at_zero"), True),
         "lift_3x": raw_bool(game.get("lift_3x"), True),
+        "wink_knock": raw_bool(game.get("wink_knock"), True),
     }
 
 

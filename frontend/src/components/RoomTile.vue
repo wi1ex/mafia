@@ -8,6 +8,14 @@
     </div>
 
     <img v-if="hasVoted" class="icon-voted" :src="iconLikeGreen" alt="voted" />
+    <button v-if="showKnock" class="icon-badge button left knock" @click="$emit('knock', id)" aria-label="Постучать">
+      <img :src="iconKnock" alt="knock" />
+      <span>{{ knocksLeft }}</span>
+    </button>
+    <button v-if="showWink" class="icon-badge button left wink" @click="$emit('wink', id)" aria-label="Подмигнуть">
+      <img :src="iconWink" alt="wink" />
+      <span>{{ winksLeft }}</span>
+    </button>
     <button v-if="inGame && seat != null && !isGameHead && !isDead(id)" class="icon-badge button left" @click="$emit('foul', id)" :disabled="!isHead" aria-label="Выдать фол">
       <img :src="iconFoul" alt="foul" />
       <span>{{ foulsCount }}</span>
@@ -124,6 +132,8 @@ import iconLikeBlack from '@/assets/svg/likeBlack.svg'
 import iconCheck from '@/assets/svg/check.svg'
 import iconKill from '@/assets/svg/kill.svg'
 import iconCloseCircle from '@/assets/svg/closeCircle.svg'
+import iconWink from '@/assets/svg/wink.svg'
+import iconKnock from '@/assets/svg/knock.svg'
 
 type IconKind = 'mic' | 'cam' | 'speakers' | 'visibility' | 'screen'
 
@@ -168,6 +178,10 @@ const props = withDefaults(defineProps<{
   visibilityHiddenAvatar?: string
   inGame?: boolean
   foulsCount?: number
+  winksLeft?: number
+  knocksLeft?: number
+  showWink?: boolean
+  showKnock?: boolean
   phaseLabel?: string
   showNominate?: boolean
   showUnnominate?: boolean
@@ -213,6 +227,10 @@ const props = withDefaults(defineProps<{
   finishRoleBadge: false,
   inGame: false,
   foulsCount: 0,
+  winksLeft: 0,
+  knocksLeft: 0,
+  showWink: false,
+  showKnock: false,
   phaseLabel: '',
   showNominate: false,
   showUnnominate: false,
@@ -248,6 +266,8 @@ defineEmits<{
   (e: 'vote', id: string): void
   (e: 'shoot', id: string): void
   (e: 'check', id: string): void
+  (e: 'wink', id: string): void
+  (e: 'knock', id: string): void
   (e: 'farewell', verdict: 'citizen' | 'mafia', id: string): void
   (e: 'best-move', id: string): void
 }>()
@@ -345,6 +365,12 @@ const timelineDurationSec = computed(() => {
     }
     &.right {
       right: 5px;
+    }
+    &.wink {
+      bottom: 40px;
+    }
+    &.knock {
+      bottom: 75px;
     }
     &.finish {
       inset: 0;

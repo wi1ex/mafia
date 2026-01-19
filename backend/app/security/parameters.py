@@ -25,6 +25,8 @@ class AppSettingsSnapshot:
     player_foul_seconds: int
     night_action_seconds: int
     vote_seconds: int
+    winks_limit: int
+    knocks_limit: int
 
 
 _CACHE: Optional[AppSettingsSnapshot] = None
@@ -48,6 +50,8 @@ def _defaults() -> AppSettingsSnapshot:
         player_foul_seconds=core_settings.PLAYER_FOUL_SECONDS,
         night_action_seconds=core_settings.NIGHT_ACTION_SECONDS,
         vote_seconds=core_settings.VOTE_SECONDS,
+        winks_limit=core_settings.WINKS_LIMIT,
+        knocks_limit=core_settings.KNOCKS_LIMIT,
     )
 
 
@@ -69,6 +73,8 @@ def _snapshot_from_row(row: AppSettings) -> AppSettingsSnapshot:
         player_foul_seconds=int(row.player_foul_seconds),
         night_action_seconds=int(row.night_action_seconds),
         vote_seconds=int(row.vote_seconds),
+        winks_limit=int(row.winks_limit),
+        knocks_limit=int(row.knocks_limit),
     )
 
 
@@ -103,6 +109,8 @@ async def ensure_app_settings(session: AsyncSession) -> AppSettings:
             player_foul_seconds=defaults.player_foul_seconds,
             night_action_seconds=defaults.night_action_seconds,
             vote_seconds=defaults.vote_seconds,
+            winks_limit=defaults.winks_limit,
+            knocks_limit=defaults.knocks_limit,
         )
         session.add(row)
         await session.commit()

@@ -1059,6 +1059,27 @@ async def game_start(sid, data) -> GameStartAck:
             return {"ok": True, "status": 200, "room_id": rid, "can_start": True, "min_ready": min_ready}
 
         try:
+            raw_game = await r.hgetall(f"room:{rid}:game")
+        except Exception:
+            raw_game = {}
+        wink_knock = game_flag(raw_game, "wink_knock", True)
+        try:
+            winks_limit = int(app_settings.winks_limit)
+        except Exception:
+            winks_limit = 0
+        try:
+            knocks_limit = int(app_settings.knocks_limit)
+        except Exception:
+            knocks_limit = 0
+        if winks_limit < 0:
+            winks_limit = 0
+        if knocks_limit < 0:
+            knocks_limit = 0
+        if not wink_knock:
+            winks_limit = 0
+            knocks_limit = 0
+
+        try:
             await sio.emit("game_starting",
                            {"room_id": rid, "delay_ms": 1000},
                            room=f"room:{rid}",
@@ -1115,9 +1136,13 @@ async def game_start(sid, data) -> GameStartAck:
                     f"room:{rid}:game_checked:sheriff",
                     f"room:{rid}:game_farewell_wills",
                     f"room:{rid}:game_farewell_limits",
+                    f"room:{rid}:game_winks_left",
+                    f"room:{rid}:game_knocks_left",
                 )
                 await p.sadd(f"room:{rid}:game_players", *player_ids)
                 await p.sadd(f"room:{rid}:game_alive", *player_ids)
+                await p.hset(f"room:{rid}:game_winks_left", mapping={pid: str(winks_limit) for pid in player_ids})
+                await p.hset(f"room:{rid}:game_knocks_left", mapping={pid: str(knocks_limit) for pid in player_ids})
             await p.delete(f"room:{rid}:ready")
             await p.execute()
 
@@ -1143,6 +1168,9 @@ async def game_start(sid, data) -> GameStartAck:
             "min_ready": min_ready,
             "seats": {k: int(v) for k, v in seats.items()},
             "bgm_seed": bgm_seed,
+            "wink_knock": wink_knock,
+            "winks_limit": winks_limit,
+            "knocks_limit": knocks_limit,
         }
 
         await sio.emit("game_started",
@@ -2147,6 +2175,189 @@ async def game_foul_set(sid, data):
 
     except Exception:
         log.exception("sio.game_foul_set.error", sid=sid, data=bool(data))
+        return {"ok": False, "error": "internal", "status": 500}
+
+
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_wink:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
+@sio.event(namespace="/room")
+async def game_wink(sid, data):
+    try:
+        data = data or {}
+        ctx, err = await require_ctx(sid)
+        if err:
+            return err
+
+        uid = ctx.uid
+        rid = ctx.rid
+        r = ctx.r
+        if ctx.phase == "idle":
+            return {"ok": False, "error": "no_game", "status": 400}
+
+        target_uid = int(data.get("user_id") or 0)
+        if not target_uid:
+            return {"ok": False, "error": "bad_request", "status": 400}
+
+        if target_uid == uid:
+            return {"ok": False, "error": "self_target", "status": 400}
+
+        try:
+            raw_game = await r.hgetall(f"room:{rid}:game")
+        except Exception:
+            raw_game = {}
+        if not game_flag(raw_game, "wink_knock", True):
+            return {"ok": False, "error": "feature_disabled", "status": 403}
+
+        err = await ctx.ensure_player()
+        if err:
+            return err
+
+        err = await ctx.ensure_player(target_uid, error="target_not_alive", status=404)
+        if err:
+            return err
+
+        if not await r.sismember(f"room:{rid}:members", str(target_uid)):
+            return {"ok": False, "error": "target_offline", "status": 404}
+
+        try:
+            left_raw = await r.hget(f"room:{rid}:game_winks_left", str(uid))
+            left = int(left_raw or 0)
+        except Exception:
+            left = 0
+
+        if left <= 0:
+            return {"ok": False, "error": "limit_reached", "status": 409}
+
+        try:
+            left_after = int(await r.hincrby(f"room:{rid}:game_winks_left", str(uid), -1))
+        except Exception:
+            log.exception("game_wink.decr_failed", rid=rid, uid=uid)
+            return {"ok": False, "error": "internal", "status": 500}
+
+        if left_after < 0:
+            left_after = 0
+            await r.hset(f"room:{rid}:game_winks_left", str(uid), "0")
+
+        try:
+            seat_num = int(await r.hget(f"room:{rid}:game_seats", str(uid)) or 0)
+        except Exception:
+            seat_num = 0
+
+        await sio.emit("game_winked",
+                       {"room_id": rid, "from_seat": seat_num},
+                       room=f"user:{target_uid}",
+                       namespace="/room")
+
+        return {"ok": True, "status": 200, "winks_left": left_after}
+
+    except Exception:
+        log.exception("sio.game_wink.error", sid=sid, data=bool(data))
+        return {"ok": False, "error": "internal", "status": 500}
+
+
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_knock:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
+@sio.event(namespace="/room")
+async def game_knock(sid, data):
+    try:
+        data = data or {}
+        ctx, err = await require_ctx(sid)
+        if err:
+            return err
+
+        uid = ctx.uid
+        rid = ctx.rid
+        r = ctx.r
+        if ctx.phase == "idle":
+            return {"ok": False, "error": "no_game", "status": 400}
+
+        target_uid = int(data.get("user_id") or 0)
+        if not target_uid:
+            return {"ok": False, "error": "bad_request", "status": 400}
+
+        if target_uid == uid:
+            return {"ok": False, "error": "self_target", "status": 400}
+
+        count = int(data.get("count") or 0)
+        if count <= 0:
+            return {"ok": False, "error": "bad_count", "status": 400}
+
+        try:
+            raw_game = await r.hgetall(f"room:{rid}:game")
+        except Exception:
+            raw_game = {}
+        if not game_flag(raw_game, "wink_knock", True):
+            return {"ok": False, "error": "feature_disabled", "status": 403}
+
+        err = await ctx.ensure_player()
+        if err:
+            return err
+
+        err = await ctx.ensure_player(target_uid, error="target_not_alive", status=404)
+        if err:
+            return err
+
+        if not await r.sismember(f"room:{rid}:members", str(target_uid)):
+            return {"ok": False, "error": "target_offline", "status": 404}
+
+        raw_seats = await r.hgetall(f"room:{rid}:game_seats")
+        total_seats = 0
+        for v in (raw_seats or {}).values():
+            try:
+                seat_num = int(v or 0)
+            except Exception:
+                continue
+            if seat_num and seat_num != 11 and seat_num > total_seats:
+                total_seats = seat_num
+
+        if total_seats <= 0:
+            total_seats = get_cached_settings().game_min_ready_players
+
+        if count > total_seats:
+            return {"ok": False, "error": "bad_count", "status": 400}
+
+        try:
+            seat_actor = int(raw_seats.get(str(uid)) or 0)
+        except Exception:
+            seat_actor = 0
+        try:
+            seat_target = int(raw_seats.get(str(target_uid)) or 0)
+        except Exception:
+            seat_target = 0
+        if not seat_actor or not seat_target:
+            return {"ok": False, "error": "bad_seat", "status": 400}
+
+        left_seat = seat_actor - 1 if seat_actor > 1 else total_seats
+        right_seat = seat_actor + 1 if seat_actor < total_seats else 1
+        if seat_target not in (left_seat, right_seat):
+            return {"ok": False, "error": "not_neighbor", "status": 400}
+
+        try:
+            left_raw = await r.hget(f"room:{rid}:game_knocks_left", str(uid))
+            left = int(left_raw or 0)
+        except Exception:
+            left = 0
+
+        if left <= 0:
+            return {"ok": False, "error": "limit_reached", "status": 409}
+
+        try:
+            left_after = int(await r.hincrby(f"room:{rid}:game_knocks_left", str(uid), -1))
+        except Exception:
+            log.exception("game_knock.decr_failed", rid=rid, uid=uid)
+            return {"ok": False, "error": "internal", "status": 500}
+
+        if left_after < 0:
+            left_after = 0
+            await r.hset(f"room:{rid}:game_knocks_left", str(uid), "0")
+
+        await sio.emit("game_knocked",
+                       {"room_id": rid, "from_seat": seat_actor, "count": count},
+                       room=f"user:{target_uid}",
+                       namespace="/room")
+
+        return {"ok": True, "status": 200, "knocks_left": left_after}
+
+    except Exception:
+        log.exception("sio.game_knock.error", sid=sid, data=bool(data))
         return {"ok": False, "error": "internal", "status": 500}
 
 

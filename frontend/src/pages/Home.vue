@@ -110,6 +110,10 @@
                   <span>{{ game.nominate_mode === 'head' ? 'От ведущего' : 'От игроков' }}</span>
                 </div>
                 <div class="ri-game-div">
+                  <span>Подмигивание/Стук</span>
+                  <span>{{ game.wink_knock ? 'Вкл' : 'Откл' }}</span>
+                </div>
+                <div class="ri-game-div">
                   <span>Слом в нуле</span>
                   <span>{{ game.break_at_zero ? 'Вкл' : 'Откл' }}</span>
                 </div>
@@ -194,6 +198,7 @@ type Game = {
   break_at_zero: boolean
   lift_at_zero: boolean
   lift_3x: boolean
+  wink_knock: boolean
 }
 type Access = 'approved'|'pending'|'none'
 

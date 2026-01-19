@@ -145,6 +145,9 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   const daySpeechTimerId = ref<number | null>(null)
   const daySpeechesDone = ref(false)
   const foulActive = reactive(new Set<string>())
+  const winkKnockEnabled = ref(true)
+  const winksLeft = ref(0)
+  const knocksLeft = ref(0)
   const dayNominees = reactive<string[]>([])
   const nominatedThisSpeechByMe = ref(false)
   const headNominationWindowOpen = ref(false)
@@ -247,6 +250,16 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     return result
   })
   const hasOfflineAlivePlayers = computed(() => offlineAliveSeatNumbers.value.length > 0)
+
+  const playerSeatCount = computed(() => {
+    let maxSeat = 0
+    for (const seat of Object.values(seatsByUser)) {
+      if (Number.isFinite(seat) && seat && seat !== 11 && seat > maxSeat) maxSeat = seat
+    }
+    if (maxSeat > 0) return maxSeat
+    const fallback = Number(minReadyToStart.value)
+    return Number.isFinite(fallback) && fallback > 0 ? fallback : 0
+  })
 
   const headPickKind = computed<'shoot' | 'check' | ''>(() => {
     if (!isHead.value) return ''
@@ -864,6 +877,13 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     return Number.isFinite(s) && s > 0 ? s : null
   }
 
+  function neighborSeats(seat: number, total: number): number[] {
+    if (!seat || total <= 1) return []
+    const left = seat > 1 ? seat - 1 : total
+    const right = seat < total ? seat + 1 : 1
+    return [left, right]
+  }
+
   function seatIconBySeat(seat: number | null | undefined): string {
     if (!seat) return ''
     switch (seat) {
@@ -1080,6 +1100,11 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   function applyFromJoinAck(join: any, snapshotIds?: string[]) {
     const gr = join?.game_runtime || {}
     nominateMode.value = normalizeNominateMode((gr as any).nominate_mode)
+    if ('wink_knock' in (gr as any)) winkKnockEnabled.value = isTrueLike((gr as any).wink_knock)
+    const winks = Number((gr as any).winks_left)
+    if (Number.isFinite(winks) && winks >= 0) winksLeft.value = Math.floor(winks)
+    const knocks = Number((gr as any).knocks_left)
+    if (Number.isFinite(knocks) && knocks >= 0) knocksLeft.value = Math.floor(knocks)
     const mr = Number(gr.min_ready)
     syncFarewellWills(join?.farewell_wills ?? (gr as any).farewell_wills)
     syncFarewellLimits(join?.farewell_limits ?? (gr as any).farewell_limits)
@@ -1377,6 +1402,15 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     offlineInGame.clear()
     deathReasonByUser.clear()
     gamePhase.value = (payload?.phase as GamePhase) || 'roles_pick'
+    if ('wink_knock' in (payload || {})) {
+      winkKnockEnabled.value = isTrueLike((payload as any).wink_knock)
+    }
+    const winksLimit = Number((payload as any)?.winks_limit)
+    if (Number.isFinite(winksLimit) && winksLimit >= 0) winksLeft.value = Math.floor(winksLimit)
+    else if (Number.isFinite(settings.winksLimit) && settings.winksLimit >= 0) winksLeft.value = Math.floor(settings.winksLimit)
+    const knocksLimit = Number((payload as any)?.knocks_limit)
+    if (Number.isFinite(knocksLimit) && knocksLimit >= 0) knocksLeft.value = Math.floor(knocksLimit)
+    else if (Number.isFinite(settings.knocksLimit) && settings.knocksLimit >= 0) knocksLeft.value = Math.floor(settings.knocksLimit)
     if (payload?.min_ready != null) {
       const v = Number(payload.min_ready)
       if (Number.isFinite(v) && v > 0) minReadyToStart.value = v
@@ -1420,6 +1454,8 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     offlineInGame.clear()
     gameFoulsByUser.clear()
     deathReasonByUser.clear()
+    winksLeft.value = 0
+    knocksLeft.value = 0
     revotePromptCandidate.value = ''
     return roleBeforeEnd
   }
@@ -2084,6 +2120,37 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     return true
   }
 
+  function canWinkTarget(targetId: string): boolean {
+    if (gameFinished.value) return false
+    if (!winkKnockEnabled.value) return false
+    if (gamePhase.value === 'idle') return false
+    if (myGameRole.value !== 'player') return false
+    if (!amIAlive.value) return false
+    if (winksLeft.value <= 0) return false
+    if (!targetId || targetId === localId.value) return false
+    if (!gameAlive.has(targetId)) return false
+    return !offlineInGame.has(targetId)
+  }
+
+  function canKnockTarget(targetId: string): boolean {
+    if (gameFinished.value) return false
+    if (!winkKnockEnabled.value) return false
+    if (gamePhase.value === 'idle') return false
+    if (myGameRole.value !== 'player') return false
+    if (!amIAlive.value) return false
+    if (knocksLeft.value <= 0) return false
+    if (!targetId || targetId === localId.value) return false
+    if (!gameAlive.has(targetId)) return false
+    if (offlineInGame.has(targetId)) return false
+    const mySeat = seatIndex(localId.value)
+    const targetSeat = seatIndex(targetId)
+    if (!mySeat || !targetSeat) return false
+    const total = playerSeatCount.value
+    if (total <= 1) return false
+    const [left, right] = neighborSeats(mySeat, total)
+    return targetSeat === left || targetSeat === right
+  }
+
   async function shootTarget(targetUserId: string, sendAck: SendAckFn): Promise<void> {
     const uidNum = Number(targetUserId)
     if (!uidNum) return
@@ -2099,6 +2166,62 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       myNightCheckTarget.value = targetUserId
       ensureKnownRolesVisible()
     }
+  }
+
+  async function winkTarget(targetUserId: string, sendAck: SendAckFn): Promise<boolean> {
+    const uidNum = Number(targetUserId)
+    if (!uidNum) return false
+    const resp = await sendAck('game_wink', { user_id: uidNum })
+    if (!resp?.ok) {
+      const code = resp?.error
+      const st = resp?.status
+      if (st === 403 && code === 'not_alive') {
+        void alertDialog('Вы не являетесь живым игроком')
+      } else if (st === 403 && code === 'feature_disabled') {
+        void alertDialog('Подмигивания и стуки отключены в этой комнате')
+      } else if (st === 404 && code === 'target_not_alive') {
+        void alertDialog('Игрок уже выбыл из игры')
+      } else if (st === 404 && code === 'target_offline') {
+        void alertDialog('Игрок не в комнате')
+      } else if (st === 409 && code === 'limit_reached') {
+        void alertDialog('Лимит подмигиваний исчерпан')
+      } else {
+        void alertDialog('Не удалось подмигнуть')
+      }
+      return false
+    }
+    const left = Number((resp as any).winks_left)
+    if (Number.isFinite(left) && left >= 0) winksLeft.value = Math.floor(left)
+    return true
+  }
+
+  async function knockTarget(targetUserId: string, count: number, sendAck: SendAckFn): Promise<boolean> {
+    const uidNum = Number(targetUserId)
+    if (!uidNum) return false
+    const resp = await sendAck('game_knock', { user_id: uidNum, count })
+    if (!resp?.ok) {
+      const code = resp?.error
+      const st = resp?.status
+      if (st === 403 && code === 'not_alive') {
+        void alertDialog('Вы не являетесь живым игроком')
+      } else if (st === 403 && code === 'feature_disabled') {
+        void alertDialog('Подмигивания и стуки отключены в этой комнате')
+      } else if (st === 404 && code === 'target_not_alive') {
+        void alertDialog('Игрок уже выбыл из игры')
+      } else if (st === 404 && code === 'target_offline') {
+        void alertDialog('Игрок не в комнате')
+      } else if (st === 409 && code === 'limit_reached') {
+        void alertDialog('Лимит постукиваний исчерпан')
+      } else if (st === 400 && code === 'not_neighbor') {
+        void alertDialog('Можно постучать только соседу')
+      } else {
+        void alertDialog('Не удалось постучать')
+      }
+      return false
+    }
+    const left = Number((resp as any).knocks_left)
+    if (Number.isFinite(left) && left >= 0) knocksLeft.value = Math.floor(left)
+    return true
   }
 
   async function startNightShoot(sendAck: SendAckFn): Promise<void> {
@@ -2786,6 +2909,10 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     phaseLabel,
     gameFinished,
     isCurrentSpeaker,
+    winkKnockEnabled,
+    winksLeft,
+    knocksLeft,
+    playerSeatCount,
     canShowStartDay,
     canStartDay,
     canShowFinishSpeechHead,
@@ -2824,8 +2951,12 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     effectiveRoleIconForTile,
     canShootTarget,
     canCheckTarget,
+    canWinkTarget,
+    canKnockTarget,
     shootTarget,
     checkTarget,
+    winkTarget,
+    knockTarget,
     startNightShoot,
     startNightChecks,
     startBestMove,

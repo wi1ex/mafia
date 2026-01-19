@@ -119,7 +119,6 @@
             </div>
 
             <div class="block">
-              <h3>Роли и ночь</h3>
               <div class="ui-input" :class="{ filled: Number.isFinite(game.game_min_ready_players) }">
                 <input id="game-min-ready" v-model.number="game.game_min_ready_players" type="number" min="1" step="1"
                        placeholder=" " autocomplete="off" inputmode="numeric" :disabled="savingSettings" />
@@ -140,10 +139,14 @@
                        placeholder=" " autocomplete="off" inputmode="numeric" :disabled="savingSettings" />
                 <label for="night-action-seconds">Отстрелы и проверки (сек)</label>
               </div>
+              <div class="ui-input" :class="{ filled: Number.isFinite(game.vote_seconds) }">
+                <input id="vote-seconds" v-model.number="game.vote_seconds" type="number" min="1" step="1"
+                       placeholder=" " autocomplete="off" inputmode="numeric" :disabled="savingSettings" />
+                <label for="vote-seconds">Голосование (сек)</label>
+              </div>
             </div>
 
             <div class="block">
-              <h3>День и голосование</h3>
               <div class="ui-input" :class="{ filled: Number.isFinite(game.player_talk_seconds) }">
                 <input id="player-talk-seconds" v-model.number="game.player_talk_seconds" type="number" min="1" step="1"
                        placeholder=" " autocomplete="off" inputmode="numeric" :disabled="savingSettings" />
@@ -159,10 +162,15 @@
                        placeholder=" " autocomplete="off" inputmode="numeric" :disabled="savingSettings" />
                 <label for="player-foul-seconds">Фол (сек)</label>
               </div>
-              <div class="ui-input" :class="{ filled: Number.isFinite(game.vote_seconds) }">
-                <input id="vote-seconds" v-model.number="game.vote_seconds" type="number" min="1" step="1"
+              <div class="ui-input" :class="{ filled: Number.isFinite(game.winks_limit) }">
+                <input id="winks-limit" v-model.number="game.winks_limit" type="number" min="0" step="1"
                        placeholder=" " autocomplete="off" inputmode="numeric" :disabled="savingSettings" />
-                <label for="vote-seconds">Голосование (сек)</label>
+                <label for="winks-limit">Подмигивания (шт)</label>
+              </div>
+              <div class="ui-input" :class="{ filled: Number.isFinite(game.knocks_limit) }">
+                <input id="knocks-limit" v-model.number="game.knocks_limit" type="number" min="0" step="1"
+                       placeholder=" " autocomplete="off" inputmode="numeric" :disabled="savingSettings" />
+                <label for="knocks-limit">Постукивания (шт)</label>
               </div>
             </div>
 
@@ -748,6 +756,8 @@ type GameSettings = {
   player_foul_seconds: number
   night_action_seconds: number
   vote_seconds: number
+  winks_limit: number
+  knocks_limit: number
 }
 
 type RegistrationPoint = {
@@ -913,6 +923,8 @@ const game = reactive<GameSettings>({
   player_foul_seconds: 4,
   night_action_seconds: 10,
   vote_seconds: 3,
+  winks_limit: 3,
+  knocks_limit: 3,
 })
 
 const settingsStore = useSettingsStore()
@@ -1035,6 +1047,8 @@ function snapshotGame(): string {
     player_foul_seconds: normalizeInt(game.player_foul_seconds),
     night_action_seconds: normalizeInt(game.night_action_seconds),
     vote_seconds: normalizeInt(game.vote_seconds),
+    winks_limit: normalizeInt(game.winks_limit),
+    knocks_limit: normalizeInt(game.knocks_limit),
   })
 }
 
@@ -1213,6 +1227,8 @@ async function saveSettings(): Promise<void> {
         player_foul_seconds: normalizeInt(game.player_foul_seconds),
         night_action_seconds: normalizeInt(game.night_action_seconds),
         vote_seconds: normalizeInt(game.vote_seconds),
+        winks_limit: normalizeInt(game.winks_limit),
+        knocks_limit: normalizeInt(game.knocks_limit),
       },
     }
     const { data } = await api.patch('/admin/settings', payload)
@@ -1227,6 +1243,8 @@ async function saveSettings(): Promise<void> {
       games_can_start: site.games_can_start,
       streams_can_start: site.streams_can_start,
       game_min_ready_players: game.game_min_ready_players,
+      winks_limit: game.winks_limit,
+      knocks_limit: game.knocks_limit,
     })
     void alertDialog('Настройки сохранены')
   } catch {

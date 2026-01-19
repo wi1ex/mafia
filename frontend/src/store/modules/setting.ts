@@ -9,6 +9,8 @@ export interface PublicSettings {
   games_can_start: boolean
   streams_can_start: boolean
   game_min_ready_players: number
+  winks_limit: number
+  knocks_limit: number
 }
 
 export const useSettingsStore = defineStore('settings', () => {
@@ -18,6 +20,8 @@ export const useSettingsStore = defineStore('settings', () => {
   const gamesCanStart = ref(true)
   const streamsCanStart = ref(true)
   const gameMinReadyPlayers = ref(4)
+  const winksLimit = ref(0)
+  const knocksLimit = ref(0)
   const ready = ref(false)
   let inited = false
   let onSettingsEv: ((e: any) => void) | null = null
@@ -30,6 +34,10 @@ export const useSettingsStore = defineStore('settings', () => {
     streamsCanStart.value = Boolean(data.streams_can_start)
     const minReady = Number(data.game_min_ready_players)
     if (Number.isFinite(minReady) && minReady > 0) gameMinReadyPlayers.value = minReady
+    const winks = Number(data.winks_limit)
+    if (Number.isFinite(winks) && winks >= 0) winksLimit.value = winks
+    const knocks = Number(data.knocks_limit)
+    if (Number.isFinite(knocks) && knocks >= 0) knocksLimit.value = knocks
   }
 
   async function fetchPublic(): Promise<void> {
@@ -56,6 +64,8 @@ export const useSettingsStore = defineStore('settings', () => {
     gamesCanStart,
     streamsCanStart,
     gameMinReadyPlayers,
+    winksLimit,
+    knocksLimit,
     ready,
 
     fetchPublic,

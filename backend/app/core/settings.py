@@ -47,6 +47,8 @@ class Settings(BaseSettings):
     PLAYER_FOUL_SECONDS: int = 4
     NIGHT_ACTION_SECONDS: int = 10
     VOTE_SECONDS: int = 3
+    WINKS_LIMIT: int = 3
+    KNOCKS_LIMIT: int = 3
 
     @property
     def pg_dsn(self) -> str:

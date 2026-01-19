@@ -93,6 +93,17 @@
               </div>
 
               <div class="switch">
+                <span class="switch-label">Подмигивание/Стук:</span>
+                <label>
+                  <input type="checkbox" v-model="game.wink_knock" aria-label="Подмигивание/Стук" />
+                  <div class="slider">
+                    <span>Откл</span>
+                    <span>Вкл</span>
+                  </div>
+                </label>
+              </div>
+
+              <div class="switch">
                 <span class="switch-label">Слом в нуле:</span>
                 <label>
                   <input type="checkbox" v-model="game.break_at_zero" aria-label="Слом в нуле" />
@@ -205,6 +216,7 @@ type Game = {
   break_at_zero: boolean
   lift_at_zero: boolean
   lift_3x: boolean
+  wink_knock: boolean
 }
 const gameDefault: Game = {
   mode: 'normal',
@@ -214,6 +226,7 @@ const gameDefault: Game = {
   break_at_zero: true,
   lift_at_zero: true,
   lift_3x: true,
+  wink_knock: true,
 }
 const initialGame: Game = (() => {
   try {
@@ -232,6 +245,7 @@ const initialGame: Game = (() => {
       : (typeof parsed.lift_2x_at_zero === 'boolean' ? parsed.lift_2x_at_zero : undefined)
     if (typeof liftAtZero === 'boolean') merged.lift_at_zero = liftAtZero
     if (typeof parsed.lift_3x === 'boolean') merged.lift_3x = parsed.lift_3x
+    if (typeof parsed.wink_knock === 'boolean') merged.wink_knock = parsed.wink_knock
     return merged
   } catch { return gameDefault }
 })()

@@ -52,6 +52,10 @@
           :day-speech-owner-id="game.daySpeech.currentId"
           :day-speech-remaining-ms="game.daySpeech.remainingMs"
           :fouls-count="gameFoulsByUser.get(id) ?? 0"
+          :winks-left="winksLeft"
+          :knocks-left="knocksLeft"
+          :show-wink="game.canWinkTarget(id)"
+          :show-knock="game.canKnockTarget(id)"
           :phase-label="phaseLabel"
           :night-owner-id="headUserId"
           :night-remaining-ms="night.remainingMs"
@@ -79,6 +83,8 @@
           @block="(key, uid) => toggleBlock(uid, key)"
           @kick="kickUser"
           @foul="onGiveFoul"
+          @wink="onWink"
+          @knock="openKnockModal"
           @nominate="onNominate"
           @unnominate="onUnnominate"
           @vote="onVote"
@@ -143,6 +149,10 @@
             :day-speech-owner-id="game.daySpeech.currentId"
             :day-speech-remaining-ms="game.daySpeech.remainingMs"
             :fouls-count="gameFoulsByUser.get(id) ?? 0"
+            :winks-left="winksLeft"
+            :knocks-left="knocksLeft"
+            :show-wink="game.canWinkTarget(id)"
+            :show-knock="game.canKnockTarget(id)"
             :phase-label="phaseLabel"
             :night-owner-id="headUserId"
             :night-remaining-ms="night.remainingMs"
@@ -170,6 +180,8 @@
             @block="(key, uid) => toggleBlock(uid, key)"
             @kick="kickUser"
             @foul="onGiveFoul"
+            @wink="onWink"
+            @knock="openKnockModal"
             @nominate="onNominate"
             @unnominate="onUnnominate"
             @vote="onVote"
@@ -291,6 +303,19 @@
                 </div>
               </div>
             </button>
+          </div>
+        </div>
+      </Transition>
+
+      <Transition name="knock-modal">
+        <div v-if="knockModalOpen" class="knock-overlay" role="dialog" aria-modal="true"
+             @pointerdown.self="knockModalArmed = true" @pointerup.self="knockModalArmed && closeKnockModal()"
+             @pointerleave.self="knockModalArmed = false" @pointercancel.self="knockModalArmed = false">
+          <div class="knock-modal" @click.stop>
+            <span class="knock-title">Сколько раз хотите постучать?</span>
+            <div class="knock-grid">
+              <button v-for="n in knockOptions" :key="n" type="button" @click="selectKnockCount(n)" :disabled="knockSending">{{ n }}</button>
+            </div>
           </div>
         </div>
       </Transition>
@@ -429,6 +454,9 @@ const {
   gameFinished,
   currentFarewellSpeech,
   isCurrentSpeaker,
+  winksLeft,
+  knocksLeft,
+  playerSeatCount,
   canShowStartDay,
   canStartDay,
   canShowFinishSpeechHead,
@@ -514,6 +542,15 @@ const isSpectatorInGame = computed(() => {
   if (!id || gamePhase.value === 'idle') return false
   return !seatsByUser[id]
 })
+const knockModalOpen = ref(false)
+const knockModalTargetId = ref<string>('')
+const knockModalArmed = ref(false)
+const knockSending = ref(false)
+const knockOptions = computed(() => {
+  const total = Number(playerSeatCount.value)
+  if (!Number.isFinite(total) || total <= 0) return []
+  return Array.from({ length: total }, (_, i) => i + 1)
+})
 
 const gameStartOverlayVisible = ref(false)
 const gameEndOverlayVisible = ref(false)
@@ -551,6 +588,19 @@ function hiddenByVisibility(id: string): boolean {
 function visOffAvatar(id: string): string {
   if (!hiddenByVisibility(id)) return ''
   return gamePhase.value === 'idle' ? iconVisOff : iconSleepPlayer
+}
+
+function closeKnockModal() {
+  knockModalOpen.value = false
+  knockModalTargetId.value = ''
+  knockModalArmed.value = false
+}
+
+function openKnockModal(targetId: string) {
+  if (!game.canKnockTarget(targetId)) return
+  knockModalTargetId.value = targetId
+  knockModalOpen.value = true
+  knockModalArmed.value = false
 }
 
 const readyCount = computed(() => {
@@ -738,6 +788,17 @@ watch(bgmShouldPlay, (on) => {
   rtc.setBgmPlaying(on)
 }, { immediate: true })
 
+const canKeepKnockModal = computed(() => {
+  if (!knockModalOpen.value) return false
+  const targetId = knockModalTargetId.value
+  if (!targetId) return false
+  return game.canKnockTarget(targetId)
+})
+
+watch(canKeepKnockModal, (ok) => {
+  if (!ok && knockModalOpen.value) closeKnockModal()
+})
+
 const speechGongAudio = new Audio(gongAudioUrl)
 speechGongAudio.preload = 'auto'
 
@@ -806,6 +867,20 @@ const onGiveFoul = (targetId: string) => game.giveFoul(targetId, sendAckGame)
 const startBestMoveUi = () => game.startBestMove(sendAckGame)
 const startDayFromNightUi = () => game.startDayFromNight(sendAckGame)
 const startDayUi = () => game.startDay(sendAckGame)
+const onWink = (targetId: string) => { void game.winkTarget(targetId, sendAckGame) }
+
+async function selectKnockCount(count: number) {
+  if (knockSending.value) return
+  const targetId = knockModalTargetId.value
+  if (!targetId) return
+  knockSending.value = true
+  try {
+    const ok = await game.knockTarget(targetId, count, sendAckGame)
+    if (ok) closeKnockModal()
+  } finally {
+    knockSending.value = false
+  }
+}
 
 const foulPending = ref(false)
 async function takeFoulUi() {
@@ -1382,6 +1457,27 @@ socket.value?.on('connect', async () => {
 
   socket.value.on('game_fouls', (p: any) => {
     game.handleGameFouls(p)
+  })
+
+  socket.value.on('game_winked', (p: any) => {
+    const seat = Number(p?.from_seat || 0)
+    if (seat > 0) {
+      void alertDialog(`${seat}й игрок подмигнул Вам`)
+    } else {
+      void alertDialog('Игрок подмигнул Вам')
+    }
+  })
+
+  socket.value.on('game_knocked', (p: any) => {
+    const seat = Number(p?.from_seat || 0)
+    const count = Number(p?.count || 0)
+    if (seat > 0 && count > 0) {
+      void alertDialog(`${seat}й игрок постучал вам ${count} раз`)
+    } else if (seat > 0) {
+      void alertDialog(`${seat}й игрок постучал вам`)
+    } else {
+      void alertDialog('Игрок постучал вам')
+    }
   })
 
   socket.value.on('game_nominee_added', (p: any) => {
@@ -2486,6 +2582,69 @@ onBeforeUnmount(() => {
       }
     }
   }
+
+
+
+
+
+
+
+  .knock-overlay {
+    display: flex;
+    position: fixed;
+    align-items: center;
+    justify-content: center;
+    inset: 0;
+    background-color: rgba($black, 0.75);
+    z-index: 950;
+    .knock-modal {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      width: 320px;
+      padding: 20px;
+      border-radius: 6px;
+      background-color: $dark;
+      border: 2px solid $lead;
+      box-shadow: 3px 3px 6px rgba($black, 0.3);
+    }
+    .knock-title {
+      text-align: center;
+      font-size: 16px;
+      font-family: Manrope-Medium;
+      color: $fg;
+    }
+    .knock-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(40px, 1fr));
+      gap: 10px;
+      button {
+        height: 36px;
+        border: none;
+        border-radius: 5px;
+        background-color: $graphite;
+        color: $fg;
+        font-size: 16px;
+        font-family: Manrope-Medium;
+        cursor: pointer;
+        transition: background-color 0.2s ease-in-out;
+        &:hover:enabled {
+          background-color: $lead;
+        }
+        &:disabled {
+          cursor: default;
+          opacity: 0.6;
+        }
+      }
+    }
+  }
+
+
+
+
+
+
+
   .role-preload {
     position: absolute;
     inset: 0;
@@ -2499,6 +2658,15 @@ onBeforeUnmount(() => {
       height: 0;
     }
   }
+}
+
+.knock-modal-enter-active,
+.knock-modal-leave-active {
+  transition: opacity 0.25s ease-in-out;
+}
+.knock-modal-enter-from,
+.knock-modal-leave-to {
+  opacity: 0;
 }
 
 .fade-enter-active,

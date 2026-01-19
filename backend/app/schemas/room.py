@@ -27,6 +27,7 @@ class GameParams(BaseModel):
     break_at_zero: bool = Field(default=True)
     lift_at_zero: bool = Field(default=True)
     lift_3x: bool = Field(default=True)
+    wink_knock: bool = Field(default=True)
 
 
 class RoomCreateIn(BaseModel):

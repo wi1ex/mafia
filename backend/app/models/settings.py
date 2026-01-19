@@ -25,3 +25,5 @@ class AppSettings(Base):
     player_foul_seconds: Mapped[int] = mapped_column(Integer, nullable=False, server_default=str(settings.PLAYER_FOUL_SECONDS))
     night_action_seconds: Mapped[int] = mapped_column(Integer, nullable=False, server_default=str(settings.NIGHT_ACTION_SECONDS))
     vote_seconds: Mapped[int] = mapped_column(Integer, nullable=False, server_default=str(settings.VOTE_SECONDS))
+    winks_limit: Mapped[int] = mapped_column(Integer, nullable=False, server_default=str(settings.WINKS_LIMIT))
+    knocks_limit: Mapped[int] = mapped_column(Integer, nullable=False, server_default=str(settings.KNOCKS_LIMIT))

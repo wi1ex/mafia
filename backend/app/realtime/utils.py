@@ -3389,6 +3389,19 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
     if nominate_mode not in ("players", "head"):
         nominate_mode = "players"
 
+    wink_knock = game_flag(raw_game, "wink_knock", True)
+    winks_left = 0
+    knocks_left = 0
+    if phase != "idle" and wink_knock:
+        try:
+            winks_left = int(await r.hget(f"room:{rid}:game_winks_left", str(uid)) or 0)
+        except Exception:
+            winks_left = 0
+        try:
+            knocks_left = int(await r.hget(f"room:{rid}:game_knocks_left", str(uid)) or 0)
+        except Exception:
+            knocks_left = 0
+
     game_runtime: dict[str, Any] = {
         "phase": phase,
         "min_ready": get_cached_settings().game_min_ready_players,
@@ -3397,6 +3410,9 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
         "alive": list(alive_set),
         "bgm_seed": ctx.gint("bgm_seed"),
         "nominate_mode": nominate_mode,
+        "wink_knock": wink_knock,
+        "winks_left": winks_left,
+        "knocks_left": knocks_left,
     }
 
     finished = ctx.gbool("game_finished")
@@ -3775,6 +3791,8 @@ async def perform_game_end(ctx, sess: Optional[dict[str, Any]], *, confirm: bool
             f"room:{rid}:game_checked:sheriff",
             f"room:{rid}:game_farewell_wills",
             f"room:{rid}:game_farewell_limits",
+            f"room:{rid}:game_winks_left",
+            f"room:{rid}:game_knocks_left",
         )
         await p.execute()
 

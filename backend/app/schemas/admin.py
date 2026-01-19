@@ -35,6 +35,8 @@ class GameSettingsOut(BaseModel):
     player_foul_seconds: int
     night_action_seconds: int
     vote_seconds: int
+    winks_limit: int
+    knocks_limit: int
 
 
 class GameSettingsUpdateIn(BaseModel):
@@ -46,6 +48,8 @@ class GameSettingsUpdateIn(BaseModel):
     player_foul_seconds: Optional[int] = Field(default=None, ge=1)
     night_action_seconds: Optional[int] = Field(default=None, ge=1)
     vote_seconds: Optional[int] = Field(default=None, ge=1)
+    winks_limit: Optional[int] = Field(default=None, ge=0)
+    knocks_limit: Optional[int] = Field(default=None, ge=0)
 
 
 class AdminSettingsOut(BaseModel):
@@ -65,6 +69,8 @@ class PublicSettingsOut(BaseModel):
     games_can_start: bool
     streams_can_start: bool
     game_min_ready_players: int
+    winks_limit: int
+    knocks_limit: int
 
 
 class RegistrationsPoint(BaseModel):

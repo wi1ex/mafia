@@ -67,6 +67,7 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
         "break_at_zero": bool(gp.break_at_zero),
         "lift_at_zero": bool(gp.lift_at_zero),
         "lift_3x": bool(gp.lift_3x),
+        "wink_knock": bool(gp.wink_knock),
     }
 
     room = Room(
