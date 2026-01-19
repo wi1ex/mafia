@@ -2124,6 +2124,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     if (gameFinished.value) return false
     if (!winkKnockEnabled.value) return false
     if (gamePhase.value === 'idle') return false
+    if (!winkKnockAllowedPhase()) return false
     if (myGameRole.value !== 'player') return false
     if (!amIAlive.value) return false
     if (winksLeft.value <= 0) return false
@@ -2136,6 +2137,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     if (gameFinished.value) return false
     if (!winkKnockEnabled.value) return false
     if (gamePhase.value === 'idle') return false
+    if (!winkKnockAllowedPhase()) return false
     if (myGameRole.value !== 'player') return false
     if (!amIAlive.value) return false
     if (knocksLeft.value <= 0) return false
@@ -2149,6 +2151,13 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     if (total <= 1) return false
     const [left, right] = neighborSeats(mySeat, total)
     return targetSeat === left || targetSeat === right
+  }
+
+  function winkKnockAllowedPhase(): boolean {
+    if (gamePhase.value === 'roles_pick') return false
+    if (gamePhase.value === 'mafia_talk_start') return false
+    if (gamePhase.value === 'mafia_talk_end') return false
+    return gamePhase.value !== 'night'
   }
 
   async function shootTarget(targetUserId: string, sendAck: SendAckFn): Promise<void> {
@@ -2175,7 +2184,9 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     if (!resp?.ok) {
       const code = resp?.error
       const st = resp?.status
-      if (st === 403 && code === 'not_alive') {
+      if (st === 400 && code === 'bad_phase') {
+        void alertDialog('Сейчас не фаза дня')
+      } else if (st === 403 && code === 'not_alive') {
         void alertDialog('Вы не являетесь живым игроком')
       } else if (st === 403 && code === 'feature_disabled') {
         void alertDialog('Подмигивания и стуки отключены в этой комнате')
@@ -2202,7 +2213,9 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     if (!resp?.ok) {
       const code = resp?.error
       const st = resp?.status
-      if (st === 403 && code === 'not_alive') {
+      if (st === 400 && code === 'bad_phase') {
+        void alertDialog('Сейчас не фаза дня')
+      } else if (st === 403 && code === 'not_alive') {
         void alertDialog('Вы не являетесь живым игроком')
       } else if (st === 403 && code === 'feature_disabled') {
         void alertDialog('Подмигивания и стуки отключены в этой комнате')

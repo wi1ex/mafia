@@ -867,7 +867,16 @@ const onGiveFoul = (targetId: string) => game.giveFoul(targetId, sendAckGame)
 const startBestMoveUi = () => game.startBestMove(sendAckGame)
 const startDayFromNightUi = () => game.startDayFromNight(sendAckGame)
 const startDayUi = () => game.startDay(sendAckGame)
-const onWink = (targetId: string) => { void game.winkTarget(targetId, sendAckGame) }
+const onWink = async (targetId: string) => {
+  const ok = await confirmDialog({
+    title: 'Подмигивание',
+    text: 'Вы хотите подмигнуть игроку?',
+    confirmText: 'Подмигнуть',
+    cancelText: 'Отмена',
+  })
+  if (!ok) return
+  void game.winkTarget(targetId, sendAckGame)
+}
 
 async function selectKnockCount(count: number) {
   if (knockSending.value) return

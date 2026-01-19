@@ -514,7 +514,7 @@ async def bg_restore(sid, data):
 @sio.event(namespace="/room")
 async def self_state(sid, data):
     try:
-        ctx, err = await require_ctx(sid)
+        ctx, err = await require_ctx(sid, allowed_phases=("day", "vote", "idle"))
         if err:
             return err
 
@@ -784,7 +784,7 @@ async def kick(sid, data):
 async def game_leave(sid, data):
     try:
         sess = await sio.get_session(sid, namespace="/room")
-        ctx, err = await require_ctx(sid)
+        ctx, err = await require_ctx(sid, allowed_phases=("day", "vote", "idle"))
         if err:
             return err
 
