@@ -181,7 +181,8 @@ const tocLinks: TocItem[] = [
 
 const activeId = ref(tocLinks[0]?.id ?? '')
 const lastId = tocLinks[tocLinks.length - 1]?.id ?? ''
-let observer: IntersectionObserver | null = null
+let rafId = 0
+let sectionEls: HTMLElement[] = []
 
 function setActive(id: string) {
   if (id && activeId.value !== id) activeId.value = id
@@ -198,48 +199,56 @@ function onTocClick(event: MouseEvent, id: string) {
   history.replaceState(null, '', `#${id}`)
 }
 
-function observeSections() {
-  const targets = tocLinks.map(item => document.getElementById(item.id)).filter((el): el is HTMLElement => Boolean(el))
-  if (!targets.length) return
-
-  observer = new IntersectionObserver((entries) => {
-    const visible = entries.filter(entry => entry.isIntersecting)
-    if (!visible.length) return
-    visible.sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)
-    const top = visible[0].target as HTMLElement
-    setActive(top.id)
-  }, {
-    rootMargin: '-30% 0px -60% 0px',
-    threshold: 0,
-  })
-
-  targets.forEach(el => observer?.observe(el))
+function collectSections() {
+  sectionEls = tocLinks
+    .map(item => document.getElementById(item.id))
+    .filter((el): el is HTMLElement => Boolean(el))
 }
 
-function onScrollFallback() {
+function updateActiveFromScroll() {
+  if (!sectionEls.length) return
   if (!lastId) return
+  const cutoff = 120
+  let current = sectionEls[0].id
+  for (const el of sectionEls) {
+    if (el.getBoundingClientRect().top - cutoff <= 0) {
+      current = el.id
+    } else {
+      break
+    }
+  }
   const scrollBottom = window.scrollY + window.innerHeight
   const docHeight = document.documentElement.scrollHeight
-  if (scrollBottom >= docHeight - 4) setActive(lastId)
+  if (scrollBottom >= docHeight - 4) current = lastId
+  setActive(current)
+}
+
+function onScroll() {
+  if (rafId) return
+  rafId = window.requestAnimationFrame(() => {
+    rafId = 0
+    updateActiveFromScroll()
+  })
 }
 
 onMounted(() => {
-  observeSections()
+  collectSections()
   if (window.location.hash) {
     history.replaceState(null, '', `${window.location.pathname}${window.location.search}`)
   }
   window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
   setActive(tocLinks[0]?.id ?? '')
-  onScrollFallback()
-  window.addEventListener('scroll', onScrollFallback, { passive: true })
-  window.addEventListener('resize', onScrollFallback)
+  updateActiveFromScroll()
+  window.addEventListener('scroll', onScroll, { passive: true })
+  window.addEventListener('resize', onScroll)
 })
 
 onBeforeUnmount(() => {
-  observer?.disconnect()
-  observer = null
-  window.removeEventListener('scroll', onScrollFallback)
-  window.removeEventListener('resize', onScrollFallback)
+  if (rafId) window.cancelAnimationFrame(rafId)
+  rafId = 0
+  sectionEls = []
+  window.removeEventListener('scroll', onScroll)
+  window.removeEventListener('resize', onScroll)
 })
 </script>
 
