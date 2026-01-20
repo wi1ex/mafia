@@ -729,27 +729,27 @@
                     </div>
                   </td>
                   <td>
-                    <button class="btn danger" :disabled="usersRoleBusy[row.id]" @click="toggleUserRole(row)">
+                    <button class="btn" :class="row.role === 'admin' ? 'dark' : 'danger'" :disabled="usersRoleBusy[row.id]" @click="toggleUserRole(row)">
                       <img class="btn-img" :src="row.role === 'admin' ? iconClose : iconJudge" alt="" />
                     </button>
                   </td>
                   <td>
-                    <button class="btn danger" :disabled="usersDeleteBusy[row.id]" @click="toggleDeleteAccount(row)">
+                    <button class="btn" :class="row.deleted_at ? 'dark' : 'danger'" :disabled="usersDeleteBusy[row.id]" @click="toggleDeleteAccount(row)">
                       <img class="btn-img" :src="row.deleted_at ? iconClose : iconJudge" alt="" />
                     </button>
                   </td>
                   <td>
-                    <button class="btn danger" :disabled="isSanctionBusy(row.id, 'suspend')" @click="toggleSuspend(row)">
+                    <button class="btn" :class="row.suspend_active ? 'dark' : 'danger'" :disabled="isSanctionBusy(row.id, 'suspend')" @click="toggleSuspend(row)">
                       <img class="btn-img" :src="row.suspend_active ? iconClose : iconJudge" alt="" />
                     </button>
                   </td>
                   <td>
-                    <button class="btn danger" :disabled="isSanctionBusy(row.id, 'timeout')" @click="toggleTimeout(row)">
+                    <button class="btn" :class="row.timeout_active ? 'dark' : 'danger'" :disabled="isSanctionBusy(row.id, 'timeout')" @click="toggleTimeout(row)">
                       <img class="btn-img" :src="row.timeout_active ? iconClose : iconJudge" alt="" />
                     </button>
                   </td>
                   <td>
-                    <button class="btn danger" :disabled="isSanctionBusy(row.id, 'ban')" @click="toggleBan(row)">
+                    <button class="btn" :class="row.ban_active ? 'dark' : 'danger'" :disabled="isSanctionBusy(row.id, 'ban')" @click="toggleBan(row)">
                       <img class="btn-img" :src="row.ban_active ? iconClose : iconJudge" alt="" />
                     </button>
                   </td>
