@@ -1,6 +1,7 @@
 from __future__ import annotations
 from datetime import datetime, timezone
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import APIRouter, HTTPException, Depends, Response, Request, status
@@ -24,19 +25,23 @@ router = APIRouter()
 @log_route("auth.telegram")
 @router.post("/telegram", response_model=AccessTokenOut)
 async def telegram(payload: TelegramAuthIn, resp: Response, request: Request, db: AsyncSession = Depends(get_session)) -> AccessTokenOut:
-    if not get_cached_settings().registration_enabled:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="registration_disabled")
-
     data_for_sig = payload.model_dump(exclude_none=True, exclude={"accept_rules"})
     if not verify_telegram_auth(data_for_sig):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid telegram auth")
 
     new_user = False
-    uid = int(payload.id)
-    user = (await db.execute(select(User).where(User.id == uid))).scalar_one_or_none()
+    user_id = int(payload.id)
+    user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
     if user and user.deleted_at:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="user_deleted")
-    if not user:
+
+    if user:
+        username = user.username
+        role = user.role
+    else:
+        if not get_cached_settings().registration_enabled:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="registration_disabled")
+
         if payload.accept_rules is not True:
             raise HTTPException(status_code=status.HTTP_428_PRECONDITION_REQUIRED, detail="rules_required")
 
@@ -44,27 +49,31 @@ async def telegram(payload: TelegramAuthIn, resp: Response, request: Request, db
         base_username = (payload.username or "")[:20]
         if base_username:
             exists = await db.scalar(select(1).where(User.username == base_username).limit(1))
-            username = base_username if not exists else f"user{uid}"
+            username = base_username if not exists else f"user{user_id}"
         else:
-            username = f"user{uid}"
+            username = f"user{user_id}"
 
         filename = None
         if payload.photo_url:
             photo = await download_telegram_photo(payload.photo_url)
             if photo:
                 content, ct = photo
-                filename = put_avatar(uid, content, ct)
+                filename = put_avatar(user_id, content, ct)
 
-        user = User(id=uid, username=username, role="user", avatar_name=filename)
+        role = "user"
+        user = User(id=user_id, username=username, role=role, avatar_name=filename)
         db.add(user)
 
         try:
             await db.commit()
         except IntegrityError:
             await db.rollback()
-            user = (await db.execute(select(User).where(User.id == uid))).scalar_one_or_none()
+            user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
             if user:
                 new_user = False
+                user_id = user.id
+                username = user.username
+                role = user.role
             else:
                 raise
 
@@ -74,8 +83,10 @@ async def telegram(payload: TelegramAuthIn, resp: Response, request: Request, db
                 ids = [int(r[0]) for r in rows.all() if r and r[0] is not None]
                 if ids:
                     now = datetime.now(timezone.utc)
-                    for upd_id in ids:
-                        db.add(UpdateRead(user_id=uid, update_id=upd_id, read_at=now))
+                    values = [{"user_id": user_id, "update_id": upd_id, "read_at": now} for upd_id in ids]
+                    stmt = insert(UpdateRead).values(values)
+                    stmt = stmt.on_conflict_do_nothing(index_elements=["user_id", "update_id"])
+                    await db.execute(stmt)
                     await db.commit()
             except Exception:
                 await db.rollback()
@@ -86,14 +97,14 @@ async def telegram(payload: TelegramAuthIn, resp: Response, request: Request, db
 
     await log_action(
         db,
-        user_id=user.id,
-        username=user.username,
+        user_id=user_id,
+        username=username,
         action=action,
-        details=f"Вход пользователя: user_id={user.id} username={user.username}",
+        details=f"Вход пользователя: user_id={user_id} username={username}",
     )
 
-    access_token, sid = await new_login_session(resp, user_id=user.id, username=user.username, role=user.role)
-    await touch_user_last_login(db, user.id)
+    access_token, sid = await new_login_session(resp, user_id=user_id, username=username, role=role)
+    await touch_user_last_login(db, user_id)
     return AccessTokenOut(access_token=access_token, sid=sid, is_new=new_user)
 
 
@@ -104,18 +115,18 @@ async def refresh(resp: Response, request: Request, db: AsyncSession = Depends(g
     if not raw:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="No refresh cookie")
 
-    ok, uid, sid = await rotate_refresh(resp, raw_refresh_jwt=raw)
+    ok, user_id, sid = await rotate_refresh(resp, raw_refresh_jwt=raw)
     if not ok:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh")
 
-    user = (await db.execute(select(User).where(User.id == uid))).scalar_one_or_none()
+    user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unknown user")
     if user.deleted_at:
-        await sess_logout(resp, user_id=uid, sid=sid or None)
+        await sess_logout(resp, user_id=user_id, sid=sid or None)
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="user_deleted")
 
-    access_token = create_access_token(sub=uid, username=user.username, role=user.role, sid=sid or "", ttl_minutes=settings.ACCESS_EXP_MIN)
+    access_token = create_access_token(sub=user_id, username=user.username, role=user.role, sid=sid or "", ttl_minutes=settings.ACCESS_EXP_MIN)
     return AccessTokenOut(access_token=access_token, sid=sid or "")
 
 
@@ -124,9 +135,9 @@ async def refresh(resp: Response, request: Request, db: AsyncSession = Depends(g
 async def logout(resp: Response, request: Request) -> Ok:
     raw = request.cookies.get("rt")
     if raw:
-        ok, uid, sid, _ = parse_refresh_token(raw)
+        ok, user_id, sid, _ = parse_refresh_token(raw)
         if ok:
-            await sess_logout(resp, user_id=uid, sid=sid or None)
+            await sess_logout(resp, user_id=user_id, sid=sid or None)
             return Ok()
 
     resp.delete_cookie("rt", path="/api", domain=settings.DOMAIN, samesite="strict", secure=True)
