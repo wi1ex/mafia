@@ -59,6 +59,17 @@
             <span class="hint"><code>латиница, кириллица, цифры, символы ()._-</code></span>
           </div>
 
+          <div class="block">
+            <h3>Удаление аккаунта</h3>
+            <div class="danger-row">
+              <p class="danger-text">Удаление произойдет навсегда без возможности восстановления.</p>
+              <button class="btn danger" @click="deleteAccount" :disabled="deleteBusy">
+                <img class="btn-img" :src="iconDelete" alt="delete" />
+                {{ deleteBusy ? '...' : 'Удалить аккаунт' }}
+              </button>
+            </div>
+          </div>
+
           <div v-if="crop.show" ref="modalEl" class="modal" @keydown.esc="cancelCrop" tabindex="0" aria-modal="true" aria-label="Кадрирование аватара" >
             <div class="modal-body">
               <canvas ref="canvasEl" @mousedown="dragStart" @mousemove="dragMove" @mouseup="dragStop" @mouseleave="dragStop" @wheel.passive="onWheel" />
@@ -88,7 +99,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { api, refreshAccessTokenFull } from '@/services/axios'
-import { useUserStore } from '@/store'
+import { useAuthStore, useUserStore } from '@/store'
 import { confirmDialog, alertDialog } from '@/services/confirm'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
@@ -97,6 +108,7 @@ import iconEdit from '@/assets/svg/edit.svg'
 import iconDelete from '@/assets/svg/delete.svg'
 
 const userStore = useUserStore()
+const auth = useAuthStore()
 const isBanned = computed(() => userStore.banActive)
 
 const me = reactive({ id: 0, username: '', avatar_name: null as string | null, role: '' })
@@ -148,6 +160,26 @@ async function saveNick() {
   } finally { busyNick.value = false }
 }
 
+async function deleteAccount() {
+  if (deleteBusy.value) return
+  const ok = await confirmDialog({
+    title: 'Удаление аккаунта',
+    text: 'Вы уверены что хотите навсегда удалить свой аккаунт?',
+    confirmText: 'Удалить',
+    cancelText: 'Отмена',
+  })
+  if (!ok) return
+  deleteBusy.value = true
+  try {
+    await api.delete('/users/account')
+    await auth.logout()
+  } catch {
+    void alertDialog('Не удалось удалить аккаунт')
+  } finally {
+    deleteBusy.value = false
+  }
+}
+
 type Crop = {
   show: boolean
   img?: HTMLImageElement
@@ -164,6 +196,7 @@ type Crop = {
 const crop = reactive<Crop>({ show: false, scale: 1, min: 0.5, max: 3, x: 0, y: 0, dragging: false, sx: 0, sy: 0, type: 'image/jpeg' })
 const canvasEl = ref<HTMLCanvasElement | null>(null)
 const busyAva = ref(false)
+const deleteBusy = ref(false)
 
 function clamp(v:number, lo:number, hi:number) { return Math.min(hi, Math.max(lo, v)) }
 
@@ -593,6 +626,17 @@ onBeforeUnmount(() => {
             font-size: 12px;
             color: $grey;
           }
+        }
+        .danger-row {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 10px;
+        }
+        .danger-text {
+          margin: 0;
+          color: $red;
+          font-size: 14px;
         }
         .hint {
           color: $grey;

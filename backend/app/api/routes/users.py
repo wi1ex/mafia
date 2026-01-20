@@ -5,7 +5,7 @@ from contextlib import suppress
 from typing import cast
 from sqlalchemy import select, update, exists, func, literal, and_
 from sqlalchemy.ext.asyncio import AsyncSession
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Response
 from ..utils import (
     broadcast_creator_rooms,
     SANCTION_TIMEOUT,
@@ -13,9 +13,12 @@ from ..utils import (
     SANCTION_SUSPEND,
     fetch_active_sanctions,
     ensure_profile_changes_allowed,
+    set_user_deleted,
+    force_logout_user,
 )
 from ...models.user import User
 from ...core.db import get_session
+from ...core.settings import settings
 from ...core.logging import log_action
 from ...security.auth_tokens import get_identity
 from ...security.decorators import log_route, rate_limited
@@ -155,4 +158,22 @@ async def delete_avatar(ident: Identity = Depends(get_identity), db: AsyncSessio
     )
 
     await broadcast_creator_rooms(uid, avatar="delete")
+    return Ok()
+
+
+@log_route("users.delete_account")
+@rate_limited(lambda ident, **_: f"rl:delete_account:{ident['id']}", limit=1, window_s=5)
+@router.delete("/account", response_model=Ok)
+async def delete_account(resp: Response, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> Ok:
+    uid = int(ident["id"])
+    await set_user_deleted(db, uid, deleted=True)
+    await log_action(
+        db,
+        user_id=uid,
+        username=ident["username"],
+        action="account_deleted",
+        details=f"Удаление аккаунта user_id={uid} username={ident['username']}",
+    )
+    await force_logout_user(uid)
+    resp.delete_cookie("rt", path="/api", domain=settings.DOMAIN, samesite="strict", secure=True)
     return Ok()

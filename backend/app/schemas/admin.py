@@ -189,6 +189,7 @@ class AdminUserOut(BaseModel):
     registered_at: datetime
     last_login_at: datetime
     last_visit_at: datetime
+    deleted_at: Optional[datetime] = None
     rooms_created: int
     room_minutes: int
     stream_minutes: int

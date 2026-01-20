@@ -171,7 +171,9 @@ export const useAuthStore = defineStore('auth', () => {
     } catch (e: any) {
       const st = e?.response?.status
       const detail = e?.response?.data?.detail
-      if (st === 403 && detail === 'registration_disabled') {
+      if (st === 403 && detail === 'user_deleted') {
+        void alertDialog('Авторизация невозможна: аккаунт удален')
+      } else if (st === 403 && detail === 'registration_disabled') {
         void alertDialog('Регистрация временно недоступна')
       } else {
         void alertDialog('Не удалось войти через Telegram')

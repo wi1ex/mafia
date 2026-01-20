@@ -661,11 +661,12 @@
                   <th>Зритель</th>
                   <th>Таймауты</th>
                   <th>Баны</th>
-                  <th>Ограничения</th>
+                  <th>Огранич.</th>
                   <th>Админка</th>
+                  <th>Аккаунт</th>
+                  <th>Огранич.</th>
                   <th>Таймаут</th>
                   <th>Бан</th>
-                  <th>Ограничение</th>
                 </tr>
               </thead>
               <tbody>
@@ -729,28 +730,32 @@
                   </td>
                   <td>
                     <button class="btn danger" :disabled="usersRoleBusy[row.id]" @click="toggleUserRole(row)">
-                      <img class="btn-img" :src="iconJudge" alt="judge" />
-                      {{ row.role === 'admin' ? 'Снять ADMIN' : 'Выдать ADMIN' }}
+                      <img class="btn-img" :src="row.role === 'admin' ? iconClose : iconJudge" alt="" />
                     </button>
                   </td>
                   <td>
-                    <button class="btn danger" :disabled="isSanctionBusy(row.id, 'timeout')" @click="toggleTimeout(row)">
-                      {{ row.timeout_active ? 'Снять таймаут' : 'Выдать таймаут' }}
-                    </button>
-                  </td>
-                  <td>
-                    <button class="btn danger" :disabled="isSanctionBusy(row.id, 'ban')" @click="toggleBan(row)">
-                      {{ row.ban_active ? 'Разбанить' : 'Забанить' }}
+                    <button class="btn danger" :disabled="usersDeleteBusy[row.id]" @click="toggleDeleteAccount(row)">
+                      <img class="btn-img" :src="row.deleted_at ? iconClose : iconJudge" alt="" />
                     </button>
                   </td>
                   <td>
                     <button class="btn danger" :disabled="isSanctionBusy(row.id, 'suspend')" @click="toggleSuspend(row)">
-                      {{ row.suspend_active ? 'Снять ограничение' : 'Выдать ограничение' }}
+                      <img class="btn-img" :src="row.suspend_active ? iconClose : iconJudge" alt="" />
+                    </button>
+                  </td>
+                  <td>
+                    <button class="btn danger" :disabled="isSanctionBusy(row.id, 'timeout')" @click="toggleTimeout(row)">
+                      <img class="btn-img" :src="row.timeout_active ? iconClose : iconJudge" alt="" />
+                    </button>
+                  </td>
+                  <td>
+                    <button class="btn danger" :disabled="isSanctionBusy(row.id, 'ban')" @click="toggleBan(row)">
+                      <img class="btn-img" :src="row.ban_active ? iconClose : iconJudge" alt="" />
                     </button>
                   </td>
                 </tr>
                 <tr v-if="users.length === 0">
-                  <td colspan="19" class="muted">Нет данных</td>
+                  <td colspan="20" class="muted">Нет данных</td>
                 </tr>
               </tbody>
             </table>
@@ -795,6 +800,7 @@ import UpdateModal from '@/components/UpdateModal.vue'
 import SanctionModal from '@/components/SanctionModal.vue'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
+import iconClose from '@/assets/svg/close.svg'
 import iconJudge from '@/assets/svg/judge.svg'
 import iconEdit from '@/assets/svg/edit.svg'
 import iconDelete from '@/assets/svg/delete.svg'
@@ -932,6 +938,7 @@ type UserRow = {
   registered_at: string
   last_login_at: string
   last_visit_at: string
+  deleted_at?: string | null
   rooms_created: number
   room_minutes: number
   stream_minutes: number
@@ -1081,6 +1088,7 @@ const usersPage = ref(1)
 const usersLimit = ref(20)
 const usersUser = ref('')
 const usersRoleBusy = reactive<Record<number, boolean>>({})
+const usersDeleteBusy = reactive<Record<number, boolean>>({})
 const usersSanctionBusy = reactive<Record<string, boolean>>({})
 const updates = ref<UpdateRow[]>([])
 const updateModalOpen = ref(false)
@@ -1722,6 +1730,31 @@ async function toggleUserRole(row: UserRow): Promise<void> {
     void alertDialog('Не удалось обновить роль пользователя')
   } finally {
     usersRoleBusy[row.id] = false
+  }
+}
+
+async function toggleDeleteAccount(row: UserRow): Promise<void> {
+  if (usersDeleteBusy[row.id]) return
+  const isDeleted = Boolean(row.deleted_at)
+  const userLabel = row.username ? `${row.username}` : `#${row.id}`
+  const ok = await confirmDialog({
+    title: isDeleted ? 'Восстановить аккаунт' : 'Удалить аккаунт',
+    text: isDeleted
+      ? `Восстановить доступ для ${userLabel}?`
+      : `Удаление аккаунта ${userLabel} произойдет навсегда без возможности восстановления.`,
+    confirmText: isDeleted ? 'Восстановить' : 'Удалить',
+    cancelText: 'Отмена',
+  })
+  if (!ok) return
+  usersDeleteBusy[row.id] = true
+  try {
+    const url = isDeleted ? `/admin/users/${row.id}/restore` : `/admin/users/${row.id}/delete`
+    await api.post(url)
+    await loadUsers()
+  } catch {
+    void alertDialog(isDeleted ? 'Не удалось восстановить аккаунт' : 'Не удалось удалить аккаунт')
+  } finally {
+    usersDeleteBusy[row.id] = false
   }
 }
 

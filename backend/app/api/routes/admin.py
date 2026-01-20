@@ -84,6 +84,8 @@ from ..utils import (
     build_admin_sanction_out,
     format_duration_parts,
     emit_sanctions_update,
+    set_user_deleted,
+    force_logout_user,
 )
 
 router = APIRouter()
@@ -91,6 +93,7 @@ router = APIRouter()
 LOG_ACTIONS_KNOWN = {
     "avatar_deleted",
     "avatar_updated",
+    "account_deleted",
     "game_end",
     "game_start",
     "login",
@@ -644,6 +647,7 @@ async def users_list(page: int = 1, limit: int = 20, username: str | None = None
             registered_at=u.registered_at,
             last_login_at=u.last_login_at,
             last_visit_at=u.last_visit_at,
+            deleted_at=u.deleted_at,
             rooms_created=created,
             room_minutes=room_seconds.get(uid, 0) // 60,
             stream_minutes=stream_seconds.get(uid, 0) // 60,
@@ -679,6 +683,23 @@ async def update_user_role(user_id: int, payload: AdminUserRoleIn, session: Asyn
     await session.refresh(user)
 
     return AdminUserRoleOut(id=cast(int, user.id), role=user.role)
+
+
+@log_route("admin.users.account_delete")
+@require_roles_deco("admin")
+@router.post("/users/{user_id}/delete", response_model=Ok)
+async def delete_user_account(user_id: int, session: AsyncSession = Depends(get_session)) -> Ok:
+    await set_user_deleted(session, int(user_id), deleted=True)
+    await force_logout_user(int(user_id))
+    return Ok()
+
+
+@log_route("admin.users.account_restore")
+@require_roles_deco("admin")
+@router.post("/users/{user_id}/restore", response_model=Ok)
+async def restore_user_account(user_id: int, session: AsyncSession = Depends(get_session)) -> Ok:
+    await set_user_deleted(session, int(user_id), deleted=False)
+    return Ok()
 
 
 @log_route("admin.users.timeout_add")

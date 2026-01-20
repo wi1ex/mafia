@@ -69,6 +69,8 @@ __all__ = [
     "emit_sanctions_update",
     "ensure_room_access_allowed",
     "ensure_profile_changes_allowed",
+    "set_user_deleted",
+    "force_logout_user",
     "check_sanctions_expired",
     "format_duration_parts",
 ]
@@ -221,6 +223,42 @@ async def ensure_profile_changes_allowed(db: AsyncSession, user_id: int) -> None
     active = await fetch_active_sanctions(db, int(user_id))
     if active.get(SANCTION_BAN):
         raise HTTPException(status_code=403, detail="user_banned")
+
+
+async def set_user_deleted(session: AsyncSession, user_id: int, *, deleted: bool) -> User:
+    user = await session.get(User, int(user_id))
+    if not user:
+        raise HTTPException(status_code=404, detail="user_not_found")
+
+    user = cast(User, user)
+
+    if deleted:
+        user.deleted_at = datetime.now(timezone.utc)
+    else:
+        user.deleted_at = None
+
+    await session.commit()
+    await session.refresh(user)
+
+    return user
+
+
+async def force_logout_user(user_id: int) -> None:
+    r = get_redis()
+    try:
+        sid = await r.get(f"user:{user_id}:sid")
+    except Exception:
+        sid = None
+    if sid:
+        try:
+            await r.delete(f"session:{sid}:rjti")
+            await r.delete(f"user:{user_id}:sid")
+        except Exception:
+            pass
+
+    with suppress(Exception):
+        await sio.emit("force_logout", {"reason": "account_deleted"}, room=f"user:{user_id}", namespace="/auth")
+        await sio.emit("force_logout", {"reason": "account_deleted"}, room=f"user:{user_id}", namespace="/room")
 
 
 def _parse_int(raw: Any) -> int:

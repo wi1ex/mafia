@@ -34,6 +34,8 @@ async def telegram(payload: TelegramAuthIn, resp: Response, request: Request, db
     new_user = False
     uid = int(payload.id)
     user = (await db.execute(select(User).where(User.id == uid))).scalar_one_or_none()
+    if user and user.deleted_at:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="user_deleted")
     if not user:
         new_user = True
         base_username = (payload.username or "")[:20]
@@ -106,6 +108,9 @@ async def refresh(resp: Response, request: Request, db: AsyncSession = Depends(g
     user = (await db.execute(select(User).where(User.id == uid))).scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unknown user")
+    if user.deleted_at:
+        await sess_logout(resp, user_id=uid, sid=sid or None)
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="user_deleted")
 
     access_token = create_access_token(sub=uid, username=user.username, role=user.role, sid=sid or "", ttl_minutes=settings.ACCESS_EXP_MIN)
     return AccessTokenOut(access_token=access_token, sid=sid or "")
