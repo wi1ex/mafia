@@ -13,6 +13,13 @@ from ...security.parameters import get_cached_settings
 from ...schemas.realtime import StateAck, ModerateAck, JoinAck, ScreenAck, GameStartAck, GameRolePickAck
 from ...services.livekit import make_livekit_token
 from ..utils import (
+    SANCTION_TIMEOUT,
+    SANCTION_BAN,
+    SANCTION_SUSPEND,
+    fetch_active_sanctions,
+    fetch_active_users_by_kind,
+)
+from ..utils import (
     KEYS_STATE,
     KEYS_BLOCK,
     apply_state,
@@ -130,6 +137,14 @@ async def join(sid, data) -> JoinAck:
 
         if not get_cached_settings().rooms_can_enter:
             return {"ok": False, "error": "rooms_entry_disabled", "status": 403}
+
+        async with SessionLocal() as s:
+            active = await fetch_active_sanctions(s, uid)
+            if active.get(SANCTION_BAN):
+                return {"ok": False, "error": "user_banned", "status": 403}
+
+            if active.get(SANCTION_TIMEOUT):
+                return {"ok": False, "error": "user_timeout", "status": 403}
 
         allowed = True
         pending = False
@@ -954,6 +969,23 @@ async def game_start(sid, data) -> GameStartAck:
 
         if uid != head_uid:
             return {"ok": False, "error": "forbidden", "status": 403}
+
+        member_ids: set[int] = set()
+        for mid in members or []:
+            try:
+                member_ids.add(int(mid))
+            except Exception:
+                continue
+        if member_ids:
+            async with SessionLocal() as s:
+                suspended_ids = await fetch_active_users_by_kind(s, member_ids, SANCTION_SUSPEND)
+            if suspended_ids:
+                return {
+                    "ok": False,
+                    "status": 409,
+                    "error": "suspend_present",
+                    "blocking_users": sorted(suspended_ids),
+                }
 
         streaming_owner_raw = await r.get(f"room:{rid}:screen_owner")
         streaming_owner = int(streaming_owner_raw) if streaming_owner_raw else 0

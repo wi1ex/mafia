@@ -5,7 +5,7 @@ import calendar
 import structlog
 from time import time
 from datetime import date, datetime, timezone, timedelta
-from typing import Optional, Dict, Any, Literal, Sequence
+from typing import Optional, Dict, Any, Literal, Sequence, Iterable, cast
 from fastapi import HTTPException, status
 from sqlalchemy import update, func, select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,14 +15,18 @@ from ..core.settings import settings
 from ..models.game import Game
 from ..models.log import AppLog
 from ..models.room import Room
+from ..models.sanction import UserSanction
 from ..models.user import User
-from ..schemas.admin import SiteSettingsOut, GameSettingsOut, RegistrationsPoint, AdminRoomUserStat
+from ..schemas.admin import SiteSettingsOut, GameSettingsOut, RegistrationsPoint, AdminRoomUserStat, AdminSanctionOut
 from ..schemas.room import GameParams
 from ..realtime.sio import sio
 from ..realtime.utils import get_profiles_snapshot, get_rooms_brief, gc_empty_room
 from ..security.parameters import get_cached_settings
-
 __all__ = [
+    "SANCTION_TIMEOUT",
+    "SANCTION_BAN",
+    "SANCTION_SUSPEND",
+    "TIMED_KINDS",
     "serialize_game_for_redis",
     "game_from_redis_to_model",
     "emit_rooms_upsert",
@@ -54,6 +58,16 @@ __all__ = [
     "build_room_user_stats",
     "sum_room_stream_seconds",
     "aggregate_user_room_stats",
+    "compute_duration_seconds",
+    "is_sanction_active",
+    "fetch_active_sanction",
+    "fetch_active_sanctions",
+    "fetch_sanctions_for_users",
+    "build_admin_sanction_out",
+    "emit_sanctions_update",
+    "ensure_room_access_allowed",
+    "ensure_profile_changes_allowed",
+    "format_duration_parts",
 ]
 
 log = structlog.get_logger()
@@ -61,6 +75,149 @@ log = structlog.get_logger()
 PRESIGN_ALLOWED_PREFIXES: tuple[str, ...] = ("avatars/",)
 PRESIGN_KEY_RE = re.compile(r"^[a-zA-Z0-9._/-]{3,256}$")
 STREAM_LOG_RE = re.compile(r"room_id=(\d+)\s+target_user=(\d+)")
+
+SANCTION_TIMEOUT = "timeout"
+SANCTION_BAN = "ban"
+SANCTION_SUSPEND = "suspend"
+TIMED_KINDS = {SANCTION_TIMEOUT, SANCTION_SUSPEND}
+
+
+def compute_duration_seconds(months: int, days: int, hours: int, minutes: int) -> int:
+    total_minutes = (max(0, months) * 30 * 24 * 60) + (max(0, days) * 24 * 60) + (max(0, hours) * 60) + max(0, minutes)
+    return total_minutes * 60
+
+
+def is_sanction_active(sanction: UserSanction, now: datetime | None = None) -> bool:
+    if sanction.revoked_at is not None:
+        return False
+
+    now = now or datetime.now(timezone.utc)
+    if sanction.expires_at and sanction.expires_at <= now:
+        return False
+
+    return True
+
+
+async def fetch_active_sanction(session: AsyncSession, user_id: int, kind: str) -> Optional[UserSanction]:
+    now = datetime.now(timezone.utc)
+    rows = await session.execute(
+        select(UserSanction)
+        .where(
+            UserSanction.user_id == int(user_id),
+            UserSanction.kind == kind,
+            UserSanction.revoked_at.is_(None),
+            or_(UserSanction.expires_at.is_(None), UserSanction.expires_at > now),
+        )
+        .order_by(UserSanction.issued_at.desc(), UserSanction.id.desc())
+        .limit(1)
+    )
+
+    return rows.scalars().first()
+
+
+async def fetch_active_sanctions(session: AsyncSession, user_id: int) -> dict[str, Optional[UserSanction]]:
+    now = datetime.now(timezone.utc)
+    rows = await session.execute(
+        select(UserSanction)
+        .where(
+            UserSanction.user_id == int(user_id),
+            UserSanction.revoked_at.is_(None),
+            or_(UserSanction.expires_at.is_(None), UserSanction.expires_at > now),
+        )
+        .order_by(UserSanction.issued_at.desc(), UserSanction.id.desc())
+    )
+    items = rows.scalars().all()
+    out = {
+        SANCTION_TIMEOUT: None,
+        SANCTION_BAN: None,
+        SANCTION_SUSPEND: None,
+    }
+    for row in items:
+        if row.kind in out and out[row.kind] is None:
+            out[row.kind] = row
+
+    return out
+
+
+async def fetch_sanctions_for_users(session: AsyncSession, user_ids: Iterable[int]) -> dict[int, list[UserSanction]]:
+    ids = [int(x) for x in user_ids]
+    if not ids:
+        return {}
+
+    rows = await session.execute(
+        select(UserSanction)
+        .where(UserSanction.user_id.in_(ids))
+        .order_by(UserSanction.issued_at.desc(), UserSanction.id.desc())
+    )
+    out: dict[int, list[UserSanction]] = {}
+    for row in rows.scalars().all():
+        uid = cast(int, row.user_id)
+        out.setdefault(uid, []).append(row)
+
+    return out
+
+
+def build_admin_sanction_out(row: UserSanction) -> AdminSanctionOut:
+    sid = cast(int, row.id)
+    issued_by_id = cast(int, row.issued_by_id) if row.issued_by_id is not None else None
+    revoked_by_id = cast(int, row.revoked_by_id) if row.revoked_by_id is not None else None
+    return AdminSanctionOut(
+        id=sid,
+        kind=str(row.kind),
+        reason=row.reason or None,
+        issued_at=row.issued_at,
+        issued_by_id=issued_by_id,
+        issued_by_name=row.issued_by_name,
+        duration_seconds=row.duration_seconds,
+        expires_at=row.expires_at,
+        revoked_at=row.revoked_at,
+        revoked_by_id=revoked_by_id,
+        revoked_by_name=row.revoked_by_name,
+    )
+
+
+def format_duration_parts(months: int, days: int, hours: int, minutes: int) -> str:
+    parts: list[str] = []
+    if months:
+        parts.append(f"{months} \u043c\u0435\u0441")
+    if days:
+        parts.append(f"{days} \u0434")
+    if hours:
+        parts.append(f"{hours} \u0447")
+    if minutes or not parts:
+        parts.append(f"{minutes} \u043c\u0438\u043d")
+
+    return " ".join(parts)
+
+
+async def emit_sanctions_update(session: AsyncSession, user_id: int) -> None:
+    active = await fetch_active_sanctions(session, user_id)
+    timeout = active.get(SANCTION_TIMEOUT)
+    ban = active.get(SANCTION_BAN)
+    suspend = active.get(SANCTION_SUSPEND)
+    timeout_expires_at = cast(Optional[datetime], timeout.expires_at) if timeout else None
+    suspend_expires_at = cast(Optional[datetime], suspend.expires_at) if suspend else None
+    payload = {
+        "timeout_until": timeout_expires_at.isoformat() if timeout_expires_at else None,
+        "ban_active": bool(ban),
+        "suspend_until": suspend_expires_at.isoformat() if suspend_expires_at else None,
+    }
+    await sio.emit("sanctions_update", payload, room=f"user:{user_id}", namespace="/auth")
+
+
+async def ensure_room_access_allowed(db: AsyncSession, user_id: int) -> None:
+    active = await fetch_active_sanctions(db, int(user_id))
+    if active.get(SANCTION_BAN):
+        raise HTTPException(status_code=403, detail="user_banned")
+
+    if active.get(SANCTION_TIMEOUT):
+        raise HTTPException(status_code=403, detail="user_timeout")
+
+
+async def ensure_profile_changes_allowed(db: AsyncSession, user_id: int) -> None:
+    active = await fetch_active_sanctions(db, int(user_id))
+    if active.get(SANCTION_BAN):
+        raise HTTPException(status_code=403, detail="user_banned")
 
 
 def serialize_game_for_redis(game_dict: Dict[str, Any]) -> Dict[str, str]:

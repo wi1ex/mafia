@@ -12,8 +12,11 @@ from ...core.db import get_session
 from ...models.log import AppLog
 from ...models.game import Game
 from ...models.room import Room
+from ...models.notif import Notif
+from ...models.sanction import UserSanction
 from ...models.user import User
 from ...models.update import SiteUpdate, UpdateRead
+from ...core.logging import log_action
 from ...realtime.sio import sio
 from ...realtime.utils import (
     leave_room_atomic,
@@ -23,8 +26,9 @@ from ...realtime.utils import (
     gc_empty_room,
 )
 from ...security.decorators import log_route, require_roles_deco
+from ...security.auth_tokens import get_identity
 from ...security.parameters import ensure_app_settings, sync_cache_from_row, refresh_app_settings
-from ...schemas.common import Ok
+from ...schemas.common import Ok, Identity
 from ...schemas.updates import AdminUpdateIn, AdminUpdateOut, AdminUpdatesOut
 from ...schemas.admin import (
     AdminSettingsOut,
@@ -42,6 +46,8 @@ from ...schemas.admin import (
     AdminUsersOut,
     AdminUserRoleIn,
     AdminUserRoleOut,
+    AdminSanctionTimedIn,
+    AdminSanctionBanIn,
     AdminGameOut,
     AdminGamesOut,
     AdminGameUserOut,
@@ -49,6 +55,9 @@ from ...schemas.admin import (
     OnlineUserOut,
 )
 from ..utils import (
+    SANCTION_TIMEOUT,
+    SANCTION_BAN,
+    SANCTION_SUSPEND,
     parse_month_range,
     parse_day_range,
     site_settings_out,
@@ -68,6 +77,13 @@ from ..utils import (
     build_room_user_stats,
     sum_room_stream_seconds,
     aggregate_user_room_stats,
+    compute_duration_seconds,
+    fetch_active_sanction,
+    fetch_sanctions_for_users,
+    is_sanction_active,
+    build_admin_sanction_out,
+    format_duration_parts,
+    emit_sanctions_update,
 )
 
 router = APIRouter()
@@ -90,6 +106,12 @@ LOG_ACTIONS_KNOWN = {
     "stream_start",
     "stream_stop",
     "username_updated",
+    "sanction_timeout_add",
+    "sanction_timeout_remove",
+    "sanction_ban_add",
+    "sanction_ban_remove",
+    "sanction_suspend_add",
+    "sanction_suspend_remove",
 }
 
 
@@ -244,26 +266,25 @@ async def logs_list(page: int = 1, limit: int = 20, action: str | None = None, u
     logs = rows.scalars().all()
     user_ids: set[int] = set()
     for row in logs:
-        if row.user_id:
-            try:
-                user_ids.add(int(row.user_id))
-            except Exception:
-                continue
+        if row.user_id is not None:
+            user_ids.add(cast(int, row.user_id))
 
     avatar_map = await fetch_user_avatar_map(session, user_ids)
 
-    items = [
-        AdminLogOut(
-            id=row.id,
-            user_id=row.user_id,
-            username=row.username,
-            avatar_name=avatar_map.get(int(row.user_id)) if row.user_id else None,
-            action=row.action,
-            details=row.details,
-            created_at=row.created_at,
+    items: list[AdminLogOut] = []
+    for row in logs:
+        uid = cast(int, row.user_id) if row.user_id is not None else None
+        items.append(
+            AdminLogOut(
+                id=row.id,
+                user_id=row.user_id,
+                username=row.username,
+                avatar_name=avatar_map.get(uid) if uid is not None else None,
+                action=row.action,
+                details=row.details,
+                created_at=row.created_at,
+            )
         )
-        for row in logs
-    ]
 
     return AdminLogsOut(total=total, items=items)
 
@@ -601,11 +622,20 @@ async def users_list(page: int = 1, limit: int = 20, username: str | None = None
     users = rows.scalars().all()
     ids = [int(u.id) for u in users]
     rooms_created, room_seconds, stream_seconds, spectator_seconds, games_played, games_hosted = await aggregate_user_room_stats(session, ids)
+    sanctions_map = await fetch_sanctions_for_users(session, ids)
+    now = datetime.now(timezone.utc)
 
     items: list[AdminUserOut] = []
     for u in users:
         uid = int(u.id)
         created = rooms_created.get(uid, 0)
+        user_sanctions = sanctions_map.get(uid, [])
+        timeouts_raw = [s for s in user_sanctions if s.kind == SANCTION_TIMEOUT]
+        bans_raw = [s for s in user_sanctions if s.kind == SANCTION_BAN]
+        suspends_raw = [s for s in user_sanctions if s.kind == SANCTION_SUSPEND]
+        active_timeout = next((s for s in timeouts_raw if is_sanction_active(s, now)), None)
+        active_ban = next((s for s in bans_raw if is_sanction_active(s, now)), None)
+        active_suspend = next((s for s in suspends_raw if is_sanction_active(s, now)), None)
         items.append(AdminUserOut(
             id=uid,
             username=u.username,
@@ -620,6 +650,17 @@ async def users_list(page: int = 1, limit: int = 20, username: str | None = None
             games_played=games_played.get(uid, 0),
             games_hosted=games_hosted.get(uid, 0),
             spectator_minutes=spectator_seconds.get(uid, 0) // 60,
+            timeout_active=active_timeout is not None,
+            timeout_until=active_timeout.expires_at if active_timeout else None,
+            ban_active=active_ban is not None,
+            suspend_active=active_suspend is not None,
+            suspend_until=active_suspend.expires_at if active_suspend else None,
+            timeouts_count=len(timeouts_raw),
+            bans_count=len(bans_raw),
+            suspends_count=len(suspends_raw),
+            timeouts=[build_admin_sanction_out(s) for s in timeouts_raw],
+            bans=[build_admin_sanction_out(s) for s in bans_raw],
+            suspends=[build_admin_sanction_out(s) for s in suspends_raw],
         ))
 
     return AdminUsersOut(total=total, items=items)
@@ -638,6 +679,412 @@ async def update_user_role(user_id: int, payload: AdminUserRoleIn, session: Asyn
     await session.refresh(user)
 
     return AdminUserRoleOut(id=cast(int, user.id), role=user.role)
+
+
+@log_route("admin.users.timeout_add")
+@require_roles_deco("admin")
+@router.post("/users/{user_id}/timeout", response_model=Ok)
+async def apply_user_timeout(user_id: int, payload: AdminSanctionTimedIn, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
+    user = await session.get(User, int(user_id))
+    if not user:
+        raise HTTPException(status_code=404, detail="user_not_found")
+
+    uid = cast(int, user.id)
+    active = await fetch_active_sanction(session, uid, SANCTION_TIMEOUT)
+    if active:
+        raise HTTPException(status_code=409, detail="sanction_active")
+
+    months = int(payload.months or 0)
+    days = int(payload.days or 0)
+    hours = int(payload.hours or 0)
+    minutes = int(payload.minutes or 0)
+    duration_seconds = compute_duration_seconds(months, days, hours, minutes)
+    if duration_seconds <= 0:
+        raise HTTPException(status_code=422, detail="duration_required")
+
+    now = datetime.now(timezone.utc)
+    expires_at = now + timedelta(seconds=duration_seconds)
+    reason = payload.reason.strip()
+    duration_label = format_duration_parts(months, days, hours, minutes)
+
+    sanction = UserSanction(
+        user_id=uid,
+        kind=SANCTION_TIMEOUT,
+        reason=reason,
+        issued_at=now,
+        issued_by_id=int(ident["id"]),
+        issued_by_name=ident["username"],
+        duration_seconds=duration_seconds,
+        expires_at=expires_at,
+    )
+    note = Notif(
+        user_id=uid,
+        title="Таймаут",
+        text=f"Вам выдан таймаут на {duration_label}. Причина: {reason}.",
+    )
+    session.add(sanction)
+    session.add(note)
+    await session.commit()
+    await session.refresh(note)
+
+    with suppress(Exception):
+        await sio.emit(
+            "notify",
+            {
+                "id": note.id,
+                "title": note.title,
+                "text": note.text,
+                "date": note.created_at.isoformat(),
+                "kind": "sanction",
+                "ttl_ms": 15000,
+                "read": False,
+            },
+            room=f"user:{uid}",
+            namespace="/auth",
+        )
+        await emit_sanctions_update(session, uid)
+        await sio.emit(
+            "force_leave",
+            {"reason": "sanction_timeout"},
+            room=f"user:{uid}",
+            namespace="/room",
+        )
+
+    details = f"Таймаут user_id={uid}"
+    if user.username:
+        details += f" username={user.username}"
+    details += f" duration={duration_label} reason={reason}"
+    await log_action(
+        session,
+        user_id=int(ident["id"]),
+        username=ident["username"],
+        action="sanction_timeout_add",
+        details=details,
+    )
+
+    return Ok()
+
+
+@log_route("admin.users.timeout_remove")
+@require_roles_deco("admin")
+@router.delete("/users/{user_id}/timeout", response_model=Ok)
+async def revoke_user_timeout(user_id: int, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
+    user = await session.get(User, int(user_id))
+    if not user:
+        raise HTTPException(status_code=404, detail="user_not_found")
+
+    uid = cast(int, user.id)
+    active = await fetch_active_sanction(session, uid, SANCTION_TIMEOUT)
+    if not active:
+        raise HTTPException(status_code=404, detail="sanction_not_found")
+
+    now = datetime.now(timezone.utc)
+    active.revoked_at = now
+    active.revoked_by_id = int(ident["id"])
+    active.revoked_by_name = ident["username"]
+    note = Notif(
+        user_id=uid,
+        title="Таймаут снят",
+        text="Ваш таймаут снят досрочно. Доступ к комнатам восстановлен.",
+    )
+    session.add(note)
+    await session.commit()
+    await session.refresh(note)
+
+    with suppress(Exception):
+        await sio.emit(
+            "notify",
+            {
+                "id": note.id,
+                "title": note.title,
+                "text": note.text,
+                "date": note.created_at.isoformat(),
+                "kind": "sanction",
+                "ttl_ms": 15000,
+                "read": False,
+            },
+            room=f"user:{uid}",
+            namespace="/auth",
+        )
+        await emit_sanctions_update(session, uid)
+
+    details = f"Снятие таймаута user_id={uid}"
+    if user.username:
+        details += f" username={user.username}"
+    await log_action(
+        session,
+        user_id=int(ident["id"]),
+        username=ident["username"],
+        action="sanction_timeout_remove",
+        details=details,
+    )
+
+    return Ok()
+
+
+@log_route("admin.users.ban_add")
+@require_roles_deco("admin")
+@router.post("/users/{user_id}/ban", response_model=Ok)
+async def apply_user_ban(user_id: int, payload: AdminSanctionBanIn, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
+    user = await session.get(User, int(user_id))
+    if not user:
+        raise HTTPException(status_code=404, detail="user_not_found")
+
+    uid = cast(int, user.id)
+    active = await fetch_active_sanction(session, uid, SANCTION_BAN)
+    if active:
+        raise HTTPException(status_code=409, detail="sanction_active")
+
+    reason = payload.reason.strip()
+    now = datetime.now(timezone.utc)
+    sanction = UserSanction(
+        user_id=uid,
+        kind=SANCTION_BAN,
+        reason=reason,
+        issued_at=now,
+        issued_by_id=int(ident["id"]),
+        issued_by_name=ident["username"],
+        duration_seconds=None,
+        expires_at=None,
+    )
+    note = Notif(
+        user_id=uid,
+        title="Аккаунт забанен",
+        text=f"Ваш аккаунт забанен. Причина: {reason}.",
+    )
+    session.add(sanction)
+    session.add(note)
+    await session.commit()
+    await session.refresh(note)
+
+    with suppress(Exception):
+        await sio.emit(
+            "notify",
+            {
+                "id": note.id,
+                "title": note.title,
+                "text": note.text,
+                "date": note.created_at.isoformat(),
+                "kind": "sanction",
+                "ttl_ms": 15000,
+                "read": False,
+            },
+            room=f"user:{uid}",
+            namespace="/auth",
+        )
+        await emit_sanctions_update(session, uid)
+        await sio.emit(
+            "force_leave",
+            {"reason": "sanction_ban"},
+            room=f"user:{uid}",
+            namespace="/room",
+        )
+
+    details = f"Бан user_id={uid}"
+    if user.username:
+        details += f" username={user.username}"
+    details += f" reason={reason}"
+    await log_action(
+        session,
+        user_id=int(ident["id"]),
+        username=ident["username"],
+        action="sanction_ban_add",
+        details=details,
+    )
+
+    return Ok()
+
+
+@log_route("admin.users.ban_remove")
+@require_roles_deco("admin")
+@router.delete("/users/{user_id}/ban", response_model=Ok)
+async def revoke_user_ban(user_id: int, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
+    user = await session.get(User, int(user_id))
+    if not user:
+        raise HTTPException(status_code=404, detail="user_not_found")
+
+    uid = cast(int, user.id)
+    active = await fetch_active_sanction(session, uid, SANCTION_BAN)
+    if not active:
+        raise HTTPException(status_code=404, detail="sanction_not_found")
+
+    now = datetime.now(timezone.utc)
+    active.revoked_at = now
+    active.revoked_by_id = int(ident["id"])
+    active.revoked_by_name = ident["username"]
+    note = Notif(
+        user_id=uid,
+        title="Бан снят",
+        text="Ваш бан снят. Доступ к сайту восстановлен.",
+    )
+    session.add(note)
+    await session.commit()
+    await session.refresh(note)
+
+    with suppress(Exception):
+        await sio.emit(
+            "notify",
+            {
+                "id": note.id,
+                "title": note.title,
+                "text": note.text,
+                "date": note.created_at.isoformat(),
+                "kind": "sanction",
+                "ttl_ms": 15000,
+                "read": False,
+            },
+            room=f"user:{uid}",
+            namespace="/auth",
+        )
+        await emit_sanctions_update(session, uid)
+
+    details = f"Снятие бана user_id={uid}"
+    if user.username:
+        details += f" username={user.username}"
+    await log_action(
+        session,
+        user_id=int(ident["id"]),
+        username=ident["username"],
+        action="sanction_ban_remove",
+        details=details,
+    )
+
+    return Ok()
+
+
+@log_route("admin.users.suspend_add")
+@require_roles_deco("admin")
+@router.post("/users/{user_id}/suspend", response_model=Ok)
+async def apply_user_suspend(user_id: int, payload: AdminSanctionTimedIn, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
+    user = await session.get(User, int(user_id))
+    if not user:
+        raise HTTPException(status_code=404, detail="user_not_found")
+
+    uid = cast(int, user.id)
+    active = await fetch_active_sanction(session, uid, SANCTION_SUSPEND)
+    if active:
+        raise HTTPException(status_code=409, detail="sanction_active")
+
+    months = int(payload.months or 0)
+    days = int(payload.days or 0)
+    hours = int(payload.hours or 0)
+    minutes = int(payload.minutes or 0)
+    duration_seconds = compute_duration_seconds(months, days, hours, minutes)
+    if duration_seconds <= 0:
+        raise HTTPException(status_code=422, detail="duration_required")
+
+    now = datetime.now(timezone.utc)
+    expires_at = now + timedelta(seconds=duration_seconds)
+    reason = payload.reason.strip()
+    duration_label = format_duration_parts(months, days, hours, minutes)
+
+    sanction = UserSanction(
+        user_id=uid,
+        kind=SANCTION_SUSPEND,
+        reason=reason,
+        issued_at=now,
+        issued_by_id=int(ident["id"]),
+        issued_by_name=ident["username"],
+        duration_seconds=duration_seconds,
+        expires_at=expires_at,
+    )
+    note = Notif(
+        user_id=uid,
+        title="Ограничение",
+        text=f"Доступ к играм ограничен на {duration_label}. Причина: {reason}.",
+    )
+    session.add(sanction)
+    session.add(note)
+    await session.commit()
+    await session.refresh(note)
+
+    with suppress(Exception):
+        await sio.emit(
+            "notify",
+            {
+                "id": note.id,
+                "title": note.title,
+                "text": note.text,
+                "date": note.created_at.isoformat(),
+                "kind": "sanction",
+                "ttl_ms": 15000,
+                "read": False,
+            },
+            room=f"user:{uid}",
+            namespace="/auth",
+        )
+        await emit_sanctions_update(session, uid)
+
+    details = f"SUSPEND user_id={uid}"
+    if user.username:
+        details += f" username={user.username}"
+    details += f" duration={duration_label} reason={reason}"
+    await log_action(
+        session,
+        user_id=int(ident["id"]),
+        username=ident["username"],
+        action="sanction_suspend_add",
+        details=details,
+    )
+
+    return Ok()
+
+
+@log_route("admin.users.suspend_remove")
+@require_roles_deco("admin")
+@router.delete("/users/{user_id}/suspend", response_model=Ok)
+async def revoke_user_suspend(user_id: int, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
+    user = await session.get(User, int(user_id))
+    if not user:
+        raise HTTPException(status_code=404, detail="user_not_found")
+
+    uid = cast(int, user.id)
+    active = await fetch_active_sanction(session, uid, SANCTION_SUSPEND)
+    if not active:
+        raise HTTPException(status_code=404, detail="sanction_not_found")
+
+    now = datetime.now(timezone.utc)
+    active.revoked_at = now
+    active.revoked_by_id = int(ident["id"])
+    active.revoked_by_name = ident["username"]
+    note = Notif(
+        user_id=uid,
+        title="Ограничение снято",
+        text="Ограничение доступа к играм снято.",
+    )
+    session.add(note)
+    await session.commit()
+    await session.refresh(note)
+
+    with suppress(Exception):
+        await sio.emit(
+            "notify",
+            {
+                "id": note.id,
+                "title": note.title,
+                "text": note.text,
+                "date": note.created_at.isoformat(),
+                "kind": "sanction",
+                "ttl_ms": 15000,
+                "read": False,
+            },
+            room=f"user:{uid}",
+            namespace="/auth",
+        )
+        await emit_sanctions_update(session, uid)
+
+    details = f"Снятие SUSPEND user_id={uid}"
+    if user.username:
+        details += f" username={user.username}"
+    await log_action(
+        session,
+        user_id=int(ident["id"]),
+        username=ident["username"],
+        action="sanction_suspend_remove",
+        details=details,
+    )
+
+    return Ok()
 
 
 @log_route("admin.updates.list")

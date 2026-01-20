@@ -75,6 +75,9 @@
       </div>
     </div>
   </header>
+  <div v-if="sanctionBanner" class="sanction-banner" :class="`sanction-banner--${sanctionBanner.kind}`">
+    <span>{{ sanctionBanner.text }}</span>
+  </div>
   <AppModal v-model:open="installOpen" @hide-install="onHideInstall" />
 </template>
 
@@ -112,6 +115,35 @@ const userMenuEl = ref<HTMLElement | null>(null)
 const installOpen = ref(false)
 const installHidden = ref(false)
 const isPwa = ref(isPwaMode())
+
+type SanctionBanner = { kind: 'ban' | 'timeout' | 'suspend'; text: string }
+
+function formatRemaining(ms: number): string {
+  const total = Math.max(0, Math.floor(ms / 1000))
+  const days = Math.floor(total / 86400)
+  const hours = Math.floor((total % 86400) / 3600)
+  const minutes = Math.floor((total % 3600) / 60)
+  const seconds = total % 60
+  const hh = String(hours).padStart(2, '0')
+  const mm = String(minutes).padStart(2, '0')
+  const ss = String(seconds).padStart(2, '0')
+  const base = `${hh}:${mm}:${ss}`
+  return days > 0 ? `${days}д ${base}` : base
+}
+
+const sanctionBanner = computed<SanctionBanner | null>(() => {
+  if (!auth.isAuthed) return null
+  if (user.banActive) {
+    return { kind: 'ban', text: 'Аккаунт забанен' }
+  }
+  if (user.timeoutRemainingMs > 0) {
+    return { kind: 'timeout', text: `Таймаут: ${formatRemaining(user.timeoutRemainingMs)}` }
+  }
+  if (user.suspendRemainingMs > 0) {
+    return { kind: 'suspend', text: `Ограничение: ${formatRemaining(user.suspendRemainingMs)}` }
+  }
+  return null
+})
 
 function onToggleNotifs() {
   updates_open.value = false
@@ -441,6 +473,29 @@ onBeforeUnmount(() => {
         }
       }
     }
+  }
+}
+.sanction-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 0 10px 10px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background-color: $graphite;
+  border: 1px solid $grey;
+  color: $fg;
+  font-size: 14px;
+  &.sanction-banner--ban {
+    border-color: rgba($red, 0.8);
+    color: $white;
+  }
+  &.sanction-banner--timeout {
+    border-color: rgba($orange, 0.8);
+  }
+  &.sanction-banner--suspend {
+    border-color: rgba($yellow, 0.8);
   }
 }
 

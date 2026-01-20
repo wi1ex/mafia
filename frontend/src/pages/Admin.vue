@@ -659,7 +659,13 @@
                   <th>Игры</th>
                   <th>Ведущий</th>
                   <th>Зритель</th>
+                  <th>Таймауты</th>
+                  <th>Баны</th>
+                  <th>Ограничения</th>
                   <th>Админка</th>
+                  <th>Таймаут</th>
+                  <th>Бан</th>
+                  <th>Ограничение</th>
                 </tr>
               </thead>
               <tbody>
@@ -683,14 +689,68 @@
                   <td>{{ row.games_hosted }}</td>
                   <td>{{ formatMinutes(row.spectator_minutes) }}</td>
                   <td>
+                    <div class="tooltip" tabindex="0">
+                      <span class="tooltip-value">{{ row.timeouts_count }}</span>
+                      <div class="tooltip-body">
+                        <div v-if="row.timeouts.length === 0" class="tooltip-empty">Нет данных</div>
+                        <div v-else class="tooltip-list">
+                          <div v-for="item in row.timeouts" :key="`timeout-${item.id}`" class="tooltip-row">
+                            {{ formatSanctionLine(item) }}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="tooltip" tabindex="0">
+                      <span class="tooltip-value">{{ row.bans_count }}</span>
+                      <div class="tooltip-body">
+                        <div v-if="row.bans.length === 0" class="tooltip-empty">Нет данных</div>
+                        <div v-else class="tooltip-list">
+                          <div v-for="item in row.bans" :key="`ban-${item.id}`" class="tooltip-row">
+                            {{ formatSanctionLine(item) }}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="tooltip" tabindex="0">
+                      <span class="tooltip-value">{{ row.suspends_count }}</span>
+                      <div class="tooltip-body">
+                        <div v-if="row.suspends.length === 0" class="tooltip-empty">Нет данных</div>
+                        <div v-else class="tooltip-list">
+                          <div v-for="item in row.suspends" :key="`suspend-${item.id}`" class="tooltip-row">
+                            {{ formatSanctionLine(item) }}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
                     <button class="btn danger" :disabled="usersRoleBusy[row.id]" @click="toggleUserRole(row)">
                       <img class="btn-img" :src="iconJudge" alt="judge" />
                       {{ row.role === 'admin' ? 'Снять ADMIN' : 'Выдать ADMIN' }}
                     </button>
                   </td>
+                  <td>
+                    <button class="btn danger" :disabled="isSanctionBusy(row.id, 'timeout')" @click="toggleTimeout(row)">
+                      {{ row.timeout_active ? 'Снять таймаут' : 'Выдать таймаут' }}
+                    </button>
+                  </td>
+                  <td>
+                    <button class="btn danger" :disabled="isSanctionBusy(row.id, 'ban')" @click="toggleBan(row)">
+                      {{ row.ban_active ? 'Разбанить' : 'Забанить' }}
+                    </button>
+                  </td>
+                  <td>
+                    <button class="btn danger" :disabled="isSanctionBusy(row.id, 'suspend')" @click="toggleSuspend(row)">
+                      {{ row.suspend_active ? 'Снять ограничение' : 'Выдать ограничение' }}
+                    </button>
+                  </td>
                 </tr>
                 <tr v-if="users.length === 0">
-                  <td colspan="13" class="muted">Нет данных</td>
+                  <td colspan="19" class="muted">Нет данных</td>
                 </tr>
               </tbody>
             </table>
@@ -713,6 +773,15 @@
       :form="updateForm"
       @save="saveUpdate"
     />
+    <SanctionModal
+      v-model:open="sanctionModalOpen"
+      :title="sanctionTitle"
+      :saving="sanctionSaving"
+      :can-save="sanctionCanSave"
+      :form="sanctionForm"
+      :reasons="sanctionReasons"
+      @save="saveTimedSanction"
+    />
   </section>
 </template>
 
@@ -723,6 +792,7 @@ import { alertDialog, confirmDialog } from '@/services/confirm'
 import { formatLocalDateTime } from '@/services/datetime'
 import { useSettingsStore } from '@/store'
 import UpdateModal from '@/components/UpdateModal.vue'
+import SanctionModal from '@/components/SanctionModal.vue'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
 import iconJudge from '@/assets/svg/judge.svg'
@@ -840,6 +910,20 @@ type RoomRow = {
   has_stream: boolean
 }
 
+type SanctionRow = {
+  id: number
+  kind: 'timeout' | 'ban' | 'suspend'
+  reason?: string | null
+  issued_at: string
+  issued_by_id?: number | null
+  issued_by_name?: string | null
+  duration_seconds?: number | null
+  expires_at?: string | null
+  revoked_at?: string | null
+  revoked_by_id?: number | null
+  revoked_by_name?: string | null
+}
+
 type UserRow = {
   id: number
   username?: string | null
@@ -854,6 +938,17 @@ type UserRow = {
   games_played: number
   games_hosted: number
   spectator_minutes: number
+  timeout_active: boolean
+  timeout_until?: string | null
+  ban_active: boolean
+  suspend_active: boolean
+  suspend_until?: string | null
+  timeouts_count: number
+  bans_count: number
+  suspends_count: number
+  timeouts: SanctionRow[]
+  bans: SanctionRow[]
+  suspends: SanctionRow[]
 }
 
 type GameUser = {
@@ -986,12 +1081,37 @@ const usersPage = ref(1)
 const usersLimit = ref(20)
 const usersUser = ref('')
 const usersRoleBusy = reactive<Record<number, boolean>>({})
+const usersSanctionBusy = reactive<Record<string, boolean>>({})
 const updates = ref<UpdateRow[]>([])
 const updateModalOpen = ref(false)
 const updateSaving = ref(false)
 const updateEditing = ref<UpdateRow | null>(null)
 const updateForm = reactive({ version: '', date: '', description: '' })
 const updatesDeleting = reactive<Record<number, boolean>>({})
+const sanctionModalOpen = ref(false)
+const sanctionSaving = ref(false)
+const sanctionKind = ref<'timeout' | 'suspend'>('timeout')
+const sanctionTarget = ref<UserRow | null>(null)
+const sanctionReasons = [
+  { value: 'Нарушение правил платформы', label: 'Нарушение правил платформы' },
+]
+const sanctionForm = reactive({
+  months: 0,
+  days: 0,
+  hours: 0,
+  minutes: 0,
+  reason: sanctionReasons[0]?.value || '',
+})
+const sanctionTotalSeconds = computed(() => {
+  const months = Math.max(0, Number(sanctionForm.months) || 0)
+  const days = Math.max(0, Number(sanctionForm.days) || 0)
+  const hours = Math.max(0, Number(sanctionForm.hours) || 0)
+  const minutes = Math.max(0, Number(sanctionForm.minutes) || 0)
+  const totalMinutes = (months * 30 * 24 * 60) + (days * 24 * 60) + (hours * 60) + minutes
+  return totalMinutes * 60
+})
+const sanctionCanSave = computed(() => sanctionTotalSeconds.value > 0 && Boolean(sanctionForm.reason))
+const sanctionTitle = computed(() => (sanctionKind.value === 'timeout' ? 'Выдать таймаут' : 'Выдать ограничение'))
 const kickRoomsBusy = ref(false)
 let logsUserTimer: number | undefined
 let roomsUserTimer: number | undefined
@@ -1102,6 +1222,44 @@ function formatMinutes(value: number): string {
   if (hours > 0) parts.push(`${hours}ч`)
   if (minutes > 0 || parts.length === 0) parts.push(`${minutes}м`)
   return parts.join(' ')
+}
+
+function formatSanctionDuration(seconds?: number | null): string {
+  if (!seconds) return 'без срока'
+  const total = Math.max(0, Math.floor(Number(seconds) || 0))
+  const mins = Math.floor(total / 60)
+  const days = Math.floor(mins / 1440)
+  const hours = Math.floor((mins % 1440) / 60)
+  const minutes = mins % 60
+  const parts: string[] = []
+  if (days > 0) parts.push(`${days}д`)
+  if (hours > 0) parts.push(`${hours}ч`)
+  if (minutes > 0 || parts.length === 0) parts.push(`${minutes}м`)
+  return parts.join(' ')
+}
+
+function formatSanctionActor(name?: string | null, id?: number | null): string {
+  if (name) return name
+  if (Number.isFinite(id)) return `#${id}`
+  return '-'
+}
+
+function formatSanctionLine(item: SanctionRow): string {
+  const issuedBy = formatSanctionActor(item.issued_by_name, item.issued_by_id)
+  const issuedAt = formatLocalDateTime(item.issued_at)
+  const duration = formatSanctionDuration(item.duration_seconds)
+  let end = 'активен'
+  if (item.revoked_at) {
+    const revokedBy = formatSanctionActor(item.revoked_by_name, item.revoked_by_id)
+    end = `снял: ${revokedBy} ${formatLocalDateTime(item.revoked_at)}`
+  } else if (item.expires_at) {
+    end = `авто: ${formatLocalDateTime(item.expires_at)}`
+  }
+  return `${issuedAt} • ${duration} • выдал: ${issuedBy} • ${end}`
+}
+
+function isSanctionBusy(userId: number, kind: 'timeout' | 'ban' | 'suspend'): boolean {
+  return Boolean(usersSanctionBusy[`${userId}:${kind}`])
 }
 
 function formatRoomGame(row: RoomRow): string {
@@ -1564,6 +1722,126 @@ async function toggleUserRole(row: UserRow): Promise<void> {
     void alertDialog('Не удалось обновить роль пользователя')
   } finally {
     usersRoleBusy[row.id] = false
+  }
+}
+
+function resetSanctionForm(): void {
+  sanctionForm.months = 0
+  sanctionForm.days = 0
+  sanctionForm.hours = 0
+  sanctionForm.minutes = 0
+  sanctionForm.reason = sanctionReasons[0]?.value || ''
+}
+
+function openTimedSanction(row: UserRow, kind: 'timeout' | 'suspend'): void {
+  sanctionTarget.value = row
+  sanctionKind.value = kind
+  resetSanctionForm()
+  sanctionModalOpen.value = true
+}
+
+function setSanctionBusy(userId: number, kind: 'timeout' | 'ban' | 'suspend', value: boolean): void {
+  usersSanctionBusy[`${userId}:${kind}`] = value
+}
+
+async function saveTimedSanction(): Promise<void> {
+  const target = sanctionTarget.value
+  if (!target || sanctionSaving.value || !sanctionCanSave.value) return
+  sanctionSaving.value = true
+  const kind = sanctionKind.value
+  const url = kind === 'timeout' ? `/admin/users/${target.id}/timeout` : `/admin/users/${target.id}/suspend`
+  const payload = {
+    months: sanctionForm.months,
+    days: sanctionForm.days,
+    hours: sanctionForm.hours,
+    minutes: sanctionForm.minutes,
+    reason: sanctionForm.reason,
+  }
+  try {
+    await api.post(url, payload)
+    sanctionModalOpen.value = false
+    void alertDialog(kind === 'timeout' ? 'Таймаут выдан' : 'Ограничение выдано')
+    await loadUsers()
+  } catch (e: any) {
+    const st = e?.response?.status
+    const d = e?.response?.data?.detail
+    if (st === 409 && d === 'sanction_active') {
+      void alertDialog('Санкция уже активна')
+    } else if (st === 422 && d === 'duration_required') {
+      void alertDialog('Укажите срок санкции')
+    } else {
+      void alertDialog('Не удалось применить санкцию')
+    }
+  } finally {
+    sanctionSaving.value = false
+  }
+}
+
+async function revokeSanction(row: UserRow, kind: 'timeout' | 'ban' | 'suspend'): Promise<void> {
+  if (isSanctionBusy(row.id, kind)) return
+  setSanctionBusy(row.id, kind, true)
+  try {
+    await api.delete(`/admin/users/${row.id}/${kind}`)
+    void alertDialog(kind === 'ban' ? 'Бан снят' : kind === 'timeout' ? 'Таймаут снят' : 'Ограничение снято')
+    await loadUsers()
+  } catch (e: any) {
+    const st = e?.response?.status
+    const d = e?.response?.data?.detail
+    if (st === 404 && d === 'sanction_not_found') {
+      void alertDialog('Санкция не найдена')
+    } else {
+      void alertDialog('Не удалось снять санкцию')
+    }
+  } finally {
+    setSanctionBusy(row.id, kind, false)
+  }
+}
+
+async function toggleTimeout(row: UserRow): Promise<void> {
+  if (row.timeout_active) {
+    await revokeSanction(row, 'timeout')
+  } else {
+    openTimedSanction(row, 'timeout')
+  }
+}
+
+async function toggleSuspend(row: UserRow): Promise<void> {
+  if (row.suspend_active) {
+    await revokeSanction(row, 'suspend')
+  } else {
+    openTimedSanction(row, 'suspend')
+  }
+}
+
+async function toggleBan(row: UserRow): Promise<void> {
+  if (row.ban_active) {
+    await revokeSanction(row, 'ban')
+    return
+  }
+  const userLabel = row.username ? `пользователю ${row.username}` : `пользователю #${row.id}`
+  const ok = await confirmDialog({
+    title: 'Бан',
+    text: `Забанить ${userLabel}?`,
+    confirmText: 'Забанить',
+    cancelText: 'Отмена',
+  })
+  if (!ok) return
+  if (isSanctionBusy(row.id, 'ban')) return
+  setSanctionBusy(row.id, 'ban', true)
+  try {
+    await api.post(`/admin/users/${row.id}/ban`, { reason: sanctionReasons[0]?.value || 'Нарушение правил платформы' })
+    void alertDialog('Бан выдан')
+    await loadUsers()
+  } catch (e: any) {
+    const st = e?.response?.status
+    const d = e?.response?.data?.detail
+    if (st === 409 && d === 'sanction_active') {
+      void alertDialog('Санкция уже активна')
+    } else {
+      void alertDialog('Не удалось выдать бан')
+    }
+  } finally {
+    setSanctionBusy(row.id, 'ban', false)
   }
 }
 

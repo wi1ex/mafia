@@ -1377,6 +1377,10 @@ socket.value?.on('connect', async () => {
       void alertDialog('Упс! Кажется пришло обновление... через 5 минут все заработает!')
     } else if (reason === 'room_kick') {
       void alertDialog('Вас выгнали из комнаты')
+    } else if (reason === 'sanction_timeout') {
+      void alertDialog('Вам выдан таймаут. Доступ к комнатам временно ограничен')
+    } else if (reason === 'sanction_ban') {
+      void alertDialog('Ваш аккаунт забанен. Доступ к комнатам ограничен')
     }
   })
 
@@ -1893,6 +1897,16 @@ async function handleJoinFailure(j: any) {
   if (leaving.value) return
   if (j?.status === 403 && j?.error === 'rooms_entry_disabled') {
     void alertDialog('Вход в комнату заблокирован')
+    await router.replace({ name: 'home', query: { focus: String(rid) } })
+    return
+  }
+  if (j?.status === 403 && j?.error === 'user_timeout') {
+    void alertDialog('Вам выдан таймаут. Вход в комнаты временно недоступен')
+    await router.replace({ name: 'home', query: { focus: String(rid) } })
+    return
+  }
+  if (j?.status === 403 && j?.error === 'user_banned') {
+    void alertDialog('Аккаунт забанен. Вход в комнаты недоступен')
     await router.replace({ name: 'home', query: { focus: String(rid) } })
     return
   }

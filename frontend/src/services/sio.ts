@@ -115,6 +115,10 @@ export function startAuthSocket(opts?: { onForceLogout?: () => void }): Socket {
     window.dispatchEvent(new CustomEvent('auth-settings_update', { detail: p }))
   })
 
+  authSocket.on('sanctions_update', (p:any) => {
+    window.dispatchEvent(new CustomEvent('auth-sanctions_update', { detail: p }))
+  })
+
   authSocket.on('room_invite', (p:any) => {
     window.dispatchEvent(new CustomEvent('auth-room_invite', { detail: p }))
     const dto = {

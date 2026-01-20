@@ -23,13 +23,13 @@
             <div class="avatar-row">
               <img class="avatar-img" v-minio-img="{ key: me.avatar_name ? `avatars/${me.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="Текущий аватар" />
               <div class="actions">
-                <input ref="fileEl" type="file" accept="image/jpeg,image/png" @change="onPick" hidden />
-                <button class="btn dark" @click="fileEl?.click()" :disabled="busyAva">
+                <input ref="fileEl" type="file" accept="image/jpeg,image/png" @change="onPick" :disabled="isBanned" hidden />
+                <button class="btn dark" @click="fileEl?.click()" :disabled="busyAva || isBanned">
                   <img class="btn-img" :src="iconEdit" alt="edit" />
                   Изменить
                 </button>
                 <span class="hint">JPG/PNG, до 5 МБ</span>
-                <button class="btn danger" v-if="me.avatar_name" @click="onDeleteAvatar" :disabled="busyAva">
+                <button class="btn danger" v-if="me.avatar_name" @click="onDeleteAvatar" :disabled="busyAva || isBanned">
                   <img class="btn-img" :src="iconDelete" alt="delete" />
                   Удалить
                 </button>
@@ -41,7 +41,7 @@
             <h3>Никнейм</h3>
             <div class="nick-row">
               <div class="ui-input" :class="{ filled: !!nick, invalid: nick && !validNick }">
-                <input id="profile-nick" v-model.trim="nick" :maxlength="NICK_MAX" :disabled="busyNick" placeholder=" "
+                <input id="profile-nick" v-model.trim="nick" :maxlength="NICK_MAX" :disabled="busyNick || isBanned" placeholder=" "
                        autocomplete="off" inputmode="text" :aria-invalid="nick && !validNick" aria-describedby="profile-nick-hint" />
                 <label for="profile-nick">Никнейм</label>
                 <div class="underline">
@@ -51,7 +51,7 @@
                   <span id="profile-nick-hint">{{ nick.length }}/{{ NICK_MAX }}</span>
                 </div>
               </div>
-              <button class="btn confirm" @click="saveNick" :disabled="busyNick || nick === me.username || !validNick">
+              <button class="btn confirm" @click="saveNick" :disabled="busyNick || isBanned || nick === me.username || !validNick">
                 <img class="btn-img" :src="iconSave" alt="save" />
                 {{ busyNick ? '...' : 'Сохранить' }}
               </button>
@@ -66,12 +66,12 @@
                 <span>Масштаб</span>
                 <div class="range-wrap">
                   <div class="range-track" :style="cropRangeFillStyle" aria-hidden="true"></div>
-                  <input class="range-native" type="range" aria-label="Масштаб" :min="crop.min" :max="crop.max" step="0.01" :value="crop.scale" @input="onRange" />
+                  <input class="range-native" type="range" aria-label="Масштаб" :min="crop.min" :max="crop.max" step="0.01" :value="crop.scale" @input="onRange" :disabled="isBanned" />
                 </div>
               </div>
               <div class="modal-actions">
                 <button class="btn danger" @click="cancelCrop">Отменить</button>
-                <button class="btn confirm" @click="applyCrop" :disabled="busyAva">Загрузить</button>
+                <button class="btn confirm" @click="applyCrop" :disabled="busyAva || isBanned">Загрузить</button>
               </div>
             </div>
           </div>
@@ -97,6 +97,7 @@ import iconEdit from '@/assets/svg/edit.svg'
 import iconDelete from '@/assets/svg/delete.svg'
 
 const userStore = useUserStore()
+const isBanned = computed(() => userStore.banActive)
 
 const me = reactive({ id: 0, username: '', avatar_name: null as string | null, role: '' })
 const fileEl = ref<HTMLInputElement | null>(null)
@@ -140,6 +141,7 @@ async function saveNick() {
     const st = e?.response?.status
     const d  = e?.response?.data?.detail
     if (st === 409 && d === 'username_taken')               void alertDialog('Данный никнейм уже занят')
+    else if (st === 403 && d === 'user_banned')             void alertDialog('Аккаунт забанен. Изменение никнейма недоступно')
     else if (st === 422 && d === 'reserved_prefix')         void alertDialog('Никнейм не должен начинаться с "user"')
     else if (st === 422 && d === 'invalid_username_format') void alertDialog('Недопустимый формат никнейма')
     else                                                    void alertDialog('Не удалось сохранить никнейм')
@@ -193,6 +195,7 @@ function scaleTo(next: number) {
 }
 
 async function onPick(e: Event) {
+  if (isBanned.value) return
   const f = (e.target as HTMLInputElement).files?.[0]
   ;(e.target as HTMLInputElement).value = ''
   if (!f) return
@@ -324,11 +327,12 @@ async function applyCrop() {
   } catch (e: any) {
     const st = e?.response?.status
     const d  = e?.response?.data?.detail
-    if (st === 415 || d === 'unsupported_media_type') void alertDialog('К загрузке допустимы только форматы JPG/PNG')
-    else if (st === 413)                              void alertDialog('К загрузке допустимы только файлы менее 5 Мбайт')
-    else if (st === 422 && d === 'empty_file')        void alertDialog('Не удалось прочитать файл')
-    else if (st === 422 && d === 'bad_image')         void alertDialog('Некорректное изображение')
-    else                                              void alertDialog('Не удалось загрузить аватар')
+    if (st === 403 && d === 'user_banned')                 void alertDialog('Аккаунт забанен. Изменение аватара недоступно')
+    else if (st === 415 || d === 'unsupported_media_type') void alertDialog('К загрузке допустимы только форматы JPG/PNG')
+    else if (st === 413)                                   void alertDialog('К загрузке допустимы только файлы менее 5 Мбайт')
+    else if (st === 422 && d === 'empty_file')             void alertDialog('Не удалось прочитать файл')
+    else if (st === 422 && d === 'bad_image')              void alertDialog('Некорректное изображение')
+    else                                                   void alertDialog('Не удалось загрузить аватар')
   } finally { busyAva.value = false }
 }
 
@@ -346,7 +350,12 @@ async function onDeleteAvatar() {
     me.avatar_name = null
     userStore.setAvatarName(null)
   }
-  catch { void alertDialog('Не удалось удалить аватар') }
+  catch (e: any) {
+    const st = e?.response?.status
+    const d  = e?.response?.data?.detail
+    if (st === 403 && d === 'user_banned') void alertDialog('Аккаунт забанен. Изменение аватара недоступно')
+    else void alertDialog('Не удалось удалить аватар')
+  }
   finally { busyAva.value = false }
 }
 

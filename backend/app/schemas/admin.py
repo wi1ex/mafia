@@ -124,6 +124,20 @@ class AdminLogActionsOut(BaseModel):
     actions: List[str]
 
 
+class AdminSanctionOut(BaseModel):
+    id: int
+    kind: Literal["timeout", "ban", "suspend"]
+    reason: Optional[str] = None
+    issued_at: datetime
+    issued_by_id: Optional[int] = None
+    issued_by_name: Optional[str] = None
+    duration_seconds: Optional[int] = None
+    expires_at: Optional[datetime] = None
+    revoked_at: Optional[datetime] = None
+    revoked_by_id: Optional[int] = None
+    revoked_by_name: Optional[str] = None
+
+
 class AdminRoomUserStat(BaseModel):
     id: int
     username: Optional[str] = None
@@ -181,11 +195,34 @@ class AdminUserOut(BaseModel):
     games_played: int
     games_hosted: int
     spectator_minutes: int
+    timeout_active: bool
+    timeout_until: Optional[datetime] = None
+    ban_active: bool
+    suspend_active: bool
+    suspend_until: Optional[datetime] = None
+    timeouts_count: int
+    bans_count: int
+    suspends_count: int
+    timeouts: List[AdminSanctionOut]
+    bans: List[AdminSanctionOut]
+    suspends: List[AdminSanctionOut]
 
 
 class AdminUsersOut(BaseModel):
     total: int
     items: List[AdminUserOut]
+
+
+class AdminSanctionTimedIn(BaseModel):
+    months: int = Field(default=0, ge=0, le=24)
+    days: int = Field(default=0, ge=0, le=365)
+    hours: int = Field(default=0, ge=0, le=720)
+    minutes: int = Field(default=0, ge=0, le=60 * 24 * 31)
+    reason: str = Field(min_length=1, max_length=256)
+
+
+class AdminSanctionBanIn(BaseModel):
+    reason: str = Field(min_length=1, max_length=256)
 
 
 class AdminUserRoleIn(BaseModel):

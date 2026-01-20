@@ -1,4 +1,5 @@
 import unicodedata
+from datetime import datetime
 from typing import Any, Optional
 from pydantic import BaseModel, Field
 from pydantic.functional_validators import BeforeValidator
@@ -17,6 +18,9 @@ class UserOut(BaseModel):
     username: Optional[str] = None
     avatar_name: Optional[str] = None
     role: str
+    timeout_until: Optional[datetime] = None
+    suspend_until: Optional[datetime] = None
+    ban_active: bool = False
 
 
 class UsernameUpdateIn(BaseModel):

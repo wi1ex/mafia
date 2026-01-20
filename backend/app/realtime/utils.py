@@ -4,7 +4,8 @@ import json
 from random import shuffle
 import structlog
 from time import time
-from sqlalchemy import select, func, delete
+from sqlalchemy import select, func, delete, or_
+from sqlalchemy.ext.asyncio import AsyncSession
 from redis.exceptions import ResponseError
 from jwt import ExpiredSignatureError
 from datetime import datetime, timezone
@@ -15,6 +16,7 @@ from ..core.db import SessionLocal
 from ..core.settings import settings
 from ..security.parameters import get_cached_settings
 from ..models.room import Room
+from ..models.sanction import UserSanction
 from ..models.user import User
 from ..models.game import Game
 from ..core.clients import get_redis
@@ -24,6 +26,11 @@ from ..security.auth_tokens import decode_token
 __all__ = [
     "KEYS_STATE",
     "KEYS_BLOCK",
+    "SANCTION_TIMEOUT",
+    "SANCTION_BAN",
+    "SANCTION_SUSPEND",
+    "fetch_active_sanctions",
+    "fetch_active_users_by_kind",
     "GameActionContext",
     "build_game_context",
     "validate_auth",
@@ -550,6 +557,51 @@ class GameStateView:
             night_section["known"] = known
 
         return night_section
+
+
+SANCTION_TIMEOUT = "timeout"
+SANCTION_BAN = "ban"
+SANCTION_SUSPEND = "suspend"
+async def fetch_active_sanctions(session: AsyncSession, user_id: int) -> dict[str, Optional[UserSanction]]:
+    now = datetime.now(timezone.utc)
+    rows = await session.execute(
+        select(UserSanction)
+        .where(
+            UserSanction.user_id == int(user_id),
+            UserSanction.revoked_at.is_(None),
+            or_(UserSanction.expires_at.is_(None), UserSanction.expires_at > now),
+        )
+        .order_by(UserSanction.issued_at.desc(), UserSanction.id.desc())
+    )
+    items = rows.scalars().all()
+    out = {
+        SANCTION_TIMEOUT: None,
+        SANCTION_BAN: None,
+        SANCTION_SUSPEND: None,
+    }
+    for row in items:
+        if row.kind in out and out[row.kind] is None:
+            out[row.kind] = row
+
+    return out
+
+
+async def fetch_active_users_by_kind(session: AsyncSession, user_ids: Iterable[int], kind: str) -> set[int]:
+    ids = [int(x) for x in user_ids]
+    if not ids:
+        return set()
+
+    now = datetime.now(timezone.utc)
+    rows = await session.execute(
+        select(UserSanction.user_id)
+        .where(
+            UserSanction.user_id.in_(ids),
+            UserSanction.kind == kind,
+            UserSanction.revoked_at.is_(None),
+            or_(UserSanction.expires_at.is_(None), UserSanction.expires_at > now),
+        )
+    )
+    return {int(r[0]) for r in rows.all() if r and r[0] is not None}
 
 
 def get_day_number(raw_state: Mapping[str, Any]) -> int:

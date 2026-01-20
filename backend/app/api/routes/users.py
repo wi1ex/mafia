@@ -2,10 +2,18 @@ from __future__ import annotations
 import re
 import unicodedata
 from contextlib import suppress
+from typing import cast
 from sqlalchemy import select, update, exists, func, literal, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
-from ..utils import broadcast_creator_rooms
+from ..utils import (
+    broadcast_creator_rooms,
+    SANCTION_TIMEOUT,
+    SANCTION_BAN,
+    SANCTION_SUSPEND,
+    fetch_active_sanctions,
+    ensure_profile_changes_allowed,
+)
 from ...models.user import User
 from ...core.db import get_session
 from ...core.logging import log_action
@@ -26,11 +34,20 @@ async def profile_info(ident: Identity = Depends(get_identity), db: AsyncSession
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
 
+    uid = cast(int, user.id)
+    active = await fetch_active_sanctions(db, uid)
+    timeout = active.get(SANCTION_TIMEOUT)
+    ban = active.get(SANCTION_BAN)
+    suspend = active.get(SANCTION_SUSPEND)
+
     return UserOut(
-        id=user.id,
+        id=uid,
         username=user.username,
         avatar_name=user.avatar_name,
         role=user.role,
+        timeout_until=timeout.expires_at if timeout else None,
+        suspend_until=suspend.expires_at if suspend else None,
+        ban_active=bool(ban),
     )
 
 
@@ -54,6 +71,8 @@ async def update_username(payload: UsernameUpdateIn, ident: Identity = Depends(g
     user = await db.get(User, uid)
     if not user:
         raise HTTPException(status_code=401, detail="Unauthorized")
+
+    await ensure_profile_changes_allowed(db, uid)
 
     if user.username == new:
         return UsernameUpdateOut(username=user.username)
@@ -83,6 +102,8 @@ async def update_username(payload: UsernameUpdateIn, ident: Identity = Depends(g
 @router.post("/avatar", response_model=AvatarUploadOut)
 async def upload_avatar(file: UploadFile = File(...), ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> AvatarUploadOut:
     uid = int(ident["id"])
+    await ensure_profile_changes_allowed(db, uid)
+
     ct = (file.content_type or "").split(";")[0].strip().lower()
 
     if ct not in ALLOWED_CT:
@@ -119,6 +140,7 @@ async def upload_avatar(file: UploadFile = File(...), ident: Identity = Depends(
 @router.delete("/avatar", response_model=Ok)
 async def delete_avatar(ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> Ok:
     uid = int(ident["id"])
+    await ensure_profile_changes_allowed(db, uid)
     await db.execute(update(User).where(User.id == uid).values(avatar_name=None))
     await db.commit()
     with suppress(Exception):

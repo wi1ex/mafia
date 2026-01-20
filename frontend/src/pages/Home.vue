@@ -5,7 +5,7 @@
         <div class="rooms-text">
           <span>Список комнат</span>
         </div>
-        <button @click="openCreate = true" :disabled="!settings.roomsCanCreate || !auth.isAuthed">Создать комнату</button>
+        <button @click="openCreate = true" :disabled="!settings.roomsCanCreate || !auth.isAuthed || userStore.roomRestricted">Создать комнату</button>
       </header>
 
       <Transition name="overlay">
@@ -267,6 +267,7 @@ type Cta = 'login' | 'enter' | 'full' | 'apply' | 'pending' | 'in_game' | 'watch
 const ctaState = computed<Cta>(() => {
   const room = selectedRoom.value
   if (room && !settings.roomsCanEnter) return 'blocked'
+  if (room && userStore.roomRestricted) return 'blocked'
   if (!auth.isAuthed || !room) return 'login'
   if (room.in_game) {
     if (isGameParticipant.value) return 'enter'
@@ -333,6 +334,10 @@ async function onApply() {
     } else if (detail === 'not_private') {
       access.value = 'approved'
       void alertDialog('Комната открыта, можно зайти без заявки')
+    } else if (detail === 'user_timeout') {
+      void alertDialog('Вам выдан таймаут. Вход в комнаты временно недоступен')
+    } else if (detail === 'user_banned') {
+      void alertDialog('Аккаунт забанен. Вход в комнаты недоступен')
     } else {
       void alertDialog('Ошибка при отправке заявки')
     }

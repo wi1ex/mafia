@@ -29,6 +29,7 @@ from ..utils import (
     game_from_redis_to_model,
     build_room_members_for_info,
     get_room_params_or_404,
+    ensure_room_access_allowed,
     schedule_room_gc,
 )
 
@@ -44,6 +45,8 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
     app_settings = get_cached_settings()
     if not app_settings.rooms_can_create:
         raise HTTPException(status_code=403, detail="rooms_create_disabled")
+
+    await ensure_room_access_allowed(session, uid)
 
     title = (payload.title or "").strip()
     if not title:
@@ -153,8 +156,13 @@ async def room_info(room_id: int) -> RoomInfoOut:
 @log_route("rooms.access")
 @rate_limited(lambda ident, room_id, **_: f"rl:rooms:access:{ident['id']}:{room_id}", limit=10, window_s=1)
 @router.get("/{room_id}/access", response_model=RoomAccessOut)
-async def access(room_id: int, ident: Identity = Depends(get_identity)) -> RoomAccessOut:
+async def access(room_id: int, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> RoomAccessOut:
     if not get_cached_settings().rooms_can_enter:
+        return RoomAccessOut(access="none")
+
+    try:
+        await ensure_room_access_allowed(db, int(ident["id"]))
+    except HTTPException:
         return RoomAccessOut(access="none")
 
     r = get_redis()
@@ -183,6 +191,8 @@ async def access(room_id: int, ident: Identity = Depends(get_identity)) -> RoomA
 async def apply(room_id: int, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> Ok:
     if not get_cached_settings().rooms_can_enter:
         raise HTTPException(status_code=403, detail="rooms_entry_disabled")
+
+    await ensure_room_access_allowed(db, int(ident["id"]))
 
     r = get_redis()
     params = await get_room_params_or_404(r, room_id)
