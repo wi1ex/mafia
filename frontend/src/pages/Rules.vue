@@ -24,10 +24,6 @@
                 <span class="label">Возраст</span>
                 <span class="value">13+</span>
               </div>
-              <div class="meta-item">
-                <span class="label">Последнее обновление</span>
-                <span class="value">01.03.2025</span>
-              </div>
             </div>
           </div>
         </section>
@@ -222,9 +218,9 @@ onBeforeUnmount(() => {
 
 <style scoped lang="scss">
 .rules {
-  line-height: 1.5;
   width: 60%;
-  margin: auto;
+  margin: 20px auto;
+  line-height: 1.5;
   overflow: auto;
   scrollbar-width: none;
   [id] {
@@ -372,7 +368,7 @@ onBeforeUnmount(() => {
           border-radius: 8px;
           background-color: $graphite;
           border: 1px solid $grey;
-          min-width: 160px;
+          min-width: 100px;
           .label {
             font-size: 12px;
             letter-spacing: 1px;
@@ -528,7 +524,7 @@ onBeforeUnmount(() => {
       grid-template-columns: 1fr;
     }
     .rules-toc {
-      position: static;
+      display: none;
     }
     .hero {
       grid-template-columns: 1fr;

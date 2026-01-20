@@ -8,9 +8,6 @@
       <router-link class="btn" :to="{ name: 'rules' }" aria-label="Правила">
         <img :src="iconInfo" alt="" aria-hidden="true" />
       </router-link>
-      <router-link v-if="user.user?.role === 'admin'" class="btn" :to="{ name: 'admin' }" aria-label="Админ-панель">
-        <span data-nosnippet>Админ-панель</span>
-      </router-link>
       <button v-if="showInstall" class="btn" type="button" @click="openInstall" :aria-expanded="installOpen" aria-haspopup="dialog" aria-label="Установить">
         <img :src="iconInstall" alt="" aria-hidden="true" />
       </button>
@@ -18,6 +15,9 @@
         <img :src="iconCard" alt="" aria-hidden="true" />
         <span data-nosnippet>Поддержать</span>
       </a>
+      <router-link v-if="user.user?.role === 'admin'" class="btn" :to="{ name: 'admin' }" aria-label="Админ-панель">
+        <span data-nosnippet>Админ-панель</span>
+      </router-link>
     </div>
 
     <div v-if="!auth.isAuthed && !auth.foreignActive">
