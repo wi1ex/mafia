@@ -783,9 +783,10 @@
       :title="sanctionTitle"
       :saving="sanctionSaving"
       :can-save="sanctionCanSave"
+      :show-duration="sanctionKind !== 'ban'"
       :form="sanctionForm"
       :reasons="sanctionReasons"
-      @save="saveTimedSanction"
+      @save="saveSanction"
     />
   </section>
 </template>
@@ -1098,16 +1099,10 @@ const updateForm = reactive({ version: '', date: '', description: '' })
 const updatesDeleting = reactive<Record<number, boolean>>({})
 const sanctionModalOpen = ref(false)
 const sanctionSaving = ref(false)
-const sanctionKind = ref<'timeout' | 'suspend'>('timeout')
+const sanctionKind = ref<'timeout' | 'ban' | 'suspend'>('timeout')
 const sanctionTarget = ref<UserRow | null>(null)
 const sanctionReasons = [
   { value: 'Нарушение правил платформы', label: 'Нарушение правил платформы' },
-  { value: '1.1. Использование платформы deceit.games означает согласие с настоящими Правилами и связанными документами (Политика приватности, Правила контента, Регламент санкций, правила отдельных режимов/комнат).', label: '1.1. Использование платформы deceit.games означает согласие с настоящими Правилами и связанными документами (Политика приватности, Правила контента, Регламент санкций, правила отдельных режимов/комнат).' },
-  { value: '1.2. Администрация вправе изменять Правила. Новая редакция публикуется на сайте и применяется с даты публикации (или иной указанной даты). Продолжение использования платформы означает согласие с изменениями.', label: '1.2. Администрация вправе изменять Правила. Новая редакция публикуется на сайте и применяется с даты публикации (или иной указанной даты). Продолжение использования платформы означает согласие с изменениями.' },
-  { value: '1.3. Авторизация через Telegram. Для входа/регистрации пользователь использует Telegram. Авторизация возможна только при передаче платформе данных Telegram, необходимых для идентификации и работы аккаунта.', label: '1.3. Авторизация через Telegram. Для входа/регистрации пользователь использует Telegram. Авторизация возможна только при передаче платформе данных Telegram, необходимых для идентификации и работы аккаунта.' },
-  { value: '1.4. Согласие на обработку данных. При авторизации через Telegram пользователь соглашается на обработку данных, получаемых от Telegram и/или предоставляемых пользователем, включая: Telegram ID, никнейм/username (если имеется), аватар (фото профиля).', label: '1.4. Согласие на обработку данных. При авторизации через Telegram пользователь соглашается на обработку данных, получаемых от Telegram и/или предоставляемых пользователем, включая: Telegram ID, никнейм/username (если имеется), аватар (фото профиля).' },
-  { value: '1.5. Отзыв согласия. Пользователь может отозвать согласие на обработку данных, удалив свой аккаунт в Личном кабинете.', label: '1.5. Отзыв согласия. Пользователь может отозвать согласие на обработку данных, удалив свой аккаунт в Личном кабинете.' },
-  { value: '1.6. О привязке санкций к Telegram-аккаунту. Аккаунт на платформе привязан к Telegram-аккаунту пользователя (в первую очередь — к Telegram ID). При применении санкций доступ к платформе может быть ограничен/заблокирован именно для аккаунта, авторизованного через соответствующий Telegram-аккаунт.', label: '1.6. О привязке санкций к Telegram-аккаунту. Аккаунт на платформе привязан к Telegram-аккаунту пользователя (в первую очередь — к Telegram ID). При применении санкций доступ к платформе может быть ограничен/заблокирован именно для аккаунта, авторизованного через соответствующий Telegram-аккаунт.' },
   { value: '2.1. Платформа предназначена для пользователей не младше 14 лет. При выявлении нарушения возрастного ограничения доступ может быть запрещён.', label: '2.1. Платформа предназначена для пользователей не младше 14 лет. При выявлении нарушения возрастного ограничения доступ может быть запрещён.' },
   { value: '2.2. Если на платформе возможны видео/аудио-трансляции, пользователь подтверждает, что осознаёт риски публичного общения и обязуется соблюдать ограничения по контенту (включая 18+). Нарушение ограничений по контенту наказывается по соответствующим пунктам Раздела 4.', label: '2.2. Если на платформе возможны видео/аудио-трансляции, пользователь подтверждает, что осознаёт риски публичного общения и обязуется соблюдать ограничения по контенту (включая 18+). Нарушение ограничений по контенту наказывается по соответствующим пунктам Раздела 4.' },
   { value: '2.3. Несовершеннолетним запрещено публиковать/передавать персональные данные и контент, если это нарушает применимое законодательство или настоящие Правила.', label: '2.3. Несовершеннолетним запрещено публиковать/передавать персональные данные и контент, если это нарушает применимое законодательство или настоящие Правила.' },
@@ -1136,11 +1131,6 @@ const sanctionReasons = [
   { value: '6.3. Запрещено целенаправленно препятствовать развитию платформы, дискредитировать администрацию через ложные обвинения, подделывать доказательства.', label: '6.3. Запрещено целенаправленно препятствовать развитию платформы, дискредитировать администрацию через ложные обвинения, подделывать доказательства.' },
   { value: '6.4. Запрещена подделка скриншотов/логов/видео и иных материалов с целью наказания других пользователей.', label: '6.4. Запрещена подделка скриншотов/логов/видео и иных материалов с целью наказания других пользователей.' },
   { value: '6.5. Запрещена реклама, публикация ссылок на донат/платёжные страницы, сбор средств без согласования с администрацией.', label: '6.5. Запрещена реклама, публикация ссылок на донат/платёжные страницы, сбор средств без согласования с администрацией.' },
-  { value: '7.1. В игровых комнатах нарушения в рамках игры фиксирует ведущий/судья; также пользователь может подать жалобу в администрацию.', label: '7.1. В игровых комнатах нарушения в рамках игры фиксирует ведущий/судья; также пользователь может подать жалобу в администрацию.' },
-  { value: '7.2. Жалобы по оскорблениям/личным конфликтам могут приниматься от пострадавшей стороны; нарушения приватности/мошенничества/безопасности/запрещённого контента рассматриваются по обращению любого пользователя или по инициативе администрации.', label: '7.2. Жалобы по оскорблениям/личным конфликтам могут приниматься от пострадавшей стороны; нарушения приватности/мошенничества/безопасности/запрещённого контента рассматриваются по обращению любого пользователя или по инициативе администрации.' },
-  { value: '7.3. Допустимые доказательства: записи экрана, скриншоты, логи комнаты, системные события.', label: '7.3. Допустимые доказательства: записи экрана, скриншоты, логи комнаты, системные события.' },
-  { value: '7.4. Администрация вправе удалять контент, ограничивать доступ к функциям, блокировать комнаты/аккаунты и применять санкции по настоящим Правилам.', label: '7.4. Администрация вправе удалять контент, ограничивать доступ к функциям, блокировать комнаты/аккаунты и применять санкции по настоящим Правилам.' },
-  { value: '7.5. Апелляции: пользователь вправе подать апелляцию в течение 3 дней, приложив аргументы и доказательства. Решение принимает администрация; повторные апелляции по тем же фактам могут быть отклонены.', label: '7.5. Апелляции: пользователь вправе подать апелляцию в течение 3 дней, приложив аргументы и доказательства. Решение принимает администрация; повторные апелляции по тем же фактам могут быть отклонены.' },
   { value: '8.1. Запрещены подсказки извне, переписка с третьими лицами по игре, просмотр стрима игры, находясь в игре, «слив роли».', label: '8.1. Запрещены подсказки извне, переписка с третьими лицами по игре, просмотр стрима игры, находясь в игре, «слив роли».' },
   { value: '8.2. Запрещено преднамеренное «вскрытие роли» другим игрокам любыми способами.', label: '8.2. Запрещено преднамеренное «вскрытие роли» другим игрокам любыми способами.' },
   { value: '8.3. Запрещено влияние на игру через сообщения/статусы «со стороны», скрины, откаты и т.п.', label: '8.3. Запрещено влияние на игру через сообщения/статусы «со стороны», скрины, откаты и т.п.' },
@@ -1166,8 +1156,16 @@ const sanctionTotalSeconds = computed(() => {
   const totalMinutes = (months * 30 * 24 * 60) + (days * 24 * 60) + (hours * 60) + minutes
   return totalMinutes * 60
 })
-const sanctionCanSave = computed(() => sanctionTotalSeconds.value > 0 && Boolean(sanctionForm.reason))
-const sanctionTitle = computed(() => (sanctionKind.value === 'timeout' ? 'Выдать таймаут' : 'Выдать ограничение'))
+const sanctionCanSave = computed(() => {
+  if (!sanctionForm.reason) return false
+  if (sanctionKind.value === 'ban') return true
+  return sanctionTotalSeconds.value > 0
+})
+const sanctionTitle = computed(() => {
+  if (sanctionKind.value === 'timeout') return 'Выдать таймаут'
+  if (sanctionKind.value === 'ban') return 'Выдать бан'
+  return 'Выдать ограничение'
+})
 const kickRoomsBusy = ref(false)
 let logsUserTimer: number | undefined
 let roomsUserTimer: number | undefined
@@ -1814,7 +1812,7 @@ function resetSanctionForm(): void {
   sanctionForm.reason = sanctionReasons[0]?.value || ''
 }
 
-function openTimedSanction(row: UserRow, kind: 'timeout' | 'suspend'): void {
+function openSanction(row: UserRow, kind: 'timeout' | 'ban' | 'suspend'): void {
   sanctionTarget.value = row
   sanctionKind.value = kind
   resetSanctionForm()
@@ -1825,23 +1823,29 @@ function setSanctionBusy(userId: number, kind: 'timeout' | 'ban' | 'suspend', va
   usersSanctionBusy[`${userId}:${kind}`] = value
 }
 
-async function saveTimedSanction(): Promise<void> {
+async function saveSanction(): Promise<void> {
   const target = sanctionTarget.value
   if (!target || sanctionSaving.value || !sanctionCanSave.value) return
   sanctionSaving.value = true
   const kind = sanctionKind.value
-  const url = kind === 'timeout' ? `/admin/users/${target.id}/timeout` : `/admin/users/${target.id}/suspend`
-  const payload = {
-    months: sanctionForm.months,
-    days: sanctionForm.days,
-    hours: sanctionForm.hours,
-    minutes: sanctionForm.minutes,
-    reason: sanctionForm.reason,
-  }
+  const url = kind === 'ban'
+    ? `/admin/users/${target.id}/ban`
+    : kind === 'timeout'
+      ? `/admin/users/${target.id}/timeout`
+      : `/admin/users/${target.id}/suspend`
+  const payload = kind === 'ban'
+    ? { reason: sanctionForm.reason }
+    : {
+      months: sanctionForm.months,
+      days: sanctionForm.days,
+      hours: sanctionForm.hours,
+      minutes: sanctionForm.minutes,
+      reason: sanctionForm.reason,
+    }
   try {
     await api.post(url, payload)
     sanctionModalOpen.value = false
-    void alertDialog(kind === 'timeout' ? 'Таймаут выдан' : 'Ограничение выдано')
+    void alertDialog(kind === 'timeout' ? 'Таймаут выдан' : kind === 'ban' ? 'Бан выдан' : 'Ограничение выдано')
     await loadUsers()
   } catch (e: any) {
     const st = e?.response?.status
@@ -1896,7 +1900,7 @@ async function toggleTimeout(row: UserRow): Promise<void> {
   if (row.timeout_active) {
     await revokeSanction(row, 'timeout')
   } else {
-    openTimedSanction(row, 'timeout')
+    openSanction(row, 'timeout')
   }
 }
 
@@ -1904,7 +1908,7 @@ async function toggleSuspend(row: UserRow): Promise<void> {
   if (row.suspend_active) {
     await revokeSanction(row, 'suspend')
   } else {
-    openTimedSanction(row, 'suspend')
+    openSanction(row, 'suspend')
   }
 }
 
@@ -1913,31 +1917,7 @@ async function toggleBan(row: UserRow): Promise<void> {
     await revokeSanction(row, 'ban')
     return
   }
-  const userLabel = row.username ? `${row.username}` : `#${row.id}`
-  const ok = await confirmDialog({
-    title: 'Бан',
-    text: `Забанить ${userLabel}?`,
-    confirmText: 'Забанить',
-    cancelText: 'Отмена',
-  })
-  if (!ok) return
-  if (isSanctionBusy(row.id, 'ban')) return
-  setSanctionBusy(row.id, 'ban', true)
-  try {
-    await api.post(`/admin/users/${row.id}/ban`, { reason: sanctionReasons[0]?.value || 'Нарушение правил платформы' })
-    void alertDialog('Бан выдан')
-    await loadUsers()
-  } catch (e: any) {
-    const st = e?.response?.status
-    const d = e?.response?.data?.detail
-    if (st === 409 && d === 'sanction_active') {
-      void alertDialog('Санкция уже активна')
-    } else {
-      void alertDialog('Не удалось выдать бан')
-    }
-  } finally {
-    setSanctionBusy(row.id, 'ban', false)
-  }
+  openSanction(row, 'ban')
 }
 
 watch(activeTab, (tab) => {

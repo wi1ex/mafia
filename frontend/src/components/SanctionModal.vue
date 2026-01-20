@@ -11,7 +11,7 @@
             </button>
           </header>
           <div class="modal-body">
-            <div class="grid">
+            <div v-if="showDuration" class="grid">
               <div class="ui-input" :class="{ filled: Number.isFinite(form.months) }">
                 <input id="sanction-months" v-model.number="form.months" type="number" min="0" placeholder=" " autocomplete="off" />
                 <label for="sanction-months">Месяцы</label>
@@ -53,11 +53,12 @@ import { ref } from 'vue'
 
 import iconClose from '@/assets/svg/close.svg'
 
-defineProps<{
+withDefaults(defineProps<{
   open: boolean
   title: string
   saving: boolean
   canSave: boolean
+  showDuration?: boolean
   reasons: { value: string; label: string }[]
   form: {
     months: number
@@ -66,7 +67,9 @@ defineProps<{
     minutes: number
     reason: string
   }
-}>()
+}>(), {
+  showDuration: true,
+})
 
 const emit = defineEmits<{
   'update:open': [boolean]

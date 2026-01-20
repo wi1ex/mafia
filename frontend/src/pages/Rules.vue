@@ -1,5 +1,5 @@
 <template>
-  <main class="rules">
+  <main class="rules" ref="rulesEl">
     <div class="rules-layout">
       <div class="rules-content">
         <section id="intro" class="hero">
@@ -181,8 +181,10 @@ const tocLinks: TocItem[] = [
 
 const activeId = ref(tocLinks[0]?.id ?? '')
 const lastId = tocLinks[tocLinks.length - 1]?.id ?? ''
+const rulesEl = ref<HTMLElement | null>(null)
 let rafId = 0
 let sectionEls: HTMLElement[] = []
+let scrollTarget: HTMLElement | Window | null = null
 
 function setActive(id: string) {
   if (id && activeId.value !== id) activeId.value = id
@@ -210,16 +212,32 @@ function updateActiveFromScroll() {
   if (!lastId) return
   const cutoff = 120
   let current = sectionEls[0].id
-  for (const el of sectionEls) {
-    if (el.getBoundingClientRect().top - cutoff <= 0) {
-      current = el.id
-    } else {
-      break
+  const container = rulesEl.value
+  if (container) {
+    const containerRect = container.getBoundingClientRect()
+    for (const el of sectionEls) {
+      const top = el.getBoundingClientRect().top - containerRect.top
+      if (top - cutoff <= 0) {
+        current = el.id
+      } else {
+        break
+      }
     }
+    const scrollBottom = container.scrollTop + container.clientHeight
+    const scrollHeight = container.scrollHeight
+    if (scrollBottom >= scrollHeight - 4) current = lastId
+  } else {
+    for (const el of sectionEls) {
+      if (el.getBoundingClientRect().top - cutoff <= 0) {
+        current = el.id
+      } else {
+        break
+      }
+    }
+    const scrollBottom = window.scrollY + window.innerHeight
+    const docHeight = document.documentElement.scrollHeight
+    if (scrollBottom >= docHeight - 4) current = lastId
   }
-  const scrollBottom = window.scrollY + window.innerHeight
-  const docHeight = document.documentElement.scrollHeight
-  if (scrollBottom >= docHeight - 4) current = lastId
   setActive(current)
 }
 
@@ -236,10 +254,15 @@ onMounted(() => {
   if (window.location.hash) {
     history.replaceState(null, '', `${window.location.pathname}${window.location.search}`)
   }
-  window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+  if (rulesEl.value) {
+    rulesEl.value.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+  } else {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+  }
   setActive(tocLinks[0]?.id ?? '')
   updateActiveFromScroll()
-  window.addEventListener('scroll', onScroll, { passive: true })
+  scrollTarget = rulesEl.value ?? window
+  scrollTarget.addEventListener('scroll', onScroll, { passive: true })
   window.addEventListener('resize', onScroll)
 })
 
@@ -247,7 +270,8 @@ onBeforeUnmount(() => {
   if (rafId) window.cancelAnimationFrame(rafId)
   rafId = 0
   sectionEls = []
-  window.removeEventListener('scroll', onScroll)
+  if (scrollTarget) scrollTarget.removeEventListener('scroll', onScroll)
+  scrollTarget = null
   window.removeEventListener('resize', onScroll)
 })
 </script>
