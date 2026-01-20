@@ -10,19 +10,8 @@
               Использование платформы deceit.games означает согласие с настоящими Правилами и связанными документами.
             </p>
             <div class="tags">
+              <span class="pill">21.01.2026</span>
               <span class="pill">14+</span>
-              <span class="pill">Приватность</span>
-              <span class="pill">Санкции</span>
-            </div>
-            <div class="meta">
-              <div class="meta-item">
-                <span class="label">Возраст</span>
-                <span class="value">14+</span>
-              </div>
-              <div class="meta-item">
-                <span class="label">Санкции</span>
-                <span class="value">SUSPEND / TIMEOUT / BAN</span>
-              </div>
             </div>
           </div>
         </section>
@@ -37,9 +26,9 @@
             </p>
           </div>
           <div class="notice-list">
-            <div class="notice-item">(SUSPEND) — временное отстранение от участия в играх.</div>
-            <div class="notice-item">(TIMEOUT) — временное ограничение доступа к комнатам.</div>
-            <div class="notice-item">(BAN) — постоянная блокировка доступа к платформе.</div>
+            <div class="notice-item">SUSPEND — временное отстранение от участия в играх.</div>
+            <div class="notice-item">TIMEOUT — временное ограничение доступа к комнатам.</div>
+            <div class="notice-item">BAN — постоянная блокировка доступа к платформе.</div>
           </div>
         </section>
 
@@ -142,7 +131,7 @@
 
         <section id="mafia-rules" class="footer-card">
           <div class="footer-text">
-            <h2>Игровые правила «Мафия»</h2>
+            <h2>8. Игровые правила «Мафия»</h2>
             <ul>
               <li>8.1. Запрещены подсказки извне, переписка с третьими лицами по игре, просмотр стрима игры, находясь в игре, «слив роли».</li>
               <li>8.2. Запрещено преднамеренное «вскрытие роли» другим игрокам любыми способами.</li>
@@ -153,12 +142,6 @@
               <li>8.7. Ведущему запрещено злоупотреблять правами, требовать оплату за проведение игр (если владелец комнаты это запрещает), применять меры из личной выгоды.</li>
               <li>8.8. Ведущему запрещено раскрывать роли до окончания игры; запрещено подсказывать/комментировать так, что это даёт игровую информацию.</li>
             </ul>
-          </div>
-          <div class="footer-meta">
-            <div class="meta-item">
-              <span class="label">Применение</span>
-              <span class="value">Эти правила действуют только внутри игровых комнат мафии и дополняют Правила сайта.</span>
-            </div>
           </div>
         </section>
       </div>
@@ -393,31 +376,6 @@ onBeforeUnmount(() => {
           text-transform: uppercase;
         }
       }
-      .meta {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 12px 16px;
-        .meta-item {
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
-          padding: 8px 10px;
-          border-radius: 8px;
-          background-color: $graphite;
-          border: 1px solid $grey;
-          min-width: 100px;
-          .label {
-            font-size: 12px;
-            letter-spacing: 1px;
-            text-transform: uppercase;
-            color: $ashy;
-          }
-          .value {
-            font-size: 14px;
-            color: $fg;
-          }
-        }
-      }
     }
   }
   .rules-grid {
@@ -507,7 +465,7 @@ onBeforeUnmount(() => {
     gap: 16px;
     align-items: center;
     justify-content: space-between;
-    padding: 20px 20px 400px;
+    padding: 20px;
     border-radius: 12px;
     background-color: $graphite;
     border: 1px solid $grey;
@@ -529,31 +487,6 @@ onBeforeUnmount(() => {
         display: grid;
         gap: 6px;
         li {
-          color: $fg;
-        }
-      }
-    }
-    .footer-meta {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      min-width: 240px;
-      .meta-item {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-        padding: 8px 10px;
-        border-radius: 8px;
-        background-color: $graphite;
-        border: 1px solid $grey;
-        .label {
-          font-size: 12px;
-          letter-spacing: 1px;
-          text-transform: uppercase;
-          color: $ashy;
-        }
-        .value {
-          font-size: 14px;
           color: $fg;
         }
       }
