@@ -7,7 +7,7 @@
             <p class="eyebrow">deceit.games</p>
             <h1>Правила сообщества</h1>
             <p class="lead">
-              Использование платформы deceit.games означает согласие с настоящими Правилами и связанными документами.
+              Использование платформы deceit.games означает согласие с настоящими Правилами.
             </p>
             <div class="tags">
               <span class="pill">редакция от 21.01.2026</span>
@@ -438,7 +438,7 @@ onBeforeUnmount(() => {
     padding: 20px;
     border-radius: 12px;
     background: linear-gradient(to right, $graphite, $lead);
-    border: 1px solid $green;
+    border: 1px solid $grey;
     box-shadow: 0 16px 30px rgba($black, 0.25);
     animation: liftIn 0.25s ease-out both;
     .notice-text {
