@@ -3,13 +3,10 @@
     <header>
       <nav class="tabs" aria-label="Профиль" role="tablist">
         <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'profile' }" :aria-selected="activeTab === 'profile'" @click="activeTab = 'profile'">
-          Личные данные
+          Аккаунт
         </button>
         <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'stats' }" :aria-selected="activeTab === 'stats'" @click="activeTab = 'stats'" disabled>
           Статистика
-        </button>
-        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'history' }" :aria-selected="activeTab === 'history'" @click="activeTab = 'history'" disabled>
-          История игр
         </button>
       </nav>
       <router-link class="btn nav" :to="{ name: 'home' }" aria-label="На главную">На главную</router-link>
@@ -62,11 +59,10 @@
           <div class="block">
             <h3>Удаление аккаунта</h3>
             <div class="danger-row">
-              <p class="danger-text">Удаление произойдет навсегда без возможности восстановления.</p>
               <button class="btn danger" @click="deleteAccount" :disabled="deleteBusy">
-                <img class="btn-img" :src="iconDelete" alt="delete" />
                 {{ deleteBusy ? '...' : 'Удалить аккаунт' }}
               </button>
+              <p class="danger-text">Удаление произойдет навсегда без возможности восстановления.</p>
             </div>
           </div>
 
@@ -129,7 +125,7 @@ const nickPct = computed(() => {
 })
 const nickUnderlineStyle = computed(() => ({ width: `${nickPct.value}%` }))
 
-const activeTab = ref<'profile' | 'stats' | 'history'>('profile')
+const activeTab = ref<'profile' | 'stats'>('profile')
 
 async function loadMe() {
   const { data } = await api.get('/users/profile_info')
