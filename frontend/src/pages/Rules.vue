@@ -10,7 +10,7 @@
               Использование платформы deceit.games означает согласие с настоящими Правилами и связанными документами.
             </p>
             <div class="tags">
-              <span class="pill">21.01.2026</span>
+              <span class="pill">редакция от 21.01.2026</span>
               <span class="pill">14+</span>
             </div>
           </div>
@@ -130,7 +130,7 @@
 
         <section id="mafia-rules" class="footer-card">
           <div class="footer-text">
-            <h2>8. Игровые правила «Мафия»</h2>
+            <h2>8. Игровые правила «Мафии»</h2>
             <ul>
               <li>8.1. Запрещены подсказки извне, переписка с третьими лицами по игре, просмотр стрима игры, находясь в игре, «слив роли».</li>
               <li>8.2. Запрещено преднамеренное «вскрытие роли» другим игрокам любыми способами.</li>
@@ -428,7 +428,7 @@ onBeforeUnmount(() => {
     padding: 20px;
     border-radius: 12px;
     background: linear-gradient(to right, $graphite, $lead);
-    border: 1px solid $orange;
+    border: 1px solid $green;
     box-shadow: 0 16px 30px rgba($black, 0.25);
     animation: liftIn 0.25s ease-out both;
     .notice-text {
