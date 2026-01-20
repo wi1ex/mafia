@@ -1818,7 +1818,7 @@ async function toggleBan(row: UserRow): Promise<void> {
     await revokeSanction(row, 'ban')
     return
   }
-  const userLabel = row.username ? `пользователю ${row.username}` : `пользователю #${row.id}`
+  const userLabel = row.username ? `${row.username}` : `#${row.id}`
   const ok = await confirmDialog({
     title: 'Бан',
     text: `Забанить ${userLabel}?`,

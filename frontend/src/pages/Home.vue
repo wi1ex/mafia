@@ -334,10 +334,6 @@ async function onApply() {
     } else if (detail === 'not_private') {
       access.value = 'approved'
       void alertDialog('Комната открыта, можно зайти без заявки')
-    } else if (detail === 'user_timeout') {
-      void alertDialog('Вам выдан таймаут. Вход в комнаты временно недоступен')
-    } else if (detail === 'user_banned') {
-      void alertDialog('Аккаунт забанен. Вход в комнаты недоступен')
     } else {
       void alertDialog('Ошибка при отправке заявки')
     }

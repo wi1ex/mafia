@@ -5,7 +5,7 @@ from ..utils import validate_auth
 from ...core.clients import get_redis
 from ...core.db import SessionLocal
 from ...core.settings import settings
-from ...api.utils import touch_user_last_visit, touch_user_online
+from ...api.utils import touch_user_last_visit, touch_user_online, check_sanctions_expired
 
 log = structlog.get_logger()
 
@@ -58,6 +58,11 @@ async def online_ping(sid, data=None):
                 await touch_user_last_visit(s, uid)
     except Exception:
         log.warning("auth.ping.last_visit_failed", uid=uid)
+    try:
+        async with SessionLocal() as s:
+            await check_sanctions_expired(s, uid)
+    except Exception:
+        log.warning("auth.ping.sanctions_check_failed", uid=uid)
 
 
 @sio.event(namespace="/auth")

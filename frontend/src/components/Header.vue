@@ -140,7 +140,7 @@ const sanctionBanner = computed<SanctionBanner | null>(() => {
     return { kind: 'timeout', text: `Таймаут: ${formatRemaining(user.timeoutRemainingMs)}` }
   }
   if (user.suspendRemainingMs > 0) {
-    return { kind: 'suspend', text: `Ограничение: ${formatRemaining(user.suspendRemainingMs)}` }
+    return { kind: 'suspend', text: `Ограничение доступа к играм: ${formatRemaining(user.suspendRemainingMs)}` }
   }
   return null
 })
@@ -479,23 +479,20 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
   margin: 0 10px 10px;
-  padding: 8px 12px;
-  border-radius: 6px;
-  background-color: $graphite;
-  border: 1px solid $grey;
-  color: $fg;
-  font-size: 14px;
+  padding: 10px 0;
+  border-radius: 5px;
+  color: $bg;
+  font-weight: bold;
+  letter-spacing: 0.5px;
   &.sanction-banner--ban {
-    border-color: rgba($red, 0.8);
-    color: $white;
+    background-color: $red;
   }
   &.sanction-banner--timeout {
-    border-color: rgba($orange, 0.8);
+    background-color: $orange;
   }
   &.sanction-banner--suspend {
-    border-color: rgba($yellow, 0.8);
+    background-color: $yellow;
   }
 }
 

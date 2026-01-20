@@ -2,6 +2,7 @@ from __future__ import annotations
 import re
 import asyncio
 import calendar
+from contextlib import suppress
 import structlog
 from time import time
 from datetime import date, datetime, timezone, timedelta
@@ -15,6 +16,7 @@ from ..core.settings import settings
 from ..models.game import Game
 from ..models.log import AppLog
 from ..models.room import Room
+from ..models.notif import Notif
 from ..models.sanction import UserSanction
 from ..models.user import User
 from ..schemas.admin import SiteSettingsOut, GameSettingsOut, RegistrationsPoint, AdminRoomUserStat, AdminSanctionOut
@@ -67,6 +69,7 @@ __all__ = [
     "emit_sanctions_update",
     "ensure_room_access_allowed",
     "ensure_profile_changes_allowed",
+    "check_sanctions_expired",
     "format_duration_parts",
 ]
 
@@ -218,6 +221,133 @@ async def ensure_profile_changes_allowed(db: AsyncSession, user_id: int) -> None
     active = await fetch_active_sanctions(db, int(user_id))
     if active.get(SANCTION_BAN):
         raise HTTPException(status_code=403, detail="user_banned")
+
+
+def _parse_int(raw: Any) -> int:
+    if raw is None:
+        return 0
+
+    if isinstance(raw, bytes):
+        try:
+            raw = raw.decode()
+        except Exception:
+            return 0
+
+    try:
+        return int(raw)
+
+    except Exception:
+        return 0
+
+
+async def check_sanctions_expired(session: AsyncSession, user_id: int, *, throttle_s: int = 30) -> None:
+    r = get_redis()
+    if throttle_s > 0:
+        try:
+            ok = await r.set(f"user:{user_id}:sanctions_check", "1", ex=throttle_s, nx=True)
+        except Exception:
+            ok = True
+        if not ok:
+            return
+
+    now = datetime.now(timezone.utc)
+    key = f"user:{user_id}:sanctions_state"
+    try:
+        prev = await r.hgetall(key)
+    except Exception:
+        prev = {}
+
+    prev_timeout_ts = _parse_int(prev.get("timeout_expires_at"))
+    prev_suspend_ts = _parse_int(prev.get("suspend_expires_at"))
+    prev_ban = _parse_int(prev.get("ban_active"))
+
+    expired_rows = await session.execute(
+        select(UserSanction)
+        .where(
+            UserSanction.user_id == int(user_id),
+            UserSanction.revoked_at.is_(None),
+            UserSanction.expires_at.is_not(None),
+            UserSanction.expires_at <= now,
+            UserSanction.expired_notified_at.is_(None),
+            UserSanction.kind.in_([SANCTION_TIMEOUT, SANCTION_SUSPEND]),
+        )
+        .order_by(UserSanction.expires_at.asc(), UserSanction.id.asc())
+    )
+    expired = expired_rows.scalars().all()
+
+    active = await fetch_active_sanctions(session, int(user_id))
+    timeout = active.get(SANCTION_TIMEOUT)
+    ban = active.get(SANCTION_BAN)
+    suspend = active.get(SANCTION_SUSPEND)
+
+    timeout_expires_at = cast(Optional[datetime], timeout.expires_at) if timeout else None
+    suspend_expires_at = cast(Optional[datetime], suspend.expires_at) if suspend else None
+    new_timeout_ts = int(timeout_expires_at.timestamp()) if timeout_expires_at else 0
+    new_suspend_ts = int(suspend_expires_at.timestamp()) if suspend_expires_at else 0
+    new_ban = 1 if ban else 0
+
+    state_changed = prev_timeout_ts != new_timeout_ts or prev_suspend_ts != new_suspend_ts or prev_ban != new_ban
+
+    notes: list[Notif] = []
+    for row in expired:
+        if row.kind == SANCTION_TIMEOUT:
+            notes.append(Notif(
+                user_id=int(user_id),
+                title="Таймаут истек",
+                text="Ваш таймаут завершен. Доступ к комнатам восстановлен.",
+            ))
+        elif row.kind == SANCTION_SUSPEND:
+            notes.append(Notif(
+                user_id=int(user_id),
+                title="SUSPEND истек",
+                text="Ограничение доступа к играм снято.",
+            ))
+        row.expired_notified_at = now
+
+    if notes:
+        session.add_all(notes)
+        await session.commit()
+        for note in notes:
+            await session.refresh(note)
+        for note in notes:
+            with suppress(Exception):
+                await sio.emit(
+                    "notify",
+                    {
+                        "id": note.id,
+                        "title": note.title,
+                        "text": note.text,
+                        "date": note.created_at.isoformat(),
+                        "kind": "sanction",
+                        "ttl_ms": 15000,
+                        "read": False,
+                    },
+                    room=f"user:{int(user_id)}",
+                    namespace="/auth",
+                )
+        if state_changed:
+            with suppress(Exception):
+                await emit_sanctions_update(session, int(user_id))
+    elif state_changed:
+        with suppress(Exception):
+            await emit_sanctions_update(session, int(user_id))
+
+    mapping: Dict[str, str] = {
+        "ban_active": "1" if new_ban else "0",
+    }
+    if new_timeout_ts:
+        mapping["timeout_expires_at"] = str(new_timeout_ts)
+    if new_suspend_ts:
+        mapping["suspend_expires_at"] = str(new_suspend_ts)
+    try:
+        if mapping:
+            await r.hset(key, mapping=mapping)
+        if not new_timeout_ts:
+            await r.hdel(key, "timeout_expires_at")
+        if not new_suspend_ts:
+            await r.hdel(key, "suspend_expires_at")
+    except Exception:
+        pass
 
 
 def serialize_game_for_redis(game_dict: Dict[str, Any]) -> Dict[str, str]:

@@ -15,7 +15,6 @@ import { useAuthStore } from '@/store'
 import { useUserStore } from '@/store'
 import { useNotifStore } from '@/store'
 import { useSettingsStore } from '@/store'
-import { alertDialog } from '@/services/confirm'
 import Header from '@/components/Header.vue'
 import Toast from '@/components/Toasts.vue'
 import Confirms from '@/components/Confirms.vue'
@@ -27,7 +26,6 @@ const user = useUserStore()
 const settings = useSettingsStore()
 
 let onSanctionsUpdate: ((e: any) => void) | null = null
-let onSanctionAlert: ((e: any) => void) | null = null
 
 const isRoom = computed(() => route.name === 'room')
 
@@ -59,20 +57,11 @@ onMounted(async () => {
       ban_active: p.ban_active ?? false,
     })
   }
-  onSanctionAlert = (e: any) => {
-    const p = e?.detail || {}
-    if (p.kind !== 'sanction') return
-    const title = p.title ? String(p.title) : 'Уведомление'
-    const text = p.text ? String(p.text) : ''
-    void alertDialog({ title, text })
-  }
   window.addEventListener('auth-sanctions_update', onSanctionsUpdate)
-  window.addEventListener('auth-notify', onSanctionAlert)
 })
 
 onBeforeUnmount(() => {
   if (onSanctionsUpdate) window.removeEventListener('auth-sanctions_update', onSanctionsUpdate)
-  if (onSanctionAlert) window.removeEventListener('auth-notify', onSanctionAlert)
 })
 </script>
 

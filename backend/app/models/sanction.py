@@ -21,3 +21,4 @@ class UserSanction(Base):
     revoked_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     revoked_by_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
     revoked_by_name: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    expired_notified_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
