@@ -139,7 +139,7 @@
               <li>8.5. Запрещено озвучивать речевую информацию на языке, который очевидно скрывает смысл от ведущего/судьи или большинства игроков. (внутриигровые меры комнаты)</li>
               <li>8.6. После решающего убийства/голосования, определившего результат игры, меры, связанные с игровым преимуществом, как правило, не применяются, если нарушение уже не могло повлиять на исход (кроме грубых нарушений поведения/безопасности, которые могут наказываться всегда).</li>
               <li>8.7. Ведущему запрещено злоупотреблять правами, требовать оплату за проведение игр (если владелец комнаты это запрещает), применять меры из личной выгоды.</li>
-              <li>8.8. Ведущему запрещено раскрывать роли до окончания игры; запрещено подсказывать/комментировать так, что это даёт игровую информацию.</li>
+              <li>8.8. Ведущему запрещено раскрывать роли до окончания игры или подсказывать/комментировать так, что это даёт игровую информацию.</li>
             </ul>
           </div>
         </section>
@@ -182,6 +182,7 @@ const tocLinks: TocItem[] = [
 ]
 
 const activeId = ref(tocLinks[0]?.id ?? '')
+const lastId = tocLinks[tocLinks.length - 1]?.id ?? ''
 let observer: IntersectionObserver | null = null
 
 function setActive(id: string) {
@@ -217,21 +218,30 @@ function observeSections() {
   targets.forEach(el => observer?.observe(el))
 }
 
+function onScrollFallback() {
+  if (!lastId) return
+  const scrollBottom = window.scrollY + window.innerHeight
+  const docHeight = document.documentElement.scrollHeight
+  if (scrollBottom >= docHeight - 4) setActive(lastId)
+}
+
 onMounted(() => {
   observeSections()
-  const hash = window.location.hash.replace('#', '')
-  if (hash && tocLinks.some(item => item.id === hash)) {
-    const el = document.getElementById(hash)
-    if (el) {
-      el.scrollIntoView({ behavior: 'auto', block: 'start' })
-      setActive(hash)
-    }
+  if (window.location.hash) {
+    history.replaceState(null, '', `${window.location.pathname}${window.location.search}`)
   }
+  window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+  setActive(tocLinks[0]?.id ?? '')
+  onScrollFallback()
+  window.addEventListener('scroll', onScrollFallback, { passive: true })
+  window.addEventListener('resize', onScrollFallback)
 })
 
 onBeforeUnmount(() => {
   observer?.disconnect()
   observer = null
+  window.removeEventListener('scroll', onScrollFallback)
+  window.removeEventListener('resize', onScrollFallback)
 })
 </script>
 
