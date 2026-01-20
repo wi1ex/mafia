@@ -5,7 +5,7 @@
         <header :id="titleId">
           <span class="title">{{ state.title }}</span>
         </header>
-        <span class="text">{{ state.text }}</span>
+        <span v-if="showText" class="text">{{ state.text }}</span>
         <div v-if="showCheckbox" class="checkbox">
           <input :id="checkboxId" v-model="state.checkboxChecked" type="checkbox" />
           <label v-if="state.checkboxLabel" :for="checkboxId" class="checkbox-label">{{ state.checkboxLabel }}</label>
@@ -29,6 +29,7 @@ import { resolveConfirm, useConfirmState } from '@/services/confirm'
 
 const state = useConfirmState()
 const isConfirm = computed(() => state.mode === 'confirm')
+const showText = computed(() => Boolean(state.text) && !state.hideText)
 const showCheckbox = computed(() => Boolean(state.checkboxLabel) || Boolean(state.checkboxLinkText) || Boolean(state.checkboxLabelSuffix))
 const showCheckboxLink = computed(() => Boolean(state.checkboxLinkText) && Boolean(state.checkboxLinkTo))
 const confirmDisabled = computed(() => state.checkboxRequired && !state.checkboxChecked)
@@ -100,7 +101,7 @@ onBeforeUnmount(() => {
       display: flex;
       flex-wrap: wrap;
       align-items: center;
-      gap: 8px;
+      gap: 3px;
       margin: 0 15px;
       font-size: 14px;
       line-height: 1.25;
@@ -114,7 +115,7 @@ onBeforeUnmount(() => {
         cursor: pointer;
       }
       .checkbox-link {
-        color: $green;
+        color: $white;
         text-decoration: underline;
       }
     }
@@ -146,6 +147,10 @@ onBeforeUnmount(() => {
           color: $bg;
           &:hover {
             background-color: $green;
+          }
+          &:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
           }
         }
       }

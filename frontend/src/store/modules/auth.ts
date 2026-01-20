@@ -174,15 +174,16 @@ export const useAuthStore = defineStore('auth', () => {
       const detail = e?.response?.data?.detail
       if (st === 428 && detail === 'rules_required' && tg.accept_rules !== true) {
         const ok = await confirmDialog({
-          title: 'Правила сайта',
-          text: 'Для регистрации необходимо принять правила сайта.',
-          confirmText: 'Принять',
+          title: 'Подтверждение регистрации',
+          text: '',
+          confirmText: 'Зарегистрироваться',
           cancelText: 'Отмена',
-          checkboxLabel: 'Я принимаю',
-          checkboxLinkText: 'правила',
+          checkboxLabel: 'С',
+          checkboxLinkText: 'правилами',
           checkboxLinkTo: '/rules',
-          checkboxLabelSuffix: 'сайта',
+          checkboxLabelSuffix: 'сайта ознакомлен и согласен',
           checkboxRequired: true,
+          hideText: true,
         })
         if (!ok) return
         return await signInWithTelegram({ ...tg, accept_rules: true })

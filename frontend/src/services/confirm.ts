@@ -13,6 +13,7 @@ export type ConfirmPayload = {
   checkboxLinkTo?: string
   checkboxRequired?: boolean
   checkboxDefault?: boolean
+  hideText?: boolean
 }
 
 type ConfirmState = {
@@ -28,6 +29,7 @@ type ConfirmState = {
   checkboxLinkTo: string
   checkboxRequired: boolean
   checkboxChecked: boolean
+  hideText: boolean
 }
 
 const state = reactive<ConfirmState>({
@@ -43,6 +45,7 @@ const state = reactive<ConfirmState>({
   checkboxLinkTo: '',
   checkboxRequired: false,
   checkboxChecked: false,
+  hideText: false,
 })
 
 let resolver: ((value: boolean) => void) | null = null
@@ -64,6 +67,7 @@ function open(mode: ConfirmMode, payload: ConfirmPayload): Promise<boolean> {
   state.checkboxRequired = Boolean(payload.checkboxRequired)
     && Boolean(payload.checkboxLabel || payload.checkboxLinkText || payload.checkboxLabelSuffix)
   state.checkboxChecked = Boolean(payload.checkboxDefault)
+  state.hideText = Boolean(payload.hideText)
   state.open = true
   return new Promise((resolve) => {
     resolver = resolve
