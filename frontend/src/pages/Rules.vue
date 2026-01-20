@@ -26,9 +26,9 @@
             </p>
           </div>
           <div class="notice-list">
-            <div class="notice-item">SUSPEND — временное отстранение от участия в играх.</div>
-            <div class="notice-item">TIMEOUT — временное ограничение доступа к комнатам.</div>
-            <div class="notice-item">BAN — постоянная блокировка доступа к платформе.</div>
+            <div class="notice-item notice-item--suspend">SUSPEND — временное отстранение от участия в играх.</div>
+            <div class="notice-item notice-item--timeout">TIMEOUT — временное ограничение доступа к комнатам.</div>
+            <div class="notice-item notice-item--ban">BAN — постоянная блокировка доступа к платформе.</div>
           </div>
         </section>
 
@@ -43,7 +43,6 @@
               <li>1.5. Отзыв согласия. Пользователь может отозвать согласие на обработку данных, удалив свой аккаунт в Личном кабинете.</li>
               <li>1.6. О привязке санкций к Telegram-аккаунту. Аккаунт на платформе привязан к Telegram-аккаунту пользователя (в первую очередь — к Telegram ID). При применении санкций доступ к платформе может быть ограничен/заблокирован именно для аккаунта, авторизованного через соответствующий Telegram-аккаунт.</li>
             </ul>
-            <p class="note">Примечание: платформа не “блокирует” Telegram-аккаунт в самом Telegram; блокируется доступ внутри deceit.games для пользователя, вошедшего через данный Telegram ID.</p>
           </article>
 
           <article id="section-2" class="rule-card">
@@ -406,9 +405,6 @@ onBeforeUnmount(() => {
         margin: 0;
         color: $ashy;
       }
-      p.note {
-        margin-top: 6px;
-      }
       ul {
         margin: 0;
         padding-left: 18px;
@@ -456,6 +452,15 @@ onBeforeUnmount(() => {
         border: 1px solid $grey;
         font-size: 14px;
         color: $fg;
+      }
+      .notice-item--suspend {
+        border-color: #f0c02b;
+      }
+      .notice-item--timeout {
+        border-color: #f18b2b;
+      }
+      .notice-item--ban {
+        border-color: #e04a3a;
       }
     }
   }
