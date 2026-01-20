@@ -27,7 +27,7 @@ async def telegram(payload: TelegramAuthIn, resp: Response, request: Request, db
     if not get_cached_settings().registration_enabled:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="registration_disabled")
 
-    data_for_sig = payload.model_dump(exclude_none=True)
+    data_for_sig = payload.model_dump(exclude_none=True, exclude={"accept_rules"})
     if not verify_telegram_auth(data_for_sig):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid telegram auth")
 
@@ -37,6 +37,9 @@ async def telegram(payload: TelegramAuthIn, resp: Response, request: Request, db
     if user and user.deleted_at:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="user_deleted")
     if not user:
+        if payload.accept_rules is not True:
+            raise HTTPException(status_code=status.HTTP_428_PRECONDITION_REQUIRED, detail="rules_required")
+
         new_user = True
         base_username = (payload.username or "")[:20]
         if base_username:

@@ -26,6 +26,7 @@ export interface TgUser {
   photo_url?: string
   auth_date?: number
   hash?: string
+  accept_rules?: boolean
 }
 
 export const useAuthStore = defineStore('auth', () => {
@@ -171,6 +172,21 @@ export const useAuthStore = defineStore('auth', () => {
     } catch (e: any) {
       const st = e?.response?.status
       const detail = e?.response?.data?.detail
+      if (st === 428 && detail === 'rules_required' && tg.accept_rules !== true) {
+        const ok = await confirmDialog({
+          title: 'Правила сайта',
+          text: 'Для регистрации необходимо принять правила сайта.',
+          confirmText: 'Принять',
+          cancelText: 'Отмена',
+          checkboxLabel: 'Я принимаю',
+          checkboxLinkText: 'правила',
+          checkboxLinkTo: '/rules',
+          checkboxLabelSuffix: 'сайта',
+          checkboxRequired: true,
+        })
+        if (!ok) return
+        return await signInWithTelegram({ ...tg, accept_rules: true })
+      }
       if (st === 403 && detail === 'user_deleted') {
         void alertDialog('Авторизация невозможна: аккаунт удален')
       } else if (st === 403 && detail === 'registration_disabled') {

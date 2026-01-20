@@ -10,6 +10,7 @@ class TelegramAuthIn(BaseModel):
     photo_url: Optional[str] | None = None
     first_name: Optional[str] | None = None
     last_name: Optional[str] | None = None
+    accept_rules: Optional[bool] | None = None
     model_config = ConfigDict(extra="allow")
 
 

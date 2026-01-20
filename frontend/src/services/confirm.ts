@@ -7,6 +7,12 @@ export type ConfirmPayload = {
   text: string
   confirmText?: string
   cancelText?: string
+  checkboxLabel?: string
+  checkboxLabelSuffix?: string
+  checkboxLinkText?: string
+  checkboxLinkTo?: string
+  checkboxRequired?: boolean
+  checkboxDefault?: boolean
 }
 
 type ConfirmState = {
@@ -16,6 +22,12 @@ type ConfirmState = {
   text: string
   confirmText: string
   cancelText: string
+  checkboxLabel: string
+  checkboxLabelSuffix: string
+  checkboxLinkText: string
+  checkboxLinkTo: string
+  checkboxRequired: boolean
+  checkboxChecked: boolean
 }
 
 const state = reactive<ConfirmState>({
@@ -25,6 +37,12 @@ const state = reactive<ConfirmState>({
   text: '',
   confirmText: 'ОК',
   cancelText: 'Отмена',
+  checkboxLabel: '',
+  checkboxLabelSuffix: '',
+  checkboxLinkText: '',
+  checkboxLinkTo: '',
+  checkboxRequired: false,
+  checkboxChecked: false,
 })
 
 let resolver: ((value: boolean) => void) | null = null
@@ -39,6 +57,13 @@ function open(mode: ConfirmMode, payload: ConfirmPayload): Promise<boolean> {
   state.text = payload.text
   state.confirmText = payload.confirmText || 'ОК'
   state.cancelText = payload.cancelText || 'Отмена'
+  state.checkboxLabel = payload.checkboxLabel || ''
+  state.checkboxLabelSuffix = payload.checkboxLabelSuffix || ''
+  state.checkboxLinkText = payload.checkboxLinkText || ''
+  state.checkboxLinkTo = payload.checkboxLinkTo || ''
+  state.checkboxRequired = Boolean(payload.checkboxRequired)
+    && Boolean(payload.checkboxLabel || payload.checkboxLinkText || payload.checkboxLabelSuffix)
+  state.checkboxChecked = Boolean(payload.checkboxDefault)
   state.open = true
   return new Promise((resolve) => {
     resolver = resolve

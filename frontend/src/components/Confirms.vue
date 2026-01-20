@@ -6,9 +6,17 @@
           <span class="title">{{ state.title }}</span>
         </header>
         <span class="text">{{ state.text }}</span>
+        <div v-if="showCheckbox" class="checkbox">
+          <input :id="checkboxId" v-model="state.checkboxChecked" type="checkbox" />
+          <label v-if="state.checkboxLabel" :for="checkboxId" class="checkbox-label">{{ state.checkboxLabel }}</label>
+          <router-link v-if="showCheckboxLink" class="checkbox-link" :to="state.checkboxLinkTo" target="_blank" rel="noopener noreferrer" @click.stop>
+            {{ state.checkboxLinkText }}
+          </router-link>
+          <label v-if="state.checkboxLabelSuffix" :for="checkboxId" class="checkbox-label">{{ state.checkboxLabelSuffix }}</label>
+        </div>
         <div class="actions">
           <button v-if="isConfirm" @click="onCancel">{{ state.cancelText }}</button>
-          <button class="confirm" @click="onConfirm">{{ state.confirmText }}</button>
+          <button class="confirm" :disabled="confirmDisabled" @click="onConfirm">{{ state.confirmText }}</button>
         </div>
       </div>
     </div>
@@ -21,10 +29,15 @@ import { resolveConfirm, useConfirmState } from '@/services/confirm'
 
 const state = useConfirmState()
 const isConfirm = computed(() => state.mode === 'confirm')
+const showCheckbox = computed(() => Boolean(state.checkboxLabel) || Boolean(state.checkboxLinkText) || Boolean(state.checkboxLabelSuffix))
+const showCheckboxLink = computed(() => Boolean(state.checkboxLinkText) && Boolean(state.checkboxLinkTo))
+const confirmDisabled = computed(() => state.checkboxRequired && !state.checkboxChecked)
 const dialogRole = computed(() => (state.mode === 'alert' ? 'alertdialog' : 'dialog'))
 const titleId = 'confirm-title'
+const checkboxId = 'confirm-checkbox'
 
 function onConfirm() {
+  if (confirmDisabled.value) return
   resolveConfirm(true)
 }
 
@@ -35,7 +48,7 @@ function onCancel() {
 function onKeydown(e: KeyboardEvent) {
   if (!state.open) return
   if (e.key === 'Escape') resolveConfirm(false)
-  if (e.key === 'Enter') resolveConfirm(true)
+  if (e.key === 'Enter' && !confirmDisabled.value) resolveConfirm(true)
 }
 
 watch(() => state.open, (open) => {
@@ -82,6 +95,28 @@ onBeforeUnmount(() => {
       margin: 0 15px;
       line-height: 1.25;
       white-space: pre-line;
+    }
+    .checkbox {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      margin: 0 15px;
+      font-size: 14px;
+      line-height: 1.25;
+      input {
+        width: 16px;
+        height: 16px;
+        accent-color: $green;
+        cursor: pointer;
+      }
+      .checkbox-label {
+        cursor: pointer;
+      }
+      .checkbox-link {
+        color: $green;
+        text-decoration: underline;
+      }
     }
     .actions {
       display: flex;
