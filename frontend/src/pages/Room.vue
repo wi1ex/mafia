@@ -236,7 +236,7 @@
           <button v-if="gamePhase === 'idle' && canShowStartGame && canUseReadyStart" @click="startGameUi" :disabled="startingGame" aria-label="Запустить игру">
             <img :src="iconGameStart" alt="start" />
           </button>
-          <button v-if="gamePhase === 'idle' && !canShowStartGame && canUseReadyStart" @click="toggleReady" :aria-pressed="readyOn" aria-label="Готовность">
+          <button v-if="gamePhase === 'idle' && !canShowStartGame && canUseReadyToggle" @click="toggleReady" :aria-pressed="readyOn" aria-label="Готовность">
             <img :src="readyOn ? iconReadyGreen : iconReadyWhite" alt="ready" />
           </button>
           <button v-if="gamePhase === 'idle' || isHead" @click="toggleMic" :disabled="pending.mic || blockedSelf.mic" :aria-pressed="micOn">
@@ -333,7 +333,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { Socket } from 'socket.io-client'
-import { useAuthStore, useSettingsStore } from '@/store'
+import { useAuthStore, useSettingsStore, useUserStore } from '@/store'
 import {
   type Ack,
   type FarewellVerdict,
@@ -405,6 +405,7 @@ const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 const settings = useSettingsStore()
+const userStore = useUserStore()
 const confirmState = useConfirmState()
 
 const rtc = useRTC()
@@ -629,6 +630,7 @@ const canUseReadyStart = computed(() => {
   if (limit <= 0 || min <= 0) return false
   return limit === min + 1
 })
+const canUseReadyToggle = computed(() => canUseReadyStart.value && !userStore.suspendActive)
 const canShowStartGame = computed(() => {
   if (!localId.value) return false
   if (gamePhase.value !== 'idle') return false
@@ -1144,7 +1146,7 @@ const readyOn = computed({
 const isReady = (id: string) => (statusByUser.get(id)?.ready ?? 0) === 1
 
 async function toggleReady() {
-  if (!canUseReadyStart.value) return
+  if (!canUseReadyToggle.value) return
   const want = !readyOn.value
   readyOn.value = want
   try {
