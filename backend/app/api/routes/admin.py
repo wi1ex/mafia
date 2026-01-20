@@ -673,14 +673,29 @@ async def users_list(page: int = 1, limit: int = 20, username: str | None = None
 @log_route("admin.users.role")
 @require_roles_deco("admin")
 @router.patch("/users/{user_id}/role", response_model=AdminUserRoleOut)
-async def update_user_role(user_id: int, payload: AdminUserRoleIn, session: AsyncSession = Depends(get_session)) -> AdminUserRoleOut:
+async def update_user_role(user_id: int, payload: AdminUserRoleIn, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> AdminUserRoleOut:
     user = await session.get(User, int(user_id))
     if not user:
         raise HTTPException(status_code=404, detail="user_not_found")
 
+    prev_role = user.role
     user.role = payload.role
     await session.commit()
     await session.refresh(user)
+
+    if prev_role != user.role:
+        action = "admin_role_grant" if user.role == "admin" else "admin_role_revoke"
+        details = f"Роль user_id={user.id}"
+        if user.username:
+            details += f" username={user.username}"
+        details += f" from={prev_role} to={user.role}"
+        await log_action(
+            session,
+            user_id=int(ident["id"]),
+            username=ident["username"],
+            action=action,
+            details=details,
+        )
 
     return AdminUserRoleOut(id=cast(int, user.id), role=user.role)
 
@@ -688,8 +703,18 @@ async def update_user_role(user_id: int, payload: AdminUserRoleIn, session: Asyn
 @log_route("admin.users.account_delete")
 @require_roles_deco("admin")
 @router.post("/users/{user_id}/delete", response_model=Ok)
-async def delete_user_account(user_id: int, session: AsyncSession = Depends(get_session)) -> Ok:
-    await set_user_deleted(session, int(user_id), deleted=True)
+async def delete_user_account(user_id: int, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
+    user = await set_user_deleted(session, int(user_id), deleted=True)
+    details = f"Удаление аккаунта user_id={user.id}"
+    if user.username:
+        details += f" username={user.username}"
+    await log_action(
+        session,
+        user_id=int(ident["id"]),
+        username=ident["username"],
+        action="admin_account_delete",
+        details=details,
+    )
     await force_logout_user(int(user_id))
     return Ok()
 
@@ -697,8 +722,18 @@ async def delete_user_account(user_id: int, session: AsyncSession = Depends(get_
 @log_route("admin.users.account_restore")
 @require_roles_deco("admin")
 @router.post("/users/{user_id}/restore", response_model=Ok)
-async def restore_user_account(user_id: int, session: AsyncSession = Depends(get_session)) -> Ok:
-    await set_user_deleted(session, int(user_id), deleted=False)
+async def restore_user_account(user_id: int, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
+    user = await set_user_deleted(session, int(user_id), deleted=False)
+    details = f"Восстановление аккаунта user_id={user.id}"
+    if user.username:
+        details += f" username={user.username}"
+    await log_action(
+        session,
+        user_id=int(ident["id"]),
+        username=ident["username"],
+        action="admin_account_restore",
+        details=details,
+    )
     return Ok()
 
 

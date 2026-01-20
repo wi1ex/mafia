@@ -11,6 +11,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import update, func, select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.clients import get_redis
+from ..core.logging import log_action
 from ..core.db import SessionLocal
 from ..core.settings import settings
 from ..models.game import Game
@@ -327,6 +328,10 @@ async def check_sanctions_expired(session: AsyncSession, user_id: int, *, thrott
     state_changed = prev_timeout_ts != new_timeout_ts or prev_suspend_ts != new_suspend_ts or prev_ban != new_ban
 
     notes: list[Notif] = []
+    username: str | None = None
+    if expired:
+        user = await session.get(User, int(user_id))
+        username = user.username if user else None
     for row in expired:
         if row.kind == SANCTION_TIMEOUT:
             notes.append(Notif(
@@ -334,12 +339,38 @@ async def check_sanctions_expired(session: AsyncSession, user_id: int, *, thrott
                 title="Таймаут истек",
                 text="Ваш таймаут завершен. Доступ к комнатам восстановлен.",
             ))
+            details = f"Автоснятие таймаута user_id={user_id}"
+            if username:
+                details += f" username={username}"
+            if row.expires_at:
+                details += f" expires_at={row.expires_at.isoformat()}"
+            await log_action(
+                session,
+                user_id=int(user_id),
+                username=username,
+                action="sanction_timeout_expired",
+                details=details,
+                commit=False,
+            )
         elif row.kind == SANCTION_SUSPEND:
             notes.append(Notif(
                 user_id=int(user_id),
-                title="SUSPEND истек",
+                title="Ограничение истекло",
                 text="Ограничение доступа к играм снято.",
             ))
+            details = f"Автоснятие ограничения user_id={user_id}"
+            if username:
+                details += f" username={username}"
+            if row.expires_at:
+                details += f" expires_at={row.expires_at.isoformat()}"
+            await log_action(
+                session,
+                user_id=int(user_id),
+                username=username,
+                action="sanction_suspend_expired",
+                details=details,
+                commit=False,
+            )
         row.expired_notified_at = now
 
     if notes:

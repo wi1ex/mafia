@@ -10,8 +10,8 @@
               Использование платформы deceit.games означает согласие с настоящими Правилами.
             </p>
             <div class="tags">
-              <span class="pill">редакция от 21.01.2026</span>
               <span class="pill">14+</span>
+              <span class="pill">редакция от 21.01.2026</span>
             </div>
           </div>
         </section>
@@ -369,7 +369,6 @@ onBeforeUnmount(() => {
       .lead {
         margin: 0;
         color: $fg;
-        max-width: 550px;
       }
       .tags {
         display: flex;
