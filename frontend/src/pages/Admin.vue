@@ -1812,6 +1812,20 @@ async function saveTimedSanction(): Promise<void> {
 
 async function revokeSanction(row: UserRow, kind: 'timeout' | 'ban' | 'suspend'): Promise<void> {
   if (isSanctionBusy(row.id, kind)) return
+  const userLabel = row.username ? `${row.username}` : `#${row.id}`
+  const title = kind === 'ban' ? 'Разбанить' : kind === 'timeout' ? 'Снять таймаут' : 'Снять ограничение'
+  const text = kind === 'ban'
+    ? `Разбанить ${userLabel}?`
+    : kind === 'timeout'
+      ? `Снять таймаут у ${userLabel}?`
+      : `Снять ограничение у ${userLabel}?`
+  const ok = await confirmDialog({
+    title,
+    text,
+    confirmText: title,
+    cancelText: 'Отмена',
+  })
+  if (!ok) return
   setSanctionBusy(row.id, kind, true)
   try {
     await api.delete(`/admin/users/${row.id}/${kind}`)
