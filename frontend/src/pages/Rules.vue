@@ -126,11 +126,9 @@
               <li>7.5. Апелляции: пользователь вправе подать апелляцию в течение 3 дней, приложив аргументы и доказательства. Решение принимает администрация; повторные апелляции по тем же фактам могут быть отклонены.</li>
             </ul>
           </article>
-        </section>
 
-        <section id="mafia-rules" class="footer-card">
-          <div class="footer-text">
-            <h2>8. Игровые правила «Мафии»</h2>
+          <article id="mafia-rules" class="rule-card">
+            <h3>8. Игровые правила «Мафии»</h3>
             <ul>
               <li>8.1. Запрещены подсказки извне, переписка с третьими лицами по игре, просмотр стрима игры, находясь в игре, «слив роли».</li>
               <li>8.2. Запрещено преднамеренное «вскрытие роли» другим игрокам любыми способами.</li>
@@ -141,7 +139,7 @@
               <li>8.7. Ведущему запрещено злоупотреблять правами, требовать оплату за проведение игр (если владелец комнаты это запрещает), применять меры из личной выгоды.</li>
               <li>8.8. Ведущему запрещено раскрывать роли до окончания игры или подсказывать/комментировать так, что это даёт игровую информацию.</li>
             </ul>
-          </div>
+          </article>
         </section>
       </div>
 
@@ -470,39 +468,6 @@ onBeforeUnmount(() => {
       }
       .notice-item--ban {
         border-color: #e04a3a;
-      }
-    }
-  }
-  .footer-card {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 16px;
-    align-items: center;
-    justify-content: space-between;
-    padding: 20px;
-    border-radius: 12px;
-    background-color: $graphite;
-    border: 1px solid $grey;
-    box-shadow: 0 12px 24px rgba($black, 0.25);
-    animation: liftIn 0.25s ease-out both;
-    .footer-text {
-      max-width: 600px;
-      h2 {
-        margin: 0 0 8px;
-        font-size: 20px;
-      }
-      p {
-        margin: 0;
-        color: $ashy;
-      }
-      ul {
-        margin: 0;
-        padding-left: 18px;
-        display: grid;
-        gap: 6px;
-        li {
-          color: $fg;
-        }
       }
     }
   }
