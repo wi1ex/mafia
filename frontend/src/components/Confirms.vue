@@ -138,7 +138,7 @@ onBeforeUnmount(() => {
         font-family: Manrope-Medium;
         line-height: 1;
         cursor: pointer;
-        transition: background-color 0.25s ease-in-out;
+        transition: opacity 0.25s ease-in-out, background-color 0.25s ease-in-out;
         &:hover {
           background-color: $lead;
         }
