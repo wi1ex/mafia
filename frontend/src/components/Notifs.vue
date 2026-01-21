@@ -273,6 +273,7 @@ onBeforeUnmount(() => {
         margin: 0;
         width: 100%;
         color: $fg;
+        line-height: 1.25;
       }
     }
     .item.just-read {
