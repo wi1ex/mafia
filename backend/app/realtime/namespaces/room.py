@@ -3135,6 +3135,10 @@ async def game_vote_finish(sid, data):
 
         vote_lift_state = str(raw_gstate.get("vote_lift_state") or "")
         vote_done = str(raw_gstate.get("vote_done") or "0") == "1"
+        vote_results_ready = str(raw_gstate.get("vote_results_ready") or "0") == "1"
+        if vote_results_ready and vote_lift_state != "voting":
+            return {"ok": False, "error": "vote_results_ready", "status": 409}
+
         if not vote_done and vote_lift_state != "voting":
             return {"ok": False, "error": "vote_not_done", "status": 409}
 

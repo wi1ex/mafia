@@ -1788,6 +1788,8 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
          void alertDialog('Только ведущий может завершать голосование')
       } else if (st === 409 && code === 'vote_not_done') {
          void alertDialog('Голосование еще не завершено')
+      } else if (st === 409 && code === 'vote_results_ready') {
+         void alertDialog('Дабл-клик был проигнорирован')
       } else if (st === 409 && code === 'no_nominees') {
          void alertDialog('Никто не выставлен')
       } else if (st === 409 && code === 'no_leaders') {
