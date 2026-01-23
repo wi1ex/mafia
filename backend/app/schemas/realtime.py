@@ -34,6 +34,7 @@ class RoomListItem(TypedDict):
     occupancy: int
     in_game: bool
     game_phase: str
+    entry_closed: bool
 
 
 class RoomsListAck(TypedDict):

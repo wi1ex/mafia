@@ -135,6 +135,9 @@ async def join(sid, data) -> JoinAck:
         if not params:
             return {"ok": False, "error": "room_not_found", "status": 404}      
 
+        if str(params.get("entry_closed") or "0") == "1":
+            return {"ok": False, "error": "room_closed", "status": 410}
+
         if not get_cached_settings().rooms_can_enter:
             return {"ok": False, "error": "rooms_entry_disabled", "status": 403}
 

@@ -1379,6 +1379,8 @@ socket.value?.on('connect', async () => {
       void alertDialog('Упс! Кажется пришло обновление... через 5 минут все заработает!')
     } else if (reason === 'room_kick') {
       void alertDialog('Вас выгнали из комнаты')
+    } else if (reason === 'room_deleted') {
+      void alertDialog('Комната была удалена администратором')
     }
   })
 

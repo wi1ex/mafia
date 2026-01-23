@@ -95,6 +95,7 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
         "creator_avatar_name": u.avatar_name if u else None,
         "created_at": room.created_at.isoformat(),
         "privacy": payload.privacy,
+        "entry_closed": "0",
     }
     game_data = serialize_game_for_redis(game_dict)
     params_clean = {k: v for k, v in params_data.items() if v is not None}
@@ -168,6 +169,9 @@ async def access(room_id: int, ident: Identity = Depends(get_identity), db: Asyn
     r = get_redis()
     params = await get_room_params_or_404(r, room_id)
 
+    if str(params.get("entry_closed") or "0") == "1":
+        raise HTTPException(status_code=410, detail="room_closed")
+
     privacy = (params.get("privacy") or "open").strip()
     if privacy != "private":
         return RoomAccessOut(access="approved")
@@ -196,6 +200,9 @@ async def apply(room_id: int, ident: Identity = Depends(get_identity), db: Async
 
     r = get_redis()
     params = await get_room_params_or_404(r, room_id)
+
+    if str(params.get("entry_closed") or "0") == "1":
+        raise HTTPException(status_code=410, detail="room_closed")
 
     if (params.get("privacy") or "open") != "private":
         raise HTTPException(status_code=400, detail="not_private")

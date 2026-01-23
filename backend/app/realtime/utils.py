@@ -1268,7 +1268,7 @@ async def get_rooms_brief(r, ids: Iterable[int]) -> List[dict]:
     if not ids_list:
         return []
 
-    fields = ("id", "title", "user_limit", "creator", "creator_name", "creator_avatar_name", "created_at", "privacy")
+    fields = ("id", "title", "user_limit", "creator", "creator_name", "creator_avatar_name", "created_at", "privacy", "entry_closed")
     async with r.pipeline() as p:
         for rid in ids_list:
             await p.hmget(f"room:{rid}:params", *fields)
@@ -1291,7 +1291,7 @@ async def get_rooms_brief(r, ids: Iterable[int]) -> List[dict]:
         if not vals:
             continue
 
-        _id, title, user_limit, creator, creator_name, creator_avatar_name, created_at, privacy = vals
+        _id, title, user_limit, creator, creator_name, creator_avatar_name, created_at, privacy, entry_closed_raw = vals
         if not (_id and title and user_limit and creator and creator_name and created_at):
             continue
 
@@ -1304,6 +1304,7 @@ async def get_rooms_brief(r, ids: Iterable[int]) -> List[dict]:
         in_game = phase != "idle"
         occupancy = alive_cnt if in_game else occ_members
         eff_limit = players_total if in_game and players_total > 0 else int(user_limit)
+        entry_closed = str(entry_closed_raw or "0") == "1"
 
         briefs.append({
             "id": int(_id),
@@ -1317,6 +1318,7 @@ async def get_rooms_brief(r, ids: Iterable[int]) -> List[dict]:
             "occupancy": occupancy,
             "in_game": in_game,
             "game_phase": phase,
+            "entry_closed": entry_closed,
         })
 
     if need_db:

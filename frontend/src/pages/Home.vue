@@ -51,9 +51,14 @@
         <div v-if="selectedId" key="info" class="room-info">
           <header>
             <span>{{ selectedRoom?.title }}</span>
-            <button @click="clearSelection" aria-label="Закрыть">
-              <img :src="iconClose" alt="close" />
-            </button>
+            <div class="room-actions">
+              <button v-if="isAdmin" :disabled="adminKickBusy || selectedRoom?.in_game || selectedRoom?.entry_closed" @click="onAdminKickRoom" aria-label="Удалить комнату">
+                <img :src="iconDelete" alt="delete" />
+              </button>
+              <button @click="clearSelection" aria-label="Закрыть">
+                <img :src="iconClose" alt="close" />
+              </button>
+            </div>
           </header>
 
           <div class="ri-info">
@@ -153,7 +158,7 @@ import { onMounted, onBeforeUnmount, ref, computed, reactive, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { Socket } from 'socket.io-client'
 import { createPublicSocket } from '@/services/sio'
-import { alertDialog } from '@/services/confirm'
+import { alertDialog, confirmDialog } from '@/services/confirm'
 import { api } from '@/services/axios'
 import { useAuthStore, useUserStore, useSettingsStore } from '@/store'
 import RoomModal from '@/components/RoomModal.vue'
@@ -163,6 +168,7 @@ import iconScreenOn from '@/assets/svg/screenOn.svg'
 import iconLockOpen from '@/assets/svg/lockOpen.svg'
 import iconLockClose from '@/assets/svg/lockClose.svg'
 import iconClose from '@/assets/svg/close.svg'
+import iconDelete from '@/assets/svg/delete.svg'
 
 type Room = {
   id: number
@@ -176,6 +182,7 @@ type Room = {
   occupancy: number
   in_game?: boolean
   game_phase?: string
+  entry_closed?: boolean
 }
 type RoomInfoMember = {
   id: number
@@ -207,6 +214,7 @@ const route = useRoute()
 const auth = useAuthStore()
 const userStore = useUserStore()
 const settings = useSettingsStore()
+const isAdmin = computed(() => userStore.user?.role === 'admin')
 
 const roomsMap = reactive(new Map<number, Room>())
 const sio = ref<Socket | null>(null)
@@ -217,6 +225,7 @@ const suppressedAutoselect = ref(true)
 const selArmed = ref(false)
 const entering = ref(false)
 const applying = ref(false)
+const adminKickBusy = ref(false)
 
 const infoTimers = new Map<number, number>()
 const infoInFlight = new Set<number>()
@@ -266,6 +275,7 @@ const isGameParticipant = computed(() => {
 type Cta = 'login' | 'enter' | 'full' | 'apply' | 'pending' | 'in_game' | 'watch' | 'spectators_full' | 'blocked'
 const ctaState = computed<Cta>(() => {
   const room = selectedRoom.value
+  if (room?.entry_closed) return 'blocked'
   if (room && !settings.roomsCanEnter) return 'blocked'
   if (room && userStore.roomRestricted) return 'blocked'
   if (!auth.isAuthed || !room) return 'login'
@@ -338,6 +348,39 @@ async function onApply() {
       void alertDialog('Ошибка при отправке заявки')
     }
   } finally { applying.value = false }
+}
+
+async function onAdminKickRoom() {
+  const room = selectedRoom.value
+  if (!room || adminKickBusy.value) return
+  if (room.in_game) {
+    void alertDialog('Нельзя удалить комнату во время игры')
+    return
+  }
+  const ok = await confirmDialog({
+    title: 'Удалить комнату',
+    text: `Кикнуть всех из «${room.title}» и закрыть вход?`,
+    confirmText: 'Удалить',
+    cancelText: 'Отмена',
+  })
+  if (!ok) return
+  adminKickBusy.value = true
+  try {
+    await api.post(`/admin/rooms/${room.id}/close`)
+    const cur = roomsMap.get(room.id)
+    if (cur) roomsMap.set(room.id, { ...cur, entry_closed: true })
+    void alertDialog('Комната закрыта, она будет удалена после освобождения.')
+  } catch (e: any) {
+    const detail = e?.response?.data?.detail
+    if (detail === 'room_in_game') {
+      void alertDialog('Нельзя удалить комнату во время игры')
+    } else if (detail === 'room_not_found') {
+      void alertDialog('Комната не найдена')
+      clearSelection()
+    } else {
+      void alertDialog('Не удалось удалить комнату')
+    }
+  } finally { adminKickBusy.value = false }
 }
 
 async function fetchRoomInfo(id: number, opts?: { silent?: boolean }): Promise<(RoomMembers & { game?: Game }) | null> {
@@ -726,6 +769,11 @@ onBeforeUnmount(() => {
           overflow: hidden;
           text-overflow: ellipsis;
         }
+        .room-actions {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+        }
         button {
           display: flex;
           align-items: center;
@@ -740,6 +788,10 @@ onBeforeUnmount(() => {
             width: 25px;
             height: 25px;
           }
+        }
+        button:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
         }
       }
       .ri-info {

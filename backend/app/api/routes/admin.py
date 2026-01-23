@@ -86,6 +86,7 @@ from ..utils import (
     emit_sanctions_update,
     set_user_deleted,
     force_logout_user,
+    emit_rooms_upsert,
 )
 
 router = APIRouter()
@@ -388,6 +389,113 @@ async def rooms_list(page: int = 1, limit: int = 20, username: str | None = None
     return AdminRoomsOut(total=total, items=items)
 
 
+@log_route("admin.rooms.close")
+@require_roles_deco("admin")
+@router.post("/rooms/{room_id}/close", response_model=Ok)
+async def room_close(room_id: int) -> Ok:
+    r = get_redis()
+    params = await r.hgetall(f"room:{room_id}:params")
+    if not params:
+        raise HTTPException(status_code=404, detail="room_not_found")
+
+    phase = str(await r.hget(f"room:{room_id}:game_state", "phase") or "idle")
+    if phase != "idle":
+        raise HTTPException(status_code=409, detail="room_in_game")
+
+    await r.hset(f"room:{room_id}:params", mapping={"entry_closed": "1"})
+    await emit_rooms_upsert(room_id)
+
+    try:
+        members_raw = await r.smembers(f"room:{room_id}:members")
+    except Exception:
+        members_raw = set()
+    try:
+        spectators_raw = await r.smembers(f"room:{room_id}:spectators")
+    except Exception:
+        spectators_raw = set()
+
+    member_ids: set[int] = set()
+    for v in members_raw or []:
+        try:
+            member_ids.add(int(v))
+        except Exception:
+            continue
+
+    spectator_ids: set[int] = set()
+    for v in spectators_raw or []:
+        try:
+            spectator_ids.add(int(v))
+        except Exception:
+            continue
+
+    gc_seq_on_empty: int | None = None
+    for uid in member_ids:
+        await sio.emit("force_leave",
+                       {"room_id": room_id, "reason": "room_deleted"},
+                       room=f"user:{uid}",
+                       namespace="/room")
+        try:
+            await stop_screen_for_user(r, room_id, uid)
+            occ, gc_seq, pos_updates = await leave_room_atomic(r, room_id, uid)
+            if occ == 0:
+                gc_seq_on_empty = gc_seq
+        except Exception:
+            continue
+
+        try:
+            await r.srem(f"room:{room_id}:ready", str(uid))
+        except Exception:
+            pass
+        try:
+            await r.delete(f"room:{room_id}:user:{uid}:epoch")
+        except Exception:
+            pass
+
+        await sio.emit("member_left",
+                       {"user_id": uid},
+                       room=f"room:{room_id}",
+                       namespace="/room")
+        if pos_updates:
+            await sio.emit("positions",
+                           {"updates": [{"user_id": u, "position": p} for u, p in pos_updates]},
+                           room=f"room:{room_id}",
+                           namespace="/room")
+        await emit_rooms_occupancy_safe(r, room_id, occ)
+
+    for uid in spectator_ids - member_ids:
+        await sio.emit("force_leave",
+                       {"room_id": room_id, "reason": "room_deleted"},
+                       room=f"user:{uid}",
+                       namespace="/room")
+        try:
+            await record_spectator_leave(r, room_id, uid, int(time()))
+        except Exception:
+            pass
+
+    should_gc = gc_seq_on_empty is not None
+    if not should_gc:
+        try:
+            occ = int(await r.scard(f"room:{room_id}:members") or 0)
+        except Exception:
+            occ = -1
+        should_gc = occ == 0
+    if should_gc:
+        rid_snapshot = room_id
+        gc_seq_snapshot = gc_seq_on_empty
+
+        async def _gc():
+            with suppress(Exception):
+                removed = await gc_empty_room(rid_snapshot, expected_seq=gc_seq_snapshot)
+                if removed:
+                    await sio.emit("rooms_remove",
+                                   {"id": rid_snapshot},
+                                   namespace="/rooms")
+
+        asyncio.create_task(_gc())
+
+    return Ok()
+
+
 @log_route("admin.rooms.kick_all")
 @require_roles_deco("admin")
 @router.post("/rooms/kick", response_model=Ok)
@@ -403,6 +511,12 @@ async def rooms_kick_all() -> Ok:
             rid = int(raw_id)
         except Exception:
             continue
+
+        try:
+            await r.hset(f"room:{rid}:params", mapping={"entry_closed": "1"})
+            await emit_rooms_upsert(rid)
+        except Exception:
+            pass
 
         try:
             members_raw = await r.smembers(f"room:{rid}:members")

@@ -76,7 +76,7 @@ onBeforeUnmount(() => {
     display: flex;
     flex-direction: column;
     gap: 15px;
-    width: min(40%, 400px);
+    width: min(60%, 600px);
     border-radius: 5px;
     background-color: $dark;
     header {
