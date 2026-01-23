@@ -1604,6 +1604,34 @@ async function enforceInitialGameControls() {
   }
 }
 
+async function enforceNoPublishWhenInactive(): Promise<void> {
+  if (gamePhase.value === 'idle') return
+  if (amIAlive.value) return
+  if (!localId.value) return
+  const isSpectator = isSpectatorInGame.value
+  let changed = false
+  if (local.mic) {
+    local.mic = false
+    desiredMedia.mic = false
+    changed = true
+    try { await rtc.disable('audioinput') } catch {}
+  }
+  if (local.cam) {
+    local.cam = false
+    desiredMedia.cam = false
+    changed = true
+    try { await rtc.disable('videoinput') } catch {}
+  }
+  if (isSpectator && screenOwnerId.value === localId.value) {
+    try { await rtc.stopScreenShare() } catch {}
+    screenOwnerId.value = ''
+    try { await sendAck('screen', { on: false }) } catch {}
+  }
+  if (changed) {
+    try { await publishState({ mic: false, cam: false }) } catch {}
+  }
+}
+
 async function enforceReturnStateAfterJoin() {
   if (gamePhase.value === 'idle') return
   if (!localId.value) {
@@ -2190,6 +2218,10 @@ watch(isCurrentSpeaker, async (now, was) => {
     else { if (micOn.value) await toggleMic() }
   } catch {}
 })
+
+watch(() => [gamePhase.value, amIAlive.value, isSpectatorInGame.value, localId.value], () => {
+  void enforceNoPublishWhenInactive()
+}, { immediate: true })
 
 let speechAudioKickId: number | null = null
 function kickSpeechAudio() {
