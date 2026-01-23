@@ -52,7 +52,7 @@
           <header>
             <span>{{ selectedRoom?.title }}</span>
             <div class="room-actions">
-              <button v-if="isAdmin" :disabled="adminKickBusy || selectedRoom?.in_game || selectedRoom?.entry_closed" @click="onAdminKickRoom" aria-label="Удалить комнату">
+              <button v-if="isAdmin" :disabled="adminKickBusy || selectedRoom?.in_game || selectedRoom?.entry_closed || selectedRoom?.occupancy === 0" @click="onAdminKickRoom" aria-label="Удалить комнату">
                 <img :src="iconDelete" alt="delete" />
               </button>
               <button @click="clearSelection" aria-label="Закрыть">
