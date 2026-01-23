@@ -391,7 +391,7 @@ class GameStateView:
         day_current_uid = self.ctx.gint("day_current_uid")
         day_speech_started = self.ctx.gint("day_speech_started")
         day_speech_duration = self.ctx.gint("day_speech_duration")
-        speech_active = day_speech_started > 0 and day_speech_duration > 0
+        speech_active = day_speech_started > 0 and day_current_uid > 0
         speeches_done = self.ctx.gbool("day_speeches_done")
         remaining = self.ctx.deadline(
             "day_speech_started",
@@ -459,6 +459,7 @@ class GameStateView:
         vote_speeches_done = self.ctx.gbool("vote_speeches_done")
         vote_speech_uid = self.ctx.gint("vote_speech_uid")
         vote_speech_kind = self.ctx.gstr("vote_speech_kind")
+        vote_speech_started = self.ctx.gint("vote_speech_started")
         vote_duration = self.ctx.gint("vote_duration", get_cached_settings().vote_seconds)
         vote_speech_duration = self.ctx.gint("vote_speech_duration")
 
@@ -494,7 +495,7 @@ class GameStateView:
         if leaders:
             vote_section["leaders"] = leaders
             vote_section["leader_idx"] = leader_idx
-        if speech_remaining > 0 and vote_speech_uid:
+        if vote_speech_started > 0 and vote_speech_uid:
             vote_section["speech"] = {
                 "speaker_uid": vote_speech_uid,
                 "deadline": speech_remaining,
@@ -956,7 +957,7 @@ async def apply_join_phase_state(r, rid: int, uid: int, *, phase: str, raw_gstat
             started = 0
             duration = 0
             cur_uid = 0
-        mic_on = started > 0 and duration > 0 and cur_uid == uid
+        mic_on = started > 0 and cur_uid == uid
     elif phase == "vote":
         try:
             started = int(raw_gstate.get("vote_speech_started") or 0)
@@ -966,7 +967,7 @@ async def apply_join_phase_state(r, rid: int, uid: int, *, phase: str, raw_gstat
             started = 0
             duration = 0
             cur_uid = 0
-        mic_on = started > 0 and duration > 0 and cur_uid == uid
+        mic_on = started > 0 and cur_uid == uid
 
     cam_on = is_alive
     speakers_on = True
@@ -1726,12 +1727,12 @@ async def schedule_foul_block(rid: int, target_uid: int, head_uid: int, duration
                 cur_uid = int(raw_state.get("day_current_uid") or 0)
                 started = int(raw_state.get("day_speech_started") or 0)
                 duration_cur = int(raw_state.get("day_speech_duration") or 0)
-                keep_mic_on = cur_uid == target_uid and started > 0 and duration_cur > 0
+                keep_mic_on = cur_uid == target_uid and started > 0
             elif phase == "vote":
                 cur_uid = int(raw_state.get("vote_speech_uid") or 0)
                 started = int(raw_state.get("vote_speech_started") or 0)
                 duration_cur = int(raw_state.get("vote_speech_duration") or 0)
-                keep_mic_on = cur_uid == target_uid and started > 0 and duration_cur > 0
+                keep_mic_on = cur_uid == target_uid and started > 0
         except Exception:
             log.exception("game_foul.check_speech_failed", rid=rid, uid=target_uid)
 
@@ -1775,12 +1776,12 @@ async def maybe_block_foul_on_reconnect(r, rid: int, uid: int, raw_gstate: Mappi
             cur_uid = int(raw_gstate.get("day_current_uid") or 0)
             started = int(raw_gstate.get("day_speech_started") or 0)
             duration_cur = int(raw_gstate.get("day_speech_duration") or 0)
-            keep_mic_on = cur_uid == uid and started > 0 and duration_cur > 0
+            keep_mic_on = cur_uid == uid and started > 0
         elif phase == "vote":
             cur_uid = int(raw_gstate.get("vote_speech_uid") or 0)
             started = int(raw_gstate.get("vote_speech_started") or 0)
             duration_cur = int(raw_gstate.get("vote_speech_duration") or 0)
-            keep_mic_on = cur_uid == uid and started > 0 and duration_cur > 0
+            keep_mic_on = cur_uid == uid and started > 0
     except Exception:
         log.exception("foul_reconnect.check_failed", rid=rid, uid=uid)
 
