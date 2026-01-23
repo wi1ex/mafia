@@ -501,6 +501,10 @@ function startWS() {
 
   sio.value.on('rooms_remove', (p: { id: number }) => remove(p.id))
 
+  sio.value.on('rooms_refresh', () => {
+    void syncRoomsSnapshot()
+  })
+
   sio.value.on('rooms_occupancy', async (p: { id: number; occupancy: number }) => {
     const cur = roomsMap.get(p.id)
     if (cur) roomsMap.set(p.id, { ...cur, occupancy: p.occupancy })

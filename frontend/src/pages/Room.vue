@@ -2616,7 +2616,7 @@ onBeforeUnmount(() => {
       flex-direction: column;
       padding: 30px;
       gap: 20px;
-      width: 400px;
+      width: min(60%, 600px);
       border-radius: 5px;
       background-color: $dark;
       box-shadow: 3px 3px 5px rgba($black, 0.25);
@@ -2630,7 +2630,7 @@ onBeforeUnmount(() => {
         gap: 20px;
         button {
           padding: 0;
-          height: 40px;
+          height: 30px;
           border: none;
           border-radius: 5px;
           background-color: $graphite;

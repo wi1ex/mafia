@@ -27,7 +27,7 @@ from ...realtime.utils import (
 )
 from ...security.decorators import log_route, require_roles_deco
 from ...security.auth_tokens import get_identity
-from ...security.parameters import ensure_app_settings, sync_cache_from_row, refresh_app_settings
+from ...security.parameters import ensure_app_settings, sync_cache_from_row, refresh_app_settings, get_cached_settings
 from ...schemas.common import Ok, Identity
 from ...schemas.updates import AdminUpdateIn, AdminUpdateOut, AdminUpdatesOut
 from ...schemas.admin import (
@@ -605,6 +605,17 @@ async def rooms_kick_all() -> Ok:
                                        namespace="/rooms")
 
             asyncio.create_task(_gc())
+
+    delay_s = max(0, int(get_cached_settings().rooms_empty_ttl_seconds))
+
+    async def _refresh_rooms():
+        await asyncio.sleep(delay_s + 1)
+        with suppress(Exception):
+            await sio.emit("rooms_refresh",
+                           {"reason": "admin_kick_all"},
+                           namespace="/rooms")
+
+    asyncio.create_task(_refresh_rooms())
 
     return Ok()
 
