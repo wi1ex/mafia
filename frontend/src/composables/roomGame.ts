@@ -1350,6 +1350,16 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       myNightShotTarget.value = ''
       myNightCheckTarget.value = ''
       headNightPicks.clear()
+      const myShotRaw = (nt as any).my_shot
+      if (myShotRaw && typeof myShotRaw === 'object') {
+        const tid = String((myShotRaw as any).target_id || '')
+        if (tid) myNightShotTarget.value = tid
+      }
+      const myCheckRaw = (nt as any).my_check
+      if (myCheckRaw && typeof myCheckRaw === 'object') {
+        const tid = String((myCheckRaw as any).target_id || '')
+        if (tid) myNightCheckTarget.value = tid
+      }
       const headPicksRaw = (nt as any).head_picks
       if (headPicksRaw && typeof headPicksRaw === 'object') {
         for (const [uid, seat] of Object.entries(headPicksRaw.picks || {})) {
