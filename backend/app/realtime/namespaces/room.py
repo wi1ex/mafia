@@ -40,6 +40,8 @@ from ..utils import (
     get_profiles_snapshot,
     join_room_atomic,
     leave_room_atomic,
+    find_user_rooms,
+    cleanup_user_from_room,
     validate_auth,
     claim_screen,
     get_rooms_brief,
@@ -96,6 +98,9 @@ from ..utils import (
 
 log = structlog.get_logger()
 
+BG_STATE_TTL_SECONDS = 300
+BG_DISCONNECT_DELAY_SECONDS = BG_STATE_TTL_SECONDS + 5
+
 
 @sio.event(namespace="/room")
 async def connect(sid, environ, auth):
@@ -124,6 +129,7 @@ async def join(sid, data) -> JoinAck:
     try:
         sess = await sio.get_session(sid, namespace="/room")
         uid = int(sess["uid"])
+        prev_rid = int(sess.get("rid") or 0)
         base_role = str(sess.get("base_role") or "user")
         rid = int((data or {}).get("room_id") or 0)
         if not rid:
@@ -235,6 +241,22 @@ async def join(sid, data) -> JoinAck:
         await sio.enter_room(sid,
                              f"room:{rid}",
                              namespace="/room")
+
+        if prev_rid and prev_rid != rid:
+            try:
+                await sio.leave_room(sid,
+                                     f"room:{prev_rid}",
+                                     namespace="/room")
+            except Exception:
+                log.warning("sio.join.leave_prev_room_failed", rid=prev_rid, uid=uid)
+
+        actor_username = str(sess.get("username") or f"user{uid}")
+        try:
+            other_rooms = await find_user_rooms(r, uid, current_rid=rid, extra_rids=[prev_rid] if prev_rid else None)
+            for other_rid, was_member, was_spectator in other_rooms:
+                await cleanup_user_from_room(r, other_rid, uid, was_member=was_member, was_spectator=was_spectator, sid=sid, actor_username=actor_username)
+        except Exception:
+            log.exception("sio.join.cleanup_other_rooms_failed", rid=rid, uid=uid)
 
         snapshot = await get_room_snapshot(r, rid)
         snapshot = await merge_ready_into_snapshot(r, rid, snapshot)
@@ -433,6 +455,13 @@ async def state(sid, data) -> StateAck:
         if is_spectator:
             return {"ok": True}
 
+        try:
+            is_member = await r.sismember(f"room:{rid}:members", str(uid))
+        except Exception:
+            is_member = False
+        if not is_member:
+            return {"ok": False}
+
         payload = data or {}
         applied = await apply_state(r, rid, uid, payload)
         changed = dict(applied)
@@ -484,7 +513,7 @@ async def bg_state(sid, data):
         r = ctx.r
         key = f"room:{ctx.rid}:user:{ctx.uid}:bg_state"
         await r.hset(key, mapping=mapping)
-        await r.expire(key, 600)
+        await r.expire(key, BG_STATE_TTL_SECONDS)
 
         return {"ok": True, "saved": True}
 
@@ -4287,7 +4316,7 @@ async def disconnect(sid):
 
             if has_bg_state:
                 async def _bg_cleanup():
-                    await asyncio.sleep(605)
+                    await asyncio.sleep(BG_DISCONNECT_DELAY_SECONDS)
 
                     try:
                         cur_epoch = int(await r.get(f"room:{rid}:user:{uid}:epoch") or 0)

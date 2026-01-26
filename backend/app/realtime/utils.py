@@ -51,6 +51,8 @@ __all__ = [
     "get_profiles_snapshot",
     "join_room_atomic",
     "leave_room_atomic",
+    "find_user_rooms",
+    "cleanup_user_from_room",
     "gc_empty_room",
     "claim_screen",
     "get_rooms_brief",
@@ -740,6 +742,18 @@ async def build_game_context(sid, *, namespace="/room") -> tuple[GameActionConte
         return None, {"ok": False, "error": "no_room", "status": 400}
 
     r = get_redis()
+    try:
+        is_member = await r.sismember(f"room:{rid}:members", str(uid))
+    except Exception:
+        is_member = False
+    if not is_member:
+        try:
+            is_spectator = await r.sismember(f"room:{rid}:spectators", str(uid))
+        except Exception:
+            is_spectator = False
+        if not is_spectator:
+            return None, {"ok": False, "error": "no_room", "status": 400}
+
     raw_gstate = await r.hgetall(f"room:{rid}:game_state") or {}
     ctx = GameActionContext.from_raw_state(uid=uid, rid=rid, r=r, raw_state=raw_gstate)
     return ctx, None
@@ -1406,6 +1420,139 @@ async def leave_room_atomic(r, rid: int, uid: int):
     tail = list(map(int, res[3: 3 + 2*k]))
     updates = [(tail[i], tail[i + 1]) for i in range(0, 2*k, 2)]
     return occ, gc_seq, updates
+
+
+async def find_user_rooms(r, uid: int, *, current_rid: int, extra_rids: Iterable[int] | None = None) -> list[tuple[int, bool, bool]]:
+    room_ids: list[int] = []
+    seen: set[int] = set()
+    try:
+        raw_ids = await r.zrange("rooms:index", 0, -1)
+    except Exception:
+        raw_ids = []
+
+    for raw in raw_ids or []:
+        try:
+            rid = int(raw)
+        except Exception:
+            continue
+        if rid == current_rid or rid in seen:
+            continue
+        seen.add(rid)
+        room_ids.append(rid)
+
+    for extra in extra_rids or []:
+        try:
+            rid = int(extra)
+        except Exception:
+            continue
+        if rid == current_rid or rid in seen:
+            continue
+        seen.add(rid)
+        room_ids.append(rid)
+
+    if not room_ids:
+        return []
+
+    try:
+        async with r.pipeline() as p:
+            for rid in room_ids:
+                await p.sismember(f"room:{rid}:members", str(uid))
+                await p.sismember(f"room:{rid}:spectators", str(uid))
+            res = await p.execute()
+    except Exception:
+        res = None
+
+    found: list[tuple[int, bool, bool]] = []
+    if res is None:
+        for rid in room_ids:
+            try:
+                is_member = await r.sismember(f"room:{rid}:members", str(uid))
+                is_spectator = await r.sismember(f"room:{rid}:spectators", str(uid))
+            except Exception:
+                continue
+            if is_member or is_spectator:
+                found.append((rid, bool(is_member), bool(is_spectator)))
+        return found
+
+    for idx, rid in enumerate(room_ids):
+        is_member = bool(res[2 * idx])
+        is_spectator = bool(res[2 * idx + 1])
+        if is_member or is_spectator:
+            found.append((rid, is_member, is_spectator))
+
+    return found
+
+
+async def cleanup_user_from_room(r, rid: int, uid: int, *, was_member: bool, was_spectator: bool, sid: str | None, actor_username: str | None) -> None:
+    if not was_member and not was_spectator:
+        return
+
+    try:
+        await r.srem(f"room:{rid}:ready", str(uid))
+    except Exception as err:
+        log.warning("sio.join.cleanup.ready_delete_failed", rid=rid, uid=uid, err=type(err).__name__)
+    try:
+        await r.delete(f"room:{rid}:user:{uid}:epoch", f"room:{rid}:user:{uid}:bg_state")
+    except Exception as err:
+        log.warning("sio.join.cleanup.epoch_delete_failed", rid=rid, uid=uid, err=type(err).__name__)
+
+    if was_spectator:
+        try:
+            await record_spectator_leave(r, rid, uid, int(time()))
+        except Exception:
+            log.exception("sio.join.cleanup_spectator_failed", rid=rid, uid=uid)
+
+    if was_member:
+        try:
+            await stop_screen_for_user(r, rid, uid, actor_uid=uid, actor_username=actor_username)
+        except Exception as err:
+            log.warning("sio.join.cleanup.stop_screen_failed", rid=rid, uid=uid, err=type(err).__name__)
+
+        gc_seq = 0
+        pos_updates = []
+        try:
+            occ, gc_seq, pos_updates = await leave_room_atomic(r, rid, uid)
+        except Exception:
+            log.exception("sio.join.cleanup.leave_room_failed", rid=rid, uid=uid)
+            occ = None
+
+        if occ is not None:
+            await sio.emit("member_left",
+                           {"user_id": uid},
+                           room=f"room:{rid}",
+                           namespace="/room")
+            if pos_updates:
+                await sio.emit("positions",
+                               {"updates": [{"user_id": u, "position": p} for u, p in pos_updates]},
+                               room=f"room:{rid}",
+                               namespace="/room")
+            await emit_rooms_occupancy_safe(r, rid, occ)
+
+            if occ == 0:
+                try:
+                    phase = str(await r.hget(f"room:{rid}:game_state", "phase") or "idle")
+                except Exception:
+                    phase = "idle"
+                if phase == "idle":
+                    async def _gc():
+                        try:
+                            removed = await gc_empty_room(rid, expected_seq=gc_seq)
+                            if removed:
+                                await sio.emit("rooms_remove",
+                                               {"id": rid},
+                                               namespace="/rooms")
+                        except Exception:
+                            log.exception("sio.join.cleanup.gc_failed", rid=rid)
+
+                    asyncio.create_task(_gc())
+
+    if sid:
+        try:
+            await sio.leave_room(sid,
+                                 f"room:{rid}",
+                                 namespace="/room")
+        except Exception:
+            log.warning("sio.join.cleanup.leave_socket_room_failed", rid=rid, uid=uid)
 
 
 async def emit_rooms_occupancy_safe(r, rid: int, occ: int) -> None:
