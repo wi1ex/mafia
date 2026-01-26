@@ -91,6 +91,7 @@ __all__ = [
     "get_game_fouls",
     "enrich_game_runtime_with_vote",
     "emit_game_night_state",
+    "night_state_broadcast_job",
     "night_stage_timeout_job",
     "compute_night_kill",
     "best_move_payload_from_state",
@@ -2683,6 +2684,73 @@ async def get_night_head_picks(r, rid: int, kind: str) -> dict[str, int]:
         if t > 0:
             out[str(u)] = seat_of(seats, t)
     return out
+
+
+async def night_state_broadcast_job(rid: int, expected_stage: str, expected_started: int, duration: int) -> None:
+    try:
+        duration_val = int(duration)
+    except Exception:
+        return
+
+    if duration_val <= 0 or expected_started <= 0:
+        return
+
+    interval = min(1, duration_val)
+    if interval <= 0:
+        return
+
+    r = get_redis()
+    attempts_left = max(2, 0)
+    if attempts_left <= 0:
+        return
+
+    while attempts_left > 0:
+        await asyncio.sleep(interval)
+        try:
+            raw = await r.hgetall(f"room:{rid}:game_state")
+        except Exception:
+            log.exception("night_state_broadcast.load_failed", rid=rid)
+            return
+
+        ctx = GameActionContext.from_raw_state(uid=0, rid=rid, r=r, raw_state=raw)
+        if ctx.phase != "night":
+            return
+
+        stage = ctx.gstr("night_stage", "sleep")
+        if stage != expected_stage:
+            try:
+                await emit_game_night_state(rid, raw)
+            except Exception:
+                log.exception("night_state_broadcast.emit_failed", rid=rid)
+            return
+
+        if expected_stage == "shoot":
+            cur_started = ctx.gint("night_shoot_started")
+            cur_dur = ctx.gint("night_shoot_duration")
+            if cur_started != expected_started or cur_dur != duration_val:
+                return
+
+            remaining = ctx.deadline("night_shoot_started", "night_shoot_duration")
+        elif expected_stage == "checks":
+            cur_started = ctx.gint("night_check_started")
+            cur_dur = ctx.gint("night_check_duration")
+            if cur_started != expected_started or cur_dur != duration_val:
+                return
+
+            remaining = ctx.deadline("night_check_started", "night_check_duration")
+        else:
+            return
+
+        try:
+            await emit_game_night_state(rid, raw)
+        except Exception:
+            log.exception("night_state_broadcast.emit_failed", rid=rid)
+            return
+
+        if remaining <= 0:
+            return
+
+        attempts_left -= 1
 
 
 async def night_stage_timeout_job(rid: int, expected_stage: str, expected_started: int, duration: int, next_stage: str) -> None:

@@ -69,6 +69,7 @@ from ..utils import (
     get_game_fouls,
     finish_vote_speech,
     emit_game_night_state,
+    night_state_broadcast_job,
     night_stage_timeout_job,
     compute_night_kill,
     best_move_payload_from_state,
@@ -3954,6 +3955,7 @@ async def game_night_shoot_start(sid, data):
         g2["night_shoot_started"] = str(now_ts)
         g2["night_shoot_duration"] = str(dur)
         await emit_game_night_state(rid, g2)
+        asyncio.create_task(night_state_broadcast_job(rid, "shoot", now_ts, dur))
         asyncio.create_task(night_stage_timeout_job(rid, "shoot", now_ts, dur, "shoot_done"))
         return {"ok": True, "status": 200, "room_id": rid}
 
@@ -4082,6 +4084,7 @@ async def game_night_checks_start(sid, data):
         g2["night_check_started"] = str(now_ts)
         g2["night_check_duration"] = str(dur)
         await emit_game_night_state(rid, g2)
+        asyncio.create_task(night_state_broadcast_job(rid, "checks", now_ts, dur))
         asyncio.create_task(night_stage_timeout_job(rid, "checks", now_ts, dur, "checks_done"))
         return {"ok": True, "status": 200, "room_id": rid}
 

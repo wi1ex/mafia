@@ -2058,7 +2058,8 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     const nextStage = String(nt.stage || 'sleep') as any
     const stageChanged = nextStage !== prevStage
     night.stage = nextStage
-    setNightRemainingMs(secondsToMs(nt.deadline), true)
+    const nextMs = secondsToMs(nt.deadline)
+    if (stageChanged || night.remainingMs <= 0) setNightRemainingMs(nextMs, true)
     if ('best_move' in (nt as any)) syncBestMove((nt as any).best_move)
     if (!stageChanged) return
     if (nextStage === 'shoot') {
