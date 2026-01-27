@@ -235,18 +235,23 @@
 
           <button v-if="gamePhase === 'idle' && canShowStartGame && canUseReadyStart" @click="startGameUi" :disabled="startingGame" aria-label="Запустить игру">
             <img :src="iconGameStart" alt="start" />
+            <span class="hot-btn">G</span>
           </button>
           <button v-if="gamePhase === 'idle' && !canShowStartGame && canUseReadyToggle" @click="toggleReady" :aria-pressed="readyOn" aria-label="Готовность">
             <img :src="readyOn ? iconReadyGreen : iconReadyWhite" alt="ready" />
+            <span class="hot-btn">G</span>
           </button>
           <button v-if="gamePhase === 'idle' || isHead" @click="toggleMic" :disabled="pending.mic || blockedSelf.mic" :aria-pressed="micOn">
             <img :src="stateIcon('mic', localId)" alt="mic" />
+            <span class="hot-btn">M</span>
           </button>
           <button v-if="gamePhase === 'idle' || isHead" @click="toggleCam" :disabled="pending.cam || blockedSelf.cam" :aria-pressed="camOn">
             <img :src="stateIcon('cam', localId)" alt="cam" />
+            <span class="hot-btn">C</span>
           </button>
           <button v-if="gamePhase === 'idle'" @click="toggleSpeakers" :disabled="pending.speakers || blockedSelf.speakers" :aria-pressed="speakersOn">
             <img :src="stateIcon('speakers', localId)" alt="speakers" />
+            <span class="hot-btn">S</span>
           </button>
           <button v-if="gamePhase === 'idle' && !IS_MOBILE && settings.streamsCanStart" @click="toggleScreen" :disabled="pendingScreen || (!!screenOwnerId && screenOwnerId !== localId) || blockedSelf.screen" :aria-pressed="isMyScreen">
             <img :src="stateIcon('screen', localId)" alt="screen" />
@@ -2591,6 +2596,23 @@ onBeforeUnmount(() => {
         &.unread {
           background-color: $red;
         }
+      }
+      .hot-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: absolute;
+        top: 5px;
+        right: 7px;
+        width: 17px;
+        height: 17px;
+        border-radius: 50%;
+        background-color: $grey;
+        color: $white;
+        font-size: 12px;
+        font-family: Manrope-Medium;
+        line-height: 1;
+        transition: background-color 0.25s ease-in-out;
       }
     }
     .controls-side {
