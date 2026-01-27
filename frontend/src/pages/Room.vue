@@ -284,7 +284,7 @@
           :can-toggle-known-roles="canToggleKnownRoles"
           :known-roles-visible="knownRolesVisible"
           @device-change="(kind) => rtc.onDeviceChange(kind)"
-          @toggle-known-roles="game.toggleKnownRolesVisibility"
+          @toggle-known-roles="toggleKnownRolesUi"
           @close="settingsOpen=false"
         />
       </div>
@@ -775,15 +775,13 @@ function onHotkey(e: KeyboardEvent) {
     if (gamePhase.value !== 'idle' && canToggleKnownRoles.value) {
       e.preventDefault()
       e.stopPropagation()
-      game.toggleKnownRolesVisibility()
+      toggleKnownRolesUi()
     }
     return
   }
 
-  if (gamePhase.value !== 'idle') return
-
   if (code === 'KeyC') {
-    if (!pending.cam && !blockedSelf.value.cam) {
+    if ((gamePhase.value === 'idle' || isHead.value) && !pending.cam && !blockedSelf.value.cam) {
       e.preventDefault()
       e.stopPropagation()
       void toggleCam()
@@ -791,13 +789,16 @@ function onHotkey(e: KeyboardEvent) {
     return
   }
   if (code === 'KeyM') {
-    if (!pending.mic && !blockedSelf.value.mic) {
+    if ((gamePhase.value === 'idle' || isHead.value) && !pending.mic && !blockedSelf.value.mic) {
       e.preventDefault()
       e.stopPropagation()
       void toggleMic()
     }
     return
   }
+
+  if (gamePhase.value !== 'idle') return
+
   if (code === 'KeyS') {
     if (!pending.speakers && !blockedSelf.value.speakers) {
       e.preventDefault()
@@ -819,6 +820,11 @@ function onHotkey(e: KeyboardEvent) {
       void toggleReady()
     }
   }
+}
+
+function toggleKnownRolesUi(): void {
+  if (!canToggleKnownRoles.value) return
+  game.toggleKnownRolesVisibility()
 }
 function volumeIcon(val: number, enabled: boolean) {
   if (!enabled) return iconVolumeMute

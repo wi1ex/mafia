@@ -28,7 +28,7 @@
             <div class="switch switch-wide">
               <span class="switch-label">Видимость ролей:</span>
               <label>
-                <input type="checkbox" :checked="knownRolesVisible" :disabled="knownRolesToggleLocked" @change="onToggleKnownRoles" aria-label="Показ ролей" />
+                <input type="checkbox" :checked="knownRolesVisible" @change="onToggleKnownRoles" aria-label="Показ ролей" />
                 <div class="slider">
                   <span>Скрыть</span>
                   <span>Показать</span>
@@ -137,9 +137,7 @@ let suppressNextDocClick = false
 const camLabel = computed(() => props.cams.find(i => i.deviceId === props.camId)?.label || 'Камера')
 const micLabel = computed(() => props.mics.find(i => i.deviceId === props.micId)?.label || 'Микрофон')
 const mirrorToggleLocked = ref(false)
-const knownRolesToggleLocked = ref(false)
 let mirrorToggleTimer: number | null = null
-let knownRolesToggleTimer: number | null = null
 
 const micIdProxy = computed({
   get: () => props.micId,
@@ -167,13 +165,6 @@ function onVolumeInput(e: Event) {
   emit('update:volume', Number((e.target as HTMLInputElement).value))
 }
 function onToggleKnownRoles() {
-  if (knownRolesToggleLocked.value) return
-  knownRolesToggleLocked.value = true
-  if (knownRolesToggleTimer !== null) clearTimeout(knownRolesToggleTimer)
-  knownRolesToggleTimer = window.setTimeout(() => {
-    knownRolesToggleLocked.value = false
-    knownRolesToggleTimer = null
-  }, 500)
   emit('toggle-known-roles')
 }
 function pickDevice(kind: 'audioinput'|'videoinput', id: string) {
@@ -240,7 +231,6 @@ onBeforeUnmount(() => {
   document.removeEventListener('pointerdown', onDocPointerDown, { capture: true } as any)
   document.removeEventListener('click', onDocClickCapture, { capture: true } as any)
   if (mirrorToggleTimer !== null) clearTimeout(mirrorToggleTimer)
-  if (knownRolesToggleTimer !== null) clearTimeout(knownRolesToggleTimer)
 })
 </script>
 
