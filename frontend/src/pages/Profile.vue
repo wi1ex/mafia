@@ -91,9 +91,6 @@
           <div class="block sanctions-block">
             <div class="sanctions-head">
               <h3>История все выданных ранее отстранений от игр, таймаутов и банов</h3>
-              <button class="btn dark" @click="loadSanctions(true)" :disabled="sanctionsLoading">
-                {{ sanctionsLoading ? '...' : 'Обновить' }}
-              </button>
             </div>
             <div v-if="sanctionsLoaded" class="sanctions-summary">
               <span>Всего: {{ sanctionsSummary.total }}</span>
@@ -663,7 +660,7 @@ onBeforeUnmount(() => {
       width: 80%;
       height: 30px;
       .tab {
-        min-width: 200px;
+        min-width: 150px;
         width: auto;
         padding: 0 20px;
         height: 30px;
@@ -1083,7 +1080,7 @@ onBeforeUnmount(() => {
     header {
       .tabs {
         .tab {
-          min-width: 120px;
+          min-width: 125px;
           padding: 0 10px;
           font-size: 14px;
         }
