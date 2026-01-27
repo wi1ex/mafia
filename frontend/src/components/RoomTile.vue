@@ -27,9 +27,9 @@
     <div v-if="pickNumber != null && pickNumber > 0" class="nominate-btn pick-number">
       <span>{{ pickKind === 'check' ? 'Проверил' : 'Выстрелил в' }} {{ pickNumber }}</span>
     </div>
-    <button v-if="showUnnominate" class="nominate-btn red-btn" @click="$emit('unnominate', id)" aria-label="Откатить">
+    <button v-if="showUnnominate" class="nominate-btn red-btn" @click="$emit('unnominate', id)" aria-label="Отменить">
       <img :src="iconCloseCircle" alt="unnominate" />
-      <span>Откатить</span>
+      <span>Отменить</span>
     </button>
     <button v-if="showNominate" class="nominate-btn" @click="$emit('nominate', id)" aria-label="Выставить">
       <img :src="iconLikeBlack" alt="nominate" />
