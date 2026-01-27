@@ -176,6 +176,7 @@ const nickPct = computed(() => {
 const nickUnderlineStyle = computed(() => ({ width: `${nickPct.value}%` }))
 
 const activeTab = ref<'profile' | 'stats' | 'sanctions'>('profile')
+let onSanctionsUpdate: ((e: Event) => void) | null = null
 
 type SanctionItem = {
   id: number
@@ -206,13 +207,15 @@ const sanctionsSummary = computed(() => {
   return out
 })
 
-async function loadMe() {
+async function loadMe(options: { keepNickDraft?: boolean } = {}) {
+  const prevUsername = me.username
   const { data } = await api.get('/users/profile_info')
   me.id = data.id
   me.username = data.username || ''
   me.avatar_name = data.avatar_name
   me.role = data.role
-  nick.value = me.username
+  const hasDraft = options.keepNickDraft && nick.value !== prevUsername
+  if (!hasDraft) nick.value = me.username
   try { await userStore.fetchMe?.() } catch {}
 }
 
@@ -335,7 +338,7 @@ function formatSanctionEnd(item: SanctionItem): string {
     return `Снято досрочно: ${revokedBy} ${formatLocalDateTime(st.endAt)}`
   }
   if (st.state === 'expired') {
-    return `Авто: ${formatLocalDateTime(st.endAt)}`
+    return `${formatLocalDateTime(st.endAt)}`
   }
   if (st.state === 'active') {
     return `Ожидается: ${formatLocalDateTime(st.endAt)}`
@@ -565,14 +568,23 @@ watch(nick, (v) => {
 })
 
 watch(activeTab, (tab) => {
-  if (tab === 'sanctions') loadSanctions()
+  if (tab === 'sanctions') {
+    void loadSanctions(true)
+    return
+  }
+  if (tab === 'profile') void loadMe({ keepNickDraft: true })
 })
 
 onMounted(() => {
   loadMe().catch(() => {})
+  onSanctionsUpdate = () => {
+    if (activeTab.value === 'sanctions') void loadSanctions(true)
+  }
+  window.addEventListener('auth-sanctions_update', onSanctionsUpdate)
 })
 
 onBeforeUnmount(() => {
+  if (onSanctionsUpdate) window.removeEventListener('auth-sanctions_update', onSanctionsUpdate)
   document.body.style.overflow = ''
 })
 </script>
