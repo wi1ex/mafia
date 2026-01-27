@@ -235,23 +235,23 @@
 
           <button v-if="gamePhase === 'idle' && canShowStartGame && canUseReadyStart" @click="startGameUi" :disabled="startingGame" aria-label="Запустить игру">
             <img :src="iconGameStart" alt="start" />
-            <span class="hot-btn">G</span>
+              <span v-if="!IS_MOBILE" class="hot-btn">G</span>
           </button>
           <button v-if="gamePhase === 'idle' && !canShowStartGame && canUseReadyToggle" @click="toggleReady" :aria-pressed="readyOn" aria-label="Готовность">
             <img :src="readyOn ? iconReadyGreen : iconReadyWhite" alt="ready" />
-            <span class="hot-btn">G</span>
+              <span v-if="!IS_MOBILE" class="hot-btn">G</span>
           </button>
           <button v-if="gamePhase === 'idle' || isHead" @click="toggleMic" :disabled="pending.mic || blockedSelf.mic" :aria-pressed="micOn">
             <img :src="stateIcon('mic', localId)" alt="mic" />
-            <span class="hot-btn">M</span>
+              <span v-if="!IS_MOBILE" class="hot-btn">M</span>
           </button>
           <button v-if="gamePhase === 'idle' || isHead" @click="toggleCam" :disabled="pending.cam || blockedSelf.cam" :aria-pressed="camOn">
             <img :src="stateIcon('cam', localId)" alt="cam" />
-            <span class="hot-btn">C</span>
+              <span v-if="!IS_MOBILE" class="hot-btn">C</span>
           </button>
           <button v-if="gamePhase === 'idle'" @click="toggleSpeakers" :disabled="pending.speakers || blockedSelf.speakers" :aria-pressed="speakersOn">
             <img :src="stateIcon('speakers', localId)" alt="speakers" />
-            <span class="hot-btn">S</span>
+              <span v-if="!IS_MOBILE" class="hot-btn">S</span>
           </button>
           <button v-if="gamePhase === 'idle' && !IS_MOBILE && settings.streamsCanStart" @click="toggleScreen" :disabled="pendingScreen || (!!screenOwnerId && screenOwnerId !== localId) || blockedSelf.screen" :aria-pressed="isMyScreen">
             <img :src="stateIcon('screen', localId)" alt="screen" />
@@ -2602,14 +2602,15 @@ onBeforeUnmount(() => {
         align-items: center;
         justify-content: center;
         position: absolute;
-        top: 5px;
-        right: 7px;
-        width: 17px;
-        height: 17px;
-        border-radius: 50%;
-        background-color: $grey;
-        color: $white;
+        bottom: 0;
+        right: 0;
+        width: 16px;
+        height: 16px;
+        border-radius: 5px;
+        background-color: $fg;
+        color: $black;
         font-size: 12px;
+        font-weight: bold;
         font-family: Manrope-Medium;
         line-height: 1;
         transition: background-color 0.25s ease-in-out;
