@@ -61,8 +61,8 @@
           :night-remaining-ms="night.remainingMs"
           :show-shoot="game.canShootTarget(id)"
           :show-check="game.canCheckTarget(id)"
-          :pick-number="isHead ? (headNightPicks.get(id) ?? null) : null"       
-          :pick-kind="headPickKind"
+          :pick-number="canShowHeadPicks ? (headNightPicks.get(id) ?? null) : null"
+          :pick-kind="canShowHeadPicks ? headPickKind : ''"
           :show-nominate="game.canNominateTarget(id)"
           :show-unnominate="game.canUnnominateTarget(id)"
           :best-move-marked="game.isBestMoveMarked(id)"
@@ -158,8 +158,8 @@
             :night-remaining-ms="night.remainingMs"
             :show-shoot="game.canShootTarget(id)"
             :show-check="game.canCheckTarget(id)"
-            :pick-number="isHead ? (headNightPicks.get(id) ?? null) : null"     
-            :pick-kind="headPickKind"
+            :pick-number="canShowHeadPicks ? (headNightPicks.get(id) ?? null) : null"
+            :pick-kind="canShowHeadPicks ? headPickKind : ''"
             :show-nominate="game.canNominateTarget(id)"
             :show-unnominate="game.canUnnominateTarget(id)"
             :best-move-marked="game.isBestMoveMarked(id)"
@@ -631,6 +631,7 @@ const canUseReadyStart = computed(() => {
   return limit === min + 1
 })
 const canUseReadyToggle = computed(() => canUseReadyStart.value && !userStore.suspendActive)
+const canShowHeadPicks = computed(() => isHead.value && knownRolesVisible.value)
 const canShowStartGame = computed(() => {
   if (!localId.value) return false
   if (gamePhase.value !== 'idle') return false
