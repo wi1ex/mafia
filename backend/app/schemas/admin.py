@@ -163,9 +163,11 @@ class AdminRoomOut(BaseModel):
     game_mode: str
     game_format: str
     spectators_limit: int
+    nominate_mode: str
     break_at_zero: bool
     lift_at_zero: bool
     lift_3x: bool
+    wink_knock: bool
     visitors_count: int
     visitors: List[AdminRoomUserStat]
     spectators_count: int

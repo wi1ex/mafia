@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <section class="admin">
     <header>
       <nav class="tabs" aria-label="Админ" role="tablist">
@@ -904,9 +904,11 @@ type RoomRow = {
   game_mode: string
   game_format: string
   spectators_limit: number
+  nominate_mode: string
   break_at_zero: boolean
   lift_at_zero: boolean
   lift_3x: boolean
+  wink_knock: boolean
   visitors_count: number
   visitors: RoomUserStat[]
   spectators_count: number
@@ -1328,12 +1330,14 @@ function isSanctionBusy(userId: number, kind: 'timeout' | 'ban' | 'suspend'): bo
 
 function formatRoomGame(row: RoomRow): string {
   const mode = row.game_mode === 'rating' ? 'Рейтинг' : 'Обычный'
-  const judge = row.game_format === 'nohost' ? 'Авто' : 'Ведущий'
+  const format = row.game_format === 'nohost' ? 'Без ведущего' : 'С ведущим'
   const spectators = Number.isFinite(row.spectators_limit) ? row.spectators_limit : 0
+  const nominate = row.nominate_mode === 'head' ? 'От ведущего' : 'От игроков'
+  const winkKnock = row.wink_knock ? 'Вкл' : 'Откл'
   const breakAtZero = row.break_at_zero ? 'Вкл' : 'Выкл'
   const liftAtZero = row.lift_at_zero ? 'Вкл' : 'Выкл'
   const lift3x = row.lift_3x ? 'Вкл' : 'Выкл'
-  return `Режим: ${mode}, Судья: ${judge}, Зрители: ${spectators}, Слом в нуле: ${breakAtZero}, Подъем в нуле: ${liftAtZero}, Подъем 3х: ${lift3x}`
+  return `Режим: ${mode}, Формат: ${format}, Зрители: ${spectators}, Выставления: ${nominate}, Подмигивание/Стук: ${winkKnock}, Слом в нуле: ${breakAtZero}, Подъём в нуле: ${liftAtZero}, Подъём 3х: ${lift3x}`
 }
 
 function formatRoomGameResult(result: string): string {
@@ -1558,9 +1562,11 @@ async function loadRooms(): Promise<void> {
     rooms.value = items.map((item: any) => ({
       ...item,
       creator_avatar_name: item?.creator_avatar_name ?? null,
+      nominate_mode: String(item?.nominate_mode || ''),
       break_at_zero: Boolean(item?.break_at_zero),
       lift_at_zero: Boolean(item?.lift_at_zero),
       lift_3x: Boolean(item?.lift_3x),
+      wink_knock: Boolean(item?.wink_knock),
       visitors: normalizeRoomUsers(item?.visitors),
       spectators: normalizeRoomUsers(item?.spectators),
       games: normalizeRoomGames(item?.games),
@@ -2630,3 +2636,4 @@ onMounted(() => {
   }
 }
 </style>
+

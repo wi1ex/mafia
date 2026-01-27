@@ -90,7 +90,7 @@
         <div v-else-if="activeTab === 'sanctions'" class="grid grid-sanctions">
           <div class="block sanctions-block">
             <div class="sanctions-head">
-              <h3>История все выданных ранее отстранений, таймаутов и банов</h3>
+              <h3>История все выданных ранее отстранений от игр, таймаутов и банов</h3>
               <button class="btn dark" @click="loadSanctions(true)" :disabled="sanctionsLoading">
                 {{ sanctionsLoading ? '...' : 'Обновить' }}
               </button>
@@ -868,7 +868,7 @@ onBeforeUnmount(() => {
             flex-wrap: wrap;
             gap: 10px;
             font-size: 14px;
-            color: $ashy;
+            color: $fg;
           }
           .sanctions-empty {
             padding: 20px 0;
@@ -911,9 +911,10 @@ onBeforeUnmount(() => {
                   .sanction-tag {
                     display: inline-flex;
                     align-items: center;
+                    justify-content: center;
                     padding: 5px 10px;
+                    min-width: 30px;
                     border-radius: 999px;
-                    border: 1px solid $lead;
                     background-color: $dark;
                     font-size: 12px;
                     color: $fg;
@@ -934,7 +935,7 @@ onBeforeUnmount(() => {
                 }
                 .sanction-issued {
                   font-size: 12px;
-                  color: $grey;
+                  color: $ashy;
                   white-space: nowrap;
                 }
               }
@@ -946,20 +947,19 @@ onBeforeUnmount(() => {
               .sanction-grid {
                 display: grid;
                 grid-template-columns: repeat(2, minmax(0, 1fr));
-                gap: 5px 10px;
+                gap: 10px 0;
                 margin-top: 10px;
                 .sanction-cell {
                   display: flex;
                   flex-direction: column;
-                  gap: 5px;
+                  gap: 3px;
                   font-size: 14px;
                   span {
-                    color: $grey;
+                    color: $ashy;
                     font-size: 12px;
                   }
                   strong {
                     color: $fg;
-                    font-weight: bold;
                   }
                 }
               }
