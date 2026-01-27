@@ -8,6 +8,9 @@
         <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'stats' }" :aria-selected="activeTab === 'stats'" @click="activeTab = 'stats'" disabled>
           Статистика
         </button>
+        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'sanctions' }" :aria-selected="activeTab === 'sanctions'" @click="activeTab = 'sanctions'">
+          История ограничений
+        </button>
       </nav>
       <router-link class="btn nav" :to="{ name: 'home' }" aria-label="На главную">На главную</router-link>
     </header>
@@ -84,6 +87,67 @@
           </div>
         </div>
 
+        <div v-else-if="activeTab === 'sanctions'" class="grid grid-sanctions">
+          <div class="block sanctions-block">
+            <div class="sanctions-head">
+              <div>
+                <h3>История ограничений</h3>
+                <p class="sanctions-sub">Все выданные таймауты, отстранения и баны с деталями.</p>
+              </div>
+              <button class="btn dark" @click="loadSanctions(true)" :disabled="sanctionsLoading">
+                {{ sanctionsLoading ? '...' : 'Обновить' }}
+              </button>
+            </div>
+            <div v-if="sanctionsLoaded" class="sanctions-summary">
+              <span>Всего: {{ sanctionsSummary.total }}</span>
+              <span>Таймауты: {{ sanctionsSummary.timeout }}</span>
+              <span>Отстранения: {{ sanctionsSummary.suspend }}</span>
+              <span>Баны: {{ sanctionsSummary.ban }}</span>
+            </div>
+            <div v-if="sanctionsLoading" class="sanctions-empty">Загрузка…</div>
+            <div v-else-if="sanctionsError" class="sanctions-empty danger">{{ sanctionsError }}</div>
+            <div v-else-if="sanctions.length === 0" class="sanctions-empty">Ограничений пока не было.</div>
+            <div v-else class="sanctions-list">
+              <article v-for="item in sanctions" :key="item.id" class="sanction-card" :class="`sanction-card--${item.kind}`">
+                <div class="sanction-head">
+                  <div class="sanction-kind">
+                    <span class="sanction-tag">{{ formatSanctionKind(item.kind) }}</span>
+                    <span class="sanction-status" :class="`status--${sanctionStatus(item).tone}`">{{ sanctionStatus(item).text }}</span>
+                  </div>
+                  <span class="sanction-issued">{{ formatLocalDateTime(item.issued_at) }}</span>
+                </div>
+                <div class="sanction-reason">{{ item.reason || 'Причина не указана' }}</div>
+                <div class="sanction-grid">
+                  <div class="sanction-cell">
+                    <span>Выдал</span>
+                    <strong>{{ formatSanctionActor(item.issued_by_name, item.issued_by_id) }}</strong>
+                  </div>
+                  <div class="sanction-cell">
+                    <span>Срок</span>
+                    <strong>{{ formatSanctionDuration(item.duration_seconds) }}</strong>
+                  </div>
+                  <div class="sanction-cell">
+                    <span>Действует до</span>
+                    <strong>{{ item.expires_at ? formatLocalDateTime(item.expires_at) : 'Без срока' }}</strong>
+                  </div>
+                  <div class="sanction-cell">
+                    <span>Завершение</span>
+                    <strong>{{ formatSanctionEnd(item) }}</strong>
+                  </div>
+                  <div class="sanction-cell">
+                    <span>{{ sanctionServedLabel(item) }}</span>
+                    <strong>{{ formatSanctionServed(item) }}</strong>
+                  </div>
+                  <div v-if="formatSanctionRemaining(item) !== '-'" class="sanction-cell">
+                    <span>Осталось</span>
+                    <strong>{{ formatSanctionRemaining(item) }}</strong>
+                  </div>
+                </div>
+              </article>
+            </div>
+          </div>
+        </div>
+
         <div v-else class="grid grid-empty">
           <!-- пока что пусто -->
         </div>
@@ -97,6 +161,7 @@ import { computed, nextTick, onMounted, onBeforeUnmount, reactive, ref, watch } 
 import { api, refreshAccessTokenFull } from '@/services/axios'
 import { useAuthStore, useUserStore } from '@/store'
 import { confirmDialog, alertDialog } from '@/services/confirm'
+import { formatLocalDateTime } from '@/services/datetime'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
 import iconSave from '@/assets/svg/save.svg'
@@ -125,7 +190,36 @@ const nickPct = computed(() => {
 })
 const nickUnderlineStyle = computed(() => ({ width: `${nickPct.value}%` }))
 
-const activeTab = ref<'profile' | 'stats'>('profile')
+const activeTab = ref<'profile' | 'stats' | 'sanctions'>('profile')
+
+type SanctionItem = {
+  id: number
+  kind: 'timeout' | 'ban' | 'suspend'
+  reason?: string | null
+  issued_at: string
+  issued_by_id?: number | null
+  issued_by_name?: string | null
+  duration_seconds?: number | null
+  expires_at?: string | null
+  revoked_at?: string | null
+  revoked_by_id?: number | null
+  revoked_by_name?: string | null
+}
+
+const sanctions = ref<SanctionItem[]>([])
+const sanctionsLoading = ref(false)
+const sanctionsLoaded = ref(false)
+const sanctionsError = ref('')
+
+const sanctionsSummary = computed(() => {
+  const out = { total: sanctions.value.length, timeout: 0, ban: 0, suspend: 0 }
+  for (const item of sanctions.value) {
+    if (item.kind === 'timeout') out.timeout += 1
+    else if (item.kind === 'ban') out.ban += 1
+    else if (item.kind === 'suspend') out.suspend += 1
+  }
+  return out
+})
 
 async function loadMe() {
   const { data } = await api.get('/users/profile_info')
@@ -135,6 +229,22 @@ async function loadMe() {
   me.role = data.role
   nick.value = me.username
   try { await userStore.fetchMe?.() } catch {}
+}
+
+async function loadSanctions(force = false) {
+  if (sanctionsLoading.value) return
+  if (sanctionsLoaded.value && !force) return
+  sanctionsLoading.value = true
+  sanctionsError.value = ''
+  try {
+    const { data } = await api.get<{ items: SanctionItem[] }>('/users/sanctions')
+    sanctions.value = Array.isArray(data?.items) ? data.items : []
+    sanctionsLoaded.value = true
+  } catch {
+    sanctionsError.value = 'Не удалось загрузить историю ограничений'
+  } finally {
+    sanctionsLoading.value = false
+  }
 }
 
 async function saveNick() {
@@ -174,6 +284,107 @@ async function deleteAccount() {
   } finally {
     deleteBusy.value = false
   }
+}
+
+function formatSanctionKind(kind: SanctionItem['kind']): string {
+  if (kind === 'timeout') return 'Таймаут'
+  if (kind === 'suspend') return 'Отстранение'
+  if (kind === 'ban') return 'Бан'
+  return kind
+}
+
+function formatSanctionDuration(seconds?: number | null): string {
+  if (!seconds) return 'без срока'
+  const total = Math.max(0, Math.floor(Number(seconds) || 0))
+  const mins = Math.floor(total / 60)
+  const days = Math.floor(mins / 1440)
+  const hours = Math.floor((mins % 1440) / 60)
+  const minutes = mins % 60
+  const parts: string[] = []
+  if (days > 0) parts.push(`${days}д`)
+  if (hours > 0) parts.push(`${hours}ч`)
+  if (minutes > 0 || parts.length === 0) parts.push(`${minutes}м`)
+  return parts.join(' ')
+}
+
+function formatSanctionActor(name?: string | null, id?: number | null): string {
+  if (name) return name
+  if (Number.isFinite(id)) return `#${id}`
+  return '-'
+}
+
+function parseSanctionDate(value?: string | null): Date | null {
+  if (!value) return null
+  const dt = new Date(value)
+  return Number.isNaN(dt.getTime()) ? null : dt
+}
+
+function getSanctionState(item: SanctionItem) {
+  const now = Date.now()
+  const revokedAt = parseSanctionDate(item.revoked_at)
+  if (revokedAt) return { state: 'revoked', endAt: revokedAt, now }
+  const expiresAt = parseSanctionDate(item.expires_at)
+  if (expiresAt) {
+    if (expiresAt.getTime() <= now) return { state: 'expired', endAt: expiresAt, now }
+    return { state: 'active', endAt: expiresAt, now }
+  }
+  return { state: 'active_forever', endAt: null, now }
+}
+
+function sanctionStatus(item: SanctionItem): { text: string; tone: 'active' | 'ended' | 'revoked' } {
+  const st = getSanctionState(item)
+  if (st.state === 'revoked') return { text: 'Снято досрочно', tone: 'revoked' }
+  if (st.state === 'expired') return { text: 'Срок истек', tone: 'ended' }
+  return { text: 'Активно', tone: 'active' }
+}
+
+function formatSanctionEnd(item: SanctionItem): string {
+  const st = getSanctionState(item)
+  if (st.state === 'revoked') {
+    const revokedBy = formatSanctionActor(item.revoked_by_name, item.revoked_by_id)
+    return `Снято: ${revokedBy} ${formatLocalDateTime(st.endAt)}`
+  }
+  if (st.state === 'expired') {
+    return `Авто: ${formatLocalDateTime(st.endAt)}`
+  }
+  if (st.state === 'active') {
+    return `Ожидается: ${formatLocalDateTime(st.endAt)}`
+  }
+  return 'Без срока'
+}
+
+function formatDurationMs(ms: number): string {
+  const total = Math.max(0, Math.floor(ms / 60000))
+  const days = Math.floor(total / 1440)
+  const hours = Math.floor((total % 1440) / 60)
+  const minutes = total % 60
+  const parts: string[] = []
+  if (days > 0) parts.push(`${days}д`)
+  if (hours > 0) parts.push(`${hours}ч`)
+  if (minutes > 0 || parts.length === 0) parts.push(`${minutes}м`)
+  return parts.join(' ')
+}
+
+function sanctionServedLabel(item: SanctionItem): string {
+  const st = getSanctionState(item)
+  return st.state === 'expired' || st.state === 'revoked' ? 'Итого' : 'Прошло'
+}
+
+function formatSanctionServed(item: SanctionItem): string {
+  const issuedAt = parseSanctionDate(item.issued_at)
+  if (!issuedAt) return '-'
+  const st = getSanctionState(item)
+  const endAt = (st.state === 'expired' || st.state === 'revoked') ? st.endAt : new Date(st.now)
+  if (!endAt) return '-'
+  return formatDurationMs(endAt.getTime() - issuedAt.getTime())
+}
+
+function formatSanctionRemaining(item: SanctionItem): string {
+  const st = getSanctionState(item)
+  if (st.state !== 'active' || !st.endAt) return '-'
+  const diff = st.endAt.getTime() - st.now
+  if (diff <= 0) return '-'
+  return formatDurationMs(diff)
 }
 
 type Crop = {
@@ -397,6 +608,10 @@ watch(nick, (v) => {
   if (v !== clean) nick.value = clean
 })
 
+watch(activeTab, (tab) => {
+  if (tab === 'sanctions') loadSanctions()
+})
+
 onMounted(() => {
   loadMe().catch(() => {})
 })
@@ -478,7 +693,9 @@ onBeforeUnmount(() => {
       width: 80%;
       height: 30px;
       .tab {
-        width: 200px;
+        min-width: 200px;
+        width: auto;
+        padding: 0 10px;
         height: 30px;
         border: none;
         border-radius: 5px 5px 0 0;
@@ -639,6 +856,124 @@ onBeforeUnmount(() => {
           font-size: 14px;
           text-align: center;
         }
+        &.sanctions-block {
+          .sanctions-head {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 10px;
+            h3 {
+              margin-bottom: 5px;
+            }
+            .sanctions-sub {
+              margin: 0;
+              color: $grey;
+              font-size: 14px;
+            }
+          }
+          .sanctions-summary {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 10px 0 0;
+            font-size: 12px;
+            color: $grey;
+          }
+          .sanctions-empty {
+            padding: 20px 0;
+            color: $grey;
+            &.danger {
+              color: $red;
+            }
+          }
+          .sanctions-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 10px;
+            .sanction-card {
+              border: 1px solid $lead;
+              border-radius: 5px;
+              padding: 10px;
+              background-color: $graphite;
+              &.sanction-card--timeout {
+                border-color: $yellow;
+              }
+              &.sanction-card--suspend {
+                border-color: $orange;
+              }
+              &.sanction-card--ban {
+                border-color: $red;
+              }
+              .sanction-head {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 10px;
+                .sanction-kind {
+                  display: flex;
+                  align-items: center;
+                  gap: 5px;
+                  flex-wrap: wrap;
+                  .sanction-tag {
+                    display: inline-flex;
+                    align-items: center;
+                    padding: 5px 10px;
+                    border-radius: 999px;
+                    border: 1px solid $lead;
+                    background-color: $dark;
+                    font-size: 12px;
+                    color: $fg;
+                  }
+                  .sanction-status {
+                    font-size: 12px;
+                    color: $grey;
+                    &.status--active {
+                      color: $green;
+                    }
+                    &.status--ended {
+                      color: $ashy;
+                    }
+                    &.status--revoked {
+                      color: $orange;
+                    }
+                  }
+                }
+                .sanction-issued {
+                  font-size: 12px;
+                  color: $grey;
+                  white-space: nowrap;
+                }
+              }
+              .sanction-reason {
+                margin-top: 5px;
+                font-size: 14px;
+                color: $fg;
+              }
+              .sanction-grid {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 5px 10px;
+                margin-top: 10px;
+                .sanction-cell {
+                  display: flex;
+                  flex-direction: column;
+                  gap: 5px;
+                  font-size: 14px;
+                  span {
+                    color: $grey;
+                    font-size: 12px;
+                  }
+                  strong {
+                    color: $fg;
+                    font-weight: bold;
+                  }
+                }
+              }
+            }
+          }
+        }
       }
       .modal {
         display: flex;
@@ -748,6 +1083,9 @@ onBeforeUnmount(() => {
           }
         }
       }
+      &.grid-sanctions {
+        grid-template-columns: 1fr;
+      }
     }
     .grid-empty {
       min-height: 200px;
@@ -770,6 +1108,24 @@ onBeforeUnmount(() => {
     .modal .modal-body canvas {
       width: 200px;
       height: 200px;
+    }
+  }
+}
+
+@media (max-width: 720px) {
+  .profile {
+    .tab-panel {
+      .grid {
+        &.grid-sanctions {
+          .block {
+            &.sanctions-block {
+              .sanction-grid {
+                grid-template-columns: 1fr;
+              }
+            }
+          }
+        }
+      }
     }
   }
 }

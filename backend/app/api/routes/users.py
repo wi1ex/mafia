@@ -12,6 +12,7 @@ from ..utils import (
     SANCTION_BAN,
     SANCTION_SUSPEND,
     fetch_active_sanctions,
+    fetch_sanctions_for_users,
     ensure_profile_changes_allowed,
     set_user_deleted,
     force_logout_user,
@@ -23,7 +24,7 @@ from ...core.logging import log_action
 from ...security.auth_tokens import get_identity
 from ...security.decorators import log_route, rate_limited
 from ...schemas.common import Identity, Ok
-from ...schemas.user import UserOut, UsernameUpdateIn, AvatarUploadOut, UsernameUpdateOut
+from ...schemas.user import UserOut, UsernameUpdateIn, AvatarUploadOut, UsernameUpdateOut, UserSanctionsOut, UserSanctionOut
 from ...services.minio import put_avatar, delete_avatars, ALLOWED_CT, MAX_BYTES
 
 router = APIRouter()
@@ -54,8 +55,39 @@ async def profile_info(ident: Identity = Depends(get_identity), db: AsyncSession
     )
 
 
+@log_route("users.sanctions_history")
+@rate_limited(lambda ident, **_: f"rl:sanctions_history:{ident['id']}", limit=10, window_s=1)
+@router.get("/sanctions", response_model=UserSanctionsOut)
+async def sanctions_history(ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UserSanctionsOut:
+    user = await db.get(User, int(ident["id"]))
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
+
+    uid = cast(int, user.id)
+    sanctions_map = await fetch_sanctions_for_users(db, [uid])
+    rows = sanctions_map.get(uid, [])
+    items = [
+        UserSanctionOut(
+            id=cast(int, row.id),
+            kind=str(row.kind),
+            reason=row.reason or None,
+            issued_at=row.issued_at,
+            issued_by_id=cast(int, row.issued_by_id) if row.issued_by_id is not None else None,
+            issued_by_name=row.issued_by_name,
+            duration_seconds=row.duration_seconds,
+            expires_at=row.expires_at,
+            revoked_at=row.revoked_at,
+            revoked_by_id=cast(int, row.revoked_by_id) if row.revoked_by_id is not None else None,
+            revoked_by_name=row.revoked_by_name,
+        )
+        for row in rows
+    ]
+
+    return UserSanctionsOut(items=items)
+
+
 @log_route("users.update_username")
-@rate_limited(lambda ident, **_: f"rl:update_username:{ident['id']}", limit=2, window_s=1)
+@rate_limited(lambda ident, **_: f"rl:update_username:{ident['id']}", limit=1, window_s=1)
 @router.patch("/username", response_model=UsernameUpdateOut)
 async def update_username(payload: UsernameUpdateIn, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UsernameUpdateOut:
     uid = int(ident["id"])
@@ -101,7 +133,7 @@ async def update_username(payload: UsernameUpdateIn, ident: Identity = Depends(g
 
 
 @log_route("users.upload_avatar")
-@rate_limited(lambda ident, **_: f"rl:upload_avatar:{ident['id']}", limit=2, window_s=1)
+@rate_limited(lambda ident, **_: f"rl:upload_avatar:{ident['id']}", limit=1, window_s=1)
 @router.post("/avatar", response_model=AvatarUploadOut)
 async def upload_avatar(file: UploadFile = File(...), ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> AvatarUploadOut:
     uid = int(ident["id"])
@@ -139,7 +171,7 @@ async def upload_avatar(file: UploadFile = File(...), ident: Identity = Depends(
 
 
 @log_route("users.delete_avatar")
-@rate_limited(lambda ident, **_: f"rl:delete_avatar:{ident['id']}", limit=2, window_s=1)
+@rate_limited(lambda ident, **_: f"rl:delete_avatar:{ident['id']}", limit=1, window_s=1)
 @router.delete("/avatar", response_model=Ok)
 async def delete_avatar(ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> Ok:
     uid = int(ident["id"])

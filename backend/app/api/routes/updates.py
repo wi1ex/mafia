@@ -46,7 +46,7 @@ async def list_updates(limit: int = 50, ident: Identity = Depends(get_identity),
 
 
 @log_route("updates.mark_read")
-@rate_limited(lambda ident, **_: f"rl:updates:mark:{ident['id']}", limit=20, window_s=1)
+@rate_limited(lambda ident, **_: f"rl:updates:mark:{ident['id']}", limit=60, window_s=1)
 @router.post("/mark_read", response_model=Ok)
 async def mark_read(payload: MarkUpdatesReadIn, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> Ok:
     uid = int(ident["id"])
