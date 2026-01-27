@@ -752,23 +752,72 @@ function onHotkey(e: KeyboardEvent) {
   if (e.defaultPrevented || e.repeat) return
   if (isEditableTarget(e.target)) return
   if (confirmState.open) return
-  if (gamePhase.value === 'idle') return
+  if (e.ctrlKey || e.altKey || e.metaKey || e.shiftKey) return
+  const code = e.code
 
-  const isEnter = e.key === 'Enter'
-  const isSpace = e.code === 'Space' || e.key === ' '
-  if (!isEnter && !isSpace) return
-
-  e.preventDefault()
-  e.stopPropagation()
-
-  if (isEnter) {
-    if (canShowTakeFoulSelf.value && canTakeFoulSelf.value && !foulPending.value) {
+  if (code === 'Enter') {
+    if (gamePhase.value !== 'idle' && canShowTakeFoulSelf.value && canTakeFoulSelf.value && !foulPending.value) {
+      e.preventDefault()
+      e.stopPropagation()
       void takeFoulUi()
     }
     return
   }
-  if (isSpace && game.canPressVoteButton()) {
-    onVote()
+  if (code === 'Space') {
+    if (gamePhase.value !== 'idle' && game.canPressVoteButton()) {
+      e.preventDefault()
+      e.stopPropagation()
+      onVote()
+    }
+    return
+  }
+  if (code === 'KeyR') {
+    if (gamePhase.value !== 'idle' && canToggleKnownRoles.value) {
+      e.preventDefault()
+      e.stopPropagation()
+      game.toggleKnownRolesVisibility()
+    }
+    return
+  }
+
+  if (gamePhase.value !== 'idle') return
+
+  if (code === 'KeyC') {
+    if (!pending.cam && !blockedSelf.value.cam) {
+      e.preventDefault()
+      e.stopPropagation()
+      void toggleCam()
+    }
+    return
+  }
+  if (code === 'KeyM') {
+    if (!pending.mic && !blockedSelf.value.mic) {
+      e.preventDefault()
+      e.stopPropagation()
+      void toggleMic()
+    }
+    return
+  }
+  if (code === 'KeyS') {
+    if (!pending.speakers && !blockedSelf.value.speakers) {
+      e.preventDefault()
+      e.stopPropagation()
+      void toggleSpeakers()
+    }
+    return
+  }
+  if (code === 'KeyG') {
+    if (canShowStartGame.value && canUseReadyStart.value && !startingGame.value) {
+      e.preventDefault()
+      e.stopPropagation()
+      startGameUi()
+      return
+    }
+    if (!canShowStartGame.value && canUseReadyToggle.value) {
+      e.preventDefault()
+      e.stopPropagation()
+      void toggleReady()
+    }
   }
 }
 function volumeIcon(val: number, enabled: boolean) {
