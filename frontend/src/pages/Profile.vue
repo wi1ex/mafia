@@ -5,11 +5,11 @@
         <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'profile' }" :aria-selected="activeTab === 'profile'" @click="activeTab = 'profile'">
           Аккаунт
         </button>
+        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'sanctions' }" :aria-selected="activeTab === 'sanctions'" @click="activeTab = 'sanctions'">
+          Ограничения
+        </button>
         <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'stats' }" :aria-selected="activeTab === 'stats'" @click="activeTab = 'stats'" disabled>
           Статистика
-        </button>
-        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'sanctions' }" :aria-selected="activeTab === 'sanctions'" @click="activeTab = 'sanctions'">
-          История ограничений
         </button>
       </nav>
       <router-link class="btn nav" :to="{ name: 'home' }" aria-label="На главную">На главную</router-link>
@@ -90,10 +90,7 @@
         <div v-else-if="activeTab === 'sanctions'" class="grid grid-sanctions">
           <div class="block sanctions-block">
             <div class="sanctions-head">
-              <div>
-                <h3>История ограничений</h3>
-                <p class="sanctions-sub">Все выданные таймауты, отстранения и баны с деталями.</p>
-              </div>
+              <h3>История все выданных ранее отстранений, таймаутов и банов</h3>
               <button class="btn dark" @click="loadSanctions(true)" :disabled="sanctionsLoading">
                 {{ sanctionsLoading ? '...' : 'Обновить' }}
               </button>
@@ -629,6 +626,8 @@ onBeforeUnmount(() => {
   padding: 10px;
   border-radius: 5px;
   background-color: $dark;
+  overflow: auto;
+  scrollbar-width: none;
   .btn {
     display: flex;
     align-items: center;
@@ -695,7 +694,7 @@ onBeforeUnmount(() => {
       .tab {
         min-width: 200px;
         width: auto;
-        padding: 0 10px;
+        padding: 0 20px;
         height: 30px;
         border: none;
         border-radius: 5px 5px 0 0;
@@ -863,48 +862,41 @@ onBeforeUnmount(() => {
             align-items: flex-start;
             justify-content: space-between;
             gap: 10px;
-            h3 {
-              margin-bottom: 5px;
-            }
-            .sanctions-sub {
-              margin: 0;
-              color: $grey;
-              font-size: 14px;
-            }
           }
           .sanctions-summary {
             display: flex;
             flex-wrap: wrap;
             gap: 10px;
-            margin: 10px 0 0;
-            font-size: 12px;
-            color: $grey;
+            font-size: 14px;
+            color: $ashy;
           }
           .sanctions-empty {
             padding: 20px 0;
-            color: $grey;
+            color: $ashy;
             &.danger {
               color: $red;
             }
           }
           .sanctions-list {
-            display: flex;
-            flex-direction: column;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
             gap: 10px;
             margin-top: 10px;
             .sanction-card {
-              border: 1px solid $lead;
+              border: 3px solid $lead;
               border-radius: 5px;
               padding: 10px;
-              background-color: $graphite;
               &.sanction-card--timeout {
-                border-color: $yellow;
+                border-color: rgba($yellow, 0.5);
+                background-color: rgba($yellow, 0.25);
               }
               &.sanction-card--suspend {
-                border-color: $orange;
+                border-color: rgba($orange, 0.5);
+                background-color: rgba($orange, 0.25);
               }
               &.sanction-card--ban {
-                border-color: $red;
+                border-color: rgba($red, 0.5);
+                background-color: rgba($red, 0.25);
               }
               .sanction-head {
                 display: flex;
@@ -930,13 +922,13 @@ onBeforeUnmount(() => {
                     font-size: 12px;
                     color: $grey;
                     &.status--active {
-                      color: $green;
+                      color: $orange;
                     }
                     &.status--ended {
-                      color: $ashy;
+                      color: $green;
                     }
                     &.status--revoked {
-                      color: $orange;
+                      color: $ashy;
                     }
                   }
                 }
@@ -1103,25 +1095,29 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 1280px) {
-  .profile .tab-panel .grid {
-    grid-template-columns: 1fr 1fr;
-    .modal .modal-body canvas {
-      width: 200px;
-      height: 200px;
-    }
-  }
-}
-
-@media (max-width: 720px) {
   .profile {
+    .btn {
+      padding: 0 10px;
+      &.nav {
+        font-size: 14px;
+      }
+    }
+    header {
+      .tabs {
+        .tab {
+          min-width: 120px;
+          padding: 0 10px;
+          font-size: 14px;
+        }
+      }
+    }
     .tab-panel {
       .grid {
-        &.grid-sanctions {
-          .block {
-            &.sanctions-block {
-              .sanction-grid {
-                grid-template-columns: 1fr;
-              }
+        grid-template-columns: 1fr 1fr;
+        .block {
+          &.sanctions-block {
+            .sanctions-list {
+              grid-template-columns: 1fr 1fr;
             }
           }
         }

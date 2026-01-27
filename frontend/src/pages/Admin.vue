@@ -2029,7 +2029,7 @@ onMounted(() => {
   padding: 10px;
   border-radius: 5px;
   background-color: $dark;
-  overflow-x: hidden;
+  overflow: auto;
   scrollbar-width: none;
   user-select: text;
   header {
