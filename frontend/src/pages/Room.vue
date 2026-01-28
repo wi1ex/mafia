@@ -260,7 +260,7 @@
               <span v-if="!IS_MOBILE && hotkeysVisible" class="hot-btn">C</span>
           </button>
           <button v-if="gamePhase !== 'idle' && isHead" @click="toggleHostBlur" :disabled="!hostBlurToggleEnabled || hostBlurPending" :aria-pressed="hostBlurActive" aria-label="Затемнить экран">
-            <img :src="hostBlurActive ? iconBlurOff : iconBlurOn" alt="blur" />
+            <img :src="hostBlurActive ? iconBlurOn : iconBlurOff" alt="blur" />
           </button>
           <button v-if="gamePhase === 'idle'" @click="toggleSpeakers" :disabled="pending.speakers || blockedSelf.speakers" :aria-pressed="speakersOn">
             <img :src="stateIcon('speakers', localId)" alt="speakers" />
