@@ -220,20 +220,20 @@
           <button v-if="canShowHeadGoToMafiaTalkControl" class="btn-text" :disabled="!canHeadGoToMafiaTalkControl" @click="goToMafiaTalkUi" aria-label="Перейти к договорке">Начать договорку</button>
           <button v-if="canHeadFinishMafiaTalkControl" class="btn-text" @click="finishMafiaTalkUi" aria-label="Завершить договорку">Завершить договорку</button>
           <button v-if="canShowStartDay" class="btn-text" :disabled="!canStartDay" @click="startDayUi" aria-label="Начать день">День</button>
-          <button v-if="canShowFinishSpeechHead" class="btn-text" :disabled="!canFinishSpeechHead" @click="finishSpeechUi" aria-label="Завершить речь">Завершить речь</button>
-          <button v-else-if="canShowPassSpeechHead" class="btn-text" :disabled="!canPassSpeechHead" @click="passSpeechUi" aria-label="Передать речь">Передать речь</button>
-          <button v-if="canStartVote" class="btn-text" @click="startVoteUi">Начать голосование</button>
-          <button v-if="canHeadVoteControl" class="btn-text" :disabled="hasOfflineAlivePlayers" @click="onHeadVoteControl">
+          <button v-if="canShowFinishSpeechHead" class="btn-text" :disabled="hostBlurLocksControls || !canFinishSpeechHead" @click="finishSpeechUi" aria-label="Завершить речь">Завершить речь</button>
+          <button v-else-if="canShowPassSpeechHead" class="btn-text" :disabled="hostBlurLocksControls || !canPassSpeechHead" @click="passSpeechUi" aria-label="Передать речь">Передать речь</button>
+          <button v-if="canStartVote" class="btn-text" :disabled="hostBlurLocksControls" @click="startVoteUi">Начать голосование</button>
+          <button v-if="canHeadVoteControl" class="btn-text" :disabled="hostBlurLocksControls || hasOfflineAlivePlayers" @click="onHeadVoteControl">
             {{ !voteStartedForCurrent ? 'Голосование за ' + (currentNomineeSeat ?? '') : 'Продолжить' }}
           </button>
-          <button v-if="canHeadFinishVoteControl" class="btn-text" @click="finishVoteUi">Завершить голосование</button>
-          <button v-if="canPrepareVoteLift" class="btn-text" :disabled="hasOfflineAlivePlayers" @click="prepareVoteLiftUi">Продолжить</button>
-          <button v-if="canStartVoteLift" class="btn-text" :disabled="hasOfflineAlivePlayers" @click="startVoteLiftUi">Голосование за подъём</button>
-          <button v-if="canShowStartLeaderSpeech" class="btn-text" :disabled="!canStartLeaderSpeech" @click="startLeaderSpeechUi">Передать речь</button>
-          <button v-if="canRestartVoteForLeaders" class="btn-text" @click="restartVoteForLeadersUi">Начать голосование</button>
-          <button v-if="canShowNight" class="btn-text" :disabled="hasOfflineAlivePlayers" @click="goToNightUi">Ночь</button>
+          <button v-if="canHeadFinishVoteControl" class="btn-text" :disabled="hostBlurLocksControls" @click="finishVoteUi">Завершить голосование</button>
+          <button v-if="canPrepareVoteLift" class="btn-text" :disabled="hostBlurLocksControls || hasOfflineAlivePlayers" @click="prepareVoteLiftUi">Продолжить</button>
+          <button v-if="canStartVoteLift" class="btn-text" :disabled="hostBlurLocksControls || hasOfflineAlivePlayers" @click="startVoteLiftUi">Голосование за подъём</button>
+          <button v-if="canShowStartLeaderSpeech" class="btn-text" :disabled="hostBlurLocksControls || !canStartLeaderSpeech" @click="startLeaderSpeechUi">Передать речь</button>
+          <button v-if="canRestartVoteForLeaders" class="btn-text" :disabled="hostBlurLocksControls" @click="restartVoteForLeadersUi">Начать голосование</button>
+          <button v-if="canShowNight" class="btn-text" :disabled="hostBlurLocksControls || hasOfflineAlivePlayers" @click="goToNightUi">Ночь</button>
           <button v-if="canHeadNightShootControl" class="btn-text" :disabled="hasOfflineAlivePlayers" @click="startNightShootUi">Стрельба</button>
-          <button v-if="canHeadNightCheckControl" class="btn-text" :disabled="hasOfflineAlivePlayers" @click="startNightChecksUi">Проверки</button>        
+          <button v-if="canHeadNightCheckControl" class="btn-text" :disabled="hasOfflineAlivePlayers" @click="startNightChecksUi">Проверки</button>
           <button v-if="canHeadBestMoveControl" class="btn-text" @click="startBestMoveUi">Лучший ход {{ bestMoveSeat ?? '?' }}</button>
           <button v-if="canStartDayFromNight" class="btn-text" :disabled="!canHeadDayFromNightControl" @click="startDayFromNightUi">День</button>
 
@@ -260,7 +260,7 @@
               <span v-if="!IS_MOBILE && hotkeysVisible" class="hot-btn">C</span>
           </button>
           <button v-if="gamePhase !== 'idle' && isHead" @click="toggleHostBlur" :disabled="!hostBlurToggleEnabled || hostBlurPending" :aria-pressed="hostBlurActive" aria-label="Затемнить экран">
-            <img :src="iconVisBlocked" alt="blur" />
+            <img :src="hostBlurActive ? iconVisOff : iconVisOn" alt="blur" />
           </button>
           <button v-if="gamePhase === 'idle'" @click="toggleSpeakers" :disabled="pending.speakers || blockedSelf.speakers" :aria-pressed="speakersOn">
             <img :src="stateIcon('speakers', localId)" alt="speakers" />
@@ -569,6 +569,7 @@ const isSpectatorInGame = computed(() => {
 const hostBlurPending = ref(false)
 const hostBlurToggleEnabled = computed(() => gamePhase.value === 'day' || gamePhase.value === 'vote')
 const hostBlurVisible = computed(() => gamePhase.value !== 'idle' && hostBlurActive.value && !isHead.value)
+const hostBlurLocksControls = computed(() => isHead.value && hostBlurActive.value)
 const knockModalOpen = ref(false)
 const knockModalTargetId = ref<string>('')
 const knockModalArmed = ref(false)
