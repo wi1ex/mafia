@@ -13,6 +13,7 @@ class SiteSettingsOut(BaseModel):
     rooms_limit_global: int
     rooms_limit_per_user: int
     rooms_empty_ttl_seconds: int
+    season_start_game_number: int
 
 
 class SiteSettingsUpdateIn(BaseModel):
@@ -24,6 +25,7 @@ class SiteSettingsUpdateIn(BaseModel):
     rooms_limit_global: Optional[int] = Field(default=None, ge=1)
     rooms_limit_per_user: Optional[int] = Field(default=None, ge=1)
     rooms_empty_ttl_seconds: Optional[int] = Field(default=None, ge=1)
+    season_start_game_number: Optional[int] = Field(default=None, ge=1)
 
 
 class GameSettingsOut(BaseModel):
@@ -71,6 +73,7 @@ class PublicSettingsOut(BaseModel):
     game_min_ready_players: int
     winks_limit: int
     knocks_limit: int
+    season_start_game_number: int
 
 
 class RegistrationsPoint(BaseModel):

@@ -11,6 +11,7 @@ export interface PublicSettings {
   game_min_ready_players: number
   winks_limit: number
   knocks_limit: number
+  season_start_game_number: number
 }
 
 export const useSettingsStore = defineStore('settings', () => {
@@ -22,6 +23,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const gameMinReadyPlayers = ref(4)
   const winksLimit = ref(0)
   const knocksLimit = ref(0)
+  const seasonStartGameNumber = ref(1)
   const ready = ref(false)
   let inited = false
   let onSettingsEv: ((e: any) => void) | null = null
@@ -38,6 +40,8 @@ export const useSettingsStore = defineStore('settings', () => {
     if (Number.isFinite(winks) && winks >= 0) winksLimit.value = winks
     const knocks = Number(data.knocks_limit)
     if (Number.isFinite(knocks) && knocks >= 0) knocksLimit.value = knocks
+    const seasonStart = Number(data.season_start_game_number)
+    if (Number.isFinite(seasonStart) && seasonStart >= 1) seasonStartGameNumber.value = seasonStart
   }
 
   async function fetchPublic(): Promise<void> {
@@ -66,6 +70,7 @@ export const useSettingsStore = defineStore('settings', () => {
     gameMinReadyPlayers,
     winksLimit,
     knocksLimit,
+    seasonStartGameNumber,
     ready,
 
     fetchPublic,

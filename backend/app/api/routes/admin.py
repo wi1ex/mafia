@@ -128,6 +128,7 @@ async def public_settings(session: AsyncSession = Depends(get_session)) -> Publi
         game_min_ready_players=settings.game_min_ready_players,
         winks_limit=settings.winks_limit,
         knocks_limit=settings.knocks_limit,
+        season_start_game_number=settings.season_start_game_number,
     )
 
 

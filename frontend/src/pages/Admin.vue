@@ -104,6 +104,11 @@
                        placeholder=" " autocomplete="off" inputmode="numeric" :disabled="savingSettings" />
                 <label for="rooms-empty-ttl-seconds">Время жизни пустой комнаты (сек)</label>
               </div>
+              <div class="ui-input" :class="{ filled: Number.isFinite(site.season_start_game_number) }">
+                <input id="season-start-game-number" v-model.number="site.season_start_game_number" type="number" min="1" step="1"
+                       placeholder=" " autocomplete="off" inputmode="numeric" :disabled="savingSettings" />
+                <label for="season-start-game-number">С какой игры действует текущий сезон</label>
+              </div>
             </div>
 
             <div class="block">
@@ -729,6 +734,7 @@ type SiteSettings = {
   rooms_limit_global: number
   rooms_limit_per_user: number
   rooms_empty_ttl_seconds: number
+  season_start_game_number: number
 }
 
 type GameSettings = {
@@ -895,6 +901,7 @@ const site = reactive<SiteSettings>({
   rooms_limit_global: 100,
   rooms_limit_per_user: 3,
   rooms_empty_ttl_seconds: 10,
+  season_start_game_number: 1,
 })
 
 const game = reactive<GameSettings>({
@@ -1090,6 +1097,7 @@ function snapshotSite(): string {
     rooms_limit_global: normalizeInt(site.rooms_limit_global),
     rooms_limit_per_user: normalizeInt(site.rooms_limit_per_user),
     rooms_empty_ttl_seconds: normalizeInt(site.rooms_empty_ttl_seconds),
+    season_start_game_number: normalizeInt(site.season_start_game_number),
   })
 }
 
@@ -1261,6 +1269,7 @@ async function saveSettings(): Promise<void> {
         rooms_limit_global: normalizeInt(site.rooms_limit_global),
         rooms_limit_per_user: normalizeInt(site.rooms_limit_per_user),
         rooms_empty_ttl_seconds: normalizeInt(site.rooms_empty_ttl_seconds),
+        season_start_game_number: normalizeInt(site.season_start_game_number),
       },
       game: {
         game_min_ready_players: normalizeInt(game.game_min_ready_players),
@@ -1289,6 +1298,7 @@ async function saveSettings(): Promise<void> {
       game_min_ready_players: game.game_min_ready_players,
       winks_limit: game.winks_limit,
       knocks_limit: game.knocks_limit,
+      season_start_game_number: site.season_start_game_number,
     })
     void alertDialog('Настройки сохранены')
   } catch {

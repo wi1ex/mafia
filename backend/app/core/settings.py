@@ -37,6 +37,7 @@ class Settings(BaseSettings):
 
     ROOMS_EMPTY_TTL_SECONDS: int = 10
     ONLINE_TTL_SECONDS: int = 120
+    SEASON_START_GAME_NUMBER: int = 1
 
     GAME_MIN_READY_PLAYERS: int = 10
     ROLE_PICK_SECONDS: int = 10

@@ -17,6 +17,7 @@ class AppSettingsSnapshot:
     rooms_limit_global: int
     rooms_limit_per_user: int
     rooms_empty_ttl_seconds: int
+    season_start_game_number: int
     game_min_ready_players: int
     role_pick_seconds: int
     mafia_talk_seconds: int
@@ -42,6 +43,7 @@ def _defaults() -> AppSettingsSnapshot:
         rooms_limit_global=100,
         rooms_limit_per_user=3,
         rooms_empty_ttl_seconds=core_settings.ROOMS_EMPTY_TTL_SECONDS,
+        season_start_game_number=core_settings.SEASON_START_GAME_NUMBER,
         game_min_ready_players=core_settings.GAME_MIN_READY_PLAYERS,
         role_pick_seconds=core_settings.ROLE_PICK_SECONDS,
         mafia_talk_seconds=core_settings.MAFIA_TALK_SECONDS,
@@ -65,6 +67,7 @@ def _snapshot_from_row(row: AppSettings) -> AppSettingsSnapshot:
         rooms_limit_global=int(row.rooms_limit_global),
         rooms_limit_per_user=int(row.rooms_limit_per_user),
         rooms_empty_ttl_seconds=int(row.rooms_empty_ttl_seconds),
+        season_start_game_number=int(row.season_start_game_number),
         game_min_ready_players=int(row.game_min_ready_players),
         role_pick_seconds=int(row.role_pick_seconds),
         mafia_talk_seconds=int(row.mafia_talk_seconds),
@@ -101,6 +104,7 @@ async def ensure_app_settings(session: AsyncSession) -> AppSettings:
             rooms_limit_global=defaults.rooms_limit_global,
             rooms_limit_per_user=defaults.rooms_limit_per_user,
             rooms_empty_ttl_seconds=defaults.rooms_empty_ttl_seconds,
+            season_start_game_number=defaults.season_start_game_number,
             game_min_ready_players=defaults.game_min_ready_players,
             role_pick_seconds=defaults.role_pick_seconds,
             mafia_talk_seconds=defaults.mafia_talk_seconds,

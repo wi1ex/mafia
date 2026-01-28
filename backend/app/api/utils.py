@@ -499,6 +499,7 @@ def site_settings_out(row) -> SiteSettingsOut:
         rooms_limit_global=int(row.rooms_limit_global),
         rooms_limit_per_user=int(row.rooms_limit_per_user),
         rooms_empty_ttl_seconds=int(row.rooms_empty_ttl_seconds),
+        season_start_game_number=int(row.season_start_game_number),
     )
 
 
