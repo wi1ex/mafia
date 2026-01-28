@@ -2,32 +2,22 @@
   <section class="admin">
     <header>
       <nav class="tabs" aria-label="Админ" role="tablist">
-        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'settings' }"
-                :aria-selected="activeTab === 'settings'" @click="activeTab = 'settings'">
+        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'settings' }" :aria-selected="activeTab === 'settings'" @click="activeTab = 'settings'">
           Параметры
         </button>
-        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'updates' }"
-                :aria-selected="activeTab === 'updates'" @click="activeTab = 'updates'">
+        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'updates' }" :aria-selected="activeTab === 'updates'" @click="activeTab = 'updates'">
           Обновления
         </button>
-        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'stats' }"
-                :aria-selected="activeTab === 'stats'" @click="activeTab = 'stats'">
+        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'stats' }" :aria-selected="activeTab === 'stats'" @click="activeTab = 'stats'">
           Статистика
         </button>
-        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'logs' }"
-                :aria-selected="activeTab === 'logs'" @click="activeTab = 'logs'">
+        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'logs' }" :aria-selected="activeTab === 'logs'" @click="activeTab = 'logs'">
           Логи
         </button>
-        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'rooms' }"
-                :aria-selected="activeTab === 'rooms'" @click="activeTab = 'rooms'">
+        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'rooms' }" :aria-selected="activeTab === 'rooms'" @click="activeTab = 'rooms'">
           Комнаты
         </button>
-        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'games' }"
-                :aria-selected="activeTab === 'games'" @click="activeTab = 'games'">
-          Игры
-        </button>
-        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'users' }"
-                :aria-selected="activeTab === 'users'" @click="activeTab = 'users'">
+        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'users' }" :aria-selected="activeTab === 'users'" @click="activeTab = 'users'">
           Пользователи
         </button>
       </nav>
@@ -544,87 +534,6 @@
           </div>
         </div>
 
-        <div v-else-if="activeTab === 'games'">
-          <div class="filters">
-            <label class="field">
-              <span>Никнейм</span>
-              <input type="text" v-model.trim="gamesUser" :disabled="gamesLoading" placeholder="Никнейм" />
-            </label>
-            <label class="field">
-              <span>Дата игры</span>
-              <input type="date" v-model="gamesDay" :disabled="gamesLoading" />
-            </label>
-            <label class="field">
-              <span>Отображать по</span>
-              <select v-model.number="gamesLimit" :disabled="gamesLoading">
-                <option :value="20">20</option>
-                <option :value="100">100</option>
-              </select>
-            </label>
-          </div>
-
-          <div v-if="gamesLoading" class="loading">Загрузка...</div>
-          <div v-else>
-            <table class="table games-table">
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Комната</th>
-                  <th>Владелец</th>
-                  <th>Ведущий</th>
-                  <th>Результат</th>
-                  <th>Длительность</th>
-                  <th>Старт</th>
-                  <th>Игроки</th>
-                  <th>Действия</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="row in games" :key="row.id">
-                  <td>{{ row.id }}</td>
-                  <td>{{ row.room_id }}</td>
-                  <td>
-                    <div class="user-cell">
-                      <img class="user-avatar" v-minio-img="{ key: row.owner?.avatar_name ? `avatars/${row.owner.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
-                      <span>{{ row.owner?.username || ('user' + row.owner.id) }}</span>
-                    </div>
-                  </td>
-                  <td>
-                    <div v-if="row.head" class="user-cell">
-                      <img class="user-avatar" v-minio-img="{ key: row.head.avatar_name ? `avatars/${row.head.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
-                      <span>{{ row.head.username || ('user' + row.head.id) }}</span>
-                    </div>
-                    <span v-else>-</span>
-                  </td>
-                  <td>{{ formatRoomGameResult(row.result) }} {{ row.black_alive_at_finish }}/{{ row.black_alive_at_finish }}</td>
-                  <td>{{ formatGameDuration(row.duration_seconds) }}</td>
-                  <td>{{ formatLocalDateTime(row.started_at) }}</td>
-                  <td class="players-cell">
-                    <ul v-if="row.players.length" class="players-list">
-                      <li v-for="p in row.players" :key="p.id">{{ formatGamePlayer(p) }}</li>
-                    </ul>
-                    <div v-else class="muted">Нет данных</div>
-                  </td>
-                  <td class="actions-cell">
-                    <ul v-if="row.actions.length" class="actions-list">
-                      <li v-for="(a, idx) in row.actions" :key="idx">{{ formatGameAction(a) }}</li>
-                    </ul>
-                    <div v-else class="muted">Нет данных</div>
-                  </td>
-                </tr>
-                <tr v-if="games.length === 0">
-                  <td colspan="9" class="muted">Нет данных</td>
-                </tr>
-              </tbody>
-            </table>
-            <div class="pager">
-              <button class="btn" :disabled="gamesPage <= 1" @click="prevGames">Назад</button>
-              <span>{{ gamesPage }} / {{ gamesPages }}</span>
-              <button class="btn" :disabled="gamesPage >= gamesPages" @click="nextGames">Вперед</button>
-            </div>
-          </div>
-        </div>
-
         <div v-else-if="activeTab === 'users'">
           <div class="filters">
             <label class="field">
@@ -961,36 +870,6 @@ type UserRow = {
   suspends: SanctionRow[]
 }
 
-type GameUser = {
-  id: number
-  username?: string | null
-  avatar_name?: string | null
-}
-
-type GamePlayer = {
-  seat: number
-  id: number
-  username?: string | null
-  avatar_name?: string | null
-  role: string
-  points: number
-  mmr: number
-}
-
-type GameRow = {
-  id: number
-  room_id: number
-  owner: GameUser
-  head?: GameUser | null
-  result: string
-  black_alive_at_finish: number
-  started_at: string
-  finished_at: string
-  duration_seconds: number
-  players: GamePlayer[]
-  actions: any[]
-}
-
 type UpdateRow = {
   id: number
   version: string
@@ -998,13 +877,12 @@ type UpdateRow = {
   description: string
 }
 
-const activeTab = ref<'settings' | 'updates' | 'stats' | 'logs' | 'rooms' | 'games' | 'users'>('settings')
+const activeTab = ref<'settings' | 'updates' | 'stats' | 'logs' | 'rooms' | 'users'>('settings')
 const loading = ref(true)
 const savingSettings = ref(false)
 const statsLoading = ref(false)
 const logsLoading = ref(false)
 const roomsLoading = ref(false)
-const gamesLoading = ref(false)
 const usersLoading = ref(false)
 const updatesLoading = ref(false)
 
@@ -1077,13 +955,6 @@ const roomsPage = ref(1)
 const roomsLimit = ref(20)
 const roomsUser = ref('')
 const roomsStreamOnly = ref(false)
-
-const games = ref<GameRow[]>([])
-const gamesTotal = ref(0)
-const gamesPage = ref(1)
-const gamesLimit = ref(20)
-const gamesUser = ref('')
-const gamesDay = ref('')
 
 const users = ref<UserRow[]>([])
 const usersTotal = ref(0)
@@ -1181,7 +1052,6 @@ const sanctionTitle = computed(() => {
 const kickRoomsBusy = ref(false)
 let logsUserTimer: number | undefined
 let roomsUserTimer: number | undefined
-let gamesUserTimer: number | undefined
 let usersUserTimer: number | undefined
 
 function normalizeInt(value: number): number {
@@ -1243,7 +1113,6 @@ const isGameDirty = computed(() => gameSnapshot.value !== snapshotGame())
 const isSettingsDirty = computed(() => isSiteDirty.value || isGameDirty.value)
 const logsPages = computed(() => Math.max(1, Math.ceil(logsTotal.value / logsLimit.value)))
 const roomsPages = computed(() => Math.max(1, Math.ceil(roomsTotal.value / roomsLimit.value)))
-const gamesPages = computed(() => Math.max(1, Math.ceil(gamesTotal.value / gamesLimit.value)))
 const usersPages = computed(() => Math.max(1, Math.ceil(usersTotal.value / usersLimit.value)))
 const registrationsMax = computed(() => {
   const vals = stats.registrations.map(p => p.count)
@@ -1347,59 +1216,6 @@ function formatRoomGameResult(result: string): string {
   if (result === 'black') return 'Победа мафии'
   if (result === 'draw') return 'Ничья'
   return result || '-'
-}
-
-function formatRoleName(role: string): string {
-  if (role === 'citizen') return 'Мирный'
-  if (role === 'mafia') return 'Мафия'
-  if (role === 'don') return 'Дон'
-  if (role === 'sheriff') return 'Шериф'
-  return role || '-'
-}
-
-function formatGameDuration(seconds: number): string {
-  const total = Math.max(0, Number(seconds) || 0)
-  const mins = Math.floor(total / 60)
-  const secs = Math.floor(total % 60)
-  return `${mins}:${String(secs).padStart(2, '0')}`
-}
-
-function formatGamePlayer(player: GamePlayer): string {
-  const name = player.username || `user${player.id}`
-  const role = formatRoleName(player.role)
-  return `${player.seat}. ${name} ${role} ${player.points} ${player.mmr}`
-}
-
-function formatGameAction(action: any): string {
-  if (typeof action === 'string') return action
-  try { return JSON.stringify(action) } catch { return String(action) }
-}
-
-const hiddenGameActionTypes = new Set(['nominate', 'foul'])
-
-function getGameActionType(action: any): string | null {
-  if (!action) return null
-  if (typeof action === 'string') {
-    if (hiddenGameActionTypes.has(action)) return action
-    try {
-      const parsed = JSON.parse(action)
-      if (parsed && typeof parsed === 'object') {
-        return (parsed as { type?: string }).type
-      }
-    } catch {}
-    return null
-  }
-  if (typeof action === 'object') {
-    return (action as { type?: string }).type
-  }
-  return null
-}
-
-function filterGameActions(actions: any[]): any[] {
-  return actions.filter(action => {
-    const actionType = getGameActionType(action)
-    return !actionType || !hiddenGameActionTypes.has(actionType)
-  })
 }
 
 function chartBarHeight(count: number, maxValue: number): string {
@@ -1584,33 +1400,6 @@ async function loadRooms(): Promise<void> {
   }
 }
 
-async function loadGames(): Promise<void> {
-  if (gamesLoading.value) return
-  gamesLoading.value = true
-  try {
-    const params: Record<string, any> = {
-      page: gamesPage.value,
-      limit: gamesLimit.value,
-    }
-    if (gamesUser.value) params.username = gamesUser.value
-    if (gamesDay.value) params.day = gamesDay.value
-    const { data } = await api.get('/admin/games', { params })
-    const items = Array.isArray(data?.items) ? data.items : []
-    games.value = items.map((item: any) => ({
-      ...item,
-      owner: item?.owner || { id: 0, username: null, avatar_name: null },
-      head: item?.head || null,
-      players: Array.isArray(item?.players) ? item.players : [],
-      actions: filterGameActions(Array.isArray(item?.actions) ? item.actions : []),
-    }))
-    gamesTotal.value = Number.isFinite(data?.total) ? data.total : 0
-  } catch {
-    void alertDialog('Не удалось загрузить игры')
-  } finally {
-    gamesLoading.value = false
-  }
-}
-
 async function loadUsers(): Promise<void> {
   if (usersLoading.value) return
   usersLoading.value = true
@@ -1750,18 +1539,6 @@ function prevRooms(): void {
   if (roomsPage.value <= 1) return
   roomsPage.value -= 1
   void loadRooms()
-}
-
-function nextGames(): void {
-  if (gamesPage.value >= gamesPages.value) return
-  gamesPage.value += 1
-  void loadGames()
-}
-
-function prevGames(): void {
-  if (gamesPage.value <= 1) return
-  gamesPage.value -= 1
-  void loadGames()
 }
 
 function nextUsers(): void {
@@ -1958,10 +1735,6 @@ watch(activeTab, (tab) => {
     void loadRooms()
     return
   }
-  if (tab === 'games') {
-    void loadGames()
-    return
-  }
   if (tab === 'users') {
     void loadUsers()
   }
@@ -1996,19 +1769,6 @@ watch(roomsUser, () => {
   if (activeTab.value !== 'rooms') return
   if (roomsUserTimer) window.clearTimeout(roomsUserTimer)
   roomsUserTimer = window.setTimeout(() => { void loadRooms() }, 500)
-})
-
-watch([gamesLimit, gamesDay], () => {
-  gamesPage.value = 1
-  if (activeTab.value !== 'games') return
-  void loadGames()
-})
-
-watch(gamesUser, () => {
-  gamesPage.value = 1
-  if (activeTab.value !== 'games') return
-  if (gamesUserTimer) window.clearTimeout(gamesUserTimer)
-  gamesUserTimer = window.setTimeout(() => { void loadGames() }, 500)
 })
 
 watch(usersLimit, () => {
@@ -2457,20 +2217,6 @@ onMounted(() => {
         padding: 10px;
         border-bottom: 1px solid $lead;
         font-size: 14px;
-      }
-      .players-cell,
-      .actions-cell {
-        min-width: 240px;
-        white-space: normal;
-      }
-      .players-list,
-      .actions-list {
-        margin: 0;
-        padding-left: 18px;
-      }
-      .actions-list {
-        max-height: 180px;
-        overflow: auto;
       }
       .user-cell {
         display: inline-flex;

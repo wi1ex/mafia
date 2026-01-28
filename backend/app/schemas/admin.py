@@ -1,6 +1,6 @@
 from __future__ import annotations
 from datetime import datetime
-from typing import Optional, List, Literal, Any
+from typing import Optional, List, Literal
 from pydantic import BaseModel, Field
 
 
@@ -237,38 +237,3 @@ class AdminUserRoleIn(BaseModel):
 class AdminUserRoleOut(BaseModel):
     id: int
     role: str
-
-
-class AdminGameUserOut(BaseModel):
-    id: int
-    username: Optional[str] = None
-    avatar_name: Optional[str] = None
-
-
-class AdminGamePlayerOut(BaseModel):
-    seat: int
-    id: int
-    username: Optional[str] = None
-    avatar_name: Optional[str] = None
-    role: str
-    points: int
-    mmr: int
-
-
-class AdminGameOut(BaseModel):
-    id: int
-    room_id: int
-    owner: AdminGameUserOut
-    head: Optional[AdminGameUserOut] = None
-    result: str
-    black_alive_at_finish: int
-    started_at: datetime
-    finished_at: datetime
-    duration_seconds: int
-    players: List[AdminGamePlayerOut]
-    actions: List[Any]
-
-
-class AdminGamesOut(BaseModel):
-    total: int
-    items: List[AdminGameOut]

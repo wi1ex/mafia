@@ -48,10 +48,6 @@ from ...schemas.admin import (
     AdminUserRoleOut,
     AdminSanctionTimedIn,
     AdminSanctionBanIn,
-    AdminGameOut,
-    AdminGamesOut,
-    AdminGameUserOut,
-    AdminGamePlayerOut,
     OnlineUserOut,
 )
 from ..utils import (
@@ -622,121 +618,6 @@ async def rooms_kick_all() -> Ok:
     asyncio.create_task(_refresh_rooms())
 
     return Ok()
-
-
-@log_route("admin.games.list")
-@require_roles_deco("admin")
-@router.get("/games", response_model=AdminGamesOut)
-async def games_list(page: int = 1, limit: int = 20, username: str | None = None, day: date | None = None, session: AsyncSession = Depends(get_session)) -> AdminGamesOut:
-    limit, page, offset = normalize_pagination(page, limit)
-    filters = []
-    if day:
-        start_dt, end_dt = parse_day_range(day)
-        filters.append(Game.started_at >= start_dt)
-        filters.append(Game.started_at < end_dt)
-
-    if username:
-        rows = await session.execute(select(User.id).where(User.username.ilike(f"%{username}%")))
-        ids = [int(x[0]) for x in rows.all()]
-        if not ids:
-            return AdminGamesOut(total=0, items=[])
-
-        role_filters = [Game.roles.has_key(str(uid)) for uid in ids]
-        filters.append(or_(Game.head_id.in_(ids), *role_filters))
-
-    total = int(await session.scalar(select(func.count(Game.id)).where(*filters)) or 0)
-    rows = await session.execute(select(Game).where(*filters).order_by(Game.started_at.desc(), Game.id.desc()).offset(offset).limit(limit))
-    games = rows.scalars().all()
-
-    user_ids: set[int] = set()
-    for game in games:
-        try:
-            user_ids.add(int(game.room_owner_id))
-        except Exception:
-            pass
-        if game.head_id:
-            try:
-                user_ids.add(int(game.head_id))
-            except Exception:
-                pass
-        seats_map = game.seats or {}
-        if isinstance(seats_map, dict):
-            for uid in seats_map.keys():
-                try:
-                    user_ids.add(int(uid))
-                except Exception:
-                    continue
-
-    user_map: dict[int, tuple[str | None, str | None]] = {}
-    if user_ids:
-        rows = await session.execute(select(User.id, User.username, User.avatar_name).where(User.id.in_(user_ids)))
-        for uid, uname, ava in rows.all():
-            user_map[int(uid)] = (uname, ava)
-
-    items: list[AdminGameOut] = []
-    for game in games:
-        owner_id = int(game.room_owner_id)
-        owner_info = user_map.get(owner_id, (None, None))
-        owner = AdminGameUserOut(id=owner_id, username=owner_info[0], avatar_name=owner_info[1])
-
-        head = None
-        if game.head_id:
-            head_id = int(game.head_id)
-            head_info = user_map.get(head_id, (None, None))
-            head = AdminGameUserOut(id=head_id, username=head_info[0], avatar_name=head_info[1])
-
-        roles_map = game.roles or {}
-        seats_map = game.seats or {}
-        points_map = game.points or {}
-        mmr_map = game.mmr or {}
-
-        players: list[AdminGamePlayerOut] = []
-        if isinstance(seats_map, dict):
-            for uid_raw, seat_raw in seats_map.items():
-                try:
-                    uid = int(uid_raw)
-                    seat = int(seat_raw or 0)
-                except Exception:
-                    continue
-                if seat <= 0:
-                    continue
-
-                user_info = user_map.get(uid, (None, None))
-                role = str(roles_map.get(str(uid)) or "")
-                points = int(points_map.get(str(uid)) or 0)
-                mmr = int(mmr_map.get(str(uid)) or 0)
-                players.append(AdminGamePlayerOut(
-                    seat=seat,
-                    id=uid,
-                    username=user_info[0],
-                    avatar_name=user_info[1],
-                    role=role,
-                    points=points,
-                    mmr=mmr,
-                ))
-        players.sort(key=lambda p: p.seat)
-
-        try:
-            duration_seconds = int((game.finished_at - game.started_at).total_seconds())
-        except Exception:
-            duration_seconds = 0
-        duration_seconds = max(0, duration_seconds)
-
-        items.append(AdminGameOut(
-            id=int(game.id),
-            room_id=int(game.room_id),
-            owner=owner,
-            head=head,
-            result=str(game.result),
-            black_alive_at_finish=int(game.black_alive_at_finish),
-            started_at=game.started_at,
-            finished_at=game.finished_at,
-            duration_seconds=duration_seconds,
-            players=players,
-            actions=list(game.actions or []),
-        ))
-
-    return AdminGamesOut(total=total, items=items)
 
 
 @log_route("admin.users.list")
