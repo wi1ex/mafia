@@ -142,8 +142,6 @@ export const useAuthStore = defineStore('auth', () => {
       delLS([
         'auth:sid',
         'auth:lock',
-        'ui:hide_install',
-        'ui:hotkeys',
         'room:lastRoom',
         'room:lastGame'
       ])
