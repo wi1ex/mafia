@@ -41,7 +41,6 @@
         <div v-else-if="activeTab === 'settings'">
           <div class="grid">
             <div class="block">
-              <h3>Доступ</h3>
               <div class="switch">
                 <span class="switch-label">Регистрация</span>
                 <label>
@@ -100,7 +99,6 @@
             </div>
 
             <div class="block">
-              <h3>Лимиты комнат</h3>
               <div class="ui-input" :class="{ filled: Number.isFinite(site.rooms_limit_global) }">
                 <input id="rooms-limit-global" v-model.number="site.rooms_limit_global" type="number" min="1" max="100" step="1"
                        placeholder=" " autocomplete="off" inputmode="numeric" :disabled="savingSettings" />
@@ -2143,11 +2141,6 @@ onMounted(() => {
         border: 3px solid $lead;
         border-radius: 5px;
         padding: 15px;
-        h3 {
-          margin: 0 0 20px;
-          font-size: 20px;
-          color: $fg;
-        }
         .ui-input {
           display: block;
           position: relative;
