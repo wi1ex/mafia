@@ -747,7 +747,7 @@ onBeforeUnmount(() => {
       grid-template-columns: 1fr 1fr 1fr;
       .block {
         padding: 15px;
-        min-height: 100px;
+        min-height: 150px;
         border: 3px solid $lead;
         border-radius: 5px;
         h3 {
