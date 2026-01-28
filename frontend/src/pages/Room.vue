@@ -260,7 +260,7 @@
               <span v-if="!IS_MOBILE && hotkeysVisible" class="hot-btn">C</span>
           </button>
           <button v-if="gamePhase !== 'idle' && isHead" @click="toggleHostBlur" :disabled="!hostBlurToggleEnabled || hostBlurPending" :aria-pressed="hostBlurActive" aria-label="Затемнить экран">
-            <img :src="hostBlurActive ? iconVisOff : iconVisOn" alt="blur" />
+            <img :src="hostBlurActive ? iconBlurOff : iconBlurOn" alt="blur" />
           </button>
           <button v-if="gamePhase === 'idle'" @click="toggleSpeakers" :disabled="pending.speakers || blockedSelf.speakers" :aria-pressed="speakersOn">
             <img :src="stateIcon('speakers', localId)" alt="speakers" />
@@ -383,6 +383,8 @@ import iconSettings from '@/assets/svg/settings.svg'
 import iconRequestsRoom from '@/assets/svg/requestsRoom.svg'
 import iconReadyWhite from '@/assets/svg/readyWhite.svg'
 import iconReadyGreen from '@/assets/svg/readyGreen.svg'
+import iconBlurOn from '@/assets/svg/blurOn.svg'
+import iconBlurOff from '@/assets/svg/blurOff.svg'
 import iconGameStart from '@/assets/svg/gameStart.svg'
 import iconGameStop from '@/assets/svg/gameStop.svg'
 import iconDeadPlayer from '@/assets/svg/deadPlayer.svg'
