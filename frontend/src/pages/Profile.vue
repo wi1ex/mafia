@@ -71,9 +71,9 @@
 
           <div class="block">
             <h3>Параметры</h3>
-            <div class="prefs-row">
-              <span class="prefs-label">Подсказки для горячих клавиш</span>
-              <label class="prefs-switch">
+            <div class="switch">
+              <span class="switch-label">Подсказки для горячих клавиш</span>
+              <label>
                 <input type="checkbox" :checked="hotkeysVisible" @change="onToggleHotkeys" aria-label="Подсказки для горячих клавиш" />
                 <div class="slider">
                   <span>Скрыть</span>
@@ -830,20 +830,16 @@ onBeforeUnmount(() => {
             color: $grey;
           }
         }
-        .prefs-row {
+        .switch {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          flex-wrap: wrap;
-          gap: 10px;
-          .prefs-label {
-            color: $fg;
-            font-size: 16px;
+          .switch-label {
+            height: 18px;
           }
-          .prefs-switch {
+          label {
             position: relative;
-            width: 200px;
-            max-width: 100%;
+            width: 170px;
             height: 25px;
             box-shadow: 3px 3px 5px rgba($black, 0.25);
             input {
@@ -876,18 +872,22 @@ onBeforeUnmount(() => {
               position: absolute;
               top: 0;
               left: 0;
-              width: 98px;
+              width: 83px;
               height: 23px;
               background-color: $fg;
               border-radius: 5px;
               transition: transform 0.25s ease-in-out;
             }
             input:checked + .slider:before {
-              transform: translateX(100px);
+              transform: translateX(85px);
             }
             input:not(:checked) + .slider span:first-child,
             input:checked + .slider span:last-child {
               color: $bg;
+            }
+            input:disabled + .slider {
+              opacity: 0.5;
+              cursor: not-allowed;
             }
           }
         }
