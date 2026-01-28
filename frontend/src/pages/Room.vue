@@ -780,6 +780,8 @@ function onHotkey(e: KeyboardEvent) {
   if (isEditableTarget(e.target)) return
   if (confirmState.open) return
   if (e.ctrlKey || e.altKey || e.metaKey || e.shiftKey) return
+  if (hostBlurActive.value) return
+  if (gamePhase.value !== 'idle' && !(isHead.value || amIAlive.value)) return
   const code = e.code
 
   if (code === 'Enter') {
