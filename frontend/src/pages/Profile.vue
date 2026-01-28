@@ -81,6 +81,16 @@
                 </div>
               </label>
             </div>
+            <div class="switch">
+              <span class="switch-label">Кнопка «Установить»</span>
+              <label>
+                <input type="checkbox" :checked="!installHidden" @change="onToggleInstallHidden" aria-label="Кнопка установки приложения" />
+                <div class="slider">
+                  <span>Скрыть</span>
+                  <span>Показать</span>
+                </div>
+              </label>
+            </div>
           </div>
 
           <div v-if="crop.show" ref="modalEl" class="modal" @keydown.esc="cancelCrop" tabindex="0" aria-modal="true" aria-label="Кадрирование аватара" >
@@ -156,7 +166,7 @@
 import { computed, nextTick, onMounted, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { api, refreshAccessTokenFull } from '@/services/axios'
-import { useAuthStore, useUiStore, useUserStore } from '@/store'
+import { useAuthStore, useUserStore } from '@/store'
 import { confirmDialog, alertDialog } from '@/services/confirm'
 import { formatLocalDateTime } from '@/services/datetime'
 
@@ -168,9 +178,8 @@ import iconDelete from '@/assets/svg/delete.svg'
 const userStore = useUserStore()
 const auth = useAuthStore()
 const isBanned = computed(() => userStore.banActive)
-const ui = useUiStore()
-const { hotkeysVisible } = storeToRefs(ui)
-const { setHotkeysVisible } = ui
+const { hotkeysVisible, installHidden } = storeToRefs(userStore)
+const { setHotkeysVisible, setInstallHidden } = userStore
 
 const me = reactive({ id: 0, username: '', avatar_name: null as string | null, role: '' })
 const fileEl = ref<HTMLInputElement | null>(null)
@@ -215,6 +224,11 @@ const sanctionsError = ref('')
 function onToggleHotkeys(e: Event) {
   const next = (e.target as HTMLInputElement).checked
   setHotkeysVisible(next)
+}
+
+function onToggleInstallHidden(e: Event) {
+  const nextShown = (e.target as HTMLInputElement).checked
+  setInstallHidden(!nextShown)
 }
 
 const sanctionsSummary = computed(() => {
@@ -714,9 +728,10 @@ onBeforeUnmount(() => {
       gap: 10px;
       grid-template-columns: 1fr 1fr 1fr;
       .block {
+        padding: 15px;
+        min-height: 100px;
         border: 3px solid $lead;
         border-radius: 5px;
-        padding: 15px;
         h3 {
           margin: 0 0 20px;
           font-size: 20px;
@@ -724,7 +739,7 @@ onBeforeUnmount(() => {
         }
         .avatar-row {
           display: flex;
-          gap: 10px;
+          gap: 20px;
           align-items: center;
           .avatar-img {
             width: 115px;
@@ -740,7 +755,7 @@ onBeforeUnmount(() => {
         }
         .nick-row {
           display: flex;
-          align-items: center;
+          align-items: flex-start;
           margin-bottom: 5px;
           gap: 10px;
           .ui-input {
@@ -834,7 +849,11 @@ onBeforeUnmount(() => {
           display: flex;
           align-items: center;
           justify-content: space-between;
+          & + .switch {
+            margin-top: 10px;
+          }
           .switch-label {
+            width: calc(100% - 170px);
             height: 18px;
           }
           label {
