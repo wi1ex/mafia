@@ -83,6 +83,7 @@
 
 <script setup lang="ts">
 import { onMounted, onBeforeUnmount, watch, nextTick, ref, computed } from 'vue'
+import { storeToRefs } from 'pinia'
 import { useAuthStore, useUserStore, useNotifStore, useSettingsStore, useUpdatesStore } from '@/store'
 import { alertDialog } from '@/services/confirm'
 import { isPwaMode } from '@/services/pwa'
@@ -105,6 +106,7 @@ const user = useUserStore()
 const notif = useNotifStore()
 const updates = useUpdatesStore()
 const settings = useSettingsStore()
+const { installHidden } = storeToRefs(user)
 
 const nb_open = ref(false)
 const bellEl = ref<HTMLElement | null>(null)
@@ -113,7 +115,6 @@ const updatesEl = ref<HTMLElement | null>(null)
 const um_open = ref(false)
 const userMenuEl = ref<HTMLElement | null>(null)
 const installOpen = ref(false)
-const installHidden = ref(false)
 const isPwa = ref(isPwaMode())
 
 type SanctionBanner = { kind: 'ban' | 'timeout' | 'suspend'; text: string }
@@ -162,13 +163,8 @@ function closeUserMenu() {
 function openInstall() {
   installOpen.value = true
 }
-function readInstallHidden() {
-  try { installHidden.value = localStorage.getItem('ui:hide_install') === '1' }
-  catch { installHidden.value = false }
-}
 function onHideInstall() {
-  try { localStorage.setItem('ui:hide_install', '1') } catch {}
-  installHidden.value = true
+  void user.setInstallHidden(true)
   installOpen.value = false
 }
 async function onLogoutClick() {
@@ -304,12 +300,7 @@ watch(() => auth.isAuthed, async ok => {
   }
 })
 
-watch(() => user.user?.id, () => {
-  readInstallHidden()
-})
-
 onMounted(async () => {
-  readInstallHidden()
   if (!auth.isAuthed && !auth.foreignActive && settings.registrationEnabled) {
     resetTgWidgetState()
     await nextTick()
