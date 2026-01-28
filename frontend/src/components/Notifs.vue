@@ -189,7 +189,7 @@ onBeforeUnmount(() => {
   top: 50px;
   width: 400px;
   min-height: 200px;
-  max-height: 400px;
+  max-height: 600px;
   border-radius: 5px;
   background-color: $graphite;
   box-shadow: 3px 3px 5px rgba($black, 0.25);
@@ -237,7 +237,6 @@ onBeforeUnmount(() => {
     display: flex;
     flex-direction: column;
     margin: 10px;
-    padding: 0;
     gap: 10px;
     border-radius: 5px;
     overflow-y: auto;
@@ -255,9 +254,6 @@ onBeforeUnmount(() => {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        margin: 0;
-        padding: 0;
-        gap: 10px;
         width: 100%;
         span {
           margin: 0;
@@ -304,6 +300,40 @@ onBeforeUnmount(() => {
 @media (max-width: 1280px) {
   .panel {
     max-height: calc(100dvh - 70px);
+    header {
+      padding: 5px;
+      span {
+        font-size: 14px;
+      }
+      button {
+        width: 20px;
+        height: 20px;
+        img {
+          width: 15px;
+          height: 15px;
+        }
+      }
+    }
+    .list {
+      margin: 5px;
+      gap: 5px;
+      .item {
+        padding: 5px;
+        gap: 10px;
+        .item-header {
+          span {
+            font-size: 12px;
+          }
+          time {
+            font-size: 10px;
+          }
+        }
+        .text {
+          font-size: 12px;
+          line-height: 1.1;
+        }
+      }
+    }
   }
 }
 </style>

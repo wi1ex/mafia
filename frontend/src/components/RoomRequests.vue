@@ -209,7 +209,7 @@ onBeforeUnmount(() => {
   bottom: 50px;
   width: 400px;
   min-height: 200px;
-  max-height: 400px;
+  max-height: 600px;
   border-radius: 5px;
   background-color: $dark;
   box-shadow: 3px 3px 5px rgba($black, 0.25);
@@ -322,6 +322,39 @@ onBeforeUnmount(() => {
   .apps-panel {
     bottom: 30px;
     max-height: calc(100dvh - 40px);
+    header {
+      padding: 5px;
+      span {
+        font-size: 14px;
+      }
+      button {
+        width: 20px;
+        height: 20px;
+        img {
+          width: 15px;
+          height: 15px;
+        }
+      }
+    }
+    ul {
+      margin: 5px;
+      gap: 5px;
+      li {
+        img {
+          width: 20px;
+          height: 20px;
+        }
+        span {
+          height: 14px;
+          font-size: 12px;
+        }
+        button {
+          padding: 5px;
+          height: 20px;
+          font-size: 10px;
+        }
+      }
+    }
   }
 }
 </style>
