@@ -82,9 +82,9 @@
               </label>
             </div>
             <div class="switch">
-              <span class="switch-label">Кнопка «Установить»</span>
+              <span class="switch-label">Кнопка «Установить как приложение»</span>
               <label>
-                <input type="checkbox" :checked="!installHidden" :disabled="installTogglePending" @change="onToggleInstallHidden" aria-label="Кнопка установки приложения" />
+                <input type="checkbox" :checked="!installHidden" :disabled="installTogglePending" @change="onToggleInstallHidden" aria-label="Кнопка Установить" />
                 <div class="slider">
                   <span>Скрыть</span>
                   <span>Показать</span>
