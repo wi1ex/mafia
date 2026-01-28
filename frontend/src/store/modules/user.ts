@@ -7,6 +7,8 @@ export interface UserProfile {
   username?: string
   avatar_name?: string | null
   role: string
+  hotkeys_visible?: boolean
+  install_hidden?: boolean
   timeout_until?: string | null
   suspend_until?: string | null
   ban_active?: boolean
@@ -20,6 +22,13 @@ export const useUserStore = defineStore('user', () => {
   async function fetchMe(): Promise<void> {
     const { data } = await api.get<UserProfile>('/users/profile_info')
     user.value = data
+  }
+
+  async function updateUiPrefs(payload: { hotkeys_visible?: boolean; install_hidden?: boolean }): Promise<void> {
+    const { data } = await api.patch<{ hotkeys_visible: boolean; install_hidden: boolean }>('/users/ui_prefs', payload)
+    if (!user.value) return
+    user.value.hotkeys_visible = data.hotkeys_visible
+    user.value.install_hidden = data.install_hidden
   }
 
   function updateStoredRoomTitle(id: number, name: string) {
@@ -77,6 +86,26 @@ export const useUserStore = defineStore('user', () => {
   const suspendActive = computed(() => suspendRemainingMs.value > 0)
   const banActive = computed(() => Boolean(user.value?.ban_active))
   const roomRestricted = computed(() => banActive.value || timeoutActive.value)
+  const hotkeysVisible = computed(() => user.value?.hotkeys_visible ?? true)
+  const installHidden = computed(() => user.value?.install_hidden ?? false)
+
+  async function setHotkeysVisible(next: boolean): Promise<void> {
+    const prev = user.value?.hotkeys_visible
+    if (user.value) user.value.hotkeys_visible = next
+    try { await updateUiPrefs({ hotkeys_visible: next }) }
+    catch {
+      if (user.value && prev !== undefined) user.value.hotkeys_visible = prev
+    }
+  }
+
+  async function setInstallHidden(next: boolean): Promise<void> {
+    const prev = user.value?.install_hidden
+    if (user.value) user.value.install_hidden = next
+    try { await updateUiPrefs({ install_hidden: next }) }
+    catch {
+      if (user.value && prev !== undefined) user.value.install_hidden = prev
+    }
+  }
 
   function clear(): void {
     user.value = null
@@ -91,11 +120,16 @@ export const useUserStore = defineStore('user', () => {
     suspendActive,
     banActive,
     roomRestricted,
+    hotkeysVisible,
+    installHidden,
 
     fetchMe,
+    updateUiPrefs,
     setUsername,
     setAvatarName,
     setSanctions,
+    setHotkeysVisible,
+    setInstallHidden,
     ensureClock,
     clear,
   }
