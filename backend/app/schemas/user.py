@@ -18,6 +18,8 @@ class UserOut(BaseModel):
     username: Optional[str] = None
     avatar_name: Optional[str] = None
     role: str
+    hotkeys_visible: bool = True
+    install_hidden: bool = False
     timeout_until: Optional[datetime] = None
     suspend_until: Optional[datetime] = None
     ban_active: bool = False
@@ -51,3 +53,13 @@ class UsernameUpdateOut(BaseModel):
 
 class AvatarUploadOut(BaseModel):
     avatar_name: Optional[str] = None
+
+
+class UserUiPrefsIn(BaseModel):
+    hotkeys_visible: Optional[bool] = None
+    install_hidden: Optional[bool] = None
+
+
+class UserUiPrefsOut(BaseModel):
+    hotkeys_visible: bool
+    install_hidden: bool
