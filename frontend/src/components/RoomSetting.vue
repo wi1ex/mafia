@@ -353,6 +353,9 @@ onBeforeUnmount(() => {
         }
       }
       .switch.switch-wide {
+        .switch-label {
+          width: calc(100% - 200px);
+        }
         label {
           width: 200px;
           .slider:before {

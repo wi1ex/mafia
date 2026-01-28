@@ -2478,10 +2478,10 @@ onBeforeUnmount(() => {
     position: fixed;
     inset: 0;
     z-index: 850;
-    background-color: rgba($black, 0.45);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    pointer-events: auto;
+    background-color: rgba($black, 0.25);
+    backdrop-filter: blur(25px);
+    -webkit-backdrop-filter: blur(25px);
+    pointer-events: fill;
   }
   .grid {
     display: grid;
