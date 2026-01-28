@@ -1,6 +1,6 @@
 from __future__ import annotations
 from datetime import datetime
-from sqlalchemy import String, DateTime, Integer, func, BigInteger, Boolean
+from sqlalchemy import String, DateTime, Integer, func, BigInteger
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.dialects.postgresql import JSONB
 from ..core.db import Base
@@ -15,8 +15,6 @@ class Room(Base):
     title: Mapped[str] = mapped_column(String(32), nullable=False)
     user_limit: Mapped[int] = mapped_column(Integer, nullable=False, default=12)
     privacy: Mapped[str] = mapped_column(String(8), nullable=False, server_default="open")
-    farewell_wills: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
-    music: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
     game: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default="{}")
     visitors: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default="{}")
     spectators_time: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default="{}")
