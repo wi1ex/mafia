@@ -747,7 +747,7 @@ onBeforeUnmount(() => {
       grid-template-columns: 1fr 1fr 1fr;
       .block {
         padding: 15px;
-        min-height: 150px;
+        min-height: 190px;
         border: 3px solid $lead;
         border-radius: 5px;
         h3 {
@@ -760,8 +760,8 @@ onBeforeUnmount(() => {
           gap: 20px;
           align-items: center;
           .avatar-img {
-            width: 115px;
-            height: 115px;
+            width: 150px;
+            height: 150px;
             object-fit: cover;
             border-radius: 50%;
           }
