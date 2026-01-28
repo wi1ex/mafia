@@ -61,6 +61,7 @@
     <button v-if="isGameHead && showVoteButton" class="vote-btn" :disabled="!voteEnabled" @click="$emit('vote')">
       <img :src="iconLikeBlack" alt="vote" />
       <span>Проголосовать</span>
+      <span v-if="!isMobile" class="hot-btn">▭</span>
     </button>
     <div class="head-bar" v-if="isGameHead && phaseLabel">{{ phaseLabel }}</div>
     <div class="head-bar" v-else-if="isGameHead && voteBlocked">Голосования не будет</div>
@@ -140,6 +141,7 @@ type IconKind = 'mic' | 'cam' | 'speakers' | 'visibility' | 'screen'
 const props = withDefaults(defineProps<{
   id: string
   localId: string
+  isMobile?: boolean
   speaking: boolean
   side?: boolean
   fitContain?: boolean
@@ -207,6 +209,7 @@ const props = withDefaults(defineProps<{
 }>(), {
   side: false,
   fitContain: false,
+  isMobile: false,
   isGameHead: false,
   isHead: false,
   isDead: () => false,
@@ -550,6 +553,23 @@ const timelineDurationSec = computed(() => {
       font-family: Manrope-Medium;
       line-height: 1;
     }
+    .hot-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: absolute;
+      bottom: 0;
+      right: 0;
+      width: 16px;
+      height: 16px;
+      border-radius: 5px;
+      background-color: $fg;
+      color: $black;
+      font-size: 12px;
+      font-weight: bold;
+      font-family: Manrope-Medium;
+      line-height: 1;
+    }
   }
   .ava-wrap {
     display: flex;
@@ -865,6 +885,12 @@ const timelineDurationSec = computed(() => {
       }
       span {
         font-size: 14px;
+      }
+      .hot-btn {
+        width: 8px;
+        height: 8px;
+        border-radius: 3px;
+        font-size: 6px;
       }
     }
     .user-card {

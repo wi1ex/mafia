@@ -26,7 +26,10 @@
         <template v-else>
           <div v-if="!isSpectator && canToggleKnownRoles" class="switch-div">
             <div class="switch switch-wide">
-              <span class="switch-label">Видимость ролей:</span>
+              <span class="switch-label">
+                Видимость ролей:
+                <span v-if="!isMobile" class="hot-btn inline">R</span>
+              </span>
               <label>
                 <input type="checkbox" :checked="knownRolesVisible" @change="onToggleKnownRoles" aria-label="Показ ролей" />
                 <div class="slider">
@@ -107,6 +110,7 @@ const props = defineProps<{
   open: boolean
   inGame: boolean
   isSpectator?: boolean
+  isMobile?: boolean
   mics: Dev[]
   cams: Dev[]
   micId: string
@@ -291,6 +295,9 @@ onBeforeUnmount(() => {
         align-items: center;
         justify-content: space-between;
         .switch-label {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
           height: 18px;
         }
         label {
@@ -353,6 +360,18 @@ onBeforeUnmount(() => {
             transform: translateX(100px);
           }
         }
+      }
+      .hot-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        height: 16px;
+        min-width: 16px;
+        border-radius: 5px;
+        background-color: $fg;
+        color: $black;
+        font-size: 11px;
+        font-weight: bold;
       }
     }
     .volume-block {

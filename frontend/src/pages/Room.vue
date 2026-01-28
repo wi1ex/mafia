@@ -15,6 +15,7 @@
           :style="tileGridStyle(id)"
           :id="id"
           :local-id="localId"
+          :is-mobile="IS_MOBILE"
           :speaking="(game.daySpeech.currentId === id) || (gamePhase === 'idle' && rtc.isSpeaking(id))"
           :video-ref="stableVideoRef(id)"
           :fit-contain="fitContainInGrid"
@@ -112,6 +113,7 @@
             :key="id"
             :id="id"
             :local-id="localId"
+            :is-mobile="IS_MOBILE"
             :side="true"
             :speaking="(game.daySpeech.currentId === id) || (gamePhase === 'idle' && rtc.isSpeaking(id))"
             :video-ref="stableVideoRef(id)"
@@ -231,7 +233,10 @@
           <button v-if="canStartDayFromNight" class="btn-text" :disabled="!canHeadDayFromNightControl" @click="startDayFromNightUi">День</button>
 
           <button v-if="canFinishSpeechSelf" class="btn-text" @click="finishSpeechUi">Завершить речь</button>
-          <button v-else-if="canShowTakeFoulSelf" class="btn-text" @click="takeFoulUi" :disabled="!canTakeFoulSelf || foulPending">Взять фол</button>
+          <button v-else-if="canShowTakeFoulSelf" class="btn-text" @click="takeFoulUi" :disabled="!canTakeFoulSelf || foulPending">
+            Взять фол
+            <span v-if="!IS_MOBILE" class="hot-btn">↩</span>
+          </button>
 
           <button v-if="gamePhase === 'idle' && canShowStartGame && canUseReadyStart" @click="startGameUi" :disabled="startingGame" aria-label="Запустить игру">
             <img :src="iconGameStart" alt="start" />
@@ -279,6 +284,7 @@
           :open="settingsOpen"
           :in-game="gamePhase !== 'idle'"
           :is-spectator="isSpectatorInGame"
+          :is-mobile="IS_MOBILE"
           :mics="mics"
           :cams="cams"
           v-model:micId="selectedMicId"
@@ -2613,7 +2619,6 @@ onBeforeUnmount(() => {
         font-weight: bold;
         font-family: Manrope-Medium;
         line-height: 1;
-        transition: background-color 0.25s ease-in-out;
       }
     }
     .controls-side {
@@ -2884,6 +2889,12 @@ onBeforeUnmount(() => {
           width: 12px;
           height: 12px;
           font-size: 10px;
+        }
+        .hot-btn {
+          width: 8px;
+          height: 8px;
+          border-radius: 3px;
+          font-size: 6px;
         }
       }
       .controls-side {

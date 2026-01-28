@@ -138,6 +138,7 @@
       </div>
 
       <aside class="rules-toc" aria-label="Содержание страницы">
+        <router-link class="btn-home" :to="{ name: 'home' }" aria-label="На главную">На главную</router-link>
         <div class="toc-card">
           <span class="toc-title">Содержание</span>
           <nav class="toc-links">
@@ -293,18 +294,35 @@ onBeforeUnmount(() => {
     min-width: 0;
   }
   .rules-toc {
+    display: flex;
     position: sticky;
-    top: 0;
+    flex-direction: column;
     align-self: start;
+    top: 0;
+    gap: 10px;
+    .btn-home {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 40px;
+      border-radius: 10px;
+      background-color: $fg;
+      color: $bg;
+      text-decoration: none;
+      cursor: pointer;
+      transition: background-color 0.25s ease-in-out;
+      &:hover {
+        background-color: $white;
+      }
+    }
     .toc-card {
       display: flex;
       flex-direction: column;
       gap: 10px;
-      padding: 16px;
+      padding: 20px;
       border-radius: 10px;
       background-color: $graphite;
       border: 1px solid $grey;
-      box-shadow: 0 12px 24px rgba($black, 0.25);
     }
     .toc-title {
       font-size: 12px;
@@ -315,9 +333,9 @@ onBeforeUnmount(() => {
     .toc-links {
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 5px;
       a {
-        padding: 5px 15px;
+        padding: 5px 20px;
         border-radius: 5px;
         border: 1px solid transparent;
         background-color: $dark;
@@ -334,7 +352,7 @@ onBeforeUnmount(() => {
           background-color: $lead;
           border-color: $orange;
           color: $white;
-          box-shadow: inset 8px 0 0 $orange;
+          box-shadow: inset 10px 0 0 $orange;
         }
       }
     }
@@ -344,11 +362,10 @@ onBeforeUnmount(() => {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     gap: 20px;
-    padding: 24px;
-    border-radius: 12px;
+    padding: 20px;
+    border-radius: 10px;
     background: linear-gradient(to right, $lead, $dark);
     border: 1px solid $grey;
-    box-shadow: 0 18px 35px rgba($black, 0.25);
     overflow: hidden;
     animation: liftIn 0.25s ease-out both;
     &::before,
@@ -378,7 +395,7 @@ onBeforeUnmount(() => {
       z-index: 1;
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 10px;
       .eyebrow {
         margin: 0;
         font-size: 12px;
@@ -394,9 +411,9 @@ onBeforeUnmount(() => {
       .tags {
         display: flex;
         flex-wrap: wrap;
-        gap: 8px;
+        gap: 10px;
         .pill {
-          padding: 4px 12px;
+          padding: 5px 15px;
           border-radius: 50px;
           border: 1px solid $grey;
           background-color: $dark;
@@ -410,16 +427,15 @@ onBeforeUnmount(() => {
   .rules-grid {
     display: grid;
     grid-template-columns: repeat(1, minmax(0, 1fr));
-    gap: 16px;
+    gap: 15px;
     .rule-card {
       display: flex;
       flex-direction: column;
       gap: 10px;
-      padding: 18px;
+      padding: 20px;
       border-radius: 10px;
       background-color: $graphite;
       border: 1px solid $grey;
-      box-shadow: 0 10px 22px rgba($black, 0.25);
       animation: liftIn 0.25s ease-out both;
       h3 {
         margin: 0;
@@ -427,7 +443,7 @@ onBeforeUnmount(() => {
         color: $fg;
       }
       h4 {
-        margin: 6px 0 0;
+        margin: 5px 0 0;
         font-size: 15px;
         color: $fg;
       }
@@ -437,9 +453,9 @@ onBeforeUnmount(() => {
       }
       ul {
         margin: 0;
-        padding-left: 18px;
+        padding-left: 20px;
         display: grid;
-        gap: 6px;
+        gap: 5px;
         li {
           color: $fg;
         }
@@ -454,16 +470,15 @@ onBeforeUnmount(() => {
   .notice {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: 18px;
+    gap: 20px;
     padding: 20px;
-    border-radius: 12px;
+    border-radius: 10px;
     background: linear-gradient(to right, $graphite, $lead);
     border: 1px solid $grey;
-    box-shadow: 0 16px 30px rgba($black, 0.25);
     animation: liftIn 0.25s ease-out both;
     .notice-text {
       h2 {
-        margin: 0 0 8px;
+        margin: 0 0 10px;
         font-size: 20px;
       }
       p {
@@ -476,21 +491,21 @@ onBeforeUnmount(() => {
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 10px;
       .notice-item {
-        padding: 10px 12px;
-        border-radius: 8px;
+        padding: 5px 10px;
+        border-radius: 10px;
         background-color: $dark;
         border: 1px solid $grey;
         font-size: 14px;
         color: $fg;
       }
       .notice-item--suspend {
-        border-color: #f0c02b;
+        border-color: $yellow;
       }
       .notice-item--timeout {
-        border-color: #f18b2b;
+        border-color: $orange;
       }
       .notice-item--ban {
-        border-color: #e04a3a;
+        border-color: $red;
       }
     }
   }
@@ -499,7 +514,7 @@ onBeforeUnmount(() => {
 @keyframes liftIn {
   from {
     opacity: 0;
-    transform: translateY(12px);
+    transform: translateY(10px);
   }
   to {
     opacity: 1;
