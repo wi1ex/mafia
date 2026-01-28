@@ -909,6 +909,8 @@ type RoomRow = {
   lift_at_zero: boolean
   lift_3x: boolean
   wink_knock: boolean
+  farewell_wills: boolean
+  music: boolean
   visitors_count: number
   visitors: RoomUserStat[]
   spectators_count: number
@@ -1334,10 +1336,12 @@ function formatRoomGame(row: RoomRow): string {
   const spectators = Number.isFinite(row.spectators_limit) ? row.spectators_limit : 0
   const nominate = row.nominate_mode === 'head' ? 'От ведущего' : 'От игроков'
   const winkKnock = row.wink_knock ? 'Вкл' : 'Откл'
+  const farewellWills = row.farewell_wills ? 'Вкл' : 'Откл'
+  const music = row.music ? 'Вкл' : 'Откл'
   const breakAtZero = row.break_at_zero ? 'Вкл' : 'Выкл'
   const liftAtZero = row.lift_at_zero ? 'Вкл' : 'Выкл'
   const lift3x = row.lift_3x ? 'Вкл' : 'Выкл'
-  return `Режим: ${mode}, Формат: ${format}, Зрители: ${spectators}, Выставления: ${nominate}, Подмигивание/Стук: ${winkKnock}, Слом в нуле: ${breakAtZero}, Подъём в нуле: ${liftAtZero}, Подъём 3х: ${lift3x}`
+  return `Режим: ${mode}, Формат: ${format}, Зрители: ${spectators}, Выставления: ${nominate}, Подмигивание/Стук: ${winkKnock}, Завещания: ${farewellWills}, Музыка: ${music}, Слом в нуле: ${breakAtZero}, Подъём в нуле: ${liftAtZero}, Подъём 3х: ${lift3x}`
 }
 
 function formatRoomGameResult(result: string): string {
@@ -1567,6 +1571,8 @@ async function loadRooms(): Promise<void> {
       lift_at_zero: Boolean(item?.lift_at_zero),
       lift_3x: Boolean(item?.lift_3x),
       wink_knock: Boolean(item?.wink_knock),
+      farewell_wills: Boolean(item?.farewell_wills),
+      music: Boolean(item?.music),
       visitors: normalizeRoomUsers(item?.visitors),
       spectators: normalizeRoomUsers(item?.spectators),
       games: normalizeRoomGames(item?.games),

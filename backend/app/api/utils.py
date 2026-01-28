@@ -432,6 +432,8 @@ def serialize_game_for_redis(game_dict: Dict[str, Any]) -> Dict[str, str]:
         "lift_at_zero": "1" if raw_bool(game_dict.get("lift_at_zero"), True) else "0",
         "lift_3x": "1" if raw_bool(game_dict.get("lift_3x"), True) else "0",
         "wink_knock": "1" if raw_bool(game_dict.get("wink_knock"), True) else "0",
+        "farewell_wills": "1" if raw_bool(game_dict.get("farewell_wills"), True) else "0",
+        "music": "1" if raw_bool(game_dict.get("music"), True) else "0",
     }
 
 
@@ -454,6 +456,8 @@ def game_from_redis_to_model(raw_game: Dict[str, Any]) -> GameParams:
         lift_at_zero=raw_bool(raw_game.get("lift_at_zero"), True),
         lift_3x=raw_bool(raw_game.get("lift_3x"), True),
         wink_knock=raw_bool(raw_game.get("wink_knock"), True),
+        farewell_wills=raw_bool(raw_game.get("farewell_wills"), True),
+        music=raw_bool(raw_game.get("music"), True),
     )
 
 
@@ -810,6 +814,8 @@ def parse_room_game_params(game: dict | None) -> dict[str, Any]:
         "lift_at_zero": raw_bool(game.get("lift_at_zero"), True),
         "lift_3x": raw_bool(game.get("lift_3x"), True),
         "wink_knock": raw_bool(game.get("wink_knock"), True),
+        "farewell_wills": raw_bool(game.get("farewell_wills"), True),
+        "music": raw_bool(game.get("music"), True),
     }
 
 

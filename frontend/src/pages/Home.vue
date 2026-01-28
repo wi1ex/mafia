@@ -107,12 +107,16 @@
                   <span>{{ game.mode === 'normal' ? 'Обычный' : 'Рейтинг' }}</span>
                 </div>
                 <div class="ri-game-div">
-                  <span>Формат</span>
-                  <span>{{ game.format === 'hosted' ? 'С ведущим' : 'Без ведущего' }}</span>
+                  <span>Судья</span>
+                  <span>{{ game.format === 'hosted' ? 'Ведущий' : 'Без ведущего' }}</span>
                 </div>
                 <div class="ri-game-div">
                   <span>Выставления</span>
                   <span>{{ game.nominate_mode === 'head' ? 'От ведущего' : 'От игроков' }}</span>
+                </div>
+                <div class="ri-game-div">
+                  <span>Завещания</span>
+                  <span>{{ game.farewell_wills ? 'Вкл' : 'Откл' }}</span>
                 </div>
                 <div class="ri-game-div">
                   <span>Подмигивание/Стук</span>
@@ -129,6 +133,10 @@
                 <div class="ri-game-div">
                   <span>Подъем 3х при 9х</span>
                   <span>{{ game.lift_3x ? 'Вкл' : 'Откл' }}</span>
+                </div>
+                <div class="ri-game-div">
+                  <span>Музыка</span>
+                  <span>{{ game.music ? 'Вкл' : 'Откл' }}</span>
                 </div>
               </div>
             </div>
@@ -206,6 +214,8 @@ type Game = {
   lift_at_zero: boolean
   lift_3x: boolean
   wink_knock: boolean
+  farewell_wills: boolean
+  music: boolean
 }
 type Access = 'approved'|'pending'|'none'
 

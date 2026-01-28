@@ -93,6 +93,17 @@
               </div>
 
               <div class="switch">
+                <span class="switch-label">Завещания:</span>
+                <label>
+                  <input type="checkbox" v-model="game.farewell_wills" aria-label="Завещания" />
+                  <div class="slider">
+                    <span>Откл</span>
+                    <span>Вкл</span>
+                  </div>
+                </label>
+              </div>
+
+              <div class="switch">
                 <span class="switch-label">Подмигивание/Стук:</span>
                 <label>
                   <input type="checkbox" v-model="game.wink_knock" aria-label="Подмигивание/Стук" />
@@ -129,6 +140,17 @@
                 <span class="switch-label">Подъем 3х при 9х:</span>
                 <label>
                   <input type="checkbox" v-model="game.lift_3x" aria-label="Подъем 3х" />
+                  <div class="slider">
+                    <span>Откл</span>
+                    <span>Вкл</span>
+                  </div>
+                </label>
+              </div>
+
+              <div class="switch">
+                <span class="switch-label">Музыка:</span>
+                <label>
+                  <input type="checkbox" v-model="game.music" aria-label="Музыка" />
                   <div class="slider">
                     <span>Откл</span>
                     <span>Вкл</span>
@@ -217,6 +239,8 @@ type Game = {
   lift_at_zero: boolean
   lift_3x: boolean
   wink_knock: boolean
+  farewell_wills: boolean
+  music: boolean
 }
 const gameDefault: Game = {
   mode: 'normal',
@@ -227,6 +251,8 @@ const gameDefault: Game = {
   lift_at_zero: true,
   lift_3x: true,
   wink_knock: true,
+  farewell_wills: true,
+  music: true,
 }
 const initialGame: Game = (() => {
   try {
@@ -246,6 +272,8 @@ const initialGame: Game = (() => {
     if (typeof liftAtZero === 'boolean') merged.lift_at_zero = liftAtZero
     if (typeof parsed.lift_3x === 'boolean') merged.lift_3x = parsed.lift_3x
     if (typeof parsed.wink_knock === 'boolean') merged.wink_knock = parsed.wink_knock
+    if (typeof parsed.farewell_wills === 'boolean') merged.farewell_wills = parsed.farewell_wills
+    if (typeof parsed.music === 'boolean') merged.music = parsed.music
     return merged
   } catch { return gameDefault }
 })()

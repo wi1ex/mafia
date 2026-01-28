@@ -377,6 +377,8 @@ async def rooms_list(page: int = 1, limit: int = 20, username: str | None = None
                 lift_at_zero=game_params["lift_at_zero"],
                 lift_3x=game_params["lift_3x"],
                 wink_knock=game_params["wink_knock"],
+                farewell_wills=game_params["farewell_wills"],
+                music=game_params["music"],
                 visitors_count=visitors_count,
                 visitors=visitors_items,
                 spectators_count=spectators_count,

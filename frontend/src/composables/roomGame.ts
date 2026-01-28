@@ -159,6 +159,8 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   const voteLiftState = ref<'none' | 'ready' | 'prepared' | 'voting' | 'passed' | 'failed'>('none')
   const voteBlocked = ref(false)
   const hostBlurActive = ref(false)
+  const farewellWillsEnabled = ref(true)
+  const musicEnabled = ref(true)
   const deathReasonByUser = reactive(new Map<string, string>())
 
   const night = reactive({
@@ -1029,6 +1031,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
 
   function canMakeFarewellChoice(targetId: string): boolean {
     if (gameFinished.value) return false
+    if (!farewellWillsEnabled.value) return false
     const me = localId.value
     if (!me) return false
     if (!currentFarewellSpeech.value) return false
@@ -1102,6 +1105,8 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     const gr = join?.game_runtime || {}
     nominateMode.value = normalizeNominateMode((gr as any).nominate_mode)
     if ('wink_knock' in (gr as any)) winkKnockEnabled.value = isTrueLike((gr as any).wink_knock)
+    if ('farewell_wills_enabled' in (gr as any)) farewellWillsEnabled.value = isTrueLike((gr as any).farewell_wills_enabled)
+    if ('music' in (gr as any)) musicEnabled.value = isTrueLike((gr as any).music)
     const winks = Number((gr as any).winks_left)
     if (Number.isFinite(winks) && winks >= 0) winksLeft.value = Math.floor(winks)
     const knocks = Number((gr as any).knocks_left)
@@ -1415,6 +1420,12 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     offlineInGame.clear()
     deathReasonByUser.clear()
     hostBlurActive.value = false
+    if ('farewell_wills' in (payload || {})) {
+      farewellWillsEnabled.value = isTrueLike((payload as any).farewell_wills)
+    }
+    if ('music' in (payload || {})) {
+      musicEnabled.value = isTrueLike((payload as any).music)
+    }
     gamePhase.value = (payload?.phase as GamePhase) || 'roles_pick'
     if ('wink_knock' in (payload || {})) {
       winkKnockEnabled.value = isTrueLike((payload as any).wink_knock)
@@ -2368,6 +2379,8 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
          void alertDialog('Речь завершена, завещание недоступно')
       } else if (st === 409 && code === 'not_farewell') {
          void alertDialog('Сейчас нельзя оставлять завещание')
+      } else if (st === 409 && code === 'farewell_disabled') {
+         void alertDialog('Завещания отключены в этой комнате')
       } else {
          void alertDialog('Не удалось сохранить завещание')
       }
@@ -2957,6 +2970,8 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     currentFarewellSpeech,
     voteBlocked,
     hostBlurActive,
+    farewellWillsEnabled,
+    musicEnabled,
     dayNumber,
     night,
     headNightPicks,

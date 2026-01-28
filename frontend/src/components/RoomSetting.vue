@@ -40,7 +40,7 @@
             </div>
           </div>
 
-          <div class="volume-block">
+          <div v-if="musicEnabled" class="volume-block">
             <span class="volume-text">Громкость музыки:</span>
             <div class="volume">
               <img :src="volumeIcon" alt="vol" />
@@ -119,6 +119,7 @@ const props = defineProps<{
   mirrorOn: boolean
   volume: number
   volumeIcon: string
+  musicEnabled: boolean
   canToggleKnownRoles: boolean
   knownRolesVisible: boolean
 }>()

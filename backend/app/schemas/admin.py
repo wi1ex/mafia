@@ -168,6 +168,8 @@ class AdminRoomOut(BaseModel):
     lift_at_zero: bool
     lift_3x: bool
     wink_knock: bool
+    farewell_wills: bool
+    music: bool
     visitors_count: int
     visitors: List[AdminRoomUserStat]
     spectators_count: int

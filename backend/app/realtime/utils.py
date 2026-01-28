@@ -2108,15 +2108,18 @@ async def compute_farewell_limit(r, rid: int, speaker_uid: int, *, mode: str = "
 
 
 async def compute_farewell_allowed(r, rid: int, speaker_uid: int, *, mode: str = "killed") -> bool:
+    try:
+        raw_game = await r.hgetall(f"room:{rid}:game")
+    except Exception:
+        raw_game = {}
+    if not game_flag(raw_game, "farewell_wills", True):
+        return False
+
     alive = await smembers_ints(r, f"room:{rid}:game_alive")
     others = [u for u in alive if u != speaker_uid]
     x = len(others)
 
     if mode == "voted":
-        try:
-            raw_game = await r.hgetall(f"room:{rid}:game")
-        except Exception:
-            raw_game = {}
         if not game_flag(raw_game, "break_at_zero", True):
             try:
                 day_number = int(await r.hget(f"room:{rid}:game_state", "day_number") or 0)
@@ -2161,6 +2164,13 @@ async def compute_farewell_allowed(r, rid: int, speaker_uid: int, *, mode: str =
 
 
 async def ensure_farewell_limit(r, rid: int, speaker_uid: int, *, mode: str = "killed") -> int:
+    try:
+        raw_game = await r.hgetall(f"room:{rid}:game")
+    except Exception:
+        raw_game = {}
+    if not game_flag(raw_game, "farewell_wills", True):
+        return 0
+
     try:
         existing_raw = await r.hget(f"room:{rid}:game_farewell_limits", str(speaker_uid))
     except Exception:
@@ -3660,6 +3670,8 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
         nominate_mode = "players"
 
     wink_knock = game_flag(raw_game, "wink_knock", True)
+    farewell_wills_enabled = game_flag(raw_game, "farewell_wills", True)
+    music_enabled = game_flag(raw_game, "music", True)
     winks_left = 0
     knocks_left = 0
     if phase != "idle" and wink_knock:
@@ -3682,6 +3694,8 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
         "host_blur": ctx.gbool("host_blur"),
         "nominate_mode": nominate_mode,
         "wink_knock": wink_knock,
+        "farewell_wills_enabled": farewell_wills_enabled,
+        "music": music_enabled,
         "winks_left": winks_left,
         "knocks_left": knocks_left,
     }

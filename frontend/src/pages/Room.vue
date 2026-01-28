@@ -276,7 +276,7 @@
             <img :src="iconRequestsRoom" alt="requests" />
             <span class="count-total" :class="{ unread: appsCounts.unread > 0 }">{{ appsCounts.total < 100 ? appsCounts.total : '∞' }}</span>
           </button>
-          <button @click.stop="toggleSettings" :aria-expanded="settingsOpen" aria-label="Настройки устройств">
+          <button v-if="canShowSettingsButton" @click.stop="toggleSettings" :aria-expanded="settingsOpen" aria-label="Настройки устройств">
             <img :src="iconSettings" alt="settings" />
           </button>
         </div>
@@ -289,7 +289,7 @@
         />
 
         <RoomSetting
-          :open="settingsOpen"
+          :open="settingsOpen && canShowSettingsButton"
           :in-game="gamePhase !== 'idle'"
           :is-spectator="isSpectatorInGame"
           :is-mobile="IS_MOBILE"
@@ -301,6 +301,7 @@
           v-model:mirrorOn="mirrorOn"
           v-model:volume="bgmVolume"
           :volume-icon="volumeIcon(bgmVolume, bgmShouldPlay)"
+          :music-enabled="musicEnabled"
           :can-toggle-known-roles="canToggleKnownRoles"
           :known-roles-visible="knownRolesVisible"
           @device-change="(kind) => rtc.onDeviceChange(kind)"
@@ -470,6 +471,7 @@ const {
   voteStartedForCurrent,
   voteBlocked,
   hostBlurActive,
+  musicEnabled,
   night,
   headNightPicks,
   headUserId,
@@ -572,6 +574,7 @@ const hostBlurPending = ref(false)
 const hostBlurToggleEnabled = computed(() => gamePhase.value === 'day' || gamePhase.value === 'vote')
 const hostBlurVisible = computed(() => gamePhase.value !== 'idle' && hostBlurActive.value && !isHead.value)
 const hostBlurLocksControls = computed(() => isHead.value && hostBlurActive.value)
+const canShowSettingsButton = computed(() => !isSpectatorInGame.value || musicEnabled.value)
 const knockModalOpen = ref(false)
 const knockModalTargetId = ref<string>('')
 const knockModalArmed = ref(false)
@@ -871,7 +874,7 @@ function volumeIconForStream(key: string) {
 }
 
 const BGM_ACTIVE_PHASES: GamePhase[] = ['roles_pick', 'mafia_talk_start', 'mafia_talk_end', 'night']
-const bgmShouldPlay = computed(() => BGM_ACTIVE_PHASES.includes(gamePhase.value))
+const bgmShouldPlay = computed(() => musicEnabled.value && BGM_ACTIVE_PHASES.includes(gamePhase.value))
 
 watch(bgmShouldPlay, (on) => {
   rtc.setBgmPlaying(on)
@@ -1483,8 +1486,12 @@ socket.value?.on('connect', async () => {
   })
 
   socket.value?.on('game_started', (p: any) => {
-    rtc.setBgmSeed(p?.bgm_seed, rid)
     game.handleGameStarted(p)
+    if (musicEnabled.value) {
+      rtc.setBgmSeed(p?.bgm_seed, rid)
+    } else {
+      rtc.setBgmPlaying(false)
+    }
     statusByUser.forEach((st, uid) => {
       statusByUser.set(uid, { ...st, ready: 0 as 0 })
     })
@@ -1543,7 +1550,11 @@ socket.value?.on('connect', async () => {
     const prevPhase = gamePhase.value as GamePhase
     game.handleGamePhaseChange(p)
     const to = (p?.to ? String(p.to) : gamePhase.value) as GamePhase
-    if (p?.bgm_seed != null && to === 'night') rtc.setBgmSeed(p.bgm_seed, rid)
+    if (musicEnabled.value && p?.bgm_seed != null && to === 'night') {
+      rtc.setBgmSeed(p.bgm_seed, rid)
+    } else if (!musicEnabled.value && to === 'night') {
+      rtc.setBgmPlaying(false)
+    }
     handleGamePhaseChangeUi(prevPhase, to)
   })
 
@@ -1866,7 +1877,11 @@ function applyJoinAck(j: any) {
 
   const snapshotIds = Object.keys(j.snapshot || {})
   game.applyFromJoinAck(j, snapshotIds)
-  rtc.setBgmSeed(j?.game_runtime?.bgm_seed, rid)
+  if (musicEnabled.value) {
+    rtc.setBgmSeed(j?.game_runtime?.bgm_seed, rid)
+  } else {
+    rtc.setBgmPlaying(false)
+  }
   void enforceReturnStateAfterJoin()
   void enforceSpectatorPhaseVisibility(gamePhase.value)
   syncSubscriptionsFromState()

@@ -71,6 +71,8 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
         "lift_at_zero": bool(gp.lift_at_zero),
         "lift_3x": bool(gp.lift_3x),
         "wink_knock": bool(gp.wink_knock),
+        "farewell_wills": bool(gp.farewell_wills),
+        "music": bool(gp.music),
     }
 
     room = Room(
@@ -79,6 +81,8 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
         privacy=payload.privacy,
         creator=uid,
         creator_name=creator_name,
+        farewell_wills=bool(gp.farewell_wills),
+        music=bool(gp.music),
         game=game_dict,
     )
     session.add(room)

@@ -1156,6 +1156,8 @@ async def game_start(sid, data) -> GameStartAck:
         except Exception:
             raw_game = {}
         wink_knock = game_flag(raw_game, "wink_knock", True)
+        farewell_wills = game_flag(raw_game, "farewell_wills", True)
+        music_enabled = game_flag(raw_game, "music", True)
         try:
             winks_limit = int(app_settings.winks_limit)
         except Exception:
@@ -1191,7 +1193,7 @@ async def game_start(sid, data) -> GameStartAck:
             slot += 1
         seats[str(head_uid)] = 11
         now_ts = int(time())
-        bgm_seed = random.randint(1, 2**31 - 1)
+        bgm_seed = random.randint(1, 2**31 - 1) if music_enabled else 0
         async with r.pipeline() as p:
             await p.hset(f"room:{rid}:game_state",
                          mapping={
@@ -1264,6 +1266,8 @@ async def game_start(sid, data) -> GameStartAck:
             "wink_knock": wink_knock,
             "winks_limit": winks_limit,
             "knocks_limit": knocks_limit,
+            "farewell_wills": farewell_wills,
+            "music": music_enabled,
         }
 
         await sio.emit("game_started",
@@ -1384,6 +1388,12 @@ async def game_phase_next(sid, data):
         cur_phase = ctx.phase
         if cur_phase == "idle":
             return {"ok": False, "error": "no_game", "status": 400}
+
+        try:
+            raw_game = await r.hgetall(f"room:{rid}:game")
+        except Exception:
+            raw_game = {}
+        music_enabled = game_flag(raw_game, "music", True)
 
         head_uid = ctx.head_uid
         if not head_uid or uid != head_uid:
@@ -1670,7 +1680,7 @@ async def game_phase_next(sid, data):
                 draw_mapping = {"draw_base_day": str(ctx.gint("day_number")),
                                 "draw_base_alive": str(alive_cnt)}
 
-            bgm_seed = random.randint(1, 2**31 - 1)
+            bgm_seed = random.randint(1, 2**31 - 1) if music_enabled else 0
             async with r.pipeline() as p:
                 mapping = build_night_reset_mapping(include_vote_meta=True)
                 mapping["bgm_seed"] = str(bgm_seed)
@@ -1714,7 +1724,7 @@ async def game_phase_next(sid, data):
                 draw_mapping = {"draw_base_day": str(ctx.gint("day_number")),
                                 "draw_base_alive": str(alive_cnt)}
 
-            bgm_seed = random.randint(1, 2**31 - 1)
+            bgm_seed = random.randint(1, 2**31 - 1) if music_enabled else 0
             async with r.pipeline() as p:
                 mapping = build_night_reset_mapping(include_vote_meta=False)
                 mapping["bgm_seed"] = str(bgm_seed)
@@ -2672,6 +2682,13 @@ async def game_farewell_mark(sid, data):
         speaker_uid = ctx.uid
         rid = ctx.rid
         r = ctx.r
+        try:
+            raw_game = await r.hgetall(f"room:{rid}:game")
+        except Exception:
+            raw_game = {}
+        if not game_flag(raw_game, "farewell_wills", True):
+            return {"ok": False, "error": "farewell_disabled", "status": 409}
+
         try:
             target_uid = int(data.get("user_id") or 0)
         except Exception:
