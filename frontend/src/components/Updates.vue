@@ -206,7 +206,7 @@ onBeforeUnmount(() => {
       gap: 5px;
       .item {
         padding: 5px;
-        gap: 10px;
+        gap: 5px;
         .item-header {
           span {
             font-size: 12px;
