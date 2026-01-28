@@ -24,7 +24,16 @@ from ...core.logging import log_action
 from ...security.auth_tokens import get_identity
 from ...security.decorators import log_route, rate_limited
 from ...schemas.common import Identity, Ok
-from ...schemas.user import UserOut, UsernameUpdateIn, AvatarUploadOut, UsernameUpdateOut, UserSanctionsOut, UserSanctionOut
+from ...schemas.user import (
+    UserOut,
+    UsernameUpdateIn,
+    AvatarUploadOut,
+    UsernameUpdateOut,
+    UserSanctionsOut,
+    UserSanctionOut,
+    UserUiPrefsIn,
+    UserUiPrefsOut,
+)
 from ...services.minio import put_avatar, delete_avatars, ALLOWED_CT, MAX_BYTES
 
 router = APIRouter()
@@ -49,6 +58,8 @@ async def profile_info(ident: Identity = Depends(get_identity), db: AsyncSession
         username=user.username,
         avatar_name=user.avatar_name,
         role=user.role,
+        hotkeys_visible=bool(user.hotkeys_visible),
+        install_hidden=bool(user.install_hidden),
         timeout_until=timeout.expires_at if timeout else None,
         suspend_until=suspend.expires_at if suspend else None,
         ban_active=bool(ban),
@@ -130,6 +141,28 @@ async def update_username(payload: UsernameUpdateIn, ident: Identity = Depends(g
 
     await broadcast_creator_rooms(uid, update_name=new)
     return UsernameUpdateOut(username=new)
+
+
+@log_route("users.update_ui_prefs")
+@rate_limited(lambda ident, **_: f"rl:update_ui_prefs:{ident['id']}", limit=10, window_s=1)
+@router.patch("/ui_prefs", response_model=UserUiPrefsOut)
+async def update_ui_prefs(payload: UserUiPrefsIn, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UserUiPrefsOut:
+    uid = int(ident["id"])
+    user = await db.get(User, uid)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
+
+    if payload.hotkeys_visible is not None:
+        user.hotkeys_visible = bool(payload.hotkeys_visible)
+    if payload.install_hidden is not None:
+        user.install_hidden = bool(payload.install_hidden)
+
+    await db.commit()
+
+    return UserUiPrefsOut(
+        hotkeys_visible=bool(user.hotkeys_visible),
+        install_hidden=bool(user.install_hidden),
+    )
 
 
 @log_route("users.upload_avatar")
