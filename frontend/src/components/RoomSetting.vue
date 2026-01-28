@@ -28,7 +28,7 @@
             <div class="switch switch-wide">
               <span class="switch-label">
                 Видимость ролей:
-                <span v-if="!isMobile" class="hot-btn inline">R</span>
+                <span v-if="!isMobile && hotkeysVisible !== false" class="hot-btn">R</span>
               </span>
               <label>
                 <input type="checkbox" :checked="knownRolesVisible" @change="onToggleKnownRoles" aria-label="Показ ролей" />
@@ -111,6 +111,7 @@ const props = defineProps<{
   inGame: boolean
   isSpectator?: boolean
   isMobile?: boolean
+  hotkeysVisible?: boolean
   mics: Dev[]
   cams: Dev[]
   micId: string

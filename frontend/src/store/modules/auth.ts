@@ -143,6 +143,7 @@ export const useAuthStore = defineStore('auth', () => {
         'auth:sid',
         'auth:lock',
         'ui:hide_install',
+        'ui:hotkeys',
         'room:lastRoom',
         'room:lastGame'
       ])

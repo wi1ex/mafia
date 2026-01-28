@@ -61,7 +61,7 @@
     <button v-if="isGameHead && showVoteButton" class="vote-btn" :disabled="!voteEnabled" @click="$emit('vote')">
       <img :src="iconLikeBlack" alt="vote" />
       <span>Проголосовать</span>
-      <span v-if="!isMobile" class="hot-btn">_</span>
+      <span v-if="!isMobile && hotkeysVisible" class="hot-btn">_</span>
     </button>
     <div class="head-bar" v-if="isGameHead && phaseLabel">{{ phaseLabel }}</div>
     <div class="head-bar" v-else-if="isGameHead && voteBlocked">Голосования не будет</div>
@@ -142,6 +142,7 @@ const props = withDefaults(defineProps<{
   id: string
   localId: string
   isMobile?: boolean
+  hotkeysVisible?: boolean
   speaking: boolean
   side?: boolean
   fitContain?: boolean
@@ -210,6 +211,7 @@ const props = withDefaults(defineProps<{
   side: false,
   fitContain: false,
   isMobile: false,
+  hotkeysVisible: true,
   isGameHead: false,
   isHead: false,
   isDead: () => false,

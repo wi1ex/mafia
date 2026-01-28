@@ -69,6 +69,20 @@
             </div>
           </div>
 
+          <div class="block">
+            <h3>Параметры</h3>
+            <div class="prefs-row">
+              <span class="prefs-label">Подсказки для горячих клавиш</span>
+              <label class="prefs-switch">
+                <input type="checkbox" :checked="hotkeysVisible" @change="onToggleHotkeys" aria-label="Подсказки для горячих клавиш" />
+                <div class="slider">
+                  <span>Скрыть</span>
+                  <span>Показать</span>
+                </div>
+              </label>
+            </div>
+          </div>
+
           <div v-if="crop.show" ref="modalEl" class="modal" @keydown.esc="cancelCrop" tabindex="0" aria-modal="true" aria-label="Кадрирование аватара" >
             <div class="modal-body">
               <canvas ref="canvasEl" @mousedown="dragStart" @mousemove="dragMove" @mouseup="dragStop" @mouseleave="dragStop" @wheel.passive="onWheel" />
@@ -140,8 +154,9 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onBeforeUnmount, reactive, ref, watch } from 'vue'
+import { storeToRefs } from 'pinia'
 import { api, refreshAccessTokenFull } from '@/services/axios'
-import { useAuthStore, useUserStore } from '@/store'
+import { useAuthStore, useUiStore, useUserStore } from '@/store'
 import { confirmDialog, alertDialog } from '@/services/confirm'
 import { formatLocalDateTime } from '@/services/datetime'
 
@@ -153,6 +168,9 @@ import iconDelete from '@/assets/svg/delete.svg'
 const userStore = useUserStore()
 const auth = useAuthStore()
 const isBanned = computed(() => userStore.banActive)
+const ui = useUiStore()
+const { hotkeysVisible } = storeToRefs(ui)
+const { setHotkeysVisible } = ui
 
 const me = reactive({ id: 0, username: '', avatar_name: null as string | null, role: '' })
 const fileEl = ref<HTMLInputElement | null>(null)
@@ -193,6 +211,11 @@ const sanctions = ref<SanctionItem[]>([])
 const sanctionsLoading = ref(false)
 const sanctionsLoaded = ref(false)
 const sanctionsError = ref('')
+
+function onToggleHotkeys(e: Event) {
+  const next = (e.target as HTMLInputElement).checked
+  setHotkeysVisible(next)
+}
 
 const sanctionsSummary = computed(() => {
   const out = { total: sanctions.value.length, timeout: 0, ban: 0, suspend: 0 }
@@ -805,6 +828,67 @@ onBeforeUnmount(() => {
             transform: none;
             font-size: 12px;
             color: $grey;
+          }
+        }
+        .prefs-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          flex-wrap: wrap;
+          gap: 10px;
+          .prefs-label {
+            color: $fg;
+            font-size: 16px;
+          }
+          .prefs-switch {
+            position: relative;
+            width: 200px;
+            max-width: 100%;
+            height: 25px;
+            box-shadow: 3px 3px 5px rgba($black, 0.25);
+            input {
+              position: absolute;
+              opacity: 0;
+              width: 0;
+              height: 0;
+            }
+            .slider {
+              display: flex;
+              align-items: center;
+              justify-content: space-around;
+              position: absolute;
+              inset: 0;
+              cursor: pointer;
+              border: 1px solid $lead;
+              border-radius: 5px;
+              background-color: $graphite;
+              span {
+                position: relative;
+                width: 100%;
+                color: $fg;
+                font-size: 14px;
+                text-align: center;
+                transition: color 0.25s ease-in-out;
+              }
+            }
+            .slider:before {
+              content: "";
+              position: absolute;
+              top: 0;
+              left: 0;
+              width: 98px;
+              height: 23px;
+              background-color: $fg;
+              border-radius: 5px;
+              transition: transform 0.25s ease-in-out;
+            }
+            input:checked + .slider:before {
+              transform: translateX(100px);
+            }
+            input:not(:checked) + .slider span:first-child,
+            input:checked + .slider span:last-child {
+              color: $bg;
+            }
           }
         }
         .danger-row {

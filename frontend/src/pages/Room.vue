@@ -16,6 +16,7 @@
           :id="id"
           :local-id="localId"
           :is-mobile="IS_MOBILE"
+          :hotkeys-visible="hotkeysVisible"
           :speaking="(game.daySpeech.currentId === id) || (gamePhase === 'idle' && rtc.isSpeaking(id))"
           :video-ref="stableVideoRef(id)"
           :fit-contain="fitContainInGrid"
@@ -114,6 +115,7 @@
             :id="id"
             :local-id="localId"
             :is-mobile="IS_MOBILE"
+            :hotkeys-visible="hotkeysVisible"
             :side="true"
             :speaking="(game.daySpeech.currentId === id) || (gamePhase === 'idle' && rtc.isSpeaking(id))"
             :video-ref="stableVideoRef(id)"
@@ -235,28 +237,28 @@
           <button v-if="canFinishSpeechSelf" class="btn-text" @click="finishSpeechUi">Завершить речь</button>
           <button v-else-if="canShowTakeFoulSelf" class="btn-text" @click="takeFoulUi" :disabled="!canTakeFoulSelf || foulPending">
             Взять фол
-            <span v-if="!IS_MOBILE" class="hot-btn">↩</span>
+            <span v-if="!IS_MOBILE && hotkeysVisible" class="hot-btn">↩</span>
           </button>
 
           <button v-if="gamePhase === 'idle' && canShowStartGame && canUseReadyStart" @click="startGameUi" :disabled="startingGame" aria-label="Запустить игру">
             <img :src="iconGameStart" alt="start" />
-              <span v-if="!IS_MOBILE" class="hot-btn">G</span>
+              <span v-if="!IS_MOBILE && hotkeysVisible" class="hot-btn">G</span>
           </button>
           <button v-if="gamePhase === 'idle' && !canShowStartGame && canUseReadyToggle" @click="toggleReady" :aria-pressed="readyOn" aria-label="Готовность">
             <img :src="readyOn ? iconReadyGreen : iconReadyWhite" alt="ready" />
-              <span v-if="!IS_MOBILE" class="hot-btn">G</span>
+              <span v-if="!IS_MOBILE && hotkeysVisible" class="hot-btn">G</span>
           </button>
           <button v-if="gamePhase === 'idle' || isHead" @click="toggleMic" :disabled="pending.mic || blockedSelf.mic" :aria-pressed="micOn">
             <img :src="stateIcon('mic', localId)" alt="mic" />
-              <span v-if="!IS_MOBILE" class="hot-btn">M</span>
+              <span v-if="!IS_MOBILE && hotkeysVisible" class="hot-btn">M</span>
           </button>
           <button v-if="gamePhase === 'idle' || isHead" @click="toggleCam" :disabled="pending.cam || blockedSelf.cam" :aria-pressed="camOn">
             <img :src="stateIcon('cam', localId)" alt="cam" />
-              <span v-if="!IS_MOBILE" class="hot-btn">C</span>
+              <span v-if="!IS_MOBILE && hotkeysVisible" class="hot-btn">C</span>
           </button>
           <button v-if="gamePhase === 'idle'" @click="toggleSpeakers" :disabled="pending.speakers || blockedSelf.speakers" :aria-pressed="speakersOn">
             <img :src="stateIcon('speakers', localId)" alt="speakers" />
-              <span v-if="!IS_MOBILE" class="hot-btn">S</span>
+              <span v-if="!IS_MOBILE && hotkeysVisible" class="hot-btn">S</span>
           </button>
           <button v-if="gamePhase === 'idle' && !IS_MOBILE && settings.streamsCanStart" @click="toggleScreen" :disabled="pendingScreen || (!!screenOwnerId && screenOwnerId !== localId) || blockedSelf.screen" :aria-pressed="isMyScreen">
             <img :src="stateIcon('screen', localId)" alt="screen" />
@@ -285,6 +287,7 @@
           :in-game="gamePhase !== 'idle'"
           :is-spectator="isSpectatorInGame"
           :is-mobile="IS_MOBILE"
+          :hotkeys-visible="hotkeysVisible"
           :mics="mics"
           :cams="cams"
           v-model:micId="selectedMicId"
@@ -342,9 +345,10 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
 import type { Socket } from 'socket.io-client'
-import { useAuthStore, useSettingsStore, useUserStore } from '@/store'
+import { useAuthStore, useSettingsStore, useUiStore, useUserStore } from '@/store'
 import {
   type Ack,
   type FarewellVerdict,
@@ -418,6 +422,8 @@ const auth = useAuthStore()
 const settings = useSettingsStore()
 const userStore = useUserStore()
 const confirmState = useConfirmState()
+const ui = useUiStore()
+const { hotkeysVisible } = storeToRefs(ui)
 
 const rtc = useRTC()
 const { localId, mics, cams, selectedMicId, selectedCamId, peerIds } = rtc      
