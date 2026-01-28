@@ -74,7 +74,7 @@
             <div class="switch">
               <span class="switch-label">Подсказки для горячих клавиш</span>
               <label>
-                <input type="checkbox" :checked="hotkeysVisible" @change="onToggleHotkeys" aria-label="Подсказки для горячих клавиш" />
+                <input type="checkbox" :checked="hotkeysVisible" :disabled="hotkeysTogglePending" @change="onToggleHotkeys" aria-label="Подсказки для горячих клавиш" />
                 <div class="slider">
                   <span>Скрыть</span>
                   <span>Показать</span>
@@ -84,7 +84,7 @@
             <div class="switch">
               <span class="switch-label">Кнопка «Установить»</span>
               <label>
-                <input type="checkbox" :checked="!installHidden" @change="onToggleInstallHidden" aria-label="Кнопка установки приложения" />
+                <input type="checkbox" :checked="!installHidden" :disabled="installTogglePending" @change="onToggleInstallHidden" aria-label="Кнопка установки приложения" />
                 <div class="slider">
                   <span>Скрыть</span>
                   <span>Показать</span>
@@ -220,15 +220,31 @@ const sanctions = ref<SanctionItem[]>([])
 const sanctionsLoading = ref(false)
 const sanctionsLoaded = ref(false)
 const sanctionsError = ref('')
+const hotkeysTogglePending = ref(false)
+const installTogglePending = ref(false)
+let hotkeysToggleTimer: number | null = null
+let installToggleTimer: number | null = null
 
 function onToggleHotkeys(e: Event) {
+  if (hotkeysTogglePending.value) return
   const next = (e.target as HTMLInputElement).checked
-  setHotkeysVisible(next)
+  hotkeysTogglePending.value = true
+  if (hotkeysToggleTimer !== null) window.clearTimeout(hotkeysToggleTimer)
+  hotkeysToggleTimer = window.setTimeout(async () => {
+    try { await setHotkeysVisible(next) }
+    finally { hotkeysTogglePending.value = false }
+  }, 500)
 }
 
 function onToggleInstallHidden(e: Event) {
+  if (installTogglePending.value) return
   const nextShown = (e.target as HTMLInputElement).checked
-  setInstallHidden(!nextShown)
+  installTogglePending.value = true
+  if (installToggleTimer !== null) window.clearTimeout(installToggleTimer)
+  installToggleTimer = window.setTimeout(async () => {
+    try { await setInstallHidden(!nextShown) }
+    finally { installTogglePending.value = false }
+  }, 500)
 }
 
 const sanctionsSummary = computed(() => {
@@ -619,6 +635,8 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   if (onSanctionsUpdate) window.removeEventListener('auth-sanctions_update', onSanctionsUpdate)
+  if (hotkeysToggleTimer !== null) window.clearTimeout(hotkeysToggleTimer)
+  if (installToggleTimer !== null) window.clearTimeout(installToggleTimer)
   document.body.style.overflow = ''
 })
 </script>
