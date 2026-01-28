@@ -669,6 +669,7 @@ onBeforeUnmount(() => {
           align-items: center;
           justify-content: space-between;
           .switch-label {
+            width: calc(100% - 170px);
             height: 18px;
           }
           label {
