@@ -299,6 +299,7 @@ onBeforeUnmount(() => {
           display: inline-flex;
           align-items: center;
           gap: 5px;
+          width: calc(100% - 120px);
           height: 18px;
         }
         label {
