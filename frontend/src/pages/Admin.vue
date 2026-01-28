@@ -2191,6 +2191,7 @@ onMounted(() => {
           justify-content: space-between;
           margin-bottom: 10px;
           .switch-label {
+            width: calc(100% - 170px);
             height: 18px;
           }
           label {
