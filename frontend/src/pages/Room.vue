@@ -348,7 +348,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } 
 import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
 import type { Socket } from 'socket.io-client'
-import { useAuthStore, useSettingsStore, useUiStore, useUserStore } from '@/store'
+import { useAuthStore, useSettingsStore, useUserStore } from '@/store'
 import {
   type Ack,
   type FarewellVerdict,
@@ -422,8 +422,7 @@ const auth = useAuthStore()
 const settings = useSettingsStore()
 const userStore = useUserStore()
 const confirmState = useConfirmState()
-const ui = useUiStore()
-const { hotkeysVisible } = storeToRefs(ui)
+const { hotkeysVisible } = storeToRefs(userStore)
 
 const rtc = useRTC()
 const { localId, mics, cams, selectedMicId, selectedCamId, peerIds } = rtc      
