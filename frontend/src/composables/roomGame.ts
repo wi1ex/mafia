@@ -158,6 +158,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   const voteLeaderKilled = ref(false)
   const voteLiftState = ref<'none' | 'ready' | 'prepared' | 'voting' | 'passed' | 'failed'>('none')
   const voteBlocked = ref(false)
+  const hostBlurActive = ref(false)
   const deathReasonByUser = reactive(new Map<string, string>())
 
   const night = reactive({
@@ -1113,6 +1114,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     if (Number.isFinite(mr) && mr > 0) {
       minReadyToStart.value = mr
     }
+    hostBlurActive.value = isTrueLike((gr as any).host_blur)
     const phase = (gr.phase as GamePhase) || 'idle'
     gamePhase.value = phase
     const rawResult = String((gr as any).result || '')
@@ -1391,6 +1393,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       setNightRemainingMs(0, false)
       night.stage = 'sleep'
     }
+    if (phase === 'idle') hostBlurActive.value = false
     const playersCount = gamePlayers.size
     const rolesCount = gameRolesByUser.size
     rolesVisibleForHead.value = playersCount > 0 && rolesCount >= playersCount
@@ -1411,6 +1414,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     resetBestMoveState()
     offlineInGame.clear()
     deathReasonByUser.clear()
+    hostBlurActive.value = false
     gamePhase.value = (payload?.phase as GamePhase) || 'roles_pick'
     if ('wink_knock' in (payload || {})) {
       winkKnockEnabled.value = isTrueLike((payload as any).wink_knock)
@@ -1458,6 +1462,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     resetRolesUiState()
     resetBestMoveState()
     gamePhase.value = 'idle'
+    hostBlurActive.value = false
     Object.keys(seatsByUser).forEach((k) => { delete seatsByUser[k] })
     gamePlayers.clear()
     gameAlive.clear()
@@ -1656,6 +1661,20 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       night.killOk = isTrueLike((nightPayload as any).kill_ok)
       night.killUid = String((nightPayload as any).kill_uid || '')
       night.hasResult = night.killOk && !!night.killUid
+    }
+  }
+
+  function handleGameHostBlur(p: any) {
+    if (p && 'enabled' in p) {
+      hostBlurActive.value = isTrueLike((p as any).enabled)
+      return
+    }
+    if (p && 'host_blur' in p) {
+      hostBlurActive.value = isTrueLike((p as any).host_blur)
+      return
+    }
+    if (p && 'on' in p) {
+      hostBlurActive.value = isTrueLike((p as any).on)
     }
   }
 
@@ -1933,6 +1952,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   function handleGamePhaseChange(p: any) {
     const to = String(p?.to || '') as GamePhase
     gamePhase.value = to
+    if (to === 'idle') hostBlurActive.value = false
     if (to !== 'vote') {
       voteLeaderSpeechesDone.value = false
       voteLeaderKilled.value = false
@@ -2936,6 +2956,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     voteLeaderKilled,
     currentFarewellSpeech,
     voteBlocked,
+    hostBlurActive,
     dayNumber,
     night,
     headNightPicks,
@@ -3011,6 +3032,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     handleGameVoteState,
     handleGameVoted,
     handleGameBestMoveUpdate,
+    handleGameHostBlur,
     isGameHead,
     isDead,
     deathReason,

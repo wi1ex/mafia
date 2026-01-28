@@ -8,6 +8,9 @@
       <Transition name="fade">
         <div v-if="gameOverlayVisible" class="reconnect-overlay load-game" aria-live="polite">{{ gameOverlayText }}</div>
       </Transition>
+      <Transition name="host-blur">
+        <div v-if="hostBlurVisible" class="host-blur-overlay" aria-hidden="true"></div>
+      </Transition>
       <div v-if="!isTheater" class="grid" :style="gridStyle">
         <RoomTile
           v-for="id in sortedPeerIds"
@@ -256,6 +259,9 @@
             <img :src="stateIcon('cam', localId)" alt="cam" />
               <span v-if="!IS_MOBILE && hotkeysVisible" class="hot-btn">C</span>
           </button>
+          <button v-if="gamePhase !== 'idle' && isHead" @click="toggleHostBlur" :disabled="!hostBlurToggleEnabled || hostBlurPending" :aria-pressed="hostBlurActive" aria-label="Затемнить экран">
+            <img :src="iconVisBlocked" alt="blur" />
+          </button>
           <button v-if="gamePhase === 'idle'" @click="toggleSpeakers" :disabled="pending.speakers || blockedSelf.speakers" :aria-pressed="speakersOn">
             <img :src="stateIcon('speakers', localId)" alt="speakers" />
               <span v-if="!IS_MOBILE && hotkeysVisible" class="hot-btn">S</span>
@@ -461,6 +467,7 @@ const {
   mafiaTalkRemainingMs,
   voteStartedForCurrent,
   voteBlocked,
+  hostBlurActive,
   night,
   headNightPicks,
   headUserId,
@@ -559,6 +566,9 @@ const isSpectatorInGame = computed(() => {
   if (!id || gamePhase.value === 'idle') return false
   return !seatsByUser[id]
 })
+const hostBlurPending = ref(false)
+const hostBlurToggleEnabled = computed(() => gamePhase.value === 'day' || gamePhase.value === 'vote')
+const hostBlurVisible = computed(() => gamePhase.value !== 'idle' && hostBlurActive.value && !isHead.value)
 const knockModalOpen = ref(false)
 const knockModalTargetId = ref<string>('')
 const knockModalArmed = ref(false)
@@ -1581,6 +1591,10 @@ socket.value?.on('connect', async () => {
     if ((p as any)?.best_move?.active) rtc.setBgmPlaying(false)
   })
 
+  socket.value.on('game_host_blur', (p: any) => {
+    game.handleGameHostBlur(p)
+  })
+
   socket.value.on('game_vote_state', (p: any) => {
     game.handleGameVoteState(p)
   })
@@ -1947,6 +1961,19 @@ const toggleScreen = async () => {
       try { await sendAck('screen', { on: false, target: Number(localId.value) }) } catch {}
     }
   } finally { pendingScreen.value = false }
+}
+
+const toggleHostBlur = async () => {
+  if (hostBlurPending.value || !hostBlurToggleEnabled.value) return
+  hostBlurPending.value = true
+  try {
+    const resp = await sendAck('game_host_blur', { on: !hostBlurActive.value })
+    if (resp?.ok && 'enabled' in resp) {
+      hostBlurActive.value = !!(resp as any).enabled
+    }
+  } finally {
+    hostBlurPending.value = false
+  }
 }
 
 async function enableInitialMedia(): Promise<boolean> {
@@ -2447,6 +2474,15 @@ onBeforeUnmount(() => {
       cursor: pointer;
     }
   }
+  .host-blur-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 850;
+    background-color: rgba($black, 0.45);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    pointer-events: auto;
+  }
   .grid {
     display: grid;
     width: calc(100vw - 20px);
@@ -2802,6 +2838,22 @@ onBeforeUnmount(() => {
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
+}
+.host-blur-enter-active,
+.host-blur-leave-active {
+  transition: opacity 0.5s ease-in-out, backdrop-filter 0.5s ease-in-out, -webkit-backdrop-filter 0.5s ease-in-out;
+}
+.host-blur-enter-from,
+.host-blur-leave-to {
+  opacity: 0;
+  backdrop-filter: blur(0);
+  -webkit-backdrop-filter: blur(0);
+}
+.host-blur-enter-to,
+.host-blur-leave-from {
+  opacity: 1;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 .role-overlay-fade-enter-active,
 .role-overlay-fade-leave-active {

@@ -85,3 +85,11 @@ class GameRolePickAck(TypedDict, total=False):
     error: str
     room_id: int
     role: str
+
+
+class GameHostBlurAck(TypedDict, total=False):
+    ok: bool
+    status: int
+    error: str
+    room_id: int
+    enabled: bool

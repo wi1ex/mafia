@@ -3679,6 +3679,7 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
         "players": list(players_set),
         "alive": list(alive_set),
         "bgm_seed": ctx.gint("bgm_seed"),
+        "host_blur": ctx.gbool("host_blur"),
         "nominate_mode": nominate_mode,
         "wink_knock": wink_knock,
         "winks_left": winks_left,

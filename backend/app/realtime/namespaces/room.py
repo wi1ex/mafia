@@ -10,7 +10,7 @@ from ...security.decorators import rate_limited_sio
 from ...core.logging import log_action
 from ...core.db import SessionLocal
 from ...security.parameters import get_cached_settings
-from ...schemas.realtime import StateAck, ModerateAck, JoinAck, ScreenAck, GameStartAck, GameRolePickAck
+from ...schemas.realtime import StateAck, ModerateAck, JoinAck, ScreenAck, GameStartAck, GameRolePickAck, GameHostBlurAck
 from ...services.livekit import make_livekit_token
 from ..utils import (
     SANCTION_TIMEOUT,
@@ -577,6 +577,34 @@ async def self_state(sid, data):
     except Exception:
         log.exception("sio.self_state.error", sid=sid)
         return {"ok": False}
+
+
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_host_blur:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
+@sio.event(namespace="/room")
+async def game_host_blur(sid, data) -> GameHostBlurAck:
+    try:
+        ctx, err = await require_ctx(sid, allowed_phases=("day", "vote"), require_head=True)
+        if err:
+            return err
+
+        payload = data or {}
+        want_raw = payload.get("on") if isinstance(payload, dict) else None
+        current = ctx.gbool("host_blur")
+        want = (not current) if want_raw is None else bool(want_raw)
+
+        await ctx.r.hset(f"room:{ctx.rid}:game_state", mapping={"host_blur": "1" if want else "0"})
+        await sio.emit(
+            "game_host_blur",
+            {"room_id": ctx.rid, "enabled": want},
+            room=f"room:{ctx.rid}",
+            namespace="/room",
+        )
+
+        return {"ok": True, "room_id": ctx.rid, "enabled": want}
+
+    except Exception:
+        log.exception("sio.game_host_blur.error", sid=sid)
+        return {"ok": False, "error": "internal", "status": 500}
 
 
 @rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:screen:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
