@@ -100,7 +100,7 @@
                 <span class="header-text">Параметры игры:</span>
                 <div class="ri-game-div">
                   <span>Зрители</span>
-                  <span>{{ info?.spectators_count ?? 0 }}/{{ game.spectators_limit }}</span>
+                  <span>{{ spectatorsLabel }}</span>
                 </div>
                 <div class="ri-game-div">
                   <span>Режим</span>
@@ -301,6 +301,15 @@ const ctaState = computed<Cta>(() => {
   return 'pending'
 })
 const game = computed(() => info.value?.game)
+const spectatorsLabel = computed(() => {
+  const limit = game.value?.spectators_limit ?? 0
+  if (limit <= 0) return 'Без зрителей'
+  if (selectedRoom.value?.in_game) {
+    const count = info.value?.spectators_count ?? 0
+    return `${count}/${limit}`
+  }
+  return `до ${limit}`
+})
 
 function isFullRoom(r: Room) { return r.occupancy >= r.user_limit }
 

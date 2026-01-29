@@ -159,7 +159,7 @@ export const useAuthStore = defineStore('auth', () => {
       await useUserStore().fetchMe()
       if (isNew) {
         const ok = await confirmDialog({
-          text: 'Изменить аватар и никнейм можно в Личном кабинете',
+          text: 'Хотите сейчас изменить аватар/никнейм в Личном кабинете',
           confirmText: 'Изменить',
           cancelText: 'Позже',
         })
