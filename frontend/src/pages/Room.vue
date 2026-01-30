@@ -291,13 +291,10 @@
           @counts="(p) => { appsCounts.total = p.total; appsCounts.unread = p.unread }"
         />
 
-        <Transition name="overlay">
-          <GameParamsModal
-            v-if="gameParamsOpen"
-            :room-id="rid"
-            @close="gameParamsOpen=false"
-          />
-        </Transition>
+        <GameParamsModal
+          v-model:open="gameParamsOpen"
+          :room-id="rid"
+        />
 
         <RoomSetting
           :open="settingsOpen && canShowSettingsButton"
@@ -769,10 +766,11 @@ function stateIcon(kind: IconKind, id: string) {
   if (isBlocked(id, kind)) return STATE_ICONS[kind].blk
   return isOn(id, kind) ? STATE_ICONS[kind].on : STATE_ICONS[kind].off
 }
-function closePanels(except?: 'card'|'apps'|'settings') {
+function closePanels(except?: 'card'|'apps'|'settings'|'game') {
   if (except !== 'card') openPanelFor.value = ''
   if (except !== 'apps') openApps.value = false
   if (except !== 'settings') settingsOpen.value = false
+  if (except !== 'game') gameParamsOpen.value = false
 }
 const toggleTilePanel = (id: string) => {
   if (id === localId.value) return
@@ -793,7 +791,7 @@ function toggleApps() {
 }
 function openGameSettings() {
   const next = !gameParamsOpen.value
-  closePanels()
+  closePanels('game')
   gameParamsOpen.value = next
 }
 function onDocClick() {

@@ -1,6 +1,6 @@
 <template>
-  <div class="overlay" @pointerdown.self="armed = true" @pointerup.self="armed && emitClose()" @pointerleave.self="armed = false" @pointercancel.self="armed = false">
-    <div class="modal" role="dialog" aria-modal="true" aria-label="Параметры игры">
+  <Transition name="panel">
+    <div v-show="open" class="game-params-panel" aria-label="Параметры игры" @click.stop>
       <header>
         <span>Параметры игры</span>
         <button @click="emitClose" aria-label="Закрыть">
@@ -16,17 +16,18 @@
         <button :disabled="busy || loading" @click="save">Сохранить</button>
       </div>
     </div>
-  </div>
+  </Transition>
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { ref, watch } from 'vue'
 import { api } from '@/services/axios'
 import { alertDialog } from '@/services/confirm'
 import GameParamsForm from '@/components/GameParamsForm.vue'
 import iconClose from '@/assets/svg/close.svg'
 
 const props = defineProps<{
+  open: boolean
   roomId: number | string
 }>()
 
@@ -44,7 +45,7 @@ type Game = {
 }
 
 const emit = defineEmits<{
-  (e: 'close'): void
+  (e: 'update:open', value: boolean): void
   (e: 'saved', game: Game): void
 }>()
 
@@ -64,12 +65,9 @@ const gameDefault: Game = {
 const SPECT_MIN = 0
 const SPECT_MAX = 10
 
-const armed = ref(false)
 const busy = ref(false)
 const loading = ref(false)
 const game = ref<Game>({ ...gameDefault })
-let prevOverflow = ''
-
 
 function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n))
@@ -93,7 +91,7 @@ function normalizeGame(raw: any): Game {
 }
 
 function emitClose() {
-  emit('close')
+  emit('update:open', false)
 }
 
 async function loadGame() {
@@ -136,119 +134,110 @@ async function save() {
   }
 }
 
-onMounted(() => {
-  prevOverflow = document.documentElement.style.overflow
-  document.documentElement.style.overflow = 'hidden'
-  void loadGame()
-})
+watch(() => props.open, (on) => {
+  if (on) void loadGame()
+}, { immediate: true })
 
-onBeforeUnmount(() => {
-  document.documentElement.style.overflow = prevOverflow
+watch(() => props.roomId, () => {
+  if (props.open) void loadGame()
 })
 </script>
 
 <style scoped lang="scss">
-.overlay {
-  position: fixed;
-  display: block;
-  inset: 0;
-  background-color: transparent;
-  z-index: 1000;
-  .modal {
+.game-params-panel {
+  display: flex;
+  position: absolute;
+  flex-direction: column;
+  right: 0;
+  bottom: 50px;
+  width: 400px;
+  max-height: 600px;
+  border-radius: 5px;
+  background-color: $dark;
+  box-shadow: 3px 3px 5px rgba($black, 0.25);
+  overflow: hidden;
+  z-index: 25;
+  header {
     display: flex;
-    position: absolute;
-    flex-direction: column;
-    right: 0;
-    bottom: 50px;
-    width: 400px;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px 10px;
     border-radius: 5px;
-    background-color: $dark;
-    transform: translateX(0);
-    transition: transform 0.25s ease-in-out;
-    header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 5px 10px;
-      border-radius: 5px;
-      background-color: $graphite;
-      box-shadow: 0 3px 5px rgba($black, 0.25);
-      span {
-        font-size: 18px;
-        font-weight: bold;
-      }
-      button {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 0;
-        width: 25px;
-        height: 30px;
-        border: none;
-        background: none;
-        cursor: pointer;
-        img {
-          width: 25px;
-          height: 25px;
-        }
-      }
+    background-color: $graphite;
+    box-shadow: 0 3px 5px rgba($black, 0.25);
+    span {
+      font-size: 18px;
+      font-weight: bold;
     }
-    .modal-div {
-      display: flex;
-      flex-direction: column;
-      padding: 10px;
-      background-color: $dark;
-    }
-    .save-game {
+    button {
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 0 0 20px;
-      button {
-        padding: 0;
-        width: calc(100% - 40px);
-        height: 40px;
-        border: none;
-        border-radius: 5px;
-        background-color: $fg;
-        color: $bg;
-        font-size: 18px;
-        font-family: Manrope-Medium;
-        line-height: 1;
-        cursor: pointer;
-        transition: opacity 0.25s ease-in-out, background-color 0.25s ease-in-out;
-        &:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-        &:hover {
-          background-color: $white;
-        }
+      padding: 0;
+      width: 25px;
+      height: 30px;
+      border: none;
+      background: none;
+      cursor: pointer;
+      img {
+        width: 25px;
+        height: 25px;
+      }
+    }
+  }
+  .modal-div {
+    display: flex;
+    flex-direction: column;
+    padding: 10px;
+    background-color: $dark;
+    overflow-y: auto;
+    scrollbar-width: none;
+  }
+  .save-game {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 0 20px;
+    button {
+      padding: 0;
+      width: calc(100% - 40px);
+      height: 40px;
+      border: none;
+      border-radius: 5px;
+      background-color: $fg;
+      color: $bg;
+      font-size: 18px;
+      font-family: Manrope-Medium;
+      line-height: 1;
+      cursor: pointer;
+      transition: opacity 0.25s ease-in-out, background-color 0.25s ease-in-out;
+      &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      &:hover {
+        background-color: $white;
       }
     }
   }
 }
 
-.overlay-enter-active,
-.overlay-leave-active {
-  transition: opacity 0.25s ease-in-out;
+.panel-enter-active,
+.panel-leave-active {
+  transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
 }
-.overlay-enter-from,
-.overlay-leave-to {
+.panel-enter-from,
+.panel-leave-to {
   opacity: 0;
-}
-.overlay-enter-from .modal,
-.overlay-leave-to .modal {
-  transform: translateX(30px);
+  transform: translateY(30px);
 }
 
 @media (max-width: 1280px) {
-  .overlay {
-    .modal {
-      bottom: 30px;
-      .modal-div {
-        padding: 10px 10px 0;
-      }
+  .game-params-panel {
+    bottom: 30px;
+    max-height: calc(100dvh - 40px);
+    .modal-div {
+      padding: 10px 10px 0;
     }
   }
 }
