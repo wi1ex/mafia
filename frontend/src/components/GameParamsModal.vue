@@ -150,19 +150,20 @@ onBeforeUnmount(() => {
 <style scoped lang="scss">
 .overlay {
   position: fixed;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: block;
   inset: 0;
-  background-color: rgba($black, 0.75);
+  background-color: transparent;
   z-index: 1000;
   .modal {
     display: flex;
+    position: absolute;
     flex-direction: column;
+    right: 0;
+    bottom: 50px;
     width: 400px;
     border-radius: 5px;
     background-color: $dark;
-    transform: translateY(0);
+    transform: translateX(0);
     transition: transform 0.25s ease-in-out;
     header {
       display: flex;
@@ -238,12 +239,13 @@ onBeforeUnmount(() => {
 }
 .overlay-enter-from .modal,
 .overlay-leave-to .modal {
-  transform: translateY(-30px);
+  transform: translateX(30px);
 }
 
 @media (max-width: 1280px) {
   .overlay {
     .modal {
+      bottom: 30px;
       .modal-div {
         padding: 10px 10px 0;
       }
