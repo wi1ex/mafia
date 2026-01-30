@@ -223,7 +223,7 @@
           <button v-if="canShowFinishSpeechHead" class="btn-text" :disabled="hostBlurLocksControls || !canFinishSpeechHead" @click="finishSpeechUi" aria-label="Завершить речь">Завершить речь</button>
           <button v-else-if="canShowPassSpeechHead" class="btn-text" :disabled="hostBlurLocksControls || !canPassSpeechHead" @click="passSpeechUi" aria-label="Передать речь">Передать речь</button>
           <button v-if="canStartVote" class="btn-text" :disabled="hostBlurLocksControls" @click="startVoteUi">Начать голосование</button>
-          <button v-if="canHeadVoteControl" class="btn-text" :disabled="hostBlurLocksControls || hasOfflineAlivePlayers" @click="onHeadVoteControl">
+          <button v-if="canHeadVoteControl" class="btn-text" :disabled="hostBlurLocksControls || hasOfflineAlivePlayers || !canPressHeadVoteControl" @click="onHeadVoteControl">
             {{ !voteStartedForCurrent ? 'Голосование за ' + (currentNomineeSeat ?? '') : 'Продолжить' }}
           </button>
           <button v-if="canHeadFinishVoteControl" class="btn-text" :disabled="hostBlurLocksControls" @click="finishVoteUi">Завершить голосование</button>
@@ -509,6 +509,7 @@ const {
   canTakeFoulSelf,
   canStartVote,
   canHeadVoteControl,
+  canPressHeadVoteControl,
   canPrepareVoteLift,
   canStartVoteLift,
   isLiftVoting,

@@ -195,20 +195,20 @@ onBeforeUnmount(() => {
     .modal-div {
       display: flex;
       flex-direction: column;
-      padding: 10px 10px 0;
+      padding: 10px;
       background-color: $dark;
     }
     .save-game {
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 0 0 10px;
+      padding: 0 0 20px;
       button {
         padding: 0;
-        width: calc(100% - 20px);
+        width: calc(100% - 40px);
         height: 40px;
         border: none;
-        border-radius: 0 0 5px 5px;
+        border-radius: 5px;
         background-color: $fg;
         color: $bg;
         font-size: 18px;

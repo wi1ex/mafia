@@ -556,8 +556,9 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
 
   const canHeadVoteControl = computed(() => {
     if (voteLiftState.value !== 'none') return false
-    return gamePhase.value === 'vote' && isHead.value && !vote.done && vote.remainingMs === 0
+    return gamePhase.value === 'vote' && isHead.value && !vote.done
   })
+  const canPressHeadVoteControl = computed(() => canHeadVoteControl.value && vote.remainingMs === 0)
 
   const canPrepareVoteLift = computed(() => {
     return isHead.value && gamePhase.value === 'vote' && voteResultShown.value && voteLiftState.value === 'ready'
@@ -3041,6 +3042,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     canTakeFoulSelf,
     canStartVote,
     canHeadVoteControl,
+    canPressHeadVoteControl,
     canPrepareVoteLift,
     canStartVoteLift,
     isLiftVoting,
