@@ -248,6 +248,12 @@ watch(() => props.roomId, () => {
         }
       }
     }
+    .save-game {
+      button {
+        height: 30px;
+        font-size: 14px;
+      }
+    }
   }
 }
 </style>

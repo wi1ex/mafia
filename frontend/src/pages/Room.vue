@@ -9,7 +9,7 @@
         <div v-if="gameOverlayVisible" class="reconnect-overlay load-game" aria-live="polite">{{ gameOverlayText }}</div>
       </Transition>
       <Transition name="host-blur">
-        <div v-if="hostBlurVisible" class="host-blur-overlay" aria-hidden="true"></div>
+        <div v-if="hostBlurVisible" class="host-blur-overlay" aria-hidden="true">Пауза…</div>
       </Transition>
       <div v-if="!isTheater" class="grid" :style="gridStyle">
         <RoomTile
