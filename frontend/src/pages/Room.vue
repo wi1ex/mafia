@@ -273,7 +273,7 @@
 
         <div class="controls-side right">
           <button v-if="canEditGame" @click.stop="openGameSettings" aria-label="Параметры игры">
-            <img :src="iconEdit" alt="game-settings" />
+            <img :src="iconParams" alt="game-settings" />
           </button>
           <button v-if="myRole === 'host' && isPrivate && gamePhase === 'idle'" @click.stop="toggleApps" :aria-expanded="openApps" aria-label="Заявки">
             <img :src="iconRequestsRoom" alt="requests" />
@@ -393,7 +393,7 @@ import iconSettings from '@/assets/svg/settings.svg'
 import iconRequestsRoom from '@/assets/svg/requestsRoom.svg'
 import iconReadyWhite from '@/assets/svg/readyWhite.svg'
 import iconReadyGreen from '@/assets/svg/readyGreen.svg'
-import iconEdit from '@/assets/svg/edit.svg'
+import iconParams from '@/assets/svg/params.svg'
 import iconBlurOn from '@/assets/svg/blurOn.svg'
 import iconBlurOff from '@/assets/svg/blurOff.svg'
 import iconGameStart from '@/assets/svg/gameStart.svg'

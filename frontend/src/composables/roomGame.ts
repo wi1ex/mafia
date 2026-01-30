@@ -315,7 +315,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     return ''
   })
 
-  const FINISH_SPEECH_DELAY_MS = 1000
+  const FINISH_SPEECH_DELAY_MS = 3000
   const finishSpeechUnlocked = ref(false)
   let finishSpeechTimer: number | null = null
   function resetFinishSpeechDelay() {
