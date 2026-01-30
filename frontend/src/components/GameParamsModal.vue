@@ -155,7 +155,6 @@ watch(() => props.roomId, () => {
   border-radius: 5px;
   background-color: $dark;
   box-shadow: 3px 3px 5px rgba($black, 0.25);
-  overflow: hidden;
   z-index: 25;
   header {
     display: flex;
@@ -188,7 +187,6 @@ watch(() => props.roomId, () => {
   .modal-div {
     display: flex;
     flex-direction: column;
-    padding: 10px;
     background-color: $dark;
     overflow-y: auto;
     scrollbar-width: none;
@@ -197,10 +195,10 @@ watch(() => props.roomId, () => {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 0 0 20px;
+    padding: 0 0 10px;
     button {
       padding: 0;
-      width: calc(100% - 40px);
+      width: calc(100% - 20px);
       height: 40px;
       border: none;
       border-radius: 5px;
@@ -236,8 +234,19 @@ watch(() => props.roomId, () => {
   .game-params-panel {
     bottom: 30px;
     max-height: calc(100dvh - 40px);
-    .modal-div {
-      padding: 10px 10px 0;
+    header {
+      padding: 5px;
+      span {
+        font-size: 14px;
+      }
+      button {
+        width: 20px;
+        height: 20px;
+        img {
+          width: 15px;
+          height: 15px;
+        }
+      }
     }
   }
 }
