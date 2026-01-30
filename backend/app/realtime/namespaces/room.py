@@ -2883,9 +2883,9 @@ async def game_best_move_mark(sid, data):
         if len(existing_targets) >= 3:
             return {"ok": False, "error": "limit_reached", "status": 409}
 
-        is_alive = await r.sismember(f"room:{rid}:game_alive", str(target_uid))
-        if not is_alive:
-            return {"ok": False, "error": "target_not_alive", "status": 404}
+        err = await ctx.ensure_player(target_uid, alive_required=False, error="target_not_alive", status=404)
+        if err:
+            return err
 
         updated_targets = [*existing_targets, target_uid]
         targets_raw = ",".join(str(v) for v in updated_targets)
