@@ -187,6 +187,14 @@ async def update_game(room_id: int, payload: GameParams, ident: Identity = Depen
     if not room:
         raise HTTPException(status_code=404, detail="room_not_found")
 
+    old_game = dict(room.game or {})
+    changes = []
+    for key, new_value in game_dict.items():
+        old_value = old_game.get(key)
+        if old_value != new_value:
+            changes.append(f"{key}: {old_value} -> {new_value}")
+    changes_str = "; ".join(changes) if changes else "нет"
+
     room.game = game_dict
     await session.commit()
 
@@ -198,7 +206,7 @@ async def update_game(room_id: int, payload: GameParams, ident: Identity = Depen
         user_id=int(ident["id"]),
         username=ident["username"],
         action="room_game_update",
-        details=f"Обновлены параметры игры room_id={room_id} title={params.get('title') or ''}",
+        details=f"Обновлены параметры игры room_id={room_id} title={params.get('title') or ''} changes={changes_str}",
     )
 
     return Ok()

@@ -2,14 +2,14 @@
   <section class="admin">
     <header>
       <nav class="tabs" aria-label="Админ" role="tablist">
+        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'stats' }" :aria-selected="activeTab === 'stats'" @click="activeTab = 'stats'">
+          Статистика
+        </button>
         <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'settings' }" :aria-selected="activeTab === 'settings'" @click="activeTab = 'settings'">
           Параметры
         </button>
         <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'updates' }" :aria-selected="activeTab === 'updates'" @click="activeTab = 'updates'">
           Обновления
-        </button>
-        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'stats' }" :aria-selected="activeTab === 'stats'" @click="activeTab = 'stats'">
-          Статистика
         </button>
         <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'logs' }" :aria-selected="activeTab === 'logs'" @click="activeTab = 'logs'">
           Логи
@@ -839,7 +839,7 @@ type UpdateRow = {
   description: string
 }
 
-const activeTab = ref<'settings' | 'updates' | 'stats' | 'logs' | 'rooms' | 'users'>('settings')
+const activeTab = ref<'settings' | 'updates' | 'stats' | 'logs' | 'rooms' | 'users'>('stats')
 const loading = ref(true)
 const savingSettings = ref(false)
 const statsLoading = ref(false)
