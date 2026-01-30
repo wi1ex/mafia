@@ -13,14 +13,14 @@
       </div>
 
       <div class="save-game">
-        <button :disabled="busy || loading" @click="save">Сохранить</button>
+        <button :disabled="busy || loading || !isDirty" @click="save">Сохранить</button>
       </div>
     </div>
   </Transition>
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { api } from '@/services/axios'
 import { alertDialog } from '@/services/confirm'
 import GameParamsForm from '@/components/GameParamsForm.vue'
@@ -68,6 +68,7 @@ const SPECT_MAX = 10
 const busy = ref(false)
 const loading = ref(false)
 const game = ref<Game>({ ...gameDefault })
+const initialGame = ref<Game | null>(null)
 
 function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n))
@@ -90,6 +91,24 @@ function normalizeGame(raw: any): Game {
   return merged
 }
 
+function isSameGame(a: Game, b: Game) {
+  return a.mode === b.mode &&
+    a.format === b.format &&
+    a.spectators_limit === b.spectators_limit &&
+    a.nominate_mode === b.nominate_mode &&
+    a.break_at_zero === b.break_at_zero &&
+    a.lift_at_zero === b.lift_at_zero &&
+    a.lift_3x === b.lift_3x &&
+    a.wink_knock === b.wink_knock &&
+    a.farewell_wills === b.farewell_wills &&
+    a.music === b.music
+}
+
+const isDirty = computed(() => {
+  if (!initialGame.value) return false
+  return !isSameGame(initialGame.value, game.value)
+})
+
 function emitClose() {
   emit('update:open', false)
 }
@@ -99,11 +118,9 @@ async function loadGame() {
   loading.value = true
   try {
     const { data } = await api.get(`/rooms/${props.roomId}/info`)
-    if (data?.game) {
-      game.value = normalizeGame(data.game)
-    } else {
-      game.value = { ...gameDefault }
-    }
+    const next = data?.game ? normalizeGame(data.game) : { ...gameDefault }
+    game.value = next
+    initialGame.value = { ...next }
   } catch {
     void alertDialog('Не удалось загрузить параметры игры')
   } finally {
@@ -112,11 +129,12 @@ async function loadGame() {
 }
 
 async function save() {
-  if (busy.value || loading.value) return
+  if (!isDirty.value || busy.value || loading.value) return
   busy.value = true
   try {
     const payload = { ...game.value }
     await api.patch(`/rooms/${props.roomId}/game`, payload)
+    initialGame.value = { ...payload }
     emit('saved', payload)
     emitClose()
   } catch (e: any) {
