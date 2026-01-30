@@ -71,26 +71,25 @@
 
           <div class="block">
             <h3>Параметры</h3>
-            <div class="switch">
-              <span class="switch-label">Подсказки для горячих клавиш</span>
-              <label>
-                <input type="checkbox" :checked="hotkeysVisible" :disabled="hotkeysTogglePending" @change="onToggleHotkeys" aria-label="Подсказки для горячих клавиш" />
-                <div class="slider">
-                  <span>Скрыть</span>
-                  <span>Показать</span>
-                </div>
-              </label>
-            </div>
-            <div class="switch">
-              <span class="switch-label">Кнопка «Установить как приложение»</span>
-              <label>
-                <input type="checkbox" :checked="!installHidden" :disabled="installTogglePending" @change="onToggleInstallHidden" aria-label="Кнопка Установить" />
-                <div class="slider">
-                  <span>Скрыть</span>
-                  <span>Показать</span>
-                </div>
-              </label>
-            </div>
+            <ToggleSwitch
+              class="profile-switch"
+              :model-value="hotkeysVisible"
+              label="Подсказки для горячих клавиш"
+              off-label="Скрыть"
+              on-label="Показать"
+              :disabled="hotkeysTogglePending"
+              @update:modelValue="onToggleHotkeys"
+            />
+            <ToggleSwitch
+              class="profile-switch"
+              :model-value="!installHidden"
+              label="Кнопка «Установить как приложение»"
+              off-label="Скрыть"
+              on-label="Показать"
+              aria-label="Кнопка Установить"
+              :disabled="installTogglePending"
+              @update:modelValue="onToggleInstallHidden"
+            />
           </div>
 
           <div v-if="crop.show" ref="modalEl" class="modal" @keydown.esc="cancelCrop" tabindex="0" aria-modal="true" aria-label="Кадрирование аватара" >
@@ -169,6 +168,7 @@ import { api, refreshAccessTokenFull } from '@/services/axios'
 import { useAuthStore, useUserStore } from '@/store'
 import { confirmDialog, alertDialog } from '@/services/confirm'
 import { formatLocalDateTime } from '@/services/datetime'
+import ToggleSwitch from '@/components/ToggleSwitch.vue'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
 import iconSave from '@/assets/svg/save.svg'
@@ -225,9 +225,8 @@ const installTogglePending = ref(false)
 let hotkeysToggleTimer: number | null = null
 let installToggleTimer: number | null = null
 
-function onToggleHotkeys(e: Event) {
+function onToggleHotkeys(next: boolean) {
   if (hotkeysTogglePending.value) return
-  const next = (e.target as HTMLInputElement).checked
   hotkeysTogglePending.value = true
   if (hotkeysToggleTimer !== null) window.clearTimeout(hotkeysToggleTimer)
   hotkeysToggleTimer = window.setTimeout(async () => {
@@ -236,9 +235,8 @@ function onToggleHotkeys(e: Event) {
   }, 500)
 }
 
-function onToggleInstallHidden(e: Event) {
+function onToggleInstallHidden(nextShown: boolean) {
   if (installTogglePending.value) return
-  const nextShown = (e.target as HTMLInputElement).checked
   installTogglePending.value = true
   if (installToggleTimer !== null) window.clearTimeout(installToggleTimer)
   installToggleTimer = window.setTimeout(async () => {
@@ -863,70 +861,8 @@ onBeforeUnmount(() => {
             color: $grey;
           }
         }
-        .switch {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          & + .switch {
-            margin-top: 10px;
-          }
-          .switch-label {
-            width: calc(100% - 170px);
-            height: 18px;
-          }
-          label {
-            position: relative;
-            width: 170px;
-            height: 25px;
-            box-shadow: 3px 3px 5px rgba($black, 0.25);
-            input {
-              position: absolute;
-              opacity: 0;
-              width: 0;
-              height: 0;
-            }
-            .slider {
-              display: flex;
-              align-items: center;
-              justify-content: space-around;
-              position: absolute;
-              inset: 0;
-              cursor: pointer;
-              border: 1px solid $lead;
-              border-radius: 5px;
-              background-color: $graphite;
-              span {
-                position: relative;
-                width: 100%;
-                color: $fg;
-                font-size: 14px;
-                text-align: center;
-                transition: color 0.25s ease-in-out;
-              }
-            }
-            .slider:before {
-              content: "";
-              position: absolute;
-              top: 0;
-              left: 0;
-              width: 83px;
-              height: 23px;
-              background-color: $fg;
-              border-radius: 5px;
-              transition: transform 0.25s ease-in-out;
-            }
-            input:checked + .slider:before {
-              transform: translateX(85px);
-            }
-            input:not(:checked) + .slider span:first-child,
-            input:checked + .slider span:last-child {
-              color: $bg;
-            }
-            input:disabled + .slider {
-              opacity: 0.5;
-              cursor: not-allowed;
-            }
-          }
+        :deep(.profile-switch + .profile-switch) {
+          margin-top: 10px;
         }
         .danger-row {
           display: flex;

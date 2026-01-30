@@ -21,6 +21,7 @@ from ...schemas.room import (
     RoomInfoMemberOut,
     RoomAccessOut,
     RoomRequestOut,
+    GameParams,
 )
 from ...security.parameters import get_cached_settings
 from ..utils import (
@@ -154,6 +155,53 @@ async def room_info(room_id: int) -> RoomInfoOut:
         spectators_count = 0
 
     return RoomInfoOut(members=members, game=game, spectators_count=spectators_count)
+
+
+@log_route("rooms.update_game")
+@rate_limited(lambda ident, room_id, **_: f"rl:rooms:update_game:{ident['id']}:{room_id}", limit=5, window_s=1)
+@require_room_creator("room_id")
+@router.patch("/{room_id}/game", response_model=Ok)
+async def update_game(room_id: int, payload: GameParams, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
+    r = get_redis()
+    params = await get_room_params_or_404(r, room_id)
+
+    raw_gstate = await r.hgetall(f"room:{room_id}:game_state")
+    phase = str(raw_gstate.get("phase") or "idle")
+    if phase != "idle":
+        raise HTTPException(status_code=409, detail="game_in_progress")
+
+    game_dict = {
+        "mode": payload.mode,
+        "format": payload.format,
+        "spectators_limit": int(payload.spectators_limit),
+        "nominate_mode": payload.nominate_mode,
+        "break_at_zero": bool(payload.break_at_zero),
+        "lift_at_zero": bool(payload.lift_at_zero),
+        "lift_3x": bool(payload.lift_3x),
+        "wink_knock": bool(payload.wink_knock),
+        "farewell_wills": bool(payload.farewell_wills),
+        "music": bool(payload.music),
+    }
+
+    room = await session.get(Room, room_id)
+    if not room:
+        raise HTTPException(status_code=404, detail="room_not_found")
+
+    room.game = game_dict
+    await session.commit()
+
+    game_data = serialize_game_for_redis(game_dict)
+    await r.hset(f"room:{room_id}:game", mapping=game_data)
+
+    await log_action(
+        session,
+        user_id=int(ident["id"]),
+        username=ident["username"],
+        action="room_game_update",
+        details=f"Обновлены параметры игры room_id={room_id} title={params.get('title') or ''}",
+    )
+
+    return Ok()
 
 
 @log_route("rooms.access")

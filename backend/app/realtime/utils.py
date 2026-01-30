@@ -3664,6 +3664,7 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
             continue
 
     roles_map: dict[str, str] = {str(k): str(v) for k, v in (raw_roles or {}).items()}
+    my_game_role = roles_map.get(str(uid))
     view = GameStateView(ctx, roles_map=roles_map, seats_map=seats_map)
     nominate_mode = str(raw_game.get("nominate_mode") or "players")
     if nominate_mode not in ("players", "head"):
@@ -3707,6 +3708,18 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
 
     if phase == "idle":
         return game_runtime, {}, None
+
+    if my_game_role in ("don", "sheriff"):
+        checked_key = f"room:{rid}:game_checked:{my_game_role}"
+        checked_ids = list(await smembers_ints(r, checked_key))
+        known: dict[str, str] = {}
+        for tu in checked_ids:
+            tr = roles_map.get(str(tu)) or ""
+            if my_game_role == "sheriff":
+                known[str(tu)] = "mafia" if tr in ("mafia", "don") else "citizen"
+            else:
+                known[str(tu)] = "sheriff" if tr == "sheriff" else "citizen"
+        game_runtime["checks"] = {"checked": checked_ids, "known": known}
 
     if phase == "roles_pick":
         roles_pick_section = await view.roles_pick(r, rid)
@@ -3757,7 +3770,6 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
             except Exception:
                 log.exception("game_runtime.best_move_night_failed", rid=rid)
 
-    my_game_role = roles_map.get(str(uid))
     head_uid = ctx.head_uid
     roles_done = ctx.gbool("roles_done")
     game_roles_view: dict[str, str] = {}

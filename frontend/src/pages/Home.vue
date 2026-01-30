@@ -29,7 +29,7 @@
         <ul class="list-body">
           <li class="item" v-for="r in sortedRooms" :key="r.id" :class="{ active: r.id === selectedId || r.id === pendingRoomId }" tabindex="0" @click="selectRoom(r.id)" >
             <div class="cell">
-              <span class="status-room" :class="{ runned: r.in_game, duo: r.user_limit === 2 }">{{ r.user_limit === 2 ? 'duo' : (r.in_game ? 'game' : 'lobby') }}</span>
+              <span class="status-room" :class="{ runned: r.in_game, duo: r.user_limit === 2 }">{{ roomStatusLabel(r) }}</span>
             </div>
             <div class="cell" :title="r.title">
               <img :src="r.privacy === 'private' ? iconLockClose : iconLockOpen" alt="lock" />
@@ -76,26 +76,7 @@
               </ul>
             </div>
 
-            <div class="ri-meta-game">
-<!--              <div class="ri-meta">-->
-<!--                <span class="header-text">Параметры комнаты:</span>-->
-<!--                <div class="ri-meta-div">-->
-<!--                  <span>Статус</span>-->
-<!--                  <span class="status-room" :class="{ runned: selectedRoom.in_game }">{{ selectedRoom.in_game ? 'game' : 'lobby' }}</span>-->
-<!--                </div>-->
-<!--                <div class="ri-meta-div">-->
-<!--                  <span>Владелец</span>-->
-<!--                  <div class="owner">-->
-<!--                    <img v-minio-img="{ key: selectedRoom && selectedRoom.creator_avatar_name ? `avatars/${selectedRoom.creator_avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />-->
-<!--                    <span class="owner-name">{{ selectedRoom?.creator_name }}</span>-->
-<!--                  </div>-->
-<!--                </div>-->
-<!--                <div class="ri-meta-div">-->
-<!--                  <span>Приватность</span>-->
-<!--                  <span>{{ isOpen ? 'Открытая' : 'Закрытая' }}</span>-->
-<!--                </div>-->
-<!--              </div>-->
-
+            <div class="ri-meta-game" v-if="canShowGameMeta">
               <div class="ri-game" v-if="game">
                 <span class="header-text">Параметры игры:</span>
                 <div class="ri-game-div">
@@ -301,6 +282,14 @@ const ctaState = computed<Cta>(() => {
   return 'pending'
 })
 const game = computed(() => info.value?.game)
+const gameLimitMin = computed(() => {
+  const minReady = Number(settings.gameMinReadyPlayers)
+  return Number.isFinite(minReady) && minReady > 0 ? minReady + 1 : 11
+})
+const canShowGameMeta = computed(() => {
+  const limit = Number(selectedRoom.value?.user_limit)
+  return Number.isFinite(limit) && limit === gameLimitMin.value
+})
 const spectatorsLabel = computed(() => {
   const limit = game.value?.spectators_limit ?? 0
   if (limit <= 0) return 'Без зрителей'
@@ -310,6 +299,15 @@ const spectatorsLabel = computed(() => {
   }
   return `до ${limit}`
 })
+
+function roomStatusLabel(room: Room): string {
+  const limit = Number(room.user_limit)
+  if (limit === 2) return 'duo'
+  if (Number.isFinite(limit) && limit === gameLimitMin.value) {
+    return room.in_game ? 'game' : 'mafia'
+  }
+  return 'lobby'
+}
 
 function isFullRoom(r: Room) { return r.occupancy >= r.user_limit }
 
@@ -826,58 +824,6 @@ onBeforeUnmount(() => {
           flex-direction: column;
           gap: 10px;
           width: calc(60% - 15px);
-          .ri-meta {
-            display: flex;
-            flex-direction: column;
-            padding: 10px;
-            gap: 5px;
-            border-radius: 5px;
-            background-color: $graphite;
-            box-shadow: 3px 3px 5px rgba($black, 0.25);
-            .ri-meta-div {
-              display: flex;
-              align-items: center;
-              justify-content: space-between;
-              span {
-                height: 16px;
-                font-size: 14px;
-                color: $ashy;
-              }
-              .status-room {
-                padding: 3px 0;
-                width: 50px;
-                border-radius: 5px;
-                background-color: $fg;
-                color: $bg;
-                font-size: 14px;
-                text-align: center;
-                &.duo {
-                  background-color: $red;
-                  color: $fg;
-                }
-                &.runned {
-                  background-color: $green;
-                }
-              }
-              .owner {
-                display: inline-flex;
-                align-items: center;
-                gap: 5px;
-                img {
-                  width: 20px;
-                  height: 20px;
-                  border-radius: 50%;
-                  object-fit: cover;
-                }
-                .owner-name {
-                  max-width: 130px;
-                  white-space: nowrap;
-                  overflow: hidden;
-                  text-overflow: ellipsis;
-                }
-              }
-            }
-          }
           .ri-game {
             display: flex;
             flex-direction: column;
@@ -1052,9 +998,6 @@ onBeforeUnmount(() => {
           overflow: auto;
           .ri-meta-game {
             width: 100%;
-            .ri-meta .ri-meta-div .owner .owner-name {
-              max-width: 100px;
-            }
           }
           .ri-members {
             width: calc(100% - 20px);

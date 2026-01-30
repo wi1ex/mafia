@@ -272,6 +272,9 @@
         </div>
 
         <div class="controls-side right">
+          <button v-if="canEditGame" @click.stop="openGameSettings" aria-label="Параметры игры">
+            <img :src="iconEdit" alt="game-settings" />
+          </button>
           <button v-if="myRole === 'host' && isPrivate && gamePhase === 'idle'" @click.stop="toggleApps" :aria-expanded="openApps" aria-label="Заявки">
             <img :src="iconRequestsRoom" alt="requests" />
             <span class="count-total" :class="{ unread: appsCounts.unread > 0 }">{{ appsCounts.total < 100 ? appsCounts.total : '∞' }}</span>
@@ -287,6 +290,14 @@
           :room-id="rid"
           @counts="(p) => { appsCounts.total = p.total; appsCounts.unread = p.unread }"
         />
+
+        <Transition name="overlay">
+          <GameParamsModal
+            v-if="gameParamsOpen"
+            :room-id="rid"
+            @close="gameParamsOpen=false"
+          />
+        </Transition>
 
         <RoomSetting
           :open="settingsOpen && canShowSettingsButton"
@@ -371,6 +382,7 @@ import { createAuthedSocket } from '@/services/sio'
 import RoomTile from '@/components/RoomTile.vue'
 import RoomSetting from '@/components/RoomSetting.vue'
 import RoomRequests from '@/components/RoomRequests.vue'
+import GameParamsModal from '@/components/GameParamsModal.vue'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
 import iconVolumeMax from '@/assets/svg/volumeMax.svg'
@@ -384,6 +396,7 @@ import iconSettings from '@/assets/svg/settings.svg'
 import iconRequestsRoom from '@/assets/svg/requestsRoom.svg'
 import iconReadyWhite from '@/assets/svg/readyWhite.svg'
 import iconReadyGreen from '@/assets/svg/readyGreen.svg'
+import iconEdit from '@/assets/svg/edit.svg'
 import iconBlurOn from '@/assets/svg/blurOn.svg'
 import iconBlurOff from '@/assets/svg/blurOff.svg'
 import iconGameStart from '@/assets/svg/gameStart.svg'
@@ -542,6 +555,7 @@ const screenOwnerId = ref<string>('')
 const openPanelFor = ref<string>('')
 const pendingScreen = ref(false)
 const settingsOpen = ref(false)
+const gameParamsOpen = ref(false)
 const uiReady = ref(false)
 const leaving = ref(false)
 const netReconnecting = ref(false)
@@ -553,6 +567,10 @@ const openApps = ref(false)
 const appsCounts = reactive({ total: 0, unread: 0 })
 const isPrivate = ref(false)
 const roomUserLimit = ref<number>(0)
+const gameLimitMin = computed(() => {
+  const minReady = Number(settings.gameMinReadyPlayers)
+  return Number.isFinite(minReady) && minReady > 0 ? minReady + 1 : 11
+})
 const ws_url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host
 const isTheater = computed(() => !!screenOwnerId.value)
 const isMyScreen = computed(() => !!localId.value && screenOwnerId.value === localId.value)
@@ -574,6 +592,11 @@ const hostBlurPending = ref(false)
 const hostBlurToggleEnabled = computed(() => gamePhase.value === 'day' || gamePhase.value === 'vote')
 const hostBlurVisible = computed(() => gamePhase.value !== 'idle' && hostBlurActive.value && !isHead.value)
 const hostBlurLocksControls = computed(() => isHead.value && hostBlurActive.value)
+const canEditGame = computed(() =>
+  myRole.value === 'host' &&
+  gamePhase.value === 'idle' &&
+  roomUserLimit.value === gameLimitMin.value
+)
 const canShowSettingsButton = computed(() => !isSpectatorInGame.value || musicEnabled.value)
 const knockModalOpen = ref(false)
 const knockModalTargetId = ref<string>('')
@@ -766,6 +789,11 @@ function toggleApps() {
   const next = !openApps.value
   closePanels('apps')
   openApps.value = next
+}
+function openGameSettings() {
+  const next = !gameParamsOpen.value
+  closePanels()
+  gameParamsOpen.value = next
 }
 function onDocClick() {
   closePanels()
@@ -1985,9 +2013,16 @@ const toggleScreen = async () => {
 
 const toggleHostBlur = async () => {
   if (hostBlurPending.value || !hostBlurToggleEnabled.value) return
+  const wantEnable = !hostBlurActive.value
+  const ok = await confirmDialog({
+    text: wantEnable
+      ? 'Вы хотите активировать размытие стола у игроков?'
+      : 'Вы хотите прекратить размытие стола у игроков?',
+  })
+  if (!ok) return
   hostBlurPending.value = true
   try {
-    const resp = await sendAck('game_host_blur', { on: !hostBlurActive.value })
+    const resp = await sendAck('game_host_blur', { on: wantEnable })
     if (resp?.ok && 'enabled' in resp) {
       hostBlurActive.value = !!(resp as any).enabled
     }
@@ -2336,6 +2371,10 @@ watch(isCurrentSpeaker, async (now, was) => {
     if (now) { if (!micOn.value) await toggleMic() }
     else { if (micOn.value) await toggleMic() }
   } catch {}
+})
+
+watch(canEditGame, (ok) => {
+  if (!ok && gameParamsOpen.value) gameParamsOpen.value = false
 })
 
 watch(() => [gamePhase.value, amIAlive.value, isSpectatorInGame.value, localId.value], () => {

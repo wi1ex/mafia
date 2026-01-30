@@ -37,126 +37,17 @@
                 </div>
               </div>
 
-              <div class="switch">
-                <span class="switch-label">Приватность:</span>
-                <label>
-                  <input type="checkbox" v-model="isPrivate" aria-label="Приватность: открытая/закрытая" />
-                  <div class="slider">
-                    <span>Открытая</span>
-                    <span>Закрытая</span>
-                  </div>
-                </label>
-              </div>
+              <ToggleSwitch
+                v-model="isPrivate"
+                label="Приватность:"
+                off-label="Открытая"
+                on-label="Закрытая"
+                aria-label="Приватность: открытая/закрытая"
+              />
             </div>
 
-            <div v-else key="game" class="params">
-<!--              <div class="range is-disabled">-->
-              <div class="range">
-                <span>Лимит зрителей: {{ game.spectators_limit }}/{{ SPECT_MAX }}</span>
-                <div class="range-wrap">
-                  <div class="range-track" :style="rangeSpectFillStyle" aria-hidden="true"></div>
-                  <input class="range-native" type="range" :min="SPECT_MIN" :max="SPECT_MAX" step="1" v-model.number="game.spectators_limit" aria-label="Лимит зрителей" />
-                </div>
-              </div>
-
-              <div class="switch">
-                <span class="switch-label">Режим:</span>
-                <label>
-                  <input type="checkbox" v-model="isRating" disabled aria-label="Режим: обычный/рейтинг" />
-                  <div class="slider">
-                    <span>Обычный</span>
-                    <span>Рейтинг</span>
-                  </div>
-                </label>
-              </div>
-
-              <div class="switch">
-                <span class="switch-label">Судья:</span>
-                <label>
-                  <input type="checkbox" v-model="isNoHost" disabled aria-label="Формат: с ведущим/без ведущего" />
-                  <div class="slider">
-                    <span>Ведущий</span>
-                    <span>Авто</span>
-                  </div>
-                </label>
-              </div>
-
-              <div class="switch">
-                <span class="switch-label">Выставления:</span>
-                <label>
-                  <input type="checkbox" v-model="isPlayersNomination" aria-label="Выставления" />
-                  <div class="slider">
-                    <span>Ведущий</span>
-                    <span>Игрок</span>
-                  </div>
-                </label>
-              </div>
-
-              <div class="switch">
-                <span class="switch-label">Завещания:</span>
-                <label>
-                  <input type="checkbox" v-model="game.farewell_wills" aria-label="Завещания" />
-                  <div class="slider">
-                    <span>Откл</span>
-                    <span>Вкл</span>
-                  </div>
-                </label>
-              </div>
-
-              <div class="switch">
-                <span class="switch-label">Подмигивание/Стук:</span>
-                <label>
-                  <input type="checkbox" v-model="game.wink_knock" aria-label="Подмигивание/Стук" />
-                  <div class="slider">
-                    <span>Откл</span>
-                    <span>Вкл</span>
-                  </div>
-                </label>
-              </div>
-
-              <div class="switch">
-                <span class="switch-label">Слом в нуле:</span>
-                <label>
-                  <input type="checkbox" v-model="game.break_at_zero" aria-label="Слом в нуле" />
-                  <div class="slider">
-                    <span>Откл</span>
-                    <span>Вкл</span>
-                  </div>
-                </label>
-              </div>
-
-              <div class="switch">
-                <span class="switch-label">Подъем в нуле:</span>
-                <label>
-                  <input type="checkbox" v-model="game.lift_at_zero" aria-label="Подъем в нуле" />
-                  <div class="slider">
-                    <span>Откл</span>
-                    <span>Вкл</span>
-                  </div>
-                </label>
-              </div>
-
-              <div class="switch">
-                <span class="switch-label">Подъем 3х при 9х:</span>
-                <label>
-                  <input type="checkbox" v-model="game.lift_3x" aria-label="Подъем 3х" />
-                  <div class="slider">
-                    <span>Откл</span>
-                    <span>Вкл</span>
-                  </div>
-                </label>
-              </div>
-
-              <div class="switch">
-                <span class="switch-label">Музыка:</span>
-                <label>
-                  <input type="checkbox" v-model="game.music" aria-label="Музыка" />
-                  <div class="slider">
-                    <span>Откл</span>
-                    <span>Вкл</span>
-                  </div>
-                </label>
-              </div>
+            <div v-else key="game">
+              <GameParamsForm v-model="game" :disabled="busy" />
             </div>
           </Transition>
         </div>
@@ -174,6 +65,8 @@ import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { api } from '@/services/axios'
 import { alertDialog } from '@/services/confirm'
 import { useUserStore, useSettingsStore } from '@/store'
+import GameParamsForm from '@/components/GameParamsForm.vue'
+import ToggleSwitch from '@/components/ToggleSwitch.vue'
 
 import iconClose from '@/assets/svg/close.svg'
 
@@ -202,12 +95,6 @@ const deadZoneStyle = computed<Record<string, string>>(() => ({ '--dead': `${dea
 
 const SPECT_MIN = 0
 const SPECT_MAX = 10
-const rangeSpectPct = computed(() => {
-  const p = ((game.value.spectators_limit - SPECT_MIN) * 100) / (SPECT_MAX - SPECT_MIN)
-  return Math.max(0, Math.min(100, p))
-})
-const rangeSpectFillStyle = computed<Record<string, string>>(() => ({ '--fill': `${rangeSpectPct.value}%` }))
-
 const TITLE_MAX = 32
 const titlePct = computed(() => {
   const used = Math.min(TITLE_MAX, Math.max(0, title.value.length))
@@ -317,18 +204,6 @@ const ok = computed(() => title.value.length > 0 && limit.value >= 2 && limit.va
 const isPrivate = computed<boolean>({
   get: () => privacy.value === 'private',
   set: v => { privacy.value = v ? 'private' : 'open' }
-})
-const isRating = computed<boolean>({
-  get: () => game.value.mode === 'rating',
-  set: v => { game.value.mode = v ? 'rating' : 'normal' }
-})
-const isNoHost = computed<boolean>({
-  get: () => game.value.format === 'nohost',
-  set: v => { game.value.format = v ? 'nohost' : 'hosted' }
-})
-const isPlayersNomination = computed<boolean>({
-  get: () => game.value.nominate_mode === 'players',
-  set: v => { game.value.nominate_mode = v ? 'players' : 'head' }
 })
 
 function clamp(n: number, min: number, max: number) { return Math.max(min, Math.min(max, n)) }
@@ -682,74 +557,6 @@ onBeforeUnmount(() => {
               outline-offset: 2px;
             }
             .range-native:disabled {
-              cursor: not-allowed;
-            }
-          }
-          .range.is-disabled {
-            opacity: 0.5;
-          }
-          .range.is-disabled .range-native {
-            cursor: not-allowed;
-          }
-        }
-        .switch {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          .switch-label {
-            width: calc(100% - 170px);
-            height: 18px;
-          }
-          label {
-            position: relative;
-            width: 170px;
-            height: 25px;
-            box-shadow: 3px 3px 5px rgba($black, 0.25);
-            input {
-              position: absolute;
-              opacity: 0;
-              width: 0;
-              height: 0;
-            }
-            .slider {
-              display: flex;
-              align-items: center;
-              justify-content: space-around;
-              position: absolute;
-              inset: 0;
-              cursor: pointer;
-              border: 1px solid $lead;
-              border-radius: 5px;
-              background-color: $graphite;
-              span {
-                position: relative;
-                width: 100%;
-                color: $fg;
-                font-size: 14px;
-                text-align: center;
-                transition: color 0.25s ease-in-out;
-              }
-            }
-            .slider:before {
-              content: "";
-              position: absolute;
-              top: 0;
-              left: 0;
-              width: 83px;
-              height: 23px;
-              background-color: $fg;
-              border-radius: 5px;
-              transition: transform 0.25s ease-in-out;
-            }
-            input:checked + .slider:before {
-              transform: translateX(85px);
-            }
-            input:not(:checked) + .slider span:first-child,
-            input:checked + .slider span:last-child {
-              color: $bg;
-            }
-            input:disabled + .slider {
-              opacity: 0.5;
               cursor: not-allowed;
             }
           }

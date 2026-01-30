@@ -77,6 +77,8 @@ class GameStartAck(TypedDict, total=False):
     off_speakers: List[int]
     off_visibility: List[int]
     bgm_seed: int
+    nominate_mode: Literal["players", "head"]
+    wink_knock: bool
     farewell_wills: bool
     music: bool
 

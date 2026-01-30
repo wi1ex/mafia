@@ -1155,6 +1155,9 @@ async def game_start(sid, data) -> GameStartAck:
             raw_game = await r.hgetall(f"room:{rid}:game")
         except Exception:
             raw_game = {}
+        nominate_mode = str(raw_game.get("nominate_mode") or "players")
+        if nominate_mode not in ("players", "head"):
+            nominate_mode = "players"
         wink_knock = game_flag(raw_game, "wink_knock", True)
         farewell_wills = game_flag(raw_game, "farewell_wills", True)
         music_enabled = game_flag(raw_game, "music", True)
@@ -1263,6 +1266,7 @@ async def game_start(sid, data) -> GameStartAck:
             "min_ready": min_ready,
             "seats": {k: int(v) for k, v in seats.items()},
             "bgm_seed": bgm_seed,
+            "nominate_mode": nominate_mode,
             "wink_knock": wink_knock,
             "winks_limit": winks_limit,
             "knocks_limit": knocks_limit,

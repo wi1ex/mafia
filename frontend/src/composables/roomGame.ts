@@ -1398,6 +1398,25 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       setNightRemainingMs(0, false)
       night.stage = 'sleep'
     }
+    const checksSection = (gr as any).checks
+    if (checksSection && typeof checksSection === 'object') {
+      nightCheckedByMe.clear()
+      nightKnownByMe.clear()
+      const checkedRaw = (checksSection as any).checked
+      if (Array.isArray(checkedRaw)) {
+        for (const u of checkedRaw) {
+          const s = String(u)
+          if (s) nightCheckedByMe.add(s)
+        }
+      }
+      const knownRaw = (checksSection as any).known
+      if (knownRaw && typeof knownRaw === 'object') {
+        for (const [u, rr] of Object.entries(knownRaw)) {
+          const role = String(rr) as GameRoleKind
+          nightKnownByMe.set(String(u), role)
+        }
+      }
+    }
     if (phase === 'idle') hostBlurActive.value = false
     const playersCount = gamePlayers.size
     const rolesCount = gameRolesByUser.size
@@ -1420,6 +1439,9 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     offlineInGame.clear()
     deathReasonByUser.clear()
     hostBlurActive.value = false
+    if ('nominate_mode' in (payload || {})) {
+      nominateMode.value = normalizeNominateMode((payload as any).nominate_mode)
+    }
     if ('farewell_wills' in (payload || {})) {
       farewellWillsEnabled.value = isTrueLike((payload as any).farewell_wills)
     }
@@ -2208,7 +2230,19 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     const uidNum = Number(targetUserId)
     if (!uidNum) return
     const resp = await sendAck('game_night_shoot', { user_id: uidNum })
-    if (resp?.ok) myNightShotTarget.value = targetUserId
+    if (resp?.ok) {
+      myNightShotTarget.value = targetUserId
+      return
+    }
+    const st = resp?.status
+    const code = resp?.error
+    if (st === 400 && code === 'bad_phase') void alertDialog('Сейчас не фаза ночи')
+    else if (st === 409 && code === 'bad_stage') void alertDialog('Сейчас не фаза отстрелов')
+    else if (st === 409 && code === 'window_closed') void alertDialog('Время отстрелов вышло')
+    else if (st === 409 && code === 'already_chosen') void alertDialog('Вы уже выбрали цель')
+    else if (st === 403 && code === 'forbidden') void alertDialog('Недостаточно прав для отстрела')
+    else if (st === 400 && code === 'bad_target') void alertDialog('Нельзя стрелять в этого игрока')
+    else void alertDialog('Не удалось совершить отстрел')
   }
 
   async function checkTarget(targetUserId: string, sendAck: SendAckFn): Promise<void> {
@@ -2218,7 +2252,18 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     if (resp?.ok) {
       myNightCheckTarget.value = targetUserId
       ensureKnownRolesVisible()
+      return
     }
+    const st = resp?.status
+    const code = resp?.error
+    if (st === 400 && code === 'bad_phase') void alertDialog('Сейчас не фаза ночи')
+    else if (st === 409 && code === 'bad_stage') void alertDialog('Сейчас не фаза проверок')
+    else if (st === 409 && code === 'window_closed') void alertDialog('Время проверок вышло')
+    else if (st === 409 && code === 'already_checked') void alertDialog('Вы уже проверяли этого игрока')
+    else if (st === 409 && code === 'already_chosen') void alertDialog('Проверка уже выбрана')
+    else if (st === 403 && code === 'forbidden') void alertDialog('Недостаточно прав для проверки')
+    else if (st === 400 && code === 'bad_target') void alertDialog('Нельзя проверить этого игрока')
+    else void alertDialog('Не удалось проверить')
   }
 
   async function winkTarget(targetUserId: string, sendAck: SendAckFn): Promise<boolean> {

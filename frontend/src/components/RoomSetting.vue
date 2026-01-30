@@ -11,33 +11,31 @@
       <div class="change-devices">
         <template v-if="!inGame">
           <div class="switch-div">
-            <div class="switch">
-              <span class="switch-label">Зеркальность камеры:</span>
-              <label>
-                <input type="checkbox" :checked="mirrorOn" :disabled="mirrorToggleLocked" @change="onToggleMirror" aria-label="Зеркальность" />
-                <div class="slider">
-                  <span>Откл</span>
-                  <span>Вкл</span>
-                </div>
-              </label>
-            </div>
+            <ToggleSwitch
+              :model-value="mirrorOn"
+              label="Зеркальность камеры:"
+              aria-label="Зеркальность"
+              :disabled="mirrorToggleLocked"
+              :width="120"
+              @update:modelValue="onToggleMirror"
+            />
           </div>
         </template>
         <template v-else>
           <div v-if="!isSpectator && canToggleKnownRoles" class="switch-div">
-            <div class="switch switch-wide">
-              <span class="switch-label">
+            <ToggleSwitch
+              :model-value="knownRolesVisible"
+              off-label="Скрыть"
+              on-label="Показать"
+              aria-label="Показ ролей"
+              :width="200"
+              @update:modelValue="onToggleKnownRoles"
+            >
+              <template #label>
                 Видимость ролей:
                 <span v-if="!isMobile && hotkeysVisible !== false" class="hot-btn">R</span>
-              </span>
-              <label>
-                <input type="checkbox" :checked="knownRolesVisible" @change="onToggleKnownRoles" aria-label="Показ ролей" />
-                <div class="slider">
-                  <span>Скрыть</span>
-                  <span>Показать</span>
-                </div>
-              </label>
-            </div>
+              </template>
+            </ToggleSwitch>
           </div>
 
           <div v-if="musicEnabled" class="volume-block">
@@ -96,6 +94,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
+import ToggleSwitch from '@/components/ToggleSwitch.vue'
 
 import iconClose from '@/assets/svg/close.svg'
 import iconReadyGreen from '@/assets/svg/readyGreen.svg'
@@ -154,23 +153,20 @@ const camIdProxy = computed({
   set: (v: string) => { pickDevice('videoinput', v) }
 })
 
-function onToggleMirror(e: Event) {
-  if (mirrorToggleLocked.value) {
-    (e.target as HTMLInputElement).checked = props.mirrorOn
-    return
-  }
+function onToggleMirror(next: boolean) {
+  if (mirrorToggleLocked.value) return
   mirrorToggleLocked.value = true
   if (mirrorToggleTimer !== null) clearTimeout(mirrorToggleTimer)
   mirrorToggleTimer = window.setTimeout(() => {
     mirrorToggleLocked.value = false
     mirrorToggleTimer = null
   }, 500)
-  emit('update:mirrorOn', (e.target as HTMLInputElement).checked)
+  emit('update:mirrorOn', next)
 }
 function onVolumeInput(e: Event) {
   emit('update:volume', Number((e.target as HTMLInputElement).value))
 }
-function onToggleKnownRoles() {
+function onToggleKnownRoles(_next: boolean) {
   emit('toggle-known-roles')
 }
 function pickDevice(kind: 'audioinput'|'videoinput', id: string) {
@@ -292,81 +288,6 @@ onBeforeUnmount(() => {
       flex-direction: column;
       gap: 10px;
       width: 100%;
-      .switch {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        .switch-label {
-          display: inline-flex;
-          align-items: center;
-          gap: 5px;
-          width: calc(100% - 120px);
-          height: 18px;
-        }
-        label {
-          position: relative;
-          width: 120px;
-          height: 25px;
-          box-shadow: 3px 3px 5px rgba($black, 0.25);
-          input {
-            position: absolute;
-            opacity: 0;
-            width: 0;
-            height: 0;
-          }
-          .slider {
-            display: flex;
-            align-items: center;
-            justify-content: space-around;
-            position: absolute;
-            inset: 0;
-            cursor: pointer;
-            border: 1px solid $lead;
-            border-radius: 5px;
-            background-color: $graphite;
-            span {
-              position: relative;
-              width: 100%;
-              color: $fg;
-              font-size: 14px;
-              text-align: center;
-              transition: color 0.25s ease-in-out;
-            }
-          }
-          .slider:before {
-            content: "";
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 58px;
-            height: 23px;
-            background-color: $fg;
-            border-radius: 5px;
-            transition: transform 0.25s ease-in-out;
-          }
-          input:checked + .slider:before {
-            transform: translateX(60px);
-          }
-          input:not(:checked) + .slider span:first-child,
-          input:checked + .slider span:last-child {
-            color: $bg;
-          }
-        }
-      }
-      .switch.switch-wide {
-        .switch-label {
-          width: calc(100% - 200px);
-        }
-        label {
-          width: 200px;
-          .slider:before {
-            width: 98px;
-          }
-          input:checked + .slider:before {
-            transform: translateX(100px);
-          }
-        }
-      }
       .hot-btn {
         display: inline-flex;
         align-items: center;

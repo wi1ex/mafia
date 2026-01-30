@@ -31,56 +31,11 @@
         <div v-else-if="activeTab === 'settings'">
           <div class="grid">
             <div class="block">
-              <div class="switch">
-                <span class="switch-label">Регистрация</span>
-                <label>
-                  <input type="checkbox" v-model="site.registration_enabled" :disabled="savingSettings" aria-label="Регистрация" />
-                  <div class="slider">
-                    <span>Откл</span>
-                    <span>Вкл</span>
-                  </div>
-                </label>
-              </div>
-              <div class="switch">
-                <span class="switch-label">Создание комнат</span>
-                <label>
-                  <input type="checkbox" v-model="site.rooms_can_create" :disabled="savingSettings" aria-label="Создание комнат" />
-                  <div class="slider">
-                    <span>Откл</span>
-                    <span>Вкл</span>
-                  </div>
-                </label>
-              </div>
-              <div class="switch">
-                <span class="switch-label">Вход в комнату</span>
-                <label>
-                  <input type="checkbox" v-model="site.rooms_can_enter" :disabled="savingSettings" aria-label="Вход в комнату" />
-                  <div class="slider">
-                    <span>Откл</span>
-                    <span>Вкл</span>
-                  </div>
-                </label>
-              </div>
-              <div class="switch">
-                <span class="switch-label">Запуск игр</span>
-                <label>
-                  <input type="checkbox" v-model="site.games_can_start" :disabled="savingSettings" aria-label="Запуск игр" />
-                  <div class="slider">
-                    <span>Откл</span>
-                    <span>Вкл</span>
-                  </div>
-                </label>
-              </div>
-              <div class="switch">
-                <span class="switch-label">Запуск трансляций</span>
-                <label>
-                  <input type="checkbox" v-model="site.streams_can_start" :disabled="savingSettings" aria-label="Запуск трансляций" />
-                  <div class="slider">
-                    <span>Откл</span>
-                    <span>Вкл</span>
-                  </div>
-                </label>
-              </div>
+              <ToggleSwitch class="switch-item" v-model="site.registration_enabled" label="Регистрация" :disabled="savingSettings" />
+              <ToggleSwitch class="switch-item" v-model="site.rooms_can_create" label="Создание комнат" :disabled="savingSettings" />
+              <ToggleSwitch class="switch-item" v-model="site.rooms_can_enter" label="Вход в комнату" :disabled="savingSettings" />
+              <ToggleSwitch class="switch-item" v-model="site.games_can_start" label="Запуск игр" :disabled="savingSettings" />
+              <ToggleSwitch class="switch-item" v-model="site.streams_can_start" label="Запуск трансляций" :disabled="savingSettings" />
               <div class="form-actions">
                 <button class="btn danger" :disabled="kickRoomsBusy" @click="kickAllRooms">
                   Кик из комнат
@@ -711,6 +666,7 @@ import { formatLocalDateTime } from '@/services/datetime'
 import { useSettingsStore } from '@/store'
 import UpdateModal from '@/components/UpdateModal.vue'
 import SanctionModal from '@/components/SanctionModal.vue'
+import ToggleSwitch from '@/components/ToggleSwitch.vue'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
 import iconClose from '@/assets/svg/close.svg'
@@ -1954,68 +1910,8 @@ onMounted(() => {
         .ui-input + .ui-input {
           margin-top: 10px;
         }
-        .switch {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
+        :deep(.switch-item) {
           margin-bottom: 10px;
-          .switch-label {
-            width: calc(100% - 170px);
-            height: 18px;
-          }
-          label {
-            position: relative;
-            width: 170px;
-            height: 25px;
-            box-shadow: 3px 3px 5px rgba($black, 0.25);
-            input {
-              position: absolute;
-              opacity: 0;
-              width: 0;
-              height: 0;
-            }
-            .slider {
-              display: flex;
-              align-items: center;
-              justify-content: space-around;
-              position: absolute;
-              inset: 0;
-              cursor: pointer;
-              border: 1px solid $lead;
-              border-radius: 5px;
-              background-color: $graphite;
-              span {
-                position: relative;
-                width: 100%;
-                color: $fg;
-                font-size: 14px;
-                text-align: center;
-                transition: color 0.25s ease-in-out;
-              }
-            }
-            .slider:before {
-              content: "";
-              position: absolute;
-              top: 0;
-              left: 0;
-              width: 83px;
-              height: 23px;
-              background-color: $fg;
-              border-radius: 5px;
-              transition: transform 0.25s ease-in-out;
-            }
-            input:checked + .slider:before {
-              transform: translateX(85px);
-            }
-            input:not(:checked) + .slider span:first-child,
-            input:checked + .slider span:last-child {
-              color: $bg;
-            }
-            input:disabled + .slider {
-              opacity: 0.5;
-              cursor: not-allowed;
-            }
-          }
         }
       }
       .form-actions {
