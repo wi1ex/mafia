@@ -1059,7 +1059,6 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     if (bestMove.targets.length >= 3) return false
     if (bestMove.targets.includes(targetId)) return false
     if (!gamePlayers.has(targetId)) return false
-    if (!gameAlive.has(targetId)) return false
     return targetId !== me
   }
 

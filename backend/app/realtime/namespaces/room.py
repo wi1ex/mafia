@@ -2734,9 +2734,9 @@ async def game_farewell_mark(sid, data):
         if err:
             return err
 
-        is_alive = await r.sismember(f"room:{rid}:game_alive", str(target_uid))
-        if not is_alive:
-            return {"ok": False, "error": "target_not_alive", "status": 404}
+        err = await ctx.ensure_player(target_uid, alive_required=False, error="target_not_alive", status=404)
+        if err:
+            return err
 
         mode = "voted" if phase == "vote" else "killed"
         try:
