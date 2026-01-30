@@ -816,7 +816,7 @@ function onHotkey(e: KeyboardEvent) {
   if (gamePhase.value !== 'idle' && !(isHead.value || amIAlive.value)) return
   const code = e.code
 
-  if (code === 'Enter') {
+  if (code === 'Enter' || code === 'NumpadEnter') {
     if (gamePhase.value !== 'idle' && canShowTakeFoulSelf.value && canTakeFoulSelf.value && !foulPending.value) {
       e.preventDefault()
       e.stopPropagation()
