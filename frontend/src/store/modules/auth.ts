@@ -8,7 +8,7 @@ import {
   refreshAccessTokenFull,
 } from '@/services/axios'
 import { isPwaMode } from '@/services/pwa'
-import { alertDialog, confirmDialog } from '@/services/confirm'
+import { confirmDialog, alertDialog } from '@/services/confirm'
 import {
   initSessionBus,
   setSid,
@@ -19,15 +19,6 @@ import {
   checkConsistencyNow,
   stopSessionBus,
 } from '@/services/session'
-
-export interface TgUser {
-  id: number
-  username?: string
-  photo_url?: string
-  auth_date?: number
-  hash?: string
-  accept_rules?: boolean
-}
 
 export const useAuthStore = defineStore('auth', () => {
   const sessionId = ref<string>('')
@@ -149,29 +140,46 @@ export const useAuthStore = defineStore('auth', () => {
     } catch {}
   }
 
-  async function signInWithTelegram(tg: TgUser): Promise<void> {
+  async function signInWithPassword(payload: { username: string; password: string }): Promise<void> {
     try {
       const headers = isPwaMode() ? { 'X-PWA': '1' } : undefined
-      const { data } = await api.post('/auth/telegram', tg, headers ? { headers } : undefined)
-      const isNew = Boolean((data as any)?.is_new)
+      const { data } = await api.post('/auth/login', payload, headers ? { headers } : undefined)
       await applySession(data)
       const { useUserStore } = await import('@/store')
-      await useUserStore().fetchMe()
-      if (isNew) {
-        const ok = await confirmDialog({
-          text: 'Хотите сейчас изменить аватар/никнейм в Личном кабинете',
-          confirmText: 'Изменить',
-          cancelText: 'Позже',
-        })
-        if (ok) {
-          const { default: router } = await import('@/router')
-          router.push({ name: 'profile' }).catch(() => {})
-        }
+      const userStore = useUserStore()
+      await userStore.fetchMe()
+      if (userStore.passwordTemp) {
+        const { default: router } = await import('@/router')
+        router.push({ name: 'profile' }).catch(() => {})
       }
     } catch (e: any) {
       const st = e?.response?.status
       const detail = e?.response?.data?.detail
-      if (st === 428 && detail === 'rules_required' && tg.accept_rules !== true) {
+      if (st === 403 && detail === 'password_not_set') {
+        void alertDialog('Пароль не установлен. Восстановите пароль через Telegram-бота.')
+      } else if (st === 403 && detail === 'user_deleted') {
+        void alertDialog('Авторизация невозможна: аккаунт удален')
+      } else if (st === 401 && detail === 'invalid_credentials') {
+        void alertDialog('Неверный логин или пароль')
+      } else {
+        void alertDialog('Не удалось войти')
+      }
+    }
+  }
+
+  async function registerWithPassword(payload: { username: string; password: string; accept_rules?: boolean }): Promise<void> {
+    try {
+      const headers = isPwaMode() ? { 'X-PWA': '1' } : undefined
+      const { data } = await api.post('/auth/register', payload, headers ? { headers } : undefined)
+      await applySession(data)
+      const { useUserStore } = await import('@/store')
+      await useUserStore().fetchMe()
+      const { default: router } = await import('@/router')
+      router.push({ name: 'profile' }).catch(() => {})
+    } catch (e: any) {
+      const st = e?.response?.status
+      const detail = e?.response?.data?.detail
+      if (st === 428 && detail === 'rules_required') {
         const ok = await confirmDialog({
           title: 'Подтверждение регистрации',
           text: '',
@@ -185,14 +193,18 @@ export const useAuthStore = defineStore('auth', () => {
           hideText: true,
         })
         if (!ok) return
-        return await signInWithTelegram({ ...tg, accept_rules: true })
+        return await registerWithPassword({ ...payload, accept_rules: true })
       }
-      if (st === 403 && detail === 'user_deleted') {
-        void alertDialog('Авторизация невозможна: аккаунт удален')
-      } else if (st === 403 && detail === 'registration_disabled') {
+      if (st === 403 && detail === 'registration_disabled') {
         void alertDialog('Регистрация временно недоступна')
+      } else if (st === 409 && detail === 'username_taken') {
+        void alertDialog('Никнейм уже занят')
+      } else if (st === 422 && detail === 'invalid_username_format') {
+        void alertDialog('Недопустимый формат никнейма')
+      } else if (st === 422 && detail === 'invalid_password') {
+        void alertDialog('Пароль не должен быть пустым')
       } else {
-        void alertDialog('Не удалось войти через Telegram')
+        void alertDialog('Не удалось зарегистрироваться')
       }
     }
   }
@@ -209,7 +221,8 @@ export const useAuthStore = defineStore('auth', () => {
     foreignActive: foreign,
 
     init,
-    signInWithTelegram,
+    signInWithPassword,
+    registerWithPassword,
     logout,
     localSignOut,
     wipeLocalForNewLogin,
