@@ -1,6 +1,4 @@
 from __future__ import annotations
-import re
-import unicodedata
 from contextlib import suppress
 from typing import cast
 from sqlalchemy import select, update, exists, func, literal, and_
@@ -16,6 +14,7 @@ from ..utils import (
     ensure_profile_changes_allowed,
     set_user_deleted,
     force_logout_user,
+    normalize_username,
 )
 from ...models.user import User
 from ...core.db import get_session
@@ -106,12 +105,7 @@ async def sanctions_history(ident: Identity = Depends(get_identity), db: AsyncSe
 @router.patch("/username", response_model=UsernameUpdateOut)
 async def update_username(payload: UsernameUpdateIn, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UsernameUpdateOut:
     uid = int(ident["id"])
-    raw = (payload.username or "")
-    new = unicodedata.normalize("NFKC", raw).strip()
-    USERNAME_RE = re.compile(r"^[a-zA-Zа-яА-Я0-9._\-()]{2,20}$")
-    if not USERNAME_RE.match(new):
-        raise HTTPException(status_code=422, detail="invalid_username_format")
-
+    new = normalize_username(payload.username)
     user = await db.get(User, uid)
     if not user:
         raise HTTPException(status_code=401, detail="Unauthorized")
