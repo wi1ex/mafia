@@ -72,6 +72,7 @@ from ..utils import (
     parse_room_game_params,
     build_room_user_stats,
     sum_room_stream_seconds,
+    fetch_live_room_stats,
     aggregate_user_room_stats,
     compute_duration_seconds,
     fetch_active_sanction,
@@ -319,7 +320,27 @@ async def rooms_list(page: int = 1, limit: int = 20, username: str | None = None
     total = int(await session.scalar(select(func.count(Room.id)).where(*filters)) or 0)
     rows = await session.execute(query.order_by(Room.created_at.desc(), Room.id.desc()).offset(offset).limit(limit))
     rooms = rows.scalars().all()
+    active_ids = [int(room.id) for room in rooms if room.deleted_at is None]
+    live_stats = await fetch_live_room_stats(get_redis(), active_ids)
+
     user_ids = collect_room_user_ids(rooms)
+    for stats in live_stats.values():
+        for k in stats["visitors"].keys():
+            try:
+                user_ids.add(int(k))
+            except Exception:
+                continue
+        for k in stats["spectators"].keys():
+            try:
+                user_ids.add(int(k))
+            except Exception:
+                continue
+        for k in stats["streams"].keys():
+            try:
+                user_ids.add(int(k))
+            except Exception:
+                continue
+
     name_map, avatar_map = await fetch_user_name_avatar_maps(session, user_ids)
     room_ids = [int(room.id) for room in rooms]
     games_map: dict[int, list[tuple[str, datetime, datetime]]] = {}
@@ -338,13 +359,17 @@ async def rooms_list(page: int = 1, limit: int = 20, username: str | None = None
 
     items: list[AdminRoomOut] = []
     for room in rooms:
-        visitors_count = len(room.visitors or {})
-        spectators_count = len(room.spectators_time or {})
-        stream_seconds = sum_room_stream_seconds(room.screen_time)
+        stats = live_stats.get(int(room.id)) if room.deleted_at is None else None
+        visitors_map = stats["visitors"] if stats else (room.visitors or {})
+        spectators_map = stats["spectators"] if stats else (room.spectators_time or {})
+        stream_map = stats["streams"] if stats else (room.screen_time or {})
+        visitors_count = stats["visitors_count"] if stats else len(room.visitors or {})
+        spectators_count = stats["spectators_count"] if stats else len(room.spectators_time or {})
+        stream_seconds = stats["stream_seconds"] if stats else sum_room_stream_seconds(room.screen_time)
         game_params = parse_room_game_params(room.game)
-        visitors_items = build_room_user_stats(room.visitors, name_map)
-        spectators_items = build_room_user_stats(room.spectators_time, name_map)
-        stream_items = build_room_user_stats(room.screen_time, name_map)
+        visitors_items = build_room_user_stats(visitors_map, name_map)
+        spectators_items = build_room_user_stats(spectators_map, name_map)
+        stream_items = build_room_user_stats(stream_map, name_map)
         room_games = games_map.get(int(room.id), [])
         game_items: list[AdminRoomGameOut] = []
         for index, (result, started_at, finished_at) in enumerate(room_games):
@@ -383,7 +408,7 @@ async def rooms_list(page: int = 1, limit: int = 20, username: str | None = None
                 games=game_items,
                 stream_minutes=stream_seconds // 60,
                 streamers=stream_items,
-                has_stream=stream_seconds > 0,
+                has_stream=stats["has_stream"] if stats else (stream_seconds > 0),
             )
         )
 
