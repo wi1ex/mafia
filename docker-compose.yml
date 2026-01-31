@@ -111,6 +111,26 @@ services:
     networks: [edge, internal]
     restart: always
 
+  bot:
+    build: ./bot
+    container_name: bot
+    env_file: .env
+    environment:
+      BACKEND_URL: http://backend:8000/api
+      BOT_API_TOKEN: ${BOT_API_TOKEN}
+      WEBHOOK_HOST: https://${DOMAIN}
+      WEBHOOK_PATH: ${BOT_WEBHOOK_PATH}
+      WEBHOOK_SECRET: ${BOT_WEBHOOK_SECRET}
+      WEBHOOK_PORT: 8081
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:${REDIS_PORT}/1
+    depends_on:
+      - backend
+      - redis
+    expose:
+      - "8081"
+    networks: [edge, internal]
+    restart: always
+
   nginx:
     build:
       context: .

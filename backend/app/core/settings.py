@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     MINIO_BUCKET: str
 
     TG_BOT_TOKEN: str
+    BOT_API_TOKEN: str
 
     JWT_SECRET_KEY: str
     ACCESS_EXP_MIN: int

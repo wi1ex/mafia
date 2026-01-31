@@ -103,7 +103,7 @@ api.interceptors.request.use((cfg: InternalAxiosRequestConfig) => {
   return cfg
 })
 
-const AUTH_PATHS = ['/auth/refresh', '/auth/telegram', '/auth/logout'] as const
+const AUTH_PATHS = ['/auth/refresh', '/auth/login', '/auth/register', '/auth/logout'] as const
 const isAuthEndpoint = (url: string) => AUTH_PATHS.some(p => url.includes(p))
 const isRefreshWorthyStatus = (st?: number) => st === 401 || st === 419 || st === 440
 

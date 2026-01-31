@@ -287,7 +287,10 @@ const gameLimitMin = computed(() => {
   return Number.isFinite(minReady) && minReady > 0 ? minReady + 1 : 11
 })
 const canShowGameMeta = computed(() => {
-  const limit = Number(selectedRoom.value?.user_limit)
+  const room = selectedRoom.value
+  if (!room) return false
+  if (room.in_game) return true
+  const limit = Number(room.user_limit)
   return Number.isFinite(limit) && limit === gameLimitMin.value
 })
 const spectatorsLabel = computed(() => {
@@ -301,11 +304,10 @@ const spectatorsLabel = computed(() => {
 })
 
 function roomStatusLabel(room: Room): string {
+  if (room.in_game) return 'game'
   const limit = Number(room.user_limit)
+  if (Number.isFinite(limit) && limit === gameLimitMin.value) return 'mafia'
   if (limit === 2) return 'duo'
-  if (Number.isFinite(limit) && limit === gameLimitMin.value) {
-    return room.in_game ? 'game' : 'mafia'
-  }
   return 'lobby'
 }
 
@@ -361,6 +363,8 @@ async function onApply() {
     } else if (detail === 'not_private') {
       access.value = 'approved'
       void alertDialog('Комната открыта, можно зайти без заявки')
+    } else if (detail === 'not_verified') {
+      void alertDialog('Пройдите верификацию для доступа к комнатам')
     } else {
       void alertDialog('Ошибка при отправке заявки')
     }

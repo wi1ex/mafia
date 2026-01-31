@@ -3,14 +3,13 @@ import io
 import time
 from PIL import Image, ImageOps
 from datetime import timedelta
-from typing import Optional, Tuple
-from urllib.parse import urlparse
+from typing import Optional
 import structlog
 from minio import Minio
 from minio.error import S3Error
 from minio.deleteobjects import DeleteObject
 from ..core.settings import settings
-from ..core.clients import get_minio_private, get_minio_public, get_httpx
+from ..core.clients import get_minio_private, get_minio_public
 
 log = structlog.get_logger()
 
@@ -67,49 +66,6 @@ def _sniff_ct(buf: bytes) -> Optional[str]:
         return "image/gif"
 
     return None
-
-
-async def download_telegram_photo(url: str) -> Tuple[bytes, str] | None:
-    try:
-        u = urlparse(url)
-        if u.scheme != "https":
-            log.warning("telegram.photo.bad_host", host=u.hostname)
-            return None
-
-        client = get_httpx()
-        async with client.stream("GET", url, follow_redirects=True, headers={"Accept": "image/*", "User-Agent": "Mozilla/5.0"}) as r:
-            r.raise_for_status()
-            cl = r.headers.get("content-length")
-            if cl and cl.isdigit() and int(cl) > MAX_BYTES:
-                log.warning("telegram.photo.too_large.header", size=int(cl), url_host=r.url.host)
-                return None
-
-            ct_from_hdr = (r.headers.get("content-type") or "").split(";")[0].strip().lower() or None
-            chunks: list[bytes] = []
-            total = 0
-            async for chunk in r.aiter_bytes():
-                if not chunk:
-                    break
-
-                total += len(chunk)
-                if total > MAX_BYTES:
-                    log.warning("telegram.photo.too_large.stream", read_bytes=total)
-                    return None
-
-                chunks.append(chunk)
-
-        data = b"".join(chunks)
-        if not data:
-            log.warning("telegram.photo.empty_response", url_host=r.url.host, status=r.status_code)
-            return None
-
-        ct_guess = _sniff_ct(data)
-        ct = ct_from_hdr if (ct_from_hdr in ALLOWED_CT) else (ct_guess or "image/jpeg")
-        return data, ct
-
-    except Exception as e:
-        log.error("telegram.photo.download_failed", err=type(e).__name__)
-        return None
 
 
 def put_avatar(user_id: int, content: bytes, content_type: str | None) -> Optional[str]:

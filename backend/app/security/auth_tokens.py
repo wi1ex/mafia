@@ -1,6 +1,4 @@
 from __future__ import annotations
-import hashlib
-import hmac
 import time
 import jwt
 import structlog
@@ -68,34 +66,6 @@ def create_access_token(*, sub: int, username: str, role: str, sid: str, ttl_min
 
 def create_refresh_token(*, sub: int, sid: str, jti: str, ttl_days: int) -> str:
     return _encode("refresh", sub=sub, exp_s=ttl_days * 86400, extra={"sid": sid, "jti": jti})
-
-
-def verify_telegram_auth(data: Dict[str, Any]) -> bool:
-    h = data.get("hash")
-    ad = data.get("auth_date")
-
-    if not h or not ad:
-        log.warning("tg.verify.missing_fields", user_id=data.get("id"), username=data.get("username"))
-        return False
-
-    try:
-        if int(time.time()) - int(ad) > 12*3600:
-            log.warning("tg.verify.expired", user_id=data.get("id"), username=data.get("username"))
-            return False
-
-    except Exception:
-        log.warning("tg.verify.bad_auth_date", auth_date=ad, user_id=data.get("id"), username=data.get("username"))
-        return False
-
-    secret = hashlib.sha256(settings.TG_BOT_TOKEN.encode()).digest()
-    check = "\n".join(f"{k}={data[k]}" for k in sorted(k for k in data.keys() if k != "hash")).encode()
-    calc = hmac.new(secret, check, hashlib.sha256).hexdigest()
-
-    if not hmac.compare_digest(calc, h):
-        log.warning("tg.verify.bad_hash", user_id=data.get("id"), username=data.get("username"))
-        return False
-
-    return True
 
 
 async def get_identity(creds: HTTPAuthorizationCredentials = Depends(HTTPBearer(auto_error=False))) -> Identity:

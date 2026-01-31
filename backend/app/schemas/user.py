@@ -18,6 +18,8 @@ class UserOut(BaseModel):
     username: Optional[str] = None
     avatar_name: Optional[str] = None
     role: str
+    telegram_verified: bool = False
+    password_temp: bool = False
     hotkeys_visible: bool = True
     install_hidden: bool = False
     timeout_until: Optional[datetime] = None
@@ -63,3 +65,8 @@ class UserUiPrefsIn(BaseModel):
 class UserUiPrefsOut(BaseModel):
     hotkeys_visible: bool
     install_hidden: bool
+
+
+class PasswordChangeIn(BaseModel):
+    current_password: str = Field(min_length=6, max_length=64)
+    new_password: str = Field(min_length=6, max_length=64)

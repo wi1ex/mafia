@@ -7,6 +7,8 @@ export interface UserProfile {
   username?: string
   avatar_name?: string | null
   role: string
+  telegram_verified?: boolean
+  password_temp?: boolean
   hotkeys_visible?: boolean
   install_hidden?: boolean
   timeout_until?: string | null
@@ -85,7 +87,9 @@ export const useUserStore = defineStore('user', () => {
   const timeoutActive = computed(() => timeoutRemainingMs.value > 0)
   const suspendActive = computed(() => suspendRemainingMs.value > 0)
   const banActive = computed(() => Boolean(user.value?.ban_active))
-  const roomRestricted = computed(() => banActive.value || timeoutActive.value)
+  const telegramVerified = computed(() => Boolean(user.value?.telegram_verified))
+  const passwordTemp = computed(() => Boolean(user.value?.password_temp))
+  const roomRestricted = computed(() => banActive.value || timeoutActive.value || (Boolean(user.value) && !telegramVerified.value))
   const hotkeysVisible = computed(() => user.value?.hotkeys_visible ?? true)
   const installHidden = computed(() => user.value?.install_hidden ?? false)
 
@@ -119,6 +123,8 @@ export const useUserStore = defineStore('user', () => {
     timeoutActive,
     suspendActive,
     banActive,
+    telegramVerified,
+    passwordTemp,
     roomRestricted,
     hotkeysVisible,
     installHidden,
