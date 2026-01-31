@@ -33,7 +33,9 @@ from ...schemas.user import (
     UserSanctionOut,
     UserUiPrefsIn,
     UserUiPrefsOut,
+    PasswordChangeIn,
 )
+from ...security.passwords import hash_password, verify_password
 from ...services.minio import put_avatar, delete_avatars, ALLOWED_CT, MAX_BYTES
 
 router = APIRouter()
@@ -58,6 +60,8 @@ async def profile_info(ident: Identity = Depends(get_identity), db: AsyncSession
         username=user.username,
         avatar_name=user.avatar_name,
         role=user.role,
+        telegram_verified=bool(user.telegram_id),
+        password_temp=bool(user.password_temp),
         hotkeys_visible=bool(user.hotkeys_visible),
         install_hidden=bool(user.install_hidden),
         timeout_until=timeout.expires_at if timeout else None,
@@ -104,15 +108,9 @@ async def update_username(payload: UsernameUpdateIn, ident: Identity = Depends(g
     uid = int(ident["id"])
     raw = (payload.username or "")
     new = unicodedata.normalize("NFKC", raw).strip()
-    if any(ord(ch) < 32 or ch == "\x7f" for ch in new):
-        raise HTTPException(status_code=422, detail="invalid_username_format")
-
     USERNAME_RE = re.compile(r"^[a-zA-Zа-яА-Я0-9._\-()]{2,20}$")
     if not USERNAME_RE.match(new):
         raise HTTPException(status_code=422, detail="invalid_username_format")
-
-    if new.lower().startswith("user"):
-        raise HTTPException(status_code=422, detail="reserved_prefix")
 
     user = await db.get(User, uid)
     if not user:
@@ -165,6 +163,40 @@ async def update_ui_prefs(payload: UserUiPrefsIn, ident: Identity = Depends(get_
     )
 
 
+@log_route("users.change_password")
+@rate_limited(lambda ident, **_: f"rl:change_password:{ident['id']}", limit=5, window_s=10)
+@router.patch("/password", response_model=Ok)
+async def change_password(payload: PasswordChangeIn, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> Ok:
+    uid = int(ident["id"])
+    user = await db.get(User, uid)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
+
+    if user.deleted_at:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="user_deleted")
+
+    if user.password_hash is None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="password_not_set")
+
+    password_hash = str(user.password_hash)
+    if not verify_password(payload.current_password, password_hash):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid_credentials")
+
+    user.password_hash = hash_password(payload.new_password)
+    user.password_temp = False
+    await db.commit()
+
+    await log_action(
+        db,
+        user_id=uid,
+        username=ident["username"],
+        action="password_changed",
+        details=f"Смена пароля user_id={uid} username={ident['username']}",
+    )
+
+    return Ok()
+
+
 @log_route("users.upload_avatar")
 @rate_limited(lambda ident, **_: f"rl:upload_avatar:{ident['id']}", limit=1, window_s=1)
 @router.post("/avatar", response_model=AvatarUploadOut)
@@ -211,6 +243,7 @@ async def delete_avatar(ident: Identity = Depends(get_identity), db: AsyncSessio
     await ensure_profile_changes_allowed(db, uid)
     await db.execute(update(User).where(User.id == uid).values(avatar_name=None))
     await db.commit()
+
     with suppress(Exception):
         delete_avatars(uid)
 
@@ -232,6 +265,7 @@ async def delete_avatar(ident: Identity = Depends(get_identity), db: AsyncSessio
 async def delete_account(resp: Response, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> Ok:
     uid = int(ident["id"])
     await set_user_deleted(db, uid, deleted=True)
+
     await log_action(
         db,
         user_id=uid,
@@ -239,6 +273,7 @@ async def delete_account(resp: Response, ident: Identity = Depends(get_identity)
         action="account_deleted",
         details=f"Удаление аккаунта user_id={uid} username={ident['username']}",
     )
+
     await force_logout_user(uid)
     resp.delete_cookie("rt", path="/api", domain=settings.DOMAIN, samesite="strict", secure=True)
     return Ok()

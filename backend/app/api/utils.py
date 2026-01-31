@@ -203,9 +203,6 @@ def format_duration_parts(months: int, days: int, hours: int, minutes: int) -> s
 
 def normalize_username(raw: str) -> str:
     out = unicodedata.normalize("NFKC", raw or "").strip()
-    if any(ord(ch) < 32 or ch == "\x7f" for ch in out):
-        raise HTTPException(status_code=422, detail="invalid_username_format")
-
     if not BOT_USERNAME_RE.match(out):
         raise HTTPException(status_code=422, detail="invalid_username_format")
 
