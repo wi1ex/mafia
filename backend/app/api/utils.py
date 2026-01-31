@@ -60,6 +60,7 @@ __all__ = [
     "parse_room_game_params",
     "build_room_user_stats",
     "sum_room_stream_seconds",
+    "fetch_live_room_stats",
     "aggregate_user_room_stats",
     "compute_duration_seconds",
     "is_sanction_active",
@@ -855,6 +856,119 @@ def sum_room_stream_seconds(screen_time: dict | None) -> int:
                 continue
 
     return total
+
+
+def _map_seconds(raw: Any) -> dict[str, int]:
+    out: dict[str, int] = {}
+    if not isinstance(raw, dict):
+        return out
+    for k, v in raw.items():
+        try:
+            out[str(k)] = int(v)
+        except Exception:
+            continue
+    return out
+
+
+async def fetch_live_room_stats(r, room_ids: list[int]) -> dict[int, dict[str, Any]]:
+    if not room_ids:
+        return {}
+
+    now_ts = int(time())
+    async with r.pipeline() as p:
+        for rid in room_ids:
+            await p.hgetall(f"room:{rid}:visitors")
+            await p.smembers(f"room:{rid}:members")
+            await p.hgetall(f"room:{rid}:spectators_time")
+            await p.hgetall(f"room:{rid}:spectators_join")
+            await p.hgetall(f"room:{rid}:screen_time")
+            await p.get(f"room:{rid}:screen_owner")
+            await p.get(f"room:{rid}:screen_started_at")
+        raw = await p.execute()
+
+    room_chunks: dict[int, dict[str, Any]] = {}
+    join_reqs: list[tuple[int, str]] = []
+    step = 7
+    for idx, rid in enumerate(room_ids):
+        base = idx * step
+        visitors_raw = raw[base]
+        members_raw = raw[base + 1]
+        spectators_raw = raw[base + 2]
+        spectators_join_raw = raw[base + 3]
+        screen_raw = raw[base + 4]
+        screen_owner_raw = raw[base + 5]
+        screen_started_raw = raw[base + 6]
+
+        members = set(members_raw or [])
+        for uid in members:
+            join_reqs.append((rid, str(uid)))
+
+        room_chunks[rid] = {
+            "visitors": _map_seconds(visitors_raw),
+            "members": members,
+            "spectators": _map_seconds(spectators_raw),
+            "spectators_join": _map_seconds(spectators_join_raw),
+            "streams": _map_seconds(screen_raw),
+            "screen_owner": _parse_int(screen_owner_raw),
+            "screen_started_at": _parse_int(screen_started_raw),
+        }
+
+    if join_reqs:
+        async with r.pipeline() as p:
+            for rid, uid in join_reqs:
+                await p.hget(f"room:{rid}:user:{uid}:info", "join_date")
+            join_vals = await p.execute()
+        for i, (rid, uid) in enumerate(join_reqs):
+            join_ts = _parse_int(join_vals[i])
+            visitors_map: dict[str, int] = room_chunks[rid]["visitors"]
+            if join_ts > 0:
+                dt = now_ts - join_ts
+                if dt > 0:
+                    visitors_map[uid] = visitors_map.get(uid, 0) + dt
+                else:
+                    visitors_map.setdefault(uid, 0)
+            else:
+                visitors_map.setdefault(uid, 0)
+
+    out: dict[int, dict[str, Any]] = {}
+    for rid, chunk in room_chunks.items():
+        spectators_map: dict[str, int] = chunk["spectators"]
+        for uid, join_ts in chunk["spectators_join"].items():
+            if join_ts > 0:
+                dt = now_ts - int(join_ts)
+                if dt > 0:
+                    spectators_map[uid] = spectators_map.get(uid, 0) + dt
+                else:
+                    spectators_map.setdefault(uid, 0)
+            else:
+                spectators_map.setdefault(uid, 0)
+
+        stream_map: dict[str, int] = chunk["streams"]
+        screen_owner = int(chunk["screen_owner"])
+        screen_started_at = int(chunk["screen_started_at"])
+        if screen_owner > 0:
+            owner_key = str(screen_owner)
+            if screen_started_at > 0:
+                dt = now_ts - screen_started_at
+                if dt > 0:
+                    stream_map[owner_key] = stream_map.get(owner_key, 0) + dt
+                else:
+                    stream_map.setdefault(owner_key, 0)
+            else:
+                stream_map.setdefault(owner_key, 0)
+
+        stream_seconds = sum(int(v or 0) for v in stream_map.values())
+        out[rid] = {
+            "visitors": chunk["visitors"],
+            "spectators": spectators_map,
+            "streams": stream_map,
+            "visitors_count": len(chunk["visitors"]),
+            "spectators_count": len(spectators_map),
+            "stream_seconds": stream_seconds,
+            "has_stream": bool(stream_map) or screen_owner > 0,
+        }
+
+    return out
 
 
 async def aggregate_user_room_stats(session: AsyncSession, ids: list[int]) -> tuple[dict[int, int], dict[int, int], dict[int, int], dict[int, int], dict[int, int], dict[int, int]]:
