@@ -1,5 +1,6 @@
 from __future__ import annotations
 import re
+import unicodedata
 import asyncio
 import calendar
 from contextlib import suppress
@@ -7,7 +8,7 @@ import structlog
 from time import time
 from datetime import date, datetime, timezone, timedelta
 from typing import Optional, Dict, Any, Literal, Sequence, Iterable, cast
-from fastapi import HTTPException, status
+from fastapi import HTTPException, status, Header
 from sqlalchemy import update, func, select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.clients import get_redis
@@ -75,6 +76,8 @@ __all__ = [
     "force_logout_user",
     "check_sanctions_expired",
     "format_duration_parts",
+    "normalize_username",
+    "require_bot_token",
 ]
 
 log = structlog.get_logger()
@@ -82,6 +85,7 @@ log = structlog.get_logger()
 PRESIGN_ALLOWED_PREFIXES: tuple[str, ...] = ("avatars/",)
 PRESIGN_KEY_RE = re.compile(r"^[a-zA-Z0-9._/-]{3,256}$")
 STREAM_LOG_RE = re.compile(r"room_id=(\d+)\s+target_user=(\d+)")
+BOT_USERNAME_RE = re.compile(r"^[a-zA-Z\u0410-\u042F\u0430-\u044F0-9._\-()]{2,20}$")
 
 SANCTION_TIMEOUT = "timeout"
 SANCTION_BAN = "ban"
@@ -195,6 +199,23 @@ def format_duration_parts(months: int, days: int, hours: int, minutes: int) -> s
         parts.append(f"{minutes} \u043c\u0438\u043d")
 
     return " ".join(parts)
+
+
+def normalize_username(raw: str) -> str:
+    out = unicodedata.normalize("NFKC", raw or "").strip()
+    if any(ord(ch) < 32 or ch == "\x7f" for ch in out):
+        raise HTTPException(status_code=422, detail="invalid_username_format")
+
+    if not BOT_USERNAME_RE.match(out):
+        raise HTTPException(status_code=422, detail="invalid_username_format")
+
+    return out
+
+
+def require_bot_token(x_bot_token: str = Header(default="")) -> None:
+    secret = settings.BOT_API_TOKEN or settings.TG_BOT_TOKEN
+    if not x_bot_token or x_bot_token != secret:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="bot_forbidden")
 
 
 async def emit_sanctions_update(session: AsyncSession, user_id: int) -> None:
