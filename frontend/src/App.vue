@@ -15,6 +15,7 @@ import { useAuthStore } from '@/store'
 import { useUserStore } from '@/store'
 import { useNotifStore } from '@/store'
 import { useSettingsStore } from '@/store'
+import { alertDialog } from '@/services/confirm'
 import Header from '@/components/Header.vue'
 import Toast from '@/components/Toasts.vue'
 import Confirms from '@/components/Confirms.vue'
@@ -26,6 +27,7 @@ const user = useUserStore()
 const settings = useSettingsStore()
 
 let onSanctionsUpdate: ((e: any) => void) | null = null
+let onTelegramVerified: ((e: any) => void) | null = null
 
 const isRoom = computed(() => route.name === 'room')
 
@@ -58,10 +60,27 @@ onMounted(async () => {
     })
   }
   window.addEventListener('auth-sanctions_update', onSanctionsUpdate)
+  onTelegramVerified = () => {
+    if (!auth.isAuthed) return
+    const wasVerified = user.telegramVerified
+    user.fetchMe().catch(() => {})
+    if (!wasVerified) void alertDialog('Аккаунт успешно верифицирован.')
+    const onProfile = route.name === 'profile'
+    const tab = typeof route.query?.tab === 'string' ? route.query.tab : ''
+    if (!onProfile) {
+      router.push({ name: 'profile', query: { tab: 'profile' } }).catch(() => {})
+      return
+    }
+    if (tab !== 'profile') {
+      router.replace({ query: { ...route.query, tab: 'profile' } }).catch(() => {})
+    }
+  }
+  window.addEventListener('auth-telegram_verified', onTelegramVerified)
 })
 
 onBeforeUnmount(() => {
   if (onSanctionsUpdate) window.removeEventListener('auth-sanctions_update', onSanctionsUpdate)
+  if (onTelegramVerified) window.removeEventListener('auth-telegram_verified', onTelegramVerified)
 })
 </script>
 

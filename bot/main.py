@@ -10,7 +10,7 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.redis import RedisStorage
-from aiogram.types import KeyboardButton, ReplyKeyboardMarkup
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup
 from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
 
 logging.basicConfig(level=logging.INFO)
@@ -42,7 +42,7 @@ class VerifyState(StatesGroup):
 
 
 class ResetState(StatesGroup):
-    login = State()
+    confirm = State()
 
 
 router = Router()
@@ -68,6 +68,15 @@ def keyboard_reset_only() -> ReplyKeyboardMarkup:
         keyboard=[[KeyboardButton(text="Восстановить пароль")]],
         resize_keyboard=True,
         one_time_keyboard=False,
+    )
+
+
+def reset_confirm_buttons() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[[
+            InlineKeyboardButton(text="Подтвердить", callback_data="reset_confirm"),
+            InlineKeyboardButton(text="Отмена", callback_data="reset_cancel"),
+        ]]
     )
 
 
@@ -151,8 +160,13 @@ async def start_cmd(message: types.Message, session: aiohttp.ClientSession) -> N
 
 @router.message(Command("cancel"))
 async def cancel_cmd(message: types.Message, state: FSMContext) -> None:
+    await do_cancel(state, message)
+
+
+async def do_cancel(state: FSMContext, message: types.Message | None) -> None:
     await state.clear()
-    await message.answer("Действие отменено.")
+    if message:
+        await message.answer("Действие отменено.")
 
 
 @router.message(Command("verify"))
@@ -223,30 +237,42 @@ async def reset_start(message: types.Message, state: FSMContext, session: aiohtt
         return
 
     await state.clear()
-    await state.set_state(ResetState.login)
-    await message.answer("Введите логин:")
+    await state.set_state(ResetState.confirm)
+    await message.answer(
+        "Вы уверены, что хотите восстановить пароль?\n"
+        "Это действие удалит старый пароль и создаст временный.",
+        reply_markup=reset_confirm_buttons(),
+    )
 
 
-@router.message(ResetState.login, F.text)
-async def reset_login(message: types.Message, state: FSMContext, session: aiohttp.ClientSession) -> None:
-    username = message.text.strip()
-    tg_id = message.from_user.id if message.from_user else 0
+@router.callback_query(F.data == "reset_confirm")
+async def reset_confirm(callback: types.CallbackQuery, state: FSMContext, session: aiohttp.ClientSession) -> None:
+    await callback.answer()
+    tg_id = callback.from_user.id if callback.from_user else 0
     status_code, payload = await backend_request(
         session,
         "/bot/reset_password",
-        {"username": username, "telegram_id": tg_id},
+        {"telegram_id": tg_id},
     )
     if status_code == 200:
         temp = (payload or {}).get("temp_password")
         await state.clear()
-        await message.answer(
-            f"Временный пароль: {temp}\nПосле входа обязательно измените пароль в профиле.",
-            reply_markup=keyboard_reset_only(),
-        )
+        if message := callback.message:
+            await message.edit_text(
+                f"Временный пароль: {temp}\nПосле входа обязательно измените пароль в профиле."
+            )
+            await message.answer("Доступные действия:", reply_markup=keyboard_reset_only())
         return
 
     detail = (payload or {}).get("detail")
-    await message.answer(map_reset_error(detail, status_code), reply_markup=keyboard_reset_only())
+    if message := callback.message:
+        await message.edit_text(map_reset_error(detail, status_code))
+
+
+@router.callback_query(F.data == "reset_cancel")
+async def reset_cancel(callback: types.CallbackQuery, state: FSMContext) -> None:
+    await callback.answer()
+    await do_cancel(state, callback.message)
 
 
 async def on_startup(app: web.Application) -> None:

@@ -28,7 +28,6 @@ class BotVerifyIn(BaseModel):
 
 
 class BotResetIn(BaseModel):
-    username: UsernameClean = Field(min_length=2, max_length=20)
     telegram_id: int
 
 

@@ -9,6 +9,7 @@ from ...schemas.common import Ok
 from ...schemas.auth import BotVerifyIn, BotResetIn, TempPasswordOut, BotStatusIn, BotStatusOut
 from ...security.passwords import verify_password, hash_password, make_temp_password
 from ..utils import normalize_username, require_bot_token, find_user_by_username
+from ...realtime.sio import sio
 
 router = APIRouter()
 
@@ -50,27 +51,25 @@ async def verify(payload: BotVerifyIn, db: AsyncSession = Depends(get_session), 
         details=f"Привязка Telegram: user_id={int(user.id)} tg_id={int(payload.telegram_id)}",
     )
 
+    try:
+        await sio.emit("telegram_verified", {"user_id": int(user.id)}, room=f"user:{int(user.id)}", namespace="/auth")
+    except Exception:
+        pass
+
     return Ok()
 
 
 @router.post("/reset_password", response_model=TempPasswordOut)
 async def reset_password(payload: BotResetIn, db: AsyncSession = Depends(get_session), _: None = Depends(require_bot_token)) -> TempPasswordOut:
-    username = normalize_username(payload.username)
     if payload.telegram_id <= 0:
         raise HTTPException(status_code=422, detail="invalid_telegram_id")
 
-    user = await find_user_by_username(db, username)
+    user = await db.scalar(select(User).where(User.telegram_id == int(payload.telegram_id)))
     if not user:
-        raise HTTPException(status_code=404, detail="user_not_found")
+        raise HTTPException(status_code=403, detail="not_verified")
 
     if user.deleted_at:
         raise HTTPException(status_code=403, detail="user_deleted")
-
-    if not user.telegram_id:
-        raise HTTPException(status_code=403, detail="not_verified")
-
-    if int(user.telegram_id) != int(payload.telegram_id):
-        raise HTTPException(status_code=403, detail="telegram_mismatch")
 
     temp_password = make_temp_password()
     user.password_hash = hash_password(temp_password)
