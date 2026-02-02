@@ -81,6 +81,9 @@
     <span>Доступ к комнатам ограничен — требуется верификация.</span>
     <router-link :to="{ name: 'profile', query: { tab: 'profile' } }">Как пройти верификацию?</router-link>
   </div>
+  <div v-if="registrationInfoBanner" class="sanction-banner sanction-banner--info">
+    <span>Изменён способ регистрации/авторизации. Если у вас уже есть аккаунт, используйте кнопку "Восстановить пароль"</span>
+  </div>
   <AppModal v-model:open="installOpen" @hide-install="onHideInstall" />
   <AuthModal v-model:open="authOpen" :mode="authMode" />
 </template>
@@ -153,6 +156,7 @@ const sanctionBanner = computed<SanctionBanner | null>(() => {
 })
 
 const verificationBanner = computed(() => auth.isAuthed && !user.telegramVerified)
+const registrationInfoBanner = computed(() => !auth.isAuthed && !auth.foreignActive)
 
 function onToggleNotifs() {
   updates_open.value = false
@@ -396,6 +400,10 @@ function openAuth(mode: 'login' | 'register') {
     background-color: $yellow;
   }
   &.sanction-banner--verify {
+    background-color: $graphite;
+    color: $fg;
+  }
+  &.sanction-banner--info {
     background-color: $graphite;
     color: $fg;
   }
