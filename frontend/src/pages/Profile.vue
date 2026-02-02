@@ -3,6 +3,9 @@
     <header>
       <nav class="tabs" aria-label="Личный кабинет" role="tablist">
         <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'profile' }" :aria-selected="activeTab === 'profile'" @click="activeTab = 'profile'">
+          Профиль
+        </button>
+        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'account' }" :aria-selected="activeTab === 'account'" @click="activeTab = 'account'">
           Аккаунт
         </button>
         <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'sanctions' }" :aria-selected="activeTab === 'sanctions'" @click="activeTab = 'sanctions'">
@@ -82,6 +85,25 @@
             />
           </div>
 
+          <div v-if="crop.show" ref="modalEl" class="modal" @keydown.esc="cancelCrop" tabindex="0" aria-modal="true" aria-label="Кадрирование аватара" >
+            <div class="modal-body">
+              <canvas ref="canvasEl" @mousedown="dragStart" @mousemove="dragMove" @mouseup="dragStop" @mouseleave="dragStop" @wheel.passive="onWheel" />
+              <div class="range">
+                <span>Масштаб</span>
+                <div class="range-wrap">
+                  <div class="range-track" :style="cropRangeFillStyle" aria-hidden="true"></div>
+                  <input class="range-native" type="range" aria-label="Масштаб" :min="crop.min" :max="crop.max" step="0.01" :value="crop.scale" @input="onRange" :disabled="isBanned" />
+                </div>
+              </div>
+              <div class="modal-actions">
+                <button class="btn danger" @click="cancelCrop">Отменить</button>
+                <button class="btn confirm" @click="applyCrop" :disabled="busyAva || isBanned">Загрузить</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div v-else-if="activeTab === 'account'" class="grid">
           <div v-if="telegramVerified" class="block">
             <h3>Пароль</h3>
             <p v-if="passwordTemp" class="hint warn">У вас временный пароль — рекомендуем изменить его</p>
@@ -126,23 +148,6 @@
                 {{ deleteBusy ? '...' : 'Удалить аккаунт' }}
               </button>
               <p class="danger-text">Удаление произойдет навсегда без возможности восстановления</p>
-            </div>
-          </div>
-
-          <div v-if="crop.show" ref="modalEl" class="modal" @keydown.esc="cancelCrop" tabindex="0" aria-modal="true" aria-label="Кадрирование аватара" >
-            <div class="modal-body">
-              <canvas ref="canvasEl" @mousedown="dragStart" @mousemove="dragMove" @mouseup="dragStop" @mouseleave="dragStop" @wheel.passive="onWheel" />
-              <div class="range">
-                <span>Масштаб</span>
-                <div class="range-wrap">
-                  <div class="range-track" :style="cropRangeFillStyle" aria-hidden="true"></div>
-                  <input class="range-native" type="range" aria-label="Масштаб" :min="crop.min" :max="crop.max" step="0.01" :value="crop.scale" @input="onRange" :disabled="isBanned" />
-                </div>
-              </div>
-              <div class="modal-actions">
-                <button class="btn danger" @click="cancelCrop">Отменить</button>
-                <button class="btn confirm" @click="applyCrop" :disabled="busyAva || isBanned">Загрузить</button>
-              </div>
             </div>
           </div>
         </div>
@@ -246,7 +251,7 @@ const nickUnderlineStyle = computed(() => ({ width: `${nickPct.value}%` }))
 const route = useRoute()
 const router = useRouter()
 
-const TAB_KEYS = ['profile', 'stats', 'sanctions'] as const
+const TAB_KEYS = ['profile', 'account', 'stats', 'sanctions'] as const
 type TabKey = typeof TAB_KEYS[number]
 
 function normalizeTab(v: unknown): TabKey {
@@ -719,7 +724,7 @@ watch(activeTab, (tab) => {
     void loadSanctions(true)
     return
   }
-  if (tab === 'profile') void loadMe({ keepNickDraft: true })
+  if (tab === 'profile' || tab === 'account') void loadMe({ keepNickDraft: true })
 })
 
 onMounted(() => {

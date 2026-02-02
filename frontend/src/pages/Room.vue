@@ -1275,7 +1275,7 @@ async function ensureGameParticipationAllowed(): Promise<boolean> {
       confirmText: 'Пройти верификацию',
       cancelText: 'Позже',
     })
-    if (ok) await router.push({ name: 'profile', query: { tab: 'profile' } })
+    if (ok) await router.push({ name: 'profile', query: { tab: 'account' } })
     return false
   }
   return true

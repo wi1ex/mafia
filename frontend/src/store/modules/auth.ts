@@ -150,7 +150,7 @@ export const useAuthStore = defineStore('auth', () => {
       await userStore.fetchMe()
       if (userStore.passwordTemp) {
         const { default: router } = await import('@/router')
-        router.push({ name: 'profile' }).catch(() => {})
+        router.push({ name: 'profile', query: { tab: 'account' } }).catch(() => {})
       }
     } catch (e: any) {
       const st = e?.response?.status
@@ -175,7 +175,7 @@ export const useAuthStore = defineStore('auth', () => {
       const { useUserStore } = await import('@/store')
       await useUserStore().fetchMe()
       const { default: router } = await import('@/router')
-      router.push({ name: 'profile' }).catch(() => {})
+      router.push({ name: 'profile', query: { tab: 'account' } }).catch(() => {})
     } catch (e: any) {
       const st = e?.response?.status
       const detail = e?.response?.data?.detail

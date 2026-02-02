@@ -79,7 +79,7 @@
   </div>
   <div v-if="verificationBanner" class="sanction-banner sanction-banner--verify">
     <span>Для участия в играх требуется верификация.</span>
-    <router-link :to="{ name: 'profile', query: { tab: 'profile' } }">Как пройти верификацию?</router-link>
+    <router-link :to="{ name: 'profile', query: { tab: 'account' } }">Как пройти верификацию?</router-link>
   </div>
   <div v-if="registrationInfoBanner" class="sanction-banner sanction-banner--info">
     <span>Изменён способ регистрации/авторизации. Если у вас уже есть аккаунт, используйте кнопку "Восстановить пароль" в блоке авторизации</span>
