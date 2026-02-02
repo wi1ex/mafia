@@ -34,6 +34,7 @@ from ..utils import (
     set_ready,
     get_positions_map,
     smembers_ints,
+    hkeys_ints,
     hgetall_int_map,
     game_flag,
     persist_join_user_info,
@@ -266,15 +267,15 @@ async def join(sid, data) -> JoinAck:
         blocked = await get_blocks_snapshot(r, rid)
         roles = await get_roles_snapshot(r, rid)
 
-        extra_profile_ids: list[str] = []
+        extra_profile_ids: list[int] = []
         if phase != "idle":
             try:
-                extra_profile_ids = list(await r.hkeys(f"room:{rid}:game_seats") or [])
+                extra_profile_ids = list(await hkeys_ints(r, f"room:{rid}:game_seats"))
             except Exception:
                 extra_profile_ids = []
             if not extra_profile_ids:
                 try:
-                    extra_profile_ids = list(await r.smembers(f"room:{rid}:game_players") or [])
+                    extra_profile_ids = list(await smembers_ints(r, f"room:{rid}:game_players"))
                 except Exception:
                     extra_profile_ids = []
         profiles = await get_profiles_snapshot(r, rid, extra_ids=extra_profile_ids)

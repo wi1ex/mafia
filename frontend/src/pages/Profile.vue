@@ -51,12 +51,12 @@
                   <span id="profile-nick-hint">{{ nick.length }}/{{ NICK_MAX }}</span>
                 </div>
               </div>
+              <span class="hint"><code>латиница, кириллица, цифры, символы ()._-</code></span>
               <button class="btn confirm" @click="saveNick" :disabled="busyNick || isBanned || nick === me.username || !validNick">
                 <img class="btn-img" :src="iconSave" alt="save" />
                 {{ busyNick ? '...' : 'Сохранить' }}
               </button>
             </div>
-            <span class="hint"><code>латиница, кириллица, цифры, символы ()._-</code></span>
           </div>
 
           <div class="block">
@@ -106,8 +106,8 @@
               </button>
             </div>
             <p class="hint">
-              Если забыли пароль, восстановите его в Telegram
-              <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">@{{ botName }}</a>
+              Если забыли пароль, восстановите его в
+              <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">Telegram</a>
             </p>
           </div>
 
@@ -854,6 +854,7 @@ onBeforeUnmount(() => {
         }
         .nick-row {
           display: flex;
+          flex-direction: column;
           align-items: flex-start;
           margin-bottom: 5px;
           gap: 10px;
@@ -947,6 +948,7 @@ onBeforeUnmount(() => {
         .password-row {
           display: flex;
           flex-direction: column;
+          align-items: flex-start;
           gap: 10px;
           .ui-input {
             max-width: 320px;

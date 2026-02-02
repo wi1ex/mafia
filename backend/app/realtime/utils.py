@@ -113,6 +113,9 @@ __all__ = [
     "perform_game_end",
     "finish_game",
     "record_spectator_leave",
+    "smembers_ints",
+    "hkeys_ints",
+    "hgetall_int_map",
 ]
 
 log = structlog.get_logger()
@@ -1265,14 +1268,9 @@ async def init_roles_deck(r, rid: int) -> None:
 
 
 async def get_players_in_seat_order(r, rid: int) -> list[int]:
-    raw_seats = await r.hgetall(f"room:{rid}:game_seats")
+    raw_seats = await hgetall_int_map(r, f"room:{rid}:game_seats")
     players: list[tuple[int, int]] = []
-    for uid_s, seat_s in (raw_seats or {}).items():
-        try:
-            uid = int(uid_s)
-            seat = int(seat_s)
-        except Exception:
-            continue
+    for uid, seat in (raw_seats or {}).items():
         if seat and seat != 11:
             players.append((seat, uid))
     players.sort(key=lambda x: x[0])
@@ -1730,18 +1728,13 @@ async def recompute_day_opening_and_closing_from_state(r, rid: int, raw_gstate: 
 
 async def get_active_fouls(r, rid: int) -> dict[int, int]:
     try:
-        raw = await r.hgetall(f"room:{rid}:foul_active")
+        raw = await hgetall_int_map(r, f"room:{rid}:foul_active")
     except Exception:
         return {}
 
     now_ts = int(time())
     active: dict[int, int] = {}
-    for uid_s, until_s in (raw or {}).items():
-        try:
-            uid = int(uid_s)
-            until_ts = int(until_s or 0)
-        except Exception:
-            continue
+    for uid, until_ts in (raw or {}).items():
         if until_ts > now_ts:
             active[uid] = until_ts - now_ts
 
@@ -1749,14 +1742,7 @@ async def get_active_fouls(r, rid: int) -> dict[int, int]:
 
 
 async def get_player_ids(r, rid: int) -> list[int]:
-    players_raw = await r.smembers(f"room:{rid}:game_players")
-    player_ids: list[int] = []
-    for v in (players_raw or []):
-        try:
-            player_ids.append(int(v))
-        except Exception:
-            continue
-    return player_ids
+    return list(await smembers_ints(r, f"room:{rid}:game_players"))
 
 
 def build_night_reset_mapping(*, include_vote_meta: bool) -> dict[str, str]:
@@ -1986,19 +1972,15 @@ async def finish_day_speech(r, rid: int, raw_gstate: Mapping[str, Any], speaker_
 
 async def get_game_fouls(r, rid: int) -> dict[str, int]:
     try:
-        raw = await r.hgetall(f"room:{rid}:game_fouls")
+        raw = await hgetall_int_map(r, f"room:{rid}:game_fouls")
     except Exception:
         log.exception("game_fouls.load_failed", rid=rid)
         return {}
 
     fouls: dict[str, int] = {}
-    for uid_s, cnt_s in (raw or {}).items():
-        try:
-            cnt = int(cnt_s or 0)
-        except Exception:
-            continue
+    for uid, cnt in (raw or {}).items():
         if cnt > 0:
-            fouls[str(uid_s)] = cnt
+            fouls[str(uid)] = cnt
 
     return fouls
 
@@ -2073,20 +2055,14 @@ async def get_farewell_wills_for(r, rid: int, speaker_uid: int) -> dict[str, str
 
 async def get_farewell_limits(r, rid: int) -> dict[str, int]:
     try:
-        raw = await r.hgetall(f"room:{rid}:game_farewell_limits")
+        raw = await hgetall_int_map(r, f"room:{rid}:game_farewell_limits")
     except Exception:
         log.exception("farewell_limits.load_failed", rid=rid)
         return {}
 
     out: dict[str, int] = {}
-    for uid_s, lim_s in (raw or {}).items():
-        if not uid_s:
-            continue
-        try:
-            lim = int(lim_s or 0)
-        except Exception:
-            continue
-        out[str(uid_s)] = lim if lim > 0 else 0
+    for uid, lim in (raw or {}).items():
+        out[str(uid)] = lim if lim > 0 else 0
 
     return out
 
@@ -2951,15 +2927,10 @@ async def process_player_death(r, rid: int, user_id: int, *, head_uid: int | Non
             votes = await get_last_votes_snapshot(r, rid)
             if not votes:
                 try:
-                    raw_votes = await r.hgetall(f"room:{rid}:game_votes")
+                    raw_votes = await hgetall_int_map(r, f"room:{rid}:game_votes")
                 except Exception:
                     raw_votes = {}
-                for voter_s, target_s in (raw_votes or {}).items():
-                    try:
-                        voter_i = int(voter_s)
-                        target_i = int(target_s or 0)
-                    except Exception:
-                        continue
+                for voter_i, target_i in (raw_votes or {}).items():
                     if voter_i > 0:
                         votes[voter_i] = target_i
             for voter_i, target_i in (votes or {}).items():
@@ -2970,15 +2941,10 @@ async def process_player_death(r, rid: int, user_id: int, *, head_uid: int | Non
         elif reason == "night":
             shooters: list[int] = []
             try:
-                raw_shots = await r.hgetall(f"room:{rid}:night_shots")
+                raw_shots = await hgetall_int_map(r, f"room:{rid}:night_shots")
             except Exception:
                 raw_shots = {}
-            for shooter_s, target_s in (raw_shots or {}).items():
-                try:
-                    shooter_i = int(shooter_s)
-                    target_i = int(target_s or 0)
-                except Exception:
-                    continue
+            for shooter_i, target_i in (raw_shots or {}).items():
                 if shooter_i > 0 and target_i == user_id:
                     shooters.append(shooter_i)
             if shooters:
@@ -3446,19 +3412,14 @@ async def compute_vote_effective_leaders(r, rid: int, *, remaining_target_uid: i
         return []
 
     try:
-        raw_votes = await r.hgetall(f"room:{rid}:game_votes")
+        raw_votes = await hgetall_int_map(r, f"room:{rid}:game_votes")
     except Exception:
         raw_votes = {}
 
     counts: dict[int, int] = {uid: 0 for uid in nominees}
-    for _voter_s, target_s in (raw_votes or {}).items():
-        try:
-            t = int(target_s or 0)
-        except Exception:
-            continue
-
-        if t in counts:
-            counts[t] = counts.get(t, 0) + 1
+    for target in (raw_votes or {}).values():
+        if target in counts:
+            counts[target] = counts.get(target, 0) + 1
 
     if remaining_target_uid is not None:
         alive_ids, voted_ids = await get_alive_and_voted_ids(r, rid)
@@ -3649,19 +3610,14 @@ async def enrich_game_runtime_with_vote(r, rid: int, game_runtime: Mapping[str, 
 async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[str, Any], dict[str, str], Optional[str]]:
     raw_gstate = await r.hgetall(f"room:{rid}:game_state")
     raw_game = await r.hgetall(f"room:{rid}:game")
-    raw_seats = await r.hgetall(f"room:{rid}:game_seats")
+    raw_seats = await hgetall_int_map(r, f"room:{rid}:game_seats")
     players_set = await smembers_ints(r, f"room:{rid}:game_players")
     alive_set = await smembers_ints(r, f"room:{rid}:game_alive")
     raw_roles = await r.hgetall(f"room:{rid}:game_roles")
 
     ctx = GameActionContext.from_raw_state(uid=uid, rid=rid, r=r, raw_state=raw_gstate)
     phase = ctx.phase
-    seats_map: dict[str, int] = {}
-    for k, v in (raw_seats or {}).items():
-        try:
-            seats_map[str(int(k))] = int(v)
-        except Exception:
-            continue
+    seats_map: dict[str, int] = {str(uid): seat for uid, seat in (raw_seats or {}).items()}
 
     roles_map: dict[str, str] = {str(k): str(v) for k, v in (raw_roles or {}).items()}
     my_game_role = roles_map.get(str(uid))
@@ -3799,19 +3755,14 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
 
 async def get_nominees_in_order(r, rid: int) -> list[int]:
     try:
-        raw_nominees = await r.hgetall(f"room:{rid}:game_nominees")
+        raw_nominees = await hgetall_int_map(r, f"room:{rid}:game_nominees")
     except Exception:
         raw_nominees = {}
 
     tmp: list[tuple[int, int]] = []
-    for uid_s, idx_s in (raw_nominees or {}).items():
-        try:
-            u = int(uid_s)
-            idx = int(idx_s or 0)
-        except Exception:
-            continue
+    for uid, idx in (raw_nominees or {}).items():
         if idx > 0:
-            tmp.append((idx, u))
+            tmp.append((idx, uid))
 
     if not tmp:
         return []
