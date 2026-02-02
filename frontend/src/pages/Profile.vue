@@ -114,13 +114,9 @@
           <div v-else class="block">
             <h3>Верификация Telegram</h3>
             <div class="verify-row">
-              <div class="verify-text">
-                <strong>Аккаунт не подтвержден</strong>
-                <span>Для доступа к комнатам нужна верификация через бота</span>
-              </div>
               <a v-if="botName" class="btn confirm" :href="botLink" target="_blank" rel="noopener noreferrer">Пройти верификацию</a>
             </div>
-            <p class="hint">Напишите боту, введите логин и пароль, затем нажмите «Верификация»</p>
+            <p class="hint">В чате с ботом введите логин и пароль, затем нажмите «Верификация»</p>
           </div>
 
           <div class="block">
@@ -1031,15 +1027,6 @@ onBeforeUnmount(() => {
           flex-direction: column;
           justify-content: space-between;
           gap: 10px;
-          .verify-text {
-            display: flex;
-            flex-direction: column;
-            gap: 5px;
-            span {
-              font-size: 14px;
-              color: $grey;
-            }
-          }
         }
         :deep(.profile-switch + .profile-switch) {
           margin-top: 10px;
@@ -1317,6 +1304,8 @@ onBeforeUnmount(() => {
   .profile {
     .btn {
       padding: 0 10px;
+      height: 30px;
+      font-size: 12px;
       &.nav {
         font-size: 14px;
       }
@@ -1334,6 +1323,15 @@ onBeforeUnmount(() => {
       .grid {
         grid-template-columns: 1fr 1fr;
         .block {
+          padding: 10px;
+          min-height: 140px;
+          .avatar-row {
+            gap: 10px;
+            .avatar-img {
+              width: 100px;
+              height: 100px;
+            }
+          }
           &.sanctions-block {
             .sanctions-list {
               grid-template-columns: 1fr 1fr;
