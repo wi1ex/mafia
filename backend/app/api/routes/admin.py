@@ -115,6 +115,8 @@ LOG_ACTIONS_KNOWN = {
     "sanction_ban_remove",
     "sanction_suspend_add",
     "sanction_suspend_remove",
+    "admin_telegram_unverify",
+    "admin_password_clear",
 }
 
 
@@ -186,6 +188,8 @@ async def site_stats(month: str | None = None, session: AsyncSession = Depends(g
         month_end = month_start
 
     total_users = int(await session.scalar(select(func.count(User.id))) or 0)
+    unverified_users = int(await session.scalar(select(func.count(User.id)).where(User.telegram_id.is_(None))) or 0)
+    no_password_users = int(await session.scalar(select(func.count(User.id)).where(User.password_hash.is_(None))) or 0)
     total_rooms = int(await session.scalar(select(func.count(Room.id))) or 0)
     total_games = int(await session.scalar(select(func.count(Game.id))) or 0)
     registrations = await build_registrations_series(session, start_dt, end_dt)
@@ -214,6 +218,8 @@ async def site_stats(month: str | None = None, session: AsyncSession = Depends(g
 
     return SiteStatsOut(
         total_users=total_users,
+        unverified_users=unverified_users,
+        no_password_users=no_password_users,
         registrations=registrations,
         registrations_monthly=registrations_monthly,
         total_rooms=total_rooms,
@@ -655,6 +661,8 @@ async def users_list(page: int = 1, limit: int = 20, username: str | None = None
             username=u.username,
             avatar_name=u.avatar_name,
             role=u.role,
+            telegram_verified=bool(u.telegram_id),
+            has_password=bool(u.password_hash),
             registered_at=u.registered_at,
             last_login_at=u.last_login_at,
             last_visit_at=u.last_visit_at,
@@ -694,12 +702,14 @@ async def update_user_role(user_id: int, payload: AdminUserRoleIn, ident: Identi
     await session.commit()
     await session.refresh(user)
 
+    uid = cast(int, user.id)
     if prev_role != user.role:
         action = "admin_role_grant" if user.role == "admin" else "admin_role_revoke"
-        details = f"Роль user_id={user.id}"
+        details = f"Роль user_id={uid}"
         if user.username:
             details += f" username={user.username}"
         details += f" from={prev_role} to={user.role}"
+
         await log_action(
             session,
             user_id=int(ident["id"]),
@@ -708,7 +718,32 @@ async def update_user_role(user_id: int, payload: AdminUserRoleIn, ident: Identi
             details=details,
         )
 
-    return AdminUserRoleOut(id=cast(int, user.id), role=user.role)
+        if user.role == "admin":
+            note = Notif(
+                user_id=uid,
+                title="Администратор",
+                text="Вам выданы права администратора.",
+            )
+            session.add(note)
+            await session.commit()
+            await session.refresh(note)
+            with suppress(Exception):
+                await sio.emit(
+                    "notify",
+                    {
+                        "id": note.id,
+                        "title": note.title,
+                        "text": note.text,
+                        "date": note.created_at.isoformat(),
+                        "kind": "admin_action",
+                        "ttl_ms": 15000,
+                        "read": False,
+                    },
+                    room=f"user:{uid}",
+                    namespace="/auth",
+                )
+
+    return AdminUserRoleOut(id=uid, role=user.role)
 
 
 @log_route("admin.users.account_delete")
@@ -716,9 +751,11 @@ async def update_user_role(user_id: int, payload: AdminUserRoleIn, ident: Identi
 @router.post("/users/{user_id}/delete", response_model=Ok)
 async def delete_user_account(user_id: int, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
     user = await set_user_deleted(session, int(user_id), deleted=True)
-    details = f"Удаление аккаунта user_id={user.id}"
+    uid = cast(int, user.id)
+    details = f"Удаление аккаунта user_id={uid}"
     if user.username:
         details += f" username={user.username}"
+
     await log_action(
         session,
         user_id=int(ident["id"]),
@@ -726,6 +763,30 @@ async def delete_user_account(user_id: int, ident: Identity = Depends(get_identi
         action="admin_account_delete",
         details=details,
     )
+
+    note = Notif(
+        user_id=uid,
+        title="Аккаунт удален",
+        text="Ваш аккаунт был удален администратором.",
+    )
+    session.add(note)
+    await session.commit()
+    await session.refresh(note)
+    with suppress(Exception):
+        await sio.emit(
+            "notify",
+            {
+                "id": note.id,
+                "title": note.title,
+                "text": note.text,
+                "date": note.created_at.isoformat(),
+                "kind": "admin_action",
+                "ttl_ms": 15000,
+                "read": False,
+            },
+            room=f"user:{uid}",
+            namespace="/auth",
+        )
     await force_logout_user(int(user_id))
     return Ok()
 
@@ -745,6 +806,113 @@ async def restore_user_account(user_id: int, ident: Identity = Depends(get_ident
         action="admin_account_restore",
         details=details,
     )
+    return Ok()
+
+
+@log_route("admin.users.unverify")
+@require_roles_deco("admin")
+@router.post("/users/{user_id}/unverify", response_model=Ok)
+async def unverify_user(user_id: int, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
+    user = await session.get(User, int(user_id))
+    if not user:
+        raise HTTPException(status_code=404, detail="user_not_found")
+
+    uid = cast(int, user.id)
+    prev_tg = user.telegram_id
+    if prev_tg is None:
+        return Ok()
+
+    user.telegram_id = None
+    note = Notif(
+        user_id=uid,
+        title="Верификация снята",
+        text="Администратор снял верификацию с вашего аккаунта.",
+    )
+    session.add(note)
+    await session.commit()
+    await session.refresh(note)
+
+    details = f"Снятие верификации user_id={uid}"
+    if user.username:
+        details += f" username={user.username}"
+    details += f" tg_id={prev_tg}"
+
+    await log_action(
+        session,
+        user_id=int(ident["id"]),
+        username=ident["username"],
+        action="admin_telegram_unverify",
+        details=details,
+    )
+
+    with suppress(Exception):
+        await sio.emit(
+            "notify",
+            {
+                "id": note.id,
+                "title": note.title,
+                "text": note.text,
+                "date": note.created_at.isoformat(),
+                "kind": "admin_action",
+                "ttl_ms": 15000,
+                "read": False,
+            },
+            room=f"user:{uid}",
+            namespace="/auth",
+        )
+    return Ok()
+
+
+@log_route("admin.users.password_clear")
+@require_roles_deco("admin")
+@router.post("/users/{user_id}/password_clear", response_model=Ok)
+async def clear_user_password(user_id: int, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
+    user = await session.get(User, int(user_id))
+    if not user:
+        raise HTTPException(status_code=404, detail="user_not_found")
+
+    uid = cast(int, user.id)
+    had_password = bool(user.password_hash)
+    user.password_hash = None
+    if user.password_temp:
+        user.password_temp = False
+    note = Notif(
+        user_id=uid,
+        title="Пароль удален",
+        text="Администратор удалил пароль вашего аккаунта.",
+    )
+    session.add(note)
+    await session.commit()
+    await session.refresh(note)
+
+    details = f"Сброс пароля user_id={uid}"
+    if user.username:
+        details += f" username={user.username}"
+    details += f" had_password={int(had_password)}"
+
+    await log_action(
+        session,
+        user_id=int(ident["id"]),
+        username=ident["username"],
+        action="admin_password_clear",
+        details=details,
+    )
+
+    with suppress(Exception):
+        await sio.emit(
+            "notify",
+            {
+                "id": note.id,
+                "title": note.title,
+                "text": note.text,
+                "date": note.created_at.isoformat(),
+                "kind": "admin_action",
+                "ttl_ms": 15000,
+                "read": False,
+            },
+            room=f"user:{uid}",
+            namespace="/auth",
+        )
     return Ok()
 
 

@@ -28,6 +28,7 @@ const settings = useSettingsStore()
 
 let onSanctionsUpdate: ((e: any) => void) | null = null
 let onTelegramVerified: ((e: any) => void) | null = null
+let onAdminNotify: ((e: any) => void) | null = null
 
 const isRoom = computed(() => route.name === 'room')
 
@@ -76,11 +77,21 @@ onMounted(async () => {
     }
   }
   window.addEventListener('auth-telegram_verified', onTelegramVerified)
+  onAdminNotify = (e: any) => {
+    const p = e?.detail
+    if (!p || p.kind !== 'admin_action') return
+    const title = typeof p.title === 'string' && p.title.trim() ? p.title : 'Сообщение'
+    const text = typeof p.text === 'string' && p.text.trim() ? p.text : ''
+    void alertDialog({ title, text })
+    if (auth.isAuthed) user.fetchMe().catch(() => {})
+  }
+  window.addEventListener('auth-notify', onAdminNotify)
 })
 
 onBeforeUnmount(() => {
   if (onSanctionsUpdate) window.removeEventListener('auth-sanctions_update', onSanctionsUpdate)
   if (onTelegramVerified) window.removeEventListener('auth-telegram_verified', onTelegramVerified)
+  if (onAdminNotify) window.removeEventListener('auth-notify', onAdminNotify)
 })
 </script>
 

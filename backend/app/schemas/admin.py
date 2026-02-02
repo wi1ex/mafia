@@ -95,6 +95,8 @@ class PeriodStatsOut(BaseModel):
 
 class SiteStatsOut(BaseModel):
     total_users: int
+    unverified_users: int
+    no_password_users: int
     registrations: List[RegistrationsPoint]
     registrations_monthly: List[RegistrationsPoint]
     total_rooms: int
@@ -193,6 +195,8 @@ class AdminUserOut(BaseModel):
     username: Optional[str] = None
     avatar_name: Optional[str] = None
     role: str
+    telegram_verified: bool
+    has_password: bool
     registered_at: datetime
     last_login_at: datetime
     last_visit_at: datetime

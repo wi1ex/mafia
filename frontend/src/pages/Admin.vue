@@ -180,6 +180,14 @@
                 <span class="value">{{ stats.total_users }}</span>
               </div>
               <div class="stat-card">
+                <span class="label">Не верифицировано</span>
+                <span class="value">{{ stats.unverified_users }}</span>
+              </div>
+              <div class="stat-card">
+                <span class="label">Без пароля</span>
+                <span class="value">{{ stats.no_password_users }}</span>
+              </div>
+              <div class="stat-card">
                 <span class="label">Всего комнат</span>
                 <span class="value">{{ stats.total_rooms }}</span>
               </div>
@@ -531,6 +539,8 @@
                   <th>Огранич.</th>
                   <th>Админка</th>
                   <th>Аккаунт</th>
+                  <th>Вериф.</th>
+                  <th>Пароль</th>
                   <th>Огранич.</th>
                   <th>Таймаут</th>
                   <th>Бан</th>
@@ -606,6 +616,16 @@
                     </button>
                   </td>
                   <td>
+                    <button class="btn" :class="row.telegram_verified ? 'danger' : 'dark'" :disabled="!row.telegram_verified || usersVerifyBusy[row.id]" @click="clearUserVerification(row)">
+                      <img class="btn-img" :src="iconClose" alt="" />
+                    </button>
+                  </td>
+                  <td>
+                    <button class="btn" :class="row.has_password ? 'danger' : 'dark'" :disabled="!row.has_password || usersPasswordBusy[row.id]" @click="clearUserPassword(row)">
+                      <img class="btn-img" :src="iconClose" alt="" />
+                    </button>
+                  </td>
+                  <td>
                     <button class="btn" :class="row.suspend_active ? 'dark' : 'danger'" :disabled="isSanctionBusy(row.id, 'suspend')" @click="toggleSuspend(row)">
                       <img class="btn-img" :src="row.suspend_active ? iconClose : iconJudge" alt="" />
                     </button>
@@ -622,7 +642,7 @@
                   </td>
                 </tr>
                 <tr v-if="users.length === 0">
-                  <td colspan="20" class="muted">Нет данных</td>
+                  <td colspan="22" class="muted">Нет данных</td>
                 </tr>
               </tbody>
             </table>
@@ -725,6 +745,8 @@ type PeriodStats = {
 
 type SiteStats = {
   total_users: number
+  unverified_users: number
+  no_password_users: number
   registrations: RegistrationPoint[]
   registrations_monthly: RegistrationPoint[]
   total_rooms: number
@@ -809,6 +831,8 @@ type UserRow = {
   username?: string | null
   avatar_name?: string | null
   role: string
+  telegram_verified: boolean
+  has_password: boolean
   registered_at: string
   last_login_at: string
   last_visit_at: string
@@ -880,6 +904,8 @@ const gameSnapshot = ref('')
 const statsMonth = ref('')
 const stats = reactive<SiteStats>({
   total_users: 0,
+  unverified_users: 0,
+  no_password_users: 0,
   registrations: [],
   registrations_monthly: [],
   total_rooms: 0,
@@ -926,6 +952,8 @@ const usersLimit = ref(20)
 const usersUser = ref('')
 const usersRoleBusy = reactive<Record<number, boolean>>({})
 const usersDeleteBusy = reactive<Record<number, boolean>>({})
+const usersVerifyBusy = reactive<Record<number, boolean>>({})
+const usersPasswordBusy = reactive<Record<number, boolean>>({})
 const usersSanctionBusy = reactive<Record<string, boolean>>({})
 const updates = ref<UpdateRow[]>([])
 const updateModalOpen = ref(false)
@@ -1272,6 +1300,8 @@ async function loadStats(): Promise<void> {
     const { data } = await api.get('/admin/stats', { params })
     Object.assign(stats, {
       total_users: data?.total_users ?? 0,
+      unverified_users: data?.unverified_users ?? 0,
+      no_password_users: data?.no_password_users ?? 0,
       registrations: Array.isArray(data?.registrations) ? data.registrations : [],
       registrations_monthly: Array.isArray(data?.registrations_monthly) ? data.registrations_monthly : [],
       total_rooms: data?.total_rooms ?? 0,
@@ -1564,6 +1594,48 @@ async function toggleDeleteAccount(row: UserRow): Promise<void> {
     void alertDialog(isDeleted ? 'Не удалось восстановить аккаунт' : 'Не удалось удалить аккаунт')
   } finally {
     usersDeleteBusy[row.id] = false
+  }
+}
+
+async function clearUserVerification(row: UserRow): Promise<void> {
+  if (!row.telegram_verified || usersVerifyBusy[row.id]) return
+  const userLabel = row.username ? `${row.username}` : `#${row.id}`
+  const ok = await confirmDialog({
+    title: 'Снять верификацию',
+    text: `Снять верификацию с ${userLabel}?`,
+    confirmText: 'Снять',
+    cancelText: 'Отмена',
+  })
+  if (!ok) return
+  usersVerifyBusy[row.id] = true
+  try {
+    await api.post(`/admin/users/${row.id}/unverify`)
+    row.telegram_verified = false
+  } catch {
+    void alertDialog('Не удалось снять верификацию')
+  } finally {
+    usersVerifyBusy[row.id] = false
+  }
+}
+
+async function clearUserPassword(row: UserRow): Promise<void> {
+  if (!row.has_password || usersPasswordBusy[row.id]) return
+  const userLabel = row.username ? `${row.username}` : `#${row.id}`
+  const ok = await confirmDialog({
+    title: 'Удалить пароль',
+    text: `Удалить пароль у ${userLabel}?`,
+    confirmText: 'Удалить',
+    cancelText: 'Отмена',
+  })
+  if (!ok) return
+  usersPasswordBusy[row.id] = true
+  try {
+    await api.post(`/admin/users/${row.id}/password_clear`)
+    row.has_password = false
+  } catch {
+    void alertDialog('Не удалось удалить пароль')
+  } finally {
+    usersPasswordBusy[row.id] = false
   }
 }
 
