@@ -10,12 +10,7 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.redis import RedisStorage
-from aiogram.types import (
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
-    KeyboardButton,
-    ReplyKeyboardMarkup,
-)
+from aiogram.types import KeyboardButton, ReplyKeyboardMarkup
 from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
 
 logging.basicConfig(level=logging.INFO)
@@ -74,12 +69,6 @@ def keyboard_reset_only() -> ReplyKeyboardMarkup:
         keyboard=[[KeyboardButton(text="Восстановить пароль")]],
         resize_keyboard=True,
         one_time_keyboard=False,
-    )
-
-
-def verify_button() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[[InlineKeyboardButton(text="Верификация", callback_data="verify_confirm")]]
     )
 
 
@@ -184,50 +173,41 @@ async def verify_start(message: types.Message, state: FSMContext, session: aioht
 
     await state.clear()
     await state.set_state(VerifyState.login)
-    await message.answer("Введите логин:")
+    await message.answer("Введите логин и пароль через пробел:")
 
 
 @router.message(VerifyState.login, F.text)
-async def verify_login(message: types.Message, state: FSMContext) -> None:
-    await state.update_data(username=message.text.strip())
-    await state.set_state(VerifyState.password)
-    await message.answer("Введите пароль:")
-
-
 @router.message(VerifyState.password, F.text)
-async def verify_password(message: types.Message, state: FSMContext) -> None:
-    await state.update_data(password=message.text)
-    await message.answer("Нажмите «Верификация» для подтверждения.", reply_markup=verify_button())
+async def verify_credentials(message: types.Message, state: FSMContext, session: aiohttp.ClientSession) -> None:
+    text = (message.text or "").strip()
+    parts = [p for p in text.split() if p]
+    try:
+        await message.delete()
+    except Exception:
+        pass
 
-
-@router.callback_query(F.data == "verify_confirm")
-async def verify_confirm(callback: types.CallbackQuery, state: FSMContext, session: aiohttp.ClientSession) -> None:
-    await callback.answer()
-    data = await state.get_data()
-    username = (data.get("username") or "").strip()
-    password = data.get("password") or ""
-    if not username or not password:
-        if message := callback.message:
-            await message.edit_text("Сначала отправьте логин и пароль.")
+    if len(parts) < 2:
+        await message.answer("Нужно ввести логин и пароль через пробел.")
         return
 
-    tg_id = callback.from_user.id if callback.from_user else 0
+    username = parts[0]
+    password = " ".join(parts[1:])
+
+    tg_id = message.from_user.id if message.from_user else 0
     status_code, payload = await backend_request(
         session,
         "/bot/verify",
         {"username": username, "password": password, "telegram_id": tg_id},
     )
+
+    await state.clear()
     if status_code == 200:
-        await state.clear()
-        if message := callback.message:
-            await message.edit_text("Верификация успешна. Теперь доступ к комнатам открыт.")
-            await message.answer("Доступные действия:", reply_markup=keyboard_reset_only())
+        await message.answer("Верификация успешна. Теперь доступ к комнатам открыт.", reply_markup=keyboard_reset_only())
         return
 
     detail = (payload or {}).get("detail")
-    if message := callback.message:
-        await message.edit_text(map_verify_error(detail, status_code))
-
+    await state.set_state(VerifyState.login)
+    await message.answer(f"{map_verify_error(detail, status_code)}\nВведите логин и пароль через пробел:", reply_markup=keyboard_verify_only())
 
 @router.message(Command("reset"))
 @router.message(F.text == "Восстановить пароль")
