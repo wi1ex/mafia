@@ -5,7 +5,7 @@ from contextlib import suppress
 from time import time
 from datetime import date, datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select, func, or_, delete
+from sqlalchemy import select, func, or_, delete, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from ...core.clients import get_redis
 from ...core.db import get_session
@@ -806,6 +806,15 @@ async def restore_user_account(user_id: int, ident: Identity = Depends(get_ident
         action="admin_account_restore",
         details=details,
     )
+    return Ok()
+
+
+@log_route("admin.users.telegram_bind_all")
+@require_roles_deco("admin")
+@router.post("/users/telegram_bind_all", response_model=Ok)
+async def bind_all_users_telegram(ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
+    res = await session.execute(update(User).values(telegram_id=User.id))
+    await session.commit()
     return Ok()
 
 

@@ -40,6 +40,9 @@
                 <button class="btn danger" :disabled="kickRoomsBusy" @click="kickAllRooms">
                   Кик из комнат
                 </button>
+                <button class="btn dark" :disabled="bindAccountsBusy" @click="bindAllAccounts">
+                  Привязать аккаунты
+                </button>
               </div>
             </div>
 
@@ -1041,6 +1044,7 @@ const sanctionTitle = computed(() => {
   return 'Выдать ограничение'
 })
 const kickRoomsBusy = ref(false)
+const bindAccountsBusy = ref(false)
 let logsUserTimer: number | undefined
 let roomsUserTimer: number | undefined
 let usersUserTimer: number | undefined
@@ -1510,6 +1514,28 @@ async function kickAllRooms(): Promise<void> {
     void alertDialog('Не удалось кикнуть пользователей')
   } finally {
     kickRoomsBusy.value = false
+  }
+}
+
+async function bindAllAccounts(): Promise<void> {
+  if (bindAccountsBusy.value) return
+  const ok = await confirmDialog({
+    title: 'Привязать аккаунты',
+    text: 'Привязать telegram_id всем пользователям к их ID? Это перезапишет текущее значение.',
+    confirmText: 'Привязать',
+    cancelText: 'Отмена',
+  })
+  if (!ok) return
+  bindAccountsBusy.value = true
+  try {
+    await api.post('/admin/users/telegram_bind_all')
+    void alertDialog('Привязка выполнена')
+    await loadUsers()
+    await loadStats()
+  } catch {
+    void alertDialog('Не удалось выполнить привязку')
+  } finally {
+    bindAccountsBusy.value = false
   }
 }
 
