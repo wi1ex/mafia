@@ -39,7 +39,6 @@ if not REDIS_URL:
 
 class VerifyState(StatesGroup):
     login = State()
-    password = State()
 
 
 class ResetState(StatesGroup):
@@ -173,11 +172,10 @@ async def verify_start(message: types.Message, state: FSMContext, session: aioht
 
     await state.clear()
     await state.set_state(VerifyState.login)
-    await message.answer("Введите логин и пароль через пробел:")
+    await message.answer("Введите логин и пароль через пробел (например: login password):")
 
 
 @router.message(VerifyState.login, F.text)
-@router.message(VerifyState.password, F.text)
 async def verify_credentials(message: types.Message, state: FSMContext, session: aiohttp.ClientSession) -> None:
     text = (message.text or "").strip()
     parts = [p for p in text.split() if p]
@@ -187,7 +185,7 @@ async def verify_credentials(message: types.Message, state: FSMContext, session:
         pass
 
     if len(parts) < 2:
-        await message.answer("Нужно ввести логин и пароль через пробел.")
+        await message.answer("Нужно ввести логин и пароль через пробел (например: login password).")
         return
 
     username = parts[0]
@@ -207,7 +205,7 @@ async def verify_credentials(message: types.Message, state: FSMContext, session:
 
     detail = (payload or {}).get("detail")
     await state.set_state(VerifyState.login)
-    await message.answer(f"{map_verify_error(detail, status_code)}\nВведите логин и пароль через пробел:", reply_markup=keyboard_verify_only())
+    await message.answer(f"{map_verify_error(detail, status_code)}\nВведите логин и пароль через пробел (например: login password):", reply_markup=keyboard_verify_only())
 
 @router.message(Command("reset"))
 @router.message(F.text == "Восстановить пароль")

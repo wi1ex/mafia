@@ -8,7 +8,7 @@ import {
   refreshAccessTokenFull,
 } from '@/services/axios'
 import { isPwaMode } from '@/services/pwa'
-import { confirmDialog, alertDialog } from '@/services/confirm'
+import { alertDialog } from '@/services/confirm'
 import {
   initSessionBus,
   setSid,
@@ -180,20 +180,8 @@ export const useAuthStore = defineStore('auth', () => {
       const st = e?.response?.status
       const detail = e?.response?.data?.detail
       if (st === 428 && detail === 'rules_required') {
-        const ok = await confirmDialog({
-          title: 'Подтверждение регистрации',
-          text: '',
-          confirmText: 'Зарегистрироваться',
-          cancelText: 'Отмена',
-          checkboxLabel: 'С',
-          checkboxLinkText: 'правилами',
-          checkboxLinkTo: '/rules',
-          checkboxLabelSuffix: 'сайта ознакомлен и согласен',
-          checkboxRequired: true,
-          hideText: true,
-        })
-        if (!ok) return
-        return await registerWithPassword({ ...payload, accept_rules: true })
+        void alertDialog('Необходимо согласиться с правилами')
+        return
       }
       if (st === 403 && detail === 'registration_disabled') {
         void alertDialog('Регистрация временно недоступна')

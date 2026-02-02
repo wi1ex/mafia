@@ -29,7 +29,7 @@
             <button class="btn confirm" type="submit" :disabled="loginBusy || !canLogin">
               {{ loginBusy ? '...' : 'Войти' }}
             </button>
-            <button class="btn ghost" type="button" @click="openBot">Забыл пароль</button>
+            <button class="btn ghost" type="button" @click="openBot">Восстановить пароль</button>
           </form>
 
           <form v-else class="form" @submit.prevent="submitRegister">
@@ -55,10 +55,6 @@
             <button class="btn confirm" type="submit" :disabled="regBusy || !canRegisterSubmit">
               {{ regBusy ? '...' : 'Зарегистрироваться' }}
             </button>
-            <p class="hint">
-              Для создания и входа в комнаты нужна верификация через Telegram-бота
-              <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">@{{ botName }}</a>.
-            </p>
           </form>
         </div>
       </div>
@@ -255,11 +251,6 @@ watch(() => props.open, (open) => {
       }
       .btn.confirm {
         height: 36px;
-      }
-      .hint {
-        font-size: 12px;
-        color: $grey;
-        a { color: $fg; text-decoration: none; }
       }
       .btn.ghost {
         height: 32px;
