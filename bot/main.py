@@ -239,8 +239,7 @@ async def reset_start(message: types.Message, state: FSMContext, session: aiohtt
     await state.clear()
     await state.set_state(ResetState.confirm)
     await message.answer(
-        "Вы уверены, что хотите восстановить пароль?\n"
-        "Это действие удалит старый пароль и создаст временный.",
+        "Вы уверены, что хотите восстановить пароль?",
         reply_markup=reset_confirm_buttons(),
     )
 

@@ -234,10 +234,7 @@ async def find_user_by_username(db: AsyncSession, username: str) -> User | None:
 
 async def generate_user_id(db: AsyncSession) -> int:
     for _ in range(8):
-        candidate = secrets.randbits(63)
-        if candidate <= 0:
-            continue
-
+        candidate = secrets.randbelow(9_999_999_999 - 10_000_000 + 1) + 10_000_000
         exists_row = await db.scalar(select(1).where(User.id == candidate).limit(1))
         if not exists_row:
             return candidate

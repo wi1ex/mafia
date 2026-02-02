@@ -384,8 +384,8 @@ function openAuth(mode: 'login' | 'register') {
   border-radius: 5px;
   color: $bg;
   font-weight: bold;
-  letter-spacing: 0.5px;
-  gap: 8px;
+  letter-spacing: 1px;
+  gap: 10px;
   a {
     color: $white;
     text-decoration: underline;

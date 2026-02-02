@@ -147,8 +147,8 @@
               <button class="btn danger" @click="deleteAccount" :disabled="deleteBusy">
                 {{ deleteBusy ? '...' : 'Удалить аккаунт' }}
               </button>
-              <p class="danger-text">Удаление произойдет навсегда без возможности восстановления</p>
             </div>
+            <p class="hint red">Удаление произойдет навсегда без возможности восстановления</p>
           </div>
         </div>
 
@@ -1060,13 +1060,7 @@ onBeforeUnmount(() => {
         .danger-row {
           display: flex;
           flex-direction: column;
-          align-items: flex-start;
           gap: 10px;
-        }
-        .danger-text {
-          margin: 0;
-          color: $red;
-          font-size: 14px;
         }
         .hint {
           color: $grey;
@@ -1074,6 +1068,9 @@ onBeforeUnmount(() => {
           text-align: center;
           &.warn {
             color: $yellow;
+          }
+          &.red {
+            color: $red;
           }
           a {
             color: $fg;
