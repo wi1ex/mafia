@@ -155,8 +155,8 @@ const sanctionBanner = computed<SanctionBanner | null>(() => {
   return null
 })
 
-const verificationBanner = computed(() => auth.isAuthed && !user.telegramVerified)
-const registrationInfoBanner = computed(() => !auth.isAuthed && !auth.foreignActive)
+const verificationBanner = computed(() => auth.ready && auth.isAuthed && Boolean(user.user) && !user.telegramVerified)
+const registrationInfoBanner = computed(() => auth.ready && !auth.isAuthed && !auth.foreignActive)
 
 function onToggleNotifs() {
   updates_open.value = false

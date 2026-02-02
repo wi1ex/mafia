@@ -20,7 +20,7 @@ const routes: RouteRecordRaw[] = [
     path: '/profile',
     name: 'profile',
     component: () => import('@/pages/Profile.vue'),
-    meta: { requiresAuth: true, title: 'Профиль', robots: 'noindex, nofollow' },
+    meta: { requiresAuth: true, title: 'Личный кабинет', robots: 'noindex, nofollow' },
   },
   {
     path: '/admin',

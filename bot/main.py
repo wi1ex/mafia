@@ -115,7 +115,7 @@ def map_verify_error(detail: str | None, status_code: int | None) -> str:
         return "Неверный логин или пароль."
 
     if detail == "password_not_set":
-        return "Пароль не установлен. Сначала восстановите пароль через бота."
+        return "Пароль не установлен. Сначала восстановите пароль."
 
     if detail == "telegram_in_use":
         return "Этот Telegram уже привязан к другому аккаунту."
@@ -134,7 +134,7 @@ def map_reset_error(detail: str | None, status_code: int | None) -> str:
         return "Аккаунт не найден."
 
     if detail == "not_verified":
-        return "Сначала пройдите верификацию через бота."
+        return "Сначала пройдите верификацию."
 
     if detail == "telegram_mismatch":
         return "Этот Telegram не привязан к аккаунту."
@@ -199,7 +199,7 @@ async def verify_credentials(message: types.Message, state: FSMContext, session:
         pass
 
     if len(parts) < 2:
-        await message.answer("Нужно ввести логин и пароль через пробел (например: login password).")
+        await message.answer("Необходимо ввести логин и пароль через пробел (например: login password).")
         return
 
     username = parts[0]
@@ -214,7 +214,7 @@ async def verify_credentials(message: types.Message, state: FSMContext, session:
 
     await state.clear()
     if status_code == 200:
-        await message.answer("Верификация успешна. Теперь доступ к комнатам открыт.", reply_markup=keyboard_reset_only())
+        await message.answer("Верификация прошла успешно. Доступ к комнатам открыт.", reply_markup=keyboard_reset_only())
         return
 
     detail = (payload or {}).get("detail")
@@ -259,7 +259,7 @@ async def reset_confirm(callback: types.CallbackQuery, state: FSMContext, sessio
         await state.clear()
         if message := callback.message:
             await message.edit_text(
-                f"Временный пароль: {temp}\nПосле входа обязательно измените пароль в профиле."
+                f"Временный пароль: {temp}\nПосле входа обязательно измените пароль в личном кабинете."
             )
             await message.answer("Доступные действия:", reply_markup=keyboard_reset_only())
         return

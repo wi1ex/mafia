@@ -1,7 +1,7 @@
 <template>
   <section class="profile">
     <header>
-      <nav class="tabs" aria-label="Профиль" role="tablist">
+      <nav class="tabs" aria-label="Личный кабинет" role="tablist">
         <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'profile' }" :aria-selected="activeTab === 'profile'" @click="activeTab = 'profile'">
           Аккаунт
         </button>
