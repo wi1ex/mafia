@@ -59,57 +59,6 @@
             <span class="hint"><code>латиница, кириллица, цифры, символы ()._-</code></span>
           </div>
 
-          <div v-if="telegramVerified" class="block">
-            <h3>Пароль</h3>
-            <p v-if="passwordTemp" class="hint warn">У вас временный пароль — рекомендуем изменить его в личном кабинете.</p>
-            <div class="password-row">
-              <div class="ui-input" :class="{ filled: !!pwd.current }">
-                <input id="profile-pass-current" v-model="pwd.current" type="password" placeholder=" " autocomplete="current-password" />
-                <label for="profile-pass-current">Текущий пароль</label>
-                <div class="underline"><span></span></div>
-              </div>
-              <div class="ui-input" :class="{ filled: !!pwd.next }">
-                <input id="profile-pass-new" v-model="pwd.next" type="password" placeholder=" " autocomplete="new-password" />
-                <label for="profile-pass-new">Новый пароль</label>
-                <div class="underline"><span></span></div>
-              </div>
-              <div class="ui-input" :class="{ filled: !!pwd.confirm, invalid: pwd.confirm && pwd.next !== pwd.confirm }">
-                <input id="profile-pass-confirm" v-model="pwd.confirm" type="password" placeholder=" " autocomplete="new-password" />
-                <label for="profile-pass-confirm">Повторите пароль</label>
-                <div class="underline"><span></span></div>
-              </div>
-              <button class="btn confirm" @click="changePassword" :disabled="pwdBusy || !canChangePassword">
-                {{ pwdBusy ? '...' : 'Сменить пароль' }}
-              </button>
-            </div>
-            <p class="hint">
-              Если забыли пароль, восстановите его через Telegram-бота
-              <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">@{{ botName }}</a>.
-            </p>
-          </div>
-
-          <div v-else class="block">
-            <h3>Верификация Telegram</h3>
-            <div class="verify-row">
-              <div class="verify-text">
-                <strong>Аккаунт не подтвержден</strong>
-                <span>Для доступа к комнатам нужна верификация через бота.</span>
-              </div>
-              <a v-if="botName" class="btn confirm" :href="botLink" target="_blank" rel="noopener noreferrer">Пройти верификацию</a>
-            </div>
-            <p class="hint">Напишите боту, введите логин и пароль, затем нажмите «Верификация».</p>
-          </div>
-
-          <div class="block">
-            <h3>Удаление аккаунта</h3>
-            <div class="danger-row">
-              <button class="btn danger" @click="deleteAccount" :disabled="deleteBusy">
-                {{ deleteBusy ? '...' : 'Удалить аккаунт' }}
-              </button>
-              <p class="danger-text">Удаление произойдет навсегда без возможности восстановления.</p>
-            </div>
-          </div>
-
           <div class="block">
             <h3>Параметры</h3>
             <ToggleSwitch
@@ -131,6 +80,57 @@
               :disabled="installTogglePending"
               @update:modelValue="onToggleInstallHidden"
             />
+          </div>
+
+          <div v-if="telegramVerified" class="block">
+            <h3>Пароль</h3>
+            <p v-if="passwordTemp" class="hint warn">У вас временный пароль — рекомендуем изменить его</p>
+            <div class="password-row">
+              <div class="ui-input" :class="{ filled: !!pwd.current }">
+                <input id="profile-pass-current" v-model="pwd.current" type="password" placeholder=" " autocomplete="current-password" />
+                <label for="profile-pass-current">Текущий пароль</label>
+                <div class="underline"><span></span></div>
+              </div>
+              <div class="ui-input" :class="{ filled: !!pwd.next }">
+                <input id="profile-pass-new" v-model="pwd.next" type="password" placeholder=" " autocomplete="new-password" />
+                <label for="profile-pass-new">Новый пароль</label>
+                <div class="underline"><span></span></div>
+              </div>
+              <div class="ui-input" :class="{ filled: !!pwd.confirm, invalid: pwd.confirm && pwd.next !== pwd.confirm }">
+                <input id="profile-pass-confirm" v-model="pwd.confirm" type="password" placeholder=" " autocomplete="new-password" />
+                <label for="profile-pass-confirm">Повторите пароль</label>
+                <div class="underline"><span></span></div>
+              </div>
+              <button class="btn confirm" @click="changePassword" :disabled="pwdBusy || !canChangePassword">
+                {{ pwdBusy ? '...' : 'Сменить пароль' }}
+              </button>
+            </div>
+            <p class="hint">
+              Если забыли пароль, восстановите его в Telegram
+              <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">@{{ botName }}</a>
+            </p>
+          </div>
+
+          <div v-else class="block">
+            <h3>Верификация Telegram</h3>
+            <div class="verify-row">
+              <div class="verify-text">
+                <strong>Аккаунт не подтвержден</strong>
+                <span>Для доступа к комнатам нужна верификация через бота</span>
+              </div>
+              <a v-if="botName" class="btn confirm" :href="botLink" target="_blank" rel="noopener noreferrer">Пройти верификацию</a>
+            </div>
+            <p class="hint">Напишите боту, введите логин и пароль, затем нажмите «Верификация»</p>
+          </div>
+
+          <div class="block">
+            <h3>Удаление аккаунта</h3>
+            <div class="danger-row">
+              <button class="btn danger" @click="deleteAccount" :disabled="deleteBusy">
+                {{ deleteBusy ? '...' : 'Удалить аккаунт' }}
+              </button>
+              <p class="danger-text">Удаление произойдет навсегда без возможности восстановления</p>
+            </div>
           </div>
 
           <div v-if="crop.show" ref="modalEl" class="modal" @keydown.esc="cancelCrop" tabindex="0" aria-modal="true" aria-label="Кадрирование аватара" >
@@ -164,7 +164,7 @@
             </div>
             <div v-if="sanctionsLoading" class="sanctions-empty">Загрузка…</div>
             <div v-else-if="sanctionsError" class="sanctions-empty danger">{{ sanctionsError }}</div>
-            <div v-else-if="sanctions.length === 0" class="sanctions-empty">Ограничений пока не было.</div>
+            <div v-else-if="sanctions.length === 0" class="sanctions-empty">Ограничений пока не было</div>
             <div v-else class="sanctions-list">
               <article v-for="item in sanctions" :key="item.id" class="sanction-card" :class="`sanction-card--${item.kind}`">
                 <div class="sanction-head">
@@ -1026,7 +1026,7 @@ onBeforeUnmount(() => {
         }
         .verify-row {
           display: flex;
-          align-items: center;
+          flex-direction: column;
           justify-content: space-between;
           gap: 10px;
           .verify-text {

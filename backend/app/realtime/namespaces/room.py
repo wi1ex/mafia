@@ -33,6 +33,8 @@ from ..utils import (
     merge_ready_into_snapshot,
     set_ready,
     get_positions_map,
+    smembers_ints,
+    hgetall_int_map,
     game_flag,
     persist_join_user_info,
     get_blocks_snapshot,
@@ -175,8 +177,8 @@ async def join(sid, data) -> JoinAck:
         if phase != "idle":
             head_raw = raw_gstate.get("head")
             head_id = int(head_raw) if head_raw else 0
-            game_players_set = await r.smembers(f"room:{rid}:game_players")
-            allowed_ids = {head_id} | {int(x) for x in (game_players_set or [])}
+            game_players = await smembers_ints(r, f"room:{rid}:game_players")
+            allowed_ids = {head_id} | game_players
             if uid not in allowed_ids:
                 try:
                     raw_game = await r.hgetall(f"room:{rid}:game")
@@ -1014,10 +1016,8 @@ async def game_start(sid, data) -> GameStartAck:
             return {"ok": False, "error": "game_start_disabled", "status": 403}
 
         min_ready = app_settings.game_min_ready_players
-        members = await r.smembers(f"room:{rid}:members")
-        members = members or set()
-        ready_ids = await r.smembers(f"room:{rid}:ready")
-        ready_ids = ready_ids or set()
+        members = await smembers_ints(r, f"room:{rid}:members")
+        ready_ids = await smembers_ints(r, f"room:{rid}:ready")
         not_ready_raw = [mid for mid in members if mid not in ready_ids]
         ready_cnt = len(ready_ids)
         if ready_cnt != min_ready or len(not_ready_raw) != 1:
@@ -1031,12 +1031,7 @@ async def game_start(sid, data) -> GameStartAck:
         if uid != head_uid:
             return {"ok": False, "error": "forbidden", "status": 403}
 
-        member_ids: set[int] = set()
-        for mid in members or []:
-            try:
-                member_ids.add(int(mid))
-            except Exception:
-                continue
+        member_ids = set(members)
         if member_ids:
             async with SessionLocal() as s:
                 suspended_ids = await fetch_active_users_by_kind(s, member_ids, SANCTION_SUSPEND)
@@ -1051,7 +1046,7 @@ async def game_start(sid, data) -> GameStartAck:
         streaming_owner_raw = await r.get(f"room:{rid}:screen_owner")
         streaming_owner = int(streaming_owner_raw) if streaming_owner_raw else 0
         blocking_users: list[int] = []
-        members_for_block_check = await r.smembers(f"room:{rid}:members")
+        members_for_block_check = await smembers_ints(r, f"room:{rid}:members")
         if members_for_block_check:
             async with r.pipeline() as p:
                 for pid in members_for_block_check:
@@ -1075,11 +1070,7 @@ async def game_start(sid, data) -> GameStartAck:
             }
 
         participant_ids: set[int] = {head_uid}
-        for x in (ready_ids or []):
-            try:
-                participant_ids.add(int(x))
-            except Exception:
-                continue
+        participant_ids.update(ready_ids)
 
         off_speakers: list[int] = []
         off_visibility: list[int] = []
@@ -1535,13 +1526,7 @@ async def game_phase_next(sid, data):
             new_day_number = day_number + 1 if opening_uid else day_number
             vote_blocked_next = str(raw_gstate.get("vote_blocked_next") or "0") == "1"
             vote_blocked_val = "1" if vote_blocked_next else "0"
-            alive_raw = await r.smembers(f"room:{rid}:game_alive")
-            alive_ids: list[int] = []
-            for v in (alive_raw or []):
-                try:
-                    alive_ids.append(int(v))
-                except Exception:
-                    continue
+            alive_ids = list(await smembers_ints(r, f"room:{rid}:game_alive"))
 
             if alive_ids and head_uid:
                 for target_uid in alive_ids:
@@ -3229,20 +3214,14 @@ async def game_vote_finish(sid, data):
             return {"ok": False, "error": "no_nominees", "status": 409}
 
         try:
-            raw_votes = await r.hgetall(f"room:{rid}:game_votes")
+            votes_map = await hgetall_int_map(r, f"room:{rid}:game_votes")
         except Exception:
-            raw_votes = {}
+            votes_map = {}
+        valid_votes = {voter: target for voter, target in votes_map.items() if voter > 0}
 
         day_number = ctx.gint("day_number")
         if vote_lift_state == "voting":
-            voters: list[int] = []
-            for voter_s in (raw_votes or {}).keys():
-                try:
-                    voter_i = int(voter_s)
-                except Exception:
-                    continue
-                if voter_i > 0:
-                    voters.append(voter_i)
+            voters = list(valid_votes.keys())
             await log_game_action(
                 r,
                 rid,
@@ -3256,13 +3235,8 @@ async def game_vote_finish(sid, data):
             )
         else:
             votes_by_target: dict[str, list[int]] = {str(uid): [] for uid in nominees}
-            for voter_s, target_s in (raw_votes or {}).items():
-                try:
-                    voter_i = int(voter_s)
-                    target_i = int(target_s or 0)
-                except Exception:
-                    continue
-                if voter_i > 0 and target_i in nominees:
+            for voter_i, target_i in valid_votes.items():
+                if target_i in nominees:
                     votes_by_target[str(target_i)].append(voter_i)
             if nominees:
                 await log_game_action(
@@ -3277,17 +3251,8 @@ async def game_vote_finish(sid, data):
                 )
 
         if vote_lift_state != "voting":
-            votes_map: dict[int, int] = {}
-            for voter_s, target_s in (raw_votes or {}).items():
-                try:
-                    voter_i = int(voter_s)
-                    target_i = int(target_s or 0)
-                except Exception:
-                    continue
-                if voter_i > 0:
-                    votes_map[voter_i] = target_i
-            if votes_map:
-                await store_last_votes_snapshot(r, rid, votes_map)
+            if valid_votes:
+                await store_last_votes_snapshot(r, rid, valid_votes)
 
         if vote_lift_state == "voting":
             alive_ids, voted_ids = await get_alive_and_voted_ids(r, rid)
@@ -3341,13 +3306,9 @@ async def game_vote_finish(sid, data):
             return {"ok": True, "status": 200, **payload}
 
         counts: dict[int, int] = {uid: 0 for uid in nominees}
-        for _voter_s, target_s in (raw_votes or {}).items():
-            try:
-                t = int(target_s or 0)
-            except Exception:
-                continue
-            if t in counts:
-                counts[t] = counts.get(t, 0) + 1
+        for target_i in votes_map.values():
+            if target_i in counts:
+                counts[target_i] = counts.get(target_i, 0) + 1
 
         max_votes = max(counts.values()) if counts else 0
         if max_votes <= 0:
@@ -3471,17 +3432,12 @@ async def game_vote_restart_current(sid, data):
             return {"ok": False, "error": "no_current_vote", "status": 409}
 
         try:
-            raw_votes = await r.hgetall(f"room:{rid}:game_votes")
+            votes_map = await hgetall_int_map(r, f"room:{rid}:game_votes")
         except Exception:
-            raw_votes = {}
+            votes_map = {}
         remaining_votes: dict[str, str] = {}
         cleared_voters: list[int] = []
-        for voter_raw, target_raw in (raw_votes or {}).items():
-            try:
-                voter = int(voter_raw)
-                tgt = int(target_raw)
-            except Exception:
-                continue
+        for voter, tgt in votes_map.items():
             if tgt == target_uid:
                 cleared_voters.append(voter)
             else:

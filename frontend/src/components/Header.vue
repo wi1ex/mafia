@@ -79,7 +79,7 @@
   </div>
   <div v-if="verificationBanner" class="sanction-banner sanction-banner--verify">
     <span>Доступ к комнатам ограничен — требуется верификация.</span>
-    <router-link to="/profile">Верифицировать</router-link>
+    <router-link to="/profile">Как пройти верификацию?</router-link>
   </div>
   <AppModal v-model:open="installOpen" @hide-install="onHideInstall" />
   <AuthModal v-model:open="authOpen" :mode="authMode" />
@@ -383,7 +383,7 @@ function openAuth(mode: 'login' | 'register') {
   letter-spacing: 0.5px;
   gap: 8px;
   a {
-    color: $bg;
+    color: $white;
     text-decoration: underline;
   }
   &.sanction-banner--ban {
@@ -396,7 +396,8 @@ function openAuth(mode: 'login' | 'register') {
     background-color: $yellow;
   }
   &.sanction-banner--verify {
-    background-color: $orange;
+    background-color: $graphite;
+    color: $fg;
   }
 }
 

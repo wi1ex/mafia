@@ -85,6 +85,7 @@ from ..utils import (
     set_user_deleted,
     force_logout_user,
     emit_rooms_upsert,
+    get_room_params_or_404,
 )
 
 router = APIRouter()
@@ -421,9 +422,7 @@ async def rooms_list(page: int = 1, limit: int = 20, username: str | None = None
 @router.post("/rooms/{room_id}/close", response_model=Ok)
 async def room_close(room_id: int) -> Ok:
     r = get_redis()
-    params = await r.hgetall(f"room:{room_id}:params")
-    if not params:
-        raise HTTPException(status_code=404, detail="room_not_found")
+    await get_room_params_or_404(r, room_id)
 
     phase = str(await r.hget(f"room:{room_id}:game_state", "phase") or "idle")
     if phase != "idle":

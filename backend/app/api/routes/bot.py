@@ -1,6 +1,6 @@
 from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select, exists, func, literal, and_
+from sqlalchemy import select, exists, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from ...core.db import get_session
 from ...core.logging import log_action
@@ -8,7 +8,7 @@ from ...models.user import User
 from ...schemas.common import Ok
 from ...schemas.auth import BotVerifyIn, BotResetIn, TempPasswordOut, BotStatusIn, BotStatusOut
 from ...security.passwords import verify_password, hash_password, make_temp_password
-from ..utils import normalize_username, require_bot_token
+from ..utils import normalize_username, require_bot_token, find_user_by_username
 
 router = APIRouter()
 
@@ -19,8 +19,7 @@ async def verify(payload: BotVerifyIn, db: AsyncSession = Depends(get_session), 
     if payload.telegram_id <= 0:
         raise HTTPException(status_code=422, detail="invalid_telegram_id")
 
-    stmt = select(User).where(User.username.ilike(username))
-    user = (await db.execute(stmt)).scalar_one_or_none()
+    user = await find_user_by_username(db, username)
     if not user:
         raise HTTPException(status_code=404, detail="user_not_found")
 
@@ -60,8 +59,7 @@ async def reset_password(payload: BotResetIn, db: AsyncSession = Depends(get_ses
     if payload.telegram_id <= 0:
         raise HTTPException(status_code=422, detail="invalid_telegram_id")
 
-    stmt = select(User).where(User.username.ilike(username))
-    user = (await db.execute(stmt)).scalar_one_or_none()
+    user = await find_user_by_username(db, username)
     if not user:
         raise HTTPException(status_code=404, detail="user_not_found")
 
