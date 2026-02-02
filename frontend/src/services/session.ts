@@ -35,15 +35,7 @@ let foreignActive = false
 
 const foreignSubs = new Set<ForeignActiveCb>()
 const incSubs = new Set<InconsistencyCb>()
-
 const now = () => Date.now()
-const navType = () => (performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming|undefined)?.type
-
-const isReload = () => {
-  const t = navType()
-  if (t === 'reload') return true
-  return (performance as any)?.navigation?.type === 1
-}
 
 function rid(): string {
   const a = new Uint8Array(16)
@@ -134,11 +126,6 @@ function acquireOrTakeover(): boolean {
   }
   if (isOwner(lock)) {
     writeLock({ ...lock, hb: now(), sid: currentSid || lock.sid })
-    setForeign(false)
-    return true
-  }
-  if (isReload() && lock.owner.deviceId === DEVICE_ID) {
-    writeLock({ owner: { deviceId: DEVICE_ID, tabId: TAB_ID }, hb: now(), sid: currentSid || lock.sid })
     setForeign(false)
     return true
   }
