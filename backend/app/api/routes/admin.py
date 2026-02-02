@@ -23,7 +23,6 @@ from ...realtime.utils import (
     stop_screen_for_user,
     emit_rooms_occupancy_safe,
     record_spectator_leave,
-    gc_empty_room,
 )
 from ...security.decorators import log_route, require_roles_deco
 from ...security.auth_tokens import get_identity
@@ -75,12 +74,14 @@ from ..utils import (
     fetch_live_room_stats,
     aggregate_user_room_stats,
     compute_duration_seconds,
+    gc_empty_room_and_emit,
     fetch_active_sanction,
     fetch_sanctions_for_users,
     is_sanction_active,
     build_admin_sanction_out,
     format_duration_parts,
     emit_sanctions_update,
+    refresh_rooms_after,
     set_user_deleted,
     force_logout_user,
     emit_rooms_upsert,
@@ -508,16 +509,7 @@ async def room_close(room_id: int) -> Ok:
     if should_gc:
         rid_snapshot = room_id
         gc_seq_snapshot = gc_seq_on_empty
-
-        async def _gc():
-            with suppress(Exception):
-                removed = await gc_empty_room(rid_snapshot, expected_seq=gc_seq_snapshot)
-                if removed:
-                    await sio.emit("rooms_remove",
-                                   {"id": rid_snapshot},
-                                   namespace="/rooms")
-
-        asyncio.create_task(_gc())
+        asyncio.create_task(gc_empty_room_and_emit(rid_snapshot, expected_seq=gc_seq_snapshot))
 
     return Ok()
 
@@ -621,27 +613,11 @@ async def rooms_kick_all() -> Ok:
         if should_gc:
             rid_snapshot = rid
             gc_seq_snapshot = gc_seq_on_empty
-
-            async def _gc():
-                with suppress(Exception):
-                    removed = await gc_empty_room(rid_snapshot, expected_seq=gc_seq_snapshot)
-                    if removed:
-                        await sio.emit("rooms_remove",
-                                       {"id": rid_snapshot},
-                                       namespace="/rooms")
-
-            asyncio.create_task(_gc())
+            asyncio.create_task(gc_empty_room_and_emit(rid_snapshot, expected_seq=gc_seq_snapshot))
 
     delay_s = max(0, int(get_cached_settings().rooms_empty_ttl_seconds))
 
-    async def _refresh_rooms():
-        await asyncio.sleep(delay_s + 1)
-        with suppress(Exception):
-            await sio.emit("rooms_refresh",
-                           {"reason": "admin_kick_all"},
-                           namespace="/rooms")
-
-    asyncio.create_task(_refresh_rooms())
+    asyncio.create_task(refresh_rooms_after(delay_s + 1, "admin_kick_all"))
 
     return Ok()
 

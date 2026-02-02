@@ -59,6 +59,47 @@
             <span class="hint"><code>латиница, кириллица, цифры, символы ()._-</code></span>
           </div>
 
+          <div v-if="telegramVerified" class="block">
+            <h3>Пароль</h3>
+            <p v-if="passwordTemp" class="hint warn">У вас временный пароль — рекомендуем изменить его в личном кабинете.</p>
+            <div class="password-row">
+              <div class="ui-input" :class="{ filled: !!pwd.current }">
+                <input id="profile-pass-current" v-model="pwd.current" type="password" placeholder=" " autocomplete="current-password" />
+                <label for="profile-pass-current">Текущий пароль</label>
+                <div class="underline"><span></span></div>
+              </div>
+              <div class="ui-input" :class="{ filled: !!pwd.next }">
+                <input id="profile-pass-new" v-model="pwd.next" type="password" placeholder=" " autocomplete="new-password" />
+                <label for="profile-pass-new">Новый пароль</label>
+                <div class="underline"><span></span></div>
+              </div>
+              <div class="ui-input" :class="{ filled: !!pwd.confirm, invalid: pwd.confirm && pwd.next !== pwd.confirm }">
+                <input id="profile-pass-confirm" v-model="pwd.confirm" type="password" placeholder=" " autocomplete="new-password" />
+                <label for="profile-pass-confirm">Повторите пароль</label>
+                <div class="underline"><span></span></div>
+              </div>
+              <button class="btn confirm" @click="changePassword" :disabled="pwdBusy || !canChangePassword">
+                {{ pwdBusy ? '...' : 'Сменить пароль' }}
+              </button>
+            </div>
+            <p class="hint">
+              Если забыли пароль, восстановите его через Telegram-бота
+              <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">@{{ botName }}</a>.
+            </p>
+          </div>
+
+          <div v-else class="block">
+            <h3>Верификация Telegram</h3>
+            <div class="verify-row">
+              <div class="verify-text">
+                <strong>Аккаунт не подтвержден</strong>
+                <span>Для доступа к комнатам нужна верификация через бота.</span>
+              </div>
+              <a v-if="botName" class="btn confirm" :href="botLink" target="_blank" rel="noopener noreferrer">Пройти верификацию</a>
+            </div>
+            <p class="hint">Напишите боту, введите логин и пароль, затем нажмите «Верификация».</p>
+          </div>
+
           <div class="block">
             <h3>Удаление аккаунта</h3>
             <div class="danger-row">
@@ -181,15 +222,21 @@ const isBanned = computed(() => userStore.banActive)
 const { hotkeysVisible, installHidden } = storeToRefs(userStore)
 const { setHotkeysVisible, setInstallHidden } = userStore
 
-const me = reactive({ id: 0, username: '', avatar_name: null as string | null, role: '' })
+const me = reactive({
+  id: 0,
+  username: '',
+  avatar_name: null as string | null,
+  role: '',
+  telegram_verified: false,
+  password_temp: false,
+})
 const fileEl = ref<HTMLInputElement | null>(null)
 const modalEl = ref<HTMLDivElement | null>(null)
 
 const nick = ref('')
 const busyNick = ref(false)
 const validNick = computed(() =>
-  new RegExp(`^[a-zA-Zа-яА-Я0-9._\\-()]{2,${NICK_MAX}}$`).test(nick.value) &&
-  !/^user/i.test(nick.value)
+  new RegExp(`^[a-zA-Z\\u0410-\\u042F\\u0430-\\u044F0-9._\\-()]{2,${NICK_MAX}}$`).test(nick.value)
 )
 
 const NICK_MAX = 20
@@ -224,6 +271,18 @@ const hotkeysTogglePending = ref(false)
 const installTogglePending = ref(false)
 let hotkeysToggleTimer: number | null = null
 let installToggleTimer: number | null = null
+const telegramVerified = computed(() => userStore.telegramVerified)
+const passwordTemp = computed(() => userStore.passwordTemp)
+const botName = (import.meta.env.VITE_TG_BOT_NAME as string || '').trim()
+const botLink = botName ? `https://t.me/${botName}` : 'https://t.me'
+const pwd = reactive({ current: '', next: '', confirm: '' })
+const pwdBusy = ref(false)
+const canChangePassword = computed(() =>
+  pwd.current.length >= 6 &&
+  pwd.next.length >= 6 &&
+  pwd.confirm.length >= 6 &&
+  pwd.next === pwd.confirm
+)
 
 function onToggleHotkeys(next: boolean) {
   if (hotkeysTogglePending.value) return
@@ -262,6 +321,8 @@ async function loadMe(options: { keepNickDraft?: boolean } = {}) {
   me.username = data.username || ''
   me.avatar_name = data.avatar_name
   me.role = data.role
+  me.telegram_verified = Boolean(data.telegram_verified)
+  me.password_temp = Boolean(data.password_temp)
   const hasDraft = options.keepNickDraft && nick.value !== prevUsername
   if (!hasDraft) nick.value = me.username
   try { await userStore.fetchMe?.() } catch {}
@@ -296,10 +357,32 @@ async function saveNick() {
     const d  = e?.response?.data?.detail
     if (st === 409 && d === 'username_taken')               void alertDialog('Данный никнейм уже занят')
     else if (st === 403 && d === 'user_banned')             void alertDialog('Аккаунт забанен. Изменение никнейма недоступно')
-    else if (st === 422 && d === 'reserved_prefix')         void alertDialog('Никнейм не должен начинаться с "user"')
     else if (st === 422 && d === 'invalid_username_format') void alertDialog('Недопустимый формат никнейма')
     else                                                    void alertDialog('Не удалось сохранить никнейм')
   } finally { busyNick.value = false }
+}
+
+async function changePassword() {
+  if (!canChangePassword.value || pwdBusy.value) return
+  pwdBusy.value = true
+  try {
+    await api.patch('/users/password', {
+      current_password: pwd.current,
+      new_password: pwd.next,
+    })
+    pwd.current = ''
+    pwd.next = ''
+    pwd.confirm = ''
+    await userStore.fetchMe?.()
+    void alertDialog('Пароль обновлен')
+  } catch (e: any) {
+    const st = e?.response?.status
+    const d = e?.response?.data?.detail
+    if (st === 401 && d === 'invalid_credentials') void alertDialog('Текущий пароль неверный')
+    else if (st === 403 && d === 'password_not_set') void alertDialog('Пароль не установлен. Восстановите его через Telegram-бота.')
+    else if (st === 403 && d === 'user_deleted') void alertDialog('Аккаунт удален')
+    else void alertDialog('Не удалось изменить пароль')
+  } finally { pwdBusy.value = false }
 }
 
 async function deleteAccount() {
@@ -861,6 +944,101 @@ onBeforeUnmount(() => {
             color: $grey;
           }
         }
+        .password-row {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          .ui-input {
+            max-width: 320px;
+            display: block;
+            position: relative;
+            width: 100%;
+            box-shadow: 3px 3px 5px rgba($black, 0.25);
+            input {
+              width: calc(100% - 22px);
+              padding: 20px 10px 5px;
+              border: 1px solid $lead;
+              border-radius: 5px 5px 0 0;
+              background-color: $graphite;
+              color: $fg;
+              font-size: 16px;
+              font-family: Manrope-Medium;
+              line-height: 1;
+              outline: none;
+              transition: border-color 0.25s ease-in-out, background-color 0.25s ease-in-out;
+            }
+            input::placeholder {
+              color: transparent;
+            }
+            label {
+              position: absolute;
+              top: 50%;
+              left: 12px;
+              color: $fg;
+              transform: translateY(-50%);
+              pointer-events: none;
+              transition: all 0.25s ease-in-out;
+            }
+            .underline {
+              position: absolute;
+              left: 0;
+              right: 0;
+              bottom: -3px;
+              height: 3px;
+              border-radius: 0 0 3px 3px;
+              overflow: hidden;
+              span {
+                position: absolute;
+                left: 0;
+                bottom: 0;
+                height: 3px;
+                width: 0;
+                background-color: $fg;
+                transition: width 0.25s ease-in-out;
+              }
+            }
+            .underline::before {
+              content: "";
+              position: absolute;
+              inset: 0;
+              background-color: $lead;
+              transition: background-color 0.25s ease-in-out;
+            }
+            &.invalid input {
+              border-color: rgba($red, 0.75);
+            }
+            &.invalid label {
+              color: $red;
+            }
+            &.invalid .underline::before {
+              background-color: rgba($red, 0.75);
+            }
+          }
+          .ui-input:focus-within label,
+          .ui-input input:not(:placeholder-shown) + label,
+          .ui-input.filled label {
+            top: 5px;
+            left: 10px;
+            transform: none;
+            font-size: 12px;
+            color: $grey;
+          }
+        }
+        .verify-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          .verify-text {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            span {
+              font-size: 14px;
+              color: $grey;
+            }
+          }
+        }
         :deep(.profile-switch + .profile-switch) {
           margin-top: 10px;
         }
@@ -879,6 +1057,13 @@ onBeforeUnmount(() => {
           color: $grey;
           font-size: 14px;
           text-align: center;
+          &.warn {
+            color: $yellow;
+          }
+          a {
+            color: $fg;
+            text-decoration: none;
+          }
         }
         &.sanctions-block {
           .sanctions-head {
@@ -1158,4 +1343,3 @@ onBeforeUnmount(() => {
   }
 }
 </style>
-

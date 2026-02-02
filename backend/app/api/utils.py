@@ -1,5 +1,6 @@
 from __future__ import annotations
 import re
+import secrets
 import unicodedata
 import asyncio
 import calendar
@@ -9,7 +10,8 @@ from time import time
 from datetime import date, datetime, timezone, timedelta
 from typing import Optional, Dict, Any, Literal, Sequence, Iterable, cast
 from fastapi import HTTPException, status, Header
-from sqlalchemy import update, func, select, or_
+from sqlalchemy import update, func, select, or_, literal
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.clients import get_redis
 from ..core.logging import log_action
@@ -21,11 +23,13 @@ from ..models.room import Room
 from ..models.notif import Notif
 from ..models.sanction import UserSanction
 from ..models.user import User
+from ..models.update import SiteUpdate, UpdateRead
 from ..schemas.admin import SiteSettingsOut, GameSettingsOut, RegistrationsPoint, AdminRoomUserStat, AdminSanctionOut
 from ..schemas.room import GameParams
 from ..realtime.sio import sio
 from ..realtime.utils import get_profiles_snapshot, get_rooms_brief, gc_empty_room
 from ..security.parameters import get_cached_settings
+
 __all__ = [
     "SANCTION_TIMEOUT",
     "SANCTION_BAN",
@@ -47,6 +51,7 @@ __all__ = [
     "site_settings_out",
     "game_settings_out",
     "schedule_room_gc",
+    "gc_empty_room_and_emit",
     "normalize_pagination",
     "build_registrations_series",
     "build_registrations_monthly_series",
@@ -70,6 +75,7 @@ __all__ = [
     "fetch_sanctions_for_users",
     "build_admin_sanction_out",
     "emit_sanctions_update",
+    "refresh_rooms_after",
     "ensure_room_access_allowed",
     "ensure_profile_changes_allowed",
     "set_user_deleted",
@@ -77,6 +83,10 @@ __all__ = [
     "check_sanctions_expired",
     "format_duration_parts",
     "normalize_username",
+    "normalize_password",
+    "find_user_by_username",
+    "generate_user_id",
+    "init_updates_read",
     "require_bot_token",
 ]
 
@@ -85,7 +95,7 @@ log = structlog.get_logger()
 PRESIGN_ALLOWED_PREFIXES: tuple[str, ...] = ("avatars/",)
 PRESIGN_KEY_RE = re.compile(r"^[a-zA-Z0-9._/-]{3,256}$")
 STREAM_LOG_RE = re.compile(r"room_id=(\d+)\s+target_user=(\d+)")
-BOT_USERNAME_RE = re.compile(r"^[a-zA-Z\u0410-\u042F\u0430-\u044F0-9._\-()]{2,20}$")
+BOT_USERNAME_RE = re.compile(r"^[a-zA-Zа-яА-Я0-9._\-()]{2,20}$")
 
 SANCTION_TIMEOUT = "timeout"
 SANCTION_BAN = "ban"
@@ -207,6 +217,47 @@ def normalize_username(raw: str) -> str:
         raise HTTPException(status_code=422, detail="invalid_username_format")
 
     return out
+
+
+def normalize_password(raw: str) -> str:
+    pwd = str(raw or "")
+    if not pwd.strip():
+        raise HTTPException(status_code=422, detail="invalid_password")
+
+    return pwd
+
+
+async def find_user_by_username(db: AsyncSession, username: str) -> User | None:
+    stmt = select(User).where(func.lower(User.username).eq(func.lower(literal(username))))
+    return (await db.execute(stmt)).scalar_one_or_none()
+
+
+async def generate_user_id(db: AsyncSession) -> int:
+    for _ in range(8):
+        candidate = secrets.randbits(63)
+        if candidate <= 0:
+            continue
+
+        exists_row = await db.scalar(select(1).where(User.id == candidate).limit(1))
+        if not exists_row:
+            return candidate
+
+    raise HTTPException(status_code=500, detail="id_generation_failed")
+
+
+async def init_updates_read(db: AsyncSession, user_id: int) -> None:
+    try:
+        rows = await db.execute(select(SiteUpdate.id))
+        ids = [int(r[0]) for r in rows.all() if r and r[0] is not None]
+        if ids:
+            now = datetime.now(timezone.utc)
+            values = [{"user_id": user_id, "update_id": upd_id, "read_at": now} for upd_id in ids]
+            stmt = insert(UpdateRead).values(values)
+            stmt = stmt.on_conflict_do_nothing(index_elements=["user_id", "update_id"])
+            await db.execute(stmt)
+            await db.commit()
+    except Exception:
+        await db.rollback()
 
 
 def require_bot_token(x_bot_token: str = Header(default="")) -> None:
@@ -1116,6 +1167,19 @@ async def gc_room_after_delay(rid: int, delay_s: int | None = None) -> None:
 
 def schedule_room_gc(rid: int, delay_s: int | None = None) -> None:
     asyncio.create_task(gc_room_after_delay(rid, delay_s))
+
+
+async def gc_empty_room_and_emit(rid: int, *, expected_seq: int | None = None) -> None:
+    with suppress(Exception):
+        removed = await gc_empty_room(rid, expected_seq=expected_seq)
+        if removed:
+            await sio.emit("rooms_remove", {"id": rid}, namespace="/rooms")
+
+
+async def refresh_rooms_after(delay_s: int, reason: str) -> None:
+    await asyncio.sleep(max(0, int(delay_s)))
+    with suppress(Exception):
+        await sio.emit("rooms_refresh", {"reason": reason}, namespace="/rooms")
 
 
 async def broadcast_creator_rooms(uid: int, *, update_name: Optional[str] = None, avatar: Literal["keep", "set", "delete"] = "keep", avatar_name: Optional[str] = None) -> None:

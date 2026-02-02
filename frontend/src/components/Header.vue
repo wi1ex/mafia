@@ -20,11 +20,10 @@
       </router-link>
     </div>
 
-    <div v-if="!auth.isAuthed && !auth.foreignActive">
-      <div v-if="settings.registrationEnabled" id="tg-login" />
-      <div v-else class="btn">
-        <span>Авторизация временно отключена</span>
-      </div>
+    <div v-if="!auth.isAuthed && !auth.foreignActive" class="auth-actions">
+      <button class="btn" type="button" @click="openAuth('login')">
+        <span>Войти</span>
+      </button>
     </div>
     <div v-else-if="!auth.isAuthed && auth.foreignActive" class="btn">
       <span>Вы уже авторизованы в соседней вкладке</span>
@@ -78,18 +77,23 @@
   <div v-if="sanctionBanner" class="sanction-banner" :class="`sanction-banner--${sanctionBanner.kind}`">
     <span>{{ sanctionBanner.text }}</span>
   </div>
+  <div v-if="verificationBanner" class="sanction-banner sanction-banner--verify">
+    <span>Доступ к комнатам ограничен — требуется верификация.</span>
+    <router-link to="/profile">Верифицировать</router-link>
+  </div>
   <AppModal v-model:open="installOpen" @hide-install="onHideInstall" />
+  <AuthModal v-model:open="authOpen" :mode="authMode" />
 </template>
 
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, watch, nextTick, ref, computed } from 'vue'
+import { onMounted, onBeforeUnmount, watch, ref, computed } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useAuthStore, useUserStore, useNotifStore, useSettingsStore, useUpdatesStore } from '@/store'
-import { alertDialog } from '@/services/confirm'
 import { isPwaMode } from '@/services/pwa'
 import Notifs from '@/components/Notifs.vue'
 import Updates from '@/components/Updates.vue'
 import AppModal from '@/components/AppModal.vue'
+import AuthModal from '@/components/AuthModal.vue'
 
 import defaultAvatar from "@/assets/svg/defaultAvatar.svg"
 import iconNotifBell from "@/assets/svg/notifBell.svg"
@@ -116,6 +120,8 @@ const um_open = ref(false)
 const userMenuEl = ref<HTMLElement | null>(null)
 const installOpen = ref(false)
 const isPwa = ref(isPwaMode())
+const authOpen = ref(false)
+const authMode = ref<'login' | 'register'>('login')
 
 type SanctionBanner = { kind: 'ban' | 'timeout' | 'suspend'; text: string }
 
@@ -145,6 +151,8 @@ const sanctionBanner = computed<SanctionBanner | null>(() => {
   }
   return null
 })
+
+const verificationBanner = computed(() => auth.isAuthed && !user.telegramVerified)
 
 function onToggleNotifs() {
   updates_open.value = false
@@ -178,118 +186,12 @@ function onGlobalPointerDown(e: PointerEvent) {
   um_open.value = false
 }
 
-const BOT = import.meta.env.VITE_TG_BOT_NAME as string || ''
-const BUILD = import.meta.env.VITE_BUILD_ID as string || ''
-const SIZE: 'large' | 'medium' | 'small' = 'large'
-let TG_LIB_ONCE = false
-const TG_WIDGET_MAX_ATTEMPTS = 3
-let tgWidgetAttempts = 0
-let tgWidgetLoading = false
-let tgRetryTimer: number | null = null
-let tgLoadTimer: number | null = null
 const showInstall = computed(() => auth.isAuthed && !isPwa.value && !installHidden.value)
-
-declare global {
-  interface Window { __tg_cb__?: (u: any) => void }
-}
 
 async function logout() {
   try { await auth.logout() }
-  finally { void alertDialog('Для полного выхода нажмите в Telegram «Terminate session»') }
+  finally {}
 }
-
-function clearTgTimers() {
-  if (tgRetryTimer !== null) {
-    window.clearTimeout(tgRetryTimer)
-    tgRetryTimer = null
-  }
-  if (tgLoadTimer !== null) {
-    window.clearTimeout(tgLoadTimer)
-    tgLoadTimer = null
-  }
-}
-
-function resetTgWidgetState() {
-  tgWidgetAttempts = 0
-  tgWidgetLoading = false
-  clearTgTimers()
-}
-
-function hasTgWidget(box: HTMLElement): boolean {
-  return Boolean(box.querySelector('iframe'))
-}
-
-function scheduleTgRetry() {
-  if (tgWidgetAttempts >= TG_WIDGET_MAX_ATTEMPTS) return
-  if (tgRetryTimer !== null) return
-  tgRetryTimer = window.setTimeout(() => {
-    tgRetryTimer = null
-    tgWidgetLoading = false
-    mountTGWidget()
-  }, 1000)
-}
-
-function scheduleTgLoadTimeout(box: HTMLElement) {
-  if (tgLoadTimer !== null) window.clearTimeout(tgLoadTimer)
-  tgLoadTimer = window.setTimeout(() => {
-    tgLoadTimer = null
-    if (!hasTgWidget(box)) {
-      tgWidgetLoading = false
-      scheduleTgRetry()
-    }
-  }, 2000)
-}
-
-function mountTGWidget() {
-  if (!settings.registrationEnabled) return
-  if (!BOT) return
-  const box = document.getElementById('tg-login')
-  if (!box) return
-  if (hasTgWidget(box)) return
-  if (tgWidgetLoading || tgWidgetAttempts >= TG_WIDGET_MAX_ATTEMPTS) return
-  tgWidgetLoading = true
-  tgWidgetAttempts += 1
-  clearTgTimers()
-  box.replaceChildren()
-  window.__tg_cb__ = async (u: any) => {
-    const prevUid = Number(localStorage.getItem('user:lastUid') || 0)
-    const nextUid = Number(u?.id || 0)
-    const userChanged = prevUid !== nextUid
-    try { auth.wipeLocalForNewLogin?.({ userChanged }) } catch {}
-    await auth.signInWithTelegram(u)
-    try { localStorage.setItem('user:lastUid', String(nextUid)) } catch {}
-  }
-  const s = document.createElement('script')
-  s.async = true
-  s.src = 'https://telegram.org/js/telegram-widget.js?19'
-  s.dataset.telegramLogin = BOT
-  s.dataset.size = SIZE
-  s.dataset.userpic = 'true'
-  s.dataset.onauth = '__tg_cb__(user)'
-  s.setAttribute('data-tg-widget', TG_LIB_ONCE ? '0' : '1')
-  TG_LIB_ONCE = true
-  s.onerror = () => {
-    tgWidgetLoading = false
-    clearTgTimers()
-    scheduleTgRetry()
-  }
-  s.onload = () => {
-    tgWidgetLoading = false
-  }
-  box.appendChild(s)
-  scheduleTgLoadTimeout(box)
-}
-
-watch([() => auth.isAuthed, () => auth.foreignActive, () => settings.registrationEnabled], async () => {
-  if (!auth.isAuthed && !auth.foreignActive && settings.registrationEnabled) {
-    resetTgWidgetState()
-    await nextTick()
-    mountTGWidget()
-  } else {
-    document.getElementById('tg-login')?.replaceChildren()
-    resetTgWidgetState()
-  }
-}, { flush: 'post' })
 
 watch(() => auth.isAuthed, async ok => {
   if (ok) {
@@ -301,11 +203,6 @@ watch(() => auth.isAuthed, async ok => {
 })
 
 onMounted(async () => {
-  if (!auth.isAuthed && !auth.foreignActive && settings.registrationEnabled) {
-    resetTgWidgetState()
-    await nextTick()
-    mountTGWidget()
-  }
   if (auth.isAuthed) {
     notif.ensureWS()
     await notif.fetchAll()
@@ -316,10 +213,13 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
-  delete (window as any).__tg_cb__
-  resetTgWidgetState()
   document.removeEventListener('pointerdown', onGlobalPointerDown)
 })
+
+function openAuth(mode: 'login' | 'register') {
+  authMode.value = mode
+  authOpen.value = true
+}
 </script>
 
 <style scoped lang="scss">
@@ -373,6 +273,11 @@ onBeforeUnmount(() => {
       object-fit: none;
       transition: transform 0.25s ease-in-out;
     }
+  }
+  .auth-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
   }
   .user {
     display: flex;
@@ -476,6 +381,11 @@ onBeforeUnmount(() => {
   color: $bg;
   font-weight: bold;
   letter-spacing: 0.5px;
+  gap: 8px;
+  a {
+    color: $bg;
+    text-decoration: underline;
+  }
   &.sanction-banner--ban {
     background-color: $red;
   }
@@ -484,6 +394,9 @@ onBeforeUnmount(() => {
   }
   &.sanction-banner--suspend {
     background-color: $yellow;
+  }
+  &.sanction-banner--verify {
+    background-color: $orange;
   }
 }
 
