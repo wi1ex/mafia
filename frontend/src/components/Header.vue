@@ -79,7 +79,7 @@
   </div>
   <div v-if="verificationBanner" class="sanction-banner sanction-banner--verify">
     <span>Доступ к комнатам ограничен — требуется верификация.</span>
-    <router-link to="/profile">Как пройти верификацию?</router-link>
+    <router-link :to="{ name: 'profile', query: { tab: 'profile' } }">Как пройти верификацию?</router-link>
   </div>
   <AppModal v-model:open="installOpen" @hide-install="onHideInstall" />
   <AuthModal v-model:open="authOpen" :mode="authMode" />

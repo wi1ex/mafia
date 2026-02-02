@@ -116,7 +116,7 @@
             <div class="verify-row">
               <a v-if="botName" class="btn confirm" :href="botLink" target="_blank" rel="noopener noreferrer">Пройти верификацию</a>
             </div>
-            <p class="hint">В чате с ботом введите логин и пароль, затем нажмите «Верификация»</p>
+            <p class="hint">В чате с ботом введите логин и пароль (через пробел)</p>
           </div>
 
           <div class="block">
@@ -200,6 +200,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onBeforeUnmount, reactive, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { api, refreshAccessTokenFull } from '@/services/axios'
 import { useAuthStore, useUserStore } from '@/store'
@@ -242,7 +243,18 @@ const nickPct = computed(() => {
 })
 const nickUnderlineStyle = computed(() => ({ width: `${nickPct.value}%` }))
 
-const activeTab = ref<'profile' | 'stats' | 'sanctions'>('profile')
+const route = useRoute()
+const router = useRouter()
+
+const TAB_KEYS = ['profile', 'stats', 'sanctions'] as const
+type TabKey = typeof TAB_KEYS[number]
+
+function normalizeTab(v: unknown): TabKey {
+  if (typeof v === 'string' && (TAB_KEYS as readonly string[]).includes(v)) return v as TabKey
+  return 'profile'
+}
+
+const activeTab = ref<TabKey>(normalizeTab(route.query.tab))
 let onSanctionsUpdate: ((e: Event) => void) | null = null
 
 type SanctionItem = {
@@ -694,7 +706,15 @@ watch(nick, (v) => {
   if (v !== clean) nick.value = clean
 })
 
+watch(() => route.query.tab, (tab) => {
+  const next = normalizeTab(tab)
+  if (next !== activeTab.value) activeTab.value = next
+})
+
 watch(activeTab, (tab) => {
+  if (normalizeTab(route.query.tab) !== tab) {
+    router.replace({ query: { ...route.query, tab } }).catch(() => {})
+  }
   if (tab === 'sanctions') {
     void loadSanctions(true)
     return
@@ -704,6 +724,7 @@ watch(activeTab, (tab) => {
 
 onMounted(() => {
   loadMe().catch(() => {})
+  if (activeTab.value === 'sanctions') void loadSanctions(true)
   onSanctionsUpdate = () => {
     if (activeTab.value === 'sanctions') void loadSanctions(true)
   }
