@@ -174,8 +174,6 @@ export const useAuthStore = defineStore('auth', () => {
       await applySession(data)
       const { useUserStore } = await import('@/store')
       await useUserStore().fetchMe()
-      const { default: router } = await import('@/router')
-      router.push({ name: 'profile', query: { tab: 'account' } }).catch(() => {})
     } catch (e: any) {
       const st = e?.response?.status
       const detail = e?.response?.data?.detail

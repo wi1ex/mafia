@@ -1281,6 +1281,18 @@ async function ensureGameParticipationAllowed(): Promise<boolean> {
   return true
 }
 
+async function ensureVerifiedForMedia(): Promise<boolean> {
+  if (userStore.telegramVerified) return true
+  const ok = await confirmDialog({
+    title: 'Требуется верификация',
+    text: 'Для включения камеры и трансляций необходимо пройти верификацию.',
+    confirmText: 'Пройти верификацию',
+    cancelText: 'Позже',
+  })
+  if (ok) await router.push({ name: 'profile', query: { tab: 'account' } })
+  return false
+}
+
 async function toggleReady() {
   if (!canUseReadyToggle.value) return
   if (!(await ensureGameParticipationAllowed())) return
@@ -1980,7 +1992,10 @@ const toggleMic = toggleFactory('mic',
   async () => await rtc.disable('audioinput'),
 )
 const toggleCam = toggleFactory('cam',
-  async () => await rtc.enable('videoinput'),
+  async () => {
+    if (!(await ensureVerifiedForMedia())) return false
+    return await rtc.enable('videoinput')
+  },
   async () => await rtc.disable('videoinput'),
 )
 const toggleSpeakers = toggleFactory('speakers',
@@ -2000,6 +2015,7 @@ const toggleVisibility = toggleFactory('visibility',
 
 const toggleScreen = async () => {
   if (pendingScreen.value) return
+  if (!isMyScreen.value && !(await ensureVerifiedForMedia())) return
   pendingScreen.value = true
   try {
     if (!isMyScreen.value) {
