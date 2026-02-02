@@ -89,7 +89,7 @@ export const useUserStore = defineStore('user', () => {
   const banActive = computed(() => Boolean(user.value?.ban_active))
   const telegramVerified = computed(() => Boolean(user.value?.telegram_verified))
   const passwordTemp = computed(() => Boolean(user.value?.password_temp))
-  const roomRestricted = computed(() => banActive.value || timeoutActive.value || (Boolean(user.value) && !telegramVerified.value))
+  const roomRestricted = computed(() => banActive.value || timeoutActive.value)
   const hotkeysVisible = computed(() => user.value?.hotkeys_visible ?? true)
   const installHidden = computed(() => user.value?.install_hidden ?? false)
 

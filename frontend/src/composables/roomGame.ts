@@ -2669,7 +2669,9 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     } else if (st === 409 && code === 'blocked_params') {
        void alertDialog('Снимите блокировки у некоторых пользователей перед запуском игры')
     } else if (st === 409 && code === 'suspend_present') {
-       void alertDialog('Нельзя запустить игру: у некоторых игроков имеется ограничение к играм')
+       void alertDialog('У некоторых игроков имеется ограничение к играм')
+    } else if (st === 409 && code === 'not_verified_present') {
+       void alertDialog('У некоторых игроков аккаунт не верифицирован')
     } else if (st === 409 && code === 'media_off') {
        void alertDialog('Есть пользователи у кого свернут браузер или выключен звук')
     } else if (st === 409 && code === 'already_started') {

@@ -683,7 +683,7 @@ const canUseReadyStart = computed(() => {
   if (limit <= 0 || min <= 0) return false
   return limit === min + 1
 })
-const canUseReadyToggle = computed(() => canUseReadyStart.value && !userStore.suspendActive)
+const canUseReadyToggle = computed(() => canUseReadyStart.value)
 const canShowHeadPicks = computed(() => isHead.value && knownRolesVisible.value)
 const canShowStartGame = computed(() => {
   if (!localId.value) return false
@@ -959,9 +959,10 @@ function ensureOk(resp: Ack, msgByCode: Record<number, string>, netMsg: string):
 }
 
 const sendAckGame: SendAckFn = (event, payload, timeoutMs) => sendAck(event, payload, timeoutMs)
-const startGameUi = () => {
+const startGameUi = async () => {
   if (!canUseReadyStart.value) return
-  game.startGame(sendAckGame)
+  if (!(await ensureGameParticipationAllowed())) return
+  await game.startGame(sendAckGame)
 }
 const endGameUi = () => game.endGame(sendAckGame)
 const leaveGameUi = () => game.leaveGame(sendAckGame)
@@ -1262,8 +1263,27 @@ const readyOn = computed({
 })
 const isReady = (id: string) => (statusByUser.get(id)?.ready ?? 0) === 1
 
+async function ensureGameParticipationAllowed(): Promise<boolean> {
+  if (userStore.suspendActive) {
+    void alertDialog('Вам временно запрещено участие в играх')
+    return false
+  }
+  if (!userStore.telegramVerified) {
+    const ok = await confirmDialog({
+      title: 'Требуется верификация',
+      text: 'Для участия в играх необходимо пройти верификацию.',
+      confirmText: 'Пройти верификацию',
+      cancelText: 'Позже',
+    })
+    if (ok) await router.push({ name: 'profile', query: { tab: 'profile' } })
+    return false
+  }
+  return true
+}
+
 async function toggleReady() {
   if (!canUseReadyToggle.value) return
+  if (!(await ensureGameParticipationAllowed())) return
   const want = !readyOn.value
   readyOn.value = want
   try {

@@ -78,7 +78,7 @@
     <span>{{ sanctionBanner.text }}</span>
   </div>
   <div v-if="verificationBanner" class="sanction-banner sanction-banner--verify">
-    <span>Доступ к комнатам ограничен — требуется верификация.</span>
+    <span>Для участия в играх требуется верификация.</span>
     <router-link :to="{ name: 'profile', query: { tab: 'profile' } }">Как пройти верификацию?</router-link>
   </div>
   <div v-if="registrationInfoBanner" class="sanction-banner sanction-banner--info">

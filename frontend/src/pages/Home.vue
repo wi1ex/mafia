@@ -363,8 +363,6 @@ async function onApply() {
     } else if (detail === 'not_private') {
       access.value = 'approved'
       void alertDialog('Комната открыта, можно зайти без заявки')
-    } else if (detail === 'not_verified') {
-      void alertDialog('Пройдите верификацию для доступа к комнатам')
     } else {
       void alertDialog('Ошибка при отправке заявки')
     }

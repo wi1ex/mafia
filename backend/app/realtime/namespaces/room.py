@@ -4,12 +4,14 @@ import random
 from time import time
 from typing import Any
 import structlog
+from sqlalchemy import select
 from ..sio import sio
 from ...core.clients import get_redis
 from ...security.decorators import rate_limited_sio
 from ...core.logging import log_action
 from ...core.db import SessionLocal
 from ...security.parameters import get_cached_settings
+from ...models.user import User
 from ...schemas.realtime import StateAck, ModerateAck, JoinAck, ScreenAck, GameStartAck, GameRolePickAck, GameHostBlurAck
 from ...services.livekit import make_livekit_token
 from ..utils import (
@@ -1033,15 +1035,30 @@ async def game_start(sid, data) -> GameStartAck:
             return {"ok": False, "error": "forbidden", "status": 403}
 
         member_ids = set(members)
+        unverified_ids: list[int] = []
         if member_ids:
             async with SessionLocal() as s:
                 suspended_ids = await fetch_active_users_by_kind(s, member_ids, SANCTION_SUSPEND)
+                rows = await s.scalars(
+                    select(User.id)
+                    .where(User.id.in_(member_ids))
+                    .where(User.telegram_id.is_(None))
+                    .where(User.deleted_at.is_(None))
+                )
+                unverified_ids = [int(x) for x in rows]
             if suspended_ids:
                 return {
                     "ok": False,
                     "status": 409,
                     "error": "suspend_present",
                     "blocking_users": sorted(suspended_ids),
+                }
+            if unverified_ids:
+                return {
+                    "ok": False,
+                    "status": 409,
+                    "error": "not_verified_present",
+                    "blocking_users": sorted(unverified_ids),
                 }
 
         streaming_owner_raw = await r.get(f"room:{rid}:screen_owner")

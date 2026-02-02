@@ -293,8 +293,6 @@ async def ensure_room_access_allowed(db: AsyncSession, user_id: int) -> None:
     if not user or user.deleted_at:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
-    if not user.telegram_id:
-        raise HTTPException(status_code=403, detail="not_verified")
 
 
 async def ensure_profile_changes_allowed(db: AsyncSession, user_id: int) -> None:

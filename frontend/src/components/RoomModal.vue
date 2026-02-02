@@ -236,7 +236,6 @@ async function create() {
     const st = e?.response?.status
     const d = e?.response?.data?.detail
     if (st === 403 && d === 'rooms_create_disabled')   void alertDialog('Создание комнат временно недоступно')
-    else if (st === 403 && d === 'not_verified')       void alertDialog('Пройдите верификацию для создания комнат')
     else if (st === 409 && d === 'rooms_limit_global') void alertDialog('Достигнут общий лимит комнат')
     else if (st === 409 && d === 'rooms_limit_user')   void alertDialog('Достигнут личный лимит комнат')
     else if (st === 422 && d === 'title_empty')        void alertDialog('Название не должно быть пустым')
