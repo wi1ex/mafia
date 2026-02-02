@@ -19,7 +19,7 @@ async def verify(payload: BotVerifyIn, db: AsyncSession = Depends(get_session), 
     if payload.telegram_id <= 0:
         raise HTTPException(status_code=422, detail="invalid_telegram_id")
 
-    stmt = select(User).where(func.lower(User.username).eq(func.lower(literal(username))))
+    stmt = select(User).where(User.username.ilike(username))
     user = (await db.execute(stmt)).scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="user_not_found")
@@ -60,7 +60,7 @@ async def reset_password(payload: BotResetIn, db: AsyncSession = Depends(get_ses
     if payload.telegram_id <= 0:
         raise HTTPException(status_code=422, detail="invalid_telegram_id")
 
-    stmt = select(User).where(func.lower(User.username).eq(func.lower(literal(username))))
+    stmt = select(User).where(User.username.ilike(username))
     user = (await db.execute(stmt)).scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="user_not_found")

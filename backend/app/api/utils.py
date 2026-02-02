@@ -228,7 +228,7 @@ def normalize_password(raw: str) -> str:
 
 
 async def find_user_by_username(db: AsyncSession, username: str) -> User | None:
-    stmt = select(User).where(func.lower(User.username).eq(func.lower(literal(username))))
+    stmt = select(User).where(User.username.ilike(username))
     return (await db.execute(stmt)).scalar_one_or_none()
 
 

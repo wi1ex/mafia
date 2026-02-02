@@ -39,7 +39,7 @@ async def register(payload: PasswordRegisterIn, resp: Response, request: Request
     username = normalize_username(payload.username)
     password = normalize_password(payload.password)
 
-    exists_case_ins = await db.scalar(select(exists().where(func.lower(User.username).eq(func.lower(literal(username))))))
+    exists_case_ins = await db.scalar(select(exists().where(User.username.ilike(username))))
     if exists_case_ins:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="username_taken")
 
