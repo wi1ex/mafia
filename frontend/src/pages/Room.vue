@@ -2557,8 +2557,8 @@ onBeforeUnmount(() => {
     align-items: center;
     justify-content: center;
     inset: 0;
+    background-color: rgba($black, 0.25);
     backdrop-filter: blur(5px);
-    background-color: rgba($black, 0.75);
     color: $fg;
     z-index: 1000;
     pointer-events: none;
@@ -2581,7 +2581,6 @@ onBeforeUnmount(() => {
     z-index: 850;
     background-color: rgba($black, 0.25);
     backdrop-filter: blur(25px);
-    -webkit-backdrop-filter: blur(25px);
     pointer-events: fill;
   }
   .grid {
@@ -2793,8 +2792,8 @@ onBeforeUnmount(() => {
     align-items: center;
     justify-content: center;
     inset: 0;
+    background-color: rgba($black, 0.25);
     backdrop-filter: blur(5px);
-    background-color: rgba($black, 0.75);
     z-index: 900;
     .role-overlay-inner {
       display: grid;
@@ -2867,7 +2866,8 @@ onBeforeUnmount(() => {
     align-items: center;
     justify-content: center;
     inset: 0;
-    background-color: rgba($black, 0.75);
+    background-color: rgba($black, 0.25);
+    backdrop-filter: blur(5px);
     z-index: 900;
     .knock-modal {
       display: flex;
@@ -2942,19 +2942,17 @@ onBeforeUnmount(() => {
 }
 .host-blur-enter-active,
 .host-blur-leave-active {
-  transition: opacity 0.5s ease-in-out, backdrop-filter 0.5s ease-in-out, -webkit-backdrop-filter 0.5s ease-in-out;
+  transition: opacity 0.5s ease-in-out, backdrop-filter 0.5s ease-in-out;
 }
 .host-blur-enter-from,
 .host-blur-leave-to {
   opacity: 0;
   backdrop-filter: blur(0);
-  -webkit-backdrop-filter: blur(0);
 }
 .host-blur-enter-to,
 .host-blur-leave-from {
   opacity: 1;
   backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
 }
 .role-overlay-fade-enter-active,
 .role-overlay-fade-leave-active {

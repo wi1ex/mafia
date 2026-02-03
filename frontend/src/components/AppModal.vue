@@ -79,7 +79,8 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   inset: 0;
-  background-color: rgba($black, 0.75);
+  background-color: rgba($black, 0.25);
+  backdrop-filter: blur(5px);
   z-index: 1000;
   .install-modal {
     display: flex;
