@@ -149,9 +149,11 @@ watch(() => props.open, (open) => {
   .auth-modal {
     display: flex;
     flex-direction: column;
-    width: 420px;
+    width: 400px;
     border-radius: 5px;
     background-color: $dark;
+    transform: translateY(0);
+    transition: transform 0.25s ease-in-out;
     header {
       display: flex;
       justify-content: space-between;

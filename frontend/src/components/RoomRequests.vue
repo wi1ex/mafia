@@ -10,7 +10,7 @@
       <ul v-if="apps.length">
         <li v-for="u in apps" :key="u.id">
           <img v-minio-img="{ key: u.avatar_name ? `avatars/${u.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
-          <span>{{ u.username || ('user' + u.id) }}</span>
+          <span class="username">{{ u.username || ('user' + u.id) }}</span>
           <time class="req-time">{{ formatLocalDateTime(u.requested_at, TIME_ONLY) }}</time>
           <button v-if="u.status === 'pending'" class="btn-approve" :disabled="actionBusy[u.id]" @click="approve(u.id)">Одобрить</button>
           <button v-else class="btn-deny" :disabled="actionBusy[u.id]" @click="deny(u.id)">Запретить</button>
@@ -282,12 +282,15 @@ onBeforeUnmount(() => {
         height: 30px;
         border-radius: 50%;
       }
-      span {
+      .username {
         flex: 1;
         height: 18px;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+      }
+      .req-time {
+        font-size: 14px;
       }
       button {
         display: flex;
@@ -302,6 +305,10 @@ onBeforeUnmount(() => {
         line-height: 1;
         cursor: pointer;
         transition: background-color 0.25s ease-in-out;
+        &:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
         &.btn-approve {
           background-color: rgba($green, 0.75);
           color: $bg;
@@ -361,14 +368,17 @@ onBeforeUnmount(() => {
           width: 20px;
           height: 20px;
         }
-        span {
+        .username {
           height: 14px;
+          font-size: 12px;
+        }
+        .req-time {
           font-size: 12px;
         }
         button {
           padding: 5px;
           height: 20px;
-          font-size: 10px;
+          font-size: 12px;
         }
       }
     }

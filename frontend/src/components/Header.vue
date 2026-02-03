@@ -22,7 +22,7 @@
 
     <div v-if="!auth.isAuthed && !auth.foreignActive" class="auth-actions">
       <button class="btn" type="button" @click="openAuth('login')">
-        <span>Войти</span>
+        <span>Войти в аккаунт</span>
       </button>
     </div>
     <div v-else-if="!auth.isAuthed && auth.foreignActive" class="btn">
@@ -82,7 +82,7 @@
     <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">Как пройти верификацию?</a>
   </div>
   <div v-if="registrationInfoBanner" class="sanction-banner sanction-banner--info">
-    <span>Изменён способ регистрации/авторизации. Если уже есть аккаунт, используйте "Сбросить пароль" в</span>
+    <span>Изменён способ регистрации/авторизации. Если у Вас уже есть аккаунт, используйте "Сбросить пароль" в</span>
     <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">Telegram</a>
   </div>
   <AppModal v-model:open="installOpen" @hide-install="onHideInstall" />

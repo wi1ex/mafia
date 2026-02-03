@@ -600,20 +600,14 @@ onBeforeUnmount(() => {
 .slide-right-leave-active {
   transition: transform 0.25s ease-out, opacity 0.25s ease-out;
 }
-.slide-left-enter-from {
-  transform: translateX(60px);
-  opacity: 0;
-}
-.slide-left-leave-to {
-  transform: translateX(-60px);
-  opacity: 0;
-}
-.slide-right-enter-from {
-  transform: translateX(-60px);
-  opacity: 0;
-}
+.slide-left-enter-from,
 .slide-right-leave-to {
   transform: translateX(60px);
+  opacity: 0;
+}
+.slide-right-enter-from,
+.slide-left-leave-to {
+  transform: translateX(-60px);
   opacity: 0;
 }
 
