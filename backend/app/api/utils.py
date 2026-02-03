@@ -96,6 +96,7 @@ PRESIGN_ALLOWED_PREFIXES: tuple[str, ...] = ("avatars/",)
 PRESIGN_KEY_RE = re.compile(r"^[a-zA-Z0-9._/-]{3,256}$")
 STREAM_LOG_RE = re.compile(r"room_id=(\d+)\s+target_user=(\d+)")
 BOT_USERNAME_RE = re.compile(r"^[a-zA-Zа-яА-Я0-9._\-()]{2,20}$")
+PWD_CTRL_RE = re.compile(r"[\x00-\x1F\x7F]")
 
 SANCTION_TIMEOUT = "timeout"
 SANCTION_BAN = "ban"
@@ -222,6 +223,12 @@ def normalize_username(raw: str) -> str:
 def normalize_password(raw: str) -> str:
     pwd = str(raw or "")
     if not pwd.strip():
+        raise HTTPException(status_code=422, detail="invalid_password")
+
+    if len(pwd) < 8 or len(pwd) > 32:
+        raise HTTPException(status_code=422, detail="invalid_password")
+
+    if PWD_CTRL_RE.search(pwd):
         raise HTTPException(status_code=422, detail="invalid_password")
 
     return pwd

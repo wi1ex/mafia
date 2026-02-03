@@ -12,18 +12,18 @@ class AccessTokenOut(BaseModel):
 
 class PasswordLoginIn(BaseModel):
     username: UsernameClean = Field(min_length=2, max_length=20)
-    password: str = Field(min_length=6, max_length=64)
+    password: str = Field(min_length=8, max_length=32)
 
 
 class PasswordRegisterIn(BaseModel):
     username: UsernameClean = Field(min_length=2, max_length=20)
-    password: str = Field(min_length=6, max_length=64)
+    password: str = Field(min_length=8, max_length=32)
     accept_rules: Optional[bool] | None = None
 
 
 class BotVerifyIn(BaseModel):
     username: UsernameClean = Field(min_length=2, max_length=20)
-    password: str = Field(min_length=6, max_length=64)
+    password: str = Field(min_length=8, max_length=32)
     telegram_id: int
 
 

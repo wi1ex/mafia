@@ -109,17 +109,17 @@
             <p v-if="passwordTemp" class="hint warn">У вас временный пароль — рекомендуем изменить его</p>
             <div class="password-row">
               <div class="ui-input" :class="{ filled: !!pwd.current }">
-                <input id="profile-pass-current" v-model="pwd.current" type="password" placeholder=" " autocomplete="current-password" />
+                <input id="profile-pass-current" v-model="pwd.current" type="password" placeholder=" " autocomplete="current-password" minlength="8" maxlength="32" />
                 <label for="profile-pass-current">Текущий пароль</label>
                 <div class="underline"><span></span></div>
               </div>
               <div class="ui-input" :class="{ filled: !!pwd.next }">
-                <input id="profile-pass-new" v-model="pwd.next" type="password" placeholder=" " autocomplete="new-password" />
+                <input id="profile-pass-new" v-model="pwd.next" type="password" placeholder=" " autocomplete="new-password" minlength="8" maxlength="32" />
                 <label for="profile-pass-new">Новый пароль</label>
                 <div class="underline"><span></span></div>
               </div>
               <div class="ui-input" :class="{ filled: !!pwd.confirm, invalid: pwd.confirm && pwd.next !== pwd.confirm }">
-                <input id="profile-pass-confirm" v-model="pwd.confirm" type="password" placeholder=" " autocomplete="new-password" />
+                <input id="profile-pass-confirm" v-model="pwd.confirm" type="password" placeholder=" " autocomplete="new-password" minlength="8" maxlength="32" />
                 <label for="profile-pass-confirm">Повторите пароль</label>
                 <div class="underline"><span></span></div>
               </div>
@@ -291,9 +291,12 @@ const botLink = botName ? `https://t.me/${botName}` : 'https://t.me'
 const pwd = reactive({ current: '', next: '', confirm: '' })
 const pwdBusy = ref(false)
 const canChangePassword = computed(() =>
-  pwd.current.length >= 6 &&
-  pwd.next.length >= 6 &&
-  pwd.confirm.length >= 6 &&
+  pwd.current.length >= 8 &&
+  pwd.current.length <= 32 &&
+  pwd.next.length >= 8 &&
+  pwd.next.length <= 32 &&
+  pwd.confirm.length >= 8 &&
+  pwd.confirm.length <= 32 &&
   pwd.next === pwd.confirm
 )
 

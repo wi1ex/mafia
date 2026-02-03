@@ -22,7 +22,7 @@
               <div class="underline"><span></span></div>
             </div>
             <div class="ui-input" :class="{ filled: !!login.password }">
-              <input id="auth-login-password" v-model="login.password" type="password" autocomplete="current-password" placeholder=" " />
+              <input id="auth-login-password" v-model="login.password" type="password" autocomplete="current-password" placeholder=" " minlength="8" maxlength="32" />
               <label for="auth-login-password">Пароль</label>
               <div class="underline"><span></span></div>
             </div>
@@ -39,12 +39,12 @@
               <div class="underline"><span></span></div>
             </div>
             <div class="ui-input" :class="{ filled: !!reg.password }">
-              <input id="auth-reg-password" v-model="reg.password" type="password" autocomplete="new-password" placeholder=" " />
+              <input id="auth-reg-password" v-model="reg.password" type="password" autocomplete="new-password" placeholder=" " minlength="8" maxlength="32" />
               <label for="auth-reg-password">Пароль</label>
               <div class="underline"><span></span></div>
             </div>
             <div class="ui-input" :class="{ filled: !!reg.passwordConfirm, invalid: reg.passwordConfirm && !passwordsMatch }">
-              <input id="auth-reg-password-confirm" v-model="reg.passwordConfirm" type="password" autocomplete="new-password" placeholder=" " />
+              <input id="auth-reg-password-confirm" v-model="reg.passwordConfirm" type="password" autocomplete="new-password" placeholder=" " minlength="8" maxlength="32" />
               <label for="auth-reg-password-confirm">Повторите пароль</label>
               <div class="underline"><span></span></div>
             </div>
@@ -85,12 +85,17 @@ const regBusy = ref(false)
 const login = reactive({ username: '', password: '' })
 const reg = reactive({ username: '', password: '', passwordConfirm: '', acceptRules: false })
 
-const canLogin = computed(() => login.username.trim().length >= 2 && login.password.length >= 6)
+const canLogin = computed(() =>
+  login.username.trim().length >= 2 &&
+  login.password.length >= 8 &&
+  login.password.length <= 32
+)
 const passwordsMatch = computed(() => reg.password && reg.password === reg.passwordConfirm)
 const canRegisterSubmit = computed(() =>
   canRegister.value &&
   reg.username.trim().length >= 2 &&
-  reg.password.length >= 6 &&
+  reg.password.length >= 8 &&
+  reg.password.length <= 32 &&
   passwordsMatch.value &&
   reg.acceptRules
 )
