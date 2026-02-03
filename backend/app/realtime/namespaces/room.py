@@ -33,6 +33,8 @@ from ..utils import (
     gc_empty_room,
     get_room_snapshot,
     merge_ready_into_snapshot,
+    norm01,
+    is_user_verified,
     set_ready,
     get_positions_map,
     smembers_ints,
@@ -469,6 +471,23 @@ async def state(sid, data) -> StateAck:
             return {"ok": False}
 
         payload = data or {}
+        if not isinstance(payload, dict):
+            payload = {}
+        enforce_verification = bool(get_cached_settings().verification_restrictions)
+        if enforce_verification and ("ready" in payload or "cam" in payload):
+            wants_ready_on = "ready" in payload and norm01(payload.get("ready")) == "1"
+            wants_cam_on = "cam" in payload and norm01(payload.get("cam")) == "1"
+            if wants_ready_on or wants_cam_on:
+                verified = await is_user_verified(uid)
+                if not verified:
+                    payload = dict(payload)
+                    if wants_ready_on:
+                        payload.pop("ready", None)
+                    if wants_cam_on:
+                        payload.pop("cam", None)
+                    if not payload:
+                        return {"ok": True}
+
         applied = await apply_state(r, rid, uid, payload)
         changed = dict(applied)
         if "ready" in payload:
@@ -642,6 +661,10 @@ async def screen(sid, data) -> ScreenAck:
             err = ensure_can_act_role(actor_role, trg_role)
             if err:
                 return err
+
+        if want_on and get_cached_settings().verification_restrictions:
+            if not await is_user_verified(target):
+                return {"ok": False, "error": "not_verified", "status": 403}
 
         if want_on and target == actor_uid:
             bl = await r.hget(f"room:{rid}:user:{actor_uid}:block", "screen")
@@ -1034,18 +1057,20 @@ async def game_start(sid, data) -> GameStartAck:
         if uid != head_uid:
             return {"ok": False, "error": "forbidden", "status": 403}
 
+        enforce_verification = bool(app_settings.verification_restrictions)
         member_ids = set(members)
         unverified_ids: list[int] = []
         if member_ids:
             async with SessionLocal() as s:
                 suspended_ids = await fetch_active_users_by_kind(s, member_ids, SANCTION_SUSPEND)
-                rows = await s.scalars(
-                    select(User.id)
-                    .where(User.id.in_(member_ids))
-                    .where(User.telegram_id.is_(None))
-                    .where(User.deleted_at.is_(None))
-                )
-                unverified_ids = [int(x) for x in rows]
+                if enforce_verification:
+                    rows = await s.scalars(
+                        select(User.id)
+                        .where(User.id.in_(member_ids))
+                        .where(User.telegram_id.is_(None))
+                        .where(User.deleted_at.is_(None))
+                    )
+                    unverified_ids = [int(x) for x in rows]
             if suspended_ids:
                 return {
                     "ok": False,
@@ -1053,7 +1078,7 @@ async def game_start(sid, data) -> GameStartAck:
                     "error": "suspend_present",
                     "blocking_users": sorted(suspended_ids),
                 }
-            if unverified_ids:
+            if enforce_verification and unverified_ids:
                 return {
                     "ok": False,
                     "status": 409,

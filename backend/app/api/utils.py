@@ -568,6 +568,7 @@ def site_settings_out(row) -> SiteSettingsOut:
         rooms_can_enter=bool(row.rooms_can_enter),
         games_can_start=bool(row.games_can_start),
         streams_can_start=bool(row.streams_can_start),
+        verification_restrictions=bool(row.verification_restrictions),
         rooms_limit_global=int(row.rooms_limit_global),
         rooms_limit_per_user=int(row.rooms_limit_per_user),
         rooms_empty_ttl_seconds=int(row.rooms_empty_ttl_seconds),

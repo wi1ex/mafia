@@ -14,6 +14,7 @@ class AppSettings(Base):
     rooms_can_enter: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
     games_can_start: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
     streams_can_start: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
+    verification_restrictions: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
     rooms_limit_global: Mapped[int] = mapped_column(Integer, nullable=False, server_default="100")
     rooms_limit_per_user: Mapped[int] = mapped_column(Integer, nullable=False, server_default="3")
     rooms_empty_ttl_seconds: Mapped[int] = mapped_column(Integer, nullable=False, server_default=str(settings.ROOMS_EMPTY_TTL_SECONDS))

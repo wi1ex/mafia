@@ -14,6 +14,7 @@ class AppSettingsSnapshot:
     rooms_can_enter: bool
     games_can_start: bool
     streams_can_start: bool
+    verification_restrictions: bool
     rooms_limit_global: int
     rooms_limit_per_user: int
     rooms_empty_ttl_seconds: int
@@ -40,6 +41,7 @@ def _defaults() -> AppSettingsSnapshot:
         rooms_can_enter=True,
         games_can_start=True,
         streams_can_start=True,
+        verification_restrictions=True,
         rooms_limit_global=100,
         rooms_limit_per_user=3,
         rooms_empty_ttl_seconds=core_settings.ROOMS_EMPTY_TTL_SECONDS,
@@ -64,6 +66,7 @@ def _snapshot_from_row(row: AppSettings) -> AppSettingsSnapshot:
         rooms_can_enter=bool(row.rooms_can_enter),
         games_can_start=bool(row.games_can_start),
         streams_can_start=bool(row.streams_can_start),
+        verification_restrictions=bool(row.verification_restrictions),
         rooms_limit_global=int(row.rooms_limit_global),
         rooms_limit_per_user=int(row.rooms_limit_per_user),
         rooms_empty_ttl_seconds=int(row.rooms_empty_ttl_seconds),
@@ -101,6 +104,7 @@ async def ensure_app_settings(session: AsyncSession) -> AppSettings:
             rooms_can_enter=defaults.rooms_can_enter,
             games_can_start=defaults.games_can_start,
             streams_can_start=defaults.streams_can_start,
+            verification_restrictions=defaults.verification_restrictions,
             rooms_limit_global=defaults.rooms_limit_global,
             rooms_limit_per_user=defaults.rooms_limit_per_user,
             rooms_empty_ttl_seconds=defaults.rooms_empty_ttl_seconds,

@@ -130,6 +130,7 @@ async def public_settings(session: AsyncSession = Depends(get_session)) -> Publi
         rooms_can_enter=settings.rooms_can_enter,
         games_can_start=settings.games_can_start,
         streams_can_start=settings.streams_can_start,
+        verification_restrictions=settings.verification_restrictions,
         game_min_ready_players=settings.game_min_ready_players,
         winks_limit=settings.winks_limit,
         knocks_limit=settings.knocks_limit,

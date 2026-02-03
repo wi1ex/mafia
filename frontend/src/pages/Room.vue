@@ -1268,6 +1268,7 @@ async function ensureGameParticipationAllowed(): Promise<boolean> {
     void alertDialog('Вам временно запрещено участие в играх')
     return false
   }
+  if (!settings.verificationRestrictions) return true
   if (!userStore.telegramVerified) {
     const ok = await confirmDialog({
       title: 'Требуется верификация',
@@ -1282,6 +1283,7 @@ async function ensureGameParticipationAllowed(): Promise<boolean> {
 }
 
 async function ensureVerifiedForMedia(): Promise<boolean> {
+  if (!settings.verificationRestrictions) return true
   if (userStore.telegramVerified) return true
   const ok = await confirmDialog({
     title: 'Требуется верификация',

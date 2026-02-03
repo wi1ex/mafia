@@ -36,6 +36,7 @@
               <ToggleSwitch class="switch-item" v-model="site.rooms_can_enter" label="Вход в комнату" :disabled="savingSettings" />
               <ToggleSwitch class="switch-item" v-model="site.games_can_start" label="Запуск игр" :disabled="savingSettings" />
               <ToggleSwitch class="switch-item" v-model="site.streams_can_start" label="Запуск трансляций" :disabled="savingSettings" />
+              <ToggleSwitch class="switch-item" v-model="site.verification_restrictions" label="Ограничения верификации" :disabled="savingSettings" />
               <div class="form-actions">
                 <button class="btn danger" :disabled="kickRoomsBusy" @click="kickAllRooms">
                   Кик из комнат
@@ -710,6 +711,7 @@ type SiteSettings = {
   rooms_can_enter: boolean
   games_can_start: boolean
   streams_can_start: boolean
+  verification_restrictions: boolean
   rooms_limit_global: number
   rooms_limit_per_user: number
   rooms_empty_ttl_seconds: number
@@ -881,6 +883,7 @@ const site = reactive<SiteSettings>({
   rooms_can_enter: true,
   games_can_start: true,
   streams_can_start: true,
+  verification_restrictions: true,
   rooms_limit_global: 100,
   rooms_limit_per_user: 3,
   rooms_empty_ttl_seconds: 10,
@@ -1082,6 +1085,7 @@ function snapshotSite(): string {
     rooms_can_enter: Boolean(site.rooms_can_enter),
     games_can_start: Boolean(site.games_can_start),
     streams_can_start: Boolean(site.streams_can_start),
+    verification_restrictions: Boolean(site.verification_restrictions),
     rooms_limit_global: normalizeInt(site.rooms_limit_global),
     rooms_limit_per_user: normalizeInt(site.rooms_limit_per_user),
     rooms_empty_ttl_seconds: normalizeInt(site.rooms_empty_ttl_seconds),
@@ -1254,6 +1258,7 @@ async function saveSettings(): Promise<void> {
         rooms_can_enter: Boolean(site.rooms_can_enter),
         games_can_start: Boolean(site.games_can_start),
         streams_can_start: Boolean(site.streams_can_start),
+        verification_restrictions: Boolean(site.verification_restrictions),
         rooms_limit_global: normalizeInt(site.rooms_limit_global),
         rooms_limit_per_user: normalizeInt(site.rooms_limit_per_user),
         rooms_empty_ttl_seconds: normalizeInt(site.rooms_empty_ttl_seconds),
@@ -1283,6 +1288,7 @@ async function saveSettings(): Promise<void> {
       rooms_can_enter: site.rooms_can_enter,
       games_can_start: site.games_can_start,
       streams_can_start: site.streams_can_start,
+      verification_restrictions: site.verification_restrictions,
       game_min_ready_players: game.game_min_ready_players,
       winks_limit: game.winks_limit,
       knocks_limit: game.knocks_limit,
