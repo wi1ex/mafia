@@ -11,8 +11,8 @@
         <li v-for="u in apps" :key="u.id">
           <img v-minio-img="{ key: u.avatar_name ? `avatars/${u.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
           <span>{{ u.username || ('user' + u.id) }}</span>
-          <button v-if="u.status === 'pending'" class="btn-approve" @click="approve(u.id)">Одобрить</button>
-          <button v-else class="btn-deny" @click="deny(u.id)">Запретить</button>
+          <button v-if="u.status === 'pending'" class="btn-approve" :disabled="actionBusy[u.id]" @click="approve(u.id)">Одобрить</button>
+          <button v-else class="btn-deny" :disabled="actionBusy[u.id]" @click="deny(u.id)">Запретить</button>
         </li>
       </ul>
       <p v-else-if="showEmpty">Нет заявок</p>
@@ -43,6 +43,7 @@ const apps = ref<AppItem[]>([])
 const seenKey = computed(() => `room:${props.roomId}:apps_seen`)
 const isLoading = ref(false)
 const showEmpty = computed(() => !isLoading.value && apps.value.length === 0)
+const actionBusy = ref<Record<number, boolean>>({})
 let inFlight = false
 
 function loadSeen(): Set<number> {
@@ -84,6 +85,9 @@ async function load() {
 }
 
 async function approve(uid: number) {
+  if (actionBusy.value[uid]) return
+  actionBusy.value = { ...actionBusy.value, [uid]: true }
+  await new Promise(resolve => setTimeout(resolve, 500))
   try {
     await api.post(`/rooms/${props.roomId}/requests/${uid}/approve`)
     apps.value = apps.value.map(x => x.id === uid ? { ...x, status: 'approved' } : x)
@@ -95,9 +99,15 @@ async function approve(uid: number) {
       detail: { room_id: props.roomId, user_id: uid }
     }))
   } catch { void alertDialog('Возникла непредвиденная ошибка') }
+  finally {
+    actionBusy.value = { ...actionBusy.value, [uid]: false }
+  }
 }
 
 async function deny(uid: number) {
+  if (actionBusy.value[uid]) return
+  actionBusy.value = { ...actionBusy.value, [uid]: true }
+  await new Promise(resolve => setTimeout(resolve, 500))
   try {
     await api.post(`/rooms/${props.roomId}/requests/${uid}/deny`)
     apps.value = apps.value.filter(x => x.id !== uid)
@@ -108,8 +118,11 @@ async function deny(uid: number) {
     window.dispatchEvent(new CustomEvent('auth-room_app_revoked', {
       detail: { room_id: props.roomId, user_id: uid }
     }))
-    } catch { void alertDialog('Возникла непредвиденная ошибка') }
+  } catch { void alertDialog('Возникла непредвиденная ошибка') }
+  finally {
+    actionBusy.value = { ...actionBusy.value, [uid]: false }
   }
+}
 
 function onInvite(e: any) {
   const p = e?.detail
