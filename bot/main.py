@@ -65,7 +65,7 @@ def keyboard_verify_only() -> ReplyKeyboardMarkup:
 
 def keyboard_reset_only() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
-        keyboard=[[KeyboardButton(text="Восстановить пароль")]],
+        keyboard=[[KeyboardButton(text="Сбросить пароль")]],
         resize_keyboard=True,
         one_time_keyboard=False,
     )
@@ -142,7 +142,7 @@ def map_reset_error(detail: str | None, status_code: int | None) -> str:
     if detail == "user_deleted":
         return "Аккаунт удален."
 
-    return "Не удалось восстановить пароль."
+    return "Не удалось сбросить пароль."
 
 
 @router.message(Command("start"))
@@ -222,7 +222,7 @@ async def verify_credentials(message: types.Message, state: FSMContext, session:
     await message.answer(f"{map_verify_error(detail, status_code)}\nВведите логин и пароль через пробел (например: login password):", reply_markup=keyboard_verify_only())
 
 @router.message(Command("reset"))
-@router.message(F.text == "Восстановить пароль")
+@router.message(F.text == "Сбросить пароль")
 async def reset_start(message: types.Message, state: FSMContext, session: aiohttp.ClientSession) -> None:
     tg_id = message.from_user.id if message.from_user else 0
     status_code, payload = await backend_request(
@@ -239,7 +239,7 @@ async def reset_start(message: types.Message, state: FSMContext, session: aiohtt
     await state.clear()
     await state.set_state(ResetState.confirm)
     await message.answer(
-        "Вы уверены, что хотите восстановить пароль?",
+        "Вы уверены, что хотите сбросить пароль?",
         reply_markup=reset_confirm_buttons(),
     )
 
@@ -281,7 +281,7 @@ async def on_startup(app: web.Application) -> None:
         [
             types.BotCommand(command="start", description="Показать меню"),
             types.BotCommand(command="verify", description="Пройти верификацию"),
-            types.BotCommand(command="reset", description="Восстановить пароль"),
+            types.BotCommand(command="reset", description="Сбросить пароль"),
             types.BotCommand(command="cancel", description="Отмена текущего действия"),
         ]
     )

@@ -128,7 +128,7 @@
               </button>
             </div>
             <p class="hint">
-              Если забыли пароль, восстановите его в
+              Если забыли пароль, используйте "Сбросить пароль" в
               <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">Telegram</a>
             </p>
           </div>

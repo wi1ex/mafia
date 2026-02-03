@@ -29,7 +29,7 @@
             <button class="btn confirm" type="submit" :disabled="loginBusy || !canLogin">
               {{ loginBusy ? '...' : 'Войти' }}
             </button>
-            <button class="btn ghost" type="button" @click="openBot">Восстановить пароль</button>
+            <button class="btn ghost" type="button" @click="openBot">Сбросить пароль</button>
           </form>
 
           <form v-else class="form" @submit.prevent="submitRegister">

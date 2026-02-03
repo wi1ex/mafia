@@ -79,10 +79,11 @@
   </div>
   <div v-if="verificationBanner" class="sanction-banner sanction-banner--verify">
     <span>Для комфортного общения и участия в играх требуется верификация.</span>
-    <router-link :to="{ name: 'profile', query: { tab: 'account' } }">Как пройти верификацию?</router-link>
+    <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">Как пройти верификацию?</a>
   </div>
   <div v-if="registrationInfoBanner" class="sanction-banner sanction-banner--info">
-    <span>Изменён способ регистрации/авторизации. Если у вас уже есть аккаунт, используйте кнопку "Восстановить пароль" в блоке авторизации</span>
+    <span>Изменён способ регистрации/авторизации. Если уже есть аккаунт, используйте "Сбросить пароль" в</span>
+    <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">Telegram</a>
   </div>
   <AppModal v-model:open="installOpen" @hide-install="onHideInstall" />
   <AuthModal v-model:open="authOpen" :mode="authMode" />
@@ -125,6 +126,8 @@ const installOpen = ref(false)
 const isPwa = ref(isPwaMode())
 const authOpen = ref(false)
 const authMode = ref<'login' | 'register'>('login')
+const botName = (import.meta.env.VITE_TG_BOT_NAME as string || '').trim()
+const botLink = botName ? `https://t.me/${botName}` : 'https://t.me'
 
 type SanctionBanner = { kind: 'ban' | 'timeout' | 'suspend'; text: string }
 
@@ -385,7 +388,7 @@ function openAuth(mode: 'login' | 'register') {
   color: $bg;
   font-weight: bold;
   letter-spacing: 1px;
-  gap: 10px;
+  gap: 5px;
   a {
     color: $white;
     text-decoration: underline;
