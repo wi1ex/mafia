@@ -1,5 +1,6 @@
 from __future__ import annotations
 from contextlib import suppress
+from datetime import datetime, timezone
 from time import time
 from fastapi import APIRouter, Depends, status, HTTPException
 from sqlalchemy import select
@@ -325,17 +326,24 @@ async def list_requests(room_id: int, ident: Identity = Depends(get_identity), d
     if not ids:
         return []
 
-    raw_order = await r.zrevrange(f"room:{room_id}:requests", 0, -1)
+    raw_order = await r.zrevrange(f"room:{room_id}:requests", 0, -1, withscores=True)
     order_ids: list[int] = []
+    request_times: dict[int, datetime] = {}
     seen = set()
     for raw in raw_order or []:
         try:
-            uid = int(raw)
+            uid = int(raw[0])
         except Exception:
             continue
         if uid in ids and uid not in seen:
             order_ids.append(uid)
             seen.add(uid)
+        try:
+            score = float(raw[1])
+            if score > 0:
+                request_times[uid] = datetime.fromtimestamp(score, tz=timezone.utc)
+        except Exception:
+            pass
 
     missing_ids = sorted(ids - seen)
     if missing_ids:
@@ -354,7 +362,14 @@ async def list_requests(room_id: int, ident: Identity = Depends(get_identity), d
             continue
 
         status = "pending" if uid in pending_ids else "approved"
-        items.append(RoomRequestOut(id=uid, username=u.username, avatar_name=u.avatar_name, role=u.role, status=status))
+        items.append(RoomRequestOut(
+            id=uid,
+            username=u.username,
+            avatar_name=u.avatar_name,
+            role=u.role,
+            status=status,
+            requested_at=request_times.get(uid),
+        ))
 
     return items
 

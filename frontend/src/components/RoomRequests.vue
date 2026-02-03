@@ -11,6 +11,7 @@
         <li v-for="u in apps" :key="u.id">
           <img v-minio-img="{ key: u.avatar_name ? `avatars/${u.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
           <span>{{ u.username || ('user' + u.id) }}</span>
+          <time class="req-time">{{ formatLocalDateTime(u.requested_at, TIME_ONLY) }}</time>
           <button v-if="u.status === 'pending'" class="btn-approve" :disabled="actionBusy[u.id]" @click="approve(u.id)">Одобрить</button>
           <button v-else class="btn-deny" :disabled="actionBusy[u.id]" @click="deny(u.id)">Запретить</button>
         </li>
@@ -27,8 +28,9 @@ import { api } from '@/services/axios'
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
 import iconClose from '@/assets/svg/close.svg'
 import { alertDialog } from '@/services/confirm'
+import { formatLocalDateTime } from '@/services/datetime'
 
-type AppItem = {id: number; username?: string; avatar_name?: string|null; status: 'pending'|'approved'}
+type AppItem = {id: number; username?: string; avatar_name?: string|null; status: 'pending'|'approved'; requested_at?: string|null}
 
 const props = defineProps<{
   open: boolean
@@ -43,6 +45,7 @@ const apps = ref<AppItem[]>([])
 const seenKey = computed(() => `room:${props.roomId}:apps_seen`)
 const isLoading = ref(false)
 const showEmpty = computed(() => !isLoading.value && apps.value.length === 0)
+const TIME_ONLY: Intl.DateTimeFormatOptions = { hour: '2-digit', minute: '2-digit', second: '2-digit' }
 const actionBusy = ref<Record<number, boolean>>({})
 let inFlight = false
 
@@ -73,7 +76,8 @@ async function load() {
       id: Number(u.id),
       username: u.username,
       avatar_name: u.avatar_name ?? null,
-      status: u.status === 'approved' ? 'approved' : 'pending'
+      status: u.status === 'approved' ? 'approved' : 'pending',
+      requested_at: u.requested_at ?? null,
     }))
   }
   catch {}
@@ -129,7 +133,7 @@ function onInvite(e: any) {
   if (Number(p?.room_id) !== props.roomId) return
   const uid = Number(p?.user?.id)
   if (!Number.isFinite(uid)) return
-  const u = { id: uid, username: p.user?.username, avatar_name: p.user?.avatar_name ?? null, status: 'pending' as const }
+  const u = { id: uid, username: p.user?.username, avatar_name: p.user?.avatar_name ?? null, status: 'pending' as const, requested_at: new Date().toISOString() }
   if (!apps.value.some(x => x.id === uid)) apps.value = [u, ...apps.value]
   else apps.value = apps.value.map(x => x.id === uid ? { ...x, ...u, status: 'pending' } : x)
   if (props.open) {

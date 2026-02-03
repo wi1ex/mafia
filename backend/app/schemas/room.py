@@ -2,6 +2,7 @@ import re
 import unicodedata
 from typing_extensions import Annotated
 from typing import Optional, List, Literal, Any
+from datetime import datetime
 from pydantic.functional_validators import BeforeValidator
 from pydantic import BaseModel, Field
 
@@ -69,3 +70,4 @@ class RoomRequestOut(BaseModel):
     avatar_name: Optional[str] = None
     role: str
     status: Literal["approved", "pending"]
+    requested_at: Optional[datetime] = None
