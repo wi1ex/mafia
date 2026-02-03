@@ -41,3 +41,4 @@ class BotStatusOut(BaseModel):
 
 class TempPasswordOut(BaseModel):
     temp_password: str
+    username: str

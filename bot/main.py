@@ -255,11 +255,10 @@ async def reset_confirm(callback: types.CallbackQuery, state: FSMContext, sessio
     )
     if status_code == 200:
         temp = (payload or {}).get("temp_password")
+        username = (payload or {}).get("username") or "не указан"
         await state.clear()
         if message := callback.message:
-            await message.edit_text(
-                f"Временный пароль: {temp}\nПосле входа обязательно измените пароль в личном кабинете."
-            )
+            await message.edit_text(f"Прежний логин: {username}\nВременный пароль: {temp}\nПосле входа обязательно измените пароль в Личном кабинете.")
             await message.answer("Доступные действия:", reply_markup=keyboard_reset_only())
         return
 

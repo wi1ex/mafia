@@ -84,7 +84,7 @@ async def reset_password(payload: BotResetIn, db: AsyncSession = Depends(get_ses
         details=f"Сброс пароля через бот: user_id={int(user.id)} tg_id={int(payload.telegram_id)}",
     )
 
-    return TempPasswordOut(temp_password=temp_password)
+    return TempPasswordOut(temp_password=temp_password, username=user.username)
 
 
 @router.post("/status", response_model=BotStatusOut)
