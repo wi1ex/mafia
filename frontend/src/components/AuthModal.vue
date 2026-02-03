@@ -4,7 +4,7 @@
          @pointerup.self="armed && close()" @pointerleave.self="armed = false" @pointercancel.self="armed = false">
       <div class="auth-modal">
         <header>
-          <span>{{ activeTab === 'login' ? 'Авторизация' : 'Регистрация' }}</span>
+          <span>Вход в аккаунт</span>
           <button @click="close" aria-label="Закрыть">
             <img :src="iconClose" alt="close" />
           </button>
@@ -219,8 +219,10 @@ watch(() => props.open, (open) => {
       .form {
         display: flex;
         flex-direction: column;
-        gap: 15px;
+        margin-bottom: 10px;
         padding: 10px;
+        gap: 15px;
+        height: 266px;
         border-top: 3px solid $lead;
         border-left: 3px solid $lead;
         border-right: 3px solid $lead;
@@ -304,20 +306,22 @@ watch(() => props.open, (open) => {
       .rules {
         display: flex;
         align-items: center;
-        gap: 8px;
-        font-size: 13px;
-        a { color: $fg; }
+        gap: 5px;
+        font-size: 14px;
+        a {
+          color: $fg;
+        }
       }
       .btn.confirm {
         height: 40px;
         font-size: 16px;
       }
       .btn.ghost {
-        height: 32px;
-        border: 1px dashed $lead;
-        background: transparent;
+        height: 40px;
+        border: none;
+        background-color: $lead;
         color: $fg;
-        font-size: 13px;
+        font-size: 14px;
         cursor: pointer;
       }
     }
@@ -340,9 +344,44 @@ watch(() => props.open, (open) => {
 @media (max-width: 1280px) {
   .auth-overlay {
     .auth-modal {
+      header {
+        span {
+          font-size: 16px;
+        }
+        button {
+          width: 20px;
+          height: 20px;
+          img {
+            width: 16px;
+            height: 16px;
+          }
+        }
+      }
       .auth-body {
+        padding: 5px 5px 0;
+        .tabs {
+          height: 30px;
+          .tab {
+            height: 20px;
+            font-size: 14px;
+            &.active {
+              height: 30px;
+            }
+          }
+        }
         .form {
+          margin-bottom: 5px;
+          padding: 5px;
           gap: 10px;
+          height: 245px;
+        }
+        .btn.confirm {
+          height: 30px;
+          font-size: 14px;
+        }
+        .btn.ghost {
+          height: 30px;
+          font-size: 12px;
         }
       }
     }
