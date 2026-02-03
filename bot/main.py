@@ -181,7 +181,7 @@ async def verify_start(message: types.Message, state: FSMContext, session: aioht
     verified = bool((payload or {}).get("verified")) if status_code == 200 else False
     if verified:
         await state.clear()
-        await message.answer("Этот Telegram уже привязан. Доступно восстановление пароля.", reply_markup=keyboard_reset_only())
+        await message.answer("Этот Telegram уже привязан. Доступен Сброс пароля.", reply_markup=keyboard_reset_only())
         return
 
     await state.clear()
@@ -258,8 +258,11 @@ async def reset_confirm(callback: types.CallbackQuery, state: FSMContext, sessio
         username = (payload or {}).get("username") or "не указан"
         await state.clear()
         if message := callback.message:
-            await message.edit_text(f"Прежний логин: {username}\nВременный пароль: {temp}\nПосле входа обязательно измените пароль в Личном кабинете.")
-            await message.answer("Доступные действия:", reply_markup=keyboard_reset_only())
+            await message.edit_text(f"Пароль успешно сброшен!\n"
+                                    f"Прежний логин: {username}\n"
+                                    f"Временный пароль: {temp}\n"
+                                    f"После входа обязательно измените пароль в Личном кабинете.")
+            await message.answer("Выберите действие:", reply_markup=keyboard_reset_only())
         return
 
     detail = (payload or {}).get("detail")

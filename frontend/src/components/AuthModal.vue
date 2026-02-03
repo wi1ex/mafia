@@ -185,65 +185,121 @@ watch(() => props.open, (open) => {
     .auth-body {
       display: flex;
       flex-direction: column;
-      gap: 12px;
-      padding: 12px;
+      gap: 0;
+      padding: 10px 10px 0;
+      background-color: $dark;
       color: $fg;
       .tabs {
         display: flex;
-        gap: 6px;
+        align-items: flex-end;
+        width: 100%;
+        height: 40px;
         .tab {
-          flex: 1;
-          height: 34px;
+          width: 50%;
+          height: 30px;
           border: none;
-          border-radius: 5px;
+          border-radius: 5px 5px 0 0;
           background-color: $graphite;
           color: $fg;
+          font-size: 16px;
           font-family: Manrope-Medium;
+          line-height: 1;
           cursor: pointer;
+          transition: height 0.25s ease-in-out, background-color 0.25s ease-in-out;
           &.active {
+            height: 40px;
             background-color: $lead;
+          }
+          &:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
           }
         }
       }
       .form {
         display: flex;
         flex-direction: column;
-        gap: 10px;
+        gap: 15px;
+        padding: 10px;
+        border-top: 3px solid $lead;
+        border-left: 3px solid $lead;
+        border-right: 3px solid $lead;
+        border-bottom: 3px solid $lead;
+        border-radius: 0 0 5px 5px;
       }
       .ui-input {
+        display: block;
         position: relative;
-        display: flex;
-        flex-direction: column;
-        &.invalid label { color: $red; }
+        width: 100%;
+        box-shadow: 3px 3px 5px rgba($black, 0.25);
         input {
-          padding: 12px 10px 8px;
-          border: none;
-          border-radius: 5px;
-          background: $graphite;
+          width: calc(100% - 22px);
+          padding: 20px 10px 5px;
+          border: 1px solid $lead;
+          border-radius: 5px 5px 0 0;
+          background-color: $graphite;
           color: $fg;
           font-size: 16px;
+          font-family: Manrope-Medium;
+          line-height: 1;
           outline: none;
+          transition: border-color 0.25s ease-in-out, background-color 0.25s ease-in-out;
+        }
+        input::placeholder {
+          color: transparent;
         }
         label {
           position: absolute;
-          left: 10px;
-          top: 10px;
-          font-size: 14px;
-          color: $grey;
-          transition: all 0.2s ease;
+          top: 50%;
+          left: 12px;
+          color: $fg;
+          transform: translateY(-50%);
           pointer-events: none;
-        }
-        &.filled label,
-        input:focus + label {
-          top: 3px;
-          font-size: 11px;
-          color: $lead;
+          transition: all 0.25s ease-in-out;
         }
         .underline {
-          height: 2px;
-          background: $lead;
-          opacity: 0.35;
+          position: absolute;
+          left: 0;
+          right: 0;
+          bottom: -3px;
+          height: 3px;
+          border-radius: 0 0 3px 3px;
+          overflow: hidden;
+          span {
+            position: absolute;
+            left: 0;
+            bottom: 0;
+            height: 3px;
+            width: 0;
+            background-color: $fg;
+            transition: width 0.25s ease-in-out;
+          }
         }
+        .underline::before {
+          content: "";
+          position: absolute;
+          inset: 0;
+          background-color: $lead;
+          transition: background-color 0.25s ease-in-out;
+        }
+        &.invalid input {
+          border-color: rgba($red, 0.75);
+        }
+        &.invalid label {
+          color: $red;
+        }
+        &.invalid .underline::before {
+          background-color: rgba($red, 0.75);
+        }
+      }
+      .ui-input:focus-within label,
+      .ui-input input:not(:placeholder-shown) + label,
+      .ui-input.filled label {
+        top: 5px;
+        left: 10px;
+        transform: none;
+        font-size: 12px;
+        color: $grey;
       }
       .rules {
         display: flex;
@@ -253,7 +309,8 @@ watch(() => props.open, (open) => {
         a { color: $fg; }
       }
       .btn.confirm {
-        height: 36px;
+        height: 40px;
+        font-size: 16px;
       }
       .btn.ghost {
         height: 32px;
@@ -277,22 +334,15 @@ watch(() => props.open, (open) => {
 }
 .auth-modal-enter-from .auth-modal,
 .auth-modal-leave-to .auth-modal {
-  transform: translateY(-20px);
+  transform: translateY(-30px);
 }
 
 @media (max-width: 1280px) {
   .auth-overlay {
     .auth-modal {
-      width: 360px;
       .auth-body {
-        .ui-input {
-          input {
-            font-size: 14px;
-          }
-        }
-        .btn.confirm {
-          height: 32px;
-          font-size: 14px;
+        .form {
+          gap: 10px;
         }
       }
     }
