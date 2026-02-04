@@ -146,10 +146,8 @@ function onInput(e: Event) {
     top: 5px;
     right: 10px;
     pointer-events: none;
-    span {
-      font-size: 12px;
-      color: $grey;
-    }
+    font-size: 12px;
+    color: $grey;
   }
   &.invalid input {
     border-color: rgba($red, 0.75);
