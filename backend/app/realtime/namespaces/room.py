@@ -826,6 +826,11 @@ async def kick(sid, data):
         if err:
             return err
 
+        try:
+            target_username = await r.hget(f"room:{rid}:user:{target}:info", "username")
+        except Exception:
+            target_username = None
+
         await sio.emit("force_leave",
                        {"room_id": rid,
                         "reason": "room_kick",
@@ -857,16 +862,13 @@ async def kick(sid, data):
 
         await emit_rooms_occupancy_safe(r, rid, occ)
 
-        try:
-            target_username = await r.hget(f"room:{rid}:user:{target}:info", "username")
-        except Exception:
-            target_username = None
         details = f"Кик из комнаты room_id={rid} target_user={target}"
         if target_username:
             details += f" target_username={target_username}"
         if actor_user_name:
             details += f" actor_username={actor_user_name}"
         details += f" actor_role={actor_role}"
+
         async with SessionLocal() as s:
             await log_action(
                 s,

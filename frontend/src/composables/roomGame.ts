@@ -2826,7 +2826,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       if (st === 400 && code === 'bad_phase') {
          void alertDialog('Сейчас не фаза дня')
       } else if (st === 400 && code === 'no_speech') {
-         void alertDialog('Сейчас никто не говорит')
+         void alertDialog('Сейчас никто не говорит. Попробуйте обновить страницу')
       } else if (st === 403 && code === 'forbidden') {
          void alertDialog('Завершить речь может только ведущий или текущий игрок')
       } else if (st === 400 && code === 'not_alive') {
