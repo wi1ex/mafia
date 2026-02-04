@@ -274,17 +274,17 @@
         <div v-else-if="activeTab === 'logs'">
           <div class="filters">
             <div class="field">
+              <UiInput id="logs-user" v-model.trim="logsUser" label="Никнейм" :disabled="logsLoading" />
+            </div>
+            <div class="field">
+              <UiInput id="logs-day" v-model="logsDay" type="date" label="Дата" :disabled="logsLoading" />
+            </div>
+            <div class="field">
               <span>Событие</span>
               <select v-model="logsAction" :disabled="logsLoading">
                 <option value="all">Все</option>
                 <option v-for="act in logActions" :key="act" :value="act">{{ act }}</option>
               </select>
-            </div>
-            <div class="field">
-              <UiInput id="logs-user" v-model.trim="logsUser" label="Никнейм" :disabled="logsLoading" />
-            </div>
-            <div class="field">
-              <UiInput id="logs-day" v-model="logsDay" type="date" label="Дата" :disabled="logsLoading" />
             </div>
             <div class="field">
               <span>Отображать по</span>

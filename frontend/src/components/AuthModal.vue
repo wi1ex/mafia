@@ -228,16 +228,44 @@ watch(() => props.open, (open) => {
         }
       }
       .btn.confirm {
-        height: 40px;
-        font-size: 16px;
-      }
-      .btn.ghost {
+        padding: 0;
         height: 40px;
         border: none;
+        border-radius: 5px;
+        background-color: $fg;
+        color: $bg;
+        font-size: 18px;
+        font-family: Manrope-Medium;
+        line-height: 1;
+        cursor: pointer;
+        transition: opacity 0.25s ease-in-out, background-color 0.25s ease-in-out;
+        &:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+        &:hover {
+          background-color: $white;
+        }
+      }
+      .btn.ghost {
+        padding: 0;
+        height: 40px;
+        border: none;
+        border-radius: 5px;
         background-color: $lead;
         color: $fg;
-        font-size: 14px;
+        font-size: 16px;
+        font-family: Manrope-Medium;
+        line-height: 1;
         cursor: pointer;
+        transition: opacity 0.25s ease-in-out, background-color 0.25s ease-in-out;
+        &:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+        &:hover {
+          background-color: $grey;
+        }
       }
     }
   }
