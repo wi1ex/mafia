@@ -11,10 +11,9 @@
       <button v-if="showInstall" class="btn" type="button" @click="openInstall" :aria-expanded="installOpen" aria-haspopup="dialog" aria-label="Установить">
         <img :src="iconInstall" alt="" aria-hidden="true" />
       </button>
-      <a class="btn" href="https://t.me/tribute/app?startapp=dCvc" target="_blank" rel="noopener noreferrer" aria-label="Поддержать">
+      <button class="btn" type="button" @click="openSupport" :aria-expanded="supportOpen" aria-haspopup="dialog" aria-label="Поддержать">
         <img :src="iconCard" alt="" aria-hidden="true" />
-        <span data-nosnippet>Поддержать</span>
-      </a>
+      </button>
       <router-link v-if="user.user?.role === 'admin'" class="btn" :to="{ name: 'admin' }" aria-label="Админ-панель">
         <span data-nosnippet>Админ-панель</span>
       </router-link>
@@ -86,6 +85,7 @@
     <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">Telegram</a>
   </div>
   <AppModal v-model:open="installOpen" @hide-install="onHideInstall" />
+  <SupportModal v-model:open="supportOpen" :support-link="supportLink" />
   <AuthModal v-model:open="authOpen" :mode="authMode" />
 </template>
 
@@ -98,6 +98,7 @@ import Notifs from '@/components/Notifs.vue'
 import Updates from '@/components/Updates.vue'
 import AppModal from '@/components/AppModal.vue'
 import AuthModal from '@/components/AuthModal.vue'
+import SupportModal from '@/components/SupportModal.vue'
 
 import defaultAvatar from "@/assets/svg/defaultAvatar.svg"
 import iconNotifBell from "@/assets/svg/notifBell.svg"
@@ -123,11 +124,13 @@ const updatesEl = ref<HTMLElement | null>(null)
 const um_open = ref(false)
 const userMenuEl = ref<HTMLElement | null>(null)
 const installOpen = ref(false)
+const supportOpen = ref(false)
 const isPwa = ref(isPwaMode())
 const authOpen = ref(false)
 const authMode = ref<'login' | 'register'>('login')
 const botName = (import.meta.env.VITE_TG_BOT_NAME as string || '').trim()
 const botLink = botName ? `https://t.me/${botName}` : 'https://t.me'
+const supportLink = 'https://t.me/tribute/app?startapp=dCvc'
 
 type SanctionBanner = { kind: 'ban' | 'timeout' | 'suspend'; text: string }
 
@@ -177,6 +180,9 @@ function closeUserMenu() {
 }
 function openInstall() {
   installOpen.value = true
+}
+function openSupport() {
+  supportOpen.value = true
 }
 function onHideInstall() {
   void user.setInstallHidden(true)
