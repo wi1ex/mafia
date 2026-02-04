@@ -2,7 +2,7 @@
   <header class="bar">
     <div class="links">
       <router-link class="btn" :to="{ name: 'home' }" aria-label="DECEIT.games">
-        <span data-nosnippet>deceit.games v0.9.0b</span>
+        <span data-nosnippet>deceit.games v0.9.2b</span>
 <!--        <span>deceit.games {{ BUILD }}</span>-->
       </router-link>
       <router-link class="btn" :to="{ name: 'rules' }" aria-label="Правила">
