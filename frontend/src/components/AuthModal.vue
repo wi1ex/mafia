@@ -16,8 +16,18 @@
           </div>
 
           <form v-if="activeTab === 'login'" class="form" @submit.prevent="submitLogin">
-            <UiInput id="auth-login-username" v-model.trim="login.username" maxlength="20" autocomplete="username" label="Логин" />
-            <UiInput id="auth-login-password" v-model="login.password" type="password" autocomplete="current-password" minlength="8" maxlength="32" label="Пароль" />
+            <UiInput id="auth-login-username" v-model.trim="login.username" maxlength="20" autocomplete="username" label="Логин"
+              :invalid="loginUsernameInvalid" :underline-style="underlineStyle(login.username.length, USERNAME_MAX)" :aria-invalid="loginUsernameInvalid" aria-describedby="auth-login-username-hint">
+              <template #meta>
+                <span id="auth-login-username-hint">{{ login.username.length }}/{{ USERNAME_MAX }}</span>
+              </template>
+            </UiInput>
+            <UiInput id="auth-login-password" v-model="login.password" type="password" autocomplete="current-password" minlength="8" maxlength="32" label="Пароль"
+              :invalid="loginPasswordInvalid" :underline-style="underlineStyle(login.password.length, PASSWORD_MAX)" :aria-invalid="loginPasswordInvalid" aria-describedby="auth-login-password-hint">
+              <template #meta>
+                <span id="auth-login-password-hint">{{ login.password.length }}/{{ PASSWORD_MAX }}</span>
+              </template>
+            </UiInput>
             <button class="btn confirm" type="submit" :disabled="loginBusy || !canLogin">
               {{ loginBusy ? '...' : 'Войти' }}
             </button>
@@ -25,10 +35,24 @@
           </form>
 
           <form v-else class="form" @submit.prevent="submitRegister">
-            <UiInput id="auth-reg-username" v-model.trim="reg.username" maxlength="20" autocomplete="username" label="Логин" />
-            <UiInput id="auth-reg-password" v-model="reg.password" type="password" autocomplete="new-password" minlength="8" maxlength="32" label="Пароль" />
-            <UiInput id="auth-reg-password-confirm" v-model="reg.passwordConfirm" type="password" autocomplete="new-password"
-              minlength="8" maxlength="32" label="Повторите пароль" :invalid="!!reg.passwordConfirm && !passwordsMatch" />
+            <UiInput id="auth-reg-username" v-model.trim="reg.username" maxlength="20" autocomplete="username" label="Логин"
+              :invalid="regUsernameInvalid" :underline-style="underlineStyle(reg.username.length, USERNAME_MAX)" :aria-invalid="regUsernameInvalid" aria-describedby="auth-reg-username-hint">
+              <template #meta>
+                <span id="auth-reg-username-hint">{{ reg.username.length }}/{{ USERNAME_MAX }}</span>
+              </template>
+            </UiInput>
+            <UiInput id="auth-reg-password" v-model="reg.password" type="password" autocomplete="new-password" minlength="8" maxlength="32" label="Пароль"
+              :invalid="regPasswordInvalid" :underline-style="underlineStyle(reg.password.length, PASSWORD_MAX)" :aria-invalid="regPasswordInvalid" aria-describedby="auth-reg-password-hint">
+              <template #meta>
+                <span id="auth-reg-password-hint">{{ reg.password.length }}/{{ PASSWORD_MAX }}</span>
+              </template>
+            </UiInput>
+            <UiInput id="auth-reg-password-confirm" v-model="reg.passwordConfirm" type="password" autocomplete="new-password" minlength="8" maxlength="32" label="Повторите пароль"
+              :invalid="regPasswordConfirmInvalid" :underline-style="underlineStyle(reg.passwordConfirm.length, PASSWORD_MAX)" :aria-invalid="regPasswordConfirmInvalid" aria-describedby="auth-reg-password-confirm-hint">
+              <template #meta>
+                <span id="auth-reg-password-confirm-hint">{{ reg.passwordConfirm.length }}/{{ PASSWORD_MAX }}</span>
+              </template>
+            </UiInput>
             <label class="rules">
               <input type="checkbox" v-model="reg.acceptRules" />
               <span>С <router-link to="/rules" target="_blank">правилами</router-link> ознакомлен и согласен</span>
@@ -69,20 +93,53 @@ const regBusy = ref(false)
 const login = reactive({ username: '', password: '' })
 const reg = reactive({ username: '', password: '', passwordConfirm: '', acceptRules: false })
 
+const USERNAME_MIN = 2
+const USERNAME_MAX = 20
+const PASSWORD_MIN = 8
+const PASSWORD_MAX = 32
+
 const canLogin = computed(() =>
-  login.username.trim().length >= 2 &&
-  login.password.length >= 8 &&
-  login.password.length <= 32
+  login.username.trim().length >= USERNAME_MIN &&
+  login.password.length >= PASSWORD_MIN &&
+  login.password.length <= PASSWORD_MAX
 )
 const passwordsMatch = computed(() => reg.password && reg.password === reg.passwordConfirm)
 const canRegisterSubmit = computed(() =>
   canRegister.value &&
-  reg.username.trim().length >= 2 &&
-  reg.password.length >= 8 &&
-  reg.password.length <= 32 &&
+  reg.username.trim().length >= USERNAME_MIN &&
+  reg.password.length >= PASSWORD_MIN &&
+  reg.password.length <= PASSWORD_MAX &&
   passwordsMatch.value &&
   reg.acceptRules
 )
+
+const loginUsernameInvalid = computed(() => {
+  const len = login.username.trim().length
+  return len > 0 && len < USERNAME_MIN
+})
+const loginPasswordInvalid = computed(() => {
+  const len = login.password.length
+  return len > 0 && len < PASSWORD_MIN
+})
+const regUsernameInvalid = computed(() => {
+  const len = reg.username.trim().length
+  return len > 0 && len < USERNAME_MIN
+})
+const regPasswordInvalid = computed(() => {
+  const len = reg.password.length
+  return len > 0 && len < PASSWORD_MIN
+})
+const regPasswordConfirmInvalid = computed(() => {
+  const len = reg.passwordConfirm.length
+  if (len === 0) return false
+  if (len < PASSWORD_MIN) return true
+  return reg.password !== reg.passwordConfirm
+})
+
+function underlineStyle(len: number, max: number) {
+  const used = Math.min(max, Math.max(0, len))
+  return { width: `${(used / max) * 100}%` }
+}
 
 function close() {
   emit('update:open', false)

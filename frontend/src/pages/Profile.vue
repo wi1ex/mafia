@@ -88,10 +88,24 @@
             <h3>Пароль</h3>
             <p v-if="passwordTemp" class="hint warn">У вас временный пароль — рекомендуем изменить его</p>
             <div class="password-row">
-              <UiInput class="profile-input" id="profile-pass-current" v-model="pwd.current" type="password" autocomplete="current-password" minlength="8" maxlength="32" label="Текущий пароль" />
-              <UiInput class="profile-input" id="profile-pass-new" v-model="pwd.next" type="password" autocomplete="new-password" minlength="8" maxlength="32" label="Новый пароль" />
-              <UiInput class="profile-input" id="profile-pass-confirm" v-model="pwd.confirm" type="password" autocomplete="new-password"
-                minlength="8" maxlength="32" label="Повторите пароль" :invalid="!!pwd.confirm && pwd.next !== pwd.confirm" />
+              <UiInput class="profile-input" id="profile-pass-current" v-model="pwd.current" type="password" autocomplete="current-password" minlength="8" maxlength="32" label="Текущий пароль"
+                :invalid="currentPasswordInvalid" :underline-style="currentPasswordUnderlineStyle" :aria-invalid="currentPasswordInvalid" aria-describedby="profile-pass-current-hint">
+                <template #meta>
+                  <span id="profile-pass-current-hint">{{ pwd.current.length }}/{{ PASSWORD_MAX }}</span>
+                </template>
+              </UiInput>
+              <UiInput class="profile-input" id="profile-pass-new" v-model="pwd.next" type="password" autocomplete="new-password" minlength="8" maxlength="32" label="Новый пароль"
+                :invalid="newPasswordInvalid" :underline-style="newPasswordUnderlineStyle" :aria-invalid="newPasswordInvalid" aria-describedby="profile-pass-new-hint">
+                <template #meta>
+                  <span id="profile-pass-new-hint">{{ pwd.next.length }}/{{ PASSWORD_MAX }}</span>
+                </template>
+              </UiInput>
+              <UiInput class="profile-input" id="profile-pass-confirm" v-model="pwd.confirm" type="password" autocomplete="new-password" minlength="8" maxlength="32" label="Повторите пароль"
+                :invalid="confirmPasswordInvalid" :underline-style="confirmPasswordUnderlineStyle" :aria-invalid="confirmPasswordInvalid" aria-describedby="profile-pass-confirm-hint">
+                <template #meta>
+                  <span id="profile-pass-confirm-hint">{{ pwd.confirm.length }}/{{ PASSWORD_MAX }}</span>
+                </template>
+              </UiInput>
               <button class="btn confirm" @click="changePassword" :disabled="pwdBusy || !canChangePassword">
                 {{ pwdBusy ? '...' : 'Сменить пароль' }}
               </button>
@@ -213,11 +227,18 @@ const validNick = computed(() =>
 )
 
 const NICK_MAX = 20
+const PASSWORD_MIN = 8
+const PASSWORD_MAX = 32
 const nickPct = computed(() => {
   const used = Math.min(NICK_MAX, Math.max(0, nick.value.length))
   return (used / NICK_MAX) * 100
 })
 const nickUnderlineStyle = computed(() => ({ width: `${nickPct.value}%` }))
+
+function underlineStyle(len: number, max: number) {
+  const used = Math.min(max, Math.max(0, len))
+  return { width: `${(used / max) * 100}%` }
+}
 
 const route = useRoute()
 const router = useRouter()
@@ -262,14 +283,33 @@ const botLink = botName ? `https://t.me/${botName}` : 'https://t.me'
 const pwd = reactive({ current: '', next: '', confirm: '' })
 const pwdBusy = ref(false)
 const canChangePassword = computed(() =>
-  pwd.current.length >= 8 &&
-  pwd.current.length <= 32 &&
-  pwd.next.length >= 8 &&
-  pwd.next.length <= 32 &&
-  pwd.confirm.length >= 8 &&
-  pwd.confirm.length <= 32 &&
+  pwd.current.length >= PASSWORD_MIN &&
+  pwd.current.length <= PASSWORD_MAX &&
+  pwd.next.length >= PASSWORD_MIN &&
+  pwd.next.length <= PASSWORD_MAX &&
+  pwd.confirm.length >= PASSWORD_MIN &&
+  pwd.confirm.length <= PASSWORD_MAX &&
   pwd.next === pwd.confirm
 )
+
+const currentPasswordInvalid = computed(() => {
+  const len = pwd.current.length
+  return len > 0 && len < PASSWORD_MIN
+})
+const newPasswordInvalid = computed(() => {
+  const len = pwd.next.length
+  return len > 0 && len < PASSWORD_MIN
+})
+const confirmPasswordInvalid = computed(() => {
+  const len = pwd.confirm.length
+  if (len === 0) return false
+  if (len < PASSWORD_MIN) return true
+  return pwd.next !== pwd.confirm
+})
+
+const currentPasswordUnderlineStyle = computed(() => underlineStyle(pwd.current.length, PASSWORD_MAX))
+const newPasswordUnderlineStyle = computed(() => underlineStyle(pwd.next.length, PASSWORD_MAX))
+const confirmPasswordUnderlineStyle = computed(() => underlineStyle(pwd.confirm.length, PASSWORD_MAX))
 
 function onToggleHotkeys(next: boolean) {
   if (hotkeysTogglePending.value) return
