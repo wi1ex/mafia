@@ -43,17 +43,12 @@
           <div class="block">
             <h3>Никнейм</h3>
             <div class="nick-row">
-              <div class="ui-input" :class="{ filled: !!nick, invalid: nick && !validNick }">
-                <input id="profile-nick" v-model.trim="nick" :maxlength="NICK_MAX" :disabled="busyNick || isBanned" placeholder=" "
-                       autocomplete="off" inputmode="text" :aria-invalid="nick && !validNick" aria-describedby="profile-nick-hint" />
-                <label for="profile-nick">Никнейм</label>
-                <div class="underline">
-                  <span :style="nickUnderlineStyle"></span>
-                </div>
-                <div class="meta">
+              <UiInput class="profile-input" id="profile-nick" v-model.trim="nick" :maxlength="NICK_MAX" :disabled="busyNick || isBanned" autocomplete="off" inputmode="text" label="Никнейм"
+                :invalid="!!nick && !validNick" :underline-style="nickUnderlineStyle" :aria-invalid="!!nick && !validNick" aria-describedby="profile-nick-hint" >
+                <template #meta>
                   <span id="profile-nick-hint">{{ nick.length }}/{{ NICK_MAX }}</span>
-                </div>
-              </div>
+                </template>
+              </UiInput>
               <span class="hint"><code>латиница, кириллица, цифры, символы ()._-</code></span>
               <button class="btn confirm" @click="saveNick" :disabled="busyNick || isBanned || nick === me.username || !validNick">
                 <img class="btn-img" :src="iconSave" alt="save" />
@@ -64,25 +59,10 @@
 
           <div class="block">
             <h3>Параметры</h3>
-            <ToggleSwitch
-              class="profile-switch"
-              :model-value="hotkeysVisible"
-              label="Подсказки для горячих клавиш"
-              off-label="Скрыть"
-              on-label="Показать"
-              :disabled="hotkeysTogglePending"
-              @update:modelValue="onToggleHotkeys"
-            />
-            <ToggleSwitch
-              class="profile-switch"
-              :model-value="!installHidden"
-              label="Кнопка «Установить как приложение»"
-              off-label="Скрыть"
-              on-label="Показать"
-              aria-label="Кнопка Установить"
-              :disabled="installTogglePending"
-              @update:modelValue="onToggleInstallHidden"
-            />
+            <ToggleSwitch class="profile-switch" :model-value="hotkeysVisible" label="Подсказки для горячих клавиш"
+              off-label="Скрыть" on-label="Показать" :disabled="hotkeysTogglePending" @update:modelValue="onToggleHotkeys" />
+            <ToggleSwitch class="profile-switch" :model-value="!installHidden" label="Кнопка «Установить как приложение»" off-label="Скрыть"
+              on-label="Показать" aria-label="Кнопка Установить" :disabled="installTogglePending" @update:modelValue="onToggleInstallHidden" />
           </div>
 
           <div v-if="crop.show" ref="modalEl" class="modal" @keydown.esc="cancelCrop" tabindex="0" aria-modal="true" aria-label="Кадрирование аватара" >
@@ -108,21 +88,10 @@
             <h3>Пароль</h3>
             <p v-if="passwordTemp" class="hint warn">У вас временный пароль — рекомендуем изменить его</p>
             <div class="password-row">
-              <div class="ui-input" :class="{ filled: !!pwd.current }">
-                <input id="profile-pass-current" v-model="pwd.current" type="password" placeholder=" " autocomplete="current-password" minlength="8" maxlength="32" />
-                <label for="profile-pass-current">Текущий пароль</label>
-                <div class="underline"><span></span></div>
-              </div>
-              <div class="ui-input" :class="{ filled: !!pwd.next }">
-                <input id="profile-pass-new" v-model="pwd.next" type="password" placeholder=" " autocomplete="new-password" minlength="8" maxlength="32" />
-                <label for="profile-pass-new">Новый пароль</label>
-                <div class="underline"><span></span></div>
-              </div>
-              <div class="ui-input" :class="{ filled: !!pwd.confirm, invalid: pwd.confirm && pwd.next !== pwd.confirm }">
-                <input id="profile-pass-confirm" v-model="pwd.confirm" type="password" placeholder=" " autocomplete="new-password" minlength="8" maxlength="32" />
-                <label for="profile-pass-confirm">Повторите пароль</label>
-                <div class="underline"><span></span></div>
-              </div>
+              <UiInput class="profile-input" id="profile-pass-current" v-model="pwd.current" type="password" autocomplete="current-password" minlength="8" maxlength="32" label="Текущий пароль" />
+              <UiInput class="profile-input" id="profile-pass-new" v-model="pwd.next" type="password" autocomplete="new-password" minlength="8" maxlength="32" label="Новый пароль" />
+              <UiInput class="profile-input" id="profile-pass-confirm" v-model="pwd.confirm" type="password" autocomplete="new-password"
+                minlength="8" maxlength="32" label="Повторите пароль" :invalid="!!pwd.confirm && pwd.next !== pwd.confirm" />
               <button class="btn confirm" @click="changePassword" :disabled="pwdBusy || !canChangePassword">
                 {{ pwdBusy ? '...' : 'Сменить пароль' }}
               </button>
@@ -211,7 +180,9 @@ import { api, refreshAccessTokenFull } from '@/services/axios'
 import { useAuthStore, useUserStore } from '@/store'
 import { confirmDialog, alertDialog } from '@/services/confirm'
 import { formatLocalDateTime } from '@/services/datetime'
+
 import ToggleSwitch from '@/components/ToggleSwitch.vue'
+import UiInput from '@/components/UiInput.vue'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
 import iconSave from '@/assets/svg/save.svg'
@@ -883,91 +854,10 @@ onBeforeUnmount(() => {
           align-items: flex-start;
           margin-bottom: 5px;
           gap: 10px;
-          .ui-input {
+          :deep(.profile-input) {
             flex: 1 1 auto;
             max-width: 320px;
-            display: block;
-            position: relative;
             width: 100%;
-            box-shadow: 3px 3px 5px rgba($black, 0.25);
-            input {
-              width: calc(100% - 22px);
-              padding: 20px 10px 5px;
-              border: 1px solid $lead;
-              border-radius: 5px 5px 0 0;
-              background-color: $graphite;
-              color: $fg;
-              font-size: 16px;
-              font-family: Manrope-Medium;
-              line-height: 1;
-              outline: none;
-              transition: border-color 0.25s ease-in-out, background-color 0.25s ease-in-out;
-            }
-            input::placeholder {
-              color: transparent;
-            }
-            label {
-              position: absolute;
-              top: 50%;
-              left: 12px;
-              color: $fg;
-              transform: translateY(-50%);
-              pointer-events: none;
-              transition: all 0.25s ease-in-out;
-            }
-            .underline {
-              position: absolute;
-              left: 0;
-              right: 0;
-              bottom: -3px;
-              height: 3px;
-              border-radius: 0 0 3px 3px;
-              overflow: hidden;
-              span {
-                position: absolute;
-                left: 0;
-                bottom: 0;
-                height: 3px;
-                width: 0;
-                background-color: $fg;
-                transition: width 0.25s ease-in-out;
-              }
-            }
-            .underline::before {
-              content: "";
-              position: absolute;
-              inset: 0;
-              background-color: $lead;
-              transition: background-color 0.25s ease-in-out;
-            }
-            .meta {
-              position: absolute;
-              top: 5px;
-              right: 10px;
-              pointer-events: none;
-              span {
-                font-size: 12px;
-                color: $grey;
-              }
-            }
-            &.invalid input {
-              border-color: rgba($red, 0.75);
-            }
-            &.invalid label {
-              color: $red;
-            }
-            &.invalid .underline::before {
-              background-color: rgba($red, 0.75);
-            }
-          }
-          .ui-input:focus-within label,
-          .ui-input input:not(:placeholder-shown) + label,
-          .ui-input.filled label {
-            top: 5px;
-            left: 10px;
-            transform: none;
-            font-size: 12px;
-            color: $grey;
           }
         }
         .password-row {
@@ -975,80 +865,9 @@ onBeforeUnmount(() => {
           flex-direction: column;
           align-items: flex-start;
           gap: 10px;
-          .ui-input {
+          :deep(.profile-input) {
             max-width: 320px;
-            display: block;
-            position: relative;
             width: 100%;
-            box-shadow: 3px 3px 5px rgba($black, 0.25);
-            input {
-              width: calc(100% - 22px);
-              padding: 20px 10px 5px;
-              border: 1px solid $lead;
-              border-radius: 5px 5px 0 0;
-              background-color: $graphite;
-              color: $fg;
-              font-size: 16px;
-              font-family: Manrope-Medium;
-              line-height: 1;
-              outline: none;
-              transition: border-color 0.25s ease-in-out, background-color 0.25s ease-in-out;
-            }
-            input::placeholder {
-              color: transparent;
-            }
-            label {
-              position: absolute;
-              top: 50%;
-              left: 12px;
-              color: $fg;
-              transform: translateY(-50%);
-              pointer-events: none;
-              transition: all 0.25s ease-in-out;
-            }
-            .underline {
-              position: absolute;
-              left: 0;
-              right: 0;
-              bottom: -3px;
-              height: 3px;
-              border-radius: 0 0 3px 3px;
-              overflow: hidden;
-              span {
-                position: absolute;
-                left: 0;
-                bottom: 0;
-                height: 3px;
-                width: 0;
-                background-color: $fg;
-                transition: width 0.25s ease-in-out;
-              }
-            }
-            .underline::before {
-              content: "";
-              position: absolute;
-              inset: 0;
-              background-color: $lead;
-              transition: background-color 0.25s ease-in-out;
-            }
-            &.invalid input {
-              border-color: rgba($red, 0.75);
-            }
-            &.invalid label {
-              color: $red;
-            }
-            &.invalid .underline::before {
-              background-color: rgba($red, 0.75);
-            }
-          }
-          .ui-input:focus-within label,
-          .ui-input input:not(:placeholder-shown) + label,
-          .ui-input.filled label {
-            top: 5px;
-            left: 10px;
-            transform: none;
-            font-size: 12px;
-            color: $grey;
           }
         }
         .verify-row {

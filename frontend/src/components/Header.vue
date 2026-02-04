@@ -448,5 +448,10 @@ function openAuth(mode: 'login' | 'register') {
       }
     }
   }
+  .sanction-banner {
+    font-size: 12px;
+    font-weight: normal;
+    letter-spacing: 0.25px;
+  }
 }
 </style>

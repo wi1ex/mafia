@@ -17,12 +17,12 @@
         <div class="tab-viewport">
           <Transition :name="tabTrans" mode="out-in">
             <div v-if="tab === 'room'" key="room" class="params">
-              <div class="ui-input" :class="{ filled: !!title, invalid: !title }">
-                <input id="room-title" v-model.trim="title" :maxlength="TITLE_MAX" placeholder=" " autocomplete="off" :aria-invalid="!title" aria-describedby="room-title-hint" />
-                <label for="room-title">Название комнаты</label>
-                <div class="underline"><span :style="titleUnderlineStyle"></span></div>
-                <div class="meta"><span id="room-title-hint">{{ title.length }}/{{ TITLE_MAX }}</span></div>
-              </div>
+              <UiInput id="room-title" v-model.trim="title" :maxlength="TITLE_MAX" label="Название комнаты" autocomplete="off"
+                :invalid="!title" :underline-style="titleUnderlineStyle" :aria-invalid="!title" aria-describedby="room-title-hint" >
+                <template #meta>
+                  <span id="room-title-hint">{{ title.length }}/{{ TITLE_MAX }}</span>
+                </template>
+              </UiInput>
 
               <div class="range">
                 <div class="range-label">
@@ -37,13 +37,7 @@
                 </div>
               </div>
 
-              <ToggleSwitch
-                v-model="isPrivate"
-                label="Приватность:"
-                off-label="Открытая"
-                on-label="Закрытая"
-                aria-label="Приватность: открытая/закрытая"
-              />
+              <ToggleSwitch v-model="isPrivate" label="Приватность:" off-label="Открытая" on-label="Закрытая" aria-label="Приватность: открытая/закрытая" />
             </div>
 
             <div v-else key="game">
@@ -65,7 +59,9 @@ import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { api } from '@/services/axios'
 import { alertDialog } from '@/services/confirm'
 import { useUserStore, useSettingsStore } from '@/store'
+
 import GameParamsForm from '@/components/GameParamsForm.vue'
+import UiInput from '@/components/UiInput.vue'
 import ToggleSwitch from '@/components/ToggleSwitch.vue'
 
 import iconClose from '@/assets/svg/close.svg'
@@ -377,90 +373,6 @@ onBeforeUnmount(() => {
         flex-direction: column;
         padding: 10px;
         gap: 15px;
-        .ui-input {
-          display: block;
-          position: relative;
-          width: 100%;
-          box-shadow: 3px 3px 5px rgba($black, 0.25);
-          input {
-            width: calc(100% - 22px);
-            padding: 20px 10px 5px;
-            border: 1px solid $lead;
-            border-radius: 5px 5px 0 0;
-            background-color: $graphite;
-            color: $fg;
-            font-size: 16px;
-            font-family: Manrope-Medium;
-            line-height: 1;
-            outline: none;
-            transition: border-color 0.25s ease-in-out, background-color 0.25s ease-in-out;
-          }
-          input::placeholder {
-            color: transparent;
-          }
-          label {
-            position: absolute;
-            top: 50%;
-            left: 12px;
-            color: $fg;
-            transform: translateY(-50%);
-            pointer-events: none;
-            transition: all 0.25s ease-in-out;
-          }
-          .underline {
-            position: absolute;
-            left: 0;
-            right: 0;
-            bottom: -3px;
-            height: 3px;
-            border-radius: 0 0 3px 3px;
-            overflow: hidden;
-            span {
-              position: absolute;
-              left: 0;
-              bottom: 0;
-              height: 3px;
-              width: 0;
-              background-color: $fg;
-              transition: width 0.25s ease-in-out;
-            }
-          }
-          .underline::before {
-            content: "";
-            position: absolute;
-            inset: 0;
-            background-color: $lead;
-            transition: background-color 0.25s ease-in-out;
-          }
-          .meta {
-            position: absolute;
-            top: 5px;
-            right: 10px;
-            pointer-events: none;
-            span {
-              font-size: 12px;
-              color: $grey;
-            }
-          }
-          &.invalid input {
-            border-color: rgba($red, 0.75);
-          }
-          &.invalid label {
-            color: $red;
-          }
-          &.invalid .underline::before {
-            background-color: rgba($red, 0.75);
-          }
-        }
-        .ui-input:focus-within label,
-        .ui-input input:not(:placeholder-shown) + label,
-        .ui-input.filled label {
-          top: 5px;
-          left: 10px;
-          transform: none;
-          font-size: 12px;
-          color: $grey;
-        }
         .range {
           display: flex;
           flex-direction: column;

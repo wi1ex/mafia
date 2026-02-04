@@ -16,16 +16,8 @@
           </div>
 
           <form v-if="activeTab === 'login'" class="form" @submit.prevent="submitLogin">
-            <div class="ui-input" :class="{ filled: !!login.username }">
-              <input id="auth-login-username" v-model.trim="login.username" maxlength="20" autocomplete="username" placeholder=" " />
-              <label for="auth-login-username">Логин</label>
-              <div class="underline"><span></span></div>
-            </div>
-            <div class="ui-input" :class="{ filled: !!login.password }">
-              <input id="auth-login-password" v-model="login.password" type="password" autocomplete="current-password" placeholder=" " minlength="8" maxlength="32" />
-              <label for="auth-login-password">Пароль</label>
-              <div class="underline"><span></span></div>
-            </div>
+            <UiInput id="auth-login-username" v-model.trim="login.username" maxlength="20" autocomplete="username" label="Логин" />
+            <UiInput id="auth-login-password" v-model="login.password" type="password" autocomplete="current-password" minlength="8" maxlength="32" label="Пароль" />
             <button class="btn confirm" type="submit" :disabled="loginBusy || !canLogin">
               {{ loginBusy ? '...' : 'Войти' }}
             </button>
@@ -33,21 +25,10 @@
           </form>
 
           <form v-else class="form" @submit.prevent="submitRegister">
-            <div class="ui-input" :class="{ filled: !!reg.username }">
-              <input id="auth-reg-username" v-model.trim="reg.username" maxlength="20" autocomplete="username" placeholder=" " />
-              <label for="auth-reg-username">Логин</label>
-              <div class="underline"><span></span></div>
-            </div>
-            <div class="ui-input" :class="{ filled: !!reg.password }">
-              <input id="auth-reg-password" v-model="reg.password" type="password" autocomplete="new-password" placeholder=" " minlength="8" maxlength="32" />
-              <label for="auth-reg-password">Пароль</label>
-              <div class="underline"><span></span></div>
-            </div>
-            <div class="ui-input" :class="{ filled: !!reg.passwordConfirm, invalid: reg.passwordConfirm && !passwordsMatch }">
-              <input id="auth-reg-password-confirm" v-model="reg.passwordConfirm" type="password" autocomplete="new-password" placeholder=" " minlength="8" maxlength="32" />
-              <label for="auth-reg-password-confirm">Повторите пароль</label>
-              <div class="underline"><span></span></div>
-            </div>
+            <UiInput id="auth-reg-username" v-model.trim="reg.username" maxlength="20" autocomplete="username" label="Логин" />
+            <UiInput id="auth-reg-password" v-model="reg.password" type="password" autocomplete="new-password" minlength="8" maxlength="32" label="Пароль" />
+            <UiInput id="auth-reg-password-confirm" v-model="reg.passwordConfirm" type="password" autocomplete="new-password"
+              minlength="8" maxlength="32" label="Повторите пароль" :invalid="!!reg.passwordConfirm && !passwordsMatch" />
             <label class="rules">
               <input type="checkbox" v-model="reg.acceptRules" />
               <span>С <router-link to="/rules" target="_blank">правилами</router-link> ознакомлен и согласен</span>
@@ -65,6 +46,9 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
 import { useAuthStore, useSettingsStore } from '@/store'
+
+import UiInput from '@/components/UiInput.vue'
+
 import iconClose from '@/assets/svg/close.svg'
 
 const props = defineProps<{ open: boolean; mode?: 'login' | 'register' }>()
@@ -233,80 +217,6 @@ watch(() => props.open, (open) => {
         border-right: 3px solid $lead;
         border-bottom: 3px solid $lead;
         border-radius: 0 0 5px 5px;
-      }
-      .ui-input {
-        display: block;
-        position: relative;
-        width: 100%;
-        box-shadow: 3px 3px 5px rgba($black, 0.25);
-        input {
-          width: calc(100% - 22px);
-          padding: 20px 10px 5px;
-          border: 1px solid $lead;
-          border-radius: 5px 5px 0 0;
-          background-color: $graphite;
-          color: $fg;
-          font-size: 16px;
-          font-family: Manrope-Medium;
-          line-height: 1;
-          outline: none;
-          transition: border-color 0.25s ease-in-out, background-color 0.25s ease-in-out;
-        }
-        input::placeholder {
-          color: transparent;
-        }
-        label {
-          position: absolute;
-          top: 50%;
-          left: 12px;
-          color: $fg;
-          transform: translateY(-50%);
-          pointer-events: none;
-          transition: all 0.25s ease-in-out;
-        }
-        .underline {
-          position: absolute;
-          left: 0;
-          right: 0;
-          bottom: -3px;
-          height: 3px;
-          border-radius: 0 0 3px 3px;
-          overflow: hidden;
-          span {
-            position: absolute;
-            left: 0;
-            bottom: 0;
-            height: 3px;
-            width: 0;
-            background-color: $fg;
-            transition: width 0.25s ease-in-out;
-          }
-        }
-        .underline::before {
-          content: "";
-          position: absolute;
-          inset: 0;
-          background-color: $lead;
-          transition: background-color 0.25s ease-in-out;
-        }
-        &.invalid input {
-          border-color: rgba($red, 0.75);
-        }
-        &.invalid label {
-          color: $red;
-        }
-        &.invalid .underline::before {
-          background-color: rgba($red, 0.75);
-        }
-      }
-      .ui-input:focus-within label,
-      .ui-input input:not(:placeholder-shown) + label,
-      .ui-input.filled label {
-        top: 5px;
-        left: 10px;
-        transform: none;
-        font-size: 12px;
-        color: $grey;
       }
       .rules {
         display: flex;

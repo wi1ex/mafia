@@ -48,81 +48,45 @@
             </div>
 
             <div class="block">
-              <div class="ui-input" :class="{ filled: Number.isFinite(site.rooms_limit_global) }">
-                <input id="rooms-limit-global" v-model.number="site.rooms_limit_global" type="number" min="1" max="100" step="1"
-                       placeholder=" " autocomplete="off" inputmode="numeric" :disabled="savingSettings" />
-                <label for="rooms-limit-global">Общий лимит комнат</label>
-              </div>
-              <div class="ui-input" :class="{ filled: Number.isFinite(site.rooms_limit_per_user) }">
-                <input id="rooms-limit-user" v-model.number="site.rooms_limit_per_user" type="number" min="1" max="10" step="1"
-                       placeholder=" " autocomplete="off" inputmode="numeric" :disabled="savingSettings" />
-                <label for="rooms-limit-user">Лимит комнат на пользователя</label>
-              </div>
-              <div class="ui-input" :class="{ filled: Number.isFinite(site.rooms_empty_ttl_seconds) }">
-                <input id="rooms-empty-ttl-seconds" v-model.number="site.rooms_empty_ttl_seconds" type="number" min="10" max="300" step="1"
-                       placeholder=" " autocomplete="off" inputmode="numeric" :disabled="savingSettings" />
-                <label for="rooms-empty-ttl-seconds">Время жизни пустой комнаты (сек)</label>
-              </div>
-              <div class="ui-input" :class="{ filled: Number.isFinite(site.season_start_game_number) }">
-                <input id="season-start-game-number" v-model.number="site.season_start_game_number" type="number" min="1" step="1"
-                       placeholder=" " autocomplete="off" inputmode="numeric" :disabled="savingSettings" />
-                <label for="season-start-game-number">С какой игры действует текущий сезон</label>
+              <div class="field-stack">
+                <UiInput id="rooms-limit-global" v-model.number="site.rooms_limit_global" type="number" min="1" max="100" step="1"
+                         autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Общий лимит комнат" />
+                <UiInput id="rooms-limit-user" v-model.number="site.rooms_limit_per_user" type="number" min="1" max="10" step="1"
+                         autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Лимит комнат на пользователя" />
+                <UiInput id="rooms-empty-ttl-seconds" v-model.number="site.rooms_empty_ttl_seconds" type="number" min="10" max="300" step="1"
+                         autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Время жизни пустой комнаты (сек)" />
+                <UiInput id="season-start-game-number" v-model.number="site.season_start_game_number" type="number" min="1" step="1"
+                         autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="С какой игры действует текущий сезон" />
               </div>
             </div>
 
             <div class="block">
-              <div class="ui-input" :class="{ filled: Number.isFinite(game.game_min_ready_players) }">
-                <input id="game-min-ready" v-model.number="game.game_min_ready_players" type="number" min="1" step="1"
-                       placeholder=" " autocomplete="off" inputmode="numeric" :disabled="savingSettings" />
-                <label for="game-min-ready">Количество игроков для старта</label>
-              </div>
-              <div class="ui-input" :class="{ filled: Number.isFinite(game.role_pick_seconds) }">
-                <input id="role-pick-seconds" v-model.number="game.role_pick_seconds" type="number" min="1" step="1"
-                       placeholder=" " autocomplete="off" inputmode="numeric" :disabled="savingSettings" />
-                <label for="role-pick-seconds">Выбор ролей (сек)</label>
-              </div>
-              <div class="ui-input" :class="{ filled: Number.isFinite(game.mafia_talk_seconds) }">
-                <input id="mafia-talk-seconds" v-model.number="game.mafia_talk_seconds" type="number" min="1" step="1"
-                       placeholder=" " autocomplete="off" inputmode="numeric" :disabled="savingSettings" />
-                <label for="mafia-talk-seconds">Договорка мафии (сек)</label>
-              </div>
-              <div class="ui-input" :class="{ filled: Number.isFinite(game.night_action_seconds) }">
-                <input id="night-action-seconds" v-model.number="game.night_action_seconds" type="number" min="1" step="1"
-                       placeholder=" " autocomplete="off" inputmode="numeric" :disabled="savingSettings" />
-                <label for="night-action-seconds">Отстрелы и проверки (сек)</label>
-              </div>
-              <div class="ui-input" :class="{ filled: Number.isFinite(game.vote_seconds) }">
-                <input id="vote-seconds" v-model.number="game.vote_seconds" type="number" min="1" step="1"
-                       placeholder=" " autocomplete="off" inputmode="numeric" :disabled="savingSettings" />
-                <label for="vote-seconds">Голосование (сек)</label>
+              <div class="field-stack">
+                <UiInput id="game-min-ready" v-model.number="game.game_min_ready_players" type="number" min="1" step="1"
+                         autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Количество игроков для старта" />
+                <UiInput id="role-pick-seconds" v-model.number="game.role_pick_seconds" type="number" min="1" step="1"
+                         autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Выбор ролей (сек)" />
+                <UiInput id="mafia-talk-seconds" v-model.number="game.mafia_talk_seconds" type="number" min="1" step="1"
+                         autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Договорка мафии (сек)" />
+                <UiInput id="night-action-seconds" v-model.number="game.night_action_seconds" type="number" min="1" step="1"
+                         autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Отстрелы и проверки (сек)" />
+                <UiInput id="vote-seconds" v-model.number="game.vote_seconds" type="number" min="1" step="1"
+                         autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Голосование (сек)" />
               </div>
             </div>
 
             <div class="block">
-              <div class="ui-input" :class="{ filled: Number.isFinite(game.player_talk_seconds) }">
-                <input id="player-talk-seconds" v-model.number="game.player_talk_seconds" type="number" min="1" step="1"
-                       placeholder=" " autocomplete="off" inputmode="numeric" :disabled="savingSettings" />
-                <label for="player-talk-seconds">Речь игрока (сек)</label>
-              </div>
-              <div class="ui-input" :class="{ filled: Number.isFinite(game.player_talk_short_seconds) }">
-                <input id="player-talk-short-seconds" v-model.number="game.player_talk_short_seconds" type="number"
-                       min="1" step="1" placeholder=" " autocomplete="off" inputmode="numeric" :disabled="savingSettings" />
-                <label for="player-talk-short-seconds">Речь при 3х фолах (сек)</label>
-              </div>
-              <div class="ui-input" :class="{ filled: Number.isFinite(game.player_foul_seconds) }">
-                <input id="player-foul-seconds" v-model.number="game.player_foul_seconds" type="number" min="1" step="1"
-                       placeholder=" " autocomplete="off" inputmode="numeric" :disabled="savingSettings" />
-                <label for="player-foul-seconds">Фол (сек)</label>
-              </div>
-              <div class="ui-input" :class="{ filled: Number.isFinite(game.winks_limit) }">
-                <input id="winks-limit" v-model.number="game.winks_limit" type="number" min="0" step="1"
-                       placeholder=" " autocomplete="off" inputmode="numeric" :disabled="savingSettings" />
-                <label for="winks-limit">Подмигивания (шт)</label>
-              </div>
-              <div class="ui-input" :class="{ filled: Number.isFinite(game.knocks_limit) }">
-                <input id="knocks-limit" v-model.number="game.knocks_limit" type="number" min="0" step="1"
-                       placeholder=" " autocomplete="off" inputmode="numeric" :disabled="savingSettings" />
-                <label for="knocks-limit">Постукивания (шт)</label>
+              <div class="field-stack">
+                <UiInput id="player-talk-seconds" v-model.number="game.player_talk_seconds" type="number" min="1" step="1"
+                         autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Речь игрока (сек)" />
+                <UiInput id="player-talk-short-seconds" v-model.number="game.player_talk_short_seconds" type="number" min="1" step="1"
+                         autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Речь при 3х фолах (сек)" />
+                <UiInput id="player-foul-seconds" v-model.number="game.player_foul_seconds" type="number" min="1" step="1"
+                         autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Фол (сек)" />
+                <UiInput id="winks-limit" v-model.number="game.winks_limit" type="number" min="0" step="1"
+                         autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Подмигивания (шт)" />
+                <UiInput id="knocks-limit" v-model.number="game.knocks_limit" type="number" min="0" step="1"
+                         autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Постукивания (шт)" />
               </div>
             </div>
 
@@ -250,10 +214,9 @@
 
             <div class="chart">
               <div class="filters">
-                <label class="field">
-                  <span>Отобразить за</span>
-                  <input type="month" v-model="statsMonth" :disabled="statsLoading" />
-                </label>
+                <div class="field">
+                  <UiInput id="stats-month" v-model="statsMonth" type="month" label="Отобразить за" :disabled="statsLoading" />
+                </div>
               </div>
               <div class="stats-grid stats-grid--compact">
                 <div class="stat-card">
@@ -310,28 +273,26 @@
 
         <div v-else-if="activeTab === 'logs'">
           <div class="filters">
-            <label class="field">
+            <div class="field">
               <span>Событие</span>
               <select v-model="logsAction" :disabled="logsLoading">
                 <option value="all">Все</option>
                 <option v-for="act in logActions" :key="act" :value="act">{{ act }}</option>
               </select>
-            </label>
-            <label class="field">
-              <span>Никнейм</span>
-              <input type="text" v-model.trim="logsUser" :disabled="logsLoading" placeholder="Никнейм" />
-            </label>
-            <label class="field">
-              <span>Дата</span>
-              <input type="date" v-model="logsDay" :disabled="logsLoading" />
-            </label>
-            <label class="field">
+            </div>
+            <div class="field">
+              <UiInput id="logs-user" v-model.trim="logsUser" label="Никнейм" :disabled="logsLoading" />
+            </div>
+            <div class="field">
+              <UiInput id="logs-day" v-model="logsDay" type="date" label="Дата" :disabled="logsLoading" />
+            </div>
+            <div class="field">
               <span>Отображать по</span>
               <select v-model.number="logsLimit" :disabled="logsLoading">
                 <option :value="20">20</option>
                 <option :value="100">100</option>
               </select>
-            </label>
+            </div>
           </div>
 
           <div v-if="logsLoading" class="loading">Загрузка...</div>
@@ -373,24 +334,23 @@
 
         <div v-else-if="activeTab === 'rooms'">
           <div class="filters">
-            <label class="field">
-              <span>Никнейм</span>
-              <input type="text" v-model.trim="roomsUser" :disabled="roomsLoading" placeholder="Никнейм" />
-            </label>
-            <label class="field">
+            <div class="field">
+              <UiInput id="rooms-user" v-model.trim="roomsUser" label="Никнейм" :disabled="roomsLoading" />
+            </div>
+            <div class="field">
               <span>Наличие стримов</span>
               <select v-model="roomsStreamOnly" :disabled="roomsLoading">
                 <option :value="false">Все комнаты</option>
                 <option :value="true">Только со стримом</option>
               </select>
-            </label>
-            <label class="field">
+            </div>
+            <div class="field">
               <span>Отображать по</span>
               <select v-model.number="roomsLimit" :disabled="roomsLoading">
                 <option :value="20">20</option>
                 <option :value="100">100</option>
               </select>
-            </label>
+            </div>
           </div>
 
           <div v-if="roomsLoading" class="loading">Загрузка...</div>
@@ -508,17 +468,16 @@
 
         <div v-else-if="activeTab === 'users'">
           <div class="filters">
-            <label class="field">
-              <span>Никнейм</span>
-              <input type="text" v-model.trim="usersUser" :disabled="usersLoading" placeholder="Никнейм" />
-            </label>
-            <label class="field">
+            <div class="field">
+              <UiInput id="users-user" v-model.trim="usersUser" label="Никнейм" :disabled="usersLoading" />
+            </div>
+            <div class="field">
               <span>Отображать по</span>
               <select v-model.number="usersLimit" :disabled="usersLoading">
                 <option :value="20">20</option>
                 <option :value="100">100</option>
               </select>
-            </label>
+            </div>
           </div>
 
           <div v-if="usersLoading" class="loading">Загрузка...</div>
@@ -688,9 +647,11 @@ import { api } from '@/services/axios'
 import { alertDialog, confirmDialog } from '@/services/confirm'
 import { formatLocalDateTime } from '@/services/datetime'
 import { useSettingsStore } from '@/store'
+
 import UpdateModal from '@/components/UpdateModal.vue'
 import SanctionModal from '@/components/SanctionModal.vue'
 import ToggleSwitch from '@/components/ToggleSwitch.vue'
+import UiInput from '@/components/UiInput.vue'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
 import iconClose from '@/assets/svg/close.svg'
@@ -1971,48 +1932,10 @@ onMounted(() => {
         border: 3px solid $lead;
         border-radius: 5px;
         padding: 15px;
-        .ui-input {
-          display: block;
-          position: relative;
-          width: 100%;
-          box-shadow: 3px 3px 5px rgba($black, 0.25);
-          input {
-            width: calc(100% - 22px);
-            padding: 20px 10px 5px;
-            border: 1px solid $lead;
-            border-radius: 5px;
-            background-color: $graphite;
-            color: $fg;
-            font-size: 16px;
-            font-family: Manrope-Medium;
-            line-height: 1;
-            outline: none;
-            transition: border-color 0.25s ease-in-out, background-color 0.25s ease-in-out;
-          }
-          input::placeholder {
-            color: transparent;
-          }
-          label {
-            position: absolute;
-            top: 50%;
-            left: 12px;
-            color: $fg;
-            transform: translateY(-50%);
-            pointer-events: none;
-            transition: all 0.25s ease-in-out;
-          }
-          &:focus-within label,
-          input:not(:placeholder-shown) + label,
-          &.filled label {
-            top: 5px;
-            left: 10px;
-            transform: none;
-            font-size: 12px;
-            color: $grey;
-          }
-        }
-        .ui-input + .ui-input {
-          margin-top: 10px;
+        .field-stack {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
         }
         :deep(.switch-item) {
           margin-bottom: 10px;
@@ -2035,12 +1958,12 @@ onMounted(() => {
         flex-direction: column;
         gap: 5px;
         min-width: 160px;
-        span {
+        > span {
           font-size: 14px;
           color: $grey;
         }
-        input,
-        select {
+        > input,
+        > select {
           height: 35px;
           padding: 0 10px;
           border: 1px solid $lead;

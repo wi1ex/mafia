@@ -12,24 +12,12 @@
           </header>
           <div class="modal-body">
             <div v-if="showDuration" class="grid">
-              <div class="ui-input" :class="{ filled: Number.isFinite(form.months) }">
-                <input id="sanction-months" v-model.number="form.months" type="number" min="0" placeholder=" " autocomplete="off" />
-                <label for="sanction-months">Месяцы</label>
-              </div>
-              <div class="ui-input" :class="{ filled: Number.isFinite(form.days) }">
-                <input id="sanction-days" v-model.number="form.days" type="number" min="0" placeholder=" " autocomplete="off" />
-                <label for="sanction-days">Дни</label>
-              </div>
-              <div class="ui-input" :class="{ filled: Number.isFinite(form.hours) }">
-                <input id="sanction-hours" v-model.number="form.hours" type="number" min="0" placeholder=" " autocomplete="off" />
-                <label for="sanction-hours">Часы</label>
-              </div>
-              <div class="ui-input" :class="{ filled: Number.isFinite(form.minutes) }">
-                <input id="sanction-minutes" v-model.number="form.minutes" type="number" min="0" placeholder=" " autocomplete="off" />
-                <label for="sanction-minutes">Минуты</label>
-              </div>
+              <UiInput id="sanction-months" v-model.number="form.months" type="number" min="0" autocomplete="off" label="Месяцы" />
+              <UiInput id="sanction-days" v-model.number="form.days" type="number" min="0" autocomplete="off" label="Дни" />
+              <UiInput id="sanction-hours" v-model.number="form.hours" type="number" min="0" autocomplete="off" label="Часы" />
+              <UiInput id="sanction-minutes" v-model.number="form.minutes" type="number" min="0" autocomplete="off" label="Минуты" />
             </div>
-            <div class="ui-input" :class="{ filled: Boolean(form.reason) }">
+            <div class="select-field" :class="{ filled: Boolean(form.reason) }">
               <select id="sanction-reason" v-model="form.reason">
                 <option v-for="item in reasons" :key="item.value" :value="item.value">{{ item.label }}</option>
               </select>
@@ -50,6 +38,8 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+
+import UiInput from '@/components/UiInput.vue'
 
 import iconClose from '@/assets/svg/close.svg'
 
@@ -169,7 +159,7 @@ function close() {
         gap: 10px;
       }
     }
-    .ui-input {
+    .select-field {
       display: block;
       position: relative;
       width: 100%;

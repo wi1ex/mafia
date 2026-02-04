@@ -10,18 +10,9 @@
             </button>
           </header>
           <div class="modal-body">
-            <div class="ui-input" :class="{ filled: Boolean(form.version) }">
-              <input id="update-version" v-model.trim="form.version" type="text" placeholder=" " autocomplete="off" />
-              <label for="update-version">Версия</label>
-            </div>
-            <div class="ui-input" :class="{ filled: Boolean(form.date) }">
-              <input id="update-date" v-model="form.date" type="date" placeholder=" " autocomplete="off" />
-              <label for="update-date">Дата</label>
-            </div>
-            <div class="ui-input textarea" :class="{ filled: Boolean(form.description) }">
-              <textarea id="update-desc" v-model.trim="form.description" rows="5" placeholder=" "></textarea>
-              <label for="update-desc">Описание</label>
-            </div>
+            <UiInput id="update-version" v-model.trim="form.version" type="text" autocomplete="off" label="Версия" />
+            <UiInput id="update-date" v-model="form.date" type="date" autocomplete="off" label="Дата" />
+            <UiInput id="update-desc" v-model.trim="form.description" as="textarea" rows="5" label="Описание" class="update-textarea" />
           </div>
           <div class="modal-actions">
             <button class="btn dark" @click="close">Отмена</button>
@@ -38,6 +29,9 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+
+import UiInput from '@/components/UiInput.vue'
+
 import iconClose from '@/assets/svg/close.svg'
 
 defineProps<{
@@ -150,56 +144,6 @@ function close() {
       flex-direction: column;
       gap: 10px;
     }
-    .ui-input {
-      display: block;
-      position: relative;
-      width: 100%;
-      box-shadow: 3px 3px 5px rgba($black, 0.25);
-      input,
-      textarea {
-        width: calc(100% - 22px);
-        padding: 20px 10px 5px;
-        border: 1px solid $lead;
-        border-radius: 5px;
-        background-color: $graphite;
-        color: $fg;
-        font-size: 16px;
-        font-family: Manrope-Medium;
-        line-height: 1;
-        outline: none;
-        transition: border-color 0.25s ease-in-out, background-color 0.25s ease-in-out;
-      }
-      input::placeholder,
-      textarea::placeholder {
-        color: transparent;
-      }
-      textarea {
-        resize: none;
-        min-height: 80px;
-      }
-      label {
-        position: absolute;
-        top: 50%;
-        left: 12px;
-        color: $fg;
-        transform: translateY(-50%);
-        pointer-events: none;
-        transition: all 0.25s ease-in-out;
-      }
-      &:focus-within label,
-      input:not(:placeholder-shown) + label,
-      textarea:not(:placeholder-shown) + label,
-      &.filled label {
-        top: 5px;
-        left: 10px;
-        transform: none;
-        font-size: 12px;
-        color: $grey;
-      }
-    }
-    .ui-input + .ui-input {
-      margin-top: 10px;
-    }
     .modal-actions {
       display: flex;
       justify-content: flex-end;
@@ -228,11 +172,9 @@ function close() {
           height: 16px;
         }
       }
-      .ui-input {
-        textarea {
-          min-height: 60px;
-          max-height: 60px;
-        }
+      :deep(.update-textarea textarea) {
+        min-height: 60px;
+        max-height: 60px;
       }
     }
   }
