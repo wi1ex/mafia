@@ -561,6 +561,17 @@ const backgrounded = ref(false)
 let joinPhaseApplyPending = false
 const lkReconnecting = computed(() => rtc.reconnecting.value)
 const isReconnecting = computed(() => netReconnecting.value || lkReconnecting.value)
+const reconnectBursts = ref<number[]>([])
+
+watch(isReconnecting, (now, prev) => {
+  if (leaving.value) return
+  if (!now || prev) return
+  const ts = Date.now()
+  const next = reconnectBursts.value.filter(t => ts - t <= 10_000)
+  next.push(ts)
+  reconnectBursts.value = next
+  if (next.length >= 3) hardReload()
+})
 const openApps = ref(false)
 const appsCounts = reactive({ total: 0, unread: 0 })
 const isPrivate = ref(false)

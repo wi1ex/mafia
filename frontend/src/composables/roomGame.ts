@@ -2758,7 +2758,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
         } else if (st === 409 && code === 'card_taken') {
            void alertDialog('Эта карта уже занята')
         } else {
-           void alertDialog('Не удалось выбрать роль')
+           void alertDialog('Не удалось выбрать роль. Попробуйте еще раз')
         }
         return
       }
