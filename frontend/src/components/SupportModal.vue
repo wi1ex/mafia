@@ -10,8 +10,8 @@
           </button>
         </header>
         <div class="support-body">
-          <span class="body-text">Вы будете перенаправлены на официальный сервис поддержки. Спасибо за помощь!</span>
-          <a class="support-link" :href="supportLink" target="_blank" rel="noopener noreferrer" @click="close">Перейти</a>
+          <span class="body-text">У Вас есть возможность поддержать функционирование и развитие платформы. Кликнув по кнопке ниже Вы будете перенаправлены на официальный сервис поддержки. Благодарим за любую оказанную помощь!</span>
+          <a class="support-link" :href="supportLink" target="_blank" rel="noopener noreferrer" @click="close">Поддержать</a>
         </div>
       </div>
     </div>
