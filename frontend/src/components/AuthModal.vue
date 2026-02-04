@@ -373,7 +373,7 @@ watch(() => props.open, (open) => {
           margin-bottom: 5px;
           padding: 5px;
           gap: 10px;
-          height: 245px;
+          height: 236px;
         }
         .btn.confirm {
           height: 30px;
