@@ -7,6 +7,7 @@
       </router-link>
       <router-link class="btn" :to="{ name: 'rules' }" aria-label="Правила">
         <img :src="iconInfo" alt="" aria-hidden="true" />
+        <span data-nosnippet>Правила</span>
       </router-link>
       <button v-if="showInstall" class="btn" type="button" @click="openInstall" :aria-expanded="installOpen" aria-haspopup="dialog" aria-label="Установить">
         <img :src="iconInstall" alt="" aria-hidden="true" />
