@@ -25,7 +25,6 @@
               <li>Выберите «На экран Домой»</li>
             </ol>
           </div>
-          <button class="hide-install" type="button" @click="hideInstall">Скрыть кнопку «Установить» с главного экрана</button>
         </div>
       </div>
     </div>
@@ -39,7 +38,6 @@ import iconClose from "@/assets/svg/close.svg"
 const props = defineProps<{ open: boolean }>()
 const emit = defineEmits<{
   (e: 'update:open', value: boolean): void
-  (e: 'hide-install'): void
 }>()
 
 const armed = ref(false)
@@ -58,11 +56,6 @@ watch(() => props.open, (open) => {
 function close() {
   emit('update:open', false)
   armed.value = false
-}
-
-function hideInstall() {
-  emit('hide-install')
-  close()
 }
 
 onBeforeUnmount(() => {
@@ -146,18 +139,6 @@ onBeforeUnmount(() => {
           }
         }
       }
-      .hide-install {
-        padding: 0;
-        height: 30px;
-        border: none;
-        border-radius: 5px;
-        background-color: $lead;
-        color: $fg;
-        font-size: 14px;
-        font-family: Manrope-Medium;
-        line-height: 1;
-        cursor: pointer;
-      }
     }
   }
 }
@@ -191,10 +172,6 @@ onBeforeUnmount(() => {
               font-size: 12px;
             }
           }
-        }
-        .hide-install {
-          height: 20px;
-          font-size: 12px;
         }
       }
     }

@@ -67,8 +67,8 @@
               <div v-if="(info?.members?.length ?? 0) === 0" class="muted">Пока никого</div>
               <ul v-else class="ri-users">
                 <li class="ri-user" v-for="m in sortedMembers" :key="m.id" :class="{ dead: m.role === 'player' && m.alive === false }">
-                  <span v-if="m.role === 'head'" class="user-numb">В. </span>
-                  <span v-else-if="m.role === 'player' && m.slot != null" class="user-numb">{{ m.slot }}. </span>
+                  <span v-if="m.role === 'head'" class="user-numb">Вед. </span>
+                  <span v-else-if="m.role === 'player' && m.slot != null" class="user-numb">{{ formatSeatNumber(m.slot) }}. </span>
                   <img v-minio-img="{ key: m.avatar_name ? `avatars/${m.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
                   <span>{{ m.username || ('user' + m.id) }}</span>
                   <img v-if="m.screen" :src="iconScreenOn" alt="streaming" />
@@ -312,6 +312,13 @@ function roomStatusLabel(room: Room): string {
 }
 
 function isFullRoom(r: Room) { return r.occupancy >= r.user_limit }
+
+function formatSeatNumber(slot: number | null | undefined): string {
+  if (slot == null) return ''
+  const n = Number(slot)
+  if (!Number.isFinite(n)) return String(slot)
+  return String(Math.trunc(n)).padStart(2, '0')
+}
 
 function upsert(r: Room) {
   const cur = roomsMap.get(r.id)

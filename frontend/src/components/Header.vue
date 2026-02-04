@@ -85,7 +85,7 @@
     <span>Изменён способ регистрации/авторизации. Если у Вас уже есть аккаунт, используйте "Сбросить пароль" в</span>
     <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">Telegram</a>
   </div>
-  <AppModal v-model:open="installOpen" @hide-install="onHideInstall" />
+  <AppModal v-model:open="installOpen" />
   <SupportModal v-model:open="supportOpen" :support-link="supportLink" />
   <AuthModal v-model:open="authOpen" :mode="authMode" />
 </template>
@@ -184,10 +184,6 @@ function openInstall() {
 }
 function openSupport() {
   supportOpen.value = true
-}
-function onHideInstall() {
-  void user.setInstallHidden(true)
-  installOpen.value = false
 }
 async function onLogoutClick() {
   closeUserMenu()
