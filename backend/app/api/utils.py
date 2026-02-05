@@ -10,7 +10,7 @@ from time import time
 from datetime import date, datetime, timezone, timedelta
 from typing import Optional, Dict, Any, Literal, Sequence, Iterable, cast
 from fastapi import HTTPException, status, Header
-from sqlalchemy import update, func, select, or_, literal
+from sqlalchemy import update, func, select, or_
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.clients import get_redis
@@ -296,6 +296,9 @@ async def ensure_room_access_allowed(db: AsyncSession, user_id: int) -> None:
     user = await db.get(User, int(user_id))
     if not user or user.deleted_at:
         raise HTTPException(status_code=401, detail="Unauthorized")
+
+    if get_cached_settings().verification_restrictions and not user.telegram_id:
+        raise HTTPException(status_code=403, detail="not_verified")
 
 
 

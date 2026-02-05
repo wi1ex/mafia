@@ -49,11 +49,6 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
         raise HTTPException(status_code=403, detail="rooms_create_disabled")
 
     await ensure_room_access_allowed(session, uid)
-    if app_settings.verification_restrictions:
-        verified = await session.scalar(select(User.telegram_id).where(User.id == uid).where(User.deleted_at.is_(None)))
-        if not verified:
-            raise HTTPException(status_code=403, detail="not_verified")
-
     title = (payload.title or "").strip()
     if not title:
         raise HTTPException(status_code=422, detail="title_empty")

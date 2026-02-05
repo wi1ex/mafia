@@ -4,8 +4,10 @@ import random
 from time import time
 from typing import Any
 import structlog
+from sqlalchemy import select
 from ..sio import sio
 from ...core.clients import get_redis
+from ...models.user import User
 from ...security.decorators import rate_limited_sio
 from ...core.logging import log_action
 from ...core.db import SessionLocal
@@ -158,6 +160,11 @@ async def join(sid, data) -> JoinAck:
 
             if active.get(SANCTION_TIMEOUT):
                 return {"ok": False, "error": "user_timeout", "status": 403}
+
+            if get_cached_settings().verification_restrictions:
+                verified = await s.scalar(select(User.telegram_id).where(User.id == uid).where(User.deleted_at.is_(None)))
+                if not verified:
+                    return {"ok": False, "error": "not_verified", "status": 403}
 
         allowed = True
         pending = False

@@ -5,7 +5,7 @@
         <div class="rooms-text">
           <span>Список комнат</span>
         </div>
-        <button @click="onOpenCreate" :disabled="!settings.roomsCanCreate || !auth.isAuthed || userStore.roomRestricted || (settings.verificationRestrictions && !userStore.telegramVerified)">Создать комнату</button>
+        <button @click="onOpenCreate" :disabled="!settings.roomsCanCreate || !auth.isAuthed || userStore.roomRestricted || verificationRestricted">Создать комнату</button>
       </header>
 
       <Transition name="overlay">
@@ -254,6 +254,7 @@ const sortedMembers = computed<RoomInfoMember[]>(() => {
 
 const isFull = computed(() => selectedRoom.value ? isFullRoom(selectedRoom.value) : false)
 const currentUserId = computed(() => userStore.user?.id ?? null)
+const verificationRestricted = computed(() => auth.isAuthed && settings.verificationRestrictions && !userStore.telegramVerified)
 const isGameParticipant = computed(() => {
   const room = selectedRoom.value
   const uid = currentUserId.value
@@ -267,7 +268,7 @@ const ctaState = computed<Cta>(() => {
   const room = selectedRoom.value
   if (room?.entry_closed) return 'blocked'
   if (room && !settings.roomsCanEnter) return 'blocked'
-  if (room && userStore.roomRestricted) return 'blocked'
+  if (room && (userStore.roomRestricted || verificationRestricted.value)) return 'blocked'
   if (!auth.isAuthed || !room) return 'login'
   if (room.in_game) {
     if (isGameParticipant.value) return 'enter'
@@ -345,7 +346,7 @@ async function onCreated(room: any) {
 
 async function onOpenCreate() {
   if (!settings.roomsCanCreate || !auth.isAuthed || userStore.roomRestricted) return
-  if (settings.verificationRestrictions && !userStore.telegramVerified) return
+  if (verificationRestricted.value) return
   openCreate.value = true
 }
 
