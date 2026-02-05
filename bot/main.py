@@ -112,7 +112,7 @@ def map_verify_error(detail: str | None, status_code: int | None) -> str:
         return "Аккаунт не найден."
 
     if detail == "invalid_credentials":
-        return "Неверный логин или пароль."
+        return "Неверный логин/никнейм или пароль."
 
     if detail == "password_not_set":
         return "Пароль не установлен. Сначала восстановите пароль."
@@ -186,7 +186,7 @@ async def verify_start(message: types.Message, state: FSMContext, session: aioht
 
     await state.clear()
     await state.set_state(VerifyState.login)
-    await message.answer("Введите логин и пароль через пробел (например: login password):")
+    await message.answer("Введите логин/никнейм и пароль через пробел (например: login password):")
 
 
 @router.message(VerifyState.login, F.text)
@@ -199,7 +199,7 @@ async def verify_credentials(message: types.Message, state: FSMContext, session:
         pass
 
     if len(parts) < 2:
-        await message.answer("Необходимо ввести логин и пароль через пробел (например: login password).")
+        await message.answer("Необходимо ввести логин/никнейм и пароль через пробел (например: login password).")
         return
 
     username = parts[0]
@@ -219,7 +219,7 @@ async def verify_credentials(message: types.Message, state: FSMContext, session:
 
     detail = (payload or {}).get("detail")
     await state.set_state(VerifyState.login)
-    await message.answer(f"{map_verify_error(detail, status_code)}\nВведите логин и пароль через пробел (например: login password):", reply_markup=keyboard_verify_only())
+    await message.answer(f"{map_verify_error(detail, status_code)}\nВведите логин/никнейм и пароль через пробел (например: login password):", reply_markup=keyboard_verify_only())
 
 @router.message(Command("reset"))
 @router.message(F.text == "Сбросить пароль")
@@ -259,7 +259,7 @@ async def reset_confirm(callback: types.CallbackQuery, state: FSMContext, sessio
         await state.clear()
         if message := callback.message:
             await message.edit_text(f"Пароль успешно сброшен!\n"
-                                    f"Прежний логин: {username}\n"
+                                    f"Прежний логин/никнейм: {username}\n"
                                     f"Временный пароль: {temp}\n"
                                     f"После входа обязательно измените пароль в Личном кабинете.")
             await message.answer("Выберите действие:", reply_markup=keyboard_reset_only())
