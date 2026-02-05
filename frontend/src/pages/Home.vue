@@ -5,7 +5,7 @@
         <div class="rooms-text">
           <span>Список комнат</span>
         </div>
-        <button @click="onOpenCreate" :disabled="!settings.roomsCanCreate || !auth.isAuthed || userStore.roomRestricted">Создать комнату</button>
+        <button @click="onOpenCreate" :disabled="!settings.roomsCanCreate || !auth.isAuthed || userStore.roomRestricted || (settings.verificationRestrictions && !userStore.telegramVerified)">Создать комнату</button>
       </header>
 
       <Transition name="overlay">
@@ -344,17 +344,9 @@ async function onCreated(room: any) {
 }
 
 async function onOpenCreate() {
-  if (!settings.verificationRestrictions || userStore.telegramVerified) {
-    openCreate.value = true
-    return
-  }
-  const ok = await confirmDialog({
-    title: 'Требуется верификация',
-    text: 'Для создания комнат необходимо пройти верификацию.',
-    confirmText: 'Пройти верификацию',
-    cancelText: 'Позже',
-  })
-  if (ok) await router.push({ name: 'profile', query: { tab: 'account' } })
+  if (!settings.roomsCanCreate || !auth.isAuthed || userStore.roomRestricted) return
+  if (settings.verificationRestrictions && !userStore.telegramVerified) return
+  openCreate.value = true
 }
 
 async function fetchAccess(id: number) {
