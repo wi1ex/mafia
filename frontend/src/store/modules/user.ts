@@ -10,7 +10,6 @@ export interface UserProfile {
   telegram_verified?: boolean
   password_temp?: boolean
   hotkeys_visible?: boolean
-  install_hidden?: boolean
   timeout_until?: string | null
   suspend_until?: string | null
   ban_active?: boolean
@@ -26,11 +25,10 @@ export const useUserStore = defineStore('user', () => {
     user.value = data
   }
 
-  async function updateUiPrefs(payload: { hotkeys_visible?: boolean; install_hidden?: boolean }): Promise<void> {
-    const { data } = await api.patch<{ hotkeys_visible: boolean; install_hidden: boolean }>('/users/ui_prefs', payload)
+  async function updateUiPrefs(payload: { hotkeys_visible?: boolean }): Promise<void> {
+    const { data } = await api.patch<{ hotkeys_visible: boolean }>('/users/ui_prefs', payload)
     if (!user.value) return
     user.value.hotkeys_visible = data.hotkeys_visible
-    user.value.install_hidden = data.install_hidden
   }
 
   function updateStoredRoomTitle(id: number, name: string) {
@@ -91,7 +89,6 @@ export const useUserStore = defineStore('user', () => {
   const passwordTemp = computed(() => Boolean(user.value?.password_temp))
   const roomRestricted = computed(() => banActive.value || timeoutActive.value)
   const hotkeysVisible = computed(() => user.value?.hotkeys_visible ?? true)
-  const installHidden = computed(() => user.value?.install_hidden ?? false)
 
   async function setHotkeysVisible(next: boolean): Promise<void> {
     const prev = user.value?.hotkeys_visible
@@ -99,15 +96,6 @@ export const useUserStore = defineStore('user', () => {
     try { await updateUiPrefs({ hotkeys_visible: next }) }
     catch {
       if (user.value && prev !== undefined) user.value.hotkeys_visible = prev
-    }
-  }
-
-  async function setInstallHidden(next: boolean): Promise<void> {
-    const prev = user.value?.install_hidden
-    if (user.value) user.value.install_hidden = next
-    try { await updateUiPrefs({ install_hidden: next }) }
-    catch {
-      if (user.value && prev !== undefined) user.value.install_hidden = prev
     }
   }
 
@@ -127,15 +115,12 @@ export const useUserStore = defineStore('user', () => {
     passwordTemp,
     roomRestricted,
     hotkeysVisible,
-    installHidden,
-
     fetchMe,
     updateUiPrefs,
     setUsername,
     setAvatarName,
     setSanctions,
     setHotkeysVisible,
-    setInstallHidden,
     ensureClock,
     clear,
   }

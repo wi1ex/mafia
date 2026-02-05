@@ -9,7 +9,7 @@
         <img :src="iconInfo" alt="" aria-hidden="true" />
         <span data-nosnippet>Правила</span>
       </router-link>
-      <button v-if="showInstall" class="btn" type="button" @click="openInstall" :aria-expanded="installOpen" aria-haspopup="dialog" aria-label="Установить">
+      <button class="btn" type="button" @click="openInstall" :aria-expanded="installOpen" aria-haspopup="dialog" aria-label="Установить">
         <img :src="iconInstall" alt="" aria-hidden="true" />
       </button>
       <button class="btn" type="button" @click="openSupport" :aria-expanded="supportOpen" aria-haspopup="dialog" aria-label="Поддержать">
@@ -92,9 +92,7 @@
 
 <script setup lang="ts">
 import { onMounted, onBeforeUnmount, watch, ref, computed } from 'vue'
-import { storeToRefs } from 'pinia'
-import { useAuthStore, useUserStore, useNotifStore, useSettingsStore, useUpdatesStore } from '@/store'
-import { isPwaMode } from '@/services/pwa'
+import { useAuthStore, useUserStore, useNotifStore, useUpdatesStore } from '@/store'
 import Notifs from '@/components/Notifs.vue'
 import Updates from '@/components/Updates.vue'
 import AppModal from '@/components/AppModal.vue'
@@ -115,8 +113,6 @@ const auth = useAuthStore()
 const user = useUserStore()
 const notif = useNotifStore()
 const updates = useUpdatesStore()
-const settings = useSettingsStore()
-const { installHidden } = storeToRefs(user)
 
 const nb_open = ref(false)
 const bellEl = ref<HTMLElement | null>(null)
@@ -126,7 +122,6 @@ const um_open = ref(false)
 const userMenuEl = ref<HTMLElement | null>(null)
 const installOpen = ref(false)
 const supportOpen = ref(false)
-const isPwa = ref(isPwaMode())
 const authOpen = ref(false)
 const authMode = ref<'login' | 'register'>('login')
 const botName = (import.meta.env.VITE_TG_BOT_NAME as string || '').trim()
@@ -196,7 +191,6 @@ function onGlobalPointerDown(e: PointerEvent) {
   um_open.value = false
 }
 
-const showInstall = computed(() => auth.isAuthed && !isPwa.value && !installHidden.value)
 
 async function logout() {
   try { await auth.logout() }

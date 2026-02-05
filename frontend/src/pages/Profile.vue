@@ -61,8 +61,6 @@
             <h3>Параметры</h3>
             <ToggleSwitch class="profile-switch" :model-value="hotkeysVisible" label="Подсказки для горячих клавиш"
               off-label="Скрыть" on-label="Показать" :disabled="hotkeysTogglePending" @update:modelValue="onToggleHotkeys" />
-            <ToggleSwitch class="profile-switch" :model-value="!installHidden" label="Кнопка «Установить как приложение»" off-label="Скрыть"
-              on-label="Показать" aria-label="Кнопка Установить" :disabled="installTogglePending" @update:modelValue="onToggleInstallHidden" />
           </div>
 
           <div v-if="crop.show" ref="modalEl" class="modal" @keydown.esc="cancelCrop" tabindex="0" aria-modal="true" aria-label="Кадрирование аватара" >
@@ -206,8 +204,8 @@ import iconDelete from '@/assets/svg/delete.svg'
 const userStore = useUserStore()
 const auth = useAuthStore()
 const isBanned = computed(() => userStore.banActive)
-const { hotkeysVisible, installHidden } = storeToRefs(userStore)
-const { setHotkeysVisible, setInstallHidden } = userStore
+const { hotkeysVisible } = storeToRefs(userStore)
+const { setHotkeysVisible } = userStore
 
 const me = reactive({
   id: 0,
@@ -273,9 +271,7 @@ const sanctionsLoading = ref(false)
 const sanctionsLoaded = ref(false)
 const sanctionsError = ref('')
 const hotkeysTogglePending = ref(false)
-const installTogglePending = ref(false)
 let hotkeysToggleTimer: number | null = null
-let installToggleTimer: number | null = null
 const telegramVerified = computed(() => userStore.telegramVerified)
 const passwordTemp = computed(() => userStore.passwordTemp)
 const botName = (import.meta.env.VITE_TG_BOT_NAME as string || '').trim()
@@ -318,16 +314,6 @@ function onToggleHotkeys(next: boolean) {
   hotkeysToggleTimer = window.setTimeout(async () => {
     try { await setHotkeysVisible(next) }
     finally { hotkeysTogglePending.value = false }
-  }, 500)
-}
-
-function onToggleInstallHidden(nextShown: boolean) {
-  if (installTogglePending.value) return
-  installTogglePending.value = true
-  if (installToggleTimer !== null) window.clearTimeout(installToggleTimer)
-  installToggleTimer = window.setTimeout(async () => {
-    try { await setInstallHidden(!nextShown) }
-    finally { installTogglePending.value = false }
   }, 500)
 }
 
@@ -753,7 +739,6 @@ onMounted(() => {
 onBeforeUnmount(() => {
   if (onSanctionsUpdate) window.removeEventListener('auth-sanctions_update', onSanctionsUpdate)
   if (hotkeysToggleTimer !== null) window.clearTimeout(hotkeysToggleTimer)
-  if (installToggleTimer !== null) window.clearTimeout(installToggleTimer)
   document.body.style.overflow = ''
 })
 </script>

@@ -17,7 +17,6 @@ class User(Base):
     password_hash: Mapped[Optional[str]] = mapped_column(String(256), nullable=True)
     password_temp: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
     hotkeys_visible: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
-    install_hidden: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
     registered_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     last_login_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     last_visit_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)

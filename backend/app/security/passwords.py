@@ -58,7 +58,7 @@ def verify_password(password: str, encoded: str) -> bool:
     return hmac.compare_digest(dk, ref)
 
 
-def make_temp_password(length: int = 10) -> str:
+def make_temp_password(length: int = 8) -> str:
     alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
     length = max(8, min(32, int(length)))
     return "".join(secrets.choice(alphabet) for _ in range(length))
