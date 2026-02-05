@@ -38,7 +38,6 @@ __all__ = [
     "apply_bg_state_on_join",
     "apply_join_idle_defaults",
     "apply_join_phase_state",
-    "is_user_verified",
     "extract_state_mapping",
     "get_user_state_and_block",
     "get_room_snapshot",
@@ -894,16 +893,6 @@ def _decode_redis_value(val: Any) -> str:
         return val.decode("utf-8", "ignore")
 
     return str(val)
-
-
-async def is_user_verified(uid: int) -> bool:
-    async with SessionLocal() as s:
-        row = await s.scalar(
-            select(User.telegram_id)
-            .where(User.id == uid)
-            .where(User.deleted_at.is_(None))
-        )
-    return bool(row)
 
 
 def extract_state_mapping(raw: Mapping[Any, Any], keys: Iterable[str]) -> dict[str, str]:
