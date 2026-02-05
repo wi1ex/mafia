@@ -83,7 +83,7 @@
   </div>
   <div v-if="registrationInfoBanner" class="sanction-banner sanction-banner--info">
     <span>Изменён способ регистрации/авторизации. Если у Вас уже есть аккаунт, используйте "Сбросить пароль" в</span>
-    <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">Telegram</a>
+    <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">Telegram-боте</a>
   </div>
   <AppModal v-model:open="installOpen" />
   <SupportModal v-model:open="supportOpen" :support-link="supportLink" />

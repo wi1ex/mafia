@@ -112,16 +112,16 @@
             </div>
             <p class="hint">
               Если забыли пароль, используйте "Сбросить пароль" в
-              <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">Telegram</a>
+              <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">Telegram-боте</a>
             </p>
           </div>
 
           <div v-else class="block">
-            <h3>Верификация Telegram</h3>
+            <h3>Верификация через Telegram</h3>
             <div class="verify-row">
               <a v-if="botName" class="btn confirm" :href="botLink" target="_blank" rel="noopener noreferrer">Пройти верификацию</a>
             </div>
-            <p class="hint">В чате с ботом введите никнейм и пароль (через пробел)</p>
+            <p class="hint">В чате с ботом введите текущие никнейм и пароль (через пробел)</p>
           </div>
 
           <div class="block">

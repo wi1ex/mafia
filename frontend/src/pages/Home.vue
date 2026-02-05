@@ -5,7 +5,7 @@
         <div class="rooms-text">
           <span>Список комнат</span>
         </div>
-        <button @click="openCreate = true" :disabled="!settings.roomsCanCreate || !auth.isAuthed || userStore.roomRestricted">Создать комнату</button>
+        <button @click="onOpenCreate" :disabled="!settings.roomsCanCreate || !auth.isAuthed || userStore.roomRestricted">Создать комнату</button>
       </header>
 
       <Transition name="overlay">
@@ -252,7 +252,6 @@ const sortedMembers = computed<RoomInfoMember[]>(() => {
   })
 })
 
-const isOpen = computed(() => selectedRoom.value?.privacy === 'open')
 const isFull = computed(() => selectedRoom.value ? isFullRoom(selectedRoom.value) : false)
 const currentUserId = computed(() => userStore.user?.id ?? null)
 const isGameParticipant = computed(() => {
@@ -342,6 +341,20 @@ function remove(id: number) {
 async function onCreated(room: any) {
   openCreate.value = false
   await router.push(`/room/${room.id}`)
+}
+
+async function onOpenCreate() {
+  if (!settings.verificationRestrictions || userStore.telegramVerified) {
+    openCreate.value = true
+    return
+  }
+  const ok = await confirmDialog({
+    title: 'Требуется верификация',
+    text: 'Для создания комнат необходимо пройти верификацию.',
+    confirmText: 'Пройти верификацию',
+    cancelText: 'Позже',
+  })
+  if (ok) await router.push({ name: 'profile', query: { tab: 'account' } })
 }
 
 async function fetchAccess(id: number) {
