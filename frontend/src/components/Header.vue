@@ -78,7 +78,7 @@
     <span>{{ sanctionBanner.text }}</span>
   </div>
   <div v-if="verificationBanner" class="sanction-banner sanction-banner--verify">
-    <span>Для комфортного общения и участия в играх требуется верификация.</span>
+    <span>Чтобы входить в комнаты требуется верификация.</span>
     <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">Как пройти верификацию?</a>
   </div>
   <div v-if="registrationInfoBanner" class="sanction-banner sanction-banner--info">

@@ -121,7 +121,7 @@
             <div class="verify-row">
               <a v-if="botName" class="btn confirm" :href="botLink" target="_blank" rel="noopener noreferrer">Пройти верификацию</a>
             </div>
-            <p class="hint">В чате с ботом введите текущие никнейм и пароль (через пробел)</p>
+            <p class="hint">В чате с ботом введите Ваш никнейм и пароль (через пробел), после этого ограничения будут сняты (сможете входить в комнаты)</p>
           </div>
 
           <div class="block">
