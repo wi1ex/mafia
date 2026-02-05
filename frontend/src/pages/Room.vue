@@ -2103,10 +2103,17 @@ async function handleJoinFailure(j: any) {
     return
   }
   if (j?.status === 403 && j?.error === 'user_timeout') {
+    void alertDialog('Вам выдан таймаут — вход в комнату недоступен')
+    await router.replace({ name: 'home', query: { focus: String(rid) } })
+    return
+  }
+  if (j?.status === 403 && j?.error === 'not_verified') {
+    void alertDialog('Для входа в комнату требуется верификация')
     await router.replace({ name: 'home', query: { focus: String(rid) } })
     return
   }
   if (j?.status === 403 && j?.error === 'user_banned') {
+    void alertDialog('Аккаунт забанен — вход в комнату недоступен')
     await router.replace({ name: 'home', query: { focus: String(rid) } })
     return
   }

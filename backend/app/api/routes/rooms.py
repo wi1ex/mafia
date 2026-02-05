@@ -217,12 +217,9 @@ async def update_game(room_id: int, payload: GameParams, ident: Identity = Depen
 @router.get("/{room_id}/access", response_model=RoomAccessOut)
 async def access(room_id: int, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> RoomAccessOut:
     if not get_cached_settings().rooms_can_enter:
-        return RoomAccessOut(access="none")
+        raise HTTPException(status_code=403, detail="rooms_entry_disabled")
 
-    try:
-        await ensure_room_access_allowed(db, int(ident["id"]))
-    except HTTPException:
-        return RoomAccessOut(access="none")
+    await ensure_room_access_allowed(db, int(ident["id"]))
 
     r = get_redis()
     params = await get_room_params_or_404(r, room_id)

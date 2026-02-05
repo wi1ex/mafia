@@ -77,12 +77,12 @@
   <div v-if="sanctionBanner" class="sanction-banner" :class="`sanction-banner--${sanctionBanner.kind}`">
     <span>{{ sanctionBanner.text }}</span>
   </div>
-  <div v-if="verificationBanner" class="sanction-banner sanction-banner--verify">
+  <div v-if="verificationBanner" class="sanction-banner sanction-banner--suspend">
     <span>Чтобы входить в комнаты требуется верификация.</span>
     <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">Как пройти верификацию?</a>
   </div>
-  <div v-if="registrationInfoBanner" class="sanction-banner sanction-banner--info">
-    <span>Изменён способ регистрации/авторизации. Если у Вас уже есть аккаунт, используйте "Сбросить пароль" в</span>
+  <div v-if="registrationInfoBanner" class="sanction-banner sanction-banner--suspend">
+    <span>Если у Вас уже есть аккаунт, используйте "Сбросить пароль" в</span>
     <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">Telegram-боте</a>
   </div>
   <AppModal v-model:open="installOpen" />
@@ -393,7 +393,7 @@ function openAuth(mode: 'login' | 'register') {
   letter-spacing: 1px;
   gap: 5px;
   a {
-    color: $white;
+    color: $black;
     text-decoration: underline;
   }
   &.sanction-banner--ban {
@@ -404,14 +404,6 @@ function openAuth(mode: 'login' | 'register') {
   }
   &.sanction-banner--suspend {
     background-color: $yellow;
-  }
-  &.sanction-banner--verify {
-    background-color: $graphite;
-    color: $fg;
-  }
-  &.sanction-banner--info {
-    background-color: $graphite;
-    color: $fg;
   }
 }
 

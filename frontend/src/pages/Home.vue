@@ -131,7 +131,7 @@
             <button v-else-if="ctaState==='watch'" :disabled="entering" @click="onEnter">Смотреть</button>
             <button v-else-if="ctaState==='spectators_full'" disabled>Лимит зрителей</button>
             <button v-else-if="ctaState==='in_game'" disabled>Идёт игра</button>
-            <button v-else-if="ctaState==='blocked'" disabled>Вход заблокирован</button>
+            <button v-else-if="ctaState==='blocked'" disabled>{{ blockedLabel }}</button>
             <button v-else disabled>Авторизуйтесь, чтобы войти</button>
           </div>
         </div>
@@ -255,6 +255,14 @@ const sortedMembers = computed<RoomInfoMember[]>(() => {
 const isFull = computed(() => selectedRoom.value ? isFullRoom(selectedRoom.value) : false)
 const currentUserId = computed(() => userStore.user?.id ?? null)
 const verificationRestricted = computed(() => auth.isAuthed && settings.verificationRestrictions && !userStore.telegramVerified)
+const blockedLabel = computed(() => {
+  if (selectedRoom.value?.entry_closed) return 'Вход закрыт'
+  if (!settings.roomsCanEnter) return 'Вход отключен'
+  if (userStore.banActive) return 'Аккаунт забанен'
+  if (userStore.timeoutActive) return 'Таймаут: вход запрещен'
+  if (verificationRestricted.value) return 'Требуется верификация'
+  return 'Вход заблокирован'
+})
 const isGameParticipant = computed(() => {
   const room = selectedRoom.value
   const uid = currentUserId.value
