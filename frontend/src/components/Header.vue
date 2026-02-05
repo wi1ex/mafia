@@ -82,7 +82,7 @@
     <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">Как пройти верификацию?</a>
   </div>
   <div v-if="registrationInfoBanner" class="sanction-banner sanction-banner--suspend">
-    <span>Если у Вас уже есть аккаунт, используйте "Сбросить пароль" в</span>
+    <span>Если у Вас ранее уже был аккаунт, используйте "Сбросить пароль" в</span>
     <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">Telegram-боте</a>
   </div>
   <AppModal v-model:open="installOpen" />
