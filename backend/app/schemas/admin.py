@@ -100,6 +100,7 @@ class SiteStatsOut(BaseModel):
     total_users: int
     unverified_users: int
     no_password_users: int
+    deleted_users: int
     registrations: List[RegistrationsPoint]
     registrations_monthly: List[RegistrationsPoint]
     total_rooms: int

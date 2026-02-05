@@ -153,6 +153,10 @@
                 <span class="value">{{ stats.no_password_users }}</span>
               </div>
               <div class="stat-card">
+                <span class="label">Удаленные</span>
+                <span class="value">{{ stats.deleted_users }}</span>
+              </div>
+              <div class="stat-card">
                 <span class="label">Всего комнат</span>
                 <span class="value">{{ stats.total_rooms }}</span>
               </div>
@@ -710,6 +714,7 @@ type SiteStats = {
   total_users: number
   unverified_users: number
   no_password_users: number
+  deleted_users: number
   registrations: RegistrationPoint[]
   registrations_monthly: RegistrationPoint[]
   total_rooms: number
@@ -870,6 +875,7 @@ const stats = reactive<SiteStats>({
   total_users: 0,
   unverified_users: 0,
   no_password_users: 0,
+  deleted_users: 0,
   registrations: [],
   registrations_monthly: [],
   total_rooms: 0,
@@ -1269,6 +1275,7 @@ async function loadStats(): Promise<void> {
       total_users: data?.total_users ?? 0,
       unverified_users: data?.unverified_users ?? 0,
       no_password_users: data?.no_password_users ?? 0,
+      deleted_users: data?.deleted_users ?? 0,
       registrations: Array.isArray(data?.registrations) ? data.registrations : [],
       registrations_monthly: Array.isArray(data?.registrations_monthly) ? data.registrations_monthly : [],
       total_rooms: data?.total_rooms ?? 0,
