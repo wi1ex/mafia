@@ -160,7 +160,7 @@ export const useAuthStore = defineStore('auth', () => {
       } else if (st === 403 && detail === 'user_deleted') {
         void alertDialog('Авторизация невозможна: аккаунт удален')
       } else if (st === 401 && detail === 'invalid_credentials') {
-        void alertDialog('Неверный логин/никнейм или пароль')
+        void alertDialog('Неверный никнейм или пароль')
       } else {
         void alertDialog('Не удалось войти')
       }

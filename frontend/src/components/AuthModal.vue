@@ -16,7 +16,7 @@
           </div>
 
           <form v-if="activeTab === 'login'" class="form" @submit.prevent="submitLogin">
-            <UiInput id="auth-login-username" v-model.trim="login.username" maxlength="20" autocomplete="username" label="Логин/Никнейм"
+            <UiInput id="auth-login-username" v-model.trim="login.username" maxlength="20" autocomplete="username" label="Никнейм"
               :invalid="loginUsernameInvalid" :underline-style="underlineStyle(login.username.length, USERNAME_MAX)" :aria-invalid="loginUsernameInvalid" aria-describedby="auth-login-username-hint">
               <template #meta>
                 <span id="auth-login-username-hint">{{ login.username.length }}/{{ USERNAME_MAX }}</span>
@@ -35,7 +35,7 @@
           </form>
 
           <form v-else class="form" @submit.prevent="submitRegister">
-            <UiInput id="auth-reg-username" v-model.trim="reg.username" maxlength="20" autocomplete="username" label="Логин/Никнейм"
+            <UiInput id="auth-reg-username" v-model.trim="reg.username" maxlength="20" autocomplete="username" label="Никнейм"
               :invalid="regUsernameInvalid" :underline-style="underlineStyle(reg.username.length, USERNAME_MAX)" :aria-invalid="regUsernameInvalid" aria-describedby="auth-reg-username-hint">
               <template #meta>
                 <span id="auth-reg-username-hint">{{ reg.username.length }}/{{ USERNAME_MAX }}</span>
