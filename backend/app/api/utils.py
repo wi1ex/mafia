@@ -28,6 +28,7 @@ from ..schemas.admin import SiteSettingsOut, GameSettingsOut, RegistrationsPoint
 from ..schemas.room import GameParams
 from ..realtime.sio import sio
 from ..realtime.utils import get_profiles_snapshot, get_rooms_brief, gc_empty_room
+from ..services.minio import delete_avatars
 from ..security.parameters import get_cached_settings
 
 __all__ = [
@@ -235,7 +236,7 @@ def normalize_password(raw: str) -> str:
 
 
 async def find_user_by_username(db: AsyncSession, username: str) -> User | None:
-    stmt = select(User).where(User.username.ilike(username))
+    stmt = select(User).where(func.lower(User.username) == username.lower())
     return (await db.execute(stmt)).scalar_one_or_none()
 
 
@@ -314,6 +315,14 @@ async def set_user_deleted(session: AsyncSession, user_id: int, *, deleted: bool
         raise HTTPException(status_code=404, detail="user_not_found")
 
     user = cast(User, user)
+    was_deleted = user.deleted_at is not None
+    if deleted:
+        new_username = f"deleted_{int(user.id)}"
+        user.username = new_username
+        user.avatar_name = None
+        user.telegram_id = None
+    elif was_deleted:
+        user.username = f"user_{int(user.id)}"
 
     if deleted:
         user.deleted_at = datetime.now(timezone.utc)
@@ -322,6 +331,15 @@ async def set_user_deleted(session: AsyncSession, user_id: int, *, deleted: bool
 
     await session.commit()
     await session.refresh(user)
+
+    if deleted:
+        with suppress(Exception):
+            delete_avatars(int(user.id))
+        with suppress(Exception):
+            await broadcast_creator_rooms(int(user.id), update_name=user.username, avatar="delete")
+    elif was_deleted:
+        with suppress(Exception):
+            await broadcast_creator_rooms(int(user.id), update_name=user.username)
 
     return user
 

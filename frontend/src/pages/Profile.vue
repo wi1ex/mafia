@@ -220,9 +220,13 @@ const modalEl = ref<HTMLDivElement | null>(null)
 
 const nick = ref('')
 const busyNick = ref(false)
-const validNick = computed(() =>
-  new RegExp(`^[a-zA-Z\\u0410-\\u042F\\u0430-\\u044F0-9._\\-()]{2,${NICK_MAX}}$`).test(nick.value)
-)
+const validNick = computed(() => {
+  const value = nick.value
+  const ok = new RegExp(`^[a-zA-Zа-яА-Я0-9._\\-()]{2,${NICK_MAX}}$`).test(value)
+  if (!ok) return false
+  const lower = value.toLowerCase()
+  return !lower.startsWith('deleted_') && !lower.startsWith('user_')
+})
 
 const NICK_MAX = 20
 const PASSWORD_MIN = 8
@@ -370,7 +374,7 @@ async function saveNick() {
     const d  = e?.response?.data?.detail
     if (st === 409 && d === 'username_taken')               void alertDialog('Данный никнейм уже занят')
     else if (st === 403 && d === 'user_banned')             void alertDialog('Аккаунт забанен. Изменение никнейма недоступно')
-    else if (st === 422 && d === 'invalid_username_format') void alertDialog('Недопустимый формат никнейма')
+    else if (st === 422 && d === 'invalid_username_format') void alertDialog('Никнейм не должен начинаться с deleted_ или user_ и не должен содержать символы кроме ()._-')
     else                                                    void alertDialog('Не удалось сохранить никнейм')
   } finally { busyNick.value = false }
 }

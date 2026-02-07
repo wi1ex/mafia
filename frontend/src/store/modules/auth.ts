@@ -186,7 +186,7 @@ export const useAuthStore = defineStore('auth', () => {
       } else if (st === 409 && detail === 'username_taken') {
         void alertDialog('Никнейм уже занят')
       } else if (st === 422 && detail === 'invalid_username_format') {
-        void alertDialog('Недопустимый формат никнейма')
+        void alertDialog('Никнейм не должен начинаться с deleted_ или user_ и не должен содержать символы кроме ()._-')
       } else if (st === 422 && detail === 'invalid_password') {
         void alertDialog('Пароль должен быть от 8 до 32 символов')
       } else {

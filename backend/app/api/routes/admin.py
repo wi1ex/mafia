@@ -268,7 +268,9 @@ async def logs_list(page: int = 1, limit: int = 20, action: str | None = None, u
     if action and action != "all":
         filters.append(AppLog.action == action)
     if username:
-        filters.append(or_(AppLog.username.ilike(f"%{username}%"), AppLog.details.ilike(f"%{username}%")))
+        needle = username.lower()
+        filters.append(or_(func.lower(AppLog.username).contains(needle, autoescape=True),
+                           func.lower(AppLog.details).contains(needle, autoescape=True)))
     if day:
         start_day, end_day = parse_day_range(day)
         filters.append(AppLog.created_at >= start_day)
@@ -311,7 +313,8 @@ async def rooms_list(page: int = 1, limit: int = 20, username: str | None = None
     query = select(Room)
     filters = []
     if username:
-        rows = await session.execute(select(User.id).where(User.username.ilike(f"%{username}%")))
+        needle = username.lower()
+        rows = await session.execute(select(User.id).where(func.lower(User.username).contains(needle, autoescape=True)))
         ids = [int(x[0]) for x in rows.all()]
         if not ids:
             return AdminRoomsOut(total=0, items=[])
@@ -638,7 +641,8 @@ async def users_list(page: int = 1, limit: int = 20, username: str | None = None
 
     filters = []
     if username:
-        filters.append(User.username.ilike(f"%{username}%"))
+        needle = username.lower()
+        filters.append(func.lower(User.username).contains(needle, autoescape=True))
 
     total = int(await session.scalar(select(func.count(User.id)).where(*filters)) or 0)
     rows = await session.execute(select(User).where(*filters).order_by(User.registered_at.desc(), User.id.desc()).offset(offset).limit(limit))

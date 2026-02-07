@@ -1,6 +1,5 @@
 from __future__ import annotations
-from datetime import datetime, timezone
-from sqlalchemy import select, exists, func, literal
+from sqlalchemy import select, exists, func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import APIRouter, HTTPException, Depends, Response, Request, status
@@ -38,8 +37,10 @@ async def register(payload: PasswordRegisterIn, resp: Response, request: Request
 
     username = normalize_username(payload.username)
     password = normalize_password(payload.password)
+    if username.lower().startswith(("deleted_", "user_")):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="invalid_username_format")
 
-    exists_case_ins = await db.scalar(select(exists().where(User.username.ilike(username))))
+    exists_case_ins = await db.scalar(select(exists().where(func.lower(User.username) == username.lower())))
     if exists_case_ins:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="username_taken")
 

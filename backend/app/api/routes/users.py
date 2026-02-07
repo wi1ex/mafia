@@ -105,6 +105,9 @@ async def sanctions_history(ident: Identity = Depends(get_identity), db: AsyncSe
 async def update_username(payload: UsernameUpdateIn, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UsernameUpdateOut:
     uid = int(ident["id"])
     new = normalize_username(payload.username)
+    if new.lower().startswith(("deleted_", "user_")):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="invalid_username_format")
+
     user = await db.get(User, uid)
     if not user:
         raise HTTPException(status_code=401, detail="Unauthorized")
