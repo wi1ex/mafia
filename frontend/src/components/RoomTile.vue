@@ -797,44 +797,37 @@ const showFriendAction = computed(() => props.id !== props.localId && friendActi
           height: 25px;
           border: none;
           border-radius: 5px;
-          background-color: $lead;
-          color: $fg;
-          font-size: 14px;
-          font-family: Manrope-Medium;
           cursor: pointer;
+          transition: background-color 0.25s ease-in-out;
           img {
             width: 16px;
             height: 16px;
           }
           span {
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            color: $bg;
+            font-size: 14px;
+            font-family: Manrope-Medium;
           }
           &.status-none {
             background-color: $fg;
-            color: $bg;
             &:hover {
               background-color: $white;
             }
           }
           &.status-friends {
             background-color: rgba($green, 0.75);
-            color: $bg;
             &:hover {
               background-color: $green;
             }
           }
           &.status-outgoing {
             background-color: rgba($yellow, 0.75);
-            color: $bg;
             &:hover {
               background-color: $yellow;
             }
           }
           &.status-incoming {
             background-color: rgba($orange, 0.75);
-            color: $bg;
             &:hover {
               background-color: $orange;
             }
