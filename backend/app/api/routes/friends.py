@@ -15,7 +15,7 @@ from ...schemas.friend import FriendStatusOut, FriendsListOut, FriendItemOut, Fr
 from ...schemas.room import RoomBriefOut
 from ...security.auth_tokens import get_identity
 from ...security.decorators import log_route, rate_limited
-from ...api.utils import fetch_online_user_ids, get_room_params_or_404, pair, load_link, emit_notify
+from ...api.utils import fetch_online_user_ids, get_room_params_or_404, pair, load_link, emit_notify, emit_friends_update
 from ...services.telegram import send_telegram_message
 
 router = APIRouter()
@@ -218,6 +218,8 @@ async def send_friend_request(user_id: int, ident: Identity = Depends(get_identi
         kind="friend_request",
         extra={"user": {"id": uid, "username": ident["username"]}, "actions": actions, "toast_text": ""},
     )
+    await emit_friends_update(target_id, uid, "incoming")
+    await emit_friends_update(uid, target_id, "outgoing")
 
     await log_action(
         db,
@@ -277,6 +279,8 @@ async def accept_friend_request(user_id: int, ident: Identity = Depends(get_iden
     await db.commit()
     await db.refresh(note_acc)
     await emit_notify(uid, note_acc, kind="friend_accept", no_toast=True)
+    await emit_friends_update(requester_id, uid, "friends")
+    await emit_friends_update(uid, requester_id, "friends")
 
     await log_action(
         db,
@@ -313,6 +317,8 @@ async def decline_friend_request(user_id: int, ident: Identity = Depends(get_ide
 
     await db.execute(delete(FriendLink).where(FriendLink.id == link.id))
     await db.commit()
+    await emit_friends_update(requester_id, uid, "none")
+    await emit_friends_update(uid, requester_id, "none")
 
     await log_action(
         db,
@@ -343,6 +349,8 @@ async def remove_friend(user_id: int, ident: Identity = Depends(get_identity), d
 
     await db.execute(delete(FriendLink).where(FriendLink.id == link.id))
     await db.commit()
+    await emit_friends_update(other_id, uid, "none")
+    await emit_friends_update(uid, other_id, "none")
 
     await log_action(
         db,

@@ -183,6 +183,7 @@ watch(() => props.open, async v => {
   if (v) {
     await nextTick()
     bindDoc()
+    friends.ensureWS()
     await refresh()
   } else {
     unbindDoc()

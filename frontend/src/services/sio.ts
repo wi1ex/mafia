@@ -113,6 +113,10 @@ export function startAuthSocket(opts?: { onForceLogout?: () => void }): Socket {
     }
   })
 
+  authSocket.on('friends_update', (p:any) => {
+    window.dispatchEvent(new CustomEvent('auth-friends_update', { detail: p }))
+  })
+
   authSocket.on('site_update', (p:any) => {
     window.dispatchEvent(new CustomEvent('auth-site_update', { detail: p }))
   })

@@ -776,6 +776,16 @@ function friendLoadingFor(id: string): boolean {
   return friendStatusLoading.get(id) ?? false
 }
 
+function onFriendsUpdate(e: any) {
+  const p = e?.detail || {}
+  const uid = Number(p.user_id)
+  if (!Number.isFinite(uid) || uid <= 0) return
+  if (String(uid) === localId.value) return
+  const st = p.status as FriendStatus
+  if (!['self', 'friends', 'outgoing', 'incoming', 'none'].includes(st)) return
+  friendStatusByUser.set(String(uid), st)
+}
+
 async function fetchFriendStatus(id: string) {
   if (id === localId.value) return
   const uid = Number(id)
@@ -2589,6 +2599,7 @@ onMounted(async () => {
     window.addEventListener('pagehide', onBackgroundVisibility, { passive: true })
     window.addEventListener('offline', handleOffline)
     window.addEventListener('online', handleOnline)
+    window.addEventListener('auth-friends_update', onFriendsUpdate)
 
     uiReady.value = true
   } catch (err) {
@@ -2605,6 +2616,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('offline', handleOffline)
   window.removeEventListener('online', handleOnline)
   window.removeEventListener('keydown', onHotkey)
+  window.removeEventListener('auth-friends_update', onFriendsUpdate)
   volumeSnapTimers.forEach((tm) => { try { window.clearTimeout(tm) } catch {} })
   volumeSnapTimers.clear()
   if (gameStartOverlayTimerId != null) window.clearTimeout(gameStartOverlayTimerId)

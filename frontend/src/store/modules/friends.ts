@@ -53,15 +53,26 @@ export const useFriendsStore = defineStore('friends', () => {
   })
   const rooms = ref<RoomBrief[]>([])
   const loading = ref(false)
+  let refreshQueued = false
+  let inited = false
+  let onFriendsUpdate: ((e: any) => void) | null = null
+  let refreshTimer: number | undefined
 
   async function fetchAll(): Promise<void> {
-    if (loading.value) return
+    if (loading.value) {
+      refreshQueued = true
+      return
+    }
     loading.value = true
     try {
       const { data } = await api.get<FriendsList>('/friends/list')
       list.value = data
     } finally {
       loading.value = false
+      if (refreshQueued) {
+        refreshQueued = false
+        void fetchAll()
+      }
     }
   }
 
@@ -95,6 +106,26 @@ export const useFriendsStore = defineStore('friends', () => {
     await api.post('/friends/invite', { user_id: userId, room_id: roomId })
   }
 
+  function scheduleRefresh() {
+    if (refreshTimer) return
+    refreshTimer = window.setTimeout(() => {
+      refreshTimer = undefined
+      void fetchAll()
+    }, 200)
+  }
+
+  function ensureWS(): void {
+    if (inited) return
+    if (onFriendsUpdate) window.removeEventListener('auth-friends_update', onFriendsUpdate)
+    onFriendsUpdate = (e: any) => {
+      const p = e?.detail
+      if (!p) return
+      scheduleRefresh()
+    }
+    window.addEventListener('auth-friends_update', onFriendsUpdate)
+    inited = true
+  }
+
   return {
     list,
     rooms,
@@ -107,5 +138,6 @@ export const useFriendsStore = defineStore('friends', () => {
     declineRequest,
     removeFriend,
     inviteToRoom,
+    ensureWS,
   }
 })

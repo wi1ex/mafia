@@ -870,6 +870,12 @@ async def emit_notify(user_id: int, note: Notif, *, kind: str, no_toast: bool = 
         await sio.emit("notify", payload, room=f"user:{int(user_id)}", namespace="/auth")
 
 
+async def emit_friends_update(user_id: int, other_id: int, status: str) -> None:
+    payload = {"user_id": int(other_id), "status": status}
+    with suppress(Exception):
+        await sio.emit("friends_update", payload, room=f"user:{int(user_id)}", namespace="/auth")
+
+
 async def fetch_user_avatar_map(session: AsyncSession, user_ids: set[int]) -> dict[int, str | None]:
     avatar_map: dict[int, str | None] = {}
     if not user_ids:
