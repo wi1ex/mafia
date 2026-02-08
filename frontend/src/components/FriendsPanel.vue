@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <Transition name="panel" @after-leave="onAfterLeave">
     <div v-show="open" class="panel" ref="root" @click.stop>
       <header>
@@ -105,6 +105,8 @@ const friendList = computed(() => (tab.value === 'online' ? friends.list.online 
 const rooms = computed(() => friends.rooms)
 
 let onDocDown: ((e: Event) => void) | null = null
+let pollTimer: number | undefined
+const POLL_MS = 3000
 
 function bindDoc() {
   if (onDocDown) return
@@ -123,9 +125,22 @@ function unbindDoc() {
   onDocDown = null
 }
 
-async function refresh() {
-  await friends.fetchAll()
+async function refreshRooms() {
   await friends.fetchRooms()
+}
+
+function startPolling() {
+  if (pollTimer) return
+  void friends.fetchTab(tab.value)
+  pollTimer = window.setInterval(() => {
+    void friends.fetchTab(tab.value)
+  }, POLL_MS)
+}
+
+function stopPolling() {
+  if (!pollTimer) return
+  window.clearInterval(pollTimer)
+  pollTimer = undefined
 }
 
 function onAfterLeave() {
@@ -155,7 +170,7 @@ async function remove(uid: number) {
   if (!ok) return
   try {
     await friends.removeFriend(uid)
-    await friends.fetchAll()
+    await friends.fetchTab(tab.value)
   } catch {
     void alertDialog('Не удалось удалить из друзей')
   }
@@ -164,7 +179,7 @@ async function remove(uid: number) {
 async function accept(uid: number) {
   try {
     await friends.acceptRequest(uid)
-    await friends.fetchAll()
+    await friends.fetchTab(tab.value)
   } catch {
     void alertDialog('Не удалось принять запрос')
   }
@@ -173,7 +188,7 @@ async function accept(uid: number) {
 async function decline(uid: number) {
   try {
     await friends.declineRequest(uid)
-    await friends.fetchAll()
+    await friends.fetchTab(tab.value)
   } catch {
     void alertDialog('Не удалось отклонить запрос')
   }
@@ -183,15 +198,22 @@ watch(() => props.open, async v => {
   if (v) {
     await nextTick()
     bindDoc()
-    friends.ensureWS()
-    await refresh()
+    await refreshRooms()
+    startPolling()
   } else {
     unbindDoc()
+    stopPolling()
   }
+})
+
+watch(tab, async () => {
+  if (!props.open) return
+  await friends.fetchTab(tab.value)
 })
 
 onBeforeUnmount(() => {
   unbindDoc()
+  stopPolling()
 })
 </script>
 

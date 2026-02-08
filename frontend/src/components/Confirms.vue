@@ -1,6 +1,6 @@
 <template>
   <Transition name="confirm">
-    <div v-if="state.open" class="overlay" @pointerdown.self="onCancel">
+    <div v-if="state.open" class="overlay">
       <div class="modal" :role="dialogRole" aria-modal="true" :aria-labelledby="titleId">
         <header :id="titleId">
           <span class="title">{{ state.title }}</span>

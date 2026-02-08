@@ -35,6 +35,10 @@ class FriendsListOut(BaseModel):
     outgoing: List[FriendRequestOut] = Field(default_factory=list)
 
 
+class FriendIncomingCountOut(BaseModel):
+    count: int = 0
+
+
 class FriendInviteIn(BaseModel):
     user_id: int
     room_id: int

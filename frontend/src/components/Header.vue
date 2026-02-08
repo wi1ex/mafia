@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <header class="bar">
     <div class="links">
       <router-link class="btn" :to="{ name: 'home' }" aria-label="DECEIT.games">
@@ -54,6 +54,7 @@
       <div class="bell" ref="friendsEl">
         <button @click.stop="onToggleFriends" :aria-expanded="friends_open" aria-label="??????">
           <img :src="iconFriends" alt="friends" />
+          <span v-if="friends.incomingCount > 0">{{ friends.incomingCount < 100 ? friends.incomingCount : '∞' }}</span>
         </button>
         <FriendsPanel
           v-model:open="friends_open"
@@ -102,7 +103,7 @@
 
 <script setup lang="ts">
 import { onMounted, onBeforeUnmount, watch, ref, computed } from 'vue'
-import { useAuthStore, useUserStore, useNotifStore, useUpdatesStore } from '@/store'
+import { useAuthStore, useUserStore, useNotifStore, useUpdatesStore, useFriendsStore } from '@/store'
 import Notifs from '@/components/Notifs.vue'
 import Updates from '@/components/Updates.vue'
 import FriendsPanel from '@/components/FriendsPanel.vue'
@@ -125,6 +126,7 @@ const auth = useAuthStore()
 const user = useUserStore()
 const notif = useNotifStore()
 const updates = useUpdatesStore()
+const friends = useFriendsStore()
 
 const nb_open = ref(false)
 const bellEl = ref<HTMLElement | null>(null)
@@ -224,6 +226,8 @@ watch(() => auth.isAuthed, async ok => {
     await notif.fetchAll()
     updates.ensureWS()
     await updates.fetchAll()
+    friends.ensureWS()
+    await friends.fetchIncomingCount()
   }
 })
 
@@ -233,6 +237,8 @@ onMounted(async () => {
     await notif.fetchAll()
     updates.ensureWS()
     await updates.fetchAll()
+    friends.ensureWS()
+    await friends.fetchIncomingCount()
   }
   document.addEventListener('pointerdown', onGlobalPointerDown)
 })
