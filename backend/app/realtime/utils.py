@@ -5,6 +5,7 @@ from random import shuffle
 import structlog
 from time import time
 from sqlalchemy import select, func, delete, or_
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from redis.exceptions import ResponseError
 from jwt import ExpiredSignatureError
@@ -19,6 +20,7 @@ from ..models.room import Room
 from ..models.sanction import UserSanction
 from ..models.user import User
 from ..models.game import Game
+from ..models.friend import FriendCloseness
 from ..core.clients import get_redis
 from ..core.logging import log_action
 from ..security.auth_tokens import decode_token
@@ -51,6 +53,8 @@ __all__ = [
     "get_profiles_snapshot",
     "join_room_atomic",
     "leave_room_atomic",
+    "set_user_current_room",
+    "clear_user_current_room",
     "find_user_rooms",
     "cleanup_user_from_room",
     "gc_empty_room",
@@ -1387,6 +1391,28 @@ async def join_room_atomic(r, rid: int, uid: int, role: str):
     return occ, pos, already, updates
 
 
+async def set_user_current_room(r, uid: int, rid: int) -> None:
+    try:
+        await r.set(f"user:{int(uid)}:room", str(int(rid)))
+    except Exception:
+        log.warning("user.room.set_failed", uid=uid, rid=rid)
+
+
+async def clear_user_current_room(r, uid: int, *, rid: int | None = None) -> None:
+    key = f"user:{int(uid)}:room"
+    try:
+        if rid is None:
+            await r.delete(key)
+            return
+
+        raw = await r.get(key)
+        if raw and int(raw) == int(rid):
+            await r.delete(key)
+
+    except Exception:
+        log.warning("user.room.clear_failed", uid=uid, rid=rid)
+
+
 async def leave_room_atomic(r, rid: int, uid: int):
     await ensure_scripts(r)
     now_ts = int(time())
@@ -1418,6 +1444,7 @@ async def leave_room_atomic(r, rid: int, uid: int):
     k = int(res[2])
     tail = list(map(int, res[3: 3 + 2*k]))
     updates = [(tail[i], tail[i + 1]) for i in range(0, 2*k, 2)]
+    await clear_user_current_room(r, uid, rid=rid)
     return occ, gc_seq, updates
 
 
@@ -3161,6 +3188,7 @@ async def finish_game(r, rid: int, *, result: str, head_uid: int | None = None, 
                         black_alive_at_finish=black_alive_at_finish,
                     )
                 )
+                await bump_friend_closeness(s, player_ids)
                 await s.commit()
         except Exception:
             log.exception("game_finish.save_failed", rid=rid)
@@ -3925,7 +3953,28 @@ async def record_spectator_leave(r, rid: int, uid: int, now_ts: int) -> None:
         await r.srem(f"room:{rid}:spectators", str(uid))
     except Exception:
         log.warning("spectator.leave.remove_failed", rid=rid, uid=uid)
+    await clear_user_current_room(r, uid, rid=rid)
     await emit_rooms_spectators_safe(r, rid)
+
+
+async def bump_friend_closeness(session: AsyncSession, user_ids: Iterable[int]) -> None:
+    ids = sorted({int(x) for x in user_ids if int(x) > 0})
+    if len(ids) < 2:
+        return
+
+    values: list[dict[str, int]] = []
+    for i in range(0, len(ids)):
+        for j in range(i + 1, len(ids)):
+            values.append({"user_low": ids[i], "user_high": ids[j], "games_together": 1})
+
+    if not values:
+        return
+
+    stmt = insert(FriendCloseness).values(values)
+    stmt = stmt.on_conflict_do_update(index_elements=["user_low", "user_high"],
+                                      set_={"games_together": FriendCloseness.games_together + stmt.excluded.games_together,
+                                            "updated_at": func.now()})
+    await session.execute(stmt)
 
 
 async def perform_game_end(ctx, sess: Optional[dict[str, Any]], *, confirm: bool, allow_non_head: bool = False, reason: str = "manual") -> dict[str, Any]:
