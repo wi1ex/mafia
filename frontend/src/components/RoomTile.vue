@@ -800,8 +800,8 @@ const showFriendAction = computed(() => props.id !== props.localId && friendActi
           cursor: pointer;
           transition: background-color 0.25s ease-in-out;
           img {
-            width: 16px;
-            height: 16px;
+            width: 20px;
+            height: 20px;
           }
           span {
             color: $bg;
@@ -1069,12 +1069,12 @@ const showFriendAction = computed(() => props.id !== props.localId && friendActi
         .friend-row {
           button {
             height: 20px;
-            padding: 0 5px;
-            font-size: 10px;
-            gap: 4px;
             img {
-              width: 12px;
-              height: 12px;
+              width: 14px;
+              height: 14px;
+            }
+            span {
+              font-size: 10px;
             }
           }
         }
