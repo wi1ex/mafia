@@ -104,7 +104,7 @@ export function startAuthSocket(opts?: { onForceLogout?: () => void }): Socket {
 
   authSocket.on('notify', (p:any) => {
     window.dispatchEvent(new CustomEvent('auth-notify', { detail: p }))
-    window.dispatchEvent(new CustomEvent('toast', { detail: p }))
+    if (!p?.no_toast) window.dispatchEvent(new CustomEvent('toast', { detail: p }))
   })
 
   authSocket.on('site_update', (p:any) => {
