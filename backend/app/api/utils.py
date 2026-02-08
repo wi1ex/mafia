@@ -10,7 +10,7 @@ from time import time
 from datetime import date, datetime, timezone, timedelta
 from typing import Optional, Dict, Any, Literal, Sequence, Iterable, cast
 from fastapi import HTTPException, status, Header
-from sqlalchemy import update, func, select, or_
+from sqlalchemy import update, func, select, or_, and_
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.clients import get_redis
@@ -20,6 +20,7 @@ from ..core.settings import settings
 from ..models.game import Game
 from ..models.log import AppLog
 from ..models.room import Room
+from ..models.friend import FriendLink
 from ..models.notif import Notif
 from ..models.sanction import UserSanction
 from ..models.user import User
@@ -89,6 +90,9 @@ __all__ = [
     "generate_user_id",
     "init_updates_read",
     "require_bot_token",
+    "pair",
+    "load_link",
+    "emit_notify",
 ]
 
 log = structlog.get_logger()
@@ -831,6 +835,39 @@ async def fetch_online_user_ids(r) -> list[int]:
             ids.append(uid)
 
     return ids
+
+
+def pair(uid: int, other: int) -> tuple[int, int]:
+    return (uid, other) if uid < other else (other, uid)
+
+
+async def load_link(db: AsyncSession, uid: int, other: int) -> FriendLink | None:
+    return await db.scalar(
+        select(FriendLink).where(
+            or_(
+                and_(FriendLink.requester_id == uid, FriendLink.addressee_id == other),
+                and_(FriendLink.requester_id == other, FriendLink.addressee_id == uid),
+            )
+        ).limit(1)
+    )
+
+
+async def emit_notify(user_id: int, note: Notif, *, kind: str, no_toast: bool = False, extra: dict | None = None) -> None:
+    payload = {
+        "id": note.id,
+        "title": note.title,
+        "text": note.text,
+        "date": note.created_at.isoformat(),
+        "kind": kind,
+        "ttl_ms": 15000,
+        "read": False,
+    }
+    if no_toast:
+        payload["no_toast"] = True
+    if extra:
+        payload.update(extra)
+    with suppress(Exception):
+        await sio.emit("notify", payload, room=f"user:{int(user_id)}", namespace="/auth")
 
 
 async def fetch_user_avatar_map(session: AsyncSession, user_ids: set[int]) -> dict[int, str | None]:

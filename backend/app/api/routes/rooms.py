@@ -23,6 +23,7 @@ from ...schemas.room import (
     RoomAccessOut,
     RoomRequestOut,
     GameParams,
+    RoomBriefOut,
 )
 from ...security.parameters import get_cached_settings
 from ..utils import (
@@ -34,6 +35,7 @@ from ..utils import (
     ensure_room_access_allowed,
     schedule_room_gc,
 )
+from ...realtime.utils import get_rooms_brief
 
 router = APIRouter()
 
@@ -124,6 +126,34 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
     )
 
     return RoomIdOut(id=room.id)
+
+
+@log_route("rooms.active_list")
+@rate_limited(lambda ident, **_: f"rl:rooms:active_list:{ident['id']}", limit=5, window_s=1)
+@router.get("/active", response_model=list[RoomBriefOut])
+async def list_active_rooms(ident: Identity = Depends(get_identity)) -> list[RoomBriefOut]:
+    r = get_redis()
+    raw_ids = await r.zrange("rooms:index", 0, -1)
+    ids: list[int] = []
+    for raw in raw_ids or []:
+        try:
+            rid = int(raw)
+        except Exception:
+            continue
+        if rid > 0:
+            ids.append(rid)
+    if not ids:
+        return []
+
+    items = await get_rooms_brief(r, ids)
+    out: list[RoomBriefOut] = []
+    for item in items:
+        try:
+            out.append(RoomBriefOut(**item))
+        except Exception:
+            continue
+
+    return out
 
 
 @log_route("rooms.room_info")
