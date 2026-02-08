@@ -104,6 +104,12 @@
             <span>{{ vol ?? 100 }}%</span>
           </div>
 
+          <div v-if="showFriendAction" class="friend-row">
+            <button type="button" :disabled="friendDisabled" :class="{ disabled: friendDisabled }" @click="$emit('friend-action', id, friendActionKind)">
+              {{ friendActionLabel }}
+            </button>
+          </div>
+
           <div v-if="!inGame && canModerate(id)" class="admin-row" aria-label="Блокировки">
             <button @click="$emit('block','mic',id)" aria-label="block mic"><img :src="stateIcon('mic', id)" alt="mic" /></button>
             <button @click="$emit('block','cam',id)" aria-label="block cam"><img :src="stateIcon('cam', id)" alt="cam" /></button>
@@ -122,6 +128,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import type { FriendStatus } from '@/store'
 
 import iconReadyGreen from '@/assets/svg/readyGreen.svg'
 import iconLeaveRoom from '@/assets/svg/leave.svg'
@@ -207,6 +214,9 @@ const props = withDefaults(defineProps<{
   pickKind?: 'shoot' | 'check' | ''
   nightOwnerId?: string
   nightRemainingMs?: number
+  friendStatus?: FriendStatus
+  friendBusy?: boolean
+  friendLoading?: boolean
 }>(), {
   side: false,
   fitContain: false,
@@ -258,6 +268,9 @@ const props = withDefaults(defineProps<{
   pickKind: '',
   nightOwnerId: '',
   nightRemainingMs: 0,
+  friendStatus: 'none',
+  friendBusy: false,
+  friendLoading: false,
 })
 
 defineEmits<{
@@ -275,6 +288,7 @@ defineEmits<{
   (e: 'knock', id: string): void
   (e: 'farewell', verdict: 'citizen' | 'mafia', id: string): void
   (e: 'best-move', id: string): void
+  (e: 'friend-action', id: string, kind: 'add' | 'remove' | 'incoming'): void
 }>()
 
 const showVideo = computed(() => !props.hiddenByVisibility && !props.offline && !props.isDead(props.id) && props.isOn(props.id, 'cam') && !props.isBlocked(props.id, 'cam'))
@@ -294,6 +308,24 @@ const timelineDurationSec = computed(() => {
   if (!ms || ms <= 0) return 0
   return Math.max(ms / 1000, 0.1)
 })
+
+const friendActionLabel = computed(() => {
+  if (props.friendLoading) return 'Загрузка...'
+  if (props.friendStatus === 'none') return 'Добавить в друзья'
+  if (props.friendStatus === 'friends') return 'В друзьях'
+  if (props.friendStatus === 'outgoing') return 'Запрос отправлен'
+  if (props.friendStatus === 'incoming') return 'Входящий запрос'
+  return ''
+})
+const friendActionKind = computed(() => {
+  if (props.friendStatus === 'none') return 'add'
+  if (props.friendStatus === 'friends') return 'remove'
+  return 'incoming'
+})
+const friendDisabled = computed(() =>
+  props.friendBusy || props.friendLoading || props.friendStatus === 'outgoing' || props.friendStatus === 'self'
+)
+const showFriendAction = computed(() => props.id !== props.localId && friendActionLabel.value !== '')
 
 </script>
 
@@ -741,6 +773,25 @@ const timelineDurationSec = computed(() => {
           border: 3px solid $dark;
         }
       }
+      .friend-row {
+        display: flex;
+        justify-content: flex-end;
+        button {
+          height: 25px;
+          padding: 0 10px;
+          border: none;
+          border-radius: 5px;
+          background-color: rgba($green, 0.75);
+          color: $bg;
+          font-size: 12px;
+          font-family: Manrope-Medium;
+          cursor: pointer;
+          &.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+          }
+        }
+      }
       .admin-row {
         display: flex;
         gap: 5px;
@@ -967,6 +1018,13 @@ const timelineDurationSec = computed(() => {
             width: 8px;
             height: 8px;
             border: 2px solid $dark;
+          }
+        }
+        .friend-row {
+          button {
+            height: 20px;
+            padding: 0 5px;
+            font-size: 10px;
           }
         }
         .admin-row {

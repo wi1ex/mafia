@@ -9,10 +9,14 @@
       </header>
 
       <div class="user">
-        <img v-if="t.kind === 'app' && t.user" v-minio-img="{ key: t.user.avatar_name ? `avatars/${t.user.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
-        <span v-if="t.kind === 'app' && t.user">{{ t.user.username || ('user' + t.user.id) }}</span>
-        <p v-if="t.kind !== 'app' && t.text">{{ t.text }}</p>
-        <button v-if="(t.kind === 'app' || t.kind === 'approve') && t.action" @click="run(t)">{{ t.action.label }}</button>
+        <img v-if="t.user" v-minio-img="{ key: t.user.avatar_name ? `avatars/${t.user.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
+        <div class="meta">
+          <span v-if="t.user">{{ t.user.username || ('user' + t.user.id) }}</span>
+          <p v-if="t.text">{{ t.text }}</p>
+        </div>
+        <div v-if="t.actions && t.actions.length" class="actions">
+          <button v-for="a in t.actions" :key="a.label" :class="['action', a.style]" @click="runAction(t, a)">{{ a.label }}</button>
+        </div>
       </div>
     </div>
   </div>
@@ -34,6 +38,7 @@ type RouteAction = {
   kind: 'route'
   label: string
   to: string
+  style?: 'primary' | 'danger' | 'neutral'
 }
 type ApiAction = {
   kind: 'api'
@@ -41,6 +46,7 @@ type ApiAction = {
   url: string
   method?: 'get'|'post'|'delete'|'put'
   body?: any
+  style?: 'primary' | 'danger' | 'neutral'
 }
 type ToastAction = RouteAction | ApiAction
 type ToastUser = {
@@ -56,6 +62,7 @@ type ToastItem = {
   date: number
   kind?: string
   action?: ToastAction
+  actions?: ToastAction[]
   ttl?: number
   user?: ToastUser
   room_id?: number
@@ -81,14 +88,14 @@ async function closeManual(t: ToastItem){
   setTimeout(() => { void close(t) }, 300)
 }
 
-async function run(t: ToastItem) {
+async function runAction(t: ToastItem, action: ToastAction) {
   try {
-    if (!t.action) return
-    if (t.action.kind === 'route') {
-      await router.push(t.action.to)
+    if (!action) return
+    if (action.kind === 'route') {
+      await router.push(action.to)
     } else {
-      const m = (t.action.method || 'post').toLowerCase()
-      await (api as any)[m](t.action.url, t.action.body)
+      const m = (action.method || 'post').toLowerCase()
+      await (api as any)[m](action.url, action.body)
     }
   } finally { await closeManual(t) }
 }
@@ -117,6 +124,7 @@ onMounted(() => {
   window.addEventListener('toast', (e: any) => {
     const d = e?.detail || {}
     const key = Date.now() + Math.random()
+    const actions = Array.isArray(d.actions) ? d.actions : (d.action ? [d.action] : undefined)
     const t: ToastItem = {
       key,
       id: d.id,
@@ -125,7 +133,8 @@ onMounted(() => {
       date: d.date ? Number(new Date(d.date)) : Date.now(),
       kind: d.kind || 'info',
       action: d.action,
-      ttl: Number.isFinite(d.ttl_ms) ? d.ttl_ms : (d.action ? 10000 : 5000),
+      actions,
+      ttl: Number.isFinite(d.ttl_ms) ? d.ttl_ms : (actions ? 10000 : 5000),
       user: d.user,
       room_id: Number.isFinite(d.room_id) ? Number(d.room_id) : undefined,
     }
@@ -202,13 +211,19 @@ onBeforeUnmount(() => {
       padding: 15px 10px;
       gap: 5px;
       border-radius: 5px;
+      .meta {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        flex: 1;
+        min-width: 0;
+      }
       img {
         width: 30px;
         height: 30px;
         border-radius: 50%;
       }
       span {
-        flex: 1;
         height: 18px;
         white-space: nowrap;
         overflow: hidden;
@@ -217,23 +232,40 @@ onBeforeUnmount(() => {
       p {
         margin: 0;
       }
-      button {
+      .actions {
         display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 10px;
-        height: 30px;
-        border: none;
-        border-radius: 5px;
-        background-color: rgba($green, 0.75);
-        color: $bg;
-        font-size: 14px;
-        font-family: Manrope-Medium;
-        line-height: 1;
-        cursor: pointer;
-        transition: background-color 0.25s ease-in-out;
-        &:hover {
-          background-color: $green;
+        gap: 5px;
+        .action {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 10px;
+          height: 30px;
+          border: none;
+          border-radius: 5px;
+          background-color: rgba($green, 0.75);
+          color: $bg;
+          font-size: 14px;
+          font-family: Manrope-Medium;
+          line-height: 1;
+          cursor: pointer;
+          transition: background-color 0.25s ease-in-out;
+          &:hover {
+            background-color: $green;
+          }
+          &.danger {
+            background-color: rgba($red, 0.75);
+            &:hover {
+              background-color: $red;
+            }
+          }
+          &.neutral {
+            background-color: rgba($lead, 0.75);
+            color: $fg;
+            &:hover {
+              background-color: $lead;
+            }
+          }
         }
       }
     }

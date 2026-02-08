@@ -83,7 +83,11 @@
           :show-vote-button="amIAlive && game.canPressVoteButton()"
           :vote-enabled="game.canPressVoteButton()"
           :has-voted="(isLiftVoting ? votedUsers : votedThisRound).has(id)"
+          :friend-status="friendStatusFor(id)"
+          :friend-busy="friendBusyFor(id)"
+          :friend-loading="friendLoadingFor(id)"
           @toggle-panel="toggleTilePanel"
+          @friend-action="onFriendAction"
           @vol-input="onVol"
           @block="(key, uid) => toggleBlock(uid, key)"
           @kick="kickUser"
@@ -182,7 +186,11 @@
             :show-vote-button="amIAlive && game.canPressVoteButton()"
             :vote-enabled="game.canPressVoteButton()"
             :has-voted="(isLiftVoting ? votedUsers : votedThisRound).has(id)"
+            :friend-status="friendStatusFor(id)"
+            :friend-busy="friendBusyFor(id)"
+            :friend-loading="friendLoadingFor(id)"
             @toggle-panel="toggleTilePanel"
+            @friend-action="onFriendAction"
             @vol-input="onVol"
             @block="(key, uid) => toggleBlock(uid, key)"
             @kick="kickUser"
@@ -363,7 +371,8 @@ import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } 
 import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
 import type { Socket } from 'socket.io-client'
-import { useAuthStore, useSettingsStore, useUserStore } from '@/store'
+import { useAuthStore, useSettingsStore, useUserStore, useFriendsStore } from '@/store'
+import type { FriendStatus } from '@/store'
 import {
   type Ack,
   type FarewellVerdict,
@@ -440,6 +449,7 @@ const router = useRouter()
 const auth = useAuthStore()
 const settings = useSettingsStore()
 const userStore = useUserStore()
+const friends = useFriendsStore()
 const confirmState = useConfirmState()
 const { hotkeysVisible } = storeToRefs(userStore)
 
@@ -551,6 +561,9 @@ const MIN_GAME_VOLUME = 20
 const volumeSnapTimers = new Map<string, number>()
 const screenOwnerId = ref<string>('')
 const openPanelFor = ref<string>('')
+const friendStatusByUser = reactive(new Map<string, FriendStatus>())
+const friendStatusLoading = reactive(new Map<string, boolean>())
+const friendBusyByUser = reactive(new Map<string, boolean>())
 const pendingScreen = ref(false)
 const settingsOpen = ref(false)
 const gameParamsOpen = ref(false)
@@ -752,6 +765,74 @@ function userName(id: string) {
   return nameByUser.get(id) || `user${id}`
 }
 
+function friendStatusFor(id: string): FriendStatus {
+  if (id && id === localId.value) return 'self'
+  return friendStatusByUser.get(id) ?? 'none'
+}
+function friendBusyFor(id: string): boolean {
+  return friendBusyByUser.get(id) ?? false
+}
+function friendLoadingFor(id: string): boolean {
+  return friendStatusLoading.get(id) ?? false
+}
+
+async function fetchFriendStatus(id: string) {
+  if (id === localId.value) return
+  const uid = Number(id)
+  if (!Number.isFinite(uid) || uid <= 0) return
+  if (friendStatusLoading.get(id)) return
+  friendStatusLoading.set(id, true)
+  try {
+    const status = await friends.fetchStatus(uid)
+    friendStatusByUser.set(id, status)
+  } catch {}
+  finally {
+    friendStatusLoading.set(id, false)
+  }
+}
+
+async function onFriendAction(id: string, kind: 'add' | 'remove' | 'incoming') {
+  if (friendBusyFor(id)) return
+  const uid = Number(id)
+  if (!Number.isFinite(uid) || uid <= 0) return
+  friendBusyByUser.set(id, true)
+  try {
+    if (kind === 'add') {
+      await friends.sendRequest(uid)
+      friendStatusByUser.set(id, 'outgoing')
+    } else if (kind === 'remove') {
+      const ok = await confirmDialog({
+        title: 'Удалить из друзей',
+        text: 'Вы уверены, что хотите удалить пользователя из друзей?',
+        confirmText: 'Удалить',
+        cancelText: 'Отмена',
+      })
+      if (!ok) return
+      await friends.removeFriend(uid)
+      friendStatusByUser.set(id, 'none')
+    } else if (kind === 'incoming') {
+      const ok = await confirmDialog({
+        title: 'Запрос в друзья',
+        text: 'Принять запрос в друзья?',
+        confirmText: 'Принять',
+        cancelText: 'Отклонить',
+      })
+      if (ok) {
+        await friends.acceptRequest(uid)
+        friendStatusByUser.set(id, 'friends')
+      } else {
+        await friends.declineRequest(uid)
+        friendStatusByUser.set(id, 'none')
+      }
+    }
+    await friends.fetchAll()
+  } catch {
+    void alertDialog('Не удалось выполнить действие')
+  } finally {
+    friendBusyByUser.set(id, false)
+  }
+}
+
 function memoRef<K, F extends (k:K) => any> (cache: Map<any, any>, factory: F) {
   return (k: K) => {
     const c = cache.get(k)
@@ -788,6 +869,7 @@ const toggleTilePanel = (id: string) => {
   const next = openPanelFor.value === id ? '' : id
   closePanels('card')
   openPanelFor.value = next
+  if (next && !friendStatusByUser.has(next)) void fetchFriendStatus(next)
 }
 function toggleSettings() {
   const next = !settingsOpen.value
