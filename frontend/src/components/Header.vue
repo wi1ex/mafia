@@ -51,6 +51,16 @@
         />
       </div>
 
+      <div class="bell" ref="friendsEl">
+        <button @click.stop="onToggleFriends" :aria-expanded="friends_open" aria-label="??????">
+          <img :src="iconFriends" alt="friends" />
+        </button>
+        <FriendsPanel
+          v-model:open="friends_open"
+          :anchor="friendsEl"
+        />
+      </div>
+
       <div class="user-menu" ref="userMenuEl">
         <button class="btn" type="button" @click.stop="onToggleUserMenu" :aria-expanded="um_open" aria-haspopup="true">
           <img v-minio-img="{ key: user.user?.avatar_name ? `avatars/${user.user.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="Аватар" />
@@ -95,6 +105,7 @@ import { onMounted, onBeforeUnmount, watch, ref, computed } from 'vue'
 import { useAuthStore, useUserStore, useNotifStore, useUpdatesStore } from '@/store'
 import Notifs from '@/components/Notifs.vue'
 import Updates from '@/components/Updates.vue'
+import FriendsPanel from '@/components/FriendsPanel.vue'
 import AppModal from '@/components/AppModal.vue'
 import AuthModal from '@/components/AuthModal.vue'
 import SupportModal from '@/components/SupportModal.vue'
@@ -103,6 +114,7 @@ import defaultAvatar from "@/assets/svg/defaultAvatar.svg"
 import iconNotifBell from "@/assets/svg/notifBell.svg"
 import iconInfo from "@/assets/svg/info.svg"
 import iconUpdates from "@/assets/svg/updates.svg"
+import iconFriends from "@/assets/svg/friends.svg"
 import iconCard from "@/assets/svg/card.svg"
 import iconInstall from "@/assets/svg/install.svg"
 import iconLogout from '@/assets/svg/leave.svg'
@@ -116,6 +128,8 @@ const updates = useUpdatesStore()
 
 const nb_open = ref(false)
 const bellEl = ref<HTMLElement | null>(null)
+const friends_open = ref(false)
+const friendsEl = ref<HTMLElement | null>(null)
 const updates_open = ref(false)
 const updatesEl = ref<HTMLElement | null>(null)
 const um_open = ref(false)
@@ -162,11 +176,18 @@ const registrationInfoBanner = computed(() => auth.ready && !auth.isAuthed && !a
 
 function onToggleNotifs() {
   updates_open.value = false
+  friends_open.value = false
   nb_open.value = !nb_open.value
 }
 function onToggleUpdates() {
   nb_open.value = false
+  friends_open.value = false
   updates_open.value = !updates_open.value
+}
+function onToggleFriends() {
+  nb_open.value = false
+  updates_open.value = false
+  friends_open.value = !friends_open.value
 }
 function onToggleUserMenu() {
   um_open.value = !um_open.value

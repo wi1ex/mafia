@@ -71,3 +71,18 @@ class RoomRequestOut(BaseModel):
     role: str
     status: Literal["approved", "pending"]
     requested_at: Optional[datetime] = None
+
+
+class RoomBriefOut(BaseModel):
+    id: int
+    title: str
+    user_limit: int
+    privacy: Literal["open", "private"]
+    creator: int
+    creator_name: str
+    creator_avatar_name: Optional[str] = None
+    created_at: str
+    occupancy: int
+    in_game: bool
+    game_phase: str
+    entry_closed: bool

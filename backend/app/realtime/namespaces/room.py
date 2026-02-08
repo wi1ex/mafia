@@ -45,6 +45,7 @@ from ..utils import (
     get_profiles_snapshot,
     join_room_atomic,
     leave_room_atomic,
+    set_user_current_room,
     find_user_rooms,
     cleanup_user_from_room,
     validate_auth,
@@ -252,6 +253,7 @@ async def join(sid, data) -> JoinAck:
         await sio.enter_room(sid,
                              f"room:{rid}",
                              namespace="/room")
+        await set_user_current_room(r, uid, rid)
 
         if prev_rid and prev_rid != rid:
             try:
