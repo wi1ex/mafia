@@ -278,8 +278,8 @@ onBeforeUnmount(() => {
       border-radius: 5px;
       background-color: $graphite;
       img {
-        width: 30px;
-        height: 30px;
+        width: 24px;
+        height: 24px;
         border-radius: 50%;
       }
       .username {
@@ -365,8 +365,8 @@ onBeforeUnmount(() => {
       gap: 5px;
       li {
         img {
-          width: 20px;
-          height: 20px;
+          width: 16px;
+          height: 16px;
         }
         .username {
           height: 14px;

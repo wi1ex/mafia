@@ -104,7 +104,13 @@ export function startAuthSocket(opts?: { onForceLogout?: () => void }): Socket {
 
   authSocket.on('notify', (p:any) => {
     window.dispatchEvent(new CustomEvent('auth-notify', { detail: p }))
-    if (!p?.no_toast) window.dispatchEvent(new CustomEvent('toast', { detail: p }))
+    if (!p?.no_toast) {
+      let toastPayload = p
+      if (p && typeof p === 'object' && Object.prototype.hasOwnProperty.call(p, 'toast_text')) {
+        toastPayload = { ...p, text: (p as any).toast_text }
+      }
+      window.dispatchEvent(new CustomEvent('toast', { detail: toastPayload }))
+    }
   })
 
   authSocket.on('site_update', (p:any) => {

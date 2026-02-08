@@ -105,8 +105,9 @@
           </div>
 
           <div v-if="showFriendAction" class="friend-row">
-            <button type="button" :disabled="friendDisabled" :class="{ disabled: friendDisabled }" @click="$emit('friend-action', id, friendActionKind)">
-              {{ friendActionLabel }}
+            <button type="button" :disabled="friendDisabled" :class="['status-' + friendStatusClass, { disabled: friendDisabled }]" @click="$emit('friend-action', id, friendActionKind)" >
+              <img :src="friendActionIcon" alt="" />
+              <span>{{ friendActionLabel }}</span>
             </button>
           </div>
 
@@ -142,6 +143,10 @@ import iconKill from '@/assets/svg/kill.svg'
 import iconCloseCircle from '@/assets/svg/closeCircle.svg'
 import iconWink from '@/assets/svg/wink.svg'
 import iconKnock from '@/assets/svg/knock.svg'
+import iconAddFriends from '@/assets/svg/addFriends.svg'
+import iconInFriends from '@/assets/svg/inFriends.svg'
+import iconRecieveFriends from '@/assets/svg/recieveFriends.svg'
+import iconSendFriends from '@/assets/svg/sendFriends.svg'
 
 type IconKind = 'mic' | 'cam' | 'speakers' | 'visibility' | 'screen'
 
@@ -312,10 +317,17 @@ const timelineDurationSec = computed(() => {
 const friendActionLabel = computed(() => {
   if (props.friendLoading) return 'Загрузка...'
   if (props.friendStatus === 'none') return 'Добавить в друзья'
-  if (props.friendStatus === 'friends') return 'В друзьях'
-  if (props.friendStatus === 'outgoing') return 'Запрос отправлен'
+  if (props.friendStatus === 'friends') return 'Уже в друзьях'
+  if (props.friendStatus === 'outgoing') return 'Исходящий запрос'
   if (props.friendStatus === 'incoming') return 'Входящий запрос'
   return ''
+})
+const friendStatusClass = computed(() => (props.friendStatus === 'self' ? 'none' : props.friendStatus))
+const friendActionIcon = computed(() => {
+  if (props.friendStatus === 'friends') return iconInFriends
+  if (props.friendStatus === 'outgoing') return iconSendFriends
+  if (props.friendStatus === 'incoming') return iconRecieveFriends
+  return iconAddFriends
 })
 const friendActionKind = computed(() => {
   if (props.friendStatus === 'none') return 'add'
@@ -775,17 +787,58 @@ const showFriendAction = computed(() => props.id !== props.localId && friendActi
       }
       .friend-row {
         display: flex;
-        justify-content: flex-end;
         button {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 0;
+          gap: 5px;
+          width: 100%;
           height: 25px;
-          padding: 0 10px;
           border: none;
           border-radius: 5px;
-          background-color: rgba($green, 0.75);
-          color: $bg;
-          font-size: 12px;
+          background-color: $lead;
+          color: $fg;
+          font-size: 14px;
           font-family: Manrope-Medium;
           cursor: pointer;
+          img {
+            width: 16px;
+            height: 16px;
+          }
+          span {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+          &.status-none {
+            background-color: $fg;
+            color: $bg;
+            &:hover {
+              background-color: $white;
+            }
+          }
+          &.status-friends {
+            background-color: rgba($green, 0.75);
+            color: $bg;
+            &:hover {
+              background-color: $green;
+            }
+          }
+          &.status-outgoing {
+            background-color: rgba($yellow, 0.75);
+            color: $bg;
+            &:hover {
+              background-color: $yellow;
+            }
+          }
+          &.status-incoming {
+            background-color: rgba($orange, 0.75);
+            color: $bg;
+            &:hover {
+              background-color: $orange;
+            }
+          }
           &.disabled {
             opacity: 0.5;
             cursor: not-allowed;
@@ -1025,6 +1078,11 @@ const showFriendAction = computed(() => props.id !== props.localId && friendActi
             height: 20px;
             padding: 0 5px;
             font-size: 10px;
+            gap: 4px;
+            img {
+              width: 12px;
+              height: 12px;
+            }
           }
         }
         .admin-row {

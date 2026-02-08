@@ -216,7 +216,7 @@ async def send_friend_request(user_id: int, ident: Identity = Depends(get_identi
         target_id,
         note,
         kind="friend_request",
-        extra={"user": {"id": uid, "username": ident["username"]}, "actions": actions},
+        extra={"user": {"id": uid, "username": ident["username"]}, "actions": actions, "toast_text": ""},
     )
 
     await log_action(
