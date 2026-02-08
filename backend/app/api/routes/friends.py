@@ -185,6 +185,7 @@ async def send_friend_request(user_id: int, ident: Identity = Depends(get_identi
     target = await db.get(User, target_id)
     if not target or target.deleted_at:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="user_not_found")
+    requester = await db.get(User, uid)
 
     existing = await load_link(db, uid, target_id)
     if existing:
@@ -216,7 +217,11 @@ async def send_friend_request(user_id: int, ident: Identity = Depends(get_identi
         target_id,
         note,
         kind="friend_request",
-        extra={"user": {"id": uid, "username": ident["username"]}, "actions": actions, "toast_text": ""},
+        extra={
+            "user": {"id": uid, "username": ident["username"], "avatar_name": requester.avatar_name if requester else None},
+            "actions": actions,
+            "toast_text": "",
+        },
     )
     await emit_friends_update(target_id, uid, "incoming")
     await emit_friends_update(uid, target_id, "outgoing")
@@ -263,6 +268,7 @@ async def accept_friend_request(user_id: int, ident: Identity = Depends(get_iden
 
     requester = await db.get(User, requester_id)
     requester_name = requester.username if requester else None
+    accepter = await db.get(User, uid)
 
     title_req = "Заявка в друзья принята"
     text_req = f"Пользователь {ident['username']} принял вашу заявку в друзья."
@@ -270,7 +276,15 @@ async def accept_friend_request(user_id: int, ident: Identity = Depends(get_iden
     db.add(note_req)
     await db.commit()
     await db.refresh(note_req)
-    await emit_notify(requester_id, note_req, kind="friend_accept")
+    await emit_notify(
+        requester_id,
+        note_req,
+        kind="friend_accept",
+        extra={
+            "user": {"id": uid, "username": ident["username"], "avatar_name": accepter.avatar_name if accepter else None},
+            "toast_text": "",
+        },
+    )
 
     title_acc = "Добавлен в друзья"
     text_acc = f"Вы приняли заявку в друзья от пользователя {requester_name or f'user{requester_id}'}."

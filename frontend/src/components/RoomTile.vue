@@ -810,30 +810,29 @@ const showFriendAction = computed(() => props.id !== props.localId && friendActi
           }
           &.status-none {
             background-color: $fg;
-            &:hover {
+            &:not(:disabled):hover {
               background-color: $white;
             }
           }
           &.status-friends {
             background-color: rgba($green, 0.75);
-            &:hover {
+            &:not(:disabled):hover {
               background-color: $green;
             }
           }
           &.status-outgoing {
             background-color: rgba($yellow, 0.75);
-            &:hover {
+            &:not(:disabled):hover {
               background-color: $yellow;
             }
           }
           &.status-incoming {
             background-color: rgba($orange, 0.75);
-            &:hover {
+            &:not(:disabled):hover {
               background-color: $orange;
             }
           }
           &.disabled {
-            opacity: 0.5;
             cursor: not-allowed;
           }
         }
