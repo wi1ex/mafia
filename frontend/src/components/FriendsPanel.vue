@@ -211,7 +211,6 @@ watch(() => props.open, async v => {
     await nextTick()
     bindDoc()
     await refreshRooms()
-    await friends.fetchCounts()
     startPolling()
   } else {
     unbindDoc()
