@@ -835,7 +835,6 @@ async function onFriendAction(id: string, kind: 'add' | 'remove' | 'incoming') {
         friendStatusByUser.set(id, 'none')
       }
     }
-    await friends.fetchAll()
   } catch {
     void alertDialog('Не удалось выполнить действие')
   } finally {

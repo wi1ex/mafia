@@ -69,8 +69,6 @@ export const useFriendsStore = defineStore('friends', () => {
     total: 0,
   })
   const rooms = ref<RoomBrief[]>([])
-  const loading = ref(false)
-  let refreshQueued = false
   let inited = false
   let onFriendsUpdate: ((e: any) => void) | null = null
   let refreshTimer: number | undefined
@@ -78,24 +76,6 @@ export const useFriendsStore = defineStore('friends', () => {
   let tabQueued: FriendsTab | null = null
   let countsLoading = false
   let countsQueued = false
-
-  async function fetchAll(): Promise<void> {
-    if (loading.value) {
-      refreshQueued = true
-      return
-    }
-    loading.value = true
-    try {
-      const { data } = await api.get<FriendsList>('/friends/list', { params: { tab: 'all' } })
-      list.value = data
-    } finally {
-      loading.value = false
-      if (refreshQueued) {
-        refreshQueued = false
-        void fetchAll()
-      }
-    }
-  }
 
   async function fetchRooms(): Promise<void> {
     const { data } = await api.get<RoomBrief[]>('/rooms/active')
@@ -207,8 +187,6 @@ export const useFriendsStore = defineStore('friends', () => {
     list,
     counts,
     rooms,
-    loading,
-    fetchAll,
     fetchRooms,
     fetchTab,
     fetchCounts,
