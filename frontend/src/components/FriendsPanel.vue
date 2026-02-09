@@ -2,17 +2,17 @@
   <Transition name="panel" @after-leave="onAfterLeave">
     <div v-show="open" class="panel" ref="root" @click.stop>
       <header>
-        <span>Друзья</span>
+        <span>{{ labelTotal }}</span>
         <button @click="$emit('update:open', false)" aria-label="Закрыть">
           <img :src="iconClose" alt="close" />
         </button>
       </header>
 
       <div class="tabs">
-        <button :class="{ active: tab === 'online' }" @click="tab = 'online'">Онлайн</button>
-        <button :class="{ active: tab === 'offline' }" @click="tab = 'offline'">Оффлайн</button>
-        <button :class="{ active: tab === 'incoming' }" @click="tab = 'incoming'">Входящие</button>
-        <button :class="{ active: tab === 'outgoing' }" @click="tab = 'outgoing'">Исходящие</button>
+        <button :class="{ active: tab === 'online' }" @click="tab = 'online'">{{ labelOnline }}</button>
+        <button :class="{ active: tab === 'offline' }" @click="tab = 'offline'">{{ labelOffline }}</button>
+        <button :class="{ active: tab === 'incoming' }" @click="tab = 'incoming'">{{ labelIncoming }}</button>
+        <button :class="{ active: tab === 'outgoing' }" @click="tab = 'outgoing'">{{ labelOutgoing }}</button>
       </div>
 
       <div class="list" ref="list">
@@ -103,6 +103,16 @@ const inviteOpenFor = ref<number | null>(null)
 
 const friendList = computed(() => (tab.value === 'online' ? friends.list.online : friends.list.offline))
 const rooms = computed(() => friends.rooms)
+const onlineCount = computed(() => friends.counts.online)
+const offlineCount = computed(() => friends.counts.offline)
+const incomingCount = computed(() => friends.counts.incoming)
+const outgoingCount = computed(() => friends.counts.outgoing)
+const totalCount = computed(() => friends.counts.total)
+const labelOnline = computed(() => (onlineCount.value > 0 ? `Онлайн - ${onlineCount.value}` : 'Онлайн'))
+const labelOffline = computed(() => (offlineCount.value > 0 ? `Оффлайн - ${offlineCount.value}` : 'Оффлайн'))
+const labelIncoming = computed(() => (incomingCount.value > 0 ? `Входящие - ${incomingCount.value}` : 'Входящие'))
+const labelOutgoing = computed(() => (outgoingCount.value > 0 ? `Исходящие - ${outgoingCount.value}` : 'Исходящие'))
+const labelTotal = computed(() => (totalCount.value > 0 ? `Друзья - ${totalCount.value}` : 'Друзья'))
 
 let onDocDown: ((e: Event) => void) | null = null
 let pollTimer: number | undefined
@@ -132,8 +142,10 @@ async function refreshRooms() {
 function startPolling() {
   if (pollTimer) return
   void friends.fetchTab(tab.value)
+  void friends.fetchCounts()
   pollTimer = window.setInterval(() => {
     void friends.fetchTab(tab.value)
+    void friends.fetchCounts()
   }, POLL_MS)
 }
 
@@ -199,6 +211,7 @@ watch(() => props.open, async v => {
     await nextTick()
     bindDoc()
     await refreshRooms()
+    await friends.fetchCounts()
     startPolling()
   } else {
     unbindDoc()

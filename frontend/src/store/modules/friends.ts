@@ -29,6 +29,14 @@ export type FriendsList = {
   outgoing: FriendRequestItem[]
 }
 
+export type FriendsCounts = {
+  online: number
+  offline: number
+  incoming: number
+  outgoing: number
+  total: number
+}
+
 export type FriendsTab = 'online' | 'offline' | 'incoming' | 'outgoing'
 
 export type RoomBrief = {
@@ -53,17 +61,23 @@ export const useFriendsStore = defineStore('friends', () => {
     incoming: [],
     outgoing: [],
   })
+  const counts = ref<FriendsCounts>({
+    online: 0,
+    offline: 0,
+    incoming: 0,
+    outgoing: 0,
+    total: 0,
+  })
   const rooms = ref<RoomBrief[]>([])
   const loading = ref(false)
-  const incomingCount = ref(0)
   let refreshQueued = false
   let inited = false
   let onFriendsUpdate: ((e: any) => void) | null = null
   let refreshTimer: number | undefined
   let tabLoading = false
   let tabQueued: FriendsTab | null = null
-  let countLoading = false
-  let countQueued = false
+  let countsLoading = false
+  let countsQueued = false
 
   async function fetchAll(): Promise<void> {
     if (loading.value) {
@@ -74,7 +88,6 @@ export const useFriendsStore = defineStore('friends', () => {
     try {
       const { data } = await api.get<FriendsList>('/friends/list', { params: { tab: 'all' } })
       list.value = data
-      incomingCount.value = data.incoming.length
     } finally {
       loading.value = false
       if (refreshQueued) {
@@ -98,13 +111,18 @@ export const useFriendsStore = defineStore('friends', () => {
     try {
       const { data } = await api.get<FriendsList>('/friends/list', { params: { tab } })
       const cur = list.value
-      if (tab === 'online') list.value = { ...cur, online: data.online }
-      else if (tab === 'offline') list.value = { ...cur, offline: data.offline }
+      if (tab === 'online') {
+        list.value = { ...cur, online: data.online }
+      }
+      else if (tab === 'offline') {
+        list.value = { ...cur, offline: data.offline }
+      }
       else if (tab === 'incoming') {
         list.value = { ...cur, incoming: data.incoming }
-        incomingCount.value = data.incoming.length
       }
-      else list.value = { ...cur, outgoing: data.outgoing }
+      else {
+        list.value = { ...cur, outgoing: data.outgoing }
+      }
     } finally {
       tabLoading = false
       if (tabQueued) {
@@ -115,20 +133,27 @@ export const useFriendsStore = defineStore('friends', () => {
     }
   }
 
-  async function fetchIncomingCount(): Promise<void> {
-    if (countLoading) {
-      countQueued = true
+  async function fetchCounts(): Promise<void> {
+    if (countsLoading) {
+      countsQueued = true
       return
     }
-    countLoading = true
+    countsLoading = true
     try {
-      const { data } = await api.get<{ count: number }>('/friends/incoming_count')
-      incomingCount.value = Number.isFinite(data?.count) ? data.count : 0
+      const { data } = await api.get<FriendsCounts>('/friends/counts')
+      const next = {
+        online: Number.isFinite(data?.online) ? data.online : 0,
+        offline: Number.isFinite(data?.offline) ? data.offline : 0,
+        incoming: Number.isFinite(data?.incoming) ? data.incoming : 0,
+        outgoing: Number.isFinite(data?.outgoing) ? data.outgoing : 0,
+        total: Number.isFinite(data?.total) ? data.total : 0,
+      }
+      counts.value = next
     } finally {
-      countLoading = false
-      if (countQueued) {
-        countQueued = false
-        void fetchIncomingCount()
+      countsLoading = false
+      if (countsQueued) {
+        countsQueued = false
+        void fetchCounts()
       }
     }
   }
@@ -162,7 +187,7 @@ export const useFriendsStore = defineStore('friends', () => {
     if (refreshTimer) return
     refreshTimer = window.setTimeout(() => {
       refreshTimer = undefined
-      void fetchIncomingCount()
+      void fetchCounts()
     }, 200)
   }
 
@@ -180,13 +205,13 @@ export const useFriendsStore = defineStore('friends', () => {
 
   return {
     list,
+    counts,
     rooms,
     loading,
-    incomingCount,
     fetchAll,
     fetchRooms,
     fetchTab,
-    fetchIncomingCount,
+    fetchCounts,
     fetchStatus,
     sendRequest,
     acceptRequest,
