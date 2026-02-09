@@ -20,6 +20,8 @@ from ...schemas.room import (
     RoomCreateIn,
     RoomInfoOut,
     RoomInfoMemberOut,
+    RoomSpectatorsOut,
+    RoomSpectatorOut,
     RoomAccessOut,
     RoomRequestOut,
     GameParams,
@@ -31,6 +33,7 @@ from ..utils import (
     serialize_game_for_redis,
     game_from_redis_to_model,
     build_room_members_for_info,
+    fetch_user_name_avatar_maps,
     get_room_params_or_404,
     ensure_room_access_allowed,
     schedule_room_gc,
@@ -185,6 +188,47 @@ async def room_info(room_id: int) -> RoomInfoOut:
         spectators_count = 0
 
     return RoomInfoOut(members=members, game=game, spectators_count=spectators_count)
+
+
+@log_route("rooms.spectators")
+@rate_limited(lambda ident, room_id, **_: f"rl:rooms:spectators:{ident['id']}:{room_id}", limit=10, window_s=1)
+@router.get("/{room_id}/spectators", response_model=RoomSpectatorsOut)
+async def room_spectators(room_id: int, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> RoomSpectatorsOut:
+    r = get_redis()
+    await get_room_params_or_404(r, room_id)
+
+    try:
+        raw_ids = await r.smembers(f"room:{room_id}:spectators")
+    except Exception:
+        raw_ids = set()
+
+    ids: list[int] = []
+    for raw in raw_ids or []:
+        try:
+            ids.append(int(raw))
+        except Exception:
+            continue
+
+    if not ids:
+        return RoomSpectatorsOut(spectators=[])
+
+    name_map, avatar_map = await fetch_user_name_avatar_maps(session, set(ids))
+
+    join_map: dict[int, int] = {}
+    try:
+        raw_join = await r.hgetall(f"room:{room_id}:spectators_join")
+        for k, v in (raw_join or {}).items():
+            try:
+                join_map[int(k)] = int(v or 0)
+            except Exception:
+                continue
+    except Exception:
+        join_map = {}
+
+    ids.sort(key=lambda uid: (join_map.get(uid, 0), name_map.get(uid) or "", uid))
+    spectators = [RoomSpectatorOut(id=uid, username=name_map.get(uid), avatar_name=avatar_map.get(uid)) for uid in ids]
+
+    return RoomSpectatorsOut(spectators=spectators)
 
 
 @log_route("rooms.update_game")

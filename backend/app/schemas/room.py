@@ -60,6 +60,16 @@ class RoomInfoOut(BaseModel):
     spectators_count: int = 0
 
 
+class RoomSpectatorOut(BaseModel):
+    id: int
+    username: Optional[str] = None
+    avatar_name: Optional[str] = None
+
+
+class RoomSpectatorsOut(BaseModel):
+    spectators: List[RoomSpectatorOut] = Field(default_factory=list)
+
+
 class RoomAccessOut(BaseModel):
     access: Literal["approved", "pending", "none"]
 

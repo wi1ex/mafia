@@ -81,7 +81,21 @@
                 <span class="header-text">Параметры игры:</span>
                 <div class="ri-game-div">
                   <span>Зрители</span>
-                  <span>{{ spectatorsLabel }}</span>
+                  <span class="spectators-wrap" :class="{ active: spectatorsTooltipVisible, disabled: !spectatorsTooltipEnabled }"
+                        @pointerenter="onSpectatorsEnter" @pointerleave="onSpectatorsLeave" >
+                    {{ spectatorsLabel }}
+                    <div v-if="spectatorsTooltipVisible" class="spectators-tooltip">
+                      <div v-if="spectatorsLoading" class="spectators-muted">Загрузка...</div>
+                      <div v-else-if="spectatorsError" class="spectators-muted">{{ spectatorsError }}</div>
+                      <div v-else-if="spectators.length === 0" class="spectators-muted">Нет зрителей</div>
+                      <div v-else class="spectators-list">
+                        <div v-for="s in spectators" :key="`spectator-${s.id}`" class="spectators-row">
+                          <img v-minio-img="{ key: s.avatar_name ? `avatars/${s.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
+                          <span>{{ s.username || ('user' + s.id) }}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </span>
                 </div>
                 <div class="ri-game-div">
                   <span>Режим</span>
@@ -143,16 +157,16 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, ref, computed, reactive, watch } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { Socket } from 'socket.io-client'
 import { createPublicSocket } from '@/services/sio'
 import { alertDialog, confirmDialog } from '@/services/confirm'
 import { api } from '@/services/axios'
-import { useAuthStore, useUserStore, useSettingsStore } from '@/store'
+import { useAuthStore, useSettingsStore, useUserStore } from '@/store'
 import RoomModal from '@/components/RoomModal.vue'
 
-import defaultAvatar from "@/assets/svg/defaultAvatar.svg"
+import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
 import iconScreenOn from '@/assets/svg/screenOn.svg'
 import iconLockOpen from '@/assets/svg/lockOpen.svg'
 import iconLockClose from '@/assets/svg/lockClose.svg'
@@ -185,6 +199,11 @@ type RoomInfoMember = {
 type RoomMembers = {
   members: RoomInfoMember[]
   spectators_count?: number
+}
+type RoomSpectator = {
+  id: number
+  username?: string
+  avatar_name?: string | null
 }
 type Game = {
   mode: 'normal' | 'rating'
@@ -221,6 +240,11 @@ const adminKickBusy = ref(false)
 const infoTimers = new Map<number, number>()
 const infoInFlight = new Set<number>()
 const info = ref<(RoomMembers & { game?: Game }) | null>(null)
+const spectators = ref<RoomSpectator[]>([])
+const spectatorsLoading = ref(false)
+const spectatorsError = ref('')
+const spectatorsHover = ref(false)
+let spectatorsReqSeq = 0
 
 const selectedId = ref<number | null>(null)
 const pendingRoomId = ref<number | null>(null)
@@ -310,6 +334,11 @@ const spectatorsLabel = computed(() => {
   }
   return `до ${limit}`
 })
+const spectatorsTooltipEnabled = computed(() => {
+  const limit = game.value?.spectators_limit ?? 0
+  return !!selectedRoom.value?.in_game && limit > 0
+})
+const spectatorsTooltipVisible = computed(() => spectatorsHover.value && spectatorsTooltipEnabled.value)
 
 function roomStatusLabel(room: Room): string {
   if (room.in_game) return 'game'
@@ -345,6 +374,35 @@ function remove(id: number) {
       infoTimers.delete(id)
     }
   }
+}
+
+async function loadSpectators() {
+  const roomId = selectedId.value
+  if (!roomId || !spectatorsTooltipEnabled.value) return
+  const reqId = ++spectatorsReqSeq
+  spectatorsLoading.value = true
+  spectatorsError.value = ''
+  try {
+    const resp = await api.get(`/rooms/${roomId}/spectators`)
+    if (reqId !== spectatorsReqSeq) return
+    spectators.value = Array.isArray(resp.data?.spectators) ? resp.data.spectators : []
+  } catch (err) {
+    if (reqId !== spectatorsReqSeq) return
+    spectators.value = []
+    spectatorsError.value = 'Не удалось загрузить'
+  } finally {
+    if (reqId === spectatorsReqSeq) spectatorsLoading.value = false
+  }
+}
+
+function onSpectatorsEnter() {
+  if (!spectatorsTooltipEnabled.value) return
+  spectatorsHover.value = true
+  void loadSpectators()
+}
+
+function onSpectatorsLeave() {
+  spectatorsHover.value = false
 }
 
 async function onCreated(room: any) {
@@ -594,6 +652,22 @@ function onAppRevoked(e: any) {
 
 watch([selectedId, () => auth.isAuthed], ([id, ok]) => {
   if (ok && id) void fetchAccess(id as number)
+})
+
+watch(selectedId, () => {
+  spectatorsHover.value = false
+  spectators.value = []
+  spectatorsLoading.value = false
+  spectatorsError.value = ''
+})
+
+watch(() => selectedRoom.value?.in_game, (inGame) => {
+  if (!inGame) {
+    spectatorsHover.value = false
+    spectators.value = []
+    spectatorsLoading.value = false
+    spectatorsError.value = ''
+  }
 })
 
 watch(() => route.query.focus, (v) => {
@@ -863,6 +937,65 @@ onBeforeUnmount(() => {
                 height: 16px;
                 font-size: 14px;
                 color: $ashy;
+              }
+              .spectators-wrap {
+                position: relative;
+                display: inline-flex;
+                align-items: center;
+                justify-content: flex-end;
+                gap: 6px;
+                cursor: default;
+                &.disabled {
+                  cursor: default;
+                }
+                &.active {
+                  color: $fg;
+                }
+                .spectators-tooltip {
+                  position: absolute;
+                  top: calc(100% + 6px);
+                  right: 0;
+                  z-index: 5;
+                  display: flex;
+                  flex-direction: column;
+                  gap: 6px;
+                  min-width: 200px;
+                  max-width: 260px;
+                  max-height: 220px;
+                  padding: 10px;
+                  border-radius: 6px;
+                  background: $dark;
+                  box-shadow: 0 8px 20px rgba($black, 0.35);
+                  border: 1px solid rgba($white, 0.08);
+                  pointer-events: none;
+                  .spectators-muted {
+                    font-size: 13px;
+                    color: $ashy;
+                  }
+                  .spectators-list {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 6px;
+                    overflow: auto;
+                    .spectators-row {
+                      display: flex;
+                      align-items: center;
+                      gap: 6px;
+                      img {
+                        width: 22px;
+                        height: 22px;
+                        border-radius: 50%;
+                        object-fit: cover;
+                      }
+                      span {
+                        max-width: 190px;
+                        white-space: nowrap;
+                        overflow: hidden;
+                        text-overflow: ellipsis;
+                      }
+                    }
+                  }
+                }
               }
             }
           }
