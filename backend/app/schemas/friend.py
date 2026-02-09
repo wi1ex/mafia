@@ -2,45 +2,33 @@ from datetime import datetime
 from typing import Optional, List, Literal
 from pydantic import BaseModel, Field
 
-
 FriendStatus = Literal["self", "friends", "outgoing", "incoming", "none"]
+FriendListKind = Literal["incoming", "outgoing", "online", "offline"]
 
 
 class FriendStatusOut(BaseModel):
     status: FriendStatus
 
 
-class FriendItemOut(BaseModel):
+class FriendsListItemOut(BaseModel):
+    kind: FriendListKind
     id: int
     username: Optional[str] = None
     avatar_name: Optional[str] = None
-    online: bool = False
-    closeness: int = 0
+    online: Optional[bool] = None
+    closeness: Optional[int] = None
     room_id: Optional[int] = None
     room_title: Optional[str] = None
     room_in_game: Optional[bool] = None
-
-
-class FriendRequestOut(BaseModel):
-    id: int
-    username: Optional[str] = None
-    avatar_name: Optional[str] = None
     requested_at: Optional[datetime] = None
 
 
 class FriendsListOut(BaseModel):
-    online: List[FriendItemOut] = Field(default_factory=list)
-    offline: List[FriendItemOut] = Field(default_factory=list)
-    incoming: List[FriendRequestOut] = Field(default_factory=list)
-    outgoing: List[FriendRequestOut] = Field(default_factory=list)
+    items: List[FriendsListItemOut] = Field(default_factory=list)
 
 
-class FriendCountsOut(BaseModel):
-    online: int = 0
-    offline: int = 0
-    incoming: int = 0
-    outgoing: int = 0
-    total: int = 0
+class FriendIncomingCountOut(BaseModel):
+    count: int = 0
 
 
 class FriendInviteIn(BaseModel):

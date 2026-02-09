@@ -11,7 +11,7 @@ from ...models.user import User
 from ...models.notif import Notif
 from ...realtime.utils import get_rooms_brief
 from ...schemas.common import Identity, Ok
-from ...schemas.friend import FriendStatusOut, FriendsListOut, FriendItemOut, FriendRequestOut, FriendCountsOut, FriendInviteIn
+from ...schemas.friend import FriendStatusOut, FriendsListOut, FriendsListItemOut, FriendIncomingCountOut, FriendInviteIn
 from ...schemas.room import RoomBriefOut
 from ...security.auth_tokens import get_identity
 from ...security.decorators import log_route, rate_limited
@@ -48,57 +48,36 @@ async def friend_status(user_id: int, ident: Identity = Depends(get_identity), d
 @log_route("friends.list")
 @rate_limited(lambda ident, **_: f"rl:friends:list:{ident['id']}", limit=10, window_s=1)
 @router.get("/list", response_model=FriendsListOut)
-async def friends_list(tab: str | None = None, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> FriendsListOut:
+async def friends_list(ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> FriendsListOut:
     uid = int(ident["id"])
-    tab = (tab or "all").lower().strip()
-    if tab not in ("all", "online", "offline", "incoming", "outgoing"):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="bad_tab")
+    accepted_rows = await db.execute(
+        select(FriendLink)
+        .where(FriendLink.status == "accepted", or_(FriendLink.requester_id == uid, FriendLink.addressee_id == uid))
+    )
+    accepted = accepted_rows.scalars().all()
 
-    want_accepted = tab in ("all", "online", "offline")
-    want_incoming = tab in ("all", "incoming")
-    want_outgoing = tab in ("all", "outgoing")
+    incoming_rows = await db.execute(
+        select(FriendLink)
+        .where(FriendLink.status == "pending", FriendLink.addressee_id == uid)
+    )
+    incoming = incoming_rows.scalars().all()
 
-    accepted: list[FriendLink] = []
-    incoming: list[FriendLink] = []
-    outgoing: list[FriendLink] = []
-
-    if want_accepted:
-        accepted_rows = await db.execute(
-            select(FriendLink)
-            .where(FriendLink.status == "accepted", or_(FriendLink.requester_id == uid, FriendLink.addressee_id == uid))
-        )
-        accepted = accepted_rows.scalars().all()
-
-    if want_incoming:
-        incoming_rows = await db.execute(
-            select(FriendLink)
-            .where(FriendLink.status == "pending", FriendLink.addressee_id == uid)
-        )
-        incoming = incoming_rows.scalars().all()
-
-    if want_outgoing:
-        outgoing_rows = await db.execute(
-            select(FriendLink)
-            .where(FriendLink.status == "pending", FriendLink.requester_id == uid)
-        )
-        outgoing = outgoing_rows.scalars().all()
+    outgoing_rows = await db.execute(
+        select(FriendLink)
+        .where(FriendLink.status == "pending", FriendLink.requester_id == uid)
+    )
+    outgoing = outgoing_rows.scalars().all()
 
     friend_ids_all: list[int] = []
     for link in accepted:
         friend_ids_all.append(int(link.addressee_id if link.requester_id == uid else link.requester_id))
 
-    incoming_ids = [int(x.requester_id) for x in incoming] if want_incoming else []
-    outgoing_ids = [int(x.addressee_id) for x in outgoing] if want_outgoing else []
+    incoming_ids = [int(x.requester_id) for x in incoming]
+    outgoing_ids = [int(x.addressee_id) for x in outgoing]
 
     r = get_redis()
-    online_ids: set[int] = set()
+    online_ids = set(await fetch_online_user_ids(r))
     friend_ids: list[int] = friend_ids_all
-    if want_accepted:
-        online_ids = set(await fetch_online_user_ids(r))
-        if tab == "online":
-            friend_ids = [fid for fid in friend_ids_all if fid in online_ids]
-        elif tab == "offline":
-            friend_ids = [fid for fid in friend_ids_all if fid not in online_ids]
 
     all_ids = set(friend_ids + incoming_ids + outgoing_ids)
     users_map: dict[int, tuple[str | None, str | None]] = {}
@@ -143,13 +122,14 @@ async def friends_list(tab: str | None = None, ident: Identity = Depends(get_ide
             except Exception:
                 continue
 
-    def build_friend_item(fid: int) -> FriendItemOut:
+    def build_friend_item(fid: int) -> FriendsListItemOut:
         name, avatar = users_map.get(fid, (None, None))
         online = fid in online_ids
         closeness = closeness_map.get(pair(uid, fid), 0)
         rid = room_by_uid.get(fid)
         info = rooms_map.get(int(rid)) if rid else None
-        return FriendItemOut(
+        return FriendsListItemOut(
+            kind="online" if online else "offline",
             id=int(fid),
             username=name,
             avatar_name=avatar,
@@ -160,88 +140,53 @@ async def friends_list(tab: str | None = None, ident: Identity = Depends(get_ide
             room_in_game=bool(info.in_game) if info else None,
         )
 
-    online_items: list[FriendItemOut] = []
-    offline_items: list[FriendItemOut] = []
-    if want_accepted and friend_ids:
+    friends_items: list[FriendsListItemOut] = []
+    online_items: list[FriendsListItemOut] = []
+    offline_items: list[FriendsListItemOut] = []
+    if friend_ids:
         friends_items = [build_friend_item(fid) for fid in friend_ids]
-        friends_items.sort(key=lambda x: (-x.closeness, (x.username or f"user{x.id}").lower()))
-        if tab == "online":
-            online_items = friends_items
-        elif tab == "offline":
-            offline_items = friends_items
-        else:
-            online_items = [f for f in friends_items if f.online]
-            offline_items = [f for f in friends_items if not f.online]
+        online_items = [f for f in friends_items if f.online]
+        offline_items = [f for f in friends_items if not f.online]
+        online_items.sort(key=lambda x: (-(x.closeness or 0), (x.username or f"user{x.id}").lower()))
+        offline_items.sort(key=lambda x: (-(x.closeness or 0), (x.username or f"user{x.id}").lower()))
 
-    incoming_items: list[FriendRequestOut] = []
-    outgoing_items: list[FriendRequestOut] = []
-    if want_incoming:
-        incoming_items = [
-            FriendRequestOut(
-                id=int(link.requester_id),
-                username=users_map.get(int(link.requester_id), (None, None))[0],
-                avatar_name=users_map.get(int(link.requester_id), (None, None))[1],
-                requested_at=link.created_at,
-            )
-            for link in incoming
-        ]
-    if want_outgoing:
-        outgoing_items = [
-            FriendRequestOut(
-                id=int(link.addressee_id),
-                username=users_map.get(int(link.addressee_id), (None, None))[0],
-                avatar_name=users_map.get(int(link.addressee_id), (None, None))[1],
-                requested_at=link.created_at,
-            )
-            for link in outgoing
-        ]
+    incoming_items = [
+        FriendsListItemOut(
+            kind="incoming",
+            id=int(link.requester_id),
+            username=users_map.get(int(link.requester_id), (None, None))[0],
+            avatar_name=users_map.get(int(link.requester_id), (None, None))[1],
+            requested_at=link.created_at,
+        )
+        for link in incoming
+    ]
+    incoming_items.sort(key=lambda x: x.requested_at.timestamp() if x.requested_at else 0, reverse=True)
 
-    return FriendsListOut(
-        online=online_items,
-        offline=offline_items,
-        incoming=incoming_items,
-        outgoing=outgoing_items,
-    )
+    outgoing_items = [
+        FriendsListItemOut(
+            kind="outgoing",
+            id=int(link.addressee_id),
+            username=users_map.get(int(link.addressee_id), (None, None))[0],
+            avatar_name=users_map.get(int(link.addressee_id), (None, None))[1],
+            requested_at=link.created_at,
+        )
+        for link in outgoing
+    ]
+    outgoing_items.sort(key=lambda x: x.requested_at.timestamp() if x.requested_at else 0, reverse=True)
+
+    return FriendsListOut(items=[*incoming_items, *online_items, *offline_items, *outgoing_items])
 
 
-@log_route("friends.counts")
-@rate_limited(lambda ident, **_: f"rl:friends:counts:{ident['id']}", limit=10, window_s=1)
-@router.get("/counts", response_model=FriendCountsOut)
-async def friends_counts(ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> FriendCountsOut:
+@log_route("friends.incoming_count")
+@rate_limited(lambda ident, **_: f"rl:friends:incoming_count:{ident['id']}", limit=10, window_s=1)
+@router.get("/incoming_count", response_model=FriendIncomingCountOut)
+async def incoming_count(ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> FriendIncomingCountOut:
     uid = int(ident["id"])
-    accepted_rows = await db.execute(
-        select(FriendLink.requester_id, FriendLink.addressee_id)
-        .where(FriendLink.status == "accepted", or_(FriendLink.requester_id == uid, FriendLink.addressee_id == uid))
-    )
-    friend_ids = {
-        int(addressee_id if requester_id == uid else requester_id)
-        for requester_id, addressee_id in accepted_rows.all()
-    }
-    total = len(friend_ids)
-    incoming_count = await db.scalar(
+    count = await db.scalar(
         select(func.count(FriendLink.id))
         .where(FriendLink.status == "pending", FriendLink.addressee_id == uid)
     )
-    outgoing_count = await db.scalar(
-        select(func.count(FriendLink.id))
-        .where(FriendLink.status == "pending", FriendLink.requester_id == uid)
-    )
-
-    online_count = 0
-    offline_count = 0
-    if friend_ids:
-        r = get_redis()
-        online_ids = set(await fetch_online_user_ids(r))
-        online_count = sum(1 for fid in friend_ids if fid in online_ids)
-        offline_count = total - online_count
-
-    return FriendCountsOut(
-        online=int(online_count),
-        offline=int(offline_count),
-        incoming=int(incoming_count or 0),
-        outgoing=int(outgoing_count or 0),
-        total=int(total),
-    )
+    return FriendIncomingCountOut(count=int(count or 0))
 
 
 @log_route("friends.request_send")

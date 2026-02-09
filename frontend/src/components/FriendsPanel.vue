@@ -2,77 +2,60 @@
   <Transition name="panel" @after-leave="onAfterLeave">
     <div v-show="open" class="panel" ref="root" @click.stop>
       <header>
-        <span>{{ labelTotal }}</span>
+        <span>Друзья</span>
         <button @click="$emit('update:open', false)" aria-label="Закрыть">
           <img :src="iconClose" alt="close" />
         </button>
       </header>
 
-      <div class="tabs">
-        <button :class="{ active: tab === 'online' }" @click="tab = 'online'">{{ labelOnline }}</button>
-        <button :class="{ active: tab === 'offline' }" @click="tab = 'offline'">{{ labelOffline }}</button>
-        <button :class="{ active: tab === 'incoming' }" @click="tab = 'incoming'">{{ labelIncoming }}</button>
-        <button :class="{ active: tab === 'outgoing' }" @click="tab = 'outgoing'">{{ labelOutgoing }}</button>
-      </div>
-
-      <div class="list" ref="list">
-        <template v-if="tab === 'online' || tab === 'offline'">
-          <article class="item" v-for="f in friendList" :key="f.id">
-            <div class="left">
-              <img v-minio-img="{ key: f.avatar_name ? `avatars/${f.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
-              <div class="name">
-                <span class="nick">{{ f.username || ('user' + f.id) }}</span>
-                <span class="dot" :class="{ on: f.online, off: !f.online }"></span>
-              </div>
-            </div>
-            <div class="info">
-              <template v-if="f.room_id">
-                <span class="room">Комната: {{ f.room_title || ('Комната #' + f.room_id) }}</span>
-                <span class="game" :class="{ active: f.room_in_game }">{{ f.room_in_game ? 'Идёт игра' : 'Ожидание' }}</span>
-              </template>
-              <template v-else>
-                <div class="invite">
-                  <button class="btn" @click="toggleInvite(f.id)">Пригласить в комнату</button>
-                  <div v-if="inviteOpenFor === f.id" class="invite-dropdown">
-                    <button v-for="r in rooms" :key="r.id" @click="invite(f.id, r.id)">{{ r.title }}</button>
-                    <p v-if="rooms.length === 0" class="empty">Нет активных комнат</p>
-                  </div>
-                </div>
-              </template>
-            </div>
-            <div class="actions">
-              <button class="danger" @click="remove(f.id)">Удалить</button>
-            </div>
-          </article>
-          <p v-if="friendList.length === 0" class="empty">Список пуст</p>
+      <div class="list">
+        <template v-if="friends.list.length === 0">
+          <p class="empty">Список пуст</p>
         </template>
-
-        <template v-else-if="tab === 'incoming'">
-          <article class="item" v-for="f in friends.list.incoming" :key="f.id">
-            <div class="left">
-              <img v-minio-img="{ key: f.avatar_name ? `avatars/${f.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
-              <div class="name">
-                <span class="nick">{{ f.username || ('user' + f.id) }}</span>
-              </div>
-            </div>
-            <div class="actions">
-              <button class="accept" @click="accept(f.id)">Принять</button>
-              <button class="danger" @click="decline(f.id)">Отклонить</button>
-            </div>
-          </article>
-          <p v-if="friends.list.incoming.length === 0" class="empty">Запросов нет</p>
-        </template>
-
         <template v-else>
-          <article class="item" v-for="f in friends.list.outgoing" :key="f.id">
-            <div class="left">
-              <img v-minio-img="{ key: f.avatar_name ? `avatars/${f.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
-              <div class="name">
-                <span class="nick">{{ f.username || ('user' + f.id) }}</span>
-              </div>
+          <template v-for="(section, idx) in sections" :key="section.kind">
+            <div v-if="section.items.length > 0" class="section-title">
+              <span>{{ section.title }}</span>
+              <span class="count">{{ section.items.length }}</span>
             </div>
-          </article>
-          <p v-if="friends.list.outgoing.length === 0" class="empty">Запросов нет</p>
+            <article v-for="f in section.items" :key="`${f.kind}-${f.id}`" class="item">
+              <div class="left">
+                <img v-minio-img="{ key: f.avatar_name ? `avatars/${f.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
+                <div class="name">
+                  <span class="nick">{{ f.username || ('user' + f.id) }}</span>
+                  <span v-if="isAccepted(f)" class="dot" :class="{ on: f.online, off: !f.online }"></span>
+                </div>
+              </div>
+              <div class="info">
+                <template v-if="isAccepted(f)">
+                  <template v-if="f.room_id">
+                    <span class="room">Комната: {{ f.room_title || ('Комната #' + f.room_id) }}</span>
+                    <span class="game" :class="{ active: f.room_in_game }">{{ f.room_in_game ? 'Идёт игра' : 'Ожидание' }}</span>
+                  </template>
+                  <template v-else>
+                    <div class="invite">
+                      <button class="btn" @click="toggleInvite(f.id)">Пригласить в комнату</button>
+                      <div v-if="inviteOpenFor === f.id" class="invite-dropdown">
+                        <button v-for="r in rooms" :key="r.id" @click="invite(f.id, r.id)">{{ r.title }}</button>
+                        <p v-if="rooms.length === 0" class="empty">Нет активных комнат</p>
+                      </div>
+                    </div>
+                  </template>
+                </template>
+                <template v-else>
+                  <span class="request">{{ f.kind === 'incoming' ? 'Входящая заявка' : 'Исходящая заявка' }}</span>
+                </template>
+              </div>
+              <div v-if="f.kind === 'incoming'" class="actions">
+                <button class="accept" @click="accept(f.id)">Принять</button>
+                <button class="danger" @click="decline(f.id)">Отклонить</button>
+              </div>
+              <div v-else-if="isAccepted(f)" class="actions">
+                <button class="danger" @click="remove(f.id)">Удалить</button>
+              </div>
+            </article>
+            <div v-if="section.items.length > 0 && hasNextSection(idx)" class="section-divider"></div>
+          </template>
         </template>
       </div>
     </div>
@@ -97,22 +80,17 @@ const emit = defineEmits<{
 
 const friends = useFriendsStore()
 const root = ref<HTMLElement | null>(null)
-const list = ref<HTMLElement | null>(null)
-const tab = ref<'online' | 'offline' | 'incoming' | 'outgoing'>('online')
 const inviteOpenFor = ref<number | null>(null)
 
-const friendList = computed(() => (tab.value === 'online' ? friends.list.online : friends.list.offline))
 const rooms = computed(() => friends.rooms)
-const onlineCount = computed(() => friends.counts.online)
-const offlineCount = computed(() => friends.counts.offline)
-const incomingCount = computed(() => friends.counts.incoming)
-const outgoingCount = computed(() => friends.counts.outgoing)
-const totalCount = computed(() => friends.counts.total)
-const labelOnline = computed(() => (onlineCount.value > 0 ? `Онлайн - ${onlineCount.value}` : 'Онлайн'))
-const labelOffline = computed(() => (offlineCount.value > 0 ? `Оффлайн - ${offlineCount.value}` : 'Оффлайн'))
-const labelIncoming = computed(() => (incomingCount.value > 0 ? `Входящие - ${incomingCount.value}` : 'Входящие'))
-const labelOutgoing = computed(() => (outgoingCount.value > 0 ? `Исходящие - ${outgoingCount.value}` : 'Исходящие'))
-const labelTotal = computed(() => (totalCount.value > 0 ? `Друзья - ${totalCount.value}` : 'Друзья'))
+const isAccepted = (f: { kind?: string }) => f.kind === 'online' || f.kind === 'offline'
+const sections = computed(() => [
+  { kind: 'incoming', title: 'Входящие', items: friends.list.filter(f => f.kind === 'incoming') },
+  { kind: 'online', title: 'Онлайн', items: friends.list.filter(f => f.kind === 'online') },
+  { kind: 'offline', title: 'Оффлайн', items: friends.list.filter(f => f.kind === 'offline') },
+  { kind: 'outgoing', title: 'Исходящие', items: friends.list.filter(f => f.kind === 'outgoing') },
+])
+const hasNextSection = (idx: number) => sections.value.slice(idx + 1).some(s => s.items.length > 0)
 
 let onDocDown: ((e: Event) => void) | null = null
 let pollTimer: number | undefined
@@ -141,11 +119,9 @@ async function refreshRooms() {
 
 function startPolling() {
   if (pollTimer) return
-  void friends.fetchTab(tab.value)
-  void friends.fetchCounts()
+  void friends.fetchList()
   pollTimer = window.setInterval(() => {
-    void friends.fetchTab(tab.value)
-    void friends.fetchCounts()
+    void friends.fetchList()
   }, POLL_MS)
 }
 
@@ -182,7 +158,7 @@ async function remove(uid: number) {
   if (!ok) return
   try {
     await friends.removeFriend(uid)
-    await friends.fetchTab(tab.value)
+    await friends.fetchList()
   } catch {
     void alertDialog('Не удалось удалить из друзей')
   }
@@ -191,7 +167,7 @@ async function remove(uid: number) {
 async function accept(uid: number) {
   try {
     await friends.acceptRequest(uid)
-    await friends.fetchTab(tab.value)
+    await friends.fetchList()
   } catch {
     void alertDialog('Не удалось принять запрос')
   }
@@ -200,7 +176,7 @@ async function accept(uid: number) {
 async function decline(uid: number) {
   try {
     await friends.declineRequest(uid)
-    await friends.fetchTab(tab.value)
+    await friends.fetchList()
   } catch {
     void alertDialog('Не удалось отклонить запрос')
   }
@@ -216,11 +192,6 @@ watch(() => props.open, async v => {
     unbindDoc()
     stopPolling()
   }
-})
-
-watch(tab, async () => {
-  if (!props.open) return
-  await friends.fetchTab(tab.value)
 })
 
 onBeforeUnmount(() => {
@@ -271,25 +242,6 @@ onBeforeUnmount(() => {
       }
     }
   }
-  .tabs {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 5px;
-    padding: 10px;
-    button {
-      height: 28px;
-      border: none;
-      border-radius: 5px;
-      background-color: $dark;
-      color: $fg;
-      font-size: 12px;
-      font-family: Manrope-Medium;
-      cursor: pointer;
-      &.active {
-        background-color: $lead;
-      }
-    }
-  }
   .list {
     display: flex;
     flex-direction: column;
@@ -297,6 +249,35 @@ onBeforeUnmount(() => {
     gap: 10px;
     overflow-y: auto;
     scrollbar-width: none;
+  }
+  .section-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 6px;
+    padding: 2px 6px 6px;
+    font-size: 12px;
+    font-family: Manrope-Medium;
+    color: $grey;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid rgba($grey, 0.35);
+    .count {
+      min-width: 20px;
+      height: 18px;
+      padding: 0 6px;
+      border-radius: 999px;
+      background-color: rgba($grey, 0.2);
+      color: $fg;
+      font-size: 11px;
+      line-height: 18px;
+      text-align: center;
+    }
+  }
+  .section-divider {
+    height: 1px;
+    background: linear-gradient(90deg, rgba($grey, 0) 0%, rgba($grey, 0.4) 50%, rgba($grey, 0) 100%);
+    margin: 4px 0 2px;
   }
   .item {
     display: grid;
@@ -346,6 +327,10 @@ onBeforeUnmount(() => {
         font-size: 12px;
         color: $grey;
         &.active { color: $green; }
+      }
+      .request {
+        font-size: 12px;
+        color: $grey;
       }
       .invite {
         position: relative;

@@ -4,40 +4,24 @@ import { api } from '@/services/axios'
 
 export type FriendStatus = 'self' | 'friends' | 'outgoing' | 'incoming' | 'none'
 
-export type FriendItem = {
+export type FriendListKind = 'incoming' | 'outgoing' | 'online' | 'offline'
+
+export type FriendListItem = {
+  kind: FriendListKind
   id: number
   username?: string
   avatar_name?: string | null
-  online: boolean
-  closeness: number
+  online?: boolean
+  closeness?: number
   room_id?: number | null
   room_title?: string | null
   room_in_game?: boolean | null
-}
-
-export type FriendRequestItem = {
-  id: number
-  username?: string
-  avatar_name?: string | null
   requested_at?: string | null
 }
 
-export type FriendsList = {
-  online: FriendItem[]
-  offline: FriendItem[]
-  incoming: FriendRequestItem[]
-  outgoing: FriendRequestItem[]
+export type FriendsListResponse = {
+  items: FriendListItem[]
 }
-
-export type FriendsCounts = {
-  online: number
-  offline: number
-  incoming: number
-  outgoing: number
-  total: number
-}
-
-export type FriendsTab = 'online' | 'offline' | 'incoming' | 'outgoing'
 
 export type RoomBrief = {
   id: number
@@ -55,85 +39,54 @@ export type RoomBrief = {
 }
 
 export const useFriendsStore = defineStore('friends', () => {
-  const list = ref<FriendsList>({
-    online: [],
-    offline: [],
-    incoming: [],
-    outgoing: [],
-  })
-  const counts = ref<FriendsCounts>({
-    online: 0,
-    offline: 0,
-    incoming: 0,
-    outgoing: 0,
-    total: 0,
-  })
+  const list = ref<FriendListItem[]>([])
+  const incomingCount = ref(0)
   const rooms = ref<RoomBrief[]>([])
   let inited = false
   let onFriendsUpdate: ((e: any) => void) | null = null
   let refreshTimer: number | undefined
-  let tabLoading = false
-  let tabQueued: FriendsTab | null = null
-  let countsLoading = false
-  let countsQueued = false
+  let listLoading = false
+  let listQueued = false
+  let countLoading = false
+  let countQueued = false
 
   async function fetchRooms(): Promise<void> {
     const { data } = await api.get<RoomBrief[]>('/rooms/active')
     rooms.value = data
   }
 
-  async function fetchTab(tab: FriendsTab): Promise<void> {
-    if (tabLoading) {
-      tabQueued = tab
+  async function fetchList(): Promise<void> {
+    if (listLoading) {
+      listQueued = true
       return
     }
-    tabLoading = true
+    listLoading = true
     try {
-      const { data } = await api.get<FriendsList>('/friends/list', { params: { tab } })
-      const cur = list.value
-      if (tab === 'online') {
-        list.value = { ...cur, online: data.online }
-      }
-      else if (tab === 'offline') {
-        list.value = { ...cur, offline: data.offline }
-      }
-      else if (tab === 'incoming') {
-        list.value = { ...cur, incoming: data.incoming }
-      }
-      else {
-        list.value = { ...cur, outgoing: data.outgoing }
-      }
+      const { data } = await api.get<FriendsListResponse>('/friends/list')
+      list.value = Array.isArray(data?.items) ? data.items : []
     } finally {
-      tabLoading = false
-      if (tabQueued) {
-        const next = tabQueued
-        tabQueued = null
-        void fetchTab(next)
+      listLoading = false
+      if (listQueued) {
+        listQueued = false
+        void fetchList()
       }
     }
   }
 
-  async function fetchCounts(): Promise<void> {
-    if (countsLoading) {
-      countsQueued = true
+  async function fetchIncomingCount(): Promise<void> {
+    if (countLoading) {
+      countQueued = true
       return
     }
-    countsLoading = true
+    countLoading = true
     try {
-      const { data } = await api.get<FriendsCounts>('/friends/counts')
-      const next = {
-        online: Number.isFinite(data?.online) ? data.online : 0,
-        offline: Number.isFinite(data?.offline) ? data.offline : 0,
-        incoming: Number.isFinite(data?.incoming) ? data.incoming : 0,
-        outgoing: Number.isFinite(data?.outgoing) ? data.outgoing : 0,
-        total: Number.isFinite(data?.total) ? data.total : 0,
-      }
-      counts.value = next
+      const { data } = await api.get<{ count: number }>('/friends/incoming_count')
+      incomingCount.value = Number.isFinite(data?.count) ? data.count : 0
     } finally {
-      countsLoading = false
-      if (countsQueued) {
-        countsQueued = false
-        void fetchCounts()
+      countLoading = false
+      if (countQueued) {
+        countQueued = false
+        void fetchIncomingCount()
       }
     }
   }
@@ -167,7 +120,7 @@ export const useFriendsStore = defineStore('friends', () => {
     if (refreshTimer) return
     refreshTimer = window.setTimeout(() => {
       refreshTimer = undefined
-      void fetchCounts()
+      void fetchIncomingCount()
     }, 200)
   }
 
@@ -185,11 +138,11 @@ export const useFriendsStore = defineStore('friends', () => {
 
   return {
     list,
-    counts,
+    incomingCount,
     rooms,
     fetchRooms,
-    fetchTab,
-    fetchCounts,
+    fetchList,
+    fetchIncomingCount,
     fetchStatus,
     sendRequest,
     acceptRequest,

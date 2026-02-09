@@ -54,7 +54,7 @@
       <div class="bell" ref="friendsEl">
         <button @click.stop="onToggleFriends" :aria-expanded="friends_open" aria-label="??????">
           <img :src="iconFriends" alt="friends" />
-          <span v-if="friends.counts.incoming > 0">{{ friends.counts.incoming < 100 ? friends.counts.incoming : '∞' }}</span>
+          <span v-if="friends.incomingCount > 0">{{ friends.incomingCount < 100 ? friends.incomingCount : '∞' }}</span>
         </button>
         <FriendsPanel
           v-model:open="friends_open"
@@ -227,7 +227,7 @@ watch(() => auth.isAuthed, async ok => {
     updates.ensureWS()
     await updates.fetchAll()
     friends.ensureWS()
-    await friends.fetchCounts()
+    await friends.fetchIncomingCount()
   }
 })
 
@@ -238,7 +238,7 @@ onMounted(async () => {
     updates.ensureWS()
     await updates.fetchAll()
     friends.ensureWS()
-    await friends.fetchCounts()
+    await friends.fetchIncomingCount()
   }
   document.addEventListener('pointerdown', onGlobalPointerDown)
 })
