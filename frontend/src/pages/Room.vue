@@ -1638,6 +1638,12 @@ socket.value?.on('connect', async () => {
     void enforceInitialGameControls()
   })
 
+  socket.value?.on('game_limits', (p: any) => {
+    const roomId = Number(p?.room_id || 0)
+    if (roomId && roomId !== rid) return
+    game.handleGameLimits(p)
+  })
+
   socket.value?.on('game_finished', (p: any) => {
     game.handleGameFinished(p)
     if (myGameRole.value === 'player') void restoreAfterGameEnd()

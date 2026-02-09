@@ -1466,6 +1466,13 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     fillPlayersFromSeats()
   }
 
+  function handleGameLimits(payload: any) {
+    const winks = Number((payload as any)?.winks_left)
+    if (Number.isFinite(winks) && winks >= 0) winksLeft.value = Math.floor(winks)
+    const knocks = Number((payload as any)?.knocks_left)
+    if (Number.isFinite(knocks) && knocks >= 0) knocksLeft.value = Math.floor(knocks)
+  }
+
   function handleGameFinished(payload: any) {
     const result = String(payload?.result || '')
     if (result === 'red' || result === 'black' || result === 'draw') {
@@ -3102,6 +3109,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     canClickCard,
     applyFromJoinAck,
     handleGameStarted,
+    handleGameLimits,
     handleGameFinished,
     handleGameEnded,
     handleGamePlayerLeft,

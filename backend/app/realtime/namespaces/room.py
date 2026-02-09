@@ -97,6 +97,7 @@ from ..utils import (
     block_vote_and_clear,
     decide_vote_blocks_on_death,
     get_positive_setting_int,
+    randomize_limit,
     compute_farewell_allowed,
     perform_game_end,
     finish_game,
@@ -1195,6 +1196,8 @@ async def game_start(sid, data) -> GameStartAck:
 
         player_ids = [str(x) for x in ready_ids if str(x) != str(head_uid)]
         random.shuffle(player_ids)
+        winks_left_map = {pid: str(randomize_limit(winks_limit)) for pid in player_ids}
+        knocks_left_map = {pid: str(randomize_limit(knocks_limit)) for pid in player_ids}
         seats: dict[str, int] = {}
         slot = 1
         for pid in player_ids:
@@ -1245,8 +1248,8 @@ async def game_start(sid, data) -> GameStartAck:
                 )
                 await p.sadd(f"room:{rid}:game_players", *player_ids)
                 await p.sadd(f"room:{rid}:game_alive", *player_ids)
-                await p.hset(f"room:{rid}:game_winks_left", mapping={pid: str(winks_limit) for pid in player_ids})
-                await p.hset(f"room:{rid}:game_knocks_left", mapping={pid: str(knocks_limit) for pid in player_ids})
+                await p.hset(f"room:{rid}:game_winks_left", mapping=winks_left_map)
+                await p.hset(f"room:{rid}:game_knocks_left", mapping=knocks_left_map)
             await p.delete(f"room:{rid}:ready")
             await p.execute()
 
@@ -1284,6 +1287,22 @@ async def game_start(sid, data) -> GameStartAck:
                        payload,
                        room=f"room:{rid}",
                        namespace="/room")
+
+        if player_ids:
+            for pid in player_ids:
+                try:
+                    await sio.emit(
+                        "game_limits",
+                        {
+                            "room_id": rid,
+                            "winks_left": int(winks_left_map.get(pid) or 0),
+                            "knocks_left": int(knocks_left_map.get(pid) or 0),
+                        },
+                        room=f"user:{pid}",
+                        namespace="/room",
+                    )
+                except Exception:
+                    log.exception("sio.game_limits.emit_failed", rid=rid, uid=pid)
 
         alive_cnt = len(player_ids)
         await sio.emit("rooms_occupancy",

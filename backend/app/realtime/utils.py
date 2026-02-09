@@ -1,7 +1,7 @@
 from __future__ import annotations
 import asyncio
 import json
-from random import shuffle
+from random import shuffle, randint
 import structlog
 from time import time
 from sqlalchemy import select, func, delete, or_
@@ -112,6 +112,7 @@ __all__ = [
     "should_block_vote_on_death",
     "decide_vote_blocks_on_death",
     "get_positive_setting_int",
+    "randomize_limit",
     "perform_game_end",
     "finish_game",
     "record_spectator_leave",
@@ -724,6 +725,17 @@ def get_positive_setting_int(attr: str, default: int) -> int:
         return int(default)
 
     return val if val > 0 else int(default)
+
+
+def randomize_limit(limit: int) -> int:
+    if limit <= 0:
+        return 0
+
+    low = limit - 1
+    if low < 0:
+        low = 0
+
+    return randint(low, limit + 1)
 
 
 def ensure_can_act_role(actor_role: str, target_role: str, *, error: str = "forbidden", status: int = 403):
