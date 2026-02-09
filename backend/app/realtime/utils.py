@@ -87,9 +87,7 @@ __all__ = [
     "load_game_actions",
     "store_last_votes_snapshot",
     "get_last_votes_snapshot",
-    "day_speech_timeout_job",
     "finish_vote_speech",
-    "vote_speech_timeout_job",
     "apply_blocks_and_emit",
     "finish_day_speech",
     "get_game_fouls",
@@ -621,13 +619,6 @@ def get_day_number(raw_state: Mapping[str, Any]) -> int:
 
     except Exception:
         return 0
-
-
-def speech_elapsed_seconds(started: int, duration: int) -> int:
-    if started <= 0 or duration <= 0:
-        return 0
-
-    return max(0, min(int(time()) - started, duration))
 
 
 async def log_game_action(r, rid: int, action: Mapping[str, Any]) -> None:
@@ -2401,54 +2392,6 @@ async def advance_roles_turn(r, rid: int, *, auto: bool) -> None:
     asyncio.create_task(roles_timeout_job(rid, seq, deadline_ts))
 
 
-async def day_speech_timeout_job(rid: int, expected_started: int, expected_uid: int, duration: int) -> None:
-    try:
-        delay = int(duration)
-    except Exception:
-        delay = 0
-    if delay <= 0:
-        return
-
-    await asyncio.sleep(max(0, delay))
-
-    r = get_redis()
-    try:
-        raw_state = await r.hgetall(f"room:{rid}:game_state")
-    except Exception:
-        log.exception("day_speech_timeout.load_state_failed", rid=rid)
-        return
-
-    ctx = GameActionContext.from_raw_state(uid=expected_uid, rid=rid, r=r, raw_state=raw_state)
-    if ctx.phase != "day":
-        return
-
-    cur_started = ctx.gint("day_speech_started")
-    cur_duration = ctx.gint("day_speech_duration")
-    cur_uid = ctx.gint("day_current_uid")
-    head_uid = ctx.head_uid
-    if not head_uid or cur_uid != expected_uid or cur_started != expected_started or cur_duration != duration:
-        return
-
-    prelude_active = ctx.gbool("day_prelude_active")
-    prelude_uid = ctx.gint("day_prelude_uid")
-    try:
-        if prelude_active and prelude_uid and expected_uid == prelude_uid:
-            payload = await finish_day_prelude_speech(r, rid, raw_state, expected_uid)
-        else:
-            payload = await finish_day_speech(r, rid, raw_state, expected_uid)
-    except Exception:
-        log.exception("day_speech_timeout.finish_failed", rid=rid, uid=expected_uid)
-        return
-
-    try:
-        await sio.emit("game_day_speech",
-                       payload,
-                       room=f"room:{rid}",
-                       namespace="/room")
-    except Exception:
-        log.exception("day_speech_timeout.emit_failed", rid=rid, uid=expected_uid)
-
-
 async def finish_vote_speech(r, rid: int, raw_gstate: Mapping[str, Any], speaker_uid: int, *, reason_override: str | None = None) -> dict[str, Any]:
     ctx = GameActionContext.from_raw_state(uid=speaker_uid, rid=rid, r=r, raw_state=raw_gstate)
     head_uid = ctx.head_uid
@@ -2511,48 +2454,6 @@ async def finish_vote_speech(r, rid: int, raw_gstate: Mapping[str, Any], speaker
     return payload
 
 
-async def vote_speech_timeout_job(rid: int, expected_started: int, expected_uid: int, duration: int) -> None:
-    try:
-        delay = int(duration)
-    except Exception:
-        delay = 0
-    if delay <= 0:
-        return
-
-    await asyncio.sleep(max(0, delay))
-
-    r = get_redis()
-    try:
-        raw_state = await r.hgetall(f"room:{rid}:game_state")
-    except Exception:
-        log.exception("vote_speech_timeout.load_state_failed", rid=rid)
-        return
-
-    ctx = GameActionContext.from_raw_state(uid=expected_uid, rid=rid, r=r, raw_state=raw_state)
-    if ctx.phase != "vote":
-        return
-
-    cur_started = ctx.gint("vote_speech_started")
-    cur_duration = ctx.gint("vote_speech_duration")
-    cur_uid = ctx.gint("vote_speech_uid")
-    if cur_uid != expected_uid or cur_started != expected_started or cur_duration != duration:
-        return
-
-    try:
-        payload = await finish_vote_speech(r, rid, raw_state, expected_uid)
-    except Exception:
-        log.exception("vote_speech_timeout.finish_failed", rid=rid, uid=expected_uid)
-        return
-
-    try:
-        await sio.emit("game_day_speech",
-                       payload,
-                       room=f"room:{rid}",
-                       namespace="/room")
-    except Exception:
-        log.exception("vote_speech_timeout.emit_failed", rid=rid, uid=expected_uid)
-        
-        
 async def emit_game_night_state(rid: int, raw_gstate: Mapping[str, Any]) -> None:
     ctx = GameActionContext.from_raw_state(uid=0, rid=rid, r=None, raw_state=raw_gstate)
     if ctx.phase != "night":
