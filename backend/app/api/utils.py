@@ -93,6 +93,7 @@ __all__ = [
     "pair",
     "load_link",
     "emit_notify",
+    "emit_friends_update",
 ]
 
 log = structlog.get_logger()

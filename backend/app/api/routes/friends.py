@@ -11,7 +11,7 @@ from ...models.user import User
 from ...models.notif import Notif
 from ...realtime.utils import get_rooms_brief
 from ...schemas.common import Identity, Ok
-from ...schemas.friend import FriendStatusOut, FriendsListOut, FriendItemOut, FriendRequestOut, FriendIncomingCountOut, FriendInviteIn
+from ...schemas.friend import FriendStatusOut, FriendsListOut, FriendItemOut, FriendRequestOut, FriendCountsOut, FriendInviteIn
 from ...schemas.room import RoomBriefOut
 from ...security.auth_tokens import get_identity
 from ...security.decorators import log_route, rate_limited
@@ -46,7 +46,7 @@ async def friend_status(user_id: int, ident: Identity = Depends(get_identity), d
 
 
 @log_route("friends.list")
-@rate_limited(lambda ident, **_: f"rl:friends:list:{ident['id']}", limit=5, window_s=1)
+@rate_limited(lambda ident, **_: f"rl:friends:list:{ident['id']}", limit=10, window_s=1)
 @router.get("/list", response_model=FriendsListOut)
 async def friends_list(tab: str | None = None, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> FriendsListOut:
     uid = int(ident["id"])
@@ -160,7 +160,6 @@ async def friends_list(tab: str | None = None, ident: Identity = Depends(get_ide
             room_in_game=bool(info.in_game) if info else None,
         )
 
-    friends_items: list[FriendItemOut] = []
     online_items: list[FriendItemOut] = []
     offline_items: list[FriendItemOut] = []
     if want_accepted and friend_ids:
@@ -205,16 +204,44 @@ async def friends_list(tab: str | None = None, ident: Identity = Depends(get_ide
     )
 
 
-@log_route("friends.incoming_count")
-@rate_limited(lambda ident, **_: f"rl:friends:incoming_count:{ident['id']}", limit=10, window_s=1)
-@router.get("/incoming_count", response_model=FriendIncomingCountOut)
-async def incoming_count(ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> FriendIncomingCountOut:
+@log_route("friends.counts")
+@rate_limited(lambda ident, **_: f"rl:friends:counts:{ident['id']}", limit=10, window_s=1)
+@router.get("/counts", response_model=FriendCountsOut)
+async def friends_counts(ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> FriendCountsOut:
     uid = int(ident["id"])
-    count = await db.scalar(
+    accepted_rows = await db.execute(
+        select(FriendLink.requester_id, FriendLink.addressee_id)
+        .where(FriendLink.status == "accepted", or_(FriendLink.requester_id == uid, FriendLink.addressee_id == uid))
+    )
+    friend_ids = {
+        int(addressee_id if requester_id == uid else requester_id)
+        for requester_id, addressee_id in accepted_rows.all()
+    }
+    total = len(friend_ids)
+    incoming_count = await db.scalar(
         select(func.count(FriendLink.id))
         .where(FriendLink.status == "pending", FriendLink.addressee_id == uid)
     )
-    return FriendIncomingCountOut(count=int(count or 0))
+    outgoing_count = await db.scalar(
+        select(func.count(FriendLink.id))
+        .where(FriendLink.status == "pending", FriendLink.requester_id == uid)
+    )
+
+    online_count = 0
+    offline_count = 0
+    if friend_ids:
+        r = get_redis()
+        online_ids = set(await fetch_online_user_ids(r))
+        online_count = sum(1 for fid in friend_ids if fid in online_ids)
+        offline_count = total - online_count
+
+    return FriendCountsOut(
+        online=int(online_count),
+        offline=int(offline_count),
+        incoming=int(incoming_count or 0),
+        outgoing=int(outgoing_count or 0),
+        total=int(total),
+    )
 
 
 @log_route("friends.request_send")
