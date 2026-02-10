@@ -29,21 +29,19 @@
                     <span class="room">{{ f.room_title || ('Комната #' + f.room_id) }}</span>
                     <span class="game" :class="{ active: f.room_in_game }">{{ f.room_in_game ? 'Игра' : 'Лобби' }}</span>
                   </template>
-                  <template v-else>
-                    <div class="invite-select" :class="{ open: inviteOpenFor === f.id }">
-                      <button type="button" class="icon-btn invite-btn" @click="toggleInvite(f.id)" :aria-expanded="String(inviteOpenFor === f.id)" :aria-label="inviteLabel(f.kind)">
-                        <img :src="inviteIcon(f.kind)" alt="" />
-                      </button>
-                      <Transition name="menu">
-                        <ul v-show="inviteOpenFor === f.id" role="listbox">
-                          <li v-for="r in rooms" :key="r.id" class="option" @click="invite(f.id, r.id)">
-                            <span>{{ r.title }}</span>
-                          </li>
-                          <li v-if="rooms.length === 0" class="empty" aria-disabled="true">Нет активных комнат</li>
-                        </ul>
-                      </Transition>
-                    </div>
-                  </template>
+                  <div class="invite-select" :class="{ open: inviteOpenFor === f.id }">
+                    <button type="button" class="icon-btn invite-btn" @click="toggleInvite(f.id)" :aria-expanded="String(inviteOpenFor === f.id)" :aria-label="inviteLabel(f.kind)">
+                      <img :src="inviteIcon(f.kind)" alt="" />
+                    </button>
+                    <Transition name="menu">
+                      <ul v-show="inviteOpenFor === f.id" role="listbox">
+                        <li v-for="r in rooms" :key="r.id" class="option" @click="invite(f.id, r.id)">
+                          <span>{{ r.title }}</span>
+                        </li>
+                        <li v-if="rooms.length === 0" class="empty" aria-disabled="true">Нет активных комнат</li>
+                      </ul>
+                    </Transition>
+                  </div>
                 </template>
               </div>
               <div v-if="f.kind === 'incoming'" class="actions">
