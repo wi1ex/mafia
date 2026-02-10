@@ -992,13 +992,14 @@ onBeforeUnmount(() => {
                   right: -1px;
                   padding: 10px;
                   gap: 5px;
-                  width: 200px;
+                  min-width: 100px;
+                  max-width: 200px;
                   border-radius: 5px;
                   background-color: $dark;
                   box-shadow: 0 5px 15px rgba($black, 0.25);
                   border: 3px solid $lead;
                   z-index: 5;
-                  pointer-events: none;
+                  pointer-events: auto;
                   .spectators-list {
                     display: flex;
                     flex-direction: column;
@@ -1012,12 +1013,6 @@ onBeforeUnmount(() => {
                         height: 20px;
                         border-radius: 50%;
                         object-fit: cover;
-                      }
-                      span {
-                        max-width: 190px;
-                        white-space: nowrap;
-                        overflow: hidden;
-                        text-overflow: ellipsis;
                       }
                     }
                   }
