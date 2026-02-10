@@ -364,7 +364,6 @@ onBeforeUnmount(() => {
           display: flex;
           flex-direction: column;
           align-items: flex-end;
-          gap: 3px;
           .room {
             font-size: 12px;
           }
@@ -546,6 +545,7 @@ onBeforeUnmount(() => {
           }
         }
         .info {
+          gap: 10px;
           .room-info {
             .room {
               font-size: 10px;
