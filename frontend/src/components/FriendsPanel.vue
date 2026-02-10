@@ -392,7 +392,7 @@ onBeforeUnmount(() => {
             min-width: 200px;
             max-height: 200px;
             overflow-y: auto;
-            padding: 5px;
+            padding: 10px;
             gap: 5px;
             border-radius: 5px;
             background-color: $graphite;
@@ -409,7 +409,7 @@ onBeforeUnmount(() => {
               cursor: pointer;
               transition: background-color 0.25s ease-in-out;
               &:hover {
-                background-color: $dark;
+                background-color: $grey;
               }
             }
             .empty {
