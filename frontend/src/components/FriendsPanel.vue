@@ -373,14 +373,14 @@ onBeforeUnmount(() => {
             height: 25px;
             border: none;
             border-radius: 5px;
-            background-color: $dark;
-            color: $fg;
+            background-color: $fg;
+            color: $bg;
             font-size: 12px;
             font-family: Manrope-Medium;
             cursor: pointer;
             transition: background-color 0.25s ease-in-out;
             &:hover {
-              background-color: $graphite;
+              background-color: $white;
             }
           }
           .invite-dropdown {
