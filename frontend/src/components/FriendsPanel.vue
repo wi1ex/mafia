@@ -42,9 +42,6 @@
                     </div>
                   </template>
                 </template>
-                <template v-else>
-                  <span class="request">{{ f.kind === 'incoming' ? 'Входящая заявка' : 'Исходящая заявка' }}</span>
-                </template>
               </div>
               <div v-if="f.kind === 'incoming'" class="actions">
                 <button class="accept" @click="accept(f.id)">Принять</button>
@@ -54,7 +51,6 @@
                 <button class="danger" @click="remove(f.id)">Удалить</button>
               </div>
             </article>
-            <div v-if="section.items.length > 0 && hasNextSection(idx)" class="section-divider"></div>
           </template>
         </template>
       </div>
@@ -207,7 +203,7 @@ onBeforeUnmount(() => {
   flex-direction: column;
   right: 0;
   top: 50px;
-  width: 500px;
+  width: 400px;
   min-height: 200px;
   max-height: 600px;
   border-radius: 5px;
@@ -245,164 +241,158 @@ onBeforeUnmount(() => {
   .list {
     display: flex;
     flex-direction: column;
-    margin: 0 10px 10px;
+    margin: 10px;
     gap: 10px;
     overflow-y: auto;
     scrollbar-width: none;
-  }
-  .section-title {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-top: 6px;
-    padding: 2px 6px 6px;
-    font-size: 12px;
-    font-family: Manrope-Medium;
-    color: $grey;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    border-bottom: 1px solid rgba($grey, 0.35);
-    .count {
-      min-width: 20px;
-      height: 18px;
-      padding: 0 6px;
-      border-radius: 999px;
-      background-color: rgba($grey, 0.2);
-      color: $fg;
-      font-size: 11px;
-      line-height: 18px;
-      text-align: center;
-    }
-  }
-  .section-divider {
-    height: 1px;
-    background: linear-gradient(90deg, rgba($grey, 0) 0%, rgba($grey, 0.4) 50%, rgba($grey, 0) 100%);
-    margin: 4px 0 2px;
-  }
-  .item {
-    display: grid;
-    grid-template-columns: 1fr 1.2fr auto;
-    align-items: center;
-    gap: 10px;
-    padding: 10px;
-    border-radius: 5px;
-    background-color: $lead;
-    box-shadow: 0 3px 5px rgba($black, 0.25);
-    .left {
+    .section-title {
       display: flex;
       align-items: center;
-      gap: 8px;
-      img {
-        width: 30px;
-        height: 30px;
-        border-radius: 50%;
-      }
-      .name {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        .nick {
-          max-width: 160px;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-        .dot {
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-          &.on { background-color: $green; }
-          &.off { background-color: $grey; }
-        }
+      justify-content: space-between;
+      font-size: 14px;
+      font-family: Manrope-Medium;
+      color: $grey;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      .count {
+        padding: 0 10px;
+        height: 16px;
+        border-radius: 999px;
+        background-color: $lead;
+        text-align: center;
+        color: $fg;
+        font-size: 12px;
+        line-height: 16px;
       }
     }
-    .info {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      .room {
-        font-size: 12px;
-      }
-      .game {
-        font-size: 12px;
-        color: $grey;
-        &.active { color: $green; }
-      }
-      .request {
-        font-size: 12px;
-        color: $grey;
-      }
-      .invite {
-        position: relative;
-        .btn {
-          height: 28px;
-          border: none;
-          border-radius: 5px;
-          background-color: $dark;
-          color: $fg;
-          font-size: 12px;
-          font-family: Manrope-Medium;
-          cursor: pointer;
+    .item {
+      display: grid;
+      grid-template-columns: 1fr 1fr auto;
+      align-items: center;
+      padding: 5px;
+      gap: 10px;
+      border-radius: 5px;
+      background-color: $lead;
+      box-shadow: 0 3px 5px rgba($black, 0.25);
+      .left {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        img {
+          width: 24px;
+          height: 24px;
+          border-radius: 50%;
         }
-        .invite-dropdown {
-          position: absolute;
-          top: 32px;
-          left: 0;
+        .name {
           display: flex;
-          flex-direction: column;
-          min-width: 220px;
-          max-height: 240px;
-          overflow-y: auto;
-          padding: 5px;
+          align-items: center;
           gap: 5px;
-          border-radius: 5px;
-          background-color: $graphite;
-          box-shadow: 3px 3px 5px rgba($black, 0.25);
-          z-index: 5;
-          button {
+          .nick {
+            max-width: 150px;
+            height: 18px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+          .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            &.on {
+              background-color: $green;
+            }
+            &.off {
+              background-color: $grey;
+            }
+          }
+        }
+      }
+      .info {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        .room {
+          font-size: 12px;
+        }
+        .game {
+          font-size: 12px;
+          color: $grey;
+          &.active {
+            color: $green;
+          }
+        }
+        .invite {
+          position: relative;
+          .btn {
             height: 28px;
             border: none;
             border-radius: 5px;
-            background-color: $lead;
+            background-color: $dark;
             color: $fg;
             font-size: 12px;
             font-family: Manrope-Medium;
             cursor: pointer;
-            &:hover { background-color: $dark; }
           }
-          .empty {
-            margin: 5px;
-            color: $grey;
+          .invite-dropdown {
+            position: absolute;
+            top: 32px;
+            left: 0;
+            display: flex;
+            flex-direction: column;
+            min-width: 220px;
+            max-height: 240px;
+            overflow-y: auto;
+            padding: 5px;
+            gap: 5px;
+            border-radius: 5px;
+            background-color: $graphite;
+            box-shadow: 3px 3px 5px rgba($black, 0.25);
+            z-index: 5;
+            button {
+              height: 28px;
+              border: none;
+              border-radius: 5px;
+              background-color: $lead;
+              color: $fg;
+              font-size: 12px;
+              font-family: Manrope-Medium;
+              cursor: pointer;
+              &:hover { background-color: $dark; }
+            }
+            .empty {
+              margin: 5px;
+              color: $grey;
+            }
           }
         }
       }
+      .actions {
+        display: flex;
+        gap: 6px;
+        button {
+          height: 28px;
+          border: none;
+          border-radius: 5px;
+          padding: 0 10px;
+          font-size: 12px;
+          font-family: Manrope-Medium;
+          cursor: pointer;
+        }
+        .accept {
+          background-color: rgba($green, 0.75);
+          color: $bg;
+        }
+        .danger {
+          background-color: rgba($red, 0.75);
+          color: $bg;
+        }
+      }
     }
-    .actions {
-      display: flex;
-      gap: 6px;
-      button {
-        height: 28px;
-        border: none;
-        border-radius: 5px;
-        padding: 0 10px;
-        font-size: 12px;
-        font-family: Manrope-Medium;
-        cursor: pointer;
-      }
-      .accept {
-        background-color: rgba($green, 0.75);
-        color: $bg;
-      }
-      .danger {
-        background-color: rgba($red, 0.75);
-        color: $bg;
-      }
+    .empty {
+      color: $grey;
+      text-align: center;
+      margin: 20px 0;
     }
-  }
-  .empty {
-    color: $grey;
-    text-align: center;
-    margin: 20px 0;
   }
 }
 

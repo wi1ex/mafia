@@ -238,7 +238,6 @@ onBeforeUnmount(() => {
     flex-direction: column;
     margin: 10px;
     gap: 10px;
-    border-radius: 5px;
     overflow-y: auto;
     scrollbar-width: none;
     .item {
