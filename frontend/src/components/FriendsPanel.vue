@@ -340,13 +340,14 @@ onBeforeUnmount(() => {
         align-items: center;
         gap: 5px;
         img {
-          width: 24px;
-          height: 24px;
+          width: 20px;
+          height: 20px;
           border-radius: 50%;
         }
         .nick {
-          max-width: 165px;
-          height: 18px;
+          max-width: 150px;
+          height: 16px;
+          font-size: 14px;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -405,7 +406,7 @@ onBeforeUnmount(() => {
           padding: 0;
           width: 200px;
           max-height: 200px;
-          border: none;
+          border: 1px solid $grey;
           border-radius: 5px;
           background-color: $graphite;
           z-index: 30;
