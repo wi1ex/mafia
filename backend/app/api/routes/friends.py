@@ -429,6 +429,15 @@ async def invite_friend(payload: FriendInviteIn, ident: Identity = Depends(get_i
     if target_id not in online_ids:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="target_offline")
 
+    cooldown_key = f"friends:invite:cooldown:{uid}:{target_id}"
+    retry_after = int(await r.ttl(cooldown_key) or 0)
+    if retry_after > 0:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="invite_cooldown",
+            headers={"Retry-After": str(retry_after)},
+        )
+
     title = "Приглашение в комнату"
     text = f"{ident['username']} приглашает Вас в «{room_title}»."
     note = Notif(user_id=target_id, title=title, text=text)
@@ -446,6 +455,7 @@ async def invite_friend(payload: FriendInviteIn, ident: Identity = Depends(get_i
             "user": {"id": uid, "username": ident["username"]},
         },
     )
+    await r.set(cooldown_key, "1", ex=3600)
 
     await log_action(
         db,

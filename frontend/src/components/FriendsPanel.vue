@@ -30,7 +30,8 @@
                     <span class="game" :class="{ active: f.room_in_game }">{{ f.room_in_game ? 'Игра' : 'Лобби' }}</span>
                   </div>
                   <div v-if="canInvite(f)" class="invite-select">
-                    <button type="button" class="icon-btn invite-btn" @click="invite(f.id)" aria-label="Пригласить в комнату">
+                    <button type="button" class="icon-btn invite-btn" :disabled="isInviteDisabled(f.id) || Boolean(inviteBusy[f.id])"
+                            :title="inviteTitle(f.id)" @click="invite(f)" aria-label="Пригласить в комнату">
                       <img :src="iconInvite" alt="" />
                     </button>
                   </div>
@@ -58,7 +59,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, nextTick, onBeforeUnmount, computed } from 'vue'
+import { ref, watch, nextTick, onBeforeUnmount, computed, reactive } from 'vue'
 import { useFriendsStore } from '@/store'
 import { confirmDialog, alertDialog, useConfirmState } from '@/services/confirm'
 
@@ -81,6 +82,10 @@ const emit = defineEmits<{
 const friends = useFriendsStore()
 const confirmState = useConfirmState()
 const root = ref<HTMLElement | null>(null)
+const inviteBusy = reactive<Record<number, boolean>>({})
+const inviteCooldownByUser = ref<Record<number, number>>({})
+const nowTs = ref(Date.now())
+let nowTimer: number | undefined
 const isRoomMode = computed(() => props.mode === 'room')
 const inviteRoomId = computed(() => Number(props.roomId || 0))
 const isAccepted = (f: { kind?: string }) => f.kind === 'online' || f.kind === 'offline'
@@ -101,6 +106,96 @@ let pollTimer: number | undefined
 let autoCloseTimer: number | undefined
 const POLL_MS = 3000
 const AUTO_CLOSE_MS = 5 * 60 * 1000
+const INVITE_COOLDOWN_MS = 60 * 60 * 1000
+
+function parseCooldownMap(raw: unknown, now = Date.now()): Record<number, number> {
+  if (!raw || typeof raw !== 'object') return {}
+  const obj = raw as Record<string, unknown>
+  const next: Record<number, number> = {}
+  for (const [uidRaw, untilRaw] of Object.entries(obj)) {
+    const uid = Number(uidRaw)
+    const until = Number(untilRaw)
+    if (!Number.isFinite(uid) || uid <= 0 || !Number.isFinite(until) || until <= now) continue
+    next[uid] = until
+  }
+  return next
+}
+
+function persistCooldowns() {
+  try {
+    localStorage.setItem('friends_invite_cooldown_v1', JSON.stringify(inviteCooldownByUser.value))
+  } catch {}
+}
+
+function loadCooldowns() {
+  try {
+    const raw = localStorage.getItem('friends_invite_cooldown_v1')
+    if (!raw) {
+      inviteCooldownByUser.value = {}
+      return
+    }
+    inviteCooldownByUser.value = parseCooldownMap(JSON.parse(raw))
+  } catch {
+    inviteCooldownByUser.value = {}
+  }
+}
+
+function pruneCooldowns(now = Date.now()) {
+  const next = parseCooldownMap(inviteCooldownByUser.value, now)
+  const changed = JSON.stringify(next) !== JSON.stringify(inviteCooldownByUser.value)
+  if (!changed) return
+  inviteCooldownByUser.value = next
+  persistCooldowns()
+}
+
+function setInviteCooldown(uid: number, untilTs = Date.now() + INVITE_COOLDOWN_MS) {
+  inviteCooldownByUser.value = {
+    ...inviteCooldownByUser.value,
+    [uid]: untilTs,
+  }
+  pruneCooldowns()
+  persistCooldowns()
+}
+
+function inviteCooldownLeftMs(uid: number): number {
+  const until = Number(inviteCooldownByUser.value[uid] || 0)
+  return Math.max(0, until - nowTs.value)
+}
+
+function isInviteDisabled(uid: number): boolean {
+  return inviteCooldownLeftMs(uid) > 0
+}
+
+function formatCooldownLeft(ms: number): string {
+  const totalMinutes = Math.max(1, Math.ceil(ms / 60000))
+  if (totalMinutes >= 60) {
+    const h = Math.floor(totalMinutes / 60)
+    const m = totalMinutes % 60
+    return m > 0 ? `${h} ч ${m} мин` : `${h} ч`
+  }
+  return `${totalMinutes} мин`
+}
+
+function inviteTitle(uid: number): string {
+  if (inviteBusy[uid]) return 'Отправка приглашения...'
+  const leftMs = inviteCooldownLeftMs(uid)
+  if (leftMs <= 0) return 'Пригласить в комнату'
+  return `Повторное приглашение через ${formatCooldownLeft(leftMs)}`
+}
+
+function startNowTimer() {
+  if (nowTimer) return
+  nowTimer = window.setInterval(() => {
+    nowTs.value = Date.now()
+    pruneCooldowns(nowTs.value)
+  }, 30_000)
+}
+
+function stopNowTimer() {
+  if (!nowTimer) return
+  window.clearInterval(nowTimer)
+  nowTimer = undefined
+}
 
 function bindDoc() {
   if (onDocDown) return
@@ -150,10 +245,25 @@ function stopAutoClose() {
   autoCloseTimer = undefined
 }
 
-async function invite(uid: number) {
-  if (!inviteRoomId.value) return
+async function invite(friend: { id: number; username?: string | null }) {
+  const uid = Number(friend.id || 0)
+  if (!inviteRoomId.value || uid <= 0) return
+  if (inviteBusy[uid]) return
+  if (isInviteDisabled(uid)) {
+    void alertDialog(`Повторное приглашение можно отправить через ${formatCooldownLeft(inviteCooldownLeftMs(uid))}`)
+    return
+  }
+  const ok = await confirmDialog({
+    title: 'Приглашение в комнату',
+    text: `Отправить приглашение пользователю ${friend.username || ('user' + uid)} в текущую комнату?`,
+    confirmText: 'Пригласить',
+    cancelText: 'Отмена',
+  })
+  if (!ok) return
+  inviteBusy[uid] = true
   try {
     await friends.inviteToRoom(uid, inviteRoomId.value)
+    setInviteCooldown(uid)
   } catch (e: any) {
     const st = e?.response?.status
     const d = e?.response?.data?.detail
@@ -169,7 +279,20 @@ async function invite(uid: number) {
       void alertDialog('Пользователь больше не в друзьях')
       return
     }
+    if (st === 429 && d === 'invite_cooldown') {
+      const retryAfterRaw = Number(e?.response?.headers?.['retry-after'])
+      if (Number.isFinite(retryAfterRaw) && retryAfterRaw > 0) {
+        setInviteCooldown(uid, Date.now() + retryAfterRaw * 1000)
+        void alertDialog(`Повторное приглашение можно отправить через ${formatCooldownLeft(retryAfterRaw * 1000)}`)
+      } else {
+        setInviteCooldown(uid)
+        void alertDialog('Повторное приглашение можно отправить через 1 час')
+      }
+      return
+    }
     void alertDialog('Не удалось отправить приглашение')
+  } finally {
+    inviteBusy[uid] = false
   }
 }
 
@@ -224,13 +347,16 @@ async function decline(uid: number) {
 watch(() => props.open, async v => {
   if (v) {
     await nextTick()
+    loadCooldowns()
     bindDoc()
     startPolling()
     startAutoClose()
+    startNowTimer()
   } else {
     unbindDoc()
     stopPolling()
     stopAutoClose()
+    stopNowTimer()
   }
 })
 
@@ -238,6 +364,7 @@ onBeforeUnmount(() => {
   unbindDoc()
   stopPolling()
   stopAutoClose()
+  stopNowTimer()
 })
 </script>
 
@@ -370,8 +497,12 @@ onBeforeUnmount(() => {
             background-color: $dark;
             cursor: pointer;
             transition: background-color 0.25s ease-in-out;
-            &:hover {
+            &:hover:enabled {
               background-color: $graphite;
+            }
+            &:disabled {
+              opacity: 0.5;
+              cursor: not-allowed;
             }
             img {
               width: 16px;
