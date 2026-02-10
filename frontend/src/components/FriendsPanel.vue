@@ -25,10 +25,10 @@
               </div>
               <div class="info">
                 <template v-if="isAccepted(f)">
-                  <template v-if="f.room_id">
+                  <div v-if="f.room_id" class="room-info">
                     <span class="room">{{ f.room_title || ('Комната #' + f.room_id) }}</span>
                     <span class="game" :class="{ active: f.room_in_game }">{{ f.room_in_game ? 'Игра' : 'Лобби' }}</span>
-                  </template>
+                  </div>
                   <div class="invite-select" :class="{ open: inviteOpenFor === f.id }">
                     <button type="button" class="icon-btn invite-btn" @click="toggleInvite(f.id)" :aria-expanded="String(inviteOpenFor === f.id)" :aria-label="inviteLabel(f.kind)">
                       <img :src="inviteIcon(f.kind)" alt="" />
@@ -359,17 +359,21 @@ onBeforeUnmount(() => {
       }
       .info {
         display: flex;
-        flex-direction: column;
-        align-items: flex-end;
-        gap: 3px;
-        .room {
-          font-size: 12px;
-        }
-        .game {
-          font-size: 12px;
-          color: $grey;
-          &.active {
-            color: $green;
+        gap: 5px;
+        .room-info {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-end;
+          gap: 3px;
+          .room {
+            font-size: 12px;
+          }
+          .game {
+            font-size: 12px;
+            color: $grey;
+            &.active {
+              color: $green;
+            }
           }
         }
         .invite-select {
@@ -542,12 +546,13 @@ onBeforeUnmount(() => {
           }
         }
         .info {
-          gap: 3px;
-          .room {
-            font-size: 10px;
-          }
-          .game {
-            font-size: 10px;
+          .room-info {
+            .room {
+              font-size: 10px;
+            }
+            .game {
+              font-size: 10px;
+            }
           }
           .invite-select {
             .invite-btn {
