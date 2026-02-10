@@ -287,6 +287,10 @@
             <img :src="iconRequestsRoom" alt="requests" />
             <span class="count-total" :class="{ unread: appsCounts.unread > 0 }">{{ appsCounts.total < 100 ? appsCounts.total : '∞' }}</span>
           </button>
+          <button v-if="gamePhase === 'idle'" ref="roomFriendsEl" @click.stop="toggleFriendsPanel" :aria-expanded="friendsPanelOpen" aria-label="Друзья">
+            <img :src="iconFriends" alt="friends" />
+            <span v-if="friends.incomingCount > 0" class="count-total unread">{{ friends.incomingCount < 100 ? friends.incomingCount : '∞' }}</span>
+          </button>
           <button v-if="canShowSettingsButton" @click.stop="toggleSettings" :aria-expanded="settingsOpen" aria-label="Настройки устройств">
             <img :src="iconSettings" alt="settings" />
           </button>
@@ -301,6 +305,14 @@
 
         <GameParamsModal
           v-model:open="gameParamsOpen"
+          :room-id="rid"
+        />
+
+        <FriendsPanel
+          v-if="gamePhase === 'idle'"
+          v-model:open="friendsPanelOpen"
+          :anchor="roomFriendsEl"
+          mode="room"
           :room-id="rid"
         />
 
@@ -389,6 +401,7 @@ import RoomTile from '@/components/RoomTile.vue'
 import RoomSetting from '@/components/RoomSetting.vue'
 import RoomRequests from '@/components/RoomRequests.vue'
 import GameParamsModal from '@/components/GameParamsModal.vue'
+import FriendsPanel from '@/components/FriendsPanel.vue'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
 import iconVolumeMax from '@/assets/svg/volumeMax.svg'
@@ -398,6 +411,7 @@ import iconVolumeMute from '@/assets/svg/volumeMute.svg'
 import gongAudioUrl from '@/assets/audio/gong.mp3'
 
 import iconLeaveRoom from '@/assets/svg/leave.svg'
+import iconFriends from '@/assets/svg/friends.svg'
 import iconSettings from '@/assets/svg/settings.svg'
 import iconRequestsRoom from '@/assets/svg/requestsRoom.svg'
 import iconReadyWhite from '@/assets/svg/readyWhite.svg'
@@ -566,6 +580,8 @@ const friendStatusLoading = reactive(new Map<string, boolean>())
 const friendBusyByUser = reactive(new Map<string, boolean>())
 const pendingScreen = ref(false)
 const settingsOpen = ref(false)
+const friendsPanelOpen = ref(false)
+const roomFriendsEl = ref<HTMLElement | null>(null)
 const gameParamsOpen = ref(false)
 const uiReady = ref(false)
 const leaving = ref(false)
@@ -867,10 +883,11 @@ function stateIcon(kind: IconKind, id: string) {
   if (isBlocked(id, kind)) return STATE_ICONS[kind].blk
   return isOn(id, kind) ? STATE_ICONS[kind].on : STATE_ICONS[kind].off
 }
-function closePanels(except?: 'card'|'apps'|'settings'|'game') {
+function closePanels(except?: 'card'|'apps'|'settings'|'friends'|'game') {
   if (except !== 'card') openPanelFor.value = ''
   if (except !== 'apps') openApps.value = false
   if (except !== 'settings') settingsOpen.value = false
+  if (except !== 'friends') friendsPanelOpen.value = false
   if (except !== 'game') gameParamsOpen.value = false
 }
 const toggleTilePanel = (id: string) => {
@@ -890,6 +907,11 @@ function toggleApps() {
   const next = !openApps.value
   closePanels('apps')
   openApps.value = next
+}
+function toggleFriendsPanel() {
+  const next = !friendsPanelOpen.value
+  closePanels('friends')
+  friendsPanelOpen.value = next
 }
 function openGameSettings() {
   const next = !gameParamsOpen.value

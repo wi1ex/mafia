@@ -23,25 +23,9 @@ export type FriendsListResponse = {
   items: FriendListItem[]
 }
 
-export type RoomBrief = {
-  id: number
-  title: string
-  user_limit: number
-  privacy: 'open' | 'private'
-  creator: number
-  creator_name: string
-  creator_avatar_name?: string | null
-  created_at: string
-  occupancy: number
-  in_game: boolean
-  game_phase: string
-  entry_closed: boolean
-}
-
 export const useFriendsStore = defineStore('friends', () => {
   const list = ref<FriendListItem[]>([])
   const incomingCount = ref(0)
-  const rooms = ref<RoomBrief[]>([])
   let inited = false
   let onFriendsUpdate: ((e: any) => void) | null = null
   let refreshTimer: number | undefined
@@ -49,11 +33,6 @@ export const useFriendsStore = defineStore('friends', () => {
   let listQueued = false
   let countLoading = false
   let countQueued = false
-
-  async function fetchRooms(): Promise<void> {
-    const { data } = await api.get<RoomBrief[]>('/rooms/active')
-    rooms.value = data
-  }
 
   async function fetchList(): Promise<void> {
     if (listLoading) {
@@ -139,8 +118,6 @@ export const useFriendsStore = defineStore('friends', () => {
   return {
     list,
     incomingCount,
-    rooms,
-    fetchRooms,
     fetchList,
     fetchIncomingCount,
     fetchStatus,

@@ -6,7 +6,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ...core.db import get_session
 from ...core.clients import get_redis
 from ...core.logging import log_action
-from ...core.settings import settings
 from ...models.friend import FriendLink, FriendCloseness
 from ...models.user import User
 from ...models.notif import Notif
@@ -17,7 +16,6 @@ from ...schemas.room import RoomBriefOut
 from ...security.auth_tokens import get_identity
 from ...security.decorators import log_route, rate_limited
 from ...api.utils import fetch_online_user_ids, get_room_params_or_404, pair, load_link, emit_notify, emit_friends_update
-from ...services.telegram import send_telegram_message
 
 router = APIRouter()
 
@@ -427,6 +425,10 @@ async def invite_friend(payload: FriendInviteIn, ident: Identity = Depends(get_i
     if not target or target.deleted_at:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="user_not_found")
 
+    online_ids = set(await fetch_online_user_ids(r))
+    if target_id not in online_ids:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="target_offline")
+
     title = "Приглашение в комнату"
     text = f"{ident['username']} приглашает Вас в «{room_title}»."
     note = Notif(user_id=target_id, title=title, text=text)
@@ -434,26 +436,16 @@ async def invite_friend(payload: FriendInviteIn, ident: Identity = Depends(get_i
     await db.commit()
     await db.refresh(note)
 
-    online_ids = set(await fetch_online_user_ids(r))
-    is_online = target_id in online_ids
-    if is_online:
-        await emit_notify(
-            target_id,
-            note,
-            kind="room_invite",
-            extra={
-                "action": {"kind": "route", "label": "Перейти", "to": f"/room/{room_id}"},
-                "room_id": room_id,
-                "user": {"id": uid, "username": ident["username"]},
-            },
-        )
-    else:
-        link_url = f"https://{settings.DOMAIN}/room/{room_id}"
-        if target.telegram_id:
-            await send_telegram_message(
-                int(target.telegram_id),
-                f"{ident['username']} приглашает Вас в «{room_title}».\n{link_url}",
-            )
+    await emit_notify(
+        target_id,
+        note,
+        kind="room_invite",
+        extra={
+            "action": {"kind": "route", "label": "Перейти", "to": f"/room/{room_id}"},
+            "room_id": room_id,
+            "user": {"id": uid, "username": ident["username"]},
+        },
+    )
 
     await log_action(
         db,

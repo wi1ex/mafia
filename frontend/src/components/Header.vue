@@ -59,6 +59,7 @@
         <FriendsPanel
           v-model:open="friends_open"
           :anchor="friendsEl"
+          mode="header"
         />
       </div>
 

@@ -1,6 +1,6 @@
 ﻿<template>
-  <Transition name="panel" @after-leave="onAfterLeave">
-    <div v-show="open" class="panel" ref="root" @click.stop>
+  <Transition name="panel">
+    <div v-show="open" :class="['panel', { 'room-mode': isRoomMode }]" ref="root" @click.stop>
       <header>
         <span>Список друзей — {{ friendsTotal }}</span>
         <button @click="$emit('update:open', false)" aria-label="Закрыть">
@@ -29,18 +29,10 @@
                     <span class="room">{{ f.room_title || ('Комната #' + f.room_id) }}</span>
                     <span class="game" :class="{ active: f.room_in_game }">{{ f.room_in_game ? 'Игра' : 'Лобби' }}</span>
                   </div>
-                  <div class="invite-select" :class="{ open: inviteOpenFor === f.id }">
-                    <button type="button" class="icon-btn invite-btn" @click="toggleInvite(f.id)" :aria-expanded="String(inviteOpenFor === f.id)" :aria-label="inviteLabel(f.kind)">
-                      <img :src="inviteIcon(f.kind)" alt="" />
+                  <div v-if="canInvite(f)" class="invite-select">
+                    <button type="button" class="icon-btn invite-btn" @click="invite(f.id)" aria-label="Пригласить в комнату">
+                      <img :src="iconInvite" alt="" />
                     </button>
-                    <Transition name="menu">
-                      <ul v-show="inviteOpenFor === f.id" role="listbox">
-                        <li v-for="r in rooms" :key="r.id" class="option" @click="invite(f.id, r.id)">
-                          <span>{{ r.title }}</span>
-                        </li>
-                        <li v-if="rooms.length === 0" class="empty" aria-disabled="true">Нет активных комнат</li>
-                      </ul>
-                    </Transition>
                   </div>
                 </template>
               </div>
@@ -73,13 +65,14 @@ import { confirmDialog, alertDialog, useConfirmState } from '@/services/confirm'
 import iconClose from '@/assets/svg/close.svg'
 import iconAccept from '@/assets/svg/readyBlack.svg'
 import iconRemove from '@/assets/svg/delete.svg'
-import iconInviteOnline from '@/assets/svg/notifBell.svg'
-import iconInviteOffline from '@/assets/svg/telegram.svg'
+import iconInvite from '@/assets/svg/notifBell.svg'
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
 
 const props = defineProps<{
   open: boolean
   anchor?: HTMLElement | null
+  mode?: 'header' | 'room'
+  roomId?: number | null
 }>()
 const emit = defineEmits<{
   'update:open': [boolean]
@@ -88,13 +81,10 @@ const emit = defineEmits<{
 const friends = useFriendsStore()
 const confirmState = useConfirmState()
 const root = ref<HTMLElement | null>(null)
-const inviteOpenFor = ref<number | null>(null)
-let inviteReqSeq = 0
-
-const rooms = computed(() => friends.rooms)
+const isRoomMode = computed(() => props.mode === 'room')
+const inviteRoomId = computed(() => Number(props.roomId || 0))
 const isAccepted = (f: { kind?: string }) => f.kind === 'online' || f.kind === 'offline'
-const inviteIcon = (kind?: string) => kind === 'online' ? iconInviteOnline : iconInviteOffline
-const inviteLabel = (kind?: string) => kind === 'online' ? 'Пригласить онлайн-друга в комнату' : 'Пригласить офлайн-друга в комнату'
+const canInvite = (f: { kind?: string }) => isRoomMode.value && inviteRoomId.value > 0 && f.kind === 'online'
 const sections = computed(() => [
   { kind: 'incoming', title: 'Входящие заявки —', items: friends.list.filter(f => f.kind === 'incoming') },
   { kind: 'online', title: 'В сети —', items: friends.list.filter(f => f.kind === 'online') },
@@ -118,11 +108,6 @@ function bindDoc() {
     const hasContains = (el: any, target: Node) => typeof el?.contains === 'function' && el.contains(target)
     const inRoot = hasContains(root.value, t)
     const inAnchor = hasContains(props.anchor, t)
-    if (inviteOpenFor.value) {
-      if (t instanceof Element && t.closest('.invite-select')) return
-      inviteOpenFor.value = null
-      if (inRoot || inAnchor) return
-    }
     if (inRoot || inAnchor) return
     emit('update:open', false)
   }
@@ -132,10 +117,6 @@ function unbindDoc() {
   if (!onDocDown) return
   document.removeEventListener('pointerdown', onDocDown)
   onDocDown = null
-}
-
-async function refreshRooms() {
-  await friends.fetchRooms()
 }
 
 function startPolling() {
@@ -166,32 +147,25 @@ function stopAutoClose() {
   autoCloseTimer = undefined
 }
 
-function onAfterLeave() {
-  inviteOpenFor.value = null
-}
-
-async function toggleInvite(uid: number) {
-  if (inviteOpenFor.value === uid) {
-    inviteOpenFor.value = null
-    return
-  }
-  const reqId = ++inviteReqSeq
-  inviteOpenFor.value = null
+async function invite(uid: number) {
+  if (!inviteRoomId.value) return
   try {
-    await refreshRooms()
-  } catch {
-    if (reqId === inviteReqSeq) void alertDialog('Не удалось загрузить список комнат')
-    return
-  }
-  if (reqId !== inviteReqSeq) return
-  inviteOpenFor.value = uid
-}
-
-async function invite(uid: number, roomId: number) {
-  inviteOpenFor.value = null
-  try {
-    await friends.inviteToRoom(uid, roomId)
-  } catch {
+    await friends.inviteToRoom(uid, inviteRoomId.value)
+  } catch (e: any) {
+    const st = e?.response?.status
+    const d = e?.response?.data?.detail
+    if (st === 409 && d === 'target_offline') {
+      void alertDialog('Пользователь не в сети')
+      return
+    }
+    if (st === 404 && d === 'user_not_found') {
+      void alertDialog('Пользователь не найден')
+      return
+    }
+    if (st === 403 && d === 'not_friends') {
+      void alertDialog('Пользователь больше не в друзьях')
+      return
+    }
     void alertDialog('Не удалось отправить приглашение')
   }
 }
@@ -248,7 +222,6 @@ watch(() => props.open, async v => {
   if (v) {
     await nextTick()
     bindDoc()
-    await refreshRooms()
     startPolling()
     startAutoClose()
   } else {
@@ -279,6 +252,11 @@ onBeforeUnmount(() => {
   background-color: $graphite;
   box-shadow: 3px 3px 5px rgba($black, 0.25);
   z-index: 100;
+  &.room-mode {
+    top: auto;
+    bottom: 50px;
+    right: 0;
+  }
   header {
     display: flex;
     justify-content: space-between;
@@ -397,43 +375,6 @@ onBeforeUnmount(() => {
               height: 16px;
             }
           }
-          &.open .invite-btn {
-            background-color: $graphite;
-          }
-        }
-        ul {
-          position: absolute;
-          top: 30px;
-          right: 0;
-          margin: 0;
-          padding: 0;
-          width: 200px;
-          max-height: 200px;
-          border: 1px solid $grey;
-          border-radius: 5px;
-          background-color: $graphite;
-          z-index: 30;
-          overflow-y: auto;
-          .option {
-            display: flex;
-            align-items: flex-start;
-            justify-content: space-between;
-            padding: 10px;
-            cursor: pointer;
-            transition: background-color 0.25s ease-in-out;
-            &:hover {
-              background-color: $lead;
-            }
-            span {
-              font-size: 12px;
-              color: $fg;
-            }
-          }
-          .empty {
-            margin: 10px;
-            color: $ashy;
-            font-size: 12px;
-          }
         }
       }
       .actions {
@@ -477,17 +418,6 @@ onBeforeUnmount(() => {
       margin: 55px;
     }
   }
-}
-
-.menu-enter-active,
-.menu-leave-active {
-  transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
-  will-change: opacity, transform;
-}
-.menu-enter-from,
-.menu-leave-to {
-  opacity: 0;
-  transform: translateY(30px);
 }
 
 .panel-enter-active,
@@ -562,18 +492,6 @@ onBeforeUnmount(() => {
                 width: 14px;
                 height: 14px;
               }
-            }
-          }
-          ul {
-            .option {
-              padding: 5px;
-              span {
-                font-size: 10px;
-              }
-            }
-            .empty {
-              margin: 5px;
-              font-size: 10px;
             }
           }
         }
