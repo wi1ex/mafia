@@ -84,7 +84,10 @@ const root = ref<HTMLElement | null>(null)
 const isRoomMode = computed(() => props.mode === 'room')
 const inviteRoomId = computed(() => Number(props.roomId || 0))
 const isAccepted = (f: { kind?: string }) => f.kind === 'online' || f.kind === 'offline'
-const canInvite = (f: { kind?: string }) => isRoomMode.value && inviteRoomId.value > 0 && f.kind === 'online'
+const canInvite = (f: { kind?: string; room_id?: number | null }) => {
+  if (!isRoomMode.value || inviteRoomId.value <= 0 || f.kind !== 'online') return false
+  return Number(f.room_id || 0) !== inviteRoomId.value
+}
 const sections = computed(() => [
   { kind: 'incoming', title: 'Входящие заявки —', items: friends.list.filter(f => f.kind === 'incoming') },
   { kind: 'online', title: 'В сети —', items: friends.list.filter(f => f.kind === 'online') },
