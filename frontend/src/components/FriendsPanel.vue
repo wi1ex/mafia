@@ -21,10 +21,7 @@
             <article v-for="f in section.items" :key="`${f.kind}-${f.id}`" class="item">
               <div class="left">
                 <img v-minio-img="{ key: f.avatar_name ? `avatars/${f.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
-                <div class="name">
-                  <span class="nick">{{ f.username || ('user' + f.id) }}</span>
-                  <span v-if="isAccepted(f)" class="dot" :class="{ on: f.online, off: !f.online }"></span>
-                </div>
+                <span class="nick">{{ f.username || ('user' + f.id) }}</span>
               </div>
               <div class="info">
                 <template v-if="isAccepted(f)">
@@ -283,28 +280,12 @@ onBeforeUnmount(() => {
           height: 24px;
           border-radius: 50%;
         }
-        .name {
-          display: flex;
-          align-items: center;
-          gap: 5px;
-          .nick {
-            max-width: 150px;
-            height: 18px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-          }
-          .dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            &.on {
-              background-color: $green;
-            }
-            &.off {
-              background-color: $grey;
-            }
-          }
+        .nick {
+          max-width: 150px;
+          height: 18px;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
       }
       .info {
