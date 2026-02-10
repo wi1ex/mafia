@@ -2,7 +2,7 @@
   <Transition name="panel" @after-leave="onAfterLeave">
     <div v-show="open" class="panel" ref="root" @click.stop>
       <header>
-        <span>Друзья</span>
+        <span>Список друзей — {{ friendsTotal }}</span>
         <button @click="$emit('update:open', false)" aria-label="Закрыть">
           <img :src="iconClose" alt="close" />
         </button>
@@ -81,11 +81,12 @@ let inviteReqSeq = 0
 const rooms = computed(() => friends.rooms)
 const isAccepted = (f: { kind?: string }) => f.kind === 'online' || f.kind === 'offline'
 const sections = computed(() => [
-  { kind: 'incoming', title: 'Входящие заявки', items: friends.list.filter(f => f.kind === 'incoming') },
-  { kind: 'online', title: 'В сети', items: friends.list.filter(f => f.kind === 'online') },
-  { kind: 'offline', title: 'Не в сети', items: friends.list.filter(f => f.kind === 'offline') },
-  { kind: 'outgoing', title: 'Исходящие заявки', items: friends.list.filter(f => f.kind === 'outgoing') },
+  { kind: 'incoming', title: 'Входящие заявки —', items: friends.list.filter(f => f.kind === 'incoming') },
+  { kind: 'online', title: 'В сети —', items: friends.list.filter(f => f.kind === 'online') },
+  { kind: 'offline', title: 'Не в сети —', items: friends.list.filter(f => f.kind === 'offline') },
+  { kind: 'outgoing', title: 'Исходящие заявки —', items: friends.list.filter(f => f.kind === 'outgoing') },
 ])
+const friendsTotal = computed(() => friends.list.filter(f => f.kind === 'online' || f.kind === 'offline').length)
 
 let onDocDown: ((e: Event) => void) | null = null
 let pollTimer: number | undefined
@@ -99,10 +100,14 @@ function bindDoc() {
     if (confirmState.open) return
     const t = e.target as Node | null
     if (!t) return
-    const inRoot = !!root.value?.contains(t)
-    const inAnchor = !!(props.anchor && props.anchor.contains(t))
+    const hasContains = (el: any, target: Node) => typeof el?.contains === 'function' && el.contains(target)
+    const inRoot = hasContains(root.value, t)
+    const inAnchor = hasContains(props.anchor, t)
     if (inviteOpenFor.value) {
-      const inDropdown = !!inviteDropdownEl.value?.contains(t)
+      const dropdown = inviteDropdownEl.value as any
+      const inDropdown = Array.isArray(dropdown)
+        ? dropdown.some((el) => hasContains(el, t))
+        : hasContains(dropdown, t)
       if (inDropdown) return
       inviteOpenFor.value = null
       if (inRoot || inAnchor) return
