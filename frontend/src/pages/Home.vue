@@ -336,7 +336,7 @@ const spectatorsLabel = computed(() => {
 })
 const spectatorsTooltipEnabled = computed(() => {
   const limit = game.value?.spectators_limit ?? 0
-  return !!selectedRoom.value?.in_game && limit > 0
+  return auth.isAuthed && !!selectedRoom.value?.in_game && limit > 0
 })
 const spectatorsTooltipVisible = computed(() => spectatorsHover.value && spectatorsTooltipEnabled.value)
 
@@ -670,6 +670,15 @@ watch(() => selectedRoom.value?.in_game, (inGame) => {
   }
 })
 
+watch(() => auth.isAuthed, (ok) => {
+  if (!ok) {
+    spectatorsHover.value = false
+    spectators.value = []
+    spectatorsLoading.value = false
+    spectatorsError.value = ''
+  }
+})
+
 watch(() => route.query.focus, (v) => {
   const id = Number(v)
   if (Number.isFinite(id)) selectRoom(id)
@@ -947,6 +956,7 @@ onBeforeUnmount(() => {
                 cursor: default;
                 &.disabled {
                   cursor: default;
+                  pointer-events: none;
                 }
                 &.active {
                   color: $fg;
