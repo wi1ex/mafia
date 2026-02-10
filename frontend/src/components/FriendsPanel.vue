@@ -31,10 +31,20 @@
                   </template>
                   <template v-else>
                     <div class="invite">
-                      <button class="btn" @click="toggleInvite(f.id)">Пригласить</button>
-                      <div v-if="inviteOpenFor === f.id" ref="inviteDropdownEl" class="invite-dropdown">
-                        <button v-for="r in rooms" :key="r.id" @click="invite(f.id, r.id)">{{ r.title }}</button>
-                        <p v-if="rooms.length === 0" class="empty">Нет активных комнат</p>
+                      <div class="invite-select" :class="{ open: inviteOpenFor === f.id }">
+                        <button type="button" @click="toggleInvite(f.id)" :aria-expanded="String(inviteOpenFor === f.id)">
+                          <span class="invite-icon" :class="f.kind" aria-hidden="true"></span>
+                          <span>Пригласить</span>
+                          <img :src="iconArrowDown" alt="arrow" />
+                        </button>
+                        <Transition name="menu">
+                          <ul v-show="inviteOpenFor === f.id" role="listbox">
+                            <li v-for="r in rooms" :key="r.id" class="option" @click="invite(f.id, r.id)">
+                              <span>{{ r.title }}</span>
+                            </li>
+                            <li v-if="rooms.length === 0" class="empty" aria-disabled="true">Нет активных комнат</li>
+                          </ul>
+                        </Transition>
                       </div>
                     </div>
                   </template>
@@ -61,6 +71,7 @@ import { useFriendsStore } from '@/store'
 import { confirmDialog, alertDialog, useConfirmState } from '@/services/confirm'
 
 import iconClose from '@/assets/svg/close.svg'
+import iconArrowDown from '@/assets/svg/arrowDown.svg'
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
 
 const props = defineProps<{
@@ -75,7 +86,6 @@ const friends = useFriendsStore()
 const confirmState = useConfirmState()
 const root = ref<HTMLElement | null>(null)
 const inviteOpenFor = ref<number | null>(null)
-const inviteDropdownEl = ref<HTMLElement | null>(null)
 let inviteReqSeq = 0
 
 const rooms = computed(() => friends.rooms)
@@ -104,11 +114,7 @@ function bindDoc() {
     const inRoot = hasContains(root.value, t)
     const inAnchor = hasContains(props.anchor, t)
     if (inviteOpenFor.value) {
-      const dropdown = inviteDropdownEl.value as any
-      const inDropdown = Array.isArray(dropdown)
-        ? dropdown.some((el) => hasContains(el, t))
-        : hasContains(dropdown, t)
-      if (inDropdown) return
+      if (t instanceof Element && t.closest('.invite-select')) return
       inviteOpenFor.value = null
       if (inRoot || inAnchor) return
     }
@@ -366,56 +372,91 @@ onBeforeUnmount(() => {
         }
         .invite {
           position: relative;
-          .btn {
-            display: flex;
-            align-items: center;
-            padding: 5px 10px;
-            height: 25px;
-            border: none;
-            border-radius: 5px;
-            background-color: $fg;
-            color: $bg;
-            font-size: 12px;
-            font-family: Manrope-Medium;
-            cursor: pointer;
-            transition: background-color 0.25s ease-in-out;
-            &:hover {
-              background-color: $white;
-            }
-          }
-          .invite-dropdown {
-            position: absolute;
-            top: 30px;
-            right: 0;
-            display: flex;
-            flex-direction: column;
-            min-width: 200px;
-            max-height: 200px;
-            overflow-y: auto;
-            padding: 10px;
-            gap: 5px;
-            border-radius: 5px;
-            background-color: $graphite;
+          .invite-select {
+            position: relative;
+            width: 200px;
             box-shadow: 3px 3px 5px rgba($black, 0.25);
-            z-index: 5;
             button {
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              gap: 6px;
+              width: 100%;
               height: 28px;
-              border: none;
+              border: 1px solid $lead;
               border-radius: 5px;
-              background-color: $lead;
-              color: $fg;
-              font-size: 12px;
-              font-family: Manrope-Medium;
+              background-color: $dark;
+              padding: 0 8px;
               cursor: pointer;
               transition: background-color 0.25s ease-in-out;
               &:hover {
-                background-color: $grey;
+                background-color: $graphite;
+              }
+              span {
+                height: 16px;
+                color: $fg;
+                font-size: 12px;
+                font-family: Manrope-Medium;
+                line-height: 1;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+              }
+              img {
+                width: 12px;
+                height: 12px;
+              }
+            }
+          }
+          .invite-icon {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: $grey;
+            flex: 0 0 auto;
+            &.online {
+              background-color: $green;
+            }
+            &.offline {
+              background-color: $ashy;
+            }
+          }
+          ul {
+            position: absolute;
+            z-index: 30;
+            top: 30px;
+            right: 0;
+            margin: 0;
+            padding: 0;
+            width: calc(100% - 2px);
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid $lead;
+            border-radius: 5px;
+            background-color: $graphite;
+            .option {
+              display: flex;
+              align-items: flex-start;
+              justify-content: space-between;
+              padding: 8px;
+              cursor: pointer;
+              transition: background-color 0.25s ease-in-out;
+              &:hover {
+                background-color: $lead;
+              }
+              span {
+                height: 16px;
+                font-size: 12px;
+                color: $fg;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
               }
             }
             .empty {
-              margin: 5px;
-              font-size: 12px;
+              padding: 8px;
               color: $grey;
+              font-size: 12px;
             }
           }
         }
@@ -457,6 +498,17 @@ onBeforeUnmount(() => {
       margin: 55px;
     }
   }
+}
+
+.menu-enter-active,
+.menu-leave-active {
+  transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
+  will-change: opacity, transform;
+}
+.menu-enter-from,
+.menu-leave-to {
+  opacity: 0;
+  transform: translateY(30px);
 }
 
 .panel-enter-active,
