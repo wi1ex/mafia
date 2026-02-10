@@ -30,22 +30,19 @@
                     <span class="game" :class="{ active: f.room_in_game }">{{ f.room_in_game ? 'Игра' : 'Лобби' }}</span>
                   </template>
                   <template v-else>
-                    <div class="invite">
-                      <div class="invite-select" :class="{ open: inviteOpenFor === f.id }">
-                        <button type="button" @click="toggleInvite(f.id)" :aria-expanded="String(inviteOpenFor === f.id)">
-                          <span class="invite-icon" :class="f.kind" aria-hidden="true"></span>
-                          <span>Пригласить</span>
-                          <img :src="iconArrowDown" alt="arrow" />
-                        </button>
-                        <Transition name="menu">
-                          <ul v-show="inviteOpenFor === f.id" role="listbox">
-                            <li v-for="r in rooms" :key="r.id" class="option" @click="invite(f.id, r.id)">
-                              <span>{{ r.title }}</span>
-                            </li>
-                            <li v-if="rooms.length === 0" class="empty" aria-disabled="true">Нет активных комнат</li>
-                          </ul>
-                        </Transition>
-                      </div>
+                    <div class="invite-select" :class="{ open: inviteOpenFor === f.id }">
+                      <button type="button" @click="toggleInvite(f.id)" :aria-expanded="String(inviteOpenFor === f.id)">
+                        <span>Пригласить</span>
+                        <img :src="iconArrowDown" alt="arrow" />
+                      </button>
+                      <Transition name="menu">
+                        <ul v-show="inviteOpenFor === f.id" role="listbox">
+                          <li v-for="r in rooms" :key="r.id" class="option" @click="invite(f.id, r.id)">
+                            <span>{{ r.title }}</span>
+                          </li>
+                          <li v-if="rooms.length === 0" class="empty" aria-disabled="true">Нет активных комнат</li>
+                        </ul>
+                      </Transition>
                     </div>
                   </template>
                 </template>
@@ -370,94 +367,68 @@ onBeforeUnmount(() => {
             color: $green;
           }
         }
-        .invite {
+        .invite-select {
           position: relative;
-          .invite-select {
-            position: relative;
-            width: 200px;
-            box-shadow: 3px 3px 5px rgba($black, 0.25);
-            button {
-              display: flex;
-              align-items: center;
-              justify-content: space-between;
-              gap: 6px;
-              width: 100%;
-              height: 28px;
-              border: 1px solid $lead;
-              border-radius: 5px;
-              background-color: $dark;
-              padding: 0 8px;
-              cursor: pointer;
-              transition: background-color 0.25s ease-in-out;
-              &:hover {
-                background-color: $graphite;
-              }
-              span {
-                height: 16px;
-                color: $fg;
-                font-size: 12px;
-                font-family: Manrope-Medium;
-                line-height: 1;
-                white-space: nowrap;
-                overflow: hidden;
-                text-overflow: ellipsis;
-              }
-              img {
-                width: 12px;
-                height: 12px;
-              }
-            }
-          }
-          .invite-icon {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background-color: $grey;
-            flex: 0 0 auto;
-            &.online {
-              background-color: $green;
-            }
-            &.offline {
-              background-color: $ashy;
-            }
-          }
-          ul {
-            position: absolute;
-            z-index: 30;
-            top: 30px;
-            right: 0;
-            margin: 0;
-            padding: 0;
-            width: calc(100% - 2px);
-            max-height: 200px;
-            overflow-y: auto;
-            border: 1px solid $lead;
+          button {
+            display: flex;
+            align-items: center;
+            padding: 5px 10px;
+            gap: 5px;
+            width: 100%;
+            height: 25px;
+            border: none;
             border-radius: 5px;
-            background-color: $graphite;
-            .option {
-              display: flex;
-              align-items: flex-start;
-              justify-content: space-between;
-              padding: 8px;
-              cursor: pointer;
-              transition: background-color 0.25s ease-in-out;
-              &:hover {
-                background-color: $lead;
-              }
-              span {
-                height: 16px;
-                font-size: 12px;
-                color: $fg;
-                white-space: nowrap;
-                overflow: hidden;
-                text-overflow: ellipsis;
-              }
+            background-color: $dark;
+            cursor: pointer;
+            transition: background-color 0.25s ease-in-out;
+            &:hover {
+              background-color: $graphite;
             }
-            .empty {
-              padding: 8px;
-              color: $grey;
+            span {
+              height: 14px;
+              color: $fg;
               font-size: 12px;
+              font-family: Manrope-Medium;
+              line-height: 1;
             }
+            img {
+              width: 14px;
+              height: 14px;
+            }
+          }
+        }
+        ul {
+          position: absolute;
+          top: 30px;
+          right: 0;
+          margin: 0;
+          padding: 0;
+          width: 200px;
+          max-height: 200px;
+          border: none;
+          border-radius: 5px;
+          background-color: $graphite;
+          z-index: 30;
+          overflow-y: auto;
+          .option {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            padding: 10px;
+            cursor: pointer;
+            transition: background-color 0.25s ease-in-out;
+            &:hover {
+              background-color: $lead;
+            }
+            span {
+              font-size: 12px;
+              color: $fg;
+            }
+          }
+          .empty {
+            margin: 10px;
+            color: $ashy;
+            font-size: 12px;
           }
         }
       }
