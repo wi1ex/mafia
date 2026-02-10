@@ -81,9 +81,11 @@
                 <span class="header-text">Параметры игры:</span>
                 <div class="ri-game-div">
                   <span>Зрители</span>
-                  <span class="spectators-wrap" :class="{ active: spectatorsTooltipVisible, disabled: !spectatorsTooltipEnabled }"
-                        @pointerenter="onSpectatorsEnter" @pointerleave="onSpectatorsLeave" >
-                    {{ spectatorsLabel }}
+                  <span ref="spectatorsWrapEl" class="spectators-wrap" :class="{ active: spectatorsTooltipVisible }">
+                    <button v-if="spectatorsTooltipEnabled" class="spectators-btn" type="button" @click.stop="onSpectatorsToggle" aria-label="Показать зрителей">
+                      <img :src="iconVisSpect" alt="" aria-hidden="true" />
+                    </button>
+                    <span class="spectators-text" :class="{ inactive: !spectatorsTooltipEnabled }">{{ spectatorsLabel }}</span>
                     <div v-if="spectatorsTooltipVisible" class="spectators-tooltip">
                       <div v-if="spectatorsLoading" class="spectators-muted">Загрузка...</div>
                       <div v-else-if="spectatorsError" class="spectators-muted">{{ spectatorsError }}</div>
@@ -172,6 +174,7 @@ import iconLockOpen from '@/assets/svg/lockOpen.svg'
 import iconLockClose from '@/assets/svg/lockClose.svg'
 import iconClose from '@/assets/svg/close.svg'
 import iconDelete from '@/assets/svg/delete.svg'
+import iconVisSpect from '@/assets/svg/visOn.svg'
 
 type Room = {
   id: number
@@ -243,7 +246,8 @@ const info = ref<(RoomMembers & { game?: Game }) | null>(null)
 const spectators = ref<RoomSpectator[]>([])
 const spectatorsLoading = ref(false)
 const spectatorsError = ref('')
-const spectatorsHover = ref(false)
+const spectatorsOpen = ref(false)
+const spectatorsWrapEl = ref<HTMLElement | null>(null)
 let spectatorsReqSeq = 0
 
 const selectedId = ref<number | null>(null)
@@ -338,7 +342,7 @@ const spectatorsTooltipEnabled = computed(() => {
   const limit = game.value?.spectators_limit ?? 0
   return auth.isAuthed && !!selectedRoom.value?.in_game && limit > 0
 })
-const spectatorsTooltipVisible = computed(() => spectatorsHover.value && spectatorsTooltipEnabled.value)
+const spectatorsTooltipVisible = computed(() => spectatorsOpen.value && spectatorsTooltipEnabled.value)
 
 function roomStatusLabel(room: Room): string {
   if (room.in_game) return 'game'
@@ -395,14 +399,10 @@ async function loadSpectators() {
   }
 }
 
-function onSpectatorsEnter() {
+function onSpectatorsToggle() {
   if (!spectatorsTooltipEnabled.value) return
-  spectatorsHover.value = true
-  void loadSpectators()
-}
-
-function onSpectatorsLeave() {
-  spectatorsHover.value = false
+  spectatorsOpen.value = !spectatorsOpen.value
+  if (spectatorsOpen.value) void loadSpectators()
 }
 
 async function onCreated(room: any) {
@@ -547,6 +547,13 @@ function scheduleInfoRefresh(id: number, delay: number) {
 
 function onGlobalPointerDown(e: PointerEvent) {
   const target = e.target as Node | null
+  if (spectatorsOpen.value) {
+    const wrap = spectatorsWrapEl.value
+    if (!wrap || (target && !wrap.contains(target))) {
+      spectatorsOpen.value = false
+      return
+    }
+  }
   if ( (target && listEl.value && listEl.value.contains(target)) || (target && rightEl.value && rightEl.value.contains(target)) ) return
   clearSelection()
 }
@@ -655,7 +662,7 @@ watch([selectedId, () => auth.isAuthed], ([id, ok]) => {
 })
 
 watch(selectedId, () => {
-  spectatorsHover.value = false
+  spectatorsOpen.value = false
   spectators.value = []
   spectatorsLoading.value = false
   spectatorsError.value = ''
@@ -663,7 +670,7 @@ watch(selectedId, () => {
 
 watch(() => selectedRoom.value?.in_game, (inGame) => {
   if (!inGame) {
-    spectatorsHover.value = false
+    spectatorsOpen.value = false
     spectators.value = []
     spectatorsLoading.value = false
     spectatorsError.value = ''
@@ -672,7 +679,7 @@ watch(() => selectedRoom.value?.in_game, (inGame) => {
 
 watch(() => auth.isAuthed, (ok) => {
   if (!ok) {
-    spectatorsHover.value = false
+    spectatorsOpen.value = false
     spectators.value = []
     spectatorsLoading.value = false
     spectatorsError.value = ''
@@ -954,12 +961,34 @@ onBeforeUnmount(() => {
                 justify-content: flex-end;
                 gap: 6px;
                 cursor: default;
-                &.disabled {
-                  cursor: default;
-                  pointer-events: none;
-                }
                 &.active {
                   color: $fg;
+                }
+                .spectators-btn {
+                  display: inline-flex;
+                  align-items: center;
+                  justify-content: center;
+                  width: 16px;
+                  height: 16px;
+                  padding: 0;
+                  border: none;
+                  background: none;
+                  cursor: pointer;
+                  img {
+                    width: 14px;
+                    height: 14px;
+                  }
+                  &:disabled {
+                    cursor: default;
+                    opacity: 0.5;
+                  }
+                }
+                .spectators-text {
+                  display: inline-flex;
+                  align-items: center;
+                  &.inactive {
+                    opacity: 0.85;
+                  }
                 }
                 .spectators-tooltip {
                   position: absolute;
