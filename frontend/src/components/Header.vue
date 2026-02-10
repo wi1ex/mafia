@@ -421,11 +421,15 @@ function openAuth(mode: 'login' | 'register') {
   letter-spacing: 1px;
   gap: 5px;
   a {
+    display: flex;
+    align-items: center;
+    gap: 3px;
     color: $black;
     text-decoration: underline;
     img {
       width: 16px;
       height: 16px;
+      filter: brightness(0);
     }
   }
   &.sanction-banner--ban {

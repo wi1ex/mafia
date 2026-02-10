@@ -73,7 +73,7 @@ import { useFriendsStore } from '@/store'
 import { confirmDialog, alertDialog, useConfirmState } from '@/services/confirm'
 
 import iconClose from '@/assets/svg/close.svg'
-import iconAccept from '@/assets/svg/readyWhite.svg'
+import iconAccept from '@/assets/svg/readyBlack.svg'
 import iconRemove from '@/assets/svg/delete.svg'
 import iconInviteOnline from '@/assets/svg/notifBell.svg'
 import iconInviteOffline from '@/assets/svg/telegram.svg'
@@ -355,12 +355,8 @@ onBeforeUnmount(() => {
           border-radius: 50%;
         }
         .nick {
-          max-width: 150px;
           height: 16px;
           font-size: 14px;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
         }
       }
       .info {
@@ -523,6 +519,73 @@ onBeforeUnmount(() => {
     .list {
       margin: 5px;
       gap: 5px;
+      .section-title {
+        gap: 3px;
+        font-size: 10px;
+        .count {
+          padding: 0 5px;
+          height: 14px;
+          font-size: 8px;
+          line-height: 14px;
+        }
+      }
+      .item {
+        padding: 3px;
+        gap: 10px;
+        .left {
+          gap: 3px;
+          img {
+            width: 16px;
+            height: 16px;
+          }
+          .nick {
+            height: 14px;
+            font-size: 12px;
+          }
+        }
+        .info {
+          gap: 3px;
+          .room {
+            font-size: 10px;
+          }
+          .game {
+            font-size: 10px;
+          }
+          .invite-select {
+            .invite-btn {
+              width: 20px;
+              height: 20px;
+              img {
+                width: 14px;
+                height: 14px;
+              }
+            }
+          }
+          ul {
+            .option {
+              padding: 5px;
+              span {
+                font-size: 10px;
+              }
+            }
+            .empty {
+              margin: 5px;
+              font-size: 10px;
+            }
+          }
+        }
+        .actions {
+          gap: 10px;
+          button {
+            width: 20px;
+            height: 20px;
+            img {
+              width: 14px;
+              height: 14px;
+            }
+          }
+        }
+      }
     }
   }
 }
