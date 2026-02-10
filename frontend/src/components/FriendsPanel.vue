@@ -1,6 +1,6 @@
 ﻿<template>
-  <Transition name="panel">
-    <div v-show="open" :class="['panel', { 'room-mode': isRoomMode }]" ref="root" @click.stop>
+  <Transition name="friends-panel">
+    <div v-show="open" :class="['friends-panel', { 'room-mode': isRoomMode }]" ref="root" @click.stop>
       <header>
         <span>Список друзей — {{ friendsTotal }}</span>
         <button @click="$emit('update:open', false)" aria-label="Закрыть">
@@ -239,7 +239,7 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped lang="scss">
-.panel {
+.friends-panel {
   display: flex;
   position: absolute;
   flex-direction: column;
@@ -255,7 +255,7 @@ onBeforeUnmount(() => {
   &.room-mode {
     top: auto;
     bottom: 50px;
-    right: 0;
+    z-index: 25;
   }
   header {
     display: flex;
@@ -420,18 +420,18 @@ onBeforeUnmount(() => {
   }
 }
 
-.panel-enter-active,
-.panel-leave-active {
+.friends-panel-enter-active,
+.friends-panel-leave-active {
   transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
 }
-.panel-enter-from,
-.panel-leave-to {
+.friends-panel-enter-from,
+.friends-panel-leave-to {
   opacity: 0;
   transform: translateY(-30px);
 }
 
 @media (max-width: 1280px) {
-  .panel {
+  .friends-panel {
     max-height: calc(100dvh - 70px);
     header {
       padding: 5px;
