@@ -85,10 +85,10 @@
                     <button v-if="spectatorsTooltipEnabled" class="spectators-btn" type="button" @click.stop="onSpectatorsToggle" aria-label="Показать зрителей">
                       <img :src="iconVisSpect" alt="" aria-hidden="true" />
                     </button>
-                    <span class="spectators-text" :class="{ inactive: !spectatorsTooltipEnabled }">{{ spectatorsLabel }}</span>
+                    <span>{{ spectatorsLabel }}</span>
                     <div v-if="spectatorsTooltipVisible" class="spectators-tooltip">
-                      <div v-if="spectatorsError" class="spectators-muted">{{ spectatorsError }}</div>
-                      <div v-else-if="spectators.length === 0" class="spectators-muted">Нет зрителей</div>
+                      <div v-if="spectatorsError">{{ spectatorsError }}</div>
+                      <div v-else-if="spectators.length === 0">Нет зрителей</div>
                       <div v-else class="spectators-list">
                         <div v-for="s in spectators" :key="`spectator-${s.id}`" class="spectators-row">
                           <img v-minio-img="{ key: s.avatar_name ? `avatars/${s.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
@@ -983,51 +983,33 @@ onBeforeUnmount(() => {
                     width: 16px;
                     height: 16px;
                   }
-                  &:disabled {
-                    opacity: 0.5;
-                    cursor: default;
-                  }
-                }
-                .spectators-text {
-                  display: inline-flex;
-                  align-items: center;
-                  &.inactive {
-                    opacity: 0.85;
-                  }
                 }
                 .spectators-tooltip {
-                  position: absolute;
-                  top: calc(100% + 6px);
-                  right: 0;
-                  z-index: 5;
                   display: flex;
+                  position: absolute;
                   flex-direction: column;
-                  gap: 6px;
-                  min-width: 200px;
-                  max-width: 260px;
-                  max-height: 220px;
+                  top: calc(100% + 3px);
+                  right: -1px;
                   padding: 10px;
-                  border-radius: 6px;
-                  background: $dark;
-                  box-shadow: 0 8px 20px rgba($black, 0.35);
-                  border: 1px solid rgba($white, 0.08);
+                  gap: 5px;
+                  width: 200px;
+                  border-radius: 5px;
+                  background-color: $dark;
+                  box-shadow: 0 5px 15px rgba($black, 0.25);
+                  border: 3px solid $lead;
+                  z-index: 5;
                   pointer-events: none;
-                  .spectators-muted {
-                    font-size: 13px;
-                    color: $ashy;
-                  }
                   .spectators-list {
                     display: flex;
                     flex-direction: column;
-                    gap: 6px;
-                    overflow: auto;
+                    gap: 5px;
                     .spectators-row {
                       display: flex;
                       align-items: center;
-                      gap: 6px;
+                      gap: 5px;
                       img {
-                        width: 22px;
-                        height: 22px;
+                        width: 20px;
+                        height: 20px;
                         border-radius: 50%;
                         object-fit: cover;
                       }
