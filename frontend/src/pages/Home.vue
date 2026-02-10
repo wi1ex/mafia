@@ -81,14 +81,13 @@
                 <span class="header-text">Параметры игры:</span>
                 <div class="ri-game-div">
                   <span>Зрители</span>
-                  <span ref="spectatorsWrapEl" class="spectators-wrap" :class="{ active: spectatorsTooltipVisible }">
+                  <span ref="spectatorsWrapEl" class="spectators-wrap">
                     <button v-if="spectatorsTooltipEnabled" class="spectators-btn" type="button" @click.stop="onSpectatorsToggle" aria-label="Показать зрителей">
                       <img :src="iconVisSpect" alt="" aria-hidden="true" />
                     </button>
                     <span class="spectators-text" :class="{ inactive: !spectatorsTooltipEnabled }">{{ spectatorsLabel }}</span>
                     <div v-if="spectatorsTooltipVisible" class="spectators-tooltip">
-                      <div v-if="spectatorsLoading" class="spectators-muted">Загрузка...</div>
-                      <div v-else-if="spectatorsError" class="spectators-muted">{{ spectatorsError }}</div>
+                      <div v-if="spectatorsError" class="spectators-muted">{{ spectatorsError }}</div>
                       <div v-else-if="spectators.length === 0" class="spectators-muted">Нет зрителей</div>
                       <div v-else class="spectators-list">
                         <div v-for="s in spectators" :key="`spectator-${s.id}`" class="spectators-row">
@@ -380,29 +379,39 @@ function remove(id: number) {
   }
 }
 
-async function loadSpectators() {
-  const roomId = selectedId.value
-  if (!roomId || !spectatorsTooltipEnabled.value) return
-  const reqId = ++spectatorsReqSeq
+async function loadSpectators(roomId: number, reqId: number) {
   spectatorsLoading.value = true
   spectatorsError.value = ''
   try {
     const resp = await api.get(`/rooms/${roomId}/spectators`)
     if (reqId !== spectatorsReqSeq) return
+    if (selectedId.value !== roomId) return
     spectators.value = Array.isArray(resp.data?.spectators) ? resp.data.spectators : []
   } catch (err) {
     if (reqId !== spectatorsReqSeq) return
+    if (selectedId.value !== roomId) return
     spectators.value = []
     spectatorsError.value = 'Не удалось загрузить'
   } finally {
     if (reqId === spectatorsReqSeq) spectatorsLoading.value = false
   }
+  if (reqId !== spectatorsReqSeq) return
+  if (!spectatorsTooltipEnabled.value) return
+  if (selectedId.value !== roomId) return
+  spectatorsOpen.value = true
 }
 
 function onSpectatorsToggle() {
   if (!spectatorsTooltipEnabled.value) return
-  spectatorsOpen.value = !spectatorsOpen.value
-  if (spectatorsOpen.value) void loadSpectators()
+  if (spectatorsOpen.value) {
+    spectatorsOpen.value = false
+    return
+  }
+  if (spectatorsLoading.value) return
+  const roomId = selectedId.value
+  if (!roomId) return
+  const reqId = ++spectatorsReqSeq
+  void loadSpectators(roomId, reqId)
 }
 
 async function onCreated(room: any) {
@@ -955,17 +964,13 @@ onBeforeUnmount(() => {
                 color: $ashy;
               }
               .spectators-wrap {
+                display: flex;
                 position: relative;
-                display: inline-flex;
                 align-items: center;
-                justify-content: flex-end;
-                gap: 6px;
+                gap: 5px;
                 cursor: default;
-                &.active {
-                  color: $fg;
-                }
                 .spectators-btn {
-                  display: inline-flex;
+                  display: flex;
                   align-items: center;
                   justify-content: center;
                   width: 16px;
@@ -975,12 +980,12 @@ onBeforeUnmount(() => {
                   background: none;
                   cursor: pointer;
                   img {
-                    width: 14px;
-                    height: 14px;
+                    width: 16px;
+                    height: 16px;
                   }
                   &:disabled {
-                    cursor: default;
                     opacity: 0.5;
+                    cursor: default;
                   }
                 }
                 .spectators-text {
