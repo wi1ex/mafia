@@ -31,7 +31,7 @@
                   </template>
                   <template v-else>
                     <div class="invite">
-                      <button class="btn" @click="toggleInvite(f.id)">Пригласить в комнату</button>
+                      <button class="btn" @click="toggleInvite(f.id)">Пригласить</button>
                       <div v-if="inviteOpenFor === f.id" class="invite-dropdown">
                         <button v-for="r in rooms" :key="r.id" @click="invite(f.id, r.id)">{{ r.title }}</button>
                         <p v-if="rooms.length === 0" class="empty">Нет активных комнат</p>
@@ -78,10 +78,10 @@ const inviteOpenFor = ref<number | null>(null)
 const rooms = computed(() => friends.rooms)
 const isAccepted = (f: { kind?: string }) => f.kind === 'online' || f.kind === 'offline'
 const sections = computed(() => [
-  { kind: 'incoming', title: 'Входящие', items: friends.list.filter(f => f.kind === 'incoming') },
-  { kind: 'online', title: 'Онлайн', items: friends.list.filter(f => f.kind === 'online') },
-  { kind: 'offline', title: 'Оффлайн', items: friends.list.filter(f => f.kind === 'offline') },
-  { kind: 'outgoing', title: 'Исходящие', items: friends.list.filter(f => f.kind === 'outgoing') },
+  { kind: 'incoming', title: 'Входящие заявки', items: friends.list.filter(f => f.kind === 'incoming') },
+  { kind: 'online', title: 'В сети', items: friends.list.filter(f => f.kind === 'online') },
+  { kind: 'offline', title: 'Не в сети', items: friends.list.filter(f => f.kind === 'offline') },
+  { kind: 'outgoing', title: 'Исходящие заявки', items: friends.list.filter(f => f.kind === 'outgoing') },
 ])
 const hasNextSection = (idx: number) => sections.value.slice(idx + 1).some(s => s.items.length > 0)
 
