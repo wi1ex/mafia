@@ -32,7 +32,7 @@
                   <template v-else>
                     <div class="invite">
                       <button class="btn" @click="toggleInvite(f.id)">Пригласить</button>
-                      <div v-if="inviteOpenFor === f.id" class="invite-dropdown">
+                      <div v-if="inviteOpenFor === f.id" ref="inviteDropdownEl" class="invite-dropdown">
                         <button v-for="r in rooms" :key="r.id" @click="invite(f.id, r.id)">{{ r.title }}</button>
                         <p v-if="rooms.length === 0" class="empty">Нет активных комнат</p>
                       </div>
@@ -74,6 +74,8 @@ const emit = defineEmits<{
 const friends = useFriendsStore()
 const root = ref<HTMLElement | null>(null)
 const inviteOpenFor = ref<number | null>(null)
+const inviteDropdownEl = ref<HTMLElement | null>(null)
+let inviteReqSeq = 0
 
 const rooms = computed(() => friends.rooms)
 const isAccepted = (f: { kind?: string }) => f.kind === 'online' || f.kind === 'offline'
@@ -93,8 +95,15 @@ function bindDoc() {
   onDocDown = (e: Event) => {
     const t = e.target as Node | null
     if (!t) return
-    if (root.value?.contains(t)) return
-    if (props.anchor && props.anchor.contains(t)) return
+    const inRoot = !!root.value?.contains(t)
+    const inAnchor = !!(props.anchor && props.anchor.contains(t))
+    if (inviteOpenFor.value) {
+      const inDropdown = !!inviteDropdownEl.value?.contains(t)
+      if (inDropdown) return
+      inviteOpenFor.value = null
+      if (inRoot || inAnchor) return
+    }
+    if (inRoot || inAnchor) return
     emit('update:open', false)
   }
   document.addEventListener('pointerdown', onDocDown)
@@ -127,8 +136,21 @@ function onAfterLeave() {
   inviteOpenFor.value = null
 }
 
-function toggleInvite(uid: number) {
-  inviteOpenFor.value = inviteOpenFor.value === uid ? null : uid
+async function toggleInvite(uid: number) {
+  if (inviteOpenFor.value === uid) {
+    inviteOpenFor.value = null
+    return
+  }
+  const reqId = ++inviteReqSeq
+  inviteOpenFor.value = null
+  try {
+    await refreshRooms()
+  } catch {
+    if (reqId === inviteReqSeq) void alertDialog('Не удалось загрузить список комнат')
+    return
+  }
+  if (reqId !== inviteReqSeq) return
+  inviteOpenFor.value = uid
 }
 
 async function invite(uid: number, roomId: number) {
@@ -266,7 +288,7 @@ onBeforeUnmount(() => {
       grid-template-columns: 1fr auto auto;
       align-items: center;
       padding: 5px;
-      gap: 10px;
+      gap: 5px;
       border-radius: 5px;
       background-color: $lead;
       box-shadow: 0 3px 5px rgba($black, 0.25);
@@ -305,6 +327,9 @@ onBeforeUnmount(() => {
         .invite {
           position: relative;
           .btn {
+            display: flex;
+            align-items: center;
+            padding: 5px 10px;
             height: 25px;
             border: none;
             border-radius: 5px;
@@ -351,12 +376,14 @@ onBeforeUnmount(() => {
       }
       .actions {
         display: flex;
-        gap: 6px;
+        gap: 5px;
         button {
-          height: 28px;
+          display: flex;
+          align-items: center;
+          padding: 5px 10px;
+          height: 25px;
           border: none;
           border-radius: 5px;
-          padding: 0 10px;
           font-size: 12px;
           font-family: Manrope-Medium;
           cursor: pointer;
@@ -367,7 +394,7 @@ onBeforeUnmount(() => {
         }
         .danger {
           background-color: rgba($red, 0.75);
-          color: $bg;
+          color: $fg;
         }
       }
     }
