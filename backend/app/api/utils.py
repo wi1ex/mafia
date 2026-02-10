@@ -861,7 +861,7 @@ async def emit_notify(user_id: int, note: Notif, *, kind: str, no_toast: bool = 
         "date": note.created_at.isoformat(),
         "kind": kind,
         "ttl_ms": 15000,
-        "read": False,
+        "read": note.read_at is not None,
     }
     if no_toast:
         payload["no_toast"] = True

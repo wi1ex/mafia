@@ -31,7 +31,7 @@
             <div class="cell">
               <span class="status-room" :class="{ runned: r.in_game, duo: r.user_limit === 2 }">{{ roomStatusLabel(r) }}</span>
             </div>
-            <div class="cell" :title="r.title">
+            <div class="cell">
               <img :src="r.privacy === 'private' ? iconLockClose : iconLockOpen" alt="lock" />
               <span class="user-name">{{ r.title }}</span>
             </div>

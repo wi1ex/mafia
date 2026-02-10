@@ -31,9 +31,8 @@
                   </template>
                   <template v-else>
                     <div class="invite-select" :class="{ open: inviteOpenFor === f.id }">
-                      <button type="button" @click="toggleInvite(f.id)" :aria-expanded="String(inviteOpenFor === f.id)">
-                        <span>Пригласить</span>
-                        <img :src="iconArrowDown" alt="arrow" />
+                      <button type="button" class="icon-btn invite-btn" @click="toggleInvite(f.id)" :aria-expanded="String(inviteOpenFor === f.id)" :aria-label="inviteLabel(f.kind)">
+                        <img :src="inviteIcon(f.kind)" alt="" />
                       </button>
                       <Transition name="menu">
                         <ul v-show="inviteOpenFor === f.id" role="listbox">
@@ -48,11 +47,17 @@
                 </template>
               </div>
               <div v-if="f.kind === 'incoming'" class="actions">
-                <button class="accept" @click="accept(f.id)">Принять</button>
-                <button class="danger" @click="decline(f.id)">Отклонить</button>
+                <button class="icon-btn accept" @click="accept(f.id)" aria-label="Принять заявку">
+                  <img :src="iconAccept" alt="" />
+                </button>
+                <button class="icon-btn danger" @click="decline(f.id)" aria-label="Отклонить заявку">
+                  <img :src="iconClose" alt="" />
+                </button>
               </div>
               <div v-else-if="isAccepted(f)" class="actions">
-                <button class="danger" @click="remove(f.id)">Удалить</button>
+                <button class="icon-btn danger" @click="remove(f.id)" aria-label="Удалить из друзей">
+                  <img :src="iconRemove" alt="" />
+                </button>
               </div>
             </article>
           </template>
@@ -68,7 +73,10 @@ import { useFriendsStore } from '@/store'
 import { confirmDialog, alertDialog, useConfirmState } from '@/services/confirm'
 
 import iconClose from '@/assets/svg/close.svg'
-import iconArrowDown from '@/assets/svg/arrowDown.svg'
+import iconAccept from '@/assets/svg/readyWhite.svg'
+import iconRemove from '@/assets/svg/delete.svg'
+import iconInviteOnline from '@/assets/svg/notifBell.svg'
+import iconInviteOffline from '@/assets/svg/telegram.svg'
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
 
 const props = defineProps<{
@@ -87,6 +95,8 @@ let inviteReqSeq = 0
 
 const rooms = computed(() => friends.rooms)
 const isAccepted = (f: { kind?: string }) => f.kind === 'online' || f.kind === 'offline'
+const inviteIcon = (kind?: string) => kind === 'online' ? iconInviteOnline : iconInviteOffline
+const inviteLabel = (kind?: string) => kind === 'online' ? 'Пригласить онлайн-друга в комнату' : 'Пригласить офлайн-друга в комнату'
 const sections = computed(() => [
   { kind: 'incoming', title: 'Входящие заявки —', items: friends.list.filter(f => f.kind === 'incoming') },
   { kind: 'online', title: 'В сети —', items: friends.list.filter(f => f.kind === 'online') },
@@ -370,12 +380,12 @@ onBeforeUnmount(() => {
         }
         .invite-select {
           position: relative;
-          button {
+          .invite-btn {
             display: flex;
             align-items: center;
-            padding: 5px 10px;
-            gap: 5px;
-            width: 100%;
+            justify-content: center;
+            padding: 0;
+            width: 25px;
             height: 25px;
             border: none;
             border-radius: 5px;
@@ -385,17 +395,13 @@ onBeforeUnmount(() => {
             &:hover {
               background-color: $graphite;
             }
-            span {
-              height: 14px;
-              color: $fg;
-              font-size: 12px;
-              font-family: Manrope-Medium;
-              line-height: 1;
-            }
             img {
-              width: 14px;
-              height: 14px;
+              width: 16px;
+              height: 16px;
             }
+          }
+          &.open .invite-btn {
+            background-color: $graphite;
           }
         }
         ul {
@@ -439,14 +445,18 @@ onBeforeUnmount(() => {
         button {
           display: flex;
           align-items: center;
-          padding: 5px 10px;
+          justify-content: center;
+          padding: 0;
+          width: 25px;
           height: 25px;
           border: none;
           border-radius: 5px;
-          font-size: 12px;
-          font-family: Manrope-Medium;
           cursor: pointer;
           transition: background-color 0.25s ease-in-out;
+          img {
+            width: 16px;
+            height: 16px;
+          }
         }
         .accept {
           background-color: rgba($green, 0.75);

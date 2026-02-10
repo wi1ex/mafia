@@ -1,4 +1,5 @@
 from __future__ import annotations
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select, or_, delete, update, func, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -307,7 +308,12 @@ async def accept_friend_request(user_id: int, ident: Identity = Depends(get_iden
 
     title_acc = "Добавлен в друзья"
     text_acc = f"Вы приняли заявку в друзья от пользователя {requester_name or f'user{requester_id}'}."
-    note_acc = Notif(user_id=uid, title=title_acc, text=text_acc)
+    note_acc = Notif(
+        user_id=uid,
+        title=title_acc,
+        text=text_acc,
+        read_at=datetime.now(timezone.utc),
+    )
     db.add(note_acc)
     await db.commit()
     await db.refresh(note_acc)

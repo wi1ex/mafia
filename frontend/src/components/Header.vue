@@ -89,12 +89,18 @@
     <span>{{ sanctionBanner.text }}</span>
   </div>
   <div v-if="verificationBanner" class="sanction-banner sanction-banner--suspend">
-    <span>Чтобы входить в комнаты требуется верификация.</span>
-    <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">Как пройти верификацию?</a>
+    <span>Чтобы входить в комнаты необходимо пройти верификацию в</span>
+    <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">
+      <img :src="iconTelegram" alt="" />
+      Telegram-боте
+    </a>
   </div>
   <div v-if="registrationInfoBanner" class="sanction-banner sanction-banner--suspend">
-    <span>Если у Вас ранее уже был аккаунт, используйте "Сбросить пароль" в</span>
-    <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">Telegram-боте</a>
+    <span>Если у Вас уже есть аккаунт, используйте "Сбросить пароль" в</span>
+    <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">
+      <img :src="iconTelegram" alt="" />
+      Telegram-боте
+    </a>
   </div>
   <AppModal v-model:open="installOpen" />
   <SupportModal v-model:open="supportOpen" :support-link="supportLink" />
@@ -113,6 +119,7 @@ import SupportModal from '@/components/SupportModal.vue'
 
 import defaultAvatar from "@/assets/svg/defaultAvatar.svg"
 import iconNotifBell from "@/assets/svg/notifBell.svg"
+import iconTelegram from "@/assets/svg/telegram.svg"
 import iconInfo from "@/assets/svg/info.svg"
 import iconUpdates from "@/assets/svg/updates.svg"
 import iconFriends from "@/assets/svg/friends.svg"
@@ -416,6 +423,10 @@ function openAuth(mode: 'login' | 'register') {
   a {
     color: $black;
     text-decoration: underline;
+    img {
+      width: 16px;
+      height: 16px;
+    }
   }
   &.sanction-banner--ban {
     background-color: $red;
