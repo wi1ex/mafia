@@ -2673,8 +2673,6 @@ async def game_nominee_remove(sid, data):
                 await p.hset(f"room:{rid}:game_nominees", mapping=mapping)
             await p.execute()
 
-        # Ведущийские номинации не логируем.
-
         payload = {
             "room_id": rid,
             "user_id": target_uid,
