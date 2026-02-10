@@ -26,8 +26,8 @@
               <div class="info">
                 <template v-if="isAccepted(f)">
                   <template v-if="f.room_id">
-                    <span class="room">Комната: {{ f.room_title || ('Комната #' + f.room_id) }}</span>
-                    <span class="game" :class="{ active: f.room_in_game }">{{ f.room_in_game ? 'Идёт игра' : 'Ожидание' }}</span>
+                    <span class="room">{{ f.room_title || ('Комната #' + f.room_id) }}</span>
+                    <span class="game" :class="{ active: f.room_in_game }">{{ f.room_in_game ? 'Игра' : 'Лобби' }}</span>
                   </template>
                   <template v-else>
                     <div class="invite">
@@ -83,7 +83,6 @@ const sections = computed(() => [
   { kind: 'offline', title: 'Не в сети', items: friends.list.filter(f => f.kind === 'offline') },
   { kind: 'outgoing', title: 'Исходящие заявки', items: friends.list.filter(f => f.kind === 'outgoing') },
 ])
-const hasNextSection = (idx: number) => sections.value.slice(idx + 1).some(s => s.items.length > 0)
 
 let onDocDown: ((e: Event) => void) | null = null
 let pollTimer: number | undefined
@@ -264,7 +263,7 @@ onBeforeUnmount(() => {
     }
     .item {
       display: grid;
-      grid-template-columns: 1fr 1fr auto;
+      grid-template-columns: 1fr auto auto;
       align-items: center;
       padding: 5px;
       gap: 10px;
@@ -291,7 +290,8 @@ onBeforeUnmount(() => {
       .info {
         display: flex;
         flex-direction: column;
-        gap: 4px;
+        align-items: flex-end;
+        gap: 3px;
         .room {
           font-size: 12px;
         }
@@ -305,7 +305,7 @@ onBeforeUnmount(() => {
         .invite {
           position: relative;
           .btn {
-            height: 28px;
+            height: 25px;
             border: none;
             border-radius: 5px;
             background-color: $dark;
@@ -338,7 +338,9 @@ onBeforeUnmount(() => {
               font-size: 12px;
               font-family: Manrope-Medium;
               cursor: pointer;
-              &:hover { background-color: $dark; }
+              &:hover {
+                background-color: $dark;
+              }
             }
             .empty {
               margin: 5px;
