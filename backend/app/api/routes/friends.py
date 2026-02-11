@@ -1,4 +1,5 @@
 from __future__ import annotations
+from contextlib import suppress
 from datetime import datetime, timezone
 from time import time
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -11,6 +12,7 @@ from ...models.friend import FriendLink, FriendCloseness
 from ...models.user import User
 from ...models.notif import Notif
 from ...realtime.utils import get_rooms_brief
+from ...realtime.sio import sio
 from ...schemas.common import Identity, Ok
 from ...schemas.friend import FriendStatusOut, FriendsListOut, FriendsListItemOut, FriendIncomingCountOut, FriendInviteIn
 from ...schemas.room import RoomBriefOut
@@ -474,6 +476,14 @@ async def invite_friend(payload: FriendInviteIn, ident: Identity = Depends(get_i
             "toast_text": "",
         },
     )
+    if auto_allowed:
+        with suppress(Exception):
+            await sio.emit(
+                "room_app_approved",
+                {"room_id": room_id, "user_id": target_id},
+                room=f"user:{uid}",
+                namespace="/auth",
+            )
     await r.set(cooldown_key, "1", ex=3600)
 
     await log_action(
