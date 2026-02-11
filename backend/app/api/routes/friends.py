@@ -525,7 +525,12 @@ async def invite_friend(payload: FriendInviteIn, ident: Identity = Depends(get_i
         with suppress(Exception):
             await sio.emit(
                 "room_app_approved",
-                {"room_id": room_id, "user_id": target_id},
+                {
+                    "room_id": room_id,
+                    "user_id": target_id,
+                    "silent_unread": True,
+                    "source": "owner_invite_auto_approved",
+                },
                 room=f"user:{uid}",
                 namespace="/auth",
             )

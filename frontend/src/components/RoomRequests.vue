@@ -158,6 +158,11 @@ function onApproved(e: any) {
   if (Number(p?.room_id) !== props.roomId) return
   const uid = Number(p?.user_id)
   if (!Number.isFinite(uid)) return
+  const silentUnread = Boolean(p?.silent_unread || p?.source === 'owner_invite_auto_approved')
+  if (silentUnread) {
+    seen.add(uid)
+    saveSeen([...seen])
+  }
   if (apps.value.some(x => x.id === uid)) {
     apps.value = apps.value.map(x => x.id === uid ? { ...x, status: 'approved' } : x)
     seen.add(uid)
