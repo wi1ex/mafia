@@ -13,6 +13,7 @@ from ...models.log import AppLog
 from ...models.game import Game
 from ...models.room import Room
 from ...models.notif import Notif
+from ...models.friend import FriendLink
 from ...models.sanction import UserSanction
 from ...models.user import User
 from ...models.update import SiteUpdate, UpdateRead
@@ -199,6 +200,7 @@ async def site_stats(month: str | None = None, session: AsyncSession = Depends(g
     unverified_users = int(await session.scalar(select(func.count(User.id)).where(User.telegram_id.is_(None))) or 0)
     no_password_users = int(await session.scalar(select(func.count(User.id)).where(User.password_hash.is_(None))) or 0)
     deleted_users = int(await session.scalar(select(func.count(User.id)).where(User.deleted_at.is_not(None))) or 0)
+    tg_invites_disabled_users = int(await session.scalar(select(func.count(User.id)).where(User.tg_invites_enabled.is_(False))) or 0)
     total_rooms = int(await session.scalar(select(func.count(Room.id))) or 0)
     total_games = int(await session.scalar(select(func.count(Game.id))) or 0)
     registrations = await build_registrations_series(session, start_dt, end_dt)
@@ -230,6 +232,7 @@ async def site_stats(month: str | None = None, session: AsyncSession = Depends(g
         unverified_users=unverified_users,
         no_password_users=no_password_users,
         deleted_users=deleted_users,
+        tg_invites_disabled_users=tg_invites_disabled_users,
         registrations=registrations,
         registrations_monthly=registrations_monthly,
         total_rooms=total_rooms,
@@ -655,6 +658,26 @@ async def users_list(page: int = 1, limit: int = 20, username: str | None = None
     rows = await session.execute(select(User).where(*filters).order_by(User.registered_at.desc(), User.id.desc()).offset(offset).limit(limit))
     users = rows.scalars().all()
     ids = [int(u.id) for u in users]
+
+    friends_count: dict[int, int] = {uid: 0 for uid in ids}
+    if ids:
+        friend_rows = await session.execute(
+            select(FriendLink.requester_id, FriendLink.addressee_id)
+            .where(FriendLink.status == "accepted", or_(FriendLink.requester_id.in_(ids), FriendLink.addressee_id.in_(ids))))
+        for requester_id, addressee_id in friend_rows.all():
+            try:
+                requester_uid = int(requester_id)
+            except Exception:
+                requester_uid = 0
+            try:
+                addressee_uid = int(addressee_id)
+            except Exception:
+                addressee_uid = 0
+            if requester_uid in friends_count:
+                friends_count[requester_uid] += 1
+            if addressee_uid in friends_count:
+                friends_count[addressee_uid] += 1
+
     rooms_created, room_seconds, stream_seconds, spectator_seconds, games_played, games_hosted = await aggregate_user_room_stats(session, ids)
     sanctions_map = await fetch_sanctions_for_users(session, ids)
     now = datetime.now(timezone.utc)
@@ -681,6 +704,7 @@ async def users_list(page: int = 1, limit: int = 20, username: str | None = None
             last_login_at=u.last_login_at,
             last_visit_at=u.last_visit_at,
             deleted_at=u.deleted_at,
+            friends_count=friends_count.get(uid, 0),
             rooms_created=created,
             room_minutes=room_seconds.get(uid, 0) // 60,
             stream_minutes=stream_seconds.get(uid, 0) // 60,

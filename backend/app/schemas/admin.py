@@ -104,6 +104,7 @@ class SiteStatsOut(BaseModel):
     unverified_users: int
     no_password_users: int
     deleted_users: int
+    tg_invites_disabled_users: int
     registrations: List[RegistrationsPoint]
     registrations_monthly: List[RegistrationsPoint]
     total_rooms: int
@@ -208,6 +209,7 @@ class AdminUserOut(BaseModel):
     last_login_at: datetime
     last_visit_at: datetime
     deleted_at: Optional[datetime] = None
+    friends_count: int
     rooms_created: int
     room_minutes: int
     stream_minutes: int

@@ -159,6 +159,10 @@
                 <span class="value">{{ stats.deleted_users }}</span>
               </div>
               <div class="stat-card">
+                <span class="label">Без уведомлений</span>
+                <span class="value">{{ stats.tg_invites_disabled_users }}</span>
+              </div>
+              <div class="stat-card">
                 <span class="label">Всего комнат</span>
                 <span class="value">{{ stats.total_rooms }}</span>
               </div>
@@ -494,6 +498,7 @@
                   <th>Регистрация</th>
                   <th>Авторизация</th>
                   <th>Онлайн</th>
+                  <th>Друзья</th>
                   <th>Комнаты</th>
                   <th>В комнатах</th>
                   <th>Стримы</th>
@@ -526,6 +531,7 @@
                   <td>{{ formatLocalDateTime(row.registered_at) }}</td>
                   <td>{{ formatLocalDateTime(row.last_login_at) }}</td>
                   <td>{{ formatLocalDateTime(row.last_visit_at) }}</td>
+                  <td>{{ row.friends_count }}</td>
                   <td>{{ row.rooms_created }}</td>
                   <td>{{ formatMinutes(row.room_minutes) }}</td>
                   <td>{{ formatMinutes(row.stream_minutes) }}</td>
@@ -608,7 +614,7 @@
                   </td>
                 </tr>
                 <tr v-if="users.length === 0">
-                  <td colspan="22" class="muted">Нет данных</td>
+                  <td colspan="23" class="muted">Нет данных</td>
                 </tr>
               </tbody>
             </table>
@@ -718,6 +724,7 @@ type SiteStats = {
   unverified_users: number
   no_password_users: number
   deleted_users: number
+  tg_invites_disabled_users: number
   registrations: RegistrationPoint[]
   registrations_monthly: RegistrationPoint[]
   total_rooms: number
@@ -808,6 +815,7 @@ type UserRow = {
   last_login_at: string
   last_visit_at: string
   deleted_at?: string | null
+  friends_count: number
   rooms_created: number
   room_minutes: number
   stream_minutes: number
@@ -880,6 +888,7 @@ const stats = reactive<SiteStats>({
   unverified_users: 0,
   no_password_users: 0,
   deleted_users: 0,
+  tg_invites_disabled_users: 0,
   registrations: [],
   registrations_monthly: [],
   total_rooms: 0,
@@ -1290,6 +1299,7 @@ async function loadStats(): Promise<void> {
       unverified_users: data?.unverified_users ?? 0,
       no_password_users: data?.no_password_users ?? 0,
       deleted_users: data?.deleted_users ?? 0,
+      tg_invites_disabled_users: data?.tg_invites_disabled_users ?? 0,
       registrations: Array.isArray(data?.registrations) ? data.registrations : [],
       registrations_monthly: Array.isArray(data?.registrations_monthly) ? data.registrations_monthly : [],
       total_rooms: data?.total_rooms ?? 0,
