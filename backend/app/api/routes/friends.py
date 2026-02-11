@@ -445,6 +445,7 @@ async def invite_friend(payload: FriendInviteIn, ident: Identity = Depends(get_i
     await db.commit()
     await db.refresh(note)
 
+    inviter = await db.get(User, uid)
     await emit_notify(
         target_id,
         note,
@@ -452,7 +453,13 @@ async def invite_friend(payload: FriendInviteIn, ident: Identity = Depends(get_i
         extra={
             "action": {"kind": "route", "label": "Перейти", "to": f"/room/{room_id}"},
             "room_id": room_id,
-            "user": {"id": uid, "username": ident["username"]},
+            "user": {
+                "id": uid,
+                "username": ident["username"],
+                "avatar_name": inviter.avatar_name if inviter else None,
+            },
+            "toast_title": f"Приглашение в «{room_title}» от",
+            "toast_text": "",
         },
     )
     await r.set(cooldown_key, "1", ex=3600)

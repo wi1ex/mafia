@@ -106,8 +106,14 @@ export function startAuthSocket(opts?: { onForceLogout?: () => void }): Socket {
     window.dispatchEvent(new CustomEvent('auth-notify', { detail: p }))
     if (!p?.no_toast) {
       let toastPayload = p
-      if (p && typeof p === 'object' && Object.prototype.hasOwnProperty.call(p, 'toast_text')) {
-        toastPayload = { ...p, text: (p as any).toast_text }
+      if (p && typeof p === 'object') {
+        toastPayload = { ...p }
+        if (Object.prototype.hasOwnProperty.call(p, 'toast_title')) {
+          ;(toastPayload as any).title = (p as any).toast_title
+        }
+        if (Object.prototype.hasOwnProperty.call(p, 'toast_text')) {
+          ;(toastPayload as any).text = (p as any).toast_text
+        }
       }
       window.dispatchEvent(new CustomEvent('toast', { detail: toastPayload }))
     }
