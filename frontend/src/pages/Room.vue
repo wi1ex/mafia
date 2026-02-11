@@ -1083,6 +1083,19 @@ function ensureOk(resp: Ack, msgByCode: Record<number, string>, netMsg: string):
   return false
 }
 
+function showTransientToast(title: string, text: string): void {
+  window.dispatchEvent(new CustomEvent('toast', {
+    detail: {
+      title,
+      text,
+      date: new Date().toISOString(),
+      kind: 'info',
+      read: true,
+      ttl_ms: 10000,
+    },
+  }))
+}
+
 const sendAckGame: SendAckFn = (event, payload, timeoutMs) => sendAck(event, payload, timeoutMs)
 const startGameUi = async () => {
   if (!canUseReadyStart.value) return
@@ -1746,24 +1759,22 @@ socket.value?.on('connect', async () => {
   socket.value.on('game_winked', (p: any) => {
     const seat = Number(p?.from_seat || 0)
     if (seat > 0) {
-      void alertDialog(`${seat}й игрок подмигнул`)
+      showTransientToast('Вам подмигнули!', `${seat}й игрок подмигнул`)
     } else {
-      void alertDialog('Игрок подмигнул Вам')
+      showTransientToast('Вам подмигнули!', 'Игрок подмигнул вам')
     }
   })
-
   socket.value.on('game_knocked', (p: any) => {
     const seat = Number(p?.from_seat || 0)
     const count = Number(p?.count || 0)
     if (seat > 0 && count > 0) {
-      void alertDialog(`${seat}й игрок отстучал ${count}`)
+      showTransientToast('Вам отстучали!', `${seat}й игрок отстучал ${count}`)
     } else if (seat > 0) {
-      void alertDialog(`${seat}й игрок отстучал`)
+      showTransientToast('Вам отстучали!', `${seat}й игрок отстучал`)
     } else {
-      void alertDialog('Игрок отстучал вам')
+      showTransientToast('Вам отстучали!', 'Игрок отстучал вам')
     }
   })
-
   socket.value.on('game_nominee_added', (p: any) => {
     game.handleGameNomineeAdded(p)
   })
@@ -3189,4 +3200,3 @@ onBeforeUnmount(() => {
   }
 }
 </style>
-
