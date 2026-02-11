@@ -83,7 +83,7 @@ const friends = useFriendsStore()
 const confirmState = useConfirmState()
 const root = ref<HTMLElement | null>(null)
 const inviteBusy = reactive<Record<number, boolean>>({})
-const inviteCooldownByUser = ref<Record<number, number>>({})
+const inviteCooldownByUser = ref<Record<string, number>>({})
 const nowTs = ref(Date.now())
 let nowTimer: number | undefined
 const isRoomMode = computed(() => props.mode === 'room')
@@ -108,17 +108,28 @@ const POLL_MS = 3000
 const AUTO_CLOSE_MS = 5 * 60 * 1000
 const INVITE_COOLDOWN_MS = 60 * 60 * 1000
 
-function parseCooldownMap(raw: unknown, now = Date.now()): Record<number, number> {
+function parseCooldownMap(raw: unknown, now = Date.now()): Record<string, number> {
   if (!raw || typeof raw !== 'object') return {}
   const obj = raw as Record<string, unknown>
-  const next: Record<number, number> = {}
-  for (const [uidRaw, untilRaw] of Object.entries(obj)) {
-    const uid = Number(uidRaw)
+  const next: Record<string, number> = {}
+  for (const [keyRaw, untilRaw] of Object.entries(obj)) {
     const until = Number(untilRaw)
-    if (!Number.isFinite(uid) || uid <= 0 || !Number.isFinite(until) || until <= now) continue
-    next[uid] = until
+    if (!Number.isFinite(until) || until <= now) continue
+    const [ridRaw, uidRaw] = String(keyRaw).split(':')
+    const rid = Number(ridRaw)
+    const uid = Number(uidRaw)
+    if (!Number.isFinite(rid) || rid <= 0 || !Number.isFinite(uid) || uid <= 0) continue
+    const key = `${Math.trunc(rid)}:${Math.trunc(uid)}`
+    next[key] = until
   }
   return next
+}
+
+function inviteCooldownKey(uid: number, roomId = inviteRoomId.value): string {
+  const rid = Number(roomId)
+  const targetUid = Number(uid)
+  if (!Number.isFinite(rid) || rid <= 0 || !Number.isFinite(targetUid) || targetUid <= 0) return ''
+  return `${Math.trunc(rid)}:${Math.trunc(targetUid)}`
 }
 
 function persistCooldowns() {
@@ -148,17 +159,21 @@ function pruneCooldowns(now = Date.now()) {
   persistCooldowns()
 }
 
-function setInviteCooldown(uid: number, untilTs = Date.now() + INVITE_COOLDOWN_MS) {
+function setInviteCooldown(uid: number, roomId = inviteRoomId.value, untilTs = Date.now() + INVITE_COOLDOWN_MS) {
+  const key = inviteCooldownKey(uid, roomId)
+  if (!key) return
   inviteCooldownByUser.value = {
     ...inviteCooldownByUser.value,
-    [uid]: untilTs,
+    [key]: untilTs,
   }
   pruneCooldowns()
   persistCooldowns()
 }
 
-function inviteCooldownLeftMs(uid: number): number {
-  const until = Number(inviteCooldownByUser.value[uid] || 0)
+function inviteCooldownLeftMs(uid: number, roomId = inviteRoomId.value): number {
+  const key = inviteCooldownKey(uid, roomId)
+  if (!key) return 0
+  const until = Number(inviteCooldownByUser.value[key] || 0)
   return Math.max(0, until - nowTs.value)
 }
 
@@ -263,7 +278,7 @@ async function invite(friend: { id: number; username?: string | null }) {
   inviteBusy[uid] = true
   try {
     await friends.inviteToRoom(uid, inviteRoomId.value)
-    setInviteCooldown(uid)
+    setInviteCooldown(uid, inviteRoomId.value)
   } catch (e: any) {
     const st = e?.response?.status
     const d = e?.response?.data?.detail
@@ -282,10 +297,10 @@ async function invite(friend: { id: number; username?: string | null }) {
     if (st === 429 && d === 'invite_cooldown') {
       const retryAfterRaw = Number(e?.response?.headers?.['retry-after'])
       if (Number.isFinite(retryAfterRaw) && retryAfterRaw > 0) {
-        setInviteCooldown(uid, Date.now() + retryAfterRaw * 1000)
+        setInviteCooldown(uid, inviteRoomId.value, Date.now() + retryAfterRaw * 1000)
         void alertDialog(`Повторное приглашение можно отправить через ${formatCooldownLeft(retryAfterRaw * 1000)}`)
       } else {
-        setInviteCooldown(uid)
+        setInviteCooldown(uid, inviteRoomId.value)
         void alertDialog('Повторное приглашение можно отправить через 1 час')
       }
       return

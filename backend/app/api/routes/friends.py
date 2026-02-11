@@ -430,7 +430,7 @@ async def invite_friend(payload: FriendInviteIn, ident: Identity = Depends(get_i
     if target_id not in online_ids:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="target_offline")
 
-    cooldown_key = f"friends:invite:cooldown:{uid}:{target_id}"
+    cooldown_key = f"friends:invite:cooldown:{uid}:{target_id}:{room_id}"
     retry_after = int(await r.ttl(cooldown_key) or 0)
     if retry_after > 0:
         raise HTTPException(
