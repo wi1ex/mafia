@@ -26,6 +26,7 @@ from ...realtime.utils import (
 )
 from ...security.decorators import log_route, require_roles_deco
 from ...security.auth_tokens import get_identity
+from ...security.passwords import hash_password
 from ...security.parameters import ensure_app_settings, sync_cache_from_row, refresh_app_settings, get_cached_settings
 from ...schemas.common import Ok, Identity
 from ...schemas.updates import AdminUpdateIn, AdminUpdateOut, AdminUpdatesOut
@@ -881,13 +882,12 @@ async def clear_user_password(user_id: int, ident: Identity = Depends(get_identi
 
     uid = cast(int, user.id)
     had_password = bool(user.password_hash)
-    user.password_hash = None
-    if user.password_temp:
-        user.password_temp = False
+    user.password_hash = hash_password("12345678")
+    user.password_temp = True
     note = Notif(
         user_id=uid,
-        title="Пароль удален",
-        text="Администратор удалил пароль вашего аккаунта.",
+        title="Пароль сброшен",
+        text="Администратор сбросил пароль Вашего аккаунта.",
     )
     session.add(note)
     await session.commit()
@@ -917,6 +917,7 @@ async def clear_user_password(user_id: int, ident: Identity = Depends(get_identi
                 "kind": "admin_action",
                 "ttl_ms": 15000,
                 "read": False,
+                "toast_text": "Ваш пароль сброшен администратором",
             },
             room=f"user:{uid}",
             namespace="/auth",
