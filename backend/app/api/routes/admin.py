@@ -118,6 +118,11 @@ LOG_ACTIONS_KNOWN = {
     "sanction_suspend_remove",
     "admin_telegram_unverify",
     "admin_password_clear",
+    "friend_request_sent",
+    "friend_request_accepted",
+    "friend_request_declined",
+    "friend_removed",
+    "friend_room_invite",
 }
 
 

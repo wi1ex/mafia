@@ -2373,6 +2373,7 @@ async def game_wink(sid, data):
         except Exception:
             seat_target = 0
 
+        spotted = False
         await sio.emit("game_winked",
                        {"room_id": rid, "from_seat": seat_num},
                        room=f"user:{target_uid}",
@@ -2422,6 +2423,19 @@ async def game_wink(sid, data):
                         room=f"user:{witness_uid}",
                         namespace="/room",
                     )
+                    spotted = True
+
+        await log_game_action(
+            r,
+            rid,
+            {
+                "type": "wink",
+                "actor_id": uid,
+                "target_id": target_uid,
+                "day": ctx.gint("day_number"),
+                "spotted": spotted,
+            },
+        )
 
         return {"ok": True, "status": 200, "winks_left": left_after}
 
@@ -2529,6 +2543,18 @@ async def game_knock(sid, data):
                        {"room_id": rid, "from_seat": seat_actor, "count": count},
                        room=f"user:{target_uid}",
                        namespace="/room")
+
+        await log_game_action(
+            r,
+            rid,
+            {
+                "type": "knock",
+                "actor_id": uid,
+                "target_id": target_uid,
+                "count": count,
+                "day": ctx.gint("day_number"),
+            },
+        )
 
         return {"ok": True, "status": 200, "knocks_left": left_after}
 
