@@ -29,9 +29,8 @@
                     <span class="room">{{ f.room_title || ('Комната #' + f.room_id) }}</span>
                     <span class="game" :class="{ active: f.room_in_game }">{{ f.room_in_game ? 'Игра' : 'Лобби' }}</span>
                   </div>
-                  <div v-if="canInvite(f)" class="invite-select">
-                    <button type="button" class="icon-btn invite-btn" :disabled="isInviteDisabled(f) || Boolean(inviteBusy[f.id])"
-                            :title="inviteTitle(f)" @click="invite(f)" aria-label="Пригласить в комнату">
+                  <div v-if="shouldShowInviteButton(f)" class="invite-select">
+                    <button type="button" class="icon-btn invite-btn" :disabled="isInviteDisabled(f) || Boolean(inviteBusy[f.id])" @click="invite(f)" aria-label="Пригласить в комнату">
                       <img :src="inviteIcon(f)" alt="" />
                     </button>
                   </div>
@@ -93,6 +92,10 @@ const isAccepted = (f: { kind?: string }) => f.kind === 'online' || f.kind === '
 const canInvite = (f: { kind?: string; room_id?: number | null }) => {
   if (!isRoomMode.value || inviteRoomId.value <= 0 || !isAccepted(f)) return false
   return Number(f.room_id || 0) !== inviteRoomId.value
+}
+const shouldShowInviteButton = (f: { kind?: string; room_id?: number | null; tg_invites_enabled?: boolean }) => {
+  if (!canInvite(f)) return false
+  return !(f.kind === 'offline' && f.tg_invites_enabled === false)
 }
 const sections = computed(() => [
   { kind: 'incoming', title: 'Входящие заявки —', items: friends.list.filter(f => f.kind === 'incoming') },
@@ -200,17 +203,6 @@ function isInviteDisabled(friend: { id: number; kind?: string; telegram_verified
   if (uid <= 0) return true
   if (inviteBlockedReason(friend)) return true
   return inviteCooldownLeftMs(uid) > 0
-}
-
-function inviteTitle(friend: { id: number; kind?: string; telegram_verified?: boolean; tg_invites_enabled?: boolean }): string {
-  const uid = Number(friend.id || 0)
-  if (uid <= 0) return 'Приглашение недоступно'
-  if (inviteBusy[uid]) return 'Отправка приглашения...'
-  const blockedReason = inviteBlockedReason(friend)
-  if (blockedReason) return blockedReason
-  const leftMs = inviteCooldownLeftMs(uid)
-  if (leftMs <= 0) return 'Пригласить в комнату'
-  return `Повторное приглашение через ${formatCooldownLeft(leftMs)}`
 }
 
 function inviteIcon(friend: { kind?: string }): string {
