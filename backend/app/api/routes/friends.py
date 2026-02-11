@@ -1,5 +1,6 @@
 from __future__ import annotations
 from datetime import datetime, timezone
+from time import time
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select, or_, delete, update, func, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -438,6 +439,17 @@ async def invite_friend(payload: FriendInviteIn, ident: Identity = Depends(get_i
             headers={"Retry-After": str(retry_after)},
         )
 
+    is_private = str(params.get("privacy") or "open").strip() == "private"
+    is_owner_invite = int(params.get("creator") or 0) == uid
+    auto_allowed = False
+    if is_private and is_owner_invite:
+        async with r.pipeline(transaction=True) as p:
+            await p.srem(f"room:{room_id}:pending", str(target_id))
+            await p.sadd(f"room:{room_id}:allow", str(target_id))
+            await p.zadd(f"room:{room_id}:requests", {str(target_id): int(time())}, nx=True)
+            res = await p.execute()
+        auto_allowed = int(res[1] or 0) > 0
+
     title = "Приглашение в комнату"
     text = f"{ident['username']} приглашает Вас в «{room_title}»."
     note = Notif(user_id=target_id, title=title, text=text)
@@ -469,7 +481,7 @@ async def invite_friend(payload: FriendInviteIn, ident: Identity = Depends(get_i
         user_id=uid,
         username=ident["username"],
         action="friend_room_invite",
-        details=f"friend_room_invite target_user={target_id} room_id={room_id}",
+        details=f"friend_room_invite target_user={target_id} room_id={room_id} auto_allowed={int(auto_allowed)}",
     )
 
     return Ok()
