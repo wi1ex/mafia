@@ -255,7 +255,7 @@ async function invite(friend: { id: number; username?: string | null }) {
   }
   const ok = await confirmDialog({
     title: 'Приглашение в комнату',
-    text: `Отправить приглашение пользователю ${friend.username || ('user' + uid)} в текущую комнату?`,
+    text: `Вы хотите пригласить пользователя ${friend.username || ('user' + uid)} в комнату?`,
     confirmText: 'Пригласить',
     cancelText: 'Отмена',
   })

@@ -627,10 +627,15 @@ function startWS() {
 
   sio.value.on('rooms_spectators', (p: { id: number; spectators_count: number }) => {
     if (selectedId.value !== p.id) return
+    const prevCount = info.value?.spectators_count
     if (info.value) {
       info.value = { ...info.value, spectators_count: p.spectators_count }
     } else {
       scheduleInfoRefresh(p.id, 300)
+    }
+    if (spectatorsTooltipVisible.value && prevCount !== p.spectators_count) {
+      const reqId = ++spectatorsReqSeq
+      void loadSpectators(p.id, reqId)
     }
   })
 
