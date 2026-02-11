@@ -2,7 +2,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-from typing import Any, Dict, Tuple
 import aiohttp
 from aiohttp import web
 from aiogram import Bot, Dispatcher, Router, F, types
@@ -10,8 +9,22 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.redis import RedisStorage
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup
 from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
+from utils import (
+    backend_request,
+    guarded_handler,
+    keyboard_reset_only,
+    keyboard_verify_only,
+    map_reset_error,
+    map_verify_error,
+    normalize_webhook_path,
+    reset_confirm_buttons,
+    safe_callback_answer,
+    safe_message_answer,
+    safe_message_delete,
+    safe_message_edit_text,
+    safe_telegram_call,
+)
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("bot")
@@ -36,6 +49,14 @@ if not REDIS_URL:
     auth = f":{r_pass}@" if r_pass else ""
     REDIS_URL = f"redis://{auth}{r_host}:{r_port}/1"
 
+BACKEND_REQUEST_KWARGS = {
+    "backend_url": BACKEND_URL,
+    "bot_api_token": BOT_API_TOKEN,
+    "request_timeout": REQUEST_TIMEOUT,
+    "retry_attempts": RETRY_ATTEMPTS,
+    "logger": log,
+}
+
 
 class VerifyState(StatesGroup):
     login = State()
@@ -48,117 +69,23 @@ class ResetState(StatesGroup):
 router = Router()
 
 
-def _normalize_webhook_path(path: str) -> str:
-    if not path:
-        return "/bot/webhook"
-
-    return path if path.startswith("/") else f"/{path}"
-
-
-def keyboard_verify_only() -> ReplyKeyboardMarkup:
-    return ReplyKeyboardMarkup(
-        keyboard=[[KeyboardButton(text="Верификация")]],
-        resize_keyboard=True,
-        one_time_keyboard=False,
-    )
-
-
-def keyboard_reset_only() -> ReplyKeyboardMarkup:
-    return ReplyKeyboardMarkup(
-        keyboard=[[KeyboardButton(text="Сбросить пароль")]],
-        resize_keyboard=True,
-        one_time_keyboard=False,
-    )
-
-
-def reset_confirm_buttons() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[[
-            InlineKeyboardButton(text="Подтвердить", callback_data="reset_confirm"),
-            InlineKeyboardButton(text="Отмена", callback_data="reset_cancel"),
-        ]]
-    )
-
-
-async def backend_request(session: aiohttp.ClientSession, path: str, payload: Dict[str, Any]) -> Tuple[int | None, Dict[str, Any] | None]:
-    if not BOT_API_TOKEN:
-        return None, None
-
-    url = f"{BACKEND_URL}{path}"
-    headers = {"X-Bot-Token": BOT_API_TOKEN}
-    last_status: int | None = None
-    for attempt in range(1, RETRY_ATTEMPTS + 1):
-        try:
-            async with session.post(url, json=payload, headers=headers, timeout=REQUEST_TIMEOUT) as resp:
-                last_status = resp.status
-                try:
-                    data = await resp.json(content_type=None)
-                except Exception:
-                    data = {}
-                return resp.status, data if isinstance(data, dict) else {}
-
-        except aiohttp.ClientResponseError as e:
-            last_status = e.status
-        except Exception:
-            last_status = None
-        if attempt < RETRY_ATTEMPTS:
-            await asyncio.sleep(0.5 * attempt)
-
-    return last_status, None
-
-
-def map_verify_error(detail: str | None, status_code: int | None) -> str:
-    if status_code == 404 or detail == "user_not_found":
-        return "Аккаунт не найден."
-
-    if detail == "invalid_credentials":
-        return "Неверный никнейм или пароль."
-
-    if detail == "password_not_set":
-        return "Пароль не установлен. Сначала восстановите пароль."
-
-    if detail == "telegram_in_use":
-        return "Этот Telegram уже привязан к другому аккаунту."
-
-    if detail == "telegram_already_linked":
-        return "К аккаунту уже привязан другой Telegram."
-
-    if detail == "user_deleted":
-        return "Аккаунт удален."
-
-    return "Не удалось пройти верификацию."
-
-
-def map_reset_error(detail: str | None, status_code: int | None) -> str:
-    if status_code == 404 or detail == "user_not_found":
-        return "Аккаунт не найден."
-
-    if detail == "not_verified":
-        return "Сначала пройдите верификацию."
-
-    if detail == "telegram_mismatch":
-        return "Этот Telegram не привязан к аккаунту."
-
-    if detail == "user_deleted":
-        return "Аккаунт удален."
-
-    return "Не удалось сбросить пароль."
-
-
 @router.message(Command("start"))
+@guarded_handler
 async def start_cmd(message: types.Message, session: aiohttp.ClientSession) -> None:
     tg_id = message.from_user.id if message.from_user else 0
     status_code, payload = await backend_request(
         session,
         "/bot/status",
         {"telegram_id": tg_id},
+        **BACKEND_REQUEST_KWARGS,
     )
     verified = bool((payload or {}).get("verified")) if status_code == 200 else False
     kb = keyboard_reset_only() if verified else keyboard_verify_only()
-    await message.answer("Выберите действие:", reply_markup=kb)
+    await safe_message_answer(message, "Выберите действие:", reply_markup=kb)
 
 
 @router.message(Command("cancel"))
+@guarded_handler
 async def cancel_cmd(message: types.Message, state: FSMContext) -> None:
     await do_cancel(state, message)
 
@@ -166,133 +93,162 @@ async def cancel_cmd(message: types.Message, state: FSMContext) -> None:
 async def do_cancel(state: FSMContext, message: types.Message | None) -> None:
     await state.clear()
     if message:
-        await message.answer("Действие отменено.")
+        await safe_message_answer(message, "Действие отменено.")
 
 
 @router.message(Command("verify"))
 @router.message(F.text == "Верификация")
+@guarded_handler
 async def verify_start(message: types.Message, state: FSMContext, session: aiohttp.ClientSession) -> None:
     tg_id = message.from_user.id if message.from_user else 0
     status_code, payload = await backend_request(
         session,
         "/bot/status",
         {"telegram_id": tg_id},
+        **BACKEND_REQUEST_KWARGS,
     )
     verified = bool((payload or {}).get("verified")) if status_code == 200 else False
     if verified:
         await state.clear()
-        await message.answer("Этот Telegram уже привязан. Доступен Сброс пароля.", reply_markup=keyboard_reset_only())
+        await safe_message_answer(message, "Этот Telegram уже привязан. Доступен Сброс пароля.", reply_markup=keyboard_reset_only())
         return
 
     await state.clear()
     await state.set_state(VerifyState.login)
-    await message.answer("Введите никнейм и пароль через пробел (например: login password):")
+    await safe_message_answer(message, "Введите никнейм и пароль через пробел (например: login password):")
 
 
 @router.message(VerifyState.login, F.text)
+@guarded_handler
 async def verify_credentials(message: types.Message, state: FSMContext, session: aiohttp.ClientSession) -> None:
     text = (message.text or "").strip()
     parts = [p for p in text.split() if p]
-    try:
-        await message.delete()
-    except Exception:
-        pass
+    await safe_message_delete(message)
 
     if len(parts) < 2:
-        await message.answer("Необходимо ввести никнейм и пароль через пробел (например: login password).")
+        await safe_message_answer(message, "Необходимо ввести никнейм и пароль через пробел (например: login password).")
         return
 
     username = parts[0]
     password = " ".join(parts[1:])
-
     tg_id = message.from_user.id if message.from_user else 0
     status_code, payload = await backend_request(
         session,
         "/bot/verify",
         {"username": username, "password": password, "telegram_id": tg_id},
+        **BACKEND_REQUEST_KWARGS,
     )
 
     await state.clear()
     if status_code == 200:
-        await message.answer("Верификация прошла успешно. Доступ к комнатам открыт.", reply_markup=keyboard_reset_only())
+        await safe_message_answer(message, "Верификация прошла успешно. Доступ к комнатам открыт.", reply_markup=keyboard_reset_only())
         return
 
     detail = (payload or {}).get("detail")
     await state.set_state(VerifyState.login)
-    await message.answer(f"{map_verify_error(detail, status_code)}\nВведите никнейм и пароль через пробел (например: login password):", reply_markup=keyboard_verify_only())
+    await safe_message_answer(
+        message,
+        f"{map_verify_error(detail, status_code)}\nВведите никнейм и пароль через пробел (например: login password):",
+        reply_markup=keyboard_verify_only(),
+    )
+
 
 @router.message(Command("reset"))
 @router.message(F.text == "Сбросить пароль")
+@guarded_handler
 async def reset_start(message: types.Message, state: FSMContext, session: aiohttp.ClientSession) -> None:
     tg_id = message.from_user.id if message.from_user else 0
     status_code, payload = await backend_request(
         session,
         "/bot/status",
         {"telegram_id": tg_id},
+        **BACKEND_REQUEST_KWARGS,
     )
     verified = bool((payload or {}).get("verified")) if status_code == 200 else False
     if not verified:
         await state.clear()
-        await message.answer("Сначала пройдите верификацию.", reply_markup=keyboard_verify_only())
+        await safe_message_answer(message, "Сначала пройдите верификацию.", reply_markup=keyboard_verify_only())
         return
 
     await state.clear()
     await state.set_state(ResetState.confirm)
-    await message.answer(
+    await safe_message_answer(
+        message,
         "Вы уверены, что хотите сбросить пароль?",
         reply_markup=reset_confirm_buttons(),
     )
 
 
 @router.callback_query(F.data == "reset_confirm")
+@guarded_handler
 async def reset_confirm(callback: types.CallbackQuery, state: FSMContext, session: aiohttp.ClientSession) -> None:
-    await callback.answer()
+    await safe_callback_answer(callback)
     tg_id = callback.from_user.id if callback.from_user else 0
     status_code, payload = await backend_request(
         session,
         "/bot/reset_password",
         {"telegram_id": tg_id},
+        **BACKEND_REQUEST_KWARGS,
     )
     if status_code == 200:
         temp = (payload or {}).get("temp_password")
         username = (payload or {}).get("username") or "не указан"
         await state.clear()
         if message := callback.message:
-            await message.edit_text(f"Пароль успешно сброшен!\n"
-                                    f"Прежний никнейм: {username}\n"
-                                    f"Временный пароль: {temp}\n"
-                                    f"После входа обязательно измените пароль в Личном кабинете.")
-            await message.answer("Выберите действие:", reply_markup=keyboard_reset_only())
+            await safe_message_edit_text(
+                message,
+                f"Пароль успешно сброшен!\n"
+                f"Прежний никнейм: {username}\n"
+                f"Временный пароль: {temp}\n"
+                f"После входа обязательно измените пароль в Личном кабинете.",
+            )
+            await safe_message_answer(message, "Выберите действие:", reply_markup=keyboard_reset_only())
         return
 
     detail = (payload or {}).get("detail")
     if message := callback.message:
-        await message.edit_text(map_reset_error(detail, status_code))
+        await safe_message_edit_text(message, map_reset_error(detail, status_code))
 
 
 @router.callback_query(F.data == "reset_cancel")
+@guarded_handler
 async def reset_cancel(callback: types.CallbackQuery, state: FSMContext) -> None:
-    await callback.answer()
+    await safe_callback_answer(callback)
     await do_cancel(state, callback.message)
 
 
 async def on_startup(app: web.Application) -> None:
     bot: Bot = app["bot"]
     dp: Dispatcher = app["dp"]
-    await bot.set_my_commands(
-        [
-            types.BotCommand(command="start", description="Показать меню"),
-            types.BotCommand(command="verify", description="Пройти верификацию"),
-            types.BotCommand(command="reset", description="Сбросить пароль"),
-            types.BotCommand(command="cancel", description="Отмена текущего действия"),
-        ]
+    await safe_telegram_call(
+        "bot.set_my_commands",
+        lambda: bot.set_my_commands(
+            [
+                types.BotCommand(command="start", description="Показать меню"),
+                types.BotCommand(command="verify", description="Пройти верификацию"),
+                types.BotCommand(command="reset", description="Сбросить пароль"),
+                types.BotCommand(command="cancel", description="Отмена текущего действия"),
+            ]
+        ),
+        retries=RETRY_ATTEMPTS,
+        logger=log,
     )
-    await bot.delete_webhook(drop_pending_updates=False)
-    webhook_path = _normalize_webhook_path(WEBHOOK_PATH)
-    await bot.set_webhook(
-        f"{WEBHOOK_HOST}{webhook_path}",
-        secret_token=WEBHOOK_SECRET,
-        allowed_updates=dp.resolve_used_update_types(),
+    await safe_telegram_call(
+        "bot.delete_webhook",
+        lambda: bot.delete_webhook(drop_pending_updates=False),
+        retries=RETRY_ATTEMPTS,
+        logger=log,
+    )
+    webhook_path = normalize_webhook_path(WEBHOOK_PATH)
+    await safe_telegram_call(
+        "bot.set_webhook",
+        lambda: bot.set_webhook(
+            f"{WEBHOOK_HOST}{webhook_path}",
+            secret_token=WEBHOOK_SECRET,
+            allowed_updates=dp.resolve_used_update_types(),
+        ),
+        retries=RETRY_ATTEMPTS,
+        logger=log,
     )
 
 
@@ -322,12 +278,10 @@ async def main() -> None:
     if not WEBHOOK_SECRET:
         raise RuntimeError("WEBHOOK_SECRET is required")
 
-    webhook_path = _normalize_webhook_path(WEBHOOK_PATH)
-
+    webhook_path = normalize_webhook_path(WEBHOOK_PATH)
     bot = Bot(token=TG_BOT_TOKEN)
     storage = RedisStorage.from_url(REDIS_URL)
     dp = Dispatcher(storage=storage)
-
     session = aiohttp.ClientSession()
     dp["session"] = session
     dp.include_router(router)

@@ -472,7 +472,7 @@ async def invite_friend(payload: FriendInviteIn, ident: Identity = Depends(get_i
                 "username": ident["username"],
                 "avatar_name": inviter.avatar_name if inviter else None,
             },
-            "toast_title": f"Приглашение в «{room_title}» от",
+            "toast_title": f"Приглашение в комнату от",
             "toast_text": "",
         },
     )
