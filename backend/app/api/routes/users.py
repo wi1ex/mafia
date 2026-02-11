@@ -62,6 +62,7 @@ async def profile_info(ident: Identity = Depends(get_identity), db: AsyncSession
         telegram_verified=bool(user.telegram_id),
         password_temp=bool(user.password_temp),
         hotkeys_visible=bool(user.hotkeys_visible),
+        tg_invites_enabled=bool(user.tg_invites_enabled),
         timeout_until=timeout.expires_at if timeout else None,
         suspend_until=suspend.expires_at if suspend else None,
         ban_active=bool(ban),
@@ -148,11 +149,14 @@ async def update_ui_prefs(payload: UserUiPrefsIn, ident: Identity = Depends(get_
 
     if payload.hotkeys_visible is not None:
         user.hotkeys_visible = bool(payload.hotkeys_visible)
+    if payload.tg_invites_enabled is not None:
+        user.tg_invites_enabled = bool(payload.tg_invites_enabled)
 
     await db.commit()
 
     return UserUiPrefsOut(
         hotkeys_visible=bool(user.hotkeys_visible),
+        tg_invites_enabled=bool(user.tg_invites_enabled),
     )
 
 

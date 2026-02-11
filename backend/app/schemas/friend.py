@@ -20,6 +20,8 @@ class FriendsListItemOut(BaseModel):
     room_id: Optional[int] = None
     room_title: Optional[str] = None
     room_in_game: Optional[bool] = None
+    telegram_verified: Optional[bool] = None
+    tg_invites_enabled: Optional[bool] = None
     requested_at: Optional[datetime] = None
 
 
