@@ -32,7 +32,7 @@
                   <div v-if="canInvite(f)" class="invite-select">
                     <button type="button" class="icon-btn invite-btn" :disabled="isInviteDisabled(f) || Boolean(inviteBusy[f.id])"
                             :title="inviteTitle(f)" @click="invite(f)" aria-label="Пригласить в комнату">
-                      <img :src="iconInvite" alt="" />
+                      <img :src="inviteIcon(f)" alt="" />
                     </button>
                   </div>
                 </template>
@@ -66,7 +66,8 @@ import { confirmDialog, alertDialog, useConfirmState } from '@/services/confirm'
 import iconClose from '@/assets/svg/close.svg'
 import iconAccept from '@/assets/svg/readyBlack.svg'
 import iconRemove from '@/assets/svg/delete.svg'
-import iconInvite from '@/assets/svg/notifBell.svg'
+import iconInviteOnline from '@/assets/svg/notifBell.svg'
+import iconInviteOffline from '@/assets/svg/telegram.svg'
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
 
 const props = defineProps<{
@@ -210,6 +211,10 @@ function inviteTitle(friend: { id: number; kind?: string; telegram_verified?: bo
   const leftMs = inviteCooldownLeftMs(uid)
   if (leftMs <= 0) return 'Пригласить в комнату'
   return `Повторное приглашение через ${formatCooldownLeft(leftMs)}`
+}
+
+function inviteIcon(friend: { kind?: string }): string {
+  return friend.kind === 'offline' ? iconInviteOffline : iconInviteOnline
 }
 
 function startNowTimer() {

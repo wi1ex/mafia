@@ -61,6 +61,8 @@
             <h3>Параметры</h3>
             <ToggleSwitch class="profile-switch" :model-value="hotkeysVisible" label="Подсказки для горячих клавиш"
               off-label="Скрыть" on-label="Показать" :disabled="hotkeysTogglePending" @update:modelValue="onToggleHotkeys" />
+            <ToggleSwitch class="profile-switch" :model-value="tgInvitesEnabled" label="Уведомления-приглашения в Telegram"
+              off-label="Запретить" on-label="Разрешить" :disabled="tgInvitesTogglePending" @update:modelValue="onToggleTgInvites" />
           </div>
 
           <div v-if="crop.show" ref="modalEl" class="modal" @keydown.esc="cancelCrop" tabindex="0" aria-modal="true" aria-label="Кадрирование аватара" >
@@ -120,13 +122,6 @@
               <a v-if="botName" class="btn confirm" :href="botLink" target="_blank" rel="noopener noreferrer">Пройти верификацию</a>
             </div>
             <p class="hint">В чате с ботом введите Ваш никнейм и пароль (через пробел), после этого ограничения будут сняты (сможете входить в комнаты)</p>
-          </div>
-
-          <div class="block">
-            <h3>Уведомления в Telegram</h3>
-            <ToggleSwitch class="profile-switch" :model-value="tgInvitesEnabled" label="Приглашения в комнату, когда Вы не в сети"
-              off-label="Запретить" on-label="Разрешить" :disabled="tgInvitesTogglePending" @update:modelValue="onToggleTgInvites" />
-            <p class="hint">Если запретить, друзья не смогут приглашать Вас офлайн через Telegram.</p>
           </div>
 
           <div class="block">
