@@ -123,13 +123,13 @@ function parseCooldownMap(raw: unknown, now = Date.now()): Record<number, number
 
 function persistCooldowns() {
   try {
-    localStorage.setItem('friends_invite_cooldown_v1', JSON.stringify(inviteCooldownByUser.value))
+    localStorage.setItem('friends_invites', JSON.stringify(inviteCooldownByUser.value))
   } catch {}
 }
 
 function loadCooldowns() {
   try {
-    const raw = localStorage.getItem('friends_invite_cooldown_v1')
+    const raw = localStorage.getItem('friends_invites')
     if (!raw) {
       inviteCooldownByUser.value = {}
       return
@@ -456,8 +456,8 @@ onBeforeUnmount(() => {
         align-items: center;
         gap: 5px;
         img {
-          width: 20px;
-          height: 20px;
+          width: 24px;
+          height: 24px;
           border-radius: 50%;
         }
         .nick {

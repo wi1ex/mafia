@@ -134,9 +134,22 @@ export const useAuthStore = defineStore('auth', () => {
         'auth:sid',
         'auth:lock',
         'room:lastRoom',
-        'room:lastGame'
+        'room:lastGame',
+        'friends_invites',
       ])
       scanAndDel(['vol:', 'loglevel:', 'room:'])
+    } catch {}
+  }
+
+  function onAuthorizedUserResolved(userId?: number) {
+    try {
+      const uid = Number(userId || 0)
+      const prevRaw = localStorage.getItem('auth:last_uid')
+      const prevUid = Number(prevRaw || 0)
+      const prevKnown = Number.isFinite(prevUid) && prevUid > 0
+      const userChanged = prevKnown && uid > 0 && prevUid !== uid
+      wipeLocalForNewLogin({ userChanged })
+      if (uid > 0) localStorage.setItem('auth:last_uid', String(uid))
     } catch {}
   }
 
@@ -148,6 +161,7 @@ export const useAuthStore = defineStore('auth', () => {
       const { useUserStore } = await import('@/store')
       const userStore = useUserStore()
       await userStore.fetchMe()
+      onAuthorizedUserResolved(userStore.user?.id)
       if (userStore.passwordTemp) {
         const { default: router } = await import('@/router')
         router.push({ name: 'profile', query: { tab: 'account' } }).catch(() => {})
@@ -173,7 +187,9 @@ export const useAuthStore = defineStore('auth', () => {
       const { data } = await api.post('/auth/register', payload, headers ? { headers } : undefined)
       await applySession(data)
       const { useUserStore } = await import('@/store')
-      await useUserStore().fetchMe()
+      const userStore = useUserStore()
+      await userStore.fetchMe()
+      onAuthorizedUserResolved(userStore.user?.id)
     } catch (e: any) {
       const st = e?.response?.status
       const detail = e?.response?.data?.detail
