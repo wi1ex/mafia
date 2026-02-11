@@ -115,7 +115,7 @@ export type UseRTC = {
   hasVideoInput: Ref<boolean>
   disable: (kind: DeviceKind) => Promise<void>
   isSpeaking: (id: string) => boolean
-  setUserVolume: (id: string, v: number) => void
+  setUserVolume: (id: string, v: number) => number
   getUserVolume: (id: string) => number
   resumeAudio: (opts?: { force?: boolean }) => Promise<void>
   resumeVideo: () => void
@@ -219,7 +219,6 @@ export function useRTC(): UseRTC {
   let iosMicUnlockInFlight: Promise<boolean> | null = null
   const getCtx = () => (audioCtx ??= new (window.AudioContext || (window as any).webkitAudioContext)())
   function webAudioAvailable(): boolean {
-    if (isIOS) return false
     if (waState === -1) return false
     try {
       getCtx()
@@ -233,6 +232,13 @@ export function useRTC(): UseRTC {
       }
       waState = -1
       return false
+    }
+  }
+  function createMediaStreamSourceNode(ctx: AudioContext, stream: MediaStream): MediaStreamAudioSourceNode {
+    try {
+      return new MediaStreamAudioSourceNode(ctx, { mediaStream: stream })
+    } catch {
+      return ctx.createMediaStreamSource(stream)
     }
   }
 
@@ -260,6 +266,12 @@ export function useRTC(): UseRTC {
   function persistVolumePref(id: string, v: number) {
     const vv = Math.min(200, Math.max(0, Math.round(v)))
     try { localStorage.setItem(VOL_LS(id), String(vv)) } catch {}
+  }
+
+  function effectiveUserVolumePercent(v: number): number {
+    const ui = Math.min(200, Math.max(0, Number.isFinite(v) ? v : 100))
+    if (ui <= 100) return ui
+    return 100 + ((ui - 100) * 3)
   }
 
   function flushVolumePrefs() {
@@ -489,7 +501,7 @@ export function useRTC(): UseRTC {
       const wrap = msrcNodes.get(id)
       if (!wrap || wrap.stream !== stream) {
         try { wrap?.node.disconnect() } catch {}
-        const src = new MediaStreamAudioSourceNode(ctx, { mediaStream: stream })
+        const src = createMediaStreamSourceNode(ctx, stream)
         src.connect(g)
         msrcNodes.set(id, { node: src, stream })
       }
@@ -504,36 +516,47 @@ export function useRTC(): UseRTC {
     return g
   }
 
-  function applyVolume(id: string, v?: number) {
+  function applyVolume(id: string, v?: number): 'web-audio' | 'fallback' | 'missing' {
     const a = audioEls.get(id)
-    if (!a) return
+    if (!a) return 'missing'
     const want = v ?? volumePrefs.get(id) ?? getSavedVol(id)
+    const effective = effectiveUserVolumePercent(want)
 
     if (webAudioAvailable()) {
       try {
         const ctx = getCtx()
         const g = ensureGainFor(id, a)
-        const gain = Math.max(0, want / 100)
+        const gain = Math.max(0, effective / 100)
         const now = ctx.currentTime || 0
         try { g.gain.cancelScheduledValues(now) } catch {}
         g.gain.setTargetAtTime(gain, now, 0.01)
         a.muted = true
         a.volume = 0
-        return
+        return 'web-audio'
       } catch {
         waState = -1
       }
     }
     destroyAudioGraph(id)
     a.muted = false
-    a.volume = Math.min(1, Math.max(0, ((want ?? 100) / 100)))
+    a.volume = Math.min(1, Math.max(0, (effective / 100)))
+    return 'fallback'
   }
 
-  function setUserVolume(id: string, v: number) {
+  function setUserVolume(id: string, v: number): number {
     const vv = Math.min(200, Math.max(0, Math.round(v)))
+    let applied = vv
+    if (applied > 100 && !webAudioAvailable()) {
+      applied = 100
+    }
+    const mode = applyVolume(id, applied)
+    if (applied > 100 && mode === 'fallback') {
+      applied = 100
+      applyVolume(id, applied)
+    }
     const cur = volumePrefs.get(id) ?? getSavedVol(id)
-    if (cur !== vv) setSavedVol(id, vv)
-    applyVolume(id, vv)
+    if (cur !== applied) setSavedVol(id, applied)
+    return applied
   }
   function getUserVolume(id: string): number {
     let v = volumePrefs.get(id)
@@ -548,13 +571,7 @@ export function useRTC(): UseRTC {
   let resumeForceQueued = false
   const autoplayUnlocked = ref(false)
   function primeAudioOnGesture() {
-    if (isIOS) {
-      void startIosMicUnlock()
-      audioEls.forEach((_el, id) => {
-        try { applyVolume(id) } catch {}
-      })
-      return
-    }
+    if (isIOS) void startIosMicUnlock()
     if (waState === -1) waState = 0
     if (!webAudioAvailable()) return
     try {
@@ -588,9 +605,9 @@ export function useRTC(): UseRTC {
     try {
       const wasUnlocked = autoplayUnlocked.value
       const ua = (navigator as any).userActivation
-      const canPrime = !isIOS && (force || !ua || !!(ua?.isActive || ua?.hasBeenActive))
+      const canPrime = force || !ua || !!(ua?.isActive || ua?.hasBeenActive)
       if (!audioCtx && canPrime) { try { getCtx() } catch {} }
-      const ctxResume = (!isIOS && audioCtx && audioCtx.state !== 'running') ? audioCtx.resume().catch(() => {}) : null
+      const ctxResume = (audioCtx && audioCtx.state !== 'running') ? audioCtx.resume().catch(() => {}) : null
       const plays: Promise<unknown>[] = []
       for (const a of audioEls.values()) {
         try { plays.push(a.play()) } catch (err) { plays.push(Promise.reject(err)) }
@@ -614,7 +631,7 @@ export function useRTC(): UseRTC {
       const usesWebAudio = waState === 1
       if (!force) {
         const next = usesWebAudio ? ctxRunning : (ctxRunning || played)
-        const canAutoUnlock = !isIOS || iosMicUnlockDone
+        const canAutoUnlock = true
         if (canAutoUnlock && next) autoplayUnlocked.value = true
         else if (!wasUnlocked) autoplayUnlocked.value = false
       }

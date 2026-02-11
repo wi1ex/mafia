@@ -1044,6 +1044,7 @@ watch(canKeepKnockModal, (ok) => {
 
 const speechGongAudio = new Audio(gongAudioUrl)
 speechGongAudio.preload = 'auto'
+speechGongAudio.volume = 0.5
 
 function playSpeechGong(): void {
   try { speechGongAudio.currentTime = 0 } catch {}
@@ -1186,6 +1187,7 @@ async function requestMediaPermissions(opts?: { force?: boolean }) {
 }
 async function onProbeClick() {
   if (isSpectatorInGame.value) return
+  rtc.primeAudioOnGesture()
   try { await rtc.resumeAudio({ force: true }) } catch {}
   await rtc.unlockBgmOnGesture()
   await requestMediaPermissions()
@@ -1275,7 +1277,11 @@ function onVol(id: string, v: number) {
     clearVolumeSnap(id)
     volUi[id] = next
   }
-  rtc.setUserVolume(id, next)
+  const applied = rtc.setUserVolume(id, next)
+  if (applied !== next) {
+    clearVolumeSnap(id)
+    volUi[id] = applied
+  }
   void rtc.resumeAudio()
 }
 
