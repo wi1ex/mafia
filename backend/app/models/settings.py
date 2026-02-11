@@ -29,3 +29,4 @@ class AppSettings(Base):
     vote_seconds: Mapped[int] = mapped_column(Integer, nullable=False, server_default=str(settings.VOTE_SECONDS))
     winks_limit: Mapped[int] = mapped_column(Integer, nullable=False, server_default=str(settings.WINKS_LIMIT))
     knocks_limit: Mapped[int] = mapped_column(Integer, nullable=False, server_default=str(settings.KNOCKS_LIMIT))
+    wink_spot_chance_percent: Mapped[int] = mapped_column(Integer, nullable=False, server_default=str(settings.WINK_SPOT_CHANCE_PERCENT))

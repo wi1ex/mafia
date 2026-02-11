@@ -84,6 +84,8 @@
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Подмигивания (шт)" />
                 <UiInput id="knocks-limit" v-model.number="game.knocks_limit" type="number" min="0" step="1"
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Постукивания (шт)" />
+                <UiInput id="wink-spot-chance-percent" v-model.number="game.wink_spot_chance_percent" type="number" min="0" max="100" step="1"
+                         autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Шанс заметить подмигивание (%)" />
               </div>
             </div>
 
@@ -691,6 +693,7 @@ type GameSettings = {
   vote_seconds: number
   winks_limit: number
   knocks_limit: number
+  wink_spot_chance_percent: number
 }
 
 type RegistrationPoint = {
@@ -864,6 +867,7 @@ const game = reactive<GameSettings>({
   vote_seconds: 3,
   winks_limit: 3,
   knocks_limit: 3,
+  wink_spot_chance_percent: 25,
 })
 
 const settingsStore = useSettingsStore()
@@ -1019,6 +1023,13 @@ function normalizeInt(value: number): number {
   return Number.isFinite(value) ? value : 0
 }
 
+function normalizePercent(value: number): number {
+  const n = normalizeInt(value)
+  if (n < 0) return 0
+  if (n > 100) return 100
+  return n
+}
+
 function normalizeRoomUsers(value: unknown): RoomUserStat[] {
   if (!Array.isArray(value)) return []
   return value
@@ -1068,6 +1079,7 @@ function snapshotGame(): string {
     vote_seconds: normalizeInt(game.vote_seconds),
     winks_limit: normalizeInt(game.winks_limit),
     knocks_limit: normalizeInt(game.knocks_limit),
+    wink_spot_chance_percent: normalizePercent(game.wink_spot_chance_percent),
   })
 }
 
@@ -1238,6 +1250,7 @@ async function saveSettings(): Promise<void> {
         vote_seconds: normalizeInt(game.vote_seconds),
         winks_limit: normalizeInt(game.winks_limit),
         knocks_limit: normalizeInt(game.knocks_limit),
+        wink_spot_chance_percent: normalizePercent(game.wink_spot_chance_percent),
       },
     }
     const { data } = await api.patch('/admin/settings', payload)
@@ -1255,6 +1268,7 @@ async function saveSettings(): Promise<void> {
       game_min_ready_players: game.game_min_ready_players,
       winks_limit: game.winks_limit,
       knocks_limit: game.knocks_limit,
+      wink_spot_chance_percent: normalizePercent(game.wink_spot_chance_percent),
       season_start_game_number: site.season_start_game_number,
     })
     void alertDialog('Настройки сохранены')

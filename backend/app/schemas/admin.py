@@ -41,6 +41,7 @@ class GameSettingsOut(BaseModel):
     vote_seconds: int
     winks_limit: int
     knocks_limit: int
+    wink_spot_chance_percent: int
 
 
 class GameSettingsUpdateIn(BaseModel):
@@ -54,6 +55,7 @@ class GameSettingsUpdateIn(BaseModel):
     vote_seconds: Optional[int] = Field(default=None, ge=1)
     winks_limit: Optional[int] = Field(default=None, ge=0)
     knocks_limit: Optional[int] = Field(default=None, ge=0)
+    wink_spot_chance_percent: Optional[int] = Field(default=None, ge=0, le=100)
 
 
 class AdminSettingsOut(BaseModel):
@@ -76,6 +78,7 @@ class PublicSettingsOut(BaseModel):
     game_min_ready_players: int
     winks_limit: int
     knocks_limit: int
+    wink_spot_chance_percent: int
     season_start_game_number: int
 
 

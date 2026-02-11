@@ -51,6 +51,7 @@ class Settings(BaseSettings):
     VOTE_SECONDS: int = 3
     WINKS_LIMIT: int = 3
     KNOCKS_LIMIT: int = 5
+    WINK_SPOT_CHANCE_PERCENT: int = 25
 
     @property
     def pg_dsn(self) -> str:

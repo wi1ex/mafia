@@ -12,6 +12,7 @@ export interface PublicSettings {
   game_min_ready_players: number
   winks_limit: number
   knocks_limit: number
+  wink_spot_chance_percent: number
   season_start_game_number: number
 }
 
@@ -25,6 +26,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const gameMinReadyPlayers = ref(4)
   const winksLimit = ref(0)
   const knocksLimit = ref(0)
+  const winkSpotChancePercent = ref(25)
   const seasonStartGameNumber = ref(1)
   const ready = ref(false)
   let inited = false
@@ -43,6 +45,8 @@ export const useSettingsStore = defineStore('settings', () => {
     if (Number.isFinite(winks) && winks >= 0) winksLimit.value = winks
     const knocks = Number(data.knocks_limit)
     if (Number.isFinite(knocks) && knocks >= 0) knocksLimit.value = knocks
+    const winkSpotChance = Number(data.wink_spot_chance_percent)
+    if (Number.isFinite(winkSpotChance)) winkSpotChancePercent.value = Math.max(0, Math.min(100, Math.round(winkSpotChance)))
     const seasonStart = Number(data.season_start_game_number)
     if (Number.isFinite(seasonStart) && seasonStart >= 1) seasonStartGameNumber.value = seasonStart
   }
@@ -74,6 +78,7 @@ export const useSettingsStore = defineStore('settings', () => {
     gameMinReadyPlayers,
     winksLimit,
     knocksLimit,
+    winkSpotChancePercent,
     seasonStartGameNumber,
     ready,
 

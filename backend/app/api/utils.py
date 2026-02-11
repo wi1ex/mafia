@@ -621,6 +621,7 @@ def game_settings_out(row) -> GameSettingsOut:
         vote_seconds=int(row.vote_seconds),
         winks_limit=int(row.winks_limit),
         knocks_limit=int(row.knocks_limit),
+        wink_spot_chance_percent=int(row.wink_spot_chance_percent),
     )
 
 

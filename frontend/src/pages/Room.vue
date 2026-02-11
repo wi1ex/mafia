@@ -1764,6 +1764,15 @@ socket.value?.on('connect', async () => {
       showTransientToast('Вам подмигнули!', 'Игрок подмигнул вам')
     }
   })
+  socket.value.on('game_wink_spotted', (p: any) => {
+    const fromSeat = Number(p?.from_seat || 0)
+    const toSeat = Number(p?.to_seat || 0)
+    if (fromSeat > 0 && toSeat > 0) {
+      showTransientToast('Вы наблюдательны!', `Вы заметили, как ${fromSeat}й подмигнул ${toSeat}му`)
+    } else {
+      showTransientToast('Вы наблюдательны!', 'Вы заметили подмигивание')
+    }
+  })
   socket.value.on('game_knocked', (p: any) => {
     const seat = Number(p?.from_seat || 0)
     const count = Number(p?.count || 0)

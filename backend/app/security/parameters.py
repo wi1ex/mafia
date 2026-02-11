@@ -29,6 +29,7 @@ class AppSettingsSnapshot:
     vote_seconds: int
     winks_limit: int
     knocks_limit: int
+    wink_spot_chance_percent: int
 
 
 _CACHE: Optional[AppSettingsSnapshot] = None
@@ -56,6 +57,7 @@ def _defaults() -> AppSettingsSnapshot:
         vote_seconds=core_settings.VOTE_SECONDS,
         winks_limit=core_settings.WINKS_LIMIT,
         knocks_limit=core_settings.KNOCKS_LIMIT,
+        wink_spot_chance_percent=core_settings.WINK_SPOT_CHANCE_PERCENT,
     )
 
 
@@ -81,6 +83,7 @@ def _snapshot_from_row(row: AppSettings) -> AppSettingsSnapshot:
         vote_seconds=int(row.vote_seconds),
         winks_limit=int(row.winks_limit),
         knocks_limit=int(row.knocks_limit),
+        wink_spot_chance_percent=int(row.wink_spot_chance_percent),
     )
 
 
@@ -119,6 +122,7 @@ async def ensure_app_settings(session: AsyncSession) -> AppSettings:
             vote_seconds=defaults.vote_seconds,
             winks_limit=defaults.winks_limit,
             knocks_limit=defaults.knocks_limit,
+            wink_spot_chance_percent=defaults.wink_spot_chance_percent,
         )
         session.add(row)
         await session.commit()
