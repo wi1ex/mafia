@@ -279,12 +279,18 @@ function stopAutoClose() {
   autoCloseTimer = undefined
 }
 
-async function invite(friend: { id: number; username?: string | null }) {
+async function invite(friend: { id: number; username?: string | null; kind?: string; telegram_verified?: boolean; tg_invites_enabled?: boolean }) {
   const uid = Number(friend.id || 0)
   if (!inviteRoomId.value || uid <= 0) return
   if (inviteBusy[uid]) return
-  if (isInviteDisabled(uid)) {
-    void alertDialog(`Приглашение можно отправить через ${formatCooldownLeft(inviteCooldownLeftMs(uid))}`)
+  const blockedReason = inviteBlockedReason(friend)
+  if (blockedReason) {
+    void alertDialog(blockedReason)
+    return
+  }
+  const leftMs = inviteCooldownLeftMs(uid)
+  if (leftMs > 0) {
+    void alertDialog(`Приглашение можно отправить через ${formatCooldownLeft(leftMs)}`)
     return
   }
   const ok = await confirmDialog({
