@@ -2539,10 +2539,21 @@ async def game_knock(sid, data):
             left_after = 0
             await r.hset(f"room:{rid}:game_knocks_left", str(uid), "0")
 
+        spotted = False
         await sio.emit("game_knocked",
                        {"room_id": rid, "from_seat": seat_actor, "count": count},
                        room=f"user:{target_uid}",
                        namespace="/room")
+
+        head_uid = ctx.head_uid
+        if head_uid and head_uid not in (uid, target_uid) and random.random() < wink_spot_chance():
+            await sio.emit(
+                "game_knock_spotted",
+                {"room_id": rid, "from_seat": seat_actor, "to_seat": seat_target, "count": count},
+                room=f"user:{head_uid}",
+                namespace="/room",
+            )
+            spotted = True
 
         await log_game_action(
             r,
@@ -2553,6 +2564,7 @@ async def game_knock(sid, data):
                 "target_id": target_uid,
                 "count": count,
                 "day": ctx.gint("day_number"),
+                "spotted": spotted,
             },
         )
 

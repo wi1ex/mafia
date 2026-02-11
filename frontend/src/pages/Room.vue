@@ -1768,7 +1768,7 @@ socket.value?.on('connect', async () => {
     const fromSeat = Number(p?.from_seat || 0)
     const toSeat = Number(p?.to_seat || 0)
     if (fromSeat > 0 && toSeat > 0) {
-      showTransientToast('Вы наблюдательны!', `Вы заметили, как ${fromSeat}й подмигнул ${toSeat}му`)
+      showTransientToast('Вы наблюдательны!', `Вы заметили как ${fromSeat}й подмигнул ${toSeat}му`)
     } else {
       showTransientToast('Вы наблюдательны!', 'Вы заметили подмигивание')
     }
@@ -1782,6 +1782,16 @@ socket.value?.on('connect', async () => {
       showTransientToast('Вам отстучали!', `${seat}й игрок отстучал`)
     } else {
       showTransientToast('Вам отстучали!', 'Игрок отстучал вам')
+    }
+  })
+  socket.value.on('game_knock_spotted', (p: any) => {
+    const fromSeat = Number(p?.from_seat || 0)
+    const toSeat = Number(p?.to_seat || 0)
+    const count = Number(p?.count || 0)
+    if (fromSeat > 0 && toSeat > 0 && count > 0) {
+      showTransientToast('Вы наблюдательны!', `Вы заметили как ${fromSeat}й отстучал ${toSeat}му число ${count}`)
+    } else {
+      showTransientToast('Вы наблюдательны!', 'Вы заметили постукивание')
     }
   })
   socket.value.on('game_nominee_added', (p: any) => {
