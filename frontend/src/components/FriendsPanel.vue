@@ -110,7 +110,7 @@ let pollTimer: number | undefined
 let autoCloseTimer: number | undefined
 const POLL_MS = 3000
 const AUTO_CLOSE_MS = 5 * 60 * 1000
-const INVITE_COOLDOWN_MS = 60 * 60 * 1000
+const INVITE_COOLDOWN_MS = 30 * 60 * 1000
 
 function parseCooldownMap(raw: unknown, now = Date.now()): Record<string, number> {
   if (!raw || typeof raw !== 'object') return {}
@@ -334,7 +334,7 @@ async function invite(friend: { id: number; username?: string | null; kind?: str
         void alertDialog(`Приглашение можно отправить через ${formatCooldownLeft(retryAfterRaw * 1000)}`)
       } else {
         setInviteCooldown(uid, inviteRoomId.value)
-        void alertDialog('Приглашение можно отправить через 1 час')
+        void alertDialog('Приглашение можно отправить через 30 минут')
       }
       return
     }

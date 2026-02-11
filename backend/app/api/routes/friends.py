@@ -548,7 +548,7 @@ async def invite_friend(payload: FriendInviteIn, ident: Identity = Depends(get_i
                 room=f"user:{uid}",
                 namespace="/auth",
             )
-    await r.set(cooldown_key, "1", ex=3600)
+    await r.set(cooldown_key, "1", ex=30 * 60)
 
     await log_action(
         db,
