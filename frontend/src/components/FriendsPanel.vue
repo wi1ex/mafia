@@ -30,8 +30,8 @@
                     <span class="game" :class="{ active: f.room_in_game }">{{ f.room_in_game ? 'Игра' : 'Лобби' }}</span>
                   </div>
                   <div v-if="canInvite(f)" class="invite-select">
-                    <button type="button" class="icon-btn invite-btn" :disabled="isInviteDisabled(f.id) || Boolean(inviteBusy[f.id])"
-                            :title="inviteTitle(f.id)" @click="invite(f)" aria-label="Пригласить в комнату">
+                    <button type="button" class="icon-btn invite-btn" :disabled="isInviteDisabled(f) || Boolean(inviteBusy[f.id])"
+                            :title="inviteTitle(f)" @click="invite(f)" aria-label="Пригласить в комнату">
                       <img :src="iconInvite" alt="" />
                     </button>
                   </div>
@@ -90,7 +90,7 @@ const isRoomMode = computed(() => props.mode === 'room')
 const inviteRoomId = computed(() => Number(props.roomId || 0))
 const isAccepted = (f: { kind?: string }) => f.kind === 'online' || f.kind === 'offline'
 const canInvite = (f: { kind?: string; room_id?: number | null }) => {
-  if (!isRoomMode.value || inviteRoomId.value <= 0 || f.kind !== 'online') return false
+  if (!isRoomMode.value || inviteRoomId.value <= 0 || !isAccepted(f)) return false
   return Number(f.room_id || 0) !== inviteRoomId.value
 }
 const sections = computed(() => [
@@ -177,8 +177,11 @@ function inviteCooldownLeftMs(uid: number, roomId = inviteRoomId.value): number 
   return Math.max(0, until - nowTs.value)
 }
 
-function isInviteDisabled(uid: number): boolean {
-  return inviteCooldownLeftMs(uid) > 0
+function inviteBlockedReason(friend: { kind?: string; telegram_verified?: boolean; tg_invites_enabled?: boolean }): string {
+  if (friend.kind !== 'offline') return ''
+  if (friend.tg_invites_enabled === false) return 'Пользователь запретил приглашения через уведомления в Telegram'
+  if (!friend.telegram_verified) return 'Пользователь не прошел верификацию через Telegram'
+  return ''
 }
 
 function formatCooldownLeft(ms: number): string {
@@ -191,8 +194,19 @@ function formatCooldownLeft(ms: number): string {
   return `${totalMinutes} мин`
 }
 
-function inviteTitle(uid: number): string {
+function isInviteDisabled(friend: { id: number; kind?: string; telegram_verified?: boolean; tg_invites_enabled?: boolean }): boolean {
+  const uid = Number(friend.id || 0)
+  if (uid <= 0) return true
+  if (inviteBlockedReason(friend)) return true
+  return inviteCooldownLeftMs(uid) > 0
+}
+
+function inviteTitle(friend: { id: number; kind?: string; telegram_verified?: boolean; tg_invites_enabled?: boolean }): string {
+  const uid = Number(friend.id || 0)
+  if (uid <= 0) return 'Приглашение недоступно'
   if (inviteBusy[uid]) return 'Отправка приглашения...'
+  const blockedReason = inviteBlockedReason(friend)
+  if (blockedReason) return blockedReason
   const leftMs = inviteCooldownLeftMs(uid)
   if (leftMs <= 0) return 'Пригласить в комнату'
   return `Повторное приглашение через ${formatCooldownLeft(leftMs)}`
@@ -284,6 +298,22 @@ async function invite(friend: { id: number; username?: string | null }) {
     const d = e?.response?.data?.detail
     if (st === 409 && d === 'target_offline') {
       void alertDialog('Пользователь не в сети')
+      return
+    }
+    if (st === 409 && d === 'target_telegram_not_verified') {
+      void alertDialog('Пользователь не прошел верификацию через Telegram')
+      return
+    }
+    if (st === 409 && d === 'target_telegram_invites_disabled') {
+      void alertDialog('Пользователь запретил приглашения через уведомления в Telegram')
+      return
+    }
+    if (st === 409 && d === 'target_telegram_unreachable') {
+      void alertDialog('Пользователю нельзя отправить сообщение в Telegram')
+      return
+    }
+    if (st === 503 && d === 'telegram_unavailable') {
+      void alertDialog('Telegram временно недоступен. Попробуйте позже')
       return
     }
     if (st === 404 && d === 'user_not_found') {

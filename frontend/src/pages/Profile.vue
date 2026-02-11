@@ -123,6 +123,13 @@
           </div>
 
           <div class="block">
+            <h3>Уведомления в Telegram</h3>
+            <ToggleSwitch class="profile-switch" :model-value="tgInvitesEnabled" label="Приглашения в комнату, когда Вы не в сети"
+              off-label="Запретить" on-label="Разрешить" :disabled="tgInvitesTogglePending" @update:modelValue="onToggleTgInvites" />
+            <p class="hint">Если запретить, друзья не смогут приглашать Вас офлайн через Telegram.</p>
+          </div>
+
+          <div class="block">
             <h3>Удаление аккаунта</h3>
             <div class="danger-row">
               <button class="btn danger" @click="deleteAccount" :disabled="deleteBusy">
@@ -204,8 +211,8 @@ import iconDelete from '@/assets/svg/delete.svg'
 const userStore = useUserStore()
 const auth = useAuthStore()
 const isBanned = computed(() => userStore.banActive)
-const { hotkeysVisible } = storeToRefs(userStore)
-const { setHotkeysVisible } = userStore
+const { hotkeysVisible, tgInvitesEnabled } = storeToRefs(userStore)
+const { setHotkeysVisible, setTgInvitesEnabled } = userStore
 
 const me = reactive({
   id: 0,
@@ -214,6 +221,7 @@ const me = reactive({
   role: '',
   telegram_verified: false,
   password_temp: false,
+  tg_invites_enabled: true,
 })
 const fileEl = ref<HTMLInputElement | null>(null)
 const modalEl = ref<HTMLDivElement | null>(null)
@@ -276,6 +284,8 @@ const sanctionsLoaded = ref(false)
 const sanctionsError = ref('')
 const hotkeysTogglePending = ref(false)
 let hotkeysToggleTimer: number | null = null
+const tgInvitesTogglePending = ref(false)
+let tgInvitesToggleTimer: number | null = null
 const telegramVerified = computed(() => userStore.telegramVerified)
 const passwordTemp = computed(() => userStore.passwordTemp)
 const botName = (import.meta.env.VITE_TG_BOT_NAME as string || '').trim()
@@ -321,6 +331,16 @@ function onToggleHotkeys(next: boolean) {
   }, 500)
 }
 
+function onToggleTgInvites(next: boolean) {
+  if (tgInvitesTogglePending.value) return
+  tgInvitesTogglePending.value = true
+  if (tgInvitesToggleTimer !== null) window.clearTimeout(tgInvitesToggleTimer)
+  tgInvitesToggleTimer = window.setTimeout(async () => {
+    try { await setTgInvitesEnabled(next) }
+    finally { tgInvitesTogglePending.value = false }
+  }, 500)
+}
+
 const sanctionsSummary = computed(() => {
   const out = { total: sanctions.value.length, timeout: 0, ban: 0, suspend: 0 }
   for (const item of sanctions.value) {
@@ -340,6 +360,7 @@ async function loadMe(options: { keepNickDraft?: boolean } = {}) {
   me.role = data.role
   me.telegram_verified = Boolean(data.telegram_verified)
   me.password_temp = Boolean(data.password_temp)
+  me.tg_invites_enabled = data.tg_invites_enabled !== false
   const hasDraft = options.keepNickDraft && nick.value !== prevUsername
   if (!hasDraft) nick.value = me.username
   try { await userStore.fetchMe?.() } catch {}
@@ -743,6 +764,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   if (onSanctionsUpdate) window.removeEventListener('auth-sanctions_update', onSanctionsUpdate)
   if (hotkeysToggleTimer !== null) window.clearTimeout(hotkeysToggleTimer)
+  if (tgInvitesToggleTimer !== null) window.clearTimeout(tgInvitesToggleTimer)
   document.body.style.overflow = ''
 })
 </script>

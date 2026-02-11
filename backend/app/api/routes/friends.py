@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select, or_, delete, update, func, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 from ...core.db import get_session
+from ...core.settings import settings
 from ...core.clients import get_redis
 from ...core.logging import log_action
 from ...models.friend import FriendLink, FriendCloseness
@@ -13,6 +14,7 @@ from ...models.user import User
 from ...models.notif import Notif
 from ...realtime.utils import get_rooms_brief
 from ...realtime.sio import sio
+from ...services.telegram import send_text_message
 from ...schemas.common import Identity, Ok
 from ...schemas.friend import FriendStatusOut, FriendsListOut, FriendsListItemOut, FriendIncomingCountOut, FriendInviteIn
 from ...schemas.room import RoomBriefOut
@@ -82,11 +84,24 @@ async def friends_list(ident: Identity = Depends(get_identity), db: AsyncSession
     friend_ids: list[int] = friend_ids_all
 
     all_ids = set(friend_ids + incoming_ids + outgoing_ids)
-    users_map: dict[int, tuple[str | None, str | None]] = {}
+    users_map: dict[int, dict[str, object]] = {}
     if all_ids:
-        rows = await db.execute(select(User.id, User.username, User.avatar_name).where(User.id.in_(all_ids)))
-        for rid, username, avatar_name in rows.all():
-            users_map[int(rid)] = (username, avatar_name)
+        rows = await db.execute(
+            select(
+                User.id,
+                User.username,
+                User.avatar_name,
+                User.telegram_id,
+                User.tg_invites_enabled,
+            ).where(User.id.in_(all_ids))
+        )
+        for rid, username, avatar_name, telegram_id, tg_invites_enabled in rows.all():
+            users_map[int(rid)] = {
+                "username": username,
+                "avatar_name": avatar_name,
+                "telegram_verified": bool(telegram_id),
+                "tg_invites_enabled": bool(tg_invites_enabled),
+            }
 
     closeness_map: dict[tuple[int, int], int] = {}
     if friend_ids:
@@ -124,8 +139,18 @@ async def friends_list(ident: Identity = Depends(get_identity), db: AsyncSession
             except Exception:
                 continue
 
+    def user_username(user_id: int) -> str | None:
+        raw = (users_map.get(user_id) or {}).get("username")
+        return str(raw) if isinstance(raw, str) else None
+
+    def user_avatar_name(user_id: int) -> str | None:
+        raw = (users_map.get(user_id) or {}).get("avatar_name")
+        return str(raw) if isinstance(raw, str) else None
+
     def build_friend_item(fid: int) -> FriendsListItemOut:
-        name, avatar = users_map.get(fid, (None, None))
+        user_data = users_map.get(fid) or {}
+        name = user_username(fid)
+        avatar = user_avatar_name(fid)
         online = fid in online_ids
         closeness = closeness_map.get(pair(uid, fid), 0)
         rid = room_by_uid.get(fid)
@@ -140,6 +165,8 @@ async def friends_list(ident: Identity = Depends(get_identity), db: AsyncSession
             room_id=int(rid) if rid else None,
             room_title=info.title if info else None,
             room_in_game=bool(info.in_game) if info else None,
+            telegram_verified=bool(user_data.get("telegram_verified")),
+            tg_invites_enabled=bool(user_data.get("tg_invites_enabled")),
         )
 
     friends_items: list[FriendsListItemOut] = []
@@ -156,8 +183,8 @@ async def friends_list(ident: Identity = Depends(get_identity), db: AsyncSession
         FriendsListItemOut(
             kind="incoming",
             id=int(link.requester_id),
-            username=users_map.get(int(link.requester_id), (None, None))[0],
-            avatar_name=users_map.get(int(link.requester_id), (None, None))[1],
+            username=user_username(int(link.requester_id)),
+            avatar_name=user_avatar_name(int(link.requester_id)),
             requested_at=link.created_at,
         )
         for link in incoming
@@ -168,8 +195,8 @@ async def friends_list(ident: Identity = Depends(get_identity), db: AsyncSession
         FriendsListItemOut(
             kind="outgoing",
             id=int(link.addressee_id),
-            username=users_map.get(int(link.addressee_id), (None, None))[0],
-            avatar_name=users_map.get(int(link.addressee_id), (None, None))[1],
+            username=user_username(int(link.addressee_id)),
+            avatar_name=user_avatar_name(int(link.addressee_id)),
             requested_at=link.created_at,
         )
         for link in outgoing
@@ -429,8 +456,13 @@ async def invite_friend(payload: FriendInviteIn, ident: Identity = Depends(get_i
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="user_not_found")
 
     online_ids = set(await fetch_online_user_ids(r))
-    if target_id not in online_ids:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="target_offline")
+    target_online = target_id in online_ids
+    if not target_online:
+        if not target.telegram_id:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="target_telegram_not_verified")
+
+        if not bool(target.tg_invites_enabled):
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="target_telegram_invites_disabled")
 
     cooldown_key = f"friends:invite:cooldown:{uid}:{target_id}:{room_id}"
     retry_after = int(await r.ttl(cooldown_key) or 0)
@@ -444,6 +476,43 @@ async def invite_friend(payload: FriendInviteIn, ident: Identity = Depends(get_i
     is_private = str(params.get("privacy") or "open").strip() == "private"
     is_owner_invite = int(params.get("creator") or 0) == uid
     auto_allowed = False
+    inviter = await db.get(User, uid)
+    inviter_name = str(ident.get("username") or (inviter.username if inviter else f"user{uid}"))
+
+    if target_online:
+        title = "Приглашение в комнату"
+        text = f"{inviter_name} приглашает Вас в «{room_title}»."
+        note = Notif(user_id=target_id, title=title, text=text)
+        db.add(note)
+        await db.commit()
+        await db.refresh(note)
+
+        await emit_notify(
+            target_id,
+            note,
+            kind="room_invite",
+            extra={
+                "action": {"kind": "route", "label": "Перейти", "to": f"/room/{room_id}"},
+                "room_id": room_id,
+                "user": {
+                    "id": uid,
+                    "username": inviter_name,
+                    "avatar_name": inviter.avatar_name if inviter else None,
+                },
+                "toast_title": "Приглашение в комнату от",
+                "toast_text": "",
+            },
+        )
+    else:
+        room_url = f"https://{settings.DOMAIN}/room/{room_id}"
+        tg_text = f"{inviter_name} приглашает Вас в {room_title}\n{room_url}"
+        send_result = await send_text_message(chat_id=int(target.telegram_id or 0), text=tg_text)
+        if not send_result.ok:
+            if send_result.reason == "telegram_chat_unavailable":
+                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="target_telegram_unreachable")
+
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="telegram_unavailable")
+
     if is_private and is_owner_invite:
         async with r.pipeline(transaction=True) as p:
             await p.srem(f"room:{room_id}:pending", str(target_id))
@@ -452,30 +521,6 @@ async def invite_friend(payload: FriendInviteIn, ident: Identity = Depends(get_i
             res = await p.execute()
         auto_allowed = int(res[1] or 0) > 0
 
-    title = "Приглашение в комнату"
-    text = f"{ident['username']} приглашает Вас в «{room_title}»."
-    note = Notif(user_id=target_id, title=title, text=text)
-    db.add(note)
-    await db.commit()
-    await db.refresh(note)
-
-    inviter = await db.get(User, uid)
-    await emit_notify(
-        target_id,
-        note,
-        kind="room_invite",
-        extra={
-            "action": {"kind": "route", "label": "Перейти", "to": f"/room/{room_id}"},
-            "room_id": room_id,
-            "user": {
-                "id": uid,
-                "username": ident["username"],
-                "avatar_name": inviter.avatar_name if inviter else None,
-            },
-            "toast_title": f"Приглашение в комнату от",
-            "toast_text": "",
-        },
-    )
     if auto_allowed:
         with suppress(Exception):
             await sio.emit(
@@ -491,7 +536,10 @@ async def invite_friend(payload: FriendInviteIn, ident: Identity = Depends(get_i
         user_id=uid,
         username=ident["username"],
         action="friend_room_invite",
-        details=f"friend_room_invite target_user={target_id} room_id={room_id} auto_allowed={int(auto_allowed)}",
+        details=(
+            f"friend_room_invite target_user={target_id} room_id={room_id} "
+            f"channel={'site' if target_online else 'telegram'} auto_allowed={int(auto_allowed)}"
+        ),
     )
 
     return Ok()
