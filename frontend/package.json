@@ -1,6 +1,6 @@
 {
   "name": "frontend",
-  "version": "0.10.6",
+  "version": "0.11.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -11,18 +11,18 @@
   },
   "dependencies": {
     "pinia": "^3.0.4",
-    "vue": "^3.5.26",
-    "vue-router": "^4.6.4",
-    "axios": "^1.13.2",
+    "vue": "^3.5.28",
+    "vue-router": "^5.0.2",
+    "axios": "^1.13.5",
     "socket.io-client": "^4.8.3",
-    "livekit-client": "^2.17.0"
+    "livekit-client": "^2.17.1"
   },
   "devDependencies": {
-    "@vitejs/plugin-vue": "^6.0.3",
-    "sass": "^1.97.2",
+    "@vitejs/plugin-vue": "^6.0.4",
+    "sass": "^1.97.3",
     "typescript": "^5.9.3",
     "vite": "^7.3.1",
-    "vue-tsc": "^3.2.2",
+    "vue-tsc": "^3.2.4",
     "vite-plugin-compression": "^0.5.1",
     "patch-package": "^8.0.1"
   },
