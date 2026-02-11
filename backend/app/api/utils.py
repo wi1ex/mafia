@@ -461,7 +461,7 @@ async def check_sanctions_expired(session: AsyncSession, user_id: int, *, thrott
             notes.append(Notif(
                 user_id=int(user_id),
                 title="Ограничение истекло",
-                text="Ограничение доступа к играм снято.",
+                text="Ограничение доступа к играм истекло.",
             ))
             details = f"Автоснятие ограничения user_id={user_id}"
             if username:

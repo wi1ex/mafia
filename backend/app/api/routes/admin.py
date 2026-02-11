@@ -1293,7 +1293,7 @@ async def revoke_user_suspend(user_id: int, ident: Identity = Depends(get_identi
     note = Notif(
         user_id=uid,
         title="Ограничение снято",
-        text="Ограничение доступа к играм снято.",
+        text="Ограничение доступа к играм снято досрочно.",
     )
     session.add(note)
     await session.commit()
