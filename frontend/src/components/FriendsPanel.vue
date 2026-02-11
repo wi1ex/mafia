@@ -284,7 +284,7 @@ async function invite(friend: { id: number; username?: string | null }) {
   if (!inviteRoomId.value || uid <= 0) return
   if (inviteBusy[uid]) return
   if (isInviteDisabled(uid)) {
-    void alertDialog(`Повторное приглашение можно отправить через ${formatCooldownLeft(inviteCooldownLeftMs(uid))}`)
+    void alertDialog(`Приглашение можно отправить через ${formatCooldownLeft(inviteCooldownLeftMs(uid))}`)
     return
   }
   const ok = await confirmDialog({
@@ -333,10 +333,10 @@ async function invite(friend: { id: number; username?: string | null }) {
       const retryAfterRaw = Number(e?.response?.headers?.['retry-after'])
       if (Number.isFinite(retryAfterRaw) && retryAfterRaw > 0) {
         setInviteCooldown(uid, inviteRoomId.value, Date.now() + retryAfterRaw * 1000)
-        void alertDialog(`Повторное приглашение можно отправить через ${formatCooldownLeft(retryAfterRaw * 1000)}`)
+        void alertDialog(`Приглашение можно отправить через ${formatCooldownLeft(retryAfterRaw * 1000)}`)
       } else {
         setInviteCooldown(uid, inviteRoomId.value)
-        void alertDialog('Повторное приглашение можно отправить через 1 час')
+        void alertDialog('Приглашение можно отправить через 1 час')
       }
       return
     }
