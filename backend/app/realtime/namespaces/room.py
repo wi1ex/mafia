@@ -97,6 +97,7 @@ from ..utils import (
     block_vote_and_clear,
     decide_vote_blocks_on_death,
     get_positive_setting_int,
+    wink_spot_chance,
     randomize_limit,
     compute_farewell_allowed,
     perform_game_end,
@@ -2367,11 +2368,60 @@ async def game_wink(sid, data):
             seat_num = int(await r.hget(f"room:{rid}:game_seats", str(uid)) or 0)
         except Exception:
             seat_num = 0
+        try:
+            seat_target = int(await r.hget(f"room:{rid}:game_seats", str(target_uid)) or 0)
+        except Exception:
+            seat_target = 0
 
         await sio.emit("game_winked",
                        {"room_id": rid, "from_seat": seat_num},
                        room=f"user:{target_uid}",
                        namespace="/room")
+
+        if seat_target > 0 and random.random() < wink_spot_chance():
+            try:
+                raw_seats = await hgetall_int_map(r, f"room:{rid}:game_seats")
+            except Exception:
+                raw_seats = {}
+            try:
+                alive_ids = await smembers_ints(r, f"room:{rid}:game_alive")
+            except Exception:
+                alive_ids = set()
+
+            total_seats = 0
+            seat_to_uid: dict[int, int] = {}
+            for pid, seat in (raw_seats or {}).items():
+                if seat <= 0 or seat == 11:
+                    continue
+                if seat > total_seats:
+                    total_seats = seat
+                if seat not in seat_to_uid:
+                    seat_to_uid[seat] = pid
+
+            if total_seats > 0:
+                left_seat = seat_target - 1 if seat_target > 1 else total_seats
+                right_seat = seat_target + 1 if seat_target < total_seats else 1
+                candidates: list[int] = []
+                for neighbor_seat in (left_seat, right_seat):
+                    cand_uid = seat_to_uid.get(neighbor_seat)
+                    if not cand_uid:
+                        continue
+                    if cand_uid == uid:
+                        continue
+                    if cand_uid not in alive_ids:
+                        continue
+                    if cand_uid in candidates:
+                        continue
+                    candidates.append(cand_uid)
+
+                if candidates:
+                    witness_uid = candidates[0] if len(candidates) == 1 else random.choice(candidates)
+                    await sio.emit(
+                        "game_wink_spotted",
+                        {"room_id": rid, "from_seat": seat_num, "to_seat": seat_target},
+                        room=f"user:{witness_uid}",
+                        namespace="/room",
+                    )
 
         return {"ok": True, "status": 200, "winks_left": left_after}
 

@@ -112,6 +112,7 @@ __all__ = [
     "should_block_vote_on_death",
     "decide_vote_blocks_on_death",
     "get_positive_setting_int",
+    "wink_spot_chance",
     "randomize_limit",
     "perform_game_end",
     "finish_game",
@@ -725,6 +726,20 @@ def get_positive_setting_int(attr: str, default: int) -> int:
         return int(default)
 
     return val if val > 0 else int(default)
+
+
+def wink_spot_chance(default_percent: int = 25) -> float:
+    try:
+        percent = int(getattr(get_cached_settings(), "wink_spot_chance_percent"))
+    except Exception:
+        percent = int(default_percent)
+
+    if percent < 0:
+        percent = 0
+    if percent > 100:
+        percent = 100
+
+    return percent / 100
 
 
 def randomize_limit(limit: int) -> int:
