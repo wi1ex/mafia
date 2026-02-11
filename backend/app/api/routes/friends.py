@@ -279,7 +279,10 @@ async def send_friend_request(user_id: int, ident: Identity = Depends(get_identi
         user_id=uid,
         username=ident["username"],
         action="friend_request_sent",
-        details=f"friend_request_sent target_user={target_id}",
+        details=(
+            f"friend_request_sent target_user={target_id} "
+            f"target_username={target.username or f'user{target_id}'}"
+        ),
     )
 
     return Ok()
@@ -354,7 +357,10 @@ async def accept_friend_request(user_id: int, ident: Identity = Depends(get_iden
         user_id=uid,
         username=ident["username"],
         action="friend_request_accepted",
-        details=f"friend_request_accepted requester_user={requester_id}",
+        details=(
+            f"friend_request_accepted requester_user={requester_id} "
+            f"requester_username={requester_name or f'user{requester_id}'}"
+        ),
     )
 
     return Ok()
@@ -386,13 +392,17 @@ async def decline_friend_request(user_id: int, ident: Identity = Depends(get_ide
     await db.commit()
     await emit_friends_update(requester_id, uid, "none")
     await emit_friends_update(uid, requester_id, "none")
+    requester = await db.get(User, requester_id)
 
     await log_action(
         db,
         user_id=uid,
         username=ident["username"],
         action="friend_request_declined",
-        details=f"friend_request_declined requester_user={requester_id}",
+        details=(
+            f"friend_request_declined requester_user={requester_id} "
+            f"requester_username={(requester.username if requester else None) or f'user{requester_id}'}"
+        ),
     )
 
     return Ok()
@@ -418,13 +428,17 @@ async def remove_friend(user_id: int, ident: Identity = Depends(get_identity), d
     await db.commit()
     await emit_friends_update(other_id, uid, "none")
     await emit_friends_update(uid, other_id, "none")
+    other_user = await db.get(User, other_id)
 
     await log_action(
         db,
         user_id=uid,
         username=ident["username"],
         action="friend_removed",
-        details=f"friend_removed target_user={other_id}",
+        details=(
+            f"friend_removed target_user={other_id} "
+            f"target_username={(other_user.username if other_user else None) or f'user{other_id}'}"
+        ),
     )
 
     return Ok()
@@ -542,7 +556,9 @@ async def invite_friend(payload: FriendInviteIn, ident: Identity = Depends(get_i
         username=ident["username"],
         action="friend_room_invite",
         details=(
-            f"friend_room_invite target_user={target_id} room_id={room_id} "
+            f"friend_room_invite target_user={target_id} "
+            f"target_username={target.username or f'user{target_id}'} "
+            f"room_id={room_id} "
             f"channel={'site' if target_online else 'telegram'} auto_allowed={int(auto_allowed)}"
         ),
     )

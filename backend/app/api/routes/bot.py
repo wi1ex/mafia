@@ -48,7 +48,7 @@ async def verify(payload: BotVerifyIn, db: AsyncSession = Depends(get_session), 
         user_id=int(user.id),
         username=user.username,
         action="telegram_verified",
-        details=f"Привязка Telegram: user_id={int(user.id)} tg_id={int(payload.telegram_id)}",
+        details=f"Привязка Telegram: user_id={int(user.id)} username={user.username} tg_id={int(payload.telegram_id)}",
     )
 
     try:
@@ -81,7 +81,7 @@ async def reset_password(payload: BotResetIn, db: AsyncSession = Depends(get_ses
         user_id=int(user.id),
         username=user.username,
         action="password_reset",
-        details=f"Сброс пароля через бот: user_id={int(user.id)} tg_id={int(payload.telegram_id)}",
+        details=f"Сброс пароля через бот: user_id={int(user.id)} username={user.username} tg_id={int(payload.telegram_id)}",
     )
 
     return TempPasswordOut(temp_password=temp_password, username=user.username)
