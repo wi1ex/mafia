@@ -59,8 +59,7 @@ async def online_ping(sid, data=None):
     except Exception:
         log.warning("auth.ping.last_visit_failed", uid=uid)
     try:
-        async with SessionLocal() as s:
-            await check_sanctions_expired(s, uid)
+        await check_sanctions_expired(uid)
     except Exception:
         log.warning("auth.ping.sanctions_check_failed", uid=uid)
 

@@ -14,7 +14,6 @@ from sqlalchemy import update, func, select, or_, and_
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.clients import get_redis
-from ..core.logging import log_action
 from ..core.db import SessionLocal
 from ..core.settings import settings
 from ..models.game import Game
@@ -283,9 +282,24 @@ async def emit_sanctions_update(session: AsyncSession, user_id: int) -> None:
     suspend = active.get(SANCTION_SUSPEND)
     timeout_expires_at = cast(Optional[datetime], timeout.expires_at) if timeout else None
     suspend_expires_at = cast(Optional[datetime], suspend.expires_at) if suspend else None
+    timeout_ts = int(timeout_expires_at.timestamp()) if timeout_expires_at else 0
+    suspend_ts = int(suspend_expires_at.timestamp()) if suspend_expires_at else 0
+    ban_active = bool(ban)
+    state_key = f"user:{int(user_id)}:sanctions_state"
+    try:
+        await get_redis().hset(
+            state_key,
+            mapping={
+                "ban_active": "1" if ban_active else "0",
+                "timeout_expires_at": str(timeout_ts),
+                "suspend_expires_at": str(suspend_ts),
+            },
+        )
+    except Exception:
+        pass
     payload = {
         "timeout_until": timeout_expires_at.isoformat() if timeout_expires_at else None,
-        "ban_active": bool(ban),
+        "ban_active": ban_active,
         "suspend_until": suspend_expires_at.isoformat() if suspend_expires_at else None,
     }
     await sio.emit("sanctions_update", payload, room=f"user:{user_id}", namespace="/auth")
@@ -384,7 +398,7 @@ def _parse_int(raw: Any) -> int:
         return 0
 
 
-async def check_sanctions_expired(session: AsyncSession, user_id: int, *, throttle_s: int = 30) -> None:
+async def check_sanctions_expired(user_id: int, *, throttle_s: int = 30) -> None:
     r = get_redis()
     if throttle_s > 0:
         try:
@@ -394,134 +408,40 @@ async def check_sanctions_expired(session: AsyncSession, user_id: int, *, thrott
         if not ok:
             return
 
-    now = datetime.now(timezone.utc)
     key = f"user:{user_id}:sanctions_state"
     try:
         prev = await r.hgetall(key)
     except Exception:
-        prev = {}
+        return
 
+    now_ts = int(time())
     prev_timeout_ts = _parse_int(prev.get("timeout_expires_at"))
     prev_suspend_ts = _parse_int(prev.get("suspend_expires_at"))
-    prev_ban = _parse_int(prev.get("ban_active"))
+    prev_ban = 1 if _parse_int(prev.get("ban_active")) > 0 else 0
+    next_timeout_ts = prev_timeout_ts if prev_timeout_ts > now_ts else 0
+    next_suspend_ts = prev_suspend_ts if prev_suspend_ts > now_ts else 0
+    if next_timeout_ts == prev_timeout_ts and next_suspend_ts == prev_suspend_ts:
+        return
 
-    expired_rows = await session.execute(
-        select(UserSanction)
-        .where(
-            UserSanction.user_id == int(user_id),
-            UserSanction.revoked_at.is_(None),
-            UserSanction.expires_at.is_not(None),
-            UserSanction.expires_at <= now,
-            UserSanction.expired_notified_at.is_(None),
-            UserSanction.kind.in_([SANCTION_TIMEOUT, SANCTION_SUSPEND]),
-        )
-        .order_by(UserSanction.expires_at.asc(), UserSanction.id.asc())
-    )
-    expired = expired_rows.scalars().all()
-
-    active = await fetch_active_sanctions(session, int(user_id))
-    timeout = active.get(SANCTION_TIMEOUT)
-    ban = active.get(SANCTION_BAN)
-    suspend = active.get(SANCTION_SUSPEND)
-
-    timeout_expires_at = cast(Optional[datetime], timeout.expires_at) if timeout else None
-    suspend_expires_at = cast(Optional[datetime], suspend.expires_at) if suspend else None
-    new_timeout_ts = int(timeout_expires_at.timestamp()) if timeout_expires_at else 0
-    new_suspend_ts = int(suspend_expires_at.timestamp()) if suspend_expires_at else 0
-    new_ban = 1 if ban else 0
-
-    state_changed = prev_timeout_ts != new_timeout_ts or prev_suspend_ts != new_suspend_ts or prev_ban != new_ban
-
-    notes: list[Notif] = []
-    username: str | None = None
-    if expired:
-        user = await session.get(User, int(user_id))
-        username = user.username if user else None
-    for row in expired:
-        if row.kind == SANCTION_TIMEOUT:
-            notes.append(Notif(
-                user_id=int(user_id),
-                title="Таймаут истек",
-                text="Ваш таймаут завершен. Доступ к комнатам восстановлен.",
-            ))
-            details = f"Автоснятие таймаута user_id={user_id}"
-            if username:
-                details += f" username={username}"
-            if row.expires_at:
-                details += f" expires_at={row.expires_at.isoformat()}"
-            await log_action(
-                session,
-                user_id=int(user_id),
-                username=username,
-                action="sanction_timeout_expired",
-                details=details,
-                commit=False,
-            )
-        elif row.kind == SANCTION_SUSPEND:
-            notes.append(Notif(
-                user_id=int(user_id),
-                title="Ограничение истекло",
-                text="Ограничение доступа к играм истекло.",
-            ))
-            details = f"Автоснятие ограничения user_id={user_id}"
-            if username:
-                details += f" username={username}"
-            if row.expires_at:
-                details += f" expires_at={row.expires_at.isoformat()}"
-            await log_action(
-                session,
-                user_id=int(user_id),
-                username=username,
-                action="sanction_suspend_expired",
-                details=details,
-                commit=False,
-            )
-        row.expired_notified_at = now
-
-    if notes:
-        session.add_all(notes)
-        await session.commit()
-        for note in notes:
-            await session.refresh(note)
-        for note in notes:
-            with suppress(Exception):
-                await sio.emit(
-                    "notify",
-                    {
-                        "id": note.id,
-                        "title": note.title,
-                        "text": note.text,
-                        "date": note.created_at.isoformat(),
-                        "kind": "sanction",
-                        "ttl_ms": 15000,
-                        "read": False,
-                    },
-                    room=f"user:{int(user_id)}",
-                    namespace="/auth",
-                )
-        if state_changed:
-            with suppress(Exception):
-                await emit_sanctions_update(session, int(user_id))
-    elif state_changed:
-        with suppress(Exception):
-            await emit_sanctions_update(session, int(user_id))
-
-    mapping: Dict[str, str] = {
-        "ban_active": "1" if new_ban else "0",
-    }
-    if new_timeout_ts:
-        mapping["timeout_expires_at"] = str(new_timeout_ts)
-    if new_suspend_ts:
-        mapping["suspend_expires_at"] = str(new_suspend_ts)
     try:
-        if mapping:
-            await r.hset(key, mapping=mapping)
-        if not new_timeout_ts:
-            await r.hdel(key, "timeout_expires_at")
-        if not new_suspend_ts:
-            await r.hdel(key, "suspend_expires_at")
+        await r.hset(
+            key,
+            mapping={
+                "ban_active": "1" if prev_ban else "0",
+                "timeout_expires_at": str(next_timeout_ts),
+                "suspend_expires_at": str(next_suspend_ts),
+            },
+        )
     except Exception:
         pass
+
+    payload = {
+        "timeout_until": datetime.fromtimestamp(next_timeout_ts, tz=timezone.utc).isoformat() if next_timeout_ts else None,
+        "ban_active": bool(prev_ban),
+        "suspend_until": datetime.fromtimestamp(next_suspend_ts, tz=timezone.utc).isoformat() if next_suspend_ts else None,
+    }
+    with suppress(Exception):
+        await sio.emit("sanctions_update", payload, room=f"user:{int(user_id)}", namespace="/auth")
 
 
 def serialize_game_for_redis(game_dict: Dict[str, Any]) -> Dict[str, str]:

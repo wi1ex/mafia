@@ -138,7 +138,7 @@ server {
   }
 
   # статика SPA
-  location ~* \.(?:js|css|png|jpg|jpeg|gif|svg|ico|woff2?)$ {
+  location ~* \.(?:js|css|png|jpg|jpeg|gif|svg|ico|webp|avif|mp3|ogg|wav|webm|m4a|woff2?|ttf|otf)$ {
     if ($request_method !~ ^(GET|HEAD)$) { return 405; }
     access_log off;
     expires 1y;
