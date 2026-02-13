@@ -61,6 +61,7 @@ __all__ = [
     "fetch_active_rooms_stats",
     "fetch_online_users_count",
     "fetch_online_user_ids",
+    "fetch_effective_online_user_ids",
     "fetch_user_avatar_map",
     "fetch_user_name_avatar_maps",
     "collect_room_user_ids",
@@ -778,6 +779,62 @@ async def fetch_online_user_ids(r) -> list[int]:
             ids.append(uid)
 
     return ids
+
+
+async def fetch_effective_online_user_ids(r, user_ids: Iterable[int], *, base_online_ids: set[int] | None = None) -> set[int]:
+    ids: set[int] = set()
+    for item in user_ids:
+        try:
+            uid = int(item)
+        except Exception:
+            continue
+        if uid > 0:
+            ids.add(uid)
+    if not ids:
+        return set()
+
+    if base_online_ids is None:
+        base_online_ids = set(await fetch_online_user_ids(r))
+    online_ids = {uid for uid in base_online_ids if uid in ids}
+    pending_ids = [uid for uid in ids if uid not in online_ids]
+    if not pending_ids:
+        return online_ids
+
+    try:
+        async with r.pipeline() as p:
+            for uid in pending_ids:
+                await p.get(f"user:{uid}:room")
+            raw_rooms = await p.execute()
+    except Exception:
+        return online_ids
+
+    checks: list[tuple[int, int]] = []
+    for uid, raw in zip(pending_ids, raw_rooms):
+        try:
+            rid = int(raw or 0)
+        except Exception:
+            rid = 0
+        if rid > 0:
+            checks.append((uid, rid))
+    if not checks:
+        return online_ids
+
+    try:
+        async with r.pipeline() as p:
+            for uid, rid in checks:
+                await p.sismember(f"room:{rid}:members", str(uid))
+                await p.sismember(f"room:{rid}:spectators", str(uid))
+            presence = await p.execute()
+    except Exception:
+        return online_ids
+
+    for idx, (uid, _) in enumerate(checks):
+        is_member = bool(presence[idx * 2]) if idx * 2 < len(presence) else False
+        is_spectator = bool(presence[idx * 2 + 1]) if idx * 2 + 1 < len(presence) else False
+        if is_member or is_spectator:
+            online_ids.add(uid)
+
+    return online_ids
 
 
 def pair(uid: int, other: int) -> tuple[int, int]:

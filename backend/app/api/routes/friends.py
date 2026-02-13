@@ -20,7 +20,15 @@ from ...schemas.friend import FriendStatusOut, FriendsListOut, FriendsListItemOu
 from ...schemas.room import RoomBriefOut
 from ...security.auth_tokens import get_identity
 from ...security.decorators import log_route, rate_limited
-from ...api.utils import fetch_online_user_ids, get_room_params_or_404, pair, load_link, emit_notify, emit_friends_update
+from ...api.utils import (
+    fetch_online_user_ids,
+    fetch_effective_online_user_ids,
+    get_room_params_or_404,
+    pair,
+    load_link,
+    emit_notify,
+    emit_friends_update,
+)
 
 router = APIRouter()
 
@@ -80,7 +88,8 @@ async def friends_list(ident: Identity = Depends(get_identity), db: AsyncSession
     outgoing_ids = [int(x.addressee_id) for x in outgoing]
 
     r = get_redis()
-    online_ids = set(await fetch_online_user_ids(r))
+    base_online_ids = set(await fetch_online_user_ids(r))
+    online_ids = await fetch_effective_online_user_ids(r, friend_ids_all, base_online_ids=base_online_ids)
     friend_ids: list[int] = friend_ids_all
 
     all_ids = set(friend_ids + incoming_ids + outgoing_ids)
@@ -115,12 +124,14 @@ async def friends_list(ident: Identity = Depends(get_identity), db: AsyncSession
                 closeness_map[(int(lo), int(hi))] = int(games or 0)
 
     room_by_uid: dict[int, int] = {}
-    if friend_ids:
+    friends_with_online_room = [fid for fid in friend_ids if fid in online_ids]
+    if friends_with_online_room:
         async with r.pipeline() as p:
-            for fid in friend_ids:
+            for fid in friends_with_online_room:
                 await p.get(f"user:{int(fid)}:room")
             raw_rooms = await p.execute()
-        for fid, raw in zip(friend_ids, raw_rooms):
+
+        for fid, raw in zip(friends_with_online_room, raw_rooms):
             try:
                 rid = int(raw or 0)
             except Exception:
@@ -153,7 +164,7 @@ async def friends_list(ident: Identity = Depends(get_identity), db: AsyncSession
         avatar = user_avatar_name(fid)
         online = fid in online_ids
         closeness = closeness_map.get(pair(uid, fid), 0)
-        rid = room_by_uid.get(fid)
+        rid = room_by_uid.get(fid) if online else None
         info = rooms_map.get(int(rid)) if rid else None
         return FriendsListItemOut(
             kind="online" if online else "offline",
@@ -469,7 +480,8 @@ async def invite_friend(payload: FriendInviteIn, ident: Identity = Depends(get_i
     if not target or target.deleted_at:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="user_not_found")
 
-    online_ids = set(await fetch_online_user_ids(r))
+    base_online_ids = set(await fetch_online_user_ids(r))
+    online_ids = await fetch_effective_online_user_ids(r, [target_id], base_online_ids=base_online_ids)
     target_online = target_id in online_ids
     if not target_online:
         if not target.telegram_id:

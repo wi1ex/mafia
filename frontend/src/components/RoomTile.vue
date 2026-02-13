@@ -317,7 +317,7 @@ const timelineDurationSec = computed(() => {
 const friendActionLabel = computed(() => {
   if (props.friendLoading) return 'Загрузка...'
   if (props.friendStatus === 'none') return 'Добавить в друзья'
-  if (props.friendStatus === 'friends') return 'Уже в друзьях'
+  if (props.friendStatus === 'friends') return 'В друзьях'
   if (props.friendStatus === 'outgoing') return 'Исходящий запрос'
   if (props.friendStatus === 'incoming') return 'Входящий запрос'
   return ''
