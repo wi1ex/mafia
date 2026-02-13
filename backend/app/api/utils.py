@@ -79,6 +79,8 @@ __all__ = [
     "refresh_rooms_after",
     "ensure_room_access_allowed",
     "ensure_profile_changes_allowed",
+    "is_protected_admin",
+    "ensure_admin_target_allowed",
     "set_user_deleted",
     "force_logout_user",
     "check_sanctions_expired",
@@ -326,6 +328,25 @@ async def ensure_profile_changes_allowed(db: AsyncSession, user_id: int) -> None
     active = await fetch_active_sanctions(db, int(user_id))
     if active.get(SANCTION_BAN):
         raise HTTPException(status_code=403, detail="user_banned")
+
+
+def is_protected_admin(user_id: int | str | None) -> bool:
+    try:
+        uid = int(user_id or 0)
+    except Exception:
+        return False
+
+    try:
+        protected_uid = int(getattr(settings, "PROTECTED_ADMIN_USER_ID", 0) or 0)
+    except Exception:
+        protected_uid = 0
+
+    return 0 < protected_uid == uid
+
+
+def ensure_admin_target_allowed(user: User) -> None:
+    if is_protected_admin(getattr(user, "id", 0)):
+        raise HTTPException(status_code=403, detail="protected_user")
 
 
 async def set_user_deleted(session: AsyncSession, user_id: int, *, deleted: bool) -> User:

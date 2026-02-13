@@ -15,6 +15,7 @@ from ..utils import (
     set_user_deleted,
     force_logout_user,
     normalize_username,
+    is_protected_admin,
 )
 from ...models.user import User
 from ...core.db import get_session
@@ -61,6 +62,7 @@ async def profile_info(ident: Identity = Depends(get_identity), db: AsyncSession
         role=user.role,
         telegram_verified=bool(user.telegram_id),
         password_temp=bool(user.password_temp),
+        protected_user=is_protected_admin(uid),
         hotkeys_visible=bool(user.hotkeys_visible),
         tg_invites_enabled=bool(user.tg_invites_enabled),
         timeout_until=timeout.expires_at if timeout else None,
@@ -112,6 +114,9 @@ async def update_username(payload: UsernameUpdateIn, ident: Identity = Depends(g
     user = await db.get(User, uid)
     if not user:
         raise HTTPException(status_code=401, detail="Unauthorized")
+
+    if is_protected_admin(getattr(user, "id", 0)):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="protected_user")
 
     await ensure_profile_changes_allowed(db, uid)
 
@@ -261,6 +266,13 @@ async def delete_avatar(ident: Identity = Depends(get_identity), db: AsyncSessio
 @router.delete("/account", response_model=Ok)
 async def delete_account(resp: Response, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> Ok:
     uid = int(ident["id"])
+    user = await db.get(User, uid)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
+
+    if is_protected_admin(getattr(user, "id", 0)):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="protected_user")
+
     await set_user_deleted(db, uid, deleted=True)
 
     await log_action(

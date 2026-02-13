@@ -20,6 +20,7 @@ class UserOut(BaseModel):
     role: str
     telegram_verified: bool = False
     password_temp: bool = False
+    protected_user: bool = False
     hotkeys_visible: bool = True
     tg_invites_enabled: bool = True
     timeout_until: Optional[datetime] = None
