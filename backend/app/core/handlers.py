@@ -12,7 +12,14 @@ def setup_exception_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(HTTPException)
     async def _http_exc(_: Request, exc: HTTPException):
-        log.warning("http_exception", status=exc.status_code, detail=exc.detail)
+        status = int(exc.status_code or 500)
+        if 400 <= status < 500 and status != 429:
+            log.info("http_exception", status=status, detail=exc.detail)
+        elif status == 429:
+            log.warning("http_exception", status=status, detail=exc.detail)
+        else:
+            log.error("http_exception", status=status, detail=exc.detail)
+
         return JSONResponse(ErrorOut(detail=str(exc.detail)).model_dump(), status_code=exc.status_code)
 
     @app.exception_handler(Exception)

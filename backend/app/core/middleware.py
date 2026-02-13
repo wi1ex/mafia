@@ -2,6 +2,7 @@ from __future__ import annotations
 import time
 import uuid
 import structlog
+from jwt import ExpiredSignatureError, InvalidTokenError
 from sqlalchemy import update, func
 from starlette.types import ASGIApp, Receive, Scope, Send, Message
 from .clients import get_redis
@@ -108,6 +109,11 @@ class LastLoginTouchMiddleware:
                             async with SessionLocal() as s:
                                 await s.execute(update(User).where(User.id == uid).values(last_visit_at=func.now()))
                                 await s.commit()
+
+            except ExpiredSignatureError:
+                log.info("last_touch.failed", err="ExpiredSignatureError")
+            except InvalidTokenError as e:
+                log.info("last_touch.failed", err=type(e).__name__)
             except Exception as e:
                 log.warning("last_touch.failed", err=type(e).__name__)
 
