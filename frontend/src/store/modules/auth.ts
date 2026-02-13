@@ -24,6 +24,7 @@ export const useAuthStore = defineStore('auth', () => {
   const sessionId = ref<string>('')
   const ready = ref(false)
   const foreign = ref(false)
+  const sessionStorageKeepKeys = ['auth:tabId']
 
   const isAuthed = computed(() => Boolean(sessionId.value))
 
@@ -55,6 +56,20 @@ export const useAuthStore = defineStore('auth', () => {
       }
     } catch {}
     delLS(extra)
+  }
+
+  function clearSessionStoragePreserving(keys: string[]) {
+    try {
+      const keep: Record<string, string> = {}
+      for (const key of keys) {
+        const raw = sessionStorage.getItem(key)
+        if (raw !== null) keep[key] = raw
+      }
+      sessionStorage.clear()
+      for (const [key, value] of Object.entries(keep)) {
+        try { sessionStorage.setItem(key, value) } catch {}
+      }
+    } catch {}
   }
 
   function bindBus() {
@@ -127,7 +142,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   function wipeLocalForNewLogin(opts?: { userChanged?: boolean }) {
     try {
-      try { sessionStorage.clear() } catch {}
+      clearSessionStoragePreserving(sessionStorageKeepKeys)
       scanAndDelContains(['apps_seen'])
       if (!opts?.userChanged) return
       delLS([
