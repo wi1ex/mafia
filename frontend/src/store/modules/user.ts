@@ -9,6 +9,7 @@ export interface UserProfile {
   role: string
   telegram_verified?: boolean
   password_temp?: boolean
+  protected_user?: boolean
   hotkeys_visible?: boolean
   tg_invites_enabled?: boolean
   timeout_until?: string | null

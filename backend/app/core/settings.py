@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     JWT_SECRET_KEY: str
     ACCESS_EXP_MIN: int
     REFRESH_EXP_DAY: int
+    PROTECTED_ADMIN_USER_ID: int
 
     LIVEKIT_API_KEY: str
     LIVEKIT_API_SECRET: str

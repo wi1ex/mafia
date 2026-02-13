@@ -43,14 +43,14 @@
           <div class="block">
             <h3>Никнейм</h3>
             <div class="nick-row">
-              <UiInput class="profile-input" id="profile-nick" v-model.trim="nick" :maxlength="NICK_MAX" :disabled="busyNick || isBanned" autocomplete="off" inputmode="text" label="Никнейм"
+              <UiInput class="profile-input" id="profile-nick" v-model.trim="nick" :maxlength="NICK_MAX" :disabled="busyNick || isBanned || isProtectedAdminSelf" autocomplete="off" inputmode="text" label="Никнейм"
                 :invalid="!!nick && !validNick" :underline-style="nickUnderlineStyle" :aria-invalid="!!nick && !validNick" aria-describedby="profile-nick-hint" >
                 <template #meta>
                   <span id="profile-nick-hint">{{ nick.length }}/{{ NICK_MAX }}</span>
                 </template>
               </UiInput>
               <span class="hint"><code>латиница, кириллица, цифры, символы ()._-</code></span>
-              <button class="btn confirm" @click="saveNick" :disabled="busyNick || isBanned || nick === me.username || !validNick">
+              <button class="btn confirm" @click="saveNick" :disabled="busyNick || isBanned || isProtectedAdminSelf || nick === me.username || !validNick">
                 <img class="btn-img" :src="iconSave" alt="save" />
                 {{ busyNick ? '...' : 'Сохранить' }}
               </button>
@@ -127,7 +127,7 @@
           <div class="block">
             <h3>Удаление аккаунта</h3>
             <div class="danger-row">
-              <button class="btn danger" @click="deleteAccount" :disabled="deleteBusy">
+              <button class="btn danger" @click="deleteAccount" :disabled="deleteBusy || isProtectedAdminSelf">
                 {{ deleteBusy ? '...' : 'Удалить аккаунт' }}
               </button>
             </div>
@@ -216,8 +216,10 @@ const me = reactive({
   role: '',
   telegram_verified: false,
   password_temp: false,
+  protected_user: false,
   tg_invites_enabled: true,
 })
+const isProtectedAdminSelf = computed(() => Boolean(me.protected_user))
 const fileEl = ref<HTMLInputElement | null>(null)
 const modalEl = ref<HTMLDivElement | null>(null)
 
@@ -355,6 +357,7 @@ async function loadMe(options: { keepNickDraft?: boolean } = {}) {
   me.role = data.role
   me.telegram_verified = Boolean(data.telegram_verified)
   me.password_temp = Boolean(data.password_temp)
+  me.protected_user = Boolean(data.protected_user)
   me.tg_invites_enabled = data.tg_invites_enabled !== false
   const hasDraft = options.keepNickDraft && nick.value !== prevUsername
   if (!hasDraft) nick.value = me.username
@@ -378,7 +381,7 @@ async function loadSanctions(force = false) {
 }
 
 async function saveNick() {
-  if (!validNick.value || busyNick.value || nick.value === me.username) return
+  if (!validNick.value || busyNick.value || nick.value === me.username || isProtectedAdminSelf.value) return
   busyNick.value = true
   try {
     const { data } = await api.patch('/users/username', { username: nick.value })
@@ -419,7 +422,7 @@ async function changePassword() {
 }
 
 async function deleteAccount() {
-  if (deleteBusy.value) return
+  if (deleteBusy.value || isProtectedAdminSelf.value) return
   const ok = await confirmDialog({
     title: 'Удаление аккаунта',
     text: 'Вы уверены что хотите навсегда удалить свой аккаунт?',
