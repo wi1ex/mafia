@@ -65,8 +65,8 @@ from ..utils import (
     calc_total_stream_seconds,
     calc_stream_seconds_in_range,
     fetch_active_rooms_stats,
-    fetch_online_users_count,
     fetch_online_user_ids,
+    fetch_effective_online_user_ids,
     fetch_user_avatar_map,
     fetch_user_name_avatar_maps,
     collect_room_user_ids,
@@ -213,8 +213,35 @@ async def site_stats(month: str | None = None, session: AsyncSession = Depends(g
 
     r = get_redis()
     active_rooms, active_room_users = await fetch_active_rooms_stats(r)
-    online_users = await fetch_online_users_count(r)
-    online_ids = await fetch_online_user_ids(r)
+    base_online_ids = set(await fetch_online_user_ids(r))
+    room_presence_ids: set[int] = set()
+    try:
+        raw_room_ids = await r.zrange("rooms:index", 0, -1)
+        room_ids = [int(x) for x in (raw_room_ids or []) if int(x) > 0]
+    except Exception:
+        room_ids = []
+
+    if room_ids:
+        try:
+            async with r.pipeline() as p:
+                for rid in room_ids:
+                    await p.smembers(f"room:{rid}:members")
+                    await p.smembers(f"room:{rid}:spectators")
+                room_sets = await p.execute()
+            for raw_set in room_sets or []:
+                for raw_uid in raw_set or []:
+                    try:
+                        uid = int(raw_uid)
+                    except Exception:
+                        continue
+                    if uid > 0:
+                        room_presence_ids.add(uid)
+        except Exception:
+            room_presence_ids = set()
+
+    candidate_online_ids = base_online_ids | room_presence_ids
+    online_ids = await fetch_effective_online_user_ids(r, candidate_online_ids, base_online_ids=base_online_ids)
+    online_users = len(online_ids)
 
     online_users_list: list[OnlineUserOut] = []
     if online_ids:
