@@ -59,7 +59,6 @@ __all__ = [
     "calc_total_stream_seconds",
     "calc_stream_seconds_in_range",
     "fetch_active_rooms_stats",
-    "fetch_online_users_count",
     "fetch_online_user_ids",
     "fetch_effective_online_user_ids",
     "fetch_user_avatar_map",
@@ -756,13 +755,6 @@ async def fetch_active_rooms_stats(r) -> tuple[int, int]:
                 active_room_users += val
 
     return active_rooms, active_room_users
-
-
-async def fetch_online_users_count(r) -> int:
-    cutoff = online_cutoff_ts()
-    await prune_online_users(r, cutoff)
-
-    return int(await r.zcount("online:users:seen", cutoff, "+inf") or 0)
 
 
 async def fetch_online_user_ids(r) -> list[int]:
