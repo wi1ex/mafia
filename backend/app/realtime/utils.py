@@ -111,6 +111,8 @@ __all__ = [
     "block_vote_and_clear",
     "should_block_vote_on_death",
     "decide_vote_blocks_on_death",
+    "clear_foul_runtime_keys",
+    "clear_game_dynamic_keys",
     "get_positive_setting_int",
     "wink_spot_chance",
     "randomize_limit",
@@ -1655,14 +1657,14 @@ async def get_effective_alive_set(r, rid: int, seat_order: list[int] | None = No
     if not seat_order:
         return alive_set
 
+    if alive_set:
+        return {uid for uid in seat_order if uid in alive_set}
+
     try:
         deaths = await hkeys_ints(r, f"room:{rid}:game_deaths")
     except Exception:
         deaths = set()
-
-    alive_from_deaths = set(seat_order) - deaths
-
-    return alive_from_deaths
+    return set(seat_order) - deaths
 
 
 async def compute_day_opening_and_closing(r, rid: int, last_opening_uid: int | None, exclude: Iterable[int] | None = None) -> tuple[int, int, list[int]]:
@@ -1784,6 +1786,54 @@ async def get_active_fouls(r, rid: int) -> dict[int, int]:
             active[uid] = until_ts - now_ts
 
     return active
+
+
+async def _clear_room_pattern_keys(r, pattern: str, *, warn_scan: str, warn_delete: str, rid: int) -> None:
+    cursor = 0
+    while True:
+        try:
+            cursor, keys = await r.scan(cursor=cursor, match=pattern, count=200)
+        except Exception:
+            log.warning(warn_scan, rid=rid)
+            return
+
+        if keys:
+            try:
+                await r.unlink(*keys)
+            except Exception:
+                try:
+                    await r.delete(*keys)
+                except Exception:
+                    log.warning(warn_delete, rid=rid, count=len(keys))
+
+        if cursor == 0:
+            return
+
+
+async def clear_foul_runtime_keys(r, rid: int) -> None:
+    try:
+        await r.delete(f"room:{rid}:foul_active")
+    except Exception:
+        log.warning("foul_runtime.clear_active_failed", rid=rid)
+
+    await _clear_room_pattern_keys(
+        r,
+        f"room:{rid}:foul_cooldown:*",
+        warn_scan="foul_runtime.scan_failed",
+        warn_delete="foul_runtime.clear_cooldown_failed",
+        rid=rid,
+    )
+
+
+async def clear_game_dynamic_keys(r, rid: int) -> None:
+    await clear_foul_runtime_keys(r, rid)
+    await _clear_room_pattern_keys(
+        r,
+        f"room:{rid}:game_checked:*",
+        warn_scan="game_dynamic.scan_checked_failed",
+        warn_delete="game_dynamic.clear_checked_failed",
+        rid=rid,
+    )
 
 
 async def get_player_ids(r, rid: int) -> list[int]:
@@ -3992,6 +4042,11 @@ async def perform_game_end(ctx, sess: Optional[dict[str, Any]], *, confirm: bool
                 await emit_state_changed_filtered(r, rid, target_uid, new_state, phase_override="idle")
         except Exception:
             log.exception("sio.game_end.auto_state_enable_failed", rid=rid, target=target_uid)
+
+    try:
+        await clear_game_dynamic_keys(r, rid)
+    except Exception:
+        log.warning("sio.game_end.clear_game_dynamic_failed", rid=rid)
 
     async with r.pipeline() as p:
         await p.delete(

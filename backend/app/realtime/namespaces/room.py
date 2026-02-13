@@ -96,6 +96,7 @@ from ..utils import (
     store_last_votes_snapshot,
     block_vote_and_clear,
     decide_vote_blocks_on_death,
+    clear_game_dynamic_keys,
     get_positive_setting_int,
     wink_spot_chance,
     randomize_limit,
@@ -1207,7 +1208,14 @@ async def game_start(sid, data) -> GameStartAck:
         seats[str(head_uid)] = 11
         now_ts = int(time())
         bgm_seed = random.randint(1, 2**31 - 1) if music_enabled else 0
+
+        await clear_game_dynamic_keys(r, rid)
         async with r.pipeline() as p:
+            await p.delete(
+                f"room:{rid}:game_state",
+                f"room:{rid}:game_seats",
+                f"room:{rid}:foul_active",
+            )
             await p.hset(f"room:{rid}:game_state",
                          mapping={
                              "phase": "roles_pick",
@@ -1246,6 +1254,11 @@ async def game_start(sid, data) -> GameStartAck:
                     f"room:{rid}:game_farewell_limits",
                     f"room:{rid}:game_winks_left",
                     f"room:{rid}:game_knocks_left",
+                    f"room:{rid}:roles_cards",
+                    f"room:{rid}:roles_taken",
+                    f"room:{rid}:game_roles",
+                    f"room:{rid}:night_shots",
+                    f"room:{rid}:night_checks",
                 )
                 await p.sadd(f"room:{rid}:game_players", *player_ids)
                 await p.sadd(f"room:{rid}:game_alive", *player_ids)
