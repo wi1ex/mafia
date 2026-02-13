@@ -1,6 +1,5 @@
 from __future__ import annotations
 import structlog
-import httpx
 import redis.asyncio as redis
 from minio import Minio
 from ..core.settings import settings
@@ -10,7 +9,6 @@ log = structlog.get_logger()
 _redis: redis.Redis | None = None
 _minio_private: Minio | None = None
 _minio_public: Minio | None = None
-_httpx: httpx.AsyncClient | None = None
 
 
 def _build_redis() -> redis.Redis:
@@ -46,25 +44,15 @@ def _build_minio_public() -> Minio:
     )
 
 
-def _build_httpx() -> httpx.AsyncClient:
-    return httpx.AsyncClient(
-        timeout=httpx.Timeout(5.0, read=10.0, write=5.0, connect=5.0),
-        limits=httpx.Limits(max_keepalive_connections=100, max_connections=200),
-        follow_redirects=True,
-        headers={"User-Agent": "backend/1.0"},
-    )
-
-
 def init_clients() -> None:
-    global _redis, _minio_private, _minio_public, _httpx
-    if _redis and _minio_private and _minio_public and _httpx:
+    global _redis, _minio_private, _minio_public
+    if _redis and _minio_private and _minio_public:
         return
 
     log.info("clients.init.start")
     _redis = _redis or _build_redis()
     _minio_private = _minio_private or _build_minio_private()
     _minio_public = _minio_public or _build_minio_public()
-    _httpx = _httpx or _build_httpx()
     log.info("clients.init.ok")
 
 
@@ -89,22 +77,12 @@ def get_minio_public() -> Minio:
     return _minio_public
 
 
-def get_httpx() -> httpx.AsyncClient:
-    if _httpx is None:
-        log.error("clients.httpx.uninitialized")
-        raise RuntimeError("httpx client not initialized")
-    return _httpx
-
-
 async def close_clients() -> None:
-    global _redis, _httpx, _minio_private, _minio_public
+    global _redis, _minio_private, _minio_public
     log.info("clients.close.start")
     if _redis is not None:
         await _redis.close()
         _redis = None
-    if _httpx is not None:
-        await _httpx.aclose()
-        _httpx = None
     _minio_private = None
     _minio_public = None
     log.info("clients.close.ok")
