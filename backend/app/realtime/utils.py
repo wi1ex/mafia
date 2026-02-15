@@ -128,17 +128,19 @@ log = structlog.get_logger()
 
 _join_sha: str | None = None
 _leave_sha: str | None = None
+_single_gc_tasks: dict[int, tuple[str, asyncio.Task[None]]] = {}
 
 KEYS_STATE: tuple[str, ...] = ("mic", "cam", "speakers", "visibility", "mirror")
 KEYS_BLOCK: tuple[str, ...] = (*KEYS_STATE, "screen")
 
 JOIN_LUA = r"""
--- KEYS: params, members, positions, info, empty_since
+-- KEYS: params, members, positions, info, empty_since, single_since
 local params       = KEYS[1]
 local members      = KEYS[2]
 local positions    = KEYS[3]
 local info         = KEYS[4]
 local empty_since  = KEYS[5]
+local single_since = KEYS[6]
 
 local rid       = ARGV[1]
 local uid       = tonumber(ARGV[2])
@@ -155,6 +157,12 @@ local already = redis.call('SISMEMBER', members, uid)
 local size = tonumber(redis.call('SCARD', members) or '0')
 
 if already == 1 then
+  if size == 1 then
+    local single = redis.call('GET', single_since)
+    if not single then redis.call('SET', single_since, now, 'EX', 2592000) end
+  else
+    redis.call('DEL', single_since)
+  end
   local pos = tonumber(redis.call('ZSCORE', positions, uid) or '0')
   local existing_jd = redis.call('HGET', info, 'join_date')
   redis.call('HSET', info, 'role', eff_role)
@@ -189,17 +197,23 @@ redis.call('SADD', members, uid)
 redis.call('ZADD', positions, new_pos, uid)
 redis.call('HSET', info, 'join_date', now, 'role', eff_role)
 redis.call('DEL', empty_since)
+if new_pos == 1 then
+  redis.call('SET', single_since, now, 'EX', 2592000)
+else
+  redis.call('DEL', single_since)
+end
 return {new_pos, new_pos, 0, 0}
 """
 
 LEAVE_LUA = r"""
--- KEYS: members, positions, info, empty_since, gc_seq, visitors
+-- KEYS: members, positions, info, empty_since, gc_seq, single_since, visitors
 local members      = KEYS[1]
 local positions    = KEYS[2]
 local info         = KEYS[3]
 local empty_since  = KEYS[4]
 local gc_seq       = KEYS[5]
-local visitors     = KEYS[6]
+local single_since = KEYS[6]
+local visitors     = KEYS[7]
 
 local uid = tonumber(ARGV[1])
 local now = tonumber(ARGV[2])
@@ -217,9 +231,16 @@ redis.call('DEL', info)
 
 local occ = tonumber(redis.call('SCARD', members) or '0')
 if occ == 0 then
+  redis.call('DEL', single_since)
   redis.call('SET', empty_since, now, 'EX', 2592000)
   local seq = tonumber(redis.call('INCR', gc_seq))
   return {occ, seq, 0}
+end
+
+if occ == 1 then
+  redis.call('SET', single_since, now, 'EX', 2592000)
+else
+  redis.call('DEL', single_since)
 end
 
 if not pos or pos == 0 then return {occ, 0, 0} end
@@ -1379,12 +1400,13 @@ async def join_room_atomic(r, rid: int, uid: int, role: str):
     await ensure_scripts(r)
     now_ts = int(time())
     args = (
-        5,
+        6,
         f"room:{rid}:params",
         f"room:{rid}:members",
         f"room:{rid}:positions",
         f"room:{rid}:user:{uid}:info",
         f"room:{rid}:empty_since",
+        f"room:{rid}:single_since",
         str(rid),
         str(uid),
         role,
@@ -1437,12 +1459,13 @@ async def leave_room_atomic(r, rid: int, uid: int):
     await ensure_scripts(r)
     now_ts = int(time())
     args = (
-        6,
+        7,
         f"room:{rid}:members",
         f"room:{rid}:positions",
         f"room:{rid}:user:{uid}:info",
         f"room:{rid}:empty_since",
         f"room:{rid}:gc_seq",
+        f"room:{rid}:single_since",
         f"room:{rid}:visitors",
         str(uid),
         str(now_ts),
@@ -1602,6 +1625,40 @@ async def cleanup_user_from_room(r, rid: int, uid: int, *, was_member: bool, was
 
 
 async def emit_rooms_occupancy_safe(r, rid: int, occ: int) -> None:
+    def cancel_single_gc_task(room_id: int) -> None:
+        entry = _single_gc_tasks.pop(room_id, None)
+        if not entry:
+            return
+
+        _, task = entry
+        if not task.done():
+            task.cancel()
+
+    def ensure_single_gc_task(room_id: int, expected_since: str) -> None:
+        existing = _single_gc_tasks.get(room_id)
+        if existing:
+            prev_since, prev_task = existing
+            if not prev_task.done() and prev_since == expected_since:
+                return
+
+            if not prev_task.done():
+                prev_task.cancel()
+
+        task: asyncio.Task[None] | None = None
+
+        async def _runner() -> None:
+            try:
+                await gc_singleton_room_and_emit(room_id, expected_since=expected_since)
+            except asyncio.CancelledError:
+                return
+            finally:
+                cur = _single_gc_tasks.get(room_id)
+                if cur and task and cur[1] is task:
+                    _single_gc_tasks.pop(room_id, None)
+
+        task = asyncio.create_task(_runner())
+        _single_gc_tasks[room_id] = (expected_since, task)
+
     try:
         phase = str(await r.hget(f"room:{rid}:game_state", "phase") or "idle")
     except Exception:
@@ -1612,9 +1669,38 @@ async def emit_rooms_occupancy_safe(r, rid: int, occ: int) -> None:
             alive_occ = int(await r.scard(f"room:{rid}:game_alive") or 0)
         except Exception:
             alive_occ = occ
+
         occ_to_send = alive_occ
+        try:
+            await r.delete(f"room:{rid}:single_since")
+        except Exception:
+            pass
+        cancel_single_gc_task(rid)
     else:
         occ_to_send = occ
+        single_key = f"room:{rid}:single_since"
+        if occ_to_send == 1:
+            try:
+                single_since = await r.get(single_key)
+            except Exception:
+                single_since = None
+
+            if not single_since:
+                single_since = str(int(time()))
+                try:
+                    await r.set(single_key, single_since, ex=60 * 60 * 24 * 30)
+                except Exception:
+                    single_since = None
+            if single_since:
+                ensure_single_gc_task(rid, str(single_since))
+
+        else:
+            try:
+                await r.delete(single_key)
+            except Exception:
+                pass
+
+            cancel_single_gc_task(rid)
 
     await sio.emit("rooms_occupancy",
                    {"id": rid,
@@ -3894,8 +3980,29 @@ async def emit_mafia_filtered(event: str, payload: dict[str, Any], r, rid: int, 
 
 
 async def emit_state_changed_filtered(r, rid: int, subject_uid: int, changed: dict[str, str], *, phase_override: str | None = None) -> None:
-    payload = {"user_id": subject_uid, **changed}
-    await emit_mafia_filtered("state_changed", payload, r, rid, subject_uid, phase_override=phase_override)
+    is_mafia_talk, viewers = await get_mafia_talk_viewers(r, rid, subject_uid, phase_override)
+    if not is_mafia_talk:
+        payload = {"user_id": subject_uid, **changed}
+        await sio.emit("state_changed", payload, room=f"room:{rid}", namespace="/room")
+        return
+
+    private_keys = {"visibility"}
+    private_changed: dict[str, str] = {}
+    public_changed: dict[str, str] = {}
+    for key, value in (changed or {}).items():
+        if key in private_keys:
+            private_changed[key] = value
+        else:
+            public_changed[key] = value
+
+    if public_changed:
+        payload_public = {"user_id": subject_uid, **public_changed}
+        await sio.emit("state_changed", payload_public, room=f"room:{rid}", namespace="/room")
+
+    if private_changed:
+        payload_private = {"user_id": subject_uid, **private_changed}
+        for uid in viewers:
+            await sio.emit("state_changed", payload_private, room=f"user:{uid}", namespace="/room")
 
 
 async def emit_moderation_filtered(r, rid: int, target_uid: int, blocks_full: dict[str, str], actor_uid: int, actor_role: str, *, phase_override: str | None = None) -> None:
@@ -4156,6 +4263,143 @@ async def perform_game_end(ctx, sess: Optional[dict[str, Any]], *, confirm: bool
     return {"ok": True, "status": 200, "room_id": rid, "reason": reason}
 
 
+async def gc_singleton_room_and_emit(rid: int, *, expected_since: str | None = None) -> None:
+    try:
+        removed = await gc_singleton_room(rid, expected_since=expected_since)
+        if removed:
+            await sio.emit("rooms_remove", {"id": rid}, namespace="/rooms")
+    except Exception:
+        log.exception("gc.single.failed", rid=rid)
+
+
+async def gc_singleton_room(rid: int, *, expected_since: str | None = None) -> bool:
+    r = get_redis()
+    single_key = f"room:{rid}:single_since"
+    ts1_raw = await r.get(single_key)
+    if not ts1_raw:
+        return False
+
+    ts1 = str(ts1_raw)
+    if expected_since is not None and ts1 != str(expected_since):
+        return False
+
+    try:
+        ts1_int = int(ts1)
+    except Exception:
+        return False
+
+    try:
+        ttl_minutes = int(getattr(get_cached_settings(), "rooms_single_ttl_minutes", 0) or 0)
+    except Exception:
+        ttl_minutes = 0
+    ttl_seconds = max(0, ttl_minutes * 60)
+    delay = max(0, ttl_seconds - (int(time()) - ts1_int))
+    if delay > 0:
+        await asyncio.sleep(delay)
+
+    ts2_raw = await r.get(single_key)
+    if not ts2_raw or str(ts2_raw) != ts1:
+        return False
+
+    try:
+        phase = str(await r.hget(f"room:{rid}:game_state", "phase") or "idle")
+    except Exception:
+        phase = "idle"
+    if phase != "idle":
+        return False
+
+    if int(await r.scard(f"room:{rid}:members") or 0) != 1:
+        return False
+
+    lock_key = f"room:{rid}:gc_single_lock"
+    got = await r.set(lock_key, "1", nx=True, ex=20)
+    if not got:
+        return False
+
+    try:
+        ts3_raw = await r.get(single_key)
+        if not ts3_raw or str(ts3_raw) != ts1:
+            return False
+
+        if int(await r.scard(f"room:{rid}:members") or 0) != 1:
+            return False
+
+        try:
+            members_raw = await r.smembers(f"room:{rid}:members")
+        except Exception:
+            members_raw = set()
+        target_uid = 0
+        for v in (members_raw or []):
+            try:
+                target_uid = int(v)
+                break
+            except Exception:
+                continue
+        if target_uid <= 0:
+            return False
+
+        if not await r.sismember(f"room:{rid}:members", str(target_uid)):
+            return False
+
+        await sio.emit("force_leave",
+                       {"room_id": rid, "reason": "single_timeout", "minutes": max(0, ttl_seconds // 60)},
+                       room=f"user:{target_uid}",
+                       namespace="/room")
+
+        try:
+            actor_username = await r.hget(f"room:{rid}:user:{target_uid}:info", "username")
+        except Exception:
+            actor_username = None
+
+        try:
+            await stop_screen_for_user(
+                r,
+                rid,
+                target_uid,
+                actor_uid=target_uid,
+                actor_username=str(actor_username or f"user{target_uid}"),
+            )
+        except Exception:
+            log.warning("gc.single.stop_screen_failed", rid=rid, uid=target_uid)
+
+        try:
+            occ, gc_seq, pos_updates = await leave_room_atomic(r, rid, target_uid)
+        except Exception:
+            log.exception("gc.single.leave_failed", rid=rid, uid=target_uid)
+            return False
+
+        try:
+            await r.srem(f"room:{rid}:ready", str(target_uid))
+        except Exception:
+            pass
+        try:
+            await r.delete(f"room:{rid}:user:{target_uid}:epoch")
+        except Exception:
+            pass
+
+        await sio.emit("member_left",
+                       {"user_id": target_uid},
+                       room=f"room:{rid}",
+                       namespace="/room")
+        if pos_updates:
+            await sio.emit("positions",
+                           {"updates": [{"user_id": u, "position": p} for u, p in pos_updates]},
+                           room=f"room:{rid}",
+                           namespace="/room")
+        await emit_rooms_occupancy_safe(r, rid, occ)
+
+        if occ != 0:
+            return False
+
+        return await gc_empty_room(rid, expected_seq=gc_seq)
+
+    finally:
+        try:
+            await r.delete(lock_key)
+        except Exception:
+            pass
+
+
 async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
     r = get_redis()
     ts1 = await r.get(f"room:{rid}:empty_since")
@@ -4335,7 +4579,9 @@ async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
             f"room:{rid}:spectators_join",
             f"room:{rid}:gc_seq",
             f"room:{rid}:empty_since",
+            f"room:{rid}:single_since",
             f"room:{rid}:gc_lock",
+            f"room:{rid}:gc_single_lock",
             f"room:{rid}:allow",
             f"room:{rid}:pending",
             f"room:{rid}:requests",
@@ -4357,6 +4603,11 @@ async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
             f"room:{rid}:game_votes",
         )
         await r.zrem("rooms:index", str(rid))
+        entry = _single_gc_tasks.pop(rid, None)
+        if entry:
+            _, task = entry
+            if not task.done():
+                task.cancel()
     finally:
         try:
             await r.delete(f"room:{rid}:gc_lock")

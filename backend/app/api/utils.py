@@ -546,6 +546,7 @@ def site_settings_out(row) -> SiteSettingsOut:
         rooms_limit_global=int(row.rooms_limit_global),
         rooms_limit_per_user=int(row.rooms_limit_per_user),
         rooms_empty_ttl_seconds=int(row.rooms_empty_ttl_seconds),
+        rooms_single_ttl_minutes=int(row.rooms_single_ttl_minutes),
         season_start_game_number=int(row.season_start_game_number),
     )
 
@@ -713,7 +714,7 @@ async def calc_stream_seconds_in_range(session: AsyncSession, start_dt: datetime
 
 
 def online_cutoff_ts(now_ts: int | None = None) -> int:
-    ttl = max(1, int(settings.ONLINE_TTL_SECONDS))
+    ttl = settings.ONLINE_TTL_SECONDS
     if now_ts is None:
         now_ts = int(time())
 

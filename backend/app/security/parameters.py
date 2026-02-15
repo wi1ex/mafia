@@ -47,7 +47,7 @@ def _defaults() -> AppSettingsSnapshot:
         rooms_limit_global=100,
         rooms_limit_per_user=3,
         rooms_empty_ttl_seconds=core_settings.ROOMS_EMPTY_TTL_SECONDS,
-        rooms_single_ttl_minutes=max(1, int(core_settings.ROOMS_SINGLE_TTL_SECONDS) // 60),
+        rooms_single_ttl_minutes=core_settings.ROOMS_SINGLE_TTL_MINUTES,
         season_start_game_number=core_settings.SEASON_START_GAME_NUMBER,
         game_min_ready_players=core_settings.GAME_MIN_READY_PLAYERS,
         role_pick_seconds=core_settings.ROLE_PICK_SECONDS,
