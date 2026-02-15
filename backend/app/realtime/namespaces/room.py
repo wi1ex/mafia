@@ -381,6 +381,8 @@ async def join(sid, data) -> JoinAck:
 
             if not already:
                 await emit_rooms_occupancy_safe(r, rid, occ)
+            elif phase == "idle" and occ == 1:
+                await emit_rooms_occupancy_safe(r, rid, occ)
 
             await sio.emit("member_joined",
                            {"user_id": uid,

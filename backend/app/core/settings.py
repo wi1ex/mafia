@@ -38,6 +38,7 @@ class Settings(BaseSettings):
     BACKEND_CORS_ORIGINS: List[str] = []
 
     ROOMS_EMPTY_TTL_SECONDS: int = 10
+    ROOMS_SINGLE_TTL_MINUTES: int = 30
     ONLINE_TTL_SECONDS: int = 120
     SEASON_START_GAME_NUMBER: int = 1
 
