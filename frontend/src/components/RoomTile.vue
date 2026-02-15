@@ -1,6 +1,6 @@
 <template>
   <div class="tile" :class="[{ speaking, mafia: redMark, 'best-move': bestMoveMarked && !redMark }, side && 'side']" tabindex="0">
-    <video v-show="showVideo" :ref="videoRef" playsinline autoplay muted :class="{ mirrored: isMirrored(id) }"
+    <video v-if="showVideo" :ref="videoRef" playsinline autoplay muted :class="{ mirrored: isMirrored(id) }"
            :style="{ objectFit: fitContain ? 'contain' : 'cover' }" />
 
     <div class="icon-badge left" v-if="isReady(id)" aria-hidden="true">
@@ -74,7 +74,7 @@
       </span>
     </div>
 
-    <div v-show="!showVideo" class="ava-wrap">
+    <div v-if="!showVideo" class="ava-wrap">
       <img v-if="isDead(id) && deadAvatar" :src="deadAvatar" alt="dead" />
       <img v-else-if="hiddenByVisibility && visibilityHiddenAvatar" :src="visibilityHiddenAvatar" alt="hidden" />
       <img v-else-if="offline && offlineAvatar" :src="offlineAvatar" alt="offline" />

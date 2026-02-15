@@ -1367,6 +1367,10 @@ function isOn(id: string, kind: IconKind) {
     return visibilityOn.value
   }
   const st = statusByUser.get(id)
+  if (kind === 'cam') {
+    if (st ? st.cam === 1 : true) return true
+    return rtc.hasRemoteCameraTrack(id)
+  }
   return st ? st[kind] === 1 : true
 }
 
@@ -1651,6 +1655,13 @@ socket.value?.on('connect', async () => {
       void alertDialog('Вас выгнали из комнаты')
     } else if (reason === 'room_deleted') {
       void alertDialog('Комната была удалена администратором')
+    } else if (reason === 'single_timeout') {
+      const minutes = Number(p?.minutes || 0)
+      if (Number.isFinite(minutes) && minutes > 0) {
+        void alertDialog(`Комната была автоматически закрыта после ${minutes} мин с одним участником`)
+      } else {
+        void alertDialog('Комната была автоматически закрыта после длительного ожидания с одним участником')
+      }
     }
   })
 
@@ -2113,6 +2124,7 @@ async function publishState(delta: PublishDelta) {
 const toggleFactory = (k: keyof typeof local, onEnable?: () => Promise<boolean | void>, onDisable?: () => Promise<void>) => async () => {
   if (pending[k]) return
   if (blockedSelf.value[k]) return
+  if ((k === 'mic' || k === 'cam') && gamePhase.value !== 'idle' && isSpectatorInGame.value) return
   try {
     pending[k] = true
     const want = !local[k]

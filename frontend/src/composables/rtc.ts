@@ -1,20 +1,20 @@
 import { ref, type Ref, watch } from 'vue'
 import {
+  createLocalScreenTracks,
+  type LocalTrack,
   LocalTrackPublication,
+  LogLevel,
   RemoteParticipant,
   RemoteTrack,
   RemoteTrackPublication,
   Room as LkRoom,
   RoomEvent,
+  ScreenSharePresets,
+  setLogLevel,
   Track,
   VideoPreset,
   VideoPresets,
-  ScreenSharePresets,
-  VideoQuality,
-  createLocalScreenTracks,
-  type LocalTrack,
-  setLogLevel,
-  LogLevel,
+  VideoQuality
 } from 'livekit-client'
 
 setLogLevel(LogLevel.error)
@@ -129,6 +129,7 @@ export type UseRTC = {
   unlockBgmOnGesture: () => Promise<void>
   destroyBgm: () => void
   flushVolumePrefs: () => void
+  hasRemoteCameraTrack: (id: string) => boolean
   cleanupPeer: (id: string, opts?: { keepVideo?: boolean; keepScreen?: boolean }) => void
 }
 
@@ -544,8 +545,7 @@ export function useRTC(): UseRTC {
   }
 
   function setUserVolume(id: string, v: number): number {
-    const vv = Math.min(200, Math.max(0, Math.round(v)))
-    let applied = vv
+    let applied = Math.min(200, Math.max(0, Math.round(v)))
     if (applied > 100 && !webAudioAvailable()) {
       applied = 100
     }
@@ -1194,6 +1194,20 @@ export function useRTC(): UseRTC {
     })
   }
 
+  const hasRemoteCameraTrack = (id: string): boolean => {
+    const room = lk.value
+    if (!room) return false
+    const part = getByIdentity(room, id)
+    if (!part) return false
+    return part.getTrackPublications().some(pub => {
+      if (pub.kind !== Track.Kind.Video) return false
+      const rpub = pub as RemoteTrackPublication
+      if (rpub.source !== Track.Source.Camera) return false
+      if (!rpub.isSubscribed) return false
+      return !!pub.track
+    })
+  }
+
   const remoteQuality = ref<VQ>('hd')
   function setRemoteQualityForAll(q: VQ, _opts?: { persist?: boolean }) {
     const changed = remoteQuality.value !== q
@@ -1374,6 +1388,14 @@ export function useRTC(): UseRTC {
 
     room.on(RoomEvent.Reconnected, () => {
       reconnecting.value = false
+      room.remoteParticipants.forEach(p => {
+        applySubsFor(p)
+        const id = String(p.identity)
+        const v = videoEls.get(id)
+        if (v) attachBySource(room, id, Track.Source.Camera, v)
+        const sv = screenVideoEls.get(id)
+        if (sv) attachBySource(room, id, Track.Source.ScreenShare, sv)
+      })
       refreshAudibleIds()
       void resumeAudio()
     })
@@ -1607,6 +1629,7 @@ export function useRTC(): UseRTC {
     isScreenKey,
     startScreenShare,
     getLastScreenShareError: () => lastScreenShareError,
+    hasRemoteCameraTrack,
     cleanupPeer,
   }
 }
