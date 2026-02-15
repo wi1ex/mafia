@@ -1917,18 +1917,6 @@ async def game_speech_next(sid, data):
                 await p.execute()
         else:
             alive_order = await get_alive_players_in_seat_order(r, rid)
-            if alive_order and opening_uid not in alive_order:
-                opening_uid, closing_uid, alive_order = await compute_day_opening_and_closing(r, rid, last_opening_uid or opening_uid)
-                async with r.pipeline() as p:
-                    await p.hset(
-                        f"room:{rid}:game_state",
-                        mapping={
-                            "day_opening_uid": str(opening_uid or 0),
-                            "day_closing_uid": str(closing_uid or 0),
-                            "day_speeches_done": "0",
-                        },
-                    )
-                    await p.execute()
 
         if alive_order and opening_uid in alive_order and closing_uid not in alive_order:
             if len(alive_order) == 1:
@@ -1969,7 +1957,6 @@ async def game_speech_next(sid, data):
                 return {"ok": False, "error": "day_speeches_done", "status": 409}
 
             if current_uid not in alive_order:
-                opening_uid, closing_uid, alive_order = await compute_day_opening_and_closing(r, rid, last_opening_uid or opening_uid)
                 next_uid = 0
                 try:
                     seat_order = await get_players_in_seat_order(r, rid)
@@ -1998,7 +1985,7 @@ async def game_speech_next(sid, data):
         if (not is_prelude_next) and (next_uid not in alive_order):
             return {"ok": False, "error": "bad_next_speaker", "status": 400}
 
-        if not is_prelude_next and current_uid and next_uid == opening_uid:
+        if not is_prelude_next and current_uid and current_uid in alive_order and next_uid == opening_uid:
             await r.hset(
                 f"room:{rid}:game_state",
                 mapping={
