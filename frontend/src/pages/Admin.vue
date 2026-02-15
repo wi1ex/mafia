@@ -52,6 +52,8 @@
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Лимит комнат на пользователя" />
                 <UiInput id="rooms-empty-ttl-seconds" v-model.number="site.rooms_empty_ttl_seconds" type="number" min="10" max="300" step="1"
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Время жизни пустой комнаты (сек)" />
+                <UiInput id="rooms-single-ttl-minutes" v-model.number="site.rooms_single_ttl_minutes" type="number" min="1" step="1"
+                         autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Время до кика/удаления при 1 участнике (мин)" />
                 <UiInput id="season-start-game-number" v-model.number="site.season_start_game_number" type="number" min="1" step="1"
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="С какой игры действует текущий сезон" />
               </div>
@@ -685,6 +687,7 @@ type SiteSettings = {
   rooms_limit_global: number
   rooms_limit_per_user: number
   rooms_empty_ttl_seconds: number
+  rooms_single_ttl_minutes: number
   season_start_game_number: number
 }
 
@@ -862,6 +865,7 @@ const site = reactive<SiteSettings>({
   rooms_limit_global: 100,
   rooms_limit_per_user: 3,
   rooms_empty_ttl_seconds: 10,
+  rooms_single_ttl_minutes: 30,
   season_start_game_number: 1,
 })
 
@@ -1073,6 +1077,7 @@ function snapshotSite(): string {
     rooms_limit_global: normalizeInt(site.rooms_limit_global),
     rooms_limit_per_user: normalizeInt(site.rooms_limit_per_user),
     rooms_empty_ttl_seconds: normalizeInt(site.rooms_empty_ttl_seconds),
+    rooms_single_ttl_minutes: normalizeInt(site.rooms_single_ttl_minutes),
     season_start_game_number: normalizeInt(site.season_start_game_number),
   })
 }
@@ -1252,6 +1257,7 @@ async function saveSettings(): Promise<void> {
         rooms_limit_global: normalizeInt(site.rooms_limit_global),
         rooms_limit_per_user: normalizeInt(site.rooms_limit_per_user),
         rooms_empty_ttl_seconds: normalizeInt(site.rooms_empty_ttl_seconds),
+        rooms_single_ttl_minutes: normalizeInt(site.rooms_single_ttl_minutes),
         season_start_game_number: normalizeInt(site.season_start_game_number),
       },
       game: {
@@ -1948,7 +1954,7 @@ onMounted(() => {
     .grid {
       display: grid;
       gap: 10px;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: 1fr 1fr 1fr 1fr;
       .block {
         border: 3px solid $lead;
         border-radius: 5px;
