@@ -82,7 +82,7 @@ services:
       - "3478:3478/udp"
       - "5349:5349/tcp"
       - "7881:7881/tcp"
-      - "50000-50255:50000-50255/udp"
+      - "50000-50127:50000-50127/udp"
     networks: [edge, internal]
     restart: always
 
