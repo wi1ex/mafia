@@ -59,7 +59,8 @@ BACKEND_REQUEST_KWARGS = {
 
 
 class VerifyState(StatesGroup):
-    login = State()
+    username = State()
+    password = State()
 
 
 class ResetState(StatesGroup):
@@ -114,23 +115,43 @@ async def verify_start(message: types.Message, state: FSMContext, session: aioht
         return
 
     await state.clear()
-    await state.set_state(VerifyState.login)
-    await safe_message_answer(message, "Введите никнейм и пароль через пробел (например: login password):")
+    await state.set_state(VerifyState.username)
+    await safe_message_answer(message, "Введите никнейм:")
 
 
-@router.message(VerifyState.login, F.text)
+@router.message(VerifyState.username, F.text)
 @guarded_handler
-async def verify_credentials(message: types.Message, state: FSMContext, session: aiohttp.ClientSession) -> None:
+async def verify_username(message: types.Message, state: FSMContext) -> None:
     text = (message.text or "").strip()
     parts = [p for p in text.split() if p]
-    await safe_message_delete(message)
-
-    if len(parts) < 2:
-        await safe_message_answer(message, "Необходимо ввести никнейм и пароль через пробел (например: login password).")
+    if len(parts) != 1:
+        await safe_message_answer(message, "Введите никнейм без пробелов.")
         return
 
     username = parts[0]
-    password = " ".join(parts[1:])
+    await state.update_data(username=username)
+    await state.set_state(VerifyState.password)
+    await safe_message_answer(message, "Введите пароль:")
+
+
+@router.message(VerifyState.password, F.text)
+@guarded_handler
+async def verify_password(message: types.Message, state: FSMContext, session: aiohttp.ClientSession) -> None:
+    password = (message.text or "").strip()
+    await safe_message_delete(message)
+
+    if not password:
+        await safe_message_answer(message, "Введите пароль.")
+        return
+
+    data = await state.get_data()
+    username = str((data or {}).get("username") or "").strip()
+    if not username:
+        await state.clear()
+        await state.set_state(VerifyState.username)
+        await safe_message_answer(message, "Сессия верификации истекла. Введите никнейм:")
+        return
+
     tg_id = message.from_user.id if message.from_user else 0
     status_code, payload = await backend_request(
         session,
@@ -145,10 +166,10 @@ async def verify_credentials(message: types.Message, state: FSMContext, session:
         return
 
     detail = (payload or {}).get("detail")
-    await state.set_state(VerifyState.login)
+    await state.set_state(VerifyState.username)
     await safe_message_answer(
         message,
-        f"{map_verify_error(detail, status_code)}\nВведите никнейм и пароль через пробел (например: login password):",
+        f"{map_verify_error(detail, status_code)}\nВведите никнейм:",
         reply_markup=keyboard_verify_only(),
     )
 
