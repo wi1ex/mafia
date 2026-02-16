@@ -1321,9 +1321,7 @@ async def game_start(sid, data) -> GameStartAck:
                     log.exception("sio.game_limits.emit_failed", rid=rid, uid=pid)
 
         alive_cnt = len(player_ids)
-        await sio.emit("rooms_occupancy",
-                       {"id": rid, "occupancy": alive_cnt},
-                       namespace="/rooms")
+        await emit_rooms_occupancy_safe(r, rid, alive_cnt)
 
         try:
             briefs = await get_rooms_brief(r, [rid])
@@ -4426,6 +4424,8 @@ async def disconnect(sid):
             async def _gc():
                 try:
                     removed = await gc_empty_room(rid, expected_seq=gc_seq)
+                    if not removed:
+                        removed = await gc_empty_room(rid)
                     if removed:
                         await sio.emit("rooms_remove",
                                        {"id": rid},

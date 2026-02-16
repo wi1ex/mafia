@@ -1606,6 +1606,8 @@ async def cleanup_user_from_room(r, rid: int, uid: int, *, was_member: bool, was
                     async def _gc():
                         try:
                             removed = await gc_empty_room(rid, expected_seq=gc_seq)
+                            if not removed:
+                                removed = await gc_empty_room(rid)
                             if removed:
                                 await sio.emit("rooms_remove",
                                                {"id": rid},
@@ -2957,10 +2959,7 @@ async def process_player_death(r, rid: int, user_id: int, *, head_uid: int | Non
             alive_cnt = int(await r.scard(f"room:{rid}:game_alive") or 0)
         except Exception:
             alive_cnt = 0
-        await sio.emit("rooms_occupancy",
-                       {"id": rid,
-                        "occupancy": alive_cnt},
-                       namespace="/rooms")
+        await emit_rooms_occupancy_safe(r, rid, alive_cnt)
 
     block_map = {"mic": "1", "cam": "1", "speakers": "0", "visibility": "0", "screen": "0"}
     await r.hset(f"room:{rid}:user:{user_id}:block", mapping=block_map)
@@ -4188,10 +4187,7 @@ async def perform_game_end(ctx, sess: Optional[dict[str, Any]], *, confirm: bool
     except Exception:
         occ = 0
 
-    await sio.emit("rooms_occupancy",
-                   {"id": rid,
-                    "occupancy": occ},
-                   namespace="/rooms")
+    await emit_rooms_occupancy_safe(r, rid, occ)
 
     try:
         briefs = await get_rooms_brief(r, [rid])
@@ -4391,7 +4387,11 @@ async def gc_singleton_room(rid: int, *, expected_since: str | None = None) -> b
         if occ != 0:
             return False
 
-        return await gc_empty_room(rid, expected_seq=gc_seq)
+        removed = await gc_empty_room(rid, expected_seq=gc_seq)
+        if removed:
+            return True
+
+        return await gc_empty_room(rid)
 
     finally:
         try:
