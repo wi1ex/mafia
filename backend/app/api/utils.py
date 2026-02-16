@@ -116,6 +116,8 @@ SANCTION_SUSPEND = "suspend"
 USERS_SORT_DEFAULT = "registered_at"
 USERS_SORT_ALLOWED = {
     USERS_SORT_DEFAULT,
+    "last_login_at",
+    "last_visit_at",
     "friends_count",
     "rooms_created",
     "room_minutes",

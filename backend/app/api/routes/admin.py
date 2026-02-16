@@ -695,9 +695,16 @@ async def users_list(page: int = 1, limit: int = 20, username: str | None = None
     games_played: dict[int, int]
     games_hosted: dict[int, int]
 
-    if sort_key == "registered_at":
+    if sort_key in {"registered_at", "last_login_at", "last_visit_at"}:
+        if sort_key == "last_login_at":
+            sort_expr = User.last_login_at.desc()
+        elif sort_key == "last_visit_at":
+            sort_expr = User.last_visit_at.desc()
+        else:
+            sort_expr = User.registered_at.desc()
+
         total = int(await session.scalar(select(func.count(User.id)).where(*filters)) or 0)
-        rows = await session.execute(select(User) .where(*filters) .order_by(User.registered_at.desc(), User.id.desc()) .offset(offset) .limit(limit))
+        rows = await session.execute(select(User).where(*filters).order_by(sort_expr, User.id.desc()).offset(offset).limit(limit))
         users = rows.scalars().all()
         ids = [int(u.id) for u in users]
         friends_count = await fetch_friends_count_for_users(session, ids)

@@ -503,8 +503,18 @@
                       <span class="th-sort-mark" aria-hidden="true">▼</span>
                     </button>
                   </th>
-                  <th>Авторизация</th>
-                  <th>Онлайн</th>
+                  <th>
+                    <button class="th-sort" type="button" :class="{ active: usersSortBy === 'last_login_at' }" @click="setUsersSort('last_login_at')">
+                      Авторизация
+                      <span class="th-sort-mark" aria-hidden="true">▼</span>
+                    </button>
+                  </th>
+                  <th>
+                    <button class="th-sort" type="button" :class="{ active: usersSortBy === 'last_visit_at' }" @click="setUsersSort('last_visit_at')">
+                      Онлайн
+                      <span class="th-sort-mark" aria-hidden="true">▼</span>
+                    </button>
+                  </th>
                   <th>
                     <button class="th-sort" type="button" :class="{ active: usersSortBy === 'friends_count' }" @click="setUsersSort('friends_count')">
                       Друзья
@@ -896,6 +906,8 @@ type UserRow = {
 
 type UsersSortBy =
   | 'registered_at'
+  | 'last_login_at'
+  | 'last_visit_at'
   | 'friends_count'
   | 'rooms_created'
   | 'room_minutes'
@@ -2261,7 +2273,7 @@ onMounted(() => {
         cursor: pointer;
       }
       .th-sort-mark {
-        opacity: 0;
+        opacity: 0.5;
         font-size: 10px;
       }
       .th-sort.active {
