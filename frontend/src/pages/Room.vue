@@ -1658,9 +1658,9 @@ socket.value?.on('connect', async () => {
     } else if (reason === 'single_timeout') {
       const minutes = Number(p?.minutes || 0)
       if (Number.isFinite(minutes) && minutes > 0) {
-        void alertDialog(`Комната была автоматически закрыта после ${minutes} мин с одним участником`)
+        void alertDialog(`Вы были автоматически кикнуты т.к. последние ${minutes} минут вы находились в комнате один`)
       } else {
-        void alertDialog('Комната была автоматически закрыта после длительного ожидания с одним участником')
+        void alertDialog('Вы были автоматически кикнуты т.к. длительное время вы находились в комнате один')
       }
     }
   })
