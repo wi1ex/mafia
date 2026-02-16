@@ -35,6 +35,7 @@ __all__ = [
     "SANCTION_TIMEOUT",
     "SANCTION_BAN",
     "SANCTION_SUSPEND",
+    "USERS_SORT_DEFAULT",
     "TIMED_KINDS",
     "serialize_game_for_redis",
     "game_from_redis_to_model",
@@ -69,6 +70,10 @@ __all__ = [
     "sum_room_stream_seconds",
     "fetch_live_room_stats",
     "aggregate_user_room_stats",
+    "normalize_users_sort",
+    "fetch_friends_count_for_users",
+    "fetch_sanction_counts_for_users",
+    "user_sort_metric",
     "compute_duration_seconds",
     "is_sanction_active",
     "fetch_active_sanction",
@@ -108,7 +113,118 @@ PWD_CTRL_RE = re.compile(r"[\x00-\x1F\x7F]")
 SANCTION_TIMEOUT = "timeout"
 SANCTION_BAN = "ban"
 SANCTION_SUSPEND = "suspend"
+USERS_SORT_DEFAULT = "registered_at"
+USERS_SORT_ALLOWED = {
+    USERS_SORT_DEFAULT,
+    "friends_count",
+    "rooms_created",
+    "room_minutes",
+    "stream_minutes",
+    "games_played",
+    "games_hosted",
+    "spectator_minutes",
+    "timeouts_count",
+    "bans_count",
+    "suspends_count",
+}
 TIMED_KINDS = {SANCTION_TIMEOUT, SANCTION_SUSPEND}
+
+
+def normalize_users_sort(sort_by: str | None) -> str:
+    value = (sort_by or "").strip().lower()
+    if value in USERS_SORT_ALLOWED:
+        return value
+    return USERS_SORT_DEFAULT
+
+
+async def fetch_friends_count_for_users(session: AsyncSession, ids: list[int]) -> dict[int, int]:
+    friends_count: dict[int, int] = {uid: 0 for uid in ids}
+    if not ids:
+        return friends_count
+
+    friend_rows = await session.execute(
+        select(FriendLink.requester_id, FriendLink.addressee_id).where(
+            FriendLink.status == "accepted",
+            or_(FriendLink.requester_id.in_(ids), FriendLink.addressee_id.in_(ids)),
+        )
+    )
+    for requester_id, addressee_id in friend_rows.all():
+        try:
+            requester_uid = int(requester_id)
+        except Exception:
+            requester_uid = 0
+        try:
+            addressee_uid = int(addressee_id)
+        except Exception:
+            addressee_uid = 0
+        if requester_uid in friends_count:
+            friends_count[requester_uid] += 1
+        if addressee_uid in friends_count:
+            friends_count[addressee_uid] += 1
+
+    return friends_count
+
+
+async def fetch_sanction_counts_for_users(session: AsyncSession, ids: list[int]) -> dict[int, dict[str, int]]:
+    out: dict[int, dict[str, int]] = {uid: {SANCTION_TIMEOUT: 0, SANCTION_BAN: 0, SANCTION_SUSPEND: 0} for uid in ids}
+    if not ids:
+        return out
+
+    rows = await session.execute(
+        select(UserSanction.user_id, UserSanction.kind, func.count(UserSanction.id))
+        .where(UserSanction.user_id.in_(ids), UserSanction.kind.in_([SANCTION_TIMEOUT, SANCTION_BAN, SANCTION_SUSPEND]))
+        .group_by(UserSanction.user_id, UserSanction.kind)
+    )
+    for user_id, kind, cnt in rows.all():
+        try:
+            uid = int(user_id)
+        except Exception:
+            continue
+        if uid not in out:
+            continue
+        kind_key = str(kind)
+        if kind_key not in out[uid]:
+            continue
+        try:
+            out[uid][kind_key] = int(cnt or 0)
+        except Exception:
+            out[uid][kind_key] = 0
+
+    return out
+
+
+def user_sort_metric(*, sort_by: str, uid: int, friends_count: dict[int, int], rooms_created: dict[int, int], room_seconds: dict[int, int], stream_seconds: dict[int, int], games_played: dict[int, int], games_hosted: dict[int, int], spectator_seconds: dict[int, int], sanction_counts: dict[int, dict[str, int]]) -> int:
+    if sort_by == "friends_count":
+        return friends_count.get(uid, 0)
+
+    if sort_by == "rooms_created":
+        return rooms_created.get(uid, 0)
+
+    if sort_by == "room_minutes":
+        return room_seconds.get(uid, 0) // 60
+
+    if sort_by == "stream_minutes":
+        return stream_seconds.get(uid, 0) // 60
+
+    if sort_by == "games_played":
+        return games_played.get(uid, 0)
+
+    if sort_by == "games_hosted":
+        return games_hosted.get(uid, 0)
+
+    if sort_by == "spectator_minutes":
+        return spectator_seconds.get(uid, 0) // 60
+
+    if sort_by == "timeouts_count":
+        return (sanction_counts.get(uid) or {}).get(SANCTION_TIMEOUT, 0)
+
+    if sort_by == "bans_count":
+        return (sanction_counts.get(uid) or {}).get(SANCTION_BAN, 0)
+
+    if sort_by == "suspends_count":
+        return (sanction_counts.get(uid) or {}).get(SANCTION_SUSPEND, 0)
+
+    return 0
 
 
 def compute_duration_seconds(months: int, days: int, hours: int, minutes: int) -> int:
@@ -1119,11 +1235,15 @@ async def aggregate_user_room_stats(session: AsyncSession, ids: list[int]) -> tu
             continue
 
     id_strs = [str(i) for i in ids]
-    room_filters = [Room.creator.in_(ids)]
-    room_filters += [Room.visitors.has_key(i) for i in id_strs]
-    room_filters += [Room.screen_time.has_key(i) for i in id_strs]
-    room_filters += [Room.spectators_time.has_key(i) for i in id_strs]
-    room_rows = await session.execute(select(Room.visitors, Room.screen_time, Room.spectators_time).where(or_(*room_filters)))
+    scan_all = len(ids) > 200
+    if scan_all:
+        room_rows = await session.execute(select(Room.visitors, Room.screen_time, Room.spectators_time))
+    else:
+        room_filters = [Room.creator.in_(ids)]
+        room_filters += [Room.visitors.has_key(i) for i in id_strs]
+        room_filters += [Room.screen_time.has_key(i) for i in id_strs]
+        room_filters += [Room.spectators_time.has_key(i) for i in id_strs]
+        room_rows = await session.execute(select(Room.visitors, Room.screen_time, Room.spectators_time).where(or_(*room_filters)))
 
     id_set = set(ids)
     for visitors, screen_time, spectators_time in room_rows.all():
@@ -1163,8 +1283,20 @@ async def aggregate_user_room_stats(session: AsyncSession, ids: list[int]) -> tu
                     except Exception:
                         continue
 
-    role_filters = [Game.roles.has_key(i) for i in id_strs]
-    if role_filters:
+    if scan_all:
+        rows = await session.execute(select(Game.roles))
+        for roles_map in rows.scalars().all():
+            if not isinstance(roles_map, dict):
+                continue
+            for k in roles_map.keys():
+                try:
+                    uid = int(k)
+                except Exception:
+                    continue
+                if uid in id_set:
+                    games_played[uid] += 1
+    else:
+        role_filters = [Game.roles.has_key(i) for i in id_strs]
         rows = await session.execute(select(Game.roles).where(or_(*role_filters)))
         for roles_map in rows.scalars().all():
             if not isinstance(roles_map, dict):

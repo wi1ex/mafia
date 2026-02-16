@@ -13,7 +13,6 @@ from ...models.log import AppLog
 from ...models.game import Game
 from ...models.room import Room
 from ...models.notif import Notif
-from ...models.friend import FriendLink
 from ...models.sanction import UserSanction
 from ...models.user import User
 from ...models.update import SiteUpdate, UpdateRead
@@ -75,6 +74,10 @@ from ..utils import (
     sum_room_stream_seconds,
     fetch_live_room_stats,
     aggregate_user_room_stats,
+    fetch_friends_count_for_users,
+    fetch_sanction_counts_for_users,
+    normalize_users_sort,
+    user_sort_metric,
     compute_duration_seconds,
     gc_empty_room_and_emit,
     fetch_active_sanction,
@@ -127,7 +130,6 @@ LOG_ACTIONS_KNOWN = {
     "friend_removed",
     "friend_room_invite",
 }
-
 
 @log_route("admin.settings_public")
 @router.get("/settings/public", response_model=PublicSettingsOut)
@@ -675,42 +677,65 @@ async def rooms_kick_all() -> Ok:
 @log_route("admin.users.list")
 @require_roles_deco("admin")
 @router.get("/users", response_model=AdminUsersOut)
-async def users_list(page: int = 1, limit: int = 20, username: str | None = None, session: AsyncSession = Depends(get_session),) -> AdminUsersOut:
+async def users_list(page: int = 1, limit: int = 20, username: str | None = None, sort_by: str | None = None, session: AsyncSession = Depends(get_session)) -> AdminUsersOut:
     limit, page, offset = normalize_pagination(page, limit)
+    sort_key = normalize_users_sort(sort_by)
 
     filters = []
     if username:
         needle = username.lower()
         filters.append(func.lower(User.username).contains(needle, autoescape=True))
 
-    total = int(await session.scalar(select(func.count(User.id)).where(*filters)) or 0)
-    rows = await session.execute(select(User).where(*filters).order_by(User.registered_at.desc(), User.id.desc()).offset(offset).limit(limit))
-    users = rows.scalars().all()
+    users: list[User]
+    friends_count: dict[int, int]
+    rooms_created: dict[int, int]
+    room_seconds: dict[int, int]
+    stream_seconds: dict[int, int]
+    spectator_seconds: dict[int, int]
+    games_played: dict[int, int]
+    games_hosted: dict[int, int]
+
+    if sort_key == "registered_at":
+        total = int(await session.scalar(select(func.count(User.id)).where(*filters)) or 0)
+        rows = await session.execute(select(User) .where(*filters) .order_by(User.registered_at.desc(), User.id.desc()) .offset(offset) .limit(limit))
+        users = rows.scalars().all()
+        ids = [int(u.id) for u in users]
+        friends_count = await fetch_friends_count_for_users(session, ids)
+        rooms_created, room_seconds, stream_seconds, spectator_seconds, games_played, games_hosted = await aggregate_user_room_stats(session, ids)
+    else:
+        rows = await session.execute(select(User).where(*filters))
+        all_users = rows.scalars().all()
+        total = len(all_users)
+        all_ids = [int(u.id) for u in all_users]
+        friends_count = await fetch_friends_count_for_users(session, all_ids)
+        rooms_created, room_seconds, stream_seconds, spectator_seconds, games_played, games_hosted = await aggregate_user_room_stats(session, all_ids)
+        sanction_counts = await fetch_sanction_counts_for_users(session, all_ids)
+
+        users_sorted = sorted(
+            all_users,
+            key=lambda u: (
+                user_sort_metric(
+                    sort_by=sort_key,
+                    uid=int(u.id),
+                    friends_count=friends_count,
+                    rooms_created=rooms_created,
+                    room_seconds=room_seconds,
+                    stream_seconds=stream_seconds,
+                    games_played=games_played,
+                    games_hosted=games_hosted,
+                    spectator_seconds=spectator_seconds,
+                    sanction_counts=sanction_counts,
+                ),
+                u.registered_at,
+                int(u.id),
+            ),
+            reverse=True,
+        )
+        users = users_sorted[offset:offset + limit]
+
     ids = [int(u.id) for u in users]
-
-    friends_count: dict[int, int] = {uid: 0 for uid in ids}
-    if ids:
-        friend_rows = await session.execute(
-            select(FriendLink.requester_id, FriendLink.addressee_id)
-            .where(FriendLink.status == "accepted", or_(FriendLink.requester_id.in_(ids), FriendLink.addressee_id.in_(ids))))
-        for requester_id, addressee_id in friend_rows.all():
-            try:
-                requester_uid = int(requester_id)
-            except Exception:
-                requester_uid = 0
-            try:
-                addressee_uid = int(addressee_id)
-            except Exception:
-                addressee_uid = 0
-            if requester_uid in friends_count:
-                friends_count[requester_uid] += 1
-            if addressee_uid in friends_count:
-                friends_count[addressee_uid] += 1
-
-    rooms_created, room_seconds, stream_seconds, spectator_seconds, games_played, games_hosted = await aggregate_user_room_stats(session, ids)
     sanctions_map = await fetch_sanctions_for_users(session, ids)
     now = datetime.now(timezone.utc)
-
     items: list[AdminUserOut] = []
     for u in users:
         uid = int(u.id)
