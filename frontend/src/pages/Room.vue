@@ -44,26 +44,26 @@
           :seat-icon="game.seatIconForUser(id)"
           :offline="offlineInGame.has(id)"
           :offline-avatar="iconLowSignal"
-          :role-pick-owner-id="rolePick.activeUserId"
-          :role-pick-remaining-ms="rolePick.remainingMs"
-          :mafia-talk-host-id="headUserId"
-          :mafia-talk-remaining-ms="mafiaTalkRemainingMs"
+          :role-pick-owner-id="rolePickOwnerIdFor(id)"
+          :role-pick-remaining-ms="rolePickRemainingMsFor(id)"
+          :mafia-talk-host-id="mafiaTalkHostIdFor(id)"
+          :mafia-talk-remaining-ms="mafiaTalkRemainingMsFor(id)"
           :red-mark="game.shouldHighlightMafiaTile(id) || game.foulActive.has(id)"
           :game-role="game.effectiveRoleIconForTile(id)"
           :finish-role-badge="gameFinished"
           :hidden-by-visibility="hiddenByVisibility(id)"
           :visibility-hidden-avatar="visOffAvatar(id)"
           :in-game="gamePhase !== 'idle'"
-          :day-speech-owner-id="game.daySpeech.currentId"
-          :day-speech-remaining-ms="game.daySpeech.remainingMs"
+          :day-speech-owner-id="daySpeechOwnerIdFor(id)"
+          :day-speech-remaining-ms="daySpeechRemainingMsFor(id)"
           :fouls-count="gameFoulsByUser.get(id) ?? 0"
           :winks-left="winksLeft"
           :knocks-left="knocksLeft"
           :show-wink="game.canWinkTarget(id)"
           :show-knock="game.canKnockTarget(id)"
-          :phase-label="phaseLabel"
-          :night-owner-id="headUserId"
-          :night-remaining-ms="night.remainingMs"
+          :phase-label="phaseLabelFor(id)"
+          :night-owner-id="nightOwnerIdFor(id)"
+          :night-remaining-ms="nightRemainingMsFor(id)"
           :show-shoot="game.canShootTarget(id)"
           :show-check="game.canCheckTarget(id)"
           :pick-number="canShowHeadPicks ? (headNightPicks.get(id) ?? null) : null"
@@ -74,12 +74,12 @@
           :show-best-move-button="game.canMakeBestMoveChoice(id)"
           :farewell-summary="game.farewellSummaryForUser(id)"
           :show-farewell-buttons="game.canMakeFarewellChoice(id)"
-          :nominees="nomineeSeatNumbers"
-          :lift-nominees="id === headUserId && liftHighlightNominees ? nomineeSeatNumbers : []"
+          :nominees="nomineesFor(id)"
+          :lift-nominees="liftNomineesFor(id)"
           :current-nominee-seat="id === headUserId ? currentNomineeSeat : null"
           :show-nominations-bar="id === headUserId && (gamePhase === 'day' || gamePhase === 'vote')"
-          :vote-blocked="id === headUserId ? voteBlocked : false"
-          :offline-seats-in-game="id === headUserId && gamePhase === 'vote' && !currentFarewellSpeech ? offlineAliveSeatNumbers : []"
+          :vote-blocked="voteBlockedFor(id)"
+          :offline-seats-in-game="offlineSeatsInGameFor(id)"
           :show-vote-button="amIAlive && game.canPressVoteButton()"
           :vote-enabled="game.canPressVoteButton()"
           :has-voted="(isLiftVoting ? votedUsers : votedThisRound).has(id)"
@@ -89,7 +89,7 @@
           @toggle-panel="toggleTilePanel"
           @friend-action="onFriendAction"
           @vol-input="onVol"
-          @block="(key, uid) => toggleBlock(uid, key)"
+          @block="onTileBlock"
           @kick="kickUser"
           @foul="onGiveFoul"
           @wink="onWink"
@@ -147,26 +147,26 @@
             :seat-icon="game.seatIconForUser(id)"
             :offline="offlineInGame.has(id)"
             :offline-avatar="iconLowSignal"
-            :role-pick-owner-id="rolePick.activeUserId"
-            :role-pick-remaining-ms="rolePick.remainingMs"
-            :mafia-talk-host-id="headUserId"
-            :mafia-talk-remaining-ms="mafiaTalkRemainingMs"
+            :role-pick-owner-id="rolePickOwnerIdFor(id)"
+            :role-pick-remaining-ms="rolePickRemainingMsFor(id)"
+            :mafia-talk-host-id="mafiaTalkHostIdFor(id)"
+            :mafia-talk-remaining-ms="mafiaTalkRemainingMsFor(id)"
             :red-mark="game.shouldHighlightMafiaTile(id) || game.foulActive.has(id)"
             :game-role="game.effectiveRoleIconForTile(id)"
             :finish-role-badge="gameFinished"
             :hidden-by-visibility="hiddenByVisibility(id)"
             :visibility-hidden-avatar="visOffAvatar(id)"
             :in-game="gamePhase !== 'idle'"
-            :day-speech-owner-id="game.daySpeech.currentId"
-            :day-speech-remaining-ms="game.daySpeech.remainingMs"
+            :day-speech-owner-id="daySpeechOwnerIdFor(id)"
+            :day-speech-remaining-ms="daySpeechRemainingMsFor(id)"
             :fouls-count="gameFoulsByUser.get(id) ?? 0"
             :winks-left="winksLeft"
             :knocks-left="knocksLeft"
             :show-wink="game.canWinkTarget(id)"
             :show-knock="game.canKnockTarget(id)"
-            :phase-label="phaseLabel"
-            :night-owner-id="headUserId"
-            :night-remaining-ms="night.remainingMs"
+            :phase-label="phaseLabelFor(id)"
+            :night-owner-id="nightOwnerIdFor(id)"
+            :night-remaining-ms="nightRemainingMsFor(id)"
             :show-shoot="game.canShootTarget(id)"
             :show-check="game.canCheckTarget(id)"
             :pick-number="canShowHeadPicks ? (headNightPicks.get(id) ?? null) : null"
@@ -177,12 +177,12 @@
             :show-best-move-button="game.canMakeBestMoveChoice(id)"
             :farewell-summary="game.farewellSummaryForUser(id)"
             :show-farewell-buttons="game.canMakeFarewellChoice(id)"
-            :nominees="nomineeSeatNumbers"
-            :lift-nominees="id === headUserId && liftHighlightNominees ? nomineeSeatNumbers : []"
+            :nominees="nomineesFor(id)"
+            :lift-nominees="liftNomineesFor(id)"
             :current-nominee-seat="id === headUserId ? currentNomineeSeat : null"
             :show-nominations-bar="id === headUserId && (gamePhase === 'day' || gamePhase === 'vote')"
-            :vote-blocked="id === headUserId ? voteBlocked : false"
-            :offline-seats-in-game="id === headUserId && gamePhase === 'vote' && !currentFarewellSpeech ? offlineAliveSeatNumbers : []"
+            :vote-blocked="voteBlockedFor(id)"
+            :offline-seats-in-game="offlineSeatsInGameFor(id)"
             :show-vote-button="amIAlive && game.canPressVoteButton()"
             :vote-enabled="game.canPressVoteButton()"
             :has-voted="(isLiftVoting ? votedUsers : votedThisRound).has(id)"
@@ -192,7 +192,7 @@
             @toggle-panel="toggleTilePanel"
             @friend-action="onFriendAction"
             @vol-input="onVol"
-            @block="(key, uid) => toggleBlock(uid, key)"
+            @block="onTileBlock"
             @kick="kickUser"
             @foul="onGiveFoul"
             @wink="onWink"
@@ -300,7 +300,7 @@
           v-if="myRole === 'host' && isPrivate && gamePhase === 'idle'"
           v-model:open="openApps"
           :room-id="rid"
-          @counts="(p) => { appsCounts.total = p.total; appsCounts.unread = p.unread }"
+          @counts="onAppsCounts"
         />
 
         <GameParamsModal
@@ -572,6 +572,7 @@ const nameByUser = reactive(new Map<string, string>())
 const avatarByUser = reactive(new Map<string, string | null>())
 const volUi = reactive<Record<string, number>>({})
 const MIN_GAME_VOLUME = 20
+const EMPTY_NUMBERS: number[] = []
 const volumeSnapTimers = new Map<string, number>()
 const screenOwnerId = ref<string>('')
 const openPanelFor = ref<string>('')
@@ -591,6 +592,10 @@ let joinPhaseApplyPending = false
 const lkReconnecting = computed(() => rtc.reconnecting.value)
 const isReconnecting = computed(() => netReconnecting.value || lkReconnecting.value)
 const reconnectBursts = ref<number[]>([])
+function onAppsCounts(p: { total?: number; unread?: number }) {
+  appsCounts.total = Number(p?.total || 0)
+  appsCounts.unread = Number(p?.unread || 0)
+}
 
 watch(isReconnecting, (now, prev) => {
   if (leaving.value) return
@@ -614,6 +619,27 @@ const isTheater = computed(() => !!screenOwnerId.value)
 const isMyScreen = computed(() => !!localId.value && screenOwnerId.value === localId.value)
 const streamAudioKey = computed(() => screenOwnerId.value ? rtc.screenKey(screenOwnerId.value) : '')
 const streamVol = computed(() => streamAudioKey.value ? (volUi[streamAudioKey.value] ?? rtc.getUserVolume(streamAudioKey.value)) : 100)
+const rolePickOwnerIdFor = (id: string) => rolePick.activeUserId === id ? id : ''
+const rolePickRemainingMsFor = (id: string) => rolePick.activeUserId === id ? rolePick.remainingMs : 0
+const mafiaTalkHostIdFor = (id: string) => headUserId.value === id ? id : ''
+const mafiaTalkRemainingMsFor = (id: string) => headUserId.value === id ? mafiaTalkRemainingMs.value : 0
+const daySpeechOwnerIdFor = (id: string) => game.daySpeech.currentId === id ? id : ''
+const daySpeechRemainingMsFor = (id: string) => game.daySpeech.currentId === id ? game.daySpeech.remainingMs : 0
+const nightOwnerIdFor = (id: string) => headUserId.value === id ? id : ''
+const nightRemainingMsFor = (id: string) => headUserId.value === id ? night.remainingMs : 0
+const phaseLabelFor = (id: string) => headUserId.value === id ? phaseLabel.value : ''
+const nomineesFor = (id: string) => headUserId.value === id ? nomineeSeatNumbers.value : EMPTY_NUMBERS
+const liftNomineesFor = (id: string) => (headUserId.value === id && liftHighlightNominees.value)
+  ? nomineeSeatNumbers.value
+  : EMPTY_NUMBERS
+const voteBlockedFor = (id: string) => headUserId.value === id ? voteBlocked.value : false
+const offlineSeatsInGameFor = (id: string) => (
+  headUserId.value === id &&
+  gamePhase.value === 'vote' &&
+  !currentFarewellSpeech.value
+)
+  ? offlineAliveSeatNumbers.value
+  : EMPTY_NUMBERS
 const fitContainInGrid = computed(() => {
   if (isTheater.value) return false
   const count = sortedPeerIds.value.length
@@ -1443,6 +1469,10 @@ async function toggleBlock(targetId: string, key: keyof BlockState) {
   const want = !isBlocked(targetId, key)
   const resp = await sendAck('moderate', { user_id: Number(targetId), blocks: { [key]: want } })
   if (!ensureOk(resp, { 403: 'Недостаточно прав', 404: 'Пользователь не в комнате' }, 'Сеть/таймаут при модерации')) return
+}
+
+function onTileBlock(key: keyof BlockState, uid: string) {
+  void toggleBlock(uid, key)
 }
 
 async function kickUser(targetId: string) {

@@ -1141,6 +1141,7 @@ export function useRTC(): UseRTC {
       room.remoteParticipants.forEach(p => {
         p.getTrackPublications().forEach(pub => {
           if (pub.kind === Track.Kind.Audio) {
+            if (pub.isSubscribed === on) return
             try { pub.setSubscribed(on) } catch {}
           }
         })
@@ -1163,9 +1164,12 @@ export function useRTC(): UseRTC {
         if (pub.kind !== Track.Kind.Video) return
         const rpub = pub as RemoteTrackPublication
         const isScreen = rpub.source === Track.Source.ScreenShare
+        const wantSub = isScreen || on
         try {
-          rpub.setSubscribed(isScreen || on)
-          if (rpub.isSubscribed) applyVideoQuality(rpub)
+          if (rpub.isSubscribed !== wantSub) {
+            rpub.setSubscribed(wantSub)
+          }
+          if (wantSub) applyVideoQuality(rpub)
         } catch {}
       })
     })
@@ -1181,15 +1185,19 @@ export function useRTC(): UseRTC {
   const applySubsFor = (p: RemoteParticipant) => {
     p.getTrackPublications().forEach(pub => {
       if (pub.kind === Track.Kind.Audio) {
+        if (pub.isSubscribed === wantAudio.value) return
         try { pub.setSubscribed(wantAudio.value) } catch {}
         return
       }
       if (pub.kind === Track.Kind.Video) {
         const rpub = pub as RemoteTrackPublication
         const isScreen = rpub.source === Track.Source.ScreenShare
+        const wantSub = isScreen || wantVideo.value
         try {
-          rpub.setSubscribed(isScreen || wantVideo.value)
-          if (rpub.isSubscribed) applyVideoQuality(rpub)
+          if (rpub.isSubscribed !== wantSub) {
+            rpub.setSubscribed(wantSub)
+          }
+          if (wantSub) applyVideoQuality(rpub)
         } catch {}
       }
     })
