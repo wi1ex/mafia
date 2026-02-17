@@ -1121,6 +1121,16 @@ async def fetch_live_room_stats(r, room_ids: list[int]) -> dict[int, dict[str, A
     if not room_ids:
         return {}
 
+    params_fields = (
+        "title",
+        "user_limit",
+        "creator",
+        "creator_name",
+        "creator_avatar_name",
+        "created_at",
+        "privacy",
+        "anonymity",
+    )
     now_ts = int(time())
     async with r.pipeline() as p:
         for rid in room_ids:
@@ -1131,12 +1141,13 @@ async def fetch_live_room_stats(r, room_ids: list[int]) -> dict[int, dict[str, A
             await p.hgetall(f"room:{rid}:screen_time")
             await p.get(f"room:{rid}:screen_owner")
             await p.get(f"room:{rid}:screen_started_at")
-            await p.hget(f"room:{rid}:params", "anonymity")
+            await p.hmget(f"room:{rid}:params", *params_fields)
+            await p.hgetall(f"room:{rid}:game")
         raw = await p.execute()
 
     room_chunks: dict[int, dict[str, Any]] = {}
     join_reqs: list[tuple[int, str]] = []
-    step = 8
+    step = 9
     for idx, rid in enumerate(room_ids):
         base = idx * step
         visitors_raw = raw[base]
@@ -1146,11 +1157,40 @@ async def fetch_live_room_stats(r, room_ids: list[int]) -> dict[int, dict[str, A
         screen_raw = raw[base + 4]
         screen_owner_raw = raw[base + 5]
         screen_started_raw = raw[base + 6]
-        anonymity_raw = raw[base + 7]
+        params_vals = raw[base + 7] or []
+        game_raw = raw[base + 8] or {}
+
+        title_raw = params_vals[0] if len(params_vals) > 0 else None
+        user_limit_raw = params_vals[1] if len(params_vals) > 1 else None
+        creator_raw = params_vals[2] if len(params_vals) > 2 else None
+        creator_name_raw = params_vals[3] if len(params_vals) > 3 else None
+        creator_avatar_name_raw = params_vals[4] if len(params_vals) > 4 else None
+        created_at_raw = params_vals[5] if len(params_vals) > 5 else None
+        privacy_raw = params_vals[6] if len(params_vals) > 6 else None
+        anonymity_raw = params_vals[7] if len(params_vals) > 7 else None
 
         members = set(members_raw or [])
         for uid in members:
             join_reqs.append((rid, str(uid)))
+
+        game_payload: dict[str, Any] | None = None
+        if isinstance(game_raw, dict) and game_raw:
+            try:
+                model = game_from_redis_to_model(game_raw)
+                game_payload = {
+                    "mode": model.mode,
+                    "format": model.format,
+                    "spectators_limit": model.spectators_limit,
+                    "nominate_mode": model.nominate_mode,
+                    "break_at_zero": model.break_at_zero,
+                    "lift_at_zero": model.lift_at_zero,
+                    "lift_3x": model.lift_3x,
+                    "wink_knock": model.wink_knock,
+                    "farewell_wills": model.farewell_wills,
+                    "music": model.music,
+                }
+            except Exception:
+                game_payload = None
 
         room_chunks[rid] = {
             "visitors": _map_seconds(visitors_raw),
@@ -1160,7 +1200,15 @@ async def fetch_live_room_stats(r, room_ids: list[int]) -> dict[int, dict[str, A
             "streams": _map_seconds(screen_raw),
             "screen_owner": _parse_int(screen_owner_raw),
             "screen_started_at": _parse_int(screen_started_raw),
+            "title": str(title_raw) if title_raw is not None else None,
+            "user_limit": _parse_int(user_limit_raw),
+            "creator": _parse_int(creator_raw),
+            "creator_name": str(creator_name_raw) if creator_name_raw is not None else None,
+            "creator_avatar_name": str(creator_avatar_name_raw) if creator_avatar_name_raw else None,
+            "created_at": str(created_at_raw) if created_at_raw is not None else None,
+            "privacy": str(privacy_raw or "open"),
             "anonymity": "hidden" if str(anonymity_raw or "visible") == "hidden" else "visible",
+            "game": game_payload,
         }
 
     if join_reqs:
@@ -1216,7 +1264,15 @@ async def fetch_live_room_stats(r, room_ids: list[int]) -> dict[int, dict[str, A
             "spectators_count": len(spectators_map),
             "stream_seconds": stream_seconds,
             "has_stream": bool(stream_map) or screen_owner > 0,
+            "title": chunk["title"],
+            "user_limit": chunk["user_limit"],
+            "creator": chunk["creator"],
+            "creator_name": chunk["creator_name"],
+            "creator_avatar_name": chunk["creator_avatar_name"],
+            "created_at": chunk["created_at"],
+            "privacy": chunk["privacy"],
             "anonymity": chunk["anonymity"],
+            "game": chunk["game"],
         }
 
     return out

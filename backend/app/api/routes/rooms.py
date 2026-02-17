@@ -90,6 +90,7 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
         title=title,
         user_limit=payload.user_limit,
         privacy=privacy,
+        anonymity=anonymity,
         creator=uid,
         creator_name=creator_name,
         game=game_dict,

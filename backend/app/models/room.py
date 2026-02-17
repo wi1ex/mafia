@@ -15,6 +15,7 @@ class Room(Base):
     title: Mapped[str] = mapped_column(String(32), nullable=False)
     user_limit: Mapped[int] = mapped_column(Integer, nullable=False, default=12)
     privacy: Mapped[str] = mapped_column(String(8), nullable=False, server_default="open")
+    anonymity: Mapped[str] = mapped_column(String(8), nullable=False, server_default="visible")
     game: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default="{}")
     visitors: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default="{}")
     spectators_time: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default="{}")

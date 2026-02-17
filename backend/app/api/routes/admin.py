@@ -380,6 +380,12 @@ async def rooms_list(page: int = 1, limit: int = 20, username: str | None = None
 
     user_ids = collect_room_user_ids(rooms)
     for stats in live_stats.values():
+        try:
+            creator_id = int(stats.get("creator") or 0)
+            if creator_id > 0:
+                user_ids.add(creator_id)
+        except Exception:
+            pass
         for k in stats["visitors"].keys():
             try:
                 user_ids.add(int(k))
@@ -423,9 +429,31 @@ async def rooms_list(page: int = 1, limit: int = 20, username: str | None = None
         stream_seconds = stats["stream_seconds"] if stats else sum_room_stream_seconds(room.screen_time)
         if stats:
             anonymity = "hidden" if str(stats.get("anonymity") or "visible") == "hidden" else "visible"
+            creator = int(stats.get("creator") or room.creator)
+            creator_name = str(stats.get("creator_name") or room.creator_name)
+            creator_avatar_name = cast(str | None, stats.get("creator_avatar_name")) or avatar_map.get(creator)
+            title = str(stats.get("title") or room.title)
+            user_limit = int(stats.get("user_limit") or room.user_limit)
+            privacy = "private" if str(stats.get("privacy") or room.privacy) == "private" else "open"
+            raw_created_at = stats.get("created_at")
+            if raw_created_at:
+                try:
+                    created_at = datetime.fromisoformat(str(raw_created_at).replace("Z", "+00:00"))
+                except Exception:
+                    created_at = room.created_at
+            else:
+                created_at = room.created_at
+            game_params = parse_room_game_params(cast(dict | None, stats.get("game")) or room.game)
         else:
-            anonymity = "visible"
-        game_params = parse_room_game_params(room.game)
+            anonymity = "hidden" if str(room.anonymity or "visible") == "hidden" else "visible"
+            creator = int(room.creator)
+            creator_name = room.creator_name
+            creator_avatar_name = avatar_map.get(int(room.creator))
+            title = room.title
+            user_limit = room.user_limit
+            privacy = room.privacy
+            created_at = room.created_at
+            game_params = parse_room_game_params(room.game)
         visitors_items = build_room_user_stats(visitors_map, name_map)
         spectators_items = build_room_user_stats(spectators_map, name_map)
         stream_items = build_room_user_stats(stream_map, name_map)
@@ -442,14 +470,14 @@ async def rooms_list(page: int = 1, limit: int = 20, username: str | None = None
         items.append(
             AdminRoomOut(
                 id=room.id,
-                creator=int(room.creator),
-                creator_name=room.creator_name,
-                creator_avatar_name=avatar_map.get(int(room.creator)),
-                title=room.title,
-                user_limit=room.user_limit,
-                privacy=room.privacy,
+                creator=creator,
+                creator_name=creator_name,
+                creator_avatar_name=creator_avatar_name,
+                title=title,
+                user_limit=user_limit,
+                privacy=privacy,
                 anonymity=anonymity,
-                created_at=room.created_at,
+                created_at=created_at,
                 deleted_at=room.deleted_at,
                 game_mode=game_params["mode"],
                 game_format=game_params["format"],

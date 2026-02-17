@@ -4473,6 +4473,8 @@ async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
 
     try:
         raw = await r.hgetall(f"room:{rid}:visitors")
+        room_anonymity_raw = await r.hget(f"room:{rid}:params", "anonymity")
+        room_anonymity = "hidden" if str(room_anonymity_raw or "visible") == "hidden" else "visible"
         visitors_map: dict[int, int] = {}
         for k, v in (raw or {}).items():
             try:
@@ -4538,6 +4540,7 @@ async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
                     merged_screen_time = {**(rm.screen_time or {}), **screen_time_patch}
                     spectators_time_patch = {str(uid): max(0, sec) for uid, sec in spectators_map_sec.items()}
                     merged_spectators_time = {**(rm.spectators_time or {}), **spectators_time_patch}
+                    rm.anonymity = room_anonymity
 
                     if unique_user_count <= 1:
                         details = f"Удаление комнаты room_id={rid} title={rm_title} count_users={unique_visitors}"
