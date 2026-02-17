@@ -1131,11 +1131,12 @@ async def fetch_live_room_stats(r, room_ids: list[int]) -> dict[int, dict[str, A
             await p.hgetall(f"room:{rid}:screen_time")
             await p.get(f"room:{rid}:screen_owner")
             await p.get(f"room:{rid}:screen_started_at")
+            await p.hget(f"room:{rid}:params", "anonymity")
         raw = await p.execute()
 
     room_chunks: dict[int, dict[str, Any]] = {}
     join_reqs: list[tuple[int, str]] = []
-    step = 7
+    step = 8
     for idx, rid in enumerate(room_ids):
         base = idx * step
         visitors_raw = raw[base]
@@ -1145,6 +1146,7 @@ async def fetch_live_room_stats(r, room_ids: list[int]) -> dict[int, dict[str, A
         screen_raw = raw[base + 4]
         screen_owner_raw = raw[base + 5]
         screen_started_raw = raw[base + 6]
+        anonymity_raw = raw[base + 7]
 
         members = set(members_raw or [])
         for uid in members:
@@ -1158,6 +1160,7 @@ async def fetch_live_room_stats(r, room_ids: list[int]) -> dict[int, dict[str, A
             "streams": _map_seconds(screen_raw),
             "screen_owner": _parse_int(screen_owner_raw),
             "screen_started_at": _parse_int(screen_started_raw),
+            "anonymity": "hidden" if str(anonymity_raw or "visible") == "hidden" else "visible",
         }
 
     if join_reqs:
@@ -1213,6 +1216,7 @@ async def fetch_live_room_stats(r, room_ids: list[int]) -> dict[int, dict[str, A
             "spectators_count": len(spectators_map),
             "stream_seconds": stream_seconds,
             "has_stream": bool(stream_map) or screen_owner > 0,
+            "anonymity": chunk["anonymity"],
         }
 
     return out

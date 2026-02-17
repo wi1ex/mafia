@@ -371,6 +371,7 @@
                   <th>Название</th>
                   <th>Владелец</th>
                   <th>Приватность</th>
+                  <th>Анонимность</th>
                   <th>Лимит</th>
                   <th>Параметры игры</th>
                   <th>Создана</th>
@@ -392,6 +393,7 @@
                     </div>
                   </td>
                   <td>{{ row.privacy }}</td>
+                  <td>{{ formatRoomAnonymity(row.anonymity) }}</td>
                   <td>{{ row.user_limit }}</td>
                   <td>{{ formatRoomGame(row) }}</td>
                   <td>{{ formatLocalDateTime(row.created_at) }}</td>
@@ -463,7 +465,7 @@
                   </td>
                 </tr>
                 <tr v-if="rooms.length === 0">
-                  <td colspan="12" class="muted">Нет данных</td>
+                  <td colspan="13" class="muted">Нет данных</td>
                 </tr>
               </tbody>
             </table>
@@ -836,6 +838,7 @@ type RoomRow = {
   title: string
   user_limit: number
   privacy: string
+  anonymity: 'visible' | 'hidden'
   created_at: string
   deleted_at?: string | null
   game_mode: string
@@ -1293,6 +1296,10 @@ function formatRoomGame(row: RoomRow): string {
   return `Режим: ${mode}, Формат: ${format}, Зрители: ${spectators}, Выставления: ${nominate}, Подмигивание/Стук: ${winkKnock}, Завещания: ${farewellWills}, Музыка: ${music}, Слом в нуле: ${breakAtZero}, Подъём в нуле: ${liftAtZero}, Подъём 3х: ${lift3x}`
 }
 
+function formatRoomAnonymity(value: string | null | undefined): string {
+  return value === 'hidden' ? 'Скрытая' : 'Видимая'
+}
+
 function formatRoomGameResult(result: string): string {
   if (result === 'red') return 'Победа мирных'
   if (result === 'black') return 'Победа мафии'
@@ -1473,6 +1480,7 @@ async function loadRooms(): Promise<void> {
     rooms.value = items.map((item: any) => ({
       ...item,
       creator_avatar_name: item?.creator_avatar_name ?? null,
+      anonymity: item?.anonymity === 'hidden' ? 'hidden' : 'visible',
       nominate_mode: String(item?.nominate_mode || ''),
       break_at_zero: Boolean(item?.break_at_zero),
       lift_at_zero: Boolean(item?.lift_at_zero),

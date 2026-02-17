@@ -173,6 +173,7 @@ class AdminRoomOut(BaseModel):
     title: str
     user_limit: int
     privacy: str
+    anonymity: Literal["visible", "hidden"] = "visible"
     created_at: datetime
     deleted_at: Optional[datetime] = None
     game_mode: str

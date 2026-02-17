@@ -421,6 +421,10 @@ async def rooms_list(page: int = 1, limit: int = 20, username: str | None = None
         visitors_count = stats["visitors_count"] if stats else len(room.visitors or {})
         spectators_count = stats["spectators_count"] if stats else len(room.spectators_time or {})
         stream_seconds = stats["stream_seconds"] if stats else sum_room_stream_seconds(room.screen_time)
+        if stats:
+            anonymity = "hidden" if str(stats.get("anonymity") or "visible") == "hidden" else "visible"
+        else:
+            anonymity = "visible"
         game_params = parse_room_game_params(room.game)
         visitors_items = build_room_user_stats(visitors_map, name_map)
         spectators_items = build_room_user_stats(spectators_map, name_map)
@@ -444,6 +448,7 @@ async def rooms_list(page: int = 1, limit: int = 20, username: str | None = None
                 title=room.title,
                 user_limit=room.user_limit,
                 privacy=room.privacy,
+                anonymity=anonymity,
                 created_at=room.created_at,
                 deleted_at=room.deleted_at,
                 game_mode=game_params["mode"],
