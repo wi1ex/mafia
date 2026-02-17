@@ -376,10 +376,45 @@ async def rooms_list(page: int = 1, limit: int = 20, username: str | None = None
     rows = await session.execute(query.order_by(Room.created_at.desc(), Room.id.desc()).offset(offset).limit(limit))
     rooms = rows.scalars().all()
     active_ids = [int(room.id) for room in rooms if room.deleted_at is None]
-    live_stats = await fetch_live_room_stats(get_redis(), active_ids)
+    live_stats: dict[int, dict] = {}
+    if active_ids:
+        try:
+            live_stats = await fetch_live_room_stats(get_redis(), active_ids)
+        except Exception:
+            live_stats = {}
+
+    def has_live_snapshot(stats) -> bool:
+        if not isinstance(stats, dict):
+            return False
+
+        required = (
+            "visitors",
+            "spectators",
+            "streams",
+            "visitors_count",
+            "spectators_count",
+            "stream_seconds",
+            "has_stream",
+            "title",
+            "user_limit",
+            "creator",
+            "creator_name",
+            "created_at",
+            "privacy",
+            "anonymity",
+            "game",
+        )
+        for key in required:
+            if key not in stats:
+                return False
+
+        return True
 
     user_ids = collect_room_user_ids(rooms)
     for stats in live_stats.values():
+        if not has_live_snapshot(stats):
+            continue
+
         try:
             creator_id = int(stats.get("creator") or 0)
             if creator_id > 0:
@@ -421,6 +456,9 @@ async def rooms_list(page: int = 1, limit: int = 20, username: str | None = None
     items: list[AdminRoomOut] = []
     for room in rooms:
         stats = live_stats.get(int(room.id)) if room.deleted_at is None else None
+        if not has_live_snapshot(stats):
+            stats = None
+
         visitors_map = stats["visitors"] if stats else (room.visitors or {})
         spectators_map = stats["spectators"] if stats else (room.spectators_time or {})
         stream_map = stats["streams"] if stats else (room.screen_time or {})
