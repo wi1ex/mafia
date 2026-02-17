@@ -37,8 +37,8 @@
                 </div>
               </div>
 
-              <ToggleSwitch v-model="isPrivate" label="Приватность:" off-label="Открытая" on-label="Закрытая" aria-label="Приватность: открытая/закрытая" />
-              <ToggleSwitch v-model="isAnonymous" label="Анонимность:" off-label="Видимая" on-label="Скрытая" aria-label="Анонимность: видимая/скрытая" />
+              <ToggleSwitch v-model="isPrivate" :disabled="isPrivacyLocked" label="Приватность:" off-label="Открытая" on-label="Закрытая" aria-label="Приватность: открытая/закрытая" />
+              <ToggleSwitch v-model="isAnonymous" :disabled="isAnonymityLocked" label="Анонимность:" off-label="Видимая" on-label="Скрытая" aria-label="Анонимность: видимая/скрытая" />
             </div>
 
             <div v-else key="game">
@@ -223,6 +223,8 @@ const isAnonymous = computed<boolean>({
     anonymity.value = v ? 'hidden' : 'visible'
   }
 })
+const isPrivacyLocked = computed(() => anonymity.value === 'hidden')
+const isAnonymityLocked = computed(() => canOpenGameTab.value)
 
 function clamp(n: number, min: number, max: number) { return Math.max(min, Math.min(max, n)) }
 
