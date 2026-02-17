@@ -336,7 +336,7 @@ onBeforeUnmount(() => {
       background-color: $dark;
       .tab-viewport {
         position: relative;
-        height: 200px;
+        height: 215px;
         border-top: 3px solid $lead;
         border-left: 3px solid $lead;
         border-right: 3px solid $lead;
@@ -374,7 +374,7 @@ onBeforeUnmount(() => {
       .params {
         display: flex;
         flex-direction: column;
-        padding: 10px;
+        padding: 15px 10px;
         gap: 15px;
         .range {
           display: flex;
@@ -544,10 +544,11 @@ onBeforeUnmount(() => {
     .modal {
       .modal-div {
         .tab-viewport {
-          height: 155px;
+          height: 190px;
           scrollbar-width: auto;
         }
         .params {
+          padding: 10px;
           gap: 10px;
         }
       }
