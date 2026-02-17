@@ -28,7 +28,7 @@ from ..schemas.admin import SiteSettingsOut, GameSettingsOut, RegistrationsPoint
 from ..schemas.room import GameParams
 from ..realtime.sio import sio
 from ..realtime.utils import get_profiles_snapshot, get_rooms_brief, gc_empty_room
-from ..services.minio import delete_avatars
+from ..services.minio import delete_avatars_async
 from ..security.parameters import get_cached_settings
 
 __all__ = [
@@ -492,7 +492,7 @@ async def set_user_deleted(session: AsyncSession, user_id: int, *, deleted: bool
 
     if deleted:
         with suppress(Exception):
-            delete_avatars(int(user.id))
+            await delete_avatars_async(int(user.id))
         with suppress(Exception):
             await broadcast_creator_rooms(int(user.id), update_name=user.username, avatar="delete")
     elif was_deleted:

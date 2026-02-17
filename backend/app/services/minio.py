@@ -1,5 +1,7 @@
 from __future__ import annotations
+import asyncio
 import io
+import threading
 import time
 from PIL import Image, ImageOps
 from datetime import timedelta
@@ -21,6 +23,9 @@ ALLOWED_CT = {
 MAX_BYTES = 5 * 1024 * 1024
 MAX_PIXELS = 4096 * 4096
 MAX_SIDE = 1024
+BUCKET_CHECK_TTL_S = 60.0
+_bucket_checked_until = 0.0
+_bucket_check_lock = threading.Lock()
 
 
 def _reencode_safe(content: bytes, ct_hint: Optional[str]) -> tuple[bytes, str] | None:
@@ -41,6 +46,16 @@ def _reencode_safe(content: bytes, ct_hint: Optional[str]) -> tuple[bytes, str] 
 
 
 def ensure_bucket(minio_client: Optional[Minio] = None) -> None:
+    global _bucket_checked_until
+    now = time.monotonic()
+    if _bucket_checked_until > now:
+        return
+
+    with _bucket_check_lock:
+        now = time.monotonic()
+        if _bucket_checked_until > now:
+            return
+
     minio = minio_client or get_minio_private()
     if not minio.bucket_exists(bucket_name=_bucket):
         try:
@@ -50,6 +65,8 @@ def ensure_bucket(minio_client: Optional[Minio] = None) -> None:
             if e.code not in ("BucketAlreadyOwnedByYou", "BucketAlreadyExists"):
                 log.exception("minio.bucket.create_failed", bucket=_bucket, code=e.code)
                 raise
+
+    _bucket_checked_until = time.monotonic() + BUCKET_CHECK_TTL_S
 
 
 def _sniff_ct(buf: bytes) -> Optional[str]:
@@ -161,3 +178,15 @@ def presign_key(key: str, *, expires_hours: int = 1) -> tuple[str, int]:
     except Exception:
         log.exception("media.presign.unexpected", key=key)
         raise
+
+
+async def put_avatar_async(user_id: int, content: bytes, content_type: str | None) -> Optional[str]:
+    return await asyncio.to_thread(put_avatar, user_id, content, content_type)
+
+
+async def delete_avatars_async(user_id: int) -> int:
+    return await asyncio.to_thread(delete_avatars, user_id)
+
+
+async def presign_key_async(key: str, *, expires_hours: int = 1) -> tuple[str, int]:
+    return await asyncio.to_thread(presign_key, key, expires_hours=expires_hours)

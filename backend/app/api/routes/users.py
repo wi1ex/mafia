@@ -36,7 +36,7 @@ from ...schemas.user import (
     PasswordChangeIn,
 )
 from ...security.passwords import hash_password, verify_password
-from ...services.minio import put_avatar, delete_avatars, ALLOWED_CT, MAX_BYTES
+from ...services.minio import put_avatar_async, delete_avatars_async, ALLOWED_CT, MAX_BYTES
 
 router = APIRouter()
 
@@ -218,7 +218,7 @@ async def upload_avatar(file: UploadFile = File(...), ident: Identity = Depends(
     if len(data) > MAX_BYTES:
         raise HTTPException(status_code=413, detail="file_too_large")
 
-    name = put_avatar(uid, data, ct)
+    name = await put_avatar_async(uid, data, ct)
     if not name:
         raise HTTPException(status_code=422, detail="bad_image")
 
@@ -247,7 +247,7 @@ async def delete_avatar(ident: Identity = Depends(get_identity), db: AsyncSessio
     await db.commit()
 
     with suppress(Exception):
-        delete_avatars(uid)
+        await delete_avatars_async(uid)
 
     await log_action(
         db,

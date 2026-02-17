@@ -396,7 +396,7 @@ import {
 import { type CameraQuality, useRTC, type VQ } from '@/composables/rtc'
 import { api } from '@/services/axios'
 import { alertDialog, confirmDialog, useConfirmState } from '@/services/confirm'
-import { createAuthedSocket } from '@/services/sio'
+import { createAuthedSocket, disposeAuthedSocket } from '@/services/sio'
 import RoomTile from '@/components/RoomTile.vue'
 import RoomSetting from '@/components/RoomSetting.vue'
 import RoomRequests from '@/components/RoomRequests.vue'
@@ -2348,6 +2348,7 @@ async function onLeave(goHome = true) {
     const s = socket.value
     socket.value = null
     if (s) {
+      disposeAuthedSocket(s)
       try { (s.io.opts as any).reconnection = false } catch {}
       try { s.removeAllListeners?.() } catch {}
       try { s.close() } catch {}

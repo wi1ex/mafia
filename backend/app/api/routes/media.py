@@ -4,7 +4,7 @@ from contextlib import suppress
 from fastapi import APIRouter, HTTPException, Query
 from ...core.clients import get_redis
 from ...security.decorators import log_route
-from ...services.minio import presign_key
+from ...services.minio import presign_key_async
 from ..utils import validate_object_key_for_presign
 
 router = APIRouter()
@@ -28,7 +28,7 @@ async def presign(key: str = Query(..., description="")) -> dict:
                 return {"url": url, "expires_in": exp - now}
 
     try:
-        url, ttl = presign_key(key, expires_hours=1)
+        url, ttl = await presign_key_async(key, expires_hours=1)
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="not_found")
 
