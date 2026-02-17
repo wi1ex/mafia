@@ -38,6 +38,7 @@
               </div>
 
               <ToggleSwitch v-model="isPrivate" label="Приватность:" off-label="Открытая" on-label="Закрытая" aria-label="Приватность: открытая/закрытая" />
+              <ToggleSwitch v-model="isAnonymous" label="Анонимность:" off-label="Видимая" on-label="Скрытая" aria-label="Анонимность: видимая/скрытая" />
             </div>
 
             <div v-else key="game">
@@ -166,6 +167,7 @@ type RoomBasic = {
   title?: string
   user_limit?: number
   privacy?: 'open'|'private'
+  anonymity?: 'visible'|'hidden'
 }
 const initialBasic: RoomBasic = (() => {
   try {
@@ -194,12 +196,32 @@ const initialLimit = (() => {
 const limit = ref<number>(initialLimit)
 
 const privacy = ref<'open'|'private'>(initialBasic.privacy === 'private' ? 'private' : 'open')
+const initialAnonymity = initialBasic.anonymity === 'hidden' ? 'hidden' : 'visible'
+const anonymity = ref<'visible'|'hidden'>(initialAnonymity)
+if (limit.value === gameLimitMin.value) anonymity.value = 'visible'
+if (anonymity.value === 'hidden') privacy.value = 'private'
 
 const ok = computed(() => title.value.length > 0 && limit.value >= 2 && limit.value <= 12)
 
 const isPrivate = computed<boolean>({
   get: () => privacy.value === 'private',
-  set: v => { privacy.value = v ? 'private' : 'open' }
+  set: v => {
+    if (!v && anonymity.value === 'hidden') {
+      privacy.value = 'private'
+      return
+    }
+    privacy.value = v ? 'private' : 'open'
+  }
+})
+const isAnonymous = computed<boolean>({
+  get: () => anonymity.value === 'hidden',
+  set: v => {
+    if (v && canOpenGameTab.value) {
+      anonymity.value = 'visible'
+      return
+    }
+    anonymity.value = v ? 'hidden' : 'visible'
+  }
 })
 
 function clamp(n: number, min: number, max: number) { return Math.max(min, Math.min(max, n)) }
@@ -210,6 +232,7 @@ function saveBasic() {
       title: title.value,
       user_limit: clamp(limit.value, 2, 12),
       privacy: privacy.value,
+      anonymity: anonymity.value,
     }
     localStorage.setItem('room:lastRoom', JSON.stringify(payload))
   } catch {}
@@ -223,6 +246,7 @@ async function create() {
       title: title.value,
       user_limit: limit.value,
       privacy: privacy.value,
+      anonymity: anonymity.value,
       game: { ...game.value },
     }
     saveBasic()
@@ -254,7 +278,7 @@ function sanitizeTitle(s: string, max = 32): string {
     .slice(0, max)
 }
 
-watch([title, limit, privacy], saveBasic, { flush: 'post' })
+watch([title, limit, privacy, anonymity], saveBasic, { flush: 'post' })
 
 watch(tab, (cur) => {
   lastTab.value = prevTab
@@ -263,7 +287,12 @@ watch(tab, (cur) => {
 
 watch([limit, gameLimitMin], ([v, min]) => {
   if (v < 2) limit.value = 2
+  if (v === min && anonymity.value === 'hidden') anonymity.value = 'visible'
   if (v < min && tab.value === 'game') tab.value = 'room'
+}, { flush: 'sync' })
+
+watch(anonymity, (next) => {
+  if (next === 'hidden' && privacy.value !== 'private') privacy.value = 'private'
 }, { flush: 'sync' })
 
 watch(() => user.user, () => { if (!hadStoredTitle && !_title.value) _title.value = defaultTitle() }, { flush: 'post' })

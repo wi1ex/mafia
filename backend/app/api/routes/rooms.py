@@ -38,7 +38,7 @@ from ..utils import (
     ensure_room_access_allowed,
     schedule_room_gc,
 )
-from ...realtime.utils import get_rooms_brief
+from ...realtime.utils import get_rooms_brief, filter_rooms_for_role
 
 router = APIRouter()
 
@@ -68,6 +68,11 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
         raise HTTPException(status_code=409, detail="rooms_limit_user")
 
     gp = payload.game
+    game_limit = int(app_settings.game_min_ready_players) + 1
+    anonymity = payload.anonymity
+    if int(payload.user_limit) == game_limit:
+        anonymity = "visible"
+    privacy = "private" if anonymity == "hidden" else payload.privacy
     game_dict = {
         "mode": gp.mode,
         "format": gp.format,
@@ -84,7 +89,7 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
     room = Room(
         title=title,
         user_limit=payload.user_limit,
-        privacy=payload.privacy,
+        privacy=privacy,
         creator=uid,
         creator_name=creator_name,
         game=game_dict,
@@ -102,7 +107,8 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
         "creator_name": creator_name,
         "creator_avatar_name": u.avatar_name if u else None,
         "created_at": room.created_at.isoformat(),
-        "privacy": payload.privacy,
+        "privacy": privacy,
+        "anonymity": anonymity,
         "entry_closed": "0",
     }
     game_data = serialize_game_for_redis(game_dict)
@@ -125,7 +131,7 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
         user_id=uid,
         username=creator_name,
         action="room_created",
-        details=f"Создание комнаты room_id={room.id} title={room.title} user_limit={room.user_limit} privacy={payload.privacy}",
+        details=f"Создание комнаты room_id={room.id} title={room.title} user_limit={room.user_limit} privacy={privacy} anonymity={anonymity}",
     )
 
     return RoomIdOut(id=room.id)
@@ -149,6 +155,7 @@ async def list_active_rooms(ident: Identity = Depends(get_identity)) -> list[Roo
         return []
 
     items = await get_rooms_brief(r, ids)
+    items = filter_rooms_for_role(items, str(ident.get("role") or "user"))
     out: list[RoomBriefOut] = []
     for item in items:
         try:

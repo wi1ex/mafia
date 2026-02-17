@@ -27,7 +27,7 @@ from ..models.update import SiteUpdate, UpdateRead
 from ..schemas.admin import SiteSettingsOut, GameSettingsOut, RegistrationsPoint, AdminRoomUserStat, AdminSanctionOut
 from ..schemas.room import GameParams
 from ..realtime.sio import sio
-from ..realtime.utils import get_profiles_snapshot, get_rooms_brief, gc_empty_room
+from ..realtime.utils import get_profiles_snapshot, get_rooms_brief, gc_empty_room, emit_rooms_upsert_safe
 from ..services.minio import delete_avatars_async
 from ..security.parameters import get_cached_settings
 
@@ -1339,9 +1339,7 @@ async def emit_rooms_upsert(rid: int) -> None:
         return
 
     try:
-        await sio.emit("rooms_upsert",
-                       item,
-                       namespace="/rooms")
+        await emit_rooms_upsert_safe(r, rid, item)
     except Exception as e:
         log.warning("rooms.upsert.emit_failed", rid=rid, err=type(e).__name__)
 

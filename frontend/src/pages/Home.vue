@@ -29,7 +29,7 @@
         <ul class="list-body">
           <li class="item" v-for="r in sortedRooms" :key="r.id" :class="{ active: r.id === selectedId || r.id === pendingRoomId }" tabindex="0" @click="selectRoom(r.id)" >
             <div class="cell">
-              <span class="status-room" :class="{ runned: r.in_game, duo: r.user_limit === 2 }">{{ roomStatusLabel(r) }}</span>
+              <span class="status-room" :class="roomStatusClass(r)">{{ roomStatusLabel(r) }}</span>
             </div>
             <div class="cell">
               <img :src="r.privacy === 'private' ? iconLockClose : iconLockOpen" alt="lock" />
@@ -180,6 +180,7 @@ type Room = {
   title: string
   user_limit: number
   privacy: 'open' | 'private'
+  anonymity?: 'visible' | 'hidden'
   creator: number
   creator_name: string
   creator_avatar_name?: string | null
@@ -344,11 +345,21 @@ const spectatorsTooltipEnabled = computed(() => {
 const spectatorsTooltipVisible = computed(() => spectatorsOpen.value && spectatorsTooltipEnabled.value)
 
 function roomStatusLabel(room: Room): string {
+  if (isAdmin.value && room.anonymity === 'hidden') return 'hide'
   if (room.in_game) return 'game'
   const limit = Number(room.user_limit)
   if (Number.isFinite(limit) && limit === gameLimitMin.value) return 'mafia'
   if (limit === 2) return 'duo'
   return 'lobby'
+}
+
+function roomStatusClass(room: Room): Record<string, boolean> {
+  const label = roomStatusLabel(room)
+  return {
+    hide: label === 'hide',
+    runned: label === 'game',
+    duo: label === 'duo',
+  }
 }
 
 function isFullRoom(r: Room) { return r.occupancy >= r.user_limit }
@@ -361,6 +372,10 @@ function formatSeatNumber(slot: number | null | undefined): string {
 }
 
 function upsert(r: Room) {
+  if (r.anonymity === 'hidden' && !isAdmin.value) {
+    remove(r.id)
+    return
+  }
   const cur = roomsMap.get(r.id)
   roomsMap.set(r.id, cur ? { ...cur, ...r } : r)
 }
@@ -691,13 +706,19 @@ watch(() => selectedRoom.value?.in_game, (inGame) => {
   }
 })
 
-watch(() => auth.isAuthed, (ok) => {
+watch(() => auth.isAuthed, (ok, prev) => {
   if (!ok) {
     spectatorsOpen.value = false
     spectators.value = []
     spectatorsLoading.value = false
     spectatorsError.value = ''
   }
+  if (ok !== prev) {
+    stopWS()
+    startWS()
+    return
+  }
+  if (sio.value?.connected) void syncRoomsSnapshot()
 })
 
 watch(() => route.query.focus, (v) => {
@@ -861,6 +882,10 @@ onBeforeUnmount(() => {
               }
               &.runned {
                 background-color: $green;
+              }
+              &.hide {
+                background-color: $bg;
+                color: $fg;
               }
             }
             .user-avatar {

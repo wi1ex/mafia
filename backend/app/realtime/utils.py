@@ -60,6 +60,9 @@ __all__ = [
     "gc_empty_room",
     "claim_screen",
     "get_rooms_brief",
+    "filter_rooms_for_role",
+    "emit_rooms_upsert_safe",
+    "emit_rooms_event_safe",
     "init_roles_deck",
     "assign_role_for_user",
     "advance_roles_turn",
@@ -1327,7 +1330,7 @@ async def get_rooms_brief(r, ids: Iterable[int]) -> List[dict]:
     if not ids_list:
         return []
 
-    fields = ("id", "title", "user_limit", "creator", "creator_name", "creator_avatar_name", "created_at", "privacy", "entry_closed")
+    fields = ("id", "title", "user_limit", "creator", "creator_name", "creator_avatar_name", "created_at", "privacy", "anonymity", "entry_closed")
     async with r.pipeline() as p:
         for rid in ids_list:
             await p.hmget(f"room:{rid}:params", *fields)
@@ -1350,7 +1353,7 @@ async def get_rooms_brief(r, ids: Iterable[int]) -> List[dict]:
         if not vals:
             continue
 
-        _id, title, user_limit, creator, creator_name, creator_avatar_name, created_at, privacy, entry_closed_raw = vals
+        _id, title, user_limit, creator, creator_name, creator_avatar_name, created_at, privacy, anonymity, entry_closed_raw = vals
         if not (_id and title and user_limit and creator and creator_name and created_at):
             continue
 
@@ -1374,6 +1377,7 @@ async def get_rooms_brief(r, ids: Iterable[int]) -> List[dict]:
             "creator_avatar_name": avatar,
             "created_at": str(created_at),
             "privacy": str(privacy or "open"),
+            "anonymity": "hidden" if str(anonymity or "visible") == "hidden" else "visible",
             "occupancy": occupancy,
             "in_game": in_game,
             "game_phase": phase,
@@ -1394,6 +1398,53 @@ async def get_rooms_brief(r, ids: Iterable[int]) -> List[dict]:
                 b["creator_avatar_name"] = avatar_by_uid.get(b["creator"])
 
     return briefs
+
+
+def filter_rooms_for_role(items: Iterable[Mapping[str, Any]], role: str | None) -> List[dict]:
+    viewer_role = str(role or "user")
+    if viewer_role == "admin":
+        return [dict(item) for item in items]
+
+    out: List[dict] = []
+    for item in items:
+        if str(item.get("anonymity") or "visible") == "hidden":
+            continue
+        out.append(dict(item))
+
+    return out
+
+
+async def _room_is_hidden(r, rid: int) -> bool:
+    try:
+        raw = await r.hget(f"room:{rid}:params", "anonymity")
+    except Exception:
+        raw = None
+    return str(raw or "visible") == "hidden"
+
+
+async def emit_rooms_upsert_safe(r, rid: int, item: Mapping[str, Any] | None = None) -> None:
+    payload = dict(item) if item is not None else None
+    if payload is None:
+        briefs = await get_rooms_brief(r, [rid])
+        payload = briefs[0] if briefs else None
+    if not payload:
+        return
+
+    room_id = int(payload.get("id") or rid or 0)
+    if str(payload.get("anonymity") or "visible") == "hidden":
+        await sio.emit("rooms_remove", {"id": room_id}, namespace="/rooms")
+        await sio.emit("rooms_upsert", payload, room="role:admin", namespace="/rooms")
+        return
+
+    await sio.emit("rooms_upsert", payload, namespace="/rooms")
+
+
+async def emit_rooms_event_safe(r, rid: int, event: str, payload: Mapping[str, Any]) -> None:
+    if await _room_is_hidden(r, rid):
+        await sio.emit(event, dict(payload), room="role:admin", namespace="/rooms")
+        return
+
+    await sio.emit(event, dict(payload), namespace="/rooms")
 
 
 async def join_room_atomic(r, rid: int, uid: int, role: str):
@@ -1701,13 +1752,9 @@ async def emit_rooms_occupancy_safe(r, rid: int, occ: int) -> None:
                 await r.delete(single_key)
             except Exception:
                 pass
-
             cancel_single_gc_task(rid)
 
-    await sio.emit("rooms_occupancy",
-                   {"id": rid,
-                    "occupancy": occ_to_send},
-                   namespace="/rooms")
+    await emit_rooms_event_safe(r, rid, "rooms_occupancy", {"id": rid, "occupancy": occ_to_send})
 
 
 async def emit_rooms_spectators_safe(r, rid: int, count: int | None = None) -> None:
@@ -1717,10 +1764,7 @@ async def emit_rooms_spectators_safe(r, rid: int, count: int | None = None) -> N
         except Exception:
             count = 0
 
-    await sio.emit("rooms_spectators",
-                   {"id": rid,
-                    "spectators_count": count},
-                   namespace="/rooms")
+    await emit_rooms_event_safe(r, rid, "rooms_spectators", {"id": rid, "spectators_count": count})
 
 
 async def get_alive_players_in_seat_order(r, rid: int) -> list[int]:
@@ -3898,10 +3942,7 @@ async def stop_screen_for_user(r, rid: int, uid: int, *, canceled: bool = False,
                    {"user_id": None},
                    room=f"room:{rid}",
                    namespace="/room")
-    await sio.emit("rooms_stream",
-                   {"id": rid,
-                    "owner": None},
-                   namespace="/rooms")
+    await emit_rooms_event_safe(r, rid, "rooms_stream", {"id": rid, "owner": None})
 
     try:
         log_uid = actor_uid if actor_uid is not None else uid
@@ -4192,9 +4233,7 @@ async def perform_game_end(ctx, sess: Optional[dict[str, Any]], *, confirm: bool
     try:
         briefs = await get_rooms_brief(r, [rid])
         if briefs:
-            await sio.emit("rooms_upsert",
-                           briefs[0],
-                           namespace="/rooms")
+            await emit_rooms_upsert_safe(r, rid, briefs[0])
     except Exception:
         log.exception("sio.game_end.rooms_upsert_failed", rid=rid)
 

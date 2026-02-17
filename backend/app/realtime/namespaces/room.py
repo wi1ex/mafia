@@ -54,6 +54,8 @@ from ..utils import (
     init_roles_deck,
     advance_roles_turn,
     assign_role_for_user,
+    emit_rooms_event_safe,
+    emit_rooms_upsert_safe,
     emit_rooms_occupancy_safe,
     emit_rooms_spectators_safe,
     get_game_runtime_and_roles_view,
@@ -672,9 +674,7 @@ async def screen(sid, data) -> ScreenAck:
                            {"user_id": target},
                            room=f"room:{rid}",
                            namespace="/room")
-            await sio.emit("rooms_stream",
-                           {"id": rid, "owner": target},
-                           namespace="/rooms")
+            await emit_rooms_event_safe(r, rid, "rooms_stream", {"id": rid, "owner": target})
             await r.set(f"room:{rid}:screen_started_at", str(int(time())), nx=True, ex=86400)
             try:
                 try:
@@ -1326,9 +1326,7 @@ async def game_start(sid, data) -> GameStartAck:
         try:
             briefs = await get_rooms_brief(r, [rid])
             if briefs:
-                await sio.emit("rooms_upsert",
-                               briefs[0],
-                               namespace="/rooms")
+                await emit_rooms_upsert_safe(r, rid, briefs[0])
         except Exception:
             log.exception("sio.game_start.rooms_upsert_failed", rid=rid)
 

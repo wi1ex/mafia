@@ -27,6 +27,7 @@ class RoomListItem(TypedDict):
     title: str
     user_limit: int
     privacy: Literal["open", "private"]
+    anonymity: Literal["visible", "hidden"]
     creator: int
     creator_name: str
     creator_avatar_name: Optional[str]

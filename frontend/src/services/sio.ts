@@ -91,7 +91,8 @@ export function createAuthedSocket(namespace: string, opts?: IoOpts): Socket {
 }
 
 export function createPublicSocket(namespace: string, opts?: IoOpts): Socket {
-  return io(namespace, { ...opts, auth: undefined })
+  const tok = getAccessToken()
+  return io(namespace, { ...opts, auth: tok ? { token: tok } : undefined })
 }
 
 export function disposeAuthedSocket(socket: Socket | null | undefined): void {
