@@ -392,7 +392,7 @@
                       <span>{{ row.creator_name }}</span>
                     </div>
                   </td>
-                  <td>{{ row.privacy }}</td>
+                  <td>{{ formatRoomPrivacy(row.privacy) }}</td>
                   <td>{{ formatRoomAnonymity(row.anonymity) }}</td>
                   <td>{{ row.user_limit }}</td>
                   <td>{{ formatRoomGame(row) }}</td>
@@ -1298,6 +1298,10 @@ function formatRoomGame(row: RoomRow): string {
 
 function formatRoomAnonymity(value: string | null | undefined): string {
   return value === 'hidden' ? 'Скрытая' : 'Видимая'
+}
+
+function formatRoomPrivacy(value: string | null | undefined): string {
+  return value === 'private' ? 'Закрытая' : 'Открытая'
 }
 
 function formatRoomGameResult(result: string): string {
