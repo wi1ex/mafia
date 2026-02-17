@@ -7,7 +7,10 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(extra="ignore", case_sensitive=False)
 
     PROJECT_NAME: str
+    BUILD_ID: str
+    PUBLIC_IP: str
     DOMAIN: str
+    PROTECTED_ADMIN_USER_ID: int
 
     POSTGRES_HOST: str
     POSTGRES_PORT: int
@@ -20,40 +23,51 @@ class Settings(BaseSettings):
     REDIS_PASSWORD: str
 
     MINIO_ENDPOINT: str
+    MINIO_BUCKET: str
     MINIO_ROOT_USER: str
     MINIO_ROOT_PASSWORD: str
-    MINIO_BUCKET: str
 
+    TG_BOT_NAME: str
     TG_BOT_TOKEN: str
     BOT_API_TOKEN: str
+    BOT_WEBHOOK_PATH: str
+    BOT_WEBHOOK_SECRET: str
 
     JWT_SECRET_KEY: str
     ACCESS_EXP_MIN: int
     REFRESH_EXP_DAY: int
-    PROTECTED_ADMIN_USER_ID: int
 
     LIVEKIT_API_KEY: str
     LIVEKIT_API_SECRET: str
 
     BACKEND_CORS_ORIGINS: List[str] = []
+    ONLINE_TTL_SECONDS: int = 60
 
-    ROOMS_EMPTY_TTL_SECONDS: int = 10
+    REGISTRATION_ENABLED: bool = True
+    ROOMS_CAN_CREATE: bool = True
+    ROOMS_CAN_ENTER: bool = True
+    GAMES_CAN_START: bool = True
+    STREAMS_CAN_START: bool = True
+    VERIFICATION_RESTRICTIONS: bool = True
+
+    ROOMS_LIMIT_GLOBAL: int = 10
+    ROOMS_LIMIT_PER_USER: int = 3
+    ROOMS_EMPTY_TTL_SECONDS: int = 30
     ROOMS_SINGLE_TTL_MINUTES: int = 30
-    ONLINE_TTL_SECONDS: int = 120
     SEASON_START_GAME_NUMBER: int = 1
 
+    ROLE_DECK: tuple[str, ...] = ("citizen", "citizen", "citizen", "citizen", "citizen", "citizen", "sheriff", "mafia", "mafia", "don")
     GAME_MIN_READY_PLAYERS: int = 10
     ROLE_PICK_SECONDS: int = 10
-    ROLE_DECK: tuple[str, ...] = ("citizen", "citizen", "citizen", "citizen", "citizen", "citizen", "sheriff", "mafia", "mafia", "don")
     MAFIA_TALK_SECONDS: int = 60
-    PLAYER_TALK_SECONDS: int = 60
-    PLAYER_TALK_SHORT_SECONDS: int = 30
-    PLAYER_FOUL_SECONDS: int = 4
     NIGHT_ACTION_SECONDS: int = 10
     VOTE_SECONDS: int = 3
+    PLAYER_TALK_SECONDS: int = 60
+    PLAYER_TALK_SHORT_SECONDS: int = 30
+    PLAYER_FOUL_SECONDS: int = 5
     WINKS_LIMIT: int = 3
-    KNOCKS_LIMIT: int = 5
-    WINK_SPOT_CHANCE_PERCENT: int = 25
+    KNOCKS_LIMIT: int = 4
+    WINK_SPOT_CHANCE_PERCENT: int = 20
 
     @property
     def pg_dsn(self) -> str:

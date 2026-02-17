@@ -5,18 +5,22 @@ from ..core.db import Base
 from ..core.settings import settings
 
 
+def _bool_default(value: bool) -> str:
+    return "true" if value else "false"
+
+
 class AppSettings(Base):
     __tablename__ = "settings"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
-    registration_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
-    rooms_can_create: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
-    rooms_can_enter: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
-    games_can_start: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
-    streams_can_start: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
-    verification_restrictions: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
-    rooms_limit_global: Mapped[int] = mapped_column(Integer, nullable=False, server_default="100")
-    rooms_limit_per_user: Mapped[int] = mapped_column(Integer, nullable=False, server_default="3")
+    registration_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=_bool_default(settings.REGISTRATION_ENABLED))
+    rooms_can_create: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=_bool_default(settings.ROOMS_CAN_CREATE))
+    rooms_can_enter: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=_bool_default(settings.ROOMS_CAN_ENTER))
+    games_can_start: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=_bool_default(settings.GAMES_CAN_START))
+    streams_can_start: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=_bool_default(settings.STREAMS_CAN_START))
+    verification_restrictions: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=_bool_default(settings.VERIFICATION_RESTRICTIONS))
+    rooms_limit_global: Mapped[int] = mapped_column(Integer, nullable=False, server_default=str(settings.ROOMS_LIMIT_GLOBAL))
+    rooms_limit_per_user: Mapped[int] = mapped_column(Integer, nullable=False, server_default=str(settings.ROOMS_LIMIT_PER_USER))
     rooms_empty_ttl_seconds: Mapped[int] = mapped_column(Integer, nullable=False, server_default=str(settings.ROOMS_EMPTY_TTL_SECONDS))
     rooms_single_ttl_minutes: Mapped[int] = mapped_column(Integer, nullable=False, server_default=str(settings.ROOMS_SINGLE_TTL_MINUTES))
     season_start_game_number: Mapped[int] = mapped_column(Integer, nullable=False, server_default=str(settings.SEASON_START_GAME_NUMBER))

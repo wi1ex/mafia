@@ -38,14 +38,14 @@ _CACHE: Optional[AppSettingsSnapshot] = None
 
 def _defaults() -> AppSettingsSnapshot:
     return AppSettingsSnapshot(
-        registration_enabled=True,
-        rooms_can_create=True,
-        rooms_can_enter=True,
-        games_can_start=True,
-        streams_can_start=True,
-        verification_restrictions=True,
-        rooms_limit_global=100,
-        rooms_limit_per_user=3,
+        registration_enabled=core_settings.REGISTRATION_ENABLED,
+        rooms_can_create=core_settings.ROOMS_CAN_CREATE,
+        rooms_can_enter=core_settings.ROOMS_CAN_ENTER,
+        games_can_start=core_settings.GAMES_CAN_START,
+        streams_can_start=core_settings.STREAMS_CAN_START,
+        verification_restrictions=core_settings.VERIFICATION_RESTRICTIONS,
+        rooms_limit_global=core_settings.ROOMS_LIMIT_GLOBAL,
+        rooms_limit_per_user=core_settings.ROOMS_LIMIT_PER_USER,
         rooms_empty_ttl_seconds=core_settings.ROOMS_EMPTY_TTL_SECONDS,
         rooms_single_ttl_minutes=core_settings.ROOMS_SINGLE_TTL_MINUTES,
         season_start_game_number=core_settings.SEASON_START_GAME_NUMBER,
