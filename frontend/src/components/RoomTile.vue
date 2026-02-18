@@ -16,7 +16,7 @@
       <img :src="iconWink" alt="wink" />
       <span>{{ winksLeft }}</span>
     </button>
-    <button v-if="inGame && seat != null && !isGameHead && !isDead(id)" class="icon-badge button left" @click="$emit('foul', id)" :disabled="!isHead" aria-label="Выдать фол">
+    <button v-if="inGame && seat != null && !isGameHead && !isDead(id)" class="icon-badge button left foul-btn" @click="$emit('foul', id)" :disabled="!isHead" aria-label="Выдать фол">
       <img :src="iconFoul" alt="foul" />
       <span>{{ foulsCount }}</span>
     </button>
@@ -408,6 +408,9 @@ const showFriendAction = computed(() => props.id !== props.localId && friendActi
     &.button:disabled {
       cursor: default;
       pointer-events: none;
+    }
+    &.foul-btn {
+      z-index: 30;
     }
     &.left {
       left: 5px;

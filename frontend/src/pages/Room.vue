@@ -629,17 +629,9 @@ const nightOwnerIdFor = (id: string) => headUserId.value === id ? id : ''
 const nightRemainingMsFor = (id: string) => headUserId.value === id ? night.remainingMs : 0
 const phaseLabelFor = (id: string) => headUserId.value === id ? phaseLabel.value : ''
 const nomineesFor = (id: string) => headUserId.value === id ? nomineeSeatNumbers.value : EMPTY_NUMBERS
-const liftNomineesFor = (id: string) => (headUserId.value === id && liftHighlightNominees.value)
-  ? nomineeSeatNumbers.value
-  : EMPTY_NUMBERS
+const liftNomineesFor = (id: string) => (headUserId.value === id && liftHighlightNominees.value) ? nomineeSeatNumbers.value : EMPTY_NUMBERS
 const voteBlockedFor = (id: string) => headUserId.value === id ? voteBlocked.value : false
-const offlineSeatsInGameFor = (id: string) => (
-  headUserId.value === id &&
-  gamePhase.value === 'vote' &&
-  !currentFarewellSpeech.value
-)
-  ? offlineAliveSeatNumbers.value
-  : EMPTY_NUMBERS
+const offlineSeatsInGameFor = (id: string) => (headUserId.value === id && gamePhase.value === 'vote' && !currentFarewellSpeech.value) ? offlineAliveSeatNumbers.value : EMPTY_NUMBERS
 const fitContainInGrid = computed(() => {
   if (isTheater.value) return false
   const count = sortedPeerIds.value.length
