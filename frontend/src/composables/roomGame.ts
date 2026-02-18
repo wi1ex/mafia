@@ -1737,12 +1737,10 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     const vt = p?.vote
     if (!vt || typeof vt !== 'object') return
     const prevId = vote.currentId
-    const prevLiftState = voteLiftState.value
     const newId = String(vt.current_uid || '')
     const ms = secondsToMs(vt.deadline)
     const liftStateRaw = String((vt as any).lift_state || '')
-    const nextLiftState = liftStateRaw ? (liftStateRaw as typeof voteLiftState.value) : 'none'
-    voteLiftState.value = nextLiftState
+    voteLiftState.value = liftStateRaw ? (liftStateRaw as typeof voteLiftState.value) : 'none'
     vote.currentId = newId
     setVoteRemainingMs(ms, true)
     vote.done = isTrueLike(vt.done)
@@ -1754,34 +1752,18 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     }
     voteResultShown.value = isTrueLike((vt as any).results_ready)
     const isRestart = isTrueLike((vt as any).restart)
-    const votedRaw = Array.isArray((vt as any).voted) ? (vt as any).voted.map((x: any) => String(x)).filter(Boolean) : null
-    const votedCurRaw = Array.isArray((vt as any).voted_for_current) ? (vt as any).voted_for_current.map((x: any) => String(x)).filter(Boolean) : null
     const cleared = Array.isArray((vt as any).cleared_voters) ? (vt as any).cleared_voters.map((x: any) => String(x)) : []
     if (!newId) {
       voteStartedForCurrent.value = false
       revotePromptCandidate.value = ''
     } else if (newId !== prevId) {
       voteStartedForCurrent.value = ms > 0
-      if (!votedCurRaw) votedThisRound.clear()
+      votedThisRound.clear()
       if (revotePromptCandidate.value && revotePromptCandidate.value !== newId) revotePromptCandidate.value = ''
     } else {
       voteStartedForCurrent.value = ms > 0
     }
-    // Fresh lift voting starts with empty votes on backend. Without explicit reset
-    // stale votedUsers from the previous vote can block "Проголосовать" until reload.
-    if (nextLiftState === 'voting' && prevLiftState !== 'voting' && !votedRaw && !votedCurRaw) {
-      votedUsers.clear()
-      votedThisRound.clear()
-    }
-    if (votedRaw) {
-      votedUsers.clear()
-      for (const uid of votedRaw) votedUsers.add(uid)
-    }
-    if (votedCurRaw) {
-      votedThisRound.clear()
-      for (const uid of votedCurRaw) votedThisRound.add(uid)
-    }
-    if (isRestart && !votedRaw && !votedCurRaw) {
+    if (isRestart) {
       voteStartedForCurrent.value = false
       for (const uid of cleared) {
         votedUsers.delete(uid)
