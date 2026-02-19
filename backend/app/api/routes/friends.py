@@ -21,6 +21,7 @@ from ...schemas.room import RoomBriefOut
 from ...security.auth_tokens import get_identity
 from ...security.decorators import log_route, rate_limited
 from ...api.utils import (
+    emit_rooms_upsert,
     fetch_online_user_ids,
     fetch_effective_online_user_ids,
     get_room_params_or_404,
@@ -549,6 +550,7 @@ async def invite_friend(payload: FriendInviteIn, ident: Identity = Depends(get_i
 
     if auto_allowed:
         with suppress(Exception):
+            await emit_rooms_upsert(room_id)
             await sio.emit(
                 "room_app_approved",
                 {

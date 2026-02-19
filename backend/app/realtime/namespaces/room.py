@@ -4423,11 +4423,7 @@ async def disconnect(sid):
                 try:
                     removed = await gc_empty_room(rid, expected_seq=gc_seq)
                     if not removed:
-                        removed = await gc_empty_room(rid)
-                    if removed:
-                        await sio.emit("rooms_remove",
-                                       {"id": rid},
-                                       namespace="/rooms")
+                        await gc_empty_room(rid)
                 except Exception:
                     log.exception("gc.failed", rid=rid)
 

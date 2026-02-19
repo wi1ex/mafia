@@ -1,7 +1,7 @@
 from __future__ import annotations
 import structlog
 from ..sio import sio
-from ..utils import get_rooms_brief, validate_auth, filter_rooms_for_role
+from ..utils import get_rooms_brief, validate_auth, filter_rooms_for_viewer
 from ...core.clients import get_redis
 from ...security.decorators import rate_limited_sio
 from ...schemas.realtime import RoomsListAck
@@ -31,11 +31,14 @@ async def connect(sid, environ, auth):
 async def rooms_list(sid) -> RoomsListAck:
     try:
         role = "user"
+        uid = 0
         try:
             sess = await sio.get_session(sid, namespace="/rooms")
             role = str((sess or {}).get("role") or "user")
+            uid = int((sess or {}).get("uid") or 0)
         except Exception:
             role = "user"
+            uid = 0
 
         r = get_redis()
         rids = list(map(int, await r.zrevrange("rooms:index", 0, 99)))
@@ -43,7 +46,7 @@ async def rooms_list(sid) -> RoomsListAck:
             return {"ok": True, "rooms": []}
 
         rooms = await get_rooms_brief(r, rids)
-        rooms = filter_rooms_for_role(rooms, role)
+        rooms = await filter_rooms_for_viewer(r, rooms, role, uid)
 
         return {"ok": True, "rooms": rooms}
 

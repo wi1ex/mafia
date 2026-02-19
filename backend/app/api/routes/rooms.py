@@ -38,7 +38,7 @@ from ..utils import (
     ensure_room_access_allowed,
     schedule_room_gc,
 )
-from ...realtime.utils import get_rooms_brief, filter_rooms_for_role
+from ...realtime.utils import get_rooms_brief, filter_rooms_for_viewer
 
 router = APIRouter()
 
@@ -156,7 +156,7 @@ async def list_active_rooms(ident: Identity = Depends(get_identity)) -> list[Roo
         return []
 
     items = await get_rooms_brief(r, ids)
-    items = filter_rooms_for_role(items, str(ident.get("role") or "user"))
+    items = await filter_rooms_for_viewer(r, items, str(ident.get("role") or "user"), int(ident.get("id") or 0))
     out: list[RoomBriefOut] = []
     for item in items:
         try:
@@ -480,6 +480,9 @@ async def approve(room_id: int, user_id: int, ident: Identity = Depends(get_iden
     await db.refresh(note)
 
     with suppress(Exception):
+        await emit_rooms_upsert(room_id)
+
+    with suppress(Exception):
         await sio.emit("notify",
                        {"id": note.id,
                         "title": note.title,
@@ -546,6 +549,7 @@ async def deny(room_id: int, user_id: int, ident: Identity = Depends(get_identit
         return Ok()
 
     title_room = (params.get("title") or "").strip()
+    is_hidden_room = str(params.get("anonymity") or "visible") == "hidden"
     note = Notif(user_id=int(user_id), title="Доступ к комнате отозван", text=f"Вход в «{title_room}» больше недоступен.")
     db.add(note)
     await db.commit()
@@ -571,6 +575,11 @@ async def deny(room_id: int, user_id: int, ident: Identity = Depends(get_identit
                        {"room_id": room_id, "user_id": user_id},
                        room=f"user:{user_id}",
                        namespace="/auth")
+        if is_hidden_room:
+            await sio.emit("rooms_remove",
+                           {"id": room_id},
+                           room=f"user:{user_id}",
+                           namespace="/rooms")
 
     target_user = await db.get(User, int(user_id))
     target_username = target_user.username if target_user else ""

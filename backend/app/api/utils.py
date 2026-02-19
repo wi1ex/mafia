@@ -1409,12 +1409,7 @@ async def gc_room_after_delay(rid: int, delay_s: int | None = None) -> None:
         delay_s = max(0, int(get_cached_settings().rooms_empty_ttl_seconds))
 
     await asyncio.sleep(max(0, delay_s))
-
-    removed = await gc_empty_room(rid)
-    if removed:
-        await sio.emit("rooms_remove",
-                       {"id": rid},
-                       namespace="/rooms")
+    await gc_empty_room(rid)
 
 
 def schedule_room_gc(rid: int, delay_s: int | None = None) -> None:
@@ -1423,9 +1418,7 @@ def schedule_room_gc(rid: int, delay_s: int | None = None) -> None:
 
 async def gc_empty_room_and_emit(rid: int, *, expected_seq: int | None = None) -> None:
     with suppress(Exception):
-        removed = await gc_empty_room(rid, expected_seq=expected_seq)
-        if removed:
-            await sio.emit("rooms_remove", {"id": rid}, namespace="/rooms")
+        await gc_empty_room(rid, expected_seq=expected_seq)
 
 
 async def refresh_rooms_after(delay_s: int, reason: str) -> None:

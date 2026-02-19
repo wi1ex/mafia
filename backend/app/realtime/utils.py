@@ -61,8 +61,10 @@ __all__ = [
     "claim_screen",
     "get_rooms_brief",
     "filter_rooms_for_role",
+    "filter_rooms_for_viewer",
     "emit_rooms_upsert_safe",
     "emit_rooms_event_safe",
+    "emit_rooms_remove_safe",
     "init_roles_deck",
     "assign_role_for_user",
     "advance_roles_turn",
@@ -1400,6 +1402,22 @@ async def get_rooms_brief(r, ids: Iterable[int]) -> List[dict]:
     return briefs
 
 
+def _as_int(value: Any, default: int = 0) -> int:
+    try:
+        return int(value)
+    except Exception:
+        return default
+
+
+def _normalize_user_ids(values: Iterable[Any] | None) -> set[int]:
+    out: set[int] = set()
+    for raw in values or []:
+        uid = _as_int(raw)
+        if uid > 0:
+            out.add(uid)
+    return out
+
+
 def filter_rooms_for_role(items: Iterable[Mapping[str, Any]], role: str | None) -> List[dict]:
     viewer_role = str(role or "user")
     if viewer_role == "admin":
@@ -1414,12 +1432,115 @@ def filter_rooms_for_role(items: Iterable[Mapping[str, Any]], role: str | None) 
     return out
 
 
-async def _room_is_hidden(r, rid: int) -> bool:
-    try:
-        raw = await r.hget(f"room:{rid}:params", "anonymity")
-    except Exception:
-        raw = None
-    return str(raw or "visible") == "hidden"
+async def filter_rooms_for_viewer(r, items: Iterable[Mapping[str, Any]], role: str | None, uid: int | None) -> List[dict]:
+    prepared = [dict(item) for item in items]
+    viewer_role = str(role or "user")
+    if viewer_role == "admin":
+        return prepared
+
+    viewer_uid = _as_int(uid)
+    if viewer_uid <= 0:
+        return [item for item in prepared if str(item.get("anonymity") or "visible") != "hidden"]
+
+    hidden_rids: list[int] = []
+    hidden_seen: set[int] = set()
+    for item in prepared:
+        if str(item.get("anonymity") or "visible") != "hidden":
+            continue
+        if _as_int(item.get("creator")) == viewer_uid:
+            continue
+        rid = _as_int(item.get("id"))
+        if rid <= 0 or rid in hidden_seen:
+            continue
+        hidden_seen.add(rid)
+        hidden_rids.append(rid)
+
+    allow_by_rid: dict[int, bool] = {}
+    if hidden_rids:
+        try:
+            async with r.pipeline() as p:
+                for rid in hidden_rids:
+                    await p.sismember(f"room:{rid}:allow", str(viewer_uid))
+                raw = await p.execute()
+            for rid, allowed in zip(hidden_rids, raw):
+                allow_by_rid[rid] = bool(allowed)
+        except Exception:
+            for rid in hidden_rids:
+                try:
+                    allow_by_rid[rid] = bool(await r.sismember(f"room:{rid}:allow", str(viewer_uid)))
+                except Exception:
+                    allow_by_rid[rid] = False
+
+    out: List[dict] = []
+    for item in prepared:
+        if str(item.get("anonymity") or "visible") != "hidden":
+            out.append(item)
+            continue
+        if _as_int(item.get("creator")) == viewer_uid:
+            out.append(item)
+            continue
+        rid = _as_int(item.get("id"))
+        if rid > 0 and allow_by_rid.get(rid):
+            out.append(item)
+
+    return out
+
+
+async def _hidden_room_viewers(r, rid: int, *, payload: Mapping[str, Any] | None = None) -> tuple[bool, set[int]]:
+    room_id = _as_int(rid)
+    hidden_raw = ""
+    creator_hint = 0
+    if payload is not None:
+        hidden_raw = str(payload.get("anonymity") or "")
+        creator_hint = _as_int(payload.get("creator"))
+
+    if hidden_raw:
+        is_hidden = hidden_raw == "hidden"
+    else:
+        try:
+            raw = await r.hget(f"room:{room_id}:params", "anonymity")
+        except Exception:
+            raw = None
+        is_hidden = str(raw or "visible") == "hidden"
+
+    if not is_hidden:
+        return False, set()
+
+    if creator_hint > 0:
+        try:
+            raw_allow = await r.smembers(f"room:{room_id}:allow")
+        except Exception:
+            raw_allow = set()
+    else:
+        try:
+            async with r.pipeline() as p:
+                await p.hget(f"room:{room_id}:params", "creator")
+                await p.smembers(f"room:{room_id}:allow")
+                res = await p.execute()
+            creator_hint = _as_int(res[0] if len(res) > 0 else 0)
+            raw_allow = res[1] if len(res) > 1 else set()
+        except Exception:
+            try:
+                creator_hint = _as_int(await r.hget(f"room:{room_id}:params", "creator"))
+            except Exception:
+                creator_hint = 0
+            try:
+                raw_allow = await r.smembers(f"room:{room_id}:allow")
+            except Exception:
+                raw_allow = set()
+
+    viewers: set[int] = _normalize_user_ids(raw_allow)
+    if creator_hint > 0:
+        viewers.add(creator_hint)
+
+    return True, viewers
+
+
+async def _emit_hidden_rooms_event(event: str, payload: Mapping[str, Any], viewer_ids: Iterable[int]) -> None:
+    data = dict(payload)
+    await sio.emit(event, data, room="role:admin", namespace="/rooms")
+    for uid in sorted(_normalize_user_ids(viewer_ids)):
+        await sio.emit(event, data, room=f"user:{uid}", namespace="/rooms")
 
 
 async def emit_rooms_upsert_safe(r, rid: int, item: Mapping[str, Any] | None = None) -> None:
@@ -1430,21 +1551,41 @@ async def emit_rooms_upsert_safe(r, rid: int, item: Mapping[str, Any] | None = N
     if not payload:
         return
 
-    room_id = int(payload.get("id") or rid or 0)
-    if str(payload.get("anonymity") or "visible") == "hidden":
-        await sio.emit("rooms_remove", {"id": room_id}, namespace="/rooms")
-        await sio.emit("rooms_upsert", payload, room="role:admin", namespace="/rooms")
+    room_id = _as_int(payload.get("id") or rid)
+    is_hidden, viewer_ids = await _hidden_room_viewers(r, room_id, payload=payload)
+    if is_hidden:
+        await _emit_hidden_rooms_event("rooms_upsert", payload, viewer_ids)
         return
 
     await sio.emit("rooms_upsert", payload, namespace="/rooms")
 
 
 async def emit_rooms_event_safe(r, rid: int, event: str, payload: Mapping[str, Any]) -> None:
-    if await _room_is_hidden(r, rid):
-        await sio.emit(event, dict(payload), room="role:admin", namespace="/rooms")
+    is_hidden, viewer_ids = await _hidden_room_viewers(r, rid)
+    if is_hidden:
+        await _emit_hidden_rooms_event(event, payload, viewer_ids)
         return
 
     await sio.emit(event, dict(payload), namespace="/rooms")
+
+
+async def emit_rooms_remove_safe(r, rid: int, *, hidden: bool | None = None, viewer_ids: Iterable[int] | None = None) -> None:
+    room_id = _as_int(rid)
+    payload = {"id": room_id}
+    is_hidden = hidden
+    target_ids = _normalize_user_ids(viewer_ids)
+    if is_hidden is None:
+        is_hidden, auto_ids = await _hidden_room_viewers(r, room_id)
+        target_ids.update(auto_ids)
+    elif is_hidden and not target_ids:
+        _, auto_ids = await _hidden_room_viewers(r, room_id)
+        target_ids.update(auto_ids)
+
+    if is_hidden:
+        await _emit_hidden_rooms_event("rooms_remove", payload, target_ids)
+        return
+
+    await sio.emit("rooms_remove", payload, namespace="/rooms")
 
 
 async def join_room_atomic(r, rid: int, uid: int, role: str):
@@ -1658,11 +1799,7 @@ async def cleanup_user_from_room(r, rid: int, uid: int, *, was_member: bool, was
                         try:
                             removed = await gc_empty_room(rid, expected_seq=gc_seq)
                             if not removed:
-                                removed = await gc_empty_room(rid)
-                            if removed:
-                                await sio.emit("rooms_remove",
-                                               {"id": rid},
-                                               namespace="/rooms")
+                                await gc_empty_room(rid)
                         except Exception:
                             log.exception("sio.join.cleanup.gc_failed", rid=rid)
 
@@ -4300,9 +4437,7 @@ async def perform_game_end(ctx, sess: Optional[dict[str, Any]], *, confirm: bool
 
 async def gc_singleton_room_and_emit(rid: int, *, expected_since: str | None = None) -> None:
     try:
-        removed = await gc_singleton_room(rid, expected_since=expected_since)
-        if removed:
-            await sio.emit("rooms_remove", {"id": rid}, namespace="/rooms")
+        await gc_singleton_room(rid, expected_since=expected_since)
     except Exception:
         log.exception("gc.single.failed", rid=rid)
 
@@ -4474,7 +4609,18 @@ async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
     try:
         raw = await r.hgetall(f"room:{rid}:visitors")
         room_anonymity_raw = await r.hget(f"room:{rid}:params", "anonymity")
+        room_creator_raw = await r.hget(f"room:{rid}:params", "creator")
         room_anonymity = "hidden" if str(room_anonymity_raw or "visible") == "hidden" else "visible"
+        room_creator = _as_int(room_creator_raw)
+        hidden_remove_targets: set[int] = set()
+        if room_anonymity == "hidden":
+            if room_creator > 0:
+                hidden_remove_targets.add(room_creator)
+            try:
+                hidden_remove_targets.update(_normalize_user_ids(await r.smembers(f"room:{rid}:allow")))
+            except Exception:
+                pass
+
         visitors_map: dict[int, int] = {}
         for k, v in (raw or {}).items():
             try:
@@ -4650,6 +4796,11 @@ async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
             _, task = entry
             if not task.done():
                 task.cancel()
+
+        try:
+            await emit_rooms_remove_safe(r, rid, hidden=(room_anonymity == "hidden"), viewer_ids=hidden_remove_targets if room_anonymity == "hidden" else None)
+        except Exception as e:
+            log.warning("gc.rooms_remove.emit_failed", rid=rid, err=type(e).__name__)
     finally:
         try:
             await r.delete(f"room:{rid}:gc_lock")

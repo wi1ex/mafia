@@ -372,10 +372,6 @@ function formatSeatNumber(slot: number | null | undefined): string {
 }
 
 function upsert(r: Room) {
-  if (r.anonymity === 'hidden' && !isAdmin.value) {
-    remove(r.id)
-    return
-  }
   const cur = roomsMap.get(r.id)
   roomsMap.set(r.id, cur ? { ...cur, ...r } : r)
 }
@@ -670,6 +666,7 @@ function onAuthNotify(e: any) {
   if (!d) return
   if (d.kind === 'approve') {
     const rid = Number(d.room_id)
+    void syncRoomsSnapshot()
     if (selectedId.value && rid === selectedId.value) {
       access.value = 'approved'
       void fetchRoomInfo(rid)
@@ -681,6 +678,7 @@ function onAppRevoked(e: any) {
   const p = e?.detail
   const rid = Number(p?.room_id)
   if (!Number.isFinite(rid)) return
+  void syncRoomsSnapshot()
   if (selectedId.value && rid === selectedId.value) {
     access.value = 'none'
   }
