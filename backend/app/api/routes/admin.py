@@ -115,6 +115,7 @@ LOG_ACTIONS_KNOWN = {
     "room_kick",
     "stream_start",
     "stream_stop",
+    "ui_prefs_updated",
     "username_updated",
     "sanction_timeout_add",
     "sanction_timeout_remove",

@@ -152,16 +152,36 @@ async def update_ui_prefs(payload: UserUiPrefsIn, ident: Identity = Depends(get_
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
 
+    old_hotkeys_visible = bool(user.hotkeys_visible)
+    old_tg_invites_enabled = bool(user.tg_invites_enabled)
+
     if payload.hotkeys_visible is not None:
         user.hotkeys_visible = bool(payload.hotkeys_visible)
     if payload.tg_invites_enabled is not None:
         user.tg_invites_enabled = bool(payload.tg_invites_enabled)
 
+    new_hotkeys_visible = bool(user.hotkeys_visible)
+    new_tg_invites_enabled = bool(user.tg_invites_enabled)
     await db.commit()
 
+    changes: list[str] = []
+    if old_hotkeys_visible != new_hotkeys_visible:
+        changes.append(f"hotkeys_visible: {int(old_hotkeys_visible)} -> {int(new_hotkeys_visible)}")
+    if old_tg_invites_enabled != new_tg_invites_enabled:
+        changes.append(f"tg_invites_enabled: {int(old_tg_invites_enabled)} -> {int(new_tg_invites_enabled)}")
+
+    if changes:
+        await log_action(
+            db,
+            user_id=uid,
+            username=ident["username"],
+            action="ui_prefs_updated",
+            details="UI prefs updated: " + "; ".join(changes),
+        )
+
     return UserUiPrefsOut(
-        hotkeys_visible=bool(user.hotkeys_visible),
-        tg_invites_enabled=bool(user.tg_invites_enabled),
+        hotkeys_visible=new_hotkeys_visible,
+        tg_invites_enabled=new_tg_invites_enabled,
     )
 
 
