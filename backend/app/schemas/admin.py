@@ -207,6 +207,7 @@ class AdminUserOut(BaseModel):
     avatar_name: Optional[str] = None
     role: str
     telegram_verified: bool
+    tg_invites_enabled: bool
     has_password: bool
     protected_user: bool = False
     registered_at: datetime

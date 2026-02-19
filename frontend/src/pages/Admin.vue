@@ -518,6 +518,12 @@
                     </button>
                   </th>
                   <th>
+                    <button class="th-sort" type="button" :class="{ active: usersSortBy === 'tg_invites_enabled' }" @click="setUsersSort('tg_invites_enabled')">
+                      TG-уведомления
+                      <span class="th-sort-mark" aria-hidden="true">▼</span>
+                    </button>
+                  </th>
+                  <th>
                     <button class="th-sort" type="button" :class="{ active: usersSortBy === 'friends_count' }" @click="setUsersSort('friends_count')">
                       Друзья
                       <span class="th-sort-mark" aria-hidden="true">▼</span>
@@ -600,6 +606,7 @@
                   <td>{{ formatLocalDateTime(row.registered_at) }}</td>
                   <td>{{ formatLocalDateTime(row.last_login_at) }}</td>
                   <td>{{ formatLocalDateTime(row.last_visit_at) }}</td>
+                  <td>{{ row.tg_invites_enabled ? 'Вкл' : 'Откл' }}</td>
                   <td>{{ row.friends_count }}</td>
                   <td>{{ row.rooms_created }}</td>
                   <td>{{ formatMinutes(row.room_minutes) }}</td>
@@ -683,7 +690,7 @@
                   </td>
                 </tr>
                 <tr v-if="users.length === 0">
-                  <td colspan="23" class="muted">Нет данных</td>
+                  <td colspan="24" class="muted">Нет данных</td>
                 </tr>
               </tbody>
             </table>
@@ -881,6 +888,7 @@ type UserRow = {
   avatar_name?: string | null
   role: string
   telegram_verified: boolean
+  tg_invites_enabled: boolean
   has_password: boolean
   protected_user: boolean
   registered_at: string
@@ -911,6 +919,7 @@ type UsersSortBy =
   | 'registered_at'
   | 'last_login_at'
   | 'last_visit_at'
+  | 'tg_invites_enabled'
   | 'friends_count'
   | 'rooms_created'
   | 'room_minutes'
@@ -1519,6 +1528,7 @@ async function loadUsers(): Promise<void> {
     const items = Array.isArray(data?.items) ? data.items : []
     users.value = items.map((item: any) => ({
       ...item,
+      tg_invites_enabled: item?.tg_invites_enabled !== false,
       protected_user: Boolean(item?.protected_user),
     }))
     usersTotal.value = Number.isFinite(data?.total) ? data.total : 0

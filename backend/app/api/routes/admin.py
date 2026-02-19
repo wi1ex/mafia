@@ -786,6 +786,7 @@ async def users_list(page: int = 1, limit: int = 20, username: str | None = None
         all_users = rows.scalars().all()
         total = len(all_users)
         all_ids = [int(u.id) for u in all_users]
+        tg_invites_enabled = {int(u.id): (u.tg_invites_enabled is not False) for u in all_users}
         friends_count = await fetch_friends_count_for_users(session, all_ids)
         rooms_created, room_seconds, stream_seconds, spectator_seconds, games_played, games_hosted = await aggregate_user_room_stats(session, all_ids)
         sanction_counts = await fetch_sanction_counts_for_users(session, all_ids)
@@ -796,6 +797,7 @@ async def users_list(page: int = 1, limit: int = 20, username: str | None = None
                 user_sort_metric(
                     sort_by=sort_key,
                     uid=int(u.id),
+                    tg_invites_enabled=tg_invites_enabled,
                     friends_count=friends_count,
                     rooms_created=rooms_created,
                     room_seconds=room_seconds,
@@ -832,6 +834,7 @@ async def users_list(page: int = 1, limit: int = 20, username: str | None = None
             avatar_name=u.avatar_name,
             role=u.role,
             telegram_verified=bool(u.telegram_id),
+            tg_invites_enabled=(u.tg_invites_enabled is not False),
             has_password=bool(u.password_hash),
             protected_user=is_protected_admin(uid),
             registered_at=u.registered_at,

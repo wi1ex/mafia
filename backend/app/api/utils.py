@@ -118,6 +118,7 @@ USERS_SORT_ALLOWED = {
     USERS_SORT_DEFAULT,
     "last_login_at",
     "last_visit_at",
+    "tg_invites_enabled",
     "friends_count",
     "rooms_created",
     "room_minutes",
@@ -195,7 +196,10 @@ async def fetch_sanction_counts_for_users(session: AsyncSession, ids: list[int])
     return out
 
 
-def user_sort_metric(*, sort_by: str, uid: int, friends_count: dict[int, int], rooms_created: dict[int, int], room_seconds: dict[int, int], stream_seconds: dict[int, int], games_played: dict[int, int], games_hosted: dict[int, int], spectator_seconds: dict[int, int], sanction_counts: dict[int, dict[str, int]]) -> int:
+def user_sort_metric(*, sort_by: str, uid: int, tg_invites_enabled: dict[int, bool], friends_count: dict[int, int], rooms_created: dict[int, int], room_seconds: dict[int, int], stream_seconds: dict[int, int], games_played: dict[int, int], games_hosted: dict[int, int], spectator_seconds: dict[int, int], sanction_counts: dict[int, dict[str, int]]) -> int:
+    if sort_by == "tg_invites_enabled":
+        return 1 if tg_invites_enabled.get(uid, True) is False else 0
+
     if sort_by == "friends_count":
         return friends_count.get(uid, 0)
 
