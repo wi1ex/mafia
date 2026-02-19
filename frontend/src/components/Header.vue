@@ -2,7 +2,8 @@
   <header class="bar">
     <div class="links">
       <router-link class="btn" :to="{ name: 'home' }" aria-label="DECEIT.games">
-        <span data-nosnippet>deceit.games v0.11.4b</span>
+        <img :src="iconLogo" alt="" aria-hidden="true" />
+        <span data-nosnippet>v0.11.4b</span>
 <!--        <span>deceit.games {{ BUILD }}</span>-->
       </router-link>
       <router-link class="btn" :to="{ name: 'rules' }" aria-label="Правила">
@@ -119,6 +120,7 @@ import AuthModal from '@/components/AuthModal.vue'
 import SupportModal from '@/components/SupportModal.vue'
 
 import defaultAvatar from "@/assets/svg/defaultAvatar.svg"
+import iconLogo from '@/assets/svg/logo.svg'
 import iconNotifBell from "@/assets/svg/notifBell.svg"
 import iconTelegram from "@/assets/svg/telegram.svg"
 import iconInfo from "@/assets/svg/info.svg"

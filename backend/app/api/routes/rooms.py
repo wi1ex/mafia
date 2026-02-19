@@ -33,7 +33,6 @@ from ..utils import (
     serialize_game_for_redis,
     game_from_redis_to_model,
     build_room_members_for_info,
-    fetch_user_name_avatar_maps,
     get_room_params_or_404,
     ensure_room_access_allowed,
     schedule_room_gc,
@@ -220,7 +219,22 @@ async def room_spectators(room_id: int, ident: Identity = Depends(get_identity),
     if not ids:
         return RoomSpectatorsOut(spectators=[])
 
-    name_map, avatar_map = await fetch_user_name_avatar_maps(session, set(ids))
+    id_set = set(ids)
+    rows_users = await session.execute(select(User.id, User.username, User.avatar_name).where(User.id.in_(id_set), User.role != "admin"))
+    name_map: dict[int, str | None] = {}
+    avatar_map: dict[int, str | None] = {}
+    visible_ids: set[int] = set()
+    for uid, username, avatar_name in rows_users.all():
+        try:
+            uid_int = int(uid)
+        except Exception:
+            continue
+        visible_ids.add(uid_int)
+        name_map[uid_int] = username
+        avatar_map[uid_int] = avatar_name
+
+    if not visible_ids:
+        return RoomSpectatorsOut(spectators=[])
 
     join_map: dict[int, int] = {}
     try:
@@ -233,6 +247,7 @@ async def room_spectators(room_id: int, ident: Identity = Depends(get_identity),
     except Exception:
         join_map = {}
 
+    ids = [uid for uid in ids if uid in visible_ids]
     ids.sort(key=lambda uid: (join_map.get(uid, 0), name_map.get(uid) or "", uid))
     spectators = [RoomSpectatorOut(id=uid, username=name_map.get(uid), avatar_name=avatar_map.get(uid)) for uid in ids]
 
