@@ -447,16 +447,18 @@ import iconScreenOff from '@/assets/svg/screenOff.svg'
 import iconScreenBlocked from '@/assets/svg/screenBlocked.svg'
 
 type State01 = 0 | 1
-type StatusState = {
+type MediaState = {
   mic: State01
   cam: State01
   speakers: State01
   visibility: State01
+}
+type StatusState = Partial<MediaState> & {
   ready?: State01
   mirror?: State01
 }
-type BlockState = StatusState & { screen: State01 }
-type IconKind = keyof StatusState | 'screen'
+type BlockState = MediaState & { screen: State01 }
+type IconKind = keyof MediaState | 'screen'
 
 const route = useRoute()
 const router = useRouter()
@@ -776,7 +778,8 @@ const mirrorOn = computed({
   set: async (v: boolean) => {
     rtc.saveLS(rtc.LS.mirror, v ? '1' : '0')
     const id = localId.value
-    const cur = statusByUser.get(id) ?? { mic: 1, cam: 1, speakers: 1, visibility: 1, ready: 0, mirror: 0 }
+    if (!id) return
+    const cur = statusByUser.get(id) ?? {}
     statusByUser.set(id, { ...cur, mirror: v ? 1 : 0 })
     try { await publishState({ mirror: v }) } catch {}
   },
@@ -1281,6 +1284,18 @@ function norm01(v: unknown, fallback: 0 | 1): 0 | 1 {
   return fallback
 }
 
+function statusPatch(patch: any): Partial<StatusState> {
+  const out: Partial<StatusState> = {}
+  if (!patch || typeof patch !== 'object') return out
+  if (!isEmpty((patch as any).mic)) out.mic = norm01((patch as any).mic, 0)
+  if (!isEmpty((patch as any).cam)) out.cam = norm01((patch as any).cam, 0)
+  if (!isEmpty((patch as any).speakers)) out.speakers = norm01((patch as any).speakers, 0)
+  if (!isEmpty((patch as any).visibility)) out.visibility = norm01((patch as any).visibility, 0)
+  if (!isEmpty((patch as any).ready)) out.ready = norm01((patch as any).ready, 0)
+  if (!isEmpty((patch as any).mirror)) out.mirror = norm01((patch as any).mirror, 0)
+  return out
+}
+
 function clearVolumeSnap(id: string): void {
   const tm = volumeSnapTimers.get(id)
   if (tm != null) {
@@ -1386,10 +1401,16 @@ function isOn(id: string, kind: IconKind) {
   }
   const st = statusByUser.get(id)
   if (kind === 'cam') {
-    if (st ? st.cam === 1 : true) return true
+    if (st && st.cam !== undefined) return st.cam === 1
+    if (!st) return true
     return rtc.hasRemoteCameraTrack(id)
   }
-  return st ? st[kind] === 1 : true
+  if (kind === 'mic') {
+    return st && st.mic !== undefined ? st.mic === 1 : true
+  }
+  if (kind === 'speakers') return st && st.speakers !== undefined ? st.speakers === 1 : true
+  if (kind === 'visibility') return st && st.visibility !== undefined ? st.visibility === 1 : true
+  return st && st[kind] !== undefined ? st[kind] === 1 : true
 }
 
 function isBlocked(id: string, kind: IconKind) {
@@ -1422,8 +1443,10 @@ const mediaGateVisible = computed(() => uiReady.value && !isReconnecting.value &
 const readyOn = computed({
   get: () => (statusByUser.get(localId.value)?.ready ?? 0) === 1,
   set: (v: boolean) => {
-    const cur = statusByUser.get(localId.value) ?? { mic: 1, cam: 1, speakers: 1, visibility: 1, ready: 0 }
-    statusByUser.set(localId.value, { ...cur, ready: v ? 1 : 0 })
+    const id = localId.value
+    if (!id) return
+    const cur = statusByUser.get(id) ?? {}
+    statusByUser.set(id, { ...cur, ready: v ? 1 : 0 })
   }
 })
 const isReady = (id: string) => (statusByUser.get(id)?.ready ?? 0) === 1
@@ -1481,15 +1504,10 @@ async function kickUser(targetId: string) {
 }
 
 function applyPeerState(uid: string, patch: any) {
-  const cur = statusByUser.get(uid) ?? { mic: 1, cam: 1, speakers: 1, visibility: 1 }
-  statusByUser.set(uid, {
-    mic:        pick01(patch?.mic, cur.mic),
-    cam:        pick01(patch?.cam, cur.cam),
-    speakers:   pick01(patch?.speakers, cur.speakers),
-    visibility: pick01(patch?.visibility, cur.visibility),
-    ready:      pick01(patch?.ready, cur.ready ?? 0),
-    mirror:     pick01(patch?.mirror, cur.mirror ?? 0),
-  })
+  const nextPatch = statusPatch(patch)
+  if (Object.keys(nextPatch).length === 0) return
+  const cur = statusByUser.get(uid) ?? {}
+  statusByUser.set(uid, { ...cur, ...nextPatch })
 }
 function applyBlocks(uid: string, patch: any) {
   const cur = blockByUser.get(uid) ?? { mic: 0, cam: 0, speakers: 0, visibility: 0, screen: 0 }
@@ -2058,16 +2076,12 @@ function applyJoinAck(j: any) {
     if (Number.isFinite(p)) positionByUser.set(String(uid), p)
   }
 
+  const prevStatusByUser = new Map(statusByUser)
   statusByUser.clear()
   for (const [uid, st] of Object.entries(j.snapshot || {})) {
-    statusByUser.set(String(uid), {
-      mic:        pick01(st.mic, 0),
-      cam:        pick01(st.cam, 0),
-      speakers:   pick01(st.speakers, 1),
-      visibility: pick01(st.visibility, 1),
-      ready:      pick01(st.ready, 0),
-      mirror:     pick01((st as any).mirror, 0),
-    })
+    const id = String(uid)
+    const merged = { ...(prevStatusByUser.get(id) ?? {}), ...statusPatch(st) }
+    if (Object.keys(merged).length) statusByUser.set(id, merged)
   }
 
   const ids = new Set<string>(rtc.peerIds.value)

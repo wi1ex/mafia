@@ -1,6 +1,6 @@
 <template>
   <div class="tile" :class="[{ speaking, mafia: redMark, 'best-move': bestMoveMarked && !redMark }, side && 'side']" tabindex="0">
-    <video v-if="showVideo" :ref="videoRef" playsinline autoplay muted :class="{ mirrored: isMirrored(id) }" :style="{ objectFit: fitContain ? 'contain' : 'cover' }" />
+    <video v-show="showVideo" :ref="videoRef" playsinline autoplay muted :class="{ mirrored: isMirrored(id) }" :style="{ objectFit: fitContain ? 'contain' : 'cover' }" />
 
     <div class="icon-badge left" v-if="isReady(id)" aria-hidden="true">
       <img :src="iconReadyGreen" alt="ready" />

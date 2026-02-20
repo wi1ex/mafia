@@ -1437,9 +1437,15 @@ export function useRTC(): UseRTC {
         applySubsFor(p)
         const id = String(p.identity)
         const v = videoEls.get(id)
-        if (v) attachBySource(room, id, Track.Source.Camera, v)
+        if (v) {
+          const camTrack = resolveVideoTrack(room, id, Track.Source.Camera)
+          if (camTrack && !attachTrackToVideoEl(v, camTrack)) clearVideoEl(v)
+        }
         const sv = screenVideoEls.get(id)
-        if (sv) attachBySource(room, id, Track.Source.ScreenShare, sv)
+        if (sv) {
+          const screenTrack = resolveVideoTrack(room, id, Track.Source.ScreenShare)
+          if (screenTrack && !attachTrackToVideoEl(sv, screenTrack)) clearVideoEl(sv)
+        }
       })
       refreshAudibleIds()
       void resumeAudio()
