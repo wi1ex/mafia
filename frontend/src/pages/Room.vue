@@ -904,11 +904,15 @@ function stateIcon(kind: IconKind, id: string) {
   if (isBlocked(id, kind)) return STATE_ICONS[kind].blk
   return isOn(id, kind) ? STATE_ICONS[kind].on : STATE_ICONS[kind].off
 }
-function closePanels(except?: 'card'|'apps'|'settings'|'friends'|'game') {
+function closePanels(except?: 'card'|'apps'|'settings'|'friends'|'game', opts?: { keepFriendsWhenConfirm?: boolean }) {
+  const keepFriends =
+    Boolean(opts?.keepFriendsWhenConfirm) &&
+    confirmState.open &&
+    friendsPanelOpen.value
   if (except !== 'card') openPanelFor.value = ''
   if (except !== 'apps') openApps.value = false
   if (except !== 'settings') settingsOpen.value = false
-  if (except !== 'friends') friendsPanelOpen.value = false
+  if (except !== 'friends' && !keepFriends) friendsPanelOpen.value = false
   if (except !== 'game') gameParamsOpen.value = false
 }
 const toggleTilePanel = (id: string) => {
@@ -940,7 +944,7 @@ function openGameSettings() {
   gameParamsOpen.value = next
 }
 function onDocClick() {
-  closePanels()
+  closePanels(undefined, { keepFriendsWhenConfirm: true })
   void rtc.resumeAudio()
   void rtc.unlockBgmOnGesture()
   void rtc.ensureBgmPlayback()
