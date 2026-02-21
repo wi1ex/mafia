@@ -143,9 +143,7 @@ export function useRTC(): UseRTC {
   const screenVideoEls = new Map<string, HTMLVideoElement>()
   const videoTrackByEl = new WeakMap<HTMLVideoElement, LocalTrack | RemoteTrack>()
   const videoClearTimers = new WeakMap<HTMLVideoElement, number>()
-  const remoteCameraTrackSeenAt = new Map<string, number>()
   const VIDEO_CLEAR_GRACE_MS = 800
-  const REMOTE_CAMERA_TRACK_GRACE_MS = 1000
   const mics = ref<MediaDeviceInfo[]>([])
   const cams = ref<MediaDeviceInfo[]>([])
   const selectedMicId = ref<string>('')
@@ -887,10 +885,6 @@ export function useRTC(): UseRTC {
     el.playsInline = true
     el.muted = true
   }
-  function markRemoteCameraSeen(id: string) {
-    if (!id) return
-    remoteCameraTrackSeenAt.set(id, Date.now())
-  }
   function cancelVideoClear(el: HTMLVideoElement) {
     const tm = videoClearTimers.get(el)
     if (tm != null) {
@@ -926,6 +920,13 @@ export function useRTC(): UseRTC {
     cancelVideoClear(el)
     const prev = videoTrackByEl.get(el)
     if (prev === track) return true
+    if (prev && prev.mediaStreamTrack === track.mediaStreamTrack) {
+      // LiveKit can swap Track wrappers while keeping the same underlying MediaStreamTrack.
+      // Detaching prev in this case would remove the currently rendered video track.
+      try { track.attach(el) } catch { return false }
+      videoTrackByEl.set(el, track)
+      return true
+    }
     try { track.attach(el) } catch { return false }
     if (prev) {
       try { prev.detach(el) } catch {}
@@ -959,7 +960,6 @@ export function useRTC(): UseRTC {
       clearVideoEl(el)
       return
     }
-    if (src === Track.Source.Camera) markRemoteCameraSeen(id)
   }
   function makeVideoRef(deps: RefDeps) {
     return (id: string) => (el: HTMLVideoElement|null) => {
@@ -1277,23 +1277,14 @@ export function useRTC(): UseRTC {
     const room = lk.value
     if (!room) return false
     const part = getByIdentity(room, id)
-    if (!part) {
-      const seenAt = remoteCameraTrackSeenAt.get(id)
-      return !!(seenAt && Date.now() - seenAt <= REMOTE_CAMERA_TRACK_GRACE_MS)
-    }
-    const hasLive = part.getTrackPublications().some(pub => {
+    if (!part) return false
+    return part.getTrackPublications().some(pub => {
       if (pub.kind !== Track.Kind.Video) return false
       const rpub = pub as RemoteTrackPublication
       if (rpub.source !== Track.Source.Camera) return false
       if (!rpub.isSubscribed) return false
       return !!pub.track
     })
-    if (hasLive) {
-      markRemoteCameraSeen(id)
-      return true
-    }
-    const seenAt = remoteCameraTrackSeenAt.get(id)
-    return !!(seenAt && Date.now() - seenAt <= REMOTE_CAMERA_TRACK_GRACE_MS)
   }
 
   const remoteQuality = ref<VQ>('hd')
@@ -1366,7 +1357,6 @@ export function useRTC(): UseRTC {
     activeSpeakers.value = sSpk
 
     peerIds.value = peerIds.value.filter(x => x !== id)
-    remoteCameraTrackSeenAt.delete(id)
   }
 
   function cleanupMedia() {
@@ -1401,7 +1391,6 @@ export function useRTC(): UseRTC {
     preparedScreen = null
     iosMicUnlockDone = false
     iosMicUnlockInFlight = null
-    remoteCameraTrackSeenAt.clear()
   }
 
   async function startIosMicUnlock(): Promise<boolean> {
@@ -1504,6 +1493,37 @@ export function useRTC(): UseRTC {
       try { opts?.onDisconnected?.() } catch {}
     })
 
+    const handleLocalVideoUnpublished = (source: Track.Source, unpublished?: LocalTrack) => {
+      const el = source === Track.Source.ScreenShare
+        ? screenVideoEls.get(localId.value)
+        : videoEls.get(localId.value)
+      if (!el) return
+
+      const attached = videoTrackByEl.get(el)
+      if (
+        unpublished &&
+        attached &&
+        attached !== unpublished &&
+        attached.mediaStreamTrack !== unpublished.mediaStreamTrack
+      ) {
+        // Stale callback for an older local track wrapper: do not clear the current stream.
+        try { unpublished.detach(el) } catch {}
+        return
+      }
+
+      const replacement = resolveVideoTrack(room, localId.value, source)
+      if (replacement) {
+        if (replacement !== attached && replacement !== unpublished) {
+          if (!attachTrackToVideoEl(el, replacement)) {
+            scheduleVideoClear(el, attached ?? unpublished)
+          }
+        }
+        return
+      }
+
+      scheduleVideoClear(el, attached ?? unpublished)
+    }
+
     room.on(RoomEvent.LocalTrackPublished, (pub: LocalTrackPublication) => {
       if (pub.kind === Track.Kind.Video && pub.source === Track.Source.ScreenShare) {
         const el = screenVideoEls.get(localId.value)
@@ -1517,13 +1537,11 @@ export function useRTC(): UseRTC {
 
     room.on(RoomEvent.LocalTrackUnpublished, (pub: LocalTrackPublication) => {
       if (pub.kind === Track.Kind.Video && pub.source === Track.Source.ScreenShare) {
-        const el = screenVideoEls.get(localId.value)
-        if (el) clearVideoEl(el)
+        handleLocalVideoUnpublished(Track.Source.ScreenShare, pub.track as LocalTrack | undefined)
         try { opts?.onScreenShareEnded?.() } catch {}
       }
       if (pub.kind === Track.Kind.Video && pub.source === Track.Source.Camera) {
-        const el = videoEls.get(localId.value)
-        if (el) clearVideoEl(el)
+        handleLocalVideoUnpublished(Track.Source.Camera, pub.track as LocalTrack | undefined)
       }
     })
 
@@ -1537,7 +1555,6 @@ export function useRTC(): UseRTC {
           return
         }
         if (source === Track.Source.Camera) {
-          markRemoteCameraSeen(id)
           const el = videoEls.get(id)
           if (el) attachBySource(room, id, Track.Source.Camera, el)
           applyVideoQuality(pub as RemoteTrackPublication)
@@ -1570,8 +1587,10 @@ export function useRTC(): UseRTC {
             } else {
               scheduleVideoClear(el, t)
             }
+          } else if (!attached || attached.mediaStreamTrack !== t.mediaStreamTrack) {
+            // Stale callback for an older wrapper with a different underlying stream.
+            try { t.detach(el) } catch {}
           }
-          else { /* stale callback: keep current attachment intact */ }
         } else {
           try { t.detach() } catch {}
         }
