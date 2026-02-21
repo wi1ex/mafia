@@ -2243,8 +2243,8 @@ const toggleHostBlur = async () => {
   const wantEnable = !hostBlurActive.value
   const ok = await confirmDialog({
     text: wantEnable
-      ? 'Вы хотите активировать размытие стола у игроков?'
-      : 'Вы хотите прекратить размытие стола у игроков?',
+      ? 'Вы хотите начать паузу? Во время паузы нет фолов и жестикуляции'
+      : 'Вы хотите прекратить паузу?',
   })
   if (!ok) return
   hostBlurPending.value = true

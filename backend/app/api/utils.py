@@ -29,6 +29,11 @@ from ..schemas.room import GameParams
 from ..realtime.sio import sio
 from ..realtime.utils import get_profiles_snapshot, get_rooms_brief, gc_empty_room, emit_rooms_upsert_safe
 from ..services.minio import delete_avatars_async
+from ..services.user_cache import (
+    get_user_profiles_cached,
+    write_user_profile_cache,
+    invalidate_avatar_presign_cache,
+)
 from ..security.parameters import get_cached_settings
 
 __all__ = [
@@ -330,13 +335,13 @@ def build_admin_sanction_out(row: UserSanction) -> AdminSanctionOut:
 def format_duration_parts(months: int, days: int, hours: int, minutes: int) -> str:
     parts: list[str] = []
     if months:
-        parts.append(f"{months} \u043c\u0435\u0441")
+        parts.append(f"{months} мес")
     if days:
-        parts.append(f"{days} \u0434")
+        parts.append(f"{days} д")
     if hours:
-        parts.append(f"{hours} \u0447")
+        parts.append(f"{hours} ч")
     if minutes or not parts:
-        parts.append(f"{minutes} \u043c\u0438\u043d")
+        parts.append(f"{minutes} мин")
 
     return " ".join(parts)
 
@@ -478,6 +483,7 @@ async def set_user_deleted(session: AsyncSession, user_id: int, *, deleted: bool
 
     user = cast(User, user)
     was_deleted = user.deleted_at is not None
+    prev_avatar_name = cast(Optional[str], user.avatar_name)
     if deleted:
         new_username = f"deleted_{int(user.id)}"
         user.username = new_username
@@ -493,6 +499,18 @@ async def set_user_deleted(session: AsyncSession, user_id: int, *, deleted: bool
 
     await session.commit()
     await session.refresh(user)
+
+    with suppress(Exception):
+        await write_user_profile_cache(
+            int(user.id),
+            username=str(user.username),
+            role=str(user.role),
+            avatar_name=cast(Optional[str], user.avatar_name),
+        )
+
+    if deleted:
+        with suppress(Exception):
+            await invalidate_avatar_presign_cache(prev_avatar_name)
 
     if deleted:
         with suppress(Exception):
@@ -996,12 +1014,9 @@ async def fetch_user_avatar_map(session: AsyncSession, user_ids: set[int]) -> di
     if not user_ids:
         return avatar_map
 
-    rows_users = await session.execute(select(User.id, User.avatar_name).where(User.id.in_(user_ids)))
-    for uid, avatar_name in rows_users.all():
-        try:
-            avatar_map[int(uid)] = avatar_name
-        except Exception:
-            continue
+    profiles = await get_user_profiles_cached(session, user_ids)
+    for uid, profile in profiles.items():
+        avatar_map[int(uid)] = profile.get("avatar_name")
 
     return avatar_map
 
@@ -1012,14 +1027,10 @@ async def fetch_user_name_avatar_maps(session: AsyncSession, user_ids: set[int])
     if not user_ids:
         return name_map, avatar_map
 
-    rows_users = await session.execute(select(User.id, User.username, User.avatar_name).where(User.id.in_(user_ids)))
-    for uid, username, avatar_name in rows_users.all():
-        try:
-            uid_int = int(uid)
-        except Exception:
-            continue
-        name_map[uid_int] = username
-        avatar_map[uid_int] = avatar_name
+    profiles = await get_user_profiles_cached(session, user_ids)
+    for uid, profile in profiles.items():
+        name_map[int(uid)] = profile.get("username")
+        avatar_map[int(uid)] = profile.get("avatar_name")
 
     return name_map, avatar_map
 
@@ -1540,10 +1551,12 @@ async def build_room_members_for_info(r, room_id: int) -> list[Dict[str, Any]]:
     if missing:
         try:
             async with SessionLocal() as s:
-                for uid in missing:
-                    u = await s.get(User, uid)
-                    if u:
-                        profiles[str(uid)] = {"username": u.username, "avatar_name": u.avatar_name}
+                cached_profiles = await get_user_profiles_cached(s, missing)
+                for uid, profile in cached_profiles.items():
+                    profiles[str(uid)] = {
+                        "username": profile.get("username"),
+                        "avatar_name": profile.get("avatar_name"),
+                    }
         except Exception:
             log.exception("room.info.extra_profiles_failed", rid=room_id)
 

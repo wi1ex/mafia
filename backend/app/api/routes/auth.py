@@ -12,6 +12,7 @@ from ...security.decorators import log_route
 from ...security.auth_tokens import create_access_token, parse_refresh_token
 from ...security.passwords import hash_password, verify_password
 from ...security.sessions import new_login_session, rotate_refresh, logout as sess_logout
+from ...services.user_cache import write_user_profile_cache
 from ...schemas.common import Ok
 from ...schemas.auth import AccessTokenOut, PasswordLoginIn, PasswordRegisterIn
 from ..utils import (
@@ -76,6 +77,7 @@ async def register(payload: PasswordRegisterIn, resp: Response, request: Request
         details=f"Регистрация пользователя: user_id={user_id} username={username}",
     )
 
+    await write_user_profile_cache(user_id, username=username, role="user", avatar_name=None)
     access_token, sid = await new_login_session(resp, user_id=user_id, username=username, role="user")
     await touch_user_last_login(db, user_id)
     return AccessTokenOut(access_token=access_token, sid=sid, is_new=True)
@@ -109,6 +111,12 @@ async def login(payload: PasswordLoginIn, resp: Response, request: Request, db: 
         details=f"Вход пользователя: user_id={int(user.id)} username={user.username}",
     )
 
+    await write_user_profile_cache(
+        int(user.id),
+        username=str(user.username),
+        role=str(user.role),
+        avatar_name=user.avatar_name,
+    )
     access_token, sid = await new_login_session(resp, user_id=int(user.id), username=user.username, role=user.role)
     await touch_user_last_login(db, int(user.id))
     return AccessTokenOut(access_token=access_token, sid=sid)
@@ -132,6 +140,12 @@ async def refresh(resp: Response, request: Request, db: AsyncSession = Depends(g
         await sess_logout(resp, user_id=user_id, sid=sid or None)
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="user_deleted")
 
+    await write_user_profile_cache(
+        int(user_id),
+        username=str(user.username),
+        role=str(user.role),
+        avatar_name=user.avatar_name,
+    )
     access_token = create_access_token(sub=user_id, username=user.username, role=user.role, sid=sid or "", ttl_minutes=settings.ACCESS_EXP_MIN)
     return AccessTokenOut(access_token=access_token, sid=sid or "")
 

@@ -2,8 +2,8 @@ from __future__ import annotations
 from contextlib import suppress
 from datetime import datetime, timezone
 from time import time
+from typing import cast
 from fastapi import APIRouter, Depends, status, HTTPException
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from ...core.clients import get_redis
 from ...security.decorators import log_route, rate_limited, require_room_creator
@@ -11,7 +11,6 @@ from ...core.logging import log_action
 from ...security.auth_tokens import get_identity
 from ...core.db import get_session
 from ...models.room import Room
-from ...models.user import User
 from ...models.notif import Notif
 from ...realtime.sio import sio
 from ...schemas.common import Identity, Ok
@@ -28,6 +27,7 @@ from ...schemas.room import (
     RoomBriefOut,
 )
 from ...security.parameters import get_cached_settings
+from ...services.user_cache import get_user_profile_cached, get_user_profiles_cached
 from ..utils import (
     emit_rooms_upsert,
     serialize_game_for_redis,
@@ -47,12 +47,13 @@ router = APIRouter()
 @router.post("", response_model=RoomIdOut, status_code=status.HTTP_201_CREATED)
 async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get_session), ident: Identity = Depends(get_identity)) -> RoomIdOut:
     uid = int(ident["id"])
-    creator_name = ident["username"]
     app_settings = get_cached_settings()
     if not app_settings.rooms_can_create:
         raise HTTPException(status_code=403, detail="rooms_create_disabled")
 
     await ensure_room_access_allowed(session, uid)
+    profile = await get_user_profile_cached(session, uid)
+    creator_name = str((profile or {}).get("username") or ident["username"])
     title = (payload.title or "").strip()
     if not title:
         raise HTTPException(status_code=422, detail="title_empty")
@@ -98,14 +99,13 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
     await session.commit()
     await session.refresh(room)
 
-    u = await session.get(User, uid)
     params_data = {
         "id": room.id,
         "title": room.title,
         "user_limit": room.user_limit,
         "creator": room.creator,
         "creator_name": creator_name,
-        "creator_avatar_name": u.avatar_name if u else None,
+        "creator_avatar_name": (profile or {}).get("avatar_name"),
         "created_at": room.created_at.isoformat(),
         "privacy": privacy,
         "anonymity": anonymity,
@@ -220,18 +220,16 @@ async def room_spectators(room_id: int, ident: Identity = Depends(get_identity),
         return RoomSpectatorsOut(spectators=[])
 
     id_set = set(ids)
-    rows_users = await session.execute(select(User.id, User.username, User.avatar_name).where(User.id.in_(id_set), User.role != "admin"))
+    profiles = await get_user_profiles_cached(session, id_set)
     name_map: dict[int, str | None] = {}
     avatar_map: dict[int, str | None] = {}
     visible_ids: set[int] = set()
-    for uid, username, avatar_name in rows_users.all():
-        try:
-            uid_int = int(uid)
-        except Exception:
+    for uid_int, profile in profiles.items():
+        if str(profile.get("role") or "user") == "admin":
             continue
         visible_ids.add(uid_int)
-        name_map[uid_int] = username
-        avatar_map[uid_int] = avatar_name
+        name_map[uid_int] = profile.get("username")
+        avatar_map[uid_int] = profile.get("avatar_name")
 
     if not visible_ids:
         return RoomSpectatorsOut(spectators=[])
@@ -378,27 +376,33 @@ async def apply(room_id: int, ident: Identity = Depends(get_identity), db: Async
     if added_pending == 0:
         return Ok()
 
-    user = await db.get(User, uid)
-    if user:
-        with suppress(Exception):
-            await sio.emit("room_invite",
-                           {"room_id": room_id,
-                            "room_title": title,
-                            "user": {"id": uid, "username": user.username, "avatar_name": user.avatar_name}},
-                           room=f"user:{creator}",
-                           namespace="/auth")
-
-        details = f"Подача заявки в комнату room_id={room_id} title={title} creator={creator}"
-        if creator_name:
-            details += f" creator_username={creator_name}"
-        await log_action(
-            db,
-            user_id=uid,
-            username=ident["username"],
-            action="room_apply",
-            details=details,
+    profile = await get_user_profile_cached(db, uid)
+    with suppress(Exception):
+        await sio.emit(
+            "room_invite",
+            {
+                "room_id": room_id,
+                "room_title": title,
+                "user": {
+                    "id": uid,
+                    "username": (profile or {}).get("username") or ident["username"],
+                    "avatar_name": (profile or {}).get("avatar_name"),
+                },
+            },
+            room=f"user:{creator}",
+            namespace="/auth",
         )
 
+    details = f"Подача заявки в комнату room_id={room_id} title={title} creator={creator}"
+    if creator_name:
+        details += f" creator_username={creator_name}"
+    await log_action(
+        db,
+        user_id=uid,
+        username=ident["username"],
+        action="room_apply",
+        details=details,
+    )
     return Ok()
 
 
@@ -446,20 +450,19 @@ async def list_requests(room_id: int, ident: Identity = Depends(get_identity), d
             await p.execute()
         order_ids.extend(missing_ids)
 
-    rows = await db.execute(select(User).where(User.id.in_(ids)))
-    user_map = {int(u.id): u for u in rows.scalars().all()}
+    user_map = await get_user_profiles_cached(db, ids)
     items: list[RoomRequestOut] = []
     for uid in order_ids:
-        u = user_map.get(uid)
-        if not u:
+        profile = user_map.get(uid)
+        if not profile:
             continue
 
         status = "pending" if uid in pending_ids else "approved"
         items.append(RoomRequestOut(
             id=uid,
-            username=u.username,
-            avatar_name=u.avatar_name,
-            role=u.role,
+            username=cast(str | None, profile.get("username")),
+            avatar_name=cast(str | None, profile.get("avatar_name")),
+            role=str(profile.get("role") or "user"),
             status=status,
             requested_at=request_times.get(uid),
         ))
@@ -515,8 +518,8 @@ async def approve(room_id: int, user_id: int, ident: Identity = Depends(get_iden
                        room=f"user:{int(ident['id'])}",
                        namespace="/auth")
 
-    target_user = await db.get(User, int(user_id))
-    target_username = target_user.username if target_user else ""
+    target_profile = await get_user_profile_cached(db, int(user_id))
+    target_username = str((target_profile or {}).get("username") or "")
     details = f"Одобрена заявка в комнату room_id={room_id} title={title_room} target_user={user_id}"
     if target_username:
         details += f" target_username={target_username}"
@@ -596,8 +599,8 @@ async def deny(room_id: int, user_id: int, ident: Identity = Depends(get_identit
                            room=f"user:{user_id}",
                            namespace="/rooms")
 
-    target_user = await db.get(User, int(user_id))
-    target_username = target_user.username if target_user else ""
+    target_profile = await get_user_profile_cached(db, int(user_id))
+    target_username = str((target_profile or {}).get("username") or "")
     details = f"Доступ к комнате отозван room_id={room_id} title={title_room} target_user={user_id}"
     if target_username:
         details += f" target_username={target_username}"

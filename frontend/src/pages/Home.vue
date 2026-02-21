@@ -345,7 +345,7 @@ const spectatorsTooltipEnabled = computed(() => {
 const spectatorsTooltipVisible = computed(() => spectatorsOpen.value && spectatorsTooltipEnabled.value)
 
 function roomStatusLabel(room: Room): string {
-  if (isAdmin.value && room.anonymity === 'hidden') return 'hide'
+  if (room.anonymity === 'hidden') return 'hide'
   if (room.in_game) return 'game'
   const limit = Number(room.user_limit)
   if (Number.isFinite(limit) && limit === gameLimitMin.value) return 'mafia'

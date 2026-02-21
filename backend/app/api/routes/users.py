@@ -37,6 +37,7 @@ from ...schemas.user import (
 )
 from ...security.passwords import hash_password, verify_password
 from ...services.minio import put_avatar_async, delete_avatars_async, ALLOWED_CT, MAX_BYTES
+from ...services.user_cache import write_user_profile_cache, invalidate_avatar_presign_cache
 
 router = APIRouter()
 
@@ -50,6 +51,7 @@ async def profile_info(ident: Identity = Depends(get_identity), db: AsyncSession
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
 
     uid = cast(int, user.id)
+    await write_user_profile_cache(uid, username=str(user.username), role=str(user.role), avatar_name=user.avatar_name)
     active = await fetch_active_sanctions(db, uid)
     timeout = active.get(SANCTION_TIMEOUT)
     ban = active.get(SANCTION_BAN)
@@ -130,6 +132,7 @@ async def update_username(payload: UsernameUpdateIn, ident: Identity = Depends(g
     old_username = user.username
     await db.execute(update(User).where(User.id == uid).values(username=new))
     await db.commit()
+    await write_user_profile_cache(uid, username=new, role=str(user.role), avatar_name=user.avatar_name)
 
     await log_action(
         db,
@@ -226,8 +229,15 @@ async def upload_avatar(file: UploadFile = File(...), ident: Identity = Depends(
     uid = int(ident["id"])
     await ensure_profile_changes_allowed(db, uid)
 
-    ct = (file.content_type or "").split(";")[0].strip().lower()
+    row = await db.execute(select(User.username, User.avatar_name, User.role).where(User.id == uid))
+    rec = row.first()
+    if not rec:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
 
+    db_username = str(rec[0])
+    old_avatar_name = cast(str | None, rec[1])
+    db_role = str(rec[2])
+    ct = (file.content_type or "").split(";")[0].strip().lower()
     if ct not in ALLOWED_CT:
         raise HTTPException(status_code=415, detail="unsupported_media_type")
 
@@ -244,6 +254,8 @@ async def upload_avatar(file: UploadFile = File(...), ident: Identity = Depends(
 
     await db.execute(update(User).where(User.id == uid).values(avatar_name=name))
     await db.commit()
+    await write_user_profile_cache(uid, username=db_username, role=db_role, avatar_name=name)
+    await invalidate_avatar_presign_cache(old_avatar_name)
 
     await log_action(
         db,
@@ -263,8 +275,20 @@ async def upload_avatar(file: UploadFile = File(...), ident: Identity = Depends(
 async def delete_avatar(ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> Ok:
     uid = int(ident["id"])
     await ensure_profile_changes_allowed(db, uid)
+
+    row = await db.execute(select(User.username, User.avatar_name, User.role).where(User.id == uid))
+    rec = row.first()
+    if not rec:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
+
+    db_username = str(rec[0])
+    old_avatar_name = cast(str | None, rec[1])
+    db_role = str(rec[2])
+
     await db.execute(update(User).where(User.id == uid).values(avatar_name=None))
     await db.commit()
+    await write_user_profile_cache(uid, username=db_username, role=db_role, avatar_name=None)
+    await invalidate_avatar_presign_cache(old_avatar_name)
 
     with suppress(Exception):
         await delete_avatars_async(uid)

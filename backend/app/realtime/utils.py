@@ -24,6 +24,7 @@ from ..models.friend import FriendCloseness
 from ..core.clients import get_redis
 from ..core.logging import log_action
 from ..security.auth_tokens import decode_token
+from ..services.user_cache import get_user_profile_cached, get_user_profiles_cached
 
 __all__ = [
     "KEYS_STATE",
@@ -900,11 +901,15 @@ async def validate_auth(auth: Any) -> Tuple[int, str, str, Optional[str]] | None
             log.warning("sio.connect.replaced_session")
             return None
 
-        role = str(p.get("role") or "user")
+        role_from_token = str(p.get("role") or "user")
         async with SessionLocal() as s:
-            row = await s.execute(select(User.username, User.avatar_name).where(User.id == uid))
-            rec = row.first()
-            username, avatar_name = (cast(Optional[str], rec[0]), cast(Optional[str], rec[1])) if rec else (None, None)
+            profile = await get_user_profile_cached(s, uid)
+        if not profile:
+            return None
+
+        role = str(profile.get("role") or role_from_token or "user")
+        username = str(profile.get("username") or f"user{uid}")
+        avatar_name = cast(Optional[str], profile.get("avatar_name"))
         return uid, role, username, avatar_name
 
     except ExpiredSignatureError:
@@ -1192,13 +1197,14 @@ async def get_profiles_snapshot(r, rid: int, *, extra_ids: Iterable[int | str] |
 
     if need_db:
         async with SessionLocal() as s:
-            res = await s.execute(select(User.id, User.username, User.avatar_name).where(User.id.in_(need_db)))
-            db_rows = res.all()
+            db_profiles = await get_user_profiles_cached(s, need_db)
 
         async with r.pipeline() as p:
-            for uid_i, un_db, av_db in db_rows:
+            for uid_i, db_profile in db_profiles.items():
                 key = str(uid_i)
                 cur = out.get(key) or {"username": None, "avatar_name": None}
+                un_db = db_profile.get("username")
+                av_db = db_profile.get("avatar_name")
                 if cur["username"] is None and un_db is not None:
                     cur["username"] = un_db
                 if cur["avatar_name"] is None and av_db is not None:
@@ -1389,8 +1395,8 @@ async def get_rooms_brief(r, ids: Iterable[int]) -> List[dict]:
     if need_db:
         try:
             async with SessionLocal() as s:
-                res = await s.execute(select(User.id, User.avatar_name).where(User.id.in_(need_db)))
-                avatar_by_uid = {int(uid): cast(Optional[str], av) for uid, av in res.all()}
+                cached_profiles = await get_user_profiles_cached(s, need_db)
+                avatar_by_uid = {int(uid): cast(Optional[str], profile.get("avatar_name")) for uid, profile in cached_profiles.items()}
         except Exception:
             log.exception("rooms.brief.db_error")
             avatar_by_uid = {}
@@ -3543,10 +3549,9 @@ async def schedule_auto_game_end(rid: int, *, reason: str) -> None:
         else:
             try:
                 async with SessionLocal() as s:
-                    row = await s.execute(select(User.username).where(User.id == actor_uid))
-                    rec = row.first()
-                    if rec and rec[0]:
-                        username = str(rec[0])
+                    profile = await get_user_profile_cached(s, actor_uid)
+                    if profile and profile.get("username"):
+                        username = str(profile["username"])
             except Exception:
                 log.exception("game_finish.auto_end.load_username_failed", rid=rid, uid=actor_uid)
         if username:

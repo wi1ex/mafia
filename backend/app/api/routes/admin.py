@@ -28,6 +28,7 @@ from ...security.decorators import log_route, require_roles_deco
 from ...security.auth_tokens import get_identity
 from ...security.passwords import hash_password
 from ...security.parameters import ensure_app_settings, sync_cache_from_row, refresh_app_settings, get_cached_settings
+from ...services.user_cache import write_user_profile_cache
 from ...schemas.common import Ok, Identity
 from ...schemas.updates import AdminUpdateIn, AdminUpdateOut, AdminUpdatesOut
 from ...schemas.admin import (
@@ -877,6 +878,12 @@ async def update_user_role(user_id: int, payload: AdminUserRoleIn, ident: Identi
     user.role = payload.role
     await session.commit()
     await session.refresh(user)
+    await write_user_profile_cache(
+        int(user.id),
+        username=str(user.username),
+        role=str(user.role),
+        avatar_name=user.avatar_name,
+    )
 
     uid = cast(int, user.id)
     if prev_role != user.role:

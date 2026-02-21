@@ -7,7 +7,9 @@ from jwt import ExpiredSignatureError, InvalidTokenError
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from ..core.clients import get_redis
+from ..core.db import SessionLocal
 from ..core.settings import settings
+from ..services.user_cache import read_user_profile_cache, refresh_user_profile_cache
 from ..schemas.common import Identity
 
 log = structlog.get_logger()
@@ -87,7 +89,23 @@ async def get_identity(creds: HTTPAuthorizationCredentials = Depends(HTTPBearer(
             log.warning("auth.sid_mismatch", uid=uid)
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
 
-        return {"id": uid, "role": str(p["role"]), "username": str(p["username"])}
+        role = str(p.get("role") or "user")
+        username = str(p.get("username") or f"user{uid}")
+        profile = await read_user_profile_cache(uid, redis_client=r)
+        if profile is None:
+            try:
+                async with SessionLocal() as s:
+                    profile = await refresh_user_profile_cache(s, uid, redis_client=r)
+            except Exception:
+                profile = None
+
+        if profile:
+            if profile.get("role"):
+                role = str(profile["role"])
+            if profile.get("username"):
+                username = str(profile["username"])
+
+        return {"id": uid, "role": role, "username": username}
 
     except HTTPException:
         raise

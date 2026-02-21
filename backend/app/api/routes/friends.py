@@ -2,6 +2,7 @@ from __future__ import annotations
 from contextlib import suppress
 from datetime import datetime, timezone
 from time import time
+from typing import cast
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select, or_, delete, update, func, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,6 +16,7 @@ from ...models.notif import Notif
 from ...realtime.utils import get_rooms_brief
 from ...realtime.sio import sio
 from ...services.telegram import send_text_message
+from ...services.user_cache import get_user_profile_cached, get_user_profiles_cached
 from ...schemas.common import Identity, Ok
 from ...schemas.friend import FriendStatusOut, FriendsListOut, FriendsListItemOut, FriendIncomingCountOut, FriendInviteIn
 from ...schemas.room import RoomBriefOut
@@ -96,19 +98,20 @@ async def friends_list(ident: Identity = Depends(get_identity), db: AsyncSession
     all_ids = set(friend_ids + incoming_ids + outgoing_ids)
     users_map: dict[int, dict[str, object]] = {}
     if all_ids:
+        profiles = await get_user_profiles_cached(db, all_ids)
         rows = await db.execute(
             select(
                 User.id,
-                User.username,
-                User.avatar_name,
                 User.telegram_id,
                 User.tg_invites_enabled,
             ).where(User.id.in_(all_ids))
         )
-        for rid, username, avatar_name, telegram_id, tg_invites_enabled in rows.all():
-            users_map[int(rid)] = {
-                "username": username,
-                "avatar_name": avatar_name,
+        for rid, telegram_id, tg_invites_enabled in rows.all():
+            uid_i = int(rid)
+            profile = profiles.get(uid_i) or {}
+            users_map[uid_i] = {
+                "username": profile.get("username"),
+                "avatar_name": profile.get("avatar_name"),
                 "telegram_verified": bool(telegram_id),
                 "tg_invites_enabled": bool(tg_invites_enabled),
             }
@@ -245,7 +248,8 @@ async def send_friend_request(user_id: int, ident: Identity = Depends(get_identi
     target = await db.get(User, target_id)
     if not target or target.deleted_at:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="user_not_found")
-    requester = await db.get(User, uid)
+
+    requester_profile = await get_user_profile_cached(db, uid)
 
     existing = await load_link(db, uid, target_id)
     if existing:
@@ -278,7 +282,7 @@ async def send_friend_request(user_id: int, ident: Identity = Depends(get_identi
         note,
         kind="friend_request",
         extra={
-            "user": {"id": uid, "username": ident["username"], "avatar_name": requester.avatar_name if requester else None},
+            "user": {"id": uid, "username": ident["username"], "avatar_name": (requester_profile or {}).get("avatar_name")},
             "actions": actions,
             "toast_text": "",
         },
@@ -329,9 +333,9 @@ async def accept_friend_request(user_id: int, ident: Identity = Depends(get_iden
     )
     await db.commit()
 
-    requester = await db.get(User, requester_id)
-    requester_name = requester.username if requester else None
-    accepter = await db.get(User, uid)
+    requester_profile = await get_user_profile_cached(db, requester_id)
+    requester_name = cast(str | None, (requester_profile or {}).get("username"))
+    accepter_profile = await get_user_profile_cached(db, uid)
 
     title_req = "Заявка в друзья принята"
     text_req = f"Пользователь {ident['username']} принял вашу заявку в друзья."
@@ -344,7 +348,7 @@ async def accept_friend_request(user_id: int, ident: Identity = Depends(get_iden
         note_req,
         kind="friend_accept",
         extra={
-            "user": {"id": uid, "username": ident["username"], "avatar_name": accepter.avatar_name if accepter else None},
+            "user": {"id": uid, "username": ident["username"], "avatar_name": (accepter_profile or {}).get("avatar_name")},
             "toast_text": "",
         },
     )
@@ -404,7 +408,7 @@ async def decline_friend_request(user_id: int, ident: Identity = Depends(get_ide
     await db.commit()
     await emit_friends_update(requester_id, uid, "none")
     await emit_friends_update(uid, requester_id, "none")
-    requester = await db.get(User, requester_id)
+    requester_profile = await get_user_profile_cached(db, requester_id)
 
     await log_action(
         db,
@@ -413,7 +417,7 @@ async def decline_friend_request(user_id: int, ident: Identity = Depends(get_ide
         action="friend_request_declined",
         details=(
             f"friend_request_declined requester_user={requester_id} "
-            f"requester_username={(requester.username if requester else None) or f'user{requester_id}'}"
+            f"requester_username={(requester_profile or {}).get('username') or f'user{requester_id}'}"
         ),
     )
 
@@ -440,7 +444,7 @@ async def remove_friend(user_id: int, ident: Identity = Depends(get_identity), d
     await db.commit()
     await emit_friends_update(other_id, uid, "none")
     await emit_friends_update(uid, other_id, "none")
-    other_user = await db.get(User, other_id)
+    other_profile = await get_user_profile_cached(db, other_id)
 
     await log_action(
         db,
@@ -449,7 +453,7 @@ async def remove_friend(user_id: int, ident: Identity = Depends(get_identity), d
         action="friend_removed",
         details=(
             f"friend_removed target_user={other_id} "
-            f"target_username={(other_user.username if other_user else None) or f'user{other_id}'}"
+            f"target_username={(other_profile or {}).get('username') or f'user{other_id}'}"
         ),
     )
 
@@ -503,8 +507,8 @@ async def invite_friend(payload: FriendInviteIn, ident: Identity = Depends(get_i
     is_private = str(params.get("privacy") or "open").strip() == "private"
     is_owner_invite = int(params.get("creator") or 0) == uid
     auto_allowed = False
-    inviter = await db.get(User, uid)
-    inviter_name = str(ident.get("username") or (inviter.username if inviter else f"user{uid}"))
+    inviter_profile = await get_user_profile_cached(db, uid)
+    inviter_name = str(ident.get("username") or (inviter_profile or {}).get("username") or f"user{uid}")
 
     if target_online:
         title = "Приглашение в комнату"
@@ -524,7 +528,7 @@ async def invite_friend(payload: FriendInviteIn, ident: Identity = Depends(get_i
                 "user": {
                     "id": uid,
                     "username": inviter_name,
-                    "avatar_name": inviter.avatar_name if inviter else None,
+                    "avatar_name": (inviter_profile or {}).get("avatar_name"),
                 },
                 "toast_title": "Приглашение в комнату от",
                 "toast_text": "",
