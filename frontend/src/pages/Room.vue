@@ -2272,7 +2272,7 @@ const toggleHostBlur = async () => {
   const ok = await confirmDialog({
     text: wantEnable
       ? 'Вы хотите начать паузу? Игроки не смогут видеть друг друга и брать фолы'
-      : 'Вы хотите прекратить паузу?',
+      : 'Вы хотите завершить паузу?',
   })
   if (!ok) return
   hostBlurPending.value = true

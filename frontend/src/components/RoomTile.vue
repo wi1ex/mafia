@@ -923,7 +923,7 @@ const showFriendAction = computed(() => props.id !== props.localId && friendActi
     .role-timer-bar {
       width: 100%;
       height: 100%;
-      background: linear-gradient(to right, $red 0%, $orange 30%, $yellow 50%, $green 70%, green 100%);
+      background: linear-gradient(to right, $red 0%, $orange 20%, $yellow 45%, $green 75%, green 100%);
       clip-path: inset(0 0 0 0);
       animation: role-timer-decrease linear forwards;
     }
