@@ -142,6 +142,10 @@ export function useRTC(): UseRTC {
   const audioEls = new Map<string, HTMLAudioElement>()
   const screenVideoEls = new Map<string, HTMLVideoElement>()
   const videoTrackByEl = new WeakMap<HTMLVideoElement, LocalTrack | RemoteTrack>()
+  const videoClearTimers = new WeakMap<HTMLVideoElement, number>()
+  const remoteCameraTrackSeenAt = new Map<string, number>()
+  const VIDEO_CLEAR_GRACE_MS = 800
+  const REMOTE_CAMERA_TRACK_GRACE_MS = 1000
   const mics = ref<MediaDeviceInfo[]>([])
   const cams = ref<MediaDeviceInfo[]>([])
   const selectedMicId = ref<string>('')
@@ -883,6 +887,30 @@ export function useRTC(): UseRTC {
     el.playsInline = true
     el.muted = true
   }
+  function markRemoteCameraSeen(id: string) {
+    if (!id) return
+    remoteCameraTrackSeenAt.set(id, Date.now())
+  }
+  function cancelVideoClear(el: HTMLVideoElement) {
+    const tm = videoClearTimers.get(el)
+    if (tm != null) {
+      try { window.clearTimeout(tm) } catch {}
+      videoClearTimers.delete(el)
+    }
+  }
+  function scheduleVideoClear(el: HTMLVideoElement, expectedTrack?: LocalTrack | RemoteTrack) {
+    cancelVideoClear(el)
+    const tm = window.setTimeout(() => {
+      const current = videoTrackByEl.get(el)
+      if (expectedTrack && current && current !== expectedTrack) {
+        videoClearTimers.delete(el)
+        return
+      }
+      clearVideoEl(el)
+      videoClearTimers.delete(el)
+    }, VIDEO_CLEAR_GRACE_MS)
+    videoClearTimers.set(el, tm)
+  }
   function detachKnownVideoTrack(el: HTMLVideoElement) {
     const prev = videoTrackByEl.get(el)
     if (!prev) return
@@ -890,18 +918,18 @@ export function useRTC(): UseRTC {
     videoTrackByEl.delete(el)
   }
   function clearVideoEl(el: HTMLVideoElement) {
+    cancelVideoClear(el)
     detachKnownVideoTrack(el)
     try { el.srcObject = null } catch {}
   }
   function attachTrackToVideoEl(el: HTMLVideoElement, track: LocalTrack | RemoteTrack): boolean {
+    cancelVideoClear(el)
     const prev = videoTrackByEl.get(el)
     if (prev === track) return true
+    try { track.attach(el) } catch { return false }
     if (prev) {
       try { prev.detach(el) } catch {}
-      videoTrackByEl.delete(el)
     }
-    try { el.srcObject = null } catch {}
-    try { track.attach(el) } catch { return false }
     videoTrackByEl.set(el, track)
     return true
   }
@@ -922,10 +950,16 @@ export function useRTC(): UseRTC {
   function attachBySource(room: LkRoom, id: string, src: Track.Source, el: HTMLVideoElement) {
     const track = resolveVideoTrack(room, id, src)
     if (!track) {
+      if (!videoTrackByEl.has(el)) {
+        try { el.srcObject = null } catch {}
+      }
+      return
+    }
+    if (!attachTrackToVideoEl(el, track)) {
       clearVideoEl(el)
       return
     }
-    if (!attachTrackToVideoEl(el, track)) clearVideoEl(el)
+    if (src === Track.Source.Camera) markRemoteCameraSeen(id)
   }
   function makeVideoRef(deps: RefDeps) {
     return (id: string) => (el: HTMLVideoElement|null) => {
@@ -1243,14 +1277,23 @@ export function useRTC(): UseRTC {
     const room = lk.value
     if (!room) return false
     const part = getByIdentity(room, id)
-    if (!part) return false
-    return part.getTrackPublications().some(pub => {
+    if (!part) {
+      const seenAt = remoteCameraTrackSeenAt.get(id)
+      return !!(seenAt && Date.now() - seenAt <= REMOTE_CAMERA_TRACK_GRACE_MS)
+    }
+    const hasLive = part.getTrackPublications().some(pub => {
       if (pub.kind !== Track.Kind.Video) return false
       const rpub = pub as RemoteTrackPublication
       if (rpub.source !== Track.Source.Camera) return false
       if (!rpub.isSubscribed) return false
       return !!pub.track
     })
+    if (hasLive) {
+      markRemoteCameraSeen(id)
+      return true
+    }
+    const seenAt = remoteCameraTrackSeenAt.get(id)
+    return !!(seenAt && Date.now() - seenAt <= REMOTE_CAMERA_TRACK_GRACE_MS)
   }
 
   const remoteQuality = ref<VQ>('hd')
@@ -1323,6 +1366,7 @@ export function useRTC(): UseRTC {
     activeSpeakers.value = sSpk
 
     peerIds.value = peerIds.value.filter(x => x !== id)
+    remoteCameraTrackSeenAt.delete(id)
   }
 
   function cleanupMedia() {
@@ -1357,6 +1401,7 @@ export function useRTC(): UseRTC {
     preparedScreen = null
     iosMicUnlockDone = false
     iosMicUnlockInFlight = null
+    remoteCameraTrackSeenAt.clear()
   }
 
   async function startIosMicUnlock(): Promise<boolean> {
@@ -1492,6 +1537,7 @@ export function useRTC(): UseRTC {
           return
         }
         if (source === Track.Source.Camera) {
+          markRemoteCameraSeen(id)
           const el = videoEls.get(id)
           if (el) attachBySource(room, id, Track.Source.Camera, el)
           applyVideoQuality(pub as RemoteTrackPublication)
@@ -1510,12 +1556,22 @@ export function useRTC(): UseRTC {
     room.on(RoomEvent.TrackUnsubscribed, (t: RemoteTrack, pub, part) => {       
       const id = String(part.identity)
       if (t.kind === Track.Kind.Video) {
-        const isScreenV = (pub as RemoteTrackPublication).source === Track.Source.ScreenShare
+        const source = (pub as RemoteTrackPublication).source
+        const isScreenV = source === Track.Source.ScreenShare
         const el = isScreenV ? screenVideoEls.get(id) : videoEls.get(id)        
         if (el) {
           const attached = videoTrackByEl.get(el)
-          if (attached === t) clearVideoEl(el)
-          else { try { t.detach(el) } catch {} }
+          if (attached === t) {
+            const replacement = resolveVideoTrack(room, id, source)
+            if (replacement && replacement !== t) {
+              if (!attachTrackToVideoEl(el, replacement)) {
+                scheduleVideoClear(el, t)
+              }
+            } else {
+              scheduleVideoClear(el, t)
+            }
+          }
+          else { /* stale callback: keep current attachment intact */ }
         } else {
           try { t.detach() } catch {}
         }
