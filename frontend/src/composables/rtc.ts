@@ -174,7 +174,6 @@ export function useRTC(): UseRTC {
   const isScreenKey = (key: string) => key.endsWith('#s')
   const isSub = (pub: RemoteTrackPublication) => pub.isSubscribed
   const lowVideoQuality = new VideoPreset(480, 270, 250_000, 20)
-  // const lowVideoQuality = VideoPresets.h360
   const highVideoQuality = VideoPresets.h720
   const highScreenQuality = ScreenSharePresets.h720fps30
   const cameraQuality = ref<CameraQuality>('low')
@@ -921,8 +920,6 @@ export function useRTC(): UseRTC {
     const prev = videoTrackByEl.get(el)
     if (prev === track) return true
     if (prev && prev.mediaStreamTrack === track.mediaStreamTrack) {
-      // LiveKit can swap Track wrappers while keeping the same underlying MediaStreamTrack.
-      // Detaching prev in this case would remove the currently rendered video track.
       try { track.attach(el) } catch { return false }
       videoTrackByEl.set(el, track)
       return true
@@ -1506,7 +1503,6 @@ export function useRTC(): UseRTC {
         attached !== unpublished &&
         attached.mediaStreamTrack !== unpublished.mediaStreamTrack
       ) {
-        // Stale callback for an older local track wrapper: do not clear the current stream.
         try { unpublished.detach(el) } catch {}
         return
       }
@@ -1588,7 +1584,6 @@ export function useRTC(): UseRTC {
               scheduleVideoClear(el, t)
             }
           } else if (!attached || attached.mediaStreamTrack !== t.mediaStreamTrack) {
-            // Stale callback for an older wrapper with a different underlying stream.
             try { t.detach(el) } catch {}
           }
         } else {
