@@ -575,6 +575,13 @@ const avatarByUser = reactive(new Map<string, string | null>())
 const volUi = reactive<Record<string, number>>({})
 const MIN_GAME_VOLUME = 20
 const EMPTY_NUMBERS: number[] = []
+const EMPTY_STYLE = Object.freeze({}) as Readonly<Record<string, never>>
+const GAME_GRID_STYLE = Object.freeze({
+  gridTemplateColumns: 'repeat(8, 1fr)',
+  gridTemplateRows: 'repeat(6, 1fr)',
+})
+const IDLE_GRID_STYLE_CACHE = new Map<string, Readonly<{ gridTemplateColumns: string; gridTemplateRows: string }>>()
+const SEAT_TILE_STYLE_CACHE = new Map<number, Readonly<{ gridColumn: string; gridRow: string }>>()
 const volumeSnapTimers = new Map<string, number>()
 const screenOwnerId = ref<string>('')
 const openPanelFor = ref<string>('')
@@ -1254,25 +1261,46 @@ const sortedPeerIds = computed(() => {
     return pa !== pb ? pa - pb : String(a).localeCompare(String(b))
   })
 })
+const getIdleGridStyle = (cols: number, rows: number) => {
+  const key = `${cols}x${rows}`
+  const cached = IDLE_GRID_STYLE_CACHE.get(key)
+  if (cached) return cached
+  const next = Object.freeze({
+    gridTemplateColumns: `repeat(${cols}, 1fr)`,
+    gridTemplateRows: `repeat(${rows}, 1fr)`,
+  })
+  IDLE_GRID_STYLE_CACHE.set(key, next)
+  return next
+}
+const getSeatTileStyle = (pos: number) => {
+  const cached = SEAT_TILE_STYLE_CACHE.get(pos)
+  if (cached) return cached
+  const col = GAME_COLUMN_INDEX[pos] ?? 1
+  const row = GAME_ROW_INDEX[pos] ?? 1
+  const next = Object.freeze({
+    gridColumn: `${col} / span 2`,
+    gridRow: `${row} / span 2`,
+  })
+  SEAT_TILE_STYLE_CACHE.set(pos, next)
+  return next
+}
 const gridStyle = computed(() => {
   if (gamePhase.value !== 'idle') {
-    return { gridTemplateColumns: 'repeat(8, 1fr)', gridTemplateRows: 'repeat(6, 1fr)' }
+    return GAME_GRID_STYLE
   }
   const limit = roomUserLimit.value
   const isTwoSeatRoom = Number.isFinite(limit) && limit === 2
   const count = sortedPeerIds.value.length
   const cols = count <= 2 ? (isTwoSeatRoom ? 2 : 3) : count <= 6 ? 3 : 4
   const rows = count <= 2 ? (isTwoSeatRoom ? 1 : 2) : count <= 6 ? 2 : 3
-  return { gridTemplateColumns: `repeat(${cols}, 1fr)`, gridTemplateRows: `repeat(${rows}, 1fr)` }
+  return getIdleGridStyle(cols, rows)
 })
 
 const tileGridStyle = (id: string) => {
-  if (gamePhase.value === 'idle') return {}
+  if (gamePhase.value === 'idle') return EMPTY_STYLE
   const pos = seatsByUser[id]
-  if (!pos) return {}
-  const col = GAME_COLUMN_INDEX[pos] ?? 1
-  const row = GAME_ROW_INDEX[pos] ?? 1
-  return { gridColumn: `${col} / span 2`, gridRow: `${row} / span 2` }
+  if (!pos) return EMPTY_STYLE
+  return getSeatTileStyle(pos)
 }
 
 const isEmpty = (v: any) => v === undefined || v === null || v === ''

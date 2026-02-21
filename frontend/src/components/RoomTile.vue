@@ -1,6 +1,6 @@
 <template>
   <div class="tile" :class="[{ speaking, mafia: redMark, 'best-move': bestMoveMarked && !redMark }, side && 'side']" tabindex="0">
-    <video v-show="showVideo" :ref="videoRef" playsinline autoplay muted :class="{ mirrored: isMirrored(id) }" :style="{ objectFit: fitContain ? 'contain' : 'cover' }" />
+    <video v-show="showVideo" :ref="videoRef" playsinline autoplay muted :class="videoClass" />
 
     <div class="icon-badge left" v-if="isReady(id)" aria-hidden="true">
       <img :src="iconReadyGreen" alt="ready" />
@@ -85,12 +85,12 @@
         <img v-if="seat != null && seatIcon" class="user-slot" :src="seatIcon" alt="seat" />
         <img class="user-avatar" v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar, lazy: false }" alt="avatar" />
         <span>{{ userName(id) }}</span>
-        <div class="status" v-if="!inGame || isGameHead">
-          <img v-if="isBlocked(id,'mic') || !isOn(id,'mic')" :src="stateIcon('mic', id)" alt="mic" />
-          <img v-if="isBlocked(id,'cam') || !isOn(id,'cam')" :src="stateIcon('cam', id)" alt="cam" />
-          <img v-if="isBlocked(id,'speakers') || !isOn(id,'speakers')" :src="stateIcon('speakers', id)" alt="spk" />
-          <img v-if="isBlocked(id,'visibility') || !isOn(id,'visibility')" :src="stateIcon('visibility', id)" alt="vis" />
-          <img v-if="isBlocked(id,'screen') || isOn(id,'screen')" :src="stateIcon('screen', id)" alt="scr" />
+        <div class="status" v-if="showHeaderStatus">
+          <img v-if="showMicStatus" :src="micStatusIcon" alt="mic" />
+          <img v-if="showCamStatus" :src="camStatusIcon" alt="cam" />
+          <img v-if="showSpeakersStatus" :src="speakersStatusIcon" alt="spk" />
+          <img v-if="showVisibilityStatus" :src="visibilityStatusIcon" alt="vis" />
+          <img v-if="showScreenStatus" :src="screenStatusIcon" alt="scr" />
         </div>
       </button>
 
@@ -98,7 +98,7 @@
         <div v-show="openPanel" class="card-body" @click.stop>
           <div v-if="id !== localId" class="volume">
             <img :src="volumeIcon" alt="vol" />
-            <input type="range" min="0" max="200" step="5" :disabled="!speakersOn || isBlocked(id,'speakers')"
+            <input type="range" min="0" max="200" step="5" :disabled="volumeDisabled"
                    :value="vol ?? 100" @input="$emit('vol-input', id, Number(($event.target as HTMLInputElement).value))" />
             <span>{{ vol ?? 100 }}%</span>
           </div>
@@ -111,10 +111,10 @@
           </div>
 
           <div v-if="!inGame && canModerate(id)" class="admin-row" aria-label="Блокировки">
-            <button @click="$emit('block','mic',id)" aria-label="block mic"><img :src="stateIcon('mic', id)" alt="mic" /></button>
-            <button @click="$emit('block','cam',id)" aria-label="block cam"><img :src="stateIcon('cam', id)" alt="cam" /></button>
-            <button @click="$emit('block','speakers',id)" aria-label="block speakers"><img :src="stateIcon('speakers', id)" alt="spk" /></button>
-            <button @click="$emit('block','screen',id)" aria-label="block screen"><img :src="stateIcon('screen', id)" alt="scr" /></button>
+            <button @click="$emit('block','mic',id)" aria-label="block mic"><img :src="micStatusIcon" alt="mic" /></button>
+            <button @click="$emit('block','cam',id)" aria-label="block cam"><img :src="camStatusIcon" alt="cam" /></button>
+            <button @click="$emit('block','speakers',id)" aria-label="block speakers"><img :src="speakersStatusIcon" alt="spk" /></button>
+            <button @click="$emit('block','screen',id)" aria-label="block screen"><img :src="screenStatusIcon" alt="scr" /></button>
             <button class="red-button" @click="$emit('kick', id)" aria-label="kick user"><img :src="iconLeaveRoom" alt="kick" /></button>
           </div>
         </div>
@@ -295,7 +295,43 @@ defineEmits<{
   (e: 'friend-action', id: string, kind: 'add' | 'remove' | 'incoming'): void
 }>()
 
-const showVideo = computed(() => !props.hiddenByVisibility && !props.offline && !props.isDead(props.id) && props.isOn(props.id, 'cam') && !props.isBlocked(props.id, 'cam'))
+const micBlocked = computed(() => props.isBlocked(props.id, 'mic'))
+const camBlocked = computed(() => props.isBlocked(props.id, 'cam'))
+const speakersBlocked = computed(() => props.isBlocked(props.id, 'speakers'))
+const visibilityBlocked = computed(() => props.isBlocked(props.id, 'visibility'))
+const screenBlocked = computed(() => props.isBlocked(props.id, 'screen'))
+
+const micOn = computed(() => props.isOn(props.id, 'mic'))
+const camOn = computed(() => props.isOn(props.id, 'cam'))
+const speakersEnabled = computed(() => props.isOn(props.id, 'speakers'))
+const visibilityEnabled = computed(() => props.isOn(props.id, 'visibility'))
+const screenEnabled = computed(() => props.isOn(props.id, 'screen'))
+
+const micStatusIcon = computed(() => props.stateIcon('mic', props.id))
+const camStatusIcon = computed(() => props.stateIcon('cam', props.id))
+const speakersStatusIcon = computed(() => props.stateIcon('speakers', props.id))
+const visibilityStatusIcon = computed(() => props.stateIcon('visibility', props.id))
+const screenStatusIcon = computed(() => props.stateIcon('screen', props.id))
+
+const showMicStatus = computed(() => micBlocked.value || !micOn.value)
+const showCamStatus = computed(() => camBlocked.value || !camOn.value)
+const showSpeakersStatus = computed(() => speakersBlocked.value || !speakersEnabled.value)
+const showVisibilityStatus = computed(() => visibilityBlocked.value || !visibilityEnabled.value)
+const showScreenStatus = computed(() => screenBlocked.value || screenEnabled.value)
+
+const showHeaderStatus = computed(() => !props.inGame || props.isGameHead)
+const volumeDisabled = computed(() => !props.speakersOn || speakersBlocked.value)
+const isDeadTile = computed(() => props.isDead(props.id))
+const showVideo = computed(() =>
+  !props.hiddenByVisibility &&
+  !props.offline &&
+  !isDeadTile.value &&
+  camOn.value &&
+  !camBlocked.value
+)
+const videoClass = computed(() =>
+  `${props.fitContain ? 'contain' : 'cover'}${props.isMirrored(props.id) ? ' mirrored' : ''}`
+)
 const openPanel = computed(() => props.openPanelFor === props.id)
 const liftNomineesSet = computed(() => new Set(props.liftNominees || []))
 const hasRolePickTimer = computed(() => props.rolePickOwnerId === props.id && (props.rolePickRemainingMs ?? 0) > 0)
@@ -363,9 +399,14 @@ const showFriendAction = computed(() => props.id !== props.localId && friendActi
   video {
     width: 100%;
     height: 100%;
-    object-fit: cover;
     border-radius: 5px;
     background-color: $black;
+    &.cover {
+      object-fit: cover;
+    }
+    &.contain {
+      object-fit: contain;
+    }
     &.mirrored {
       transform: scaleX(-1);
     }
