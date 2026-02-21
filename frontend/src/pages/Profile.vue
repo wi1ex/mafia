@@ -29,7 +29,7 @@
                 <input ref="fileEl" type="file" accept="image/jpeg,image/png" @change="onPick" :disabled="isBanned" hidden />
                 <button class="btn dark" @click="fileEl?.click()" :disabled="busyAva || isBanned">
                   <img class="btn-img" :src="iconEdit" alt="edit" />
-                  Изменить
+                  {{ me.avatar_name ? 'Изменить' : 'Загрузить' }}
                 </button>
                 <span class="hint">JPG/PNG, до 5 МБ</span>
                 <button class="btn danger" v-if="me.avatar_name" @click="onDeleteAvatar" :disabled="busyAva || isBanned">
