@@ -16,7 +16,7 @@ from ...models.notif import Notif
 from ...realtime.utils import get_rooms_brief
 from ...realtime.sio import sio
 from ...services.telegram import send_text_message
-from ...services.user_cache import get_user_profile_cached, get_user_profiles_cached
+from ...services.user_cache import get_user_profile_cached
 from ...schemas.common import Identity, Ok
 from ...schemas.friend import FriendStatusOut, FriendsListOut, FriendsListItemOut, FriendIncomingCountOut, FriendInviteIn
 from ...schemas.room import RoomBriefOut
@@ -98,20 +98,20 @@ async def friends_list(ident: Identity = Depends(get_identity), db: AsyncSession
     all_ids = set(friend_ids + incoming_ids + outgoing_ids)
     users_map: dict[int, dict[str, object]] = {}
     if all_ids:
-        profiles = await get_user_profiles_cached(db, all_ids)
         rows = await db.execute(
             select(
                 User.id,
+                User.username,
+                User.avatar_name,
                 User.telegram_id,
                 User.tg_invites_enabled,
             ).where(User.id.in_(all_ids))
         )
-        for rid, telegram_id, tg_invites_enabled in rows.all():
+        for rid, username, avatar_name, telegram_id, tg_invites_enabled in rows.all():
             uid_i = int(rid)
-            profile = profiles.get(uid_i) or {}
             users_map[uid_i] = {
-                "username": profile.get("username"),
-                "avatar_name": profile.get("avatar_name"),
+                "username": username,
+                "avatar_name": avatar_name,
                 "telegram_verified": bool(telegram_id),
                 "tg_invites_enabled": bool(tg_invites_enabled),
             }
