@@ -71,6 +71,7 @@ __all__ = [
     "advance_roles_turn",
     "emit_rooms_occupancy_safe",
     "emit_rooms_spectators_safe",
+    "get_public_spectators_count",
     "get_game_runtime_and_roles_view",
     "get_players_in_seat_order",
     "get_nominees_in_order",
@@ -1900,12 +1901,40 @@ async def emit_rooms_occupancy_safe(r, rid: int, occ: int) -> None:
     await emit_rooms_event_safe(r, rid, "rooms_occupancy", {"id": rid, "occupancy": occ_to_send})
 
 
+async def get_public_spectators_count(r, rid: int) -> int:
+    try:
+        raw_ids = await r.smembers(f"room:{rid}:spectators")
+    except Exception:
+        return 0
+
+    spectator_ids: set[int] = set()
+    for raw in raw_ids or []:
+        uid = _as_int(raw)
+        if uid > 0:
+            spectator_ids.add(uid)
+
+    if not spectator_ids:
+        return 0
+
+    try:
+        async with SessionLocal() as s:
+            profiles = await get_user_profiles_cached(s, spectator_ids)
+    except Exception:
+        profiles = {}
+
+    count = 0
+    for uid in spectator_ids:
+        profile = profiles.get(uid) or {}
+        if str(profile.get("role") or "user") == "admin":
+            continue
+        count += 1
+
+    return count
+
+
 async def emit_rooms_spectators_safe(r, rid: int, count: int | None = None) -> None:
     if count is None:
-        try:
-            count = int(await r.scard(f"room:{rid}:spectators") or 0)
-        except Exception:
-            count = 0
+        count = await get_public_spectators_count(r, rid)
 
     await emit_rooms_event_safe(r, rid, "rooms_spectators", {"id": rid, "spectators_count": count})
 

@@ -58,6 +58,7 @@ from ..utils import (
     emit_rooms_upsert_safe,
     emit_rooms_occupancy_safe,
     emit_rooms_spectators_safe,
+    get_public_spectators_count,
     get_game_runtime_and_roles_view,
     emit_state_changed_filtered,
     stop_screen_for_user,
@@ -202,7 +203,8 @@ async def join(sid, data) -> JoinAck:
                     spectators_limit = int(raw_game.get("spectators_limit") or 0)
                 except Exception:
                     spectators_limit = 0
-                if spectators_limit <= 0:
+                is_admin_user = base_role == "admin"
+                if spectators_limit <= 0 and not is_admin_user:
                     return {"ok": False, "error": "game_in_progress", "status": 409}
 
                 try:
@@ -210,12 +212,10 @@ async def join(sid, data) -> JoinAck:
                 except Exception:
                     already_spectator = False
                 if not already_spectator:
-                    try:
-                        spectators_count = int(await r.scard(f"room:{rid}:spectators") or 0)
-                    except Exception:
-                        spectators_count = 0
-                    if spectators_count >= spectators_limit:
-                        return {"ok": False, "error": "spectators_full", "status": 409}
+                    if not is_admin_user:
+                        spectators_count = await get_public_spectators_count(r, rid)
+                        if spectators_count >= spectators_limit:
+                            return {"ok": False, "error": "spectators_full", "status": 409}
 
                     spectator_added = bool(await r.sadd(f"room:{rid}:spectators", str(uid)))
 

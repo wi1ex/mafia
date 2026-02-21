@@ -37,7 +37,7 @@ from ..utils import (
     ensure_room_access_allowed,
     schedule_room_gc,
 )
-from ...realtime.utils import get_rooms_brief, filter_rooms_for_viewer
+from ...realtime.utils import get_rooms_brief, filter_rooms_for_viewer, get_public_spectators_count
 
 router = APIRouter()
 
@@ -189,10 +189,7 @@ async def room_info(room_id: int) -> RoomInfoOut:
         for m in raw_members
     ]
 
-    try:
-        spectators_count = int(await r.scard(f"room:{room_id}:spectators") or 0)
-    except Exception:
-        spectators_count = 0
+    spectators_count = await get_public_spectators_count(r, room_id)
 
     return RoomInfoOut(members=members, game=game, spectators_count=spectators_count)
 
