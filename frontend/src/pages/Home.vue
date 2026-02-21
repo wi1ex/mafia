@@ -1190,9 +1190,9 @@ onBeforeUnmount(() => {
       width: 300px;
       min-width: 300px;
       max-width: 300px;
-      min-height: 240px;
-      height: 240px;
-      max-height: 240px;
+      min-height: calc(100dvh - 70px);
+      height: calc(100dvh - 70px);
+      max-height: calc(100dvh - 70px);
       .room-info {
         header span {
           max-width: 250px;
@@ -1200,7 +1200,6 @@ onBeforeUnmount(() => {
         .ri-info {
           flex-direction: column;
           padding: 10px 10px 5px;
-          max-height: 130px;
           overflow: auto;
           .ri-meta-game {
             width: 100%;
@@ -1214,7 +1213,7 @@ onBeforeUnmount(() => {
         }
         .ri-actions {
           position: static;
-          margin-top: 5px;
+          margin: 5px;
         }
       }
     }
