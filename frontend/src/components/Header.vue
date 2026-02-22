@@ -3,7 +3,7 @@
     <div class="links">
       <router-link class="btn" :to="{ name: 'home' }" aria-label="DECEIT.games">
         <img :src="iconLogo" alt="" aria-hidden="true" />
-        <span data-nosnippet>v0.11.6b</span>
+        <span data-nosnippet>v0.11.7b</span>
 <!--        <span>deceit.games {{ BUILD }}</span>-->
       </router-link>
       <router-link class="btn" :to="{ name: 'rules' }" aria-label="Правила">
