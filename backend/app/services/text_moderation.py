@@ -14,59 +14,59 @@ TOKEN_RE = re.compile(r"[0-9A-Za-zА-Яа-яЁё_]+")
 
 OBFUSCATION_CHAR_MAP = str.maketrans(
     {
-        "a": "а",  # a -> Cyrillic a
-        "b": "в",  # b -> Cyrillic v
-        "c": "с",  # c -> Cyrillic s
-        "e": "е",  # e -> Cyrillic e
-        "h": "х",  # h -> Cyrillic kh
-        "i": "и",  # i -> Cyrillic i
-        "j": "й",  # j -> Cyrillic short i
-        "k": "к",  # k -> Cyrillic k
-        "m": "м",  # m -> Cyrillic m
-        "o": "о",  # o -> Cyrillic o
-        "p": "р",  # p -> Cyrillic r
-        "t": "т",  # t -> Cyrillic t
-        "u": "у",  # u -> Cyrillic u
-        "v": "в",  # v -> Cyrillic v
-        "x": "х",  # x -> Cyrillic kh
-        "y": "у",  # y -> Cyrillic u
-        "0": "о",  # 0 -> Cyrillic o
-        "1": "и",  # 1 -> Cyrillic i
-        "3": "з",  # 3 -> Cyrillic z
-        "4": "ч",  # 4 -> Cyrillic ch
-        "6": "б",  # 6 -> Cyrillic b
-        "8": "в",  # 8 -> Cyrillic v
-        "@": "а",  # @ -> Cyrillic a
-        "$": "с",  # $ -> Cyrillic s
+        "a": "а",
+        "b": "в",
+        "c": "с",
+        "e": "е",
+        "h": "х",
+        "i": "и",
+        "j": "й",
+        "k": "к",
+        "m": "м",
+        "o": "о",
+        "p": "р",
+        "t": "т",
+        "u": "у",
+        "v": "в",
+        "x": "х",
+        "y": "у",
+        "0": "о",
+        "1": "и",
+        "3": "з",
+        "4": "ч",
+        "6": "б",
+        "8": "в",
+        "@": "а",
+        "$": "с",
     }
 )
 
 OBFUSCATION_ALT_CHAR_MAP = str.maketrans(
     {
-        "a": "а",  # a -> Cyrillic a
-        "b": "в",  # b -> Cyrillic v
-        "c": "с",  # c -> Cyrillic s
-        "e": "е",  # e -> Cyrillic e
-        "h": "х",  # h -> Cyrillic kh
-        "i": "и",  # i -> Cyrillic i
-        "j": "й",  # j -> Cyrillic short i
-        "k": "к",  # k -> Cyrillic k
-        "m": "м",  # m -> Cyrillic m
-        "o": "о",  # o -> Cyrillic o
-        "p": "р",  # p -> Cyrillic r
-        "t": "т",  # t -> Cyrillic t
-        "u": "у",  # u -> Cyrillic u
-        "v": "в",  # v -> Cyrillic v
-        "x": "х",  # x -> Cyrillic kh
-        "y": "й",  # y -> Cyrillic short i
-        "0": "о",  # 0 -> Cyrillic o
-        "1": "и",  # 1 -> Cyrillic i
-        "3": "з",  # 3 -> Cyrillic z
-        "4": "ч",  # 4 -> Cyrillic ch
-        "6": "б",  # 6 -> Cyrillic b
-        "8": "в",  # 8 -> Cyrillic v
-        "@": "а",  # @ -> Cyrillic a
-        "$": "с",  # $ -> Cyrillic s
+        "a": "а",
+        "b": "в",
+        "c": "с",
+        "e": "е",
+        "h": "х",
+        "i": "и",
+        "j": "й",
+        "k": "к",
+        "m": "м",
+        "o": "о",
+        "p": "р",
+        "t": "т",
+        "u": "у",
+        "v": "в",
+        "x": "х",
+        "y": "й",
+        "0": "о",
+        "1": "и",
+        "3": "з",
+        "4": "ч",
+        "6": "б",
+        "8": "в",
+        "@": "а",
+        "$": "с",
     }
 )
 
