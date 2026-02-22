@@ -23,6 +23,7 @@ from ...core.settings import settings
 from ...core.logging import log_action
 from ...security.auth_tokens import get_identity
 from ...security.decorators import log_route, rate_limited
+from ...services.text_moderation import enforce_clean_text
 from ...schemas.common import Identity, Ok
 from ...schemas.user import (
     UserOut,
@@ -112,6 +113,8 @@ async def update_username(payload: UsernameUpdateIn, ident: Identity = Depends(g
     new = normalize_username(payload.username)
     if new.lower().startswith(("deleted_", "user_")):
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="invalid_username_format")
+
+    enforce_clean_text(field="username", label="Никнейм", value=new)
 
     user = await db.get(User, uid)
     if not user:

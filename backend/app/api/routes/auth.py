@@ -13,6 +13,7 @@ from ...security.auth_tokens import create_access_token, parse_refresh_token
 from ...security.passwords import hash_password, verify_password
 from ...security.sessions import new_login_session, rotate_refresh, logout as sess_logout
 from ...services.user_cache import write_user_profile_cache
+from ...services.text_moderation import enforce_clean_text
 from ...schemas.common import Ok
 from ...schemas.auth import AccessTokenOut, PasswordLoginIn, PasswordRegisterIn
 from ..utils import (
@@ -40,6 +41,8 @@ async def register(payload: PasswordRegisterIn, resp: Response, request: Request
     password = normalize_password(payload.password)
     if username.lower().startswith(("deleted_", "user_")):
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="invalid_username_format")
+
+    enforce_clean_text(field="username", label="Никнейм", value=username)
 
     exists_case_ins = await db.scalar(select(exists().where(func.lower(User.username) == username.lower())))
     if exists_case_ins:

@@ -193,6 +193,7 @@ import { storeToRefs } from 'pinia'
 import { api, refreshAccessTokenFull } from '@/services/axios'
 import { useAuthStore, useUserStore } from '@/store'
 import { confirmDialog, alertDialog } from '@/services/confirm'
+import { formatModerationAlert } from '@/services/moderation'
 import { formatLocalDateTime } from '@/services/datetime'
 
 import ToggleSwitch from '@/components/ToggleSwitch.vue'
@@ -391,8 +392,10 @@ async function saveNick() {
   } catch (e: any) {
     const st = e?.response?.status
     const d  = e?.response?.data?.detail
+    const moderationText = formatModerationAlert(d)
     if (st === 409 && d === 'username_taken')               void alertDialog('Данный никнейм уже занят')
     else if (st === 403 && d === 'user_banned')             void alertDialog('Аккаунт забанен. Изменение никнейма недоступно')
+    else if (st === 422 && moderationText)                  void alertDialog({ title: 'Отказ в сохранении', text: moderationText })
     else if (st === 422 && d === 'invalid_username_format') void alertDialog('Никнейм не должен начинаться с deleted_ или user_ и не должен содержать символы кроме ()._-')
     else                                                    void alertDialog('Не удалось сохранить никнейм')
   } finally { busyNick.value = false }

@@ -9,6 +9,7 @@ import {
 } from '@/services/axios'
 import { isPwaMode } from '@/services/pwa'
 import { alertDialog } from '@/services/confirm'
+import { formatModerationAlert } from '@/services/moderation'
 import {
   initSessionBus,
   setSid,
@@ -208,6 +209,7 @@ export const useAuthStore = defineStore('auth', () => {
     } catch (e: any) {
       const st = e?.response?.status
       const detail = e?.response?.data?.detail
+      const moderationText = formatModerationAlert(detail)
       if (st === 428 && detail === 'rules_required') {
         void alertDialog('Необходимо согласиться с правилами')
         return
@@ -216,6 +218,8 @@ export const useAuthStore = defineStore('auth', () => {
         void alertDialog('Регистрация временно недоступна')
       } else if (st === 409 && detail === 'username_taken') {
         void alertDialog('Никнейм уже занят')
+      } else if (st === 422 && moderationText) {
+        void alertDialog({ title: 'Отказ в регистрации', text: moderationText })
       } else if (st === 422 && detail === 'invalid_username_format') {
         void alertDialog('Никнейм не должен начинаться с deleted_ или user_ и не должен содержать символы кроме ()._-')
       } else if (st === 422 && detail === 'invalid_password') {

@@ -1,4 +1,4 @@
-from typing import TypedDict
+from typing import Any, TypedDict
 from pydantic import BaseModel, Field
 
 
@@ -7,7 +7,7 @@ class Ok(BaseModel):
 
 
 class ErrorOut(BaseModel):
-    detail: str
+    detail: str | dict[str, Any]
 
 
 class Identity(TypedDict):

@@ -20,7 +20,15 @@ def setup_exception_handlers(app: FastAPI) -> None:
         else:
             log.error("http_exception", status=status, detail=exc.detail)
 
-        return JSONResponse(ErrorOut(detail=str(exc.detail)).model_dump(), status_code=exc.status_code)
+        raw_detail = exc.detail
+        if isinstance(raw_detail, str):
+            detail = raw_detail
+        elif isinstance(raw_detail, dict):
+            detail = {str(k): v for k, v in raw_detail.items()}
+        else:
+            detail = str(raw_detail)
+
+        return JSONResponse(ErrorOut(detail=detail).model_dump(), status_code=exc.status_code)
 
     @app.exception_handler(Exception)
     async def _unhandled(_: Request, exc: Exception):

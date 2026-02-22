@@ -28,6 +28,7 @@ from ...schemas.room import (
 )
 from ...security.parameters import get_cached_settings
 from ...services.user_cache import get_user_profile_cached, get_user_profiles_cached
+from ...services.text_moderation import enforce_clean_text
 from ..utils import (
     emit_rooms_upsert,
     serialize_game_for_redis,
@@ -57,6 +58,8 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
     title = (payload.title or "").strip()
     if not title:
         raise HTTPException(status_code=422, detail="title_empty")
+
+    enforce_clean_text(field="title", label="Название комнаты", value=title)
 
     r = get_redis()
     total = int(await r.zcard("rooms:index") or 0)
