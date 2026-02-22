@@ -10,7 +10,7 @@ MAX_MATCHES = 5
 SUPPORTED_LANGUAGES: tuple[str, ...] = ("ru", "en")
 MIN_BAD_WORD_LEN = 3
 MAX_TOKEN_LEN_FOR_SCAN = 128
-TOKEN_RE = re.compile(r"[0-9A-Za-zА-Яа-яЁё_]+")
+TOKEN_RE = re.compile(r"[0-9A-Za-zА-Яа-яЁё_@$]+")
 
 OBFUSCATION_CHAR_MAP = str.maketrans(
     {
