@@ -5,9 +5,6 @@
         <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'profile' }" :aria-selected="activeTab === 'profile'" @click="activeTab = 'profile'">
           Профиль
         </button>
-        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'account' }" :aria-selected="activeTab === 'account'" @click="activeTab = 'account'">
-          Аккаунт
-        </button>
         <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'sanctions' }" :aria-selected="activeTab === 'sanctions'" @click="activeTab = 'sanctions'">
           Ограничения
         </button>
@@ -65,25 +62,6 @@
               off-label="Запретить" on-label="Разрешить" :disabled="tgInvitesTogglePending" @update:modelValue="onToggleTgInvites" />
           </div>
 
-          <div v-if="crop.show" ref="modalEl" class="modal" @keydown.esc="cancelCrop" tabindex="0" aria-modal="true" aria-label="Кадрирование аватара" >
-            <div class="modal-body">
-              <canvas ref="canvasEl" @mousedown="dragStart" @mousemove="dragMove" @mouseup="dragStop" @mouseleave="dragStop" @wheel.passive="onWheel" />
-              <div class="range">
-                <span>Масштаб</span>
-                <div class="range-wrap">
-                  <div class="range-track" :style="cropRangeFillStyle" aria-hidden="true"></div>
-                  <input class="range-native" type="range" aria-label="Масштаб" :min="crop.min" :max="crop.max" step="0.01" :value="crop.scale" @input="onRange" :disabled="isBanned" />
-                </div>
-              </div>
-              <div class="modal-actions">
-                <button class="btn danger" @click="cancelCrop">Отменить</button>
-                <button class="btn confirm" @click="applyCrop" :disabled="busyAva || isBanned">Загрузить</button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div v-else-if="activeTab === 'account'" class="grid">
           <div v-if="telegramVerified" class="block">
             <h3>Пароль</h3>
             <p v-if="passwordTemp" class="hint warn">У вас временный пароль — рекомендуем изменить его</p>
@@ -119,25 +97,37 @@
           <div class="block">
             <h3>Верификация через Telegram</h3>
             <div class="verify-row">
+              <p class="hint">Дата регистрации: {{ registrationDateLabel }}</p>
               <button v-if="telegramVerified" class="btn danger" @click="unlinkTelegram" :disabled="unlinkTgBusy">
                 {{ unlinkTgBusy ? '...' : 'Отвязать TG-аккаунт' }}
               </button>
               <a v-else-if="botName" class="btn confirm" :href="botLink" target="_blank" rel="noopener noreferrer">
                 Пройти верификацию
               </a>
-            </div>
-            <p v-if="telegramVerified" class="hint">Telegram-аккаунт привязан. Если отвязать его, верификация будет снята и вход в комнаты может быть ограничен.</p>
-            <p v-else class="hint">В чате с ботом сначала введите никнейм, затем пароль. После успешной верификации ограничения будут сняты (сможете входить в комнаты).</p>
-          </div>
-
-          <div class="block">
-            <h3>Удаление аккаунта</h3>
-            <div class="danger-row">
               <button class="btn danger" @click="deleteAccount" :disabled="deleteBusy || isProtectedAdminSelf">
                 {{ deleteBusy ? '...' : 'Удалить аккаунт' }}
               </button>
             </div>
+            <p v-if="telegramVerified" class="hint">Telegram-аккаунт привязан. Если отвязать его, верификация будет снята и вход в комнаты может быть ограничен настройками сайта.</p>
+            <p v-else class="hint">В чате с ботом сначала введите никнейм, затем пароль. После успешной верификации ограничения будут сняты (сможете входить в комнаты).</p>
             <p class="hint red">Удаление произойдет навсегда без возможности восстановления</p>
+          </div>
+
+          <div v-if="crop.show" ref="modalEl" class="modal" @keydown.esc="cancelCrop" tabindex="0" aria-modal="true" aria-label="Кадрирование аватара" >
+            <div class="modal-body">
+              <canvas ref="canvasEl" @mousedown="dragStart" @mousemove="dragMove" @mouseup="dragStop" @mouseleave="dragStop" @wheel.passive="onWheel" />
+              <div class="range">
+                <span>Масштаб</span>
+                <div class="range-wrap">
+                  <div class="range-track" :style="cropRangeFillStyle" aria-hidden="true"></div>
+                  <input class="range-native" type="range" aria-label="Масштаб" :min="crop.min" :max="crop.max" step="0.01" :value="crop.scale" @input="onRange" :disabled="isBanned" />
+                </div>
+              </div>
+              <div class="modal-actions">
+                <button class="btn danger" @click="cancelCrop">Отменить</button>
+                <button class="btn confirm" @click="applyCrop" :disabled="busyAva || isBanned">Загрузить</button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -221,6 +211,7 @@ const me = reactive({
   username: '',
   avatar_name: null as string | null,
   role: '',
+  registered_at: null as string | null,
   telegram_verified: false,
   password_temp: false,
   protected_user: false,
@@ -257,7 +248,7 @@ function underlineStyle(len: number, max: number) {
 const route = useRoute()
 const router = useRouter()
 
-const TAB_KEYS = ['profile', 'account', 'stats', 'sanctions'] as const
+const TAB_KEYS = ['profile', 'stats', 'sanctions'] as const
 type TabKey = typeof TAB_KEYS[number]
 
 function normalizeTab(v: unknown): TabKey {
@@ -325,6 +316,13 @@ const confirmPasswordInvalid = computed(() => {
 const currentPasswordUnderlineStyle = computed(() => underlineStyle(pwd.current.length, PASSWORD_MAX))
 const newPasswordUnderlineStyle = computed(() => underlineStyle(pwd.next.length, PASSWORD_MAX))
 const confirmPasswordUnderlineStyle = computed(() => underlineStyle(pwd.confirm.length, PASSWORD_MAX))
+const registrationDateLabel = computed(() => {
+  const raw = me.registered_at
+  if (!raw) return '-'
+  const dt = new Date(raw)
+  if (Number.isNaN(dt.getTime())) return '-'
+  return dt.toLocaleDateString('ru-RU')
+})
 
 function onToggleHotkeys(next: boolean) {
   if (hotkeysTogglePending.value) return
@@ -363,6 +361,7 @@ async function loadMe(options: { keepNickDraft?: boolean } = {}) {
   me.username = data.username || ''
   me.avatar_name = data.avatar_name
   me.role = data.role
+  me.registered_at = data.registered_at || null
   me.telegram_verified = Boolean(data.telegram_verified)
   me.password_temp = Boolean(data.password_temp)
   me.protected_user = Boolean(data.protected_user)
@@ -781,7 +780,7 @@ watch(activeTab, (tab) => {
     void loadSanctions(true)
     return
   }
-  if (tab === 'profile' || tab === 'account') void loadMe({ keepNickDraft: true })
+  if (tab === 'profile') void loadMe({ keepNickDraft: true })
 })
 
 onMounted(() => {
@@ -961,11 +960,6 @@ onBeforeUnmount(() => {
         }
         :deep(.profile-switch + .profile-switch) {
           margin-top: 10px;
-        }
-        .danger-row {
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
         }
         .hint {
           color: $grey;

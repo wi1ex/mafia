@@ -18,6 +18,7 @@ class UserOut(BaseModel):
     username: Optional[str] = None
     avatar_name: Optional[str] = None
     role: str
+    registered_at: Optional[datetime] = None
     telegram_verified: bool = False
     password_temp: bool = False
     protected_user: bool = False

@@ -180,7 +180,7 @@ export const useAuthStore = defineStore('auth', () => {
       onAuthorizedUserResolved(userStore.user?.id)
       if (userStore.passwordTemp) {
         const { default: router } = await import('@/router')
-        router.push({ name: 'profile', query: { tab: 'account' } }).catch(() => {})
+        router.push({ name: 'profile', query: { tab: 'profile' } }).catch(() => {})
       }
     } catch (e: any) {
       const st = e?.response?.status

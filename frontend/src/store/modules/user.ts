@@ -7,6 +7,7 @@ export interface UserProfile {
   username?: string
   avatar_name?: string | null
   role: string
+  registered_at?: string | null
   telegram_verified?: boolean
   password_temp?: boolean
   protected_user?: boolean

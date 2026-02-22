@@ -69,11 +69,11 @@ onMounted(async () => {
     const onProfile = route.name === 'profile'
     const tab = typeof route.query?.tab === 'string' ? route.query.tab : ''
     if (!onProfile) {
-      router.push({ name: 'profile', query: { tab: 'account' } }).catch(() => {})
+      router.push({ name: 'profile', query: { tab: 'profile' } }).catch(() => {})
       return
     }
-    if (tab !== 'account') {
-      router.replace({ query: { ...route.query, tab: 'account' } }).catch(() => {})
+    if (tab !== 'profile') {
+      router.replace({ query: { ...route.query, tab: 'profile' } }).catch(() => {})
     }
   }
   window.addEventListener('auth-telegram_verified', onTelegramVerified)
