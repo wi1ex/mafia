@@ -58,7 +58,7 @@
             <h3>Параметры</h3>
             <ToggleSwitch class="profile-switch" :model-value="hotkeysVisible" label="Подсказки для горячих клавиш"
               off-label="Скрыть" on-label="Показать" :disabled="hotkeysTogglePending" @update:modelValue="onToggleHotkeys" />
-            <ToggleSwitch class="profile-switch" :model-value="tgInvitesEnabled" label="Уведомления-приглашения в Telegram"
+            <ToggleSwitch class="profile-switch" :model-value="tgInvitesEnabled" label="Приглашения в Telegram"
               off-label="Запретить" on-label="Разрешить" :disabled="tgInvitesTogglePending" @update:modelValue="onToggleTgInvites" />
           </div>
 
