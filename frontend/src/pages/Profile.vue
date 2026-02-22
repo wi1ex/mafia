@@ -62,6 +62,25 @@
               off-label="Запретить" on-label="Разрешить" :disabled="tgInvitesTogglePending" @update:modelValue="onToggleTgInvites" />
           </div>
 
+          <div class="block">
+            <h3>Аккаунт</h3>
+            <div class="verify-row">
+              <p class="hint text">Дата регистрации: {{ registrationDateLabel }}</p>
+              <button v-if="telegramVerified" class="btn danger" @click="unlinkTelegram" :disabled="unlinkTgBusy">
+                {{ unlinkTgBusy ? '...' : 'Отвязать TG-аккаунт' }}
+              </button>
+              <a v-else-if="botName" class="btn confirm" :href="botLink" target="_blank" rel="noopener noreferrer">
+                Пройти верификацию
+              </a>
+              <p v-if="telegramVerified" class="hint">Telegram-аккаунт привязан. Если отвязать его, верификация будет снята и вход в комнаты будет ограничен</p>
+              <p v-else class="hint">В чате с ботом сначала введите никнейм, затем пароль. После успешной верификации ограничения на вход в комнаты будут сняты</p>
+              <button class="btn danger" @click="deleteAccount" :disabled="deleteBusy || isProtectedAdminSelf">
+                {{ deleteBusy ? '...' : 'Удалить аккаунт' }}
+              </button>
+              <p class="hint red">Удаление произойдет навсегда без возможности восстановления</p>
+            </div>
+          </div>
+
           <div v-if="telegramVerified" class="block">
             <h3>Пароль</h3>
             <p v-if="passwordTemp" class="hint warn">У вас временный пароль — рекомендуем изменить его</p>
@@ -92,25 +111,6 @@
               Если забыли пароль, используйте "Сбросить пароль" в
               <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">Telegram-боте</a>
             </p>
-          </div>
-
-          <div class="block">
-            <h3>Верификация через Telegram</h3>
-            <div class="verify-row">
-              <p class="hint">Дата регистрации: {{ registrationDateLabel }}</p>
-              <button v-if="telegramVerified" class="btn danger" @click="unlinkTelegram" :disabled="unlinkTgBusy">
-                {{ unlinkTgBusy ? '...' : 'Отвязать TG-аккаунт' }}
-              </button>
-              <a v-else-if="botName" class="btn confirm" :href="botLink" target="_blank" rel="noopener noreferrer">
-                Пройти верификацию
-              </a>
-              <button class="btn danger" @click="deleteAccount" :disabled="deleteBusy || isProtectedAdminSelf">
-                {{ deleteBusy ? '...' : 'Удалить аккаунт' }}
-              </button>
-            </div>
-            <p v-if="telegramVerified" class="hint">Telegram-аккаунт привязан. Если отвязать его, верификация будет снята и вход в комнаты может быть ограничен настройками сайта.</p>
-            <p v-else class="hint">В чате с ботом сначала введите никнейм, затем пароль. После успешной верификации ограничения будут сняты (сможете входить в комнаты).</p>
-            <p class="hint red">Удаление произойдет навсегда без возможности восстановления</p>
           </div>
 
           <div v-if="crop.show" ref="modalEl" class="modal" @keydown.esc="cancelCrop" tabindex="0" aria-modal="true" aria-label="Кадрирование аватара" >
@@ -820,7 +820,7 @@ onBeforeUnmount(() => {
     border: none;
     border-radius: 5px;
     background-color: $fg;
-    font-size: 14px;
+    font-size: 16px;
     color: $bg;
     font-family: Manrope-Medium;
     line-height: 1;
@@ -965,6 +965,10 @@ onBeforeUnmount(() => {
           color: $grey;
           font-size: 14px;
           text-align: center;
+          &.text {
+            font-size: 16px;
+            color: $fg;
+          }
           &.warn {
             color: $yellow;
           }
