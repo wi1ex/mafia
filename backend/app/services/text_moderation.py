@@ -10,7 +10,7 @@ MAX_MATCHES = 5
 SUPPORTED_LANGUAGES: tuple[str, ...] = ("ru", "en")
 MIN_BAD_WORD_LEN = 3
 MAX_TOKEN_LEN_FOR_SCAN = 128
-TOKEN_RE = re.compile(r"[0-9A-Za-zЀ-ӿ_]+")
+TOKEN_RE = re.compile(r"[0-9A-Za-zА-Яа-яЁё_]+")
 
 OBFUSCATION_CHAR_MAP = str.maketrans(
     {
@@ -211,14 +211,14 @@ def _scan_token(token: str, *, token_start: int, language: str, by_len: dict[int
             words = by_len[bad_len]
             max_offset = variant_len - bad_len
             for offset in range(max_offset + 1):
-                fragment = variant_text[offset : offset + bad_len]
+                fragment = variant_text[offset: offset + bad_len]
                 if fragment not in words:
                     continue
 
                 if has_direct_pos:
                     start = token_start + offset
                     end = start + bad_len
-                    word = token[offset : offset + bad_len]
+                    word = token[offset: offset + bad_len]
                     found.append(
                         {
                             "word": word[:64],
