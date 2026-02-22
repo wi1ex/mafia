@@ -200,11 +200,11 @@ def enforce_clean_text(*, field: str, label: str, value: str) -> None:
     words = [str(m.get("word")) for m in matches if m.get("word")]
     words_unique = list(dict.fromkeys(words))
     words_str = ", ".join(words_unique)
-    extra = f" Found: {words_str}." if words_str else ""
+    extra = f" Найдено: {words_str}." if words_str else ""
     detail: ModerationDetail = {
         "code": "inappropriate_text_detected",
         "field": field,
-        "message": f"{label} contains inappropriate words.{extra}",
+        "message": f"{label} содержит неподобающие слова.{extra}",
         "matches": matches,
     }
     raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=detail)
