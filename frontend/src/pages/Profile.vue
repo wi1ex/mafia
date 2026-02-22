@@ -116,12 +116,18 @@
             </p>
           </div>
 
-          <div v-else class="block">
+          <div class="block">
             <h3>Верификация через Telegram</h3>
             <div class="verify-row">
-              <a v-if="botName" class="btn confirm" :href="botLink" target="_blank" rel="noopener noreferrer">Пройти верификацию</a>
+              <button v-if="telegramVerified" class="btn danger" @click="unlinkTelegram" :disabled="unlinkTgBusy">
+                {{ unlinkTgBusy ? '...' : 'Отвязать TG-аккаунт' }}
+              </button>
+              <a v-else-if="botName" class="btn confirm" :href="botLink" target="_blank" rel="noopener noreferrer">
+                Пройти верификацию
+              </a>
             </div>
-            <p class="hint">В чате с ботом сначала введите никнейм, затем пароль. После успешной верификации ограничения будут сняты (сможете входить в комнаты).</p>
+            <p v-if="telegramVerified" class="hint">Telegram-аккаунт привязан. Если отвязать его, верификация будет снята и вход в комнаты может быть ограничен.</p>
+            <p v-else class="hint">В чате с ботом сначала введите никнейм, затем пароль. После успешной верификации ограничения будут сняты (сможете входить в комнаты).</p>
           </div>
 
           <div class="block">
@@ -290,6 +296,7 @@ const botName = (import.meta.env.VITE_TG_BOT_NAME as string || '').trim()
 const botLink = botName ? `https://t.me/${botName}` : 'https://t.me'
 const pwd = reactive({ current: '', next: '', confirm: '' })
 const pwdBusy = ref(false)
+const unlinkTgBusy = ref(false)
 const canChangePassword = computed(() =>
   pwd.current.length >= PASSWORD_MIN &&
   pwd.current.length <= PASSWORD_MAX &&
@@ -422,6 +429,30 @@ async function changePassword() {
     else if (st === 403 && d === 'user_deleted') void alertDialog('Аккаунт удален')
     else void alertDialog('Не удалось изменить пароль')
   } finally { pwdBusy.value = false }
+}
+
+async function unlinkTelegram() {
+  if (!telegramVerified.value || unlinkTgBusy.value) return
+  const ok = await confirmDialog({
+    title: 'Отвязать TG-аккаунт',
+    text: 'После отвязки Telegram-верификация будет снята. Продолжить?',
+    confirmText: 'Отвязать',
+    cancelText: 'Отмена',
+  })
+  if (!ok) return
+  unlinkTgBusy.value = true
+  try {
+    await api.post('/users/unverify')
+    await loadMe({ keepNickDraft: true })
+    void alertDialog('TG-аккаунт отвязан. Верификация снята.')
+  } catch (e: any) {
+    const st = e?.response?.status
+    const d = e?.response?.data?.detail
+    if (st === 403 && d === 'user_deleted') void alertDialog('Аккаунт удален')
+    else void alertDialog('Не удалось отвязать TG-аккаунт')
+  } finally {
+    unlinkTgBusy.value = false
+  }
 }
 
 async function deleteAccount() {

@@ -98,41 +98,6 @@ from ..utils import (
 
 router = APIRouter()
 
-LOG_ACTIONS_KNOWN = {
-    "avatar_deleted",
-    "avatar_updated",
-    "account_deleted",
-    "game_end",
-    "game_start",
-    "login",
-    "login_pwa",
-    "register",
-    "room_apply",
-    "room_approve",
-    "room_revoke",
-    "room_blocks",
-    "room_created",
-    "room_deleted",
-    "room_kick",
-    "stream_start",
-    "stream_stop",
-    "ui_prefs_updated",
-    "username_updated",
-    "sanction_timeout_add",
-    "sanction_timeout_remove",
-    "sanction_ban_add",
-    "sanction_ban_remove",
-    "sanction_suspend_add",
-    "sanction_suspend_remove",
-    "admin_telegram_unverify",
-    "admin_password_clear",
-    "friend_request_sent",
-    "friend_request_accepted",
-    "friend_request_declined",
-    "friend_removed",
-    "friend_room_invite",
-}
-
 @log_route("admin.settings_public")
 @router.get("/settings/public", response_model=PublicSettingsOut)
 async def public_settings(session: AsyncSession = Depends(get_session)) -> PublicSettingsOut:
@@ -296,8 +261,6 @@ async def site_stats(month: str | None = None, session: AsyncSession = Depends(g
 async def log_actions(session: AsyncSession = Depends(get_session)) -> AdminLogActionsOut:
     rows = await session.execute(select(AppLog.action).distinct().order_by(AppLog.action))
     actions = {str(r[0]) for r in rows.all() if r and r[0] is not None}
-    actions.update(LOG_ACTIONS_KNOWN)
-
     return AdminLogActionsOut(actions=sorted(actions))
 
 

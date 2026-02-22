@@ -192,7 +192,7 @@ async def update_ui_prefs(payload: UserUiPrefsIn, ident: Identity = Depends(get_
 
 
 @log_route("users.change_password")
-@rate_limited(lambda ident, **_: f"rl:change_password:{ident['id']}", limit=5, window_s=10)
+@rate_limited(lambda ident, **_: f"rl:change_password:{ident['id']}", limit=1, window_s=1)
 @router.patch("/password", response_model=Ok)
 async def change_password(payload: PasswordChangeIn, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> Ok:
     uid = int(ident["id"])
@@ -220,6 +220,36 @@ async def change_password(payload: PasswordChangeIn, ident: Identity = Depends(g
         username=ident["username"],
         action="password_changed",
         details=f"Смена пароля user_id={uid} username={ident['username']}",
+    )
+
+    return Ok()
+
+
+@log_route("users.unverify_telegram")
+@rate_limited(lambda ident, **_: f"rl:unverify_telegram:{ident['id']}", limit=1, window_s=1)
+@router.post("/unverify", response_model=Ok)
+async def unverify_telegram(ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> Ok:
+    uid = int(ident["id"])
+    user = await db.get(User, uid)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
+
+    if user.deleted_at:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="user_deleted")
+
+    prev_tg = user.telegram_id
+    if prev_tg is None:
+        return Ok()
+
+    user.telegram_id = None
+    await db.commit()
+
+    await log_action(
+        db,
+        user_id=uid,
+        username=ident["username"],
+        action="telegram_unverified_self",
+        details=f"Пользователь отвязал Telegram: user_id={uid} username={ident['username']} tg_id={prev_tg}",
     )
 
     return Ok()
