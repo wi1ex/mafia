@@ -72,7 +72,7 @@
               <a v-else-if="botName" class="btn confirm" :href="botLink" target="_blank" rel="noopener noreferrer">
                 Пройти верификацию
               </a>
-              <p v-if="telegramVerified" class="hint">Telegram-аккаунт привязан. Если отвязать его, верификация будет снята и вход в комнаты будет ограничен</p>
+              <p v-if="telegramVerified" class="hint">Если отвязать TG-аккаунт верификация будет снята и вход в комнаты будет ограничен</p>
               <p v-else class="hint">В чате с ботом сначала введите никнейм, затем пароль. После успешной верификации ограничения на вход в комнаты будут сняты</p>
               <button class="btn danger" @click="deleteAccount" :disabled="deleteBusy || isProtectedAdminSelf">
                 {{ deleteBusy ? '...' : 'Удалить аккаунт' }}
