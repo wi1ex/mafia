@@ -536,7 +536,7 @@ async def invite_friend(payload: FriendInviteIn, ident: Identity = Depends(get_i
         )
     else:
         room_url = f"https://{settings.DOMAIN}/room/{room_id}"
-        tg_text = f"{inviter_name} приглашает Вас в «{room_title}»\n{room_url}"
+        tg_text = f"**{inviter_name}** приглашает Вас в «**{room_title}**»\n{room_url}\n\nУведомления можно отключить в Личном кабинете\nhttps://deceit.games/profile"
         send_result = await send_text_message(chat_id=int(target.telegram_id or 0), text=tg_text)
         if not send_result.ok:
             if send_result.reason == "telegram_chat_unavailable":

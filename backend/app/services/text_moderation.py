@@ -8,10 +8,67 @@ from safetext import SafeText
 
 MAX_MATCHES = 5
 SUPPORTED_LANGUAGES: tuple[str, ...] = ("ru", "en")
+MIN_BAD_WORD_LEN = 3
+MAX_TOKEN_LEN_FOR_SCAN = 128
+TOKEN_RE = re.compile(r"[0-9A-Za-zЀ-ӿ_]+")
 
-AGGRESSIVE_JOIN_LANGUAGES: tuple[str, ...] = ("ru",)
-MIN_EDGE_WORD_LEN = 3
-TOKEN_RE = re.compile(r"[0-9A-Za-zА-Яа-яЁё_]+")
+OBFUSCATION_CHAR_MAP = str.maketrans(
+    {
+        "a": "а",  # a -> Cyrillic a
+        "b": "в",  # b -> Cyrillic v
+        "c": "с",  # c -> Cyrillic s
+        "e": "е",  # e -> Cyrillic e
+        "h": "х",  # h -> Cyrillic kh
+        "i": "и",  # i -> Cyrillic i
+        "j": "й",  # j -> Cyrillic short i
+        "k": "к",  # k -> Cyrillic k
+        "m": "м",  # m -> Cyrillic m
+        "o": "о",  # o -> Cyrillic o
+        "p": "р",  # p -> Cyrillic r
+        "t": "т",  # t -> Cyrillic t
+        "u": "у",  # u -> Cyrillic u
+        "v": "в",  # v -> Cyrillic v
+        "x": "х",  # x -> Cyrillic kh
+        "y": "у",  # y -> Cyrillic u
+        "0": "о",  # 0 -> Cyrillic o
+        "1": "и",  # 1 -> Cyrillic i
+        "3": "з",  # 3 -> Cyrillic z
+        "4": "ч",  # 4 -> Cyrillic ch
+        "6": "б",  # 6 -> Cyrillic b
+        "8": "в",  # 8 -> Cyrillic v
+        "@": "а",  # @ -> Cyrillic a
+        "$": "с",  # $ -> Cyrillic s
+    }
+)
+
+OBFUSCATION_ALT_CHAR_MAP = str.maketrans(
+    {
+        "a": "а",  # a -> Cyrillic a
+        "b": "в",  # b -> Cyrillic v
+        "c": "с",  # c -> Cyrillic s
+        "e": "е",  # e -> Cyrillic e
+        "h": "х",  # h -> Cyrillic kh
+        "i": "и",  # i -> Cyrillic i
+        "j": "й",  # j -> Cyrillic short i
+        "k": "к",  # k -> Cyrillic k
+        "m": "м",  # m -> Cyrillic m
+        "o": "о",  # o -> Cyrillic o
+        "p": "р",  # p -> Cyrillic r
+        "t": "т",  # t -> Cyrillic t
+        "u": "у",  # u -> Cyrillic u
+        "v": "в",  # v -> Cyrillic v
+        "x": "х",  # x -> Cyrillic kh
+        "y": "й",  # y -> Cyrillic short i
+        "0": "о",  # 0 -> Cyrillic o
+        "1": "и",  # 1 -> Cyrillic i
+        "3": "з",  # 3 -> Cyrillic z
+        "4": "ч",  # 4 -> Cyrillic ch
+        "6": "б",  # 6 -> Cyrillic b
+        "8": "в",  # 8 -> Cyrillic v
+        "@": "а",  # @ -> Cyrillic a
+        "$": "с",  # $ -> Cyrillic s
+    }
+)
 
 
 class ModerationMatch(TypedDict, total=False):
@@ -31,12 +88,28 @@ class ModerationDetail(TypedDict):
 def _to_int(raw: Any) -> int | None:
     try:
         return int(raw)
+
     except Exception:
         return None
 
 
-def _normalize_for_join_scan(value: str) -> str:
+def _normalize_basic(value: str) -> str:
     return unicodedata.normalize("NFKC", str(value or "")).lower().replace("ё", "е")
+
+
+def _normalize_obfuscated(value: str) -> str:
+    normalized = _normalize_basic(value)
+    return normalized.translate(OBFUSCATION_CHAR_MAP)
+
+
+def _normalize_obfuscated_alt(value: str) -> str:
+    normalized = _normalize_basic(value)
+    return normalized.translate(OBFUSCATION_ALT_CHAR_MAP)
+
+
+def _normalize_bad_word(raw_word: str) -> str:
+    word = _normalize_basic(raw_word).strip()
+    return word.replace("_", "")
 
 
 @lru_cache(maxsize=1)
@@ -45,12 +118,10 @@ def _get_detectors() -> tuple[tuple[str, SafeText], ...]:
 
 
 @lru_cache(maxsize=1)
-def _get_join_edge_indexes() -> dict[str, dict[int, set[str]]]:
+def _get_bad_words_index() -> dict[str, dict[int, set[str]]]:
     out: dict[str, dict[int, set[str]]] = {}
-    for language, detector in _get_detectors():
-        if language not in AGGRESSIVE_JOIN_LANGUAGES:
-            continue
 
+    for language, detector in _get_detectors():
         checker = getattr(detector, "checker", None)
         profanity_words = getattr(checker, "_profanity_words", None)
         if not isinstance(profanity_words, list):
@@ -60,11 +131,13 @@ def _get_join_edge_indexes() -> dict[str, dict[int, set[str]]]:
         for raw_word in profanity_words:
             if not isinstance(raw_word, str):
                 continue
-            word = _normalize_for_join_scan(raw_word.strip())
+
+            word = _normalize_bad_word(raw_word)
             if not word or " " in word:
                 continue
-            if len(word) < MIN_EDGE_WORD_LEN:
+            if len(word) < MIN_BAD_WORD_LEN:
                 continue
+
             by_len.setdefault(len(word), set()).add(word)
 
         if by_len:
@@ -95,50 +168,99 @@ def _normalize_match(raw: Any, *, text: str, language: str) -> ModerationMatch |
     return match
 
 
-def _scan_joined_tokens(text: str) -> list[ModerationMatch]:
-    indexes = _get_join_edge_indexes()
+def _scan_token(token: str, *, token_start: int, language: str, by_len: dict[int, set[str]]) -> list[ModerationMatch]:
+    if not token:
+        return []
+
+    variants: list[tuple[str, str, bool]] = []
+    basic = _normalize_basic(token)
+    if basic:
+        variants.append(("basic", basic, True))
+
+    obfuscated = _normalize_obfuscated(token)
+    if obfuscated and obfuscated != basic:
+        variants.append(("obfuscated", obfuscated, True))
+
+    obfuscated_alt = _normalize_obfuscated_alt(token)
+    if obfuscated_alt and obfuscated_alt not in {basic, obfuscated}:
+        variants.append(("obfuscated_alt", obfuscated_alt, True))
+
+    compact = obfuscated.replace("_", "")
+    if compact and compact != obfuscated:
+        variants.append(("compact", compact, False))
+
+    compact_alt = obfuscated_alt.replace("_", "")
+    if compact_alt and compact_alt not in {obfuscated_alt, compact}:
+        variants.append(("compact_alt", compact_alt, False))
+
+    dedup: dict[str, tuple[str, bool]] = {}
+    for variant_name, variant_text, has_direct_pos in variants:
+        dedup.setdefault(variant_text, (variant_name, has_direct_pos))
+
+    found: list[ModerationMatch] = []
+    sorted_lengths = sorted(by_len.keys())
+    for variant_text, (_, has_direct_pos) in dedup.items():
+        variant_len = len(variant_text)
+        if variant_len < MIN_BAD_WORD_LEN:
+            continue
+
+        for bad_len in sorted_lengths:
+            if bad_len > variant_len:
+                break
+
+            words = by_len[bad_len]
+            max_offset = variant_len - bad_len
+            for offset in range(max_offset + 1):
+                fragment = variant_text[offset : offset + bad_len]
+                if fragment not in words:
+                    continue
+
+                if has_direct_pos:
+                    start = token_start + offset
+                    end = start + bad_len
+                    word = token[offset : offset + bad_len]
+                    found.append(
+                        {
+                            "word": word[:64],
+                            "start": start,
+                            "end": end,
+                            "language": language,
+                        }
+                    )
+                else:
+                    found.append(
+                        {
+                            "word": token[:64],
+                            "start": token_start,
+                            "end": token_start + len(token),
+                            "language": language,
+                        }
+                    )
+
+    return found
+
+
+def _scan_obfuscated_tokens(text: str) -> list[ModerationMatch]:
+    indexes = _get_bad_words_index()
     if not indexes:
         return []
 
     found: list[ModerationMatch] = []
-    for tok in TOKEN_RE.finditer(text):
-        token = tok.group(0)
-        norm_token = _normalize_for_join_scan(token)
-        token_len = len(norm_token)
-        if token_len < MIN_EDGE_WORD_LEN + 1:
+    for token_match in TOKEN_RE.finditer(text):
+        token = token_match.group(0)
+        if len(token) < MIN_BAD_WORD_LEN or len(token) > MAX_TOKEN_LEN_FOR_SCAN:
             continue
 
-        token_start = tok.start()
+        token_start = token_match.start()
         for language, by_len in indexes.items():
-            for bad_len, words_set in by_len.items():
-                if token_len <= bad_len:
-                    continue
-
-                prefix = norm_token[:bad_len]
-                if prefix in words_set:
-                    start = token_start
-                    end = token_start + bad_len
-                    found.append(
-                        {
-                            "word": text[start:end][:64],
-                            "start": start,
-                            "end": end,
-                            "language": language,
-                        }
-                    )
-
-                suffix = norm_token[token_len - bad_len :]
-                if suffix in words_set:
-                    start = token_start + (token_len - bad_len)
-                    end = token_start + token_len
-                    found.append(
-                        {
-                            "word": text[start:end][:64],
-                            "start": start,
-                            "end": end,
-                            "language": language,
-                        }
-                    )
+            found.extend(
+                _scan_token(
+                    token,
+                    token_start=token_start,
+                    language=language,
+                    by_len=by_len,
+                )
+            )
 
     return found
 
@@ -150,33 +272,51 @@ def detect_inappropriate_text(text: str) -> list[ModerationMatch]:
 
     found: list[ModerationMatch] = []
     seen: set[tuple[str, int | None, int | None, str]] = set()
+
+    variants: list[tuple[str, str]] = [("raw", value)]
+    obfuscated_value = _normalize_obfuscated(value)
+    if obfuscated_value != value:
+        variants.append(("obfuscated", obfuscated_value))
+    obfuscated_alt_value = _normalize_obfuscated_alt(value)
+    if obfuscated_alt_value not in {value, obfuscated_value}:
+        variants.append(("obfuscated_alt", obfuscated_alt_value))
+
     for language, detector in _get_detectors():
-        try:
-            raw_matches = detector.check_profanity(text=value) or []
-        except Exception:
-            continue
 
-        if isinstance(raw_matches, dict):
-            raw_matches = [raw_matches]
-        if not isinstance(raw_matches, list):
-            continue
-
-        for raw in raw_matches:
-            match = _normalize_match(raw, text=value, language=language)
-            if not match:
+        for variant_name, variant_value in variants:
+            try:
+                raw_matches = detector.check_profanity(text=variant_value) or []
+            except Exception:
                 continue
-            key = (
-                match.get("word", "").lower(),
-                match.get("start"),
-                match.get("end"),
-                match.get("language", language),
-            )
-            if key in seen:
-                continue
-            seen.add(key)
-            found.append(match)
 
-    for match in _scan_joined_tokens(value):
+            if isinstance(raw_matches, dict):
+                raw_matches = [raw_matches]
+            if not isinstance(raw_matches, list):
+                continue
+
+            for raw in raw_matches:
+                match = _normalize_match(raw, text=variant_value, language=language)
+                if not match:
+                    continue
+
+                key = (
+                    match.get("word", "").lower(),
+                    match.get("start"),
+                    match.get("end"),
+                    match.get("language", language),
+                )
+                if key in seen:
+                    continue
+                seen.add(key)
+
+                if variant_name == "obfuscated":
+                    match = {
+                        "word": str(match.get("word", ""))[:64],
+                        "language": str(match.get("language", language))[:8],
+                    }
+                found.append(match)
+
+    for match in _scan_obfuscated_tokens(value):
         key = (
             match.get("word", "").lower(),
             match.get("start"),
@@ -197,14 +337,10 @@ def enforce_clean_text(*, field: str, label: str, value: str) -> None:
     if not matches:
         return
 
-    words = [str(m.get("word")) for m in matches if m.get("word")]
-    words_unique = list(dict.fromkeys(words))
-    words_str = ", ".join(words_unique)
-    extra = f" Найдено: {words_str}." if words_str else ""
     detail: ModerationDetail = {
         "code": "inappropriate_text_detected",
         "field": field,
-        "message": f"{label} содержит неподобающие слова.{extra}",
+        "message": f"{label} содержит неподобающие слова.",
         "matches": matches,
     }
     raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=detail)
