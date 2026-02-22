@@ -20,6 +20,7 @@ class UserOut(BaseModel):
     role: str
     registered_at: Optional[datetime] = None
     telegram_verified: bool = False
+    has_password: bool = False
     password_temp: bool = False
     protected_user: bool = False
     hotkeys_visible: bool = True

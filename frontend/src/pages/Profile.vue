@@ -81,7 +81,7 @@
             </div>
           </div>
 
-          <div v-if="telegramVerified" class="block">
+          <div v-if="me.has_password" class="block">
             <h3>Пароль</h3>
             <p v-if="passwordTemp" class="hint warn">У вас временный пароль — рекомендуем изменить его</p>
             <div class="password-row">
@@ -213,6 +213,7 @@ const me = reactive({
   role: '',
   registered_at: null as string | null,
   telegram_verified: false,
+  has_password: false,
   password_temp: false,
   protected_user: false,
   tg_invites_enabled: true,
@@ -363,6 +364,7 @@ async function loadMe(options: { keepNickDraft?: boolean } = {}) {
   me.role = data.role
   me.registered_at = data.registered_at || null
   me.telegram_verified = Boolean(data.telegram_verified)
+  me.has_password = Boolean(data.has_password)
   me.password_temp = Boolean(data.password_temp)
   me.protected_user = Boolean(data.protected_user)
   me.tg_invites_enabled = data.tg_invites_enabled !== false

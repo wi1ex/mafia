@@ -65,6 +65,7 @@ async def profile_info(ident: Identity = Depends(get_identity), db: AsyncSession
         role=user.role,
         registered_at=user.registered_at,
         telegram_verified=bool(user.telegram_id),
+        has_password=bool(user.password_hash),
         password_temp=bool(user.password_temp),
         protected_user=is_protected_admin(uid),
         hotkeys_visible=bool(user.hotkeys_visible),
