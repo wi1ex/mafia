@@ -332,6 +332,31 @@ def detect_inappropriate_text(text: str) -> list[ModerationMatch]:
     return found[:MAX_MATCHES]
 
 
+def _build_moderation_message(*, label: str, matches: list[ModerationMatch]) -> str:
+    words: list[str] = []
+    seen: set[str] = set()
+    for match in matches:
+        raw_word = match.get("word")
+        if not isinstance(raw_word, str):
+            continue
+
+        word = raw_word.strip()
+        if not word:
+            continue
+
+        key = _normalize_obfuscated_alt(_normalize_obfuscated(word)).replace("_", "")
+        if key in seen:
+            continue
+
+        seen.add(key)
+        words.append(word)
+
+    if not words:
+        return f"{label} содержит неподобающие слова."
+
+    return f"{label} содержит неподобающие слова: {', '.join(words)}."
+
+
 def enforce_clean_text(*, field: str, label: str, value: str) -> None:
     matches = detect_inappropriate_text(value)
     if not matches:
@@ -340,7 +365,7 @@ def enforce_clean_text(*, field: str, label: str, value: str) -> None:
     detail: ModerationDetail = {
         "code": "inappropriate_text_detected",
         "field": field,
-        "message": f"{label} содержит неподобающие слова.",
+        "message": _build_moderation_message(label=label, matches=matches),
         "matches": matches,
     }
     raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=detail)
