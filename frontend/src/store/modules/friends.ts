@@ -16,6 +16,7 @@ export type FriendListItem = {
   room_id?: number | null
   room_title?: string | null
   room_in_game?: boolean | null
+  room_invited?: boolean | null
   telegram_verified?: boolean
   tg_invites_enabled?: boolean
   requested_at?: string | null
@@ -33,23 +34,35 @@ export const useFriendsStore = defineStore('friends', () => {
   let refreshTimer: number | undefined
   let listLoading = false
   let listQueued = false
+  let listQueuedRoomId: number | null = null
   let countLoading = false
   let countQueued = false
 
-  async function fetchList(): Promise<void> {
+  function normalizeRoomId(roomId?: number | null): number | null {
+    const rid = Number(roomId || 0)
+    if (!Number.isFinite(rid) || rid <= 0) return null
+    return Math.trunc(rid)
+  }
+
+  async function fetchList(roomId?: number | null): Promise<void> {
+    const normalizedRoomId = normalizeRoomId(roomId)
     if (listLoading) {
       listQueued = true
+      listQueuedRoomId = normalizedRoomId
       return
     }
     listLoading = true
     try {
-      const { data } = await api.get<FriendsListResponse>('/friends/list')
+      const reqCfg = normalizedRoomId ? { params: { room_id: normalizedRoomId } } : undefined
+      const { data } = await api.get<FriendsListResponse>('/friends/list', reqCfg)
       list.value = Array.isArray(data?.items) ? data.items : []
     } finally {
       listLoading = false
       if (listQueued) {
         listQueued = false
-        void fetchList()
+        const queuedRoomId = listQueuedRoomId
+        listQueuedRoomId = null
+        void fetchList(queuedRoomId)
       }
     }
   }

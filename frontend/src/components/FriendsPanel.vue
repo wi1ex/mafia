@@ -83,12 +83,10 @@ const friends = useFriendsStore()
 const confirmState = useConfirmState()
 const root = ref<HTMLElement | null>(null)
 const inviteBusy = reactive<Record<number, boolean>>({})
-const inviteCooldownByUser = ref<Record<string, number>>({})
-const nowTs = ref(Date.now())
-let nowTimer: number | undefined
 const isRoomMode = computed(() => props.mode === 'room')
 const inviteRoomId = computed(() => Number(props.roomId || 0))
 const isAccepted = (f: { kind?: string }) => f.kind === 'online' || f.kind === 'offline'
+const currentListRoomId = () => (isRoomMode.value && inviteRoomId.value > 0 ? inviteRoomId.value : null)
 const canInvite = (f: { kind?: string; room_id?: number | null }) => {
   if (!isRoomMode.value || inviteRoomId.value <= 0 || !isAccepted(f)) return false
   return Number(f.room_id || 0) !== inviteRoomId.value
@@ -110,76 +108,6 @@ let pollTimer: number | undefined
 let autoCloseTimer: number | undefined
 const POLL_MS = 3000
 const AUTO_CLOSE_MS = 5 * 60 * 1000
-const INVITE_COOLDOWN_MS = 30 * 60 * 1000
-
-function parseCooldownMap(raw: unknown, now = Date.now()): Record<string, number> {
-  if (!raw || typeof raw !== 'object') return {}
-  const obj = raw as Record<string, unknown>
-  const next: Record<string, number> = {}
-  for (const [keyRaw, untilRaw] of Object.entries(obj)) {
-    const until = Number(untilRaw)
-    if (!Number.isFinite(until) || until <= now) continue
-    const [ridRaw, uidRaw] = String(keyRaw).split(':')
-    const rid = Number(ridRaw)
-    const uid = Number(uidRaw)
-    if (!Number.isFinite(rid) || rid <= 0 || !Number.isFinite(uid) || uid <= 0) continue
-    const key = `${Math.trunc(rid)}:${Math.trunc(uid)}`
-    next[key] = until
-  }
-  return next
-}
-
-function inviteCooldownKey(uid: number, roomId = inviteRoomId.value): string {
-  const rid = Number(roomId)
-  const targetUid = Number(uid)
-  if (!Number.isFinite(rid) || rid <= 0 || !Number.isFinite(targetUid) || targetUid <= 0) return ''
-  return `${Math.trunc(rid)}:${Math.trunc(targetUid)}`
-}
-
-function persistCooldowns() {
-  try {
-    localStorage.setItem('friends_invites', JSON.stringify(inviteCooldownByUser.value))
-  } catch {}
-}
-
-function loadCooldowns() {
-  try {
-    const raw = localStorage.getItem('friends_invites')
-    if (!raw) {
-      inviteCooldownByUser.value = {}
-      return
-    }
-    inviteCooldownByUser.value = parseCooldownMap(JSON.parse(raw))
-  } catch {
-    inviteCooldownByUser.value = {}
-  }
-}
-
-function pruneCooldowns(now = Date.now()) {
-  const next = parseCooldownMap(inviteCooldownByUser.value, now)
-  const changed = JSON.stringify(next) !== JSON.stringify(inviteCooldownByUser.value)
-  if (!changed) return
-  inviteCooldownByUser.value = next
-  persistCooldowns()
-}
-
-function setInviteCooldown(uid: number, roomId = inviteRoomId.value, untilTs = Date.now() + INVITE_COOLDOWN_MS) {
-  const key = inviteCooldownKey(uid, roomId)
-  if (!key) return
-  inviteCooldownByUser.value = {
-    ...inviteCooldownByUser.value,
-    [key]: untilTs,
-  }
-  pruneCooldowns()
-  persistCooldowns()
-}
-
-function inviteCooldownLeftMs(uid: number, roomId = inviteRoomId.value): number {
-  const key = inviteCooldownKey(uid, roomId)
-  if (!key) return 0
-  const until = Number(inviteCooldownByUser.value[key] || 0)
-  return Math.max(0, until - nowTs.value)
-}
 
 function inviteBlockedReason(friend: { kind?: string; telegram_verified?: boolean; tg_invites_enabled?: boolean }): string {
   if (friend.kind !== 'offline') return ''
@@ -188,39 +116,19 @@ function inviteBlockedReason(friend: { kind?: string; telegram_verified?: boolea
   return ''
 }
 
-function formatCooldownLeft(ms: number): string {
-  const totalMinutes = Math.max(1, Math.ceil(ms / 60000))
-  if (totalMinutes >= 60) {
-    const h = Math.floor(totalMinutes / 60)
-    const m = totalMinutes % 60
-    return m > 0 ? `${h} ч ${m} мин` : `${h} ч`
-  }
-  return `${totalMinutes} мин`
+function isAlreadyInvited(friend: { room_invited?: boolean | null }): boolean {
+  return Boolean(friend.room_invited)
 }
 
-function isInviteDisabled(friend: { id: number; kind?: string; telegram_verified?: boolean; tg_invites_enabled?: boolean }): boolean {
+function isInviteDisabled(friend: { id: number; kind?: string; telegram_verified?: boolean; tg_invites_enabled?: boolean; room_invited?: boolean | null }): boolean {
   const uid = Number(friend.id || 0)
   if (uid <= 0) return true
   if (inviteBlockedReason(friend)) return true
-  return inviteCooldownLeftMs(uid) > 0
+  return isAlreadyInvited(friend)
 }
 
 function inviteIcon(friend: { kind?: string }): string {
   return friend.kind === 'offline' ? iconInviteOffline : iconInviteOnline
-}
-
-function startNowTimer() {
-  if (nowTimer) return
-  nowTimer = window.setInterval(() => {
-    nowTs.value = Date.now()
-    pruneCooldowns(nowTs.value)
-  }, 30_000)
-}
-
-function stopNowTimer() {
-  if (!nowTimer) return
-  window.clearInterval(nowTimer)
-  nowTimer = undefined
 }
 
 function bindDoc() {
@@ -245,9 +153,9 @@ function unbindDoc() {
 
 function startPolling() {
   if (pollTimer) return
-  void friends.fetchList()
+  void friends.fetchList(currentListRoomId())
   pollTimer = window.setInterval(() => {
-    void friends.fetchList()
+    void friends.fetchList(currentListRoomId())
   }, POLL_MS)
 }
 
@@ -271,7 +179,7 @@ function stopAutoClose() {
   autoCloseTimer = undefined
 }
 
-async function invite(friend: { id: number; username?: string | null; kind?: string; telegram_verified?: boolean; tg_invites_enabled?: boolean }) {
+async function invite(friend: { id: number; username?: string | null; kind?: string; telegram_verified?: boolean; tg_invites_enabled?: boolean; room_invited?: boolean | null }) {
   const uid = Number(friend.id || 0)
   if (!inviteRoomId.value || uid <= 0) return
   if (inviteBusy[uid]) return
@@ -280,9 +188,8 @@ async function invite(friend: { id: number; username?: string | null; kind?: str
     void alertDialog(blockedReason)
     return
   }
-  const leftMs = inviteCooldownLeftMs(uid)
-  if (leftMs > 0) {
-    void alertDialog(`Приглашение можно отправить через ${formatCooldownLeft(leftMs)}`)
+  if (isAlreadyInvited(friend)) {
+    void alertDialog('Пользователь уже приглашен в эту комнату')
     return
   }
   const ok = await confirmDialog({
@@ -295,7 +202,7 @@ async function invite(friend: { id: number; username?: string | null; kind?: str
   inviteBusy[uid] = true
   try {
     await friends.inviteToRoom(uid, inviteRoomId.value)
-    setInviteCooldown(uid, inviteRoomId.value)
+    await friends.fetchList(currentListRoomId())
   } catch (e: any) {
     const st = e?.response?.status
     const d = e?.response?.data?.detail
@@ -327,15 +234,14 @@ async function invite(friend: { id: number; username?: string | null; kind?: str
       void alertDialog('Пользователь больше не в друзьях')
       return
     }
-    if (st === 429 && d === 'invite_cooldown') {
-      const retryAfterRaw = Number(e?.response?.headers?.['retry-after'])
-      if (Number.isFinite(retryAfterRaw) && retryAfterRaw > 0) {
-        setInviteCooldown(uid, inviteRoomId.value, Date.now() + retryAfterRaw * 1000)
-        void alertDialog(`Приглашение можно отправить через ${formatCooldownLeft(retryAfterRaw * 1000)}`)
-      } else {
-        setInviteCooldown(uid, inviteRoomId.value)
-        void alertDialog('Приглашение можно отправить через 30 минут')
-      }
+    if (st === 409 && d === 'target_already_in_room') {
+      void alertDialog('Пользователь уже находится в этой комнате')
+      await friends.fetchList(currentListRoomId())
+      return
+    }
+    if (st === 409 && d === 'room_invite_already_sent') {
+      void alertDialog('Пользователь уже приглашен в эту комнату')
+      await friends.fetchList(currentListRoomId())
       return
     }
     void alertDialog('Не удалось отправить приглашение')
@@ -354,7 +260,7 @@ async function remove(uid: number) {
   if (!ok) return
   try {
     await friends.removeFriend(uid)
-    await friends.fetchList()
+    await friends.fetchList(currentListRoomId())
   } catch {
     void alertDialog('Не удалось удалить из друзей')
   }
@@ -370,7 +276,7 @@ async function accept(uid: number) {
   if (!ok) return
   try {
     await friends.acceptRequest(uid)
-    await friends.fetchList()
+    await friends.fetchList(currentListRoomId())
   } catch {
     void alertDialog('Не удалось принять запрос')
   }
@@ -386,7 +292,7 @@ async function decline(uid: number) {
   if (!ok) return
   try {
     await friends.declineRequest(uid)
-    await friends.fetchList()
+    await friends.fetchList(currentListRoomId())
   } catch {
     void alertDialog('Не удалось отклонить запрос')
   }
@@ -395,16 +301,13 @@ async function decline(uid: number) {
 watch(() => props.open, async v => {
   if (v) {
     await nextTick()
-    loadCooldowns()
     bindDoc()
     startPolling()
     startAutoClose()
-    startNowTimer()
   } else {
     unbindDoc()
     stopPolling()
     stopAutoClose()
-    stopNowTimer()
   }
 })
 
@@ -412,7 +315,6 @@ onBeforeUnmount(() => {
   unbindDoc()
   stopPolling()
   stopAutoClose()
-  stopNowTimer()
 })
 </script>
 

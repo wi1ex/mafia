@@ -26,7 +26,7 @@
 
               <div class="range">
                 <div class="range-label">
-                  <span>Лимит участников: {{ limit }}/{{ RANGE_MAX }}</span>
+                  <span>Лимит участников: {{ limit }}</span>
                   <span v-if="limit === 2" class="limit-badge" aria-label="Высокое качество">DUO HD</span>
                   <span v-if="canOpenGameTab" class="limit-badge" aria-label="Лимит для игры">MAFIA</span>
                 </div>

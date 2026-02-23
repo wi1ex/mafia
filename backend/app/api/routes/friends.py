@@ -63,7 +63,7 @@ async def friend_status(user_id: int, ident: Identity = Depends(get_identity), d
 @log_route("friends.list")
 @rate_limited(lambda ident, **_: f"rl:friends:list:{ident['id']}", limit=10, window_s=1)
 @router.get("/list", response_model=FriendsListOut)
-async def friends_list(ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> FriendsListOut:
+async def friends_list(room_id: int | None = None, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> FriendsListOut:
     uid = int(ident["id"])
     accepted_rows = await db.execute(
         select(FriendLink)
@@ -143,6 +143,20 @@ async def friends_list(ident: Identity = Depends(get_identity), db: AsyncSession
             if rid > 0:
                 room_by_uid[int(fid)] = rid
 
+    invite_room_id = int(room_id or 0)
+    invited_to_room_ids: set[int] = set()
+    if invite_room_id > 0 and friend_ids:
+        try:
+            async with r.pipeline() as p:
+                for fid in friend_ids:
+                    await p.sismember(f"room:{invite_room_id}:invited", str(fid))
+                raw_invited = await p.execute()
+            for fid, is_invited in zip(friend_ids, raw_invited):
+                if bool(is_invited):
+                    invited_to_room_ids.add(int(fid))
+        except Exception:
+            invited_to_room_ids = set()
+
     rooms_map: dict[int, RoomBriefOut] = {}
     room_ids = list({rid for rid in room_by_uid.values() if rid > 0})
     if room_ids:
@@ -182,6 +196,7 @@ async def friends_list(ident: Identity = Depends(get_identity), db: AsyncSession
             room_in_game=bool(info.in_game) if info else None,
             telegram_verified=bool(user_data.get("telegram_verified")),
             tg_invites_enabled=bool(user_data.get("tg_invites_enabled")),
+            room_invited=(fid in invited_to_room_ids) if invite_room_id > 0 else None,
         )
 
     friends_items: list[FriendsListItemOut] = []
@@ -495,14 +510,18 @@ async def invite_friend(payload: FriendInviteIn, ident: Identity = Depends(get_i
         if not bool(target.tg_invites_enabled):
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="target_telegram_invites_disabled")
 
-    cooldown_key = f"friends:invite:cooldown:{uid}:{target_id}:{room_id}"
-    retry_after = int(await r.ttl(cooldown_key) or 0)
-    if retry_after > 0:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="invite_cooldown",
-            headers={"Retry-After": str(retry_after)},
-        )
+    invite_set_key = f"room:{room_id}:invited"
+    in_room_now = bool(await r.sismember(f"room:{room_id}:members", str(target_id)))
+    if not in_room_now:
+        in_room_now = bool(await r.sismember(f"room:{room_id}:spectators", str(target_id)))
+    if in_room_now:
+        with suppress(Exception):
+            await r.srem(invite_set_key, str(target_id))
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="target_already_in_room")
+
+    invite_reserved = bool(await r.sadd(invite_set_key, str(target_id)))
+    if not invite_reserved:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="room_invite_already_sent")
 
     is_private = str(params.get("privacy") or "open").strip() == "private"
     is_owner_invite = int(params.get("creator") or 0) == uid
@@ -540,8 +559,12 @@ async def invite_friend(payload: FriendInviteIn, ident: Identity = Depends(get_i
         send_result = await send_text_message(chat_id=int(target.telegram_id or 0), text=tg_text)
         if not send_result.ok:
             if send_result.reason == "telegram_chat_unavailable":
+                with suppress(Exception):
+                    await r.srem(invite_set_key, str(target_id))
                 raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="target_telegram_unreachable")
 
+            with suppress(Exception):
+                await r.srem(invite_set_key, str(target_id))
             raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="telegram_unavailable")
 
     if is_private and is_owner_invite:
@@ -566,7 +589,6 @@ async def invite_friend(payload: FriendInviteIn, ident: Identity = Depends(get_i
                 room=f"user:{uid}",
                 namespace="/auth",
             )
-    await r.set(cooldown_key, "1", ex=30 * 60)
 
     await log_action(
         db,
