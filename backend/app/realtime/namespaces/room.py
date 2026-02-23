@@ -259,6 +259,10 @@ async def join(sid, data) -> JoinAck:
                              f"room:{rid}",
                              namespace="/room")
         await set_user_current_room(r, uid, rid)
+        try:
+            await r.srem(f"room:{rid}:invited", str(uid))
+        except Exception:
+            log.warning("sio.join.invited_cleanup_failed", rid=rid, uid=uid)
 
         if prev_rid and prev_rid != rid:
             try:

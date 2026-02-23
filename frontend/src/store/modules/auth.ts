@@ -151,7 +151,6 @@ export const useAuthStore = defineStore('auth', () => {
         'auth:lock',
         'room:lastRoom',
         'room:lastGame',
-        'friends_invites',
       ])
       scanAndDel(['vol:', 'loglevel:', 'room:'])
     } catch {}
