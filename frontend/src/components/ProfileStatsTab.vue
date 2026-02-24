@@ -2,16 +2,13 @@
   <div class="stats-tab">
     <div class="stats-head">
       <h3>Статистика пользователя</h3>
-      <button class="reload" type="button" :disabled="loading" @click="load(true)">
-        {{ loading ? '...' : 'Обновить' }}
-      </button>
     </div>
 
     <div v-if="loading && !loaded" class="state">Загрузка...</div>
     <div v-else-if="error" class="state state-danger">
       <span>{{ error }}</span>
-      <button class="retry" type="button" :disabled="loading" @click="load(true)">Повторить</button>
     </div>
+
     <div v-else class="stats-layout">
       <section class="block">
         <h4>Неигровая активность</h4>
@@ -140,20 +137,12 @@
             <strong>{{ formatFloat(game.avg_fouls_per_game) }}</strong>
           </article>
           <article class="metric-card">
-            <span>Дон: проверки в 1-ю ночь</span>
-            <strong>{{ formatInt(game.don_first_night_checks) }}</strong>
-          </article>
-          <article class="metric-card">
-            <span>Дон: нашёл шерифа</span>
-            <strong>{{ formatInt(game.don_first_night_found_sheriff) }} / {{ formatPct(game.don_first_night_find_percent) }}</strong>
+            <span>Дон: % нахождения шерифа в 1-ю ночь</span>
+            <strong>{{ formatPct(game.don_first_night_find_percent) }}</strong>
           </article>
           <article class="metric-card">
             <span>Промахи из-за меня</span>
             <strong>{{ formatInt(game.misses_due_to_me) }}</strong>
-          </article>
-          <article class="metric-card">
-            <span>Подмигивания / постукивания</span>
-            <strong>{{ formatInt(game.winks_used) }} / {{ formatInt(game.knocks_used) }}</strong>
           </article>
           <article class="metric-card">
             <span>Уход голосованием в 1-2 день</span>
@@ -170,19 +159,6 @@
           <article class="metric-card">
             <span>Лучшая серия поражений</span>
             <strong>{{ formatInt(game.best_loss_streak) }}</strong>
-          </article>
-        </div>
-
-        <div class="vote-pairs">
-          <article class="vote-card">
-            <span>Чаще всего голосовал против меня</span>
-            <strong v-if="game.top_voted_against_me">{{ game.top_voted_against_me.username || `user${game.top_voted_against_me.id}` }} ({{ formatInt(game.top_voted_against_me.count) }})</strong>
-            <strong v-else>Нет данных</strong>
-          </article>
-          <article class="vote-card">
-            <span>Против кого чаще голосовал я</span>
-            <strong v-if="game.top_i_voted_against">{{ game.top_i_voted_against.username || `user${game.top_i_voted_against.id}` }} ({{ formatInt(game.top_i_voted_against.count) }})</strong>
-            <strong v-else>Нет данных</strong>
           </article>
         </div>
       </section>
@@ -214,12 +190,6 @@ type UserBestMoveStats = {
   marks_black_3: number
 }
 
-type UserTopVote = {
-  id: number
-  username?: string | null
-  count: number
-}
-
 type UserRecentGame = {
   game_id: number
   role: string
@@ -237,12 +207,8 @@ type UserGameStats = {
   draws_count: number
   draws_percent: number
   avg_fouls_per_game: number
-  don_first_night_checks: number
-  don_first_night_found_sheriff: number
   don_first_night_find_percent: number
   misses_due_to_me: number
-  winks_used: number
-  knocks_used: number
   vote_leave_day12_count: number
   vote_leave_day12_percent: number
   farewell_total: number
@@ -256,8 +222,6 @@ type UserGameStats = {
   best_move: UserBestMoveStats
   top_players: UserTopPlayer[]
   recent_games: UserRecentGame[]
-  top_voted_against_me?: UserTopVote | null
-  top_i_voted_against?: UserTopVote | null
 }
 
 type UserStats = {
@@ -287,12 +251,8 @@ const stats = reactive<UserStats>({
     draws_count: 0,
     draws_percent: 0,
     avg_fouls_per_game: 0,
-    don_first_night_checks: 0,
-    don_first_night_found_sheriff: 0,
     don_first_night_find_percent: 0,
     misses_due_to_me: 0,
-    winks_used: 0,
-    knocks_used: 0,
     vote_leave_day12_count: 0,
     vote_leave_day12_percent: 0,
     farewell_total: 0,
@@ -306,8 +266,6 @@ const stats = reactive<UserStats>({
     best_move: { first_killed_total: 0, marks_black_0: 0, marks_black_1: 0, marks_black_2: 0, marks_black_3: 0 },
     top_players: [],
     recent_games: [],
-    top_voted_against_me: null,
-    top_i_voted_against: null,
   },
 })
 
@@ -420,16 +378,6 @@ function normalizeRoleStats(raw: any): UserRoleStats {
   }
 }
 
-function normalizeTopVote(raw: any): UserTopVote | null {
-  const id = safeInt(raw?.id)
-  if (id <= 0) return null
-  return {
-    id,
-    username: typeof raw?.username === 'string' ? raw.username : null,
-    count: safeInt(raw?.count),
-  }
-}
-
 function normalizeRecent(raw: any): UserRecentGame[] {
   if (!Array.isArray(raw)) return []
   return raw
@@ -466,12 +414,8 @@ function normalizeGame(raw: any): UserGameStats {
     draws_count: safeInt(raw?.draws_count),
     draws_percent: clampPct(raw?.draws_percent),
     avg_fouls_per_game: safeFloat(raw?.avg_fouls_per_game),
-    don_first_night_checks: safeInt(raw?.don_first_night_checks),
-    don_first_night_found_sheriff: safeInt(raw?.don_first_night_found_sheriff),
     don_first_night_find_percent: clampPct(raw?.don_first_night_find_percent),
     misses_due_to_me: safeInt(raw?.misses_due_to_me),
-    winks_used: safeInt(raw?.winks_used),
-    knocks_used: safeInt(raw?.knocks_used),
     vote_leave_day12_count: safeInt(raw?.vote_leave_day12_count),
     vote_leave_day12_percent: clampPct(raw?.vote_leave_day12_percent),
     farewell_total: safeInt(raw?.farewell_total),
@@ -491,8 +435,6 @@ function normalizeGame(raw: any): UserGameStats {
     },
     top_players: normalizeTopPlayers(raw?.top_players),
     recent_games: normalizeRecent(raw?.recent_games),
-    top_voted_against_me: normalizeTopVote(raw?.top_voted_against_me),
-    top_i_voted_against: normalizeTopVote(raw?.top_i_voted_against),
   }
 }
 
@@ -532,31 +474,9 @@ onMounted(() => {
   .stats-head {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 10px;
+    justify-content: flex-start;
     h3 {
       margin: 0;
-    }
-    .reload {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-width: 120px;
-      height: 32px;
-      border: none;
-      border-radius: 5px;
-      background-color: $lead;
-      color: $fg;
-      font-family: Manrope-Medium;
-      cursor: pointer;
-      transition: opacity 0.25s ease-in-out, background-color 0.25s ease-in-out;
-      &:hover {
-        background-color: rgba($grey, 0.5);
-      }
-      &:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-      }
     }
   }
   .state {
@@ -575,23 +495,6 @@ onMounted(() => {
     }
     &.state-danger {
       color: $red;
-    }
-    .retry {
-      min-width: 110px;
-      height: 30px;
-      border: none;
-      border-radius: 5px;
-      background-color: rgba($red, 0.75);
-      color: $fg;
-      cursor: pointer;
-      transition: opacity 0.25s ease-in-out, background-color 0.25s ease-in-out;
-      &:hover {
-        background-color: $red;
-      }
-      &:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-      }
     }
   }
   .stats-layout {
@@ -859,27 +762,6 @@ onMounted(() => {
       grid-template-columns: repeat(5, minmax(0, 1fr));
       gap: 10px;
     }
-    .vote-pairs {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 10px;
-      .vote-card {
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-        padding: 8px;
-        border-radius: 5px;
-        border: 1px solid rgba($grey, 0.35);
-        background-color: rgba($black, 0.15);
-        span {
-          color: $ashy;
-          font-size: 13px;
-        }
-        strong {
-          font-size: 15px;
-        }
-      }
-    }
   }
 }
 
@@ -910,17 +792,11 @@ onMounted(() => {
 
 @media (max-width: 760px) {
   .stats-tab {
-    .stats-head {
-      .reload {
-        min-width: 100px;
-      }
-    }
     .stats-layout {
       .non-game-grid,
       .roles-grid,
       .recent-list,
       .extra-grid,
-      .vote-pairs,
       .overview .overview-cards,
       .overview .rings {
         grid-template-columns: 1fr;

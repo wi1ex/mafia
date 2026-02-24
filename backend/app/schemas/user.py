@@ -58,12 +58,6 @@ class UserBestMoveStatsOut(BaseModel):
     marks_black_3: int = 0
 
 
-class UserTopVoteOut(BaseModel):
-    id: int
-    username: Optional[str] = None
-    count: int = 0
-
-
 class UserGameStatsOut(BaseModel):
     games_played: int = 0
     games_won: int = 0
@@ -73,12 +67,8 @@ class UserGameStatsOut(BaseModel):
     draws_count: int = 0
     draws_percent: float = 0.0
     avg_fouls_per_game: float = 0.0
-    don_first_night_checks: int = 0
-    don_first_night_found_sheriff: int = 0
     don_first_night_find_percent: float = 0.0
     misses_due_to_me: int = 0
-    winks_used: int = 0
-    knocks_used: int = 0
     vote_leave_day12_count: int = 0
     vote_leave_day12_percent: float = 0.0
     farewell_total: int = 0
@@ -92,8 +82,6 @@ class UserGameStatsOut(BaseModel):
     best_move: UserBestMoveStatsOut
     top_players: List[UserTopPlayerOut] = Field(default_factory=list)
     recent_games: List[UserRecentGameOut] = Field(default_factory=list)
-    top_voted_against_me: Optional[UserTopVoteOut] = None
-    top_i_voted_against: Optional[UserTopVoteOut] = None
 
 
 class UserStatsOut(BaseModel):

@@ -728,6 +728,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { api } from '@/services/axios'
 import { alertDialog, confirmDialog } from '@/services/confirm'
 import { formatLocalDateTime } from '@/services/datetime'
@@ -938,8 +939,19 @@ type UpdateRow = {
   description: string
 }
 
-const activeTab = ref<'settings' | 'updates' | 'stats' | 'logs' | 'rooms' | 'users'>('stats')
-const loading = ref(true)
+const route = useRoute()
+const router = useRouter()
+
+const TAB_KEYS = ['settings', 'updates', 'stats', 'logs', 'rooms', 'users'] as const
+type TabKey = typeof TAB_KEYS[number]
+
+function normalizeTab(v: unknown): TabKey {
+  if (typeof v === 'string' && (TAB_KEYS as readonly string[]).includes(v)) return v as TabKey
+  return 'stats'
+}
+
+const activeTab = ref<TabKey>('stats')
+const loading = ref(false)
 const savingSettings = ref(false)
 const statsLoading = ref(false)
 const logsLoading = ref(false)
@@ -1885,7 +1897,11 @@ async function toggleBan(row: UserRow): Promise<void> {
   openSanction(row, 'ban')
 }
 
-watch(activeTab, (tab) => {
+function refreshActiveTab(tab: typeof activeTab.value): void {
+  if (tab === 'settings') {
+    void loadSettings()
+    return
+  }
   if (tab === 'updates') {
     void loadUpdates()
     return
@@ -1906,6 +1922,18 @@ watch(activeTab, (tab) => {
   if (tab === 'users') {
     void loadUsers()
   }
+}
+
+watch(() => route.query.tab, (tab) => {
+  const next = normalizeTab(tab)
+  if (next !== activeTab.value) activeTab.value = next
+})
+
+watch(activeTab, (tab) => {
+  if (normalizeTab(route.query.tab) !== tab) {
+    router.replace({ query: { ...route.query, tab } }).catch(() => {})
+  }
+  refreshActiveTab(tab)
 })
 
 watch(statsMonth, () => {
@@ -1955,7 +1983,13 @@ watch(usersUser, () => {
 onMounted(() => {
   const now = new Date()
   statsMonth.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-  void loadSettings()
+  refreshActiveTab(activeTab.value)
+  const requestedTab = normalizeTab(route.query.tab)
+  if (typeof route.query.tab === 'string' && requestedTab !== activeTab.value) {
+    Promise.resolve().then(() => {
+      activeTab.value = requestedTab
+    })
+  }
 })
 </script>
 

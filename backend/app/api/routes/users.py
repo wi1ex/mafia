@@ -48,7 +48,6 @@ from ...schemas.user import (
     UserStatsOut,
     UserGameStatsOut,
     UserBestMoveStatsOut,
-    UserTopVoteOut,
     UserTopPlayerOut,
 )
 from ...security.passwords import hash_password, verify_password
@@ -134,12 +133,6 @@ async def user_stats(ident: Identity = Depends(get_identity), db: AsyncSession =
             break
 
     extra_profile_ids: set[int] = set(top_ids)
-    top_against_id = safe_int(getattr(stats_row, "top_voter_against_me_id", 0))
-    top_target_id = safe_int(getattr(stats_row, "top_vote_target_by_me_id", 0))
-    if top_against_id > 0:
-        extra_profile_ids.add(top_against_id)
-    if top_target_id > 0:
-        extra_profile_ids.add(top_target_id)
     profiles = await get_user_profiles_cached(db, extra_profile_ids) if extra_profile_ids else {}
 
     top_players: list[UserTopPlayerOut] = []
@@ -154,21 +147,6 @@ async def user_stats(ident: Identity = Depends(get_identity), db: AsyncSession =
                 games_together=top_games.get(other_id, 0),
             )
         )
-
-    def profile_username(user_id: int) -> str | None:
-        profile = profiles.get(user_id) or {}
-        raw = profile.get("username")
-        return str(raw) if isinstance(raw, str) else None
-
-    top_voted_against_me: UserTopVoteOut | None = None
-    top_against_count = safe_int(getattr(stats_row, "top_voter_against_me_count", 0))
-    if top_against_id > 0 and top_against_count > 0:
-        top_voted_against_me = UserTopVoteOut(id=top_against_id, username=profile_username(top_against_id), count=top_against_count)
-
-    top_i_voted_against: UserTopVoteOut | None = None
-    top_target_count = safe_int(getattr(stats_row, "top_vote_target_by_me_count", 0))
-    if top_target_id > 0 and top_target_count > 0:
-        top_i_voted_against = UserTopVoteOut(id=top_target_id, username=profile_username(top_target_id), count=top_target_count)
 
     games_played = safe_int(getattr(stats_row, "games_decisive", 0))
     games_won = safe_int(getattr(stats_row, "games_won", 0))
@@ -191,12 +169,8 @@ async def user_stats(ident: Identity = Depends(get_identity), db: AsyncSession =
         draws_count=games_draw,
         draws_percent=pct(games_draw, games_total_finished),
         avg_fouls_per_game=avg(total_fouls_received, games_played),
-        don_first_night_checks=don_checks_first_night,
-        don_first_night_found_sheriff=don_checks_first_night_found,
         don_first_night_find_percent=pct(don_checks_first_night_found, don_checks_first_night),
         misses_due_to_me=safe_int(getattr(stats_row, "misses_due_to_me", 0)),
-        winks_used=safe_int(getattr(stats_row, "winks_used", 0)),
-        knocks_used=safe_int(getattr(stats_row, "knocks_used", 0)),
         vote_leave_day12_count=vote_leave_day12,
         vote_leave_day12_percent=pct(vote_leave_day12, games_played),
         farewell_total=farewell_total,
@@ -216,8 +190,6 @@ async def user_stats(ident: Identity = Depends(get_identity), db: AsyncSession =
         ),
         top_players=top_players,
         recent_games=parse_recent_games(getattr(stats_row, "recent_games", [])),
-        top_voted_against_me=top_voted_against_me,
-        top_i_voted_against=top_i_voted_against,
     )
 
     return UserStatsOut(

@@ -88,37 +88,6 @@ def _normalize_actions(raw: Any) -> list[dict[str, Any]]:
     return out
 
 
-def _normalize_count_map(raw: Any) -> dict[str, int]:
-    out: dict[str, int] = {}
-    if not isinstance(raw, dict):
-        return out
-
-    for k, v in raw.items():
-        uid = _safe_int(k)
-        cnt = _safe_int(v)
-        if uid <= 0 or cnt <= 0:
-            continue
-        out[str(uid)] = cnt
-    return out
-
-
-def _top_from_count_map(raw: dict[str, int]) -> tuple[int | None, int]:
-    best_uid = 0
-    best_cnt = 0
-    for k, v in raw.items():
-        uid = _safe_int(k)
-        cnt = _safe_int(v)
-        if uid <= 0 or cnt <= 0:
-            continue
-        if cnt > best_cnt or (cnt == best_cnt and (best_uid == 0 or uid < best_uid)):
-            best_uid = uid
-            best_cnt = cnt
-    if best_uid <= 0:
-        return None, 0
-
-    return best_uid, best_cnt
-
-
 def _inc(d: dict[int, int], key: int, delta: int = 1) -> None:
     if key <= 0 or delta == 0:
         return
@@ -126,18 +95,8 @@ def _inc(d: dict[int, int], key: int, delta: int = 1) -> None:
     d[key] = d.get(key, 0) + delta
 
 
-def _inc_nested(d: dict[int, dict[int, int]], key: int, other: int, delta: int = 1) -> None:
-    if key <= 0 or other <= 0 or delta == 0:
-        return
-
-    bucket = d.setdefault(key, {})
-    bucket[other] = bucket.get(other, 0) + delta
-
-
 def _parse_actions(actions: list[dict[str, Any]], roles: dict[int, str]) -> dict[str, Any]:
     fouls_received: dict[int, int] = {}
-    winks_used: dict[int, int] = {}
-    knocks_used: dict[int, int] = {}
     don_checks_first_night: dict[int, int] = {}
     don_checks_first_night_found: dict[int, int] = {}
     misses_due_to_me: dict[int, int] = {}
@@ -146,22 +105,12 @@ def _parse_actions(actions: list[dict[str, Any]], roles: dict[int, str]) -> dict
     farewell_correct: dict[int, int] = {}
     first_killed_best_move_total: dict[int, int] = {}
     best_move_bucket: dict[int, dict[int, int]] = {}
-    votes_against_map: dict[int, dict[int, int]] = {}
-    votes_by_map: dict[int, dict[int, int]] = {}
 
     for action in actions:
         action_type = _safe_str(action.get("type"))
 
         if action_type == "foul":
             _inc(fouls_received, _safe_int(action.get("target_id")), 1)
-            continue
-
-        if action_type == "wink":
-            _inc(winks_used, _safe_int(action.get("actor_id")), 1)
-            continue
-
-        if action_type == "knock":
-            _inc(knocks_used, _safe_int(action.get("actor_id")), 1)
             continue
 
         if action_type == "night_check":
@@ -271,27 +220,8 @@ def _parse_actions(actions: list[dict[str, Any]], roles: dict[int, str]) -> dict
             bucket[black_hits] = bucket.get(black_hits, 0) + 1
             continue
 
-        if action_type == "vote":
-            if bool(action.get("lift")):
-                continue
-            votes_raw = action.get("votes")
-            if not isinstance(votes_raw, dict):
-                continue
-            for target_raw, voters_raw in votes_raw.items():
-                target_id = _safe_int(target_raw)
-                if target_id <= 0 or not isinstance(voters_raw, list):
-                    continue
-                for voter_raw in voters_raw:
-                    voter_id = _safe_int(voter_raw)
-                    if voter_id <= 0:
-                        continue
-                    _inc_nested(votes_against_map, target_id, voter_id, 1)
-                    _inc_nested(votes_by_map, voter_id, target_id, 1)
-
     return {
         "fouls_received": fouls_received,
-        "winks_used": winks_used,
-        "knocks_used": knocks_used,
         "don_checks_first_night": don_checks_first_night,
         "don_checks_first_night_found": don_checks_first_night_found,
         "misses_due_to_me": misses_due_to_me,
@@ -300,8 +230,6 @@ def _parse_actions(actions: list[dict[str, Any]], roles: dict[int, str]) -> dict
         "farewell_correct": farewell_correct,
         "first_killed_best_move_total": first_killed_best_move_total,
         "best_move_bucket": best_move_bucket,
-        "votes_against_map": votes_against_map,
-        "votes_by_map": votes_by_map,
     }
 
 
@@ -395,8 +323,6 @@ def _apply_game_to_user_row(row: UserGameStats, *, uid: int, roles: dict[int, st
             row.don_checks_first_night = _safe_int(row.don_checks_first_night) + _safe_int(parsed["don_checks_first_night"].get(uid))
             row.don_checks_first_night_found = _safe_int(row.don_checks_first_night_found) + _safe_int(parsed["don_checks_first_night_found"].get(uid))
             row.misses_due_to_me = _safe_int(row.misses_due_to_me) + _safe_int(parsed["misses_due_to_me"].get(uid))
-            row.winks_used = _safe_int(row.winks_used) + _safe_int(parsed["winks_used"].get(uid))
-            row.knocks_used = _safe_int(row.knocks_used) + _safe_int(parsed["knocks_used"].get(uid))
             row.vote_leave_day12 = _safe_int(row.vote_leave_day12) + _safe_int(parsed["leave_vote_day12"].get(uid))
             row.farewell_total = _safe_int(row.farewell_total) + _safe_int(parsed["farewell_total"].get(uid))
             row.farewell_correct = _safe_int(row.farewell_correct) + _safe_int(parsed["farewell_correct"].get(uid))
@@ -407,28 +333,6 @@ def _apply_game_to_user_row(row: UserGameStats, *, uid: int, roles: dict[int, st
             row.best_move_black_1 = _safe_int(row.best_move_black_1) + _safe_int(best_move_bucket.get(1))
             row.best_move_black_2 = _safe_int(row.best_move_black_2) + _safe_int(best_move_bucket.get(2))
             row.best_move_black_3 = _safe_int(row.best_move_black_3) + _safe_int(best_move_bucket.get(3))
-
-            votes_against_map = _normalize_count_map(row.votes_against_me_map)
-            for voter_id, delta in (parsed["votes_against_map"].get(uid) or {}).items():
-                key = str(_safe_int(voter_id))
-                if key == "0":
-                    continue
-                votes_against_map[key] = votes_against_map.get(key, 0) + _safe_int(delta)
-            row.votes_against_me_map = votes_against_map
-            top_against_id, top_against_count = _top_from_count_map(votes_against_map)
-            row.top_voter_against_me_id = top_against_id
-            row.top_voter_against_me_count = top_against_count
-
-            votes_by_map = _normalize_count_map(row.votes_by_me_map)
-            for target_id, delta in (parsed["votes_by_map"].get(uid) or {}).items():
-                key = str(_safe_int(target_id))
-                if key == "0":
-                    continue
-                votes_by_map[key] = votes_by_map.get(key, 0) + _safe_int(delta)
-            row.votes_by_me_map = votes_by_map
-            top_target_id, top_target_count = _top_from_count_map(votes_by_map)
-            row.top_vote_target_by_me_id = top_target_id
-            row.top_vote_target_by_me_count = top_target_count
 
             if game_id > 0:
                 recent = _normalize_recent(row.recent_games)

@@ -264,7 +264,7 @@ function normalizeTab(v: unknown): TabKey {
   return 'profile'
 }
 
-const activeTab = ref<TabKey>(normalizeTab(route.query.tab))
+const activeTab = ref<TabKey>('profile')
 let onSanctionsUpdate: ((e: Event) => void) | null = null
 
 type SanctionItem = {
@@ -794,7 +794,14 @@ watch(activeTab, (tab) => {
 
 onMounted(() => {
   loadMe().catch(() => {})
-  if (activeTab.value === 'sanctions') void loadSanctions(true)
+  const requestedTab = normalizeTab(route.query.tab)
+  if (typeof route.query.tab === 'string' && requestedTab !== activeTab.value) {
+    Promise.resolve().then(() => {
+      activeTab.value = requestedTab
+    })
+  } else if (activeTab.value === 'sanctions') {
+    void loadSanctions(true)
+  }
   onSanctionsUpdate = () => {
     if (activeTab.value === 'sanctions') void loadSanctions(true)
   }
