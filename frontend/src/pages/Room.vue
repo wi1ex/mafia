@@ -2993,7 +2993,7 @@ onBeforeUnmount(() => {
     .controls-side {
       display: flex;
       gap: 10px;
-      min-width: 130px;
+      min-width: 270px;
       &.left {
         justify-content: flex-start;
       }
@@ -3285,7 +3285,7 @@ onBeforeUnmount(() => {
         }
       }
       .controls-side {
-        min-width: 80px;
+        min-width: 170px;
       }
       .btn-text {
         font-size: 12px;
