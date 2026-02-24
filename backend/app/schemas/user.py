@@ -42,14 +42,6 @@ class UserRoleStatsOut(BaseModel):
     winrate_percent: float = 0.0
 
 
-class UserRecentGameOut(BaseModel):
-    game_id: int
-    role: str
-    result: Literal["red", "black"]
-    won: bool
-    finished_at: datetime
-
-
 class UserBestMoveStatsOut(BaseModel):
     first_killed_total: int = 0
     marks_black_0: int = 0
@@ -81,7 +73,6 @@ class UserGameStatsOut(BaseModel):
     role_mafia: UserRoleStatsOut
     best_move: UserBestMoveStatsOut
     top_players: List[UserTopPlayerOut] = Field(default_factory=list)
-    recent_games: List[UserRecentGameOut] = Field(default_factory=list)
 
 
 class UserStatsOut(BaseModel):

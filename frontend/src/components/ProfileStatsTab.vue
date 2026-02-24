@@ -95,18 +95,6 @@
       </section>
 
       <section class="block">
-        <h4>Последние 10 игр</h4>
-        <div v-if="game.recent_games.length === 0" class="state state-inline">Пока нет данных</div>
-        <div v-else class="recent-list">
-          <article v-for="item in game.recent_games" :key="item.game_id" class="recent-item">
-            <span class="recent-role">{{ roleLabel(item.role) }}</span>
-            <span class="recent-result" :class="item.won ? 'win' : 'loss'">{{ item.won ? 'Победа' : 'Поражение' }}</span>
-            <time>{{ formatRecentDate(item.finished_at) }}</time>
-          </article>
-        </div>
-      </section>
-
-      <section class="block">
         <h4>Лучший ход (если был первым убиенным)</h4>
         <div class="best-move">
           <article class="metric-card">
@@ -190,14 +178,6 @@ type UserBestMoveStats = {
   marks_black_3: number
 }
 
-type UserRecentGame = {
-  game_id: number
-  role: string
-  result: 'red' | 'black'
-  won: boolean
-  finished_at: string
-}
-
 type UserGameStats = {
   games_played: number
   games_won: number
@@ -221,7 +201,6 @@ type UserGameStats = {
   role_mafia: UserRoleStats
   best_move: UserBestMoveStats
   top_players: UserTopPlayer[]
-  recent_games: UserRecentGame[]
 }
 
 type UserStats = {
@@ -265,7 +244,6 @@ const stats = reactive<UserStats>({
     role_mafia: { games: 0, wins: 0, winrate_percent: 0 },
     best_move: { first_killed_total: 0, marks_black_0: 0, marks_black_1: 0, marks_black_2: 0, marks_black_3: 0 },
     top_players: [],
-    recent_games: [],
   },
 })
 
@@ -300,20 +278,6 @@ function formatPct(raw: unknown): string {
 
 function formatMinutes(raw: unknown): string {
   return `${safeFloat(raw).toFixed(2)} мин`
-}
-
-function roleLabel(role: string): string {
-  if (role === 'citizen') return 'Мирный'
-  if (role === 'sheriff') return 'Шериф'
-  if (role === 'don') return 'Дон'
-  if (role === 'mafia') return 'Мафия'
-  return role || '-'
-}
-
-function formatRecentDate(raw: string): string {
-  const dt = new Date(raw)
-  if (Number.isNaN(dt.getTime())) return '-'
-  return dt.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
 }
 
 function ringStyle(percentRaw: unknown, colorVar: string): Record<string, string> {
@@ -378,20 +342,6 @@ function normalizeRoleStats(raw: any): UserRoleStats {
   }
 }
 
-function normalizeRecent(raw: any): UserRecentGame[] {
-  if (!Array.isArray(raw)) return []
-  return raw
-    .map((item: any) => ({
-      game_id: safeInt(item?.game_id),
-      role: typeof item?.role === 'string' ? item.role : '',
-      result: item?.result === 'black' ? 'black' : 'red',
-      won: Boolean(item?.won),
-      finished_at: typeof item?.finished_at === 'string' ? item.finished_at : '',
-    }))
-    .filter((item) => item.game_id > 0 && item.role)
-    .slice(0, 10)
-}
-
 function normalizeTopPlayers(raw: any): UserTopPlayer[] {
   if (!Array.isArray(raw)) return []
   return raw
@@ -434,7 +384,6 @@ function normalizeGame(raw: any): UserGameStats {
       marks_black_3: safeInt(raw?.best_move?.marks_black_3),
     },
     top_players: normalizeTopPlayers(raw?.top_players),
-    recent_games: normalizeRecent(raw?.recent_games),
   }
 }
 
@@ -680,47 +629,6 @@ onMounted(() => {
         }
       }
     }
-    .recent-list {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 10px;
-      .recent-item {
-        display: grid;
-        grid-template-columns: 1fr auto auto;
-        align-items: center;
-        gap: 8px;
-        padding: 8px;
-        border-radius: 5px;
-        border: 1px solid rgba($grey, 0.35);
-        background-color: rgba($black, 0.15);
-        .recent-role {
-          color: $fg;
-          font-size: 13px;
-        }
-        .recent-result {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          min-width: 88px;
-          height: 24px;
-          border-radius: 999px;
-          font-size: 12px;
-          &.win {
-            color: $fg;
-            background-color: rgba($green, 0.8);
-          }
-          &.loss {
-            color: $fg;
-            background-color: rgba($red, 0.8);
-          }
-        }
-        time {
-          color: $ashy;
-          font-size: 12px;
-          white-space: nowrap;
-        }
-      }
-    }
     .best-move {
       display: grid;
       grid-template-columns: 220px 1fr;
@@ -795,7 +703,6 @@ onMounted(() => {
     .stats-layout {
       .non-game-grid,
       .roles-grid,
-      .recent-list,
       .extra-grid,
       .overview .overview-cards,
       .overview .rings {

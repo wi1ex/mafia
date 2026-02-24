@@ -1,6 +1,6 @@
 from __future__ import annotations
 from collections import Counter
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any
 from sqlalchemy import delete, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -236,46 +236,7 @@ def _parse_actions(actions: list[dict[str, Any]], roles: dict[int, str]) -> dict
     }
 
 
-def _to_utc_iso(raw: Any) -> str:
-    if isinstance(raw, datetime):
-        dt = raw
-    else:
-        dt = datetime.now(timezone.utc)
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
-    else:
-        dt = dt.astimezone(timezone.utc)
-    return dt.isoformat()
-
-
-def _normalize_recent(raw: Any) -> list[dict[str, Any]]:
-    if not isinstance(raw, list):
-        return []
-
-    out: list[dict[str, Any]] = []
-    for item in raw:
-        if not isinstance(item, dict):
-            continue
-        game_id = _safe_int(item.get("game_id"))
-        role = _safe_str(item.get("role"))
-        result = _safe_str(item.get("result"))
-        won = bool(item.get("won"))
-        finished_at = _safe_str(item.get("finished_at"))
-        if game_id <= 0 or not role or result not in FINISHED_RESULTS:
-            continue
-        out.append(
-            {
-                "game_id": game_id,
-                "role": role,
-                "result": result,
-                "won": won,
-                "finished_at": finished_at or _to_utc_iso(None),
-            }
-        )
-    return out
-
-
-def _apply_game_to_user_row(row: UserGameStats, *, uid: int, roles: dict[int, str], players: set[int], head_id: int, result: str, duration_seconds: int, finished_at: Any, game_id: int, parsed: dict[str, Any]) -> None:
+def _apply_game_to_user_row(row: UserGameStats, *, uid: int, roles: dict[int, str], players: set[int], head_id: int, result: str, duration_seconds: int, parsed: dict[str, Any]) -> None:
     if uid <= 0 or result not in FINISHED_RESULTS:
         return
 
@@ -337,20 +298,6 @@ def _apply_game_to_user_row(row: UserGameStats, *, uid: int, roles: dict[int, st
             row.best_move_black_2 = _safe_int(row.best_move_black_2) + _safe_int(best_move_bucket.get(2))
             row.best_move_black_3 = _safe_int(row.best_move_black_3) + _safe_int(best_move_bucket.get(3))
 
-            if game_id > 0:
-                recent = _normalize_recent(row.recent_games)
-                recent.insert(
-                    0,
-                    {
-                        "game_id": game_id,
-                        "role": role or "unknown",
-                        "result": result,
-                        "won": won,
-                        "finished_at": _to_utc_iso(finished_at),
-                    },
-                )
-                row.recent_games = recent[:10]
-
     if 0 < head_id == uid:
         row.games_hosted = _safe_int(row.games_hosted) + 1
 
@@ -363,7 +310,6 @@ def _build_game_payload(game: Game) -> dict[str, Any] | None:
     roles = _normalize_roles(getattr(game, "roles", {}))
     players = set(roles.keys())
     head_id = _safe_int(getattr(game, "head_id", 0))
-    game_id = _safe_int(getattr(game, "id", 0))
     actions = _normalize_actions(getattr(game, "actions", []))
     parsed = _parse_actions(actions, roles)
 
@@ -383,8 +329,6 @@ def _build_game_payload(game: Game) -> dict[str, Any] | None:
         "roles": roles,
         "players": players,
         "head_id": head_id,
-        "game_id": game_id,
-        "finished_at": finished_at,
         "duration_seconds": duration_seconds,
         "parsed": parsed,
     }
@@ -419,8 +363,6 @@ async def apply_finished_game_stats(session: AsyncSession, game: Game) -> None:
             head_id=head_id,
             result=payload["result"],
             duration_seconds=payload["duration_seconds"],
-            finished_at=payload["finished_at"],
-            game_id=payload["game_id"],
             parsed=payload["parsed"],
         )
 
@@ -452,8 +394,6 @@ async def rebuild_user_game_stats(session: AsyncSession, user_id: int) -> UserGa
             head_id=payload["head_id"],
             result=payload["result"],
             duration_seconds=payload["duration_seconds"],
-            finished_at=payload["finished_at"],
-            game_id=payload["game_id"],
             parsed=payload["parsed"],
         )
 

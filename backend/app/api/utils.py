@@ -26,7 +26,7 @@ from ..models.user import User
 from ..models.update import SiteUpdate, UpdateRead
 from ..schemas.admin import SiteSettingsOut, GameSettingsOut, RegistrationsPoint, AdminRoomUserStat, AdminSanctionOut
 from ..schemas.room import GameParams
-from ..schemas.user import UserRoleStatsOut, UserRecentGameOut
+from ..schemas.user import UserRoleStatsOut
 from ..realtime.sio import sio
 from ..realtime.utils import get_profiles_snapshot, get_rooms_brief, gc_empty_room, emit_rooms_upsert_safe
 from ..services.minio import delete_avatars_async
@@ -111,7 +111,6 @@ __all__ = [
     "avg",
     "avg_minutes",
     "role_stats",
-    "parse_recent_games",
 ]
 
 log = structlog.get_logger()
@@ -601,44 +600,6 @@ def role_stats(games: int, wins: int) -> UserRoleStatsOut:
     g = safe_int(games)
     w = safe_int(wins)
     return UserRoleStatsOut(games=g, wins=w, winrate_percent=pct(w, g))
-
-
-def parse_recent_games(raw: Any) -> list[UserRecentGameOut]:
-    out: list[UserRecentGameOut] = []
-    if not isinstance(raw, list):
-        return out
-
-    for item in raw:
-        if not isinstance(item, dict):
-            continue
-        game_id = safe_int(item.get("game_id"))
-        role = str(item.get("role") or "")
-        result = str(item.get("result") or "")
-        won = bool(item.get("won"))
-        if game_id <= 0 or not role or result not in ("red", "black"):
-            continue
-        finished_at_raw = item.get("finished_at")
-        if isinstance(finished_at_raw, datetime):
-            finished_at = finished_at_raw
-        elif isinstance(finished_at_raw, str):
-            try:
-                finished_at = datetime.fromisoformat(finished_at_raw.replace("Z", "+00:00"))
-            except Exception:
-                finished_at = datetime.now(timezone.utc)
-        else:
-            finished_at = datetime.now(timezone.utc)
-        if finished_at.tzinfo is None:
-            finished_at = finished_at.replace(tzinfo=timezone.utc)
-        out.append(
-            UserRecentGameOut(
-                game_id=game_id,
-                role=role,
-                result=result,
-                won=won,
-                finished_at=finished_at,
-            )
-        )
-    return out
 
 
 async def check_sanctions_expired(user_id: int, *, throttle_s: int = 30) -> None:

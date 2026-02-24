@@ -22,7 +22,6 @@ from ..utils import (
     avg,
     avg_minutes,
     role_stats,
-    parse_recent_games,
 )
 from ...models.friend import FriendCloseness
 from ...models.stats import UserGameStats
@@ -189,7 +188,6 @@ async def user_stats(ident: Identity = Depends(get_identity), db: AsyncSession =
             marks_black_3=safe_int(getattr(stats_row, "best_move_black_3", 0)),
         ),
         top_players=top_players,
-        recent_games=parse_recent_games(getattr(stats_row, "recent_games", [])),
     )
 
     return UserStatsOut(
