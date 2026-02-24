@@ -157,7 +157,7 @@
             <strong>{{ formatInt(game.best_win_streak) }}</strong>
           </article>
           <article class="metric-card">
-            <span>Лучшая серия поражений</span>
+            <span>Худшая серия поражений</span>
             <strong>{{ formatInt(game.best_loss_streak) }}</strong>
           </article>
         </div>

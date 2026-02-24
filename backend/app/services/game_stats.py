@@ -173,6 +173,9 @@ def _parse_actions(actions: list[dict[str, Any]], roles: dict[int, str]) -> dict
             wills = action.get("wills")
             if actor_id <= 0 or not isinstance(wills, dict):
                 continue
+            actor_role = roles.get(actor_id, "")
+            if _is_black(actor_role):
+                continue
             for target_raw, verdict_raw in wills.items():
                 target_id = _safe_int(target_raw)
                 if target_id <= 0:
