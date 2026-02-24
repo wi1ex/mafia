@@ -28,33 +28,32 @@
               <div class="result-center">
                 <span>Всего игр</span>
                 <strong>{{ formatInt(totalFinishedGames) }}</strong>
+                <div class="result-legend">
+                  <div v-for="item in overviewSegments" :key="item.key" class="legend-row">
+                    <span class="legend-dot" :class="item.key"></span>
+                    <span class="legend-label">{{ item.label }}</span>
+                    <strong class="legend-pct">{{ formatPct(item.percent) }}</strong>
+                  </div>
+                </div>
               </div>
             </div>
-            <div class="result-legend">
-              <div v-for="item in overviewSegments" :key="item.key" class="legend-row">
-                <span class="legend-dot" :class="item.key"></span>
-                <span class="legend-label">{{ item.label }}</span>
-                <strong class="legend-pct">{{ formatPct(item.percent) }}</strong>
-              </div>
-            </div>
-          </article>
-        </div>
-      </section>
-
-      <section class="block">
-        <h4>Статистика по ролям</h4>
-        <div class="roles-grid">
-          <article v-for="item in roleItems" :key="item.key" class="role-card">
-            <div class="role-head">
-              <strong>{{ item.label }}</strong>
-              <span>{{ formatPct(item.winrate) }}</span>
-            </div>
-            <div class="role-bar">
-              <span :style="{ width: `${clampPct(item.winrate)}%` }"></span>
-            </div>
-            <div class="role-foot">
-              <span>Побед {{ formatInt(item.wins) }}</span>
-              <span>Игр {{ formatInt(item.games) }}</span>
+            <div class="role-rings">
+              <article v-for="item in roleRingItems" :key="item.key" class="role-ring-card">
+                <div class="role-result-ring" :style="item.style">
+                  <div class="role-result-center">
+                    <span class="role-title">{{ item.label }}</span>
+                    <strong>{{ formatInt(item.games) }}</strong>
+                    <span class="role-sub">игр</span>
+                    <div class="result-legend role-legend">
+                      <div v-for="segment in item.segments" :key="segment.key" class="legend-row">
+                        <span class="legend-dot" :class="segment.key"></span>
+                        <span class="legend-label">{{ segment.label }}</span>
+                        <strong class="legend-pct">{{ formatPct(segment.percent) }}</strong>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </article>
             </div>
           </article>
         </div>
@@ -275,21 +274,20 @@ const game = computed(() => stats.game)
 
 const nonGameItems = computed(() => [
   { key: 'rooms-created', label: 'Создал комнат', value: formatInt(stats.rooms_created) },
-  { key: 'games-hosted', label: 'Игр провёл ведущим', value: formatInt(game.value.games_hosted) },
   { key: 'room-minutes', label: 'Минут в комнатах', value: formatInt(stats.room_minutes) },
   { key: 'stream-minutes', label: 'Минут стримил', value: formatInt(stats.stream_minutes) },
   { key: 'spectator-minutes', label: 'Минут как зритель', value: formatInt(stats.spectator_minutes) },
+  { key: 'games-hosted', label: 'Игр провёл ведущим', value: formatInt(game.value.games_hosted) },
 ])
 
 const lossesCount = computed(() => Math.max(0, safeInt(game.value.games_played) - safeInt(game.value.games_won)))
 
-const totalFinishedGames = computed(() => safeInt(game.value.games_played) + safeInt(game.value.draws_count))
+const totalFinishedGames = computed(() => safeInt(game.value.games_played))
 
 const overviewSegments = computed(() => {
   const wins = safeInt(game.value.games_won)
   const losses = lossesCount.value
-  const draws = safeInt(game.value.draws_count)
-  const total = wins + losses + draws
+  const total = wins + losses
   const toPct = (count: number): number => {
     if (total <= 0) return 0
     return (count * 100) / total
@@ -297,31 +295,57 @@ const overviewSegments = computed(() => {
   return [
     { key: 'wins', label: 'Победы', percent: toPct(wins) },
     { key: 'losses', label: 'Поражения', percent: toPct(losses) },
-    { key: 'draws', label: 'Ничьи', percent: toPct(draws) },
   ]
 })
 
-const overviewRingStyle = computed<Record<string, string>>(() => {
-  const [wins, losses, draws] = overviewSegments.value
-  const stop1 = clampPct(wins.percent)
-  const stop2 = clampPct(wins.percent + losses.percent)
-  const stop3 = clampPct(wins.percent + losses.percent + draws.percent)
-  if (stop3 <= 0) {
+function createRingStyle(winsPctRaw: number, lossesPctRaw: number): Record<string, string> {
+  const stop1 = clampPct(winsPctRaw)
+  const stop2 = clampPct(winsPctRaw + lossesPctRaw)
+  if (stop2 <= 0) {
     return {
       background: 'conic-gradient(rgba(255,255,255,0.14) 0% 100%)',
     }
   }
   return {
-    background: `conic-gradient(var(--ring-win) 0% ${stop1}%, var(--ring-loss) ${stop1}% ${stop2}%, var(--ring-neutral) ${stop2}% 100%)`,
+    background: `conic-gradient(var(--ring-win) 0% ${stop1}%, var(--ring-loss) ${stop1}% 100%)`,
   }
+}
+
+const overviewRingStyle = computed<Record<string, string>>(() => {
+  const [wins, losses] = overviewSegments.value
+  return createRingStyle(wins.percent, losses.percent)
 })
 
-const roleItems = computed(() => [
-  { key: 'citizen', label: 'Мирный житель', games: game.value.role_citizen.games, wins: game.value.role_citizen.wins, winrate: game.value.role_citizen.winrate_percent },
-  { key: 'sheriff', label: 'Шериф', games: game.value.role_sheriff.games, wins: game.value.role_sheriff.wins, winrate: game.value.role_sheriff.winrate_percent },
-  { key: 'don', label: 'Дон', games: game.value.role_don.games, wins: game.value.role_don.wins, winrate: game.value.role_don.winrate_percent },
-  { key: 'mafia', label: 'Мафия', games: game.value.role_mafia.games, wins: game.value.role_mafia.wins, winrate: game.value.role_mafia.winrate_percent },
-])
+const roleRingItems = computed(() => {
+  const roles = [
+    { key: 'citizen', label: 'Мирный житель', stats: game.value.role_citizen },
+    { key: 'sheriff', label: 'Шериф', stats: game.value.role_sheriff },
+    { key: 'don', label: 'Дон', stats: game.value.role_don },
+    { key: 'mafia', label: 'Мафия', stats: game.value.role_mafia },
+  ]
+  return roles.map((item) => {
+    const games = safeInt(item.stats.games)
+    const wins = safeInt(item.stats.wins)
+    const losses = Math.max(0, games - wins)
+    const total = wins + losses
+    const toPct = (count: number): number => {
+      if (total <= 0) return 0
+      return (count * 100) / total
+    }
+    const winPct = toPct(wins)
+    const lossPct = toPct(losses)
+    return {
+      key: item.key,
+      label: item.label,
+      games,
+      segments: [
+        { key: 'wins', label: 'Поб', percent: winPct },
+        { key: 'losses', label: 'Пор', percent: lossPct },
+      ],
+      style: createRingStyle(winPct, lossPct),
+    }
+  })
+})
 
 const topTogetherMax = computed(() => {
   let max = 0
@@ -428,7 +452,6 @@ onMounted(() => {
 .stats-tab {
   --ring-win: #30b86e;
   --ring-loss: #d14d4d;
-  --ring-neutral: #79808b;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -506,19 +529,19 @@ onMounted(() => {
       justify-content: center;
       .result-card {
         display: grid;
-        grid-template-columns: minmax(0, 320px) minmax(0, 280px);
+        grid-template-columns: minmax(320px, 360px) minmax(0, 1fr);
         align-items: center;
-        gap: 16px;
+        gap: 14px;
         width: 100%;
-        max-width: 640px;
+        max-width: 980px;
         padding: 12px;
         border-radius: 8px;
         border: 1px solid rgba($grey, 0.4);
         background-color: rgba($black, 0.14);
       }
       .result-ring {
-        width: 280px;
-        height: 280px;
+        width: 320px;
+        height: 320px;
         margin: 0 auto;
         border-radius: 50%;
         position: relative;
@@ -528,7 +551,7 @@ onMounted(() => {
         &::before {
           content: "";
           position: absolute;
-          inset: 40px;
+          inset: 44px;
           border-radius: inherit;
           background-color: rgba($dark, 0.96);
           border: 1px solid rgba($grey, 0.4);
@@ -538,104 +561,154 @@ onMounted(() => {
           z-index: 1;
           display: flex;
           flex-direction: column;
-          align-items: center;
+          align-items: stretch;
           gap: 6px;
+          width: 170px;
           span {
             color: $ashy;
             font-size: 13px;
             text-transform: uppercase;
             letter-spacing: 0.02em;
+            text-align: center;
           }
           strong {
             color: $fg;
             font-family: Manrope-SemiBold;
             font-size: 34px;
             line-height: 1;
+            text-align: center;
+          }
+        }
+        .result-legend {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          margin-top: 2px;
+          .legend-row {
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            align-items: center;
+            gap: 6px;
+            .legend-dot {
+              display: block;
+              width: 8px;
+              height: 8px;
+              border-radius: 50%;
+              &.wins {
+                background-color: var(--ring-win);
+              }
+              &.losses {
+                background-color: var(--ring-loss);
+              }
+            }
+            .legend-label {
+              color: $ashy;
+              font-size: 12px;
+              text-transform: none;
+              letter-spacing: normal;
+            }
+            .legend-pct {
+              color: $fg;
+              font-family: Manrope-SemiBold;
+              font-size: 12px;
+              text-align: right;
+            }
           }
         }
       }
-      .result-legend {
-        display: flex;
-        flex-direction: column;
+      .role-rings {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 10px;
-        .legend-row {
-          display: grid;
-          grid-template-columns: auto 1fr auto;
+        .role-ring-card {
+          display: flex;
+          justify-content: center;
+        }
+        .role-result-ring {
+          width: 200px;
+          height: 200px;
+          border-radius: 50%;
+          position: relative;
+          display: flex;
           align-items: center;
-          gap: 8px;
-          min-height: 38px;
-          padding: 8px 10px;
-          border-radius: 6px;
-          border: 1px solid rgba($grey, 0.35);
-          background-color: rgba($black, 0.2);
-          .legend-dot {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            &.wins {
-              background-color: var(--ring-win);
-            }
-            &.losses {
-              background-color: var(--ring-loss);
-            }
-            &.draws {
-              background-color: var(--ring-neutral);
-            }
-          }
-          .legend-label {
-            color: $ashy;
-            font-size: 13px;
-          }
-          .legend-pct {
-            color: $fg;
-            font-family: Manrope-SemiBold;
-            font-size: 15px;
-          }
-        }
-      }
-    }
-    .roles-grid {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 10px;
-      .role-card {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        padding: 8px;
-        border-radius: 5px;
-        border: 1px solid rgba($grey, 0.4);
-        background-color: rgba($black, 0.14);
-        .role-head {
-          display: flex;
-          justify-content: space-between;
-          gap: 8px;
-          strong {
-            font-size: 14px;
-          }
-          span {
-            font-size: 13px;
-            color: $green;
-          }
-        }
-        .role-bar {
-          height: 8px;
-          border-radius: 999px;
-          background-color: rgba($black, 0.35);
-          overflow: hidden;
-          span {
-            display: block;
-            height: 100%;
+          justify-content: center;
+          &::before {
+            content: "";
+            position: absolute;
+            inset: 28px;
             border-radius: inherit;
-            background: linear-gradient(90deg, rgba($orange, 0.9), rgba($yellow, 0.95));
+            background-color: rgba($dark, 0.97);
+            border: 1px solid rgba($grey, 0.35);
           }
-        }
-        .role-foot {
-          display: flex;
-          justify-content: space-between;
-          gap: 8px;
-          color: $ashy;
-          font-size: 12px;
+          .role-result-center {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            width: 128px;
+            gap: 2px;
+            .role-title {
+              color: $ashy;
+              font-size: 11px;
+              line-height: 1.1;
+              text-align: center;
+              text-transform: uppercase;
+              letter-spacing: 0.02em;
+            }
+            strong {
+              color: $fg;
+              font-family: Manrope-SemiBold;
+              font-size: 20px;
+              line-height: 1;
+              text-align: center;
+            }
+            .role-sub {
+              color: $ashy;
+              font-size: 11px;
+              text-align: center;
+              text-transform: none;
+              letter-spacing: normal;
+            }
+          }
+          .role-legend {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            margin-top: 2px;
+            .legend-row {
+              display: grid;
+              grid-template-columns: auto 1fr auto;
+              align-items: center;
+              gap: 4px;
+              .legend-dot {
+                display: block;
+                width: 7px;
+                height: 7px;
+                border-radius: 50%;
+                &.wins {
+                  background-color: var(--ring-win);
+                }
+                &.losses {
+                  background-color: var(--ring-loss);
+                }
+              }
+              .legend-label,
+              .legend-pct {
+                font-size: 10px;
+              }
+              .legend-label {
+                color: $ashy;
+                text-transform: none;
+                letter-spacing: normal;
+              }
+              .legend-pct {
+                color: $fg;
+                font-family: Manrope-SemiBold;
+                text-align: right;
+              }
+            }
+          }
         }
       }
     }
@@ -740,13 +813,18 @@ onMounted(() => {
           grid-template-columns: 1fr;
           justify-items: center;
         }
-        .result-legend {
-          width: 100%;
-          max-width: 300px;
+        .result-ring {
+          width: 300px;
+          height: 300px;
+          &::before {
+            inset: 42px;
+          }
         }
-      }
-      .roles-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        .role-rings {
+          width: 100%;
+          max-width: 480px;
+          gap: 12px;
+        }
       }
       .extra-grid {
         grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -762,20 +840,56 @@ onMounted(() => {
   .stats-tab {
     .stats-layout {
       .non-game-grid,
-      .roles-grid,
       .extra-grid {
         grid-template-columns: 1fr;
       }
       .overview {
         .result-ring {
-          width: 220px;
-          height: 220px;
+          width: 250px;
+          height: 250px;
           &::before {
-            inset: 30px;
+            inset: 34px;
           }
           .result-center {
+            width: 150px;
+            span {
+              font-size: 11px;
+            }
             strong {
-              font-size: 28px;
+              font-size: 26px;
+            }
+            .result-legend {
+              .legend-row {
+                gap: 4px;
+                .legend-label,
+                .legend-pct {
+                  font-size: 11px;
+                }
+              }
+            }
+          }
+        }
+        .role-rings {
+          grid-template-columns: 1fr;
+          .role-result-ring {
+            width: 220px;
+            height: 220px;
+            &::before {
+              inset: 32px;
+            }
+            .role-result-center {
+              width: 140px;
+              strong {
+                font-size: 22px;
+              }
+              .role-legend {
+                .legend-row {
+                  .legend-label,
+                  .legend-pct {
+                    font-size: 11px;
+                  }
+                }
+              }
             }
           }
         }

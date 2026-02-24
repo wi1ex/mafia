@@ -8,7 +8,6 @@ from ..models.game import Game
 from ..models.stats import UserGameStats
 
 DECISIVE_RESULTS = {"red", "black"}
-FINISHED_RESULTS = {"red", "black", "draw"}
 BLACK_ROLES = {"mafia", "don"}
 RED_ROLES = {"citizen", "sheriff"}
 
@@ -237,7 +236,7 @@ def _parse_actions(actions: list[dict[str, Any]], roles: dict[int, str]) -> dict
 
 
 def _apply_game_to_user_row(row: UserGameStats, *, uid: int, roles: dict[int, str], players: set[int], head_id: int, result: str, duration_seconds: int, parsed: dict[str, Any]) -> None:
-    if uid <= 0 or result not in FINISHED_RESULTS:
+    if uid <= 0 or result not in DECISIVE_RESULTS:
         return
 
     in_players = uid in players
@@ -246,8 +245,6 @@ def _apply_game_to_user_row(row: UserGameStats, *, uid: int, roles: dict[int, st
 
     if in_players:
         row.games_total_finished = _safe_int(row.games_total_finished) + 1
-        if result == "draw":
-            row.games_draw = _safe_int(row.games_draw) + 1
 
         if decisive:
             row.games_decisive = _safe_int(row.games_decisive) + 1
@@ -304,7 +301,7 @@ def _apply_game_to_user_row(row: UserGameStats, *, uid: int, roles: dict[int, st
 
 def _build_game_payload(game: Game) -> dict[str, Any] | None:
     result = _safe_str(getattr(game, "result", ""))
-    if result not in FINISHED_RESULTS:
+    if result not in DECISIVE_RESULTS:
         return None
 
     roles = _normalize_roles(getattr(game, "roles", {}))

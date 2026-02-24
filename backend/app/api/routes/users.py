@@ -107,6 +107,11 @@ async def user_stats(ident: Identity = Depends(get_identity), db: AsyncSession =
     if not stats_row:
         stats_row = await rebuild_user_game_stats(db, uid)
         await db.commit()
+    else:
+        draws_total = safe_int(getattr(stats_row, "games_draw", 0))
+        if draws_total > 0:
+            stats_row = await rebuild_user_game_stats(db, uid)
+            await db.commit()
 
     closeness_rows = await db.execute(
         select(FriendCloseness.user_low, FriendCloseness.user_high, FriendCloseness.games_together)
