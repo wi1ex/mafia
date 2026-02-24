@@ -36,12 +36,72 @@ class UserTopPlayerOut(BaseModel):
     games_together: int = 0
 
 
+class UserRoleStatsOut(BaseModel):
+    games: int = 0
+    wins: int = 0
+    winrate_percent: float = 0.0
+
+
+class UserRecentGameOut(BaseModel):
+    game_id: int
+    role: str
+    result: Literal["red", "black"]
+    won: bool
+    finished_at: datetime
+
+
+class UserBestMoveStatsOut(BaseModel):
+    first_killed_total: int = 0
+    marks_black_0: int = 0
+    marks_black_1: int = 0
+    marks_black_2: int = 0
+    marks_black_3: int = 0
+
+
+class UserTopVoteOut(BaseModel):
+    id: int
+    username: Optional[str] = None
+    count: int = 0
+
+
+class UserGameStatsOut(BaseModel):
+    games_played: int = 0
+    games_won: int = 0
+    winrate_percent: float = 0.0
+    games_hosted: int = 0
+    avg_game_minutes: float = 0.0
+    draws_count: int = 0
+    draws_percent: float = 0.0
+    avg_fouls_per_game: float = 0.0
+    don_first_night_checks: int = 0
+    don_first_night_found_sheriff: int = 0
+    don_first_night_find_percent: float = 0.0
+    misses_due_to_me: int = 0
+    winks_used: int = 0
+    knocks_used: int = 0
+    vote_leave_day12_count: int = 0
+    vote_leave_day12_percent: float = 0.0
+    farewell_total: int = 0
+    farewell_success_percent: float = 0.0
+    best_win_streak: int = 0
+    best_loss_streak: int = 0
+    role_citizen: UserRoleStatsOut
+    role_sheriff: UserRoleStatsOut
+    role_don: UserRoleStatsOut
+    role_mafia: UserRoleStatsOut
+    best_move: UserBestMoveStatsOut
+    top_players: List[UserTopPlayerOut] = Field(default_factory=list)
+    recent_games: List[UserRecentGameOut] = Field(default_factory=list)
+    top_voted_against_me: Optional[UserTopVoteOut] = None
+    top_i_voted_against: Optional[UserTopVoteOut] = None
+
+
 class UserStatsOut(BaseModel):
     rooms_created: int = 0
     room_minutes: int = 0
     stream_minutes: int = 0
     spectator_minutes: int = 0
-    top_players: List[UserTopPlayerOut] = Field(default_factory=list)
+    game: UserGameStatsOut
 
 
 class UserSanctionOut(BaseModel):

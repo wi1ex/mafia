@@ -17,14 +17,22 @@ from ..utils import (
     normalize_username,
     is_protected_admin,
     aggregate_user_room_stats,
+    safe_int,
+    pct,
+    avg,
+    avg_minutes,
+    role_stats,
+    parse_recent_games,
 )
 from ...models.friend import FriendCloseness
+from ...models.stats import UserGameStats
 from ...models.user import User
 from ...core.db import get_session
 from ...core.settings import settings
 from ...core.logging import log_action
 from ...security.auth_tokens import get_identity
 from ...security.decorators import log_route, rate_limited
+from ...services.game_stats import rebuild_user_game_stats
 from ...services.text_moderation import enforce_clean_text
 from ...schemas.common import Identity, Ok
 from ...schemas.user import (
@@ -38,6 +46,9 @@ from ...schemas.user import (
     UserUiPrefsOut,
     PasswordChangeIn,
     UserStatsOut,
+    UserGameStatsOut,
+    UserBestMoveStatsOut,
+    UserTopVoteOut,
     UserTopPlayerOut,
 )
 from ...security.passwords import hash_password, verify_password
@@ -94,6 +105,11 @@ async def user_stats(ident: Identity = Depends(get_identity), db: AsyncSession =
     stream_minutes = max(0, int(stream_seconds.get(uid, 0)) // 60)
     spectator_minutes = max(0, int(spectator_seconds.get(uid, 0)) // 60)
 
+    stats_row = await db.get(UserGameStats, uid)
+    if not stats_row:
+        stats_row = await rebuild_user_game_stats(db, uid)
+        await db.commit()
+
     closeness_rows = await db.execute(
         select(FriendCloseness.user_low, FriendCloseness.user_high, FriendCloseness.games_together)
         .where(
@@ -117,7 +133,15 @@ async def user_stats(ident: Identity = Depends(get_identity), db: AsyncSession =
         if len(top_ids) >= 5:
             break
 
-    profiles = await get_user_profiles_cached(db, top_ids) if top_ids else {}
+    extra_profile_ids: set[int] = set(top_ids)
+    top_against_id = safe_int(getattr(stats_row, "top_voter_against_me_id", 0))
+    top_target_id = safe_int(getattr(stats_row, "top_vote_target_by_me_id", 0))
+    if top_against_id > 0:
+        extra_profile_ids.add(top_against_id)
+    if top_target_id > 0:
+        extra_profile_ids.add(top_target_id)
+    profiles = await get_user_profiles_cached(db, extra_profile_ids) if extra_profile_ids else {}
+
     top_players: list[UserTopPlayerOut] = []
     for other_id in top_ids:
         profile = profiles.get(other_id) or {}
@@ -131,12 +155,77 @@ async def user_stats(ident: Identity = Depends(get_identity), db: AsyncSession =
             )
         )
 
+    def profile_username(user_id: int) -> str | None:
+        profile = profiles.get(user_id) or {}
+        raw = profile.get("username")
+        return str(raw) if isinstance(raw, str) else None
+
+    top_voted_against_me: UserTopVoteOut | None = None
+    top_against_count = safe_int(getattr(stats_row, "top_voter_against_me_count", 0))
+    if top_against_id > 0 and top_against_count > 0:
+        top_voted_against_me = UserTopVoteOut(id=top_against_id, username=profile_username(top_against_id), count=top_against_count)
+
+    top_i_voted_against: UserTopVoteOut | None = None
+    top_target_count = safe_int(getattr(stats_row, "top_vote_target_by_me_count", 0))
+    if top_target_id > 0 and top_target_count > 0:
+        top_i_voted_against = UserTopVoteOut(id=top_target_id, username=profile_username(top_target_id), count=top_target_count)
+
+    games_played = safe_int(getattr(stats_row, "games_decisive", 0))
+    games_won = safe_int(getattr(stats_row, "games_won", 0))
+    games_draw = safe_int(getattr(stats_row, "games_draw", 0))
+    games_total_finished = safe_int(getattr(stats_row, "games_total_finished", 0))
+    don_checks_first_night = safe_int(getattr(stats_row, "don_checks_first_night", 0))
+    don_checks_first_night_found = safe_int(getattr(stats_row, "don_checks_first_night_found", 0))
+    vote_leave_day12 = safe_int(getattr(stats_row, "vote_leave_day12", 0))
+    farewell_total = safe_int(getattr(stats_row, "farewell_total", 0))
+    farewell_correct = safe_int(getattr(stats_row, "farewell_correct", 0))
+    total_fouls_received = safe_int(getattr(stats_row, "total_fouls_received", 0))
+    total_duration_seconds = safe_int(getattr(stats_row, "total_duration_seconds", 0))
+
+    game_stats = UserGameStatsOut(
+        games_played=games_played,
+        games_won=games_won,
+        winrate_percent=pct(games_won, games_played),
+        games_hosted=safe_int(getattr(stats_row, "games_hosted", 0)),
+        avg_game_minutes=avg_minutes(total_duration_seconds, games_played),
+        draws_count=games_draw,
+        draws_percent=pct(games_draw, games_total_finished),
+        avg_fouls_per_game=avg(total_fouls_received, games_played),
+        don_first_night_checks=don_checks_first_night,
+        don_first_night_found_sheriff=don_checks_first_night_found,
+        don_first_night_find_percent=pct(don_checks_first_night_found, don_checks_first_night),
+        misses_due_to_me=safe_int(getattr(stats_row, "misses_due_to_me", 0)),
+        winks_used=safe_int(getattr(stats_row, "winks_used", 0)),
+        knocks_used=safe_int(getattr(stats_row, "knocks_used", 0)),
+        vote_leave_day12_count=vote_leave_day12,
+        vote_leave_day12_percent=pct(vote_leave_day12, games_played),
+        farewell_total=farewell_total,
+        farewell_success_percent=pct(farewell_correct, farewell_total),
+        best_win_streak=safe_int(getattr(stats_row, "best_win_streak", 0)),
+        best_loss_streak=safe_int(getattr(stats_row, "best_loss_streak", 0)),
+        role_citizen=role_stats(getattr(stats_row, "citizen_games", 0), getattr(stats_row, "citizen_wins", 0)),
+        role_sheriff=role_stats(getattr(stats_row, "sheriff_games", 0), getattr(stats_row, "sheriff_wins", 0)),
+        role_don=role_stats(getattr(stats_row, "don_games", 0), getattr(stats_row, "don_wins", 0)),
+        role_mafia=role_stats(getattr(stats_row, "mafia_games", 0), getattr(stats_row, "mafia_wins", 0)),
+        best_move=UserBestMoveStatsOut(
+            first_killed_total=safe_int(getattr(stats_row, "first_killed_best_move_total", 0)),
+            marks_black_0=safe_int(getattr(stats_row, "best_move_black_0", 0)),
+            marks_black_1=safe_int(getattr(stats_row, "best_move_black_1", 0)),
+            marks_black_2=safe_int(getattr(stats_row, "best_move_black_2", 0)),
+            marks_black_3=safe_int(getattr(stats_row, "best_move_black_3", 0)),
+        ),
+        top_players=top_players,
+        recent_games=parse_recent_games(getattr(stats_row, "recent_games", [])),
+        top_voted_against_me=top_voted_against_me,
+        top_i_voted_against=top_i_voted_against,
+    )
+
     return UserStatsOut(
-        rooms_created=max(0, int(rooms_created.get(uid, 0))),
+        rooms_created=max(0, safe_int(rooms_created.get(uid, 0))),
         room_minutes=room_minutes,
         stream_minutes=stream_minutes,
         spectator_minutes=spectator_minutes,
-        top_players=top_players,
+        game=game_stats,
     )
 
 

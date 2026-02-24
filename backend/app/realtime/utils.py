@@ -25,6 +25,7 @@ from ..core.clients import get_redis
 from ..core.logging import log_action
 from ..security.auth_tokens import decode_token
 from ..services.user_cache import get_user_profile_cached, get_user_profiles_cached
+from ..services.game_stats import apply_finished_game_stats
 
 __all__ = [
     "KEYS_STATE",
@@ -3451,22 +3452,23 @@ async def finish_game(r, rid: int, *, result: str, head_uid: int | None = None, 
         mmr_map = {str(uid): 0 for uid in player_ids}
         try:
             async with SessionLocal() as s:
-                s.add(
-                    Game(
-                        room_id=rid,
-                        room_owner_id=room_owner_id,
-                        head_id=head_uid if head_uid and head_uid > 0 else None,
-                        result=result,
-                        started_at=started_at,
-                        finished_at=finished_at,
-                        roles=roles_map,
-                        seats=seats_map,
-                        points=points_map,
-                        mmr=mmr_map,
-                        actions=actions,
-                        black_alive_at_finish=black_alive_at_finish,
-                    )
+                game_row = Game(
+                    room_id=rid,
+                    room_owner_id=room_owner_id,
+                    head_id=head_uid if head_uid and head_uid > 0 else None,
+                    result=result,
+                    started_at=started_at,
+                    finished_at=finished_at,
+                    roles=roles_map,
+                    seats=seats_map,
+                    points=points_map,
+                    mmr=mmr_map,
+                    actions=actions,
+                    black_alive_at_finish=black_alive_at_finish,
                 )
+                s.add(game_row)
+                await s.flush()
+                await apply_finished_game_stats(s, game_row)
                 await bump_friend_closeness(s, player_ids)
                 await s.commit()
         except Exception:
