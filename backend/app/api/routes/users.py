@@ -1,7 +1,7 @@
 from __future__ import annotations
 from contextlib import suppress
 from typing import cast
-from sqlalchemy import select, update, exists, func, literal, and_
+from sqlalchemy import select, update, exists, func, literal, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Response
 from ..utils import (
@@ -16,7 +16,9 @@ from ..utils import (
     force_logout_user,
     normalize_username,
     is_protected_admin,
+    aggregate_user_room_stats,
 )
+from ...models.friend import FriendCloseness
 from ...models.user import User
 from ...core.db import get_session
 from ...core.settings import settings
@@ -35,10 +37,12 @@ from ...schemas.user import (
     UserUiPrefsIn,
     UserUiPrefsOut,
     PasswordChangeIn,
+    UserStatsOut,
+    UserTopPlayerOut,
 )
 from ...security.passwords import hash_password, verify_password
 from ...services.minio import put_avatar_async, delete_avatars_async, ALLOWED_CT, MAX_BYTES
-from ...services.user_cache import write_user_profile_cache, invalidate_avatar_presign_cache
+from ...services.user_cache import write_user_profile_cache, invalidate_avatar_presign_cache, get_user_profiles_cached
 
 router = APIRouter()
 
@@ -73,6 +77,66 @@ async def profile_info(ident: Identity = Depends(get_identity), db: AsyncSession
         timeout_until=timeout.expires_at if timeout else None,
         suspend_until=suspend.expires_at if suspend else None,
         ban_active=bool(ban),
+    )
+
+
+@log_route("users.stats")
+@rate_limited(lambda ident, **_: f"rl:user_stats:{ident['id']}", limit=10, window_s=1)
+@router.get("/stats", response_model=UserStatsOut)
+async def user_stats(ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UserStatsOut:
+    uid = int(ident["id"])
+    user = await db.get(User, uid)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
+
+    rooms_created, room_seconds, stream_seconds, spectator_seconds, _games_played, _games_hosted = await aggregate_user_room_stats(db, [uid])
+    room_minutes = max(0, int(room_seconds.get(uid, 0)) // 60)
+    stream_minutes = max(0, int(stream_seconds.get(uid, 0)) // 60)
+    spectator_minutes = max(0, int(spectator_seconds.get(uid, 0)) // 60)
+
+    closeness_rows = await db.execute(
+        select(FriendCloseness.user_low, FriendCloseness.user_high, FriendCloseness.games_together)
+        .where(
+            or_(FriendCloseness.user_low == uid, FriendCloseness.user_high == uid),
+            FriendCloseness.games_together > 0,
+        )
+        .order_by(FriendCloseness.games_together.desc(), FriendCloseness.updated_at.desc(), FriendCloseness.id.desc())
+        .limit(5)
+    )
+
+    top_ids: list[int] = []
+    top_games: dict[int, int] = {}
+    for user_low, user_high, games_together in closeness_rows.all():
+        lo = int(user_low)
+        hi = int(user_high)
+        other_id = hi if lo == uid else lo
+        if other_id <= 0 or other_id in top_games:
+            continue
+        top_ids.append(other_id)
+        top_games[other_id] = max(0, int(games_together or 0))
+        if len(top_ids) >= 5:
+            break
+
+    profiles = await get_user_profiles_cached(db, top_ids) if top_ids else {}
+    top_players: list[UserTopPlayerOut] = []
+    for other_id in top_ids:
+        profile = profiles.get(other_id) or {}
+        username_raw = profile.get("username")
+        username = str(username_raw) if isinstance(username_raw, str) else None
+        top_players.append(
+            UserTopPlayerOut(
+                id=other_id,
+                username=username,
+                games_together=top_games.get(other_id, 0),
+            )
+        )
+
+    return UserStatsOut(
+        rooms_created=max(0, int(rooms_created.get(uid, 0))),
+        room_minutes=room_minutes,
+        stream_minutes=stream_minutes,
+        spectator_minutes=spectator_minutes,
+        top_players=top_players,
     )
 
 

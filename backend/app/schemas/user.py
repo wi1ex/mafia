@@ -30,6 +30,20 @@ class UserOut(BaseModel):
     ban_active: bool = False
 
 
+class UserTopPlayerOut(BaseModel):
+    id: int
+    username: Optional[str] = None
+    games_together: int = 0
+
+
+class UserStatsOut(BaseModel):
+    rooms_created: int = 0
+    room_minutes: int = 0
+    stream_minutes: int = 0
+    spectator_minutes: int = 0
+    top_players: List[UserTopPlayerOut] = Field(default_factory=list)
+
+
 class UserSanctionOut(BaseModel):
     id: int
     kind: Literal["timeout", "ban", "suspend"]

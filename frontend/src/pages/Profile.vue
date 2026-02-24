@@ -8,7 +8,7 @@
         <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'sanctions' }" :aria-selected="activeTab === 'sanctions'" @click="activeTab = 'sanctions'">
           Ограничения
         </button>
-        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'stats' }" :aria-selected="activeTab === 'stats'" @click="activeTab = 'stats'" disabled>
+        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'stats' }" :aria-selected="activeTab === 'stats'" @click="activeTab = 'stats'">
           Статистика
         </button>
       </nav>
@@ -131,6 +131,12 @@
           </div>
         </div>
 
+        <div v-else-if="activeTab === 'stats'" class="grid grid-stats">
+          <div class="block">
+            <ProfileStatsTab />
+          </div>
+        </div>
+
         <div v-else-if="activeTab === 'sanctions'" class="grid grid-sanctions">
           <div class="block sanctions-block">
             <div class="sanctions-head">
@@ -192,6 +198,7 @@ import { confirmDialog, alertDialog } from '@/services/confirm'
 import { formatModerationAlert } from '@/services/moderation'
 import { formatLocalDateTime } from '@/services/datetime'
 
+import ProfileStatsTab from '@/components/ProfileStatsTab.vue'
 import ToggleSwitch from '@/components/ToggleSwitch.vue'
 import UiInput from '@/components/UiInput.vue'
 
@@ -1210,6 +1217,9 @@ onBeforeUnmount(() => {
         }
       }
       &.grid-sanctions {
+        grid-template-columns: 1fr;
+      }
+      &.grid-stats {
         grid-template-columns: 1fr;
       }
     }
