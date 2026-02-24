@@ -23,38 +23,21 @@
       <section class="block">
         <h4>Общий игровой результат</h4>
         <div class="overview">
-          <div class="rings">
-            <article class="ring-card">
-              <div class="ring" :style="ringStyle(game.winrate_percent, '--ring-win')">
-                <strong>{{ formatPct(game.winrate_percent) }}</strong>
+          <article class="result-card">
+            <div class="result-ring" :style="overviewRingStyle">
+              <div class="result-center">
+                <span>Всего игр</span>
+                <strong>{{ formatInt(totalFinishedGames) }}</strong>
               </div>
-              <span>Винрейт</span>
-            </article>
-            <article class="ring-card">
-              <div class="ring" :style="ringStyle(game.draws_percent, '--ring-draw')">
-                <strong>{{ formatPct(game.draws_percent) }}</strong>
+            </div>
+            <div class="result-legend">
+              <div v-for="item in overviewSegments" :key="item.key" class="legend-row">
+                <span class="legend-dot" :class="item.key"></span>
+                <span class="legend-label">{{ item.label }}</span>
+                <strong class="legend-pct">{{ formatPct(item.percent) }}</strong>
               </div>
-              <span>Доля ничьих</span>
-            </article>
-          </div>
-          <div class="overview-cards">
-            <article class="metric-card">
-              <span>Игр сыграно</span>
-              <strong>{{ formatInt(game.games_played) }}</strong>
-            </article>
-            <article class="metric-card">
-              <span>Игр выиграно</span>
-              <strong>{{ formatInt(game.games_won) }}</strong>
-            </article>
-            <article class="metric-card">
-              <span>Игр ведущим</span>
-              <strong>{{ formatInt(game.games_hosted) }}</strong>
-            </article>
-            <article class="metric-card">
-              <span>Ничьих</span>
-              <strong>{{ formatInt(game.draws_count) }}</strong>
-            </article>
-          </div>
+            </div>
+          </article>
         </div>
       </section>
 
@@ -280,13 +263,6 @@ function formatMinutes(raw: unknown): string {
   return `${safeFloat(raw).toFixed(2)} мин`
 }
 
-function ringStyle(percentRaw: unknown, colorVar: string): Record<string, string> {
-  const percent = clampPct(percentRaw)
-  return {
-    background: `conic-gradient(var(${colorVar}) ${percent}%, rgba(255,255,255,0.12) ${percent}% 100%)`,
-  }
-}
-
 function barPct(valueRaw: unknown, maxRaw: unknown): number {
   const value = safeFloat(valueRaw)
   const max = safeFloat(maxRaw)
@@ -299,10 +275,46 @@ const game = computed(() => stats.game)
 
 const nonGameItems = computed(() => [
   { key: 'rooms-created', label: 'Создал комнат', value: formatInt(stats.rooms_created) },
+  { key: 'games-hosted', label: 'Игр провёл ведущим', value: formatInt(game.value.games_hosted) },
   { key: 'room-minutes', label: 'Минут в комнатах', value: formatInt(stats.room_minutes) },
   { key: 'stream-minutes', label: 'Минут стримил', value: formatInt(stats.stream_minutes) },
   { key: 'spectator-minutes', label: 'Минут как зритель', value: formatInt(stats.spectator_minutes) },
 ])
+
+const lossesCount = computed(() => Math.max(0, safeInt(game.value.games_played) - safeInt(game.value.games_won)))
+
+const totalFinishedGames = computed(() => safeInt(game.value.games_played) + safeInt(game.value.draws_count))
+
+const overviewSegments = computed(() => {
+  const wins = safeInt(game.value.games_won)
+  const losses = lossesCount.value
+  const draws = safeInt(game.value.draws_count)
+  const total = wins + losses + draws
+  const toPct = (count: number): number => {
+    if (total <= 0) return 0
+    return (count * 100) / total
+  }
+  return [
+    { key: 'wins', label: 'Победы', percent: toPct(wins) },
+    { key: 'losses', label: 'Поражения', percent: toPct(losses) },
+    { key: 'draws', label: 'Ничьи', percent: toPct(draws) },
+  ]
+})
+
+const overviewRingStyle = computed<Record<string, string>>(() => {
+  const [wins, losses, draws] = overviewSegments.value
+  const stop1 = clampPct(wins.percent)
+  const stop2 = clampPct(wins.percent + losses.percent)
+  const stop3 = clampPct(wins.percent + losses.percent + draws.percent)
+  if (stop3 <= 0) {
+    return {
+      background: 'conic-gradient(rgba(255,255,255,0.14) 0% 100%)',
+    }
+  }
+  return {
+    background: `conic-gradient(var(--ring-win) 0% ${stop1}%, var(--ring-loss) ${stop1}% ${stop2}%, var(--ring-neutral) ${stop2}% 100%)`,
+  }
+})
 
 const roleItems = computed(() => [
   { key: 'citizen', label: 'Мирный житель', games: game.value.role_citizen.games, wins: game.value.role_citizen.wins, winrate: game.value.role_citizen.winrate_percent },
@@ -415,7 +427,8 @@ onMounted(() => {
 <style scoped lang="scss">
 .stats-tab {
   --ring-win: #30b86e;
-  --ring-draw: #d7aa38;
+  --ring-loss: #d14d4d;
+  --ring-neutral: #79808b;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -485,57 +498,100 @@ onMounted(() => {
     }
     .non-game-grid {
       display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-columns: repeat(5, minmax(0, 1fr));
       gap: 10px;
     }
     .overview {
-      display: grid;
-      grid-template-columns: 260px 1fr;
-      gap: 10px;
-      .rings {
+      display: flex;
+      justify-content: center;
+      .result-card {
         display: grid;
-        grid-template-columns: 1fr;
-        gap: 10px;
-        .ring-card {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          padding: 8px;
-          border-radius: 5px;
+        grid-template-columns: minmax(0, 320px) minmax(0, 280px);
+        align-items: center;
+        gap: 16px;
+        width: 100%;
+        max-width: 640px;
+        padding: 12px;
+        border-radius: 8px;
+        border: 1px solid rgba($grey, 0.4);
+        background-color: rgba($black, 0.14);
+      }
+      .result-ring {
+        width: 280px;
+        height: 280px;
+        margin: 0 auto;
+        border-radius: 50%;
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        &::before {
+          content: "";
+          position: absolute;
+          inset: 40px;
+          border-radius: inherit;
+          background-color: rgba($dark, 0.96);
           border: 1px solid rgba($grey, 0.4);
-          background-color: rgba($black, 0.12);
-          .ring {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 84px;
-            height: 84px;
-            border-radius: 50%;
-            position: relative;
-            &::before {
-              content: "";
-              position: absolute;
-              inset: 10px;
-              border-radius: inherit;
-              background-color: rgba($dark, 0.95);
-              border: 1px solid rgba($grey, 0.35);
-            }
-            strong {
-              position: relative;
-              z-index: 1;
-              font-size: 13px;
-            }
-          }
+        }
+        .result-center {
+          position: relative;
+          z-index: 1;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 6px;
           span {
+            color: $ashy;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
+          }
+          strong {
             color: $fg;
-            font-size: 14px;
+            font-family: Manrope-SemiBold;
+            font-size: 34px;
+            line-height: 1;
           }
         }
       }
-      .overview-cards {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+      .result-legend {
+        display: flex;
+        flex-direction: column;
         gap: 10px;
+        .legend-row {
+          display: grid;
+          grid-template-columns: auto 1fr auto;
+          align-items: center;
+          gap: 8px;
+          min-height: 38px;
+          padding: 8px 10px;
+          border-radius: 6px;
+          border: 1px solid rgba($grey, 0.35);
+          background-color: rgba($black, 0.2);
+          .legend-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            &.wins {
+              background-color: var(--ring-win);
+            }
+            &.losses {
+              background-color: var(--ring-loss);
+            }
+            &.draws {
+              background-color: var(--ring-neutral);
+            }
+          }
+          .legend-label {
+            color: $ashy;
+            font-size: 13px;
+          }
+          .legend-pct {
+            color: $fg;
+            font-family: Manrope-SemiBold;
+            font-size: 15px;
+          }
+        }
       }
     }
     .roles-grid {
@@ -680,9 +736,13 @@ onMounted(() => {
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
       .overview {
-        grid-template-columns: 1fr;
-        .rings {
-          grid-template-columns: repeat(2, minmax(0, 1fr));
+        .result-card {
+          grid-template-columns: 1fr;
+          justify-items: center;
+        }
+        .result-legend {
+          width: 100%;
+          max-width: 300px;
         }
       }
       .roles-grid {
@@ -703,17 +763,19 @@ onMounted(() => {
     .stats-layout {
       .non-game-grid,
       .roles-grid,
-      .extra-grid,
-      .overview .overview-cards,
-      .overview .rings {
+      .extra-grid {
         grid-template-columns: 1fr;
       }
       .overview {
-        .rings {
-          .ring-card {
-            .ring {
-              width: 72px;
-              height: 72px;
+        .result-ring {
+          width: 220px;
+          height: 220px;
+          &::before {
+            inset: 30px;
+          }
+          .result-center {
+            strong {
+              font-size: 28px;
             }
           }
         }
