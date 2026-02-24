@@ -56,8 +56,6 @@ class UserGameStatsOut(BaseModel):
     winrate_percent: float = 0.0
     games_hosted: int = 0
     avg_game_minutes: float = 0.0
-    draws_count: int = 0
-    draws_percent: float = 0.0
     avg_fouls_per_game: float = 0.0
     don_first_night_find_percent: float = 0.0
     misses_due_to_me: int = 0

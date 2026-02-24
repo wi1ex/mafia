@@ -107,11 +107,6 @@ async def user_stats(ident: Identity = Depends(get_identity), db: AsyncSession =
     if not stats_row:
         stats_row = await rebuild_user_game_stats(db, uid)
         await db.commit()
-    else:
-        draws_total = safe_int(getattr(stats_row, "games_draw", 0))
-        if draws_total > 0:
-            stats_row = await rebuild_user_game_stats(db, uid)
-            await db.commit()
 
     closeness_rows = await db.execute(
         select(FriendCloseness.user_low, FriendCloseness.user_high, FriendCloseness.games_together)
@@ -154,8 +149,6 @@ async def user_stats(ident: Identity = Depends(get_identity), db: AsyncSession =
 
     games_played = safe_int(getattr(stats_row, "games_decisive", 0))
     games_won = safe_int(getattr(stats_row, "games_won", 0))
-    games_draw = safe_int(getattr(stats_row, "games_draw", 0))
-    games_total_finished = safe_int(getattr(stats_row, "games_total_finished", 0))
     don_checks_first_night = safe_int(getattr(stats_row, "don_checks_first_night", 0))
     don_checks_first_night_found = safe_int(getattr(stats_row, "don_checks_first_night_found", 0))
     vote_leave_day12 = safe_int(getattr(stats_row, "vote_leave_day12", 0))
@@ -170,8 +163,6 @@ async def user_stats(ident: Identity = Depends(get_identity), db: AsyncSession =
         winrate_percent=pct(games_won, games_played),
         games_hosted=safe_int(getattr(stats_row, "games_hosted", 0)),
         avg_game_minutes=avg_minutes(total_duration_seconds, games_played),
-        draws_count=games_draw,
-        draws_percent=pct(games_draw, games_total_finished),
         avg_fouls_per_game=avg(total_fouls_received, games_played),
         don_first_night_find_percent=pct(don_checks_first_night_found, don_checks_first_night),
         misses_due_to_me=safe_int(getattr(stats_row, "misses_due_to_me", 0)),

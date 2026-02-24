@@ -166,8 +166,6 @@ type UserGameStats = {
   winrate_percent: number
   games_hosted: number
   avg_game_minutes: number
-  draws_count: number
-  draws_percent: number
   avg_fouls_per_game: number
   don_first_night_find_percent: number
   misses_due_to_me: number
@@ -209,8 +207,6 @@ const stats = reactive<UserStats>({
     winrate_percent: 0,
     games_hosted: 0,
     avg_game_minutes: 0,
-    draws_count: 0,
-    draws_percent: 0,
     avg_fouls_per_game: 0,
     don_first_night_find_percent: 0,
     misses_due_to_me: 0,
@@ -397,8 +393,6 @@ function normalizeGame(raw: any): UserGameStats {
     winrate_percent: clampPct(raw?.winrate_percent),
     games_hosted: safeInt(raw?.games_hosted),
     avg_game_minutes: safeFloat(raw?.avg_game_minutes),
-    draws_count: safeInt(raw?.draws_count),
-    draws_percent: clampPct(raw?.draws_percent),
     avg_fouls_per_game: safeFloat(raw?.avg_fouls_per_game),
     don_first_night_find_percent: clampPct(raw?.don_first_night_find_percent),
     misses_due_to_me: safeInt(raw?.misses_due_to_me),

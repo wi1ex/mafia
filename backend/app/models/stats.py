@@ -12,7 +12,6 @@ class UserGameStats(Base):
     games_total_finished: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
     games_decisive: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
     games_won: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
-    games_draw: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
     games_hosted: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
     total_duration_seconds: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
     total_fouls_received: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
