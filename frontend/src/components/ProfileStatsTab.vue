@@ -53,7 +53,7 @@
         </article>
 
         <section class="block width-half">
-          <h4>Топ-5 игроков по количеству игр вместе</h4>
+          <h4>"Любимые" игроки"</h4>
           <div v-if="game.top_players.length === 0" class="state state-inline">Пока нет данных</div>
           <ol v-else class="rank-list">
             <li v-for="(player, idx) in game.top_players" :key="player.id" class="rank-row">
@@ -67,10 +67,10 @@
               </div>
             </li>
           </ol>
-          <h4>Лучший ход (если был первым убиенным)</h4>
+          <h4>Лучший ход</h4>
           <div class="best-move">
             <article class="metric-card">
-              <span>Был первым убиенным</span>
+              <span>Количество ПУ</span>
               <strong>{{ formatInt(game.best_move.first_killed_total) }}</strong>
             </article>
             <div class="best-bars">
@@ -90,11 +90,11 @@
         <h4>Дополнительные показатели</h4>
         <div class="extra-grid">
           <article class="metric-card">
-            <span>Дон: % нахождения шерифа в 1-ю ночь</span>
-            <strong>{{ formatPct(game.don_first_night_find_percent) }}</strong>
+            <span>Верное завещание</span>
+            <strong>{{ formatPct(game.farewell_success_percent) }}</strong>
           </article>
           <article class="metric-card">
-            <span>Уход голосованием в 1-2 день</span>
+            <span>Заголосован в 1-2 день</span>
             <strong>{{ formatPct(game.vote_leave_day12_percent) }}</strong>
           </article>
           <article class="metric-card">
@@ -102,12 +102,12 @@
             <strong>{{ formatPct(game.foul_removed_percent) }}</strong>
           </article>
           <article class="metric-card">
-            <span>Голосовал на поражение</span>
-            <strong>{{ formatTimes(game.vote_for_red_on_black_win_count) }}</strong>
+            <span>Нашел шерифа в 1 ночь</span>
+            <strong>{{ formatPct(game.don_first_night_find_percent) }}</strong>
           </article>
           <article class="metric-card">
-            <span>Успешность завещаний</span>
-            <strong>{{ formatPct(game.farewell_success_percent) }}</strong>
+            <span>Проголосовал на поражение</span>
+            <strong>{{ formatTimes(game.vote_for_red_on_black_win_count) }}</strong>
           </article>
           <article class="metric-card">
             <span>Лучшая серия побед</span>
@@ -275,7 +275,11 @@ function formatDurationDhm(raw: unknown): string {
   const days = Math.floor(totalMinutes / minutesInDay)
   const hours = Math.floor((totalMinutes % minutesInDay) / 60)
   const minutes = totalMinutes % 60
-  return `${days}д ${hours}ч ${minutes}м`
+  const parts: string[] = []
+  if (days > 0) parts.push(`${days}д`)
+  if (hours > 0) parts.push(`${hours}ч`)
+  parts.push(`${minutes}м`)
+  return parts.join(' ')
 }
 
 function barPct(valueRaw: unknown, maxRaw: unknown): number {
@@ -289,10 +293,10 @@ function barPct(valueRaw: unknown, maxRaw: unknown): number {
 const game = computed(() => stats.game)
 
 const nonGameItems = computed(() => [
-  { key: 'rooms-created', label: 'Создал комнат', value: formatInt(stats.rooms_created) },
-  { key: 'room-minutes', label: 'Время в комнатах', value: formatDurationDhm(stats.room_minutes) },
-  { key: 'stream-minutes', label: 'Время стрима', value: formatDurationDhm(stats.stream_minutes) },
-  { key: 'spectator-minutes', label: 'Время как зритель', value: formatDurationDhm(stats.spectator_minutes) },
+  { key: 'room-minutes', label: 'В комнатах', value: formatDurationDhm(stats.room_minutes) },
+  { key: 'rooms-created', label: 'Мои комнаты', value: formatInt(stats.rooms_created) },
+  { key: 'stream-minutes', label: 'Мои стримы', value: formatDurationDhm(stats.stream_minutes) },
+  { key: 'spectator-minutes', label: 'Зритель', value: formatDurationDhm(stats.spectator_minutes) },
   { key: 'games-hosted', label: 'Игр проведено', value: formatInt(game.value.games_hosted) },
 ])
 
@@ -372,10 +376,10 @@ const topTogetherMax = computed(() => {
 })
 
 const bestMoveItems = computed(() => [
-  { key: 'b0', label: '0/3 чёрных', value: game.value.best_move.marks_black_0 },
-  { key: 'b1', label: '1/3 чёрных', value: game.value.best_move.marks_black_1 },
-  { key: 'b2', label: '2/3 чёрных', value: game.value.best_move.marks_black_2 },
-  { key: 'b3', label: '3/3 чёрных', value: game.value.best_move.marks_black_3 },
+  { key: 'b0', label: '0/3', value: game.value.best_move.marks_black_0 },
+  { key: 'b1', label: '1/3', value: game.value.best_move.marks_black_1 },
+  { key: 'b2', label: '2/3', value: game.value.best_move.marks_black_2 },
+  { key: 'b3', label: '3/3', value: game.value.best_move.marks_black_3 },
 ])
 
 const bestMoveMax = computed(() => {
@@ -528,12 +532,13 @@ onMounted(() => {
       background-color: $graphite;
       span {
         color: $ashy;
-        font-size: 13px;
+        font-size: 14px;
       }
       strong {
+        text-align: end;
         color: $fg;
         font-family: Manrope-SemiBold;
-        font-size: 20px;
+        font-size: 24px;
         line-height: 1.1;
       }
     }
