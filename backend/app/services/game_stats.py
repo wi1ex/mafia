@@ -180,12 +180,12 @@ def _parse_actions(actions: list[dict[str, Any]], roles: dict[int, str]) -> dict
             actor_id = _safe_int(action.get("actor_id"))
             if actor_id <= 0:
                 continue
-            actor_role = roles.get(actor_id, "")
-            if _is_black(actor_role):
-                continue
+            _inc(first_killed_best_move_total, actor_id, 1)
+            bucket = best_move_bucket.setdefault(actor_id, {0: 0, 1: 0, 2: 0, 3: 0})
             targets_raw = action.get("targets")
             if not isinstance(targets_raw, list):
-                targets_raw = []
+                bucket[0] = bucket.get(0, 0) + 1
+                continue
             targets: list[int] = []
             for target_raw in targets_raw:
                 target_id = _safe_int(target_raw)
@@ -194,16 +194,14 @@ def _parse_actions(actions: list[dict[str, Any]], roles: dict[int, str]) -> dict
                 targets.append(target_id)
                 if len(targets) >= 3:
                     break
+            if len(targets) == 0:
+                bucket[0] = bucket.get(0, 0) + 1
+                continue
             black_hits = 0
             for target_id in targets:
                 if _is_black(roles.get(target_id, "")):
                     black_hits += 1
-            if black_hits < 0:
-                black_hits = 0
-            if black_hits > 3:
-                black_hits = 3
-            _inc(first_killed_best_move_total, actor_id, 1)
-            bucket = best_move_bucket.setdefault(actor_id, {0: 0, 1: 0, 2: 0, 3: 0})
+            black_hits = max(0, min(3, black_hits))
             bucket[black_hits] = bucket.get(black_hits, 0) + 1
             continue
 

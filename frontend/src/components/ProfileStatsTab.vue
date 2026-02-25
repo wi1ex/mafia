@@ -568,7 +568,7 @@ onMounted(() => {
         &::before {
           content: "";
           position: absolute;
-          inset: 50px;
+          inset: 30px;
           border-radius: inherit;
           background-color: $dark;
           border: 1px solid rgba($grey, 0.5);
@@ -647,7 +647,7 @@ onMounted(() => {
           &::before {
             content: "";
             position: absolute;
-            inset: 25px;
+            inset: 20px;
             border-radius: inherit;
             background-color: $dark;
             border: 1px solid rgba($grey, 0.5);
@@ -848,7 +848,7 @@ onMounted(() => {
           width: 200px;
           height: 200px;
           &::before {
-            inset: 32px;
+            inset: 25px;
           }
           .result-center {
             width: 128px;
@@ -876,7 +876,7 @@ onMounted(() => {
             width: 140px;
             height: 140px;
             &::before {
-              inset: 18px;
+              inset: 15px;
             }
             .role-result-center {
               width: 90px;
