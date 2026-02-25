@@ -1640,8 +1640,16 @@ socket.value?.on('connect', async () => {
     openPanelFor.value = ''
   })
 
-  socket.value.on('force_logout', async () => {
+  socket.value.on('force_logout', async (p: any) => {
+    const reason = String(p?.reason || '')
     try { await onLeave() } finally { await auth.localSignOut?.() }
+    if (reason === 'replaced') {
+      void alertDialog('Сессия завершена: вход выполнен с другого устройства')
+    } else if (reason === 'account_deleted') {
+      void alertDialog('Сессия завершена: аккаунт удалён')
+    } else {
+      void alertDialog('Сессия завершена, войдите снова')
+    }
   })
 
   socket.value.on('state_changed', (p: any) => {
@@ -2345,6 +2353,28 @@ async function onMediaGateClick() {
   rtc.ensureBgmPlayback()
 }
 
+function joinFailureMessage(j: any): string {
+  const st = Number(j?.status || 0)
+  const code = String(j?.error || '')
+  if (!j) return 'Таймаут сети при входе в комнату'
+  if (st === 404) return 'Комната не найдена'
+  if (st === 410) return 'Комната закрыта'
+  if (st === 409 && code === 'game_in_progress') return 'В комнате нет мест для зрителей'
+  if (st === 409 && code === 'spectators_full') return 'В комнате нет мест для зрителей'
+  if (st === 409) return 'Комната заполнена'
+  if (st === 429) {
+    const retryAfter = Number(j?.retry_after || 0)
+    if (Number.isFinite(retryAfter) && retryAfter > 0) {
+      return `Слишком много попыток входа. Повторите через ${Math.ceil(retryAfter)} сек`
+    }
+    return 'Слишком много попыток входа. Повторите чуть позже'
+  }
+  if (st === 400 && code === 'bad_room_id') return 'Некорректный идентификатор комнаты'
+  if (st >= 500 || code === 'internal') return 'Сервис комнаты временно недоступен. Попробуйте снова'
+  if (st > 0 || code) return `Ошибка входа в комнату (${st || 'no_status'}${code ? `, ${code}` : ''})`
+  return 'Ошибка входа в комнату'
+}
+
 async function handleJoinFailure(j: any) {
   if (leaving.value) return
   if (j?.status === 403 && j?.error === 'rooms_entry_disabled') {
@@ -2383,7 +2413,7 @@ async function handleJoinFailure(j: any) {
     await router.replace({ name: 'home', query: { focus: String(rid) } })
     return
   }
-  void alertDialog(j?.status === 404 ? 'Комната не найдена' : j?.status === 410 ? 'Комната закрыта' : j?.status === 409 ? 'Комната заполнена' : 'Ошибка входа в комнату')
+  void alertDialog(joinFailureMessage(j))
   await router.replace('/')
 }
 
@@ -2769,7 +2799,12 @@ onMounted(async () => {
     rerr('room onMounted fatal', err)
     try { await rtc.disconnect() } catch {}
     if (!leaving.value) {
-      void alertDialog('Ошибка входа в комнату')
+      const msg = String((err as any)?.message || '')
+      if (msg.includes('connect timeout')) {
+        void alertDialog('Таймаут подключения к комнате. Проверьте сеть и попробуйте снова')
+      } else {
+        void alertDialog('Ошибка входа в комнату')
+      }
       await router.replace('/')
     }
   }
