@@ -551,6 +551,7 @@ onMounted(() => {
         align-items: center;
         padding: 10px;
         gap: 10px;
+        min-width: 894px;
         border-radius: 5px;
         border: 1px solid rgba($grey, 0.5);
         background: linear-gradient(150deg, rgba($graphite, 0.75), rgba($dark, 0.75));
@@ -835,6 +836,7 @@ onMounted(() => {
         .result-card {
           justify-items: center;
           gap: 10px;
+          min-width: auto;
         }
         .result-ring {
           width: 200px;
