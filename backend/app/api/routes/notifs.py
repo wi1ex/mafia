@@ -15,12 +15,26 @@ router = APIRouter()
 @log_route("notifs.list_notifs")
 @rate_limited(lambda ident, **_: f"rl:notif:list:{ident['id']}", limit=10, window_s=1)
 @router.get("", response_model=NotifsListOut)
-async def list_notifs(limit: int = 50, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)):
+async def list_notifs(
+    limit: int = 50,
+    before_id: int | None = None,
+    ident: Identity = Depends(get_identity),
+    db: AsyncSession = Depends(get_session),
+):
     uid = int(ident["id"])
     lim = max(1, min(200, limit))
-    q = await db.execute(select(Notif).where(Notif.user_id == uid).order_by(Notif.id.desc()).limit(lim))
+
+    stmt = select(Notif).where(Notif.user_id == uid)
+    if before_id and before_id > 0:
+        stmt = stmt.where(Notif.id < before_id)
+
+    q = await db.execute(stmt.order_by(Notif.id.desc()).limit(lim + 1))
+    rows = q.scalars().all()
+    has_more = len(rows) > lim
+    page = rows[:lim]
+
     items: list[NotifOut] = []
-    for n in q.scalars().all():
+    for n in page:
         items.append(NotifOut(
             id=n.id,
             title=n.title or "Уведомление",
@@ -28,9 +42,18 @@ async def list_notifs(limit: int = 50, ident: Identity = Depends(get_identity), 
             date=n.created_at,
             read=(n.read_at is not None),
         ))
-    total_unread = await db.scalar(select(func.count()).select_from(Notif).where(Notif.user_id == uid, Notif.read_at.is_(None)))
 
-    return NotifsListOut(items=items, unread_count=int(total_unread or 0))
+    next_before_id = int(page[-1].id) if has_more and page else None
+    total_unread = await db.scalar(
+        select(func.count()).select_from(Notif).where(Notif.user_id == uid, Notif.read_at.is_(None))
+    )
+
+    return NotifsListOut(
+        items=items,
+        unread_count=int(total_unread or 0),
+        has_more=has_more,
+        next_before_id=next_before_id,
+    )
 
 
 @log_route("notifs.mark_read")

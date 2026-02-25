@@ -2,6 +2,8 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { api } from '@/services/axios'
 
+const PAGE_SIZE = 50
+
 export type Note = {
   id: number
   title: string
@@ -10,13 +12,54 @@ export type Note = {
   read: boolean
 }
 
+type NotifsListResponse = {
+  items?: Note[]
+  unread_count?: number
+  has_more?: boolean
+  next_before_id?: number | null
+}
+
+type WsNotePayload = Note & {
+  kind?: string
+  action?: unknown
+}
+
+function toPositiveIntOrNull(v: unknown): number | null {
+  const parsed = typeof v === 'string' ? Number(v) : v
+  if (typeof parsed !== 'number' || !Number.isFinite(parsed)) return null
+  const n = Math.trunc(parsed)
+  return n > 0 ? n : null
+}
+
+function dedupeByIdDesc(list: Note[]): Note[] {
+  const seen = new Set<number>()
+  const out: Note[] = []
+  for (const item of list) {
+    if (!Number.isFinite(item?.id)) continue
+    if (seen.has(item.id)) continue
+    seen.add(item.id)
+    out.push(item)
+  }
+  return out
+}
+
+function getTailCursor(list: Note[]): number | null {
+  if (!list.length) return null
+  return toPositiveIntOrNull(list[list.length - 1]?.id)
+}
+
 export const useNotifStore = defineStore('notif', () => {
   const items = ref<Note[]>([])
   const unread = ref(0)
+  const hasMore = ref(false)
+  const loadingInitial = ref(false)
+  const loadingMore = ref(false)
+  const nextBeforeId = ref<number | null>(null)
 
   let inited = false
   let onNotifyEv: ((e: any) => void) | null = null
   let onRoomAppEv: ((e: any) => void) | null = null
+  let fetchGeneration = 0
 
   const pending = new Set<number>()
   let flushing = false
@@ -31,10 +74,60 @@ export const useNotifStore = defineStore('notif', () => {
     }, Math.max(300, backoffMs))
   }
 
+  function applyPageMeta(data: NotifsListResponse, page: Note[], rawCount: number = page.length) {
+    const hasMoreFromServer = typeof data?.has_more === 'boolean' ? data.has_more : null
+    const nextCursorFromServer = toPositiveIntOrNull(data?.next_before_id)
+
+    const resolvedHasMore = hasMoreFromServer ?? (rawCount >= PAGE_SIZE)
+    hasMore.value = Boolean(resolvedHasMore)
+    nextBeforeId.value = hasMore.value ? (nextCursorFromServer ?? getTailCursor(page)) : null
+  }
+
+  function applyUnreadFromResponse(data: NotifsListResponse) {
+    if (typeof data?.unread_count !== 'number' || !Number.isFinite(data.unread_count)) return
+    unread.value = Math.max(0, Math.trunc(data.unread_count))
+  }
+
   async function fetchAll() {
-    const { data } = await api.get('/notifs')
-    items.value = data.items
-    unread.value = data.unread_count
+    const gen = ++fetchGeneration
+    loadingInitial.value = true
+    loadingMore.value = false
+    try {
+      const { data } = await api.get<NotifsListResponse>('/notifs', { params: { limit: PAGE_SIZE } })
+      if (gen !== fetchGeneration) return
+      const rawPage = Array.isArray(data?.items) ? data.items : []
+      const page = dedupeByIdDesc(rawPage)
+      items.value = page
+      applyUnreadFromResponse(data)
+      applyPageMeta(data, page, rawPage.length)
+    } finally {
+      if (gen === fetchGeneration) loadingInitial.value = false
+    }
+  }
+
+  async function loadMore() {
+    const cursor = nextBeforeId.value
+    if (!cursor || !hasMore.value || loadingInitial.value || loadingMore.value) return
+    const gen = fetchGeneration
+    loadingMore.value = true
+    try {
+      const { data } = await api.get<NotifsListResponse>('/notifs', { params: { limit: PAGE_SIZE, before_id: cursor } })
+      if (gen !== fetchGeneration) return
+      const rawPage = Array.isArray(data?.items) ? data.items : []
+      const page = dedupeByIdDesc(rawPage)
+      const known = new Set(items.value.map(x => x.id))
+      const append: Note[] = []
+      for (const it of page) {
+        if (known.has(it.id)) continue
+        known.add(it.id)
+        append.push(it)
+      }
+      if (append.length) items.value = [...items.value, ...append]
+      applyUnreadFromResponse(data)
+      applyPageMeta(data, page, rawPage.length)
+    } finally {
+      if (gen === fetchGeneration) loadingMore.value = false
+    }
   }
 
   function ensureWS() {
@@ -42,13 +135,25 @@ export const useNotifStore = defineStore('notif', () => {
     if (onNotifyEv) window.removeEventListener('auth-notify', onNotifyEv)
     if (onRoomAppEv) window.removeEventListener('auth-room_invite', onRoomAppEv)
     onNotifyEv = (e: any) => {
-      const p = e?.detail as Note
+      const p = e?.detail as WsNotePayload | undefined
       if (!p) return
-      if (p.kind !== 'app') {
-        const { action, ...clean } = p as any
-        items.value.unshift(clean)
-        if (!p.read) unread.value++
+      if (p.kind === 'app') return
+
+      const { action, ...clean } = p
+      const id = toPositiveIntOrNull(clean?.id)
+      if (!id) return
+      if (items.value.some(x => x.id === id)) return
+
+      const note: Note = {
+        id,
+        title: clean.title.trim() ? clean.title : 'Уведомление',
+        text: typeof clean.text === 'string' && clean.text.trim() ? clean.text : undefined,
+        date: clean.date,
+        read: Boolean(clean.read)
       }
+
+      items.value.unshift(note)
+      if (!note.read) unread.value++
     }
     onRoomAppEv = (_e: any) => {}
     window.addEventListener('auth-notify', onNotifyEv)
@@ -75,7 +180,10 @@ export const useNotifStore = defineStore('notif', () => {
 
   async function markReadVisible(ids: number[]) {
     if (!ids.length) return
-    for (const id of ids) {
+    const uniqueIds = Array.from(new Set(ids))
+    for (const rawId of uniqueIds) {
+      const id = toPositiveIntOrNull(rawId)
+      if (!id) continue
       const it = items.value.find(x => x.id === id)
       if (it && !it.read) {
         it.read = true
@@ -96,8 +204,12 @@ export const useNotifStore = defineStore('notif', () => {
   return {
     items,
     unread,
+    hasMore,
+    loadingInitial,
+    loadingMore,
 
     fetchAll,
+    loadMore,
     ensureWS,
     markReadVisible,
     markAll

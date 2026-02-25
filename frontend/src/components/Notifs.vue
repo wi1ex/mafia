@@ -17,6 +17,9 @@
           </div>
           <p v-if="it.text" class="text">{{ it.text }}</p>
         </article>
+        <button v-if="notif.hasMore" class="load-more" type="button" :disabled="notif.loadingInitial || notif.loadingMore" @click="onLoadMore">
+          {{ notif.loadingMore ? 'Загружаем...' : 'Загрузить ещё' }}
+        </button>
         <p v-if="notif.items.length === 0" class="empty">Нет уведомлений</p>
       </div>
     </div>
@@ -29,7 +32,6 @@ import { useNotifStore } from '@/store'
 import { formatLocalDateTime } from '@/services/datetime'
 
 import iconClose from '@/assets/svg/close.svg'
-import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
 
 const props = defineProps<{
   open: boolean
@@ -123,6 +125,11 @@ function unbindDoc() {
 }
 
 function emitClose() { emit('update:open', false) }
+
+async function onLoadMore() {
+  if (notif.loadingInitial || notif.loadingMore || !notif.hasMore) return
+  await notif.loadMore()
+}
 
 function onAfterLeave() {
   try { obs?.disconnect() } catch {}
@@ -278,6 +285,27 @@ onBeforeUnmount(() => {
       background-color: $lead;
       transition: background-color 1s ease-in-out;
     }
+    .load-more {
+      margin-top: 5px;
+      padding: 10px;
+      width: 100%;
+      border: none;
+      border-radius: 5px;
+      background-color: $lead;
+      color: $fg;
+      font-size: 14px;
+      font-family: Manrope-Medium;
+      line-height: 1;
+      cursor: pointer;
+      transition: background-color 0.25s ease-in-out, opacity 0.25s ease-in-out;
+      &:hover:enabled {
+        background-color: $graphite;
+      }
+      &:disabled {
+        opacity: 0.5;
+        cursor: default;
+      }
+    }
     .empty {
       color: $grey;
       text-align: center;
@@ -331,6 +359,10 @@ onBeforeUnmount(() => {
           font-size: 12px;
           line-height: 1.1;
         }
+      }
+      .load-more {
+        padding: 5px;
+        font-size: 12px;
       }
     }
   }

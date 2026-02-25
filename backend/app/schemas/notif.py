@@ -14,6 +14,8 @@ class NotifOut(BaseModel):
 class NotifsListOut(BaseModel):
     items: List[NotifOut]
     unread_count: int
+    has_more: bool = False
+    next_before_id: Optional[int] = None
 
 
 class MarkReadIn(BaseModel):
