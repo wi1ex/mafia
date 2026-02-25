@@ -108,8 +108,6 @@ __all__ = [
     "emit_friends_update",
     "safe_int",
     "pct",
-    "avg",
-    "avg_minutes",
     "role_stats",
 ]
 
@@ -576,24 +574,6 @@ def pct(part: int, total: int) -> float:
         return 0.0
 
     return round((p / t) * 100, 2)
-
-
-def avg(total: int, count: int) -> float:
-    t = safe_int(total)
-    c = safe_int(count)
-    if t <= 0 or c <= 0:
-        return 0.0
-
-    return round(t / c, 2)
-
-
-def avg_minutes(total_seconds: int, count: int) -> float:
-    seconds = safe_int(total_seconds)
-    games = safe_int(count)
-    if seconds <= 0 or games <= 0:
-        return 0.0
-
-    return round((seconds / games) / 60, 2)
 
 
 def role_stats(games: int, wins: int) -> UserRoleStatsOut:

@@ -32,7 +32,7 @@
                   <div v-for="item in overviewSegments" :key="item.key" class="legend-row">
                     <span class="legend-dot" :class="item.key"></span>
                     <span class="legend-label">{{ item.label }}</span>
-                    <strong class="legend-pct">{{ formatPct(item.percent) }}</strong>
+                    <strong class="legend-pct">{{ formatPctWithGames(item.percent, item.count) }}</strong>
                   </div>
                 </div>
               </div>
@@ -48,7 +48,7 @@
                       <div v-for="segment in item.segments" :key="segment.key" class="legend-row">
                         <span class="legend-dot" :class="segment.key"></span>
                         <span class="legend-label">{{ segment.label }}</span>
-                        <strong class="legend-pct">{{ formatPct(segment.percent) }}</strong>
+                        <strong class="legend-pct">{{ formatPctWithGames(segment.percent, segment.count) }}</strong>
                       </div>
                     </div>
                   </div>
@@ -99,24 +99,24 @@
         <h4>Дополнительные показатели</h4>
         <div class="extra-grid">
           <article class="metric-card">
-            <span>Средняя длительность игры</span>
-            <strong>{{ formatMinutes(game.avg_game_minutes) }}</strong>
-          </article>
-          <article class="metric-card">
-            <span>Среднее фолов за игру</span>
-            <strong>{{ formatFloat(game.avg_fouls_per_game) }}</strong>
-          </article>
-          <article class="metric-card">
             <span>Дон: % нахождения шерифа в 1-ю ночь</span>
             <strong>{{ formatPct(game.don_first_night_find_percent) }}</strong>
           </article>
           <article class="metric-card">
             <span>Промахи из-за меня</span>
-            <strong>{{ formatInt(game.misses_due_to_me) }}</strong>
+            <strong>{{ formatPct(game.misses_due_to_me_percent) }} ({{ formatInt(game.misses_due_to_me) }} / {{ formatInt(game.misses_due_to_me_shots) }})</strong>
           </article>
           <article class="metric-card">
             <span>Уход голосованием в 1-2 день</span>
             <strong>{{ formatInt(game.vote_leave_day12_count) }} / {{ formatPct(game.vote_leave_day12_percent) }}</strong>
+          </article>
+          <article class="metric-card">
+            <span>Удалён по фолам</span>
+            <strong>{{ formatInt(game.foul_removed_count) }} / {{ formatPct(game.foul_removed_percent) }}</strong>
+          </article>
+          <article class="metric-card">
+            <span>Голосовал на поражение</span>
+            <strong>{{ formatInt(game.vote_for_red_on_black_win_count) }}</strong>
           </article>
           <article class="metric-card">
             <span>Успешность завещаний</span>
@@ -165,12 +165,15 @@ type UserGameStats = {
   games_won: number
   winrate_percent: number
   games_hosted: number
-  avg_game_minutes: number
-  avg_fouls_per_game: number
   don_first_night_find_percent: number
   misses_due_to_me: number
+  misses_due_to_me_shots: number
+  misses_due_to_me_percent: number
   vote_leave_day12_count: number
   vote_leave_day12_percent: number
+  foul_removed_count: number
+  foul_removed_percent: number
+  vote_for_red_on_black_win_count: number
   farewell_total: number
   farewell_success_percent: number
   best_win_streak: number
@@ -206,12 +209,15 @@ const stats = reactive<UserStats>({
     games_won: 0,
     winrate_percent: 0,
     games_hosted: 0,
-    avg_game_minutes: 0,
-    avg_fouls_per_game: 0,
     don_first_night_find_percent: 0,
     misses_due_to_me: 0,
+    misses_due_to_me_shots: 0,
+    misses_due_to_me_percent: 0,
     vote_leave_day12_count: 0,
     vote_leave_day12_percent: 0,
+    foul_removed_count: 0,
+    foul_removed_percent: 0,
+    vote_for_red_on_black_win_count: 0,
     farewell_total: 0,
     farewell_success_percent: 0,
     best_win_streak: 0,
@@ -246,16 +252,36 @@ function formatInt(raw: unknown): string {
   return intFmt.format(safeInt(raw))
 }
 
-function formatFloat(raw: unknown): string {
-  return safeFloat(raw).toFixed(2)
+function pad2(raw: number): string {
+  return String(Math.max(0, Math.trunc(raw))).padStart(2, '0')
 }
 
 function formatPct(raw: unknown): string {
   return `${clampPct(raw).toFixed(2)}%`
 }
 
-function formatMinutes(raw: unknown): string {
-  return `${safeFloat(raw).toFixed(2)} мин`
+function gameWord(raw: unknown): string {
+  const value = safeInt(raw)
+  const mod100 = value % 100
+  const mod10 = value % 10
+  if (mod100 >= 11 && mod100 <= 14) return 'игр'
+  if (mod10 === 1) return 'игра'
+  if (mod10 >= 2 && mod10 <= 4) return 'игры'
+  return 'игр'
+}
+
+function formatPctWithGames(percentRaw: unknown, countRaw: unknown): string {
+  const count = safeInt(countRaw)
+  return `${formatPct(percentRaw)} - ${formatInt(count)} ${gameWord(count)}`
+}
+
+function formatDurationDhm(raw: unknown): string {
+  const totalMinutes = safeInt(raw)
+  const minutesInDay = 24 * 60
+  const days = Math.floor(totalMinutes / minutesInDay)
+  const hours = Math.floor((totalMinutes % minutesInDay) / 60)
+  const minutes = totalMinutes % 60
+  return `${pad2(days)}.${pad2(hours)}.${pad2(minutes)}`
 }
 
 function barPct(valueRaw: unknown, maxRaw: unknown): number {
@@ -270,10 +296,10 @@ const game = computed(() => stats.game)
 
 const nonGameItems = computed(() => [
   { key: 'rooms-created', label: 'Создал комнат', value: formatInt(stats.rooms_created) },
-  { key: 'room-minutes', label: 'Минут в комнатах', value: formatInt(stats.room_minutes) },
-  { key: 'stream-minutes', label: 'Минут стримил', value: formatInt(stats.stream_minutes) },
-  { key: 'spectator-minutes', label: 'Минут как зритель', value: formatInt(stats.spectator_minutes) },
-  { key: 'games-hosted', label: 'Игр провёл ведущим', value: formatInt(game.value.games_hosted) },
+  { key: 'room-minutes', label: 'Время в комнатах', value: formatDurationDhm(stats.room_minutes) },
+  { key: 'stream-minutes', label: 'Время стрима', value: formatDurationDhm(stats.stream_minutes) },
+  { key: 'spectator-minutes', label: 'Время как зритель', value: formatDurationDhm(stats.spectator_minutes) },
+  { key: 'games-hosted', label: 'Игр проведено', value: formatInt(game.value.games_hosted) },
 ])
 
 const lossesCount = computed(() => Math.max(0, safeInt(game.value.games_played) - safeInt(game.value.games_won)))
@@ -289,8 +315,8 @@ const overviewSegments = computed(() => {
     return (count * 100) / total
   }
   return [
-    { key: 'wins', label: 'Победы', percent: toPct(wins) },
-    { key: 'losses', label: 'Поражения', percent: toPct(losses) },
+    { key: 'wins', label: 'Победы', count: wins, percent: toPct(wins) },
+    { key: 'losses', label: 'Поражения', count: losses, percent: toPct(losses) },
   ]
 })
 
@@ -335,8 +361,8 @@ const roleRingItems = computed(() => {
       label: item.label,
       games,
       segments: [
-        { key: 'wins', label: 'Поб', percent: winPct },
-        { key: 'losses', label: 'Пор', percent: lossPct },
+        { key: 'wins', label: 'Поб', count: wins, percent: winPct },
+        { key: 'losses', label: 'Пор', count: losses, percent: lossPct },
       ],
       style: createRingStyle(winPct, lossPct),
     }
@@ -392,12 +418,15 @@ function normalizeGame(raw: any): UserGameStats {
     games_won: safeInt(raw?.games_won),
     winrate_percent: clampPct(raw?.winrate_percent),
     games_hosted: safeInt(raw?.games_hosted),
-    avg_game_minutes: safeFloat(raw?.avg_game_minutes),
-    avg_fouls_per_game: safeFloat(raw?.avg_fouls_per_game),
     don_first_night_find_percent: clampPct(raw?.don_first_night_find_percent),
     misses_due_to_me: safeInt(raw?.misses_due_to_me),
+    misses_due_to_me_shots: safeInt(raw?.misses_due_to_me_shots),
+    misses_due_to_me_percent: clampPct(raw?.misses_due_to_me_percent),
     vote_leave_day12_count: safeInt(raw?.vote_leave_day12_count),
     vote_leave_day12_percent: clampPct(raw?.vote_leave_day12_percent),
+    foul_removed_count: safeInt(raw?.foul_removed_count),
+    foul_removed_percent: clampPct(raw?.foul_removed_percent),
+    vote_for_red_on_black_win_count: safeInt(raw?.vote_for_red_on_black_win_count),
     farewell_total: safeInt(raw?.farewell_total),
     farewell_success_percent: clampPct(raw?.farewell_success_percent),
     best_win_streak: safeInt(raw?.best_win_streak),
@@ -606,6 +635,7 @@ onMounted(() => {
               font-family: Manrope-SemiBold;
               font-size: 12px;
               text-align: right;
+              white-space: nowrap;
             }
           }
         }
@@ -700,6 +730,7 @@ onMounted(() => {
                 color: $fg;
                 font-family: Manrope-SemiBold;
                 text-align: right;
+                white-space: nowrap;
               }
             }
           }

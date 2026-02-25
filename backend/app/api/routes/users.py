@@ -19,8 +19,6 @@ from ..utils import (
     aggregate_user_room_stats,
     safe_int,
     pct,
-    avg,
-    avg_minutes,
     role_stats,
 )
 from ...models.friend import FriendCloseness
@@ -149,25 +147,30 @@ async def user_stats(ident: Identity = Depends(get_identity), db: AsyncSession =
 
     games_played = safe_int(getattr(stats_row, "games_decisive", 0))
     games_won = safe_int(getattr(stats_row, "games_won", 0))
-    don_checks_first_night = safe_int(getattr(stats_row, "don_checks_first_night", 0))
+    don_games = safe_int(getattr(stats_row, "don_games", 0))
     don_checks_first_night_found = safe_int(getattr(stats_row, "don_checks_first_night_found", 0))
+    misses_due_to_me = safe_int(getattr(stats_row, "misses_due_to_me", 0))
+    misses_due_to_me_shots = safe_int(getattr(stats_row, "misses_due_to_me_shots", 0))
     vote_leave_day12 = safe_int(getattr(stats_row, "vote_leave_day12", 0))
+    foul_removed_count = safe_int(getattr(stats_row, "foul_removed_count", 0))
+    vote_for_red_on_black_win_count = safe_int(getattr(stats_row, "vote_for_red_on_black_win_count", 0))
     farewell_total = safe_int(getattr(stats_row, "farewell_total", 0))
     farewell_correct = safe_int(getattr(stats_row, "farewell_correct", 0))
-    total_fouls_received = safe_int(getattr(stats_row, "total_fouls_received", 0))
-    total_duration_seconds = safe_int(getattr(stats_row, "total_duration_seconds", 0))
 
     game_stats = UserGameStatsOut(
         games_played=games_played,
         games_won=games_won,
         winrate_percent=pct(games_won, games_played),
         games_hosted=safe_int(getattr(stats_row, "games_hosted", 0)),
-        avg_game_minutes=avg_minutes(total_duration_seconds, games_played),
-        avg_fouls_per_game=avg(total_fouls_received, games_played),
-        don_first_night_find_percent=pct(don_checks_first_night_found, don_checks_first_night),
-        misses_due_to_me=safe_int(getattr(stats_row, "misses_due_to_me", 0)),
+        don_first_night_find_percent=pct(don_checks_first_night_found, don_games),
+        misses_due_to_me=misses_due_to_me,
+        misses_due_to_me_shots=misses_due_to_me_shots,
+        misses_due_to_me_percent=pct(misses_due_to_me, misses_due_to_me_shots),
         vote_leave_day12_count=vote_leave_day12,
         vote_leave_day12_percent=pct(vote_leave_day12, games_played),
+        foul_removed_count=foul_removed_count,
+        foul_removed_percent=pct(foul_removed_count, games_played),
+        vote_for_red_on_black_win_count=vote_for_red_on_black_win_count,
         farewell_total=farewell_total,
         farewell_success_percent=pct(farewell_correct, farewell_total),
         best_win_streak=safe_int(getattr(stats_row, "best_win_streak", 0)),

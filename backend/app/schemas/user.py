@@ -55,12 +55,15 @@ class UserGameStatsOut(BaseModel):
     games_won: int = 0
     winrate_percent: float = 0.0
     games_hosted: int = 0
-    avg_game_minutes: float = 0.0
-    avg_fouls_per_game: float = 0.0
     don_first_night_find_percent: float = 0.0
     misses_due_to_me: int = 0
+    misses_due_to_me_shots: int = 0
+    misses_due_to_me_percent: float = 0.0
     vote_leave_day12_count: int = 0
     vote_leave_day12_percent: float = 0.0
+    foul_removed_count: int = 0
+    foul_removed_percent: float = 0.0
+    vote_for_red_on_black_win_count: int = 0
     farewell_total: int = 0
     farewell_success_percent: float = 0.0
     best_win_streak: int = 0

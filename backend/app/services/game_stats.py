@@ -1,6 +1,5 @@
 from __future__ import annotations
 from collections import Counter
-from datetime import datetime
 from typing import Any
 from sqlalchemy import delete, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -95,31 +94,37 @@ def _inc(d: dict[int, int], key: int, delta: int = 1) -> None:
 
 
 def _parse_actions(actions: list[dict[str, Any]], roles: dict[int, str]) -> dict[str, Any]:
-    fouls_received: dict[int, int] = {}
     don_checks_first_night: dict[int, int] = {}
     don_checks_first_night_found: dict[int, int] = {}
     misses_due_to_me: dict[int, int] = {}
+    misses_due_to_me_shots: dict[int, int] = {}
+    foul_removed_count: dict[int, int] = {}
+    vote_for_red_on_black_win_count: dict[int, int] = {}
     leave_vote_day12: dict[int, int] = {}
     farewell_total: dict[int, int] = {}
     farewell_correct: dict[int, int] = {}
     first_killed_best_move_total: dict[int, int] = {}
     best_move_bucket: dict[int, dict[int, int]] = {}
+    last_vote_targets: dict[int, int] = {}
+    foul_death_seen: set[int] = set()
+    don_checked_first_night_seen: set[int] = set()
+    don_checked_first_night_found_seen: set[int] = set()
 
     for action in actions:
         action_type = _safe_str(action.get("type"))
-
-        if action_type == "foul":
-            _inc(fouls_received, _safe_int(action.get("target_id")), 1)
-            continue
 
         if action_type == "night_check":
             actor_id = _safe_int(action.get("actor_id"))
             checker_role = _safe_str(action.get("checker_role"))
             day_number = _safe_int(action.get("day"))
             if actor_id > 0 and checker_role == "don" and day_number == 1:
-                _inc(don_checks_first_night, actor_id, 1)
+                if actor_id not in don_checked_first_night_seen:
+                    _inc(don_checks_first_night, actor_id, 1)
+                    don_checked_first_night_seen.add(actor_id)
                 if _safe_str(action.get("target_role")) == "sheriff":
-                    _inc(don_checks_first_night_found, actor_id, 1)
+                    if actor_id not in don_checked_first_night_found_seen:
+                        _inc(don_checks_first_night_found, actor_id, 1)
+                        don_checked_first_night_found_seen.add(actor_id)
             continue
 
         if action_type == "night_shoot_result":
@@ -137,6 +142,8 @@ def _parse_actions(actions: list[dict[str, Any]], roles: dict[int, str]) -> dict
                 target = _safe_int(v)
                 if shooter > 0:
                     shots[shooter] = target
+                    if target > 0 and shooter in shooters:
+                        _inc(misses_due_to_me_shots, shooter, 1)
             targets = [shots.get(shooter, 0) for shooter in shooters]
             if any(target <= 0 for target in targets):
                 continue
@@ -165,6 +172,26 @@ def _parse_actions(actions: list[dict[str, Any]], roles: dict[int, str]) -> dict
             reason = _safe_str(action.get("reason"))
             if reason == "vote" and day_number in (1, 2):
                 _inc(leave_vote_day12, target_id, 1)
+            if reason == "foul" and target_id > 0 and target_id not in foul_death_seen:
+                _inc(foul_removed_count, target_id, 1)
+                foul_death_seen.add(target_id)
+            continue
+
+        if action_type == "vote":
+            votes_raw = action.get("votes")
+            if not isinstance(votes_raw, dict):
+                continue
+            parsed_votes: dict[int, int] = {}
+            for target_raw, voters_raw in votes_raw.items():
+                target_id = _safe_int(target_raw)
+                if target_id <= 0 or not isinstance(voters_raw, list):
+                    continue
+                for voter_raw in voters_raw:
+                    voter_id = _safe_int(voter_raw)
+                    if voter_id > 0:
+                        parsed_votes[voter_id] = target_id
+            if parsed_votes:
+                last_vote_targets = parsed_votes
             continue
 
         if action_type == "farewell":
@@ -222,11 +249,20 @@ def _parse_actions(actions: list[dict[str, Any]], roles: dict[int, str]) -> dict
             bucket[black_hits] = bucket.get(black_hits, 0) + 1
             continue
 
+    for voter_id, target_id in last_vote_targets.items():
+        if target_id <= 0:
+            continue
+        target_role = roles.get(target_id, "")
+        if target_role in RED_ROLES:
+            _inc(vote_for_red_on_black_win_count, voter_id, 1)
+
     return {
-        "fouls_received": fouls_received,
         "don_checks_first_night": don_checks_first_night,
         "don_checks_first_night_found": don_checks_first_night_found,
         "misses_due_to_me": misses_due_to_me,
+        "misses_due_to_me_shots": misses_due_to_me_shots,
+        "foul_removed_count": foul_removed_count,
+        "vote_for_red_on_black_win_count": vote_for_red_on_black_win_count,
         "leave_vote_day12": leave_vote_day12,
         "farewell_total": farewell_total,
         "farewell_correct": farewell_correct,
@@ -235,7 +271,7 @@ def _parse_actions(actions: list[dict[str, Any]], roles: dict[int, str]) -> dict
     }
 
 
-def _apply_game_to_user_row(row: UserGameStats, *, uid: int, roles: dict[int, str], players: set[int], head_id: int, result: str, duration_seconds: int, parsed: dict[str, Any]) -> None:
+def _apply_game_to_user_row(row: UserGameStats, *, uid: int, roles: dict[int, str], players: set[int], head_id: int, result: str, parsed: dict[str, Any]) -> None:
     if uid <= 0 or result not in DECISIVE_RESULTS:
         return
 
@@ -261,8 +297,6 @@ def _apply_game_to_user_row(row: UserGameStats, *, uid: int, roles: dict[int, st
                 if _safe_int(row.current_loss_streak) > _safe_int(row.best_loss_streak):
                     row.best_loss_streak = _safe_int(row.current_loss_streak)
 
-            row.total_duration_seconds = _safe_int(row.total_duration_seconds) + max(0, duration_seconds)
-
             if role == "citizen":
                 row.citizen_games = _safe_int(row.citizen_games) + 1
                 if won:
@@ -280,11 +314,14 @@ def _apply_game_to_user_row(row: UserGameStats, *, uid: int, roles: dict[int, st
                 if won:
                     row.don_wins = _safe_int(row.don_wins) + 1
 
-            row.total_fouls_received = _safe_int(row.total_fouls_received) + _safe_int(parsed["fouls_received"].get(uid))
             row.don_checks_first_night = _safe_int(row.don_checks_first_night) + _safe_int(parsed["don_checks_first_night"].get(uid))
             row.don_checks_first_night_found = _safe_int(row.don_checks_first_night_found) + _safe_int(parsed["don_checks_first_night_found"].get(uid))
             row.misses_due_to_me = _safe_int(row.misses_due_to_me) + _safe_int(parsed["misses_due_to_me"].get(uid))
+            row.misses_due_to_me_shots = _safe_int(row.misses_due_to_me_shots) + _safe_int(parsed["misses_due_to_me_shots"].get(uid))
             row.vote_leave_day12 = _safe_int(row.vote_leave_day12) + _safe_int(parsed["leave_vote_day12"].get(uid))
+            row.foul_removed_count = _safe_int(row.foul_removed_count) + _safe_int(parsed["foul_removed_count"].get(uid))
+            if result == "black":
+                row.vote_for_red_on_black_win_count = _safe_int(row.vote_for_red_on_black_win_count) + _safe_int(parsed["vote_for_red_on_black_win_count"].get(uid))
             row.farewell_total = _safe_int(row.farewell_total) + _safe_int(parsed["farewell_total"].get(uid))
             row.farewell_correct = _safe_int(row.farewell_correct) + _safe_int(parsed["farewell_correct"].get(uid))
             row.first_killed_best_move_total = _safe_int(row.first_killed_best_move_total) + _safe_int(parsed["first_killed_best_move_total"].get(uid))
@@ -310,23 +347,11 @@ def _build_game_payload(game: Game) -> dict[str, Any] | None:
     actions = _normalize_actions(getattr(game, "actions", []))
     parsed = _parse_actions(actions, roles)
 
-    started_at = getattr(game, "started_at", None)
-    finished_at = getattr(game, "finished_at", None)
-    duration_seconds = 0
-    if isinstance(started_at, datetime) and isinstance(finished_at, datetime):
-        try:
-            duration_seconds = int((finished_at - started_at).total_seconds())
-        except Exception:
-            duration_seconds = 0
-    if duration_seconds < 0:
-        duration_seconds = 0
-
     return {
         "result": result,
         "roles": roles,
         "players": players,
         "head_id": head_id,
-        "duration_seconds": duration_seconds,
         "parsed": parsed,
     }
 
@@ -359,7 +384,6 @@ async def apply_finished_game_stats(session: AsyncSession, game: Game) -> None:
             players=payload["players"],
             head_id=head_id,
             result=payload["result"],
-            duration_seconds=payload["duration_seconds"],
             parsed=payload["parsed"],
         )
 
@@ -390,8 +414,6 @@ async def rebuild_user_game_stats(session: AsyncSession, user_id: int) -> UserGa
             players=payload["players"],
             head_id=payload["head_id"],
             result=payload["result"],
-            duration_seconds=payload["duration_seconds"],
             parsed=payload["parsed"],
         )
-
     return row
