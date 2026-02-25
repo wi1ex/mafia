@@ -50,7 +50,7 @@
         </article>
 
         <section class="block">
-          <h4>"Любимые" игроки"</h4>
+          <h4>"Любимые" игроки</h4>
           <div v-if="game.top_players.length === 0" class="state state-inline">Пока нет данных</div>
           <ol v-else class="rank-list">
             <li v-for="(player, idx) in game.top_players" :key="player.id" class="rank-row">
@@ -466,8 +466,8 @@ onMounted(() => {
 
 <style scoped lang="scss">
 .stats-tab {
-  --ring-win: #{$green};
-  --ring-loss: #{$red};
+  --ring-win: #{rgba($green, 0.75)};
+  --ring-loss: #{rgba($red, 0.75)};
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -547,7 +547,7 @@ onMounted(() => {
       gap: 10px;
       .result-card {
         display: grid;
-        grid-template-columns: minmax(300px, 400px) minmax(0, 1fr);
+        grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
         align-items: center;
         padding: 10px;
         gap: 10px;
@@ -630,7 +630,7 @@ onMounted(() => {
       .role-rings {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 10px;
+        gap: 20px;
         .role-ring-card {
           display: flex;
           justify-content: center;
@@ -670,7 +670,7 @@ onMounted(() => {
             strong {
               color: $fg;
               font-family: Manrope-SemiBold;
-              font-size: 20px;
+              font-size: 24px;
               line-height: 1;
               text-align: center;
             }
@@ -750,7 +750,7 @@ onMounted(() => {
             display: block;
             height: 100%;
             border-radius: inherit;
-            background: linear-gradient(90deg, rgba($green, 0.75), rgba($yellow, 0.75));
+            background: linear-gradient(90deg, rgba($lead, 0.75), rgba($fg, 0.75));
           }
         }
       }
@@ -765,7 +765,7 @@ onMounted(() => {
         gap: 10px;
         .best-row {
           display: grid;
-          grid-template-columns: 20px 1fr auto;
+          grid-template-columns: auto 1fr auto;
           align-items: center;
           gap: 10px;
           .best-label {
@@ -781,7 +781,7 @@ onMounted(() => {
               display: block;
               height: 100%;
               border-radius: inherit;
-              background: linear-gradient(90deg, rgba($orange, 0.75), rgba($red, 0.75));
+              background: linear-gradient(90deg, rgba($orange, 0.75), rgba($green, 0.75));
             }
           }
           strong {
@@ -842,7 +842,7 @@ onMounted(() => {
             .role-result-center {
               width: 140px;
               strong {
-                font-size: 20px;
+                font-size: 16px;
               }
               .role-legend {
                 .legend-row {
