@@ -800,68 +800,6 @@ onMounted(() => {
 }
 
 @media (max-width: 1280px) {
-  .stats-tab {
-    .stats-layout {
-      .non-game-grid,
-      .extra-grid {
-        grid-template-columns: 1fr;
-      }
-      .overview {
-        .result-ring {
-          width: 200px;
-          height: 200px;
-          &::before {
-            inset: 30px;
-          }
-          .result-center {
-            width: 150px;
-            span {
-              font-size: 12px;
-            }
-            strong {
-              font-size: 24px;
-            }
-            .result-legend {
-              .legend-row {
-                gap: 5px;
-                .legend-pct {
-                  font-size: 12px;
-                }
-              }
-            }
-          }
-        }
-        .role-rings {
-          grid-template-columns: 1fr;
-          .role-result-ring {
-            width: 150px;
-            height: 150px;
-            &::before {
-              inset: 20px;
-            }
-            .role-result-center {
-              width: 140px;
-              strong {
-                font-size: 16px;
-              }
-              .role-legend {
-                .legend-row {
-                  .legend-pct {
-                    font-size: 10px;
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-      .metric-card {
-        min-height: 64px;
-        strong {
-          font-size: 18px;
-        }
-      }
-    }
-  }
+
 }
 </style>
