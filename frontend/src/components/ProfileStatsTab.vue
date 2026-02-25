@@ -800,6 +800,138 @@ onMounted(() => {
 }
 
 @media (max-width: 1280px) {
-
+  .stats-tab {
+    gap: 5px;
+    .stats-head {
+      h3 {
+        font-size: 20px;
+      }
+    }
+    .state {
+      min-height: 90px;
+      padding: 5px 10px;
+      font-size: 12px;
+    }
+    .stats-layout {
+      gap: 5px;
+      .block {
+        padding: 10px;
+        gap: 5px;
+        h4 {
+          font-size: 16px;
+        }
+      }
+      .metric-card {
+        min-height: 64px;
+        padding: 10px;
+        span {
+          font-size: 12px;
+          line-height: 1.2;
+        }
+        strong {
+          font-size: 18px;
+        }
+      }
+      .non-game-grid {
+        grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      }
+      .overview {
+        grid-template-columns: 1fr;
+        .result-card {
+          grid-template-columns: 1fr;
+          justify-items: center;
+          align-items: start;
+          gap: 10px;
+          padding: 5px;
+        }
+        .result-ring {
+          width: 200px;
+          height: 200px;
+          &::before {
+            inset: 32px;
+          }
+          .result-center {
+            width: 128px;
+            span {
+              font-size: 12px;
+            }
+            strong {
+              font-size: 26px;
+            }
+          }
+          .result-legend {
+            .legend-row {
+              .legend-pct {
+                font-size: 12px;
+              }
+            }
+          }
+        }
+        .role-rings {
+          width: 100%;
+          gap: 10px;
+          justify-items: center;
+          grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+          .role-result-ring {
+            width: 140px;
+            height: 140px;
+            &::before {
+              inset: 18px;
+            }
+            .role-result-center {
+              width: 90px;
+              .role-title {
+                font-size: 12px;
+              }
+              strong {
+                font-size: 18px;
+              }
+            }
+            .role-legend {
+              .legend-row {
+                .legend-pct {
+                  font-size: 10px;
+                }
+              }
+            }
+          }
+        }
+      }
+      .rank-list {
+        gap: 5px;
+        .rank-row {
+          padding: 5px 10px;
+          .rank-top {
+            grid-template-columns: auto minmax(0, 1fr) auto;
+            .rank-pos,
+            .rank-name,
+            .rank-val {
+              font-size: 14px;
+            }
+          }
+        }
+      }
+      .best-move {
+        grid-template-columns: 1fr;
+        .best-bars {
+          gap: 5px;
+          .best-row {
+            grid-template-columns: 32px minmax(0, 1fr) auto;
+            gap: 5px;
+            .best-label {
+              font-size: 12px;
+            }
+            strong {
+              min-width: 30px;
+              font-size: 14px;
+            }
+          }
+        }
+      }
+      .extra-grid {
+        grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      }
+    }
+  }
 }
 </style>
