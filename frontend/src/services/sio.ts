@@ -182,7 +182,7 @@ export function startAuthSocket(opts?: { onForceLogout?: () => void }): Socket {
       user: p.user,
       action: { kind: 'api', label: 'Одобрить', url: `/rooms/${p.room_id}/requests/${p.user.id}/approve`, method: 'post' },
       read: true,
-      ttl_ms: 10000,
+      ttl_ms: 30000,
     }
     window.dispatchEvent(new CustomEvent('toast', { detail: dto }))
   })

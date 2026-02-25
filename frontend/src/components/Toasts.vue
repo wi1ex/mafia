@@ -33,6 +33,7 @@ import iconClose from '@/assets/svg/close.svg'
 
 const router = useRouter()
 const notif = useNotifStore()
+const TOAST_TTL_MS = 30000
 
 type RouteAction = {
   kind: 'route'
@@ -134,7 +135,7 @@ onMounted(() => {
       kind: d.kind || 'info',
       action: d.action,
       actions,
-      ttl: Number.isFinite(d.ttl_ms) ? d.ttl_ms : (actions ? 10000 : 5000),
+      ttl: TOAST_TTL_MS,
       user: d.user,
       room_id: Number.isFinite(d.room_id) ? Number(d.room_id) : undefined,
     }

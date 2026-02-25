@@ -750,7 +750,7 @@ onMounted(() => {
             display: block;
             height: 100%;
             border-radius: inherit;
-            background: linear-gradient(90deg, rgba($lead, 0.75), rgba($fg, 0.75));
+            background: linear-gradient(90deg, $lead, $fg);
           }
         }
       }
@@ -781,7 +781,7 @@ onMounted(() => {
               display: block;
               height: 100%;
               border-radius: inherit;
-              background: linear-gradient(90deg, rgba($orange, 0.75), rgba($green, 0.75));
+              background: linear-gradient(90deg, rgba($yellow, 0.75), rgba($green, 0.75));
             }
           }
           strong {

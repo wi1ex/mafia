@@ -1123,7 +1123,7 @@ function showTransientToast(title: string, text: string): void {
       date: new Date().toISOString(),
       kind: 'info',
       read: true,
-      ttl_ms: 10000,
+      ttl_ms: 30000,
     },
   }))
 }
