@@ -263,7 +263,7 @@ function gameWord(raw: unknown): string {
 
 function formatPctWithGames(percentRaw: unknown, countRaw: unknown): string {
   const count = safeInt(countRaw)
-  return `${formatPct(percentRaw)} - ${formatInt(count)} ${gameWord(count)}`
+  return `${formatInt(count)} - ${formatPct(percentRaw)}`
 }
 
 function formatDurationDhm(raw: unknown): string {
@@ -484,9 +484,9 @@ onMounted(() => {
     display: flex;
     align-items: center;
     justify-content: center;
+    padding: 10px;
     gap: 10px;
     min-height: 140px;
-    padding: 10px;
     border: 1px solid rgba($grey, 0.5);
     border-radius: 5px;
     background-color: rgba($graphite, 0.5);
@@ -505,10 +505,10 @@ onMounted(() => {
     .block {
       display: flex;
       flex-direction: column;
-      gap: 10px;
-      border: 1px solid rgba($grey, 0.5);
-      border-radius: 5px;
       padding: 10px;
+      gap: 10px;
+      border-radius: 5px;
+      border: 1px solid rgba($grey, 0.5);
       background: linear-gradient(150deg, rgba($graphite, 0.75), rgba($dark, 0.75));
       h4 {
         margin: 0;
@@ -518,9 +518,9 @@ onMounted(() => {
       display: flex;
       flex-direction: column;
       justify-content: space-between;
+      padding: 10px;
       gap: 5px;
       min-height: 75px;
-      padding: 10px;
       border-radius: 5px;
       border: 1px solid rgba($grey, 0.5);
       background-color: $graphite;
@@ -549,40 +549,41 @@ onMounted(() => {
         display: grid;
         grid-template-columns: minmax(300px, 400px) minmax(0, 1fr);
         align-items: center;
-        gap: 10px;
         padding: 10px;
+        gap: 10px;
         border-radius: 5px;
         border: 1px solid rgba($grey, 0.5);
         background: linear-gradient(150deg, rgba($graphite, 0.75), rgba($dark, 0.75));
       }
       .result-ring {
-        width: 320px;
-        height: 320px;
-        margin: 0 auto;
-        border-radius: 50%;
-        position: relative;
         display: flex;
+        position: relative;
         align-items: center;
         justify-content: center;
+        margin: 0 auto;
+        width: 300px;
+        height: 300px;
+        border-radius: 50%;
+        border: 1px solid $grey;
         &::before {
           content: "";
           position: absolute;
           inset: 50px;
           border-radius: inherit;
-          background-color: rgba($dark, 0.75);
+          background-color: $dark;
           border: 1px solid rgba($grey, 0.5);
         }
         .result-center {
-          position: relative;
-          z-index: 1;
           display: flex;
+          position: relative;
           flex-direction: column;
           align-items: stretch;
           gap: 5px;
           width: 170px;
+          z-index: 1;
           span {
             color: $ashy;
-            font-size: 12px;
+            font-size: 16px;
             text-transform: uppercase;
             text-align: center;
           }
@@ -597,8 +598,8 @@ onMounted(() => {
         .result-legend {
           display: flex;
           flex-direction: column;
-          gap: 5px;
           margin-top: 5px;
+          gap: 5px;
           .legend-row {
             display: flex;
             align-items: center;
@@ -617,9 +618,9 @@ onMounted(() => {
               }
             }
             .legend-pct {
+              font-size: 14px;
               color: $fg;
               font-family: Manrope-SemiBold;
-              font-size: 12px;
               text-align: right;
               white-space: nowrap;
             }
@@ -635,29 +636,30 @@ onMounted(() => {
           justify-content: center;
         }
         .role-result-ring {
+          display: flex;
+          position: relative;
+          align-items: center;
+          justify-content: center;
           width: 200px;
           height: 200px;
           border-radius: 50%;
-          position: relative;
-          display: flex;
-          align-items: center;
-          justify-content: center;
+          border: 1px solid $grey;
           &::before {
             content: "";
             position: absolute;
             inset: 25px;
             border-radius: inherit;
-            background-color: rgba($dark, 0.75);
+            background-color: $dark;
             border: 1px solid rgba($grey, 0.5);
           }
           .role-result-center {
-            position: relative;
-            z-index: 1;
             display: flex;
+            position: relative;
             flex-direction: column;
             align-items: stretch;
-            width: 120px;
             gap: 5px;
+            width: 120px;
+            z-index: 1;
             .role-title {
               color: $ashy;
               font-size: 14px;
@@ -676,8 +678,8 @@ onMounted(() => {
           .role-legend {
             display: flex;
             flex-direction: column;
-            gap: 5px;
             margin-top: 5px;
+            gap: 5px;
             .legend-row {
               display: flex;
               align-items: center;
@@ -696,9 +698,7 @@ onMounted(() => {
                 }
               }
               .legend-pct {
-                font-size: 10px;
-              }
-              .legend-pct {
+                font-size: 12px;
                 color: $fg;
                 font-family: Manrope-SemiBold;
                 text-align: right;
@@ -712,30 +712,30 @@ onMounted(() => {
     .rank-list {
       display: flex;
       flex-direction: column;
-      gap: 10px;
       margin: 0;
       padding: 0;
+      gap: 10px;
       list-style: none;
       .rank-row {
         display: flex;
         flex-direction: column;
-        gap: 5px;
         padding: 10px;
+        gap: 5px;
         border-radius: 5px;
-        background-color: rgba($black, 0.25);
+        background-color: $dark;
         border: 1px solid rgba($grey, 0.5);
         .rank-top {
           display: grid;
           grid-template-columns: auto 1fr auto;
           align-items: center;
-          gap: 10px;
+          gap: 5px;
           .rank-pos {
             color: $ashy;
           }
           .rank-name {
-            overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
+            overflow: hidden;
           }
           .rank-val {
             color: $fg;
@@ -744,7 +744,7 @@ onMounted(() => {
         .rank-bar {
           height: 10px;
           border-radius: 999px;
-          background-color: rgba($black, 0.25);
+          background-color: rgba($black, 0.5);
           overflow: hidden;
           span {
             display: block;
@@ -770,12 +770,12 @@ onMounted(() => {
           gap: 10px;
           .best-label {
             color: $ashy;
-            font-size: 12px;
+            font-size: 14px;
           }
           .best-bar {
             height: 10px;
             border-radius: 999px;
-            background-color: rgba($black, 0.25);
+            background-color: rgba($black, 0.5);
             overflow: hidden;
             span {
               display: block;
@@ -808,8 +808,8 @@ onMounted(() => {
       }
       .overview {
         .result-ring {
-          width: 250px;
-          height: 250px;
+          width: 200px;
+          height: 200px;
           &::before {
             inset: 30px;
           }
@@ -825,7 +825,7 @@ onMounted(() => {
               .legend-row {
                 gap: 5px;
                 .legend-pct {
-                  font-size: 10px;
+                  font-size: 12px;
                 }
               }
             }
@@ -834,10 +834,10 @@ onMounted(() => {
         .role-rings {
           grid-template-columns: 1fr;
           .role-result-ring {
-            width: 220px;
-            height: 220px;
+            width: 150px;
+            height: 150px;
             &::before {
-              inset: 30px;
+              inset: 20px;
             }
             .role-result-center {
               width: 140px;
