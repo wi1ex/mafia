@@ -4429,25 +4429,35 @@ async def perform_game_end(ctx, sess: Optional[dict[str, Any]], *, confirm: bool
     except Exception:
         log.exception("sio.game_end.spectators_join_failed", rid=rid)
 
-    try:
-        spectators = await r.smembers(f"room:{rid}:spectators")
-    except Exception:
-        spectators = set()
-    if spectators:
-        for v in spectators:
+    async def _spectator_ids_from_redis() -> set[int]:
+        out: set[int] = set()
+        try:
+            raw_ids = await r.smembers(f"room:{rid}:spectators")
+        except Exception:
+            return out
+
+        for raw_uid in (raw_ids or set()):
             try:
-                uid_i = int(v)
+                uid_i = int(raw_uid)
             except Exception:
                 continue
-            await sio.emit("force_leave",
-                           {"room_id": rid, "reason": "game_end"},
-                           room=f"user:{uid_i}",
-                           namespace="/room")
-    try:
-        await r.delete(f"room:{rid}:spectators", f"room:{rid}:spectators_join")
-    except Exception:
-        log.exception("sio.game_end.spectators_clear_failed", rid=rid)
-    await emit_rooms_spectators_safe(r, rid)
+            if uid_i > 0:
+                out.add(uid_i)
+        return out
+
+    async def _soft_force_leave(ids: set[int]) -> None:
+        if not ids:
+            return
+
+        payload = {"room_id": rid, "reason": "game_end"}
+        for uid_i in sorted(ids):
+            try:
+                await sio.emit("force_leave", payload, room=f"user:{uid_i}", namespace="/room")
+            except Exception:
+                log.warning("sio.game_end.spectator_soft_force_leave_failed", rid=rid, uid=uid_i)
+
+    spectators_soft_1 = await _spectator_ids_from_redis()
+    await _soft_force_leave(spectators_soft_1)
 
     await sio.emit("game_ended",
                    {"room_id": rid, "reason": reason},
@@ -4467,6 +4477,17 @@ async def perform_game_end(ctx, sess: Optional[dict[str, Any]], *, confirm: bool
                 details=details)
     except Exception:
         log.exception("sio.game_end.log_failed", rid=rid, uid=uid)
+
+    await asyncio.sleep(1)
+    spectators_soft_2 = await _spectator_ids_from_redis()
+    await _soft_force_leave(spectators_soft_2)
+
+    try:
+        await r.delete(f"room:{rid}:spectators", f"room:{rid}:spectators_join")
+    except Exception:
+        log.exception("sio.game_end.spectators_clear_failed", rid=rid)
+
+    await emit_rooms_spectators_safe(r, rid)
 
     return {"ok": True, "status": 200, "room_id": rid, "reason": reason}
 

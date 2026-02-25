@@ -1775,6 +1775,7 @@ socket.value?.on('connect', async () => {
 
   socket.value?.on('game_ended', async (p: any) => {
     const reason = String(p?.reason || '')
+    const spectatorBeforeEnd = isSpectatorInGame.value
     if (reason !== 'early_leave_before_day') {
       showGameEndOverlay()
       await nextTick()
@@ -1791,6 +1792,10 @@ socket.value?.on('connect', async () => {
     for (const uid of toDrop) {
       purgePeerUI(uid)
       rtc.cleanupPeer(uid)
+    }
+    if (spectatorBeforeEnd) {
+      await onLeave()
+      return
     }
     if (roleBeforeEnd === 'player') void restoreAfterGameEnd()
   })
@@ -2625,6 +2630,10 @@ function onBackgroundVisibility(e?: PageTransitionEvent) {
   if (!IS_MOBILE) return
   if (leaving.value) return
   if (hidden) {
+    if (isSpectatorInGame.value) {
+      void onLeave()
+      return
+    }
     void applyBackgroundMute()
   } else if (backgrounded.value) {
     backgrounded.value = false

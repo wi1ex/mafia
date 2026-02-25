@@ -523,7 +523,7 @@ onMounted(() => {
       min-height: 75px;
       border-radius: 5px;
       border: 1px solid rgba($grey, 0.5);
-      background-color: $graphite;
+      background: linear-gradient(150deg, rgba($graphite, 0.75), rgba($lead, 0.75));
       span {
         color: $ashy;
         font-size: 14px;
