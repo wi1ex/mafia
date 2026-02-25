@@ -1,5 +1,4 @@
 from __future__ import annotations
-from collections import Counter
 from typing import Any
 from sqlalchemy import delete, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -96,8 +95,6 @@ def _inc(d: dict[int, int], key: int, delta: int = 1) -> None:
 def _parse_actions(actions: list[dict[str, Any]], roles: dict[int, str]) -> dict[str, Any]:
     don_checks_first_night: dict[int, int] = {}
     don_checks_first_night_found: dict[int, int] = {}
-    misses_due_to_me: dict[int, int] = {}
-    misses_due_to_me_shots: dict[int, int] = {}
     foul_removed_count: dict[int, int] = {}
     vote_for_red_on_black_win_count: dict[int, int] = {}
     leave_vote_day12: dict[int, int] = {}
@@ -125,45 +122,6 @@ def _parse_actions(actions: list[dict[str, Any]], roles: dict[int, str]) -> dict
                     if actor_id not in don_checked_first_night_found_seen:
                         _inc(don_checks_first_night_found, actor_id, 1)
                         don_checked_first_night_found_seen.add(actor_id)
-            continue
-
-        if action_type == "night_shoot_result":
-            shooters_raw = action.get("shooters")
-            shots_raw = action.get("shots")
-            if not isinstance(shooters_raw, list) or not isinstance(shots_raw, dict):
-                continue
-            shooters = [_safe_int(item) for item in shooters_raw]
-            shooters = [uid for uid in shooters if uid > 0]
-            if len(shooters) != 3:
-                continue
-            shots: dict[int, int] = {}
-            for k, v in shots_raw.items():
-                shooter = _safe_int(k)
-                target = _safe_int(v)
-                if shooter > 0:
-                    shots[shooter] = target
-                    if target > 0 and shooter in shooters:
-                        _inc(misses_due_to_me_shots, shooter, 1)
-            targets = [shots.get(shooter, 0) for shooter in shooters]
-            if any(target <= 0 for target in targets):
-                continue
-            counts = Counter(targets)
-            if sorted(counts.values()) != [1, 2]:
-                continue
-            odd_target = 0
-            for target, cnt in counts.items():
-                if cnt == 1:
-                    odd_target = target
-                    break
-            if odd_target <= 0:
-                continue
-            odd_shooter = 0
-            for shooter in shooters:
-                if shots.get(shooter) == odd_target:
-                    odd_shooter = shooter
-                    break
-            if odd_shooter > 0:
-                _inc(misses_due_to_me, odd_shooter, 1)
             continue
 
         if action_type == "death":
@@ -259,8 +217,6 @@ def _parse_actions(actions: list[dict[str, Any]], roles: dict[int, str]) -> dict
     return {
         "don_checks_first_night": don_checks_first_night,
         "don_checks_first_night_found": don_checks_first_night_found,
-        "misses_due_to_me": misses_due_to_me,
-        "misses_due_to_me_shots": misses_due_to_me_shots,
         "foul_removed_count": foul_removed_count,
         "vote_for_red_on_black_win_count": vote_for_red_on_black_win_count,
         "leave_vote_day12": leave_vote_day12,
@@ -316,8 +272,6 @@ def _apply_game_to_user_row(row: UserGameStats, *, uid: int, roles: dict[int, st
 
             row.don_checks_first_night = _safe_int(row.don_checks_first_night) + _safe_int(parsed["don_checks_first_night"].get(uid))
             row.don_checks_first_night_found = _safe_int(row.don_checks_first_night_found) + _safe_int(parsed["don_checks_first_night_found"].get(uid))
-            row.misses_due_to_me = _safe_int(row.misses_due_to_me) + _safe_int(parsed["misses_due_to_me"].get(uid))
-            row.misses_due_to_me_shots = _safe_int(row.misses_due_to_me_shots) + _safe_int(parsed["misses_due_to_me_shots"].get(uid))
             row.vote_leave_day12 = _safe_int(row.vote_leave_day12) + _safe_int(parsed["leave_vote_day12"].get(uid))
             row.foul_removed_count = _safe_int(row.foul_removed_count) + _safe_int(parsed["foul_removed_count"].get(uid))
             if result == "black":

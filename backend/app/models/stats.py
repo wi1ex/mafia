@@ -15,8 +15,6 @@ class UserGameStats(Base):
     games_hosted: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
     don_checks_first_night: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
     don_checks_first_night_found: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
-    misses_due_to_me: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
-    misses_due_to_me_shots: Mapped[int | None] = mapped_column(Integer, nullable=True)
     vote_leave_day12: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
     foul_removed_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     vote_for_red_on_black_win_count: Mapped[int | None] = mapped_column(Integer, nullable=True)

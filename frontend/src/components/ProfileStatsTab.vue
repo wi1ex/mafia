@@ -10,90 +10,81 @@
     </div>
 
     <div v-else class="stats-layout">
-      <section class="block">
-        <h4>Неигровая активность</h4>
-        <div class="non-game-grid">
-          <article v-for="item in nonGameItems" :key="item.key" class="metric-card">
-            <span>{{ item.label }}</span>
-            <strong>{{ item.value }}</strong>
-          </article>
-        </div>
-      </section>
+      <div class="non-game-grid">
+        <article v-for="item in nonGameItems" :key="item.key" class="metric-card">
+          <span>{{ item.label }}</span>
+          <strong>{{ item.value }}</strong>
+        </article>
+      </div>
 
-      <section class="block">
-        <h4>Общий игровой результат</h4>
-        <div class="overview">
-          <article class="result-card">
-            <div class="result-ring" :style="overviewRingStyle">
-              <div class="result-center">
-                <span>Всего игр</span>
-                <strong>{{ formatInt(totalFinishedGames) }}</strong>
-                <div class="result-legend">
-                  <div v-for="item in overviewSegments" :key="item.key" class="legend-row">
-                    <span class="legend-dot" :class="item.key"></span>
-                    <span class="legend-label">{{ item.label }}</span>
-                    <strong class="legend-pct">{{ formatPctWithGames(item.percent, item.count) }}</strong>
-                  </div>
+      <div class="overview">
+        <article class="result-card">
+          <div class="result-ring" :style="overviewRingStyle">
+            <div class="result-center">
+              <span>Всего игр</span>
+              <strong>{{ formatInt(totalFinishedGames) }}</strong>
+              <div class="result-legend">
+                <div v-for="item in overviewSegments" :key="item.key" class="legend-row">
+                  <span class="legend-dot" :class="item.key"></span>
+                  <span class="legend-label">{{ item.label }}</span>
+                  <strong class="legend-pct">{{ formatPctWithGames(item.percent, item.count) }}</strong>
                 </div>
               </div>
             </div>
-            <div class="role-rings">
-              <article v-for="item in roleRingItems" :key="item.key" class="role-ring-card">
-                <div class="role-result-ring" :style="item.style">
-                  <div class="role-result-center">
-                    <span class="role-title">{{ item.label }}</span>
-                    <strong>{{ formatInt(item.games) }}</strong>
-                    <span class="role-sub">игр</span>
-                    <div class="result-legend role-legend">
-                      <div v-for="segment in item.segments" :key="segment.key" class="legend-row">
-                        <span class="legend-dot" :class="segment.key"></span>
-                        <span class="legend-label">{{ segment.label }}</span>
-                        <strong class="legend-pct">{{ formatPctWithGames(segment.percent, segment.count) }}</strong>
-                      </div>
+          </div>
+          <div class="role-rings">
+            <article v-for="item in roleRingItems" :key="item.key" class="role-ring-card">
+              <div class="role-result-ring" :style="item.style">
+                <div class="role-result-center">
+                  <span class="role-title">{{ item.label }}</span>
+                  <strong>{{ formatInt(item.games) }}</strong>
+                  <span class="role-sub">игр</span>
+                  <div class="result-legend role-legend">
+                    <div v-for="segment in item.segments" :key="segment.key" class="legend-row">
+                      <span class="legend-dot" :class="segment.key"></span>
+                      <span class="legend-label">{{ segment.label }}</span>
+                      <strong class="legend-pct">{{ formatPctWithGames(segment.percent, segment.count) }}</strong>
                     </div>
                   </div>
                 </div>
-              </article>
-            </div>
-          </article>
-        </div>
-      </section>
-
-      <section class="block">
-        <h4>Топ-5 игроков по количеству игр вместе</h4>
-        <div v-if="game.top_players.length === 0" class="state state-inline">Пока нет данных</div>
-        <ol v-else class="rank-list">
-          <li v-for="(player, idx) in game.top_players" :key="player.id" class="rank-row">
-            <div class="rank-top">
-              <span class="rank-pos">#{{ idx + 1 }}</span>
-              <span class="rank-name">{{ player.username || `user${player.id}` }}</span>
-              <strong class="rank-val">{{ formatInt(player.games_together) }}</strong>
-            </div>
-            <div class="rank-bar">
-              <span :style="{ width: `${barPct(player.games_together, topTogetherMax)}%` }"></span>
-            </div>
-          </li>
-        </ol>
-      </section>
-
-      <section class="block">
-        <h4>Лучший ход (если был первым убиенным)</h4>
-        <div class="best-move">
-          <article class="metric-card">
-            <span>Был первым убиенным</span>
-            <strong>{{ formatInt(game.best_move.first_killed_total) }}</strong>
-          </article>
-          <div class="best-bars">
-            <div v-for="item in bestMoveItems" :key="item.key" class="best-row">
-              <span class="best-label">{{ item.label }}</span>
-              <div class="best-bar">
-                <span :style="{ width: `${barPct(item.value, bestMoveMax)}%` }"></span>
               </div>
-              <strong>{{ formatInt(item.value) }}</strong>
+            </article>
+          </div>
+        </article>
+
+        <section class="block">
+          <h4>Топ-5 игроков по количеству игр вместе</h4>
+          <div v-if="game.top_players.length === 0" class="state state-inline">Пока нет данных</div>
+          <ol v-else class="rank-list">
+            <li v-for="(player, idx) in game.top_players" :key="player.id" class="rank-row">
+              <div class="rank-top">
+                <span class="rank-pos">#{{ idx + 1 }}</span>
+                <span class="rank-name">{{ player.username || `user${player.id}` }}</span>
+                <strong class="rank-val">{{ formatInt(player.games_together) }}</strong>
+              </div>
+              <div class="rank-bar">
+                <span :style="{ width: `${barPct(player.games_together, topTogetherMax)}%` }"></span>
+              </div>
+            </li>
+          </ol>
+          <h4>Лучший ход (если был первым убиенным)</h4>
+          <div class="best-move">
+            <article class="metric-card">
+              <span>Был первым убиенным</span>
+              <strong>{{ formatInt(game.best_move.first_killed_total) }}</strong>
+            </article>
+            <div class="best-bars">
+              <div v-for="item in bestMoveItems" :key="item.key" class="best-row">
+                <span class="best-label">{{ item.label }}</span>
+                <div class="best-bar">
+                  <span :style="{ width: `${barPct(item.value, bestMoveMax)}%` }"></span>
+                </div>
+                <strong>{{ formatInt(item.value) }}</strong>
+              </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+      </div>
 
       <section class="block">
         <h4>Дополнительные показатели</h4>
@@ -101,10 +92,6 @@
           <article class="metric-card">
             <span>Дон: % нахождения шерифа в 1-ю ночь</span>
             <strong>{{ formatPctRatio(game.don_first_night_find_count, game.role_don.games) }}</strong>
-          </article>
-          <article class="metric-card">
-            <span>Промахи из-за меня</span>
-            <strong>{{ formatPctRatio(game.misses_due_to_me, game.misses_due_to_me_shots) }}</strong>
           </article>
           <article class="metric-card">
             <span>Уход голосованием в 1-2 день</span>
@@ -167,9 +154,6 @@ type UserGameStats = {
   games_hosted: number
   don_first_night_find_count: number
   don_first_night_find_percent: number
-  misses_due_to_me: number
-  misses_due_to_me_shots: number
-  misses_due_to_me_percent: number
   vote_leave_day12_count: number
   vote_leave_day12_percent: number
   foul_removed_count: number
@@ -212,9 +196,6 @@ const stats = reactive<UserStats>({
     games_hosted: 0,
     don_first_night_find_count: 0,
     don_first_night_find_percent: 0,
-    misses_due_to_me: 0,
-    misses_due_to_me_shots: 0,
-    misses_due_to_me_percent: 0,
     vote_leave_day12_count: 0,
     vote_leave_day12_percent: 0,
     foul_removed_count: 0,
@@ -425,9 +406,6 @@ function normalizeGame(raw: any): UserGameStats {
     games_hosted: safeInt(raw?.games_hosted),
     don_first_night_find_count: safeInt(raw?.don_first_night_find_count),
     don_first_night_find_percent: clampPct(raw?.don_first_night_find_percent),
-    misses_due_to_me: safeInt(raw?.misses_due_to_me),
-    misses_due_to_me_shots: safeInt(raw?.misses_due_to_me_shots),
-    misses_due_to_me_percent: clampPct(raw?.misses_due_to_me_percent),
     vote_leave_day12_count: safeInt(raw?.vote_leave_day12_count),
     vote_leave_day12_percent: clampPct(raw?.vote_leave_day12_percent),
     foul_removed_count: safeInt(raw?.foul_removed_count),
@@ -827,7 +805,7 @@ onMounted(() => {
     }
     .extra-grid {
       display: grid;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
+      grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 10px;
     }
   }

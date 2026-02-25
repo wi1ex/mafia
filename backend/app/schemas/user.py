@@ -57,9 +57,6 @@ class UserGameStatsOut(BaseModel):
     games_hosted: int = 0
     don_first_night_find_count: int = 0
     don_first_night_find_percent: float = 0.0
-    misses_due_to_me: int = 0
-    misses_due_to_me_shots: int = 0
-    misses_due_to_me_percent: float = 0.0
     vote_leave_day12_count: int = 0
     vote_leave_day12_percent: float = 0.0
     foul_removed_count: int = 0

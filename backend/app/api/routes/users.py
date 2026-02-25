@@ -149,8 +149,6 @@ async def user_stats(ident: Identity = Depends(get_identity), db: AsyncSession =
     games_won = safe_int(getattr(stats_row, "games_won", 0))
     don_games = safe_int(getattr(stats_row, "don_games", 0))
     don_checks_first_night_found = safe_int(getattr(stats_row, "don_checks_first_night_found", 0))
-    misses_due_to_me = safe_int(getattr(stats_row, "misses_due_to_me", 0))
-    misses_due_to_me_shots = safe_int(getattr(stats_row, "misses_due_to_me_shots", 0))
     vote_leave_day12 = safe_int(getattr(stats_row, "vote_leave_day12", 0))
     foul_removed_count = safe_int(getattr(stats_row, "foul_removed_count", 0))
     vote_for_red_on_black_win_count = safe_int(getattr(stats_row, "vote_for_red_on_black_win_count", 0))
@@ -164,9 +162,6 @@ async def user_stats(ident: Identity = Depends(get_identity), db: AsyncSession =
         games_hosted=safe_int(getattr(stats_row, "games_hosted", 0)),
         don_first_night_find_count=don_checks_first_night_found,
         don_first_night_find_percent=pct(don_checks_first_night_found, don_games),
-        misses_due_to_me=misses_due_to_me,
-        misses_due_to_me_shots=misses_due_to_me_shots,
-        misses_due_to_me_percent=pct(misses_due_to_me, misses_due_to_me_shots),
         vote_leave_day12_count=vote_leave_day12,
         vote_leave_day12_percent=pct(vote_leave_day12, games_played),
         foul_removed_count=foul_removed_count,
