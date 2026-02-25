@@ -110,12 +110,12 @@
             <strong>{{ formatTimes(game.vote_for_red_on_black_win_count) }}</strong>
           </article>
           <article class="metric-card">
-            <span>Лучшая серия побед</span>
-            <strong>{{ formatInt(game.best_win_streak) }}</strong>
+            <span>Лучший WinStreak</span>
+            <strong>{{ formatInt(game.best_win_streak) }} {{ gameWord(game.best_win_streak) }}</strong>
           </article>
           <article class="metric-card">
-            <span>Худшая серия поражений</span>
-            <strong>{{ formatInt(game.best_loss_streak) }}</strong>
+            <span>Худший LoseStreak</span>
+            <strong>{{ formatInt(game.best_loss_streak) }} {{ gameWord(game.best_loss_streak) }}</strong>
           </article>
         </div>
       </section>
@@ -327,7 +327,7 @@ function createRingStyle(winsPctRaw: number, lossesPctRaw: number): Record<strin
     }
   }
   return {
-    background: `conic-gradient(var(--ring-win) 0% ${stop1}%, var(--ring-loss) ${stop1}% 100%)`,
+    background: `conic-gradient($green 0% ${stop1}%, $red ${stop1}% 100%)`,
   }
 }
 
@@ -469,8 +469,6 @@ onMounted(() => {
 
 <style scoped lang="scss">
 .stats-tab {
-  --ring-win: #30b86e;
-  --ring-loss: #d14d4d;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -490,9 +488,9 @@ onMounted(() => {
     gap: 10px;
     min-height: 140px;
     padding: 10px;
-    border: 1px solid rgba($grey, 0.4);
+    border: 1px solid rgba($grey, 0.5);
     border-radius: 5px;
-    background-color: rgba($graphite, 0.4);
+    background-color: rgba($graphite, 0.5);
     color: $ashy;
     &.state-inline {
       min-height: auto;
@@ -509,10 +507,10 @@ onMounted(() => {
       display: flex;
       flex-direction: column;
       gap: 10px;
-      border: 1px solid rgba($grey, 0.35);
+      border: 1px solid rgba($grey, 0.5);
       border-radius: 5px;
       padding: 10px;
-      background: linear-gradient(150deg, rgba($graphite, 0.8), rgba($dark, 0.8));
+      background: linear-gradient(150deg, rgba($graphite, 0.75), rgba($dark, 0.75));
       h4 {
         margin: 0;
       }
@@ -525,10 +523,10 @@ onMounted(() => {
       flex-direction: column;
       justify-content: space-between;
       gap: 5px;
-      min-height: 74px;
-      padding: 8px;
+      min-height: 75px;
+      padding: 10px;
       border-radius: 5px;
-      border: 1px solid rgba($grey, 0.4);
+      border: 1px solid rgba($grey, 0.5);
       background-color: $graphite;
       span {
         color: $ashy;
@@ -555,13 +553,13 @@ onMounted(() => {
         display: grid;
         grid-template-columns: minmax(320px, 360px) minmax(0, 1fr);
         align-items: center;
-        gap: 14px;
+        gap: 10px;
         width: 50%;
         max-width: 980px;
-        padding: 12px;
-        border-radius: 8px;
-        border: 1px solid rgba($grey, 0.4);
-        background: linear-gradient(150deg, rgba($graphite, 0.8), rgba($dark, 0.8));
+        padding: 10px;
+        border-radius: 10px;
+        border: 1px solid rgba($grey, 0.5);
+        background: linear-gradient(150deg, rgba($graphite, 0.75), rgba($dark, 0.75));
       }
       .result-ring {
         width: 320px;
@@ -575,10 +573,10 @@ onMounted(() => {
         &::before {
           content: "";
           position: absolute;
-          inset: 44px;
+          inset: 50px;
           border-radius: inherit;
-          background-color: rgba($dark, 0.96);
-          border: 1px solid rgba($grey, 0.4);
+          background-color: rgba($dark, 0.75);
+          border: 1px solid rgba($grey, 0.5);
         }
         .result-center {
           position: relative;
@@ -586,19 +584,18 @@ onMounted(() => {
           display: flex;
           flex-direction: column;
           align-items: stretch;
-          gap: 6px;
+          gap: 5px;
           width: 170px;
           span {
             color: $ashy;
-            font-size: 13px;
+            font-size: 12px;
             text-transform: uppercase;
-            letter-spacing: 0.02em;
             text-align: center;
           }
           strong {
             color: $fg;
             font-family: Manrope-SemiBold;
-            font-size: 34px;
+            font-size: 36px;
             line-height: 1;
             text-align: center;
           }
@@ -606,23 +603,23 @@ onMounted(() => {
         .result-legend {
           display: flex;
           flex-direction: column;
-          gap: 4px;
-          margin-top: 2px;
+          gap: 5px;
+          margin-top: 5px;
           .legend-row {
             display: grid;
             grid-template-columns: auto 1fr auto;
             align-items: center;
-            gap: 6px;
+            gap: 5px;
             .legend-dot {
               display: block;
-              width: 8px;
-              height: 8px;
+              width: 10px;
+              height: 10px;
               border-radius: 50%;
               &.wins {
-                background-color: var(--ring-win);
+                background-color: $green;
               }
               &.losses {
-                background-color: var(--ring-loss);
+                background-color: $red;
               }
             }
             .legend-label {
@@ -660,10 +657,10 @@ onMounted(() => {
           &::before {
             content: "";
             position: absolute;
-            inset: 28px;
+            inset: 25px;
             border-radius: inherit;
-            background-color: rgba($dark, 0.97);
-            border: 1px solid rgba($grey, 0.35);
+            background-color: rgba($dark, 0.75);
+            border: 1px solid rgba($grey, 0.5);
           }
           .role-result-center {
             position: relative;
@@ -671,15 +668,14 @@ onMounted(() => {
             display: flex;
             flex-direction: column;
             align-items: stretch;
-            width: 128px;
-            gap: 2px;
+            width: 120px;
+            gap: 5px;
             .role-title {
               color: $ashy;
               font-size: 11px;
               line-height: 1.1;
               text-align: center;
               text-transform: uppercase;
-              letter-spacing: 0.02em;
             }
             strong {
               color: $fg;
@@ -690,7 +686,7 @@ onMounted(() => {
             }
             .role-sub {
               color: $ashy;
-              font-size: 11px;
+              font-size: 10px;
               text-align: center;
               text-transform: none;
               letter-spacing: normal;
@@ -699,23 +695,23 @@ onMounted(() => {
           .role-legend {
             display: flex;
             flex-direction: column;
-            gap: 3px;
-            margin-top: 2px;
+            gap: 5px;
+            margin-top: 5px;
             .legend-row {
               display: grid;
               grid-template-columns: auto 1fr auto;
               align-items: center;
-              gap: 4px;
+              gap: 5px;
               .legend-dot {
                 display: block;
-                width: 7px;
-                height: 7px;
+                width: 10px;
+                height: 10px;
                 border-radius: 50%;
                 &.wins {
-                  background-color: var(--ring-win);
+                  background-color: $green;
                 }
                 &.losses {
-                  background-color: var(--ring-loss);
+                  background-color: $red;
                 }
               }
               .legend-label,
@@ -748,16 +744,16 @@ onMounted(() => {
       .rank-row {
         display: flex;
         flex-direction: column;
-        gap: 6px;
-        padding: 8px;
+        gap: 5px;
+        padding: 10px;
         border-radius: 5px;
-        background-color: rgba($black, 0.15);
-        border: 1px solid rgba($grey, 0.35);
+        background-color: rgba($black, 0.25);
+        border: 1px solid rgba($grey, 0.5);
         .rank-top {
           display: grid;
           grid-template-columns: auto 1fr auto;
           align-items: center;
-          gap: 8px;
+          gap: 10px;
           .rank-pos {
             color: $ashy;
           }
@@ -771,15 +767,15 @@ onMounted(() => {
           }
         }
         .rank-bar {
-          height: 8px;
+          height: 10px;
           border-radius: 999px;
-          background-color: rgba($black, 0.35);
+          background-color: rgba($black, 0.25);
           overflow: hidden;
           span {
             display: block;
             height: 100%;
             border-radius: inherit;
-            background: linear-gradient(90deg, rgba($green, 0.75), rgba($yellow, 0.9));
+            background: linear-gradient(90deg, rgba($green, 0.75), rgba($yellow, 0.75));
           }
         }
       }
@@ -791,26 +787,26 @@ onMounted(() => {
       .best-bars {
         display: flex;
         flex-direction: column;
-        gap: 8px;
+        gap: 10px;
         .best-row {
           display: grid;
-          grid-template-columns: 90px 1fr auto;
+          grid-template-columns: 20px 1fr auto;
           align-items: center;
-          gap: 8px;
+          gap: 10px;
           .best-label {
             color: $ashy;
             font-size: 12px;
           }
           .best-bar {
-            height: 8px;
+            height: 10px;
             border-radius: 999px;
-            background-color: rgba($black, 0.35);
+            background-color: rgba($black, 0.25);
             overflow: hidden;
             span {
               display: block;
               height: 100%;
               border-radius: inherit;
-              background: linear-gradient(90deg, rgba($orange, 0.9), rgba($red, 0.9));
+              background: linear-gradient(90deg, rgba($orange, 0.75), rgba($red, 0.75));
             }
           }
           strong {
@@ -828,41 +824,7 @@ onMounted(() => {
   }
 }
 
-@media (max-width: 1240px) {
-  .stats-tab {
-    .stats-layout {
-      .non-game-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-      .overview {
-        .result-card {
-          grid-template-columns: 1fr;
-          justify-items: center;
-        }
-        .result-ring {
-          width: 300px;
-          height: 300px;
-          &::before {
-            inset: 42px;
-          }
-        }
-        .role-rings {
-          width: 100%;
-          max-width: 480px;
-          gap: 12px;
-        }
-      }
-      .extra-grid {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-      }
-      .best-move {
-        grid-template-columns: 1fr;
-      }
-    }
-  }
-}
-
-@media (max-width: 760px) {
+@media (max-width: 1280px) {
   .stats-tab {
     .stats-layout {
       .non-game-grid,
@@ -874,22 +836,22 @@ onMounted(() => {
           width: 250px;
           height: 250px;
           &::before {
-            inset: 34px;
+            inset: 30px;
           }
           .result-center {
             width: 150px;
             span {
-              font-size: 11px;
+              font-size: 12px;
             }
             strong {
-              font-size: 26px;
+              font-size: 24px;
             }
             .result-legend {
               .legend-row {
-                gap: 4px;
+                gap: 5px;
                 .legend-label,
                 .legend-pct {
-                  font-size: 11px;
+                  font-size: 10px;
                 }
               }
             }
@@ -901,18 +863,18 @@ onMounted(() => {
             width: 220px;
             height: 220px;
             &::before {
-              inset: 32px;
+              inset: 30px;
             }
             .role-result-center {
               width: 140px;
               strong {
-                font-size: 22px;
+                font-size: 20px;
               }
               .role-legend {
                 .legend-row {
                   .legend-label,
                   .legend-pct {
-                    font-size: 11px;
+                    font-size: 10px;
                   }
                 }
               }
