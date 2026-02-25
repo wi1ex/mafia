@@ -832,17 +832,11 @@ onMounted(() => {
           font-size: 18px;
         }
       }
-      .non-game-grid {
-        grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-      }
       .overview {
         grid-template-columns: 1fr;
         .result-card {
-          grid-template-columns: 1fr;
           justify-items: center;
-          align-items: start;
           gap: 10px;
-          padding: 5px;
         }
         .result-ring {
           width: 200px;
@@ -912,7 +906,6 @@ onMounted(() => {
         }
       }
       .best-move {
-        grid-template-columns: 1fr;
         .best-bars {
           gap: 5px;
           .best-row {

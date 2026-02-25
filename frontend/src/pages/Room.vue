@@ -2236,9 +2236,19 @@ const toggleVisibility = toggleFactory('visibility',
 
 const toggleScreen = async () => {
   if (pendingScreen.value) return
+  const wantEnable = !isMyScreen.value
+  const confirmed = await confirmDialog({
+    title: wantEnable ? 'Запуск трансляции' : 'Остановка трансляции',
+    text: wantEnable
+      ? 'Вы уверены, что хотите запустить трансляцию экрана?'
+      : 'Вы уверены, что хотите остановить трансляцию экрана?',
+    confirmText: wantEnable ? 'Запустить' : 'Остановить',
+    cancelText: 'Отмена',
+  })
+  if (!confirmed) return
   pendingScreen.value = true
   try {
-    if (!isMyScreen.value) {
+    if (wantEnable) {
       const resp = await sendAck('screen', { on: true })
       if (!resp || !resp.ok) {
         if (resp?.status === 409 && resp?.owner) screenOwnerId.value = String(resp.owner)
