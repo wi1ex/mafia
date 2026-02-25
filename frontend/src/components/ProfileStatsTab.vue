@@ -801,7 +801,6 @@ onMounted(() => {
 
 @media (max-width: 1280px) {
   .stats-tab {
-    gap: 5px;
     .stats-head {
       h3 {
         font-size: 20px;
@@ -813,7 +812,6 @@ onMounted(() => {
       font-size: 12px;
     }
     .stats-layout {
-      gap: 5px;
       .block {
         padding: 10px;
         gap: 5px;
