@@ -162,6 +162,7 @@ async def user_stats(ident: Identity = Depends(get_identity), db: AsyncSession =
         games_won=games_won,
         winrate_percent=pct(games_won, games_played),
         games_hosted=safe_int(getattr(stats_row, "games_hosted", 0)),
+        don_first_night_find_count=don_checks_first_night_found,
         don_first_night_find_percent=pct(don_checks_first_night_found, don_games),
         misses_due_to_me=misses_due_to_me,
         misses_due_to_me_shots=misses_due_to_me_shots,

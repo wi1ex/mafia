@@ -100,23 +100,23 @@
         <div class="extra-grid">
           <article class="metric-card">
             <span>Дон: % нахождения шерифа в 1-ю ночь</span>
-            <strong>{{ formatPct(game.don_first_night_find_percent) }}</strong>
+            <strong>{{ formatPctRatio(game.don_first_night_find_count, game.role_don.games) }}</strong>
           </article>
           <article class="metric-card">
             <span>Промахи из-за меня</span>
-            <strong>{{ formatPct(game.misses_due_to_me_percent) }} ({{ formatInt(game.misses_due_to_me) }} / {{ formatInt(game.misses_due_to_me_shots) }})</strong>
+            <strong>{{ formatPctRatio(game.misses_due_to_me, game.misses_due_to_me_shots) }}</strong>
           </article>
           <article class="metric-card">
             <span>Уход голосованием в 1-2 день</span>
-            <strong>{{ formatInt(game.vote_leave_day12_count) }} / {{ formatPct(game.vote_leave_day12_percent) }}</strong>
+            <strong>{{ formatPctRatio(game.vote_leave_day12_count, game.games_played) }}</strong>
           </article>
           <article class="metric-card">
             <span>Удалён по фолам</span>
-            <strong>{{ formatInt(game.foul_removed_count) }} / {{ formatPct(game.foul_removed_percent) }}</strong>
+            <strong>{{ formatPctRatio(game.foul_removed_count, game.games_played) }}</strong>
           </article>
           <article class="metric-card">
             <span>Голосовал на поражение</span>
-            <strong>{{ formatInt(game.vote_for_red_on_black_win_count) }}</strong>
+            <strong>{{ formatPctRatio(game.vote_for_red_on_black_win_count, game.games_played) }}</strong>
           </article>
           <article class="metric-card">
             <span>Успешность завещаний</span>
@@ -165,6 +165,7 @@ type UserGameStats = {
   games_won: number
   winrate_percent: number
   games_hosted: number
+  don_first_night_find_count: number
   don_first_night_find_percent: number
   misses_due_to_me: number
   misses_due_to_me_shots: number
@@ -209,6 +210,7 @@ const stats = reactive<UserStats>({
     games_won: 0,
     winrate_percent: 0,
     games_hosted: 0,
+    don_first_night_find_count: 0,
     don_first_night_find_percent: 0,
     misses_due_to_me: 0,
     misses_due_to_me_shots: 0,
@@ -252,12 +254,15 @@ function formatInt(raw: unknown): string {
   return intFmt.format(safeInt(raw))
 }
 
-function pad2(raw: number): string {
-  return String(Math.max(0, Math.trunc(raw))).padStart(2, '0')
-}
-
 function formatPct(raw: unknown): string {
   return `${clampPct(raw).toFixed(2)}%`
+}
+
+function formatPctRatio(partRaw: unknown, totalRaw: unknown): string {
+  const part = safeInt(partRaw)
+  const total = safeInt(totalRaw)
+  const percent = total > 0 ? (part * 100) / total : 0
+  return `${formatPct(percent)} (${formatInt(part)}/${formatInt(total)})`
 }
 
 function gameWord(raw: unknown): string {
@@ -281,7 +286,7 @@ function formatDurationDhm(raw: unknown): string {
   const days = Math.floor(totalMinutes / minutesInDay)
   const hours = Math.floor((totalMinutes % minutesInDay) / 60)
   const minutes = totalMinutes % 60
-  return `${pad2(days)}.${pad2(hours)}.${pad2(minutes)}`
+  return `${days}д ${hours}ч ${minutes}м`
 }
 
 function barPct(valueRaw: unknown, maxRaw: unknown): number {
@@ -418,6 +423,7 @@ function normalizeGame(raw: any): UserGameStats {
     games_won: safeInt(raw?.games_won),
     winrate_percent: clampPct(raw?.winrate_percent),
     games_hosted: safeInt(raw?.games_hosted),
+    don_first_night_find_count: safeInt(raw?.don_first_night_find_count),
     don_first_night_find_percent: clampPct(raw?.don_first_night_find_percent),
     misses_due_to_me: safeInt(raw?.misses_due_to_me),
     misses_due_to_me_shots: safeInt(raw?.misses_due_to_me_shots),
