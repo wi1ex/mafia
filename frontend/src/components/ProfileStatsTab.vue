@@ -583,14 +583,14 @@ onMounted(() => {
           z-index: 1;
           span {
             color: $ashy;
-            font-size: 16px;
+            font-size: 20px;
             text-transform: uppercase;
             text-align: center;
           }
           strong {
             color: $fg;
             font-family: Manrope-SemiBold;
-            font-size: 36px;
+            font-size: 40px;
             line-height: 1;
             text-align: center;
           }
@@ -618,7 +618,7 @@ onMounted(() => {
               }
             }
             .legend-pct {
-              font-size: 14px;
+              font-size: 16px;
               color: $fg;
               font-family: Manrope-SemiBold;
               text-align: right;
@@ -662,7 +662,7 @@ onMounted(() => {
             z-index: 1;
             .role-title {
               color: $ashy;
-              font-size: 14px;
+              font-size: 16px;
               line-height: 1.1;
               text-align: center;
               text-transform: uppercase;
@@ -670,7 +670,7 @@ onMounted(() => {
             strong {
               color: $fg;
               font-family: Manrope-SemiBold;
-              font-size: 24px;
+              font-size: 30px;
               line-height: 1;
               text-align: center;
             }
@@ -698,7 +698,7 @@ onMounted(() => {
                 }
               }
               .legend-pct {
-                font-size: 12px;
+                font-size: 14px;
                 color: $fg;
                 font-family: Manrope-SemiBold;
                 text-align: right;
@@ -845,10 +845,10 @@ onMounted(() => {
           .result-center {
             width: 128px;
             span {
-              font-size: 12px;
+              font-size: 14px;
             }
             strong {
-              font-size: 26px;
+              font-size: 30px;
             }
           }
           .result-legend {
@@ -876,7 +876,7 @@ onMounted(() => {
                 font-size: 12px;
               }
               strong {
-                font-size: 18px;
+                font-size: 24px;
               }
             }
             .role-legend {
