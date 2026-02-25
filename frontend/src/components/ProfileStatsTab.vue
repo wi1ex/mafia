@@ -26,7 +26,6 @@
               <div class="result-legend">
                 <div v-for="item in overviewSegments" :key="item.key" class="legend-row">
                   <span class="legend-dot" :class="item.key"></span>
-                  <span class="legend-label">{{ item.label }}</span>
                   <strong class="legend-pct">{{ formatPctWithGames(item.percent, item.count) }}</strong>
                 </div>
               </div>
@@ -38,11 +37,9 @@
                 <div class="role-result-center">
                   <span class="role-title">{{ item.label }}</span>
                   <strong>{{ formatInt(item.games) }}</strong>
-                  <span class="role-sub">игр</span>
                   <div class="result-legend role-legend">
                     <div v-for="segment in item.segments" :key="segment.key" class="legend-row">
                       <span class="legend-dot" :class="segment.key"></span>
-                      <span class="legend-label">{{ segment.label }}</span>
                       <strong class="legend-pct">{{ formatPctWithGames(segment.percent, segment.count) }}</strong>
                     </div>
                   </div>
@@ -52,7 +49,7 @@
           </div>
         </article>
 
-        <section class="block width-half">
+        <section class="block">
           <h4>"Любимые" игроки"</h4>
           <div v-if="game.top_players.length === 0" class="state state-inline">Пока нет данных</div>
           <ol v-else class="rank-list">
@@ -327,7 +324,7 @@ function createRingStyle(winsPctRaw: number, lossesPctRaw: number): Record<strin
     }
   }
   return {
-    background: `conic-gradient($green 0% ${stop1}%, $red ${stop1}% 100%)`,
+    background: `conic-gradient(var(--ring-win) 0% ${stop1}%, var(--ring-loss) ${stop1}% 100%)`,
   }
 }
 
@@ -469,6 +466,8 @@ onMounted(() => {
 
 <style scoped lang="scss">
 .stats-tab {
+  --ring-win: #{$green};
+  --ring-loss: #{$red};
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -514,9 +513,6 @@ onMounted(() => {
       h4 {
         margin: 0;
       }
-      &.width-half {
-        width: 50%;
-      }
     }
     .metric-card {
       display: flex;
@@ -546,18 +542,16 @@ onMounted(() => {
       gap: 10px;
     }
     .overview {
-      display: flex;
-      justify-content: center;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
       gap: 10px;
       .result-card {
         display: grid;
-        grid-template-columns: minmax(320px, 360px) minmax(0, 1fr);
+        grid-template-columns: minmax(300px, 400px) minmax(0, 1fr);
         align-items: center;
         gap: 10px;
-        width: 50%;
-        max-width: 980px;
         padding: 10px;
-        border-radius: 10px;
+        border-radius: 5px;
         border: 1px solid rgba($grey, 0.5);
         background: linear-gradient(150deg, rgba($graphite, 0.75), rgba($dark, 0.75));
       }
@@ -606,9 +600,9 @@ onMounted(() => {
           gap: 5px;
           margin-top: 5px;
           .legend-row {
-            display: grid;
-            grid-template-columns: auto 1fr auto;
+            display: flex;
             align-items: center;
+            justify-content: center;
             gap: 5px;
             .legend-dot {
               display: block;
@@ -621,12 +615,6 @@ onMounted(() => {
               &.losses {
                 background-color: $red;
               }
-            }
-            .legend-label {
-              color: $ashy;
-              font-size: 12px;
-              text-transform: none;
-              letter-spacing: normal;
             }
             .legend-pct {
               color: $fg;
@@ -641,7 +629,7 @@ onMounted(() => {
       .role-rings {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 20px;
+        gap: 10px;
         .role-ring-card {
           display: flex;
           justify-content: center;
@@ -672,7 +660,7 @@ onMounted(() => {
             gap: 5px;
             .role-title {
               color: $ashy;
-              font-size: 11px;
+              font-size: 14px;
               line-height: 1.1;
               text-align: center;
               text-transform: uppercase;
@@ -684,13 +672,6 @@ onMounted(() => {
               line-height: 1;
               text-align: center;
             }
-            .role-sub {
-              color: $ashy;
-              font-size: 10px;
-              text-align: center;
-              text-transform: none;
-              letter-spacing: normal;
-            }
           }
           .role-legend {
             display: flex;
@@ -698,9 +679,9 @@ onMounted(() => {
             gap: 5px;
             margin-top: 5px;
             .legend-row {
-              display: grid;
-              grid-template-columns: auto 1fr auto;
+              display: flex;
               align-items: center;
+              justify-content: center;
               gap: 5px;
               .legend-dot {
                 display: block;
@@ -714,14 +695,8 @@ onMounted(() => {
                   background-color: $red;
                 }
               }
-              .legend-label,
               .legend-pct {
                 font-size: 10px;
-              }
-              .legend-label {
-                color: $ashy;
-                text-transform: none;
-                letter-spacing: normal;
               }
               .legend-pct {
                 color: $fg;
@@ -818,7 +793,7 @@ onMounted(() => {
     }
     .extra-grid {
       display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-columns: repeat(7, minmax(0, 1fr));
       gap: 10px;
     }
   }
@@ -849,7 +824,6 @@ onMounted(() => {
             .result-legend {
               .legend-row {
                 gap: 5px;
-                .legend-label,
                 .legend-pct {
                   font-size: 10px;
                 }
@@ -872,7 +846,6 @@ onMounted(() => {
               }
               .role-legend {
                 .legend-row {
-                  .legend-label,
                   .legend-pct {
                     font-size: 10px;
                   }
