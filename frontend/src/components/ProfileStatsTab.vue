@@ -52,7 +52,7 @@
           </div>
         </article>
 
-        <section class="block">
+        <section class="block width-half">
           <h4>Топ-5 игроков по количеству игр вместе</h4>
           <div v-if="game.top_players.length === 0" class="state state-inline">Пока нет данных</div>
           <ol v-else class="rank-list">
@@ -91,19 +91,19 @@
         <div class="extra-grid">
           <article class="metric-card">
             <span>Дон: % нахождения шерифа в 1-ю ночь</span>
-            <strong>{{ formatPctRatio(game.don_first_night_find_count, game.role_don.games) }}</strong>
+            <strong>{{ formatPct(game.don_first_night_find_percent) }}</strong>
           </article>
           <article class="metric-card">
             <span>Уход голосованием в 1-2 день</span>
-            <strong>{{ formatPctRatio(game.vote_leave_day12_count, game.games_played) }}</strong>
+            <strong>{{ formatPct(game.vote_leave_day12_percent) }}</strong>
           </article>
           <article class="metric-card">
             <span>Удалён по фолам</span>
-            <strong>{{ formatPctRatio(game.foul_removed_count, game.games_played) }}</strong>
+            <strong>{{ formatPct(game.foul_removed_percent) }}</strong>
           </article>
           <article class="metric-card">
             <span>Голосовал на поражение</span>
-            <strong>{{ formatPctRatio(game.vote_for_red_on_black_win_count, game.games_played) }}</strong>
+            <strong>{{ formatTimes(game.vote_for_red_on_black_win_count) }}</strong>
           </article>
           <article class="metric-card">
             <span>Успешность завещаний</span>
@@ -239,11 +239,19 @@ function formatPct(raw: unknown): string {
   return `${clampPct(raw).toFixed(2)}%`
 }
 
-function formatPctRatio(partRaw: unknown, totalRaw: unknown): string {
-  const part = safeInt(partRaw)
-  const total = safeInt(totalRaw)
-  const percent = total > 0 ? (part * 100) / total : 0
-  return `${formatPct(percent)} (${formatInt(part)}/${formatInt(total)})`
+function timesWord(raw: unknown): string {
+  const value = safeInt(raw)
+  const mod100 = value % 100
+  const mod10 = value % 10
+  if (mod100 >= 11 && mod100 <= 14) return 'раз'
+  if (mod10 === 1) return 'раз'
+  if (mod10 >= 2 && mod10 <= 4) return 'раза'
+  return 'раз'
+}
+
+function formatTimes(raw: unknown): string {
+  const value = safeInt(raw)
+  return `${formatInt(value)} ${timesWord(value)}`
 }
 
 function gameWord(raw: unknown): string {
@@ -500,9 +508,12 @@ onMounted(() => {
       border: 1px solid rgba($grey, 0.35);
       border-radius: 5px;
       padding: 10px;
-      background: linear-gradient(155deg, rgba($graphite, 0.92), rgba($dark, 0.95));
+      background: linear-gradient(150deg, rgba($graphite, 0.8), rgba($dark, 0.8));
       h4 {
         margin: 0;
+      }
+      &.width-half {
+        width: 50%;
       }
     }
     .metric-card {
@@ -514,7 +525,7 @@ onMounted(() => {
       padding: 8px;
       border-radius: 5px;
       border: 1px solid rgba($grey, 0.4);
-      background-color: rgba($black, 0.15);
+      background-color: $graphite;
       span {
         color: $ashy;
         font-size: 13px;
@@ -534,17 +545,18 @@ onMounted(() => {
     .overview {
       display: flex;
       justify-content: center;
+      gap: 10px;
       .result-card {
         display: grid;
         grid-template-columns: minmax(320px, 360px) minmax(0, 1fr);
         align-items: center;
         gap: 14px;
-        width: 100%;
+        width: 50%;
         max-width: 980px;
         padding: 12px;
         border-radius: 8px;
         border: 1px solid rgba($grey, 0.4);
-        background-color: rgba($black, 0.14);
+        background: linear-gradient(150deg, rgba($graphite, 0.8), rgba($dark, 0.8));
       }
       .result-ring {
         width: 320px;
@@ -627,7 +639,7 @@ onMounted(() => {
       .role-rings {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 10px;
+        gap: 20px;
         .role-ring-card {
           display: flex;
           justify-content: center;
