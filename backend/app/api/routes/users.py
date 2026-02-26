@@ -45,6 +45,7 @@ from ...schemas.user import (
     UserGamesHistoryOut,
     GameHistoryItemOut,
     GameHistoryHostOut,
+    GameHistoryFarewellItemOut,
     GameHistorySlotOut,
     UserUiPrefsIn,
     UserUiPrefsOut,
@@ -209,6 +210,7 @@ async def games_history(request: Request, page: int = 1, my_only: bool = False, 
     GAME_HISTORY_MAX_SLOT = 10
     GAME_HISTORY_ROLES = {"citizen", "mafia", "don", "sheriff"}
     GAME_HISTORY_LEAVE_REASONS = {"vote", "foul", "suicide", "night"}
+    GAME_HISTORY_FAREWELL_VERDICTS = {"citizen", "mafia"}
 
     page_num = max(1, min(int(page or 1), 1_000_000))
     uid = int(ident["id"]) if ident else 0
@@ -292,24 +294,86 @@ async def games_history(request: Request, page: int = 1, my_only: bool = False, 
         points_map = points_raw if isinstance(points_raw, dict) else {}
         mmr_map = mmr_raw if isinstance(mmr_raw, dict) else {}
         slot_map = slots_by_game.get(gid, {})
-        leave_map: dict[int, tuple[int, str]] = {}
+        uid_to_slot = {player_uid: seat_num for seat_num, player_uid in slot_map.items()}
+        leave_map: dict[int, tuple[int, str, list[int]]] = {}
+        vote_death_count_by_day: dict[int, int] = {}
+        best_move_map: dict[int, list[int]] = {}
+        farewell_map: dict[int, list[tuple[int, str]]] = {}
         if isinstance(actions_raw, list):
             for action in actions_raw:
                 if not isinstance(action, dict):
                     continue
                 action_type = str(action.get("type") or "").strip().lower()
-                if action_type != "death":
+                if action_type == "death":
+                    target_uid = safe_int(action.get("target_id"))
+                    if target_uid <= 0:
+                        continue
+                    leave_day = safe_int(action.get("day"))
+                    if leave_day <= 0:
+                        continue
+                    leave_reason = str(action.get("reason") or "").strip().lower()
+                    if leave_reason not in GAME_HISTORY_LEAVE_REASONS:
+                        continue
+                    if leave_reason == "vote":
+                        vote_death_count_by_day[leave_day] = vote_death_count_by_day.get(leave_day, 0) + 1
+                    if target_uid in leave_map:
+                        continue
+                    voted_by_user_ids: list[int] = []
+                    raw_by = action.get("by")
+                    if isinstance(raw_by, list):
+                        seen_by: set[int] = set()
+                        for raw_voter_uid in raw_by:
+                            voter_uid = safe_int(raw_voter_uid)
+                            if voter_uid <= 0 or voter_uid in seen_by:
+                                continue
+                            seen_by.add(voter_uid)
+                            voted_by_user_ids.append(voter_uid)
+                    leave_map[target_uid] = (leave_day, leave_reason, voted_by_user_ids)
                     continue
-                target_uid = safe_int(action.get("target_id"))
-                if target_uid <= 0 or target_uid in leave_map:
+
+                if action_type == "best_move":
+                    actor_uid = safe_int(action.get("actor_id"))
+                    if actor_uid <= 0 or actor_uid in best_move_map:
+                        continue
+                    raw_targets = action.get("targets")
+                    if not isinstance(raw_targets, list):
+                        continue
+                    targets: list[int] = []
+                    seen_targets: set[int] = set()
+                    for raw_target_uid in raw_targets:
+                        target_uid = safe_int(raw_target_uid)
+                        if target_uid <= 0 or target_uid in seen_targets:
+                            continue
+                        seen_targets.add(target_uid)
+                        targets.append(target_uid)
+                        if len(targets) >= 3:
+                            break
+                    if targets:
+                        best_move_map[actor_uid] = targets
                     continue
-                leave_day = safe_int(action.get("day"))
-                if leave_day <= 0:
+
+                if action_type != "farewell":
                     continue
-                leave_reason = str(action.get("reason") or "").strip().lower()
-                if leave_reason not in GAME_HISTORY_LEAVE_REASONS:
+                actor_uid = safe_int(action.get("actor_id"))
+                if actor_uid <= 0 or actor_uid in farewell_map:
                     continue
-                leave_map[target_uid] = (leave_day, leave_reason)
+                wills_raw = action.get("wills")
+                if not isinstance(wills_raw, dict):
+                    continue
+                picks: list[tuple[int, str]] = []
+                seen_targets: set[int] = set()
+                for raw_target_uid, raw_verdict in wills_raw.items():
+                    target_uid = safe_int(raw_target_uid)
+                    if target_uid <= 0 or target_uid in seen_targets:
+                        continue
+                    verdict = str(raw_verdict or "").strip().lower()
+                    if verdict not in GAME_HISTORY_FAREWELL_VERDICTS:
+                        continue
+                    seen_targets.add(target_uid)
+                    picks.append((target_uid, verdict))
+                if picks:
+                    farewell_map[actor_uid] = picks
+
         slots: list[GameHistorySlotOut] = []
         for slot in range(1, GAME_HISTORY_MAX_SLOT + 1):
             slot_uid = slot_map.get(slot)
@@ -323,6 +387,9 @@ async def games_history(request: Request, page: int = 1, my_only: bool = False, 
             mmr = 0
             leave_day_value = None
             leave_reason_value = None
+            voted_by_slots: list[int] = []
+            best_move_slots: list[int] = []
+            farewell_items: list[GameHistoryFarewellItemOut] = []
             if slot_uid:
                 raw_role = str(roles_map.get(str(slot_uid)) or "").strip().lower()
                 if raw_role in GAME_HISTORY_ROLES:
@@ -333,6 +400,34 @@ async def games_history(request: Request, page: int = 1, my_only: bool = False, 
                 if leave_data:
                     leave_day_value = leave_data[0]
                     leave_reason_value = leave_data[1]
+                    if leave_reason_value == "vote" and vote_death_count_by_day.get(leave_day_value, 0) == 1:
+                        for voter_uid in leave_data[2]:
+                            voter_slot = safe_int(uid_to_slot.get(voter_uid))
+                            if voter_slot <= 0 or voter_slot in voted_by_slots:
+                                continue
+                            voted_by_slots.append(voter_slot)
+                best_move_targets = best_move_map.get(slot_uid, [])
+                if best_move_targets:
+                    for target_uid in best_move_targets:
+                        target_slot = safe_int(uid_to_slot.get(target_uid))
+                        if target_slot <= 0 or target_slot in best_move_slots:
+                            continue
+                        best_move_slots.append(target_slot)
+                farewell_picks = farewell_map.get(slot_uid, [])
+                if farewell_picks:
+                    normalized_picks: list[tuple[int, str]] = []
+                    seen_farewell_slots: set[int] = set()
+                    for target_uid, verdict in farewell_picks:
+                        target_slot = safe_int(uid_to_slot.get(target_uid))
+                        if target_slot <= 0 or target_slot in seen_farewell_slots:
+                            continue
+                        seen_farewell_slots.add(target_slot)
+                        normalized_picks.append((target_slot, verdict))
+                    normalized_picks.sort(key=lambda item: item[0])
+                    farewell_items = [
+                        GameHistoryFarewellItemOut(slot=target_slot, verdict=verdict)
+                        for target_slot, verdict in normalized_picks
+                    ]
             slots.append(
                 GameHistorySlotOut(
                     slot=slot,
@@ -344,6 +439,9 @@ async def games_history(request: Request, page: int = 1, my_only: bool = False, 
                     mmr=mmr,
                     leave_day=leave_day_value,
                     leave_reason=leave_reason_value,
+                    voted_by_slots=voted_by_slots,
+                    best_move_slots=best_move_slots,
+                    farewell=farewell_items,
                 )
             )
 

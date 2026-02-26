@@ -107,6 +107,11 @@ class GameHistoryHostOut(BaseModel):
     auto: bool = False
 
 
+class GameHistoryFarewellItemOut(BaseModel):
+    slot: int
+    verdict: Literal["citizen", "mafia"]
+
+
 class GameHistorySlotOut(BaseModel):
     slot: int
     user_id: Optional[int] = None
@@ -117,6 +122,9 @@ class GameHistorySlotOut(BaseModel):
     mmr: int = 0
     leave_day: Optional[int] = None
     leave_reason: Optional[Literal["vote", "foul", "suicide", "night"]] = None
+    voted_by_slots: List[int] = Field(default_factory=list)
+    best_move_slots: List[int] = Field(default_factory=list)
+    farewell: List[GameHistoryFarewellItemOut] = Field(default_factory=list)
 
 
 class GameHistoryItemOut(BaseModel):

@@ -10,7 +10,7 @@
         <img :src="iconInfo" alt="" aria-hidden="true" />
         <span data-nosnippet>Правила</span>
       </router-link>
-      <router-link class="btn" :to="{ name: 'games-history' }" aria-label="История игр">
+      <router-link class="btn" :to="{ name: 'history' }" aria-label="История игр">
         <img :src="iconGamesHistory" alt="" aria-hidden="true" />
         <span data-nosnippet>История игр</span>
       </router-link>

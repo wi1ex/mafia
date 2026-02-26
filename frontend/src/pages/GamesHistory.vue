@@ -71,12 +71,19 @@ import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
 import iconArrowDown from '@/assets/svg/arrowDown.svg'
 
 type GameHistoryRole = 'citizen' | 'mafia' | 'don' | 'sheriff'
+type LeaveReason = 'vote' | 'foul' | 'suicide' | 'night'
+type FarewellVerdict = 'citizen' | 'mafia'
 
 interface GameHistoryHost {
   id?: number | null
   username?: string | null
   avatar_name?: string | null
   auto: boolean
+}
+
+interface GameHistoryFarewellItem {
+  slot: number
+  verdict: FarewellVerdict
 }
 
 interface GameHistorySlot {
@@ -88,7 +95,10 @@ interface GameHistorySlot {
   points: number
   mmr: number
   leave_day?: number | null
-  leave_reason?: 'vote' | 'foul' | 'suicide' | 'night' | null
+  leave_reason?: LeaveReason | null
+  voted_by_slots?: number[] | null
+  best_move_slots?: number[] | null
+  farewell?: GameHistoryFarewellItem[] | null
 }
 
 interface GameHistoryItem {
@@ -158,10 +168,7 @@ function toggleExpanded(gameId: number): void {
 
 function resultLabel(game: GameHistoryItem): string {
   if (game.result === 'red') return 'Победа мирных'
-  if (game.result === 'black') {
-    const count_black = Math.max(0, intOr(game.black_alive_at_finish, 0))
-    return `Победа мафии ${count_black}в${count_black}`
-  }
+  if (game.result === 'black') return `Победа мафии (${Math.max(0, intOr(game.black_alive_at_finish, 0))} живой мафии)`
   return 'Ничья'
 }
 

@@ -24,8 +24,20 @@
           <span>MMR: {{ slot.mmr }}</span>
         </div>
 
+        <div v-if="slot.best_move_slots.length > 0" class="slot-extra">
+          Лучший ход: {{ slot.best_move_slots.join(', ') }}
+        </div>
+
+        <div v-if="slot.farewell.length > 0" class="slot-extra">
+          Завещание: {{ formatFarewell(slot.farewell) }}
+        </div>
+
         <div v-if="slot.leave_day && slot.leave_reason" class="slot-leave">
-          Круг {{ slot.leave_day }} · {{ leaveReasonLabel(slot.leave_reason) }}
+          {{ leaveMomentLabel(slot.leave_day, slot.leave_reason) }} · {{ leaveReasonLabel(slot.leave_reason) }}
+        </div>
+
+        <div v-if="slot.leave_reason === 'vote' && slot.voted_by_slots.length > 0" class="slot-extra">
+          Кем заголосован: {{ slot.voted_by_slots.join(', ') }}
         </div>
       </article>
     </div>
@@ -43,6 +55,12 @@ import iconRoleSheriff from '@/assets/images/roleSheriff.png'
 
 type GameHistoryRole = 'citizen' | 'mafia' | 'don' | 'sheriff'
 type LeaveReason = 'vote' | 'foul' | 'suicide' | 'night'
+type FarewellVerdict = 'citizen' | 'mafia'
+
+interface GameHistoryFarewellItem {
+  slot: number
+  verdict: FarewellVerdict
+}
 
 interface GameHistorySlot {
   slot: number
@@ -54,15 +72,61 @@ interface GameHistorySlot {
   mmr: number
   leave_day?: number | null
   leave_reason?: LeaveReason | null
+  voted_by_slots?: number[] | null
+  best_move_slots?: number[] | null
+  farewell?: GameHistoryFarewellItem[] | null
+}
+
+interface GameHistorySlotView extends Omit<GameHistorySlot, 'voted_by_slots' | 'best_move_slots' | 'farewell'> {
+  voted_by_slots: number[]
+  best_move_slots: number[]
+  farewell: GameHistoryFarewellItem[]
 }
 
 const props = defineProps<{
   slots: GameHistorySlot[]
 }>()
 
-const orderedSlots = computed(() => {
+function normalizeSeatList(raw: unknown): number[] {
+  if (!Array.isArray(raw)) return []
+  const out: number[] = []
+  for (const item of raw) {
+    const seat = Number(item)
+    if (!Number.isFinite(seat)) continue
+    const seatNum = Math.trunc(seat)
+    if (seatNum <= 0 || seatNum > 10 || out.includes(seatNum)) continue
+    out.push(seatNum)
+  }
+  return out
+}
+
+function normalizeFarewell(raw: unknown): GameHistoryFarewellItem[] {
+  if (!Array.isArray(raw)) return []
+  const out: GameHistoryFarewellItem[] = []
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue
+    const slotRaw = (item as any).slot
+    const verdictRaw = String((item as any).verdict || '').trim().toLowerCase()
+    if (verdictRaw !== 'citizen' && verdictRaw !== 'mafia') continue
+    const seat = Number(slotRaw)
+    if (!Number.isFinite(seat)) continue
+    const seatNum = Math.trunc(seat)
+    if (seatNum <= 0 || seatNum > 10 || out.some((pick) => pick.slot === seatNum)) continue
+    out.push({ slot: seatNum, verdict: verdictRaw })
+  }
+  return out.sort((a, b) => a.slot - b.slot)
+}
+
+const orderedSlots = computed<GameHistorySlotView[]>(() => {
   const copy = Array.isArray(props.slots) ? [...props.slots] : []
-  return copy.sort((a, b) => a.slot - b.slot)
+  return copy
+    .map((slot) => ({
+      ...slot,
+      voted_by_slots: normalizeSeatList(slot.voted_by_slots),
+      best_move_slots: normalizeSeatList(slot.best_move_slots),
+      farewell: normalizeFarewell(slot.farewell),
+    }))
+    .sort((a, b) => a.slot - b.slot)
 })
 
 const roleIcons: Record<GameHistoryRole, string> = {
@@ -88,6 +152,23 @@ function leaveReasonLabel(reason: LeaveReason): string {
   if (reason === 'foul') return 'Удален по фолам'
   if (reason === 'suicide') return 'Суицид'
   return 'Убит'
+}
+
+function farewellVerdictLabel(verdict: FarewellVerdict): string {
+  if (verdict === 'mafia') return 'мафия'
+  return 'мирный'
+}
+
+function formatFarewell(farewell: GameHistoryFarewellItem[]): string {
+  return farewell.map((pick) => `${pick.slot} (${farewellVerdictLabel(pick.verdict)})`).join(', ')
+}
+
+function leaveMomentLabel(day: number, reason: LeaveReason): string {
+  const normalizedDay = Math.max(0, Math.trunc(day || 0))
+  if (reason === 'night') {
+    return `Ночь ${Math.max(0, normalizedDay - 1)}`
+  }
+  return `День ${normalizedDay}`
 }
 
 function slotLabel(slot: number): string {
@@ -158,6 +239,11 @@ function slotLabel(slot: number): string {
         color: $ashy;
         font-size: 12px;
         font-variant-numeric: tabular-nums;
+      }
+      .slot-extra {
+        color: $ashy;
+        font-size: 12px;
+        line-height: 1.2;
       }
       .slot-leave {
         margin-top: auto;
