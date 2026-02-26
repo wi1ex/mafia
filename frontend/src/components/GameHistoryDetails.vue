@@ -17,8 +17,9 @@
         </div>
 
         <div v-if="slot.leave_day && slot.leave_reason" class="slot-leave">
-          <span>{{ leaveMomentLabel(slot.leave_day, slot.leave_reason) }} - {{ leaveReasonLabel(slot.leave_reason) }}</span>
-          <span v-if="slot.leave_reason === 'vote' && slot.voted_by_slots.length > 0">{{ slot.voted_by_slots.join(', ') }}</span>
+          <span>{{ leaveMomentLabel(slot.leave_day, slot.leave_reason) }}</span>
+          <img class="leave-reason-icon" :src="leaveReasonIcon(slot.leave_reason)" :alt="leaveReasonAlt(slot.leave_reason)" :title="leaveReasonAlt(slot.leave_reason)" />
+          <span v-if="slot.leave_reason === 'vote' && slot.voted_by_slots.length > 0">({{ slot.voted_by_slots.join(', ') }})</span>
         </div>
 
         <div v-if="slot.best_move_slots.length > 0" class="slot-extra">
@@ -46,6 +47,10 @@ import iconRoleCitizen from '@/assets/images/roleCitizen.png'
 import iconRoleMafia from '@/assets/images/roleMafia.png'
 import iconRoleDon from '@/assets/images/roleDon.png'
 import iconRoleSheriff from '@/assets/images/roleSheriff.png'
+import iconLeaveVote from '@/assets/svg/likeGreen.svg'
+import iconLeaveFoul from '@/assets/svg/judge.svg'
+import iconLeaveNight from '@/assets/svg/kill.svg'
+import iconLeaveSuicide from '@/assets/svg/deadPlayer.svg'
 
 import iconSlot1 from '@/assets/svg/slot1.svg'
 import iconSlot2 from '@/assets/svg/slot2.svg'
@@ -152,6 +157,12 @@ const slotIcons: Record<number, string> = {
   9: iconSlot9,
   10: iconSlot10,
 }
+const leaveReasonIcons: Record<LeaveReason, string> = {
+  vote: iconLeaveVote,
+  foul: iconLeaveFoul,
+  suicide: iconLeaveSuicide,
+  night: iconLeaveNight,
+}
 
 function slotCardRoleClass(role: GameHistoryRole | null | undefined): string {
   if (!role) return ''
@@ -166,10 +177,14 @@ function slotIcon(slot: number): string {
   return slotIcons[slot] || iconSlot1
 }
 
-function leaveReasonLabel(reason: LeaveReason): string {
-  if (reason === 'vote') return 'Заголосован '
+function leaveReasonIcon(reason: LeaveReason): string {
+  return leaveReasonIcons[reason]
+}
+
+function leaveReasonAlt(reason: LeaveReason): string {
+  if (reason === 'vote') return 'Заголосован'
   if (reason === 'foul') return 'Удален по фолам'
-  if (reason === 'suicide') return 'Покинул игру'
+  if (reason === 'suicide') return 'Суицид'
   return 'Убит'
 }
 
@@ -304,9 +319,17 @@ function formatMetric(value: number): string {
         }
       }
       .slot-leave {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
         color: $orange;
         font-size: 12px;
         line-height: 1.2;
+        .leave-reason-icon {
+          width: 25px;
+          height: 25px;
+          object-fit: contain;
+        }
       }
     }
   }
