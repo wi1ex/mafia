@@ -39,7 +39,9 @@
 
           <Transition name="history-expand">
             <div v-if="isExpanded(game.id)" class="history-extra">
-              <GameHistoryDetails :slots="game.slots" />
+              <div v-if="isDetailsLoading(game.id)" class="history-extra-state">Загрузка деталей игры...</div>
+              <div v-else-if="detailsErrorFor(game.id)" class="history-extra-state history-extra-state--error">{{ detailsErrorFor(game.id) }}</div>
+              <GameHistoryDetails v-else :slots="detailsSlots(game.id)" />
             </div>
           </Transition>
         </li>
@@ -101,7 +103,7 @@ interface GameHistorySlot {
   night_checks?: GameHistoryNightCheckItem[] | null
 }
 
-interface GameHistoryItem {
+interface GameHistoryListItem {
   id: number
   number: number
   head: GameHistoryHost
@@ -110,6 +112,10 @@ interface GameHistoryItem {
   started_at: string
   finished_at: string
   duration_seconds: number
+}
+
+interface GameHistoryDetailsResponse {
+  id: number
   slots: GameHistorySlot[]
 }
 
@@ -121,7 +127,7 @@ interface GameHistoryResponse {
   total_red_wins: number
   total_black_wins: number
   total_draws: number
-  items: GameHistoryItem[]
+  items: GameHistoryListItem[]
 }
 
 const loading = ref(false)
@@ -132,8 +138,11 @@ const total = ref(0)
 const totalRedWins = ref(0)
 const totalBlackWins = ref(0)
 const totalDraws = ref(0)
-const items = ref<GameHistoryItem[]>([])
+const items = ref<GameHistoryListItem[]>([])
 const expanded = ref<Set<number>>(new Set())
+const detailsByGameId = ref<Record<number, GameHistorySlot[]>>({})
+const detailsErrors = ref<Record<number, string>>({})
+const detailsLoading = ref<Set<number>>(new Set())
 
 let requestSeq = 0
 
@@ -155,6 +164,12 @@ function clearExpanded(): void {
   expanded.value = new Set()
 }
 
+function clearDetailsCache(): void {
+  detailsByGameId.value = {}
+  detailsErrors.value = {}
+  detailsLoading.value = new Set()
+}
+
 function isExpanded(gameId: number): boolean {
   return expanded.value.has(gameId)
 }
@@ -165,11 +180,57 @@ function toggleExpanded(gameId: number): void {
     next.delete(gameId)
   } else {
     next.add(gameId)
+    void fetchGameDetails(gameId)
   }
   expanded.value = next
 }
 
-function resultLabel(game: GameHistoryItem): string {
+function isDetailsLoading(gameId: number): boolean {
+  return detailsLoading.value.has(gameId)
+}
+
+function detailsErrorFor(gameId: number): string {
+  return detailsErrors.value[gameId] || ''
+}
+
+function detailsSlots(gameId: number): GameHistorySlot[] {
+  return detailsByGameId.value[gameId] || []
+}
+
+async function fetchGameDetails(gameId: number): Promise<void> {
+  if (detailsByGameId.value[gameId]) return
+  if (detailsLoading.value.has(gameId)) return
+
+  const loadingNext = new Set(detailsLoading.value)
+  loadingNext.add(gameId)
+  detailsLoading.value = loadingNext
+
+  const errorsNext = { ...detailsErrors.value }
+  delete errorsNext[gameId]
+  detailsErrors.value = errorsNext
+
+  try {
+    const { data } = await api.get<GameHistoryDetailsResponse>(`/users/games/history/${gameId}`)
+    const slots = Array.isArray(data?.slots) ? data.slots : []
+    detailsByGameId.value = {
+      ...detailsByGameId.value,
+      [gameId]: slots,
+    }
+  } catch (e: any) {
+    const status = Number(e?.response?.status || 0)
+    const msg = status === 404 ? 'Игра не найдена' : 'Не удалось загрузить детали игры'
+    detailsErrors.value = {
+      ...detailsErrors.value,
+      [gameId]: msg,
+    }
+  } finally {
+    const loadingDone = new Set(detailsLoading.value)
+    loadingDone.delete(gameId)
+    detailsLoading.value = loadingDone
+  }
+}
+
+function resultLabel(game: GameHistoryListItem): string {
   if (game.result === 'red') return 'Победа мирных'
   if (game.result === 'black') {
     const count_black = Math.max(0, intOr(game.black_alive_at_finish, 0))
@@ -178,7 +239,7 @@ function resultLabel(game: GameHistoryItem): string {
   return 'Ничья'
 }
 
-function headName(game: GameHistoryItem): string {
+function headName(game: GameHistoryListItem): string {
   const name = (game.head.username || '').trim()
   if (name) return name
   const id = intOr(game.head.id, 0)
@@ -219,6 +280,7 @@ async function fetchHistory(): Promise<void> {
     totalBlackWins.value = Math.max(0, intOr(data?.total_black_wins, 0))
     totalDraws.value = Math.max(0, intOr(data?.total_draws, 0))
     items.value = Array.isArray(data?.items) ? data.items : []
+    clearDetailsCache()
     clearExpanded()
   } catch (e: any) {
     if (seq !== requestSeq) return
@@ -234,6 +296,7 @@ async function fetchHistory(): Promise<void> {
     totalBlackWins.value = 0
     totalDraws.value = 0
     pages.value = 1
+    clearDetailsCache()
     clearExpanded()
   } finally {
     if (seq === requestSeq) loading.value = false
@@ -388,6 +451,15 @@ onBeforeUnmount(() => {
         }
         .history-extra {
           overflow: hidden;
+          .history-extra-state {
+            padding: 15px 10px;
+            text-align: center;
+            color: $ashy;
+            font-size: 14px;
+            &.history-extra-state--error {
+              color: $orange;
+            }
+          }
         }
       }
     }
