@@ -20,24 +20,26 @@
         </div>
 
         <div class="slot-metrics">
-          <span>Баллы: {{ slot.points }}</span>
-          <span>MMR: {{ slot.mmr }}</span>
+          <span>Баллы: {{ formatMetric(slot.points) }} (MMR: {{ formatMetric(slot.mmr) }})</span>
+        </div>
+
+        <div v-if="slot.leave_day && slot.leave_reason" class="slot-leave">
+          <span>{{ leaveMomentLabel(slot.leave_day, slot.leave_reason) }} · {{ leaveReasonLabel(slot.leave_reason) }}</span>
+          <span v-if="slot.leave_reason === 'vote' && slot.voted_by_slots.length > 0"> ({{ slot.voted_by_slots.join(', ') }})</span>
         </div>
 
         <div v-if="slot.best_move_slots.length > 0" class="slot-extra">
           Лучший ход: {{ slot.best_move_slots.join(', ') }}
         </div>
 
-        <div v-if="slot.farewell.length > 0" class="slot-extra">
-          Завещание: {{ formatFarewell(slot.farewell) }}
-        </div>
-
-        <div v-if="slot.leave_day && slot.leave_reason" class="slot-leave">
-          {{ leaveMomentLabel(slot.leave_day, slot.leave_reason) }} · {{ leaveReasonLabel(slot.leave_reason) }}
-        </div>
-
-        <div v-if="slot.leave_reason === 'vote' && slot.voted_by_slots.length > 0" class="slot-extra">
-          Кем заголосован: {{ slot.voted_by_slots.join(', ') }}
+        <div v-if="slot.farewell.length > 0" class="slot-extra slot-extra-farewell">
+          <span class="slot-extra-label">Завещание:</span>
+          <span class="farewell-values">
+            <template v-for="(pick, index) in slot.farewell" :key="`${slot.slot}-${pick.slot}-${pick.verdict}`">
+              <span class="farewell-chip" :class="pick.verdict">{{ pick.slot }}</span>
+              <span v-if="index < slot.farewell.length - 1" class="farewell-sep">,</span>
+            </template>
+          </span>
         </div>
       </article>
     </div>
@@ -97,7 +99,7 @@ function normalizeSeatList(raw: unknown): number[] {
     if (seatNum <= 0 || seatNum > 10 || out.includes(seatNum)) continue
     out.push(seatNum)
   }
-  return out
+  return out.sort((a, b) => a - b)
 }
 
 function normalizeFarewell(raw: unknown): GameHistoryFarewellItem[] {
@@ -154,21 +156,19 @@ function leaveReasonLabel(reason: LeaveReason): string {
   return 'Убит'
 }
 
-function farewellVerdictLabel(verdict: FarewellVerdict): string {
-  if (verdict === 'mafia') return 'мафия'
-  return 'мирный'
-}
-
-function formatFarewell(farewell: GameHistoryFarewellItem[]): string {
-  return farewell.map((pick) => `${pick.slot} (${farewellVerdictLabel(pick.verdict)})`).join(', ')
-}
-
 function leaveMomentLabel(day: number, reason: LeaveReason): string {
   const normalizedDay = Math.max(0, Math.trunc(day || 0))
   if (reason === 'night') {
     return `Ночь ${Math.max(0, normalizedDay - 1)}`
   }
   return `День ${normalizedDay}`
+}
+
+function formatMetric(value: number): string {
+  const num = Number(value)
+  if (!Number.isFinite(num)) return '-'
+  const normalized = Math.trunc(num)
+  return normalized === 0 ? '-' : String(normalized)
 }
 
 function slotLabel(slot: number): string {
@@ -244,6 +244,42 @@ function slotLabel(slot: number): string {
         color: $ashy;
         font-size: 12px;
         line-height: 1.2;
+        &.slot-extra-farewell {
+          display: flex;
+          align-items: center;
+          gap: 5px;
+          .slot-extra-label {
+            color: $ashy;
+          }
+          .farewell-values {
+            display: inline-flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 5px;
+            .farewell-chip {
+              display: inline-flex;
+              align-items: center;
+              justify-content: center;
+              min-width: 20px;
+              height: 20px;
+              padding: 0 5px;
+              border-radius: 5px;
+              color: $fg;
+              font-size: 12px;
+              font-variant-numeric: tabular-nums;
+              &.citizen {
+                background-color: $red;
+              }
+              &.mafia {
+                background-color: $black;
+                border: 1px solid rgba($grey, 0.5);
+              }
+            }
+            .farewell-sep {
+              color: $ashy;
+            }
+          }
+        }
       }
       .slot-leave {
         margin-top: auto;

@@ -406,6 +406,7 @@ async def games_history(request: Request, page: int = 1, my_only: bool = False, 
                             if voter_slot <= 0 or voter_slot in voted_by_slots:
                                 continue
                             voted_by_slots.append(voter_slot)
+                        voted_by_slots.sort()
                 best_move_targets = best_move_map.get(slot_uid, [])
                 if best_move_targets:
                     for target_uid in best_move_targets:
@@ -413,6 +414,7 @@ async def games_history(request: Request, page: int = 1, my_only: bool = False, 
                         if target_slot <= 0 or target_slot in best_move_slots:
                             continue
                         best_move_slots.append(target_slot)
+                    best_move_slots.sort()
                 farewell_picks = farewell_map.get(slot_uid, [])
                 if farewell_picks:
                     normalized_picks: list[tuple[int, str]] = []
