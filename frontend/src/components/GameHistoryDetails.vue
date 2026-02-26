@@ -257,12 +257,12 @@ function formatMetric(value: number): string {
     grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 10px;
     .slot-card {
-      position: relative;
       display: flex;
+      position: relative;
       flex-direction: column;
+      padding: 10px;
       gap: 10px;
       min-height: 150px;
-      padding: 10px;
       border-radius: 5px;
       background-color: $dark;
       border: 1px solid rgba($grey, 0.25);
@@ -306,6 +306,7 @@ function formatMetric(value: number): string {
             object-fit: cover;
           }
           span {
+            width: 110px;
             height: 14px;
             color: $fg;
             font-size: 12px;
@@ -349,9 +350,9 @@ function formatMetric(value: number): string {
               min-width: 16px;
               height: 16px;
               border-radius: 5px;
+              background-color: $orange;
               color: $bg;
               font-size: 10px;
-              background-color: $orange;
             }
           }
         }
@@ -439,9 +440,9 @@ function formatMetric(value: number): string {
             min-width: 16px;
             height: 16px;
             border-radius: 5px;
+            background-color: $ashy;
             color: $bg;
             font-size: 10px;
-            background-color: $ashy;
           }
         }
         .leave-reason-icon {

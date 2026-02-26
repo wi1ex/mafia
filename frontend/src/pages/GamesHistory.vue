@@ -340,24 +340,25 @@ onBeforeUnmount(() => {
 <style scoped lang="scss">
 .history-page {
   display: flex;
-  width: 100%;
   justify-content: center;
   padding: 10px;
+  width: 100%;
   box-sizing: border-box;
-  overflow: auto;
+  background-color: $dark;
   scrollbar-width: none;
+  overflow: auto;
   .history-card {
     display: flex;
     flex-direction: column;
-    width: min(1100px, 100%);
-    gap: 10px;
     margin-bottom: 10px;
+    gap: 10px;
+    width: min(1100px, 100%);
     .history-header {
       display: flex;
       flex-direction: column;
       align-items: flex-start;
-      gap: 10px;
       padding: 20px 15px;
+      gap: 10px;
       border-radius: 5px;
       background-color: $fg;
       box-shadow: 0 5px 10px rgba($black, 0.25);
@@ -367,10 +368,10 @@ onBeforeUnmount(() => {
         font-size: 26px;
       }
       .history-header-stats {
-        width: 100%;
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 10px;
+        width: 100%;
         .history-header-stat {
           display: flex;
           flex-direction: column;
@@ -386,9 +387,9 @@ onBeforeUnmount(() => {
           display: inline-flex;
           align-items: center;
           justify-content: center;
+          padding: 0 10px;
           min-width: 50px;
           height: 25px;
-          padding: 0 10px;
           border-radius: 5px;
           font-size: 12px;
           font-weight: bold;
@@ -441,13 +442,13 @@ onBeforeUnmount(() => {
           display: grid;
           grid-template-columns: minmax(220px, 1fr) minmax(320px, 1fr) 24px;
           align-items: center;
+          padding: 15px;
           gap: 10px;
           width: 100%;
           border: none;
           background: none;
           color: inherit;
           text-align: left;
-          padding: 15px;
           cursor: pointer;
           .history-main-left,
           .history-main-mid {
@@ -465,8 +466,8 @@ onBeforeUnmount(() => {
               display: flex;
               align-items: center;
               gap: 5px;
-              color: $ashy;
               min-width: 0;
+              color: $ashy;
               img {
                 width: 20px;
                 height: 20px;
@@ -519,8 +520,8 @@ onBeforeUnmount(() => {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 10px;
       padding: 10px 0;
+      gap: 10px;
       color: $ashy;
       font-size: 14px;
       .btn {
