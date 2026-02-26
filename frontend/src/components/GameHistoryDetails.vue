@@ -15,7 +15,7 @@
         <div v-if="slot.leave_day && slot.leave_reason" class="slot-leave">
           <span>{{ leaveMomentLabel(slot.leave_day, slot.leave_reason) }}</span>
           <img class="leave-reason-icon" :src="leaveReasonIcon(slot.leave_reason)" :alt="leaveReasonAlt(slot.leave_reason)" :title="leaveReasonAlt(slot.leave_reason)" />
-          <span v-if="slot.leave_reason === 'vote' && slot.voted_by_slots.length > 0">({{ slot.voted_by_slots.join(', ') }})</span>
+          <span v-if="slot.leave_reason === 'vote' && slot.voted_by_slots.length > 0">{{ slot.voted_by_slots.join(', ') }}</span>
         </div>
 
         <div v-if="slot.best_move_slots.length > 0" class="slot-extra">
@@ -56,9 +56,9 @@ import iconRoleCitizen from '@/assets/images/roleCitizen.png'
 import iconRoleMafia from '@/assets/images/roleMafia.png'
 import iconRoleDon from '@/assets/images/roleDon.png'
 import iconRoleSheriff from '@/assets/images/roleSheriff.png'
-import iconLeaveVote from '@/assets/svg/likeBlack.svg'
+import iconLeaveVote from '@/assets/svg/likeWhite.svg'
 import iconLeaveFoul from '@/assets/svg/judge.svg'
-import iconLeaveNight from '@/assets/svg/kill.svg'
+import iconLeaveNight from '@/assets/svg/killWhite.svg'
 import iconLeaveSuicide from '@/assets/svg/deadPlayer.svg'
 
 import iconSlot1 from '@/assets/svg/slot1.svg'
@@ -282,8 +282,8 @@ function formatMetric(value: number): string {
         align-items: center;
         gap: 5px;
         .slot-num-icon {
-          width: 30px;
-          height: 30px;
+          width: 25px;
+          height: 25px;
           object-fit: contain;
         }
         .slot-player {
@@ -291,15 +291,15 @@ function formatMetric(value: number): string {
           align-items: center;
           gap: 5px;
           img {
-            width: 25px;
-            height: 25px;
+            width: 20px;
+            height: 20px;
             border-radius: 50%;
             object-fit: cover;
           }
           span {
-            height: 16px;
+            height: 14px;
             color: $fg;
-            font-size: 14px;
+            font-size: 12px;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -332,16 +332,16 @@ function formatMetric(value: number): string {
             display: inline-flex;
             align-items: center;
             flex-wrap: wrap;
-            gap: 5px;
+            gap: 3px;
             .farewell-chip {
               display: inline-flex;
               align-items: center;
               justify-content: center;
-              min-width: 20px;
-              height: 20px;
+              min-width: 16px;
+              height: 16px;
               border-radius: 5px;
               color: $fg;
-              font-size: 12px;
+              font-size: 10px;
               &.citizen {
                 background-color: $red;
               }
@@ -363,16 +363,16 @@ function formatMetric(value: number): string {
             display: inline-flex;
             align-items: center;
             flex-wrap: wrap;
-            gap: 5px;
+            gap: 3px;
             .night-check-chip {
               display: inline-flex;
               align-items: center;
               justify-content: center;
-              min-width: 20px;
-              height: 20px;
+              min-width: 16px;
+              height: 16px;
               border-radius: 5px;
               color: $fg;
-              font-size: 12px;
+              font-size: 10px;
               &.citizen {
                 background-color: $red;
               }
@@ -396,8 +396,8 @@ function formatMetric(value: number): string {
         font-size: 12px;
         line-height: 1.2;
         .leave-reason-icon {
-          width: 25px;
-          height: 25px;
+          width: 20px;
+          height: 20px;
           object-fit: contain;
         }
       }
