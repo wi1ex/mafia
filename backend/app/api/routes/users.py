@@ -1,6 +1,6 @@
 from __future__ import annotations
 from contextlib import suppress
-from typing import cast
+from typing import cast, Literal
 from sqlalchemy import select, update, exists, func, literal, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Response
@@ -217,9 +217,15 @@ async def games_history(page: int = 1, _ident: Identity = Depends(get_identity),
 @log_route("users.games_history_personal")
 @rate_limited(lambda ident, **_: f"rl:games_history_personal:{ident['id']}", limit=10, window_s=1)
 @router.get("/games/history/personal", response_model=UserGamesHistoryOut)
-async def games_history_personal(page: int = 1, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UserGamesHistoryOut:
+async def games_history_personal(page: int = 1, role: Literal["citizen", "mafia", "don", "sheriff"] | None = None, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UserGamesHistoryOut:
     uid = safe_int((ident or {}).get("id"))
-    return await fetch_games_history_page(db, page=page, player_uid=uid, per_page=PERSONAL_GAME_HISTORY_PER_PAGE)
+    return await fetch_games_history_page(
+        db,
+        page=page,
+        player_uid=uid,
+        player_role=role,
+        per_page=PERSONAL_GAME_HISTORY_PER_PAGE,
+    )
 
 
 @log_route("users.game_history_details")

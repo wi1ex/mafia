@@ -1,5 +1,12 @@
 <template>
   <section class="profile-history">
+    <div class="history-filters">
+      <button v-for="option in roleFilterOptions" :key="option.value" class="history-filter-btn" type="button"
+              :class="{ active: roleFilter === option.value }" @click="setRoleFilter(option.value)">
+        {{ option.label }}
+      </button>
+    </div>
+
     <div v-if="loading" class="history-state">Загрузка...</div>
     <div v-else-if="error" class="history-state history-state--error">{{ error }}</div>
     <div v-else-if="items.length === 0" class="history-state">Личная история пока пуста</div>
@@ -9,7 +16,10 @@
           :class="{ open: isExpanded(game.id), 'history-item--red': game.result === 'red', 'history-item--black': game.result === 'black' }">
         <button class="history-main" type="button" :aria-expanded="isExpanded(game.id)" @click="toggleExpanded(game.id)">
           <div class="history-main-left">
-            <span class="game-number">Игра #{{ game.number }}</span>
+            <div class="game-number-row">
+              <span class="game-number">Игра #{{ game.number }}</span>
+              <img v-if="game.player_role" class="game-role-icon" :src="playerRoleIcon(game.player_role)" :alt="roleLabel(game.player_role)" />
+            </div>
             <div class="game-head">
               <span>Ведущий:</span>
               <template v-if="game.head.auto">
@@ -57,11 +67,21 @@ import GameHistoryDetails from '@/components/GameHistoryDetails.vue'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
 import iconArrowDown from '@/assets/svg/arrowDown.svg'
+import iconRoleCitizen from '@/assets/images/roleCitizen.png'
+import iconRoleMafia from '@/assets/images/roleMafia.png'
+import iconRoleDon from '@/assets/images/roleDon.png'
+import iconRoleSheriff from '@/assets/images/roleSheriff.png'
 
 type GameHistoryRole = 'citizen' | 'mafia' | 'don' | 'sheriff'
+type GameHistoryRoleFilter = 'all' | GameHistoryRole
 type LeaveReason = 'vote' | 'foul' | 'suicide' | 'night'
 type FarewellVerdict = 'citizen' | 'mafia'
 type NightCheckVerdict = 'citizen' | 'mafia' | 'sheriff'
+
+interface RoleFilterOption {
+  value: GameHistoryRoleFilter
+  label: string
+}
 
 interface GameHistoryHost {
   id?: number | null
@@ -101,6 +121,7 @@ interface GameHistoryListItem {
   number: number
   head: GameHistoryHost
   result: 'red' | 'black' | 'draw'
+  player_role?: GameHistoryRole | null
   black_alive_at_finish: number
   started_at: string
   finished_at: string
@@ -128,6 +149,7 @@ const error = ref('')
 const page = ref(1)
 const pages = ref(1)
 const total = ref(0)
+const roleFilter = ref<GameHistoryRoleFilter>('all')
 const items = ref<GameHistoryListItem[]>([])
 const expanded = ref<Set<number>>(new Set())
 const detailsByGameId = ref<Record<number, GameHistorySlot[]>>({})
@@ -142,6 +164,21 @@ const DATE_OPTIONS: Intl.DateTimeFormatOptions = {
   day: '2-digit',
   hour: '2-digit',
   minute: '2-digit',
+}
+
+const roleFilterOptions: RoleFilterOption[] = [
+  { value: 'all', label: 'Все игры' },
+  { value: 'citizen', label: 'Мирный' },
+  { value: 'sheriff', label: 'Шериф' },
+  { value: 'mafia', label: 'Мафия' },
+  { value: 'don', label: 'Дон' },
+]
+
+const roleIcons: Record<GameHistoryRole, string> = {
+  citizen: iconRoleCitizen,
+  sheriff: iconRoleSheriff,
+  mafia: iconRoleMafia,
+  don: iconRoleDon,
 }
 
 function intOr(raw: unknown, fallback: number): number {
@@ -229,6 +266,17 @@ function resultLabel(game: GameHistoryListItem): string {
   return 'Ничья'
 }
 
+function roleLabel(role: GameHistoryRole): string {
+  if (role === 'citizen') return 'Мирный'
+  if (role === 'sheriff') return 'Шериф'
+  if (role === 'mafia') return 'Мафия'
+  return 'Дон'
+}
+
+function playerRoleIcon(role: GameHistoryRole): string {
+  return roleIcons[role]
+}
+
 function headName(game: GameHistoryListItem): string {
   const name = (game.head.username || '').trim()
   if (name) return name
@@ -251,13 +299,24 @@ function formatDuration(secondsRaw: number): string {
   return `${minutes}м ${String(seconds).padStart(2, '0')}с`
 }
 
+function setRoleFilter(nextRole: GameHistoryRoleFilter): void {
+  if (roleFilter.value === nextRole) return
+  roleFilter.value = nextRole
+  page.value = 1
+  void fetchHistory()
+}
+
 async function fetchHistory(): Promise<void> {
   const seq = ++requestSeq
   loading.value = true
   error.value = ''
   try {
+    const params: { page: number; role?: GameHistoryRole } = { page: page.value }
+    if (roleFilter.value !== 'all') {
+      params.role = roleFilter.value
+    }
     const { data } = await api.get<GameHistoryResponse>('/users/games/history/personal', {
-      params: { page: page.value },
+      params,
     })
     if (seq !== requestSeq) return
 
@@ -314,7 +373,33 @@ onBeforeUnmount(() => {
   flex-direction: column;
   justify-self: center;
   gap: 10px;
-  width: min(1100px,100%);
+  width: min(1100px, 100%);
+  .history-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    .history-filter-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 10px;
+      height: 30px;
+      border: none;
+      border-radius: 5px;
+      background-color: $graphite;
+      color: $fg;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background-color 0.25s ease-in-out, color 0.25s ease-in-out;
+      &:hover {
+        background-color: $lead;
+      }
+      &.active {
+        background-color: $orange;
+        color: $bg;
+      }
+    }
+  }
   .history-state {
     padding: 20px 10px;
     text-align: center;
@@ -365,9 +450,20 @@ onBeforeUnmount(() => {
           min-width: 0;
         }
         .history-main-left {
+          .game-number-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+          }
           .game-number {
             color: $fg;
             font-size: 16px;
+          }
+          .game-role-icon {
+            width: 20px;
+            height: 20px;
+            object-fit: contain;
+            flex-shrink: 0;
           }
           .game-head {
             display: flex;

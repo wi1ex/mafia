@@ -138,6 +138,7 @@ class GameHistoryItemOut(BaseModel):
     number: int
     head: GameHistoryHostOut
     result: Literal["red", "black", "draw"]
+    player_role: Optional[Literal["citizen", "mafia", "don", "sheriff"]] = None
     black_alive_at_finish: int = 0
     started_at: datetime
     finished_at: datetime

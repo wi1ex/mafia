@@ -593,11 +593,14 @@ def normalize_game_result(raw: Any) -> str:
     return "draw"
 
 
-async def fetch_games_history_page(db: AsyncSession, *, page: int, per_page: int, player_uid: int | None = None) -> UserGamesHistoryOut:
+async def fetch_games_history_page(db: AsyncSession, *, page: int, per_page: int, player_uid: int | None = None, player_role: Literal["citizen", "mafia", "don", "sheriff"] | None = None) -> UserGamesHistoryOut:
+    valid_roles = {"citizen", "mafia", "don", "sheriff"}
     per_page_i = max(1, min(safe_int(per_page), 100))
     page_num = max(1, min(int(page or 1), 1_000_000))
     uid_i = safe_int(player_uid)
     uid_key = str(uid_i) if uid_i > 0 else None
+    role_filter_raw = str(player_role or "").strip().lower()
+    role_filter = role_filter_raw if role_filter_raw in valid_roles else None
 
     total_stmt = select(func.count(Game.id))
     result_stmt = select(Game.result, func.count(Game.id)).group_by(Game.result)
@@ -609,12 +612,15 @@ async def fetch_games_history_page(db: AsyncSession, *, page: int, per_page: int
             Game.black_alive_at_finish,
             Game.started_at,
             Game.finished_at,
+            Game.roles,
         )
         .order_by(Game.id.desc())
     )
 
     if uid_key is not None:
         filter_expr = Game.roles.has_key(uid_key)
+        if role_filter is not None:
+            filter_expr = and_(filter_expr, Game.roles.contains({uid_key: role_filter}))
         total_stmt = total_stmt.where(filter_expr)
         result_stmt = result_stmt.where(filter_expr)
         rows_stmt = rows_stmt.where(filter_expr)
@@ -643,7 +649,7 @@ async def fetch_games_history_page(db: AsyncSession, *, page: int, per_page: int
     raw_games = rows.all()
 
     user_ids: set[int] = set()
-    for _game_id, head_id, _result, _black_alive, _started, _finished in raw_games:
+    for _game_id, head_id, _result, _black_alive, _started, _finished, _roles in raw_games:
         hid = safe_int(head_id)
         if hid > 0:
             user_ids.add(hid)
@@ -651,7 +657,7 @@ async def fetch_games_history_page(db: AsyncSession, *, page: int, per_page: int
     profiles = await get_user_profiles_cached(db, user_ids) if user_ids else {}
 
     items: list[GameHistoryItemOut] = []
-    for game_id, head_id, result_raw, black_alive_raw, started_at, finished_at in raw_games:
+    for game_id, head_id, result_raw, black_alive_raw, started_at, finished_at, roles_raw in raw_games:
         gid = safe_int(game_id)
         if gid <= 0:
             continue
@@ -669,6 +675,12 @@ async def fetch_games_history_page(db: AsyncSession, *, page: int, per_page: int
         except Exception:
             duration_seconds = 0
 
+        player_role_value: Literal["citizen", "mafia", "don", "sheriff"] | None = None
+        if uid_key is not None and isinstance(roles_raw, dict):
+            role_raw = str(roles_raw.get(uid_key) or "").strip().lower()
+            if role_raw in valid_roles:
+                player_role_value = cast(Literal["citizen", "mafia", "don", "sheriff"], role_raw)
+
         items.append(
             GameHistoryItemOut(
                 id=gid,
@@ -680,6 +692,7 @@ async def fetch_games_history_page(db: AsyncSession, *, page: int, per_page: int
                     auto=head_auto,
                 ),
                 result=normalize_game_result(result_raw),
+                player_role=player_role_value,
                 black_alive_at_finish=max(0, safe_int(black_alive_raw)),
                 started_at=started_at,
                 finished_at=finished_at,
