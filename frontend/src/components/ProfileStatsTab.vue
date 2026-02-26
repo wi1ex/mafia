@@ -35,7 +35,7 @@
             <article v-for="item in roleRingItems" :key="item.key" class="role-ring-card">
               <div class="role-result-ring" :style="item.style">
                 <div class="role-result-center">
-                  <span class="role-title">{{ item.label }}</span>
+                  <img class="role-title-icon" :src="item.icon" :alt="item.label" />
                   <strong>{{ formatInt(item.games) }}</strong>
                   <div class="result-legend role-legend">
                     <div v-for="segment in item.segments" :key="segment.key" class="legend-row">
@@ -123,6 +123,10 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { api } from '@/services/axios'
+import iconRoleCitizen from '@/assets/images/roleCitizen.png'
+import iconRoleMafia from '@/assets/images/roleMafia.png'
+import iconRoleDon from '@/assets/images/roleDon.png'
+import iconRoleSheriff from '@/assets/images/roleSheriff.png'
 
 type UserTopPlayer = {
   id: number
@@ -335,10 +339,10 @@ const overviewRingStyle = computed<Record<string, string>>(() => {
 
 const roleRingItems = computed(() => {
   const roles = [
-    { key: 'citizen', label: 'Мирный житель', stats: game.value.role_citizen },
-    { key: 'sheriff', label: 'Шериф', stats: game.value.role_sheriff },
-    { key: 'mafia', label: 'Мафия', stats: game.value.role_mafia },
-    { key: 'don', label: 'Дон', stats: game.value.role_don },
+    { key: 'citizen', label: 'Мирный житель', icon: iconRoleCitizen, stats: game.value.role_citizen },
+    { key: 'sheriff', label: 'Шериф', icon: iconRoleSheriff, stats: game.value.role_sheriff },
+    { key: 'mafia', label: 'Мафия', icon: iconRoleMafia, stats: game.value.role_mafia },
+    { key: 'don', label: 'Дон', icon: iconRoleDon, stats: game.value.role_don },
   ]
   return roles.map((item) => {
     const games = safeInt(item.stats.games)
@@ -354,6 +358,7 @@ const roleRingItems = computed(() => {
     return {
       key: item.key,
       label: item.label,
+      icon: item.icon,
       games,
       segments: [
         { key: 'wins', label: 'Поб', count: wins, percent: winPct },
@@ -661,12 +666,12 @@ onMounted(() => {
             gap: 5px;
             width: 120px;
             z-index: 1;
-            .role-title {
-              color: $ashy;
-              font-size: 16px;
-              line-height: 1.1;
-              text-align: center;
-              text-transform: uppercase;
+            .role-title-icon {
+              display: block;
+              max-width: 100%;
+              height: 30px;
+              margin: 0 auto;
+              object-fit: contain;
             }
             strong {
               color: $fg;
@@ -874,8 +879,8 @@ onMounted(() => {
             }
             .role-result-center {
               width: 90px;
-              .role-title {
-                font-size: 12px;
+              .role-title-icon {
+                height: 18px;
               }
               strong {
                 font-size: 24px;
