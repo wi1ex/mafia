@@ -1,22 +1,16 @@
 <template>
   <div class="history-details">
     <div class="slots-grid">
-      <article v-for="slot in orderedSlots" :key="slot.slot" class="slot-card">
+      <article v-for="slot in orderedSlots" :key="slot.slot" :class="['slot-card', slotCardRoleClass(slot.role)]">
+        <img v-if="slot.role" class="slot-role-icon" :src="roleIcon(slot.role)" alt="role" />
+
         <div class="slot-top">
-          <span class="slot-num">Слот {{ slotLabel(slot.slot) }}</span>
+          <img class="slot-num-icon" :src="slotIcon(slot.slot)" :alt="`slot-${slot.slot}`" />
         </div>
 
         <div class="slot-player">
           <img v-minio-img="{ key: slot.avatar_name ? `avatars/${slot.avatar_name}` : '', placeholder: defaultAvatar }" alt="avatar" />
           <span>{{ slot.username || 'Пусто' }}</span>
-        </div>
-
-        <div class="slot-role">
-          <template v-if="slot.role">
-            <img :src="roleIcon(slot.role)" alt="role" />
-            <span>{{ roleLabel(slot.role) }}</span>
-          </template>
-          <span v-else>-</span>
         </div>
 
         <div class="slot-metrics">
@@ -53,6 +47,17 @@ import iconRoleCitizen from '@/assets/images/roleCitizen.png'
 import iconRoleMafia from '@/assets/images/roleMafia.png'
 import iconRoleDon from '@/assets/images/roleDon.png'
 import iconRoleSheriff from '@/assets/images/roleSheriff.png'
+
+import iconSlot1 from '@/assets/svg/slot1.svg'
+import iconSlot2 from '@/assets/svg/slot2.svg'
+import iconSlot3 from '@/assets/svg/slot3.svg'
+import iconSlot4 from '@/assets/svg/slot4.svg'
+import iconSlot5 from '@/assets/svg/slot5.svg'
+import iconSlot6 from '@/assets/svg/slot6.svg'
+import iconSlot7 from '@/assets/svg/slot7.svg'
+import iconSlot8 from '@/assets/svg/slot8.svg'
+import iconSlot9 from '@/assets/svg/slot9.svg'
+import iconSlot10 from '@/assets/svg/slot10.svg'
 
 type GameHistoryRole = 'citizen' | 'mafia' | 'don' | 'sheriff'
 type LeaveReason = 'vote' | 'foul' | 'suicide' | 'night'
@@ -136,16 +141,30 @@ const roleIcons: Record<GameHistoryRole, string> = {
   don: iconRoleDon,
   sheriff: iconRoleSheriff,
 }
+const slotIcons: Record<number, string> = {
+  1: iconSlot1,
+  2: iconSlot2,
+  3: iconSlot3,
+  4: iconSlot4,
+  5: iconSlot5,
+  6: iconSlot6,
+  7: iconSlot7,
+  8: iconSlot8,
+  9: iconSlot9,
+  10: iconSlot10,
+}
+
+function slotCardRoleClass(role: GameHistoryRole | null | undefined): string {
+  if (!role) return ''
+  return `role-${role}`
+}
 
 function roleIcon(role: GameHistoryRole): string {
   return roleIcons[role]
 }
 
-function roleLabel(role: GameHistoryRole): string {
-  if (role === 'citizen') return 'Мирный'
-  if (role === 'mafia') return 'Мафия'
-  if (role === 'don') return 'Дон'
-  return 'Шериф'
+function slotIcon(slot: number): string {
+  return slotIcons[slot] || iconSlot1
 }
 
 function leaveReasonLabel(reason: LeaveReason): string {
@@ -169,10 +188,6 @@ function formatMetric(value: number): string {
   const normalized = Math.trunc(num)
   return normalized === 0 ? '-' : String(normalized)
 }
-
-function slotLabel(slot: number): string {
-  return String(slot).padStart(2, '0')
-}
 </script>
 
 <style scoped lang="scss">
@@ -184,6 +199,7 @@ function slotLabel(slot: number): string {
     grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 10px;
     .slot-card {
+      position: relative;
       display: flex;
       flex-direction: column;
       gap: 10px;
@@ -192,14 +208,33 @@ function slotLabel(slot: number): string {
       border-radius: 5px;
       background-color: $dark;
       border: 1px solid rgba($grey, 0.25);
+      &.role-citizen {
+        background-color: rgba($red, 0.25);
+      }
+      &.role-sheriff {
+        background-color: rgba($yellow, 0.25);
+      }
+      &.role-mafia {
+        background-color: rgba($lead, 0.25);
+      }
+      &.role-don {
+        background-color: rgba($bg, 0.25);
+      }
+      .slot-role-icon {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        width: 16px;
+        height: 16px;
+        z-index: 1;
+      }
       .slot-top {
         display: flex;
         align-items: center;
-        justify-content: space-between;
-        .slot-num {
-          color: $fg;
-          font-size: 14px;
-          font-variant-numeric: tabular-nums;
+        .slot-num-icon {
+          width: 28px;
+          height: 28px;
+          object-fit: contain;
         }
       }
       .slot-player {
@@ -219,17 +254,6 @@ function slotLabel(slot: number): string {
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
-        }
-      }
-      .slot-role {
-        display: flex;
-        align-items: center;
-        gap: 5px;
-        color: $ashy;
-        font-size: 12px;
-        img {
-          width: 16px;
-          height: 16px;
         }
       }
       .slot-metrics {
