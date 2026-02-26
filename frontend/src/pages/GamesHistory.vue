@@ -6,13 +6,6 @@
         <p>Завершённые партии</p>
       </header>
 
-      <div class="history-controls">
-        <label v-if="auth.isAuthed" class="history-filter">
-          <input v-model="myOnly" type="checkbox" @change="onToggleMyOnly" />
-          <span>Только игры с моим участием</span>
-        </label>
-      </div>
-
       <div v-if="loading" class="history-state">Загрузка...</div>
       <div v-else-if="error" class="history-state history-state--error">{{ error }}</div>
       <div v-else-if="items.length === 0" class="history-state">История пока пуста</div>
@@ -61,9 +54,8 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { api } from '@/services/axios'
-import { useAuthStore } from '@/store'
 import { formatLocalDateTime } from '@/services/datetime'
 import GameHistoryDetails from '@/components/GameHistoryDetails.vue'
 
@@ -121,11 +113,8 @@ interface GameHistoryResponse {
   items: GameHistoryItem[]
 }
 
-const auth = useAuthStore()
-
 const loading = ref(false)
 const error = ref('')
-const myOnly = ref(false)
 const page = ref(1)
 const pages = ref(1)
 const total = ref(0)
@@ -202,9 +191,9 @@ async function fetchHistory(): Promise<void> {
   loading.value = true
   error.value = ''
   try {
-    const params: Record<string, unknown> = { page: page.value }
-    if (myOnly.value) params.my_only = true
-    const { data } = await api.get<GameHistoryResponse>('/users/games/history', { params })
+    const { data } = await api.get<GameHistoryResponse>('/users/games/history', {
+      params: { page: page.value },
+    })
     if (seq !== requestSeq) return
 
     const responsePage = Math.max(1, intOr(data?.page, page.value))
@@ -217,10 +206,7 @@ async function fetchHistory(): Promise<void> {
   } catch (e: any) {
     if (seq !== requestSeq) return
     const status = Number(e?.response?.status || 0)
-    if (status === 401 && myOnly.value) {
-      myOnly.value = false
-      error.value = 'Фильтр "Только мои игры" доступен после авторизации'
-    } else if (status === 429) {
+    if (status === 429) {
       error.value = 'Слишком много запросов, попробуйте позже'
     } else {
       error.value = 'Не удалось загрузить историю игр'
@@ -234,11 +220,6 @@ async function fetchHistory(): Promise<void> {
   }
 }
 
-function onToggleMyOnly(): void {
-  page.value = 1
-  void fetchHistory()
-}
-
 function prevPage(): void {
   if (loading.value || page.value <= 1) return
   page.value -= 1
@@ -250,17 +231,6 @@ function nextPage(): void {
   page.value += 1
   void fetchHistory()
 }
-
-watch(
-  () => auth.isAuthed,
-  (ok) => {
-    if (!ok && myOnly.value) {
-      myOnly.value = false
-      page.value = 1
-      void fetchHistory()
-    }
-  },
-)
 
 onMounted(() => {
   void fetchHistory()
@@ -300,18 +270,6 @@ onBeforeUnmount(() => {
       }
       p {
         margin: 0;
-        color: $ashy;
-        font-size: 14px;
-      }
-    }
-    .history-controls {
-      display: flex;
-      align-items: center;
-      min-height: 20px;
-      .history-filter {
-        display: inline-flex;
-        align-items: center;
-        gap: 10px;
         color: $ashy;
         font-size: 14px;
       }

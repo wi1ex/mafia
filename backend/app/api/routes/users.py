@@ -1,9 +1,9 @@
 from __future__ import annotations
 from contextlib import suppress
-from typing import Any, cast
+from typing import cast
 from sqlalchemy import select, update, exists, func, literal, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
-from fastapi import APIRouter, Depends, HTTPException, Request, status, UploadFile, File, Response
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Response
 from ..utils import (
     broadcast_creator_rooms,
     SANCTION_TIMEOUT,
@@ -30,7 +30,7 @@ from ...models.user import User
 from ...core.db import get_session
 from ...core.settings import settings
 from ...core.logging import log_action
-from ...security.auth_tokens import get_identity, get_identity_optional
+from ...security.auth_tokens import get_identity
 from ...security.decorators import log_route, rate_limited
 from ...services.game_stats import rebuild_user_game_stats
 from ...services.text_moderation import enforce_clean_text
@@ -203,9 +203,9 @@ async def user_stats(ident: Identity = Depends(get_identity), db: AsyncSession =
 
 
 @log_route("users.games_history")
-@rate_limited(lambda ident, request, **_: f"rl:games_history:{int(ident['id']) if ident else (request.client.host if request.client else 'anon')}", limit=10, window_s=1)
+@rate_limited(lambda ident, **_: f"rl:games_history:{ident['id']}", limit=10, window_s=1)
 @router.get("/games/history", response_model=UserGamesHistoryOut)
-async def games_history(request: Request, page: int = 1, my_only: bool = False, ident: Identity | None = Depends(get_identity_optional), db: AsyncSession = Depends(get_session)) -> UserGamesHistoryOut:
+async def games_history(page: int = 1, _ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UserGamesHistoryOut:
     GAME_HISTORY_PER_PAGE = 20
     GAME_HISTORY_MAX_SLOT = 10
     GAME_HISTORY_ROLES = {"citizen", "mafia", "don", "sheriff"}
@@ -213,16 +213,7 @@ async def games_history(request: Request, page: int = 1, my_only: bool = False, 
     GAME_HISTORY_FAREWELL_VERDICTS = {"citizen", "mafia"}
 
     page_num = max(1, min(int(page or 1), 1_000_000))
-    uid = int(ident["id"]) if ident else 0
-    if my_only and uid <= 0:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
-
-    filters: list[Any] = []
-    if my_only:
-        uid_key = str(uid)
-        filters.append(or_(Game.head_id == uid, Game.roles.has_key(uid_key)))
-
-    total = int(await db.scalar(select(func.count(Game.id)).where(*filters)) or 0)
+    total = int(await db.scalar(select(func.count(Game.id))) or 0)
     pages = max(1, (total + GAME_HISTORY_PER_PAGE - 1) // GAME_HISTORY_PER_PAGE)
     if page_num > pages:
         page_num = pages
@@ -242,7 +233,6 @@ async def games_history(request: Request, page: int = 1, my_only: bool = False, 
             Game.mmr,
             Game.actions,
         )
-        .where(*filters)
         .order_by(Game.id.desc())
         .offset(offset)
         .limit(GAME_HISTORY_PER_PAGE)
