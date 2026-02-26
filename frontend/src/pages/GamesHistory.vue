@@ -11,7 +11,8 @@
       <div v-else-if="items.length === 0" class="history-state">История пока пуста</div>
 
       <ul v-else class="history-list">
-        <li v-for="game in items" :key="game.id" class="history-item" :class="{ open: isExpanded(game.id) }">
+        <li v-for="game in items" :key="game.id" class="history-item"
+            :class="{ open: isExpanded(game.id), 'history-item--red': game.result === 'red', 'history-item--black': game.result === 'black' }">
           <button class="history-main" type="button" :aria-expanded="isExpanded(game.id)" @click="toggleExpanded(game.id)">
             <div class="history-main-left">
               <span class="game-number">Игра #{{ game.number }}</span>
@@ -345,19 +346,22 @@ onBeforeUnmount(() => {
       gap: 5px;
       padding: 15px;
       border-radius: 5px;
-      background-color: $graphite;
+      background-color: $fg;
       box-shadow: 0 5px 10px rgba($black, 0.25);
       h1 {
         margin: 0;
+        color: $bg;
         font-size: 24px;
       }
       p {
         margin: 0;
-        color: $ashy;
+        color: $dark;
         font-size: 14px;
       }
       .history-header-stats {
-        color: $fg;
+        width: 100%;
+        text-align: end;
+        color: $bg;
         font-size: 14px;
       }
     }
@@ -381,6 +385,12 @@ onBeforeUnmount(() => {
         background-color: $graphite;
         box-shadow: 0 5px 10px rgba($black, 0.25);
         overflow: hidden;
+        &.history-item--red:not(.open) {
+          background-color: rgba($red, 0.2);
+        }
+        &.history-item--black:not(.open) {
+          background-color: rgba($black, 0.5);
+        }
         &.open {
           background-color: $lead;
         }
