@@ -385,11 +385,12 @@ onBeforeUnmount(() => {
         background-color: $graphite;
         box-shadow: 0 5px 10px rgba($black, 0.25);
         overflow: hidden;
+        transition: background-color 0.25s ease-in-out;
         &.history-item--red:not(.open) {
-          background-color: rgba($red, 0.2);
+          background-color: rgba($red, 0.5);
         }
         &.history-item--black:not(.open) {
-          background-color: rgba($black, 0.5);
+          background-color: $graphite;
         }
         &.open {
           background-color: $lead;
