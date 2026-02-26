@@ -337,8 +337,8 @@ const roleRingItems = computed(() => {
   const roles = [
     { key: 'citizen', label: 'Мирный житель', stats: game.value.role_citizen },
     { key: 'sheriff', label: 'Шериф', stats: game.value.role_sheriff },
-    { key: 'don', label: 'Дон', stats: game.value.role_don },
     { key: 'mafia', label: 'Мафия', stats: game.value.role_mafia },
+    { key: 'don', label: 'Дон', stats: game.value.role_don },
   ]
   return roles.map((item) => {
     const games = safeInt(item.stats.games)

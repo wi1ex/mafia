@@ -114,6 +114,9 @@ class GameHistorySlotOut(BaseModel):
     avatar_name: Optional[str] = None
     role: Optional[Literal["citizen", "mafia", "don", "sheriff"]] = None
     points: int = 0
+    mmr: int = 0
+    leave_day: Optional[int] = None
+    leave_reason: Optional[Literal["vote", "foul", "suicide", "night"]] = None
 
 
 class GameHistoryItemOut(BaseModel):

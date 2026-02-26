@@ -86,6 +86,9 @@ interface GameHistorySlot {
   avatar_name?: string | null
   role?: GameHistoryRole | null
   points: number
+  mmr: number
+  leave_day?: number | null
+  leave_reason?: 'vote' | 'foul' | 'suicide' | 'night' | null
 }
 
 interface GameHistoryItem {
@@ -155,7 +158,10 @@ function toggleExpanded(gameId: number): void {
 
 function resultLabel(game: GameHistoryItem): string {
   if (game.result === 'red') return 'Победа мирных'
-  if (game.result === 'black') return `Победа мафии (${Math.max(0, intOr(game.black_alive_at_finish, 0))} живой мафии)`
+  if (game.result === 'black') {
+    const count_black = Math.max(0, intOr(game.black_alive_at_finish, 0))
+    return `Победа мафии ${count_black}в${count_black}`
+  }
   return 'Ничья'
 }
 
@@ -264,189 +270,199 @@ onBeforeUnmount(() => {
   box-sizing: border-box;
   overflow: auto;
   scrollbar-width: none;
-}
-.history-card {
-  display: flex;
-  flex-direction: column;
-  width: min(1100px, 100%);
-  gap: 10px;
-  margin-bottom: 10px;
-}
-.history-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  padding: 14px 16px;
-  border-radius: 8px;
-  background-color: $graphite;
-  box-shadow: 0 4px 10px rgba($black, 0.2);
-  h1 {
-    margin: 0;
-    font-size: 24px;
-  }
-  p {
-    margin: 0;
-    color: $ashy;
-    font-size: 14px;
-  }
-}
-.history-controls {
-  display: flex;
-  align-items: center;
-  min-height: 22px;
-}
-.history-filter {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: $ashy;
-  font-size: 14px;
-}
-.history-list {
-  display: flex;
-  flex-direction: column;
-  margin: 0;
-  padding: 0;
-  gap: 10px;
-  list-style: none;
-}
-.history-item {
-  border-radius: 8px;
-  background-color: $graphite;
-  box-shadow: 0 4px 10px rgba($black, 0.2);
-  overflow: hidden;
-  &.open {
-    background-color: $lead;
-  }
-}
-.history-main {
-  display: grid;
-  grid-template-columns: minmax(220px, 1fr) minmax(320px, 1fr) 24px;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  border: none;
-  background: none;
-  color: inherit;
-  text-align: left;
-  padding: 12px 14px;
-  cursor: pointer;
-}
-.history-main-left,
-.history-main-mid {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-width: 0;
-}
-.game-number {
-  color: $fg;
-  font-size: 16px;
-}
-.game-head {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: $ashy;
-  min-width: 0;
-  img {
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    object-fit: cover;
-  }
-  strong {
-    color: $fg;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-}
-.history-main-mid {
-  span {
-    color: $ashy;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .game-result {
-    color: $fg;
-  }
-}
-.arrow {
-  width: 18px;
-  height: 18px;
-  transition: transform 0.25s ease-in-out;
-  &.open {
-    transform: rotate(180deg);
-  }
-}
-.history-extra {
-  overflow: hidden;
-}
-.history-pager {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 0;
-  color: $ashy;
-  font-size: 14px;
-  .btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 90px;
-    height: 36px;
-    border: none;
-    border-radius: 6px;
-    background-color: $graphite;
-    color: $fg;
-    cursor: pointer;
-    transition: background-color 0.25s ease-in-out, opacity 0.25s ease-in-out;
-    &:hover {
-      background-color: $lead;
+  .history-card {
+    display: flex;
+    flex-direction: column;
+    width: min(1100px, 100%);
+    gap: 10px;
+    margin-bottom: 10px;
+    .history-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 15px;
+      border-radius: 5px;
+      background-color: $graphite;
+      box-shadow: 0 5px 10px rgba($black, 0.25);
+      h1 {
+        margin: 0;
+        font-size: 24px;
+      }
+      p {
+        margin: 0;
+        color: $ashy;
+        font-size: 14px;
+      }
     }
-    &:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
+    .history-controls {
+      display: flex;
+      align-items: center;
+      min-height: 20px;
+      .history-filter {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        color: $ashy;
+        font-size: 14px;
+      }
+    }
+    .history-state {
+      padding: 40px 10px;
+      text-align: center;
+      color: $ashy;
+      &.history-state--error {
+        color: $orange;
+      }
+    }
+    .history-list {
+      display: flex;
+      flex-direction: column;
+      margin: 0;
+      padding: 0;
+      gap: 10px;
+      list-style: none;
+      .history-item {
+        border-radius: 5px;
+        background-color: $graphite;
+        box-shadow: 0 5px 10px rgba($black, 0.25);
+        overflow: hidden;
+        &.open {
+          background-color: $lead;
+        }
+        .history-main {
+          display: grid;
+          grid-template-columns: minmax(220px, 1fr) minmax(320px, 1fr) 24px;
+          align-items: center;
+          gap: 10px;
+          width: 100%;
+          border: none;
+          background: none;
+          color: inherit;
+          text-align: left;
+          padding: 15px;
+          cursor: pointer;
+          .history-main-left,
+          .history-main-mid {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            min-width: 0;
+          }
+          .history-main-left {
+            .game-number {
+              color: $fg;
+              font-size: 16px;
+            }
+            .game-head {
+              display: flex;
+              align-items: center;
+              gap: 5px;
+              color: $ashy;
+              min-width: 0;
+              img {
+                width: 20px;
+                height: 20px;
+                border-radius: 50%;
+                object-fit: cover;
+              }
+              strong {
+                color: $fg;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+              }
+            }
+          }
+          .history-main-mid {
+            span {
+              color: $ashy;
+              white-space: nowrap;
+              overflow: hidden;
+              text-overflow: ellipsis;
+            }
+            .game-result {
+              color: $fg;
+            }
+          }
+          .arrow {
+            width: 20px;
+            height: 20px;
+            transition: transform 0.25s ease-in-out;
+            &.open {
+              transform: rotate(180deg);
+            }
+          }
+        }
+        .history-extra {
+          overflow: hidden;
+        }
+      }
+    }
+    .history-pager {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 0;
+      color: $ashy;
+      font-size: 14px;
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 90px;
+        height: 40px;
+        border: none;
+        border-radius: 5px;
+        background-color: $graphite;
+        color: $fg;
+        cursor: pointer;
+        transition: background-color 0.25s ease-in-out, opacity 0.25s ease-in-out;
+        &:hover {
+          background-color: $lead;
+        }
+        &:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+      }
     }
   }
-}
-.history-state {
-  padding: 40px 10px;
-  text-align: center;
-  color: $ashy;
-}
-.history-state--error {
-  color: $orange;
-}
 
-.history-expand-enter-active,
-.history-expand-leave-active {
-  transition: max-height 0.25s ease-in-out, opacity 0.25s ease-in-out;
-}
-.history-expand-enter-from,
-.history-expand-leave-to {
-  max-height: 0;
-  opacity: 0;
-}
-.history-expand-enter-to,
-.history-expand-leave-from {
-  max-height: 1000px;
-  opacity: 1;
+  .history-expand-enter-active,
+  .history-expand-leave-active {
+    transition: max-height 0.25s ease-in-out, opacity 0.25s ease-in-out;
+  }
+  .history-expand-enter-from,
+  .history-expand-leave-to {
+    max-height: 0;
+    opacity: 0;
+  }
+  .history-expand-enter-to,
+  .history-expand-leave-from {
+    max-height: 1000px;
+    opacity: 1;
+  }
 }
 
 @media (max-width: 1280px) {
-  .history-main {
-    grid-template-columns: 1fr 20px;
-  }
-  .history-main-mid {
-    grid-column: 1 / -1;
-  }
-  .history-pager {
-    flex-direction: column;
-    align-items: stretch;
+  .history-page {
+    .history-card {
+      .history-list {
+        .history-item {
+          .history-main {
+            grid-template-columns: 1fr 20px;
+            .history-main-mid {
+              grid-column: 1 / -1;
+            }
+          }
+        }
+      }
+      .history-pager {
+        flex-direction: column;
+        align-items: stretch;
+      }
+    }
   }
 }
 

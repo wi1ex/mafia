@@ -208,6 +208,7 @@ async def games_history(request: Request, page: int = 1, my_only: bool = False, 
     GAME_HISTORY_PER_PAGE = 20
     GAME_HISTORY_MAX_SLOT = 10
     GAME_HISTORY_ROLES = {"citizen", "mafia", "don", "sheriff"}
+    GAME_HISTORY_LEAVE_REASONS = {"vote", "foul", "suicide", "night"}
 
     page_num = max(1, min(int(page or 1), 1_000_000))
     uid = int(ident["id"]) if ident else 0
@@ -236,6 +237,8 @@ async def games_history(request: Request, page: int = 1, my_only: bool = False, 
             Game.roles,
             Game.seats,
             Game.points,
+            Game.mmr,
+            Game.actions,
         )
         .where(*filters)
         .order_by(Game.id.desc())
@@ -246,7 +249,7 @@ async def games_history(request: Request, page: int = 1, my_only: bool = False, 
 
     user_ids: set[int] = set()
     slots_by_game: dict[int, dict[int, int]] = {}
-    for game_id, head_id, _result, _black_alive, _started, _finished, _roles, seats_raw, _points in raw_games:
+    for game_id, head_id, _result, _black_alive, _started, _finished, _roles, seats_raw, _points, _mmr, _actions in raw_games:
         gid = safe_int(game_id)
         if gid <= 0:
             continue
@@ -272,7 +275,7 @@ async def games_history(request: Request, page: int = 1, my_only: bool = False, 
     profiles = await get_user_profiles_cached(db, user_ids) if user_ids else {}
 
     items: list[GameHistoryItemOut] = []
-    for game_id, head_id, result_raw, black_alive_raw, started_at, finished_at, roles_raw, _seats_raw, points_raw in raw_games:
+    for game_id, head_id, result_raw, black_alive_raw, started_at, finished_at, roles_raw, _seats_raw, points_raw, mmr_raw, actions_raw in raw_games:
         gid = safe_int(game_id)
         if gid <= 0:
             continue
@@ -287,7 +290,26 @@ async def games_history(request: Request, page: int = 1, my_only: bool = False, 
 
         roles_map = roles_raw if isinstance(roles_raw, dict) else {}
         points_map = points_raw if isinstance(points_raw, dict) else {}
+        mmr_map = mmr_raw if isinstance(mmr_raw, dict) else {}
         slot_map = slots_by_game.get(gid, {})
+        leave_map: dict[int, tuple[int, str]] = {}
+        if isinstance(actions_raw, list):
+            for action in actions_raw:
+                if not isinstance(action, dict):
+                    continue
+                action_type = str(action.get("type") or "").strip().lower()
+                if action_type != "death":
+                    continue
+                target_uid = safe_int(action.get("target_id"))
+                if target_uid <= 0 or target_uid in leave_map:
+                    continue
+                leave_day = safe_int(action.get("day"))
+                if leave_day <= 0:
+                    continue
+                leave_reason = str(action.get("reason") or "").strip().lower()
+                if leave_reason not in GAME_HISTORY_LEAVE_REASONS:
+                    continue
+                leave_map[target_uid] = (leave_day, leave_reason)
         slots: list[GameHistorySlotOut] = []
         for slot in range(1, GAME_HISTORY_MAX_SLOT + 1):
             slot_uid = slot_map.get(slot)
@@ -298,11 +320,19 @@ async def games_history(request: Request, page: int = 1, my_only: bool = False, 
             avatar_name = non_empty_str((profile or {}).get("avatar_name"))
             role_value = None
             points = 0
+            mmr = 0
+            leave_day_value = None
+            leave_reason_value = None
             if slot_uid:
                 raw_role = str(roles_map.get(str(slot_uid)) or "").strip().lower()
                 if raw_role in GAME_HISTORY_ROLES:
                     role_value = raw_role
                 points = safe_int(points_map.get(str(slot_uid), 0))
+                mmr = safe_int(mmr_map.get(str(slot_uid), 0))
+                leave_data = leave_map.get(slot_uid)
+                if leave_data:
+                    leave_day_value = leave_data[0]
+                    leave_reason_value = leave_data[1]
             slots.append(
                 GameHistorySlotOut(
                     slot=slot,
@@ -311,6 +341,9 @@ async def games_history(request: Request, page: int = 1, my_only: bool = False, 
                     avatar_name=avatar_name,
                     role=role_value,
                     points=points,
+                    mmr=mmr,
+                    leave_day=leave_day_value,
+                    leave_reason=leave_reason_value,
                 )
             )
 
