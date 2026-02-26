@@ -1,6 +1,6 @@
 <template>
-  <div class="ui-slider" :class="[`ui-slider--${variant}`, { disabled }]">
-    <div v-if="isFilled" class="ui-slider__fill-wrap">
+  <div class="ui-slider ui-slider--filled" :class="{ disabled }">
+    <div class="ui-slider__fill-wrap">
       <div v-if="hasDeadZone" class="ui-slider__dead-zone" :style="deadZoneStyle" @click.stop="onDeadZoneClick"></div>
       <div class="ui-slider__fill-track" :style="fillStyle" aria-hidden="true"></div>
       <input
@@ -15,18 +15,6 @@
         @input="onInput"
       />
     </div>
-    <input
-      v-else
-      class="ui-slider__input ui-slider__input--volume"
-      type="range"
-      :min="minValue"
-      :max="maxValue"
-      :step="stepValue"
-      :value="currentValue"
-      :disabled="disabled"
-      :aria-label="ariaLabel || undefined"
-      @input="onInput"
-    />
   </div>
 </template>
 
@@ -39,7 +27,6 @@ const props = withDefaults(defineProps<{
   max?: number
   step?: number
   disabled?: boolean
-  variant?: 'filled' | 'volume'
   ariaLabel?: string
   deadZoneUntil?: number | null
   deadZoneValue?: number | null
@@ -48,7 +35,6 @@ const props = withDefaults(defineProps<{
   max: 100,
   step: 1,
   disabled: false,
-  variant: 'volume',
   ariaLabel: '',
   deadZoneUntil: null,
   deadZoneValue: null,
@@ -77,7 +63,6 @@ const stepValue = computed(() => {
 })
 
 const currentValue = computed(() => clamp(toNum(props.modelValue, minValue.value), minValue.value, maxValue.value))
-const isFilled = computed(() => props.variant === 'filled')
 
 const fillPct = computed(() => {
   const span = maxValue.value - minValue.value
@@ -94,7 +79,7 @@ const deadValue = computed(() => {
   if (props.deadZoneValue == null) return null
   return clamp(toNum(props.deadZoneValue, minValue.value), minValue.value, maxValue.value)
 })
-const hasDeadZone = computed(() => isFilled.value && deadUntil.value != null && deadValue.value != null)
+const hasDeadZone = computed(() => deadUntil.value != null && deadValue.value != null)
 const deadZonePct = computed(() => {
   if (!hasDeadZone.value || deadUntil.value == null) return 0
   const span = maxValue.value - minValue.value
@@ -214,50 +199,6 @@ function onDeadZoneClick(): void {
   }
   .ui-slider__input--filled:disabled {
     cursor: not-allowed;
-  }
-}
-.ui-slider--volume {
-  .ui-slider__input--volume {
-    height: var(--ui-slider-volume-input-height, 8px);
-    accent-color: var(--ui-slider-accent-color, $fg);
-    cursor: pointer;
-    appearance: none;
-    background: transparent;
-  }
-  .ui-slider__input--volume:disabled {
-    cursor: default;
-    opacity: var(--ui-slider-disabled-opacity, 0.5);
-  }
-  .ui-slider__input--volume:focus-visible {
-    outline: 1px solid var(--ui-slider-focus-color, $fg);
-    outline-offset: 1px;
-  }
-  .ui-slider__input--volume::-webkit-slider-runnable-track {
-    height: var(--ui-slider-volume-track-height, 6px);
-    border-radius: var(--ui-slider-volume-track-radius, 3px);
-    background-color: var(--ui-slider-volume-track-color, $grey);
-  }
-  .ui-slider__input--volume::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    width: var(--ui-slider-volume-thumb-size, 18px);
-    height: var(--ui-slider-volume-thumb-size, 18px);
-    border-radius: 50%;
-    background-color: var(--ui-slider-volume-thumb-color, $fg);
-    border: var(--ui-slider-volume-thumb-border-width, 3px) solid var(--ui-slider-volume-thumb-border-color, $dark);
-    margin-top: calc(var(--ui-slider-volume-thumb-size, 18px) / -2 + var(--ui-slider-volume-track-height, 6px) / 2);
-  }
-  .ui-slider__input--volume::-moz-range-track {
-    height: var(--ui-slider-volume-track-height, 6px);
-    border-radius: var(--ui-slider-volume-track-radius, 3px);
-    background-color: var(--ui-slider-volume-track-color, $grey);
-  }
-  .ui-slider__input--volume::-moz-range-thumb {
-    width: var(--ui-slider-volume-thumb-size, 18px);
-    height: var(--ui-slider-volume-thumb-size, 18px);
-    border-radius: 50%;
-    background-color: var(--ui-slider-volume-thumb-color, $fg);
-    border: var(--ui-slider-volume-thumb-border-width, 3px) solid var(--ui-slider-volume-thumb-border-color, $dark);
   }
 }
 </style>

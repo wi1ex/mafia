@@ -32,7 +32,6 @@
                 </div>
                 <UiSlider
                   v-model="limit"
-                  variant="filled"
                   :min="RANGE_MIN"
                   :max="RANGE_MAX"
                   :step="1"

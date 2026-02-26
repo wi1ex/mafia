@@ -32,7 +32,6 @@
               <img :src="volumeIcon" alt="vol" />
               <UiSlider
                 class="volume-slider"
-                variant="volume"
                 :model-value="volume"
                 :min="0"
                 :max="100"
@@ -326,16 +325,12 @@ onBeforeUnmount(() => {
         .volume-slider {
           flex: 1 1 auto;
           min-width: 0;
-          --ui-slider-accent-color: #{$fg};
-          --ui-slider-focus-color: #{$fg};
-          --ui-slider-volume-track-color: #{$grey};
-          --ui-slider-volume-thumb-color: #{$fg};
-          --ui-slider-volume-thumb-border-color: #{$dark};
-          --ui-slider-volume-input-height: 8px;
-          --ui-slider-volume-track-height: 6px;
-          --ui-slider-volume-track-radius: 3px;
-          --ui-slider-volume-thumb-size: 18px;
-          --ui-slider-volume-thumb-border-width: 3px;
+          --ui-slider-filled-height: 100%;
+          --ui-slider-filled-radius: 5px;
+          --ui-slider-filled-border: #{$lead};
+          --ui-slider-filled-bg: #{$graphite};
+          --ui-slider-filled-color: #{$fg};
+          --ui-slider-filled-focus: #{$lead};
         }
         span {
           flex: 0 0 auto;

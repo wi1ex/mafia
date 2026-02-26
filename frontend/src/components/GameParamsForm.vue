@@ -4,7 +4,6 @@
       <span>Лимит зрителей: {{ local.spectators_limit }}/{{ SPECT_MAX }}</span>
       <UiSlider
         v-model="local.spectators_limit"
-        variant="filled"
         :min="SPECT_MIN"
         :max="SPECT_MAX"
         :step="1"
