@@ -589,7 +589,7 @@ onMounted(() => {
           z-index: 1;
           span {
             color: $ashy;
-            font-size: 20px;
+            font-size: 24px;
             text-transform: uppercase;
             text-align: center;
           }
@@ -604,7 +604,6 @@ onMounted(() => {
         .result-legend {
           display: flex;
           flex-direction: column;
-          margin-top: 5px;
           gap: 5px;
           .legend-row {
             display: flex;
@@ -669,7 +668,7 @@ onMounted(() => {
             .role-title-icon {
               display: block;
               max-width: 100%;
-              height: 30px;
+              height: 40px;
               margin: 0 auto;
               object-fit: contain;
             }
@@ -684,7 +683,6 @@ onMounted(() => {
           .role-legend {
             display: flex;
             flex-direction: column;
-            margin-top: 5px;
             gap: 5px;
             .legend-row {
               display: flex;
@@ -852,7 +850,7 @@ onMounted(() => {
           .result-center {
             width: 128px;
             span {
-              font-size: 14px;
+              font-size: 16px;
             }
             strong {
               font-size: 30px;
@@ -880,7 +878,7 @@ onMounted(() => {
             .role-result-center {
               width: 90px;
               .role-title-icon {
-                height: 18px;
+                height: 20px;
               }
               strong {
                 font-size: 24px;
