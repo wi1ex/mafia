@@ -1,9 +1,9 @@
 from __future__ import annotations
 from contextlib import suppress
-from typing import cast
+from typing import Any, cast
 from sqlalchemy import select, update, exists, func, literal, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, status, UploadFile, File, Response
 from ..utils import (
     broadcast_creator_rooms,
     SANCTION_TIMEOUT,
@@ -18,16 +18,19 @@ from ..utils import (
     is_protected_admin,
     aggregate_user_room_stats,
     safe_int,
+    non_empty_str,
+    normalize_game_result,
     pct,
     role_stats,
 )
 from ...models.friend import FriendCloseness
+from ...models.game import Game
 from ...models.stats import UserGameStats
 from ...models.user import User
 from ...core.db import get_session
 from ...core.settings import settings
 from ...core.logging import log_action
-from ...security.auth_tokens import get_identity
+from ...security.auth_tokens import get_identity, get_identity_optional
 from ...security.decorators import log_route, rate_limited
 from ...services.game_stats import rebuild_user_game_stats
 from ...services.text_moderation import enforce_clean_text
@@ -39,6 +42,10 @@ from ...schemas.user import (
     UsernameUpdateOut,
     UserSanctionsOut,
     UserSanctionOut,
+    UserGamesHistoryOut,
+    GameHistoryItemOut,
+    GameHistoryHostOut,
+    GameHistorySlotOut,
     UserUiPrefsIn,
     UserUiPrefsOut,
     PasswordChangeIn,
@@ -191,6 +198,153 @@ async def user_stats(ident: Identity = Depends(get_identity), db: AsyncSession =
         stream_minutes=stream_minutes,
         spectator_minutes=spectator_minutes,
         game=game_stats,
+    )
+
+
+@log_route("users.games_history")
+@rate_limited(lambda ident, request, **_: f"rl:games_history:{int(ident['id']) if ident else (request.client.host if request.client else 'anon')}", limit=10, window_s=1)
+@router.get("/games/history", response_model=UserGamesHistoryOut)
+async def games_history(request: Request, page: int = 1, my_only: bool = False, ident: Identity | None = Depends(get_identity_optional), db: AsyncSession = Depends(get_session)) -> UserGamesHistoryOut:
+    GAME_HISTORY_PER_PAGE = 20
+    GAME_HISTORY_MAX_SLOT = 10
+    GAME_HISTORY_ROLES = {"citizen", "mafia", "don", "sheriff"}
+
+    page_num = max(1, min(int(page or 1), 1_000_000))
+    uid = int(ident["id"]) if ident else 0
+    if my_only and uid <= 0:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
+
+    filters: list[Any] = []
+    if my_only:
+        uid_key = str(uid)
+        filters.append(or_(Game.head_id == uid, Game.roles.has_key(uid_key)))
+
+    total = int(await db.scalar(select(func.count(Game.id)).where(*filters)) or 0)
+    pages = max(1, (total + GAME_HISTORY_PER_PAGE - 1) // GAME_HISTORY_PER_PAGE)
+    if page_num > pages:
+        page_num = pages
+    offset = (page_num - 1) * GAME_HISTORY_PER_PAGE
+
+    rows = await db.execute(
+        select(
+            Game.id,
+            Game.head_id,
+            Game.result,
+            Game.black_alive_at_finish,
+            Game.started_at,
+            Game.finished_at,
+            Game.roles,
+            Game.seats,
+            Game.points,
+        )
+        .where(*filters)
+        .order_by(Game.id.desc())
+        .offset(offset)
+        .limit(GAME_HISTORY_PER_PAGE)
+    )
+    raw_games = rows.all()
+
+    user_ids: set[int] = set()
+    slots_by_game: dict[int, dict[int, int]] = {}
+    for game_id, head_id, _result, _black_alive, _started, _finished, _roles, seats_raw, _points in raw_games:
+        gid = safe_int(game_id)
+        if gid <= 0:
+            continue
+        hid = safe_int(head_id)
+        if hid > 0:
+            user_ids.add(hid)
+
+        slot_map: dict[int, int] = {}
+        if isinstance(seats_raw, dict):
+            for raw_uid, raw_slot in seats_raw.items():
+                uid_i = safe_int(raw_uid)
+                slot_i = safe_int(raw_slot)
+                if uid_i <= 0:
+                    continue
+                if slot_i < 1 or slot_i > GAME_HISTORY_MAX_SLOT:
+                    continue
+                if slot_i in slot_map:
+                    continue
+                slot_map[slot_i] = uid_i
+                user_ids.add(uid_i)
+        slots_by_game[gid] = slot_map
+
+    profiles = await get_user_profiles_cached(db, user_ids) if user_ids else {}
+
+    items: list[GameHistoryItemOut] = []
+    for game_id, head_id, result_raw, black_alive_raw, started_at, finished_at, roles_raw, _seats_raw, points_raw in raw_games:
+        gid = safe_int(game_id)
+        if gid <= 0:
+            continue
+
+        head_uid = safe_int(head_id)
+        head_auto = head_uid <= 0
+        head_profile = profiles.get(head_uid) if head_uid > 0 else None
+        head_username = non_empty_str((head_profile or {}).get("username"))
+        if head_username is None and head_uid > 0:
+            head_username = f"user{head_uid}"
+        head_avatar_name = non_empty_str((head_profile or {}).get("avatar_name"))
+
+        roles_map = roles_raw if isinstance(roles_raw, dict) else {}
+        points_map = points_raw if isinstance(points_raw, dict) else {}
+        slot_map = slots_by_game.get(gid, {})
+        slots: list[GameHistorySlotOut] = []
+        for slot in range(1, GAME_HISTORY_MAX_SLOT + 1):
+            slot_uid = slot_map.get(slot)
+            profile = profiles.get(slot_uid) if slot_uid else None
+            username = non_empty_str((profile or {}).get("username"))
+            if username is None and slot_uid:
+                username = f"user{slot_uid}"
+            avatar_name = non_empty_str((profile or {}).get("avatar_name"))
+            role_value = None
+            points = 0
+            if slot_uid:
+                raw_role = str(roles_map.get(str(slot_uid)) or "").strip().lower()
+                if raw_role in GAME_HISTORY_ROLES:
+                    role_value = raw_role
+                points = safe_int(points_map.get(str(slot_uid), 0))
+            slots.append(
+                GameHistorySlotOut(
+                    slot=slot,
+                    user_id=slot_uid,
+                    username=username,
+                    avatar_name=avatar_name,
+                    role=role_value,
+                    points=points,
+                )
+            )
+
+        duration_seconds = 0
+        try:
+            duration_seconds = max(0, int((finished_at - started_at).total_seconds()))
+        except Exception:
+            duration_seconds = 0
+
+        items.append(
+            GameHistoryItemOut(
+                id=gid,
+                number=gid,
+                head=GameHistoryHostOut(
+                    id=head_uid if not head_auto else None,
+                    username=head_username,
+                    avatar_name=head_avatar_name,
+                    auto=head_auto,
+                ),
+                result=normalize_game_result(result_raw),
+                black_alive_at_finish=max(0, safe_int(black_alive_raw)),
+                started_at=started_at,
+                finished_at=finished_at,
+                duration_seconds=duration_seconds,
+                slots=slots,
+            )
+        )
+
+    return UserGamesHistoryOut(
+        total=total,
+        page=page_num,
+        pages=pages,
+        per_page=GAME_HISTORY_PER_PAGE,
+        items=items,
     )
 
 

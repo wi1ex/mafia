@@ -109,6 +109,8 @@ __all__ = [
     "emit_notify",
     "emit_friends_update",
     "safe_int",
+    "non_empty_str",
+    "normalize_game_result",
     "pct",
     "role_stats",
 ]
@@ -567,6 +569,22 @@ def _parse_int(raw: Any) -> int:
 
 def safe_int(raw: Any) -> int:
     return _parse_int(raw)
+
+
+def non_empty_str(raw: Any) -> str | None:
+    if not isinstance(raw, str):
+        return None
+
+    out = raw.strip()
+    return out or None
+
+
+def normalize_game_result(raw: Any) -> str:
+    result = str(raw or "").strip().lower()
+    if result in ("red", "black", "draw"):
+        return result
+
+    return "draw"
 
 
 def pct(part: int, total: int) -> float:

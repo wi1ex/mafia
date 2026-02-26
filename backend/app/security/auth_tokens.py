@@ -121,3 +121,14 @@ async def get_identity(creds: HTTPAuthorizationCredentials = Depends(HTTPBearer(
     except Exception as e:
         log.exception("auth.decode_failed", err=type(e).__name__)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
+
+
+async def get_identity_optional(creds: HTTPAuthorizationCredentials = Depends(HTTPBearer(auto_error=False))) -> Identity | None:
+    if not creds or creds.scheme.lower() != "bearer":
+        return None
+
+    try:
+        return await get_identity(creds)
+
+    except HTTPException:
+        return None

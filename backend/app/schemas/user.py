@@ -100,6 +100,42 @@ class UserSanctionsOut(BaseModel):
     items: List[UserSanctionOut]
 
 
+class GameHistoryHostOut(BaseModel):
+    id: Optional[int] = None
+    username: Optional[str] = None
+    avatar_name: Optional[str] = None
+    auto: bool = False
+
+
+class GameHistorySlotOut(BaseModel):
+    slot: int
+    user_id: Optional[int] = None
+    username: Optional[str] = None
+    avatar_name: Optional[str] = None
+    role: Optional[Literal["citizen", "mafia", "don", "sheriff"]] = None
+    points: int = 0
+
+
+class GameHistoryItemOut(BaseModel):
+    id: int
+    number: int
+    head: GameHistoryHostOut
+    result: Literal["red", "black", "draw"]
+    black_alive_at_finish: int = 0
+    started_at: datetime
+    finished_at: datetime
+    duration_seconds: int = 0
+    slots: List[GameHistorySlotOut] = Field(default_factory=list)
+
+
+class UserGamesHistoryOut(BaseModel):
+    total: int = 0
+    page: int = 1
+    pages: int = 1
+    per_page: int = 20
+    items: List[GameHistoryItemOut] = Field(default_factory=list)
+
+
 class UsernameUpdateIn(BaseModel):
     username: UsernameClean = Field(min_length=2, max_length=20)
 

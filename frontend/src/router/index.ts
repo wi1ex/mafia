@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory, type RouteRecordRaw, type RouteLocationNormalized } from 'vue-router'
+import { createRouter, createWebHistory, type RouteLocationNormalized, type RouteRecordRaw } from 'vue-router'
 import { useAuthStore, useUserStore } from '@/store'
 
 const BASE_TITLE = 'Deceit'
@@ -15,6 +15,12 @@ const routes: RouteRecordRaw[] = [
     name: 'rules',
     component: () => import('@/pages/Rules.vue'),
     meta: { title: 'Правила', robots: 'noindex, nofollow' },
+  },
+  {
+    path: '/games-history',
+    name: 'games-history',
+    component: () => import('@/pages/GamesHistory.vue'),
+    meta: { title: 'История игр', robots: 'noindex, nofollow' },
   },
   {
     path: '/profile',

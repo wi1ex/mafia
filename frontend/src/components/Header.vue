@@ -10,6 +10,10 @@
         <img :src="iconInfo" alt="" aria-hidden="true" />
         <span data-nosnippet>Правила</span>
       </router-link>
+      <router-link class="btn" :to="{ name: 'games-history' }" aria-label="История игр">
+        <img :src="iconGamesHistory" alt="" aria-hidden="true" />
+        <span data-nosnippet>История игр</span>
+      </router-link>
       <button class="btn" type="button" @click="openInstall" :aria-expanded="installOpen" aria-haspopup="dialog" aria-label="Установить">
         <img :src="iconInstall" alt="" aria-hidden="true" />
       </button>
@@ -124,6 +128,7 @@ import iconLogo from '@/assets/svg/logo.svg'
 import iconNotifBell from "@/assets/svg/notifBell.svg"
 import iconTelegram from "@/assets/svg/telegram.svg"
 import iconInfo from "@/assets/svg/info.svg"
+import iconGamesHistory from "@/assets/svg/history.svg"
 import iconUpdates from "@/assets/svg/updates.svg"
 import iconFriends from "@/assets/svg/friends.svg"
 import iconCard from "@/assets/svg/card.svg"
