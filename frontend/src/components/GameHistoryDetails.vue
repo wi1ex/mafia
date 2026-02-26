@@ -167,7 +167,7 @@ function normalizeNightChecks(raw: unknown): GameHistoryNightCheckItem[] {
     if (seatNum <= 0 || seatNum > 10 || out.some((pick) => pick.slot === seatNum)) continue
     out.push({ slot: seatNum, verdict: verdictRaw })
   }
-  return out.sort((a, b) => a.slot - b.slot)
+  return out
 }
 
 const orderedSlots = computed<GameHistorySlotView[]>(() => {
