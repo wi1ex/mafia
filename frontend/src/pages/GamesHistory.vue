@@ -3,7 +3,20 @@
     <section class="history-card">
       <header class="history-header">
         <h1>История игр</h1>
-        <p class="history-header-stats">Победы мирных: {{ totalRedWins }} · Победы мафии: {{ totalBlackWins }} · Ничьи: {{ totalDraws }}</p>
+        <div class="history-header-stats">
+          <div class="history-header-stat">
+            <span class="history-header-stat-label">Победы мирных</span>
+            <span class="history-header-stat-value history-header-stat-value--red">{{ totalRedWins }}</span>
+          </div>
+          <div class="history-header-stat">
+            <span class="history-header-stat-label">Победы мафии</span>
+            <span class="history-header-stat-value history-header-stat-value--black">{{ totalBlackWins }}</span>
+          </div>
+          <div class="history-header-stat">
+            <span class="history-header-stat-label">Ничьи</span>
+            <span class="history-header-stat-value history-header-stat-value--draw">{{ totalDraws }}</span>
+          </div>
+        </div>
       </header>
 
       <div v-if="loading" class="history-state">Загрузка...</div>
@@ -19,11 +32,11 @@
               <div class="game-head">
                 <span>Ведущий:</span>
                 <template v-if="game.head.auto">
-                  <strong>Авто</strong>
+                  <span>Авто</span>
                 </template>
                 <template v-else>
                   <img v-minio-img="{ key: game.head.avatar_name ? `avatars/${game.head.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
-                  <strong>{{ headName(game) }}</strong>
+                  <span>{{ headName(game) }}</span>
                 </template>
               </div>
             </div>
@@ -343,7 +356,7 @@ onBeforeUnmount(() => {
       display: flex;
       flex-direction: column;
       align-items: flex-start;
-      gap: 5px;
+      gap: 10px;
       padding: 20px 15px;
       border-radius: 5px;
       background-color: $fg;
@@ -353,16 +366,45 @@ onBeforeUnmount(() => {
         color: $bg;
         font-size: 26px;
       }
-      p {
-        margin: 0;
-        color: $dark;
-        font-size: 14px;
-      }
       .history-header-stats {
         width: 100%;
-        text-align: end;
-        color: $bg;
-        font-size: 14px;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+        .history-header-stat {
+          display: flex;
+          flex-direction: column;
+          gap: 5px;
+          min-width: 0;
+        }
+        .history-header-stat-label {
+          color: $dark;
+          font-size: 12px;
+          line-height: 1.2;
+        }
+        .history-header-stat-value {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-width: 50px;
+          height: 25px;
+          padding: 0 10px;
+          border-radius: 5px;
+          font-size: 12px;
+          font-weight: bold;
+          &.history-header-stat-value--red {
+            background-color: rgba($red, 0.5);
+            color: $fg;
+          }
+          &.history-header-stat-value--black {
+            background-color: $graphite;
+            color: $fg;
+          }
+          &.history-header-stat-value--draw {
+            background-color: $grey;
+            color: $bg;
+          }
+        }
       }
     }
     .history-state {
@@ -431,7 +473,7 @@ onBeforeUnmount(() => {
                 border-radius: 50%;
                 object-fit: cover;
               }
-              strong {
+              span {
                 color: $fg;
                 white-space: nowrap;
                 overflow: hidden;
