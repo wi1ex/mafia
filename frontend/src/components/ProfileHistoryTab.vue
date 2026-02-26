@@ -1,20 +1,5 @@
 <template>
   <section class="profile-history">
-    <div class="history-header-stats">
-      <div class="history-header-stat">
-        <span class="history-header-stat-label">Победы мирных</span>
-        <span class="history-header-stat-value history-header-stat-value--red">{{ totalRedWins }}</span>
-      </div>
-      <div class="history-header-stat">
-        <span class="history-header-stat-label">Победы мафии</span>
-        <span class="history-header-stat-value history-header-stat-value--black">{{ totalBlackWins }}</span>
-      </div>
-      <div class="history-header-stat">
-        <span class="history-header-stat-label">Ничьи</span>
-        <span class="history-header-stat-value history-header-stat-value--draw">{{ totalDraws }}</span>
-      </div>
-    </div>
-
     <div v-if="loading" class="history-state">Загрузка...</div>
     <div v-else-if="error" class="history-state history-state--error">{{ error }}</div>
     <div v-else-if="items.length === 0" class="history-state">Личная история пока пуста</div>
@@ -143,9 +128,6 @@ const error = ref('')
 const page = ref(1)
 const pages = ref(1)
 const total = ref(0)
-const totalRedWins = ref(0)
-const totalBlackWins = ref(0)
-const totalDraws = ref(0)
 const items = ref<GameHistoryListItem[]>([])
 const expanded = ref<Set<number>>(new Set())
 const detailsByGameId = ref<Record<number, GameHistorySlot[]>>({})
@@ -284,9 +266,6 @@ async function fetchHistory(): Promise<void> {
     page.value = Math.min(responsePage, responsePages)
     pages.value = responsePages
     total.value = Math.max(0, intOr(data?.total, 0))
-    totalRedWins.value = Math.max(0, intOr(data?.total_red_wins, 0))
-    totalBlackWins.value = Math.max(0, intOr(data?.total_black_wins, 0))
-    totalDraws.value = Math.max(0, intOr(data?.total_draws, 0))
     items.value = Array.isArray(data?.items) ? data.items : []
     clearDetailsCache()
     clearExpanded()
@@ -300,9 +279,6 @@ async function fetchHistory(): Promise<void> {
     }
     items.value = []
     total.value = 0
-    totalRedWins.value = 0
-    totalBlackWins.value = 0
-    totalDraws.value = 0
     pages.value = 1
     clearDetailsCache()
     clearExpanded()
@@ -338,46 +314,6 @@ onBeforeUnmount(() => {
   flex-direction: column;
   gap: 10px;
   width: 100%;
-  .history-header-stats {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 10px;
-    width: 100%;
-    .history-header-stat {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 5px;
-      min-width: 0;
-    }
-    .history-header-stat-label {
-      text-align: center;
-      color: $fg;
-      font-size: 14px;
-      line-height: 1.2;
-    }
-    .history-header-stat-value {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0 10px;
-      min-width: 50px;
-      height: 25px;
-      border-radius: 5px;
-      color: $fg;
-      font-size: 14px;
-      font-weight: bold;
-      &.history-header-stat-value--red {
-        background-color: $red;
-      }
-      &.history-header-stat-value--black {
-        background-color: $graphite;
-      }
-      &.history-header-stat-value--draw {
-        background-color: $grey;
-      }
-    }
-  }
   .history-state {
     padding: 20px 10px;
     text-align: center;
@@ -534,9 +470,6 @@ onBeforeUnmount(() => {
 
 @media (max-width: 1280px) {
   .profile-history {
-    .history-header-stats {
-      grid-template-columns: 1fr;
-    }
     .history-list {
       .history-item {
         .history-main {

@@ -19,7 +19,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/history',
     name: 'history',
-    component: () => import('@/pages/GamesHistory.vue'),
+    component: () => import('@/pages/History.vue'),
     meta: { requiresAuth: true, title: 'История игр', robots: 'noindex, nofollow' },
   },
   {

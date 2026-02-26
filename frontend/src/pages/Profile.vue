@@ -143,7 +143,7 @@
         <div v-else-if="activeTab === 'history'" class="grid grid-history">
           <div class="block history-block">
             <h3>Личная история игр</h3>
-            <ProfileGamesHistoryTab />
+            <ProfileHistoryTab />
           </div>
         </div>
 
@@ -209,7 +209,7 @@ import { formatModerationAlert } from '@/services/moderation'
 import { formatLocalDateTime } from '@/services/datetime'
 
 import ProfileStatsTab from '@/components/ProfileStatsTab.vue'
-import ProfileGamesHistoryTab from '@/components/ProfileGamesHistoryTab.vue'
+import ProfileHistoryTab from '@/components/ProfileHistoryTab.vue'
 import ToggleSwitch from '@/components/ToggleSwitch.vue'
 import UiInput from '@/components/UiInput.vue'
 
