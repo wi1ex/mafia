@@ -354,6 +354,7 @@ onBeforeUnmount(() => {
     width: min(1100px, 100%);
     .history-header {
       display: flex;
+      position: relative;
       flex-direction: column;
       align-items: flex-start;
       padding: 20px 15px;
@@ -362,18 +363,19 @@ onBeforeUnmount(() => {
       background-color: $fg;
       box-shadow: 0 5px 10px rgba($black, 0.25);
       h1 {
+        position: absolute;
         margin: 0;
         color: $bg;
         font-size: 26px;
       }
       .history-header-stats {
         display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(1, minmax(0, 1fr));
         gap: 10px;
         width: 100%;
         .history-header-stat {
           display: flex;
-          flex-direction: column;
+          justify-self: flex-end;
           gap: 5px;
           min-width: 0;
         }
@@ -567,7 +569,9 @@ onBeforeUnmount(() => {
       .history-list {
         .history-item {
           .history-main {
-            grid-template-columns: 1fr 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
             .history-main-mid {
               grid-column: 1 / -1;
             }
