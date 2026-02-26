@@ -104,6 +104,8 @@ __all__ = [
     "require_bot_token",
     "pair",
     "load_link",
+    "raise_missing_incoming_request_error",
+    "raise_missing_outgoing_request_error",
     "emit_notify",
     "emit_friends_update",
     "safe_int",
@@ -1006,6 +1008,34 @@ async def load_link(db: AsyncSession, uid: int, other: int) -> FriendLink | None
             )
         ).limit(1)
     )
+
+
+async def raise_missing_incoming_request_error(db: AsyncSession, uid: int, requester_id: int) -> None:
+    existing = await load_link(db, uid, requester_id)
+    if not existing:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="request_revoked")
+
+    if existing.status == "accepted":
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="already_friends")
+
+    if existing.status == "pending" and int(existing.requester_id) == uid:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="outgoing_request")
+
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="request_revoked")
+
+
+async def raise_missing_outgoing_request_error(db: AsyncSession, uid: int, target_id: int) -> None:
+    existing = await load_link(db, uid, target_id)
+    if not existing:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="request_not_found")
+
+    if existing.status == "accepted":
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="already_friends")
+
+    if existing.status == "pending" and int(existing.requester_id) != uid:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="incoming_request")
+
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="request_not_found")
 
 
 async def emit_notify(user_id: int, note: Notif, *, kind: str, no_toast: bool = False, extra: dict | None = None) -> None:

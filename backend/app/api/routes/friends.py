@@ -29,6 +29,8 @@ from ...api.utils import (
     get_room_params_or_404,
     pair,
     load_link,
+    raise_missing_incoming_request_error,
+    raise_missing_outgoing_request_error,
     emit_notify,
     emit_friends_update,
 )
@@ -331,21 +333,14 @@ async def accept_friend_request(user_id: int, ident: Identity = Depends(get_iden
     if requester_id == uid:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="self_request")
 
-    link = await db.scalar(
-        select(FriendLink).where(
-            FriendLink.requester_id == requester_id,
-            FriendLink.addressee_id == uid,
-            FriendLink.status == "pending",
-        ).limit(1)
-    )
-    if not link:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="request_not_found")
-
-    await db.execute(
+    upd = await db.execute(
         update(FriendLink)
-        .where(FriendLink.id == link.id)
+        .where(FriendLink.requester_id == requester_id, FriendLink.addressee_id == uid, FriendLink.status == "pending")
         .values(status="accepted", responded_at=func.now())
     )
+    if int(upd.rowcount or 0) <= 0:
+        await raise_missing_incoming_request_error(db, uid, requester_id)
+
     await db.commit()
 
     requester_profile = await get_user_profile_cached(db, requester_id)
@@ -409,17 +404,16 @@ async def decline_friend_request(user_id: int, ident: Identity = Depends(get_ide
     if requester_id == uid:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="self_request")
 
-    link = await db.scalar(
-        select(FriendLink).where(
+    deleted = await db.execute(
+        delete(FriendLink).where(
             FriendLink.requester_id == requester_id,
             FriendLink.addressee_id == uid,
             FriendLink.status == "pending",
-        ).limit(1)
+        )
     )
-    if not link:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="request_not_found")
+    if int(deleted.rowcount or 0) <= 0:
+        await raise_missing_incoming_request_error(db, uid, requester_id)
 
-    await db.execute(delete(FriendLink).where(FriendLink.id == link.id))
     await db.commit()
     await emit_friends_update(requester_id, uid, "none")
     await emit_friends_update(uid, requester_id, "none")
@@ -433,6 +427,47 @@ async def decline_friend_request(user_id: int, ident: Identity = Depends(get_ide
         details=(
             f"friend_request_declined requester_user={requester_id} "
             f"requester_username={(requester_profile or {}).get('username') or f'user{requester_id}'}"
+        ),
+    )
+
+    return Ok()
+
+
+@log_route("friends.request_cancel")
+@rate_limited(lambda ident, user_id, **_: f"rl:friends:cancel:{ident['id']}:{user_id}", limit=5, window_s=5)
+@router.delete("/requests/{user_id}", response_model=Ok)
+async def cancel_friend_request(user_id: int, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> Ok:
+    uid = int(ident["id"])
+    target_id = int(user_id)
+    if target_id <= 0:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="bad_user_id")
+
+    if target_id == uid:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="self_request")
+
+    deleted = await db.execute(
+        delete(FriendLink).where(
+            FriendLink.requester_id == uid,
+            FriendLink.addressee_id == target_id,
+            FriendLink.status == "pending",
+        )
+    )
+    if int(deleted.rowcount or 0) <= 0:
+        await raise_missing_outgoing_request_error(db, uid, target_id)
+
+    await db.commit()
+    await emit_friends_update(target_id, uid, "none")
+    await emit_friends_update(uid, target_id, "none")
+    target_profile = await get_user_profile_cached(db, target_id)
+
+    await log_action(
+        db,
+        user_id=uid,
+        username=ident["username"],
+        action="friend_request_canceled",
+        details=(
+            f"friend_request_canceled target_user={target_id} "
+            f"target_username={(target_profile or {}).get('username') or f'user{target_id}'}"
         ),
     )
 

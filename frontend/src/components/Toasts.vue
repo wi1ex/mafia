@@ -15,7 +15,7 @@
           <p v-if="t.text">{{ t.text }}</p>
         </div>
         <div v-if="t.actions && t.actions.length" class="actions">
-          <button v-for="a in t.actions" :key="a.label" :class="['action', a.style]" @click="runAction(t, a)">{{ a.label }}</button>
+          <button v-for="a in t.actions" :key="a.label" :class="['action', a.style]" :disabled="t._actionBusy" @click="runAction(t, a)">{{ a.label }}</button>
         </div>
       </div>
     </div>
@@ -25,8 +25,9 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
-import { useNotifStore } from '@/store'
+import { useNotifStore, inferFriendApiAction, resolveFriendsApiError } from '@/store'
 import { api } from '@/services/axios'
+import { alertDialog } from '@/services/confirm'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
 import iconClose from '@/assets/svg/close.svg'
@@ -67,6 +68,7 @@ type ToastItem = {
   ttl?: number
   user?: ToastUser
   room_id?: number
+  _actionBusy?: boolean
   _closing?: boolean
   read?: boolean
   id?: number
@@ -90,6 +92,8 @@ async function closeManual(t: ToastItem){
 }
 
 async function runAction(t: ToastItem, action: ToastAction) {
+  if (t._actionBusy) return
+  t._actionBusy = true
   try {
     if (!action) return
     if (action.kind === 'route') {
@@ -98,7 +102,21 @@ async function runAction(t: ToastItem, action: ToastAction) {
       const m = (action.method || 'post').toLowerCase()
       await (api as any)[m](action.url, action.body)
     }
-  } finally { await closeManual(t) }
+  } catch (e: any) {
+    if (action.kind === 'api') {
+      const friendAction = inferFriendApiAction(action.url, action.method)
+      if (friendAction !== 'unknown') {
+        void alertDialog(resolveFriendsApiError(e, friendAction))
+      } else {
+        void alertDialog('Не удалось выполнить действие')
+      }
+    } else {
+      void alertDialog('Не удалось перейти по ссылке')
+    }
+  } finally {
+    t._actionBusy = false
+    await closeManual(t)
+  }
 }
 
 function onTransEnd(e: TransitionEvent) {
@@ -251,19 +269,23 @@ onBeforeUnmount(() => {
           line-height: 1;
           cursor: pointer;
           transition: background-color 0.25s ease-in-out;
-          &:hover {
+          &:hover:enabled {
             background-color: $green;
+          }
+          &:disabled {
+            opacity: 0.5;
+            cursor: default;
           }
           &.danger {
             background-color: rgba($red, 0.75);
-            &:hover {
+            &:hover:enabled {
               background-color: $red;
             }
           }
           &.neutral {
             background-color: rgba($lead, 0.75);
             color: $fg;
-            &:hover {
+            &:hover:enabled {
               background-color: $lead;
             }
           }

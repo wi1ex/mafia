@@ -37,15 +37,20 @@
                 </template>
               </div>
               <div v-if="f.kind === 'incoming'" class="actions">
-                <button class="icon-btn accept" @click="accept(f.id)" aria-label="Принять заявку">
+                <button class="icon-btn accept" :disabled="isActionBusy(f.id)" @click="accept(f.id)" aria-label="Принять заявку">
                   <img :src="iconAccept" alt="" />
                 </button>
-                <button class="icon-btn danger" @click="decline(f.id)" aria-label="Отклонить заявку">
+                <button class="icon-btn danger" :disabled="isActionBusy(f.id)" @click="decline(f.id)" aria-label="Отклонить заявку">
+                  <img :src="iconClose" alt="" />
+                </button>
+              </div>
+              <div v-else-if="f.kind === 'outgoing'" class="actions">
+                <button class="icon-btn danger" :disabled="isActionBusy(f.id)" @click="cancelOutgoing(f.id, f.username)" aria-label="Отменить заявку">
                   <img :src="iconClose" alt="" />
                 </button>
               </div>
               <div v-else-if="isAccepted(f)" class="actions">
-                <button class="icon-btn danger" @click="remove(f.id)" aria-label="Удалить из друзей">
+                <button class="icon-btn danger" :disabled="isActionBusy(f.id)" @click="remove(f.id)" aria-label="Удалить из друзей">
                   <img :src="iconRemove" alt="" />
                 </button>
               </div>
@@ -59,7 +64,7 @@
 
 <script setup lang="ts">
 import { ref, watch, nextTick, onBeforeUnmount, computed, reactive } from 'vue'
-import { useFriendsStore } from '@/store'
+import { useFriendsStore, resolveFriendsApiError, shouldRefreshFriendsStateAfterError } from '@/store'
 import { confirmDialog, alertDialog, useConfirmState } from '@/services/confirm'
 
 import iconClose from '@/assets/svg/close.svg'
@@ -83,6 +88,7 @@ const friends = useFriendsStore()
 const confirmState = useConfirmState()
 const root = ref<HTMLElement | null>(null)
 const inviteBusy = reactive<Record<number, boolean>>({})
+const actionBusy = reactive<Record<number, boolean>>({})
 const isRoomMode = computed(() => props.mode === 'room')
 const inviteRoomId = computed(() => Number(props.roomId || 0))
 const isAccepted = (f: { kind?: string }) => f.kind === 'online' || f.kind === 'offline'
@@ -129,6 +135,15 @@ function isInviteDisabled(friend: { id: number; kind?: string; telegram_verified
 
 function inviteIcon(friend: { kind?: string }): string {
   return friend.kind === 'offline' ? iconInviteOffline : iconInviteOnline
+}
+
+function isActionBusy(uid: number): boolean {
+  return Boolean(actionBusy[uid])
+}
+
+async function refreshListAfterStateError(e: any): Promise<void> {
+  if (!shouldRefreshFriendsStateAfterError(e)) return
+  await friends.fetchList(currentListRoomId())
 }
 
 function bindDoc() {
@@ -251,6 +266,7 @@ async function invite(friend: { id: number; username?: string | null; kind?: str
 }
 
 async function remove(uid: number) {
+  if (isActionBusy(uid)) return
   const ok = await confirmDialog({
     title: 'Удалить из друзей',
     text: 'Вы уверены, что хотите удалить пользователя из друзей?',
@@ -258,15 +274,20 @@ async function remove(uid: number) {
     cancelText: 'Отмена',
   })
   if (!ok) return
+  actionBusy[uid] = true
   try {
     await friends.removeFriend(uid)
     await friends.fetchList(currentListRoomId())
-  } catch {
-    void alertDialog('Не удалось удалить из друзей')
+  } catch (e: any) {
+    await refreshListAfterStateError(e)
+    void alertDialog(resolveFriendsApiError(e, 'remove'))
+  } finally {
+    actionBusy[uid] = false
   }
 }
 
 async function accept(uid: number) {
+  if (isActionBusy(uid)) return
   const ok = await confirmDialog({
     title: 'Принять заявку',
     text: 'Принять пользователя в друзья?',
@@ -274,15 +295,20 @@ async function accept(uid: number) {
     cancelText: 'Отмена',
   })
   if (!ok) return
+  actionBusy[uid] = true
   try {
     await friends.acceptRequest(uid)
     await friends.fetchList(currentListRoomId())
-  } catch {
-    void alertDialog('Не удалось принять запрос')
+  } catch (e: any) {
+    await refreshListAfterStateError(e)
+    void alertDialog(resolveFriendsApiError(e, 'accept'))
+  } finally {
+    actionBusy[uid] = false
   }
 }
 
 async function decline(uid: number) {
+  if (isActionBusy(uid)) return
   const ok = await confirmDialog({
     title: 'Отклонить заявку',
     text: 'Отклонить запрос в друзья?',
@@ -290,11 +316,36 @@ async function decline(uid: number) {
     cancelText: 'Отмена',
   })
   if (!ok) return
+  actionBusy[uid] = true
   try {
     await friends.declineRequest(uid)
     await friends.fetchList(currentListRoomId())
-  } catch {
-    void alertDialog('Не удалось отклонить запрос')
+  } catch (e: any) {
+    await refreshListAfterStateError(e)
+    void alertDialog(resolveFriendsApiError(e, 'decline'))
+  } finally {
+    actionBusy[uid] = false
+  }
+}
+
+async function cancelOutgoing(uid: number, username?: string | null) {
+  if (isActionBusy(uid)) return
+  const ok = await confirmDialog({
+    title: 'Отменить заявку',
+    text: `Вы уверены, что хотите отменить заявку в друзья для пользователя ${username || ('user' + uid)}?`,
+    confirmText: 'Отменить',
+    cancelText: 'Отмена',
+  })
+  if (!ok) return
+  actionBusy[uid] = true
+  try {
+    await friends.cancelOutgoingRequest(uid)
+    await friends.fetchList(currentListRoomId())
+  } catch (e: any) {
+    await refreshListAfterStateError(e)
+    void alertDialog(resolveFriendsApiError(e, 'cancel'))
+  } finally {
+    actionBusy[uid] = false
   }
 }
 
@@ -478,6 +529,10 @@ onBeforeUnmount(() => {
           border-radius: 5px;
           cursor: pointer;
           transition: background-color 0.25s ease-in-out;
+          &:disabled {
+            opacity: 0.5;
+            cursor: default;
+          }
           img {
             width: 16px;
             height: 16px;

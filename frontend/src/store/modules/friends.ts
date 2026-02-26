@@ -26,6 +26,87 @@ export type FriendsListResponse = {
   items: FriendListItem[]
 }
 
+export type FriendApiAction =
+  | 'send'
+  | 'accept'
+  | 'decline'
+  | 'cancel'
+  | 'remove'
+  | 'unknown'
+
+function actionFallback(action: FriendApiAction): string {
+  if (action === 'send') return 'Не удалось отправить заявку в друзья'
+  if (action === 'accept') return 'Не удалось принять заявку в друзья'
+  if (action === 'decline') return 'Не удалось отклонить заявку в друзья'
+  if (action === 'cancel') return 'Не удалось отменить заявку в друзья'
+  if (action === 'remove') return 'Не удалось удалить пользователя из друзей'
+  return 'Не удалось выполнить действие с друзьями'
+}
+
+export function resolveFriendsApiError(error: any, action: FriendApiAction = 'unknown'): string {
+  const st = Number(error?.response?.status || 0)
+  const detail = String(error?.response?.data?.detail || '').trim()
+
+  if (detail === 'bad_user_id') return 'Некорректный пользователь'
+  if (detail === 'user_not_found') return 'Пользователь не найден'
+  if (detail === 'self_request') return 'Нельзя выполнить действие для своего аккаунта'
+  if (detail === 'self_remove') return 'Нельзя удалить себя из друзей'
+  if (detail === 'already_friends') return 'Вы уже в друзьях'
+  if (detail === 'request_already_sent') return 'Заявка уже отправлена'
+
+  if (detail === 'incoming_request') {
+    if (action === 'send') return 'У вас уже есть входящая заявка от этого пользователя'
+    if (action === 'cancel') return 'Отменить нельзя: это входящая, а не исходящая заявка'
+    return 'У вас уже есть входящая заявка от этого пользователя'
+  }
+
+  if (detail === 'outgoing_request') {
+    if (action === 'accept') return 'Принять нельзя: это ваша исходящая заявка'
+    if (action === 'decline') return 'Отклонить нельзя: это ваша исходящая заявка'
+    return 'Действие невозможно для текущего типа заявки'
+  }
+
+  if (detail === 'request_revoked' || detail === 'request_not_found') {
+    if (action === 'accept') return 'Принять заявку нельзя: запрос уже отменен или обработан'
+    if (action === 'decline') return 'Отклонить заявку нельзя: запрос уже отменен или обработан'
+    if (action === 'cancel') return 'Отменить заявку нельзя: запрос уже отменен или обработан'
+    return 'Заявка больше недоступна'
+  }
+
+  if (detail === 'friend_not_found') return 'Пользователь не найден в списке друзей'
+
+  if (st === 429) return 'Слишком много запросов. Попробуйте через несколько секунд'
+  if (st >= 500) return 'Сервис временно недоступен. Попробуйте позже'
+
+  return actionFallback(action)
+}
+
+export function shouldRefreshFriendsStateAfterError(error: any): boolean {
+  const detail = String(error?.response?.data?.detail || '').trim()
+  return [
+    'request_revoked',
+    'request_not_found',
+    'request_already_sent',
+    'already_friends',
+    'incoming_request',
+    'outgoing_request',
+    'friend_not_found',
+  ].includes(detail)
+}
+
+export function inferFriendApiAction(url: string, method?: string): FriendApiAction {
+  const path = String(url || '')
+  const m = String(method || 'post').toLowerCase()
+
+  if (/^\/friends\/requests\/\d+\/accept$/.test(path) && m === 'post') return 'accept'
+  if (/^\/friends\/requests\/\d+\/decline$/.test(path) && m === 'post') return 'decline'
+  if (/^\/friends\/requests\/\d+$/.test(path) && m === 'post') return 'send'
+  if (/^\/friends\/requests\/\d+$/.test(path) && m === 'delete') return 'cancel'
+  if (/^\/friends\/\d+$/.test(path) && m === 'delete') return 'remove'
+
+  return 'unknown'
+}
+
 export const useFriendsStore = defineStore('friends', () => {
   const list = ref<FriendListItem[]>([])
   const incomingCount = ref(0)
@@ -102,6 +183,10 @@ export const useFriendsStore = defineStore('friends', () => {
     await api.post(`/friends/requests/${userId}/decline`)
   }
 
+  async function cancelOutgoingRequest(userId: number): Promise<void> {
+    await api.delete(`/friends/requests/${userId}`)
+  }
+
   async function removeFriend(userId: number): Promise<void> {
     await api.delete(`/friends/${userId}`)
   }
@@ -139,6 +224,7 @@ export const useFriendsStore = defineStore('friends', () => {
     sendRequest,
     acceptRequest,
     declineRequest,
+    cancelOutgoingRequest,
     removeFriend,
     inviteToRoom,
     ensureWS,

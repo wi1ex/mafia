@@ -292,7 +292,7 @@ defineEmits<{
   (e: 'knock', id: string): void
   (e: 'farewell', verdict: 'citizen' | 'mafia', id: string): void
   (e: 'best-move', id: string): void
-  (e: 'friend-action', id: string, kind: 'add' | 'remove' | 'incoming'): void
+  (e: 'friend-action', id: string, kind: 'add' | 'remove' | 'incoming' | 'outgoing'): void
 }>()
 
 const micBlocked = computed(() => props.isBlocked(props.id, 'mic'))
@@ -353,7 +353,7 @@ const friendActionLabel = computed(() => {
   if (props.friendLoading) return 'Загрузка...'
   if (props.friendStatus === 'none') return 'Добавить в друзья'
   if (props.friendStatus === 'friends') return 'В друзьях'
-  if (props.friendStatus === 'outgoing') return 'Исходящий запрос'
+  if (props.friendStatus === 'outgoing') return 'Отменить заявку'
   if (props.friendStatus === 'incoming') return 'Входящий запрос'
   return ''
 })
@@ -367,10 +367,11 @@ const friendActionIcon = computed(() => {
 const friendActionKind = computed(() => {
   if (props.friendStatus === 'none') return 'add'
   if (props.friendStatus === 'friends') return 'remove'
+  if (props.friendStatus === 'outgoing') return 'outgoing'
   return 'incoming'
 })
 const friendDisabled = computed(() =>
-  props.friendBusy || props.friendLoading || props.friendStatus === 'outgoing' || props.friendStatus === 'self'
+  props.friendBusy || props.friendLoading || props.friendStatus === 'self'
 )
 const showFriendAction = computed(() => props.id !== props.localId && friendActionLabel.value !== '')
 

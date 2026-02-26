@@ -383,8 +383,15 @@ import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } 
 import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
 import type { Socket } from 'socket.io-client'
-import { useAuthStore, useSettingsStore, useUserStore, useFriendsStore } from '@/store'
-import type { FriendStatus } from '@/store'
+import {
+  useAuthStore,
+  useSettingsStore,
+  useUserStore,
+  useFriendsStore,
+  resolveFriendsApiError,
+  shouldRefreshFriendsStateAfterError,
+} from '@/store'
+import type { FriendStatus, FriendApiAction } from '@/store'
 import {
   type Ack,
   type FarewellVerdict,
@@ -845,13 +852,15 @@ async function fetchFriendStatus(id: string) {
   }
 }
 
-async function onFriendAction(id: string, kind: 'add' | 'remove' | 'incoming') {
+async function onFriendAction(id: string, kind: 'add' | 'remove' | 'incoming' | 'outgoing') {
   if (friendBusyFor(id)) return
   const uid = Number(id)
   if (!Number.isFinite(uid) || uid <= 0) return
   friendBusyByUser.set(id, true)
+  let actionForError: FriendApiAction = 'unknown'
   try {
     if (kind === 'add') {
+      actionForError = 'send'
       await friends.sendRequest(uid)
       friendStatusByUser.set(id, 'outgoing')
     } else if (kind === 'remove') {
@@ -862,7 +871,19 @@ async function onFriendAction(id: string, kind: 'add' | 'remove' | 'incoming') {
         cancelText: 'Отмена',
       })
       if (!ok) return
+      actionForError = 'remove'
       await friends.removeFriend(uid)
+      friendStatusByUser.set(id, 'none')
+    } else if (kind === 'outgoing') {
+      const ok = await confirmDialog({
+        title: 'Отменить заявку',
+        text: `Вы уверены, что хотите отменить заявку в друзья для пользователя ${userName(id)}?`,
+        confirmText: 'Отменить',
+        cancelText: 'Отмена',
+      })
+      if (!ok) return
+      actionForError = 'cancel'
+      await friends.cancelOutgoingRequest(uid)
       friendStatusByUser.set(id, 'none')
     } else if (kind === 'incoming') {
       const ok = await confirmDialog({
@@ -872,15 +893,18 @@ async function onFriendAction(id: string, kind: 'add' | 'remove' | 'incoming') {
         cancelText: 'Отклонить',
       })
       if (ok) {
+        actionForError = 'accept'
         await friends.acceptRequest(uid)
         friendStatusByUser.set(id, 'friends')
       } else {
+        actionForError = 'decline'
         await friends.declineRequest(uid)
         friendStatusByUser.set(id, 'none')
       }
     }
-  } catch {
-    void alertDialog('Не удалось выполнить действие')
+  } catch (e: any) {
+    if (shouldRefreshFriendsStateAfterError(e)) void fetchFriendStatus(id)
+    void alertDialog(resolveFriendsApiError(e, actionForError))
   } finally {
     friendBusyByUser.set(id, false)
   }
