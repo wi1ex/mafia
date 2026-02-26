@@ -286,7 +286,6 @@ async def games_history(page: int = 1, _ident: Identity = Depends(get_identity),
         slot_map = slots_by_game.get(gid, {})
         uid_to_slot = {player_uid: seat_num for seat_num, player_uid in slot_map.items()}
         leave_map: dict[int, tuple[int, str, list[int]]] = {}
-        vote_death_count_by_day: dict[int, int] = {}
         best_move_map: dict[int, list[int]] = {}
         farewell_map: dict[int, list[tuple[int, str]]] = {}
         if isinstance(actions_raw, list):
@@ -304,8 +303,6 @@ async def games_history(page: int = 1, _ident: Identity = Depends(get_identity),
                     leave_reason = str(action.get("reason") or "").strip().lower()
                     if leave_reason not in GAME_HISTORY_LEAVE_REASONS:
                         continue
-                    if leave_reason == "vote":
-                        vote_death_count_by_day[leave_day] = vote_death_count_by_day.get(leave_day, 0) + 1
                     if target_uid in leave_map:
                         continue
                     voted_by_user_ids: list[int] = []
@@ -390,7 +387,7 @@ async def games_history(page: int = 1, _ident: Identity = Depends(get_identity),
                 if leave_data:
                     leave_day_value = leave_data[0]
                     leave_reason_value = leave_data[1]
-                    if leave_reason_value == "vote" and vote_death_count_by_day.get(leave_day_value, 0) == 1:
+                    if leave_reason_value == "vote":
                         for voter_uid in leave_data[2]:
                             voter_slot = safe_int(uid_to_slot.get(voter_uid))
                             if voter_slot <= 0 or voter_slot in voted_by_slots:
