@@ -8,6 +8,9 @@
         <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'stats' }" :aria-selected="activeTab === 'stats'" @click="activeTab = 'stats'">
           Статистика
         </button>
+        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'history' }" :aria-selected="activeTab === 'history'" @click="activeTab = 'history'">
+          История игр
+        </button>
         <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'sanctions' }" :aria-selected="activeTab === 'sanctions'" @click="activeTab = 'sanctions'">
           Ограничения
         </button>
@@ -137,6 +140,13 @@
           </div>
         </div>
 
+        <div v-else-if="activeTab === 'history'" class="grid grid-history">
+          <div class="block history-block">
+            <h3>Личная история игр</h3>
+            <ProfileGamesHistoryTab />
+          </div>
+        </div>
+
         <div v-else-if="activeTab === 'sanctions'" class="grid grid-sanctions">
           <div class="block sanctions-block">
             <div class="sanctions-head">
@@ -199,6 +209,7 @@ import { formatModerationAlert } from '@/services/moderation'
 import { formatLocalDateTime } from '@/services/datetime'
 
 import ProfileStatsTab from '@/components/ProfileStatsTab.vue'
+import ProfileGamesHistoryTab from '@/components/ProfileGamesHistoryTab.vue'
 import ToggleSwitch from '@/components/ToggleSwitch.vue'
 import UiInput from '@/components/UiInput.vue'
 
@@ -256,7 +267,7 @@ function underlineStyle(len: number, max: number) {
 const route = useRoute()
 const router = useRouter()
 
-const TAB_KEYS = ['profile', 'stats', 'sanctions'] as const
+const TAB_KEYS = ['profile', 'stats', 'history', 'sanctions'] as const
 type TabKey = typeof TAB_KEYS[number]
 
 function normalizeTab(v: unknown): TabKey {
@@ -1224,6 +1235,9 @@ onBeforeUnmount(() => {
         }
       }
       &.grid-sanctions {
+        grid-template-columns: 1fr;
+      }
+      &.grid-history {
         grid-template-columns: 1fr;
       }
       &.grid-stats {

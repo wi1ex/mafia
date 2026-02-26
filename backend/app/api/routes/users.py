@@ -20,6 +20,7 @@ from ..utils import (
     safe_int,
     non_empty_str,
     normalize_game_result,
+    fetch_games_history_page,
     pct,
     role_stats,
 )
@@ -61,6 +62,9 @@ from ...services.minio import put_avatar_async, delete_avatars_async, ALLOWED_CT
 from ...services.user_cache import write_user_profile_cache, invalidate_avatar_presign_cache, get_user_profiles_cached
 
 router = APIRouter()
+
+GAME_HISTORY_PER_PAGE = 20
+PERSONAL_GAME_HISTORY_PER_PAGE = 10
 
 
 @log_route("users.profile_info")
@@ -207,101 +211,15 @@ async def user_stats(ident: Identity = Depends(get_identity), db: AsyncSession =
 @rate_limited(lambda ident, **_: f"rl:games_history:{ident['id']}", limit=10, window_s=1)
 @router.get("/games/history", response_model=UserGamesHistoryOut)
 async def games_history(page: int = 1, _ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UserGamesHistoryOut:
-    GAME_HISTORY_PER_PAGE = 20
-    page_num = max(1, min(int(page or 1), 1_000_000))
-    total = int(await db.scalar(select(func.count(Game.id))) or 0)
-    pages = max(1, (total + GAME_HISTORY_PER_PAGE - 1) // GAME_HISTORY_PER_PAGE)
-    if page_num > pages:
-        page_num = pages
-    offset = (page_num - 1) * GAME_HISTORY_PER_PAGE
-    total_red_wins = 0
-    total_black_wins = 0
-    total_draws = 0
-    result_rows = await db.execute(
-        select(Game.result, func.count(Game.id))
-        .group_by(Game.result)
-    )
-    for result_raw, count_raw in result_rows.all():
-        cnt = max(0, safe_int(count_raw))
-        normalized_result = normalize_game_result(result_raw)
-        if normalized_result == "red":
-            total_red_wins += cnt
-        elif normalized_result == "black":
-            total_black_wins += cnt
-        else:
-            total_draws += cnt
+    return await fetch_games_history_page(db, page=page, per_page=GAME_HISTORY_PER_PAGE)
 
-    rows = await db.execute(
-        select(
-            Game.id,
-            Game.head_id,
-            Game.result,
-            Game.black_alive_at_finish,
-            Game.started_at,
-            Game.finished_at,
-        )
-        .order_by(Game.id.desc())
-        .offset(offset)
-        .limit(GAME_HISTORY_PER_PAGE)
-    )
-    raw_games = rows.all()
 
-    user_ids: set[int] = set()
-    for _game_id, head_id, _result, _black_alive, _started, _finished in raw_games:
-        hid = safe_int(head_id)
-        if hid > 0:
-            user_ids.add(hid)
-
-    profiles = await get_user_profiles_cached(db, user_ids) if user_ids else {}
-
-    items: list[GameHistoryItemOut] = []
-    for game_id, head_id, result_raw, black_alive_raw, started_at, finished_at in raw_games:
-        gid = safe_int(game_id)
-        if gid <= 0:
-            continue
-
-        head_uid = safe_int(head_id)
-        head_auto = head_uid <= 0
-        head_profile = profiles.get(head_uid) if head_uid > 0 else None
-        head_username = non_empty_str((head_profile or {}).get("username"))
-        if head_username is None and head_uid > 0:
-            head_username = f"user{head_uid}"
-        head_avatar_name = non_empty_str((head_profile or {}).get("avatar_name"))
-
-        try:
-            duration_seconds = max(0, int((finished_at - started_at).total_seconds()))
-        except Exception:
-            duration_seconds = 0
-
-        items.append(
-            GameHistoryItemOut(
-                id=gid,
-                number=gid,
-                head=GameHistoryHostOut(
-                    id=head_uid if not head_auto else None,
-                    username=head_username,
-                    avatar_name=head_avatar_name,
-                    auto=head_auto,
-                ),
-                result=normalize_game_result(result_raw),
-                black_alive_at_finish=max(0, safe_int(black_alive_raw)),
-                started_at=started_at,
-                finished_at=finished_at,
-                duration_seconds=duration_seconds,
-                slots=[],
-            )
-        )
-
-    return UserGamesHistoryOut(
-        total=total,
-        page=page_num,
-        pages=pages,
-        per_page=GAME_HISTORY_PER_PAGE,
-        total_red_wins=total_red_wins,
-        total_black_wins=total_black_wins,
-        total_draws=total_draws,
-        items=items,
-    )
+@log_route("users.games_history_personal")
+@rate_limited(lambda ident, **_: f"rl:games_history_personal:{ident['id']}", limit=10, window_s=1)
+@router.get("/games/history/personal", response_model=UserGamesHistoryOut)
+async def games_history_personal(page: int = 1, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UserGamesHistoryOut:
+    uid = safe_int((ident or {}).get("id"))
+    return await fetch_games_history_page(db, page=page, player_uid=uid, per_page=PERSONAL_GAME_HISTORY_PER_PAGE)
 
 
 @log_route("users.game_history_details")

@@ -26,7 +26,12 @@ from ..models.user import User
 from ..models.update import SiteUpdate, UpdateRead
 from ..schemas.admin import SiteSettingsOut, GameSettingsOut, RegistrationsPoint, AdminRoomUserStat, AdminSanctionOut
 from ..schemas.room import GameParams
-from ..schemas.user import UserRoleStatsOut
+from ..schemas.user import (
+    UserRoleStatsOut,
+    UserGamesHistoryOut,
+    GameHistoryItemOut,
+    GameHistoryHostOut,
+)
 from ..realtime.sio import sio
 from ..realtime.utils import get_profiles_snapshot, get_rooms_brief, gc_empty_room, emit_rooms_upsert_safe
 from ..services.minio import delete_avatars_async
@@ -111,6 +116,7 @@ __all__ = [
     "safe_int",
     "non_empty_str",
     "normalize_game_result",
+    "fetch_games_history_page",
     "pct",
     "role_stats",
 ]
@@ -585,6 +591,113 @@ def normalize_game_result(raw: Any) -> str:
         return result
 
     return "draw"
+
+
+async def fetch_games_history_page(db: AsyncSession, *, page: int, per_page: int, player_uid: int | None = None) -> UserGamesHistoryOut:
+    per_page_i = max(1, min(safe_int(per_page), 100))
+    page_num = max(1, min(int(page or 1), 1_000_000))
+    uid_i = safe_int(player_uid)
+    uid_key = str(uid_i) if uid_i > 0 else None
+
+    total_stmt = select(func.count(Game.id))
+    result_stmt = select(Game.result, func.count(Game.id)).group_by(Game.result)
+    rows_stmt = (
+        select(
+            Game.id,
+            Game.head_id,
+            Game.result,
+            Game.black_alive_at_finish,
+            Game.started_at,
+            Game.finished_at,
+        )
+        .order_by(Game.id.desc())
+    )
+
+    if uid_key is not None:
+        filter_expr = Game.roles.has_key(uid_key)
+        total_stmt = total_stmt.where(filter_expr)
+        result_stmt = result_stmt.where(filter_expr)
+        rows_stmt = rows_stmt.where(filter_expr)
+
+    total = int(await db.scalar(total_stmt) or 0)
+    pages = max(1, (total + per_page_i - 1) // per_page_i)
+    if page_num > pages:
+        page_num = pages
+    offset = (page_num - 1) * per_page_i
+
+    total_red_wins = 0
+    total_black_wins = 0
+    total_draws = 0
+    result_rows = await db.execute(result_stmt)
+    for result_raw, count_raw in result_rows.all():
+        cnt = max(0, safe_int(count_raw))
+        normalized_result = normalize_game_result(result_raw)
+        if normalized_result == "red":
+            total_red_wins += cnt
+        elif normalized_result == "black":
+            total_black_wins += cnt
+        else:
+            total_draws += cnt
+
+    rows = await db.execute(rows_stmt.offset(offset).limit(per_page_i))
+    raw_games = rows.all()
+
+    user_ids: set[int] = set()
+    for _game_id, head_id, _result, _black_alive, _started, _finished in raw_games:
+        hid = safe_int(head_id)
+        if hid > 0:
+            user_ids.add(hid)
+
+    profiles = await get_user_profiles_cached(db, user_ids) if user_ids else {}
+
+    items: list[GameHistoryItemOut] = []
+    for game_id, head_id, result_raw, black_alive_raw, started_at, finished_at in raw_games:
+        gid = safe_int(game_id)
+        if gid <= 0:
+            continue
+
+        head_uid = safe_int(head_id)
+        head_auto = head_uid <= 0
+        head_profile = profiles.get(head_uid) if head_uid > 0 else None
+        head_username = non_empty_str((head_profile or {}).get("username"))
+        if head_username is None and head_uid > 0:
+            head_username = f"user{head_uid}"
+        head_avatar_name = non_empty_str((head_profile or {}).get("avatar_name"))
+
+        try:
+            duration_seconds = max(0, int((finished_at - started_at).total_seconds()))
+        except Exception:
+            duration_seconds = 0
+
+        items.append(
+            GameHistoryItemOut(
+                id=gid,
+                number=gid,
+                head=GameHistoryHostOut(
+                    id=head_uid if not head_auto else None,
+                    username=head_username,
+                    avatar_name=head_avatar_name,
+                    auto=head_auto,
+                ),
+                result=normalize_game_result(result_raw),
+                black_alive_at_finish=max(0, safe_int(black_alive_raw)),
+                started_at=started_at,
+                finished_at=finished_at,
+                duration_seconds=duration_seconds,
+                slots=[],
+            )
+        )
+
+    return UserGamesHistoryOut(
+        total=total,
+        page=page_num,
+        pages=pages,
+        per_page=per_page_i,
+        total_red_wins=total_red_wins,
+        total_black_wins=total_black_wins,
+        total_draws=total_draws,
+        items=items,
+    )
 
 
 def pct(part: int, total: int) -> float:
