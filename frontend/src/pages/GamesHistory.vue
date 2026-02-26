@@ -375,6 +375,7 @@ onBeforeUnmount(() => {
         width: 100%;
         .history-header-stat {
           display: flex;
+          align-items: center;
           justify-self: flex-end;
           gap: 5px;
           min-width: 0;
