@@ -30,11 +30,16 @@
                   <span v-if="limit === 2" class="limit-badge" aria-label="Высокое качество">DUO HD</span>
                   <span v-if="canOpenGameTab" class="limit-badge" aria-label="Лимит для игры">MAFIA</span>
                 </div>
-                <div class="range-wrap">
-                  <div class="range-dead" :style="deadZoneStyle" @click="limit = DEAD_MIN"></div>
-                  <div class="range-track" :style="rangeFillStyle" aria-hidden="true"></div>
-                  <input class="range-native" type="range" :min="RANGE_MIN" :max="RANGE_MAX" step="1" v-model.number="limit" aria-label="Лимит участников" />
-                </div>
+                <UiSlider
+                  v-model="limit"
+                  variant="filled"
+                  :min="RANGE_MIN"
+                  :max="RANGE_MAX"
+                  :step="1"
+                  :dead-zone-until="DEAD_MIN"
+                  :dead-zone-value="DEAD_MIN"
+                  aria-label="Лимит участников"
+                />
               </div>
 
               <ToggleSwitch v-model="isPrivate" :disabled="isPrivacyLocked" label="Приватность:" off-label="Открытая" on-label="Закрытая" aria-label="Приватность: открытая/закрытая" />
@@ -63,6 +68,7 @@ import { formatModerationAlert } from '@/services/moderation'
 import { useUserStore, useSettingsStore } from '@/store'
 
 import GameParamsForm from '@/components/GameParamsForm.vue'
+import UiSlider from '@/components/UiSlider.vue'
 import UiInput from '@/components/UiInput.vue'
 import ToggleSwitch from '@/components/ToggleSwitch.vue'
 
@@ -81,16 +87,7 @@ let prevTab: 'room'|'game' = tab.value
 
 const RANGE_MIN = 0
 const RANGE_MAX = 12
-const rangePct = computed(() => {
-  const p = ((limit.value - RANGE_MIN) * 100) / (RANGE_MAX - RANGE_MIN)
-  return Math.max(0, Math.min(100, p))
-})
-const rangeFillStyle = computed<Record<string, string>>(() => ({ '--fill': `${rangePct.value}%` }))
-
 const DEAD_MIN = 2
-const deadPct = computed(() => Math.max(0, Math.min(100, ((DEAD_MIN - RANGE_MIN) * 100) / (RANGE_MAX - RANGE_MIN))))
-const deadZoneStyle = computed<Record<string, string>>(() => ({ '--dead': `${deadPct.value}%` }))
-
 const SPECT_MIN = 0
 const SPECT_MAX = 10
 const TITLE_MAX = 32
@@ -427,88 +424,6 @@ onBeforeUnmount(() => {
             font-size: 12px;
             font-weight: bold;
             letter-spacing: 1px;
-          }
-          .range-wrap {
-            position: relative;
-            height: 20px;
-            box-shadow: 3px 3px 5px rgba($black, 0.25);
-            .range-dead {
-              position: absolute;
-              left: 0;
-              top: 0;
-              bottom: 0;
-              width: var(--dead);
-              border-radius: 5px;
-              z-index: 3;
-              pointer-events: auto;
-              cursor: pointer;
-            }
-            .range-track {
-              position: absolute;
-              inset: 0;
-              border-radius: 5px;
-              border: 1px solid $lead;
-              background-color: $graphite;
-              overflow: hidden;
-            }
-            .range-track::after {
-              content: "";
-              position: absolute;
-              inset: 0 auto 0 0;
-              width: var(--fill);
-              background-color: $fg;
-              border-radius: inherit;
-              transition: width 0.25s ease-in-out;
-              will-change: width;
-            }
-            .range-native {
-              position: absolute;
-              inset: 0;
-              width: 100%;
-              height: 100%;
-              margin: 0;
-              padding: 0;
-              background: none;
-              cursor: pointer;
-              z-index: 2;
-              -webkit-appearance: none;
-              appearance: none;
-            }
-            .range-native::-webkit-slider-runnable-track {
-              background: transparent;
-              height: 100%;
-            }
-            .range-native::-moz-range-track {
-              background: transparent;
-              height: 100%;
-            }
-            .range-native::-ms-track {
-              background: transparent;
-              color: transparent;
-              border: none;
-              height: 100%;
-            }
-            .range-native::-webkit-slider-thumb {
-              -webkit-appearance: none;
-              appearance: none;
-              width: 1px;
-              height: 100%;
-              background: transparent;
-              border: none;
-            }
-            .range-native::-moz-range-thumb {
-              width: 1px;
-              height: 100%;
-              background: transparent;
-              border: none;
-            }
-            .range-native:focus-visible {
-              outline: 2px solid $lead;
-              outline-offset: 2px;
-            }
-            .range-native:disabled {
-              cursor: not-allowed;
-            }
           }
         }
       }

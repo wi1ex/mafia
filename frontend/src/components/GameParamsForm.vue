@@ -2,11 +2,15 @@
   <div class="params">
     <div class="range">
       <span>Лимит зрителей: {{ local.spectators_limit }}/{{ SPECT_MAX }}</span>
-      <div class="range-wrap">
-        <div class="range-track" :style="rangeSpectFillStyle" aria-hidden="true"></div>
-        <input class="range-native" type="range" :min="SPECT_MIN" :max="SPECT_MAX" step="1"
-               v-model.number="local.spectators_limit" aria-label="Лимит зрителей" :disabled="disabled" />
-      </div>
+      <UiSlider
+        v-model="local.spectators_limit"
+        variant="filled"
+        :min="SPECT_MIN"
+        :max="SPECT_MAX"
+        :step="1"
+        aria-label="Лимит зрителей"
+        :disabled="disabled"
+      />
     </div>
 
     <ToggleSwitch v-model="isRating" label="Режим:" off-label="Обычный" on-label="Рейтинг" aria-label="Режим: обычный/рейтинг" :disabled="true" />
@@ -24,6 +28,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import ToggleSwitch from '@/components/ToggleSwitch.vue'
+import UiSlider from '@/components/UiSlider.vue'
 
 type Game = {
   mode: 'normal' | 'rating'
@@ -96,12 +101,6 @@ watch(local, (val) => {
   emit('update:modelValue', { ...normalized })
 }, { deep: true })
 
-const rangeSpectPct = computed(() => {
-  const p = ((local.value.spectators_limit - SPECT_MIN) * 100) / (SPECT_MAX - SPECT_MIN)
-  return Math.max(0, Math.min(100, p))
-})
-const rangeSpectFillStyle = computed<Record<string, string>>(() => ({ '--fill': `${rangeSpectPct.value}%` }))
-
 const isRating = computed<boolean>({
   get: () => local.value.mode === 'rating',
   set: v => { local.value.mode = v ? 'rating' : 'normal' },
@@ -124,81 +123,10 @@ const disabled = computed(() => props.disabled)
   flex-direction: column;
   padding: 10px;
   gap: 15px;
-}
-.range {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  .range-wrap {
-    position: relative;
-    height: 20px;
-    box-shadow: 3px 3px 5px rgba($black, 0.25);
-    .range-track {
-      position: absolute;
-      inset: 0;
-      border-radius: 5px;
-      border: 1px solid $lead;
-      background-color: $graphite;
-      overflow: hidden;
-    }
-    .range-track::after {
-      content: "";
-      position: absolute;
-      inset: 0 auto 0 0;
-      width: var(--fill);
-      background-color: $fg;
-      border-radius: inherit;
-      transition: width 0.25s ease-in-out;
-      will-change: width;
-    }
-    .range-native {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      margin: 0;
-      padding: 0;
-      background: none;
-      cursor: pointer;
-      z-index: 2;
-      -webkit-appearance: none;
-      appearance: none;
-    }
-    .range-native::-webkit-slider-runnable-track {
-      background: transparent;
-      height: 100%;
-    }
-    .range-native::-moz-range-track {
-      background: transparent;
-      height: 100%;
-    }
-    .range-native::-ms-track {
-      background: transparent;
-      color: transparent;
-      border: none;
-      height: 100%;
-    }
-    .range-native::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      appearance: none;
-      width: 1px;
-      height: 100%;
-      background: transparent;
-      border: none;
-    }
-    .range-native::-moz-range-thumb {
-      width: 1px;
-      height: 100%;
-      background: transparent;
-      border: none;
-    }
-    .range-native:focus-visible {
-      outline: 2px solid $lead;
-      outline-offset: 2px;
-    }
-    .range-native:disabled {
-      cursor: not-allowed;
-    }
+  .range {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
   }
 }
 

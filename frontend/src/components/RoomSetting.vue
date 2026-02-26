@@ -30,7 +30,16 @@
             <span class="volume-text">Громкость музыки:</span>
             <div class="volume">
               <img :src="volumeIcon" alt="vol" />
-              <input type="range" min="0" max="100" step="5" :value="volume" aria-label="Громкость фоновой музыки" @input="onVolumeInput" />
+              <UiSlider
+                class="volume-slider"
+                variant="volume"
+                :model-value="volume"
+                :min="0"
+                :max="100"
+                :step="5"
+                aria-label="Громкость фоновой музыки"
+                @update:modelValue="emit('update:volume', $event)"
+              />
               <span>{{ volume }}%</span>
             </div>
           </div>
@@ -83,6 +92,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import ToggleSwitch from '@/components/ToggleSwitch.vue'
+import UiSlider from '@/components/UiSlider.vue'
 
 import iconClose from '@/assets/svg/close.svg'
 import iconReadyGreen from '@/assets/svg/readyGreen.svg'
@@ -150,9 +160,6 @@ function onToggleMirror(next: boolean) {
     mirrorToggleTimer = null
   }, 500)
   emit('update:mirrorOn', next)
-}
-function onVolumeInput(e: Event) {
-  emit('update:volume', Number((e.target as HTMLInputElement).value))
 }
 function onToggleKnownRoles(_next: boolean) {
   emit('toggle-known-roles')
@@ -316,55 +323,25 @@ onBeforeUnmount(() => {
           width: 20px;
           height: 20px;
         }
-        input[type="range"] {
+        .volume-slider {
           flex: 1 1 auto;
           min-width: 0;
-          height: 8px;
-          accent-color: $fg;
-          cursor: pointer;
-          appearance: none;
-          background: transparent;
+          --ui-slider-accent-color: #{$fg};
+          --ui-slider-focus-color: #{$fg};
+          --ui-slider-volume-track-color: #{$grey};
+          --ui-slider-volume-thumb-color: #{$fg};
+          --ui-slider-volume-thumb-border-color: #{$dark};
+          --ui-slider-volume-input-height: 8px;
+          --ui-slider-volume-track-height: 6px;
+          --ui-slider-volume-track-radius: 3px;
+          --ui-slider-volume-thumb-size: 18px;
+          --ui-slider-volume-thumb-border-width: 3px;
         }
         span {
           flex: 0 0 auto;
           min-width: 32px;
           text-align: center;
           font-size: 12px;
-        }
-        input[type="range"]:disabled {
-          cursor: default;
-          opacity: 0.5;
-        }
-        input[type="range"]:focus-visible {
-          outline: 1px solid $fg;
-          outline-offset: 1px;
-        }
-        input[type="range"]::-webkit-slider-runnable-track {
-          height: 6px;
-          border-radius: 3px;
-          background-color: $grey;
-        }
-        input[type="range"]::-webkit-slider-thumb {
-          -webkit-appearance: none;
-          appearance: none;
-          width: 18px;
-          height: 18px;
-          border-radius: 50%;
-          background-color: $fg;
-          border: 3px solid $dark;
-          margin-top: calc(-18px / 2 + 3px);
-        }
-        input[type="range"]::-moz-range-track {
-          height: 6px;
-          border-radius: 3px;
-          background-color: $grey;
-        }
-        input[type="range"]::-moz-range-thumb {
-          width: 16px;
-          height: 16px;
-          border-radius: 50%;
-          background-color: $fg;
-          border: 3px solid $dark;
         }
       }
     }
