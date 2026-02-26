@@ -540,7 +540,6 @@ async def game_history_details(game_id: int, _ident: Identity = Depends(get_iden
                         continue
                     seen_check_slots.add(target_slot)
                     normalized_checks.append((target_slot, verdict))
-                normalized_checks.sort(key=lambda item: item[0])
                 night_check_items = [
                     GameHistoryNightCheckItemOut(slot=target_slot, verdict=verdict)
                     for target_slot, verdict in normalized_checks
