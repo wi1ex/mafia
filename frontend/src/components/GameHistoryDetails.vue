@@ -6,11 +6,10 @@
 
         <div class="slot-top">
           <img class="slot-num-icon" :src="slotIcon(slot.slot)" :alt="`slot-${slot.slot}`" />
-        </div>
-
-        <div class="slot-player">
-          <img v-minio-img="{ key: slot.avatar_name ? `avatars/${slot.avatar_name}` : '', placeholder: defaultAvatar }" alt="avatar" />
-          <span>{{ slot.username || 'Пусто' }}</span>
+          <div class="slot-player">
+            <img v-minio-img="{ key: slot.avatar_name ? `avatars/${slot.avatar_name}` : '', placeholder: defaultAvatar }" alt="avatar" />
+            <span>{{ slot.username || 'Пусто' }}</span>
+          </div>
         </div>
 
         <div class="slot-metrics">
@@ -19,7 +18,7 @@
 
         <div v-if="slot.leave_day && slot.leave_reason" class="slot-leave">
           <span>{{ leaveMomentLabel(slot.leave_day, slot.leave_reason) }} - {{ leaveReasonLabel(slot.leave_reason) }}</span>
-          <span v-if="slot.leave_reason === 'vote' && slot.voted_by_slots.length > 0"> {{ slot.voted_by_slots.join(', ') }}</span>
+          <span v-if="slot.leave_reason === 'vote' && slot.voted_by_slots.length > 0">{{ slot.voted_by_slots.join(', ') }}</span>
         </div>
 
         <div v-if="slot.best_move_slots.length > 0" class="slot-extra">
@@ -168,9 +167,9 @@ function slotIcon(slot: number): string {
 }
 
 function leaveReasonLabel(reason: LeaveReason): string {
-  if (reason === 'vote') return 'Заголосован'
+  if (reason === 'vote') return 'Заголосован '
   if (reason === 'foul') return 'Удален по фолам'
-  if (reason === 'suicide') return 'Суицид'
+  if (reason === 'suicide') return 'Покинул игру'
   return 'Убит'
 }
 
@@ -203,61 +202,65 @@ function formatMetric(value: number): string {
       display: flex;
       flex-direction: column;
       gap: 10px;
-      min-height: 120px;
+      min-height: 150px;
       padding: 10px;
       border-radius: 5px;
       background-color: $dark;
       border: 1px solid rgba($grey, 0.25);
       &.role-citizen {
-        background-color: rgba($red, 0.25);
+        background-color: rgba($red, 0.2);
       }
       &.role-sheriff {
-        background-color: rgba($yellow, 0.25);
+        background-color: rgba($yellow, 0.2);
       }
       &.role-mafia {
-        background-color: rgba($lead, 0.25);
+        background-color: $dark;
       }
       &.role-don {
-        background-color: rgba($bg, 0.25);
+        background-color: $bg;
       }
       .slot-role-icon {
         position: absolute;
-        top: 8px;
-        right: 8px;
-        width: 16px;
-        height: 16px;
+        top: 10px;
+        right: 10px;
+        width: 25px;
+        height: 25px;
         z-index: 1;
       }
       .slot-top {
         display: flex;
         align-items: center;
+        gap: 5px;
         .slot-num-icon {
-          width: 28px;
-          height: 28px;
+          width: 30px;
+          height: 30px;
           object-fit: contain;
         }
-      }
-      .slot-player {
-        display: flex;
-        align-items: center;
-        gap: 5px;
-        img {
-          width: 25px;
-          height: 25px;
-          border-radius: 50%;
-          object-fit: cover;
-        }
-        span {
-          height: 16px;
-          color: $fg;
-          font-size: 14px;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
+        .slot-player {
+          display: flex;
+          align-items: center;
+          gap: 5px;
+          img {
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            object-fit: cover;
+          }
+          span {
+            height: 16px;
+            color: $fg;
+            font-size: 14px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
         }
       }
       .slot-metrics {
         display: flex;
+        position: absolute;
+        left: 10px;
+        bottom: 10px;
         flex-direction: column;
         gap: 5px;
         color: $ashy;
