@@ -34,7 +34,7 @@
           :can-moderate="canModerate"
           :speakers-on="speakersOn"
           :open-panel-for="openPanelFor"
-          :vol="volUi[id] ?? rtc.getUserVolume(id)"
+          :vol="volumeFor(id)"
           :is-mirrored="isMirrored"
           :is-game-head="game.isGameHead(id)"
           :is-head="isHead"
@@ -111,7 +111,7 @@
             <img :src="volumeIconForStream(streamAudioKey)" alt="vol" />
             <UiSlider
               class="volume-slider"
-              :model-value="streamVol"
+            :model-value="streamVol"
               :min="0"
               :max="200"
               :step="5"
@@ -145,7 +145,7 @@
             :can-moderate="canModerate"
             :speakers-on="speakersOn"
             :open-panel-for="openPanelFor"
-            :vol="volUi[id] ?? rtc.getUserVolume(id)"
+            :vol="volumeFor(id)"
             :is-mirrored="isMirrored"
             :is-game-head="game.isGameHead(id)"
             :is-head="isHead"
@@ -643,7 +643,13 @@ const ws_url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.
 const isTheater = computed(() => !!screenOwnerId.value)
 const isMyScreen = computed(() => !!localId.value && screenOwnerId.value === localId.value)
 const streamAudioKey = computed(() => screenOwnerId.value ? rtc.screenKey(screenOwnerId.value) : '')
-const streamVol = computed(() => streamAudioKey.value ? (volUi[streamAudioKey.value] ?? rtc.getUserVolume(streamAudioKey.value)) : 100)
+function volumeFor(id: string, fallback = 100): number {
+  if (!id) return fallback
+  const raw = volUi[id] ?? rtc.getUserVolume(id)
+  const n = Number(raw)
+  return Number.isFinite(n) ? n : fallback
+}
+const streamVol = computed(() => streamAudioKey.value ? volumeFor(streamAudioKey.value) : 100)
 const rolePickOwnerIdFor = (id: string) => rolePick.activeUserId === id ? id : ''
 const rolePickRemainingMsFor = (id: string) => rolePick.activeUserId === id ? rolePick.remainingMs : 0
 const mafiaTalkHostIdFor = (id: string) => headUserId.value === id ? id : ''
@@ -1082,11 +1088,11 @@ function volumeIcon(val: number, enabled: boolean) {
   return v < 1 ? iconVolumeMute : v < 25 ? iconVolumeLow : v < 100 ? iconVolumeMid : iconVolumeMax
 }
 function volumeIconForUser(id: string) {
-  return volumeIcon(volUi[id] ?? rtc.getUserVolume(id), speakersOn.value && !isBlocked(id,'speakers'))
+  return volumeIcon(volumeFor(id), speakersOn.value && !isBlocked(id,'speakers'))
 }
 function volumeIconForStream(key: string) {
   if (!key) return iconVolumeMute
-  return volumeIcon(volUi[key] ?? rtc.getUserVolume(key), speakersOn.value && !isBlocked(screenOwnerId.value,'speakers'))
+  return volumeIcon(volumeFor(key), speakersOn.value && !isBlocked(screenOwnerId.value,'speakers'))
 }
 
 const BGM_ACTIVE_PHASES: GamePhase[] = ['roles_pick', 'mafia_talk_start', 'mafia_talk_end', 'night']
@@ -1420,7 +1426,7 @@ function enforceMinGameVolumes(): void {
     if (!uid || uid === localId.value) continue
     if (!seat || seat <= 0) continue
     if (myGameRole.value === 'head' && seat === 11) continue
-    const current = volUi[uid] ?? rtc.getUserVolume(uid)
+    const current = volumeFor(uid)
     if (current < MIN_GAME_VOLUME) {
       clearVolumeSnap(uid)
       volUi[uid] = MIN_GAME_VOLUME

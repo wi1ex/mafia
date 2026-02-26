@@ -284,6 +284,7 @@ const props = withDefaults(defineProps<{
   friendStatus: 'none',
   friendBusy: false,
   friendLoading: false,
+  vol: 100,
 })
 
 defineEmits<{
