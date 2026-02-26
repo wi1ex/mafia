@@ -344,14 +344,14 @@ onBeforeUnmount(() => {
       flex-direction: column;
       align-items: flex-start;
       gap: 5px;
-      padding: 15px;
+      padding: 20px 15px;
       border-radius: 5px;
       background-color: $fg;
       box-shadow: 0 5px 10px rgba($black, 0.25);
       h1 {
         margin: 0;
         color: $bg;
-        font-size: 24px;
+        font-size: 26px;
       }
       p {
         margin: 0;
