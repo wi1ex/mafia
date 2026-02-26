@@ -112,6 +112,11 @@ class GameHistoryFarewellItemOut(BaseModel):
     verdict: Literal["citizen", "mafia"]
 
 
+class GameHistoryNightCheckItemOut(BaseModel):
+    slot: int
+    verdict: Literal["citizen", "mafia", "sheriff"]
+
+
 class GameHistorySlotOut(BaseModel):
     slot: int
     user_id: Optional[int] = None
@@ -125,6 +130,7 @@ class GameHistorySlotOut(BaseModel):
     voted_by_slots: List[int] = Field(default_factory=list)
     best_move_slots: List[int] = Field(default_factory=list)
     farewell: List[GameHistoryFarewellItemOut] = Field(default_factory=list)
+    night_checks: List[GameHistoryNightCheckItemOut] = Field(default_factory=list)
 
 
 class GameHistoryItemOut(BaseModel):
@@ -144,6 +150,9 @@ class UserGamesHistoryOut(BaseModel):
     page: int = 1
     pages: int = 1
     per_page: int = 20
+    total_red_wins: int = 0
+    total_black_wins: int = 0
+    total_draws: int = 0
     items: List[GameHistoryItemOut] = Field(default_factory=list)
 
 

@@ -46,6 +46,7 @@ from ...schemas.user import (
     GameHistoryItemOut,
     GameHistoryHostOut,
     GameHistoryFarewellItemOut,
+    GameHistoryNightCheckItemOut,
     GameHistorySlotOut,
     UserUiPrefsIn,
     UserUiPrefsOut,
@@ -218,6 +219,22 @@ async def games_history(page: int = 1, _ident: Identity = Depends(get_identity),
     if page_num > pages:
         page_num = pages
     offset = (page_num - 1) * GAME_HISTORY_PER_PAGE
+    total_red_wins = 0
+    total_black_wins = 0
+    total_draws = 0
+    result_rows = await db.execute(
+        select(Game.result, func.count(Game.id))
+        .group_by(Game.result)
+    )
+    for result_raw, count_raw in result_rows.all():
+        cnt = max(0, safe_int(count_raw))
+        normalized_result = normalize_game_result(result_raw)
+        if normalized_result == "red":
+            total_red_wins += cnt
+        elif normalized_result == "black":
+            total_black_wins += cnt
+        else:
+            total_draws += cnt
 
     rows = await db.execute(
         select(
@@ -288,6 +305,7 @@ async def games_history(page: int = 1, _ident: Identity = Depends(get_identity),
         leave_map: dict[int, tuple[int, str, list[int]]] = {}
         best_move_map: dict[int, list[int]] = {}
         farewell_map: dict[int, list[tuple[int, str]]] = {}
+        night_check_map: dict[int, list[tuple[int, str]]] = {}
         if isinstance(actions_raw, list):
             for action in actions_raw:
                 if not isinstance(action, dict):
@@ -340,6 +358,27 @@ async def games_history(page: int = 1, _ident: Identity = Depends(get_identity),
                     continue
 
                 if action_type != "farewell":
+                    if action_type == "night_check":
+                        actor_uid = safe_int(action.get("actor_id"))
+                        target_uid = safe_int(action.get("target_id"))
+                        if actor_uid <= 0 or target_uid <= 0:
+                            continue
+                        checker_role = str(action.get("checker_role") or "").strip().lower()
+                        if checker_role not in ("don", "sheriff"):
+                            checker_role = str(roles_map.get(str(actor_uid)) or "").strip().lower()
+                        if checker_role not in ("don", "sheriff"):
+                            continue
+                        target_role = str(action.get("target_role") or "").strip().lower()
+                        if not target_role:
+                            target_role = str(roles_map.get(str(target_uid)) or "").strip().lower()
+                        if checker_role == "sheriff":
+                            verdict = "mafia" if target_role in ("mafia", "don") else "citizen"
+                        else:
+                            verdict = "sheriff" if target_role == "sheriff" else "citizen"
+                        bucket = night_check_map.setdefault(actor_uid, [])
+                        if any(prev_target_uid == target_uid for prev_target_uid, _ in bucket):
+                            continue
+                        bucket.append((target_uid, verdict))
                     continue
                 actor_uid = safe_int(action.get("actor_id"))
                 if actor_uid <= 0 or actor_uid in farewell_map:
@@ -377,6 +416,7 @@ async def games_history(page: int = 1, _ident: Identity = Depends(get_identity),
             voted_by_slots: list[int] = []
             best_move_slots: list[int] = []
             farewell_items: list[GameHistoryFarewellItemOut] = []
+            night_check_items: list[GameHistoryNightCheckItemOut] = []
             if slot_uid:
                 raw_role = str(roles_map.get(str(slot_uid)) or "").strip().lower()
                 if raw_role in GAME_HISTORY_ROLES:
@@ -417,6 +457,21 @@ async def games_history(page: int = 1, _ident: Identity = Depends(get_identity),
                         GameHistoryFarewellItemOut(slot=target_slot, verdict=verdict)
                         for target_slot, verdict in normalized_picks
                     ]
+                night_checks = night_check_map.get(slot_uid, [])
+                if night_checks:
+                    normalized_checks: list[tuple[int, str]] = []
+                    seen_check_slots: set[int] = set()
+                    for target_uid, verdict in night_checks:
+                        target_slot = safe_int(uid_to_slot.get(target_uid))
+                        if target_slot <= 0 or target_slot in seen_check_slots:
+                            continue
+                        seen_check_slots.add(target_slot)
+                        normalized_checks.append((target_slot, verdict))
+                    normalized_checks.sort(key=lambda item: item[0])
+                    night_check_items = [
+                        GameHistoryNightCheckItemOut(slot=target_slot, verdict=verdict)
+                        for target_slot, verdict in normalized_checks
+                    ]
             slots.append(
                 GameHistorySlotOut(
                     slot=slot,
@@ -431,6 +486,7 @@ async def games_history(page: int = 1, _ident: Identity = Depends(get_identity),
                     voted_by_slots=voted_by_slots,
                     best_move_slots=best_move_slots,
                     farewell=farewell_items,
+                    night_checks=night_check_items,
                 )
             )
 
@@ -464,6 +520,9 @@ async def games_history(page: int = 1, _ident: Identity = Depends(get_identity),
         page=page_num,
         pages=pages,
         per_page=GAME_HISTORY_PER_PAGE,
+        total_red_wins=total_red_wins,
+        total_black_wins=total_black_wins,
+        total_draws=total_draws,
         items=items,
     )
 

@@ -4,6 +4,7 @@
       <header class="history-header">
         <h1>История игр</h1>
         <p>Завершённые партии</p>
+        <p class="history-header-stats">Победы мирных: {{ totalRedWins }} · Победы мафии: {{ totalBlackWins }} · Ничьи: {{ totalDraws }}</p>
       </header>
 
       <div v-if="loading" class="history-state">Загрузка...</div>
@@ -65,6 +66,7 @@ import iconArrowDown from '@/assets/svg/arrowDown.svg'
 type GameHistoryRole = 'citizen' | 'mafia' | 'don' | 'sheriff'
 type LeaveReason = 'vote' | 'foul' | 'suicide' | 'night'
 type FarewellVerdict = 'citizen' | 'mafia'
+type NightCheckVerdict = 'citizen' | 'mafia' | 'sheriff'
 
 interface GameHistoryHost {
   id?: number | null
@@ -76,6 +78,11 @@ interface GameHistoryHost {
 interface GameHistoryFarewellItem {
   slot: number
   verdict: FarewellVerdict
+}
+
+interface GameHistoryNightCheckItem {
+  slot: number
+  verdict: NightCheckVerdict
 }
 
 interface GameHistorySlot {
@@ -91,6 +98,7 @@ interface GameHistorySlot {
   voted_by_slots?: number[] | null
   best_move_slots?: number[] | null
   farewell?: GameHistoryFarewellItem[] | null
+  night_checks?: GameHistoryNightCheckItem[] | null
 }
 
 interface GameHistoryItem {
@@ -110,6 +118,9 @@ interface GameHistoryResponse {
   page: number
   pages: number
   per_page: number
+  total_red_wins: number
+  total_black_wins: number
+  total_draws: number
   items: GameHistoryItem[]
 }
 
@@ -118,6 +129,9 @@ const error = ref('')
 const page = ref(1)
 const pages = ref(1)
 const total = ref(0)
+const totalRedWins = ref(0)
+const totalBlackWins = ref(0)
+const totalDraws = ref(0)
 const items = ref<GameHistoryItem[]>([])
 const expanded = ref<Set<number>>(new Set())
 
@@ -201,6 +215,9 @@ async function fetchHistory(): Promise<void> {
     page.value = Math.min(responsePage, responsePages)
     pages.value = responsePages
     total.value = Math.max(0, intOr(data?.total, 0))
+    totalRedWins.value = Math.max(0, intOr(data?.total_red_wins, 0))
+    totalBlackWins.value = Math.max(0, intOr(data?.total_black_wins, 0))
+    totalDraws.value = Math.max(0, intOr(data?.total_draws, 0))
     items.value = Array.isArray(data?.items) ? data.items : []
     clearExpanded()
   } catch (e: any) {
@@ -213,6 +230,9 @@ async function fetchHistory(): Promise<void> {
     }
     items.value = []
     total.value = 0
+    totalRedWins.value = 0
+    totalBlackWins.value = 0
+    totalDraws.value = 0
     pages.value = 1
     clearExpanded()
   } finally {
@@ -258,8 +278,9 @@ onBeforeUnmount(() => {
     margin-bottom: 10px;
     .history-header {
       display: flex;
-      justify-content: space-between;
-      align-items: baseline;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 5px;
       padding: 15px;
       border-radius: 5px;
       background-color: $graphite;
@@ -271,6 +292,10 @@ onBeforeUnmount(() => {
       p {
         margin: 0;
         color: $ashy;
+        font-size: 14px;
+      }
+      .history-header-stats {
+        color: $fg;
         font-size: 14px;
       }
     }

@@ -2,8 +2,6 @@
   <div class="history-details">
     <div class="slots-grid">
       <article v-for="slot in orderedSlots" :key="slot.slot" :class="['slot-card', slotCardRoleClass(slot.role)]">
-        <img v-if="slot.role" class="slot-role-icon" :src="roleIcon(slot.role)" alt="role" />
-
         <div class="slot-top">
           <img class="slot-num-icon" :src="slotIcon(slot.slot)" :alt="`slot-${slot.slot}`" />
           <div class="slot-player">
@@ -12,9 +10,7 @@
           </div>
         </div>
 
-        <div class="slot-metrics">
-          <span>Баллы: {{ formatMetric(slot.points) }} ({{ formatMetric(slot.mmr)}} MMR)</span>
-        </div>
+        <img v-if="slot.role" class="slot-role-icon" :src="roleIcon(slot.role)" alt="role" />
 
         <div v-if="slot.leave_day && slot.leave_reason" class="slot-leave">
           <span>{{ leaveMomentLabel(slot.leave_day, slot.leave_reason) }}</span>
@@ -33,6 +29,19 @@
               <span class="farewell-chip" :class="pick.verdict">{{ pick.slot }}</span>
             </template>
           </span>
+        </div>
+
+        <div v-if="slot.night_checks.length > 0" class="slot-extra slot-extra-night-checks">
+          <span class="slot-extra-label">Проверки:</span>
+          <span class="night-check-values">
+            <template v-for="check in slot.night_checks" :key="`${slot.slot}-check-${check.slot}-${check.verdict}`">
+              <span class="night-check-chip" :class="check.verdict">{{ check.slot }}</span>
+            </template>
+          </span>
+        </div>
+
+        <div class="slot-metrics">
+          <span>Баллы: {{ formatMetric(slot.points) }} ({{ formatMetric(slot.mmr)}} MMR)</span>
         </div>
       </article>
     </div>
@@ -66,10 +75,16 @@ import iconSlot10 from '@/assets/svg/slot10.svg'
 type GameHistoryRole = 'citizen' | 'mafia' | 'don' | 'sheriff'
 type LeaveReason = 'vote' | 'foul' | 'suicide' | 'night'
 type FarewellVerdict = 'citizen' | 'mafia'
+type NightCheckVerdict = 'citizen' | 'mafia' | 'sheriff'
 
 interface GameHistoryFarewellItem {
   slot: number
   verdict: FarewellVerdict
+}
+
+interface GameHistoryNightCheckItem {
+  slot: number
+  verdict: NightCheckVerdict
 }
 
 interface GameHistorySlot {
@@ -85,12 +100,14 @@ interface GameHistorySlot {
   voted_by_slots?: number[] | null
   best_move_slots?: number[] | null
   farewell?: GameHistoryFarewellItem[] | null
+  night_checks?: GameHistoryNightCheckItem[] | null
 }
 
-interface GameHistorySlotView extends Omit<GameHistorySlot, 'voted_by_slots' | 'best_move_slots' | 'farewell'> {
+interface GameHistorySlotView extends Omit<GameHistorySlot, 'voted_by_slots' | 'best_move_slots' | 'farewell' | 'night_checks'> {
   voted_by_slots: number[]
   best_move_slots: number[]
   farewell: GameHistoryFarewellItem[]
+  night_checks: GameHistoryNightCheckItem[]
 }
 
 const props = defineProps<{
@@ -127,6 +144,23 @@ function normalizeFarewell(raw: unknown): GameHistoryFarewellItem[] {
   return out.sort((a, b) => a.slot - b.slot)
 }
 
+function normalizeNightChecks(raw: unknown): GameHistoryNightCheckItem[] {
+  if (!Array.isArray(raw)) return []
+  const out: GameHistoryNightCheckItem[] = []
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue
+    const slotRaw = (item as any).slot
+    const verdictRaw = String((item as any).verdict || '').trim().toLowerCase()
+    if (verdictRaw !== 'citizen' && verdictRaw !== 'mafia' && verdictRaw !== 'sheriff') continue
+    const seat = Number(slotRaw)
+    if (!Number.isFinite(seat)) continue
+    const seatNum = Math.trunc(seat)
+    if (seatNum <= 0 || seatNum > 10 || out.some((pick) => pick.slot === seatNum)) continue
+    out.push({ slot: seatNum, verdict: verdictRaw })
+  }
+  return out.sort((a, b) => a.slot - b.slot)
+}
+
 const orderedSlots = computed<GameHistorySlotView[]>(() => {
   const copy = Array.isArray(props.slots) ? [...props.slots] : []
   return copy
@@ -135,6 +169,7 @@ const orderedSlots = computed<GameHistorySlotView[]>(() => {
       voted_by_slots: normalizeSeatList(slot.voted_by_slots),
       best_move_slots: normalizeSeatList(slot.best_move_slots),
       farewell: normalizeFarewell(slot.farewell),
+      night_checks: normalizeNightChecks(slot.night_checks),
     }))
     .sort((a, b) => a.slot - b.slot)
 })
@@ -309,6 +344,41 @@ function formatMetric(value: number): string {
               font-size: 12px;
               &.citizen {
                 background-color: $red;
+              }
+              &.mafia {
+                background-color: $black;
+                border: 1px solid rgba($grey, 0.5);
+              }
+            }
+          }
+        }
+        &.slot-extra-night-checks {
+          display: flex;
+          align-items: center;
+          gap: 5px;
+          .slot-extra-label {
+            color: $ashy;
+          }
+          .night-check-values {
+            display: inline-flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 5px;
+            .night-check-chip {
+              display: inline-flex;
+              align-items: center;
+              justify-content: center;
+              min-width: 20px;
+              height: 20px;
+              border-radius: 5px;
+              color: $fg;
+              font-size: 12px;
+              &.citizen {
+                background-color: $red;
+              }
+              &.sheriff {
+                background-color: $yellow;
+                color: $dark;
               }
               &.mafia {
                 background-color: $black;
