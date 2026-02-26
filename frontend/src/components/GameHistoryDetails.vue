@@ -15,11 +15,20 @@
         <div v-if="slot.leave_day && slot.leave_reason" class="slot-leave">
           <span>{{ leaveMomentLabel(slot.leave_day, slot.leave_reason) }}</span>
           <img class="leave-reason-icon" :src="leaveReasonIcon(slot.leave_reason)" :alt="leaveReasonAlt(slot.leave_reason)" :title="leaveReasonAlt(slot.leave_reason)" />
-          <span v-if="slot.leave_reason === 'vote' && slot.voted_by_slots.length > 0">{{ slot.voted_by_slots.join(', ') }}</span>
+          <span v-if="slot.leave_reason === 'vote' && slot.voted_by_slots.length > 0" class="vote-values">
+            <template v-for="voterSlot in slot.voted_by_slots" :key="`${slot.slot}-vote-${voterSlot}`">
+              <span class="vote-chip">{{ voterSlot }}</span>
+            </template>
+          </span>
         </div>
 
-        <div v-if="slot.best_move_slots.length > 0" class="slot-extra">
-          Лучший ход: {{ slot.best_move_slots.join(', ') }}
+        <div v-if="slot.best_move_slots.length > 0" class="slot-extra slot-extra-best-move">
+          <span class="slot-extra-label">Лучший ход:</span>
+          <span class="best-move-values">
+            <template v-for="targetSlot in slot.best_move_slots" :key="`${slot.slot}-best-move-${targetSlot}`">
+              <span class="best-move-chip">{{ targetSlot }}</span>
+            </template>
+          </span>
         </div>
 
         <div v-if="slot.farewell.length > 0" class="slot-extra slot-extra-farewell">
@@ -321,6 +330,31 @@ function formatMetric(value: number): string {
         color: $ashy;
         font-size: 12px;
         line-height: 1.2;
+        &.slot-extra-best-move {
+          display: flex;
+          align-items: center;
+          gap: 5px;
+          .slot-extra-label {
+            color: $ashy;
+          }
+          .best-move-values {
+            display: inline-flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 3px;
+            .best-move-chip {
+              display: inline-flex;
+              align-items: center;
+              justify-content: center;
+              min-width: 16px;
+              height: 16px;
+              border-radius: 5px;
+              color: $bg;
+              font-size: 10px;
+              background-color: $orange;
+            }
+          }
+        }
         &.slot-extra-farewell {
           display: flex;
           align-items: center;
@@ -347,7 +381,6 @@ function formatMetric(value: number): string {
               }
               &.mafia {
                 background-color: $black;
-                border: 1px solid rgba($grey, 0.5);
               }
             }
           }
@@ -382,7 +415,6 @@ function formatMetric(value: number): string {
               }
               &.mafia {
                 background-color: $black;
-                border: 1px solid rgba($grey, 0.5);
               }
             }
           }
@@ -395,6 +427,23 @@ function formatMetric(value: number): string {
         color: $orange;
         font-size: 12px;
         line-height: 1.2;
+        .vote-values {
+          display: inline-flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 3px;
+          .vote-chip {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 16px;
+            height: 16px;
+            border-radius: 5px;
+            color: $bg;
+            font-size: 10px;
+            background-color: $ashy;
+          }
+        }
         .leave-reason-icon {
           width: 20px;
           height: 20px;

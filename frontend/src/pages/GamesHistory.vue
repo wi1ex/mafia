@@ -3,7 +3,6 @@
     <section class="history-card">
       <header class="history-header">
         <h1>История игр</h1>
-        <p>Завершённые партии</p>
         <p class="history-header-stats">Победы мирных: {{ totalRedWins }} · Победы мафии: {{ totalBlackWins }} · Ничьи: {{ totalDraws }}</p>
       </header>
 
