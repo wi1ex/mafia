@@ -20,12 +20,12 @@
         </div>
 
         <div class="slot-metrics">
-          <span>Баллы: {{ formatMetric(slot.points) }} (MMR: {{ formatMetric(slot.mmr) }})</span>
+          <span>Баллы: {{ formatMetric(slot.points) }} ({{ formatMetric(slot.mmr)}} MMR)</span>
         </div>
 
         <div v-if="slot.leave_day && slot.leave_reason" class="slot-leave">
-          <span>{{ leaveMomentLabel(slot.leave_day, slot.leave_reason) }} · {{ leaveReasonLabel(slot.leave_reason) }}</span>
-          <span v-if="slot.leave_reason === 'vote' && slot.voted_by_slots.length > 0"> ({{ slot.voted_by_slots.join(', ') }})</span>
+          <span>{{ leaveMomentLabel(slot.leave_day, slot.leave_reason) }} - {{ leaveReasonLabel(slot.leave_reason) }}</span>
+          <span v-if="slot.leave_reason === 'vote' && slot.voted_by_slots.length > 0"> {{ slot.voted_by_slots.join(', ') }}</span>
         </div>
 
         <div v-if="slot.best_move_slots.length > 0" class="slot-extra">
@@ -37,7 +37,6 @@
           <span class="farewell-values">
             <template v-for="(pick, index) in slot.farewell" :key="`${slot.slot}-${pick.slot}-${pick.verdict}`">
               <span class="farewell-chip" :class="pick.verdict">{{ pick.slot }}</span>
-              <span v-if="index < slot.farewell.length - 1" class="farewell-sep">,</span>
             </template>
           </span>
         </div>
@@ -214,6 +213,7 @@ function slotLabel(slot: number): string {
           object-fit: cover;
         }
         span {
+          height: 16px;
           color: $fg;
           font-size: 14px;
           white-space: nowrap;
@@ -262,11 +262,9 @@ function slotLabel(slot: number): string {
               justify-content: center;
               min-width: 20px;
               height: 20px;
-              padding: 0 5px;
               border-radius: 5px;
               color: $fg;
               font-size: 12px;
-              font-variant-numeric: tabular-nums;
               &.citizen {
                 background-color: $red;
               }
@@ -275,14 +273,10 @@ function slotLabel(slot: number): string {
                 border: 1px solid rgba($grey, 0.5);
               }
             }
-            .farewell-sep {
-              color: $ashy;
-            }
           }
         }
       }
       .slot-leave {
-        margin-top: auto;
         color: $orange;
         font-size: 12px;
         line-height: 1.2;

@@ -168,7 +168,10 @@ function toggleExpanded(gameId: number): void {
 
 function resultLabel(game: GameHistoryItem): string {
   if (game.result === 'red') return 'Победа мирных'
-  if (game.result === 'black') return `Победа мафии (${Math.max(0, intOr(game.black_alive_at_finish, 0))} живой мафии)`
+  if (game.result === 'black') {
+    const count_black = Math.max(0, intOr(game.black_alive_at_finish, 0))
+    return `Победа мафии ${count_black}в${count_black}`
+  }
   return 'Ничья'
 }
 
