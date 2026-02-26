@@ -103,7 +103,7 @@
               :model-value="vol ?? 100"
               :min="0"
               :max="200"
-              :step="5"
+              :step="10"
               :disabled="volumeDisabled"
               aria-label="Громкость пользователя"
               @update:modelValue="$emit('vol-input', id, $event)"
@@ -682,7 +682,7 @@ const showFriendAction = computed(() => props.id !== props.localId && friendActi
       user-select: none;
     }
     .avatar {
-      height: 40%;
+      height: 50%;
       border-radius: 50%;
     }
   }
@@ -788,6 +788,7 @@ const showFriendAction = computed(() => props.id !== props.localId && friendActi
         .volume-slider {
           flex: 1 1 auto;
           min-width: 0;
+          height: 80%;
           --ui-slider-filled-height: 100%;
           --ui-slider-filled-radius: 5px;
           --ui-slider-filled-border: #{$lead};

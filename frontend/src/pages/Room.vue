@@ -114,7 +114,7 @@
             :model-value="streamVol"
               :min="0"
               :max="200"
-              :step="5"
+              :step="10"
               :disabled="!speakersOn || isBlocked(screenOwnerId,'speakers')"
               aria-label="Громкость трансляции"
               @update:modelValue="onVol(streamAudioKey, $event)"
@@ -2951,6 +2951,7 @@ onBeforeUnmount(() => {
         .volume-slider {
           flex: 1 1 auto;
           min-width: 0;
+          height: 80%;
           --ui-slider-filled-height: 100%;
           --ui-slider-filled-radius: 5px;
           --ui-slider-filled-border: #{$lead};

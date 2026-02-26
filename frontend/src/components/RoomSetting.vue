@@ -35,7 +35,7 @@
                 :model-value="volume"
                 :min="0"
                 :max="100"
-                :step="5"
+                :step="10"
                 aria-label="Громкость фоновой музыки"
                 @update:modelValue="emit('update:volume', $event)"
               />
@@ -325,6 +325,7 @@ onBeforeUnmount(() => {
         .volume-slider {
           flex: 1 1 auto;
           min-width: 0;
+          height: 80%;
           --ui-slider-filled-height: 100%;
           --ui-slider-filled-radius: 5px;
           --ui-slider-filled-border: #{$lead};
