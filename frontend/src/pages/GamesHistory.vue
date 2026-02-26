@@ -344,7 +344,6 @@ onBeforeUnmount(() => {
   padding: 10px;
   width: 100%;
   box-sizing: border-box;
-  background-color: $dark;
   scrollbar-width: none;
   overflow: auto;
   .history-card {
@@ -358,7 +357,7 @@ onBeforeUnmount(() => {
       flex-direction: column;
       align-items: flex-start;
       padding: 20px 15px;
-      gap: 10px;
+      gap: 30px;
       border-radius: 5px;
       background-color: $fg;
       box-shadow: 0 5px 10px rgba($black, 0.25);
@@ -379,8 +378,9 @@ onBeforeUnmount(() => {
           min-width: 0;
         }
         .history-header-stat-label {
-          color: $dark;
-          font-size: 12px;
+          text-align: center;
+          color: $bg;
+          font-size: 14px;
           line-height: 1.2;
         }
         .history-header-stat-value {
@@ -391,19 +391,17 @@ onBeforeUnmount(() => {
           min-width: 50px;
           height: 25px;
           border-radius: 5px;
-          font-size: 12px;
+          color: $fg;
+          font-size: 14px;
           font-weight: bold;
           &.history-header-stat-value--red {
-            background-color: rgba($red, 0.5);
-            color: $fg;
+            background-color: $red;
           }
           &.history-header-stat-value--black {
             background-color: $graphite;
-            color: $fg;
           }
           &.history-header-stat-value--draw {
             background-color: $grey;
-            color: $bg;
           }
         }
       }
