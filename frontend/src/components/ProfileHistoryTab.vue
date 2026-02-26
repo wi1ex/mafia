@@ -312,8 +312,9 @@ onBeforeUnmount(() => {
 .profile-history {
   display: flex;
   flex-direction: column;
+  justify-self: center;
   gap: 10px;
-  width: 100%;
+  width: min(1100px,100%);
   .history-state {
     padding: 20px 10px;
     text-align: center;
