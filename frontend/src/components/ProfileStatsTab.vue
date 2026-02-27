@@ -559,13 +559,13 @@ onMounted(() => {
       align-items: center;
       justify-content: center;
       min-width: 95px;
-      height: 30px;
-      padding: 0 10px;
+      height: 45px;
+      padding: 0 20px;
       border: none;
       border-radius: 5px;
       background-color: $graphite;
       color: $fg;
-      font-size: 14px;
+      font-size: 16px;
       cursor: pointer;
       transition: background-color 0.25s ease-in-out, color 0.25s ease-in-out;
       &:hover {
@@ -908,8 +908,9 @@ onMounted(() => {
       }
       .stats-season-btn {
         min-width: 80px;
-        height: 25px;
-        font-size: 12px;
+        height: 30px;
+        padding: 0 10px;
+        font-size: 14px;
       }
     }
     .state {
