@@ -1,13 +1,43 @@
 from __future__ import annotations
 from typing import Any
-from sqlalchemy import delete, or_, select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..models.game import Game
-from ..models.stats import UserGameStats
 
 DECISIVE_RESULTS = {"red", "black"}
 BLACK_ROLES = {"mafia", "don"}
 RED_ROLES = {"citizen", "sheriff"}
+
+GAME_STATS_FIELDS: tuple[str, ...] = (
+    "games_total_finished",
+    "games_decisive",
+    "games_won",
+    "games_hosted",
+    "don_checks_first_night",
+    "don_checks_first_night_found",
+    "vote_leave_day12",
+    "foul_removed_count",
+    "vote_for_red_on_black_win_count",
+    "farewell_total",
+    "farewell_correct",
+    "first_killed_best_move_total",
+    "best_move_black_0",
+    "best_move_black_1",
+    "best_move_black_2",
+    "best_move_black_3",
+    "current_win_streak",
+    "current_loss_streak",
+    "best_win_streak",
+    "best_loss_streak",
+    "citizen_games",
+    "citizen_wins",
+    "sheriff_games",
+    "sheriff_wins",
+    "mafia_games",
+    "mafia_wins",
+    "don_games",
+    "don_wins",
+)
 
 
 def _safe_int(raw: Any) -> int:
@@ -56,6 +86,10 @@ def _did_win(role: str, result: str) -> bool:
         return role in BLACK_ROLES
 
     return False
+
+
+def empty_game_stats_row() -> dict[str, int]:
+    return {field: 0 for field in GAME_STATS_FIELDS}
 
 
 def _normalize_roles(raw: Any) -> dict[int, str]:
@@ -225,67 +259,64 @@ def _parse_actions(actions: list[dict[str, Any]], roles: dict[int, str]) -> dict
     }
 
 
-def _apply_game_to_user_row(row: UserGameStats, *, uid: int, roles: dict[int, str], players: set[int], head_id: int, result: str, parsed: dict[str, Any]) -> None:
+def _apply_game_to_row(row: dict[str, int], *, uid: int, roles: dict[int, str], players: set[int], head_id: int, result: str, parsed: dict[str, Any]) -> None:
     if uid <= 0 or result not in DECISIVE_RESULTS:
         return
 
     in_players = uid in players
-    decisive = result in DECISIVE_RESULTS
     role = roles.get(uid, "")
 
     if in_players:
-        row.games_total_finished = _safe_int(row.games_total_finished) + 1
+        row["games_total_finished"] += 1
+        row["games_decisive"] += 1
+        won = _did_win(role, result)
+        if won:
+            row["games_won"] += 1
+            row["current_win_streak"] += 1
+            row["current_loss_streak"] = 0
+            if row["current_win_streak"] > row["best_win_streak"]:
+                row["best_win_streak"] = row["current_win_streak"]
+        else:
+            row["current_loss_streak"] += 1
+            row["current_win_streak"] = 0
+            if row["current_loss_streak"] > row["best_loss_streak"]:
+                row["best_loss_streak"] = row["current_loss_streak"]
 
-        if decisive:
-            row.games_decisive = _safe_int(row.games_decisive) + 1
-            won = _did_win(role, result)
+        if role == "citizen":
+            row["citizen_games"] += 1
             if won:
-                row.games_won = _safe_int(row.games_won) + 1
-                row.current_win_streak = _safe_int(row.current_win_streak) + 1
-                row.current_loss_streak = 0
-                if _safe_int(row.current_win_streak) > _safe_int(row.best_win_streak):
-                    row.best_win_streak = _safe_int(row.current_win_streak)
-            else:
-                row.current_loss_streak = _safe_int(row.current_loss_streak) + 1
-                row.current_win_streak = 0
-                if _safe_int(row.current_loss_streak) > _safe_int(row.best_loss_streak):
-                    row.best_loss_streak = _safe_int(row.current_loss_streak)
+                row["citizen_wins"] += 1
+        elif role == "sheriff":
+            row["sheriff_games"] += 1
+            if won:
+                row["sheriff_wins"] += 1
+        elif role == "mafia":
+            row["mafia_games"] += 1
+            if won:
+                row["mafia_wins"] += 1
+        elif role == "don":
+            row["don_games"] += 1
+            if won:
+                row["don_wins"] += 1
 
-            if role == "citizen":
-                row.citizen_games = _safe_int(row.citizen_games) + 1
-                if won:
-                    row.citizen_wins = _safe_int(row.citizen_wins) + 1
-            elif role == "sheriff":
-                row.sheriff_games = _safe_int(row.sheriff_games) + 1
-                if won:
-                    row.sheriff_wins = _safe_int(row.sheriff_wins) + 1
-            elif role == "mafia":
-                row.mafia_games = _safe_int(row.mafia_games) + 1
-                if won:
-                    row.mafia_wins = _safe_int(row.mafia_wins) + 1
-            elif role == "don":
-                row.don_games = _safe_int(row.don_games) + 1
-                if won:
-                    row.don_wins = _safe_int(row.don_wins) + 1
+        row["don_checks_first_night"] += _safe_int(parsed["don_checks_first_night"].get(uid))
+        row["don_checks_first_night_found"] += _safe_int(parsed["don_checks_first_night_found"].get(uid))
+        row["vote_leave_day12"] += _safe_int(parsed["leave_vote_day12"].get(uid))
+        row["foul_removed_count"] += _safe_int(parsed["foul_removed_count"].get(uid))
+        if result == "black":
+            row["vote_for_red_on_black_win_count"] += _safe_int(parsed["vote_for_red_on_black_win_count"].get(uid))
+        row["farewell_total"] += _safe_int(parsed["farewell_total"].get(uid))
+        row["farewell_correct"] += _safe_int(parsed["farewell_correct"].get(uid))
+        row["first_killed_best_move_total"] += _safe_int(parsed["first_killed_best_move_total"].get(uid))
 
-            row.don_checks_first_night = _safe_int(row.don_checks_first_night) + _safe_int(parsed["don_checks_first_night"].get(uid))
-            row.don_checks_first_night_found = _safe_int(row.don_checks_first_night_found) + _safe_int(parsed["don_checks_first_night_found"].get(uid))
-            row.vote_leave_day12 = _safe_int(row.vote_leave_day12) + _safe_int(parsed["leave_vote_day12"].get(uid))
-            row.foul_removed_count = _safe_int(row.foul_removed_count) + _safe_int(parsed["foul_removed_count"].get(uid))
-            if result == "black":
-                row.vote_for_red_on_black_win_count = _safe_int(row.vote_for_red_on_black_win_count) + _safe_int(parsed["vote_for_red_on_black_win_count"].get(uid))
-            row.farewell_total = _safe_int(row.farewell_total) + _safe_int(parsed["farewell_total"].get(uid))
-            row.farewell_correct = _safe_int(row.farewell_correct) + _safe_int(parsed["farewell_correct"].get(uid))
-            row.first_killed_best_move_total = _safe_int(row.first_killed_best_move_total) + _safe_int(parsed["first_killed_best_move_total"].get(uid))
-
-            best_move_bucket: dict[int, int] = parsed["best_move_bucket"].get(uid) or {}
-            row.best_move_black_0 = _safe_int(row.best_move_black_0) + _safe_int(best_move_bucket.get(0))
-            row.best_move_black_1 = _safe_int(row.best_move_black_1) + _safe_int(best_move_bucket.get(1))
-            row.best_move_black_2 = _safe_int(row.best_move_black_2) + _safe_int(best_move_bucket.get(2))
-            row.best_move_black_3 = _safe_int(row.best_move_black_3) + _safe_int(best_move_bucket.get(3))
+        best_move_bucket: dict[int, int] = parsed["best_move_bucket"].get(uid) or {}
+        row["best_move_black_0"] += _safe_int(best_move_bucket.get(0))
+        row["best_move_black_1"] += _safe_int(best_move_bucket.get(1))
+        row["best_move_black_2"] += _safe_int(best_move_bucket.get(2))
+        row["best_move_black_3"] += _safe_int(best_move_bucket.get(3))
 
     if 0 < head_id == uid:
-        row.games_hosted = _safe_int(row.games_hosted) + 1
+        row["games_hosted"] += 1
 
 
 def _build_game_payload(game: Game) -> dict[str, Any] | None:
@@ -308,58 +339,26 @@ def _build_game_payload(game: Game) -> dict[str, Any] | None:
     }
 
 
-async def apply_finished_game_stats(session: AsyncSession, game: Game) -> None:
-    payload = _build_game_payload(game)
-    if not payload:
-        return
-
-    ids_to_update = set(payload["players"])
-    head_id = _safe_int(payload["head_id"])
-    if head_id > 0:
-        ids_to_update.add(head_id)
-    if not ids_to_update:
-        return
-
-    rows = await session.execute(select(UserGameStats).where(UserGameStats.user_id.in_(list(ids_to_update))))
-    rows_map: dict[int, UserGameStats] = {int(item.user_id): item for item in rows.scalars().all()}
-
-    for uid in ids_to_update:
-        row = rows_map.get(uid)
-        if not row:
-            row = UserGameStats(user_id=uid)
-            session.add(row)
-            rows_map[uid] = row
-        _apply_game_to_user_row(
-            row,
-            uid=uid,
-            roles=payload["roles"],
-            players=payload["players"],
-            head_id=head_id,
-            result=payload["result"],
-            parsed=payload["parsed"],
-        )
-
-
-async def rebuild_user_game_stats(session: AsyncSession, user_id: int) -> UserGameStats:
+async def build_user_game_stats_row(session: AsyncSession, user_id: int, *, game_id_min: int | None = None, game_id_max: int | None = None) -> dict[str, int]:
     uid = _safe_int(user_id)
     if uid <= 0:
-        raise ValueError("invalid user_id")
+        raise ValueError("invalid_user_id")
 
-    await session.execute(delete(UserGameStats).where(UserGameStats.user_id == uid))
-    row = UserGameStats(user_id=uid)
-    session.add(row)
+    filters = [or_(Game.head_id == uid, Game.roles.has_key(str(uid)))]
+    min_id = _safe_int(game_id_min) if game_id_min is not None else 0
+    max_id = _safe_int(game_id_max) if game_id_max is not None else 0
+    if min_id > 0:
+        filters.append(Game.id >= min_id)
+    if max_id > 0:
+        filters.append(Game.id <= max_id)
 
-    game_rows = await session.execute(
-        select(Game)
-        .where(or_(Game.head_id == uid, Game.roles.has_key(str(uid))))
-        .order_by(Game.finished_at.asc(), Game.id.asc())
-    )
-
+    row = empty_game_stats_row()
+    game_rows = await session.execute(select(Game).where(*filters).order_by(Game.finished_at.asc(), Game.id.asc()))
     for game in game_rows.scalars().all():
         payload = _build_game_payload(game)
         if not payload:
             continue
-        _apply_game_to_user_row(
+        _apply_game_to_row(
             row,
             uid=uid,
             roles=payload["roles"],

@@ -2,6 +2,12 @@
   <div class="stats-tab">
     <div class="stats-head">
       <h3>Статистика пользователя</h3>
+      <div class="stats-season-switch">
+        <button v-for="option in seasonOptions" :key="option.key" class="stats-season-btn" type="button"
+                :class="{ active: selectedSeasonKey === option.key }" @click="setSeason(option.season)">
+          {{ option.label }}
+        </button>
+      </div>
     </div>
 
     <div v-if="loading && !loaded" class="state">Загрузка...</div>
@@ -121,8 +127,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { api } from '@/services/axios'
+import { useSettingsStore } from '@/store'
 import iconRoleCitizen from '@/assets/images/roleCitizen.png'
 import iconRoleMafia from '@/assets/images/roleMafia.png'
 import iconRoleDon from '@/assets/images/roleDon.png'
@@ -180,10 +187,20 @@ type UserStats = {
   game: UserGameStats
 }
 
+type SeasonOption = {
+  key: string
+  label: string
+  season: number | null
+}
+
 const loading = ref(false)
 const loaded = ref(false)
 const error = ref('')
 const intFmt = new Intl.NumberFormat('ru-RU')
+const settingsStore = useSettingsStore()
+const selectedSeason = ref<number | null>(null)
+const selectedSeasonKey = computed(() => (selectedSeason.value === null ? 'all' : `s${selectedSeason.value}`))
+let requestSeq = 0
 
 const stats = reactive<UserStats>({
   rooms_created: 0,
@@ -292,6 +309,25 @@ function barPct(valueRaw: unknown, maxRaw: unknown): number {
 }
 
 const game = computed(() => stats.game)
+
+const seasonOptions = computed<SeasonOption[]>(() => {
+  const options: SeasonOption[] = [{ key: 'all', label: 'Все игры', season: null }]
+  const starts = settingsStore.seasonStartGameNumbers
+  for (let i = 0; i < starts.length; i += 1) {
+    const seasonNo = i + 1
+    options.push({
+      key: `s${seasonNo}`,
+      label: `${seasonNo} сезон`,
+      season: seasonNo,
+    })
+  }
+  return options
+})
+
+function setSeason(season: number | null): void {
+  if (selectedSeason.value === season) return
+  selectedSeason.value = season
+}
 
 const nonGameItems = computed(() => [
   { key: 'room-minutes', label: 'В комнатах', value: formatDurationDhm(stats.room_minutes) },
@@ -445,12 +481,15 @@ function normalizeGame(raw: any): UserGameStats {
 }
 
 async function load(force = false) {
-  if (loading.value) return
-  if (loaded.value && !force) return
+  if (loaded.value && !force && !loading.value) return
+  const seq = ++requestSeq
   loading.value = true
   error.value = ''
   try {
-    const { data } = await api.get<UserStats>('/users/stats')
+    const params: { season?: number } = {}
+    if (selectedSeason.value !== null) params.season = selectedSeason.value
+    const { data } = await api.get<UserStats>('/users/stats', { params })
+    if (seq !== requestSeq) return
     stats.rooms_created = safeInt(data?.rooms_created)
     stats.room_minutes = safeInt(data?.room_minutes)
     stats.stream_minutes = safeInt(data?.stream_minutes)
@@ -458,11 +497,22 @@ async function load(force = false) {
     stats.game = normalizeGame(data?.game)
     loaded.value = true
   } catch {
+    if (seq !== requestSeq) return
     error.value = 'Не удалось загрузить статистику'
   } finally {
-    loading.value = false
+    if (seq === requestSeq) loading.value = false
   }
 }
+
+watch(selectedSeason, () => {
+  void load(true)
+})
+
+watch(seasonOptions, (options) => {
+  if (selectedSeason.value === null) return
+  const exists = options.some((option) => option.season === selectedSeason.value)
+  if (!exists) selectedSeason.value = null
+}, { immediate: true })
 
 onMounted(() => {
   void load()
@@ -480,9 +530,40 @@ onMounted(() => {
   .stats-head {
     display: flex;
     align-items: center;
-    justify-content: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
     h3 {
       margin: 0;
+    }
+    .stats-season-switch {
+      display: inline-flex;
+      align-items: center;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+    .stats-season-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 95px;
+      height: 30px;
+      padding: 0 10px;
+      border: none;
+      border-radius: 5px;
+      background-color: $graphite;
+      color: $fg;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background-color 0.25s ease-in-out, color 0.25s ease-in-out;
+      &:hover {
+        background-color: $lead;
+      }
+      &.active {
+        background-color: $fg;
+        color: $bg;
+      }
     }
   }
   .state {
@@ -806,8 +887,18 @@ onMounted(() => {
 @media (max-width: 1280px) {
   .stats-tab {
     .stats-head {
+      justify-content: flex-start;
       h3 {
         font-size: 20px;
+      }
+      .stats-season-switch {
+        width: 100%;
+        justify-content: flex-start;
+      }
+      .stats-season-btn {
+        min-width: 80px;
+        height: 25px;
+        font-size: 12px;
       }
     }
     .state {

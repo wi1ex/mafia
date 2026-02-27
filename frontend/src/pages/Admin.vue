@@ -54,8 +54,8 @@
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Время жизни пустой комнаты (сек)" />
                 <UiInput id="rooms-single-ttl-minutes" v-model.number="site.rooms_single_ttl_minutes" type="number" min="1" step="1"
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Время до кика/удаления при 1 участнике (мин)" />
-                <UiInput id="season-start-game-number" v-model.number="site.season_start_game_number" type="number" min="1" step="1"
-                         autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="С какой игры действует текущий сезон" />
+                <UiInput id="season-start-game-number" v-model="site.season_start_game_number"
+                         autocomplete="off" inputmode="text" :disabled="savingSettings" label="С какой игры начинается каждый сезон (через запятую)" />
               </div>
             </div>
 
@@ -763,7 +763,7 @@ type SiteSettings = {
   rooms_limit_per_user: number
   rooms_empty_ttl_seconds: number
   rooms_single_ttl_minutes: number
-  season_start_game_number: number
+  season_start_game_number: string
 }
 
 type GameSettings = {
@@ -970,7 +970,7 @@ const site = reactive<SiteSettings>({
   rooms_limit_per_user: 3,
   rooms_empty_ttl_seconds: 10,
   rooms_single_ttl_minutes: 30,
-  season_start_game_number: 1,
+  season_start_game_number: '1',
 })
 
 const game = reactive<GameSettings>({
@@ -1138,6 +1138,29 @@ let logsUserTimer: number | undefined
 let roomsUserTimer: number | undefined
 let usersUserTimer: number | undefined
 
+function parseSeasonStartNumbers(raw: unknown): number[] {
+  const source = String(raw ?? '').trim()
+  if (!source) return []
+  const values: number[] = []
+  for (const part of source.split(',')) {
+    const token = part.trim()
+    if (!token) return []
+    const parsed = Number(token)
+    if (!Number.isFinite(parsed)) return []
+    const value = Math.trunc(parsed)
+    if (value < 1) return []
+    values.push(value)
+  }
+  if (values.length === 0) return []
+  return Array.from(new Set(values)).sort((a, b) => a - b)
+}
+
+function normalizeSeasonStartNumbers(raw: unknown): string {
+  const parsed = parseSeasonStartNumbers(raw)
+  if (parsed.length === 0) return '1'
+  return parsed.join(',')
+}
+
 function normalizeInt(value: number): number {
   return Number.isFinite(value) ? value : 0
 }
@@ -1183,7 +1206,7 @@ function snapshotSite(): string {
     rooms_limit_per_user: normalizeInt(site.rooms_limit_per_user),
     rooms_empty_ttl_seconds: normalizeInt(site.rooms_empty_ttl_seconds),
     rooms_single_ttl_minutes: normalizeInt(site.rooms_single_ttl_minutes),
-    season_start_game_number: normalizeInt(site.season_start_game_number),
+    season_start_game_number: normalizeSeasonStartNumbers(site.season_start_game_number),
   })
 }
 
@@ -1350,6 +1373,7 @@ async function loadSettings(): Promise<void> {
     const { data } = await api.get('/admin/settings')
     Object.assign(site, data?.site || {})
     Object.assign(game, data?.game || {})
+    site.season_start_game_number = normalizeSeasonStartNumbers(site.season_start_game_number)
     siteSnapshot.value = snapshotSite()
     gameSnapshot.value = snapshotGame()
   } catch {
@@ -1365,6 +1389,12 @@ async function saveSettings(): Promise<void> {
   if (savingSettings.value) return
   savingSettings.value = true
   try {
+    const seasonStarts = parseSeasonStartNumbers(site.season_start_game_number)
+    if (seasonStarts.length === 0) {
+      void alertDialog('Укажите сезоны числами через запятую, например: 1, 250, 500')
+      return
+    }
+    const normalizedSeasonStarts = seasonStarts.join(',')
     const payload = {
       site: {
         registration_enabled: Boolean(site.registration_enabled),
@@ -1377,7 +1407,7 @@ async function saveSettings(): Promise<void> {
         rooms_limit_per_user: normalizeInt(site.rooms_limit_per_user),
         rooms_empty_ttl_seconds: normalizeInt(site.rooms_empty_ttl_seconds),
         rooms_single_ttl_minutes: normalizeInt(site.rooms_single_ttl_minutes),
-        season_start_game_number: normalizeInt(site.season_start_game_number),
+        season_start_game_number: normalizedSeasonStarts,
       },
       game: {
         game_min_ready_players: normalizeInt(game.game_min_ready_players),
@@ -1396,6 +1426,7 @@ async function saveSettings(): Promise<void> {
     const { data } = await api.patch('/admin/settings', payload)
     Object.assign(site, data?.site || {})
     Object.assign(game, data?.game || {})
+    site.season_start_game_number = normalizeSeasonStartNumbers(site.season_start_game_number)
     siteSnapshot.value = snapshotSite()
     gameSnapshot.value = snapshotGame()
     settingsStore.applyPublic({
