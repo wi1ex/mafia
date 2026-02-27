@@ -321,7 +321,7 @@
                   <td>
                     <div v-if="row.username" class="user-cell">
                       <img class="user-avatar" v-minio-img="{ key: row.avatar_name ? `avatars/${row.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
-                      <button class="user-link" type="button" @click="openUserStats(row)">{{ row.username }}</button>
+                      <span>{{ row.username }}</span>
                     </div>
                     <span v-else>-</span>
                   </td>
@@ -598,7 +598,7 @@
                   <td>
                     <div v-if="row.username" class="user-cell">
                       <img class="user-avatar" v-minio-img="{ key: row.avatar_name ? `avatars/${row.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
-                      <span>{{ row.username }}</span>
+                      <button class="user-link" type="button" @click="openUserStats(row)">{{ row.username }}</button>
                     </div>
                     <span v-else>-</span>
                   </td>
