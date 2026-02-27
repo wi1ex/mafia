@@ -7,6 +7,7 @@ from ..models.game import Game
 DECISIVE_RESULTS = {"red", "black"}
 BLACK_ROLES = {"mafia", "don"}
 RED_ROLES = {"citizen", "sheriff"}
+FOUL_OR_SUICIDE_REASONS = {"foul", "suicide"}
 
 GAME_STATS_FIELDS: tuple[str, ...] = (
     "games_total_finished",
@@ -137,7 +138,7 @@ def _parse_actions(actions: list[dict[str, Any]], roles: dict[int, str]) -> dict
     first_killed_best_move_total: dict[int, int] = {}
     best_move_bucket: dict[int, dict[int, int]] = {}
     last_vote_targets: dict[int, int] = {}
-    foul_death_seen: set[int] = set()
+    foul_or_suicide_death_seen: set[int] = set()
     don_checked_first_night_seen: set[int] = set()
     don_checked_first_night_found_seen: set[int] = set()
 
@@ -164,9 +165,9 @@ def _parse_actions(actions: list[dict[str, Any]], roles: dict[int, str]) -> dict
             reason = _safe_str(action.get("reason"))
             if reason == "vote" and day_number in (1, 2):
                 _inc(leave_vote_day12, target_id, 1)
-            if reason == "foul" and target_id > 0 and target_id not in foul_death_seen:
+            if reason in FOUL_OR_SUICIDE_REASONS and target_id > 0 and target_id not in foul_or_suicide_death_seen:
                 _inc(foul_removed_count, target_id, 1)
-                foul_death_seen.add(target_id)
+                foul_or_suicide_death_seen.add(target_id)
             continue
 
         if action_type == "vote":

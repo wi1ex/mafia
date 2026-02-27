@@ -101,7 +101,7 @@
             <strong>{{ formatPct(game.vote_leave_day12_percent) }}</strong>
           </article>
           <article class="metric-card">
-            <span>Удалён по фолам</span>
+            <span>Удалён/Покинул игру</span>
             <strong>{{ formatPct(game.foul_removed_percent) }}</strong>
           </article>
           <article class="metric-card">
