@@ -29,7 +29,7 @@ from ...core.settings import settings
 from ...core.logging import log_action
 from ...security.auth_tokens import get_identity
 from ...security.decorators import log_route, rate_limited
-from ...services.user_game_stats_cache import get_user_game_stats_cached
+from ...services.user_stats import get_user_game_stats_cached
 from ...services.text_moderation import enforce_clean_text
 from ...schemas.common import Identity, Ok
 from ...schemas.user import (

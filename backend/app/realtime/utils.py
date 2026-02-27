@@ -24,7 +24,7 @@ from ..core.clients import get_redis
 from ..core.logging import log_action
 from ..security.auth_tokens import decode_token
 from ..services.user_cache import get_user_profile_cached, get_user_profiles_cached
-from ..services.user_game_stats_cache import invalidate_user_game_stats_cache_for_users
+from ..services.user_stats import invalidate_user_game_stats_cache_for_users
 
 __all__ = [
     "KEYS_STATE",

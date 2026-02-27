@@ -19,6 +19,7 @@ TOP_PLAYERS_LIMIT = 5
 CACHE_VERSION = 1
 CACHE_TTL_SECONDS = 7 * 24 * 60 * 60
 SCAN_BATCH_SIZE = 200
+ALL_STATS_CACHE_PATTERN = "user:*:stats:game:*"
 
 
 def season_bounds(starts: list[int] | tuple[int, ...], season_index: int) -> tuple[int, int | None]:
@@ -130,6 +131,24 @@ async def invalidate_user_game_stats_cache_for_users(user_ids: Iterable[int | st
 
     for uid in ids:
         await invalidate_user_game_stats_cache(uid, redis_client=redis_client)
+
+
+async def invalidate_all_user_game_stats_cache(*, redis_client=None) -> None:
+    r = redis_client or get_redis()
+    keys_batch: list[str] = []
+    try:
+        async for key in r.scan_iter(match=ALL_STATS_CACHE_PATTERN, count=SCAN_BATCH_SIZE):
+            if not key:
+                continue
+            keys_batch.append(str(key))
+            if len(keys_batch) >= SCAN_BATCH_SIZE:
+                await _unlink_or_delete_keys(r, keys_batch)
+                keys_batch.clear()
+
+        if keys_batch:
+            await _unlink_or_delete_keys(r, keys_batch)
+    except Exception:
+        log.warning("user_stats_cache.invalidate_all_failed")
 
 
 def _build_game_stats(stats_row: dict[str, int], top_players: list[UserTopPlayerOut]) -> UserGameStatsOut:

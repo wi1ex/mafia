@@ -29,6 +29,7 @@ from ...security.auth_tokens import get_identity
 from ...security.passwords import hash_password
 from ...security.parameters import ensure_app_settings, sync_cache_from_row, refresh_app_settings, get_cached_settings
 from ...services.user_cache import write_user_profile_cache
+from ...services.user_stats import invalidate_all_user_game_stats_cache
 from ...schemas.common import Ok, Identity
 from ...schemas.updates import AdminUpdateIn, AdminUpdateOut, AdminUpdatesOut
 from ...schemas.admin import (
@@ -135,6 +136,12 @@ async def update_settings(payload: AdminSettingsUpdateIn, session: AsyncSession 
     site_data = data.get("site") or {}
     game_data = data.get("game") or {}
     combined = {**site_data, **game_data}
+    season_changed = False
+    if "season_start_game_number" in combined:
+        current_season_csv = str(getattr(row, "season_start_game_number", "") or "").strip()
+        incoming_season_csv = str(combined.get("season_start_game_number") or "").strip()
+        season_changed = incoming_season_csv != current_season_csv
+
     for key, value in combined.items():
         setattr(row, key, value)
 
@@ -151,6 +158,12 @@ async def update_settings(payload: AdminSettingsUpdateIn, session: AsyncSession 
             await sio.emit("settings_update", {"ok": True}, namespace="/rooms")
         except Exception:
             pass
+        if season_changed:
+            async def _invalidate_stats_cache_task() -> None:
+                with suppress(Exception):
+                    await invalidate_all_user_game_stats_cache()
+
+            asyncio.create_task(_invalidate_stats_cache_task())
 
     return AdminSettingsOut(site=site_settings_out(row), game=game_settings_out(row))
 
