@@ -390,13 +390,13 @@ onBeforeUnmount(() => {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      padding: 0 10px;
-      height: 30px;
+      padding: 0 20px;
+      height: 45px;
       border: none;
       border-radius: 5px;
       background-color: $graphite;
       color: $fg;
-      font-size: 14px;
+      font-size: 16px;
       cursor: pointer;
       transition: background-color 0.25s ease-in-out, color 0.25s ease-in-out;
       &:hover {
@@ -459,7 +459,7 @@ onBeforeUnmount(() => {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          min-width: 500px;
+          min-width: 350px;
           .history-main-left {
             display: flex;
             flex-direction: column;
@@ -495,7 +495,6 @@ onBeforeUnmount(() => {
             }
           }
           .game-role-icon {
-            margin-right: 150px;
             width: 45px;
             height: 45px;
           }
@@ -503,8 +502,8 @@ onBeforeUnmount(() => {
         .history-main-mid {
           display: flex;
           flex-direction: column;
+          margin-right: 200px;
           gap: 5px;
-          min-width: 500px;
           span {
             color: $ashy;
             white-space: nowrap;
@@ -585,6 +584,31 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 1280px) {
+  .profile-history {
+    .history-filters {
+      .history-filter-btn {
+        padding: 0 10px;
+        height: 30px;
+        font-size: 14px;
+        .history-filter-icon {
+          width: 20px;
+          height: 20px;
+        }
+      }
+    }
+    .history-list {
+      .history-item {
+        .history-main {
+          .history-main-div {
+            min-width: 250px;
+          }
+          .history-main-mid {
+            margin-right: 100px;
+          }
+        }
+      }
+    }
+  }
 }
 
 </style>
