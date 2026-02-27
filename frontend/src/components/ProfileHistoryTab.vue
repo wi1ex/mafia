@@ -15,21 +15,23 @@
       <li v-for="game in items" :key="game.id" class="history-item"
           :class="{ open: isExpanded(game.id), 'history-item--red': game.result === 'red', 'history-item--black': game.result === 'black' }">
         <button class="history-main" type="button" :aria-expanded="isExpanded(game.id)" @click="toggleExpanded(game.id)">
-          <div class="history-main-left">
-            <div class="game-number-row">
-              <span class="game-number">Игра #{{ game.number }}</span>
-              <img v-if="game.player_role" class="game-role-icon" :src="playerRoleIcon(game.player_role)" :alt="roleLabel(game.player_role)" />
+          <div class="history-main-div">
+            <div class="history-main-left">
+              <div class="game-number-row">
+                <span class="game-number">Игра #{{ game.number }}</span>
+              </div>
+              <div class="game-head">
+                <span>Ведущий:</span>
+                <template v-if="game.head.auto">
+                  <span>Авто</span>
+                </template>
+                <template v-else>
+                  <img v-minio-img="{ key: game.head.avatar_name ? `avatars/${game.head.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
+                  <span>{{ headName(game) }}</span>
+                </template>
+              </div>
             </div>
-            <div class="game-head">
-              <span>Ведущий:</span>
-              <template v-if="game.head.auto">
-                <span>Авто</span>
-              </template>
-              <template v-else>
-                <img v-minio-img="{ key: game.head.avatar_name ? `avatars/${game.head.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
-                <span>{{ headName(game) }}</span>
-              </template>
-            </div>
+            <img v-if="game.player_role" class="game-role-icon" :src="playerRoleIcon(game.player_role)" :alt="roleLabel(game.player_role)" />
           </div>
 
           <div class="history-main-mid">
@@ -376,7 +378,7 @@ onBeforeUnmount(() => {
   width: min(1100px, 100%);
   .history-filters {
     display: flex;
-    flex-wrap: wrap;
+    justify-content: center;
     gap: 10px;
     .history-filter-btn {
       display: inline-flex;
@@ -395,7 +397,7 @@ onBeforeUnmount(() => {
         background-color: $lead;
       }
       &.active {
-        background-color: $orange;
+        background-color: $fg;
         color: $bg;
       }
     }
@@ -442,50 +444,53 @@ onBeforeUnmount(() => {
         color: inherit;
         text-align: left;
         cursor: pointer;
-        .history-main-left,
+        .history-main-left {
+          display: flex;
+          gap: 150px;
+          .history-main-left {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            min-width: 0;
+            .game-number-row {
+              display: flex;
+              align-items: center;
+              gap: 10px;
+            }
+            .game-number {
+              color: $fg;
+              font-size: 16px;
+            }
+            .game-head {
+              display: flex;
+              align-items: center;
+              gap: 5px;
+              min-width: 0;
+              color: $ashy;
+              img {
+                width: 20px;
+                height: 20px;
+                border-radius: 50%;
+                object-fit: cover;
+              }
+              span {
+                color: $fg;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+              }
+            }
+          }
+          .game-role-icon {
+            width: 45px;
+            height: 45px;
+          }
+        }
         .history-main-mid {
           display: flex;
           flex-direction: column;
           gap: 5px;
           min-width: 0;
-        }
-        .history-main-left {
-          .game-number-row {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-          }
-          .game-number {
-            color: $fg;
-            font-size: 16px;
-          }
-          .game-role-icon {
-            width: 20px;
-            height: 20px;
-            object-fit: contain;
-            flex-shrink: 0;
-          }
-          .game-head {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            min-width: 0;
-            color: $ashy;
-            img {
-              width: 20px;
-              height: 20px;
-              border-radius: 50%;
-              object-fit: cover;
-            }
-            span {
-              color: $fg;
-              white-space: nowrap;
-              overflow: hidden;
-              text-overflow: ellipsis;
-            }
-          }
-        }
-        .history-main-mid {
           span {
             color: $ashy;
             white-space: nowrap;
