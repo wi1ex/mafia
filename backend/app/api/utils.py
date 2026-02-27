@@ -8,7 +8,7 @@ from contextlib import suppress
 import structlog
 from time import time
 from datetime import date, datetime, timezone, timedelta
-from typing import Optional, Dict, Any, Literal, Sequence, Iterable, cast
+from typing import Optional, Dict, Any, Literal, Sequence, Iterable, cast, TYPE_CHECKING
 from fastapi import HTTPException, status, Header
 from sqlalchemy import update, func, select, or_, and_
 from sqlalchemy.dialects.postgresql import insert
@@ -24,23 +24,17 @@ from ..models.notif import Notif
 from ..models.sanction import UserSanction
 from ..models.user import User
 from ..models.update import SiteUpdate, UpdateRead
-from ..schemas.admin import SiteSettingsOut, GameSettingsOut, RegistrationsPoint, AdminRoomUserStat, AdminSanctionOut
-from ..schemas.room import GameParams
-from ..schemas.user import (
-    UserRoleStatsOut,
-    UserGamesHistoryOut,
-    GameHistoryItemOut,
-    GameHistoryHostOut,
-)
 from ..realtime.sio import sio
-from ..realtime.utils import get_profiles_snapshot, get_rooms_brief, gc_empty_room, emit_rooms_upsert_safe
 from ..services.minio import delete_avatars_async
 from ..services.user_cache import (
     get_user_profiles_cached,
     write_user_profile_cache,
     invalidate_avatar_presign_cache,
 )
-from ..security.parameters import get_cached_settings
+if TYPE_CHECKING:
+    from ..schemas.admin import SiteSettingsOut, GameSettingsOut, RegistrationsPoint, AdminRoomUserStat, AdminSanctionOut
+    from ..schemas.room import GameParams
+    from ..schemas.user import UserRoleStatsOut, UserGamesHistoryOut, GameHistoryItemOut, GameHistoryHostOut
 
 __all__ = [
     "SANCTION_TIMEOUT",
@@ -113,6 +107,15 @@ __all__ = [
     "raise_missing_outgoing_request_error",
     "emit_notify",
     "emit_friends_update",
+    "sanitize_username_for_schema",
+    "sanitize_title_for_schema",
+    "parse_season_starts",
+    "season_starts_csv",
+    "parse_season_starts_or_default",
+    "normalize_season_start_game_number",
+    "normalize_season_start_value",
+    "build_app_settings_snapshot_defaults",
+    "build_app_settings_snapshot_from_row",
     "safe_int",
     "non_empty_str",
     "normalize_game_result",
@@ -128,6 +131,9 @@ PRESIGN_KEY_RE = re.compile(r"^[a-zA-Z0-9._/-]{3,256}$")
 STREAM_LOG_RE = re.compile(r"room_id=(\d+)\s+target_user=(\d+)")
 BOT_USERNAME_RE = re.compile(r"^[a-zA-Zа-яА-Я0-9._\-()]{2,20}$")
 PWD_CTRL_RE = re.compile(r"[\x00-\x1F\x7F]")
+TITLE_CTRL_RE = re.compile(r"[\x00-\x1F\x7F]")
+TITLE_BIDI_RE = re.compile(r"[\u200B-\u200F\u202A-\u202E\u2066-\u2069]")
+TITLE_WS_RE = re.compile(r"\s+")
 
 SANCTION_TIMEOUT = "timeout"
 SANCTION_BAN = "ban"
@@ -152,10 +158,152 @@ USERS_SORT_ALLOWED = {
 TIMED_KINDS = {SANCTION_TIMEOUT, SANCTION_SUSPEND}
 
 
+def sanitize_username_for_schema(v: Any) -> str:
+    return unicodedata.normalize("NFKC", str(v or "")).strip()
+
+
+def sanitize_title_for_schema(v: Any) -> str:
+    s = unicodedata.normalize("NFKC", str(v or ""))
+    s = TITLE_CTRL_RE.sub("", s)
+    s = TITLE_BIDI_RE.sub("", s)
+    s = TITLE_WS_RE.sub(" ", s).strip()
+    return s
+
+
+def _as_positive_int(raw: object) -> int:
+    if raw is None:
+        raise ValueError("season_start_invalid")
+
+    try:
+        value = int(str(raw).strip())
+    except Exception as exc:
+        raise ValueError("season_start_invalid") from exc
+
+    if value < 1:
+        raise ValueError("season_start_invalid")
+
+    return value
+
+
+def parse_season_starts(raw: object) -> tuple[int, ...]:
+    if isinstance(raw, int):
+        return (_as_positive_int(raw),)
+
+    source = str(raw or "").strip()
+    if not source:
+        raise ValueError("season_start_empty")
+
+    values: list[int] = []
+    for part in source.split(","):
+        token = part.strip()
+        if not token:
+            raise ValueError("season_start_invalid")
+
+        values.append(_as_positive_int(token))
+
+    if not values:
+        raise ValueError("season_start_empty")
+
+    return tuple(sorted(set(values)))
+
+
+def season_starts_csv(values: Iterable[int]) -> str:
+    out = [int(v) for v in values if int(v) > 0]
+    if not out:
+        return "1"
+
+    return ",".join(str(v) for v in sorted(set(out)))
+
+
+def parse_season_starts_or_default(raw: object, *, default: Sequence[int] = (1,)) -> tuple[int, ...]:
+    try:
+        return parse_season_starts(raw)
+
+    except ValueError:
+        fallback = [int(v) for v in default if int(v) > 0]
+        if not fallback:
+            fallback = [1]
+        return tuple(sorted(set(fallback)))
+
+
+def normalize_season_start_game_number(value: str) -> str:
+    return season_starts_csv(parse_season_starts(value))
+
+
+def normalize_season_start_value(raw: object, *, default_starts: Sequence[int]) -> tuple[str, tuple[int, ...]]:
+    starts = parse_season_starts_or_default(raw, default=default_starts)
+    return season_starts_csv(starts), starts
+
+
+def build_app_settings_snapshot_defaults(core_settings_obj: Any, *, default_starts: Sequence[int], snapshot_cls: Any) -> Any:
+    season_start_csv, season_start_values = normalize_season_start_value(
+        getattr(core_settings_obj, "SEASON_START_GAME_NUMBER", None),
+        default_starts=default_starts,
+    )
+    return snapshot_cls(
+        registration_enabled=getattr(core_settings_obj, "REGISTRATION_ENABLED"),
+        rooms_can_create=getattr(core_settings_obj, "ROOMS_CAN_CREATE"),
+        rooms_can_enter=getattr(core_settings_obj, "ROOMS_CAN_ENTER"),
+        games_can_start=getattr(core_settings_obj, "GAMES_CAN_START"),
+        streams_can_start=getattr(core_settings_obj, "STREAMS_CAN_START"),
+        verification_restrictions=getattr(core_settings_obj, "VERIFICATION_RESTRICTIONS"),
+        rooms_limit_global=getattr(core_settings_obj, "ROOMS_LIMIT_GLOBAL"),
+        rooms_limit_per_user=getattr(core_settings_obj, "ROOMS_LIMIT_PER_USER"),
+        rooms_empty_ttl_seconds=getattr(core_settings_obj, "ROOMS_EMPTY_TTL_SECONDS"),
+        rooms_single_ttl_minutes=getattr(core_settings_obj, "ROOMS_SINGLE_TTL_MINUTES"),
+        season_start_game_number=season_start_csv,
+        season_start_game_numbers=season_start_values,
+        game_min_ready_players=getattr(core_settings_obj, "GAME_MIN_READY_PLAYERS"),
+        role_pick_seconds=getattr(core_settings_obj, "ROLE_PICK_SECONDS"),
+        mafia_talk_seconds=getattr(core_settings_obj, "MAFIA_TALK_SECONDS"),
+        player_talk_seconds=getattr(core_settings_obj, "PLAYER_TALK_SECONDS"),
+        player_talk_short_seconds=getattr(core_settings_obj, "PLAYER_TALK_SHORT_SECONDS"),
+        player_foul_seconds=getattr(core_settings_obj, "PLAYER_FOUL_SECONDS"),
+        night_action_seconds=getattr(core_settings_obj, "NIGHT_ACTION_SECONDS"),
+        vote_seconds=getattr(core_settings_obj, "VOTE_SECONDS"),
+        winks_limit=getattr(core_settings_obj, "WINKS_LIMIT"),
+        knocks_limit=getattr(core_settings_obj, "KNOCKS_LIMIT"),
+        wink_spot_chance_percent=getattr(core_settings_obj, "WINK_SPOT_CHANCE_PERCENT"),
+    )
+
+
+def build_app_settings_snapshot_from_row(row: Any, *, default_starts: Sequence[int], snapshot_cls: Any) -> Any:
+    season_start_csv, season_start_values = normalize_season_start_value(
+        getattr(row, "season_start_game_number", None),
+        default_starts=default_starts,
+    )
+    return snapshot_cls(
+        registration_enabled=bool(getattr(row, "registration_enabled")),
+        rooms_can_create=bool(getattr(row, "rooms_can_create")),
+        rooms_can_enter=bool(getattr(row, "rooms_can_enter")),
+        games_can_start=bool(getattr(row, "games_can_start")),
+        streams_can_start=bool(getattr(row, "streams_can_start")),
+        verification_restrictions=bool(getattr(row, "verification_restrictions")),
+        rooms_limit_global=int(getattr(row, "rooms_limit_global")),
+        rooms_limit_per_user=int(getattr(row, "rooms_limit_per_user")),
+        rooms_empty_ttl_seconds=int(getattr(row, "rooms_empty_ttl_seconds")),
+        rooms_single_ttl_minutes=int(getattr(row, "rooms_single_ttl_minutes")),
+        season_start_game_number=season_start_csv,
+        season_start_game_numbers=season_start_values,
+        game_min_ready_players=int(getattr(row, "game_min_ready_players")),
+        role_pick_seconds=int(getattr(row, "role_pick_seconds")),
+        mafia_talk_seconds=int(getattr(row, "mafia_talk_seconds")),
+        player_talk_seconds=int(getattr(row, "player_talk_seconds")),
+        player_talk_short_seconds=int(getattr(row, "player_talk_short_seconds")),
+        player_foul_seconds=int(getattr(row, "player_foul_seconds")),
+        night_action_seconds=int(getattr(row, "night_action_seconds")),
+        vote_seconds=int(getattr(row, "vote_seconds")),
+        winks_limit=int(getattr(row, "winks_limit")),
+        knocks_limit=int(getattr(row, "knocks_limit")),
+        wink_spot_chance_percent=int(getattr(row, "wink_spot_chance_percent")),
+    )
+
+
 def normalize_users_sort(sort_by: str | None) -> str:
     value = (sort_by or "").strip().lower()
     if value in USERS_SORT_ALLOWED:
         return value
+
     return USERS_SORT_DEFAULT
 
 
@@ -328,6 +476,8 @@ async def fetch_sanctions_for_users(session: AsyncSession, user_ids: Iterable[in
 
 
 def build_admin_sanction_out(row: UserSanction) -> AdminSanctionOut:
+    from ..schemas.admin import AdminSanctionOut
+
     sid = cast(int, row.id)
     issued_by_id = cast(int, row.issued_by_id) if row.issued_by_id is not None else None
     revoked_by_id = cast(int, row.revoked_by_id) if row.revoked_by_id is not None else None
@@ -449,6 +599,8 @@ async def emit_sanctions_update(session: AsyncSession, user_id: int) -> None:
 
 
 async def ensure_room_access_allowed(db: AsyncSession, user_id: int) -> None:
+    from ..security.parameters import get_cached_settings
+
     active = await fetch_active_sanctions(db, int(user_id))
     if active.get(SANCTION_BAN):
         raise HTTPException(status_code=403, detail="user_banned")
@@ -594,6 +746,8 @@ def normalize_game_result(raw: Any) -> str:
 
 
 async def fetch_games_history_page(db: AsyncSession, *, page: int, per_page: int, player_uid: int | None = None, player_role: Literal["citizen", "mafia", "don", "sheriff"] | None = None) -> UserGamesHistoryOut:
+    from ..schemas.user import UserGamesHistoryOut, GameHistoryItemOut, GameHistoryHostOut
+
     valid_roles = {"citizen", "mafia", "don", "sheriff"}
     per_page_i = max(1, min(safe_int(per_page), 100))
     page_num = max(1, min(int(page or 1), 1_000_000))
@@ -723,6 +877,8 @@ def pct(part: int, total: int) -> float:
 
 
 def role_stats(games: int, wins: int) -> UserRoleStatsOut:
+    from ..schemas.user import UserRoleStatsOut
+
     g = safe_int(games)
     w = safe_int(wins)
     return UserRoleStatsOut(games=g, wins=w, winrate_percent=pct(w, g))
@@ -799,6 +955,8 @@ def raw_bool(value: Any, default: bool) -> bool:
 
 
 def game_from_redis_to_model(raw_game: Dict[str, Any]) -> GameParams:
+    from ..schemas.room import GameParams
+
     nominate_mode = str(raw_game.get("nominate_mode") or "players")
     if nominate_mode not in ("players", "head"):
         nominate_mode = "players"
@@ -845,6 +1003,8 @@ def parse_day_range(day: date) -> tuple[datetime, datetime]:
 
 
 def site_settings_out(row) -> SiteSettingsOut:
+    from ..schemas.admin import SiteSettingsOut
+
     return SiteSettingsOut(
         registration_enabled=bool(row.registration_enabled),
         rooms_can_create=bool(row.rooms_can_create),
@@ -856,11 +1016,13 @@ def site_settings_out(row) -> SiteSettingsOut:
         rooms_limit_per_user=int(row.rooms_limit_per_user),
         rooms_empty_ttl_seconds=int(row.rooms_empty_ttl_seconds),
         rooms_single_ttl_minutes=int(row.rooms_single_ttl_minutes),
-        season_start_game_number=int(row.season_start_game_number),
+        season_start_game_number=str(row.season_start_game_number),
     )
 
 
 def game_settings_out(row) -> GameSettingsOut:
+    from ..schemas.admin import GameSettingsOut
+
     return GameSettingsOut(
         game_min_ready_players=int(row.game_min_ready_players),
         role_pick_seconds=int(row.role_pick_seconds),
@@ -884,6 +1046,8 @@ def normalize_pagination(page: int, limit: int) -> tuple[int, int, int]:
 
 
 async def build_registrations_series(session: AsyncSession, start_dt: datetime, end_dt: datetime) -> list[RegistrationsPoint]:
+    from ..schemas.admin import RegistrationsPoint
+
     rows = await session.execute(
         select(func.date_trunc("day", User.registered_at).label("day"), func.count(User.id))
         .where(User.registered_at >= start_dt, User.registered_at < end_dt)
@@ -909,6 +1073,8 @@ async def build_registrations_series(session: AsyncSession, start_dt: datetime, 
 
 
 async def build_registrations_monthly_series(session: AsyncSession) -> list[RegistrationsPoint]:
+    from ..schemas.admin import RegistrationsPoint
+
     rows = await session.execute(select(func.date_trunc("month", User.registered_at).label("month"), func.count(User.id)).group_by("month").order_by("month"))
     raw = rows.all()
     if not raw:
@@ -1288,6 +1454,8 @@ def parse_room_game_params(game: dict | None) -> dict[str, Any]:
 
 
 def build_room_user_stats(raw_map: dict | None, name_map: dict[int, str | None]) -> list[AdminRoomUserStat]:
+    from ..schemas.admin import AdminRoomUserStat
+
     items: list[AdminRoomUserStat] = []
     if isinstance(raw_map, dict):
         for k, v in raw_map.items():
@@ -1599,6 +1767,8 @@ async def aggregate_user_room_stats(session: AsyncSession, ids: list[int]) -> tu
 
 
 async def emit_rooms_upsert(rid: int) -> None:
+    from ..realtime.utils import get_rooms_brief, emit_rooms_upsert_safe
+
     r = get_redis()
     try:
         items = await get_rooms_brief(r, [rid])
@@ -1617,7 +1787,10 @@ async def emit_rooms_upsert(rid: int) -> None:
 
 
 async def gc_room_after_delay(rid: int, delay_s: int | None = None) -> None:
+    from ..realtime.utils import gc_empty_room
+
     if delay_s is None:
+        from ..security.parameters import get_cached_settings
         delay_s = max(0, int(get_cached_settings().rooms_empty_ttl_seconds))
 
     await asyncio.sleep(max(0, delay_s))
@@ -1629,6 +1802,8 @@ def schedule_room_gc(rid: int, delay_s: int | None = None) -> None:
 
 
 async def gc_empty_room_and_emit(rid: int, *, expected_seq: int | None = None) -> None:
+    from ..realtime.utils import gc_empty_room
+
     with suppress(Exception):
         await gc_empty_room(rid, expected_seq=expected_seq)
 
@@ -1720,6 +1895,8 @@ async def get_room_game_runtime(r, room_id: int) -> Dict[str, Any]:
 
 
 async def build_room_members_for_info(r, room_id: int) -> list[Dict[str, Any]]:
+    from ..realtime.utils import get_profiles_snapshot
+
     order_raw = await r.zrange(f"room:{room_id}:positions", 0, -1)
     order_ids = [int(uid) for uid in order_raw]
     owner_raw = await r.get(f"room:{room_id}:screen_owner")

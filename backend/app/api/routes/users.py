@@ -1,7 +1,7 @@
 from __future__ import annotations
 from contextlib import suppress
 from typing import cast, Literal
-from sqlalchemy import select, update, exists, func, literal, and_, or_
+from sqlalchemy import select, update, exists, func, literal, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Response
 from ..utils import (
@@ -21,19 +21,15 @@ from ..utils import (
     non_empty_str,
     normalize_game_result,
     fetch_games_history_page,
-    pct,
-    role_stats,
 )
-from ...models.friend import FriendCloseness
 from ...models.game import Game
-from ...models.stats import UserGameStats
 from ...models.user import User
 from ...core.db import get_session
 from ...core.settings import settings
 from ...core.logging import log_action
 from ...security.auth_tokens import get_identity
 from ...security.decorators import log_route, rate_limited
-from ...services.game_stats import rebuild_user_game_stats
+from ...services.user_game_stats_cache import get_user_game_stats_cached
 from ...services.text_moderation import enforce_clean_text
 from ...schemas.common import Identity, Ok
 from ...schemas.user import (
@@ -53,8 +49,6 @@ from ...schemas.user import (
     UserUiPrefsOut,
     PasswordChangeIn,
     UserStatsOut,
-    UserGameStatsOut,
-    UserBestMoveStatsOut,
     UserTopPlayerOut,
 )
 from ...security.passwords import hash_password, verify_password
@@ -103,7 +97,7 @@ async def profile_info(ident: Identity = Depends(get_identity), db: AsyncSession
 @log_route("users.stats")
 @rate_limited(lambda ident, **_: f"rl:user_stats:{ident['id']}", limit=10, window_s=1)
 @router.get("/stats", response_model=UserStatsOut)
-async def user_stats(ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UserStatsOut:
+async def user_stats(season: int | None = None, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UserStatsOut:
     uid = int(ident["id"])
     user = await db.get(User, uid)
     if not user:
@@ -114,89 +108,30 @@ async def user_stats(ident: Identity = Depends(get_identity), db: AsyncSession =
     stream_minutes = max(0, int(stream_seconds.get(uid, 0)) // 60)
     spectator_minutes = max(0, int(spectator_seconds.get(uid, 0)) // 60)
 
-    stats_row = await db.get(UserGameStats, uid)
-    if not stats_row:
-        stats_row = await rebuild_user_game_stats(db, uid)
-        await db.commit()
+    try:
+        game_stats = await get_user_game_stats_cached(db, uid, season)
+    except ValueError as exc:
+        detail = str(exc) or "season_invalid"
+        if detail not in {"season_invalid", "season_not_found"}:
+            detail = "season_invalid"
+        raise HTTPException(status_code=422, detail=detail)
 
-    closeness_rows = await db.execute(
-        select(FriendCloseness.user_low, FriendCloseness.user_high, FriendCloseness.games_together)
-        .where(
-            or_(FriendCloseness.user_low == uid, FriendCloseness.user_high == uid),
-            FriendCloseness.games_together > 0,
-        )
-        .order_by(FriendCloseness.games_together.desc(), FriendCloseness.updated_at.desc(), FriendCloseness.id.desc())
-        .limit(5)
-    )
-
-    top_ids: list[int] = []
-    top_games: dict[int, int] = {}
-    for user_low, user_high, games_together in closeness_rows.all():
-        lo = int(user_low)
-        hi = int(user_high)
-        other_id = hi if lo == uid else lo
-        if other_id <= 0 or other_id in top_games:
-            continue
-        top_ids.append(other_id)
-        top_games[other_id] = max(0, int(games_together or 0))
-        if len(top_ids) >= 5:
-            break
-
-    extra_profile_ids: set[int] = set(top_ids)
-    profiles = await get_user_profiles_cached(db, extra_profile_ids) if extra_profile_ids else {}
-
-    top_players: list[UserTopPlayerOut] = []
-    for other_id in top_ids:
-        profile = profiles.get(other_id) or {}
-        username_raw = profile.get("username")
-        username = str(username_raw) if isinstance(username_raw, str) else None
-        top_players.append(
-            UserTopPlayerOut(
-                id=other_id,
-                username=username,
-                games_together=top_games.get(other_id, 0),
+    top_player_ids = {int(item.id) for item in (game_stats.top_players or []) if int(item.id) > 0}
+    if top_player_ids:
+        profiles = await get_user_profiles_cached(db, top_player_ids)
+        refreshed_top_players: list[UserTopPlayerOut] = []
+        for item in game_stats.top_players:
+            profile = profiles.get(int(item.id)) or {}
+            username_raw = profile.get("username")
+            username = str(username_raw) if isinstance(username_raw, str) else item.username
+            refreshed_top_players.append(
+                UserTopPlayerOut(
+                    id=int(item.id),
+                    username=username,
+                    games_together=max(0, int(item.games_together)),
+                )
             )
-        )
-
-    games_played = safe_int(getattr(stats_row, "games_decisive", 0))
-    games_won = safe_int(getattr(stats_row, "games_won", 0))
-    don_games = safe_int(getattr(stats_row, "don_games", 0))
-    don_checks_first_night_found = safe_int(getattr(stats_row, "don_checks_first_night_found", 0))
-    vote_leave_day12 = safe_int(getattr(stats_row, "vote_leave_day12", 0))
-    foul_removed_count = safe_int(getattr(stats_row, "foul_removed_count", 0))
-    vote_for_red_on_black_win_count = safe_int(getattr(stats_row, "vote_for_red_on_black_win_count", 0))
-    farewell_total = safe_int(getattr(stats_row, "farewell_total", 0))
-    farewell_correct = safe_int(getattr(stats_row, "farewell_correct", 0))
-
-    game_stats = UserGameStatsOut(
-        games_played=games_played,
-        games_won=games_won,
-        winrate_percent=pct(games_won, games_played),
-        games_hosted=safe_int(getattr(stats_row, "games_hosted", 0)),
-        don_first_night_find_count=don_checks_first_night_found,
-        don_first_night_find_percent=pct(don_checks_first_night_found, don_games),
-        vote_leave_day12_count=vote_leave_day12,
-        vote_leave_day12_percent=pct(vote_leave_day12, games_played),
-        foul_removed_count=foul_removed_count,
-        foul_removed_percent=pct(foul_removed_count, games_played),
-        vote_for_red_on_black_win_count=vote_for_red_on_black_win_count,
-        farewell_total=farewell_total,
-        farewell_success_percent=pct(farewell_correct, farewell_total),
-        best_win_streak=safe_int(getattr(stats_row, "best_win_streak", 0)),
-        best_loss_streak=safe_int(getattr(stats_row, "best_loss_streak", 0)),
-        role_citizen=role_stats(getattr(stats_row, "citizen_games", 0), getattr(stats_row, "citizen_wins", 0)),
-        role_sheriff=role_stats(getattr(stats_row, "sheriff_games", 0), getattr(stats_row, "sheriff_wins", 0)),
-        role_don=role_stats(getattr(stats_row, "don_games", 0), getattr(stats_row, "don_wins", 0)),
-        role_mafia=role_stats(getattr(stats_row, "mafia_games", 0), getattr(stats_row, "mafia_wins", 0)),
-        best_move=UserBestMoveStatsOut(
-            first_killed_total=safe_int(getattr(stats_row, "first_killed_best_move_total", 0)),
-            marks_black_0=safe_int(getattr(stats_row, "best_move_black_0", 0)),
-            marks_black_1=safe_int(getattr(stats_row, "best_move_black_1", 0)),
-            marks_black_2=safe_int(getattr(stats_row, "best_move_black_2", 0)),
-            marks_black_3=safe_int(getattr(stats_row, "best_move_black_3", 0)),
-        ),
-        top_players=top_players,
-    )
+        game_stats = game_stats.model_copy(update={"top_players": refreshed_top_players})
 
     return UserStatsOut(
         rooms_created=max(0, safe_int(rooms_created.get(uid, 0))),

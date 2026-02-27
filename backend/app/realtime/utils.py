@@ -18,14 +18,13 @@ from ..core.settings import settings
 from ..security.parameters import get_cached_settings
 from ..models.room import Room
 from ..models.sanction import UserSanction
-from ..models.user import User
 from ..models.game import Game
 from ..models.friend import FriendCloseness
 from ..core.clients import get_redis
 from ..core.logging import log_action
 from ..security.auth_tokens import decode_token
 from ..services.user_cache import get_user_profile_cached, get_user_profiles_cached
-from ..services.game_stats import apply_finished_game_stats
+from ..services.user_game_stats_cache import warm_user_game_stats_cache_for_users
 
 __all__ = [
     "KEYS_STATE",
@@ -3468,9 +3467,13 @@ async def finish_game(r, rid: int, *, result: str, head_uid: int | None = None, 
                 )
                 s.add(game_row)
                 await s.flush()
-                await apply_finished_game_stats(s, game_row)
                 await bump_friend_closeness(s, player_ids)
                 await s.commit()
+                cache_user_ids: set[int] = {int(uid) for uid in player_ids if int(uid) > 0}
+                if head_uid and head_uid > 0:
+                    cache_user_ids.add(int(head_uid))
+                if cache_user_ids:
+                    await warm_user_game_stats_cache_for_users(s, cache_user_ids)
         except Exception:
             log.exception("game_finish.save_failed", rid=rid)
     elif skip_save:

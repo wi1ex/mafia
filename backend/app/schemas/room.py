@@ -1,23 +1,11 @@
-import re
-import unicodedata
 from typing_extensions import Annotated
-from typing import Optional, List, Literal, Any
+from typing import Optional, List, Literal
 from datetime import datetime
 from pydantic.functional_validators import BeforeValidator
 from pydantic import BaseModel, Field
+from ..api.utils import sanitize_title_for_schema
 
-_CTRL_RE = re.compile(r'[\x00-\x1F\x7F]')
-_BIDI_RE = re.compile(r'[\u200B-\u200F\u202A-\u202E\u2066-\u2069]')
-_WS_RE = re.compile(r'\s+')
-
-def _sanitize_title(v: Any) -> str:
-    s = unicodedata.normalize("NFKC", str(v or ""))
-    s = _CTRL_RE.sub("", s)
-    s = _BIDI_RE.sub("", s)
-    s = _WS_RE.sub(" ", s).strip()
-    return s
-
-Title = Annotated[str, BeforeValidator(_sanitize_title)]
+Title = Annotated[str, BeforeValidator(sanitize_title_for_schema)]
 
 
 class GameParams(BaseModel):

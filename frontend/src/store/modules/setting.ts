@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { api } from '@/services/axios'
 
 export interface PublicSettings {
@@ -13,7 +13,7 @@ export interface PublicSettings {
   winks_limit: number
   knocks_limit: number
   wink_spot_chance_percent: number
-  season_start_game_number: number
+  season_start_game_number: string
 }
 
 export const useSettingsStore = defineStore('settings', () => {
@@ -27,10 +27,33 @@ export const useSettingsStore = defineStore('settings', () => {
   const winksLimit = ref(0)
   const knocksLimit = ref(0)
   const winkSpotChancePercent = ref(25)
-  const seasonStartGameNumber = ref(1)
+  const seasonStartGameNumber = ref('1')
+  const seasonStartGameNumbers = computed<number[]>(() => parseSeasonStartNumbers(seasonStartGameNumber.value))
   const ready = ref(false)
   let inited = false
   let onSettingsEv: ((e: any) => void) | null = null
+
+  function parseSeasonStartNumbers(raw: unknown): number[] {
+    const source = String(raw ?? '').trim()
+    if (!source) return [1]
+
+    const values: number[] = []
+    for (const part of source.split(',')) {
+      const token = part.trim()
+      if (!token) return [1]
+      const value = Number(token)
+      if (!Number.isFinite(value)) return [1]
+      const normalized = Math.trunc(value)
+      if (normalized < 1) return [1]
+      values.push(normalized)
+    }
+    if (values.length === 0) return [1]
+    return Array.from(new Set(values)).sort((a, b) => a - b)
+  }
+
+  function normalizeSeasonStart(raw: unknown): string {
+    return parseSeasonStartNumbers(raw).join(',')
+  }
 
   function applyPublic(data: PublicSettings) {
     registrationEnabled.value = Boolean(data.registration_enabled)
@@ -47,8 +70,7 @@ export const useSettingsStore = defineStore('settings', () => {
     if (Number.isFinite(knocks) && knocks >= 0) knocksLimit.value = knocks
     const winkSpotChance = Number(data.wink_spot_chance_percent)
     if (Number.isFinite(winkSpotChance)) winkSpotChancePercent.value = Math.max(0, Math.min(100, Math.round(winkSpotChance)))
-    const seasonStart = Number(data.season_start_game_number)
-    if (Number.isFinite(seasonStart) && seasonStart >= 1) seasonStartGameNumber.value = seasonStart
+    seasonStartGameNumber.value = normalizeSeasonStart(data.season_start_game_number)
   }
 
   async function fetchPublic(): Promise<void> {
@@ -80,6 +102,7 @@ export const useSettingsStore = defineStore('settings', () => {
     knocksLimit,
     winkSpotChancePercent,
     seasonStartGameNumber,
+    seasonStartGameNumbers,
     ready,
 
     fetchPublic,

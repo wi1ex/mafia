@@ -54,7 +54,7 @@ class Settings(BaseSettings):
     ROOMS_LIMIT_PER_USER: int = 3
     ROOMS_EMPTY_TTL_SECONDS: int = 30
     ROOMS_SINGLE_TTL_MINUTES: int = 30
-    SEASON_START_GAME_NUMBER: int = 1
+    SEASON_START_GAME_NUMBER: str = "1"
 
     ROLE_DECK: tuple[str, ...] = ("citizen", "citizen", "citizen", "citizen", "citizen", "citizen", "sheriff", "mafia", "mafia", "don")
     GAME_MIN_READY_PLAYERS: int = 10

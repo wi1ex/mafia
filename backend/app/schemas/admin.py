@@ -1,7 +1,10 @@
 from __future__ import annotations
 from datetime import datetime
-from typing import Optional, List, Literal
-from pydantic import BaseModel, Field
+from typing import Annotated, Optional, List, Literal
+from pydantic import BaseModel, Field, AfterValidator
+from ..api.utils import normalize_season_start_game_number
+
+SeasonStartCsv = Annotated[str, AfterValidator(normalize_season_start_game_number)]
 
 
 class SiteSettingsOut(BaseModel):
@@ -15,7 +18,7 @@ class SiteSettingsOut(BaseModel):
     rooms_limit_per_user: int
     rooms_empty_ttl_seconds: int
     rooms_single_ttl_minutes: int
-    season_start_game_number: int
+    season_start_game_number: str
 
 
 class SiteSettingsUpdateIn(BaseModel):
@@ -29,7 +32,7 @@ class SiteSettingsUpdateIn(BaseModel):
     rooms_limit_per_user: Optional[int] = Field(default=None, ge=1)
     rooms_empty_ttl_seconds: Optional[int] = Field(default=None, ge=1)
     rooms_single_ttl_minutes: Optional[int] = Field(default=None, ge=1)
-    season_start_game_number: Optional[int] = Field(default=None, ge=1)
+    season_start_game_number: Optional[SeasonStartCsv] = Field(default=None, min_length=1, max_length=255)
 
 
 class GameSettingsOut(BaseModel):
@@ -81,7 +84,7 @@ class PublicSettingsOut(BaseModel):
     winks_limit: int
     knocks_limit: int
     wink_spot_chance_percent: int
-    season_start_game_number: int
+    season_start_game_number: str
 
 
 class RegistrationsPoint(BaseModel):
