@@ -42,7 +42,7 @@
               </div>
 
               <ToggleSwitch v-model="isPrivate" :disabled="isPrivacyLocked" label="Приватность:" off-label="Открытая" on-label="Закрытая" aria-label="Приватность: открытая/закрытая" />
-              <ToggleSwitch v-model="isAnonymous" :disabled="isAnonymityLocked" label="Анонимность:" off-label="Видимая" on-label="Скрытая" aria-label="Анонимность: видимая/скрытая" />
+              <ToggleSwitch v-model="isAnonymous" label="Анонимность:" off-label="Видимая" on-label="Скрытая" aria-label="Анонимность: видимая/скрытая" />
             </div>
 
             <div v-else key="game">
@@ -195,7 +195,6 @@ const limit = ref<number>(initialLimit)
 const privacy = ref<'open'|'private'>(initialBasic.privacy === 'private' ? 'private' : 'open')
 const initialAnonymity = initialBasic.anonymity === 'hidden' ? 'hidden' : 'visible'
 const anonymity = ref<'visible'|'hidden'>(initialAnonymity)
-if (limit.value === gameLimitMin.value) anonymity.value = 'visible'
 if (anonymity.value === 'hidden') privacy.value = 'private'
 
 const ok = computed(() => title.value.length > 0 && limit.value >= 2 && limit.value <= 12)
@@ -213,15 +212,10 @@ const isPrivate = computed<boolean>({
 const isAnonymous = computed<boolean>({
   get: () => anonymity.value === 'hidden',
   set: v => {
-    if (v && canOpenGameTab.value) {
-      anonymity.value = 'visible'
-      return
-    }
     anonymity.value = v ? 'hidden' : 'visible'
   }
 })
 const isPrivacyLocked = computed(() => anonymity.value === 'hidden')
-const isAnonymityLocked = computed(() => canOpenGameTab.value)
 
 function clamp(n: number, min: number, max: number) { return Math.max(min, Math.min(max, n)) }
 
@@ -288,7 +282,6 @@ watch(tab, (cur) => {
 
 watch([limit, gameLimitMin], ([v, min]) => {
   if (v < 2) limit.value = 2
-  if (v === min && anonymity.value === 'hidden') anonymity.value = 'visible'
   if (v < min && tab.value === 'game') tab.value = 'room'
 }, { flush: 'sync' })
 

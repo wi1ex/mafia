@@ -71,10 +71,7 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
         raise HTTPException(status_code=409, detail="rooms_limit_user")
 
     gp = payload.game
-    game_limit = int(app_settings.game_min_ready_players) + 1
     anonymity = payload.anonymity
-    if int(payload.user_limit) == game_limit:
-        anonymity = "visible"
     privacy = "private" if anonymity == "hidden" else payload.privacy
     game_dict = {
         "mode": gp.mode,
