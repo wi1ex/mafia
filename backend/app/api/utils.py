@@ -1661,7 +1661,6 @@ async def fetch_live_room_stats(r, room_ids: list[int]) -> dict[int, dict[str, A
 
 
 async def rebuild_friend_closeness(session: AsyncSession, *, flush_pairs: int = 5000) -> None:
-    # Block concurrent upserts from game-finish while we rebuild exact counters.
     await session.execute(text("LOCK TABLE friend_closeness IN SHARE ROW EXCLUSIVE MODE"))
     await session.execute(delete(FriendCloseness))
 
@@ -1769,7 +1768,7 @@ async def aggregate_user_room_stats(session: AsyncSession, ids: list[int]) -> tu
     return rooms_created, room_seconds, stream_seconds, spectator_seconds, games_played, games_hosted
 
 
-async def aggregate_user_room_time_stats(session: AsyncSession, ids: list[int]) -> tuple[dict[int, int], dict[int, int], dict[int, int], dict[int, int]]:
+async def aggregate_user_room_time_stats(session: AsyncSession, ids: list[int], season: int | None = None) -> tuple[dict[int, int], dict[int, int], dict[int, int], dict[int, int]]:
     rooms_created: dict[int, int] = {uid: 0 for uid in ids}
     room_seconds: dict[int, int] = {uid: 0 for uid in ids}
     stream_seconds: dict[int, int] = {uid: 0 for uid in ids}
@@ -1778,7 +1777,54 @@ async def aggregate_user_room_time_stats(session: AsyncSession, ids: list[int]) 
     if not ids:
         return rooms_created, room_seconds, stream_seconds, spectator_seconds
 
-    counts = await session.execute(select(Room.creator, func.count(Room.id)).where(Room.creator.in_(ids)).group_by(Room.creator))
+    season_scope = None
+    include_active_rooms = season is None
+    if season is not None:
+        try:
+            season_no = int(season)
+        except Exception as exc:
+            raise ValueError("season_invalid") from exc
+        if season_no < 1:
+            raise ValueError("season_invalid")
+
+        from ..security.parameters import get_cached_settings
+
+        starts = tuple(int(v) for v in get_cached_settings().season_start_game_numbers if int(v) > 0)
+        if not starts:
+            starts = (1,)
+        if season_no > len(starts):
+            raise ValueError("season_not_found")
+
+        start_id = int(starts[season_no - 1])
+        end_id: int | None = int(starts[season_no] - 1) if season_no < len(starts) else None
+
+        game_time_q = select(func.min(Game.started_at), func.max(Game.finished_at)).where(Game.id >= start_id)
+        if end_id is not None and end_id > 0:
+            game_time_q = game_time_q.where(Game.id <= end_id)
+        game_time_row = await session.execute(game_time_q)
+        season_start_dt, season_end_dt = game_time_row.one()
+
+        current_season = len(starts)
+        include_active_rooms = season_no == current_season
+        if season_no == current_season:
+            scope_parts = [Room.deleted_at.is_(None)]
+            if season_start_dt is not None:
+                scope_parts.append(and_(Room.deleted_at.is_not(None), Room.deleted_at >= season_start_dt))
+            season_scope = or_(*scope_parts)
+        else:
+            if season_start_dt is None or season_end_dt is None:
+                return rooms_created, room_seconds, stream_seconds, spectator_seconds
+            season_scope = and_(
+                Room.deleted_at.is_not(None),
+                Room.deleted_at >= season_start_dt,
+                Room.deleted_at <= season_end_dt,
+            )
+
+    counts_q = select(Room.creator, func.count(Room.id)).where(Room.creator.in_(ids))
+    if season_scope is not None:
+        counts_q = counts_q.where(season_scope)
+    counts_q = counts_q.group_by(Room.creator)
+    counts = await session.execute(counts_q)
     for creator, cnt in counts.all():
         try:
             rooms_created[int(creator)] = int(cnt or 0)
@@ -1788,18 +1834,39 @@ async def aggregate_user_room_time_stats(session: AsyncSession, ids: list[int]) 
     id_strs = [str(i) for i in ids]
     scan_all = len(ids) > 200
     if scan_all:
-        room_rows = await session.execute(select(Room.visitors, Room.screen_time, Room.spectators_time))
+        room_q = select(Room.id, Room.deleted_at, Room.visitors, Room.screen_time, Room.spectators_time)
+        if season_scope is not None:
+            room_q = room_q.where(season_scope)
+        room_rows = (await session.execute(room_q)).all()
     else:
         room_filters = [Room.creator.in_(ids)]
         room_filters += [Room.visitors.has_key(i) for i in id_strs]
         room_filters += [Room.screen_time.has_key(i) for i in id_strs]
         room_filters += [Room.spectators_time.has_key(i) for i in id_strs]
-        room_rows = await session.execute(select(Room.visitors, Room.screen_time, Room.spectators_time).where(or_(*room_filters)))
+        if include_active_rooms:
+            room_filters.append(Room.deleted_at.is_(None))
+        room_q = select(Room.id, Room.deleted_at, Room.visitors, Room.screen_time, Room.spectators_time).where(or_(*room_filters))
+        if season_scope is not None:
+            room_q = room_q.where(season_scope)
+        room_rows = (await session.execute(room_q)).all()
+
+    live_stats: dict[int, dict[str, Any]] = {}
+    active_room_ids = [int(rid) for rid, deleted_at, _vis, _scr, _spec in room_rows if deleted_at is None]
+    if active_room_ids:
+        try:
+            live_stats = await fetch_live_room_stats(get_redis(), sorted(set(active_room_ids)))
+        except Exception:
+            log.warning("user_room_stats.live_fetch_failed", rooms=len(active_room_ids))
 
     id_set = set(ids)
-    for visitors, screen_time, spectators_time in room_rows.all():
-        if isinstance(visitors, dict):
-            for k, v in visitors.items():
+    for rid, deleted_at, visitors, screen_time, spectators_time in room_rows:
+        live = live_stats.get(int(rid)) if deleted_at is None else None
+        visitors_map = live.get("visitors") if live else visitors
+        screen_map = live.get("streams") if live else screen_time
+        spectators_map = live.get("spectators") if live else spectators_time
+
+        if isinstance(visitors_map, dict):
+            for k, v in visitors_map.items():
                 try:
                     uid = int(k)
                 except Exception:
@@ -1810,8 +1877,8 @@ async def aggregate_user_room_time_stats(session: AsyncSession, ids: list[int]) 
                     except Exception:
                         continue
 
-        if isinstance(screen_time, dict):
-            for k, v in screen_time.items():
+        if isinstance(screen_map, dict):
+            for k, v in screen_map.items():
                 try:
                     uid = int(k)
                 except Exception:
@@ -1822,8 +1889,8 @@ async def aggregate_user_room_time_stats(session: AsyncSession, ids: list[int]) 
                     except Exception:
                         continue
 
-        if isinstance(spectators_time, dict):
-            for k, v in spectators_time.items():
+        if isinstance(spectators_map, dict):
+            for k, v in spectators_map.items():
                 try:
                     uid = int(k)
                 except Exception:

@@ -103,12 +103,11 @@ async def user_stats(season: int | None = None, ident: Identity = Depends(get_id
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
 
-    rooms_created, room_seconds, stream_seconds, spectator_seconds = await aggregate_user_room_time_stats(db, [uid])
-    room_minutes = max(0, int(room_seconds.get(uid, 0)) // 60)
-    stream_minutes = max(0, int(stream_seconds.get(uid, 0)) // 60)
-    spectator_minutes = max(0, int(spectator_seconds.get(uid, 0)) // 60)
-
     try:
+        rooms_created, room_seconds, stream_seconds, spectator_seconds = await aggregate_user_room_time_stats(db, [uid], season=season)
+        room_minutes = max(0, int(room_seconds.get(uid, 0)) // 60)
+        stream_minutes = max(0, int(stream_seconds.get(uid, 0)) // 60)
+        spectator_minutes = max(0, int(spectator_seconds.get(uid, 0)) // 60)
         game_stats = await get_user_game_stats_cached(db, uid, season)
     except ValueError as exc:
         detail = str(exc) or "season_invalid"
