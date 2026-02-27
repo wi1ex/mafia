@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing import cast
 import asyncio
+import structlog
 from contextlib import suppress
 from time import time
 from datetime import date, datetime, timezone, timedelta
@@ -8,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select, func, or_, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from ...core.clients import get_redis
-from ...core.db import get_session
+from ...core.db import get_session, SessionLocal
 from ...models.log import AppLog
 from ...models.game import Game
 from ...models.room import Room
@@ -76,6 +77,7 @@ from ..utils import (
     sum_room_stream_seconds,
     fetch_live_room_stats,
     aggregate_user_room_stats,
+    rebuild_friend_closeness,
     fetch_friends_count_for_users,
     fetch_sanction_counts_for_users,
     normalize_users_sort,
@@ -98,6 +100,7 @@ from ..utils import (
 )
 
 router = APIRouter()
+log = structlog.get_logger()
 
 @log_route("admin.settings_public")
 @router.get("/settings/public", response_model=PublicSettingsOut)
@@ -159,11 +162,19 @@ async def update_settings(payload: AdminSettingsUpdateIn, session: AsyncSession 
         except Exception:
             pass
         if season_changed:
-            async def _invalidate_stats_cache_task() -> None:
-                with suppress(Exception):
+            async def _on_season_changed_task() -> None:
+                try:
                     await invalidate_all_user_game_stats_cache()
+                except Exception:
+                    log.warning("admin.settings.season_change.invalidate_stats_cache_failed")
+                try:
+                    async with SessionLocal() as s:
+                        await rebuild_friend_closeness(s)
+                        await s.commit()
+                except Exception:
+                    log.warning("admin.settings.season_change.rebuild_friend_closeness_failed")
 
-            asyncio.create_task(_invalidate_stats_cache_task())
+            asyncio.create_task(_on_season_changed_task())
 
     return AdminSettingsOut(site=site_settings_out(row), game=game_settings_out(row))
 

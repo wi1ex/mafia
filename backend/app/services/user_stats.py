@@ -3,10 +3,9 @@ import hashlib
 import json
 import structlog
 from typing import Any, Iterable
-from sqlalchemy import select, or_
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.clients import get_redis
-from ..models.friend import FriendCloseness
 from ..models.game import Game
 from ..schemas.user import UserGameStatsOut, UserBestMoveStatsOut, UserTopPlayerOut
 from ..security.parameters import get_cached_settings
@@ -16,7 +15,6 @@ from ..services.user_cache import get_user_profiles_cached
 log = structlog.get_logger()
 
 TOP_PLAYERS_LIMIT = 5
-CACHE_VERSION = 1
 CACHE_TTL_SECONDS = 7 * 24 * 60 * 60
 SCAN_BATCH_SIZE = 200
 ALL_STATS_CACHE_PATTERN = "user:*:stats:game:*"
@@ -68,7 +66,7 @@ def _settings_hash() -> str:
 
 def _cache_key(user_id: int, season: int | None) -> str:
     season_part = "all" if season is None else f"s{int(season)}"
-    return f"user:{int(user_id)}:stats:game:v{CACHE_VERSION}:{_settings_hash()}:{season_part}"
+    return f"user:{int(user_id)}:stats:game:{_settings_hash()}:{season_part}"
 
 
 def _cache_key_prefix(user_id: int) -> str:
@@ -209,49 +207,6 @@ def _build_game_stats(stats_row: dict[str, int], top_players: list[UserTopPlayer
     )
 
 
-async def _build_top_players_all(session: AsyncSession, uid: int) -> list[UserTopPlayerOut]:
-    closeness_rows = await session.execute(
-        select(FriendCloseness.user_low, FriendCloseness.user_high, FriendCloseness.games_together)
-        .where(
-            or_(FriendCloseness.user_low == uid, FriendCloseness.user_high == uid),
-            FriendCloseness.games_together > 0,
-        )
-        .order_by(FriendCloseness.games_together.desc(), FriendCloseness.updated_at.desc(), FriendCloseness.id.desc())
-        .limit(TOP_PLAYERS_LIMIT)
-    )
-
-    top_ids: list[int] = []
-    top_games: dict[int, int] = {}
-    for user_low, user_high, games_together in closeness_rows.all():
-        lo = int(user_low)
-        hi = int(user_high)
-        other_id = hi if lo == uid else lo
-        if other_id <= 0 or other_id in top_games:
-            continue
-        top_ids.append(other_id)
-        top_games[other_id] = max(0, int(games_together or 0))
-        if len(top_ids) >= TOP_PLAYERS_LIMIT:
-            break
-
-    if not top_ids:
-        return []
-
-    profiles = await get_user_profiles_cached(session, set(top_ids))
-    out: list[UserTopPlayerOut] = []
-    for other_id in top_ids:
-        profile = profiles.get(other_id) or {}
-        username_raw = profile.get("username")
-        username = str(username_raw) if isinstance(username_raw, str) else None
-        out.append(
-            UserTopPlayerOut(
-                id=other_id,
-                username=username,
-                games_together=top_games.get(other_id, 0),
-            )
-        )
-    return out
-
-
 async def _build_top_players_season(session: AsyncSession, uid: int, *, game_id_min: int, game_id_max: int | None = None) -> list[UserTopPlayerOut]:
     filters = [Game.roles.has_key(str(uid)), Game.id >= int(game_id_min)]
     if game_id_max is not None and int(game_id_max) > 0:
@@ -319,12 +274,11 @@ async def _compute_user_game_stats(session: AsyncSession, user_id: int, season: 
 
     season_no = _normalize_season_or_raise(season)
     if season_no is None:
-        stats_row = await build_user_game_stats_row(session, uid)
-        top_players = await _build_top_players_all(session, uid)
-        return _build_game_stats(stats_row, top_players)
+        start_id, end_id = 1, None
+    else:
+        starts = get_cached_settings().season_start_game_numbers
+        start_id, end_id = season_bounds(starts, season_no)
 
-    starts = get_cached_settings().season_start_game_numbers
-    start_id, end_id = season_bounds(starts, season_no)
     stats_row = await build_user_game_stats_row(session, uid, game_id_min=start_id, game_id_max=end_id)
     top_players = await _build_top_players_season(session, uid, game_id_min=start_id, game_id_max=end_id)
     return _build_game_stats(stats_row, top_players)

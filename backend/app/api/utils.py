@@ -10,7 +10,7 @@ from time import time
 from datetime import date, datetime, timezone, timedelta
 from typing import Optional, Dict, Any, Literal, Sequence, Iterable, cast, TYPE_CHECKING
 from fastapi import HTTPException, status, Header
-from sqlalchemy import update, func, select, or_, and_
+from sqlalchemy import update, func, select, or_, and_, delete, text
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.clients import get_redis
@@ -19,7 +19,7 @@ from ..core.settings import settings
 from ..models.game import Game
 from ..models.log import AppLog
 from ..models.room import Room
-from ..models.friend import FriendLink
+from ..models.friend import FriendLink, FriendCloseness
 from ..models.notif import Notif
 from ..models.sanction import UserSanction
 from ..models.user import User
@@ -79,6 +79,7 @@ __all__ = [
     "normalize_users_sort",
     "fetch_friends_count_for_users",
     "fetch_sanction_counts_for_users",
+    "rebuild_friend_closeness",
     "user_sort_metric",
     "compute_duration_seconds",
     "is_sanction_active",
@@ -1657,6 +1658,62 @@ async def fetch_live_room_stats(r, room_ids: list[int]) -> dict[int, dict[str, A
         }
 
     return out
+
+
+async def rebuild_friend_closeness(session: AsyncSession, *, flush_pairs: int = 5000) -> None:
+    # Block concurrent upserts from game-finish while we rebuild exact counters.
+    await session.execute(text("LOCK TABLE friend_closeness IN SHARE ROW EXCLUSIVE MODE"))
+    await session.execute(delete(FriendCloseness))
+
+    pair_counts: dict[tuple[int, int], int] = {}
+
+    def _to_int(raw: object) -> int:
+        try:
+            return int(raw)
+        except Exception:
+            return 0
+
+    async def flush_counts() -> None:
+        if not pair_counts:
+            return
+
+        values = [
+            {"user_low": lo, "user_high": hi, "games_together": int(cnt)}
+            for (lo, hi), cnt in pair_counts.items()
+            if int(cnt) > 0
+        ]
+        pair_counts.clear()
+        if not values:
+            return
+
+        stmt = insert(FriendCloseness).values(values)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=["user_low", "user_high"],
+            set_={
+                "games_together": FriendCloseness.games_together + stmt.excluded.games_together,
+                "updated_at": func.now(),
+            },
+        )
+        await session.execute(stmt)
+
+    rows = await session.stream(select(Game.roles).order_by(Game.id.asc()))
+    async for roles_raw in rows.scalars():
+        if not isinstance(roles_raw, dict):
+            continue
+
+        players = sorted({_to_int(raw_uid) for raw_uid in roles_raw.keys() if _to_int(raw_uid) > 0})
+        if len(players) < 2:
+            continue
+
+        for i in range(0, len(players)):
+            for j in range(i + 1, len(players)):
+                key = (players[i], players[j])
+                pair_counts[key] = pair_counts.get(key, 0) + 1
+
+        if len(pair_counts) >= max(1000, int(flush_pairs)):
+            await flush_counts()
+
+    await flush_counts()
 
 
 async def aggregate_user_room_stats(session: AsyncSession, ids: list[int]) -> tuple[dict[int, int], dict[int, int], dict[int, int], dict[int, int], dict[int, int], dict[int, int]]:
