@@ -444,9 +444,9 @@ onBeforeUnmount(() => {
         background-color: $lead;
       }
       .history-main {
-        display: grid;
-        grid-template-columns: minmax(220px, 1fr) minmax(320px, 1fr) 24px;
+        display: flex;
         align-items: center;
+        justify-content: space-between;
         padding: 15px;
         gap: 10px;
         width: 100%;
@@ -457,7 +457,9 @@ onBeforeUnmount(() => {
         cursor: pointer;
         .history-main-div {
           display: flex;
-          gap: 150px;
+          align-items: center;
+          justify-content: space-between;
+          min-width: 450px;
           .history-main-left {
             display: flex;
             flex-direction: column;
@@ -493,6 +495,7 @@ onBeforeUnmount(() => {
             }
           }
           .game-role-icon {
+            margin-right: 175px;
             width: 45px;
             height: 45px;
           }
@@ -582,24 +585,6 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 1280px) {
-  .profile-history {
-    .history-list {
-      .history-item {
-        .history-main {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          .history-main-mid {
-            grid-column: 1 / -1;
-          }
-        }
-      }
-    }
-    .history-pager {
-      flex-direction: column;
-      align-items: stretch;
-    }
-  }
 }
 
 </style>
