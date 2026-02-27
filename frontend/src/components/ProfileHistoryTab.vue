@@ -455,7 +455,7 @@ onBeforeUnmount(() => {
         color: inherit;
         text-align: left;
         cursor: pointer;
-        .history-main-left {
+        .history-main-div {
           display: flex;
           gap: 150px;
           .history-main-left {
