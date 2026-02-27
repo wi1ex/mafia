@@ -321,7 +321,7 @@
                   <td>
                     <div v-if="row.username" class="user-cell">
                       <img class="user-avatar" v-minio-img="{ key: row.avatar_name ? `avatars/${row.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
-                      <span>{{ row.username }}</span>
+                      <button class="user-link" type="button" @click="openUserStats(row)">{{ row.username }}</button>
                     </div>
                     <span v-else>-</span>
                   </td>
@@ -723,6 +723,20 @@
       :reasons="sanctionReasons"
       @save="saveSanction"
     />
+
+    <div v-if="userStatsOpen && userStatsTarget" class="user-stats-overlay">
+      <div class="user-stats-modal">
+        <header class="user-stats-head">
+          <span>Статистика: {{ userStatsTarget.username || `user${userStatsTarget.id}` }}</span>
+          <button type="button" aria-label="Закрыть" @click="closeUserStats">
+            <img :src="iconClose" alt="close" />
+          </button>
+        </header>
+        <div class="user-stats-body">
+          <ProfileStatsTab :key="`admin-user-stats-${userStatsTarget.id}`" :stats-url="`/admin/users/${userStatsTarget.id}/stats`" />
+        </div>
+      </div>
+    </div>
   </section>
 </template>
 
@@ -736,6 +750,7 @@ import { useSettingsStore } from '@/store'
 
 import UpdateModal from '@/components/UpdateModal.vue'
 import SanctionModal from '@/components/SanctionModal.vue'
+import ProfileStatsTab from '@/components/ProfileStatsTab.vue'
 import ToggleSwitch from '@/components/ToggleSwitch.vue'
 import UiInput from '@/components/UiInput.vue'
 
@@ -1048,6 +1063,8 @@ const usersDeleteBusy = reactive<Record<number, boolean>>({})
 const usersVerifyBusy = reactive<Record<number, boolean>>({})
 const usersPasswordBusy = reactive<Record<number, boolean>>({})
 const usersSanctionBusy = reactive<Record<string, boolean>>({})
+const userStatsOpen = ref(false)
+const userStatsTarget = ref<UserRow | null>(null)
 const updates = ref<UpdateRow[]>([])
 const updateModalOpen = ref(false)
 const updateSaving = ref(false)
@@ -1324,6 +1341,16 @@ function isSanctionBusy(userId: number, kind: 'timeout' | 'ban' | 'suspend'): bo
 function isUserActionsLocked(row: UserRow | null | undefined): boolean {
   if (!row) return false
   return Boolean(row.protected_user)
+}
+
+function openUserStats(row: UserRow): void {
+  userStatsTarget.value = row
+  userStatsOpen.value = true
+}
+
+function closeUserStats(): void {
+  userStatsOpen.value = false
+  userStatsTarget.value = null
 }
 
 function formatRoomGame(row: RoomRow): string {
@@ -1964,6 +1991,9 @@ watch(activeTab, (tab) => {
   if (normalizeTab(route.query.tab) !== tab) {
     router.replace({ query: { ...route.query, tab } }).catch(() => {})
   }
+  if (tab !== 'users' && userStatsOpen.value) {
+    closeUserStats()
+  }
   refreshActiveTab(tab)
 })
 
@@ -2066,6 +2096,60 @@ onMounted(() => {
           cursor: not-allowed;
         }
       }
+    }
+  }
+  .user-stats-overlay {
+    display: flex;
+    position: fixed;
+    align-items: center;
+    justify-content: center;
+    inset: 0;
+    padding: 20px;
+    background-color: rgba($black, 0.5);
+    backdrop-filter: blur(5px);
+    z-index: 1200;
+    .user-stats-modal {
+      display: flex;
+      flex-direction: column;
+      width: min(96vw, 1500px);
+      max-height: 92vh;
+      border: 1px solid $lead;
+      border-radius: 5px;
+      background-color: $dark;
+      overflow: hidden;
+    }
+    .user-stats-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px;
+      border-bottom: 1px solid $lead;
+      background-color: $graphite;
+      span {
+        font-size: 16px;
+        font-family: Manrope-SemiBold;
+      }
+      button {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 30px;
+        height: 30px;
+        padding: 0;
+        border: none;
+        border-radius: 5px;
+        background: transparent;
+        cursor: pointer;
+        img {
+          width: 20px;
+          height: 20px;
+        }
+      }
+    }
+    .user-stats-body {
+      padding: 10px;
+      overflow: auto;
     }
   }
   .btn {
@@ -2381,6 +2465,20 @@ onMounted(() => {
         &.compact {
           gap: 5px;
         }
+        .user-link {
+          padding: 0;
+          border: none;
+          background: transparent;
+          color: $fg;
+          font: inherit;
+          text-align: left;
+          cursor: pointer;
+          transition: color 0.25s ease-in-out;
+          &:hover {
+            color: $white;
+            text-decoration: underline;
+          }
+        }
       }
       .user-avatar {
         width: 24px;
@@ -2481,6 +2579,26 @@ onMounted(() => {
 
 @media (max-width: 1280px) {
   .admin {
+    .user-stats-overlay {
+      padding: 10px;
+      .user-stats-head {
+        padding: 5px;
+        span {
+          font-size: 14px;
+        }
+        button {
+          width: 24px;
+          height: 24px;
+          img {
+            width: 16px;
+            height: 16px;
+          }
+        }
+      }
+      .user-stats-body {
+        padding: 5px;
+      }
+    }
     header {
       .tabs {
         .tab {

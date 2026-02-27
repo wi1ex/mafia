@@ -127,7 +127,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch, withDefaults } from 'vue'
 import { api } from '@/services/axios'
 import { useSettingsStore } from '@/store'
 import iconRoleCitizen from '@/assets/images/roleCitizen.png'
@@ -192,6 +192,12 @@ type SeasonOption = {
   label: string
   season: number | null
 }
+
+const props = withDefaults(defineProps<{
+  statsUrl?: string
+}>(), {
+  statsUrl: '/users/stats',
+})
 
 const loading = ref(false)
 const loaded = ref(false)
@@ -488,7 +494,7 @@ async function load(force = false) {
   try {
     const params: { season?: number } = {}
     if (selectedSeason.value !== null) params.season = selectedSeason.value
-    const { data } = await api.get<UserStats>('/users/stats', { params })
+    const { data } = await api.get<UserStats>(props.statsUrl, { params })
     if (seq !== requestSeq) return
     stats.rooms_created = safeInt(data?.rooms_created)
     stats.room_minutes = safeInt(data?.room_minutes)
@@ -513,6 +519,11 @@ watch(seasonOptions, (options) => {
   const exists = options.some((option) => option.season === selectedSeason.value)
   if (!exists) selectedSeason.value = null
 }, { immediate: true })
+
+watch(() => props.statsUrl, () => {
+  loaded.value = false
+  void load(true)
+})
 
 onMounted(() => {
   void load()

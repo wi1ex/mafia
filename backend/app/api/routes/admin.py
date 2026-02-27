@@ -29,9 +29,10 @@ from ...security.decorators import log_route, require_roles_deco
 from ...security.auth_tokens import get_identity
 from ...security.passwords import hash_password
 from ...security.parameters import ensure_app_settings, sync_cache_from_row, refresh_app_settings, get_cached_settings
-from ...services.user_cache import write_user_profile_cache
-from ...services.user_stats import invalidate_all_user_game_stats_cache
+from ...services.user_cache import write_user_profile_cache, get_user_profiles_cached
+from ...services.user_stats import invalidate_all_user_game_stats_cache, get_user_game_stats_cached
 from ...schemas.common import Ok, Identity
+from ...schemas.user import UserStatsOut, UserTopPlayerOut
 from ...schemas.updates import AdminUpdateIn, AdminUpdateOut, AdminUpdatesOut
 from ...schemas.admin import (
     AdminSettingsOut,
@@ -77,6 +78,7 @@ from ..utils import (
     sum_room_stream_seconds,
     fetch_live_room_stats,
     aggregate_user_room_stats,
+    aggregate_user_room_time_stats,
     rebuild_friend_closeness,
     fetch_friends_count_for_users,
     fetch_sanction_counts_for_users,
@@ -850,6 +852,60 @@ async def users_list(page: int = 1, limit: int = 20, username: str | None = None
         ))
 
     return AdminUsersOut(total=total, items=items)
+
+
+@log_route("admin.users.stats")
+@require_roles_deco("admin")
+@router.get("/users/{user_id}/stats", response_model=UserStatsOut)
+async def user_stats(user_id: int, season: int | None = None, session: AsyncSession = Depends(get_session)) -> UserStatsOut:
+    uid = int(user_id)
+    user = await session.get(User, uid)
+    if not user:
+        raise HTTPException(status_code=404, detail="user_not_found")
+
+    def _nonneg_int(raw: object) -> int:
+        try:
+            return max(0, int(raw))
+
+        except Exception:
+            return 0
+
+    try:
+        rooms_created, room_seconds, stream_seconds, spectator_seconds = await aggregate_user_room_time_stats(session, [uid], season=season)
+        room_minutes = _nonneg_int(room_seconds.get(uid, 0)) // 60
+        stream_minutes = _nonneg_int(stream_seconds.get(uid, 0)) // 60
+        spectator_minutes = _nonneg_int(spectator_seconds.get(uid, 0)) // 60
+        game_stats = await get_user_game_stats_cached(session, uid, season)
+    except ValueError as exc:
+        detail = str(exc) or "season_invalid"
+        if detail not in {"season_invalid", "season_not_found"}:
+            detail = "season_invalid"
+        raise HTTPException(status_code=422, detail=detail)
+
+    top_player_ids = {int(item.id) for item in (game_stats.top_players or []) if int(item.id) > 0}
+    if top_player_ids:
+        profiles = await get_user_profiles_cached(session, top_player_ids)
+        refreshed_top_players: list[UserTopPlayerOut] = []
+        for item in game_stats.top_players:
+            profile = profiles.get(int(item.id)) or {}
+            username_raw = profile.get("username")
+            username = str(username_raw) if isinstance(username_raw, str) else item.username
+            refreshed_top_players.append(
+                UserTopPlayerOut(
+                    id=int(item.id),
+                    username=username,
+                    games_together=max(0, int(item.games_together)),
+                )
+            )
+        game_stats = game_stats.model_copy(update={"top_players": refreshed_top_players})
+
+    return UserStatsOut(
+        rooms_created=_nonneg_int(rooms_created.get(uid, 0)),
+        room_minutes=room_minutes,
+        stream_minutes=stream_minutes,
+        spectator_minutes=spectator_minutes,
+        game=game_stats,
+    )
 
 
 @log_route("admin.users.role")
