@@ -24,7 +24,7 @@ from ..core.clients import get_redis
 from ..core.logging import log_action
 from ..security.auth_tokens import decode_token
 from ..services.user_cache import get_user_profile_cached, get_user_profiles_cached
-from ..services.user_game_stats_cache import warm_user_game_stats_cache_for_users
+from ..services.user_game_stats_cache import invalidate_user_game_stats_cache_for_users
 
 __all__ = [
     "KEYS_STATE",
@@ -3473,7 +3473,7 @@ async def finish_game(r, rid: int, *, result: str, head_uid: int | None = None, 
                 if head_uid and head_uid > 0:
                     cache_user_ids.add(int(head_uid))
                 if cache_user_ids:
-                    await warm_user_game_stats_cache_for_users(s, cache_user_ids)
+                    await invalidate_user_game_stats_cache_for_users(cache_user_ids)
         except Exception:
             log.exception("game_finish.save_failed", rid=rid)
     elif skip_save:

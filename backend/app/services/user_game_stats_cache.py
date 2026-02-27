@@ -17,6 +17,8 @@ log = structlog.get_logger()
 
 TOP_PLAYERS_LIMIT = 5
 CACHE_VERSION = 1
+CACHE_TTL_SECONDS = 7 * 24 * 60 * 60
+SCAN_BATCH_SIZE = 200
 
 
 def season_bounds(starts: list[int] | tuple[int, ...], season_index: int) -> tuple[int, int | None]:
@@ -68,6 +70,10 @@ def _cache_key(user_id: int, season: int | None) -> str:
     return f"user:{int(user_id)}:stats:game:v{CACHE_VERSION}:{_settings_hash()}:{season_part}"
 
 
+def _cache_key_prefix(user_id: int) -> str:
+    return f"user:{int(user_id)}:stats:game:"
+
+
 def _normalize_user_ids(user_ids: Iterable[int | str]) -> list[int]:
     ids: set[int] = set()
     for raw in user_ids:
@@ -78,6 +84,52 @@ def _normalize_user_ids(user_ids: Iterable[int | str]) -> list[int]:
         if uid > 0:
             ids.add(uid)
     return sorted(ids)
+
+
+async def _unlink_or_delete_keys(redis_client, keys: list[str]) -> None:
+    if not keys:
+        return
+
+    try:
+        await redis_client.unlink(*keys)
+        return
+
+    except Exception:
+        pass
+
+    await redis_client.delete(*keys)
+
+
+async def invalidate_user_game_stats_cache(user_id: int, *, redis_client=None) -> None:
+    uid = _safe_int(user_id)
+    if uid <= 0:
+        return
+
+    r = redis_client or get_redis()
+    pattern = f"{_cache_key_prefix(uid)}*"
+    keys_batch: list[str] = []
+    try:
+        async for key in r.scan_iter(match=pattern, count=SCAN_BATCH_SIZE):
+            if not key:
+                continue
+            keys_batch.append(str(key))
+            if len(keys_batch) >= SCAN_BATCH_SIZE:
+                await _unlink_or_delete_keys(r, keys_batch)
+                keys_batch.clear()
+
+        if keys_batch:
+            await _unlink_or_delete_keys(r, keys_batch)
+    except Exception:
+        log.warning("user_stats_cache.invalidate_failed", user_id=uid)
+
+
+async def invalidate_user_game_stats_cache_for_users(user_ids: Iterable[int | str], *, redis_client=None) -> None:
+    ids = _normalize_user_ids(user_ids)
+    if not ids:
+        return
+
+    for uid in ids:
+        await invalidate_user_game_stats_cache(uid, redis_client=redis_client)
 
 
 def _build_game_stats(stats_row: dict[str, int], top_players: list[UserTopPlayerOut]) -> UserGameStatsOut:
@@ -287,7 +339,7 @@ async def _write_cached_game_stats(user_id: int, season: int | None, game_stats:
     r = get_redis()
     try:
         raw = json.dumps(game_stats.model_dump(), ensure_ascii=False, separators=(",", ":"))
-        await r.set(key, raw)
+        await r.set(key, raw, ex=CACHE_TTL_SECONDS)
     except Exception:
         log.warning("user_stats_cache.write_failed", user_id=int(user_id), season=season if season is not None else "all")
 

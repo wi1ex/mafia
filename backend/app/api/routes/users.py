@@ -16,11 +16,11 @@ from ..utils import (
     force_logout_user,
     normalize_username,
     is_protected_admin,
-    aggregate_user_room_stats,
     safe_int,
     non_empty_str,
     normalize_game_result,
     fetch_games_history_page,
+    aggregate_user_room_time_stats,
 )
 from ...models.game import Game
 from ...models.user import User
@@ -103,7 +103,7 @@ async def user_stats(season: int | None = None, ident: Identity = Depends(get_id
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
 
-    rooms_created, room_seconds, stream_seconds, spectator_seconds, _games_played, _games_hosted = await aggregate_user_room_stats(db, [uid])
+    rooms_created, room_seconds, stream_seconds, spectator_seconds = await aggregate_user_room_time_stats(db, [uid])
     room_minutes = max(0, int(room_seconds.get(uid, 0)) // 60)
     stream_minutes = max(0, int(stream_seconds.get(uid, 0)) // 60)
     spectator_minutes = max(0, int(spectator_seconds.get(uid, 0)) // 60)

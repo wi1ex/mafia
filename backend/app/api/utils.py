@@ -74,6 +74,7 @@ __all__ = [
     "build_room_user_stats",
     "sum_room_stream_seconds",
     "fetch_live_room_stats",
+    "aggregate_user_room_time_stats",
     "aggregate_user_room_stats",
     "normalize_users_sort",
     "fetch_friends_count_for_users",
@@ -1659,15 +1660,66 @@ async def fetch_live_room_stats(r, room_ids: list[int]) -> dict[int, dict[str, A
 
 
 async def aggregate_user_room_stats(session: AsyncSession, ids: list[int]) -> tuple[dict[int, int], dict[int, int], dict[int, int], dict[int, int], dict[int, int], dict[int, int]]:
-    rooms_created: dict[int, int] = {uid: 0 for uid in ids}
-    room_seconds: dict[int, int] = {uid: 0 for uid in ids}
-    stream_seconds: dict[int, int] = {uid: 0 for uid in ids}
-    spectator_seconds: dict[int, int] = {uid: 0 for uid in ids}
+    rooms_created, room_seconds, stream_seconds, spectator_seconds = await aggregate_user_room_time_stats(session, ids)
     games_played: dict[int, int] = {uid: 0 for uid in ids}
     games_hosted: dict[int, int] = {uid: 0 for uid in ids}
 
     if not ids:
         return rooms_created, room_seconds, stream_seconds, spectator_seconds, games_played, games_hosted
+
+    id_strs = [str(i) for i in ids]
+    scan_all = len(ids) > 200
+    id_set = set(ids)
+
+    if scan_all:
+        rows = await session.execute(select(Game.roles))
+        for roles_map in rows.scalars().all():
+            if not isinstance(roles_map, dict):
+                continue
+            for k in roles_map.keys():
+                try:
+                    uid = int(k)
+                except Exception:
+                    continue
+                if uid in id_set:
+                    games_played[uid] += 1
+    else:
+        role_filters = [Game.roles.has_key(i) for i in id_strs]
+        rows = await session.execute(select(Game.roles).where(or_(*role_filters)))
+        for roles_map in rows.scalars().all():
+            if not isinstance(roles_map, dict):
+                continue
+            for k in roles_map.keys():
+                try:
+                    uid = int(k)
+                except Exception:
+                    continue
+                if uid in id_set:
+                    games_played[uid] += 1
+
+    host_rows = await session.execute(select(Game.head_id, func.count(Game.id)).where(Game.head_id.in_(ids)).group_by(Game.head_id))
+    for head_id, cnt in host_rows.all():
+        try:
+            hid = int(head_id)
+        except Exception:
+            continue
+        if hid in games_hosted:
+            try:
+                games_hosted[hid] = int(cnt or 0)
+            except Exception:
+                continue
+
+    return rooms_created, room_seconds, stream_seconds, spectator_seconds, games_played, games_hosted
+
+
+async def aggregate_user_room_time_stats(session: AsyncSession, ids: list[int]) -> tuple[dict[int, int], dict[int, int], dict[int, int], dict[int, int]]:
+    rooms_created: dict[int, int] = {uid: 0 for uid in ids}
+    room_seconds: dict[int, int] = {uid: 0 for uid in ids}
+    stream_seconds: dict[int, int] = {uid: 0 for uid in ids}
+    spectator_seconds: dict[int, int] = {uid: 0 for uid in ids}
+
+    if not ids:
+        return rooms_created, room_seconds, stream_seconds, spectator_seconds
 
     counts = await session.execute(select(Room.creator, func.count(Room.id)).where(Room.creator.in_(ids)).group_by(Room.creator))
     for creator, cnt in counts.all():
@@ -1725,45 +1777,7 @@ async def aggregate_user_room_stats(session: AsyncSession, ids: list[int]) -> tu
                     except Exception:
                         continue
 
-    if scan_all:
-        rows = await session.execute(select(Game.roles))
-        for roles_map in rows.scalars().all():
-            if not isinstance(roles_map, dict):
-                continue
-            for k in roles_map.keys():
-                try:
-                    uid = int(k)
-                except Exception:
-                    continue
-                if uid in id_set:
-                    games_played[uid] += 1
-    else:
-        role_filters = [Game.roles.has_key(i) for i in id_strs]
-        rows = await session.execute(select(Game.roles).where(or_(*role_filters)))
-        for roles_map in rows.scalars().all():
-            if not isinstance(roles_map, dict):
-                continue
-            for k in roles_map.keys():
-                try:
-                    uid = int(k)
-                except Exception:
-                    continue
-                if uid in id_set:
-                    games_played[uid] += 1
-
-    host_rows = await session.execute(select(Game.head_id, func.count(Game.id)).where(Game.head_id.in_(ids)).group_by(Game.head_id))
-    for head_id, cnt in host_rows.all():
-        try:
-            hid = int(head_id)
-        except Exception:
-            continue
-        if hid in games_hosted:
-            try:
-                games_hosted[hid] = int(cnt or 0)
-            except Exception:
-                continue
-
-    return rooms_created, room_seconds, stream_seconds, spectator_seconds, games_played, games_hosted
+    return rooms_created, room_seconds, stream_seconds, spectator_seconds
 
 
 async def emit_rooms_upsert(rid: int) -> None:
