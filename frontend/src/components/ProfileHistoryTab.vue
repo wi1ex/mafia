@@ -459,7 +459,7 @@ onBeforeUnmount(() => {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          min-width: 450px;
+          min-width: 500px;
           .history-main-left {
             display: flex;
             flex-direction: column;
@@ -495,7 +495,7 @@ onBeforeUnmount(() => {
             }
           }
           .game-role-icon {
-            margin-right: 175px;
+            margin-right: 150px;
             width: 45px;
             height: 45px;
           }
@@ -504,7 +504,7 @@ onBeforeUnmount(() => {
           display: flex;
           flex-direction: column;
           gap: 5px;
-          min-width: 0;
+          min-width: 500px;
           span {
             color: $ashy;
             white-space: nowrap;
