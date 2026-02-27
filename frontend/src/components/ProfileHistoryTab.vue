@@ -3,7 +3,8 @@
     <div class="history-filters">
       <button v-for="option in roleFilterOptions" :key="option.value" class="history-filter-btn" type="button"
               :class="{ active: roleFilter === option.value }" @click="setRoleFilter(option.value)">
-        {{ option.label }}
+        <span v-if="option.value === 'all'">{{ option.label }}</span>
+        <img v-else class="history-filter-icon" :src="filterOptionIcon(option)" :alt="option.label" />
       </button>
     </div>
 
@@ -279,6 +280,11 @@ function playerRoleIcon(role: GameHistoryRole): string {
   return roleIcons[role]
 }
 
+function filterOptionIcon(option: RoleFilterOption): string {
+  if (option.value === 'all') return ''
+  return roleIcons[option.value]
+}
+
 function headName(game: GameHistoryListItem): string {
   const name = (game.head.username || '').trim()
   if (name) return name
@@ -399,6 +405,11 @@ onBeforeUnmount(() => {
       &.active {
         background-color: $fg;
         color: $bg;
+      }
+      .history-filter-icon {
+        width: 20px;
+        height: 20px;
+        object-fit: contain;
       }
     }
   }
