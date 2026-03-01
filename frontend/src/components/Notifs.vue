@@ -326,7 +326,8 @@ onBeforeUnmount(() => {
 
 @media (max-width: 1280px) {
   .panel {
-    max-height: calc(100dvh - 70px);
+    top: 40px;
+    max-height: calc(100dvh - 60px);
     header {
       padding: 5px;
       span {

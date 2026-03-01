@@ -1162,6 +1162,21 @@ onBeforeUnmount(() => {
   .card {
     grid-template-columns: minmax(0, 1fr) 300px;
     .left {
+      header {
+        height: 30px;
+        .rooms-text {
+          height: 30px;
+          span {
+            height: 18px;
+            font-size: 16px;
+          }
+        }
+        button {
+          padding: 0 10px;
+          height: 30px;
+          font-size: 14px;
+        }
+      }
       .list {
         .text-center {
           font-size: 14px;
@@ -1177,9 +1192,13 @@ onBeforeUnmount(() => {
           .item {
             grid-template-columns: 15% 45% 25% 15%;
             .cell {
-              .user-name {
+              .user-avatar {
+                width: 16px;
                 height: 16px;
-                font-size: 14px;
+              }
+              .user-name {
+                height: 14px;
+                font-size: 12px;
               }
             }
           }
@@ -1190,9 +1209,12 @@ onBeforeUnmount(() => {
       width: 300px;
       min-width: 300px;
       max-width: 300px;
-      min-height: calc(100dvh - 70px);
-      height: calc(100dvh - 70px);
-      max-height: calc(100dvh - 70px);
+      min-height: calc(100dvh - 60px);
+      height: calc(100dvh - 60px);
+      max-height: calc(100dvh - 60px);
+      .loading-overlay {
+        font-size: 12px;
+      }
       .room-info {
         header span {
           max-width: 250px;

@@ -463,25 +463,51 @@ function openAuth(mode: 'login' | 'register') {
 
 @media (max-width: 1280px) {
   .bar {
+    min-height: 50px;
+    height: 50px;
+    max-height: 50px;
     .btn {
+      padding: 0 8px;
+      height: 30px;
       span {
-        font-size: 14px;
+        font-size: 12px;
       }
       img {
-        width: 20px;
-        height: 20px;
+        width: 16px;
+        height: 16px;
       }
       .arrow {
-        width: 14px;
-        height: 14px;
+        width: 10px;
+        height: 10px;
       }
     }
     .user {
       .bell {
         button {
+          padding: 0 8px;
+          height: 30px;
           img {
-            width: 20px;
-            height: 20px;
+            width: 16px;
+            height: 16px;
+          }
+        }
+      }
+      .user-menu {
+        .user-menu-dropdown {
+          top: 40px;
+          min-width: 150px;
+          max-width: 150px;
+          .user-menu-item {
+            height: 30px;
+            img {
+              margin-left: 10px;
+              width: 16px;
+              height: 16px;
+            }
+            span {
+              height: 14px;
+              font-size: 12px;
+            }
           }
         }
       }
