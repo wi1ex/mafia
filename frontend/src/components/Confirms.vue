@@ -15,8 +15,8 @@
           <label v-if="state.checkboxLabelSuffix" :for="checkboxId" class="checkbox-label">{{ state.checkboxLabelSuffix }}</label>
         </div>
         <div class="actions">
-          <button v-if="isConfirm" @click="onCancel">{{ state.cancelText }}</button>
-          <button class="confirm" :disabled="confirmDisabled" @click="onConfirm">{{ state.confirmText }}</button>
+          <button v-if="isConfirm" @click.stop="onCancel">{{ state.cancelText }}</button>
+          <button class="confirm" :disabled="confirmDisabled" @click.stop="onConfirm">{{ state.confirmText }}</button>
         </div>
       </div>
     </div>
