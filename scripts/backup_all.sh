@@ -22,6 +22,9 @@
 #   - MINIO_BUCKET
 #   - BACKUP_RETENTION_DAYS (опционально, по умолчанию 30)
 #
+# sed -i 's/\r$//' .env
+# grep -n $'\r' .env
+#
 # Быстрый запуск:
 #   chmod +x scripts/backup_all.sh
 #   ./scripts/backup_all.sh

@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select, func, or_, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from ...core.clients import get_redis
-from ...core.db import get_session, SessionLocal
+from ...core.db import get_session
 from ...models.log import AppLog
 from ...models.game import Game
 from ...models.room import Room
@@ -79,7 +79,6 @@ from ..utils import (
     fetch_live_room_stats,
     aggregate_user_room_stats,
     aggregate_user_room_time_stats,
-    rebuild_friend_closeness,
     fetch_friends_count_for_users,
     fetch_sanction_counts_for_users,
     normalize_users_sort,
@@ -169,12 +168,6 @@ async def update_settings(payload: AdminSettingsUpdateIn, session: AsyncSession 
                     await invalidate_all_user_game_stats_cache()
                 except Exception:
                     log.warning("admin.settings.season_change.invalidate_stats_cache_failed")
-                try:
-                    async with SessionLocal() as s:
-                        await rebuild_friend_closeness(s)
-                        await s.commit()
-                except Exception:
-                    log.warning("admin.settings.season_change.rebuild_friend_closeness_failed")
 
             asyncio.create_task(_on_season_changed_task())
 
