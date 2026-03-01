@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "backend"
-version = "0.11.4"
+version = "0.12.2"
 description = "Backend"
 authors = ["Core Team"]
 package-mode = false
