@@ -7,6 +7,7 @@ import structlog
 from sqlalchemy import select
 from ..sio import sio
 from ...core.clients import get_redis
+from ...core.settings import settings
 from ...models.user import User
 from ...security.decorators import rate_limited_sio
 from ...core.logging import log_action
@@ -421,7 +422,8 @@ async def join(sid, data) -> JoinAck:
         positions = await get_positions_map(r, rid)
         owner_raw = await r.get(f"room:{rid}:screen_owner")
         owner = int(owner_raw) if owner_raw else 0
-        token = make_livekit_token(identity=str(uid), name=ev_username, room=str(rid), can_publish=not spectator_mode)
+        livekit_room = f"{settings.PROJECT_NAME}_{rid}"
+        token = make_livekit_token(identity=str(uid), name=ev_username, room=livekit_room, can_publish=not spectator_mode)
         game_runtime, game_roles_view, my_game_role = await get_game_runtime_and_roles_view(r, rid, uid)
         game_runtime = await enrich_game_runtime_with_vote(r, rid, game_runtime, raw_gstate)
         game_fouls = await get_game_fouls(r, rid)

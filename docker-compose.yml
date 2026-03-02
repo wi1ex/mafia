@@ -8,7 +8,6 @@ networks:
 volumes:
   pg_data:
   redis_data:
-  redis_livekit_data:
   minio_data:
 
 services:
@@ -42,26 +41,6 @@ services:
 #      - "6379:6379"
 #    networks: [edge, internal]
     networks: [internal]
-    restart: always
-
-  redis-livekit:
-    image: redis:7.2-alpine
-    container_name: redis-livekit
-    env_file: .env
-    command:
-      - redis-server
-      - --requirepass
-      - "${LIVEKIT_REDIS_PASSWORD}"
-      - --loglevel
-      - "warning"
-      - --appendonly
-      - "yes"
-      - --appendfsync
-      - "everysec"
-    volumes: ["redis_livekit_data:/data"]
-    ports:
-      - "${PUBLIC_IP}:${LIVEKIT_REDIS_HOST_PORT}:${REDIS_PORT}"
-    networks: [edge, internal]
     restart: always
 
   minio:
