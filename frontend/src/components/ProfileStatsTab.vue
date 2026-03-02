@@ -56,7 +56,7 @@
         </article>
 
         <section class="block">
-          <h4>"Любимые" игроки</h4>
+          <h4>Топ-5 игроков по совместным играм</h4>
           <div v-if="game.top_players.length === 0" class="state state-inline">Пока нет данных</div>
           <ol v-else class="rank-list">
             <li v-for="(player, idx) in game.top_players" :key="player.id" class="rank-row">
