@@ -6,7 +6,6 @@
       <img :src="iconReadyGreen" alt="ready" />
     </div>
 
-    <img v-if="hasVoted" class="icon-voted" :src="iconLikeGreen" alt="voted" />
     <button v-if="showKnock" class="icon-badge button left knock" @click="$emit('knock', id)" aria-label="Постучать">
       <img :src="iconKnock" alt="knock" />
       <span>{{ knocksLeft }}</span>
@@ -79,6 +78,8 @@
       <img v-else-if="offline && offlineAvatar" :src="offlineAvatar" alt="offline" />
       <img v-else class="avatar" v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar, lazy: false }" alt="avatar" />
     </div>
+
+    <img v-if="hasVoted" class="icon-voted" :src="iconLikeGreen" alt="voted" />
 
     <div class="user-card" :data-open="openPanel ? 1 : 0" :data-game="inGame ? 1 : 0" @click.stop>
       <button class="card-head" :disabled="id === localId" :aria-disabled="id === localId" @click.stop="$emit('toggle-panel', id)" :aria-expanded="openPanel">
@@ -486,14 +487,6 @@ const showFriendAction = computed(() => props.id !== props.localId && friendActi
       }
     }
   }
-  .icon-voted {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    height: 90%;
-    transform: translate(-50%, -50%);
-    pointer-events: none;
-  }
   .head-bar {
     display: flex;
     align-items: center;
@@ -685,6 +678,15 @@ const showFriendAction = computed(() => props.id !== props.localId && friendActi
       height: 50%;
       border-radius: 50%;
     }
+  }
+  .icon-voted {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    height: 90%;
+    transform: translate(-50%, -50%);
+    z-index: 20;
+    pointer-events: none;
   }
   .user-card {
     position: absolute;
