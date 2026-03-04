@@ -299,7 +299,7 @@ onBeforeUnmount(() => {
       cursor: pointer;
       transition: background-color 0.25s ease-in-out, opacity 0.25s ease-in-out;
       &:hover:enabled {
-        background-color: $graphite;
+        background-color: $dark;
       }
       &:disabled {
         opacity: 0.5;

@@ -6,7 +6,7 @@
     <label>
       <input type="checkbox"
              :checked="modelValue"
-             :disabled="disabled"
+             :disabled="isDisabled"
              :aria-label="ariaLabel || label"
              @change="onChange" />
       <div class="slider">
@@ -18,7 +18,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, ref } from 'vue'
+
+const TOGGLE_GUARD_MS = 500
 
 const props = defineProps<{
   modelValue: boolean
@@ -40,11 +42,33 @@ const onLabel = computed(() => props.onLabel ?? 'Вкл')
 const widthPx = computed(() => `${Number.isFinite(props.width) && props.width ? props.width : 170}px`)
 const switchStyle = computed<Record<string, string>>(() => ({ '--switch-width': widthPx.value }))
 
+const switchLocked = ref(false)
+const isDisabled = computed(() => Boolean(props.disabled) || switchLocked.value)
+let unlockTimer: number | null = null
+
+function lockSwitch() {
+  switchLocked.value = true
+  if (unlockTimer !== null) window.clearTimeout(unlockTimer)
+  unlockTimer = window.setTimeout(() => {
+    switchLocked.value = false
+    unlockTimer = null
+  }, TOGGLE_GUARD_MS)
+}
+
 function onChange(e: Event) {
+  if (isDisabled.value) return
   const checked = (e.target as HTMLInputElement).checked
+  lockSwitch()
   emit('update:modelValue', checked)
   emit('change', checked)
 }
+
+onBeforeUnmount(() => {
+  if (unlockTimer !== null) {
+    window.clearTimeout(unlockTimer)
+    unlockTimer = null
+  }
+})
 </script>
 
 <style scoped lang="scss">

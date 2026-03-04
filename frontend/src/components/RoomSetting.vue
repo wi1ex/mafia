@@ -12,7 +12,7 @@
         <template v-if="!inGame">
           <div class="switch-div">
             <ToggleSwitch :model-value="mirrorOn" label="Зеркальность камеры:" aria-label="Зеркальность"
-              :disabled="mirrorToggleLocked" :width="120" @update:modelValue="onToggleMirror" />
+              :width="120" @update:modelValue="onToggleMirror" />
           </div>
         </template>
         <template v-else>
@@ -138,9 +138,6 @@ let suppressNextDocClick = false
 
 const camLabel = computed(() => props.cams.find(i => i.deviceId === props.camId)?.label || 'Камера')
 const micLabel = computed(() => props.mics.find(i => i.deviceId === props.micId)?.label || 'Микрофон')
-const mirrorToggleLocked = ref(false)
-let mirrorToggleTimer: number | null = null
-
 const micIdProxy = computed({
   get: () => props.micId,
   set: (v: string) => { pickDevice('audioinput', v) }
@@ -151,13 +148,6 @@ const camIdProxy = computed({
 })
 
 function onToggleMirror(next: boolean) {
-  if (mirrorToggleLocked.value) return
-  mirrorToggleLocked.value = true
-  if (mirrorToggleTimer !== null) clearTimeout(mirrorToggleTimer)
-  mirrorToggleTimer = window.setTimeout(() => {
-    mirrorToggleLocked.value = false
-    mirrorToggleTimer = null
-  }, 500)
   emit('update:mirrorOn', next)
 }
 function onToggleKnownRoles(_next: boolean) {
@@ -226,7 +216,6 @@ onMounted(() => {
 onBeforeUnmount(() => {
   document.removeEventListener('pointerdown', onDocPointerDown, { capture: true } as any)
   document.removeEventListener('click', onDocClickCapture, { capture: true } as any)
-  if (mirrorToggleTimer !== null) clearTimeout(mirrorToggleTimer)
 })
 </script>
 

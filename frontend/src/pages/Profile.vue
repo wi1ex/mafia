@@ -297,9 +297,7 @@ const sanctionsLoading = ref(false)
 const sanctionsLoaded = ref(false)
 const sanctionsError = ref('')
 const hotkeysTogglePending = ref(false)
-let hotkeysToggleTimer: number | null = null
 const tgInvitesTogglePending = ref(false)
-let tgInvitesToggleTimer: number | null = null
 const telegramVerified = computed(() => userStore.telegramVerified)
 const passwordTemp = computed(() => userStore.passwordTemp)
 const botName = (import.meta.env.VITE_TG_BOT_NAME as string || '').trim()
@@ -343,24 +341,18 @@ const registrationDateLabel = computed(() => {
   return dt.toLocaleDateString('ru-RU')
 })
 
-function onToggleHotkeys(next: boolean) {
+async function onToggleHotkeys(next: boolean) {
   if (hotkeysTogglePending.value) return
   hotkeysTogglePending.value = true
-  if (hotkeysToggleTimer !== null) window.clearTimeout(hotkeysToggleTimer)
-  hotkeysToggleTimer = window.setTimeout(async () => {
-    try { await setHotkeysVisible(next) }
-    finally { hotkeysTogglePending.value = false }
-  }, 500)
+  try { await setHotkeysVisible(next) }
+  finally { hotkeysTogglePending.value = false }
 }
 
-function onToggleTgInvites(next: boolean) {
+async function onToggleTgInvites(next: boolean) {
   if (tgInvitesTogglePending.value) return
   tgInvitesTogglePending.value = true
-  if (tgInvitesToggleTimer !== null) window.clearTimeout(tgInvitesToggleTimer)
-  tgInvitesToggleTimer = window.setTimeout(async () => {
-    try { await setTgInvitesEnabled(next) }
-    finally { tgInvitesTogglePending.value = false }
-  }, 500)
+  try { await setTgInvitesEnabled(next) }
+  finally { tgInvitesTogglePending.value = false }
 }
 
 const sanctionsSummary = computed(() => {
@@ -821,8 +813,6 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   if (onSanctionsUpdate) window.removeEventListener('auth-sanctions_update', onSanctionsUpdate)
-  if (hotkeysToggleTimer !== null) window.clearTimeout(hotkeysToggleTimer)
-  if (tgInvitesToggleTimer !== null) window.clearTimeout(tgInvitesToggleTimer)
   document.body.style.overflow = ''
 })
 </script>

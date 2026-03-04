@@ -1025,7 +1025,6 @@ export function useRTC(): UseRTC {
     if (prev) {
       try { prev.detach(el) } catch {}
     }
-    // Ensure we do not accumulate multiple audio tracks in the same element after reconnect/resubscribe.
     try { el.srcObject = null } catch {}
     try { track.attach(el) } catch { return false }
     audioTrackByAid.set(aid, track)
