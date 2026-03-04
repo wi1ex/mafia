@@ -25,10 +25,12 @@ from ..utils import (
 from ..utils import (
     KEYS_STATE,
     KEYS_BLOCK,
+    to_bool01,
     apply_state,
     apply_bg_state_on_join,
     apply_join_idle_defaults,
     apply_join_phase_state,
+    is_visibility_allowed_now,
     extract_state_mapping,
     get_user_state_and_block,
     gc_empty_room,
@@ -359,6 +361,14 @@ async def join(sid, data) -> JoinAck:
         user_state: dict[str, str] = {}
         if not spectator_mode:
             incoming = (data.get("state") or {}) if isinstance(data, dict) else {}
+            if incoming and "visibility" in incoming:
+                want_visibility = to_bool01(incoming.get("visibility"))
+                if want_visibility:
+                    can_enable_visibility = await is_visibility_allowed_now(r, rid, uid, phase=phase, raw_gstate=raw_gstate)
+                    if not can_enable_visibility:
+                        incoming = dict(incoming)
+                        incoming["visibility"] = 0
+
             user_state = {k: str(v) for k, v in (snapshot.get(str(uid)) or {}).items()}
             to_fill = {k: incoming[k] for k in KEYS_STATE if k in incoming and k not in user_state}
             if to_fill:
@@ -385,6 +395,15 @@ async def join(sid, data) -> JoinAck:
                 if applied_rules:
                     user_state = {**user_state, **applied_rules}
                     snapshot[str(uid)] = user_state
+
+            try:
+                effective_state, _ = await get_user_state_and_block(r, rid, uid)
+            except Exception:
+                effective_state = {}
+            if effective_state:
+                merged_state = {**(snapshot.get(str(uid)) or {}), **effective_state}
+                user_state = dict(merged_state)
+                snapshot[str(uid)] = merged_state
 
             if not already:
                 await emit_rooms_occupancy_safe(r, rid, occ)
@@ -492,8 +511,23 @@ async def state(sid, data) -> StateAck:
         if not isinstance(payload, dict):
             payload = {}
 
+        visibility_forced_off = False
+        if "visibility" in payload and to_bool01(payload.get("visibility")):
+            try:
+                raw_gstate = await r.hgetall(f"room:{rid}:game_state")
+            except Exception:
+                raw_gstate = {}
+            phase = str(raw_gstate.get("phase") or "idle")
+            can_enable_visibility = await is_visibility_allowed_now(r, rid, uid, phase=phase, raw_gstate=raw_gstate)
+            if not can_enable_visibility:
+                payload = dict(payload)
+                payload["visibility"] = 0
+                visibility_forced_off = True
+
         applied = await apply_state(r, rid, uid, payload)
         changed = dict(applied)
+        if visibility_forced_off and changed.get("visibility") != "0":
+            changed["visibility"] = "0"
         if "ready" in payload:
             newv = await set_ready(r, rid, uid, payload.get("ready"))
             if newv is not None:

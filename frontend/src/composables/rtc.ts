@@ -150,7 +150,7 @@ export function useRTC(): UseRTC {
   const selectedMicId = ref<string>('')
   const selectedCamId = ref<string>('')
   const wantAudio = ref(true)
-  const wantVideo = ref(true)
+  const wantVideo = ref(false)
   const permInit = readPermState()
   const permAudio = ref<boolean>(permInit.audio)
   const permVideo = ref<boolean>(permInit.video)

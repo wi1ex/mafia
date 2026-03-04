@@ -1661,6 +1661,7 @@ function connectSocket() {
 socket.value?.on('connect', async () => {
   netReconnecting.value = false
   if (!leaving.value) {
+    rtc.setVideoSubscriptionsForAll(false)
     const ack = await safeJoin()
     if (!ack?.ok) {
       await handleJoinFailure(ack)
@@ -2152,6 +2153,16 @@ function syncSubscriptionsFromState(): void {
   rtc.setVideoSubscriptionsForAll(local.visibility)
 }
 
+function clampLocalVisibilityForCurrentPhase(): void {
+  const phase = gamePhase.value
+  if (phase === 'idle') return
+  const target = gameReturnTargets(phase)
+  const nextVisibility = target.visibility && !blockedSelf.value.visibility
+  if (local.visibility !== nextVisibility) {
+    local.visibility = nextVisibility
+  }
+}
+
 function applyJoinAck(j: any) {
   isPrivate.value = (j?.privacy || j?.room?.privacy) === 'private'
   const limitRaw = Number(j?.user_limit ?? j?.room_user_limit ?? 0)
@@ -2222,6 +2233,7 @@ function applyJoinAck(j: any) {
   } else {
     rtc.setBgmPlaying(false)
   }
+  clampLocalVisibilityForCurrentPhase()
   void enforceReturnStateAfterJoin()
   void enforceSpectatorPhaseVisibility(gamePhase.value)
   syncSubscriptionsFromState()
@@ -2708,6 +2720,8 @@ function handleForegroundSignal() {
   if (!IS_MOBILE) return
   if (leaving.value) return
   if (!backgrounded.value) return
+  local.visibility = false
+  rtc.setVideoSubscriptionsForAll(false)
   backgrounded.value = false
   void restoreAfterBackgroundFromServer()
 }
@@ -2827,6 +2841,7 @@ onMounted(async () => {
   try {
     if (!auth.ready) { try { await auth.init() } catch {} }
     connectSocket()
+    rtc.setVideoSubscriptionsForAll(false)
 
     const j:any = await safeJoin()
     if (!j?.ok) {

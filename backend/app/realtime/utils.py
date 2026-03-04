@@ -37,10 +37,12 @@ __all__ = [
     "GameActionContext",
     "build_game_context",
     "validate_auth",
+    "to_bool01",
     "apply_state",
     "apply_bg_state_on_join",
     "apply_join_idle_defaults",
     "apply_join_phase_state",
+    "is_visibility_allowed_now",
     "extract_state_mapping",
     "get_user_state_and_block",
     "get_room_snapshot",
@@ -828,6 +830,36 @@ def norm01(v: Any) -> str:
         return "1" if v else "0"
 
     return "1" if str(v).strip().lower() in {"1", "true"} else "0"
+
+
+def to_bool01(value: Any) -> bool:
+    return norm01(value) == "1"
+
+
+async def is_visibility_allowed_now(r, rid: int, uid: int, *, phase: str, raw_gstate: Mapping[str, Any] | None = None) -> bool:
+    phase_value = str(phase or "idle")
+    if phase_value == "idle":
+        return True
+
+    if phase_value in ("day", "vote"):
+        return True
+
+    gstate = raw_gstate or {}
+    try:
+        head_uid = int(gstate.get("head") or 0)
+    except Exception:
+        head_uid = 0
+    if head_uid and uid == head_uid:
+        return True
+
+    if phase_value == "mafia_talk_start":
+        try:
+            my_role = str((await r.hget(f"room:{rid}:game_roles", str(uid))) or "")
+        except Exception:
+            my_role = ""
+        return my_role in ("mafia", "don")
+
+    return False
 
 
 def game_flag(raw_game: Mapping[str, Any] | None, key: str, default: bool = True) -> bool:
