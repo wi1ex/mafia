@@ -838,18 +838,21 @@ def to_bool01(value: Any) -> bool:
 
 async def is_visibility_allowed_now(r, rid: int, uid: int, *, phase: str, raw_gstate: Mapping[str, Any] | None = None) -> bool:
     phase_value = str(phase or "idle")
-    if phase_value == "idle":
-        return True
-
-    if phase_value in ("day", "vote"):
-        return True
-
     gstate = raw_gstate or {}
     try:
         head_uid = int(gstate.get("head") or 0)
     except Exception:
         head_uid = 0
-    if head_uid and uid == head_uid:
+
+    is_head = bool(head_uid and uid == head_uid)
+
+    if phase_value in ("idle", "day", "vote"):
+        return True
+
+    if phase_value in ("roles_pick", "night", "mafia_talk_end"):
+        return is_head
+
+    if is_head:
         return True
 
     if phase_value == "mafia_talk_start":
@@ -1047,11 +1050,6 @@ async def apply_join_phase_state(r, rid: int, uid: int, *, phase: str, raw_gstat
         is_alive = bool(await r.sismember(f"room:{rid}:game_alive", str(uid)))
     except Exception:
         is_alive = False
-    try:
-        my_game_role_full = str((await r.hget(f"room:{rid}:game_roles", str(uid))) or "")
-    except Exception:
-        my_game_role_full = ""
-    is_black = my_game_role_full in ("mafia", "don")
 
     mic_on = False
     if phase == "day":
@@ -1077,7 +1075,7 @@ async def apply_join_phase_state(r, rid: int, uid: int, *, phase: str, raw_gstat
 
     cam_on = is_alive
     speakers_on = True
-    visibility_on = phase in ("day", "vote") or (phase == "mafia_talk_start" and is_black)
+    visibility_on = await is_visibility_allowed_now(r, rid, uid, phase=phase, raw_gstate=raw_gstate)
 
     if is_blocked("mic"):
         mic_on = False
