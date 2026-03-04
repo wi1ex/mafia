@@ -94,6 +94,7 @@ __all__ = [
     "ensure_admin_target_allowed",
     "set_user_deleted",
     "force_logout_user",
+    "force_leave_user_from_rooms",
     "check_sanctions_expired",
     "format_duration_parts",
     "normalize_username",
@@ -707,6 +708,43 @@ async def force_logout_user(user_id: int) -> None:
     with suppress(Exception):
         await sio.emit("force_logout", {"reason": "account_deleted"}, room=f"user:{user_id}", namespace="/auth")
         await sio.emit("force_logout", {"reason": "account_deleted"}, room=f"user:{user_id}", namespace="/room")
+
+
+async def force_leave_user_from_rooms(user_id: int, *, reason: str) -> None:
+    uid = int(user_id or 0)
+    if uid <= 0:
+        return
+
+    from ..realtime.utils import find_user_rooms, cleanup_user_from_room
+
+    r = get_redis()
+    try:
+        extra_rid = int(await r.get(f"user:{uid}:room") or 0)
+    except Exception:
+        extra_rid = 0
+
+    try:
+        rooms = await find_user_rooms(r, uid, current_rid=0, extra_rids=[extra_rid] if extra_rid > 0 else None)
+    except Exception:
+        log.exception("api.force_leave.find_rooms_failed", uid=uid, reason=reason)
+        return
+
+    if not rooms:
+        return
+
+    actor_username = f"user{uid}"
+    for rid, was_member, was_spectator in rooms:
+        with suppress(Exception):
+            await sio.emit(
+                "force_leave",
+                {"room_id": int(rid), "reason": reason},
+                room=f"user:{uid}",
+                namespace="/room",
+            )
+        try:
+            await cleanup_user_from_room(r, int(rid), uid, was_member=bool(was_member), was_spectator=bool(was_spectator), sid=None, actor_username=actor_username)
+        except Exception:
+            log.exception("api.force_leave.cleanup_failed", uid=uid, rid=rid, reason=reason)
 
 
 def _parse_int(raw: Any) -> int:

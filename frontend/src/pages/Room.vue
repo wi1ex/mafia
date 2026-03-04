@@ -1774,6 +1774,10 @@ socket.value?.on('connect', async () => {
       void alertDialog('Упс! Кажется пришло обновление... через 5 минут все заработает!')
     } else if (reason === 'room_kick') {
       void alertDialog('Вас выгнали из комнаты')
+    } else if (reason === 'sanction_timeout') {
+      void alertDialog('Вам выдан таймаут: вы кикнуты из комнаты')
+    } else if (reason === 'sanction_ban') {
+      void alertDialog('Ваш аккаунт забанен: вы кикнуты из комнаты')
     } else if (reason === 'room_deleted') {
       void alertDialog('Комната была удалена администратором')
     } else if (reason === 'single_timeout') {

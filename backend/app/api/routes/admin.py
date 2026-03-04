@@ -94,6 +94,7 @@ from ..utils import (
     refresh_rooms_after,
     set_user_deleted,
     force_logout_user,
+    force_leave_user_from_rooms,
     is_protected_admin,
     ensure_admin_target_allowed,
     emit_rooms_upsert,
@@ -1209,13 +1210,10 @@ async def apply_user_timeout(user_id: int, payload: AdminSanctionTimedIn, ident:
             room=f"user:{uid}",
             namespace="/auth",
         )
+    with suppress(Exception):
         await emit_sanctions_update(session, uid)
-        await sio.emit(
-            "force_leave",
-            {"reason": "sanction_timeout"},
-            room=f"user:{uid}",
-            namespace="/room",
-        )
+    with suppress(Exception):
+        await force_leave_user_from_rooms(uid, reason="sanction_timeout")
 
     details = f"Таймаут user_id={uid}"
     if user.username:
@@ -1341,13 +1339,10 @@ async def apply_user_ban(user_id: int, payload: AdminSanctionBanIn, ident: Ident
             room=f"user:{uid}",
             namespace="/auth",
         )
+    with suppress(Exception):
         await emit_sanctions_update(session, uid)
-        await sio.emit(
-            "force_leave",
-            {"reason": "sanction_ban"},
-            room=f"user:{uid}",
-            namespace="/room",
-        )
+    with suppress(Exception):
+        await force_leave_user_from_rooms(uid, reason="sanction_ban")
 
     details = f"Бан user_id={uid}"
     if user.username:
