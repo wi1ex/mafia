@@ -703,6 +703,8 @@ let gameStartOverlayTimerId: number | null = null
 let gameEndOverlayTimerId: number | null = null
 let bgRestorePending = false
 let backgroundedPhase: GamePhase | null = null
+let foregroundMediaRetryShortId: number | null = null
+let foregroundMediaRetryLongId: number | null = null
 function showGameStartOverlay(ms = 1000) {
   gameStartOverlayVisible.value = true
   if (gameStartOverlayTimerId != null) window.clearTimeout(gameStartOverlayTimerId)
@@ -2230,6 +2232,7 @@ type PublishDelta = Partial<{
   mirror: boolean
 }>
 const pendingDeltas: PublishDelta[] = []
+
 async function publishState(delta: PublishDelta) {
   if (!socket.value || !socket.value.connected) {
     pendingDeltas.push(delta)
@@ -2463,8 +2466,11 @@ async function onLeave(goHome = true) {
       document.removeEventListener('click', onDocClick)
       document.removeEventListener('visibilitychange', onBackgroundVisibility)
       window.removeEventListener('pagehide', onBackgroundVisibility)
+      window.removeEventListener('pageshow', handleForegroundSignal)
+      window.removeEventListener('focus', handleForegroundSignal)
       window.removeEventListener('keydown', onHotkey)
   } catch {}
+  clearForegroundMediaRecoveryTimers()
   try {
     await stopScreenBeforeLeave()
     const s = socket.value
@@ -2649,12 +2655,57 @@ async function restoreAfterBackgroundFromServer(): Promise<void> {
     const resp = await sendAck('bg_restore', {})
     if (resp?.ok && resp?.state) {
       await applyLocalStateFromServer(resp.state, resp.blocked ?? resp.blocks)
+      scheduleForegroundMediaRecovery()
       return
     }
   }
   if (phase !== 'idle') {
     await applyGameReturnState()
   }
+  scheduleForegroundMediaRecovery()
+}
+
+function clearForegroundMediaRecoveryTimers(): void {
+  if (foregroundMediaRetryShortId != null) {
+    window.clearTimeout(foregroundMediaRetryShortId)
+    foregroundMediaRetryShortId = null
+  }
+  if (foregroundMediaRetryLongId != null) {
+    window.clearTimeout(foregroundMediaRetryLongId)
+    foregroundMediaRetryLongId = null
+  }
+}
+
+async function reassertForegroundMediaTracks(): Promise<void> {
+  if (!IS_MOBILE || leaving.value || backgrounded.value) return
+  if (!rtc.lk.value) return
+  if (local.cam && desiredMedia.cam && !blockedSelf.value.cam) {
+    try { await rtc.enable('videoinput') } catch {}
+  }
+  if (local.mic && desiredMedia.mic && !blockedSelf.value.mic) {
+    try { await rtc.enable('audioinput') } catch {}
+  }
+}
+
+function scheduleForegroundMediaRecovery(): void {
+  clearForegroundMediaRecoveryTimers()
+  void reassertForegroundMediaTracks()
+  foregroundMediaRetryShortId = window.setTimeout(() => {
+    foregroundMediaRetryShortId = null
+    void reassertForegroundMediaTracks()
+  }, 400)
+  foregroundMediaRetryLongId = window.setTimeout(() => {
+    foregroundMediaRetryLongId = null
+    void reassertForegroundMediaTracks()
+  }, 1400)
+}
+
+function handleForegroundSignal() {
+  if (!IS_MOBILE) return
+  if (leaving.value) return
+  if (!backgrounded.value) return
+  backgrounded.value = false
+  void restoreAfterBackgroundFromServer()
 }
 
 async function applyBackgroundMute(): Promise<void> {
@@ -2704,9 +2755,8 @@ function onBackgroundVisibility(e?: PageTransitionEvent) {
       return
     }
     void applyBackgroundMute()
-  } else if (backgrounded.value) {
-    backgrounded.value = false
-    void restoreAfterBackgroundFromServer()
+  } else {
+    handleForegroundSignal()
   }
 }
 
@@ -2829,6 +2879,8 @@ onMounted(async () => {
     window.addEventListener('keydown', onHotkey)
     document.addEventListener('visibilitychange', onBackgroundVisibility, { passive: true })
     window.addEventListener('pagehide', onBackgroundVisibility, { passive: true })
+    window.addEventListener('pageshow', handleForegroundSignal, { passive: true })
+    window.addEventListener('focus', handleForegroundSignal)
     window.addEventListener('offline', handleOffline)
     window.addEventListener('online', handleOnline)
     window.addEventListener('auth-friends_update', onFriendsUpdate)
@@ -2853,7 +2905,10 @@ onBeforeUnmount(() => {
   window.removeEventListener('offline', handleOffline)
   window.removeEventListener('online', handleOnline)
   window.removeEventListener('keydown', onHotkey)
+  window.removeEventListener('pageshow', handleForegroundSignal)
+  window.removeEventListener('focus', handleForegroundSignal)
   window.removeEventListener('auth-friends_update', onFriendsUpdate)
+  clearForegroundMediaRecoveryTimers()
   volumeSnapTimers.forEach((tm) => { try { window.clearTimeout(tm) } catch {} })
   volumeSnapTimers.clear()
   if (gameStartOverlayTimerId != null) window.clearTimeout(gameStartOverlayTimerId)
