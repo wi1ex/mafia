@@ -76,8 +76,9 @@ type ToastItem = {
 
 const items = ref<ToastItem[]>([])
 
-async function close(t: ToastItem) {
-  items.value = items.value.filter(x => x !== t)
+async function close(target: ToastItem | number) {
+  const key = typeof target === 'number' ? target : target.key
+  items.value = items.value.filter(x => x.key !== key)
 }
 
 async function closeManual(t: ToastItem){
@@ -88,7 +89,7 @@ async function closeManual(t: ToastItem){
   }
   try { if (t.id && t.kind !== 'app') await notif.markReadVisible([t.id]) } catch {}
   t._closing = true
-  setTimeout(() => { void close(t) }, 300)
+  setTimeout(() => { void close(t.key) }, 300)
 }
 
 async function runAction(t: ToastItem, action: ToastAction) {
@@ -135,7 +136,7 @@ function onApproved(e: any) {
   const targets = items.value.filter(t => t.kind === 'app' && t.room_id === rid && t.user?.id === uid)
   for (const t of targets) {
     t._closing = true
-    setTimeout(() => { void close(t) }, 250)
+    setTimeout(() => { void close(t.key) }, 250)
   }
 }
 
@@ -159,8 +160,10 @@ onMounted(() => {
     }
     items.value.push(t)
     window.setTimeout(() => {
-      t._closing = true
-      window.setTimeout(() => { void close(t) }, 500)
+      const current = items.value.find(x => x.key === key)
+      if (!current) return
+      current._closing = true
+      window.setTimeout(() => { void close(key) }, 500)
     }, t.ttl!)
   })
   window.addEventListener('auth-room_app_approved', onApproved)
@@ -180,10 +183,12 @@ onBeforeUnmount(() => {
   bottom: 10px;
   gap: 10px;
   z-index: 2000;
+  pointer-events: none;
   .toast {
     display: flex;
     flex-direction: column;
     width: 400px;
+    pointer-events: auto;
     border-radius: 5px;
     background-color: $dark;
     opacity: 1;
