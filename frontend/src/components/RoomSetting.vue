@@ -21,7 +21,7 @@
               aria-label="Показ ролей" :width="200" @update:modelValue="onToggleKnownRoles" >
               <template #label>
                 Видимость ролей:
-                <span v-if="!isMobile && hotkeysVisible !== false" class="hot-btn">R</span>
+                <span v-if="!isMobile && hotkeysVisible" class="hot-btn">R</span>
               </template>
             </ToggleSwitch>
           </div>
