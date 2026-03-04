@@ -101,13 +101,9 @@
       Telegram-боте
     </a>
   </div>
-  <div v-if="registrationInfoBanner" class="sanction-banner sanction-banner--suspend">
-    <span>Если у Вас уже есть аккаунт, используйте "Сбросить пароль" в</span>
-    <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">
-      <img :src="iconTelegram" alt="" />
-      Telegram-боте
-    </a>
-  </div>
+<!--  <div class="sanction-banner sanction-banner&#45;&#45;suspend">-->
+<!--    <span>Если у Вас уже есть аккаунт, используйте "Сбросить пароль"</span>-->
+<!--  </div>-->
   <AppModal v-model:open="installOpen" />
   <SupportModal v-model:open="supportOpen" :support-link="supportLink" />
   <AuthModal v-model:open="authOpen" :mode="authMode" />
@@ -189,7 +185,6 @@ const sanctionBanner = computed<SanctionBanner | null>(() => {
 })
 
 const verificationBanner = computed(() => auth.ready && auth.isAuthed && Boolean(user.user) && !user.telegramVerified)
-const registrationInfoBanner = computed(() => auth.ready && !auth.isAuthed && !auth.foreignActive)
 
 function onToggleNotifs() {
   updates_open.value = false
