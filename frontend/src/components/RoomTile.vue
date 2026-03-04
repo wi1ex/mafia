@@ -429,30 +429,20 @@ const showFriendAction = computed(() => props.id !== props.localId && friendActi
     position: absolute;
     align-items: center;
     justify-content: center;
+    left: 33%;
     bottom: 5px;
-    padding: 0;
-    width: 30px;
+    gap: 5px;
+    width: 34%;
     height: 30px;
     border: none;
     border-radius: 5px;
     background-color: rgba($dark, 0.75);
     box-shadow: 3px 3px 5px rgba($black, 0.25);
+    color: rgba($green, 0.75);
     z-index: 3;
     img {
-      width: 24px;
-      height: 24px;
-    }
-    span {
-      position: absolute;
-      top: 5px;
-      right: 12px;
-      color: $green;
-      font-size: 20px;
-      font-family: Manrope-Medium;
-      line-height: 1;
-      font-weight: bold;
-      font-variant-numeric: tabular-nums;
-      transition: background-color 0.25s ease-in-out;
+      width: 20px;
+      height: 20px;
     }
   }
   .icon-badge {

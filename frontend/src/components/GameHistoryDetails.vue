@@ -261,8 +261,8 @@ function formatMetric(value: number): string {
       position: relative;
       flex-direction: column;
       padding: 10px;
-      gap: 10px;
-      min-height: 150px;
+      gap: 5px;
+      min-height: 135px;
       border-radius: 5px;
       background-color: $dark;
       border: 1px solid rgba($grey, 0.25);
