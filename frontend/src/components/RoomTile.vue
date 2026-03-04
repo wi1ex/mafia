@@ -429,10 +429,10 @@ const showFriendAction = computed(() => props.id !== props.localId && friendActi
     position: absolute;
     align-items: center;
     justify-content: center;
-    left: 33%;
+    left: calc(50% - 75px);
     bottom: 5px;
     gap: 5px;
-    width: 34%;
+    width: 150px;
     height: 30px;
     border: none;
     border-radius: 5px;
@@ -944,6 +944,17 @@ const showFriendAction = computed(() => props.id !== props.localId && friendActi
 
 @media (max-width: 1280px) {
   .tile {
+    .icon-badge-ready {
+      left: calc(50% - 55px);
+      bottom: 3px;
+      width: 110px;
+      height: 20px;
+      font-size: 12px;
+      img {
+        width: 16px;
+        height: 16px;
+      }
+    }
     .icon-badge {
       bottom: 3px;
       width: 20px;
