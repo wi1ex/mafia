@@ -142,6 +142,7 @@ export function useRTC(): UseRTC {
   const audioEls = new Map<string, HTMLAudioElement>()
   const screenVideoEls = new Map<string, HTMLVideoElement>()
   const videoTrackByEl = new WeakMap<HTMLVideoElement, LocalTrack | RemoteTrack>()
+  const audioTrackByAid = new Map<string, RemoteTrack>()
   const videoClearTimers = new WeakMap<HTMLVideoElement, number>()
   const VIDEO_CLEAR_GRACE_MS = 800
   const mics = ref<MediaDeviceInfo[]>([])
@@ -1002,6 +1003,53 @@ export function useRTC(): UseRTC {
     return a
   }
 
+  function clearAudioEl(aid: string, el: HTMLAudioElement) {
+    const prev = audioTrackByAid.get(aid)
+    if (prev) {
+      try { prev.detach(el) } catch {}
+      audioTrackByAid.delete(aid)
+    }
+    try { el.srcObject = null } catch {}
+    el.muted = true
+    el.volume = 0
+  }
+
+  function attachTrackToAudioEl(aid: string, el: HTMLAudioElement, track: RemoteTrack): boolean {
+    const prev = audioTrackByAid.get(aid)
+    if (prev === track) return true
+    if (prev && prev.mediaStreamTrack === track.mediaStreamTrack) {
+      try { track.attach(el) } catch { return false }
+      audioTrackByAid.set(aid, track)
+      return true
+    }
+    if (prev) {
+      try { prev.detach(el) } catch {}
+    }
+    // Ensure we do not accumulate multiple audio tracks in the same element after reconnect/resubscribe.
+    try { el.srcObject = null } catch {}
+    try { track.attach(el) } catch { return false }
+    audioTrackByAid.set(aid, track)
+    return true
+  }
+
+  function resolveAudioTrack(room: LkRoom, id: string, src: Track.Source): RemoteTrack | undefined {
+    const p = getByIdentity(room, id)
+    if (!p) return undefined
+    let track: RemoteTrack | undefined
+    p.getTrackPublications().forEach(pub => {
+      const rp = pub as RemoteTrackPublication
+      if (
+        !track &&
+        pub.kind === Track.Kind.Audio &&
+        rp.source === src &&
+        pub.track
+      ) {
+        track = pub.track as RemoteTrack
+      }
+    })
+    return track
+  }
+
   async function onDeviceChange(kind: DeviceKind) {
     const id = kind === 'audioinput' ? selectedMicId.value : selectedCamId.value
     if (!id) return
@@ -1303,7 +1351,7 @@ export function useRTC(): UseRTC {
     return {
       deviceId: deviceId ? ({ exact: deviceId } as any) : undefined,
       echoCancellation: true,
-      noiseSuppression: false,
+      noiseSuppression: true,
       autoGainControl: true,
     } as any
   }
@@ -1323,7 +1371,7 @@ export function useRTC(): UseRTC {
     for (const aid of aIds) {
       const a = audioEls.get(aid)
       if (a) {
-        try { a.srcObject = null } catch {}
+        clearAudioEl(aid, a)
         try { a.remove() } catch {}
         audioEls.delete(aid)
       }
@@ -1361,11 +1409,12 @@ export function useRTC(): UseRTC {
     audibleIds.value = new Set()
     videoEls.forEach(el => clearVideoEl(el))
     videoEls.clear()
-    audioEls.forEach(a => {
-      try { a.srcObject = null } catch {}
+    audioEls.forEach((a, aid) => {
+      clearAudioEl(aid, a)
       try { a.remove() } catch {}
     })
     audioEls.clear()
+    audioTrackByAid.clear()
     screenVideoEls.forEach(el => clearVideoEl(el))
     screenVideoEls.clear()
     try {
@@ -1448,7 +1497,7 @@ export function useRTC(): UseRTC {
       },
       audioCaptureDefaults: {
         echoCancellation: true,
-        noiseSuppression: false,
+        noiseSuppression: true,
         autoGainControl: true,
         ...(opts?.audioCaptureDefaults || {})
       },
@@ -1559,7 +1608,10 @@ export function useRTC(): UseRTC {
         const isScreenA = (pub as RemoteTrackPublication).source === Track.Source.ScreenShareAudio
         const aid = isScreenA ? screenKey(id) : id
         const a = ensureAudioEl(aid)
-        try { t.attach(a) } catch { destroyAudioGraph(aid) }
+        if (!attachTrackToAudioEl(aid, a, t)) {
+          destroyAudioGraph(aid)
+          return
+        }
         try { applyVolume(aid) } catch {}
         try { void resumeAudio() } catch {}
         a.play().catch(() => {})
@@ -1591,17 +1643,38 @@ export function useRTC(): UseRTC {
         }
         if (isScreenV) { try { opts?.onRemoteScreenShareEnded?.(id) } catch {} }
       } else if (t.kind === Track.Kind.Audio) {
-        const isScreenA = (pub as RemoteTrackPublication).source === Track.Source.ScreenShareAudio
+        const source = (pub as RemoteTrackPublication).source
+        const isScreenA = source === Track.Source.ScreenShareAudio
         const aid = isScreenA ? screenKey(id) : id
+        let shouldDestroyAudioGraph = false
         const a = audioEls.get(aid)
         if (a) {
-          try { t.detach(a) } catch {}
-          a.muted = true
-          a.volume = 0
+          const attached = audioTrackByAid.get(aid)
+          if (attached === t) {
+            const replacement = resolveAudioTrack(room, id, source)
+            if (replacement && replacement !== t) {
+              if (attachTrackToAudioEl(aid, a, replacement)) {
+                try { applyVolume(aid) } catch {}
+              } else {
+                clearAudioEl(aid, a)
+                shouldDestroyAudioGraph = true
+              }
+            } else {
+              clearAudioEl(aid, a)
+              shouldDestroyAudioGraph = true
+            }
+          } else if (!attached || attached.mediaStreamTrack !== t.mediaStreamTrack) {
+            try { t.detach(a) } catch {}
+          }
         } else {
           try { t.detach() } catch {}
         }
-        destroyAudioGraph(aid)
+        if (audioTrackByAid.get(aid) === t) {
+          audioTrackByAid.delete(aid)
+        }
+        if (shouldDestroyAudioGraph) {
+          destroyAudioGraph(aid)
+        }
         const tm = lsWriteTimers.get(aid)
         if (tm) {
           try { clearTimeout(tm) } catch {}
