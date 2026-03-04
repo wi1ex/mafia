@@ -2662,7 +2662,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     const code = resp?.error
     const st = resp?.status
     if (st === 400 && code === 'not_enough_ready') {
-       void alertDialog('Недостаточно готовых игроков для запуска игры')
+       void alertDialog('Недостаточно готовых пользователей для запуска игры')
     } else if (st === 403 && code === 'forbidden') {
        void alertDialog('Недостаточно прав для запуска игры')
     } else if (st === 403 && code === 'game_start_disabled') {
@@ -2674,9 +2674,11 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     } else if (st === 409 && code === 'streaming_present') {
        void alertDialog('Остановите трансляции перед запуском игры')
     } else if (st === 409 && code === 'blocked_params') {
-       void alertDialog('Снимите блокировки у некоторых пользователей перед запуском игры')
+       void alertDialog('Снимите блокировки устройств у некоторых пользователей перед запуском игры')
     } else if (st === 409 && code === 'suspend_present') {
-       void alertDialog('У некоторых игроков имеется ограничение к играм')
+       void alertDialog('У некоторых пользователей имеется ограничение к играм')
+    } else if (st === 409 && code === 'camera_off') {
+       void alertDialog('Не у всех пользователей включена камера')
     } else if (st === 409 && code === 'media_off') {
        void alertDialog('Есть пользователи у кого свернут браузер или выключен звук')
     } else if (st === 409 && code === 'already_started') {

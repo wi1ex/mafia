@@ -75,6 +75,7 @@ class GameStartAck(TypedDict, total=False):
     streaming_owner: int
     blocking_users: List[int]
     conflict_users: List[int]
+    off_cams: List[int]
     off_speakers: List[int]
     off_visibility: List[int]
     bgm_seed: int

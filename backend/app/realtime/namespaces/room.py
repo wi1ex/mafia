@@ -1132,23 +1132,35 @@ async def game_start(sid, data) -> GameStartAck:
         participant_ids: set[int] = {head_uid}
         participant_ids.update(ready_ids)
 
+        off_cams: list[int] = []
         off_speakers: list[int] = []
         off_visibility: list[int] = []
         if participant_ids:
             async with r.pipeline() as p:
                 for pid in participant_ids:
-                    await p.hmget(f"room:{rid}:user:{pid}:state", "speakers", "visibility")
+                    await p.hmget(f"room:{rid}:user:{pid}:state", "cam", "speakers", "visibility")
                 rows = await p.execute()
 
             for pid, row in zip(participant_ids, rows):
                 if not row:
                     continue
-                sp = row[0] if len(row) > 0 else None
-                vis = row[1] if len(row) > 1 else None
+                cam = row[0] if len(row) > 0 else None
+                sp = row[1] if len(row) > 1 else None
+                vis = row[2] if len(row) > 2 else None
+                if cam != "1" and cam != b"1":
+                    off_cams.append(pid)
                 if sp == "0" or sp == b"0":
                     off_speakers.append(pid)
                 if vis == "0" or vis == b"0":
                     off_visibility.append(pid)
+        if off_cams:
+            return {
+                "ok": False,
+                "status": 409,
+                "error": "camera_off",
+                "room_id": rid,
+                "off_cams": off_cams,
+            }
         if off_speakers or off_visibility:
             return {
                 "ok": False,
