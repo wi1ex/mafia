@@ -2,8 +2,9 @@
   <div class="tile" :class="[{ speaking, mafia: redMark, 'best-move': bestMoveMarked && !redMark }, side && 'side']" tabindex="0">
     <video v-show="showVideo" :ref="videoRef" playsinline autoplay muted :class="videoClass" />
 
-    <div class="icon-badge left" v-if="isReady(id)" aria-hidden="true">
+    <div class="icon-badge-ready" v-if="isReady(id)" aria-hidden="true">
       <img :src="iconReadyGreen" alt="ready" />
+      Готов к игре
     </div>
 
     <button v-if="showKnock" class="icon-badge button left knock" @click="$emit('knock', id)" aria-label="Постучать">
@@ -421,6 +422,37 @@ const showFriendAction = computed(() => props.id !== props.localId && friendActi
     }
     &.mirrored {
       transform: scaleX(-1);
+    }
+  }
+  .icon-badge-ready {
+    display: flex;
+    position: absolute;
+    align-items: center;
+    justify-content: center;
+    bottom: 5px;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    border: none;
+    border-radius: 5px;
+    background-color: rgba($dark, 0.75);
+    box-shadow: 3px 3px 5px rgba($black, 0.25);
+    z-index: 3;
+    img {
+      width: 24px;
+      height: 24px;
+    }
+    span {
+      position: absolute;
+      top: 5px;
+      right: 12px;
+      color: $green;
+      font-size: 20px;
+      font-family: Manrope-Medium;
+      line-height: 1;
+      font-weight: bold;
+      font-variant-numeric: tabular-nums;
+      transition: background-color 0.25s ease-in-out;
     }
   }
   .icon-badge {
