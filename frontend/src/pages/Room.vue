@@ -134,6 +134,7 @@
             :side="true"
             :speaking="(game.daySpeech.currentId === id) || (gamePhase === 'idle' && rtc.isSpeaking(id))"
             :video-ref="stableVideoRef(id)"
+            :fit-contain="fitContainInGrid"
             :default-avatar="defaultAvatar"
             :volume-icon="volumeIconForUser(id)"
             :state-icon="stateIcon"
@@ -216,7 +217,7 @@
         </div>
       </div>
 
-      <div class="panel">
+      <div class="panel" :class="{ 'panel-high': buttonsHigh }">
         <div class="controls-side left">
           <button @click="onLeave" aria-label="Покинуть комнату">
             <img :src="iconLeaveRoom" alt="leave" />
@@ -335,7 +336,10 @@
           v-model:micId="selectedMicId"
           v-model:camId="selectedCamId"
           v-model:mirrorOn="mirrorOn"
+          v-model:buttonsHigh="buttonsHigh"
+          v-model:videoFillOn="videoFillOn"
           v-model:volume="bgmVolume"
+          :show-video-fill-toggle="showVideoFillToggle"
           :volume-icon="volumeIcon(bgmVolume, bgmShouldPlay)"
           :music-enabled="musicEnabled"
           :can-toggle-known-roles="canToggleKnownRoles"
@@ -637,6 +641,26 @@ const openApps = ref(false)
 const appsCounts = reactive({ total: 0, unread: 0 })
 const isPrivate = ref(false)
 const roomUserLimit = ref<number>(0)
+const buttonsHighState = ref(rtc.loadLS(rtc.LS.buttonsHigh) === '1')
+const videoFillOnState = ref(rtc.loadLS(rtc.LS.videoFill) !== '0')
+const showVideoFillToggle = computed(() => {
+  const limit = roomUserLimit.value
+  return Number.isFinite(limit) && limit > 2
+})
+const buttonsHigh = computed({
+  get: () => buttonsHighState.value,
+  set: (v: boolean) => {
+    buttonsHighState.value = v
+    rtc.saveLS(rtc.LS.buttonsHigh, v ? '1' : '0')
+  },
+})
+const videoFillOn = computed({
+  get: () => videoFillOnState.value,
+  set: (v: boolean) => {
+    videoFillOnState.value = v
+    rtc.saveLS(rtc.LS.videoFill, v ? '1' : '0')
+  },
+})
 const gameLimitMin = computed(() => {
   const minReady = Number(settings.gameMinReadyPlayers)
   return Number.isFinite(minReady) && minReady > 0 ? minReady + 1 : 11
@@ -666,10 +690,11 @@ const liftNomineesFor = (id: string) => (headUserId.value === id && liftHighligh
 const voteBlockedFor = (id: string) => headUserId.value === id ? voteBlocked.value : false
 const offlineSeatsInGameFor = (id: string) => (headUserId.value === id && gamePhase.value === 'vote' && !currentFarewellSpeech.value) ? offlineAliveSeatNumbers.value : EMPTY_NUMBERS
 const fitContainInGrid = computed(() => {
+  const limit = roomUserLimit.value
+  if (Number.isFinite(limit) && limit > 2) return !videoFillOn.value
   if (isTheater.value) return false
   const count = sortedPeerIds.value.length
   if (count >= 3) return false
-  const limit = roomUserLimit.value
   return Number.isFinite(limit) && limit === 2
 })
 const isSpectatorInGame = computed(() => {
@@ -2896,6 +2921,22 @@ onMounted(async () => {
       if (isMirrored(localId.value) !== want) { void publishState({ mirror: want }) }
     }
 
+    const hasLsButtonsHigh = rtc.loadLS(rtc.LS.buttonsHigh)
+    if (hasLsButtonsHigh == null) {
+      rtc.saveLS(rtc.LS.buttonsHigh, '0')
+      buttonsHighState.value = false
+    } else {
+      buttonsHighState.value = hasLsButtonsHigh === '1'
+    }
+
+    const hasLsVideoFill = rtc.loadLS(rtc.LS.videoFill)
+    if (hasLsVideoFill == null) {
+      rtc.saveLS(rtc.LS.videoFill, '1')
+      videoFillOnState.value = true
+    } else {
+      videoFillOnState.value = hasLsVideoFill !== '0'
+    }
+
     document.addEventListener('click', onDocClick)
     window.addEventListener('keydown', onHotkey)
     document.addEventListener('visibilitychange', onBackgroundVisibility, { passive: true })
@@ -3064,6 +3105,9 @@ onBeforeUnmount(() => {
     justify-content: space-between;
     width: calc(100vw - 20px);
     height: 40px;
+    &.panel-high {
+      margin-bottom: 20px;
+    }
     button {
       display: flex;
       position: relative;

@@ -11,6 +11,28 @@
       <div class="change-devices">
         <template v-if="!inGame">
           <div class="switch-div">
+            <ToggleSwitch
+              :model-value="buttonsHigh"
+              label="Расположение кнопок:"
+              off-label="Стандарт"
+              on-label="Высоко"
+              aria-label="Расположение кнопок"
+              :width="160"
+              @update:modelValue="onToggleButtonsHigh"
+            />
+          </div>
+          <div v-if="showVideoFillToggle" class="switch-div">
+            <ToggleSwitch
+              :model-value="videoFillOn"
+              label="Заполнение видео:"
+              off-label="Откл"
+              on-label="Вкл"
+              aria-label="Заполнение видео"
+              :width="120"
+              @update:modelValue="onToggleVideoFill"
+            />
+          </div>
+          <div class="switch-div">
             <ToggleSwitch :model-value="mirrorOn" label="Зеркальность камеры:" aria-label="Зеркальность"
               :width="120" @update:modelValue="onToggleMirror" />
           </div>
@@ -113,6 +135,9 @@ const props = defineProps<{
   micId: string
   camId: string
   mirrorOn: boolean
+  buttonsHigh: boolean
+  videoFillOn: boolean
+  showVideoFillToggle: boolean
   volume: number
   volumeIcon: string
   musicEnabled: boolean
@@ -124,6 +149,8 @@ const emit = defineEmits<{
   'update:micId': [string]
   'update:camId': [string]
   'update:mirrorOn': [boolean]
+  'update:buttonsHigh': [boolean]
+  'update:videoFillOn': [boolean]
   'update:volume': [number]
   'toggle-known-roles': []
   'device-change': ['audioinput' | 'videoinput']
@@ -149,6 +176,12 @@ const camIdProxy = computed({
 
 function onToggleMirror(next: boolean) {
   emit('update:mirrorOn', next)
+}
+function onToggleButtonsHigh(next: boolean) {
+  emit('update:buttonsHigh', next)
+}
+function onToggleVideoFill(next: boolean) {
+  emit('update:videoFillOn', next)
 }
 function onToggleKnownRoles(_next: boolean) {
   emit('toggle-known-roles')

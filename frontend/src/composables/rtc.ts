@@ -27,6 +27,8 @@ const LS = {
   cam: 'videoDeviceId',
   perm: 'mediaPermProbed',
   mirror: 'room:mirror',
+  buttonsHigh: 'room:buttonsHigh',
+  videoFill: 'room:videoFill',
 }
 
 const BGM_VOLUME_LS = 'bgm:volume'
