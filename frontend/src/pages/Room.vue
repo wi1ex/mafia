@@ -570,8 +570,10 @@ const {
 } = game
 
 const navUserAgent = navigator.userAgent || ''
-const IS_MOBILE = (navigator as any).userAgentData?.mobile === true || /Android|iPhone|iPad|iPod|Mobile/i.test(navUserAgent)
-  || (window.matchMedia?.('(pointer: coarse)').matches && /Android|iPhone|iPad|iPod|Mobile|Tablet|Touch/i.test(navUserAgent))
+const isUaDataMobile = (navigator as any).userAgentData?.mobile === true
+const isMobileUa = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|Tablet/i.test(navUserAgent)
+const isIpadOsDesktopUa = /Macintosh/i.test(navUserAgent) && (navigator.maxTouchPoints || 0) > 1
+const IS_MOBILE = isUaDataMobile || isMobileUa || isIpadOsDesktopUa
 
 const local = reactive({ mic: false, cam: false, speakers: true, visibility: true })
 const desiredMedia = reactive({ mic: false, cam: false })
