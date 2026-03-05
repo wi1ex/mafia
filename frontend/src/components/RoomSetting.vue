@@ -14,10 +14,10 @@
             <ToggleSwitch
               :model-value="buttonsHigh"
               label="Расположение кнопок:"
-              off-label="Стандарт"
-              on-label="Высоко"
+              off-label="Ниже"
+              on-label="Выше"
               aria-label="Расположение кнопок"
-              :width="160"
+              :width="120"
               @update:modelValue="onToggleButtonsHigh"
             />
           </div>

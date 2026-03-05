@@ -296,7 +296,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
           const seat = seatIndex(night.killUid)
           return `Убит ${seat ?? ''}`
         }
-        return 'Несострел'
+        return 'Промах'
       }
       if (night.stage === 'shoot') return 'Отстрелы мафии'
       if (night.stage === 'checks') return 'Проверки дона и шерифа'
@@ -309,7 +309,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
           return `Убит ${seat ?? ''}`
         }
         if (dayNominees.length > 0) return ''
-        return 'Несострел'
+        return 'Промах'
       }
     }
     return ''
