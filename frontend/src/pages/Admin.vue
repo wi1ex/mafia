@@ -669,7 +669,7 @@
                     </button>
                   </td>
                   <td>
-                    <button class="btn" :class="row.has_password ? 'danger' : 'dark'" :disabled="isUserActionsLocked(row) || !row.has_password || usersPasswordBusy[row.id]" @click="clearUserPassword(row)">
+                    <button class="btn" :class="row.has_password ? 'danger' : 'dark'" :disabled="isUserActionsLocked(row) || usersPasswordBusy[row.id]" @click="clearUserPassword(row)">
                       <img class="btn-img" :src="iconClose" alt="" />
                     </button>
                   </td>
@@ -1817,21 +1817,21 @@ async function clearUserVerification(row: UserRow): Promise<void> {
 
 async function clearUserPassword(row: UserRow): Promise<void> {
   if (isUserActionsLocked(row)) return
-  if (!row.has_password || usersPasswordBusy[row.id]) return
+  if (usersPasswordBusy[row.id]) return
   const userLabel = row.username ? `${row.username}` : `#${row.id}`
   const ok = await confirmDialog({
-    title: 'Удалить пароль',
-    text: `Удалить пароль у ${userLabel}?`,
-    confirmText: 'Удалить',
+    title: 'Сбросить пароль',
+    text: `Сбросить пароль для ${userLabel} на 12345678?`,
+    confirmText: 'Сбросить',
     cancelText: 'Отмена',
   })
   if (!ok) return
   usersPasswordBusy[row.id] = true
   try {
     await api.post(`/admin/users/${row.id}/password_clear`)
-    row.has_password = false
+    row.has_password = true
   } catch {
-    void alertDialog('Не удалось удалить пароль')
+    void alertDialog('Не удалось сбросить пароль')
   } finally {
     usersPasswordBusy[row.id] = false
   }
