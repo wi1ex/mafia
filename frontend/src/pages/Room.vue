@@ -289,7 +289,7 @@
         </div>
 
         <div class="controls-side right">
-          <button v-if="canEditGame" @click.stop="openGameSettings" aria-label="Параметры игры">
+          <button v-if="canViewGameSettings" @click.stop="openGameSettings" aria-label="Параметры игры">
             <img :src="iconParams" alt="game-settings" />
           </button>
           <button v-if="myRole === 'host' && isPrivate && gamePhase === 'idle'" @click.stop="toggleApps" :aria-expanded="openApps" aria-label="Заявки">
@@ -315,6 +315,7 @@
         <GameParamsModal
           v-model:open="gameParamsOpen"
           :room-id="rid"
+          :can-edit="canEditGameSettings"
         />
 
         <FriendsPanel
@@ -706,10 +707,16 @@ const hostBlurPending = ref(false)
 const hostBlurToggleEnabled = computed(() => gamePhase.value === 'day' || gamePhase.value === 'vote')
 const hostBlurVisible = computed(() => gamePhase.value !== 'idle' && hostBlurActive.value && !isHead.value)
 const hostBlurLocksControls = computed(() => isHead.value && hostBlurActive.value)
-const canEditGame = computed(() =>
+const isMafiaLimitRoom = computed(() => roomUserLimit.value === gameLimitMin.value)
+const canViewGameSettings = computed(() => {
+  if (!isMafiaLimitRoom.value) return false
+  if (gamePhase.value === 'idle') return true
+  return !isSpectatorInGame.value
+})
+const canEditGameSettings = computed(() =>
   myRole.value === 'host' &&
   gamePhase.value === 'idle' &&
-  roomUserLimit.value === gameLimitMin.value
+  isMafiaLimitRoom.value
 )
 const canShowSettingsButton = computed(() => !isSpectatorInGame.value || musicEnabled.value)
 const knockModalOpen = ref(false)
@@ -1014,6 +1021,7 @@ function toggleFriendsPanel() {
   friendsPanelOpen.value = next
 }
 function openGameSettings() {
+  if (!canViewGameSettings.value) return
   const next = !gameParamsOpen.value
   closePanels('game')
   gameParamsOpen.value = next
@@ -2819,7 +2827,7 @@ watch(isCurrentSpeaker, async (now, was) => {
   } catch {}
 })
 
-watch(canEditGame, (ok) => {
+watch(canViewGameSettings, (ok) => {
   if (!ok && gameParamsOpen.value) gameParamsOpen.value = false
 })
 

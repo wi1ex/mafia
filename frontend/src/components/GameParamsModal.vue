@@ -9,10 +9,10 @@
       </header>
 
       <div class="modal-div">
-        <GameParamsForm v-model="game" :disabled="busy || loading" />
+        <GameParamsForm v-model="game" :disabled="busy || loading || !canEdit" />
       </div>
 
-      <div class="save-game">
+      <div v-if="canEdit" class="save-game">
         <button :disabled="busy || loading || !isDirty" @click="save">Сохранить</button>
       </div>
     </div>
@@ -29,6 +29,7 @@ import iconClose from '@/assets/svg/close.svg'
 const props = defineProps<{
   open: boolean
   roomId: number | string
+  canEdit: boolean
 }>()
 
 type Game = {
@@ -129,7 +130,7 @@ async function loadGame() {
 }
 
 async function save() {
-  if (!isDirty.value || busy.value || loading.value) return
+  if (!props.canEdit || !isDirty.value || busy.value || loading.value) return
   busy.value = true
   try {
     const payload = { ...game.value }
