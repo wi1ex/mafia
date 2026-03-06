@@ -446,6 +446,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   }
 
   const DAY_BUTTON_DELAY_MS = 1000
+  const DAY_FROM_NIGHT_WITH_BEST_MOVE_DELAY_MS = 10_000
   const startDayUnlocked = ref(false)
   let startDayTimer: number | null = null
   function resetStartDayDelay() {
@@ -487,10 +488,11 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     resetDayFromNightDelay()
     if (typeof window === 'undefined') return
     if (!canShowDayFromNightNow()) return
+    const delayMs = bestMove.uid ? DAY_FROM_NIGHT_WITH_BEST_MOVE_DELAY_MS : DAY_BUTTON_DELAY_MS
     dayFromNightTimer = window.setTimeout(() => {
       if (canShowDayFromNightNow()) dayFromNightUnlocked.value = true
       dayFromNightTimer = null
-    }, DAY_BUTTON_DELAY_MS)
+    }, delayMs)
   }
 
   const canShowStartDay = computed(() => canShowStartDayNow())
