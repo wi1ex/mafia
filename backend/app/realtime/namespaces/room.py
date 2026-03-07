@@ -1030,7 +1030,10 @@ async def game_leave(sid, data):
                 await block_vote_and_clear(r, rid, reason="suicide", phase=phase)
             if block_next:
                 try:
-                    await r.hset(f"room:{rid}:game_state", mapping={"vote_blocked_next": "1"})
+                    mapping = {"vote_blocked_next": "1"}
+                    if phase == "vote":
+                        mapping["vote_blocked"] = "1"
+                    await r.hset(f"room:{rid}:game_state", mapping=mapping)
                 except Exception:
                     log.exception("sio.game_leave.mark_vote_blocked_next_failed", rid=rid)
             if phase in ("roles_pick", "mafia_talk_start", "mafia_talk_end"):
@@ -2339,7 +2342,10 @@ async def game_foul_set(sid, data):
                         await block_vote_and_clear(r, rid, reason="foul", phase=phase)
                     if block_next:
                         try:
-                            await r.hset(f"room:{rid}:game_state", mapping={"vote_blocked_next": "1"})
+                            mapping = {"vote_blocked_next": "1"}
+                            if phase == "vote":
+                                mapping["vote_blocked"] = "1"
+                            await r.hset(f"room:{rid}:game_state", mapping=mapping)
                         except Exception:
                             log.exception("game_foul_set.mark_vote_blocked_next_failed", rid=rid)
 
@@ -4023,6 +4029,9 @@ async def game_vote_restart(sid, data):
         if not vote_done:
             return {"ok": False, "error": "vote_not_done", "status": 409}
 
+        if str(raw_gstate.get("vote_blocked") or "0") == "1":
+            return {"ok": False, "error": "vote_blocked", "status": 409}
+
         leaders = ctx.gcsv_ints("vote_leaders_order")
         leader_idx = ctx.gint("vote_leader_idx")
         if len(leaders) > 1 and leader_idx < len(leaders):
@@ -4425,8 +4434,6 @@ async def disconnect(sid):
             sess_epoch = 0
 
         async def maybe_emit_vote_presence_break() -> None:
-            # Even if this disconnect becomes stale after fast reconnect (epoch race),
-            # we still notify room clients that this player dropped during active voting.
             try:
                 raw_state = await r.hgetall(f"room:{rid}:game_state")
             except Exception:
@@ -4485,6 +4492,7 @@ async def disconnect(sid):
             )
 
         cur_epoch = int(await r.get(f"room:{rid}:user:{uid}:epoch") or 0)
+
         try:
             await maybe_emit_vote_presence_break()
         except Exception:

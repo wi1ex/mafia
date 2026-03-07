@@ -634,6 +634,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     if (!voteResultShown.value) return false
     if (voteAborted.value) return false
     if (voteLiftState.value !== 'none') return false
+    if (voteBlocked.value) return false
     if (voteResultLeaders.length <= 1) return false
     return voteLeaderSpeechesDone.value
   })
@@ -663,7 +664,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     if (voteLiftState.value === 'failed') return true
     if (!vote.done) return false
     if (!voteLeaderSpeechesDone.value) return false
-    if (voteAborted.value || voteResultLeaders.length <= 1) return true
+    if (voteAborted.value || voteBlocked.value || voteResultLeaders.length <= 1) return true
     return voteLeaderKilled.value
   })
 
@@ -2495,6 +2496,8 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
            void alertDialog('Сначала нужно закончить речи')
         } else if (st === 409 && code === 'no_nominees') {
            void alertDialog('Никто не выставлен – можно переходить к ночи')
+        } else if (st === 409 && code === 'vote_blocked') {
+           void alertDialog('Повторное голосование отменено, можно переходить к ночи')
         } else {
            void alertDialog('Не удалось начать голосование')
         }
@@ -2920,6 +2923,8 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
          void alertDialog('Сначала проведите оправдательные речи всех лидеров')
       } else if (st === 409 && code === 'no_nominees') {
          void alertDialog('Нет кандидатов для повторного голосования')
+      } else if (st === 409 && code === 'vote_blocked') {
+         void alertDialog('Повторное голосование отменено, можно переходить к ночи')
       } else {
          void alertDialog('Не удалось начать повторное голосование')
       }

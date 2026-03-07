@@ -2806,6 +2806,7 @@ async def advance_roles_turn(r, rid: int, *, auto: bool) -> None:
 async def finish_vote_speech(r, rid: int, raw_gstate: Mapping[str, Any], speaker_uid: int, *, reason_override: str | None = None) -> dict[str, Any]:
     ctx = GameActionContext.from_raw_state(uid=speaker_uid, rid=rid, r=r, raw_state=raw_gstate)
     head_uid = ctx.head_uid
+    vote_blocked = ctx.gbool("vote_blocked")
     if head_uid and speaker_uid != head_uid:
         try:
             await apply_blocks_and_emit(r, rid, actor_uid=head_uid, actor_role="head", target_uid=speaker_uid, changes_bool={"mic": True})
@@ -2856,6 +2857,7 @@ async def finish_vote_speech(r, rid: int, raw_gstate: Mapping[str, Any], speaker
         "opening_uid": 0,
         "closing_uid": 0,
         "deadline": 0,
+        "vote_blocked": vote_blocked,
     }
     if killed:
         payload["killed"] = True
@@ -3787,6 +3789,13 @@ async def decide_vote_blocks_on_death(r, rid: int, raw_state: Mapping[str, Any],
     vote_results_ready = str(raw_state.get("vote_results_ready") or "0") == "1"
     if vote_results_ready:
         leaders_ready = parse_leaders(raw_state)
+        if len(leaders_ready) > 1:
+            vote_speeches_done = str(raw_state.get("vote_speeches_done") or "0") == "1"
+            if not vote_speeches_done:
+                return False, True, leaders_ready
+
+            return True, False, leaders_ready
+
         if len(leaders_ready) == 1:
             if victim_uid in leaders_ready:
                 return True, False, leaders_ready
