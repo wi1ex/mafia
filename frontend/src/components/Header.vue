@@ -111,7 +111,7 @@
 
 <script setup lang="ts">
 import { onMounted, onBeforeUnmount, watch, ref, computed } from 'vue'
-import { useAuthStore, useUserStore, useNotifStore, useUpdatesStore, useFriendsStore } from '@/store'
+import { useAuthStore, useUserStore, useNotifStore, useUpdatesStore, useFriendsStore, useSettingsStore } from '@/store'
 import Notifs from '@/components/Notifs.vue'
 import Updates from '@/components/Updates.vue'
 import FriendsPanel from '@/components/FriendsPanel.vue'
@@ -138,6 +138,7 @@ const user = useUserStore()
 const notif = useNotifStore()
 const updates = useUpdatesStore()
 const friends = useFriendsStore()
+const settings = useSettingsStore()
 
 const nb_open = ref(false)
 const bellEl = ref<HTMLElement | null>(null)
@@ -184,7 +185,14 @@ const sanctionBanner = computed<SanctionBanner | null>(() => {
   return null
 })
 
-const verificationBanner = computed(() => auth.ready && auth.isAuthed && Boolean(user.user) && !user.telegramVerified)
+const verificationBanner = computed(() => {
+  return auth.ready
+    && settings.ready
+    && settings.verificationRestrictions
+    && auth.isAuthed
+    && Boolean(user.user)
+    && !user.telegramVerified
+})
 
 function onToggleNotifs() {
   updates_open.value = false

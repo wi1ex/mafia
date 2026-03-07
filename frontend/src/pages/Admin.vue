@@ -266,20 +266,19 @@
                 <div class="stats-daily-block">
                   <div class="stats-mini-title">Игры по дням</div>
                   <div v-if="stats.games_by_day.length === 0" class="muted">Нет данных</div>
-                  <table v-else class="table stats-days-table">
-                    <thead>
-                      <tr>
-                        <th>День</th>
-                        <th>Игр</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr v-for="point in stats.games_by_day" :key="`game-day-${point.date}`">
-                        <td>{{ point.date.slice(-2) }}</td>
-                        <td>{{ point.count }}</td>
-                      </tr>
-                    </tbody>
-                  </table>
+                  <div v-else class="chart-body">
+                    <div class="chart-axis">
+                      <span v-for="tick in gamesByDayTicks" :key="tick">{{ tick }}</span>
+                    </div>
+                    <div class="chart-grid">
+                      <div v-for="point in stats.games_by_day" :key="`game-day-${point.date}`" class="chart-bar">
+                        <div class="bar" :style="{ height: chartBarHeight(point.count, gamesByDayMax) }">
+                          <span class="bar-value">{{ point.count }}</span>
+                        </div>
+                        <span class="bar-label">{{ point.date.slice(-2) }}</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1327,6 +1326,10 @@ const registrationsMax = computed(() => {
   const vals = stats.registrations.map(p => p.count)
   return Math.max(1, ...vals)
 })
+const gamesByDayMax = computed(() => {
+  const vals = stats.games_by_day.map(p => p.count)
+  return Math.max(1, ...vals)
+})
 const registrationsMonthlyMax = computed(() => {
   const vals = stats.registrations_monthly.map(p => p.count)
   return Math.max(1, ...vals)
@@ -1355,6 +1358,7 @@ function buildChartTicks(maxValue: number): number[] {
   return out
 }
 const registrationTicks = computed(() => buildChartTicks(registrationsMax.value))
+const gamesByDayTicks = computed(() => buildChartTicks(gamesByDayMax.value))
 const registrationMonthlyTicks = computed(() => buildChartTicks(registrationsMonthlyMax.value))
 const gamesMonthlyTicks = computed(() => buildChartTicks(gamesMonthlyMax.value))
 const canSaveUpdate = computed(() => {
@@ -2472,13 +2476,6 @@ onMounted(() => {
       }
       .stats-daily-block {
         min-width: 0;
-      }
-      .stats-days-table {
-        th,
-        td {
-          padding: 5px;
-          font-size: 12px;
-        }
       }
       .stats-monthly-grid {
         display: grid;
