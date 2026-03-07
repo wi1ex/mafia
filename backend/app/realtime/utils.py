@@ -3778,6 +3778,82 @@ async def compute_vote_effective_leaders(r, rid: int, *, remaining_target_uid: i
     return vote_leaders_from_counts(counts)
 
 
+async def compute_vote_predetermined_unique_leader(r, rid: int, raw_state: Mapping[str, Any]) -> tuple[bool, list[int]]:
+    nominees = await get_nominees_in_order(r, rid)
+    if not nominees:
+        return False, []
+
+    try:
+        raw_votes = await hgetall_int_map(r, f"room:{rid}:game_votes")
+    except Exception:
+        raw_votes = {}
+
+    counts: dict[int, int] = {uid: 0 for uid in nominees}
+    for target in (raw_votes or {}).values():
+        if target in counts:
+            counts[target] = counts.get(target, 0) + 1
+
+    leaders_now = vote_leaders_from_counts(counts)
+    if len(leaders_now) != 1:
+        return False, leaders_now
+
+    leader_uid = leaders_now[0]
+    leader_votes = counts.get(leader_uid, 0)
+    if leader_votes <= 0:
+        return False, leaders_now
+
+    alive_ids, voted_ids = await get_alive_and_voted_ids(r, rid)
+    remaining_cnt = len(alive_ids - voted_ids)
+    if remaining_cnt <= 0:
+        return True, leaders_now
+
+    try:
+        current_uid = int(raw_state.get("vote_current_uid") or 0)
+    except Exception:
+        current_uid = 0
+    if current_uid and current_uid in nominees:
+        cur_idx = nominees.index(current_uid)
+    else:
+        current_uid = nominees[0]
+        cur_idx = 0
+
+    try:
+        vote_started = int(raw_state.get("vote_started") or 0)
+    except Exception:
+        vote_started = 0
+    try:
+        vote_duration = int(raw_state.get("vote_duration") or 0)
+    except Exception:
+        vote_duration = 0
+    if vote_duration <= 0:
+        try:
+            vote_duration = get_cached_settings().vote_seconds
+        except Exception:
+            vote_duration = 0
+
+    now_ts = int(time())
+    vote_window_open = bool(vote_started) and vote_duration > 0 and now_ts < (vote_started + vote_duration)
+    current_is_last = cur_idx >= (len(nominees) - 1)
+
+    if current_is_last:
+        eligible = {current_uid}
+    elif vote_started == 0 or vote_window_open:
+        eligible = set(nominees[cur_idx:])
+    else:
+        eligible = set(nominees[cur_idx + 1:])
+
+    for nominee_uid in nominees:
+        if nominee_uid == leader_uid:
+            continue
+        possible_votes = counts.get(nominee_uid, 0)
+        if nominee_uid in eligible:
+            possible_votes += remaining_cnt
+        if possible_votes >= leader_votes:
+            return False, leaders_now
+
+    return True, leaders_now
+
+
 async def decide_vote_blocks_on_death(r, rid: int, raw_state: Mapping[str, Any], victim_uid: int) -> tuple[bool, bool, list[int]]:
     phase = str(raw_state.get("phase") or "")
     if phase != "vote":
@@ -3816,59 +3892,12 @@ async def decide_vote_blocks_on_death(r, rid: int, raw_state: Mapping[str, Any],
 
         return True, False, leaders_done
 
-    nominees = await get_nominees_in_order(r, rid)
-    if not nominees:
-        return True, False, []
+    predetermined, leaders_pending = await compute_vote_predetermined_unique_leader(r, rid, raw_state)
+    if predetermined:
+        if len(leaders_pending) == 1 and victim_uid in leaders_pending:
+            return True, False, leaders_pending
 
-    try:
-        current_uid = int(raw_state.get("vote_current_uid") or 0)
-    except Exception:
-        current_uid = 0
-    if current_uid and current_uid in nominees:
-        cur_idx = nominees.index(current_uid)
-    else:
-        current_uid = nominees[0]
-        cur_idx = 0
-
-    try:
-        vote_started = int(raw_state.get("vote_started") or 0)
-    except Exception:
-        vote_started = 0
-
-    try:
-        vote_duration = int(raw_state.get("vote_duration") or 0)
-    except Exception:
-        vote_duration = 0
-    if vote_duration <= 0:
-        try:
-            vote_duration = get_cached_settings().vote_seconds
-        except Exception:
-            vote_duration = 0
-
-    last_pending = (cur_idx == len(nominees) - 1) and (vote_started == 0)
-    if last_pending:
-        leaders_pending = await compute_vote_effective_leaders(r, rid, remaining_target_uid=current_uid)
-        if len(leaders_pending) == 1:
-            if victim_uid in leaders_pending:
-                return True, False, leaders_pending
-
-            return False, True, leaders_pending
-
-        return True, False, leaders_pending
-
-    now_ts = int(time())
-    vote_ended_for_current = bool(vote_started) and vote_duration > 0 and now_ts >= (vote_started + vote_duration)
-    remaining_after_current = len(nominees) - (cur_idx + 1)
-    if vote_ended_for_current and remaining_after_current == 1:
-        remaining_uid = nominees[cur_idx + 1]
-        leaders_remaining = await compute_vote_effective_leaders(r, rid, remaining_target_uid=remaining_uid)
-        if len(leaders_remaining) == 1:
-            if victim_uid in leaders_remaining:
-                return True, False, leaders_remaining
-
-            return False, True, leaders_remaining
-
-        return True, False, leaders_remaining
+        return False, True, leaders_pending
 
     return True, False, []
 
