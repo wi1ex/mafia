@@ -1739,6 +1739,24 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   function handleGameVoteState(p: any) {
     const vt = p?.vote
     if (!vt || typeof vt !== 'object') return
+    const hasMainVoteState =
+      ('current_uid' in (vt as any)) ||
+      ('deadline' in (vt as any)) ||
+      ('done' in (vt as any)) ||
+      ('aborted' in (vt as any)) ||
+      ('nominees' in (vt as any)) ||
+      ('restart' in (vt as any)) ||
+      ('lift_state' in (vt as any))
+    if (!hasMainVoteState) {
+      if ('blocked' in (vt as any)) {
+        voteBlocked.value = isTrueLike((vt as any).blocked)
+        if (voteBlocked.value) {
+          replaceIds(dayNominees, [])
+          nominatedThisSpeechByMe.value = false
+        }
+      }
+      return
+    }
     const prevId = vote.currentId
     const newId = String(vt.current_uid || '')
     const ms = secondsToMs(vt.deadline)
@@ -2034,6 +2052,11 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     }
     if (to === 'day') {
       const dy = p?.day
+      if ('vote_blocked' in (dy as any)) {
+        voteBlocked.value = isTrueLike((dy as any).vote_blocked)
+      } else {
+        voteBlocked.value = false
+      }
       const num = Number(dy?.number || 0)
       dayNumber.value = Number.isFinite(num) && num > 0 ? num : 0
       resetDaySpeechState(true)
@@ -2052,6 +2075,11 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       headNightPicks.clear()
     } else if (to === 'vote') {
       const vt = p?.vote
+      if ('blocked' in (vt as any)) {
+        voteBlocked.value = isTrueLike((vt as any).blocked)
+      } else {
+        voteBlocked.value = false
+      }
       resetDaySpeechState(true)
       daySpeechesDone.value = true
       replaceIds(voteResultLeaders, undefined)

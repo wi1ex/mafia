@@ -1040,6 +1040,11 @@ async def game_leave(sid, data):
                     else:
                         mapping["vote_blocked_next"] = "1"
                     await r.hset(f"room:{rid}:game_state", mapping=mapping)
+                    if mapping.get("vote_blocked") == "1":
+                        await sio.emit("game_vote_state",
+                                       {"room_id": rid, "vote": {"blocked": True}},
+                                       room=f"room:{rid}",
+                                       namespace="/room")
                 except Exception:
                     log.exception("sio.game_leave.mark_vote_blocked_next_failed", rid=rid)
             if phase in ("roles_pick", "mafia_talk_start", "mafia_talk_end"):
@@ -2357,6 +2362,11 @@ async def game_foul_set(sid, data):
                             else:
                                 mapping["vote_blocked_next"] = "1"
                             await r.hset(f"room:{rid}:game_state", mapping=mapping)
+                            if mapping.get("vote_blocked") == "1":
+                                await sio.emit("game_vote_state",
+                                               {"room_id": rid, "vote": {"blocked": True}},
+                                               room=f"room:{rid}",
+                                               namespace="/room")
                         except Exception:
                             log.exception("game_foul_set.mark_vote_blocked_next_failed", rid=rid)
 
