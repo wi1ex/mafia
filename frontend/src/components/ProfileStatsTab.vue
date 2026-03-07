@@ -338,11 +338,11 @@ function setSeason(season: number | null): void {
 }
 
 const nonGameItems = computed(() => [
-  { key: 'room-minutes', label: 'В комнатах', value: formatDurationDhm(stats.room_minutes) },
+  { key: 'room-minutes', label: 'Время в комнатах', value: formatDurationDhm(stats.room_minutes) },
   { key: 'rooms-created', label: 'Мои комнаты', value: formatInt(stats.rooms_created) },
   { key: 'games-in-my-rooms', label: 'Игры в моих комнатах', value: formatInt(stats.games_in_my_rooms) },
-  { key: 'stream-minutes', label: 'Мои стримы', value: formatDurationDhm(stats.stream_minutes) },
-  { key: 'spectator-minutes', label: 'Зритель', value: formatDurationDhm(stats.spectator_minutes) },
+  { key: 'stream-minutes', label: 'Время моих трансляций', value: formatDurationDhm(stats.stream_minutes) },
+  { key: 'spectator-minutes', label: 'Время как зритель', value: formatDurationDhm(stats.spectator_minutes) },
   { key: 'games-hosted', label: 'Игр проведено', value: formatInt(game.value.games_hosted) },
 ])
 
@@ -639,7 +639,7 @@ onMounted(() => {
     }
     .non-game-grid {
       display: grid;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
+      grid-template-columns: repeat(6, minmax(0, 1fr));
       gap: 10px;
     }
     .overview {
