@@ -2830,7 +2830,9 @@ async def finish_vote_speech(r, rid: int, raw_gstate: Mapping[str, Any], speaker
             skip_death = True
 
         if not skip_death:
-            await process_player_death(r, rid, speaker_uid, head_uid=head_uid, phase_override="vote", reason=reason_override or "vote")
+            has_pending_farewell_queue = bool(leaders) and leader_idx < len(leaders)
+            await process_player_death(r, rid, speaker_uid, head_uid=head_uid, phase_override="vote",
+                                       reason=reason_override or "vote", defer_finish_check=has_pending_farewell_queue)
             killed = True
 
         if leaders and leader_idx >= len(leaders):
@@ -3201,7 +3203,7 @@ async def emit_night_head_picks(r, rid: int, kind: str, head_uid: int) -> None:
                    namespace="/room")
 
 
-async def process_player_death(r, rid: int, user_id: int, *, head_uid: int | None = None, actor_role: str = "head", phase_override: str | None = None, reason: str | None = None) -> bool:
+async def process_player_death(r, rid: int, user_id: int, *, head_uid: int | None = None, actor_role: str = "head", phase_override: str | None = None, reason: str | None = None, defer_finish_check: bool = False) -> bool:
     removed = int(await r.srem(f"room:{rid}:game_alive", str(user_id)) or 0) > 0
     if removed:
         try:
@@ -3330,10 +3332,11 @@ async def process_player_death(r, rid: int, user_id: int, *, head_uid: int | Non
         except Exception:
             log.warning("process_player_death.draw_reset_failed", rid=rid, uid=user_id)
 
-        try:
-            await maybe_finish_game_after_death(r, rid, head_uid=head_uid)
-        except Exception:
-            log.exception("process_player_death.finish_check_failed", rid=rid, uid=user_id)
+        if not defer_finish_check:
+            try:
+                await maybe_finish_game_after_death(r, rid, head_uid=head_uid)
+            except Exception:
+                log.exception("process_player_death.finish_check_failed", rid=rid, uid=user_id)
 
     return removed
 
