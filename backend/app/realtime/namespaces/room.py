@@ -110,6 +110,7 @@ from ..utils import (
     perform_game_end,
     finish_game,
     record_spectator_leave,
+    maybe_emit_vote_presence_break,
 )
 
 log = structlog.get_logger()
@@ -1025,14 +1026,19 @@ async def game_leave(sid, data):
 
         removed = await process_player_death(r, rid, uid, head_uid=head_uid, phase_override=phase, reason="suicide")
         if removed:
-            block_now, block_next, _ = await decide_vote_blocks_on_death(r, rid, raw_gstate, uid)
+            block_now, block_next, leaders_after = await decide_vote_blocks_on_death(r, rid, raw_gstate, uid)
             if block_now:
                 await block_vote_and_clear(r, rid, reason="suicide", phase=phase)
             if block_next:
                 try:
-                    mapping = {"vote_blocked_next": "1"}
+                    mapping: dict[str, str] = {}
                     if phase == "vote":
-                        mapping["vote_blocked"] = "1"
+                        if len(leaders_after) > 1:
+                            mapping["vote_blocked"] = "1"
+                        else:
+                            mapping["vote_blocked_next"] = "1"
+                    else:
+                        mapping["vote_blocked_next"] = "1"
                     await r.hset(f"room:{rid}:game_state", mapping=mapping)
                 except Exception:
                     log.exception("sio.game_leave.mark_vote_blocked_next_failed", rid=rid)
@@ -2337,14 +2343,19 @@ async def game_foul_set(sid, data):
             if not handled_by_predefined_farewell:
                 removed = await process_player_death(r, rid, target_uid, head_uid=head_uid, phase_override=phase, reason="foul")
                 if removed:
-                    block_now, block_next, _ = await decide_vote_blocks_on_death(r, rid, raw_gstate, target_uid)
+                    block_now, block_next, leaders_after = await decide_vote_blocks_on_death(r, rid, raw_gstate, target_uid)
                     if block_now:
                         await block_vote_and_clear(r, rid, reason="foul", phase=phase)
                     if block_next:
                         try:
-                            mapping = {"vote_blocked_next": "1"}
+                            mapping: dict[str, str] = {}
                             if phase == "vote":
-                                mapping["vote_blocked"] = "1"
+                                if len(leaders_after) > 1:
+                                    mapping["vote_blocked"] = "1"
+                                else:
+                                    mapping["vote_blocked_next"] = "1"
+                            else:
+                                mapping["vote_blocked_next"] = "1"
                             await r.hset(f"room:{rid}:game_state", mapping=mapping)
                         except Exception:
                             log.exception("game_foul_set.mark_vote_blocked_next_failed", rid=rid)
@@ -4433,68 +4444,10 @@ async def disconnect(sid):
         except Exception:
             sess_epoch = 0
 
-        async def maybe_emit_vote_presence_break() -> None:
-            try:
-                raw_state = await r.hgetall(f"room:{rid}:game_state")
-            except Exception:
-                return
-
-            if str(raw_state.get("phase") or "idle") != "vote":
-                return
-
-            if str(raw_state.get("vote_lift_state") or ""):
-                return
-
-            if str(raw_state.get("vote_done") or "0") == "1":
-                return
-
-            if str(raw_state.get("vote_results_ready") or "0") == "1":
-                return
-
-            try:
-                vote_started = int(raw_state.get("vote_started") or 0)
-                vote_duration = int(raw_state.get("vote_duration") or get_positive_setting_int("VOTE_SECONDS", 3))
-                current_uid = int(raw_state.get("vote_current_uid") or 0)
-            except Exception:
-                return
-
-            if vote_duration <= 0:
-                vote_duration = get_positive_setting_int("VOTE_SECONDS", 3)
-            if vote_started <= 0 or vote_duration <= 0:
-                return
-
-            now_ts = int(time())
-            if now_ts > (vote_started + vote_duration):
-                return
-
-            if current_uid <= 0:
-                return
-
-            try:
-                alive = await r.sismember(f"room:{rid}:game_alive", str(uid))
-            except Exception:
-                alive = False
-            if not alive:
-                return
-
-            try:
-                existing_vote = await r.hget(f"room:{rid}:game_votes", str(uid))
-            except Exception:
-                existing_vote = None
-            if existing_vote is not None:
-                return
-
-            await sio.emit(
-                "game_vote_presence_break",
-                {"room_id": rid, "user_id": uid, "candidate_uid": current_uid},
-                room=f"room:{rid}",
-                namespace="/room",
-            )
-
         cur_epoch = int(await r.get(f"room:{rid}:user:{uid}:epoch") or 0)
 
         try:
-            await maybe_emit_vote_presence_break()
+            await maybe_emit_vote_presence_break(r, rid, uid)
         except Exception:
             log.exception("sio.disconnect.vote_presence_break_failed", rid=rid, uid=uid)
         if cur_epoch > sess_epoch:
