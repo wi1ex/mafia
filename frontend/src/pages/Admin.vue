@@ -245,34 +245,77 @@
                   <span class="value">{{ stats.last_month.games }}</span>
                 </div>
               </div>
-              <div v-if="stats.registrations.length === 0" class="muted">Нет данных</div>
-              <div v-else class="chart-body">
-                <div class="chart-axis">
-                  <span v-for="tick in registrationTicks" :key="tick">{{ tick }}</span>
-                </div>
-                <div class="chart-grid">
-                  <div v-for="point in stats.registrations" :key="point.date" class="chart-bar">
-                    <div class="bar" :style="{ height: chartBarHeight(point.count, registrationsMax) }">
-                      <span class="bar-value">{{ point.count }}</span>
+              <div class="stats-daily-grid">
+                <div class="stats-daily-block">
+                  <div class="stats-mini-title">Регистрации по дням</div>
+                  <div v-if="stats.registrations.length === 0" class="muted">Нет данных</div>
+                  <div v-else class="chart-body">
+                    <div class="chart-axis">
+                      <span v-for="tick in registrationTicks" :key="tick">{{ tick }}</span>
                     </div>
-                    <span class="bar-label">{{ point.date.slice(-2) }}</span>
+                    <div class="chart-grid">
+                      <div v-for="point in stats.registrations" :key="point.date" class="chart-bar">
+                        <div class="bar" :style="{ height: chartBarHeight(point.count, registrationsMax) }">
+                          <span class="bar-value">{{ point.count }}</span>
+                        </div>
+                        <span class="bar-label">{{ point.date.slice(-2) }}</span>
+                      </div>
+                    </div>
                   </div>
+                </div>
+                <div class="stats-daily-block">
+                  <div class="stats-mini-title">Игры по дням</div>
+                  <div v-if="stats.games_by_day.length === 0" class="muted">Нет данных</div>
+                  <table v-else class="table stats-days-table">
+                    <thead>
+                      <tr>
+                        <th>День</th>
+                        <th>Игр</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="point in stats.games_by_day" :key="`game-day-${point.date}`">
+                        <td>{{ point.date.slice(-2) }}</td>
+                        <td>{{ point.count }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
                 </div>
               </div>
             </div>
 
-            <div class="chart chart--monthly">
-              <div v-if="stats.registrations_monthly.length === 0" class="muted">Нет данных</div>
-              <div v-else class="chart-body">
-                <div class="chart-axis">
-                  <span v-for="tick in registrationMonthlyTicks" :key="tick">{{ tick }}</span>
-                </div>
-                <div class="chart-grid">
-                  <div v-for="point in stats.registrations_monthly" :key="point.date" class="chart-bar">
-                    <div class="bar" :style="{ height: chartBarHeight(point.count, registrationsMonthlyMax) }">
-                      <span class="bar-value">{{ point.count }}</span>
+            <div class="stats-monthly-grid">
+              <div class="chart chart--monthly">
+                <div class="stats-mini-title">Регистрации по месяцам</div>
+                <div v-if="stats.registrations_monthly.length === 0" class="muted">Нет данных</div>
+                <div v-else class="chart-body">
+                  <div class="chart-axis">
+                    <span v-for="tick in registrationMonthlyTicks" :key="tick">{{ tick }}</span>
+                  </div>
+                  <div class="chart-grid">
+                    <div v-for="point in stats.registrations_monthly" :key="point.date" class="chart-bar">
+                      <div class="bar" :style="{ height: chartBarHeight(point.count, registrationsMonthlyMax) }">
+                        <span class="bar-value">{{ point.count }}</span>
+                      </div>
+                      <span class="bar-label">{{ formatMonthLabel(point.date) }}</span>
                     </div>
-                    <span class="bar-label">{{ formatMonthLabel(point.date) }}</span>
+                  </div>
+                </div>
+              </div>
+              <div class="chart chart--monthly">
+                <div class="stats-mini-title">Игры по месяцам</div>
+                <div v-if="stats.games_monthly.length === 0" class="muted">Нет данных</div>
+                <div v-else class="chart-body">
+                  <div class="chart-axis">
+                    <span v-for="tick in gamesMonthlyTicks" :key="tick">{{ tick }}</span>
+                  </div>
+                  <div class="chart-grid">
+                    <div v-for="point in stats.games_monthly" :key="point.date" class="chart-bar">
+                      <div class="bar" :style="{ height: chartBarHeight(point.count, gamesMonthlyMax) }">
+                        <span class="bar-value">{{ point.count }}</span>
+                      </div>
+                      <span class="bar-label">{{ formatMonthLabel(point.date) }}</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -348,9 +391,12 @@
             </div>
             <div class="field">
               <span>Фильтры</span>
-              <select v-model="roomsStreamOnly" :disabled="roomsLoading">
-                <option :value="false">Все комнаты</option>
-                <option :value="true">Со стримом</option>
+              <select v-model="roomsFilter" :disabled="roomsLoading">
+                <option value="all">Все комнаты</option>
+                <option value="stream_only">Только со стримом</option>
+                <option value="hidden_only">Скрытые комнаты</option>
+                <option value="has_games">Комната с играми</option>
+                <option value="duo_only">Duo-комната</option>
               </select>
             </div>
             <div class="field">
@@ -518,6 +564,12 @@
                     </button>
                   </th>
                   <th>
+                    <button class="th-sort" type="button" :class="{ active: usersSortBy === 'last_game_at' }" @click="setUsersSort('last_game_at')">
+                      Последняя игра
+                      <span class="th-sort-mark" aria-hidden="true">▼</span>
+                    </button>
+                  </th>
+                  <th>
                     <button class="th-sort" type="button" :class="{ active: usersSortBy === 'tg_invites_enabled' }" @click="setUsersSort('tg_invites_enabled')">
                       TG-уведомления
                       <span class="th-sort-mark" aria-hidden="true">▼</span>
@@ -587,6 +639,7 @@
                   <th>Аккаунт</th>
                   <th>Вериф.</th>
                   <th>Пароль</th>
+                  <th>Никнейм</th>
                   <th>Огранич.</th>
                   <th>Таймаут</th>
                   <th>Бан</th>
@@ -606,6 +659,7 @@
                   <td>{{ formatLocalDateTime(row.registered_at) }}</td>
                   <td>{{ formatLocalDateTime(row.last_login_at) }}</td>
                   <td>{{ formatLocalDateTime(row.last_visit_at) }}</td>
+                  <td>{{ formatLocalDateTime(row.last_game_at) }}</td>
                   <td>{{ row.tg_invites_enabled ? 'Вкл' : 'Откл' }}</td>
                   <td>{{ row.friends_count }}</td>
                   <td>{{ row.rooms_created }}</td>
@@ -674,6 +728,11 @@
                     </button>
                   </td>
                   <td>
+                    <button class="btn" :class="isNicknameDefault(row) ? 'dark' : 'danger'" :disabled="isUserActionsLocked(row) || isNicknameDefault(row) || usersNicknameBusy[row.id]" @click="resetUserNickname(row)">
+                      <img class="btn-img" :src="iconClose" alt="" />
+                    </button>
+                  </td>
+                  <td>
                     <button class="btn" :class="row.suspend_active ? 'dark' : 'danger'" :disabled="isUserActionsLocked(row) || isSanctionBusy(row.id, 'suspend')" @click="toggleSuspend(row)">
                       <img class="btn-img" :src="row.suspend_active ? iconClose : iconJudge" alt="" />
                     </button>
@@ -690,7 +749,7 @@
                   </td>
                 </tr>
                 <tr v-if="users.length === 0">
-                  <td colspan="24" class="muted">Нет данных</td>
+                  <td colspan="26" class="muted">Нет данных</td>
                 </tr>
               </tbody>
             </table>
@@ -819,7 +878,9 @@ type SiteStats = {
   deleted_users: number
   tg_invites_disabled_users: number
   registrations: RegistrationPoint[]
+  games_by_day: RegistrationPoint[]
   registrations_monthly: RegistrationPoint[]
+  games_monthly: RegistrationPoint[]
   total_rooms: number
   total_games: number
   total_stream_minutes: number
@@ -910,6 +971,7 @@ type UserRow = {
   registered_at: string
   last_login_at: string
   last_visit_at: string
+  last_game_at?: string | null
   deleted_at?: string | null
   friends_count: number
   rooms_created: number
@@ -935,6 +997,7 @@ type UsersSortBy =
   | 'registered_at'
   | 'last_login_at'
   | 'last_visit_at'
+  | 'last_game_at'
   | 'tg_invites_enabled'
   | 'friends_count'
   | 'rooms_created'
@@ -946,6 +1009,8 @@ type UsersSortBy =
   | 'timeouts_count'
   | 'bans_count'
   | 'suspends_count'
+
+type RoomFilter = 'all' | 'stream_only' | 'hidden_only' | 'has_games' | 'duo_only'
 
 type UpdateRow = {
   id: number
@@ -1014,7 +1079,9 @@ const stats = reactive<SiteStats>({
   deleted_users: 0,
   tg_invites_disabled_users: 0,
   registrations: [],
+  games_by_day: [],
   registrations_monthly: [],
+  games_monthly: [],
   total_rooms: 0,
   total_games: 0,
   total_stream_minutes: 0,
@@ -1050,7 +1117,7 @@ const roomsTotal = ref(0)
 const roomsPage = ref(1)
 const roomsLimit = ref(20)
 const roomsUser = ref('')
-const roomsStreamOnly = ref(false)
+const roomsFilter = ref<RoomFilter>('all')
 
 const users = ref<UserRow[]>([])
 const usersTotal = ref(0)
@@ -1062,6 +1129,7 @@ const usersRoleBusy = reactive<Record<number, boolean>>({})
 const usersDeleteBusy = reactive<Record<number, boolean>>({})
 const usersVerifyBusy = reactive<Record<number, boolean>>({})
 const usersPasswordBusy = reactive<Record<number, boolean>>({})
+const usersNicknameBusy = reactive<Record<number, boolean>>({})
 const usersSanctionBusy = reactive<Record<string, boolean>>({})
 const userStatsOpen = ref(false)
 const userStatsTarget = ref<UserRow | null>(null)
@@ -1263,6 +1331,10 @@ const registrationsMonthlyMax = computed(() => {
   const vals = stats.registrations_monthly.map(p => p.count)
   return Math.max(1, ...vals)
 })
+const gamesMonthlyMax = computed(() => {
+  const vals = stats.games_monthly.map(p => p.count)
+  return Math.max(1, ...vals)
+})
 function buildChartTicks(maxValue: number): number[] {
   const max = Math.max(1, maxValue)
   if (max <= 4) {
@@ -1284,6 +1356,7 @@ function buildChartTicks(maxValue: number): number[] {
 }
 const registrationTicks = computed(() => buildChartTicks(registrationsMax.value))
 const registrationMonthlyTicks = computed(() => buildChartTicks(registrationsMonthlyMax.value))
+const gamesMonthlyTicks = computed(() => buildChartTicks(gamesMonthlyMax.value))
 const canSaveUpdate = computed(() => {
   return Boolean(updateForm.version.trim() && updateForm.date && updateForm.description.trim())
 })
@@ -1341,6 +1414,11 @@ function isSanctionBusy(userId: number, kind: 'timeout' | 'ban' | 'suspend'): bo
 function isUserActionsLocked(row: UserRow | null | undefined): boolean {
   if (!row) return false
   return Boolean(row.protected_user)
+}
+
+function isNicknameDefault(row: UserRow | null | undefined): boolean {
+  if (!row) return false
+  return String(row.username || '') === `user_${row.id}`
 }
 
 function openUserStats(row: UserRow): void {
@@ -1490,7 +1568,9 @@ async function loadStats(): Promise<void> {
       deleted_users: data?.deleted_users ?? 0,
       tg_invites_disabled_users: data?.tg_invites_disabled_users ?? 0,
       registrations: Array.isArray(data?.registrations) ? data.registrations : [],
+      games_by_day: Array.isArray(data?.games_by_day) ? data.games_by_day : [],
       registrations_monthly: Array.isArray(data?.registrations_monthly) ? data.registrations_monthly : [],
+      games_monthly: Array.isArray(data?.games_monthly) ? data.games_monthly : [],
       total_rooms: data?.total_rooms ?? 0,
       total_games: data?.total_games ?? 0,
       total_stream_minutes: data?.total_stream_minutes ?? 0,
@@ -1555,7 +1635,7 @@ async function loadRooms(): Promise<void> {
     const params: Record<string, any> = {
       page: roomsPage.value,
       limit: roomsLimit.value,
-      stream_only: roomsStreamOnly.value || undefined,
+      room_filter: roomsFilter.value === 'all' ? undefined : roomsFilter.value,
     }
     if (roomsUser.value) params.username = roomsUser.value
     const { data } = await api.get('/admin/rooms', { params })
@@ -1600,6 +1680,7 @@ async function loadUsers(): Promise<void> {
       ...item,
       tg_invites_enabled: item?.tg_invites_enabled !== false,
       protected_user: Boolean(item?.protected_user),
+      last_game_at: item?.last_game_at ?? null,
     }))
     usersTotal.value = Number.isFinite(data?.total) ? data.total : 0
   } catch {
@@ -1837,6 +1918,34 @@ async function clearUserPassword(row: UserRow): Promise<void> {
   }
 }
 
+async function resetUserNickname(row: UserRow): Promise<void> {
+  if (isUserActionsLocked(row)) return
+  if (isNicknameDefault(row)) return
+  if (usersNicknameBusy[row.id]) return
+  const userLabel = row.username ? `${row.username}` : `#${row.id}`
+  const ok = await confirmDialog({
+    title: 'Сбросить никнейм',
+    text: `Сбросить никнейм ${userLabel} на user_${row.id}?`,
+    confirmText: 'Сбросить',
+    cancelText: 'Отмена',
+  })
+  if (!ok) return
+  usersNicknameBusy[row.id] = true
+  try {
+    const { data } = await api.post(`/admin/users/${row.id}/nickname_reset`)
+    row.username = data?.username || `user_${row.id}`
+    void alertDialog('Никнейм сброшен')
+  } catch (e: any) {
+    if (e?.response?.status === 409 && e?.response?.data?.detail === 'username_taken') {
+      void alertDialog('Не удалось сбросить никнейм: имя уже занято')
+    } else {
+      void alertDialog('Не удалось сбросить никнейм')
+    }
+  } finally {
+    usersNicknameBusy[row.id] = false
+  }
+}
+
 function resetSanctionForm(): void {
   sanctionForm.months = 0
   sanctionForm.days = 0
@@ -2015,7 +2124,7 @@ watch(logsUser, () => {
   logsUserTimer = window.setTimeout(() => { void loadLogs() }, 500)
 })
 
-watch([roomsStreamOnly, roomsLimit], () => {
+watch([roomsFilter, roomsLimit], () => {
   roomsPage.value = 1
   if (activeTab.value !== 'rooms') return
   void loadRooms()
@@ -2266,6 +2375,11 @@ onMounted(() => {
       display: flex;
       flex-direction: column;
       gap: 15px;
+      .stats-mini-title {
+        margin-bottom: 5px;
+        font-size: 12px;
+        color: $grey;
+      }
       .stats-subtitle {
         font-size: 14px;
         color: $grey;
@@ -2349,6 +2463,27 @@ onMounted(() => {
           transform: translateY(0);
           pointer-events: auto;
         }
+      }
+      .stats-daily-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(220px, 320px);
+        gap: 10px;
+        margin-top: 10px;
+      }
+      .stats-daily-block {
+        min-width: 0;
+      }
+      .stats-days-table {
+        th,
+        td {
+          padding: 5px;
+          font-size: 12px;
+        }
+      }
+      .stats-monthly-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
       }
       .chart {
         padding: 10px;
@@ -2626,6 +2761,10 @@ onMounted(() => {
     }
     .tab-panel {
       .stats {
+        .stats-daily-grid,
+        .stats-monthly-grid {
+          grid-template-columns: 1fr;
+        }
         .chart {
           padding: 5px;
           .chart-grid {

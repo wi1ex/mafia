@@ -62,6 +62,8 @@ __all__ = [
     "normalize_pagination",
     "build_registrations_series",
     "build_registrations_monthly_series",
+    "build_games_series",
+    "build_games_monthly_series",
     "calc_total_stream_seconds",
     "calc_stream_seconds_in_range",
     "fetch_active_rooms_stats",
@@ -77,6 +79,7 @@ __all__ = [
     "aggregate_user_room_time_stats",
     "aggregate_user_room_stats",
     "aggregate_user_games_in_owned_rooms_stats",
+    "fetch_users_last_game_at",
     "normalize_users_sort",
     "fetch_friends_count_for_users",
     "fetch_sanction_counts_for_users",
@@ -146,6 +149,7 @@ USERS_SORT_ALLOWED = {
     USERS_SORT_DEFAULT,
     "last_login_at",
     "last_visit_at",
+    "last_game_at",
     "tg_invites_enabled",
     "friends_count",
     "rooms_created",
@@ -366,7 +370,10 @@ async def fetch_sanction_counts_for_users(session: AsyncSession, ids: list[int])
     return out
 
 
-def user_sort_metric(*, sort_by: str, uid: int, tg_invites_enabled: dict[int, bool], friends_count: dict[int, int], rooms_created: dict[int, int], room_seconds: dict[int, int], stream_seconds: dict[int, int], games_played: dict[int, int], games_hosted: dict[int, int], spectator_seconds: dict[int, int], sanction_counts: dict[int, dict[str, int]]) -> int:
+def user_sort_metric(*, sort_by: str, uid: int, tg_invites_enabled: dict[int, bool], friends_count: dict[int, int], rooms_created: dict[int, int], room_seconds: dict[int, int], stream_seconds: dict[int, int], games_played: dict[int, int], games_hosted: dict[int, int], spectator_seconds: dict[int, int], sanction_counts: dict[int, dict[str, int]], last_game_at_ts: dict[int, int]) -> int:
+    if sort_by == "last_game_at":
+        return last_game_at_ts.get(uid, 0)
+
     if sort_by == "tg_invites_enabled":
         return 1 if tg_invites_enabled.get(uid, True) is False else 0
 
@@ -1154,6 +1161,75 @@ async def build_registrations_monthly_series(session: AsyncSession) -> list[Regi
     return monthly
 
 
+async def build_games_series(session: AsyncSession, start_dt: datetime, end_dt: datetime) -> list[RegistrationsPoint]:
+    from ..schemas.admin import RegistrationsPoint
+
+    rows = await session.execute(
+        select(func.date_trunc("day", Game.finished_at).label("day"), func.count(Game.id))
+        .where(Game.finished_at >= start_dt, Game.finished_at < end_dt)
+        .group_by("day")
+        .order_by("day")
+    )
+    games_map: dict[str, int] = {}
+    for day, cnt in rows.all():
+        try:
+            games_map[day.date().isoformat()] = int(cnt or 0)
+        except Exception:
+            continue
+
+    games: list[RegistrationsPoint] = []
+    day_cursor = start_dt.date()
+    end_date = (end_dt - timedelta(days=1)).date()
+    while day_cursor <= end_date:
+        key = day_cursor.isoformat()
+        games.append(RegistrationsPoint(date=key, count=games_map.get(key, 0)))
+        day_cursor = day_cursor + timedelta(days=1)
+
+    return games
+
+
+async def build_games_monthly_series(session: AsyncSession) -> list[RegistrationsPoint]:
+    from ..schemas.admin import RegistrationsPoint
+
+    rows = await session.execute(select(func.date_trunc("month", Game.finished_at).label("month"), func.count(Game.id)).group_by("month").order_by("month"))
+    raw = rows.all()
+    if not raw:
+        return []
+
+    games_map: dict[str, int] = {}
+    first_month = None
+    for month_dt, cnt in raw:
+        if not month_dt:
+            continue
+
+        key = f"{month_dt.year:04d}-{month_dt.month:02d}"
+        games_map[key] = int(cnt or 0)
+        if first_month is None:
+            first_month = month_dt
+
+    if not first_month:
+        return []
+
+    start_year = first_month.year
+    start_month = first_month.month
+    now = datetime.now(timezone.utc)
+    end_year = now.year
+    end_month = now.month
+    monthly: list[RegistrationsPoint] = []
+    year = start_year
+    month = start_month
+    while (year, month) <= (end_year, end_month):
+        key = f"{year:04d}-{month:02d}"
+        monthly.append(RegistrationsPoint(date=key, count=games_map.get(key, 0)))
+        if month == 12:
+            year += 1
+            month = 1
+        else:
+            month += 1
+
+    return monthly
+
+
 async def calc_total_stream_seconds(session: AsyncSession) -> int:
     first_log = await session.scalar(select(func.min(AppLog.created_at)).where(AppLog.action.in_(("stream_start", "stream_stop"))))
     if first_log:
@@ -1797,6 +1873,46 @@ async def aggregate_user_games_in_owned_rooms_stats(session: AsyncSession, ids: 
             continue
 
     return games_in_owned_rooms
+
+
+async def fetch_users_last_game_at(session: AsyncSession, ids: list[int]) -> dict[int, datetime | None]:
+    out: dict[int, datetime | None] = {uid: None for uid in ids}
+    if not ids:
+        return out
+
+    id_set = set(ids)
+    pending = set(ids)
+    id_strs = [str(i) for i in ids]
+    scan_all = len(ids) > 200
+
+    if scan_all:
+        rows = await session.execute(select(Game.roles, Game.finished_at).order_by(Game.finished_at.desc(), Game.id.desc()))
+    else:
+        role_filters = [Game.roles.has_key(i) for i in id_strs]
+        rows = await session.execute(
+            select(Game.roles, Game.finished_at)
+            .where(or_(*role_filters))
+            .order_by(Game.finished_at.desc(), Game.id.desc())
+        )
+
+    for roles_map, finished_at in rows.all():
+        if not pending:
+            break
+        if not isinstance(roles_map, dict):
+            continue
+        if finished_at is None:
+            continue
+        for raw_uid in roles_map.keys():
+            try:
+                uid = int(raw_uid)
+            except Exception:
+                continue
+            if uid not in id_set or uid not in pending:
+                continue
+            out[uid] = finished_at
+            pending.remove(uid)
+
+    return out
 
 
 async def aggregate_user_room_time_stats(session: AsyncSession, ids: list[int], season: int | None = None) -> tuple[dict[int, int], dict[int, int], dict[int, int], dict[int, int]]:

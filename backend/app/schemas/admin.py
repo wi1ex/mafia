@@ -111,7 +111,9 @@ class SiteStatsOut(BaseModel):
     deleted_users: int
     tg_invites_disabled_users: int
     registrations: List[RegistrationsPoint]
+    games_by_day: List[RegistrationsPoint]
     registrations_monthly: List[RegistrationsPoint]
+    games_monthly: List[RegistrationsPoint]
     total_rooms: int
     total_games: int
     total_stream_minutes: int
@@ -216,6 +218,7 @@ class AdminUserOut(BaseModel):
     registered_at: datetime
     last_login_at: datetime
     last_visit_at: datetime
+    last_game_at: Optional[datetime] = None
     deleted_at: Optional[datetime] = None
     friends_count: int
     rooms_created: int
@@ -261,3 +264,8 @@ class AdminUserRoleIn(BaseModel):
 class AdminUserRoleOut(BaseModel):
     id: int
     role: str
+
+
+class AdminUserNameOut(BaseModel):
+    id: int
+    username: str

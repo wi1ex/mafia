@@ -50,6 +50,7 @@ from ...schemas.admin import (
     AdminUsersOut,
     AdminUserRoleIn,
     AdminUserRoleOut,
+    AdminUserNameOut,
     AdminSanctionTimedIn,
     AdminSanctionBanIn,
     OnlineUserOut,
@@ -65,6 +66,8 @@ from ..utils import (
     normalize_pagination,
     build_registrations_series,
     build_registrations_monthly_series,
+    build_games_series,
+    build_games_monthly_series,
     calc_total_stream_seconds,
     calc_stream_seconds_in_range,
     fetch_active_rooms_stats,
@@ -80,6 +83,7 @@ from ..utils import (
     aggregate_user_room_stats,
     aggregate_user_room_time_stats,
     aggregate_user_games_in_owned_rooms_stats,
+    fetch_users_last_game_at,
     fetch_friends_count_for_users,
     fetch_sanction_counts_for_users,
     normalize_users_sort,
@@ -94,6 +98,7 @@ from ..utils import (
     emit_sanctions_update,
     refresh_rooms_after,
     set_user_deleted,
+    broadcast_creator_rooms,
     force_logout_user,
     force_leave_user_from_rooms,
     is_protected_admin,
@@ -196,7 +201,9 @@ async def site_stats(month: str | None = None, session: AsyncSession = Depends(g
     total_rooms = int(await session.scalar(select(func.count(Room.id))) or 0)
     total_games = int(await session.scalar(select(func.count(Game.id))) or 0)
     registrations = await build_registrations_series(session, start_dt, end_dt)
+    games_by_day = await build_games_series(session, start_dt, end_dt)
     registrations_monthly = await build_registrations_monthly_series(session)
+    games_monthly = await build_games_monthly_series(session)
     total_stream_seconds = await calc_total_stream_seconds(session)
     day_stream_seconds = await calc_stream_seconds_in_range(session, day_start, now)
     month_stream_seconds = await calc_stream_seconds_in_range(session, month_start, month_end)
@@ -253,7 +260,9 @@ async def site_stats(month: str | None = None, session: AsyncSession = Depends(g
         deleted_users=deleted_users,
         tg_invites_disabled_users=tg_invites_disabled_users,
         registrations=registrations,
+        games_by_day=games_by_day,
         registrations_monthly=registrations_monthly,
+        games_monthly=games_monthly,
         total_rooms=total_rooms,
         total_games=total_games,
         total_stream_minutes=total_stream_seconds // 60,
@@ -334,7 +343,7 @@ async def logs_list(page: int = 1, limit: int = 20, action: str | None = None, u
 @log_route("admin.rooms.list")
 @require_roles_deco("admin")
 @router.get("/rooms", response_model=AdminRoomsOut)
-async def rooms_list(page: int = 1, limit: int = 20, username: str | None = None, stream_only: bool | None = None, session: AsyncSession = Depends(get_session)) -> AdminRoomsOut:
+async def rooms_list(page: int = 1, limit: int = 20, username: str | None = None, room_filter: str | None = None, stream_only: bool | None = None, hidden_only: bool | None = None, has_games: bool | None = None, duo_only: bool | None = None, session: AsyncSession = Depends(get_session)) -> AdminRoomsOut:
     limit, page, offset = normalize_pagination(page, limit)
 
     query = select(Room)
@@ -352,8 +361,30 @@ async def rooms_list(page: int = 1, limit: int = 20, username: str | None = None
         user_filters += [Room.spectators_time.has_key(i) for i in id_strs]
         filters.append(or_(*user_filters))
 
-    if stream_only:
+    room_filter_value = (room_filter or "").strip().lower()
+    if room_filter_value not in {"", "all", "stream_only", "hidden_only", "has_games", "duo_only"}:
+        room_filter_value = "all"
+
+    if room_filter_value in {"", "all"}:
+        if stream_only:
+            room_filter_value = "stream_only"
+        elif hidden_only:
+            room_filter_value = "hidden_only"
+        elif has_games:
+            room_filter_value = "has_games"
+        elif duo_only:
+            room_filter_value = "duo_only"
+        else:
+            room_filter_value = "all"
+
+    if room_filter_value == "stream_only":
         filters.append(Room.screen_time != {})
+    elif room_filter_value == "hidden_only":
+        filters.append(Room.anonymity == "hidden")
+    elif room_filter_value == "has_games":
+        filters.append(select(Game.id).where(Game.room_id == Room.id).exists())
+    elif room_filter_value == "duo_only":
+        filters.append(Room.user_limit == 2)
 
     if filters:
         query = query.where(*filters)
@@ -751,6 +782,7 @@ async def users_list(page: int = 1, limit: int = 20, username: str | None = None
     spectator_seconds: dict[int, int]
     games_played: dict[int, int]
     games_hosted: dict[int, int]
+    last_game_at: dict[int, datetime | None]
 
     if sort_key in {"registered_at", "last_login_at", "last_visit_at"}:
         if sort_key == "last_login_at":
@@ -766,6 +798,7 @@ async def users_list(page: int = 1, limit: int = 20, username: str | None = None
         ids = [int(u.id) for u in users]
         friends_count = await fetch_friends_count_for_users(session, ids)
         rooms_created, room_seconds, stream_seconds, spectator_seconds, games_played, games_hosted = await aggregate_user_room_stats(session, ids)
+        last_game_at = await fetch_users_last_game_at(session, ids)
     else:
         rows = await session.execute(select(User).where(*filters))
         all_users = rows.scalars().all()
@@ -775,6 +808,12 @@ async def users_list(page: int = 1, limit: int = 20, username: str | None = None
         friends_count = await fetch_friends_count_for_users(session, all_ids)
         rooms_created, room_seconds, stream_seconds, spectator_seconds, games_played, games_hosted = await aggregate_user_room_stats(session, all_ids)
         sanction_counts = await fetch_sanction_counts_for_users(session, all_ids)
+        if sort_key == "last_game_at":
+            all_last_game_at = await fetch_users_last_game_at(session, all_ids)
+            last_game_at_ts = {uid: int(game_dt.timestamp()) if game_dt else 0 for uid, game_dt in all_last_game_at.items()}
+        else:
+            all_last_game_at = {}
+            last_game_at_ts = {}
 
         users_sorted = sorted(
             all_users,
@@ -791,6 +830,7 @@ async def users_list(page: int = 1, limit: int = 20, username: str | None = None
                     games_hosted=games_hosted,
                     spectator_seconds=spectator_seconds,
                     sanction_counts=sanction_counts,
+                    last_game_at_ts=last_game_at_ts,
                 ),
                 u.registered_at,
                 int(u.id),
@@ -798,6 +838,11 @@ async def users_list(page: int = 1, limit: int = 20, username: str | None = None
             reverse=True,
         )
         users = users_sorted[offset:offset + limit]
+        ids = [int(u.id) for u in users]
+        if sort_key == "last_game_at":
+            last_game_at = {uid: all_last_game_at.get(uid) for uid in ids}
+        else:
+            last_game_at = await fetch_users_last_game_at(session, ids)
 
     ids = [int(u.id) for u in users]
     sanctions_map = await fetch_sanctions_for_users(session, ids)
@@ -825,6 +870,7 @@ async def users_list(page: int = 1, limit: int = 20, username: str | None = None
             registered_at=u.registered_at,
             last_login_at=u.last_login_at,
             last_visit_at=u.last_visit_at,
+            last_game_at=last_game_at.get(uid),
             deleted_at=u.deleted_at,
             friends_count=friends_count.get(uid, 0),
             rooms_created=created,
@@ -967,6 +1013,43 @@ async def update_user_role(user_id: int, payload: AdminUserRoleIn, ident: Identi
                 )
 
     return AdminUserRoleOut(id=uid, role=user.role)
+
+
+@log_route("admin.users.nickname_reset")
+@require_roles_deco("admin")
+@router.post("/users/{user_id}/nickname_reset", response_model=AdminUserNameOut)
+async def reset_user_nickname(user_id: int, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> AdminUserNameOut:
+    user = await session.get(User, int(user_id))
+    if not user:
+        raise HTTPException(status_code=404, detail="user_not_found")
+
+    ensure_admin_target_allowed(user)
+    uid = int(user.id)
+    next_username = f"user_{uid}"
+    if str(user.username) == next_username:
+        return AdminUserNameOut(id=uid, username=next_username)
+
+    conflict = await session.scalar(select(User.id).where(func.lower(User.username) == next_username.lower(), User.id != uid).limit(1))
+    if conflict:
+        raise HTTPException(status_code=409, detail="username_taken")
+
+    prev_username = str(user.username)
+    user.username = next_username
+    await session.commit()
+    await session.refresh(user)
+    await write_user_profile_cache(uid, username=str(user.username), role=str(user.role), avatar_name=user.avatar_name)
+    with suppress(Exception):
+        await broadcast_creator_rooms(uid, update_name=str(user.username))
+
+    await log_action(
+        session,
+        user_id=int(ident["id"]),
+        username=ident["username"],
+        action="admin_nickname_reset",
+        details=f"Nickname reset user_id={uid} from={prev_username} to={next_username}",
+    )
+
+    return AdminUserNameOut(id=uid, username=next_username)
 
 
 @log_route("admin.users.account_delete")
