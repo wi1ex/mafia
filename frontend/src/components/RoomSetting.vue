@@ -33,14 +33,25 @@
             />
           </div>
           <div class="switch-div">
-            <ToggleSwitch :model-value="mirrorOn" label="Зеркальность камеры:" aria-label="Зеркальность"
-              :width="120" @update:modelValue="onToggleMirror" />
+            <ToggleSwitch
+              :model-value="mirrorOn"
+              label="Зеркальность камеры:"
+              aria-label="Зеркальность"
+              :width="120"
+              @update:modelValue="onToggleMirror"
+            />
           </div>
         </template>
         <template v-else>
           <div v-if="!isSpectator && canToggleKnownRoles" class="switch-div">
-            <ToggleSwitch :model-value="knownRolesVisible" off-label="Скрыть" on-label="Показать"
-              aria-label="Показ ролей" :width="200" @update:modelValue="onToggleKnownRoles" >
+            <ToggleSwitch
+              :model-value="knownRolesVisible"
+              off-label="Скрыть"
+              on-label="Показать"
+              aria-label="Показ ролей"
+              :width="200"
+              @update:modelValue="onToggleKnownRoles"
+            >
               <template #label>
                 Видимость ролей:
                 <span v-if="!isMobile && hotkeysVisible" class="hot-btn">R</span>

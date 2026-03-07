@@ -28,6 +28,9 @@
 #   - REDIS_PASSWORD (обязателен только если ENABLE_REDIS_BACKUP=1)
 #   - MINIO_BUCKET
 #
+# sed -i 's/\r$//' .env
+# grep -n $'\r' .env
+#
 # Быстрый запуск:
 #   chmod +x scripts/restore_all.sh
 #   ./scripts/restore_all.sh

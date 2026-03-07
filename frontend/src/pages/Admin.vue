@@ -347,10 +347,10 @@
               <UiInput id="rooms-user" v-model.trim="roomsUser" label="Никнейм" :disabled="roomsLoading" />
             </div>
             <div class="field">
-              <span>Наличие стримов</span>
+              <span>Фильтры</span>
               <select v-model="roomsStreamOnly" :disabled="roomsLoading">
                 <option :value="false">Все комнаты</option>
-                <option :value="true">Только со стримом</option>
+                <option :value="true">Со стримом</option>
               </select>
             </div>
             <div class="field">
