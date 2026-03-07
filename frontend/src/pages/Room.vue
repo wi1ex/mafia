@@ -1999,6 +1999,13 @@ socket.value?.on('connect', async () => {
     game.handleGameVoted(p)
   })
 
+  socket.value.on('game_vote_presence_break', (p: any) => {
+    const id = String((p as any)?.user_id || '')
+    if (!id) return
+    const candidateId = String((p as any)?.candidate_uid || '')
+    game.maybeAskRevoteOnDisconnect(id, sendAckGame, candidateId)
+  })
+
   socket.value.on('game_vote_result', (p: any) => {
     game.handleGameVoteResult(p)
   })

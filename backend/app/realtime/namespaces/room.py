@@ -4424,7 +4424,71 @@ async def disconnect(sid):
         except Exception:
             sess_epoch = 0
 
+        async def maybe_emit_vote_presence_break() -> None:
+            # Even if this disconnect becomes stale after fast reconnect (epoch race),
+            # we still notify room clients that this player dropped during active voting.
+            try:
+                raw_state = await r.hgetall(f"room:{rid}:game_state")
+            except Exception:
+                return
+
+            if str(raw_state.get("phase") or "idle") != "vote":
+                return
+
+            if str(raw_state.get("vote_lift_state") or ""):
+                return
+
+            if str(raw_state.get("vote_done") or "0") == "1":
+                return
+
+            if str(raw_state.get("vote_results_ready") or "0") == "1":
+                return
+
+            try:
+                vote_started = int(raw_state.get("vote_started") or 0)
+                vote_duration = int(raw_state.get("vote_duration") or get_positive_setting_int("VOTE_SECONDS", 3))
+                current_uid = int(raw_state.get("vote_current_uid") or 0)
+            except Exception:
+                return
+
+            if vote_duration <= 0:
+                vote_duration = get_positive_setting_int("VOTE_SECONDS", 3)
+            if vote_started <= 0 or vote_duration <= 0:
+                return
+
+            now_ts = int(time())
+            if now_ts > (vote_started + vote_duration):
+                return
+
+            if current_uid <= 0:
+                return
+
+            try:
+                alive = await r.sismember(f"room:{rid}:game_alive", str(uid))
+            except Exception:
+                alive = False
+            if not alive:
+                return
+
+            try:
+                existing_vote = await r.hget(f"room:{rid}:game_votes", str(uid))
+            except Exception:
+                existing_vote = None
+            if existing_vote is not None:
+                return
+
+            await sio.emit(
+                "game_vote_presence_break",
+                {"room_id": rid, "user_id": uid, "candidate_uid": current_uid},
+                room=f"room:{rid}",
+                namespace="/room",
+            )
+
         cur_epoch = int(await r.get(f"room:{rid}:user:{uid}:epoch") or 0)
+        try:
+            await maybe_emit_vote_presence_break()
+        except Exception:
+            log.exception("sio.disconnect.vote_presence_break_failed", rid=rid, uid=uid)
         if cur_epoch > sess_epoch:
             return
 

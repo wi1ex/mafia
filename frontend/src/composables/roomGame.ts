@@ -446,7 +446,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   }
 
   const DAY_BUTTON_DELAY_MS = 1000
-  const DAY_FROM_NIGHT_WITH_BEST_MOVE_DELAY_MS = 10_000
+  const DAY_FROM_NIGHT_WITH_BEST_MOVE_DELAY_MS = 5000
   const startDayUnlocked = ref(false)
   let startDayTimer: number | null = null
   function resetStartDayDelay() {
@@ -1767,6 +1767,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     }
     if (isRestart) {
       voteStartedForCurrent.value = false
+      revotePromptCandidate.value = ''
       for (const uid of cleared) {
         votedUsers.delete(uid)
         votedThisRound.delete(uid)
@@ -2554,11 +2555,13 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     votedThisRound.clear()
   }
 
-  function maybeAskRevoteOnDisconnect(userId: string, sendAck: SendAckFn): void {
+  function maybeAskRevoteOnDisconnect(userId: string, sendAck: SendAckFn, candidateId?: string): void {
     if (!isHead.value) return
     if (gamePhase.value !== 'vote') return
-    const cur = vote.currentId
-    if (!cur || vote.remainingMs <= 0) return
+    const cur = String(candidateId || vote.currentId || '')
+    if (!cur) return
+    if (vote.currentId && vote.currentId !== cur) return
+    if (!candidateId && vote.remainingMs <= 0) return
     if (isDead(userId)) return
     if (votedUsers.has(userId)) return
     const seatLeft = seatIndex(userId)

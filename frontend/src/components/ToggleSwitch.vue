@@ -135,7 +135,6 @@ onBeforeUnmount(() => {
       color: $bg;
     }
     input:disabled + .slider {
-      opacity: 0.5;
       cursor: not-allowed;
     }
   }

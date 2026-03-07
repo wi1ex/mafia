@@ -906,9 +906,7 @@ onBeforeUnmount(() => {
     width: 600px;
     min-width: 600px;
     max-width: 600px;
-    min-height: 480px;
-    height: 480px;
-    max-height: 480px;
+    height: min(calc(100dvh - 60px), 480px);
     flex-direction: column;
     border-radius: 5px;
     background-color: $dark;
@@ -1209,9 +1207,6 @@ onBeforeUnmount(() => {
       width: 300px;
       min-width: 300px;
       max-width: 300px;
-      min-height: calc(100dvh - 60px);
-      height: calc(100dvh - 60px);
-      max-height: calc(100dvh - 60px);
       .loading-overlay {
         font-size: 12px;
       }

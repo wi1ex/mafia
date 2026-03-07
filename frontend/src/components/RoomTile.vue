@@ -951,8 +951,8 @@ const showFriendAction = computed(() => props.id !== props.localId && friendActi
       height: 20px;
       font-size: 12px;
       img {
-        width: 16px;
-        height: 16px;
+        width: 14px;
+        height: 14px;
       }
     }
     .icon-badge {
