@@ -181,6 +181,7 @@ type UserGameStats = {
 
 type UserStats = {
   rooms_created: number
+  games_in_my_rooms: number
   room_minutes: number
   stream_minutes: number
   spectator_minutes: number
@@ -210,6 +211,7 @@ let requestSeq = 0
 
 const stats = reactive<UserStats>({
   rooms_created: 0,
+  games_in_my_rooms: 0,
   room_minutes: 0,
   stream_minutes: 0,
   spectator_minutes: 0,
@@ -338,6 +340,7 @@ function setSeason(season: number | null): void {
 const nonGameItems = computed(() => [
   { key: 'room-minutes', label: 'В комнатах', value: formatDurationDhm(stats.room_minutes) },
   { key: 'rooms-created', label: 'Мои комнаты', value: formatInt(stats.rooms_created) },
+  { key: 'games-in-my-rooms', label: 'Игры в моих комнатах', value: formatInt(stats.games_in_my_rooms) },
   { key: 'stream-minutes', label: 'Мои стримы', value: formatDurationDhm(stats.stream_minutes) },
   { key: 'spectator-minutes', label: 'Зритель', value: formatDurationDhm(stats.spectator_minutes) },
   { key: 'games-hosted', label: 'Игр проведено', value: formatInt(game.value.games_hosted) },
@@ -497,6 +500,7 @@ async function load(force = false) {
     const { data } = await api.get<UserStats>(props.statsUrl, { params })
     if (seq !== requestSeq) return
     stats.rooms_created = safeInt(data?.rooms_created)
+    stats.games_in_my_rooms = safeInt(data?.games_in_my_rooms)
     stats.room_minutes = safeInt(data?.room_minutes)
     stats.stream_minutes = safeInt(data?.stream_minutes)
     stats.spectator_minutes = safeInt(data?.spectator_minutes)

@@ -79,6 +79,7 @@ from ..utils import (
     fetch_live_room_stats,
     aggregate_user_room_stats,
     aggregate_user_room_time_stats,
+    aggregate_user_games_in_owned_rooms_stats,
     fetch_friends_count_for_users,
     fetch_sanction_counts_for_users,
     normalize_users_sort,
@@ -866,6 +867,7 @@ async def user_stats(user_id: int, season: int | None = None, session: AsyncSess
 
     try:
         rooms_created, room_seconds, stream_seconds, spectator_seconds = await aggregate_user_room_time_stats(session, [uid], season=season)
+        games_in_owned_rooms = await aggregate_user_games_in_owned_rooms_stats(session, [uid], season=season)
         room_minutes = _nonneg_int(room_seconds.get(uid, 0)) // 60
         stream_minutes = _nonneg_int(stream_seconds.get(uid, 0)) // 60
         spectator_minutes = _nonneg_int(spectator_seconds.get(uid, 0)) // 60
@@ -895,6 +897,7 @@ async def user_stats(user_id: int, season: int | None = None, session: AsyncSess
 
     return UserStatsOut(
         rooms_created=_nonneg_int(rooms_created.get(uid, 0)),
+        games_in_my_rooms=_nonneg_int(games_in_owned_rooms.get(uid, 0)),
         room_minutes=room_minutes,
         stream_minutes=stream_minutes,
         spectator_minutes=spectator_minutes,

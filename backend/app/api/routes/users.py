@@ -21,6 +21,7 @@ from ..utils import (
     normalize_game_result,
     fetch_games_history_page,
     aggregate_user_room_time_stats,
+    aggregate_user_games_in_owned_rooms_stats,
 )
 from ...models.game import Game
 from ...models.user import User
@@ -105,6 +106,7 @@ async def user_stats(season: int | None = None, ident: Identity = Depends(get_id
 
     try:
         rooms_created, room_seconds, stream_seconds, spectator_seconds = await aggregate_user_room_time_stats(db, [uid], season=season)
+        games_in_owned_rooms = await aggregate_user_games_in_owned_rooms_stats(db, [uid], season=season)
         room_minutes = max(0, int(room_seconds.get(uid, 0)) // 60)
         stream_minutes = max(0, int(stream_seconds.get(uid, 0)) // 60)
         spectator_minutes = max(0, int(spectator_seconds.get(uid, 0)) // 60)
@@ -134,6 +136,7 @@ async def user_stats(season: int | None = None, ident: Identity = Depends(get_id
 
     return UserStatsOut(
         rooms_created=max(0, safe_int(rooms_created.get(uid, 0))),
+        games_in_my_rooms=max(0, safe_int(games_in_owned_rooms.get(uid, 0))),
         room_minutes=room_minutes,
         stream_minutes=stream_minutes,
         spectator_minutes=spectator_minutes,

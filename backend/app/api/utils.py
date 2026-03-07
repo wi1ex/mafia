@@ -76,6 +76,7 @@ __all__ = [
     "fetch_live_room_stats",
     "aggregate_user_room_time_stats",
     "aggregate_user_room_stats",
+    "aggregate_user_games_in_owned_rooms_stats",
     "normalize_users_sort",
     "fetch_friends_count_for_users",
     "fetch_sanction_counts_for_users",
@@ -1748,6 +1749,54 @@ async def aggregate_user_room_stats(session: AsyncSession, ids: list[int]) -> tu
                 continue
 
     return rooms_created, room_seconds, stream_seconds, spectator_seconds, games_played, games_hosted
+
+
+def _season_game_id_bounds_or_raise(season: int | None) -> tuple[int | None, int | None]:
+    if season is None:
+        return None, None
+
+    try:
+        season_no = int(season)
+    except Exception as exc:
+        raise ValueError("season_invalid") from exc
+    if season_no < 1:
+        raise ValueError("season_invalid")
+
+    from ..security.parameters import get_cached_settings
+
+    starts = tuple(int(v) for v in get_cached_settings().season_start_game_numbers if int(v) > 0)
+    if not starts:
+        starts = (1,)
+    if season_no > len(starts):
+        raise ValueError("season_not_found")
+
+    start_id = int(starts[season_no - 1])
+    end_id: int | None = int(starts[season_no] - 1) if season_no < len(starts) else None
+    return start_id, end_id
+
+
+async def aggregate_user_games_in_owned_rooms_stats(session: AsyncSession, ids: list[int], season: int | None = None) -> dict[int, int]:
+    games_in_owned_rooms: dict[int, int] = {uid: 0 for uid in ids}
+    if not ids:
+        return games_in_owned_rooms
+
+    start_id, end_id = _season_game_id_bounds_or_raise(season)
+
+    games_q = select(Game.room_owner_id, func.count(Game.id)).where(Game.room_owner_id.in_(ids))
+    if start_id is not None:
+        games_q = games_q.where(Game.id >= start_id)
+    if end_id is not None and end_id > 0:
+        games_q = games_q.where(Game.id <= end_id)
+    games_q = games_q.group_by(Game.room_owner_id)
+    rows = await session.execute(games_q)
+    for owner_id, cnt in rows.all():
+        try:
+            uid = int(owner_id)
+            games_in_owned_rooms[uid] = max(0, int(cnt or 0))
+        except Exception:
+            continue
+
+    return games_in_owned_rooms
 
 
 async def aggregate_user_room_time_stats(session: AsyncSession, ids: list[int], season: int | None = None) -> tuple[dict[int, int], dict[int, int], dict[int, int], dict[int, int]]:
