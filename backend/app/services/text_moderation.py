@@ -10,7 +10,8 @@ MAX_MATCHES = 5
 SUPPORTED_LANGUAGES: tuple[str, ...] = ("ru", "en")
 MIN_BAD_WORD_LEN = 3
 MAX_TOKEN_LEN_FOR_SCAN = 128
-TOKEN_RE = re.compile(r"[0-9A-Za-zА-Яа-яЁё_@$]+")
+TOKEN_RE = re.compile(r"[\w@$!+|]+", re.UNICODE)
+COMPACT_RE = re.compile(r"[\W_]+", re.UNICODE)
 
 OBFUSCATION_CHAR_MAP = str.maketrans(
     {
@@ -70,6 +71,91 @@ OBFUSCATION_ALT_CHAR_MAP = str.maketrans(
     }
 )
 
+OBFUSCATION_STRICT_SEQ_REPLACEMENTS: tuple[tuple[str, str], ...] = (
+    ("shch", "щ"),
+    ("sch", "щ"),
+    ("yo", "е"),
+    ("jo", "е"),
+    ("yu", "ю"),
+    ("ju", "ю"),
+    ("ya", "я"),
+    ("ja", "я"),
+    ("zh", "ж"),
+    ("ch", "ч"),
+    ("sh", "ш"),
+    ("kh", "х"),
+    ("ts", "ц"),
+    ("ph", "ф"),
+    ("th", "т"),
+)
+
+OBFUSCATION_STRICT_CHAR_MAP = str.maketrans(
+    {
+        "a": "а",
+        "b": "в",
+        "c": "с",
+        "d": "д",
+        "e": "е",
+        "f": "ф",
+        "g": "г",
+        "h": "х",
+        "i": "и",
+        "j": "й",
+        "k": "к",
+        "l": "л",
+        "m": "м",
+        "n": "н",
+        "o": "о",
+        "p": "р",
+        "q": "к",
+        "r": "р",
+        "s": "с",
+        "t": "т",
+        "u": "у",
+        "v": "в",
+        "w": "ш",
+        "x": "х",
+        "y": "й",
+        "z": "з",
+        "0": "о",
+        "1": "и",
+        "2": "з",
+        "3": "з",
+        "4": "ч",
+        "5": "с",
+        "6": "б",
+        "7": "т",
+        "8": "в",
+        "9": "д",
+        "@": "а",
+        "$": "с",
+        "!": "и",
+        "+": "т",
+        "|": "и",
+        "α": "а",
+        "β": "в",
+        "γ": "г",
+        "δ": "д",
+        "ε": "е",
+        "ζ": "з",
+        "η": "н",
+        "θ": "о",
+        "ι": "и",
+        "κ": "к",
+        "λ": "л",
+        "μ": "м",
+        "ν": "н",
+        "ο": "о",
+        "ρ": "р",
+        "σ": "с",
+        "τ": "т",
+        "υ": "у",
+        "φ": "ф",
+        "χ": "х",
+        "ω": "о",
+    }
+)
+
 
 class ModerationMatch(TypedDict, total=False):
     word: str
@@ -109,7 +195,24 @@ def _normalize_obfuscated_alt(value: str) -> str:
 
 def _normalize_bad_word(raw_word: str) -> str:
     word = _normalize_basic(raw_word).strip()
-    return word.replace("_", "")
+    return _compact_for_scan(word)
+
+
+def _compact_for_scan(value: str) -> str:
+    return COMPACT_RE.sub("", value)
+
+
+def _apply_strict_seq_replacements(value: str) -> str:
+    out = value
+    for src, dst in OBFUSCATION_STRICT_SEQ_REPLACEMENTS:
+        out = out.replace(src, dst)
+    return out
+
+
+def _normalize_obfuscated_strict(value: str) -> str:
+    normalized = _normalize_basic(value)
+    normalized = _apply_strict_seq_replacements(normalized)
+    return normalized.translate(OBFUSCATION_STRICT_CHAR_MAP)
 
 
 @lru_cache(maxsize=1)
@@ -185,13 +288,21 @@ def _scan_token(token: str, *, token_start: int, language: str, by_len: dict[int
     if obfuscated_alt and obfuscated_alt not in {basic, obfuscated}:
         variants.append(("obfuscated_alt", obfuscated_alt, True))
 
-    compact = obfuscated.replace("_", "")
+    strict = _normalize_obfuscated_strict(token)
+    if strict and strict not in {basic, obfuscated, obfuscated_alt}:
+        variants.append(("obfuscated_strict", strict, True))
+
+    compact = _compact_for_scan(obfuscated)
     if compact and compact != obfuscated:
         variants.append(("compact", compact, False))
 
-    compact_alt = obfuscated_alt.replace("_", "")
+    compact_alt = _compact_for_scan(obfuscated_alt)
     if compact_alt and compact_alt not in {obfuscated_alt, compact}:
         variants.append(("compact_alt", compact_alt, False))
+
+    compact_strict = _compact_for_scan(strict)
+    if compact_strict and compact_strict not in {strict, compact, compact_alt}:
+        variants.append(("compact_strict", compact_strict, False))
 
     dedup: dict[str, tuple[str, bool]] = {}
     for variant_name, variant_text, has_direct_pos in variants:
@@ -280,6 +391,24 @@ def detect_inappropriate_text(text: str) -> list[ModerationMatch]:
     obfuscated_alt_value = _normalize_obfuscated_alt(value)
     if obfuscated_alt_value not in {value, obfuscated_value}:
         variants.append(("obfuscated_alt", obfuscated_alt_value))
+    obfuscated_strict_value = _normalize_obfuscated_strict(value)
+    if obfuscated_strict_value not in {value, obfuscated_value, obfuscated_alt_value}:
+        variants.append(("obfuscated_strict", obfuscated_strict_value))
+
+    compact_candidates = (
+        obfuscated_value,
+        obfuscated_alt_value,
+        obfuscated_strict_value,
+    )
+    variant_values = {variant_value for _, variant_value in variants}
+    for compact_source in compact_candidates:
+        compact_value = _compact_for_scan(compact_source)
+        if len(compact_value) < MIN_BAD_WORD_LEN:
+            continue
+        if compact_value in variant_values:
+            continue
+        variants.append(("compact", compact_value))
+        variant_values.add(compact_value)
 
     for language, detector in _get_detectors():
 
@@ -309,7 +438,7 @@ def detect_inappropriate_text(text: str) -> list[ModerationMatch]:
                     continue
                 seen.add(key)
 
-                if variant_name == "obfuscated":
+                if variant_name in {"obfuscated", "obfuscated_alt", "obfuscated_strict", "compact"}:
                     match = {
                         "word": str(match.get("word", ""))[:64],
                         "language": str(match.get("language", language))[:8],
@@ -344,7 +473,7 @@ def _build_moderation_message(*, label: str, matches: list[ModerationMatch]) -> 
         if not word:
             continue
 
-        key = _normalize_obfuscated_alt(_normalize_obfuscated(word)).replace("_", "")
+        key = _compact_for_scan(_normalize_obfuscated_strict(_normalize_obfuscated_alt(_normalize_obfuscated(word))))
         if key in seen:
             continue
 
