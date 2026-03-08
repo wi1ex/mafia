@@ -284,9 +284,7 @@ function openAuth(mode: 'login' | 'register') {
   height: 60px;
   max-height: 60px;
   &.bar--march8 {
-    background-image:
-      linear-gradient(90deg, rgba($black, 0.55), rgba($black, 0.15)),
-      url('/womans.svg');
+    background-image: url('/woman.svg');
     background-position: center;
     background-repeat: no-repeat;
     background-size: cover;
