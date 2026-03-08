@@ -1,5 +1,5 @@
 import { computed, reactive, ref, type Ref, watch } from 'vue'
-import { confirmDialog, alertDialog } from '@/services/confirm'
+import { confirmDialog, confirmDialogWithCheckbox, alertDialog } from '@/services/confirm'
 import { useSettingsStore } from '@/store'
 
 import iconRoleCitizen from '@/assets/images/roleCitizen.png'
@@ -2888,14 +2888,15 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       const code = resp?.error
       const st = resp?.status
       if (st === 409 && code === 'need_confirm_kill') {
-        const ok = await confirmDialog({
+        const confirm = await confirmDialogWithCheckbox({
           title: 'Удаление игрока',
           text: 'Вы уверены что хотите удалить игрока?',
           confirmText: 'Удалить',
           cancelText: 'Отмена',
+          checkboxLabel: 'Объявить ППК для игрока',
         })
-        if (!ok) return
-        const resp2 = await sendAck('game_foul_set', { user_id: uidNum, confirm_kill: true })
+        if (!confirm.ok) return
+        const resp2 = await sendAck('game_foul_set', { user_id: uidNum, confirm_kill: true, ppk_kill: confirm.checkboxChecked })
         if (!resp2?.ok) {
            void alertDialog('Не удалось выдать фол')
         }

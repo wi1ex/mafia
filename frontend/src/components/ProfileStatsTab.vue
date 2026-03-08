@@ -105,6 +105,10 @@
             <strong>{{ formatPct(game.foul_removed_percent) }}</strong>
           </article>
           <article class="metric-card">
+            <span>ППК</span>
+            <strong>{{ formatTimes(game.ppk_removed_count) }}</strong>
+          </article>
+          <article class="metric-card">
             <span>Нашел шерифа в 1 ночь</span>
             <strong>{{ formatPct(game.don_first_night_find_percent) }}</strong>
           </article>
@@ -166,6 +170,7 @@ type UserGameStats = {
   vote_leave_day12_percent: number
   foul_removed_count: number
   foul_removed_percent: number
+  ppk_removed_count: number
   vote_for_red_on_black_win_count: number
   farewell_total: number
   farewell_success_percent: number
@@ -226,6 +231,7 @@ const stats = reactive<UserStats>({
     vote_leave_day12_percent: 0,
     foul_removed_count: 0,
     foul_removed_percent: 0,
+    ppk_removed_count: 0,
     vote_for_red_on_black_win_count: 0,
     farewell_total: 0,
     farewell_success_percent: 0,
@@ -469,6 +475,7 @@ function normalizeGame(raw: any): UserGameStats {
     vote_leave_day12_percent: clampPct(raw?.vote_leave_day12_percent),
     foul_removed_count: safeInt(raw?.foul_removed_count),
     foul_removed_percent: clampPct(raw?.foul_removed_percent),
+    ppk_removed_count: safeInt(raw?.ppk_removed_count),
     vote_for_red_on_black_win_count: safeInt(raw?.vote_for_red_on_black_win_count),
     farewell_total: safeInt(raw?.farewell_total),
     farewell_success_percent: clampPct(raw?.farewell_success_percent),

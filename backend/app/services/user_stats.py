@@ -156,6 +156,7 @@ def _build_game_stats(stats_row: dict[str, int], top_players: list[UserTopPlayer
     don_checks_first_night_found = _safe_int(stats_row.get("don_checks_first_night_found"))
     vote_leave_day12 = _safe_int(stats_row.get("vote_leave_day12"))
     foul_removed_count = _safe_int(stats_row.get("foul_removed_count"))
+    ppk_removed_count = _safe_int(stats_row.get("ppk_removed_count"))
     vote_for_red_on_black_win_count = _safe_int(stats_row.get("vote_for_red_on_black_win_count"))
     farewell_total = _safe_int(stats_row.get("farewell_total"))
     farewell_correct = _safe_int(stats_row.get("farewell_correct"))
@@ -171,6 +172,7 @@ def _build_game_stats(stats_row: dict[str, int], top_players: list[UserTopPlayer
         vote_leave_day12_percent=_pct(vote_leave_day12, games_played),
         foul_removed_count=foul_removed_count,
         foul_removed_percent=_pct(foul_removed_count, games_played),
+        ppk_removed_count=ppk_removed_count,
         vote_for_red_on_black_win_count=vote_for_red_on_black_win_count,
         farewell_total=farewell_total,
         farewell_success_percent=_pct(farewell_correct, farewell_total),

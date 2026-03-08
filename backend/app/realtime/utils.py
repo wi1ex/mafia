@@ -2870,7 +2870,7 @@ async def advance_roles_turn(r, rid: int, *, auto: bool) -> None:
     asyncio.create_task(roles_timeout_job(rid, seq, deadline_ts))
 
 
-async def finish_vote_speech(r, rid: int, raw_gstate: Mapping[str, Any], speaker_uid: int, *, reason_override: str | None = None) -> dict[str, Any]:
+async def finish_vote_speech(r, rid: int, raw_gstate: Mapping[str, Any], speaker_uid: int, *, reason_override: str | None = None, force_defer_finish_check: bool = False, ppk: bool = False) -> dict[str, Any]:
     ctx = GameActionContext.from_raw_state(uid=speaker_uid, rid=rid, r=r, raw_state=raw_gstate)
     head_uid = ctx.head_uid
     vote_blocked = ctx.gbool("vote_blocked")
@@ -2897,8 +2897,8 @@ async def finish_vote_speech(r, rid: int, raw_gstate: Mapping[str, Any], speaker
 
         if not skip_death:
             has_pending_farewell_queue = bool(leaders) and leader_idx < len(leaders)
-            await process_player_death(r, rid, speaker_uid, head_uid=head_uid, phase_override="vote",
-                                       reason=reason_override or "vote", defer_finish_check=has_pending_farewell_queue)
+            await process_player_death(r, rid, speaker_uid, head_uid=head_uid, phase_override="vote", reason=reason_override or "vote",
+                                       defer_finish_check=(has_pending_farewell_queue or force_defer_finish_check), ppk=ppk)
             killed = True
 
         if leaders and leader_idx >= len(leaders):
@@ -3269,7 +3269,7 @@ async def emit_night_head_picks(r, rid: int, kind: str, head_uid: int) -> None:
                    namespace="/room")
 
 
-async def process_player_death(r, rid: int, user_id: int, *, head_uid: int | None = None, actor_role: str = "head", phase_override: str | None = None, reason: str | None = None, defer_finish_check: bool = False) -> bool:
+async def process_player_death(r, rid: int, user_id: int, *, head_uid: int | None = None, actor_role: str = "head", phase_override: str | None = None, reason: str | None = None, defer_finish_check: bool = False, ppk: bool = False) -> bool:
     removed = int(await r.srem(f"room:{rid}:game_alive", str(user_id)) or 0) > 0
     if removed:
         try:
@@ -3361,6 +3361,10 @@ async def process_player_death(r, rid: int, user_id: int, *, head_uid: int | Non
                 action["by"] = [head_uid]
         elif reason == "suicide":
             action["by"] = [user_id]
+
+        if reason == "foul" and ppk:
+            action["ppk"] = True
+            action["format"] = "PPK"
 
         await log_game_action(r, rid, action)
 
@@ -3700,7 +3704,7 @@ async def schedule_auto_game_end(rid: int, *, reason: str) -> None:
         log.exception("game_finish.auto_end.failed", rid=rid)
 
 
-async def finish_day_prelude_speech(r, rid: int, raw_gstate: Mapping[str, Any], speaker_uid: int, *, reason_override: str | None = None) -> dict[str, Any]:
+async def finish_day_prelude_speech(r, rid: int, raw_gstate: Mapping[str, Any], speaker_uid: int, *, reason_override: str | None = None, force_defer_finish_check: bool = False, ppk: bool = False) -> dict[str, Any]:
     ctx = GameActionContext.from_raw_state(uid=speaker_uid, rid=rid, r=r, raw_state=raw_gstate)
     head_uid = ctx.head_uid
 
@@ -3717,7 +3721,8 @@ async def finish_day_prelude_speech(r, rid: int, raw_gstate: Mapping[str, Any], 
             },
         )
 
-    await process_player_death(r, rid, speaker_uid, head_uid=head_uid, phase_override="day", reason=reason_override or "night")
+    await process_player_death(r, rid, speaker_uid, head_uid=head_uid, phase_override="day", reason=reason_override or "night",
+                               defer_finish_check=force_defer_finish_check, ppk=ppk)
 
     if head_uid and speaker_uid != head_uid:
         try:

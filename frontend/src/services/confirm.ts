@@ -79,6 +79,15 @@ export function confirmDialog(payload: string | ConfirmPayload): Promise<boolean
   return open('confirm', data)
 }
 
+export async function confirmDialogWithCheckbox(payload: string | ConfirmPayload): Promise<{ ok: boolean; checkboxChecked: boolean }> {
+  const data = typeof payload === 'string' ? { text: payload } : payload
+  const ok = await open('confirm', data)
+  return {
+    ok,
+    checkboxChecked: Boolean(state.checkboxChecked),
+  }
+}
+
 export function alertDialog(payload: string | ConfirmPayload): Promise<void> {
   const data = typeof payload === 'string' ? { text: payload } : payload
   return open('alert', data).then(() => {})

@@ -2272,6 +2272,7 @@ async def game_foul_set(sid, data):
             return {"ok": False, "error": "bad_request", "status": 400}
 
         confirm_kill = bool(data.get("confirm_kill"))
+        ppk_kill = bool(data.get("ppk_kill"))
         r = ctx.r
         raw_gstate = ctx.gstate
         phase = ctx.phase
@@ -2305,28 +2306,41 @@ async def game_foul_set(sid, data):
             log.exception("game_foul_set.incr_failed", rid=rid, target=target_uid)
             return {"ok": False, "error": "internal", "status": 500}
 
+        ppk_applied = bool(ppk_kill and foul_after >= 4)
+        forced_result = ""
+        if ppk_applied:
+            try:
+                target_role = str(await r.hget(f"room:{rid}:game_roles", str(target_uid)) or "").strip().lower()
+            except Exception:
+                target_role = ""
+            if target_role in ("citizen", "sheriff"):
+                forced_result = "black"
+            elif target_role in ("mafia", "don"):
+                forced_result = "red"
+
         speech_uid = 0
         if phase == "day" and ctx.gint("day_speech_started") > 0:
             speech_uid = ctx.gint("day_current_uid")
         elif phase == "vote" and ctx.gint("vote_speech_started") > 0:
             speech_uid = ctx.gint("vote_speech_uid")
-        await log_game_action(
-            r,
-            rid,
-            {
-                "type": "foul",
-                "actor_id": head_uid,
-                "target_id": target_uid,
-                "count": int(foul_after),
-                "speech_uid": speech_uid,
-                "day": ctx.gint("day_number"),
-            },
-        )
+        foul_action: dict[str, Any] = {
+            "type": "foul",
+            "actor_id": head_uid,
+            "target_id": target_uid,
+            "count": int(foul_after),
+            "speech_uid": speech_uid,
+            "day": ctx.gint("day_number"),
+        }
+        if ppk_applied:
+            foul_action["ppk"] = True
+            foul_action["format"] = "PPK"
+        await log_game_action(r, rid, foul_action)
 
         killed = False
         if foul_after >= 4:
             killed = True
             handled_by_predefined_farewell = False
+            removed = False
             if phase == "day":
                 current_uid = ctx.gint("day_current_uid")
                 pre_active = ctx.gbool("day_prelude_active")
@@ -2334,7 +2348,7 @@ async def game_foul_set(sid, data):
                 if current_uid == target_uid:
                     try:
                         if pre_active and pre_uid and pre_uid == target_uid:
-                            payload = await finish_day_prelude_speech(r, rid, raw_gstate, target_uid, reason_override="foul")
+                            payload = await finish_day_prelude_speech(r, rid, raw_gstate, target_uid, reason_override="foul", force_defer_finish_check=bool(forced_result), ppk=ppk_applied)
                             handled_by_predefined_farewell = True
                         else:
                             payload = await finish_day_speech(r, rid, raw_gstate, target_uid)
@@ -2351,7 +2365,7 @@ async def game_foul_set(sid, data):
                 if vote_speaker_uid == target_uid:
                     try:
                         if vote_kind == "farewell":
-                            payload = await finish_vote_speech(r, rid, raw_gstate, target_uid, reason_override="foul")
+                            payload = await finish_vote_speech(r, rid, raw_gstate, target_uid, reason_override="foul", force_defer_finish_check=bool(forced_result), ppk=ppk_applied)
                             handled_by_predefined_farewell = True
                         else:
                             payload = await finish_vote_speech(r, rid, raw_gstate, target_uid)
@@ -2362,30 +2376,44 @@ async def game_foul_set(sid, data):
                     except Exception:
                         log.exception("game_foul_set.finish_vote_speech_failed", rid=rid, uid=target_uid)
 
-            if not handled_by_predefined_farewell:
-                removed = await process_player_death(r, rid, target_uid, head_uid=head_uid, phase_override=phase, reason="foul")
-                if removed:
-                    block_now, block_next, leaders_after = await decide_vote_blocks_on_death(r, rid, raw_gstate, target_uid)
-                    if block_now:
-                        await block_vote_and_clear(r, rid, reason="foul", phase=phase)
-                    if block_next:
-                        try:
-                            mapping: dict[str, str] = {}
-                            if phase == "vote":
-                                if len(leaders_after) > 1:
-                                    mapping["vote_blocked"] = "1"
-                                else:
-                                    mapping["vote_blocked_next"] = "1"
+            if handled_by_predefined_farewell:
+                try:
+                    removed = not bool(await r.sismember(f"room:{rid}:game_alive", str(target_uid)))
+                except Exception:
+                    removed = False
+
+            if not removed:
+                removed = await process_player_death(r, rid, target_uid, head_uid=head_uid, phase_override=phase, reason="foul", defer_finish_check=bool(forced_result), ppk=ppk_applied)
+
+            ppk_finished = False
+            if removed and ppk_applied and forced_result in ("red", "black"):
+                try:
+                    ppk_finished = await finish_game(r, rid, result=forced_result, head_uid=head_uid, reason="ppk")
+                except Exception:
+                    log.exception("game_foul_set.ppk_finish_failed", rid=rid, target=target_uid, result=forced_result)
+
+            if removed and not ppk_finished:
+                block_now, block_next, leaders_after = await decide_vote_blocks_on_death(r, rid, raw_gstate, target_uid)
+                if block_now:
+                    await block_vote_and_clear(r, rid, reason="foul", phase=phase)
+                if block_next:
+                    try:
+                        mapping: dict[str, str] = {}
+                        if phase == "vote":
+                            if len(leaders_after) > 1:
+                                mapping["vote_blocked"] = "1"
                             else:
                                 mapping["vote_blocked_next"] = "1"
-                            await r.hset(f"room:{rid}:game_state", mapping=mapping)
-                            if mapping.get("vote_blocked") == "1":
-                                await sio.emit("game_vote_state",
-                                               {"room_id": rid, "vote": {"blocked": True}},
-                                               room=f"room:{rid}",
-                                               namespace="/room")
-                        except Exception:
-                            log.exception("game_foul_set.mark_vote_blocked_next_failed", rid=rid)
+                        else:
+                            mapping["vote_blocked_next"] = "1"
+                        await r.hset(f"room:{rid}:game_state", mapping=mapping)
+                        if mapping.get("vote_blocked") == "1":
+                            await sio.emit("game_vote_state",
+                                           {"room_id": rid, "vote": {"blocked": True}},
+                                           room=f"room:{rid}",
+                                           namespace="/room")
+                    except Exception:
+                        log.exception("game_foul_set.mark_vote_blocked_next_failed", rid=rid)
 
         try:
             await emit_game_fouls(r, rid)

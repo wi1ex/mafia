@@ -56,6 +56,7 @@ class UserGameStatsOut(BaseModel):
     vote_leave_day12_percent: float = 0.0
     foul_removed_count: int = 0
     foul_removed_percent: float = 0.0
+    ppk_removed_count: int = 0
     vote_for_red_on_black_win_count: int = 0
     farewell_total: int = 0
     farewell_success_percent: float = 0.0
