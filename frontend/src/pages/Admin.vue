@@ -1446,7 +1446,7 @@ function formatRoomGame(row: RoomRow): string {
   const breakAtZero = row.break_at_zero ? 'Вкл' : 'Выкл'
   const liftAtZero = row.lift_at_zero ? 'Вкл' : 'Выкл'
   const lift3x = row.lift_3x ? 'Вкл' : 'Выкл'
-  return `Режим: ${mode}, Формат: ${format}, Зрители: ${spectators}, Выставления: ${nominate}, Подмигивание/Стук: ${winkKnock}, Завещания: ${farewellWills}, Музыка: ${music}, Слом в нуле: ${breakAtZero}, Подъём в нуле: ${liftAtZero}, Подъём 3х: ${lift3x}`
+  return `Режим: ${mode}, Формат: ${format}, Зрители: ${spectators}, Выставления: ${nominate}, Подмигивать/Стучать: ${winkKnock}, Завещания: ${farewellWills}, Музыка: ${music}, Слом в нуле: ${breakAtZero}, Подъём в нуле: ${liftAtZero}, Подъём 3х: ${lift3x}`
 }
 
 function formatRoomAnonymity(value: string | null | undefined): string {

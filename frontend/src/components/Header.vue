@@ -1,5 +1,5 @@
 ﻿<template>
-  <header :class="['bar', { 'bar--march8': isMarch8 }]">
+  <header class="bar">
     <div class="links">
       <router-link class="btn" :to="{ name: 'home' }" aria-label="DECEIT.games">
         <img :src="iconLogo" alt="" aria-hidden="true" />
@@ -152,8 +152,6 @@ const supportOpen = ref(false)
 const authOpen = ref(false)
 const authMode = ref<'login' | 'register'>('login')
 const BUILD = (import.meta.env.VITE_BUILD_ID as string || '').trim() || 'BUILD'
-const now = new Date()
-const isMarch8 = now.getMonth() === 2 && now.getDate() === 8
 const botName = (import.meta.env.VITE_TG_BOT_NAME as string || '').trim()
 const botLink = botName ? `https://t.me/${botName}` : 'https://t.me'
 const supportLink = 'https://t.me/tribute/app?startapp=dCvc'
@@ -283,13 +281,6 @@ function openAuth(mode: 'login' | 'register') {
   min-height: 60px;
   height: 60px;
   max-height: 60px;
-  &.bar--march8 {
-    background-image: url('/woman.svg');
-    background-position: center;
-    background-repeat: no-repeat;
-    background-size: cover;
-    border-radius: 5px;
-  }
   .links {
     display: flex;
     align-items: center;

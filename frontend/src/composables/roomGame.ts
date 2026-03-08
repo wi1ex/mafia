@@ -2321,7 +2321,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       } else if (st === 403 && code === 'not_alive') {
         void alertDialog('Вы не являетесь живым игроком')
       } else if (st === 403 && code === 'feature_disabled') {
-        void alertDialog('Подмигивания и стуки отключены в этой комнате')
+        void alertDialog('Подмигивать и стучать нельзя в этой комнате')
       } else if (st === 404 && code === 'target_not_alive') {
         void alertDialog('Игрок уже выбыл из игры')
       } else if (st === 404 && code === 'target_offline') {

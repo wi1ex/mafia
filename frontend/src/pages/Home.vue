@@ -115,7 +115,7 @@
                   <span>{{ game.farewell_wills ? 'Вкл' : 'Откл' }}</span>
                 </div>
                 <div class="ri-game-div">
-                  <span>Подмигивание/Стук</span>
+                  <span>Подмигивать/Стучать</span>
                   <span>{{ game.wink_knock ? 'Вкл' : 'Откл' }}</span>
                 </div>
                 <div class="ri-game-div">

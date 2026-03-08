@@ -16,7 +16,7 @@
     <ToggleSwitch v-model="isNoHost" label="Судья:" off-label="Ведущий" on-label="Авто" aria-label="Формат: с ведущим/без ведущего" :disabled="true" />
     <ToggleSwitch v-model="isPlayersNomination" label="Выставления:" off-label="Ведущий" on-label="Игрок" aria-label="Выставления" :disabled="disabled" />
     <ToggleSwitch v-model="local.farewell_wills" label="Завещания:" aria-label="Завещания" :disabled="disabled" />
-    <ToggleSwitch v-model="local.wink_knock" label="Подмигивание/Стук:" aria-label="Подмигивание/Стук" :disabled="disabled" />
+    <ToggleSwitch v-model="local.wink_knock" label="Подмигивать/Стучать:" aria-label="Подмигивать/Стучать" :disabled="disabled" />
     <ToggleSwitch v-model="local.break_at_zero" label="Слом в нуле:" aria-label="Слом в нуле" :disabled="disabled" />
     <ToggleSwitch v-model="local.lift_at_zero" label="Подъём в нуле:" aria-label="Подъём в нуле" :disabled="disabled" />
     <ToggleSwitch v-model="local.lift_3x" label="Подъём 3х при 9х:" aria-label="Подъём 3х" :disabled="disabled" />
