@@ -9,7 +9,7 @@
         <div v-if="gameOverlayVisible" class="reconnect-overlay load-game" aria-live="polite">{{ gameOverlayText }}</div>
       </Transition>
       <Transition name="host-blur">
-        <div v-if="hostBlurVisible" class="host-blur-overlay" aria-hidden="true">Пауза…</div>
+        <div v-if="hostBlurVisible" class="host-blur-overlay" :class="{ 'host-blur-overlay-head': isHead }" aria-hidden="true">Пауза…</div>
       </Transition>
       <div v-if="!isTheater" class="grid" :style="gridStyle">
         <RoomTile
@@ -83,6 +83,7 @@
           :show-vote-button="amIAlive && game.canPressVoteButton()"
           :vote-enabled="game.canPressVoteButton()"
           :has-voted="(isLiftVoting ? votedUsers : votedThisRound).has(id)"
+          :show-foul-control="canShowHeadFoulButtons"
           :friend-status="friendStatusFor(id)"
           :friend-busy="friendBusyFor(id)"
           :friend-loading="friendLoadingFor(id)"
@@ -195,6 +196,7 @@
             :show-vote-button="amIAlive && game.canPressVoteButton()"
             :vote-enabled="game.canPressVoteButton()"
             :has-voted="(isLiftVoting ? votedUsers : votedThisRound).has(id)"
+            :show-foul-control="canShowHeadFoulButtons"
             :friend-status="friendStatusFor(id)"
             :friend-busy="friendBusyFor(id)"
             :friend-loading="friendLoadingFor(id)"
@@ -225,7 +227,7 @@
           <button v-if="gamePhase !== 'idle' && isHead && !gameFinished" @click="endGameUi" :disabled="endingGame" aria-label="Завершить игру">
             <img :src="iconGameStop" alt="end-game" />
           </button>
-          <button v-if="gamePhase !== 'idle' && myGameRole === 'player' && amIAlive" @click="leaveGameUi" aria-label="Выйти из игры">
+          <button v-if="canShowLeaveGameButton" @click="leaveGameUi" aria-label="Выйти из игры">
             <img :src="iconDeadPlayer" alt="leave-game" />
           </button>
         </div>
@@ -705,8 +707,18 @@ const isSpectatorInGame = computed(() => {
 })
 const hostBlurPending = ref(false)
 const hostBlurToggleEnabled = computed(() => gamePhase.value === 'day' || gamePhase.value === 'vote')
-const hostBlurVisible = computed(() => gamePhase.value !== 'idle' && hostBlurActive.value && !isHead.value)
+const hostBlurVisible = computed(() => gamePhase.value !== 'idle' && hostBlurActive.value)
 const hostBlurLocksControls = computed(() => isHead.value && hostBlurActive.value)
+const ACTION_PHASES = ['day', 'vote', 'night'] as const
+const canShowLeaveGameButton = computed(() =>
+  myGameRole.value === 'player' &&
+  amIAlive.value &&
+  ACTION_PHASES.includes(gamePhase.value as (typeof ACTION_PHASES)[number])
+)
+const canShowHeadFoulButtons = computed(() =>
+  isHead.value &&
+  ACTION_PHASES.includes(gamePhase.value as (typeof ACTION_PHASES)[number])
+)
 const isMafiaLimitRoom = computed(() => roomUserLimit.value === gameLimitMin.value)
 const canViewGameSettings = computed(() => {
   if (!isMafiaLimitRoom.value) return false
@@ -2394,7 +2406,7 @@ const toggleHostBlur = async () => {
   const wantEnable = !hostBlurActive.value
   const ok = await confirmDialog({
     text: wantEnable
-      ? 'Вы хотите начать паузу? Игроки не смогут видеть друг друга и брать фолы'
+      ? 'Вы хотите начать паузу? Игроки не смогут видеть друг друга и брать фолы. Пауза завершится автоматически через 2 минуты.'
       : 'Вы хотите завершить паузу?',
   })
   if (!ok) return
@@ -3035,6 +3047,12 @@ onBeforeUnmount(() => {
     background-color: rgba($black, 0.25);
     backdrop-filter: blur(25px);
     pointer-events: fill;
+  }
+  .host-blur-overlay.host-blur-overlay-head {
+    background-color: transparent !important;
+    backdrop-filter: none !important;
+    pointer-events: none;
+    text-shadow: 0 2px 8px rgba($black, 0.7);
   }
   .grid {
     display: grid;

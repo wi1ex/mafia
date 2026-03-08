@@ -2470,7 +2470,7 @@ onMounted(() => {
       }
       .stats-daily-grid {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) minmax(220px, 320px);
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
         gap: 10px;
         margin-top: 10px;
       }
@@ -2758,8 +2758,7 @@ onMounted(() => {
     }
     .tab-panel {
       .stats {
-        .stats-daily-grid,
-        .stats-monthly-grid {
+        .stats-daily-grid {
           grid-template-columns: 1fr;
         }
         .chart {

@@ -108,6 +108,9 @@ from ..utils import (
     randomize_limit,
     compute_farewell_allowed,
     perform_game_end,
+    maybe_end_game_if_room_presence_low,
+    _cancel_host_blur_auto_task,
+    _schedule_host_blur_auto_off,
     finish_game,
     record_spectator_leave,
     maybe_emit_vote_presence_break,
@@ -654,8 +657,19 @@ async def game_host_blur(sid, data) -> GameHostBlurAck:
         want_raw = payload.get("on") if isinstance(payload, dict) else None
         current = ctx.gbool("host_blur")
         want = (not current) if want_raw is None else bool(want_raw)
-
-        await ctx.r.hset(f"room:{ctx.rid}:game_state", mapping={"host_blur": "1" if want else "0"})
+        if want:
+            started_at = int(time())
+            await ctx.r.hset(
+                f"room:{ctx.rid}:game_state",
+                mapping={"host_blur": "1", "host_blur_started_at": str(started_at)},
+            )
+            _schedule_host_blur_auto_off(ctx.rid, started_at)
+        else:
+            await ctx.r.hset(
+                f"room:{ctx.rid}:game_state",
+                mapping={"host_blur": "0", "host_blur_started_at": "0"},
+            )
+            _cancel_host_blur_auto_task(ctx.rid)
         await sio.emit(
             "game_host_blur",
             {"room_id": ctx.rid, "enabled": want},
@@ -894,6 +908,10 @@ async def kick(sid, data):
                            namespace="/room")
 
         await emit_rooms_occupancy_safe(r, rid, occ)
+        try:
+            await maybe_end_game_if_room_presence_low(r, rid, reason="presence_too_low")
+        except Exception:
+            log.exception("sio.kick.presence_end_failed", rid=rid, target=target)
 
         details = f"Кик из комнаты room_id={rid} target_user={target}"
         if target_username:
@@ -923,7 +941,7 @@ async def kick(sid, data):
 async def game_leave(sid, data):
     try:
         sess = await sio.get_session(sid, namespace="/room")
-        ctx, err = await require_ctx(sid, allowed_phases=("day", "vote", "idle"))
+        ctx, err = await require_ctx(sid, allowed_phases=("day", "vote", "night", "idle"))
         if err:
             return err
 
@@ -1295,6 +1313,8 @@ async def game_start(sid, data) -> GameStartAck:
                              "game_result": "",
                              "draw_base_day": "0",
                              "draw_base_alive": "0",
+                             "host_blur": "0",
+                             "host_blur_started_at": "0",
                              "vote_blocked": "0",
                              "vote_blocked_next": "0",
                              "best_move_uid": "0",
@@ -2241,7 +2261,7 @@ async def game_foul(sid, data):
 async def game_foul_set(sid, data):
     try:
         data = data or {}
-        ctx, err = await require_ctx(sid, require_head=True)
+        ctx, err = await require_ctx(sid, allowed_phases=("day", "vote", "night"), require_head=True)
         if err:
             return err
 
@@ -2255,9 +2275,6 @@ async def game_foul_set(sid, data):
         r = ctx.r
         raw_gstate = ctx.gstate
         phase = ctx.phase
-        if phase == "idle":
-            return {"ok": False, "error": "no_game", "status": 400}
-
         head_uid = ctx.head_uid
         if not head_uid or actor_uid != head_uid:
             return {"ok": False, "error": "forbidden", "status": 403}
@@ -4556,6 +4573,11 @@ async def disconnect(sid):
         await emit_leave_events(was_member, pos_updates)
 
         await emit_rooms_occupancy_safe(r, rid, occ)
+        if was_member:
+            try:
+                await maybe_end_game_if_room_presence_low(r, rid, reason="presence_too_low")
+            except Exception:
+                log.exception("sio.disconnect.presence_end_failed", rid=rid, uid=uid)
 
         base_role = str(sess.get("base_role") or "user")
         await sio.save_session(sid,

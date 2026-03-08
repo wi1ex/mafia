@@ -15,7 +15,7 @@
       <img :src="iconWink" alt="wink" />
       <span>{{ winksLeft }}</span>
     </button>
-    <button v-if="inGame && seat != null && !isGameHead && !isDead(id)" class="icon-badge button left" @click="$emit('foul', id)" :disabled="!isHead" aria-label="Выдать фол">
+    <button v-if="showFoulControl && inGame && seat != null && !isGameHead && !isDead(id) && isHead" class="icon-badge button left" @click="$emit('foul', id)" aria-label="Выдать фол">
       <img :src="iconFoul" alt="foul" />
       <span>{{ foulsCount }}</span>
     </button>
@@ -207,6 +207,7 @@ const props = withDefaults(defineProps<{
   knocksLeft?: number
   showWink?: boolean
   showKnock?: boolean
+  showFoulControl?: boolean
   phaseLabel?: string
   showNominate?: boolean
   showUnnominate?: boolean
@@ -261,6 +262,7 @@ const props = withDefaults(defineProps<{
   knocksLeft: 0,
   showWink: false,
   showKnock: false,
+  showFoulControl: false,
   phaseLabel: '',
   showNominate: false,
   showUnnominate: false,

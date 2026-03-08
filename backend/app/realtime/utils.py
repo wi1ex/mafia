@@ -126,6 +126,7 @@ __all__ = [
     "wink_spot_chance",
     "randomize_limit",
     "perform_game_end",
+    "maybe_end_game_if_room_presence_low",
     "finish_game",
     "record_spectator_leave",
     "maybe_emit_vote_presence_break",
@@ -139,6 +140,67 @@ log = structlog.get_logger()
 _join_sha: str | None = None
 _leave_sha: str | None = None
 _single_gc_tasks: dict[int, tuple[str, asyncio.Task[None]]] = {}
+HOST_BLUR_AUTO_OFF_SECONDS = 120
+_host_blur_auto_tasks: dict[int, asyncio.Task[None]] = {}
+
+
+def _cancel_host_blur_auto_task(rid: int) -> None:
+    task = _host_blur_auto_tasks.pop(rid, None)
+    if task and not task.done():
+        task.cancel()
+
+
+def _schedule_host_blur_auto_off(rid: int, started_at: int) -> None:
+    _cancel_host_blur_auto_task(rid)
+    task: asyncio.Task[None] | None = None
+
+    async def _runner() -> None:
+        try:
+            await asyncio.sleep(HOST_BLUR_AUTO_OFF_SECONDS)
+            r = get_redis()
+            try:
+                raw_state = await r.hgetall(f"room:{rid}:game_state")
+            except Exception:
+                log.exception("sio.game_host_blur.auto.load_state_failed", rid=rid)
+                return
+
+            if not raw_state:
+                return
+
+            if str(raw_state.get("phase") or "idle") == "idle":
+                return
+
+            if str(raw_state.get("host_blur") or "0") != "1":
+                return
+
+            try:
+                current_started = int(raw_state.get("host_blur_started_at") or 0)
+            except Exception:
+                current_started = 0
+            if current_started != started_at:
+                return
+
+            await r.hset(
+                f"room:{rid}:game_state",
+                mapping={"host_blur": "0", "host_blur_started_at": "0"},
+            )
+            await sio.emit(
+                "game_host_blur",
+                {"room_id": rid, "enabled": False, "auto": True},
+                room=f"room:{rid}",
+                namespace="/room",
+            )
+        except asyncio.CancelledError:
+            return
+        except Exception:
+            log.exception("sio.game_host_blur.auto.failed", rid=rid)
+        finally:
+            current = _host_blur_auto_tasks.get(rid)
+            if current is task:
+                _host_blur_auto_tasks.pop(rid, None)
+
+    task = asyncio.create_task(_runner())
+    _host_blur_auto_tasks[rid] = task
 
 KEYS_STATE: tuple[str, ...] = ("mic", "cam", "speakers", "visibility", "mirror")
 KEYS_BLOCK: tuple[str, ...] = (*KEYS_STATE, "screen")
@@ -1826,6 +1888,10 @@ async def cleanup_user_from_room(r, rid: int, uid: int, *, was_member: bool, was
                                room=f"room:{rid}",
                                namespace="/room")
             await emit_rooms_occupancy_safe(r, rid, occ)
+            try:
+                await maybe_end_game_if_room_presence_low(r, rid, reason="presence_too_low")
+            except Exception:
+                log.exception("sio.join.cleanup.presence_end_failed", rid=rid, uid=uid)
 
             if occ == 0:
                 try:
@@ -4624,6 +4690,78 @@ async def perform_game_end(ctx, sess: Optional[dict[str, Any]], *, confirm: bool
     await emit_rooms_spectators_safe(r, rid)
 
     return {"ok": True, "status": 200, "room_id": rid, "reason": reason}
+
+
+async def maybe_end_game_if_room_presence_low(r, rid: int, *, reason: str = "presence_too_low") -> bool:
+    try:
+        raw_state = await r.hgetall(f"room:{rid}:game_state")
+    except Exception:
+        log.exception("presence_end.load_state_failed", rid=rid)
+        return False
+
+    if not raw_state:
+        return False
+
+    if str(raw_state.get("phase") or "idle") == "idle":
+        return False
+
+    if str(raw_state.get("game_finished") or "0") == "1":
+        return False
+
+    try:
+        head_uid = int(raw_state.get("head") or 0)
+    except Exception:
+        head_uid = 0
+
+    try:
+        member_ids = await smembers_ints(r, f"room:{rid}:members")
+    except Exception:
+        log.exception("presence_end.load_members_failed", rid=rid)
+        return False
+
+    if head_uid <= 0:
+        return False
+
+    if head_uid in member_ids:
+        return False
+
+    try:
+        player_ids = await smembers_ints(r, f"room:{rid}:game_players")
+    except Exception:
+        log.exception("presence_end.load_players_failed", rid=rid)
+        return False
+
+    players_in_room = player_ids & member_ids
+    if len(players_in_room) > 1:
+        return False
+
+    if players_in_room:
+        actor_uid = min(players_in_room)
+    elif member_ids:
+        actor_uid = min(member_ids)
+    else:
+        actor_uid = head_uid
+
+    sess: dict[str, Any] = {}
+    if actor_uid > 0:
+        try:
+            raw_username = await r.hget(f"room:{rid}:user:{actor_uid}:info", "username")
+        except Exception:
+            raw_username = None
+        username = str(raw_username) if raw_username else ""
+        if not username:
+            try:
+                async with SessionLocal() as s:
+                    profile = await get_user_profile_cached(s, actor_uid)
+                    username = str(profile.get("username") or "")
+            except Exception:
+                log.exception("presence_end.load_username_failed", rid=rid, uid=actor_uid)
+        if username:
+            sess["username"] = username
+
+    ctx = GameActionContext.from_raw_state(uid=actor_uid or 0, rid=rid, r=r, raw_state=raw_state)
+    resp = await perform_game_end(ctx, sess, confirm=True, allow_non_head=True, reason=reason)
+    return bool(resp and resp.get("ok"))
 
 
 async def gc_singleton_room_and_emit(rid: int, *, expected_since: str | None = None) -> None:

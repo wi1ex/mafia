@@ -33,7 +33,7 @@ const LS = {
 
 const BGM_VOLUME_LS = 'bgm:volume'
 const BGM_DEFAULT_VOLUME = 50
-const BGM_MAX_VOLUME = 1
+const BGM_MAX_VOLUME = 0.5
 const BGM_FILES = Object.entries(
   import.meta.glob('@/assets/music/*.mp3', { eager: true, as: 'url' })
 )
