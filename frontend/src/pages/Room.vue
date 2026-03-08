@@ -83,7 +83,7 @@
           :show-vote-button="amIAlive && game.canPressVoteButton()"
           :vote-enabled="game.canPressVoteButton()"
           :has-voted="(isLiftVoting ? votedUsers : votedThisRound).has(id)"
-          :show-foul-control="canShowHeadFoulButtons"
+          :show-foul-control="canShowFoulButtons"
           :friend-status="friendStatusFor(id)"
           :friend-busy="friendBusyFor(id)"
           :friend-loading="friendLoadingFor(id)"
@@ -196,7 +196,7 @@
             :show-vote-button="amIAlive && game.canPressVoteButton()"
             :vote-enabled="game.canPressVoteButton()"
             :has-voted="(isLiftVoting ? votedUsers : votedThisRound).has(id)"
-            :show-foul-control="canShowHeadFoulButtons"
+            :show-foul-control="canShowFoulButtons"
             :friend-status="friendStatusFor(id)"
             :friend-busy="friendBusyFor(id)"
             :friend-loading="friendLoadingFor(id)"
@@ -715,8 +715,7 @@ const canShowLeaveGameButton = computed(() =>
   amIAlive.value &&
   ACTION_PHASES.includes(gamePhase.value as (typeof ACTION_PHASES)[number])
 )
-const canShowHeadFoulButtons = computed(() =>
-  isHead.value &&
+const canShowFoulButtons = computed(() =>
   ACTION_PHASES.includes(gamePhase.value as (typeof ACTION_PHASES)[number])
 )
 const isMafiaLimitRoom = computed(() => roomUserLimit.value === gameLimitMin.value)
@@ -3049,7 +3048,7 @@ onBeforeUnmount(() => {
     pointer-events: fill;
   }
   .host-blur-overlay.host-blur-overlay-head {
-    background-color: transparent !important;
+    background-color: rgba($black, 0.5);
     backdrop-filter: none !important;
     pointer-events: none;
     text-shadow: 0 2px 8px rgba($black, 0.7);

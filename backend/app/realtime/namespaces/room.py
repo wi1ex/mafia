@@ -1179,7 +1179,7 @@ async def game_start(sid, data) -> GameStartAck:
                 cam = row[0] if len(row) > 0 else None
                 sp = row[1] if len(row) > 1 else None
                 vis = row[2] if len(row) > 2 else None
-                if cam != "1" and cam != b"1":
+                if pid != head_uid and cam != "1" and cam != b"1":
                     off_cams.append(pid)
                 if sp == "0" or sp == b"0":
                     off_speakers.append(pid)
