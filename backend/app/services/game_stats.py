@@ -138,6 +138,8 @@ def _parse_actions(actions: list[dict[str, Any]], roles: dict[int, str]) -> dict
     first_killed_best_move_total: dict[int, int] = {}
     best_move_bucket: dict[int, dict[int, int]] = {}
     last_vote_targets: dict[int, int] = {}
+    last_vote_day_number = 0
+    final_vote_red_voters_on_red_target: set[int] = set()
     foul_or_suicide_death_seen: set[int] = set()
     don_checked_first_night_seen: set[int] = set()
     don_checked_first_night_found_seen: set[int] = set()
@@ -165,6 +167,20 @@ def _parse_actions(actions: list[dict[str, Any]], roles: dict[int, str]) -> dict
             reason = _safe_str(action.get("reason"))
             if reason == "vote" and day_number in (1, 2):
                 _inc(leave_vote_day12, target_id, 1)
+            if reason == "vote":
+                red_voters: set[int] = set()
+                if target_id > 0 and last_vote_targets:
+                    same_day = 0 < day_number == last_vote_day_number > 0
+                    if same_day or day_number <= 0 or last_vote_day_number <= 0:
+                        target_role = roles.get(target_id, "")
+                        if target_role in RED_ROLES:
+                            for voter_id, voted_target in last_vote_targets.items():
+                                if voted_target != target_id:
+                                    continue
+                                voter_role = roles.get(voter_id, "")
+                                if voter_role in RED_ROLES:
+                                    red_voters.add(voter_id)
+                final_vote_red_voters_on_red_target = red_voters
             if reason in FOUL_OR_SUICIDE_REASONS and target_id > 0 and target_id not in foul_or_suicide_death_seen:
                 _inc(foul_removed_count, target_id, 1)
                 foul_or_suicide_death_seen.add(target_id)
@@ -185,6 +201,7 @@ def _parse_actions(actions: list[dict[str, Any]], roles: dict[int, str]) -> dict
                         parsed_votes[voter_id] = target_id
             if parsed_votes:
                 last_vote_targets = parsed_votes
+                last_vote_day_number = _safe_int(action.get("day"))
             continue
 
         if action_type == "farewell":
@@ -240,12 +257,8 @@ def _parse_actions(actions: list[dict[str, Any]], roles: dict[int, str]) -> dict
             bucket[black_hits] = bucket.get(black_hits, 0) + 1
             continue
 
-    for voter_id, target_id in last_vote_targets.items():
-        if target_id <= 0:
-            continue
-        target_role = roles.get(target_id, "")
-        if target_role in RED_ROLES:
-            _inc(vote_for_red_on_black_win_count, voter_id, 1)
+    for voter_id in final_vote_red_voters_on_red_target:
+        vote_for_red_on_black_win_count[voter_id] = 1
 
     return {
         "don_checks_first_night": don_checks_first_night,
