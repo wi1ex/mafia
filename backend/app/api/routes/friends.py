@@ -36,6 +36,7 @@ from ...api.utils import (
 )
 
 router = APIRouter()
+FRIEND_REMOVE_MIN_SECONDS = 60 * 60
 
 
 @log_route("friends.status")
@@ -489,6 +490,16 @@ async def remove_friend(user_id: int, ident: Identity = Depends(get_identity), d
     link = await load_link(db, uid, other_id)
     if not link or link.status != "accepted":
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="friend_not_found")
+
+    responded_at = cast(datetime | None, link.responded_at)
+    created_at = cast(datetime | None, link.created_at)
+    accepted_at = responded_at or created_at
+    if accepted_at is not None:
+        if accepted_at.tzinfo is None:
+            accepted_at = accepted_at.replace(tzinfo=timezone.utc)
+        friendship_seconds = (datetime.now(timezone.utc) - accepted_at).total_seconds()
+        if friendship_seconds < FRIEND_REMOVE_MIN_SECONDS:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="friend_remove_too_early")
 
     await db.execute(delete(FriendLink).where(FriendLink.id == link.id))
     await db.commit()
