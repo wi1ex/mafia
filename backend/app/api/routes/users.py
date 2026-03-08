@@ -236,7 +236,7 @@ async def game_history_details(game_id: int, _ident: Identity = Depends(get_iden
     head_avatar_name = non_empty_str((head_profile or {}).get("avatar_name"))
 
     uid_to_slot = {player_uid: seat_num for seat_num, player_uid in slot_map.items()}
-    leave_map: dict[int, tuple[int, str, list[int]]] = {}
+    leave_map: dict[int, tuple[int, str, list[int], bool]] = {}
     best_move_map: dict[int, list[int]] = {}
     farewell_map: dict[int, list[tuple[int, str]]] = {}
     night_check_map: dict[int, list[tuple[int, str]]] = {}
@@ -267,7 +267,10 @@ async def game_history_details(game_id: int, _ident: Identity = Depends(get_iden
                             continue
                         seen_by.add(voter_uid)
                         voted_by_user_ids.append(voter_uid)
-                leave_map[target_uid] = (leave_day, leave_reason, voted_by_user_ids)
+                leave_is_ppk = False
+                if leave_reason == "foul":
+                    leave_is_ppk = bool(action.get("ppk")) or str(action.get("format") or "").strip().upper() == "PPK"
+                leave_map[target_uid] = (leave_day, leave_reason, voted_by_user_ids, leave_is_ppk)
                 continue
 
             if action_type == "best_move":
@@ -347,6 +350,7 @@ async def game_history_details(game_id: int, _ident: Identity = Depends(get_iden
         mmr = 0
         leave_day_value = None
         leave_reason_value = None
+        leave_ppk_value = False
         voted_by_slots: list[int] = []
         best_move_slots: list[int] = []
         farewell_items: list[GameHistoryFarewellItemOut] = []
@@ -361,6 +365,7 @@ async def game_history_details(game_id: int, _ident: Identity = Depends(get_iden
             if leave_data:
                 leave_day_value = leave_data[0]
                 leave_reason_value = leave_data[1]
+                leave_ppk_value = bool(leave_data[3]) if leave_reason_value == "foul" else False
                 if leave_reason_value == "vote":
                     for voter_uid in leave_data[2]:
                         voter_slot = safe_int(uid_to_slot.get(voter_uid))
@@ -416,6 +421,7 @@ async def game_history_details(game_id: int, _ident: Identity = Depends(get_iden
                 mmr=mmr,
                 leave_day=leave_day_value,
                 leave_reason=leave_reason_value,
+                leave_ppk=leave_ppk_value,
                 voted_by_slots=voted_by_slots,
                 best_move_slots=best_move_slots,
                 farewell=farewell_items,

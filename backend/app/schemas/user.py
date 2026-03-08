@@ -124,6 +124,7 @@ class GameHistorySlotOut(BaseModel):
     mmr: int = 0
     leave_day: Optional[int] = None
     leave_reason: Optional[Literal["vote", "foul", "suicide", "night"]] = None
+    leave_ppk: bool = False
     voted_by_slots: List[int] = Field(default_factory=list)
     best_move_slots: List[int] = Field(default_factory=list)
     farewell: List[GameHistoryFarewellItemOut] = Field(default_factory=list)
