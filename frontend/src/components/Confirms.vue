@@ -106,12 +106,13 @@ onBeforeUnmount(() => {
       font-size: 14px;
       line-height: 1.25;
       input {
-        width: 16px;
-        height: 16px;
+        width: 20px;
+        height: 20px;
         accent-color: $green;
         cursor: pointer;
       }
       .checkbox-label {
+        font-size: 16px;
         cursor: pointer;
       }
       .checkbox-link {

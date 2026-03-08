@@ -105,7 +105,7 @@
             <strong>{{ formatPct(game.foul_removed_percent) }}</strong>
           </article>
           <article class="metric-card">
-            <span>ППК</span>
+            <span>Удалён с ППК</span>
             <strong>{{ formatTimes(game.ppk_removed_count) }}</strong>
           </article>
           <article class="metric-card">
@@ -900,7 +900,7 @@ onMounted(() => {
     }
     .extra-grid {
       display: grid;
-      grid-template-columns: repeat(7, minmax(0, 1fr));
+      grid-template-columns: repeat(8, minmax(0, 1fr));
       gap: 10px;
     }
   }
@@ -915,7 +915,6 @@ onMounted(() => {
       }
       .stats-season-switch {
         width: 100%;
-        justify-content: flex-start;
       }
       .stats-season-btn {
         min-width: 80px;
@@ -947,6 +946,9 @@ onMounted(() => {
         strong {
           font-size: 18px;
         }
+      }
+      .non-game-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
       }
       .overview {
         grid-template-columns: 1fr;
@@ -1039,7 +1041,7 @@ onMounted(() => {
         }
       }
       .extra-grid {
-        grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+        grid-template-columns: repeat(4, minmax(0, 1fr));
       }
     }
   }

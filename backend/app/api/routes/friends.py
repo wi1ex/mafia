@@ -36,7 +36,7 @@ from ...api.utils import (
 )
 
 router = APIRouter()
-FRIEND_REMOVE_MIN_SECONDS = 60 * 60
+FRIEND_REMOVE_MIN_SECONDS = 10 * 60
 
 
 @log_route("friends.status")

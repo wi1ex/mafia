@@ -74,7 +74,7 @@ export function resolveFriendsApiError(error: any, action: FriendApiAction = 'un
   }
 
   if (detail === 'friend_not_found') return 'Пользователь не найден в списке друзей'
-  if (detail === 'friend_remove_too_early') return 'Удалить из друзей можно только через 1 час после принятия заявки'
+  if (detail === 'friend_remove_too_early') return 'Удалить из друзей можно только через 10 минут после принятия заявки'
 
   if (st === 429) return 'Слишком много запросов. Попробуйте через несколько секунд'
   if (st >= 500) return 'Сервис временно недоступен. Попробуйте позже'

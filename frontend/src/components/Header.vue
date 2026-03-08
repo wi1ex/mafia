@@ -3,8 +3,7 @@
     <div class="links">
       <router-link class="btn" :to="{ name: 'home' }" aria-label="DECEIT.games">
         <img :src="iconLogo" alt="" aria-hidden="true" />
-        <span data-nosnippet>v0.12.6b</span>
-<!--        <span>deceit.games {{ BUILD }}</span>-->
+        <span data-nosnippet>{{ BUILD }}</span>
       </router-link>
       <router-link class="btn" :to="{ name: 'rules' }" aria-label="Правила">
         <img :src="iconInfo" alt="" aria-hidden="true" />
@@ -152,6 +151,7 @@ const installOpen = ref(false)
 const supportOpen = ref(false)
 const authOpen = ref(false)
 const authMode = ref<'login' | 'register'>('login')
+const BUILD = (import.meta.env.VITE_BUILD_ID as string || '').trim() || 'BUILD'
 const botName = (import.meta.env.VITE_TG_BOT_NAME as string || '').trim()
 const botLink = botName ? `https://t.me/${botName}` : 'https://t.me'
 const supportLink = 'https://t.me/tribute/app?startapp=dCvc'
