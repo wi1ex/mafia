@@ -67,7 +67,7 @@ class Settings(BaseSettings):
     PLAYER_FOUL_SECONDS: int = 5
     WINKS_LIMIT: int = 3
     KNOCKS_LIMIT: int = 4
-    WINK_SPOT_CHANCE_PERCENT: int = 20
+    WINK_SPOT_CHANCE_PERCENT: int = 10
 
     @property
     def pg_dsn(self) -> str:

@@ -1063,7 +1063,7 @@ const game = reactive<GameSettings>({
   vote_seconds: 3,
   winks_limit: 3,
   knocks_limit: 3,
-  wink_spot_chance_percent: 25,
+  wink_spot_chance_percent: 10,
 })
 
 const settingsStore = useSettingsStore()

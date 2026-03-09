@@ -2432,15 +2432,13 @@ async def game_foul_set(sid, data):
 async def game_wink(sid, data):
     try:
         data = data or {}
-        ctx, err = await require_ctx(sid)
+        ctx, err = await require_ctx(sid, allowed_phases=("day", "vote"))
         if err:
             return err
 
         uid = ctx.uid
         rid = ctx.rid
         r = ctx.r
-        if ctx.phase == "idle":
-            return {"ok": False, "error": "no_game", "status": 400}
 
         target_uid = int(data.get("user_id") or 0)
         if not target_uid:
@@ -2571,15 +2569,13 @@ async def game_wink(sid, data):
 async def game_knock(sid, data):
     try:
         data = data or {}
-        ctx, err = await require_ctx(sid)
+        ctx, err = await require_ctx(sid, allowed_phases=("day", "vote"))
         if err:
             return err
 
         uid = ctx.uid
         rid = ctx.rid
         r = ctx.r
-        if ctx.phase == "idle":
-            return {"ok": False, "error": "no_game", "status": 400}
 
         target_uid = int(data.get("user_id") or 0)
         if not target_uid:
@@ -2661,21 +2657,10 @@ async def game_knock(sid, data):
             left_after = 0
             await r.hset(f"room:{rid}:game_knocks_left", str(uid), "0")
 
-        spotted = False
         await sio.emit("game_knocked",
                        {"room_id": rid, "from_seat": seat_actor, "count": count},
                        room=f"user:{target_uid}",
                        namespace="/room")
-
-        head_uid = ctx.head_uid
-        if head_uid and head_uid not in (uid, target_uid) and random.random() < wink_spot_chance():
-            await sio.emit(
-                "game_knock_spotted",
-                {"room_id": rid, "from_seat": seat_actor, "to_seat": seat_target, "count": count},
-                room=f"user:{head_uid}",
-                namespace="/room",
-            )
-            spotted = True
 
         await log_game_action(
             r,
@@ -2686,7 +2671,6 @@ async def game_knock(sid, data):
                 "target_id": target_uid,
                 "count": count,
                 "day": ctx.gint("day_number"),
-                "spotted": spotted,
             },
         )
 
