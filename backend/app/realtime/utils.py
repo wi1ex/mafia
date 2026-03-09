@@ -3404,14 +3404,88 @@ async def process_player_death(r, rid: int, user_id: int, *, head_uid: int | Non
 
         if not defer_finish_check:
             try:
-                await maybe_finish_game_after_death(r, rid, head_uid=head_uid)
+                await maybe_finish_game_after_death(r, rid, head_uid=head_uid, dead_user_id=user_id, death_reason=reason)
             except Exception:
                 log.exception("process_player_death.finish_check_failed", rid=rid, uid=user_id)
 
     return removed
 
 
-async def maybe_finish_game_after_death(r, rid: int, *, head_uid: int | None = None) -> bool:
+async def get_condemned_alive_black_ids(r, rid: int, raw_state: Mapping[str, Any], black_alive_ids: Iterable[int]) -> set[int]:
+    black_alive = {int(uid) for uid in black_alive_ids if int(uid) > 0}
+    if not black_alive:
+        return set()
+
+    if str(raw_state.get("phase") or "") != "vote":
+        return set()
+
+    day_number = get_day_number(raw_state)
+    try:
+        raw_game = await r.hgetall(f"room:{rid}:game")
+    except Exception:
+        raw_game = {}
+
+    def alive_black_from(leaders: Iterable[int]) -> set[int]:
+        return {int(uid) for uid in leaders if int(uid) in black_alive}
+
+    def vote_will_remove_unique_leader(leaders: list[int]) -> bool:
+        if len(leaders) != 1:
+            return False
+
+        if day_number == 1 and not game_flag(raw_game, "break_at_zero", True):
+            return False
+
+        return True
+
+    leaders = parse_leaders(raw_state)
+    vote_lift_state = str(raw_state.get("vote_lift_state") or "")
+    try:
+        vote_speech_uid = int(raw_state.get("vote_speech_uid") or 0)
+    except Exception:
+        vote_speech_uid = 0
+    vote_speech_kind = str(raw_state.get("vote_speech_kind") or "")
+    if vote_speech_kind == "farewell":
+        if vote_lift_state == "passed":
+            condemned = alive_black_from(leaders)
+            if not condemned and vote_speech_uid in black_alive:
+                condemned.add(vote_speech_uid)
+            return condemned
+
+        if vote_will_remove_unique_leader(leaders):
+            condemned = alive_black_from(leaders)
+            if not condemned and vote_speech_uid in black_alive:
+                condemned.add(vote_speech_uid)
+            return condemned
+
+    if str(raw_state.get("vote_aborted") or "0") == "1":
+        return set()
+
+    vote_results_ready = str(raw_state.get("vote_results_ready") or "0") == "1"
+    if vote_results_ready:
+        if vote_lift_state == "passed":
+            return alive_black_from(leaders)
+
+        if vote_will_remove_unique_leader(leaders):
+            return alive_black_from(leaders)
+
+        return set()
+
+    vote_done = str(raw_state.get("vote_done") or "0") == "1"
+    if vote_done:
+        leaders_done = await compute_vote_effective_leaders(r, rid, remaining_target_uid=None)
+        if vote_will_remove_unique_leader(leaders_done):
+            return alive_black_from(leaders_done)
+
+        return set()
+
+    predetermined, leaders_pending = await compute_vote_predetermined_unique_leader(r, rid, raw_state)
+    if predetermined and vote_will_remove_unique_leader(leaders_pending):
+        return alive_black_from(leaders_pending)
+
+    return set()
+
+
+async def maybe_finish_game_after_death(r, rid: int, *, head_uid: int | None = None, dead_user_id: int | None = None, death_reason: str | None = None) -> bool:
     try:
         raw_state = await r.hgetall(f"room:{rid}:game_state")
     except Exception:
@@ -3421,26 +3495,33 @@ async def maybe_finish_game_after_death(r, rid: int, *, head_uid: int | None = N
     if not raw_state or str(raw_state.get("game_finished") or "0") == "1":
         return False
 
-    alive_ids = await smembers_ints(r, f"room:{rid}:game_alive")
-    alive_cnt = len(alive_ids)
-    if alive_cnt <= 0:
-        return False
-
     try:
         raw_roles = await r.hgetall(f"room:{rid}:game_roles")
     except Exception:
         raw_roles = {}
 
-    black_cnt = 0
+    red_alive_cnt = 0
+    black_alive_ids: list[int] = []
+    alive_ids = await smembers_ints(r, f"room:{rid}:game_alive")
     for uid in alive_ids:
         role = str(raw_roles.get(str(uid)) or "")
         if role in ("mafia", "don"):
-            black_cnt += 1
+            black_alive_ids.append(uid)
+        elif role in ("citizen", "sheriff"):
+            red_alive_cnt += 1
 
+    black_cnt = len(black_alive_ids)
     if black_cnt == 0:
         return await finish_game(r, rid, result="red", head_uid=head_uid, reason="victory_red")
 
-    if black_cnt * 2 >= alive_cnt:
+    black_victory_cnt = black_cnt
+    if death_reason in ("foul", "suicide") and dead_user_id:
+        dead_role = str(raw_roles.get(str(dead_user_id)) or "")
+        if dead_role in ("citizen", "sheriff"):
+            condemned_black_ids = await get_condemned_alive_black_ids(r, rid, raw_state, black_alive_ids)
+            black_victory_cnt = max(black_cnt - len(condemned_black_ids), 0)
+
+    if black_victory_cnt > 0 and black_victory_cnt >= red_alive_cnt:
         return await finish_game(r, rid, result="black", head_uid=head_uid, reason="victory_black")
 
     return False

@@ -106,14 +106,14 @@
                   <span id="profile-pass-confirm-hint">{{ pwd.confirm.length }}/{{ PASSWORD_MAX }}</span>
                 </template>
               </UiInput>
+              <p class="hint">
+                Если забыли пароль, используйте "Сбросить пароль" в
+                <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">Telegram-боте</a>
+              </p>
               <button class="btn confirm" @click="changePassword" :disabled="pwdBusy || !canChangePassword">
                 {{ pwdBusy ? '...' : 'Сменить пароль' }}
               </button>
             </div>
-            <p class="hint">
-              Если забыли пароль, используйте "Сбросить пароль" в
-              <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">Telegram-боте</a>
-            </p>
           </div>
 
           <div v-if="crop.show" ref="modalEl" class="modal" @keydown.esc="cancelCrop" tabindex="0" aria-modal="true" aria-label="Кадрирование аватара" >
@@ -833,6 +833,7 @@ onBeforeUnmount(() => {
     justify-content: center;
     padding: 0 20px;
     gap: 5px;
+    max-width: 250px;
     height: 40px;
     border: none;
     border-radius: 5px;
@@ -972,6 +973,7 @@ onBeforeUnmount(() => {
         .verify-row {
           display: flex;
           flex-direction: column;
+          align-items: center;
           justify-content: space-between;
           gap: 10px;
         }
@@ -979,9 +981,10 @@ onBeforeUnmount(() => {
           margin-top: 10px;
         }
         .hint {
+          margin: 5px 0;
+          text-align: center;
           color: $grey;
           font-size: 14px;
-          text-align: center;
           &.text {
             font-size: 16px;
             color: $fg;
