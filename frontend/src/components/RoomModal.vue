@@ -34,7 +34,7 @@
             />
             <div class="range-marks" aria-hidden="true">
               <span class="range-mark" :style="rangeMarkStyle(2)">DUO</span>
-              <span class="range-mark" :style="rangeMarkStyle(11)">MAFIA</span>
+              <span class="range-mark" :style="rangeMarkStyle(gameLimitMin)">MAFIA</span>
             </div>
           </div>
 
@@ -360,28 +360,27 @@ onBeforeUnmount(() => {
           }
           .range-marks {
             position: relative;
-            height: 20px;
-            margin-top: -3px;
-          }
-          .range-mark {
-            position: absolute;
-            top: 0;
-            color: $fg;
-            font-size: 10px;
-            font-family: Manrope-SemiBold;
-            letter-spacing: 0.8px;
-            line-height: 1;
-            white-space: nowrap;
-            transform: translateX(-50%);
-            &::before {
-              content: "";
+            height: 5px;
+            .range-mark {
               position: absolute;
-              left: 50%;
-              bottom: calc(100% + 3px);
-              width: 1px;
-              height: 5px;
-              background-color: $grey;
+              top: 0;
+              color: $fg;
+              font-size: 10px;
+              font-family: Manrope-SemiBold;
+              letter-spacing: 0.8px;
+              line-height: 1;
+              white-space: nowrap;
               transform: translateX(-50%);
+              &::before {
+                content: "";
+                position: absolute;
+                left: 50%;
+                bottom: 100%;
+                width: 1px;
+                height: 5px;
+                background-color: $grey;
+                transform: translateX(-50%);
+              }
             }
           }
         }
