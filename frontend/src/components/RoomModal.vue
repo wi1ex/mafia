@@ -323,14 +323,12 @@ onBeforeUnmount(() => {
     .modal-div {
       display: flex;
       flex-direction: column;
-      padding: 10px 10px 0;
+      padding: 15px 10px 0;
       background-color: $dark;
       .params {
         display: flex;
         flex-direction: column;
-        padding: 15px 10px;
         gap: 15px;
-        border: 3px solid $lead;
         border-bottom: none;
         .range {
           display: flex;
@@ -357,13 +355,13 @@ onBeforeUnmount(() => {
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 0 0 10px;
+      padding: 15px 0 0;
       button {
         padding: 0;
-        width: calc(100% - 20px);
+        width: 100%;
         height: 40px;
         border: none;
-        border-radius: 0 0 5px 5px;
+        border-radius: 5px;
         background-color: $fg;
         color: $bg;
         font-size: 18px;
@@ -397,16 +395,6 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 1280px) {
-  .overlay {
-    .modal {
-      .modal-div {
-        .params {
-          padding: 10px;
-          gap: 10px;
-          scrollbar-width: auto;
-        }
-      }
-    }
-  }
+
 }
 </style>

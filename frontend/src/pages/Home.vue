@@ -1176,6 +1176,10 @@ onBeforeUnmount(() => {
           font-size: 14px;
         }
       }
+      .muted {
+        padding: 10px;
+        font-size: 12px;
+      }
       .list {
         .text-center {
           font-size: 14px;
