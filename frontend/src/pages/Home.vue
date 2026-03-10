@@ -622,6 +622,7 @@ function startWS() {
 
   sio.value.on('rooms_upsert', (r: Room) => {
     upsert(r)
+    if (selectedId.value === r.id) scheduleInfoRefresh(r.id, 150)
     if (!selectedId.value && !suppressedAutoselect.value) selectRoom(r.id)
   })
 

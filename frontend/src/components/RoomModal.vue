@@ -9,46 +9,33 @@
       </header>
 
       <div class="modal-div">
-        <div class="tabs">
-          <button :class="{active: tab === 'room'}" @click="openTab('room')">Комната</button>
-          <button :class="{active: tab === 'game'}" @click="openTab('game')" :disabled="!canOpenGameTab" :aria-disabled="!canOpenGameTab">Игра</button>
-        </div>
+        <div class="params">
+          <UiInput id="room-title" v-model.trim="title" :maxlength="TITLE_MAX" label="Название комнаты" autocomplete="off"
+            :invalid="!title" :underline-style="titleUnderlineStyle" :aria-invalid="!title" aria-describedby="room-title-hint" >
+            <template #meta>
+              <span id="room-title-hint">{{ title.length }}/{{ TITLE_MAX }}</span>
+            </template>
+          </UiInput>
 
-        <div class="tab-viewport">
-          <Transition :name="tabTrans" mode="out-in">
-            <div v-if="tab === 'room'" key="room" class="params">
-              <UiInput id="room-title" v-model.trim="title" :maxlength="TITLE_MAX" label="Название комнаты" autocomplete="off"
-                :invalid="!title" :underline-style="titleUnderlineStyle" :aria-invalid="!title" aria-describedby="room-title-hint" >
-                <template #meta>
-                  <span id="room-title-hint">{{ title.length }}/{{ TITLE_MAX }}</span>
-                </template>
-              </UiInput>
-
-              <div class="range">
-                <div class="range-label">
-                  <span>Лимит участников: {{ limit }}</span>
-                  <span v-if="limit === 2" class="limit-badge" aria-label="Высокое качество">DUO HD</span>
-                  <span v-if="canOpenGameTab" class="limit-badge" aria-label="Лимит для игры">MAFIA</span>
-                </div>
-                <UiSlider
-                  v-model="limit"
-                  :min="RANGE_MIN"
-                  :max="RANGE_MAX"
-                  :step="1"
-                  :dead-zone-until="DEAD_MIN"
-                  :dead-zone-value="DEAD_MIN"
-                  aria-label="Лимит участников"
-                />
-              </div>
-
-              <ToggleSwitch v-model="isPrivate" :disabled="isPrivacyLocked" label="Приватность:" off-label="Открытая" on-label="Закрытая" aria-label="Приватность: открытая/закрытая" />
-              <ToggleSwitch v-model="isAnonymous" label="Анонимность:" off-label="Видимая" on-label="Скрытая" aria-label="Анонимность: видимая/скрытая" />
+          <div class="range">
+            <div class="range-label">
+              <span>Лимит участников: {{ limit }}</span>
+              <span v-if="limit === 2" class="limit-badge" aria-label="Высокое качество">DUO HD</span>
+              <span v-if="isMafiaRoom" class="limit-badge" aria-label="Лимит для игры">MAFIA</span>
             </div>
+            <UiSlider
+              v-model="limit"
+              :min="RANGE_MIN"
+              :max="RANGE_MAX"
+              :step="1"
+              :dead-zone-until="DEAD_MIN"
+              :dead-zone-value="DEAD_MIN"
+              aria-label="Лимит участников"
+            />
+          </div>
 
-            <div v-else key="game">
-              <GameParamsForm v-model="game" :disabled="busy" />
-            </div>
-          </Transition>
+          <ToggleSwitch v-model="isPrivate" :disabled="isPrivacyLocked" label="Приватность:" off-label="Открытая" on-label="Закрытая" aria-label="Приватность: открытая/закрытая" />
+          <ToggleSwitch v-model="isAnonymous" label="Анонимность:" off-label="Видимая" on-label="Скрытая" aria-label="Анонимность: видимая/скрытая" />
         </div>
       </div>
 
@@ -66,7 +53,6 @@ import { alertDialog } from '@/services/confirm'
 import { formatModerationAlert } from '@/services/moderation'
 import { useUserStore, useSettingsStore } from '@/store'
 
-import GameParamsForm from '@/components/GameParamsForm.vue'
 import UiSlider from '@/components/UiSlider.vue'
 import UiInput from '@/components/UiInput.vue'
 import ToggleSwitch from '@/components/ToggleSwitch.vue'
@@ -78,11 +64,7 @@ const settings = useSettingsStore()
 
 const armed = ref(false)
 const busy = ref(false)
-const tab = ref<'room'|'game'>('room')
-const lastTab = ref<'room'|'game'>('room')
-const tabTrans = computed(() => (lastTab.value === 'room' && tab.value === 'game') ? 'slide-left' : 'slide-right')
 let prevOverflow = ''
-let prevTab: 'room'|'game' = tab.value
 
 const RANGE_MIN = 0
 const RANGE_MAX = 12
@@ -100,11 +82,6 @@ const gameLimitMin = computed(() => {
   const minReady = Number(settings.gameMinReadyPlayers)
   return Number.isFinite(minReady) && minReady > 0 ? minReady + 1 : 11
 })
-const canOpenGameTab = computed(() => limit.value === gameLimitMin.value)
-function openTab(t: 'room' | 'game') {
-  if (t === 'game' && !canOpenGameTab.value) return
-  tab.value = t
-}
 
 const emit = defineEmits<{
   (e: 'close'): void
@@ -191,6 +168,7 @@ const initialLimit = (() => {
   return Number.isFinite(v) ? clamp(v, 2, 12) : 11
 })()
 const limit = ref<number>(initialLimit)
+const isMafiaRoom = computed(() => limit.value === gameLimitMin.value)
 
 const privacy = ref<'open'|'private'>(initialBasic.privacy === 'private' ? 'private' : 'open')
 const initialAnonymity = initialBasic.anonymity === 'hidden' ? 'hidden' : 'visible'
@@ -275,14 +253,8 @@ function sanitizeTitle(s: string, max = 32): string {
 
 watch([title, limit, privacy, anonymity], saveBasic, { flush: 'post' })
 
-watch(tab, (cur) => {
-  lastTab.value = prevTab
-  prevTab = cur
-})
-
-watch([limit, gameLimitMin], ([v, min]) => {
+watch(limit, (v) => {
   if (v < 2) limit.value = 2
-  if (v < min && tab.value === 'game') tab.value = 'room'
 }, { flush: 'sync' })
 
 watch(anonymity, (next) => {
@@ -290,10 +262,6 @@ watch(anonymity, (next) => {
 }, { flush: 'sync' })
 
 watch(() => user.user, () => { if (!hadStoredTitle && !_title.value) _title.value = defaultTitle() }, { flush: 'post' })
-
-watch(() => JSON.stringify(game.value), (json) => {
-  try { localStorage.setItem('room:lastGame', json) } catch {}
-})
 
 onMounted(() => {
   if (!hadStoredTitle && !_title.value) _title.value = defaultTitle()
@@ -357,48 +325,13 @@ onBeforeUnmount(() => {
       flex-direction: column;
       padding: 10px 10px 0;
       background-color: $dark;
-      .tab-viewport {
-        position: relative;
-        height: 215px;
-        border-top: 3px solid $lead;
-        border-left: 3px solid $lead;
-        border-right: 3px solid $lead;
-        overflow-y: auto;
-        overflow-x: hidden;
-        scrollbar-width: none;
-      }
-      .tabs {
-        display: flex;
-        align-items: flex-end;
-        width: 100%;
-        height: 40px;
-        button {
-          width: 50%;
-          height: 30px;
-          border: none;
-          border-radius: 5px 5px 0 0;
-          background-color: $graphite;
-          color: $fg;
-          font-size: 16px;
-          font-family: Manrope-Medium;
-          line-height: 1;
-          cursor: pointer;
-          transition: height 0.25s ease-in-out, background-color 0.25s ease-in-out;
-          &.active {
-            height: 40px;
-            background-color: $lead;
-          }
-          &:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-          }
-        }
-      }
       .params {
         display: flex;
         flex-direction: column;
         padding: 15px 10px;
         gap: 15px;
+        border: 3px solid $lead;
+        border-bottom: none;
         .range {
           display: flex;
           flex-direction: column;
@@ -450,23 +383,6 @@ onBeforeUnmount(() => {
   }
 }
 
-.slide-left-enter-active,
-.slide-left-leave-active,
-.slide-right-enter-active,
-.slide-right-leave-active {
-  transition: transform 0.25s ease-out, opacity 0.25s ease-out;
-}
-.slide-left-enter-from,
-.slide-right-leave-to {
-  transform: translateX(60px);
-  opacity: 0;
-}
-.slide-right-enter-from,
-.slide-left-leave-to {
-  transform: translateX(-60px);
-  opacity: 0;
-}
-
 .overlay-enter-active,
 .overlay-leave-active {
   transition: opacity 0.25s ease-in-out;
@@ -484,13 +400,10 @@ onBeforeUnmount(() => {
   .overlay {
     .modal {
       .modal-div {
-        .tab-viewport {
-          height: 190px;
-          scrollbar-width: auto;
-        }
         .params {
           padding: 10px;
           gap: 10px;
+          scrollbar-width: auto;
         }
       }
     }

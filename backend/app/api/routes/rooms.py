@@ -301,6 +301,8 @@ async def update_game(room_id: int, payload: GameParams, ident: Identity = Depen
         details=f"Обновлены параметры игры room_id={room_id} title={params.get('title') or ''} changes={changes_str}",
     )
 
+    await emit_rooms_upsert(room_id)
+
     return Ok()
 
 

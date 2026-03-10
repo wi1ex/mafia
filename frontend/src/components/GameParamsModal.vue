@@ -114,6 +114,10 @@ function emitClose() {
   emit('update:open', false)
 }
 
+function saveLastGame(gameToStore: Game) {
+  try { localStorage.setItem('room:lastGame', JSON.stringify(gameToStore)) } catch {}
+}
+
 async function loadGame() {
   if (!props.roomId) return
   loading.value = true
@@ -135,6 +139,7 @@ async function save() {
   try {
     const payload = { ...game.value }
     await api.patch(`/rooms/${props.roomId}/game`, payload)
+    saveLastGame(payload)
     initialGame.value = { ...payload }
     emit('saved', payload)
     emitClose()
