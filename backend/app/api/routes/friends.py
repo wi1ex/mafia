@@ -33,6 +33,7 @@ from ...api.utils import (
     raise_missing_outgoing_request_error,
     emit_notify,
     emit_friends_update,
+    elapsed_seconds_since,
 )
 
 router = APIRouter()
@@ -446,8 +447,17 @@ async def cancel_friend_request(user_id: int, ident: Identity = Depends(get_iden
     if target_id == uid:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="self_request")
 
+    link = await load_link(db, uid, target_id)
+    if not link or link.status != "pending" or int(link.requester_id) != uid:
+        await raise_missing_outgoing_request_error(db, uid, target_id)
+
+    request_seconds = elapsed_seconds_since(cast(datetime | None, link.created_at))
+    if request_seconds is not None and request_seconds < FRIEND_REMOVE_MIN_SECONDS:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="friend_request_cancel_too_early")
+
     deleted = await db.execute(
         delete(FriendLink).where(
+            FriendLink.id == link.id,
             FriendLink.requester_id == uid,
             FriendLink.addressee_id == target_id,
             FriendLink.status == "pending",
@@ -494,12 +504,9 @@ async def remove_friend(user_id: int, ident: Identity = Depends(get_identity), d
     responded_at = cast(datetime | None, link.responded_at)
     created_at = cast(datetime | None, link.created_at)
     accepted_at = responded_at or created_at
-    if accepted_at is not None:
-        if accepted_at.tzinfo is None:
-            accepted_at = accepted_at.replace(tzinfo=timezone.utc)
-        friendship_seconds = (datetime.now(timezone.utc) - accepted_at).total_seconds()
-        if friendship_seconds < FRIEND_REMOVE_MIN_SECONDS:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="friend_remove_too_early")
+    friendship_seconds = elapsed_seconds_since(accepted_at)
+    if friendship_seconds is not None and friendship_seconds < FRIEND_REMOVE_MIN_SECONDS:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="friend_remove_too_early")
 
     await db.execute(delete(FriendLink).where(FriendLink.id == link.id))
     await db.commit()

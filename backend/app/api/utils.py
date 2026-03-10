@@ -85,6 +85,7 @@ __all__ = [
     "fetch_sanction_counts_for_users",
     "user_sort_metric",
     "compute_duration_seconds",
+    "elapsed_seconds_since",
     "is_sanction_active",
     "fetch_active_sanction",
     "fetch_active_sanctions",
@@ -175,6 +176,15 @@ def sanitize_title_for_schema(v: Any) -> str:
     s = TITLE_BIDI_RE.sub("", s)
     s = TITLE_WS_RE.sub(" ", s).strip()
     return s
+
+
+def elapsed_seconds_since(at: datetime | None) -> float | None:
+    if at is None:
+        return None
+
+    if at.tzinfo is None:
+        at = at.replace(tzinfo=timezone.utc)
+    return (datetime.now(timezone.utc) - at).total_seconds()
 
 
 def _as_positive_int(raw: object) -> int:
