@@ -308,7 +308,7 @@ function formatMetric(value: number): string {
             object-fit: cover;
           }
           span {
-            width: 110px;
+            width: 105px;
             height: 14px;
             color: $fg;
             font-size: 12px;
