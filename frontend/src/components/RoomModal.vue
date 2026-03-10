@@ -32,6 +32,10 @@
               :dead-zone-value="DEAD_MIN"
               aria-label="Лимит участников"
             />
+            <div class="range-marks" aria-hidden="true">
+              <span class="range-mark" :style="rangeMarkStyle(2)">DUO</span>
+              <span class="range-mark" :style="rangeMarkStyle(11)">MAFIA</span>
+            </div>
           </div>
 
           <ToggleSwitch v-model="isPrivate" :disabled="isPrivacyLocked" label="Приватность:" off-label="Открытая" on-label="Закрытая" aria-label="Приватность: открытая/закрытая" />
@@ -197,6 +201,12 @@ const isPrivacyLocked = computed(() => anonymity.value === 'hidden')
 
 function clamp(n: number, min: number, max: number) { return Math.max(min, Math.min(max, n)) }
 
+function rangeMarkStyle(value: number) {
+  const span = RANGE_MAX - RANGE_MIN
+  const pct = span > 0 ? ((value - RANGE_MIN) * 100) / span : 0
+  return { left: `${pct}%` }
+}
+
 function saveBasic() {
   try {
     const payload: RoomBasic = {
@@ -347,6 +357,32 @@ onBeforeUnmount(() => {
             font-size: 12px;
             font-weight: bold;
             letter-spacing: 1px;
+          }
+          .range-marks {
+            position: relative;
+            height: 20px;
+            margin-top: -3px;
+          }
+          .range-mark {
+            position: absolute;
+            top: 0;
+            color: $fg;
+            font-size: 10px;
+            font-family: Manrope-SemiBold;
+            letter-spacing: 0.8px;
+            line-height: 1;
+            white-space: nowrap;
+            transform: translateX(-50%);
+            &::before {
+              content: "";
+              position: absolute;
+              left: 50%;
+              bottom: calc(100% + 3px);
+              width: 1px;
+              height: 5px;
+              background-color: $grey;
+              transform: translateX(-50%);
+            }
           }
         }
       }
