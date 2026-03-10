@@ -41,7 +41,7 @@ function wireAuthedSocket(s: Socket) {
     const tok = await refreshAccessToken(false)
     if (tok) {
       applyAuth()
-      try { s.io.reconnect() } catch {}
+      try { s.connect() } catch {}
     } else {
       try { (s.io.opts as any).reconnection = false } catch {}
       try { s.close() } catch {}

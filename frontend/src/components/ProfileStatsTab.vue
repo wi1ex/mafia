@@ -131,7 +131,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch, withDefaults } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { api } from '@/services/axios'
 import { useSettingsStore } from '@/store'
 import iconRoleCitizen from '@/assets/images/roleCitizen.png'

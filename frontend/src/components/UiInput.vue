@@ -22,7 +22,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, useAttrs } from 'vue'
+import { computed, useAttrs, type StyleValue } from 'vue'
 
 defineOptions({ inheritAttrs: false })
 
@@ -56,7 +56,7 @@ const inputAttrs = computed(() => {
   return rest
 })
 const rootClass = computed(() => attrs.class)
-const rootStyle = computed(() => attrs.style)
+const rootStyle = computed<StyleValue>(() => (attrs.style ?? null) as StyleValue)
 const controlTag = computed(() => props.as)
 
 const isFilled = computed(() => {

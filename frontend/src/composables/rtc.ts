@@ -1,9 +1,10 @@
-import { ref, type Ref, watch } from 'vue'
+import { ref, shallowRef, type Ref, watch } from 'vue'
 import {
   createLocalScreenTracks,
   type LocalTrack,
   LocalTrackPublication,
   LogLevel,
+  type RoomOptions,
   RemoteParticipant,
   RemoteTrack,
   RemoteTrackPublication,
@@ -12,6 +13,7 @@ import {
   ScreenSharePresets,
   setLogLevel,
   Track,
+  type TrackPublishOptions,
   VideoPreset,
   VideoPresets,
   VideoQuality
@@ -35,7 +37,7 @@ const BGM_VOLUME_LS = 'bgm:volume'
 const BGM_DEFAULT_VOLUME = 50
 const BGM_MAX_VOLUME = 0.5
 const BGM_FILES = Object.entries(
-  import.meta.glob('@/assets/music/*.mp3', { eager: true, as: 'url' })
+  import.meta.glob('@/assets/music/*.mp3', { eager: true, query: '?url', import: 'default' })
 )
   .sort(([a], [b]) => a.localeCompare(b))
   .map(([, v]) => v as string)
@@ -89,9 +91,9 @@ export type UseRTC = {
   initRoom: (opts?: {
     onScreenShareEnded?: () => void | Promise<void>
     onRemoteScreenShareEnded?: (id: string) => void | Promise<void>
-    publishDefaults?: ConstructorParameters<typeof LkRoom>[0]['publishDefaults']
-    audioCaptureDefaults?: ConstructorParameters<typeof LkRoom>[0]['audioCaptureDefaults']
-    videoCaptureDefaults?: ConstructorParameters<typeof LkRoom>[0]['videoCaptureDefaults']
+    publishDefaults?: RoomOptions['publishDefaults']
+    audioCaptureDefaults?: RoomOptions['audioCaptureDefaults']
+    videoCaptureDefaults?: RoomOptions['videoCaptureDefaults']
     onDisconnected?: () => void | Promise<void>
   }) => LkRoom
   connect: (wsUrl: string, token: string, opts?: {
@@ -137,7 +139,7 @@ export type UseRTC = {
 
 export function useRTC(): UseRTC {
   let connectInFlight: Promise<void> | null = null
-  const lk = ref<LkRoom | null>(null)
+  const lk = shallowRef<LkRoom | null>(null)
   const localId = ref('')
   const peerIds = ref<string[]>([])
   const videoEls = new Map<string, HTMLVideoElement>()
@@ -196,10 +198,10 @@ export function useRTC(): UseRTC {
   const cameraPublishOptions = () => ({
     simulcast: false,
     videoSimulcastLayers: undefined,
-    videoCodec: 'h264',
+    videoCodec: 'h264' as const,
     videoEncoding: cameraPreset().encoding,
-    degradationPreference: 'maintain-framerate',
-  })
+    degradationPreference: 'maintain-framerate' as const,
+  } satisfies TrackPublishOptions)
   let lastScreenShareError: 'canceled' | 'failed' | null = null
   const isUserCancel = (e: any) => {
     const n = e?.name
@@ -692,7 +694,7 @@ export function useRTC(): UseRTC {
       return
     }
     room.remoteParticipants.forEach(p => {
-      const has = p.getTrackPublications().some(pub => pub.kind === Track.Kind.Audio && isSub(pub))
+      const has = p.getTrackPublications().some(pub => pub.kind === Track.Kind.Audio && isSub(pub as RemoteTrackPublication))
       if (has) s.add(String(p.identity))
     })
     audibleIds.value = s
@@ -996,7 +998,6 @@ export function useRTC(): UseRTC {
     if (!a) {
       a = new Audio()
       a.autoplay = true
-      a.playsInline = true
       a.muted = true
       a.style.display = 'none'
       audioEls.set(id, a)
@@ -1217,7 +1218,7 @@ export function useRTC(): UseRTC {
     const pub = room.localParticipant.getTrackPublications()
       .find(p => p.kind === Track.Kind.Video && (p as any).source === Track.Source.Camera)
     if (!pub || !pub.track || (pub as any).isMuted) return
-    try { await room.localParticipant.unpublishTrack(pub.track) } catch {}
+    try { await room.localParticipant.unpublishTrack(pub.track as LocalTrack<Track.Kind.Video>) } catch {}
     try { pub.track.stop() } catch {}
     try {
       await room.localParticipant.setCameraEnabled(true, cameraOptions(selectedCamId.value), cameraPublishOptions())
@@ -1259,7 +1260,7 @@ export function useRTC(): UseRTC {
         p.getTrackPublications().forEach(pub => {
           if (pub.kind === Track.Kind.Audio) {
             if (pub.isSubscribed === on) return
-            try { pub.setSubscribed(on) } catch {}
+            try { (pub as RemoteTrackPublication).setSubscribed(on) } catch {}
           }
         })
       })
@@ -1303,7 +1304,7 @@ export function useRTC(): UseRTC {
     p.getTrackPublications().forEach(pub => {
       if (pub.kind === Track.Kind.Audio) {
         if (pub.isSubscribed === wantAudio.value) return
-        try { pub.setSubscribed(wantAudio.value) } catch {}
+        try { (pub as RemoteTrackPublication).setSubscribed(wantAudio.value) } catch {}
         return
       }
       if (pub.kind === Track.Kind.Video) {
@@ -1470,9 +1471,9 @@ export function useRTC(): UseRTC {
   function initRoom(opts?: {
     onScreenShareEnded?: () => void | Promise<void>
     onRemoteScreenShareEnded?: (id: string) => void | Promise<void>
-    publishDefaults?: ConstructorParameters<typeof LkRoom>[0]['publishDefaults']
-    audioCaptureDefaults?: ConstructorParameters<typeof LkRoom>[0]['audioCaptureDefaults']
-    videoCaptureDefaults?: ConstructorParameters<typeof LkRoom>[0]['videoCaptureDefaults']
+    publishDefaults?: RoomOptions['publishDefaults']
+    audioCaptureDefaults?: RoomOptions['audioCaptureDefaults']
+    videoCaptureDefaults?: RoomOptions['videoCaptureDefaults']
     onDisconnected?: () => void | Promise<void>
   }): LkRoom {
     if (lk.value) {

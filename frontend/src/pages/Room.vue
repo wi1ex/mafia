@@ -107,7 +107,7 @@
 
       <div v-else class="theater">
         <div class="stage">
-          <video :ref="stableScreenRef(screenOwnerId)" playsinline autoplay muted />
+          <video :ref="(el) => stableScreenRef(screenOwnerId)(el as HTMLVideoElement | null)" playsinline autoplay muted />
           <div v-if="screenOwnerId !== localId && streamAudioKey" class="volume" @click.stop>
             <img :src="volumeIconForStream(streamAudioKey)" alt="vol" />
             <UiSlider
@@ -221,7 +221,7 @@
 
       <div class="panel" :class="{ 'panel-high': buttonsHigh }">
         <div class="controls-side left">
-          <button @click="onLeave" aria-label="Покинуть комнату">
+          <button @click="() => void onLeave()" aria-label="Покинуть комнату">
             <img :src="iconLeaveRoom" alt="leave" />
           </button>
           <button v-if="gamePhase !== 'idle' && isHead && !gameFinished" @click="endGameUi" :disabled="endingGame" aria-label="Завершить игру">
@@ -270,22 +270,22 @@
             <img :src="readyOn ? iconReadyGreen : iconReadyWhite" alt="ready" />
               <span v-if="!IS_MOBILE && hotkeysVisible" class="hot-btn">G</span>
           </button>
-          <button v-if="gamePhase === 'idle' || isHead" @click="toggleMic" :disabled="pending.mic || blockedSelf.mic" :aria-pressed="micOn">
+          <button v-if="gamePhase === 'idle' || isHead" @click="toggleMic" :disabled="pending.mic || blockedSelf.mic === 1" :aria-pressed="micOn">
             <img :src="stateIcon('mic', localId)" alt="mic" />
               <span v-if="!IS_MOBILE && hotkeysVisible" class="hot-btn">M</span>
           </button>
-          <button v-if="gamePhase === 'idle' || isHead" @click="toggleCam" :disabled="pending.cam || blockedSelf.cam" :aria-pressed="camOn">
+          <button v-if="gamePhase === 'idle' || isHead" @click="toggleCam" :disabled="pending.cam || blockedSelf.cam === 1" :aria-pressed="camOn">
             <img :src="stateIcon('cam', localId)" alt="cam" />
               <span v-if="!IS_MOBILE && hotkeysVisible" class="hot-btn">C</span>
           </button>
           <button v-if="gamePhase !== 'idle' && isHead" @click="toggleHostBlur" :disabled="!hostBlurToggleEnabled || hostBlurPending" :aria-pressed="hostBlurActive" aria-label="Затемнить экран">
             <img :src="hostBlurActive ? iconBlurOn : iconBlurOff" alt="blur" />
           </button>
-          <button v-if="gamePhase === 'idle'" @click="toggleSpeakers" :disabled="pending.speakers || blockedSelf.speakers" :aria-pressed="speakersOn">
+          <button v-if="gamePhase === 'idle'" @click="toggleSpeakers" :disabled="pending.speakers || blockedSelf.speakers === 1" :aria-pressed="speakersOn">
             <img :src="stateIcon('speakers', localId)" alt="speakers" />
               <span v-if="!IS_MOBILE && hotkeysVisible" class="hot-btn">S</span>
           </button>
-          <button v-if="gamePhase === 'idle' && !IS_MOBILE && settings.streamsCanStart" @click="toggleScreen" :disabled="pendingScreen || (!!screenOwnerId && screenOwnerId !== localId) || blockedSelf.screen" :aria-pressed="isMyScreen">
+          <button v-if="gamePhase === 'idle' && !IS_MOBILE && settings.streamsCanStart" @click="toggleScreen" :disabled="pendingScreen || (!!screenOwnerId && screenOwnerId !== localId) || blockedSelf.screen === 1" :aria-pressed="isMyScreen">
             <img :src="stateIcon('screen', localId)" alt="screen" />
           </button>
         </div>
@@ -394,7 +394,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, shallowRef, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
 import type { Socket } from 'socket.io-client'
@@ -589,7 +589,7 @@ const micOn = computed({ get: () => local.mic, set: v => { local.mic = v } })
 const camOn = computed({ get: () => local.cam, set: v => { local.cam = v } })
 const speakersOn = computed({ get: () => local.speakers, set: v => { local.speakers = v } })
 const visibilityOn = computed({ get: () => local.visibility, set: v => { local.visibility = v } })
-const socket = ref<Socket | null>(null)
+const socket = shallowRef<Socket | null>(null)
 const joinInFlight = ref<Promise<any> | null>(null)
 const statusByUser = reactive(new Map<string, StatusState>())
 const positionByUser = reactive(new Map<string, number>())
@@ -972,13 +972,13 @@ async function onFriendAction(id: string, kind: 'add' | 'remove' | 'incoming' | 
   }
 }
 
-function memoRef<K, F extends (k:K) => any> (cache: Map<any, any>, factory: F) {
+function memoRef<K, V>(cache: Map<K, V>, factory: (k: K) => V): (k: K) => V {
   return (k: K) => {
     const c = cache.get(k)
     if (c) return c
-    const f = factory(k)
-    cache.set(k,f)
-    return f
+    const value = factory(k)
+    cache.set(k, value)
+    return value
   }
 }
 const videoRefMemo = new Map<string, (el: HTMLVideoElement | null) => void>()
@@ -2234,7 +2234,7 @@ function applyJoinAck(j: any) {
   rtc.peerIds.value = [...ids]
 
   blockByUser.clear()
-  for (const [uid, bl] of Object.entries(j.blocked || {})) {
+  for (const [uid, bl] of Object.entries((j.blocked || {}) as Record<string, any>)) {
     blockByUser.set(String(uid), {
       mic:        pick01(bl.mic, 0),
       cam:        pick01(bl.cam, 0),
@@ -2804,7 +2804,7 @@ async function applyBackgroundMute(): Promise<void> {
   }
 }
 
-function onBackgroundVisibility(e?: PageTransitionEvent) {
+function onBackgroundVisibility(e?: Event) {
   const type = (e as any)?.type
   const hidden = document.visibilityState === 'hidden' || type === 'pagehide'
   if (hidden) rtc.flushVolumePrefs()
@@ -2856,7 +2856,7 @@ function kickSpeechAudio() {
 
 watch(() => [gamePhase.value, game.daySpeech.currentId, game.daySpeech.remainingMs, speakersOn.value, blockedSelf.value.speakers], ([phase, cur, ms]) => {
   if ((phase !== 'day' && phase !== 'vote') || !cur) return
-  if ((ms ?? 0) > 0) return
+  if (Number(ms ?? 0) > 0) return
   kickSpeechAudio()
 }, { immediate: true })
 

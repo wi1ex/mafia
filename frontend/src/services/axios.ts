@@ -3,7 +3,12 @@ import axios,{
 } from 'axios'
 
 declare module 'axios' {
-  export interface InternalAxiosRequestConfig<D = unknown> {
+  export interface AxiosRequestConfig<D = any> {
+    __retry401?: boolean
+    __skipAuth?: boolean
+  }
+
+  export interface InternalAxiosRequestConfig<D = any> {
     __retry401?: boolean
     __skipAuth?: boolean
   }
@@ -64,7 +69,14 @@ function setReqAuthHeader(cfg: InternalAxiosRequestConfig, tok: string): void {
 
 async function doRefreshWithTimeout(): Promise<RefreshResult> {
   const ctrl = new AbortController()
-  let tid: ReturnType<typeof setTimeout>
+  let resolveTimeout: (value: string | null) => void = () => {}
+  const timeoutPromise = new Promise<string | null>((resolve) => {
+    resolveTimeout = resolve
+  })
+  const tid = setTimeout(() => {
+    try { ctrl.abort() } catch {}
+    resolveTimeout(null)
+  }, 10_000)
   const refreshPromise = (async () => {
     try {
       const headers = AxiosHeaders.from({ Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' })
@@ -76,14 +88,10 @@ async function doRefreshWithTimeout(): Promise<RefreshResult> {
     } catch {
       setAuthHeader('')
       return { token: null }
-    } finally { clearTimeout(tid) }
+    } finally {
+      clearTimeout(tid)
+    }
   })()
-  const timeoutPromise = new Promise<string | null>((resolve) => {
-    tid = setTimeout(() => {
-      try { ctrl.abort() } catch {}
-      resolve(null)
-    }, 10_000)
-  })
   const res = await Promise.race([refreshPromise, timeoutPromise])
   return (res && typeof res === 'object' && 'token' in res) ? res as RefreshResult : { token: res as string | null }
 }

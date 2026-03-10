@@ -80,7 +80,7 @@
         <div v-if="!isSpectator" class="switch-device-div">
           <span>Выбор камеры:</span>
           <div class="ui-select" ref="camRoot" :class="{ open: camOpen }">
-            <button type="button" @click="toggleCamDd" :aria-expanded="String(camOpen)" aria-label="Список камер">
+            <button type="button" @click="toggleCamDd" :aria-expanded="camOpen" aria-label="Список камер">
               <span>{{ camLabel }}</span>
               <img :src="iconArrowDown" alt="arrow" />
             </button>
@@ -100,7 +100,7 @@
         <div v-if="!isSpectator" class="switch-device-div">
           <span>Выбор микрофона:</span>
           <div class="ui-select" ref="micRoot" :class="{ open: micOpen }">
-            <button type="button" @click="toggleMicDd" :aria-expanded="String(micOpen)" aria-label="Список микрофонов">
+            <button type="button" @click="toggleMicDd" :aria-expanded="micOpen" aria-label="Список микрофонов">
               <span>{{ micLabel }}</span>
               <img :src="iconArrowDown" alt="arrow" />
             </button>

@@ -1,6 +1,6 @@
 <template>
   <div class="tile" :class="[{ speaking, mafia: redMark, 'best-move': bestMoveMarked && !redMark }, side && 'side']" tabindex="0">
-    <video v-show="showVideo" :ref="videoRef" playsinline autoplay muted :class="videoClass" />
+    <video v-show="showVideo" :ref="(el) => videoRef(el as HTMLVideoElement | null)" playsinline autoplay muted :class="videoClass" />
 
     <div class="icon-badge-ready" v-if="isReady(id)" aria-hidden="true">
       <img :src="iconReadyGreen" alt="ready" />
@@ -57,7 +57,7 @@
       </button>
     </div>
 
-    <button v-if="isGameHead && showVoteButton" class="vote-btn" :disabled="!voteEnabled" @click="$emit('vote')">
+    <button v-if="isGameHead && showVoteButton" class="vote-btn" :disabled="!voteEnabled" @click="$emit('vote', id)">
       <img :src="iconLikeBlack" alt="vote" />
       <span>Проголосовать</span>
       <span v-if="!isMobile && hotkeysVisible" class="hot-btn">_</span>
