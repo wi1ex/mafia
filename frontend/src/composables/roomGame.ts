@@ -2466,6 +2466,8 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
          void alertDialog('Речь завершена, завещание недоступно')
       } else if (st === 409 && code === 'not_farewell') {
          void alertDialog('Сейчас нельзя оставлять завещание')
+      } else if (st === 409 && code === 'farewell_forbidden') {
+         void alertDialog('Завещание запрещено: после этих удалений игра завершится')
       } else if (st === 409 && code === 'farewell_disabled') {
          void alertDialog('Завещания отключены в этой комнате')
       } else {

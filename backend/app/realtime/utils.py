@@ -2570,6 +2570,54 @@ def farewell_formula(x: int) -> int:
     return (x // 2) + 1
 
 
+def farewell_finishes_game(red_alive_cnt: int, black_alive_cnt: int) -> bool:
+    if black_alive_cnt <= 0:
+        return True
+
+    return black_alive_cnt >= red_alive_cnt
+
+
+def count_alive_teams(raw_roles: Mapping[str | int, Any], alive_ids: Iterable[int], *, excluded_ids: Iterable[int] = ()) -> tuple[int, int]:
+    excluded = set(excluded_ids)
+    red_alive_cnt = 0
+    black_alive_cnt = 0
+    for uid in alive_ids:
+        if uid in excluded:
+            continue
+        role = raw_roles.get(str(uid))
+        if role is None:
+            role = raw_roles.get(uid)
+        role_name = str(role or "")
+        if role_name in ("mafia", "don"):
+            black_alive_cnt += 1
+        elif role_name in ("citizen", "sheriff"):
+            red_alive_cnt += 1
+
+    return red_alive_cnt, black_alive_cnt
+
+
+def get_farewell_doomed_ids(alive_ids: Iterable[int], speaker_uid: int, *, mode: str = "killed", lift_state: str = "", leaders: Iterable[int] = ()) -> set[int]:
+    alive_set = set(alive_ids)
+    doomed_ids = {speaker_uid}
+    if mode == "voted" and lift_state == "passed":
+        doomed_ids.update(uid for uid in leaders if uid in alive_set)
+
+    return doomed_ids
+
+
+def farewell_allowed_from_snapshot(raw_roles: Mapping[str | int, Any], alive_ids: Iterable[int], speaker_uid: int, *, mode: str = "killed", lift_state: str = "", leaders: Iterable[int] = ()) -> bool:
+    doomed_ids = get_farewell_doomed_ids(alive_ids, speaker_uid, mode=mode, lift_state=lift_state, leaders=leaders)
+    red_alive_cnt, black_alive_cnt = count_alive_teams(raw_roles, alive_ids, excluded_ids=doomed_ids)
+    if farewell_finishes_game(red_alive_cnt, black_alive_cnt):
+        return False
+
+    if mode == "voted":
+        red_after_night_kill = max(red_alive_cnt - 1, 0)
+        return not farewell_finishes_game(red_after_night_kill, black_alive_cnt)
+
+    return True
+
+
 async def compute_farewell_limit(r, rid: int, speaker_uid: int, *, mode: str = "killed") -> int:
     alive = await smembers_ints(r, f"room:{rid}:game_alive")
     others = len([u for u in alive if u != speaker_uid])
@@ -2587,23 +2635,23 @@ async def compute_farewell_allowed(r, rid: int, speaker_uid: int, *, mode: str =
     if not game_flag(raw_game, "farewell_wills", True):
         return False
 
-    alive = await smembers_ints(r, f"room:{rid}:game_alive")
-    others = [u for u in alive if u != speaker_uid]
-    x = len(others)
+    raw_state: Mapping[str, Any] = {}
+    lift_state = ""
+    if mode == "voted":
+        try:
+            raw_state = await r.hgetall(f"room:{rid}:game_state")
+        except Exception:
+            raw_state = {}
+        lift_state = str(raw_state.get("vote_lift_state") or "")
 
+    alive = await smembers_ints(r, f"room:{rid}:game_alive")
     if mode == "voted":
         if not game_flag(raw_game, "break_at_zero", True):
             try:
-                day_number = int(await r.hget(f"room:{rid}:game_state", "day_number") or 0)
+                day_number = int(raw_state.get("day_number") or 0)
             except Exception:
                 day_number = 0
-
             if day_number == 1:
-                try:
-                    lift_state = str(await r.hget(f"room:{rid}:game_state", "vote_lift_state") or "")
-                except Exception:
-                    lift_state = ""
-
                 if lift_state != "passed":
                     return False
 
@@ -2611,28 +2659,7 @@ async def compute_farewell_allowed(r, rid: int, speaker_uid: int, *, mode: str =
         raw_roles = await r.hgetall(f"room:{rid}:game_roles")
     except Exception:
         raw_roles = {}
-
-    mafia_count = 0
-    speaker_role = None
-    for k, role in (raw_roles or {}).items():
-        try:
-            uid = int(k)
-        except Exception:
-            continue
-        if uid == speaker_uid:
-            speaker_role = role
-        if uid not in others:
-            continue
-        if str(role or "") in ("mafia", "don"):
-            mafia_count += 1
-
-    if str(speaker_role or "") in ("mafia", "don") and mafia_count == 0:
-        return False
-
-    if mode == "voted":
-        return (x - 1) > 2 * mafia_count
-
-    return x > 2 * mafia_count
+    return farewell_allowed_from_snapshot(raw_roles, alive, speaker_uid, mode=mode, lift_state=lift_state, leaders=parse_leaders(raw_state))
 
 
 async def ensure_farewell_limit(r, rid: int, speaker_uid: int, *, mode: str = "killed") -> int:

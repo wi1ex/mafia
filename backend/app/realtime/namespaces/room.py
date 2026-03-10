@@ -2954,7 +2954,9 @@ async def game_farewell_mark(sid, data):
         try:
             allowed = await compute_farewell_allowed(r, rid, speaker_uid, mode=mode)
         except Exception:
-            allowed = True
+            log.exception("game_farewell_mark.allowed_failed", rid=rid, uid=speaker_uid, mode=mode)
+            return {"ok": False, "error": "internal", "status": 500}
+
         if not allowed:
             return {"ok": False, "error": "farewell_forbidden", "status": 409}
 
