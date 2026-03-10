@@ -114,6 +114,7 @@ from ..utils import (
     finish_game,
     record_spectator_leave,
     maybe_emit_vote_presence_break,
+    maybe_finish_game_after_death,
 )
 
 log = structlog.get_logger()
@@ -3959,6 +3960,38 @@ async def game_vote_speech_next(sid, data):
         leader_idx = ctx.gint("vote_leader_idx")
         total = len(leaders)
         if leader_idx >= total:
+            vote_speeches_done = str(raw_gstate.get("vote_speeches_done") or "0") == "1"
+            if not vote_speeches_done:
+                payload = {
+                    "room_id": rid,
+                    "speaker_uid": 0,
+                    "opening_uid": 0,
+                    "closing_uid": 0,
+                    "deadline": 0,
+                    "speeches_done": True,
+                    "vote_blocked": str(raw_gstate.get("vote_blocked") or "0") == "1",
+                }
+                async with r.pipeline() as p:
+                    await p.hset(
+                        f"room:{rid}:game_state",
+                        mapping={
+                            "vote_speech_uid": "0",
+                            "vote_speech_started": "0",
+                            "vote_speech_duration": "0",
+                            "vote_speech_kind": "",
+                            "vote_speeches_done": "1",
+                        },
+                    )
+                    await p.execute()
+                await sio.emit("game_day_speech",
+                               payload,
+                               room=f"room:{rid}",
+                               namespace="/room")
+                if vote_lift_state == "passed":
+                    try:
+                        await maybe_finish_game_after_death(r, rid, head_uid=head_uid)
+                    except Exception:
+                        log.exception("game_vote_speech_next.finish_check_failed", rid=rid)
             return {"ok": False, "error": "no_more_leaders", "status": 409}
 
         target_uid = leaders[leader_idx]

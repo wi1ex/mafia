@@ -1180,8 +1180,10 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     const dy = (gr as any).day
     const vt = (gr as any).vote
     const nt = (gr as any).night
+    voteBlocked.value = false
 
     if (phase === 'day' && dy && typeof dy === 'object') {
+      voteBlocked.value = isTrueLike((dy as any).vote_blocked)
       const num = Number((dy as any).number || 0)
       dayNumber.value = Number.isFinite(num) && num > 0 ? num : 0
       const cleared = loadNightResultCleared()
@@ -1253,6 +1255,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
         }
       }
     } else if (phase === 'vote' && vt && typeof vt === 'object') {
+      voteBlocked.value = isTrueLike((vt as any).blocked)
       resetDaySpeechState(false)
       daySpeechesDone.value = true
       replaceIds(dayNominees, (vt as any).nominees)

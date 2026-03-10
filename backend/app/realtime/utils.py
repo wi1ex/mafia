@@ -2896,7 +2896,14 @@ async def finish_vote_speech(r, rid: int, raw_gstate: Mapping[str, Any], speaker
             skip_death = True
 
         if not skip_death:
-            has_pending_farewell_queue = bool(leaders) and leader_idx < len(leaders)
+            has_pending_farewell_queue = False
+            pending_farewell_ids = [uid for uid in leaders[leader_idx:] if uid and uid != speaker_uid]
+            if pending_farewell_ids:
+                async with r.pipeline() as p:
+                    for pending_uid in pending_farewell_ids:
+                        await p.sismember(f"room:{rid}:game_alive", str(pending_uid))
+                    pending_rows = await p.execute()
+                has_pending_farewell_queue = any(bool(row) for row in (pending_rows or []))
             await process_player_death(r, rid, speaker_uid, head_uid=head_uid, phase_override="vote", reason=reason_override or "vote",
                                        defer_finish_check=(has_pending_farewell_queue or force_defer_finish_check), ppk=ppk)
             killed = True
@@ -4018,9 +4025,30 @@ async def decide_vote_blocks_on_death(r, rid: int, raw_state: Mapping[str, Any],
     if vote_lift_state == "voting":
         return True, False, parse_leaders(raw_state)
 
+    day_number = get_day_number(raw_state)
+    raw_game_cache: Mapping[str, Any] | None = None
+
+    async def has_fixed_unique_target(leaders: list[int]) -> bool:
+        nonlocal raw_game_cache
+        if len(leaders) != 1:
+            return False
+
+        if raw_game_cache is None:
+            try:
+                raw_game_cache = await r.hgetall(f"room:{rid}:game")
+            except Exception:
+                raw_game_cache = {}
+        return not (day_number == 1 and not game_flag(raw_game_cache, "break_at_zero", True))
+
     vote_results_ready = str(raw_state.get("vote_results_ready") or "0") == "1"
     if vote_results_ready:
         leaders_ready = parse_leaders(raw_state)
+        if vote_lift_state == "passed":
+            return False, False, leaders_ready
+
+        if await has_fixed_unique_target(leaders_ready):
+            return False, False, leaders_ready
+
         if len(leaders_ready) > 1:
             vote_speeches_done = str(raw_state.get("vote_speeches_done") or "0") == "1"
             if not vote_speeches_done:
@@ -4039,6 +4067,9 @@ async def decide_vote_blocks_on_death(r, rid: int, raw_state: Mapping[str, Any],
     vote_done = str(raw_state.get("vote_done") or "0") == "1"
     if vote_done:
         leaders_done = await compute_vote_effective_leaders(r, rid, remaining_target_uid=None)
+        if await has_fixed_unique_target(leaders_done):
+            return False, False, leaders_done
+
         if len(leaders_done) == 1:
             if victim_uid in leaders_done:
                 return True, False, leaders_done
@@ -4049,6 +4080,9 @@ async def decide_vote_blocks_on_death(r, rid: int, raw_state: Mapping[str, Any],
 
     predetermined, leaders_pending = await compute_vote_predetermined_unique_leader(r, rid, raw_state)
     if predetermined:
+        if await has_fixed_unique_target(leaders_pending) and victim_uid not in leaders_pending:
+            return False, False, leaders_pending
+
         if len(leaders_pending) == 1 and victim_uid in leaders_pending:
             return True, False, leaders_pending
 
