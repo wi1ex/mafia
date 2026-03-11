@@ -45,7 +45,7 @@
       </div>
     </div>
 
-    <aside class="right" aria-live="polite" ref="rightEl" @pointerdown.self="selArmed = true"
+    <aside class="right" :class="{ 'right--admin-banner': adminBannerActive }" aria-live="polite" ref="rightEl" @pointerdown.self="selArmed = true"
            @pointerup.self="selArmed && clearSelection()" @pointerleave.self="selArmed = false" @pointercancel.self="selArmed = false">
       <Transition name="room-panel" mode="out-in">
         <div v-if="selectedId" key="info" class="room-info">
@@ -283,6 +283,10 @@ const sortedMembers = computed<RoomInfoMember[]>(() => {
 const isFull = computed(() => selectedRoom.value ? isFullRoom(selectedRoom.value) : false)
 const currentUserId = computed(() => userStore.user?.id ?? null)
 const verificationRestricted = computed(() => auth.isAuthed && settings.verificationRestrictions && !userStore.telegramVerified)
+const adminBannerActive = computed(() => {
+  const text = String(settings.adminBannerText || '').trim()
+  return Boolean(text && text !== '0')
+})
 const blockedLabel = computed(() => {
   if (selectedRoom.value?.entry_closed) return 'Вход закрыт'
   if (!settings.roomsCanEnter) return 'Вход отключен'
@@ -912,6 +916,9 @@ onBeforeUnmount(() => {
     border-radius: 5px;
     background-color: $dark;
     overflow: hidden;
+    &.right--admin-banner {
+      height: min(calc(100dvh - 100px), 480px);
+    }
     .loading-overlay {
       margin: auto;
       text-align: center;
