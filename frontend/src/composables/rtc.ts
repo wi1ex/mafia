@@ -133,6 +133,7 @@ export type UseRTC = {
   unlockBgmOnGesture: () => Promise<void>
   destroyBgm: () => void
   flushVolumePrefs: () => void
+  hasCameraTrack: (id: string) => boolean
   hasRemoteCameraTrack: (id: string) => boolean
   cleanupPeer: (id: string, opts?: { keepVideo?: boolean; keepScreen?: boolean }) => void
 }
@@ -161,6 +162,8 @@ export function useRTC(): UseRTC {
   const permProbed = ref<boolean>(permInit.audio || permInit.video)
   const hasAudioInput = ref(false)
   const hasVideoInput = ref(false)
+  const cameraTrackIds = ref<Set<string>>(new Set())
+  const screenTrackIds = ref<Set<string>>(new Set())
   const activeSpeakers = ref<Set<string>>(new Set())
   const audibleIds = ref<Set<string>>(new Set())
   const reconnecting = ref<boolean>(false)
@@ -251,6 +254,35 @@ export function useRTC(): UseRTC {
       return ctx.createMediaStreamSource(stream)
     }
   }
+  function resetTrackPresence() {
+    cameraTrackIds.value = new Set()
+    screenTrackIds.value = new Set()
+  }
+  function syncVideoTrackPresence(room: LkRoom) {
+    const nextCamera = new Set<string>()
+    const nextScreen = new Set<string>()
+    const localIdentity = String(room.localParticipant.identity || localId.value || '')
+
+    room.localParticipant.getTrackPublications().forEach(pub => {
+      if (pub.kind !== Track.Kind.Video || !pub.track) return
+      if (pub.source === Track.Source.Camera && localIdentity) nextCamera.add(localIdentity)
+      if (pub.source === Track.Source.ScreenShare && localIdentity) nextScreen.add(localIdentity)
+    })
+
+    room.remoteParticipants.forEach(p => {
+      const id = String(p.identity)
+      p.getTrackPublications().forEach(pub => {
+        if (pub.kind !== Track.Kind.Video || !pub.track) return
+        const source = (pub as RemoteTrackPublication).source
+        if (source === Track.Source.Camera) nextCamera.add(id)
+        if (source === Track.Source.ScreenShare) nextScreen.add(id)
+      })
+    })
+
+    cameraTrackIds.value = nextCamera
+    screenTrackIds.value = nextScreen
+  }
+  const hasCameraTrack = (id: string): boolean => cameraTrackIds.value.has(id)
 
   function getSavedVol(id: string): number {
     try {
@@ -919,7 +951,10 @@ export function useRTC(): UseRTC {
   function clearVideoEl(el: HTMLVideoElement) {
     cancelVideoClear(el)
     detachKnownVideoTrack(el)
+    try { el.pause() } catch {}
     try { el.srcObject = null } catch {}
+    try { el.removeAttribute('src') } catch {}
+    try { el.load() } catch {}
   }
   function attachTrackToVideoEl(el: HTMLVideoElement, track: LocalTrack | RemoteTrack): boolean {
     cancelVideoClear(el)
@@ -954,9 +989,9 @@ export function useRTC(): UseRTC {
   function attachBySource(room: LkRoom, id: string, src: Track.Source, el: HTMLVideoElement) {
     const track = resolveVideoTrack(room, id, src)
     if (!track) {
-      if (!videoTrackByEl.has(el)) {
-        try { el.srcObject = null } catch {}
-      }
+      const attached = videoTrackByEl.get(el)
+      if (attached) scheduleVideoClear(el, attached)
+      else clearVideoEl(el)
       return
     }
     if (!attachTrackToVideoEl(el, track)) {
@@ -1291,6 +1326,18 @@ export function useRTC(): UseRTC {
         } catch {}
       })
     })
+    if (!on) {
+      const nextCamera = new Set(cameraTrackIds.value)
+      room.remoteParticipants.forEach(p => {
+        const id = String(p.identity)
+        nextCamera.delete(id)
+        const el = videoEls.get(id)
+        if (el) clearVideoEl(el)
+      })
+      cameraTrackIds.value = nextCamera
+      return
+    }
+    syncVideoTrackPresence(room)
   }
 
   function applyVideoQuality(pub: RemoteTrackPublication) {
@@ -1321,19 +1368,7 @@ export function useRTC(): UseRTC {
     })
   }
 
-  const hasRemoteCameraTrack = (id: string): boolean => {
-    const room = lk.value
-    if (!room) return false
-    const part = getByIdentity(room, id)
-    if (!part) return false
-    return part.getTrackPublications().some(pub => {
-      if (pub.kind !== Track.Kind.Video) return false
-      const rpub = pub as RemoteTrackPublication
-      if (rpub.source !== Track.Source.Camera) return false
-      if (!rpub.isSubscribed) return false
-      return !!pub.track
-    })
-  }
+  const hasRemoteCameraTrack = (id: string): boolean => id !== localId.value && cameraTrackIds.value.has(id)
 
   const remoteQuality = ref<VQ>('hd')
   function setRemoteQualityForAll(q: VQ, _opts?: { persist?: boolean }) {
@@ -1362,6 +1397,16 @@ export function useRTC(): UseRTC {
   function cleanupPeer(id: string, opts?: { keepVideo?: boolean; keepScreen?: boolean }) {
     const keepVideo = opts?.keepVideo === true
     const keepScreen = opts?.keepScreen === true
+    if (cameraTrackIds.value.has(id)) {
+      const next = new Set(cameraTrackIds.value)
+      next.delete(id)
+      cameraTrackIds.value = next
+    }
+    if (screenTrackIds.value.has(id)) {
+      const next = new Set(screenTrackIds.value)
+      next.delete(id)
+      screenTrackIds.value = next
+    }
     const room = lk.value
     const part = room ? getByIdentity(room, id) : undefined
     if (part) {
@@ -1408,6 +1453,7 @@ export function useRTC(): UseRTC {
   }
 
   function cleanupMedia() {
+    resetTrackPresence()
     activeSpeakers.value = new Set()
     audibleIds.value = new Set()
     videoEls.forEach(el => clearVideoEl(el))
@@ -1516,18 +1562,27 @@ export function useRTC(): UseRTC {
 
     room.on(RoomEvent.Reconnected, () => {
       reconnecting.value = false
+      syncVideoTrackPresence(room)
       room.remoteParticipants.forEach(p => {
         applySubsFor(p)
         const id = String(p.identity)
         const v = videoEls.get(id)
         if (v) {
           const camTrack = resolveVideoTrack(room, id, Track.Source.Camera)
-          if (camTrack && !attachTrackToVideoEl(v, camTrack)) clearVideoEl(v)
+          if (camTrack) {
+            if (!attachTrackToVideoEl(v, camTrack)) clearVideoEl(v)
+          } else {
+            clearVideoEl(v)
+          }
         }
         const sv = screenVideoEls.get(id)
         if (sv) {
           const screenTrack = resolveVideoTrack(room, id, Track.Source.ScreenShare)
-          if (screenTrack && !attachTrackToVideoEl(sv, screenTrack)) clearVideoEl(sv)
+          if (screenTrack) {
+            if (!attachTrackToVideoEl(sv, screenTrack)) clearVideoEl(sv)
+          } else {
+            clearVideoEl(sv)
+          }
         }
       })
       refreshAudibleIds()
@@ -1581,6 +1636,7 @@ export function useRTC(): UseRTC {
         const el = videoEls.get(localId.value)
         if (el && pub.track && !attachTrackToVideoEl(el, pub.track)) clearVideoEl(el)
       }
+      syncVideoTrackPresence(room)
     })
 
     room.on(RoomEvent.LocalTrackUnpublished, (pub: LocalTrackPublication) => {
@@ -1591,6 +1647,7 @@ export function useRTC(): UseRTC {
       if (pub.kind === Track.Kind.Video && pub.source === Track.Source.Camera) {
         handleLocalVideoUnpublished(Track.Source.Camera, pub.track as LocalTrack | undefined)
       }
+      syncVideoTrackPresence(room)
     })
 
     room.on(RoomEvent.TrackSubscribed, (t: RemoteTrack, pub, part) => {
@@ -1600,6 +1657,7 @@ export function useRTC(): UseRTC {
         if (source === Track.Source.ScreenShare) {
           const el = screenVideoEls.get(id)
           if (el) attachBySource(room, id, Track.Source.ScreenShare, el)
+          syncVideoTrackPresence(room)
           return
         }
         if (source === Track.Source.Camera) {
@@ -1607,6 +1665,7 @@ export function useRTC(): UseRTC {
           if (el) attachBySource(room, id, Track.Source.Camera, el)
           applyVideoQuality(pub as RemoteTrackPublication)
         }
+        syncVideoTrackPresence(room)
       } else if (t.kind === Track.Kind.Audio) {
         const isScreenA = (pub as RemoteTrackPublication).source === Track.Source.ScreenShareAudio
         const aid = isScreenA ? screenKey(id) : id
@@ -1645,6 +1704,7 @@ export function useRTC(): UseRTC {
           try { t.detach() } catch {}
         }
         if (isScreenV) { try { opts?.onRemoteScreenShareEnded?.(id) } catch {} }
+        syncVideoTrackPresence(room)
       } else if (t.kind === Track.Kind.Audio) {
         const source = (pub as RemoteTrackPublication).source
         const isScreenA = source === Track.Source.ScreenShareAudio
@@ -1692,6 +1752,7 @@ export function useRTC(): UseRTC {
       const id = String(p.identity)
       if (!peerIds.value.includes(id)) { peerIds.value = [...peerIds.value, id] }
       applySubsFor(p)
+      syncVideoTrackPresence(room)
       refreshAudibleIds()
       void resumeAudio()
     })
@@ -1699,11 +1760,27 @@ export function useRTC(): UseRTC {
     room.on(RoomEvent.ParticipantDisconnected, (p) => {
       const id = String(p.identity)
       cleanupPeer(id)
+      syncVideoTrackPresence(room)
     })
 
     room.on(RoomEvent.TrackSubscriptionStatusChanged, (pub, _status, _part) => {
       if (pub.kind === Track.Kind.Video && isSub(pub)) {
         applyVideoQuality(pub as RemoteTrackPublication)
+      }
+      if (pub.kind === Track.Kind.Video) {
+        syncVideoTrackPresence(room)
+        if (_part && !isSub(pub)) {
+          const id = String(_part.identity)
+          const source = (pub as RemoteTrackPublication).source
+          if (source === Track.Source.Camera) {
+            const el = videoEls.get(id)
+            if (el) scheduleVideoClear(el, videoTrackByEl.get(el))
+          }
+          if (source === Track.Source.ScreenShare) {
+            const el = screenVideoEls.get(id)
+            if (el) scheduleVideoClear(el, videoTrackByEl.get(el))
+          }
+        }
       }
       if (pub.kind === Track.Kind.Audio && _part) {
         const id = String(_part.identity)
@@ -1748,6 +1825,7 @@ export function useRTC(): UseRTC {
       peerIds.value = [...new Set([...peerIds.value, ...ids])]
 
       room.remoteParticipants.forEach(p => applySubsFor(p))
+      syncVideoTrackPresence(room)
       if (wantAudio.value) { void resumeAudio() }
 
       await refreshDevices()
@@ -1822,6 +1900,7 @@ export function useRTC(): UseRTC {
     unlockBgmOnGesture,
     destroyBgm,
     flushVolumePrefs,
+    hasCameraTrack,
     prepareScreenShare,
     publishPreparedScreen,
     cancelPreparedScreen,

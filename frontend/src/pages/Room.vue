@@ -22,6 +22,7 @@
           :hotkeys-visible="hotkeysVisible"
           :speaking="(game.daySpeech.currentId === id) || (gamePhase === 'idle' && rtc.isSpeaking(id))"
           :video-ref="stableVideoRef(id)"
+          :has-video-track="rtc.hasCameraTrack"
           :fit-contain="fitContainInGrid"
           :default-avatar="defaultAvatar"
           :volume-icon="volumeIconForUser(id)"
@@ -135,6 +136,7 @@
             :side="true"
             :speaking="(game.daySpeech.currentId === id) || (gamePhase === 'idle' && rtc.isSpeaking(id))"
             :video-ref="stableVideoRef(id)"
+            :has-video-track="rtc.hasCameraTrack"
             :fit-contain="fitContainInGrid"
             :default-avatar="defaultAvatar"
             :volume-icon="volumeIconForUser(id)"
@@ -2220,12 +2222,11 @@ function applyJoinAck(j: any) {
     if (Number.isFinite(p)) positionByUser.set(String(uid), p)
   }
 
-  const prevStatusByUser = new Map(statusByUser)
   statusByUser.clear()
   for (const [uid, st] of Object.entries(j.snapshot || {})) {
     const id = String(uid)
-    const merged = { ...(prevStatusByUser.get(id) ?? {}), ...statusPatch(st) }
-    if (Object.keys(merged).length) statusByUser.set(id, merged)
+    const next = statusPatch(st)
+    if (Object.keys(next).length) statusByUser.set(id, next)
   }
 
   const ids = new Set<string>(rtc.peerIds.value)

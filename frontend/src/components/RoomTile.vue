@@ -171,6 +171,7 @@ const props = withDefaults(defineProps<{
   defaultAvatar: string
   volumeIcon: string
   videoRef: (el: HTMLVideoElement | null) => void
+  hasVideoTrack: (id: string) => boolean
   openPanelFor: string
   speakersOn: boolean
   vol?: number
@@ -341,6 +342,7 @@ const showVideo = computed(() =>
   !props.offline &&
   !isDeadTile.value &&
   camOn.value &&
+  props.hasVideoTrack(props.id) &&
   !camBlocked.value
 )
 const videoClass = computed(() =>
