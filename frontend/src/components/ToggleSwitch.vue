@@ -83,7 +83,7 @@ onBeforeUnmount(() => {
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    width: calc(100% - var(--switch-width) - 10px);
+    width: calc(100% - var(--switch-width) - 5px);
     height: 18px;
   }
   label {
