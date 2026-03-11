@@ -244,7 +244,7 @@ const nick = ref('')
 const busyNick = ref(false)
 const validNick = computed(() => {
   const value = nick.value
-  const ok = new RegExp(`^[a-zA-Zа-яА-Я0-9._\\-()]{2,${NICK_MAX}}$`).test(value)
+  const ok = new RegExp(`^[a-zA-Zа-яА-ЯёЁ0-9._\\-()]{2,${NICK_MAX}}$`).test(value)
   if (!ok) return false
   const lower = value.toLowerCase()
   return !lower.startsWith('deleted_') && !lower.startsWith('user_')
