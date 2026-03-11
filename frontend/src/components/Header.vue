@@ -457,7 +457,8 @@ function openAuth(mode: 'login' | 'register') {
     display: flex;
     align-items: center;
     gap: 3px;
-    color: $black;
+    color: $white;
+    font-weight: lighter;
     text-decoration: underline;
     overflow-wrap: anywhere;
     img {

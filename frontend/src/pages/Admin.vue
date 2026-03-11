@@ -47,9 +47,9 @@
             <div class="block">
               <div class="field-stack">
                 <UiInput id="admin-banner-text" v-model="site.admin_banner_text"
-                         autocomplete="off" :disabled="savingSettings" label="Текст баннера в хедере" meta="0 = скрыть" />
+                         autocomplete="off" :disabled="savingSettings" label="Текст баннера в хедере" />
                 <UiInput id="admin-banner-link" v-model="site.admin_banner_link"
-                         autocomplete="off" :disabled="savingSettings" label="Ссылка баннера в хедере" meta="необязательно" />
+                         autocomplete="off" :disabled="savingSettings" label="Ссылка баннера в хедере" />
                 <UiInput id="rooms-limit-global" v-model.number="site.rooms_limit_global" type="number" min="1" max="100" step="1"
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Общий лимит комнат" />
                 <UiInput id="rooms-limit-user" v-model.number="site.rooms_limit_per_user" type="number" min="1" max="10" step="1"
@@ -59,7 +59,7 @@
                 <UiInput id="rooms-single-ttl-minutes" v-model.number="site.rooms_single_ttl_minutes" type="number" min="1" step="1"
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Кик при 1 участнике (мин)" />
                 <UiInput id="season-start-game-number" v-model="site.season_start_game_number"
-                         autocomplete="off" inputmode="text" :disabled="savingSettings" label="Стартовые игры сезонов" />
+                         autocomplete="off" inputmode="text" :disabled="savingSettings" label="Стартовые игры сезонов (через запятую)" />
               </div>
             </div>
 
