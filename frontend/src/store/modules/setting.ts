@@ -10,6 +10,7 @@ export interface PublicSettings {
   streams_can_start: boolean
   verification_restrictions: boolean
   admin_banner_text: string
+  admin_banner_link: string
   game_min_ready_players: number
   winks_limit: number
   knocks_limit: number
@@ -25,6 +26,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const streamsCanStart = ref(true)
   const verificationRestrictions = ref(true)
   const adminBannerText = ref('0')
+  const adminBannerLink = ref('0')
   const gameMinReadyPlayers = ref(4)
   const winksLimit = ref(0)
   const knocksLimit = ref(0)
@@ -65,6 +67,7 @@ export const useSettingsStore = defineStore('settings', () => {
     streamsCanStart.value = Boolean(data.streams_can_start)
     verificationRestrictions.value = Boolean(data.verification_restrictions)
     adminBannerText.value = String(data.admin_banner_text || '').trim() || '0'
+    adminBannerLink.value = String(data.admin_banner_link || '').trim() || '0'
     const minReady = Number(data.game_min_ready_players)
     if (Number.isFinite(minReady) && minReady > 0) gameMinReadyPlayers.value = minReady
     const winks = Number(data.winks_limit)
@@ -101,6 +104,7 @@ export const useSettingsStore = defineStore('settings', () => {
     streamsCanStart,
     verificationRestrictions,
     adminBannerText,
+    adminBannerLink,
     gameMinReadyPlayers,
     winksLimit,
     knocksLimit,

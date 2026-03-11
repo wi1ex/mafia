@@ -15,6 +15,7 @@ class SiteSettingsOut(BaseModel):
     streams_can_start: bool
     verification_restrictions: bool
     admin_banner_text: str
+    admin_banner_link: str
     rooms_limit_global: int
     rooms_limit_per_user: int
     rooms_empty_ttl_seconds: int
@@ -30,6 +31,7 @@ class SiteSettingsUpdateIn(BaseModel):
     streams_can_start: Optional[bool] = None
     verification_restrictions: Optional[bool] = None
     admin_banner_text: Optional[str] = Field(default=None, max_length=2048)
+    admin_banner_link: Optional[str] = Field(default=None, max_length=2048)
     rooms_limit_global: Optional[int] = Field(default=None, ge=1)
     rooms_limit_per_user: Optional[int] = Field(default=None, ge=1)
     rooms_empty_ttl_seconds: Optional[int] = Field(default=None, ge=1)
@@ -83,6 +85,7 @@ class PublicSettingsOut(BaseModel):
     streams_can_start: bool
     verification_restrictions: bool
     admin_banner_text: str
+    admin_banner_link: str
     game_min_ready_players: int
     winks_limit: int
     knocks_limit: int

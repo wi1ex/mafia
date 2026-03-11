@@ -102,6 +102,9 @@
   </div>
   <div v-if="adminBannerText" class="sanction-banner sanction-banner--admin">
     <span>{{ adminBannerText }}</span>
+    <a v-if="adminBannerLink" :href="adminBannerLink" target="_blank" rel="noopener noreferrer">
+      {{ adminBannerLink }}
+    </a>
   </div>
   <AppModal v-model:open="installOpen" />
   <SupportModal v-model:open="supportOpen" :support-link="supportLink" />
@@ -199,6 +202,13 @@ const adminBannerText = computed(() => {
   const text = String(settings.adminBannerText || '').trim()
   if (!text || text === '0') return ''
   return text
+})
+
+const adminBannerLink = computed(() => {
+  if (!settings.ready || !adminBannerText.value) return ''
+  const link = String(settings.adminBannerLink || '').trim()
+  if (!link || link === '0') return ''
+  return link
 })
 
 function onToggleNotifs() {
@@ -449,6 +459,7 @@ function openAuth(mode: 'login' | 'register') {
     gap: 3px;
     color: $black;
     text-decoration: underline;
+    overflow-wrap: anywhere;
     img {
       width: 16px;
       height: 16px;
