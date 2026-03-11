@@ -46,6 +46,8 @@
 
             <div class="block">
               <div class="field-stack">
+                <UiInput id="admin-banner-text" v-model="site.admin_banner_text"
+                         autocomplete="off" :disabled="savingSettings" label="Текст баннера в хедере" meta="0 = скрыть" />
                 <UiInput id="rooms-limit-global" v-model.number="site.rooms_limit_global" type="number" min="1" max="100" step="1"
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Общий лимит комнат" />
                 <UiInput id="rooms-limit-user" v-model.number="site.rooms_limit_per_user" type="number" min="1" max="10" step="1"
@@ -832,6 +834,7 @@ type SiteSettings = {
   games_can_start: boolean
   streams_can_start: boolean
   verification_restrictions: boolean
+  admin_banner_text: string
   rooms_limit_global: number
   rooms_limit_per_user: number
   rooms_empty_ttl_seconds: number
@@ -1045,6 +1048,7 @@ const site = reactive<SiteSettings>({
   games_can_start: true,
   streams_can_start: true,
   verification_restrictions: true,
+  admin_banner_text: '0',
   rooms_limit_global: 100,
   rooms_limit_per_user: 3,
   rooms_empty_ttl_seconds: 10,
@@ -1245,6 +1249,12 @@ function normalizeSeasonStartNumbers(raw: unknown): string {
   return parsed.join(',')
 }
 
+function normalizeAdminBannerText(raw: unknown): string {
+  const text = String(raw ?? '').trim()
+  if (!text || text === '0') return '0'
+  return text
+}
+
 function normalizeInt(value: number): number {
   return Number.isFinite(value) ? value : 0
 }
@@ -1286,6 +1296,7 @@ function snapshotSite(): string {
     games_can_start: Boolean(site.games_can_start),
     streams_can_start: Boolean(site.streams_can_start),
     verification_restrictions: Boolean(site.verification_restrictions),
+    admin_banner_text: normalizeAdminBannerText(site.admin_banner_text),
     rooms_limit_global: normalizeInt(site.rooms_limit_global),
     rooms_limit_per_user: normalizeInt(site.rooms_limit_per_user),
     rooms_empty_ttl_seconds: normalizeInt(site.rooms_empty_ttl_seconds),
@@ -1482,6 +1493,7 @@ async function loadSettings(): Promise<void> {
     const { data } = await api.get('/admin/settings')
     Object.assign(site, data?.site || {})
     Object.assign(game, data?.game || {})
+    site.admin_banner_text = normalizeAdminBannerText(site.admin_banner_text)
     site.season_start_game_number = normalizeSeasonStartNumbers(site.season_start_game_number)
     siteSnapshot.value = snapshotSite()
     gameSnapshot.value = snapshotGame()
@@ -1512,6 +1524,7 @@ async function saveSettings(): Promise<void> {
         games_can_start: Boolean(site.games_can_start),
         streams_can_start: Boolean(site.streams_can_start),
         verification_restrictions: Boolean(site.verification_restrictions),
+        admin_banner_text: normalizeAdminBannerText(site.admin_banner_text),
         rooms_limit_global: normalizeInt(site.rooms_limit_global),
         rooms_limit_per_user: normalizeInt(site.rooms_limit_per_user),
         rooms_empty_ttl_seconds: normalizeInt(site.rooms_empty_ttl_seconds),
@@ -1535,6 +1548,7 @@ async function saveSettings(): Promise<void> {
     const { data } = await api.patch('/admin/settings', payload)
     Object.assign(site, data?.site || {})
     Object.assign(game, data?.game || {})
+    site.admin_banner_text = normalizeAdminBannerText(site.admin_banner_text)
     site.season_start_game_number = normalizeSeasonStartNumbers(site.season_start_game_number)
     siteSnapshot.value = snapshotSite()
     gameSnapshot.value = snapshotGame()
@@ -1545,6 +1559,7 @@ async function saveSettings(): Promise<void> {
       games_can_start: site.games_can_start,
       streams_can_start: site.streams_can_start,
       verification_restrictions: site.verification_restrictions,
+      admin_banner_text: site.admin_banner_text,
       game_min_ready_players: game.game_min_ready_players,
       winks_limit: game.winks_limit,
       knocks_limit: game.knocks_limit,

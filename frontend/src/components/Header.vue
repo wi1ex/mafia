@@ -100,9 +100,9 @@
       Telegram-боте
     </a>
   </div>
-<!--  <div class="sanction-banner sanction-banner&#45;&#45;suspend">-->
-<!--    <span>Если у Вас уже есть аккаунт, используйте "Сбросить пароль"</span>-->
-<!--  </div>-->
+  <div v-if="adminBannerText" class="sanction-banner sanction-banner--admin">
+    <span>{{ adminBannerText }}</span>
+  </div>
   <AppModal v-model:open="installOpen" />
   <SupportModal v-model:open="supportOpen" :support-link="supportLink" />
   <AuthModal v-model:open="authOpen" :mode="authMode" />
@@ -192,6 +192,13 @@ const verificationBanner = computed(() => {
     && auth.isAuthed
     && Boolean(user.user)
     && !user.telegramVerified
+})
+
+const adminBannerText = computed(() => {
+  if (!settings.ready) return ''
+  const text = String(settings.adminBannerText || '').trim()
+  if (!text || text === '0') return ''
+  return text
 })
 
 function onToggleNotifs() {
@@ -431,6 +438,10 @@ function openAuth(mode: 'login' | 'register') {
   font-weight: bold;
   letter-spacing: 1px;
   gap: 5px;
+  span {
+    text-align: center;
+    overflow-wrap: anywhere;
+  }
   a {
     display: flex;
     align-items: center;
@@ -451,6 +462,12 @@ function openAuth(mode: 'login' | 'register') {
   }
   &.sanction-banner--suspend {
     background-color: $yellow;
+  }
+  &.sanction-banner--admin {
+    background-color: $lead;
+    color: $fg;
+    letter-spacing: 0.25px;
+    text-align: center;
   }
 }
 

@@ -61,6 +61,7 @@ from ..utils import (
     SANCTION_SUSPEND,
     parse_month_range,
     parse_day_range,
+    normalize_admin_banner_text,
     site_settings_out,
     game_settings_out,
     normalize_pagination,
@@ -121,6 +122,7 @@ async def public_settings(session: AsyncSession = Depends(get_session)) -> Publi
         games_can_start=settings.games_can_start,
         streams_can_start=settings.streams_can_start,
         verification_restrictions=settings.verification_restrictions,
+        admin_banner_text=settings.admin_banner_text,
         game_min_ready_players=settings.game_min_ready_players,
         winks_limit=settings.winks_limit,
         knocks_limit=settings.knocks_limit,
@@ -148,6 +150,8 @@ async def update_settings(payload: AdminSettingsUpdateIn, session: AsyncSession 
     game_data = data.get("game") or {}
     combined = {**site_data, **game_data}
     season_changed = False
+    if "admin_banner_text" in combined:
+        combined["admin_banner_text"] = normalize_admin_banner_text(combined.get("admin_banner_text"))
     if "season_start_game_number" in combined:
         current_season_csv = str(getattr(row, "season_start_game_number", "") or "").strip()
         incoming_season_csv = str(combined.get("season_start_game_number") or "").strip()

@@ -1,13 +1,14 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.settings import settings as core_settings
 from ..models.settings import AppSettings
 from ..api.utils import (
     parse_season_starts_or_default,
     season_starts_csv,
+    normalize_admin_banner_text,
     normalize_season_start_value,
     build_app_settings_snapshot_defaults,
     build_app_settings_snapshot_from_row,
@@ -22,6 +23,7 @@ class AppSettingsSnapshot:
     games_can_start: bool
     streams_can_start: bool
     verification_restrictions: bool
+    admin_banner_text: str
     rooms_limit_global: int
     rooms_limit_per_user: int
     rooms_empty_ttl_seconds: int
@@ -44,6 +46,18 @@ class AppSettingsSnapshot:
 _CACHE: Optional[AppSettingsSnapshot] = None
 _DEFAULT_SEASON_STARTS = parse_season_starts_or_default(core_settings.SEASON_START_GAME_NUMBER, default=(1,))
 _DEFAULT_SEASON_START_CSV = season_starts_csv(_DEFAULT_SEASON_STARTS)
+_SCHEMA_SYNCED = False
+
+
+async def _ensure_settings_schema(session: AsyncSession) -> None:
+    global _SCHEMA_SYNCED
+    if _SCHEMA_SYNCED:
+        return
+
+    await session.execute(text("ALTER TABLE settings ADD COLUMN IF NOT EXISTS admin_banner_text VARCHAR(2048) NOT NULL DEFAULT '0'"))
+    await session.execute(text("UPDATE settings SET admin_banner_text = '0' WHERE admin_banner_text IS NULL"))
+    await session.commit()
+    _SCHEMA_SYNCED = True
 
 
 def get_cached_settings() -> AppSettingsSnapshot:
@@ -60,6 +74,7 @@ def set_cached_settings(snapshot: AppSettingsSnapshot) -> None:
 
 
 async def ensure_app_settings(session: AsyncSession) -> AppSettings:
+    await _ensure_settings_schema(session)
     row = await session.scalar(select(AppSettings).limit(1))
     if not row:
         defaults = build_app_settings_snapshot_defaults(
@@ -75,6 +90,7 @@ async def ensure_app_settings(session: AsyncSession) -> AppSettings:
             games_can_start=defaults.games_can_start,
             streams_can_start=defaults.streams_can_start,
             verification_restrictions=defaults.verification_restrictions,
+            admin_banner_text=normalize_admin_banner_text(defaults.admin_banner_text),
             rooms_limit_global=defaults.rooms_limit_global,
             rooms_limit_per_user=defaults.rooms_limit_per_user,
             rooms_empty_ttl_seconds=defaults.rooms_empty_ttl_seconds,
