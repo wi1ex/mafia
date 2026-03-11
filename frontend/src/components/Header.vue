@@ -432,7 +432,8 @@ function openAuth(mode: 'login' | 'register') {
   align-items: center;
   justify-content: center;
   margin: 0 10px 10px;
-  padding: 10px 0;
+  padding: 10px 20px;
+  height: 10px;
   border-radius: 5px;
   color: $bg;
   font-weight: bold;
