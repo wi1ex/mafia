@@ -36,7 +36,7 @@
             <ToggleSwitch
               :model-value="mirrorOn"
               label="Зеркальность камеры:"
-              aria-label="Зеркальность"
+              aria-label="Зеркальность камеры"
               :width="120"
               @update:modelValue="onToggleMirror"
             />
@@ -48,12 +48,12 @@
               :model-value="knownRolesVisible"
               off-label="Скрыть"
               on-label="Показывать"
-              aria-label="Показ ролей"
+              aria-label="Отображение ролей"
               :width="200"
               @update:modelValue="onToggleKnownRoles"
             >
               <template #label>
-                Видимость ролей:
+                Отображение ролей:
                 <span v-if="!isMobile && hotkeysVisible" class="hot-btn">R</span>
               </template>
             </ToggleSwitch>
