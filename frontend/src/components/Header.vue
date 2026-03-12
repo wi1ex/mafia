@@ -97,7 +97,7 @@
     <span>Чтобы входить в комнаты необходимо пройти верификацию в</span>
     <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">
       <img :src="iconTelegram" alt="" />
-      Telegram-боте
+      TG-боте
     </a>
   </div>
   <div v-if="adminBannerText" class="sanction-banner sanction-banner--admin">

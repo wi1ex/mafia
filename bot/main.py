@@ -111,7 +111,7 @@ async def verify_start(message: types.Message, state: FSMContext, session: aioht
     verified = bool((payload or {}).get("verified")) if status_code == 200 else False
     if verified:
         await state.clear()
-        await safe_message_answer(message, "Этот Telegram уже привязан. Доступен Сброс пароля.", reply_markup=keyboard_reset_only())
+        await safe_message_answer(message, "Этот аккаунт уже привязан. Доступен Сброс пароля.", reply_markup=keyboard_reset_only())
         return
 
     await state.clear()

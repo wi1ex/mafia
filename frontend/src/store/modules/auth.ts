@@ -185,7 +185,7 @@ export const useAuthStore = defineStore('auth', () => {
       const st = e?.response?.status
       const detail = e?.response?.data?.detail
       if (st === 403 && detail === 'password_not_set') {
-        void alertDialog('Пароль не установлен. Восстановите пароль через Telegram-бота.')
+        void alertDialog('Пароль не установлен. Восстановите пароль через TG-бота.')
       } else if (st === 403 && detail === 'user_deleted') {
         void alertDialog('Авторизация невозможна: аккаунт удален')
       } else if (st === 401 && detail === 'invalid_credentials') {

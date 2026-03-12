@@ -378,7 +378,7 @@ onBeforeUnmount(() => {
                 bottom: 100%;
                 width: 1px;
                 height: 5px;
-                background-color: $grey;
+                background-color: $lead;
                 transform: translateX(-50%);
               }
             }

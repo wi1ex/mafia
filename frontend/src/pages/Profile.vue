@@ -31,7 +31,7 @@
                   <img class="btn-img" :src="iconEdit" alt="edit" />
                   {{ me.avatar_name ? 'Изменить' : 'Загрузить' }}
                 </button>
-                <span class="hint">JPG/PNG, до 5 МБ</span>
+                <span class="hint center">JPG/PNG, до 5 МБ</span>
                 <button class="btn danger" v-if="me.avatar_name" @click="onDeleteAvatar" :disabled="busyAva || isBanned">
                   <img class="btn-img" :src="iconDelete" alt="delete" />
                   Удалить
@@ -121,8 +121,8 @@
                 </template>
               </UiInput>
               <p class="hint">
-                Если забыли пароль, используйте "Сбросить пароль" в
-                <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">Telegram-боте</a>
+                Сбросить пароль можно через
+                <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">TG-бота</a>
               </p>
               <button class="btn confirm" @click="changePassword" :disabled="pwdBusy || !canChangePassword">
                 {{ pwdBusy ? '...' : 'Сменить пароль' }}
@@ -450,7 +450,7 @@ async function changePassword() {
     const st = e?.response?.status
     const d = e?.response?.data?.detail
     if (st === 401 && d === 'invalid_credentials') void alertDialog('Текущий пароль неверный')
-    else if (st === 403 && d === 'password_not_set') void alertDialog('Пароль не установлен. Восстановите его через Telegram-бота.')
+    else if (st === 403 && d === 'password_not_set') void alertDialog('Пароль не установлен. Восстановите его через TG-бота.')
     else if (st === 403 && d === 'user_deleted') void alertDialog('Аккаунт удален')
     else void alertDialog('Не удалось изменить пароль')
   } finally { pwdBusy.value = false }
@@ -845,9 +845,9 @@ onBeforeUnmount(() => {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 0 20px;
+    padding: 0 15px;
     gap: 5px;
-    max-width: 250px;
+    max-width: 200px;
     height: 40px;
     border: none;
     border-radius: 5px;
@@ -987,18 +987,18 @@ onBeforeUnmount(() => {
         .verify-row {
           display: flex;
           flex-direction: column;
-          align-items: center;
-          justify-content: space-between;
           gap: 10px;
         }
         :deep(.profile-switch + .profile-switch) {
           margin-top: 10px;
         }
         .hint {
-          margin: 5px 0;
-          text-align: center;
+          margin: 0;
           color: $grey;
           font-size: 14px;
+          &.center {
+            text-align: center;
+          }
           &.text {
             font-size: 16px;
             color: $fg;
