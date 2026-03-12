@@ -477,7 +477,11 @@ onBeforeUnmount(() => {
           flex-direction: column;
           align-items: flex-end;
           .room {
+            max-width: 120px;
             font-size: 12px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
           }
           .game {
             font-size: 12px;
