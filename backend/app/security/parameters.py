@@ -78,7 +78,7 @@ def set_cached_settings(snapshot: AppSettingsSnapshot) -> None:
 
 
 async def ensure_app_settings(session: AsyncSession) -> AppSettings:
-    await _ensure_settings_schema(session)
+    # await _ensure_settings_schema(session)
     row = await session.scalar(select(AppSettings).limit(1))
     if not row:
         defaults = build_app_settings_snapshot_defaults(
