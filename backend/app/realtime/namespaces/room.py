@@ -84,6 +84,7 @@ from ..utils import (
     night_state_broadcast_job,
     night_stage_timeout_job,
     compute_night_kill,
+    get_night_check_completion_error,
     best_move_payload_from_state,
     build_night_reset_mapping,
     apply_night_start_blocks,
@@ -4398,6 +4399,10 @@ async def game_night_check(sid, data):
         my_role = str((await r.hget(f"room:{rid}:game_roles", str(uid))) or "")
         if my_role not in ("don", "sheriff"):
             return {"ok": False, "error": "forbidden", "status": 403}
+
+        completion_error = await get_night_check_completion_error(r, rid, my_role)
+        if completion_error:
+            return {"ok": False, "error": completion_error, "status": 409}
 
         if target_uid == uid:
             return {"ok": False, "error": "bad_target", "status": 400}

@@ -105,6 +105,7 @@ __all__ = [
     "night_state_broadcast_job",
     "night_stage_timeout_job",
     "compute_night_kill",
+    "get_night_check_completion_error",
     "best_move_payload_from_state",
     "build_night_reset_mapping",
     "apply_night_start_blocks",
@@ -197,7 +198,7 @@ def _schedule_host_blur_auto_off(rid: int, started_at: int) -> None:
         finally:
             current = _host_blur_auto_tasks.get(rid)
             if current is task:
-                _host_blur_auto_tasks.pop(rid, None)
+                await _host_blur_auto_tasks.pop(rid, None)
 
     task = asyncio.create_task(_runner())
     _host_blur_auto_tasks[rid] = task
@@ -3088,6 +3089,44 @@ async def compute_best_move_eligible(r, rid: int, victim_uid: int) -> bool:
         return False
 
     return bool(is_alive)
+
+
+async def get_night_check_completion_error(r, rid: int, role: str, *, checked_ids: Iterable[int] | None = None, roles_map: Mapping[int | str, Any] | None = None) -> str | None:
+    if role not in ("don", "sheriff"):
+        return None
+
+    checked_set = {int(uid) for uid in (checked_ids or []) if int(uid) > 0}
+    if checked_ids is None:
+        checked_set = await smembers_ints(r, f"room:{rid}:game_checked:{role}")
+    if not checked_set:
+        return None
+
+    source = roles_map
+    if source is None:
+        source = await r.hgetall(f"room:{rid}:game_roles")
+
+    roles_int: dict[int, str] = {}
+    for raw_uid, raw_role in (source or {}).items():
+        try:
+            uid = int(raw_uid)
+        except Exception:
+            continue
+        if uid <= 0:
+            continue
+        roles_int[uid] = str(raw_role or "")
+
+    if role == "don":
+        for target_uid in checked_set:
+            if roles_int.get(target_uid) == "sheriff":
+                return "sheriff_already_found"
+
+        return None
+
+    black_ids = {uid for uid, target_role in roles_int.items() if target_role in ("mafia", "don")}
+    if black_ids and black_ids.issubset(checked_set):
+        return "all_black_found"
+
+    return None
 
 
 async def get_night_head_picks(r, rid: int, kind: str) -> dict[str, int]:

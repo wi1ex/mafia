@@ -1011,6 +1011,25 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     return nightKnownRoleIconForTile(id) || roleIconForTile(id)
   }
 
+  function nightCheckObjectiveComplete(role: GameRoleKind | null | undefined): boolean {
+    if (role === 'don') {
+      for (const knownRole of nightKnownByMe.values()) {
+        if (knownRole === 'sheriff') return true
+      }
+      return false
+    }
+
+    if (role === 'sheriff') {
+      let foundBlack = 0
+      for (const knownRole of nightKnownByMe.values()) {
+        if (knownRole === 'mafia') foundBlack += 1
+      }
+      return foundBlack >= 3
+    }
+
+    return false
+  }
+
   function farewellLimitForUser(id: string): number {
     const v = farewellLimits.get(id)
     if (v == null) return 0
@@ -2218,6 +2237,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     if (targetId === me) return false
     const myRole = gameRolesByUser.get(me)
     if (myRole !== 'don' && myRole !== 'sheriff') return false
+    if (nightCheckObjectiveComplete(myRole)) return false
     if (myNightCheckTarget.value) return false
     if (!gamePlayers.has(targetId)) return false
     if (nightCheckedByMe.has(targetId)) return false
@@ -2288,16 +2308,24 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   }
 
   async function checkTarget(targetUserId: string, sendAck: SendAckFn): Promise<void> {
-    const uidNum = Number(targetUserId)
-    if (!uidNum) return
-    const resp = await sendAck('game_night_check', { user_id: uidNum })
-    if (resp?.ok) {
-      myNightCheckTarget.value = targetUserId
-      ensureKnownRolesVisible()
-      return
-    }
-    const st = resp?.status
-    const code = resp?.error
+  const uidNum = Number(targetUserId)
+  if (!uidNum) return
+  const resp = await sendAck('game_night_check', { user_id: uidNum })
+  if (resp?.ok) {
+    myNightCheckTarget.value = targetUserId
+    ensureKnownRolesVisible()
+    return
+  }
+  const st = resp?.status
+  const code = resp?.error
+  if (st === 409 && code === 'sheriff_already_found') {
+    void alertDialog('Дон уже нашел шерифа')
+    return
+  }
+  if (st === 409 && code === 'all_black_found') {
+    void alertDialog('Шериф уже нашел всех черных игроков')
+    return
+  }
     if (st === 400 && code === 'bad_phase') void alertDialog('Сейчас не фаза ночи')
     else if (st === 409 && code === 'bad_stage') void alertDialog('Сейчас не фаза проверок')
     else if (st === 409 && code === 'window_closed') void alertDialog('Время проверок вышло')
