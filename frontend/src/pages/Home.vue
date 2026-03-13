@@ -258,7 +258,23 @@ const openCreate = ref(false)
 const access = ref<Access>('none')
 
 const selectedRoom = computed(() => selectedId.value ? (roomsMap.get(selectedId.value) || null) : null)
-const sortedRooms = computed(() => Array.from(roomsMap.values()).sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at)))
+const sortedRooms = computed(() => Array.from(roomsMap.values()).sort((a, b) => {
+  const rank = (room: Room): number => {
+    switch (roomStatusLabel(room)) {
+      case 'game': return 0
+      case 'mafia': return 1
+      case 'duo': return 2
+      case 'lobby': return 3
+      case 'hide': return 4
+      default: return 5
+    }
+  }
+
+  const aRank = rank(a)
+  const bRank = rank(b)
+  if (aRank !== bRank) return aRank - bRank
+  return Date.parse(a.created_at) - Date.parse(b.created_at)
+}))
 
 const sortedMembers = computed<RoomInfoMember[]>(() => {
   const members = info.value?.members || []
