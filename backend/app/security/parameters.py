@@ -1,7 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
-from sqlalchemy import select, text
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.settings import settings as core_settings
 from ..models.settings import AppSettings
@@ -48,20 +48,6 @@ class AppSettingsSnapshot:
 _CACHE: Optional[AppSettingsSnapshot] = None
 _DEFAULT_SEASON_STARTS = parse_season_starts_or_default(core_settings.SEASON_START_GAME_NUMBER, default=(1,))
 _DEFAULT_SEASON_START_CSV = season_starts_csv(_DEFAULT_SEASON_STARTS)
-_SCHEMA_SYNCED = False
-
-
-async def _ensure_settings_schema(session: AsyncSession) -> None:
-    global _SCHEMA_SYNCED
-    if _SCHEMA_SYNCED:
-        return
-
-    await session.execute(text("ALTER TABLE settings ADD COLUMN IF NOT EXISTS admin_banner_text VARCHAR(2048) NOT NULL DEFAULT '0'"))
-    await session.execute(text("ALTER TABLE settings ADD COLUMN IF NOT EXISTS admin_banner_link VARCHAR(2048) NOT NULL DEFAULT '0'"))
-    await session.execute(text("UPDATE settings SET admin_banner_text = '0' WHERE admin_banner_text IS NULL"))
-    await session.execute(text("UPDATE settings SET admin_banner_link = '0' WHERE admin_banner_link IS NULL"))
-    await session.commit()
-    _SCHEMA_SYNCED = True
 
 
 def get_cached_settings() -> AppSettingsSnapshot:
