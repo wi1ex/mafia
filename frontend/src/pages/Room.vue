@@ -3129,7 +3129,19 @@ onBeforeUnmount(() => {
     width: calc(100vw - 20px);
     height: 40px;
     &.panel-high {
-      margin-bottom: 20px;
+      gap: 10px;
+      justify-content: flex-start;
+      .controls-side {
+        min-width: 0;
+      }
+      .controls-side.right {
+        order: 1;
+      }
+      .controls {
+        order: 2;
+        margin-left: auto;
+        justify-content: flex-end;
+      }
     }
     button {
       display: flex;

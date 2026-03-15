@@ -361,7 +361,7 @@ onBeforeUnmount(() => {
       gap: 30px;
       border-radius: 5px;
       background-color: $fg;
-      box-shadow: 0 5px 10px rgba($black, 0.25);
+      box-shadow: 0 15px 20px rgba($white, 0.1), 0 5px 10px rgba($white, 0.1);
       h1 {
         position: absolute;
         margin: 0;
