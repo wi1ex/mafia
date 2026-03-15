@@ -14,10 +14,10 @@
             <ToggleSwitch
               :model-value="buttonsHigh"
               label="Расположение кнопок:"
-              off-label="Ниже"
-              on-label="Выше"
+              off-label="Стандарт"
+              on-label="Кастом"
               aria-label="Расположение кнопок"
-              :width="120"
+              :width="160"
               @update:modelValue="onToggleButtonsHigh"
             />
           </div>
@@ -28,7 +28,7 @@
               off-label="Откл"
               on-label="Вкл"
               aria-label="Заполнение видео"
-              :width="120"
+              :width="160"
               @update:modelValue="onToggleVideoFill"
             />
           </div>
@@ -37,7 +37,7 @@
               :model-value="mirrorOn"
               label="Зеркальность камеры:"
               aria-label="Зеркальность камеры"
-              :width="120"
+              :width="160"
               @update:modelValue="onToggleMirror"
             />
           </div>
