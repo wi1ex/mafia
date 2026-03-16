@@ -431,43 +431,48 @@ def _get_text_moderation_whitelist_words() -> tuple[str, ...]:
     return tuple(out)
 
 
-def _token_spans_for_whitelist(text: str, whitelist_words: set[str]) -> list[tuple[int, int]]:
+def _whitelist_occurrences(text: str, whitelist_words: set[str]) -> list[tuple[int, int, str]]:
     if not whitelist_words:
         return []
 
-    spans: list[tuple[int, int]] = []
-    for token_match in TOKEN_RE.finditer(text):
-        token = _normalize_whitelist_word(token_match.group(0))
-        if token and token in whitelist_words:
-            spans.append((token_match.start(), token_match.end()))
-    return spans
+    normalized_text = _normalize_basic(text)
+    if not normalized_text:
+        return []
+
+    occurrences: list[tuple[int, int, str]] = []
+    for whitelist_word in sorted(whitelist_words, key=len, reverse=True):
+        start = 0
+        while True:
+            index = normalized_text.find(whitelist_word, start)
+            if index < 0:
+                break
+            occurrences.append((index, index + len(whitelist_word), whitelist_word))
+            start = index + 1
+
+    occurrences.sort(key=lambda item: (item[0], -(item[1] - item[0]), item[2]))
+    return occurrences
 
 
-def _match_in_spans(start: int | None, end: int | None, spans: list[tuple[int, int]]) -> bool:
+def _match_in_spans(start: int | None, end: int | None, spans: list[tuple[int, int, str]]) -> bool:
     if start is None or end is None:
         return False
 
-    for span_start, span_end in spans:
+    for span_start, span_end, _ in spans:
         if span_start <= start and end <= span_end:
             return True
 
     return False
 
 
-def _all_tokens_whitelisted(text: str, whitelist_words: set[str]) -> bool:
-    if not whitelist_words:
+def _positionless_match_in_whitelist(normalized_word: str, occurrences: list[tuple[int, int, str]]) -> bool:
+    if not normalized_word:
         return False
 
-    has_tokens = False
-    for token_match in TOKEN_RE.finditer(text):
-        token = _normalize_whitelist_word(token_match.group(0))
-        if not token:
-            continue
-        has_tokens = True
-        if token not in whitelist_words:
-            return False
+    for _span_start, _span_end, whitelist_word in occurrences:
+        if normalized_word == whitelist_word or normalized_word in whitelist_word:
+            return True
 
-    return has_tokens
+    return False
 
 
 def _filter_whitelisted_matches(text: str, matches: list[ModerationMatch], whitelist_words: tuple[str, ...]) -> list[ModerationMatch]:
@@ -475,17 +480,17 @@ def _filter_whitelisted_matches(text: str, matches: list[ModerationMatch], white
         return matches
 
     whitelist_set = set(whitelist_words)
-    if _all_tokens_whitelisted(text, whitelist_set):
-        return []
+    whitelist_occurrences = _whitelist_occurrences(text, whitelist_set)
+    if not whitelist_occurrences:
+        return matches
 
-    whitelist_token_spans = _token_spans_for_whitelist(text, whitelist_set)
     filtered: list[ModerationMatch] = []
     for match in matches:
         raw_word = match.get("word")
         normalized_word = _normalize_whitelist_word(raw_word) if isinstance(raw_word, str) else ""
-        if normalized_word and normalized_word in whitelist_set:
+        if _match_in_spans(match.get("start"), match.get("end"), whitelist_occurrences):
             continue
-        if _match_in_spans(match.get("start"), match.get("end"), whitelist_token_spans):
+        if (match.get("start") is None or match.get("end") is None) and _positionless_match_in_whitelist(normalized_word, whitelist_occurrences):
             continue
         filtered.append(match)
 
