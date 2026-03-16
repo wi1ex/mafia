@@ -47,7 +47,7 @@
             <ToggleSwitch
               :model-value="knownRolesVisible"
               off-label="Скрыть"
-              on-label="Показывать"
+              on-label="Показать"
               aria-label="Отображение ролей"
               :width="200"
               @update:modelValue="onToggleKnownRoles"

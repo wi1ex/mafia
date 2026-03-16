@@ -64,7 +64,7 @@
               :model-value="hotkeysVisible"
               label="Подсказки для горячих клавиш"
               off-label="Скрыть"
-              on-label="Показывать"
+              on-label="Показать"
               :width="200"
               :disabled="hotkeysTogglePending"
               @update:modelValue="onToggleHotkeys" />

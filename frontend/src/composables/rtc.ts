@@ -129,6 +129,7 @@ export type UseRTC = {
   bgmVolume: Ref<number>
   setBgmSeed: (seed: unknown, fallback?: number) => void
   setBgmPlaying: (on: boolean) => void
+  forceStopBgm: () => void
   ensureBgmPlayback: () => void
   unlockBgmOnGesture: () => Promise<void>
   destroyBgm: () => void
@@ -177,6 +178,7 @@ export function useRTC(): UseRTC {
   let bgmSource: MediaElementAudioSourceNode | null = null
   let bgmUnlocked = false
   const keepBgmAlive = isIOS
+  let bgmStopRetryId: number | null = null
 
   const screenKey = (id: string) => `${id}#s`
   const isScreenKey = (key: string) => key.endsWith('#s')
@@ -418,6 +420,34 @@ export function useRTC(): UseRTC {
     }
     el.muted = muted
   }
+  function clearBgmStopRetryTimers() {
+    if (bgmStopRetryId != null) {
+      window.clearTimeout(bgmStopRetryId)
+      bgmStopRetryId = null
+    }
+  }
+  function hardStopBgm() {
+    const el = bgmAudio.value
+    if (!el) {
+      bgmCurrentSrc.value = ''
+      return
+    }
+    el.muted = true
+    if (bgmGain) bgmGain.gain.value = 0
+    else el.volume = 0
+    try { el.pause() } catch {}
+    try { el.currentTime = 0 } catch {}
+    bgmCurrentSrc.value = ''
+  }
+  function forceStopBgm() {
+    bgmShouldPlay.value = false
+    clearBgmStopRetryTimers()
+    hardStopBgm()
+    bgmStopRetryId = window.setTimeout(() => {
+      bgmStopRetryId = null
+      if (!bgmShouldPlay.value) hardStopBgm()
+    }, 500)
+  }
   function stopBgm() {
     const el = bgmAudio.value
     if (!el) return
@@ -432,6 +462,7 @@ export function useRTC(): UseRTC {
     bgmCurrentSrc.value = ''
   }
   function destroyBgm() {
+    clearBgmStopRetryTimers()
     const el = bgmAudio.value
     if (!el) return
     stopBgm()
@@ -453,13 +484,14 @@ export function useRTC(): UseRTC {
   }
   function ensureBgmPlayback() {
     if (!bgmShouldPlay.value) {
-      stopBgm()
+      forceStopBgm()
       return
     }
     if (!BGM_FILES.length) {
-      stopBgm()
+      forceStopBgm()
       return
     }
+    clearBgmStopRetryTimers()
     const el = ensureBgmAudio()
     if (!bgmCurrentSrc.value) {
       const base = bgmSeed.value || 0
@@ -504,12 +536,16 @@ export function useRTC(): UseRTC {
   }
   function setBgmPlaying(on: boolean) {
     const prev = bgmShouldPlay.value
-    if (on === prev) return
-    bgmShouldPlay.value = on
-    if (!on) {
-      stopBgm()
+    if (on === prev) {
+      if (!on) forceStopBgm()
       return
     }
+    bgmShouldPlay.value = on
+    if (!on) {
+      forceStopBgm()
+      return
+    }
+    clearBgmStopRetryTimers()
     if (!prev) {
       if (keepBgmAlive && bgmUnlocked) {
         if (bgmAudio.value) try { bgmAudio.value.currentTime = 0 } catch {}
@@ -1896,6 +1932,7 @@ export function useRTC(): UseRTC {
     startAudio,
     setBgmSeed,
     setBgmPlaying,
+    forceStopBgm,
     ensureBgmPlayback,
     unlockBgmOnGesture,
     destroyBgm,

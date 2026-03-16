@@ -1148,8 +1148,24 @@ function volumeIconForStream(key: string) {
 const BGM_ACTIVE_PHASES: GamePhase[] = ['roles_pick', 'mafia_talk_start', 'mafia_talk_end', 'night']
 const bgmShouldPlay = computed(() => musicEnabled.value && BGM_ACTIVE_PHASES.includes(gamePhase.value))
 
+function syncBgmPlayback(opts?: { forceStop?: boolean }) {
+  if (bgmShouldPlay.value) {
+    rtc.setBgmPlaying(true)
+    return
+  }
+  if (opts?.forceStop !== false) {
+    rtc.forceStopBgm()
+    return
+  }
+  rtc.setBgmPlaying(false)
+}
+
 watch(bgmShouldPlay, (on) => {
-  rtc.setBgmPlaying(on)
+  if (on) {
+    rtc.setBgmPlaying(true)
+    return
+  }
+  rtc.forceStopBgm()
 }, { immediate: true })
 
 const canKeepKnockModal = computed(() => {
@@ -1854,8 +1870,6 @@ socket.value?.on('connect', async () => {
     game.handleGameStarted(p)
     if (musicEnabled.value) {
       rtc.setBgmSeed(p?.bgm_seed, rid)
-    } else {
-      rtc.setBgmPlaying(false)
     }
     statusByUser.forEach((st, uid) => {
       statusByUser.set(uid, { ...st, ready: 0 as 0 })
@@ -1928,9 +1942,8 @@ socket.value?.on('connect', async () => {
     const to = (p?.to ? String(p.to) : gamePhase.value) as GamePhase
     if (musicEnabled.value && p?.bgm_seed != null && to === 'night') {
       rtc.setBgmSeed(p.bgm_seed, rid)
-    } else if (!musicEnabled.value && to === 'night') {
-      rtc.setBgmPlaying(false)
     }
+    syncBgmPlayback({ forceStop: true })
     handleGamePhaseChangeUi(prevPhase, to)
   })
 
@@ -1987,7 +2000,7 @@ socket.value?.on('connect', async () => {
 
   socket.value.on('game_best_move_update', (p: any) => {
     game.handleGameBestMoveUpdate(p)
-    if ((p as any)?.best_move?.active) rtc.setBgmPlaying(false)
+    if ((p as any)?.best_move?.active) rtc.forceStopBgm()
   })
 
   socket.value.on('game_host_blur', (p: any) => {
@@ -2274,9 +2287,8 @@ function applyJoinAck(j: any) {
   game.applyFromJoinAck(j, snapshotIds)
   if (musicEnabled.value) {
     rtc.setBgmSeed(j?.game_runtime?.bgm_seed, rid)
-  } else {
-    rtc.setBgmPlaying(false)
   }
+  syncBgmPlayback({ forceStop: true })
   clampLocalVisibilityForCurrentPhase()
   void enforceReturnStateAfterJoin()
   void enforceSpectatorPhaseVisibility(gamePhase.value)
