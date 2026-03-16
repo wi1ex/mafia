@@ -61,7 +61,7 @@
                 <UiInput id="season-start-game-number" v-model="site.season_start_game_number"
                          autocomplete="off" inputmode="text" :disabled="savingSettings" label="Стартовые игры сезонов (через запятую)" />
                 <UiInput id="text-moderation-whitelist" v-model="site.text_moderation_whitelist"
-                         autocomplete="off" inputmode="text" :disabled="savingSettings" label="Белый список слов (через запятую, 0 = пусто)" />
+                         autocomplete="off" inputmode="text" :disabled="savingSettings" label="Белый список слов (через запятую)" />
               </div>
             </div>
 
