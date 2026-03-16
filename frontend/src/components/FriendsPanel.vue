@@ -97,10 +97,7 @@ const canInvite = (f: { kind?: string; room_id?: number | null }) => {
   if (!isRoomMode.value || inviteRoomId.value <= 0 || !isAccepted(f)) return false
   return Number(f.room_id || 0) !== inviteRoomId.value
 }
-const shouldShowInviteButton = (f: { kind?: string; room_id?: number | null; tg_invites_enabled?: boolean }) => {
-  if (!canInvite(f)) return false
-  return !(f.kind === 'offline' && f.tg_invites_enabled === false)
-}
+const shouldShowInviteButton = (f: { kind?: string; room_id?: number | null }) => canInvite(f)
 const sections = computed(() => [
   { kind: 'incoming', title: 'Входящие заявки —', items: friends.list.filter(f => f.kind === 'incoming') },
   { kind: 'online', title: 'В сети —', items: friends.list.filter(f => f.kind === 'online') },
