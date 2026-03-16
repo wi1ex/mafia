@@ -13,7 +13,7 @@
           <p class="empty">Список пуст</p>
         </template>
         <template v-else>
-          <template v-for="(section, idx) in sections" :key="section.kind">
+          <template v-for="section in sections" :key="section.kind">
             <div v-if="section.items.length > 0" class="section-title">
               <span>{{ section.title }}</span>
               <span class="count">{{ section.items.length }}</span>
