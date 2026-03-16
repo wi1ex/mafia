@@ -2,9 +2,10 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Annotated, Optional, List, Literal
 from pydantic import BaseModel, Field, AfterValidator
-from ..api.utils import normalize_season_start_game_number
+from ..api.utils import normalize_season_start_game_number, normalize_text_moderation_whitelist
 
 SeasonStartCsv = Annotated[str, AfterValidator(normalize_season_start_game_number)]
+TextModerationWhitelistCsv = Annotated[str, AfterValidator(normalize_text_moderation_whitelist)]
 
 
 class SiteSettingsOut(BaseModel):
@@ -21,6 +22,7 @@ class SiteSettingsOut(BaseModel):
     rooms_empty_ttl_seconds: int
     rooms_single_ttl_minutes: int
     season_start_game_number: str
+    text_moderation_whitelist: str
 
 
 class SiteSettingsUpdateIn(BaseModel):
@@ -37,6 +39,7 @@ class SiteSettingsUpdateIn(BaseModel):
     rooms_empty_ttl_seconds: Optional[int] = Field(default=None, ge=1)
     rooms_single_ttl_minutes: Optional[int] = Field(default=None, ge=1)
     season_start_game_number: Optional[SeasonStartCsv] = Field(default=None, min_length=1, max_length=255)
+    text_moderation_whitelist: Optional[TextModerationWhitelistCsv] = Field(default=None, max_length=4096)
 
 
 class GameSettingsOut(BaseModel):

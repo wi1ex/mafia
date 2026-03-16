@@ -49,7 +49,7 @@
               off-label="Скрыть"
               on-label="Показать"
               aria-label="Отображение ролей"
-              :width="200"
+              :width="160"
               @update:modelValue="onToggleKnownRoles"
             >
               <template #label>
@@ -344,7 +344,7 @@ onBeforeUnmount(() => {
         justify-content: space-between;
         padding: 5px;
         gap: 5px;
-        width: 190px;
+        width: 150px;
         height: 20px;
         border-radius: 5px;
         background-color: $graphite;

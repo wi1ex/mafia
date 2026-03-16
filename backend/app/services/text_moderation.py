@@ -5,6 +5,7 @@ from functools import lru_cache
 from typing import Any, TypedDict
 from fastapi import HTTPException, status
 from safetext import SafeText
+from ..security.parameters import get_cached_settings
 
 MAX_MATCHES = 5
 MIN_BAD_WORD_LEN = 3
@@ -167,6 +168,10 @@ def _normalize_obfuscated_alt(value: str) -> str:
 def _normalize_bad_word(raw_word: str) -> str:
     word = _normalize_basic(raw_word).strip()
     return _compact_for_scan(word)
+
+
+def _normalize_whitelist_word(raw_word: str) -> str:
+    return _normalize_basic(raw_word).strip()
 
 
 def _compact_for_scan(value: str) -> str:
@@ -407,7 +412,87 @@ def _scan_obfuscated_tokens(text: str) -> list[ModerationMatch]:
     return found
 
 
-def detect_inappropriate_text(text: str) -> list[ModerationMatch]:
+def _get_text_moderation_whitelist_words() -> tuple[str, ...]:
+    try:
+        words = getattr(get_cached_settings(), "text_moderation_whitelist_words", ())
+    except Exception:
+        return ()
+
+    out: list[str] = []
+    seen: set[str] = set()
+    for raw_word in words or ():
+        if not isinstance(raw_word, str):
+            continue
+        word = _normalize_whitelist_word(raw_word)
+        if not word or word in seen:
+            continue
+        seen.add(word)
+        out.append(word)
+    return tuple(out)
+
+
+def _token_spans_for_whitelist(text: str, whitelist_words: set[str]) -> list[tuple[int, int]]:
+    if not whitelist_words:
+        return []
+
+    spans: list[tuple[int, int]] = []
+    for token_match in TOKEN_RE.finditer(text):
+        token = _normalize_whitelist_word(token_match.group(0))
+        if token and token in whitelist_words:
+            spans.append((token_match.start(), token_match.end()))
+    return spans
+
+
+def _match_in_spans(start: int | None, end: int | None, spans: list[tuple[int, int]]) -> bool:
+    if start is None or end is None:
+        return False
+
+    for span_start, span_end in spans:
+        if span_start <= start and end <= span_end:
+            return True
+
+    return False
+
+
+def _all_tokens_whitelisted(text: str, whitelist_words: set[str]) -> bool:
+    if not whitelist_words:
+        return False
+
+    has_tokens = False
+    for token_match in TOKEN_RE.finditer(text):
+        token = _normalize_whitelist_word(token_match.group(0))
+        if not token:
+            continue
+        has_tokens = True
+        if token not in whitelist_words:
+            return False
+
+    return has_tokens
+
+
+def _filter_whitelisted_matches(text: str, matches: list[ModerationMatch], whitelist_words: tuple[str, ...]) -> list[ModerationMatch]:
+    if not matches or not whitelist_words:
+        return matches
+
+    whitelist_set = set(whitelist_words)
+    if _all_tokens_whitelisted(text, whitelist_set):
+        return []
+
+    whitelist_token_spans = _token_spans_for_whitelist(text, whitelist_set)
+    filtered: list[ModerationMatch] = []
+    for match in matches:
+        raw_word = match.get("word")
+        normalized_word = _normalize_whitelist_word(raw_word) if isinstance(raw_word, str) else ""
+        if normalized_word and normalized_word in whitelist_set:
+            continue
+        if _match_in_spans(match.get("start"), match.get("end"), whitelist_token_spans):
+            continue
+        filtered.append(match)
+
+    return filtered
+
+
+def detect_inappropriate_text(text: str, *, whitelist_words: tuple[str, ...] | None = None) -> list[ModerationMatch]:
     value = str(text or "").strip()
     if not value:
         return []
@@ -457,8 +542,10 @@ def detect_inappropriate_text(text: str) -> list[ModerationMatch]:
             continue
         seen.add(key)
         found.append(match)
-    found.sort(key=lambda item: (item.get("start", 10**9), item.get("word", "")))
-    return found[:MAX_MATCHES]
+    effective_whitelist = whitelist_words if whitelist_words is not None else _get_text_moderation_whitelist_words()
+    filtered = _filter_whitelisted_matches(value, found, effective_whitelist)
+    filtered.sort(key=lambda item: (item.get("start", 10**9), item.get("word", "")))
+    return filtered[:MAX_MATCHES]
 
 
 def _dedupe_match_word(word: str) -> str:

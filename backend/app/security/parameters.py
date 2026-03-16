@@ -1,7 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.settings import settings as core_settings
 from ..models.settings import AppSettings
@@ -11,6 +11,7 @@ from ..api.utils import (
     normalize_admin_banner_text,
     normalize_admin_banner_link,
     normalize_season_start_value,
+    normalize_text_moderation_whitelist,
     build_app_settings_snapshot_defaults,
     build_app_settings_snapshot_from_row,
 )
@@ -32,6 +33,8 @@ class AppSettingsSnapshot:
     rooms_single_ttl_minutes: int
     season_start_game_number: str
     season_start_game_numbers: tuple[int, ...]
+    text_moderation_whitelist: str
+    text_moderation_whitelist_words: tuple[str, ...]
     game_min_ready_players: int
     role_pick_seconds: int
     mafia_talk_seconds: int
@@ -46,6 +49,7 @@ class AppSettingsSnapshot:
 
 
 _CACHE: Optional[AppSettingsSnapshot] = None
+_SETTINGS_SCHEMA_VERIFIED = False
 _DEFAULT_SEASON_STARTS = parse_season_starts_or_default(core_settings.SEASON_START_GAME_NUMBER, default=(1,))
 _DEFAULT_SEASON_START_CSV = season_starts_csv(_DEFAULT_SEASON_STARTS)
 
@@ -63,8 +67,22 @@ def set_cached_settings(snapshot: AppSettingsSnapshot) -> None:
     _CACHE = snapshot
 
 
+async def _ensure_settings_schema(session: AsyncSession) -> None:
+    global _SETTINGS_SCHEMA_VERIFIED
+    if _SETTINGS_SCHEMA_VERIFIED:
+        return
+    await session.execute(
+        text(
+            "ALTER TABLE settings "
+            "ADD COLUMN IF NOT EXISTS text_moderation_whitelist VARCHAR(4096) NOT NULL DEFAULT '0'"
+        )
+    )
+    await session.commit()
+    _SETTINGS_SCHEMA_VERIFIED = True
+
+
 async def ensure_app_settings(session: AsyncSession) -> AppSettings:
-    # await _ensure_settings_schema(session)
+    await _ensure_settings_schema(session)
     row = await session.scalar(select(AppSettings).limit(1))
     if not row:
         defaults = build_app_settings_snapshot_defaults(
@@ -87,6 +105,7 @@ async def ensure_app_settings(session: AsyncSession) -> AppSettings:
             rooms_empty_ttl_seconds=defaults.rooms_empty_ttl_seconds,
             rooms_single_ttl_minutes=defaults.rooms_single_ttl_minutes,
             season_start_game_number=defaults.season_start_game_number,
+            text_moderation_whitelist=defaults.text_moderation_whitelist,
             game_min_ready_players=defaults.game_min_ready_players,
             role_pick_seconds=defaults.role_pick_seconds,
             mafia_talk_seconds=defaults.mafia_talk_seconds,
@@ -103,6 +122,7 @@ async def ensure_app_settings(session: AsyncSession) -> AppSettings:
         await session.commit()
         await session.refresh(row)
     else:
+        changed = False
         normalized_season_csv, _ = normalize_season_start_value(
             getattr(row, "season_start_game_number", None),
             default_starts=_DEFAULT_SEASON_STARTS,
@@ -110,6 +130,17 @@ async def ensure_app_settings(session: AsyncSession) -> AppSettings:
         current_season_csv = str(getattr(row, "season_start_game_number", "") or "").strip()
         if current_season_csv != normalized_season_csv:
             row.season_start_game_number = normalized_season_csv
+            changed = True
+
+        normalized_text_moderation_whitelist = normalize_text_moderation_whitelist(
+            getattr(row, "text_moderation_whitelist", "0"),
+        )
+        current_text_moderation_whitelist = str(getattr(row, "text_moderation_whitelist", "") or "").strip()
+        if current_text_moderation_whitelist != normalized_text_moderation_whitelist:
+            row.text_moderation_whitelist = normalized_text_moderation_whitelist
+            changed = True
+
+        if changed:
             await session.commit()
             await session.refresh(row)
 
