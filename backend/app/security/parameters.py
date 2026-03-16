@@ -1,7 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
-from sqlalchemy import select, text
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.settings import settings as core_settings
 from ..models.settings import AppSettings
@@ -49,17 +49,12 @@ class AppSettingsSnapshot:
 
 
 _CACHE: Optional[AppSettingsSnapshot] = None
-_SETTINGS_SCHEMA_VERIFIED = False
 _DEFAULT_SEASON_STARTS = parse_season_starts_or_default(core_settings.SEASON_START_GAME_NUMBER, default=(1,))
 _DEFAULT_SEASON_START_CSV = season_starts_csv(_DEFAULT_SEASON_STARTS)
 
 
 def get_cached_settings() -> AppSettingsSnapshot:
-    return _CACHE or build_app_settings_snapshot_defaults(
-        core_settings,
-        default_starts=_DEFAULT_SEASON_STARTS,
-        snapshot_cls=AppSettingsSnapshot,
-    )
+    return _CACHE or build_app_settings_snapshot_defaults(core_settings, default_starts=_DEFAULT_SEASON_STARTS, snapshot_cls=AppSettingsSnapshot)
 
 
 def set_cached_settings(snapshot: AppSettingsSnapshot) -> None:
@@ -67,29 +62,10 @@ def set_cached_settings(snapshot: AppSettingsSnapshot) -> None:
     _CACHE = snapshot
 
 
-async def _ensure_settings_schema(session: AsyncSession) -> None:
-    global _SETTINGS_SCHEMA_VERIFIED
-    if _SETTINGS_SCHEMA_VERIFIED:
-        return
-    await session.execute(
-        text(
-            "ALTER TABLE settings "
-            "ADD COLUMN IF NOT EXISTS text_moderation_whitelist VARCHAR(4096) NOT NULL DEFAULT '0'"
-        )
-    )
-    await session.commit()
-    _SETTINGS_SCHEMA_VERIFIED = True
-
-
 async def ensure_app_settings(session: AsyncSession) -> AppSettings:
-    await _ensure_settings_schema(session)
     row = await session.scalar(select(AppSettings).limit(1))
     if not row:
-        defaults = build_app_settings_snapshot_defaults(
-            core_settings,
-            default_starts=_DEFAULT_SEASON_STARTS,
-            snapshot_cls=AppSettingsSnapshot,
-        )
+        defaults = build_app_settings_snapshot_defaults(core_settings, default_starts=_DEFAULT_SEASON_STARTS, snapshot_cls=AppSettingsSnapshot)
         row = AppSettings(
             id=1,
             registration_enabled=defaults.registration_enabled,
@@ -123,18 +99,13 @@ async def ensure_app_settings(session: AsyncSession) -> AppSettings:
         await session.refresh(row)
     else:
         changed = False
-        normalized_season_csv, _ = normalize_season_start_value(
-            getattr(row, "season_start_game_number", None),
-            default_starts=_DEFAULT_SEASON_STARTS,
-        )
+        normalized_season_csv, _ = normalize_season_start_value(getattr(row, "season_start_game_number", None), default_starts=_DEFAULT_SEASON_STARTS)
         current_season_csv = str(getattr(row, "season_start_game_number", "") or "").strip()
         if current_season_csv != normalized_season_csv:
             row.season_start_game_number = normalized_season_csv
             changed = True
 
-        normalized_text_moderation_whitelist = normalize_text_moderation_whitelist(
-            getattr(row, "text_moderation_whitelist", "0"),
-        )
+        normalized_text_moderation_whitelist = normalize_text_moderation_whitelist(getattr(row, "text_moderation_whitelist", "0"))
         current_text_moderation_whitelist = str(getattr(row, "text_moderation_whitelist", "") or "").strip()
         if current_text_moderation_whitelist != normalized_text_moderation_whitelist:
             row.text_moderation_whitelist = normalized_text_moderation_whitelist
@@ -144,32 +115,18 @@ async def ensure_app_settings(session: AsyncSession) -> AppSettings:
             await session.commit()
             await session.refresh(row)
 
-    set_cached_settings(
-        build_app_settings_snapshot_from_row(
-            row,
-            default_starts=_DEFAULT_SEASON_STARTS,
-            snapshot_cls=AppSettingsSnapshot,
-        )
-    )
+    set_cached_settings(build_app_settings_snapshot_from_row(row, default_starts=_DEFAULT_SEASON_STARTS, snapshot_cls=AppSettingsSnapshot))
     return row
 
 
 async def refresh_app_settings(session: AsyncSession) -> AppSettingsSnapshot:
     row = await ensure_app_settings(session)
-    snapshot = build_app_settings_snapshot_from_row(
-        row,
-        default_starts=_DEFAULT_SEASON_STARTS,
-        snapshot_cls=AppSettingsSnapshot,
-    )
+    snapshot = build_app_settings_snapshot_from_row(row, default_starts=_DEFAULT_SEASON_STARTS, snapshot_cls=AppSettingsSnapshot)
     set_cached_settings(snapshot)
     return snapshot
 
 
 def sync_cache_from_row(row: AppSettings) -> AppSettingsSnapshot:
-    snapshot = build_app_settings_snapshot_from_row(
-        row,
-        default_starts=_DEFAULT_SEASON_STARTS,
-        snapshot_cls=AppSettingsSnapshot,
-    )
+    snapshot = build_app_settings_snapshot_from_row(row, default_starts=_DEFAULT_SEASON_STARTS, snapshot_cls=AppSettingsSnapshot)
     set_cached_settings(snapshot)
     return snapshot
