@@ -30,7 +30,7 @@ from ...security.auth_tokens import get_identity
 from ...security.passwords import hash_password
 from ...security.parameters import ensure_app_settings, sync_cache_from_row, refresh_app_settings, get_cached_settings
 from ...services.user_cache import write_user_profile_cache, get_user_profiles_cached
-from ...services.user_stats import invalidate_all_user_game_stats_cache, get_user_game_stats_cached
+from ...services.user_stats import get_user_game_stats_cached
 from ...schemas.common import Ok, Identity
 from ...schemas.user import UserStatsOut, UserTopPlayerOut
 from ...schemas.updates import AdminUpdateIn, AdminUpdateOut, AdminUpdatesOut
@@ -48,6 +48,8 @@ from ...schemas.admin import (
     AdminRoomsOut,
     AdminGameActionOut,
     AdminGameActionsOut,
+    AdminGameResultUpdateIn,
+    AdminGameResultOut,
     AdminUserOut,
     AdminUsersOut,
     AdminUserRoleIn,
@@ -65,8 +67,10 @@ from ..utils import (
     parse_day_range,
     normalize_admin_banner_text,
     normalize_admin_banner_link,
+    normalize_game_result,
     site_settings_out,
     game_settings_out,
+    schedule_user_game_stats_cache_invalidation,
     normalize_pagination,
     build_registrations_series,
     build_registrations_monthly_series,
@@ -185,13 +189,7 @@ async def update_settings(payload: AdminSettingsUpdateIn, session: AsyncSession 
         except Exception:
             pass
         if season_changed:
-            async def _on_season_changed_task() -> None:
-                try:
-                    await invalidate_all_user_game_stats_cache()
-                except Exception:
-                    log.warning("admin.settings.season_change.invalidate_stats_cache_failed")
-
-            asyncio.create_task(_on_season_changed_task())
+            schedule_user_game_stats_cache_invalidation("admin.settings.season_change.invalidate_stats_cache_failed")
 
     return AdminSettingsOut(site=site_settings_out(row), game=game_settings_out(row))
 
@@ -581,12 +579,12 @@ async def game_actions(game_id: int, session: AsyncSession = Depends(get_session
     if gid <= 0:
         raise HTTPException(status_code=404, detail="game_not_found")
 
-    row = await session.execute(select(Game.id, Game.head_id, Game.seats, Game.actions).where(Game.id == gid).limit(1))
+    row = await session.execute(select(Game.id, Game.head_id, Game.seats, Game.actions, Game.result).where(Game.id == gid).limit(1))
     rec = row.first()
     if not rec:
         raise HTTPException(status_code=404, detail="game_not_found")
 
-    game_id_raw, head_id_raw, seats_raw, actions_raw = rec
+    game_id_raw, head_id_raw, seats_raw, actions_raw, result_raw = rec
     game_id_value = safe_int(game_id_raw)
     if game_id_value <= 0:
         raise HTTPException(status_code=404, detail="game_not_found")
@@ -626,7 +624,52 @@ async def game_actions(game_id: int, session: AsyncSession = Depends(get_session
                 )
             )
 
-    return AdminGameActionsOut(id=game_id_value, number=game_id_value, items=items)
+    return AdminGameActionsOut(
+        id=game_id_value,
+        number=game_id_value,
+        result=normalize_game_result(result_raw),
+        items=items,
+    )
+
+
+@log_route("admin.games.result_update")
+@require_roles_deco("admin")
+@router.patch("/games/{game_id}/result", response_model=AdminGameResultOut)
+async def update_game_result(game_id: int, payload: AdminGameResultUpdateIn, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> AdminGameResultOut:
+    gid = safe_int(game_id)
+    if gid <= 0:
+        raise HTTPException(status_code=404, detail="game_not_found")
+
+    game = await session.get(Game, gid)
+    if not game:
+        raise HTTPException(status_code=404, detail="game_not_found")
+
+    prev_result_raw = str(getattr(game, "result", "") or "").strip().lower()
+    prev_result = normalize_game_result(prev_result_raw)
+    next_result = payload.result
+
+    if prev_result_raw != next_result:
+        game.result = next_result
+        await log_action(
+            session,
+            user_id=int(ident["id"]),
+            username=ident["username"],
+            action="admin_game_result_update",
+            details=f"Изменение результата игры game_id={gid} from={prev_result} to={next_result}",
+            commit=False,
+        )
+        await session.commit()
+        await session.refresh(game)
+        schedule_user_game_stats_cache_invalidation(
+            "admin.games.result_update.invalidate_stats_cache_failed",
+            game_id=gid,
+        )
+
+    return AdminGameResultOut(
+        id=gid,
+        number=gid,
+        result=normalize_game_result(getattr(game, "result", None)),
+    )
 
 
 @log_route("admin.rooms.close")

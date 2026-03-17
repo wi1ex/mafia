@@ -8,8 +8,32 @@
       <div v-if="open" class="overlay" @pointerdown.self="armed = true"
            @pointerup.self="armed && closeModal()" @pointerleave.self="armed = false" @pointercancel.self="armed = false">
         <div class="modal" role="dialog" aria-modal="true" :aria-label="`Подробности игры #${gameNumber}`">
-          <header>
-            <span>Подробности игры #{{ gameNumber }}</span>
+          <header class="modal-header">
+            <div class="modal-header-main">
+              <span>Подробности игры #{{ gameNumber }}</span>
+              <div class="result-editor">
+                <label :for="`game-history-result-${gameId}`">Исход игры</label>
+                <div ref="resultRoot" class="ui-select" :class="{ open: resultOpen }">
+                  <button type="button" :disabled="loading || savingResult" :aria-expanded="resultOpen"
+                          aria-label="Р’С‹Р±СЂР°С‚СЊ РёСЃС…РѕРґ РёРіСЂС‹" @click="toggleResultDd">
+                    <span>{{ selectedResultLabel }}</span>
+                    <img :src="iconArrowDown" alt="arrow" />
+                  </button>
+                  <Transition name="menu">
+                    <ul v-show="resultOpen" :data-open="resultOpen ? 1 : 0" role="listbox">
+                      <li v-for="option in RESULT_OPTIONS" :key="option.value" class="option"
+                          :aria-selected="option.value === selectedResult" :class="{ selected: option.value === selectedResult }"
+                          @click="selectResult(option.value)">
+                        <span>{{ option.label }}</span>
+                        <img v-if="option.value === selectedResult" :src="iconReadyGreen" alt="ready" />
+                      </li>
+                    </ul>
+                  </Transition>
+                </div>
+                <span v-if="savingResult" class="result-status">Сохраняем...</span>
+                <span v-else-if="saveError" class="result-status result-status--error">{{ saveError }}</span>
+              </div>
+            </div>
             <button class="icon" type="button" aria-label="Закрыть" @click="closeModal">
               <img :src="iconClose" alt="close" />
             </button>
@@ -51,12 +75,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { api } from '@/services/axios'
 import { formatLocalDateTime } from '@/services/datetime'
 import { useUserStore } from '@/store'
 
 import iconClose from '@/assets/svg/close.svg'
+import iconReadyGreen from '@/assets/svg/readyGreen.svg'
+import iconArrowDown from '@/assets/svg/arrowDown.svg'
 
 interface AdminGameActionField {
   label: string
@@ -72,15 +98,29 @@ interface AdminGameActionItem {
   fields: AdminGameActionField[]
 }
 
+type GameResult = 'red' | 'black' | 'draw'
+
 interface AdminGameActionsResponse {
   id: number
   number: number
+  result: GameResult
   items: AdminGameActionItem[]
+}
+
+interface AdminGameResultResponse {
+  id: number
+  number: number
+  result: GameResult
 }
 
 const props = defineProps<{
   gameId: number
   gameNumber: number
+  gameResult: GameResult
+}>()
+
+const emit = defineEmits<{
+  (e: 'result-updated', payload: { gameId: number; result: GameResult; previousResult: GameResult }): void
 }>()
 
 const userStore = useUserStore()
@@ -92,6 +132,14 @@ const loading = ref(false)
 const error = ref('')
 const items = ref<AdminGameActionItem[]>([])
 const loaded = ref(false)
+const selectedResult = ref<GameResult>(normalizeGameResult(props.gameResult))
+const savedResult = ref<GameResult>(normalizeGameResult(props.gameResult))
+const savingResult = ref(false)
+const saveError = ref('')
+const resultOpen = ref(false)
+const resultRoot = ref<HTMLElement | null>(null)
+
+let suppressNextDocClick = false
 
 const DATE_OPTIONS: Intl.DateTimeFormatOptions = {
   year: 'numeric',
@@ -102,9 +150,39 @@ const DATE_OPTIONS: Intl.DateTimeFormatOptions = {
   second: '2-digit',
 }
 
+const RESULT_OPTIONS: Array<{ value: GameResult; label: string }> = [
+  { value: 'red', label: 'Победа мирных' },
+  { value: 'black', label: 'Победа мафии' },
+  { value: 'draw', label: 'Ничья' },
+]
+
+const selectedResultLabel = computed(() => RESULT_OPTIONS.find((option) => option.value === selectedResult.value)?.label || '')
+
+function normalizeGameResult(raw: unknown): GameResult {
+  if (raw === 'red' || raw === 'black' || raw === 'draw') return raw
+  return 'draw'
+}
+
 function closeModal(): void {
   armed.value = false
+  closeResultDropdown()
   open.value = false
+}
+
+function toggleResultDd(): void {
+  if (loading.value || savingResult.value) return
+  resultOpen.value = !resultOpen.value
+}
+
+function closeResultDropdown(): void {
+  resultOpen.value = false
+}
+
+function selectResult(value: GameResult): void {
+  closeResultDropdown()
+  if (savingResult.value || value === selectedResult.value) return
+  selectedResult.value = value
+  void onResultChange()
 }
 
 function normalizeItems(raw: unknown): AdminGameActionItem[] {
@@ -139,6 +217,10 @@ async function loadActions(): Promise<void> {
   error.value = ''
   try {
     const { data } = await api.get<AdminGameActionsResponse>(`/admin/games/${props.gameId}/actions`)
+    const result = normalizeGameResult(data?.result)
+    selectedResult.value = result
+    savedResult.value = result
+    saveError.value = ''
     items.value = normalizeItems(data?.items)
     loaded.value = true
   } catch (e: any) {
@@ -152,13 +234,83 @@ async function loadActions(): Promise<void> {
 function openModal(): void {
   if (!isAdmin.value) return
   armed.value = false
+  saveError.value = ''
+  closeResultDropdown()
   open.value = true
   void loadActions()
+}
+
+async function onResultChange(): Promise<void> {
+  const nextResult = normalizeGameResult(selectedResult.value)
+  const previousResult = savedResult.value
+  saveError.value = ''
+  if (savingResult.value || nextResult === previousResult) return
+
+  savingResult.value = true
+  try {
+    const { data } = await api.patch<AdminGameResultResponse>(`/admin/games/${props.gameId}/result`, {
+      result: nextResult,
+    })
+    const actualResult = normalizeGameResult(data?.result)
+    selectedResult.value = actualResult
+    savedResult.value = actualResult
+    emit('result-updated', {
+      gameId: props.gameId,
+      result: actualResult,
+      previousResult,
+    })
+  } catch (e: any) {
+    selectedResult.value = previousResult
+    const status = Number(e?.response?.status || 0)
+    saveError.value = status === 404 ? 'Игра не найдена' : 'Не удалось изменить результат'
+  } finally {
+    savingResult.value = false
+  }
 }
 
 function formatOccurredAt(value: string): string {
   return formatLocalDateTime(value, DATE_OPTIONS)
 }
+
+function onDocPointerDown(ev: PointerEvent): void {
+  const target = ev.target as Node | null
+  const clickedOutsideResult = resultOpen.value && resultRoot.value && target && !resultRoot.value.contains(target)
+  if (!clickedOutsideResult) return
+  closeResultDropdown()
+  suppressNextDocClick = true
+  ev.stopPropagation?.()
+}
+
+function onDocClickCapture(ev: MouseEvent): void {
+  if (!suppressNextDocClick) return
+  ev.stopPropagation()
+  suppressNextDocClick = false
+}
+
+watch(
+  () => props.gameResult,
+  (value) => {
+    const normalized = normalizeGameResult(value)
+    if (savingResult.value) return
+    selectedResult.value = normalized
+    savedResult.value = normalized
+    saveError.value = ''
+  },
+)
+
+watch(open, (value) => {
+  if (!value) closeResultDropdown()
+})
+
+onMounted(() => {
+  document.addEventListener('pointerdown', onDocPointerDown, { capture: true })
+  document.addEventListener('click', onDocClickCapture, { capture: true })
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('pointerdown', onDocPointerDown, { capture: true } as AddEventListenerOptions)
+  document.removeEventListener('click', onDocClickCapture, { capture: true } as AddEventListenerOptions)
+})
 </script>
 
 <style scoped lang="scss">
@@ -191,17 +343,125 @@ function formatOccurredAt(value: string): string {
     border-radius: 5px;
     background-color: $graphite;
     box-sizing: border-box;
-    header {
+    .modal-header {
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       justify-content: space-between;
       gap: 10px;
-      span {
-        color: $fg;
-        font-size: 18px;
-        font-family: Manrope-Medium;
+      .modal-header-main {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        min-width: 0;
+        span {
+          color: $fg;
+          font-size: 18px;
+          font-family: Manrope-Medium;
+        }
+      }
+      .result-editor {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 5px;
+        width: min(320px, 100%);
+        label {
+          color: $grey;
+          font-size: 13px;
+          line-height: 1.2;
+        }
+        .ui-select {
+          position: relative;
+          width: 100%;
+          box-shadow: 3px 3px 5px rgba($black, 0.25);
+          button {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            height: 30px;
+            border: 1px solid $lead;
+            border-radius: 5px;
+            background-color: $dark;
+            padding: 0 10px;
+            cursor: pointer;
+            transition: background-color 0.25s ease-in-out;
+            &:hover {
+              background-color: $graphite;
+            }
+            &:disabled {
+              opacity: 0.65;
+              cursor: not-allowed;
+            }
+            span {
+              height: 16px;
+              color: $fg;
+              font-size: 14px;
+              font-family: Manrope-Medium;
+              line-height: 1;
+              white-space: nowrap;
+              overflow: hidden;
+              text-overflow: ellipsis;
+            }
+            img {
+              width: 15px;
+              height: 15px;
+            }
+          }
+          ul {
+            position: absolute;
+            z-index: 30;
+            bottom: 0;
+            margin: 0;
+            padding: 0;
+            width: calc(100% - 2px);
+            border: 1px solid $lead;
+            border-radius: 5px;
+            background-color: $graphite;
+            transform-origin: bottom;
+            list-style: none;
+            &[data-open="0"] {
+              pointer-events: none;
+            }
+            .option {
+              display: flex;
+              align-items: flex-start;
+              justify-content: space-between;
+              padding: 10px;
+              cursor: pointer;
+              transition: background-color 0.25s ease-in-out;
+              &:hover {
+                background-color: $lead;
+              }
+              span {
+                height: 16px;
+                color: $fg;
+                font-size: 14px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+              }
+              img {
+                width: 15px;
+                height: 15px;
+              }
+            }
+            .option.selected {
+              background-color: $lead;
+            }
+          }
+        }
+        .result-status {
+          color: $ashy;
+          font-size: 12px;
+          line-height: 1.2;
+          &.result-status--error {
+            color: $orange;
+          }
+        }
       }
       .icon {
+        flex: 0 0 auto;
         width: 25px;
         height: 25px;
         border: none;
@@ -325,9 +585,28 @@ function formatOccurredAt(value: string): string {
   opacity: 0;
 }
 
+.menu-enter-active,
+.menu-leave-active {
+  transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
+  will-change: opacity, transform;
+}
+
+.menu-enter-from,
+.menu-leave-to {
+  opacity: 0;
+  transform: translateY(30px);
+}
+
 @media (max-width: 1280px) {
   .overlay {
     .modal {
+      .modal-header {
+        .result-editor {
+          .ui-select {
+            width: 100%;
+          }
+        }
+      }
       .modal-body {
         .actions-list {
           .action-card {

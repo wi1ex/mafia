@@ -26,6 +26,7 @@ from ..models.user import User
 from ..models.update import SiteUpdate, UpdateRead
 from ..realtime.sio import sio
 from ..services.minio import delete_avatars_async
+from ..services.user_stats import invalidate_all_user_game_stats_cache
 from ..services.user_cache import (
     get_user_profiles_cached,
     write_user_profile_cache,
@@ -64,6 +65,7 @@ __all__ = [
     "build_registrations_monthly_series",
     "build_games_series",
     "build_games_monthly_series",
+    "schedule_user_game_stats_cache_invalidation",
     "calc_total_stream_seconds",
     "calc_stream_seconds_in_range",
     "fetch_active_rooms_stats",
@@ -153,6 +155,16 @@ __all__ = [
 ]
 
 log = structlog.get_logger()
+
+
+def schedule_user_game_stats_cache_invalidation(log_event: str, **log_kwargs: object) -> None:
+    async def _task() -> None:
+        try:
+            await invalidate_all_user_game_stats_cache()
+        except Exception:
+            log.warning(log_event, **log_kwargs)
+
+    asyncio.create_task(_task())
 
 PRESIGN_ALLOWED_PREFIXES: tuple[str, ...] = ("avatars/",)
 PRESIGN_KEY_RE = re.compile(r"^[a-zA-Z0-9._/-]{3,256}$")

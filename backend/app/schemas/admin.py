@@ -229,10 +229,24 @@ class AdminGameActionOut(BaseModel):
     fields: List[AdminGameActionFieldOut] = Field(default_factory=list)
 
 
+AdminGameResult = Literal["red", "black", "draw"]
+
+
 class AdminGameActionsOut(BaseModel):
     id: int
     number: int
+    result: AdminGameResult
     items: List[AdminGameActionOut] = Field(default_factory=list)
+
+
+class AdminGameResultUpdateIn(BaseModel):
+    result: AdminGameResult
+
+
+class AdminGameResultOut(BaseModel):
+    id: int
+    number: int
+    result: AdminGameResult
 
 
 class AdminUserOut(BaseModel):

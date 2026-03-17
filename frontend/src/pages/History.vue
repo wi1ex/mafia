@@ -30,7 +30,8 @@
             <div class="history-main-left">
               <div class="game-number-row">
                 <span class="game-number">Игра #{{ game.number }}</span>
-                <GameHistoryAdminActions v-if="isExpanded(game.id)" :game-id="game.id" :game-number="game.number" />
+                <GameHistoryActions v-if="isExpanded(game.id)" :game-id="game.id" :game-number="game.number"
+                                         :game-result="game.result" @result-updated="handleGameResultUpdated" />
               </div>
               <div class="game-head">
                 <span>Ведущий:</span>
@@ -77,12 +78,13 @@ import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { api } from '@/services/axios'
 import { formatLocalDateTime } from '@/services/datetime'
 import GameHistoryDetails from '@/components/GameHistoryDetails.vue'
-import GameHistoryAdminActions from '@/components/GameHistoryAdminActions.vue'
+import GameHistoryActions from '@/components/GameHistoryActions.vue'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
 import iconArrowDown from '@/assets/svg/arrowDown.svg'
 
 type GameHistoryRole = 'citizen' | 'mafia' | 'don' | 'sheriff'
+type GameResult = 'red' | 'black' | 'draw'
 type LeaveReason = 'vote' | 'foul' | 'suicide' | 'night'
 type FarewellVerdict = 'citizen' | 'mafia'
 type NightCheckVerdict = 'citizen' | 'mafia' | 'sheriff'
@@ -124,7 +126,7 @@ interface GameHistoryListItem {
   id: number
   number: number
   head: GameHistoryHost
-  result: 'red' | 'black' | 'draw'
+  result: GameResult
   black_alive_at_finish: number
   started_at: string
   finished_at: string
@@ -214,6 +216,13 @@ function detailsSlots(gameId: number): GameHistorySlot[] {
   return detailsByGameId.value[gameId] || []
 }
 
+function adjustResultTotal(result: GameResult, delta: number): void {
+  if (delta === 0) return
+  if (result === 'red') totalRedWins.value = Math.max(0, totalRedWins.value + delta)
+  else if (result === 'black') totalBlackWins.value = Math.max(0, totalBlackWins.value + delta)
+  else totalDraws.value = Math.max(0, totalDraws.value + delta)
+}
+
 async function fetchGameDetails(gameId: number): Promise<void> {
   if (detailsByGameId.value[gameId]) return
   if (detailsLoading.value.has(gameId)) return
@@ -254,6 +263,15 @@ function resultLabel(game: GameHistoryListItem): string {
     return `Победа мафии ${count_black}в${count_black}`
   }
   return 'Ничья'
+}
+
+function handleGameResultUpdated(payload: { gameId: number; result: GameResult; previousResult: GameResult }): void {
+  if (payload.result === payload.previousResult) return
+  items.value = items.value.map((game) => (
+    game.id === payload.gameId ? { ...game, result: payload.result } : game
+  ))
+  adjustResultTotal(payload.previousResult, -1)
+  adjustResultTotal(payload.result, 1)
 }
 
 function headName(game: GameHistoryListItem): string {

@@ -20,7 +20,8 @@
             <div class="history-main-left">
               <div class="game-number-row">
                 <span class="game-number">Игра #{{ game.number }}</span>
-                <GameHistoryAdminActions v-if="isExpanded(game.id)" :game-id="game.id" :game-number="game.number" />
+                <GameHistoryActions v-if="isExpanded(game.id)" :game-id="game.id" :game-number="game.number"
+                                         :game-result="game.result" @result-updated="handleGameResultUpdated" />
               </div>
               <div class="game-head">
                 <span>Ведущий:</span>
@@ -68,7 +69,7 @@ import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { api } from '@/services/axios'
 import { formatLocalDateTime } from '@/services/datetime'
 import GameHistoryDetails from '@/components/GameHistoryDetails.vue'
-import GameHistoryAdminActions from '@/components/GameHistoryAdminActions.vue'
+import GameHistoryActions from '@/components/GameHistoryActions.vue'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
 import iconArrowDown from '@/assets/svg/arrowDown.svg'
@@ -79,6 +80,7 @@ import iconRoleSheriff from '@/assets/images/roleSheriff.png'
 
 type GameHistoryRole = 'citizen' | 'mafia' | 'don' | 'sheriff'
 type GameHistoryRoleFilter = 'all' | GameHistoryRole
+type GameResult = 'red' | 'black' | 'draw'
 type LeaveReason = 'vote' | 'foul' | 'suicide' | 'night'
 type FarewellVerdict = 'citizen' | 'mafia'
 type NightCheckVerdict = 'citizen' | 'mafia' | 'sheriff'
@@ -125,7 +127,7 @@ interface GameHistoryListItem {
   id: number
   number: number
   head: GameHistoryHost
-  result: 'red' | 'black' | 'draw'
+  result: GameResult
   player_role?: GameHistoryRole | null
   black_alive_at_finish: number
   started_at: string
@@ -269,6 +271,12 @@ function resultLabel(game: GameHistoryListItem): string {
     return `Победа мафии ${countBlack}в${countBlack}`
   }
   return 'Ничья'
+}
+
+function handleGameResultUpdated(payload: { gameId: number; result: GameResult }): void {
+  items.value = items.value.map((game) => (
+    game.id === payload.gameId ? { ...game, result: payload.result } : game
+  ))
 }
 
 function roleLabel(role: GameHistoryRole): string {
