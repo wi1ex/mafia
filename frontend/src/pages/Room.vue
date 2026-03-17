@@ -1236,7 +1236,6 @@ function showTransientToast(title: string, text: string): void {
 const sendAckGame: SendAckFn = (event, payload, timeoutMs) => sendAck(event, payload, timeoutMs)
 const startGameUi = async () => {
   if (!canUseReadyStart.value) return
-  if (!(await ensureGameParticipationAllowed())) return
   await game.startGame(sendAckGame)
 }
 const endGameUi = () => game.endGame(sendAckGame)
@@ -1588,7 +1587,7 @@ const readyOn = computed({
 })
 const isReady = (id: string) => (statusByUser.get(id)?.ready ?? 0) === 1
 
-async function ensureGameParticipationAllowed(): Promise<boolean> {
+async function ensureReadyAllowed(): Promise<boolean> {
   if (userStore.suspendActive) {
     void alertDialog('Вам временно запрещено участие в играх')
     return false
@@ -1598,7 +1597,7 @@ async function ensureGameParticipationAllowed(): Promise<boolean> {
 
 async function toggleReady() {
   if (!canUseReadyToggle.value) return
-  if (!(await ensureGameParticipationAllowed())) return
+  if (!(await ensureReadyAllowed())) return
   const want = !readyOn.value
   readyOn.value = want
   try {

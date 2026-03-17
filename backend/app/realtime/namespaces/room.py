@@ -518,6 +518,7 @@ async def state(sid, data) -> StateAck:
             payload = {}
 
         visibility_forced_off = False
+        ready_forced_off = False
         if "visibility" in payload and to_bool01(payload.get("visibility")):
             try:
                 raw_gstate = await r.hgetall(f"room:{rid}:game_state")
@@ -530,6 +531,14 @@ async def state(sid, data) -> StateAck:
                 payload["visibility"] = 0
                 visibility_forced_off = True
 
+        if "ready" in payload and to_bool01(payload.get("ready")):
+            async with SessionLocal() as s:
+                active = await fetch_active_sanctions(s, uid)
+            if active.get(SANCTION_SUSPEND):
+                payload = dict(payload)
+                payload.pop("ready", None)
+                ready_forced_off = True
+
         applied = await apply_state(r, rid, uid, payload)
         changed = dict(applied)
         if visibility_forced_off and changed.get("visibility") != "0":
@@ -538,6 +547,9 @@ async def state(sid, data) -> StateAck:
             newv = await set_ready(r, rid, uid, payload.get("ready"))
             if newv is not None:
                 changed["ready"] = newv
+        elif ready_forced_off:
+            forced_ready = await set_ready(r, rid, uid, 0)
+            changed["ready"] = forced_ready or "0"
         if changed:
             await emit_state_changed_filtered(r, rid, uid, changed)
         return {"ok": True}
@@ -1125,10 +1137,10 @@ async def game_start(sid, data) -> GameStartAck:
         if uid != head_uid:
             return {"ok": False, "error": "forbidden", "status": 403}
 
-        member_ids = set(members)
-        if member_ids:
+        ready_member_ids = set(ready_ids)
+        if ready_member_ids:
             async with SessionLocal() as s:
-                suspended_ids = await fetch_active_users_by_kind(s, member_ids, SANCTION_SUSPEND)
+                suspended_ids = await fetch_active_users_by_kind(s, ready_member_ids, SANCTION_SUSPEND)
             if suspended_ids:
                 return {
                     "ok": False,

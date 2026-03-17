@@ -1562,6 +1562,18 @@ async def apply_user_suspend(user_id: int, payload: AdminSanctionTimedIn, ident:
     await session.refresh(note)
 
     with suppress(Exception):
+        r = get_redis()
+        raw_room_id = await r.get(f"user:{uid}:room")
+        room_id = int(raw_room_id) if raw_room_id else 0
+        if room_id > 0 and await r.srem(f"room:{room_id}:ready", str(uid)):
+            await sio.emit(
+                "state_changed",
+                {"user_id": uid, "ready": "0"},
+                room=f"room:{room_id}",
+                namespace="/room",
+            )
+
+    with suppress(Exception):
         await sio.emit(
             "notify",
             {
