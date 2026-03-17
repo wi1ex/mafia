@@ -4,7 +4,7 @@
          @pointerup.self="armed && close()" @pointerleave.self="armed = false" @pointercancel.self="armed = false">
       <div class="contacts-modal">
         <header>
-          <span>Контакты</span>
+          <span>Обратная связь</span>
           <button @click="close" aria-label="Закрыть">
             <img :src="iconClose" alt="close" />
           </button>
