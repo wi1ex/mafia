@@ -28,7 +28,10 @@
             :class="{ open: isExpanded(game.id), 'history-item--red': game.result === 'red', 'history-item--black': game.result === 'black' }">
           <button class="history-main" type="button" :aria-expanded="isExpanded(game.id)" @click="toggleExpanded(game.id)">
             <div class="history-main-left">
-              <span class="game-number">Игра #{{ game.number }}</span>
+              <div class="game-number-row">
+                <span class="game-number">Игра #{{ game.number }}</span>
+                <GameHistoryAdminActions v-if="isExpanded(game.id)" :game-id="game.id" :game-number="game.number" />
+              </div>
               <div class="game-head">
                 <span>Ведущий:</span>
                 <template v-if="game.head.auto">
@@ -74,6 +77,7 @@ import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { api } from '@/services/axios'
 import { formatLocalDateTime } from '@/services/datetime'
 import GameHistoryDetails from '@/components/GameHistoryDetails.vue'
+import GameHistoryAdminActions from '@/components/GameHistoryAdminActions.vue'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
 import iconArrowDown from '@/assets/svg/arrowDown.svg'
@@ -459,6 +463,12 @@ onBeforeUnmount(() => {
             min-width: 0;
           }
           .history-main-left {
+            .game-number-row {
+              display: flex;
+              align-items: center;
+              gap: 10px;
+              min-width: 0;
+            }
             .game-number {
               color: $fg;
               font-size: 16px;

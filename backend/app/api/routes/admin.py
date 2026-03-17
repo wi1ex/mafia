@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 from typing import cast
 import asyncio
 import structlog
@@ -46,6 +46,8 @@ from ...schemas.admin import (
     AdminRoomOut,
     AdminRoomGameOut,
     AdminRoomsOut,
+    AdminGameActionOut,
+    AdminGameActionsOut,
     AdminUserOut,
     AdminUsersOut,
     AdminUserRoleIn,
@@ -88,6 +90,8 @@ from ..utils import (
     fetch_users_last_game_at,
     fetch_friends_count_for_users,
     fetch_sanction_counts_for_users,
+    safe_int,
+    game_action_fields,
     normalize_users_sort,
     admin_role_sort_key,
     admin_username_sort_key,
@@ -113,6 +117,7 @@ from ..utils import (
 
 router = APIRouter()
 log = structlog.get_logger()
+
 
 @log_route("admin.settings_public")
 @router.get("/settings/public", response_model=PublicSettingsOut)
@@ -568,6 +573,62 @@ async def rooms_list(page: int = 1, limit: int = 20, username: str | None = None
     return AdminRoomsOut(total=total, items=items)
 
 
+@log_route("admin.games.actions")
+@require_roles_deco("admin")
+@router.get("/games/{game_id}/actions", response_model=AdminGameActionsOut)
+async def game_actions(game_id: int, session: AsyncSession = Depends(get_session)) -> AdminGameActionsOut:
+    gid = safe_int(game_id)
+    if gid <= 0:
+        raise HTTPException(status_code=404, detail="game_not_found")
+
+    row = await session.execute(select(Game.id, Game.head_id, Game.seats, Game.actions).where(Game.id == gid).limit(1))
+    rec = row.first()
+    if not rec:
+        raise HTTPException(status_code=404, detail="game_not_found")
+
+    game_id_raw, head_id_raw, seats_raw, actions_raw = rec
+    game_id_value = safe_int(game_id_raw)
+    if game_id_value <= 0:
+        raise HTTPException(status_code=404, detail="game_not_found")
+
+    head_uid = safe_int(head_id_raw)
+    uid_to_slot: dict[int, int] = {}
+    if isinstance(seats_raw, dict):
+        for raw_uid, raw_slot in seats_raw.items():
+            uid = safe_int(raw_uid)
+            slot = safe_int(raw_slot)
+            if uid <= 0 or slot <= 0 or slot > 10 or uid in uid_to_slot:
+                continue
+            uid_to_slot[uid] = slot
+
+    items: list[AdminGameActionOut] = []
+    if isinstance(actions_raw, list):
+        for index, raw_action in enumerate(actions_raw, start=1):
+            if not isinstance(raw_action, dict):
+                continue
+            action = dict(raw_action)
+            title, summary, fields = game_action_fields(action, uid_to_slot=uid_to_slot, head_uid=head_uid)
+            occurred_at: datetime | None = None
+            ts = safe_int(action.get("ts"))
+            if ts > 0:
+                try:
+                    occurred_at = datetime.fromtimestamp(ts, tz=timezone.utc)
+                except Exception:
+                    occurred_at = None
+            items.append(
+                AdminGameActionOut(
+                    order=index,
+                    type=str(action.get("type") or "").strip().lower() or "unknown",
+                    occurred_at=occurred_at,
+                    title=title,
+                    summary=summary,
+                    fields=fields,
+                )
+            )
+
+    return AdminGameActionsOut(id=game_id_value, number=game_id_value, items=items)
+
+
 @log_route("admin.rooms.close")
 @require_roles_deco("admin")
 @router.post("/rooms/{room_id}/close", response_model=Ok)
@@ -1005,7 +1066,7 @@ async def update_user_role(user_id: int, payload: AdminUserRoleIn, ident: Identi
     uid = cast(int, user.id)
     if prev_role != user.role:
         action = "admin_role_grant" if user.role == "admin" else "admin_role_revoke"
-        details = f"Роль user_id={uid}"
+        details = f"Р РѕР»СЊ user_id={uid}"
         if user.username:
             details += f" username={user.username}"
         details += f" from={prev_role} to={user.role}"
@@ -1021,8 +1082,8 @@ async def update_user_role(user_id: int, payload: AdminUserRoleIn, ident: Identi
         if user.role == "admin":
             note = Notif(
                 user_id=uid,
-                title="Администратор",
-                text="Вам выданы права администратора.",
+                title="РђРґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂ",
+                text="Р’Р°Рј РІС‹РґР°РЅС‹ РїСЂР°РІР° Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂР°.",
             )
             session.add(note)
             await session.commit()
@@ -1094,7 +1155,7 @@ async def delete_user_account(user_id: int, ident: Identity = Depends(get_identi
     ensure_admin_target_allowed(target)
     user = await set_user_deleted(session, int(user_id), deleted=True)
     uid = cast(int, user.id)
-    details = f"Удаление аккаунта user_id={uid}"
+    details = f"РЈРґР°Р»РµРЅРёРµ Р°РєРєР°СѓРЅС‚Р° user_id={uid}"
     if user.username:
         details += f" username={user.username}"
 
@@ -1108,8 +1169,8 @@ async def delete_user_account(user_id: int, ident: Identity = Depends(get_identi
 
     note = Notif(
         user_id=uid,
-        title="Аккаунт удален",
-        text="Ваш аккаунт был удален администратором.",
+        title="РђРєРєР°СѓРЅС‚ СѓРґР°Р»РµРЅ",
+        text="Р’Р°С€ Р°РєРєР°СѓРЅС‚ Р±С‹Р» СѓРґР°Р»РµРЅ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂРѕРј.",
     )
     session.add(note)
     await session.commit()
@@ -1143,7 +1204,7 @@ async def restore_user_account(user_id: int, ident: Identity = Depends(get_ident
 
     ensure_admin_target_allowed(target)
     user = await set_user_deleted(session, int(user_id), deleted=False)
-    details = f"Восстановление аккаунта user_id={user.id}"
+    details = f"Р’РѕСЃСЃС‚Р°РЅРѕРІР»РµРЅРёРµ Р°РєРєР°СѓРЅС‚Р° user_id={user.id}"
     if user.username:
         details += f" username={user.username}"
     await log_action(
@@ -1173,14 +1234,14 @@ async def unverify_user(user_id: int, ident: Identity = Depends(get_identity), s
     user.telegram_id = None
     note = Notif(
         user_id=uid,
-        title="Верификация снята",
-        text="Администратор снял верификацию с вашего аккаунта.",
+        title="Р’РµСЂРёС„РёРєР°С†РёСЏ СЃРЅСЏС‚Р°",
+        text="РђРґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂ СЃРЅСЏР» РІРµСЂРёС„РёРєР°С†РёСЋ СЃ РІР°С€РµРіРѕ Р°РєРєР°СѓРЅС‚Р°.",
     )
     session.add(note)
     await session.commit()
     await session.refresh(note)
 
-    details = f"Снятие верификации user_id={uid}"
+    details = f"РЎРЅСЏС‚РёРµ РІРµСЂРёС„РёРєР°С†РёРё user_id={uid}"
     if user.username:
         details += f" username={user.username}"
     details += f" tg_id={prev_tg}"
@@ -1226,14 +1287,14 @@ async def clear_user_password(user_id: int, ident: Identity = Depends(get_identi
     user.password_temp = True
     note = Notif(
         user_id=uid,
-        title="Пароль сброшен",
-        text="Администратор сбросил пароль Вашего аккаунта.",
+        title="РџР°СЂРѕР»СЊ СЃР±СЂРѕС€РµРЅ",
+        text="РђРґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂ СЃР±СЂРѕСЃРёР» РїР°СЂРѕР»СЊ Р’Р°С€РµРіРѕ Р°РєРєР°СѓРЅС‚Р°.",
     )
     session.add(note)
     await session.commit()
     await session.refresh(note)
 
-    details = f"Сброс пароля user_id={uid}"
+    details = f"РЎР±СЂРѕСЃ РїР°СЂРѕР»СЏ user_id={uid}"
     if user.username:
         details += f" username={user.username}"
     details += f" had_password={int(had_password)}"
@@ -1257,7 +1318,7 @@ async def clear_user_password(user_id: int, ident: Identity = Depends(get_identi
                 "kind": "admin_action",
                 "ttl_ms": 15000,
                 "read": False,
-                "toast_text": "Ваш пароль сброшен администратором",
+                "toast_text": "Р’Р°С€ РїР°СЂРѕР»СЊ СЃР±СЂРѕС€РµРЅ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂРѕРј",
             },
             room=f"user:{uid}",
             namespace="/auth",
@@ -1305,8 +1366,8 @@ async def apply_user_timeout(user_id: int, payload: AdminSanctionTimedIn, ident:
     )
     note = Notif(
         user_id=uid,
-        title="Таймаут",
-        text=f"Вам выдан таймаут на {duration_label}. Причина: {reason}.",
+        title="РўР°Р№РјР°СѓС‚",
+        text=f"Р’Р°Рј РІС‹РґР°РЅ С‚Р°Р№РјР°СѓС‚ РЅР° {duration_label}. РџСЂРёС‡РёРЅР°: {reason}.",
     )
     session.add(sanction)
     session.add(note)
@@ -1333,7 +1394,7 @@ async def apply_user_timeout(user_id: int, payload: AdminSanctionTimedIn, ident:
     with suppress(Exception):
         await force_leave_user_from_rooms(uid, reason="sanction_timeout")
 
-    details = f"Таймаут user_id={uid}"
+    details = f"РўР°Р№РјР°СѓС‚ user_id={uid}"
     if user.username:
         details += f" username={user.username}"
     details += f" duration={duration_label} reason={reason}"
@@ -1368,8 +1429,8 @@ async def revoke_user_timeout(user_id: int, ident: Identity = Depends(get_identi
     active.revoked_by_name = ident["username"]
     note = Notif(
         user_id=uid,
-        title="Таймаут снят",
-        text="Ваш таймаут снят досрочно. Доступ к комнатам восстановлен.",
+        title="РўР°Р№РјР°СѓС‚ СЃРЅСЏС‚",
+        text="Р’Р°С€ С‚Р°Р№РјР°СѓС‚ СЃРЅСЏС‚ РґРѕСЃСЂРѕС‡РЅРѕ. Р”РѕСЃС‚СѓРї Рє РєРѕРјРЅР°С‚Р°Рј РІРѕСЃСЃС‚Р°РЅРѕРІР»РµРЅ.",
     )
     session.add(note)
     await session.commit()
@@ -1392,7 +1453,7 @@ async def revoke_user_timeout(user_id: int, ident: Identity = Depends(get_identi
         )
         await emit_sanctions_update(session, uid)
 
-    details = f"Снятие таймаута user_id={uid}"
+    details = f"РЎРЅСЏС‚РёРµ С‚Р°Р№РјР°СѓС‚Р° user_id={uid}"
     if user.username:
         details += f" username={user.username}"
     await log_action(
@@ -1435,8 +1496,8 @@ async def apply_user_ban(user_id: int, payload: AdminSanctionBanIn, ident: Ident
     )
     note = Notif(
         user_id=uid,
-        title="Аккаунт забанен",
-        text=f"Ваш аккаунт забанен. Причина: {reason}.",
+        title="РђРєРєР°СѓРЅС‚ Р·Р°Р±Р°РЅРµРЅ",
+        text=f"Р’Р°С€ Р°РєРєР°СѓРЅС‚ Р·Р°Р±Р°РЅРµРЅ. РџСЂРёС‡РёРЅР°: {reason}.",
     )
     session.add(sanction)
     session.add(note)
@@ -1463,7 +1524,7 @@ async def apply_user_ban(user_id: int, payload: AdminSanctionBanIn, ident: Ident
     with suppress(Exception):
         await force_leave_user_from_rooms(uid, reason="sanction_ban")
 
-    details = f"Бан user_id={uid}"
+    details = f"Р‘Р°РЅ user_id={uid}"
     if user.username:
         details += f" username={user.username}"
     details += f" reason={reason}"
@@ -1498,8 +1559,8 @@ async def revoke_user_ban(user_id: int, ident: Identity = Depends(get_identity),
     active.revoked_by_name = ident["username"]
     note = Notif(
         user_id=uid,
-        title="Бан снят",
-        text="Ваш бан снят. Доступ к сайту восстановлен.",
+        title="Р‘Р°РЅ СЃРЅСЏС‚",
+        text="Р’Р°С€ Р±Р°РЅ СЃРЅСЏС‚. Р”РѕСЃС‚СѓРї Рє СЃР°Р№С‚Сѓ РІРѕСЃСЃС‚Р°РЅРѕРІР»РµРЅ.",
     )
     session.add(note)
     await session.commit()
@@ -1522,7 +1583,7 @@ async def revoke_user_ban(user_id: int, ident: Identity = Depends(get_identity),
         )
         await emit_sanctions_update(session, uid)
 
-    details = f"Снятие бана user_id={uid}"
+    details = f"РЎРЅСЏС‚РёРµ Р±Р°РЅР° user_id={uid}"
     if user.username:
         details += f" username={user.username}"
     await log_action(
@@ -1576,8 +1637,8 @@ async def apply_user_suspend(user_id: int, payload: AdminSanctionTimedIn, ident:
     )
     note = Notif(
         user_id=uid,
-        title="Ограничение",
-        text=f"Доступ к играм ограничен на {duration_label}. Причина: {reason}.",
+        title="РћРіСЂР°РЅРёС‡РµРЅРёРµ",
+        text=f"Р”РѕСЃС‚СѓРї Рє РёРіСЂР°Рј РѕРіСЂР°РЅРёС‡РµРЅ РЅР° {duration_label}. РџСЂРёС‡РёРЅР°: {reason}.",
     )
     session.add(sanction)
     session.add(note)
@@ -1648,8 +1709,8 @@ async def revoke_user_suspend(user_id: int, ident: Identity = Depends(get_identi
     active.revoked_by_name = ident["username"]
     note = Notif(
         user_id=uid,
-        title="Ограничение снято",
-        text="Ограничение доступа к играм снято досрочно.",
+        title="РћРіСЂР°РЅРёС‡РµРЅРёРµ СЃРЅСЏС‚Рѕ",
+        text="РћРіСЂР°РЅРёС‡РµРЅРёРµ РґРѕСЃС‚СѓРїР° Рє РёРіСЂР°Рј СЃРЅСЏС‚Рѕ РґРѕСЃСЂРѕС‡РЅРѕ.",
     )
     session.add(note)
     await session.commit()
@@ -1672,7 +1733,7 @@ async def revoke_user_suspend(user_id: int, ident: Identity = Depends(get_identi
         )
         await emit_sanctions_update(session, uid)
 
-    details = f"Снятие SUSPEND user_id={uid}"
+    details = f"РЎРЅСЏС‚РёРµ SUSPEND user_id={uid}"
     if user.username:
         details += f" username={user.username}"
     await log_action(

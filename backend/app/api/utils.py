@@ -32,7 +32,7 @@ from ..services.user_cache import (
     invalidate_avatar_presign_cache,
 )
 if TYPE_CHECKING:
-    from ..schemas.admin import SiteSettingsOut, GameSettingsOut, RegistrationsPoint, AdminRoomUserStat, AdminSanctionOut
+    from ..schemas.admin import SiteSettingsOut, GameSettingsOut, RegistrationsPoint, AdminRoomUserStat, AdminSanctionOut, AdminGameActionFieldOut
     from ..schemas.room import GameParams
     from ..schemas.user import UserRoleStatsOut, UserGamesHistoryOut, GameHistoryItemOut, GameHistoryHostOut
 
@@ -139,6 +139,17 @@ __all__ = [
     "fetch_games_history_page",
     "pct",
     "role_stats",
+    "game_action_slot_label",
+    "game_action_slot_labels",
+    "game_action_join",
+    "game_action_role_label",
+    "game_action_reason_label",
+    "game_action_bool_label",
+    "game_action_vote_pairs",
+    "game_action_target_pairs",
+    "game_action_wills",
+    "game_action_check_result",
+    "game_action_fields",
 ]
 
 log = structlog.get_logger()
@@ -989,6 +1000,282 @@ def non_empty_str(raw: Any) -> str | None:
 
     out = raw.strip()
     return out or None
+
+
+def game_action_slot_label(uid_to_slot: dict[int, int], raw_uid: Any, *, head_uid: int = 0) -> str:
+    uid = safe_int(raw_uid)
+    if uid <= 0:
+        return "-"
+
+    slot = safe_int(uid_to_slot.get(uid))
+    if slot > 0:
+        return f"Слот {slot}"
+
+    if 0 < head_uid == uid:
+        return "Ведущий"
+
+    return f"user{uid}"
+
+
+def game_action_slot_labels(uid_to_slot: dict[int, int], raw_values: Any, *, head_uid: int = 0) -> list[str]:
+    if not isinstance(raw_values, list):
+        return []
+
+    out: list[str] = []
+    seen: set[str] = set()
+    for raw_value in raw_values:
+        label = game_action_slot_label(uid_to_slot, raw_value, head_uid=head_uid)
+        if label == "-" or label in seen:
+            continue
+        seen.add(label)
+        out.append(label)
+    return out
+
+
+def game_action_join(values: list[str]) -> str:
+    return ", ".join(values) if values else "-"
+
+
+def game_action_role_label(raw_role: Any) -> str:
+    role = str(raw_role or "").strip().lower()
+    if role == "citizen":
+        return "Мирный"
+
+    if role == "sheriff":
+        return "Шериф"
+
+    if role == "mafia":
+        return "Мафия"
+
+    if role == "don":
+        return "Дон"
+
+    return role or "-"
+
+
+def game_action_reason_label(raw_reason: Any) -> str:
+    reason = str(raw_reason or "").strip().lower()
+    if reason == "vote":
+        return "Голосование"
+
+    if reason == "night":
+        return "Ночь"
+
+    if reason == "foul":
+        return "Фолы"
+
+    if reason == "suicide":
+        return "Самоубийство"
+
+    return reason or "-"
+
+
+def game_action_bool_label(raw_value: Any) -> str:
+    return "Да" if bool(raw_value) else "Нет"
+
+
+def game_action_vote_pairs(uid_to_slot: dict[int, int], raw_votes: Any, *, head_uid: int = 0) -> list[str]:
+    if not isinstance(raw_votes, dict):
+        return []
+
+    out: list[str] = []
+    for raw_target_uid, raw_voters in raw_votes.items():
+        target_label = game_action_slot_label(uid_to_slot, raw_target_uid, head_uid=head_uid)
+        if target_label == "-" or not isinstance(raw_voters, list):
+            continue
+        for raw_voter_uid in raw_voters:
+            voter_label = game_action_slot_label(uid_to_slot, raw_voter_uid, head_uid=head_uid)
+            if voter_label == "-":
+                continue
+            out.append(f"{voter_label} -> {target_label}")
+    return out
+
+
+def game_action_target_pairs(uid_to_slot: dict[int, int], raw_map: Any, *, head_uid: int = 0) -> list[str]:
+    if not isinstance(raw_map, dict):
+        return []
+
+    out: list[str] = []
+    for raw_actor_uid, raw_target_uid in raw_map.items():
+        actor_label = game_action_slot_label(uid_to_slot, raw_actor_uid, head_uid=head_uid)
+        target_label = game_action_slot_label(uid_to_slot, raw_target_uid, head_uid=head_uid)
+        if actor_label == "-" or target_label == "-":
+            continue
+        out.append(f"{actor_label} -> {target_label}")
+    return out
+
+
+def game_action_wills(uid_to_slot: dict[int, int], raw_wills: Any, *, head_uid: int = 0) -> list[str]:
+    if not isinstance(raw_wills, dict):
+        return []
+
+    out: list[str] = []
+    for raw_target_uid, raw_verdict in raw_wills.items():
+        target_label = game_action_slot_label(uid_to_slot, raw_target_uid, head_uid=head_uid)
+        if target_label == "-":
+            continue
+        verdict = str(raw_verdict or "").strip().lower()
+        if verdict == "citizen":
+            verdict_label = "мирный"
+        elif verdict == "mafia":
+            verdict_label = "мафия"
+        else:
+            verdict_label = verdict or "-"
+        out.append(f"{target_label}: {verdict_label}")
+    return out
+
+
+def game_action_check_result(checker_role: Any, target_role: Any) -> str:
+    checker = str(checker_role or "").strip().lower()
+    target = str(target_role or "").strip().lower()
+    if checker == "sheriff":
+        return "Мафия" if target in {"mafia", "don"} else "Мирный"
+
+    if checker == "don":
+        return "Шериф" if target == "sheriff" else "Мирный"
+
+    return "-"
+
+
+def game_action_fields(action: dict[str, Any], *, uid_to_slot: dict[int, int], head_uid: int) -> tuple[str, str, list[AdminGameActionFieldOut]]:
+    from ..schemas.admin import AdminGameActionFieldOut
+
+    action_type = str(action.get("type") or "").strip().lower()
+    day = safe_int(action.get("day"))
+    actor_label = game_action_slot_label(uid_to_slot, action.get("actor_id"), head_uid=head_uid)
+    target_label = game_action_slot_label(uid_to_slot, action.get("target_id"), head_uid=head_uid)
+    fields: list[AdminGameActionFieldOut] = []
+
+    def add_field(label: str, value: str | None) -> None:
+        if value is None:
+            return
+
+        value_text = str(value).strip()
+        if not value_text:
+            return
+
+        fields.append(AdminGameActionFieldOut(label=label, value=value_text))
+
+    if day > 0:
+        add_field("День", str(day))
+
+    if action_type == "foul":
+        speech_label = game_action_slot_label(uid_to_slot, action.get("speech_uid"), head_uid=head_uid)
+        is_ppk = bool(action.get("ppk")) or str(action.get("format") or "").strip().upper() == "PPK"
+        if speech_label != "-":
+            add_field("Этап", "Речь игрока")
+        add_field("Кто поставил", actor_label)
+        add_field("Кому", target_label)
+        add_field("Количество фолов", str(max(0, safe_int(action.get("count")))))
+        if speech_label != "-":
+            add_field("На чьей речи", speech_label)
+        add_field("ППК", game_action_bool_label(is_ppk))
+        if is_ppk:
+            add_field("Формат", "PPK")
+        return "Фол", f"{actor_label} поставил фол игроку {target_label}", fields
+
+    if action_type == "wink":
+        add_field("Этап", "День / голосование")
+        add_field("Кто подмигнул", actor_label)
+        add_field("Кому", target_label)
+        add_field("Кто-то увидел", game_action_bool_label(action.get("spotted")))
+        return "Подмигивание", f"{actor_label} подмигнул игроку {target_label}", fields
+
+    if action_type == "knock":
+        add_field("Этап", "День / голосование")
+        add_field("Кто стучал", actor_label)
+        add_field("Кому", target_label)
+        add_field("Количество стуков", str(max(0, safe_int(action.get("count")))))
+        return "Стук", f"{actor_label} постучал игроку {target_label}", fields
+
+    if action_type == "nominate":
+        add_field("Этап", "День")
+        add_field("Кто выставил", actor_label)
+        add_field("Кого выставили", target_label)
+        return "Выставление", f"{actor_label} выставил игрока {target_label}", fields
+
+    if action_type == "vote":
+        targets = game_action_slot_labels(uid_to_slot, action.get("targets"), head_uid=head_uid)
+        is_lift = bool(action.get("lift"))
+        add_field("Этап", "Голосование")
+        add_field("Тип", "На поднятие" if is_lift else "Обычное")
+        add_field("Цели", game_action_join(targets))
+        if is_lift:
+            voters = game_action_slot_labels(uid_to_slot, action.get("by"), head_uid=head_uid)
+            add_field("Кто голосовал за поднятие", game_action_join(voters))
+            return "Голосование", "Голосование на поднятие", fields
+
+        vote_pairs = game_action_vote_pairs(uid_to_slot, action.get("votes"), head_uid=head_uid)
+        add_field("Кто в кого голосовал", "; ".join(vote_pairs) if vote_pairs else "-")
+        return "Голосование", "Обычное голосование", fields
+
+    if action_type == "night_check":
+        checker_role = str(action.get("checker_role") or "").strip().lower()
+        target_role = str(action.get("target_role") or "").strip().lower()
+        add_field("Этап", "Ночь")
+        add_field("Кто проверял", actor_label)
+        add_field("Кого проверяли", target_label)
+        add_field("Роль проверяющего", game_action_role_label(checker_role))
+        add_field("Реальная роль цели", game_action_role_label(target_role))
+        add_field("Результат проверки", game_action_check_result(checker_role, target_role))
+        return "Ночная проверка", f"{actor_label} проверил игрока {target_label}", fields
+
+    if action_type == "night_shoot_result":
+        shooters = game_action_slot_labels(uid_to_slot, action.get("shooters"), head_uid=head_uid)
+        shot_pairs = game_action_target_pairs(uid_to_slot, action.get("shots"), head_uid=head_uid)
+        kill_label = game_action_slot_label(uid_to_slot, action.get("kill_uid"), head_uid=head_uid)
+        add_field("Этап", "Ночь")
+        add_field("Кто стрелял", game_action_join(shooters))
+        add_field("Выстрелы", "; ".join(shot_pairs) if shot_pairs else "-")
+        add_field("Убитый", kill_label if kill_label != "-" else "Нет")
+        add_field("Убийство прошло", game_action_bool_label(action.get("kill_ok")))
+        return "Ночной отстрел", "Итог ночного отстрела", fields
+
+    if action_type == "best_move":
+        targets = game_action_slot_labels(uid_to_slot, action.get("targets"), head_uid=head_uid)
+        add_field("Этап", "После ночи")
+        add_field("Кто сделал лучший ход", actor_label)
+        add_field("Отмеченные цели", game_action_join(targets))
+        return "Лучший ход", f"{actor_label} отметил лучший ход", fields
+
+    if action_type == "farewell":
+        mode = str(action.get("mode") or "").strip().lower()
+        wills = game_action_wills(uid_to_slot, action.get("wills"), head_uid=head_uid)
+        mode_label = "После голосования" if mode == "voted" else "После ночи" if mode == "killed" else mode or "-"
+        add_field("Этап", "Прощальная речь")
+        add_field("Чье завещание", actor_label)
+        add_field("Режим", mode_label)
+        add_field("Завещание", "; ".join(wills) if wills else "-")
+        return "Завещание", f"Завещание игрока {actor_label}", fields
+
+    if action_type == "death":
+        reason = str(action.get("reason") or "").strip().lower()
+        by_labels = game_action_slot_labels(uid_to_slot, action.get("by"), head_uid=head_uid)
+        is_ppk = bool(action.get("ppk")) or str(action.get("format") or "").strip().upper() == "PPK"
+        if reason == "vote":
+            add_field("Этап", "Голосование")
+        elif reason == "night":
+            add_field("Этап", "Ночь")
+        elif reason == "foul":
+            add_field("Этап", "Удаление по фолам")
+        elif reason == "suicide":
+            add_field("Этап", "Самоубийство")
+        add_field("Кто выбыл", target_label)
+        add_field("Причина", game_action_reason_label(reason))
+        if by_labels:
+            if reason == "vote":
+                add_field("Кто голосовал", game_action_join(by_labels))
+            elif reason == "night":
+                add_field("Кто стрелял", game_action_join(by_labels))
+            else:
+                add_field("Кто участвовал", game_action_join(by_labels))
+        add_field("ППК", game_action_bool_label(is_ppk))
+        if is_ppk:
+            add_field("Формат", "PPK")
+        return "Выбытие", f"Выбыл игрок {target_label}", fields
+
+    add_field("Сырые данные", str(action))
+    return action_type or "Событие", f"Событие {action_type or 'unknown'}", fields
 
 
 def normalize_game_result(raw: Any) -> str:

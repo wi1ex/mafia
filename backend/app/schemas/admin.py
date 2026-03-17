@@ -215,6 +215,26 @@ class AdminRoomsOut(BaseModel):
     items: List[AdminRoomOut]
 
 
+class AdminGameActionFieldOut(BaseModel):
+    label: str
+    value: str
+
+
+class AdminGameActionOut(BaseModel):
+    order: int
+    type: str
+    occurred_at: Optional[datetime] = None
+    title: str
+    summary: str
+    fields: List[AdminGameActionFieldOut] = Field(default_factory=list)
+
+
+class AdminGameActionsOut(BaseModel):
+    id: int
+    number: int
+    items: List[AdminGameActionOut] = Field(default_factory=list)
+
+
 class AdminUserOut(BaseModel):
     id: int
     username: Optional[str] = None
