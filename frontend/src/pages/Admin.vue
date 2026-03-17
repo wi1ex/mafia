@@ -152,7 +152,7 @@
             <div class="stats-grid">
               <div class="stat-card">
                 <span class="label">Всего пользователей</span>
-                <span class="value">{{ stats.total_users }}</span>
+                <span class="value">{{ stats.total_users }} ({{ totalUsersWithoutExcluded }})</span>
               </div>
               <div class="stat-card">
                 <span class="label">Не верифицировано</span>
@@ -1125,6 +1125,9 @@ const stats = reactive<SiteStats>({
     stream_minutes: 0,
   },
 })
+const totalUsersWithoutExcluded = computed(() =>
+  stats.total_users - stats.unverified_users - stats.no_password_users - stats.deleted_users
+)
 
 const logActions = ref<string[]>([])
 const logs = ref<LogRow[]>([])
