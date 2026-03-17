@@ -10,7 +10,7 @@ from time import time
 from datetime import date, datetime, timezone, timedelta
 from typing import Optional, Dict, Any, Literal, Sequence, Iterable, cast, TYPE_CHECKING
 from fastapi import HTTPException, status, Header
-from sqlalchemy import update, func, select, or_, and_
+from sqlalchemy import update, func, select, or_, and_, delete
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.clients import get_redis
@@ -102,6 +102,7 @@ __all__ = [
     "is_protected_admin",
     "ensure_admin_target_allowed",
     "set_user_deleted",
+    "delete_friend_links_for_user",
     "force_logout_user",
     "force_leave_user_from_rooms",
     "check_sanctions_expired",
@@ -833,7 +834,9 @@ async def set_user_deleted(session: AsyncSession, user_id: int, *, deleted: bool
     user = cast(User, user)
     was_deleted = user.deleted_at is not None
     prev_avatar_name = cast(Optional[str], user.avatar_name)
+    affected_friend_user_ids: tuple[int, ...] = ()
     if deleted:
+        _removed_friend_links, affected_friend_user_ids = await delete_friend_links_for_user(session, int(user.id))
         new_username = f"deleted_{int(user.id)}"
         user.username = new_username
         user.avatar_name = None
@@ -866,11 +869,42 @@ async def set_user_deleted(session: AsyncSession, user_id: int, *, deleted: bool
             await delete_avatars_async(int(user.id))
         with suppress(Exception):
             await broadcast_creator_rooms(int(user.id), update_name=user.username, avatar="delete")
+        for other_user_id in affected_friend_user_ids:
+            with suppress(Exception):
+                await emit_friends_update(int(other_user_id), int(user.id), "none")
     elif was_deleted:
         with suppress(Exception):
             await broadcast_creator_rooms(int(user.id), update_name=user.username)
 
     return user
+
+
+async def delete_friend_links_for_user(session: AsyncSession, user_id: int) -> tuple[int, tuple[int, ...]]:
+    uid = int(user_id or 0)
+    if uid <= 0:
+        return 0, ()
+
+    rows = await session.execute(select(FriendLink.requester_id, FriendLink.addressee_id).where(or_(FriendLink.requester_id == uid, FriendLink.addressee_id == uid)))
+    friend_rows = rows.all()
+
+    affected_user_ids: set[int] = set()
+    for requester_id, addressee_id in friend_rows:
+        try:
+            requester_uid = int(requester_id)
+        except Exception:
+            requester_uid = 0
+        try:
+            addressee_uid = int(addressee_id)
+        except Exception:
+            addressee_uid = 0
+
+        other_uid = addressee_uid if requester_uid == uid else requester_uid
+        if other_uid > 0 and other_uid != uid:
+            affected_user_ids.add(other_uid)
+
+    await session.execute(delete(FriendLink).where(or_(FriendLink.requester_id == uid, FriendLink.addressee_id == uid)))
+    removed_count = len(friend_rows)
+    return removed_count, tuple(sorted(affected_user_ids))
 
 
 async def force_logout_user(user_id: int) -> None:

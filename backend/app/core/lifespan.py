@@ -7,6 +7,8 @@ from sqlalchemy import text
 from ..core.db import Base, engine, SessionLocal
 from .clients import close_clients, get_redis, init_clients
 from .logging import configure_logging
+from ..api.utils import delete_friend_links_for_user
+from ..models.user import User
 from ..services.minio import ensure_bucket
 from ..security.parameters import ensure_app_settings, refresh_app_settings
 from ..core.settings import settings
@@ -41,6 +43,39 @@ async def lifespan(app) -> AsyncIterator[None]:
     except Exception:
         log.exception("app.startup.deps_failed")
         raise
+
+    # TEMP: remove after the first successful startup that cleans up stale friends
+    # for the previously deleted account 830057336.
+    async def cleanup_legacy_deleted_user_friends() -> None:
+        async with SessionLocal() as session:
+            user = await session.get(User, 830057336)
+            if not user or user.deleted_at is None:
+                return
+
+            removed_count, affected_user_ids = await delete_friend_links_for_user(
+                session,
+                830057336,
+            )
+            if removed_count <= 0:
+                return
+
+            await session.commit()
+            log.info(
+                "app.startup.legacy_deleted_user_friends_cleanup",
+                user_id=830057336,
+                removed_count=removed_count,
+                affected_users=len(affected_user_ids),
+            )
+
+    try:
+        await cleanup_legacy_deleted_user_friends()
+    except Exception:
+        log.exception(
+            "app.startup.legacy_deleted_user_friends_cleanup_failed",
+            user_id=830057336,
+        )
+    # TEMP: remove after the first successful startup that cleans up stale friends
+    # for the previously deleted account 830057336.
 
     settings_task: asyncio.Task[None] | None = None
 
