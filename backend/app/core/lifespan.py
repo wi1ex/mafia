@@ -11,6 +11,60 @@ from ..services.minio import ensure_bucket
 from ..security.parameters import ensure_app_settings, refresh_app_settings
 from ..core.settings import settings
 
+LEGACY_DELETED_SANCTION_TELEGRAM_ID = 830057336
+
+
+async def _ensure_schema_compat(conn, log) -> None:
+    await conn.execute(text("ALTER TABLE IF EXISTS user_sanctions ADD COLUMN IF NOT EXISTS telegram_id_snapshot BIGINT"))
+    await conn.execute(
+        text(
+            "CREATE INDEX IF NOT EXISTS ix_user_sanctions_telegram_id_snapshot "
+            "ON user_sanctions (telegram_id_snapshot)"
+        )
+    )
+    await conn.execute(
+        text(
+            "UPDATE user_sanctions AS s "
+            "SET telegram_id_snapshot = u.telegram_id "
+            "FROM users AS u "
+            "WHERE s.user_id = u.id "
+            "AND s.telegram_id_snapshot IS NULL "
+            "AND u.telegram_id IS NOT NULL"
+        )
+    )
+    # One legacy deleted account had sanctions before telegram snapshots existed.
+    rows = await conn.execute(
+        text(
+            "SELECT DISTINCT s.user_id "
+            "FROM user_sanctions AS s "
+            "JOIN users AS u ON u.id = s.user_id "
+            "WHERE s.telegram_id_snapshot IS NULL "
+            "AND u.deleted_at IS NOT NULL"
+        )
+    )
+    orphan_user_ids = [int(row[0]) for row in rows.all() if row and row[0] is not None]
+    if len(orphan_user_ids) == 1:
+        legacy_user_id = orphan_user_ids[0]
+        await conn.execute(
+            text(
+                "UPDATE user_sanctions "
+                "SET telegram_id_snapshot = :telegram_id "
+                "WHERE user_id = :user_id "
+                "AND telegram_id_snapshot IS NULL"
+            ),
+            {"telegram_id": LEGACY_DELETED_SANCTION_TELEGRAM_ID, "user_id": legacy_user_id},
+        )
+        log.info(
+            "app.startup.legacy_deleted_sanction_backfilled",
+            user_id=legacy_user_id,
+            telegram_id=LEGACY_DELETED_SANCTION_TELEGRAM_ID,
+        )
+    elif len(orphan_user_ids) > 1:
+        log.warning(
+            "app.startup.legacy_deleted_sanction_backfill_skipped",
+            orphan_users=orphan_user_ids,
+        )
+
 
 @asynccontextmanager
 async def lifespan(app) -> AsyncIterator[None]:
@@ -24,6 +78,7 @@ async def lifespan(app) -> AsyncIterator[None]:
         async with engine.begin() as conn:
             await conn.execute(text("SELECT 1"))
             await conn.run_sync(Base.metadata.create_all)
+            await _ensure_schema_compat(conn, log)
         async with SessionLocal() as session:
             await ensure_app_settings(session)
     except Exception:
