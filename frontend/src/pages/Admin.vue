@@ -73,21 +73,16 @@
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Выбор ролей (сек)" />
                 <UiInput id="mafia-talk-seconds" v-model.number="game.mafia_talk_seconds" type="number" min="1" step="1"
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Договорка мафии (сек)" />
-                <UiInput id="night-action-seconds" v-model.number="game.night_action_seconds" type="number" min="1" step="1"
-                         autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Отстрелы и проверки (сек)" />
-                <UiInput id="vote-seconds" v-model.number="game.vote_seconds" type="number" min="1" step="1"
-                         autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Голосование (сек)" />
-              </div>
-            </div>
-
-            <div class="block">
-              <div class="field-stack">
                 <UiInput id="player-talk-seconds" v-model.number="game.player_talk_seconds" type="number" min="1" step="1"
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Речь игрока (сек)" />
                 <UiInput id="player-talk-short-seconds" v-model.number="game.player_talk_short_seconds" type="number" min="1" step="1"
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Речь при 3х фолах (сек)" />
                 <UiInput id="player-foul-seconds" v-model.number="game.player_foul_seconds" type="number" min="1" step="1"
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Фол (сек)" />
+                <UiInput id="night-action-seconds" v-model.number="game.night_action_seconds" type="number" min="1" step="1"
+                         autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Отстрелы и проверки (сек)" />
+                <UiInput id="vote-seconds" v-model.number="game.vote_seconds" type="number" min="1" step="1"
+                         autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Голосование (сек)" />
                 <UiInput id="winks-limit" v-model.number="game.winks_limit" type="number" min="0" step="1"
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Подмигивания (шт)" />
                 <UiInput id="knocks-limit" v-model.number="game.knocks_limit" type="number" min="0" step="1"
@@ -2393,8 +2388,8 @@ onMounted(() => {
     }
     .grid {
       display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
       gap: 10px;
-      grid-template-columns: 1fr 1fr 1fr 1fr;
       .block {
         border: 3px solid $lead;
         border-radius: 5px;
