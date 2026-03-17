@@ -83,6 +83,8 @@ __all__ = [
     "normalize_users_sort",
     "fetch_friends_count_for_users",
     "fetch_sanction_counts_for_users",
+    "admin_role_sort_key",
+    "admin_username_sort_key",
     "user_sort_metric",
     "compute_duration_seconds",
     "elapsed_seconds_since",
@@ -155,6 +157,8 @@ SANCTION_SUSPEND = "suspend"
 USERS_SORT_DEFAULT = "registered_at"
 USERS_SORT_ALLOWED = {
     USERS_SORT_DEFAULT,
+    "role",
+    "username",
     "last_login_at",
     "last_visit_at",
     "last_game_at",
@@ -171,6 +175,10 @@ USERS_SORT_ALLOWED = {
     "suspends_count",
 }
 TIMED_KINDS = {SANCTION_TIMEOUT, SANCTION_SUSPEND}
+_RU_ALPHA = "абвгдеёжзийклмнопрстуфхцчшщъыьэюя"
+_EN_ALPHA = "abcdefghijklmnopqrstuvwxyz"
+_RU_ALPHA_ORDER = {ch: idx for idx, ch in enumerate(_RU_ALPHA)}
+_EN_ALPHA_ORDER = {ch: idx for idx, ch in enumerate(_EN_ALPHA)}
 
 
 def sanitize_username_for_schema(v: Any) -> str:
@@ -412,6 +420,36 @@ def normalize_users_sort(sort_by: str | None) -> str:
         return value
 
     return USERS_SORT_DEFAULT
+
+
+def admin_username_sort_key(raw: Any) -> tuple[int, tuple[tuple[int, int, int], ...]]:
+    text = sanitize_username_for_schema(raw).casefold()
+    if not text:
+        return 3, tuple()
+
+    lead_group = 3
+    chars: list[tuple[int, int, int]] = []
+    for ch in text:
+        if ch in _RU_ALPHA_ORDER:
+            group = 0
+            order = _RU_ALPHA_ORDER[ch]
+        elif ch in _EN_ALPHA_ORDER:
+            group = 1
+            order = _EN_ALPHA_ORDER[ch]
+        else:
+            group = 2
+            order = ord(ch)
+
+        if lead_group == 3:
+            lead_group = group
+        chars.append((group, order, ord(ch)))
+
+    return lead_group, tuple(chars)
+
+
+def admin_role_sort_key(role: Any) -> tuple[int, str]:
+    normalized = str(role or "").strip().casefold()
+    return 1 if normalized == "user" else 0, normalized
 
 
 async def fetch_friends_count_for_users(session: AsyncSession, ids: list[int]) -> dict[int, int]:

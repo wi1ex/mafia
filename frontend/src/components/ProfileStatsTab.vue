@@ -551,10 +551,10 @@ onMounted(() => {
   width: 100%;
   .stats-head {
     display: flex;
-    align-items: center;
+    flex-wrap: wrap;
+    align-items: flex-start;
     justify-content: space-between;
     gap: 10px;
-    flex-wrap: wrap;
     h3 {
       margin: 0;
     }

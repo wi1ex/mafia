@@ -89,6 +89,8 @@ from ..utils import (
     fetch_friends_count_for_users,
     fetch_sanction_counts_for_users,
     normalize_users_sort,
+    admin_role_sort_key,
+    admin_username_sort_key,
     user_sort_metric,
     compute_duration_seconds,
     gc_empty_room_and_emit,
@@ -823,28 +825,49 @@ async def users_list(page: int = 1, limit: int = 20, username: str | None = None
             all_last_game_at = {}
             last_game_at_ts = {}
 
-        users_sorted = sorted(
-            all_users,
-            key=lambda u: (
-                user_sort_metric(
-                    sort_by=sort_key,
-                    uid=int(u.id),
-                    tg_invites_enabled=tg_invites_enabled,
-                    friends_count=friends_count,
-                    rooms_created=rooms_created,
-                    room_seconds=room_seconds,
-                    stream_seconds=stream_seconds,
-                    games_played=games_played,
-                    games_hosted=games_hosted,
-                    spectator_seconds=spectator_seconds,
-                    sanction_counts=sanction_counts,
-                    last_game_at_ts=last_game_at_ts,
+        if sort_key == "role":
+            users_sorted = sorted(
+                all_users,
+                key=lambda u: (
+                    admin_role_sort_key(u.role),
+                    admin_username_sort_key(u.username),
+                    -int(u.registered_at.timestamp()),
+                    -int(u.id),
                 ),
-                u.registered_at,
-                int(u.id),
-            ),
-            reverse=True,
-        )
+            )
+        elif sort_key == "username":
+            users_sorted = sorted(
+                all_users,
+                key=lambda u: (
+                    admin_username_sort_key(u.username),
+                    admin_role_sort_key(u.role),
+                    -int(u.registered_at.timestamp()),
+                    -int(u.id),
+                ),
+            )
+        else:
+            users_sorted = sorted(
+                all_users,
+                key=lambda u: (
+                    user_sort_metric(
+                        sort_by=sort_key,
+                        uid=int(u.id),
+                        tg_invites_enabled=tg_invites_enabled,
+                        friends_count=friends_count,
+                        rooms_created=rooms_created,
+                        room_seconds=room_seconds,
+                        stream_seconds=stream_seconds,
+                        games_played=games_played,
+                        games_hosted=games_hosted,
+                        spectator_seconds=spectator_seconds,
+                        sanction_counts=sanction_counts,
+                        last_game_at_ts=last_game_at_ts,
+                    ),
+                    u.registered_at,
+                    int(u.id),
+                ),
+                reverse=True,
+            )
         users = users_sorted[offset:offset + limit]
         ids = [int(u.id) for u in users]
         if sort_key == "last_game_at":

@@ -548,8 +548,18 @@
               <thead>
                 <tr>
                   <th>ID</th>
-                  <th>Никнейм</th>
-                  <th>Роль</th>
+                  <th>
+                    <button class="th-sort" type="button" :class="{ active: usersSortBy === 'username' }" @click="setUsersSort('username')">
+                      Никнейм
+                      <span class="th-sort-mark" aria-hidden="true">▼</span>
+                    </button>
+                  </th>
+                  <th>
+                    <button class="th-sort" type="button" :class="{ active: usersSortBy === 'role' }" @click="setUsersSort('role')">
+                      Роль
+                      <span class="th-sort-mark" aria-hidden="true">▼</span>
+                    </button>
+                  </th>
                   <th>
                     <button class="th-sort" type="button" :class="{ active: usersSortBy === 'registered_at' }" @click="setUsersSort('registered_at')">
                       Регистрация
@@ -1002,6 +1012,8 @@ type UserRow = {
 }
 
 type UsersSortBy =
+  | 'role'
+  | 'username'
   | 'registered_at'
   | 'last_login_at'
   | 'last_visit_at'
