@@ -258,7 +258,10 @@
           <button v-if="canHeadBestMoveControl" class="btn-text" @click="startBestMoveUi">Лучший ход {{ bestMoveSeat ?? '?' }}</button>
           <button v-if="canStartDayFromNight" class="btn-text" :disabled="!canHeadDayFromNightControl" @click="startDayFromNightUi">День</button>
 
-          <button v-if="canFinishSpeechSelf" class="btn-text" @click="finishSpeechUi">Завершить речь</button>
+          <button v-if="canFinishSpeechSelf" class="btn-text" @click="finishSpeechUi">
+            Завершить речь
+            <span v-if="!IS_MOBILE && hotkeysVisible" class="hot-btn">_</span>
+          </button>
           <button v-else-if="canShowTakeFoulSelf" class="btn-text" @click="takeFoulUi" :disabled="!canTakeFoulSelf || foulPending">
             Взять фол
             <span v-if="!IS_MOBILE && hotkeysVisible" class="hot-btn">↩</span>
@@ -1070,7 +1073,11 @@ function onHotkey(e: KeyboardEvent) {
     return
   }
   if (code === 'Space') {
-    if (gamePhase.value !== 'idle' && game.canPressVoteButton()) {
+    if (gamePhase.value !== 'idle' && canFinishSpeechSelf.value) {
+      e.preventDefault()
+      e.stopPropagation()
+      finishSpeechUi()
+    } else if (gamePhase.value !== 'idle' && game.canPressVoteButton()) {
       e.preventDefault()
       e.stopPropagation()
       onVote()
