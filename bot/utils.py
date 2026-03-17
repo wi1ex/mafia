@@ -167,6 +167,12 @@ def map_verify_error(detail: str | None, status_code: int | None) -> str:
     if detail == "user_deleted":
         return "Аккаунт удален."
 
+    if detail == "user_sanctioned":
+        return "На аккаунте есть активное наказание. Привязка Telegram недоступна."
+
+    if detail == "telegram_sanctioned":
+        return "Этот Telegram связан с аккаунтом с действующим наказанием."
+
     return "Не удалось пройти верификацию."
 
 

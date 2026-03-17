@@ -89,7 +89,9 @@ __all__ = [
     "is_sanction_active",
     "fetch_active_sanction",
     "fetch_active_sanctions",
+    "fetch_active_sanctions_by_telegram",
     "fetch_sanctions_for_users",
+    "pick_active_sanction_kind",
     "build_admin_sanction_out",
     "emit_sanctions_update",
     "refresh_rooms_after",
@@ -524,6 +526,22 @@ def is_sanction_active(sanction: UserSanction, now: datetime | None = None) -> b
     return True
 
 
+def _empty_active_sanctions() -> dict[str, Optional[UserSanction]]:
+    return {
+        SANCTION_TIMEOUT: None,
+        SANCTION_BAN: None,
+        SANCTION_SUSPEND: None,
+    }
+
+
+def pick_active_sanction_kind(active: dict[str, Optional[UserSanction]]) -> str | None:
+    for kind in (SANCTION_BAN, SANCTION_TIMEOUT, SANCTION_SUSPEND):
+        if active.get(kind):
+            return kind
+
+    return None
+
+
 async def fetch_active_sanction(session: AsyncSession, user_id: int, kind: str) -> Optional[UserSanction]:
     now = datetime.now(timezone.utc)
     rows = await session.execute(
@@ -553,12 +571,31 @@ async def fetch_active_sanctions(session: AsyncSession, user_id: int) -> dict[st
         .order_by(UserSanction.issued_at.desc(), UserSanction.id.desc())
     )
     items = rows.scalars().all()
-    out = {
-        SANCTION_TIMEOUT: None,
-        SANCTION_BAN: None,
-        SANCTION_SUSPEND: None,
-    }
+    out = _empty_active_sanctions()
     for row in items:
+        if row.kind in out and out[row.kind] is None:
+            out[row.kind] = row
+
+    return out
+
+
+async def fetch_active_sanctions_by_telegram(session: AsyncSession, telegram_id: int) -> dict[str, Optional[UserSanction]]:
+    tg_id = int(telegram_id or 0)
+    out = _empty_active_sanctions()
+    if tg_id <= 0:
+        return out
+
+    now = datetime.now(timezone.utc)
+    rows = await session.execute(
+        select(UserSanction)
+        .where(
+            UserSanction.telegram_id_snapshot == tg_id,
+            UserSanction.revoked_at.is_(None),
+            or_(UserSanction.expires_at.is_(None), UserSanction.expires_at > now),
+        )
+        .order_by(UserSanction.issued_at.desc(), UserSanction.id.desc())
+    )
+    for row in rows.scalars().all():
         if row.kind in out and out[row.kind] is None:
             out[row.kind] = row
 

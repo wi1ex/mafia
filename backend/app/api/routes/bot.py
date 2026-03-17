@@ -8,7 +8,14 @@ from ...models.user import User
 from ...schemas.common import Ok
 from ...schemas.auth import BotVerifyIn, BotResetIn, TempPasswordOut, BotStatusIn, BotStatusOut
 from ...security.passwords import verify_password, hash_password, make_temp_password
-from ..utils import normalize_username, require_bot_token, find_user_by_username
+from ..utils import (
+    normalize_username,
+    require_bot_token,
+    find_user_by_username,
+    fetch_active_sanctions,
+    fetch_active_sanctions_by_telegram,
+    pick_active_sanction_kind,
+)
 from ...realtime.sio import sio
 
 router = APIRouter()
@@ -33,12 +40,20 @@ async def verify(payload: BotVerifyIn, db: AsyncSession = Depends(get_session), 
     if not verify_password(payload.password, user.password_hash):
         raise HTTPException(status_code=401, detail="invalid_credentials")
 
+    user_active = await fetch_active_sanctions(db, int(user.id))
+    if pick_active_sanction_kind(user_active):
+        raise HTTPException(status_code=403, detail="user_sanctioned")
+
     existing_tg = await db.scalar(select(exists().where(and_(User.telegram_id == int(payload.telegram_id), User.id != user.id))))
     if existing_tg:
         raise HTTPException(status_code=409, detail="telegram_in_use")
 
     if user.telegram_id and int(user.telegram_id) != int(payload.telegram_id):
         raise HTTPException(status_code=409, detail="telegram_already_linked")
+
+    tg_active = await fetch_active_sanctions_by_telegram(db, int(payload.telegram_id))
+    if pick_active_sanction_kind(tg_active):
+        raise HTTPException(status_code=403, detail="telegram_sanctioned")
 
     user.telegram_id = int(payload.telegram_id)
     await db.commit()

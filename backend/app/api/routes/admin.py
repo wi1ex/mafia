@@ -1271,6 +1271,7 @@ async def apply_user_timeout(user_id: int, payload: AdminSanctionTimedIn, ident:
 
     sanction = UserSanction(
         user_id=uid,
+        telegram_id_snapshot=user.telegram_id,
         kind=SANCTION_TIMEOUT,
         reason=reason,
         issued_at=now,
@@ -1400,6 +1401,7 @@ async def apply_user_ban(user_id: int, payload: AdminSanctionBanIn, ident: Ident
     now = datetime.now(timezone.utc)
     sanction = UserSanction(
         user_id=uid,
+        telegram_id_snapshot=user.telegram_id,
         kind=SANCTION_BAN,
         reason=reason,
         issued_at=now,
@@ -1540,6 +1542,7 @@ async def apply_user_suspend(user_id: int, payload: AdminSanctionTimedIn, ident:
 
     sanction = UserSanction(
         user_id=uid,
+        telegram_id_snapshot=user.telegram_id,
         kind=SANCTION_SUSPEND,
         reason=reason,
         issued_at=now,

@@ -11,6 +11,7 @@ from ..utils import (
     SANCTION_SUSPEND,
     fetch_active_sanctions,
     fetch_sanctions_for_users,
+    pick_active_sanction_kind,
     ensure_profile_changes_allowed,
     set_user_deleted,
     force_logout_user,
@@ -614,6 +615,10 @@ async def unverify_telegram(ident: Identity = Depends(get_identity), db: AsyncSe
 
     if user.deleted_at:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="user_deleted")
+
+    active = await fetch_active_sanctions(db, uid)
+    if pick_active_sanction_kind(active):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="sanction_active")
 
     prev_tg = user.telegram_id
     if prev_tg is None:

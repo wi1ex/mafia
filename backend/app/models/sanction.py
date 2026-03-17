@@ -11,6 +11,7 @@ class UserSanction(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(BigInteger, index=True, nullable=False)
+    telegram_id_snapshot: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True, index=True)
     kind: Mapped[str] = mapped_column(String(16), index=True, nullable=False)
     reason: Mapped[str] = mapped_column(String(1024), nullable=False, default="")
     issued_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
