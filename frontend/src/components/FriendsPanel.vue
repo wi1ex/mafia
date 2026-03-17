@@ -1,6 +1,6 @@
 ﻿<template>
   <Transition name="friends-panel">
-    <div v-show="open" :class="['friends-panel', { 'room-mode': isRoomMode }]" ref="root" @click.stop>
+    <div v-show="open" :class="['friends-panel', { 'room-mode': isRoomMode }]" :data-open="open ? 1 : 0" ref="root" @click.stop>
       <header>
         <span>Список друзей — {{ friendsTotal }}</span>
         <button @click="$emit('update:open', false)" aria-label="Закрыть">
@@ -380,6 +380,9 @@ onBeforeUnmount(() => {
   background-color: $graphite;
   box-shadow: 3px 3px 5px rgba($black, 0.25);
   z-index: 100;
+  &[data-open="0"] {
+    pointer-events: none;
+  }
   &.room-mode {
     top: auto;
     bottom: 50px;

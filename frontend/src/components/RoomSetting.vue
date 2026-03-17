@@ -1,6 +1,6 @@
 <template>
   <Transition name="panel">
-    <div v-show="open" class="settings" aria-label="Настройки устройств" @click.stop>
+    <div v-show="open" class="settings" :data-open="open ? 1 : 0" aria-label="Настройки устройств" @click.stop>
       <header>
         <span>Настройки</span>
         <button @click="$emit('close')" aria-label="Закрыть">
@@ -85,7 +85,7 @@
               <img :src="iconArrowDown" alt="arrow" />
             </button>
             <Transition name="menu">
-              <ul v-show="camOpen" role="listbox">
+              <ul v-show="camOpen" :data-open="camOpen ? 1 : 0" role="listbox">
                 <li v-for="it in cams" :key="it.deviceId" class="option" :aria-selected="it.deviceId === camId"
                     :class="{ selected: it.deviceId === camId }" @click="selectCam(it.deviceId)">
                   <span>{{ it.label || 'Камера' }}</span>
@@ -105,7 +105,7 @@
               <img :src="iconArrowDown" alt="arrow" />
             </button>
             <Transition name="menu">
-              <ul v-show="micOpen" role="listbox">
+              <ul v-show="micOpen" :data-open="micOpen ? 1 : 0" role="listbox">
                 <li v-for="it in mics" :key="it.deviceId" class="option" :aria-selected="it.deviceId === micId"
                     :class="{ selected: it.deviceId === micId }" @click="selectMic(it.deviceId)">
                   <span>{{ it.label || 'Микрофон' }}</span>
@@ -275,6 +275,9 @@ onBeforeUnmount(() => {
   background-color: $dark;
   box-shadow: 3px 3px 5px rgba($black, 0.25);
   z-index: 25;
+  &[data-open="0"] {
+    pointer-events: none;
+  }
   header {
     display: flex;
     justify-content: space-between;
@@ -425,6 +428,9 @@ onBeforeUnmount(() => {
         border-radius: 5px;
         background-color: $graphite;
         transform-origin: bottom;
+        &[data-open="0"] {
+          pointer-events: none;
+        }
         .option {
           display: flex;
           align-items: flex-start;

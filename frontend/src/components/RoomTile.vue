@@ -97,7 +97,7 @@
       </button>
 
       <Transition name="card-body">
-        <div v-show="openPanel" class="card-body" @click.stop>
+        <div v-show="openPanel" class="card-body" :data-open="openPanel ? 1 : 0" :aria-hidden="!openPanel" @click.stop>
           <div v-if="id !== localId" class="volume">
             <img :src="volumeIcon" alt="vol" />
             <UiSlider
@@ -727,6 +727,7 @@ const showFriendAction = computed(() => props.id !== props.localId && friendActi
     background-color: rgba($dark, 0.75);
     box-shadow: 3px 3px 5px rgba($black, 0.25);
     z-index: 20;
+    overflow: hidden;
     transition: inline-size 0.25s ease-out, block-size 0.25s ease-out;
     &[data-open="1"] {
       inline-size: min(210px, calc(100% - 30px));
@@ -796,6 +797,9 @@ const showFriendAction = computed(() => props.id !== props.localId && friendActi
       flex-direction: column;
       margin-top: 5px;
       gap: 10px;
+      &[data-open="0"] {
+        pointer-events: none;
+      }
       .volume {
         display: flex;
         align-items: center;

@@ -1,6 +1,6 @@
 <template>
   <Transition name="panel" @after-leave="onAfterLeave">
-    <div v-show="open" class="apps-panel" @click.stop>
+    <div v-show="open" class="apps-panel" :data-open="open ? 1 : 0" @click.stop>
       <header>
         <span>Заявки</span>
         <button @click="$emit('update:open', false)" aria-label="Закрыть">
@@ -236,6 +236,9 @@ onBeforeUnmount(() => {
   background-color: $dark;
   box-shadow: 3px 3px 5px rgba($black, 0.25);
   z-index: 25;
+  &[data-open="0"] {
+    pointer-events: none;
+  }
   header {
     display: flex;
     justify-content: space-between;

@@ -1,6 +1,6 @@
 <template>
   <Transition name="panel">
-    <div v-show="open" class="game-params-panel" aria-label="Параметры игры" @click.stop>
+    <div v-show="open" class="game-params-panel" :data-open="open ? 1 : 0" aria-label="Параметры игры" @click.stop>
       <header>
         <span>Параметры игры</span>
         <button @click="emitClose" aria-label="Закрыть">
@@ -180,6 +180,9 @@ watch(() => props.roomId, () => {
   background-color: $dark;
   box-shadow: 3px 3px 5px rgba($black, 0.25);
   z-index: 25;
+  &[data-open="0"] {
+    pointer-events: none;
+  }
   header {
     display: flex;
     justify-content: space-between;
