@@ -473,6 +473,7 @@ async function unlinkTelegram() {
   } catch (e: any) {
     const st = e?.response?.status
     const d = e?.response?.data?.detail
+    if (st === 403 && d === 'sanction_active') void alertDialog('Нельзя отвязать TG-аккаунт, пока действует наказание.')
     if (st === 403 && d === 'user_deleted') void alertDialog('Аккаунт удален')
     else void alertDialog('Не удалось отвязать TG-аккаунт')
   } finally {
