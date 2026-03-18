@@ -855,15 +855,6 @@ watch(autoRemoteQuality, (quality) => {
   rtc.setRemoteQualityForAll(quality, { persist: false })
 }, { immediate: true })
 
-watch(
-  [() => route.name, roomTabTitle],
-  ([name, title]) => {
-    if (name !== 'room') return
-    setPageTitle(title, { syncAppleTitle: true })
-  },
-  { immediate: true }
-)
-
 const isMirrored = (id: string) => (statusByUser.get(id)?.mirror ?? 0) === 1
 const mirrorOn = computed({
   get: () => isMirrored(localId.value),
@@ -1383,6 +1374,16 @@ const sortedPeerIds = computed(() => {
     return pa !== pb ? pa - pb : String(a).localeCompare(String(b))
   })
 })
+
+watch(
+  [() => route.name, roomTabTitle],
+  ([name, title]) => {
+    if (name !== 'room') return
+    setPageTitle(title, { syncAppleTitle: true })
+  },
+  { immediate: true }
+)
+
 const getIdleGridStyle = (cols: number, rows: number) => {
   const key = `${cols}x${rows}`
   const cached = IDLE_GRID_STYLE_CACHE.get(key)
