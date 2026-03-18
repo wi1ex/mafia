@@ -1,8 +1,7 @@
 import { createRouter, createWebHistory, type RouteLocationNormalized, type RouteRecordRaw } from 'vue-router'
 import { useAuthStore, useUserStore } from '@/store'
+import { BASE_TITLE, ROOM_FALLBACK_TITLE, setPageTitle } from '@/services/pwa'
 
-const BASE_TITLE = 'Deceit'
-const ROOM_FALLBACK_TITLE = 'Комната'
 const BASE_DESCRIPTION = 'Играйте в мафию онлайн бесплатно, общайтесь в комнатах с трансляциями'
 
 const routes: RouteRecordRaw[] = [
@@ -54,22 +53,6 @@ function setTitle(to: RouteLocationNormalized): void {
   const t = (to.meta?.title as string | undefined) ?? ''
   const fallback = to.name === 'room' ? ROOM_FALLBACK_TITLE : BASE_TITLE
   setPageTitle(t || fallback, { syncAppleTitle: true })
-}
-
-function ensureTitleNode(text: string): void {
-  let el = document.querySelector('head > title')
-  if (!el) {
-    el = document.createElement('title')
-    document.head.appendChild(el)
-  }
-  if (el.textContent !== text) el.textContent = text
-}
-
-export function setPageTitle(title?: string, options?: { syncAppleTitle?: boolean }): void {
-  const next = String(title || '').trim() || BASE_TITLE
-  document.title = next
-  ensureTitleNode(next)
-  if (options?.syncAppleTitle) ensureMeta('apple-mobile-web-app-title', next)
 }
 
 function ensureMeta(name: string, content: string): void {

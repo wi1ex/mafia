@@ -402,7 +402,6 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, shallowRef, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
-import { setPageTitle } from '@/router'
 import type { Socket } from 'socket.io-client'
 import {
   useAuthStore,
@@ -424,6 +423,7 @@ import {
 import { type CameraQuality, useRTC, type VQ } from '@/composables/rtc'
 import { api } from '@/services/axios'
 import { alertDialog, confirmDialog, useConfirmState } from '@/services/confirm'
+import { setPageTitle } from '@/services/pwa'
 import { createAuthedSocket, disposeAuthedSocket } from '@/services/sio'
 import RoomTile from '@/components/RoomTile.vue'
 import RoomSetting from '@/components/RoomSetting.vue'
