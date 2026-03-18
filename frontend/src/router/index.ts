@@ -50,9 +50,9 @@ const router = createRouter({
 })
 
 function setTitle(to: RouteLocationNormalized): void {
+  if (to.name === 'room') return
   const t = (to.meta?.title as string | undefined) ?? ''
-  const id = to.name === 'room' ? String(to.params.id ?? '') : ''
-  document.title = t ? `${t}${id ? ` #${id}` : ''}` : BASE_TITLE
+  document.title = t || BASE_TITLE
 }
 
 function ensureMeta(name: string, content: string): void {

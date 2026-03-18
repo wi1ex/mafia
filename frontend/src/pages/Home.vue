@@ -262,11 +262,10 @@ const sortedRooms = computed(() => Array.from(roomsMap.values()).sort((a, b) => 
   const rank = (room: Room): number => {
     switch (roomStatusLabel(room)) {
       case 'game': return 0
-      case 'mafia': return 1
-      case 'duo': return 2
+      case 'duo': return 1
+      case 'hide': return 2
       case 'lobby': return 3
-      case 'hide': return 4
-      default: return 5
+      default: return 4
     }
   }
 
@@ -369,7 +368,6 @@ function roomStatusLabel(room: Room): string {
   if (room.anonymity === 'hidden') return 'hide'
   if (room.in_game) return 'game'
   const limit = Number(room.user_limit)
-  if (Number.isFinite(limit) && limit === gameLimitMin.value) return 'mafia'
   if (limit === 2) return 'duo'
   return 'lobby'
 }

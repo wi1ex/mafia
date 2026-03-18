@@ -399,7 +399,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, shallowRef, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, shallowRef, watch, watchEffect } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
 import type { Socket } from 'socket.io-client'
@@ -817,6 +817,7 @@ const deadAvatar = (id: string): string => {
 }
 
 const totalPlayers = computed(() => sortedPeerIds.value.length)
+const roomTabTitle = computed(() => gamePhase.value === 'idle' ? `Участники: ${Math.max(0, totalPlayers.value)}` : 'Игра')
 const canUseReadyStart = computed(() => {
   const limit = roomUserLimit.value
   const min = minReadyToStart.value
@@ -852,6 +853,12 @@ watch(desiredCameraQuality, (quality) => {
 watch(autoRemoteQuality, (quality) => {
   rtc.setRemoteQualityForAll(quality, { persist: false })
 }, { immediate: true })
+
+watchEffect(() => {
+  if (typeof document === 'undefined') return
+  if (route.name !== 'room') return
+  document.title = roomTabTitle.value
+})
 
 const isMirrored = (id: string) => (statusByUser.get(id)?.mirror ?? 0) === 1
 const mirrorOn = computed({
