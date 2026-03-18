@@ -581,7 +581,6 @@ onBeforeUnmount(() => {
     top: 40px;
     max-height: calc(100dvh - 60px);
     &.room-mode {
-      top: auto;
       bottom: 30px;
     }
     header {
