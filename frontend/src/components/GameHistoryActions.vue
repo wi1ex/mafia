@@ -546,7 +546,7 @@ onBeforeUnmount(() => {
           }
           .action-fields {
             display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
+            grid-template-columns: repeat(7, minmax(0, 1fr));
             gap: 5px 10px;
             .action-field {
               display: flex;
@@ -597,33 +597,4 @@ onBeforeUnmount(() => {
   transform: translateY(30px);
 }
 
-@media (max-width: 1280px) {
-  .overlay {
-    .modal {
-      .modal-header {
-        .result-editor {
-          .ui-select {
-            width: 100%;
-          }
-        }
-      }
-      .modal-body {
-        .actions-list {
-          .action-card {
-            .action-head {
-              flex-direction: column;
-              .action-head-meta {
-                align-items: flex-start;
-                text-align: left;
-              }
-            }
-            .action-fields {
-              grid-template-columns: 1fr;
-            }
-          }
-        }
-      }
-    }
-  }
-}
 </style>
