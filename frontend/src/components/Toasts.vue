@@ -95,6 +95,7 @@ async function closeManual(t: ToastItem){
 async function runAction(t: ToastItem, action: ToastAction) {
   if (t._actionBusy) return
   t._actionBusy = true
+  let actionOk = false
   try {
     if (!action) return
     if (action.kind === 'route') {
@@ -103,6 +104,7 @@ async function runAction(t: ToastItem, action: ToastAction) {
       const m = (action.method || 'post').toLowerCase()
       await (api as any)[m](action.url, action.body)
     }
+    actionOk = true
   } catch (e: any) {
     if (action.kind === 'api') {
       const friendAction = inferFriendApiAction(action.url, action.method)
@@ -116,7 +118,7 @@ async function runAction(t: ToastItem, action: ToastAction) {
     }
   } finally {
     t._actionBusy = false
-    await closeManual(t)
+    if (actionOk) await closeManual(t)
   }
 }
 

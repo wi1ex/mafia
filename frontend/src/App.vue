@@ -3,7 +3,7 @@
   <div class="rotate-overlay">
     <div class="rotate-box" data-nosnippet>Поверните устройство</div>
   </div>
-  <router-view />
+  <router-view :key="routerViewKey" />
   <Confirms />
   <Toast />
 </template>
@@ -31,6 +31,10 @@ let onTelegramVerified: ((e: any) => void) | null = null
 let onAdminNotify: ((e: any) => void) | null = null
 
 const isRoom = computed(() => route.name === 'room')
+const routerViewKey = computed(() => {
+  if (route.name === 'room') return `room:${String(route.params.id ?? '')}`
+  return route.name ? `route:${String(route.name)}` : route.fullPath
+})
 
 watchEffect(() => {
   if (route.meta?.requiresAuth && !auth.isAuthed) {

@@ -1,5 +1,5 @@
 <template>
-  <Transition name="panel" @after-leave="onAfterLeave">
+  <Transition name="panel">
     <div v-show="open" class="apps-panel" :data-open="open ? 1 : 0" @click.stop>
       <header>
         <span>Заявки</span>
@@ -159,14 +159,13 @@ function onApproved(e: any) {
   const uid = Number(p?.user_id)
   if (!Number.isFinite(uid)) return
   const silentUnread = Boolean(p?.silent_unread || p?.source === 'owner_invite_auto_approved')
+  seen.add(uid)
+  saveSeen([...seen])
   if (silentUnread) {
-    seen.add(uid)
-    saveSeen([...seen])
+    recomputeCounts()
   }
   if (apps.value.some(x => x.id === uid)) {
     apps.value = apps.value.map(x => x.id === uid ? { ...x, status: 'approved' } : x)
-    seen.add(uid)
-    saveSeen([...seen])
     recomputeCounts()
   } else {
     void load()
@@ -186,11 +185,6 @@ function onRevoked(e: any) {
   } else {
     void load()
   }
-}
-
-function onAfterLeave() {
-  apps.value = []
-  isLoading.value = false
 }
 
 watch(() => props.open, async on => {
@@ -304,7 +298,7 @@ onBeforeUnmount(() => {
         display: flex;
         align-items: center;
         justify-content: center;
-        padding: 10px;
+        min-width: 90px;
         height: 30px;
         border: none;
         border-radius: 5px;
@@ -384,7 +378,7 @@ onBeforeUnmount(() => {
           font-size: 12px;
         }
         button {
-          padding: 5px;
+          min-width: 75px;
           height: 20px;
           font-size: 12px;
         }
