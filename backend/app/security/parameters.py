@@ -1,7 +1,8 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
-from sqlalchemy import select
+from sqlalchemy import select, text
+from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.settings import settings as core_settings
 from ..models.settings import AppSettings
@@ -56,6 +57,38 @@ _DEFAULT_SEASON_STARTS = parse_season_starts_or_default(core_settings.SEASON_STA
 _DEFAULT_SEASON_START_CSV = season_starts_csv(_DEFAULT_SEASON_STARTS)
 
 
+# AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+async def ensure_app_settings_schema(session: AsyncSession) -> None:
+    table_name = await session.scalar(text("SELECT to_regclass('settings')"))
+    if table_name is None:
+        return
+
+    await session.execute(
+        text(
+            "ALTER TABLE settings "
+            "ADD COLUMN IF NOT EXISTS text_moderation_blacklist VARCHAR(4096) NOT NULL DEFAULT '0'"
+        )
+    )
+
+
+def _is_missing_blacklist_column_error(exc: Exception) -> bool:
+    message = str(exc).lower()
+    return "text_moderation_blacklist" in message and (
+        "does not exist" in message or "undefinedcolumnerror" in message
+    )
+
+
+async def _ensure_blacklist_column_compat(session: AsyncSession) -> None:
+    await session.execute(
+        text(
+            "ALTER TABLE settings "
+            "ADD COLUMN IF NOT EXISTS text_moderation_blacklist VARCHAR(4096) NOT NULL DEFAULT '0'"
+        )
+    )
+    await session.commit()
+# AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+
+
 def get_cached_settings() -> AppSettingsSnapshot:
     return _CACHE or build_app_settings_snapshot_defaults(core_settings, default_starts=_DEFAULT_SEASON_STARTS, snapshot_cls=AppSettingsSnapshot)
 
@@ -66,6 +99,18 @@ def set_cached_settings(snapshot: AppSettingsSnapshot) -> None:
 
 
 async def ensure_app_settings(session: AsyncSession) -> AppSettings:
+    # AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+    await ensure_app_settings_schema(session)
+    try:
+        row = await session.scalar(select(AppSettings).limit(1))
+    except ProgrammingError as exc:
+        if not _is_missing_blacklist_column_error(exc):
+            raise
+        await session.rollback()
+        await _ensure_blacklist_column_compat(session)
+        row = await session.scalar(select(AppSettings).limit(1))
+    # AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+
     row = await session.scalar(select(AppSettings).limit(1))
     if not row:
         defaults = build_app_settings_snapshot_defaults(core_settings, default_starts=_DEFAULT_SEASON_STARTS, snapshot_cls=AppSettingsSnapshot)
