@@ -1,15 +1,49 @@
 from __future__ import annotations
+
 import asyncio
-import structlog
-from sqlalchemy import text
-from typing import AsyncIterator
 from contextlib import asynccontextmanager, suppress
+from typing import AsyncIterator
+
+import structlog
+from sqlalchemy import inspect, text
+from sqlalchemy.schema import CreateColumn
+
 from ..core.db import Base, engine, SessionLocal
+from ..core.settings import settings
+from ..models.settings import AppSettings
+from ..security.parameters import ensure_app_settings, refresh_app_settings
+from ..services.minio import ensure_bucket
 from .clients import close_clients, get_redis, init_clients
 from .logging import configure_logging
-from ..services.minio import ensure_bucket
-from ..security.parameters import ensure_app_settings, refresh_app_settings
-from ..core.settings import settings
+
+
+async def _sync_settings_table_columns() -> list[str]:
+    async with engine.begin() as conn:
+        def collect_missing_column_statements(sync_conn) -> list[tuple[str, str]]:
+            inspector = inspect(sync_conn)
+            if AppSettings.__tablename__ not in inspector.get_table_names():
+                return []
+
+            existing_columns = {
+                column["name"] for column in inspector.get_columns(AppSettings.__tablename__)
+            }
+            statements: list[tuple[str, str]] = []
+            for column in AppSettings.__table__.columns:
+                if column.name in existing_columns or column.primary_key:
+                    continue
+                column_sql = str(CreateColumn(column).compile(dialect=sync_conn.dialect))
+                statements.append(
+                    (
+                        column.name,
+                        f'ALTER TABLE "{AppSettings.__tablename__}" ADD COLUMN IF NOT EXISTS {column_sql}',
+                    )
+                )
+            return statements
+
+        statements = await conn.run_sync(collect_missing_column_statements)
+        for _, statement in statements:
+            await conn.execute(text(statement))
+        return [column_name for column_name, _ in statements]
 
 
 @asynccontextmanager
@@ -24,6 +58,9 @@ async def lifespan(app) -> AsyncIterator[None]:
         async with engine.begin() as conn:
             await conn.execute(text("SELECT 1"))
             await conn.run_sync(Base.metadata.create_all)
+        added_columns = await _sync_settings_table_columns()
+        if added_columns:
+            log.info("app.startup.settings_schema_synced", added_columns=added_columns)
         async with SessionLocal() as session:
             await ensure_app_settings(session)
     except Exception:
