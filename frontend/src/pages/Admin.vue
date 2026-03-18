@@ -62,6 +62,8 @@
                          autocomplete="off" inputmode="text" :disabled="savingSettings" label="Стартовые игры сезонов (через запятую)" />
                 <UiInput id="text-moderation-whitelist" v-model="site.text_moderation_whitelist"
                          autocomplete="off" inputmode="text" :disabled="savingSettings" label="Белый список слов (через запятую)" />
+                <UiInput id="text-moderation-blacklist" v-model="site.text_moderation_blacklist"
+                         autocomplete="off" inputmode="text" :disabled="savingSettings" label="Чёрный список слов (через запятую)" />
               </div>
             </div>
 
@@ -851,6 +853,7 @@ type SiteSettings = {
   rooms_single_ttl_minutes: number
   season_start_game_number: string
   text_moderation_whitelist: string
+  text_moderation_blacklist: string
 }
 
 type GameSettings = {
@@ -1069,6 +1072,7 @@ const site = reactive<SiteSettings>({
   rooms_single_ttl_minutes: 30,
   season_start_game_number: '1',
   text_moderation_whitelist: '0',
+  text_moderation_blacklist: '0',
 })
 
 const game = reactive<GameSettings>({
@@ -1268,7 +1272,7 @@ function normalizeSeasonStartNumbers(raw: unknown): string {
   return parsed.join(',')
 }
 
-function normalizeTextModerationWhitelist(raw: unknown): string {
+function normalizeTextModerationWordList(raw: unknown): string {
   const source = String(raw ?? '').trim()
   if (!source || source === '0') return '0'
   const values: string[] = []
@@ -1280,6 +1284,14 @@ function normalizeTextModerationWhitelist(raw: unknown): string {
     values.push(normalized)
   }
   return values.length > 0 ? values.join(',') : '0'
+}
+
+function normalizeTextModerationWhitelist(raw: unknown): string {
+  return normalizeTextModerationWordList(raw)
+}
+
+function normalizeTextModerationBlacklist(raw: unknown): string {
+  return normalizeTextModerationWordList(raw)
 }
 
 function normalizeAdminBannerText(raw: unknown): string {
@@ -1343,6 +1355,7 @@ function snapshotSite(): string {
     rooms_single_ttl_minutes: normalizeInt(site.rooms_single_ttl_minutes),
     season_start_game_number: normalizeSeasonStartNumbers(site.season_start_game_number),
     text_moderation_whitelist: normalizeTextModerationWhitelist(site.text_moderation_whitelist),
+    text_moderation_blacklist: normalizeTextModerationBlacklist(site.text_moderation_blacklist),
   })
 }
 
@@ -1538,6 +1551,7 @@ async function loadSettings(): Promise<void> {
     site.admin_banner_link = normalizeAdminBannerLink(site.admin_banner_link)
     site.season_start_game_number = normalizeSeasonStartNumbers(site.season_start_game_number)
     site.text_moderation_whitelist = normalizeTextModerationWhitelist(site.text_moderation_whitelist)
+    site.text_moderation_blacklist = normalizeTextModerationBlacklist(site.text_moderation_blacklist)
     siteSnapshot.value = snapshotSite()
     gameSnapshot.value = snapshotGame()
   } catch {
@@ -1575,6 +1589,7 @@ async function saveSettings(): Promise<void> {
         rooms_single_ttl_minutes: normalizeInt(site.rooms_single_ttl_minutes),
         season_start_game_number: normalizedSeasonStarts,
         text_moderation_whitelist: normalizeTextModerationWhitelist(site.text_moderation_whitelist),
+        text_moderation_blacklist: normalizeTextModerationBlacklist(site.text_moderation_blacklist),
       },
       game: {
         game_min_ready_players: normalizeInt(game.game_min_ready_players),
@@ -1597,6 +1612,7 @@ async function saveSettings(): Promise<void> {
     site.admin_banner_link = normalizeAdminBannerLink(site.admin_banner_link)
     site.season_start_game_number = normalizeSeasonStartNumbers(site.season_start_game_number)
     site.text_moderation_whitelist = normalizeTextModerationWhitelist(site.text_moderation_whitelist)
+    site.text_moderation_blacklist = normalizeTextModerationBlacklist(site.text_moderation_blacklist)
     siteSnapshot.value = snapshotSite()
     gameSnapshot.value = snapshotGame()
     settingsStore.applyPublic({

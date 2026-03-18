@@ -14,6 +14,20 @@ from ..security.parameters import ensure_app_settings, refresh_app_settings
 from ..core.settings import settings
 
 
+# TEMP: remove after the first successful startup that cleans up stale friends
+async def ensure_app_settings_schema(session) -> None:
+    table_name = await session.scalar(text("SELECT to_regclass('settings')"))
+    if table_name is None:
+        return
+
+    await session.execute(
+        text(
+            "ALTER TABLE settings "
+            "ADD COLUMN IF NOT EXISTS text_moderation_blacklist VARCHAR(4096) NOT NULL DEFAULT '0'"
+        )
+    )
+# TEMP: remove after the first successful startup that cleans up stale friends
+
 @asynccontextmanager
 async def lifespan(app) -> AsyncIterator[None]:
     configure_logging()
@@ -27,6 +41,9 @@ async def lifespan(app) -> AsyncIterator[None]:
             await conn.execute(text("SELECT 1"))
             await conn.run_sync(Base.metadata.create_all)
         async with SessionLocal() as session:
+            # TEMP: remove after the first successful startup that cleans up stale friends
+            await ensure_app_settings_schema(session)
+            # TEMP: remove after the first successful startup that cleans up stale friends
             await ensure_app_settings(session)
     except Exception:
         log.exception("app.startup.db_failed")

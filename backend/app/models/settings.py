@@ -27,6 +27,7 @@ class AppSettings(Base):
     rooms_single_ttl_minutes: Mapped[int] = mapped_column(Integer, nullable=False, server_default=str(settings.ROOMS_SINGLE_TTL_MINUTES))
     season_start_game_number: Mapped[str] = mapped_column(String(255), nullable=False, server_default=str(settings.SEASON_START_GAME_NUMBER))
     text_moderation_whitelist: Mapped[str] = mapped_column(String(4096), nullable=False, server_default=str(settings.TEXT_MODERATION_WHITELIST))
+    text_moderation_blacklist: Mapped[str] = mapped_column(String(4096), nullable=False, server_default=str(settings.TEXT_MODERATION_BLACKLIST))
     game_min_ready_players: Mapped[int] = mapped_column(Integer, nullable=False, server_default=str(settings.GAME_MIN_READY_PLAYERS))
     role_pick_seconds: Mapped[int] = mapped_column(Integer, nullable=False, server_default=str(settings.ROLE_PICK_SECONDS))
     mafia_talk_seconds: Mapped[int] = mapped_column(Integer, nullable=False, server_default=str(settings.MAFIA_TALK_SECONDS))

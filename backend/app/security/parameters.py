@@ -12,6 +12,7 @@ from ..api.utils import (
     normalize_admin_banner_link,
     normalize_season_start_value,
     normalize_text_moderation_whitelist,
+    normalize_text_moderation_blacklist,
     build_app_settings_snapshot_defaults,
     build_app_settings_snapshot_from_row,
 )
@@ -35,6 +36,8 @@ class AppSettingsSnapshot:
     season_start_game_numbers: tuple[int, ...]
     text_moderation_whitelist: str
     text_moderation_whitelist_words: tuple[str, ...]
+    text_moderation_blacklist: str
+    text_moderation_blacklist_words: tuple[str, ...]
     game_min_ready_players: int
     role_pick_seconds: int
     mafia_talk_seconds: int
@@ -82,6 +85,7 @@ async def ensure_app_settings(session: AsyncSession) -> AppSettings:
             rooms_single_ttl_minutes=defaults.rooms_single_ttl_minutes,
             season_start_game_number=defaults.season_start_game_number,
             text_moderation_whitelist=defaults.text_moderation_whitelist,
+            text_moderation_blacklist=defaults.text_moderation_blacklist,
             game_min_ready_players=defaults.game_min_ready_players,
             role_pick_seconds=defaults.role_pick_seconds,
             mafia_talk_seconds=defaults.mafia_talk_seconds,
@@ -109,6 +113,12 @@ async def ensure_app_settings(session: AsyncSession) -> AppSettings:
         current_text_moderation_whitelist = str(getattr(row, "text_moderation_whitelist", "") or "").strip()
         if current_text_moderation_whitelist != normalized_text_moderation_whitelist:
             row.text_moderation_whitelist = normalized_text_moderation_whitelist
+            changed = True
+
+        normalized_text_moderation_blacklist = normalize_text_moderation_blacklist(getattr(row, "text_moderation_blacklist", "0"))
+        current_text_moderation_blacklist = str(getattr(row, "text_moderation_blacklist", "") or "").strip()
+        if current_text_moderation_blacklist != normalized_text_moderation_blacklist:
+            row.text_moderation_blacklist = normalized_text_moderation_blacklist
             changed = True
 
         if changed:

@@ -174,6 +174,10 @@ def _normalize_whitelist_word(raw_word: str) -> str:
     return _normalize_basic(raw_word).strip()
 
 
+def _normalize_blacklist_word(raw_word: str) -> str:
+    return _normalize_basic(raw_word).strip()
+
+
 def _compact_for_scan(value: str) -> str:
     return COMPACT_RE.sub("", value)
 
@@ -431,6 +435,25 @@ def _get_text_moderation_whitelist_words() -> tuple[str, ...]:
     return tuple(out)
 
 
+def _get_text_moderation_blacklist_words() -> tuple[str, ...]:
+    try:
+        words = getattr(get_cached_settings(), "text_moderation_blacklist_words", ())
+    except Exception:
+        return ()
+
+    out: list[str] = []
+    seen: set[str] = set()
+    for raw_word in words or ():
+        if not isinstance(raw_word, str):
+            continue
+        word = _normalize_blacklist_word(raw_word)
+        if not word or word in seen:
+            continue
+        seen.add(word)
+        out.append(word)
+    return tuple(out)
+
+
 def _whitelist_occurrences(text: str, whitelist_words: set[str]) -> list[tuple[int, int, str]]:
     if not whitelist_words:
         return []
@@ -497,7 +520,91 @@ def _filter_whitelisted_matches(text: str, matches: list[ModerationMatch], white
     return filtered
 
 
-def detect_inappropriate_text(text: str, *, whitelist_words: tuple[str, ...] | None = None) -> list[ModerationMatch]:
+def _find_blacklisted_matches(text: str, blacklist_words: tuple[str, ...]) -> list[ModerationMatch]:
+    if not text or not blacklist_words:
+        return []
+
+    found: list[ModerationMatch] = []
+    direct_matched_words: set[str] = set()
+    blacklist_occurrences = _whitelist_occurrences(text, set(blacklist_words))
+    for start, end, blacklist_word in blacklist_occurrences:
+        if blacklist_word in direct_matched_words:
+            continue
+
+        direct_matched_words.add(blacklist_word)
+        snippet = ""
+        if 0 <= start < end <= len(text):
+            snippet = str(text[start:end]).strip()
+
+        found.append(
+            {
+                "word": (snippet or blacklist_word)[:64],
+                "start": start,
+                "end": end,
+                "language": "blacklist",
+            }
+        )
+
+    text_variants = _build_variants(text)
+    for blacklist_word in blacklist_words:
+        normalized_word = _normalize_blacklist_word(blacklist_word)
+        if not normalized_word or normalized_word in direct_matched_words:
+            continue
+
+        word_variants = _build_variants(normalized_word)
+        if not word_variants:
+            continue
+
+        matched = False
+        for _text_variant_name, text_variant, text_has_direct_pos in text_variants:
+            if matched or not text_variant:
+                continue
+
+            for _word_variant_name, word_variant, word_has_direct_pos in word_variants:
+                if not word_variant:
+                    continue
+
+                index = text_variant.find(word_variant)
+                if index < 0:
+                    continue
+
+                match: ModerationMatch = {
+                    "word": normalized_word[:64],
+                    "language": "blacklist",
+                }
+                if text_has_direct_pos and word_has_direct_pos:
+                    start = index
+                    end = start + len(word_variant)
+                    snippet = ""
+                    if 0 <= start < end <= len(text):
+                        snippet = str(text[start:end]).strip()
+                    match["word"] = (snippet or normalized_word)[:64]
+                    match["start"] = start
+                    match["end"] = end
+
+                found.append(match)
+                matched = True
+                break
+
+    return found
+
+
+def _dedupe_matches(matches: list[ModerationMatch]) -> list[ModerationMatch]:
+    out: list[ModerationMatch] = []
+    seen: set[tuple[str, int | None, int | None]] = set()
+    for match in matches:
+        raw_word = match.get("word")
+        normalized_word = _normalize_basic(raw_word) if isinstance(raw_word, str) else ""
+        key = (normalized_word, match.get("start"), match.get("end"))
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(match)
+
+    return out
+
+
+def detect_inappropriate_text(text: str, *, whitelist_words: tuple[str, ...] | None = None, blacklist_words: tuple[str, ...] | None = None) -> list[ModerationMatch]:
     value = str(text or "").strip()
     if not value:
         return []
@@ -548,9 +655,12 @@ def detect_inappropriate_text(text: str, *, whitelist_words: tuple[str, ...] | N
         seen.add(key)
         found.append(match)
     effective_whitelist = whitelist_words if whitelist_words is not None else _get_text_moderation_whitelist_words()
+    effective_blacklist = blacklist_words if blacklist_words is not None else _get_text_moderation_blacklist_words()
+    explicit_blacklisted = _find_blacklisted_matches(value, effective_blacklist)
     filtered = _filter_whitelisted_matches(value, found, effective_whitelist)
-    filtered.sort(key=lambda item: (item.get("start", 10**9), item.get("word", "")))
-    return filtered[:MAX_MATCHES]
+    merged = _dedupe_matches([*explicit_blacklisted, *filtered])
+    merged.sort(key=lambda item: (item.get("start", 10**9), item.get("word", "")))
+    return merged[:MAX_MATCHES]
 
 
 def _dedupe_match_word(word: str) -> str:

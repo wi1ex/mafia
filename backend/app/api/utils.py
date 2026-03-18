@@ -129,6 +129,9 @@ __all__ = [
     "parse_text_moderation_whitelist",
     "text_moderation_whitelist_csv",
     "normalize_text_moderation_whitelist",
+    "parse_text_moderation_blacklist",
+    "text_moderation_blacklist_csv",
+    "normalize_text_moderation_blacklist",
     "normalize_admin_banner_text",
     "normalize_admin_banner_link",
     "normalize_season_start_value",
@@ -330,6 +333,47 @@ def normalize_text_moderation_whitelist(raw: object) -> str:
     return text_moderation_whitelist_csv(parse_text_moderation_whitelist(raw))
 
 
+def _normalize_text_moderation_blacklist_word(raw: object) -> str:
+    return _normalize_text_moderation_whitelist_word(raw)
+
+
+def parse_text_moderation_blacklist(raw: object) -> tuple[str, ...]:
+    source = str(raw or "").strip()
+    if not source or source == "0":
+        return ()
+
+    values: list[str] = []
+    seen: set[str] = set()
+    for part in source.split(","):
+        word = _normalize_text_moderation_blacklist_word(part)
+        if not word or word == "0" or word in seen:
+            continue
+        seen.add(word)
+        values.append(word)
+
+    return tuple(values)
+
+
+def text_moderation_blacklist_csv(values: Iterable[str]) -> str:
+    out: list[str] = []
+    seen: set[str] = set()
+    for raw_value in values:
+        word = _normalize_text_moderation_blacklist_word(raw_value)
+        if not word or word == "0" or word in seen:
+            continue
+        seen.add(word)
+        out.append(word)
+
+    if not out:
+        return "0"
+
+    return ",".join(out)
+
+
+def normalize_text_moderation_blacklist(raw: object) -> str:
+    return text_moderation_blacklist_csv(parse_text_moderation_blacklist(raw))
+
+
 def normalize_admin_banner_text(raw: object) -> str:
     value = str(raw or "").strip()
     if not value or value == "0":
@@ -369,6 +413,9 @@ def build_app_settings_snapshot_defaults(core_settings_obj: Any, *, default_star
     text_moderation_whitelist = normalize_text_moderation_whitelist(
         getattr(core_settings_obj, "TEXT_MODERATION_WHITELIST", "0"),
     )
+    text_moderation_blacklist = normalize_text_moderation_blacklist(
+        getattr(core_settings_obj, "TEXT_MODERATION_BLACKLIST", "0"),
+    )
     return snapshot_cls(
         registration_enabled=getattr(core_settings_obj, "REGISTRATION_ENABLED"),
         rooms_can_create=getattr(core_settings_obj, "ROOMS_CAN_CREATE"),
@@ -386,6 +433,8 @@ def build_app_settings_snapshot_defaults(core_settings_obj: Any, *, default_star
         season_start_game_numbers=season_start_values,
         text_moderation_whitelist=text_moderation_whitelist,
         text_moderation_whitelist_words=parse_text_moderation_whitelist(text_moderation_whitelist),
+        text_moderation_blacklist=text_moderation_blacklist,
+        text_moderation_blacklist_words=parse_text_moderation_blacklist(text_moderation_blacklist),
         game_min_ready_players=getattr(core_settings_obj, "GAME_MIN_READY_PLAYERS"),
         role_pick_seconds=getattr(core_settings_obj, "ROLE_PICK_SECONDS"),
         mafia_talk_seconds=getattr(core_settings_obj, "MAFIA_TALK_SECONDS"),
@@ -408,6 +457,9 @@ def build_app_settings_snapshot_from_row(row: Any, *, default_starts: Sequence[i
     text_moderation_whitelist = normalize_text_moderation_whitelist(
         getattr(row, "text_moderation_whitelist", "0"),
     )
+    text_moderation_blacklist = normalize_text_moderation_blacklist(
+        getattr(row, "text_moderation_blacklist", "0"),
+    )
     return snapshot_cls(
         registration_enabled=bool(getattr(row, "registration_enabled")),
         rooms_can_create=bool(getattr(row, "rooms_can_create")),
@@ -425,6 +477,8 @@ def build_app_settings_snapshot_from_row(row: Any, *, default_starts: Sequence[i
         season_start_game_numbers=season_start_values,
         text_moderation_whitelist=text_moderation_whitelist,
         text_moderation_whitelist_words=parse_text_moderation_whitelist(text_moderation_whitelist),
+        text_moderation_blacklist=text_moderation_blacklist,
+        text_moderation_blacklist_words=parse_text_moderation_blacklist(text_moderation_blacklist),
         game_min_ready_players=int(getattr(row, "game_min_ready_players")),
         role_pick_seconds=int(getattr(row, "role_pick_seconds")),
         mafia_talk_seconds=int(getattr(row, "mafia_talk_seconds")),
@@ -1574,6 +1628,7 @@ def site_settings_out(row) -> SiteSettingsOut:
         rooms_single_ttl_minutes=int(row.rooms_single_ttl_minutes),
         season_start_game_number=str(row.season_start_game_number),
         text_moderation_whitelist=normalize_text_moderation_whitelist(getattr(row, "text_moderation_whitelist", "0")),
+        text_moderation_blacklist=normalize_text_moderation_blacklist(getattr(row, "text_moderation_blacklist", "0")),
     )
 
 
