@@ -1,5 +1,4 @@
-from typing_extensions import Annotated
-from typing import Optional, List, Literal
+from typing import Annotated, Optional, List, Literal
 from datetime import datetime
 from pydantic.functional_validators import BeforeValidator
 from pydantic import BaseModel, Field

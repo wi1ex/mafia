@@ -1,8 +1,7 @@
 from datetime import datetime
-from typing import Optional, List, Literal
+from typing import Annotated, Optional, List, Literal
 from pydantic import BaseModel, Field
 from pydantic.functional_validators import BeforeValidator
-from typing_extensions import Annotated
 from ..api.utils import sanitize_username_for_schema
 
 UsernameClean = Annotated[str, BeforeValidator(sanitize_username_for_schema)]

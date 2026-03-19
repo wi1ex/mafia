@@ -27,8 +27,6 @@ python-socketio = "^5.16.1"
 python-engineio = "^4.13.1"
 python-multipart = "^0.0.22"
 structlog = "^25.5.0"
-orjson = "^3.11.7"
-typing-extensions = "^4.15.0"
 
 [tool.poetry.group.dev.dependencies]
 

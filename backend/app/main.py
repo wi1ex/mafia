@@ -2,7 +2,6 @@ from __future__ import annotations
 import socketio
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import ORJSONResponse
 from .api.router import api_router
 from .core.handlers import setup_exception_handlers
 from .core.lifespan import lifespan
@@ -15,7 +14,6 @@ def build_fastapi() -> FastAPI:
     main_app = FastAPI(
         title=settings.PROJECT_NAME,
         lifespan=lifespan,
-        default_response_class=ORJSONResponse,
         docs_url=None,
         redoc_url=None,
         openapi_url=None,
