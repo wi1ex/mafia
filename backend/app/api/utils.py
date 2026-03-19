@@ -52,6 +52,10 @@ __all__ = [
     "touch_user_last_login",
     "touch_user_last_visit",
     "touch_user_online",
+    "active_alive_game_room_key",
+    "get_active_alive_game_room",
+    "is_user_in_active_alive_game",
+    "get_active_alive_game_flags",
     "validate_object_key_for_presign",
     "parse_month_range",
     "parse_day_range",
@@ -170,7 +174,7 @@ def schedule_user_game_stats_cache_invalidation(log_event: str, **log_kwargs: ob
 
     asyncio.create_task(_task())
 
-PRESIGN_ALLOWED_PREFIXES: tuple[str, ...] = ("avatars/",)
+PRESIGN_ALLOWED_PREFIXES: tuple[str, ...] = ("avatars/", "chat/global/images/")
 PRESIGN_KEY_RE = re.compile(r"^[a-zA-Z0-9._/-]{3,256}$")
 STREAM_LOG_RE = re.compile(r"room_id=(\d+)\s+target_user=(\d+)")
 BOT_USERNAME_RE = re.compile(r"^[a-zA-Zа-яА-ЯёЁ0-9._\-()]{2,20}$")
@@ -858,6 +862,9 @@ async def emit_sanctions_update(session: AsyncSession, user_id: int) -> None:
         "suspend_until": suspend_expires_at.isoformat() if suspend_expires_at else None,
     }
     await sio.emit("sanctions_update", payload, room=f"user:{user_id}", namespace="/auth")
+    with suppress(Exception):
+        from ..services.global_chat import emit_global_chat_permissions_updated
+        await emit_global_chat_permissions_updated(int(user_id))
 
 
 async def ensure_room_access_allowed(db: AsyncSession, user_id: int) -> None:
@@ -1536,6 +1543,9 @@ async def check_sanctions_expired(user_id: int, *, throttle_s: int = 30) -> None
     }
     with suppress(Exception):
         await sio.emit("sanctions_update", payload, room=f"user:{int(user_id)}", namespace="/auth")
+    with suppress(Exception):
+        from ..services.global_chat import emit_global_chat_permissions_updated
+        await emit_global_chat_permissions_updated(int(user_id))
 
 
 def serialize_game_for_redis(game_dict: Dict[str, Any]) -> Dict[str, str]:
@@ -1887,6 +1897,67 @@ async def touch_user_online(r, user_id: int) -> None:
         return
 
     await r.zadd("online:users:seen", {str(uid): int(time())})
+
+
+def active_alive_game_room_key(user_id: int) -> str:
+    return f"user:{int(user_id)}:active_alive_game_room"
+
+
+def _normalize_active_alive_user_ids(user_ids: Iterable[int | str]) -> list[int]:
+    out: set[int] = set()
+    for raw in user_ids:
+        try:
+            uid = int(raw)
+        except Exception:
+            continue
+        if uid > 0:
+            out.add(uid)
+    return sorted(out)
+
+
+async def get_active_alive_game_room(user_id: int, *, redis_client=None, strict: bool = False) -> int | None:
+    r = redis_client or get_redis()
+    try:
+        raw = await r.get(active_alive_game_room_key(user_id))
+    except Exception as exc:
+        if strict:
+            raise RuntimeError("active_alive_game_room_unavailable") from exc
+
+        return None
+
+    try:
+        room_id = int(raw or 0)
+    except Exception:
+        return None
+
+    return room_id if room_id > 0 else None
+
+
+async def is_user_in_active_alive_game(user_id: int, *, redis_client=None, strict: bool = False) -> bool:
+    return (await get_active_alive_game_room(user_id, redis_client=redis_client, strict=strict)) is not None
+
+
+async def get_active_alive_game_flags(user_ids: Iterable[int | str], *, redis_client=None) -> dict[int, bool]:
+    ids = _normalize_active_alive_user_ids(user_ids)
+    if not ids:
+        return {}
+
+    r = redis_client or get_redis()
+    try:
+        async with r.pipeline() as p:
+            for uid in ids:
+                await p.get(active_alive_game_room_key(uid))
+            rows = await p.execute()
+    except Exception:
+        rows = [None for _ in ids]
+
+    out: dict[int, bool] = {}
+    for uid, raw in zip(ids, rows):
+        try:
+            out[uid] = int(raw or 0) > 0
+        except Exception:
+            out[uid] = False
+    return out
 
 
 async def prune_online_users(r, cutoff_ts: int) -> None:

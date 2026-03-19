@@ -17,6 +17,7 @@ from ..utils import (
     pick_active_sanction_kind,
 )
 from ...realtime.sio import sio
+from ...services.global_chat import emit_global_chat_permissions_updated
 
 router = APIRouter()
 
@@ -68,6 +69,10 @@ async def verify(payload: BotVerifyIn, db: AsyncSession = Depends(get_session), 
 
     try:
         await sio.emit("telegram_verified", {"user_id": int(user.id)}, room=f"user:{int(user.id)}", namespace="/auth")
+    except Exception:
+        pass
+    try:
+        await emit_global_chat_permissions_updated(int(user.id))
     except Exception:
         pass
 

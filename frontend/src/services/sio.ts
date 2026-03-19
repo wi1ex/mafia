@@ -172,6 +172,10 @@ export function startAuthSocket(opts?: { onForceLogout?: () => void }): Socket {
     window.dispatchEvent(new CustomEvent('auth-telegram_verified', { detail: p }))
   })
 
+  authSocket.on('user_game_participation_changed', (p:any) => {
+    window.dispatchEvent(new CustomEvent('auth-user_game_participation_changed', { detail: p }))
+  })
+
   authSocket.on('room_invite', (p:any) => {
     window.dispatchEvent(new CustomEvent('auth-room_invite', { detail: p }))
     const dto = {

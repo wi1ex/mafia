@@ -116,6 +116,8 @@ from ..utils import (
     record_spectator_leave,
     maybe_emit_vote_presence_break,
     maybe_finish_game_after_death,
+    mark_users_in_active_alive_game,
+    sync_user_active_alive_game_marker,
 )
 
 log = structlog.get_logger()
@@ -926,6 +928,10 @@ async def kick(sid, data):
             await maybe_end_game_if_room_presence_low(r, rid, reason="presence_too_low")
         except Exception:
             log.exception("sio.kick.presence_end_failed", rid=rid, target=target)
+        try:
+            await sync_user_active_alive_game_marker(r, rid, target)
+        except Exception:
+            log.exception("sio.kick.active_alive_sync_failed", rid=rid, target=target)
 
         details = f"Кик из комнаты room_id={rid} target_user={target}"
         if target_username:
@@ -1398,6 +1404,11 @@ async def game_start(sid, data) -> GameStartAck:
             "farewell_wills": farewell_wills,
             "music": music_enabled,
         }
+
+        try:
+            await mark_users_in_active_alive_game(player_ids, rid)
+        except Exception:
+            log.exception("sio.game_start.active_alive_mark_failed", rid=rid)
 
         await sio.emit("game_started",
                        payload,

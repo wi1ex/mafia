@@ -23,6 +23,8 @@ from ..models.friend import FriendCloseness
 from ..core.clients import get_redis
 from ..core.logging import log_action
 from ..security.auth_tokens import decode_token
+from ..api.utils import active_alive_game_room_key
+from ..services.global_chat import emit_global_chat_permissions_updated
 from ..services.user_cache import get_user_profile_cached, get_user_profiles_cached
 from ..services.user_stats import invalidate_user_game_stats_cache_for_users
 
@@ -37,6 +39,9 @@ __all__ = [
     "GameActionContext",
     "build_game_context",
     "validate_auth",
+    "emit_user_game_participation_changed",
+    "mark_users_in_active_alive_game",
+    "clear_users_in_active_alive_game",
     "to_bool01",
     "apply_state",
     "apply_bg_state_on_join",
@@ -143,6 +148,96 @@ _leave_sha: str | None = None
 _single_gc_tasks: dict[int, tuple[str, asyncio.Task[None]]] = {}
 HOST_BLUR_AUTO_OFF_SECONDS = 120
 _host_blur_auto_tasks: dict[int, asyncio.Task[None]] = {}
+
+
+def _normalize_active_alive_user_ids(user_ids: Iterable[int | str]) -> list[int]:
+    out: set[int] = set()
+    for raw in user_ids:
+        try:
+            uid = int(raw)
+        except Exception:
+            continue
+        if uid > 0:
+            out.add(uid)
+    return sorted(out)
+
+
+async def emit_user_game_participation_changed(user_id: int, *, in_active_game_as_alive_player: bool, room_id: int | None = None) -> None:
+    payload = {
+        "user_id": int(user_id),
+        "in_active_game_as_alive_player": bool(in_active_game_as_alive_player),
+        "room_id": int(room_id) if room_id and int(room_id) > 0 else None,
+    }
+    await sio.emit("user_game_participation_changed", payload, room=f"user:{int(user_id)}", namespace="/auth")
+    with suppress(Exception):
+        await emit_global_chat_permissions_updated(int(user_id))
+
+
+async def mark_users_in_active_alive_game(user_ids: Iterable[int | str], room_id: int, *, redis_client=None, emit: bool = True) -> None:
+    ids = _normalize_active_alive_user_ids(user_ids)
+    room_id_int = int(room_id)
+    if not ids or room_id_int <= 0:
+        return
+
+    r = redis_client or get_redis()
+    async with r.pipeline() as p:
+        for uid in ids:
+            await p.set(active_alive_game_room_key(uid), str(room_id_int))
+        await p.execute()
+
+    if not emit:
+        return
+
+    for uid in ids:
+        await emit_user_game_participation_changed(uid, in_active_game_as_alive_player=True, room_id=room_id_int)
+
+
+async def clear_users_in_active_alive_game(user_ids: Iterable[int | str], *, redis_client=None, emit: bool = True) -> None:
+    ids = _normalize_active_alive_user_ids(user_ids)
+    if not ids:
+        return
+
+    r = redis_client or get_redis()
+    async with r.pipeline() as p:
+        for uid in ids:
+            await p.delete(active_alive_game_room_key(uid))
+        await p.execute()
+
+    if not emit:
+        return
+
+    for uid in ids:
+        await emit_user_game_participation_changed(uid, in_active_game_as_alive_player=False, room_id=None)
+
+
+async def sync_user_active_alive_game_marker(r, rid: int, user_id: int, *, emit: bool = True) -> bool:
+    try:
+        uid = int(user_id)
+        room_id = int(rid)
+    except Exception:
+        return False
+
+    if uid <= 0 or room_id <= 0:
+        return False
+
+    try:
+        phase = str(await r.hget(f"room:{room_id}:game_state", "phase") or "idle")
+    except Exception:
+        phase = "idle"
+
+    is_alive = False
+    if phase != "idle":
+        try:
+            is_alive = bool(await r.sismember(f"room:{room_id}:game_alive", str(uid)))
+        except Exception:
+            is_alive = False
+
+    if is_alive:
+        await mark_users_in_active_alive_game([uid], room_id, redis_client=r, emit=emit)
+        return True
+
+    await clear_users_in_active_alive_game([uid], redis_client=r, emit=emit)
+    return False
 
 
 def _cancel_host_blur_auto_task(rid: int) -> None:
@@ -1893,6 +1988,10 @@ async def cleanup_user_from_room(r, rid: int, uid: int, *, was_member: bool, was
                 await maybe_end_game_if_room_presence_low(r, rid, reason="presence_too_low")
             except Exception:
                 log.exception("sio.join.cleanup.presence_end_failed", rid=rid, uid=uid)
+            try:
+                await sync_user_active_alive_game_marker(r, rid, uid)
+            except Exception:
+                log.exception("sio.join.cleanup.active_alive_sync_failed", rid=rid, uid=uid)
 
             if occ == 0:
                 try:
@@ -3346,6 +3445,10 @@ async def process_player_death(r, rid: int, user_id: int, *, head_uid: int | Non
     removed = int(await r.srem(f"room:{rid}:game_alive", str(user_id)) or 0) > 0
     if removed:
         try:
+            await clear_users_in_active_alive_game([user_id])
+        except Exception:
+            log.exception("process_player_death.active_alive_clear_failed", rid=rid, uid=user_id)
+        try:
             alive_cnt = int(await r.scard(f"room:{rid}:game_alive") or 0)
         except Exception:
             alive_cnt = 0
@@ -3676,6 +3779,12 @@ async def finish_game(r, rid: int, *, result: str, head_uid: int | None = None, 
             continue
         if uid_i > 0:
             player_ids.append(uid_i)
+
+    if player_ids:
+        try:
+            await clear_users_in_active_alive_game(player_ids)
+        except Exception:
+            log.exception("game_finish.active_alive_clear_failed", rid=rid)
 
     actions = await load_game_actions(r, rid)
 
@@ -4715,6 +4824,12 @@ async def perform_game_end(ctx, sess: Optional[dict[str, Any]], *, confirm: bool
             players_list.append(int(v))
         except Exception:
             continue
+
+    if players_list:
+        try:
+            await clear_users_in_active_alive_game(players_list)
+        except Exception:
+            log.exception("sio.game_end.active_alive_clear_failed", rid=rid)
 
     try:
         members_set = await r.smembers(f"room:{rid}:members")

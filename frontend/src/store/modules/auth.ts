@@ -10,6 +10,7 @@ import {
 import { isPwaMode } from '@/services/pwa'
 import { alertDialog } from '@/services/confirm'
 import { formatModerationAlert } from '@/services/moderation'
+import { useUserStore } from './user'
 import {
   initSessionBus,
   setSid,
@@ -108,7 +109,6 @@ export const useAuthStore = defineStore('auth', () => {
     foreign.value = isForeignActive()
     ready.value = true
     try {
-      const { useUserStore } = await import('@/store')
       useUserStore().clear()
     } catch {}
   }
@@ -173,7 +173,6 @@ export const useAuthStore = defineStore('auth', () => {
       const headers = isPwaMode() ? { 'X-PWA': '1' } : undefined
       const { data } = await api.post('/auth/login', payload, headers ? { headers } : undefined)
       await applySession(data)
-      const { useUserStore } = await import('@/store')
       const userStore = useUserStore()
       await userStore.fetchMe()
       onAuthorizedUserResolved(userStore.user?.id)
@@ -201,7 +200,6 @@ export const useAuthStore = defineStore('auth', () => {
       const headers = isPwaMode() ? { 'X-PWA': '1' } : undefined
       const { data } = await api.post('/auth/register', payload, headers ? { headers } : undefined)
       await applySession(data)
-      const { useUserStore } = await import('@/store')
       const userStore = useUserStore()
       await userStore.fetchMe()
       onAuthorizedUserResolved(userStore.user?.id)

@@ -29,4 +29,5 @@ def register_namespaces() -> None:
     import_module('app.realtime.namespaces.rooms')
     import_module('app.realtime.namespaces.room')
     import_module('app.realtime.namespaces.auth')
+    import_module('app.realtime.namespaces.chat')
     _ns_loaded = True

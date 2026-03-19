@@ -23,6 +23,7 @@ from ..utils import (
     fetch_games_history_page,
     aggregate_user_room_time_stats,
     aggregate_user_games_in_owned_rooms_stats,
+    is_user_in_active_alive_game,
 )
 from ...models.game import Game
 from ...models.user import User
@@ -38,6 +39,9 @@ from ...schemas.user import (
     UserOut,
     UsernameUpdateIn,
     AvatarUploadOut,
+    ChatImagePresignIn,
+    ChatImagePresignOut,
+    ChatImageUploadOut,
     UsernameUpdateOut,
     UserSanctionsOut,
     UserSanctionOut,
@@ -54,7 +58,23 @@ from ...schemas.user import (
     UserTopPlayerOut,
 )
 from ...security.passwords import hash_password, verify_password
-from ...services.minio import put_avatar_async, delete_avatars_async, ALLOWED_CT, MAX_BYTES
+from ...services.global_chat import resolve_global_chat_permissions
+from ...services.global_chat import (
+    ensure_global_chat_image_owned_by_user,
+    is_global_chat_image_referenced,
+    normalize_global_chat_image_object_key,
+)
+from ...services.minio import (
+    put_avatar_async,
+    build_chat_image_object_name,
+    delete_object_async,
+    put_chat_image_async,
+    build_chat_image_post_upload_async,
+    delete_avatars_async,
+    ALLOWED_CT,
+    MAX_BYTES,
+    CHAT_IMAGE_MAX_BYTES,
+)
 from ...services.user_cache import write_user_profile_cache, invalidate_avatar_presign_cache, get_user_profiles_cached
 
 router = APIRouter()
@@ -77,6 +97,7 @@ async def profile_info(ident: Identity = Depends(get_identity), db: AsyncSession
     timeout = active.get(SANCTION_TIMEOUT)
     ban = active.get(SANCTION_BAN)
     suspend = active.get(SANCTION_SUSPEND)
+    in_active_game_as_alive_player = await is_user_in_active_alive_game(uid)
 
     return UserOut(
         id=uid,
@@ -93,6 +114,7 @@ async def profile_info(ident: Identity = Depends(get_identity), db: AsyncSession
         timeout_until=timeout.expires_at if timeout else None,
         suspend_until=suspend.expires_at if suspend else None,
         ban_active=bool(ban),
+        in_active_game_as_alive_player=in_active_game_as_alive_player,
     )
 
 
@@ -683,6 +705,101 @@ async def upload_avatar(file: UploadFile = File(...), ident: Identity = Depends(
 
     await broadcast_creator_rooms(uid, avatar="set", avatar_name=name)
     return AvatarUploadOut(avatar_name=name)
+
+
+@log_route("users.presign_chat_image")
+@rate_limited(lambda ident, **_: f"rl:presign_chat_image:{ident['id']}", limit=5, window_s=10)
+@router.post("/chat/image/presign", response_model=ChatImagePresignOut)
+async def presign_chat_image(payload: ChatImagePresignIn, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> ChatImagePresignOut:
+    uid = int(ident["id"])
+    permissions = await resolve_global_chat_permissions(db, uid)
+    if not permissions.can_open:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=permissions.error or "forbidden")
+
+    if not permissions.can_send:
+        if permissions.ban_active:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="user_banned")
+
+        if permissions.timeout_active:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="user_timeout")
+
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="forbidden")
+
+    ct = (payload.content_type or "").split(";")[0].strip().lower()
+    if ct not in ALLOWED_CT:
+        raise HTTPException(status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, detail="unsupported_media_type")
+
+    key = build_chat_image_object_name(uid, ct)
+    upload_url, upload_fields, expires_in = await build_chat_image_post_upload_async(key, ct, expires_minutes=15)
+    return ChatImagePresignOut(
+        image_object_key=key,
+        upload_url=upload_url,
+        expires_in=expires_in,
+        content_type=ct,
+        upload_method="POST",
+        upload_fields=upload_fields,
+    )
+
+
+@log_route("users.upload_chat_image")
+@rate_limited(lambda ident, **_: f"rl:upload_chat_image:{ident['id']}", limit=3, window_s=10)
+@router.post("/chat/image", response_model=ChatImageUploadOut)
+async def upload_chat_image(file: UploadFile = File(...), ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> ChatImageUploadOut:
+    uid = int(ident["id"])
+    permissions = await resolve_global_chat_permissions(db, uid)
+    if not permissions.can_open:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=permissions.error or "forbidden")
+
+    if not permissions.can_send:
+        if permissions.ban_active:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="user_banned")
+
+        if permissions.timeout_active:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="user_timeout")
+
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="forbidden")
+
+    ct = (file.content_type or "").split(";")[0].strip().lower()
+    if ct not in ALLOWED_CT:
+        raise HTTPException(status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, detail="unsupported_media_type")
+
+    data = await file.read()
+    if not data:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="empty_file")
+
+    if len(data) > CHAT_IMAGE_MAX_BYTES:
+        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="file_too_large")
+
+    key = await put_chat_image_async(uid, data, ct)
+    if not key:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="bad_image")
+
+    return ChatImageUploadOut(image_object_key=key)
+
+
+@log_route("users.delete_chat_image")
+@rate_limited(lambda ident, **_: f"rl:delete_chat_image:{ident['id']}", limit=10, window_s=10)
+@router.delete("/chat/image", response_model=Ok)
+async def delete_chat_image(key: str, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> Ok:
+    uid = int(ident["id"])
+    try:
+        normalized_key = normalize_global_chat_image_object_key(key)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc) or "bad_image_key")
+
+    if not normalized_key:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="bad_image_key")
+
+    try:
+        ensure_global_chat_image_owned_by_user(uid, normalized_key)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc) or "forbidden")
+
+    if await is_global_chat_image_referenced(db, normalized_key):
+        return Ok()
+
+    await delete_object_async(normalized_key)
+    return Ok()
 
 
 @log_route("users.delete_avatar")

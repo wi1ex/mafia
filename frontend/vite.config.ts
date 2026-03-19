@@ -18,5 +18,38 @@ export default defineConfig({
       },
     },
   },
-  build: { sourcemap: false },
+  build: {
+    sourcemap: false,
+    rolldownOptions: {
+      output: {
+        manualChunks(id) {
+          const normalized = id.replace(/\\/g, '/')
+
+          if (normalized.includes('/node_modules/livekit-client/')) {
+            return 'room-rtc-vendor'
+          }
+
+          if (normalized.includes('/src/composables/rtc.ts')) {
+            return 'room-rtc'
+          }
+
+          if (
+            normalized.includes('/src/composables/roomGame.ts')
+            || normalized.includes('/src/components/RoomTile.vue')
+          ) {
+            return 'room-game'
+          }
+
+          if (
+            normalized.includes('/src/components/RoomSetting.vue')
+            || normalized.includes('/src/components/GameParamsModal.vue')
+            || normalized.includes('/src/components/GameParamsForm.vue')
+            || normalized.includes('/src/components/FriendsPanel.vue')
+          ) {
+            return 'room-panels'
+          }
+        },
+      },
+    },
+  },
 })

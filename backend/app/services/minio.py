@@ -3,11 +3,14 @@ import asyncio
 import io
 import threading
 import time
+from urllib.parse import urlunsplit
+from uuid import uuid4
 from PIL import Image, ImageOps
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Optional
 import structlog
 from minio import Minio
+from minio.datatypes import PostPolicy
 from minio.error import S3Error
 from minio.deleteobjects import DeleteObject
 from ..core.settings import settings
@@ -23,19 +26,26 @@ ALLOWED_CT = {
 MAX_BYTES = 5 * 1024 * 1024
 MAX_PIXELS = 4096 * 4096
 MAX_SIDE = 1024
+CHAT_IMAGE_MAX_BYTES = 8 * 1024 * 1024
+CHAT_IMAGE_MAX_SIDE = 1600
+CHAT_IMAGE_PREFIX = "chat/global/images"
 BUCKET_CHECK_TTL_S = 60.0
 _bucket_checked_until = 0.0
 _bucket_check_lock = threading.Lock()
 
 
-def _reencode_safe(content: bytes, ct_hint: Optional[str]) -> tuple[bytes, str] | None:
+def _normalize_content_type(content_type: str | None) -> str:
+    return (content_type or "").split(";")[0].strip().lower()
+
+
+def _reencode_safe(content: bytes, ct_hint: Optional[str], *, max_side: int = MAX_SIDE) -> tuple[bytes, str] | None:
     im = Image.open(io.BytesIO(content))
     im = ImageOps.exif_transpose(im)
     if im.width * im.height > MAX_PIXELS:
         return None
 
     im = im.convert("RGB")
-    im.thumbnail((MAX_SIDE, MAX_SIDE), resample=Image.Resampling.LANCZOS)
+    im.thumbnail((max_side, max_side), resample=Image.Resampling.LANCZOS)
     buf = io.BytesIO()
     if (ct_hint or "").lower() == "image/png":
         im.save(buf, format="PNG", optimize=True)
@@ -102,7 +112,7 @@ def put_avatar(user_id: int, content: bytes, content_type: str | None) -> Option
         return None
 
     try:
-        content, ct = _reencode_safe(content, ct)
+        content, ct = _reencode_safe(content, ct, max_side=MAX_SIDE)
         if content is None or ct not in ALLOWED_CT:
             return None
 
@@ -135,6 +145,176 @@ def put_avatar(user_id: int, content: bytes, content_type: str | None) -> Option
     except Exception:
         log.exception("avatar.put.unexpected", user_id=user_id)
         raise
+
+
+def put_chat_image(user_id: int, content: bytes, content_type: str | None) -> Optional[str]:
+    if not content:
+        log.warning("chat_image.put.empty", user_id=user_id)
+        return None
+
+    if len(content) > CHAT_IMAGE_MAX_BYTES:
+        log.warning("chat_image.put.too_large", user_id=user_id, bytes=len(content))
+        return None
+
+    ct_hdr = _normalize_content_type(content_type)
+    ct_guess = _sniff_ct(content)
+    ct = ct_hdr if ct_hdr in ALLOWED_CT else ct_guess
+    if ct not in ALLOWED_CT:
+        log.warning("chat_image.put.unsupported_type", user_id=user_id, content_type=ct or content_type)
+        return None
+
+    try:
+        content, ct = _reencode_safe(content, ct, max_side=CHAT_IMAGE_MAX_SIDE)
+        if content is None or ct not in ALLOWED_CT:
+            return None
+
+    except Exception:
+        log.warning("chat_image.put.decode_failed", user_id=user_id)
+        return None
+
+    minio = get_minio_private()
+    ensure_bucket(minio)
+    ext = ALLOWED_CT[ct]
+    object_name = f"{CHAT_IMAGE_PREFIX}/{int(user_id)}/{int(time.time())}-{uuid4().hex}{ext}"
+
+    try:
+        minio.put_object(
+            bucket_name=_bucket,
+            object_name=object_name,
+            data=io.BytesIO(content),
+            length=len(content),
+            content_type=ct,
+        )
+        return object_name
+
+    except S3Error as e:
+        log.error("chat_image.put.s3_error", code=e.code, user_id=user_id)
+        raise
+
+    except Exception:
+        log.exception("chat_image.put.unexpected", user_id=user_id)
+        raise
+
+
+def build_chat_image_object_name(user_id: int, content_type: str | None) -> str:
+    ct = _normalize_content_type(content_type)
+    ext = ALLOWED_CT.get(ct) or ".jpg"
+    return f"{CHAT_IMAGE_PREFIX}/{int(user_id)}/{int(time.time())}-{uuid4().hex}{ext}"
+
+
+def _delete_object_quietly(minio_client: Minio, key: str) -> None:
+    try:
+        minio_client.remove_object(bucket_name=_bucket, object_name=key)
+    except S3Error as e:
+        if e.code not in {"NoSuchKey", "NoSuchObject"}:
+            log.warning("chat_image.cleanup.s3_error", code=e.code, key=key)
+    except Exception:
+        log.warning("chat_image.cleanup.failed", key=key)
+
+
+def build_chat_image_post_upload(key: str, content_type: str | None, *, expires_minutes: int = 15) -> tuple[str, dict[str, str], int]:
+    ct = _normalize_content_type(content_type)
+    if ct not in ALLOWED_CT:
+        raise ValueError("unsupported_media_type")
+
+    ensure_bucket()
+    minio_pub = get_minio_public()
+    policy = PostPolicy(_bucket, datetime.utcnow() + timedelta(minutes=expires_minutes))
+    policy.add_equals_condition("key", key)
+    policy.add_equals_condition("Content-Type", ct)
+    policy.add_content_length_range_condition(1, CHAT_IMAGE_MAX_BYTES + 256 * 1024)
+    form_data = dict(minio_pub.presigned_post_policy(policy))
+    form_data["key"] = key
+    form_data["Content-Type"] = ct
+    upload_url = urlunsplit(
+        minio_pub._base_url.build(
+            "POST",
+            minio_pub._base_url.region or "us-east-1",
+            bucket_name=_bucket,
+        )
+    )
+    return upload_url, form_data, int(expires_minutes * 60)
+
+
+def validate_chat_image_object(key: str) -> str:
+    key_value = str(key or "").strip()
+    if not key_value:
+        raise ValueError("bad_image_key")
+
+    minio = get_minio_private()
+    ensure_bucket(minio)
+    try:
+        stat = minio.stat_object(bucket_name=_bucket, object_name=key_value)
+    except S3Error as e:
+        if e.code in {"NoSuchKey", "NoSuchObject"}:
+            raise ValueError("image_not_found") from e
+
+        raise
+
+    size = int(getattr(stat, "size", 0) or 0)
+    if size <= 0:
+        _delete_object_quietly(minio, key_value)
+        raise ValueError("empty_file")
+
+    if size > CHAT_IMAGE_MAX_BYTES:
+        _delete_object_quietly(minio, key_value)
+        raise ValueError("file_too_large")
+
+    response = minio.get_object(bucket_name=_bucket, object_name=key_value)
+    try:
+        data = response.read()
+    finally:
+        try:
+            response.close()
+        except Exception:
+            pass
+        try:
+            response.release_conn()
+        except Exception:
+            pass
+
+    if not data:
+        _delete_object_quietly(minio, key_value)
+        raise ValueError("empty_file")
+
+    if len(data) > CHAT_IMAGE_MAX_BYTES:
+        _delete_object_quietly(minio, key_value)
+        raise ValueError("file_too_large")
+
+    ct_hdr = _normalize_content_type(getattr(stat, "content_type", None))
+    ct_guess = _sniff_ct(data)
+    ct = ct_guess if ct_guess in ALLOWED_CT else (ct_hdr if ct_hdr in ALLOWED_CT else None)
+    if ct not in ALLOWED_CT:
+        _delete_object_quietly(minio, key_value)
+        raise ValueError("unsupported_media_type")
+
+    try:
+        normalized = _reencode_safe(data, ct, max_side=CHAT_IMAGE_MAX_SIDE)
+    except Exception:
+        normalized = None
+    if normalized is None:
+        _delete_object_quietly(minio, key_value)
+        raise ValueError("bad_image")
+
+    normalized_content, normalized_ct = normalized
+    if not normalized_content or normalized_ct not in ALLOWED_CT:
+        _delete_object_quietly(minio, key_value)
+        raise ValueError("bad_image")
+
+    if len(normalized_content) > CHAT_IMAGE_MAX_BYTES:
+        _delete_object_quietly(minio, key_value)
+        raise ValueError("file_too_large")
+
+    if normalized_content != data or normalized_ct != ct_hdr:
+        minio.put_object(
+            bucket_name=_bucket,
+            object_name=key_value,
+            data=io.BytesIO(normalized_content),
+            length=len(normalized_content),
+            content_type=normalized_ct,
+        )
+
+    return key_value
 
 
 def delete_avatars(user_id: int) -> int:
@@ -184,9 +364,77 @@ async def put_avatar_async(user_id: int, content: bytes, content_type: str | Non
     return await asyncio.to_thread(put_avatar, user_id, content, content_type)
 
 
+async def put_chat_image_async(user_id: int, content: bytes, content_type: str | None) -> Optional[str]:
+    return await asyncio.to_thread(put_chat_image, user_id, content, content_type)
+
+
 async def delete_avatars_async(user_id: int) -> int:
     return await asyncio.to_thread(delete_avatars, user_id)
 
 
 async def presign_key_async(key: str, *, expires_hours: int = 1) -> tuple[str, int]:
     return await asyncio.to_thread(presign_key, key, expires_hours=expires_hours)
+
+
+async def build_chat_image_post_upload_async(key: str, content_type: str | None, *, expires_minutes: int = 15) -> tuple[str, dict[str, str], int]:
+    return await asyncio.to_thread(build_chat_image_post_upload, key, content_type, expires_minutes=expires_minutes)
+
+
+async def validate_chat_image_object_async(key: str) -> str:
+    return await asyncio.to_thread(validate_chat_image_object, key)
+
+
+def presign_put_key(key: str, *, expires_minutes: int = 15) -> tuple[str, int]:
+    minio_pub = get_minio_public()
+    try:
+        url = minio_pub.presigned_put_object(bucket_name=_bucket, object_name=key, expires=timedelta(minutes=expires_minutes))
+        return url, int(expires_minutes * 60)
+
+    except S3Error as e:
+        log.error("media.presign_put.s3_error", code=e.code, key=key)
+        raise
+
+    except Exception:
+        log.exception("media.presign_put.unexpected", key=key)
+        raise
+
+
+async def presign_put_key_async(key: str, *, expires_minutes: int = 15) -> tuple[str, int]:
+    return await asyncio.to_thread(presign_put_key, key, expires_minutes=expires_minutes)
+
+
+def object_exists(key: str) -> bool:
+    minio = get_minio_private()
+    try:
+        minio.stat_object(bucket_name=_bucket, object_name=key)
+        return True
+
+    except S3Error as e:
+        if e.code in {"NoSuchKey", "NoSuchObject"}:
+            return False
+
+        raise
+
+
+async def object_exists_async(key: str) -> bool:
+    return await asyncio.to_thread(object_exists, key)
+
+
+def delete_object(key: str) -> None:
+    minio = get_minio_private()
+    try:
+        minio.remove_object(bucket_name=_bucket, object_name=key)
+    except S3Error as e:
+        if e.code in {"NoSuchKey", "NoSuchObject"}:
+            return
+
+        log.error("media.delete.s3_error", code=e.code, key=key)
+        raise
+
+    except Exception:
+        log.exception("media.delete.unexpected", key=key)
+        raise
+
+
+async def delete_object_async(key: str) -> None:
+    await asyncio.to_thread(delete_object, key)

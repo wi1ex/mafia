@@ -320,13 +320,14 @@
         />
 
         <GameParamsModal
+          v-if="gameParamsPanelLoaded"
           v-model:open="gameParamsOpen"
           :room-id="rid"
           :can-edit="canEditGameSettings"
         />
 
         <FriendsPanel
-          v-if="gamePhase === 'idle'"
+          v-if="friendsPanelLoaded && gamePhase === 'idle'"
           v-model:open="friendsPanelOpen"
           :anchor="roomFriendsEl"
           mode="room"
@@ -334,6 +335,7 @@
         />
 
         <RoomSetting
+          v-if="settingsPanelLoaded"
           :open="settingsOpen && canShowSettingsButton"
           :in-game="gamePhase !== 'idle'"
           :is-spectator="isSpectatorInGame"
@@ -399,7 +401,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, shallowRef, watch } from 'vue'
+import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, reactive, ref, shallowRef, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
 import type { Socket } from 'socket.io-client'
@@ -426,10 +428,7 @@ import { alertDialog, confirmDialog, useConfirmState } from '@/services/confirm'
 import { setPageTitle } from '@/services/pwa'
 import { createAuthedSocket, disposeAuthedSocket } from '@/services/sio'
 import RoomTile from '@/components/RoomTile.vue'
-import RoomSetting from '@/components/RoomSetting.vue'
 import RoomRequests from '@/components/RoomRequests.vue'
-import GameParamsModal from '@/components/GameParamsModal.vue'
-import FriendsPanel from '@/components/FriendsPanel.vue'
 import UiSlider from '@/components/UiSlider.vue'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
@@ -474,6 +473,10 @@ import iconVisBlocked from '@/assets/svg/visBlocked.svg'
 import iconScreenOn from '@/assets/svg/screenOn.svg'
 import iconScreenOff from '@/assets/svg/screenOff.svg'
 import iconScreenBlocked from '@/assets/svg/screenBlocked.svg'
+
+const RoomSetting = defineAsyncComponent(() => import('@/components/RoomSetting.vue'))
+const GameParamsModal = defineAsyncComponent(() => import('@/components/GameParamsModal.vue'))
+const FriendsPanel = defineAsyncComponent(() => import('@/components/FriendsPanel.vue'))
 
 type State01 = 0 | 1
 type MediaState = {
@@ -621,9 +624,12 @@ const friendStatusLoading = reactive(new Map<string, boolean>())
 const friendBusyByUser = reactive(new Map<string, boolean>())
 const pendingScreen = ref(false)
 const settingsOpen = ref(false)
+const settingsPanelLoaded = ref(false)
 const friendsPanelOpen = ref(false)
+const friendsPanelLoaded = ref(false)
 const roomFriendsEl = ref<HTMLElement | null>(null)
 const gameParamsOpen = ref(false)
+const gameParamsPanelLoaded = ref(false)
 const uiReady = ref(false)
 const leaving = ref(false)
 const netReconnecting = ref(false)
@@ -1022,27 +1028,51 @@ const toggleTilePanel = (id: string) => {
   openPanelFor.value = next
   if (next && !friendStatusByUser.has(next)) void fetchFriendStatus(next)
 }
-function toggleSettings() {
+async function toggleSettings() {
   const next = !settingsOpen.value
   closePanels('settings')
-  settingsOpen.value = next
-  if (next) void rtc.refreshDevices().catch(() => {})
+  if (!next) {
+    settingsOpen.value = false
+    return
+  }
+  if (!settingsPanelLoaded.value) {
+    settingsPanelLoaded.value = true
+    await nextTick()
+  }
+  settingsOpen.value = true
+  void rtc.refreshDevices().catch(() => {})
 }
 function toggleApps() {
   const next = !openApps.value
   closePanels('apps')
   openApps.value = next
 }
-function toggleFriendsPanel() {
+async function toggleFriendsPanel() {
   const next = !friendsPanelOpen.value
   closePanels('friends')
-  friendsPanelOpen.value = next
+  if (!next) {
+    friendsPanelOpen.value = false
+    return
+  }
+  if (!friendsPanelLoaded.value) {
+    friendsPanelLoaded.value = true
+    await nextTick()
+  }
+  friendsPanelOpen.value = true
 }
-function openGameSettings() {
+async function openGameSettings() {
   if (!canViewGameSettings.value) return
   const next = !gameParamsOpen.value
   closePanels('game')
-  gameParamsOpen.value = next
+  if (!next) {
+    gameParamsOpen.value = false
+    return
+  }
+  if (!gameParamsPanelLoaded.value) {
+    gameParamsPanelLoaded.value = true
+    await nextTick()
+  }
+  gameParamsOpen.value = true
 }
 function onDocClick() {
   closePanels(undefined, { keepFriendsWhenConfirm: true })

@@ -22,6 +22,7 @@ class UserOut(BaseModel):
     timeout_until: Optional[datetime] = None
     suspend_until: Optional[datetime] = None
     ban_active: bool = False
+    in_active_game_as_alive_player: bool = False
 
 
 class UserTopPlayerOut(BaseModel):
@@ -164,6 +165,23 @@ class UsernameUpdateOut(BaseModel):
 
 class AvatarUploadOut(BaseModel):
     avatar_name: Optional[str] = None
+
+
+class ChatImageUploadOut(BaseModel):
+    image_object_key: str
+
+
+class ChatImagePresignIn(BaseModel):
+    content_type: str = Field(min_length=1, max_length=100)
+
+
+class ChatImagePresignOut(BaseModel):
+    image_object_key: str
+    upload_url: str
+    expires_in: int
+    content_type: str
+    upload_method: Literal["PUT", "POST"] = "PUT"
+    upload_fields: dict[str, str] = Field(default_factory=dict)
 
 
 class UserUiPrefsIn(BaseModel):

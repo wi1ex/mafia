@@ -16,6 +16,7 @@ export interface UserProfile {
   timeout_until?: string | null
   suspend_until?: string | null
   ban_active?: boolean
+  in_active_game_as_alive_player?: boolean
 }
 
 export const useUserStore = defineStore('user', () => {
@@ -91,6 +92,7 @@ export const useUserStore = defineStore('user', () => {
   const banActive = computed(() => Boolean(user.value?.ban_active))
   const telegramVerified = computed(() => Boolean(user.value?.telegram_verified))
   const passwordTemp = computed(() => Boolean(user.value?.password_temp))
+  const inActiveGameAsAlivePlayer = computed(() => Boolean(user.value?.in_active_game_as_alive_player))
   const roomRestricted = computed(() => banActive.value || timeoutActive.value)
   const hotkeysVisible = computed(() => user.value?.hotkeys_visible ?? true)
   const tgInvitesEnabled = computed(() => user.value?.tg_invites_enabled ?? true)
@@ -117,6 +119,11 @@ export const useUserStore = defineStore('user', () => {
     user.value = null
   }
 
+  function setInActiveGameAsAlivePlayer(next: boolean): void {
+    if (!user.value) return
+    user.value.in_active_game_as_alive_player = next
+  }
+
   return {
     user,
     now,
@@ -127,6 +134,7 @@ export const useUserStore = defineStore('user', () => {
     banActive,
     telegramVerified,
     passwordTemp,
+    inActiveGameAsAlivePlayer,
     roomRestricted,
     hotkeysVisible,
     tgInvitesEnabled,
@@ -135,6 +143,7 @@ export const useUserStore = defineStore('user', () => {
     setUsername,
     setAvatarName,
     setSanctions,
+    setInActiveGameAsAlivePlayer,
     setHotkeysVisible,
     setTgInvitesEnabled,
     ensureClock,

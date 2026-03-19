@@ -31,6 +31,7 @@ from ...security.passwords import hash_password
 from ...security.parameters import ensure_app_settings, sync_cache_from_row, refresh_app_settings, get_cached_settings
 from ...services.user_cache import write_user_profile_cache, get_user_profiles_cached
 from ...services.user_stats import get_user_game_stats_cached
+from ...services.global_chat import emit_global_chat_permissions_refresh
 from ...schemas.common import Ok, Identity
 from ...schemas.user import UserStatsOut, UserTopPlayerOut
 from ...schemas.updates import AdminUpdateIn, AdminUpdateOut, AdminUpdatesOut
@@ -188,6 +189,8 @@ async def update_settings(payload: AdminSettingsUpdateIn, session: AsyncSession 
             await sio.emit("settings_update", {"ok": True}, namespace="/rooms")
         except Exception:
             pass
+        with suppress(Exception):
+            await emit_global_chat_permissions_refresh()
         if season_changed:
             schedule_user_game_stats_cache_invalidation("admin.settings.season_change.invalidate_stats_cache_failed")
 

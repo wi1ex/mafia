@@ -4,6 +4,7 @@
     <div class="rotate-box" data-nosnippet>Поверните устройство</div>
   </div>
   <router-view :key="routerViewKey" />
+  <GlobalChatPanel />
   <Confirms />
   <Toast />
 </template>
@@ -19,6 +20,7 @@ import { alertDialog } from '@/services/confirm'
 import Header from '@/components/Header.vue'
 import Toast from '@/components/Toasts.vue'
 import Confirms from '@/components/Confirms.vue'
+import GlobalChatPanel from '@/components/GlobalChatPanel.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -29,6 +31,7 @@ const settings = useSettingsStore()
 let onSanctionsUpdate: ((e: any) => void) | null = null
 let onTelegramVerified: ((e: any) => void) | null = null
 let onAdminNotify: ((e: any) => void) | null = null
+let onUserGameParticipationChanged: ((e: any) => void) | null = null
 
 const isRoom = computed(() => route.name === 'room')
 const routerViewKey = computed(() => {
@@ -65,6 +68,11 @@ onMounted(async () => {
     })
   }
   window.addEventListener('auth-sanctions_update', onSanctionsUpdate)
+  onUserGameParticipationChanged = (e: any) => {
+    const inActiveGameAsAlivePlayer = Boolean(e?.detail?.in_active_game_as_alive_player)
+    user.setInActiveGameAsAlivePlayer(inActiveGameAsAlivePlayer)
+  }
+  window.addEventListener('auth-user_game_participation_changed', onUserGameParticipationChanged)
   onTelegramVerified = () => {
     if (!auth.isAuthed) return
     const wasVerified = user.telegramVerified
@@ -94,6 +102,7 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   if (onSanctionsUpdate) window.removeEventListener('auth-sanctions_update', onSanctionsUpdate)
+  if (onUserGameParticipationChanged) window.removeEventListener('auth-user_game_participation_changed', onUserGameParticipationChanged)
   if (onTelegramVerified) window.removeEventListener('auth-telegram_verified', onTelegramVerified)
   if (onAdminNotify) window.removeEventListener('auth-notify', onAdminNotify)
 })
