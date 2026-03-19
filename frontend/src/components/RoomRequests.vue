@@ -264,11 +264,10 @@ onBeforeUnmount(() => {
   ul {
     display: flex;
     flex-direction: column;
-    margin: 10px;
-    padding: 0;
+    margin: 0;
+    padding: 10px;
     gap: 10px;
     border-radius: 5px;
-    box-shadow: 3px 3px 5px rgba($black, 0.25);
     overflow-y: auto;
     scrollbar-width: none;
     list-style: none;
@@ -279,6 +278,7 @@ onBeforeUnmount(() => {
       gap: 5px;
       border-radius: 5px;
       background-color: $graphite;
+      box-shadow: 3px 3px 5px rgba($black, 0.25);
       img {
         width: 24px;
         height: 24px;
@@ -363,7 +363,7 @@ onBeforeUnmount(() => {
       }
     }
     ul {
-      margin: 5px;
+      padding: 5px;
       gap: 5px;
       li {
         img {

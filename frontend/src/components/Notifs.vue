@@ -243,7 +243,7 @@ onBeforeUnmount(() => {
   .list {
     display: flex;
     flex-direction: column;
-    margin: 10px;
+    padding: 10px;
     gap: 10px;
     overflow-y: auto;
     scrollbar-width: none;
@@ -343,7 +343,7 @@ onBeforeUnmount(() => {
       }
     }
     .list {
-      margin: 5px;
+      padding: 5px;
       gap: 5px;
       .item {
         padding: 5px;
