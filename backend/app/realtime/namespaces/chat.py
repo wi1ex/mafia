@@ -1,4 +1,5 @@
 from __future__ import annotations
+from contextlib import suppress
 from uuid import UUID
 import structlog
 from fastapi import HTTPException
@@ -78,6 +79,9 @@ async def connect(sid, environ, auth):
 @rate_limited_sio(lambda *, uid=None, **__: f"rl:sio:chat_open:{uid or 'nouid'}", limit=5, window_s=1, session_ns="/chat")
 @sio.event(namespace="/chat")
 async def chat_open(sid, data):
+    joined_global_room = False
+    joined_user_room = False
+    uid = 0
     try:
         sess = await sio.get_session(sid, namespace="/chat")
         uid = int(sess.get("uid") or 0)
@@ -94,7 +98,9 @@ async def chat_open(sid, data):
                     "permissions": permissions_payload(permissions),
                 }
         await sio.enter_room(sid, GLOBAL_CHAT_ROOM, namespace="/chat")
+        joined_global_room = True
         await sio.enter_room(sid, global_chat_open_user_room(uid), namespace="/chat")
+        joined_user_room = True
         async with SessionLocal() as db:
             messages, has_more, cursor_before_id = await fetch_global_chat_page(db, viewer_user_id=uid, limit=limit)
         return {
@@ -107,6 +113,13 @@ async def chat_open(sid, data):
             "cursor_before_id": cursor_before_id,
         }
     except Exception:
+        if uid > 0:
+            if joined_global_room:
+                with suppress(Exception):
+                    await sio.leave_room(sid, GLOBAL_CHAT_ROOM, namespace="/chat")
+            if joined_user_room:
+                with suppress(Exception):
+                    await sio.leave_room(sid, global_chat_open_user_room(uid), namespace="/chat")
         log.exception("chat.open.error", sid=sid)
         return {"ok": False, "status": 500, "error": "internal"}
 

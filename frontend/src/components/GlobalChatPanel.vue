@@ -227,7 +227,12 @@ const statusText = computed(() => {
   return ''
 })
 
-const composerDisabled = computed(() => connectionState.value !== 'ready' || !permissions.value.can_send)
+const composerDisabled = computed(() => {
+  return connectionState.value !== 'ready'
+    || !permissions.value.can_send
+    || sending.value
+    || uploadingImage.value
+})
 const showLoadMore = computed(() => hasMore.value && (loadingMore.value || listAtTop.value))
 const sendButtonText = computed(() => {
   if (uploadingImage.value) return 'Загрузка…'

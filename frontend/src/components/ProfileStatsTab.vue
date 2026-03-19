@@ -93,7 +93,7 @@
         <h4>Дополнительные показатели</h4>
         <div class="extra-grid">
           <article class="metric-card">
-            <span>Верное завещание</span>
+            <span>Достоверность завещаний</span>
             <strong>{{ formatPct(game.farewell_success_percent) }}</strong>
           </article>
           <article class="metric-card">

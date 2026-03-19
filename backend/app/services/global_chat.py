@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..models.global_chat import GlobalChatMessage, GlobalChatMessageReaction
 from ..models.sanction import UserSanction
 from ..models.user import User
+from ..core.db import SessionLocal
 from ..realtime.sio import sio
 from ..security.parameters import get_cached_settings
 from ..api.utils import is_user_in_active_alive_game
@@ -196,6 +197,13 @@ def permissions_payload(permissions: GlobalChatPermissions) -> dict[str, bool]:
     }
 
 
+def _should_force_close(permissions: GlobalChatPermissions) -> bool:
+    if permissions.can_open:
+        return False
+
+    return permissions.error in {"active_game_player", "not_verified", "unauthorized"}
+
+
 def global_chat_open_user_room(user_id: int) -> str:
     return f"{GLOBAL_CHAT_OPEN_USER_ROOM_PREFIX}:{int(user_id)}"
 
@@ -204,9 +212,21 @@ async def emit_global_chat_permissions_updated(user_id: int) -> None:
     uid = _positive_int(user_id)
     if uid <= 0:
         return
+
+    payload: dict[str, Any] = {"refresh": True}
+    try:
+        async with SessionLocal() as session:
+            permissions = await resolve_global_chat_permissions(session, uid)
+        payload = {
+            "permissions": permissions_payload(permissions),
+            "error": permissions.error,
+            "force_close": _should_force_close(permissions),
+        }
+    except Exception:
+        payload = {"refresh": True}
     await sio.emit(
         "chat_permissions_updated",
-        {"refresh": True},
+        payload,
         room=global_chat_open_user_room(uid),
         namespace="/chat",
     )

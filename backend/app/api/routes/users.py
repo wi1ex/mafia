@@ -60,6 +60,7 @@ from ...schemas.user import (
 from ...security.passwords import hash_password, verify_password
 from ...services.global_chat import resolve_global_chat_permissions
 from ...services.global_chat import (
+    emit_global_chat_permissions_updated,
     ensure_global_chat_image_owned_by_user,
     is_global_chat_image_referenced,
     normalize_global_chat_image_object_key,
@@ -656,6 +657,8 @@ async def unverify_telegram(ident: Identity = Depends(get_identity), db: AsyncSe
         action="telegram_unverified_self",
         details=f"Пользователь отвязал Telegram: user_id={uid} username={ident['username']} tg_id={prev_tg}",
     )
+    with suppress(Exception):
+        await emit_global_chat_permissions_updated(uid)
 
     return Ok()
 

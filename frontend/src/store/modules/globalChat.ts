@@ -538,9 +538,27 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
       mergeMessages([payload])
     })
 
-    socket.on('chat_permissions_updated', () => {
+    socket.on('chat_permissions_updated', (payload: unknown) => {
       if (!open.value) return
-      void refreshPermissions(false)
+      if (isRecord(payload) && payload.refresh) {
+        void refreshPermissions(false)
+        return
+      }
+
+      if (isRecord(payload) && payload.permissions) {
+        applyPermissions(payload.permissions)
+      } else {
+        void refreshPermissions(false)
+        return
+      }
+
+      const error = isRecord(payload) ? asString(payload.error) : ''
+      if (Boolean(isRecord(payload) && payload.force_close)) {
+        if (error === 'active_game_player') {
+          useUserStore().setInActiveGameAsAlivePlayer(true)
+        }
+        closePanel()
+      }
     })
 
     return socket
@@ -813,14 +831,17 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
 
   async function sendDraft(): Promise<boolean> {
     if (!canSendCurrentDraft.value) return false
+    const textSnapshot = draft.value
+    const replyToMessageIdSnapshot = asPositiveInt(draftReplyMessageId.value) || null
+    const clientMessageIdSnapshot = ensureDraftClientMessageId()
     sending.value = true
 
     try {
       const imageObjectKey = await ensureDraftImageUploaded()
       const response = await emitAck<ChatAck>('chat_send', {
-        client_message_id: ensureDraftClientMessageId(),
-        text: draft.value,
-        reply_to_message_id: draftReplyMessageId.value,
+        client_message_id: clientMessageIdSnapshot,
+        text: textSnapshot,
+        reply_to_message_id: replyToMessageIdSnapshot,
         image_object_key: imageObjectKey,
       })
 
