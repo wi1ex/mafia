@@ -1,6 +1,7 @@
 from __future__ import annotations
 import asyncio
 import json
+from contextlib import suppress
 from random import shuffle, randint
 import structlog
 from time import time

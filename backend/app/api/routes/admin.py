@@ -1112,7 +1112,7 @@ async def update_user_role(user_id: int, payload: AdminUserRoleIn, ident: Identi
     uid = cast(int, user.id)
     if prev_role != user.role:
         action = "admin_role_grant" if user.role == "admin" else "admin_role_revoke"
-        details = f"Р РѕР»СЊ user_id={uid}"
+        details = f"Роль user_id={uid}"
         if user.username:
             details += f" username={user.username}"
         details += f" from={prev_role} to={user.role}"
@@ -1128,8 +1128,8 @@ async def update_user_role(user_id: int, payload: AdminUserRoleIn, ident: Identi
         if user.role == "admin":
             note = Notif(
                 user_id=uid,
-                title="РђРґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂ",
-                text="Р’Р°Рј РІС‹РґР°РЅС‹ РїСЂР°РІР° Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂР°.",
+                title="Администратор",
+                text="Вам выданы права администратора.",
             )
             session.add(note)
             await session.commit()
@@ -1201,7 +1201,7 @@ async def delete_user_account(user_id: int, ident: Identity = Depends(get_identi
     ensure_admin_target_allowed(target)
     user = await set_user_deleted(session, int(user_id), deleted=True)
     uid = cast(int, user.id)
-    details = f"РЈРґР°Р»РµРЅРёРµ Р°РєРєР°СѓРЅС‚Р° user_id={uid}"
+    details = f"Удаление аккаунта user_id={uid}"
     if user.username:
         details += f" username={user.username}"
 
@@ -1215,8 +1215,8 @@ async def delete_user_account(user_id: int, ident: Identity = Depends(get_identi
 
     note = Notif(
         user_id=uid,
-        title="РђРєРєР°СѓРЅС‚ СѓРґР°Р»РµРЅ",
-        text="Р’Р°С€ Р°РєРєР°СѓРЅС‚ Р±С‹Р» СѓРґР°Р»РµРЅ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂРѕРј.",
+        title="Аккаунт удален",
+        text="Ваш аккаунт был удален администратором.",
     )
     session.add(note)
     await session.commit()
@@ -1250,7 +1250,7 @@ async def restore_user_account(user_id: int, ident: Identity = Depends(get_ident
 
     ensure_admin_target_allowed(target)
     user = await set_user_deleted(session, int(user_id), deleted=False)
-    details = f"Р’РѕСЃСЃС‚Р°РЅРѕРІР»РµРЅРёРµ Р°РєРєР°СѓРЅС‚Р° user_id={user.id}"
+    details = f"Восстановление аккаунта user_id={user.id}"
     if user.username:
         details += f" username={user.username}"
     await log_action(
@@ -1280,14 +1280,14 @@ async def unverify_user(user_id: int, ident: Identity = Depends(get_identity), s
     user.telegram_id = None
     note = Notif(
         user_id=uid,
-        title="Р’РµСЂРёС„РёРєР°С†РёСЏ СЃРЅСЏС‚Р°",
-        text="РђРґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂ СЃРЅСЏР» РІРµСЂРёС„РёРєР°С†РёСЋ СЃ РІР°С€РµРіРѕ Р°РєРєР°СѓРЅС‚Р°.",
+        title="Верификация снята",
+        text="Администратор снял верификацию с вашего аккаунта.",
     )
     session.add(note)
     await session.commit()
     await session.refresh(note)
 
-    details = f"РЎРЅСЏС‚РёРµ РІРµСЂРёС„РёРєР°С†РёРё user_id={uid}"
+    details = f"Снятие верификации user_id={uid}"
     if user.username:
         details += f" username={user.username}"
     details += f" tg_id={prev_tg}"
@@ -1333,14 +1333,14 @@ async def clear_user_password(user_id: int, ident: Identity = Depends(get_identi
     user.password_temp = True
     note = Notif(
         user_id=uid,
-        title="РџР°СЂРѕР»СЊ СЃР±СЂРѕС€РµРЅ",
-        text="РђРґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂ СЃР±СЂРѕСЃРёР» РїР°СЂРѕР»СЊ Р’Р°С€РµРіРѕ Р°РєРєР°СѓРЅС‚Р°.",
+        title="Пароль сброшен",
+        text="Администратор сбросил пароль Вашего аккаунта.",
     )
     session.add(note)
     await session.commit()
     await session.refresh(note)
 
-    details = f"РЎР±СЂРѕСЃ РїР°СЂРѕР»СЏ user_id={uid}"
+    details = f"Сброс пароля user_id={uid}"
     if user.username:
         details += f" username={user.username}"
     details += f" had_password={int(had_password)}"
@@ -1364,7 +1364,7 @@ async def clear_user_password(user_id: int, ident: Identity = Depends(get_identi
                 "kind": "admin_action",
                 "ttl_ms": 15000,
                 "read": False,
-                "toast_text": "Р’Р°С€ РїР°СЂРѕР»СЊ СЃР±СЂРѕС€РµРЅ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂРѕРј",
+                "toast_text": "Ваш пароль сброшен администратором",
             },
             room=f"user:{uid}",
             namespace="/auth",
@@ -1412,8 +1412,8 @@ async def apply_user_timeout(user_id: int, payload: AdminSanctionTimedIn, ident:
     )
     note = Notif(
         user_id=uid,
-        title="РўР°Р№РјР°СѓС‚",
-        text=f"Р’Р°Рј РІС‹РґР°РЅ С‚Р°Р№РјР°СѓС‚ РЅР° {duration_label}. РџСЂРёС‡РёРЅР°: {reason}.",
+        title="Таймаут",
+        text=f"Вам выдан таймаут на {duration_label}. Причина: {reason}",
     )
     session.add(sanction)
     session.add(note)
@@ -1440,7 +1440,7 @@ async def apply_user_timeout(user_id: int, payload: AdminSanctionTimedIn, ident:
     with suppress(Exception):
         await force_leave_user_from_rooms(uid, reason="sanction_timeout")
 
-    details = f"РўР°Р№РјР°СѓС‚ user_id={uid}"
+    details = f"Таймаут user_id={uid}"
     if user.username:
         details += f" username={user.username}"
     details += f" duration={duration_label} reason={reason}"
@@ -1475,8 +1475,8 @@ async def revoke_user_timeout(user_id: int, ident: Identity = Depends(get_identi
     active.revoked_by_name = ident["username"]
     note = Notif(
         user_id=uid,
-        title="РўР°Р№РјР°СѓС‚ СЃРЅСЏС‚",
-        text="Р’Р°С€ С‚Р°Р№РјР°СѓС‚ СЃРЅСЏС‚ РґРѕСЃСЂРѕС‡РЅРѕ. Р”РѕСЃС‚СѓРї Рє РєРѕРјРЅР°С‚Р°Рј РІРѕСЃСЃС‚Р°РЅРѕРІР»РµРЅ.",
+        title="Таймаут снят",
+        text="Ваш таймаут снят досрочно. Доступ к комнатам восстановлен.",
     )
     session.add(note)
     await session.commit()
@@ -1499,7 +1499,7 @@ async def revoke_user_timeout(user_id: int, ident: Identity = Depends(get_identi
         )
         await emit_sanctions_update(session, uid)
 
-    details = f"РЎРЅСЏС‚РёРµ С‚Р°Р№РјР°СѓС‚Р° user_id={uid}"
+    details = f"Снятие таймаута user_id={uid}"
     if user.username:
         details += f" username={user.username}"
     await log_action(
@@ -1542,8 +1542,8 @@ async def apply_user_ban(user_id: int, payload: AdminSanctionBanIn, ident: Ident
     )
     note = Notif(
         user_id=uid,
-        title="РђРєРєР°СѓРЅС‚ Р·Р°Р±Р°РЅРµРЅ",
-        text=f"Р’Р°С€ Р°РєРєР°СѓРЅС‚ Р·Р°Р±Р°РЅРµРЅ. РџСЂРёС‡РёРЅР°: {reason}.",
+        title="Аккаунт забанен",
+        text=f"Ваш аккаунт забанен. Причина: {reason}",
     )
     session.add(sanction)
     session.add(note)
@@ -1570,7 +1570,7 @@ async def apply_user_ban(user_id: int, payload: AdminSanctionBanIn, ident: Ident
     with suppress(Exception):
         await force_leave_user_from_rooms(uid, reason="sanction_ban")
 
-    details = f"Р‘Р°РЅ user_id={uid}"
+    details = f"Бан user_id={uid}"
     if user.username:
         details += f" username={user.username}"
     details += f" reason={reason}"
@@ -1605,8 +1605,8 @@ async def revoke_user_ban(user_id: int, ident: Identity = Depends(get_identity),
     active.revoked_by_name = ident["username"]
     note = Notif(
         user_id=uid,
-        title="Р‘Р°РЅ СЃРЅСЏС‚",
-        text="Р’Р°С€ Р±Р°РЅ СЃРЅСЏС‚. Р”РѕСЃС‚СѓРї Рє СЃР°Р№С‚Сѓ РІРѕСЃСЃС‚Р°РЅРѕРІР»РµРЅ.",
+        title="Бан снят",
+        text="Ваш бан снят. Доступ к сайту восстановлен.",
     )
     session.add(note)
     await session.commit()
@@ -1629,7 +1629,7 @@ async def revoke_user_ban(user_id: int, ident: Identity = Depends(get_identity),
         )
         await emit_sanctions_update(session, uid)
 
-    details = f"РЎРЅСЏС‚РёРµ Р±Р°РЅР° user_id={uid}"
+    details = f"Снятие бана user_id={uid}"
     if user.username:
         details += f" username={user.username}"
     await log_action(
@@ -1683,8 +1683,8 @@ async def apply_user_suspend(user_id: int, payload: AdminSanctionTimedIn, ident:
     )
     note = Notif(
         user_id=uid,
-        title="РћРіСЂР°РЅРёС‡РµРЅРёРµ",
-        text=f"Р”РѕСЃС‚СѓРї Рє РёРіСЂР°Рј РѕРіСЂР°РЅРёС‡РµРЅ РЅР° {duration_label}. РџСЂРёС‡РёРЅР°: {reason}.",
+        title="Ограничение",
+        text=f"Доступ к играм ограничен на {duration_label}. Причина: {reason}",
     )
     session.add(sanction)
     session.add(note)
@@ -1755,8 +1755,8 @@ async def revoke_user_suspend(user_id: int, ident: Identity = Depends(get_identi
     active.revoked_by_name = ident["username"]
     note = Notif(
         user_id=uid,
-        title="РћРіСЂР°РЅРёС‡РµРЅРёРµ СЃРЅСЏС‚Рѕ",
-        text="РћРіСЂР°РЅРёС‡РµРЅРёРµ РґРѕСЃС‚СѓРїР° Рє РёРіСЂР°Рј СЃРЅСЏС‚Рѕ РґРѕСЃСЂРѕС‡РЅРѕ.",
+        title="Ограничение снято",
+        text="Ограничение доступа к играм снято досрочно.",
     )
     session.add(note)
     await session.commit()
@@ -1779,7 +1779,7 @@ async def revoke_user_suspend(user_id: int, ident: Identity = Depends(get_identi
         )
         await emit_sanctions_update(session, uid)
 
-    details = f"РЎРЅСЏС‚РёРµ SUSPEND user_id={uid}"
+    details = f"Снятие SUSPEND user_id={uid}"
     if user.username:
         details += f" username={user.username}"
     await log_action(

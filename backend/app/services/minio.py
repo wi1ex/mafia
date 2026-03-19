@@ -6,7 +6,7 @@ import time
 from urllib.parse import urlunsplit
 from uuid import uuid4
 from PIL import Image, ImageOps
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 import structlog
 from minio import Minio
@@ -212,6 +212,25 @@ def _delete_object_quietly(minio_client: Minio, key: str) -> None:
         log.warning("chat_image.cleanup.failed", key=key)
 
 
+def _build_public_bucket_upload_url() -> str:
+    return urlunsplit(("https", settings.DOMAIN, f"/{_bucket}", "", ""))
+
+
+def _read_object_bytes(response) -> bytes:
+    try:
+        return response.read()
+
+    finally:
+        try:
+            response.close()
+        except Exception:
+            pass
+        try:
+            response.release_conn()
+        except Exception:
+            pass
+
+
 def build_chat_image_post_upload(key: str, content_type: str | None, *, expires_minutes: int = 15) -> tuple[str, dict[str, str], int]:
     ct = _normalize_content_type(content_type)
     if ct not in ALLOWED_CT:
@@ -219,20 +238,14 @@ def build_chat_image_post_upload(key: str, content_type: str | None, *, expires_
 
     ensure_bucket()
     minio_pub = get_minio_public()
-    policy = PostPolicy(_bucket, datetime.utcnow() + timedelta(minutes=expires_minutes))
+    policy = PostPolicy(_bucket, datetime.now(timezone.utc) + timedelta(minutes=expires_minutes))
     policy.add_equals_condition("key", key)
     policy.add_equals_condition("Content-Type", ct)
     policy.add_content_length_range_condition(1, CHAT_IMAGE_MAX_BYTES + 256 * 1024)
     form_data = dict(minio_pub.presigned_post_policy(policy))
     form_data["key"] = key
     form_data["Content-Type"] = ct
-    upload_url = urlunsplit(
-        minio_pub._base_url.build(
-            "POST",
-            minio_pub._base_url.region or "us-east-1",
-            bucket_name=_bucket,
-        )
-    )
+    upload_url = _build_public_bucket_upload_url()
     return upload_url, form_data, int(expires_minutes * 60)
 
 
@@ -261,17 +274,7 @@ def validate_chat_image_object(key: str) -> str:
         raise ValueError("file_too_large")
 
     response = minio.get_object(bucket_name=_bucket, object_name=key_value)
-    try:
-        data = response.read()
-    finally:
-        try:
-            response.close()
-        except Exception:
-            pass
-        try:
-            response.release_conn()
-        except Exception:
-            pass
+    data = _read_object_bytes(response)
 
     if not data:
         _delete_object_quietly(minio, key_value)

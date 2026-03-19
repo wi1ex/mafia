@@ -761,29 +761,35 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
     return status >= 500
   }
 
+  function createHandledUploadError(): Error {
+    return new Error('global_chat_upload_handled')
+  }
+
+  function isHandledUploadError(error: unknown): boolean {
+    return String((error as any)?.message || '') === 'global_chat_upload_handled'
+  }
+
+  async function uploadDraftImage(file: File): Promise<string> {
+    try {
+      return await uploadDraftImageViaPresign(file)
+    } catch (presignError: any) {
+      const shouldFallback = String(presignError?.message || '') === 'chat_presigned_upload_failed'
+        || isRecoverableUploadFailure(presignError)
+      if (!shouldFallback) throw presignError
+    }
+
+    return uploadDraftImageViaProxy(file)
+  }
+
   async function ensureDraftImageUploaded(): Promise<string | null> {
     if (draftImageObjectKey.value) return draftImageObjectKey.value
     if (!draftImageFile) return null
 
     const assetToken = draftAssetToken
+    let key = ''
     uploadingImage.value = true
     try {
-      let key = ''
-      try {
-        key = await uploadDraftImageViaPresign(draftImageFile)
-      } catch (presignError: any) {
-        const shouldFallback = String(presignError?.message || '') === 'chat_presigned_upload_failed'
-          || isRecoverableUploadFailure(presignError)
-        if (!shouldFallback) throw presignError
-        key = await uploadDraftImageViaProxy(draftImageFile)
-      }
-      if (!key) throw new Error('image_upload_failed')
-      if (assetToken !== draftAssetToken || !open.value) {
-        void deleteDraftImageUpload(key)
-        throw new Error('global_chat_upload_handled')
-      }
-      draftImageObjectKey.value = key
-      return key
+      key = await uploadDraftImage(draftImageFile)
     } catch (error: any) {
       const status = asPositiveInt(error?.response?.status)
       const detail = error?.response?.data?.detail
@@ -791,10 +797,18 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
       if (status === 403) {
         maybeApplyAccessLoss(status, asString(detail))
       }
-      throw new Error('global_chat_upload_handled')
+      throw createHandledUploadError()
     } finally {
       uploadingImage.value = false
     }
+
+    if (assetToken !== draftAssetToken || !open.value) {
+      void deleteDraftImageUpload(key)
+      throw createHandledUploadError()
+    }
+
+    draftImageObjectKey.value = key
+    return key
   }
 
   async function sendDraft(): Promise<boolean> {
@@ -830,7 +844,7 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
       return true
     } catch (error: any) {
       if (!open.value) return false
-      if (String(error?.message || '') !== 'global_chat_upload_handled') {
+      if (!isHandledUploadError(error)) {
         void alertDialog('Не удалось отправить сообщение.')
       }
       return false

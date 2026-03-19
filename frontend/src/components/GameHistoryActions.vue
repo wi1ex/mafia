@@ -14,8 +14,7 @@
               <div class="result-editor">
                 <label :for="`game-history-result-${gameId}`">Исход игры</label>
                 <div ref="resultRoot" class="ui-select" :class="{ open: resultOpen }">
-                  <button type="button" :disabled="loading || savingResult" :aria-expanded="resultOpen"
-                          aria-label="Р’С‹Р±СЂР°С‚СЊ РёСЃС…РѕРґ РёРіСЂС‹" @click="toggleResultDd">
+                  <button type="button" :disabled="loading || savingResult" :aria-expanded="resultOpen" aria-label="Выбрать исход игры" @click="toggleResultDd">
                     <span>{{ selectedResultLabel }}</span>
                     <img :src="iconArrowDown" alt="arrow" />
                   </button>
