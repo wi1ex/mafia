@@ -4069,6 +4069,16 @@ def should_block_vote_on_death(raw_state: Mapping[str, Any], victim_uid: int) ->
         return False, True, leaders
 
     if phase == "day":
+        try:
+            pre_uid = int(raw_state.get("day_prelude_uid") or 0)
+            current_uid = int(raw_state.get("day_current_uid") or 0)
+        except Exception:
+            pre_uid = 0
+            current_uid = 0
+        pre_active = str(raw_state.get("day_prelude_active") or "0") == "1"
+        if pre_active and victim_uid > 0 and victim_uid == pre_uid and victim_uid == current_uid:
+            return False, False, leaders
+
         return True, False, leaders
 
     if phase == "night":

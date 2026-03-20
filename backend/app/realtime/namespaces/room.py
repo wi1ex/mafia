@@ -1762,6 +1762,9 @@ async def game_phase_next(sid, data):
             if not ordered:
                 return {"ok": False, "error": "no_nominees", "status": 409}
 
+            if ctx.gint("day_number") == 1 and len(ordered) == 1:
+                return {"ok": False, "error": "single_nominee_first_day", "status": 409}
+
             first_uid = ordered[0]
             vote_duration = get_positive_setting_int("VOTE_SECONDS", 3)
             async with r.pipeline() as p:
@@ -1815,6 +1818,12 @@ async def game_phase_next(sid, data):
             speeches_done = str(raw_gstate.get("day_speeches_done") or "0") == "1"
             if not speeches_done:
                 return {"ok": False, "error": "speeches_not_done", "status": 400}
+
+            ordered = await get_nominees_in_order(r, rid)
+            vote_blocked = str(raw_gstate.get("vote_blocked") or "0") == "1"
+            can_skip_vote = vote_blocked or not ordered or (ctx.gint("day_number") == 1 and len(ordered) == 1)
+            if not can_skip_vote:
+                return {"ok": False, "error": "vote_required", "status": 409}
 
             draw_base_day = ctx.gint("draw_base_day")
             draw_mapping: dict[str, str] = {}
