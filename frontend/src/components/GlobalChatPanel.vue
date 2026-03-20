@@ -239,8 +239,8 @@ const composerDisabled = computed(() => {
 })
 const showLoadMore = computed(() => hasMore.value && (loadingMore.value || listAtTop.value))
 const sendButtonImg = computed(() => {
-  if (uploadingImage.value || sending.value) return IconSending
-  return IconSend
+  if (uploadingImage.value || sending.value) return iconSending
+  return iconSend
 })
 
 function isNearTop(): boolean {
