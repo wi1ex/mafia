@@ -1496,7 +1496,7 @@ def role_stats(games: int, wins: int) -> UserRoleStatsOut:
 
     g = safe_int(games)
     w = safe_int(wins)
-    return UserRoleStatsOut(games=g, wins=w, winrate_percent=pct(w, g))
+    return UserRoleStatsOut(games=g, wins=w)
 
 
 async def check_sanctions_expired(user_id: int, *, throttle_s: int = 30) -> None:

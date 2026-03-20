@@ -155,7 +155,8 @@ def _build_game_stats(stats_row: dict[str, int], top_players: list[UserTopPlayer
     don_games = _safe_int(stats_row.get("don_games"))
     don_checks_first_night_found = _safe_int(stats_row.get("don_checks_first_night_found"))
     vote_leave_day12 = _safe_int(stats_row.get("vote_leave_day12"))
-    foul_removed_count = _safe_int(stats_row.get("foul_removed_count"))
+    vote_out_don_day12_count = _safe_int(stats_row.get("vote_out_don_day12_count"))
+    vote_out_sheriff_day12_count = _safe_int(stats_row.get("vote_out_sheriff_day12_count"))
     ppk_removed_count = _safe_int(stats_row.get("ppk_removed_count"))
     vote_for_red_on_black_win_count = _safe_int(stats_row.get("vote_for_red_on_black_win_count"))
     farewell_total = _safe_int(stats_row.get("farewell_total"))
@@ -164,39 +165,31 @@ def _build_game_stats(stats_row: dict[str, int], top_players: list[UserTopPlayer
     return UserGameStatsOut(
         games_played=games_played,
         games_won=games_won,
-        winrate_percent=_pct(games_won, games_played),
         games_hosted=_safe_int(stats_row.get("games_hosted")),
-        don_first_night_find_count=don_checks_first_night_found,
         don_first_night_find_percent=_pct(don_checks_first_night_found, don_games),
-        vote_leave_day12_count=vote_leave_day12,
         vote_leave_day12_percent=_pct(vote_leave_day12, games_played),
-        foul_removed_count=foul_removed_count,
-        foul_removed_percent=_pct(foul_removed_count, games_played),
+        vote_out_don_day12_count=vote_out_don_day12_count,
+        vote_out_sheriff_day12_count=vote_out_sheriff_day12_count,
         ppk_removed_count=ppk_removed_count,
         vote_for_red_on_black_win_count=vote_for_red_on_black_win_count,
-        farewell_total=farewell_total,
         farewell_success_percent=_pct(farewell_correct, farewell_total),
         best_win_streak=_safe_int(stats_row.get("best_win_streak")),
         best_loss_streak=_safe_int(stats_row.get("best_loss_streak")),
         role_citizen={
             "games": _safe_int(stats_row.get("citizen_games")),
             "wins": _safe_int(stats_row.get("citizen_wins")),
-            "winrate_percent": _pct(_safe_int(stats_row.get("citizen_wins")), _safe_int(stats_row.get("citizen_games"))),
         },
         role_sheriff={
             "games": _safe_int(stats_row.get("sheriff_games")),
             "wins": _safe_int(stats_row.get("sheriff_wins")),
-            "winrate_percent": _pct(_safe_int(stats_row.get("sheriff_wins")), _safe_int(stats_row.get("sheriff_games"))),
         },
         role_don={
             "games": _safe_int(stats_row.get("don_games")),
             "wins": _safe_int(stats_row.get("don_wins")),
-            "winrate_percent": _pct(_safe_int(stats_row.get("don_wins")), _safe_int(stats_row.get("don_games"))),
         },
         role_mafia={
             "games": _safe_int(stats_row.get("mafia_games")),
             "wins": _safe_int(stats_row.get("mafia_wins")),
-            "winrate_percent": _pct(_safe_int(stats_row.get("mafia_wins")), _safe_int(stats_row.get("mafia_games"))),
         },
         best_move=UserBestMoveStatsOut(
             first_killed_total=_safe_int(stats_row.get("first_killed_best_move_total")),

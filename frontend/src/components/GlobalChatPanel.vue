@@ -2,8 +2,7 @@
   <div v-if="canRender" class="global-chat-dock">
     <Transition name="global-chat-launcher">
       <button v-if="showLauncher && !chat.open" class="chat-launcher" type="button" @click="chat.openPanel()">
-        <span class="chat-launcher-title">Общий чат</span>
-        <span class="chat-launcher-short">Чат</span>
+        <img :src="iconChat" alt="" />
       </button>
     </Transition>
 
@@ -150,7 +149,7 @@
           />
 
           <button class="send-button" type="button" :disabled="!canSendCurrentDraft" @click="onSend" >
-            {{ sendButtonText }}
+            <img :src="sendButtonImg" alt="" />
           </button>
         </div>
       </section>
@@ -164,8 +163,13 @@ import { storeToRefs } from 'pinia'
 import { alertDialog } from '@/services/confirm'
 import { formatChatTimestamp } from '@/services/datetime'
 import { useAuthStore, useGlobalChatStore, useSettingsStore, useUserStore } from '@/store'
+
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
 import iconClose from '@/assets/svg/close.svg'
+import iconChat from '@/assets/svg/chat.svg'
+import iconSend from '@/assets/svg/send.svg'
+import iconSending from '@/assets/svg/sending.svg'
+
 import type { GlobalChatMessage, GlobalChatReaction } from '@/store/modules/globalChat'
 
 const EmojiPicker = defineAsyncComponent(() => import('@/components/GlobalChatEmojiPicker.vue'))
@@ -234,10 +238,9 @@ const composerDisabled = computed(() => {
     || uploadingImage.value
 })
 const showLoadMore = computed(() => hasMore.value && (loadingMore.value || listAtTop.value))
-const sendButtonText = computed(() => {
-  if (uploadingImage.value) return 'Загрузка…'
-  if (sending.value) return 'Отправка…'
-  return 'Отправить'
+const sendButtonImg = computed(() => {
+  if (uploadingImage.value || sending.value) return IconSending
+  return IconSend
 })
 
 function isNearTop(): boolean {
@@ -485,10 +488,10 @@ onBeforeUnmount(() => {
 <style scoped lang="scss">
 .global-chat-dock {
   position: fixed;
-  top: 20px;
+  top: 70px;
   right: 20px;
-  z-index: 70;
   pointer-events: none;
+  z-index: 70;
   > * {
     pointer-events: auto;
   }
@@ -496,18 +499,16 @@ onBeforeUnmount(() => {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-height: 45px;
-    padding: 0 15px;
-    border: 1px solid rgba($white, 0.1);
+    padding: 0 10px;
+    height: 40px;
     border-radius: 999px;
-    background: linear-gradient(135deg, rgba($graphite, 0.9) 0%, rgba($dark, 0.9) 100%);
+    border: 1px solid $lead;
+    background-color: $graphite;
     box-shadow: 0 15px 30px rgba($black, 0.25);
-    color: $fg;
     cursor: pointer;
-    font-family: Manrope-SemiBold;
-    letter-spacing: 0.01em;
-    .chat-launcher-short {
-      display: none;
+    img {
+      width: 24px;
+      height: 24px;
     }
   }
 }
@@ -558,7 +559,6 @@ onBeforeUnmount(() => {
         color: $ashy;
         font-size: 12px;
         text-transform: uppercase;
-        letter-spacing: 0.1em;
       }
     }
     button {
@@ -974,18 +974,11 @@ onBeforeUnmount(() => {
 
 @media (max-width: 1280px) {
   .global-chat-dock {
-    top: 10px;
-    right: 10px;
+    top: 60px;
     .chat-launcher {
       min-height: 35px;
       padding: 0 10px;
       font-size: 12px;
-      .chat-launcher-title {
-        display: none;
-      }
-      .chat-launcher-short {
-        display: inline;
-      }
     }
   }
   .global-chat-panel {

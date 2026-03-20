@@ -34,7 +34,6 @@ class UserTopPlayerOut(BaseModel):
 class UserRoleStatsOut(BaseModel):
     games: int = 0
     wins: int = 0
-    winrate_percent: float = 0.0
 
 
 class UserBestMoveStatsOut(BaseModel):
@@ -48,17 +47,13 @@ class UserBestMoveStatsOut(BaseModel):
 class UserGameStatsOut(BaseModel):
     games_played: int = 0
     games_won: int = 0
-    winrate_percent: float = 0.0
     games_hosted: int = 0
-    don_first_night_find_count: int = 0
     don_first_night_find_percent: float = 0.0
-    vote_leave_day12_count: int = 0
     vote_leave_day12_percent: float = 0.0
-    foul_removed_count: int = 0
-    foul_removed_percent: float = 0.0
+    vote_out_don_day12_count: int = 0
+    vote_out_sheriff_day12_count: int = 0
     ppk_removed_count: int = 0
     vote_for_red_on_black_win_count: int = 0
-    farewell_total: int = 0
     farewell_success_percent: float = 0.0
     best_win_streak: int = 0
     best_loss_streak: int = 0

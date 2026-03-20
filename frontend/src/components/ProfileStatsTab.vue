@@ -101,8 +101,8 @@
             <strong>{{ formatPct(game.vote_leave_day12_percent) }}</strong>
           </article>
           <article class="metric-card">
-            <span>Удалён/Покинул игру</span>
-            <strong>{{ formatPct(game.foul_removed_percent) }}</strong>
+            <span>Снял Дона/Шерифа в 1-2 день</span>
+            <strong>{{ formatDonSheriffSplit(game.vote_out_don_day12_count, game.vote_out_sheriff_day12_count) }}</strong>
           </article>
           <article class="metric-card">
             <span>Удалён с ППК</span>
@@ -148,7 +148,6 @@ type UserTopPlayer = {
 type UserRoleStats = {
   games: number
   wins: number
-  winrate_percent: number
 }
 
 type UserBestMoveStats = {
@@ -162,17 +161,13 @@ type UserBestMoveStats = {
 type UserGameStats = {
   games_played: number
   games_won: number
-  winrate_percent: number
   games_hosted: number
-  don_first_night_find_count: number
   don_first_night_find_percent: number
-  vote_leave_day12_count: number
   vote_leave_day12_percent: number
-  foul_removed_count: number
-  foul_removed_percent: number
+  vote_out_don_day12_count: number
+  vote_out_sheriff_day12_count: number
   ppk_removed_count: number
   vote_for_red_on_black_win_count: number
-  farewell_total: number
   farewell_success_percent: number
   best_win_streak: number
   best_loss_streak: number
@@ -223,24 +218,20 @@ const stats = reactive<UserStats>({
   game: {
     games_played: 0,
     games_won: 0,
-    winrate_percent: 0,
     games_hosted: 0,
-    don_first_night_find_count: 0,
     don_first_night_find_percent: 0,
-    vote_leave_day12_count: 0,
     vote_leave_day12_percent: 0,
-    foul_removed_count: 0,
-    foul_removed_percent: 0,
+    vote_out_don_day12_count: 0,
+    vote_out_sheriff_day12_count: 0,
     ppk_removed_count: 0,
     vote_for_red_on_black_win_count: 0,
-    farewell_total: 0,
     farewell_success_percent: 0,
     best_win_streak: 0,
     best_loss_streak: 0,
-    role_citizen: { games: 0, wins: 0, winrate_percent: 0 },
-    role_sheriff: { games: 0, wins: 0, winrate_percent: 0 },
-    role_don: { games: 0, wins: 0, winrate_percent: 0 },
-    role_mafia: { games: 0, wins: 0, winrate_percent: 0 },
+    role_citizen: { games: 0, wins: 0 },
+    role_sheriff: { games: 0, wins: 0 },
+    role_don: { games: 0, wins: 0 },
+    role_mafia: { games: 0, wins: 0 },
     best_move: { first_killed_total: 0, marks_black_0: 0, marks_black_1: 0, marks_black_2: 0, marks_black_3: 0 },
     top_players: [],
   },
@@ -284,6 +275,10 @@ function timesWord(raw: unknown): string {
 function formatTimes(raw: unknown): string {
   const value = safeInt(raw)
   return `${formatInt(value)} ${timesWord(value)}`
+}
+
+function formatDonSheriffSplit(donRaw: unknown, sheriffRaw: unknown): string {
+  return `${formatInt(donRaw)}/${formatInt(sheriffRaw)}`
 }
 
 function gameWord(raw: unknown): string {
@@ -447,7 +442,6 @@ function normalizeRoleStats(raw: any): UserRoleStats {
   return {
     games: safeInt(raw?.games),
     wins: safeInt(raw?.wins),
-    winrate_percent: clampPct(raw?.winrate_percent),
   }
 }
 
@@ -467,17 +461,13 @@ function normalizeGame(raw: any): UserGameStats {
   return {
     games_played: safeInt(raw?.games_played),
     games_won: safeInt(raw?.games_won),
-    winrate_percent: clampPct(raw?.winrate_percent),
     games_hosted: safeInt(raw?.games_hosted),
-    don_first_night_find_count: safeInt(raw?.don_first_night_find_count),
     don_first_night_find_percent: clampPct(raw?.don_first_night_find_percent),
-    vote_leave_day12_count: safeInt(raw?.vote_leave_day12_count),
     vote_leave_day12_percent: clampPct(raw?.vote_leave_day12_percent),
-    foul_removed_count: safeInt(raw?.foul_removed_count),
-    foul_removed_percent: clampPct(raw?.foul_removed_percent),
+    vote_out_don_day12_count: safeInt(raw?.vote_out_don_day12_count),
+    vote_out_sheriff_day12_count: safeInt(raw?.vote_out_sheriff_day12_count),
     ppk_removed_count: safeInt(raw?.ppk_removed_count),
     vote_for_red_on_black_win_count: safeInt(raw?.vote_for_red_on_black_win_count),
-    farewell_total: safeInt(raw?.farewell_total),
     farewell_success_percent: clampPct(raw?.farewell_success_percent),
     best_win_streak: safeInt(raw?.best_win_streak),
     best_loss_streak: safeInt(raw?.best_loss_streak),

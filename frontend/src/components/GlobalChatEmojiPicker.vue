@@ -203,7 +203,6 @@ onBeforeUnmount(() => {
       color: $ashy;
       font-size: 10px;
       font-family: Manrope-Medium;
-      letter-spacing: 0.1em;
       text-transform: uppercase;
     }
   }
