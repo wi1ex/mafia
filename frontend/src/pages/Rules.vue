@@ -178,7 +178,7 @@ const tocLinks: TocItem[] = [
   { id: 'section-5', label: '5. Камера/микрофон, участие в комнате, запись' },
   { id: 'section-6', label: '6. Честность, реклама, безопасность' },
   { id: 'section-7', label: '7. Жалобы, доказательства, модерация и апелляции' },
-  { id: 'mafia-rules', label: '8. Игровые правила «Мафия»' },
+  { id: 'mafia-rules', label: '8. Нарушения в игре «Мафия»' },
 ]
 
 const activeId = ref(tocLinks[0]?.id ?? '')

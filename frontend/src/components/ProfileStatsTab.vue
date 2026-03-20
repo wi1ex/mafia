@@ -101,7 +101,7 @@
             <strong>{{ formatPct(game.vote_leave_day12_percent) }}</strong>
           </article>
           <article class="metric-card">
-            <span>Снял Дона/Шерифа в 1-2 день</span>
+            <span>Заголосовал Дона/Шерифа в 1-2 день</span>
             <strong>{{ formatDonSheriffSplit(game.vote_out_don_day12_count, game.vote_out_sheriff_day12_count) }}</strong>
           </article>
           <article class="metric-card">
