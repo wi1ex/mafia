@@ -186,7 +186,7 @@ onBeforeUnmount(() => {
   max-height: 300px;
   padding: 10px;
   border: 1px solid rgba($white, 0.1);
-  border-radius: 8px;
+  border-radius: 5px;
   background-color: rgba($dark, 0.9);
   box-shadow: 0 15px 30px rgba($black, 0.5);
   overflow-y: auto;

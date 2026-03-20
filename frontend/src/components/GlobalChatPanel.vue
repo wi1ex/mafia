@@ -9,10 +9,7 @@
     <Transition name="global-chat-panel-transition">
       <section v-if="chat.open" class="global-chat-panel" @click.stop>
         <header class="panel-header">
-          <div class="panel-header-main">
-            <span>Общий чат</span>
-            <small>{{ headerStatus }}</small>
-          </div>
+          <span class="panel-header-main">Общий чат</span>
           <button type="button" aria-label="Закрыть" @click="chat.closePanel()">
             <img :src="iconClose" alt="" />
           </button>
@@ -117,7 +114,7 @@
         <div class="composer-tools">
           <div class="picker-anchor">
             <button class="tool-button" type="button" :disabled="composerDisabled" @click="composerPickerOpen = !composerPickerOpen">
-              😀
+              🙂
             </button>
             <component
               :is="EmojiPicker"
@@ -215,12 +212,6 @@ const showLauncher = computed(() => {
   return !(settings.verificationRestrictions && !user.telegramVerified);
 })
 const canRender = computed(() => showLauncher.value || chat.open)
-const headerStatus = computed(() => {
-  if (connectionState.value === 'reconnecting') return 'переподключение'
-  if (sending.value) return 'отправка'
-  if (uploadingImage.value) return 'загрузка изображения'
-  return `${messages.value.length} сообщений`
-})
 
 const statusText = computed(() => {
   if (loadingInitial.value) return 'Загрузка истории…'
@@ -512,68 +503,41 @@ onBeforeUnmount(() => {
     }
   }
 }
-
-.global-chat-launcher-enter-active,
-.global-chat-launcher-leave-active,
-.global-chat-panel-transition-enter-active,
-.global-chat-panel-transition-leave-active {
-  transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
-}
-
-.global-chat-launcher-enter-from,
-.global-chat-launcher-leave-to,
-.global-chat-panel-transition-enter-from,
-.global-chat-panel-transition-leave-to {
-  opacity: 0;
-  transform: translateY(-10px) scale(0.9);
-}
-
 .global-chat-panel {
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr) auto auto auto;
-  width: min(400px, calc(100vw - 25px));
-  height: min(600px, calc(100dvh - 25px));
-  border: 1px solid rgba($white, 0.1);
-  border-radius: 10px;
-  background: linear-gradient(180deg, rgba($graphite, 0.9) 0%, rgba($dark, 0.9) 100%);
-  box-shadow: 0 15px 30px rgba($black, 0.5);
+  width: 400px;
+  height: min(600px, calc(100dvh - 85px));
+  border-radius: 20px;
+  border: 3px solid $lead;
+  background-color: $graphite;
+  box-shadow: 0 15px 30px rgba($black, 0.75);
   overflow: hidden;
   .panel-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 10px;
-    padding: 10px 15px;
-    background-color: rgba($lead, 0.9);
+    padding: 5px 10px;
+    background-color: $lead;
     box-shadow: 0 3px 5px rgba($black, 0.25);
     .panel-header-main {
-      display: flex;
-      flex-direction: column;
-      gap: 5px;
-      span {
-        color: $white;
-        font-size: 18px;
-        font-family: Manrope-SemiBold;
-      }
-      small {
-        color: $ashy;
-        font-size: 12px;
-        text-transform: uppercase;
-      }
+      color: $white;
+      font-size: 20px;
+      font-family: Manrope-SemiBold;
     }
     button {
-      display: inline-flex;
+      display: flex;
       align-items: center;
       justify-content: center;
-      width: 30px;
+      padding: 0;
+      width: 25px;
       height: 30px;
       border: none;
-      border-radius: 5px;
-      background: transparent;
+      background: none;
       cursor: pointer;
       img {
-        width: 20px;
-        height: 20px;
+        width: 25px;
+        height: 25px;
       }
     }
   }
@@ -954,22 +918,19 @@ onBeforeUnmount(() => {
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .global-chat-launcher-enter-active,
-  .global-chat-launcher-leave-active,
-  .global-chat-panel-transition-enter-active,
-  .global-chat-panel-transition-leave-active {
-    transition: none;
-  }
-  .global-chat-panel {
-    .global-chat-message {
-      transition: none;
-      .reaction-chip,
-      .action-button {
-        transition: none;
-      }
-    }
-  }
+.global-chat-launcher-enter-active,
+.global-chat-launcher-leave-active,
+.global-chat-panel-transition-enter-active,
+.global-chat-panel-transition-leave-active {
+  transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
+}
+
+.global-chat-launcher-enter-from,
+.global-chat-launcher-leave-to,
+.global-chat-panel-transition-enter-from,
+.global-chat-panel-transition-leave-to {
+  opacity: 0;
+  transform: translateY(-10px) scale(0.9);
 }
 
 @media (max-width: 1280px) {
@@ -982,17 +943,11 @@ onBeforeUnmount(() => {
     }
   }
   .global-chat-panel {
-    width: min(100vw - 15px, 400px);
-    height: min(100dvh - 15px, 600px);
+    height: min(100dvh - 70px, 600px);
     .panel-header {
       padding: 5px 10px;
       .panel-header-main {
-        span {
-          font-size: 16px;
-        }
-        small {
-          font-size: 10px;
-        }
+        font-size: 16px;
       }
     }
     .panel-status,
