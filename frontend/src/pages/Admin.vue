@@ -38,7 +38,7 @@
               <ToggleSwitch class="switch-item" v-model="site.streams_can_start" label="Запуск трансляций" :disabled="savingSettings" />
               <ToggleSwitch class="switch-item" v-model="site.verification_restrictions" label="Ограничения верификации" :disabled="savingSettings" />
               <div class="form-actions">
-                <button class="btn danger" :disabled="kickRoomsBusy" @click="kickAllRooms">
+                <button class="btn danger width-full" :disabled="kickRoomsBusy" @click="kickAllRooms">
                   Кик из комнат
                 </button>
               </div>
@@ -95,7 +95,7 @@
             </div>
 
             <div class="form-actions">
-              <button class="btn confirm" :disabled="savingSettings || !isSettingsDirty" @click="saveSettings">
+              <button class="btn confirm width-full" :disabled="savingSettings || !isSettingsDirty" @click="saveSettings">
                 <img class="btn-img" :src="iconSave" alt="save" />
                 Сохранить
               </button>
@@ -125,11 +125,11 @@
                   <td>{{ row.version }}</td>
                   <td class="desc">{{ row.description }}</td>
                   <td>
-                    <button class="btn dark" @click="openEditUpdate(row)">
+                    <button class="btn dark width-min" @click="openEditUpdate(row)">
                       <img class="btn-img" :src="iconEdit" alt="edit" />
                       Изменить
                     </button>
-                    <button class="btn danger" :disabled="updatesDeleting[row.id]" @click="deleteUpdate(row)">
+                    <button class="btn danger width-min" :disabled="updatesDeleting[row.id]" @click="deleteUpdate(row)">
                       <img class="btn-img" :src="iconDelete" alt="delete" />
                       Удалить
                     </button>
@@ -2405,6 +2405,12 @@ onMounted(() => {
       width: 20px;
       height: 20px;
     }
+    .width-min {
+      min-width: 150px;
+    }
+    .width-full {
+      width: 100%;
+    }
   }
   .tab-panel {
     margin-top: 10px;
@@ -2425,7 +2431,7 @@ onMounted(() => {
           gap: 10px;
         }
         :deep(.switch-item) {
-          margin-bottom: 10px;
+          margin-bottom: 15px;
         }
       }
       .form-actions {
