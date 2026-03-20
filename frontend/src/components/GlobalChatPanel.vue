@@ -489,7 +489,7 @@ onBeforeUnmount(() => {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 0 10px;
+    width: 40px;
     height: 40px;
     border-radius: 999px;
     border: 1px solid $lead;
@@ -930,9 +930,12 @@ onBeforeUnmount(() => {
   .global-chat-dock {
     top: 60px;
     .chat-launcher {
-      min-height: 35px;
-      padding: 0 10px;
-      font-size: 12px;
+      width: 30px;
+      height: 30px;
+      img {
+        width: 20px;
+        height: 20px;
+      }
     }
   }
   .global-chat-panel {

@@ -802,7 +802,7 @@ async def reduce_suspend_after_hosted_game(session: AsyncSession, user_id: int, 
             session,
             active,
             revoked_by_id=None,
-            revoked_by_name="автоснятие: игра",
+            revoked_by_name="проведение игры",
             note_text="Ограничение доступа к играм снято автоматически после проведения игры.",
         )
         return True, True, None
