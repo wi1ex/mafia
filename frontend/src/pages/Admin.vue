@@ -36,6 +36,7 @@
               <ToggleSwitch class="switch-item" v-model="site.rooms_can_enter" label="Вход в комнату" :disabled="savingSettings" />
               <ToggleSwitch class="switch-item" v-model="site.games_can_start" label="Запуск игр" :disabled="savingSettings" />
               <ToggleSwitch class="switch-item" v-model="site.streams_can_start" label="Запуск трансляций" :disabled="savingSettings" />
+              <ToggleSwitch class="switch-item" v-model="site.chat_open_enabled" label="Открытие чата" :disabled="savingSettings" />
               <ToggleSwitch class="switch-item" v-model="site.verification_restrictions" label="Ограничения верификации" :disabled="savingSettings" />
               <div class="bulk-admin-actions">
                 <button class="btn danger width-full" :disabled="kickRoomsBusy || clearChatBusy" @click="kickAllRooms">
@@ -847,6 +848,7 @@ type SiteSettings = {
   rooms_can_enter: boolean
   games_can_start: boolean
   streams_can_start: boolean
+  chat_open_enabled: boolean
   verification_restrictions: boolean
   admin_banner_text: string
   admin_banner_link: string
@@ -1066,6 +1068,7 @@ const site = reactive<SiteSettings>({
   rooms_can_enter: true,
   games_can_start: true,
   streams_can_start: true,
+  chat_open_enabled: true,
   verification_restrictions: true,
   admin_banner_text: '0',
   admin_banner_link: '0',
@@ -1359,6 +1362,7 @@ function snapshotSite(): string {
     rooms_can_enter: Boolean(site.rooms_can_enter),
     games_can_start: Boolean(site.games_can_start),
     streams_can_start: Boolean(site.streams_can_start),
+    chat_open_enabled: Boolean(site.chat_open_enabled),
     verification_restrictions: Boolean(site.verification_restrictions),
     admin_banner_text: normalizeAdminBannerText(site.admin_banner_text),
     admin_banner_link: normalizeAdminBannerLink(site.admin_banner_link),
@@ -1593,6 +1597,7 @@ async function saveSettings(): Promise<void> {
         rooms_can_enter: Boolean(site.rooms_can_enter),
         games_can_start: Boolean(site.games_can_start),
         streams_can_start: Boolean(site.streams_can_start),
+        chat_open_enabled: Boolean(site.chat_open_enabled),
         verification_restrictions: Boolean(site.verification_restrictions),
         admin_banner_text: normalizeAdminBannerText(site.admin_banner_text),
         admin_banner_link: normalizeAdminBannerLink(site.admin_banner_link),
@@ -1634,6 +1639,7 @@ async function saveSettings(): Promise<void> {
       rooms_can_enter: site.rooms_can_enter,
       games_can_start: site.games_can_start,
       streams_can_start: site.streams_can_start,
+      chat_open_enabled: site.chat_open_enabled,
       verification_restrictions: site.verification_restrictions,
       admin_banner_text: site.admin_banner_text,
       admin_banner_link: site.admin_banner_link,

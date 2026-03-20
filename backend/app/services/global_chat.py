@@ -164,7 +164,10 @@ async def resolve_global_chat_permissions(session: AsyncSession, user_id: int) -
 
     can_open = True
     error: str | None = None
-    if ban_active:
+    if not get_cached_settings().chat_open_enabled:
+        can_open = False
+        error = "chat_disabled"
+    elif ban_active:
         can_open = False
         error = "user_banned"
     elif timeout_active:
@@ -207,7 +210,7 @@ def _should_force_close(permissions: GlobalChatPermissions) -> bool:
     if permissions.can_open:
         return False
 
-    return permissions.error in {"active_game_player", "not_verified", "unauthorized", "user_timeout", "user_banned"}
+    return permissions.error in {"active_game_player", "chat_disabled", "not_verified", "unauthorized", "user_timeout", "user_banned"}
 
 
 def global_chat_open_user_room(user_id: int) -> str:

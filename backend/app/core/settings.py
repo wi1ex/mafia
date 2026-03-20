@@ -48,6 +48,7 @@ class Settings(BaseSettings):
     ROOMS_CAN_ENTER: bool = True
     GAMES_CAN_START: bool = True
     STREAMS_CAN_START: bool = True
+    CHAT_OPEN_ENABLED: bool = True
     VERIFICATION_RESTRICTIONS: bool = True
 
     ROOMS_LIMIT_GLOBAL: int = 10

@@ -19,6 +19,7 @@ class SiteSettingsOut(BaseModel):
     rooms_can_enter: bool
     games_can_start: bool
     streams_can_start: bool
+    chat_open_enabled: bool
     verification_restrictions: bool
     admin_banner_text: str
     admin_banner_link: str
@@ -37,6 +38,7 @@ class SiteSettingsUpdateIn(BaseModel):
     rooms_can_enter: Optional[bool] = None
     games_can_start: Optional[bool] = None
     streams_can_start: Optional[bool] = None
+    chat_open_enabled: Optional[bool] = None
     verification_restrictions: Optional[bool] = None
     admin_banner_text: Optional[str] = Field(default=None, max_length=2048)
     admin_banner_link: Optional[str] = Field(default=None, max_length=2048)
@@ -93,6 +95,7 @@ class PublicSettingsOut(BaseModel):
     rooms_can_enter: bool
     games_can_start: bool
     streams_can_start: bool
+    chat_open_enabled: bool
     verification_restrictions: bool
     admin_banner_text: str
     admin_banner_link: str

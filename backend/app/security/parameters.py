@@ -1,7 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.settings import settings as core_settings
 from ..models.settings import AppSettings
@@ -25,6 +25,7 @@ class AppSettingsSnapshot:
     rooms_can_enter: bool
     games_can_start: bool
     streams_can_start: bool
+    chat_open_enabled: bool
     verification_restrictions: bool
     admin_banner_text: str
     admin_banner_link: str
@@ -66,6 +67,11 @@ def set_cached_settings(snapshot: AppSettingsSnapshot) -> None:
 
 
 async def ensure_app_settings(session: AsyncSession) -> AppSettings:
+    await session.execute(
+        text("ALTER TABLE settings ADD COLUMN IF NOT EXISTS chat_open_enabled BOOLEAN NOT NULL DEFAULT true")
+    )
+    await session.commit()
+
     row = await session.scalar(select(AppSettings).limit(1))
     if not row:
         defaults = build_app_settings_snapshot_defaults(core_settings, default_starts=_DEFAULT_SEASON_STARTS, snapshot_cls=AppSettingsSnapshot)
@@ -76,6 +82,7 @@ async def ensure_app_settings(session: AsyncSession) -> AppSettings:
             rooms_can_enter=defaults.rooms_can_enter,
             games_can_start=defaults.games_can_start,
             streams_can_start=defaults.streams_can_start,
+            chat_open_enabled=defaults.chat_open_enabled,
             verification_restrictions=defaults.verification_restrictions,
             admin_banner_text=normalize_admin_banner_text(defaults.admin_banner_text),
             admin_banner_link=normalize_admin_banner_link(defaults.admin_banner_link),

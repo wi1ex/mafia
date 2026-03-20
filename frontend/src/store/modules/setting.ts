@@ -8,6 +8,7 @@ export interface PublicSettings {
   rooms_can_enter: boolean
   games_can_start: boolean
   streams_can_start: boolean
+  chat_open_enabled: boolean
   verification_restrictions: boolean
   admin_banner_text: string
   admin_banner_link: string
@@ -24,6 +25,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const roomsCanEnter = ref(true)
   const gamesCanStart = ref(true)
   const streamsCanStart = ref(true)
+  const chatOpenEnabled = ref(true)
   const verificationRestrictions = ref(true)
   const adminBannerText = ref('0')
   const adminBannerLink = ref('0')
@@ -65,6 +67,7 @@ export const useSettingsStore = defineStore('settings', () => {
     roomsCanEnter.value = Boolean(data.rooms_can_enter)
     gamesCanStart.value = Boolean(data.games_can_start)
     streamsCanStart.value = Boolean(data.streams_can_start)
+    chatOpenEnabled.value = Boolean(data.chat_open_enabled)
     verificationRestrictions.value = Boolean(data.verification_restrictions)
     adminBannerText.value = String(data.admin_banner_text || '').trim() || '0'
     adminBannerLink.value = String(data.admin_banner_link || '').trim() || '0'
@@ -102,6 +105,7 @@ export const useSettingsStore = defineStore('settings', () => {
     roomsCanEnter,
     gamesCanStart,
     streamsCanStart,
+    chatOpenEnabled,
     verificationRestrictions,
     adminBannerText,
     adminBannerLink,

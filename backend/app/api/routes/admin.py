@@ -137,6 +137,7 @@ async def public_settings(session: AsyncSession = Depends(get_session)) -> Publi
         rooms_can_enter=settings.rooms_can_enter,
         games_can_start=settings.games_can_start,
         streams_can_start=settings.streams_can_start,
+        chat_open_enabled=settings.chat_open_enabled,
         verification_restrictions=settings.verification_restrictions,
         admin_banner_text=settings.admin_banner_text,
         admin_banner_link=settings.admin_banner_link,

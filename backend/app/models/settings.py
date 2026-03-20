@@ -18,6 +18,7 @@ class AppSettings(Base):
     rooms_can_enter: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=_bool_default(settings.ROOMS_CAN_ENTER))
     games_can_start: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=_bool_default(settings.GAMES_CAN_START))
     streams_can_start: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=_bool_default(settings.STREAMS_CAN_START))
+    chat_open_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=_bool_default(settings.CHAT_OPEN_ENABLED))
     verification_restrictions: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=_bool_default(settings.VERIFICATION_RESTRICTIONS))
     admin_banner_text: Mapped[str] = mapped_column(String(2048), nullable=False, server_default="0")
     admin_banner_link: Mapped[str] = mapped_column(String(2048), nullable=False, server_default="0")

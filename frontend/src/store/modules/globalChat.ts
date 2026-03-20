@@ -430,6 +430,8 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
     switch (error) {
       case 'active_game_player':
         return 'Во время активной игры общий чат недоступен.'
+      case 'chat_disabled':
+        return 'Общий чат временно закрыт администратором.'
       case 'not_verified':
         return 'Для доступа к общему чату нужна верификация в Telegram.'
       case 'user_timeout':
@@ -487,7 +489,7 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
     if (error === 'active_game_player') {
       useUserStore().setInActiveGameAsAlivePlayer(true)
     }
-    if (error === 'active_game_player' || error === 'not_verified' || error === 'user_timeout' || error === 'user_banned') {
+    if (error === 'active_game_player' || error === 'chat_disabled' || error === 'not_verified' || error === 'user_timeout' || error === 'user_banned') {
       closePanel()
     }
   }
