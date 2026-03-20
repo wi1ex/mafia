@@ -40,6 +40,7 @@ __all__ = [
     "SANCTION_TIMEOUT",
     "SANCTION_BAN",
     "SANCTION_SUSPEND",
+    "HOSTED_GAME_SUSPEND_REDUCTION_SECONDS",
     "USERS_SORT_DEFAULT",
     "TIMED_KINDS",
     "serialize_game_for_redis",
@@ -100,6 +101,8 @@ __all__ = [
     "fetch_sanctions_for_users",
     "pick_active_sanction_kind",
     "build_admin_sanction_out",
+    "revoke_active_suspend",
+    "reduce_suspend_after_hosted_game",
     "emit_sanctions_update",
     "refresh_rooms_after",
     "ensure_room_access_allowed",
@@ -186,6 +189,7 @@ TITLE_WS_RE = re.compile(r"\s+")
 SANCTION_TIMEOUT = "timeout"
 SANCTION_BAN = "ban"
 SANCTION_SUSPEND = "suspend"
+HOSTED_GAME_SUSPEND_REDUCTION_SECONDS = 6 * 60 * 60
 USERS_SORT_DEFAULT = "registered_at"
 USERS_SORT_ALLOWED = {
     USERS_SORT_DEFAULT,
@@ -760,6 +764,55 @@ def build_admin_sanction_out(row: UserSanction) -> AdminSanctionOut:
         revoked_by_id=revoked_by_id,
         revoked_by_name=row.revoked_by_name,
     )
+
+
+async def revoke_active_suspend(session: AsyncSession, sanction: UserSanction, *, revoked_by_id: int | None, revoked_by_name: str | None, note_text: str, note_title: str = "Ограничение снято") -> Notif:
+    now = datetime.now(timezone.utc)
+    uid = cast(int, sanction.user_id)
+
+    sanction.revoked_at = now
+    sanction.revoked_by_id = int(revoked_by_id) if revoked_by_id is not None else None
+    sanction.revoked_by_name = (revoked_by_name or "").strip() or None
+
+    note = Notif(
+        user_id=uid,
+        title=note_title,
+        text=note_text,
+    )
+    session.add(note)
+    await session.commit()
+    await session.refresh(note)
+
+    with suppress(Exception):
+        await emit_notify(uid, note, kind="sanction")
+        await emit_sanctions_update(session, uid)
+
+    return note
+
+
+async def reduce_suspend_after_hosted_game(session: AsyncSession, user_id: int, *, reduction_seconds: int = HOSTED_GAME_SUSPEND_REDUCTION_SECONDS) -> tuple[bool, bool, datetime | None]:
+    active = await fetch_active_sanction(session, int(user_id), SANCTION_SUSPEND)
+    if not active or active.expires_at is None:
+        return False, False, None
+
+    now = datetime.now(timezone.utc)
+    next_expires_at = active.expires_at - timedelta(seconds=max(0, int(reduction_seconds)))
+    if next_expires_at <= now:
+        await revoke_active_suspend(
+            session,
+            active,
+            revoked_by_id=None,
+            revoked_by_name="автоснятие: игра",
+            note_text="Ограничение доступа к играм снято автоматически после проведения игры.",
+        )
+        return True, True, None
+
+    active.expires_at = next_expires_at
+    await session.commit()
+    with suppress(Exception):
+        await emit_sanctions_update(session, int(user_id))
+
+    return True, False, next_expires_at
 
 
 def format_duration_parts(months: int, days: int, hours: int, minutes: int) -> str:

@@ -109,6 +109,7 @@ from ..utils import (
     fetch_sanctions_for_users,
     is_sanction_active,
     build_admin_sanction_out,
+    revoke_active_suspend,
     format_duration_parts,
     emit_sanctions_update,
     refresh_rooms_after,
@@ -1719,7 +1720,10 @@ async def apply_user_suspend(user_id: int, payload: AdminSanctionTimedIn, ident:
     note = Notif(
         user_id=uid,
         title="Ограничение",
-        text=f"Доступ к играм ограничен на {duration_label}. Причина: {reason}",
+        text=(
+            f"Доступ к играм ограничен на {duration_label}. Причина: {reason} "
+            "Вы можете проводить игры: после каждой завершенной вами игры срок ограничения будет уменьшаться на 6 часов."
+        ),
     )
     session.add(sanction)
     session.add(note)
@@ -1784,35 +1788,13 @@ async def revoke_user_suspend(user_id: int, ident: Identity = Depends(get_identi
     if not active:
         raise HTTPException(status_code=404, detail="sanction_not_found")
 
-    now = datetime.now(timezone.utc)
-    active.revoked_at = now
-    active.revoked_by_id = int(ident["id"])
-    active.revoked_by_name = ident["username"]
-    note = Notif(
-        user_id=uid,
-        title="Ограничение снято",
-        text="Ограничение доступа к играм снято досрочно.",
+    await revoke_active_suspend(
+        session,
+        active,
+        revoked_by_id=int(ident["id"]),
+        revoked_by_name=ident["username"],
+        note_text="Ограничение доступа к играм снято досрочно.",
     )
-    session.add(note)
-    await session.commit()
-    await session.refresh(note)
-
-    with suppress(Exception):
-        await sio.emit(
-            "notify",
-            {
-                "id": note.id,
-                "title": note.title,
-                "text": note.text,
-                "date": note.created_at.isoformat(),
-                "kind": "sanction",
-                "ttl_ms": 15000,
-                "read": False,
-            },
-            room=f"user:{uid}",
-            namespace="/auth",
-        )
-        await emit_sanctions_update(session, uid)
 
     details = f"Снятие SUSPEND user_id={uid}"
     if user.username:

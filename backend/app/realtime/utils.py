@@ -24,7 +24,11 @@ from ..models.friend import FriendCloseness
 from ..core.clients import get_redis
 from ..core.logging import log_action
 from ..security.auth_tokens import decode_token
-from ..api.utils import active_alive_game_room_key
+from ..api.utils import (
+    HOSTED_GAME_SUSPEND_REDUCTION_SECONDS,
+    active_alive_game_room_key,
+    reduce_suspend_after_hosted_game,
+)
 from ..services.global_chat import emit_global_chat_permissions_updated
 from ..services.user_cache import get_user_profile_cached, get_user_profiles_cached
 from ..services.user_stats import invalidate_user_game_stats_cache_for_users
@@ -3882,6 +3886,31 @@ async def finish_game(r, rid: int, *, result: str, head_uid: int | None = None, 
         log.info("game_finish.skip_save_early_phase", rid=rid, phase=phase, result=result)
     else:
         log.warning("game_finish.owner_missing", rid=rid)
+
+    if result in ("red", "black") and head_uid and head_uid > 0:
+        try:
+            async with SessionLocal() as s:
+                reduced, revoked, next_expires_at = await reduce_suspend_after_hosted_game(s, int(head_uid))
+                if reduced:
+                    details = (
+                        f"auto_reduce SUSPEND user_id={int(head_uid)} room_id={rid} "
+                        f"result={result} reduction_seconds={HOSTED_GAME_SUSPEND_REDUCTION_SECONDS}"
+                    )
+                    action = "sanction_suspend_auto_reduce"
+                    if revoked:
+                        action = "sanction_suspend_auto_remove"
+                        details += " status=revoked"
+                    elif next_expires_at is not None:
+                        details += f" next_expires_at={next_expires_at.isoformat()}"
+                    await log_action(
+                        s,
+                        user_id=None,
+                        username="system",
+                        action=action,
+                        details=details,
+                    )
+        except Exception:
+            log.exception("game_finish.suspend_reduce_failed", rid=rid, head_uid=head_uid)
 
     try:
         members_set = await r.smembers(f"room:{rid}:members")
