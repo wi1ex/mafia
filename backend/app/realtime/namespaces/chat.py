@@ -4,7 +4,7 @@ from uuid import UUID
 import structlog
 from fastapi import HTTPException
 from ..sio import sio
-from ..utils import validate_auth
+from ..utils import payload_dict, permissions_status, positive_int, public_reactions, validate_auth
 from ...core.db import SessionLocal
 from ...security.decorators import rate_limited_sio
 from ...services.global_chat import (
@@ -25,34 +25,6 @@ from ...services.global_chat import (
 from ...services.text_moderation import enforce_clean_text
 
 log = structlog.get_logger()
-
-
-def _payload_dict(data: object) -> dict[str, object]:
-    return data if isinstance(data, dict) else {}
-
-
-def _positive_int(raw: object) -> int:
-    try:
-        value = int(raw)
-    except Exception:
-        return 0
-
-    return value if value > 0 else 0
-
-
-def _permissions_status(error: str | None) -> int:
-    return 503 if error == "presence_unavailable" else 403
-
-
-def _public_reactions(raw: list[dict[str, object]]) -> list[dict[str, object]]:
-    out: list[dict[str, object]] = []
-    for item in raw:
-        emoji = str(item.get("emoji") or "")
-        count = int(item.get("count") or 0)
-        if not emoji or count <= 0:
-            continue
-        out.append({"emoji": emoji, "count": count})
-    return out
 
 
 @sio.event(namespace="/chat")
@@ -85,18 +57,19 @@ async def chat_open(sid, data):
     try:
         sess = await sio.get_session(sid, namespace="/chat")
         uid = int(sess.get("uid") or 0)
-        payload = _payload_dict(data)
-        limit = _positive_int(payload.get("limit"))
+        payload = payload_dict(data)
+        limit = positive_int(payload.get("limit"))
 
         async with SessionLocal() as db:
             permissions = await resolve_global_chat_permissions(db, uid)
             if not permissions.can_open:
                 return {
                     "ok": False,
-                    "status": _permissions_status(permissions.error),
+                    "status": permissions_status(permissions.error),
                     "error": permissions.error or "forbidden",
                     "permissions": permissions_payload(permissions),
                 }
+
         await sio.enter_room(sid, GLOBAL_CHAT_ROOM, namespace="/chat")
         joined_global_room = True
         await sio.enter_room(sid, global_chat_open_user_room(uid), namespace="/chat")
@@ -135,15 +108,17 @@ async def chat_permissions(sid, data=None):
         if not permissions.can_open:
             return {
                 "ok": False,
-                "status": _permissions_status(permissions.error),
+                "status": permissions_status(permissions.error),
                 "error": permissions.error or "forbidden",
                 "permissions": permissions_payload(permissions),
             }
+
         return {
             "ok": True,
             "status": 200,
             "permissions": permissions_payload(permissions),
         }
+
     except Exception:
         log.exception("chat.permissions.error", sid=sid)
         return {"ok": False, "status": 500, "error": "internal"}
@@ -155,15 +130,16 @@ async def chat_history(sid, data):
     try:
         sess = await sio.get_session(sid, namespace="/chat")
         uid = int(sess.get("uid") or 0)
-        payload = _payload_dict(data)
+        payload = payload_dict(data)
         before_raw = payload.get("before_id") if "before_id" in payload else None
-        before_id = _positive_int(before_raw)
-        limit = _positive_int(payload.get("limit"))
+        before_id = positive_int(before_raw)
+        limit = positive_int(payload.get("limit"))
 
         async with SessionLocal() as db:
             permissions = await resolve_global_chat_permissions(db, uid)
             if not permissions.can_open:
-                return {"ok": False, "status": _permissions_status(permissions.error), "error": permissions.error or "forbidden"}
+                return {"ok": False, "status": permissions_status(permissions.error), "error": permissions.error or "forbidden"}
+
             messages, has_more, cursor_before_id = await fetch_global_chat_page(
                 db,
                 viewer_user_id=uid,
@@ -177,6 +153,7 @@ async def chat_history(sid, data):
             "has_more": has_more,
             "cursor_before_id": cursor_before_id,
         }
+
     except Exception:
         log.exception("chat.history.error", sid=sid)
         return {"ok": False, "status": 500, "error": "internal"}
@@ -188,7 +165,7 @@ async def chat_send(sid, data):
     try:
         sess = await sio.get_session(sid, namespace="/chat")
         uid = int(sess.get("uid") or 0)
-        payload = _payload_dict(data)
+        payload = payload_dict(data)
         raw_client_message_id = str(payload.get("client_message_id") or "").strip()
         if not raw_client_message_id:
             return {"ok": False, "status": 422, "error": "bad_client_message_id"}
@@ -217,12 +194,15 @@ async def chat_send(sid, data):
         async with SessionLocal() as db:
             permissions = await resolve_global_chat_permissions(db, uid)
             if not permissions.can_open:
-                return {"ok": False, "status": _permissions_status(permissions.error), "error": permissions.error or "forbidden"}
+                return {"ok": False, "status": permissions_status(permissions.error), "error": permissions.error or "forbidden"}
+
             if not permissions.can_send:
                 if permissions.ban_active:
                     return {"ok": False, "status": 403, "error": "user_banned"}
+
                 if permissions.timeout_active:
                     return {"ok": False, "status": 403, "error": "user_timeout"}
+
                 return {"ok": False, "status": 403, "error": "forbidden"}
 
             if reply_to_message_id:
@@ -260,8 +240,8 @@ async def chat_react_toggle(sid, data):
     try:
         sess = await sio.get_session(sid, namespace="/chat")
         uid = int(sess.get("uid") or 0)
-        payload = _payload_dict(data)
-        message_id = _positive_int(payload.get("message_id"))
+        payload = payload_dict(data)
+        message_id = positive_int(payload.get("message_id"))
         emoji = str(payload.get("emoji") or "")
         if message_id <= 0:
             return {"ok": False, "status": 422, "error": "bad_message_id"}
@@ -269,11 +249,12 @@ async def chat_react_toggle(sid, data):
         async with SessionLocal() as db:
             permissions = await resolve_global_chat_permissions(db, uid)
             if not permissions.can_open or not permissions.can_react:
-                return {"ok": False, "status": _permissions_status(permissions.error), "error": permissions.error or "forbidden"}
+                return {"ok": False, "status": permissions_status(permissions.error), "error": permissions.error or "forbidden"}
 
             message = await get_global_chat_message(db, message_id)
             if message is None:
                 return {"ok": False, "status": 404, "error": "message_not_found"}
+
             if message.deleted_at is not None:
                 return {"ok": False, "status": 409, "error": "message_deleted"}
 
@@ -290,7 +271,7 @@ async def chat_react_toggle(sid, data):
                 "chat_message_reactions_updated",
                 {
                     "message_id": int(public_message["id"]),
-                    "reactions": _public_reactions(public_message["reactions"]),
+                    "reactions": public_reactions(public_message["reactions"]),
                 },
                 room=GLOBAL_CHAT_ROOM,
                 namespace="/chat",
@@ -313,6 +294,7 @@ async def chat_react_toggle(sid, data):
             "added": added,
             "reactions": ack_message["reactions"] if ack_message else [],
         }
+
     except Exception:
         log.exception("chat.react.error", sid=sid)
         return {"ok": False, "status": 500, "error": "internal"}
@@ -324,21 +306,28 @@ async def chat_delete(sid, data):
     try:
         sess = await sio.get_session(sid, namespace="/chat")
         uid = int(sess.get("uid") or 0)
-        payload = _payload_dict(data)
-        message_id = _positive_int(payload.get("message_id"))
+        role = str(sess.get("role") or "").strip().lower()
+        is_admin = role == "admin"
+        payload = payload_dict(data)
+        message_id = positive_int(payload.get("message_id"))
         if message_id <= 0:
             return {"ok": False, "status": 422, "error": "bad_message_id"}
 
         async with SessionLocal() as db:
             permissions = await resolve_global_chat_permissions(db, uid)
-            if not permissions.can_delete_own:
-                return {"ok": False, "status": _permissions_status(permissions.error), "error": permissions.error or "forbidden"}
+            if not permissions.can_open and not is_admin:
+                return {"ok": False, "status": permissions_status(permissions.error), "error": permissions.error or "forbidden"}
+
+            if not permissions.can_delete_own and not is_admin:
+                return {"ok": False, "status": permissions_status(permissions.error), "error": permissions.error or "forbidden"}
 
             message = await get_global_chat_message(db, message_id)
             if message is None:
                 return {"ok": False, "status": 404, "error": "message_not_found"}
-            if int(message.user_id) != uid:
+
+            if not is_admin and int(message.user_id) != uid:
                 return {"ok": False, "status": 403, "error": "forbidden"}
+
             if message.deleted_at is not None:
                 return {"ok": False, "status": 409, "error": "already_deleted"}
 
@@ -350,6 +339,7 @@ async def chat_delete(sid, data):
             await sio.emit("chat_message_deleted", public_message, room=GLOBAL_CHAT_ROOM, namespace="/chat")
 
         return {"ok": True, "status": 200, "message": ack_message}
+
     except Exception:
         log.exception("chat.delete.error", sid=sid)
         return {"ok": False, "status": 500, "error": "internal"}
@@ -361,24 +351,27 @@ async def chat_message_context(sid, data):
     try:
         sess = await sio.get_session(sid, namespace="/chat")
         uid = int(sess.get("uid") or 0)
-        payload = _payload_dict(data)
-        message_id = _positive_int(payload.get("message_id"))
+        payload = payload_dict(data)
+        message_id = positive_int(payload.get("message_id"))
         if message_id <= 0:
             return {"ok": False, "status": 422, "error": "bad_message_id"}
 
         async with SessionLocal() as db:
             permissions = await resolve_global_chat_permissions(db, uid)
             if not permissions.can_open:
-                return {"ok": False, "status": _permissions_status(permissions.error), "error": permissions.error or "forbidden"}
+                return {"ok": False, "status": permissions_status(permissions.error), "error": permissions.error or "forbidden"}
+
             messages = await fetch_global_chat_context(db, viewer_user_id=uid, message_id=message_id)
         if not messages:
             return {"ok": False, "status": 404, "error": "message_not_found"}
+
         return {
             "ok": True,
             "status": 200,
             "target_message_id": message_id,
             "messages": messages,
         }
+
     except Exception:
         log.exception("chat.context.error", sid=sid)
         return {"ok": False, "status": 500, "error": "internal"}

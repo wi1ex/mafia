@@ -35,6 +35,10 @@ __all__ = [
     "SANCTION_TIMEOUT",
     "SANCTION_BAN",
     "SANCTION_SUSPEND",
+    "payload_dict",
+    "positive_int",
+    "permissions_status",
+    "public_reactions",
     "fetch_active_sanctions",
     "fetch_active_users_by_kind",
     "GameActionContext",
@@ -149,6 +153,34 @@ _leave_sha: str | None = None
 _single_gc_tasks: dict[int, tuple[str, asyncio.Task[None]]] = {}
 HOST_BLUR_AUTO_OFF_SECONDS = 120
 _host_blur_auto_tasks: dict[int, asyncio.Task[None]] = {}
+
+
+def payload_dict(data: object) -> dict[str, object]:
+    return data if isinstance(data, dict) else {}
+
+
+def positive_int(raw: object) -> int:
+    try:
+        value = int(raw)
+    except Exception:
+        return 0
+
+    return value if value > 0 else 0
+
+
+def permissions_status(error: str | None) -> int:
+    return 503 if error == "presence_unavailable" else 403
+
+
+def public_reactions(raw: list[dict[str, object]]) -> list[dict[str, object]]:
+    out: list[dict[str, object]] = []
+    for item in raw:
+        emoji = str(item.get("emoji") or "")
+        count = int(item.get("count") or 0)
+        if not emoji or count <= 0:
+            continue
+        out.append({"emoji": emoji, "count": count})
+    return out
 
 
 def _normalize_active_alive_user_ids(user_ids: Iterable[int | str]) -> list[int]:

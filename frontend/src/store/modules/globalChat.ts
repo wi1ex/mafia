@@ -7,7 +7,8 @@ import { formatModerationAlert } from '@/services/moderation'
 import { createAuthedSocket, disposeAuthedSocket } from '@/services/sio'
 import { useUserStore } from '@/store/modules/user'
 
-const CHAT_IMAGE_MAX_BYTES = 8 * 1024 * 1024
+const CHAT_IMAGE_MAX_BYTES = 5 * 1024 * 1024
+const CHAT_IMAGE_MAX_SIZE_LABEL = '5 МБ'
 const CHAT_ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png'])
 const CHAT_HISTORY_LIMIT = 100
 const CHAT_SOCKET_TIMEOUT_MS = 15_000
@@ -180,6 +181,10 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
     return asPositiveInt(useUserStore().user?.id)
   }
 
+  function currentViewerIsAdmin(): boolean {
+    return asString(useUserStore().user?.role).trim().toLowerCase() === 'admin'
+  }
+
   function markMutation(kind: MutationKind, messageId: number | null = null, forceScroll = false): void {
     lastMutationKind.value = kind
     lastMutationMessageId.value = messageId
@@ -313,6 +318,7 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
     const authorUsername = asString(authorRaw.username).trim() || previous?.author.username || `user${authorId || id}`
     const deleted = Boolean(raw.deleted)
     const ownByAuthor = viewerUserId > 0 && authorId === viewerUserId
+    const viewerIsAdmin = currentViewerIsAdmin()
 
     return {
       id,
@@ -326,7 +332,7 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
         avatar_name: asString(authorRaw.avatar_name) || null,
       },
       is_own: ownByAuthor,
-      can_delete: Boolean(!deleted && ownByAuthor),
+      can_delete: Boolean(!deleted && (ownByAuthor || viewerIsAdmin || Boolean(raw.can_delete))),
       reactions: deleted ? [] : normalizeReactionList(raw.reactions, previous?.reactions || []),
       reply: normalizeReply(raw.reply),
       image_object_key: deleted ? null : (asString(raw.image_object_key) || null),
@@ -465,7 +471,7 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
       case 'unsupported_media_type':
         return 'Можно загрузить только PNG или JPEG.'
       case 'file_too_large':
-        return 'Файл слишком большой. Максимум 8 МБ.'
+        return `Файл слишком большой. Максимум ${CHAT_IMAGE_MAX_SIZE_LABEL}.`
       case 'empty_file':
         return 'Файл пустой.'
       case 'bad_image':
@@ -536,6 +542,19 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
 
     socket.on('chat_message_deleted', (payload: unknown) => {
       mergeMessages([payload])
+    })
+
+    socket.on('chat_cleared', () => {
+      messages.value = []
+      hasMore.value = false
+      cursorBeforeId.value = null
+      clearReplyTarget()
+      if (draftImageObjectKey.value) {
+        draftImageObjectKey.value = ''
+      }
+      Object.keys(reactionBusy).forEach((key) => { delete reactionBusy[Number(key)] })
+      Object.keys(deleteBusy).forEach((key) => { delete deleteBusy[Number(key)] })
+      markMutation('reset')
     })
 
     socket.on('chat_permissions_updated', (payload: unknown) => {
@@ -978,7 +997,7 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
       return false
     }
     if (file.size > CHAT_IMAGE_MAX_BYTES) {
-      void alertDialog('Файл слишком большой. Максимум 8 МБ.')
+      void alertDialog(`Файл слишком большой. Максимум ${CHAT_IMAGE_MAX_SIZE_LABEL}.`)
       return false
     }
 

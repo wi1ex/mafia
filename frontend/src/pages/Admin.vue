@@ -37,9 +37,12 @@
               <ToggleSwitch class="switch-item" v-model="site.games_can_start" label="Запуск игр" :disabled="savingSettings" />
               <ToggleSwitch class="switch-item" v-model="site.streams_can_start" label="Запуск трансляций" :disabled="savingSettings" />
               <ToggleSwitch class="switch-item" v-model="site.verification_restrictions" label="Ограничения верификации" :disabled="savingSettings" />
-              <div class="form-actions">
-                <button class="btn danger width-full" :disabled="kickRoomsBusy" @click="kickAllRooms">
+              <div class="bulk-admin-actions">
+                <button class="btn danger width-full" :disabled="kickRoomsBusy || clearChatBusy" @click="kickAllRooms">
                   Кик из комнат
+                </button>
+                <button class="btn danger width-full" :disabled="kickRoomsBusy || clearChatBusy" @click="clearGlobalChat">
+                  Очистить чат
                 </button>
               </div>
             </div>
@@ -1254,6 +1257,7 @@ const sanctionTitle = computed(() => {
   return 'Выдать ограничение'
 })
 const kickRoomsBusy = ref(false)
+const clearChatBusy = ref(false)
 let logsUserTimer: number | undefined
 let roomsUserTimer: number | undefined
 let usersUserTimer: number | undefined
@@ -1880,6 +1884,26 @@ async function kickAllRooms(): Promise<void> {
   }
 }
 
+async function clearGlobalChat(): Promise<void> {
+  if (clearChatBusy.value) return
+  const ok = await confirmDialog({
+    title: 'Очистить чат',
+    text: 'Полностью очистить общий чат?',
+    confirmText: 'Очистить',
+    cancelText: 'Отмена',
+  })
+  if (!ok) return
+  clearChatBusy.value = true
+  try {
+    await api.post('/admin/chat/clear')
+    void alertDialog('Общий чат очищен')
+  } catch {
+    void alertDialog('Не удалось очистить общий чат')
+  } finally {
+    clearChatBusy.value = false
+  }
+}
+
 function nextLogs(): void {
   if (logsPage.value >= logsPages.value) return
   logsPage.value += 1
@@ -2426,6 +2450,11 @@ onMounted(() => {
         border-radius: 5px;
         padding: 15px;
         .field-stack {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+        .bulk-admin-actions {
           display: flex;
           flex-direction: column;
           gap: 10px;

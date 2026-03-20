@@ -17,6 +17,7 @@ from ...models.notif import Notif
 from ...models.sanction import UserSanction
 from ...models.user import User
 from ...models.update import SiteUpdate, UpdateRead
+from ...models.global_chat import GlobalChatMessage, GlobalChatMessageReaction
 from ...core.logging import log_action
 from ...realtime.sio import sio
 from ...realtime.utils import (
@@ -31,7 +32,8 @@ from ...security.passwords import hash_password
 from ...security.parameters import ensure_app_settings, sync_cache_from_row, refresh_app_settings, get_cached_settings
 from ...services.user_cache import write_user_profile_cache, get_user_profiles_cached
 from ...services.user_stats import get_user_game_stats_cached
-from ...services.global_chat import emit_global_chat_permissions_refresh, emit_global_chat_permissions_updated
+from ...services.global_chat import emit_global_chat_cleared, emit_global_chat_permissions_refresh, emit_global_chat_permissions_updated
+from ...services.minio import delete_chat_images_async
 from ...schemas.common import Ok, Identity
 from ...schemas.user import UserStatsOut, UserTopPlayerOut
 from ...schemas.updates import AdminUpdateIn, AdminUpdateOut, AdminUpdatesOut
@@ -875,6 +877,37 @@ async def rooms_kick_all() -> Ok:
     delay_s = max(0, int(get_cached_settings().rooms_empty_ttl_seconds))
 
     asyncio.create_task(refresh_rooms_after(delay_s + 1, "admin_kick_all"))
+
+    return Ok()
+
+
+@log_route("admin.global_chat.clear")
+@require_roles_deco("admin")
+@router.post("/chat/clear", response_model=Ok)
+async def clear_global_chat(ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
+    messages_count = int(await session.scalar(select(func.count(GlobalChatMessage.id))) or 0)
+    reactions_count = int(await session.scalar(select(func.count(GlobalChatMessageReaction.message_id))) or 0)
+
+    await session.execute(delete(GlobalChatMessageReaction))
+    await session.execute(delete(GlobalChatMessage))
+    await session.commit()
+
+    try:
+        images_detail = str(await delete_chat_images_async())
+    except Exception:
+        images_detail = "error"
+        log.exception("admin.global_chat.clear.chat_images_delete_failed")
+
+    await log_action(
+        session,
+        user_id=int(ident["id"]),
+        username=ident["username"],
+        action="admin_global_chat_clear",
+        details=f"Очистка общего чата messages={messages_count} reactions={reactions_count} images={images_detail}",
+    )
+
+    with suppress(Exception):
+        await emit_global_chat_cleared()
 
     return Ok()
 
