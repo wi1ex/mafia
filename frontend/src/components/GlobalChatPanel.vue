@@ -129,8 +129,6 @@
             <input ref="fileInputEl" type="file" accept="image/png,image/jpeg" :disabled="composerDisabled" @change="onPickImage" >
             PNG/JPG
           </label>
-
-          <span class="composer-hint">Enter отправляет, Shift+Enter переносит строку</span>
         </div>
 
         <div class="composer-shell">
@@ -141,7 +139,7 @@
             :disabled="composerDisabled"
             rows="3"
             maxlength="1000"
-            placeholder="Напишите сообщение"
+            placeholder="Введите текст..."
             @keydown="onComposerKeydown"
           />
 
@@ -208,6 +206,7 @@ let highlightTimer: number | null = null
 
 const showLauncher = computed(() => {
   if (!auth.ready || !settings.ready || !auth.isAuthed) return false
+  if (!user.user) return false
   if (user.banActive || user.timeoutActive || user.inActiveGameAsAlivePlayer) return false
   return !(settings.verificationRestrictions && !user.telegramVerified);
 })
@@ -874,12 +873,6 @@ onBeforeUnmount(() => {
         opacity: 0.5;
         cursor: default;
       }
-    }
-    .composer-hint {
-      min-width: 0;
-      color: $grey;
-      font-size: 12px;
-      line-height: 1.2;
     }
   }
   .composer-shell {

@@ -2429,10 +2429,10 @@ onMounted(() => {
       width: 20px;
       height: 20px;
     }
-    .width-min {
+    &.width-min {
       min-width: 150px;
     }
-    .width-full {
+    &.width-full {
       width: 100%;
     }
   }

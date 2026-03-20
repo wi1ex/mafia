@@ -21,8 +21,8 @@
           </div>
           <div class="notice-list">
             <div class="notice-item notice-item--suspend">SUSPEND — временное отстранение от участия в играх.</div>
-            <div class="notice-item notice-item--timeout">TIMEOUT — временное ограничение доступа к комнатам.</div>
-            <div class="notice-item notice-item--ban">BAN — постоянная блокировка доступа к платформе.</div>
+            <div class="notice-item notice-item--timeout">TIMEOUT — временное ограничение доступа к комнатам и чату.</div>
+            <div class="notice-item notice-item--ban">BAN — вечная блокировка доступа к платформе.</div>
           </div>
         </section>
 
