@@ -922,6 +922,65 @@ async def emit_sanctions_update(session: AsyncSession, user_id: int) -> None:
         await emit_global_chat_permissions_updated(int(user_id))
 
 
+def _expired_sanction_note(kind: str) -> tuple[str, str] | None:
+    if kind == SANCTION_TIMEOUT:
+        return "Таймаут завершен", "Срок вашего таймаута истек. Доступ к комнатам восстановлен."
+
+    if kind == SANCTION_SUSPEND:
+        return "Ограничение снято", "Срок ограничения доступа к играм истек."
+
+    return None
+
+
+async def _notify_expired_timed_sanctions(user_id: int) -> None:
+    now = datetime.now(timezone.utc)
+    async with SessionLocal() as session:
+        stmt = (
+            select(UserSanction)
+            .where(
+                UserSanction.user_id == int(user_id),
+                UserSanction.kind.in_(tuple(TIMED_KINDS)),
+                UserSanction.revoked_at.is_(None),
+                UserSanction.expires_at.is_not(None),
+                UserSanction.expires_at <= now,
+                UserSanction.expired_notified_at.is_(None),
+            )
+            .order_by(UserSanction.kind, UserSanction.expires_at.desc(), UserSanction.id.desc())
+            .with_for_update(skip_locked=True)
+        )
+        rows = list((await session.scalars(stmt)).all())
+        if not rows:
+            return
+
+        notes: list[Notif] = []
+        notified_kinds: set[str] = set()
+        for sanction in rows:
+            kind = str(sanction.kind or "").strip()
+            if kind in notified_kinds:
+                sanction.expired_notified_at = now
+                continue
+            note_data = _expired_sanction_note(kind)
+            if not note_data:
+                continue
+            notified_kinds.add(kind)
+            sanction.expired_notified_at = now
+            title, text = note_data
+            note = Notif(user_id=int(user_id), title=title, text=text)
+            session.add(note)
+            notes.append(note)
+
+        if not notes:
+            return
+
+        await session.commit()
+        for note in notes:
+            await session.refresh(note)
+
+    for note in notes:
+        with suppress(Exception):
+            await emit_notify(int(user_id), note, kind="sanction")
+
+
 async def ensure_room_access_allowed(db: AsyncSession, user_id: int) -> None:
     from ..security.parameters import get_cached_settings
 
@@ -1576,31 +1635,34 @@ async def check_sanctions_expired(user_id: int, *, throttle_s: int = 30) -> None
     prev_ban = 1 if _parse_int(prev.get("ban_active")) > 0 else 0
     next_timeout_ts = prev_timeout_ts if prev_timeout_ts > now_ts else 0
     next_suspend_ts = prev_suspend_ts if prev_suspend_ts > now_ts else 0
-    if next_timeout_ts == prev_timeout_ts and next_suspend_ts == prev_suspend_ts:
-        return
+    if next_timeout_ts != prev_timeout_ts or next_suspend_ts != prev_suspend_ts:
+        try:
+            await r.hset(
+                key,
+                mapping={
+                    "ban_active": "1" if prev_ban else "0",
+                    "timeout_expires_at": str(next_timeout_ts),
+                    "suspend_expires_at": str(next_suspend_ts),
+                },
+            )
+        except Exception:
+            pass
+
+        payload = {
+            "timeout_until": datetime.fromtimestamp(next_timeout_ts, tz=timezone.utc).isoformat() if next_timeout_ts else None,
+            "ban_active": bool(prev_ban),
+            "suspend_until": datetime.fromtimestamp(next_suspend_ts, tz=timezone.utc).isoformat() if next_suspend_ts else None,
+        }
+        with suppress(Exception):
+            await sio.emit("sanctions_update", payload, room=f"user:{int(user_id)}", namespace="/auth")
+        with suppress(Exception):
+            from ..services.global_chat import emit_global_chat_permissions_updated
+            await emit_global_chat_permissions_updated(int(user_id))
 
     try:
-        await r.hset(
-            key,
-            mapping={
-                "ban_active": "1" if prev_ban else "0",
-                "timeout_expires_at": str(next_timeout_ts),
-                "suspend_expires_at": str(next_suspend_ts),
-            },
-        )
+        await _notify_expired_timed_sanctions(int(user_id))
     except Exception:
-        pass
-
-    payload = {
-        "timeout_until": datetime.fromtimestamp(next_timeout_ts, tz=timezone.utc).isoformat() if next_timeout_ts else None,
-        "ban_active": bool(prev_ban),
-        "suspend_until": datetime.fromtimestamp(next_suspend_ts, tz=timezone.utc).isoformat() if next_suspend_ts else None,
-    }
-    with suppress(Exception):
-        await sio.emit("sanctions_update", payload, room=f"user:{int(user_id)}", namespace="/auth")
-    with suppress(Exception):
-        from ..services.global_chat import emit_global_chat_permissions_updated
-        await emit_global_chat_permissions_updated(int(user_id))
+        log.warning("sanctions.expired.notify_failed", user_id=int(user_id))
 
 
 def serialize_game_for_redis(game_dict: Dict[str, Any]) -> Dict[str, str]:
