@@ -1,7 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
-from sqlalchemy import select, text
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.settings import settings as core_settings
 from ..models.settings import AppSettings
@@ -67,11 +67,6 @@ def set_cached_settings(snapshot: AppSettingsSnapshot) -> None:
 
 
 async def ensure_app_settings(session: AsyncSession) -> AppSettings:
-    await session.execute(
-        text("ALTER TABLE settings ADD COLUMN IF NOT EXISTS chat_open_enabled BOOLEAN NOT NULL DEFAULT true")
-    )
-    await session.commit()
-
     row = await session.scalar(select(AppSettings).limit(1))
     if not row:
         defaults = build_app_settings_snapshot_defaults(core_settings, default_starts=_DEFAULT_SEASON_STARTS, snapshot_cls=AppSettingsSnapshot)
