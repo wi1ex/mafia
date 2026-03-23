@@ -246,6 +246,7 @@ class AdminGameActionsOut(BaseModel):
     id: int
     number: int
     result: AdminGameResult
+    ppk_target_user_id: Optional[int] = None
     items: List[AdminGameActionOut] = Field(default_factory=list)
 
 
@@ -257,6 +258,16 @@ class AdminGameResultOut(BaseModel):
     id: int
     number: int
     result: AdminGameResult
+
+
+class AdminGamePpkUpdateIn(BaseModel):
+    target_user_id: Optional[int] = None
+
+
+class AdminGamePpkOut(BaseModel):
+    id: int
+    number: int
+    target_user_id: Optional[int] = None
 
 
 class AdminUserOut(BaseModel):

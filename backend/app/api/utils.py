@@ -147,6 +147,12 @@ __all__ = [
     "safe_int",
     "non_empty_str",
     "normalize_game_result",
+    "normalizeGameActionsForUpdate",
+    "gameActionHasPpk",
+    "findGamePpkTargetUserId",
+    "findGameFoulDeathActionIndex",
+    "findGameFoulActionIndex",
+    "setGameActionPpk",
     "fetch_games_history_page",
     "pct",
     "role_stats",
@@ -1190,6 +1196,102 @@ def non_empty_str(raw: Any) -> str | None:
     return out or None
 
 
+def normalizeGameActionsForUpdate(raw: object) -> list[object]:
+    if not isinstance(raw, list):
+        return []
+
+    normalized: list[object] = []
+    for item in raw:
+        normalized.append(dict(item) if isinstance(item, dict) else item)
+    return normalized
+
+
+def gameActionHasPpk(rawAction: object) -> bool:
+    if not isinstance(rawAction, dict):
+        return False
+
+    return bool(rawAction.get("ppk")) or str(rawAction.get("format") or "").strip().upper() == "PPK"
+
+
+def findGamePpkTargetUserId(actions: list[object]) -> int | None:
+    for rawAction in reversed(actions):
+        if not isinstance(rawAction, dict):
+            continue
+        if str(rawAction.get("type") or "").strip().lower() != "death":
+            continue
+        if str(rawAction.get("reason") or "").strip().lower() != "foul":
+            continue
+        if not gameActionHasPpk(rawAction):
+            continue
+        targetUid = safe_int(rawAction.get("target_id"))
+        if targetUid > 0:
+            return targetUid
+
+    for rawAction in reversed(actions):
+        if not isinstance(rawAction, dict):
+            continue
+        if str(rawAction.get("type") or "").strip().lower() != "foul":
+            continue
+        if not gameActionHasPpk(rawAction):
+            continue
+        targetUid = safe_int(rawAction.get("target_id"))
+        if targetUid > 0:
+            return targetUid
+
+    return None
+
+
+def findGameFoulDeathActionIndex(actions: list[object], targetUid: int) -> int | None:
+    if targetUid <= 0:
+        return None
+
+    for index, rawAction in enumerate(actions):
+        if not isinstance(rawAction, dict):
+            continue
+        if str(rawAction.get("type") or "").strip().lower() != "death":
+            continue
+        if str(rawAction.get("reason") or "").strip().lower() != "foul":
+            continue
+        if safe_int(rawAction.get("target_id")) == targetUid:
+            return index
+
+    return None
+
+
+def findGameFoulActionIndex(actions: list[object], targetUid: int) -> int | None:
+    if targetUid <= 0:
+        return None
+
+    bestIndex: int | None = None
+    bestCount = 0
+    for index, rawAction in enumerate(actions):
+        if not isinstance(rawAction, dict):
+            continue
+        if str(rawAction.get("type") or "").strip().lower() != "foul":
+            continue
+        if safe_int(rawAction.get("target_id")) != targetUid:
+            continue
+        foulCount = safe_int(rawAction.get("count"))
+        if foulCount < 4:
+            continue
+        if bestIndex is None or foulCount >= bestCount:
+            bestIndex = index
+            bestCount = foulCount
+
+    return bestIndex
+
+
+def setGameActionPpk(rawAction: dict[str, Any], enabled: bool) -> None:
+    if enabled:
+        rawAction["ppk"] = True
+        rawAction["format"] = "PPK"
+        return
+
+    rawAction.pop("ppk", None)
+    if str(rawAction.get("format") or "").strip().upper() == "PPK":
+        rawAction.pop("format", None)
+
+
 def game_action_slot_label(uid_to_slot: dict[int, int], raw_uid: Any, *, head_uid: int = 0) -> str:
     uid = safe_int(raw_uid)
     if uid <= 0:
@@ -1474,6 +1576,24 @@ def normalize_game_result(raw: Any) -> str:
     return "draw"
 
 
+def game_actions_has_ppk(raw_actions: Any) -> bool:
+    if not isinstance(raw_actions, list):
+        return False
+
+    for raw_action in raw_actions:
+        if not isinstance(raw_action, dict):
+            continue
+        action_type = str(raw_action.get("type") or "").strip().lower()
+        if action_type not in {"death", "foul"}:
+            continue
+        if action_type == "death" and str(raw_action.get("reason") or "").strip().lower() != "foul":
+            continue
+        if bool(raw_action.get("ppk")) or str(raw_action.get("format") or "").strip().upper() == "PPK":
+            return True
+
+    return False
+
+
 async def fetch_games_history_page(db: AsyncSession, *, page: int, per_page: int, player_uid: int | None = None, player_role: Literal["citizen", "mafia", "don", "sheriff"] | None = None) -> UserGamesHistoryOut:
     from ..schemas.user import UserGamesHistoryOut, GameHistoryItemOut, GameHistoryHostOut
 
@@ -1496,6 +1616,7 @@ async def fetch_games_history_page(db: AsyncSession, *, page: int, per_page: int
             Game.started_at,
             Game.finished_at,
             Game.roles,
+            Game.actions,
         )
         .order_by(Game.id.desc())
     )
@@ -1532,7 +1653,7 @@ async def fetch_games_history_page(db: AsyncSession, *, page: int, per_page: int
     raw_games = rows.all()
 
     user_ids: set[int] = set()
-    for _game_id, head_id, _result, _black_alive, _started, _finished, _roles in raw_games:
+    for _game_id, head_id, _result, _black_alive, _started, _finished, _roles, _actions in raw_games:
         hid = safe_int(head_id)
         if hid > 0:
             user_ids.add(hid)
@@ -1540,7 +1661,7 @@ async def fetch_games_history_page(db: AsyncSession, *, page: int, per_page: int
     profiles = await get_user_profiles_cached(db, user_ids) if user_ids else {}
 
     items: list[GameHistoryItemOut] = []
-    for game_id, head_id, result_raw, black_alive_raw, started_at, finished_at, roles_raw in raw_games:
+    for game_id, head_id, result_raw, black_alive_raw, started_at, finished_at, roles_raw, actions_raw in raw_games:
         gid = safe_int(game_id)
         if gid <= 0:
             continue
@@ -1575,6 +1696,7 @@ async def fetch_games_history_page(db: AsyncSession, *, page: int, per_page: int
                     auto=head_auto,
                 ),
                 result=normalize_game_result(result_raw),
+                has_ppk=game_actions_has_ppk(actions_raw),
                 player_role=player_role_value,
                 black_alive_at_finish=max(0, safe_int(black_alive_raw)),
                 started_at=started_at,

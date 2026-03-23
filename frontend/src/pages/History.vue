@@ -30,8 +30,16 @@
             <div class="history-main-left">
               <div class="game-number-row">
                 <span class="game-number">Игра #{{ game.number }}</span>
-                <GameHistoryActions v-if="isExpanded(game.id)" :game-id="game.id" :game-number="game.number"
-                                         :game-result="game.result" @result-updated="handleGameResultUpdated" />
+                <GameHistoryActions
+                  v-if="isExpanded(game.id)"
+                  :game-id="game.id"
+                  :game-number="game.number"
+                  :game-result="game.result"
+                  :details-slots="detailsSlots(game.id)"
+                  :details-loading="isDetailsLoading(game.id)"
+                  @result-updated="handleGameResultUpdated"
+                  @ppk-updated="handleGamePpkUpdated"
+                />
               </div>
               <div class="game-head">
                 <span>Ведущий:</span>
@@ -116,6 +124,7 @@ interface GameHistorySlot {
   mmr: number
   leave_day?: number | null
   leave_reason?: LeaveReason | null
+  leave_ppk?: boolean | null
   voted_by_slots?: number[] | null
   best_move_slots?: number[] | null
   farewell?: GameHistoryFarewellItem[] | null
@@ -127,6 +136,7 @@ interface GameHistoryListItem {
   number: number
   head: GameHistoryHost
   result: GameResult
+  has_ppk?: boolean
   black_alive_at_finish: number
   started_at: string
   finished_at: string
@@ -257,8 +267,9 @@ async function fetchGameDetails(gameId: number): Promise<void> {
 }
 
 function resultLabel(game: GameHistoryListItem): string {
-  if (game.result === 'red') return 'Победа мирных'
+  if (game.result === 'red') return game.has_ppk ? 'Победа мирных (ППК)' : 'Победа мирных'
   if (game.result === 'black') {
+    if (game.has_ppk) return 'Победа мафии (ППК)'
     const count_black = Math.max(0, intOr(game.black_alive_at_finish, 0))
     return `Победа мафии ${count_black}в${count_black}`
   }
@@ -272,6 +283,29 @@ function handleGameResultUpdated(payload: { gameId: number; result: GameResult; 
   ))
   adjustResultTotal(payload.previousResult, -1)
   adjustResultTotal(payload.result, 1)
+}
+
+function handleGamePpkUpdated(payload: { gameId: number; userId: number | null; previousUserId: number | null }): void {
+  items.value = items.value.map((game) => (
+    game.id === payload.gameId ? { ...game, has_ppk: payload.userId !== null } : game
+  ))
+
+  const currentSlots = detailsByGameId.value[payload.gameId]
+  if (!Array.isArray(currentSlots) || currentSlots.length === 0) return
+
+  const nextSlots = currentSlots.map((slot) => {
+    const slotUserId = intOr(slot.user_id, 0)
+    let nextLeavePpk = Boolean(slot.leave_ppk)
+    if (payload.previousUserId !== null && slotUserId === payload.previousUserId) nextLeavePpk = false
+    if (payload.userId !== null && slotUserId === payload.userId) nextLeavePpk = true
+    if (nextLeavePpk === Boolean(slot.leave_ppk)) return slot
+    return { ...slot, leave_ppk: nextLeavePpk }
+  })
+
+  detailsByGameId.value = {
+    ...detailsByGameId.value,
+    [payload.gameId]: nextSlots,
+  }
 }
 
 function headName(game: GameHistoryListItem): string {

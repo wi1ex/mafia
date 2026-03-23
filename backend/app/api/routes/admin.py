@@ -51,6 +51,8 @@ from ...schemas.admin import (
     AdminRoomsOut,
     AdminGameActionOut,
     AdminGameActionsOut,
+    AdminGamePpkOut,
+    AdminGamePpkUpdateIn,
     AdminGameResultUpdateIn,
     AdminGameResultOut,
     AdminUserOut,
@@ -98,6 +100,12 @@ from ..utils import (
     fetch_friends_count_for_users,
     fetch_sanction_counts_for_users,
     safe_int,
+    normalizeGameActionsForUpdate,
+    gameActionHasPpk,
+    findGamePpkTargetUserId,
+    findGameFoulDeathActionIndex,
+    findGameFoulActionIndex,
+    setGameActionPpk,
     game_action_fields,
     normalize_users_sort,
     admin_role_sort_key,
@@ -606,9 +614,10 @@ async def game_actions(game_id: int, session: AsyncSession = Depends(get_session
                 continue
             uid_to_slot[uid] = slot
 
+    actions = normalizeGameActionsForUpdate(actions_raw)
     items: list[AdminGameActionOut] = []
-    if isinstance(actions_raw, list):
-        for index, raw_action in enumerate(actions_raw, start=1):
+    if actions:
+        for index, raw_action in enumerate(actions, start=1):
             if not isinstance(raw_action, dict):
                 continue
             action = dict(raw_action)
@@ -635,6 +644,7 @@ async def game_actions(game_id: int, session: AsyncSession = Depends(get_session
         id=game_id_value,
         number=game_id_value,
         result=normalize_game_result(result_raw),
+        ppk_target_user_id=findGamePpkTargetUserId(actions),
         items=items,
     )
 
@@ -676,6 +686,87 @@ async def update_game_result(game_id: int, payload: AdminGameResultUpdateIn, ide
         id=gid,
         number=gid,
         result=normalize_game_result(getattr(game, "result", None)),
+    )
+
+
+@log_route("admin.games.ppk_update")
+@require_roles_deco("admin")
+@router.patch("/games/{game_id}/ppk", response_model=AdminGamePpkOut)
+async def update_game_ppk(game_id: int, payload: AdminGamePpkUpdateIn, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> AdminGamePpkOut:
+    gid = safe_int(game_id)
+    if gid <= 0:
+        raise HTTPException(status_code=404, detail="game_not_found")
+
+    game = await session.get(Game, gid)
+    if not game:
+        raise HTTPException(status_code=404, detail="game_not_found")
+
+    original_actions = getattr(game, "actions", None)
+    original_actions_list = original_actions if isinstance(original_actions, list) else []
+    actions = normalizeGameActionsForUpdate(original_actions_list)
+    prev_target_user_id = findGamePpkTargetUserId(actions)
+
+    next_target_user_id: int | None = None
+    if payload.target_user_id is not None:
+        requested_target_uid = safe_int(payload.target_user_id)
+        if requested_target_uid <= 0:
+            raise HTTPException(status_code=422, detail="ppk_target_invalid")
+
+        if findGameFoulDeathActionIndex(actions, requested_target_uid) is None:
+            raise HTTPException(status_code=409, detail="ppk_target_not_foul_removed")
+
+        next_target_user_id = requested_target_uid
+
+    for raw_action in actions:
+        if not isinstance(raw_action, dict):
+            continue
+        action_type = str(raw_action.get("type") or "").strip().lower()
+        if action_type not in {"death", "foul"}:
+            continue
+        if gameActionHasPpk(raw_action):
+            setGameActionPpk(raw_action, False)
+
+    if next_target_user_id is not None:
+        death_action_index = findGameFoulDeathActionIndex(actions, next_target_user_id)
+        if death_action_index is None:
+            raise HTTPException(status_code=409, detail="ppk_target_not_foul_removed")
+
+        death_action = actions[death_action_index]
+        if isinstance(death_action, dict):
+            setGameActionPpk(death_action, True)
+
+        foul_action_index = findGameFoulActionIndex(actions, next_target_user_id)
+        if foul_action_index is not None:
+            foul_action = actions[foul_action_index]
+            if isinstance(foul_action, dict):
+                setGameActionPpk(foul_action, True)
+
+    changed = actions != original_actions_list
+    actual_target_user_id = findGamePpkTargetUserId(actions)
+
+    if changed:
+        game.actions = actions
+        await log_action(
+            session,
+            user_id=int(ident["id"]),
+            username=ident["username"],
+            action="admin_game_ppk_update",
+            details=(
+                f"Изменение ППК игры game_id={gid} "
+                f"from_user_id={prev_target_user_id or 0} to_user_id={actual_target_user_id or 0}"
+            ),
+            commit=False,
+        )
+        await session.commit()
+        schedule_user_game_stats_cache_invalidation(
+            "admin.games.ppk_update.invalidate_stats_cache_failed",
+            game_id=gid,
+        )
+
+    return AdminGamePpkOut(
+        id=gid,
+        number=gid,
+        target_user_id=actual_target_user_id,
     )
 
 
