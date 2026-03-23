@@ -3065,6 +3065,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     seatsByUser,
     headUserId,
     offlineInGame,
+    nominateMode,
     rolesVisibleForHead,
     knownRolesVisible,
     canToggleKnownRoles,

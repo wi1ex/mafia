@@ -79,6 +79,7 @@
           :lift-nominees="liftNomineesFor(id)"
           :current-nominee-seat="id === headUserId ? currentNomineeSeat : null"
           :show-nominations-bar="id === headUserId && (gamePhase === 'day' || gamePhase === 'vote')"
+          :show-nominations-badge="id === headUserId && canShowHeadNominationsBadge"
           :vote-blocked="voteBlockedFor(id)"
           :offline-seats-in-game="offlineSeatsInGameFor(id)"
           :show-vote-button="amIAlive && game.canPressVoteButton()"
@@ -193,6 +194,7 @@
             :lift-nominees="liftNomineesFor(id)"
             :current-nominee-seat="id === headUserId ? currentNomineeSeat : null"
             :show-nominations-bar="id === headUserId && (gamePhase === 'day' || gamePhase === 'vote')"
+            :show-nominations-badge="id === headUserId && canShowHeadNominationsBadge"
             :vote-blocked="voteBlockedFor(id)"
             :offline-seats-in-game="offlineSeatsInGameFor(id)"
             :show-vote-button="amIAlive && game.canPressVoteButton()"
@@ -514,6 +516,7 @@ const {
   minReadyToStart,
   seatsByUser,
   offlineInGame,
+  nominateMode,
   gameFoulsByUser,
   votedThisRound,
   votedUsers,
@@ -698,6 +701,11 @@ const nomineesFor = (id: string) => headUserId.value === id ? nomineeSeatNumbers
 const liftNomineesFor = (id: string) => (headUserId.value === id && liftHighlightNominees.value) ? nomineeSeatNumbers.value : EMPTY_NUMBERS
 const voteBlockedFor = (id: string) => headUserId.value === id ? voteBlocked.value : false
 const offlineSeatsInGameFor = (id: string) => (headUserId.value === id && gamePhase.value === 'vote' && !currentFarewellSpeech.value) ? offlineAliveSeatNumbers.value : EMPTY_NUMBERS
+const canShowHeadNominationsBadge = computed(() => {
+  const nominationsPhase = gamePhase.value === 'day' || gamePhase.value === 'vote'
+  if (!nominationsPhase) return false
+  return nominateMode.value !== 'head' || isHead.value
+})
 const fitContainInGrid = computed(() => {
   const limit = roomUserLimit.value
   if (Number.isFinite(limit) && limit > 2) return !videoFillOn.value

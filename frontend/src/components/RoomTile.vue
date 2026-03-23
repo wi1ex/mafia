@@ -67,7 +67,7 @@
     <div class="head-bar" v-else-if="isGameHead && showNominationsBar && offlineSeatsInGame && offlineSeatsInGame.length > 0">
       <span>Ожидаем игроков: {{ offlineSeatsInGame.join(', ') }}</span>
     </div>
-    <div class="head-bar nominate" v-else-if="isGameHead && showNominationsBar && Array.isArray(nominees) && nominees.length > 0">
+    <div class="head-bar nominate" v-else-if="isGameHead && showNominationsBadge && Array.isArray(nominees) && nominees.length > 0">
       <span class="nominations-badge" v-for="seatNum in nominees" :key="seatNum" :class="{ current: currentNomineeSeat === seatNum || liftNomineesSet.has(seatNum) }">
         {{ seatNum }}
       </span>
@@ -219,6 +219,7 @@ const props = withDefaults(defineProps<{
   nominees?: number[]
   liftNominees?: number[]
   showNominationsBar?: boolean
+  showNominationsBadge?: boolean
   voteBlocked?: boolean
   currentNomineeSeat?: number | null
   showVoteButton?: boolean
@@ -274,6 +275,7 @@ const props = withDefaults(defineProps<{
   nominees: () => [],
   liftNominees: () => [],
   showNominationsBar: false,
+  showNominationsBadge: false,
   voteBlocked: false,
   currentNomineeSeat: null,
   showVoteButton: false,

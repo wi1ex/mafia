@@ -132,6 +132,7 @@ async def friends_list(room_id: int | None = None, ident: Identity = Depends(get
                 closeness_map[(int(lo), int(hi))] = int(games or 0)
 
     room_by_uid: dict[int, int] = {}
+    room_candidates_by_uid: dict[int, int] = {}
     friends_with_online_room = [fid for fid in friend_ids if fid in online_ids]
     if friends_with_online_room:
         async with r.pipeline() as p:
@@ -145,7 +146,21 @@ async def friends_list(room_id: int | None = None, ident: Identity = Depends(get
             except Exception:
                 rid = 0
             if rid > 0:
-                room_by_uid[int(fid)] = rid
+                room_candidates_by_uid[int(fid)] = rid
+
+    if room_candidates_by_uid:
+        try:
+            candidate_items = list(room_candidates_by_uid.items())
+            async with r.pipeline() as p:
+                for fid, rid in candidate_items:
+                    await p.sismember(f"room:{rid}:members", str(fid))
+                raw_membership = await p.execute()
+
+            for (fid, rid), is_member in zip(candidate_items, raw_membership):
+                if bool(is_member):
+                    room_by_uid[int(fid)] = int(rid)
+        except Exception:
+            room_by_uid = {}
 
     invite_room_id = int(room_id or 0)
     invited_to_room_ids: set[int] = set()
