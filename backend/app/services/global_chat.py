@@ -117,14 +117,14 @@ def _extract_sanction_rule_point(reason: str) -> str | None:
     return value or None
 
 
-def _format_sanction_reference(reason: str) -> str:
+def _format_sanction_reason_details(reason: str) -> str:
     point = _extract_sanction_rule_point(reason)
     if point:
-        return f" по пункту {point} правил"
+        return f" (пункт правил: {point})"
 
     normalized_reason = _truncate_text(reason, 140)
     if normalized_reason:
-        return f" по причине: {normalized_reason}"
+        return f" (причина: {normalized_reason})"
 
     return ""
 
@@ -141,10 +141,6 @@ def _sanction_kind_label(kind: str) -> str:
         return "отстранение от игр"
 
     return "санкцию"
-
-
-def _sanction_removed_verb(kind: str) -> str:
-    return "снято" if str(kind or "").strip().lower() == SANCTION_SUSPEND else "снят"
 
 
 async def _resolve_global_chat_notice_author_user_id(session: AsyncSession, *, preferred_user_id: int | None = None) -> int | None:
@@ -187,27 +183,60 @@ async def _resolve_chat_notice_target_username(session: AsyncSession, *, user_id
 
 
 def build_global_chat_sanction_issued_text(*, target_username: str, kind: str, reason: str, duration_label: str | None = None) -> str:
-    label = _sanction_kind_label(kind)
-    suffix = _format_sanction_reference(reason)
-    duration = ""
-    if str(duration_label or "").strip():
-        duration = f" на {str(duration_label).strip()}"
-    return f"Санкция: пользователь {target_username} получил {label}{suffix}{duration}."
+    kind_value = str(kind or "").strip().lower()
+    details = _format_sanction_reason_details(reason)
+    duration = str(duration_label or "").strip()
+    if kind_value == SANCTION_SUSPEND:
+        base = f"Пользователь {target_username} отстранен от игр"
+        if duration:
+            base += f" на {duration}"
+        return f"{base}{details}"
+
+    if kind_value == SANCTION_TIMEOUT:
+        base = f"Пользователь {target_username} получил таймаут"
+        if duration:
+            base += f" на {duration}"
+        return f"{base}{details}"
+
+    if kind_value == SANCTION_BAN:
+        return f"Пользователь {target_username} был забанен{details}"
+
+    base = f"Пользователь {target_username} получил {_sanction_kind_label(kind)}"
+    if duration:
+        base += f" на {duration}"
+    return f"{base}{details}"
 
 
-def build_global_chat_sanction_removed_text(*, target_username: str, kind: str, reason: str, source: str) -> str:
-    label = _sanction_kind_label(kind)
-    verb = _sanction_removed_verb(kind)
-    suffix = _format_sanction_reference(reason)
+def build_global_chat_sanction_removed_text(*, target_username: str, kind: str, reason: str, source: str, remaining_duration_label: str | None = None) -> str:
     source_value = str(source or "").strip().lower()
     kind_value = str(kind or "").strip().lower()
     if source_value == "expired":
-        tail = " автоматически по истечении срока."
-    elif source_value == "game":
-        tail = " автоматически после проведения игры."
-    else:
-        tail = " досрочно администратором." if kind_value in {SANCTION_TIMEOUT, SANCTION_SUSPEND} else " администратором."
-    return f"Санкция: у пользователя {target_username} {label} {verb}{suffix}{tail}"
+        if kind_value == SANCTION_TIMEOUT:
+            return f"У пользователя {target_username} истек срок таймаута"
+
+        if kind_value == SANCTION_SUSPEND:
+            return f"У пользователя {target_username} истек срок отстранения от игр"
+
+        return f"У пользователя {target_username} истек срок {_sanction_kind_label(kind)}"
+
+    if source_value == "game":
+        if kind_value == SANCTION_SUSPEND:
+            return f"У пользователя {target_username} истек срок отстранения от игр (после проведенной игры)"
+
+        return f"У пользователя {target_username} истек срок {_sanction_kind_label(kind)} (после проведенной игры)"
+
+    remaining = str(remaining_duration_label or "").strip()
+    remaining_suffix = f" (раньше срока на {remaining})" if remaining else ""
+    if kind_value == SANCTION_TIMEOUT:
+        return f"У пользователя {target_username} досрочно снят таймаут{remaining_suffix}"
+
+    if kind_value == SANCTION_SUSPEND:
+        return f"У пользователя {target_username} досрочно снято отстранение от игр{remaining_suffix}"
+
+    if kind_value == SANCTION_BAN:
+        return f"Пользователь {target_username} разбанен"
+
+    return f"У пользователя {target_username} снята {_sanction_kind_label(kind)}"
 
 
 def _message_public_dict(message: GlobalChatMessage) -> dict[str, Any]:
@@ -726,7 +755,7 @@ async def emit_global_chat_sanction_issued_notice(session: AsyncSession, *, acto
     return await publish_global_chat_notice(session, author_user_id=author_user_id, text=text)
 
 
-async def emit_global_chat_sanction_removed_notice(session: AsyncSession, *, actor_user_id: int | None, target_user_id: int, target_username: str | None, kind: str, reason: str, source: str) -> dict[str, Any] | None:
+async def emit_global_chat_sanction_removed_notice(session: AsyncSession, *, actor_user_id: int | None, target_user_id: int, target_username: str | None, kind: str, reason: str, source: str, remaining_duration_label: str | None = None) -> dict[str, Any] | None:
     author_user_id = await _resolve_global_chat_notice_author_user_id(session, preferred_user_id=actor_user_id)
     if author_user_id is None:
         return None
@@ -741,6 +770,7 @@ async def emit_global_chat_sanction_removed_notice(session: AsyncSession, *, act
         kind=kind,
         reason=reason,
         source=source,
+        remaining_duration_label=remaining_duration_label,
     )
 
     return await publish_global_chat_notice(session, author_user_id=author_user_id, text=text)

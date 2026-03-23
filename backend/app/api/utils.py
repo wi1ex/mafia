@@ -115,6 +115,7 @@ __all__ = [
     "force_leave_user_from_rooms",
     "check_sanctions_expired",
     "format_duration_parts",
+    "format_duration_seconds_compact",
     "normalize_username",
     "normalize_password",
     "find_user_by_username",
@@ -779,6 +780,11 @@ def build_admin_sanction_out(row: UserSanction) -> AdminSanctionOut:
 async def revoke_active_suspend(session: AsyncSession, sanction: UserSanction, *, revoked_by_id: int | None, revoked_by_name: str | None, note_text: str, note_title: str = "Ограничение снято", chat_notice_source: str = "admin",) -> Notif:
     now = datetime.now(timezone.utc)
     uid = cast(int, sanction.user_id)
+    remaining_duration_label = None
+    if sanction.expires_at is not None:
+        remaining_seconds = int((sanction.expires_at - now).total_seconds())
+        if remaining_seconds > 0:
+            remaining_duration_label = format_duration_seconds_compact(remaining_seconds)
 
     sanction.revoked_at = now
     sanction.revoked_by_id = int(revoked_by_id) if revoked_by_id is not None else None
@@ -807,6 +813,7 @@ async def revoke_active_suspend(session: AsyncSession, sanction: UserSanction, *
             kind=str(sanction.kind or ""),
             reason=str(sanction.reason or ""),
             source=chat_notice_source,
+            remaining_duration_label=remaining_duration_label,
         )
 
     return note
@@ -850,6 +857,20 @@ def format_duration_parts(months: int, days: int, hours: int, minutes: int) -> s
         parts.append(f"{minutes} мин")
 
     return " ".join(parts)
+
+
+def format_duration_seconds_compact(total_seconds: int) -> str:
+    seconds_value = max(0, int(total_seconds or 0))
+    if seconds_value <= 0:
+        return "0 мин"
+
+    total_minutes = (seconds_value + 59) // 60
+    minutes_in_month = 30 * 24 * 60
+    minutes_in_day = 24 * 60
+    months, remainder = divmod(total_minutes, minutes_in_month)
+    days, remainder = divmod(remainder, minutes_in_day)
+    hours, minutes = divmod(remainder, 60)
+    return format_duration_parts(months, days, hours, minutes)
 
 
 def normalize_username(raw: str) -> str:

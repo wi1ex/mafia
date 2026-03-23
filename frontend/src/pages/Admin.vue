@@ -215,12 +215,12 @@
                 <span class="value">{{ stats.last_day.rooms }}</span>
               </div>
               <div class="stat-card">
-                <span class="label">Стримы</span>
-                <span class="value">{{ formatMinutes(stats.last_day.stream_minutes) }}</span>
-              </div>
-              <div class="stat-card">
                 <span class="label">Игры</span>
                 <span class="value">{{ stats.last_day.games }}</span>
+              </div>
+              <div class="stat-card">
+                <span class="label">Стримы</span>
+                <span class="value">{{ formatMinutes(stats.last_day.stream_minutes) }}</span>
               </div>
             </div>
             <div class="stats-subtitle">За календарный месяц</div>
@@ -241,12 +241,12 @@
                   <span class="value">{{ stats.last_month.rooms }}</span>
                 </div>
                 <div class="stat-card">
-                  <span class="label">Стримы</span>
-                  <span class="value">{{ formatMinutes(stats.last_month.stream_minutes) }}</span>
-                </div>
-                <div class="stat-card">
                   <span class="label">Игры</span>
                   <span class="value">{{ stats.last_month.games }}</span>
+                </div>
+                <div class="stat-card">
+                  <span class="label">Стримы</span>
+                  <span class="value">{{ formatMinutes(stats.last_month.stream_minutes) }}</span>
                 </div>
               </div>
               <div class="stats-daily-grid">

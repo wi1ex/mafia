@@ -125,6 +125,7 @@ from ..utils import (
     build_admin_sanction_out,
     revoke_active_suspend,
     format_duration_parts,
+    format_duration_seconds_compact,
     emit_sanctions_update,
     refresh_rooms_after,
     set_user_deleted,
@@ -1614,6 +1615,11 @@ async def revoke_user_timeout(user_id: int, ident: Identity = Depends(get_identi
         raise HTTPException(status_code=404, detail="sanction_not_found")
 
     now = datetime.now(timezone.utc)
+    remaining_duration_label = None
+    if active.expires_at is not None:
+        remaining_seconds = int((active.expires_at - now).total_seconds())
+        if remaining_seconds > 0:
+            remaining_duration_label = format_duration_seconds_compact(remaining_seconds)
     active.revoked_at = now
     active.revoked_by_id = int(ident["id"])
     active.revoked_by_name = ident["username"]
@@ -1652,6 +1658,7 @@ async def revoke_user_timeout(user_id: int, ident: Identity = Depends(get_identi
             kind=SANCTION_TIMEOUT,
             reason=active.reason or "",
             source="admin",
+            remaining_duration_label=remaining_duration_label,
         )
 
     details = f"Снятие таймаута user_id={uid}"
