@@ -1412,39 +1412,50 @@ async def get_profiles_snapshot(r, rid: int, *, extra_ids: Iterable[int | str] |
         rows = await p.execute()
 
     out: dict[str, dict[str, str | None]] = {}
-    need_db: set[int] = set()
     for uid, (un, av) in zip(ids, rows):
         uid_s = str(uid)
         out[uid_s] = {"username": str(un) if un else None, "avatar_name": str(av) if av else None}
-        if av is None or un is None:
-            try:
-                need_db.add(int(uid_s))
-            except Exception:
-                continue
 
-    if need_db:
+    profile_ids: set[int] = set()
+    for uid in ids:
+        try:
+            uid_i = int(uid)
+        except Exception:
+            continue
+        if uid_i > 0:
+            profile_ids.add(uid_i)
+
+    if profile_ids:
         async with SessionLocal() as s:
-            db_profiles = await get_user_profiles_cached(s, need_db)
+            cached_profiles = await get_user_profiles_cached(s, profile_ids)
 
         async with r.pipeline() as p:
-            for uid_i, db_profile in db_profiles.items():
+            for uid_i in profile_ids:
                 key = str(uid_i)
                 cur = out.get(key) or {"username": None, "avatar_name": None}
-                un_db = db_profile.get("username")
-                av_db = db_profile.get("avatar_name")
-                if cur["username"] is None and un_db is not None:
-                    cur["username"] = un_db
-                if cur["avatar_name"] is None and av_db is not None:
-                    cur["avatar_name"] = av_db
+                profile = cached_profiles.get(uid_i)
+                if not profile:
+                    out[key] = cur
+                    continue
+
+                username_cached = profile.get("username")
+                avatar_cached = profile.get("avatar_name")
+                if username_cached is not None:
+                    cur["username"] = str(username_cached)
+                cur["avatar_name"] = str(avatar_cached) if avatar_cached is not None else None
                 out[key] = cur
 
                 mp: dict[str, str] = {}
-                if cur["username"] is not None:
-                    mp["username"] = str(cur["username"])
-                if cur["avatar_name"] is not None:
-                    mp["avatar_name"] = str(cur["avatar_name"])
+                if username_cached is not None:
+                    mp["username"] = str(username_cached)
+                if avatar_cached is not None:
+                    mp["avatar_name"] = str(avatar_cached)
                 if mp:
                     await p.hset(f"room:{rid}:user:{uid_i}:info", mapping=mp)
+                else:
+                    await p.hdel(f"room:{rid}:user:{uid_i}:info", "username")
+                if avatar_cached is None:
+                    await p.hdel(f"room:{rid}:user:{uid_i}:info", "avatar_name")
             await p.execute()
 
     return out

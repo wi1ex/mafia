@@ -519,7 +519,7 @@ async def rooms_list(page: int = 1, limit: int = 20, username: str | None = None
         if stats:
             anonymity = "hidden" if str(stats.get("anonymity") or "visible") == "hidden" else "visible"
             creator = int(stats.get("creator") or room.creator)
-            creator_name = str(stats.get("creator_name") or room.creator_name)
+            creator_name = str(stats.get("creator_name") or name_map.get(creator) or room.creator_name)
             creator_avatar_name = cast(str | None, stats.get("creator_avatar_name")) or avatar_map.get(creator)
             title = str(stats.get("title") or room.title)
             user_limit = int(stats.get("user_limit") or room.user_limit)
@@ -536,7 +536,7 @@ async def rooms_list(page: int = 1, limit: int = 20, username: str | None = None
         else:
             anonymity = "hidden" if str(room.anonymity or "visible") == "hidden" else "visible"
             creator = int(room.creator)
-            creator_name = room.creator_name
+            creator_name = cast(str, name_map.get(int(room.creator)) or room.creator_name)
             creator_avatar_name = avatar_map.get(int(room.creator))
             title = room.title
             user_limit = room.user_limit
