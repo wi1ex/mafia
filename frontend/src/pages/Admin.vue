@@ -185,10 +185,6 @@
                 <span class="value">{{ formatMinutes(stats.total_stream_minutes) }}</span>
               </div>
               <div class="stat-card">
-                <span class="label">Активные комнаты</span>
-                <span class="value">{{ stats.active_rooms }}</span>
-              </div>
-              <div class="stat-card">
                 <span class="label">Пользователи в комнатах</span>
                 <span class="value">{{ stats.active_room_users }}</span>
               </div>
@@ -907,7 +903,6 @@ type SiteStats = {
   total_rooms: number
   total_games: number
   total_stream_minutes: number
-  active_rooms: number
   active_room_users: number
   online_users: number
   online_users_list: OnlineUser[]
@@ -1116,7 +1111,6 @@ const stats = reactive<SiteStats>({
   total_rooms: 0,
   total_games: 0,
   total_stream_minutes: 0,
-  active_rooms: 0,
   active_room_users: 0,
   online_users: 0,
   online_users_list: [],
@@ -1682,7 +1676,6 @@ async function loadStats(): Promise<void> {
       total_rooms: data?.total_rooms ?? 0,
       total_games: data?.total_games ?? 0,
       total_stream_minutes: data?.total_stream_minutes ?? 0,
-      active_rooms: data?.active_rooms ?? 0,
       active_room_users: data?.active_room_users ?? 0,
       online_users: data?.online_users ?? 0,
       online_users_list: Array.isArray(data?.online_users_list) ? data.online_users_list : [],

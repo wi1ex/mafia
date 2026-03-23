@@ -2213,25 +2213,30 @@ async def prune_online_users(r, cutoff_ts: int) -> None:
     await r.zremrangebyscore("online:users:seen", "-inf", int(cutoff_ts) - 1)
 
 
-async def fetch_active_rooms_stats(r) -> tuple[int, int]:
+async def fetch_active_rooms_stats(r) -> int:
     rids = await r.zrange("rooms:index", 0, -1)
-    active_rooms = 0
     active_room_users = 0
     if rids:
         async with r.pipeline() as p:
             for rid in rids:
                 await p.scard(f"room:{int(rid)}:members")
+                await p.scard(f"room:{int(rid)}:spectators")
             counts = await p.execute()
-        for cnt in counts:
+        for idx in range(0, len(counts), 2):
             try:
-                val = int(cnt or 0)
+                members_count = int(counts[idx] or 0)
             except Exception:
-                val = 0
-            if val > 0:
-                active_rooms += 1
-                active_room_users += val
+                members_count = 0
+            try:
+                spectators_count = int(counts[idx + 1] or 0)
+            except Exception:
+                spectators_count = 0
 
-    return active_rooms, active_room_users
+            total_users = members_count + spectators_count
+            if total_users > 0:
+                active_room_users += total_users
+
+    return active_room_users
 
 
 async def fetch_online_user_ids(r) -> list[int]:

@@ -139,7 +139,6 @@ class SiteStatsOut(BaseModel):
     total_rooms: int
     total_games: int
     total_stream_minutes: int
-    active_rooms: int
     active_room_users: int
     online_users: int
     online_users_list: List[OnlineUserOut]

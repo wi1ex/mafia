@@ -6,10 +6,12 @@ from fastapi import HTTPException
 from ..sio import sio
 from ..utils import payload_dict, permissions_status, positive_int, public_reactions, validate_auth
 from ...core.db import SessionLocal
+from ...core.logging import log_action
 from ...security.decorators import rate_limited_sio
 from ...services.global_chat import (
     GLOBAL_CHAT_REACTIONS_ALLOWLIST,
     GLOBAL_CHAT_ROOM,
+    build_deleted_global_chat_message_preview,
     build_global_chat_message_payload,
     create_global_chat_message,
     delete_global_chat_message,
@@ -19,6 +21,7 @@ from ...services.global_chat import (
     global_chat_open_user_room,
     get_global_chat_message,
     permissions_payload,
+    purge_global_chat_message,
     resolve_global_chat_permissions,
     toggle_global_chat_reaction,
     validate_global_chat_send_input,
@@ -302,6 +305,7 @@ async def chat_delete(sid, data):
         sess = await sio.get_session(sid, namespace="/chat")
         uid = int(sess.get("uid") or 0)
         role = str(sess.get("role") or "").strip().lower()
+        actor_username = str(sess.get("username") or f"user{uid}")
         is_admin = role == "admin"
         payload = payload_dict(data)
         message_id = positive_int(payload.get("message_id"))
@@ -326,7 +330,42 @@ async def chat_delete(sid, data):
             if message.deleted_at is not None:
                 return {"ok": False, "status": 409, "error": "already_deleted"}
 
+            message_author_id = int(message.user_id)
+            message_author_username = ""
+            message_payload = await build_global_chat_message_payload(db, message_id=message_id, viewer_user_id=uid)
+            if message_payload is not None:
+                author = message_payload.get("author") or {}
+                message_author_username = str(author.get("username") or "").strip()
+            is_self_delete = message_author_id == uid
+            had_text = int(bool(str(message.text or "").strip()))
+            has_image = int(bool(message.image_object_key))
+            reply_to_message_id = positive_int(message.reply_to_message_id)
+
             await delete_global_chat_message(db, message=message, actor_user_id=uid)
+
+            try:
+                details = f"Удаление сообщения чата message_id={message_id} author_user_id={message_author_id}"
+                if message_author_username:
+                    details += f" author_username={message_author_username}"
+                details += f" had_text={had_text} has_image={has_image}"
+                if reply_to_message_id > 0:
+                    details += f" reply_to_message_id={reply_to_message_id}"
+                if not is_self_delete:
+                    details += f" actor_user_id={uid}"
+                    if actor_username:
+                        details += f" actor_username={actor_username}"
+                    if role:
+                        details += f" actor_role={role}"
+                await log_action(
+                    db,
+                    user_id=uid,
+                    username=actor_username,
+                    action="chat_message_deleted_self" if is_self_delete else "chat_message_deleted_admin",
+                    details=details,
+                )
+            except Exception:
+                log.exception("chat.delete.log_failed", sid=sid, uid=uid, message_id=message_id)
+
             ack_message = await build_global_chat_message_payload(db, message_id=message_id, viewer_user_id=uid)
             public_message = await build_global_chat_message_payload(db, message_id=message_id, viewer_user_id=None)
 
@@ -337,6 +376,106 @@ async def chat_delete(sid, data):
 
     except Exception:
         log.exception("chat.delete.error", sid=sid)
+        return {"ok": False, "status": 500, "error": "internal"}
+
+
+@rate_limited_sio(lambda *, uid=None, **__: f"rl:sio:chat_deleted_preview:{uid or 'nouid'}", limit=10, window_s=10, session_ns="/chat")
+@sio.event(namespace="/chat")
+async def chat_deleted_message_preview(sid, data):
+    try:
+        sess = await sio.get_session(sid, namespace="/chat")
+        role = str(sess.get("role") or "").strip().lower()
+        if role != "admin":
+            return {"ok": False, "status": 403, "error": "forbidden"}
+
+        payload = payload_dict(data)
+        message_id = positive_int(payload.get("message_id"))
+        if message_id <= 0:
+            return {"ok": False, "status": 422, "error": "bad_message_id"}
+
+        async with SessionLocal() as db:
+            message = await get_global_chat_message(db, message_id)
+            if message is None:
+                return {"ok": False, "status": 404, "error": "message_not_found"}
+
+            if message.deleted_at is None:
+                return {"ok": False, "status": 409, "error": "not_deleted"}
+
+            preview = await build_deleted_global_chat_message_preview(db, message=message)
+
+        return {"ok": True, "status": 200, "preview": preview}
+
+    except Exception:
+        log.exception("chat.deleted_preview.error", sid=sid)
+        return {"ok": False, "status": 500, "error": "internal"}
+
+
+@rate_limited_sio(lambda *, uid=None, **__: f"rl:sio:chat_purge:{uid or 'nouid'}", limit=5, window_s=10, session_ns="/chat")
+@sio.event(namespace="/chat")
+async def chat_message_purge(sid, data):
+    try:
+        sess = await sio.get_session(sid, namespace="/chat")
+        uid = int(sess.get("uid") or 0)
+        role = str(sess.get("role") or "").strip().lower()
+        actor_username = str(sess.get("username") or f"user{uid}")
+        if role != "admin":
+            return {"ok": False, "status": 403, "error": "forbidden"}
+
+        payload = payload_dict(data)
+        message_id = positive_int(payload.get("message_id"))
+        if message_id <= 0:
+            return {"ok": False, "status": 422, "error": "bad_message_id"}
+
+        async with SessionLocal() as db:
+            message = await get_global_chat_message(db, message_id)
+            if message is None:
+                return {"ok": False, "status": 404, "error": "message_not_found"}
+
+            if message.deleted_at is None:
+                return {"ok": False, "status": 409, "error": "not_deleted"}
+
+            message_author_id = int(message.user_id)
+            message_author_username = ""
+            message_payload = await build_global_chat_message_payload(db, message_id=message_id, viewer_user_id=uid)
+            if message_payload is not None:
+                author = message_payload.get("author") or {}
+                message_author_username = str(author.get("username") or "").strip()
+
+            had_text = int(bool(str(message.text or "").strip()))
+            has_image = int(bool(message.image_object_key))
+            if not had_text and not has_image:
+                return {"ok": False, "status": 409, "error": "already_purged"}
+
+            await purge_global_chat_message(db, message=message)
+
+            try:
+                details = f"Окончательное удаление сообщения чата message_id={message_id} author_user_id={message_author_id}"
+                if message_author_username:
+                    details += f" author_username={message_author_username}"
+                details += f" actor_user_id={uid}"
+                if actor_username:
+                    details += f" actor_username={actor_username}"
+                details += f" actor_role={role} had_text={had_text} has_image={has_image}"
+                await log_action(
+                    db,
+                    user_id=uid,
+                    username=actor_username,
+                    action="chat_message_purged_admin",
+                    details=details,
+                )
+            except Exception:
+                log.exception("chat.purge.log_failed", sid=sid, uid=uid, message_id=message_id)
+
+            ack_message = await build_global_chat_message_payload(db, message_id=message_id, viewer_user_id=uid)
+            public_message = await build_global_chat_message_payload(db, message_id=message_id, viewer_user_id=None)
+
+        if public_message is not None:
+            await sio.emit("chat_message_deleted", public_message, room=GLOBAL_CHAT_ROOM, namespace="/chat")
+
+        return {"ok": True, "status": 200, "message": ack_message}
+
+    except Exception:
+        log.exception("chat.purge.error", sid=sid)
         return {"ok": False, "status": 500, "error": "internal"}
 
 

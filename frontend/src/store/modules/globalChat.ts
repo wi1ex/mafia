@@ -49,6 +49,7 @@ export interface GlobalChatMessage {
   created_at: string
   deleted: boolean
   deleted_at: string | null
+  deleted_content_available: boolean
   text: string
   author: GlobalChatAuthor
   is_own: boolean
@@ -56,6 +57,15 @@ export interface GlobalChatMessage {
   reactions: GlobalChatReaction[]
   reply: GlobalChatReplyPreview | null
   image_object_key: string | null
+}
+
+export interface GlobalChatDeletedMessagePreview {
+  message_id: number
+  deleted_at: string | null
+  content_available: boolean
+  text: string
+  image_object_key: string | null
+  author: GlobalChatAuthor
 }
 
 interface ChatAck {
@@ -69,6 +79,7 @@ interface ChatAck {
   has_more?: boolean
   cursor_before_id?: unknown
   message?: unknown
+  preview?: unknown
   reactions?: unknown[]
 }
 
@@ -162,6 +173,7 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
 
   const reactionBusy = reactive<Record<number, boolean>>({})
   const deleteBusy = reactive<Record<number, boolean>>({})
+  const purgeBusy = reactive<Record<number, boolean>>({})
 
   let socket: Socket | null = null
   let draftImageFile: File | null = null
@@ -254,6 +266,7 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
     lastError.value = ''
     Object.keys(reactionBusy).forEach((key) => { delete reactionBusy[Number(key)] })
     Object.keys(deleteBusy).forEach((key) => { delete deleteBusy[Number(key)] })
+    Object.keys(purgeBusy).forEach((key) => { delete purgeBusy[Number(key)] })
     clearDraft()
     markMutation('none')
   }
@@ -317,6 +330,11 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
     const authorId = asPositiveInt(authorRaw.id) || previous?.author.id || 0
     const authorUsername = asString(authorRaw.username).trim() || previous?.author.username || `user${authorId || id}`
     const deleted = Boolean(raw.deleted)
+    const deletedContentAvailable = deleted
+      ? (typeof raw.deleted_content_available === 'boolean'
+          ? Boolean(raw.deleted_content_available)
+          : (previous?.deleted_content_available ?? true))
+      : false
     const ownByAuthor = viewerUserId > 0 && authorId === viewerUserId
     const viewerIsAdmin = currentViewerIsAdmin()
 
@@ -325,6 +343,7 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
       created_at: asString(raw.created_at) || previous?.created_at || new Date().toISOString(),
       deleted,
       deleted_at: asString(raw.deleted_at) || null,
+      deleted_content_available: deletedContentAvailable,
       text: deleted ? '' : asString(raw.text),
       author: {
         id: authorId,
@@ -336,6 +355,26 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
       reactions: deleted ? [] : normalizeReactionList(raw.reactions, previous?.reactions || []),
       reply: normalizeReply(raw.reply),
       image_object_key: deleted ? null : (asString(raw.image_object_key) || null),
+    }
+  }
+
+  function normalizeDeletedPreview(raw: unknown): GlobalChatDeletedMessagePreview | null {
+    if (!isRecord(raw)) return null
+    const messageId = asPositiveInt(raw.message_id)
+    if (messageId <= 0) return null
+    const authorRaw = isRecord(raw.author) ? raw.author : {}
+    const authorId = asPositiveInt(authorRaw.id)
+    return {
+      message_id: messageId,
+      deleted_at: asString(raw.deleted_at) || null,
+      content_available: Boolean(raw.content_available),
+      text: asString(raw.text),
+      image_object_key: asString(raw.image_object_key) || null,
+      author: {
+        id: authorId,
+        username: asString(authorRaw.username).trim() || `user${authorId || messageId}`,
+        avatar_name: asString(authorRaw.avatar_name) || null,
+      },
     }
   }
 
@@ -558,6 +597,7 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
       }
       Object.keys(reactionBusy).forEach((key) => { delete reactionBusy[Number(key)] })
       Object.keys(deleteBusy).forEach((key) => { delete deleteBusy[Number(key)] })
+      Object.keys(purgeBusy).forEach((key) => { delete purgeBusy[Number(key)] })
       markMutation('reset')
     })
 
@@ -960,6 +1000,71 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
     }
   }
 
+  async function previewDeletedMessage(messageId: number): Promise<GlobalChatDeletedMessagePreview | null> {
+    const normalizedMessageId = asPositiveInt(messageId)
+    if (normalizedMessageId <= 0) return null
+
+    try {
+      const response = await emitAck<ChatAck>('chat_deleted_message_preview', {
+        message_id: normalizedMessageId,
+      })
+      if (!response?.ok) {
+        const error = asString(response.error)
+        const message = error === 'message_not_found'
+          ? 'Сообщение не найдено.'
+          : error === 'not_deleted'
+            ? 'Сообщение еще не удалено.'
+            : 'Не удалось открыть удаленное сообщение.'
+        void alertDialog(message)
+        return null
+      }
+
+      const preview = normalizeDeletedPreview(response.preview)
+      if (!preview) {
+        void alertDialog('Не удалось открыть удаленное сообщение.')
+        return null
+      }
+      return preview
+    } catch {
+      void alertDialog('Не удалось открыть удаленное сообщение.')
+      return null
+    }
+  }
+
+  async function purgeDeletedMessage(messageId: number): Promise<boolean> {
+    const normalizedMessageId = asPositiveInt(messageId)
+    if (normalizedMessageId <= 0 || purgeBusy[normalizedMessageId]) return false
+
+    purgeBusy[normalizedMessageId] = true
+    try {
+      const response = await emitAck<ChatAck>('chat_message_purge', {
+        message_id: normalizedMessageId,
+      })
+      if (!response?.ok) {
+        const error = asString(response.error)
+        const message = error === 'message_not_found'
+          ? 'Сообщение не найдено.'
+          : error === 'not_deleted'
+            ? 'Сообщение еще не удалено.'
+            : error === 'already_purged'
+              ? 'Сообщение уже удалено окончательно.'
+              : 'Не удалось удалить сообщение окончательно.'
+        void alertDialog(message)
+        return false
+      }
+
+      if (response.message) {
+        mergeMessages([response.message])
+      }
+      return true
+    } catch {
+      void alertDialog('Не удалось удалить сообщение окончательно.')
+      return false
+    } finally {
+      delete purgeBusy[normalizedMessageId]
+    }
+  }
+
   async function loadContext(messageId: number): Promise<boolean> {
     const normalizedMessageId = asPositiveInt(messageId)
     if (normalizedMessageId <= 0) return false
@@ -1020,6 +1125,10 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
     return Boolean(deleteBusy[asPositiveInt(messageId)])
   }
 
+  function isPurgeBusy(messageId: number): boolean {
+    return Boolean(purgeBusy[asPositiveInt(messageId)])
+  }
+
   return {
     open,
     initialized,
@@ -1055,6 +1164,8 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
     sendDraft,
     toggleReaction,
     deleteMessage,
+    previewDeletedMessage,
+    purgeDeletedMessage,
     loadContext,
     setReplyTarget,
     clearReplyTarget,
@@ -1063,5 +1174,6 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
     clearDraft,
     isReactionBusy,
     isDeleteBusy,
+    isPurgeBusy,
   }
 })

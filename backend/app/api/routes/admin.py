@@ -238,7 +238,7 @@ async def site_stats(month: str | None = None, session: AsyncSession = Depends(g
     month_stream_seconds = await calc_stream_seconds_in_range(session, month_start, month_end)
 
     r = get_redis()
-    active_rooms, active_room_users = await fetch_active_rooms_stats(r)
+    active_room_users = await fetch_active_rooms_stats(r)
     base_online_ids = set(await fetch_online_user_ids(r))
     room_presence_ids: set[int] = set()
     try:
@@ -295,7 +295,6 @@ async def site_stats(month: str | None = None, session: AsyncSession = Depends(g
         total_rooms=total_rooms,
         total_games=total_games,
         total_stream_minutes=total_stream_seconds // 60,
-        active_rooms=active_rooms,
         active_room_users=active_room_users,
         online_users=online_users,
         online_users_list=online_users_list,

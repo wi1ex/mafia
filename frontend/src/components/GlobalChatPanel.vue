@@ -52,7 +52,17 @@
 
               <div class="message-bubble">
                 <p v-if="message.deleted" class="tombstone">Сообщение удалено</p>
-                <template v-else>
+                <div v-if="showDeletedModerationActions(message)" class="tombstone-actions">
+                  <button class="icon-action-button" type="button" aria-label="Показать удаленное сообщение"
+                          title="Показать удаленное сообщение" :disabled="isDeletedPreviewBusy(message.id)" @click="onPreviewDeletedMessage(message.id)">
+                    <img :src="iconInfo" alt="" />
+                  </button>
+                  <button class="icon-action-button icon-action-button--danger" type="button" aria-label="Удалить сообщение окончательно"
+                          title="Удалить сообщение окончательно" :disabled="chat.isPurgeBusy(message.id)" @click="onPurgeDeletedMessage(message)">
+                    <img :src="iconDelete" alt="" />
+                  </button>
+                </div>
+                <template v-if="!message.deleted">
                   <p v-if="message.text" class="message-text">{{ message.text }}</p>
                   <img v-if="message.image_object_key" class="message-image" v-minio-img="{ key: message.image_object_key, lazy: true }" alt="Вложение" />
                 </template>
@@ -149,23 +159,64 @@
         </div>
       </section>
     </Transition>
+
+    <Transition name="deleted-preview-modal">
+      <div
+        v-if="deletedPreviewOpen && deletedPreview"
+        class="deleted-preview-overlay"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Удаленное сообщение"
+        @pointerdown.self="deletedPreviewArmed = true"
+        @pointerup.self="deletedPreviewArmed && closeDeletedPreview()"
+        @pointerleave.self="deletedPreviewArmed = false"
+        @pointercancel.self="deletedPreviewArmed = false"
+      >
+        <div class="deleted-preview-modal">
+          <header class="deleted-preview-header">
+            <div class="deleted-preview-header-main">
+              <span>Удаленное сообщение</span>
+              <small v-if="deletedPreview.deleted_at">{{ formatMessageTime(deletedPreview.deleted_at) }}</small>
+            </div>
+            <button type="button" aria-label="Закрыть" @click="closeDeletedPreview()">
+              <img :src="iconClose" alt="" />
+            </button>
+          </header>
+
+          <div class="deleted-preview-body">
+            <div class="deleted-preview-author">
+              <img class="deleted-preview-avatar" v-minio-img="{ key: deletedPreview.author.avatar_name ? `avatars/${deletedPreview.author.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="Аватар автора" />
+              <span>{{ deletedPreview.author.username || (`user${deletedPreview.author.id}`) }}</span>
+            </div>
+
+            <template v-if="deletedPreview.content_available">
+              <p v-if="deletedPreview.text" class="deleted-preview-text">{{ deletedPreview.text }}</p>
+              <img v-if="deletedPreview.image_object_key" class="deleted-preview-image" v-minio-img="{ key: deletedPreview.image_object_key, lazy: false }" alt="Удаленное вложение" />
+            </template>
+            <p v-else class="deleted-preview-empty">Содержимое сообщения уже удалено окончательно.</p>
+          </div>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
-import { alertDialog } from '@/services/confirm'
+import { alertDialog, confirmDialog } from '@/services/confirm'
 import { formatChatTimestamp } from '@/services/datetime'
 import { useAuthStore, useGlobalChatStore, useSettingsStore, useUserStore } from '@/store'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
 import iconClose from '@/assets/svg/close.svg'
 import iconChat from '@/assets/svg/chat.svg'
+import iconDelete from '@/assets/svg/delete.svg'
+import iconInfo from '@/assets/svg/info.svg'
 import iconSend from '@/assets/svg/send.svg'
 import iconSending from '@/assets/svg/sending.svg'
 
-import type { GlobalChatMessage, GlobalChatReaction } from '@/store/modules/globalChat'
+import type { GlobalChatDeletedMessagePreview, GlobalChatMessage, GlobalChatReaction } from '@/store/modules/globalChat'
 
 const EmojiPicker = defineAsyncComponent(() => import('@/components/GlobalChatEmojiPicker.vue'))
 const auth = useAuthStore()
@@ -202,7 +253,12 @@ const reactionPickerMessageId = ref<number | null>(null)
 const highlightedMessageId = ref<number | null>(null)
 const stickToBottom = ref(true)
 const listAtTop = ref(false)
+const deletedPreviewOpen = ref(false)
+const deletedPreviewArmed = ref(false)
+const deletedPreview = ref<GlobalChatDeletedMessagePreview | null>(null)
+const deletedPreviewLoadingMessageId = ref<number | null>(null)
 let highlightTimer: number | null = null
+const isAdmin = computed(() => String(user.user?.role || '').trim().toLowerCase() === 'admin')
 
 const showLauncher = computed(() => {
   if (!auth.ready || !settings.ready || !auth.isAuthed) return false
@@ -354,6 +410,59 @@ function onDeleteMessage(messageId: number): void {
   void chat.deleteMessage(messageId)
 }
 
+function showDeletedModerationActions(message: GlobalChatMessage): boolean {
+  return isAdmin.value && message.deleted && message.deleted_content_available
+}
+
+function isDeletedPreviewBusy(messageId: number): boolean {
+  return deletedPreviewLoadingMessageId.value === messageId
+}
+
+function closeDeletedPreview(): void {
+  deletedPreviewArmed.value = false
+  deletedPreviewOpen.value = false
+  deletedPreview.value = null
+}
+
+async function onPreviewDeletedMessage(messageId: number): Promise<void> {
+  if (deletedPreviewLoadingMessageId.value === messageId) return
+  deletedPreviewLoadingMessageId.value = messageId
+  try {
+    const preview = await chat.previewDeletedMessage(messageId)
+    if (!preview) return
+    deletedPreview.value = preview
+    deletedPreviewArmed.value = false
+    deletedPreviewOpen.value = true
+  } finally {
+    if (deletedPreviewLoadingMessageId.value === messageId) {
+      deletedPreviewLoadingMessageId.value = null
+    }
+  }
+}
+
+async function onPurgeDeletedMessage(message: GlobalChatMessage): Promise<void> {
+  if (!showDeletedModerationActions(message) || chat.isPurgeBusy(message.id)) return
+  const confirmed = await confirmDialog({
+    title: 'Окончательное удаление',
+    text: 'Вы уверены что хотите удалить сообщение навсегда?',
+    confirmText: 'Удалить',
+    cancelText: 'Отмена',
+  })
+  if (!confirmed) return
+
+  const purged = await chat.purgeDeletedMessage(message.id)
+  if (!purged) return
+
+  if (deletedPreview.value?.message_id === message.id) {
+    deletedPreview.value = {
+      ...deletedPreview.value,
+      content_available: false,
+      text: '',
+      image_object_key: null,
+    }
+  }
+}
+
 async function onJumpToReply(messageId: number): Promise<void> {
   if (scrollToMessage(messageId, true)) {
     updateScrollState()
@@ -463,6 +572,23 @@ watch(messages, (items) => {
   }
 })
 
+watch(messages, (items) => {
+  if (!deletedPreview.value) return
+  const active = items.find((item) => item.id === deletedPreview.value?.message_id)
+  if (!active) {
+    closeDeletedPreview()
+    return
+  }
+  if (!active.deleted_content_available && deletedPreview.value.content_available) {
+    deletedPreview.value = {
+      ...deletedPreview.value,
+      content_available: false,
+      text: '',
+      image_object_key: null,
+    }
+  }
+})
+
 watch(composerPlaceholder, () => {
   syncComposerPlaceholder()
 })
@@ -490,6 +616,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   clearHighlightTimer()
+  closeDeletedPreview()
 })
 </script>
 
@@ -704,6 +831,38 @@ onBeforeUnmount(() => {
       .tombstone {
         color: $ashy;
         font-style: italic;
+      }
+      .tombstone-actions {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+      }
+      .icon-action-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 30px;
+        height: 30px;
+        padding: 0;
+        border: none;
+        border-radius: 5px;
+        background-color: $dark;
+        cursor: pointer;
+        transition: background-color 0.25s ease-in-out, opacity 0.25s ease-in-out;
+        img {
+          width: 16px;
+          height: 16px;
+        }
+        &:hover:enabled {
+          background-color: 1;
+        }
+        &:disabled {
+          opacity: 0.5;
+          cursor: default;
+        }
+        &--danger {
+          background-color: rgba($red, 0.25);
+        }
       }
       .message-image {
         width: 100%;
@@ -929,17 +1088,130 @@ onBeforeUnmount(() => {
   }
 }
 
+.deleted-preview-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background-color: $graphite;
+  backdrop-filter: blur(5px);
+  z-index: 120;
+  .deleted-preview-modal {
+    display: flex;
+    flex-direction: column;
+    width: min(520px, calc(100vw - 40px));
+    max-height: min(80dvh, 720px);
+    border-radius: 10px;
+    border: 1px solid $ashy;
+    background-color: $graphite;
+    box-shadow: 0 20px 40px rgba($black, 0.25);
+    overflow: hidden;
+  }
+  .deleted-preview-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 15px;
+    background-color: $lead;
+    .deleted-preview-header-main {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      min-width: 0;
+      span {
+        color: $white;
+        font-size: 16px;
+        font-family: Manrope-SemiBold;
+      }
+      small {
+        color: $ashy;
+        font-size: 12px;
+      }
+    }
+    button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 30px;
+      height: 30px;
+      padding: 0;
+      border: none;
+      background: none;
+      cursor: pointer;
+      img {
+        width: 20px;
+        height: 20px;
+      }
+    }
+  }
+  .deleted-preview-body {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 15px;
+    overflow-y: auto;
+  }
+  .deleted-preview-author {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    span {
+      min-width: 0;
+      color: $white;
+      font-size: 14px;
+      font-family: Manrope-Medium;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+  .deleted-preview-avatar {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    object-fit: cover;
+  }
+  .deleted-preview-text,
+  .deleted-preview-empty {
+    margin: 0;
+    color: $fg;
+    font-size: 14px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  .deleted-preview-empty {
+    color: $ashy;
+    font-style: italic;
+  }
+  .deleted-preview-image {
+    width: 100%;
+    max-height: 420px;
+    border-radius: 10px;
+    object-fit: contain;
+    background-color: $graphite;
+  }
+}
+
 .global-chat-launcher-enter-active,
 .global-chat-launcher-leave-active,
 .global-chat-panel-transition-enter-active,
-.global-chat-panel-transition-leave-active {
+.global-chat-panel-transition-leave-active,
+.deleted-preview-modal-enter-active,
+.deleted-preview-modal-leave-active {
   transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
 }
 
 .global-chat-launcher-enter-from,
 .global-chat-launcher-leave-to,
 .global-chat-panel-transition-enter-from,
-.global-chat-panel-transition-leave-to {
+.global-chat-panel-transition-leave-to,
+.deleted-preview-modal-enter-from,
+.deleted-preview-modal-leave-to {
   opacity: 0;
   transform: translateY(-10px) scale(0.9);
 }
@@ -1022,6 +1294,31 @@ onBeforeUnmount(() => {
     }
     .send-button {
       min-height: 40px;
+    }
+  }
+  .deleted-preview-overlay {
+    padding: 15px;
+    .deleted-preview-modal {
+      width: min(100vw - 32px, 520px);
+      max-height: min(85dvh, 720px);
+    }
+    .deleted-preview-header {
+      padding: 10px;
+      .deleted-preview-header-main {
+        span {
+          font-size: 14px;
+        }
+      }
+    }
+    .deleted-preview-body {
+      padding: 10px;
+    }
+    .deleted-preview-text,
+    .deleted-preview-empty {
+      font-size: 12px;
+    }
+    .deleted-preview-image {
+      max-height: 260px;
     }
   }
 }

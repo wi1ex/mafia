@@ -70,14 +70,14 @@ function close() {
   backdrop-filter: blur(5px);
   z-index: 1000;
   .modal {
-    width: 400px;
+    display: flex;
+    flex-direction: column;
+    padding: 10px;
+    gap: 10px;
+    width: 800px;
     max-width: calc(100% - 30px);
     border-radius: 5px;
     background-color: $graphite;
-    padding: 10px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
     .btn {
       display: flex;
       align-items: center;
@@ -148,6 +148,9 @@ function close() {
       display: flex;
       justify-content: flex-end;
       gap: 10px;
+    }
+    :deep(.update-textarea textarea) {
+      min-height: 200px;
     }
   }
 }

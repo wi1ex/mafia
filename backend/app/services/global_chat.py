@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Sequence
 from uuid import UUID
+import structlog
 from sqlalchemy import or_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,8 +16,10 @@ from ..core.db import SessionLocal
 from ..realtime.sio import sio
 from ..security.parameters import get_cached_settings
 from ..api.utils import is_user_in_active_alive_game
-from ..services.minio import CHAT_IMAGE_PREFIX, object_exists_async, validate_chat_image_object_async
+from ..services.minio import CHAT_IMAGE_PREFIX, delete_object_async, object_exists_async, validate_chat_image_object_async
 from ..services.user_cache import get_user_profiles_cached
+
+log = structlog.get_logger()
 
 GLOBAL_CHAT_ROOM = "global_chat:open"
 GLOBAL_CHAT_OPEN_USER_ROOM_PREFIX = "global_chat:user_open"
@@ -59,6 +62,7 @@ def _positive_int(raw: object) -> int:
         value = int(raw)
     except Exception:
         return 0
+
     return value if value > 0 else 0
 
 
@@ -66,6 +70,7 @@ def _normalize_limit(raw: object, *, default: int = GLOBAL_CHAT_HISTORY_LIMIT, m
     value = _positive_int(raw)
     if value <= 0:
         return int(default)
+
     return min(value, max_value)
 
 
@@ -74,6 +79,7 @@ def _sanitize_text(raw: object) -> str:
     text = text.replace("\r\n", "\n").replace("\r", "\n")
     if len(text) > GLOBAL_CHAT_MAX_TEXT_LEN:
         raise ValueError("message_too_long")
+
     return text
 
 
@@ -86,8 +92,10 @@ def _reply_snippet(text: str, *, has_image: bool) -> str:
     source = " ".join(str(text or "").split())
     if not source:
         return "Изображение" if has_image else ""
+
     if len(source) <= 80:
         return source
+
     return source[:77].rstrip() + "..."
 
 
@@ -98,6 +106,7 @@ def _message_public_dict(message: GlobalChatMessage) -> dict[str, Any]:
         "created_at": message.created_at,
         "deleted": deleted,
         "deleted_at": message.deleted_at,
+        "deleted_content_available": deleted and (bool(str(message.text or "").strip()) or bool(message.image_object_key)),
         "text": "" if deleted else str(message.text or ""),
         "user_id": int(message.user_id),
         "reply_to_message_id": _positive_int(message.reply_to_message_id) or None,
@@ -279,12 +288,16 @@ def normalize_global_chat_image_object_key(raw: object) -> str | None:
     key = str(raw or "").strip()
     if not key:
         return None
+
     if not GLOBAL_CHAT_IMAGE_KEY_RE.match(key):
         raise ValueError("bad_image_key")
+
     if not key.startswith(f"{CHAT_IMAGE_PREFIX}/"):
         raise ValueError("forbidden_image_prefix")
+
     if ".." in key or "//" in key or key.endswith("/"):
         raise ValueError("bad_image_key")
+
     return key
 
 
@@ -293,12 +306,14 @@ def is_global_chat_image_owned_by_user(user_id: int, key: str | None) -> bool:
     key_value = str(key or "").strip()
     if uid <= 0 or not key_value:
         return False
+
     return key_value.startswith(f"{CHAT_IMAGE_PREFIX}/{uid}/")
 
 
 def ensure_global_chat_image_owned_by_user(user_id: int, key: str | None) -> None:
     if not key:
         return
+
     if not is_global_chat_image_owned_by_user(user_id, key):
         raise ValueError("forbidden_image_owner")
 
@@ -306,17 +321,13 @@ def ensure_global_chat_image_owned_by_user(user_id: int, key: str | None) -> Non
 async def ensure_global_chat_image_exists(key: str | None) -> None:
     if not key:
         return
+
     exists = await object_exists_async(key)
     if not exists:
         raise ValueError("image_not_found")
 
 
-async def serialize_global_chat_messages(
-    session: AsyncSession,
-    messages: Sequence[GlobalChatMessage],
-    *,
-    viewer_user_id: int | None,
-) -> list[dict[str, Any]]:
+async def serialize_global_chat_messages(session: AsyncSession, messages: Sequence[GlobalChatMessage], *, viewer_user_id: int | None) -> list[dict[str, Any]]:
     if not messages:
         return []
 
@@ -397,6 +408,7 @@ async def serialize_global_chat_messages(
                 "created_at": public["created_at"].isoformat(),
                 "deleted": deleted,
                 "deleted_at": public["deleted_at"].isoformat() if public["deleted_at"] else None,
+                "deleted_content_available": bool(public.get("deleted_content_available")),
                 "text": public["text"],
                 "author": {
                     "id": public["user_id"],
@@ -418,6 +430,7 @@ async def get_global_chat_message(session: AsyncSession, message_id: int) -> Glo
     mid = _positive_int(message_id)
     if mid <= 0:
         return None
+
     return await session.get(GlobalChatMessage, mid)
 
 
@@ -431,13 +444,7 @@ async def get_global_chat_message_by_client_id(session: AsyncSession, *, user_id
     return row.scalar_one_or_none()
 
 
-async def fetch_global_chat_page(
-    session: AsyncSession,
-    *,
-    viewer_user_id: int,
-    before_id: int | None = None,
-    limit: int | None = None,
-) -> tuple[list[dict[str, Any]], bool, int | None]:
+async def fetch_global_chat_page(session: AsyncSession, *, viewer_user_id: int, before_id: int | None = None, limit: int | None = None) -> tuple[list[dict[str, Any]], bool, int | None]:
     page_limit = _normalize_limit(limit)
     before = _positive_int(before_id)
     if before_id is not None and before <= 0:
@@ -457,13 +464,7 @@ async def fetch_global_chat_page(
     return messages, has_more, cursor_before_id
 
 
-async def fetch_global_chat_context(
-    session: AsyncSession,
-    *,
-    viewer_user_id: int,
-    message_id: int,
-    window: int = GLOBAL_CHAT_CONTEXT_WINDOW,
-) -> list[dict[str, Any]]:
+async def fetch_global_chat_context(session: AsyncSession, *, viewer_user_id: int, message_id: int, window: int = GLOBAL_CHAT_CONTEXT_WINDOW) -> list[dict[str, Any]]:
     target = await get_global_chat_message(session, message_id)
     if target is None:
         return []
@@ -495,15 +496,7 @@ async def fetch_global_chat_context(
     return await serialize_global_chat_messages(session, deduped, viewer_user_id=viewer_user_id)
 
 
-async def create_global_chat_message(
-    session: AsyncSession,
-    *,
-    user_id: int,
-    client_message_id: UUID,
-    text: str,
-    reply_to_message_id: int | None,
-    image_object_key: str | None,
-) -> tuple[GlobalChatMessage, bool]:
+async def create_global_chat_message(session: AsyncSession, *, user_id: int, client_message_id: UUID, text: str, reply_to_message_id: int | None, image_object_key: str | None) -> tuple[GlobalChatMessage, bool]:
     stmt = (
         insert(GlobalChatMessage)
         .values(
@@ -526,20 +519,16 @@ async def create_global_chat_message(
     existing = await get_global_chat_message_by_client_id(session, user_id=int(user_id), client_message_id=client_message_id)
     if existing is None:
         raise RuntimeError("global_chat_insert_failed")
+
     return existing, False
 
 
-async def toggle_global_chat_reaction(
-    session: AsyncSession,
-    *,
-    message_id: int,
-    user_id: int,
-    emoji: str,
-) -> bool:
+async def toggle_global_chat_reaction(session: AsyncSession, *, message_id: int, user_id: int, emoji: str) -> bool:
     message_id_int = _positive_int(message_id)
     user_id_int = _positive_int(user_id)
     if message_id_int <= 0 or user_id_int <= 0:
         raise ValueError("bad_message_id")
+
     emoji_value = str(emoji or "")
     if emoji_value not in GLOBAL_CHAT_REACTIONS_ALLOWLIST:
         raise ValueError("emoji_not_allowed")
@@ -574,12 +563,7 @@ async def toggle_global_chat_reaction(
     return True
 
 
-async def delete_global_chat_message(
-    session: AsyncSession,
-    *,
-    message: GlobalChatMessage,
-    actor_user_id: int,
-) -> GlobalChatMessage:
+async def delete_global_chat_message(session: AsyncSession, *, message: GlobalChatMessage, actor_user_id: int) -> GlobalChatMessage:
     if message.deleted_at is None:
         message.deleted_at = datetime.now(timezone.utc)
         message.deleted_by_user_id = int(actor_user_id)
@@ -587,12 +571,49 @@ async def delete_global_chat_message(
     return message
 
 
-async def build_global_chat_message_payload(
-    session: AsyncSession,
-    *,
-    message_id: int,
-    viewer_user_id: int | None,
-) -> dict[str, Any] | None:
+async def build_deleted_global_chat_message_preview(session: AsyncSession, *, message: GlobalChatMessage) -> dict[str, Any]:
+    author_id = int(message.user_id)
+    author_profile = {}
+    if author_id > 0:
+        profiles = await get_user_profiles_cached(session, {author_id})
+        author_profile = profiles.get(author_id) or {}
+
+    content_available = bool(str(message.text or "").strip()) or bool(message.image_object_key)
+    return {
+        "message_id": int(message.id),
+        "deleted_at": message.deleted_at.isoformat() if message.deleted_at else None,
+        "content_available": content_available,
+        "text": str(message.text or "") if content_available else "",
+        "image_object_key": str(message.image_object_key) if content_available and message.image_object_key else None,
+        "author": {
+            "id": author_id,
+            "username": _username_for(author_profile, author_id),
+            "avatar_name": author_profile.get("avatar_name"),
+        },
+    }
+
+
+async def purge_global_chat_message(session: AsyncSession, *, message: GlobalChatMessage) -> tuple[GlobalChatMessage, bool]:
+    image_key = str(message.image_object_key or "").strip() or None
+    had_content = bool(str(message.text or "").strip()) or bool(image_key)
+    if not had_content:
+        return message, False
+
+    message.text = ""
+    message.image_object_key = None
+    await session.commit()
+
+    if image_key:
+        try:
+            if not await is_global_chat_image_referenced(session, image_key):
+                await delete_object_async(image_key)
+        except Exception:
+            log.exception("global_chat.purge_image_cleanup_failed", message_id=int(message.id), key=image_key)
+
+    return message, True
+
+
+async def build_global_chat_message_payload(session: AsyncSession, *, message_id: int, viewer_user_id: int | None) -> dict[str, Any] | None:
     message = await get_global_chat_message(session, message_id)
     if message is None:
         return None
@@ -600,15 +621,11 @@ async def build_global_chat_message_payload(
     return payloads[0] if payloads else None
 
 
-async def build_global_chat_reactions_payload(
-    session: AsyncSession,
-    *,
-    message_id: int,
-    viewer_user_id: int | None,
-) -> dict[str, Any] | None:
+async def build_global_chat_reactions_payload(session: AsyncSession, *, message_id: int, viewer_user_id: int | None) -> dict[str, Any] | None:
     payload = await build_global_chat_message_payload(session, message_id=message_id, viewer_user_id=viewer_user_id)
     if payload is None:
         return None
+
     return {
         "message_id": int(payload["id"]),
         "reactions": payload["reactions"],
@@ -619,6 +636,7 @@ async def is_global_chat_image_referenced(session: AsyncSession, key: str | None
     key_value = str(key or "").strip()
     if not key_value:
         return False
+
     row = await session.execute(
         select(GlobalChatMessage.id)
         .where(GlobalChatMessage.image_object_key == key_value)
@@ -627,19 +645,15 @@ async def is_global_chat_image_referenced(session: AsyncSession, key: str | None
     return row.scalar_one_or_none() is not None
 
 
-async def validate_global_chat_send_input(
-    *,
-    user_id: int,
-    text: object,
-    reply_to_message_id: object,
-    image_object_key: object,
-) -> tuple[str, int | None, str | None]:
+async def validate_global_chat_send_input(*, user_id: int, text: object, reply_to_message_id: object, image_object_key: object) -> tuple[str, int | None, str | None]:
     normalized_text = _sanitize_text(text)
     reply_id = _positive_int(reply_to_message_id) or None
     image_key = normalize_global_chat_image_object_key(image_object_key)
     if not normalized_text.strip() and not image_key:
         raise ValueError("empty_message")
+
     if image_key:
         ensure_global_chat_image_owned_by_user(user_id, image_key)
         image_key = await validate_chat_image_object_async(image_key)
+
     return normalized_text, reply_id, image_key
