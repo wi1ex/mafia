@@ -4291,9 +4291,12 @@ async def decide_vote_blocks_on_death(r, rid: int, raw_state: Mapping[str, Any],
     if vote_results_ready:
         leaders_ready = parse_leaders(raw_state)
         if vote_lift_state == "passed":
-            return False, False, leaders_ready
+            if victim_uid in leaders_ready:
+                return False, False, leaders_ready
 
-        if await has_fixed_unique_target(leaders_ready):
+            if leaders_ready:
+                return False, True, leaders_ready
+
             return False, False, leaders_ready
 
         if len(leaders_ready) > 1:
@@ -4307,33 +4310,36 @@ async def decide_vote_blocks_on_death(r, rid: int, raw_state: Mapping[str, Any],
             if victim_uid in leaders_ready:
                 return True, False, leaders_ready
 
-            return False, True, leaders_ready
+            if await has_fixed_unique_target(leaders_ready):
+                return False, True, leaders_ready
+
+            return False, False, leaders_ready
 
         return True, False, leaders_ready
 
     vote_done = str(raw_state.get("vote_done") or "0") == "1"
     if vote_done:
         leaders_done = await compute_vote_effective_leaders(r, rid, remaining_target_uid=None)
-        if await has_fixed_unique_target(leaders_done):
-            return False, False, leaders_done
-
         if len(leaders_done) == 1:
             if victim_uid in leaders_done:
                 return True, False, leaders_done
 
-            return False, True, leaders_done
+            if await has_fixed_unique_target(leaders_done):
+                return False, True, leaders_done
+
+            return False, False, leaders_done
 
         return True, False, leaders_done
 
     predetermined, leaders_pending = await compute_vote_predetermined_unique_leader(r, rid, raw_state)
     if predetermined:
-        if await has_fixed_unique_target(leaders_pending) and victim_uid not in leaders_pending:
-            return False, False, leaders_pending
-
         if len(leaders_pending) == 1 and victim_uid in leaders_pending:
             return True, False, leaders_pending
 
-        return False, True, leaders_pending
+        if await has_fixed_unique_target(leaders_pending):
+            return False, True, leaders_pending
+
+        return False, False, leaders_pending
 
     return True, False, []
 

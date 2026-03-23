@@ -1079,7 +1079,9 @@ async def game_leave(sid, data):
                 try:
                     mapping: dict[str, str] = {}
                     if phase == "vote":
-                        if len(leaders_after) > 1:
+                        if ctx.gstr("vote_lift_state") == "passed":
+                            mapping["vote_blocked_next"] = "1"
+                        elif len(leaders_after) > 1:
                             mapping["vote_blocked"] = "1"
                         else:
                             mapping["vote_blocked_next"] = "1"
@@ -2442,7 +2444,9 @@ async def game_foul_set(sid, data):
                     try:
                         mapping: dict[str, str] = {}
                         if phase == "vote":
-                            if len(leaders_after) > 1:
+                            if ctx.gstr("vote_lift_state") == "passed":
+                                mapping["vote_blocked_next"] = "1"
+                            elif len(leaders_after) > 1:
                                 mapping["vote_blocked"] = "1"
                             else:
                                 mapping["vote_blocked_next"] = "1"
