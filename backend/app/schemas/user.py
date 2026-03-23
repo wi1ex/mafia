@@ -52,6 +52,7 @@ class UserGameStatsOut(BaseModel):
     vote_leave_day12_percent: float = 0.0
     vote_out_don_day12_count: int = 0
     vote_out_sheriff_day12_count: int = 0
+    foul_removed_count: int = 0
     ppk_removed_count: int = 0
     vote_for_red_on_black_win_count: int = 0
     farewell_success_percent: float = 0.0
@@ -133,6 +134,8 @@ class GameHistoryItemOut(BaseModel):
     result: Literal["red", "black", "draw"]
     has_ppk: bool = False
     player_role: Optional[Literal["citizen", "mafia", "don", "sheriff"]] = None
+    player_points: Optional[int] = None
+    player_mmr: Optional[int] = None
     black_alive_at_finish: int = 0
     started_at: datetime
     finished_at: datetime

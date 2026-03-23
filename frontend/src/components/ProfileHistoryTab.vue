@@ -42,13 +42,24 @@
                 </template>
               </div>
             </div>
-            <img v-if="game.player_role" class="game-role-icon" :src="playerRoleIcon(game.player_role)" :alt="roleLabel(game.player_role)" />
+            <div v-if="game.player_role" class="game-role-badge">
+              <img class="game-role-icon" :src="playerRoleIcon(game.player_role)" :alt="roleLabel(game.player_role)" />
+              <div class="game-role-copy">
+                <span class="game-role-name">{{ roleLabel(game.player_role) }}</span>
+                <span class="game-role-outcome" :class="playerOutcomeClass(game)">{{ playerOutcomeLabel(game) }}</span>
+              </div>
+            </div>
           </div>
 
           <div class="history-main-mid">
             <span class="game-result">{{ resultLabel(game) }}</span>
             <span>Начало: {{ formatStart(game.started_at) }}</span>
             <span>Длительность: {{ formatDuration(game.duration_seconds) }}</span>
+          </div>
+
+          <div class="history-main-stats">
+            <span>Баллы: {{ formatSignedValue(game.player_points) }}</span>
+            <span>MMR: {{ formatSignedValue(game.player_mmr) }}</span>
           </div>
 
           <img class="arrow" :class="{ open: isExpanded(game.id) }" :src="iconArrowDown" alt="" />
@@ -89,6 +100,7 @@ import iconRoleSheriff from '@/assets/images/roleSheriff.png'
 type GameHistoryRole = 'citizen' | 'mafia' | 'don' | 'sheriff'
 type GameHistoryRoleFilter = 'all' | GameHistoryRole
 type GameResult = 'red' | 'black' | 'draw'
+type PlayerGameOutcome = 'win' | 'loss' | 'draw'
 type LeaveReason = 'vote' | 'foul' | 'suicide' | 'night'
 type FarewellVerdict = 'citizen' | 'mafia'
 type NightCheckVerdict = 'citizen' | 'mafia' | 'sheriff'
@@ -139,6 +151,8 @@ interface GameHistoryListItem {
   result: GameResult
   has_ppk?: boolean
   player_role?: GameHistoryRole | null
+  player_points?: number | null
+  player_mmr?: number | null
   black_alive_at_finish: number
   started_at: string
   finished_at: string
@@ -320,6 +334,30 @@ function roleLabel(role: GameHistoryRole): string {
   return 'Дон'
 }
 
+function isBlackTeamRole(role: GameHistoryRole): boolean {
+  return role === 'mafia' || role === 'don'
+}
+
+function playerOutcome(game: GameHistoryListItem): PlayerGameOutcome {
+  if (!game.player_role || game.result === 'draw') return 'draw'
+  const blackWon = game.result === 'black'
+  return blackWon === isBlackTeamRole(game.player_role) ? 'win' : 'loss'
+}
+
+function playerOutcomeLabel(game: GameHistoryListItem): string {
+  const outcome = playerOutcome(game)
+  if (outcome === 'win') return 'Победа'
+  if (outcome === 'loss') return 'Поражение'
+  return 'Ничья'
+}
+
+function playerOutcomeClass(game: GameHistoryListItem): string {
+  const outcome = playerOutcome(game)
+  if (outcome === 'win') return 'game-role-outcome--win'
+  if (outcome === 'loss') return 'game-role-outcome--loss'
+  return 'game-role-outcome--draw'
+}
+
 function playerRoleIcon(role: GameHistoryRole): string {
   return roleIcons[role]
 }
@@ -349,6 +387,12 @@ function formatDuration(secondsRaw: number): string {
     return `${hours}ч ${String(minutes).padStart(2, '0')}м ${String(seconds).padStart(2, '0')}с`
   }
   return `${minutes}м ${String(seconds).padStart(2, '0')}с`
+}
+
+function formatSignedValue(valueRaw: number | null | undefined): string {
+  const value = intOr(valueRaw, 0)
+  if (value > 0) return `+${value}`
+  return String(value)
 }
 
 function setRoleFilter(nextRole: GameHistoryRoleFilter): void {
@@ -487,11 +531,11 @@ onBeforeUnmount(() => {
       &.open {
         background-color: $lead;
       }
-      .history-main {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 15px;
+        .history-main {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 15px;
         gap: 10px;
         width: 100%;
         border: none;
@@ -503,6 +547,8 @@ onBeforeUnmount(() => {
           display: flex;
           align-items: center;
           justify-content: space-between;
+          gap: 15px;
+          flex: 0 1 360px;
           min-width: 350px;
           .history-main-left {
             display: flex;
@@ -538,15 +584,45 @@ onBeforeUnmount(() => {
               }
             }
           }
-          .game-role-icon {
-            width: 45px;
-            height: 45px;
+          .game-role-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 0;
+            .game-role-icon {
+              width: 45px;
+              height: 45px;
+              flex: 0 0 auto;
+            }
+            .game-role-copy {
+              display: flex;
+              flex-direction: column;
+              min-width: 0;
+              .game-role-name {
+                color: $fg;
+                font-size: 14px;
+                font-weight: bold;
+              }
+              .game-role-outcome {
+                font-size: 12px;
+                &.game-role-outcome--win {
+                  color: $green;
+                }
+                &.game-role-outcome--loss {
+                  color: $red;
+                }
+                &.game-role-outcome--draw {
+                  color: $orange;
+                }
+              }
+            }
           }
         }
         .history-main-mid {
           display: flex;
           flex-direction: column;
-          margin-right: 200px;
+          flex: 1 1 240px;
+          min-width: 200px;
           gap: 5px;
           span {
             color: $ashy;
@@ -556,6 +632,17 @@ onBeforeUnmount(() => {
           }
           .game-result {
             color: $fg;
+          }
+        }
+        .history-main-stats {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-end;
+          gap: 5px;
+          min-width: 120px;
+          span {
+            color: $fg;
+            white-space: nowrap;
           }
         }
         .arrow {
@@ -647,7 +734,10 @@ onBeforeUnmount(() => {
             min-width: 250px;
           }
           .history-main-mid {
-            margin-right: 100px;
+            min-width: 160px;
+          }
+          .history-main-stats {
+            min-width: 100px;
           }
         }
       }

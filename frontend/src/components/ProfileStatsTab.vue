@@ -105,8 +105,8 @@
             <strong>{{ formatDonSheriffSplit(game.vote_out_don_day12_count, game.vote_out_sheriff_day12_count) }}</strong>
           </article>
           <article class="metric-card">
-            <span>Удалён с ППК</span>
-            <strong>{{ formatTimes(game.ppk_removed_count) }}</strong>
+            <span>Удалён (из них с ППК)</span>
+            <strong>{{ formatFoulRemovedWithPpk(game.foul_removed_count, game.ppk_removed_count) }}</strong>
           </article>
           <article class="metric-card">
             <span>Нашел шерифа в 1 ночь</span>
@@ -166,6 +166,7 @@ type UserGameStats = {
   vote_leave_day12_percent: number
   vote_out_don_day12_count: number
   vote_out_sheriff_day12_count: number
+  foul_removed_count: number
   ppk_removed_count: number
   vote_for_red_on_black_win_count: number
   farewell_success_percent: number
@@ -223,6 +224,7 @@ const stats = reactive<UserStats>({
     vote_leave_day12_percent: 0,
     vote_out_don_day12_count: 0,
     vote_out_sheriff_day12_count: 0,
+    foul_removed_count: 0,
     ppk_removed_count: 0,
     vote_for_red_on_black_win_count: 0,
     farewell_success_percent: 0,
@@ -275,6 +277,12 @@ function timesWord(raw: unknown): string {
 function formatTimes(raw: unknown): string {
   const value = safeInt(raw)
   return `${formatInt(value)} ${timesWord(value)}`
+}
+
+function formatFoulRemovedWithPpk(foulRaw: unknown, ppkRaw: unknown): string {
+  const foulRemoved = safeInt(foulRaw)
+  const ppkRemoved = safeInt(ppkRaw)
+  return `${formatInt(foulRemoved)} (${formatInt(ppkRemoved)})`
 }
 
 function formatDonSheriffSplit(donRaw: unknown, sheriffRaw: unknown): string {
@@ -466,6 +474,7 @@ function normalizeGame(raw: any): UserGameStats {
     vote_leave_day12_percent: clampPct(raw?.vote_leave_day12_percent),
     vote_out_don_day12_count: safeInt(raw?.vote_out_don_day12_count),
     vote_out_sheriff_day12_count: safeInt(raw?.vote_out_sheriff_day12_count),
+    foul_removed_count: safeInt(raw?.foul_removed_count),
     ppk_removed_count: safeInt(raw?.ppk_removed_count),
     vote_for_red_on_black_win_count: safeInt(raw?.vote_for_red_on_black_win_count),
     farewell_success_percent: clampPct(raw?.farewell_success_percent),

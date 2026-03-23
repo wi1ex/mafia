@@ -17,6 +17,7 @@ GAME_STATS_FIELDS: tuple[str, ...] = (
     "vote_leave_day12",
     "vote_out_don_day12_count",
     "vote_out_sheriff_day12_count",
+    "foul_removed_count",
     "ppk_removed_count",
     "vote_for_red_on_black_win_count",
     "farewell_total",
@@ -132,6 +133,7 @@ def _parse_actions(actions: list[dict[str, Any]], roles: dict[int, str]) -> dict
     don_checks_first_night_found: dict[int, int] = {}
     vote_out_don_day12_count: dict[int, int] = {}
     vote_out_sheriff_day12_count: dict[int, int] = {}
+    foul_removed_count: dict[int, int] = {}
     ppk_removed_count: dict[int, int] = {}
     vote_for_red_on_black_win_count: dict[int, int] = {}
     leave_vote_day12: dict[int, int] = {}
@@ -142,6 +144,7 @@ def _parse_actions(actions: list[dict[str, Any]], roles: dict[int, str]) -> dict
     last_vote_targets: dict[int, int] = {}
     last_vote_day_number = 0
     final_vote_red_voters_on_red_target: set[int] = set()
+    foul_death_seen: set[int] = set()
     ppk_death_seen: set[int] = set()
     don_checked_first_night_seen: set[int] = set()
     don_checked_first_night_found_seen: set[int] = set()
@@ -204,6 +207,9 @@ def _parse_actions(actions: list[dict[str, Any]], roles: dict[int, str]) -> dict
                                     red_voters.add(voter_id)
                 final_vote_red_voters_on_red_target = red_voters
             is_ppk = bool(action.get("ppk")) or _safe_str(action.get("format")).upper() == "PPK"
+            if reason == "foul" and target_id > 0 and target_id not in foul_death_seen:
+                _inc(foul_removed_count, target_id, 1)
+                foul_death_seen.add(target_id)
             if reason == "foul" and is_ppk and target_id > 0 and target_id not in ppk_death_seen:
                 _inc(ppk_removed_count, target_id, 1)
                 ppk_death_seen.add(target_id)
@@ -288,6 +294,7 @@ def _parse_actions(actions: list[dict[str, Any]], roles: dict[int, str]) -> dict
         "don_checks_first_night_found": don_checks_first_night_found,
         "vote_out_don_day12_count": vote_out_don_day12_count,
         "vote_out_sheriff_day12_count": vote_out_sheriff_day12_count,
+        "foul_removed_count": foul_removed_count,
         "ppk_removed_count": ppk_removed_count,
         "vote_for_red_on_black_win_count": vote_for_red_on_black_win_count,
         "leave_vote_day12": leave_vote_day12,
@@ -342,6 +349,7 @@ def _apply_game_to_row(row: dict[str, int], *, uid: int, roles: dict[int, str], 
         row["vote_leave_day12"] += _safe_int(parsed["leave_vote_day12"].get(uid))
         row["vote_out_don_day12_count"] += _safe_int(parsed["vote_out_don_day12_count"].get(uid))
         row["vote_out_sheriff_day12_count"] += _safe_int(parsed["vote_out_sheriff_day12_count"].get(uid))
+        row["foul_removed_count"] += _safe_int(parsed["foul_removed_count"].get(uid))
         row["ppk_removed_count"] += _safe_int(parsed["ppk_removed_count"].get(uid))
         if result == "black":
             row["vote_for_red_on_black_win_count"] += _safe_int(parsed["vote_for_red_on_black_win_count"].get(uid))
