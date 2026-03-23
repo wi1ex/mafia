@@ -229,7 +229,7 @@
           <button v-if="gamePhase !== 'idle' && isHead && !gameFinished" @click="endGameUi" :disabled="endingGame" aria-label="Завершить игру">
             <img :src="iconGameStop" alt="end-game" />
           </button>
-          <button v-if="canShowLeaveGameButton" @click="leaveGameUi" aria-label="Выйти из игры">
+          <button v-if="canShowLeaveGameButton" @click="leaveGameUi" :aria-label="leaveGameButtonLabel">
             <img :src="iconDeadPlayer" alt="leave-game" />
           </button>
         </div>
@@ -721,6 +721,8 @@ const canShowLeaveGameButton = computed(() =>
   amIAlive.value &&
   ACTION_PHASES.includes(gamePhase.value as (typeof ACTION_PHASES)[number])
 )
+const leaveGameActsAsFinishSpeech = computed(() => currentFarewellSpeech.value && isCurrentSpeaker.value)
+const leaveGameButtonLabel = computed(() => leaveGameActsAsFinishSpeech.value ? 'Завершить речь' : 'Выйти из игры')
 const canShowFoulButtons = computed(() =>
   ACTION_PHASES.includes(gamePhase.value as (typeof ACTION_PHASES)[number])
 )

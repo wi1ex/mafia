@@ -2699,6 +2699,11 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   }
 
   async function leaveGame(sendAck: SendAckFn): Promise<void> {
+    const me = localId.value
+    if (me && currentFarewellSpeech.value && activeFarewellSpeakerId.value === me) {
+      await finishSpeech(sendAck)
+      return
+    }
     const ok = await confirmDialog({
       title: 'Покинуть игру',
       text: 'Вы уверены что хотите покинуть игру?',

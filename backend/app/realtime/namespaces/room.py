@@ -988,10 +988,10 @@ async def game_leave(sid, data):
             pre_active = ctx.gbool("day_prelude_active")
             pre_uid = ctx.gint("day_prelude_uid")
             if current_uid == uid:
+                finish_only_farewell = bool(pre_active and pre_uid and pre_uid == uid)
                 try:
-                    if pre_active and pre_uid and pre_uid == uid:
+                    if finish_only_farewell:
                         payload = await finish_day_prelude_speech(r, rid, raw_gstate, uid)
-                        handled_by_predefined_farewell = True
                     else:
                         payload = await finish_day_speech(r, rid, raw_gstate, uid)
                     await sio.emit("game_day_speech",
@@ -1000,6 +1000,11 @@ async def game_leave(sid, data):
                                    namespace="/room")
                 except Exception:
                     log.exception("sio.game_leave.finish_speech_failed", rid=rid, uid=uid)
+                    if finish_only_farewell:
+                        return {"ok": False, "error": "internal", "status": 500}
+
+                if finish_only_farewell:
+                    handled_by_predefined_farewell = True
 
         if phase == "vote":
             vote_speaker_uid = ctx.gint("vote_speech_uid")
@@ -1047,6 +1052,7 @@ async def game_leave(sid, data):
                 return {"ok": True, "status": 200, "room_id": rid}
 
             if vote_speaker_uid == uid:
+                finish_only_farewell = vote_kind == "farewell"
                 try:
                     payload = await finish_vote_speech(r, rid, raw_gstate, uid)
                     await sio.emit("game_day_speech",
@@ -1055,8 +1061,10 @@ async def game_leave(sid, data):
                                    namespace="/room")
                 except Exception:
                     log.exception("sio.game_leave.finish_vote_speech_failed", rid=rid, uid=uid)
+                    if finish_only_farewell:
+                        return {"ok": False, "error": "internal", "status": 500}
 
-                if vote_kind == "farewell":
+                if finish_only_farewell:
                     handled_by_predefined_farewell = True
 
         if handled_by_predefined_farewell:
