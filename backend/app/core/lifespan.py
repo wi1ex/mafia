@@ -24,6 +24,14 @@ async def lifespan(app) -> AsyncIterator[None]:
         async with engine.begin() as conn:
             await conn.execute(text("SELECT 1"))
             await conn.run_sync(Base.metadata.create_all)
+            # AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+            await conn.execute(
+                text(
+                    "ALTER TABLE IF EXISTS settings "
+                    "ADD COLUMN IF NOT EXISTS chat_messages_enabled BOOLEAN NOT NULL DEFAULT true"
+                )
+            )
+            # AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
         async with SessionLocal() as session:
             await ensure_app_settings(session)
     except Exception:

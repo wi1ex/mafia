@@ -58,7 +58,7 @@ from ...schemas.user import (
     UserTopPlayerOut,
 )
 from ...security.passwords import hash_password, verify_password
-from ...services.global_chat import resolve_global_chat_permissions
+from ...services.global_chat import global_chat_send_error, resolve_global_chat_permissions
 from ...services.global_chat import (
     emit_global_chat_permissions_updated,
     ensure_global_chat_image_owned_by_user,
@@ -720,13 +720,7 @@ async def presign_chat_image(payload: ChatImagePresignIn, ident: Identity = Depe
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=permissions.error or "forbidden")
 
     if not permissions.can_send:
-        if permissions.ban_active:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="user_banned")
-
-        if permissions.timeout_active:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="user_timeout")
-
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="forbidden")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=global_chat_send_error(permissions))
 
     ct = (payload.content_type or "").split(";")[0].strip().lower()
     if ct not in ALLOWED_CT:
@@ -754,13 +748,7 @@ async def upload_chat_image(file: UploadFile = File(...), ident: Identity = Depe
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=permissions.error or "forbidden")
 
     if not permissions.can_send:
-        if permissions.ban_active:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="user_banned")
-
-        if permissions.timeout_active:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="user_timeout")
-
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="forbidden")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=global_chat_send_error(permissions))
 
     ct = (file.content_type or "").split(";")[0].strip().lower()
     if ct not in ALLOWED_CT:

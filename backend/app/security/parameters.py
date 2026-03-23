@@ -26,6 +26,7 @@ class AppSettingsSnapshot:
     games_can_start: bool
     streams_can_start: bool
     chat_open_enabled: bool
+    chat_messages_enabled: bool
     verification_restrictions: bool
     admin_banner_text: str
     admin_banner_link: str
@@ -78,6 +79,7 @@ async def ensure_app_settings(session: AsyncSession) -> AppSettings:
             games_can_start=defaults.games_can_start,
             streams_can_start=defaults.streams_can_start,
             chat_open_enabled=defaults.chat_open_enabled,
+            chat_messages_enabled=defaults.chat_messages_enabled,
             verification_restrictions=defaults.verification_restrictions,
             admin_banner_text=normalize_admin_banner_text(defaults.admin_banner_text),
             admin_banner_link=normalize_admin_banner_link(defaults.admin_banner_link),

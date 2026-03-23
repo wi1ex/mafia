@@ -20,6 +20,7 @@ class SiteSettingsOut(BaseModel):
     games_can_start: bool
     streams_can_start: bool
     chat_open_enabled: bool
+    chat_messages_enabled: bool
     verification_restrictions: bool
     admin_banner_text: str
     admin_banner_link: str
@@ -39,6 +40,7 @@ class SiteSettingsUpdateIn(BaseModel):
     games_can_start: Optional[bool] = None
     streams_can_start: Optional[bool] = None
     chat_open_enabled: Optional[bool] = None
+    chat_messages_enabled: Optional[bool] = None
     verification_restrictions: Optional[bool] = None
     admin_banner_text: Optional[str] = Field(default=None, max_length=2048)
     admin_banner_link: Optional[str] = Field(default=None, max_length=2048)
@@ -96,6 +98,7 @@ class PublicSettingsOut(BaseModel):
     games_can_start: bool
     streams_can_start: bool
     chat_open_enabled: bool
+    chat_messages_enabled: bool
     verification_restrictions: bool
     admin_banner_text: str
     admin_banner_link: str

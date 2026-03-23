@@ -15,6 +15,7 @@ from ...services.global_chat import (
     delete_global_chat_message,
     fetch_global_chat_context,
     fetch_global_chat_page,
+    global_chat_send_error,
     global_chat_open_user_room,
     get_global_chat_message,
     permissions_payload,
@@ -197,13 +198,7 @@ async def chat_send(sid, data):
                 return {"ok": False, "status": permissions_status(permissions.error), "error": permissions.error or "forbidden"}
 
             if not permissions.can_send:
-                if permissions.ban_active:
-                    return {"ok": False, "status": 403, "error": "user_banned"}
-
-                if permissions.timeout_active:
-                    return {"ok": False, "status": 403, "error": "user_timeout"}
-
-                return {"ok": False, "status": 403, "error": "forbidden"}
+                return {"ok": False, "status": 403, "error": global_chat_send_error(permissions)}
 
             if reply_to_message_id:
                 reply_message = await get_global_chat_message(db, reply_to_message_id)

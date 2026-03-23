@@ -404,13 +404,14 @@ onBeforeUnmount(() => {
       position: relative;
       flex-direction: column;
       align-items: flex-start;
-      padding: 20px 15px;
+      padding: 50px 15px 15px 15px;
       gap: 30px;
       border-radius: 5px;
       background-color: $fg;
       box-shadow: 0 15px 20px rgba($white, 0.1), 0 5px 10px rgba($white, 0.1);
       h1 {
         position: absolute;
+        top: 15px;
         margin: 0;
         color: $bg;
         font-size: 26px;

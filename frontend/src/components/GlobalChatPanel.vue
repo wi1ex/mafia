@@ -228,6 +228,9 @@ const composerDisabled = computed(() => {
     || sending.value
     || uploadingImage.value
 })
+const composerPlaceholder = computed(() => (
+  permissions.value.can_send ? 'Введите текст...' : 'Чат временно отключен...'
+))
 const showLoadMore = computed(() => hasMore.value && (loadingMore.value || listAtTop.value))
 const sendButtonImg = computed(() => {
   if (uploadingImage.value || sending.value) return iconSending
@@ -253,6 +256,11 @@ function updateScrollState(): void {
 
 function focusComposer(): void {
   textareaEl.value?.focus()
+}
+
+function syncComposerPlaceholder(): void {
+  if (!textareaEl.value) return
+  textareaEl.value.placeholder = composerPlaceholder.value
 }
 
 function formatMessageTime(value: string): string {
@@ -455,16 +463,25 @@ watch(messages, (items) => {
   }
 })
 
+watch(composerPlaceholder, () => {
+  syncComposerPlaceholder()
+})
+
 watch(() => chat.open, (open) => {
   if (!open) {
     composerPickerOpen.value = false
     reactionPickerMessageId.value = null
+    return
   }
+  void nextTick(() => {
+    syncComposerPlaceholder()
+  })
 })
 
 onMounted(() => {
   stickToBottom.value = true
   void nextTick(() => {
+    syncComposerPlaceholder()
     scrollToBottom()
     updateScrollState()
     focusComposer()

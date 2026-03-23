@@ -180,7 +180,7 @@ async def resolve_global_chat_permissions(session: AsyncSession, user_id: int) -
         can_open = False
         error = "not_verified"
 
-    can_send = can_open
+    can_send = can_open and bool(get_cached_settings().chat_messages_enabled)
     can_react = can_open
     can_delete_own = can_open
 
@@ -204,6 +204,22 @@ def permissions_payload(permissions: GlobalChatPermissions) -> dict[str, bool]:
         "can_react": permissions.can_react,
         "can_delete_own": permissions.can_delete_own,
     }
+
+
+def global_chat_send_error(permissions: GlobalChatPermissions) -> str:
+    if permissions.ban_active:
+        return "user_banned"
+
+    if permissions.timeout_active:
+        return "user_timeout"
+
+    if not permissions.can_open:
+        return permissions.error or "forbidden"
+
+    if not permissions.can_send and not bool(get_cached_settings().chat_messages_enabled):
+        return "chat_messages_disabled"
+
+    return "forbidden"
 
 
 def _should_force_close(permissions: GlobalChatPermissions) -> bool:

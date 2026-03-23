@@ -707,6 +707,13 @@ onBeforeUnmount(() => {
         .history-main {
           .history-main-div {
             min-width: 300px;
+            .history-main-left {
+              .game-head {
+                span {
+                  max-width: 110px;
+                }
+              }
+            }
           }
           .history-main-stats {
             min-width: 60px;
