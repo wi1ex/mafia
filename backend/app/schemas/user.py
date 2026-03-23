@@ -150,7 +150,6 @@ class UserGamesHistoryOut(BaseModel):
     per_page: int = 20
     total_red_wins: int = 0
     total_black_wins: int = 0
-    total_draws: int = 0
     items: List[GameHistoryItemOut] = Field(default_factory=list)
 
 

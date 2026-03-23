@@ -282,7 +282,7 @@ function formatTimes(raw: unknown): string {
 function formatFoulRemovedWithPpk(foulRaw: unknown, ppkRaw: unknown): string {
   const foulRemoved = safeInt(foulRaw)
   const ppkRemoved = safeInt(ppkRaw)
-  return `${formatInt(foulRemoved)} (${formatInt(ppkRemoved)})`
+  return `${formatInt(foulRemoved)}(${formatInt(ppkRemoved)})`
 }
 
 function formatDonSheriffSplit(donRaw: unknown, sheriffRaw: unknown): string {

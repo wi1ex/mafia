@@ -12,10 +12,6 @@
             <span class="history-header-stat-label">Победы мафии</span>
             <span class="history-header-stat-value history-header-stat-value--black">{{ totalBlackWins }}</span>
           </div>
-          <div class="history-header-stat">
-            <span class="history-header-stat-label">Ничьи</span>
-            <span class="history-header-stat-value history-header-stat-value--draw">{{ totalDraws }}</span>
-          </div>
         </div>
       </header>
 
@@ -155,7 +151,6 @@ interface GameHistoryResponse {
   per_page: number
   total_red_wins: number
   total_black_wins: number
-  total_draws: number
   items: GameHistoryListItem[]
 }
 
@@ -166,7 +161,6 @@ const pages = ref(1)
 const total = ref(0)
 const totalRedWins = ref(0)
 const totalBlackWins = ref(0)
-const totalDraws = ref(0)
 const items = ref<GameHistoryListItem[]>([])
 const expanded = ref<Set<number>>(new Set())
 const detailsByGameId = ref<Record<number, GameHistorySlot[]>>({})
@@ -230,7 +224,6 @@ function adjustResultTotal(result: GameResult, delta: number): void {
   if (delta === 0) return
   if (result === 'red') totalRedWins.value = Math.max(0, totalRedWins.value + delta)
   else if (result === 'black') totalBlackWins.value = Math.max(0, totalBlackWins.value + delta)
-  else totalDraws.value = Math.max(0, totalDraws.value + delta)
 }
 
 async function fetchGameDetails(gameId: number): Promise<void> {
@@ -347,7 +340,6 @@ async function fetchHistory(): Promise<void> {
     total.value = Math.max(0, intOr(data?.total, 0))
     totalRedWins.value = Math.max(0, intOr(data?.total_red_wins, 0))
     totalBlackWins.value = Math.max(0, intOr(data?.total_black_wins, 0))
-    totalDraws.value = Math.max(0, intOr(data?.total_draws, 0))
     items.value = Array.isArray(data?.items) ? data.items : []
     clearDetailsCache()
     clearExpanded()
@@ -363,7 +355,6 @@ async function fetchHistory(): Promise<void> {
     total.value = 0
     totalRedWins.value = 0
     totalBlackWins.value = 0
-    totalDraws.value = 0
     pages.value = 1
     clearDetailsCache()
     clearExpanded()
@@ -458,9 +449,6 @@ onBeforeUnmount(() => {
           }
           &.history-header-stat-value--black {
             background-color: $graphite;
-          }
-          &.history-header-stat-value--draw {
-            background-color: $grey;
           }
         }
       }

@@ -1639,7 +1639,6 @@ async def fetch_games_history_page(db: AsyncSession, *, page: int, per_page: int
 
     total_red_wins = 0
     total_black_wins = 0
-    total_draws = 0
     result_rows = await db.execute(result_stmt)
     for result_raw, count_raw in result_rows.all():
         cnt = max(0, safe_int(count_raw))
@@ -1648,8 +1647,6 @@ async def fetch_games_history_page(db: AsyncSession, *, page: int, per_page: int
             total_red_wins += cnt
         elif normalized_result == "black":
             total_black_wins += cnt
-        else:
-            total_draws += cnt
 
     rows = await db.execute(rows_stmt.offset(offset).limit(per_page_i))
     raw_games = rows.all()
@@ -1723,7 +1720,6 @@ async def fetch_games_history_page(db: AsyncSession, *, page: int, per_page: int
         per_page=per_page_i,
         total_red_wins=total_red_wins,
         total_black_wins=total_black_wins,
-        total_draws=total_draws,
         items=items,
     )
 

@@ -45,8 +45,7 @@
             <div v-if="game.player_role" class="game-role-badge">
               <img class="game-role-icon" :src="playerRoleIcon(game.player_role)" :alt="roleLabel(game.player_role)" />
               <div class="game-role-copy">
-                <span class="game-role-name">{{ roleLabel(game.player_role) }}</span>
-                <span class="game-role-outcome" :class="playerOutcomeClass(game)">{{ playerOutcomeLabel(game) }}</span>
+                <span class="game-role-outcome">{{ playerOutcomeLabel(game) }}</span>
               </div>
             </div>
           </div>
@@ -171,7 +170,6 @@ interface GameHistoryResponse {
   per_page: number
   total_red_wins: number
   total_black_wins: number
-  total_draws: number
   items: GameHistoryListItem[]
 }
 
@@ -351,13 +349,6 @@ function playerOutcomeLabel(game: GameHistoryListItem): string {
   return 'Ничья'
 }
 
-function playerOutcomeClass(game: GameHistoryListItem): string {
-  const outcome = playerOutcome(game)
-  if (outcome === 'win') return 'game-role-outcome--win'
-  if (outcome === 'loss') return 'game-role-outcome--loss'
-  return 'game-role-outcome--draw'
-}
-
 function playerRoleIcon(role: GameHistoryRole): string {
   return roleIcons[role]
 }
@@ -531,12 +522,11 @@ onBeforeUnmount(() => {
       &.open {
         background-color: $lead;
       }
-        .history-main {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 15px;
-        gap: 10px;
+      .history-main {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 15px;
         width: 100%;
         border: none;
         background: none;
@@ -547,9 +537,7 @@ onBeforeUnmount(() => {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          gap: 15px;
-          flex: 0 1 360px;
-          min-width: 350px;
+          min-width: 400px;
           .history-main-left {
             display: flex;
             flex-direction: column;
@@ -585,35 +573,23 @@ onBeforeUnmount(() => {
             }
           }
           .game-role-badge {
-            display: inline-flex;
+            display: flex;
+            flex-direction: column;
             align-items: center;
-            gap: 10px;
-            min-width: 0;
+            min-width: 100px;
             .game-role-icon {
-              width: 45px;
-              height: 45px;
-              flex: 0 0 auto;
+              width: 35px;
+              height: 35px;
             }
             .game-role-copy {
               display: flex;
               flex-direction: column;
+              gap: 5px;
               min-width: 0;
-              .game-role-name {
+              .game-role-outcome {
                 color: $fg;
                 font-size: 14px;
-                font-weight: bold;
-              }
-              .game-role-outcome {
-                font-size: 12px;
-                &.game-role-outcome--win {
-                  color: $green;
-                }
-                &.game-role-outcome--loss {
-                  color: $red;
-                }
-                &.game-role-outcome--draw {
-                  color: $orange;
-                }
+                font-family: Manrope-Medium;
               }
             }
           }
@@ -621,8 +597,7 @@ onBeforeUnmount(() => {
         .history-main-mid {
           display: flex;
           flex-direction: column;
-          flex: 1 1 240px;
-          min-width: 200px;
+          max-width: 200px;
           gap: 5px;
           span {
             color: $ashy;
@@ -731,13 +706,10 @@ onBeforeUnmount(() => {
       .history-item {
         .history-main {
           .history-main-div {
-            min-width: 250px;
-          }
-          .history-main-mid {
-            min-width: 160px;
+            min-width: 300px;
           }
           .history-main-stats {
-            min-width: 100px;
+            min-width: 60px;
           }
         }
       }
