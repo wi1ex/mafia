@@ -30,6 +30,12 @@ export interface GlobalChatReaction {
   reacted_by_me: boolean
 }
 
+export interface GlobalChatReactionParticipant {
+  emoji: string
+  created_at: string
+  user: GlobalChatAuthor
+}
+
 export interface GlobalChatReplyPreview {
   message_id: number
   author_username: string
@@ -81,6 +87,7 @@ interface ChatAck {
   message?: unknown
   preview?: unknown
   reactions?: unknown[]
+  participants?: unknown[]
 }
 
 interface ChatImagePresignResponse {
@@ -174,6 +181,7 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
   const reactionBusy = reactive<Record<number, boolean>>({})
   const deleteBusy = reactive<Record<number, boolean>>({})
   const purgeBusy = reactive<Record<number, boolean>>({})
+  const reactionParticipantsCache = reactive<Record<number, GlobalChatReactionParticipant[]>>({})
 
   let socket: Socket | null = null
   let draftImageFile: File | null = null
@@ -267,6 +275,7 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
     Object.keys(reactionBusy).forEach((key) => { delete reactionBusy[Number(key)] })
     Object.keys(deleteBusy).forEach((key) => { delete deleteBusy[Number(key)] })
     Object.keys(purgeBusy).forEach((key) => { delete purgeBusy[Number(key)] })
+    Object.keys(reactionParticipantsCache).forEach((key) => { delete reactionParticipantsCache[Number(key)] })
     clearDraft()
     markMutation('none')
   }
@@ -319,6 +328,48 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
       deleted: Boolean(raw.deleted),
       has_image: Boolean(raw.has_image),
     }
+  }
+
+  function normalizeReactionParticipants(raw: unknown): GlobalChatReactionParticipant[] {
+    if (!Array.isArray(raw)) return []
+    const out: GlobalChatReactionParticipant[] = []
+    for (const item of raw) {
+      if (!isRecord(item)) continue
+      const emoji = asString(item.emoji)
+      const createdAt = asString(item.created_at) || new Date().toISOString()
+      const userRaw = isRecord(item.user) ? item.user : {}
+      const userId = asPositiveInt(userRaw.id)
+      if (!emoji || userId <= 0) continue
+      out.push({
+        emoji,
+        created_at: createdAt,
+        user: {
+          id: userId,
+          username: asString(userRaw.username).trim() || `user${userId}`,
+          avatar_name: asString(userRaw.avatar_name) || null,
+        },
+      })
+    }
+    out.sort((left, right) => {
+      const rightTime = Date.parse(right.created_at)
+      const leftTime = Date.parse(left.created_at)
+      if (Number.isFinite(rightTime) && Number.isFinite(leftTime) && rightTime !== leftTime) {
+        return rightTime - leftTime
+      }
+      const order = reactionSortIndex(left.emoji) - reactionSortIndex(right.emoji)
+      if (order !== 0) return order
+      return left.user.username.localeCompare(right.user.username)
+    })
+    return out
+  }
+
+  function clearReactionParticipantsCache(messageId?: number): void {
+    const normalizedMessageId = asPositiveInt(messageId)
+    if (normalizedMessageId > 0) {
+      delete reactionParticipantsCache[normalizedMessageId]
+      return
+    }
+    Object.keys(reactionParticipantsCache).forEach((key) => { delete reactionParticipantsCache[Number(key)] })
   }
 
   function normalizeMessage(raw: unknown, viewerUserId: number, previous?: GlobalChatMessage): GlobalChatMessage | null {
@@ -419,6 +470,9 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
         next.push(normalized)
         insertedIds.push(rawId)
       }
+      if (normalized.deleted) {
+        clearReactionParticipantsCache(rawId)
+      }
     }
 
     next.sort((a, b) => a.id - b.id)
@@ -442,6 +496,7 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
       reactions: normalizeReactionList(rawReactions, target.reactions),
     }
     messages.value = next
+    clearReactionParticipantsCache(messageId)
   }
 
   function applyPermissions(raw: unknown): void {
@@ -598,6 +653,7 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
       Object.keys(reactionBusy).forEach((key) => { delete reactionBusy[Number(key)] })
       Object.keys(deleteBusy).forEach((key) => { delete deleteBusy[Number(key)] })
       Object.keys(purgeBusy).forEach((key) => { delete purgeBusy[Number(key)] })
+      clearReactionParticipantsCache()
       markMutation('reset')
     })
 
@@ -1000,6 +1056,35 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
     }
   }
 
+  async function loadReactionParticipants(messageId: number, options: { force?: boolean } = {}): Promise<GlobalChatReactionParticipant[] | null> {
+    const normalizedMessageId = asPositiveInt(messageId)
+    if (normalizedMessageId <= 0) return null
+    if (!options.force && Object.prototype.hasOwnProperty.call(reactionParticipantsCache, normalizedMessageId)) {
+      return reactionParticipantsCache[normalizedMessageId] || []
+    }
+
+    try {
+      const response = await emitAck<ChatAck>('chat_reaction_participants', {
+        message_id: normalizedMessageId,
+      })
+      if (!response?.ok) {
+        const status = asPositiveInt(response.status)
+        const error = asString(response.error)
+        if (error === 'message_deleted') {
+          clearReactionParticipantsCache(normalizedMessageId)
+        }
+        maybeApplyAccessLoss(status, error)
+        return null
+      }
+
+      const participants = normalizeReactionParticipants(response.participants)
+      reactionParticipantsCache[normalizedMessageId] = participants
+      return participants
+    } catch {
+      return null
+    }
+  }
+
   async function previewDeletedMessage(messageId: number): Promise<GlobalChatDeletedMessagePreview | null> {
     const normalizedMessageId = asPositiveInt(messageId)
     if (normalizedMessageId <= 0) return null
@@ -1151,6 +1236,7 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
     draftImageObjectKey,
     draftHasImage,
     draftImageUploaded,
+    reactionParticipantsCache,
     canSendCurrentDraft,
     lastMutationKind,
     lastMutationToken,
@@ -1164,6 +1250,7 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
     sendDraft,
     toggleReaction,
     deleteMessage,
+    loadReactionParticipants,
     previewDeletedMessage,
     purgeDeletedMessage,
     loadContext,

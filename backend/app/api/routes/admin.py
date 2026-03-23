@@ -32,7 +32,13 @@ from ...security.passwords import hash_password
 from ...security.parameters import ensure_app_settings, sync_cache_from_row, refresh_app_settings, get_cached_settings
 from ...services.user_cache import write_user_profile_cache, get_user_profiles_cached
 from ...services.user_stats import get_user_game_stats_cached
-from ...services.global_chat import emit_global_chat_cleared, emit_global_chat_permissions_refresh, emit_global_chat_permissions_updated
+from ...services.global_chat import (
+    emit_global_chat_cleared,
+    emit_global_chat_permissions_refresh,
+    emit_global_chat_permissions_updated,
+    emit_global_chat_sanction_issued_notice,
+    emit_global_chat_sanction_removed_notice,
+)
 from ...services.minio import delete_chat_images_async
 from ...schemas.common import Ok, Identity
 from ...schemas.user import UserStatsOut, UserTopPlayerOut
@@ -1566,6 +1572,16 @@ async def apply_user_timeout(user_id: int, payload: AdminSanctionTimedIn, ident:
     with suppress(Exception):
         await emit_sanctions_update(session, uid)
     with suppress(Exception):
+        await emit_global_chat_sanction_issued_notice(
+            session,
+            actor_user_id=int(ident["id"]),
+            target_user_id=uid,
+            target_username=user.username,
+            kind=SANCTION_TIMEOUT,
+            reason=reason,
+            duration_label=duration_label,
+        )
+    with suppress(Exception):
         await force_leave_user_from_rooms(uid, reason="sanction_timeout")
 
     details = f"Таймаут user_id={uid}"
@@ -1625,7 +1641,18 @@ async def revoke_user_timeout(user_id: int, ident: Identity = Depends(get_identi
             room=f"user:{uid}",
             namespace="/auth",
         )
+    with suppress(Exception):
         await emit_sanctions_update(session, uid)
+    with suppress(Exception):
+        await emit_global_chat_sanction_removed_notice(
+            session,
+            actor_user_id=int(ident["id"]),
+            target_user_id=uid,
+            target_username=user.username,
+            kind=SANCTION_TIMEOUT,
+            reason=active.reason or "",
+            source="admin",
+        )
 
     details = f"Снятие таймаута user_id={uid}"
     if user.username:
@@ -1696,6 +1723,16 @@ async def apply_user_ban(user_id: int, payload: AdminSanctionBanIn, ident: Ident
     with suppress(Exception):
         await emit_sanctions_update(session, uid)
     with suppress(Exception):
+        await emit_global_chat_sanction_issued_notice(
+            session,
+            actor_user_id=int(ident["id"]),
+            target_user_id=uid,
+            target_username=user.username,
+            kind=SANCTION_BAN,
+            reason=reason,
+            duration_label=None,
+        )
+    with suppress(Exception):
         await force_leave_user_from_rooms(uid, reason="sanction_ban")
 
     details = f"Бан user_id={uid}"
@@ -1755,7 +1792,18 @@ async def revoke_user_ban(user_id: int, ident: Identity = Depends(get_identity),
             room=f"user:{uid}",
             namespace="/auth",
         )
+    with suppress(Exception):
         await emit_sanctions_update(session, uid)
+    with suppress(Exception):
+        await emit_global_chat_sanction_removed_notice(
+            session,
+            actor_user_id=int(ident["id"]),
+            target_user_id=uid,
+            target_username=user.username,
+            kind=SANCTION_BAN,
+            reason=active.reason or "",
+            source="admin",
+        )
 
     details = f"Снятие бана user_id={uid}"
     if user.username:
@@ -1849,7 +1897,18 @@ async def apply_user_suspend(user_id: int, payload: AdminSanctionTimedIn, ident:
             room=f"user:{uid}",
             namespace="/auth",
         )
+    with suppress(Exception):
         await emit_sanctions_update(session, uid)
+    with suppress(Exception):
+        await emit_global_chat_sanction_issued_notice(
+            session,
+            actor_user_id=int(ident["id"]),
+            target_user_id=uid,
+            target_username=user.username,
+            kind=SANCTION_SUSPEND,
+            reason=reason,
+            duration_label=duration_label,
+        )
 
     details = f"SUSPEND user_id={uid}"
     if user.username:

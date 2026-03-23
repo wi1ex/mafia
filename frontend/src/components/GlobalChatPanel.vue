@@ -64,7 +64,7 @@
                 </div>
                 <template v-if="!message.deleted">
                   <p v-if="message.text" class="message-text">{{ message.text }}</p>
-                  <img v-if="message.image_object_key" class="message-image" v-minio-img="{ key: message.image_object_key, lazy: true }" alt="Вложение" />
+                  <img v-if="message.image_object_key" class="message-image" v-minio-img="{ key: message.image_object_key, lazy: true }" alt="Вложение" @click="onOpenImageLightbox($event, 'Вложение')" />
                 </template>
               </div>
 
@@ -74,6 +74,32 @@
                   <span>{{ reaction.emoji }}</span>
                   <span>{{ reaction.count }}</span>
                 </button>
+                <div class="reaction-details-anchor" @pointerenter="onReactionDetailsHover(message.id)" @pointerleave="closeReactionDetails(message.id)"
+                     @focusin="onReactionDetailsFocus(message.id)" @focusout="onReactionDetailsFocusOut($event, message.id)">
+                  <button class="reaction-details-button" type="button" aria-label="Кто поставил реакции"
+                          title="Кто поставил реакции" @click.stop="onToggleReactionDetails(message.id)">
+                    <img :src="iconInfo" alt="" />
+                  </button>
+
+                  <div v-if="reactionDetailsMessageId === message.id" class="reaction-details-popover" role="tooltip">
+                    <p v-if="reactionDetailsLoadingMessageId === message.id" class="reaction-details-state">Загрузка...</p>
+                    <p v-else-if="reactionDetailsErrorMessageId === message.id" class="reaction-details-state reaction-details-state--error">
+                      Не удалось загрузить список реакций.
+                    </p>
+                    <template v-else-if="reactionParticipantsFor(message.id).length > 0">
+                      <div v-for="participant in reactionParticipantsFor(message.id)" :key="`${participant.emoji}-${participant.user.id}-${participant.created_at}`" class="reaction-details-item">
+                        <span class="reaction-details-emoji">{{ participant.emoji }}</span>
+                        <img class="reaction-details-avatar"
+                             v-minio-img="{ key: participant.user.avatar_name ? `avatars/${participant.user.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="Аватар" />
+                        <div class="reaction-details-meta">
+                          <span class="reaction-details-name">{{ participant.user.username || (`user${participant.user.id}`) }}</span>
+                          <small class="reaction-details-time">{{ formatMessageTime(participant.created_at) }}</small>
+                        </div>
+                      </div>
+                    </template>
+                    <p v-else class="reaction-details-state">Реакций пока нет.</p>
+                  </div>
+                </div>
               </div>
 
               <div class="message-actions">
@@ -191,11 +217,22 @@
 
             <template v-if="deletedPreview.content_available">
               <p v-if="deletedPreview.text" class="deleted-preview-text">{{ deletedPreview.text }}</p>
-              <img v-if="deletedPreview.image_object_key" class="deleted-preview-image" v-minio-img="{ key: deletedPreview.image_object_key, lazy: false }" alt="Удаленное вложение" />
+              <img v-if="deletedPreview.image_object_key" class="deleted-preview-image" v-minio-img="{ key: deletedPreview.image_object_key, lazy: false }" alt="Удаленное вложение"
+                   @click="onOpenImageLightbox($event, 'Удаленное вложение')" />
             </template>
             <p v-else class="deleted-preview-empty">Содержимое сообщения уже удалено окончательно.</p>
           </div>
         </div>
+      </div>
+    </Transition>
+
+    <Transition name="image-lightbox-transition">
+      <div v-if="imageLightboxOpen && imageLightboxSrc" class="image-lightbox-overlay" role="dialog" aria-modal="true" :aria-label="imageLightboxAlt || 'Просмотр изображения'"
+           @pointerdown.self="imageLightboxArmed = true" @pointerup.self="imageLightboxArmed && closeImageLightbox()" @pointerleave.self="imageLightboxArmed = false" @pointercancel.self="imageLightboxArmed = false">
+        <button class="image-lightbox-close" type="button" aria-label="Закрыть" @click="closeImageLightbox()">
+          <img :src="iconClose" alt="" />
+        </button>
+        <img class="image-lightbox-image" :src="imageLightboxSrc" :alt="imageLightboxAlt || 'Просмотр изображения'" />
       </div>
     </Transition>
   </div>
@@ -216,7 +253,12 @@ import iconInfo from '@/assets/svg/info.svg'
 import iconSend from '@/assets/svg/send.svg'
 import iconSending from '@/assets/svg/sending.svg'
 
-import type { GlobalChatDeletedMessagePreview, GlobalChatMessage, GlobalChatReaction } from '@/store/modules/globalChat'
+import type {
+  GlobalChatDeletedMessagePreview,
+  GlobalChatMessage,
+  GlobalChatReaction,
+  GlobalChatReactionParticipant,
+} from '@/store/modules/globalChat'
 
 const EmojiPicker = defineAsyncComponent(() => import('@/components/GlobalChatEmojiPicker.vue'))
 const auth = useAuthStore()
@@ -239,6 +281,7 @@ const {
   draftImagePreviewUrl,
   draftImageName,
   draftImageUploaded,
+  reactionParticipantsCache,
   canSendCurrentDraft,
   lastMutationToken,
   lastMutationKind,
@@ -257,6 +300,14 @@ const deletedPreviewOpen = ref(false)
 const deletedPreviewArmed = ref(false)
 const deletedPreview = ref<GlobalChatDeletedMessagePreview | null>(null)
 const deletedPreviewLoadingMessageId = ref<number | null>(null)
+const imageLightboxOpen = ref(false)
+const imageLightboxArmed = ref(false)
+const imageLightboxSrc = ref('')
+const imageLightboxAlt = ref('')
+const reactionDetailsMessageId = ref<number | null>(null)
+const reactionDetailsLoadingMessageId = ref<number | null>(null)
+const reactionDetailsErrorMessageId = ref<number | null>(null)
+let reactionDetailsRequestToken = 0
 let highlightTimer: number | null = null
 const isAdmin = computed(() => String(user.user?.role || '').trim().toLowerCase() === 'admin')
 
@@ -331,6 +382,89 @@ function orderedReactions(message: GlobalChatMessage): GlobalChatReaction[] {
     if (leftOrder !== rightOrder) return leftOrder - rightOrder
     return left.emoji.localeCompare(right.emoji)
   })
+}
+
+function reactionParticipantsFor(messageId: number): GlobalChatReactionParticipant[] {
+  return reactionParticipantsCache.value[messageId] || []
+}
+
+function closeImageLightbox(): void {
+  imageLightboxArmed.value = false
+  imageLightboxOpen.value = false
+  imageLightboxSrc.value = ''
+  imageLightboxAlt.value = ''
+}
+
+function onOpenImageLightbox(event: Event, alt: string): void {
+  const image = event.currentTarget as HTMLImageElement | null
+  const src = image?.currentSrc || image?.src || ''
+  if (!src) return
+  imageLightboxSrc.value = src
+  imageLightboxAlt.value = alt
+  imageLightboxArmed.value = false
+  imageLightboxOpen.value = true
+}
+
+function closeReactionDetails(messageId?: number): void {
+  const normalizedMessageId = typeof messageId === 'number' ? messageId : null
+  if (normalizedMessageId !== null && reactionDetailsMessageId.value !== normalizedMessageId) return
+  reactionDetailsMessageId.value = null
+  reactionDetailsLoadingMessageId.value = null
+  reactionDetailsErrorMessageId.value = null
+}
+
+async function openReactionDetails(messageId: number, options: { force?: boolean } = {}): Promise<void> {
+  reactionDetailsMessageId.value = messageId
+  reactionDetailsErrorMessageId.value = null
+  const hasCached = Object.prototype.hasOwnProperty.call(reactionParticipantsCache.value, messageId)
+  if (hasCached && !options.force) return
+
+  const token = ++reactionDetailsRequestToken
+  reactionDetailsLoadingMessageId.value = messageId
+  const participants = await chat.loadReactionParticipants(messageId, options)
+  if (token !== reactionDetailsRequestToken) return
+  if (reactionDetailsLoadingMessageId.value === messageId) {
+    reactionDetailsLoadingMessageId.value = null
+  }
+  if (reactionDetailsMessageId.value !== messageId) return
+  if (participants === null) {
+    reactionDetailsErrorMessageId.value = messageId
+  }
+}
+
+function onReactionDetailsHover(messageId: number): void {
+  void openReactionDetails(messageId)
+}
+
+function onReactionDetailsFocus(messageId: number): void {
+  void openReactionDetails(messageId)
+}
+
+function onToggleReactionDetails(messageId: number): void {
+  if (reactionDetailsMessageId.value === messageId) return
+  void openReactionDetails(messageId)
+}
+
+function onReactionDetailsFocusOut(event: FocusEvent, messageId: number): void {
+  const current = event.currentTarget as HTMLElement | null
+  const nextTarget = event.relatedTarget as Node | null
+  if (current && nextTarget && current.contains(nextTarget)) return
+  closeReactionDetails(messageId)
+}
+
+function onWindowKeydown(event: KeyboardEvent): void {
+  if (event.key !== 'Escape') return
+  if (imageLightboxOpen.value) {
+    closeImageLightbox()
+    return
+  }
+  if (deletedPreviewOpen.value) {
+    closeDeletedPreview()
+    return
+  }
+  if (reactionDetailsMessageId.value !== null) {
+    closeReactionDetails(reactionDetailsMessageId.value)
+  }
 }
 
 function scrollToBottom(): void {
@@ -573,6 +707,14 @@ watch(messages, (items) => {
 })
 
 watch(messages, (items) => {
+  if (reactionDetailsMessageId.value === null) return
+  const active = items.find((item) => item.id === reactionDetailsMessageId.value)
+  if (!active || active.deleted || orderedReactions(active).length === 0) {
+    closeReactionDetails(reactionDetailsMessageId.value)
+  }
+})
+
+watch(messages, (items) => {
   if (!deletedPreview.value) return
   const active = items.find((item) => item.id === deletedPreview.value?.message_id)
   if (!active) {
@@ -597,6 +739,9 @@ watch(() => chat.open, (open) => {
   if (!open) {
     composerPickerOpen.value = false
     reactionPickerMessageId.value = null
+    closeReactionDetails()
+    closeDeletedPreview()
+    closeImageLightbox()
     return
   }
   void nextTick(() => {
@@ -605,6 +750,7 @@ watch(() => chat.open, (open) => {
 })
 
 onMounted(() => {
+  window.addEventListener('keydown', onWindowKeydown)
   stickToBottom.value = true
   void nextTick(() => {
     syncComposerPlaceholder()
@@ -615,8 +761,11 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onWindowKeydown)
   clearHighlightTimer()
+  closeReactionDetails()
   closeDeletedPreview()
+  closeImageLightbox()
 })
 </script>
 
@@ -870,11 +1019,13 @@ onBeforeUnmount(() => {
         border-radius: 5px;
         object-fit: cover;
         background-color: rgba($lead, 0.5);
+        cursor: zoom-in;
       }
     }
     .reactions-row {
       display: flex;
       flex-wrap: wrap;
+      align-items: center;
       gap: 5px;
     }
     .reaction-chip {
@@ -899,6 +1050,95 @@ onBeforeUnmount(() => {
       &--active {
         border-color: rgba($green, 0.5);
         background-color: rgba($green, 0.1);
+      }
+    }
+    .reaction-details-anchor {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+    }
+    .reaction-details-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 30px;
+      height: 30px;
+      padding: 0;
+      border: 1px solid $ashy;
+      border-radius: 999px;
+      background-color: $graphite;
+      cursor: pointer;
+      transition: background-color 0.25s ease-in-out, border-color 0.25s ease-in-out;
+      img {
+        width: 14px;
+        height: 14px;
+      }
+      &:hover,
+      &:focus-visible {
+        background-color: rgba($graphite, 0.9);
+        border-color: rgba($lead, 0.5);
+      }
+    }
+    .reaction-details-popover {
+      position: absolute;
+      right: 0;
+      bottom: calc(100% + 10px);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      width: min(320px, calc(100vw - 80px));
+      max-height: 240px;
+      padding: 10px;
+      border: 1px solid rgba($white, 0.1);
+      border-radius: 10px;
+      background-color: rgba($graphite, 0.9);
+      box-shadow: 0 15px 30px rgba($black, 0.5);
+      overflow-y: auto;
+      z-index: 5;
+    }
+    .reaction-details-item {
+      display: grid;
+      grid-template-columns: auto 28px minmax(0, 1fr);
+      align-items: center;
+      gap: 10px;
+    }
+    .reaction-details-emoji {
+      font-size: 18px;
+      line-height: 1;
+    }
+    .reaction-details-avatar {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      object-fit: cover;
+    }
+    .reaction-details-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      min-width: 0;
+    }
+    .reaction-details-name {
+      min-width: 0;
+      color: $white;
+      font-size: 12px;
+      font-family: Manrope-Medium;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .reaction-details-time {
+      color: $ashy;
+      font-size: 12px;
+      line-height: 1.2;
+    }
+    .reaction-details-state {
+      margin: 0;
+      color: $ashy;
+      font-size: 12px;
+      line-height: 1.5;
+      &--error {
+        color: rgba($red, 0.9);
       }
     }
     .message-actions {
@@ -1194,7 +1434,48 @@ onBeforeUnmount(() => {
     border-radius: 10px;
     object-fit: contain;
     background-color: $graphite;
+    cursor: zoom-in;
   }
+}
+
+.image-lightbox-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background-color: rgba($black, 0.9);
+  backdrop-filter: blur(5px);
+  z-index: 130;
+}
+
+.image-lightbox-close {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background-color: rgba($graphite, 0.9);
+  cursor: pointer;
+  img {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+.image-lightbox-image {
+  max-width: min(96vw, 1440px);
+  max-height: min(92vh, 960px);
+  border-radius: 12px;
+  object-fit: contain;
+  box-shadow: 0 20px 40px rgba($black, 0.5);
 }
 
 .global-chat-launcher-enter-active,
@@ -1202,6 +1483,8 @@ onBeforeUnmount(() => {
 .global-chat-panel-transition-enter-active,
 .global-chat-panel-transition-leave-active,
 .deleted-preview-modal-enter-active,
+.image-lightbox-transition-enter-active,
+.image-lightbox-transition-leave-active,
 .deleted-preview-modal-leave-active {
   transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
 }
@@ -1211,6 +1494,8 @@ onBeforeUnmount(() => {
 .global-chat-panel-transition-enter-from,
 .global-chat-panel-transition-leave-to,
 .deleted-preview-modal-enter-from,
+.image-lightbox-transition-enter-from,
+.image-lightbox-transition-leave-to,
 .deleted-preview-modal-leave-to {
   opacity: 0;
   transform: translateY(-10px) scale(0.9);
@@ -1279,6 +1564,10 @@ onBeforeUnmount(() => {
         min-height: 25px;
         font-size: 12px;
       }
+      .reaction-details-popover {
+        width: min(260px, calc(100vw - 56px));
+        max-height: 200px;
+      }
     }
     .reply-bar,
     .image-preview,
@@ -1317,9 +1606,26 @@ onBeforeUnmount(() => {
     .deleted-preview-empty {
       font-size: 12px;
     }
-    .deleted-preview-image {
-      max-height: 260px;
+  .deleted-preview-image {
+    max-height: 260px;
+  }
+  .image-lightbox-overlay {
+    padding: 10px;
+  }
+  .image-lightbox-close {
+    top: 10px;
+    right: 10px;
+    width: 30px;
+    height: 30px;
+    img {
+      width: 20px;
+      height: 20px;
     }
   }
+  .image-lightbox-image {
+    max-width: calc(100vw - 25px);
+    max-height: calc(100dvh - 25px);
+  }
+}
 }
 </style>

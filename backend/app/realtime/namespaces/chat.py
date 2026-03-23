@@ -15,6 +15,7 @@ from ...services.global_chat import (
     build_global_chat_message_payload,
     create_global_chat_message,
     delete_global_chat_message,
+    fetch_global_chat_reaction_participants,
     fetch_global_chat_context,
     fetch_global_chat_page,
     global_chat_send_error,
@@ -295,6 +296,47 @@ async def chat_react_toggle(sid, data):
 
     except Exception:
         log.exception("chat.react.error", sid=sid)
+        return {"ok": False, "status": 500, "error": "internal"}
+
+
+@rate_limited_sio(lambda *, uid=None, **__: f"rl:sio:chat_reaction_participants:{uid or 'nouid'}", limit=10, window_s=10, session_ns="/chat")
+@sio.event(namespace="/chat")
+async def chat_reaction_participants(sid, data):
+    try:
+        sess = await sio.get_session(sid, namespace="/chat")
+        uid = int(sess.get("uid") or 0)
+        payload = payload_dict(data)
+        message_id = positive_int(payload.get("message_id"))
+        if message_id <= 0:
+            return {"ok": False, "status": 422, "error": "bad_message_id"}
+
+        async with SessionLocal() as db:
+            permissions = await resolve_global_chat_permissions(db, uid)
+            if not permissions.can_open:
+                return {
+                    "ok": False,
+                    "status": permissions_status(permissions.error),
+                    "error": permissions.error or "forbidden",
+                }
+
+            message = await get_global_chat_message(db, message_id)
+            if message is None:
+                return {"ok": False, "status": 404, "error": "message_not_found"}
+
+            if message.deleted_at is not None:
+                return {"ok": False, "status": 409, "error": "message_deleted"}
+
+            participants = await fetch_global_chat_reaction_participants(db, message_id=message_id)
+
+        return {
+            "ok": True,
+            "status": 200,
+            "message_id": message_id,
+            "participants": participants,
+        }
+
+    except Exception:
+        log.exception("chat.reaction_participants.error", sid=sid)
         return {"ok": False, "status": 500, "error": "internal"}
 
 

@@ -4,7 +4,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Sequence
-from uuid import UUID
+from uuid import UUID, uuid4
 import structlog
 from sqlalchemy import or_, select
 from sqlalchemy.dialects.postgresql import insert
@@ -27,6 +27,7 @@ GLOBAL_CHAT_HISTORY_LIMIT = 100
 GLOBAL_CHAT_CONTEXT_WINDOW = 25
 GLOBAL_CHAT_MAX_TEXT_LEN = 1000
 GLOBAL_CHAT_IMAGE_KEY_RE = re.compile(r"^[a-zA-Z0-9._/-]{3,256}$")
+SANCTION_RULE_POINT_RE = re.compile(r"^\s*([0-9]+(?:\.[0-9]+)*)\.")
 GLOBAL_CHAT_REACTIONS_ALLOWLIST: tuple[str, ...] = (
     "👍",
     "👎",
@@ -97,6 +98,116 @@ def _reply_snippet(text: str, *, has_image: bool) -> str:
         return source
 
     return source[:77].rstrip() + "..."
+
+
+def _truncate_text(value: str, max_len: int) -> str:
+    text = " ".join(str(value or "").split()).strip()
+    if len(text) <= max_len:
+        return text
+
+    return text[: max(0, max_len - 3)].rstrip() + "..."
+
+
+def _extract_sanction_rule_point(reason: str) -> str | None:
+    match = SANCTION_RULE_POINT_RE.match(str(reason or ""))
+    if not match:
+        return None
+
+    value = str(match.group(1) or "").strip(". ").strip()
+    return value or None
+
+
+def _format_sanction_reference(reason: str) -> str:
+    point = _extract_sanction_rule_point(reason)
+    if point:
+        return f" по пункту {point} правил"
+
+    normalized_reason = _truncate_text(reason, 140)
+    if normalized_reason:
+        return f" по причине: {normalized_reason}"
+
+    return ""
+
+
+def _sanction_kind_label(kind: str) -> str:
+    value = str(kind or "").strip().lower()
+    if value == SANCTION_TIMEOUT:
+        return "таймаут"
+
+    if value == SANCTION_BAN:
+        return "бан"
+
+    if value == SANCTION_SUSPEND:
+        return "отстранение от игр"
+
+    return "санкцию"
+
+
+def _sanction_removed_verb(kind: str) -> str:
+    return "снято" if str(kind or "").strip().lower() == SANCTION_SUSPEND else "снят"
+
+
+async def _resolve_global_chat_notice_author_user_id(session: AsyncSession, *, preferred_user_id: int | None = None) -> int | None:
+    preferred_id = _positive_int(preferred_user_id)
+    preferred_user: User | None = None
+    if preferred_id > 0:
+        preferred_user = await session.get(User, preferred_id)
+        if preferred_user and preferred_user.deleted_at is None and str(preferred_user.role or "").strip().lower() == "admin":
+            return int(preferred_user.id)
+
+    admin_id = await session.scalar(
+        select(User.id)
+        .where(
+            User.deleted_at.is_(None),
+            User.role == "admin",
+        )
+        .order_by(User.id.asc())
+        .limit(1)
+    )
+    if admin_id is not None:
+        return int(admin_id)
+
+    if preferred_user and preferred_user.deleted_at is None:
+        return int(preferred_user.id)
+
+    return None
+
+
+async def _resolve_chat_notice_target_username(session: AsyncSession, *, user_id: int, username: str | None = None) -> str:
+    normalized_user_id = _positive_int(user_id)
+    normalized_username = str(username or "").strip()
+    if normalized_username:
+        return normalized_username
+
+    if normalized_user_id <= 0:
+        return "user0"
+
+    profiles = await get_user_profiles_cached(session, {normalized_user_id})
+    return _username_for(profiles.get(normalized_user_id), normalized_user_id)
+
+
+def build_global_chat_sanction_issued_text(*, target_username: str, kind: str, reason: str, duration_label: str | None = None) -> str:
+    label = _sanction_kind_label(kind)
+    suffix = _format_sanction_reference(reason)
+    duration = ""
+    if str(duration_label or "").strip():
+        duration = f" на {str(duration_label).strip()}"
+    return f"Санкция: пользователь {target_username} получил {label}{suffix}{duration}."
+
+
+def build_global_chat_sanction_removed_text(*, target_username: str, kind: str, reason: str, source: str) -> str:
+    label = _sanction_kind_label(kind)
+    verb = _sanction_removed_verb(kind)
+    suffix = _format_sanction_reference(reason)
+    source_value = str(source or "").strip().lower()
+    kind_value = str(kind or "").strip().lower()
+    if source_value == "expired":
+        tail = " автоматически по истечении срока."
+    elif source_value == "game":
+        tail = " автоматически после проведения игры."
+    else:
+        tail = " досрочно администратором." if kind_value in {SANCTION_TIMEOUT, SANCTION_SUSPEND} else " администратором."
+    return f"Санкция: у пользователя {target_username} {label} {verb}{suffix}{tail}"
 
 
 def _message_public_dict(message: GlobalChatMessage) -> dict[str, Any]:
@@ -426,6 +537,55 @@ async def serialize_global_chat_messages(session: AsyncSession, messages: Sequen
     return serialized
 
 
+async def fetch_global_chat_reaction_participants(session: AsyncSession, *, message_id: int) -> list[dict[str, Any]]:
+    mid = _positive_int(message_id)
+    if mid <= 0:
+        return []
+
+    rows = await session.execute(
+        select(
+            GlobalChatMessageReaction.user_id,
+            GlobalChatMessageReaction.emoji,
+            GlobalChatMessageReaction.created_at,
+        )
+        .where(GlobalChatMessageReaction.message_id == mid)
+        .order_by(
+            GlobalChatMessageReaction.created_at.desc(),
+            GlobalChatMessageReaction.user_id.asc(),
+            GlobalChatMessageReaction.emoji.asc(),
+        )
+    )
+
+    items = rows.all()
+    if not items:
+        return []
+
+    user_ids = {_positive_int(user_id) for user_id, _, _ in items if _positive_int(user_id) > 0}
+    profiles = await get_user_profiles_cached(session, user_ids) if user_ids else {}
+
+    participants: list[dict[str, Any]] = []
+    for user_id_raw, emoji_raw, created_at_raw in items:
+        user_id = _positive_int(user_id_raw)
+        emoji = str(emoji_raw or "")
+        if user_id <= 0 or not emoji:
+            continue
+        profile = profiles.get(user_id) or {}
+        created_at = created_at_raw.isoformat() if isinstance(created_at_raw, datetime) else None
+        participants.append(
+            {
+                "emoji": emoji,
+                "created_at": created_at,
+                "user": {
+                    "id": user_id,
+                    "username": _username_for(profile, user_id),
+                    "avatar_name": profile.get("avatar_name"),
+                },
+            }
+        )
+
+    return participants
+
+
 async def get_global_chat_message(session: AsyncSession, message_id: int) -> GlobalChatMessage | None:
     mid = _positive_int(message_id)
     if mid <= 0:
@@ -521,6 +681,69 @@ async def create_global_chat_message(session: AsyncSession, *, user_id: int, cli
         raise RuntimeError("global_chat_insert_failed")
 
     return existing, False
+
+
+async def publish_global_chat_notice(session: AsyncSession, *, author_user_id: int, text: str) -> dict[str, Any] | None:
+    uid = _positive_int(author_user_id)
+    normalized_text = _sanitize_text(text).strip()
+    if uid <= 0 or not normalized_text:
+        return None
+
+    message, created = await create_global_chat_message(
+        session,
+        user_id=uid,
+        client_message_id=uuid4(),
+        text=normalized_text,
+        reply_to_message_id=None,
+        image_object_key=None,
+    )
+    if not created:
+        return None
+
+    payload = await build_global_chat_message_payload(session, message_id=int(message.id), viewer_user_id=None)
+    if payload is not None:
+        await sio.emit("chat_message_created", payload, room=GLOBAL_CHAT_ROOM, namespace="/chat")
+
+    return payload
+
+
+async def emit_global_chat_sanction_issued_notice(session: AsyncSession, *, actor_user_id: int | None, target_user_id: int, target_username: str | None, kind: str, reason: str, duration_label: str | None = None) -> dict[str, Any] | None:
+    author_user_id = await _resolve_global_chat_notice_author_user_id(session, preferred_user_id=actor_user_id)
+    if author_user_id is None:
+        return None
+
+    resolved_target_username = await _resolve_chat_notice_target_username(
+        session,
+        user_id=target_user_id,
+        username=target_username,
+    )
+    text = build_global_chat_sanction_issued_text(
+        target_username=resolved_target_username,
+        kind=kind,
+        reason=reason,
+        duration_label=duration_label,
+    )
+    return await publish_global_chat_notice(session, author_user_id=author_user_id, text=text)
+
+
+async def emit_global_chat_sanction_removed_notice(session: AsyncSession, *, actor_user_id: int | None, target_user_id: int, target_username: str | None, kind: str, reason: str, source: str) -> dict[str, Any] | None:
+    author_user_id = await _resolve_global_chat_notice_author_user_id(session, preferred_user_id=actor_user_id)
+    if author_user_id is None:
+        return None
+
+    resolved_target_username = await _resolve_chat_notice_target_username(
+        session,
+        user_id=target_user_id,
+        username=target_username,
+    )
+    text = build_global_chat_sanction_removed_text(
+        target_username=resolved_target_username,
+        kind=kind,
+        reason=reason,
+        source=source,
+    )
+
+    return await publish_global_chat_notice(session, author_user_id=author_user_id, text=text)
 
 
 async def toggle_global_chat_reaction(session: AsyncSession, *, message_id: int, user_id: int, emoji: str) -> bool:

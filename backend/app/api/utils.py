@@ -776,7 +776,7 @@ def build_admin_sanction_out(row: UserSanction) -> AdminSanctionOut:
     )
 
 
-async def revoke_active_suspend(session: AsyncSession, sanction: UserSanction, *, revoked_by_id: int | None, revoked_by_name: str | None, note_text: str, note_title: str = "Ограничение снято") -> Notif:
+async def revoke_active_suspend(session: AsyncSession, sanction: UserSanction, *, revoked_by_id: int | None, revoked_by_name: str | None, note_text: str, note_title: str = "Ограничение снято", chat_notice_source: str = "admin",) -> Notif:
     now = datetime.now(timezone.utc)
     uid = cast(int, sanction.user_id)
 
@@ -796,6 +796,18 @@ async def revoke_active_suspend(session: AsyncSession, sanction: UserSanction, *
     with suppress(Exception):
         await emit_notify(uid, note, kind="sanction")
         await emit_sanctions_update(session, uid)
+    with suppress(Exception):
+        from ..services.global_chat import emit_global_chat_sanction_removed_notice
+
+        await emit_global_chat_sanction_removed_notice(
+            session,
+            actor_user_id=int(revoked_by_id) if revoked_by_id is not None else cast(int, sanction.issued_by_id),
+            target_user_id=uid,
+            target_username=None,
+            kind=str(sanction.kind or ""),
+            reason=str(sanction.reason or ""),
+            source=chat_notice_source,
+        )
 
     return note
 
@@ -814,6 +826,7 @@ async def reduce_suspend_after_hosted_game(session: AsyncSession, user_id: int, 
             revoked_by_id=None,
             revoked_by_name="проведение игры",
             note_text="Ограничение доступа к играм снято автоматически после проведения игры.",
+            chat_notice_source="game",
         )
         return True, True, None
 
@@ -961,6 +974,7 @@ async def _notify_expired_timed_sanctions(user_id: int) -> None:
             return
 
         notes: list[Notif] = []
+        chat_rows: list[UserSanction] = []
         notified_kinds: set[str] = set()
         for sanction in rows:
             kind = str(sanction.kind or "").strip()
@@ -976,6 +990,7 @@ async def _notify_expired_timed_sanctions(user_id: int) -> None:
             note = Notif(user_id=int(user_id), title=title, text=text)
             session.add(note)
             notes.append(note)
+            chat_rows.append(sanction)
 
         if not notes:
             return
@@ -983,6 +998,19 @@ async def _notify_expired_timed_sanctions(user_id: int) -> None:
         await session.commit()
         for note in notes:
             await session.refresh(note)
+        for sanction in chat_rows:
+            with suppress(Exception):
+                from ..services.global_chat import emit_global_chat_sanction_removed_notice
+
+                await emit_global_chat_sanction_removed_notice(
+                    session,
+                    actor_user_id=cast(int, sanction.issued_by_id),
+                    target_user_id=int(user_id),
+                    target_username=None,
+                    kind=str(sanction.kind or ""),
+                    reason=str(sanction.reason or ""),
+                    source="expired",
+                )
 
     for note in notes:
         with suppress(Exception):
