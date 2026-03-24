@@ -1,5 +1,5 @@
 <template>
-  <div ref="root" class="emoji-picker" @click.stop>
+  <div ref="root" :class="['emoji-picker', isReactionsMode ? 'emoji-picker--reactions' : 'emoji-picker--composer']" @click.stop>
     <template v-if="isReactionsMode">
       <button v-for="emoji in reactionItems" :key="emoji" class="emoji-button" type="button" @click="selectEmoji(emoji)">
         {{ emoji }}
@@ -178,20 +178,13 @@ onBeforeUnmount(() => {
 
 <style scoped lang="scss">
 .emoji-picker {
-  display: flex;
   position: absolute;
-  flex-direction: column;
   bottom: calc(100% + 10px);
   right: 10px;
-  padding: 10px;
-  width: 250px;
-  height: 250px;
-  border-radius: 5px;
   background-color: $lead;
   box-shadow: 0 15px 30px rgba($black, 0.5);
-  overflow: hidden;
   z-index: 10;
-  > .emoji-button {
+  .emoji-button {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -201,29 +194,46 @@ onBeforeUnmount(() => {
     transition: background-color 0.25s ease-in-out, transform 0.25s ease-in-out;
     cursor: pointer;
   }
-  .emoji-section {
+  &--reactions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 8px;
+    width: 220px;
+    border-radius: 8px;
+    > .emoji-button {
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+    }
+  }
+  &--composer {
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    > header {
-      color: $ashy;
-      font-size: 14px;
-      font-family: Manrope-Medium;
-      text-transform: uppercase;
-    }
-    .emoji-grid {
-      display: grid;
-      grid-template-columns: repeat(8, minmax(0, 1fr));
-      gap: 5px;
-      .emoji-button {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border: none;
-        background: none;
-        font-size: 16px;
-        transition: background-color 0.25s ease-in-out, transform 0.25s ease-in-out;
-        cursor: pointer;
+    gap: 12px;
+    padding: 10px;
+    width: 250px;
+    height: 250px;
+    border-radius: 5px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    .emoji-section {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      > header {
+        color: $ashy;
+        font-size: 14px;
+        font-family: Manrope-Medium;
+        text-transform: uppercase;
+      }
+      .emoji-grid {
+        display: grid;
+        grid-template-columns: repeat(8, minmax(0, 1fr));
+        gap: 5px;
+        .emoji-button {
+          border-radius: 5px;
+        }
       }
     }
   }
