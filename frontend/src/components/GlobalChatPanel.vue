@@ -147,27 +147,12 @@
           <button type="button" @click="chat.clearDraftImage()">Убрать</button>
         </div>
 
-        <div class="composer-tools">
-          <div class="picker-anchor">
-            <button class="tool-button" type="button" :disabled="composerDisabled" @click="composerPickerOpen = !composerPickerOpen">
-              🙂
-            </button>
-            <component
-              :is="EmojiPicker"
-              v-if="composerPickerOpen"
-              mode="composer"
-              @select="insertEmoji"
-              @close="composerPickerOpen = false"
-            />
-          </div>
-
+        <div class="composer-shell">
           <label class="tool-button tool-button--file" :class="{ 'tool-button--disabled': composerDisabled }">
             <input ref="fileInputEl" type="file" accept="image/png,image/jpeg" :disabled="composerDisabled" @change="onPickImage" >
-            PNG/JPG
+            <img :src="iconPhotoiconPhoto" alt="" />
           </label>
-        </div>
 
-        <div class="composer-shell">
           <textarea
             ref="textareaEl"
             v-model="draft"
@@ -177,6 +162,17 @@
             maxlength="1000"
             placeholder="Введите текст..."
             @keydown="onComposerKeydown"
+          />
+
+          <button class="tool-button right" type="button" :disabled="composerDisabled" @click="composerPickerOpen = !composerPickerOpen">
+            <img :src="iconEmoji" alt="" />
+          </button>
+          <component
+            :is="EmojiPicker"
+            v-if="composerPickerOpen"
+            mode="composer"
+            @select="insertEmoji"
+            @close="composerPickerOpen = false"
           />
 
           <button class="send-button" type="button" :disabled="!canSendCurrentDraft" @click="onSend" >
@@ -248,6 +244,8 @@ import { useAuthStore, useGlobalChatStore, useSettingsStore, useUserStore } from
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
 import iconClose from '@/assets/svg/close.svg'
 import iconChat from '@/assets/svg/chat.svg'
+import iconEmoji from '@/assets/svg/emoji.svg'
+import iconPhoto from '@/assets/svg/photo.svg'
 import iconDelete from '@/assets/svg/delete.svg'
 import iconInfo from '@/assets/svg/info.svg'
 import iconSend from '@/assets/svg/send.svg'
@@ -797,14 +795,14 @@ onBeforeUnmount(() => {
   }
 }
 .global-chat-panel {
-  display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr) auto auto auto;
+  display: flex;
+  flex-direction: column;
   width: 400px;
   height: min(600px, calc(100dvh - 85px));
   border-radius: 20px;
   border: 3px solid $lead;
-  background-color: $graphite;
-  box-shadow: 0 15px 30px rgba($black, 0.75);
+  background-color: $dark;
+  box-shadow: 0 15px 30px rgba($black, 0.25);
   overflow: hidden;
   .panel-header {
     display: flex;
@@ -812,7 +810,6 @@ onBeforeUnmount(() => {
     justify-content: space-between;
     padding: 5px 10px;
     background-color: $lead;
-    box-shadow: 0 3px 5px rgba($black, 0.25);
     .panel-header-main {
       color: $white;
       font-size: 20px;
@@ -860,7 +857,7 @@ onBeforeUnmount(() => {
     display: flex;
     flex-direction: column;
     gap: 10px;
-    min-height: 0;
+    height: calc(100% - 120px);
     padding: 10px;
     overflow-y: auto;
     scrollbar-width: none;
@@ -1003,7 +1000,7 @@ onBeforeUnmount(() => {
           height: 16px;
         }
         &:hover:enabled {
-          background-color: 1;
+          background-color: $graphite;
         }
         &:disabled {
           opacity: 0.5;
@@ -1255,75 +1252,83 @@ onBeforeUnmount(() => {
       cursor: pointer;
     }
   }
-  .composer-tools {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    padding: 0 10px 10px;
-    .picker-anchor {
-      position: relative;
-    }
-    .tool-button {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-width: 30px;
-      min-height: 30px;
-      padding: 0 10px;
-      border: none;
-      border-radius: 5px;
-      background-color: rgba($lead, 0.9);
-      color: $fg;
-      cursor: pointer;
-      font-size: 16px;
-      &--file {
-        position: relative;
-        overflow: hidden;
-        input {
-          position: absolute;
-          inset: 0;
-          opacity: 0;
-          cursor: pointer;
-        }
-      }
-      &--disabled {
-        opacity: 0.5;
-        cursor: default;
-      }
-    }
-  }
   .composer-shell {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    display: flex;
+    position: relative;
     gap: 10px;
-    padding: 0 10px 10px;
+  }
+  .tool-button {
+    display: flex;
+    position: absolute;
+    left: 5px;
+    bottom: 15px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border: none;
+    border-radius: 15px;
+    background-color: $graphite;
+    cursor: pointer;
+    &--file {
+      position: relative;
+      overflow: hidden;
+      input {
+        position: absolute;
+        inset: 0;
+        opacity: 0;
+        cursor: pointer;
+      }
+    }
+    &--disabled {
+      opacity: 0.5;
+      cursor: default;
+    }
+    &.right {
+      left: auto;
+      right: 40px;
+    }
+    img {
+      width: 20px;
+      height: 20px;
+    }
   }
   .composer-input {
-    min-height: 80px;
-    max-height: 180px;
-    padding: 10px 15px;
-    border: 1px solid rgba($white, 0.1);
-    border-radius: 5px;
-    background-color: rgba($dark, 0.9);
+    padding: 10px 75px 10px 40px;
+    width: 100%;
+    height: 40px;
+    border: none;
+    background-color: $lead;
     color: $fg;
-    resize: vertical;
+    resize: none;
     outline: none;
     font: inherit;
     &:disabled {
       opacity: 0.5;
+      cursor: default;
     }
   }
   .send-button {
-    min-width: 100px;
+    display: flex;
+    position: absolute;
+    align-items: center;
+    justify-content: center;
+    right: 5px;
+    bottom: 15px;
+    width: 30px;
+    height: 30px;
     border: none;
-    border-radius: 5px;
-    background-color: rgba($green, 0.9);
-    color: $bg;
+    border-radius: 15px;
+    background-color: $graphite;
     cursor: pointer;
-    font-family: Manrope-SemiBold;
     &:disabled {
       opacity: 0.5;
       cursor: default;
+    }
+    img {
+      width: 20px;
+      height: 20px;
     }
   }
 }
@@ -1571,7 +1576,6 @@ onBeforeUnmount(() => {
     }
     .reply-bar,
     .image-preview,
-    .composer-tools,
     .composer-shell {
       margin-left: 10px;
       margin-right: 10px;
