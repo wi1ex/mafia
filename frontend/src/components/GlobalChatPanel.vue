@@ -861,8 +861,8 @@ onBeforeUnmount(() => {
         opacity: 0.5;
       }
       &--highlighted {
-        border-color: $yellow;
-        box-shadow: 0 0 0 1px rgba($yellow, 0.25), 0 15px 30px rgba($black, 0.25);
+        border-color: $orange;
+        box-shadow: 0 0 0 1px rgba($orange, 0.25), 0 15px 30px rgba($black, 0.25);
       }
       .message-main {
         display: flex;
@@ -898,21 +898,19 @@ onBeforeUnmount(() => {
         }
         .reply-preview {
           display: flex;
-          align-items: center;
+          flex-direction: column;
+          align-items: flex-start;
           gap: 5px;
-          padding: 5px 10px;
+          padding: 5px;
           border: none;
-          border-left: 5px solid rgba($yellow, 0.5);
+          border-left: 5px solid rgba($orange, 0.5);
           border-radius: 5px;
           background-color: $lead;
+          text-align: left;
           color: $fg;
           cursor: pointer;
-          text-align: left;
           .reply-preview-body {
-            width: 100%;
-            min-width: 0;
             display: flex;
-            flex-direction: column;
             gap: 5px;
             .reply-avatar {
               width: 20px;
@@ -921,8 +919,8 @@ onBeforeUnmount(() => {
               object-fit: cover;
             }
             .reply-author {
-              color: $white;
-              font-size: 12px;
+              color: $fg;
+              font-size: 14px;
               font-family: Manrope-Medium;
             }
           }
@@ -964,12 +962,11 @@ onBeforeUnmount(() => {
               display: inline-flex;
               align-items: center;
               justify-content: center;
-              width: 25px;
-              height: 25px;
-              padding: 0;
+              max-height: 25px;
+              padding: 5px 8px;
               border: none;
               border-radius: 999px;
-              background-color: $lead;
+              background-color: $dark;
               cursor: pointer;
               img {
                 width: 16px;
@@ -1098,7 +1095,6 @@ onBeforeUnmount(() => {
       }
     }
   }
-  .reply-bar,
   .image-preview {
     display: flex;
     align-items: flex-start;
@@ -1107,6 +1103,12 @@ onBeforeUnmount(() => {
     background-color: $lead;
   }
   .reply-bar {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 10px;
+    gap: 10px;
+    background-color: $lead;
     .reply-bar-text {
       display: flex;
       flex-direction: column;
@@ -1119,7 +1121,7 @@ onBeforeUnmount(() => {
       }
       .reply-bar-snippet {
         color: $fg;
-        font-size: 12px;
+        font-size: 14px;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
@@ -1130,15 +1132,15 @@ onBeforeUnmount(() => {
       align-items: center;
       justify-content: center;
       padding: 0;
-      min-width: 25px;
-      min-height: 25px;
+      min-width: 20px;
+      min-height: 20px;
       border: none;
-      border-radius: 99px;
+      border-radius: 999px;
       background-color: $dark;
       cursor: pointer;
       img {
-        width: 16px;
-        height: 16px;
+        width: 12px;
+        height: 12px;
       }
     }
   }
