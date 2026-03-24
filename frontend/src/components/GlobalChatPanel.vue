@@ -86,7 +86,7 @@
                   </div>
                 </div>
 
-                <div v-if="reactionsAllowlist.length > 0" class="reaction-picker-anchor reaction-details-anchor">
+                <div v-if="reactionsAllowlist.length > 0" class="reaction-details-anchor">
                   <button class="reaction-chip reaction-chip--picker" type="button" :disabled="chat.isReactionBusy(message.id)"
                           @pointerdown.stop @click="toggleMessageReactionPicker(message.id)">
                     <img :src="iconAddReaction" alt="" />
@@ -94,7 +94,7 @@
                   <button v-if="!message.deleted" class="reaction-chip reaction-chip--picker" type="button" @click="onReply(message.id)">
                     <img :src="iconReplyMessage" alt="" />
                   </button>
-                  <button v-if="message.can_delete" class="reaction-chip reaction-chip--picker" type="button"
+                  <button v-if="message.can_delete" class="reaction-chip reaction-chip--picker red" type="button"
                           :disabled="chat.isDeleteBusy(message.id)" @click="onDeleteMessage(message)">
                     <img :src="iconDelete" alt="" />
                   </button>
@@ -900,9 +900,9 @@ onBeforeUnmount(() => {
           gap: 5px;
           padding: 5px 10px;
           border: none;
-          border-left: 3px solid rgba($yellow, 0.5);
+          border-left: 5px solid rgba($yellow, 0.5);
           border-radius: 5px;
-          background-color: rgba($dark, 0.5);
+          background-color: $lead;
           color: $fg;
           cursor: pointer;
           text-align: left;
@@ -949,12 +949,12 @@ onBeforeUnmount(() => {
               display: inline-flex;
               align-items: center;
               justify-content: center;
-              width: 30px;
-              height: 30px;
+              width: 25px;
+              height: 25px;
               padding: 0;
               border: none;
-              border-radius: 5px;
-              background-color: $graphite;
+              border-radius: 999px;
+              background-color: $lead;
               cursor: pointer;
               img {
                 width: 16px;
@@ -988,6 +988,7 @@ onBeforeUnmount(() => {
             display: flex;
             position: relative;
             align-items: center;
+            gap: 3px;
             .reaction-chip {
               display: inline-flex;
               align-items: center;
@@ -1013,6 +1014,9 @@ onBeforeUnmount(() => {
                 padding: 5px 8px;
                 border: none;
                 background-color: $dark;
+                &.red {
+                  background-color: $red;
+                }
                 img {
                   width: 16px;
                   height: 16px;
@@ -1094,12 +1098,12 @@ onBeforeUnmount(() => {
       gap: 5px;
       min-width: 0;
       .reply-bar-label {
-        color: $fg;
+        color: $ashy;
         font-size: 12px;
         font-family: Manrope-Medium;
       }
       .reply-bar-snippet {
-        color: $ashy;
+        color: $fg;
         font-size: 12px;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -1107,10 +1111,14 @@ onBeforeUnmount(() => {
       }
     }
     button {
-      min-width: 30px;
-      min-height: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      min-width: 25px;
+      min-height: 25px;
       border: none;
-      border-radius: 5px;
+      border-radius: 99px;
       background-color: $dark;
       cursor: pointer;
       img {
