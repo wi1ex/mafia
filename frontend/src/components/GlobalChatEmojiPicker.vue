@@ -188,23 +188,7 @@ onBeforeUnmount(() => {
   box-shadow: 0 15px 30px rgba($black, 0.5);
   overflow: hidden;
   z-index: 10;
-  .emoji-section {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    header {
-      color: $ashy;
-      font-size: 10px;
-      font-family: Manrope-Medium;
-      text-transform: uppercase;
-    }
-  }
-  .emoji-grid {
-    display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-    gap: 5px;
-  }
-  .emoji-button {
+  > .emoji-button {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -213,6 +197,32 @@ onBeforeUnmount(() => {
     font-size: 16px;
     transition: background-color 0.25s ease-in-out, transform 0.25s ease-in-out;
     cursor: pointer;
+  }
+  .emoji-section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    > header {
+      color: $ashy;
+      font-size: 10px;
+      font-family: Manrope-Medium;
+      text-transform: uppercase;
+    }
+    .emoji-grid {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 5px;
+      .emoji-button {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: none;
+        background: none;
+        font-size: 16px;
+        transition: background-color 0.25s ease-in-out, transform 0.25s ease-in-out;
+        cursor: pointer;
+      }
+    }
   }
 }
 
