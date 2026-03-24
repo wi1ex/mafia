@@ -36,7 +36,10 @@
               </div>
 
               <button v-if="message.reply" class="reply-preview" type="button" @click="onJumpToReply(message.reply.message_id)">
-                <span class="reply-author">{{ message.reply.author_username }}</span>
+                <div class="reply-preview-body">
+                  <img class="reply-avatar" v-minio-img="{ key: message.reply.avatar_name ? `avatars/${message.reply.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="" />
+                  <span class="reply-author">{{ message.reply.author_username }}</span>
+                </div>
                 <span class="reply-snippet">{{ message.reply.snippet || (message.reply.has_image ? 'Изображение' : 'Сообщение') }}</span>
               </button>
 
@@ -895,8 +898,7 @@ onBeforeUnmount(() => {
         }
         .reply-preview {
           display: flex;
-          flex-direction: column;
-          align-items: flex-start;
+          align-items: center;
           gap: 5px;
           padding: 5px 10px;
           border: none;
@@ -906,10 +908,23 @@ onBeforeUnmount(() => {
           color: $fg;
           cursor: pointer;
           text-align: left;
-          .reply-author {
-            color: $white;
-            font-size: 12px;
-            font-family: Manrope-Medium;
+          .reply-preview-body {
+            width: 100%;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            .reply-avatar {
+              width: 20px;
+              height: 20px;
+              border-radius: 50%;
+              object-fit: cover;
+            }
+            .reply-author {
+              color: $white;
+              font-size: 12px;
+              font-family: Manrope-Medium;
+            }
           }
           .reply-snippet {
             width: 100%;

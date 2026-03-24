@@ -535,6 +535,7 @@ async def serialize_global_chat_messages(session: AsyncSession, messages: Sequen
                 reply_payload = {
                     "message_id": int(reply_message.id),
                     "author_username": _username_for(reply_profile, int(reply_message.user_id)),
+                    "avatar_name": reply_profile.get("avatar_name"),
                     "snippet": "Сообщение удалено"
                     if reply_deleted
                     else _reply_snippet(str(reply_message.text or ""), has_image=bool(reply_message.image_object_key)),

@@ -39,6 +39,7 @@ export interface GlobalChatReactionParticipant {
 export interface GlobalChatReplyPreview {
   message_id: number
   author_username: string
+  avatar_name: string | null
   snippet: string
   deleted: boolean
   has_image: boolean
@@ -134,6 +135,7 @@ function buildDraftReplyPreview(message: GlobalChatMessage): GlobalChatReplyPrev
   return {
     message_id: message.id,
     author_username: message.author.username || `user${message.author.id}`,
+    avatar_name: message.author.avatar_name || null,
     snippet: message.deleted ? 'Сообщение удалено' : buildReplySnippet(message.text, Boolean(message.image_object_key)),
     deleted: message.deleted,
     has_image: !message.deleted && Boolean(message.image_object_key),
@@ -324,6 +326,7 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
     return {
       message_id: messageId,
       author_username: asString(raw.author_username).trim() || `user${messageId}`,
+      avatar_name: asString(raw.avatar_name) || null,
       snippet: asString(raw.snippet),
       deleted: Boolean(raw.deleted),
       has_image: Boolean(raw.has_image),
