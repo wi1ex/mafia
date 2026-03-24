@@ -579,7 +579,7 @@ async def fetch_global_chat_reaction_participants(session: AsyncSession, *, mess
         )
         .where(GlobalChatMessageReaction.message_id == mid)
         .order_by(
-            GlobalChatMessageReaction.created_at.desc(),
+            GlobalChatMessageReaction.created_at.asc(),
             GlobalChatMessageReaction.user_id.asc(),
             GlobalChatMessageReaction.emoji.asc(),
         )

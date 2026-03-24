@@ -351,10 +351,10 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
       })
     }
     out.sort((left, right) => {
-      const rightTime = Date.parse(right.created_at)
       const leftTime = Date.parse(left.created_at)
-      if (Number.isFinite(rightTime) && Number.isFinite(leftTime) && rightTime !== leftTime) {
-        return rightTime - leftTime
+      const rightTime = Date.parse(right.created_at)
+      if (Number.isFinite(leftTime) && Number.isFinite(rightTime) && leftTime !== rightTime) {
+        return leftTime - rightTime
       }
       const order = reactionSortIndex(left.emoji) - reactionSortIndex(right.emoji)
       if (order !== 0) return order

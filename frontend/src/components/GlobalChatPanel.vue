@@ -58,31 +58,28 @@
                   </button>
                 </div>
                 <template v-if="!message.deleted">
+                  <img v-if="message.image_object_key" class="message-image" @click="onOpenImageLightbox($event, 'Вложение')" v-minio-img="{ key: message.image_object_key, lazy: true }" alt="Вложение" />
                   <p v-if="message.text" class="message-text">{{ message.text }}</p>
-                  <img v-if="message.image_object_key" class="message-image" v-minio-img="{ key: message.image_object_key, lazy: true }" alt="Вложение" @click="onOpenImageLightbox($event, 'Вложение')" />
                 </template>
               </div>
 
               <div v-if="!message.deleted && orderedReactions(message).length > 0" class="reactions-row">
-                <button v-for="reaction in orderedReactions(message)" :key="reaction.emoji" :class="['reaction-chip', { 'reaction-chip--active': reaction.reacted_by_me }]"
-                        type="button" :disabled="chat.isReactionBusy(message.id)" @click="onToggleReaction(message.id, reaction.emoji)">
-                  <span>{{ reaction.emoji }}</span>
-                  <span>{{ reaction.count }}</span>
-                </button>
-                <div class="reaction-details-anchor" @pointerenter="onReactionDetailsHover(message.id)" @pointerleave="closeReactionDetails(message.id)"
-                     @focusin="onReactionDetailsFocus(message.id)" @focusout="onReactionDetailsFocusOut($event, message.id)">
-                  <button class="reaction-details-button" type="button" aria-label="Кто поставил реакции" title="Кто поставил реакции" @click.stop="onToggleReactionDetails(message.id)">
-                    <img :src="iconInfo" alt="" />
+                <div v-for="reaction in orderedReactions(message)" :key="reaction.emoji" class="reaction-details-anchor"
+                     @pointerenter="onReactionDetailsHover(message.id, reaction.emoji)" @pointerleave="closeReactionDetails(message.id, reaction.emoji)"
+                     @focusin="onReactionDetailsFocus(message.id, reaction.emoji)" @focusout="onReactionDetailsFocusOut($event, message.id, reaction.emoji)">
+                  <button :class="['reaction-chip', { 'reaction-chip--active': reaction.reacted_by_me }]"
+                          type="button" :disabled="chat.isReactionBusy(message.id)" @click="onToggleReaction(message.id, reaction.emoji)">
+                    <span>{{ reaction.emoji }}</span>
+                    <span>{{ reaction.count }}</span>
                   </button>
 
-                  <div v-if="reactionDetailsMessageId === message.id" class="reaction-details-popover" role="tooltip">
+                  <div v-if="reactionDetailsMessageId === message.id && reactionDetailsEmoji === reaction.emoji" class="reaction-details-popover" role="tooltip">
                     <p v-if="reactionDetailsLoadingMessageId === message.id" class="reaction-details-state">Загрузка...</p>
                     <p v-else-if="reactionDetailsErrorMessageId === message.id" class="reaction-details-state reaction-details-state--error">
                       Не удалось загрузить список реакций.
                     </p>
-                    <template v-else-if="reactionParticipantsFor(message.id).length > 0">
-                      <div v-for="participant in reactionParticipantsFor(message.id)" :key="`${participant.emoji}-${participant.user.id}-${participant.created_at}`" class="reaction-details-item">
-                        <span class="reaction-details-emoji">{{ participant.emoji }}</span>
+                    <template v-else-if="reactionParticipantsFor(message.id, reaction.emoji).length > 0">
+                      <div v-for="participant in reactionParticipantsFor(message.id, reaction.emoji)" :key="`${participant.user.id}-${participant.created_at}`" class="reaction-details-item">
                         <img class="reaction-details-avatar"
                              v-minio-img="{ key: participant.user.avatar_name ? `avatars/${participant.user.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="Аватар" />
                         <div class="reaction-details-meta">
@@ -270,6 +267,7 @@ const imageLightboxArmed = ref(false)
 const imageLightboxSrc = ref('')
 const imageLightboxAlt = ref('')
 const reactionDetailsMessageId = ref<number | null>(null)
+const reactionDetailsEmoji = ref('')
 const reactionDetailsLoadingMessageId = ref<number | null>(null)
 const reactionDetailsErrorMessageId = ref<number | null>(null)
 let reactionDetailsRequestToken = 0
@@ -349,8 +347,11 @@ function orderedReactions(message: GlobalChatMessage): GlobalChatReaction[] {
   })
 }
 
-function reactionParticipantsFor(messageId: number): GlobalChatReactionParticipant[] {
-  return reactionParticipantsCache.value[messageId] || []
+function reactionParticipantsFor(messageId: number, emoji?: string): GlobalChatReactionParticipant[] {
+  const participants = reactionParticipantsCache.value[messageId] || []
+  const normalizedEmoji = String(emoji || '').trim()
+  if (!normalizedEmoji) return participants
+  return participants.filter((participant) => participant.emoji === normalizedEmoji)
 }
 
 function closeImageLightbox(): void {
@@ -370,16 +371,22 @@ function onOpenImageLightbox(event: Event, alt: string): void {
   imageLightboxOpen.value = true
 }
 
-function closeReactionDetails(messageId?: number): void {
+function closeReactionDetails(messageId?: number, emoji?: string): void {
   const normalizedMessageId = typeof messageId === 'number' ? messageId : null
+  const normalizedEmoji = String(emoji || '').trim()
   if (normalizedMessageId !== null && reactionDetailsMessageId.value !== normalizedMessageId) return
+  if (normalizedEmoji && reactionDetailsEmoji.value !== normalizedEmoji) return
   reactionDetailsMessageId.value = null
+  reactionDetailsEmoji.value = ''
   reactionDetailsLoadingMessageId.value = null
   reactionDetailsErrorMessageId.value = null
 }
 
-async function openReactionDetails(messageId: number, options: { force?: boolean } = {}): Promise<void> {
+async function openReactionDetails(messageId: number, emoji: string, options: { force?: boolean } = {}): Promise<void> {
+  const normalizedEmoji = String(emoji || '').trim()
+  if (!normalizedEmoji) return
   reactionDetailsMessageId.value = messageId
+  reactionDetailsEmoji.value = normalizedEmoji
   reactionDetailsErrorMessageId.value = null
   const hasCached = Object.prototype.hasOwnProperty.call(reactionParticipantsCache.value, messageId)
   if (hasCached && !options.force) return
@@ -391,30 +398,25 @@ async function openReactionDetails(messageId: number, options: { force?: boolean
   if (reactionDetailsLoadingMessageId.value === messageId) {
     reactionDetailsLoadingMessageId.value = null
   }
-  if (reactionDetailsMessageId.value !== messageId) return
+  if (reactionDetailsMessageId.value !== messageId || reactionDetailsEmoji.value !== normalizedEmoji) return
   if (participants === null) {
     reactionDetailsErrorMessageId.value = messageId
   }
 }
 
-function onReactionDetailsHover(messageId: number): void {
-  void openReactionDetails(messageId)
+function onReactionDetailsHover(messageId: number, emoji: string): void {
+  void openReactionDetails(messageId, emoji)
 }
 
-function onReactionDetailsFocus(messageId: number): void {
-  void openReactionDetails(messageId)
+function onReactionDetailsFocus(messageId: number, emoji: string): void {
+  void openReactionDetails(messageId, emoji)
 }
 
-function onToggleReactionDetails(messageId: number): void {
-  if (reactionDetailsMessageId.value === messageId) return
-  void openReactionDetails(messageId)
-}
-
-function onReactionDetailsFocusOut(event: FocusEvent, messageId: number): void {
+function onReactionDetailsFocusOut(event: FocusEvent, messageId: number, emoji: string): void {
   const current = event.currentTarget as HTMLElement | null
   const nextTarget = event.relatedTarget as Node | null
   if (current && nextTarget && current.contains(nextTarget)) return
-  closeReactionDetails(messageId)
+  closeReactionDetails(messageId, emoji)
 }
 
 function onWindowKeydown(event: KeyboardEvent): void {
@@ -428,7 +430,7 @@ function onWindowKeydown(event: KeyboardEvent): void {
     return
   }
   if (reactionDetailsMessageId.value !== null) {
-    closeReactionDetails(reactionDetailsMessageId.value)
+    closeReactionDetails()
   }
 }
 
@@ -672,8 +674,8 @@ watch(messages, (items) => {
 watch(messages, (items) => {
   if (reactionDetailsMessageId.value === null) return
   const active = items.find((item) => item.id === reactionDetailsMessageId.value)
-  if (!active || active.deleted || orderedReactions(active).length === 0) {
-    closeReactionDetails(reactionDetailsMessageId.value)
+  if (!active || active.deleted || !orderedReactions(active).some((reaction) => reaction.emoji === reactionDetailsEmoji.value)) {
+    closeReactionDetails()
   }
 })
 
@@ -851,7 +853,8 @@ onBeforeUnmount(() => {
   .global-chat-message {
     display: flex;
     padding: 10px;
-    border-radius: 5px;
+    width: calc(100% - 20px);
+    border-radius: 10px;
     background-color: $grey;
     border: 1px solid transparent;
     transition: background-color 0.25s ease-in-out, border-color 0.25s ease-in-out;
@@ -869,7 +872,7 @@ onBeforeUnmount(() => {
       display: flex;
       flex-direction: column;
       gap: 10px;
-      min-width: 0;
+      width: 100%;
     }
     .message-meta {
       display: flex;
@@ -877,28 +880,24 @@ onBeforeUnmount(() => {
       justify-content: space-between;
       .message-meta-author {
         display: flex;
-        gap: 10px;
+        align-items: center;
+        gap: 5px;
         .author-avatar {
-          width: 30px;
-          height: 30px;
+          width: 24px;
+          height: 24px;
           border-radius: 50%;
           object-fit: cover;
         }
         .author-name {
           min-width: 0;
-          color: $white;
-          font-size: 14px;
-          font-family: Manrope-SemiBold;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
         }
       }
       .message-time {
-        flex-shrink: 0;
         color: $ashy;
         font-size: 12px;
-        line-height: 1.2;
       }
     }
     .reply-preview {
@@ -931,8 +930,8 @@ onBeforeUnmount(() => {
     .message-bubble {
       display: flex;
       flex-direction: column;
-      gap: 10px;
-      padding: 10px 15px;
+      gap: 5px;
+      padding: 5px 10px;
       border-radius: 5px;
       background-color: rgba($dark, 0.9);
       .message-text,
@@ -981,8 +980,9 @@ onBeforeUnmount(() => {
         }
       }
       .message-image {
+        margin-top: 5px;
         width: 100%;
-        max-height: 300px;
+        max-height: 340px;
         border-radius: 5px;
         object-fit: cover;
         background-color: rgba($lead, 0.5);
@@ -1024,28 +1024,6 @@ onBeforeUnmount(() => {
       display: inline-flex;
       align-items: center;
     }
-    .reaction-details-button {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 30px;
-      height: 30px;
-      padding: 0;
-      border: 1px solid $ashy;
-      border-radius: 999px;
-      background-color: $graphite;
-      cursor: pointer;
-      transition: background-color 0.25s ease-in-out, border-color 0.25s ease-in-out;
-      img {
-        width: 14px;
-        height: 14px;
-      }
-      &:hover,
-      &:focus-visible {
-        background-color: rgba($graphite, 0.9);
-        border-color: rgba($lead, 0.5);
-      }
-    }
     .reaction-details-popover {
       position: absolute;
       right: 0;
@@ -1065,13 +1043,9 @@ onBeforeUnmount(() => {
     }
     .reaction-details-item {
       display: grid;
-      grid-template-columns: auto 28px minmax(0, 1fr);
+      grid-template-columns: 30px minmax(0, 1fr);
       align-items: center;
       gap: 10px;
-    }
-    .reaction-details-emoji {
-      font-size: 18px;
-      line-height: 1;
     }
     .reaction-details-avatar {
       width: 30px;
