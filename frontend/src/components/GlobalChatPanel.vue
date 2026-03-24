@@ -97,8 +97,10 @@
                   <button class="action-button" type="button" :disabled="chat.isReactionBusy(message.id)" @pointerdown.stop @click="toggleMessageReactionPicker(message.id)">
                     Реакция
                   </button>
-                  <component :is="EmojiPicker" v-if="reactionPickerMessageId === message.id" mode="reactions" :reactions="reactionsAllowlist"
-                             @select="onSelectReaction(message.id, $event)" @close="reactionPickerMessageId = null" />
+                  <Transition name="emoji-picker-pop">
+                    <component :is="EmojiPicker" v-if="reactionPickerMessageId === message.id" mode="reactions" :reactions="reactionsAllowlist"
+                               @select="onSelectReaction(message.id, $event)" @close="reactionPickerMessageId = null" />
+                  </Transition>
                 </div>
 
                 <button v-if="message.can_delete" class="action-button action-button--danger" type="button"
@@ -148,7 +150,9 @@
           <button class="tool-button right" type="button" :disabled="composerDisabled" @pointerdown.stop @click="composerPickerOpen = !composerPickerOpen">
             <img :src="iconEmoji" alt="" />
           </button>
-          <component :is="EmojiPicker" v-if="composerPickerOpen" mode="composer" @select="insertEmoji" @close="composerPickerOpen = false" />
+          <Transition name="emoji-picker-pop">
+            <component :is="EmojiPicker" v-if="composerPickerOpen" mode="composer" @select="insertEmoji" @close="composerPickerOpen = false" />
+          </Transition>
 
           <button class="send-button" type="button" :disabled="!canSendCurrentDraft" @click="onSend" >
             <img :src="sendButtonImg" alt="" />
@@ -866,8 +870,8 @@ onBeforeUnmount(() => {
             align-items: center;
             gap: 5px;
             .author-avatar {
-              width: 24px;
-              height: 24px;
+              width: 20px;
+              height: 20px;
               border-radius: 50%;
               object-fit: cover;
             }
@@ -914,12 +918,12 @@ onBeforeUnmount(() => {
           display: flex;
           flex-direction: column;
           gap: 5px;
-          padding: 5px 10px;
+          padding: 5px;
           border-radius: 5px;
           background-color: rgba($dark, 0.9);
           .message-text,
           .tombstone {
-            margin: 0;
+            margin: 0 3px;
             color: $fg;
             font-size: 14px;
             line-height: 1.5;
@@ -981,14 +985,15 @@ onBeforeUnmount(() => {
             .reaction-chip {
               display: inline-flex;
               align-items: center;
-              gap: 5px;
-              padding: 5px 8px;
-              border: 1px solid rgba($white, 0.1);
+              gap: 3px;
+              padding: 3px 5px;
+              border: 1px solid $grey;
               border-radius: 999px;
               background-color: $lead;
               color: $fg;
-              font-size: 12px;
+              font-size: 14px;
               font-weight: bold;
+              line-height: 1.2;
               transition: background-color 0.25s ease-in-out, border-color 0.25s ease-in-out;
               cursor: pointer;
               &:disabled {
@@ -1409,7 +1414,9 @@ onBeforeUnmount(() => {
 .deleted-preview-modal-enter-active,
 .image-lightbox-transition-enter-active,
 .image-lightbox-transition-leave-active,
-.deleted-preview-modal-leave-active {
+.deleted-preview-modal-leave-active,
+.emoji-picker-pop-enter-active,
+.emoji-picker-pop-leave-active {
   transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
 }
 
@@ -1418,9 +1425,24 @@ onBeforeUnmount(() => {
 .deleted-preview-modal-enter-from,
 .image-lightbox-transition-enter-from,
 .image-lightbox-transition-leave-to,
-.deleted-preview-modal-leave-to {
+.deleted-preview-modal-leave-to,
+.emoji-picker-pop-enter-from,
+.emoji-picker-pop-leave-to {
   opacity: 0;
+}
+
+.global-chat-panel-transition-enter-from,
+.global-chat-panel-transition-leave-to,
+.deleted-preview-modal-enter-from,
+.image-lightbox-transition-enter-from,
+.image-lightbox-transition-leave-to,
+.deleted-preview-modal-leave-to {
   transform: translateY(-10px) scale(0.9);
+}
+
+.emoji-picker-pop-enter-from,
+.emoji-picker-pop-leave-to {
+  transform: translateY(10px) scale(0.9);
 }
 
 @media (max-width: 1280px) {

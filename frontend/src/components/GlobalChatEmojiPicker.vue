@@ -63,6 +63,7 @@ onBeforeUnmount(() => {
 .emoji-picker {
   display: flex;
   position: absolute;
+  transform-origin: bottom right;
   background-color: $lead;
   box-shadow: 0 15px 30px rgba($black, 0.5);
   overflow: hidden;
@@ -101,6 +102,7 @@ onBeforeUnmount(() => {
     border-radius: 5px;
     overflow-y: auto;
     overflow-x: hidden;
+    scrollbar-width: none;
     .emoji-grid--composer {
       display: grid;
       grid-template-columns: repeat(8, minmax(0, 1fr));
