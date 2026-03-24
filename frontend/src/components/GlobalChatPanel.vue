@@ -978,11 +978,11 @@ onBeforeUnmount(() => {
             display: flex;
             position: relative;
             align-items: center;
-              .reaction-chip {
-                display: inline-flex;
-                align-items: center;
-                gap: 3px;
-                padding: 3px 5px;
+            .reaction-chip {
+              display: inline-flex;
+              align-items: center;
+              gap: 3px;
+              padding: 3px 5px;
               border: 1px solid $grey;
               border-radius: 999px;
               background-color: $lead;
@@ -996,20 +996,20 @@ onBeforeUnmount(() => {
                 opacity: 0.5;
                 cursor: default;
               }
-                &--active {
-                  border-color: rgba($green, 0.25);
-                  background-color: rgba($green, 0.1);
-                }
-                &--picker {
-                  padding: 3px 8px;
-                  background-color: rgba($dark, 0.9);
-                  border-color: rgba($ashy, 0.25);
-                  font-size: 12px;
-                  font-family: Manrope-Medium;
-                  font-weight: normal;
-                  white-space: nowrap;
-                }
+              &--active {
+                border-color: rgba($green, 0.25);
+                background-color: rgba($green, 0.1);
               }
+              &--picker {
+                padding: 3px 8px;
+                background-color: rgba($dark, 0.9);
+                border-color: rgba($ashy, 0.25);
+                font-size: 12px;
+                font-family: Manrope-Medium;
+                font-weight: normal;
+                white-space: nowrap;
+              }
+            }
             .reaction-details-popover {
               display: flex;
               position: absolute;
