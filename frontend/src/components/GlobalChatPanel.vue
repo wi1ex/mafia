@@ -58,56 +58,50 @@
                 </template>
               </div>
 
-              <div class="reactions-row-actions">
-                <div class="message-actions">
-                  <button v-if="!message.deleted" class="action-button" type="button" @click="onReply(message.id)">
+              <div v-if="!message.deleted && (message.reactions.length > 0 || reactionsAllowlist.length > 0)" class="reactions-row">
+                <div v-for="reaction in orderedReactions(message)" :key="reaction.emoji" class="reaction-details-anchor"
+                     @pointerenter="onReactionDetailsHover(message.id, reaction.emoji)" @pointerleave="closeReactionDetails(message.id, reaction.emoji)"
+                     @focusin="onReactionDetailsFocus(message.id, reaction.emoji)" @focusout="onReactionDetailsFocusOut($event, message.id, reaction.emoji)">
+                  <button :class="['reaction-chip', { 'reaction-chip--active': reaction.reacted_by_me }]"
+                          type="button" :disabled="chat.isReactionBusy(message.id)" @click="onToggleReaction(message.id, reaction.emoji)">
+                    <span>{{ reaction.emoji }}</span>
+                    <span>{{ reaction.count }}</span>
+                  </button>
+
+                  <div v-if="reactionDetailsMessageId === message.id && reactionDetailsEmoji === reaction.emoji" class="reaction-details-popover" role="tooltip">
+                    <p v-if="reactionDetailsLoadingMessageId === message.id" class="reaction-details-state">Загрузка...</p>
+                    <p v-else-if="reactionDetailsErrorMessageId === message.id" class="reaction-details-state reaction-details-state--error">
+                      Не удалось загрузить список реакций.
+                    </p>
+                    <template v-else-if="reactionParticipantsFor(message.id, reaction.emoji).length > 0">
+                      <div v-for="participant in reactionParticipantsFor(message.id, reaction.emoji)" :key="`${participant.user.id}-${participant.created_at}`" class="reaction-details-item">
+                        <img class="reaction-details-avatar" v-minio-img="{ key: participant.user.avatar_name ? `avatars/${participant.user.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="Аватар" />
+                        <div class="reaction-details-meta">
+                          <span class="reaction-details-name">{{ participant.user.username || (`user${participant.user.id}`) }}</span>
+                          <small class="reaction-details-time">{{ formatMessageTime(participant.created_at) }}</small>
+                        </div>
+                      </div>
+                    </template>
+                    <p v-else class="reaction-details-state">Реакций пока нет.</p>
+                  </div>
+                </div>
+
+                <div v-if="reactionsAllowlist.length > 0" class="reaction-picker-anchor reaction-details-anchor">
+                  <button class="reaction-chip reaction-chip--picker" type="button" :disabled="chat.isReactionBusy(message.id)"
+                          @pointerdown.stop @click="toggleMessageReactionPicker(message.id)">
+                    <img :src="iconAddReaction" alt="" />
+                  </button>
+                  <button v-if="!message.deleted" class="reaction-chip reaction-chip--picker" type="button" @click="onReply(message.id)">
                     <img :src="iconReplyMessage" alt="" />
                   </button>
-                  <button v-if="message.can_delete" class="action-button action-button--danger" type="button"
+                  <button v-if="message.can_delete" class="reaction-chip reaction-chip--picker" type="button"
                           :disabled="chat.isDeleteBusy(message.id)" @click="onDeleteMessage(message)">
                     <img :src="iconDelete" alt="" />
                   </button>
-                </div>
-
-                <div v-if="!message.deleted && (message.reactions.length > 0 || reactionsAllowlist.length > 0)" class="reactions-row">
-                  <div v-for="reaction in orderedReactions(message)" :key="reaction.emoji" class="reaction-details-anchor"
-                       @pointerenter="onReactionDetailsHover(message.id, reaction.emoji)" @pointerleave="closeReactionDetails(message.id, reaction.emoji)"
-                       @focusin="onReactionDetailsFocus(message.id, reaction.emoji)" @focusout="onReactionDetailsFocusOut($event, message.id, reaction.emoji)">
-                    <button :class="['reaction-chip', { 'reaction-chip--active': reaction.reacted_by_me }]"
-                            type="button" :disabled="chat.isReactionBusy(message.id)" @click="onToggleReaction(message.id, reaction.emoji)">
-                      <span>{{ reaction.emoji }}</span>
-                      <span>{{ reaction.count }}</span>
-                    </button>
-
-                    <div v-if="reactionDetailsMessageId === message.id && reactionDetailsEmoji === reaction.emoji" class="reaction-details-popover" role="tooltip">
-                      <p v-if="reactionDetailsLoadingMessageId === message.id" class="reaction-details-state">Загрузка...</p>
-                      <p v-else-if="reactionDetailsErrorMessageId === message.id" class="reaction-details-state reaction-details-state--error">
-                        Не удалось загрузить список реакций.
-                      </p>
-                      <template v-else-if="reactionParticipantsFor(message.id, reaction.emoji).length > 0">
-                        <div v-for="participant in reactionParticipantsFor(message.id, reaction.emoji)" :key="`${participant.user.id}-${participant.created_at}`" class="reaction-details-item">
-                          <img class="reaction-details-avatar"
-                               v-minio-img="{ key: participant.user.avatar_name ? `avatars/${participant.user.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="Аватар" />
-                          <div class="reaction-details-meta">
-                            <span class="reaction-details-name">{{ participant.user.username || (`user${participant.user.id}`) }}</span>
-                            <small class="reaction-details-time">{{ formatMessageTime(participant.created_at) }}</small>
-                          </div>
-                        </div>
-                      </template>
-                      <p v-else class="reaction-details-state">Реакций пока нет.</p>
-                    </div>
-                  </div>
-
-                  <div v-if="reactionsAllowlist.length > 0" class="reaction-picker-anchor reaction-details-anchor">
-                    <button class="reaction-chip reaction-chip--picker" type="button" aria-label="Добавить реакцию"
-                            :disabled="chat.isReactionBusy(message.id)" @pointerdown.stop @click="toggleMessageReactionPicker(message.id)">
-                      <img :src="iconAddReaction" alt="" />
-                    </button>
-                    <Transition name="emoji-picker-pop">
-                      <component :is="EmojiPicker" v-if="reactionPickerMessageId === message.id" mode="reactions" :reactions="reactionsAllowlist"
-                                 @select="onSelectReaction(message.id, $event)" @close="reactionPickerMessageId = null" />
-                    </Transition>
-                  </div>
+                  <Transition name="emoji-picker-pop">
+                    <component :is="EmojiPicker" v-if="reactionPickerMessageId === message.id" mode="reactions" :reactions="reactionsAllowlist"
+                               @select="onSelectReaction(message.id, $event)" @close="reactionPickerMessageId = null" />
+                  </Transition>
                 </div>
               </div>
             </div>
@@ -805,11 +799,9 @@ onBeforeUnmount(() => {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin: 10px 10px 0 10px;
-    padding: 5px 10px;
+    padding: 10px 10px 0 10px;
     gap: 10px;
     min-height: 30px;
-    border-radius: 5px;
     background-color: $graphite;
     color: $fg;
     font-size: 14px;
@@ -890,6 +882,7 @@ onBeforeUnmount(() => {
             }
             .author-name {
               min-width: 0;
+              height: 18px;
               overflow: hidden;
               text-overflow: ellipsis;
               white-space: nowrap;
@@ -985,135 +978,100 @@ onBeforeUnmount(() => {
             cursor: zoom-in;
           }
         }
-        .reactions-row-actions {
+        .reactions-row {
           display: flex;
-          .reactions-row {
+          flex-wrap: wrap;
+          align-items: center;
+          justify-content: flex-end;
+          gap: 5px;
+          .reaction-details-anchor {
             display: flex;
-            flex-wrap: wrap;
+            position: relative;
             align-items: center;
-            justify-content: flex-end;
-            gap: 5px;
-            .reaction-details-anchor {
-              display: flex;
-              position: relative;
-              align-items: center;
-              .reaction-chip {
-                display: inline-flex;
-                align-items: center;
-                gap: 3px;
-                padding: 3px 5px;
-                border: 1px solid $grey;
-                border-radius: 999px;
-                background-color: $lead;
-                color: $fg;
-                font-size: 14px;
-                font-weight: bold;
-                line-height: 1.2;
-                cursor: pointer;
-                &:disabled {
-                  opacity: 0.5;
-                  cursor: default;
-                }
-                &--active {
-                  border-color: rgba($green, 0.25);
-                  background-color: rgba($green, 0.1);
-                }
-                &--picker {
-                  padding: 3px 5px;
-                  border: none;
-                  background-color: $dark;
-                  img {
-                    width: 16px;
-                    height: 16px;
-                  }
-                }
-              }
-              .reaction-details-popover {
-                display: flex;
-                position: absolute;
-                flex-direction: column;
-                top: calc(100% + 5px);
-                right: 0;
-                padding: 5px;
-                gap: 5px;
-                width: max-content;
-                height: max-content;
-                border-radius: 5px;
-                background-color: $lead;
-                box-shadow: 0 15px 30px rgba($black, 0.5);
-                z-index: 5;
-                .reaction-details-item {
-                  display: flex;
-                  align-items: center;
-                  gap: 5px;
-                  .reaction-details-avatar {
-                    width: 20px;
-                    height: 20px;
-                    border-radius: 50%;
-                    object-fit: cover;
-                  }
-                  .reaction-details-meta {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 3px;
-                    min-width: 0;
-                    .reaction-details-name {
-                      min-width: 0;
-                      color: $white;
-                      font-size: 12px;
-                      font-family: Manrope-Medium;
-                      overflow: hidden;
-                      text-overflow: ellipsis;
-                      white-space: nowrap;
-                    }
-                    .reaction-details-time {
-                      color: $ashy;
-                      font-size: 12px;
-                      line-height: 1.2;
-                    }
-                  }
-                }
-                .reaction-details-state {
-                  margin: 0;
-                  color: $ashy;
-                  font-size: 12px;
-                  line-height: 1.5;
-                  &--error {
-                    color: $red;
-                  }
-                }
-              }
-            }
-          }
-          .message-actions {
-            display: flex;
-            align-items: center;
-            justify-content: flex-end;
-            gap: 10px;
-            flex-wrap: wrap;
-            .reaction-picker-anchor {
-              position: relative;
-            }
-            .action-button {
+            .reaction-chip {
               display: inline-flex;
               align-items: center;
-              justify-content: center;
-              min-height: 30px;
-              padding: 0 10px;
-              border: none;
-              border-radius: 5px;
-              background-color: $dark;
+              gap: 3px;
+              padding: 3px 5px;
+              border: 1px solid $grey;
+              border-radius: 999px;
+              background-color: $lead;
+              color: $fg;
+              font-size: 14px;
+              font-weight: bold;
+              line-height: 1.3;
               cursor: pointer;
               &:disabled {
                 opacity: 0.5;
                 cursor: default;
               }
-              &--danger {
-                color: $red;
+              &--active {
+                border-color: rgba($green, 0.25);
+                background-color: rgba($green, 0.1);
               }
-              img {
-                width: 20px;
-                height: 20px;
+              &--picker {
+                padding: 5px 8px;
+                border: none;
+                background-color: $dark;
+                img {
+                  width: 16px;
+                  height: 16px;
+                }
+              }
+            }
+            .reaction-details-popover {
+              display: flex;
+              position: absolute;
+              flex-direction: column;
+              top: calc(100% + 5px);
+              right: 0;
+              padding: 5px;
+              gap: 5px;
+              width: max-content;
+              height: max-content;
+              border-radius: 5px;
+              background-color: $lead;
+              box-shadow: 0 15px 30px rgba($black, 0.5);
+              z-index: 5;
+              .reaction-details-item {
+                display: flex;
+                align-items: center;
+                gap: 5px;
+                .reaction-details-avatar {
+                  width: 20px;
+                  height: 20px;
+                  border-radius: 50%;
+                  object-fit: cover;
+                }
+                .reaction-details-meta {
+                  display: flex;
+                  flex-direction: column;
+                  gap: 3px;
+                  min-width: 0;
+                  .reaction-details-name {
+                    min-width: 0;
+                    color: $white;
+                    font-size: 12px;
+                    font-family: Manrope-Medium;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    white-space: nowrap;
+                  }
+                  .reaction-details-time {
+                    color: $ashy;
+                    font-size: 12px;
+                    line-height: 1.2;
+                  }
+                }
+              }
+              .reaction-details-state {
+                margin: 0;
+                color: $ashy;
+                font-size: 12px;
+                line-height: 1.5;
+                &--error {
+                  color: $red;
+                }
               }
             }
           }
