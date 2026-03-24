@@ -180,9 +180,12 @@ onBeforeUnmount(() => {
 .emoji-picker {
   display: flex;
   position: absolute;
-  top: calc(100% + 5px);
-  right: 0;
-  padding: 5px;
+  flex-direction: column;
+  bottom: calc(100% + 10px);
+  right: 10px;
+  padding: 10px;
+  width: 250px;
+  height: 250px;
   border-radius: 5px;
   background-color: $lead;
   box-shadow: 0 15px 30px rgba($black, 0.5);
@@ -204,13 +207,13 @@ onBeforeUnmount(() => {
     gap: 10px;
     > header {
       color: $ashy;
-      font-size: 10px;
+      font-size: 14px;
       font-family: Manrope-Medium;
       text-transform: uppercase;
     }
     .emoji-grid {
       display: grid;
-      grid-template-columns: repeat(6, minmax(0, 1fr));
+      grid-template-columns: repeat(8, minmax(0, 1fr));
       gap: 5px;
       .emoji-button {
         display: flex;
