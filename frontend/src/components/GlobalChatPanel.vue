@@ -44,11 +44,11 @@
                 <p v-if="message.deleted" class="tombstone">Сообщение удалено</p>
                 <div v-if="showDeletedModerationActions(message)" class="tombstone-actions">
                   <button class="icon-action-button" type="button" aria-label="Показать удаленное сообщение"
-                          title="Показать удаленное сообщение" :disabled="isDeletedPreviewBusy(message.id)" @click="onPreviewDeletedMessage(message.id)">
+                          :disabled="isDeletedPreviewBusy(message.id)" @click="onPreviewDeletedMessage(message.id)">
                     <img :src="iconInfo" alt="" />
                   </button>
                   <button class="icon-action-button icon-action-button--danger" type="button" aria-label="Удалить сообщение окончательно"
-                          title="Удалить сообщение окончательно" :disabled="chat.isPurgeBusy(message.id)" @click="onPurgeDeletedMessage(message)">
+                          :disabled="chat.isPurgeBusy(message.id)" @click="onPurgeDeletedMessage(message)">
                     <img :src="iconDelete" alt="" />
                   </button>
                 </div>
@@ -58,7 +58,7 @@
                 </template>
               </div>
 
-              <div v-if="!message.deleted && orderedReactions(message).length > 0" class="reactions-row">
+              <div v-if="!message.deleted && (message.reactions.length > 0 || reactionsAllowlist.length > 0)" class="reactions-row">
                 <div v-for="reaction in orderedReactions(message)" :key="reaction.emoji" class="reaction-details-anchor"
                      @pointerenter="onReactionDetailsHover(message.id, reaction.emoji)" @pointerleave="closeReactionDetails(message.id, reaction.emoji)"
                      @focusin="onReactionDetailsFocus(message.id, reaction.emoji)" @focusout="onReactionDetailsFocusOut($event, message.id, reaction.emoji)">
@@ -86,23 +86,23 @@
                     <p v-else class="reaction-details-state">Реакций пока нет.</p>
                   </div>
                 </div>
-              </div>
 
-              <div class="message-actions">
-                <button v-if="!message.deleted" class="action-button" type="button" @click="onReply(message.id)">
-                  Ответить
-                </button>
-
-                <div v-if="!message.deleted && reactionsAllowlist.length > 0" class="reaction-picker-anchor">
-                  <button class="action-button" type="button" :disabled="chat.isReactionBusy(message.id)" @pointerdown.stop @click="toggleMessageReactionPicker(message.id)">
-                    Реакция
+                <div v-if="reactionsAllowlist.length > 0" class="reaction-picker-anchor reaction-details-anchor">
+                  <button class="reaction-chip reaction-chip--picker" type="button" aria-label="Добавить реакцию"
+                          :disabled="chat.isReactionBusy(message.id)" @pointerdown.stop @click="toggleMessageReactionPicker(message.id)">
+                    <img :src="iconAddReaction" alt="" />
                   </button>
                   <Transition name="emoji-picker-pop">
                     <component :is="EmojiPicker" v-if="reactionPickerMessageId === message.id" mode="reactions" :reactions="reactionsAllowlist"
                                @select="onSelectReaction(message.id, $event)" @close="reactionPickerMessageId = null" />
                   </Transition>
                 </div>
+              </div>
 
+              <div class="message-actions">
+                <button v-if="!message.deleted" class="action-button" type="button" @click="onReply(message.id)">
+                  Ответить
+                </button>
                 <button v-if="message.can_delete" class="action-button action-button--danger" type="button"
                         :disabled="chat.isDeleteBusy(message.id)" @click="onDeleteMessage(message.id)">
                   Удалить
@@ -155,7 +155,7 @@
           </Transition>
 
           <button class="send-button" type="button" :disabled="!canSendCurrentDraft" @click="onSend" >
-            <img :src="sendButtonImg" alt="" />
+            <img :src="iconSend" alt="" />
           </button>
         </div>
       </section>
@@ -217,7 +217,7 @@ import iconPhoto from '@/assets/svg/photo.svg'
 import iconDelete from '@/assets/svg/delete.svg'
 import iconInfo from '@/assets/svg/info.svg'
 import iconSend from '@/assets/svg/send.svg'
-import iconSending from '@/assets/svg/sending.svg'
+import iconAddReaction from '@/assets/svg/add_reaction.svg'
 
 import type {
   GlobalChatDeletedMessagePreview,
@@ -306,10 +306,6 @@ const composerPlaceholder = computed(() => (
   permissions.value.can_send ? 'Введите текст...' : 'Чат временно отключен...'
 ))
 const showLoadMore = computed(() => hasMore.value && (loadingMore.value || listAtTop.value))
-const sendButtonImg = computed(() => {
-  if (uploadingImage.value || sending.value) return iconSending
-  return iconSend
-})
 
 function isNearTop(): boolean {
   const list = listEl.value
@@ -982,11 +978,11 @@ onBeforeUnmount(() => {
             display: flex;
             position: relative;
             align-items: center;
-            .reaction-chip {
-              display: inline-flex;
-              align-items: center;
-              gap: 3px;
-              padding: 3px 5px;
+              .reaction-chip {
+                display: inline-flex;
+                align-items: center;
+                gap: 3px;
+                padding: 3px 5px;
               border: 1px solid $grey;
               border-radius: 999px;
               background-color: $lead;
@@ -1000,11 +996,20 @@ onBeforeUnmount(() => {
                 opacity: 0.5;
                 cursor: default;
               }
-              &--active {
-                border-color: rgba($green, 0.25);
-                background-color: rgba($green, 0.1);
+                &--active {
+                  border-color: rgba($green, 0.25);
+                  background-color: rgba($green, 0.1);
+                }
+                &--picker {
+                  padding: 3px 8px;
+                  background-color: rgba($dark, 0.9);
+                  border-color: rgba($ashy, 0.25);
+                  font-size: 12px;
+                  font-family: Manrope-Medium;
+                  font-weight: normal;
+                  white-space: nowrap;
+                }
               }
-            }
             .reaction-details-popover {
               display: flex;
               position: absolute;
