@@ -58,55 +58,57 @@
                 </template>
               </div>
 
-              <div v-if="!message.deleted && (message.reactions.length > 0 || reactionsAllowlist.length > 0)" class="reactions-row">
-                <div v-for="reaction in orderedReactions(message)" :key="reaction.emoji" class="reaction-details-anchor"
-                     @pointerenter="onReactionDetailsHover(message.id, reaction.emoji)" @pointerleave="closeReactionDetails(message.id, reaction.emoji)"
-                     @focusin="onReactionDetailsFocus(message.id, reaction.emoji)" @focusout="onReactionDetailsFocusOut($event, message.id, reaction.emoji)">
-                  <button :class="['reaction-chip', { 'reaction-chip--active': reaction.reacted_by_me }]"
-                          type="button" :disabled="chat.isReactionBusy(message.id)" @click="onToggleReaction(message.id, reaction.emoji)">
-                    <span>{{ reaction.emoji }}</span>
-                    <span>{{ reaction.count }}</span>
+              <div class="reactions-row-actions">
+                <div class="message-actions">
+                  <button v-if="!message.deleted" class="action-button" type="button" @click="onReply(message.id)">
+                    <img :src="iconReplyMessage" alt="" />
                   </button>
+                  <button v-if="message.can_delete" class="action-button action-button--danger" type="button"
+                          :disabled="chat.isDeleteBusy(message.id)" @click="onDeleteMessage(message)">
+                    <img :src="iconDelete" alt="" />
+                  </button>
+                </div>
 
-                  <div v-if="reactionDetailsMessageId === message.id && reactionDetailsEmoji === reaction.emoji" class="reaction-details-popover" role="tooltip">
-                    <p v-if="reactionDetailsLoadingMessageId === message.id" class="reaction-details-state">Загрузка...</p>
-                    <p v-else-if="reactionDetailsErrorMessageId === message.id" class="reaction-details-state reaction-details-state--error">
-                      Не удалось загрузить список реакций.
-                    </p>
-                    <template v-else-if="reactionParticipantsFor(message.id, reaction.emoji).length > 0">
-                      <div v-for="participant in reactionParticipantsFor(message.id, reaction.emoji)" :key="`${participant.user.id}-${participant.created_at}`" class="reaction-details-item">
-                        <img class="reaction-details-avatar"
-                             v-minio-img="{ key: participant.user.avatar_name ? `avatars/${participant.user.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="Аватар" />
-                        <div class="reaction-details-meta">
-                          <span class="reaction-details-name">{{ participant.user.username || (`user${participant.user.id}`) }}</span>
-                          <small class="reaction-details-time">{{ formatMessageTime(participant.created_at) }}</small>
+                <div v-if="!message.deleted && (message.reactions.length > 0 || reactionsAllowlist.length > 0)" class="reactions-row">
+                  <div v-for="reaction in orderedReactions(message)" :key="reaction.emoji" class="reaction-details-anchor"
+                       @pointerenter="onReactionDetailsHover(message.id, reaction.emoji)" @pointerleave="closeReactionDetails(message.id, reaction.emoji)"
+                       @focusin="onReactionDetailsFocus(message.id, reaction.emoji)" @focusout="onReactionDetailsFocusOut($event, message.id, reaction.emoji)">
+                    <button :class="['reaction-chip', { 'reaction-chip--active': reaction.reacted_by_me }]"
+                            type="button" :disabled="chat.isReactionBusy(message.id)" @click="onToggleReaction(message.id, reaction.emoji)">
+                      <span>{{ reaction.emoji }}</span>
+                      <span>{{ reaction.count }}</span>
+                    </button>
+
+                    <div v-if="reactionDetailsMessageId === message.id && reactionDetailsEmoji === reaction.emoji" class="reaction-details-popover" role="tooltip">
+                      <p v-if="reactionDetailsLoadingMessageId === message.id" class="reaction-details-state">Загрузка...</p>
+                      <p v-else-if="reactionDetailsErrorMessageId === message.id" class="reaction-details-state reaction-details-state--error">
+                        Не удалось загрузить список реакций.
+                      </p>
+                      <template v-else-if="reactionParticipantsFor(message.id, reaction.emoji).length > 0">
+                        <div v-for="participant in reactionParticipantsFor(message.id, reaction.emoji)" :key="`${participant.user.id}-${participant.created_at}`" class="reaction-details-item">
+                          <img class="reaction-details-avatar"
+                               v-minio-img="{ key: participant.user.avatar_name ? `avatars/${participant.user.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="Аватар" />
+                          <div class="reaction-details-meta">
+                            <span class="reaction-details-name">{{ participant.user.username || (`user${participant.user.id}`) }}</span>
+                            <small class="reaction-details-time">{{ formatMessageTime(participant.created_at) }}</small>
+                          </div>
                         </div>
-                      </div>
-                    </template>
-                    <p v-else class="reaction-details-state">Реакций пока нет.</p>
+                      </template>
+                      <p v-else class="reaction-details-state">Реакций пока нет.</p>
+                    </div>
+                  </div>
+
+                  <div v-if="reactionsAllowlist.length > 0" class="reaction-picker-anchor reaction-details-anchor">
+                    <button class="reaction-chip reaction-chip--picker" type="button" aria-label="Добавить реакцию"
+                            :disabled="chat.isReactionBusy(message.id)" @pointerdown.stop @click="toggleMessageReactionPicker(message.id)">
+                      <img :src="iconAddReaction" alt="" />
+                    </button>
+                    <Transition name="emoji-picker-pop">
+                      <component :is="EmojiPicker" v-if="reactionPickerMessageId === message.id" mode="reactions" :reactions="reactionsAllowlist"
+                                 @select="onSelectReaction(message.id, $event)" @close="reactionPickerMessageId = null" />
+                    </Transition>
                   </div>
                 </div>
-
-                <div v-if="reactionsAllowlist.length > 0" class="reaction-picker-anchor reaction-details-anchor">
-                  <button class="reaction-chip reaction-chip--picker" type="button" aria-label="Добавить реакцию"
-                          :disabled="chat.isReactionBusy(message.id)" @pointerdown.stop @click="toggleMessageReactionPicker(message.id)">
-                    <img :src="iconAddReaction" alt="" />
-                  </button>
-                  <Transition name="emoji-picker-pop">
-                    <component :is="EmojiPicker" v-if="reactionPickerMessageId === message.id" mode="reactions" :reactions="reactionsAllowlist"
-                               @select="onSelectReaction(message.id, $event)" @close="reactionPickerMessageId = null" />
-                  </Transition>
-                </div>
-              </div>
-
-              <div class="message-actions">
-                <button v-if="!message.deleted" class="action-button" type="button" @click="onReply(message.id)">
-                  Ответить
-                </button>
-                <button v-if="message.can_delete" class="action-button action-button--danger" type="button"
-                        :disabled="chat.isDeleteBusy(message.id)" @click="onDeleteMessage(message.id)">
-                  Удалить
-                </button>
               </div>
             </div>
           </article>
@@ -218,6 +220,7 @@ import iconDelete from '@/assets/svg/delete.svg'
 import iconInfo from '@/assets/svg/info.svg'
 import iconSend from '@/assets/svg/send.svg'
 import iconAddReaction from '@/assets/svg/add_reaction.svg'
+import iconReplyMessage from '@/assets/svg/reply_message.svg'
 
 import type {
   GlobalChatDeletedMessagePreview,
@@ -507,8 +510,23 @@ function onSelectReaction(messageId: number, emoji: string): void {
   onToggleReaction(messageId, emoji)
 }
 
-function onDeleteMessage(messageId: number): void {
-  void chat.deleteMessage(messageId)
+async function onDeleteMessage(message: GlobalChatMessage): Promise<void> {
+  if (message.deleted || !message.can_delete || chat.isDeleteBusy(message.id)) return
+
+  const authorName = message.author.username || `user${message.author.id}`
+  const confirmed = await confirmDialog({
+    title: message.is_own ? 'Удаление сообщения' : 'Удаление сообщения пользователя',
+    text: message.is_own
+      ? 'Вы уверены, что хотите удалить это сообщение?'
+      : isAdmin.value
+        ? `Вы уверены, что хотите удалить сообщение пользователя ${authorName}?`
+        : 'Вы уверены, что хотите удалить это сообщение?',
+    confirmText: 'Удалить',
+    cancelText: 'Отмена',
+  })
+  if (!confirmed) return
+
+  await chat.deleteMessage(message.id)
 }
 
 function showDeletedModerationActions(message: GlobalChatMessage): boolean {
@@ -841,7 +859,6 @@ onBeforeUnmount(() => {
       border-radius: 10px;
       background-color: $graphite;
       border: 1px solid transparent;
-      transition: background-color 0.25s ease-in-out, border-color 0.25s ease-in-out;
       &--own {
         background-color: $lead;
       }
@@ -914,12 +931,12 @@ onBeforeUnmount(() => {
           display: flex;
           flex-direction: column;
           gap: 5px;
-          padding: 5px;
-          border-radius: 5px;
-          background-color: rgba($dark, 0.9);
           .message-text,
           .tombstone {
-            margin: 0 3px;
+            margin: 0;
+            padding: 5px 8px;
+            border-radius: 5px;
+            background-color: $dark;
             color: $fg;
             font-size: 14px;
             line-height: 1.5;
@@ -931,8 +948,9 @@ onBeforeUnmount(() => {
             font-style: italic;
           }
           .tombstone-actions {
-            display: inline-flex;
+            display: flex;
             align-items: center;
+            justify-content: flex-end;
             gap: 5px;
             .icon-action-button {
               display: inline-flex;
@@ -943,9 +961,8 @@ onBeforeUnmount(() => {
               padding: 0;
               border: none;
               border-radius: 5px;
-              background-color: $dark;
+              background-color: $graphite;
               cursor: pointer;
-              transition: background-color 0.25s ease-in-out, opacity 0.25s ease-in-out;
               img {
                 width: 16px;
                 height: 16px;
@@ -955,7 +972,7 @@ onBeforeUnmount(() => {
                 cursor: default;
               }
               &--danger {
-                background-color: rgba($red, 0.25);
+                background-color: $red;
               }
             }
           }
@@ -968,132 +985,136 @@ onBeforeUnmount(() => {
             cursor: zoom-in;
           }
         }
-        .reactions-row {
+        .reactions-row-actions {
           display: flex;
-          flex-wrap: wrap;
-          align-items: center;
-          justify-content: flex-end;
-          gap: 5px;
-          .reaction-details-anchor {
+          .reactions-row {
             display: flex;
-            position: relative;
+            flex-wrap: wrap;
             align-items: center;
-            .reaction-chip {
+            justify-content: flex-end;
+            gap: 5px;
+            .reaction-details-anchor {
+              display: flex;
+              position: relative;
+              align-items: center;
+              .reaction-chip {
+                display: inline-flex;
+                align-items: center;
+                gap: 3px;
+                padding: 3px 5px;
+                border: 1px solid $grey;
+                border-radius: 999px;
+                background-color: $lead;
+                color: $fg;
+                font-size: 14px;
+                font-weight: bold;
+                line-height: 1.2;
+                cursor: pointer;
+                &:disabled {
+                  opacity: 0.5;
+                  cursor: default;
+                }
+                &--active {
+                  border-color: rgba($green, 0.25);
+                  background-color: rgba($green, 0.1);
+                }
+                &--picker {
+                  padding: 3px 5px;
+                  border: none;
+                  background-color: $dark;
+                  img {
+                    width: 16px;
+                    height: 16px;
+                  }
+                }
+              }
+              .reaction-details-popover {
+                display: flex;
+                position: absolute;
+                flex-direction: column;
+                top: calc(100% + 5px);
+                right: 0;
+                padding: 5px;
+                gap: 5px;
+                width: max-content;
+                height: max-content;
+                border-radius: 5px;
+                background-color: $lead;
+                box-shadow: 0 15px 30px rgba($black, 0.5);
+                z-index: 5;
+                .reaction-details-item {
+                  display: flex;
+                  align-items: center;
+                  gap: 5px;
+                  .reaction-details-avatar {
+                    width: 20px;
+                    height: 20px;
+                    border-radius: 50%;
+                    object-fit: cover;
+                  }
+                  .reaction-details-meta {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 3px;
+                    min-width: 0;
+                    .reaction-details-name {
+                      min-width: 0;
+                      color: $white;
+                      font-size: 12px;
+                      font-family: Manrope-Medium;
+                      overflow: hidden;
+                      text-overflow: ellipsis;
+                      white-space: nowrap;
+                    }
+                    .reaction-details-time {
+                      color: $ashy;
+                      font-size: 12px;
+                      line-height: 1.2;
+                    }
+                  }
+                }
+                .reaction-details-state {
+                  margin: 0;
+                  color: $ashy;
+                  font-size: 12px;
+                  line-height: 1.5;
+                  &--error {
+                    color: $red;
+                  }
+                }
+              }
+            }
+          }
+          .message-actions {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 10px;
+            flex-wrap: wrap;
+            .reaction-picker-anchor {
+              position: relative;
+            }
+            .action-button {
               display: inline-flex;
               align-items: center;
-              gap: 3px;
-              padding: 3px 5px;
-              border: 1px solid $grey;
-              border-radius: 999px;
-              background-color: $lead;
-              color: $fg;
-              font-size: 14px;
-              font-weight: bold;
-              line-height: 1.2;
-              transition: background-color 0.25s ease-in-out, border-color 0.25s ease-in-out;
+              justify-content: center;
+              min-height: 30px;
+              padding: 0 10px;
+              border: none;
+              border-radius: 5px;
+              background-color: $dark;
               cursor: pointer;
               &:disabled {
                 opacity: 0.5;
                 cursor: default;
               }
-              &--active {
-                border-color: rgba($green, 0.25);
-                background-color: rgba($green, 0.1);
+              &--danger {
+                color: $red;
               }
-              &--picker {
-                padding: 3px 5px;
-                background-color: $dark;
-                img {
-                  width: 16px;
-                  height: 16px;
-                }
+              img {
+                width: 20px;
+                height: 20px;
               }
-            }
-            .reaction-details-popover {
-              display: flex;
-              position: absolute;
-              flex-direction: column;
-              top: calc(100% + 5px);
-              right: 0;
-              padding: 5px;
-              gap: 5px;
-              width: max-content;
-              height: max-content;
-              border-radius: 5px;
-              background-color: $lead;
-              box-shadow: 0 15px 30px rgba($black, 0.5);
-              z-index: 5;
-              .reaction-details-item {
-                display: flex;
-                align-items: center;
-                gap: 5px;
-                .reaction-details-avatar {
-                  width: 20px;
-                  height: 20px;
-                  border-radius: 50%;
-                  object-fit: cover;
-                }
-                .reaction-details-meta {
-                  display: flex;
-                  flex-direction: column;
-                  gap: 3px;
-                  min-width: 0;
-                  .reaction-details-name {
-                    min-width: 0;
-                    color: $white;
-                    font-size: 12px;
-                    font-family: Manrope-Medium;
-                    overflow: hidden;
-                    text-overflow: ellipsis;
-                    white-space: nowrap;
-                  }
-                  .reaction-details-time {
-                    color: $ashy;
-                    font-size: 12px;
-                    line-height: 1.2;
-                  }
-                }
-              }
-              .reaction-details-state {
-                margin: 0;
-                color: $ashy;
-                font-size: 12px;
-                line-height: 1.5;
-                &--error {
-                  color: rgba($red, 0.9);
-                }
-              }
-            }
-          }
-        }
-        .message-actions {
-          display: flex;
-          align-items: center;
-          justify-content: flex-end;
-          gap: 10px;
-          flex-wrap: wrap;
-          .reaction-picker-anchor {
-            position: relative;
-          }
-          .action-button {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 30px;
-            padding: 0 10px;
-            border: none;
-            border-radius: 5px;
-            background-color: rgba($dark, 0.9);
-            color: $fg;
-            cursor: pointer;
-            font-size: 12px;
-            transition: background-color 0.2s ease-in-out;
-            &:disabled {
-              opacity: 0.5;
-              cursor: default;
-            }
-            &--danger {
-              color: rgba($red, 0.9);
             }
           }
         }
@@ -1383,7 +1404,7 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   padding: 20px;
-  background-color: rgba($black, 0.9);
+  background-color: $bg;
   backdrop-filter: blur(5px);
   z-index: 130;
   .image-lightbox-close {
@@ -1398,7 +1419,7 @@ onBeforeUnmount(() => {
     padding: 0;
     border: none;
     border-radius: 999px;
-    background-color: rgba($graphite, 0.9);
+    background-color: $graphite;
     cursor: pointer;
     img {
       width: 20px;
