@@ -37,11 +37,12 @@
               },
             ]"
           >
-            <img class="author-avatar" v-minio-img="{ key: message.author.avatar_name ? `avatars/${message.author.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="Аватар автора" />
-
             <div class="message-main">
               <div class="message-meta">
-                <span class="author-name">{{ message.author.username || (`user${message.author.id}`) }}</span>
+                <div class="message-meta-author">
+                  <img class="author-avatar" v-minio-img="{ key: message.author.avatar_name ? `avatars/${message.author.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="Аватар автора" />
+                  <span class="author-name">{{ message.author.username || (`user${message.author.id}`) }}</span>
+                </div>
                 <span class="message-time">{{ formatMessageTime(message.created_at) }}</span>
               </div>
 
@@ -76,8 +77,7 @@
                 </button>
                 <div class="reaction-details-anchor" @pointerenter="onReactionDetailsHover(message.id)" @pointerleave="closeReactionDetails(message.id)"
                      @focusin="onReactionDetailsFocus(message.id)" @focusout="onReactionDetailsFocusOut($event, message.id)">
-                  <button class="reaction-details-button" type="button" aria-label="Кто поставил реакции"
-                          title="Кто поставил реакции" @click.stop="onToggleReactionDetails(message.id)">
+                  <button class="reaction-details-button" type="button" aria-label="Кто поставил реакции" title="Кто поставил реакции" @click.stop="onToggleReactionDetails(message.id)">
                     <img :src="iconInfo" alt="" />
                   </button>
 
@@ -111,14 +111,8 @@
                   <button class="action-button" type="button" :disabled="chat.isReactionBusy(message.id)" @click="toggleMessageReactionPicker(message.id)">
                     Реакция
                   </button>
-                  <component
-                    :is="EmojiPicker"
-                    v-if="reactionPickerMessageId === message.id"
-                    mode="reactions"
-                    :reactions="reactionsAllowlist"
-                    @select="onSelectReaction(message.id, $event)"
-                    @close="reactionPickerMessageId = null"
-                  />
+                  <component :is="EmojiPicker" v-if="reactionPickerMessageId === message.id" mode="reactions" :reactions="reactionsAllowlist"
+                             @select="onSelectReaction(message.id, $event)" @close="reactionPickerMessageId = null" />
                 </div>
 
                 <button v-if="message.can_delete" class="action-button action-button--danger" type="button"
@@ -150,30 +144,16 @@
         <div class="composer-shell">
           <label class="tool-button tool-button--file" :class="{ 'tool-button--disabled': composerDisabled }">
             <input ref="fileInputEl" type="file" accept="image/png,image/jpeg" :disabled="composerDisabled" @change="onPickImage" >
-            <img :src="iconPhotoiconPhoto" alt="" />
+            <img :src="iconPhoto" alt="" />
           </label>
 
-          <textarea
-            ref="textareaEl"
-            v-model="draft"
-            class="composer-input"
-            :disabled="composerDisabled"
-            rows="3"
-            maxlength="1000"
-            placeholder="Введите текст..."
-            @keydown="onComposerKeydown"
-          />
+          <textarea ref="textareaEl" v-model="draft" class="composer-input" :disabled="composerDisabled" rows="3"
+                    maxlength="1000" placeholder="Введите текст..." @keydown="onComposerKeydown" />
 
           <button class="tool-button right" type="button" :disabled="composerDisabled" @click="composerPickerOpen = !composerPickerOpen">
             <img :src="iconEmoji" alt="" />
           </button>
-          <component
-            :is="EmojiPicker"
-            v-if="composerPickerOpen"
-            mode="composer"
-            @select="insertEmoji"
-            @close="composerPickerOpen = false"
-          />
+          <component :is="EmojiPicker" v-if="composerPickerOpen" mode="composer" @select="insertEmoji" @close="composerPickerOpen = false" />
 
           <button class="send-button" type="button" :disabled="!canSendCurrentDraft" @click="onSend" >
             <img :src="sendButtonImg" alt="" />
@@ -183,17 +163,8 @@
     </Transition>
 
     <Transition name="deleted-preview-modal">
-      <div
-        v-if="deletedPreviewOpen && deletedPreview"
-        class="deleted-preview-overlay"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Удаленное сообщение"
-        @pointerdown.self="deletedPreviewArmed = true"
-        @pointerup.self="deletedPreviewArmed && closeDeletedPreview()"
-        @pointerleave.self="deletedPreviewArmed = false"
-        @pointercancel.self="deletedPreviewArmed = false"
-      >
+      <div v-if="deletedPreviewOpen && deletedPreview" class="deleted-preview-overlay" role="dialog" aria-modal="true" aria-label="Удаленное сообщение"
+           @pointerdown.self="deletedPreviewArmed = true" @pointerup.self="deletedPreviewArmed && closeDeletedPreview()" @pointerleave.self="deletedPreviewArmed = false" @pointercancel.self="deletedPreviewArmed = false" >
         <div class="deleted-preview-modal">
           <header class="deleted-preview-header">
             <div class="deleted-preview-header-main">
@@ -213,8 +184,7 @@
 
             <template v-if="deletedPreview.content_available">
               <p v-if="deletedPreview.text" class="deleted-preview-text">{{ deletedPreview.text }}</p>
-              <img v-if="deletedPreview.image_object_key" class="deleted-preview-image" v-minio-img="{ key: deletedPreview.image_object_key, lazy: false }" alt="Удаленное вложение"
-                   @click="onOpenImageLightbox($event, 'Удаленное вложение')" />
+              <img v-if="deletedPreview.image_object_key" class="deleted-preview-image" @click="onOpenImageLightbox($event, 'Удаленное вложение')" v-minio-img="{ key: deletedPreview.image_object_key, lazy: false }" alt="Удаленное вложение" />
             </template>
             <p v-else class="deleted-preview-empty">Содержимое сообщения уже удалено окончательно.</p>
           </div>
@@ -821,7 +791,7 @@ onBeforeUnmount(() => {
       justify-content: center;
       padding: 0;
       width: 25px;
-      height: 30px;
+      height: 25px;
       border: none;
       background: none;
       cursor: pointer;
@@ -857,7 +827,7 @@ onBeforeUnmount(() => {
     display: flex;
     flex-direction: column;
     gap: 10px;
-    height: calc(100% - 120px);
+    height: calc(100% - 107px);
     padding: 10px;
     overflow-y: auto;
     scrollbar-width: none;
@@ -880,9 +850,7 @@ onBeforeUnmount(() => {
     text-align: center;
   }
   .global-chat-message {
-    display: grid;
-    grid-template-columns: 35px minmax(0, 1fr);
-    gap: 10px;
+    display: flex;
     padding: 10px;
     border-radius: 5px;
     background-color: rgba($lead, 0.5);
@@ -898,12 +866,6 @@ onBeforeUnmount(() => {
       border-color: rgba($yellow, 0.8);
       box-shadow: 0 0 0 1px rgba($yellow, 0.25), 0 15px 30px rgba($black, 0.25);
     }
-    .author-avatar {
-      width: 35px;
-      height: 35px;
-      border-radius: 50%;
-      object-fit: cover;
-    }
     .message-main {
       display: flex;
       flex-direction: column;
@@ -914,15 +876,24 @@ onBeforeUnmount(() => {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 10px;
-      .author-name {
-        min-width: 0;
-        color: $white;
-        font-size: 14px;
-        font-family: Manrope-SemiBold;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+      .message-meta-author {
+        display: flex;
+        gap: 10px;
+        .author-avatar {
+          width: 30px;
+          height: 30px;
+          border-radius: 50%;
+          object-fit: cover;
+        }
+        .author-name {
+          min-width: 0;
+          color: $white;
+          font-size: 14px;
+          font-family: Manrope-SemiBold;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
       }
       .message-time {
         flex-shrink: 0;
@@ -1141,6 +1112,7 @@ onBeforeUnmount(() => {
     .message-actions {
       display: flex;
       align-items: center;
+      justify-content: flex-end;
       gap: 10px;
       flex-wrap: wrap;
     }
@@ -1261,7 +1233,7 @@ onBeforeUnmount(() => {
     display: flex;
     position: absolute;
     left: 5px;
-    bottom: 15px;
+    bottom: 11px;
     flex-direction: column;
     align-items: center;
     justify-content: center;
@@ -1269,11 +1241,9 @@ onBeforeUnmount(() => {
     height: 30px;
     border: none;
     border-radius: 15px;
-    background-color: $graphite;
+    background-color: $dark;
     cursor: pointer;
     &--file {
-      position: relative;
-      overflow: hidden;
       input {
         position: absolute;
         inset: 0;
@@ -1282,27 +1252,31 @@ onBeforeUnmount(() => {
       }
     }
     &--disabled {
-      opacity: 0.5;
       cursor: default;
+      img {
+        opacity: 0.5;
+      }
     }
     &.right {
       left: auto;
       right: 40px;
     }
     img {
-      width: 20px;
-      height: 20px;
+      width: 16px;
+      height: 16px;
     }
   }
   .composer-input {
-    padding: 10px 75px 10px 40px;
+    padding: 17px 75px 15px 40px;
     width: 100%;
-    height: 40px;
+    height: 20px;
     border: none;
     background-color: $lead;
     color: $fg;
     resize: none;
     outline: none;
+    overflow: auto;
+    scrollbar-width: none;
     font: inherit;
     &:disabled {
       opacity: 0.5;
@@ -1315,20 +1289,22 @@ onBeforeUnmount(() => {
     align-items: center;
     justify-content: center;
     right: 5px;
-    bottom: 15px;
+    bottom: 11px;
     width: 30px;
     height: 30px;
     border: none;
     border-radius: 15px;
-    background-color: $graphite;
+    background-color: $dark;
     cursor: pointer;
     &:disabled {
-      opacity: 0.5;
       cursor: default;
+      img {
+        opacity: 0.5;
+      }
     }
     img {
-      width: 20px;
-      height: 20px;
+      width: 16px;
+      height: 16px;
     }
   }
 }
