@@ -120,19 +120,23 @@
 
         <div v-if="draftReplyPreview" class="reply-bar">
           <div class="reply-bar-text">
-            <span class="reply-bar-label">Ответ на {{ draftReplyPreview.author_username }}</span>
+            <span class="reply-bar-label">Ответ на сообщение {{ draftReplyPreview.author_username }}</span>
             <span class="reply-bar-snippet">{{ draftReplyPreview.snippet || (draftReplyPreview.has_image ? 'Изображение' : 'Сообщение') }}</span>
           </div>
-          <button type="button" aria-label="Сбросить ответ" @click="chat.clearReplyTarget()">×</button>
+          <button type="button" aria-label="Сбросить ответ" @click="chat.clearReplyTarget()">
+            <img :src="iconClose" alt="" />
+          </button>
         </div>
 
         <div v-if="draftImagePreviewUrl" class="image-preview">
           <img :src="draftImagePreviewUrl" alt="Предпросмотр изображения" />
           <div class="image-preview-meta">
             <span>{{ draftImageName || 'Изображение' }}</span>
-            <small>{{ draftImageUploaded ? 'Загружено' : (uploadingImage ? 'Загрузка…' : 'Будет отправлено вместе с сообщением') }}</small>
+            <small>{{ draftImageUploaded ? 'Загружено' : (uploadingImage ? 'Загрузка…' : 'Изображение прикреплено') }}</small>
           </div>
-          <button type="button" @click="chat.clearDraftImage()">Убрать</button>
+          <button type="button" @click="chat.clearDraftImage()">
+            <img :src="iconClose" alt="" />
+          </button>
         </div>
 
         <div class="composer-shell">
@@ -770,6 +774,7 @@ onBeforeUnmount(() => {
     align-items: center;
     justify-content: space-between;
     padding: 5px 10px;
+    min-height: 25px;
     background-color: $lead;
     .panel-header-main {
       color: $white;
@@ -796,20 +801,23 @@ onBeforeUnmount(() => {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    margin: 10px 10px 0 10px;
+    padding: 5px 10px;
     gap: 10px;
-    padding: 10px 15px;
-    background-color: rgba($dark, 0.9);
-    color: $ashy;
-    font-size: 12px;
+    border-radius: 5px;
+    background-color: $graphite;
+    color: $fg;
+    font-size: 14px;
+    font-weight: bold;
     &--error {
-      color: rgba($red, 0.9);
+      color: $red;
     }
     button {
-      min-height: 30px;
       padding: 0 10px;
+      height: 30px;
       border: none;
       border-radius: 5px;
-      background-color: rgba($lead, 0.9);
+      background-color: $lead;
       color: $fg;
       cursor: pointer;
     }
@@ -825,9 +833,9 @@ onBeforeUnmount(() => {
   }
   .load-more {
     min-height: 30px;
-    border: 1px solid rgba($white, 0.1);
+    border: 1px solid $grey;
     border-radius: 5px;
-    background-color: rgba($dark, 0.9);
+    background-color: $dark;
     color: $fg;
     cursor: pointer;
     &:disabled {
@@ -844,17 +852,17 @@ onBeforeUnmount(() => {
     display: flex;
     padding: 10px;
     border-radius: 5px;
-    background-color: rgba($lead, 0.5);
+    background-color: $grey;
     border: 1px solid transparent;
     transition: background-color 0.25s ease-in-out, border-color 0.25s ease-in-out;
     &--own {
-      background-color: rgba($graphite, 0.9);
+      background-color: $graphite;
     }
     &--deleted {
       opacity: 0.5;
     }
     &--highlighted {
-      border-color: rgba($yellow, 0.8);
+      border-color: $yellow;
       box-shadow: 0 0 0 1px rgba($yellow, 0.25), 0 15px 30px rgba($black, 0.25);
     }
     .message-main {
@@ -1045,7 +1053,7 @@ onBeforeUnmount(() => {
       display: flex;
       flex-direction: column;
       gap: 10px;
-      width: min(320px, calc(100vw - 80px));
+      width: min(160px, calc(100vw - 80px));
       max-height: 240px;
       padding: 10px;
       border: 1px solid rgba($white, 0.1);
@@ -1137,14 +1145,11 @@ onBeforeUnmount(() => {
   }
   .reply-bar,
   .image-preview {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 10px;
-    align-items: center;
-    margin: 0 10px 10px;
+    display: flex;
+    align-items: flex-start;
     padding: 10px;
-    border-radius: 5px;
-    background-color: rgba($dark, 0.9);
+    gap: 10px;
+    background-color: $lead;
   }
   .reply-bar {
     .reply-bar-text {
@@ -1154,7 +1159,7 @@ onBeforeUnmount(() => {
       min-width: 0;
     }
     .reply-bar-label {
-      color: $white;
+      color: $fg;
       font-size: 12px;
       font-family: Manrope-Medium;
     }
@@ -1166,14 +1171,16 @@ onBeforeUnmount(() => {
       white-space: nowrap;
     }
     button {
-      width: 30px;
-      height: 30px;
+      min-width: 30px;
+      min-height: 30px;
       border: none;
       border-radius: 5px;
-      background-color: rgba($lead, 0.9);
-      color: $fg;
+      background-color: $dark;
       cursor: pointer;
-      font-size: 18px;
+      img {
+        width: 16px;
+        height: 16px;
+      }
     }
   }
   .image-preview {
@@ -1219,6 +1226,7 @@ onBeforeUnmount(() => {
     display: flex;
     position: relative;
     gap: 10px;
+    min-height: 52px;
   }
   .tool-button {
     display: flex;
@@ -1258,7 +1266,7 @@ onBeforeUnmount(() => {
     }
   }
   .composer-input {
-    padding: 17px 75px 15px 40px;
+    padding: 17px 80px 15px 45px;
     width: 100%;
     height: 20px;
     border: none;
@@ -1474,129 +1482,7 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 1280px) {
-  .global-chat-dock {
-    top: 60px;
-    .chat-launcher {
-      width: 30px;
-      height: 30px;
-      img {
-        width: 20px;
-        height: 20px;
-      }
-    }
-  }
-  .global-chat-panel {
-    height: min(100dvh - 70px, 600px);
-    .panel-header {
-      padding: 5px 10px;
-      .panel-header-main {
-        font-size: 16px;
-      }
-    }
-    .panel-status,
-    .panel-list {
-      padding-left: 10px;
-      padding-right: 10px;
-    }
-    .global-chat-message {
-      grid-template-columns: 30px minmax(0, 1fr);
-      gap: 10px;
-      padding: 10px;
-      .author-avatar {
-        width: 30px;
-        height: 30px;
-      }
-      .message-meta {
-        .author-name {
-          font-size: 12px;
-        }
-        .message-time {
-          font-size: 10px;
-        }
-      }
-      .reply-preview {
-        padding: 5px 10px;
-        .reply-author,
-        .reply-snippet {
-          font-size: 12px;
-        }
-      }
-      .message-bubble {
-        padding: 5px 10px;
-        .message-text,
-        .tombstone {
-          font-size: 12px;
-        }
-        .message-image {
-          max-height: 200px;
-        }
-      }
-      .reaction-chip,
-      .action-button {
-        min-height: 25px;
-        font-size: 12px;
-      }
-      .reaction-details-popover {
-        width: min(260px, calc(100vw - 56px));
-        max-height: 200px;
-      }
-    }
-    .reply-bar,
-    .image-preview,
-    .composer-shell {
-      margin-left: 10px;
-      margin-right: 10px;
-      padding-left: 0;
-      padding-right: 0;
-    }
-    .composer-shell {
-      grid-template-columns: 1fr;
-    }
-    .send-button {
-      min-height: 40px;
-    }
-  }
-  .deleted-preview-overlay {
-    padding: 15px;
-    .deleted-preview-modal {
-      width: min(100vw - 32px, 520px);
-      max-height: min(85dvh, 720px);
-    }
-    .deleted-preview-header {
-      padding: 10px;
-      .deleted-preview-header-main {
-        span {
-          font-size: 14px;
-        }
-      }
-    }
-    .deleted-preview-body {
-      padding: 10px;
-    }
-    .deleted-preview-text,
-    .deleted-preview-empty {
-      font-size: 12px;
-    }
-  .deleted-preview-image {
-    max-height: 260px;
-  }
-  .image-lightbox-overlay {
-    padding: 10px;
-  }
-  .image-lightbox-close {
-    top: 10px;
-    right: 10px;
-    width: 30px;
-    height: 30px;
-    img {
-      width: 20px;
-      height: 20px;
-    }
-  }
-  .image-lightbox-image {
-    max-width: calc(100vw - 25px);
-    max-height: calc(100dvh - 25px);
-  }
+
 }
-}
+
 </style>

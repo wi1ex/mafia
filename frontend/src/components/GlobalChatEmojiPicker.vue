@@ -241,22 +241,7 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 1280px) {
-  .emoji-picker {
-    width: min(300px, calc(100vw - 30px));
-    max-height: 250px;
-    padding: 10px;
-    gap: 10px;
-    &--compact {
-      width: min(200px, calc(100vw - 30px));
-    }
-    .emoji-grid {
-      grid-template-columns: repeat(5, minmax(0, 1fr));
-      gap: 5px;
-    }
-    .emoji-button {
-      height: 35px;
-      font-size: 20px;
-    }
-  }
+
 }
+
 </style>
