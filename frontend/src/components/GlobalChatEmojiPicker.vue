@@ -6,16 +6,11 @@
       </button>
     </template>
 
-    <template v-else>
-      <section v-for="section in COMPOSER_SECTIONS" :key="section.title" class="emoji-section">
-        <header>{{ section.title }}</header>
-        <div class="emoji-grid">
-          <button v-for="emoji in section.items" :key="emoji" class="emoji-button" type="button" @click="selectEmoji(emoji)">
-            {{ emoji }}
-          </button>
-        </div>
-      </section>
-    </template>
+    <div v-else class="emoji-grid emoji-grid--composer">
+      <button v-for="emoji in COMPOSER_ITEMS" :key="emoji" class="emoji-button" type="button" @click="selectEmoji(emoji)">
+        {{ emoji }}
+      </button>
+    </div>
   </div>
 </template>
 
@@ -136,6 +131,7 @@ function buildComposerSections(): Array<{ title: string; items: string[] }> {
 }
 
 const COMPOSER_SECTIONS = buildComposerSections()
+const COMPOSER_ITEMS = COMPOSER_SECTIONS.flatMap((section) => section.items)
 
 const props = withDefaults(defineProps<{
   mode?: 'composer' | 'reactions'
@@ -216,24 +212,12 @@ onBeforeUnmount(() => {
     width: 250px;
     height: 200px;
     border-radius: 5px;
-    .emoji-section {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      > header {
-        color: $ashy;
-        font-size: 14px;
-        font-family: Manrope-Medium;
-        text-transform: uppercase;
-      }
-      .emoji-grid {
-        display: grid;
-        grid-template-columns: repeat(8, minmax(0, 1fr));
-        gap: 5px;
-        .emoji-button {
-          border-radius: 5px;
-        }
-      }
+    overflow-y: auto;
+    overflow-x: hidden;
+    .emoji-grid--composer {
+      display: grid;
+      grid-template-columns: repeat(8, minmax(0, 1fr));
+      gap: 5px;
     }
   }
 }
