@@ -178,11 +178,11 @@ onBeforeUnmount(() => {
 
 <style scoped lang="scss">
 .emoji-picker {
+  display: flex;
   position: absolute;
-  bottom: calc(100% + 10px);
-  right: 10px;
   background-color: $lead;
   box-shadow: 0 15px 30px rgba($black, 0.5);
+  overflow: hidden;
   z-index: 10;
   .emoji-button {
     display: flex;
@@ -190,33 +190,32 @@ onBeforeUnmount(() => {
     justify-content: center;
     border: none;
     background: none;
-    font-size: 16px;
-    transition: background-color 0.25s ease-in-out, transform 0.25s ease-in-out;
+    font-size: 18px;
+    transition: transform 0.25s ease-in-out;
     cursor: pointer;
+    &:hover {
+      transform: translateY(-3px);
+    }
   }
   &--reactions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    padding: 8px;
-    width: 220px;
-    border-radius: 8px;
+    bottom: calc(100% + 5px);
+    right: 0;
+    padding: 5px;
+    border-radius: 999px;
     > .emoji-button {
-      width: 32px;
-      height: 32px;
-      border-radius: 6px;
+      padding: 0;
+      width: 30px;
+      height: 30px;
     }
   }
   &--composer {
-    display: flex;
     flex-direction: column;
-    gap: 12px;
+    bottom: calc(100% + 10px);
+    right: 10px;
     padding: 10px;
     width: 250px;
-    height: 250px;
+    height: 200px;
     border-radius: 5px;
-    overflow-y: auto;
-    overflow-x: hidden;
     .emoji-section {
       display: flex;
       flex-direction: column;
