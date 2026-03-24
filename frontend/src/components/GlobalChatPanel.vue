@@ -737,8 +737,8 @@ onBeforeUnmount(() => {
 <style scoped lang="scss">
 .global-chat-dock {
   position: fixed;
-  top: 70px;
-  right: 20px;
+  top: 60px;
+  right: 10px;
   pointer-events: none;
   z-index: 70;
   > * {
@@ -969,9 +969,6 @@ onBeforeUnmount(() => {
           width: 16px;
           height: 16px;
         }
-        &:hover:enabled {
-          background-color: $graphite;
-        }
         &:disabled {
           opacity: 0.5;
           cursor: default;
@@ -1024,31 +1021,28 @@ onBeforeUnmount(() => {
       }
     }
     .reaction-details-popover {
-      position: absolute;
-      right: 0;
-      bottom: calc(100% + 10px);
       display: flex;
+      position: absolute;
       flex-direction: column;
-      gap: 10px;
-      width: min(160px, calc(100vw - 80px));
-      max-height: 240px;
-      padding: 10px;
-      border: 1px solid rgba($white, 0.1);
-      border-radius: 10px;
-      background-color: rgba($graphite, 0.9);
+      top: calc(100% + 5px);
+      right: 0;
+      padding: 5px;
+      gap: 5px;
+      width: max-content;
+      height: max-content;
+      border-radius: 5px;
+      background-color: $lead;
       box-shadow: 0 15px 30px rgba($black, 0.5);
-      overflow-y: auto;
       z-index: 5;
     }
     .reaction-details-item {
-      display: grid;
-      grid-template-columns: 30px minmax(0, 1fr);
+      display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 5px;
     }
     .reaction-details-avatar {
-      width: 30px;
-      height: 30px;
+      width: 20px;
+      height: 20px;
       border-radius: 50%;
       object-fit: cover;
     }
@@ -1104,9 +1098,6 @@ onBeforeUnmount(() => {
       cursor: pointer;
       font-size: 12px;
       transition: background-color 0.2s ease-in-out;
-      &:hover:enabled {
-        background-color: rgba($graphite, 1);
-      }
       &:disabled {
         opacity: 0.5;
         cursor: default;
