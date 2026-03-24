@@ -9,11 +9,6 @@
           </button>
         </header>
 
-        <div v-if="statusText" class="panel-status" :class="{ 'panel-status--error': connectionState === 'error' }">
-          <span>{{ statusText }}</span>
-          <button v-if="connectionState === 'error'" type="button" @click="chat.openPanel()">Повторить</button>
-        </div>
-
         <div ref="listEl" class="panel-list" @scroll="onListScroll">
           <button v-if="showLoadMore" class="load-more" type="button" :disabled="loadingMore" @click="onLoadMore">
             {{ loadingMore ? 'Загрузка…' : 'Загрузить ещё сообщения' }}
@@ -113,6 +108,11 @@
               </div>
             </div>
           </article>
+        </div>
+
+        <div v-if="statusText" class="panel-status" :class="{ 'panel-status--error': connectionState === 'error' }">
+          <span>{{ statusText }}</span>
+          <button v-if="connectionState === 'error'" type="button" @click="chat.openPanel()">Повторить</button>
         </div>
 
         <div v-if="draftReplyPreview" class="reply-bar">
@@ -287,8 +287,8 @@ const statusText = computed(() => {
   if (loadingInitial.value) return 'Загрузка истории…'
   if (connectionState.value === 'connecting') return 'Подключение к общему чату…'
   if (connectionState.value === 'reconnecting') return 'Соединение потеряно. Переподключаемся…'
-  if (connectionState.value === 'error') return lastError.value || 'Не удалось подключить общий чат.'
-  if (!permissions.value.can_send) return 'Отправка сообщений сейчас недоступна.'
+  if (connectionState.value === 'error') return lastError.value || 'Не удалось подключиться к общему чату'
+  if (!permissions.value.can_send) return 'Отправка сообщений временно недоступна'
   return ''
 })
 
@@ -806,6 +806,7 @@ onBeforeUnmount(() => {
     margin: 10px 10px 0 10px;
     padding: 5px 10px;
     gap: 10px;
+    min-height: 30px;
     border-radius: 5px;
     background-color: $graphite;
     color: $fg;
@@ -852,7 +853,7 @@ onBeforeUnmount(() => {
   }
   .global-chat-message {
     display: flex;
-    padding: 10px;
+    padding: 5px 8px;
     width: calc(100% - 20px);
     border-radius: 10px;
     background-color: $grey;
@@ -871,7 +872,7 @@ onBeforeUnmount(() => {
     .message-main {
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 5px;
       width: 100%;
     }
     .message-meta {
@@ -980,7 +981,6 @@ onBeforeUnmount(() => {
         }
       }
       .message-image {
-        margin-top: 5px;
         width: 100%;
         max-height: 340px;
         border-radius: 5px;
@@ -993,36 +993,35 @@ onBeforeUnmount(() => {
       display: flex;
       flex-wrap: wrap;
       align-items: center;
+      justify-content: flex-start;
       gap: 5px;
+    }
+    .reaction-details-anchor {
+      display: flex;
+      position: relative;
+      align-items: center;
     }
     .reaction-chip {
       display: inline-flex;
       align-items: center;
       gap: 5px;
-      padding: 5px 10px;
+      padding: 5px 8px;
       border: 1px solid rgba($white, 0.1);
       border-radius: 999px;
-      background-color: rgba($dark, 0.75);
+      background-color: $lead;
       color: $fg;
-      cursor: pointer;
       font-size: 12px;
+      font-weight: bold;
       transition: background-color 0.25s ease-in-out, border-color 0.25s ease-in-out;
-      &:hover:enabled {
-        background-color: rgba($graphite, 0.9);
-      }
+      cursor: pointer;
       &:disabled {
         opacity: 0.5;
         cursor: default;
       }
       &--active {
-        border-color: rgba($green, 0.5);
+        border-color: rgba($green, 0.25);
         background-color: rgba($green, 0.1);
       }
-    }
-    .reaction-details-anchor {
-      position: relative;
-      display: inline-flex;
-      align-items: center;
     }
     .reaction-details-popover {
       position: absolute;
@@ -1187,13 +1186,16 @@ onBeforeUnmount(() => {
       }
     }
     button {
+      min-width: 30px;
       min-height: 30px;
-      padding: 0 10px;
       border: none;
       border-radius: 5px;
-      background-color: rgba($lead, 0.9);
-      color: $fg;
+      background-color: $dark;
       cursor: pointer;
+      img {
+        width: 16px;
+        height: 16px;
+      }
     }
   }
   .composer-shell {
@@ -1427,7 +1429,6 @@ onBeforeUnmount(() => {
 .image-lightbox-image {
   max-width: min(96vw, 1440px);
   max-height: min(92vh, 960px);
-  border-radius: 12px;
   object-fit: contain;
   box-shadow: 0 20px 40px rgba($black, 0.5);
 }

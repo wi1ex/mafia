@@ -1,5 +1,5 @@
 <template>
-  <div ref="root" :class="['emoji-picker', { 'emoji-picker--compact': isReactionsMode }]" @click.stop>
+  <div ref="root" class="emoji-picker" @click.stop>
     <template v-if="isReactionsMode">
       <button v-for="emoji in reactionItems" :key="emoji" class="emoji-button" type="button" @click="selectEmoji(emoji)">
         {{ emoji }}
@@ -178,25 +178,16 @@ onBeforeUnmount(() => {
 
 <style scoped lang="scss">
 .emoji-picker {
-  position: absolute;
-  right: 0;
-  bottom: calc(100% + 10px);
   display: flex;
-  flex-direction: column;
-  gap: 10px;
-  width: 300px;
-  max-height: 300px;
-  padding: 10px;
-  border: 1px solid rgba($white, 0.1);
+  position: absolute;
+  top: calc(100% + 5px);
+  right: 0;
+  padding: 5px;
   border-radius: 5px;
-  background-color: rgba($dark, 0.9);
+  background-color: $lead;
   box-shadow: 0 15px 30px rgba($black, 0.5);
-  overflow-y: auto;
+  overflow: hidden;
   z-index: 10;
-  &--compact {
-    width: 200px;
-    max-height: none;
-  }
   .emoji-section {
     display: flex;
     flex-direction: column;
@@ -214,29 +205,14 @@ onBeforeUnmount(() => {
     gap: 5px;
   }
   .emoji-button {
-    display: inline-flex;
+    display: flex;
     align-items: center;
     justify-content: center;
-    height: 40px;
     border: none;
-    border-radius: 5px;
-    background-color: rgba($lead, 0.9);
-    color: $fg;
-    cursor: pointer;
-    font-size: 22px;
+    background: none;
+    font-size: 16px;
     transition: background-color 0.25s ease-in-out, transform 0.25s ease-in-out;
-    &:hover {
-      background-color: rgba($graphite, 1);
-      transform: translateY(-1px);
-    }
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .emoji-picker {
-    .emoji-button {
-      transition: none;
-    }
+    cursor: pointer;
   }
 }
 
