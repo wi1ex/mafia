@@ -156,7 +156,9 @@ const reactionItems = computed(() => props.reactions.filter((item, index, list) 
 
 function selectEmoji(emoji: string): void {
   emit('select', emoji)
-  emit('close')
+  if (isReactionsMode.value) {
+    emit('close')
+  }
 }
 
 function onDocumentPointerDown(event: PointerEvent): void {

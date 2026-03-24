@@ -1,11 +1,5 @@
 <template>
   <div v-if="canRender" class="global-chat-dock">
-    <Transition name="global-chat-launcher">
-      <button v-if="showLauncher && !chat.open" class="chat-launcher" type="button" @click="chat.openPanel()">
-        <img :src="iconChat" alt="" />
-      </button>
-    </Transition>
-
     <Transition name="global-chat-panel-transition">
       <section v-if="chat.open" class="global-chat-panel" @click.stop>
         <header class="panel-header">
@@ -108,7 +102,7 @@
                 </button>
 
                 <div v-if="!message.deleted && reactionsAllowlist.length > 0" class="reaction-picker-anchor">
-                  <button class="action-button" type="button" :disabled="chat.isReactionBusy(message.id)" @click="toggleMessageReactionPicker(message.id)">
+                  <button class="action-button" type="button" :disabled="chat.isReactionBusy(message.id)" @pointerdown.stop @click="toggleMessageReactionPicker(message.id)">
                     Реакция
                   </button>
                   <component :is="EmojiPicker" v-if="reactionPickerMessageId === message.id" mode="reactions" :reactions="reactionsAllowlist"
@@ -150,7 +144,7 @@
           <textarea ref="textareaEl" v-model="draft" class="composer-input" :disabled="composerDisabled" rows="3"
                     maxlength="1000" placeholder="Введите текст..." @keydown="onComposerKeydown" />
 
-          <button class="tool-button right" type="button" :disabled="composerDisabled" @click="composerPickerOpen = !composerPickerOpen">
+          <button class="tool-button right" type="button" :disabled="composerDisabled" @pointerdown.stop @click="composerPickerOpen = !composerPickerOpen">
             <img :src="iconEmoji" alt="" />
           </button>
           <component :is="EmojiPicker" v-if="composerPickerOpen" mode="composer" @select="insertEmoji" @close="composerPickerOpen = false" />
@@ -213,7 +207,6 @@ import { useAuthStore, useGlobalChatStore, useSettingsStore, useUserStore } from
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
 import iconClose from '@/assets/svg/close.svg'
-import iconChat from '@/assets/svg/chat.svg'
 import iconEmoji from '@/assets/svg/emoji.svg'
 import iconPhoto from '@/assets/svg/photo.svg'
 import iconDelete from '@/assets/svg/delete.svg'
@@ -286,7 +279,7 @@ const showLauncher = computed(() => {
   if (user.banActive || user.timeoutActive || user.inActiveGameAsAlivePlayer) return false
   return !(settings.verificationRestrictions && !user.telegramVerified);
 })
-const canRender = computed(() => settings.chatOpenEnabled && (showLauncher.value || chat.open))
+const canRender = computed(() => settings.chatOpenEnabled && chat.open)
 
 const statusText = computed(() => {
   if (loadingInitial.value) return 'Загрузка истории…'
@@ -588,14 +581,12 @@ function insertEmoji(emoji: string): void {
   const current = draft.value || ''
   if (!textarea) {
     draft.value = `${current}${emoji}`
-    composerPickerOpen.value = false
     return
   }
 
   const start = textarea.selectionStart ?? current.length
   const end = textarea.selectionEnd ?? current.length
   draft.value = `${current.slice(0, start)}${emoji}${current.slice(end)}`
-  composerPickerOpen.value = false
   void nextTick(() => {
     focusComposer()
     const nextPos = start + emoji.length

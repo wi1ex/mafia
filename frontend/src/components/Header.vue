@@ -59,7 +59,7 @@
       </div>
 
       <div class="bell" ref="friendsEl">
-        <button @click.stop="onToggleFriends" :aria-expanded="friends_open" aria-label="??????">
+        <button @click.stop="onToggleFriends" :aria-expanded="friends_open" aria-label="Друзья">
           <img :src="iconFriends" alt="friends" />
           <span v-if="friends.incomingCount > 0">{{ friends.incomingCount < 100 ? friends.incomingCount : '∞' }}</span>
         </button>
@@ -68,6 +68,12 @@
           :anchor="friendsEl"
           mode="header"
         />
+      </div>
+
+      <div v-if="showGlobalChatButton" class="bell">
+        <button @click.stop="toggleGlobalChat" :aria-expanded="chat.open" aria-label="Общий чат">
+          <img :src="iconChat" alt="chat" />
+        </button>
       </div>
 
       <div class="user-menu" ref="userMenuEl">
@@ -117,7 +123,7 @@
 
 <script setup lang="ts">
 import { onMounted, onBeforeUnmount, watch, ref, computed } from 'vue'
-import { useAuthStore, useUserStore, useNotifStore, useUpdatesStore, useFriendsStore, useSettingsStore } from '@/store'
+import { useAuthStore, useUserStore, useNotifStore, useUpdatesStore, useFriendsStore, useSettingsStore, useGlobalChatStore } from '@/store'
 import Notifs from '@/components/Notifs.vue'
 import Updates from '@/components/Updates.vue'
 import FriendsPanel from '@/components/FriendsPanel.vue'
@@ -135,6 +141,7 @@ import iconInfo from "@/assets/svg/info.svg"
 import iconGamesHistory from "@/assets/svg/history.svg"
 import iconUpdates from "@/assets/svg/updates.svg"
 import iconFriends from "@/assets/svg/friends.svg"
+import iconChat from "@/assets/svg/chat.svg"
 import iconCard from "@/assets/svg/card.svg"
 import iconInstall from "@/assets/svg/install.svg"
 import iconLogout from '@/assets/svg/leave.svg'
@@ -147,6 +154,7 @@ const notif = useNotifStore()
 const updates = useUpdatesStore()
 const friends = useFriendsStore()
 const settings = useSettingsStore()
+const chat = useGlobalChatStore()
 
 const nb_open = ref(false)
 const bellEl = ref<HTMLElement | null>(null)
@@ -205,6 +213,14 @@ const verificationBanner = computed(() => {
     && !user.telegramVerified
 })
 
+const showGlobalChatButton = computed(() => {
+  if (!auth.ready || !settings.ready || !auth.isAuthed) return false
+  if (!settings.chatOpenEnabled) return false
+  if (!user.user) return false
+  if (user.banActive || user.timeoutActive || user.inActiveGameAsAlivePlayer) return false
+  return !(settings.verificationRestrictions && !user.telegramVerified)
+})
+
 const adminBannerText = computed(() => {
   if (!settings.ready) return ''
   const text = String(settings.adminBannerText || '').trim()
@@ -233,6 +249,13 @@ function onToggleFriends() {
   nb_open.value = false
   updates_open.value = false
   friends_open.value = !friends_open.value
+}
+function toggleGlobalChat() {
+  if (chat.open) {
+    chat.closePanel()
+    return
+  }
+  chat.openPanel()
 }
 function onToggleUserMenu() {
   um_open.value = !um_open.value

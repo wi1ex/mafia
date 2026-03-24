@@ -309,6 +309,9 @@
             <img :src="iconFriends" alt="friends" />
             <span v-if="friends.incomingCount > 0" class="count-total unread">{{ friends.incomingCount < 100 ? friends.incomingCount : '∞' }}</span>
           </button>
+          <button v-if="showGlobalChatButton" @click.stop="toggleGlobalChat" :aria-expanded="chat.open" aria-label="Общий чат">
+            <img :src="iconChat" alt="chat" />
+          </button>
           <button v-if="canShowSettingsButton" @click.stop="toggleSettings" :aria-expanded="settingsOpen" aria-label="Настройки устройств">
             <img :src="iconSettings" alt="settings" />
           </button>
@@ -410,6 +413,7 @@ import {
   useSettingsStore,
   useUserStore,
   useFriendsStore,
+  useGlobalChatStore,
   resolveFriendsApiError,
   shouldRefreshFriendsStateAfterError,
 } from '@/store'
@@ -444,6 +448,7 @@ import gongAudioUrl from '@/assets/audio/gong.mp3'
 import iconLeaveRoom from '@/assets/svg/leave.svg'
 import iconRequestsRoom from '@/assets/svg/requestsRoom.svg'
 import iconFriends from '@/assets/svg/friends.svg'
+import iconChat from '@/assets/svg/chat.svg'
 import iconSettings from '@/assets/svg/settings.svg'
 import iconReadyWhite from '@/assets/svg/readyWhite.svg'
 import iconReadyGreen from '@/assets/svg/readyGreen.svg'
@@ -497,6 +502,7 @@ const auth = useAuthStore()
 const settings = useSettingsStore()
 const userStore = useUserStore()
 const friends = useFriendsStore()
+const chat = useGlobalChatStore()
 const confirmState = useConfirmState()
 const { hotkeysVisible } = storeToRefs(userStore)
 
@@ -635,6 +641,13 @@ let joinPhaseApplyPending = false
 const lkReconnecting = computed(() => rtc.reconnecting.value)
 const isReconnecting = computed(() => netReconnecting.value || lkReconnecting.value)
 const reconnectBursts = ref<number[]>([])
+const showGlobalChatButton = computed(() => {
+  if (!auth.ready || !settings.ready || !auth.isAuthed) return false
+  if (!settings.chatOpenEnabled) return false
+  if (!userStore.user) return false
+  if (userStore.banActive || userStore.timeoutActive || userStore.inActiveGameAsAlivePlayer) return false
+  return !(settings.verificationRestrictions && !userStore.telegramVerified)
+})
 function onAppsCounts(p: { total?: number; unread?: number }) {
   appsCounts.total = Number(p?.total || 0)
   appsCounts.unread = Number(p?.unread || 0)
@@ -1047,6 +1060,13 @@ function toggleFriendsPanel() {
   const next = !friendsPanelOpen.value
   closePanels('friends')
   friendsPanelOpen.value = next
+}
+function toggleGlobalChat() {
+  if (chat.open) {
+    chat.closePanel()
+    return
+  }
+  chat.openPanel()
 }
 function openGameSettings() {
   if (!canViewGameSettings.value) return

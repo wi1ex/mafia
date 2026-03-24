@@ -2,7 +2,6 @@ from __future__ import annotations
 from contextlib import suppress
 from uuid import UUID
 import structlog
-from fastapi import HTTPException
 from ..sio import sio
 from ..utils import payload_dict, permissions_status, positive_int, public_reactions, validate_auth
 from ...core.db import SessionLocal
@@ -27,7 +26,6 @@ from ...services.global_chat import (
     toggle_global_chat_reaction,
     validate_global_chat_send_input,
 )
-from ...services.text_moderation import enforce_clean_text
 
 log = structlog.get_logger()
 
@@ -189,12 +187,6 @@ async def chat_send(sid, data):
             )
         except ValueError as exc:
             return {"ok": False, "status": 422, "error": str(exc) or "bad_request"}
-
-        if text.strip():
-            try:
-                enforce_clean_text(field="text", label="Сообщение", value=text)
-            except HTTPException as exc:
-                return {"ok": False, "status": exc.status_code, "error": "text_moderation", "detail": exc.detail}
 
         async with SessionLocal() as db:
             permissions = await resolve_global_chat_permissions(db, uid)
