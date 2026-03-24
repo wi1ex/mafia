@@ -839,11 +839,11 @@ onBeforeUnmount(() => {
       padding: 5px 8px;
       width: calc(100% - 20px);
       border-radius: 10px;
-      background-color: $grey;
+      background-color: $graphite;
       border: 1px solid transparent;
       transition: background-color 0.25s ease-in-out, border-color 0.25s ease-in-out;
       &--own {
-        background-color: $graphite;
+        background-color: $lead;
       }
       &--deleted {
         opacity: 0.5;
@@ -972,7 +972,7 @@ onBeforeUnmount(() => {
           display: flex;
           flex-wrap: wrap;
           align-items: center;
-          justify-content: flex-start;
+          justify-content: flex-end;
           gap: 5px;
           .reaction-details-anchor {
             display: flex;
@@ -1001,13 +1001,12 @@ onBeforeUnmount(() => {
                 background-color: rgba($green, 0.1);
               }
               &--picker {
-                padding: 3px 8px;
-                background-color: rgba($dark, 0.9);
-                border-color: rgba($ashy, 0.25);
-                font-size: 12px;
-                font-family: Manrope-Medium;
-                font-weight: normal;
-                white-space: nowrap;
+                padding: 3px 5px;
+                background-color: $dark;
+                img {
+                  width: 16px;
+                  height: 16px;
+                }
               }
             }
             .reaction-details-popover {
