@@ -103,6 +103,8 @@ __all__ = [
     "build_admin_sanction_out",
     "revoke_active_suspend",
     "reduce_suspend_after_hosted_game",
+    "emit_expired_timed_sanction_chat_notice_once",
+    "emit_expired_timed_sanctions_chat_notices",
     "emit_sanctions_update",
     "refresh_rooms_after",
     "ensure_room_access_allowed",
@@ -197,6 +199,7 @@ SANCTION_TIMEOUT = "timeout"
 SANCTION_BAN = "ban"
 SANCTION_SUSPEND = "suspend"
 HOSTED_GAME_SUSPEND_REDUCTION_SECONDS = 6 * 60 * 60
+EXPIRED_SANCTION_CHAT_NOTICE_TTL_S = 60 * 60 * 24 * 365
 USERS_SORT_DEFAULT = "registered_at"
 USERS_SORT_ALLOWED = {
     USERS_SORT_DEFAULT,
@@ -1021,21 +1024,87 @@ async def _notify_expired_timed_sanctions(user_id: int) -> None:
             await session.refresh(note)
         for sanction in chat_rows:
             with suppress(Exception):
-                from ..services.global_chat import emit_global_chat_sanction_removed_notice
+                await emit_expired_timed_sanction_chat_notice_once(session, sanction)
 
-                await emit_global_chat_sanction_removed_notice(
-                    session,
-                    actor_user_id=cast(int, sanction.issued_by_id),
-                    target_user_id=int(user_id),
-                    target_username=None,
-                    kind=str(sanction.kind or ""),
-                    reason=str(sanction.reason or ""),
-                    source="expired",
-                )
+        for note in notes:
+            with suppress(Exception):
+                await emit_notify(int(user_id), note, kind="sanction")
 
-    for note in notes:
-        with suppress(Exception):
-            await emit_notify(int(user_id), note, kind="sanction")
+
+async def emit_expired_timed_sanction_chat_notice_once(session: AsyncSession, sanction: UserSanction) -> bool:
+    sanction_id = int(getattr(sanction, "id", 0) or 0)
+    user_id = int(getattr(sanction, "user_id", 0) or 0)
+    if sanction_id <= 0 or user_id <= 0:
+        return False
+
+    redis_key = f"sanction:{sanction_id}:expired_chat_notice"
+    use_redis_dedupe = True
+    try:
+        acquired = bool(
+            await get_redis().set(
+                redis_key,
+                "1",
+                ex=EXPIRED_SANCTION_CHAT_NOTICE_TTL_S,
+                nx=True,
+            )
+        )
+    except Exception:
+        use_redis_dedupe = False
+        acquired = True
+
+    if not acquired:
+        return False
+
+    try:
+        from ..services.global_chat import emit_global_chat_sanction_removed_notice
+
+        payload = await emit_global_chat_sanction_removed_notice(
+            session,
+            actor_user_id=cast(int, sanction.issued_by_id),
+            target_user_id=user_id,
+            target_username=None,
+            kind=str(sanction.kind or ""),
+            reason=str(sanction.reason or ""),
+            source="expired",
+        )
+        if payload is None:
+            if use_redis_dedupe:
+                with suppress(Exception):
+                    await get_redis().delete(redis_key)
+            return False
+
+        return True
+
+    except Exception:
+        if use_redis_dedupe:
+            with suppress(Exception):
+                await get_redis().delete(redis_key)
+        raise
+
+
+async def emit_expired_timed_sanctions_chat_notices(*, batch_limit: int = 100) -> int:
+    now = datetime.now(timezone.utc)
+    emitted = 0
+    async with SessionLocal() as session:
+        stmt = (
+            select(UserSanction)
+            .where(
+                UserSanction.kind.in_(tuple(TIMED_KINDS)),
+                UserSanction.revoked_at.is_(None),
+                UserSanction.expires_at.is_not(None),
+                UserSanction.expires_at <= now,
+                UserSanction.expired_notified_at.is_(None),
+            )
+            .order_by(UserSanction.expires_at.asc(), UserSanction.id.asc())
+            .limit(max(1, int(batch_limit)))
+        )
+        rows = list((await session.scalars(stmt)).all())
+        for sanction in rows:
+            with suppress(Exception):
+                if await emit_expired_timed_sanction_chat_notice_once(session, sanction):
+                    emitted += 1
+
+    return emitted
 
 
 async def ensure_room_access_allowed(db: AsyncSession, user_id: int) -> None:

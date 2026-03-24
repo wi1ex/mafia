@@ -6,6 +6,7 @@ import structlog
 from sqlalchemy import text
 from ..core.db import Base, engine, SessionLocal
 from ..core.settings import settings
+from ..api.utils import emit_expired_timed_sanctions_chat_notices
 from ..security.parameters import ensure_app_settings, refresh_app_settings
 from ..services.minio import ensure_bucket
 from .clients import close_clients, get_redis, init_clients
@@ -43,6 +44,7 @@ async def lifespan(app) -> AsyncIterator[None]:
         raise
 
     settings_task: asyncio.Task[None] | None = None
+    expired_sanctions_chat_task: asyncio.Task[None] | None = None
 
     async def settings_pubsub_loop() -> None:
         r = get_redis()
@@ -65,7 +67,19 @@ async def lifespan(app) -> AsyncIterator[None]:
             with suppress(Exception):
                 await pubsub.close()
 
+    async def expired_sanctions_chat_loop() -> None:
+        try:
+            while True:
+                try:
+                    await emit_expired_timed_sanctions_chat_notices()
+                except Exception:
+                    log.exception("app.sanctions.expired_chat_loop_failed")
+                await asyncio.sleep(15)
+        except asyncio.CancelledError:
+            pass
+
     settings_task = asyncio.create_task(settings_pubsub_loop())
+    expired_sanctions_chat_task = asyncio.create_task(expired_sanctions_chat_loop())
     log.info("app.ready")
 
     try:
@@ -76,6 +90,10 @@ async def lifespan(app) -> AsyncIterator[None]:
                 settings_task.cancel()
                 with suppress(asyncio.CancelledError):
                     await settings_task
+            if expired_sanctions_chat_task:
+                expired_sanctions_chat_task.cancel()
+                with suppress(asyncio.CancelledError):
+                    await expired_sanctions_chat_task
         except Exception:
             log.warning("app.shutdown.settings_task_failed")
         try:
