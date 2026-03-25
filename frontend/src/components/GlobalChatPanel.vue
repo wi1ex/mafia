@@ -1195,7 +1195,7 @@ onBeforeUnmount(() => {
         justify-content: space-between;
         height: 40px;
         span {
-          color: $white;
+          color: $fg;
           font-size: 12px;
           line-height: 1.2;
           text-overflow: ellipsis;
@@ -1422,14 +1422,12 @@ onBeforeUnmount(() => {
   }
 }
 .image-lightbox-overlay {
-  position: fixed;
-  inset: 0;
   display: flex;
+  position: fixed;
   align-items: center;
   justify-content: center;
-  padding: 20px;
+  inset: 0;
   background-color: $bg;
-  backdrop-filter: blur(5px);
   z-index: 130;
   .image-lightbox-close {
     position: absolute;
