@@ -813,7 +813,7 @@ onBeforeUnmount(() => {
   flex-direction: column;
   width: 400px;
   height: min(600px, calc(100dvh - 85px));
-  border-radius: 20px;
+  border-radius: 10px;
   border: 3px solid $lead;
   background-color: $dark;
   box-shadow: 0 15px 30px rgba($black, 0.25);
@@ -1242,7 +1242,7 @@ onBeforeUnmount(() => {
       display: flex;
       position: absolute;
       left: 5px;
-      bottom: 11px;
+      bottom: 10px;
       flex-direction: column;
       align-items: center;
       justify-content: center;
@@ -1300,7 +1300,7 @@ onBeforeUnmount(() => {
       align-items: center;
       justify-content: center;
       right: 5px;
-      bottom: 11px;
+      bottom: 10px;
       width: 30px;
       height: 30px;
       border: none;
@@ -1500,6 +1500,7 @@ onBeforeUnmount(() => {
   .global-chat-panel {
     width: 300px;
     height: min(600px, calc(100dvh - 65px));
+    border-radius: 5px;
     .panel-header {
       padding: 3px 8px;
       min-height: 20px;
@@ -1698,7 +1699,7 @@ onBeforeUnmount(() => {
       min-height: 32px;
       .tool-button {
         left: 3px;
-        bottom: 6px;
+        bottom: 5px;
         width: 20px;
         height: 20px;
         &.right {
@@ -1710,13 +1711,13 @@ onBeforeUnmount(() => {
         }
       }
       .composer-input {
-        padding: 7px 53px 10px 28px;
+        padding: 8px 53px 9px 28px;
         height: 15px;
         font-size: 12px;
       }
       .send-button {
         right: 3px;
-        bottom: 6px;
+        bottom: 5px;
         width: 20px;
         height: 20px;
         img {
