@@ -796,12 +796,11 @@ onBeforeUnmount(() => {
 <style scoped lang="scss">
 .global-chat-dock {
   position: fixed;
-  top: 60px;
+  bottom: 10px;
   right: 10px;
   pointer-events: none;
   z-index: 70;
   &.room-mode {
-    top: auto;
     bottom: 60px;
     z-index: 25;
   }
@@ -847,36 +846,12 @@ onBeforeUnmount(() => {
       }
     }
   }
-  .panel-status {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 10px 10px 0 10px;
-    gap: 10px;
-    min-height: 30px;
-    background-color: $graphite;
-    color: $fg;
-    font-size: 14px;
-    font-weight: bold;
-    &--error {
-      color: $red;
-    }
-    button {
-      padding: 0 10px;
-      height: 30px;
-      border: none;
-      border-radius: 5px;
-      background-color: $lead;
-      color: $fg;
-      cursor: pointer;
-    }
-  }
   .panel-list {
     display: flex;
     flex-direction: column;
+    padding: 10px;
     gap: 10px;
     height: calc(100% - 107px);
-    padding: 10px;
     overflow-y: auto;
     scrollbar-width: none;
     .load-more {
@@ -935,6 +910,7 @@ onBeforeUnmount(() => {
             .author-name {
               min-width: 0;
               height: 18px;
+              font-size: 16px;
               overflow: hidden;
               text-overflow: ellipsis;
               white-space: nowrap;
@@ -1008,7 +984,7 @@ onBeforeUnmount(() => {
             justify-content: flex-end;
             gap: 5px;
             .icon-action-button {
-              display: inline-flex;
+              display: flex;
               align-items: center;
               justify-content: center;
               max-height: 25px;
@@ -1050,7 +1026,7 @@ onBeforeUnmount(() => {
             align-items: center;
             gap: 3px;
             .reaction-chip {
-              display: inline-flex;
+              display: flex;
               align-items: center;
               gap: 3px;
               padding: 3px 5px;
@@ -1127,7 +1103,7 @@ onBeforeUnmount(() => {
                 margin: 0;
                 color: $ashy;
                 font-size: 12px;
-                line-height: 1.5;
+                line-height: 1.2;
                 &--error {
                   color: $red;
                 }
@@ -1136,6 +1112,30 @@ onBeforeUnmount(() => {
           }
         }
       }
+    }
+  }
+  .panel-status {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 10px 0;
+    gap: 10px;
+    min-height: 30px;
+    background-color: $graphite;
+    color: $fg;
+    font-size: 14px;
+    font-weight: bold;
+    &--error {
+      color: $red;
+    }
+    button {
+      padding: 0 10px;
+      height: 30px;
+      border: none;
+      border-radius: 5px;
+      background-color: $lead;
+      color: $fg;
+      cursor: pointer;
     }
   }
   .reply-bar {
@@ -1213,9 +1213,6 @@ onBeforeUnmount(() => {
         small {
           color: $ashy;
           font-size: 12px;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-          overflow: hidden;
         }
       }
     }
@@ -1252,7 +1249,7 @@ onBeforeUnmount(() => {
       width: 30px;
       height: 30px;
       border: none;
-      border-radius: 15px;
+      border-radius: 999px;
       background-color: $dark;
       cursor: pointer;
       &--file {
@@ -1305,7 +1302,7 @@ onBeforeUnmount(() => {
       width: 30px;
       height: 30px;
       border: none;
-      border-radius: 15px;
+      border-radius: 999px;
       background-color: $dark;
       cursor: pointer;
       &:disabled {
@@ -1360,7 +1357,7 @@ onBeforeUnmount(() => {
         }
       }
       button {
-        display: inline-flex;
+        display: flex;
         align-items: center;
         justify-content: center;
         width: 30px;
@@ -1382,7 +1379,7 @@ onBeforeUnmount(() => {
       padding: 15px;
       overflow-y: auto;
       .deleted-preview-author {
-        display: inline-flex;
+        display: flex;
         align-items: center;
         gap: 5px;
         .deleted-preview-avatar {
@@ -1432,7 +1429,7 @@ onBeforeUnmount(() => {
     position: absolute;
     top: 20px;
     right: 20px;
-    display: inline-flex;
+    display: flex;
     align-items: center;
     justify-content: center;
     width: 40px;
@@ -1494,7 +1491,296 @@ onBeforeUnmount(() => {
 @media (max-width: 1280px) {
   .global-chat-dock {
     &.room-mode {
-      bottom: 30px;
+      bottom: 35px;
+      right: 5px;
+    }
+  }
+  .global-chat-panel {
+    width: 300px;
+    height: min(600px, calc(100dvh - 65px));
+    .panel-header {
+      padding: 3px 8px;
+      min-height: 20px;
+      .panel-header-main {
+        font-size: 16px;
+      }
+      button {
+        width: 20px;
+        height: 20px;
+        img {
+          width: 20px;
+          height: 20px;
+        }
+      }
+    }
+    .panel-list {
+      padding: 5px;
+      gap: 5px;
+      height: calc(100% - 68px);
+      .load-more {
+      }
+      .empty-state {
+      }
+      .global-chat-message {
+        width: calc(100% - 10px);
+        border-radius: 5px;
+        .message-main {
+          gap: 3px;
+          .message-meta {
+            .message-meta-author {
+              gap: 3px;
+              .author-avatar {
+                width: 16px;
+                height: 16px;
+              }
+              .author-name {
+                height: 14px;
+                font-size: 12px;
+              }
+            }
+            .message-time {
+              font-size: 8px;
+            }
+          }
+          .reply-preview {
+            gap: 3px;
+            padding: 3px;
+            border-left: 3px solid rgba($orange, 0.5);
+            .reply-preview-body {
+              gap: 3px;
+              .reply-avatar {
+                width: 16px;
+                height: 16px;
+              }
+              .reply-author {
+                font-size: 11px;
+              }
+            }
+            .reply-snippet {
+              font-size: 10px;
+            }
+          }
+          .message-bubble {
+            gap: 3px;
+            .message-text,
+            .tombstone {
+              padding: 3px 5px;
+              font-size: 11px;
+            }
+            .tombstone {
+            }
+            .tombstone-actions {
+              gap: 3px;
+              .icon-action-button {
+                max-height: 20px;
+                padding: 3px 5px;
+                img {
+                  width: 12px;
+                  height: 12px;
+                }
+              }
+            }
+            .message-image {
+              max-height: 280px;
+            }
+          }
+          .reactions-row {
+            gap: 1px;
+            .reaction-details-anchor {
+              gap: 1px;
+              .reaction-chip {
+                gap: 1px;
+                padding: 1px 3px;
+                font-size: 10px;
+                &--picker {
+                  padding: 3px 5px;
+                  img {
+                    width: 12px;
+                    height: 12px;
+                  }
+                }
+              }
+              .reaction-details-popover {
+                padding: 3px 5px;
+                gap: 5px;
+                .reaction-details-item {
+                  gap: 3px;
+                  .reaction-details-avatar {
+                    width: 20px;
+                    height: 20px;
+                  }
+                  .reaction-details-meta {
+                    gap: 3px;
+                    .reaction-details-name {
+                      font-size: 11px;
+                    }
+                    .reaction-details-time {
+                      font-size: 9px;
+                    }
+                  }
+                }
+                .reaction-details-state {
+                  font-size: 10px;
+                  &--error {
+                    color: $red;
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    .panel-status {
+      padding: 5px 5px 0;
+      gap: 5px;
+      min-height: 20px;
+      font-size: 11px;
+      button {
+        padding: 0 8px;
+        height: 20px;
+        font-size: 12px;
+      }
+    }
+    .reply-bar {
+      padding: 5px;
+      gap: 5px;
+      .reply-bar-text {
+        gap: 3px;
+        .reply-bar-label {
+          font-size: 10px;
+        }
+        .reply-bar-snippet {
+          font-size: 12px;
+        }
+      }
+      button {
+        min-width: 16px;
+        min-height: 16px;
+        img {
+          width: 10px;
+          height: 10px;
+        }
+      }
+    }
+    .image-preview {
+      padding: 5px;
+      .image-preview-div {
+        gap: 3px;
+        img {
+          width: 30px;
+          height: 30px;
+        }
+        .image-preview-meta {
+          height: 30px;
+          span {
+            font-size: 10px;
+          }
+          small {
+            font-size: 10px;
+          }
+        }
+      }
+      button {
+        min-width: 16px;
+        min-height: 16px;
+        img {
+          width: 10px;
+          height: 10px;
+        }
+      }
+    }
+    .composer-shell {
+      gap: 5px;
+      min-height: 32px;
+      .tool-button {
+        left: 3px;
+        bottom: 7px;
+        width: 20px;
+        height: 20px;
+        &.right {
+          right: 28px;
+        }
+        img {
+          width: 12px;
+          height: 12px;
+        }
+      }
+      .composer-input {
+        padding: 7px 53px 10px 28px;
+        height: 10px;
+      }
+      .send-button {
+        right: 3px;
+        bottom: 7px;
+        width: 20px;
+        height: 20px;
+        img {
+          width: 12px;
+          height: 12px;
+        }
+      }
+    }
+  }
+  .deleted-preview-overlay {
+    .deleted-preview-modal {
+      border-radius: 10px;
+      .deleted-preview-header {
+        gap: 5px;
+        padding: 5px 8px;
+        .deleted-preview-header-main {
+          gap: 3px;
+          span {
+            font-size: 14px;
+          }
+          small {
+            font-size: 10px;
+          }
+        }
+        button {
+          width: 20px;
+          height: 20px;
+          img {
+            width: 16px;
+            height: 16px;
+          }
+        }
+      }
+      .deleted-preview-body {
+        gap: 5px;
+        padding: 10px;
+        .deleted-preview-author {
+          gap: 3px;
+          .deleted-preview-avatar {
+            width: 20px;
+            height: 20px;
+          }
+          span {
+            font-size: 14px;
+          }
+        }
+        .deleted-preview-text,
+        .deleted-preview-empty {
+          font-size: 14px;
+        }
+        .deleted-preview-image {
+          max-height: 300px;
+        }
+      }
+    }
+  }
+  .image-lightbox-overlay {
+    .image-lightbox-close {
+      top: 10px;
+      right: 10px;
+      width: 30px;
+      height: 30px;
+      img {
+        width: 16px;
+        height: 16px;
+      }
+    }
+    .image-lightbox-image {
     }
   }
 }
