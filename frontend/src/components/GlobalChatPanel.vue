@@ -290,7 +290,7 @@ const showLauncher = computed(() => {
   if (user.banActive || user.timeoutActive || user.inActiveGameAsAlivePlayer) return false
   return !(settings.verificationRestrictions && !user.telegramVerified);
 })
-const canRender = computed(() => settings.chatOpenEnabled && chat.open)
+const canRender = computed(() => settings.chatOpenEnabled && (showLauncher.value || chat.open))
 
 const statusText = computed(() => {
   if (loadingInitial.value) return 'Загрузка истории…'
@@ -1314,22 +1314,19 @@ onBeforeUnmount(() => {
   }
 }
 .deleted-preview-overlay {
-  position: fixed;
-  inset: 0;
   display: flex;
+  position: fixed;
   align-items: center;
   justify-content: center;
-  padding: 20px;
-  background-color: $graphite;
-  backdrop-filter: blur(5px);
+  inset: 0;
+  background-color: $dark;
   z-index: 120;
   .deleted-preview-modal {
     display: flex;
     flex-direction: column;
-    width: min(520px, calc(100vw - 40px));
-    max-height: min(80dvh, 720px);
-    border-radius: 10px;
-    border: 1px solid $ashy;
+    width: min(600px, 90vw);
+    max-height: min(600px, 90dvh);
+    border-radius: 20px;
     background-color: $graphite;
     box-shadow: 0 15px 30px rgba($black, 0.25);
     overflow: hidden;
@@ -1344,9 +1341,8 @@ onBeforeUnmount(() => {
         display: flex;
         flex-direction: column;
         gap: 5px;
-        min-width: 0;
         span {
-          color: $white;
+          color: $fg;
           font-size: 16px;
           font-family: Manrope-SemiBold;
         }
@@ -1380,8 +1376,7 @@ onBeforeUnmount(() => {
       .deleted-preview-author {
         display: inline-flex;
         align-items: center;
-        gap: 10px;
-        min-width: 0;
+        gap: 5px;
         .deleted-preview-avatar {
           width: 30px;
           height: 30px;
@@ -1389,21 +1384,17 @@ onBeforeUnmount(() => {
           object-fit: cover;
         }
         span {
-          min-width: 0;
-          color: $white;
-          font-size: 14px;
+          color: $fg;
+          font-size: 16px;
           font-family: Manrope-Medium;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
         }
       }
       .deleted-preview-text,
       .deleted-preview-empty {
         margin: 0;
         color: $fg;
-        font-size: 14px;
-        line-height: 1.5;
+        font-size: 16px;
+        line-height: 1.2;
         white-space: pre-wrap;
         overflow-wrap: anywhere;
       }
@@ -1413,7 +1404,7 @@ onBeforeUnmount(() => {
       }
       .deleted-preview-image {
         width: 100%;
-        max-height: 420px;
+        max-height: 400px;
         border-radius: 10px;
         object-fit: contain;
         cursor: zoom-in;
@@ -1427,7 +1418,7 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   inset: 0;
-  background-color: $bg;
+  background-color: $dark;
   z-index: 130;
   .image-lightbox-close {
     position: absolute;
@@ -1449,8 +1440,8 @@ onBeforeUnmount(() => {
     }
   }
   .image-lightbox-image {
-    max-width: min(96vw, 1440px);
-    max-height: min(92vh, 960px);
+    max-width: min(90vw, 1440px);
+    max-height: min(90vh, 960px);
     object-fit: contain;
     box-shadow: 0 15px 30px rgba($black, 0.25);
   }
