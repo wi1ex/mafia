@@ -56,7 +56,7 @@
                   </button>
                 </div>
                 <template v-if="!message.deleted">
-                  <img v-if="message.image_object_key" class="message-image" @click="onOpenImageLightbox($event, 'Вложение')" v-minio-img="{ key: message.image_object_key, lazy: true }" alt="Вложение" />
+                  <img v-if="message.image_object_key" class="message-image" @click="onOpenImageLightbox($event, 'Вложение')" @load="onMessageMediaLoad" @error="onMessageMediaLoad" v-minio-img="{ key: message.image_object_key, lazy: true }" alt="Вложение" />
                   <p v-if="message.text" class="message-text">{{ message.text }}</p>
                 </template>
               </div>
@@ -127,10 +127,12 @@
         </div>
 
         <div v-if="draftImagePreviewUrl" class="image-preview">
-          <img :src="draftImagePreviewUrl" alt="Предпросмотр изображения" />
-          <div class="image-preview-meta">
-            <span>{{ draftImageName || 'Изображение' }}</span>
-            <small>{{ draftImageUploaded ? 'Загружено' : (uploadingImage ? 'Загрузка…' : 'Изображение прикреплено') }}</small>
+          <div class="image-preview-div">
+            <img :src="draftImagePreviewUrl" alt="Предпросмотр изображения" />
+            <div class="image-preview-meta">
+              <span>{{ draftImageName || 'Изображение' }}</span>
+              <small>{{ draftImageUploaded ? 'Загружено' : (uploadingImage ? 'Загрузка…' : 'Изображение прикреплено') }}</small>
+            </div>
           </div>
           <button type="button" @click="chat.clearDraftImage()">
             <img :src="iconClose" alt="" />
@@ -252,6 +254,7 @@ const {
   lastMutationToken,
   lastMutationKind,
   lastMutationMessageId,
+  lastMutationForceScroll,
 } = storeToRefs(chat)
 
 const listEl = ref<HTMLElement | null>(null)
@@ -276,6 +279,8 @@ const reactionDetailsLoadingMessageId = ref<number | null>(null)
 const reactionDetailsErrorMessageId = ref<number | null>(null)
 let reactionDetailsRequestToken = 0
 let highlightTimer: number | null = null
+let scrollToBottomRaf: number | null = null
+let scrollToBottomFramesRemaining = 0
 const isAdmin = computed(() => String(user.user?.role || '').trim().toLowerCase() === 'admin')
 
 const showLauncher = computed(() => {
@@ -438,6 +443,40 @@ function scrollToBottom(): void {
   const list = listEl.value
   if (!list) return
   list.scrollTop = list.scrollHeight
+}
+
+function cancelScheduledScrollToBottom(): void {
+  if (scrollToBottomRaf !== null) {
+    window.cancelAnimationFrame(scrollToBottomRaf)
+    scrollToBottomRaf = null
+  }
+  scrollToBottomFramesRemaining = 0
+}
+
+function scheduleScrollToBottom(force = false, frames = 8): void {
+  if (!force && !stickToBottom.value) return
+  scrollToBottomFramesRemaining = Math.max(scrollToBottomFramesRemaining, frames)
+  if (scrollToBottomRaf !== null) return
+
+  const run = () => {
+    scrollToBottomRaf = null
+    if (!listEl.value) {
+      scrollToBottomFramesRemaining = 0
+      return
+    }
+    scrollToBottom()
+    updateScrollState()
+    scrollToBottomFramesRemaining -= 1
+    if (scrollToBottomFramesRemaining > 0) {
+      scrollToBottomRaf = window.requestAnimationFrame(run)
+    }
+  }
+
+  scrollToBottomRaf = window.requestAnimationFrame(run)
+}
+
+function onMessageMediaLoad(): void {
+  scheduleScrollToBottom()
 }
 
 function clearHighlightTimer(): void {
@@ -629,8 +668,7 @@ async function onSend(): Promise<void> {
   reactionPickerMessageId.value = null
   composerPickerOpen.value = false
   await nextTick()
-  scrollToBottom()
-  updateScrollState()
+  scheduleScrollToBottom(true)
   focusComposer()
 }
 
@@ -648,15 +686,16 @@ watch(lastMutationToken, async () => {
   await nextTick()
   if (lastMutationKind.value === 'reset') {
     stickToBottom.value = true
-    scrollToBottom()
-    updateScrollState()
+    scheduleScrollToBottom(true)
     focusComposer()
     return
   }
 
   if (lastMutationKind.value === 'append') {
-    scrollToBottom()
-    updateScrollState()
+    if (lastMutationForceScroll.value) {
+      stickToBottom.value = true
+    }
+    scheduleScrollToBottom(lastMutationForceScroll.value)
     return
   }
 
@@ -717,6 +756,7 @@ watch(composerPlaceholder, () => {
 
 watch(() => chat.open, (open) => {
   if (!open) {
+    cancelScheduledScrollToBottom()
     composerPickerOpen.value = false
     reactionPickerMessageId.value = null
     closeReactionDetails()
@@ -726,6 +766,7 @@ watch(() => chat.open, (open) => {
   }
   void nextTick(() => {
     syncComposerPlaceholder()
+    scheduleScrollToBottom(true)
   })
 })
 
@@ -734,14 +775,14 @@ onMounted(() => {
   stickToBottom.value = true
   void nextTick(() => {
     syncComposerPlaceholder()
-    scrollToBottom()
-    updateScrollState()
+    scheduleScrollToBottom(true)
     focusComposer()
   })
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', onWindowKeydown)
+  cancelScheduledScrollToBottom()
   clearHighlightTimer()
   closeReactionDetails()
   closeDeletedPreview()
@@ -854,15 +895,15 @@ onBeforeUnmount(() => {
       border-radius: 10px;
       background-color: $graphite;
       border: 1px solid transparent;
+      transition: border-color 0.25s ease-in-out;
       &--own {
-        background-color: $lead;
+        background-color: $graphite;
       }
       &--deleted {
         opacity: 0.5;
       }
       &--highlighted {
         border-color: $orange;
-        box-shadow: 0 0 0 1px rgba($orange, 0.25), 0 15px 30px rgba($black, 0.25);
       }
       .message-main {
         display: flex;
@@ -944,8 +985,8 @@ onBeforeUnmount(() => {
             border-radius: 5px;
             background-color: $dark;
             color: $fg;
-            font-size: 14px;
-            line-height: 1.5;
+            font-size: 16px;
+            line-height: 1.2;
             white-space: pre-wrap;
             overflow-wrap: anywhere;
           }
@@ -986,7 +1027,6 @@ onBeforeUnmount(() => {
             max-height: 340px;
             border-radius: 5px;
             object-fit: cover;
-            background-color: rgba($lead, 0.5);
             cursor: zoom-in;
           }
         }
@@ -1027,7 +1067,7 @@ onBeforeUnmount(() => {
                 border: none;
                 background-color: $dark;
                 &.red {
-                  background-color: $red;
+                  background-color: rgba($red, 0.75);
                 }
                 img {
                   width: 16px;
@@ -1041,21 +1081,21 @@ onBeforeUnmount(() => {
               flex-direction: column;
               top: calc(100% + 5px);
               right: 0;
-              padding: 5px;
-              gap: 5px;
+              padding: 5px 8px;
+              gap: 10px;
               width: max-content;
               height: max-content;
               border-radius: 5px;
               background-color: $lead;
-              box-shadow: 0 15px 30px rgba($black, 0.5);
+              box-shadow: 0 15px 30px rgba($black, 0.25);
               z-index: 5;
               .reaction-details-item {
                 display: flex;
                 align-items: center;
-                gap: 5px;
+                gap: 3px;
                 .reaction-details-avatar {
-                  width: 20px;
-                  height: 20px;
+                  width: 25px;
+                  height: 25px;
                   border-radius: 50%;
                   object-fit: cover;
                 }
@@ -1065,18 +1105,13 @@ onBeforeUnmount(() => {
                   gap: 3px;
                   min-width: 0;
                   .reaction-details-name {
-                    min-width: 0;
-                    color: $white;
+                    color: $fg;
                     font-size: 12px;
                     font-family: Manrope-Medium;
-                    overflow: hidden;
-                    text-overflow: ellipsis;
-                    white-space: nowrap;
                   }
                   .reaction-details-time {
-                    color: $ashy;
-                    font-size: 12px;
-                    line-height: 1.2;
+                    color: $grey;
+                    font-size: 10px;
                   }
                 }
               }
@@ -1094,13 +1129,6 @@ onBeforeUnmount(() => {
         }
       }
     }
-  }
-  .image-preview {
-    display: flex;
-    align-items: flex-start;
-    padding: 10px;
-    gap: 10px;
-    background-color: $lead;
   }
   .reply-bar {
     display: flex;
@@ -1145,44 +1173,58 @@ onBeforeUnmount(() => {
     }
   }
   .image-preview {
-    grid-template-columns: 50px minmax(0, 1fr) auto;
-    img {
-      width: 50px;
-      height: 50px;
-      border-radius: 5px;
-      object-fit: cover;
-      background-color: rgba($lead, 0.5);
-    }
-    .image-preview-meta {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 10px;
+    background-color: $lead;
+    .image-preview-div {
       display: flex;
-      flex-direction: column;
+      align-items: flex-start;
       gap: 5px;
-      min-width: 0;
-      span,
-      small {
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+      img {
+        width: 40px;
+        height: 40px;
+        border-radius: 5px;
+        object-fit: cover;
       }
-      span {
-        color: $white;
-        font-size: 12px;
-      }
-      small {
-        color: $ashy;
-        font-size: 12px;
+      .image-preview-meta {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        justify-content: space-between;
+        height: 40px;
+        span {
+          color: $white;
+          font-size: 12px;
+          line-height: 1.2;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          overflow: hidden;
+        }
+        small {
+          color: $ashy;
+          font-size: 12px;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          overflow: hidden;
+        }
       }
     }
     button {
-      min-width: 30px;
-      min-height: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      min-width: 20px;
+      min-height: 20px;
       border: none;
-      border-radius: 5px;
+      border-radius: 999px;
       background-color: $dark;
       cursor: pointer;
       img {
-        width: 16px;
-        height: 16px;
+        width: 12px;
+        height: 12px;
       }
     }
   }
@@ -1289,7 +1331,7 @@ onBeforeUnmount(() => {
     border-radius: 10px;
     border: 1px solid $ashy;
     background-color: $graphite;
-    box-shadow: 0 20px 40px rgba($black, 0.25);
+    box-shadow: 0 15px 30px rgba($black, 0.25);
     overflow: hidden;
     .deleted-preview-header {
       display: flex;
@@ -1374,7 +1416,6 @@ onBeforeUnmount(() => {
         max-height: 420px;
         border-radius: 10px;
         object-fit: contain;
-        background-color: $graphite;
         cursor: zoom-in;
       }
     }
@@ -1413,7 +1454,7 @@ onBeforeUnmount(() => {
     max-width: min(96vw, 1440px);
     max-height: min(92vh, 960px);
     object-fit: contain;
-    box-shadow: 0 20px 40px rgba($black, 0.5);
+    box-shadow: 0 15px 30px rgba($black, 0.25);
   }
 }
 
