@@ -236,40 +236,69 @@ const adminBannerLink = computed(() => {
 })
 
 function onToggleNotifs() {
-  updates_open.value = false
-  friends_open.value = false
-  nb_open.value = !nb_open.value
+  const next = !nb_open.value
+  closeHeaderPanels({ keepNotifs: true })
+  nb_open.value = next
 }
 function onToggleUpdates() {
-  nb_open.value = false
-  friends_open.value = false
-  updates_open.value = !updates_open.value
+  const next = !updates_open.value
+  closeHeaderPanels({ keepUpdates: true })
+  updates_open.value = next
 }
 function onToggleFriends() {
-  nb_open.value = false
-  updates_open.value = false
-  friends_open.value = !friends_open.value
+  const next = !friends_open.value
+  closeHeaderPanels({ keepFriends: true })
+  friends_open.value = next
 }
 function toggleGlobalChat() {
   if (chat.open) {
     chat.closePanel()
     return
   }
+  closeHeaderPanels({ keepChat: true })
   chat.openPanel()
 }
 function onToggleUserMenu() {
-  um_open.value = !um_open.value
+  const next = !um_open.value
+  closeHeaderPanels({ keepUserMenu: true })
+  um_open.value = next
 }
 function closeUserMenu() {
   um_open.value = false
 }
+function closeHeaderPanels(options: {
+  keepChat?: boolean
+  keepNotifs?: boolean
+  keepUpdates?: boolean
+  keepFriends?: boolean
+  keepUserMenu?: boolean
+  keepInstall?: boolean
+  keepSupport?: boolean
+  keepContacts?: boolean
+  keepAuth?: boolean
+} = {}) {
+  if (!options.keepNotifs) nb_open.value = false
+  if (!options.keepUpdates) updates_open.value = false
+  if (!options.keepFriends) friends_open.value = false
+  if (!options.keepUserMenu) um_open.value = false
+  if (!options.keepInstall) installOpen.value = false
+  if (!options.keepSupport) supportOpen.value = false
+  if (!options.keepContacts) contactsOpen.value = false
+  if (!options.keepAuth) authOpen.value = false
+  if (!options.keepChat && chat.open) {
+    chat.closePanel()
+  }
+}
 function openInstall() {
+  closeHeaderPanels({ keepInstall: true })
   installOpen.value = true
 }
 function openSupport() {
+  closeHeaderPanels({ keepSupport: true })
   supportOpen.value = true
 }
 function openContacts() {
+  closeHeaderPanels({ keepContacts: true })
   contactsOpen.value = true
 }
 async function onLogoutClick() {
@@ -317,6 +346,7 @@ onBeforeUnmount(() => {
 })
 
 function openAuth(mode: 'login' | 'register') {
+  closeHeaderPanels({ keepAuth: true })
   authMode.value = mode
   authOpen.value = true
 }

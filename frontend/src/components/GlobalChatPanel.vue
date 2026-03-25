@@ -802,7 +802,7 @@ onBeforeUnmount(() => {
   z-index: 70;
   &.room-mode {
     top: auto;
-    bottom: 50px;
+    bottom: 60px;
     z-index: 25;
   }
   > * {

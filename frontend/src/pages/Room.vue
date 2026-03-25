@@ -1047,17 +1047,20 @@ const toggleTilePanel = (id: string) => {
 }
 function toggleSettings() {
   const next = !settingsOpen.value
+  if (next && chat.open) chat.closePanel()
   closePanels('settings')
   settingsOpen.value = next
   if (next) void rtc.refreshDevices().catch(() => {})
 }
 function toggleApps() {
   const next = !openApps.value
+  if (next && chat.open) chat.closePanel()
   closePanels('apps')
   openApps.value = next
 }
 function toggleFriendsPanel() {
   const next = !friendsPanelOpen.value
+  if (next && chat.open) chat.closePanel()
   closePanels('friends')
   friendsPanelOpen.value = next
 }
@@ -1066,11 +1069,13 @@ function toggleGlobalChat() {
     chat.closePanel()
     return
   }
+  closePanels()
   chat.openPanel()
 }
 function openGameSettings() {
   if (!canViewGameSettings.value) return
   const next = !gameParamsOpen.value
+  if (next && chat.open) chat.closePanel()
   closePanels('game')
   gameParamsOpen.value = next
 }
