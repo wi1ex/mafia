@@ -873,7 +873,7 @@ onBeforeUnmount(() => {
     }
     .global-chat-message {
       display: flex;
-      padding: 5px 8px;
+      padding: 5px 10px;
       width: calc(100% - 20px);
       border-radius: 10px;
       background-color: $graphite;
@@ -1282,11 +1282,13 @@ onBeforeUnmount(() => {
       border: none;
       background-color: $lead;
       color: $fg;
+      font-size: 16px;
+      line-height: 1.2;
+      font-family: Manrope-Medium;
       resize: none;
       outline: none;
       overflow: auto;
       scrollbar-width: none;
-      font: inherit;
       &:disabled {
         opacity: 0.5;
         cursor: default;
@@ -1522,6 +1524,7 @@ onBeforeUnmount(() => {
       .empty-state {
       }
       .global-chat-message {
+        padding: 3px 5px;
         width: calc(100% - 10px);
         border-radius: 5px;
         .message-main {
@@ -1695,7 +1698,7 @@ onBeforeUnmount(() => {
       min-height: 32px;
       .tool-button {
         left: 3px;
-        bottom: 7px;
+        bottom: 6px;
         width: 20px;
         height: 20px;
         &.right {
@@ -1708,11 +1711,12 @@ onBeforeUnmount(() => {
       }
       .composer-input {
         padding: 7px 53px 10px 28px;
-        height: 10px;
+        height: 15px;
+        font-size: 12px;
       }
       .send-button {
         right: 3px;
-        bottom: 7px;
+        bottom: 6px;
         width: 20px;
         height: 20px;
         img {
