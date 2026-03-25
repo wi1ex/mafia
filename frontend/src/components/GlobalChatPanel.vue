@@ -1523,6 +1523,7 @@ onBeforeUnmount(() => {
       .load-more {
       }
       .empty-state {
+        font-size: 12px;
       }
       .global-chat-message {
         padding: 3px 5px;
@@ -1711,7 +1712,7 @@ onBeforeUnmount(() => {
         }
       }
       .composer-input {
-        padding: 8px 53px 9px 28px;
+        padding: 9px 53px 8px 28px;
         height: 15px;
         font-size: 12px;
       }
