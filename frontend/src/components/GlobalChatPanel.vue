@@ -1,5 +1,5 @@
 <template>
-  <div v-if="canRender" class="global-chat-dock">
+  <div v-if="canRender" :class="['global-chat-dock', { 'room-mode': isRoomMode }]">
     <Transition name="global-chat-panel-transition">
       <section v-if="chat.open" class="global-chat-panel" @click.stop>
         <header class="panel-header">
@@ -206,6 +206,7 @@
 
 <script setup lang="ts">
 import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { alertDialog, confirmDialog } from '@/services/confirm'
 import { formatChatTimestamp } from '@/services/datetime'
@@ -233,6 +234,7 @@ const auth = useAuthStore()
 const user = useUserStore()
 const settings = useSettingsStore()
 const chat = useGlobalChatStore()
+const route = useRoute()
 const {
   messages,
   draft,
@@ -282,6 +284,7 @@ let highlightTimer: number | null = null
 let scrollToBottomRaf: number | null = null
 let scrollToBottomFramesRemaining = 0
 const isAdmin = computed(() => String(user.user?.role || '').trim().toLowerCase() === 'admin')
+const isRoomMode = computed(() => route.name === 'room')
 
 const showLauncher = computed(() => {
   if (!auth.ready || !settings.ready || !auth.isAuthed) return false
@@ -797,6 +800,11 @@ onBeforeUnmount(() => {
   right: 10px;
   pointer-events: none;
   z-index: 70;
+  &.room-mode {
+    top: auto;
+    bottom: 50px;
+    z-index: 25;
+  }
   > * {
     pointer-events: auto;
   }
@@ -1484,7 +1492,11 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 1280px) {
-
+  .global-chat-dock {
+    &.room-mode {
+      bottom: 30px;
+    }
+  }
 }
 
 </style>
