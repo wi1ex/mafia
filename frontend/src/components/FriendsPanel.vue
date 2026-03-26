@@ -30,7 +30,7 @@
                     <span class="game" :class="{ active: f.room_in_game }">{{ f.room_in_game ? 'Игра' : 'Лобби' }}</span>
                   </div>
                   <div v-if="shouldShowInviteButton(f)" class="invite-select">
-                    <button type="button" class="icon-btn invite-btn" :disabled="isInviteDisabled(f) || Boolean(inviteBusy[f.id])" @click="invite(f)" aria-label="Пригласить в комнату">
+                    <button type="button" class="icon-btn invite-btn" :disabled="isInviteDisabled(f) || Boolean(inviteBusy[f.id])" :title="inviteDisabledReason(f)" @click="invite(f)" aria-label="Пригласить в комнату">
                       <img :src="inviteIcon(f)" alt="" />
                     </button>
                   </div>
@@ -112,7 +112,8 @@ let autoCloseTimer: number | undefined
 const POLL_MS = 3000
 const AUTO_CLOSE_MS = 5 * 60 * 1000
 
-function inviteBlockedReason(friend: { kind?: string; telegram_verified?: boolean; tg_invites_enabled?: boolean }): string {
+function inviteBlockedReason(friend: { kind?: string; telegram_verified?: boolean; tg_invites_enabled?: boolean; in_active_game_as_alive_player?: boolean | null }): string {
+  if (friend.in_active_game_as_alive_player) return 'Пользователь сейчас является живым игроком в активной игре'
   if (friend.kind !== 'offline') return ''
   if (friend.tg_invites_enabled === false) return 'Пользователь запретил приглашения через уведомления в Telegram'
   if (!friend.telegram_verified) return 'Пользователь не прошел верификацию через Telegram'
@@ -123,11 +124,19 @@ function isAlreadyInvited(friend: { room_invited?: boolean | null }): boolean {
   return Boolean(friend.room_invited)
 }
 
-function isInviteDisabled(friend: { id: number; kind?: string; telegram_verified?: boolean; tg_invites_enabled?: boolean; room_invited?: boolean | null }): boolean {
+function isInviteDisabled(friend: { id: number; kind?: string; telegram_verified?: boolean; tg_invites_enabled?: boolean; room_invited?: boolean | null; in_active_game_as_alive_player?: boolean | null }): boolean {
   const uid = Number(friend.id || 0)
   if (uid <= 0) return true
   if (inviteBlockedReason(friend)) return true
   return isAlreadyInvited(friend)
+}
+
+function inviteDisabledReason(friend: { id: number; kind?: string; telegram_verified?: boolean; tg_invites_enabled?: boolean; room_invited?: boolean | null; in_active_game_as_alive_player?: boolean | null }): string {
+  if (inviteBusy[Number(friend.id || 0)]) return 'Отправка приглашения'
+  const blockedReason = inviteBlockedReason(friend)
+  if (blockedReason) return blockedReason
+  if (isAlreadyInvited(friend)) return 'Пользователь уже приглашен в эту комнату'
+  return ''
 }
 
 function inviteIcon(friend: { kind?: string }): string {
@@ -191,7 +200,7 @@ function stopAutoClose() {
   autoCloseTimer = undefined
 }
 
-async function invite(friend: { id: number; username?: string | null; kind?: string; telegram_verified?: boolean; tg_invites_enabled?: boolean; room_invited?: boolean | null }) {
+async function invite(friend: { id: number; username?: string | null; kind?: string; telegram_verified?: boolean; tg_invites_enabled?: boolean; room_invited?: boolean | null; in_active_game_as_alive_player?: boolean | null }) {
   const uid = Number(friend.id || 0)
   if (!inviteRoomId.value || uid <= 0) return
   if (inviteBusy[uid]) return
@@ -228,6 +237,11 @@ async function invite(friend: { id: number; username?: string | null; kind?: str
     }
     if (st === 409 && d === 'target_telegram_invites_disabled') {
       void alertDialog('Пользователь запретил приглашения через уведомления в Telegram')
+      return
+    }
+    if (st === 409 && d === 'target_in_active_game_as_alive_player') {
+      void alertDialog('Пользователь сейчас является живым игроком в активной игре')
+      await friends.fetchList(currentListRoomId())
       return
     }
     if (st === 409 && d === 'target_telegram_unreachable') {

@@ -27,6 +27,7 @@ from ...api.utils import (
     fetch_online_user_ids,
     fetch_effective_online_user_ids,
     get_room_params_or_404,
+    get_active_alive_game_flags,
     pair,
     load_link,
     raise_missing_incoming_request_error,
@@ -98,6 +99,7 @@ async def friends_list(room_id: int | None = None, ident: Identity = Depends(get
     base_online_ids = set(await fetch_online_user_ids(r))
     online_ids = await fetch_effective_online_user_ids(r, friend_ids_all, base_online_ids=base_online_ids)
     friend_ids: list[int] = friend_ids_all
+    active_alive_game_flags = await get_active_alive_game_flags(friend_ids, redis_client=r)
 
     all_ids = set(friend_ids + incoming_ids + outgoing_ids)
     users_map: dict[int, dict[str, object]] = {}
@@ -213,6 +215,7 @@ async def friends_list(room_id: int | None = None, ident: Identity = Depends(get
             room_id=int(rid) if rid else None,
             room_title=info.title if info else None,
             room_in_game=bool(info.in_game) if info else None,
+            in_active_game_as_alive_player=bool(active_alive_game_flags.get(fid)),
             telegram_verified=bool(user_data.get("telegram_verified")),
             tg_invites_enabled=bool(user_data.get("tg_invites_enabled")),
             room_invited=(fid in invited_to_room_ids) if invite_room_id > 0 else None,
@@ -577,6 +580,10 @@ async def invite_friend(payload: FriendInviteIn, ident: Identity = Depends(get_i
 
         if not bool(target.tg_invites_enabled):
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="target_telegram_invites_disabled")
+
+    active_alive_target_flags = await get_active_alive_game_flags([target_id], redis_client=r)
+    if active_alive_target_flags.get(target_id, False):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="target_in_active_game_as_alive_player")
 
     invite_set_key = f"room:{room_id}:invited"
     in_room_now = bool(await r.sismember(f"room:{room_id}:members", str(target_id)))

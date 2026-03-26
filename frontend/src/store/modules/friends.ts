@@ -16,6 +16,7 @@ export type FriendListItem = {
   room_id?: number | null
   room_title?: string | null
   room_in_game?: boolean | null
+  in_active_game_as_alive_player?: boolean | null
   room_invited?: boolean | null
   telegram_verified?: boolean
   tg_invites_enabled?: boolean
