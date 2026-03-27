@@ -39,7 +39,7 @@ from ...services.global_chat import (
     emit_global_chat_sanction_issued_notice,
     emit_global_chat_sanction_removed_notice,
 )
-from ...services.minio import delete_chat_images_async
+from ...services.minio import CHAT_IMAGE_PREFIX, delete_chat_images_async, get_prefix_storage_stats_async
 from ...schemas.common import Ok, Identity
 from ...schemas.user import UserStatsOut, UserTopPlayerOut
 from ...schemas.updates import AdminUpdateIn, AdminUpdateOut, AdminUpdatesOut
@@ -253,6 +253,10 @@ async def site_stats(month: str | None = None, session: AsyncSession = Depends(g
             User.tg_invites_enabled.is_(False),
         )
     ) or 0)
+    (avatars_count, avatars_bytes), (images_count, images_bytes) = await asyncio.gather(
+        get_prefix_storage_stats_async("avatars/"),
+        get_prefix_storage_stats_async(CHAT_IMAGE_PREFIX),
+    )
     total_rooms = int(await session.scalar(select(func.count(Room.id))) or 0)
     total_games = int(await session.scalar(select(func.count(Game.id))) or 0)
     registrations = await build_registrations_series(session, start_dt, end_dt)
@@ -314,6 +318,10 @@ async def site_stats(month: str | None = None, session: AsyncSession = Depends(g
         no_password_users=no_password_users,
         deleted_users=deleted_users,
         tg_invites_disabled_users=tg_invites_disabled_users,
+        avatars_count=avatars_count,
+        avatars_bytes=avatars_bytes,
+        images_count=images_count,
+        images_bytes=images_bytes,
         registrations=registrations,
         games_by_day=games_by_day,
         registrations_monthly=registrations_monthly,

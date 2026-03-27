@@ -173,6 +173,14 @@
                 <span class="value">{{ stats.tg_invites_disabled_users }}</span>
               </div>
               <div class="stat-card">
+                <span class="label">Аватары</span>
+                <span class="value">{{ stats.avatars_count }} ({{ formatBytes(stats.avatars_bytes) }})</span>
+              </div>
+              <div class="stat-card">
+                <span class="label">Изображения</span>
+                <span class="value">{{ stats.images_count }} ({{ formatBytes(stats.images_bytes) }})</span>
+              </div>
+              <div class="stat-card">
                 <span class="label">Всего комнат</span>
                 <span class="value">{{ stats.total_rooms }}</span>
               </div>
@@ -896,6 +904,10 @@ type SiteStats = {
   no_password_users: number
   deleted_users: number
   tg_invites_disabled_users: number
+  avatars_count: number
+  avatars_bytes: number
+  images_count: number
+  images_bytes: number
   registrations: RegistrationPoint[]
   games_by_day: RegistrationPoint[]
   registrations_monthly: RegistrationPoint[]
@@ -1104,6 +1116,10 @@ const stats = reactive<SiteStats>({
   no_password_users: 0,
   deleted_users: 0,
   tg_invites_disabled_users: 0,
+  avatars_count: 0,
+  avatars_bytes: 0,
+  images_count: 0,
+  images_bytes: 0,
   registrations: [],
   games_by_day: [],
   registrations_monthly: [],
@@ -1453,6 +1469,14 @@ function formatMinutes(value: number): string {
   return parts.join(' ')
 }
 
+function formatBytes(value: number): string {
+  const total = Math.max(0, Number(value) || 0)
+  if (total < 1024) return `${Math.floor(total)} Б`
+  if (total < 1024 * 1024) return `${(total / 1024).toFixed(total < 10 * 1024 ? 1 : 0)} КБ`
+  if (total < 1024 * 1024 * 1024) return `${(total / (1024 * 1024)).toFixed(total < 10 * 1024 * 1024 ? 1 : 0)} МБ`
+  return `${(total / (1024 * 1024 * 1024)).toFixed(total < 10 * 1024 * 1024 * 1024 ? 1 : 0)} ГБ`
+}
+
 function formatSanctionDuration(seconds?: number | null): string {
   if (!seconds) return 'без срока'
   const total = Math.max(0, Math.floor(Number(seconds) || 0))
@@ -1665,6 +1689,10 @@ async function loadStats(): Promise<void> {
       no_password_users: data?.no_password_users ?? 0,
       deleted_users: data?.deleted_users ?? 0,
       tg_invites_disabled_users: data?.tg_invites_disabled_users ?? 0,
+      avatars_count: data?.avatars_count ?? 0,
+      avatars_bytes: data?.avatars_bytes ?? 0,
+      images_count: data?.images_count ?? 0,
+      images_bytes: data?.images_bytes ?? 0,
       registrations: Array.isArray(data?.registrations) ? data.registrations : [],
       games_by_day: Array.isArray(data?.games_by_day) ? data.games_by_day : [],
       registrations_monthly: Array.isArray(data?.registrations_monthly) ? data.registrations_monthly : [],

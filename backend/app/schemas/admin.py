@@ -132,6 +132,10 @@ class SiteStatsOut(BaseModel):
     no_password_users: int
     deleted_users: int
     tg_invites_disabled_users: int
+    avatars_count: int
+    avatars_bytes: int
+    images_count: int
+    images_bytes: int
     registrations: List[RegistrationsPoint]
     games_by_day: List[RegistrationsPoint]
     registrations_monthly: List[RegistrationsPoint]
