@@ -8,7 +8,7 @@
             <h1>Правила сообщества</h1>
             <div class="tags">
               <span class="pill">14+</span>
-              <span class="pill">Редакция от 25.03.2026</span>
+              <span class="pill">Редакция от 27.03.2026</span>
             </div>
           </div>
         </section>
