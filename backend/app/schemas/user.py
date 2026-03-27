@@ -182,6 +182,16 @@ class ChatImagePresignOut(BaseModel):
     upload_fields: dict[str, str] = Field(default_factory=dict)
 
 
+class ChatMentionUserOut(BaseModel):
+    id: int
+    username: str
+    avatar_name: Optional[str] = None
+
+
+class ChatMentionSearchOut(BaseModel):
+    items: List[ChatMentionUserOut] = Field(default_factory=list)
+
+
 class UserUiPrefsIn(BaseModel):
     hotkeys_visible: Optional[bool] = None
     tg_invites_enabled: Optional[bool] = None

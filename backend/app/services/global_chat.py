@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from typing import Any, Sequence
 from uuid import UUID, uuid4
 import structlog
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..models.global_chat import GlobalChatMessage, GlobalChatMessageReaction
@@ -27,6 +27,7 @@ GLOBAL_CHAT_HISTORY_LIMIT = 100
 GLOBAL_CHAT_CONTEXT_WINDOW = 25
 GLOBAL_CHAT_MAX_TEXT_LEN = 1000
 GLOBAL_CHAT_IMAGE_KEY_RE = re.compile(r"^[a-zA-Z0-9._/-]{3,256}$")
+GLOBAL_CHAT_MENTION_RE = re.compile(r"(?<!\S)@([a-zA-Zа-яА-ЯёЁ0-9._\-()]{2,20})(?![a-zA-Zа-яА-ЯёЁ0-9._\-()])")
 SANCTION_RULE_POINT_RE = re.compile(r"^\s*([0-9]+(?:\.[0-9]+)*)\.")
 GLOBAL_CHAT_REACTIONS_ALLOWLIST: tuple[str, ...] = (
     "👍",
@@ -87,6 +88,66 @@ def _sanitize_text(raw: object) -> str:
 def _username_for(profile: dict[str, Any] | None, user_id: int) -> str:
     username = str((profile or {}).get("username") or "").strip()
     return username or f"user{int(user_id)}"
+
+
+def _extract_mentioned_usernames(text: str) -> list[str]:
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for match in GLOBAL_CHAT_MENTION_RE.finditer(str(text or "")):
+        username = str(match.group(1) or "").strip()
+        if not username:
+            continue
+        username_key = username.lower()
+        if username_key in seen:
+            continue
+        seen.add(username_key)
+        ordered.append(username)
+    return ordered
+
+
+async def _resolve_mentioned_users(session: AsyncSession, usernames: set[str]) -> dict[str, dict[str, Any]]:
+    if not usernames:
+        return {}
+
+    normalized = {str(username or "").strip().lower() for username in usernames if str(username or "").strip()}
+    if not normalized:
+        return {}
+
+    rows = await session.execute(
+        select(User.id, User.username, User.avatar_name)
+        .where(
+            User.deleted_at.is_(None),
+            func.lower(User.username).in_(normalized),
+        )
+    )
+    resolved: dict[str, dict[str, Any]] = {}
+    for user_id_raw, username_raw, avatar_name_raw in rows.all():
+        user_id = _positive_int(user_id_raw)
+        username = str(username_raw or "").strip()
+        if user_id <= 0 or not username:
+            continue
+        resolved[username.lower()] = {
+            "id": user_id,
+            "username": username,
+            "avatar_name": str(avatar_name_raw) if avatar_name_raw else None,
+        }
+    return resolved
+
+
+def _build_mentions_payload(text: str, resolved_users: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
+    mentions: list[dict[str, Any]] = []
+    for username in _extract_mentioned_usernames(text):
+        mention = resolved_users.get(username.lower())
+        if mention is None:
+            continue
+        mentions.append(
+            {
+                "id": int(mention["id"]),
+                "username": str(mention["username"]),
+                "avatar_name": mention.get("avatar_name"),
+            }
+        )
+    return mentions
 
 
 def _reply_snippet(text: str, *, has_image: bool) -> str:
@@ -483,6 +544,12 @@ async def serialize_global_chat_messages(session: AsyncSession, messages: Sequen
     user_ids: set[int] = {int(message.user_id) for message in messages}
     user_ids.update(int(message.user_id) for message in reply_map.values())
     profiles = await get_user_profiles_cached(session, user_ids) if user_ids else {}
+    mentioned_usernames: set[str] = set()
+    for message in messages:
+        if message.deleted_at is not None:
+            continue
+        mentioned_usernames.update(_extract_mentioned_usernames(str(message.text or "")))
+    resolved_mentions = await _resolve_mentioned_users(session, mentioned_usernames)
 
     reaction_rows = await session.execute(
         select(
@@ -561,6 +628,7 @@ async def serialize_global_chat_messages(session: AsyncSession, messages: Sequen
                 "reactions": reactions,
                 "reply": reply_payload,
                 "image_object_key": public["image_object_key"],
+                "mentions": [] if deleted else _build_mentions_payload(public["text"], resolved_mentions),
             }
         )
 
@@ -833,12 +901,14 @@ async def build_deleted_global_chat_message_preview(session: AsyncSession, *, me
         author_profile = profiles.get(author_id) or {}
 
     content_available = bool(str(message.text or "").strip()) or bool(message.image_object_key)
+    resolved_mentions = await _resolve_mentioned_users(session, set(_extract_mentioned_usernames(str(message.text or ""))))
     return {
         "message_id": int(message.id),
         "deleted_at": message.deleted_at.isoformat() if message.deleted_at else None,
         "content_available": content_available,
         "text": str(message.text or "") if content_available else "",
         "image_object_key": str(message.image_object_key) if content_available and message.image_object_key else None,
+        "mentions": _build_mentions_payload(str(message.text or ""), resolved_mentions) if content_available else [],
         "author": {
             "id": author_id,
             "username": _username_for(author_profile, author_id),

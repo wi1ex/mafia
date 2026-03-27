@@ -58,8 +58,9 @@
                 <template v-if="!message.deleted">
                   <img v-if="message.image_object_key" class="message-image" @click="onOpenImageLightbox($event, 'Вложение')" @load="onMessageMediaLoad" @error="onMessageMediaLoad" v-minio-img="{ key: message.image_object_key, lazy: true }" alt="Вложение" />
                   <p v-if="message.text" class="message-text">
-                    <template v-for="(segment, index) in buildTextSegments(message.text)" :key="`${message.id}-text-${index}`">
+                    <template v-for="(segment, index) in buildTextSegments(message.text, message.mentions)" :key="`${message.id}-text-${index}`">
                       <a v-if="segment.kind === 'link'" class="message-link" :href="segment.href" target="_blank" rel="noopener noreferrer nofollow" @click.stop>{{ segment.text }}</a>
+                      <span v-else-if="segment.kind === 'mention'" class="message-mention">{{ segment.text }}</span>
                       <span v-else>{{ segment.text }}</span>
                     </template>
                   </p>
@@ -150,8 +151,31 @@
             <img :src="iconPhoto" alt="" />
           </label>
 
-          <textarea ref="textareaEl" v-model="draft" class="composer-input" :disabled="composerDisabled" rows="3"
+          <div class="composer-input-wrap">
+            <div ref="composerMirrorEl" class="composer-highlight-overlay" aria-hidden="true">
+              <p class="composer-highlight-content">
+                <template v-for="(segment, index) in buildDraftTextSegments(draft)" :key="`draft-text-${index}`">
+                  <span v-if="segment.kind === 'mention'" class="message-mention composer-mention">{{ segment.text }}</span>
+                  <span v-else>{{ segment.text }}</span>
+                </template>
+              </p>
+            </div>
+
+          <textarea ref="textareaEl" v-model="draft" :class="['composer-input', { 'composer-input--mirrored': Boolean(draft) }]" :disabled="composerDisabled" @click="onComposerSelectionChange" @keyup="onComposerSelectionChange" @select="onComposerSelectionChange" @scroll="onComposerScroll" @blur="onComposerBlur" rows="3"
                     maxlength="1000" placeholder="Введите текст..." @keydown="onComposerKeydown" />
+
+            <div v-if="mentionDropdownVisible" class="mention-suggestions" role="listbox" aria-label="Подсказки упоминаний">
+              <p v-if="mentionLoading" class="mention-suggestions-state">Поиск…</p>
+              <p v-else-if="mentionSuggestions.length === 0" class="mention-suggestions-state">Совпадений нет</p>
+              <button v-for="(candidate, index) in mentionSuggestions" :key="candidate.id"
+                      :class="['mention-suggestion', { 'mention-suggestion--active': mentionSelectedIndex === index }]"
+                      type="button" role="option" :aria-selected="mentionSelectedIndex === index"
+                      @pointerdown.prevent="selectMention(candidate)" @mouseenter="mentionSelectedIndex = index">
+                <img class="mention-suggestion-avatar" v-minio-img="{ key: candidate.avatar_name ? `avatars/${candidate.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="" />
+                <span class="mention-suggestion-name">@{{ candidate.username }}</span>
+              </button>
+            </div>
+          </div>
 
           <button class="tool-button right" type="button" :disabled="composerDisabled" @pointerdown.stop @click="composerPickerOpen = !composerPickerOpen">
             <img :src="iconEmoji" alt="" />
@@ -189,8 +213,9 @@
 
             <template v-if="deletedPreview.content_available">
               <p v-if="deletedPreview.text" class="deleted-preview-text">
-                <template v-for="(segment, index) in buildTextSegments(deletedPreview.text)" :key="`deleted-preview-text-${index}`">
+                <template v-for="(segment, index) in buildTextSegments(deletedPreview.text, deletedPreview.mentions)" :key="`deleted-preview-text-${index}`">
                   <a v-if="segment.kind === 'link'" class="message-link" :href="segment.href" target="_blank" rel="noopener noreferrer nofollow" @click.stop>{{ segment.text }}</a>
+                  <span v-else-if="segment.kind === 'mention'" class="message-mention">{{ segment.text }}</span>
                   <span v-else>{{ segment.text }}</span>
                 </template>
               </p>
@@ -218,6 +243,7 @@
 import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
+import { api } from '@/services/axios'
 import { alertDialog, confirmDialog } from '@/services/confirm'
 import { formatChatTimestamp } from '@/services/datetime'
 import { useAuthStore, useGlobalChatStore, useSettingsStore, useUserStore } from '@/store'
@@ -235,6 +261,7 @@ import iconReplyMessage from '@/assets/svg/reply_message.svg'
 import type {
   GlobalChatDeletedMessagePreview,
   GlobalChatMessage,
+  GlobalChatMention,
   GlobalChatReaction,
   GlobalChatReactionParticipant,
 } from '@/store/modules/globalChat'
@@ -271,8 +298,15 @@ const {
 
 const listEl = ref<HTMLElement | null>(null)
 const textareaEl = ref<HTMLTextAreaElement | null>(null)
+const composerMirrorEl = ref<HTMLElement | null>(null)
 const fileInputEl = ref<HTMLInputElement | null>(null)
 const composerPickerOpen = ref(false)
+const knownMentionCandidates = ref<ChatMentionCandidate[]>([])
+const mentionSuggestions = ref<ChatMentionCandidate[]>([])
+const mentionLoading = ref(false)
+const mentionHasSearched = ref(false)
+const mentionSelectedIndex = ref(0)
+const activeMentionRange = ref<{ start: number; end: number; query: string } | null>(null)
 const reactionPickerMessageId = ref<number | null>(null)
 const highlightedMessageId = ref<number | null>(null)
 const stickToBottom = ref(true)
@@ -290,6 +324,8 @@ const reactionDetailsEmoji = ref('')
 const reactionDetailsLoadingMessageId = ref<number | null>(null)
 const reactionDetailsErrorMessageId = ref<number | null>(null)
 let reactionDetailsRequestToken = 0
+let mentionSearchToken = 0
+let mentionSearchTimer: number | null = null
 let highlightTimer: number | null = null
 let scrollToBottomRaf: number | null = null
 let scrollToBottomFramesRemaining = 0
@@ -324,15 +360,33 @@ const composerPlaceholder = computed(() => (
   permissions.value.can_send ? 'Введите текст...' : 'Чат временно отключен...'
 ))
 const showLoadMore = computed(() => hasMore.value && (loadingMore.value || listAtTop.value))
+const mentionDropdownVisible = computed(() => Boolean(activeMentionRange.value?.query) && !composerDisabled.value && (mentionLoading.value || mentionHasSearched.value))
 
 type TextSegment = {
-  kind: 'text' | 'link'
+  kind: 'text' | 'link' | 'mention'
   text: string
   href?: string
+  mention?: GlobalChatMention
+}
+
+type ChatMentionCandidate = {
+  id: number
+  username: string
+  avatar_name: string | null
+}
+
+type ChatMentionSearchResponse = {
+  items?: Array<{
+    id?: number
+    username?: string
+    avatar_name?: string | null
+  }>
 }
 
 const URL_RE = /((?:https?:\/\/|www\.)[^\s<]+)/gi
 const TRAILING_URL_PUNCTUATION_RE = /[),.!?:;]+$/
+const MENTION_CHAR_RE = /^[a-zA-Zа-яА-ЯёЁ0-9._\-()]$/
+const MENTION_SEGMENT_RE = /(^|\s)@([a-zA-Zа-яА-ЯёЁ0-9._\-()]{2,20})(?![a-zA-Zа-яА-ЯёЁ0-9._\-()])/g
 
 function isNearTop(): boolean {
   const list = listEl.value
@@ -395,7 +449,100 @@ function normalizeUrlHref(rawUrl: string): string | null {
   return null
 }
 
-function buildTextSegments(value: string): TextSegment[] {
+function buildMentionLookup(mentions: GlobalChatMention[] = []): Map<string, GlobalChatMention> {
+  const lookup = new Map<string, GlobalChatMention>()
+  for (const mention of mentions) {
+    const username = String(mention.username || '').trim()
+    if (!username) continue
+    const key = username.toLowerCase()
+    if (!lookup.has(key)) {
+      lookup.set(key, mention)
+    }
+  }
+  return lookup
+}
+
+function buildKnownDraftMentions(): GlobalChatMention[] {
+  const known = new Map<string, GlobalChatMention>()
+  for (const message of messages.value) {
+    const authorUsername = String(message.author.username || '').trim()
+    if (authorUsername && !known.has(authorUsername.toLowerCase())) {
+      known.set(authorUsername.toLowerCase(), {
+        id: message.author.id,
+        username: authorUsername,
+        avatar_name: message.author.avatar_name || null,
+      })
+    }
+    for (const mention of message.mentions) {
+      const mentionUsername = String(mention.username || '').trim()
+      if (mentionUsername && !known.has(mentionUsername.toLowerCase())) {
+        known.set(mentionUsername.toLowerCase(), mention)
+      }
+    }
+  }
+  for (const candidate of knownMentionCandidates.value) {
+    const username = String(candidate.username || '').trim()
+    if (!username || known.has(username.toLowerCase())) continue
+    known.set(username.toLowerCase(), {
+      id: candidate.id,
+      username,
+      avatar_name: candidate.avatar_name || null,
+    })
+  }
+  return [...known.values()]
+}
+
+function rememberMentionCandidates(candidates: ChatMentionCandidate[]): void {
+  if (!Array.isArray(candidates) || candidates.length === 0) return
+  const known = new Map(knownMentionCandidates.value.map((candidate) => [candidate.username.toLowerCase(), candidate]))
+  for (const candidate of candidates) {
+    const username = String(candidate.username || '').trim()
+    if (!username) continue
+    known.set(username.toLowerCase(), {
+      id: candidate.id,
+      username,
+      avatar_name: candidate.avatar_name || null,
+    })
+  }
+  knownMentionCandidates.value = [...known.values()]
+}
+
+function buildNonLinkTextSegments(text: string, mentions: GlobalChatMention[] = []): TextSegment[] {
+  if (!text) return []
+  const mentionLookup = buildMentionLookup(mentions)
+  if (mentionLookup.size === 0) {
+    return [{ kind: 'text', text }]
+  }
+
+  const segments: TextSegment[] = []
+  let lastIndex = 0
+
+  for (const match of text.matchAll(MENTION_SEGMENT_RE)) {
+    const prefix = String(match[1] || '')
+    const username = String(match[2] || '').trim()
+    const offset = Number(match.index ?? -1)
+    const mention = mentionLookup.get(username.toLowerCase())
+    if (!username || offset < 0 || !mention) continue
+    const mentionStart = offset + prefix.length
+    const mentionEnd = mentionStart + username.length + 1
+    if (mentionStart > lastIndex) {
+      segments.push({ kind: 'text', text: text.slice(lastIndex, mentionStart) })
+    }
+    segments.push({
+      kind: 'mention',
+      text: text.slice(mentionStart, mentionEnd),
+      mention,
+    })
+    lastIndex = mentionEnd
+  }
+
+  if (lastIndex < text.length) {
+    segments.push({ kind: 'text', text: text.slice(lastIndex) })
+  }
+  return segments.length ? segments : [{ kind: 'text', text }]
+}
+
+function buildTextSegments(value: string, mentions: GlobalChatMention[] = []): TextSegment[] {
   const text = String(value || '')
   if (!text) return []
 
@@ -407,7 +554,7 @@ function buildTextSegments(value: string): TextSegment[] {
     const offset = Number(match.index ?? -1)
     if (!rawUrl || offset < 0) continue
     if (offset > lastIndex) {
-      segments.push({ kind: 'text', text: text.slice(lastIndex, offset) })
+      segments.push(...buildNonLinkTextSegments(text.slice(lastIndex, offset), mentions))
     }
     const { cleanUrl, trailing } = splitTrailingUrlPunctuation(rawUrl)
     const href = normalizeUrlHref(cleanUrl)
@@ -422,9 +569,13 @@ function buildTextSegments(value: string): TextSegment[] {
     lastIndex = offset + rawUrl.length
   }
   if (lastIndex < text.length) {
-    segments.push({ kind: 'text', text: text.slice(lastIndex) })
+    segments.push(...buildNonLinkTextSegments(text.slice(lastIndex), mentions))
   }
   return segments.length ? segments : [{ kind: 'text', text }]
+}
+
+function buildDraftTextSegments(value: string): TextSegment[] {
+  return buildTextSegments(value, buildKnownDraftMentions())
 }
 
 function orderedReactions(message: GlobalChatMessage): GlobalChatReaction[] {
@@ -442,6 +593,164 @@ function reactionParticipantsFor(messageId: number, emoji?: string): GlobalChatR
   const normalizedEmoji = String(emoji || '').trim()
   if (!normalizedEmoji) return participants
   return participants.filter((participant) => participant.emoji === normalizedEmoji)
+}
+
+function syncComposerMirrorScroll(): void {
+  const textarea = textareaEl.value
+  const mirror = composerMirrorEl.value
+  if (!textarea || !mirror) return
+  mirror.scrollTop = textarea.scrollTop
+  mirror.scrollLeft = textarea.scrollLeft
+}
+
+function clearMentionSearchTimer(): void {
+  if (mentionSearchTimer !== null) {
+    window.clearTimeout(mentionSearchTimer)
+    mentionSearchTimer = null
+  }
+}
+
+function clearMentionSuggestions(): void {
+  clearMentionSearchTimer()
+  mentionSearchToken += 1
+  mentionLoading.value = false
+  mentionHasSearched.value = false
+  mentionSuggestions.value = []
+  mentionSelectedIndex.value = 0
+  activeMentionRange.value = null
+}
+
+function isMentionChar(char: string): boolean {
+  return MENTION_CHAR_RE.test(char)
+}
+
+function findActiveMentionRange(): { start: number; end: number; query: string } | null {
+  const textarea = textareaEl.value
+  const text = String(draft.value || '')
+  if (!textarea) return null
+
+  const selectionStart = Number(textarea.selectionStart ?? text.length)
+  const selectionEnd = Number(textarea.selectionEnd ?? text.length)
+  if (selectionStart !== selectionEnd) return null
+
+  let start = selectionStart
+  while (start > 0 && isMentionChar(text[start - 1] || '')) {
+    start -= 1
+  }
+  if (start <= 0 || text[start - 1] !== '@') return null
+  if (start > 1 && !/\s/.test(text[start - 2] || '')) return null
+
+  let end = selectionStart
+  while (end < text.length && isMentionChar(text[end] || '')) {
+    end += 1
+  }
+
+  const query = text.slice(start, end)
+  if (!query || query.length > 20) return null
+  return {
+    start: start - 1,
+    end,
+    query,
+  }
+}
+
+async function fetchMentionSuggestions(query: string, token: number): Promise<void> {
+  mentionLoading.value = true
+  mentionHasSearched.value = false
+  try {
+    const { data } = await api.get<ChatMentionSearchResponse>('/users/chat/mentions', {
+      params: {
+        query,
+        limit: 8,
+      },
+    })
+    if (token !== mentionSearchToken) return
+    mentionSuggestions.value = Array.isArray(data?.items)
+      ? data.items
+        .map((item) => {
+          const id = Number(item?.id || 0)
+          const username = String(item?.username || '').trim()
+          if (id <= 0 || !username) return null
+          return {
+            id,
+            username,
+            avatar_name: String(item?.avatar_name || '') || null,
+          } satisfies ChatMentionCandidate
+        })
+        .filter((item): item is ChatMentionCandidate => Boolean(item))
+      : []
+    rememberMentionCandidates(mentionSuggestions.value)
+    mentionSelectedIndex.value = mentionSuggestions.value.length > 0 ? 0 : -1
+  } catch {
+    if (token !== mentionSearchToken) return
+    mentionSuggestions.value = []
+    mentionSelectedIndex.value = -1
+  } finally {
+    if (token === mentionSearchToken) {
+      mentionLoading.value = false
+      mentionHasSearched.value = true
+    }
+  }
+}
+
+function refreshMentionContext(): void {
+  syncComposerMirrorScroll()
+  if (composerDisabled.value) {
+    clearMentionSuggestions()
+    return
+  }
+  const nextRange = findActiveMentionRange()
+  activeMentionRange.value = nextRange
+  if (!nextRange?.query) {
+    clearMentionSuggestions()
+    return
+  }
+  clearMentionSearchTimer()
+  mentionSuggestions.value = []
+  mentionSelectedIndex.value = 0
+  mentionHasSearched.value = false
+  mentionLoading.value = true
+  const token = ++mentionSearchToken
+  mentionSearchTimer = window.setTimeout(() => {
+    mentionSearchTimer = null
+    void fetchMentionSuggestions(nextRange.query, token)
+  }, 120)
+}
+
+function onComposerSelectionChange(): void {
+  refreshMentionContext()
+}
+
+function onComposerScroll(): void {
+  syncComposerMirrorScroll()
+}
+
+function onComposerBlur(): void {
+  window.setTimeout(() => {
+    if (document.activeElement === textareaEl.value) return
+    clearMentionSuggestions()
+  }, 0)
+}
+
+function selectMention(candidate: ChatMentionCandidate): void {
+  const textarea = textareaEl.value
+  const range = activeMentionRange.value
+  const text = String(draft.value || '')
+  if (!textarea || !range) return
+
+  rememberMentionCandidates([candidate])
+  const before = text.slice(0, range.start)
+  const after = text.slice(range.end)
+  const replacement = `@${candidate.username}${/^\s/.test(after) ? '' : ' '}`
+  draft.value = `${before}${replacement}${after}`
+  clearMentionSuggestions()
+  void nextTick(() => {
+    focusComposer()
+    const nextPosition = before.length + replacement.length
+    textarea.setSelectionRange(nextPosition, nextPosition)
+    syncComposerMirrorScroll()
+    refreshMentionContext()
+  })
 }
 
 function closeImageLightbox(): void {
@@ -521,6 +830,10 @@ function onWindowKeydown(event: KeyboardEvent): void {
   }
   if (reactionDetailsMessageId.value !== null) {
     closeReactionDetails()
+    return
+  }
+  if (activeMentionRange.value) {
+    clearMentionSuggestions()
   }
 }
 
@@ -736,10 +1049,42 @@ function insertEmoji(emoji: string): void {
     focusComposer()
     const nextPos = start + emoji.length
     textarea.setSelectionRange(nextPos, nextPos)
+    syncComposerMirrorScroll()
+    refreshMentionContext()
   })
 }
 
 function onComposerKeydown(event: KeyboardEvent): void {
+  if (mentionDropdownVisible.value) {
+    if (event.key === 'ArrowDown') {
+      event.preventDefault()
+      if (mentionSuggestions.value.length > 0) {
+        mentionSelectedIndex.value = (mentionSelectedIndex.value + 1 + mentionSuggestions.value.length) % mentionSuggestions.value.length
+      }
+      return
+    }
+    if (event.key === 'ArrowUp') {
+      event.preventDefault()
+      if (mentionSuggestions.value.length > 0) {
+        mentionSelectedIndex.value = (mentionSelectedIndex.value - 1 + mentionSuggestions.value.length) % mentionSuggestions.value.length
+      }
+      return
+    }
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      clearMentionSuggestions()
+      return
+    }
+    if ((event.key === 'Enter' || event.key === 'Tab') && mentionSuggestions.value.length > 0) {
+      event.preventDefault()
+      const fallbackIndex = mentionSelectedIndex.value >= 0 ? mentionSelectedIndex.value : 0
+      const candidate = mentionSuggestions.value[fallbackIndex]
+      if (candidate) {
+        selectMention(candidate)
+      }
+      return
+    }
+  }
   if (event.key !== 'Enter' || event.shiftKey) return
   event.preventDefault()
   if (!canSendCurrentDraft.value) return
@@ -752,6 +1097,7 @@ async function onSend(): Promise<void> {
   stickToBottom.value = true
   reactionPickerMessageId.value = null
   composerPickerOpen.value = false
+  clearMentionSuggestions()
   await nextTick()
   scheduleScrollToBottom(true)
   focusComposer()
@@ -802,6 +1148,24 @@ watch(() => auth.isAuthed, (isAuthed) => {
   }
 })
 
+watch(draft, () => {
+  void nextTick(() => {
+    syncComposerMirrorScroll()
+    refreshMentionContext()
+  })
+})
+
+watch(composerDisabled, (disabled) => {
+  if (disabled) {
+    clearMentionSuggestions()
+    return
+  }
+  void nextTick(() => {
+    syncComposerMirrorScroll()
+    refreshMentionContext()
+  })
+})
+
 watch(messages, (items) => {
   if (!reactionPickerMessageId.value) return
   const active = items.find((item) => item.id === reactionPickerMessageId.value)
@@ -844,6 +1208,7 @@ watch(() => chat.open, (open) => {
     cancelScheduledScrollToBottom()
     composerPickerOpen.value = false
     reactionPickerMessageId.value = null
+    clearMentionSuggestions()
     closeReactionDetails()
     closeDeletedPreview()
     closeImageLightbox()
@@ -851,6 +1216,8 @@ watch(() => chat.open, (open) => {
   }
   void nextTick(() => {
     syncComposerPlaceholder()
+    syncComposerMirrorScroll()
+    refreshMentionContext()
     scheduleScrollToBottom(true)
   })
 })
@@ -860,6 +1227,8 @@ onMounted(() => {
   stickToBottom.value = true
   void nextTick(() => {
     syncComposerPlaceholder()
+    syncComposerMirrorScroll()
+    refreshMentionContext()
     scheduleScrollToBottom(true)
     focusComposer()
   })
@@ -868,7 +1237,9 @@ onMounted(() => {
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', onWindowKeydown)
   cancelScheduledScrollToBottom()
+  clearMentionSearchTimer()
   clearHighlightTimer()
+  clearMentionSuggestions()
   closeReactionDetails()
   closeDeletedPreview()
   closeImageLightbox()
@@ -900,6 +1271,14 @@ onBeforeUnmount(() => {
   background-color: $dark;
   box-shadow: 0 15px 30px rgba($black, 0.25);
   overflow: hidden;
+                                                                    .message-mention {
+                                                                      display: inline;
+                                                                      padding: 0 4px;
+                                                                      border-radius: 4px;
+                                                                      background-color: rgba($orange, 0.16);
+                                                                      color: $orange;
+                                                                      font-family: Manrope-SemiBold;
+                                                                    }
   .panel-header {
     display: flex;
     align-items: center;
@@ -1153,7 +1532,7 @@ onBeforeUnmount(() => {
               display: flex;
               position: absolute;
               flex-direction: column;
-              top: calc(100% + 5px);
+              bottom: calc(100% + 5px);
               right: 0;
               padding: 5px 8px;
               gap: 10px;
@@ -1328,6 +1707,35 @@ onBeforeUnmount(() => {
     position: relative;
     gap: 10px;
     min-height: 52px;
+                                                                    .composer-input-wrap {
+                                                                      position: relative;
+                                                                      width: 100%;
+                                                                      min-height: 52px;
+                                                                      border-radius: 5px;
+                                                                      background-color: $lead;
+                                                                      overflow: hidden;
+                                                                    }
+                                                                    .composer-highlight-overlay {
+                                                                      position: absolute;
+                                                                      inset: 0;
+                                                                      overflow: auto;
+                                                                      pointer-events: none;
+                                                                      scrollbar-width: none;
+                                                                      &::-webkit-scrollbar {
+                                                                        display: none;
+                                                                      }
+                                                                      .composer-highlight-content {
+                                                                        margin: 0;
+                                                                        padding: 17px 80px 15px 45px;
+                                                                        min-height: 100%;
+                                                                        color: $fg;
+                                                                        font-size: 16px;
+                                                                        line-height: 1.2;
+                                                                        font-family: Manrope-Medium;
+                                                                        white-space: pre-wrap;
+                                                                        overflow-wrap: anywhere;
+                                                                      }
+                                                                    }
     .tool-button {
       display: flex;
       position: absolute;
@@ -1365,25 +1773,89 @@ onBeforeUnmount(() => {
         height: 16px;
       }
     }
-    .composer-input {
-      padding: 17px 80px 15px 45px;
-      width: 100%;
-      height: 20px;
-      border: none;
-      background-color: $lead;
-      color: $fg;
-      font-size: 16px;
-      line-height: 1.2;
-      font-family: Manrope-Medium;
-      resize: none;
-      outline: none;
-      overflow: auto;
-      scrollbar-width: none;
-      &:disabled {
-        opacity: 0.5;
-        cursor: default;
-      }
-    }
+                                                                .composer-input {
+                                                                  position: relative;
+                                                                  z-index: 1;
+                                                                  padding: 17px 80px 15px 45px;
+                                                                  width: 100%;
+                                                                  //height: 20px;
+                                                                  min-height: 52px;
+                                                                  border: none;
+                                                                  //background-color: $lead;
+                                                                  background-color: transparent;
+                                                                  color: $fg;
+                                                                  font-size: 16px;
+                                                                  line-height: 1.2;
+                                                                  font-family: Manrope-Medium;
+                                                                  resize: none;
+                                                                  outline: none;
+                                                                  overflow: auto;
+                                                                  scrollbar-width: none;
+                                                                  caret-color: $fg;
+                                                                  &--mirrored {
+                                                                    color: transparent;
+                                                                  }
+                                                                  &::selection {
+                                                                    background-color: rgba($orange, 0.25);
+                                                                    color: transparent;
+                                                                  }
+                                                                  &:disabled {
+                                                                    opacity: 0.5;
+                                                                    cursor: default;
+                                                                  }
+                                                                }
+                                                                .mention-suggestions {
+                                                                  display: flex;
+                                                                  position: absolute;
+                                                                  left: 0;
+                                                                  right: 0;
+                                                                  bottom: calc(100% + 8px);
+                                                                  flex-direction: column;
+                                                                  padding: 6px;
+                                                                  gap: 4px;
+                                                                  max-height: 180px;
+                                                                  border: 1px solid rgba($grey, 0.4);
+                                                                  border-radius: 8px;
+                                                                  background-color: $graphite;
+                                                                  box-shadow: 0 15px 30px rgba($black, 0.25);
+                                                                  overflow-y: auto;
+                                                                  z-index: 6;
+                                                                  .mention-suggestions-state {
+                                                                    margin: 0;
+                                                                    padding: 6px 8px;
+                                                                    color: $ashy;
+                                                                    font-size: 12px;
+                                                                  }
+                                                                  .mention-suggestion {
+                                                                    display: flex;
+                                                                    align-items: center;
+                                                                    gap: 8px;
+                                                                    padding: 6px 8px;
+                                                                    border: none;
+                                                                    border-radius: 6px;
+                                                                    background-color: transparent;
+                                                                    color: $fg;
+                                                                    text-align: left;
+                                                                    cursor: pointer;
+                                                                    &--active {
+                                                                      background-color: rgba($orange, 0.16);
+                                                                    }
+                                                                    .mention-suggestion-avatar {
+                                                                      width: 24px;
+                                                                      height: 24px;
+                                                                      border-radius: 50%;
+                                                                      object-fit: cover;
+                                                                    }
+                                                                    .mention-suggestion-name {
+                                                                      min-width: 0;
+                                                                      font-size: 14px;
+                                                                      font-family: Manrope-Medium;
+                                                                      text-overflow: ellipsis;
+                                                                      white-space: nowrap;
+                                                                      overflow: hidden;
+                                                                    }
+                                                                  }
+                                                                }
     .send-button {
       display: flex;
       position: absolute;
@@ -1503,6 +1975,14 @@ onBeforeUnmount(() => {
         text-underline-offset: 2px;
         word-break: break-word;
       }
+                                                                      .message-mention {
+                                                                        display: inline;
+                                                                        padding: 0 4px;
+                                                                        border-radius: 4px;
+                                                                        background-color: rgba($orange, 0.16);
+                                                                        color: $orange;
+                                                                        font-family: Manrope-SemiBold;
+                                                                      }
       .deleted-preview-empty {
         color: $ashy;
         font-style: italic;
@@ -1796,6 +2276,15 @@ onBeforeUnmount(() => {
     .composer-shell {
       gap: 5px;
       min-height: 32px;
+                                                                      .composer-input-wrap {
+                                                                        min-height: 32px;
+                                                                      }
+                                                                      .composer-highlight-overlay {
+                                                                        .composer-highlight-content {
+                                                                          padding: 9px 53px 8px 28px;
+                                                                          font-size: 12px;
+                                                                        }
+                                                                      }
       .tool-button {
         left: 3px;
         bottom: 5px;
@@ -1809,11 +2298,32 @@ onBeforeUnmount(() => {
           height: 12px;
         }
       }
-      .composer-input {
-        padding: 9px 53px 8px 28px;
-        height: 15px;
-        font-size: 12px;
-      }
+                                                                          .composer-input {
+                                                                            padding: 9px 53px 8px 28px;
+                                                                            min-height: 32px;
+                                                                            font-size: 12px;
+                                                                          }
+                                                                          .mention-suggestions {
+                                                                            bottom: calc(100% + 5px);
+                                                                            padding: 4px;
+                                                                            gap: 3px;
+                                                                            max-height: 150px;
+                                                                            .mention-suggestions-state {
+                                                                              padding: 5px 6px;
+                                                                              font-size: 10px;
+                                                                            }
+                                                                            .mention-suggestion {
+                                                                              gap: 6px;
+                                                                              padding: 5px 6px;
+                                                                              .mention-suggestion-avatar {
+                                                                                width: 20px;
+                                                                                height: 20px;
+                                                                              }
+                                                                              .mention-suggestion-name {
+                                                                                font-size: 12px;
+                                                                              }
+                                                                            }
+                                                                          }
       .send-button {
         right: 3px;
         bottom: 5px;

@@ -15,6 +15,7 @@ from ..utils import (
     ensure_profile_changes_allowed,
     set_user_deleted,
     force_logout_user,
+    normalize_chat_mention_query,
     normalize_username,
     is_protected_admin,
     safe_int,
@@ -42,6 +43,8 @@ from ...schemas.user import (
     ChatImagePresignIn,
     ChatImagePresignOut,
     ChatImageUploadOut,
+    ChatMentionSearchOut,
+    ChatMentionUserOut,
     UsernameUpdateOut,
     UserSanctionsOut,
     UserSanctionOut,
@@ -82,6 +85,8 @@ router = APIRouter()
 
 GAME_HISTORY_PER_PAGE = 20
 PERSONAL_GAME_HISTORY_PER_PAGE = 10
+CHAT_MENTION_LIMIT_DEFAULT = 8
+CHAT_MENTION_LIMIT_MAX = 10
 
 
 @log_route("users.profile_info")
@@ -549,6 +554,40 @@ async def update_username(payload: UsernameUpdateIn, ident: Identity = Depends(g
 
     await broadcast_creator_rooms(uid, update_name=new)
     return UsernameUpdateOut(username=new)
+
+
+@rate_limited(lambda ident, **_: f"rl:chat_mentions_search:{ident['id']}", limit=30, window_s=10)
+@router.get("/chat/mentions", response_model=ChatMentionSearchOut)
+async def search_chat_mentions(query: str, limit: int = CHAT_MENTION_LIMIT_DEFAULT, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> ChatMentionSearchOut:
+    _ = ident
+    normalized_query = normalize_chat_mention_query(query)
+    normalized_limit = max(1, min(int(limit or CHAT_MENTION_LIMIT_DEFAULT), CHAT_MENTION_LIMIT_MAX))
+    query_lower = normalized_query.lower()
+    rows = await db.execute(
+        select(User.id, User.username, User.avatar_name)
+        .where(
+            User.deleted_at.is_(None),
+            func.lower(User.username).like(f"{query_lower}%"),
+        )
+        .order_by(
+            (func.lower(User.username) == query_lower).desc(),
+            func.length(User.username).asc(),
+            func.lower(User.username).asc(),
+            User.id.asc(),
+        )
+        .limit(normalized_limit)
+    )
+    return ChatMentionSearchOut(
+        items=[
+            ChatMentionUserOut(
+                id=int(user_id),
+                username=str(username),
+                avatar_name=cast(str | None, avatar_name),
+            )
+            for user_id, username, avatar_name in rows.all()
+            if user_id is not None and username is not None
+        ]
+    )
 
 
 @log_route("users.update_ui_prefs")

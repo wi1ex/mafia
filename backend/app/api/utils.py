@@ -120,6 +120,7 @@ __all__ = [
     "check_sanctions_expired",
     "format_duration_parts",
     "format_duration_seconds_compact",
+    "normalize_chat_mention_query",
     "normalize_username",
     "normalize_password",
     "find_user_by_username",
@@ -192,6 +193,7 @@ PRESIGN_ALLOWED_PREFIXES: tuple[str, ...] = ("avatars/", "chat/global/images/")
 PRESIGN_KEY_RE = re.compile(r"^[a-zA-Z0-9._/-]{3,256}$")
 STREAM_LOG_RE = re.compile(r"room_id=(\d+)\s+target_user=(\d+)")
 BOT_USERNAME_RE = re.compile(r"^[a-zA-Zа-яА-ЯёЁ0-9._\-()]{2,20}$")
+CHAT_MENTION_QUERY_RE = re.compile(r"^[a-zA-Zа-яА-ЯёЁ0-9._\-()]{1,20}$")
 PWD_CTRL_RE = re.compile(r"[\x00-\x1F\x7F]")
 TITLE_CTRL_RE = re.compile(r"[\x00-\x1F\x7F]")
 TITLE_BIDI_RE = re.compile(r"[\u200B-\u200F\u202A-\u202E\u2066-\u2069]")
@@ -882,6 +884,14 @@ def normalize_username(raw: str) -> str:
     out = unicodedata.normalize("NFKC", raw or "").strip()
     if not BOT_USERNAME_RE.match(out):
         raise HTTPException(status_code=422, detail="invalid_username_format")
+
+    return out
+
+
+def normalize_chat_mention_query(raw: str) -> str:
+    out = unicodedata.normalize("NFKC", raw or "").strip()
+    if not CHAT_MENTION_QUERY_RE.match(out):
+        raise HTTPException(status_code=422, detail="invalid_mention_query")
 
     return out
 

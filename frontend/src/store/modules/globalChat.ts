@@ -51,6 +51,12 @@ export interface GlobalChatAuthor {
   avatar_name: string | null
 }
 
+export interface GlobalChatMention {
+  id: number
+  username: string
+  avatar_name: string | null
+}
+
 export interface GlobalChatMessage {
   id: number
   created_at: string
@@ -64,6 +70,7 @@ export interface GlobalChatMessage {
   reactions: GlobalChatReaction[]
   reply: GlobalChatReplyPreview | null
   image_object_key: string | null
+  mentions: GlobalChatMention[]
 }
 
 export interface GlobalChatDeletedMessagePreview {
@@ -72,6 +79,7 @@ export interface GlobalChatDeletedMessagePreview {
   content_available: boolean
   text: string
   image_object_key: string | null
+  mentions: GlobalChatMention[]
   author: GlobalChatAuthor
 }
 
@@ -333,6 +341,27 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
     }
   }
 
+  function normalizeMentionList(raw: unknown): GlobalChatMention[] {
+    if (!Array.isArray(raw)) return []
+    const out: GlobalChatMention[] = []
+    const seen = new Set<string>()
+    for (const item of raw) {
+      if (!isRecord(item)) continue
+      const userId = asPositiveInt(item.id)
+      const username = asString(item.username).trim()
+      if (userId <= 0 || !username) continue
+      const usernameKey = username.toLowerCase()
+      if (seen.has(usernameKey)) continue
+      seen.add(usernameKey)
+      out.push({
+        id: userId,
+        username,
+        avatar_name: asString(item.avatar_name) || null,
+      })
+    }
+    return out
+  }
+
   function normalizeReactionParticipants(raw: unknown): GlobalChatReactionParticipant[] {
     if (!Array.isArray(raw)) return []
     const out: GlobalChatReactionParticipant[] = []
@@ -409,6 +438,7 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
       reactions: deleted ? [] : normalizeReactionList(raw.reactions, previous?.reactions || []),
       reply: normalizeReply(raw.reply),
       image_object_key: deleted ? null : (asString(raw.image_object_key) || null),
+      mentions: deleted ? [] : normalizeMentionList(raw.mentions),
     }
   }
 
@@ -424,6 +454,7 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
       content_available: Boolean(raw.content_available),
       text: asString(raw.text),
       image_object_key: asString(raw.image_object_key) || null,
+      mentions: normalizeMentionList(raw.mentions),
       author: {
         id: authorId,
         username: asString(authorRaw.username).trim() || `user${authorId || messageId}`,
