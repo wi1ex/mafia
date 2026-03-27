@@ -1029,7 +1029,7 @@ onBeforeUnmount(() => {
               display: flex;
               align-items: center;
               gap: 3px;
-              padding: 3px 5px;
+              padding: 3px 7px 3px 5px;
               border: 1px solid $grey;
               border-radius: 999px;
               background-color: $lead;
@@ -1331,8 +1331,8 @@ onBeforeUnmount(() => {
   .deleted-preview-modal {
     display: flex;
     flex-direction: column;
-    width: min(600px, 90vw);
-    max-height: min(600px, 90dvh);
+    width: min(600px, 80vw);
+    max-height: min(600px, 80dvh);
     border-radius: 20px;
     background-color: $graphite;
     box-shadow: 0 15px 30px rgba($black, 0.25);
@@ -1447,8 +1447,8 @@ onBeforeUnmount(() => {
     }
   }
   .image-lightbox-image {
-    max-width: min(90vw, 1440px);
-    max-height: min(90vh, 960px);
+    max-width: min(80vw, 1440px);
+    max-height: min(80vh, 960px);
     object-fit: contain;
     box-shadow: 0 15px 30px rgba($black, 0.25);
   }
@@ -1499,7 +1499,7 @@ onBeforeUnmount(() => {
   }
   .global-chat-panel {
     width: 300px;
-    height: min(600px, calc(100dvh - 65px));
+    height: min(450px, calc(100dvh - 65px));
     border-radius: 5px;
     .panel-header {
       padding: 3px 8px;
@@ -1595,7 +1595,7 @@ onBeforeUnmount(() => {
               gap: 1px;
               .reaction-chip {
                 gap: 1px;
-                padding: 1px 3px;
+                padding: 1px 5px 1px 3px;
                 font-size: 10px;
                 &--picker {
                   padding: 3px 5px;
