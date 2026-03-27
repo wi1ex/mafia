@@ -138,8 +138,10 @@ class SiteStatsOut(BaseModel):
     images_bytes: int
     registrations: List[RegistrationsPoint]
     games_by_day: List[RegistrationsPoint]
+    active_users_by_day: List[RegistrationsPoint]
     registrations_monthly: List[RegistrationsPoint]
     games_monthly: List[RegistrationsPoint]
+    active_users_monthly: List[RegistrationsPoint]
     total_rooms: int
     total_games: int
     total_stream_minutes: int

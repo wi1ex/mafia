@@ -87,6 +87,8 @@ from ..utils import (
     build_registrations_monthly_series,
     build_games_series,
     build_games_monthly_series,
+    build_active_users_series,
+    build_active_users_monthly_series,
     calc_total_stream_seconds,
     calc_stream_seconds_in_range,
     fetch_active_rooms_stats,
@@ -261,8 +263,10 @@ async def site_stats(month: str | None = None, session: AsyncSession = Depends(g
     total_games = int(await session.scalar(select(func.count(Game.id))) or 0)
     registrations = await build_registrations_series(session, start_dt, end_dt)
     games_by_day = await build_games_series(session, start_dt, end_dt)
+    active_users_by_day = await build_active_users_series(session, start_dt, end_dt)
     registrations_monthly = await build_registrations_monthly_series(session)
     games_monthly = await build_games_monthly_series(session)
+    active_users_monthly = await build_active_users_monthly_series(session)
     total_stream_seconds = await calc_total_stream_seconds(session)
     day_stream_seconds = await calc_stream_seconds_in_range(session, day_start, now)
     month_stream_seconds = await calc_stream_seconds_in_range(session, month_start, month_end)
@@ -324,8 +328,10 @@ async def site_stats(month: str | None = None, session: AsyncSession = Depends(g
         images_bytes=images_bytes,
         registrations=registrations,
         games_by_day=games_by_day,
+        active_users_by_day=active_users_by_day,
         registrations_monthly=registrations_monthly,
         games_monthly=games_monthly,
+        active_users_monthly=active_users_monthly,
         total_rooms=total_rooms,
         total_games=total_games,
         total_stream_minutes=total_stream_seconds // 60,

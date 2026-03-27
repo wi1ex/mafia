@@ -292,6 +292,23 @@
                     </div>
                   </div>
                 </div>
+                <div class="stats-daily-block">
+                  <div class="stats-mini-title">Активные пользователи по дням</div>
+                  <div v-if="stats.active_users_by_day.length === 0" class="muted">Нет данных</div>
+                  <div v-else class="chart-body">
+                    <div class="chart-axis">
+                      <span v-for="tick in activeUsersByDayTicks" :key="tick">{{ tick }}</span>
+                    </div>
+                    <div class="chart-grid">
+                      <div v-for="point in stats.active_users_by_day" :key="`active-day-${point.date}`" class="chart-bar">
+                        <div class="bar" :style="{ height: chartBarHeight(point.count, activeUsersByDayMax) }">
+                          <span class="bar-value">{{ point.count }}</span>
+                        </div>
+                        <span class="bar-label">{{ point.date.slice(-2) }}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -323,6 +340,23 @@
                   <div class="chart-grid">
                     <div v-for="point in stats.games_monthly" :key="point.date" class="chart-bar">
                       <div class="bar" :style="{ height: chartBarHeight(point.count, gamesMonthlyMax) }">
+                        <span class="bar-value">{{ point.count }}</span>
+                      </div>
+                      <span class="bar-label">{{ formatMonthLabel(point.date) }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="chart chart--monthly">
+                <div class="stats-mini-title">Активные пользователи по месяцам</div>
+                <div v-if="stats.active_users_monthly.length === 0" class="muted">Нет данных</div>
+                <div v-else class="chart-body">
+                  <div class="chart-axis">
+                    <span v-for="tick in activeUsersMonthlyTicks" :key="tick">{{ tick }}</span>
+                  </div>
+                  <div class="chart-grid">
+                    <div v-for="point in stats.active_users_monthly" :key="`active-month-${point.date}`" class="chart-bar">
+                      <div class="bar" :style="{ height: chartBarHeight(point.count, activeUsersMonthlyMax) }">
                         <span class="bar-value">{{ point.count }}</span>
                       </div>
                       <span class="bar-label">{{ formatMonthLabel(point.date) }}</span>
@@ -910,8 +944,10 @@ type SiteStats = {
   images_bytes: number
   registrations: RegistrationPoint[]
   games_by_day: RegistrationPoint[]
+  active_users_by_day: RegistrationPoint[]
   registrations_monthly: RegistrationPoint[]
   games_monthly: RegistrationPoint[]
+  active_users_monthly: RegistrationPoint[]
   total_rooms: number
   total_games: number
   total_stream_minutes: number
@@ -1122,8 +1158,10 @@ const stats = reactive<SiteStats>({
   images_bytes: 0,
   registrations: [],
   games_by_day: [],
+  active_users_by_day: [],
   registrations_monthly: [],
   games_monthly: [],
+  active_users_monthly: [],
   total_rooms: 0,
   total_games: 0,
   total_stream_minutes: 0,
@@ -1422,12 +1460,20 @@ const gamesByDayMax = computed(() => {
   const vals = stats.games_by_day.map(p => p.count)
   return Math.max(1, ...vals)
 })
+const activeUsersByDayMax = computed(() => {
+  const vals = stats.active_users_by_day.map(p => p.count)
+  return Math.max(1, ...vals)
+})
 const registrationsMonthlyMax = computed(() => {
   const vals = stats.registrations_monthly.map(p => p.count)
   return Math.max(1, ...vals)
 })
 const gamesMonthlyMax = computed(() => {
   const vals = stats.games_monthly.map(p => p.count)
+  return Math.max(1, ...vals)
+})
+const activeUsersMonthlyMax = computed(() => {
+  const vals = stats.active_users_monthly.map(p => p.count)
   return Math.max(1, ...vals)
 })
 function buildChartTicks(maxValue: number): number[] {
@@ -1451,8 +1497,10 @@ function buildChartTicks(maxValue: number): number[] {
 }
 const registrationTicks = computed(() => buildChartTicks(registrationsMax.value))
 const gamesByDayTicks = computed(() => buildChartTicks(gamesByDayMax.value))
+const activeUsersByDayTicks = computed(() => buildChartTicks(activeUsersByDayMax.value))
 const registrationMonthlyTicks = computed(() => buildChartTicks(registrationsMonthlyMax.value))
 const gamesMonthlyTicks = computed(() => buildChartTicks(gamesMonthlyMax.value))
+const activeUsersMonthlyTicks = computed(() => buildChartTicks(activeUsersMonthlyMax.value))
 const canSaveUpdate = computed(() => {
   return Boolean(updateForm.version.trim() && updateForm.date && updateForm.description.trim())
 })
@@ -1695,8 +1743,10 @@ async function loadStats(): Promise<void> {
       images_bytes: data?.images_bytes ?? 0,
       registrations: Array.isArray(data?.registrations) ? data.registrations : [],
       games_by_day: Array.isArray(data?.games_by_day) ? data.games_by_day : [],
+      active_users_by_day: Array.isArray(data?.active_users_by_day) ? data.active_users_by_day : [],
       registrations_monthly: Array.isArray(data?.registrations_monthly) ? data.registrations_monthly : [],
       games_monthly: Array.isArray(data?.games_monthly) ? data.games_monthly : [],
+      active_users_monthly: Array.isArray(data?.active_users_monthly) ? data.active_users_monthly : [],
       total_rooms: data?.total_rooms ?? 0,
       total_games: data?.total_games ?? 0,
       total_stream_minutes: data?.total_stream_minutes ?? 0,
@@ -2619,7 +2669,7 @@ onMounted(() => {
       }
       .stats-daily-grid {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 10px;
         margin-top: 10px;
       }
@@ -2628,7 +2678,7 @@ onMounted(() => {
       }
       .stats-monthly-grid {
         display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 10px;
       }
       .chart {

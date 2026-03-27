@@ -69,6 +69,8 @@ __all__ = [
     "build_registrations_monthly_series",
     "build_games_series",
     "build_games_monthly_series",
+    "build_active_users_series",
+    "build_active_users_monthly_series",
     "schedule_user_game_stats_cache_invalidation",
     "calc_total_stream_seconds",
     "calc_stream_seconds_in_range",
@@ -2163,6 +2165,113 @@ async def build_games_monthly_series(session: AsyncSession) -> list[Registration
     while (year, month) <= (end_year, end_month):
         key = f"{year:04d}-{month:02d}"
         monthly.append(RegistrationsPoint(date=key, count=games_map.get(key, 0)))
+        if month == 12:
+            year += 1
+            month = 1
+        else:
+            month += 1
+
+    return monthly
+
+
+def _collect_room_activity_user_ids(visitors_map: Any, spectators_map: Any) -> set[int]:
+    user_ids: set[int] = set()
+    for raw_map in (visitors_map, spectators_map):
+        if not isinstance(raw_map, dict):
+            continue
+        for k in raw_map.keys():
+            try:
+                uid = int(k)
+            except Exception:
+                continue
+            if uid > 0:
+                user_ids.add(uid)
+
+    return user_ids
+
+
+async def _load_rooms_for_active_users_stats(session: AsyncSession, *, start_dt: datetime | None = None, end_dt: datetime | None = None) -> tuple[list[tuple[int, datetime, datetime | None, dict, dict]], dict[int, dict[str, Any]]]:
+    room_q = select(Room.id, Room.created_at, Room.deleted_at, Room.visitors, Room.spectators_time)
+    if start_dt is not None:
+        room_q = room_q.where(Room.created_at >= start_dt)
+    if end_dt is not None:
+        room_q = room_q.where(Room.created_at < end_dt)
+    room_q = room_q.order_by(Room.created_at, Room.id)
+
+    rows = list((await session.execute(room_q)).all())
+    if not rows:
+        return [], {}
+
+    live_room_ids = [int(rid) for rid, _created_at, deleted_at, _visitors, _spectators in rows if deleted_at is None]
+    live_stats: dict[int, dict[str, Any]] = {}
+    if live_room_ids:
+        try:
+            live_stats = await fetch_live_room_stats(get_redis(), live_room_ids)
+        except Exception:
+            log.warning("admin_stats.active_users.live_fetch_failed", rooms=len(live_room_ids))
+
+    return rows, live_stats
+
+
+async def build_active_users_series(session: AsyncSession, start_dt: datetime, end_dt: datetime) -> list[RegistrationsPoint]:
+    from ..schemas.admin import RegistrationsPoint
+    start_date = start_dt.date()
+    end_date = (end_dt - timedelta(days=1)).date()
+    if end_date < start_date:
+        return []
+
+    rows, live_stats = await _load_rooms_for_active_users_stats(session, start_dt=start_dt, end_dt=end_dt)
+    users_map: dict[str, set[int]] = {}
+    for rid, created_at, deleted_at, visitors, spectators_time in rows:
+        key = created_at.date().isoformat()
+        live = live_stats.get(int(rid)) if deleted_at is None else None
+        visitors_map = live.get("visitors") if live else visitors
+        spectators_map = live.get("spectators") if live else spectators_time
+        bucket = users_map.setdefault(key, set())
+        bucket.update(_collect_room_activity_user_ids(visitors_map, spectators_map))
+
+    active_users: list[RegistrationsPoint] = []
+    day_cursor = start_date
+    while day_cursor <= end_date:
+        key = day_cursor.isoformat()
+        active_users.append(RegistrationsPoint(date=key, count=len(users_map.get(key, set()))))
+        day_cursor = day_cursor + timedelta(days=1)
+
+    return active_users
+
+
+async def build_active_users_monthly_series(session: AsyncSession) -> list[RegistrationsPoint]:
+    from ..schemas.admin import RegistrationsPoint
+    rows, live_stats = await _load_rooms_for_active_users_stats(session)
+    if not rows:
+        return []
+
+    users_map: dict[str, set[int]] = {}
+    first_month = None
+    for rid, created_at, deleted_at, visitors, spectators_time in rows:
+        key = f"{created_at.year:04d}-{created_at.month:02d}"
+        live = live_stats.get(int(rid)) if deleted_at is None else None
+        visitors_map = live.get("visitors") if live else visitors
+        spectators_map = live.get("spectators") if live else spectators_time
+        bucket = users_map.setdefault(key, set())
+        bucket.update(_collect_room_activity_user_ids(visitors_map, spectators_map))
+        if first_month is None:
+            first_month = created_at
+
+    if not first_month:
+        return []
+
+    start_year = first_month.year
+    start_month = first_month.month
+    now = datetime.now(timezone.utc)
+    end_year = now.year
+    end_month = now.month
+    monthly: list[RegistrationsPoint] = []
+    year = start_year
+    month = start_month
+    while (year, month) <= (end_year, end_month):
+        key = f"{year:04d}-{month:02d}"
+        monthly.append(RegistrationsPoint(date=key, count=len(users_map.get(key, set()))))
         if month == 12:
             year += 1
             month = 1
