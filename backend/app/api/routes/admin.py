@@ -230,10 +230,29 @@ async def site_stats(month: str | None = None, session: AsyncSession = Depends(g
         month_end = month_start
 
     total_users = int(await session.scalar(select(func.count(User.id))) or 0)
-    unverified_users = int(await session.scalar(select(func.count(User.id)).where(User.telegram_id.is_(None))) or 0)
-    no_password_users = int(await session.scalar(select(func.count(User.id)).where(User.password_hash.is_(None))) or 0)
+    unverified_users = int(await session.scalar(
+        select(func.count(User.id)).where(
+            User.deleted_at.is_(None),
+            User.password_hash.is_not(None),
+            User.telegram_id.is_(None),
+        )
+    ) or 0)
+    no_password_users = int(await session.scalar(
+        select(func.count(User.id)).where(
+            User.deleted_at.is_(None),
+            User.telegram_id.is_not(None),
+            User.password_hash.is_(None),
+        )
+    ) or 0)
     deleted_users = int(await session.scalar(select(func.count(User.id)).where(User.deleted_at.is_not(None))) or 0)
-    tg_invites_disabled_users = int(await session.scalar(select(func.count(User.id)).where(User.tg_invites_enabled.is_(False))) or 0)
+    tg_invites_disabled_users = int(await session.scalar(
+        select(func.count(User.id)).where(
+            User.deleted_at.is_(None),
+            User.telegram_id.is_not(None),
+            User.password_hash.is_not(None),
+            User.tg_invites_enabled.is_(False),
+        )
+    ) or 0)
     total_rooms = int(await session.scalar(select(func.count(Room.id))) or 0)
     total_games = int(await session.scalar(select(func.count(Game.id))) or 0)
     registrations = await build_registrations_series(session, start_dt, end_dt)
