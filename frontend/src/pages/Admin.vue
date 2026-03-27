@@ -213,7 +213,7 @@
               </div>
             </div>
             <div class="stats-subtitle">За последние 24 часа</div>
-            <div class="stats-grid stats-grid--compact">
+            <div class="stats-grid">
               <div class="stat-card">
                 <span class="label">Онлайн</span>
                 <span class="value">{{ stats.last_day.online_users }}</span>
@@ -239,7 +239,7 @@
                   <UiInput id="stats-month" v-model="statsMonth" type="month" label="Отобразить за" :disabled="statsLoading" />
                 </div>
               </div>
-              <div class="stats-grid stats-grid--compact">
+              <div class="stats-grid">
                 <div class="stat-card">
                   <span class="label">Онлайн</span>
                   <span class="value">{{ stats.last_month.online_users }}</span>
@@ -2542,11 +2542,8 @@ onMounted(() => {
       }
       .stats-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
         gap: 10px;
-        &.stats-grid--compact {
-          grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-        }
         .stat-card {
           display: flex;
           flex-direction: column;
@@ -2669,8 +2666,8 @@ onMounted(() => {
             align-items: center;
             justify-content: flex-end;
             gap: 5px;
-            width: 15px;
-            flex: 0 0 15px;
+            width: 10px;
+            flex: 0 0 10px;
             height: 100%;
             .bar {
               position: relative;
@@ -2698,8 +2695,8 @@ onMounted(() => {
       .chart--monthly {
         .chart-grid {
           .chart-bar {
-            width: 28px;
-            flex: 0 0 28px;
+            width: 25px;
+            flex: 0 0 25px;
           }
         }
       }
@@ -2911,6 +2908,9 @@ onMounted(() => {
     .tab-panel {
       .stats {
         .stats-daily-grid {
+          grid-template-columns: 1fr;
+        }
+        .stats-monthly-grid {
           grid-template-columns: 1fr;
         }
         .chart {

@@ -955,7 +955,7 @@ onBeforeUnmount(() => {
     }
     .global-chat-message {
       display: flex;
-      padding: 5px 10px;
+      padding: 5px 8px;
       width: calc(100% - 20px);
       border-radius: 10px;
       background-color: $graphite;
