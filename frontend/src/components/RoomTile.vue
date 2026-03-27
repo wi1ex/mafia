@@ -653,6 +653,7 @@ const showFriendAction = computed(() => props.id !== props.localId && friendActi
     background-color: $green;
     box-shadow: 3px 3px 5px rgba($black, 0.25);
     cursor: pointer;
+    touch-action: manipulation;
     z-index: 3;
     &:disabled {
       background-color: rgba($dark, 0.75);
