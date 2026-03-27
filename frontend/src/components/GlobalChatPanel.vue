@@ -57,7 +57,12 @@
                 </div>
                 <template v-if="!message.deleted">
                   <img v-if="message.image_object_key" class="message-image" @click="onOpenImageLightbox($event, 'Вложение')" @load="onMessageMediaLoad" @error="onMessageMediaLoad" v-minio-img="{ key: message.image_object_key, lazy: true }" alt="Вложение" />
-                  <p v-if="message.text" class="message-text">{{ message.text }}</p>
+                  <p v-if="message.text" class="message-text">
+                    <template v-for="(segment, index) in buildTextSegments(message.text)" :key="`${message.id}-text-${index}`">
+                      <a v-if="segment.kind === 'link'" class="message-link" :href="segment.href" target="_blank" rel="noopener noreferrer nofollow" @click.stop>{{ segment.text }}</a>
+                      <span v-else>{{ segment.text }}</span>
+                    </template>
+                  </p>
                 </template>
               </div>
 
@@ -183,7 +188,12 @@
             </div>
 
             <template v-if="deletedPreview.content_available">
-              <p v-if="deletedPreview.text" class="deleted-preview-text">{{ deletedPreview.text }}</p>
+              <p v-if="deletedPreview.text" class="deleted-preview-text">
+                <template v-for="(segment, index) in buildTextSegments(deletedPreview.text)" :key="`deleted-preview-text-${index}`">
+                  <a v-if="segment.kind === 'link'" class="message-link" :href="segment.href" target="_blank" rel="noopener noreferrer nofollow" @click.stop>{{ segment.text }}</a>
+                  <span v-else>{{ segment.text }}</span>
+                </template>
+              </p>
               <img v-if="deletedPreview.image_object_key" class="deleted-preview-image" @click="onOpenImageLightbox($event, 'Удаленное вложение')" v-minio-img="{ key: deletedPreview.image_object_key, lazy: false }" alt="Удаленное вложение" />
             </template>
             <p v-else class="deleted-preview-empty">Содержимое сообщения уже удалено окончательно.</p>
@@ -315,6 +325,15 @@ const composerPlaceholder = computed(() => (
 ))
 const showLoadMore = computed(() => hasMore.value && (loadingMore.value || listAtTop.value))
 
+type TextSegment = {
+  kind: 'text' | 'link'
+  text: string
+  href?: string
+}
+
+const URL_RE = /((?:https?:\/\/|www\.)[^\s<]+)/gi
+const TRAILING_URL_PUNCTUATION_RE = /[),.!?:;]+$/
+
 function isNearTop(): boolean {
   const list = listEl.value
   if (!list) return true
@@ -343,6 +362,69 @@ function syncComposerPlaceholder(): void {
 
 function formatMessageTime(value: string): string {
   return formatChatTimestamp(value)
+}
+
+function splitTrailingUrlPunctuation(rawUrl: string): { cleanUrl: string; trailing: string } {
+  let cleanUrl = rawUrl
+  let trailing = ''
+
+  while (cleanUrl) {
+    const match = cleanUrl.match(TRAILING_URL_PUNCTUATION_RE)
+    if (!match) break
+    const candidate = match[0] || ''
+    if (!candidate) break
+
+    if (candidate.startsWith(')')) {
+      const opens = (cleanUrl.match(/\(/g) || []).length
+      const closes = (cleanUrl.match(/\)/g) || []).length
+      if (closes <= opens) break
+    }
+
+    cleanUrl = cleanUrl.slice(0, cleanUrl.length - candidate.length)
+    trailing = candidate + trailing
+  }
+
+  return { cleanUrl, trailing }
+}
+
+function normalizeUrlHref(rawUrl: string): string | null {
+  const value = String(rawUrl || '').trim()
+  if (!value) return null
+  if (/^https?:\/\//i.test(value)) return value
+  if (/^www\./i.test(value)) return `https://${value}`
+  return null
+}
+
+function buildTextSegments(value: string): TextSegment[] {
+  const text = String(value || '')
+  if (!text) return []
+
+  const segments: TextSegment[] = []
+  let lastIndex = 0
+
+  for (const match of text.matchAll(URL_RE)) {
+    const rawUrl = String(match[0] || '')
+    const offset = Number(match.index ?? -1)
+    if (!rawUrl || offset < 0) continue
+    if (offset > lastIndex) {
+      segments.push({ kind: 'text', text: text.slice(lastIndex, offset) })
+    }
+    const { cleanUrl, trailing } = splitTrailingUrlPunctuation(rawUrl)
+    const href = normalizeUrlHref(cleanUrl)
+    if (cleanUrl && href) {
+      segments.push({ kind: 'link', text: cleanUrl, href })
+    } else {
+      segments.push({ kind: 'text', text: rawUrl })
+    }
+    if (trailing) {
+      segments.push({ kind: 'text', text: trailing })
+    }
+    lastIndex = offset + rawUrl.length
+  }
+  if (lastIndex < text.length) {
+    segments.push({ kind: 'text', text: text.slice(lastIndex) })
+  }
+  return segments.length ? segments : [{ kind: 'text', text }]
 }
 
 function orderedReactions(message: GlobalChatMessage): GlobalChatReaction[] {
@@ -974,6 +1056,14 @@ onBeforeUnmount(() => {
             white-space: pre-wrap;
             overflow-wrap: anywhere;
           }
+          .message-link {
+            color: $white;
+            font-family: Manrope-SemiBold;
+            text-decoration: underline;
+            text-decoration-thickness: 1px;
+            text-underline-offset: 2px;
+            word-break: break-word;
+          }
           .tombstone {
             color: $ashy;
             font-style: italic;
@@ -1404,6 +1494,14 @@ onBeforeUnmount(() => {
         line-height: 1.2;
         white-space: pre-wrap;
         overflow-wrap: anywhere;
+      }
+      .message-link {
+        color: $white;
+        font-family: Manrope-SemiBold;
+        text-decoration: underline;
+        text-decoration-thickness: 1px;
+        text-underline-offset: 2px;
+        word-break: break-word;
       }
       .deleted-preview-empty {
         color: $ashy;
