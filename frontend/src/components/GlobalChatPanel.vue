@@ -1339,11 +1339,11 @@ onBeforeUnmount(() => {
       font-size: 20px;
       font-family: Manrope-SemiBold;
     }
-                                                                                    .panel-header-actions {
-                                                                                      display: flex;
-                                                                                      align-items: center;
-                                                                                      gap: 8px;
-                                                                                    }
+    .panel-header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
     button {
       display: flex;
       align-items: center;
@@ -1359,32 +1359,32 @@ onBeforeUnmount(() => {
         height: 25px;
       }
     }
-                                                                              .floating-chat-actions {
-                                                                                display: flex;
-                                                                                position: absolute;
-                                                                                right: 12px;
-                                                                                z-index: 8;
-                                                                                pointer-events: none;
-                                                                                .floating-chat-action-button {
-                                                                                  display: inline-flex;
-                                                                                  align-items: center;
-                                                                                  justify-content: center;
-                                                                                  padding: 0 12px;
-                                                                                  min-width: 0;
-                                                                                  height: 32px;
-                                                                                  border: none;
-                                                                                  border-radius: 999px;
-                                                                                  background-color: rgba($lead, 0.95);
-                                                                                  box-shadow: 0 8px 20px rgba($black, 0.25);
-                                                                                  color: $fg;
-                                                                                  font-size: 12px;
-                                                                                  font-family: Manrope-SemiBold;
-                                                                                  line-height: 1;
-                                                                                  white-space: nowrap;
-                                                                                  cursor: pointer;
-                                                                                  pointer-events: auto;
-                                                                                }
-                                                                              }
+  }
+  .floating-chat-actions {
+    display: flex;
+    position: absolute;
+    right: 12px;
+    z-index: 8;
+    pointer-events: none;
+    .floating-chat-action-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 12px;
+      min-width: 0;
+      height: 32px;
+      border: none;
+      border-radius: 999px;
+      background-color: rgba($lead, 0.95);
+      box-shadow: 0 8px 20px rgba($black, 0.25);
+      color: $fg;
+      font-size: 12px;
+      font-family: Manrope-SemiBold;
+      line-height: 1;
+      white-space: nowrap;
+      cursor: pointer;
+      pointer-events: auto;
+    }
   }
   .panel-list {
     display: flex;
@@ -1835,6 +1835,7 @@ onBeforeUnmount(() => {
       border-radius: 999px;
       background-color: $dark;
       cursor: pointer;
+      z-index: 5;
       &--file {
         input {
           position: absolute;
@@ -1949,6 +1950,7 @@ onBeforeUnmount(() => {
       border-radius: 999px;
       background-color: $dark;
       cursor: pointer;
+      z-index: 5;
       &:disabled {
         cursor: default;
         img {
@@ -2161,9 +2163,9 @@ onBeforeUnmount(() => {
       .panel-header-main {
         font-size: 16px;
       }
-                                                                                .panel-header-actions {
-                                                                                  gap: 5px;
-                                                                                }
+      .panel-header-actions {
+        gap: 5px;
+      }
       button {
         width: 20px;
         height: 20px;
@@ -2173,14 +2175,14 @@ onBeforeUnmount(() => {
         }
       }
     }
-                                                                                  .floating-chat-actions {
-                                                                                    right: 8px;
-                                                                                    .floating-chat-action-button {
-                                                                                      padding: 0 10px;
-                                                                                      height: 26px;
-                                                                                      font-size: 10px;
-                                                                                    }
-                                                                                  }
+    .floating-chat-actions {
+      right: 8px;
+      .floating-chat-action-button {
+        padding: 0 10px;
+        height: 26px;
+        font-size: 10px;
+      }
+    }
     .panel-list {
       padding: 5px;
       gap: 5px;
