@@ -1271,14 +1271,10 @@ onBeforeUnmount(() => {
   background-color: $dark;
   box-shadow: 0 15px 30px rgba($black, 0.25);
   overflow: hidden;
-                                                                    .message-mention {
-                                                                      display: inline;
-                                                                      padding: 0 4px;
-                                                                      border-radius: 4px;
-                                                                      background-color: rgba($orange, 0.16);
-                                                                      color: $orange;
-                                                                      font-family: Manrope-SemiBold;
-                                                                    }
+  .message-mention {
+    color: $orange;
+    font-family: Manrope-SemiBold;
+  }
   .panel-header {
     display: flex;
     align-items: center;
@@ -1708,10 +1704,7 @@ onBeforeUnmount(() => {
     gap: 10px;
     min-height: 52px;
                                                                     .composer-input-wrap {
-                                                                      position: relative;
                                                                       width: 100%;
-                                                                      min-height: 52px;
-                                                                      border-radius: 5px;
                                                                       background-color: $lead;
                                                                       overflow: hidden;
                                                                     }
@@ -1778,10 +1771,8 @@ onBeforeUnmount(() => {
                                                                   z-index: 1;
                                                                   padding: 17px 80px 15px 45px;
                                                                   width: 100%;
-                                                                  //height: 20px;
-                                                                  min-height: 52px;
+                                                                  height: 20px;
                                                                   border: none;
-                                                                  //background-color: $lead;
                                                                   background-color: transparent;
                                                                   color: $fg;
                                                                   font-size: 16px;
@@ -1975,14 +1966,10 @@ onBeforeUnmount(() => {
         text-underline-offset: 2px;
         word-break: break-word;
       }
-                                                                      .message-mention {
-                                                                        display: inline;
-                                                                        padding: 0 4px;
-                                                                        border-radius: 4px;
-                                                                        background-color: rgba($orange, 0.16);
-                                                                        color: $orange;
-                                                                        font-family: Manrope-SemiBold;
-                                                                      }
+      .message-mention {
+        color: $orange;
+        font-family: Manrope-SemiBold;
+      }
       .deleted-preview-empty {
         color: $ashy;
         font-style: italic;
