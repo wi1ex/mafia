@@ -1703,32 +1703,33 @@ onBeforeUnmount(() => {
     position: relative;
     gap: 10px;
     min-height: 52px;
-                                                                    .composer-input-wrap {
-                                                                      width: 100%;
-                                                                      background-color: $lead;
-                                                                      overflow: hidden;
-                                                                    }
-                                                                    .composer-highlight-overlay {
-                                                                      position: absolute;
-                                                                      inset: 0;
-                                                                      overflow: auto;
-                                                                      pointer-events: none;
-                                                                      scrollbar-width: none;
-                                                                      &::-webkit-scrollbar {
-                                                                        display: none;
-                                                                      }
-                                                                      .composer-highlight-content {
-                                                                        margin: 0;
-                                                                        padding: 17px 80px 15px 45px;
-                                                                        min-height: 100%;
-                                                                        color: $fg;
-                                                                        font-size: 16px;
-                                                                        line-height: 1.2;
-                                                                        font-family: Manrope-Medium;
-                                                                        white-space: pre-wrap;
-                                                                        overflow-wrap: anywhere;
-                                                                      }
-                                                                    }
+    .composer-input-wrap {
+      width: 100%;
+      background-color: $lead;
+      overflow: hidden;
+    }
+    .composer-highlight-overlay {
+      position: absolute;
+      inset: 0;
+      overflow: auto;
+      pointer-events: none;
+      scrollbar-width: none;
+      &::-webkit-scrollbar {
+        display: none;
+      }
+      .composer-highlight-content {
+        margin: 0;
+        padding: 18px 80px 14px 45px;
+        width: calc(100% - 125px);
+        height: 20px;
+        color: $fg;
+        font-size: 16px;
+        line-height: 1.2;
+        font-family: Manrope-Medium;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+      }
+    }
     .tool-button {
       display: flex;
       position: absolute;
@@ -1766,87 +1767,84 @@ onBeforeUnmount(() => {
         height: 16px;
       }
     }
-                                                                .composer-input {
-                                                                  position: relative;
-                                                                  z-index: 1;
-                                                                  padding: 17px 80px 15px 45px;
-                                                                  width: 100%;
-                                                                  height: 20px;
-                                                                  border: none;
-                                                                  background-color: transparent;
-                                                                  color: $fg;
-                                                                  font-size: 16px;
-                                                                  line-height: 1.2;
-                                                                  font-family: Manrope-Medium;
-                                                                  resize: none;
-                                                                  outline: none;
-                                                                  overflow: auto;
-                                                                  scrollbar-width: none;
-                                                                  caret-color: $fg;
-                                                                  &--mirrored {
-                                                                    color: transparent;
-                                                                  }
-                                                                  &::selection {
-                                                                    background-color: rgba($orange, 0.25);
-                                                                    color: transparent;
-                                                                  }
-                                                                  &:disabled {
-                                                                    opacity: 0.5;
-                                                                    cursor: default;
-                                                                  }
-                                                                }
-                                                                .mention-suggestions {
-                                                                  display: flex;
-                                                                  position: absolute;
-                                                                  left: 0;
-                                                                  right: 0;
-                                                                  bottom: calc(100% + 8px);
-                                                                  flex-direction: column;
-                                                                  padding: 6px;
-                                                                  gap: 4px;
-                                                                  max-height: 180px;
-                                                                  border: 1px solid rgba($grey, 0.4);
-                                                                  border-radius: 8px;
-                                                                  background-color: $graphite;
-                                                                  box-shadow: 0 15px 30px rgba($black, 0.25);
-                                                                  overflow-y: auto;
-                                                                  z-index: 6;
-                                                                  .mention-suggestions-state {
-                                                                    margin: 0;
-                                                                    padding: 6px 8px;
-                                                                    color: $ashy;
-                                                                    font-size: 12px;
-                                                                  }
-                                                                  .mention-suggestion {
-                                                                    display: flex;
-                                                                    align-items: center;
-                                                                    gap: 8px;
-                                                                    padding: 6px 8px;
-                                                                    border: none;
-                                                                    border-radius: 6px;
-                                                                    background-color: transparent;
-                                                                    color: $fg;
-                                                                    text-align: left;
-                                                                    cursor: pointer;
-                                                                    &--active {
-                                                                      background-color: rgba($orange, 0.16);
-                                                                    }
-                                                                    .mention-suggestion-avatar {
-                                                                      width: 24px;
-                                                                      height: 24px;
-                                                                      border-radius: 50%;
-                                                                      object-fit: cover;
-                                                                    }
-                                                                    .mention-suggestion-name {
-                                                                      min-width: 0;
-                                                                      font-size: 14px;
-                                                                      font-family: Manrope-Medium;
-                                                                      text-overflow: ellipsis;
-                                                                      white-space: nowrap;
-                                                                      overflow: hidden;
-                                                                    }
-                                                                  }
-                                                                }
+    .composer-input {
+      position: relative;
+      padding: 18px 80px 14px 45px;
+      width: calc(100% - 125px);
+      height: 20px;
+      border: none;
+      background-color: transparent;
+      color: $fg;
+      font-size: 16px;
+      line-height: 1.2;
+      font-family: Manrope-Medium;
+      resize: none;
+      outline: none;
+      overflow: auto;
+      scrollbar-width: none;
+      caret-color: $fg;
+      z-index: 1;
+      &--mirrored {
+        color: transparent;
+      }
+      &::selection {
+        background-color: rgba($orange, 0.25);
+        color: transparent;
+      }
+      &:disabled {
+        opacity: 0.5;
+        cursor: default;
+      }
+    }
+    .mention-suggestions {
+      display: flex;
+      position: absolute;
+      flex-direction: column;
+      left: 0;
+      right: 0;
+      bottom: calc(100% - 1px);
+      padding: 5px;
+      gap: 5px;
+      max-height: 150px;
+      background-color: $lead;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      z-index: 10;
+      .mention-suggestions-state {
+        margin: 0;
+        padding: 5px;
+        color: $ashy;
+        font-size: 14px;
+      }
+      .mention-suggestion {
+        display: flex;
+        align-items: center;
+        gap: 3px;
+        padding: 3px 5px;
+        border: none;
+        border-radius: 5px;
+        background-color: transparent;
+        color: $fg;
+        cursor: pointer;
+        &--active {
+          background-color: rgba($orange, 0.25);
+        }
+        .mention-suggestion-avatar {
+          width: 24px;
+          height: 24px;
+          border-radius: 50%;
+          object-fit: cover;
+        }
+        .mention-suggestion-name {
+          min-width: 0;
+          font-size: 16px;
+          font-family: Manrope-Medium;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          overflow: hidden;
+        }
+      }
+    }
     .send-button {
       display: flex;
       position: absolute;
@@ -1879,7 +1877,7 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   inset: 0;
-  background-color: $dark;
+  background-color: rgba($black, 0.5);
   z-index: 120;
   .deleted-preview-modal {
     display: flex;
@@ -2262,16 +2260,15 @@ onBeforeUnmount(() => {
     }
     .composer-shell {
       gap: 5px;
-      min-height: 32px;
-                                                                      .composer-input-wrap {
-                                                                        min-height: 32px;
-                                                                      }
-                                                                      .composer-highlight-overlay {
-                                                                        .composer-highlight-content {
-                                                                          padding: 9px 53px 8px 28px;
-                                                                          font-size: 12px;
-                                                                        }
-                                                                      }
+      min-height: 30px;
+      .composer-highlight-overlay {
+        .composer-highlight-content {
+          padding: 10px 53px 6px 27px;
+          width: calc(100% - 80px);
+          height: 14px;
+          font-size: 12px;
+        }
+      }
       .tool-button {
         left: 3px;
         bottom: 5px;
@@ -2285,32 +2282,32 @@ onBeforeUnmount(() => {
           height: 12px;
         }
       }
-                                                                          .composer-input {
-                                                                            padding: 9px 53px 8px 28px;
-                                                                            min-height: 32px;
-                                                                            font-size: 12px;
-                                                                          }
-                                                                          .mention-suggestions {
-                                                                            bottom: calc(100% + 5px);
-                                                                            padding: 4px;
-                                                                            gap: 3px;
-                                                                            max-height: 150px;
-                                                                            .mention-suggestions-state {
-                                                                              padding: 5px 6px;
-                                                                              font-size: 10px;
-                                                                            }
-                                                                            .mention-suggestion {
-                                                                              gap: 6px;
-                                                                              padding: 5px 6px;
-                                                                              .mention-suggestion-avatar {
-                                                                                width: 20px;
-                                                                                height: 20px;
-                                                                              }
-                                                                              .mention-suggestion-name {
-                                                                                font-size: 12px;
-                                                                              }
-                                                                            }
-                                                                          }
+      .composer-input {
+        padding: 10px 53px 6px 27px;
+        width: calc(100% - 80px);
+        height: 14px;
+        font-size: 12px;
+      }
+      .mention-suggestions {
+        padding: 3px;
+        gap: 3px;
+        max-height: 100px;
+        .mention-suggestions-state {
+          padding: 5px 3px;
+          font-size: 12px;
+        }
+        .mention-suggestion {
+          gap: 1px;
+          padding: 3px;
+          .mention-suggestion-avatar {
+            width: 16px;
+            height: 16px;
+          }
+          .mention-suggestion-name {
+            font-size: 12px;
+          }
+        }
+      }
       .send-button {
         right: 3px;
         bottom: 5px;

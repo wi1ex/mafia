@@ -3608,10 +3608,10 @@ async def game_vote_finish(sid, data):
                         lift_forbidden = True
                     elif leaders_cnt == 3 and not game_flag(raw_game, "lift_3x", True):
                         try:
-                            players_total = int(await r.scard(f"room:{rid}:game_players") or 0)
+                            alive_total = int(await r.scard(f"room:{rid}:game_alive") or 0)
                         except Exception:
-                            players_total = 0
-                        if players_total == 9:
+                            alive_total = 0
+                        if alive_total == 9:
                             lift_forbidden = True
 
         no_elimination = all_alive_leaders or lift_forbidden
