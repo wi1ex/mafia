@@ -121,10 +121,11 @@
 
         <div v-if="hasUnreadTargets || showJumpToBottomButton" class="floating-chat-actions" :style="floatingChatActionsStyle">
           <button v-if="hasUnreadTargets" type="button" class="floating-chat-action-button" @click="onJumpToUnreadTarget">
-            {{ unreadTargetsButtonLabel }}
+            <img :src="iconDotMail" alt="" />
+            <span>{{ unreadTargetsButtonLabel }}</span>
           </button>
-          <button v-else-if="showJumpToBottomButton" type="button" class="floating-chat-action-button" @click="onJumpToBottom">
-            В конец
+          <button v-if="showJumpToBottomButton" type="button" class="floating-chat-action-button" @click="onJumpToBottom">
+            <img :src="iconArrowDown" alt="" />
           </button>
         </div>
 
@@ -268,6 +269,8 @@ import iconInfo from '@/assets/svg/info.svg'
 import iconSend from '@/assets/svg/send.svg'
 import iconAddReaction from '@/assets/svg/add_reaction.svg'
 import iconReplyMessage from '@/assets/svg/reply_message.svg'
+import iconDotMail from '@/assets/svg/dotMail.svg'
+import iconArrowDown from '@/assets/svg/arrowDown.svg'
 
 import type {
   GlobalChatDeletedMessagePreview,
@@ -354,7 +357,7 @@ const showLauncher = computed(() => {
 const canRender = computed(() => settings.chatOpenEnabled && (showLauncher.value || chat.open))
 const hasUnreadTargets = computed(() => unreadTargetMessageIds.value.length > 0)
 const nextUnreadTargetMessageId = computed(() => unreadTargetMessageIds.value[0] || null)
-const showJumpToBottomButton = computed(() => !hasUnreadTargets.value && !stickToBottom.value)
+const showJumpToBottomButton = computed(() => !stickToBottom.value)
 const unreadTargetsButtonLabel = computed(() => (
   unreadTargetMessageIds.value.length > 1
     ? `К ответу/@ (${unreadTargetMessageIds.value.length})`
@@ -1362,9 +1365,10 @@ onBeforeUnmount(() => {
   }
   .floating-chat-actions {
     display: flex;
+    gap: 8px;
     position: absolute;
     right: 12px;
-    z-index: 8;
+    z-index: 10;
     pointer-events: none;
     .floating-chat-action-button {
       display: inline-flex;
@@ -1375,15 +1379,21 @@ onBeforeUnmount(() => {
       height: 32px;
       border: none;
       border-radius: 999px;
-      background-color: rgba($lead, 0.95);
+      background-color: rgba$lead;
       box-shadow: 0 8px 20px rgba($black, 0.25);
-      color: $fg;
-      font-size: 12px;
-      font-family: Manrope-SemiBold;
-      line-height: 1;
-      white-space: nowrap;
       cursor: pointer;
       pointer-events: auto;
+      img {
+        width: 24px;
+        height: 24px;
+      }
+      span {
+        color: $fg;
+        font-size: 12px;
+        font-family: Manrope-SemiBold;
+        line-height: 1.2;
+        white-space: nowrap;
+      }
     }
   }
   .panel-list {
@@ -2177,10 +2187,17 @@ onBeforeUnmount(() => {
     }
     .floating-chat-actions {
       right: 8px;
+      gap: 6px;
       .floating-chat-action-button {
         padding: 0 10px;
         height: 26px;
-        font-size: 10px;
+        img {
+          width: 16px;
+          height: 16px;
+        }
+        span {
+          font-size: 8px;
+        }
       }
     }
     .panel-list {
