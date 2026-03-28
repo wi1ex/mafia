@@ -5,9 +5,6 @@
         <header class="panel-header">
           <span class="panel-header-main">Общий чат</span>
           <div class="panel-header-actions">
-            <button v-if="hasUnreadTargets" type="button" class="header-jump-button" @click="onJumpToUnreadTarget">
-              {{ unreadTargetsButtonLabel }}
-            </button>
             <button type="button" aria-label="Закрыть" @click="chat.closePanel()">
               <img :src="iconClose" alt="" />
             </button>
@@ -120,6 +117,15 @@
               </div>
             </div>
           </article>
+        </div>
+
+        <div v-if="hasUnreadTargets || showJumpToBottomButton" class="floating-chat-actions" :style="floatingChatActionsStyle">
+          <button v-if="hasUnreadTargets" type="button" class="floating-chat-action-button" @click="onJumpToUnreadTarget">
+            {{ unreadTargetsButtonLabel }}
+          </button>
+          <button v-else-if="showJumpToBottomButton" type="button" class="floating-chat-action-button" @click="onJumpToBottom">
+            В конец
+          </button>
         </div>
 
         <div v-if="statusText" class="panel-status" :class="{ 'panel-status--error': connectionState === 'error' }">
@@ -348,6 +354,7 @@ const showLauncher = computed(() => {
 const canRender = computed(() => settings.chatOpenEnabled && (showLauncher.value || chat.open))
 const hasUnreadTargets = computed(() => unreadTargetMessageIds.value.length > 0)
 const nextUnreadTargetMessageId = computed(() => unreadTargetMessageIds.value[0] || null)
+const showJumpToBottomButton = computed(() => !hasUnreadTargets.value && !stickToBottom.value)
 const unreadTargetsButtonLabel = computed(() => (
   unreadTargetMessageIds.value.length > 1
     ? `К ответу/@ (${unreadTargetMessageIds.value.length})`
@@ -361,6 +368,14 @@ const statusText = computed(() => {
   if (connectionState.value === 'error') return lastError.value || 'Не удалось подключиться к общему чату'
   if (!permissions.value.can_send) return 'Отправка сообщений временно недоступна'
   return ''
+})
+
+const floatingChatActionsStyle = computed(() => {
+  let bottom = 62
+  if (statusText.value) bottom += 36
+  if (draftReplyPreview.value) bottom += 56
+  if (draftImagePreviewUrl.value) bottom += 60
+  return { bottom: `${bottom}px` }
 })
 
 const composerDisabled = computed(() => {
@@ -1057,7 +1072,12 @@ async function onJumpToUnreadTarget(): Promise<void> {
   if (!messageId) return
   const ok = await jumpToMessage(messageId, 'Не удалось найти сообщение с ответом или упоминанием.')
   if (!ok) return
-  chat.consumeUnreadTargetMessageId(messageId)
+  await chat.markAlertRead(messageId)
+}
+
+function onJumpToBottom(): void {
+  stickToBottom.value = true
+  scheduleScrollToBottom(true)
 }
 
 function insertEmoji(emoji: string): void {
@@ -1288,6 +1308,7 @@ onBeforeUnmount(() => {
   }
 }
 .global-chat-panel {
+  position: relative;
   display: flex;
   flex-direction: column;
   width: 400px;
@@ -1333,18 +1354,31 @@ onBeforeUnmount(() => {
         height: 25px;
       }
     }
-                                                                              .header-jump-button {
-                                                                                padding: 0 10px;
-                                                                                width: auto;
-                                                                                min-width: 0;
-                                                                                height: 28px;
-                                                                                border-radius: 999px;
-                                                                                background-color: rgba($dark, 0.7);
-                                                                                color: $fg;
-                                                                                font-size: 12px;
-                                                                                font-family: Manrope-SemiBold;
-                                                                                line-height: 1;
-                                                                                white-space: nowrap;
+                                                                              .floating-chat-actions {
+                                                                                display: flex;
+                                                                                position: absolute;
+                                                                                right: 12px;
+                                                                                z-index: 8;
+                                                                                pointer-events: none;
+                                                                                .floating-chat-action-button {
+                                                                                  display: inline-flex;
+                                                                                  align-items: center;
+                                                                                  justify-content: center;
+                                                                                  padding: 0 12px;
+                                                                                  min-width: 0;
+                                                                                  height: 32px;
+                                                                                  border: none;
+                                                                                  border-radius: 999px;
+                                                                                  background-color: rgba($lead, 0.95);
+                                                                                  box-shadow: 0 8px 20px rgba($black, 0.25);
+                                                                                  color: $fg;
+                                                                                  font-size: 12px;
+                                                                                  font-family: Manrope-SemiBold;
+                                                                                  line-height: 1;
+                                                                                  white-space: nowrap;
+                                                                                  cursor: pointer;
+                                                                                  pointer-events: auto;
+                                                                                }
                                                                               }
   }
   .panel-list {
@@ -2133,12 +2167,15 @@ onBeforeUnmount(() => {
           height: 20px;
         }
       }
-                                                                                  .header-jump-button {
-                                                                                    padding: 0 8px;
-                                                                                    height: 22px;
-                                                                                    font-size: 10px;
-                                                                                  }
     }
+                                                                                  .floating-chat-actions {
+                                                                                    right: 8px;
+                                                                                    .floating-chat-action-button {
+                                                                                      padding: 0 10px;
+                                                                                      height: 26px;
+                                                                                      font-size: 10px;
+                                                                                    }
+                                                                                  }
     .panel-list {
       padding: 5px;
       gap: 5px;

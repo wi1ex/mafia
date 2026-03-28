@@ -88,6 +88,8 @@ interface ChatAck {
   status?: number
   error?: string
   detail?: unknown
+  unread_count?: unknown
+  marked?: boolean
   permissions?: Partial<GlobalChatPermissions>
   reactions_allowlist?: unknown[]
   messages?: unknown[]
@@ -216,9 +218,6 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
   let draftAssetToken = 0
   let unreadSyncInited = false
   let onUnreadCountEvent: ((event: Event) => void) | null = null
-  let seenSyncTimer: number | undefined
-  let seenSyncMessageId = 0
-  let seenSyncInFlight = false
 
   const draftHasImage = computed(() => Boolean(draftImagePreviewUrl.value || draftImageName.value || draftImageObjectKey.value))
   const draftImageUploaded = computed(() => Boolean(draftImageObjectKey.value))
@@ -269,53 +268,11 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
       window.removeEventListener('auth-chat_unread_count', onUnreadCountEvent)
     }
     onUnreadCountEvent = (event: Event) => {
-      if (open.value) {
-        unread.value = 0
-        return
-      }
       const payload = (event as CustomEvent)?.detail
       applyUnreadCount(isRecord(payload) ? payload.count : 0)
     }
     window.addEventListener('auth-chat_unread_count', onUnreadCountEvent)
     unreadSyncInited = true
-  }
-
-  async function flushSeenSync(): Promise<void> {
-    if (seenSyncInFlight) return
-    const messageId = asPositiveInt(seenSyncMessageId)
-    if (messageId <= 0 || !open.value || !socket?.connected) return
-
-    seenSyncInFlight = true
-    try {
-      const response = await emitAck<ChatAck>('chat_mark_seen', { message_id: messageId })
-      if (response?.ok) {
-        unread.value = 0
-      }
-    } catch {
-      return
-    } finally {
-      seenSyncInFlight = false
-      if (seenSyncMessageId > messageId && open.value) {
-        if (!seenSyncTimer) {
-          seenSyncTimer = window.setTimeout(() => {
-            seenSyncTimer = undefined
-            void flushSeenSync()
-          }, 300)
-        }
-      }
-    }
-  }
-
-  function scheduleSeenSync(messageId?: number): void {
-    if (!open.value) return
-    const nextMessageId = asPositiveInt(messageId) || messages.value[messages.value.length - 1]?.id || 0
-    if (nextMessageId <= 0 || nextMessageId <= seenSyncMessageId) return
-    seenSyncMessageId = nextMessageId
-    if (seenSyncTimer) return
-    seenSyncTimer = window.setTimeout(() => {
-      seenSyncTimer = undefined
-      void flushSeenSync()
-    }, 300)
   }
 
   function markMutation(kind: MutationKind, messageId: number | null = null, forceScroll = false): void {
@@ -372,12 +329,6 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
 
   function resetState(): void {
     bootstrapToken += 1
-    if (seenSyncTimer) {
-      window.clearTimeout(seenSyncTimer)
-      seenSyncTimer = undefined
-    }
-    seenSyncMessageId = 0
-    seenSyncInFlight = false
     open.value = false
     unreadTargetMessageIds.value = []
     initialized.value = false
@@ -775,11 +726,12 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
       if (insertedIds.length > 0) {
         const lastInsertedId = insertedIds[insertedIds.length - 1]
         markMutation('append', lastInsertedId, false)
-        if (open.value) {
-          unread.value = 0
-          scheduleSeenSync(lastInsertedId)
-        }
       }
+    })
+
+    socket.on('chat_unread_targets', (payload: unknown) => {
+      const messageIds = isRecord(payload) ? payload.message_ids : []
+      setUnreadTargetMessageIds(messageIds)
     })
 
     socket.on('chat_message_reactions_updated', (payload: unknown) => {
@@ -886,8 +838,8 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
       replaceMessages(response.messages || [])
       hasMore.value = Boolean(response.has_more)
       cursorBeforeId.value = asPositiveInt(response.cursor_before_id) || null
-      unread.value = 0
       setUnreadTargetMessageIds(response.unread_target_message_ids)
+      unread.value = unreadTargetMessageIds.value.length
       initialized.value = true
       connectionState.value = 'ready'
       markMutation('reset', messages.value.length > 0 ? messages.value[messages.value.length - 1].id : null, true)
@@ -1330,6 +1282,26 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
     }
   }
 
+  async function markAlertRead(messageId: number): Promise<boolean> {
+    const normalizedMessageId = asPositiveInt(messageId)
+    if (normalizedMessageId <= 0) return false
+
+    try {
+      const response = await emitAck<ChatAck>('chat_mark_alert_read', {
+        message_id: normalizedMessageId,
+      })
+      if (!response?.ok) {
+        return false
+      }
+
+      applyUnreadCount(response.unread_count)
+      setUnreadTargetMessageIds(response.unread_target_message_ids)
+      return Boolean(response.marked ?? true)
+    } catch {
+      return false
+    }
+  }
+
   function setReplyTarget(messageId: number): boolean {
     const target = messages.value.find((item) => item.id === asPositiveInt(messageId))
     if (!target || target.deleted) return false
@@ -1416,6 +1388,7 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
     previewDeletedMessage,
     purgeDeletedMessage,
     loadContext,
+    markAlertRead,
     setReplyTarget,
     clearReplyTarget,
     attachDraftImage,

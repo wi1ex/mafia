@@ -40,8 +40,10 @@ class GlobalChatReadState(Base):
     __tablename__ = "global_chat_read_states"
     __table_args__ = (
         Index("ix_global_chat_read_states_last_seen_message_id", "last_seen_message_id"),
+        Index("ix_global_chat_read_states_last_read_alert_message_id", "last_read_alert_message_id"),
     )
 
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
     last_seen_message_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    last_read_alert_message_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())

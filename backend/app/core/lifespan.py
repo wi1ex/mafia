@@ -25,6 +25,16 @@ async def lifespan(app) -> AsyncIterator[None]:
         async with engine.begin() as conn:
             await conn.execute(text("SELECT 1"))
             await conn.run_sync(Base.metadata.create_all)
+            #AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+            await conn.execute(text("""
+                ALTER TABLE global_chat_read_states
+                ADD COLUMN IF NOT EXISTS last_read_alert_message_id BIGINT
+            """))
+            await conn.execute(text("""
+                CREATE INDEX IF NOT EXISTS ix_global_chat_read_states_last_read_alert_message_id
+                ON global_chat_read_states (last_read_alert_message_id)
+            """))
+            #AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
         async with SessionLocal() as session:
             await ensure_app_settings(session)
     except Exception:

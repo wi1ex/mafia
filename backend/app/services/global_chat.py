@@ -7,7 +7,6 @@ from typing import Any, Sequence
 from uuid import UUID, uuid4
 import structlog
 from sqlalchemy import func, or_, select
-from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..models.global_chat import GlobalChatMessage, GlobalChatMessageReaction, GlobalChatReadState
 from ..models.sanction import UserSanction
@@ -470,32 +469,52 @@ async def get_global_chat_last_seen_message_id(session: AsyncSession, *, user_id
     return _positive_int(row.last_seen_message_id)
 
 
+async def _ensure_global_chat_read_state(session: AsyncSession, *, user_id: int) -> GlobalChatReadState | None:
+    uid = _positive_int(user_id)
+    if uid <= 0:
+        return None
+
+    row = await session.get(GlobalChatReadState, uid)
+    if row is not None:
+        current_alert_read_message_id = _positive_int(getattr(row, "last_read_alert_message_id", None))
+        if current_alert_read_message_id <= 0:
+            fallback_alert_read_message_id = _positive_int(row.last_seen_message_id)
+            if fallback_alert_read_message_id <= 0:
+                fallback_alert_read_message_id = await _get_latest_global_chat_message_id(session)
+            row.last_read_alert_message_id = fallback_alert_read_message_id or None
+            row.updated_at = datetime.now(timezone.utc)
+            await session.commit()
+        return row
+
+    latest_message_id = await _get_latest_global_chat_message_id(session)
+    row = GlobalChatReadState(
+        user_id=uid,
+        last_seen_message_id=latest_message_id or None,
+        last_read_alert_message_id=latest_message_id or None,
+        updated_at=datetime.now(timezone.utc),
+    )
+    session.add(row)
+    await session.commit()
+    return row
+
+
 async def mark_global_chat_seen(session: AsyncSession, *, user_id: int, message_id: int | None = None) -> int:
     uid = _positive_int(user_id)
     if uid <= 0:
+        return 0
+
+    row = await _ensure_global_chat_read_state(session, user_id=uid)
+    if row is None:
         return 0
 
     seen_message_id = _positive_int(message_id)
     if seen_message_id <= 0:
         seen_message_id = await _get_latest_global_chat_message_id(session)
 
-    now = datetime.now(timezone.utc)
-    row = await session.get(GlobalChatReadState, uid)
-    if row is None:
-        session.add(
-            GlobalChatReadState(
-                user_id=uid,
-                last_seen_message_id=seen_message_id or None,
-                updated_at=now,
-            )
-        )
-        await session.commit()
-        return seen_message_id
-
     current_seen_message_id = _positive_int(row.last_seen_message_id)
     if seen_message_id > current_seen_message_id:
         row.last_seen_message_id = seen_message_id
-    row.updated_at = now
+    row.updated_at = datetime.now(timezone.utc)
     await session.commit()
     return max(current_seen_message_id, seen_message_id)
 
@@ -559,69 +578,20 @@ async def get_global_chat_alert_user_ids(session: AsyncSession, *, message_id: i
     return set(alert_map.get(int(message.id)) or set())
 
 
-async def count_global_chat_unread(session: AsyncSession, *, user_id: int) -> int:
-    uid = _positive_int(user_id)
-    if uid <= 0:
-        return 0
-
-    read_state = await session.get(GlobalChatReadState, uid)
-    if read_state is None:
-        latest_message_id = await _get_latest_global_chat_message_id(session)
-        session.add(
-            GlobalChatReadState(
-                user_id=uid,
-                last_seen_message_id=latest_message_id or None,
-                updated_at=datetime.now(timezone.utc),
-            )
-        )
-        await session.commit()
-        return 0
-
-    last_seen_message_id = _positive_int(read_state.last_seen_message_id)
-    rows = await session.execute(
-        select(GlobalChatMessage)
-        .where(
-            GlobalChatMessage.id > last_seen_message_id,
-            GlobalChatMessage.deleted_at.is_(None),
-            GlobalChatMessage.user_id != uid,
-        )
-        .order_by(GlobalChatMessage.id.asc())
-    )
-    messages = rows.scalars().all()
-    if not messages:
-        return 0
-
-    alert_map = await _build_global_chat_alert_user_ids_map(session, messages)
-    unread_count = 0
-    for message in messages:
-        if uid in (alert_map.get(int(message.id)) or set()):
-            unread_count += 1
-    return unread_count
-
-
 async def fetch_global_chat_unread_target_message_ids(session: AsyncSession, *, user_id: int) -> list[int]:
     uid = _positive_int(user_id)
     if uid <= 0:
         return []
 
-    read_state = await session.get(GlobalChatReadState, uid)
+    read_state = await _ensure_global_chat_read_state(session, user_id=uid)
     if read_state is None:
-        latest_message_id = await _get_latest_global_chat_message_id(session)
-        session.add(
-            GlobalChatReadState(
-                user_id=uid,
-                last_seen_message_id=latest_message_id or None,
-                updated_at=datetime.now(timezone.utc),
-            )
-        )
-        await session.commit()
         return []
 
-    last_seen_message_id = _positive_int(read_state.last_seen_message_id)
+    last_read_alert_message_id = _positive_int(read_state.last_read_alert_message_id)
     rows = await session.execute(
         select(GlobalChatMessage)
         .where(
-            GlobalChatMessage.id > last_seen_message_id,
+            GlobalChatMessage.id > last_read_alert_message_id,
             GlobalChatMessage.deleted_at.is_(None),
             GlobalChatMessage.user_id != uid,
         )
@@ -632,25 +602,74 @@ async def fetch_global_chat_unread_target_message_ids(session: AsyncSession, *, 
         return []
 
     alert_map = await _build_global_chat_alert_user_ids_map(session, messages)
-    return [
+    pending_message_ids = [
         int(message.id)
         for message in messages
         if uid in (alert_map.get(int(message.id)) or set())
     ]
+    if not pending_message_ids:
+        return []
+
+    return pending_message_ids
 
 
-async def emit_global_chat_unread_count(user_id: int, *, count: int | None = None) -> None:
+async def count_global_chat_unread(session: AsyncSession, *, user_id: int) -> int:
+    return len(await fetch_global_chat_unread_target_message_ids(session, user_id=user_id))
+
+
+async def mark_global_chat_alert_read(session: AsyncSession, *, user_id: int, message_id: int) -> bool:
+    uid = _positive_int(user_id)
+    target_message_id = _positive_int(message_id)
+    if uid <= 0 or target_message_id <= 0:
+        return False
+
+    read_state = await _ensure_global_chat_read_state(session, user_id=uid)
+    if read_state is None:
+        return False
+
+    message = await get_global_chat_message(session, target_message_id)
+    if message is None or message.deleted_at is not None:
+        return False
+
+    current_alert_read_message_id = _positive_int(read_state.last_read_alert_message_id)
+    if target_message_id <= current_alert_read_message_id:
+        read_state.updated_at = datetime.now(timezone.utc)
+        await session.commit()
+        return True
+
+    alert_user_ids = await get_global_chat_alert_user_ids(session, message_id=target_message_id)
+    if uid not in alert_user_ids:
+        return False
+
+    read_state.last_read_alert_message_id = target_message_id
+    read_state.updated_at = datetime.now(timezone.utc)
+    await session.commit()
+    return True
+
+
+async def emit_global_chat_unread_state(
+    user_id: int,
+    *,
+    count: int | None = None,
+    target_message_ids: Sequence[int] | None = None,
+) -> None:
     uid = _positive_int(user_id)
     if uid <= 0:
         return
 
-    unread_count = max(0, int(count or 0)) if count is not None else 0
-    if count is None:
+    unread_target_message_ids = [
+        _positive_int(message_id)
+        for message_id in (target_message_ids or [])
+        if _positive_int(message_id) > 0
+    ]
+    unread_count = max(0, int(count or 0)) if count is not None else len(unread_target_message_ids)
+    if count is None or target_message_ids is None:
         try:
             async with SessionLocal() as session:
-                unread_count = await count_global_chat_unread(session, user_id=uid)
+                unread_target_message_ids = await fetch_global_chat_unread_target_message_ids(session, user_id=uid)
+                unread_count = len(unread_target_message_ids)
         except Exception:
-            log.exception("global_chat.unread_count_emit_failed", user_id=uid)
+            log.exception("global_chat.unread_state_emit_failed", user_id=uid)
             return
 
     await sio.emit(
@@ -659,12 +678,26 @@ async def emit_global_chat_unread_count(user_id: int, *, count: int | None = Non
         room=f"user:{uid}",
         namespace="/auth",
     )
+    await sio.emit(
+        "chat_unread_targets",
+        {"message_ids": unread_target_message_ids},
+        room=global_chat_open_user_room(uid),
+        namespace="/chat",
+    )
+
+
+async def emit_global_chat_unread_count(user_id: int, *, count: int | None = None) -> None:
+    await emit_global_chat_unread_state(user_id, count=count)
+
+
+async def emit_global_chat_unread_states(user_ids: Sequence[int]) -> None:
+    unique_user_ids = sorted({_positive_int(user_id) for user_id in user_ids if _positive_int(user_id) > 0})
+    for uid in unique_user_ids:
+        await emit_global_chat_unread_state(uid)
 
 
 async def emit_global_chat_unread_counts(user_ids: Sequence[int]) -> None:
-    unique_user_ids = sorted({_positive_int(user_id) for user_id in user_ids if _positive_int(user_id) > 0})
-    for uid in unique_user_ids:
-        await emit_global_chat_unread_count(uid)
+    await emit_global_chat_unread_states(user_ids)
 
 
 async def emit_global_chat_permissions_updated(user_id: int) -> None:
@@ -704,6 +737,12 @@ async def emit_global_chat_cleared() -> None:
     await sio.emit(
         "chat_cleared",
         {},
+        room=GLOBAL_CHAT_ROOM,
+        namespace="/chat",
+    )
+    await sio.emit(
+        "chat_unread_targets",
+        {"message_ids": []},
         room=GLOBAL_CHAT_ROOM,
         namespace="/chat",
     )

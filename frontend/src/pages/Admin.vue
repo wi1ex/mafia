@@ -193,7 +193,7 @@
                 <span class="value">{{ formatMinutes(stats.total_stream_minutes) }}</span>
               </div>
               <div class="stat-card">
-                <span class="label">Пользователи в комнатах</span>
+                <span class="label">В комнатах</span>
                 <span class="value">{{ stats.active_room_users }}</span>
               </div>
               <div class="stat-card">

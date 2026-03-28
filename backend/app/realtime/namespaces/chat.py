@@ -14,8 +14,8 @@ from ...services.global_chat import (
     build_global_chat_message_payload,
     create_global_chat_message,
     delete_global_chat_message,
-    emit_global_chat_unread_count,
-    emit_global_chat_unread_counts,
+    emit_global_chat_unread_state,
+    emit_global_chat_unread_states,
     fetch_global_chat_reaction_participants,
     fetch_global_chat_context,
     fetch_global_chat_page,
@@ -24,6 +24,7 @@ from ...services.global_chat import (
     global_chat_send_error,
     global_chat_open_user_room,
     get_global_chat_message,
+    mark_global_chat_alert_read,
     mark_global_chat_seen,
     permissions_payload,
     purge_global_chat_message,
@@ -85,9 +86,6 @@ async def chat_open(sid, data):
         async with SessionLocal() as db:
             messages, has_more, cursor_before_id = await fetch_global_chat_page(db, viewer_user_id=uid, limit=limit)
             unread_target_message_ids = await fetch_global_chat_unread_target_message_ids(db, user_id=uid)
-            await mark_global_chat_seen(db, user_id=uid)
-        with suppress(Exception):
-            await emit_global_chat_unread_count(uid)
 
         return {
             "ok": True,
@@ -188,17 +186,51 @@ async def chat_mark_seen(sid, data=None):
                 user_id=uid,
                 message_id=message_id if message_id > 0 else None,
             )
-
-        with suppress(Exception):
-            await emit_global_chat_unread_count(uid)
+            unread_target_message_ids = await fetch_global_chat_unread_target_message_ids(db, user_id=uid)
 
         return {
             "ok": True,
             "status": 200,
             "last_seen_message_id": last_seen_message_id,
+            "unread_count": len(unread_target_message_ids),
         }
     except Exception:
         log.exception("chat.mark_seen.error", sid=sid)
+        return {"ok": False, "status": 500, "error": "internal"}
+
+
+@rate_limited_sio(lambda *, uid=None, **__: f"rl:sio:chat_mark_alert_read:{uid or 'nouid'}", limit=10, window_s=2, session_ns="/chat")
+@sio.event(namespace="/chat")
+async def chat_mark_alert_read(sid, data=None):
+    try:
+        sess = await sio.get_session(sid, namespace="/chat")
+        uid = int(sess.get("uid") or 0)
+        payload = payload_dict(data)
+        message_id = positive_int(payload.get("message_id")) if payload else 0
+        if message_id <= 0:
+            return {"ok": False, "status": 422, "error": "bad_message_id"}
+
+        async with SessionLocal() as db:
+            marked = await mark_global_chat_alert_read(db, user_id=uid, message_id=message_id)
+            unread_target_message_ids = await fetch_global_chat_unread_target_message_ids(db, user_id=uid)
+
+        with suppress(Exception):
+            await emit_global_chat_unread_state(
+                uid,
+                count=len(unread_target_message_ids),
+                target_message_ids=unread_target_message_ids,
+            )
+
+        return {
+            "ok": True,
+            "status": 200,
+            "message_id": message_id,
+            "marked": marked,
+            "unread_count": len(unread_target_message_ids),
+            "unread_target_message_ids": unread_target_message_ids,
+        }
+    except Exception:
+        log.exception("chat.mark_alert_read.error", sid=sid)
         return {"ok": False, "status": 500, "error": "internal"}
 
 
@@ -257,7 +289,7 @@ async def chat_send(sid, data):
             await sio.emit("chat_message_created", public_message, room=GLOBAL_CHAT_ROOM, namespace="/chat")
         if created:
             with suppress(Exception):
-                await emit_global_chat_unread_counts(tuple(alert_user_ids))
+                await emit_global_chat_unread_states(tuple(alert_user_ids))
 
         return {
             "ok": True,
@@ -451,7 +483,7 @@ async def chat_delete(sid, data):
         if public_message is not None:
             await sio.emit("chat_message_deleted", public_message, room=GLOBAL_CHAT_ROOM, namespace="/chat")
         with suppress(Exception):
-            await emit_global_chat_unread_counts(tuple(alert_user_ids))
+            await emit_global_chat_unread_states(tuple(alert_user_ids))
 
         return {"ok": True, "status": 200, "message": ack_message}
 
