@@ -351,6 +351,7 @@ let scrollToBottomFramesRemaining = 0
 let floatingChatActionsBottomRaf: number | null = null
 let visibleUnreadTargetCheckRaf: number | null = null
 let lastUserScrollIntentAt = 0
+let visibleUnreadTargetAutoReadSuppressedUntil = 0
 const floatingChatActionsBottom = ref(62)
 const visibleUnreadTargetReadInFlightIds = new Set<number>()
 const USER_SCROLL_INTENT_WINDOW_MS = 4000
@@ -368,7 +369,7 @@ const showLauncher = computed(() => {
 })
 const canRender = computed(() => settings.chatOpenEnabled && (showLauncher.value || chat.open))
 const hasUnreadTargets = computed(() => unreadTargetMessageIds.value.length > 0)
-const nextUnreadTargetMessageId = computed(() => unreadTargetMessageIds.value[0] || null)
+const nextUnreadTargetMessageId = computed(() => unreadTargetMessageIds.value[unreadTargetMessageIds.value.length - 1] || null)
 const showJumpToBottomButton = computed(() => !stickToBottom.value)
 const unreadTargetsButtonLabel = computed(() => unreadTargetMessageIds.value.length)
 
@@ -482,6 +483,15 @@ function hasRecentUserScrollIntent(): boolean {
   return Date.now() - lastUserScrollIntentAt <= USER_SCROLL_INTENT_WINDOW_MS
 }
 
+function suppressVisibleUnreadTargetAutoRead(durationMs = 2000): void {
+  visibleUnreadTargetAutoReadSuppressedUntil = Date.now() + Math.max(0, durationMs)
+  lastUserScrollIntentAt = 0
+}
+
+function isVisibleUnreadTargetAutoReadSuppressed(): boolean {
+  return Date.now() < visibleUnreadTargetAutoReadSuppressedUntil
+}
+
 function isUnreadTargetVisible(messageId: number): boolean {
   const list = listEl.value
   const element = findMessageElement(messageId)
@@ -504,7 +514,7 @@ function cancelScheduledVisibleUnreadTargetCheck(): void {
 }
 
 async function markVisibleUnreadTargetsRead(): Promise<void> {
-  if (!chat.open || !hasRecentUserScrollIntent()) return
+  if (!chat.open || !hasRecentUserScrollIntent() || isVisibleUnreadTargetAutoReadSuppressed()) return
 
   const visibleMessageIds = unreadTargetMessageIds.value.filter((messageId) => (
     !visibleUnreadTargetReadInFlightIds.has(messageId) && isUnreadTargetVisible(messageId)
@@ -530,7 +540,7 @@ async function markVisibleUnreadTargetsRead(): Promise<void> {
 }
 
 function scheduleVisibleUnreadTargetReadCheck(): void {
-  if (!chat.open || !hasRecentUserScrollIntent() || unreadTargetMessageIds.value.length === 0) return
+  if (!chat.open || !hasRecentUserScrollIntent() || isVisibleUnreadTargetAutoReadSuppressed() || unreadTargetMessageIds.value.length === 0) return
   if (visibleUnreadTargetCheckRaf !== null) return
 
   visibleUnreadTargetCheckRaf = window.requestAnimationFrame(() => {
@@ -1183,6 +1193,7 @@ async function onJumpToReply(messageId: number): Promise<void> {
 async function onJumpToUnreadTarget(): Promise<void> {
   const messageId = nextUnreadTargetMessageId.value
   if (!messageId) return
+  suppressVisibleUnreadTargetAutoRead()
   const ok = await jumpToMessage(messageId, 'Не удалось найти сообщение с ответом или упоминанием.')
   if (!ok) return
   await chat.markAlertRead(messageId)
@@ -1381,6 +1392,7 @@ watch(() => chat.open, (open) => {
     cancelScheduledFloatingChatActionsBottomSync()
     cancelScheduledVisibleUnreadTargetCheck()
     visibleUnreadTargetReadInFlightIds.clear()
+    visibleUnreadTargetAutoReadSuppressedUntil = 0
     lastUserScrollIntentAt = 0
     composerPickerOpen.value = false
     reactionPickerMessageId.value = null
@@ -1421,6 +1433,7 @@ onBeforeUnmount(() => {
   cancelScheduledVisibleUnreadTargetCheck()
   clearMentionSearchTimer()
   clearHighlightTimer()
+  visibleUnreadTargetAutoReadSuppressedUntil = 0
   visibleUnreadTargetReadInFlightIds.clear()
   clearMentionSuggestions()
   closeReactionDetails()
@@ -2309,17 +2322,17 @@ onBeforeUnmount(() => {
       padding: 3px 8px;
       min-height: 20px;
       .panel-header-main {
-        font-size: 16px;
+        font-size: 14px;
       }
       .panel-header-actions {
         gap: 5px;
       }
       button {
-        width: 20px;
-        height: 20px;
+        width: 16px;
+        height: 16px;
         img {
-          width: 20px;
-          height: 20px;
+          width: 16px;
+          height: 16px;
         }
       }
     }
@@ -2336,9 +2349,9 @@ onBeforeUnmount(() => {
         span {
           top: 1px;
           right: 1px;
-          width: 10px;
-          height: 10px;
-          font-size: 8px;
+          width: 9px;
+          height: 9px;
+          font-size: 7px;
         }
       }
     }
