@@ -14,12 +14,16 @@ from ...services.global_chat import (
     build_global_chat_message_payload,
     create_global_chat_message,
     delete_global_chat_message,
+    emit_global_chat_unread_count,
+    emit_global_chat_unread_counts,
     fetch_global_chat_reaction_participants,
     fetch_global_chat_context,
     fetch_global_chat_page,
+    get_global_chat_alert_user_ids,
     global_chat_send_error,
     global_chat_open_user_room,
     get_global_chat_message,
+    mark_global_chat_seen,
     permissions_payload,
     purge_global_chat_message,
     resolve_global_chat_permissions,
@@ -79,6 +83,10 @@ async def chat_open(sid, data):
         joined_user_room = True
         async with SessionLocal() as db:
             messages, has_more, cursor_before_id = await fetch_global_chat_page(db, viewer_user_id=uid, limit=limit)
+            await mark_global_chat_seen(db, user_id=uid)
+        with suppress(Exception):
+            await emit_global_chat_unread_count(uid)
+
         return {
             "ok": True,
             "status": 200,
@@ -162,6 +170,35 @@ async def chat_history(sid, data):
         return {"ok": False, "status": 500, "error": "internal"}
 
 
+@rate_limited_sio(lambda *, uid=None, **__: f"rl:sio:chat_mark_seen:{uid or 'nouid'}", limit=10, window_s=2, session_ns="/chat")
+@sio.event(namespace="/chat")
+async def chat_mark_seen(sid, data=None):
+    try:
+        sess = await sio.get_session(sid, namespace="/chat")
+        uid = int(sess.get("uid") or 0)
+        payload = payload_dict(data)
+        message_id = positive_int(payload.get("message_id")) if payload else 0
+
+        async with SessionLocal() as db:
+            last_seen_message_id = await mark_global_chat_seen(
+                db,
+                user_id=uid,
+                message_id=message_id if message_id > 0 else None,
+            )
+
+        with suppress(Exception):
+            await emit_global_chat_unread_count(uid)
+
+        return {
+            "ok": True,
+            "status": 200,
+            "last_seen_message_id": last_seen_message_id,
+        }
+    except Exception:
+        log.exception("chat.mark_seen.error", sid=sid)
+        return {"ok": False, "status": 500, "error": "internal"}
+
+
 @rate_limited_sio(lambda *, uid=None, **__: f"rl:sio:chat_send:{uid or 'nouid'}", limit=5, window_s=10, session_ns="/chat")
 @sio.event(namespace="/chat")
 async def chat_send(sid, data):
@@ -211,9 +248,13 @@ async def chat_send(sid, data):
             )
             ack_message = await build_global_chat_message_payload(db, message_id=int(message.id), viewer_user_id=uid)
             public_message = await build_global_chat_message_payload(db, message_id=int(message.id), viewer_user_id=None)
+            alert_user_ids = await get_global_chat_alert_user_ids(db, message_id=int(message.id))
 
         if created and public_message is not None:
             await sio.emit("chat_message_created", public_message, room=GLOBAL_CHAT_ROOM, namespace="/chat")
+        if created:
+            with suppress(Exception):
+                await emit_global_chat_unread_counts(tuple(alert_user_ids))
 
         return {
             "ok": True,
@@ -374,6 +415,7 @@ async def chat_delete(sid, data):
             had_text = int(bool(str(message.text or "").strip()))
             has_image = int(bool(message.image_object_key))
             reply_to_message_id = positive_int(message.reply_to_message_id)
+            alert_user_ids = await get_global_chat_alert_user_ids(db, message_id=message_id)
 
             await delete_global_chat_message(db, message=message, actor_user_id=uid)
 
@@ -405,6 +447,8 @@ async def chat_delete(sid, data):
 
         if public_message is not None:
             await sio.emit("chat_message_deleted", public_message, room=GLOBAL_CHAT_ROOM, namespace="/chat")
+        with suppress(Exception):
+            await emit_global_chat_unread_counts(tuple(alert_user_ids))
 
         return {"ok": True, "status": 200, "message": ack_message}
 

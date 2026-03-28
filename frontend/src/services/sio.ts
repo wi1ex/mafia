@@ -176,6 +176,10 @@ export function startAuthSocket(opts?: { onForceLogout?: () => void }): Socket {
     window.dispatchEvent(new CustomEvent('auth-user_game_participation_changed', { detail: p }))
   })
 
+  authSocket.on('chat_unread_count', (p:any) => {
+    window.dispatchEvent(new CustomEvent('auth-chat_unread_count', { detail: p }))
+  })
+
   authSocket.on('room_invite', (p:any) => {
     window.dispatchEvent(new CustomEvent('auth-room_invite', { detail: p }))
     const dto = {

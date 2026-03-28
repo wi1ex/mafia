@@ -10,11 +10,12 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, watchEffect, computed } from 'vue'
+import { onMounted, onBeforeUnmount, watch, watchEffect, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/store'
 import { useUserStore } from '@/store'
 import { useNotifStore } from '@/store'
+import { useGlobalChatStore } from '@/store'
 import { useSettingsStore } from '@/store'
 import { alertDialog } from '@/services/confirm'
 import Header from '@/components/Header.vue'
@@ -26,6 +27,7 @@ const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 const user = useUserStore()
+const chat = useGlobalChatStore()
 const settings = useSettingsStore()
 
 let onSanctionsUpdate: ((e: any) => void) | null = null
@@ -47,6 +49,14 @@ watchEffect(() => {
 watchEffect(() => {
   if (auth.isAuthed) user.ensureClock()
 })
+watch(() => auth.isAuthed, (isAuthed) => {
+  if (!isAuthed) {
+    chat.clearUnreadCount()
+    return
+  }
+  chat.ensureUnreadSync()
+  chat.syncUnreadFromProfile()
+})
 
 onMounted(async () => {
   settings.ensureWS()
@@ -54,10 +64,14 @@ onMounted(async () => {
   await auth.init()
   if (auth.isAuthed) {
     try { await user.fetchMe() } catch {}
+    chat.ensureUnreadSync()
+    chat.syncUnreadFromProfile()
     user.ensureClock()
     const notif = useNotifStore()
     notif.ensureWS()
     try { await notif.fetchAll() } catch {}
+  } else {
+    chat.clearUnreadCount()
   }
   onSanctionsUpdate = (e: any) => {
     const p = e?.detail || {}

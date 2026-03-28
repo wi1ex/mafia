@@ -6,6 +6,7 @@ from ...core.clients import get_redis
 from ...core.db import SessionLocal
 from ...core.settings import settings
 from ...api.utils import touch_user_last_visit, touch_user_online, check_sanctions_expired
+from ...services.global_chat import emit_global_chat_unread_count
 
 log = structlog.get_logger()
 
@@ -34,6 +35,10 @@ async def connect(sid, environ, auth):
     await sio.enter_room(sid,
                          f"user:{uid}",
                          namespace="/auth")
+    try:
+        await emit_global_chat_unread_count(uid)
+    except Exception:
+        log.warning("auth.connect.chat_unread_count_failed", uid=uid)
 
 
 @sio.event(namespace="/auth")

@@ -17,6 +17,7 @@ export interface UserProfile {
   suspend_until?: string | null
   ban_active?: boolean
   in_active_game_as_alive_player?: boolean
+  chat_unread_count?: number
 }
 
 export const useUserStore = defineStore('user', () => {

@@ -23,6 +23,7 @@ class UserOut(BaseModel):
     suspend_until: Optional[datetime] = None
     ban_active: bool = False
     in_active_game_as_alive_player: bool = False
+    chat_unread_count: int = 0
 
 
 class UserTopPlayerOut(BaseModel):

@@ -73,6 +73,7 @@
       <div v-if="showGlobalChatButton" class="bell">
         <button @click.stop="toggleGlobalChat" :aria-expanded="chat.open" aria-label="Общий чат">
           <img :src="iconChat" alt="chat" />
+          <span v-if="chat.unread > 0">{{ chat.unread < 100 ? chat.unread : '∞' }}</span>
         </button>
       </div>
 

@@ -61,7 +61,7 @@ from ...schemas.user import (
     UserTopPlayerOut,
 )
 from ...security.passwords import hash_password, verify_password
-from ...services.global_chat import global_chat_send_error, resolve_global_chat_permissions
+from ...services.global_chat import count_global_chat_unread, global_chat_send_error, resolve_global_chat_permissions
 from ...services.global_chat import (
     emit_global_chat_permissions_updated,
     ensure_global_chat_image_owned_by_user,
@@ -104,6 +104,7 @@ async def profile_info(ident: Identity = Depends(get_identity), db: AsyncSession
     ban = active.get(SANCTION_BAN)
     suspend = active.get(SANCTION_SUSPEND)
     in_active_game_as_alive_player = await is_user_in_active_alive_game(uid)
+    chat_unread_count = await count_global_chat_unread(db, user_id=uid)
 
     return UserOut(
         id=uid,
@@ -121,6 +122,7 @@ async def profile_info(ident: Identity = Depends(get_identity), db: AsyncSession
         suspend_until=suspend.expires_at if suspend else None,
         ban_active=bool(ban),
         in_active_game_as_alive_player=in_active_game_as_alive_player,
+        chat_unread_count=chat_unread_count,
     )
 
 

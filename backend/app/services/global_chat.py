@@ -9,7 +9,7 @@ import structlog
 from sqlalchemy import func, or_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
-from ..models.global_chat import GlobalChatMessage, GlobalChatMessageReaction
+from ..models.global_chat import GlobalChatMessage, GlobalChatMessageReaction, GlobalChatReadState
 from ..models.sanction import UserSanction
 from ..models.user import User
 from ..core.db import SessionLocal
@@ -148,6 +148,16 @@ def _build_mentions_payload(text: str, resolved_users: dict[str, dict[str, Any]]
             }
         )
     return mentions
+
+
+def _build_mentioned_user_ids(text: str, resolved_users: dict[str, dict[str, Any]]) -> set[int]:
+    mentioned_user_ids: set[int] = set()
+    for username in _extract_mentioned_usernames(text):
+        mention = resolved_users.get(username.lower())
+        mention_user_id = _positive_int((mention or {}).get("id"))
+        if mention_user_id > 0:
+            mentioned_user_ids.add(mention_user_id)
+    return mentioned_user_ids
 
 
 def _reply_snippet(text: str, *, has_image: bool) -> str:
@@ -443,6 +453,180 @@ def global_chat_open_user_room(user_id: int) -> str:
     return f"{GLOBAL_CHAT_OPEN_USER_ROOM_PREFIX}:{int(user_id)}"
 
 
+async def _get_latest_global_chat_message_id(session: AsyncSession) -> int:
+    latest_message_id = await session.scalar(select(func.max(GlobalChatMessage.id)))
+    return _positive_int(latest_message_id)
+
+
+async def get_global_chat_last_seen_message_id(session: AsyncSession, *, user_id: int) -> int:
+    uid = _positive_int(user_id)
+    if uid <= 0:
+        return 0
+
+    row = await session.get(GlobalChatReadState, uid)
+    if row is None:
+        return 0
+
+    return _positive_int(row.last_seen_message_id)
+
+
+async def mark_global_chat_seen(session: AsyncSession, *, user_id: int, message_id: int | None = None) -> int:
+    uid = _positive_int(user_id)
+    if uid <= 0:
+        return 0
+
+    seen_message_id = _positive_int(message_id)
+    if seen_message_id <= 0:
+        seen_message_id = await _get_latest_global_chat_message_id(session)
+
+    now = datetime.now(timezone.utc)
+    row = await session.get(GlobalChatReadState, uid)
+    if row is None:
+        session.add(
+            GlobalChatReadState(
+                user_id=uid,
+                last_seen_message_id=seen_message_id or None,
+                updated_at=now,
+            )
+        )
+        await session.commit()
+        return seen_message_id
+
+    current_seen_message_id = _positive_int(row.last_seen_message_id)
+    if seen_message_id > current_seen_message_id:
+        row.last_seen_message_id = seen_message_id
+    row.updated_at = now
+    await session.commit()
+    return max(current_seen_message_id, seen_message_id)
+
+
+async def _build_global_chat_alert_user_ids_map(session: AsyncSession, messages: Sequence[GlobalChatMessage]) -> dict[int, set[int]]:
+    if not messages:
+        return {}
+
+    reply_ids = {
+        _positive_int(message.reply_to_message_id)
+        for message in messages
+        if _positive_int(message.reply_to_message_id) > 0
+    }
+    reply_author_ids: dict[int, int] = {}
+    if reply_ids:
+        reply_rows = await session.execute(
+            select(GlobalChatMessage.id, GlobalChatMessage.user_id)
+            .where(GlobalChatMessage.id.in_(reply_ids))
+        )
+        for reply_message_id_raw, reply_user_id_raw in reply_rows.all():
+            reply_message_id = _positive_int(reply_message_id_raw)
+            reply_user_id = _positive_int(reply_user_id_raw)
+            if reply_message_id > 0 and reply_user_id > 0:
+                reply_author_ids[reply_message_id] = reply_user_id
+
+    mentioned_usernames: set[str] = set()
+    for message in messages:
+        mentioned_usernames.update(_extract_mentioned_usernames(str(message.text or "")))
+    resolved_mentions = await _resolve_mentioned_users(session, mentioned_usernames)
+
+    out: dict[int, set[int]] = {}
+    for message in messages:
+        message_id = _positive_int(message.id)
+        if message_id <= 0:
+            continue
+
+        alert_user_ids: set[int] = set()
+        reply_to_message_id = _positive_int(message.reply_to_message_id)
+        if reply_to_message_id > 0:
+            reply_author_id = _positive_int(reply_author_ids.get(reply_to_message_id))
+            if reply_author_id > 0:
+                alert_user_ids.add(reply_author_id)
+
+        alert_user_ids.update(_build_mentioned_user_ids(str(message.text or ""), resolved_mentions))
+
+        author_user_id = _positive_int(message.user_id)
+        if author_user_id > 0:
+            alert_user_ids.discard(author_user_id)
+
+        out[message_id] = alert_user_ids
+
+    return out
+
+
+async def get_global_chat_alert_user_ids(session: AsyncSession, *, message_id: int) -> set[int]:
+    message = await get_global_chat_message(session, message_id)
+    if message is None:
+        return set()
+
+    alert_map = await _build_global_chat_alert_user_ids_map(session, [message])
+    return set(alert_map.get(int(message.id)) or set())
+
+
+async def count_global_chat_unread(session: AsyncSession, *, user_id: int) -> int:
+    uid = _positive_int(user_id)
+    if uid <= 0:
+        return 0
+
+    read_state = await session.get(GlobalChatReadState, uid)
+    if read_state is None:
+        latest_message_id = await _get_latest_global_chat_message_id(session)
+        session.add(
+            GlobalChatReadState(
+                user_id=uid,
+                last_seen_message_id=latest_message_id or None,
+                updated_at=datetime.now(timezone.utc),
+            )
+        )
+        await session.commit()
+        return 0
+
+    last_seen_message_id = _positive_int(read_state.last_seen_message_id)
+    rows = await session.execute(
+        select(GlobalChatMessage)
+        .where(
+            GlobalChatMessage.id > last_seen_message_id,
+            GlobalChatMessage.deleted_at.is_(None),
+            GlobalChatMessage.user_id != uid,
+        )
+        .order_by(GlobalChatMessage.id.asc())
+    )
+    messages = rows.scalars().all()
+    if not messages:
+        return 0
+
+    alert_map = await _build_global_chat_alert_user_ids_map(session, messages)
+    unread_count = 0
+    for message in messages:
+        if uid in (alert_map.get(int(message.id)) or set()):
+            unread_count += 1
+    return unread_count
+
+
+async def emit_global_chat_unread_count(user_id: int, *, count: int | None = None) -> None:
+    uid = _positive_int(user_id)
+    if uid <= 0:
+        return
+
+    unread_count = max(0, int(count or 0)) if count is not None else 0
+    if count is None:
+        try:
+            async with SessionLocal() as session:
+                unread_count = await count_global_chat_unread(session, user_id=uid)
+        except Exception:
+            log.exception("global_chat.unread_count_emit_failed", user_id=uid)
+            return
+
+    await sio.emit(
+        "chat_unread_count",
+        {"count": unread_count},
+        room=f"user:{uid}",
+        namespace="/auth",
+    )
+
+
+async def emit_global_chat_unread_counts(user_ids: Sequence[int]) -> None:
+    unique_user_ids = sorted({_positive_int(user_id) for user_id in user_ids if _positive_int(user_id) > 0})
+    for uid in unique_user_ids:
+        await emit_global_chat_unread_count(uid)
+
+
 async def emit_global_chat_permissions_updated(user_id: int) -> None:
     uid = _positive_int(user_id)
     if uid <= 0:
@@ -482,6 +666,11 @@ async def emit_global_chat_cleared() -> None:
         {},
         room=GLOBAL_CHAT_ROOM,
         namespace="/chat",
+    )
+    await sio.emit(
+        "chat_unread_count",
+        {"count": 0},
+        namespace="/auth",
     )
 
 
