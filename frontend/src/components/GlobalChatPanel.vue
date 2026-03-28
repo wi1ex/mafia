@@ -1312,11 +1312,15 @@ onBeforeUnmount(() => {
     overflow-y: auto;
     scrollbar-width: none;
     .load-more {
+      align-self: center;
+      padding: 0 15px;
+      width: fit-content;
       min-height: 30px;
-      border: 1px solid $grey;
-      border-radius: 5px;
-      background-color: $dark;
+      border: none;
+      border-radius: 999px;
+      background-color: $lead;
       color: $fg;
+      font-size: 14px;
       cursor: pointer;
       &:disabled {
         opacity: 0.5;
@@ -2088,6 +2092,9 @@ onBeforeUnmount(() => {
       gap: 5px;
       height: calc(100% - 68px);
       .load-more {
+        padding: 0 10px;
+        min-height: 25px;
+        font-size: 10px;
       }
       .empty-state {
         font-size: 12px;
