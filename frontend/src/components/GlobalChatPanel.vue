@@ -1521,7 +1521,7 @@ onBeforeUnmount(() => {
       padding: 0;
       width: 30px;
       height: 30px;
-      border: none;
+      border: 1px solid $dark;
       border-radius: 999px;
       background-color: $lead;
       box-shadow: 0 15px 30px rgba($black, 0.25);

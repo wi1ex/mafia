@@ -588,6 +588,12 @@ function openAuth(mode: 'login' | 'register') {
             width: 16px;
             height: 16px;
           }
+          span {
+            width: 11px;
+            height: 11px;
+            font-size: 8px;
+            line-height: 0.8;
+          }
         }
       }
       .user-menu {

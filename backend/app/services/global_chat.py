@@ -32,13 +32,18 @@ SANCTION_RULE_POINT_RE = re.compile(r"^\s*([0-9]+(?:\.[0-9]+)*)\.")
 GLOBAL_CHAT_REACTIONS_ALLOWLIST: tuple[str, ...] = (
     "👍",
     "👎",
-    "❤️",
     "🔥",
+    "❤️",
+    "🤩",
+    "😎",
     "😂",
+    "🤯",
     "😭",
     "😡",
     "🤮",
     "🤡",
+    "🎉",
+    "🥳",
 )
 
 SANCTION_TIMEOUT = "timeout"
