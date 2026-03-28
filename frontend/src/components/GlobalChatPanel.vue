@@ -1729,6 +1729,10 @@ onBeforeUnmount(() => {
         white-space: pre-wrap;
         overflow-wrap: anywhere;
       }
+      .composer-mention {
+        font-family: inherit;
+        font-weight: inherit;
+      }
     }
     .tool-button {
       display: flex;
