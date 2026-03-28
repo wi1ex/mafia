@@ -11,7 +11,7 @@
           </div>
         </header>
 
-        <div ref="listEl" class="panel-list" @scroll="onListScroll">
+        <div ref="listEl" class="panel-list" @scroll="onListScroll" @wheel.passive="markUserScrollIntent" @touchstart.passive="markUserScrollIntent" @pointerdown="markUserScrollIntent">
           <button v-if="showLoadMore" class="load-more" type="button" :disabled="loadingMore" @click="onLoadMore">
             {{ loadingMore ? 'Загрузка…' : 'Загрузить ещё сообщения' }}
           </button>
@@ -129,12 +129,12 @@
           </button>
         </div>
 
-        <div v-if="statusText" class="panel-status" :class="{ 'panel-status--error': connectionState === 'error' }">
+        <div v-if="statusText" ref="statusEl" class="panel-status" :class="{ 'panel-status--error': connectionState === 'error' }">
           <span>{{ statusText }}</span>
           <button v-if="connectionState === 'error'" type="button" @click="chat.openPanel()">Повторить</button>
         </div>
 
-        <div v-if="draftReplyPreview" class="reply-bar">
+        <div v-if="draftReplyPreview" ref="replyBarEl" class="reply-bar">
           <div class="reply-bar-text">
             <span class="reply-bar-label">Ответ на сообщение {{ draftReplyPreview.author_username }}</span>
             <span class="reply-bar-snippet">{{ draftReplyPreview.snippet || (draftReplyPreview.has_image ? 'Изображение' : 'Сообщение') }}</span>
@@ -144,7 +144,7 @@
           </button>
         </div>
 
-        <div v-if="draftImagePreviewUrl" class="image-preview">
+        <div v-if="draftImagePreviewUrl" ref="imagePreviewEl" class="image-preview">
           <div class="image-preview-div">
             <img :src="draftImagePreviewUrl" alt="Предпросмотр изображения" />
             <div class="image-preview-meta">
@@ -157,7 +157,7 @@
           </button>
         </div>
 
-        <div class="composer-shell">
+        <div ref="composerShellEl" class="composer-shell">
           <label class="tool-button tool-button--file" :class="{ 'tool-button--disabled': composerDisabled }">
             <input ref="fileInputEl" type="file" accept="image/png,image/jpeg" :disabled="composerDisabled" @change="onPickImage" >
             <img :src="iconPhoto" alt="" />
@@ -312,6 +312,10 @@ const {
 } = storeToRefs(chat)
 
 const listEl = ref<HTMLElement | null>(null)
+const statusEl = ref<HTMLElement | null>(null)
+const replyBarEl = ref<HTMLElement | null>(null)
+const imagePreviewEl = ref<HTMLElement | null>(null)
+const composerShellEl = ref<HTMLElement | null>(null)
 const textareaEl = ref<HTMLTextAreaElement | null>(null)
 const composerMirrorEl = ref<HTMLElement | null>(null)
 const fileInputEl = ref<HTMLInputElement | null>(null)
@@ -344,6 +348,14 @@ let mentionSearchTimer: number | null = null
 let highlightTimer: number | null = null
 let scrollToBottomRaf: number | null = null
 let scrollToBottomFramesRemaining = 0
+let floatingChatActionsBottomRaf: number | null = null
+let visibleUnreadTargetCheckRaf: number | null = null
+let lastUserScrollIntentAt = 0
+const floatingChatActionsBottom = ref(62)
+const visibleUnreadTargetReadInFlightIds = new Set<number>()
+const USER_SCROLL_INTENT_WINDOW_MS = 4000
+const VISIBLE_UNREAD_TARGET_RATIO = 0.5
+const VISIBLE_UNREAD_TARGET_MAX_PX = 120
 const isAdmin = computed(() => String(user.user?.role || '').trim().toLowerCase() === 'admin')
 const isRoomMode = computed(() => route.name === 'room')
 
@@ -373,13 +385,7 @@ const statusText = computed(() => {
   return ''
 })
 
-const floatingChatActionsStyle = computed(() => {
-  let bottom = 62
-  if (statusText.value) bottom += 36
-  if (draftReplyPreview.value) bottom += 56
-  if (draftImagePreviewUrl.value) bottom += 60
-  return { bottom: `${bottom}px` }
-})
+const floatingChatActionsStyle = computed(() => ({ bottom: `${floatingChatActionsBottom.value}px` }))
 
 const composerDisabled = computed(() => {
   return connectionState.value !== 'ready'
@@ -434,6 +440,107 @@ function isNearBottom(): boolean {
 function updateScrollState(): void {
   listAtTop.value = isNearTop()
   stickToBottom.value = isNearBottom()
+}
+
+function readElementHeight(element: HTMLElement | null): number {
+  return element?.offsetHeight || 0
+}
+
+function floatingChatActionsGap(): number {
+  return window.innerWidth <= 1280 ? 8 : 10
+}
+
+function syncFloatingChatActionsBottom(): void {
+  if (!chat.open) {
+    floatingChatActionsBottom.value = 62
+    return
+  }
+
+  floatingChatActionsBottom.value = floatingChatActionsGap()
+    + readElementHeight(composerShellEl.value)
+    + readElementHeight(imagePreviewEl.value)
+    + readElementHeight(replyBarEl.value)
+    + readElementHeight(statusEl.value)
+}
+
+function cancelScheduledFloatingChatActionsBottomSync(): void {
+  if (floatingChatActionsBottomRaf !== null) {
+    window.cancelAnimationFrame(floatingChatActionsBottomRaf)
+    floatingChatActionsBottomRaf = null
+  }
+}
+
+function scheduleFloatingChatActionsBottomSync(): void {
+  cancelScheduledFloatingChatActionsBottomSync()
+  floatingChatActionsBottomRaf = window.requestAnimationFrame(() => {
+    floatingChatActionsBottomRaf = null
+    syncFloatingChatActionsBottom()
+  })
+}
+
+function markUserScrollIntent(): void {
+  lastUserScrollIntentAt = Date.now()
+}
+
+function hasRecentUserScrollIntent(): boolean {
+  return Date.now() - lastUserScrollIntentAt <= USER_SCROLL_INTENT_WINDOW_MS
+}
+
+function isUnreadTargetVisible(messageId: number): boolean {
+  const list = listEl.value
+  const element = findMessageElement(messageId)
+  if (!list || !element) return false
+
+  const listRect = list.getBoundingClientRect()
+  const messageRect = element.getBoundingClientRect()
+  const visibleHeight = Math.min(messageRect.bottom, listRect.bottom) - Math.max(messageRect.top, listRect.top)
+  if (visibleHeight <= 0) return false
+
+  const requiredVisibleHeight = Math.min(messageRect.height * VISIBLE_UNREAD_TARGET_RATIO, VISIBLE_UNREAD_TARGET_MAX_PX)
+  return visibleHeight >= requiredVisibleHeight
+}
+
+function cancelScheduledVisibleUnreadTargetCheck(): void {
+  if (visibleUnreadTargetCheckRaf !== null) {
+    window.cancelAnimationFrame(visibleUnreadTargetCheckRaf)
+    visibleUnreadTargetCheckRaf = null
+  }
+}
+
+async function markVisibleUnreadTargetsRead(): Promise<void> {
+  if (!chat.open || !hasRecentUserScrollIntent()) return
+
+  const visibleMessageIds = unreadTargetMessageIds.value.filter((messageId) => (
+    !visibleUnreadTargetReadInFlightIds.has(messageId) && isUnreadTargetVisible(messageId)
+  ))
+  if (visibleMessageIds.length === 0) return
+
+  for (const messageId of visibleMessageIds) {
+    visibleUnreadTargetReadInFlightIds.add(messageId)
+  }
+
+  for (const messageId of visibleMessageIds) {
+    try {
+      if (!chat.open) return
+      await chat.markAlertRead(messageId)
+    } finally {
+      visibleUnreadTargetReadInFlightIds.delete(messageId)
+    }
+  }
+
+  if (chat.open && unreadTargetMessageIds.value.length > 0 && hasRecentUserScrollIntent()) {
+    scheduleVisibleUnreadTargetReadCheck()
+  }
+}
+
+function scheduleVisibleUnreadTargetReadCheck(): void {
+  if (!chat.open || !hasRecentUserScrollIntent() || unreadTargetMessageIds.value.length === 0) return
+  if (visibleUnreadTargetCheckRaf !== null) return
+
+  visibleUnreadTargetCheckRaf = window.requestAnimationFrame(() => {
+    visibleUnreadTargetCheckRaf = null
+    void markVisibleUnreadTargetsRead()
+  })
 }
 
 function focusComposer(): void {
@@ -942,9 +1049,11 @@ function scrollToMessage(messageId: number, withHighlight = false): boolean {
 
 function onListScroll(): void {
   updateScrollState()
+  scheduleVisibleUnreadTargetReadCheck()
 }
 
 async function onLoadMore(): Promise<void> {
+  markUserScrollIntent()
   const list = listEl.value
   const previousHeight = list?.scrollHeight || 0
   const previousTop = list?.scrollTop || 0
@@ -953,6 +1062,7 @@ async function onLoadMore(): Promise<void> {
   await nextTick()
   list.scrollTop = previousTop + (list.scrollHeight - previousHeight)
   updateScrollState()
+  scheduleVisibleUnreadTargetReadCheck()
 }
 
 function onReply(messageId: number): void {
@@ -1083,6 +1193,7 @@ async function onJumpToUnreadTarget(): Promise<void> {
 }
 
 function onJumpToBottom(): void {
+  markUserScrollIntent()
   stickToBottom.value = true
   cancelScheduledScrollToBottom()
   scrollToBottom('smooth')
@@ -1257,9 +1368,24 @@ watch(composerPlaceholder, () => {
   syncComposerPlaceholder()
 })
 
+watch(
+  [() => chat.open, statusText, draftReplyPreview, draftImagePreviewUrl],
+  ([open]) => {
+    if (!open) return
+    void nextTick(() => {
+      scheduleFloatingChatActionsBottomSync()
+    })
+  },
+  { immediate: true },
+)
+
 watch(() => chat.open, (open) => {
   if (!open) {
     cancelScheduledScrollToBottom()
+    cancelScheduledFloatingChatActionsBottomSync()
+    cancelScheduledVisibleUnreadTargetCheck()
+    visibleUnreadTargetReadInFlightIds.clear()
+    lastUserScrollIntentAt = 0
     composerPickerOpen.value = false
     reactionPickerMessageId.value = null
     clearMentionSuggestions()
@@ -1272,17 +1398,20 @@ watch(() => chat.open, (open) => {
     syncComposerPlaceholder()
     syncComposerMirrorScroll()
     refreshMentionContext()
+    scheduleFloatingChatActionsBottomSync()
     scheduleScrollToBottom(true)
   })
 })
 
 onMounted(() => {
   window.addEventListener('keydown', onWindowKeydown)
+  window.addEventListener('resize', scheduleFloatingChatActionsBottomSync)
   stickToBottom.value = true
   void nextTick(() => {
     syncComposerPlaceholder()
     syncComposerMirrorScroll()
     refreshMentionContext()
+    scheduleFloatingChatActionsBottomSync()
     scheduleScrollToBottom(true)
     focusComposer()
   })
@@ -1290,9 +1419,13 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', onWindowKeydown)
+  window.removeEventListener('resize', scheduleFloatingChatActionsBottomSync)
   cancelScheduledScrollToBottom()
+  cancelScheduledFloatingChatActionsBottomSync()
+  cancelScheduledVisibleUnreadTargetCheck()
   clearMentionSearchTimer()
   clearHighlightTimer()
+  visibleUnreadTargetReadInFlightIds.clear()
   clearMentionSuggestions()
   closeReactionDetails()
   closeDeletedPreview()
@@ -1680,10 +1813,10 @@ onBeforeUnmount(() => {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 10px 10px 0;
+    padding: 10px;
     gap: 10px;
     min-height: 30px;
-    background-color: $graphite;
+    background-color: $lead;
     color: $fg;
     font-size: 14px;
     font-weight: bold;
@@ -1694,8 +1827,8 @@ onBeforeUnmount(() => {
       padding: 0 10px;
       height: 30px;
       border: none;
-      border-radius: 5px;
-      background-color: $lead;
+      border-radius: 999px;
+      background-color: $dark;
       color: $fg;
       cursor: pointer;
     }
@@ -2324,7 +2457,7 @@ onBeforeUnmount(() => {
       }
     }
     .panel-status {
-      padding: 5px 5px 0;
+      padding: 5px;
       gap: 5px;
       min-height: 20px;
       font-size: 11px;
