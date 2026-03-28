@@ -19,6 +19,7 @@ from ...services.global_chat import (
     fetch_global_chat_reaction_participants,
     fetch_global_chat_context,
     fetch_global_chat_page,
+    fetch_global_chat_unread_target_message_ids,
     get_global_chat_alert_user_ids,
     global_chat_send_error,
     global_chat_open_user_room,
@@ -83,6 +84,7 @@ async def chat_open(sid, data):
         joined_user_room = True
         async with SessionLocal() as db:
             messages, has_more, cursor_before_id = await fetch_global_chat_page(db, viewer_user_id=uid, limit=limit)
+            unread_target_message_ids = await fetch_global_chat_unread_target_message_ids(db, user_id=uid)
             await mark_global_chat_seen(db, user_id=uid)
         with suppress(Exception):
             await emit_global_chat_unread_count(uid)
@@ -95,6 +97,7 @@ async def chat_open(sid, data):
             "messages": messages,
             "has_more": has_more,
             "cursor_before_id": cursor_before_id,
+            "unread_target_message_ids": unread_target_message_ids,
         }
     except Exception:
         if uid > 0:

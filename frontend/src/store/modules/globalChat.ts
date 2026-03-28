@@ -97,6 +97,7 @@ interface ChatAck {
   preview?: unknown
   reactions?: unknown[]
   participants?: unknown[]
+  unread_target_message_ids?: unknown[]
 }
 
 interface ChatImagePresignResponse {
@@ -121,6 +122,20 @@ function asPositiveInt(raw: unknown): number {
 
 function asString(raw: unknown): string {
   return typeof raw === 'string' ? raw : ''
+}
+
+function normalizePositiveIntList(raw: unknown): number[] {
+  if (!Array.isArray(raw)) return []
+  const out: number[] = []
+  const seen = new Set<number>()
+  for (const item of raw) {
+    const value = asPositiveInt(item)
+    if (value <= 0 || seen.has(value)) continue
+    seen.add(value)
+    out.push(value)
+  }
+  out.sort((left, right) => left - right)
+  return out
 }
 
 function defaultPermissions(): GlobalChatPermissions {
@@ -164,6 +179,7 @@ function buildClientMessageId(): string {
 export const useGlobalChatStore = defineStore('globalChat', () => {
   const open = ref(false)
   const unread = ref(0)
+  const unreadTargetMessageIds = ref<number[]>([])
   const initialized = ref(false)
   const loadingInitial = ref(false)
   const loadingMore = ref(false)
@@ -227,6 +243,20 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
 
   function clearUnreadCount(): void {
     unread.value = 0
+  }
+
+  function setUnreadTargetMessageIds(raw: unknown): void {
+    unreadTargetMessageIds.value = normalizePositiveIntList(raw)
+  }
+
+  function consumeUnreadTargetMessageId(messageId: number): void {
+    const normalizedMessageId = asPositiveInt(messageId)
+    if (normalizedMessageId <= 0) return
+    unreadTargetMessageIds.value = unreadTargetMessageIds.value.filter((id) => id !== normalizedMessageId)
+  }
+
+  function clearUnreadTargetMessageIds(): void {
+    unreadTargetMessageIds.value = []
   }
 
   function syncUnreadFromProfile(): void {
@@ -349,6 +379,7 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
     seenSyncMessageId = 0
     seenSyncInFlight = false
     open.value = false
+    unreadTargetMessageIds.value = []
     initialized.value = false
     loadingInitial.value = false
     loadingMore.value = false
@@ -373,6 +404,7 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
     closeSocket()
     resetState()
     clearUnreadCount()
+    clearUnreadTargetMessageIds()
   }
 
   function reactionSortIndex(emoji: string): number {
@@ -766,6 +798,7 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
       hasMore.value = false
       cursorBeforeId.value = null
       unread.value = 0
+      unreadTargetMessageIds.value = []
       clearReplyTarget()
       if (draftImageObjectKey.value) {
         draftImageObjectKey.value = ''
@@ -854,6 +887,7 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
       hasMore.value = Boolean(response.has_more)
       cursorBeforeId.value = asPositiveInt(response.cursor_before_id) || null
       unread.value = 0
+      setUnreadTargetMessageIds(response.unread_target_message_ids)
       initialized.value = true
       connectionState.value = 'ready'
       markMutation('reset', messages.value.length > 0 ? messages.value[messages.value.length - 1].id : null, true)
@@ -1338,6 +1372,7 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
   return {
     open,
     unread,
+    unreadTargetMessageIds,
     initialized,
     loadingInitial,
     loadingMore,
@@ -1368,6 +1403,8 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
     ensureUnreadSync,
     syncUnreadFromProfile,
     clearUnreadCount,
+    consumeUnreadTargetMessageId,
+    clearUnreadTargetMessageIds,
     openPanel,
     closePanel,
     hardReset,

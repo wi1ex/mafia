@@ -4,9 +4,14 @@
       <section v-if="chat.open" class="global-chat-panel" @click.stop>
         <header class="panel-header">
           <span class="panel-header-main">Общий чат</span>
-          <button type="button" aria-label="Закрыть" @click="chat.closePanel()">
-            <img :src="iconClose" alt="" />
-          </button>
+          <div class="panel-header-actions">
+            <button v-if="hasUnreadTargets" type="button" class="header-jump-button" @click="onJumpToUnreadTarget">
+              {{ unreadTargetsButtonLabel }}
+            </button>
+            <button type="button" aria-label="Закрыть" @click="chat.closePanel()">
+              <img :src="iconClose" alt="" />
+            </button>
+          </div>
         </header>
 
         <div ref="listEl" class="panel-list" @scroll="onListScroll">
@@ -289,6 +294,7 @@ const {
   draftImageName,
   draftImageUploaded,
   reactionParticipantsCache,
+  unreadTargetMessageIds,
   canSendCurrentDraft,
   lastMutationToken,
   lastMutationKind,
@@ -340,6 +346,13 @@ const showLauncher = computed(() => {
   return !(settings.verificationRestrictions && !user.telegramVerified);
 })
 const canRender = computed(() => settings.chatOpenEnabled && (showLauncher.value || chat.open))
+const hasUnreadTargets = computed(() => unreadTargetMessageIds.value.length > 0)
+const nextUnreadTargetMessageId = computed(() => unreadTargetMessageIds.value[0] || null)
+const unreadTargetsButtonLabel = computed(() => (
+  unreadTargetMessageIds.value.length > 1
+    ? `К ответу/@ (${unreadTargetMessageIds.value.length})`
+    : 'К ответу/@'
+))
 
 const statusText = computed(() => {
   if (loadingInitial.value) return 'Загрузка истории…'
@@ -1016,22 +1029,35 @@ async function onPurgeDeletedMessage(message: GlobalChatMessage): Promise<void> 
   }
 }
 
-async function onJumpToReply(messageId: number): Promise<void> {
+async function jumpToMessage(messageId: number, missingMessageText: string): Promise<boolean> {
   if (scrollToMessage(messageId, true)) {
     updateScrollState()
-    return
+    return true
   }
   const ok = await chat.loadContext(messageId)
   if (!ok) {
-    void alertDialog('Не удалось найти исходное сообщение.')
-    return
+    void alertDialog(missingMessageText)
+    return false
   }
   await nextTick()
   if (!scrollToMessage(messageId, true)) {
-    void alertDialog('Не удалось найти исходное сообщение.')
-    return
+    void alertDialog(missingMessageText)
+    return false
   }
   updateScrollState()
+  return true
+}
+
+async function onJumpToReply(messageId: number): Promise<void> {
+  await jumpToMessage(messageId, 'Не удалось найти исходное сообщение.')
+}
+
+async function onJumpToUnreadTarget(): Promise<void> {
+  const messageId = nextUnreadTargetMessageId.value
+  if (!messageId) return
+  const ok = await jumpToMessage(messageId, 'Не удалось найти сообщение с ответом или упоминанием.')
+  if (!ok) return
+  chat.consumeUnreadTargetMessageId(messageId)
 }
 
 function insertEmoji(emoji: string): void {
@@ -1287,6 +1313,11 @@ onBeforeUnmount(() => {
       font-size: 20px;
       font-family: Manrope-SemiBold;
     }
+                                                                                    .panel-header-actions {
+                                                                                      display: flex;
+                                                                                      align-items: center;
+                                                                                      gap: 8px;
+                                                                                    }
     button {
       display: flex;
       align-items: center;
@@ -1302,6 +1333,19 @@ onBeforeUnmount(() => {
         height: 25px;
       }
     }
+                                                                              .header-jump-button {
+                                                                                padding: 0 10px;
+                                                                                width: auto;
+                                                                                min-width: 0;
+                                                                                height: 28px;
+                                                                                border-radius: 999px;
+                                                                                background-color: rgba($dark, 0.7);
+                                                                                color: $fg;
+                                                                                font-size: 12px;
+                                                                                font-family: Manrope-SemiBold;
+                                                                                line-height: 1;
+                                                                                white-space: nowrap;
+                                                                              }
   }
   .panel-list {
     display: flex;
@@ -2078,6 +2122,9 @@ onBeforeUnmount(() => {
       .panel-header-main {
         font-size: 16px;
       }
+                                                                                .panel-header-actions {
+                                                                                  gap: 5px;
+                                                                                }
       button {
         width: 20px;
         height: 20px;
@@ -2086,6 +2133,11 @@ onBeforeUnmount(() => {
           height: 20px;
         }
       }
+                                                                                  .header-jump-button {
+                                                                                    padding: 0 8px;
+                                                                                    height: 22px;
+                                                                                    font-size: 10px;
+                                                                                  }
     }
     .panel-list {
       padding: 5px;
