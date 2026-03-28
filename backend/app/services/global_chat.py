@@ -7,6 +7,7 @@ from typing import Any, Sequence
 from uuid import UUID, uuid4
 import structlog
 from sqlalchemy import func, or_, select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..models.global_chat import GlobalChatMessage, GlobalChatMessageReaction, GlobalChatReadState
 from ..models.sanction import UserSanction

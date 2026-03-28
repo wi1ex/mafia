@@ -865,9 +865,13 @@ function onWindowKeydown(event: KeyboardEvent): void {
   }
 }
 
-function scrollToBottom(): void {
+function scrollToBottom(behavior: ScrollBehavior = 'auto'): void {
   const list = listEl.value
   if (!list) return
+  if (typeof list.scrollTo === 'function') {
+    list.scrollTo({ top: list.scrollHeight, behavior })
+    return
+  }
   list.scrollTop = list.scrollHeight
 }
 
@@ -1077,7 +1081,8 @@ async function onJumpToUnreadTarget(): Promise<void> {
 
 function onJumpToBottom(): void {
   stickToBottom.value = true
-  scheduleScrollToBottom(true)
+  cancelScheduledScrollToBottom()
+  scrollToBottom('smooth')
 }
 
 function insertEmoji(emoji: string): void {
