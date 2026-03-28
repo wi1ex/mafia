@@ -370,11 +370,7 @@ const canRender = computed(() => settings.chatOpenEnabled && (showLauncher.value
 const hasUnreadTargets = computed(() => unreadTargetMessageIds.value.length > 0)
 const nextUnreadTargetMessageId = computed(() => unreadTargetMessageIds.value[0] || null)
 const showJumpToBottomButton = computed(() => !stickToBottom.value)
-const unreadTargetsButtonLabel = computed(() => (
-  unreadTargetMessageIds.value.length > 1
-    ? `К ответу/@ (${unreadTargetMessageIds.value.length})`
-    : 'К ответу/@'
-))
+const unreadTargetsButtonLabel = computed(() => unreadTargetMessageIds.value.length)
 
 const statusText = computed(() => {
   if (loadingInitial.value) return 'Загрузка истории…'
@@ -1498,34 +1494,43 @@ onBeforeUnmount(() => {
   }
   .floating-chat-actions {
     display: flex;
-    gap: 8px;
     position: absolute;
-    right: 12px;
+    flex-direction: column;
+    right: 10px;
+    gap: 10px;
     z-index: 10;
     pointer-events: none;
     .floating-chat-action-button {
-      display: inline-flex;
+      display: flex;
+      position: relative;
       align-items: center;
       justify-content: center;
-      padding: 0 12px;
-      min-width: 0;
-      height: 32px;
+      padding: 0;
+      width: 30px;
+      height: 30px;
       border: none;
       border-radius: 999px;
-      background-color: rgba$lead;
-      box-shadow: 0 8px 20px rgba($black, 0.25);
+      background-color: $lead;
+      box-shadow: 0 15px 30px rgba($black, 0.25);
       cursor: pointer;
       pointer-events: auto;
       img {
-        width: 24px;
-        height: 24px;
+        width: 20px;
+        height: 20px;
       }
       span {
+        position: absolute;
+        top: 3px;
+        right: 3px;
+        width: 12px;
+        height: 12px;
+        border-radius: 999px;
+        background-color: $red;
         color: $fg;
-        font-size: 12px;
-        font-family: Manrope-SemiBold;
-        line-height: 1.2;
         white-space: nowrap;
+        font-family: Manrope-SemiBold;
+        font-size: 10px;
+        line-height: 1;
       }
     }
   }
@@ -2319,16 +2324,20 @@ onBeforeUnmount(() => {
       }
     }
     .floating-chat-actions {
-      right: 8px;
-      gap: 6px;
+      right: 3px;
+      gap: 5px;
       .floating-chat-action-button {
-        padding: 0 10px;
-        height: 26px;
+        width: 20px;
+        height: 20px;
         img {
-          width: 16px;
-          height: 16px;
+          width: 14px;
+          height: 14px;
         }
         span {
+          top: 1px;
+          right: 1px;
+          width: 10px;
+          height: 10px;
           font-size: 8px;
         }
       }
