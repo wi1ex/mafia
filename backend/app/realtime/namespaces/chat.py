@@ -25,6 +25,7 @@ from ...services.global_chat import (
     global_chat_open_user_room,
     get_global_chat_message,
     mark_global_chat_alert_read,
+    mark_global_chat_alert_read_for_open_users,
     mark_global_chat_seen,
     permissions_payload,
     purge_global_chat_message,
@@ -284,6 +285,12 @@ async def chat_send(sid, data):
             ack_message = await build_global_chat_message_payload(db, message_id=int(message.id), viewer_user_id=uid)
             public_message = await build_global_chat_message_payload(db, message_id=int(message.id), viewer_user_id=None)
             alert_user_ids = await get_global_chat_alert_user_ids(db, message_id=int(message.id))
+            if created and alert_user_ids:
+                await mark_global_chat_alert_read_for_open_users(
+                    db,
+                    message_id=int(message.id),
+                    user_ids=tuple(alert_user_ids),
+                )
 
         if created and public_message is not None:
             await sio.emit("chat_message_created", public_message, room=GLOBAL_CHAT_ROOM, namespace="/chat")

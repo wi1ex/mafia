@@ -218,6 +218,7 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
   let draftAssetToken = 0
   let unreadSyncInited = false
   let onUnreadCountEvent: ((event: Event) => void) | null = null
+  let autoMarkUnreadTargetsPromise: Promise<void> = Promise.resolve()
 
   const draftHasImage = computed(() => Boolean(draftImagePreviewUrl.value || draftImageName.value || draftImageObjectKey.value))
   const draftImageUploaded = computed(() => Boolean(draftImageObjectKey.value))
@@ -240,12 +241,19 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
     unread.value = Math.max(0, asPositiveInt(raw))
   }
 
+  function syncUnreadWithTargets(): void {
+    unread.value = unreadTargetMessageIds.value.length
+  }
+
   function clearUnreadCount(): void {
     unread.value = 0
   }
 
   function setUnreadTargetMessageIds(raw: unknown): void {
     unreadTargetMessageIds.value = normalizePositiveIntList(raw)
+    if (open.value && initialized.value) {
+      syncUnreadWithTargets()
+    }
   }
 
   function consumeUnreadTargetMessageId(messageId: number): void {
@@ -259,6 +267,10 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
   }
 
   function syncUnreadFromProfile(): void {
+    if (open.value && initialized.value) {
+      syncUnreadWithTargets()
+      return
+    }
     applyUnreadCount(useUserStore().user?.chat_unread_count)
   }
 
@@ -269,10 +281,28 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
     }
     onUnreadCountEvent = (event: Event) => {
       const payload = (event as CustomEvent)?.detail
+      if (open.value && initialized.value) {
+        syncUnreadWithTargets()
+        return
+      }
       applyUnreadCount(isRecord(payload) ? payload.count : 0)
     }
     window.addEventListener('auth-chat_unread_count', onUnreadCountEvent)
     unreadSyncInited = true
+  }
+
+  function enqueueLiveAlertAutoRead(rawMessageIds: unknown): void {
+    const messageIds = normalizePositiveIntList(rawMessageIds)
+    if (!open.value || !initialized.value || messageIds.length === 0) return
+
+    autoMarkUnreadTargetsPromise = autoMarkUnreadTargetsPromise
+      .catch(() => {})
+      .then(async () => {
+        for (const messageId of messageIds) {
+          if (!open.value || !initialized.value) return
+          await markAlertRead(messageId)
+        }
+      })
   }
 
   function markMutation(kind: MutationKind, messageId: number | null = null, forceScroll = false): void {
@@ -731,7 +761,19 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
 
     socket.on('chat_unread_targets', (payload: unknown) => {
       const messageIds = isRecord(payload) ? payload.message_ids : []
-      setUnreadTargetMessageIds(messageIds)
+      const nextMessageIds = normalizePositiveIntList(messageIds)
+      if (open.value && initialized.value) {
+        const currentMessageIds = [...unreadTargetMessageIds.value]
+        const currentMessageIdSet = new Set(currentMessageIds)
+        const liveMessageIds = nextMessageIds.filter((id) => !currentMessageIdSet.has(id))
+        if (liveMessageIds.length > 0) {
+          const liveMessageIdSet = new Set(liveMessageIds)
+          setUnreadTargetMessageIds(nextMessageIds.filter((id) => !liveMessageIdSet.has(id)))
+          enqueueLiveAlertAutoRead(liveMessageIds)
+          return
+        }
+      }
+      setUnreadTargetMessageIds(nextMessageIds)
     })
 
     socket.on('chat_message_reactions_updated', (payload: unknown) => {

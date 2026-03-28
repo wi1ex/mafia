@@ -1,7 +1,7 @@
 from __future__ import annotations
 from datetime import datetime
 from sqlalchemy import BigInteger, DateTime, ForeignKey, Index, String, Text, UniqueConstraint, func, text
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import ARRAY, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 from ..core.db import Base
 
@@ -46,4 +46,5 @@ class GlobalChatReadState(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
     last_seen_message_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     last_read_alert_message_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    read_alert_message_ids: Mapped[list[int]] = mapped_column(ARRAY(BigInteger), nullable=False, default=list, server_default=text("'{}'::bigint[]"))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
