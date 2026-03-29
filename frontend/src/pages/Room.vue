@@ -3200,13 +3200,16 @@ onBeforeUnmount(() => {
       .controls-side {
         min-width: 0;
       }
+      .controls-side.left {
+        order: 2;
+      }
       .controls-side.right {
         order: 1;
       }
       .controls {
-        order: 2;
-        margin-left: auto;
-        justify-content: flex-end;
+        order: 0;
+        margin-right: auto;
+        justify-content: flex-start;
       }
     }
     button {
