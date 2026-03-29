@@ -30,11 +30,10 @@ GLOBAL_CHAT_IMAGE_KEY_RE = re.compile(r"^[a-zA-Z0-9._/-]{3,256}$")
 GLOBAL_CHAT_MENTION_RE = re.compile(r"(?<!\S)@([a-zA-Zа-яА-ЯёЁ0-9._\-()]{2,20})(?![a-zA-Zа-яА-ЯёЁ0-9._\-()])")
 SANCTION_RULE_POINT_RE = re.compile(r"^\s*([0-9]+(?:\.[0-9]+)*)\.")
 GLOBAL_CHAT_REACTIONS_ALLOWLIST: tuple[str, ...] = (
-    "👍",
-    "👎",
+    "👍🏼",
+    "👎🏼",
     "🔥",
     "❤️",
-    "🤩",
     "😎",
     "😂",
     "🤯",
@@ -43,7 +42,6 @@ GLOBAL_CHAT_REACTIONS_ALLOWLIST: tuple[str, ...] = (
     "🤮",
     "🤡",
     "🎉",
-    "🥳",
 )
 
 SANCTION_TIMEOUT = "timeout"
