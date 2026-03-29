@@ -1509,7 +1509,7 @@ onBeforeUnmount(() => {
     display: flex;
     position: absolute;
     flex-direction: column;
-    right: 10px;
+    right: 5px;
     gap: 10px;
     z-index: 10;
     pointer-events: none;
