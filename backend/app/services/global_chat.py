@@ -272,26 +272,35 @@ async def _resolve_chat_notice_target_username(session: AsyncSession, *, user_id
     return _username_for(profiles.get(normalized_user_id), normalized_user_id)
 
 
+def _format_chat_notice_target_mention(target_username: str) -> str:
+    normalized_username = str(target_username or "").strip().lstrip("@").strip()
+    if not normalized_username:
+        return target_username
+
+    return f"@{normalized_username}"
+
+
 def build_global_chat_sanction_issued_text(*, target_username: str, kind: str, reason: str, duration_label: str | None = None) -> str:
     kind_value = str(kind or "").strip().lower()
+    target_mention = _format_chat_notice_target_mention(target_username)
     details = _format_sanction_reason_details(reason)
     duration = str(duration_label or "").strip()
     if kind_value == SANCTION_SUSPEND:
-        base = f"Пользователь {target_username} отстранен от игр"
+        base = f"Пользователь {target_mention} отстранен от игр"
         if duration:
             base += f" на {duration}"
         return f"{base}{details}"
 
     if kind_value == SANCTION_TIMEOUT:
-        base = f"Пользователь {target_username} получил таймаут"
+        base = f"Пользователь {target_mention} получил таймаут"
         if duration:
             base += f" на {duration}"
         return f"{base}{details}"
 
     if kind_value == SANCTION_BAN:
-        return f"Пользователь {target_username} был забанен{details}"
+        return f"Пользователь {target_mention} был забанен{details}"
 
-    base = f"Пользователь {target_username} получил {_sanction_kind_label(kind)}"
+    base = f"Пользователь {target_mention} получил {_sanction_kind_label(kind)}"
     if duration:
         base += f" на {duration}"
     return f"{base}{details}"
@@ -300,33 +309,34 @@ def build_global_chat_sanction_issued_text(*, target_username: str, kind: str, r
 def build_global_chat_sanction_removed_text(*, target_username: str, kind: str, reason: str, source: str, remaining_duration_label: str | None = None) -> str:
     source_value = str(source or "").strip().lower()
     kind_value = str(kind or "").strip().lower()
+    target_mention = _format_chat_notice_target_mention(target_username)
     if source_value == "expired":
         if kind_value == SANCTION_TIMEOUT:
-            return f"У пользователя {target_username} истек срок таймаута"
+            return f"У пользователя {target_mention} истек срок таймаута"
 
         if kind_value == SANCTION_SUSPEND:
-            return f"У пользователя {target_username} истек срок отстранения от игр"
+            return f"У пользователя {target_mention} истек срок отстранения от игр"
 
-        return f"У пользователя {target_username} истек срок {_sanction_kind_label(kind)}"
+        return f"У пользователя {target_mention} истек срок {_sanction_kind_label(kind)}"
 
     if source_value == "game":
         if kind_value == SANCTION_SUSPEND:
-            return f"У пользователя {target_username} истек срок отстранения от игр (после проведенной игры)"
+            return f"У пользователя {target_mention} истек срок отстранения от игр (после проведенной игры)"
 
-        return f"У пользователя {target_username} истек срок {_sanction_kind_label(kind)} (после проведенной игры)"
+        return f"У пользователя {target_mention} истек срок {_sanction_kind_label(kind)} (после проведенной игры)"
 
     remaining = str(remaining_duration_label or "").strip()
     remaining_suffix = f" (раньше срока на {remaining})" if remaining else ""
     if kind_value == SANCTION_TIMEOUT:
-        return f"У пользователя {target_username} досрочно снят таймаут{remaining_suffix}"
+        return f"У пользователя {target_mention} досрочно снят таймаут{remaining_suffix}"
 
     if kind_value == SANCTION_SUSPEND:
-        return f"У пользователя {target_username} досрочно снято отстранение от игр{remaining_suffix}"
+        return f"У пользователя {target_mention} досрочно снято отстранение от игр{remaining_suffix}"
 
     if kind_value == SANCTION_BAN:
-        return f"Пользователь {target_username} разбанен"
+        return f"Пользователь {target_mention} разбанен"
 
-    return f"У пользователя {target_username} снята {_sanction_kind_label(kind)}"
+    return f"У пользователя {target_mention} снята {_sanction_kind_label(kind)}"
 
 
 def _message_public_dict(message: GlobalChatMessage) -> dict[str, Any]:
@@ -1209,9 +1219,30 @@ async def publish_global_chat_notice(session: AsyncSession, *, author_user_id: i
     if not created:
         return None
 
+    alert_user_ids: set[int] = set()
+    try:
+        alert_user_ids = await get_global_chat_alert_user_ids(session, message_id=int(message.id))
+        if alert_user_ids:
+            await mark_global_chat_alert_read_for_open_users(
+                session,
+                message_id=int(message.id),
+                user_ids=tuple(alert_user_ids),
+            )
+    except Exception:
+        log.exception("global_chat.notice_alert_prepare_failed", message_id=int(message.id))
+
     payload = await build_global_chat_message_payload(session, message_id=int(message.id), viewer_user_id=None)
     if payload is not None:
         await sio.emit("chat_message_created", payload, room=GLOBAL_CHAT_ROOM, namespace="/chat")
+    if alert_user_ids:
+        try:
+            await emit_global_chat_unread_states(tuple(alert_user_ids))
+        except Exception:
+            log.exception(
+                "global_chat.notice_unread_emit_failed",
+                message_id=int(message.id),
+                user_ids=sorted(alert_user_ids),
+            )
 
     return payload
 
