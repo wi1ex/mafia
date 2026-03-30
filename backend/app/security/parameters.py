@@ -1,7 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
-from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.settings import settings as core_settings
 from ..models.settings import AppSettings
@@ -68,7 +68,7 @@ def set_cached_settings(snapshot: AppSettingsSnapshot) -> None:
 
 
 async def ensure_app_settings(session: AsyncSession) -> AppSettings:
-    row = await session.scalar(select(AppSettings).limit(1))
+    row = await session.get(AppSettings, 1)
     if not row:
         defaults = build_app_settings_snapshot_defaults(core_settings, default_starts=_DEFAULT_SEASON_STARTS, snapshot_cls=AppSettingsSnapshot)
         row = AppSettings(
@@ -103,8 +103,16 @@ async def ensure_app_settings(session: AsyncSession) -> AppSettings:
             wink_spot_chance_percent=defaults.wink_spot_chance_percent,
         )
         session.add(row)
-        await session.commit()
-        await session.refresh(row)
+
+        try:
+            await session.commit()
+        except IntegrityError:
+            await session.rollback()
+            row = await session.get(AppSettings, 1)
+            if row is None:
+                raise
+        else:
+            await session.refresh(row)
     else:
         changed = False
         normalized_season_csv, _ = normalize_season_start_value(getattr(row, "season_start_game_number", None), default_starts=_DEFAULT_SEASON_STARTS)

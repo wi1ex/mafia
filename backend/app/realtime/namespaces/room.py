@@ -110,8 +110,8 @@ from ..utils import (
     compute_farewell_allowed,
     perform_game_end,
     maybe_end_game_if_room_presence_low,
-    _cancel_host_blur_auto_task,
-    _schedule_host_blur_auto_off,
+    cancel_host_blur_auto_task,
+    schedule_host_blur_auto_off,
     finish_game,
     record_spectator_leave,
     maybe_emit_vote_presence_break,
@@ -679,13 +679,13 @@ async def game_host_blur(sid, data) -> GameHostBlurAck:
                 f"room:{ctx.rid}:game_state",
                 mapping={"host_blur": "1", "host_blur_started_at": str(started_at)},
             )
-            _schedule_host_blur_auto_off(ctx.rid, started_at)
+            schedule_host_blur_auto_off(ctx.rid, started_at)
         else:
             await ctx.r.hset(
                 f"room:{ctx.rid}:game_state",
                 mapping={"host_blur": "0", "host_blur_started_at": "0"},
             )
-            _cancel_host_blur_auto_task(ctx.rid)
+            cancel_host_blur_auto_task(ctx.rid)
         await sio.emit(
             "game_host_blur",
             {"room_id": ctx.rid, "enabled": want},

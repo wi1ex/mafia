@@ -148,6 +148,10 @@ __all__ = [
     "smembers_ints",
     "hkeys_ints",
     "hgetall_int_map",
+    "maybe_finish_game_after_death",
+    "sync_user_active_alive_game_marker",
+    "cancel_host_blur_auto_task",
+    "schedule_host_blur_auto_off",
 ]
 
 log = structlog.get_logger()
@@ -277,14 +281,14 @@ async def sync_user_active_alive_game_marker(r, rid: int, user_id: int, *, emit:
     return False
 
 
-def _cancel_host_blur_auto_task(rid: int) -> None:
+def cancel_host_blur_auto_task(rid: int) -> None:
     task = _host_blur_auto_tasks.pop(rid, None)
     if task and not task.done():
         task.cancel()
 
 
-def _schedule_host_blur_auto_off(rid: int, started_at: int) -> None:
-    _cancel_host_blur_auto_task(rid)
+def schedule_host_blur_auto_off(rid: int, started_at: int) -> None:
+    cancel_host_blur_auto_task(rid)
     task: asyncio.Task[None] | None = None
 
     async def _runner() -> None:

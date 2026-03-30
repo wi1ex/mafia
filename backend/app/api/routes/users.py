@@ -1,7 +1,7 @@
 from __future__ import annotations
 from contextlib import suppress
 from typing import cast, Literal
-from sqlalchemy import select, update, exists, func, literal, and_
+from sqlalchemy import select, update, exists, func, literal, and_, case
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Response
 from ..utils import (
@@ -572,7 +572,7 @@ async def search_chat_mentions(query: str, limit: int = CHAT_MENTION_LIMIT_DEFAU
             func.lower(User.username).like(f"{query_lower}%"),
         )
         .order_by(
-            (func.lower(User.username) == query_lower).desc(),
+            case((func.lower(User.username) == query_lower, 0), else_=1).asc(),
             func.length(User.username).asc(),
             func.lower(User.username).asc(),
             User.id.asc(),

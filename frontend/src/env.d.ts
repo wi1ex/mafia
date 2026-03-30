@@ -14,3 +14,7 @@ declare module '*.vue' {
   const component: DefineComponent<{}, {}, any>
   export default component
 }
+
+declare module '@livekit/throws-transformer/throws' {
+  export type Throws<T, _E = never> = T
+}
