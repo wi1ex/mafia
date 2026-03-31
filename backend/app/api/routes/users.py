@@ -63,6 +63,7 @@ from ...schemas.user import (
 from ...security.passwords import hash_password, verify_password
 from ...services.global_chat import count_global_chat_unread, global_chat_send_error, resolve_global_chat_permissions
 from ...services.global_chat import (
+    emit_global_chat_messages_refresh,
     emit_global_chat_permissions_updated,
     ensure_global_chat_image_owned_by_user,
     is_global_chat_image_referenced,
@@ -555,6 +556,7 @@ async def update_username(payload: UsernameUpdateIn, ident: Identity = Depends(g
     )
 
     await broadcast_creator_rooms(uid, update_name=new)
+    await emit_global_chat_messages_refresh()
     return UsernameUpdateOut(username=new)
 
 

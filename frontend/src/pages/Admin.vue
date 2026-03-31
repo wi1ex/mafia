@@ -293,7 +293,7 @@
                   </div>
                 </div>
                 <div class="stats-daily-block">
-                  <div class="stats-mini-title">Активные пользователи по дням</div>
+                  <div class="stats-mini-title">Актив по дням (входившие в комнаты)</div>
                   <div v-if="stats.active_users_by_day.length === 0" class="muted">Нет данных</div>
                   <div v-else class="chart-body">
                     <div class="chart-axis">

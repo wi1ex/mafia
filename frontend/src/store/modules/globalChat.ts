@@ -804,6 +804,11 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
       markMutation('reset')
     })
 
+    socket.on('chat_refresh_requested', () => {
+      if (!open.value || connectionState.value === 'idle') return
+      void bootstrap()
+    })
+
     socket.on('chat_permissions_updated', (payload: unknown) => {
       if (!open.value) return
       if (isRecord(payload) && payload.refresh) {

@@ -1,7 +1,7 @@
 from __future__ import annotations
 from datetime import datetime
 from sqlalchemy import BigInteger, DateTime, ForeignKey, Index, String, Text, UniqueConstraint, func, text
-from sqlalchemy.dialects.postgresql import ARRAY, UUID
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 from ..core.db import Base
 
@@ -22,6 +22,7 @@ class GlobalChatMessage(Base):
     deleted_by_user_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     reply_to_message_id: Mapped[int | None] = mapped_column(ForeignKey("global_chat_messages.id", ondelete="SET NULL"), nullable=True, index=True)
     image_object_key: Mapped[str | None] = mapped_column(Text, nullable=True)
+    mention_spans: Mapped[list[dict]] = mapped_column(JSONB, nullable=False, default=list, server_default="[]")
 
 
 class GlobalChatMessageReaction(Base):

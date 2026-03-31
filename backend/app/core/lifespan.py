@@ -25,6 +25,14 @@ async def lifespan(app) -> AsyncIterator[None]:
         async with engine.begin() as conn:
             await conn.execute(text("SELECT 1"))
             await conn.run_sync(Base.metadata.create_all)
+            await conn.execute(
+                text(
+                    """
+                    ALTER TABLE global_chat_messages
+                    ADD COLUMN IF NOT EXISTS mention_spans JSONB NOT NULL DEFAULT '[]'::jsonb
+                    """
+                )
+            )
         async with SessionLocal() as session:
             await ensure_app_settings(session)
     except Exception:
