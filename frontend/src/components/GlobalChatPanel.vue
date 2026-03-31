@@ -350,9 +350,12 @@ let scrollToBottomRaf: number | null = null
 let scrollToBottomFramesRemaining = 0
 let floatingChatActionsBottomRaf: number | null = null
 let visibleUnreadTargetCheckRaf: number | null = null
+let unreadTargetsOpenSettleToken = 0
 let lastUserScrollIntentAt = 0
 let visibleUnreadTargetAutoReadSuppressedUntil = 0
 const floatingChatActionsBottom = ref(62)
+const unreadTargetVisibilityTick = ref(0)
+const unreadTargetsOpenSettlePending = ref(false)
 const visibleUnreadTargetReadInFlightIds = new Set<number>()
 const USER_SCROLL_INTENT_WINDOW_MS = 4000
 const VISIBLE_UNREAD_TARGET_RATIO = 0.5
@@ -368,10 +371,17 @@ const showLauncher = computed(() => {
   return !(settings.verificationRestrictions && !user.telegramVerified);
 })
 const canRender = computed(() => settings.chatOpenEnabled && (showLauncher.value || chat.open))
-const hasUnreadTargets = computed(() => unreadTargetMessageIds.value.length > 0)
-const nextUnreadTargetMessageId = computed(() => unreadTargetMessageIds.value[unreadTargetMessageIds.value.length - 1] || null)
+const hiddenUnreadTargetMessageIds = computed(() => {
+  unreadTargetVisibilityTick.value
+  if (!chat.open) {
+    return [...unreadTargetMessageIds.value]
+  }
+  return unreadTargetMessageIds.value.filter((messageId) => !isUnreadTargetVisible(messageId))
+})
+const hasUnreadTargets = computed(() => !unreadTargetsOpenSettlePending.value && hiddenUnreadTargetMessageIds.value.length > 0)
+const nextUnreadTargetMessageId = computed(() => hiddenUnreadTargetMessageIds.value[hiddenUnreadTargetMessageIds.value.length - 1] || null)
 const showJumpToBottomButton = computed(() => !stickToBottom.value)
-const unreadTargetsButtonLabel = computed(() => unreadTargetMessageIds.value.length)
+const unreadTargetsButtonLabel = computed(() => hiddenUnreadTargetMessageIds.value.length)
 
 const statusText = computed(() => {
   if (loadingInitial.value) return 'Загрузка истории…'
@@ -437,6 +447,7 @@ function isNearBottom(): boolean {
 function updateScrollState(): void {
   listAtTop.value = isNearTop()
   stickToBottom.value = isNearBottom()
+  unreadTargetVisibilityTick.value += 1
 }
 
 function readElementHeight(element: HTMLElement | null): number {
@@ -492,6 +503,12 @@ function isVisibleUnreadTargetAutoReadSuppressed(): boolean {
   return Date.now() < visibleUnreadTargetAutoReadSuppressedUntil
 }
 
+function waitForAnimationFrame(): Promise<void> {
+  return new Promise((resolve) => {
+    window.requestAnimationFrame(() => resolve())
+  })
+}
+
 function isUnreadTargetVisible(messageId: number): boolean {
   const list = listEl.value
   const element = findMessageElement(messageId)
@@ -513,8 +530,10 @@ function cancelScheduledVisibleUnreadTargetCheck(): void {
   }
 }
 
-async function markVisibleUnreadTargetsRead(): Promise<void> {
-  if (!chat.open || !hasRecentUserScrollIntent() || isVisibleUnreadTargetAutoReadSuppressed()) return
+async function markVisibleUnreadTargetsRead(options: { requireUserScrollIntent?: boolean } = {}): Promise<void> {
+  const requireUserScrollIntent = options.requireUserScrollIntent !== false
+  if (!chat.open) return
+  if (requireUserScrollIntent && (!hasRecentUserScrollIntent() || isVisibleUnreadTargetAutoReadSuppressed())) return
 
   const visibleMessageIds = unreadTargetMessageIds.value.filter((messageId) => (
     !visibleUnreadTargetReadInFlightIds.has(messageId) && isUnreadTargetVisible(messageId)
@@ -534,19 +553,42 @@ async function markVisibleUnreadTargetsRead(): Promise<void> {
     }
   }
 
-  if (chat.open && unreadTargetMessageIds.value.length > 0 && hasRecentUserScrollIntent()) {
-    scheduleVisibleUnreadTargetReadCheck()
+  if (chat.open && unreadTargetMessageIds.value.length > 0 && (!requireUserScrollIntent || hasRecentUserScrollIntent())) {
+    scheduleVisibleUnreadTargetReadCheck({ requireUserScrollIntent })
   }
 }
 
-function scheduleVisibleUnreadTargetReadCheck(): void {
-  if (!chat.open || !hasRecentUserScrollIntent() || isVisibleUnreadTargetAutoReadSuppressed() || unreadTargetMessageIds.value.length === 0) return
+function scheduleVisibleUnreadTargetReadCheck(options: { requireUserScrollIntent?: boolean } = {}): void {
+  const requireUserScrollIntent = options.requireUserScrollIntent !== false
+  if (!chat.open || unreadTargetMessageIds.value.length === 0) return
+  if (requireUserScrollIntent && (!hasRecentUserScrollIntent() || isVisibleUnreadTargetAutoReadSuppressed())) return
   if (visibleUnreadTargetCheckRaf !== null) return
 
   visibleUnreadTargetCheckRaf = window.requestAnimationFrame(() => {
     visibleUnreadTargetCheckRaf = null
-    void markVisibleUnreadTargetsRead()
+    void markVisibleUnreadTargetsRead({ requireUserScrollIntent })
   })
+}
+
+async function settleUnreadTargetsAfterOpen(): Promise<void> {
+  const token = ++unreadTargetsOpenSettleToken
+  unreadTargetsOpenSettlePending.value = chat.open && unreadTargetMessageIds.value.length > 0
+  if (!unreadTargetsOpenSettlePending.value) {
+    unreadTargetVisibilityTick.value += 1
+    return
+  }
+
+  await nextTick()
+  await waitForAnimationFrame()
+  await waitForAnimationFrame()
+  if (token !== unreadTargetsOpenSettleToken || !chat.open) return
+
+  unreadTargetVisibilityTick.value += 1
+  await markVisibleUnreadTargetsRead({ requireUserScrollIntent: false })
+  if (token !== unreadTargetsOpenSettleToken || !chat.open) return
+
+  unreadTargetVisibilityTick.value += 1
+  unreadTargetsOpenSettlePending.value = false
 }
 
 function focusComposer(): void {
@@ -1290,6 +1332,7 @@ watch(lastMutationToken, async () => {
   if (lastMutationKind.value === 'reset') {
     stickToBottom.value = true
     scheduleScrollToBottom(true)
+    void settleUnreadTargetsAfterOpen()
     focusComposer()
     return
   }
@@ -1388,11 +1431,13 @@ watch(
 
 watch(() => chat.open, (open) => {
   if (!open) {
+    unreadTargetsOpenSettleToken += 1
     cancelScheduledScrollToBottom()
     cancelScheduledFloatingChatActionsBottomSync()
     cancelScheduledVisibleUnreadTargetCheck()
     visibleUnreadTargetReadInFlightIds.clear()
     visibleUnreadTargetAutoReadSuppressedUntil = 0
+    unreadTargetsOpenSettlePending.value = false
     lastUserScrollIntentAt = 0
     composerPickerOpen.value = false
     reactionPickerMessageId.value = null
@@ -1411,9 +1456,14 @@ watch(() => chat.open, (open) => {
   })
 })
 
+function onWindowResize(): void {
+  scheduleFloatingChatActionsBottomSync()
+  unreadTargetVisibilityTick.value += 1
+}
+
 onMounted(() => {
   window.addEventListener('keydown', onWindowKeydown)
-  window.addEventListener('resize', scheduleFloatingChatActionsBottomSync)
+  window.addEventListener('resize', onWindowResize)
   stickToBottom.value = true
   void nextTick(() => {
     syncComposerPlaceholder()
@@ -1427,7 +1477,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', onWindowKeydown)
-  window.removeEventListener('resize', scheduleFloatingChatActionsBottomSync)
+  window.removeEventListener('resize', onWindowResize)
   cancelScheduledScrollToBottom()
   cancelScheduledFloatingChatActionsBottomSync()
   cancelScheduledVisibleUnreadTargetCheck()

@@ -1,9 +1,9 @@
 from __future__ import annotations
 import asyncio
-from contextlib import asynccontextmanager, suppress
-from typing import AsyncIterator
 import structlog
 from sqlalchemy import text
+from typing import AsyncIterator
+from contextlib import asynccontextmanager, suppress
 from ..core.db import Base, engine, SessionLocal
 from ..core.settings import settings
 from ..api.utils import emit_expired_timed_sanctions_chat_notices
