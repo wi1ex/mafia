@@ -521,6 +521,7 @@ async def state(sid, data) -> StateAck:
 
         visibility_forced_off = False
         ready_forced_off = False
+        raw_gstate = None
         if "visibility" in payload and to_bool01(payload.get("visibility")):
             try:
                 raw_gstate = await r.hgetall(f"room:{rid}:game_state")
@@ -533,13 +534,24 @@ async def state(sid, data) -> StateAck:
                 payload["visibility"] = 0
                 visibility_forced_off = True
 
-        if "ready" in payload and to_bool01(payload.get("ready")):
-            async with SessionLocal() as s:
-                active = await fetch_active_sanctions(s, uid)
-            if active.get(SANCTION_SUSPEND):
+        if "ready" in payload:
+            if raw_gstate is None:
+                try:
+                    raw_gstate = await r.hgetall(f"room:{rid}:game_state")
+                except Exception:
+                    raw_gstate = {}
+            phase = str(raw_gstate.get("phase") or "idle")
+            if phase != "idle":
                 payload = dict(payload)
                 payload.pop("ready", None)
                 ready_forced_off = True
+            elif to_bool01(payload.get("ready")):
+                async with SessionLocal() as s:
+                    active = await fetch_active_sanctions(s, uid)
+                if active.get(SANCTION_SUSPEND):
+                    payload = dict(payload)
+                    payload.pop("ready", None)
+                    ready_forced_off = True
 
         applied = await apply_state(r, rid, uid, payload)
         changed = dict(applied)

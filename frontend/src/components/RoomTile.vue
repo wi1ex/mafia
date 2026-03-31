@@ -2,7 +2,7 @@
   <div class="tile" :class="[{ speaking, mafia: redMark, 'best-move': bestMoveMarked && !redMark }, side && 'side']" tabindex="0">
     <video v-show="showVideo" :ref="(el) => videoRef(el as HTMLVideoElement | null)" playsinline autoplay muted :class="videoClass" />
 
-    <div class="icon-badge-ready" v-if="isReady(id)" aria-hidden="true">
+    <div class="icon-badge-ready" v-if="!inGame && isReady(id)" aria-hidden="true">
       <img :src="iconReadyGreen" alt="ready" />
       Готов к игре
     </div>
