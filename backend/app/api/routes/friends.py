@@ -13,7 +13,7 @@ from ...core.logging import log_action
 from ...models.friend import FriendLink, FriendCloseness
 from ...models.user import User
 from ...models.notif import Notif
-from ...realtime.utils import get_rooms_brief
+from ...realtime.utils import filter_rooms_for_viewer, get_rooms_brief
 from ...realtime.sio import sio
 from ...services.telegram import send_text_message
 from ...services.user_cache import get_user_profile_cached, get_user_profiles_cached
@@ -23,11 +23,11 @@ from ...schemas.room import RoomBriefOut
 from ...security.auth_tokens import get_identity
 from ...security.decorators import log_route, rate_limited
 from ...api.utils import (
+    active_alive_game_room_key,
     emit_rooms_upsert,
     fetch_online_user_ids,
     fetch_effective_online_user_ids,
     get_room_params_or_404,
-    get_active_alive_game_flags,
     pair,
     load_link,
     raise_missing_incoming_request_error,
@@ -36,7 +36,6 @@ from ...api.utils import (
     emit_friends_update,
     elapsed_seconds_since,
 )
-
 router = APIRouter()
 FRIEND_REMOVE_MIN_SECONDS = 10 * 60
 
@@ -99,7 +98,7 @@ async def friends_list(room_id: int | None = None, ident: Identity = Depends(get
     base_online_ids = set(await fetch_online_user_ids(r))
     online_ids = await fetch_effective_online_user_ids(r, friend_ids_all, base_online_ids=base_online_ids)
     friend_ids: list[int] = friend_ids_all
-    active_alive_game_flags = await get_active_alive_game_flags(friend_ids, redis_client=r)
+    viewer_role = str(ident.get("role") or "user")
 
     all_ids = set(friend_ids + incoming_ids + outgoing_ids)
     users_map: dict[int, dict[str, object]] = {}
@@ -164,6 +163,24 @@ async def friends_list(room_id: int | None = None, ident: Identity = Depends(get
         except Exception:
             room_by_uid = {}
 
+    active_alive_game_room_by_uid: dict[int, int] = {}
+    if friend_ids:
+        try:
+            async with r.pipeline() as p:
+                for fid in friend_ids:
+                    await p.get(active_alive_game_room_key(fid))
+                raw_active_rooms = await p.execute()
+        except Exception:
+            raw_active_rooms = [None for _ in friend_ids]
+
+        for fid, raw in zip(friend_ids, raw_active_rooms):
+            try:
+                rid = int(raw or 0)
+            except Exception:
+                rid = 0
+            if rid > 0:
+                active_alive_game_room_by_uid[int(fid)] = rid
+
     invite_room_id = int(room_id or 0)
     invited_to_room_ids: set[int] = set()
     if invite_room_id > 0 and friend_ids:
@@ -179,13 +196,20 @@ async def friends_list(room_id: int | None = None, ident: Identity = Depends(get
             invited_to_room_ids = set()
 
     rooms_map: dict[int, RoomBriefOut] = {}
-    room_ids = list({rid for rid in room_by_uid.values() if rid > 0})
+    visible_room_ids: set[int] = set()
+    room_ids = list({
+        rid
+        for rid in [*room_by_uid.values(), *active_alive_game_room_by_uid.values()]
+        if rid > 0
+    })
     if room_ids:
         items = await get_rooms_brief(r, room_ids)
+        items = await filter_rooms_for_viewer(r, items, viewer_role, uid)
         for item in items:
             try:
                 out = RoomBriefOut(**item)
                 rooms_map[int(out.id)] = out
+                visible_room_ids.add(int(out.id))
             except Exception:
                 continue
 
@@ -204,7 +228,9 @@ async def friends_list(room_id: int | None = None, ident: Identity = Depends(get
         online = fid in online_ids
         closeness = closeness_map.get(pair(uid, fid), 0)
         rid = room_by_uid.get(fid) if online else None
-        info = rooms_map.get(int(rid)) if rid else None
+        visible_rid = int(rid) if rid and int(rid) in visible_room_ids else None
+        info = rooms_map.get(visible_rid) if visible_rid else None
+        active_room_id = active_alive_game_room_by_uid.get(fid)
         return FriendsListItemOut(
             kind="online" if online else "offline",
             id=int(fid),
@@ -212,10 +238,10 @@ async def friends_list(room_id: int | None = None, ident: Identity = Depends(get
             avatar_name=avatar,
             online=online,
             closeness=closeness,
-            room_id=int(rid) if rid else None,
+            room_id=visible_rid,
             room_title=info.title if info else None,
             room_in_game=bool(info.in_game) if info else None,
-            in_active_game_as_alive_player=bool(active_alive_game_flags.get(fid)),
+            in_active_game_as_alive_player=bool(active_room_id and int(active_room_id) in visible_room_ids),
             telegram_verified=bool(user_data.get("telegram_verified")),
             tg_invites_enabled=bool(user_data.get("tg_invites_enabled")),
             room_invited=(fid in invited_to_room_ids) if invite_room_id > 0 else None,
@@ -581,9 +607,23 @@ async def invite_friend(payload: FriendInviteIn, ident: Identity = Depends(get_i
         if not bool(target.tg_invites_enabled):
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="target_telegram_invites_disabled")
 
-    active_alive_target_flags = await get_active_alive_game_flags([target_id], redis_client=r)
-    if active_alive_target_flags.get(target_id, False):
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="target_in_active_game_as_alive_player")
+    try:
+        target_active_game_room_id = int(await r.get(active_alive_game_room_key(target_id)) or 0)
+    except Exception:
+        target_active_game_room_id = 0
+    if target_active_game_room_id > 0:
+        visible_active_game_room = False
+        try:
+            active_game_room_items = await get_rooms_brief(r, [target_active_game_room_id])
+            visible_active_game_room = bool(
+                await filter_rooms_for_viewer(r, active_game_room_items, str(ident.get("role") or "user"), uid)
+            )
+        except Exception:
+            visible_active_game_room = False
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="target_in_active_game_as_alive_player" if visible_active_game_room else "target_invite_unavailable",
+        )
 
     invite_set_key = f"room:{room_id}:invited"
     in_room_now = bool(await r.sismember(f"room:{room_id}:members", str(target_id)))
