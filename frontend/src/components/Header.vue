@@ -14,6 +14,7 @@
         <span data-nosnippet>История игр</span>
       </router-link>
       <router-link v-if="user.user?.role === 'admin'" class="btn" :to="{ name: 'admin' }" aria-label="Админ-панель">
+        <img :src="iconJudge" alt="" aria-hidden="true" />
         <span data-nosnippet>Админ-панель</span>
       </router-link>
     </div>
@@ -130,6 +131,7 @@ import iconChat from "@/assets/svg/chat.svg"
 import iconLogout from '@/assets/svg/leave.svg'
 import iconProfile from "@/assets/svg/profile.svg"
 import iconArrowDown from '@/assets/svg/arrowDown.svg'
+import iconJudge from '@/assets/svg/judge.svg'
 
 const auth = useAuthStore()
 const user = useUserStore()

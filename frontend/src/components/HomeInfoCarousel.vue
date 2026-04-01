@@ -110,34 +110,33 @@
                 </a>
                 <span class="action-note">Откроется Telegram в новой вкладке.</span>
               </div>
+
+              <div class="carousel-controls">
+                <button type="button" class="nav-btn" aria-label="Предыдущий блок" @click="goPrevious(true)">
+                  <img class="nav-icon nav-icon--prev" :src="iconArrowDown" alt="" aria-hidden="true" />
+                </button>
+
+                <button type="button" class="carousel-dot" :class="{ active: activeIndex === 0 }" aria-label="Показать блок установки"
+                        :aria-current="activeIndex === 0 ? 'true' : undefined" @click="goTo(0, true)" />
+                <button type="button" class="carousel-dot" :class="{ active: activeIndex === 1 }" aria-label="Показать блок поддержки"
+                        :aria-current="activeIndex === 1 ? 'true' : undefined" @click="goTo(1, true)" />
+                <button type="button" class="carousel-dot" :class="{ active: activeIndex === 2 }" aria-label="Показать блок контактов"
+                        :aria-current="activeIndex === 2 ? 'true' : undefined" @click="goTo(2, true)" />
+
+                <button type="button" class="nav-btn" aria-label="Следующий блок" @click="goNext(true)">
+                  <img class="nav-icon nav-icon--next" :src="iconArrowDown" alt="" aria-hidden="true" />
+                </button>
+              </div>
             </div>
           </div>
         </article>
       </Transition>
-    </div>
-
-    <div class="carousel-controls">
-      <button type="button" class="nav-btn" aria-label="Предыдущий блок" @click="goPrevious(true)">
-        <img class="nav-icon nav-icon--prev" :src="iconArrowDown" alt="" aria-hidden="true" />
-      </button>
-
-      <button type="button" class="carousel-dot" :class="{ active: activeIndex === 0 }" aria-label="Показать блок установки"
-              :aria-current="activeIndex === 0 ? 'true' : undefined" @click="goTo(0, true)" />
-      <button type="button" class="carousel-dot" :class="{ active: activeIndex === 1 }" aria-label="Показать блок поддержки"
-              :aria-current="activeIndex === 1 ? 'true' : undefined" @click="goTo(1, true)" />
-      <button type="button" class="carousel-dot" :class="{ active: activeIndex === 2 }" aria-label="Показать блок контактов"
-              :aria-current="activeIndex === 2 ? 'true' : undefined" @click="goTo(2, true)" />
-
-      <button type="button" class="nav-btn" aria-label="Следующий блок" @click="goNext(true)">
-        <img class="nav-icon nav-icon--next" :src="iconArrowDown" alt="" aria-hidden="true" />
-      </button>
     </div>
   </section>
 </template>
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-
 import { isPwaMode } from '@/services/pwa'
 
 import iconArrowDown from '@/assets/svg/arrowDown.svg'
@@ -315,8 +314,6 @@ onBeforeUnmount(() => {
   flex-direction: column;
   width: 100%;
   height: 100%;
-  padding: 10px;
-  gap: 10px;
   box-sizing: border-box;
   outline: none;
   .carousel-viewport {
@@ -328,14 +325,11 @@ onBeforeUnmount(() => {
     position: relative;
     width: 100%;
     height: 100%;
-    border-radius: 20px;
     overflow: hidden;
-    box-shadow: 0 15px 30px rgba($black, 0.25);
     &::before {
       content: '';
       position: absolute;
       inset: 0;
-      border-radius: inherit;
     }
     &.slide--install::before {
       background:
@@ -358,8 +352,6 @@ onBeforeUnmount(() => {
     .slide-surface {
       position: absolute;
       inset: 1px;
-      border: 1px solid $grey;
-      border-radius: 20px;
       background:
         linear-gradient(180deg, rgba($white, 0.04), rgba($bg, 0.2)),
         linear-gradient(180deg, rgba($dark, 0.46), rgba($bg, 0.18));
@@ -407,7 +399,7 @@ onBeforeUnmount(() => {
       }
     }
     .slide-index {
-      background-color: $lead;
+      background-color: $dark;
       color: $fg;
     }
     .slide-copy {
