@@ -33,10 +33,10 @@
               </div>
 
               <div class="slide-actions">
-                <button type="button" class="primary-btn" @click="openInstall">
-                  Установить платформу
+                <button type="button" class="primary-btn" :disabled="installButtonDisabled" @click="openInstall">
+                  {{ installButtonLabel }}
                 </button>
-                <span class="action-note">Откроется встроенное окно с инструкцией по установке.</span>
+                <span class="action-note">{{ installActionNote }}</span>
               </div>
             </div>
           </div>
@@ -66,10 +66,10 @@
               </div>
 
               <div class="slide-actions">
-                <button type="button" class="primary-btn" @click="openSupport">
+                <a class="primary-btn" :href="supportLink" target="_blank" rel="noopener noreferrer">
                   Поддержать проект
-                </button>
-                <span class="action-note">Откроется окно поддержки с переходом на официальный сервис.</span>
+                </a>
+                <span class="action-note">Откроется официальный сервис поддержки в новой вкладке.</span>
               </div>
             </div>
           </div>
@@ -105,10 +105,10 @@
               </div>
 
               <div class="slide-actions">
-                <button type="button" class="primary-btn" @click="openContacts">
+                <a class="primary-btn" :href="contactsLink" target="_blank" rel="noopener noreferrer">
                   Связаться с командой
-                </button>
-                <span class="action-note">Откроется окно с переходом в Telegram.</span>
+                </a>
+                <span class="action-note">Откроется Telegram в новой вкладке.</span>
               </div>
             </div>
           </div>
@@ -132,19 +132,13 @@
         <img class="nav-icon nav-icon--next" :src="iconArrowDown" alt="" aria-hidden="true" />
       </button>
     </div>
-
-    <AppModal v-model:open="installOpen" />
-    <SupportModal v-model:open="supportOpen" :support-link="supportLink" />
-    <ContactsModal v-model:open="contactsOpen" :contacts-link="contactsLink" />
   </section>
 </template>
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
-import AppModal from '@/components/AppModal.vue'
-import ContactsModal from '@/components/ContactsModal.vue'
-import SupportModal from '@/components/SupportModal.vue'
+import { isPwaMode } from '@/services/pwa'
 
 import iconArrowDown from '@/assets/svg/arrowDown.svg'
 import iconCard from '@/assets/svg/card.svg'
@@ -160,9 +154,8 @@ const hovered = ref(false)
 const focused = ref(false)
 const documentHidden = ref(false)
 const prefersReducedMotion = ref(false)
-const installOpen = ref(false)
-const supportOpen = ref(false)
-const contactsOpen = ref(false)
+const appInstalled = ref(isPwaMode())
+const deferredInstallPrompt = ref<BeforeInstallPromptEvent | null>(null)
 
 const supportLink = 'https://t.me/tribute/app?startapp=dCvc'
 const contactsLink = 'https://t.me/wi1ex'
@@ -170,9 +163,30 @@ const contactsLink = 'https://t.me/wi1ex'
 let autoplayTimer: number | null = null
 let motionQuery: MediaQueryList | null = null
 
-const hasOpenModal = computed(() => installOpen.value || supportOpen.value || contactsOpen.value)
+type InstallPromptChoice = {
+  outcome: 'accepted' | 'dismissed'
+  platform: string
+}
+
+type BeforeInstallPromptEvent = Event & {
+  prompt: () => Promise<void>
+  userChoice: Promise<InstallPromptChoice>
+}
+
+const canPromptInstall = computed(() => !appInstalled.value && deferredInstallPrompt.value !== null)
+const installButtonDisabled = computed(() => appInstalled.value || !canPromptInstall.value)
+const installButtonLabel = computed(() => {
+  if (appInstalled.value) return 'Приложение установлено'
+  if (canPromptInstall.value) return 'Установить платформу'
+  return 'Используйте меню браузера'
+})
+const installActionNote = computed(() => {
+  if (appInstalled.value) return 'Платформа уже установлена на этом устройстве.'
+  if (canPromptInstall.value) return 'Откроется системное окно установки браузера.'
+  return 'Установка уже описана в карточках выше: используйте меню браузера или экран «Поделиться».'
+})
 const slideTransitionName = computed(() => slideDirection.value > 0 ? 'carousel-slide-forward' : 'carousel-slide-backward')
-const isPaused = computed(() => hovered.value || focused.value || documentHidden.value || prefersReducedMotion.value || hasOpenModal.value)
+const isPaused = computed(() => hovered.value || focused.value || documentHidden.value || prefersReducedMotion.value)
 
 function clearAutoplayTimer() {
   if (autoplayTimer == null) return
@@ -217,25 +231,25 @@ function goTo(index: number, userInitiated = false) {
   setActive(normalized, direction, userInitiated)
 }
 
-function closeAllModals() {
-  installOpen.value = false
-  supportOpen.value = false
-  contactsOpen.value = false
+async function openInstall() {
+  const promptEvent = deferredInstallPrompt.value
+  if (!promptEvent || appInstalled.value) return
+  deferredInstallPrompt.value = null
+  try {
+    await promptEvent.prompt()
+    await promptEvent.userChoice
+  } catch {}
 }
 
-function openInstall() {
-  closeAllModals()
-  installOpen.value = true
+function onBeforeInstallPrompt(event: Event) {
+  event.preventDefault()
+  deferredInstallPrompt.value = event as BeforeInstallPromptEvent
+  appInstalled.value = false
 }
 
-function openSupport() {
-  closeAllModals()
-  supportOpen.value = true
-}
-
-function openContacts() {
-  closeAllModals()
-  contactsOpen.value = true
+function onAppInstalled() {
+  appInstalled.value = true
+  deferredInstallPrompt.value = null
 }
 
 function onFocusOut(event: FocusEvent) {
@@ -280,11 +294,15 @@ onMounted(() => {
   prefersReducedMotion.value = motionQuery.matches
   document.addEventListener('visibilitychange', onVisibilityChange, { passive: true })
   motionQuery.addEventListener('change', onMotionChange)
+  window.addEventListener('beforeinstallprompt', onBeforeInstallPrompt)
+  window.addEventListener('appinstalled', onAppInstalled)
 })
 
 onBeforeUnmount(() => {
   clearAutoplayTimer()
   document.removeEventListener('visibilitychange', onVisibilityChange)
+  window.removeEventListener('beforeinstallprompt', onBeforeInstallPrompt)
+  window.removeEventListener('appinstalled', onAppInstalled)
   if (!motionQuery) return
   motionQuery.removeEventListener('change', onMotionChange)
   motionQuery = null
@@ -481,13 +499,18 @@ onBeforeUnmount(() => {
       font-size: 16px;
       font-family: Manrope-SemiBold;
       line-height: 1;
+      text-decoration: none;
       cursor: pointer;
-      transition: transform 0.25s ease-in-out, opacity 0.25s ease-in-out, box-shadow 0.25s ease-in-out;
+      transition: opacity 0.25s ease-in-out, box-shadow 0.25s ease-in-out;
       &:hover,
       &:focus-visible {
-        transform: translateY(-1px);
         box-shadow: 0 15px 30px rgba($black, 0.25);
         outline: none;
+      }
+      &:disabled {
+        cursor: default;
+        opacity: 0.5;
+        box-shadow: none;
       }
     }
   }
@@ -527,10 +550,9 @@ onBeforeUnmount(() => {
     border-radius: 50%;
     background: linear-gradient(180deg, rgba($lead, 0.96), rgba($graphite, 0.92));
     cursor: pointer;
-    transition: transform 0.25s ease-in-out, border-color 0.25s ease-in-out;
+    transition: opacity 0.25s ease-in-out, box-shadow 0.25s ease-in-out;
     &:hover,
     &:focus-visible {
-      transform: translateY(-1px);
       border-color: $lead;
       outline: none;
     }
@@ -557,13 +579,13 @@ onBeforeUnmount(() => {
 .carousel-slide-forward-enter-from,
 .carousel-slide-backward-leave-to {
   opacity: 0;
-  transform: translateX(25px);
+  transform: translateX(30px);
 }
 
 .carousel-slide-forward-leave-to,
 .carousel-slide-backward-enter-from {
   opacity: 0;
-  transform: translateX(-25px);
+  transform: translateX(-30px);
 }
 
 .carousel-slide-forward-enter-to,
