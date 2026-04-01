@@ -65,17 +65,6 @@
                 <p>На хостинг, поддержку сервиса, развитие продукта, улучшение UX и внедрение новых возможностей для платформы.</p>
               </div>
 
-              <div class="slide-grid">
-                <div class="info-card">
-                  <span class="info-card-title">Прозрачный переход</span>
-                  <p>Пользователь сначала видит понятный контекст в окне, а уже потом переходит на официальный сервис поддержки.</p>
-                </div>
-                <div class="info-card">
-                  <span class="info-card-title">Нативный сценарий</span>
-                  <p>Поддержка встроена в главный экран и ощущается как часть продукта, а не как внешний случайный элемент.</p>
-                </div>
-              </div>
-
               <div class="slide-actions">
                 <button type="button" class="primary-btn" @click="openSupport">
                   Поддержать проект
