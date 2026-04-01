@@ -45,7 +45,7 @@
       </div>
     </div>
 
-    <aside class="right" :class="{ 'right--admin-banner': adminBannerActive }" aria-live="polite" ref="rightEl" @pointerdown.self="selArmed = true"
+    <aside class="right" :class="{ 'right--admin-banner': adminBannerActive }" :aria-live="selectedId ? 'polite' : 'off'" ref="rightEl" @pointerdown.self="selArmed = true"
            @pointerup.self="selArmed && clearSelection()" @pointerleave.self="selArmed = false" @pointercancel.self="selArmed = false">
       <Transition name="room-panel" mode="out-in">
         <div v-if="selectedId" key="info" class="room-info">
@@ -151,7 +151,8 @@
           </div>
         </div>
 
-        <div v-else key="placeholder" class="loading-overlay">Выберите комнату для отображения информации</div>
+        <div v-else-if="pendingRoomId" key="pending" class="loading-overlay">Загрузка информации о комнате…</div>
+        <HomeInfoCarousel v-else key="placeholder" :rooms="sortedRooms" />
       </Transition>
     </aside>
   </section>
@@ -165,6 +166,7 @@ import { createPublicSocket } from '@/services/sio'
 import { alertDialog, confirmDialog } from '@/services/confirm'
 import { api } from '@/services/axios'
 import { useAuthStore, useSettingsStore, useUserStore } from '@/store'
+import HomeInfoCarousel from '@/components/HomeInfoCarousel.vue'
 import RoomModal from '@/components/RoomModal.vue'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
