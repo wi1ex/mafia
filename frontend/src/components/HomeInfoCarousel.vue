@@ -14,10 +14,7 @@
                 <span class="slide-index">01/03</span>
               </div>
 
-              <div class="slide-copy">
-                <h3>Откройте платформу как отдельное приложение</h3>
-                <p>Без адресной строки, лишних элементов браузера и постоянного ручного поиска сайта. Один жест и вы уже в игре.</p>
-              </div>
+              <h3 class="slide-copy">Откройте платформу как отдельное приложение</h3>
 
               <div class="slide-highlight">
                 <span class="slide-highlight-value">1 тап</span>
@@ -34,12 +31,6 @@
                   <p>Через меню «Поделиться» добавьте сайт на экран Домой и открывайте платформу как отдельный app-entry.</p>
                 </div>
               </div>
-
-              <ul class="slide-points">
-                <li>Подходит для мобильных устройств и настольных браузеров.</li>
-                <li>Установка не требует App Store, Google Play или отдельной регистрации.</li>
-                <li>Внутри окна уже собрана компактная пошаговая инструкция.</li>
-              </ul>
 
               <div class="slide-actions">
                 <button type="button" class="primary-btn" @click="openInstall">
@@ -62,10 +53,7 @@
                 <span class="slide-index">02/03</span>
               </div>
 
-              <div class="slide-copy">
-                <h3>Поддержка платформы напрямую влияет на её темп роста</h3>
-                <p>Через этот блок пользователь попадает в окно поддержки и дальше на официальный сервис, где можно помочь проекту без лишних шагов.</p>
-              </div>
+              <h3 class="slide-copy">Поддержка платформы напрямую влияет на её темп роста</h3>
 
               <div class="slide-highlight">
                 <span class="slide-highlight-value">Твой вклад</span>
@@ -88,12 +76,6 @@
                 </div>
               </div>
 
-              <ul class="slide-points">
-                <li>Окно открывается без ухода с главной страницы.</li>
-                <li>Внутри остаётся знакомая кнопка перехода на сервис поддержки.</li>
-                <li>Позже этот блок можно расширить спецпредложениями, акциями или анонсами.</li>
-              </ul>
-
               <div class="slide-actions">
                 <button type="button" class="primary-btn" @click="openSupport">
                   Поддержать проект
@@ -115,10 +97,7 @@
                 <span class="slide-index">03/03</span>
               </div>
 
-              <div class="slide-copy">
-                <h3>Свяжитесь с командой без поиска нужного контакта</h3>
-                <p>Вопросы по работе платформы, предложения по улучшениям, идеи по развитию и обратная связь теперь доступны прямо из главной карусели.</p>
-              </div>
+              <h3 class="slide-copy">Свяжитесь с командой без поиска нужного контакта</h3>
 
               <div class="slide-highlight">
                 <span class="slide-highlight-value">TG</span>
@@ -135,12 +114,6 @@
                   <p>Обсуждение идей по развитию, форматам взаимодействия, интеграциям и новым сценариям использования платформы.</p>
                 </div>
               </div>
-
-              <ul class="slide-points">
-                <li>Не нужно искать контакт в хедере, меню или футере.</li>
-                <li>Окно обратной связи открывается прямо из главной карусели.</li>
-                <li>Позже сюда можно добавить регламент ответа и дополнительные каналы связи.</li>
-              </ul>
 
               <div class="slide-actions">
                 <button type="button" class="primary-btn" @click="openContacts">
@@ -431,22 +404,11 @@ onBeforeUnmount(() => {
       color: $fg;
     }
     .slide-copy {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      h3 {
-        margin: 0;
-        color: $fg;
-        font-size: 20px;
-        font-family: Manrope-SemiBold;
-        line-height: 1.2;
-      }
-      p {
-        margin: 0;
-        color: $fg;
-        font-size: 14px;
-        line-height: 1.2;
-      }
+      margin: 0;
+      color: $fg;
+      font-size: 20px;
+      font-family: Manrope-SemiBold;
+      line-height: 1.2;
     }
     .slide-highlight {
       display: flex;
@@ -459,7 +421,7 @@ onBeforeUnmount(() => {
     }
     .slide-highlight-value {
       color: $white;
-      font-size: 30px;
+      font-size: 24px;
       font-family: Manrope-SemiBold;
       line-height: 1;
     }
@@ -502,31 +464,6 @@ onBeforeUnmount(() => {
       font-size: 14px;
       font-family: Manrope-SemiBold;
       line-height: 1.2;
-    }
-    .slide-points {
-      display: grid;
-      margin: 0;
-      padding: 0;
-      gap: 10px;
-      list-style: none;
-      li {
-        display: flex;
-        align-items: flex-start;
-        gap: 10px;
-        color: $fg;
-        font-size: 12px;
-        line-height: 1.2;
-        &::before {
-          content: '';
-          margin-top: 5px;
-          width: 5px;
-          min-width: 5px;
-          height: 5px;
-          border-radius: 50%;
-          background-color: $fg;
-          box-shadow: 0 0 15px $grey;
-        }
-      }
     }
     .slide-actions {
       display: flex;
