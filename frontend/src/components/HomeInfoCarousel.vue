@@ -1,26 +1,6 @@
 <template>
-  <section
-    class="home-carousel"
-    role="region"
-    aria-roledescription="carousel"
-    aria-label="Информационные блоки лобби"
-    tabindex="0"
-    @mouseenter="hovered = true"
-    @mouseleave="hovered = false"
-    @focusin="focused = true"
-    @focusout="onFocusOut"
-    @keydown="onKeydown"
-  >
-    <div class="carousel-topbar">
-      <div class="carousel-heading">
-        <span class="carousel-eyebrow">Сервисные окна</span>
-        <span class="carousel-title">Нужные действия без поиска в хедере</span>
-      </div>
-      <span class="carousel-state" :class="{ 'carousel-state--paused': isPaused }">
-        {{ autoplayStateLabel }}
-      </span>
-    </div>
-
+  <section class="home-carousel" role="region" aria-roledescription="carousel" aria-label="Информационный блок" tabindex="0"
+           @mouseenter="hovered = true" @mouseleave="hovered = false" @focusin="focused = true" @focusout="onFocusOut" @keydown="onKeydown" >
     <div class="carousel-viewport">
       <Transition :name="slideTransitionName" mode="out-in">
         <article v-if="activeIndex === 0" key="install" class="slide slide--install">
@@ -35,7 +15,6 @@
               </div>
 
               <div class="slide-copy">
-                <span class="slide-kicker">DECEIT.games / Быстрый запуск</span>
                 <h3>Откройте платформу как отдельное приложение</h3>
                 <p>Без адресной строки, лишних элементов браузера и постоянного ручного поиска сайта. Один жест и вы уже в игре.</p>
               </div>
@@ -43,13 +22,6 @@
               <div class="slide-highlight">
                 <span class="slide-highlight-value">1 тап</span>
                 <span class="slide-highlight-label">До запуска платформы с рабочего стола, панели задач или главного экрана</span>
-              </div>
-
-              <div class="slide-chip-row">
-                <span class="slide-chip">Полный экран</span>
-                <span class="slide-chip">Android</span>
-                <span class="slide-chip">iPhone / iPad</span>
-                <span class="slide-chip">Desktop</span>
               </div>
 
               <div class="slide-grid">
@@ -91,7 +63,6 @@
               </div>
 
               <div class="slide-copy">
-                <span class="slide-kicker">DECEIT.games / Развитие проекта</span>
                 <h3>Поддержка платформы напрямую влияет на её темп роста</h3>
                 <p>Через этот блок пользователь попадает в окно поддержки и дальше на официальный сервис, где можно помочь проекту без лишних шагов.</p>
               </div>
@@ -99,13 +70,6 @@
               <div class="slide-highlight">
                 <span class="slide-highlight-value">Твой вклад</span>
                 <span class="slide-highlight-label">Помогает удерживать инфраструктуру стабильной и быстрее выпускать новые улучшения</span>
-              </div>
-
-              <div class="slide-chip-row">
-                <span class="slide-chip">Стабильность</span>
-                <span class="slide-chip">Развитие</span>
-                <span class="slide-chip">Новые функции</span>
-                <span class="slide-chip">Инфраструктура</span>
               </div>
 
               <div class="info-banner info-banner--warm">
@@ -152,7 +116,6 @@
               </div>
 
               <div class="slide-copy">
-                <span class="slide-kicker">DECEIT.games / Прямая связь</span>
                 <h3>Свяжитесь с командой без поиска нужного контакта</h3>
                 <p>Вопросы по работе платформы, предложения по улучшениям, идеи по развитию и обратная связь теперь доступны прямо из главной карусели.</p>
               </div>
@@ -160,13 +123,6 @@
               <div class="slide-highlight">
                 <span class="slide-highlight-value">TG</span>
                 <span class="slide-highlight-label">Прямая точка входа для обратной связи, идей, замечаний и рабочих вопросов по платформе</span>
-              </div>
-
-              <div class="slide-chip-row">
-                <span class="slide-chip">Идеи</span>
-                <span class="slide-chip">Ошибки</span>
-                <span class="slide-chip">Предложения</span>
-                <span class="slide-chip">Сотрудничество</span>
               </div>
 
               <div class="slide-grid">
@@ -199,23 +155,20 @@
     </div>
 
     <div class="carousel-controls">
-      <div class="carousel-dots" role="group" aria-label="Навигация по информационным блокам">
-        <button type="button" class="carousel-dot" :class="{ active: activeIndex === 0 }" aria-label="Показать блок установки"
-                :aria-current="activeIndex === 0 ? 'true' : undefined" @click="goTo(0, true)" />
-        <button type="button" class="carousel-dot" :class="{ active: activeIndex === 1 }" aria-label="Показать блок поддержки"
-                :aria-current="activeIndex === 1 ? 'true' : undefined" @click="goTo(1, true)" />
-        <button type="button" class="carousel-dot" :class="{ active: activeIndex === 2 }" aria-label="Показать блок контактов"
-                :aria-current="activeIndex === 2 ? 'true' : undefined" @click="goTo(2, true)" />
-      </div>
+      <button type="button" class="nav-btn" aria-label="Предыдущий блок" @click="goPrevious(true)">
+        <img class="nav-icon nav-icon--prev" :src="iconArrowDown" alt="" aria-hidden="true" />
+      </button>
 
-      <div class="carousel-nav">
-        <button type="button" class="nav-btn" aria-label="Предыдущий блок" @click="goPrevious(true)">
-          <img class="nav-icon nav-icon--prev" :src="iconArrowDown" alt="" aria-hidden="true" />
-        </button>
-        <button type="button" class="nav-btn" aria-label="Следующий блок" @click="goNext(true)">
-          <img class="nav-icon nav-icon--next" :src="iconArrowDown" alt="" aria-hidden="true" />
-        </button>
-      </div>
+      <button type="button" class="carousel-dot" :class="{ active: activeIndex === 0 }" aria-label="Показать блок установки"
+              :aria-current="activeIndex === 0 ? 'true' : undefined" @click="goTo(0, true)" />
+      <button type="button" class="carousel-dot" :class="{ active: activeIndex === 1 }" aria-label="Показать блок поддержки"
+              :aria-current="activeIndex === 1 ? 'true' : undefined" @click="goTo(1, true)" />
+      <button type="button" class="carousel-dot" :class="{ active: activeIndex === 2 }" aria-label="Показать блок контактов"
+              :aria-current="activeIndex === 2 ? 'true' : undefined" @click="goTo(2, true)" />
+
+      <button type="button" class="nav-btn" aria-label="Следующий блок" @click="goNext(true)">
+        <img class="nav-icon nav-icon--next" :src="iconArrowDown" alt="" aria-hidden="true" />
+      </button>
     </div>
 
     <AppModal v-model:open="installOpen" />
@@ -258,13 +211,6 @@ let motionQuery: MediaQueryList | null = null
 const hasOpenModal = computed(() => installOpen.value || supportOpen.value || contactsOpen.value)
 const slideTransitionName = computed(() => slideDirection.value > 0 ? 'carousel-slide-forward' : 'carousel-slide-backward')
 const isPaused = computed(() => hovered.value || focused.value || documentHidden.value || prefersReducedMotion.value || hasOpenModal.value)
-const autoplayStateLabel = computed(() => {
-  if (hasOpenModal.value) return 'Окно открыто'
-  if (prefersReducedMotion.value) return 'Авто выключено'
-  if (documentHidden.value) return 'Вкладка неактивна'
-  if (hovered.value || focused.value) return 'Пауза'
-  return `Авто ${AUTOPLAY_DELAY_MS / 1000}с`
-})
 
 function clearAutoplayTimer() {
   if (autoplayTimer == null) return
@@ -393,46 +339,6 @@ onBeforeUnmount(() => {
   gap: 10px;
   box-sizing: border-box;
   outline: none;
-  .carousel-topbar {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 10px;
-  }
-  .carousel-heading {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-  }
-  .carousel-eyebrow {
-    color: $grey;
-    font-size: 112px;
-    text-transform: uppercase;
-  }
-  .carousel-title {
-    color: $fg;
-    font-size: 18px;
-    font-family: Manrope-SemiBold;
-    line-height: 1.2;
-  }
-  .carousel-state {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 5px 10px;
-    min-width: 100px;
-    border: 1px solid $grey;
-    border-radius: 999px;
-    background: linear-gradient(135deg, rgba($lead, 0.95), rgba($graphite, 0.85));
-    color: $grey;
-    font-size: 12px;
-    line-height: 1.2;
-    white-space: nowrap;
-    &.carousel-state--paused {
-      border-color: rgba($orange, 0.25);
-      color: $fg;
-    }
-  }
   .carousel-viewport {
     position: relative;
     flex: 1 1 auto;
@@ -528,15 +434,10 @@ onBeforeUnmount(() => {
       display: flex;
       flex-direction: column;
       gap: 10px;
-      .slide-kicker {
-        color: $ashy;
-        font-size: 12px;
-        text-transform: uppercase;
-      }
       h3 {
         margin: 0;
         color: $fg;
-        font-size: 28px;
+        font-size: 20px;
         font-family: Manrope-SemiBold;
         line-height: 1.2;
       }
@@ -558,7 +459,7 @@ onBeforeUnmount(() => {
     }
     .slide-highlight-value {
       color: $white;
-      font-size: 46px;
+      font-size: 30px;
       font-family: Manrope-SemiBold;
       line-height: 1;
     }
@@ -566,24 +467,6 @@ onBeforeUnmount(() => {
       color: $ashy;
       font-size: 12px;
       line-height: 1.2;
-    }
-    .slide-chip-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-    }
-    .slide-chip {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 5px 10px;
-      border: 1px solid $lead;
-      border-radius: 999px;
-      background: $lead;
-      color: $fg;
-      font-size: 12px;
-      line-height: 1;
-      white-space: nowrap;
     }
     .slide-grid {
       display: grid;
@@ -685,65 +568,55 @@ onBeforeUnmount(() => {
   .carousel-controls {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: center;
     gap: 10px;
   }
-  .carousel-dots {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    .carousel-dot {
-      padding: 0;
-      width: 30px;
-      height: 10px;
-      border: none;
-      border-radius: 999px;
-      background-color: $lead;
-      cursor: pointer;
-      transition: width 0.25s ease-in-out, background-color 0.25s ease-in-out;
-      &:hover,
-      &:focus-visible {
-        background-color: $ashy;
-        outline: none;
-      }
-      &.active {
-        width: 60px;
-        background-color: $fg;
-      }
+  .carousel-dot {
+    padding: 0;
+    width: 30px;
+    height: 10px;
+    border: none;
+    border-radius: 999px;
+    background-color: $lead;
+    cursor: pointer;
+    transition: width 0.25s ease-in-out, background-color 0.25s ease-in-out;
+    &:hover,
+    &:focus-visible {
+      background-color: $ashy;
+      outline: none;
+    }
+    &.active {
+      width: 60px;
+      background-color: $fg;
     }
   }
-  .carousel-nav {
-    display: flex;
+  .nav-btn {
+    display: inline-flex;
     align-items: center;
-    gap: 10px;
-    .nav-btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0;
-      width: 40px;
-      height: 40px;
-      border: 1px solid $lead;
-      border-radius: 50%;
-      background: linear-gradient(180deg, rgba($lead, 0.96), rgba($graphite, 0.92));
-      cursor: pointer;
-      transition: transform 0.25s ease-in-out, border-color 0.25s ease-in-out;
-      &:hover,
-      &:focus-visible {
-        transform: translateY(-1px);
-        border-color: $lead;
-        outline: none;
-      }
+    justify-content: center;
+    padding: 0;
+    width: 40px;
+    height: 40px;
+    border: 1px solid $lead;
+    border-radius: 50%;
+    background: linear-gradient(180deg, rgba($lead, 0.96), rgba($graphite, 0.92));
+    cursor: pointer;
+    transition: transform 0.25s ease-in-out, border-color 0.25s ease-in-out;
+    &:hover,
+    &:focus-visible {
+      transform: translateY(-1px);
+      border-color: $lead;
+      outline: none;
     }
-    .nav-icon {
-      width: 20px;
-      height: 20px;
-      &.nav-icon--prev {
-        transform: rotate(90deg);
-      }
-      &.nav-icon--next {
-        transform: rotate(-90deg);
-      }
+  }
+  .nav-icon {
+    width: 20px;
+    height: 20px;
+    &.nav-icon--prev {
+      transform: rotate(90deg);
+    }
+    &.nav-icon--next {
+      transform: rotate(-90deg);
     }
   }
 }
@@ -773,9 +646,5 @@ onBeforeUnmount(() => {
 .carousel-slide-backward-leave-from {
   opacity: 1;
   transform: translateX(0);
-}
-
-@media (max-width: 1280px) {
-
 }
 </style>
