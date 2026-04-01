@@ -110,27 +110,27 @@
                 </a>
                 <span class="action-note">Откроется Telegram в новой вкладке.</span>
               </div>
-
-              <div class="carousel-controls">
-                <button type="button" class="nav-btn" aria-label="Предыдущий блок" @click="goPrevious(true)">
-                  <img class="nav-icon nav-icon--prev" :src="iconArrowDown" alt="" aria-hidden="true" />
-                </button>
-
-                <button type="button" class="carousel-dot" :class="{ active: activeIndex === 0 }" aria-label="Показать блок установки"
-                        :aria-current="activeIndex === 0 ? 'true' : undefined" @click="goTo(0, true)" />
-                <button type="button" class="carousel-dot" :class="{ active: activeIndex === 1 }" aria-label="Показать блок поддержки"
-                        :aria-current="activeIndex === 1 ? 'true' : undefined" @click="goTo(1, true)" />
-                <button type="button" class="carousel-dot" :class="{ active: activeIndex === 2 }" aria-label="Показать блок контактов"
-                        :aria-current="activeIndex === 2 ? 'true' : undefined" @click="goTo(2, true)" />
-
-                <button type="button" class="nav-btn" aria-label="Следующий блок" @click="goNext(true)">
-                  <img class="nav-icon nav-icon--next" :src="iconArrowDown" alt="" aria-hidden="true" />
-                </button>
-              </div>
             </div>
           </div>
         </article>
       </Transition>
+
+      <div class="carousel-controls">
+        <button type="button" class="nav-btn" aria-label="Предыдущий блок" @click="goPrevious(true)">
+          <img class="nav-icon nav-icon--prev" :src="iconArrowDown" alt="" aria-hidden="true" />
+        </button>
+
+        <button type="button" class="carousel-dot" :class="{ active: activeIndex === 0 }" aria-label="Показать блок установки"
+                :aria-current="activeIndex === 0 ? 'true' : undefined" @click="goTo(0, true)" />
+        <button type="button" class="carousel-dot" :class="{ active: activeIndex === 1 }" aria-label="Показать блок поддержки"
+                :aria-current="activeIndex === 1 ? 'true' : undefined" @click="goTo(1, true)" />
+        <button type="button" class="carousel-dot" :class="{ active: activeIndex === 2 }" aria-label="Показать блок контактов"
+                :aria-current="activeIndex === 2 ? 'true' : undefined" @click="goTo(2, true)" />
+
+        <button type="button" class="nav-btn" aria-label="Следующий блок" @click="goNext(true)">
+          <img class="nav-icon nav-icon--next" :src="iconArrowDown" alt="" aria-hidden="true" />
+        </button>
+      </div>
     </div>
   </section>
 </template>
@@ -362,7 +362,7 @@ onBeforeUnmount(() => {
       position: relative;
       flex-direction: column;
       height: 100%;
-      padding: 20px;
+      padding: 20px 20px 85px;
       gap: 15px;
       box-sizing: border-box;
       overflow: auto;
@@ -507,10 +507,20 @@ onBeforeUnmount(() => {
     }
   }
   .carousel-controls {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
+      display: flex;
+      position: absolute;
+      align-items: center;
+      justify-content: center;
+      left: 50%;
+      bottom: 20px;
+      padding: 5px 10px;
+      gap: 10px;
+      border-radius: 999px;
+      background-color: $dark;
+      backdrop-filter: blur(10px);
+      transform: translateX(-50%);
+      box-shadow: 0 15px 30px rgba($black, 0.25);
+      z-index: 2;
   }
   .carousel-dot {
     padding: 0;
