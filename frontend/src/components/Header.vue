@@ -13,15 +13,6 @@
         <img :src="iconGamesHistory" alt="" aria-hidden="true" />
         <span data-nosnippet>История игр</span>
       </router-link>
-      <button class="btn" type="button" @click="openInstall" :aria-expanded="installOpen" aria-haspopup="dialog" aria-label="Установить">
-        <img :src="iconInstall" alt="" aria-hidden="true" />
-      </button>
-      <button class="btn" type="button" @click="openSupport" :aria-expanded="supportOpen" aria-haspopup="dialog" aria-label="Поддержать">
-        <img :src="iconCard" alt="" aria-hidden="true" />
-      </button>
-      <button class="btn" type="button" @click="openContacts" :aria-expanded="contactsOpen" aria-haspopup="dialog" aria-label="Контакты">
-        <img :src="iconMail" alt="" aria-hidden="true" />
-      </button>
       <router-link v-if="user.user?.role === 'admin'" class="btn" :to="{ name: 'admin' }" aria-label="Админ-панель">
         <span data-nosnippet>Админ-панель</span>
       </router-link>
@@ -116,9 +107,6 @@
       {{ adminBannerLink }}
     </a>
   </div>
-  <AppModal v-model:open="installOpen" />
-  <SupportModal v-model:open="supportOpen" :support-link="supportLink" />
-  <ContactsModal v-model:open="contactsOpen" :contacts-link="contactsLink" />
   <AuthModal v-model:open="authOpen" :mode="authMode" />
 </template>
 
@@ -128,23 +116,17 @@ import { useAuthStore, useUserStore, useNotifStore, useUpdatesStore, useFriendsS
 import Notifs from '@/components/Notifs.vue'
 import Updates from '@/components/Updates.vue'
 import FriendsPanel from '@/components/FriendsPanel.vue'
-import AppModal from '@/components/AppModal.vue'
 import AuthModal from '@/components/AuthModal.vue'
-import SupportModal from '@/components/SupportModal.vue'
-import ContactsModal from '@/components/ContactsModal.vue'
 
 import defaultAvatar from "@/assets/svg/defaultAvatar.svg"
 import iconLogo from '@/assets/svg/logo.svg'
 import iconNotifBell from "@/assets/svg/notifBell.svg"
 import iconTelegram from "@/assets/svg/telegram.svg"
-import iconMail from "@/assets/svg/mail.svg"
 import iconInfo from "@/assets/svg/info.svg"
 import iconGamesHistory from "@/assets/svg/history.svg"
 import iconUpdates from "@/assets/svg/updates.svg"
 import iconFriends from "@/assets/svg/friends.svg"
 import iconChat from "@/assets/svg/chat.svg"
-import iconCard from "@/assets/svg/card.svg"
-import iconInstall from "@/assets/svg/install.svg"
 import iconLogout from '@/assets/svg/leave.svg'
 import iconProfile from "@/assets/svg/profile.svg"
 import iconArrowDown from '@/assets/svg/arrowDown.svg'
@@ -165,16 +147,11 @@ const updates_open = ref(false)
 const updatesEl = ref<HTMLElement | null>(null)
 const um_open = ref(false)
 const userMenuEl = ref<HTMLElement | null>(null)
-const installOpen = ref(false)
-const supportOpen = ref(false)
-const contactsOpen = ref(false)
 const authOpen = ref(false)
 const authMode = ref<'login' | 'register'>('login')
 const BUILD = (import.meta.env.VITE_BUILD_ID as string || '').trim() || 'BUILD'
 const botName = (import.meta.env.VITE_TG_BOT_NAME as string || '').trim()
 const botLink = botName ? `https://t.me/${botName}` : 'https://t.me'
-const supportLink = 'https://t.me/tribute/app?startapp=dCvc'
-const contactsLink = 'https://t.me/wi1ex'
 
 type SanctionBanner = { kind: 'ban' | 'timeout' | 'suspend'; text: string }
 
@@ -273,34 +250,16 @@ function closeHeaderPanels(options: {
   keepUpdates?: boolean
   keepFriends?: boolean
   keepUserMenu?: boolean
-  keepInstall?: boolean
-  keepSupport?: boolean
-  keepContacts?: boolean
   keepAuth?: boolean
 } = {}) {
   if (!options.keepNotifs) nb_open.value = false
   if (!options.keepUpdates) updates_open.value = false
   if (!options.keepFriends) friends_open.value = false
   if (!options.keepUserMenu) um_open.value = false
-  if (!options.keepInstall) installOpen.value = false
-  if (!options.keepSupport) supportOpen.value = false
-  if (!options.keepContacts) contactsOpen.value = false
   if (!options.keepAuth) authOpen.value = false
   if (!options.keepChat && chat.open) {
     chat.closePanel()
   }
-}
-function openInstall() {
-  closeHeaderPanels({ keepInstall: true })
-  installOpen.value = true
-}
-function openSupport() {
-  closeHeaderPanels({ keepSupport: true })
-  supportOpen.value = true
-}
-function openContacts() {
-  closeHeaderPanels({ keepContacts: true })
-  contactsOpen.value = true
 }
 async function onLogoutClick() {
   closeUserMenu()

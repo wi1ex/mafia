@@ -152,7 +152,7 @@
         </div>
 
         <div v-else-if="pendingRoomId" key="pending" class="loading-overlay">Загрузка информации о комнате…</div>
-        <HomeInfoCarousel v-else key="placeholder" :rooms="sortedRooms" />
+        <HomeInfoCarousel v-else key="placeholder" />
       </Transition>
     </aside>
   </section>
