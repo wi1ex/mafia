@@ -362,7 +362,7 @@ onBeforeUnmount(() => {
       position: relative;
       flex-direction: column;
       height: 100%;
-      padding: 15px 15px 90px;
+      padding: 15px 15px 82px;
       gap: 15px;
       box-sizing: border-box;
       overflow: auto;
@@ -496,7 +496,7 @@ onBeforeUnmount(() => {
     justify-content: center;
     left: 50%;
     bottom: 15px;
-    padding: 10px 15px;
+    padding: 5px 10px;
     gap: 10px;
     border: 1px solid $graphite;
     border-radius: 999px;
