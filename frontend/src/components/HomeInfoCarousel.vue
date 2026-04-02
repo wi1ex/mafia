@@ -444,7 +444,7 @@ onBeforeUnmount(() => {
       background: linear-gradient(180deg, rgba($white, 0.1), rgba($black, 0.1));
       p {
         margin: 0;
-        color: $grey;
+        color: $ashy;
         font-size: 12px;
         line-height: 1.2;
       }
@@ -592,79 +592,82 @@ onBeforeUnmount(() => {
 
 @media (max-width: 1280px) {
   .home-carousel {
-    .carousel-viewport {
-    }
     .slide {
-      &::before {
-      }
-      &.slide--install::before {
-      }
-      &.slide--support::before {
-      }
-      &.slide--contacts::before {
-      }
-      .slide-surface {
-      }
       .slide-content {
-        &::-webkit-scrollbar {
-        }
-      }
-      .slide-head {
+        padding: 8px 8px 48px;
+        gap: 8px;
       }
       .slide-badge,
       .slide-index {
+        padding: 3px 5px;
+        gap: 3px;
+        font-size: 8px;
         img {
+          width: 12px;
+          height: 12px;
         }
       }
       .slide-copy {
+        font-size: 10px;
       }
       .slide-highlight {
+        padding: 8px;
+        gap: 3px;
+        border-radius: 10px;
       }
       .slide-highlight-value {
+        font-size: 14px;
       }
       .slide-highlight-label {
+        font-size: 7px;
       }
       .slide-grid {
+        gap: 10px;
       }
       .info-card,
       .info-banner {
+        padding: 8px;
+        gap: 3px;
+        border-radius: 10px;
         p {
+          font-size: 7px;
         }
       }
       .info-card-title,
       .info-banner-title {
-      }
-      .slide-actions {
+        font-size: 10px;
       }
       .action-note {
+        max-width: 125px;
+        font-size: 8px;
       }
       .primary-btn {
-        &:hover,
-        &:focus-visible {
-        }
-        &:disabled {
-        }
+        padding: 0 5px;
+        min-width: 125px;
+        height: 24px;
+        border-radius: 5px;
+        font-size: 10px;
       }
     }
     .carousel-controls {
+      bottom: 8px;
+      padding: 3px 5px;
+      gap: 5px;
     }
     .carousel-dot {
-      &:hover,
-      &:focus-visible {
-      }
+      width: 10px;
+      height: 5px;
       &.active {
+        width: 25px;
       }
     }
     .nav-btn {
-      &:hover,
-      &:focus-visible {
-      }
+      width: 24px;
+      height: 24px;
     }
     .nav-icon {
-      &.nav-icon--prev {
-      }
-      &.nav-icon--next {
-      }
+      width: 12px;
+      height: 12px;
     }
   }
 }
