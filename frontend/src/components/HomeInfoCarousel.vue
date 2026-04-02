@@ -23,12 +23,12 @@
 
               <div class="slide-grid">
                 <div class="info-card">
-                  <span class="info-card-title">Android / Chrome</span>
+                  <span class="info-card-title">Android — Chrome</span>
                   <p>Откройте меню браузера и выберите установку приложения или добавление на главный экран.</p>
                 </div>
                 <div class="info-card">
-                  <span class="info-card-title">iPhone / iPad</span>
-                  <p>Через меню «Поделиться» добавьте сайт на экран Домой и открывайте платформу как отдельный app-entry.</p>
+                  <span class="info-card-title">iPhone/iPad — Safari</span>
+                  <p>Через меню «Поделиться» добавьте сайт на экран Домой и открывайте платформу как отдельное приложение.</p>
                 </div>
               </div>
 
@@ -53,7 +53,7 @@
                 <span class="slide-index">02/03</span>
               </div>
 
-              <h3 class="slide-copy">Поддержка платформы напрямую влияет на её темп роста</h3>
+              <h3 class="slide-copy">Поддержка платформы влияет на темпы её роста</h3>
 
               <div class="slide-highlight">
                 <span class="slide-highlight-value">Твой вклад</span>
@@ -333,28 +333,28 @@ onBeforeUnmount(() => {
     }
     &.slide--install::before {
       background:
-        radial-gradient(circle at top right, rgba($white, 0.12), transparent 34%),
-        radial-gradient(circle at left bottom, rgba($grey, 0.18), transparent 36%),
-        linear-gradient(145deg, rgba(70, 70, 70, 0.98), rgba(24, 24, 24, 0.98));
+        radial-gradient(circle at top right, rgba($white, 0.1), transparent 34%),
+        radial-gradient(circle at left bottom, rgba($grey, 0.25), transparent 36%),
+        linear-gradient(145deg, rgba(70, 70, 70, 1), rgba(24, 24, 24, 1));
     }
     &.slide--support::before {
       background:
-        radial-gradient(circle at top left, rgba($orange, 0.26), transparent 34%),
-        radial-gradient(circle at bottom right, rgba($red, 0.18), transparent 38%),
-        linear-gradient(145deg, rgba(76, 52, 34, 0.98), rgba(28, 18, 14, 0.98));
+        radial-gradient(circle at top left, rgba($orange, 0.25), transparent 34%),
+        radial-gradient(circle at bottom right, rgba($red, 0.25), transparent 38%),
+        linear-gradient(145deg, rgba(76, 52, 34, 1), rgba(28, 18, 14, 1));
     }
     &.slide--contacts::before {
       background:
-        radial-gradient(circle at top center, rgba($green, 0.2), transparent 34%),
-        radial-gradient(circle at right bottom, rgba($white, 0.08), transparent 38%),
-        linear-gradient(145deg, rgba(34, 56, 52, 0.98), rgba(18, 26, 24, 0.98));
+        radial-gradient(circle at top center, rgba($green, 0.25), transparent 34%),
+        radial-gradient(circle at right bottom, rgba($white, 0.1), transparent 38%),
+        linear-gradient(145deg, rgba(34, 56, 52, 1), rgba(18, 26, 24, 1));
     }
     .slide-surface {
       position: absolute;
-      inset: 1px;
+      inset: 0;
       background:
-        linear-gradient(180deg, rgba($white, 0.04), rgba($bg, 0.2)),
-        linear-gradient(180deg, rgba($dark, 0.46), rgba($bg, 0.18));
+        linear-gradient(180deg, rgba($white, 0.1), rgba($bg, 0.25)),
+        linear-gradient(180deg, rgba($dark, 0.5), rgba($bg, 0.25));
       backdrop-filter: blur(10px);
     }
     .slide-content {
@@ -362,7 +362,7 @@ onBeforeUnmount(() => {
       position: relative;
       flex-direction: column;
       height: 100%;
-      padding: 20px 20px 85px;
+      padding: 15px 15px 90px;
       gap: 15px;
       box-sizing: border-box;
       overflow: auto;
@@ -376,38 +376,29 @@ onBeforeUnmount(() => {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 10px;
     }
     .slide-badge,
     .slide-index {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 10px;
+      gap: 5px;
       padding: 5px 10px;
       border-radius: 999px;
-      font-size: 12px;
+      font-size: 14px;
       line-height: 1.2;
-    }
-    .slide-badge {
       background-color: $dark;
       color: $fg;
-      border: 1px solid $grey;
       img {
-        width: 16px;
-        height: 16px;
+        width: 20px;
+        height: 20px;
       }
-    }
-    .slide-index {
-      background-color: $dark;
-      color: $fg;
     }
     .slide-copy {
       margin: 0;
       color: $fg;
       font-size: 20px;
       font-family: Manrope-SemiBold;
-      line-height: 1.2;
     }
     .slide-highlight {
       display: flex;
@@ -415,8 +406,8 @@ onBeforeUnmount(() => {
       gap: 5px;
       padding: 15px;
       border: 1px solid $lead;
-      border-radius: 20px;
-      background: linear-gradient(180deg, rgba($white, 0.06), rgba($black, 0.12));
+      border-radius: 15px;
+      background: linear-gradient(180deg, rgba($white, 0.1), rgba($black, 0.1));
     }
     .slide-highlight-value {
       color: $white;
@@ -432,17 +423,17 @@ onBeforeUnmount(() => {
     .slide-grid {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 10px;
+      gap: 15px;
     }
     .info-card,
     .info-banner {
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 5px;
       padding: 15px;
-      border: 1px solid $grey;
+      border: 1px solid $lead;
       border-radius: 15px;
-      background: linear-gradient(180deg, rgba($white, 0.05), rgba($black, 0.12));
+      background: linear-gradient(180deg, rgba($white, 0.1), rgba($black, 0.1));
       p {
         margin: 0;
         color: $fg;
@@ -453,14 +444,13 @@ onBeforeUnmount(() => {
     .info-banner {
       padding: 15px;
       &.info-banner--warm {
-        border-color: rgba($orange, 0.25);
-        box-shadow: inset 0 0 0 1px rgba($orange, 0.05);
+        border-color: rgba($orange, 0.1);
       }
     }
     .info-card-title,
     .info-banner-title {
       color: $fg;
-      font-size: 14px;
+      font-size: 16px;
       font-family: Manrope-SemiBold;
       line-height: 1.2;
     }
@@ -468,14 +458,13 @@ onBeforeUnmount(() => {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 15px;
       margin-top: auto;
     }
     .action-note {
-      max-width: 220px;
+      max-width: 250px;
+      text-align: end;
       color: $ashy;
       font-size: 12px;
-      line-height: 1.2;
     }
     .primary-btn {
       display: inline-flex;
@@ -486,18 +475,18 @@ onBeforeUnmount(() => {
       height: 40px;
       border: none;
       border-radius: 10px;
-      background: linear-gradient(135deg, rgba($fg, 1), rgba($white, 0.92));
+      background-color: $fg;
       color: $bg;
       font-size: 16px;
       font-family: Manrope-SemiBold;
-      line-height: 1;
       text-decoration: none;
+      outline: none;
       cursor: pointer;
-      transition: opacity 0.25s ease-in-out, box-shadow 0.25s ease-in-out;
+      transition: opacity 0.25s ease-in-out, box-shadow 0.25s ease-in-out, background-color 0.25s ease-in-out;
       &:hover,
       &:focus-visible {
         box-shadow: 0 15px 30px rgba($black, 0.25);
-        outline: none;
+        background-color: $white;
       }
       &:disabled {
         cursor: default;
@@ -507,37 +496,37 @@ onBeforeUnmount(() => {
     }
   }
   .carousel-controls {
-      display: flex;
-      position: absolute;
-      align-items: center;
-      justify-content: center;
-      left: 50%;
-      bottom: 20px;
-      padding: 5px 10px;
-      gap: 10px;
-      border-radius: 999px;
-      background-color: $dark;
-      backdrop-filter: blur(10px);
-      transform: translateX(-50%);
-      box-shadow: 0 15px 30px rgba($black, 0.25);
-      z-index: 2;
+    display: flex;
+    position: absolute;
+    align-items: center;
+    justify-content: center;
+    left: 50%;
+    bottom: 15px;
+    padding: 10px 15px;
+    gap: 10px;
+    border-radius: 999px;
+    background-color: $dark;
+    backdrop-filter: blur(10px);
+    transform: translateX(-50%);
+    box-shadow: 0 15px 30px rgba($black, 0.25);
+    z-index: 5;
   }
   .carousel-dot {
     padding: 0;
-    width: 30px;
+    width: 20px;
     height: 10px;
     border: none;
     border-radius: 999px;
     background-color: $lead;
+    outline: none;
     cursor: pointer;
     transition: width 0.25s ease-in-out, background-color 0.25s ease-in-out;
     &:hover,
     &:focus-visible {
-      background-color: $ashy;
-      outline: none;
+      background-color: $grey;
     }
     &.active {
-      width: 60px;
+      width: 50px;
       background-color: $fg;
     }
   }
@@ -548,15 +537,15 @@ onBeforeUnmount(() => {
     padding: 0;
     width: 40px;
     height: 40px;
-    border: 1px solid $lead;
+    border: 1px solid $grey;
     border-radius: 50%;
-    background: linear-gradient(180deg, rgba($lead, 0.96), rgba($graphite, 0.92));
+    background: linear-gradient(180deg, rgba($lead, 0.9), rgba($graphite, 0.9));
+    outline: none;
     cursor: pointer;
-    transition: opacity 0.25s ease-in-out, box-shadow 0.25s ease-in-out;
+    transition: background-color 0.25s ease-in-out;
     &:hover,
     &:focus-visible {
-      border-color: $lead;
-      outline: none;
+      background-color: $grey;
     }
   }
   .nav-icon {
