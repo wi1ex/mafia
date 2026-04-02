@@ -1243,30 +1243,7 @@ async def delete_user_account_as_admin_action(session: AsyncSession, user_id: in
         commit=False,
     )
 
-    note = Notif(
-        user_id=uid,
-        title=note_title,
-        text=note_text,
-    )
-    session.add(note)
     await session.commit()
-    await session.refresh(note)
-    with suppress(Exception):
-        await sio.emit(
-            "notify",
-            {
-                "id": note.id,
-                "title": note.title,
-                "text": note.text,
-                "date": note.created_at.isoformat(),
-                "kind": "admin_action",
-                "ttl_ms": 15000,
-                "read": False,
-            },
-            room=f"user:{uid}",
-            namespace="/auth",
-        )
-
     await force_logout_user(uid)
     return user
 
