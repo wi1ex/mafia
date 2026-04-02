@@ -581,4 +581,84 @@ onBeforeUnmount(() => {
   opacity: 1;
   transform: translateX(0);
 }
+
+@media (max-width: 1280px) {
+  .home-carousel {
+    .carousel-viewport {
+    }
+    .slide {
+      &::before {
+      }
+      &.slide--install::before {
+      }
+      &.slide--support::before {
+      }
+      &.slide--contacts::before {
+      }
+      .slide-surface {
+      }
+      .slide-content {
+        &::-webkit-scrollbar {
+        }
+      }
+      .slide-head {
+      }
+      .slide-badge,
+      .slide-index {
+        img {
+        }
+      }
+      .slide-copy {
+      }
+      .slide-highlight {
+      }
+      .slide-highlight-value {
+      }
+      .slide-highlight-label {
+      }
+      .slide-grid {
+      }
+      .info-card,
+      .info-banner {
+        p {
+        }
+      }
+      .info-card-title,
+      .info-banner-title {
+      }
+      .slide-actions {
+      }
+      .action-note {
+      }
+      .primary-btn {
+        &:hover,
+        &:focus-visible {
+        }
+        &:disabled {
+        }
+      }
+    }
+    .carousel-controls {
+    }
+    .carousel-dot {
+      &:hover,
+      &:focus-visible {
+      }
+      &.active {
+      }
+    }
+    .nav-btn {
+      &:hover,
+      &:focus-visible {
+      }
+    }
+    .nav-icon {
+      &.nav-icon--prev {
+      }
+      &.nav-icon--next {
+      }
+    }
+  }
+}
+
 </style>

@@ -95,7 +95,7 @@
   <div v-if="sanctionBanner" class="sanction-banner" :class="`sanction-banner--${sanctionBanner.kind}`">
     <span>{{ sanctionBanner.text }}</span>
   </div>
-  <div v-if="verificationBanner" class="sanction-banner sanction-banner--suspend">
+  <div v-if="verificationBanner" class="sanction-banner sanction-banner--verif">
     <span>Чтобы входить в комнаты необходимо пройти верификацию в</span>
     <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">
       <img :src="iconTelegram" alt="" />
@@ -483,7 +483,7 @@ function openAuth(mode: 'login' | 'register') {
     display: flex;
     align-items: center;
     gap: 3px;
-    color: $white;
+    color: $fg;
     font-weight: lighter;
     text-decoration: underline;
     overflow-wrap: anywhere;
@@ -501,6 +501,12 @@ function openAuth(mode: 'login' | 'register') {
   }
   &.sanction-banner--suspend {
     background-color: $yellow;
+  }
+  &.sanction-banner--verif {
+    background-color: $yellow;
+    a {
+      color: $bg;
+    }
   }
   &.sanction-banner--admin {
     background-color: $lead;

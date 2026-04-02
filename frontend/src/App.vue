@@ -138,6 +138,7 @@ onBeforeUnmount(() => {
 .rotate-box {
   max-width: 600px;
 }
+
 @media (orientation: portrait) {
   .rotate-overlay {
     display: flex;
