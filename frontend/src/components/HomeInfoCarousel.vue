@@ -60,7 +60,7 @@
                 <span class="slide-highlight-label">Помогает удерживать инфраструктуру стабильной и быстрее выпускать новые улучшения</span>
               </div>
 
-              <div class="info-banner info-banner--warm">
+              <div class="info-banner">
                 <span class="info-banner-title">На что идёт поддержка</span>
                 <p>На хостинг, поддержку сервиса, развитие продукта, улучшение UX и внедрение новых возможностей для платформы.</p>
               </div>
@@ -410,7 +410,7 @@ onBeforeUnmount(() => {
       background: linear-gradient(180deg, rgba($white, 0.1), rgba($black, 0.1));
     }
     .slide-highlight-value {
-      color: $white;
+      color: $fg;
       font-size: 24px;
       font-family: Manrope-SemiBold;
       line-height: 1;
@@ -436,15 +436,9 @@ onBeforeUnmount(() => {
       background: linear-gradient(180deg, rgba($white, 0.1), rgba($black, 0.1));
       p {
         margin: 0;
-        color: $fg;
+        color: $grey;
         font-size: 12px;
         line-height: 1.2;
-      }
-    }
-    .info-banner {
-      padding: 15px;
-      &.info-banner--warm {
-        border-color: rgba($orange, 0.1);
       }
     }
     .info-card-title,
@@ -461,7 +455,7 @@ onBeforeUnmount(() => {
       margin-top: auto;
     }
     .action-note {
-      max-width: 250px;
+      max-width: 185px;
       text-align: end;
       color: $ashy;
       font-size: 12px;
