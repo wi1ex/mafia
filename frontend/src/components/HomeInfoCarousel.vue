@@ -504,8 +504,9 @@ onBeforeUnmount(() => {
     bottom: 15px;
     padding: 10px 15px;
     gap: 10px;
+    border: 1px solid $graphite;
     border-radius: 999px;
-    background-color: $dark;
+    background-color: rgba($graphite, 0.5);
     backdrop-filter: blur(10px);
     transform: translateX(-50%);
     box-shadow: 0 15px 30px rgba($black, 0.25);
