@@ -96,7 +96,7 @@
     <span>{{ sanctionBanner.text }}</span>
   </div>
   <div v-if="verificationBanner" class="sanction-banner sanction-banner--verif">
-    <span>Чтобы входить в комнаты необходимо пройти верификацию в</span>
+    <span>Без верификации аккаунт будет удален через 1 час. Пройти верификацию можно в</span>
     <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">
       <img :src="iconTelegram" alt="" />
       TG-боте

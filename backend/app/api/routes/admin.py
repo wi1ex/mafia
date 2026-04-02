@@ -131,8 +131,8 @@ from ..utils import (
     emit_sanctions_update,
     refresh_rooms_after,
     set_user_deleted,
+    delete_user_account_as_admin_action,
     broadcast_creator_rooms,
-    force_logout_user,
     force_leave_user_from_rooms,
     is_protected_admin,
     ensure_admin_target_allowed,
@@ -1360,49 +1360,12 @@ async def reset_user_nickname(user_id: int, ident: Identity = Depends(get_identi
 @require_roles_deco("admin")
 @router.post("/users/{user_id}/delete", response_model=Ok)
 async def delete_user_account(user_id: int, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
-    target = await session.get(User, int(user_id))
-    if not target:
-        raise HTTPException(status_code=404, detail="user_not_found")
-
-    ensure_admin_target_allowed(target)
-    user = await set_user_deleted(session, int(user_id), deleted=True)
-    uid = cast(int, user.id)
-    details = f"Удаление аккаунта user_id={uid}"
-    if user.username:
-        details += f" username={user.username}"
-
-    await log_action(
+    await delete_user_account_as_admin_action(
         session,
-        user_id=int(ident["id"]),
-        username=ident["username"],
-        action="admin_account_delete",
-        details=details,
+        int(user_id),
+        actor_user_id=int(ident["id"]),
+        actor_username=ident["username"],
     )
-
-    note = Notif(
-        user_id=uid,
-        title="Аккаунт удален",
-        text="Ваш аккаунт был удален администратором.",
-    )
-    session.add(note)
-    await session.commit()
-    await session.refresh(note)
-    with suppress(Exception):
-        await sio.emit(
-            "notify",
-            {
-                "id": note.id,
-                "title": note.title,
-                "text": note.text,
-                "date": note.created_at.isoformat(),
-                "kind": "admin_action",
-                "ttl_ms": 15000,
-                "read": False,
-            },
-            room=f"user:{uid}",
-            namespace="/auth",
-        )
-    await force_logout_user(int(user_id))
     return Ok()
 
 

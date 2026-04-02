@@ -6,7 +6,7 @@ from typing import AsyncIterator
 from contextlib import asynccontextmanager, suppress
 from ..core.db import Base, engine, SessionLocal
 from ..core.settings import settings
-from ..api.utils import emit_expired_timed_sanctions_chat_notices
+from ..api.utils import emit_expired_timed_sanctions_chat_notices, delete_stale_unverified_accounts
 from ..security.parameters import ensure_app_settings, refresh_app_settings
 from ..services.minio import ensure_bucket
 from .clients import close_clients, get_redis, init_clients
@@ -53,6 +53,7 @@ async def lifespan(app) -> AsyncIterator[None]:
 
     settings_task: asyncio.Task[None] | None = None
     expired_sanctions_chat_task: asyncio.Task[None] | None = None
+    stale_unverified_accounts_task: asyncio.Task[None] | None = None
 
     async def settings_pubsub_loop() -> None:
         r = get_redis()
@@ -86,8 +87,22 @@ async def lifespan(app) -> AsyncIterator[None]:
         except asyncio.CancelledError:
             pass
 
+    async def stale_unverified_accounts_loop() -> None:
+        try:
+            while True:
+                try:
+                    deleted = await delete_stale_unverified_accounts()
+                    if deleted > 0:
+                        log.info("app.users.auto_delete_unverified.done", deleted=deleted)
+                except Exception:
+                    log.exception("app.users.auto_delete_unverified.failed")
+                await asyncio.sleep(15 * 60)
+        except asyncio.CancelledError:
+            pass
+
     settings_task = asyncio.create_task(settings_pubsub_loop())
     expired_sanctions_chat_task = asyncio.create_task(expired_sanctions_chat_loop())
+    stale_unverified_accounts_task = asyncio.create_task(stale_unverified_accounts_loop())
     log.info("app.ready")
 
     try:
@@ -102,6 +117,10 @@ async def lifespan(app) -> AsyncIterator[None]:
                 expired_sanctions_chat_task.cancel()
                 with suppress(asyncio.CancelledError):
                     await expired_sanctions_chat_task
+            if stale_unverified_accounts_task:
+                stale_unverified_accounts_task.cancel()
+                with suppress(asyncio.CancelledError):
+                    await stale_unverified_accounts_task
         except Exception:
             log.warning("app.shutdown.settings_task_failed")
         try:

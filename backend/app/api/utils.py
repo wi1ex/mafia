@@ -15,6 +15,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.clients import get_redis
 from ..core.db import SessionLocal
+from ..core.logging import log_action
 from ..core.settings import settings
 from ..models.game import Game
 from ..models.log import AppLog
@@ -114,6 +115,8 @@ __all__ = [
     "is_protected_admin",
     "ensure_admin_target_allowed",
     "set_user_deleted",
+    "delete_user_account_as_admin_action",
+    "delete_stale_unverified_accounts",
     "delete_friend_links_for_user",
     "force_logout_user",
     "force_leave_user_from_rooms",
@@ -204,6 +207,7 @@ SANCTION_BAN = "ban"
 SANCTION_SUSPEND = "suspend"
 HOSTED_GAME_SUSPEND_REDUCTION_SECONDS = 6 * 60 * 60
 EXPIRED_SANCTION_CHAT_NOTICE_TTL_S = 60 * 60 * 24 * 365
+AUTO_DELETE_UNVERIFIED_ACCOUNT_LOCK_TTL_S = 60 * 60
 USERS_SORT_DEFAULT = "registered_at"
 USERS_SORT_ALLOWED = {
     USERS_SORT_DEFAULT,
@@ -1216,6 +1220,57 @@ async def set_user_deleted(session: AsyncSession, user_id: int, *, deleted: bool
     return user
 
 
+async def delete_user_account_as_admin_action(session: AsyncSession, user_id: int, *, actor_user_id: int | None, actor_username: str | None, action: str = "admin_account_delete", details: str | None = None, note_title: str = "Аккаунт удален", note_text: str = "Ваш аккаунт был удален администратором.") -> User:
+    target = await session.get(User, int(user_id))
+    if not target:
+        raise HTTPException(status_code=404, detail="user_not_found")
+
+    ensure_admin_target_allowed(target)
+    user = await set_user_deleted(session, int(user_id), deleted=True)
+    uid = cast(int, user.id)
+
+    if details is None:
+        details = f"Удаление аккаунта user_id={uid}"
+        if user.username:
+            details += f" username={user.username}"
+
+    await log_action(
+        session,
+        user_id=actor_user_id,
+        username=actor_username,
+        action=action,
+        details=details,
+        commit=False,
+    )
+
+    note = Notif(
+        user_id=uid,
+        title=note_title,
+        text=note_text,
+    )
+    session.add(note)
+    await session.commit()
+    await session.refresh(note)
+    with suppress(Exception):
+        await sio.emit(
+            "notify",
+            {
+                "id": note.id,
+                "title": note.title,
+                "text": note.text,
+                "date": note.created_at.isoformat(),
+                "kind": "admin_action",
+                "ttl_ms": 15000,
+                "read": False,
+            },
+            room=f"user:{uid}",
+            namespace="/auth",
+        )
+
+    await force_logout_user(uid)
+    return user
+
+
 async def delete_friend_links_for_user(session: AsyncSession, user_id: int) -> tuple[int, tuple[int, ...]]:
     uid = int(user_id or 0)
     if uid <= 0:
@@ -1260,6 +1315,124 @@ async def force_logout_user(user_id: int) -> None:
     with suppress(Exception):
         await sio.emit("force_logout", {"reason": "account_deleted"}, room=f"user:{user_id}", namespace="/auth")
         await sio.emit("force_logout", {"reason": "account_deleted"}, room=f"user:{user_id}", namespace="/room")
+
+
+async def _user_has_recorded_games(session: AsyncSession, user_id: int) -> bool:
+    uid = int(user_id or 0)
+    if uid <= 0:
+        return False
+
+    row = await session.scalar(
+        select(1)
+        .where(or_(Game.head_id == uid, Game.roles.has_key(str(uid))))
+        .limit(1)
+    )
+    return bool(row)
+
+
+async def _can_auto_delete_unverified_user(session: AsyncSession, user: User, *, cutoff_dt: datetime) -> bool:
+    uid = int(getattr(user, "id", 0) or 0)
+    if uid <= 0:
+        return False
+
+    if user.deleted_at is not None or user.telegram_id is not None:
+        return False
+
+    if str(user.role or "").strip().lower() != "user":
+        return False
+
+    if is_protected_admin(uid):
+        return False
+
+    if user.registered_at > cutoff_dt:
+        return False
+
+    if await _user_has_recorded_games(session, uid):
+        return False
+
+    return True
+
+
+async def delete_stale_unverified_accounts(*, batch_limit: int = 100, min_age_minutes: int = 60) -> int:
+    limit = max(1, min(int(batch_limit), 1000))
+    min_age = max(1, int(min_age_minutes))
+    cutoff_dt = datetime.now(timezone.utc) - timedelta(minutes=min_age)
+    deleted = 0
+
+    async with SessionLocal() as session:
+        stmt = (
+            select(User)
+            .where(
+                User.deleted_at.is_(None),
+                User.telegram_id.is_(None),
+                User.role == "user",
+                User.registered_at <= cutoff_dt,
+            )
+            .order_by(User.registered_at.asc(), User.id.asc())
+            .limit(limit)
+        )
+        users = list((await session.scalars(stmt)).all())
+        if not users:
+            return 0
+
+        for user in users:
+            uid = int(getattr(user, "id", 0) or 0)
+            if uid <= 0:
+                continue
+
+            redis_key = f"user:{uid}:auto_delete_unverified"
+            use_redis_lock = True
+            try:
+                acquired = bool(
+                    await get_redis().set(
+                        redis_key,
+                        "1",
+                        ex=AUTO_DELETE_UNVERIFIED_ACCOUNT_LOCK_TTL_S,
+                        nx=True,
+                    )
+                )
+            except Exception:
+                use_redis_lock = False
+                acquired = True
+
+            if not acquired:
+                continue
+
+            try:
+                fresh_user = await session.get(User, uid, populate_existing=True)
+                if not fresh_user or not await _can_auto_delete_unverified_user(session, fresh_user, cutoff_dt=cutoff_dt):
+                    if use_redis_lock:
+                        with suppress(Exception):
+                            await get_redis().delete(redis_key)
+                    continue
+
+                details = (
+                    "Автоматическое удаление неверифицированного аккаунта "
+                    f"user_id={uid} username={fresh_user.username}"
+                )
+                await delete_user_account_as_admin_action(
+                    session,
+                    uid,
+                    actor_user_id=None,
+                    actor_username="system",
+                    action="auto_unverified_account_delete",
+                    details=details,
+                    note_title="Аккаунт удален",
+                    note_text=(
+                        "Ваш аккаунт был удален автоматически: аккаунт не был "
+                        "верифицирован в течение часа после регистрации."
+                    ),
+                )
+                deleted += 1
+            except Exception:
+                with suppress(Exception):
+                    await session.rollback()
+                if use_redis_lock:
+                    with suppress(Exception):
+                        await get_redis().delete(redis_key)
+                log.exception("users.auto_delete_unverified.failed", user_id=uid)
+
+    return deleted
 
 
 async def force_leave_user_from_rooms(user_id: int, *, reason: str) -> None:
