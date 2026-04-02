@@ -1164,6 +1164,7 @@ async def users_list(page: int = 1, limit: int = 20, username: str | None = None
         active_suspend = next((s for s in suspends_raw if is_sanction_active(s, now)), None)
         items.append(AdminUserOut(
             id=uid,
+            tg_id=u.telegram_id,
             username=u.username,
             avatar_name=u.avatar_name,
             role=u.role,

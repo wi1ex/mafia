@@ -588,6 +588,7 @@
               <thead>
                 <tr>
                   <th>ID</th>
+                  <th>TG_ID</th>
                   <th>
                     <button class="th-sort" type="button" :class="{ active: usersSortBy === 'username' }" @click="setUsersSort('username')">
                       Никнейм
@@ -703,6 +704,7 @@
               <tbody>
                 <tr v-for="row in users" :key="row.id">
                   <td>{{ row.id }}</td>
+                  <td>{{ row.tg_id ?? '-' }}</td>
                   <td>
                     <div v-if="row.username" class="user-cell">
                       <img class="user-avatar" v-minio-img="{ key: row.avatar_name ? `avatars/${row.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
@@ -1027,6 +1029,7 @@ type SanctionRow = {
 
 type UserRow = {
   id: number
+  tg_id?: number | null
   username?: string | null
   avatar_name?: string | null
   role: string
@@ -1853,6 +1856,7 @@ async function loadUsers(): Promise<void> {
     const items = Array.isArray(data?.items) ? data.items : []
     users.value = items.map((item: any) => ({
       ...item,
+      tg_id: item?.tg_id ?? null,
       tg_invites_enabled: item?.tg_invites_enabled !== false,
       protected_user: Boolean(item?.protected_user),
       last_game_at: item?.last_game_at ?? null,

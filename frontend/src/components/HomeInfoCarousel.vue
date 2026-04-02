@@ -66,7 +66,7 @@
               </div>
 
               <div class="slide-actions">
-                <a class="primary-btn" :href="supportLink" target="_blank" rel="noopener noreferrer">
+                <a class="primary-btn" :href="supportLink" target="_blank" rel="noopener noreferrer" @click="onSupportLinkClick">
                   Поддержать проект
                 </a>
                 <span class="action-note">Откроется официальный сервис поддержки в Telegram.</span>
@@ -137,7 +137,9 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { api } from '@/services/axios'
 import { isPwaMode } from '@/services/pwa'
+import { useAuthStore } from '@/store'
 
 import iconArrowDown from '@/assets/svg/arrowDown.svg'
 import iconCard from '@/assets/svg/card.svg'
@@ -155,8 +157,9 @@ const documentHidden = ref(false)
 const prefersReducedMotion = ref(false)
 const appInstalled = ref(isPwaMode())
 const deferredInstallPrompt = ref<BeforeInstallPromptEvent | null>(null)
+const auth = useAuthStore()
 
-const supportLink = 'https://t.me/tribute/app?startapp=dCvc'
+const supportLink = 'https://web.tribute.tg/d/Cvc'
 const contactsLink = 'https://t.me/wi1ex'
 
 let autoplayTimer: number | null = null
@@ -228,6 +231,11 @@ function goTo(index: number, userInitiated = false) {
   const normalized = normalizeIndex(index)
   const direction: 1 | -1 = normalized >= activeIndex.value ? 1 : -1
   setActive(normalized, direction, userInitiated)
+}
+
+function onSupportLinkClick() {
+  if (!auth.isAuthed) return
+  void api.post('/users/support_link_click').catch(() => {})
 }
 
 async function openInstall() {

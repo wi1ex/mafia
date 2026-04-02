@@ -176,6 +176,22 @@ async def user_stats(season: int | None = None, ident: Identity = Depends(get_id
     )
 
 
+@log_route("users.support_link_click")
+@rate_limited(lambda ident, **_: f"rl:support_link_click:{ident['id']}", limit=10, window_s=1)
+@router.post("/support_link_click", response_model=Ok)
+async def support_link_click(ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> Ok:
+    uid = int(ident["id"])
+    username = str(ident["username"] or "")
+    await log_action(
+        db,
+        user_id=uid,
+        username=username,
+        action="support_link_click",
+        details=f"Переход по ссылке поддержки: user_id={uid} username={username} source=home_info_carousel",
+    )
+    return Ok()
+
+
 @log_route("users.games_history")
 @rate_limited(lambda ident, **_: f"rl:games_history:{ident['id']}", limit=10, window_s=1)
 @router.get("/games/history", response_model=UserGamesHistoryOut)
