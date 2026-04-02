@@ -17,8 +17,8 @@
               <h3 class="slide-copy">Откройте платформу как отдельное приложение</h3>
 
               <div class="slide-highlight">
-                <span class="slide-highlight-value">1 тап</span>
-                <span class="slide-highlight-label">До запуска платформы с рабочего стола, панели задач или главного экрана</span>
+                <span class="slide-highlight-value">Установка в 2 клика</span>
+                <span class="slide-highlight-label">Для запуска платформы на весь экран Вашего устройства</span>
               </div>
 
               <div class="slide-grid">
@@ -69,7 +69,7 @@
                 <a class="primary-btn" :href="supportLink" target="_blank" rel="noopener noreferrer">
                   Поддержать проект
                 </a>
-                <span class="action-note">Откроется официальный сервис поддержки в новой вкладке.</span>
+                <span class="action-note">Откроется официальный сервис поддержки в Telegram.</span>
               </div>
             </div>
           </div>
@@ -81,16 +81,16 @@
               <div class="slide-head">
                 <span class="slide-badge">
                   <img :src="iconMail" alt="" aria-hidden="true" />
-                  Контакты
+                  Обратная связь
                 </span>
                 <span class="slide-index">03/03</span>
               </div>
 
-              <h3 class="slide-copy">Свяжитесь с командой без поиска нужного контакта</h3>
+              <h3 class="slide-copy">Свяжитесь с командой разработки</h3>
 
               <div class="slide-highlight">
-                <span class="slide-highlight-value">TG</span>
-                <span class="slide-highlight-label">Прямая точка входа для обратной связи, идей, замечаний и рабочих вопросов по платформе</span>
+                <span class="slide-highlight-value">Прямая коммуникация</span>
+                <span class="slide-highlight-label">Для Ваших идей, замечаний и рабочих вопросов по платформе</span>
               </div>
 
               <div class="slide-grid">
@@ -108,7 +108,7 @@
                 <a class="primary-btn" :href="contactsLink" target="_blank" rel="noopener noreferrer">
                   Связаться с командой
                 </a>
-                <span class="action-note">Откроется Telegram в новой вкладке.</span>
+                <span class="action-note">Откроется аккаунт пользователя в Telegram.</span>
               </div>
             </div>
           </div>
@@ -182,7 +182,7 @@ const installButtonLabel = computed(() => {
 const installActionNote = computed(() => {
   if (appInstalled.value) return 'Платформа уже установлена на этом устройстве.'
   if (canPromptInstall.value) return 'Откроется системное окно установки браузера.'
-  return 'Установка уже описана в карточках выше: используйте меню браузера или экран «Поделиться».'
+  return 'Если ничего не появилось попробуйте добавить вручную.'
 })
 const slideTransitionName = computed(() => slideDirection.value > 0 ? 'carousel-slide-forward' : 'carousel-slide-backward')
 const isPaused = computed(() => hovered.value || focused.value || documentHidden.value || prefersReducedMotion.value)
@@ -387,7 +387,7 @@ onBeforeUnmount(() => {
       border-radius: 999px;
       font-size: 14px;
       line-height: 1.2;
-      background-color: $dark;
+      background-color: $graphite;
       color: $fg;
       img {
         width: 20px;
@@ -537,7 +537,7 @@ onBeforeUnmount(() => {
     padding: 0;
     width: 40px;
     height: 40px;
-    border: 1px solid $grey;
+    border: 1px solid $lead;
     border-radius: 50%;
     background: linear-gradient(180deg, rgba($lead, 0.9), rgba($graphite, 0.9));
     outline: none;
