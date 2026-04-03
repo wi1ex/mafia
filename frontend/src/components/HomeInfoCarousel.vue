@@ -472,7 +472,6 @@ onBeforeUnmount(() => {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      padding: 0 15px;
       min-width: 200px;
       height: 40px;
       border: none;
@@ -642,7 +641,6 @@ onBeforeUnmount(() => {
         font-size: 8px;
       }
       .primary-btn {
-        padding: 0 5px;
         min-width: 125px;
         height: 24px;
         border-radius: 5px;
