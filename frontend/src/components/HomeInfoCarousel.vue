@@ -655,10 +655,10 @@ onBeforeUnmount(() => {
       gap: 5px;
     }
     .carousel-dot {
-      width: 10px;
+      width: 12px;
       height: 5px;
       &.active {
-        width: 25px;
+        width: 30px;
       }
     }
     .nav-btn {

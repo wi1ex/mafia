@@ -1189,14 +1189,14 @@ onBeforeUnmount(() => {
         .rooms-text {
           height: 30px;
           span {
-            height: 18px;
-            font-size: 16px;
+            height: 16px;
+            font-size: 14px;
           }
         }
         button {
           padding: 0 10px;
           height: 30px;
-          font-size: 14px;
+          font-size: 12px;
         }
       }
       .muted {

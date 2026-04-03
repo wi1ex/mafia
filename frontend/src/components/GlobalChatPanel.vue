@@ -2365,7 +2365,7 @@ onBeforeUnmount(() => {
     }
   }
   .global-chat-panel {
-    width: 300px;
+    width: calc(300px - 6px);
     height: min(450px, calc(100dvh - 65px));
     border-radius: 5px;
     .panel-header {
