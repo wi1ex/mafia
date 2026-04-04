@@ -843,7 +843,7 @@ async def reduce_suspend_after_hosted_game(session: AsyncSession, user_id: int, 
             active,
             revoked_by_id=None,
             revoked_by_name="проведение игры",
-            note_text="Ограничение доступа к играм снято автоматически после проведения игры.",
+            note_text="Отстранение от игр снято автоматически после проведения игры.",
             chat_notice_source="game",
         )
         return True, True, None
@@ -988,7 +988,7 @@ def _expired_sanction_note(kind: str) -> tuple[str, str] | None:
         return "Таймаут завершен", "Срок вашего таймаута истек. Доступ к комнатам восстановлен."
 
     if kind == SANCTION_SUSPEND:
-        return "Ограничение снято", "Срок ограничения доступа к играм истек."
+        return "Отстранение от игр снято", "Срок отстранения от игр истек."
 
     return None
 

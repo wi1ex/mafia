@@ -179,7 +179,7 @@ const sanctionBanner = computed<SanctionBanner | null>(() => {
     return { kind: 'timeout', text: `Таймаут: ${formatRemaining(user.timeoutRemainingMs)}` }
   }
   if (user.suspendRemainingMs > 0) {
-    return { kind: 'suspend', text: `Ограничение доступа к играм: ${formatRemaining(user.suspendRemainingMs)}` }
+    return { kind: 'suspend', text: `Отстранение от игр: ${formatRemaining(user.suspendRemainingMs)}` }
   }
   return null
 })

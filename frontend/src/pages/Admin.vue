@@ -691,7 +691,7 @@
                       <span class="th-sort-mark" aria-hidden="true">▼</span>
                     </button>
                   </th>
-                  <th>Админка</th>
+                  <th>Модерка</th>
                   <th>Аккаунт</th>
                   <th>Вериф.</th>
                   <th>Пароль</th>

@@ -1890,10 +1890,10 @@ async def apply_user_suspend(user_id: int, payload: AdminSanctionTimedIn, ident:
     )
     note = Notif(
         user_id=uid,
-        title="Ограничение",
+        title="Отстранение от игр",
         text=(
             f"Доступ к играм ограничен на {duration_label}. Причина: {reason} "
-            "Вы можете проводить игры: после каждой завершенной вами игры срок ограничения будет уменьшаться на 6 часов."
+            "Вы можете проводить игры: после каждой завершенной вами игры срок отстранения от игр будет уменьшаться на 6 часов."
         ),
     )
     session.add(sanction)
@@ -1975,7 +1975,7 @@ async def revoke_user_suspend(user_id: int, ident: Identity = Depends(get_identi
         active,
         revoked_by_id=int(ident["id"]),
         revoked_by_name=ident["username"],
-        note_text="Ограничение доступа к играм снято досрочно.",
+        note_text="Отстранение от игр снято досрочно.",
     )
 
     details = f"Снятие SUSPEND user_id={uid}"

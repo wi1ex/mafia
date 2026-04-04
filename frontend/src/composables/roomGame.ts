@@ -2750,7 +2750,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     } else if (st === 409 && code === 'blocked_params') {
       void alertDialog('Снимите блокировки устройств у некоторых пользователей перед запуском игры')
     } else if (st === 409 && code === 'suspend_present') {
-      void alertDialog('У некоторых пользователей имеется ограничение к играм')
+      void alertDialog('У некоторых пользователей имеется отстранение от игр')
     } else if (st === 409 && code === 'camera_off') {
       void alertDialog('Не у всех пользователей включена камера')
     } else if (st === 409 && code === 'media_off') {
