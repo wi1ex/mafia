@@ -129,6 +129,7 @@ from ..utils import (
     revoke_active_suspend,
     format_duration_parts,
     format_duration_seconds_compact,
+    emit_notify,
     emit_sanctions_update,
     refresh_rooms_after,
     set_user_deleted,
@@ -1301,7 +1302,18 @@ async def update_user_role(user_id: int, payload: AdminUserRoleIn, ident: Identi
             details=details,
         )
 
+        note: Notif | None = None
         if user.role == "moder":
+            note = Notif(
+                user_id=uid,
+                title="Новая роль",
+                text="Вам выдана роль Модератор.",
+            )
+            session.add(note)
+            await session.commit()
+            await session.refresh(note)
+            with suppress(Exception):
+                await emit_notify(uid, note, kind="admin_action")
             with suppress(Exception):
                 await emit_global_chat_role_notice(
                     session,
@@ -1312,6 +1324,16 @@ async def update_user_role(user_id: int, payload: AdminUserRoleIn, ident: Identi
                     granted=True,
                 )
         elif prev_role == "moder":
+            note = Notif(
+                user_id=uid,
+                title="Новая роль",
+                text="С вас снята роль Модератор.",
+            )
+            session.add(note)
+            await session.commit()
+            await session.refresh(note)
+            with suppress(Exception):
+                await emit_notify(uid, note, kind="admin_action")
             with suppress(Exception):
                 await emit_global_chat_role_notice(
                     session,
