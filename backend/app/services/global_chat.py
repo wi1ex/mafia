@@ -174,8 +174,20 @@ async def _resolve_mentioned_users(session: AsyncSession, usernames: set[str]) -
     return resolved
 
 
-def _build_mention_spans(text: str, resolved_users: dict[str, dict[str, Any]]) -> list[dict[str, int]]:
-    spans: list[dict[str, int]] = []
+def _mention_span_is_silent(raw: object) -> bool:
+    if not isinstance(raw, dict):
+        return False
+
+    value = raw.get("silent")
+    if isinstance(value, bool):
+        return value
+
+    return str(value or "").strip().lower() in {"1", "true", "yes"}
+
+
+def _build_mention_spans(text: str, resolved_users: dict[str, dict[str, Any]], *, silent_user_ids: Sequence[int] | None = None) -> list[dict[str, Any]]:
+    silent_ids = {user_id for user_id in (_positive_int(item) for item in (silent_user_ids or ())) if user_id > 0}
+    spans: list[dict[str, Any]] = []
     for match in _extract_mention_matches(text):
         username = str(match.get("username") or "").strip()
         mention = resolved_users.get(username.lower())
@@ -186,21 +198,23 @@ def _build_mention_spans(text: str, resolved_users: dict[str, dict[str, Any]]) -
         end = _positive_int(match.get("end"))
         if end <= start:
             continue
-        spans.append(
-            {
-                "user_id": mention_user_id,
-                "start": start,
-                "end": end,
-            }
-        )
+        span: dict[str, Any] = {
+            "user_id": mention_user_id,
+            "start": start,
+            "end": end,
+        }
+        if mention_user_id in silent_ids:
+            span["silent"] = True
+        spans.append(span)
+
     return spans
 
 
-def _normalize_mention_spans(raw: object, *, text_len: int | None = None) -> list[dict[str, int]]:
+def _normalize_mention_spans(raw: object, *, text_len: int | None = None) -> list[dict[str, Any]]:
     if not isinstance(raw, list):
         return []
 
-    prepared: list[dict[str, int]] = []
+    prepared: list[dict[str, Any]] = []
     for item in raw:
         if not isinstance(item, dict):
             continue
@@ -214,35 +228,44 @@ def _normalize_mention_spans(raw: object, *, text_len: int | None = None) -> lis
             continue
         if text_len is not None and (start >= text_len or end > text_len):
             continue
-        prepared.append(
-            {
-                "user_id": user_id,
-                "start": start,
-                "end": end,
-            }
-        )
+        normalized_item: dict[str, Any] = {
+            "user_id": user_id,
+            "start": start,
+            "end": end,
+        }
+        if _mention_span_is_silent(item):
+            normalized_item["silent"] = True
+        prepared.append(normalized_item)
 
     prepared.sort(key=lambda item: (item["start"], item["end"], item["user_id"]))
-    out: list[dict[str, int]] = []
+    out: list[dict[str, Any]] = []
     last_end = -1
     for item in prepared:
         if item["start"] < last_end:
             continue
-        out.append(item)
+        normalized_item: dict[str, Any] = {
+            "user_id": item["user_id"],
+            "start": item["start"],
+            "end": item["end"],
+        }
+        if _mention_span_is_silent(item):
+            normalized_item["silent"] = True
+        out.append(normalized_item)
         last_end = item["end"]
     return out
 
 
-def _mentioned_user_ids_from_spans(mention_spans: Sequence[dict[str, int]]) -> set[int]:
+def _mentioned_user_ids_from_spans(mention_spans: Sequence[dict[str, Any]], *, include_silent: bool = True) -> set[int]:
     return {
         user_id
         for mention in mention_spans
+        if include_silent or not _mention_span_is_silent(mention)
         for user_id in (_positive_int(mention.get("user_id")),)
         if user_id > 0
     }
 
 
-def _build_mentions_payload_from_spans(mention_spans: Sequence[dict[str, int]], profiles: dict[int, dict[str, Any]]) -> list[dict[str, Any]]:
+def _build_mentions_payload_from_spans(mention_spans: Sequence[dict[str, Any]], profiles: dict[int, dict[str, Any]]) -> list[dict[str, Any]]:
     mentions: list[dict[str, Any]] = []
     seen_user_ids: set[int] = set()
     for mention in mention_spans:
@@ -264,7 +287,7 @@ def _build_mentions_payload_from_spans(mention_spans: Sequence[dict[str, int]], 
     return mentions
 
 
-def _render_text_with_mention_spans(text: str, mention_spans: Sequence[dict[str, int]], profiles: dict[int, dict[str, Any]]) -> str:
+def _render_text_with_mention_spans(text: str, mention_spans: Sequence[dict[str, Any]], profiles: dict[int, dict[str, Any]]) -> str:
     source = str(text or "")
     spans = _normalize_mention_spans(list(mention_spans), text_len=len(source))
     if not spans:
@@ -318,8 +341,8 @@ def _build_mentioned_user_ids(text: str, resolved_users: dict[str, dict[str, Any
     return mentioned_user_ids
 
 
-def _collect_message_mention_context(messages: Sequence[GlobalChatMessage], *, include_deleted: bool = False) -> tuple[dict[int, list[dict[str, int]]], set[int], set[str]]:
-    mention_spans_by_message_id: dict[int, list[dict[str, int]]] = {}
+def _collect_message_mention_context(messages: Sequence[GlobalChatMessage], *, include_deleted: bool = False) -> tuple[dict[int, list[dict[str, Any]]], set[int], set[str]]:
+    mention_spans_by_message_id: dict[int, list[dict[str, Any]]] = {}
     mention_user_ids: set[int] = set()
     mentioned_usernames: set[str] = set()
     for message in messages:
@@ -495,6 +518,21 @@ def build_global_chat_sanction_removed_text(*, target_username: str, kind: str, 
         return f"Пользователь {target_mention} разбанен"
 
     return f"У пользователя {target_mention} снята {_sanction_kind_label(kind)}"
+
+
+def build_global_chat_role_changed_text(*, target_username: str, role: str, granted: bool) -> str:
+    role_value = str(role or "").strip().lower()
+    target_mention = _format_chat_notice_target_mention(target_username)
+
+    if role_value == "moder":
+        if granted:
+            return f"Пользователь {target_mention} получил роль Модератор"
+        return f"У пользователя {target_mention} снята роль Модератор"
+
+    role_label = role_value or "role"
+    if granted:
+        return f"Пользователь {target_mention} получил роль {role_label}"
+    return f"У пользователя {target_mention} снята роль {role_label}"
 
 
 def _message_public_dict(message: GlobalChatMessage) -> dict[str, Any]:
@@ -772,7 +810,7 @@ async def _build_global_chat_alert_user_ids_map(session: AsyncSession, messages:
 
         mention_spans = mention_spans_by_message_id.get(message_id) or []
         if mention_spans:
-            alert_user_ids.update(_mentioned_user_ids_from_spans(mention_spans))
+            alert_user_ids.update(_mentioned_user_ids_from_spans(mention_spans, include_silent=False))
         else:
             alert_user_ids.update(_build_mentioned_user_ids(str(message.text or ""), resolved_mentions))
 
@@ -1406,9 +1444,9 @@ async def fetch_global_chat_context(session: AsyncSession, *, viewer_user_id: in
     )
 
 
-async def create_global_chat_message(session: AsyncSession, *, user_id: int, client_message_id: UUID, text: str, reply_to_message_id: int | None, image_object_key: str | None) -> tuple[GlobalChatMessage, bool]:
+async def create_global_chat_message(session: AsyncSession, *, user_id: int, client_message_id: UUID, text: str, reply_to_message_id: int | None, image_object_key: str | None, silent_mention_user_ids: Sequence[int] | None = None) -> tuple[GlobalChatMessage, bool]:
     resolved_mentions = await _resolve_mentioned_users(session, set(_extract_mentioned_usernames(text)))
-    mention_spans = _build_mention_spans(text, resolved_mentions)
+    mention_spans = _build_mention_spans(text, resolved_mentions, silent_user_ids=silent_mention_user_ids)
     stmt = (
         insert(GlobalChatMessage)
         .values(
@@ -1436,7 +1474,7 @@ async def create_global_chat_message(session: AsyncSession, *, user_id: int, cli
     return existing, False
 
 
-async def publish_global_chat_notice(session: AsyncSession, *, author_user_id: int, text: str) -> dict[str, Any] | None:
+async def publish_global_chat_notice(session: AsyncSession, *, author_user_id: int, text: str, silent_mention_user_ids: Sequence[int] | None = None) -> dict[str, Any] | None:
     uid = _positive_int(author_user_id)
     normalized_text = _sanitize_text(text).strip()
     if uid <= 0 or not normalized_text:
@@ -1449,6 +1487,7 @@ async def publish_global_chat_notice(session: AsyncSession, *, author_user_id: i
         text=normalized_text,
         reply_to_message_id=None,
         image_object_key=None,
+        silent_mention_user_ids=silent_mention_user_ids,
     )
     if not created:
         return None
@@ -1519,6 +1558,34 @@ async def emit_global_chat_sanction_removed_notice(session: AsyncSession, *, act
     )
 
     return await publish_global_chat_notice(session, author_user_id=author_user_id, text=text)
+
+
+async def emit_global_chat_role_notice(session: AsyncSession, *, actor_user_id: int | None, target_user_id: int, target_username: str | None, role: str, granted: bool, silent_target_mention: bool = False) -> dict[str, Any] | None:
+    author_user_id = await _resolve_global_chat_notice_author_user_id(session, preferred_user_id=actor_user_id)
+    if author_user_id is None:
+        return None
+
+    resolved_target_username = await _resolve_chat_notice_target_username(
+        session,
+        user_id=target_user_id,
+        username=target_username,
+    )
+    text = build_global_chat_role_changed_text(
+        target_username=resolved_target_username,
+        role=role,
+        granted=granted,
+    )
+
+    silent_mention_user_ids: Sequence[int] | None = None
+    if silent_target_mention and _positive_int(target_user_id) > 0:
+        silent_mention_user_ids = (int(target_user_id),)
+
+    return await publish_global_chat_notice(
+        session,
+        author_user_id=author_user_id,
+        text=text,
+        silent_mention_user_ids=silent_mention_user_ids,
+    )
 
 
 async def toggle_global_chat_reaction(session: AsyncSession, *, message_id: int, user_id: int, emoji: str) -> bool:

@@ -36,6 +36,7 @@ from ...services.global_chat import (
     emit_global_chat_cleared,
     emit_global_chat_permissions_refresh,
     emit_global_chat_permissions_updated,
+    emit_global_chat_role_notice,
     emit_global_chat_sanction_issued_notice,
     emit_global_chat_sanction_removed_notice,
 )
@@ -1301,28 +1302,24 @@ async def update_user_role(user_id: int, payload: AdminUserRoleIn, ident: Identi
         )
 
         if user.role == "moder":
-            note = Notif(
-                user_id=uid,
-                title="Модератор",
-                text="Вам выданы права модератора.",
-            )
-            session.add(note)
-            await session.commit()
-            await session.refresh(note)
             with suppress(Exception):
-                await sio.emit(
-                    "notify",
-                    {
-                        "id": note.id,
-                        "title": note.title,
-                        "text": note.text,
-                        "date": note.created_at.isoformat(),
-                        "kind": "admin_action",
-                        "ttl_ms": 15000,
-                        "read": False,
-                    },
-                    room=f"user:{uid}",
-                    namespace="/auth",
+                await emit_global_chat_role_notice(
+                    session,
+                    actor_user_id=int(ident["id"]),
+                    target_user_id=uid,
+                    target_username=user.username,
+                    role="moder",
+                    granted=True,
+                )
+        elif prev_role == "moder":
+            with suppress(Exception):
+                await emit_global_chat_role_notice(
+                    session,
+                    actor_user_id=int(ident["id"]),
+                    target_user_id=uid,
+                    target_username=user.username,
+                    role="moder",
+                    granted=False,
                 )
 
     return AdminUserRoleOut(id=uid, role=user.role)
