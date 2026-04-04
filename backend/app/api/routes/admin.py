@@ -1313,7 +1313,7 @@ async def update_user_role(user_id: int, payload: AdminUserRoleIn, ident: Identi
             await session.commit()
             await session.refresh(note)
             with suppress(Exception):
-                await emit_notify(uid, note, kind="admin_action")
+                await emit_notify(uid, note, kind="role_update")
             with suppress(Exception):
                 await emit_global_chat_role_notice(
                     session,
@@ -1333,7 +1333,7 @@ async def update_user_role(user_id: int, payload: AdminUserRoleIn, ident: Identi
             await session.commit()
             await session.refresh(note)
             with suppress(Exception):
-                await emit_notify(uid, note, kind="admin_action")
+                await emit_notify(uid, note, kind="role_update")
             with suppress(Exception):
                 await emit_global_chat_role_notice(
                     session,
