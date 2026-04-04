@@ -4,6 +4,7 @@ from uuid import UUID
 import structlog
 from ..sio import sio
 from ..utils import payload_dict, permissions_status, positive_int, public_reactions, validate_auth
+from ...core.roles import can_moderate_chat_message, is_chat_moderator_role
 from ...core.db import SessionLocal
 from ...core.logging import log_action
 from ...security.decorators import rate_limited_sio
@@ -33,6 +34,7 @@ from ...services.global_chat import (
     toggle_global_chat_reaction,
     validate_global_chat_send_input,
 )
+from ...services.user_cache import get_user_profiles_cached
 
 log = structlog.get_logger()
 
@@ -85,7 +87,12 @@ async def chat_open(sid, data):
         await sio.enter_room(sid, global_chat_open_user_room(uid), namespace="/chat")
         joined_user_room = True
         async with SessionLocal() as db:
-            messages, has_more, cursor_before_id = await fetch_global_chat_page(db, viewer_user_id=uid, limit=limit)
+            messages, has_more, cursor_before_id = await fetch_global_chat_page(
+                db,
+                viewer_user_id=uid,
+                limit=limit,
+                viewer_permissions=permissions,
+            )
             unread_target_message_ids = await fetch_global_chat_unread_target_message_ids(db, user_id=uid)
 
         return {
@@ -158,6 +165,7 @@ async def chat_history(sid, data):
                 viewer_user_id=uid,
                 before_id=before_id if before_raw is not None else None,
                 limit=limit,
+                viewer_permissions=permissions,
             )
         return {
             "ok": True,
@@ -282,7 +290,12 @@ async def chat_send(sid, data):
                 reply_to_message_id=reply_to_message_id,
                 image_object_key=image_object_key,
             )
-            ack_message = await build_global_chat_message_payload(db, message_id=int(message.id), viewer_user_id=uid)
+            ack_message = await build_global_chat_message_payload(
+                db,
+                message_id=int(message.id),
+                viewer_user_id=uid,
+                viewer_permissions=permissions,
+            )
             public_message = await build_global_chat_message_payload(db, message_id=int(message.id), viewer_user_id=None)
             alert_user_ids = await get_global_chat_alert_user_ids(db, message_id=int(message.id))
             if created and alert_user_ids:
@@ -337,7 +350,12 @@ async def chat_react_toggle(sid, data):
             except ValueError as exc:
                 return {"ok": False, "status": 422, "error": str(exc) or "bad_request"}
 
-            ack_message = await build_global_chat_message_payload(db, message_id=message_id, viewer_user_id=uid)
+            ack_message = await build_global_chat_message_payload(
+                db,
+                message_id=message_id,
+                viewer_user_id=uid,
+                viewer_permissions=permissions,
+            )
             public_message = await build_global_chat_message_payload(db, message_id=message_id, viewer_user_id=None)
 
         if public_message is not None:
@@ -423,7 +441,7 @@ async def chat_delete(sid, data):
         uid = int(sess.get("uid") or 0)
         role = str(sess.get("role") or "").strip().lower()
         actor_username = str(sess.get("username") or f"user{uid}")
-        is_admin = role == "admin"
+        is_chat_moderator = is_chat_moderator_role(role)
         payload = payload_dict(data)
         message_id = positive_int(payload.get("message_id"))
         if message_id <= 0:
@@ -431,25 +449,37 @@ async def chat_delete(sid, data):
 
         async with SessionLocal() as db:
             permissions = await resolve_global_chat_permissions(db, uid)
-            if not permissions.can_open and not is_admin:
+            if not permissions.can_open and not is_chat_moderator:
                 return {"ok": False, "status": permissions_status(permissions.error), "error": permissions.error or "forbidden"}
 
-            if not permissions.can_delete_own and not is_admin:
+            if not permissions.can_delete_own and not is_chat_moderator:
                 return {"ok": False, "status": permissions_status(permissions.error), "error": permissions.error or "forbidden"}
 
             message = await get_global_chat_message(db, message_id)
             if message is None:
                 return {"ok": False, "status": 404, "error": "message_not_found"}
 
-            if not is_admin and int(message.user_id) != uid:
+            message_author_id = int(message.user_id)
+            author_profile = (await get_user_profiles_cached(db, {message_author_id})).get(message_author_id) or {}
+            author_role = str(author_profile.get("role") or "user")
+            if not can_moderate_chat_message(
+                actor_role=role,
+                target_role=author_role,
+                actor_user_id=uid,
+                target_user_id=message_author_id,
+            ):
                 return {"ok": False, "status": 403, "error": "forbidden"}
 
             if message.deleted_at is not None:
                 return {"ok": False, "status": 409, "error": "already_deleted"}
 
-            message_author_id = int(message.user_id)
             message_author_username = ""
-            message_payload = await build_global_chat_message_payload(db, message_id=message_id, viewer_user_id=uid)
+            message_payload = await build_global_chat_message_payload(
+                db,
+                message_id=message_id,
+                viewer_user_id=uid,
+                viewer_permissions=permissions,
+            )
             if message_payload is not None:
                 author = message_payload.get("author") or {}
                 message_author_username = str(author.get("username") or "").strip()
@@ -478,13 +508,22 @@ async def chat_delete(sid, data):
                     db,
                     user_id=uid,
                     username=actor_username,
-                    action="chat_message_deleted_self" if is_self_delete else "chat_message_deleted_admin",
+                    action=(
+                        "chat_message_deleted_self"
+                        if is_self_delete
+                        else "chat_message_deleted_admin" if role == "admin" else "chat_message_deleted_moder"
+                    ),
                     details=details,
                 )
             except Exception:
                 log.exception("chat.delete.log_failed", sid=sid, uid=uid, message_id=message_id)
 
-            ack_message = await build_global_chat_message_payload(db, message_id=message_id, viewer_user_id=uid)
+            ack_message = await build_global_chat_message_payload(
+                db,
+                message_id=message_id,
+                viewer_user_id=uid,
+                viewer_permissions=permissions,
+            )
             public_message = await build_global_chat_message_payload(db, message_id=message_id, viewer_user_id=None)
 
         if public_message is not None:
@@ -504,8 +543,9 @@ async def chat_delete(sid, data):
 async def chat_deleted_message_preview(sid, data):
     try:
         sess = await sio.get_session(sid, namespace="/chat")
+        uid = int(sess.get("uid") or 0)
         role = str(sess.get("role") or "").strip().lower()
-        if role != "admin":
+        if not is_chat_moderator_role(role):
             return {"ok": False, "status": 403, "error": "forbidden"}
 
         payload = payload_dict(data)
@@ -520,6 +560,17 @@ async def chat_deleted_message_preview(sid, data):
 
             if message.deleted_at is None:
                 return {"ok": False, "status": 409, "error": "not_deleted"}
+
+            message_author_id = int(message.user_id)
+            author_profile = (await get_user_profiles_cached(db, {message_author_id})).get(message_author_id) or {}
+            author_role = str(author_profile.get("role") or "user")
+            if not can_moderate_chat_message(
+                actor_role=role,
+                target_role=author_role,
+                actor_user_id=uid,
+                target_user_id=message_author_id,
+            ):
+                return {"ok": False, "status": 403, "error": "forbidden"}
 
             preview = await build_deleted_global_chat_message_preview(db, message=message)
 
@@ -538,7 +589,7 @@ async def chat_message_purge(sid, data):
         uid = int(sess.get("uid") or 0)
         role = str(sess.get("role") or "").strip().lower()
         actor_username = str(sess.get("username") or f"user{uid}")
-        if role != "admin":
+        if not is_chat_moderator_role(role):
             return {"ok": False, "status": 403, "error": "forbidden"}
 
         payload = payload_dict(data)
@@ -555,6 +606,16 @@ async def chat_message_purge(sid, data):
                 return {"ok": False, "status": 409, "error": "not_deleted"}
 
             message_author_id = int(message.user_id)
+            author_profile = (await get_user_profiles_cached(db, {message_author_id})).get(message_author_id) or {}
+            author_role = str(author_profile.get("role") or "user")
+            if not can_moderate_chat_message(
+                actor_role=role,
+                target_role=author_role,
+                actor_user_id=uid,
+                target_user_id=message_author_id,
+            ):
+                return {"ok": False, "status": 403, "error": "forbidden"}
+
             message_author_username = ""
             message_payload = await build_global_chat_message_payload(db, message_id=message_id, viewer_user_id=uid)
             if message_payload is not None:
@@ -580,13 +641,17 @@ async def chat_message_purge(sid, data):
                     db,
                     user_id=uid,
                     username=actor_username,
-                    action="chat_message_purged_admin",
+                    action="chat_message_purged_admin" if role == "admin" else "chat_message_purged_moder",
                     details=details,
                 )
             except Exception:
                 log.exception("chat.purge.log_failed", sid=sid, uid=uid, message_id=message_id)
 
-            ack_message = await build_global_chat_message_payload(db, message_id=message_id, viewer_user_id=uid)
+            ack_message = await build_global_chat_message_payload(
+                db,
+                message_id=message_id,
+                viewer_user_id=uid,
+            )
             public_message = await build_global_chat_message_payload(db, message_id=message_id, viewer_user_id=None)
 
         if public_message is not None:
@@ -615,7 +680,12 @@ async def chat_message_context(sid, data):
             if not permissions.can_open:
                 return {"ok": False, "status": permissions_status(permissions.error), "error": permissions.error or "forbidden"}
 
-            messages = await fetch_global_chat_context(db, viewer_user_id=uid, message_id=message_id)
+            messages = await fetch_global_chat_context(
+                db,
+                viewer_user_id=uid,
+                message_id=message_id,
+                viewer_permissions=permissions,
+            )
         if not messages:
             return {"ok": False, "status": 404, "error": "message_not_found"}
 

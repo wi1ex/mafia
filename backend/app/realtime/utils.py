@@ -15,6 +15,7 @@ from typing import Any, Tuple, Dict, Mapping, cast, Optional, List, Iterable
 from dataclasses import dataclass
 from .sio import sio
 from ..core.db import SessionLocal
+from ..core.roles import can_room_moderate, room_moderation_role
 from ..core.settings import settings
 from ..security.parameters import get_cached_settings
 from ..models.room import Room
@@ -67,6 +68,7 @@ __all__ = [
     "persist_join_user_info",
     "get_blocks_snapshot",
     "get_roles_snapshot",
+    "get_moderation_roles_snapshot",
     "get_profiles_snapshot",
     "join_room_atomic",
     "leave_room_atomic",
@@ -374,7 +376,7 @@ if already == 1 then
   end
   local pos = tonumber(redis.call('ZSCORE', positions, uid) or '0')
   local existing_jd = redis.call('HGET', info, 'join_date')
-  redis.call('HSET', info, 'role', eff_role)
+  redis.call('HSET', info, 'role', eff_role, 'base_role', base_role)
   if not existing_jd then redis.call('HSET', info, 'join_date', now) end
   if not pos or pos == 0 then
     local new_pos = size
@@ -404,7 +406,7 @@ if size >= lim then return {-1,0,0,0} end
 local new_pos = size + 1
 redis.call('SADD', members, uid)
 redis.call('ZADD', positions, new_pos, uid)
-redis.call('HSET', info, 'join_date', now, 'role', eff_role)
+redis.call('HSET', info, 'join_date', now, 'role', eff_role, 'base_role', base_role)
 redis.call('DEL', empty_since)
 if new_pos == 1 then
   redis.call('SET', single_since, now, 'EX', 2592000)
@@ -985,8 +987,8 @@ def randomize_limit(limit: int) -> int:
     return randint(low, limit + 1)
 
 
-def ensure_can_act_role(actor_role: str, target_role: str, *, error: str = "forbidden", status: int = 403):
-    if not can_act_on_user(actor_role, target_role):
+def ensure_can_act_role(actor_role: str, target_role: str, *, actor_base_role: str | None = None, target_base_role: str | None = None, error: str = "forbidden", status: int = 403):
+    if not can_act_on_user(actor_role, target_role, actor_base_role=actor_base_role, target_base_role=target_base_role):
         return {"ok": False, "error": error, "status": status}
 
     return None
@@ -1387,6 +1389,24 @@ async def get_roles_snapshot(r, rid: int) -> Dict[str, str]:
     return out
 
 
+async def get_moderation_roles_snapshot(r, rid: int) -> Dict[str, str]:
+    ids = await r.smembers(f"room:{rid}:members")
+    if not ids:
+        return {}
+
+    async with r.pipeline() as p:
+        for uid in ids:
+            await p.hmget(f"room:{rid}:user:{uid}:info", "role", "base_role")
+        rows = await p.execute()
+
+    out: Dict[str, str] = {}
+    for uid, values in zip(ids, rows):
+        role = values[0] if isinstance(values, (list, tuple)) and len(values) > 0 else None
+        base_role = values[1] if isinstance(values, (list, tuple)) and len(values) > 1 else None
+        out[str(uid)] = room_moderation_role(role, base_role)
+    return out
+
+
 async def get_profiles_snapshot(r, rid: int, *, extra_ids: Iterable[int | str] | None = None) -> dict[str, dict[str, str | None]]:
     ids = await r.smembers(f"room:{rid}:members")
     ids_set: set[str] = {str(uid) for uid in (ids or [])}
@@ -1465,14 +1485,15 @@ async def get_profiles_snapshot(r, rid: int, *, extra_ids: Iterable[int | str] |
     return out
 
 
-async def update_blocks(r, rid: int, actor_uid: int, actor_role: str, target_uid: int, changes_bool: Mapping[str, Any]) -> tuple[Dict[str, str], Dict[str, str]]:
-    role = await r.hget(f"room:{rid}:user:{target_uid}:info", "role")
+async def update_blocks(r, rid: int, actor_uid: int, actor_role: str, target_uid: int, changes_bool: Mapping[str, Any], *, actor_base_role: str | None = None) -> tuple[Dict[str, str], Dict[str, str]]:
+    role, base_role = await r.hmget(f"room:{rid}:user:{target_uid}:info", "role", "base_role")
     target_role = str(role or "user")
+    target_base_role = str(base_role or target_role or "user")
     if actor_uid == target_uid:
         return {}, {"__error__": "forbidden"}
 
     if actor_role != "head":
-        if not can_act_on_user(actor_role, target_role):
+        if not can_act_on_user(actor_role, target_role, actor_base_role=actor_base_role, target_base_role=target_base_role):
             return {}, {"__error__": "forbidden"}
 
     incoming = {k: norm01(changes_bool[k]) for k in KEYS_BLOCK if k in changes_bool}
@@ -1500,8 +1521,16 @@ async def update_blocks(r, rid: int, actor_uid: int, actor_role: str, target_uid
     return to_apply, forced_off
 
 
-async def apply_blocks_and_emit(r, rid: int, *, actor_uid: int, actor_role: str, target_uid: int, changes_bool: Mapping[str, Any], phase_override: str | None = None) -> tuple[Dict[str, str], Dict[str, str]]:
-    applied, forced_off = await update_blocks(r, rid, actor_uid, actor_role, target_uid, changes_bool)
+async def apply_blocks_and_emit(r, rid: int, *, actor_uid: int, actor_role: str, target_uid: int, changes_bool: Mapping[str, Any], actor_base_role: str | None = None, phase_override: str | None = None) -> tuple[Dict[str, str], Dict[str, str]]:
+    applied, forced_off = await update_blocks(
+        r,
+        rid,
+        actor_uid,
+        actor_role,
+        target_uid,
+        changes_bool,
+        actor_base_role=actor_base_role,
+    )
     if "__error__" in forced_off:
         return applied, forced_off
 
@@ -4615,17 +4644,8 @@ async def get_alive_and_voted_ids(r, rid: int) -> tuple[set[int], set[int]]:
     return alive_ids, voted_ids
 
 
-def can_act_on_user(actor_role: str, target_role: str) -> bool:
-    if actor_role not in ("admin", "host"):
-        return False
-
-    if actor_role == "host" and target_role == "admin":
-        return False
-
-    if actor_role == target_role:
-        return False
-
-    return True
+def can_act_on_user(actor_role: str, target_role: str, *, actor_base_role: str | None = None, target_base_role: str | None = None) -> bool:
+    return can_room_moderate(actor_room_role=actor_role, target_room_role=target_role, actor_base_role=actor_base_role, target_base_role=target_base_role)
 
 
 async def stop_screen_for_user(r, rid: int, uid: int, *, canceled: bool = False, actor_uid: int | None = None, actor_username: str | None = None, actor_role: str | None = None) -> None:

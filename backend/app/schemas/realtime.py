@@ -14,6 +14,7 @@ class JoinAck(TypedDict, total=False):
     positions: Dict[str, int]
     blocked: Dict[str, Dict[str, str]]
     roles: Dict[str, str]
+    moderation_roles: Dict[str, str]
     profiles: Dict[str, Dict[str, Optional[str]]]
     screen_owner: int
     pending: bool

@@ -45,6 +45,7 @@ from ..utils import (
     persist_join_user_info,
     get_blocks_snapshot,
     get_roles_snapshot,
+    get_moderation_roles_snapshot,
     get_profiles_snapshot,
     join_room_atomic,
     leave_room_atomic,
@@ -295,6 +296,7 @@ async def join(sid, data) -> JoinAck:
         snapshot = await merge_ready_into_snapshot(r, rid, snapshot)
         blocked = await get_blocks_snapshot(r, rid)
         roles = await get_roles_snapshot(r, rid)
+        moderation_roles = await get_moderation_roles_snapshot(r, rid)
 
         extra_profile_ids: list[int] = []
         if phase != "idle":
@@ -422,6 +424,7 @@ async def join(sid, data) -> JoinAck:
                            {"user_id": uid,
                             "state": user_state,
                             "role": eff_role,
+                            "moderation_role": moderation_roles.get(str(uid), eff_role),
                             "blocks": blocked.get(str(uid)) or {},
                             "username": ev_username,
                             "avatar_name": ev_avatar},
@@ -469,6 +472,7 @@ async def join(sid, data) -> JoinAck:
             "positions": positions,
             "blocked": blocked,
             "roles": roles,
+            "moderation_roles": moderation_roles,
             "profiles": profiles,
             "screen_owner": owner,
             "game_runtime": game_runtime,
@@ -738,8 +742,14 @@ async def screen(sid, data) -> ScreenAck:
         if target != actor_uid:
             role_in_room = await r.hget(f"room:{rid}:user:{actor_uid}:info", "role")
             actor_role = str(role_in_room or sess.get("role") or "user")
-            trg_role = str(await r.hget(f"room:{rid}:user:{target}:info", "role") or "user")
-            err = ensure_can_act_role(actor_role, trg_role)
+            actor_base_role = str(sess.get("base_role") or actor_role or "user")
+            trg_role, trg_base_role = await r.hmget(f"room:{rid}:user:{target}:info", "role", "base_role")
+            err = ensure_can_act_role(
+                actor_role,
+                str(trg_role or "user"),
+                actor_base_role=actor_base_role,
+                target_base_role=str(trg_base_role or trg_role or "user"),
+            )
             if err:
                 return err
 
@@ -820,11 +830,14 @@ async def moderate(sid, data) -> ModerateAck:
 
         r = get_redis()
         role_in_room = await r.hget(f"room:{rid}:user:{actor_uid}:info", "role")
-        base_actor_role = str(role_in_room or sess.get("role") or "user")
-        trg_role = str(await r.hget(f"room:{rid}:user:{target}:info", "role") or "user")
+        actor_room_role = str(role_in_room or sess.get("role") or "user")
+        actor_base_role = str(sess.get("base_role") or actor_room_role or "user")
+        trg_role, trg_base_role = await r.hmget(f"room:{rid}:user:{target}:info", "role", "base_role")
+        target_role = str(trg_role or "user")
+        target_base_role = str(trg_base_role or trg_role or "user")
         raw_gstate = await r.hgetall(f"room:{rid}:game_state")
         phase = str(raw_gstate.get("phase") or "idle")
-        actor_role = base_actor_role
+        actor_role = actor_room_role
         if phase != "idle":
             try:
                 head_uid = int(raw_gstate.get("head") or 0)
@@ -836,10 +849,18 @@ async def moderate(sid, data) -> ModerateAck:
 
             actor_role = "head"
 
-        if actor_role != "head" and actor_role == trg_role:
+        if actor_role != "head" and actor_role == target_role:
             return {"ok": False, "error": "forbidden", "status": 403}
 
-        applied, forced_off = await apply_blocks_and_emit(r, rid, actor_uid=actor_uid, actor_role=actor_role, target_uid=target, changes_bool=norm)
+        applied, forced_off = await apply_blocks_and_emit(
+            r,
+            rid,
+            actor_uid=actor_uid,
+            actor_role=actor_role,
+            actor_base_role=actor_base_role,
+            target_uid=target,
+            changes_bool=norm,
+        )
 
         if "__error__" in forced_off:
             err = forced_off["__error__"]
@@ -896,8 +917,14 @@ async def kick(sid, data):
 
         role_in_room = await r.hget(f"room:{rid}:user:{actor_uid}:info", "role")
         actor_role = str(role_in_room or sess.get("role") or "user")
-        trg_role = str(await r.hget(f"room:{rid}:user:{target}:info", "role") or "user")
-        err = ensure_can_act_role(actor_role, trg_role)
+        actor_base_role = str(sess.get("base_role") or actor_role or "user")
+        trg_role, trg_base_role = await r.hmget(f"room:{rid}:user:{target}:info", "role", "base_role")
+        err = ensure_can_act_role(
+            actor_role,
+            str(trg_role or "user"),
+            actor_base_role=actor_base_role,
+            target_base_role=str(trg_base_role or trg_role or "user"),
+        )
         if err:
             return err
 

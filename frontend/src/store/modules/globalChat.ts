@@ -49,6 +49,7 @@ export interface GlobalChatAuthor {
   id: number
   username: string
   avatar_name: string | null
+  role?: string
 }
 
 export interface GlobalChatMention {
@@ -67,6 +68,7 @@ export interface GlobalChatMessage {
   author: GlobalChatAuthor
   is_own: boolean
   can_delete: boolean
+  can_moderate_deleted: boolean
   reactions: GlobalChatReaction[]
   reply: GlobalChatReplyPreview | null
   image_object_key: string | null
@@ -111,6 +113,8 @@ interface ChatImagePresignResponse {
   upload_fields?: Record<string, unknown>
 }
 
+type ChatUserRole = 'admin' | 'moder' | 'user'
+
 function isRecord(value: unknown): value is RawRecord {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 }
@@ -120,6 +124,13 @@ function asPositiveInt(raw: unknown): number {
   if (!Number.isFinite(value)) return 0
   const normalized = Math.trunc(value)
   return normalized > 0 ? normalized : 0
+}
+
+function normalizeChatRole(raw: unknown): ChatUserRole {
+  const value = asString(raw).trim().toLowerCase()
+  if (value === 'admin') return 'admin'
+  if (value === 'moder') return 'moder'
+  return 'user'
 }
 
 function asString(raw: unknown): string {
@@ -233,8 +244,22 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
     return asPositiveInt(useUserStore().user?.id)
   }
 
-  function currentViewerIsAdmin(): boolean {
-    return asString(useUserStore().user?.role).trim().toLowerCase() === 'admin'
+  function currentViewerChatRole(): ChatUserRole {
+    return normalizeChatRole(useUserStore().user?.role)
+  }
+
+  function currentViewerIsChatModerator(): boolean {
+    const viewerRole = currentViewerChatRole()
+    return viewerRole === 'admin' || viewerRole === 'moder'
+  }
+
+  function canModerateChatMessage(authorId: number, authorRoleRaw: unknown, viewerUserId: number): boolean {
+    if (viewerUserId > 0 && viewerUserId === authorId) return true
+    const viewerRole = currentViewerChatRole()
+    const authorRole = normalizeChatRole(authorRoleRaw)
+    if (viewerRole === 'admin') return true
+    if (viewerRole === 'moder') return authorRole === 'user'
+    return false
   }
 
   function applyUnreadCount(raw: unknown): void {
@@ -505,6 +530,7 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
     const authorRaw = isRecord(raw.author) ? raw.author : {}
     const authorId = asPositiveInt(authorRaw.id) || previous?.author.id || 0
     const authorUsername = asString(authorRaw.username).trim() || previous?.author.username || `user${authorId || id}`
+    const authorRole = normalizeChatRole(authorRaw.role || previous?.author.role)
     const deleted = Boolean(raw.deleted)
     const deletedContentAvailable = deleted
       ? (typeof raw.deleted_content_available === 'boolean'
@@ -512,7 +538,8 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
           : (previous?.deleted_content_available ?? true))
       : false
     const ownByAuthor = viewerUserId > 0 && authorId === viewerUserId
-    const viewerIsAdmin = currentViewerIsAdmin()
+    const canModerate = currentViewerIsChatModerator() && canModerateChatMessage(authorId, authorRole, viewerUserId)
+    const canDeleteOwn = !deleted && ownByAuthor && (Boolean(permissions.value.can_delete_own) || canModerate)
 
     return {
       id,
@@ -525,9 +552,11 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
         id: authorId,
         username: authorUsername,
         avatar_name: asString(authorRaw.avatar_name) || null,
+        role: authorRole,
       },
       is_own: ownByAuthor,
-      can_delete: Boolean(!deleted && (ownByAuthor || viewerIsAdmin || Boolean(raw.can_delete))),
+      can_delete: Boolean(!deleted && (Boolean(raw.can_delete) || canDeleteOwn || (canModerate && !ownByAuthor))),
+      can_moderate_deleted: Boolean(deleted && deletedContentAvailable && (Boolean(raw.can_moderate_deleted) || canModerate)),
       reactions: deleted ? [] : normalizeReactionList(raw.reactions, previous?.reactions || []),
       reply: normalizeReply(raw.reply),
       image_object_key: deleted ? null : (asString(raw.image_object_key) || null),

@@ -331,7 +331,7 @@ class AdminSanctionBanIn(BaseModel):
 
 
 class AdminUserRoleIn(BaseModel):
-    role: Literal["admin", "user"]
+    role: Literal["moder", "user"]
 
 
 class AdminUserRoleOut(BaseModel):

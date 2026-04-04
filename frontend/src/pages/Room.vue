@@ -611,6 +611,7 @@ const statusByUser = reactive(new Map<string, StatusState>())
 const positionByUser = reactive(new Map<string, number>())
 const blockByUser  = reactive(new Map<string, BlockState>())
 const rolesByUser = reactive(new Map<string, string>())
+const moderationRolesByUser = reactive(new Map<string, string>())
 const nameByUser = reactive(new Map<string, string>())
 const avatarByUser = reactive(new Map<string, string | null>())
 const volUi = reactive<Record<string, number>>({})
@@ -1558,7 +1559,9 @@ function enforceMinGameVolumes(): void {
 }
 
 function rol(id: string): string { return rolesByUser.get(id) || 'user' }
+function moderationRol(id: string): string { return moderationRolesByUser.get(id) || rol(id) }
 const myRole = computed(() => rol(localId.value))
+const myModerationRole = computed(() => moderationRol(localId.value))
 
 function onNominate(targetId: string) {
   game.nominateTarget(targetId, sendAck)
@@ -1663,11 +1666,11 @@ async function toggleReady() {
 function canModerate(targetId: string): boolean {
   if (targetId === localId.value) return false
   if (gamePhase.value !== 'idle') return false
-  const me = myRole.value
-  const trg = rol(targetId)
+  const me = myModerationRole.value
+  const trg = moderationRol(targetId)
   if (me === trg) return false
   if (me === 'admin') return trg !== 'admin'
-  if (me === 'host') return trg !== 'admin' && trg !== 'host'
+  if (me === 'moder' || me === 'host') return trg === 'user'
   return false
 }
 
@@ -1730,6 +1733,7 @@ function purgePeerUI(id: string) {
   positionByUser.delete(id)
   blockByUser.delete(id)
   rolesByUser.delete(id)
+  moderationRolesByUser.delete(id)
   nameByUser.delete(id)
   avatarByUser.delete(id)
   videoRefMemo.delete(id)
@@ -1824,6 +1828,8 @@ socket.value?.on('connect', async () => {
     ensurePeer(id)
     applyPeerState(id, p?.state || {})
     if (p?.role) rolesByUser.set(id, String(p.role))
+    if (p?.moderation_role) moderationRolesByUser.set(id, String(p.moderation_role))
+    else if (p?.role) moderationRolesByUser.set(id, String(p.role))
     if (p?.blocks) applyBlocks(id, p.blocks)
     const av = p?.avatar_name
     if (typeof av === 'string' && av.trim() !== '') avatarByUser.set(id, av)
@@ -2315,6 +2321,11 @@ function applyJoinAck(j: any) {
   rolesByUser.clear()
   for (const [uid, r] of Object.entries(j.roles || {})) {
     rolesByUser.set(String(uid), String(r || 'user'))
+  }
+
+  moderationRolesByUser.clear()
+  for (const [uid, r] of Object.entries(j.moderation_roles || j.roles || {})) {
+    moderationRolesByUser.set(String(uid), String(r || 'user'))
   }
 
   const prof = j.profiles || {}

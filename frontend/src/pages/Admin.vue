@@ -765,8 +765,8 @@
                     </div>
                   </td>
                   <td>
-                    <button class="btn" :class="row.role === 'admin' ? 'dark' : 'danger'" :disabled="isUserActionsLocked(row) || usersRoleBusy[row.id]" @click="toggleUserRole(row)">
-                      <img class="btn-img" :src="row.role === 'admin' ? iconClose : iconJudge" alt="" />
+                    <button class="btn" :class="row.role === 'moder' ? 'dark' : 'danger'" :disabled="isUserActionsLocked(row) || usersRoleBusy[row.id] || row.role === 'admin'" @click="toggleUserRole(row)">
+                      <img class="btn-img" :src="row.role === 'moder' ? iconClose : iconJudge" alt="" />
                     </button>
                   </td>
                   <td>
@@ -2025,14 +2025,15 @@ function prevUsers(): void {
 
 async function toggleUserRole(row: UserRow): Promise<void> {
   if (isUserActionsLocked(row)) return
+  if (String(row.role || 'user') === 'admin') return
   if (usersRoleBusy[row.id]) return
-  const isAdmin = row.role === 'admin'
-  const targetRole = isAdmin ? 'user' : 'admin'
+  const isModer = row.role === 'moder'
+  const targetRole = isModer ? 'user' : 'moder'
   const userLabel = row.username ? `пользователю ${row.username}` : `пользователю #${row.id}`
   const ok = await confirmDialog({
-    title: isAdmin ? 'Снять ADMIN' : 'Выдать ADMIN',
-    text: `${isAdmin ? 'Снять' : 'Выдать'} права администратора ${userLabel}?`,
-    confirmText: isAdmin ? 'Снять' : 'Выдать',
+    title: isModer ? 'Снять MODER' : 'Выдать MODER',
+    text: `${isModer ? 'Снять' : 'Выдать'} права модератора ${userLabel}?`,
+    confirmText: isModer ? 'Снять' : 'Выдать',
     cancelText: 'Отмена',
   })
   if (!ok) return

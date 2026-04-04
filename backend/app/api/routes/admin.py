@@ -1266,6 +1266,9 @@ async def update_user_role(user_id: int, payload: AdminUserRoleIn, ident: Identi
 
     ensure_admin_target_allowed(user)
     prev_role = user.role
+    if prev_role == "admin" or payload.role == "admin":
+        raise HTTPException(status_code=403, detail="admin_role_locked")
+
     user.role = payload.role
     await session.commit()
     await session.refresh(user)
@@ -1278,7 +1281,12 @@ async def update_user_role(user_id: int, payload: AdminUserRoleIn, ident: Identi
 
     uid = cast(int, user.id)
     if prev_role != user.role:
-        action = "admin_role_grant" if user.role == "admin" else "admin_role_revoke"
+        if user.role == "moder":
+            action = "moder_role_grant"
+        elif prev_role == "moder":
+            action = "moder_role_revoke"
+        else:
+            action = "role_update"
         details = f"Роль user_id={uid}"
         if user.username:
             details += f" username={user.username}"
@@ -1292,11 +1300,11 @@ async def update_user_role(user_id: int, payload: AdminUserRoleIn, ident: Identi
             details=details,
         )
 
-        if user.role == "admin":
+        if user.role == "moder":
             note = Notif(
                 user_id=uid,
-                title="Администратор",
-                text="Вам выданы права администратора.",
+                title="Модератор",
+                text="Вам выданы права модератора.",
             )
             session.add(note)
             await session.commit()

@@ -100,7 +100,7 @@
                 </div>
                 <div class="info-card">
                   <span class="info-card-title">Для партнёров и организаторов</span>
-                  <p>Обсуждение идей по развитию, форматам взаимодействия, интеграциям и новым сценариям использования платформы.</p>
+                  <p>Обсуждение идей по развитию, интеграциям и новым сценариям использования платформы.</p>
                 </div>
               </div>
 
@@ -593,7 +593,7 @@ onBeforeUnmount(() => {
   .home-carousel {
     .slide {
       .slide-content {
-        padding: 8px 8px 48px;
+        padding: 5px 8px 34px;
         gap: 8px;
       }
       .slide-badge,
@@ -648,24 +648,24 @@ onBeforeUnmount(() => {
       }
     }
     .carousel-controls {
-      bottom: 8px;
+      bottom: 5px;
       padding: 3px 5px;
       gap: 5px;
     }
     .carousel-dot {
-      width: 12px;
-      height: 5px;
+      width: 10px;
+      height: 3px;
       &.active {
-        width: 30px;
+        width: 24px;
       }
     }
     .nav-btn {
-      width: 24px;
-      height: 24px;
+      width: 16px;
+      height: 16px;
     }
     .nav-icon {
-      width: 12px;
-      height: 12px;
+      width: 8px;
+      height: 8px;
     }
   }
 }

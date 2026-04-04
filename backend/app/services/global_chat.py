@@ -13,6 +13,7 @@ from ..models.global_chat import GlobalChatMessage, GlobalChatMessageReaction, G
 from ..models.sanction import UserSanction
 from ..models.user import User
 from ..core.db import SessionLocal
+from ..core.roles import can_moderate_chat_message, is_chat_moderator_role, normalize_user_role
 from ..realtime.sio import sio
 from ..security.parameters import get_cached_settings
 from ..api.utils import is_user_in_active_alive_game
@@ -1117,7 +1118,7 @@ async def ensure_global_chat_image_exists(key: str | None) -> None:
         raise ValueError("image_not_found")
 
 
-async def serialize_global_chat_messages(session: AsyncSession, messages: Sequence[GlobalChatMessage], *, viewer_user_id: int | None) -> list[dict[str, Any]]:
+async def serialize_global_chat_messages(session: AsyncSession, messages: Sequence[GlobalChatMessage], *, viewer_user_id: int | None, viewer_permissions: GlobalChatPermissions | None = None) -> list[dict[str, Any]]:
     if not messages:
         return []
 
@@ -1132,12 +1133,27 @@ async def serialize_global_chat_messages(session: AsyncSession, messages: Sequen
 
     user_ids: set[int] = {int(message.user_id) for message in messages}
     user_ids.update(int(message.user_id) for message in reply_map.values())
+    if viewer_id > 0:
+        user_ids.add(viewer_id)
+
     mention_spans_by_message_id, mention_user_ids, mentioned_usernames = _collect_message_mention_context(messages)
     reply_mention_spans_by_message_id, reply_mention_user_ids, reply_mentioned_usernames = _collect_message_mention_context(reply_map.values())
     user_ids.update(mention_user_ids)
     user_ids.update(reply_mention_user_ids)
     profiles = await get_user_profiles_cached(session, user_ids) if user_ids else {}
     resolved_mentions = await _resolve_mentioned_users(session, mentioned_usernames | reply_mentioned_usernames)
+    viewer_profile = profiles.get(viewer_id) or {}
+    viewer_role = normalize_user_role(viewer_profile.get("role"))
+    viewer_is_chat_moderator = is_chat_moderator_role(viewer_role)
+    viewer_can_delete_own = False
+    if viewer_id > 0:
+        if viewer_is_chat_moderator:
+            viewer_can_delete_own = True
+        else:
+            permissions = viewer_permissions
+            if permissions is None:
+                permissions = await resolve_global_chat_permissions(session, viewer_id)
+            viewer_can_delete_own = bool(permissions.can_delete_own)
 
     reaction_rows = await session.execute(
         select(
@@ -1163,7 +1179,29 @@ async def serialize_global_chat_messages(session: AsyncSession, messages: Sequen
     for message in messages:
         public = _message_public_dict(message)
         author_profile = profiles.get(public["user_id"]) or {}
+        author_role = normalize_user_role(author_profile.get("role"))
         deleted = bool(public["deleted"])
+        own_message = 0 < viewer_id == public["user_id"]
+        can_moderate_message = can_moderate_chat_message(
+            actor_role=viewer_role,
+            target_role=author_role,
+            actor_user_id=viewer_id,
+            target_user_id=public["user_id"],
+        )
+        can_delete_message = False
+        if not deleted:
+            if own_message:
+                can_delete_message = bool(viewer_can_delete_own)
+            else:
+                can_delete_message = bool(viewer_is_chat_moderator and can_moderate_message)
+
+        can_moderate_deleted_message = bool(
+            deleted
+            and public.get("deleted_content_available")
+            and viewer_is_chat_moderator
+            and can_moderate_message
+        )
+
         reactions: list[dict[str, Any]] = []
         if not deleted:
             counts = reaction_counts.get(public["id"], {})
@@ -1224,9 +1262,11 @@ async def serialize_global_chat_messages(session: AsyncSession, messages: Sequen
                     "id": public["user_id"],
                     "username": _username_for(author_profile, public["user_id"]),
                     "avatar_name": author_profile.get("avatar_name"),
+                    "role": author_role,
                 },
-                "is_own": 0 < viewer_id == public["user_id"],
-                "can_delete": 0 < viewer_id == public["user_id"] and not deleted,
+                "is_own": own_message,
+                "can_delete": can_delete_message,
+                "can_moderate_deleted": can_moderate_deleted_message,
                 "reactions": reactions,
                 "reply": reply_payload,
                 "image_object_key": public["image_object_key"],
@@ -1304,7 +1344,7 @@ async def get_global_chat_message_by_client_id(session: AsyncSession, *, user_id
     return row.scalar_one_or_none()
 
 
-async def fetch_global_chat_page(session: AsyncSession, *, viewer_user_id: int, before_id: int | None = None, limit: int | None = None) -> tuple[list[dict[str, Any]], bool, int | None]:
+async def fetch_global_chat_page(session: AsyncSession, *, viewer_user_id: int, before_id: int | None = None, limit: int | None = None, viewer_permissions: GlobalChatPermissions | None = None) -> tuple[list[dict[str, Any]], bool, int | None]:
     page_limit = _normalize_limit(limit)
     before = _positive_int(before_id)
     if before_id is not None and before <= 0:
@@ -1319,12 +1359,17 @@ async def fetch_global_chat_page(session: AsyncSession, *, viewer_user_id: int, 
     has_more = len(items) > page_limit
     items = items[:page_limit]
     items = list(reversed(items))
-    messages = await serialize_global_chat_messages(session, items, viewer_user_id=viewer_user_id)
+    messages = await serialize_global_chat_messages(
+        session,
+        items,
+        viewer_user_id=viewer_user_id,
+        viewer_permissions=viewer_permissions,
+    )
     cursor_before_id = int(messages[0]["id"]) if messages else None
     return messages, has_more, cursor_before_id
 
 
-async def fetch_global_chat_context(session: AsyncSession, *, viewer_user_id: int, message_id: int, window: int = GLOBAL_CHAT_CONTEXT_WINDOW) -> list[dict[str, Any]]:
+async def fetch_global_chat_context(session: AsyncSession, *, viewer_user_id: int, message_id: int, window: int = GLOBAL_CHAT_CONTEXT_WINDOW, viewer_permissions: GlobalChatPermissions | None = None) -> list[dict[str, Any]]:
     target = await get_global_chat_message(session, message_id)
     if target is None:
         return []
@@ -1353,7 +1398,12 @@ async def fetch_global_chat_context(session: AsyncSession, *, viewer_user_id: in
         seen.add(message_id_int)
         deduped.append(message)
 
-    return await serialize_global_chat_messages(session, deduped, viewer_user_id=viewer_user_id)
+    return await serialize_global_chat_messages(
+        session,
+        deduped,
+        viewer_user_id=viewer_user_id,
+        viewer_permissions=viewer_permissions,
+    )
 
 
 async def create_global_chat_message(session: AsyncSession, *, user_id: int, client_message_id: UUID, text: str, reply_to_message_id: int | None, image_object_key: str | None) -> tuple[GlobalChatMessage, bool]:
@@ -1577,11 +1627,16 @@ async def purge_global_chat_message(session: AsyncSession, *, message: GlobalCha
     return message, True
 
 
-async def build_global_chat_message_payload(session: AsyncSession, *, message_id: int, viewer_user_id: int | None) -> dict[str, Any] | None:
+async def build_global_chat_message_payload(session: AsyncSession, *, message_id: int, viewer_user_id: int | None, viewer_permissions: GlobalChatPermissions | None = None) -> dict[str, Any] | None:
     message = await get_global_chat_message(session, message_id)
     if message is None:
         return None
-    payloads = await serialize_global_chat_messages(session, [message], viewer_user_id=viewer_user_id)
+    payloads = await serialize_global_chat_messages(
+        session,
+        [message],
+        viewer_user_id=viewer_user_id,
+        viewer_permissions=viewer_permissions,
+    )
     return payloads[0] if payloads else None
 
 

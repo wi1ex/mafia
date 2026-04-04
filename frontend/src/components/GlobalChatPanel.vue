@@ -360,7 +360,10 @@ const visibleUnreadTargetReadInFlightIds = new Set<number>()
 const USER_SCROLL_INTENT_WINDOW_MS = 4000
 const VISIBLE_UNREAD_TARGET_RATIO = 0.5
 const VISIBLE_UNREAD_TARGET_MAX_PX = 120
-const isAdmin = computed(() => String(user.user?.role || '').trim().toLowerCase() === 'admin')
+const isChatModerator = computed(() => {
+  const role = String(user.user?.role || '').trim().toLowerCase()
+  return role === 'admin' || role === 'moder'
+})
 const isRoomMode = computed(() => route.name === 'room')
 
 const showLauncher = computed(() => {
@@ -1145,7 +1148,7 @@ async function onDeleteMessage(message: GlobalChatMessage): Promise<void> {
     title: message.is_own ? 'Удаление сообщения' : 'Удаление сообщения пользователя',
     text: message.is_own
       ? 'Вы уверены, что хотите удалить это сообщение?'
-      : isAdmin.value
+      : isChatModerator.value
         ? `Вы уверены, что хотите удалить сообщение пользователя ${authorName}?`
         : 'Вы уверены, что хотите удалить это сообщение?',
     confirmText: 'Удалить',
@@ -1157,7 +1160,7 @@ async function onDeleteMessage(message: GlobalChatMessage): Promise<void> {
 }
 
 function showDeletedModerationActions(message: GlobalChatMessage): boolean {
-  return isAdmin.value && message.deleted && message.deleted_content_available
+  return Boolean(message.deleted && message.can_moderate_deleted)
 }
 
 function isDeletedPreviewBusy(messageId: number): boolean {

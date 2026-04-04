@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.clients import get_redis
 from ..core.db import SessionLocal
 from ..core.logging import log_action
+from ..core.roles import admin_users_role_sort_value
 from ..core.settings import settings
 from ..models.game import Game
 from ..models.log import AppLog
@@ -557,8 +558,7 @@ def admin_username_sort_key(raw: Any) -> tuple[int, tuple[tuple[int, int, int], 
 
 
 def admin_role_sort_key(role: Any) -> tuple[int, str]:
-    normalized = str(role or "").strip().casefold()
-    return 1 if normalized == "user" else 0, normalized
+    return admin_users_role_sort_value(role)
 
 
 async def fetch_friends_count_for_users(session: AsyncSession, ids: list[int]) -> dict[int, int]:
