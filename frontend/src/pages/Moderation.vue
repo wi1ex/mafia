@@ -59,48 +59,6 @@
                 </button>
               </th>
               <th>
-                <button class="th-sort" type="button" :class="{ active: usersSortBy === 'friends_count' }" @click="setUsersSort('friends_count')">
-                  Друзья
-                  <span class="th-sort-mark" aria-hidden="true">▼</span>
-                </button>
-              </th>
-              <th>
-                <button class="th-sort" type="button" :class="{ active: usersSortBy === 'rooms_created' }" @click="setUsersSort('rooms_created')">
-                  Комнаты
-                  <span class="th-sort-mark" aria-hidden="true">▼</span>
-                </button>
-              </th>
-              <th>
-                <button class="th-sort" type="button" :class="{ active: usersSortBy === 'room_minutes' }" @click="setUsersSort('room_minutes')">
-                  В комнатах
-                  <span class="th-sort-mark" aria-hidden="true">▼</span>
-                </button>
-              </th>
-              <th>
-                <button class="th-sort" type="button" :class="{ active: usersSortBy === 'stream_minutes' }" @click="setUsersSort('stream_minutes')">
-                  Стримы
-                  <span class="th-sort-mark" aria-hidden="true">▼</span>
-                </button>
-              </th>
-              <th>
-                <button class="th-sort" type="button" :class="{ active: usersSortBy === 'games_played' }" @click="setUsersSort('games_played')">
-                  Игры
-                  <span class="th-sort-mark" aria-hidden="true">▼</span>
-                </button>
-              </th>
-              <th>
-                <button class="th-sort" type="button" :class="{ active: usersSortBy === 'games_hosted' }" @click="setUsersSort('games_hosted')">
-                  Ведущий
-                  <span class="th-sort-mark" aria-hidden="true">▼</span>
-                </button>
-              </th>
-              <th>
-                <button class="th-sort" type="button" :class="{ active: usersSortBy === 'spectator_minutes' }" @click="setUsersSort('spectator_minutes')">
-                  Зритель
-                  <span class="th-sort-mark" aria-hidden="true">▼</span>
-                </button>
-              </th>
-              <th>
                 <button class="th-sort" type="button" :class="{ active: usersSortBy === 'timeouts_count' }" @click="setUsersSort('timeouts_count')">
                   Таймауты
                   <span class="th-sort-mark" aria-hidden="true">▼</span>
@@ -126,7 +84,7 @@
               <td>
                 <div v-if="row.username" class="user-cell">
                   <img class="user-avatar" v-minio-img="{ key: row.avatar_name ? `avatars/${row.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
-                  <button class="user-link" type="button" @click="openUserStats(row)">{{ row.username }}</button>
+                  <span>{{ row.username }}</span>
                 </div>
                 <span v-else>-</span>
               </td>
@@ -134,13 +92,6 @@
               <td>{{ formatLocalDateTime(row.last_login_at) }}</td>
               <td>{{ formatLocalDateTime(row.last_visit_at) }}</td>
               <td>{{ formatLocalDateTime(row.last_game_at) }}</td>
-              <td>{{ row.friends_count }}</td>
-              <td>{{ row.rooms_created }}</td>
-              <td>{{ formatMinutes(row.room_minutes) }}</td>
-              <td>{{ formatMinutes(row.stream_minutes) }}</td>
-              <td>{{ row.games_played }}</td>
-              <td>{{ row.games_hosted }}</td>
-              <td>{{ formatMinutes(row.spectator_minutes) }}</td>
               <td>
                 <div class="tooltip" tabindex="0">
                   <span class="tooltip-value">{{ row.timeouts_count }}</span>
@@ -187,7 +138,7 @@
               </td>
             </tr>
             <tr v-if="users.length === 0">
-              <td colspan="16" class="muted">Нет данных</td>
+              <td colspan="9" class="muted">Нет данных</td>
             </tr>
           </tbody>
         </table>
@@ -209,20 +160,6 @@
       :reasons="sanctionReasons"
       @save="saveSanction"
     />
-
-    <div v-if="userStatsOpen && userStatsTarget" class="user-stats-overlay">
-      <div class="user-stats-modal">
-        <header class="user-stats-head">
-          <span>Статистика: {{ userStatsTarget.username || `user${userStatsTarget.id}` }}</span>
-          <button type="button" aria-label="Закрыть" @click="closeUserStats">
-            <img :src="iconClose" alt="close" />
-          </button>
-        </header>
-        <div class="user-stats-body">
-          <ProfileStatsTab :key="`moderation-user-stats-${userStatsTarget.id}`" :stats-url="`/moderation/users/${userStatsTarget.id}/stats`" />
-        </div>
-      </div>
-    </div>
   </section>
 </template>
 
@@ -234,7 +171,6 @@ import { formatLocalDateTime } from '@/services/datetime'
 import { DEFAULT_SANCTION_REASON, SANCTION_REASONS } from '@/constants/sanctionReasons'
 
 import SanctionModal from '@/components/SanctionModal.vue'
-import ProfileStatsTab from '@/components/ProfileStatsTab.vue'
 import UiInput from '@/components/UiInput.vue'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
@@ -263,13 +199,6 @@ type UserRow = {
   last_login_at: string
   last_visit_at: string
   last_game_at?: string | null
-  friends_count: number
-  rooms_created: number
-  room_minutes: number
-  stream_minutes: number
-  games_played: number
-  games_hosted: number
-  spectator_minutes: number
   suspend_active: boolean
   suspend_until?: string | null
   timeouts_count: number
@@ -286,13 +215,6 @@ type UsersSortBy =
   | 'last_login_at'
   | 'last_visit_at'
   | 'last_game_at'
-  | 'friends_count'
-  | 'rooms_created'
-  | 'room_minutes'
-  | 'stream_minutes'
-  | 'games_played'
-  | 'games_hosted'
-  | 'spectator_minutes'
   | 'timeouts_count'
   | 'bans_count'
   | 'suspends_count'
@@ -319,9 +241,6 @@ const sanctionForm = reactive({
   reason: DEFAULT_SANCTION_REASON,
 })
 
-const userStatsOpen = ref(false)
-const userStatsTarget = ref<UserRow | null>(null)
-
 const usersPages = computed(() => Math.max(1, Math.ceil(usersTotal.value / usersLimit.value)))
 const sanctionTotalSeconds = computed(() => {
   const months = Math.max(0, Number(sanctionForm.months) || 0)
@@ -341,18 +260,6 @@ const sanctionTitle = computed(() => {
 function setUsersSort(sortBy: UsersSortBy): void {
   if (usersSortBy.value === sortBy) return
   usersSortBy.value = sortBy
-}
-
-function formatMinutes(value: number): string {
-  const total = Math.max(0, Math.floor(Number(value) || 0))
-  const days = Math.floor(total / 1440)
-  const hours = Math.floor((total % 1440) / 60)
-  const minutes = total % 60
-  const parts: string[] = []
-  if (days > 0) parts.push(`${days}д`)
-  if (hours > 0) parts.push(`${hours}ч`)
-  if (minutes > 0 || parts.length === 0) parts.push(`${minutes}м`)
-  return parts.join(' ')
 }
 
 function formatSanctionDuration(seconds?: number | null): string {
@@ -409,16 +316,6 @@ function openSuspend(row: UserRow): void {
   sanctionTarget.value = row
   resetSanctionForm()
   sanctionModalOpen.value = true
-}
-
-function openUserStats(row: UserRow): void {
-  userStatsTarget.value = row
-  userStatsOpen.value = true
-}
-
-function closeUserStats(): void {
-  userStatsOpen.value = false
-  userStatsTarget.value = null
 }
 
 async function loadUsers(): Promise<void> {
@@ -586,60 +483,6 @@ onBeforeUnmount(() => {
   .panel {
     margin-top: 10px;
   }
-  .user-stats-overlay {
-    display: flex;
-    position: fixed;
-    align-items: center;
-    justify-content: center;
-    inset: 0;
-    padding: 20px;
-    background-color: rgba($black, 0.5);
-    backdrop-filter: blur(5px);
-    z-index: 1200;
-    .user-stats-modal {
-      display: flex;
-      flex-direction: column;
-      width: min(96vw, 1500px);
-      max-height: 92vh;
-      border: 1px solid $lead;
-      border-radius: 5px;
-      background-color: $dark;
-      overflow: hidden;
-    }
-    .user-stats-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      padding: 10px;
-      border-bottom: 1px solid $lead;
-      background-color: $graphite;
-      span {
-        font-size: 16px;
-        font-family: Manrope-SemiBold;
-      }
-      button {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 30px;
-        height: 30px;
-        padding: 0;
-        border: none;
-        border-radius: 5px;
-        background: transparent;
-        cursor: pointer;
-        img {
-          width: 20px;
-          height: 20px;
-        }
-      }
-    }
-    .user-stats-body {
-      padding: 10px;
-      overflow: auto;
-    }
-  }
   .btn {
     display: flex;
     align-items: center;
@@ -761,20 +604,6 @@ onBeforeUnmount(() => {
       display: inline-flex;
       align-items: center;
       gap: 10px;
-      .user-link {
-        padding: 0;
-        border: none;
-        background: transparent;
-        color: $fg;
-        font: inherit;
-        text-align: left;
-        cursor: pointer;
-        transition: color 0.25s ease-in-out;
-        &:hover {
-          color: $white;
-          text-decoration: underline;
-        }
-      }
     }
     .user-avatar {
       width: 24px;
@@ -852,26 +681,6 @@ onBeforeUnmount(() => {
 
 @media (max-width: 1280px) {
   .moderation {
-    .user-stats-overlay {
-      padding: 10px;
-      .user-stats-head {
-        padding: 5px;
-        span {
-          font-size: 14px;
-        }
-        button {
-          width: 24px;
-          height: 24px;
-          img {
-            width: 16px;
-            height: 16px;
-          }
-        }
-      }
-      .user-stats-body {
-        padding: 5px;
-      }
-    }
     header {
       .tabs {
         .tab {

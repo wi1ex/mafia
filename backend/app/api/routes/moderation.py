@@ -15,35 +15,28 @@ from ...models.user import User
 from ...schemas.admin import AdminSanctionTimedIn
 from ...schemas.common import Identity, Ok
 from ...schemas.moderation import ModerationUserOut, ModerationUsersOut
-from ...schemas.user import UserStatsOut, UserTopPlayerOut
 from ...realtime.sio import sio
 from ...security.auth_tokens import get_identity
 from ...security.decorators import log_route, require_roles_deco
 from ...services.global_chat import emit_global_chat_sanction_issued_notice
-from ...services.user_stats import get_user_game_stats_cached
-from ...services.user_cache import get_user_profiles_cached
 from ..utils import (
     SANCTION_SUSPEND,
     admin_username_sort_key,
-    aggregate_user_games_in_owned_rooms_stats,
-    aggregate_user_room_stats,
-    aggregate_user_room_time_stats,
     build_admin_sanction_out,
     compute_duration_seconds,
     emit_notify,
     emit_sanctions_update,
     get_moderation_target_user,
     fetch_active_sanction,
-    fetch_friends_count_for_users,
     fetch_sanction_counts_for_users,
     fetch_sanctions_for_users,
     fetch_users_last_game_at,
     format_duration_parts,
     is_sanction_active,
+    moderation_user_sort_metric,
     normalize_pagination,
     normalize_moderation_users_sort,
     revoke_active_suspend,
-    user_sort_metric,
 )
 
 router = APIRouter()
@@ -77,20 +70,12 @@ async def moderation_users_list(page: int = 1, limit: int = 20, username: str | 
         )
         users = list(rows.scalars().all())
         ids = [int(u.id) for u in users]
-        friends_count = await fetch_friends_count_for_users(session, ids)
-        rooms_created, room_seconds, stream_seconds, spectator_seconds, games_played, games_hosted = (
-            await aggregate_user_room_stats(session, ids)
-        )
         last_game_at = await fetch_users_last_game_at(session, ids)
     else:
         rows = await session.execute(select(User).where(*filters))
         all_users = list(rows.scalars().all())
         total = len(all_users)
         all_ids = [int(u.id) for u in all_users]
-        friends_count = await fetch_friends_count_for_users(session, all_ids)
-        rooms_created, room_seconds, stream_seconds, spectator_seconds, games_played, games_hosted = (
-            await aggregate_user_room_stats(session, all_ids)
-        )
         sanction_counts = await fetch_sanction_counts_for_users(session, all_ids)
         if sort_key == "last_game_at":
             all_last_game_at = await fetch_users_last_game_at(session, all_ids)
@@ -114,17 +99,9 @@ async def moderation_users_list(page: int = 1, limit: int = 20, username: str | 
             users_sorted = sorted(
                 all_users,
                 key=lambda u: (
-                    user_sort_metric(
+                    moderation_user_sort_metric(
                         sort_by=sort_key,
                         uid=int(u.id),
-                        tg_invites_enabled={},
-                        friends_count=friends_count,
-                        rooms_created=rooms_created,
-                        room_seconds=room_seconds,
-                        stream_seconds=stream_seconds,
-                        games_played=games_played,
-                        games_hosted=games_hosted,
-                        spectator_seconds=spectator_seconds,
                         sanction_counts=sanction_counts,
                         last_game_at_ts=last_game_at_ts,
                     ),
@@ -160,13 +137,6 @@ async def moderation_users_list(page: int = 1, limit: int = 20, username: str | 
                 last_login_at=user.last_login_at,
                 last_visit_at=user.last_visit_at,
                 last_game_at=last_game_at.get(uid),
-                friends_count=friends_count.get(uid, 0),
-                rooms_created=rooms_created.get(uid, 0),
-                room_minutes=room_seconds.get(uid, 0) // 60,
-                stream_minutes=stream_seconds.get(uid, 0) // 60,
-                games_played=games_played.get(uid, 0),
-                games_hosted=games_hosted.get(uid, 0),
-                spectator_minutes=spectator_seconds.get(uid, 0) // 60,
                 suspend_active=active_suspend is not None,
                 suspend_until=active_suspend.expires_at if active_suspend else None,
                 timeouts_count=len(timeouts_raw),
@@ -179,64 +149,6 @@ async def moderation_users_list(page: int = 1, limit: int = 20, username: str | 
         )
 
     return ModerationUsersOut(total=total, items=items)
-
-
-@log_route("moderation.users.stats")
-@require_roles_deco("moder")
-@router.get("/users/{user_id}/stats", response_model=UserStatsOut)
-async def moderation_user_stats(user_id: int, season: int | None = None, session: AsyncSession = Depends(get_session)) -> UserStatsOut:
-    user = await get_moderation_target_user(session, user_id)
-    uid = int(user.id)
-
-    def nonneg_int(raw: object) -> int:
-        try:
-            return max(0, int(raw))
-
-        except Exception:
-            return 0
-
-    try:
-        rooms_created, room_seconds, stream_seconds, spectator_seconds = await aggregate_user_room_time_stats(
-            session,
-            [uid],
-            season=season,
-        )
-        games_in_owned_rooms = await aggregate_user_games_in_owned_rooms_stats(session, [uid], season=season)
-        room_minutes = nonneg_int(room_seconds.get(uid, 0)) // 60
-        stream_minutes = nonneg_int(stream_seconds.get(uid, 0)) // 60
-        spectator_minutes = nonneg_int(spectator_seconds.get(uid, 0)) // 60
-        game_stats = await get_user_game_stats_cached(session, uid, season)
-    except ValueError as exc:
-        detail = str(exc) or "season_invalid"
-        if detail not in {"season_invalid", "season_not_found"}:
-            detail = "season_invalid"
-        raise HTTPException(status_code=422, detail=detail)
-
-    top_player_ids = {int(item.id) for item in (game_stats.top_players or []) if int(item.id) > 0}
-    if top_player_ids:
-        profiles = await get_user_profiles_cached(session, top_player_ids)
-        refreshed_top_players: list[UserTopPlayerOut] = []
-        for item in game_stats.top_players:
-            profile = profiles.get(int(item.id)) or {}
-            username_raw = profile.get("username")
-            username_value = str(username_raw) if isinstance(username_raw, str) else item.username
-            refreshed_top_players.append(
-                UserTopPlayerOut(
-                    id=int(item.id),
-                    username=username_value,
-                    games_together=max(0, int(item.games_together)),
-                )
-            )
-        game_stats = game_stats.model_copy(update={"top_players": refreshed_top_players})
-
-    return UserStatsOut(
-        rooms_created=nonneg_int(rooms_created.get(uid, 0)),
-        games_in_my_rooms=nonneg_int(games_in_owned_rooms.get(uid, 0)),
-        room_minutes=room_minutes,
-        stream_minutes=stream_minutes,
-        spectator_minutes=spectator_minutes,
-        game=game_stats,
-    )
 
 
 @log_route("moderation.users.suspend_add")

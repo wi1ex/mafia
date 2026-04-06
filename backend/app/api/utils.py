@@ -97,6 +97,7 @@ __all__ = [
     "admin_role_sort_key",
     "admin_username_sort_key",
     "user_sort_metric",
+    "moderation_user_sort_metric",
     "compute_duration_seconds",
     "elapsed_seconds_since",
     "is_sanction_active",
@@ -238,13 +239,6 @@ MODERATION_USERS_SORT_ALLOWED = {
     "last_login_at",
     "last_visit_at",
     "last_game_at",
-    "friends_count",
-    "rooms_created",
-    "room_minutes",
-    "stream_minutes",
-    "games_played",
-    "games_hosted",
-    "spectator_minutes",
     "timeouts_count",
     "bans_count",
     "suspends_count",
@@ -672,6 +666,22 @@ def user_sort_metric(*, sort_by: str, uid: int, tg_invites_enabled: dict[int, bo
 
     if sort_by == "spectator_minutes":
         return spectator_seconds.get(uid, 0) // 60
+
+    if sort_by == "timeouts_count":
+        return (sanction_counts.get(uid) or {}).get(SANCTION_TIMEOUT, 0)
+
+    if sort_by == "bans_count":
+        return (sanction_counts.get(uid) or {}).get(SANCTION_BAN, 0)
+
+    if sort_by == "suspends_count":
+        return (sanction_counts.get(uid) or {}).get(SANCTION_SUSPEND, 0)
+
+    return 0
+
+
+def moderation_user_sort_metric(*, sort_by: str, uid: int, sanction_counts: dict[int, dict[str, int]], last_game_at_ts: dict[int, int]) -> int:
+    if sort_by == "last_game_at":
+        return last_game_at_ts.get(uid, 0)
 
     if sort_by == "timeouts_count":
         return (sanction_counts.get(uid) or {}).get(SANCTION_TIMEOUT, 0)
