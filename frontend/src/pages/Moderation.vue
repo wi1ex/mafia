@@ -72,11 +72,11 @@
               </th>
               <th>
                 <button class="th-sort" type="button" :class="{ active: usersSortBy === 'suspends_count' }" @click="setUsersSort('suspends_count')">
-                  Огранич.
+                  Отстранения от игр
                   <span class="th-sort-mark" aria-hidden="true">▼</span>
                 </button>
               </th>
-              <th>Огранич.</th>
+              <th>Отстранить</th>
             </tr>
           </thead>
           <tbody>
@@ -254,7 +254,7 @@ const sanctionCanSave = computed(() => Boolean(sanctionForm.reason) && sanctionT
 const sanctionTitle = computed(() => {
   const target = sanctionTarget.value
   const label = target?.username || (target ? `user${target.id}` : 'пользователю')
-  return `Ограничение: ${label}`
+  return `Отстранение от игр: ${label}`
 })
 
 function setUsersSort(sortBy: UsersSortBy): void {
@@ -360,7 +360,7 @@ async function saveSanction(): Promise<void> {
       reason: sanctionForm.reason,
     })
     sanctionModalOpen.value = false
-    void alertDialog('Ограничение выдано')
+    void alertDialog('Отстранение от игр выдано')
     await loadUsers()
   } catch (e: any) {
     const st = e?.response?.status
@@ -370,7 +370,7 @@ async function saveSanction(): Promise<void> {
     } else if (st === 422 && d === 'duration_required') {
       void alertDialog('Укажите срок санкции')
     } else {
-      void alertDialog('Не удалось применить ограничение')
+      void alertDialog('Не удалось выдать отстранение от игр')
     }
   } finally {
     sanctionSaving.value = false
@@ -381,8 +381,8 @@ async function revokeSuspend(row: UserRow): Promise<void> {
   if (isSanctionBusy(row.id)) return
   const userLabel = row.username ? `${row.username}` : `#${row.id}`
   const ok = await confirmDialog({
-    title: 'Снять ограничение',
-    text: `Снять ограничение у ${userLabel}?`,
+    title: 'Снять отстранение от игр',
+    text: `Снять отстранение от игр у ${userLabel}?`,
     confirmText: 'Снять',
     cancelText: 'Отмена',
   })
@@ -390,7 +390,7 @@ async function revokeSuspend(row: UserRow): Promise<void> {
   setSanctionBusy(row.id, true)
   try {
     await api.delete(`/moderation/users/${row.id}/suspend`)
-    void alertDialog('Ограничение снято')
+    void alertDialog('Отстранение от игр снято')
     await loadUsers()
   } catch (e: any) {
     const st = e?.response?.status
@@ -398,7 +398,7 @@ async function revokeSuspend(row: UserRow): Promise<void> {
     if (st === 404 && d === 'sanction_not_found') {
       void alertDialog('Санкция не найдена')
     } else {
-      void alertDialog('Не удалось снять ограничение')
+      void alertDialog('Не удалось снять отстранение от игр')
     }
   } finally {
     setSanctionBusy(row.id, false)
