@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.clients import get_redis
 from ..core.db import SessionLocal
 from ..core.logging import log_action
-from ..core.roles import admin_users_role_sort_value
+from ..core.roles import ROLE_USER, admin_users_role_sort_value, normalize_user_role
 from ..core.settings import settings
 from ..models.game import Game
 from ..models.log import AppLog
@@ -91,6 +91,7 @@ __all__ = [
     "aggregate_user_games_in_owned_rooms_stats",
     "fetch_users_last_game_at",
     "normalize_users_sort",
+    "normalize_moderation_users_sort",
     "fetch_friends_count_for_users",
     "fetch_sanction_counts_for_users",
     "admin_role_sort_key",
@@ -115,6 +116,8 @@ __all__ = [
     "ensure_profile_changes_allowed",
     "is_protected_admin",
     "ensure_admin_target_allowed",
+    "ensure_moderation_target_allowed",
+    "get_moderation_target_user",
     "set_user_deleted",
     "delete_user_account_as_admin_action",
     "delete_stale_unverified_accounts",
@@ -218,6 +221,23 @@ USERS_SORT_ALLOWED = {
     "last_visit_at",
     "last_game_at",
     "tg_invites_enabled",
+    "friends_count",
+    "rooms_created",
+    "room_minutes",
+    "stream_minutes",
+    "games_played",
+    "games_hosted",
+    "spectator_minutes",
+    "timeouts_count",
+    "bans_count",
+    "suspends_count",
+}
+MODERATION_USERS_SORT_ALLOWED = {
+    USERS_SORT_DEFAULT,
+    "username",
+    "last_login_at",
+    "last_visit_at",
+    "last_game_at",
     "friends_count",
     "rooms_created",
     "room_minutes",
@@ -527,6 +547,14 @@ def build_app_settings_snapshot_from_row(row: Any, *, default_starts: Sequence[i
 def normalize_users_sort(sort_by: str | None) -> str:
     value = (sort_by or "").strip().lower()
     if value in USERS_SORT_ALLOWED:
+        return value
+
+    return USERS_SORT_DEFAULT
+
+
+def normalize_moderation_users_sort(sort_by: str | None) -> str:
+    value = normalize_users_sort(sort_by)
+    if value in MODERATION_USERS_SORT_ALLOWED:
         return value
 
     return USERS_SORT_DEFAULT
@@ -1165,6 +1193,24 @@ def is_protected_admin(user_id: int | str | None) -> bool:
 def ensure_admin_target_allowed(user: User) -> None:
     if is_protected_admin(getattr(user, "id", 0)):
         raise HTTPException(status_code=403, detail="protected_user")
+
+
+def ensure_moderation_target_allowed(user: User) -> None:
+    if normalize_user_role(getattr(user, "role", None)) != ROLE_USER:
+        raise HTTPException(status_code=403, detail="forbidden")
+
+    if getattr(user, "deleted_at", None) is not None:
+        raise HTTPException(status_code=403, detail="forbidden")
+
+
+async def get_moderation_target_user(session: AsyncSession, user_id: int) -> User:
+    user = await session.get(User, int(user_id))
+    if not user:
+        raise HTTPException(status_code=404, detail="user_not_found")
+
+    user = cast(User, user)
+    ensure_moderation_target_allowed(user)
+    return user
 
 
 async def set_user_deleted(session: AsyncSession, user_id: int, *, deleted: bool) -> User:

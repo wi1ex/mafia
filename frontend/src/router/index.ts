@@ -35,6 +35,12 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true, requiresAdmin: true, title: 'Админ-панель', robots: 'noindex, nofollow' },
   },
   {
+    path: '/moderation',
+    name: 'moderation',
+    component: () => import('@/pages/Moderation.vue'),
+    meta: { requiresAuth: true, requiresModeration: true, title: 'Модерация', robots: 'noindex, nofollow' },
+  },
+  {
     path: '/room/:id(\\d+)',
     name: 'room',
     component: () => import('@/pages/Room.vue'),
@@ -50,9 +56,9 @@ const router = createRouter({
 })
 
 function setTitle(to: RouteLocationNormalized): void {
-  const t = (to.meta?.title as string | undefined) ?? ''
+  const title = (to.meta?.title as string | undefined) ?? ''
   const fallback = to.name === 'room' ? ROOM_FALLBACK_TITLE : BASE_TITLE
-  setPageTitle(t || fallback, { syncAppleTitle: true })
+  setPageTitle(title || fallback, { syncAppleTitle: true })
 }
 
 function ensureMeta(name: string, content: string): void {
@@ -91,12 +97,19 @@ router.beforeEach(async (to) => {
   if (!auth.ready) await auth.init()
   if (!auth.isAuthed) return { name: 'home' }
 
-  if (to.meta?.requiresAdmin) {
-    const user = useUserStore()
+  const user = useUserStore()
+  if (to.meta?.requiresAdmin || to.meta?.requiresModeration) {
     if (!user.user) {
       try { await user.fetchMe() } catch {}
     }
-    if (user.user?.role !== 'admin') return { name: 'home' }
+  }
+
+  if (to.meta?.requiresAdmin && user.user?.role !== 'admin') {
+    return { name: 'home' }
+  }
+
+  if (to.meta?.requiresModeration && user.user?.role !== 'moder') {
+    return { name: 'home' }
   }
 
   if (to.name === 'room') {

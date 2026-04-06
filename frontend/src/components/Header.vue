@@ -17,6 +17,10 @@
         <img :src="iconJudge" alt="" aria-hidden="true" />
         <span data-nosnippet>Админ-панель</span>
       </router-link>
+      <router-link v-if="user.user?.role === 'moder'" class="btn" :to="{ name: 'moderation' }" aria-label="Модерация">
+        <img :src="iconJudge" alt="" aria-hidden="true" />
+        <span data-nosnippet>Модерация</span>
+      </router-link>
     </div>
 
     <div v-if="!auth.isAuthed && !auth.foreignActive" class="auth-actions">
