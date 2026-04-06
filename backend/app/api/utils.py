@@ -36,7 +36,7 @@ from ..services.user_cache import (
 if TYPE_CHECKING:
     from ..schemas.admin import SiteSettingsOut, GameSettingsOut, RegistrationsPoint, AdminRoomUserStat, AdminSanctionOut, AdminGameActionFieldOut
     from ..schemas.room import GameParams
-    from ..schemas.user import UserRoleStatsOut, UserGamesHistoryOut, GameHistoryItemOut, GameHistoryHostOut
+    from ..schemas.user import UserGamesHistoryOut, GameHistoryItemOut, GameHistoryHostOut
 
 __all__ = [
     "SANCTION_TIMEOUT",
@@ -58,7 +58,6 @@ __all__ = [
     "active_alive_game_room_key",
     "get_active_alive_game_room",
     "is_user_in_active_alive_game",
-    "get_active_alive_game_flags",
     "validate_object_key_for_presign",
     "parse_month_range",
     "parse_day_range",
@@ -168,8 +167,6 @@ __all__ = [
     "findGameFoulActionIndex",
     "setGameActionPpk",
     "fetch_games_history_page",
-    "pct",
-    "role_stats",
     "game_action_slot_label",
     "game_action_slot_labels",
     "game_action_join",
@@ -2062,23 +2059,6 @@ async def fetch_games_history_page(db: AsyncSession, *, page: int, per_page: int
     )
 
 
-def pct(part: int, total: int) -> float:
-    p = safe_int(part)
-    t = safe_int(total)
-    if p <= 0 or t <= 0:
-        return 0.0
-
-    return round((p / t) * 100, 2)
-
-
-def role_stats(games: int, wins: int) -> UserRoleStatsOut:
-    from ..schemas.user import UserRoleStatsOut
-
-    g = safe_int(games)
-    w = safe_int(wins)
-    return UserRoleStatsOut(games=g, wins=w)
-
-
 async def check_sanctions_expired(user_id: int, *, throttle_s: int = 30) -> None:
     r = get_redis()
     if throttle_s > 0:
@@ -2595,18 +2575,6 @@ def active_alive_game_room_key(user_id: int) -> str:
     return f"user:{int(user_id)}:active_alive_game_room"
 
 
-def _normalize_active_alive_user_ids(user_ids: Iterable[int | str]) -> list[int]:
-    out: set[int] = set()
-    for raw in user_ids:
-        try:
-            uid = int(raw)
-        except Exception:
-            continue
-        if uid > 0:
-            out.add(uid)
-    return sorted(out)
-
-
 async def get_active_alive_game_room(user_id: int, *, redis_client=None, strict: bool = False) -> int | None:
     r = redis_client or get_redis()
     try:
@@ -2627,29 +2595,6 @@ async def get_active_alive_game_room(user_id: int, *, redis_client=None, strict:
 
 async def is_user_in_active_alive_game(user_id: int, *, redis_client=None, strict: bool = False) -> bool:
     return (await get_active_alive_game_room(user_id, redis_client=redis_client, strict=strict)) is not None
-
-
-async def get_active_alive_game_flags(user_ids: Iterable[int | str], *, redis_client=None) -> dict[int, bool]:
-    ids = _normalize_active_alive_user_ids(user_ids)
-    if not ids:
-        return {}
-
-    r = redis_client or get_redis()
-    try:
-        async with r.pipeline() as p:
-            for uid in ids:
-                await p.get(active_alive_game_room_key(uid))
-            rows = await p.execute()
-    except Exception:
-        rows = [None for _ in ids]
-
-    out: dict[int, bool] = {}
-    for uid, raw in zip(ids, rows):
-        try:
-            out[uid] = int(raw or 0) > 0
-        except Exception:
-            out[uid] = False
-    return out
 
 
 async def prune_online_users(r, cutoff_ts: int) -> None:
@@ -3473,10 +3418,12 @@ async def get_room_params_or_404(r, room_id: int) -> Dict[str, Any]:
 
 
 async def get_room_game_runtime(r, room_id: int) -> Dict[str, Any]:
-    raw_gstate = await r.hgetall(f"room:{room_id}:game_state")
-    raw_seats = await r.hgetall(f"room:{room_id}:game_seats")
-    players_set = await r.smembers(f"room:{room_id}:game_players")
-    alive_set = await r.smembers(f"room:{room_id}:game_alive")
+    async with r.pipeline() as p:
+        await p.hgetall(f"room:{room_id}:game_state")
+        await p.hgetall(f"room:{room_id}:game_seats")
+        await p.smembers(f"room:{room_id}:game_players")
+        await p.smembers(f"room:{room_id}:game_alive")
+        raw_gstate, raw_seats, players_set, alive_set = await p.execute()
     phase = str(raw_gstate.get("phase") or "idle")
 
     try:

@@ -79,7 +79,6 @@ __all__ = [
     "gc_empty_room",
     "claim_screen",
     "get_rooms_brief",
-    "filter_rooms_for_role",
     "filter_rooms_for_viewer",
     "emit_rooms_upsert_safe",
     "emit_rooms_event_safe",
@@ -1692,20 +1691,6 @@ def _normalize_user_ids(values: Iterable[Any] | None) -> set[int]:
         uid = _as_int(raw)
         if uid > 0:
             out.add(uid)
-    return out
-
-
-def filter_rooms_for_role(items: Iterable[Mapping[str, Any]], role: str | None) -> List[dict]:
-    viewer_role = str(role or "user")
-    if viewer_role == "admin":
-        return [dict(item) for item in items]
-
-    out: List[dict] = []
-    for item in items:
-        if str(item.get("anonymity") or "visible") == "hidden":
-            continue
-        out.append(dict(item))
-
     return out
 
 
