@@ -185,26 +185,28 @@ async def update_settings(payload: AdminSettingsUpdateIn, session: AsyncSession 
     data = payload.model_dump(exclude_unset=True)
     site_data = data.get("site") or {}
     game_data = data.get("game") or {}
-    combined = {**site_data, **game_data}
-    season_changed = False
-    if "admin_banner_text" in combined:
-        combined["admin_banner_text"] = normalize_admin_banner_text(combined.get("admin_banner_text"))
-    if "admin_banner_link" in combined:
-        combined["admin_banner_link"] = normalize_admin_banner_link(combined.get("admin_banner_link"))
-    if "season_start_game_number" in combined:
-        current_season_csv = str(getattr(row, "season_start_game_number", "") or "").strip()
-        incoming_season_csv = str(combined.get("season_start_game_number") or "").strip()
-        season_changed = incoming_season_csv != current_season_csv
+    incoming = {**site_data, **game_data}
+    if "admin_banner_text" in incoming:
+        incoming["admin_banner_text"] = normalize_admin_banner_text(incoming.get("admin_banner_text"))
+    if "admin_banner_link" in incoming:
+        incoming["admin_banner_link"] = normalize_admin_banner_link(incoming.get("admin_banner_link"))
 
-    for key, value in combined.items():
+    changed = {
+        key: value
+        for key, value in incoming.items()
+        if getattr(row, key) != value
+    }
+    season_changed = "season_start_game_number" in changed
+
+    for key, value in changed.items():
         setattr(row, key, value)
 
-    if combined:
+    if changed:
         await session.commit()
         await session.refresh(row)
 
     sync_cache_from_row(row)
-    if combined:
+    if changed:
         with suppress(Exception):
             await get_redis().publish("settings:update", "1")
         try:
@@ -217,13 +219,17 @@ async def update_settings(payload: AdminSettingsUpdateIn, session: AsyncSession 
         if season_changed:
             schedule_user_game_stats_cache_invalidation("admin.settings.season_change.invalidate_stats_cache_failed")
 
-    changed_keys = ",".join(sorted(combined)) if combined else "-"
+    details = (
+        f"Обновление настроек keys={','.join(sorted(changed))} season_changed={int(season_changed)}"
+        if changed
+        else "Обновление настроек без изменений"
+    )
     await log_action(
         session,
         user_id=int(ident["id"]),
         username=ident["username"],
         action="admin_settings_update",
-        details=f"Обновление настроек keys={changed_keys} season_changed={int(season_changed)}",
+        details=details,
     )
 
     return AdminSettingsOut(site=site_settings_out(row), game=game_settings_out(row))
