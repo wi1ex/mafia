@@ -180,7 +180,7 @@ async def get_settings(session: AsyncSession = Depends(get_session)) -> AdminSet
 
 @router.patch("/settings", response_model=AdminSettingsOut)
 @log_route("admin.settings_update")
-async def update_settings(payload: AdminSettingsUpdateIn, session: AsyncSession = Depends(get_session)) -> AdminSettingsOut:
+async def update_settings(payload: AdminSettingsUpdateIn, session: AsyncSession = Depends(get_session), ident: Identity = Depends(require_protected_admin_dep)) -> AdminSettingsOut:
     row = await ensure_app_settings(session)
     data = payload.model_dump(exclude_unset=True)
     site_data = data.get("site") or {}
@@ -216,6 +216,15 @@ async def update_settings(payload: AdminSettingsUpdateIn, session: AsyncSession 
             await emit_global_chat_permissions_refresh()
         if season_changed:
             schedule_user_game_stats_cache_invalidation("admin.settings.season_change.invalidate_stats_cache_failed")
+
+    changed_keys = ",".join(sorted(combined)) if combined else "-"
+    await log_action(
+        session,
+        user_id=int(ident["id"]),
+        username=ident["username"],
+        action="admin_settings_update",
+        details=f"Обновление настроек keys={changed_keys} season_changed={int(season_changed)}",
+    )
 
     return AdminSettingsOut(site=site_settings_out(row), game=game_settings_out(row))
 
@@ -806,7 +815,7 @@ async def update_game_ppk(game_id: int, payload: AdminGamePpkUpdateIn, ident: Id
 
 @router.post("/rooms/{room_id}/close", response_model=Ok)
 @log_route("admin.rooms.close")
-async def room_close(room_id: int) -> Ok:
+async def room_close(room_id: int, ident: Identity = Depends(require_protected_admin_dep), session: AsyncSession = Depends(get_session)) -> Ok:
     r = get_redis()
     await get_room_params_or_404(r, room_id)
 
@@ -896,23 +905,40 @@ async def room_close(room_id: int) -> Ok:
         gc_seq_snapshot = gc_seq_on_empty
         asyncio.create_task(gc_empty_room_and_emit(rid_snapshot, expected_seq=gc_seq_snapshot))
 
+    spectator_only_count = len(spectator_ids - member_ids)
+    await log_action(
+        session,
+        user_id=int(ident["id"]),
+        username=ident["username"],
+        action="admin_room_close",
+        details=(
+            f"Закрытие комнаты room_id={room_id} phase={phase} "
+            f"members={len(member_ids)} spectators={spectator_only_count}"
+        ),
+    )
+
     return Ok()
 
 
 @router.post("/rooms/kick", response_model=Ok)
 @log_route("admin.rooms.kick_all")
-async def rooms_kick_all() -> Ok:
+async def rooms_kick_all(ident: Identity = Depends(require_protected_admin_dep), session: AsyncSession = Depends(get_session)) -> Ok:
     r = get_redis()
     try:
         room_ids_raw = await r.zrange("rooms:index", 0, -1)
     except Exception:
         room_ids_raw = []
 
+    processed_rooms = 0
+    total_member_ids = 0
+    total_spectator_ids = 0
+
     for raw_id in room_ids_raw:
         try:
             rid = int(raw_id)
         except Exception:
             continue
+        processed_rooms += 1
 
         try:
             await r.hset(f"room:{rid}:params", mapping={"entry_closed": "1"})
@@ -942,6 +968,8 @@ async def rooms_kick_all() -> Ok:
                 spectator_ids.add(int(v))
             except Exception:
                 continue
+        total_member_ids += len(member_ids)
+        total_spectator_ids += len(spectator_ids - member_ids)
 
         gc_seq_on_empty: int | None = None
         for uid in member_ids:
@@ -1002,6 +1030,17 @@ async def rooms_kick_all() -> Ok:
     delay_s = max(0, int(get_cached_settings().rooms_empty_ttl_seconds))
 
     asyncio.create_task(refresh_rooms_after(delay_s + 1, "admin_kick_all"))
+
+    await log_action(
+        session,
+        user_id=int(ident["id"]),
+        username=ident["username"],
+        action="admin_rooms_kick_all",
+        details=(
+            f"Принудительное освобождение всех комнат rooms={processed_rooms} "
+            f"members={total_member_ids} spectators={total_spectator_ids}"
+        ),
+    )
 
     return Ok()
 
@@ -1288,7 +1327,6 @@ async def update_user_role(user_id: int, payload: AdminUserRoleIn, ident: Identi
             details=details,
         )
 
-        note: Notif | None = None
         if user.role == "moder":
             note = Notif(
                 user_id=uid,
