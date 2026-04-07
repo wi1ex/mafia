@@ -99,7 +99,8 @@ async def profile_info(ident: Identity = Depends(get_identity), db: AsyncSession
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
 
     uid = cast(int, user.id)
-    await write_user_profile_cache(uid, username=str(user.username), role=str(user.role), avatar_name=user.avatar_name)
+    normalized_role = str(ident["role"])
+    await write_user_profile_cache(uid, username=str(user.username), role=normalized_role, avatar_name=user.avatar_name)
     active = await fetch_active_sanctions(db, uid)
     timeout = active.get(SANCTION_TIMEOUT)
     ban = active.get(SANCTION_BAN)
@@ -111,7 +112,7 @@ async def profile_info(ident: Identity = Depends(get_identity), db: AsyncSession
         id=uid,
         username=user.username,
         avatar_name=user.avatar_name,
-        role=user.role,
+        role=normalized_role,
         registered_at=user.registered_at,
         telegram_verified=bool(user.telegram_id),
         has_password=bool(user.password_hash),

@@ -90,7 +90,7 @@ function setMeta(to: RouteLocationNormalized): void {
   ensureCanonical(base ? `${base}${to.path}` : to.path)
 }
 
-router.beforeEach(async (to) => {
+router.beforeEach(async (to, from) => {
   if (!to.meta?.requiresAuth) return true
 
   const auth = useAuthStore()
@@ -99,8 +99,13 @@ router.beforeEach(async (to) => {
 
   const user = useUserStore()
   if (to.meta?.requiresAdmin || to.meta?.requiresModeration) {
-    if (!user.user) {
-      try { await user.fetchMe() } catch {}
+    const enteringPrivilegedRoute = to.path !== from.path || !user.user
+    if (enteringPrivilegedRoute) {
+      try {
+        await user.fetchMe()
+      } catch {
+        return { name: 'home' }
+      }
     }
   }
 

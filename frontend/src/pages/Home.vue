@@ -1239,8 +1239,23 @@ onBeforeUnmount(() => {
         font-size: 12px;
       }
       .room-info {
-        header span {
-          max-width: 250px;
+        header {
+          span {
+            max-width: 250px;
+            height: 16px;
+            font-size: 14px;
+          }
+          .room-actions {
+            gap: 3px;
+          }
+          button {
+            width: 16px;
+            height: 20px;
+            img {
+              width: 16px;
+              height: 16px;
+            }
+          }
         }
         .ri-info {
           flex-direction: column;
@@ -1248,17 +1263,71 @@ onBeforeUnmount(() => {
           overflow: auto;
           .ri-meta-game {
             width: 100%;
+            .ri-game {
+              padding: 5px;
+              .ri-game-div {
+                span {
+                  height: 14px;
+                  font-size: 12px;
+                }
+                .spectators-wrap {
+                  gap: 3px;
+                  .spectators-btn {
+                    img {
+                      width: 14px;
+                      height: 14px;
+                    }
+                  }
+                  .spectators-tooltip {
+                    padding: 5px;
+                    .spectators-list {
+                      gap: 3px;
+                      .spectators-row {
+                        gap: 3px;
+                        img {
+                          width: 16px;
+                          height: 16px;
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
           .ri-members {
-            width: calc(100% - 20px);
-            .ri-users .ri-user span {
-              max-width: 210px;
+            padding: 5px;
+            width: calc(100% - 10px);
+            .ri-users {
+              gap: 3px;
+              .ri-user {
+                gap: 3px;
+                height: 16px;
+                img {
+                  width: 16px;
+                  height: 16px;
+                }
+                span {
+                  max-width: 210px;
+                  height: 14px;
+                  font-size: 12px;
+                }
+              }
             }
+          }
+          .header-text {
+            margin-bottom: 5px;
+            font-size: 12px;
           }
         }
         .ri-actions {
           position: static;
           margin: 5px;
+          button {
+            height: 25px;
+            padding: 0 10px;
+            font-size: 14px;
+          }
         }
       }
     }
