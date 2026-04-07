@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager, suppress
 from ..core.db import Base, engine, SessionLocal
 from ..core.settings import settings
 from ..api.utils import emit_expired_timed_sanctions_chat_notices, delete_stale_unverified_accounts
+from ..security.admin_guard import assert_protected_admin_invariants
 from ..security.parameters import ensure_app_settings, refresh_app_settings
 from ..services.minio import ensure_bucket
 from .clients import close_clients, get_redis, init_clients
@@ -39,6 +40,7 @@ async def lifespan(app) -> AsyncIterator[None]:
 
         async with SessionLocal() as session:
             await ensure_app_settings(session)
+            await assert_protected_admin_invariants(session)
     except Exception:
         log.exception("app.startup.db_failed")
         raise

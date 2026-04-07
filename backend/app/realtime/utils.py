@@ -24,6 +24,7 @@ from ..models.game import Game
 from ..models.friend import FriendCloseness
 from ..core.clients import get_redis
 from ..core.logging import log_action
+from ..security.admin_guard import normalize_protected_admin_role
 from ..security.auth_tokens import decode_token
 from ..api.utils import (
     HOSTED_GAME_SUSPEND_REDUCTION_SECONDS,
@@ -1145,6 +1146,7 @@ async def validate_auth(auth: Any) -> Tuple[int, str, str, Optional[str]] | None
             return None
 
         role = str(profile.get("role") or role_from_token or "user")
+        role = normalize_protected_admin_role(uid, role, fallback_role=role_from_token)
         username = str(profile.get("username") or f"user{uid}")
         avatar_name = cast(Optional[str], profile.get("avatar_name"))
         return uid, role, username, avatar_name

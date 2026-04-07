@@ -13,9 +13,9 @@ from ...security.decorators import log_route, rate_limited
 router = APIRouter()
 
 
+@router.get("", response_model=UpdatesListOut)
 @log_route("updates.list")
 @rate_limited(lambda ident, **_: f"rl:updates:list:{ident['id']}", limit=10, window_s=1)
-@router.get("", response_model=UpdatesListOut)
 async def list_updates(limit: int = 50, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UpdatesListOut:
     uid = int(ident["id"])
     lim = max(1, min(200, limit))
@@ -45,9 +45,9 @@ async def list_updates(limit: int = 50, ident: Identity = Depends(get_identity),
     return UpdatesListOut(items=items, unread_count=int(total_unread or 0))
 
 
+@router.post("/mark_read", response_model=Ok)
 @log_route("updates.mark_read")
 @rate_limited(lambda ident, **_: f"rl:updates:mark:{ident['id']}", limit=60, window_s=1)
-@router.post("/mark_read", response_model=Ok)
 async def mark_read(payload: MarkUpdatesReadIn, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> Ok:
     uid = int(ident["id"])
     ids: list[int] = []

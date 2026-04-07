@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .api.router import api_router
 from .core.handlers import setup_exception_handlers
 from .core.lifespan import lifespan
-from .core.middleware import LoggingMiddleware, LastLoginTouchMiddleware
+from .core.middleware import LoggingMiddleware, LastLoginTouchMiddleware, SecurityHeadersMiddleware
 from .realtime.sio import sio, register_namespaces
 from .core.settings import settings
 
@@ -28,6 +28,7 @@ def build_fastapi() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    main_app.add_middleware(SecurityHeadersMiddleware)
     setup_exception_handlers(main_app)
 
     main_app.include_router(api_router, prefix="/api")

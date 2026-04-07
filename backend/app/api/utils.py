@@ -27,6 +27,7 @@ from ..models.sanction import UserSanction
 from ..models.user import User
 from ..models.update import SiteUpdate, UpdateRead
 from ..realtime.sio import sio
+from ..security.admin_guard import is_protected_admin_uid
 from ..services.minio import delete_avatars_async
 from ..services.user_cache import (
     get_user_profiles_cached,
@@ -1184,17 +1185,7 @@ async def ensure_profile_changes_allowed(db: AsyncSession, user_id: int) -> None
 
 
 def is_protected_admin(user_id: int | str | None) -> bool:
-    try:
-        uid = int(user_id or 0)
-    except Exception:
-        return False
-
-    try:
-        protected_uid = int(getattr(settings, "PROTECTED_ADMIN_USER_ID", 0) or 0)
-    except Exception:
-        protected_uid = 0
-
-    return 0 < protected_uid == uid
+    return is_protected_admin_uid(user_id)
 
 
 def ensure_admin_target_allowed(user: User) -> None:

@@ -2,17 +2,78 @@ from __future__ import annotations
 import asyncio
 import functools
 import inspect
-from typing import Any, Callable, Awaitable, Union, Optional
+import sys
 import structlog
-from fastapi import HTTPException, Depends
+from typing import Any, Callable, Awaitable, Union, Optional, cast
+from jwt import ExpiredSignatureError, InvalidTokenError
+from fastapi import HTTPException, Depends, APIRouter, Request
+from fastapi.routing import APIRoute
 from ..core.clients import get_redis
-from ..security.auth_tokens import get_identity
+from ..security.admin_guard import get_protected_admin_user_id, is_protected_admin_uid
+from ..security.auth_tokens import get_identity, decode_token, parse_refresh_token
 from ..realtime.sio import sio
 from ..schemas.common import Identity
 
 log = structlog.get_logger()
 
 KeyBuilder = Callable[..., str]
+SAFE_HTTP_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
+PRIVILEGED_HTTP_PREFIXES = ("/api/admin", "/api/moderation")
+PRIVILEGED_ALERT_WINDOW_S = 300
+NON_PRIVILEGED_ROUTE_PATHS = frozenset({"/api/admin/settings/public"})
+PRIVILEGED_SENSITIVE_MUTATION_LIMITS: dict[str, int] = {
+    "/api/admin/settings": 6,
+    "/api/admin/rooms/{room_id}/close": 6,
+    "/api/admin/rooms/kick": 5,
+    "/api/admin/chat/clear": 2,
+    "/api/admin/users/{user_id}/role": 4,
+    "/api/admin/users/{user_id}/delete": 4,
+    "/api/admin/users/{user_id}/restore": 4,
+    "/api/admin/users/{user_id}/unverify": 4,
+    "/api/admin/users/{user_id}/password_clear": 4,
+    "/api/admin/users/{user_id}/timeout": 5,
+    "/api/admin/users/{user_id}/ban": 5,
+    "/api/admin/users/{user_id}/suspend": 5,
+    "/api/moderation/users/{user_id}/suspend": 5,
+}
+
+
+def _mark_route_guard(wrapper: Callable[..., Any], guard_name: str) -> None:
+    setattr(wrapper, "__route_guard__", guard_name)
+
+
+def _ensure_identity_has_roles(ident: Identity | None, roles: tuple[str, ...]) -> Identity:
+    if not ident:
+        log.warning("require_roles.missing_identity")
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    if roles and ident["role"] not in roles:
+        log.warning("require_roles.forbidden", role=ident["role"], need=roles)
+        raise HTTPException(status_code=403, detail="forbidden")
+
+    return ident
+
+
+def audit_router_guards(router: APIRouter) -> None:
+    for route in router.routes:
+        if not isinstance(route, APIRoute):
+            continue
+
+        endpoint = cast(Any, route.endpoint)
+        module = sys.modules.get(endpoint.__module__)
+        if module is None:
+            continue
+
+        current = getattr(module, endpoint.__name__, None)
+        wrapper_name = getattr(current, "__route_guard__", None)
+        if not wrapper_name or current is endpoint:
+            continue
+
+        methods = ",".join(sorted((route.methods or set()) - {"HEAD"})) or ",".join(sorted(route.methods or []))
+        raise RuntimeError(
+            f"Wrapped route {methods} {route.path} in {endpoint.__module__}.{endpoint.__name__} "
+            f"was registered before {wrapper_name}; move @router.* above route decorators."
+        )
 
 
 def log_route(name: str):
@@ -31,7 +92,8 @@ def log_route(name: str):
                 except Exception:
                     lg.exception("route.error")
                     raise
-                
+
+            _mark_route_guard(wrap, "log_route")
             return wrap
 
         else:
@@ -49,6 +111,7 @@ def log_route(name: str):
                     lg.exception("route.error")
                     raise
 
+            _mark_route_guard(wrap_sync, "log_route")
             return wrap_sync
 
     return deco
@@ -64,15 +127,7 @@ def require_roles_deco(*roles: str):
 
         @functools.wraps(fn)
         async def wrap(*args, **kwargs):
-            ident: Identity | None = kwargs.get("ident")
-            if not ident:
-                log.warning("require_roles.missing_identity")
-                raise HTTPException(status_code=401, detail="Unauthorized")
-
-            if roles and ident["role"] not in roles:
-                log.warning("require_roles.forbidden", role=ident["role"], need=roles)
-                raise HTTPException(status_code=403, detail="forbidden")
-
+            _ensure_identity_has_roles(kwargs.get("ident"), roles)
             return await fn(*args, **kwargs)
 
         if need_inject:
@@ -81,9 +136,207 @@ def require_roles_deco(*roles: str):
         else:
             wrap.__signature__ = sig
 
+        _mark_route_guard(wrap, "require_roles_deco")
         return wrap
 
     return deco
+
+
+def require_roles_dep(*roles: str):
+    async def dep(ident: Identity = Depends(get_identity)) -> Identity:
+        return _ensure_identity_has_roles(ident, roles)
+
+    return dep
+
+
+def _ensure_identity_is_protected_admin(ident: Identity | None) -> Identity:
+    ident = _ensure_identity_has_roles(ident, ("admin",))
+    uid = int(ident["id"])
+    if not is_protected_admin_uid(uid):
+        log.warning(
+            "require_protected_admin.forbidden",
+            uid=uid,
+            protected_admin_user_id=get_protected_admin_user_id(),
+        )
+        raise HTTPException(status_code=403, detail="forbidden")
+
+    return ident
+
+
+async def require_protected_admin_dep(ident: Identity = Depends(get_identity)) -> Identity:
+    return _ensure_identity_is_protected_admin(ident)
+
+
+def _extract_rate_limit_uid(auth_header: str) -> int | None:
+    header = str(auth_header or "").strip()
+    if not header.lower().startswith("bearer "):
+        return None
+
+    token = header[7:].strip()
+    if not token:
+        return None
+
+    try:
+        payload = decode_token(token)
+        if str(payload.get("typ") or "") != "access":
+            return None
+
+        uid = int(payload.get("sub") or 0)
+        return uid if uid > 0 else None
+
+    except (ExpiredSignatureError, InvalidTokenError, ValueError, TypeError):
+        return None
+
+    except Exception:
+        return None
+
+
+def _request_client_ip(request: Request) -> str:
+    forwarded_for = str(request.headers.get("x-forwarded-for") or "").strip()
+    real_ip = str(request.headers.get("x-real-ip") or "").strip()
+    client_host = str((request.client.host if request.client else "") or "").strip()
+    return (forwarded_for.split(",", 1)[0].strip() if forwarded_for else "") or real_ip or client_host or "unknown"
+
+
+def _extract_rate_limit_actor(request: Request) -> str:
+    uid = _extract_rate_limit_uid(str(request.headers.get("authorization") or ""))
+    if uid is not None:
+        return f"user:{uid}"
+
+    request_path = str(request.url.path or "").rstrip("/") or "/"
+    if request_path in {"/api/auth/refresh", "/api/auth/logout"}:
+        raw_refresh = str(request.cookies.get("rt") or "")
+        if raw_refresh:
+            ok, _, sid, _ = parse_refresh_token(raw_refresh)
+            if ok and sid:
+                return f"sid:{sid}"
+
+    return f"ip:{_request_client_ip(request)}"
+
+
+def _is_privileged_route(path: str) -> bool:
+    normalized_path = str(path or "").rstrip("/") or "/"
+    if normalized_path in NON_PRIVILEGED_ROUTE_PATHS:
+        return False
+
+    return any(normalized_path.startswith(prefix) for prefix in PRIVILEGED_HTTP_PREFIXES)
+
+
+def _default_http_rate_limit(method: str, path: str) -> tuple[int, int]:
+    normalized_path = str(path or "/").rstrip("/") or "/"
+    window_s = 60
+
+    if normalized_path in {"/api/auth/login", "/api/auth/register"}:
+        return 20, window_s
+
+    if normalized_path in {"/api/auth/refresh", "/api/auth/logout"}:
+        return 60, window_s
+
+    if normalized_path.startswith("/api/bot"):
+        return 120, window_s
+
+    if normalized_path == "/api/admin/settings/public":
+        return 240, window_s
+
+    if _is_privileged_route(normalized_path):
+        if method in SAFE_HTTP_METHODS:
+            return 30, window_s
+
+        if normalized_path in PRIVILEGED_SENSITIVE_MUTATION_LIMITS:
+            return PRIVILEGED_SENSITIVE_MUTATION_LIMITS[normalized_path], window_s
+
+        return 10, window_s
+
+    return (240 if method in SAFE_HTTP_METHODS else 60), window_s
+
+
+async def _emit_privileged_rate_limit_alert(*, redis_client, method: str, path: str, actor: str, count: int, limit: int, ttl: int, retry_after: int) -> None:
+    alert_key = f"rl:http:alert:{method}:{path}:{actor}"
+    should_emit = await redis_client.set(alert_key, 1, ex=PRIVILEGED_ALERT_WINDOW_S, nx=True)
+    if should_emit:
+        log.warning(
+            "security.privileged_http_rate_limit_alert",
+            method=method,
+            path=path,
+            actor=actor,
+            count=count,
+            limit=limit,
+            ttl=ttl,
+            retry_after=retry_after,
+            alert_window_s=PRIVILEGED_ALERT_WINDOW_S,
+        )
+
+
+async def minimal_route_rate_limit(request: Request) -> None:
+    method = str(request.method or "GET").upper()
+    route = request.scope.get("route")
+    route_path = str(getattr(route, "path", "") or request.url.path or "/").rstrip("/") or "/"
+    limit, window_s = _default_http_rate_limit(method, route_path)
+    is_privileged = _is_privileged_route(route_path)
+
+    actor = _extract_rate_limit_actor(request)
+    key = f"rl:http:{method}:{route_path}:{actor}"
+
+    try:
+        r = get_redis()
+        created = await r.set(key, 1, ex=window_s, nx=True)
+        count = 1 if created else int(await r.incr(key))
+        if count == 1 and not created:
+            try:
+                await r.expire(key, window_s)
+            except Exception as exc:
+                log.warning("http.rate_limit.expire_failed", key=key, window_s=window_s, err=type(exc).__name__)
+
+        if count > limit:
+            try:
+                ttl = int(await r.ttl(key))
+            except Exception:
+                ttl = -2
+
+            retry_after = ttl if ttl and ttl > 0 else window_s
+            log.warning(
+                "http.route_rate_limited",
+                method=method,
+                path=route_path,
+                actor=actor,
+                limit=limit,
+                window_s=window_s,
+                count=count,
+                ttl=ttl,
+            )
+            if is_privileged:
+                try:
+                    await _emit_privileged_rate_limit_alert(
+                        redis_client=r,
+                        method=method,
+                        path=route_path,
+                        actor=actor,
+                        count=count,
+                        limit=limit,
+                        ttl=ttl,
+                        retry_after=retry_after,
+                    )
+                except Exception as exc:
+                    log.warning(
+                        "security.privileged_http_rate_limit_alert_failed",
+                        method=method,
+                        path=route_path,
+                        actor=actor,
+                        err=type(exc).__name__,
+                    )
+            raise HTTPException(status_code=429, detail="rate_limited", headers={"Retry-After": str(retry_after)})
+
+    except HTTPException:
+        raise
+
+    except Exception as exc:
+        log.warning(
+            "http.route_rate_limit_failed",
+            method=method,
+            path=route_path,
+            actor=actor,
+            err=type(exc).__name__,
+        )
 
 
 def require_room_creator(room_id_param: str = "room_id"):
@@ -126,6 +379,7 @@ def require_room_creator(room_id_param: str = "room_id"):
         else:
             wrap.__signature__ = sig
 
+        _mark_route_guard(wrap, "require_room_creator")
         return wrap
 
     return deco
@@ -166,6 +420,7 @@ def rate_limited(key: Union[str, Callable[..., str]], *, limit: int, window_s: i
             return await fn(*a, **kw)
 
         wrap.__signature__ = sig
+        _mark_route_guard(wrap, "rate_limited")
         return wrap
 
     return deco

@@ -9,6 +9,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from ..core.clients import get_redis
 from ..core.db import SessionLocal
 from ..core.settings import settings
+from ..security.admin_guard import normalize_protected_admin_role
 from ..services.user_cache import read_user_profile_cache, refresh_user_profile_cache
 from ..schemas.common import Identity
 
@@ -89,7 +90,8 @@ async def get_identity(creds: HTTPAuthorizationCredentials = Depends(HTTPBearer(
             log.warning("auth.sid_mismatch", uid=uid)
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
 
-        role = str(p.get("role") or "user")
+        role_from_token = str(p.get("role") or "user")
+        role = role_from_token
         username = str(p.get("username") or f"user{uid}")
         profile = await read_user_profile_cache(uid, redis_client=r)
         if profile is None:
@@ -104,6 +106,11 @@ async def get_identity(creds: HTTPAuthorizationCredentials = Depends(HTTPBearer(
                 role = str(profile["role"])
             if profile.get("username"):
                 username = str(profile["username"])
+
+        normalized_role = normalize_protected_admin_role(uid, role, fallback_role=role_from_token)
+        if str(role or "").strip().lower() == "admin" and normalized_role != "admin":
+            log.warning("auth.non_protected_admin_role_blocked", uid=uid)
+        role = normalized_role
 
         return {"id": uid, "role": role, "username": username}
 

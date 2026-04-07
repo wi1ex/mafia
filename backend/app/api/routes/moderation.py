@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 from contextlib import suppress
 from datetime import datetime, timedelta, timezone
 from typing import cast
@@ -17,7 +17,7 @@ from ...schemas.common import Identity, Ok
 from ...schemas.moderation import ModerationUserOut, ModerationUsersOut
 from ...realtime.sio import sio
 from ...security.auth_tokens import get_identity
-from ...security.decorators import log_route, require_roles_deco
+from ...security.decorators import log_route, require_roles_dep
 from ...services.global_chat import emit_global_chat_sanction_issued_notice
 from ..utils import (
     SANCTION_SUSPEND,
@@ -39,12 +39,11 @@ from ..utils import (
     revoke_active_suspend,
 )
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_roles_dep("moder"))])
 
 
-@log_route("moderation.users.list")
-@require_roles_deco("moder")
 @router.get("/users", response_model=ModerationUsersOut)
+@log_route("moderation.users.list")
 async def moderation_users_list(page: int = 1, limit: int = 20, username: str | None = None, sort_by: str | None = None, session: AsyncSession = Depends(get_session)) -> ModerationUsersOut:
     limit, page, offset = normalize_pagination(page, limit)
     sort_key = normalize_moderation_users_sort(sort_by)
@@ -151,9 +150,8 @@ async def moderation_users_list(page: int = 1, limit: int = 20, username: str | 
     return ModerationUsersOut(total=total, items=items)
 
 
-@log_route("moderation.users.suspend_add")
-@require_roles_deco("moder")
 @router.post("/users/{user_id}/suspend", response_model=Ok)
+@log_route("moderation.users.suspend_add")
 async def moderation_apply_user_suspend(user_id: int, payload: AdminSanctionTimedIn, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
     user = await get_moderation_target_user(session, user_id)
     uid = cast(int, user.id)
@@ -242,9 +240,8 @@ async def moderation_apply_user_suspend(user_id: int, payload: AdminSanctionTime
     return Ok()
 
 
-@log_route("moderation.users.suspend_remove")
-@require_roles_deco("moder")
 @router.delete("/users/{user_id}/suspend", response_model=Ok)
+@log_route("moderation.users.suspend_remove")
 async def moderation_revoke_user_suspend(user_id: int, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
     user = await get_moderation_target_user(session, user_id)
     uid = cast(int, user.id)

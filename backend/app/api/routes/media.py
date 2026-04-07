@@ -10,8 +10,8 @@ from ..utils import validate_object_key_for_presign
 router = APIRouter()
 
 
-@log_route("media.presign")
 @router.get("/presign")
+@log_route("media.presign")
 async def presign(key: str = Query(..., description="")) -> dict:
     validate_object_key_for_presign(key)
 

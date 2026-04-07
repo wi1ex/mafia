@@ -90,9 +90,9 @@ CHAT_MENTION_LIMIT_DEFAULT = 8
 CHAT_MENTION_LIMIT_MAX = 10
 
 
+@router.get("/profile_info", response_model=UserOut)
 @log_route("users.profile_info")
 @rate_limited(lambda ident, **_: f"rl:profile_info:{ident['id']}", limit=10, window_s=1)
-@router.get("/profile_info", response_model=UserOut)
 async def profile_info(ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UserOut:
     user = await db.get(User, int(ident["id"]))
     if not user:
@@ -127,9 +127,9 @@ async def profile_info(ident: Identity = Depends(get_identity), db: AsyncSession
     )
 
 
+@router.get("/stats", response_model=UserStatsOut)
 @log_route("users.stats")
 @rate_limited(lambda ident, **_: f"rl:user_stats:{ident['id']}", limit=10, window_s=1)
-@router.get("/stats", response_model=UserStatsOut)
 async def user_stats(season: int | None = None, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UserStatsOut:
     uid = int(ident["id"])
     user = await db.get(User, uid)
@@ -176,9 +176,9 @@ async def user_stats(season: int | None = None, ident: Identity = Depends(get_id
     )
 
 
+@router.post("/support_link_click", response_model=Ok)
 @log_route("users.support_link_click")
 @rate_limited(lambda ident, **_: f"rl:support_link_click:{ident['id']}", limit=10, window_s=1)
-@router.post("/support_link_click", response_model=Ok)
 async def support_link_click(ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> Ok:
     uid = int(ident["id"])
     username = str(ident["username"] or "")
@@ -192,16 +192,16 @@ async def support_link_click(ident: Identity = Depends(get_identity), db: AsyncS
     return Ok()
 
 
+@router.get("/games/history", response_model=UserGamesHistoryOut)
 @log_route("users.games_history")
 @rate_limited(lambda ident, **_: f"rl:games_history:{ident['id']}", limit=10, window_s=1)
-@router.get("/games/history", response_model=UserGamesHistoryOut)
 async def games_history(page: int = 1, _ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UserGamesHistoryOut:
     return await fetch_games_history_page(db, page=page, per_page=GAME_HISTORY_PER_PAGE)
 
 
+@router.get("/games/history/personal", response_model=UserGamesHistoryOut)
 @log_route("users.games_history_personal")
 @rate_limited(lambda ident, **_: f"rl:games_history_personal:{ident['id']}", limit=10, window_s=1)
-@router.get("/games/history/personal", response_model=UserGamesHistoryOut)
 async def games_history_personal(page: int = 1, role: Literal["citizen", "mafia", "don", "sheriff"] | None = None, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UserGamesHistoryOut:
     uid = safe_int((ident or {}).get("id"))
     return await fetch_games_history_page(
@@ -213,9 +213,9 @@ async def games_history_personal(page: int = 1, role: Literal["citizen", "mafia"
     )
 
 
+@router.get("/games/history/{game_id}", response_model=GameHistoryItemOut)
 @log_route("users.game_history_details")
 @rate_limited(lambda ident, game_id=None, **_: f"rl:game_history_details:{ident['id']}:{game_id}", limit=10, window_s=1)
-@router.get("/games/history/{game_id}", response_model=GameHistoryItemOut)
 async def game_history_details(game_id: int, _ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> GameHistoryItemOut:
     GAME_HISTORY_MAX_SLOT = 10
     GAME_HISTORY_ROLES = {"citizen", "mafia", "don", "sheriff"}
@@ -500,9 +500,9 @@ async def game_history_details(game_id: int, _ident: Identity = Depends(get_iden
     )
 
 
+@router.get("/sanctions", response_model=UserSanctionsOut)
 @log_route("users.sanctions_history")
 @rate_limited(lambda ident, **_: f"rl:sanctions_history:{ident['id']}", limit=10, window_s=1)
-@router.get("/sanctions", response_model=UserSanctionsOut)
 async def sanctions_history(ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UserSanctionsOut:
     user = await db.get(User, int(ident["id"]))
     if not user:
@@ -531,9 +531,9 @@ async def sanctions_history(ident: Identity = Depends(get_identity), db: AsyncSe
     return UserSanctionsOut(items=items)
 
 
+@router.patch("/username", response_model=UsernameUpdateOut)
 @log_route("users.update_username")
 @rate_limited(lambda ident, **_: f"rl:update_username:{ident['id']}", limit=1, window_s=1)
-@router.patch("/username", response_model=UsernameUpdateOut)
 async def update_username(payload: UsernameUpdateIn, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UsernameUpdateOut:
     uid = int(ident["id"])
     new = normalize_username(payload.username)
@@ -576,8 +576,8 @@ async def update_username(payload: UsernameUpdateIn, ident: Identity = Depends(g
     return UsernameUpdateOut(username=new)
 
 
-@rate_limited(lambda ident, **_: f"rl:chat_mentions_search:{ident['id']}", limit=30, window_s=10)
 @router.get("/chat/mentions", response_model=ChatMentionSearchOut)
+@rate_limited(lambda ident, **_: f"rl:chat_mentions_search:{ident['id']}", limit=30, window_s=10)
 async def search_chat_mentions(query: str, limit: int = CHAT_MENTION_LIMIT_DEFAULT, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> ChatMentionSearchOut:
     _ = ident
     normalized_query = normalize_chat_mention_query(query)
@@ -610,9 +610,9 @@ async def search_chat_mentions(query: str, limit: int = CHAT_MENTION_LIMIT_DEFAU
     )
 
 
+@router.patch("/ui_prefs", response_model=UserUiPrefsOut)
 @log_route("users.update_ui_prefs")
 @rate_limited(lambda ident, **_: f"rl:update_ui_prefs:{ident['id']}", limit=10, window_s=1)
-@router.patch("/ui_prefs", response_model=UserUiPrefsOut)
 async def update_ui_prefs(payload: UserUiPrefsIn, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UserUiPrefsOut:
     uid = int(ident["id"])
     user = await db.get(User, uid)
@@ -652,9 +652,9 @@ async def update_ui_prefs(payload: UserUiPrefsIn, ident: Identity = Depends(get_
     )
 
 
+@router.patch("/password", response_model=Ok)
 @log_route("users.change_password")
 @rate_limited(lambda ident, **_: f"rl:change_password:{ident['id']}", limit=1, window_s=1)
-@router.patch("/password", response_model=Ok)
 async def change_password(payload: PasswordChangeIn, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> Ok:
     uid = int(ident["id"])
     user = await db.get(User, uid)
@@ -686,9 +686,9 @@ async def change_password(payload: PasswordChangeIn, ident: Identity = Depends(g
     return Ok()
 
 
+@router.post("/unverify", response_model=Ok)
 @log_route("users.unverify_telegram")
 @rate_limited(lambda ident, **_: f"rl:unverify_telegram:{ident['id']}", limit=1, window_s=1)
-@router.post("/unverify", response_model=Ok)
 async def unverify_telegram(ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> Ok:
     uid = int(ident["id"])
     user = await db.get(User, uid)
@@ -722,9 +722,9 @@ async def unverify_telegram(ident: Identity = Depends(get_identity), db: AsyncSe
     return Ok()
 
 
+@router.post("/avatar", response_model=AvatarUploadOut)
 @log_route("users.upload_avatar")
 @rate_limited(lambda ident, **_: f"rl:upload_avatar:{ident['id']}", limit=1, window_s=1)
-@router.post("/avatar", response_model=AvatarUploadOut)
 async def upload_avatar(file: UploadFile = File(...), ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> AvatarUploadOut:
     uid = int(ident["id"])
     await ensure_profile_changes_allowed(db, uid)
@@ -769,9 +769,9 @@ async def upload_avatar(file: UploadFile = File(...), ident: Identity = Depends(
     return AvatarUploadOut(avatar_name=name)
 
 
+@router.post("/chat/image/presign", response_model=ChatImagePresignOut)
 @log_route("users.presign_chat_image")
 @rate_limited(lambda ident, **_: f"rl:presign_chat_image:{ident['id']}", limit=5, window_s=10)
-@router.post("/chat/image/presign", response_model=ChatImagePresignOut)
 async def presign_chat_image(payload: ChatImagePresignIn, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> ChatImagePresignOut:
     uid = int(ident["id"])
     permissions = await resolve_global_chat_permissions(db, uid)
@@ -797,9 +797,9 @@ async def presign_chat_image(payload: ChatImagePresignIn, ident: Identity = Depe
     )
 
 
+@router.post("/chat/image", response_model=ChatImageUploadOut)
 @log_route("users.upload_chat_image")
 @rate_limited(lambda ident, **_: f"rl:upload_chat_image:{ident['id']}", limit=3, window_s=10)
-@router.post("/chat/image", response_model=ChatImageUploadOut)
 async def upload_chat_image(file: UploadFile = File(...), ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> ChatImageUploadOut:
     uid = int(ident["id"])
     permissions = await resolve_global_chat_permissions(db, uid)
@@ -827,9 +827,9 @@ async def upload_chat_image(file: UploadFile = File(...), ident: Identity = Depe
     return ChatImageUploadOut(image_object_key=key)
 
 
+@router.delete("/chat/image", response_model=Ok)
 @log_route("users.delete_chat_image")
 @rate_limited(lambda ident, **_: f"rl:delete_chat_image:{ident['id']}", limit=10, window_s=10)
-@router.delete("/chat/image", response_model=Ok)
 async def delete_chat_image(key: str, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> Ok:
     uid = int(ident["id"])
     try:
@@ -852,9 +852,9 @@ async def delete_chat_image(key: str, ident: Identity = Depends(get_identity), d
     return Ok()
 
 
+@router.delete("/avatar", response_model=Ok)
 @log_route("users.delete_avatar")
 @rate_limited(lambda ident, **_: f"rl:delete_avatar:{ident['id']}", limit=1, window_s=1)
-@router.delete("/avatar", response_model=Ok)
 async def delete_avatar(ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> Ok:
     uid = int(ident["id"])
     await ensure_profile_changes_allowed(db, uid)
@@ -888,9 +888,9 @@ async def delete_avatar(ident: Identity = Depends(get_identity), db: AsyncSessio
     return Ok()
 
 
+@router.delete("/account", response_model=Ok)
 @log_route("users.delete_account")
 @rate_limited(lambda ident, **_: f"rl:delete_account:{ident['id']}", limit=1, window_s=5)
-@router.delete("/account", response_model=Ok)
 async def delete_account(resp: Response, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> Ok:
     uid = int(ident["id"])
     user = await db.get(User, uid)

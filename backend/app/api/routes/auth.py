@@ -28,8 +28,8 @@ from ..utils import (
 router = APIRouter()
 
 
-@log_route("auth.register")
 @router.post("/register", response_model=AccessTokenOut, status_code=status.HTTP_201_CREATED)
+@log_route("auth.register")
 async def register(payload: PasswordRegisterIn, resp: Response, request: Request, db: AsyncSession = Depends(get_session)) -> AccessTokenOut:
     if not get_cached_settings().registration_enabled:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="registration_disabled")
@@ -86,8 +86,8 @@ async def register(payload: PasswordRegisterIn, resp: Response, request: Request
     return AccessTokenOut(access_token=access_token, sid=sid, is_new=True)
 
 
-@log_route("auth.login")
 @router.post("/login", response_model=AccessTokenOut)
+@log_route("auth.login")
 async def login(payload: PasswordLoginIn, resp: Response, request: Request, db: AsyncSession = Depends(get_session)) -> AccessTokenOut:
     username = normalize_username(payload.username)
     password = normalize_password(payload.password)
@@ -125,8 +125,8 @@ async def login(payload: PasswordLoginIn, resp: Response, request: Request, db: 
     return AccessTokenOut(access_token=access_token, sid=sid)
 
 
-@log_route("auth.refresh")
 @router.post("/refresh", response_model=AccessTokenOut)
+@log_route("auth.refresh")
 async def refresh(resp: Response, request: Request, db: AsyncSession = Depends(get_session)) -> AccessTokenOut:
     raw = request.cookies.get("rt")
     if not raw:
@@ -153,8 +153,8 @@ async def refresh(resp: Response, request: Request, db: AsyncSession = Depends(g
     return AccessTokenOut(access_token=access_token, sid=sid or "")
 
 
-@log_route("auth.logout")
 @router.post("/logout", response_model=Ok)
+@log_route("auth.logout")
 async def logout(resp: Response, request: Request) -> Ok:
     raw = request.cookies.get("rt")
     if raw:

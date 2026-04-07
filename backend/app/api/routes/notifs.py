@@ -12,9 +12,9 @@ from ...schemas.notif import NotifsListOut, MarkReadIn, NotifOut
 router = APIRouter()
 
 
+@router.get("", response_model=NotifsListOut)
 @log_route("notifs.list_notifs")
 @rate_limited(lambda ident, **_: f"rl:notif:list:{ident['id']}", limit=10, window_s=1)
-@router.get("", response_model=NotifsListOut)
 async def list_notifs(
     limit: int = 50,
     before_id: int | None = None,
@@ -56,9 +56,9 @@ async def list_notifs(
     )
 
 
+@router.post("/mark_read", response_model=Ok)
 @log_route("notifs.mark_read")
 @rate_limited(lambda ident, **_: f"rl:notif:mark:{ident['id']}", limit=20, window_s=1)
-@router.post("/mark_read", response_model=Ok)
 async def mark_read(payload: MarkReadIn, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> Ok:
     uid = int(ident["id"])
     now = func.now()

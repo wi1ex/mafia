@@ -43,9 +43,9 @@ from ...realtime.utils import get_rooms_brief, filter_rooms_for_viewer, get_publ
 router = APIRouter()
 
 
+@router.post("", response_model=RoomIdOut, status_code=status.HTTP_201_CREATED)
 @log_route("rooms.create_room")
 @rate_limited(lambda ident, **_: f"rl:create_room:{ident['id']}", limit=1, window_s=1)
-@router.post("", response_model=RoomIdOut, status_code=status.HTTP_201_CREATED)
 async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get_session), ident: Identity = Depends(get_identity)) -> RoomIdOut:
     uid = int(ident["id"])
     app_settings = get_cached_settings()
@@ -137,9 +137,9 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
     return RoomIdOut(id=room.id)
 
 
+@router.get("/active", response_model=list[RoomBriefOut])
 @log_route("rooms.active_list")
 @rate_limited(lambda ident, **_: f"rl:rooms:active_list:{ident['id']}", limit=5, window_s=1)
-@router.get("/active", response_model=list[RoomBriefOut])
 async def list_active_rooms(ident: Identity = Depends(get_identity)) -> list[RoomBriefOut]:
     r = get_redis()
     raw_ids = await r.zrange("rooms:index", 0, -1)
@@ -166,8 +166,8 @@ async def list_active_rooms(ident: Identity = Depends(get_identity)) -> list[Roo
     return out
 
 
-@log_route("rooms.room_info")
 @router.get("/{room_id}/info", response_model=RoomInfoOut, response_model_exclude_none=True)
+@log_route("rooms.room_info")
 async def room_info(room_id: int) -> RoomInfoOut:
     r = get_redis()
     await get_room_params_or_404(r, room_id)
@@ -194,9 +194,9 @@ async def room_info(room_id: int) -> RoomInfoOut:
     return RoomInfoOut(members=members, game=game, spectators_count=spectators_count)
 
 
+@router.get("/{room_id}/spectators", response_model=RoomSpectatorsOut)
 @log_route("rooms.spectators")
 @rate_limited(lambda ident, room_id, **_: f"rl:rooms:spectators:{ident['id']}:{room_id}", limit=10, window_s=1)
-@router.get("/{room_id}/spectators", response_model=RoomSpectatorsOut)
 async def room_spectators(room_id: int, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> RoomSpectatorsOut:
     r = get_redis()
     await get_room_params_or_404(r, room_id)
@@ -249,10 +249,10 @@ async def room_spectators(room_id: int, ident: Identity = Depends(get_identity),
     return RoomSpectatorsOut(spectators=spectators)
 
 
+@router.patch("/{room_id}/game", response_model=Ok)
 @log_route("rooms.update_game")
 @rate_limited(lambda ident, room_id, **_: f"rl:rooms:update_game:{ident['id']}:{room_id}", limit=5, window_s=1)
 @require_room_creator("room_id")
-@router.patch("/{room_id}/game", response_model=Ok)
 async def update_game(room_id: int, payload: GameParams, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
     r = get_redis()
     params = await get_room_params_or_404(r, room_id)
@@ -306,9 +306,9 @@ async def update_game(room_id: int, payload: GameParams, ident: Identity = Depen
     return Ok()
 
 
+@router.get("/{room_id}/access", response_model=RoomAccessOut)
 @log_route("rooms.access")
 @rate_limited(lambda ident, room_id, **_: f"rl:rooms:access:{ident['id']}:{room_id}", limit=10, window_s=1)
-@router.get("/{room_id}/access", response_model=RoomAccessOut)
 async def access(room_id: int, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> RoomAccessOut:
     if not get_cached_settings().rooms_can_enter:
         raise HTTPException(status_code=403, detail="rooms_entry_disabled")
@@ -338,9 +338,9 @@ async def access(room_id: int, ident: Identity = Depends(get_identity), db: Asyn
     return RoomAccessOut(access="none")
 
 
+@router.post("/{room_id}/apply", response_model=Ok, status_code=202)
 @log_route("rooms.apply")
 @rate_limited(lambda ident, room_id, **_: f"rl:rooms:apply:{ident['id']}:{room_id}", limit=10, window_s=1)
-@router.post("/{room_id}/apply", response_model=Ok, status_code=202)
 async def apply(room_id: int, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> Ok:
     if not get_cached_settings().rooms_can_enter:
         raise HTTPException(status_code=403, detail="rooms_entry_disabled")
@@ -405,10 +405,10 @@ async def apply(room_id: int, ident: Identity = Depends(get_identity), db: Async
     return Ok()
 
 
+@router.get("/{room_id}/requests", response_model=list[RoomRequestOut])
 @log_route("rooms.list_requests")
 @rate_limited(lambda ident, room_id, **_: f"rl:rooms:apps_list:{ident['id']}:{room_id}", limit=10, window_s=1)
 @require_room_creator("room_id")
-@router.get("/{room_id}/requests", response_model=list[RoomRequestOut])
 async def list_requests(room_id: int, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)):
     r = get_redis()
     params = await get_room_params_or_404(r, room_id)
@@ -469,10 +469,10 @@ async def list_requests(room_id: int, ident: Identity = Depends(get_identity), d
     return items
 
 
+@router.post("/{room_id}/requests/{user_id}/approve", response_model=Ok)
 @log_route("rooms.approve")
 @rate_limited(lambda ident, room_id, user_id, **_: f"rl:rooms:approve:{ident['id']}:{room_id}", limit=10, window_s=1)
 @require_room_creator("room_id")
-@router.post("/{room_id}/requests/{user_id}/approve", response_model=Ok)
 async def approve(room_id: int, user_id: int, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> Ok:
     r = get_redis()
     params = await get_room_params_or_404(r, room_id)
@@ -533,10 +533,10 @@ async def approve(room_id: int, user_id: int, ident: Identity = Depends(get_iden
     return Ok()
 
 
+@router.post("/{room_id}/requests/{user_id}/deny", response_model=Ok)
 @log_route("rooms.deny")
 @rate_limited(lambda ident, room_id, user_id, **_: f"rl:rooms:deny:{ident['id']}:{room_id}", limit=10, window_s=1)
 @require_room_creator("room_id")
-@router.post("/{room_id}/requests/{user_id}/deny", response_model=Ok)
 async def deny(room_id: int, user_id: int, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> Ok:
     r = get_redis()
     params = await get_room_params_or_404(r, room_id)

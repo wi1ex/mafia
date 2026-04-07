@@ -40,9 +40,9 @@ router = APIRouter()
 FRIEND_REMOVE_MIN_SECONDS = 10 * 60
 
 
+@router.get("/status/{user_id}", response_model=FriendStatusOut)
 @log_route("friends.status")
 @rate_limited(lambda ident, user_id, **_: f"rl:friends:status:{ident['id']}:{user_id}", limit=10, window_s=1)
-@router.get("/status/{user_id}", response_model=FriendStatusOut)
 async def friend_status(user_id: int, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> FriendStatusOut:
     uid = int(ident["id"])
     if user_id <= 0:
@@ -64,9 +64,9 @@ async def friend_status(user_id: int, ident: Identity = Depends(get_identity), d
     return FriendStatusOut(status="incoming")
 
 
+@router.get("/list", response_model=FriendsListOut)
 @log_route("friends.list")
 @rate_limited(lambda ident, **_: f"rl:friends:list:{ident['id']}", limit=10, window_s=1)
-@router.get("/list", response_model=FriendsListOut)
 async def friends_list(room_id: int | None = None, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> FriendsListOut:
     uid = int(ident["id"])
     accepted_rows = await db.execute(
@@ -284,9 +284,9 @@ async def friends_list(room_id: int | None = None, ident: Identity = Depends(get
     return FriendsListOut(items=[*incoming_items, *online_items, *offline_items, *outgoing_items])
 
 
+@router.get("/incoming_count", response_model=FriendIncomingCountOut)
 @log_route("friends.incoming_count")
 @rate_limited(lambda ident, **_: f"rl:friends:incoming_count:{ident['id']}", limit=10, window_s=1)
-@router.get("/incoming_count", response_model=FriendIncomingCountOut)
 async def incoming_count(ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> FriendIncomingCountOut:
     uid = int(ident["id"])
     count = await db.scalar(
@@ -296,9 +296,9 @@ async def incoming_count(ident: Identity = Depends(get_identity), db: AsyncSessi
     return FriendIncomingCountOut(count=int(count or 0))
 
 
+@router.post("/requests/{user_id}", response_model=Ok)
 @log_route("friends.request_send")
 @rate_limited(lambda ident, user_id, **_: f"rl:friends:request:{ident['id']}:{user_id}", limit=3, window_s=5)
-@router.post("/requests/{user_id}", response_model=Ok)
 async def send_friend_request(user_id: int, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> Ok:
     uid = int(ident["id"])
     target_id = int(user_id)
@@ -367,9 +367,9 @@ async def send_friend_request(user_id: int, ident: Identity = Depends(get_identi
     return Ok()
 
 
+@router.post("/requests/{user_id}/accept", response_model=Ok)
 @log_route("friends.request_accept")
 @rate_limited(lambda ident, user_id, **_: f"rl:friends:accept:{ident['id']}:{user_id}", limit=5, window_s=5)
-@router.post("/requests/{user_id}/accept", response_model=Ok)
 async def accept_friend_request(user_id: int, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> Ok:
     uid = int(ident["id"])
     requester_id = int(user_id)
@@ -438,9 +438,9 @@ async def accept_friend_request(user_id: int, ident: Identity = Depends(get_iden
     return Ok()
 
 
+@router.post("/requests/{user_id}/decline", response_model=Ok)
 @log_route("friends.request_decline")
 @rate_limited(lambda ident, user_id, **_: f"rl:friends:decline:{ident['id']}:{user_id}", limit=5, window_s=5)
-@router.post("/requests/{user_id}/decline", response_model=Ok)
 async def decline_friend_request(user_id: int, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> Ok:
     uid = int(ident["id"])
     requester_id = int(user_id)
@@ -479,9 +479,9 @@ async def decline_friend_request(user_id: int, ident: Identity = Depends(get_ide
     return Ok()
 
 
+@router.delete("/requests/{user_id}", response_model=Ok)
 @log_route("friends.request_cancel")
 @rate_limited(lambda ident, user_id, **_: f"rl:friends:cancel:{ident['id']}:{user_id}", limit=5, window_s=5)
-@router.delete("/requests/{user_id}", response_model=Ok)
 async def cancel_friend_request(user_id: int, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> Ok:
     uid = int(ident["id"])
     target_id = int(user_id)
@@ -529,9 +529,9 @@ async def cancel_friend_request(user_id: int, ident: Identity = Depends(get_iden
     return Ok()
 
 
+@router.delete("/{user_id}", response_model=Ok)
 @log_route("friends.remove")
 @rate_limited(lambda ident, user_id, **_: f"rl:friends:remove:{ident['id']}:{user_id}", limit=5, window_s=5)
-@router.delete("/{user_id}", response_model=Ok)
 async def remove_friend(user_id: int, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> Ok:
     uid = int(ident["id"])
     other_id = int(user_id)
@@ -572,9 +572,9 @@ async def remove_friend(user_id: int, ident: Identity = Depends(get_identity), d
     return Ok()
 
 
+@router.post("/invite", response_model=Ok)
 @log_route("friends.invite")
 @rate_limited(lambda ident, **_: f"rl:friends:invite:{ident['id']}", limit=5, window_s=5)
-@router.post("/invite", response_model=Ok)
 async def invite_friend(payload: FriendInviteIn, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> Ok:
     uid = int(ident["id"])
     target_id = int(payload.user_id)
