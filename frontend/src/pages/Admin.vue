@@ -154,23 +154,7 @@
             <div class="stats-grid">
               <div class="stat-card">
                 <span class="label">Всего пользователей</span>
-                <span class="value">{{ stats.total_users }} ({{ totalUsersWithoutExcluded }})</span>
-              </div>
-              <div class="stat-card">
-                <span class="label">Не верифицировано</span>
-                <span class="value">{{ stats.unverified_users }}</span>
-              </div>
-              <div class="stat-card">
-                <span class="label">Без пароля</span>
-                <span class="value">{{ stats.no_password_users }}</span>
-              </div>
-              <div class="stat-card">
-                <span class="label">Удаленные</span>
-                <span class="value">{{ stats.deleted_users }}</span>
-              </div>
-              <div class="stat-card">
-                <span class="label">Без уведомлений</span>
-                <span class="value">{{ stats.tg_invites_disabled_users }}</span>
+                <span class="value">{{ stats.total_users }}</span>
               </div>
               <div class="stat-card">
                 <span class="label">Аватары</span>
@@ -937,10 +921,6 @@ type PeriodStats = {
 
 type SiteStats = {
   total_users: number
-  unverified_users: number
-  no_password_users: number
-  deleted_users: number
-  tg_invites_disabled_users: number
   avatars_count: number
   avatars_bytes: number
   images_count: number
@@ -1152,10 +1132,6 @@ const gameSnapshot = ref('')
 const statsMonth = ref('')
 const stats = reactive<SiteStats>({
   total_users: 0,
-  unverified_users: 0,
-  no_password_users: 0,
-  deleted_users: 0,
-  tg_invites_disabled_users: 0,
   avatars_count: 0,
   avatars_bytes: 0,
   images_count: 0,
@@ -1185,9 +1161,6 @@ const stats = reactive<SiteStats>({
     stream_minutes: 0,
   },
 })
-const totalUsersWithoutExcluded = computed(() =>
-  stats.total_users - stats.unverified_users - stats.no_password_users - stats.deleted_users
-)
 
 const logActions = ref<string[]>([])
 const logs = ref<LogRow[]>([])
@@ -1683,10 +1656,6 @@ async function loadStats(): Promise<void> {
     const { data } = await api.get('/admin/stats', { params })
     Object.assign(stats, {
       total_users: data?.total_users ?? 0,
-      unverified_users: data?.unverified_users ?? 0,
-      no_password_users: data?.no_password_users ?? 0,
-      deleted_users: data?.deleted_users ?? 0,
-      tg_invites_disabled_users: data?.tg_invites_disabled_users ?? 0,
       avatars_count: data?.avatars_count ?? 0,
       avatars_bytes: data?.avatars_bytes ?? 0,
       images_count: data?.images_count ?? 0,

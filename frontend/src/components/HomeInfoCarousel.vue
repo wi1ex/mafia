@@ -341,21 +341,21 @@ onBeforeUnmount(() => {
     }
     &.slide--install::before {
       background:
-        radial-gradient(circle at top left, rgba($orange, 0.25), transparent 34%),
-        radial-gradient(circle at bottom right, rgba($red, 0.25), transparent 38%),
+        radial-gradient(circle at top left, rgba($orange, 0.25), transparent 35%),
+        radial-gradient(circle at bottom right, rgba($red, 0.25), transparent 35%),
         linear-gradient(145deg, rgba(76, 52, 34, 1), rgba(28, 18, 14, 1));
     }
     &.slide--support::before {
       background:
-        radial-gradient(circle at top center, rgba($green, 0.25), transparent 34%),
-        radial-gradient(circle at right bottom, rgba($white, 0.1), transparent 38%),
+        radial-gradient(circle at top center, rgba($green, 0.25), transparent 35%),
+        radial-gradient(circle at right bottom, rgba($white, 0.1), transparent 35%),
         linear-gradient(145deg, rgba(34, 56, 52, 1), rgba(18, 26, 24, 1));
     }
     &.slide--contacts::before {
       background:
-        radial-gradient(circle at top right, rgba($white, 0.1), transparent 34%),
-        radial-gradient(circle at left bottom, rgba($grey, 0.25), transparent 36%),
-        linear-gradient(145deg, rgba(70, 70, 70, 1), rgba(24, 24, 24, 1));
+        radial-gradient(circle at top right, rgba($white, 0.1), transparent 35%),
+        radial-gradient(circle at left bottom, rgba($orange, 0.25), transparent 35%),
+        linear-gradient(145deg, rgba(120, 60, 100, 1), rgba(90, 90, 135, 1));
     }
     .slide-surface {
       position: absolute;

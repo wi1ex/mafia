@@ -6,7 +6,9 @@ from typing import AsyncIterator
 from contextlib import asynccontextmanager, suppress
 from ..core.db import Base, engine, SessionLocal
 from ..core.settings import settings
-from ..api.utils import emit_expired_timed_sanctions_chat_notices, delete_stale_unverified_accounts
+#--------------------------------------------------------------------------------
+from ..api.utils import emit_expired_timed_sanctions_chat_notices, delete_stale_unverified_accounts, delete_users_without_password_accounts
+#--------------------------------------------------------------------------------
 from ..security.admin_guard import assert_protected_admin_invariants
 from ..security.parameters import ensure_app_settings, refresh_app_settings
 from ..services.minio import ensure_bucket
@@ -45,6 +47,15 @@ async def lifespan(app) -> AsyncIterator[None]:
     except Exception:
         log.exception("app.startup.deps_failed")
         raise
+
+    #--------------------------------------------------------------------------------
+    try:
+        deleted = await delete_users_without_password_accounts()
+        if deleted > 0:
+            log.info("app.users.startup_delete_no_password.done", deleted=deleted)
+    except Exception:
+        log.exception("app.users.startup_delete_no_password.failed")
+    #--------------------------------------------------------------------------------
 
     settings_task: asyncio.Task[None] | None = None
     expired_sanctions_chat_task: asyncio.Task[None] | None = None

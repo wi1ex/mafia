@@ -246,30 +246,7 @@ async def site_stats(month: str | None = None, session: AsyncSession = Depends(g
     if month_end < month_start:
         month_end = month_start
 
-    total_users = int(await session.scalar(select(func.count(User.id))) or 0)
-    unverified_users = int(await session.scalar(
-        select(func.count(User.id)).where(
-            User.deleted_at.is_(None),
-            User.password_hash.is_not(None),
-            User.telegram_id.is_(None),
-        )
-    ) or 0)
-    no_password_users = int(await session.scalar(
-        select(func.count(User.id)).where(
-            User.deleted_at.is_(None),
-            User.telegram_id.is_not(None),
-            User.password_hash.is_(None),
-        )
-    ) or 0)
-    deleted_users = int(await session.scalar(select(func.count(User.id)).where(User.deleted_at.is_not(None))) or 0)
-    tg_invites_disabled_users = int(await session.scalar(
-        select(func.count(User.id)).where(
-            User.deleted_at.is_(None),
-            User.telegram_id.is_not(None),
-            User.password_hash.is_not(None),
-            User.tg_invites_enabled.is_(False),
-        )
-    ) or 0)
+    total_users = int(await session.scalar(select(func.count(User.id)).where(User.deleted_at.is_(None))) or 0)
     (avatars_count, avatars_bytes), (images_count, images_bytes) = await asyncio.gather(
         get_prefix_storage_stats_async("avatars/"),
         get_prefix_storage_stats_async(CHAT_IMAGE_PREFIX),
@@ -333,10 +310,6 @@ async def site_stats(month: str | None = None, session: AsyncSession = Depends(g
 
     return SiteStatsOut(
         total_users=total_users,
-        unverified_users=unverified_users,
-        no_password_users=no_password_users,
-        deleted_users=deleted_users,
-        tg_invites_disabled_users=tg_invites_disabled_users,
         avatars_count=avatars_count,
         avatars_bytes=avatars_bytes,
         images_count=images_count,
