@@ -355,7 +355,7 @@ onBeforeUnmount(() => {
       background:
         radial-gradient(circle at top right, rgba($white, 0.1), transparent 35%),
         radial-gradient(circle at left bottom, rgba($orange, 0.25), transparent 35%),
-        linear-gradient(145deg, rgba(120, 60, 100, 1), rgba(90, 90, 135, 1));
+        linear-gradient(145deg, rgba(100, 60, 80, 1), rgba(60, 60, 80, 1));
     }
     .slide-surface {
       position: absolute;

@@ -5,7 +5,7 @@ from ..utils import validate_auth
 from ...core.clients import get_redis
 from ...core.db import SessionLocal
 from ...core.settings import settings
-from ...api.utils import touch_user_last_visit, touch_user_online, check_sanctions_expired
+from ...api.utils import touch_user_last_visit, touch_user_online, check_sanctions_expired, emit_auth_profile_sync
 from ...services.global_chat import emit_global_chat_unread_count
 
 log = structlog.get_logger()
@@ -39,6 +39,10 @@ async def connect(sid, environ, auth):
         await emit_global_chat_unread_count(uid)
     except Exception:
         log.warning("auth.connect.chat_unread_count_failed", uid=uid)
+    try:
+        await emit_auth_profile_sync(uid, role=str(vr[1]))
+    except Exception:
+        log.warning("auth.connect.profile_sync_failed", uid=uid)
 
 
 @sio.event(namespace="/auth")

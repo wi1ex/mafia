@@ -24,7 +24,7 @@ from ..utils import (
     fetch_games_history_page,
     aggregate_user_room_time_stats,
     aggregate_user_games_in_owned_rooms_stats,
-    is_user_in_active_alive_game,
+    build_user_out_payload,
 )
 from ...models.game import Game
 from ...models.user import User
@@ -61,7 +61,7 @@ from ...schemas.user import (
     UserTopPlayerOut,
 )
 from ...security.passwords import hash_password, verify_password
-from ...services.global_chat import count_global_chat_unread, global_chat_send_error, resolve_global_chat_permissions
+from ...services.global_chat import global_chat_send_error, resolve_global_chat_permissions
 from ...services.global_chat import (
     emit_global_chat_messages_refresh,
     emit_global_chat_permissions_updated,
@@ -96,38 +96,7 @@ CHAT_MENTION_SEARCH_RATE_WINDOW_S = 10
 @log_route("users.profile_info")
 @rate_limited(lambda ident, **_: f"rl:profile_info:{ident['id']}", limit=10, window_s=1)
 async def profile_info(ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UserOut:
-    user = await db.get(User, int(ident["id"]))
-    if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
-
-    uid = cast(int, user.id)
-    normalized_role = str(ident["role"])
-    await write_user_profile_cache(uid, username=str(user.username), role=normalized_role, avatar_name=user.avatar_name)
-    active = await fetch_active_sanctions(db, uid)
-    timeout = active.get(SANCTION_TIMEOUT)
-    ban = active.get(SANCTION_BAN)
-    suspend = active.get(SANCTION_SUSPEND)
-    in_active_game_as_alive_player = await is_user_in_active_alive_game(uid)
-    chat_unread_count = await count_global_chat_unread(db, user_id=uid)
-
-    return UserOut(
-        id=uid,
-        username=user.username,
-        avatar_name=user.avatar_name,
-        role=normalized_role,
-        registered_at=user.registered_at,
-        telegram_verified=bool(user.telegram_id),
-        has_password=bool(user.password_hash),
-        password_temp=bool(user.password_temp),
-        protected_user=is_protected_admin(uid),
-        hotkeys_visible=bool(user.hotkeys_visible),
-        tg_invites_enabled=bool(user.tg_invites_enabled),
-        timeout_until=timeout.expires_at if timeout else None,
-        suspend_until=suspend.expires_at if suspend else None,
-        ban_active=bool(ban),
-        in_active_game_as_alive_player=in_active_game_as_alive_player,
-        chat_unread_count=chat_unread_count,
-    )
+    return await build_user_out_payload(db, user_id=int(ident["id"]), role=str(ident["role"]))
 
 
 @router.get("/stats", response_model=UserStatsOut)

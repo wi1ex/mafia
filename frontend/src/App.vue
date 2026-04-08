@@ -34,6 +34,7 @@ let onSanctionsUpdate: ((e: any) => void) | null = null
 let onTelegramVerified: ((e: any) => void) | null = null
 let onAdminNotify: ((e: any) => void) | null = null
 let onUserGameParticipationChanged: ((e: any) => void) | null = null
+let onProfileSync: ((e: any) => void) | null = null
 
 const isRoom = computed(() => route.name === 'room')
 const routerViewKey = computed(() => {
@@ -59,20 +60,6 @@ watch(() => auth.isAuthed, (isAuthed) => {
 })
 
 onMounted(async () => {
-  settings.ensureWS()
-  try { await settings.fetchPublic() } catch {}
-  await auth.init()
-  if (auth.isAuthed) {
-    try { await user.fetchMe() } catch {}
-    chat.ensureUnreadSync()
-    chat.syncUnreadFromProfile()
-    user.ensureClock()
-    const notif = useNotifStore()
-    notif.ensureWS()
-    try { await notif.fetchAll() } catch {}
-  } else {
-    chat.clearUnreadCount()
-  }
   onSanctionsUpdate = (e: any) => {
     const p = e?.detail || {}
     user.setSanctions({
@@ -87,6 +74,13 @@ onMounted(async () => {
     user.setInActiveGameAsAlivePlayer(inActiveGameAsAlivePlayer)
   }
   window.addEventListener('auth-user_game_participation_changed', onUserGameParticipationChanged)
+  onProfileSync = (e: any) => {
+    const payload = e?.detail
+    if (!auth.isAuthed || !payload) return
+    user.applyProfile(payload)
+    chat.syncUnreadFromProfile()
+  }
+  window.addEventListener('auth-profile_sync', onProfileSync)
   onTelegramVerified = () => {
     if (!auth.isAuthed) return
     const wasVerified = user.telegramVerified
@@ -112,11 +106,29 @@ onMounted(async () => {
     if (auth.isAuthed) user.fetchMe().catch(() => {})
   }
   window.addEventListener('auth-notify', onAdminNotify)
+
+  settings.ensureWS()
+  try { await settings.fetchPublic() } catch {}
+  await auth.init()
+  if (auth.isAuthed) {
+    if (!user.user) {
+      try { await user.fetchMe() } catch {}
+    }
+    chat.ensureUnreadSync()
+    chat.syncUnreadFromProfile()
+    user.ensureClock()
+    const notif = useNotifStore()
+    notif.ensureWS()
+    try { await notif.fetchAll() } catch {}
+  } else {
+    chat.clearUnreadCount()
+  }
 })
 
 onBeforeUnmount(() => {
   if (onSanctionsUpdate) window.removeEventListener('auth-sanctions_update', onSanctionsUpdate)
   if (onUserGameParticipationChanged) window.removeEventListener('auth-user_game_participation_changed', onUserGameParticipationChanged)
+  if (onProfileSync) window.removeEventListener('auth-profile_sync', onProfileSync)
   if (onTelegramVerified) window.removeEventListener('auth-telegram_verified', onTelegramVerified)
   if (onAdminNotify) window.removeEventListener('auth-notify', onAdminNotify)
 })

@@ -25,9 +25,13 @@ export const useUserStore = defineStore('user', () => {
   const now = ref(Date.now())
   let clock: number | undefined
 
+  function applyProfile(payload: UserProfile | null | undefined): void {
+    user.value = payload ? { ...payload } : null
+  }
+
   async function fetchMe(): Promise<void> {
     const { data } = await api.get<UserProfile>('/users/profile_info')
-    user.value = data
+    applyProfile(data)
   }
 
   async function updateUiPrefs(payload: { hotkeys_visible?: boolean; tg_invites_enabled?: boolean }): Promise<void> {
@@ -117,7 +121,7 @@ export const useUserStore = defineStore('user', () => {
   }
 
   function clear(): void {
-    user.value = null
+    applyProfile(null)
   }
 
   function setInActiveGameAsAlivePlayer(next: boolean): void {
@@ -139,6 +143,7 @@ export const useUserStore = defineStore('user', () => {
     roomRestricted,
     hotkeysVisible,
     tgInvitesEnabled,
+    applyProfile,
     fetchMe,
     updateUiPrefs,
     setUsername,

@@ -112,6 +112,8 @@ __all__ = [
     "emit_expired_timed_sanction_chat_notice_once",
     "emit_expired_timed_sanctions_chat_notices",
     "emit_sanctions_update",
+    "build_user_out_payload",
+    "emit_auth_profile_sync",
     "refresh_rooms_after",
     "ensure_room_access_allowed",
     "ensure_profile_changes_allowed",
@@ -1020,6 +1022,60 @@ async def emit_sanctions_update(session: AsyncSession, user_id: int) -> None:
     with suppress(Exception):
         from ..services.global_chat import emit_global_chat_permissions_updated
         await emit_global_chat_permissions_updated(int(user_id))
+
+
+async def build_user_out_payload(session: AsyncSession, *, user_id: int, role: str | None = None):
+    from ..schemas.user import UserOut
+    from ..services.global_chat import count_global_chat_unread
+
+    user = await session.get(User, int(user_id))
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
+
+    uid = cast(int, user.id)
+    normalized_role = str(role or user.role or "")
+    await write_user_profile_cache(uid, username=str(user.username), role=normalized_role, avatar_name=user.avatar_name)
+    active = await fetch_active_sanctions(session, uid)
+    timeout = active.get(SANCTION_TIMEOUT)
+    ban = active.get(SANCTION_BAN)
+    suspend = active.get(SANCTION_SUSPEND)
+    in_active_game_as_alive_player = await is_user_in_active_alive_game(uid)
+    chat_unread_count = await count_global_chat_unread(session, user_id=uid)
+
+    return UserOut(
+        id=uid,
+        username=user.username,
+        avatar_name=user.avatar_name,
+        role=normalized_role,
+        registered_at=user.registered_at,
+        telegram_verified=bool(user.telegram_id),
+        has_password=bool(user.password_hash),
+        password_temp=bool(user.password_temp),
+        protected_user=is_protected_admin(uid),
+        hotkeys_visible=bool(user.hotkeys_visible),
+        tg_invites_enabled=bool(user.tg_invites_enabled),
+        timeout_until=timeout.expires_at if timeout else None,
+        suspend_until=suspend.expires_at if suspend else None,
+        ban_active=bool(ban),
+        in_active_game_as_alive_player=in_active_game_as_alive_player,
+        chat_unread_count=chat_unread_count,
+    )
+
+
+async def emit_auth_profile_sync(user_id: int, *, role: str | None = None) -> None:
+    uid = int(user_id)
+    if uid <= 0:
+        return
+
+    async with SessionLocal() as session:
+        payload = await build_user_out_payload(session, user_id=uid, role=role)
+
+    await sio.emit(
+        "profile_sync",
+        payload.model_dump(mode="json"),
+        room=f"user:{uid}",
+        namespace="/auth",
+    )
 
 
 def _expired_sanction_note(kind: str) -> tuple[str, str] | None:
