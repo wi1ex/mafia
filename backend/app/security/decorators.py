@@ -20,6 +20,7 @@ KeyBuilder = Callable[..., str]
 SAFE_HTTP_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 PRIVILEGED_HTTP_PREFIXES = ("/api/admin", "/api/moderation")
 PRIVILEGED_ALERT_WINDOW_S = 300
+PRIVILEGED_SAFE_HTTP_LIMIT = 180
 NON_PRIVILEGED_ROUTE_PATHS = frozenset({"/api/admin/settings/public"})
 PRIVILEGED_SENSITIVE_MUTATION_LIMITS: dict[str, int] = {
     "/api/admin/settings": 6,
@@ -240,7 +241,7 @@ def _default_http_rate_limit(method: str, path: str) -> tuple[int, int]:
 
     if _is_privileged_route(normalized_path):
         if method in SAFE_HTTP_METHODS:
-            return 30, window_s
+            return PRIVILEGED_SAFE_HTTP_LIMIT, window_s
 
         if normalized_path in PRIVILEGED_SENSITIVE_MUTATION_LIMITS:
             return PRIVILEGED_SENSITIVE_MUTATION_LIMITS[normalized_path], window_s

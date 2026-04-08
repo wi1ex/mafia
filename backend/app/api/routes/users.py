@@ -88,6 +88,8 @@ GAME_HISTORY_PER_PAGE = 20
 PERSONAL_GAME_HISTORY_PER_PAGE = 10
 CHAT_MENTION_LIMIT_DEFAULT = 8
 CHAT_MENTION_LIMIT_MAX = 10
+CHAT_MENTION_SEARCH_RATE_LIMIT = 100
+CHAT_MENTION_SEARCH_RATE_WINDOW_S = 10
 
 
 @router.get("/profile_info", response_model=UserOut)
@@ -196,7 +198,7 @@ async def support_link_click(ident: Identity = Depends(get_identity), db: AsyncS
 @router.get("/games/history", response_model=UserGamesHistoryOut)
 @log_route("users.games_history")
 @rate_limited(lambda ident, **_: f"rl:games_history:{ident['id']}", limit=10, window_s=1)
-async def games_history(page: int = 1, _ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UserGamesHistoryOut:
+async def games_history(page: int = 1, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UserGamesHistoryOut:
     return await fetch_games_history_page(db, page=page, per_page=GAME_HISTORY_PER_PAGE)
 
 
@@ -217,7 +219,7 @@ async def games_history_personal(page: int = 1, role: Literal["citizen", "mafia"
 @router.get("/games/history/{game_id}", response_model=GameHistoryItemOut)
 @log_route("users.game_history_details")
 @rate_limited(lambda ident, game_id=None, **_: f"rl:game_history_details:{ident['id']}:{game_id}", limit=10, window_s=1)
-async def game_history_details(game_id: int, _ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> GameHistoryItemOut:
+async def game_history_details(game_id: int, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> GameHistoryItemOut:
     GAME_HISTORY_MAX_SLOT = 10
     GAME_HISTORY_ROLES = {"citizen", "mafia", "don", "sheriff"}
     GAME_HISTORY_LEAVE_REASONS = {"vote", "foul", "suicide", "night"}
@@ -578,9 +580,8 @@ async def update_username(payload: UsernameUpdateIn, ident: Identity = Depends(g
 
 
 @router.get("/chat/mentions", response_model=ChatMentionSearchOut)
-@rate_limited(lambda ident, **_: f"rl:chat_mentions_search:{ident['id']}", limit=30, window_s=10)
+@rate_limited(lambda ident, **_: f"rl:chat_mentions_search:{ident['id']}", limit=CHAT_MENTION_SEARCH_RATE_LIMIT, window_s=CHAT_MENTION_SEARCH_RATE_WINDOW_S)
 async def search_chat_mentions(query: str, limit: int = CHAT_MENTION_LIMIT_DEFAULT, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> ChatMentionSearchOut:
-    _ = ident
     normalized_query = normalize_chat_mention_query(query)
     normalized_limit = max(1, min(int(limit or CHAT_MENTION_LIMIT_DEFAULT), CHAT_MENTION_LIMIT_MAX))
     query_lower = normalized_query.lower()
