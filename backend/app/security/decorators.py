@@ -2,6 +2,7 @@ from __future__ import annotations
 import asyncio
 import functools
 import inspect
+import ipaddress
 import sys
 import structlog
 from typing import Any, Callable, Awaitable, Union, Optional, cast
@@ -17,11 +18,38 @@ from ..schemas.common import Identity
 log = structlog.get_logger()
 
 KeyBuilder = Callable[..., str]
+RateLimitRules = tuple[tuple[int, int], ...]
 SAFE_HTTP_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 PRIVILEGED_HTTP_PREFIXES = ("/api/admin", "/api/moderation")
 PRIVILEGED_ALERT_WINDOW_S = 300
-PRIVILEGED_SAFE_HTTP_LIMIT = 180
+PRIVILEGED_SAFE_HTTP_LIMITS: RateLimitRules = ((15, 1), (90, 60))
 NON_PRIVILEGED_ROUTE_PATHS = frozenset({"/api/admin/settings/public"})
+CONTENT_SAFE_ROUTE_PATHS = frozenset({
+    "/api/admin/settings/public",
+    "/api/media/presign",
+    "/api/rooms/{room_id}/info",
+})
+AUTH_ROUTE_LIMITS: dict[str, RateLimitRules] = {
+    "/api/auth/login": ((3, 10), (8, 60)),
+    "/api/auth/register": ((2, 30), (6, 60)),
+    "/api/auth/refresh": ((5, 10), (20, 60)),
+    "/api/auth/logout": ((5, 10), (20, 60)),
+}
+PUBLIC_SAFE_ROUTE_LIMITS: dict[str, RateLimitRules] = {
+    "/api/admin/settings/public": ((30, 1), (120, 60)),
+    "/api/media/presign": ((120, 1), (600, 60)),
+    "/api/rooms/{room_id}/info": ((100, 1), (300, 60)),
+}
+DEFAULT_SAFE_HTTP_LIMITS: RateLimitRules = ((25, 1), (120, 60))
+DEFAULT_MUTATING_HTTP_LIMITS: RateLimitRules = ((8, 1), (30, 60))
+ACTOR_AUTH_HTTP_LIMITS: RateLimitRules = ((8, 10), (20, 60))
+ACTOR_BOT_HTTP_LIMITS: RateLimitRules = ((30, 1), (120, 60))
+ACTOR_CONTENT_HTTP_LIMITS: RateLimitRules = ((120, 1), (600, 60))
+ACTOR_SAFE_HTTP_LIMITS: RateLimitRules = ((30, 1), (180, 60))
+ACTOR_MUTATING_HTTP_LIMITS: RateLimitRules = ((10, 1), (30, 60))
+AUTO_BLOCK_IP_VIOLATION_LIMIT = 8
+AUTO_BLOCK_IP_WINDOW_S = 300
+AUTO_BLOCK_IP_TTL_S = 1800
 PRIVILEGED_SENSITIVE_MUTATION_LIMITS: dict[str, int] = {
     "/api/admin/settings": 6,
     "/api/admin/rooms/{room_id}/close": 6,
@@ -90,6 +118,9 @@ def log_route(name: str):
                     lg.info("route.end")
                     return res
 
+                except HTTPException:
+                    raise
+
                 except Exception:
                     lg.exception("route.error")
                     raise
@@ -107,6 +138,9 @@ def log_route(name: str):
                     res = fn(*a, **kw)
                     lg.info("route.end")
                     return res
+
+                except HTTPException:
+                    raise
 
                 except Exception:
                     lg.exception("route.error")
@@ -199,6 +233,17 @@ def _request_client_ip(request: Request) -> str:
     return (forwarded_for.split(",", 1)[0].strip() if forwarded_for else "") or real_ip or client_host or "unknown"
 
 
+def _extract_blockable_ip(request: Request) -> str | None:
+    raw_ip = _request_client_ip(request)
+    if not raw_ip or raw_ip == "unknown":
+        return None
+
+    try:
+        return raw_ip if ipaddress.ip_address(raw_ip).is_global else None
+    except ValueError:
+        return None
+
+
 def _extract_rate_limit_actor(request: Request) -> str:
     uid = _extract_rate_limit_uid(str(request.headers.get("authorization") or ""))
     if uid is not None:
@@ -223,32 +268,131 @@ def _is_privileged_route(path: str) -> bool:
     return any(normalized_path.startswith(prefix) for prefix in PRIVILEGED_HTTP_PREFIXES)
 
 
-def _default_http_rate_limit(method: str, path: str) -> tuple[int, int]:
+def _default_http_rate_limits(method: str, path: str) -> RateLimitRules:
     normalized_path = str(path or "/").rstrip("/") or "/"
-    window_s = 60
 
-    if normalized_path in {"/api/auth/login", "/api/auth/register"}:
-        return 20, window_s
+    auth_limits = AUTH_ROUTE_LIMITS.get(normalized_path)
+    if auth_limits is not None:
+        return auth_limits
 
-    if normalized_path in {"/api/auth/refresh", "/api/auth/logout"}:
-        return 60, window_s
+    public_safe_limits = PUBLIC_SAFE_ROUTE_LIMITS.get(normalized_path)
+    if public_safe_limits is not None:
+        return public_safe_limits
 
     if normalized_path.startswith("/api/bot"):
-        return 120, window_s
-
-    if normalized_path == "/api/admin/settings/public":
-        return 240, window_s
+        return ((30, 1), (90, 60))
 
     if _is_privileged_route(normalized_path):
         if method in SAFE_HTTP_METHODS:
-            return PRIVILEGED_SAFE_HTTP_LIMIT, window_s
+            return PRIVILEGED_SAFE_HTTP_LIMITS
 
         if normalized_path in PRIVILEGED_SENSITIVE_MUTATION_LIMITS:
-            return PRIVILEGED_SENSITIVE_MUTATION_LIMITS[normalized_path], window_s
+            return ((2, 10), (PRIVILEGED_SENSITIVE_MUTATION_LIMITS[normalized_path], 60))
 
-        return 10, window_s
+        return ((4, 10), (10, 60))
 
-    return (240 if method in SAFE_HTTP_METHODS else 60), window_s
+    return DEFAULT_SAFE_HTTP_LIMITS if method in SAFE_HTTP_METHODS else DEFAULT_MUTATING_HTTP_LIMITS
+
+
+def _actor_http_rate_limit(method: str, path: str) -> tuple[str, RateLimitRules]:
+    normalized_path = str(path or "/").rstrip("/") or "/"
+
+    if normalized_path.startswith("/api/bot"):
+        return "bot", ACTOR_BOT_HTTP_LIMITS
+
+    if normalized_path.startswith("/api/auth"):
+        return "auth", ACTOR_AUTH_HTTP_LIMITS
+
+    if normalized_path in CONTENT_SAFE_ROUTE_PATHS:
+        return "content", ACTOR_CONTENT_HTTP_LIMITS
+
+    if method in SAFE_HTTP_METHODS:
+        return "safe", ACTOR_SAFE_HTTP_LIMITS
+
+    return "mutating", ACTOR_MUTATING_HTTP_LIMITS
+
+
+async def _increase_rate_limit_counter(redis_client, *, key: str, window_s: int) -> int:
+    created = await redis_client.set(key, 1, ex=window_s, nx=True)
+    count = 1 if created else int(await redis_client.incr(key))
+    if count == 1 and not created:
+        try:
+            await redis_client.expire(key, window_s)
+        except Exception as exc:
+            log.warning("http.rate_limit.expire_failed", key=key, window_s=window_s, err=type(exc).__name__)
+    return count
+
+
+async def _ensure_ip_not_blocked(redis_client, *, ip: str, method: str, path: str) -> None:
+    block_key = f"rl:http:ip:block:{ip}"
+    try:
+        ttl = int(await redis_client.ttl(block_key))
+    except Exception:
+        ttl = -2
+
+    if ttl and ttl > 0:
+        log.warning(
+            "security.ip_auto_block_hit",
+            ip=ip,
+            method=method,
+            path=path,
+            ttl=ttl,
+        )
+        raise HTTPException(
+            status_code=429,
+            detail="ip_temporarily_blocked",
+            headers={"Retry-After": str(ttl)},
+        )
+
+
+async def _register_ip_violation(redis_client, *, ip: str, method: str, path: str, reason: str) -> None:
+    violation_key = f"rl:http:ip:violations:{ip}"
+    count = await _increase_rate_limit_counter(redis_client, key=violation_key, window_s=AUTO_BLOCK_IP_WINDOW_S)
+    if count < AUTO_BLOCK_IP_VIOLATION_LIMIT:
+        return
+
+    block_key = f"rl:http:ip:block:{ip}"
+    created = await redis_client.set(block_key, reason, ex=AUTO_BLOCK_IP_TTL_S, nx=True)
+    if created:
+        log.warning(
+            "security.ip_auto_blocked",
+            ip=ip,
+            method=method,
+            path=path,
+            reason=reason,
+            trigger_count=count,
+            trigger_window_s=AUTO_BLOCK_IP_WINDOW_S,
+            block_ttl_s=AUTO_BLOCK_IP_TTL_S,
+        )
+
+
+async def _enforce_rate_limit_rules(redis_client, *, base_key: str, rules: RateLimitRules, method: str, path: str, actor: str, log_event: str, extra_fields: dict[str, object] | None = None) -> tuple[bool, int]:
+    for limit, window_s in rules:
+        scoped_key = f"{base_key}:w{window_s}"
+        count = await _increase_rate_limit_counter(redis_client, key=scoped_key, window_s=window_s)
+        if count <= limit:
+            continue
+
+        try:
+            ttl = int(await redis_client.ttl(scoped_key))
+        except Exception:
+            ttl = -2
+
+        retry_after = ttl if ttl and ttl > 0 else window_s
+        log.warning(
+            log_event,
+            method=method,
+            path=path,
+            actor=actor,
+            limit=limit,
+            window_s=window_s,
+            count=count,
+            ttl=ttl,
+            **(extra_fields or {}),
+        )
+        raise HTTPException(status_code=429, detail="rate_limited", headers={"Retry-After": str(retry_after)})
+
+    return False, 0
 
 
 async def _emit_privileged_rate_limit_alert(*, redis_client, method: str, path: str, actor: str, count: int, limit: int, ttl: int, retry_after: int) -> None:
@@ -272,47 +416,42 @@ async def minimal_route_rate_limit(request: Request) -> None:
     method = str(request.method or "GET").upper()
     route = request.scope.get("route")
     route_path = str(getattr(route, "path", "") or request.url.path or "/").rstrip("/") or "/"
-    limit, window_s = _default_http_rate_limit(method, route_path)
+    route_rules = _default_http_rate_limits(method, route_path)
     is_privileged = _is_privileged_route(route_path)
+    client_ip = _extract_blockable_ip(request)
 
     actor = _extract_rate_limit_actor(request)
-    key = f"rl:http:{method}:{route_path}:{actor}"
+    route_key = f"rl:http:{method}:{route_path}:{actor}"
 
     try:
         r = get_redis()
-        created = await r.set(key, 1, ex=window_s, nx=True)
-        count = 1 if created else int(await r.incr(key))
-        if count == 1 and not created:
-            try:
-                await r.expire(key, window_s)
-            except Exception as exc:
-                log.warning("http.rate_limit.expire_failed", key=key, window_s=window_s, err=type(exc).__name__)
-
-        if count > limit:
-            try:
-                ttl = int(await r.ttl(key))
-            except Exception:
-                ttl = -2
-
-            retry_after = ttl if ttl and ttl > 0 else window_s
-            log.warning(
-                "http.route_rate_limited",
+        if client_ip:
+            await _ensure_ip_not_blocked(r, ip=client_ip, method=method, path=route_path)
+        try:
+            await _enforce_rate_limit_rules(
+                r,
+                base_key=route_key,
+                rules=route_rules,
                 method=method,
                 path=route_path,
                 actor=actor,
-                limit=limit,
-                window_s=window_s,
-                count=count,
-                ttl=ttl,
+                log_event="http.route_rate_limited",
             )
+        except HTTPException:
             if is_privileged:
+                limit, window_s = route_rules[-1]
+                try:
+                    ttl = int(await r.ttl(f"{route_key}:w{window_s}"))
+                except Exception:
+                    ttl = -2
+                retry_after = ttl if ttl and ttl > 0 else window_s
                 try:
                     await _emit_privileged_rate_limit_alert(
                         redis_client=r,
                         method=method,
                         path=route_path,
                         actor=actor,
-                        count=count,
+                        count=limit + 1,
                         limit=limit,
                         ttl=ttl,
                         retry_after=retry_after,
@@ -325,7 +464,39 @@ async def minimal_route_rate_limit(request: Request) -> None:
                         actor=actor,
                         err=type(exc).__name__,
                     )
-            raise HTTPException(status_code=429, detail="rate_limited", headers={"Retry-After": str(retry_after)})
+            if client_ip:
+                await _register_ip_violation(
+                    r,
+                    ip=client_ip,
+                    method=method,
+                    path=route_path,
+                    reason="route_rate_limit",
+                )
+            raise
+
+        actor_bucket, actor_rules = _actor_http_rate_limit(method, route_path)
+        actor_key = f"rl:http:actor:{actor_bucket}:{actor}"
+        try:
+            await _enforce_rate_limit_rules(
+                r,
+                base_key=actor_key,
+                rules=actor_rules,
+                method=method,
+                path=route_path,
+                actor=actor,
+                log_event="http.actor_rate_limited",
+                extra_fields={"actor_bucket": actor_bucket},
+            )
+        except HTTPException:
+            if client_ip:
+                await _register_ip_violation(
+                    r,
+                    ip=client_ip,
+                    method=method,
+                    path=route_path,
+                    reason=f"actor_rate_limit:{actor_bucket}",
+                )
+            raise
 
     except HTTPException:
         raise
