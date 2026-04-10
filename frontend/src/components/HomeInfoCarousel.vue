@@ -3,7 +3,40 @@
            @mouseenter="hovered = true" @mouseleave="hovered = false" @focusin="focused = true" @focusout="onFocusOut" @keydown="onKeydown" >
     <div class="carousel-viewport">
       <Transition :name="slideTransitionName" mode="out-in">
-        <article v-if="activeIndex === 0" key="install" class="slide slide--install">
+        <article v-if="activeIndex === 0" key="support" class="slide slide--support">
+          <div class="slide-surface">
+            <div class="slide-content">
+              <div class="slide-head">
+                <span class="slide-badge">
+                  <img :src="iconCard" alt="" aria-hidden="true" />
+                  Поддержать
+                </span>
+                <span class="slide-index">01/03</span>
+              </div>
+
+              <h3 class="slide-copy">Поддержка платформы влияет на темпы её роста</h3>
+
+              <div class="slide-highlight">
+                <span class="slide-highlight-value">Твой вклад</span>
+                <span class="slide-highlight-label">Помогает удерживать инфраструктуру стабильной и быстрее выпускать новые улучшения</span>
+              </div>
+
+              <div class="info-banner">
+                <span class="info-banner-title">На что идёт поддержка</span>
+                <p>На хостинг, поддержку сервиса, развитие продукта, улучшение UX и внедрение новых возможностей для платформы.</p>
+              </div>
+
+              <div class="slide-actions">
+                <a class="primary-btn" :href="supportLink" target="_blank" rel="noopener noreferrer" @click="onSupportLinkClick">
+                  Поддержать проект
+                </a>
+                <span class="action-note">Откроется официальный сервис поддержки в Telegram.</span>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article v-else-if="activeIndex === 1" key="install" class="slide slide--install">
           <div class="slide-surface">
             <div class="slide-content">
               <div class="slide-head">
@@ -11,7 +44,7 @@
                   <img :src="iconInstall" alt="" aria-hidden="true" />
                   Установить
                 </span>
-                <span class="slide-index">01/03</span>
+                <span class="slide-index">02/03</span>
               </div>
 
               <h3 class="slide-copy">Откройте платформу как отдельное приложение</h3>
@@ -37,39 +70,6 @@
                   {{ installButtonLabel }}
                 </button>
                 <span class="action-note">{{ installActionNote }}</span>
-              </div>
-            </div>
-          </div>
-        </article>
-
-        <article v-else-if="activeIndex === 1" key="support" class="slide slide--support">
-          <div class="slide-surface">
-            <div class="slide-content">
-              <div class="slide-head">
-                <span class="slide-badge">
-                  <img :src="iconCard" alt="" aria-hidden="true" />
-                  Поддержать
-                </span>
-                <span class="slide-index">02/03</span>
-              </div>
-
-              <h3 class="slide-copy">Поддержка платформы влияет на темпы её роста</h3>
-
-              <div class="slide-highlight">
-                <span class="slide-highlight-value">Твой вклад</span>
-                <span class="slide-highlight-label">Помогает удерживать инфраструктуру стабильной и быстрее выпускать новые улучшения</span>
-              </div>
-
-              <div class="info-banner">
-                <span class="info-banner-title">На что идёт поддержка</span>
-                <p>На хостинг, поддержку сервиса, развитие продукта, улучшение UX и внедрение новых возможностей для платформы.</p>
-              </div>
-
-              <div class="slide-actions">
-                <a class="primary-btn" :href="supportLink" target="_blank" rel="noopener noreferrer" @click="onSupportLinkClick">
-                  Поддержать проект
-                </a>
-                <span class="action-note">Откроется официальный сервис поддержки в Telegram.</span>
               </div>
             </div>
           </div>
@@ -120,9 +120,9 @@
           <img class="nav-icon nav-icon--prev" :src="iconArrowDown" alt="" aria-hidden="true" />
         </button>
 
-        <button type="button" class="carousel-dot" :class="{ active: activeIndex === 0 }" aria-label="Показать блок установки"
+        <button type="button" class="carousel-dot" :class="{ active: activeIndex === 0 }" aria-label="Показать блок поддержки"
                 :aria-current="activeIndex === 0 ? 'true' : undefined" @click="goTo(0, true)" />
-        <button type="button" class="carousel-dot" :class="{ active: activeIndex === 1 }" aria-label="Показать блок поддержки"
+        <button type="button" class="carousel-dot" :class="{ active: activeIndex === 1 }" aria-label="Показать блок установки"
                 :aria-current="activeIndex === 1 ? 'true' : undefined" @click="goTo(1, true)" />
         <button type="button" class="carousel-dot" :class="{ active: activeIndex === 2 }" aria-label="Показать блок контактов"
                 :aria-current="activeIndex === 2 ? 'true' : undefined" @click="goTo(2, true)" />
