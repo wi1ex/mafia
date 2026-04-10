@@ -38,6 +38,11 @@ from ...api.utils import (
 )
 router = APIRouter()
 FRIEND_REMOVE_MIN_SECONDS = 10 * 60
+TG_ROOM_INVITE_COOLDOWN_S = 30 * 60
+
+
+def tg_room_invite_cooldown_key(user_id: int) -> str:
+    return f"user:{int(user_id)}:tg_room_invite_cooldown"
 
 
 @router.get("/status/{user_id}", response_model=FriendStatusOut)
@@ -211,6 +216,21 @@ async def friends_list(room_id: int | None = None, ident: Identity = Depends(get
         except Exception:
             invited_to_room_ids = set()
 
+    tg_invite_cooldown_ids: set[int] = set()
+    if invite_room_id > 0 and friend_ids:
+        offline_friend_ids = [fid for fid in friend_ids if fid not in online_ids]
+        if offline_friend_ids:
+            try:
+                async with r.pipeline() as p:
+                    for fid in offline_friend_ids:
+                        await p.exists(tg_room_invite_cooldown_key(fid))
+                    raw_tg_cooldown = await p.execute()
+                for fid, is_active in zip(offline_friend_ids, raw_tg_cooldown):
+                    if bool(is_active):
+                        tg_invite_cooldown_ids.add(int(fid))
+            except Exception:
+                tg_invite_cooldown_ids = set()
+
     rooms_map: dict[int, RoomBriefOut] = {}
     visible_room_ids: set[int] = set()
     room_ids = list({
@@ -262,6 +282,7 @@ async def friends_list(room_id: int | None = None, ident: Identity = Depends(get
             telegram_verified=bool(user_data.get("telegram_verified")),
             tg_invites_enabled=bool(user_data.get("tg_invites_enabled")),
             room_invited=(fid in invited_to_room_ids) if invite_room_id > 0 else None,
+            tg_invite_cooldown_active=(fid in tg_invite_cooldown_ids) if invite_room_id > 0 else None,
         )
 
     friends_items: list[FriendsListItemOut] = []
@@ -633,6 +654,8 @@ async def invite_friend(payload: FriendInviteIn, ident: Identity = Depends(get_i
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="target_in_active_game_as_alive_player")
 
     invite_set_key = f"room:{room_id}:invited"
+    tg_cooldown_key = tg_room_invite_cooldown_key(target_id)
+    tg_cooldown_reserved = False
     in_room_now = bool(await r.sismember(f"room:{room_id}:members", str(target_id)))
     if not in_room_now:
         in_room_now = bool(await r.sismember(f"room:{room_id}:spectators", str(target_id)))
@@ -641,8 +664,16 @@ async def invite_friend(payload: FriendInviteIn, ident: Identity = Depends(get_i
             await r.srem(invite_set_key, str(target_id))
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="target_already_in_room")
 
+    if not target_online:
+        tg_cooldown_reserved = bool(await r.set(tg_cooldown_key, str(int(time())), nx=True, ex=TG_ROOM_INVITE_COOLDOWN_S))
+        if not tg_cooldown_reserved:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="target_telegram_invite_cooldown_active")
+
     invite_reserved = bool(await r.sadd(invite_set_key, str(target_id)))
     if not invite_reserved:
+        if tg_cooldown_reserved:
+            with suppress(Exception):
+                await r.delete(tg_cooldown_key)
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="room_invite_already_sent")
 
     is_private = str(params.get("privacy") or "open").strip() == "private"
@@ -683,10 +714,14 @@ async def invite_friend(payload: FriendInviteIn, ident: Identity = Depends(get_i
             if send_result.reason == "telegram_chat_unavailable":
                 with suppress(Exception):
                     await r.srem(invite_set_key, str(target_id))
+                with suppress(Exception):
+                    await r.delete(tg_cooldown_key)
                 raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="target_telegram_unreachable")
 
             with suppress(Exception):
                 await r.srem(invite_set_key, str(target_id))
+            with suppress(Exception):
+                await r.delete(tg_cooldown_key)
             raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="telegram_unavailable")
 
     if is_private and is_owner_invite:
