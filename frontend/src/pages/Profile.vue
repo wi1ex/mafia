@@ -58,7 +58,7 @@
           </div>
 
           <div class="block">
-            <h3>Р¦РІРµС‚ РїСЂРѕС„РёР»СЏ</h3>
+            <h3>Цвет профиля</h3>
             <div class="theme-row" :class="{ disabled: !canEditProfileTheme }">
               <div class="theme-preview-grid">
                 <div class="theme-preview-card" :style="themePreviewStyle">

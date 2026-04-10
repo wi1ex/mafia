@@ -21,7 +21,7 @@
           Пользователи
         </button>
         <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'subscriptions' }" :aria-selected="activeTab === 'subscriptions'" @click="activeTab = 'subscriptions'">
-          Подписка
+          Подписки
         </button>
       </nav>
       <router-link class="btn nav" :to="{ name: 'home' }" aria-label="На главную">На главную</router-link>
@@ -753,14 +753,8 @@
                     </div>
                   </td>
                   <td>
-                    <button v-if="subscriptionsReady && userSubscriptionEntry(row.id)" class="btn dark" :disabled="isDeletedUserActionsLocked(row)" @click="openSubscriptionsTab">
-                      Активна
-                    </button>
-                    <button v-else-if="subscriptionsReady" class="btn confirm" :disabled="isDeletedUserActionsLocked(row)" @click="openGrantSubscription(row)">
+                    <button v-if="subscriptionsReady" class="btn confirm" :disabled="isDeletedUserActionsLocked(row) || Boolean(userSubscriptionEntry(row.id))" @click="openGrantSubscription(row)">
                       Выдать
-                    </button>
-                    <button v-else class="btn dark" disabled>
-                      ...
                     </button>
                   </td>
                   <td>
@@ -820,7 +814,6 @@
         <div v-else-if="activeTab === 'subscriptions'" class="subscriptions-tab">
           <div class="block subscription-table-block">
             <h3>Активные подписки</h3>
-            <p class="muted subscription-summary">Новая подписка выдаётся во вкладке Пользователи</p>
             <div v-if="subscriptionsLoading" class="loading">Загрузка...</div>
             <table v-else class="table">
               <thead>
@@ -1718,16 +1711,9 @@ function closeSubscriptionModal(): void {
   clearSubscriptionModalState()
 }
 
-function openSubscriptionsTab(): void {
-  activeTab.value = 'subscriptions'
-}
-
 function openGrantSubscription(row: UserRow): void {
   if (isDeletedUserActionsLocked(row)) return
-  if (userSubscriptionEntry(row.id)) {
-    openSubscriptionsTab()
-    return
-  }
+  if (userSubscriptionEntry(row.id)) return
   subscriptionModalMode.value = 'grant'
   subscriptionTarget.value = {
     user_id: row.id,
@@ -3173,10 +3159,6 @@ onMounted(() => {
                                                                                   font-size: 20px;
                                                                                   color: $fg;
                                                                                 }
-                                                                              }
-                                                                              .subscription-summary {
-                                                                                margin: 0 0 15px;
-                                                                                text-align: left;
                                                                               }
                                                                               .subscription-selected {
                                                                                 display: flex;

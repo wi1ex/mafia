@@ -155,7 +155,7 @@ function close() {
       gap: 10px;
       .grid {
         display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: repeat(4, minmax(0, 1fr));
         gap: 10px;
       }
     }
@@ -166,7 +166,7 @@ function close() {
       box-shadow: 3px 3px 5px rgba($black, 0.25);
       input,
       select {
-        width: calc(100% - 22px);
+        width: 100%;
         padding: 20px 10px 5px;
         border: 1px solid $lead;
         border-radius: 5px;
@@ -227,11 +227,6 @@ function close() {
       .btn {
         padding: 0 10px;
         height: 30px;
-      }
-      .modal-body {
-        .grid {
-          grid-template-columns: 1fr;
-        }
       }
     }
   }
