@@ -124,9 +124,6 @@ __all__ = [
     "get_moderation_target_user",
     "set_user_deleted",
     "delete_user_account_as_admin_action",
-    #--------------------------------------------------------------------------------
-    "delete_users_without_password_accounts",
-    #--------------------------------------------------------------------------------
     "delete_stale_unverified_accounts",
     "delete_friend_links_for_user",
     "force_logout_user",
@@ -1437,103 +1434,6 @@ async def _can_auto_delete_unverified_user(session: AsyncSession, user: User, *,
         return False
 
     return True
-
-
-#--------------------------------------------------------------------------------
-async def _can_auto_delete_no_password_user(user: User) -> bool:
-    uid = int(getattr(user, "id", 0) or 0)
-    if uid <= 0:
-        return False
-
-    if user.deleted_at is not None:
-        return False
-
-    if str(user.role or "").strip().lower() != "user":
-        return False
-
-    if is_protected_admin(uid):
-        return False
-
-    if user.telegram_id is None:
-        return False
-
-    if user.password_hash is not None:
-        return False
-
-    return True
-
-
-async def delete_users_without_password_accounts() -> int:
-    deleted = 0
-
-    async with SessionLocal() as session:
-        user_ids = list((await session.scalars(
-            select(User.id)
-            .where(
-                User.deleted_at.is_(None),
-                User.role == "user",
-                User.telegram_id.is_not(None),
-                User.password_hash.is_(None),
-            )
-            .order_by(User.id.asc())
-        )).all())
-        if not user_ids:
-            return 0
-
-        for raw_user_id in user_ids:
-            uid = int(raw_user_id or 0)
-            if uid <= 0:
-                continue
-
-            redis_key = f"user:{uid}:auto_delete_no_password"
-            use_redis_lock = True
-            try:
-                acquired = bool(
-                    await get_redis().set(
-                        redis_key,
-                        "1",
-                        ex=60 * 60,
-                        nx=True,
-                    )
-                )
-            except Exception:
-                use_redis_lock = False
-                acquired = True
-
-            if not acquired:
-                continue
-
-            try:
-                fresh_user = await session.get(User, uid, populate_existing=True)
-                if not fresh_user or not await _can_auto_delete_no_password_user(fresh_user):
-                    if use_redis_lock:
-                        with suppress(Exception):
-                            await get_redis().delete(redis_key)
-                    continue
-
-                details = (
-                    "Автоматическое удаление аккаунта без пароля после запуска "
-                    f"user_id={uid} username={fresh_user.username}"
-                )
-                await delete_user_account_as_admin_action(
-                    session,
-                    uid,
-                    actor_user_id=None,
-                    actor_username="system",
-                    action="startup_no_password_account_delete",
-                    details=details,
-                )
-                deleted += 1
-            except Exception:
-                with suppress(Exception):
-                    await session.rollback()
-                if use_redis_lock:
-                    with suppress(Exception):
-                        await get_redis().delete(redis_key)
-                log.exception("users.auto_delete_no_password.failed", user_id=uid)
-
-    return deleted
-#--------------------------------------------------------------------------------
 
 
 async def delete_stale_unverified_accounts(*, batch_limit: int = 100, min_age_minutes: int = 60) -> int:
