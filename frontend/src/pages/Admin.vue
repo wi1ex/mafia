@@ -753,7 +753,7 @@
                     </div>
                   </td>
                   <td>
-                    <button v-if="subscriptionsReady" class="btn confirm" :disabled="isDeletedUserActionsLocked(row) || Boolean(userSubscriptionEntry(row.id))" @click="openGrantSubscription(row)">
+                    <button v-if="subscriptionsReady" class="btn confirm" :disabled="isDeletedUserActionsLocked(row) || userHasActiveSubscription(row.id)" @click="openGrantSubscription(row)">
                       Выдать
                     </button>
                   </td>
@@ -813,16 +813,17 @@
 
         <div v-else-if="activeTab === 'subscriptions'" class="subscriptions-tab">
           <div class="block subscription-table-block">
-            <h3>Активные подписки</h3>
+            <h3>Подписки</h3>
             <div v-if="subscriptionsLoading" class="loading">Загрузка...</div>
             <table v-else class="table">
               <thead>
                 <tr>
                   <th>Пользователь</th>
-                  <th>С</th>
-                  <th>До</th>
+                  <th>Дата начала подписки</th>
+                  <th>Дата окончания подписки</th>
+                  <th>Статус</th>
                   <th>Цвет</th>
-                  <th>Действие</th>
+                  <th>Действия</th>
                 </tr>
               </thead>
               <tbody>
@@ -835,6 +836,7 @@
                   </td>
                   <td>{{ formatLocalDateTime(row.starts_at) }}</td>
                   <td>{{ formatLocalDateTime(row.ends_at) }}</td>
+                  <td>{{ row.is_active ? 'Активна' : 'Истекла' }}</td>
                   <td>
                     <span class="subscription-theme-chip" :style="subscriptionThemeStyle(row.profile_theme_color)">
                       {{ subscriptionThemeTitle(row.profile_theme_color) }}
@@ -842,18 +844,17 @@
                   </td>
                   <td>
                     <div class="subscription-actions">
-                      <button class="btn dark" :disabled="subscriptionSaving" @click="openExtendSubscription(row)">
+                      <button class="btn confirm" :disabled="subscriptionSaving" @click="openExtendSubscription(row)">
                         Продлить
                       </button>
                       <button class="btn danger" :disabled="subscriptionRemoving[row.user_id]" @click="removeSubscription(row)">
-                        <img class="btn-img" :src="iconDelete" alt="delete" />
                         Снять
                       </button>
                     </div>
                   </td>
                 </tr>
                 <tr v-if="subscriptions.length === 0">
-                  <td colspan="5" class="muted">Нет активных подписок</td>
+                  <td colspan="6" class="muted">Нет подписок</td>
                 </tr>
               </tbody>
             </table>
@@ -886,7 +887,7 @@
         <header class="subscription-modal-head">
           <div class="subscription-modal-heading">
             <span>{{ subscriptionModalMode === 'extend' ? 'Продлить подписку' : 'Выдать подписку' }}</span>
-            <small v-if="selectedSubscriptionEntry">Активна до {{ formatLocalDateTime(selectedSubscriptionEntry.ends_at) }}</small>
+            <small v-if="selectedSubscriptionStatusText">{{ selectedSubscriptionStatusText }}</small>
           </div>
           <button type="button" aria-label="Закрыть" :disabled="subscriptionSaving" @click="closeSubscriptionModal">
             <img :src="iconClose" alt="close" />
@@ -905,7 +906,7 @@
             <UiInput id="subscription-modal-days" v-model.number="subscriptionForm.days" type="number" min="0" max="3650" step="1" label="Дни" :disabled="subscriptionSaving" />
           </div>
           <p class="muted subscription-modal-note">
-            {{ subscriptionModalMode === 'extend' ? 'Срок будет добавлен к текущему окончанию подписки.' : 'При первой выдаче подписки пользователь получает фиолетовый цвет профиля по умолчанию.' }}
+            {{ subscriptionModalNote }}
           </p>
         </div>
         <footer class="subscription-modal-actions">
@@ -1147,6 +1148,7 @@ type SubscriptionRow = {
   avatar_name?: string | null
   starts_at: string
   ends_at: string
+  is_active: boolean
   profile_theme_color?: string | null
 }
 
@@ -1504,6 +1506,23 @@ const selectedSubscriptionEntry = computed(() => {
   if (!selectedId) return null
   return subscriptionsByUserId.value.get(selectedId) ?? null
 })
+const selectedSubscriptionStatusText = computed(() => {
+  const entry = selectedSubscriptionEntry.value
+  if (!entry) return ''
+  return entry.is_active
+    ? `Активна до ${formatLocalDateTime(entry.ends_at)}`
+    : `Истекла ${formatLocalDateTime(entry.ends_at)}`
+})
+const subscriptionModalNote = computed(() => {
+  const entry = selectedSubscriptionEntry.value
+  if (subscriptionModalMode.value === 'extend') {
+    return entry?.is_active
+      ? 'Срок будет добавлен к текущему окончанию подписки.'
+      : 'Продление снова активирует подписку с текущего момента.'
+  }
+  if (entry) return 'Выдача снова активирует подписку с текущего момента.'
+  return 'При первой выдаче подписки пользователь получает фиолетовый цвет профиля по умолчанию.'
+})
 const subscriptionCanSave = computed(() => {
   const hasDuration = (Number(subscriptionForm.months) || 0) > 0 || (Number(subscriptionForm.days) || 0) > 0
   return Boolean(subscriptionTarget.value && hasDuration)
@@ -1695,6 +1714,10 @@ function userSubscriptionEntry(userId: number): SubscriptionRow | null {
   return subscriptionsByUserId.value.get(userId) ?? null
 }
 
+function userHasActiveSubscription(userId: number): boolean {
+  return Boolean(userSubscriptionEntry(userId)?.is_active)
+}
+
 function resetSubscriptionForm(): void {
   subscriptionForm.months = 0
   subscriptionForm.days = 0
@@ -1713,7 +1736,7 @@ function closeSubscriptionModal(): void {
 
 function openGrantSubscription(row: UserRow): void {
   if (isDeletedUserActionsLocked(row)) return
-  if (userSubscriptionEntry(row.id)) return
+  if (userHasActiveSubscription(row.id)) return
   subscriptionModalMode.value = 'grant'
   subscriptionTarget.value = {
     user_id: row.id,
@@ -2003,7 +2026,9 @@ async function loadSubscriptions(): Promise<void> {
 async function saveSubscription(): Promise<void> {
   if (subscriptionSaving.value || !subscriptionCanSave.value || !subscriptionTarget.value) return
   subscriptionSaving.value = true
-  const hadActiveSubscription = Boolean(selectedSubscriptionEntry.value)
+  const selectedEntry = selectedSubscriptionEntry.value
+  const hadAnySubscription = Boolean(selectedEntry)
+  const hadActiveSubscription = Boolean(selectedEntry?.is_active)
   try {
     await api.post('/admin/subscriptions', {
       user_id: subscriptionTarget.value.user_id,
@@ -2012,7 +2037,9 @@ async function saveSubscription(): Promise<void> {
     })
     await loadSubscriptions()
     clearSubscriptionModalState()
-    void alertDialog(hadActiveSubscription ? 'Подписка продлена' : 'Подписка выдана')
+    void alertDialog(
+      hadActiveSubscription ? 'Подписка продлена' : hadAnySubscription ? 'Подписка активирована' : 'Подписка выдана'
+    )
   } catch (e: any) {
     const st = e?.response?.status
     const d = e?.response?.data?.detail

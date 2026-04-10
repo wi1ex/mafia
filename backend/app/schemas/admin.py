@@ -320,6 +320,7 @@ class AdminSubscriptionOut(BaseModel):
     avatar_name: Optional[str] = None
     starts_at: datetime
     ends_at: datetime
+    is_active: bool
     profile_theme_color: Optional[str] = None
 
 

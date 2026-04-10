@@ -1226,12 +1226,7 @@ async def users_list(page: int = 1, limit: int = 20, username: str | None = None
 @log_route("admin.subscriptions.list")
 async def subscriptions_list(session: AsyncSession = Depends(get_session)) -> AdminSubscriptionsOut:
     now = datetime.now(timezone.utc)
-    rows = await session.execute(
-        select(UserSubscription).where(
-            UserSubscription.starts_at <= now,
-            UserSubscription.ends_at > now,
-        )
-    )
+    rows = await session.execute(select(UserSubscription))
     subscriptions = rows.scalars().all()
     if not subscriptions:
         return AdminSubscriptionsOut(items=[])
@@ -1247,6 +1242,7 @@ async def subscriptions_list(session: AsyncSession = Depends(get_session)) -> Ad
         uid = int(row.user_id)
         profile = profiles.get(uid) or {}
         theme_state = theme_states.get(uid)
+        is_active = row.starts_at <= now < row.ends_at
         items.append(
             AdminSubscriptionOut(
                 user_id=uid,
@@ -1254,10 +1250,18 @@ async def subscriptions_list(session: AsyncSession = Depends(get_session)) -> Ad
                 avatar_name=cast(str | None, profile.get("avatar_name")),
                 starts_at=row.starts_at,
                 ends_at=row.ends_at,
+                is_active=is_active,
                 profile_theme_color=theme_state.color if theme_state else None,
             )
         )
-    items.sort(key=lambda item: (item.ends_at, str(item.username or f"user{item.user_id}").lower(), item.user_id))
+    items.sort(
+        key=lambda item: (
+            0 if item.is_active else 1,
+            item.ends_at if item.is_active else -item.ends_at.timestamp(),
+            str(item.username or f"user{item.user_id}").lower(),
+            item.user_id,
+        )
+    )
     return AdminSubscriptionsOut(items=items)
 
 
@@ -1282,6 +1286,7 @@ async def subscriptions_upsert(payload: AdminSubscriptionCreateIn, ident: Identi
     )
 
     had_active_subscription = False
+    is_new_subscription = subscription is None
     if subscription is None:
         starts_at = now
         ends_at = compute_subscription_end(starts_at, months=months, days=days)
@@ -1295,7 +1300,7 @@ async def subscriptions_upsert(payload: AdminSubscriptionCreateIn, ident: Identi
             subscription.starts_at = now
             subscription.ends_at = compute_subscription_end(now, months=months, days=days)
 
-    if not had_active_subscription:
+    if is_new_subscription:
         await upsert_profile_theme_preference(session, uid, PROFILE_THEME_DEFAULT)
 
     await session.commit()
@@ -1326,6 +1331,7 @@ async def subscriptions_upsert(payload: AdminSubscriptionCreateIn, ident: Identi
         avatar_name=user.avatar_name,
         starts_at=subscription.starts_at,
         ends_at=subscription.ends_at,
+        is_active=True,
         profile_theme_color=theme_state.color,
     )
 
