@@ -49,6 +49,7 @@ export interface GlobalChatAuthor {
   id: number
   username: string
   avatar_name: string | null
+  theme_color?: string | null
   role?: string
 }
 
@@ -497,6 +498,7 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
           id: userId,
           username: asString(userRaw.username).trim() || `user${userId}`,
           avatar_name: asString(userRaw.avatar_name) || null,
+          theme_color: asString(userRaw.theme_color) || null,
         },
       })
     }
@@ -552,6 +554,7 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
         id: authorId,
         username: authorUsername,
         avatar_name: asString(authorRaw.avatar_name) || null,
+        theme_color: asString(authorRaw.theme_color) || previous?.author.theme_color || null,
         role: authorRole,
       },
       is_own: ownByAuthor,
@@ -581,6 +584,7 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
         id: authorId,
         username: asString(authorRaw.username).trim() || `user${authorId || messageId}`,
         avatar_name: asString(authorRaw.avatar_name) || null,
+        theme_color: asString(authorRaw.theme_color) || null,
       },
     }
   }

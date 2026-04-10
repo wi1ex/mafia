@@ -1300,6 +1300,7 @@ async def serialize_global_chat_messages(session: AsyncSession, messages: Sequen
                     "id": public["user_id"],
                     "username": _username_for(author_profile, public["user_id"]),
                     "avatar_name": author_profile.get("avatar_name"),
+                    "theme_color": author_profile.get("theme_color"),
                     "role": author_role,
                 },
                 "is_own": own_message,
@@ -1357,6 +1358,7 @@ async def fetch_global_chat_reaction_participants(session: AsyncSession, *, mess
                     "id": user_id,
                     "username": _username_for(profile, user_id),
                     "avatar_name": profile.get("avatar_name"),
+                    "theme_color": profile.get("theme_color"),
                 },
             }
         )
@@ -1669,6 +1671,7 @@ async def build_deleted_global_chat_message_preview(session: AsyncSession, *, me
             "id": author_id,
             "username": _username_for(author_profile, author_id),
             "avatar_name": author_profile.get("avatar_name"),
+            "theme_color": author_profile.get("theme_color"),
         },
     }
 

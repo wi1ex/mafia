@@ -18,7 +18,7 @@
               <span>{{ section.title }}</span>
               <span class="count">{{ section.items.length }}</span>
             </div>
-            <article v-for="f in section.items" :key="`${f.kind}-${f.id}`" class="item">
+            <article v-for="f in section.items" :key="`${f.kind}-${f.id}`" class="item" :style="friendItemStyle(f)">
               <div class="left">
                 <img v-minio-img="{ key: f.avatar_name ? `avatars/${f.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
                 <span class="nick">{{ f.username || ('user' + f.id) }}</span>
@@ -64,6 +64,7 @@
 
 <script setup lang="ts">
 import { ref, watch, nextTick, onBeforeUnmount, computed, reactive } from 'vue'
+import { buildProfileThemeBgStyle } from '@/constants/profileThemes'
 import { useFriendsStore, resolveFriendsApiError, shouldRefreshFriendsStateAfterError } from '@/store'
 import { confirmDialog, alertDialog, useConfirmState } from '@/services/confirm'
 
@@ -99,6 +100,7 @@ const canInvite = (f: { kind?: string; room_id?: number | null; in_current_room?
   return Number(f.room_id || 0) !== inviteRoomId.value
 }
 const shouldShowInviteButton = (f: { kind?: string; room_id?: number | null; in_current_room?: boolean | null }) => canInvite(f)
+const friendItemStyle = (friend: { theme_color?: string | null }) => buildProfileThemeBgStyle(friend.theme_color)
 const sections = computed(() => [
   { kind: 'incoming', title: 'Входящие заявки —', items: friends.list.filter(f => f.kind === 'incoming') },
   { kind: 'online', title: 'В сети —', items: friends.list.filter(f => f.kind === 'online') },
@@ -446,7 +448,7 @@ onBeforeUnmount(() => {
       padding: 5px;
       gap: 5px;
       border-radius: 5px;
-      background-color: $lead;
+      background-color: var(--user-theme-bg, $lead);
       box-shadow: 0 3px 5px rgba($black, 0.25);
       .left {
         display: flex;

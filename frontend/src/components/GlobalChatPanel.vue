@@ -27,6 +27,7 @@
                 'global-chat-message--highlighted': highlightedMessageId === message.id,
               },
             ]"
+            :style="messageCardStyle(message)"
           >
             <div class="message-main">
               <div class="message-meta">
@@ -256,6 +257,7 @@ import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, r
 import { useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { api } from '@/services/axios'
+import { buildProfileThemeBgStyle } from '@/constants/profileThemes'
 import { alertDialog, confirmDialog } from '@/services/confirm'
 import { formatChatTimestamp } from '@/services/datetime'
 import { useAuthStore, useGlobalChatStore, useSettingsStore, useUserStore } from '@/store'
@@ -408,6 +410,7 @@ const composerPlaceholder = computed(() => (
 ))
 const showLoadMore = computed(() => hasMore.value && (loadingMore.value || listAtTop.value))
 const mentionDropdownVisible = computed(() => Boolean(activeMentionRange.value?.query) && !composerDisabled.value && (mentionLoading.value || mentionHasSearched.value))
+const messageCardStyle = (message: GlobalChatMessage) => buildProfileThemeBgStyle(message.author.theme_color)
 
 type TextSegment = {
   kind: 'text' | 'link' | 'mention'
@@ -1634,11 +1637,11 @@ onBeforeUnmount(() => {
       padding: 5px 8px;
       width: calc(100% - 20px);
       border-radius: 10px;
-      background-color: $graphite;
+      background-color: var(--user-theme-bg, $graphite);
       border: 1px solid transparent;
       transition: border-color 0.25s ease-in-out;
       &--own {
-        background-color: $graphite;
+        background-color: var(--user-theme-bg, $graphite);
       }
       &--deleted {
         opacity: 0.5;
