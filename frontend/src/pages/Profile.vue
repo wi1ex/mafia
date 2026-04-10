@@ -1082,72 +1082,72 @@ onBeforeUnmount(() => {
             width: 100%;
           }
         }
-                                                                                    .theme-row {
-                                                                                      &.disabled {
-                                                                                        opacity: 0.75;
-                                                                                      }
-                                                                                      .theme-preview-grid {
-                                                                                        display: grid;
-                                                                                        gap: 10px;
-                                                                                      }
-                                                                                      .theme-preview-card {
-                                                                                        display: flex;
-                                                                                        align-items: center;
-                                                                                        padding: 0 10px;
-                                                                                        gap: 5px;
-                                                                                        width: fit-content;
-                                                                                        height: 40px;
-                                                                                        border-radius: 10px;
-                                                                                        background-color: var(--user-theme-bg, rgba($dark, 0.75));
-                                                                                        box-shadow: 3px 3px 5px rgba($black, 0.25);
-                                                                                        span {
-                                                                                          min-width: 0;
-                                                                                          height: 18px;
-                                                                                          color: $fg;
-                                                                                          font-size: 16px;
-                                                                                          font-family: Manrope-Medium;
-                                                                                          line-height: 1;
-                                                                                          white-space: nowrap;
-                                                                                          overflow: hidden;
-                                                                                          text-overflow: ellipsis;
-                                                                                        }
-                                                                                      }
-                                                                                      .theme-preview-avatar {
-                                                                                        width: 24px;
-                                                                                        height: 24px;
-                                                                                        border-radius: 50%;
-                                                                                        object-fit: cover;
-                                                                                      }
-                                                                                      .theme-palette {
-                                                                                        display: flex;
-                                                                                        flex-wrap: wrap;
-                                                                                        margin: 20px 0;
-                                                                                        max-width: 250px;
-                                                                                        gap: 10px;
-                                                                                      }
-                                                                                      .theme-option {
-                                                                                        display: flex;
-                                                                                        align-items: center;
-                                                                                        justify-content: center;
-                                                                                        width: 40px;
-                                                                                        height: 40px;
-                                                                                        border: 2px solid transparent;
-                                                                                        border-radius: 999px;
-                                                                                        background-color: var(--user-theme-bg, $graphite);
-                                                                                        cursor: pointer;
-                                                                                        transition: background-color 0.25s ease-in-out, border-color 0.25s ease-in-out, box-shadow 0.25s ease-in-out;
-                                                                                        &:hover:enabled {
-                                                                                          background-color: var(--user-theme-bg-hover, $lead);
-                                                                                        }
-                                                                                        &.active {
-                                                                                          border-color: $fg;
-                                                                                          box-shadow: 0 0 0 1px var(--user-theme-shadow, rgba($white, 0.2));
-                                                                                        }
-                                                                                        &:disabled {
-                                                                                          cursor: not-allowed;
-                                                                                        }
-                                                                                      }
-                                                                                    }
+        .theme-row {
+          &.disabled {
+            opacity: 0.75;
+          }
+          .theme-preview-grid {
+            display: grid;
+            gap: 10px;
+          }
+          .theme-preview-card {
+            display: flex;
+            align-items: center;
+            padding: 0 10px;
+            gap: 5px;
+            width: fit-content;
+            height: 45px;
+            border-radius: 10px;
+            background-color: var(--user-theme-bg, rgba($dark, 0.75));
+            box-shadow: 3px 3px 5px rgba($black, 0.25);
+            span {
+              min-width: 0;
+              height: 20px;
+              color: $fg;
+              font-size: 18px;
+              font-family: Manrope-Medium;
+              line-height: 1;
+              white-space: nowrap;
+              overflow: hidden;
+              text-overflow: ellipsis;
+            }
+          }
+          .theme-preview-avatar {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            object-fit: cover;
+          }
+          .theme-palette {
+            display: flex;
+            flex-wrap: wrap;
+            margin: 20px 0;
+            max-width: 250px;
+            gap: 10px;
+          }
+          .theme-option {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            border: 2px solid transparent;
+            border-radius: 999px;
+            background-color: var(--user-theme-bg, $graphite);
+            cursor: pointer;
+            transition: background-color 0.25s ease-in-out, border-color 0.25s ease-in-out, box-shadow 0.25s ease-in-out;
+            &:hover:enabled {
+              background-color: var(--user-theme-bg-hover, $lead);
+            }
+            &.active {
+              border-color: $fg;
+              box-shadow: 0 0 0 1px var(--user-theme-shadow, rgba($white, 0.2));
+            }
+            &:disabled {
+              cursor: not-allowed;
+            }
+          }
+        }
         .password-row {
           display: flex;
           flex-direction: column;
@@ -1472,27 +1472,27 @@ onBeforeUnmount(() => {
               height: 100px;
             }
           }
-                                                                                                .theme-row {
-                                                                                                  .theme-preview-card {
-                                                                                                    min-height: 34px;
-                                                                                                    padding: 0 10px;
-                                                                                                    span {
-                                                                                                      font-size: 12px;
-                                                                                                    }
-                                                                                                  }
-                                                                                                  .theme-preview-avatar {
-                                                                                                    width: 18px;
-                                                                                                    height: 18px;
-                                                                                                  }
-                                                                                                  .theme-palette {
-                                                                                                    margin: 10px 0;
-                                                                                                    max-width: 200px;
-                                                                                                  }
-                                                                                                  .theme-option {
-                                                                                                    width: 30px;
-                                                                                                    height: 30px;
-                                                                                                  }
-                                                                                                }
+          .theme-row {
+            .theme-preview-card {
+              height: 35px;
+              span {
+                height: 16px;
+                font-size: 14px;
+              }
+            }
+            .theme-preview-avatar {
+              width: 20px;
+              height: 20px;
+            }
+            .theme-palette {
+              margin: 10px 0;
+              max-width: 200px;
+            }
+            .theme-option {
+              width: 30px;
+              height: 30px;
+            }
+          }
           &.sanctions-block {
             .sanctions-list {
               grid-template-columns: 1fr 1fr;
