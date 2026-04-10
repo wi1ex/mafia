@@ -9,73 +9,69 @@
       </header>
 
       <div class="change-devices">
-        <template v-if="!inGame">
-          <div class="switch-div">
-            <ToggleSwitch
-              :model-value="buttonsHigh"
-              label="Расположение кнопок:"
-              off-label="Стандарт"
-              on-label="Кастом"
-              aria-label="Расположение кнопок"
-              :width="160"
-              @update:modelValue="onToggleButtonsHigh"
-            />
-          </div>
-          <div v-if="showVideoFillToggle" class="switch-div">
-            <ToggleSwitch
-              :model-value="videoFillOn"
-              label="Заполнение видео:"
-              off-label="Откл"
-              on-label="Вкл"
-              aria-label="Заполнение видео"
-              :width="160"
-              @update:modelValue="onToggleVideoFill"
-            />
-          </div>
-          <div class="switch-div">
-            <ToggleSwitch
-              :model-value="mirrorOn"
-              label="Зеркальность камеры:"
-              aria-label="Зеркальность камеры"
-              :width="160"
-              @update:modelValue="onToggleMirror"
-            />
-          </div>
-        </template>
-        <template v-else>
-          <div v-if="!isSpectator && canToggleKnownRoles" class="switch-div">
-            <ToggleSwitch
-              :model-value="knownRolesVisible"
-              off-label="Скрыть"
-              on-label="Показать"
-              aria-label="Отображение ролей"
-              :width="160"
-              @update:modelValue="onToggleKnownRoles"
-            >
-              <template #label>
-                Отображение ролей:
-                <span v-if="!isMobile && hotkeysVisible" class="hot-btn">R</span>
-              </template>
-            </ToggleSwitch>
-          </div>
+        <div class="switch-div">
+          <ToggleSwitch
+            :model-value="buttonsHigh"
+            label="Расположение кнопок:"
+            off-label="Стандарт"
+            on-label="Кастом"
+            aria-label="Расположение кнопок"
+            :width="160"
+            @update:modelValue="onToggleButtonsHigh"
+          />
+        </div>
+        <div v-if="showVideoFillToggle" class="switch-div">
+          <ToggleSwitch
+            :model-value="videoFillOn"
+            label="Заполнение видео:"
+            off-label="Откл"
+            on-label="Вкл"
+            aria-label="Заполнение видео"
+            :width="160"
+            @update:modelValue="onToggleVideoFill"
+          />
+        </div>
+        <div v-if="showMirrorToggle" class="switch-div">
+          <ToggleSwitch
+            :model-value="mirrorOn"
+            label="Зеркальность камеры:"
+            aria-label="Зеркальность камеры"
+            :width="160"
+            @update:modelValue="onToggleMirror"
+          />
+        </div>
+        <div v-if="inGame && !isSpectator && canToggleKnownRoles" class="switch-div">
+          <ToggleSwitch
+            :model-value="knownRolesVisible"
+            off-label="Скрыть"
+            on-label="Показать"
+            aria-label="Отображение ролей"
+            :width="160"
+            @update:modelValue="onToggleKnownRoles"
+          >
+            <template #label>
+              Отображение ролей:
+              <span v-if="!isMobile && hotkeysVisible" class="hot-btn">R</span>
+            </template>
+          </ToggleSwitch>
+        </div>
 
-          <div v-if="musicEnabled" class="volume-block">
-            <span class="volume-text">Громкость музыки:</span>
-            <div class="volume">
-              <img :src="volumeIcon" alt="vol" />
-              <UiSlider
-                class="volume-slider"
-                :model-value="volume"
-                :min="0"
-                :max="100"
-                :step="10"
-                aria-label="Громкость фоновой музыки"
-                @update:modelValue="emit('update:volume', $event)"
-              />
-              <span>{{ volume }}%</span>
-            </div>
+        <div v-if="inGame && musicEnabled" class="volume-block">
+          <span class="volume-text">Громкость музыки:</span>
+          <div class="volume">
+            <img :src="volumeIcon" alt="vol" />
+            <UiSlider
+              class="volume-slider"
+              :model-value="volume"
+              :min="0"
+              :max="100"
+              :step="10"
+              aria-label="Громкость фоновой музыки"
+              @update:modelValue="emit('update:volume', $event)"
+            />
+            <span>{{ volume }}%</span>
           </div>
-        </template>
+        </div>
 
         <div v-if="!isSpectator" class="switch-device-div">
           <span>Выбор камеры:</span>
@@ -139,6 +135,7 @@ const props = defineProps<{
   open: boolean
   inGame: boolean
   isSpectator?: boolean
+  showMirrorToggle: boolean
   isMobile?: boolean
   hotkeysVisible?: boolean
   mics: Dev[]

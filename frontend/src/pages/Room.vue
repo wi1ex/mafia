@@ -313,7 +313,7 @@
             <img :src="iconChat" alt="chat" />
             <span v-if="chat.unread > 0" class="count-total unread">{{ chat.unread < 100 ? chat.unread : '∞' }}</span>
           </button>
-          <button v-if="canShowSettingsButton" @click.stop="toggleSettings" :aria-expanded="settingsOpen" aria-label="Настройки устройств">
+          <button @click.stop="toggleSettings" :aria-expanded="settingsOpen" aria-label="Настройки устройств">
             <img :src="iconSettings" alt="settings" />
           </button>
         </div>
@@ -340,9 +340,10 @@
         />
 
         <RoomSetting
-          :open="settingsOpen && canShowSettingsButton"
+          :open="settingsOpen"
           :in-game="gamePhase !== 'idle'"
           :is-spectator="isSpectatorInGame"
+          :show-mirror-toggle="canShowMirrorToggle"
           :is-mobile="IS_MOBILE"
           :hotkeys-visible="hotkeysVisible"
           :mics="mics"
@@ -760,7 +761,9 @@ const canEditGameSettings = computed(() =>
   gamePhase.value === 'idle' &&
   isMafiaLimitRoom.value
 )
-const canShowSettingsButton = computed(() => !isSpectatorInGame.value || musicEnabled.value)
+const canShowMirrorToggle = computed(() =>
+  gamePhase.value === 'idle' || (!isSpectatorInGame.value && amIAlive.value)
+)
 const knockModalOpen = ref(false)
 const knockModalTargetId = ref<string>('')
 const knockModalArmed = ref(false)
