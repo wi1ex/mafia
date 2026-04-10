@@ -138,7 +138,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { api } from '@/services/axios'
-import { isPwaMode } from '@/services/pwa'
+import { requestPwaInstall, usePwaInstallState } from '@/services/pwa'
 import { useAuthStore } from '@/store'
 
 import iconArrowDown from '@/assets/svg/arrowDown.svg'
@@ -155,8 +155,8 @@ const hovered = ref(false)
 const focused = ref(false)
 const documentHidden = ref(false)
 const prefersReducedMotion = ref(false)
-const appInstalled = ref(isPwaMode())
-const deferredInstallPrompt = ref<BeforeInstallPromptEvent | null>(null)
+const manualInstallHintVisible = ref(false)
+const pwaInstall = usePwaInstallState()
 const auth = useAuthStore()
 
 const supportLink = 'https://web.tribute.tg/d/Cvc'
@@ -165,28 +165,29 @@ const contactsLink = 'https://t.me/wi1ex'
 let autoplayTimer: number | null = null
 let motionQuery: MediaQueryList | null = null
 
-type InstallPromptChoice = {
-  outcome: 'accepted' | 'dismissed'
-  platform: string
-}
-
-type BeforeInstallPromptEvent = Event & {
-  prompt: () => Promise<void>
-  userChoice: Promise<InstallPromptChoice>
-}
-
-const canPromptInstall = computed(() => !appInstalled.value && deferredInstallPrompt.value !== null)
-const installButtonDisabled = computed(() => appInstalled.value || !canPromptInstall.value)
+const canPromptInstall = computed(() => !pwaInstall.installed && pwaInstall.deferredPrompt !== null)
+const installButtonDisabled = computed(() => pwaInstall.installed || (manualInstallHintVisible.value && !canPromptInstall.value))
 const installButtonLabel = computed(() => {
-  if (appInstalled.value) return 'Приложение установлено'
+  if (pwaInstall.installed) return 'Приложение установлено'
+  if (manualInstallHintVisible.value && !canPromptInstall.value) return 'Используйте меню браузера'
   if (canPromptInstall.value) return 'Установить платформу'
-  return 'Используйте меню браузера'
+  return 'Установить платформу'
 })
 const installActionNote = computed(() => {
-  if (appInstalled.value) return 'Платформа уже установлена на этом устройстве.'
+  if (pwaInstall.installed) return 'Платформа уже установлена на этом устройстве.'
+  if (manualInstallHintVisible.value && !canPromptInstall.value) return 'Если системная установка не открылась, добавьте приложение через меню браузера.'
   if (canPromptInstall.value) return 'Откроется системное окно установки браузера.'
-  return 'Если ничего не появилось попробуйте добавить вручную.'
+  return 'Если браузер поддерживает установку PWA, он предложит системное окно.'
 })
+
+watch(() => canPromptInstall.value, (next) => {
+  if (next) manualInstallHintVisible.value = false
+})
+
+watch(() => pwaInstall.installed, (next) => {
+  if (next) manualInstallHintVisible.value = false
+})
+
 const slideTransitionName = computed(() => slideDirection.value > 0 ? 'carousel-slide-forward' : 'carousel-slide-backward')
 const isPaused = computed(() => hovered.value || focused.value || documentHidden.value || prefersReducedMotion.value)
 
@@ -239,24 +240,17 @@ function onSupportLinkClick() {
 }
 
 async function openInstall() {
-  const promptEvent = deferredInstallPrompt.value
-  if (!promptEvent || appInstalled.value) return
-  deferredInstallPrompt.value = null
-  try {
-    await promptEvent.prompt()
-    await promptEvent.userChoice
-  } catch {}
-}
+  if (pwaInstall.installed) return
+  if (!canPromptInstall.value) {
+    manualInstallHintVisible.value = true
+    return
+  }
 
-function onBeforeInstallPrompt(event: Event) {
-  event.preventDefault()
-  deferredInstallPrompt.value = event as BeforeInstallPromptEvent
-  appInstalled.value = false
-}
-
-function onAppInstalled() {
-  appInstalled.value = true
-  deferredInstallPrompt.value = null
+  manualInstallHintVisible.value = false
+  const result = await requestPwaInstall()
+  if (result === 'dismissed' || result === 'unavailable') {
+    manualInstallHintVisible.value = true
+  }
 }
 
 function onFocusOut(event: FocusEvent) {
@@ -301,15 +295,11 @@ onMounted(() => {
   prefersReducedMotion.value = motionQuery.matches
   document.addEventListener('visibilitychange', onVisibilityChange, { passive: true })
   motionQuery.addEventListener('change', onMotionChange)
-  window.addEventListener('beforeinstallprompt', onBeforeInstallPrompt)
-  window.addEventListener('appinstalled', onAppInstalled)
 })
 
 onBeforeUnmount(() => {
   clearAutoplayTimer()
   document.removeEventListener('visibilitychange', onVisibilityChange)
-  window.removeEventListener('beforeinstallprompt', onBeforeInstallPrompt)
-  window.removeEventListener('appinstalled', onAppInstalled)
   if (!motionQuery) return
   motionQuery.removeEventListener('change', onMotionChange)
   motionQuery = null

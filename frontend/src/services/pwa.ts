@@ -1,3 +1,27 @@
+import { reactive, readonly } from 'vue'
+
+export type InstallPromptChoice = {
+  outcome: 'accepted' | 'dismissed'
+  platform: string
+}
+
+export type BeforeInstallPromptEvent = Event & {
+  prompt: () => Promise<void>
+  userChoice: Promise<InstallPromptChoice>
+}
+
+type PwaInstallState = {
+  installed: boolean
+  deferredPrompt: BeforeInstallPromptEvent | null
+}
+
+const installState = reactive<PwaInstallState>({
+  installed: false,
+  deferredPrompt: null,
+})
+
+let trackingInstalled = false
+
 export function isPwaMode(): boolean {
   if (typeof window === 'undefined') return false
   const nav = window.navigator as Navigator & { standalone?: boolean }
@@ -8,6 +32,56 @@ export function isPwaMode(): boolean {
     window.matchMedia('(display-mode: fullscreen)').matches ||
     window.matchMedia('(display-mode: minimal-ui)').matches
   )
+}
+
+function syncInstalledState(): void {
+  installState.installed = isPwaMode()
+  if (installState.installed) installState.deferredPrompt = null
+}
+
+export function installPwaTracking(): void {
+  if (trackingInstalled || typeof window === 'undefined') return
+  trackingInstalled = true
+  syncInstalledState()
+
+  window.addEventListener('beforeinstallprompt', (event: Event) => {
+    event.preventDefault()
+    installState.deferredPrompt = event as BeforeInstallPromptEvent
+    installState.installed = false
+  })
+
+  window.addEventListener('appinstalled', () => {
+    installState.installed = true
+    installState.deferredPrompt = null
+  })
+
+  window.addEventListener('pageshow', syncInstalledState)
+  document.addEventListener('visibilitychange', syncInstalledState)
+}
+
+export function usePwaInstallState() {
+  installPwaTracking()
+  return readonly(installState)
+}
+
+export async function requestPwaInstall(): Promise<'accepted' | 'dismissed' | 'installed' | 'unavailable'> {
+  installPwaTracking()
+  if (installState.installed) return 'installed'
+
+  const promptEvent = installState.deferredPrompt
+  if (!promptEvent) return 'unavailable'
+
+  installState.deferredPrompt = null
+
+  try {
+    await promptEvent.prompt()
+    const choice = await promptEvent.userChoice
+    return choice?.outcome === 'accepted' ? 'accepted' : 'dismissed'
+  } catch {
+    return 'unavailable'
+  } finally {
+    syncInstalledState()
+  }
 }
 
 export const BASE_TITLE = 'Deceit'
