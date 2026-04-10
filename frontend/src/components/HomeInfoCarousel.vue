@@ -453,10 +453,10 @@ onBeforeUnmount(() => {
       margin-top: auto;
     }
     .action-note {
-      max-width: 185px;
+      max-width: 230px;
       text-align: end;
       color: $ashy;
-      font-size: 12px;
+      font-size: 14px;
     }
     .primary-btn {
       display: inline-flex;
@@ -628,7 +628,7 @@ onBeforeUnmount(() => {
       }
       .action-note {
         max-width: 125px;
-        font-size: 8px;
+        font-size: 7px;
       }
       .primary-btn {
         min-width: 125px;
