@@ -52,3 +52,11 @@ export function buildProfileThemeBgStyle(value: unknown): Record<string, string>
     '--user-theme-bg': option.bg,
   }
 }
+
+export function buildProfileThemeChatStyle(value: unknown): Record<string, string> {
+  const option = getProfileThemeOption(value)
+  if (!option) return {}
+  return {
+    '--user-theme-bg': option.chat,
+  }
+}
