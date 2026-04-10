@@ -75,7 +75,7 @@
               off-label="Запретить"
               on-label="Разрешить"
               :width="200"
-              :disabled="tgInvitesTogglePending"
+              :disabled="tgInvitesTogglePending || !telegramVerified"
               @update:modelValue="onToggleTgInvites" />
           </div>
 
@@ -363,7 +363,7 @@ async function onToggleHotkeys(next: boolean) {
 }
 
 async function onToggleTgInvites(next: boolean) {
-  if (tgInvitesTogglePending.value) return
+  if (tgInvitesTogglePending.value || !telegramVerified.value) return
   tgInvitesTogglePending.value = true
   try { await setTgInvitesEnabled(next) }
   finally { tgInvitesTogglePending.value = false }
