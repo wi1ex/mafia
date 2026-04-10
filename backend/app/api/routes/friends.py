@@ -155,10 +155,13 @@ async def friends_list(room_id: int | None = None, ident: Identity = Depends(get
             async with r.pipeline() as p:
                 for fid, rid in candidate_items:
                     await p.sismember(f"room:{rid}:members", str(fid))
+                    await p.sismember(f"room:{rid}:spectators", str(fid))
                 raw_membership = await p.execute()
 
-            for (fid, rid), is_member in zip(candidate_items, raw_membership):
-                if bool(is_member):
+            for idx, (fid, rid) in enumerate(candidate_items):
+                is_member = bool(raw_membership[idx * 2]) if idx * 2 < len(raw_membership) else False
+                is_spectator = bool(raw_membership[idx * 2 + 1]) if idx * 2 + 1 < len(raw_membership) else False
+                if is_member or is_spectator:
                     room_by_uid[int(fid)] = int(rid)
         except Exception:
             room_by_uid = {}
@@ -241,7 +244,7 @@ async def friends_list(room_id: int | None = None, ident: Identity = Depends(get
             room_id=visible_rid,
             room_title=info.title if info else None,
             room_in_game=bool(info.in_game) if info else None,
-            in_active_game_as_alive_player=bool(active_room_id and int(active_room_id) in visible_room_ids),
+            in_active_game_as_alive_player=bool(online and active_room_id),
             telegram_verified=bool(user_data.get("telegram_verified")),
             tg_invites_enabled=bool(user_data.get("tg_invites_enabled")),
             room_invited=(fid in invited_to_room_ids) if invite_room_id > 0 else None,
@@ -607,23 +610,13 @@ async def invite_friend(payload: FriendInviteIn, ident: Identity = Depends(get_i
         if not bool(target.tg_invites_enabled):
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="target_telegram_invites_disabled")
 
-    try:
-        target_active_game_room_id = int(await r.get(active_alive_game_room_key(target_id)) or 0)
-    except Exception:
-        target_active_game_room_id = 0
-    if target_active_game_room_id > 0:
-        visible_active_game_room = False
+    if target_online:
         try:
-            active_game_room_items = await get_rooms_brief(r, [target_active_game_room_id])
-            visible_active_game_room = bool(
-                await filter_rooms_for_viewer(r, active_game_room_items, str(ident.get("role") or "user"), uid)
-            )
+            target_active_game_room_id = int(await r.get(active_alive_game_room_key(target_id)) or 0)
         except Exception:
-            visible_active_game_room = False
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="target_in_active_game_as_alive_player" if visible_active_game_room else "target_invite_unavailable",
-        )
+            target_active_game_room_id = 0
+        if target_active_game_room_id > 0:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="target_in_active_game_as_alive_player")
 
     invite_set_key = f"room:{room_id}:invited"
     in_room_now = bool(await r.sismember(f"room:{room_id}:members", str(target_id)))

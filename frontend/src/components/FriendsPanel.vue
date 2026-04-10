@@ -113,7 +113,7 @@ const POLL_MS = 3000
 const AUTO_CLOSE_MS = 5 * 60 * 1000
 
 function inviteBlockedReason(friend: { kind?: string; telegram_verified?: boolean; tg_invites_enabled?: boolean; in_active_game_as_alive_player?: boolean | null }): string {
-  if (friend.in_active_game_as_alive_player) return 'Пользователь сейчас является живым игроком в активной игре'
+  if (friend.kind === 'online' && friend.in_active_game_as_alive_player) return 'Пользователь сейчас является живым игроком в активной игре'
   if (friend.kind !== 'offline') return ''
   if (friend.tg_invites_enabled === false) return 'Пользователь запретил приглашения через уведомления в Telegram'
   if (!friend.telegram_verified) return 'Пользователь не прошел верификацию через Telegram'
@@ -227,20 +227,17 @@ async function invite(friend: { id: number; username?: string | null; kind?: str
   } catch (e: any) {
     const st = e?.response?.status
     const d = e?.response?.data?.detail
-    if (st === 409 && d === 'target_offline') {
-      void alertDialog('Пользователь не в сети')
-      return
-    }
-    if (st === 409 && d === 'target_telegram_not_verified') {
-      void alertDialog('Пользователь не прошел верификацию через Telegram')
-      return
-    }
-    if (st === 409 && d === 'target_telegram_invites_disabled') {
-      void alertDialog('Пользователь запретил приглашения через уведомления в Telegram')
-      return
-    }
-    if (st === 409 && d === 'target_in_active_game_as_alive_player') {
-      void alertDialog('Пользователь сейчас является живым игроком в активной игре')
+    if (
+      (st === 409 && d === 'target_offline')
+      || (st === 409 && d === 'target_telegram_not_verified')
+      || (st === 409 && d === 'target_telegram_invites_disabled')
+      || (st === 409 && d === 'target_in_active_game_as_alive_player')
+      || (st === 409 && d === 'target_invite_unavailable')
+      || (st === 404 && d === 'user_not_found')
+      || (st === 403 && d === 'not_friends')
+      || (st === 409 && d === 'target_already_in_room')
+      || (st === 409 && d === 'room_invite_already_sent')
+    ) {
       await friends.fetchList(currentListRoomId())
       return
     }
@@ -250,24 +247,6 @@ async function invite(friend: { id: number; username?: string | null; kind?: str
     }
     if (st === 503 && d === 'telegram_unavailable') {
       void alertDialog('Telegram временно недоступен. Попробуйте позже')
-      return
-    }
-    if (st === 404 && d === 'user_not_found') {
-      void alertDialog('Пользователь не найден')
-      return
-    }
-    if (st === 403 && d === 'not_friends') {
-      void alertDialog('Пользователь больше не в друзьях')
-      return
-    }
-    if (st === 409 && d === 'target_already_in_room') {
-      void alertDialog('Пользователь уже находится в этой комнате')
-      await friends.fetchList(currentListRoomId())
-      return
-    }
-    if (st === 409 && d === 'room_invite_already_sent') {
-      void alertDialog('Пользователь уже приглашен в эту комнату')
-      await friends.fetchList(currentListRoomId())
       return
     }
     void alertDialog('Не удалось отправить приглашение')
