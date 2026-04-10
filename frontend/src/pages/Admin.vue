@@ -813,7 +813,7 @@
 
         <div v-else-if="activeTab === 'subscriptions'" class="subscriptions-tab">
           <div class="block subscription-table-block">
-            <h3>Подписки</h3>
+            <h3>Активные подписки - {{ activeSubscriptionsCount }}</h3>
             <div v-if="subscriptionsLoading" class="loading">Загрузка...</div>
             <table v-else class="table">
               <thead>
@@ -882,42 +882,19 @@
       :reasons="sanctionReasons"
       @save="saveSanction"
     />
-    <div v-if="subscriptionModalOpen && subscriptionTarget" class="subscription-modal-overlay" @click.self="closeSubscriptionModal">
-      <div class="subscription-modal">
-        <header class="subscription-modal-head">
-          <div class="subscription-modal-heading">
-            <span>{{ subscriptionModalMode === 'extend' ? 'Продлить подписку' : 'Выдать подписку' }}</span>
-            <small v-if="selectedSubscriptionStatusText">{{ selectedSubscriptionStatusText }}</small>
-          </div>
-          <button type="button" aria-label="Закрыть" :disabled="subscriptionSaving" @click="closeSubscriptionModal">
-            <img :src="iconClose" alt="close" />
-          </button>
-        </header>
-        <div class="subscription-modal-body">
-          <div class="subscription-selected">
-            <div class="user-cell">
-              <img class="user-avatar" v-minio-img="{ key: subscriptionTarget.avatar_name ? `avatars/${subscriptionTarget.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
-              <span>{{ subscriptionTarget.username || `user${subscriptionTarget.user_id}` }}</span>
-            </div>
-            <span class="subscription-note">ID {{ subscriptionTarget.user_id }}</span>
-          </div>
-          <div class="subscription-duration">
-            <UiInput id="subscription-modal-months" v-model.number="subscriptionForm.months" type="number" min="0" max="24" step="1" label="Месяцы" :disabled="subscriptionSaving" />
-            <UiInput id="subscription-modal-days" v-model.number="subscriptionForm.days" type="number" min="0" max="3650" step="1" label="Дни" :disabled="subscriptionSaving" />
-          </div>
-          <p class="muted subscription-modal-note">
-            {{ subscriptionModalNote }}
-          </p>
-        </div>
-        <footer class="subscription-modal-actions">
-          <button class="btn dark" :disabled="subscriptionSaving" @click="closeSubscriptionModal">Отмена</button>
-          <button class="btn confirm" :disabled="subscriptionSaving || !subscriptionCanSave" @click="saveSubscription">
-            <img class="btn-img" :src="iconSave" alt="save" />
-            {{ subscriptionSaving ? '...' : (subscriptionModalMode === 'extend' ? 'Продлить' : 'Выдать') }}
-          </button>
-        </footer>
-      </div>
-    </div>
+    <SubscriptionModal
+      :open="subscriptionModalOpen && Boolean(subscriptionTarget)"
+      :title="subscriptionModalTitle"
+      :status-text="selectedSubscriptionStatusText"
+      :note="subscriptionModalNote"
+      :save-label="subscriptionModalSaveLabel"
+      :saving="subscriptionSaving"
+      :can-save="subscriptionCanSave"
+      :target="subscriptionTarget"
+      :form="subscriptionForm"
+      @update:open="onSubscriptionModalOpenUpdate"
+      @save="saveSubscription"
+    />
 
     <div v-if="userStatsOpen && userStatsTarget" class="user-stats-overlay">
       <div class="user-stats-modal">
@@ -946,6 +923,7 @@ import { useSettingsStore } from '@/store'
 
 import UpdateModal from '@/components/UpdateModal.vue'
 import SanctionModal from '@/components/SanctionModal.vue'
+import SubscriptionModal from '@/components/SubscriptionModal.vue'
 import ProfileStatsTab from '@/components/ProfileStatsTab.vue'
 import ToggleSwitch from '@/components/ToggleSwitch.vue'
 import UiInput from '@/components/UiInput.vue'
@@ -1501,6 +1479,9 @@ const subscriptionsByUserId = computed(() => {
   for (const item of subscriptions.value) mapped.set(item.user_id, item)
   return mapped
 })
+const activeSubscriptionsCount = computed(() => {
+  return subscriptions.value.filter(item => item.is_active).length
+})
 const selectedSubscriptionEntry = computed(() => {
   const selectedId = subscriptionTarget.value?.user_id
   if (!selectedId) return null
@@ -1512,6 +1493,12 @@ const selectedSubscriptionStatusText = computed(() => {
   return entry.is_active
     ? `Активна до ${formatLocalDateTime(entry.ends_at)}`
     : `Истекла ${formatLocalDateTime(entry.ends_at)}`
+})
+const subscriptionModalTitle = computed(() => {
+  return subscriptionModalMode.value === 'extend' ? 'Продлить подписку' : 'Выдать подписку'
+})
+const subscriptionModalSaveLabel = computed(() => {
+  return subscriptionModalMode.value === 'extend' ? 'Продлить' : 'Выдать'
 })
 const subscriptionModalNote = computed(() => {
   const entry = selectedSubscriptionEntry.value
@@ -1732,6 +1719,11 @@ function clearSubscriptionModalState(): void {
 function closeSubscriptionModal(): void {
   if (subscriptionSaving.value) return
   clearSubscriptionModalState()
+}
+
+function onSubscriptionModalOpenUpdate(open: boolean): void {
+  if (open) return
+  closeSubscriptionModal()
 }
 
 function openGrantSubscription(row: UserRow): void {
@@ -2675,80 +2667,6 @@ onMounted(() => {
       overflow: auto;
     }
   }
-                                                                  .subscription-modal-overlay {
-                                                                    display: flex;
-                                                                    position: fixed;
-                                                                    align-items: center;
-                                                                    justify-content: center;
-                                                                    inset: 0;
-                                                                    padding: 20px;
-                                                                    background-color: rgba($black, 0.5);
-                                                                    backdrop-filter: blur(5px);
-                                                                    z-index: 1200;
-                                                                    .subscription-modal {
-                                                                      display: flex;
-                                                                      flex-direction: column;
-                                                                      width: min(96vw, 520px);
-                                                                      border: 1px solid $lead;
-                                                                      border-radius: 5px;
-                                                                      background-color: $dark;
-                                                                      overflow: hidden;
-                                                                    }
-                                                                    .subscription-modal-head {
-                                                                      display: flex;
-                                                                      align-items: center;
-                                                                      justify-content: space-between;
-                                                                      gap: 10px;
-                                                                      padding: 10px;
-                                                                      border-bottom: 1px solid $lead;
-                                                                      background-color: $graphite;
-                                                                      .subscription-modal-heading {
-                                                                        display: flex;
-                                                                        flex-direction: column;
-                                                                        gap: 4px;
-                                                                        span {
-                                                                          font-size: 16px;
-                                                                          font-family: Manrope-SemiBold;
-                                                                        }
-                                                                        small {
-                                                                          color: $grey;
-                                                                          font-size: 12px;
-                                                                        }
-                                                                      }
-                                                                      button {
-                                                                        display: flex;
-                                                                        align-items: center;
-                                                                        justify-content: center;
-                                                                        width: 30px;
-                                                                        height: 30px;
-                                                                        padding: 0;
-                                                                        border: none;
-                                                                        border-radius: 5px;
-                                                                        background: transparent;
-                                                                        cursor: pointer;
-                                                                        img {
-                                                                          width: 20px;
-                                                                          height: 20px;
-                                                                        }
-                                                                      }
-                                                                    }
-                                                                    .subscription-modal-body {
-                                                                      display: flex;
-                                                                      flex-direction: column;
-                                                                      gap: 15px;
-                                                                      padding: 15px;
-                                                                    }
-                                                                    .subscription-modal-note {
-                                                                      margin: 0;
-                                                                      text-align: left;
-                                                                    }
-                                                                    .subscription-modal-actions {
-                                                                      display: flex;
-                                                                      justify-content: flex-end;
-                                                                      gap: 10px;
-                                                                      padding: 0 15px 15px;
-                                                                    }
-                                                                  }
   .btn {
     display: flex;
     align-items: center;
@@ -3187,34 +3105,6 @@ onMounted(() => {
                                                                                   color: $fg;
                                                                                 }
                                                                               }
-                                                                              .subscription-selected {
-                                                                                display: flex;
-                                                                                flex-direction: column;
-                                                                                gap: 5px;
-                                                                                padding: 10px;
-                                                                                border-radius: 5px;
-                                                                                background-color: $graphite;
-                                                                                .user-cell {
-                                                                                  display: inline-flex;
-                                                                                  align-items: center;
-                                                                                  gap: 10px;
-                                                                                }
-                                                                                .subscription-note {
-                                                                                  color: $grey;
-                                                                                  font-size: 12px;
-                                                                                }
-                                                                              }
-                                                                              .subscription-selected .user-avatar {
-                                                                                width: 24px;
-                                                                                height: 24px;
-                                                                                border-radius: 50%;
-                                                                                object-fit: cover;
-                                                                              }
-                                                                              .subscription-duration {
-                                                                                display: grid;
-                                                                                grid-template-columns: 1fr 1fr;
-                                                                                gap: 10px;
-                                                                              }
                                                                               .subscription-table-block {
                                                                                 min-width: 0;
                                                                               }
@@ -3284,33 +3174,6 @@ onMounted(() => {
         padding: 5px;
       }
     }
-                                                                                    .subscription-modal-overlay {
-                                                                                      padding: 10px;
-                                                                                      .subscription-modal-head {
-                                                                                        padding: 5px;
-                                                                                        .subscription-modal-heading {
-                                                                                          span {
-                                                                                            font-size: 14px;
-                                                                                          }
-                                                                                        }
-                                                                                        button {
-                                                                                          width: 24px;
-                                                                                          height: 24px;
-                                                                                          img {
-                                                                                            width: 16px;
-                                                                                            height: 16px;
-                                                                                          }
-                                                                                        }
-                                                                                      }
-                                                                                      .subscription-modal-body {
-                                                                                        gap: 10px;
-                                                                                        padding: 10px;
-                                                                                      }
-                                                                                      .subscription-modal-actions {
-                                                                                        flex-direction: column-reverse;
-                                                                                        padding: 0 10px 10px;
-                                                                                      }
-                                                                                    }
     header {
       .tabs {
         .tab {
@@ -3374,9 +3237,6 @@ onMounted(() => {
                                                                                     margin-bottom: 10px;
                                                                                     font-size: 16px;
                                                                                   }
-                                                                                }
-                                                                                .subscription-duration {
-                                                                                  grid-template-columns: 1fr;
                                                                                 }
                                                                                 .subscription-theme-chip {
                                                                                   min-width: 90px;
