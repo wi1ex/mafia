@@ -57,7 +57,7 @@
             </div>
           </div>
 
-          <div class="block">
+          <div v-if="canEditProfileTheme" class="block">
             <h3>Цвет профиля</h3>
             <div class="theme-row" :class="{ disabled: !canEditProfileTheme }">
               <div class="theme-preview-grid">
@@ -1083,9 +1083,6 @@ onBeforeUnmount(() => {
           }
         }
                                                                                     .theme-row {
-                                                                                      display: flex;
-                                                                                      flex-direction: column;
-                                                                                      gap: 15px;
                                                                                       &.disabled {
                                                                                         opacity: 0.75;
                                                                                       }
@@ -1096,14 +1093,16 @@ onBeforeUnmount(() => {
                                                                                       .theme-preview-card {
                                                                                         display: flex;
                                                                                         align-items: center;
-                                                                                        padding: 0 12px;
-                                                                                        gap: 10px;
-                                                                                        min-height: 44px;
-                                                                                        border-radius: 5px;
+                                                                                        padding: 0 10px;
+                                                                                        gap: 5px;
+                                                                                        width: fit-content;
+                                                                                        height: 40px;
+                                                                                        border-radius: 10px;
                                                                                         background-color: var(--user-theme-bg, rgba($dark, 0.75));
                                                                                         box-shadow: 3px 3px 5px rgba($black, 0.25);
                                                                                         span {
                                                                                           min-width: 0;
+                                                                                          height: 18px;
                                                                                           color: $fg;
                                                                                           font-size: 16px;
                                                                                           font-family: Manrope-Medium;
@@ -1122,15 +1121,16 @@ onBeforeUnmount(() => {
                                                                                       .theme-palette {
                                                                                         display: flex;
                                                                                         flex-wrap: wrap;
-                                                                                        max-width: 300px;
+                                                                                        margin: 20px 0;
+                                                                                        max-width: 250px;
                                                                                         gap: 10px;
                                                                                       }
                                                                                       .theme-option {
                                                                                         display: flex;
                                                                                         align-items: center;
                                                                                         justify-content: center;
-                                                                                        width: 50px;
-                                                                                        height: 50px;
+                                                                                        width: 40px;
+                                                                                        height: 40px;
                                                                                         border: 2px solid transparent;
                                                                                         border-radius: 999px;
                                                                                         background-color: var(--user-theme-bg, $graphite);
@@ -1485,6 +1485,7 @@ onBeforeUnmount(() => {
                                                                                                     height: 18px;
                                                                                                   }
                                                                                                   .theme-palette {
+                                                                                                    margin: 10px 0;
                                                                                                     max-width: 200px;
                                                                                                   }
                                                                                                   .theme-option {
