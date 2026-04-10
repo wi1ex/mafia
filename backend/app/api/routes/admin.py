@@ -138,6 +138,7 @@ from ..utils import (
     force_leave_user_from_rooms,
     is_protected_admin,
     ensure_admin_target_allowed,
+    ensure_admin_target_not_deleted,
     emit_rooms_upsert,
     get_room_params_or_404,
 )
@@ -1271,6 +1272,7 @@ async def update_user_role(user_id: int, payload: AdminUserRoleIn, ident: Identi
         raise HTTPException(status_code=404, detail="user_not_found")
 
     ensure_admin_target_allowed(user)
+    ensure_admin_target_not_deleted(user)
     prev_role = user.role
     if prev_role == "admin" or payload.role == "admin":
         raise HTTPException(status_code=403, detail="admin_role_locked")
@@ -1358,6 +1360,7 @@ async def reset_user_nickname(user_id: int, ident: Identity = Depends(get_identi
         raise HTTPException(status_code=404, detail="user_not_found")
 
     ensure_admin_target_allowed(user)
+    ensure_admin_target_not_deleted(user)
     uid = int(user.id)
     next_username = f"user_{uid}"
     if str(user.username) == next_username:
@@ -1428,6 +1431,7 @@ async def unverify_user(user_id: int, ident: Identity = Depends(get_identity), s
         raise HTTPException(status_code=404, detail="user_not_found")
 
     ensure_admin_target_allowed(user)
+    ensure_admin_target_not_deleted(user)
     uid = cast(int, user.id)
     prev_tg = user.telegram_id
     if prev_tg is None:
@@ -1484,6 +1488,7 @@ async def clear_user_password(user_id: int, ident: Identity = Depends(get_identi
         raise HTTPException(status_code=404, detail="user_not_found")
 
     ensure_admin_target_allowed(user)
+    ensure_admin_target_not_deleted(user)
     uid = cast(int, user.id)
     had_password = bool(user.password_hash)
     user.password_hash = hash_password("12345678")
@@ -1537,6 +1542,7 @@ async def apply_user_timeout(user_id: int, payload: AdminSanctionTimedIn, ident:
         raise HTTPException(status_code=404, detail="user_not_found")
 
     ensure_admin_target_allowed(user)
+    ensure_admin_target_not_deleted(user)
     uid = cast(int, user.id)
     active = await fetch_active_sanction(session, uid, SANCTION_TIMEOUT)
     if active:
@@ -1629,6 +1635,7 @@ async def revoke_user_timeout(user_id: int, ident: Identity = Depends(get_identi
         raise HTTPException(status_code=404, detail="user_not_found")
 
     ensure_admin_target_allowed(user)
+    ensure_admin_target_not_deleted(user)
     uid = cast(int, user.id)
     active = await fetch_active_sanction(session, uid, SANCTION_TIMEOUT)
     if not active:
@@ -1703,6 +1710,7 @@ async def apply_user_ban(user_id: int, payload: AdminSanctionBanIn, ident: Ident
         raise HTTPException(status_code=404, detail="user_not_found")
 
     ensure_admin_target_allowed(user)
+    ensure_admin_target_not_deleted(user)
     uid = cast(int, user.id)
     active = await fetch_active_sanction(session, uid, SANCTION_BAN)
     if active:
@@ -1784,6 +1792,7 @@ async def revoke_user_ban(user_id: int, ident: Identity = Depends(get_identity),
         raise HTTPException(status_code=404, detail="user_not_found")
 
     ensure_admin_target_allowed(user)
+    ensure_admin_target_not_deleted(user)
     uid = cast(int, user.id)
     active = await fetch_active_sanction(session, uid, SANCTION_BAN)
     if not active:
@@ -1852,6 +1861,7 @@ async def apply_user_suspend(user_id: int, payload: AdminSanctionTimedIn, ident:
         raise HTTPException(status_code=404, detail="user_not_found")
 
     ensure_admin_target_allowed(user)
+    ensure_admin_target_not_deleted(user)
     uid = cast(int, user.id)
     active = await fetch_active_sanction(session, uid, SANCTION_SUSPEND)
     if active:
@@ -1957,6 +1967,7 @@ async def revoke_user_suspend(user_id: int, ident: Identity = Depends(get_identi
         raise HTTPException(status_code=404, detail="user_not_found")
 
     ensure_admin_target_allowed(user)
+    ensure_admin_target_not_deleted(user)
     uid = cast(int, user.id)
     active = await fetch_active_sanction(session, uid, SANCTION_SUSPEND)
     if not active:

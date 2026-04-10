@@ -119,6 +119,7 @@ __all__ = [
     "ensure_profile_changes_allowed",
     "is_protected_admin",
     "ensure_admin_target_allowed",
+    "ensure_admin_target_not_deleted",
     "ensure_moderation_target_allowed",
     "get_moderation_target_user",
     "set_user_deleted",
@@ -1250,6 +1251,11 @@ def is_protected_admin(user_id: int | str | None) -> bool:
 def ensure_admin_target_allowed(user: User) -> None:
     if is_protected_admin(getattr(user, "id", 0)):
         raise HTTPException(status_code=403, detail="protected_user")
+
+
+def ensure_admin_target_not_deleted(user: User) -> None:
+    if getattr(user, "deleted_at", None) is not None:
+        raise HTTPException(status_code=403, detail="user_deleted")
 
 
 def ensure_moderation_target_allowed(user: User) -> None:

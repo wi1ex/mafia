@@ -749,7 +749,7 @@
                     </div>
                   </td>
                   <td>
-                    <button class="btn" :class="row.role === 'moder' ? 'dark' : 'danger'" :disabled="isUserActionsLocked(row) || usersRoleBusy[row.id] || row.role === 'admin'" @click="toggleUserRole(row)">
+                    <button class="btn" :class="row.role === 'moder' ? 'dark' : 'danger'" :disabled="isDeletedUserActionsLocked(row) || usersRoleBusy[row.id] || row.role === 'admin'" @click="toggleUserRole(row)">
                       <img class="btn-img" :src="row.role === 'moder' ? iconClose : iconJudge" alt="" />
                     </button>
                   </td>
@@ -759,32 +759,32 @@
                     </button>
                   </td>
                   <td>
-                    <button class="btn" :class="row.telegram_verified ? 'danger' : 'dark'" :disabled="isUserActionsLocked(row) || !row.telegram_verified || usersVerifyBusy[row.id]" @click="clearUserVerification(row)">
+                    <button class="btn" :class="row.telegram_verified ? 'danger' : 'dark'" :disabled="isDeletedUserActionsLocked(row) || !row.telegram_verified || usersVerifyBusy[row.id]" @click="clearUserVerification(row)">
                       <img class="btn-img" :src="iconClose" alt="" />
                     </button>
                   </td>
                   <td>
-                    <button class="btn" :class="row.has_password ? 'danger' : 'dark'" :disabled="isUserActionsLocked(row) || usersPasswordBusy[row.id]" @click="clearUserPassword(row)">
+                    <button class="btn" :class="row.has_password ? 'danger' : 'dark'" :disabled="isDeletedUserActionsLocked(row) || usersPasswordBusy[row.id]" @click="clearUserPassword(row)">
                       <img class="btn-img" :src="iconClose" alt="" />
                     </button>
                   </td>
                   <td>
-                    <button class="btn" :class="isNicknameDefault(row) ? 'dark' : 'danger'" :disabled="isUserActionsLocked(row) || isNicknameDefault(row) || usersNicknameBusy[row.id]" @click="resetUserNickname(row)">
+                    <button class="btn" :class="isNicknameDefault(row) ? 'dark' : 'danger'" :disabled="isDeletedUserActionsLocked(row) || isNicknameDefault(row) || usersNicknameBusy[row.id]" @click="resetUserNickname(row)">
                       <img class="btn-img" :src="iconClose" alt="" />
                     </button>
                   </td>
                   <td>
-                    <button class="btn" :class="row.suspend_active ? 'dark' : 'danger'" :disabled="isUserActionsLocked(row) || isSanctionBusy(row.id, 'suspend')" @click="toggleSuspend(row)">
+                    <button class="btn" :class="row.suspend_active ? 'dark' : 'danger'" :disabled="isDeletedUserActionsLocked(row) || isSanctionBusy(row.id, 'suspend')" @click="toggleSuspend(row)">
                       <img class="btn-img" :src="row.suspend_active ? iconClose : iconJudge" alt="" />
                     </button>
                   </td>
                   <td>
-                    <button class="btn" :class="row.timeout_active ? 'dark' : 'danger'" :disabled="isUserActionsLocked(row) || isSanctionBusy(row.id, 'timeout')" @click="toggleTimeout(row)">
+                    <button class="btn" :class="row.timeout_active ? 'dark' : 'danger'" :disabled="isDeletedUserActionsLocked(row) || isSanctionBusy(row.id, 'timeout')" @click="toggleTimeout(row)">
                       <img class="btn-img" :src="row.timeout_active ? iconClose : iconJudge" alt="" />
                     </button>
                   </td>
                   <td>
-                    <button class="btn" :class="row.ban_active ? 'dark' : 'danger'" :disabled="isUserActionsLocked(row) || isSanctionBusy(row.id, 'ban')" @click="toggleBan(row)">
+                    <button class="btn" :class="row.ban_active ? 'dark' : 'danger'" :disabled="isDeletedUserActionsLocked(row) || isSanctionBusy(row.id, 'ban')" @click="toggleBan(row)">
                       <img class="btn-img" :src="row.ban_active ? iconClose : iconJudge" alt="" />
                     </button>
                   </td>
@@ -1491,6 +1491,15 @@ function isUserActionsLocked(row: UserRow | null | undefined): boolean {
   return Boolean(row.protected_user)
 }
 
+function isDeletedUser(row: UserRow | null | undefined): boolean {
+  if (!row) return false
+  return Boolean(row.deleted_at)
+}
+
+function isDeletedUserActionsLocked(row: UserRow | null | undefined): boolean {
+  return isUserActionsLocked(row) || isDeletedUser(row)
+}
+
 function isNicknameDefault(row: UserRow | null | undefined): boolean {
   if (!row) return false
   return String(row.username || '') === `user_${row.id}`
@@ -1940,7 +1949,7 @@ function prevUsers(): void {
 }
 
 async function toggleUserRole(row: UserRow): Promise<void> {
-  if (isUserActionsLocked(row)) return
+  if (isDeletedUserActionsLocked(row)) return
   if (String(row.role || 'user') === 'admin') return
   if (usersRoleBusy[row.id]) return
   const isModer = row.role === 'moder'
@@ -1991,7 +2000,7 @@ async function toggleDeleteAccount(row: UserRow): Promise<void> {
 }
 
 async function clearUserVerification(row: UserRow): Promise<void> {
-  if (isUserActionsLocked(row)) return
+  if (isDeletedUserActionsLocked(row)) return
   if (!row.telegram_verified || usersVerifyBusy[row.id]) return
   const userLabel = row.username ? `${row.username}` : `#${row.id}`
   const ok = await confirmDialog({
@@ -2013,7 +2022,7 @@ async function clearUserVerification(row: UserRow): Promise<void> {
 }
 
 async function clearUserPassword(row: UserRow): Promise<void> {
-  if (isUserActionsLocked(row)) return
+  if (isDeletedUserActionsLocked(row)) return
   if (usersPasswordBusy[row.id]) return
   const userLabel = row.username ? `${row.username}` : `#${row.id}`
   const ok = await confirmDialog({
@@ -2035,7 +2044,7 @@ async function clearUserPassword(row: UserRow): Promise<void> {
 }
 
 async function resetUserNickname(row: UserRow): Promise<void> {
-  if (isUserActionsLocked(row)) return
+  if (isDeletedUserActionsLocked(row)) return
   if (isNicknameDefault(row)) return
   if (usersNicknameBusy[row.id]) return
   const userLabel = row.username ? `${row.username}` : `#${row.id}`
@@ -2071,7 +2080,7 @@ function resetSanctionForm(): void {
 }
 
 function openSanction(row: UserRow, kind: 'timeout' | 'ban' | 'suspend'): void {
-  if (isUserActionsLocked(row)) return
+  if (isDeletedUserActionsLocked(row)) return
   sanctionTarget.value = row
   sanctionKind.value = kind
   resetSanctionForm()
@@ -2084,7 +2093,7 @@ function setSanctionBusy(userId: number, kind: 'timeout' | 'ban' | 'suspend', va
 
 async function saveSanction(): Promise<void> {
   const target = sanctionTarget.value
-  if (!target || isUserActionsLocked(target) || sanctionSaving.value || !sanctionCanSave.value) return
+  if (!target || isDeletedUserActionsLocked(target) || sanctionSaving.value || !sanctionCanSave.value) return
   sanctionSaving.value = true
   const kind = sanctionKind.value
   const url = kind === 'ban'
@@ -2122,7 +2131,7 @@ async function saveSanction(): Promise<void> {
 }
 
 async function revokeSanction(row: UserRow, kind: 'timeout' | 'ban' | 'suspend'): Promise<void> {
-  if (isUserActionsLocked(row)) return
+  if (isDeletedUserActionsLocked(row)) return
   if (isSanctionBusy(row.id, kind)) return
   const userLabel = row.username ? `${row.username}` : `#${row.id}`
   const title = kind === 'ban' ? 'Разбанить' : kind === 'timeout' ? 'Снять таймаут' : 'Снять ограничение'
