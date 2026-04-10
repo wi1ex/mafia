@@ -1,16 +1,16 @@
 export const PROFILE_THEME_DEFAULT = 'violet' as const
 
 export const PROFILE_THEME_OPTIONS = [
-  { key: 'violet', title: 'Фиолетовый', bg: '#6f4df6', hover: '#7f62ff', shadow: 'rgba(111, 77, 246, 0.4)' },
-  { key: 'plum', title: 'Сливовый', bg: '#8a3f8f', hover: '#9d53a2', shadow: 'rgba(138, 63, 143, 0.4)' },
-  { key: 'ruby', title: 'Рубиновый', bg: '#b13a5b', hover: '#c85071', shadow: 'rgba(177, 58, 91, 0.4)' },
-  { key: 'coral', title: 'Коралловый', bg: '#d45b4d', hover: '#e66f61', shadow: 'rgba(212, 91, 77, 0.4)' },
-  { key: 'amber', title: 'Янтарный', bg: '#b97a22', hover: '#cf9137', shadow: 'rgba(185, 122, 34, 0.4)' },
-  { key: 'olive', title: 'Оливковый', bg: '#74823a', hover: '#86954d', shadow: 'rgba(116, 130, 58, 0.4)' },
-  { key: 'emerald', title: 'Изумрудный', bg: '#2f8a67', hover: '#43a17d', shadow: 'rgba(47, 138, 103, 0.4)' },
-  { key: 'teal', title: 'Бирюзовый', bg: '#2f7e84', hover: '#439499', shadow: 'rgba(47, 126, 132, 0.4)' },
-  { key: 'azure', title: 'Лазурный', bg: '#2f73b4', hover: '#4788c7', shadow: 'rgba(47, 115, 180, 0.4)' },
-  { key: 'cobalt', title: 'Кобальтовый', bg: '#3f56b4', hover: '#556bca', shadow: 'rgba(63, 86, 180, 0.4)' },
+  { key: 'violet', title: 'Фиолетовый', bg: '#6641ec', hover: '#7554f0', shadow: 'rgba(102, 65, 236, 0.4)' },
+  { key: 'mulberry', title: 'Тутовый', bg: '#8a315d', hover: '#9d4471', shadow: 'rgba(138, 49, 93, 0.4)' },
+  { key: 'garnet', title: 'Гранатовый', bg: '#962f3f', hover: '#aa4253', shadow: 'rgba(150, 47, 63, 0.4)' },
+  { key: 'terracotta', title: 'Терракотовый', bg: '#9d4b36', hover: '#af5f49', shadow: 'rgba(157, 75, 54, 0.4)' },
+  { key: 'amber', title: 'Янтарный', bg: '#986319', hover: '#98651b', shadow: 'rgba(152, 99, 25, 0.4)' },
+  { key: 'olive', title: 'Оливковый', bg: '#65722f', hover: '#697936', shadow: 'rgba(101, 114, 47, 0.4)' },
+  { key: 'emerald', title: 'Изумрудный', bg: '#287655', hover: '#30795a', shadow: 'rgba(40, 118, 85, 0.4)' },
+  { key: 'lagoon', title: 'Лагунный', bg: '#1f6376', hover: '#34798c', shadow: 'rgba(31, 99, 118, 0.4)' },
+  { key: 'azure', title: 'Лазурный', bg: '#2c679f', hover: '#3972aa', shadow: 'rgba(44, 103, 159, 0.4)' },
+  { key: 'midnight', title: 'Полуночный', bg: '#3a477e', hover: '#4d5b95', shadow: 'rgba(58, 71, 126, 0.4)' },
 ] as const
 
 export type ProfileThemeColor = typeof PROFILE_THEME_OPTIONS[number]['key']

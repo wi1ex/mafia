@@ -10,15 +10,15 @@ from ..models.user import User
 
 PROFILE_THEME_COLORS: tuple[str, ...] = (
     "violet",
-    "plum",
-    "ruby",
-    "coral",
+    "mulberry",
+    "garnet",
+    "terracotta",
     "amber",
     "olive",
     "emerald",
-    "teal",
+    "lagoon",
     "azure",
-    "cobalt",
+    "midnight",
 )
 PROFILE_THEME_DEFAULT = "violet"
 

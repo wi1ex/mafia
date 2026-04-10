@@ -207,7 +207,7 @@ function requestClose(): void {
       .user-cell {
         display: inline-flex;
         align-items: center;
-        gap: 10px;
+        gap: 5px;
         span {
           font-family: Manrope-Medium;
         }
@@ -222,6 +222,7 @@ function requestClose(): void {
     .modal-actions {
       display: flex;
       justify-content: flex-end;
+      margin-top: 10px;
       gap: 10px;
     }
   }

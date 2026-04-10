@@ -65,22 +65,13 @@
                   <img class="theme-preview-avatar" v-minio-img="{ key: me.avatar_name ? `avatars/${me.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
                   <span>{{ me.username || 'User' }}</span>
                 </div>
-                <div class="theme-preview-menu" :style="themePreviewStyle" aria-hidden="true">
-                  <img class="theme-preview-avatar" v-minio-img="{ key: me.avatar_name ? `avatars/${me.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
-                  <span>{{ me.username || 'User' }}</span>
-                  <span class="theme-preview-arrow">▾</span>
-                </div>
               </div>
 
               <div class="theme-palette">
                 <button v-for="item in PROFILE_THEME_OPTIONS" :key="item.key" class="theme-option" type="button" :class="{ active: selectedProfileThemeColor === item.key }"
                         :style="themeOptionStyle(item.key)" :disabled="!canEditProfileTheme || themeSaveBusy || isBanned" @click="pickProfileTheme(item.key)">
-                  <span>{{ item.title }}</span>
                 </button>
               </div>
-
-              <p v-if="subscriptionStatusText" class="hint text">{{ subscriptionStatusText }}</p>
-              <p v-if="!canEditProfileTheme" class="hint">Выбор цвета доступен только пользователям с активной подпиской. После выдачи подписки по умолчанию применяется фиолетовый цвет.</p>
 
               <button class="btn confirm" @click="saveProfileTheme" :disabled="themeSaveBusy || isBanned || !canEditProfileTheme || !profileThemeDirty">
                 <img class="btn-img" :src="iconSave" alt="save" />
@@ -404,22 +395,9 @@ const canEditProfileTheme = computed(() => {
   if (subscriptionUntilMs.value > 0) return subscriptionUntilMs.value > userNow.value
   return Boolean(me.subscription_active)
 })
-const subscriptionExpired = computed(() => subscriptionUntilMs.value > 0 && subscriptionUntilMs.value <= userNow.value)
 const currentProfileThemeColor = computed(() => resolveProfileThemeColor(canEditProfileTheme.value ? me.profile_theme_color : null))
 const profileThemeDirty = computed(() => canEditProfileTheme.value && selectedProfileThemeColor.value !== currentProfileThemeColor.value)
 const themePreviewStyle = computed(() => buildProfileThemeStyle(canEditProfileTheme.value ? selectedProfileThemeColor.value : null))
-const subscriptionStatusText = computed(() => {
-  if (canEditProfileTheme.value && me.subscription_started_at && me.subscription_until) {
-    return `Подписка активна: ${formatLocalDateTime(me.subscription_started_at)} - ${formatLocalDateTime(me.subscription_until)}`
-  }
-  if (canEditProfileTheme.value && me.subscription_until) {
-    return `Подписка активна до ${formatLocalDateTime(me.subscription_until)}`
-  }
-  if (subscriptionExpired.value && me.subscription_until) {
-    return `Подписка истекла ${formatLocalDateTime(me.subscription_until)}`
-  }
-  return ''
-})
 const registrationDateLabel = computed(() => {
   const raw = me.registered_at
   if (!raw) return '-'
@@ -1115,8 +1093,7 @@ onBeforeUnmount(() => {
                                                                                         display: grid;
                                                                                         gap: 10px;
                                                                                       }
-                                                                                      .theme-preview-card,
-                                                                                      .theme-preview-menu {
+                                                                                      .theme-preview-card {
                                                                                         display: flex;
                                                                                         align-items: center;
                                                                                         padding: 0 12px;
@@ -1136,12 +1113,6 @@ onBeforeUnmount(() => {
                                                                                           text-overflow: ellipsis;
                                                                                         }
                                                                                       }
-                                                                                      .theme-preview-menu {
-                                                                                        .theme-preview-arrow {
-                                                                                          margin-left: auto;
-                                                                                          font-size: 14px;
-                                                                                        }
-                                                                                      }
                                                                                       .theme-preview-avatar {
                                                                                         width: 24px;
                                                                                         height: 24px;
@@ -1149,18 +1120,19 @@ onBeforeUnmount(() => {
                                                                                         object-fit: cover;
                                                                                       }
                                                                                       .theme-palette {
-                                                                                        display: grid;
-                                                                                        grid-template-columns: 1fr 1fr;
+                                                                                        display: flex;
+                                                                                        flex-wrap: wrap;
+                                                                                        max-width: 300px;
                                                                                         gap: 10px;
                                                                                       }
                                                                                       .theme-option {
                                                                                         display: flex;
                                                                                         align-items: center;
                                                                                         justify-content: center;
-                                                                                        padding: 0 12px;
-                                                                                        min-height: 42px;
+                                                                                        width: 50px;
+                                                                                        height: 50px;
                                                                                         border: 2px solid transparent;
-                                                                                        border-radius: 5px;
+                                                                                        border-radius: 999px;
                                                                                         background-color: var(--user-theme-bg, $graphite);
                                                                                         cursor: pointer;
                                                                                         transition: background-color 0.25s ease-in-out, border-color 0.25s ease-in-out, box-shadow 0.25s ease-in-out;
@@ -1173,12 +1145,6 @@ onBeforeUnmount(() => {
                                                                                         }
                                                                                         &:disabled {
                                                                                           cursor: not-allowed;
-                                                                                        }
-                                                                                        span {
-                                                                                          color: $fg;
-                                                                                          font-size: 14px;
-                                                                                          font-family: Manrope-Medium;
-                                                                                          line-height: 1;
                                                                                         }
                                                                                       }
                                                                                     }
@@ -1507,8 +1473,7 @@ onBeforeUnmount(() => {
             }
           }
                                                                                                 .theme-row {
-                                                                                                  .theme-preview-card,
-                                                                                                  .theme-preview-menu {
+                                                                                                  .theme-preview-card {
                                                                                                     min-height: 34px;
                                                                                                     padding: 0 10px;
                                                                                                     span {
@@ -1519,11 +1484,12 @@ onBeforeUnmount(() => {
                                                                                                     width: 18px;
                                                                                                     height: 18px;
                                                                                                   }
+                                                                                                  .theme-palette {
+                                                                                                    max-width: 200px;
+                                                                                                  }
                                                                                                   .theme-option {
-                                                                                                    min-height: 32px;
-                                                                                                    span {
-                                                                                                      font-size: 12px;
-                                                                                                    }
+                                                                                                    width: 30px;
+                                                                                                    height: 30px;
                                                                                                   }
                                                                                                 }
           &.sanctions-block {
