@@ -4,7 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.settings import settings
 from ..models.user import User
-from ..services.user_cache import write_user_profile_cache
+from ..services.user_cache import refresh_user_profile_cache
 
 log = structlog.get_logger()
 
@@ -67,11 +67,6 @@ async def assert_protected_admin_invariants(session: AsyncSession) -> None:
             f"Unexpected admin users found: {unexpected_admin_ids}; only {protected_uid} is allowed to have role=admin"
         )
 
-    await write_user_profile_cache(
-        protected_uid,
-        username=str(protected_user.username),
-        role="admin",
-        avatar_name=protected_user.avatar_name,
-    )
+    await refresh_user_profile_cache(session, protected_uid)
 
     log.info("security.protected_admin.audit_ok", protected_admin_user_id=protected_uid)

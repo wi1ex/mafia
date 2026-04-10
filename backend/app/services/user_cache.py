@@ -1,20 +1,24 @@
 from __future__ import annotations
 import structlog
+from datetime import datetime, timezone
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Any, Iterable, TypedDict
 from ..core.clients import get_redis
 from ..models.user import User
+from ..services.profile_theme import resolve_profile_theme_state, resolve_profile_theme_states
 
 log = structlog.get_logger()
 
-PROFILE_FIELDS: tuple[str, ...] = ("username", "avatar_name", "role")
+PROFILE_FIELDS: tuple[str, ...] = ("username", "avatar_name", "role", "theme_color", "theme_until")
 
 
 class UserProfile(TypedDict):
     username: str | None
     avatar_name: str | None
     role: str | None
+    theme_color: str | None
+    theme_until: str | None
 
 
 def user_profile_cache_key(user_id: int) -> str:
@@ -49,10 +53,14 @@ def _profile_from_values(values: list[Any] | tuple[Any, ...]) -> UserProfile:
     username = _value_or_none(values[0] if len(values) > 0 else None)
     avatar_name = _value_or_none(values[1] if len(values) > 1 else None)
     role = _value_or_none(values[2] if len(values) > 2 else None)
+    theme_color = _value_or_none(values[3] if len(values) > 3 else None)
+    theme_until = _value_or_none(values[4] if len(values) > 4 else None)
     return {
         "username": username,
         "avatar_name": avatar_name,
         "role": role,
+        "theme_color": theme_color,
+        "theme_until": theme_until,
     }
 
 
@@ -61,6 +69,41 @@ def _profile_ready(profile: UserProfile | None) -> bool:
         return False
 
     return bool(profile.get("username")) and bool(profile.get("role"))
+
+
+def _parse_datetime_or_none(raw: Any) -> datetime | None:
+    value = _value_or_none(raw)
+    if value is None:
+        return None
+
+    try:
+        normalized = value[:-1] + "+00:00" if value.endswith("Z") else value
+        parsed = datetime.fromisoformat(normalized)
+    except Exception:
+        return None
+
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed
+
+
+def _normalize_theme_state(profile: UserProfile) -> UserProfile:
+    theme_color = _value_or_none(profile.get("theme_color"))
+    theme_until = _value_or_none(profile.get("theme_until"))
+    if theme_color is None or theme_until is None:
+        profile["theme_color"] = None
+        profile["theme_until"] = None
+        return profile
+
+    expires_at = _parse_datetime_or_none(theme_until)
+    if expires_at is None or expires_at <= datetime.now(timezone.utc):
+        profile["theme_color"] = None
+        profile["theme_until"] = None
+        return profile
+
+    profile["theme_color"] = theme_color
+    profile["theme_until"] = theme_until
+    return profile
 
 
 def _avatar_object_key(avatar_name: str) -> str:
@@ -86,11 +129,11 @@ async def read_user_profile_cache(user_id: int, *, redis_client=None) -> UserPro
     if not isinstance(values, (list, tuple)):
         return None
 
-    profile = _profile_from_values(values)
+    profile = _normalize_theme_state(_profile_from_values(values))
     return profile if _profile_ready(profile) else None
 
 
-async def write_user_profile_cache(user_id: int, *, username: str, role: str, avatar_name: str | None, redis_client=None) -> None:
+async def write_user_profile_cache(user_id: int, *, username: str, role: str, avatar_name: str | None, theme_color: str | None, theme_until: datetime | None, redis_client=None) -> None:
     r = redis_client or get_redis()
     key = user_profile_cache_key(user_id)
     mapping = {
@@ -98,6 +141,8 @@ async def write_user_profile_cache(user_id: int, *, username: str, role: str, av
         "role": str(role),
     }
     avatar = _value_or_none(avatar_name)
+    color = _value_or_none(theme_color)
+    expires_at = theme_until.isoformat() if isinstance(theme_until, datetime) else None
 
     try:
         async with r.pipeline() as p:
@@ -106,6 +151,10 @@ async def write_user_profile_cache(user_id: int, *, username: str, role: str, av
                 await p.hset(key, mapping={"avatar_name": avatar})
             else:
                 await p.hdel(key, "avatar_name")
+            if color is not None and expires_at:
+                await p.hset(key, mapping={"theme_color": color, "theme_until": expires_at})
+            else:
+                await p.hdel(key, "theme_color", "theme_until")
             await p.execute()
     except Exception:
         log.warning("user_cache.write_failed", user_id=int(user_id))
@@ -143,10 +192,13 @@ async def refresh_user_profile_cache(session: AsyncSession, user_id: int, *, red
         await delete_user_profile_cache(uid, redis_client=redis_client)
         return None
 
+    theme_state = await resolve_profile_theme_state(session, uid)
     profile: UserProfile = {
         "username": _value_or_none(rec[0]),
         "avatar_name": _value_or_none(rec[1]),
         "role": _value_or_none(rec[2]),
+        "theme_color": _value_or_none(theme_state.color),
+        "theme_until": theme_state.subscription_until.isoformat() if theme_state.subscription_until else None,
     }
     if not _profile_ready(profile):
         await delete_user_profile_cache(uid, redis_client=redis_client)
@@ -157,6 +209,8 @@ async def refresh_user_profile_cache(session: AsyncSession, user_id: int, *, red
         username=profile["username"] or "",
         role=profile["role"] or "user",
         avatar_name=profile["avatar_name"],
+        theme_color=profile["theme_color"],
+        theme_until=theme_state.subscription_until,
         redis_client=redis_client,
     )
     return profile
@@ -192,7 +246,7 @@ async def get_user_profiles_cached(session: AsyncSession, user_ids: Iterable[int
         if not isinstance(raw, (list, tuple)):
             missed.append(uid)
             continue
-        profile = _profile_from_values(raw)
+        profile = _normalize_theme_state(_profile_from_values(raw))
         if _profile_ready(profile):
             out[uid] = profile
         else:
@@ -201,6 +255,7 @@ async def get_user_profiles_cached(session: AsyncSession, user_ids: Iterable[int
     if not missed:
         return out
 
+    theme_states = await resolve_profile_theme_states(session, missed)
     rows = await session.execute(select(User.id, User.username, User.avatar_name, User.role).where(User.id.in_(missed)))
     db_map: dict[int, UserProfile] = {}
     for uid_raw, username, avatar_name, role in rows.all():
@@ -208,10 +263,17 @@ async def get_user_profiles_cached(session: AsyncSession, user_ids: Iterable[int
             uid = int(uid_raw)
         except Exception:
             continue
+        theme_state = theme_states.get(uid)
         profile: UserProfile = {
             "username": _value_or_none(username),
             "avatar_name": _value_or_none(avatar_name),
             "role": _value_or_none(role),
+            "theme_color": _value_or_none(theme_state.color if theme_state else None),
+            "theme_until": (
+                theme_state.subscription_until.isoformat()
+                if theme_state and theme_state.subscription_until
+                else None
+            ),
         }
         if _profile_ready(profile):
             db_map[uid] = profile
@@ -235,6 +297,16 @@ async def get_user_profiles_cached(session: AsyncSession, user_ids: Iterable[int
                     await p.hset(user_profile_cache_key(uid), mapping={"avatar_name": profile["avatar_name"]})
                 else:
                     await p.hdel(user_profile_cache_key(uid), "avatar_name")
+                if profile["theme_color"] is not None and profile["theme_until"] is not None:
+                    await p.hset(
+                        user_profile_cache_key(uid),
+                        mapping={
+                            "theme_color": profile["theme_color"],
+                            "theme_until": profile["theme_until"],
+                        },
+                    )
+                else:
+                    await p.hdel(user_profile_cache_key(uid), "theme_color", "theme_until")
             await p.execute()
     except Exception:
         log.warning("user_cache.batch_write_failed", users=len(missed))

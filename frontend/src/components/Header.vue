@@ -74,7 +74,7 @@
       </div>
 
       <div class="user-menu" ref="userMenuEl">
-        <button class="btn" type="button" @click.stop="onToggleUserMenu" :aria-expanded="um_open" aria-haspopup="true">
+        <button class="btn" type="button" :style="userMenuButtonStyle" @click.stop="onToggleUserMenu" :aria-expanded="um_open" aria-haspopup="true">
           <img v-minio-img="{ key: user.user?.avatar_name ? `avatars/${user.user.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="Аватар" />
           <span aria-live="polite">{{ user.user?.username || 'User' }}</span>
           <img class="arrow" :src="iconArrowDown" alt="arrow" :style="{ transform: um_open ? 'rotate(180deg)' : 'none'}" />
@@ -136,6 +136,7 @@ import iconLogout from '@/assets/svg/leave.svg'
 import iconProfile from "@/assets/svg/profile.svg"
 import iconArrowDown from '@/assets/svg/arrowDown.svg'
 import iconJudge from '@/assets/svg/judge.svg'
+import { buildProfileThemeStyle } from '@/constants/profileThemes'
 
 const auth = useAuthStore()
 const user = useUserStore()
@@ -158,6 +159,7 @@ const authMode = ref<'login' | 'register'>('login')
 const BUILD = (import.meta.env.VITE_BUILD_ID as string || '').trim() || 'BUILD'
 const botName = (import.meta.env.VITE_TG_BOT_NAME as string || '').trim()
 const botLink = botName ? `https://t.me/${botName}` : 'https://t.me'
+const userMenuButtonStyle = computed(() => buildProfileThemeStyle(user.activeProfileThemeColor))
 
 type SanctionBanner = { kind: 'ban' | 'timeout' | 'suspend'; text: string }
 
@@ -342,12 +344,12 @@ function openAuth(mode: 'login' | 'register') {
     height: 40px;
     border: none;
     border-radius: 5px;
-    background-color: $graphite;
+    background-color: var(--user-theme-bg, $graphite);
     text-decoration: none;
     cursor: pointer;
     transition: background-color 0.25s ease-in-out;
     &:hover {
-      background-color: $lead;
+      background-color: var(--user-theme-bg-hover, $lead);
     }
     span {
       color: $fg;

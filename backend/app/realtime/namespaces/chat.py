@@ -46,7 +46,7 @@ async def connect(sid, environ, auth):
         log.warning("chat.connect.denied", sid=sid)
         return False
 
-    uid, role, username, avatar_name = vr
+    uid, role, username, avatar_name, _theme_color = vr
     await sio.save_session(
         sid,
         {

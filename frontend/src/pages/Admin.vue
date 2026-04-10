@@ -20,6 +20,9 @@
         <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'users' }" :aria-selected="activeTab === 'users'" @click="activeTab = 'users'">
           Пользователи
         </button>
+        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'subscriptions' }" :aria-selected="activeTab === 'subscriptions'" @click="activeTab = 'subscriptions'">
+          Подписка
+        </button>
       </nav>
       <router-link class="btn nav" :to="{ name: 'home' }" aria-label="На главную">На главную</router-link>
     </header>
@@ -675,6 +678,7 @@
                       <span class="th-sort-mark" aria-hidden="true">▼</span>
                     </button>
                   </th>
+                  <th>Подписка</th>
                   <th>Модерка</th>
                   <th>Аккаунт</th>
                   <th>Вериф.</th>
@@ -749,6 +753,17 @@
                     </div>
                   </td>
                   <td>
+                    <button v-if="subscriptionsReady && userSubscriptionEntry(row.id)" class="btn dark" :disabled="isDeletedUserActionsLocked(row)" @click="openSubscriptionsTab">
+                      Активна
+                    </button>
+                    <button v-else-if="subscriptionsReady" class="btn confirm" :disabled="isDeletedUserActionsLocked(row)" @click="openGrantSubscription(row)">
+                      Выдать
+                    </button>
+                    <button v-else class="btn dark" disabled>
+                      ...
+                    </button>
+                  </td>
+                  <td>
                     <button class="btn" :class="row.role === 'moder' ? 'dark' : 'danger'" :disabled="isDeletedUserActionsLocked(row) || usersRoleBusy[row.id] || row.role === 'admin'" @click="toggleUserRole(row)">
                       <img class="btn-img" :src="row.role === 'moder' ? iconClose : iconJudge" alt="" />
                     </button>
@@ -790,7 +805,7 @@
                   </td>
                 </tr>
                 <tr v-if="users.length === 0">
-                  <td colspan="26" class="muted">Нет данных</td>
+                  <td colspan="28" class="muted">Нет данных</td>
                 </tr>
               </tbody>
             </table>
@@ -799,6 +814,56 @@
               <span>{{ usersPage }} / {{ usersPages }}</span>
               <button class="btn" :disabled="usersPage >= usersPages" @click="nextUsers">Вперед</button>
             </div>
+          </div>
+        </div>
+
+        <div v-else-if="activeTab === 'subscriptions'" class="subscriptions-tab">
+          <div class="block subscription-table-block">
+            <h3>Активные подписки</h3>
+            <p class="muted subscription-summary">Новая подписка выдаётся во вкладке Пользователи</p>
+            <div v-if="subscriptionsLoading" class="loading">Загрузка...</div>
+            <table v-else class="table">
+              <thead>
+                <tr>
+                  <th>Пользователь</th>
+                  <th>С</th>
+                  <th>До</th>
+                  <th>Цвет</th>
+                  <th>Действие</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="row in subscriptions" :key="row.user_id">
+                  <td>
+                    <div class="user-cell">
+                      <img class="user-avatar" v-minio-img="{ key: row.avatar_name ? `avatars/${row.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
+                      <span>{{ row.username || `user${row.user_id}` }}</span>
+                    </div>
+                  </td>
+                  <td>{{ formatLocalDateTime(row.starts_at) }}</td>
+                  <td>{{ formatLocalDateTime(row.ends_at) }}</td>
+                  <td>
+                    <span class="subscription-theme-chip" :style="subscriptionThemeStyle(row.profile_theme_color)">
+                      {{ subscriptionThemeTitle(row.profile_theme_color) }}
+                    </span>
+                  </td>
+                  <td>
+                    <div class="subscription-actions">
+                      <button class="btn dark" :disabled="subscriptionSaving" @click="openExtendSubscription(row)">
+                        Продлить
+                      </button>
+                      <button class="btn danger" :disabled="subscriptionRemoving[row.user_id]" @click="removeSubscription(row)">
+                        <img class="btn-img" :src="iconDelete" alt="delete" />
+                        Снять
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+                <tr v-if="subscriptions.length === 0">
+                  <td colspan="5" class="muted">Нет активных подписок</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -823,6 +888,42 @@
       :reasons="sanctionReasons"
       @save="saveSanction"
     />
+    <div v-if="subscriptionModalOpen && subscriptionTarget" class="subscription-modal-overlay" @click.self="closeSubscriptionModal">
+      <div class="subscription-modal">
+        <header class="subscription-modal-head">
+          <div class="subscription-modal-heading">
+            <span>{{ subscriptionModalMode === 'extend' ? 'Продлить подписку' : 'Выдать подписку' }}</span>
+            <small v-if="selectedSubscriptionEntry">Активна до {{ formatLocalDateTime(selectedSubscriptionEntry.ends_at) }}</small>
+          </div>
+          <button type="button" aria-label="Закрыть" :disabled="subscriptionSaving" @click="closeSubscriptionModal">
+            <img :src="iconClose" alt="close" />
+          </button>
+        </header>
+        <div class="subscription-modal-body">
+          <div class="subscription-selected">
+            <div class="user-cell">
+              <img class="user-avatar" v-minio-img="{ key: subscriptionTarget.avatar_name ? `avatars/${subscriptionTarget.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
+              <span>{{ subscriptionTarget.username || `user${subscriptionTarget.user_id}` }}</span>
+            </div>
+            <span class="subscription-note">ID {{ subscriptionTarget.user_id }}</span>
+          </div>
+          <div class="subscription-duration">
+            <UiInput id="subscription-modal-months" v-model.number="subscriptionForm.months" type="number" min="0" max="24" step="1" label="Месяцы" :disabled="subscriptionSaving" />
+            <UiInput id="subscription-modal-days" v-model.number="subscriptionForm.days" type="number" min="0" max="3650" step="1" label="Дни" :disabled="subscriptionSaving" />
+          </div>
+          <p class="muted subscription-modal-note">
+            {{ subscriptionModalMode === 'extend' ? 'Срок будет добавлен к текущему окончанию подписки.' : 'При первой выдаче подписки пользователь получает фиолетовый цвет профиля по умолчанию.' }}
+          </p>
+        </div>
+        <footer class="subscription-modal-actions">
+          <button class="btn dark" :disabled="subscriptionSaving" @click="closeSubscriptionModal">Отмена</button>
+          <button class="btn confirm" :disabled="subscriptionSaving || !subscriptionCanSave" @click="saveSubscription">
+            <img class="btn-img" :src="iconSave" alt="save" />
+            {{ subscriptionSaving ? '...' : (subscriptionModalMode === 'extend' ? 'Продлить' : 'Выдать') }}
+          </button>
+        </footer>
+      </div>
+    </div>
 
     <div v-if="userStatsOpen && userStatsTarget" class="user-stats-overlay">
       <div class="user-stats-modal">
@@ -861,6 +962,10 @@ import iconJudge from '@/assets/svg/judge.svg'
 import iconEdit from '@/assets/svg/edit.svg'
 import iconDelete from '@/assets/svg/delete.svg'
 import iconSave from '@/assets/svg/save.svg'
+import {
+  buildProfileThemeStyle,
+  getProfileThemeOption,
+} from '@/constants/profileThemes'
 
 const DATE_ONLY: Intl.DateTimeFormatOptions = {
   year: 'numeric',
@@ -1043,6 +1148,21 @@ type UserRow = {
   suspends: SanctionRow[]
 }
 
+type SubscriptionRow = {
+  user_id: number
+  username?: string | null
+  avatar_name?: string | null
+  starts_at: string
+  ends_at: string
+  profile_theme_color?: string | null
+}
+
+type SubscriptionTarget = {
+  user_id: number
+  username?: string | null
+  avatar_name?: string | null
+}
+
 type UsersSortBy =
   | 'role'
   | 'username'
@@ -1074,7 +1194,7 @@ type UpdateRow = {
 const route = useRoute()
 const router = useRouter()
 
-const TAB_KEYS = ['settings', 'updates', 'stats', 'logs', 'rooms', 'users'] as const
+const TAB_KEYS = ['settings', 'updates', 'stats', 'logs', 'rooms', 'users', 'subscriptions'] as const
 type TabKey = typeof TAB_KEYS[number]
 
 function normalizeTab(v: unknown): TabKey {
@@ -1090,6 +1210,7 @@ const logsLoading = ref(false)
 const roomsLoading = ref(false)
 const usersLoading = ref(false)
 const updatesLoading = ref(false)
+const subscriptionsLoading = ref(false)
 
 const site = reactive<SiteSettings>({
   registration_enabled: true,
@@ -1190,6 +1311,17 @@ const usersVerifyBusy = reactive<Record<number, boolean>>({})
 const usersPasswordBusy = reactive<Record<number, boolean>>({})
 const usersNicknameBusy = reactive<Record<number, boolean>>({})
 const usersSanctionBusy = reactive<Record<string, boolean>>({})
+const subscriptions = ref<SubscriptionRow[]>([])
+const subscriptionsReady = ref(false)
+const subscriptionModalOpen = ref(false)
+const subscriptionModalMode = ref<'grant' | 'extend'>('grant')
+const subscriptionTarget = ref<SubscriptionTarget | null>(null)
+const subscriptionSaving = ref(false)
+const subscriptionRemoving = reactive<Record<number, boolean>>({})
+const subscriptionForm = reactive({
+  months: 0,
+  days: 0,
+})
 const userStatsOpen = ref(false)
 const userStatsTarget = ref<UserRow | null>(null)
 const updates = ref<UpdateRow[]>([])
@@ -1369,6 +1501,20 @@ const isSettingsDirty = computed(() => isSiteDirty.value || isGameDirty.value)
 const logsPages = computed(() => Math.max(1, Math.ceil(logsTotal.value / logsLimit.value)))
 const roomsPages = computed(() => Math.max(1, Math.ceil(roomsTotal.value / roomsLimit.value)))
 const usersPages = computed(() => Math.max(1, Math.ceil(usersTotal.value / usersLimit.value)))
+const subscriptionsByUserId = computed(() => {
+  const mapped = new Map<number, SubscriptionRow>()
+  for (const item of subscriptions.value) mapped.set(item.user_id, item)
+  return mapped
+})
+const selectedSubscriptionEntry = computed(() => {
+  const selectedId = subscriptionTarget.value?.user_id
+  if (!selectedId) return null
+  return subscriptionsByUserId.value.get(selectedId) ?? null
+})
+const subscriptionCanSave = computed(() => {
+  const hasDuration = (Number(subscriptionForm.months) || 0) > 0 || (Number(subscriptionForm.days) || 0) > 0
+  return Boolean(subscriptionTarget.value && hasDuration)
+})
 
 function setUsersSort(sortBy: UsersSortBy): void {
   if (usersSortBy.value === sortBy) return
@@ -1542,6 +1688,65 @@ function formatRoomGameResult(result: string): string {
   if (result === 'black') return 'Победа мафии'
   if (result === 'draw') return 'Ничья'
   return result || '-'
+}
+
+function subscriptionThemeStyle(color: string | null | undefined): Record<string, string> {
+  return buildProfileThemeStyle(color)
+}
+
+function subscriptionThemeTitle(color: string | null | undefined): string {
+  return getProfileThemeOption(color)?.title || 'Без цвета'
+}
+
+function userSubscriptionEntry(userId: number): SubscriptionRow | null {
+  return subscriptionsByUserId.value.get(userId) ?? null
+}
+
+function resetSubscriptionForm(): void {
+  subscriptionForm.months = 0
+  subscriptionForm.days = 0
+}
+
+function clearSubscriptionModalState(): void {
+  subscriptionModalOpen.value = false
+  subscriptionTarget.value = null
+  resetSubscriptionForm()
+}
+
+function closeSubscriptionModal(): void {
+  if (subscriptionSaving.value) return
+  clearSubscriptionModalState()
+}
+
+function openSubscriptionsTab(): void {
+  activeTab.value = 'subscriptions'
+}
+
+function openGrantSubscription(row: UserRow): void {
+  if (isDeletedUserActionsLocked(row)) return
+  if (userSubscriptionEntry(row.id)) {
+    openSubscriptionsTab()
+    return
+  }
+  subscriptionModalMode.value = 'grant'
+  subscriptionTarget.value = {
+    user_id: row.id,
+    username: row.username ?? null,
+    avatar_name: row.avatar_name ?? null,
+  }
+  resetSubscriptionForm()
+  subscriptionModalOpen.value = true
+}
+
+function openExtendSubscription(row: SubscriptionRow): void {
+  subscriptionModalMode.value = 'extend'
+  subscriptionTarget.value = {
+    user_id: row.user_id,
+    username: row.username ?? null,
+    avatar_name: row.avatar_name ?? null,
+  }
+  resetSubscriptionForm()
+  subscriptionModalOpen.value = true
 }
 
 function chartBarHeight(count: number, maxValue: number): string {
@@ -1791,6 +1996,69 @@ async function loadUsers(): Promise<void> {
     void alertDialog('Не удалось загрузить пользователей')
   } finally {
     usersLoading.value = false
+  }
+}
+
+async function loadSubscriptions(): Promise<void> {
+  if (subscriptionsLoading.value) return
+  subscriptionsLoading.value = true
+  try {
+    const { data } = await api.get('/admin/subscriptions')
+    subscriptions.value = Array.isArray(data?.items) ? data.items : []
+  } catch {
+    subscriptions.value = []
+    void alertDialog('Не удалось загрузить подписки')
+  } finally {
+    subscriptionsReady.value = true
+    subscriptionsLoading.value = false
+  }
+}
+
+async function saveSubscription(): Promise<void> {
+  if (subscriptionSaving.value || !subscriptionCanSave.value || !subscriptionTarget.value) return
+  subscriptionSaving.value = true
+  const hadActiveSubscription = Boolean(selectedSubscriptionEntry.value)
+  try {
+    await api.post('/admin/subscriptions', {
+      user_id: subscriptionTarget.value.user_id,
+      months: Math.max(0, Math.trunc(Number(subscriptionForm.months) || 0)),
+      days: Math.max(0, Math.trunc(Number(subscriptionForm.days) || 0)),
+    })
+    await loadSubscriptions()
+    clearSubscriptionModalState()
+    void alertDialog(hadActiveSubscription ? 'Подписка продлена' : 'Подписка выдана')
+  } catch (e: any) {
+    const st = e?.response?.status
+    const d = e?.response?.data?.detail
+    if (st === 404 && d === 'user_not_found') void alertDialog('Пользователь не найден')
+    else if (st === 422 && d === 'duration_required') void alertDialog('Укажите срок подписки')
+    else void alertDialog('Не удалось сохранить подписку')
+  } finally {
+    subscriptionSaving.value = false
+  }
+}
+
+async function removeSubscription(row: SubscriptionRow): Promise<void> {
+  if (subscriptionRemoving[row.user_id]) return
+  const ok = await confirmDialog({
+    title: 'Снять подписку',
+    text: `Снять подписку у ${row.username || `user${row.user_id}`}?`,
+    confirmText: 'Снять',
+    cancelText: 'Отмена',
+  })
+  if (!ok) return
+  subscriptionRemoving[row.user_id] = true
+  try {
+    await api.delete(`/admin/subscriptions/${row.user_id}`)
+    await loadSubscriptions()
+    void alertDialog('Подписка снята')
+  } catch (e: any) {
+    const st = e?.response?.status
+    const d = e?.response?.data?.detail
+    if (st === 404 && d === 'subscription_not_found') void alertDialog('Подписка уже отсутствует')
+    else void alertDialog('Не удалось снять подписку')
+  } finally {
+    subscriptionRemoving[row.user_id] = false
   }
 }
 
@@ -2213,6 +2481,11 @@ function refreshActiveTab(tab: typeof activeTab.value): void {
   }
   if (tab === 'users') {
     void loadUsers()
+    void loadSubscriptions()
+    return
+  }
+  if (tab === 'subscriptions') {
+    void loadSubscriptions()
   }
 }
 
@@ -2227,6 +2500,9 @@ watch(activeTab, (tab) => {
   }
   if (tab !== 'users' && userStatsOpen.value) {
     closeUserStats()
+  }
+  if (tab !== 'users' && tab !== 'subscriptions' && subscriptionModalOpen.value) {
+    closeSubscriptionModal()
   }
   refreshActiveTab(tab)
 })
@@ -2386,6 +2662,80 @@ onMounted(() => {
       overflow: auto;
     }
   }
+                                                                  .subscription-modal-overlay {
+                                                                    display: flex;
+                                                                    position: fixed;
+                                                                    align-items: center;
+                                                                    justify-content: center;
+                                                                    inset: 0;
+                                                                    padding: 20px;
+                                                                    background-color: rgba($black, 0.5);
+                                                                    backdrop-filter: blur(5px);
+                                                                    z-index: 1200;
+                                                                    .subscription-modal {
+                                                                      display: flex;
+                                                                      flex-direction: column;
+                                                                      width: min(96vw, 520px);
+                                                                      border: 1px solid $lead;
+                                                                      border-radius: 5px;
+                                                                      background-color: $dark;
+                                                                      overflow: hidden;
+                                                                    }
+                                                                    .subscription-modal-head {
+                                                                      display: flex;
+                                                                      align-items: center;
+                                                                      justify-content: space-between;
+                                                                      gap: 10px;
+                                                                      padding: 10px;
+                                                                      border-bottom: 1px solid $lead;
+                                                                      background-color: $graphite;
+                                                                      .subscription-modal-heading {
+                                                                        display: flex;
+                                                                        flex-direction: column;
+                                                                        gap: 4px;
+                                                                        span {
+                                                                          font-size: 16px;
+                                                                          font-family: Manrope-SemiBold;
+                                                                        }
+                                                                        small {
+                                                                          color: $grey;
+                                                                          font-size: 12px;
+                                                                        }
+                                                                      }
+                                                                      button {
+                                                                        display: flex;
+                                                                        align-items: center;
+                                                                        justify-content: center;
+                                                                        width: 30px;
+                                                                        height: 30px;
+                                                                        padding: 0;
+                                                                        border: none;
+                                                                        border-radius: 5px;
+                                                                        background: transparent;
+                                                                        cursor: pointer;
+                                                                        img {
+                                                                          width: 20px;
+                                                                          height: 20px;
+                                                                        }
+                                                                      }
+                                                                    }
+                                                                    .subscription-modal-body {
+                                                                      display: flex;
+                                                                      flex-direction: column;
+                                                                      gap: 15px;
+                                                                      padding: 15px;
+                                                                    }
+                                                                    .subscription-modal-note {
+                                                                      margin: 0;
+                                                                      text-align: left;
+                                                                    }
+                                                                    .subscription-modal-actions {
+                                                                      display: flex;
+                                                                      justify-content: flex-end;
+                                                                      gap: 10px;
+                                                                      padding: 0 15px 15px;
+                                                                    }
+                                                                  }
   .btn {
     display: flex;
     align-items: center;
@@ -2813,6 +3163,71 @@ onMounted(() => {
       white-space: pre-wrap;
       max-width: 520px;
     }
+                                                                            .subscriptions-tab {
+                                                                              .block {
+                                                                                border: 3px solid $lead;
+                                                                                border-radius: 5px;
+                                                                                padding: 15px;
+                                                                                h3 {
+                                                                                  margin: 0 0 20px;
+                                                                                  font-size: 20px;
+                                                                                  color: $fg;
+                                                                                }
+                                                                              }
+                                                                              .subscription-summary {
+                                                                                margin: 0 0 15px;
+                                                                                text-align: left;
+                                                                              }
+                                                                              .subscription-selected {
+                                                                                display: flex;
+                                                                                flex-direction: column;
+                                                                                gap: 5px;
+                                                                                padding: 10px;
+                                                                                border-radius: 5px;
+                                                                                background-color: $graphite;
+                                                                                .user-cell {
+                                                                                  display: inline-flex;
+                                                                                  align-items: center;
+                                                                                  gap: 10px;
+                                                                                }
+                                                                                .subscription-note {
+                                                                                  color: $grey;
+                                                                                  font-size: 12px;
+                                                                                }
+                                                                              }
+                                                                              .subscription-selected .user-avatar {
+                                                                                width: 24px;
+                                                                                height: 24px;
+                                                                                border-radius: 50%;
+                                                                                object-fit: cover;
+                                                                              }
+                                                                              .subscription-duration {
+                                                                                display: grid;
+                                                                                grid-template-columns: 1fr 1fr;
+                                                                                gap: 10px;
+                                                                              }
+                                                                              .subscription-table-block {
+                                                                                min-width: 0;
+                                                                              }
+                                                                              .subscription-actions {
+                                                                                display: flex;
+                                                                                flex-wrap: wrap;
+                                                                                gap: 10px;
+                                                                              }
+                                                                              .subscription-theme-chip {
+                                                                                display: inline-flex;
+                                                                                align-items: center;
+                                                                                justify-content: center;
+                                                                                padding: 0 12px;
+                                                                                min-width: 110px;
+                                                                                height: 30px;
+                                                                                border-radius: 999px;
+                                                                                background-color: var(--user-theme-bg, $graphite);
+                                                                                color: $fg;
+                                                                                font-size: 12px;
+                                                                                font-family: Manrope-Medium;
+                                                                              }
+                                                                            }
     .pager {
       margin-top: 10px;
       display: flex;
@@ -2860,6 +3275,33 @@ onMounted(() => {
         padding: 5px;
       }
     }
+                                                                                    .subscription-modal-overlay {
+                                                                                      padding: 10px;
+                                                                                      .subscription-modal-head {
+                                                                                        padding: 5px;
+                                                                                        .subscription-modal-heading {
+                                                                                          span {
+                                                                                            font-size: 14px;
+                                                                                          }
+                                                                                        }
+                                                                                        button {
+                                                                                          width: 24px;
+                                                                                          height: 24px;
+                                                                                          img {
+                                                                                            width: 16px;
+                                                                                            height: 16px;
+                                                                                          }
+                                                                                        }
+                                                                                      }
+                                                                                      .subscription-modal-body {
+                                                                                        gap: 10px;
+                                                                                        padding: 10px;
+                                                                                      }
+                                                                                      .subscription-modal-actions {
+                                                                                        flex-direction: column-reverse;
+                                                                                        padding: 0 10px 10px;
+                                                                                      }
+                                                                                    }
     header {
       .tabs {
         .tab {
@@ -2916,6 +3358,23 @@ onMounted(() => {
           }
         }
       }
+                                                                              .subscriptions-tab {
+                                                                                .block {
+                                                                                  padding: 10px;
+                                                                                  h3 {
+                                                                                    margin-bottom: 10px;
+                                                                                    font-size: 16px;
+                                                                                  }
+                                                                                }
+                                                                                .subscription-duration {
+                                                                                  grid-template-columns: 1fr;
+                                                                                }
+                                                                                .subscription-theme-chip {
+                                                                                  min-width: 90px;
+                                                                                  height: 24px;
+                                                                                  font-size: 10px;
+                                                                                }
+                                                                              }
     }
   }
 }

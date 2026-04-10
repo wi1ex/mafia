@@ -314,6 +314,25 @@ class AdminUsersOut(BaseModel):
     items: List[AdminUserOut]
 
 
+class AdminSubscriptionOut(BaseModel):
+    user_id: int
+    username: Optional[str] = None
+    avatar_name: Optional[str] = None
+    starts_at: datetime
+    ends_at: datetime
+    profile_theme_color: Optional[str] = None
+
+
+class AdminSubscriptionsOut(BaseModel):
+    items: List[AdminSubscriptionOut] = Field(default_factory=list)
+
+
+class AdminSubscriptionCreateIn(BaseModel):
+    user_id: int = Field(ge=1)
+    months: int = Field(default=0, ge=0, le=24)
+    days: int = Field(default=0, ge=0, le=3650)
+
+
 class AdminSanctionTimedIn(BaseModel):
     months: int = Field(default=0, ge=0, le=24)
     days: int = Field(default=0, ge=0, le=365)

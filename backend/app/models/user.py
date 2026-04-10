@@ -13,6 +13,7 @@ class User(Base):
     username: Mapped[str] = mapped_column(String(20), nullable=False, index=True, unique=True)
     role: Mapped[str] = mapped_column(String(16), nullable=False, default="user")
     avatar_name: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
+    profile_theme_color: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
     telegram_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True, unique=True, index=True)
     password_hash: Mapped[Optional[str]] = mapped_column(String(256), nullable=True)
     password_temp: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")

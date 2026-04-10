@@ -134,14 +134,15 @@ async def connect(sid, environ, auth):
         log.warning("room.connect.denied", sid=sid)
         return False
 
-    uid, role, username, avatar_name = vr
+    uid, role, username, avatar_name, theme_color = vr
     await sio.save_session(sid,
                            {"uid": uid,
                             "rid": None,
                             "role": role,
                             "base_role": role,
                             "username": username,
-                            "avatar_name": avatar_name},
+                            "avatar_name": avatar_name,
+                            "theme_color": theme_color},
                            namespace="/room")
     await sio.enter_room(sid,
                          f"user:{uid}",
@@ -253,7 +254,14 @@ async def join(sid, data) -> JoinAck:
                 log.warning("sio.join.room_full", rid=rid, uid=uid)
                 return {"ok": False, "error": "room_is_full", "status": 409}
 
-        await persist_join_user_info(r, rid, uid, sess.get("username"), sess.get("avatar_name"))
+        await persist_join_user_info(
+            r,
+            rid,
+            uid,
+            sess.get("username"),
+            sess.get("avatar_name"),
+            sess.get("theme_color"),
+        )
 
         try:
             foul_removed = int(await r.hdel(f"room:{rid}:foul_active", str(uid)) or 0)
@@ -350,6 +358,7 @@ async def join(sid, data) -> JoinAck:
         me_prof = profiles.get(str(uid)) or {}
         ev_username = me_prof.get("username") or sess.get("username") or f"user{uid}"
         ev_avatar = me_prof.get("avatar_name") or sess.get("avatar_name") or None
+        ev_theme_color = me_prof.get("theme_color") or sess.get("theme_color") or None
         eff_role = roles.get(str(uid), base_role)
 
         epoch = int(await r.incr(f"room:{rid}:user:{uid}:epoch"))
@@ -364,6 +373,7 @@ async def join(sid, data) -> JoinAck:
                                 "base_role": base_role,
                                 "username": ev_username,
                                 "avatar_name": ev_avatar,
+                                "theme_color": ev_theme_color,
                                 "epoch": epoch,
                                 "spectator": spectator_mode},
                                namespace="/room")
@@ -421,16 +431,17 @@ async def join(sid, data) -> JoinAck:
                 await emit_rooms_occupancy_safe(r, rid, occ)
 
             await sio.emit("member_joined",
-                           {"user_id": uid,
-                            "state": user_state,
-                            "role": eff_role,
-                            "moderation_role": moderation_roles.get(str(uid), eff_role),
-                            "blocks": blocked.get(str(uid)) or {},
-                            "username": ev_username,
-                            "avatar_name": ev_avatar},
-                           room=f"room:{rid}",
-                           skip_sid=sid,
-                           namespace="/room")
+                            {"user_id": uid,
+                             "state": user_state,
+                             "role": eff_role,
+                             "moderation_role": moderation_roles.get(str(uid), eff_role),
+                             "blocks": blocked.get(str(uid)) or {},
+                             "username": ev_username,
+                             "avatar_name": ev_avatar,
+                             "theme_color": ev_theme_color},
+                            room=f"room:{rid}",
+                            skip_sid=sid,
+                            namespace="/room")
 
             if pos_updates:
                 await sio.emit("positions",
@@ -4721,7 +4732,8 @@ async def disconnect(sid):
                                 "role": base_role,
                                 "base_role": base_role,
                                 "username": sess.get("username"),
-                                "avatar_name": sess.get("avatar_name")},
+                                "avatar_name": sess.get("avatar_name"),
+                                "theme_color": sess.get("theme_color")},
                                namespace="/room")
 
         await gc_if_empty(occ, gc_seq, schedule=True)

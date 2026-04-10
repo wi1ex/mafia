@@ -13,6 +13,10 @@ export interface UserProfile {
   protected_user?: boolean
   hotkeys_visible?: boolean
   tg_invites_enabled?: boolean
+  subscription_active?: boolean
+  subscription_started_at?: string | null
+  subscription_until?: string | null
+  profile_theme_color?: string | null
   timeout_until?: string | null
   suspend_until?: string | null
   ban_active?: boolean
@@ -24,6 +28,12 @@ export const useUserStore = defineStore('user', () => {
   const user = ref<UserProfile | null>(null)
   const now = ref(Date.now())
   let clock: number | undefined
+
+  function parseDateMs(raw: string | null | undefined): number {
+    if (!raw) return 0
+    const ts = Date.parse(raw)
+    return Number.isFinite(ts) ? ts : 0
+  }
 
   function applyProfile(payload: UserProfile | null | undefined): void {
     user.value = payload ? { ...payload } : null
@@ -60,6 +70,19 @@ export const useUserStore = defineStore('user', () => {
 
   function setAvatarName(name: string | null) { if (user.value) user.value.avatar_name = name }
 
+  function setProfileTheme(payload: {
+    subscription_active?: boolean
+    subscription_started_at?: string | null
+    subscription_until?: string | null
+    profile_theme_color?: string | null
+  }) {
+    if (!user.value) return
+    if ('subscription_active' in payload) user.value.subscription_active = Boolean(payload.subscription_active)
+    if ('subscription_started_at' in payload) user.value.subscription_started_at = payload.subscription_started_at ?? null
+    if ('subscription_until' in payload) user.value.subscription_until = payload.subscription_until ?? null
+    if ('profile_theme_color' in payload) user.value.profile_theme_color = payload.profile_theme_color ?? null
+  }
+
   function setSanctions(payload: { timeout_until?: string | null; suspend_until?: string | null; ban_active?: boolean }) {
     if (!user.value) return
     if ("timeout_until" in payload) user.value.timeout_until = payload.timeout_until ?? null
@@ -74,16 +97,13 @@ export const useUserStore = defineStore('user', () => {
 
   const timeoutUntilMs = computed(() => {
     const raw = user.value?.timeout_until
-    if (!raw) return 0
-    const ts = Date.parse(raw)
-    return Number.isFinite(ts) ? ts : 0
+    return parseDateMs(raw)
   })
   const suspendUntilMs = computed(() => {
     const raw = user.value?.suspend_until
-    if (!raw) return 0
-    const ts = Date.parse(raw)
-    return Number.isFinite(ts) ? ts : 0
+    return parseDateMs(raw)
   })
+  const subscriptionUntilMs = computed(() => parseDateMs(user.value?.subscription_until))
   const timeoutRemainingMs = computed(() => {
     if (!timeoutUntilMs.value) return 0
     return Math.max(0, timeoutUntilMs.value - now.value)
@@ -94,6 +114,15 @@ export const useUserStore = defineStore('user', () => {
   })
   const timeoutActive = computed(() => timeoutRemainingMs.value > 0)
   const suspendActive = computed(() => suspendRemainingMs.value > 0)
+  const subscriptionActive = computed(() => {
+    if (!user.value) return false
+    if (subscriptionUntilMs.value > 0) return subscriptionUntilMs.value > now.value
+    return Boolean(user.value.subscription_active)
+  })
+  const activeProfileThemeColor = computed(() => {
+    if (!subscriptionActive.value) return null
+    return user.value?.profile_theme_color ?? null
+  })
   const banActive = computed(() => Boolean(user.value?.ban_active))
   const telegramVerified = computed(() => Boolean(user.value?.telegram_verified))
   const passwordTemp = computed(() => Boolean(user.value?.password_temp))
@@ -136,6 +165,8 @@ export const useUserStore = defineStore('user', () => {
     suspendRemainingMs,
     timeoutActive,
     suspendActive,
+    subscriptionActive,
+    activeProfileThemeColor,
     banActive,
     telegramVerified,
     passwordTemp,
@@ -148,6 +179,7 @@ export const useUserStore = defineStore('user', () => {
     updateUiPrefs,
     setUsername,
     setAvatarName,
+    setProfileTheme,
     setSanctions,
     setInActiveGameAsAlivePlayer,
     setHotkeysVisible,

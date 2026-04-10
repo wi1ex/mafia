@@ -58,6 +58,38 @@
           </div>
 
           <div class="block">
+            <h3>Р¦РІРµС‚ РїСЂРѕС„РёР»СЏ</h3>
+            <div class="theme-row" :class="{ disabled: !canEditProfileTheme }">
+              <div class="theme-preview-grid">
+                <div class="theme-preview-card" :style="themePreviewStyle">
+                  <img class="theme-preview-avatar" v-minio-img="{ key: me.avatar_name ? `avatars/${me.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
+                  <span>{{ me.username || 'User' }}</span>
+                </div>
+                <div class="theme-preview-menu" :style="themePreviewStyle" aria-hidden="true">
+                  <img class="theme-preview-avatar" v-minio-img="{ key: me.avatar_name ? `avatars/${me.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
+                  <span>{{ me.username || 'User' }}</span>
+                  <span class="theme-preview-arrow">▾</span>
+                </div>
+              </div>
+
+              <div class="theme-palette">
+                <button v-for="item in PROFILE_THEME_OPTIONS" :key="item.key" class="theme-option" type="button" :class="{ active: selectedProfileThemeColor === item.key }"
+                        :style="themeOptionStyle(item.key)" :disabled="!canEditProfileTheme || themeSaveBusy || isBanned" @click="pickProfileTheme(item.key)">
+                  <span>{{ item.title }}</span>
+                </button>
+              </div>
+
+              <p v-if="subscriptionStatusText" class="hint text">{{ subscriptionStatusText }}</p>
+              <p v-if="!canEditProfileTheme" class="hint">Выбор цвета доступен только пользователям с активной подпиской. После выдачи подписки по умолчанию применяется фиолетовый цвет.</p>
+
+              <button class="btn confirm" @click="saveProfileTheme" :disabled="themeSaveBusy || isBanned || !canEditProfileTheme || !profileThemeDirty">
+                <img class="btn-img" :src="iconSave" alt="save" />
+                {{ themeSaveBusy ? '...' : 'Сохранить' }}
+              </button>
+            </div>
+          </div>
+
+          <div class="block">
             <h3>Параметры</h3>
             <ToggleSwitch
               class="profile-switch"
@@ -231,12 +263,19 @@ import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
 import iconSave from '@/assets/svg/save.svg'
 import iconEdit from '@/assets/svg/edit.svg'
 import iconDelete from '@/assets/svg/delete.svg'
+import {
+  PROFILE_THEME_OPTIONS,
+  buildProfileThemeStyle,
+  normalizeProfileThemeColor,
+  resolveProfileThemeColor,
+  type ProfileThemeColor,
+} from '@/constants/profileThemes'
 
 const userStore = useUserStore()
 const auth = useAuthStore()
 const isBanned = computed(() => userStore.banActive)
-const { hotkeysVisible, tgInvitesEnabled } = storeToRefs(userStore)
-const { setHotkeysVisible, setTgInvitesEnabled } = userStore
+const { hotkeysVisible, tgInvitesEnabled, now: userNow } = storeToRefs(userStore)
+const { setHotkeysVisible, setTgInvitesEnabled, setProfileTheme } = userStore
 
 const me = reactive({
   id: 0,
@@ -249,6 +288,10 @@ const me = reactive({
   password_temp: false,
   protected_user: false,
   tg_invites_enabled: true,
+  subscription_active: false,
+  subscription_started_at: null as string | null,
+  subscription_until: null as string | null,
+  profile_theme_color: null as string | null,
 })
 const isProtectedAdminSelf = computed(() => Boolean(me.protected_user))
 const fileEl = ref<HTMLInputElement | null>(null)
@@ -289,8 +332,15 @@ function normalizeTab(v: unknown): TabKey {
   return 'profile'
 }
 
+function parseDateMs(raw: string | null | undefined): number {
+  if (!raw) return 0
+  const ts = Date.parse(raw)
+  return Number.isFinite(ts) ? ts : 0
+}
+
 const activeTab = ref<TabKey>('profile')
 let onSanctionsUpdate: ((e: Event) => void) | null = null
+let onProfileSync: ((e: Event) => void) | null = null
 
 type SanctionItem = {
   id: number
@@ -312,6 +362,7 @@ const sanctionsLoaded = ref(false)
 const sanctionsError = ref('')
 const hotkeysTogglePending = ref(false)
 const tgInvitesTogglePending = ref(false)
+const themeSaveBusy = ref(false)
 const telegramVerified = computed(() => userStore.telegramVerified)
 const passwordTemp = computed(() => userStore.passwordTemp)
 const botName = (import.meta.env.VITE_TG_BOT_NAME as string || '').trim()
@@ -347,6 +398,28 @@ const confirmPasswordInvalid = computed(() => {
 const currentPasswordUnderlineStyle = computed(() => underlineStyle(pwd.current.length, PASSWORD_MAX))
 const newPasswordUnderlineStyle = computed(() => underlineStyle(pwd.next.length, PASSWORD_MAX))
 const confirmPasswordUnderlineStyle = computed(() => underlineStyle(pwd.confirm.length, PASSWORD_MAX))
+const selectedProfileThemeColor = ref<ProfileThemeColor>(resolveProfileThemeColor(null))
+const subscriptionUntilMs = computed(() => parseDateMs(me.subscription_until))
+const canEditProfileTheme = computed(() => {
+  if (subscriptionUntilMs.value > 0) return subscriptionUntilMs.value > userNow.value
+  return Boolean(me.subscription_active)
+})
+const subscriptionExpired = computed(() => subscriptionUntilMs.value > 0 && subscriptionUntilMs.value <= userNow.value)
+const currentProfileThemeColor = computed(() => resolveProfileThemeColor(canEditProfileTheme.value ? me.profile_theme_color : null))
+const profileThemeDirty = computed(() => canEditProfileTheme.value && selectedProfileThemeColor.value !== currentProfileThemeColor.value)
+const themePreviewStyle = computed(() => buildProfileThemeStyle(canEditProfileTheme.value ? selectedProfileThemeColor.value : null))
+const subscriptionStatusText = computed(() => {
+  if (canEditProfileTheme.value && me.subscription_started_at && me.subscription_until) {
+    return `Подписка активна: ${formatLocalDateTime(me.subscription_started_at)} - ${formatLocalDateTime(me.subscription_until)}`
+  }
+  if (canEditProfileTheme.value && me.subscription_until) {
+    return `Подписка активна до ${formatLocalDateTime(me.subscription_until)}`
+  }
+  if (subscriptionExpired.value && me.subscription_until) {
+    return `Подписка истекла ${formatLocalDateTime(me.subscription_until)}`
+  }
+  return ''
+})
 const registrationDateLabel = computed(() => {
   const raw = me.registered_at
   if (!raw) return '-'
@@ -379,22 +452,52 @@ const sanctionsSummary = computed(() => {
   return out
 })
 
-async function loadMe(options: { keepNickDraft?: boolean } = {}) {
+function applyProfileThemePayload(data: any, options: { keepDraft?: boolean } = {}) {
+  me.subscription_active = Boolean(data?.subscription_active)
+  me.subscription_started_at = data?.subscription_started_at || null
+  me.subscription_until = data?.subscription_until || null
+  me.profile_theme_color = normalizeProfileThemeColor(data?.profile_theme_color)
+  setProfileTheme({
+    subscription_active: me.subscription_active,
+    subscription_started_at: me.subscription_started_at,
+    subscription_until: me.subscription_until,
+    profile_theme_color: me.profile_theme_color,
+  })
+  if (!options.keepDraft) {
+    selectedProfileThemeColor.value = resolveProfileThemeColor(me.profile_theme_color)
+  }
+}
+
+function applyMePayload(data: any, options: { keepNickDraft?: boolean; keepThemeDraft?: boolean } = {}) {
   const prevUsername = me.username
+  me.id = Number(data?.id || 0)
+  me.username = data?.username || ''
+  me.avatar_name = data?.avatar_name || null
+  me.role = data?.role || ''
+  me.registered_at = data?.registered_at || null
+  me.telegram_verified = Boolean(data?.telegram_verified)
+  me.has_password = Boolean(data?.has_password)
+  me.password_temp = Boolean(data?.password_temp)
+  me.protected_user = Boolean(data?.protected_user)
+  me.tg_invites_enabled = data?.tg_invites_enabled !== false
+  applyProfileThemePayload(data, { keepDraft: options.keepThemeDraft })
+  const hasNickDraft = Boolean(options.keepNickDraft) && nick.value !== prevUsername
+  if (!hasNickDraft) nick.value = me.username
+}
+
+function themeOptionStyle(color: ProfileThemeColor): Record<string, string> {
+  return buildProfileThemeStyle(color)
+}
+
+function pickProfileTheme(color: ProfileThemeColor) {
+  if (!canEditProfileTheme.value || themeSaveBusy.value || isBanned.value) return
+  selectedProfileThemeColor.value = color
+}
+
+async function loadMe(options: { keepNickDraft?: boolean } = {}) {
   const { data } = await api.get('/users/profile_info')
-  me.id = data.id
-  me.username = data.username || ''
-  me.avatar_name = data.avatar_name
-  me.role = data.role
-  me.registered_at = data.registered_at || null
-  me.telegram_verified = Boolean(data.telegram_verified)
-  me.has_password = Boolean(data.has_password)
-  me.password_temp = Boolean(data.password_temp)
-  me.protected_user = Boolean(data.protected_user)
-  me.tg_invites_enabled = data.tg_invites_enabled !== false
-  const hasDraft = options.keepNickDraft && nick.value !== prevUsername
-  if (!hasDraft) nick.value = me.username
-  try { await userStore.fetchMe?.() } catch {}
+  applyMePayload(data, { keepNickDraft: options.keepNickDraft })
+  userStore.applyProfile(data)
 }
 
 async function loadSanctions(force = false) {
@@ -431,6 +534,25 @@ async function saveNick() {
     else if (st === 422 && d === 'invalid_username_format') void alertDialog('Никнейм не должен начинаться с deleted_ или user_ и не должен содержать символы кроме ()._-')
     else                                                    void alertDialog('Не удалось сохранить никнейм')
   } finally { busyNick.value = false }
+}
+
+async function saveProfileTheme() {
+  if (themeSaveBusy.value || isBanned.value || !canEditProfileTheme.value || !profileThemeDirty.value) return
+  themeSaveBusy.value = true
+  try {
+    const { data } = await api.patch('/users/profile_theme', { color: selectedProfileThemeColor.value })
+    applyProfileThemePayload(data)
+    void alertDialog('Цвет профиля сохранен')
+  } catch (e: any) {
+    const st = e?.response?.status
+    const d = e?.response?.data?.detail
+    if (st === 403 && d === 'subscription_required') void alertDialog('Выбор цвета доступен только при активной подписке')
+    else if (st === 403 && d === 'user_banned') void alertDialog('Аккаунт забанен. Изменение цвета профиля недоступно')
+    else if (st === 422 && d === 'profile_theme_invalid') void alertDialog('Выбран недопустимый цвет профиля')
+    else void alertDialog('Не удалось сохранить цвет профиля')
+  } finally {
+    themeSaveBusy.value = false
+  }
 }
 
 async function changePassword() {
@@ -824,10 +946,17 @@ onMounted(() => {
     if (activeTab.value === 'sanctions') void loadSanctions(true)
   }
   window.addEventListener('auth-sanctions_update', onSanctionsUpdate)
+  onProfileSync = (e: Event) => {
+    const payload = (e as CustomEvent)?.detail
+    if (!payload) return
+    applyMePayload(payload, { keepNickDraft: true })
+  }
+  window.addEventListener('auth-profile_sync', onProfileSync)
 })
 
 onBeforeUnmount(() => {
   if (onSanctionsUpdate) window.removeEventListener('auth-sanctions_update', onSanctionsUpdate)
+  if (onProfileSync) window.removeEventListener('auth-profile_sync', onProfileSync)
   document.body.style.overflow = ''
 })
 </script>
@@ -975,6 +1104,84 @@ onBeforeUnmount(() => {
             width: 100%;
           }
         }
+                                                                                    .theme-row {
+                                                                                      display: flex;
+                                                                                      flex-direction: column;
+                                                                                      gap: 15px;
+                                                                                      &.disabled {
+                                                                                        opacity: 0.75;
+                                                                                      }
+                                                                                      .theme-preview-grid {
+                                                                                        display: grid;
+                                                                                        gap: 10px;
+                                                                                      }
+                                                                                      .theme-preview-card,
+                                                                                      .theme-preview-menu {
+                                                                                        display: flex;
+                                                                                        align-items: center;
+                                                                                        padding: 0 12px;
+                                                                                        gap: 10px;
+                                                                                        min-height: 44px;
+                                                                                        border-radius: 5px;
+                                                                                        background-color: var(--user-theme-bg, rgba($dark, 0.75));
+                                                                                        box-shadow: 3px 3px 5px rgba($black, 0.25);
+                                                                                        span {
+                                                                                          min-width: 0;
+                                                                                          color: $fg;
+                                                                                          font-size: 16px;
+                                                                                          font-family: Manrope-Medium;
+                                                                                          line-height: 1;
+                                                                                          white-space: nowrap;
+                                                                                          overflow: hidden;
+                                                                                          text-overflow: ellipsis;
+                                                                                        }
+                                                                                      }
+                                                                                      .theme-preview-menu {
+                                                                                        .theme-preview-arrow {
+                                                                                          margin-left: auto;
+                                                                                          font-size: 14px;
+                                                                                        }
+                                                                                      }
+                                                                                      .theme-preview-avatar {
+                                                                                        width: 24px;
+                                                                                        height: 24px;
+                                                                                        border-radius: 50%;
+                                                                                        object-fit: cover;
+                                                                                      }
+                                                                                      .theme-palette {
+                                                                                        display: grid;
+                                                                                        grid-template-columns: 1fr 1fr;
+                                                                                        gap: 10px;
+                                                                                      }
+                                                                                      .theme-option {
+                                                                                        display: flex;
+                                                                                        align-items: center;
+                                                                                        justify-content: center;
+                                                                                        padding: 0 12px;
+                                                                                        min-height: 42px;
+                                                                                        border: 2px solid transparent;
+                                                                                        border-radius: 5px;
+                                                                                        background-color: var(--user-theme-bg, $graphite);
+                                                                                        cursor: pointer;
+                                                                                        transition: background-color 0.25s ease-in-out, border-color 0.25s ease-in-out, box-shadow 0.25s ease-in-out;
+                                                                                        &:hover:enabled {
+                                                                                          background-color: var(--user-theme-bg-hover, $lead);
+                                                                                        }
+                                                                                        &.active {
+                                                                                          border-color: $fg;
+                                                                                          box-shadow: 0 0 0 1px var(--user-theme-shadow, rgba($white, 0.2));
+                                                                                        }
+                                                                                        &:disabled {
+                                                                                          cursor: not-allowed;
+                                                                                        }
+                                                                                        span {
+                                                                                          color: $fg;
+                                                                                          font-size: 14px;
+                                                                                          font-family: Manrope-Medium;
+                                                                                          line-height: 1;
+                                                                                        }
+                                                                                      }
+                                                                                    }
         .password-row {
           display: flex;
           flex-direction: column;
@@ -1299,6 +1506,26 @@ onBeforeUnmount(() => {
               height: 100px;
             }
           }
+                                                                                                .theme-row {
+                                                                                                  .theme-preview-card,
+                                                                                                  .theme-preview-menu {
+                                                                                                    min-height: 34px;
+                                                                                                    padding: 0 10px;
+                                                                                                    span {
+                                                                                                      font-size: 12px;
+                                                                                                    }
+                                                                                                  }
+                                                                                                  .theme-preview-avatar {
+                                                                                                    width: 18px;
+                                                                                                    height: 18px;
+                                                                                                  }
+                                                                                                  .theme-option {
+                                                                                                    min-height: 32px;
+                                                                                                    span {
+                                                                                                      font-size: 12px;
+                                                                                                    }
+                                                                                                  }
+                                                                                                }
           &.sanctions-block {
             .sanctions-list {
               grid-template-columns: 1fr 1fr;

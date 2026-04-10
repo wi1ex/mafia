@@ -23,6 +23,7 @@ from ..models.log import AppLog
 from ..models.room import Room
 from ..models.friend import FriendLink
 from ..models.notif import Notif
+from ..models.subscription import UserSubscription
 from ..models.sanction import UserSanction
 from ..models.user import User
 from ..models.update import SiteUpdate, UpdateRead
@@ -31,9 +32,11 @@ from ..security.admin_guard import is_protected_admin_uid
 from ..services.minio import delete_avatars_async
 from ..services.user_cache import (
     get_user_profiles_cached,
+    refresh_user_profile_cache,
     write_user_profile_cache,
     invalidate_avatar_presign_cache,
 )
+from ..services.profile_theme import resolve_profile_theme_state
 if TYPE_CHECKING:
     from ..schemas.admin import SiteSettingsOut, GameSettingsOut, RegistrationsPoint, AdminRoomUserStat, AdminSanctionOut, AdminGameActionFieldOut
     from ..schemas.room import GameParams
@@ -50,6 +53,7 @@ __all__ = [
     "game_from_redis_to_model",
     "emit_rooms_upsert",
     "broadcast_creator_rooms",
+    "emit_room_profile_theme_sync",
     "get_room_game_runtime",
     "build_room_members_for_info",
     "get_room_params_or_404",
@@ -111,6 +115,7 @@ __all__ = [
     "reduce_suspend_after_hosted_game",
     "emit_expired_timed_sanction_chat_notice_once",
     "emit_expired_timed_sanctions_chat_notices",
+    "sync_expired_profile_subscriptions",
     "emit_sanctions_update",
     "build_user_out_payload",
     "emit_auth_profile_sync",
@@ -213,6 +218,7 @@ SANCTION_BAN = "ban"
 SANCTION_SUSPEND = "suspend"
 HOSTED_GAME_SUSPEND_REDUCTION_SECONDS = 6 * 60 * 60
 EXPIRED_SANCTION_CHAT_NOTICE_TTL_S = 60 * 60 * 24 * 365
+EXPIRED_SUBSCRIPTION_SYNC_TTL_S = 14 * 24 * 60 * 60
 AUTO_DELETE_UNVERIFIED_ACCOUNT_LOCK_TTL_S = 60 * 60
 USERS_SORT_DEFAULT = "registered_at"
 USERS_SORT_ALLOWED = {
@@ -1032,7 +1038,15 @@ async def build_user_out_payload(session: AsyncSession, *, user_id: int, role: s
 
     uid = cast(int, user.id)
     normalized_role = str(role or user.role or "")
-    await write_user_profile_cache(uid, username=str(user.username), role=normalized_role, avatar_name=user.avatar_name)
+    theme_state = await resolve_profile_theme_state(session, uid)
+    await write_user_profile_cache(
+        uid,
+        username=str(user.username),
+        role=normalized_role,
+        avatar_name=user.avatar_name,
+        theme_color=theme_state.color,
+        theme_until=theme_state.subscription_until,
+    )
     active = await fetch_active_sanctions(session, uid)
     timeout = active.get(SANCTION_TIMEOUT)
     ban = active.get(SANCTION_BAN)
@@ -1052,6 +1066,10 @@ async def build_user_out_payload(session: AsyncSession, *, user_id: int, role: s
         protected_user=is_protected_admin(uid),
         hotkeys_visible=bool(user.hotkeys_visible),
         tg_invites_enabled=bool(user.tg_invites_enabled),
+        subscription_active=theme_state.subscription_active,
+        subscription_started_at=theme_state.subscription_started_at,
+        subscription_until=theme_state.subscription_until,
+        profile_theme_color=theme_state.color,
         timeout_until=timeout.expires_at if timeout else None,
         suspend_until=suspend.expires_at if suspend else None,
         ban_active=bool(ban),
@@ -1074,6 +1092,62 @@ async def emit_auth_profile_sync(user_id: int, *, role: str | None = None) -> No
         room=f"user:{uid}",
         namespace="/auth",
     )
+
+
+def _expired_subscription_sync_key(user_id: int, ends_at: datetime) -> str:
+    normalized = ends_at.astimezone(timezone.utc) if ends_at.tzinfo is not None else ends_at.replace(tzinfo=timezone.utc)
+    return f"user:{int(user_id)}:subscription_expired_sync:{int(normalized.timestamp())}"
+
+
+async def sync_expired_profile_subscriptions() -> int:
+    now = datetime.now(timezone.utc)
+    async with SessionLocal() as session:
+        rows = (
+            await session.execute(
+                select(UserSubscription.user_id, UserSubscription.ends_at)
+                .where(UserSubscription.ends_at <= now)
+                .order_by(UserSubscription.ends_at.desc(), UserSubscription.user_id.asc())
+            )
+        ).all()
+        if not rows:
+            return 0
+
+        r = get_redis()
+        synced = 0
+        for user_id_raw, ends_at in rows:
+            try:
+                uid = int(user_id_raw)
+            except Exception:
+                continue
+            if uid <= 0 or not isinstance(ends_at, datetime):
+                continue
+
+            dedupe_key = _expired_subscription_sync_key(uid, ends_at)
+            claimed = True
+            try:
+                claimed = bool(await r.set(dedupe_key, "1", ex=EXPIRED_SUBSCRIPTION_SYNC_TTL_S, nx=True))
+            except Exception:
+                claimed = True
+            if not claimed:
+                continue
+
+            try:
+                user = await session.get(User, uid)
+                if user is not None and user.profile_theme_color is not None:
+                    user.profile_theme_color = None
+                    await session.commit()
+                await refresh_user_profile_cache(session, uid, redis_client=r)
+                await emit_auth_profile_sync(uid)
+                await emit_room_profile_theme_sync(uid, None)
+                synced += 1
+            except Exception as exc:
+                with suppress(Exception):
+                    await session.rollback()
+                with suppress(Exception):
+                    await r.delete(dedupe_key)
+                log.warning("subscriptions.expired_sync_failed", uid=uid, err=type(exc).__name__)
+
+        return synced
 
 
 def _expired_sanction_note(kind: str) -> tuple[str, str] | None:
@@ -1300,12 +1374,7 @@ async def set_user_deleted(session: AsyncSession, user_id: int, *, deleted: bool
     await session.refresh(user)
 
     with suppress(Exception):
-        await write_user_profile_cache(
-            int(user.id),
-            username=str(user.username),
-            role=str(user.role),
-            avatar_name=cast(Optional[str], user.avatar_name),
-        )
+        await refresh_user_profile_cache(session, int(user.id))
 
     if deleted:
         with suppress(Exception):
@@ -3460,6 +3529,40 @@ async def broadcast_creator_rooms(uid: int, *, update_name: Optional[str] = None
             await emit_rooms_upsert(rid)
         except Exception as e:
             log.warning("rooms.upsert.iter_failed", rid=rid, err=type(e).__name__)
+
+
+async def emit_room_profile_theme_sync(uid: int, theme_color: str | None) -> None:
+    r = get_redis()
+    try:
+        raw_room_id = await r.get(f"user:{int(uid)}:room")
+    except Exception:
+        raw_room_id = None
+
+    rid = int(raw_room_id) if raw_room_id else 0
+    if rid <= 0:
+        return
+
+    try:
+        if isinstance(theme_color, str) and theme_color.strip():
+            await r.hset(
+                f"room:{rid}:user:{int(uid)}:info",
+                mapping={"theme_color": theme_color.strip()},
+            )
+        else:
+            await r.hdel(f"room:{rid}:user:{int(uid)}:info", "theme_color")
+    except Exception as exc:
+        log.warning("room.profile_theme.cache_failed", rid=rid, uid=int(uid), err=type(exc).__name__)
+
+    with suppress(Exception):
+        await sio.emit(
+            "profile_theme_sync",
+            {
+                "user_id": int(uid),
+                "theme_color": theme_color if isinstance(theme_color, str) and theme_color.strip() else None,
+            },
+            room=f"room:{rid}",
+            namespace="/room",
+        )
 
 
 async def get_room_params_or_404(r, room_id: int) -> Dict[str, Any]:

@@ -6,12 +6,37 @@ from typing import AsyncIterator
 from contextlib import asynccontextmanager, suppress
 from ..core.db import Base, engine, SessionLocal
 from ..core.settings import settings
-from ..api.utils import emit_expired_timed_sanctions_chat_notices, delete_stale_unverified_accounts
+from ..api.utils import (
+    emit_expired_timed_sanctions_chat_notices,
+    delete_stale_unverified_accounts,
+    sync_expired_profile_subscriptions,
+)
 from ..security.admin_guard import assert_protected_admin_invariants
 from ..security.parameters import ensure_app_settings, refresh_app_settings
 from ..services.minio import ensure_bucket
 from .clients import close_clients, get_redis, init_clients
 from .logging import configure_logging
+
+
+# ----------------------------------------------------
+async def ensure_users_profile_theme_color_column(conn) -> bool:
+    exists = await conn.scalar(
+        text(
+            """
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_schema = current_schema()
+              AND table_name = 'users'
+              AND column_name = 'profile_theme_color'
+            """
+        )
+    )
+    if exists:
+        return False
+
+    await conn.execute(text("ALTER TABLE users ADD COLUMN profile_theme_color VARCHAR(32)"))
+    return True
+#----------------------------------------------------
 
 
 @asynccontextmanager
@@ -26,6 +51,12 @@ async def lifespan(app) -> AsyncIterator[None]:
         async with engine.begin() as conn:
             await conn.execute(text("SELECT 1"))
             await conn.run_sync(Base.metadata.create_all)
+            #----------------------------------------------------
+            added_theme_column = await ensure_users_profile_theme_color_column(conn)
+
+        if added_theme_column:
+            log.info("app.startup.users_profile_theme_color_column_added")
+        #----------------------------------------------------
 
         async with SessionLocal() as session:
             await ensure_app_settings(session)
@@ -48,6 +79,7 @@ async def lifespan(app) -> AsyncIterator[None]:
 
     settings_task: asyncio.Task[None] | None = None
     expired_sanctions_chat_task: asyncio.Task[None] | None = None
+    expired_subscriptions_task: asyncio.Task[None] | None = None
     stale_unverified_accounts_task: asyncio.Task[None] | None = None
 
     async def settings_pubsub_loop() -> None:
@@ -95,8 +127,22 @@ async def lifespan(app) -> AsyncIterator[None]:
         except asyncio.CancelledError:
             pass
 
+    async def expired_profile_subscriptions_loop() -> None:
+        try:
+            while True:
+                try:
+                    synced = await sync_expired_profile_subscriptions()
+                    if synced > 0:
+                        log.info("app.subscriptions.expired_sync.done", synced=synced)
+                except Exception:
+                    log.exception("app.subscriptions.expired_sync.failed")
+                await asyncio.sleep(15)
+        except asyncio.CancelledError:
+            pass
+
     settings_task = asyncio.create_task(settings_pubsub_loop())
     expired_sanctions_chat_task = asyncio.create_task(expired_sanctions_chat_loop())
+    expired_subscriptions_task = asyncio.create_task(expired_profile_subscriptions_loop())
     stale_unverified_accounts_task = asyncio.create_task(stale_unverified_accounts_loop())
     log.info("app.ready")
 
@@ -112,6 +158,10 @@ async def lifespan(app) -> AsyncIterator[None]:
                 expired_sanctions_chat_task.cancel()
                 with suppress(asyncio.CancelledError):
                     await expired_sanctions_chat_task
+            if expired_subscriptions_task:
+                expired_subscriptions_task.cancel()
+                with suppress(asyncio.CancelledError):
+                    await expired_subscriptions_task
             if stale_unverified_accounts_task:
                 stale_unverified_accounts_task.cancel()
                 with suppress(asyncio.CancelledError):

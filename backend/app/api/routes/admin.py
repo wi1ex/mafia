@@ -14,6 +14,7 @@ from ...models.log import AppLog
 from ...models.game import Game
 from ...models.room import Room
 from ...models.notif import Notif
+from ...models.subscription import UserSubscription
 from ...models.sanction import UserSanction
 from ...models.user import User
 from ...models.update import SiteUpdate, UpdateRead
@@ -30,7 +31,14 @@ from ...security.decorators import log_route, require_protected_admin_dep
 from ...security.auth_tokens import get_identity
 from ...security.passwords import hash_password
 from ...security.parameters import ensure_app_settings, sync_cache_from_row, refresh_app_settings, get_cached_settings
-from ...services.user_cache import write_user_profile_cache, get_user_profiles_cached
+from ...services.user_cache import refresh_user_profile_cache, get_user_profiles_cached
+from ...services.profile_theme import (
+    PROFILE_THEME_DEFAULT,
+    compute_subscription_end,
+    resolve_profile_theme_state,
+    resolve_profile_theme_states,
+    upsert_profile_theme_preference,
+)
 from ...services.user_stats import get_user_game_stats_cached
 from ...services.global_chat import (
     emit_global_chat_cleared,
@@ -67,6 +75,9 @@ from ...schemas.admin import (
     AdminUserRoleIn,
     AdminUserRoleOut,
     AdminUserNameOut,
+    AdminSubscriptionOut,
+    AdminSubscriptionsOut,
+    AdminSubscriptionCreateIn,
     AdminSanctionTimedIn,
     AdminSanctionBanIn,
     OnlineUserOut,
@@ -140,6 +151,8 @@ from ..utils import (
     ensure_admin_target_allowed,
     ensure_admin_target_not_deleted,
     emit_rooms_upsert,
+    emit_auth_profile_sync,
+    emit_room_profile_theme_sync,
     get_room_params_or_404,
 )
 
@@ -1209,6 +1222,149 @@ async def users_list(page: int = 1, limit: int = 20, username: str | None = None
     return AdminUsersOut(total=total, items=items)
 
 
+@router.get("/subscriptions", response_model=AdminSubscriptionsOut)
+@log_route("admin.subscriptions.list")
+async def subscriptions_list(session: AsyncSession = Depends(get_session)) -> AdminSubscriptionsOut:
+    now = datetime.now(timezone.utc)
+    rows = await session.execute(
+        select(UserSubscription).where(
+            UserSubscription.starts_at <= now,
+            UserSubscription.ends_at > now,
+        )
+    )
+    subscriptions = rows.scalars().all()
+    if not subscriptions:
+        return AdminSubscriptionsOut(items=[])
+
+    user_ids = [int(row.user_id) for row in subscriptions if row.user_id is not None]
+    profiles = await get_user_profiles_cached(session, user_ids)
+    theme_states = await resolve_profile_theme_states(session, user_ids, now=now)
+
+    items: list[AdminSubscriptionOut] = []
+    for row in subscriptions:
+        if row.user_id is None:
+            continue
+        uid = int(row.user_id)
+        profile = profiles.get(uid) or {}
+        theme_state = theme_states.get(uid)
+        items.append(
+            AdminSubscriptionOut(
+                user_id=uid,
+                username=cast(str | None, profile.get("username")),
+                avatar_name=cast(str | None, profile.get("avatar_name")),
+                starts_at=row.starts_at,
+                ends_at=row.ends_at,
+                profile_theme_color=theme_state.color if theme_state else None,
+            )
+        )
+    items.sort(key=lambda item: (item.ends_at, str(item.username or f"user{item.user_id}").lower(), item.user_id))
+    return AdminSubscriptionsOut(items=items)
+
+
+@router.post("/subscriptions", response_model=AdminSubscriptionOut)
+@log_route("admin.subscriptions.upsert")
+async def subscriptions_upsert(payload: AdminSubscriptionCreateIn, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> AdminSubscriptionOut:
+    months = int(payload.months or 0)
+    days = int(payload.days or 0)
+    if months <= 0 and days <= 0:
+        raise HTTPException(status_code=422, detail="duration_required")
+
+    user = await session.get(User, int(payload.user_id))
+    if not user:
+        raise HTTPException(status_code=404, detail="user_not_found")
+
+    ensure_admin_target_not_deleted(user)
+
+    uid = int(user.id)
+    now = datetime.now(timezone.utc)
+    subscription = await session.scalar(
+        select(UserSubscription).where(UserSubscription.user_id == uid).limit(1)
+    )
+
+    had_active_subscription = False
+    if subscription is None:
+        starts_at = now
+        ends_at = compute_subscription_end(starts_at, months=months, days=days)
+        subscription = UserSubscription(user_id=uid, starts_at=starts_at, ends_at=ends_at)
+        session.add(subscription)
+    else:
+        had_active_subscription = subscription.starts_at <= now < subscription.ends_at
+        if had_active_subscription:
+            subscription.ends_at = compute_subscription_end(subscription.ends_at, months=months, days=days)
+        else:
+            subscription.starts_at = now
+            subscription.ends_at = compute_subscription_end(now, months=months, days=days)
+
+    if not had_active_subscription:
+        await upsert_profile_theme_preference(session, uid, PROFILE_THEME_DEFAULT)
+
+    await session.commit()
+    await session.refresh(subscription)
+    await refresh_user_profile_cache(session, uid)
+    theme_state = await resolve_profile_theme_state(session, uid)
+
+    await log_action(
+        session,
+        user_id=int(ident["id"]),
+        username=ident["username"],
+        action="admin_subscription_upsert",
+        details=(
+            f"Подписка user_id={uid} username={user.username or f'user{uid}'} "
+            f"months={months} days={days} starts_at={subscription.starts_at.isoformat()} "
+            f"ends_at={subscription.ends_at.isoformat()}"
+        ),
+    )
+
+    with suppress(Exception):
+        await emit_auth_profile_sync(uid, role=str(user.role))
+    with suppress(Exception):
+        await emit_room_profile_theme_sync(uid, theme_state.color)
+
+    return AdminSubscriptionOut(
+        user_id=uid,
+        username=user.username,
+        avatar_name=user.avatar_name,
+        starts_at=subscription.starts_at,
+        ends_at=subscription.ends_at,
+        profile_theme_color=theme_state.color,
+    )
+
+
+@router.delete("/subscriptions/{user_id}", response_model=Ok)
+@log_route("admin.subscriptions.delete")
+async def subscriptions_delete(user_id: int, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
+    uid = int(user_id)
+    user = await session.get(User, uid)
+    if not user:
+        raise HTTPException(status_code=404, detail="user_not_found")
+
+    subscription = await session.scalar(
+        select(UserSubscription).where(UserSubscription.user_id == uid).limit(1)
+    )
+    if subscription is None:
+        raise HTTPException(status_code=404, detail="subscription_not_found")
+
+    user.profile_theme_color = None
+    await session.delete(subscription)
+    await session.commit()
+    await refresh_user_profile_cache(session, uid)
+
+    await log_action(
+        session,
+        user_id=int(ident["id"]),
+        username=ident["username"],
+        action="admin_subscription_delete",
+        details=f"Подписка снята user_id={uid} username={user.username or f'user{uid}'}",
+    )
+
+    with suppress(Exception):
+        await emit_auth_profile_sync(uid, role=str(user.role))
+    with suppress(Exception):
+        await emit_room_profile_theme_sync(uid, None)
+
+    return Ok()
+
+
 @router.get("/users/{user_id}/stats", response_model=UserStatsOut)
 @log_route("admin.users.stats")
 async def user_stats(user_id: int, season: int | None = None, session: AsyncSession = Depends(get_session)) -> UserStatsOut:
@@ -1280,12 +1436,7 @@ async def update_user_role(user_id: int, payload: AdminUserRoleIn, ident: Identi
     user.role = payload.role
     await session.commit()
     await session.refresh(user)
-    await write_user_profile_cache(
-        int(user.id),
-        username=str(user.username),
-        role=str(user.role),
-        avatar_name=user.avatar_name,
-    )
+    await refresh_user_profile_cache(session, int(user.id))
 
     uid = cast(int, user.id)
     if prev_role != user.role:
@@ -1374,7 +1525,7 @@ async def reset_user_nickname(user_id: int, ident: Identity = Depends(get_identi
     user.username = next_username
     await session.commit()
     await session.refresh(user)
-    await write_user_profile_cache(uid, username=str(user.username), role=str(user.role), avatar_name=user.avatar_name)
+    await refresh_user_profile_cache(session, uid)
     with suppress(Exception):
         await broadcast_creator_rooms(uid, update_name=str(user.username))
 

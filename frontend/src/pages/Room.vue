@@ -32,6 +32,7 @@
           :is-blocked="isBlocked"
           :user-name="userName"
           :avatar-key="avatarKey"
+          :theme-color="themeColorFor(id)"
           :can-moderate="canModerate"
           :speakers-on="speakersOn"
           :open-panel-for="openPanelFor"
@@ -147,6 +148,7 @@
             :is-blocked="isBlocked"
             :user-name="userName"
             :avatar-key="avatarKey"
+            :theme-color="themeColorFor(id)"
             :can-moderate="canModerate"
             :speakers-on="speakersOn"
             :open-panel-for="openPanelFor"
@@ -615,6 +617,7 @@ const rolesByUser = reactive(new Map<string, string>())
 const moderationRolesByUser = reactive(new Map<string, string>())
 const nameByUser = reactive(new Map<string, string>())
 const avatarByUser = reactive(new Map<string, string | null>())
+const themeColorByUser = reactive(new Map<string, string | null>())
 const volUi = reactive<Record<string, number>>({})
 const MIN_GAME_VOLUME = 20
 const EMPTY_NUMBERS: number[] = []
@@ -911,6 +914,9 @@ function avatarKey(id: string): string {
 }
 function userName(id: string) {
   return nameByUser.get(id) || `user${id}`
+}
+function themeColorFor(id: string): string | null {
+  return themeColorByUser.get(id) ?? null
 }
 
 function friendStatusFor(id: string): FriendStatus {
@@ -1739,6 +1745,7 @@ function purgePeerUI(id: string) {
   moderationRolesByUser.delete(id)
   nameByUser.delete(id)
   avatarByUser.delete(id)
+  themeColorByUser.delete(id)
   videoRefMemo.delete(id)
   screenRefMemo.delete(id)
   offlineInGame.delete(id)
@@ -1836,8 +1843,13 @@ socket.value?.on('connect', async () => {
     if (p?.blocks) applyBlocks(id, p.blocks)
     const av = p?.avatar_name
     if (typeof av === 'string' && av.trim() !== '') avatarByUser.set(id, av)
+    else avatarByUser.delete(id)
     const un = p?.username
     if (typeof un === 'string' && un.trim() !== '') nameByUser.set(id, String(un))
+    else nameByUser.delete(id)
+    const themeColor = typeof p?.theme_color === 'string' && p.theme_color.trim() !== '' ? p.theme_color.trim() : null
+    if (themeColor) themeColorByUser.set(id, themeColor)
+    else themeColorByUser.delete(id)
   })
 
   socket.value.on('member_left', (p: any) => {
@@ -1863,6 +1875,15 @@ socket.value?.on('connect', async () => {
       if (Number.isFinite(pos)) positionByUser.set(id, pos)
       ensurePeer(id)
     }
+  })
+
+  socket.value.on('profile_theme_sync', (p: any) => {
+    const id = String(p?.user_id || '')
+    if (!id) return
+    ensurePeer(id)
+    const themeColor = typeof p?.theme_color === 'string' && p.theme_color.trim() !== '' ? p.theme_color.trim() : null
+    if (themeColor) themeColorByUser.set(id, themeColor)
+    else themeColorByUser.delete(id)
   })
 
   socket.value.on('moderation', async (p: any) => {
@@ -2336,7 +2357,12 @@ function applyJoinAck(j: any) {
     const id = String(uid)
     const mm = m as any
     if (typeof mm?.avatar_name === 'string' && mm.avatar_name.trim() !== '') avatarByUser.set(id, mm.avatar_name)
+    else avatarByUser.delete(id)
     if (typeof mm?.username === 'string' && mm.username.trim() !== '') nameByUser.set(id, String(mm.username))
+    else nameByUser.delete(id)
+    const themeColor = typeof mm?.theme_color === 'string' && mm.theme_color.trim() !== '' ? mm.theme_color.trim() : null
+    if (themeColor) themeColorByUser.set(id, themeColor)
+    else themeColorByUser.delete(id)
   }
 
   if (j.self_pref) applySelfPref(j.self_pref)

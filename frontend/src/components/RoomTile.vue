@@ -82,7 +82,7 @@
 
     <img v-if="hasVoted" class="icon-voted" :src="iconLikeGreen" alt="voted" />
 
-    <div class="user-card" :data-open="openPanel ? 1 : 0" :data-game="inGame ? 1 : 0" @click.stop>
+    <div class="user-card" :style="userCardStyle" :data-open="openPanel ? 1 : 0" :data-game="inGame ? 1 : 0" @click.stop>
       <button class="card-head" :disabled="id === localId" :aria-disabled="id === localId" @click.stop="$emit('toggle-panel', id)" :aria-expanded="openPanel">
         <img v-if="seat != null && seatIcon" class="user-slot" :src="seatIcon" alt="seat" />
         <img class="user-avatar" v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar, lazy: false }" alt="avatar" />
@@ -157,6 +157,7 @@ import iconAddFriends from '@/assets/svg/addFriends.svg'
 import iconInFriends from '@/assets/svg/inFriends.svg'
 import iconRecieveFriends from '@/assets/svg/recieveFriends.svg'
 import iconSendFriends from '@/assets/svg/sendFriends.svg'
+import { buildProfileThemeStyle } from '@/constants/profileThemes'
 
 type IconKind = 'mic' | 'cam' | 'speakers' | 'visibility' | 'screen'
 
@@ -169,6 +170,7 @@ const props = withDefaults(defineProps<{
   side?: boolean
   fitContain?: boolean
   defaultAvatar: string
+  themeColor?: string | null
   volumeIcon: string
   videoRef: (el: HTMLVideoElement | null) => void
   hasVideoTrack: (id: string) => boolean
@@ -291,6 +293,7 @@ const props = withDefaults(defineProps<{
   friendStatus: 'none',
   friendBusy: false,
   friendLoading: false,
+  themeColor: null,
   vol: 100,
 })
 
@@ -392,6 +395,7 @@ const friendDisabled = computed(() =>
   props.friendBusy || props.friendLoading || props.friendStatus === 'self'
 )
 const showFriendAction = computed(() => props.id !== props.localId && friendActionLabel.value !== '')
+const userCardStyle = computed(() => buildProfileThemeStyle(props.themeColor))
 
 </script>
 
@@ -727,7 +731,7 @@ const showFriendAction = computed(() => props.id !== props.localId && friendActi
     block-size: 30px;
     will-change: inline-size, block-size;
     border-radius: 5px;
-    background-color: rgba($dark, 0.75);
+    background-color: var(--user-theme-bg, rgba($dark, 0.75));
     box-shadow: 3px 3px 5px rgba($black, 0.25);
     z-index: 20;
     overflow: hidden;

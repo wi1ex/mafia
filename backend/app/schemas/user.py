@@ -19,6 +19,10 @@ class UserOut(BaseModel):
     protected_user: bool = False
     hotkeys_visible: bool = True
     tg_invites_enabled: bool = True
+    subscription_active: bool = False
+    subscription_started_at: Optional[datetime] = None
+    subscription_until: Optional[datetime] = None
+    profile_theme_color: Optional[str] = None
     timeout_until: Optional[datetime] = None
     suspend_until: Optional[datetime] = None
     ban_active: bool = False
@@ -201,6 +205,17 @@ class UserUiPrefsIn(BaseModel):
 class UserUiPrefsOut(BaseModel):
     hotkeys_visible: bool
     tg_invites_enabled: bool
+
+
+class UserProfileThemeIn(BaseModel):
+    color: str = Field(min_length=1, max_length=32)
+
+
+class UserProfileThemeOut(BaseModel):
+    subscription_active: bool
+    subscription_started_at: Optional[datetime] = None
+    subscription_until: Optional[datetime] = None
+    profile_theme_color: Optional[str] = None
 
 
 class PasswordChangeIn(BaseModel):

@@ -1124,7 +1124,7 @@ def hash_keys_to_int_list(raw: Mapping[Any, Any] | None) -> list[int]:
     return out
 
 
-async def validate_auth(auth: Any) -> Tuple[int, str, str, Optional[str]] | None:
+async def validate_auth(auth: Any) -> Tuple[int, str, str, Optional[str], Optional[str]] | None:
     token = auth.get("token") if isinstance(auth, dict) else None
     if not token:
         log.warning("sio.connect.no_token")
@@ -1149,7 +1149,8 @@ async def validate_auth(auth: Any) -> Tuple[int, str, str, Optional[str]] | None
         role = normalize_protected_admin_role(uid, role, fallback_role=role_from_token)
         username = str(profile.get("username") or f"user{uid}")
         avatar_name = cast(Optional[str], profile.get("avatar_name"))
-        return uid, role, username, avatar_name
+        theme_color = cast(Optional[str], profile.get("theme_color"))
+        return uid, role, username, avatar_name, theme_color
 
     except ExpiredSignatureError:
         log.warning("sio.connect.expired_token")
@@ -1344,12 +1345,14 @@ async def get_positions_map(r, rid: int) -> Dict[str, int]:
     return {str(int(m)): int(s) for m, s in pairs}
 
 
-async def persist_join_user_info(r, rid: int, uid: int, username: Optional[str], avatar_name: Optional[str]) -> None:
+async def persist_join_user_info(r, rid: int, uid: int, username: Optional[str], avatar_name: Optional[str], theme_color: Optional[str] = None) -> None:
     mp: Dict[str, str] = {}
     if isinstance(username, str) and username.strip():
         mp["username"] = username.strip()
     if isinstance(avatar_name, str) and avatar_name.strip():
         mp["avatar_name"] = avatar_name.strip()
+    if isinstance(theme_color, str) and theme_color.strip():
+        mp["theme_color"] = theme_color.strip()
     if mp:
         try:
             await r.hset(f"room:{rid}:user:{uid}:info", mapping=mp)
@@ -1433,13 +1436,20 @@ async def get_profiles_snapshot(r, rid: int, *, extra_ids: Iterable[int | str] |
 
     async with r.pipeline() as p:
         for uid in ids:
-            await p.hmget(f"room:{rid}:user:{uid}:info", "username", "avatar_name")
+            await p.hmget(f"room:{rid}:user:{uid}:info", "username", "avatar_name", "theme_color")
         rows = await p.execute()
 
     out: dict[str, dict[str, str | None]] = {}
-    for uid, (un, av) in zip(ids, rows):
+    for uid, values in zip(ids, rows):
+        un = values[0] if isinstance(values, (list, tuple)) and len(values) > 0 else None
+        av = values[1] if isinstance(values, (list, tuple)) and len(values) > 1 else None
+        th = values[2] if isinstance(values, (list, tuple)) and len(values) > 2 else None
         uid_s = str(uid)
-        out[uid_s] = {"username": str(un) if un else None, "avatar_name": str(av) if av else None}
+        out[uid_s] = {
+            "username": str(un) if un else None,
+            "avatar_name": str(av) if av else None,
+            "theme_color": str(th) if th else None,
+        }
 
     profile_ids: set[int] = set()
     for uid in ids:
@@ -1457,7 +1467,7 @@ async def get_profiles_snapshot(r, rid: int, *, extra_ids: Iterable[int | str] |
         async with r.pipeline() as p:
             for uid_i in profile_ids:
                 key = str(uid_i)
-                cur = out.get(key) or {"username": None, "avatar_name": None}
+                cur = out.get(key) or {"username": None, "avatar_name": None, "theme_color": None}
                 profile = cached_profiles.get(uid_i)
                 if not profile:
                     out[key] = cur
@@ -1465,9 +1475,11 @@ async def get_profiles_snapshot(r, rid: int, *, extra_ids: Iterable[int | str] |
 
                 username_cached = profile.get("username")
                 avatar_cached = profile.get("avatar_name")
+                theme_cached = profile.get("theme_color")
                 if username_cached is not None:
                     cur["username"] = str(username_cached)
                 cur["avatar_name"] = str(avatar_cached) if avatar_cached is not None else None
+                cur["theme_color"] = str(theme_cached) if theme_cached is not None else None
                 out[key] = cur
 
                 mp: dict[str, str] = {}
@@ -1475,12 +1487,16 @@ async def get_profiles_snapshot(r, rid: int, *, extra_ids: Iterable[int | str] |
                     mp["username"] = str(username_cached)
                 if avatar_cached is not None:
                     mp["avatar_name"] = str(avatar_cached)
+                if theme_cached is not None:
+                    mp["theme_color"] = str(theme_cached)
                 if mp:
                     await p.hset(f"room:{rid}:user:{uid_i}:info", mapping=mp)
                 else:
                     await p.hdel(f"room:{rid}:user:{uid_i}:info", "username")
                 if avatar_cached is None:
                     await p.hdel(f"room:{rid}:user:{uid_i}:info", "avatar_name")
+                if theme_cached is None:
+                    await p.hdel(f"room:{rid}:user:{uid_i}:info", "theme_color")
             await p.execute()
 
     return out

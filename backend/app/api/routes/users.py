@@ -6,9 +6,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Response
 from ..utils import (
     broadcast_creator_rooms,
-    SANCTION_TIMEOUT,
-    SANCTION_BAN,
-    SANCTION_SUSPEND,
     fetch_active_sanctions,
     fetch_sanctions_for_users,
     pick_active_sanction_kind,
@@ -25,6 +22,8 @@ from ..utils import (
     aggregate_user_room_time_stats,
     aggregate_user_games_in_owned_rooms_stats,
     build_user_out_payload,
+    emit_auth_profile_sync,
+    emit_room_profile_theme_sync,
 )
 from ...models.game import Game
 from ...models.user import User
@@ -56,6 +55,8 @@ from ...schemas.user import (
     GameHistorySlotOut,
     UserUiPrefsIn,
     UserUiPrefsOut,
+    UserProfileThemeIn,
+    UserProfileThemeOut,
     PasswordChangeIn,
     UserStatsOut,
     UserTopPlayerOut,
@@ -80,7 +81,17 @@ from ...services.minio import (
     MAX_BYTES,
     CHAT_IMAGE_MAX_BYTES,
 )
-from ...services.user_cache import write_user_profile_cache, invalidate_avatar_presign_cache, get_user_profiles_cached
+from ...services.profile_theme import (
+    normalize_profile_theme_color,
+    resolve_profile_theme_state,
+    upsert_profile_theme_preference,
+)
+from ...services.user_cache import (
+    refresh_user_profile_cache,
+    write_user_profile_cache,
+    invalidate_avatar_presign_cache,
+    get_user_profiles_cached,
+)
 
 router = APIRouter()
 
@@ -533,7 +544,15 @@ async def update_username(payload: UsernameUpdateIn, ident: Identity = Depends(g
     old_username = user.username
     await db.execute(update(User).where(User.id == uid).values(username=new))
     await db.commit()
-    await write_user_profile_cache(uid, username=new, role=str(user.role), avatar_name=user.avatar_name)
+    theme_state = await resolve_profile_theme_state(db, uid)
+    await write_user_profile_cache(
+        uid,
+        username=new,
+        role=str(user.role),
+        avatar_name=user.avatar_name,
+        theme_color=theme_state.color,
+        theme_until=theme_state.subscription_until,
+    )
 
     await log_action(
         db,
@@ -620,6 +639,63 @@ async def update_ui_prefs(payload: UserUiPrefsIn, ident: Identity = Depends(get_
     return UserUiPrefsOut(
         hotkeys_visible=new_hotkeys_visible,
         tg_invites_enabled=new_tg_invites_enabled,
+    )
+
+
+@router.patch("/profile_theme", response_model=UserProfileThemeOut)
+@log_route("users.update_profile_theme")
+@rate_limited(lambda ident, **_: f"rl:update_profile_theme:{ident['id']}", limit=2, window_s=1)
+async def update_profile_theme(payload: UserProfileThemeIn, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UserProfileThemeOut:
+    uid = int(ident["id"])
+    user = await db.get(User, uid)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
+
+    if user.deleted_at is not None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="user_deleted")
+
+    await ensure_profile_changes_allowed(db, uid)
+    theme_state = await resolve_profile_theme_state(db, uid)
+    if not theme_state.subscription_active:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="subscription_required")
+
+    try:
+        color = normalize_profile_theme_color(payload.color)
+    except ValueError as exc:
+        detail = str(exc).strip() or "profile_theme_invalid"
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=detail)
+
+    if theme_state.color == color:
+        return UserProfileThemeOut(
+            subscription_active=True,
+            subscription_started_at=theme_state.subscription_started_at,
+            subscription_until=theme_state.subscription_until,
+            profile_theme_color=theme_state.color,
+        )
+
+    await upsert_profile_theme_preference(db, uid, color)
+    await db.commit()
+    await refresh_user_profile_cache(db, uid)
+    next_state = await resolve_profile_theme_state(db, uid)
+
+    await log_action(
+        db,
+        user_id=uid,
+        username=ident["username"],
+        action="profile_theme_updated",
+        details=f"Обновление цвета профиля: user_id={uid} color={color}",
+    )
+
+    with suppress(Exception):
+        await emit_auth_profile_sync(uid, role=str(user.role))
+    with suppress(Exception):
+        await emit_room_profile_theme_sync(uid, next_state.color)
+
+    return UserProfileThemeOut(
+        subscription_active=next_state.subscription_active,
+        subscription_started_at=next_state.subscription_started_at,
+        subscription_until=next_state.subscription_until,
+        profile_theme_color=next_state.color,
     )
 
 
@@ -725,7 +801,15 @@ async def upload_avatar(file: UploadFile = File(...), ident: Identity = Depends(
 
     await db.execute(update(User).where(User.id == uid).values(avatar_name=name))
     await db.commit()
-    await write_user_profile_cache(uid, username=db_username, role=db_role, avatar_name=name)
+    theme_state = await resolve_profile_theme_state(db, uid)
+    await write_user_profile_cache(
+        uid,
+        username=db_username,
+        role=db_role,
+        avatar_name=name,
+        theme_color=theme_state.color,
+        theme_until=theme_state.subscription_until,
+    )
     await invalidate_avatar_presign_cache(old_avatar_name)
 
     await log_action(
@@ -841,7 +925,15 @@ async def delete_avatar(ident: Identity = Depends(get_identity), db: AsyncSessio
 
     await db.execute(update(User).where(User.id == uid).values(avatar_name=None))
     await db.commit()
-    await write_user_profile_cache(uid, username=db_username, role=db_role, avatar_name=None)
+    theme_state = await resolve_profile_theme_state(db, uid)
+    await write_user_profile_cache(
+        uid,
+        username=db_username,
+        role=db_role,
+        avatar_name=None,
+        theme_color=theme_state.color,
+        theme_until=theme_state.subscription_until,
+    )
     await invalidate_avatar_presign_cache(old_avatar_name)
 
     with suppress(Exception):
