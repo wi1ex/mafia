@@ -813,7 +813,7 @@
 
         <div v-else-if="activeTab === 'subscriptions'" class="subscriptions-tab">
           <div class="block subscription-table-block">
-            <h3>Активные подписки - {{ activeSubscriptionsCount }}</h3>
+            <h3>Активные подписки — {{ activeSubscriptionsCount }}</h3>
             <div v-if="subscriptionsLoading" class="loading">Загрузка...</div>
             <table v-else class="table">
               <thead>
@@ -839,7 +839,6 @@
                   <td>{{ row.is_active ? 'Активна' : 'Истекла' }}</td>
                   <td>
                     <span class="subscription-theme-chip" :style="subscriptionThemeStyle(row.profile_theme_color)">
-                      {{ subscriptionThemeTitle(row.profile_theme_color) }}
                     </span>
                   </td>
                   <td>
@@ -886,7 +885,6 @@
       :open="subscriptionModalOpen && Boolean(subscriptionTarget)"
       :title="subscriptionModalTitle"
       :status-text="selectedSubscriptionStatusText"
-      :note="subscriptionModalNote"
       :save-label="subscriptionModalSaveLabel"
       :saving="subscriptionSaving"
       :can-save="subscriptionCanSave"
@@ -1500,16 +1498,6 @@ const subscriptionModalTitle = computed(() => {
 const subscriptionModalSaveLabel = computed(() => {
   return subscriptionModalMode.value === 'extend' ? 'Продлить' : 'Выдать'
 })
-const subscriptionModalNote = computed(() => {
-  const entry = selectedSubscriptionEntry.value
-  if (subscriptionModalMode.value === 'extend') {
-    return entry?.is_active
-      ? 'Срок будет добавлен к текущему окончанию подписки.'
-      : 'Продление снова активирует подписку с текущего момента.'
-  }
-  if (entry) return 'Выдача снова активирует подписку с текущего момента.'
-  return 'При первой выдаче подписки пользователь получает фиолетовый цвет профиля по умолчанию.'
-})
 const subscriptionCanSave = computed(() => {
   const hasDuration = (Number(subscriptionForm.months) || 0) > 0 || (Number(subscriptionForm.days) || 0) > 0
   return Boolean(subscriptionTarget.value && hasDuration)
@@ -1691,10 +1679,6 @@ function formatRoomGameResult(result: string): string {
 
 function subscriptionThemeStyle(color: string | null | undefined): Record<string, string> {
   return buildProfileThemeStyle(color)
-}
-
-function subscriptionThemeTitle(color: string | null | undefined): string {
-  return getProfileThemeOption(color)?.title || 'Без цвета'
 }
 
 function userSubscriptionEntry(userId: number): SubscriptionRow | null {
@@ -3003,7 +2987,7 @@ onMounted(() => {
       .user-cell {
         display: inline-flex;
         align-items: center;
-        gap: 10px;
+        gap: 5px;
         &.compact {
           gap: 5px;
         }
@@ -3094,39 +3078,34 @@ onMounted(() => {
       white-space: pre-wrap;
       max-width: 520px;
     }
-                                                                            .subscriptions-tab {
-                                                                              .block {
-                                                                                border: 3px solid $lead;
-                                                                                border-radius: 5px;
-                                                                                padding: 15px;
-                                                                                h3 {
-                                                                                  margin: 0 0 20px;
-                                                                                  font-size: 20px;
-                                                                                  color: $fg;
-                                                                                }
-                                                                              }
-                                                                              .subscription-table-block {
-                                                                                min-width: 0;
-                                                                              }
-                                                                              .subscription-actions {
-                                                                                display: flex;
-                                                                                flex-wrap: wrap;
-                                                                                gap: 10px;
-                                                                              }
-                                                                              .subscription-theme-chip {
-                                                                                display: inline-flex;
-                                                                                align-items: center;
-                                                                                justify-content: center;
-                                                                                padding: 0 12px;
-                                                                                min-width: 110px;
-                                                                                height: 30px;
-                                                                                border-radius: 999px;
-                                                                                background-color: var(--user-theme-bg, $graphite);
-                                                                                color: $fg;
-                                                                                font-size: 12px;
-                                                                                font-family: Manrope-Medium;
-                                                                              }
-                                                                            }
+    .subscriptions-tab {
+      .block {
+        padding: 10px 0;
+        h3 {
+          margin: 0 0 20px;
+          font-size: 20px;
+          color: $fg;
+        }
+      }
+      .subscription-table-block {
+        min-width: 0;
+      }
+      .subscription-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+      .subscription-theme-chip {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 30px;
+        height: 30px;
+        border-radius: 999px;
+        background-color: var(--user-theme-bg, $graphite);
+        font-family: Manrope-Medium;
+      }
+    }
     .pager {
       margin-top: 10px;
       display: flex;
@@ -3230,20 +3209,19 @@ onMounted(() => {
           }
         }
       }
-                                                                              .subscriptions-tab {
-                                                                                .block {
-                                                                                  padding: 10px;
-                                                                                  h3 {
-                                                                                    margin-bottom: 10px;
-                                                                                    font-size: 16px;
-                                                                                  }
-                                                                                }
-                                                                                .subscription-theme-chip {
-                                                                                  min-width: 90px;
-                                                                                  height: 24px;
-                                                                                  font-size: 10px;
-                                                                                }
-                                                                              }
+      .subscriptions-tab {
+        .block {
+          padding: 5px 0;
+          h3 {
+            margin: 0 0 10px;
+            font-size: 16px;
+          }
+        }
+        .subscription-theme-chip {
+          width: 24px;
+          height: 24px;
+        }
+      }
     }
   }
 }

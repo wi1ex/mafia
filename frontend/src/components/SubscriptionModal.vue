@@ -19,7 +19,6 @@
                 <img class="user-avatar" v-minio-img="{ key: target.avatar_name ? `avatars/${target.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
                 <span>{{ target.username || `user${target.user_id}` }}</span>
               </div>
-              <span class="subscription-note">ID {{ target.user_id }}</span>
             </div>
             <div class="grid duration-grid">
               <UiInput
@@ -43,7 +42,6 @@
                 :disabled="saving"
               />
             </div>
-            <p class="note">{{ note }}</p>
           </div>
           <div class="modal-actions">
             <button class="btn dark" type="button" @click="requestClose">Отмена</button>
@@ -75,7 +73,6 @@ withDefaults(defineProps<{
   open: boolean
   title: string
   statusText?: string
-  note: string
   saveLabel: string
   saving: boolean
   canSave: boolean
@@ -215,23 +212,12 @@ function requestClose(): void {
           font-family: Manrope-Medium;
         }
       }
-      .subscription-note {
-        color: $grey;
-        font-size: 12px;
-      }
     }
     .user-avatar {
       width: 24px;
       height: 24px;
       border-radius: 50%;
       object-fit: cover;
-    }
-    .note {
-      margin: 0;
-      padding: 0 3px;
-      color: $grey;
-      font-size: 12px;
-      line-height: 1.4;
     }
     .modal-actions {
       display: flex;
