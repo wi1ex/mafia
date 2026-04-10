@@ -155,13 +155,10 @@ async def friends_list(room_id: int | None = None, ident: Identity = Depends(get
             async with r.pipeline() as p:
                 for fid, rid in candidate_items:
                     await p.sismember(f"room:{rid}:members", str(fid))
-                    await p.sismember(f"room:{rid}:spectators", str(fid))
                 raw_membership = await p.execute()
 
-            for idx, (fid, rid) in enumerate(candidate_items):
-                is_member = bool(raw_membership[idx * 2]) if idx * 2 < len(raw_membership) else False
-                is_spectator = bool(raw_membership[idx * 2 + 1]) if idx * 2 + 1 < len(raw_membership) else False
-                if is_member or is_spectator:
+            for (fid, rid), is_member in zip(candidate_items, raw_membership):
+                if bool(is_member):
                     room_by_uid[int(fid)] = int(rid)
         except Exception:
             room_by_uid = {}
@@ -185,6 +182,22 @@ async def friends_list(room_id: int | None = None, ident: Identity = Depends(get
                 active_alive_game_room_by_uid[int(fid)] = rid
 
     invite_room_id = int(room_id or 0)
+    in_current_room_ids: set[int] = set()
+    if invite_room_id > 0 and friend_ids:
+        try:
+            async with r.pipeline() as p:
+                for fid in friend_ids:
+                    await p.sismember(f"room:{invite_room_id}:members", str(fid))
+                    await p.sismember(f"room:{invite_room_id}:spectators", str(fid))
+                raw_in_room = await p.execute()
+            for idx, fid in enumerate(friend_ids):
+                is_member = bool(raw_in_room[idx * 2]) if idx * 2 < len(raw_in_room) else False
+                is_spectator = bool(raw_in_room[idx * 2 + 1]) if idx * 2 + 1 < len(raw_in_room) else False
+                if is_member or is_spectator:
+                    in_current_room_ids.add(int(fid))
+        except Exception:
+            in_current_room_ids = set()
+
     invited_to_room_ids: set[int] = set()
     if invite_room_id > 0 and friend_ids:
         try:
@@ -244,6 +257,7 @@ async def friends_list(room_id: int | None = None, ident: Identity = Depends(get
             room_id=visible_rid,
             room_title=info.title if info else None,
             room_in_game=bool(info.in_game) if info else None,
+            in_current_room=(fid in in_current_room_ids) if invite_room_id > 0 else None,
             in_active_game_as_alive_player=bool(online and active_room_id),
             telegram_verified=bool(user_data.get("telegram_verified")),
             tg_invites_enabled=bool(user_data.get("tg_invites_enabled")),

@@ -93,11 +93,12 @@ const isRoomMode = computed(() => props.mode === 'room')
 const inviteRoomId = computed(() => Number(props.roomId || 0))
 const isAccepted = (f: { kind?: string }) => f.kind === 'online' || f.kind === 'offline'
 const currentListRoomId = () => (isRoomMode.value && inviteRoomId.value > 0 ? inviteRoomId.value : null)
-const canInvite = (f: { kind?: string; room_id?: number | null }) => {
+const canInvite = (f: { kind?: string; room_id?: number | null; in_current_room?: boolean | null }) => {
   if (!isRoomMode.value || inviteRoomId.value <= 0 || !isAccepted(f)) return false
+  if (Boolean(f.in_current_room)) return false
   return Number(f.room_id || 0) !== inviteRoomId.value
 }
-const shouldShowInviteButton = (f: { kind?: string; room_id?: number | null }) => canInvite(f)
+const shouldShowInviteButton = (f: { kind?: string; room_id?: number | null; in_current_room?: boolean | null }) => canInvite(f)
 const sections = computed(() => [
   { kind: 'incoming', title: 'Входящие заявки —', items: friends.list.filter(f => f.kind === 'incoming') },
   { kind: 'online', title: 'В сети —', items: friends.list.filter(f => f.kind === 'online') },
