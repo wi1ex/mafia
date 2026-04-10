@@ -28,7 +28,11 @@ def setup_exception_handlers(app: FastAPI) -> None:
         else:
             detail = str(raw_detail)
 
-        return JSONResponse(ErrorOut(detail=detail).model_dump(), status_code=exc.status_code)
+        return JSONResponse(
+            ErrorOut(detail=detail).model_dump(),
+            status_code=exc.status_code,
+            headers={str(k): str(v) for k, v in (exc.headers or {}).items()},
+        )
 
     @app.exception_handler(Exception)
     async def _unhandled(_: Request, exc: Exception):

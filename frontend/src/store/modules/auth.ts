@@ -26,13 +26,95 @@ export const useAuthStore = defineStore('auth', () => {
   const sessionId = ref<string>('')
   const ready = ref(false)
   const foreign = ref(false)
+  const loginCooldownUntil = ref(0)
+  const registerCooldownUntil = ref(0)
   const sessionStorageKeepKeys = ['auth:tabId']
 
   const isAuthed = computed(() => Boolean(sessionId.value))
+  const loginCooldownActive = computed(() => loginCooldownUntil.value > Date.now())
+  const registerCooldownActive = computed(() => registerCooldownUntil.value > Date.now())
 
   let busInited = false
   let unsubFA: (() => void) | null = null
   let unsubINC: (() => void) | null = null
+  let loginCooldownTimer: number | null = null
+  let registerCooldownTimer: number | null = null
+
+  function readRetryAfterSeconds(error: any, fallbackS: number): number {
+    const headers = error?.response?.headers
+    let raw: unknown = null
+    if (headers && typeof headers.get === 'function') {
+      raw = headers.get('retry-after')
+    } else if (headers && typeof headers === 'object') {
+      raw = headers['retry-after'] ?? headers['Retry-After']
+    }
+    const parsed = Number(Array.isArray(raw) ? raw[0] : raw)
+    return Number.isFinite(parsed) && parsed > 0 ? Math.ceil(parsed) : fallbackS
+  }
+
+  function formatRetryAfter(seconds: number): string {
+    const total = Math.max(1, Math.ceil(seconds))
+    if (total < 60) return `${total} сек.`
+    const minutes = Math.floor(total / 60)
+    const rest = total % 60
+    return rest > 0 ? `${minutes} мин. ${rest} сек.` : `${minutes} мин.`
+  }
+
+  function clearCooldown(action: 'login' | 'register'): void {
+    if (action === 'login') {
+      if (loginCooldownTimer !== null) window.clearTimeout(loginCooldownTimer)
+      loginCooldownTimer = null
+      loginCooldownUntil.value = 0
+      return
+    }
+    if (registerCooldownTimer !== null) window.clearTimeout(registerCooldownTimer)
+    registerCooldownTimer = null
+    registerCooldownUntil.value = 0
+  }
+
+  function setCooldown(action: 'login' | 'register', seconds: number): void {
+    const ttlMs = Math.max(1, Math.ceil(seconds)) * 1000
+    const nextUntil = Date.now() + ttlMs
+    if (action === 'login') {
+      loginCooldownUntil.value = Math.max(loginCooldownUntil.value, nextUntil)
+      if (loginCooldownTimer !== null) window.clearTimeout(loginCooldownTimer)
+      loginCooldownTimer = window.setTimeout(() => {
+        loginCooldownTimer = null
+        loginCooldownUntil.value = 0
+      }, Math.max(0, loginCooldownUntil.value - Date.now()))
+      return
+    }
+    registerCooldownUntil.value = Math.max(registerCooldownUntil.value, nextUntil)
+    if (registerCooldownTimer !== null) window.clearTimeout(registerCooldownTimer)
+    registerCooldownTimer = window.setTimeout(() => {
+      registerCooldownTimer = null
+      registerCooldownUntil.value = 0
+    }, Math.max(0, registerCooldownUntil.value - Date.now()))
+  }
+
+  function remainingCooldownSeconds(action: 'login' | 'register'): number {
+    const until = action === 'login' ? loginCooldownUntil.value : registerCooldownUntil.value
+    return until > 0 ? Math.max(0, Math.ceil((until - Date.now()) / 1000)) : 0
+  }
+
+  function handleAuthRateLimit(action: 'login' | 'register', error: any): boolean {
+    const st = Number(error?.response?.status || 0)
+    if (st !== 429) return false
+
+    const detail = String(error?.response?.data?.detail || '').trim()
+    const retryAfter = readRetryAfterSeconds(error, detail === 'ip_temporarily_blocked' ? 1800 : 60)
+    if (detail === 'ip_temporarily_blocked') {
+      setCooldown('login', retryAfter)
+      setCooldown('register', retryAfter)
+      void alertDialog(`Слишком много попыток. Доступ временно ограничен на ${formatRetryAfter(retryAfter)}.`)
+      return true
+    }
+
+    setCooldown(action, retryAfter)
+    const actionLabel = action === 'login' ? 'входа' : 'регистрации'
+    void alertDialog(`Слишком много попыток ${actionLabel}. Повторите через ${formatRetryAfter(retryAfter)}.`)
+    return true
+  }
 
   function delLS(keys: string[]) {
     for (const k of keys) { try { localStorage.removeItem(k) } catch {} }
@@ -169,9 +251,15 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function signInWithPassword(payload: { username: string; password: string }): Promise<void> {
+    const retryIn = remainingCooldownSeconds('login')
+    if (retryIn > 0) {
+      void alertDialog(`Попробуйте снова через ${formatRetryAfter(retryIn)}.`)
+      return
+    }
     try {
       const headers = isPwaMode() ? { 'X-PWA': '1' } : undefined
       const { data } = await api.post('/auth/login', payload, headers ? { headers } : undefined)
+      clearCooldown('login')
       await applySession(data)
       const userStore = useUserStore()
       await userStore.fetchMe()
@@ -183,6 +271,7 @@ export const useAuthStore = defineStore('auth', () => {
     } catch (e: any) {
       const st = e?.response?.status
       const detail = e?.response?.data?.detail
+      if (handleAuthRateLimit('login', e)) return
       if (st === 403 && detail === 'password_not_set') {
         void alertDialog('Пароль не установлен. Восстановите пароль через TG-бота.')
       } else if (st === 403 && detail === 'user_deleted') {
@@ -196,9 +285,15 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function registerWithPassword(payload: { username: string; password: string; accept_rules?: boolean }): Promise<void> {
+    const retryIn = remainingCooldownSeconds('register')
+    if (retryIn > 0) {
+      void alertDialog(`Попробуйте снова через ${formatRetryAfter(retryIn)}.`)
+      return
+    }
     try {
       const headers = isPwaMode() ? { 'X-PWA': '1' } : undefined
       const { data } = await api.post('/auth/register', payload, headers ? { headers } : undefined)
+      clearCooldown('register')
       await applySession(data)
       const userStore = useUserStore()
       await userStore.fetchMe()
@@ -207,6 +302,7 @@ export const useAuthStore = defineStore('auth', () => {
       const st = e?.response?.status
       const detail = e?.response?.data?.detail
       const moderationText = formatModerationAlert(detail)
+      if (handleAuthRateLimit('register', e)) return
       if (st === 428 && detail === 'rules_required') {
         void alertDialog('Необходимо согласиться с правилами')
         return
@@ -237,6 +333,8 @@ export const useAuthStore = defineStore('auth', () => {
     ready,
     isAuthed,
     foreignActive: foreign,
+    loginCooldownActive,
+    registerCooldownActive,
 
     init,
     signInWithPassword,

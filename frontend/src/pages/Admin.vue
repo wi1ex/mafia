@@ -2626,7 +2626,7 @@ onMounted(() => {
         .chart-grid {
           display: flex;
           align-items: flex-end;
-          gap: 5px;
+          gap: 8px;
           height: 180px;
           overflow-x: auto;
           padding: 5px 3px;
@@ -2666,8 +2666,8 @@ onMounted(() => {
       .chart--monthly {
         .chart-grid {
           .chart-bar {
-            width: 25px;
-            flex: 0 0 25px;
+            width: 30px;
+            flex: 0 0 30px;
           }
         }
       }
@@ -2886,9 +2886,6 @@ onMounted(() => {
         }
         .chart {
           padding: 5px;
-          .chart-grid {
-            gap: 3px;
-          }
         }
       }
       .table {

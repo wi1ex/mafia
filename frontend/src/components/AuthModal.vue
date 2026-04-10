@@ -28,7 +28,7 @@
                 <span id="auth-login-password-hint">{{ login.password.length }}/{{ PASSWORD_MAX }}</span>
               </template>
             </UiInput>
-            <button class="btn confirm" type="submit" :disabled="loginBusy || !canLogin">
+            <button class="btn confirm" type="submit" :disabled="loginBusy || auth.loginCooldownActive || !canLogin">
               {{ loginBusy ? '...' : 'Войти' }}
             </button>
             <button class="btn ghost" type="button" @click="openBot">Сбросить пароль</button>
@@ -57,7 +57,7 @@
               <input type="checkbox" v-model="reg.acceptRules" />
               <span>С <router-link to="/rules" target="_blank">правилами</router-link> ознакомлен и согласен</span>
             </label>
-            <button class="btn confirm" type="submit" :disabled="regBusy || !canRegisterSubmit">
+            <button class="btn confirm" type="submit" :disabled="regBusy || auth.registerCooldownActive || !canRegisterSubmit">
               {{ regBusy ? '...' : 'Зарегистрироваться' }}
             </button>
           </form>
@@ -152,7 +152,7 @@ function openBot() {
 }
 
 async function submitLogin() {
-  if (!canLogin.value || loginBusy.value) return
+  if (!canLogin.value || loginBusy.value || auth.loginCooldownActive) return
   loginBusy.value = true
   try {
     await auth.signInWithPassword({ username: login.username.trim(), password: login.password })
@@ -161,7 +161,7 @@ async function submitLogin() {
 }
 
 async function submitRegister() {
-  if (!canRegisterSubmit.value || regBusy.value) return
+  if (!canRegisterSubmit.value || regBusy.value || auth.registerCooldownActive) return
   regBusy.value = true
   try {
     await auth.registerWithPassword({

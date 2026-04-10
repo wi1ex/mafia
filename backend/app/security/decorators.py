@@ -50,6 +50,7 @@ ACTOR_MUTATING_HTTP_LIMITS: RateLimitRules = ((10, 1), (30, 60))
 AUTO_BLOCK_IP_VIOLATION_LIMIT = 8
 AUTO_BLOCK_IP_WINDOW_S = 300
 AUTO_BLOCK_IP_TTL_S = 1800
+AUTO_BLOCK_IP_VIOLATION_DEDUPE_TTL_S = 60
 PRIVILEGED_SENSITIVE_MUTATION_LIMITS: dict[str, int] = {
     "/api/admin/settings": 6,
     "/api/admin/rooms/{room_id}/close": 6,
@@ -346,6 +347,23 @@ async def _ensure_ip_not_blocked(redis_client, *, ip: str, method: str, path: st
 
 
 async def _register_ip_violation(redis_client, *, ip: str, method: str, path: str, reason: str) -> None:
+    dedupe_key = f"rl:http:ip:violation_seen:{ip}:{reason}:{method}:{path}"
+    try:
+        should_count = await redis_client.set(dedupe_key, 1, ex=AUTO_BLOCK_IP_VIOLATION_DEDUPE_TTL_S, nx=True)
+    except Exception as exc:
+        should_count = True
+        log.warning(
+            "security.ip_auto_block_violation_dedupe_failed",
+            ip=ip,
+            method=method,
+            path=path,
+            reason=reason,
+            err=type(exc).__name__,
+        )
+
+    if not should_count:
+        return
+
     violation_key = f"rl:http:ip:violations:{ip}"
     count = await _increase_rate_limit_counter(redis_client, key=violation_key, window_s=AUTO_BLOCK_IP_WINDOW_S)
     if count < AUTO_BLOCK_IP_VIOLATION_LIMIT:
@@ -363,6 +381,7 @@ async def _register_ip_violation(redis_client, *, ip: str, method: str, path: st
             trigger_count=count,
             trigger_window_s=AUTO_BLOCK_IP_WINDOW_S,
             block_ttl_s=AUTO_BLOCK_IP_TTL_S,
+            dedupe_ttl_s=AUTO_BLOCK_IP_VIOLATION_DEDUPE_TTL_S,
         )
 
 
