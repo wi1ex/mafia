@@ -21,7 +21,7 @@
     <Transition name="tab-fade" mode="out-in">
       <div :key="activeTab" class="tab-panel">
         <div v-if="activeTab === 'profile'" class="grid">
-          <div class="block">
+          <div class="block avatar-block">
             <h3>Аватар</h3>
             <div class="avatar-row">
               <img class="avatar-img" v-minio-img="{ key: me.avatar_name ? `avatars/${me.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="Текущий аватар" />
@@ -40,7 +40,7 @@
             </div>
           </div>
 
-          <div class="block">
+          <div class="block nick-block">
             <h3>Никнейм</h3>
             <div class="nick-row">
               <UiInput class="profile-input" id="profile-nick" v-model.trim="nick" :maxlength="NICK_MAX" :disabled="busyNick || isBanned || isProtectedAdminSelf" autocomplete="off" inputmode="text" label="Никнейм"
@@ -57,7 +57,7 @@
             </div>
           </div>
 
-          <div v-if="canEditProfileTheme" class="block">
+          <div v-if="canEditProfileTheme" class="block theme-block">
             <h3>Цвет профиля</h3>
             <div class="theme-row" :class="{ disabled: !canEditProfileTheme }">
               <div class="theme-preview-grid">
@@ -80,7 +80,7 @@
             </div>
           </div>
 
-          <div class="block">
+          <div class="block settings-block">
             <h3>Параметры</h3>
             <ToggleSwitch
               class="profile-switch"
@@ -102,7 +102,7 @@
               @update:modelValue="onToggleTgInvites" />
           </div>
 
-          <div class="block">
+          <div class="block account-block">
             <h3>Аккаунт</h3>
             <div class="verify-row">
               <p class="hint text">Дата регистрации: {{ registrationDateLabel }}</p>
@@ -121,7 +121,7 @@
             </div>
           </div>
 
-          <div v-if="me.has_password" class="block">
+          <div v-if="me.has_password" class="block password-block">
             <h3>Пароль</h3>
             <p v-if="passwordTemp" class="hint warn">У вас временный пароль — рекомендуем изменить его</p>
             <div class="password-row">
@@ -1054,118 +1054,6 @@ onBeforeUnmount(() => {
           font-size: 20px;
           color: $fg;
         }
-        .avatar-row {
-          display: flex;
-          gap: 20px;
-          align-items: center;
-          .avatar-img {
-            width: 150px;
-            height: 150px;
-            object-fit: cover;
-            border-radius: 50%;
-          }
-          .actions {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-          }
-        }
-        .nick-row {
-          display: flex;
-          flex-direction: column;
-          align-items: flex-start;
-          margin-bottom: 5px;
-          gap: 10px;
-          :deep(.profile-input) {
-            flex: 1 1 auto;
-            max-width: 320px;
-            width: 100%;
-          }
-        }
-        .theme-row {
-          &.disabled {
-            opacity: 0.75;
-          }
-          .theme-preview-grid {
-            display: grid;
-            gap: 10px;
-          }
-          .theme-preview-card {
-            display: flex;
-            align-items: center;
-            padding: 0 10px;
-            gap: 5px;
-            width: fit-content;
-            height: 45px;
-            border-radius: 10px;
-            background-color: var(--user-theme-bg, rgba($dark, 0.75));
-            box-shadow: 3px 3px 5px rgba($black, 0.25);
-            span {
-              min-width: 0;
-              height: 20px;
-              color: $fg;
-              font-size: 18px;
-              font-family: Manrope-Medium;
-              line-height: 1;
-              white-space: nowrap;
-              overflow: hidden;
-              text-overflow: ellipsis;
-            }
-          }
-          .theme-preview-avatar {
-            width: 30px;
-            height: 30px;
-            border-radius: 50%;
-            object-fit: cover;
-          }
-          .theme-palette {
-            display: flex;
-            flex-wrap: wrap;
-            margin: 20px 0;
-            max-width: 250px;
-            gap: 10px;
-          }
-          .theme-option {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 40px;
-            height: 40px;
-            border: 2px solid transparent;
-            border-radius: 999px;
-            background-color: var(--user-theme-bg, $graphite);
-            cursor: pointer;
-            transition: background-color 0.25s ease-in-out, border-color 0.25s ease-in-out, box-shadow 0.25s ease-in-out;
-            &:hover:enabled {
-              background-color: var(--user-theme-bg-hover, $lead);
-            }
-            &.active {
-              border-color: $fg;
-              box-shadow: 0 0 0 1px var(--user-theme-shadow, rgba($white, 0.2));
-            }
-            &:disabled {
-              cursor: not-allowed;
-            }
-          }
-        }
-        .password-row {
-          display: flex;
-          flex-direction: column;
-          align-items: flex-start;
-          gap: 10px;
-          :deep(.profile-input) {
-            max-width: 320px;
-            width: 100%;
-          }
-        }
-        .verify-row {
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-        }
-        :deep(.profile-switch + .profile-switch) {
-          margin-top: 10px;
-        }
         .hint {
           margin: 0;
           color: $grey;
@@ -1186,6 +1074,130 @@ onBeforeUnmount(() => {
           a {
             color: $fg;
             text-decoration: none;
+          }
+        }
+        &.avatar-block {
+          .avatar-row {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            .avatar-img {
+              width: 150px;
+              height: 150px;
+              object-fit: cover;
+              border-radius: 50%;
+            }
+            .actions {
+              display: flex;
+              flex-direction: column;
+              gap: 10px;
+            }
+          }
+        }
+        &.nick-block {
+          .nick-row {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            margin-bottom: 5px;
+            gap: 10px;
+            :deep(.profile-input) {
+              flex: 1 1 auto;
+              max-width: 320px;
+              width: 100%;
+            }
+          }
+        }
+        &.theme-block {
+          .theme-row {
+            &.disabled {
+              opacity: 0.75;
+            }
+            .theme-preview-grid {
+              display: grid;
+              gap: 10px;
+            }
+            .theme-preview-card {
+              display: flex;
+              align-items: center;
+              padding: 0 10px;
+              gap: 5px;
+              width: fit-content;
+              height: 45px;
+              border-radius: 10px;
+              background-color: var(--user-theme-bg, rgba($dark, 0.75));
+              box-shadow: 3px 3px 5px rgba($black, 0.25);
+              .theme-preview-avatar {
+                width: 30px;
+                height: 30px;
+                border-radius: 50%;
+                object-fit: cover;
+              }
+              span {
+                min-width: 0;
+                height: 20px;
+                color: $fg;
+                font-size: 18px;
+                font-family: Manrope-Medium;
+                line-height: 1;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+              }
+            }
+            .theme-palette {
+              display: flex;
+              flex-wrap: wrap;
+              margin: 20px 0;
+              max-width: 250px;
+              gap: 10px;
+            }
+            .theme-option {
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              width: 40px;
+              height: 40px;
+              border: 2px solid transparent;
+              border-radius: 999px;
+              background-color: var(--user-theme-bg, $graphite);
+              cursor: pointer;
+              transition: background-color 0.25s ease-in-out, border-color 0.25s ease-in-out, box-shadow 0.25s ease-in-out;
+              &:hover:enabled {
+                background-color: var(--user-theme-bg-hover, $lead);
+              }
+              &.active {
+                border-color: $fg;
+                box-shadow: 0 0 0 1px var(--user-theme-shadow, rgba($white, 0.2));
+              }
+              &:disabled {
+                cursor: not-allowed;
+              }
+            }
+          }
+        }
+        &.settings-block {
+          :deep(.profile-switch + .profile-switch) {
+            margin-top: 10px;
+          }
+        }
+        &.account-block {
+          .verify-row {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+          }
+        }
+        &.password-block {
+          .password-row {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 10px;
+            :deep(.profile-input) {
+              max-width: 320px;
+              width: 100%;
+            }
           }
         }
         &.sanctions-block {
@@ -1465,32 +1477,36 @@ onBeforeUnmount(() => {
         .block {
           padding: 10px;
           min-height: 140px;
-          .avatar-row {
-            gap: 10px;
-            .avatar-img {
-              width: 100px;
-              height: 100px;
-            }
-          }
-          .theme-row {
-            .theme-preview-card {
-              height: 35px;
-              span {
-                height: 16px;
-                font-size: 14px;
+          &.avatar-block {
+            .avatar-row {
+              gap: 10px;
+              .avatar-img {
+                width: 100px;
+                height: 100px;
               }
             }
-            .theme-preview-avatar {
-              width: 20px;
-              height: 20px;
-            }
-            .theme-palette {
-              margin: 10px 0;
-              max-width: 200px;
-            }
-            .theme-option {
-              width: 30px;
-              height: 30px;
+          }
+          &.theme-block {
+            .theme-row {
+              .theme-preview-card {
+                height: 35px;
+                .theme-preview-avatar {
+                  width: 20px;
+                  height: 20px;
+                }
+                span {
+                  height: 16px;
+                  font-size: 14px;
+                }
+              }
+              .theme-palette {
+                margin: 10px 0;
+                max-width: 200px;
+              }
+              .theme-option {
+                width: 30px;
+                height: 30px;
+              }
             }
           }
           &.sanctions-block {
