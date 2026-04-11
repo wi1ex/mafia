@@ -17,7 +17,7 @@ async def connect(sid, environ, auth):
     if token:
         vr = await validate_auth(auth)
         if vr:
-            uid, role, _, _, _ = vr
+            uid, role = vr[0], vr[1]
 
     await sio.save_session(sid, {"uid": uid, "role": role}, namespace="/rooms")
     if uid:

@@ -1334,7 +1334,10 @@ async def subscriptions_upsert(payload: AdminSubscriptionCreateIn, ident: Identi
     with suppress(Exception):
         await emit_auth_profile_sync(uid, role=str(user.role))
     with suppress(Exception):
-        await emit_room_profile_theme_sync(uid, theme_state.color)
+        await emit_room_profile_theme_sync(uid, theme_state.color, theme_state.icon)
+    with suppress(Exception):
+        from ...services.global_chat import emit_global_chat_profile_theme_sync
+        await emit_global_chat_profile_theme_sync(uid, theme_state.color, theme_state.icon)
 
     return AdminSubscriptionOut(
         user_id=uid,
@@ -1379,7 +1382,10 @@ async def subscriptions_delete(user_id: int, ident: Identity = Depends(get_ident
     with suppress(Exception):
         await emit_auth_profile_sync(uid, role=str(user.role))
     with suppress(Exception):
-        await emit_room_profile_theme_sync(uid, None)
+        await emit_room_profile_theme_sync(uid, None, None)
+    with suppress(Exception):
+        from ...services.global_chat import emit_global_chat_profile_theme_sync
+        await emit_global_chat_profile_theme_sync(uid, None, None)
 
     return Ok()
 

@@ -554,6 +554,7 @@ async def update_username(payload: UsernameUpdateIn, ident: Identity = Depends(g
         avatar_name=user.avatar_name,
         theme_color=theme_state.color,
         theme_until=theme_state.subscription_until,
+        theme_icon=theme_state.icon,
     )
 
     await log_action(
@@ -704,7 +705,10 @@ async def update_profile_theme(payload: UserProfileThemeIn, ident: Identity = De
     with suppress(Exception):
         await emit_auth_profile_sync(uid, role=str(user.role))
     with suppress(Exception):
-        await emit_room_profile_theme_sync(uid, next_state.color)
+        await emit_room_profile_theme_sync(uid, next_state.color, next_state.icon)
+    with suppress(Exception):
+        from ...services.global_chat import emit_global_chat_profile_theme_sync
+        await emit_global_chat_profile_theme_sync(uid, next_state.color, next_state.icon)
 
     return UserProfileThemeOut(
         subscription_active=next_state.subscription_active,
@@ -825,6 +829,7 @@ async def upload_avatar(file: UploadFile = File(...), ident: Identity = Depends(
         avatar_name=name,
         theme_color=theme_state.color,
         theme_until=theme_state.subscription_until,
+        theme_icon=theme_state.icon,
     )
     await invalidate_avatar_presign_cache(old_avatar_name)
 
@@ -949,6 +954,7 @@ async def delete_avatar(ident: Identity = Depends(get_identity), db: AsyncSessio
         avatar_name=None,
         theme_color=theme_state.color,
         theme_until=theme_state.subscription_until,
+        theme_icon=theme_state.icon,
     )
     await invalidate_avatar_presign_cache(old_avatar_name)
 

@@ -50,6 +50,7 @@ export interface GlobalChatAuthor {
   username: string
   avatar_name: string | null
   theme_color?: string | null
+  theme_icon?: string | null
   role?: string
 }
 
@@ -499,6 +500,7 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
           username: asString(userRaw.username).trim() || `user${userId}`,
           avatar_name: asString(userRaw.avatar_name) || null,
           theme_color: asString(userRaw.theme_color) || null,
+          theme_icon: asString(userRaw.theme_icon) || null,
         },
       })
     }
@@ -524,6 +526,49 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
     Object.keys(reactionParticipantsCache).forEach((key) => { delete reactionParticipantsCache[Number(key)] })
   }
 
+  function applyProfileThemeSync(raw: unknown): void {
+    if (!isRecord(raw)) return
+    const userId = asPositiveInt(raw.user_id)
+    if (userId <= 0) return
+    const themeColor = Object.prototype.hasOwnProperty.call(raw, 'theme_color')
+      ? (asString(raw.theme_color) || null)
+      : null
+    const themeIcon = Object.prototype.hasOwnProperty.call(raw, 'theme_icon')
+      ? (asString(raw.theme_icon) || null)
+      : null
+
+    let changed = false
+    messages.value = messages.value.map((message) => {
+      if (message.author.id !== userId) return message
+      changed = true
+      return {
+        ...message,
+        author: {
+          ...message.author,
+          theme_color: themeColor,
+          theme_icon: themeIcon,
+        },
+      }
+    })
+
+    Object.entries(reactionParticipantsCache).forEach(([key, participants]) => {
+      const nextParticipants = participants.map((participant) => {
+        if (participant.user.id !== userId) return participant
+        return {
+          ...participant,
+          user: {
+            ...participant.user,
+            theme_color: themeColor,
+            theme_icon: themeIcon,
+          },
+        }
+      })
+      reactionParticipantsCache[Number(key)] = nextParticipants
+    })
+
+    if (changed) markMutation('none')
+  }
+
   function normalizeMessage(raw: unknown, viewerUserId: number, previous?: GlobalChatMessage): GlobalChatMessage | null {
     if (!isRecord(raw)) return null
     const id = asPositiveInt(raw.id)
@@ -533,6 +578,12 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
     const authorId = asPositiveInt(authorRaw.id) || previous?.author.id || 0
     const authorUsername = asString(authorRaw.username).trim() || previous?.author.username || `user${authorId || id}`
     const authorRole = normalizeChatRole(authorRaw.role || previous?.author.role)
+    const authorThemeColor = Object.prototype.hasOwnProperty.call(authorRaw, 'theme_color')
+      ? (asString(authorRaw.theme_color) || null)
+      : (previous?.author.theme_color || null)
+    const authorThemeIcon = Object.prototype.hasOwnProperty.call(authorRaw, 'theme_icon')
+      ? (asString(authorRaw.theme_icon) || null)
+      : (previous?.author.theme_icon || null)
     const deleted = Boolean(raw.deleted)
     const deletedContentAvailable = deleted
       ? (typeof raw.deleted_content_available === 'boolean'
@@ -554,7 +605,8 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
         id: authorId,
         username: authorUsername,
         avatar_name: asString(authorRaw.avatar_name) || null,
-        theme_color: asString(authorRaw.theme_color) || previous?.author.theme_color || null,
+        theme_color: authorThemeColor,
+        theme_icon: authorThemeIcon,
         role: authorRole,
       },
       is_own: ownByAuthor,
@@ -585,6 +637,7 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
         username: asString(authorRaw.username).trim() || `user${authorId || messageId}`,
         avatar_name: asString(authorRaw.avatar_name) || null,
         theme_color: asString(authorRaw.theme_color) || null,
+        theme_icon: asString(authorRaw.theme_icon) || null,
       },
     }
   }
@@ -818,6 +871,10 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
 
     socket.on('chat_message_deleted', (payload: unknown) => {
       mergeMessages([payload])
+    })
+
+    socket.on('chat_profile_theme_sync', (payload: unknown) => {
+      applyProfileThemeSync(payload)
     })
 
     socket.on('chat_cleared', () => {

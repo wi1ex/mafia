@@ -1301,6 +1301,7 @@ async def serialize_global_chat_messages(session: AsyncSession, messages: Sequen
                     "username": _username_for(author_profile, public["user_id"]),
                     "avatar_name": author_profile.get("avatar_name"),
                     "theme_color": author_profile.get("theme_color"),
+                    "theme_icon": author_profile.get("theme_icon"),
                     "role": author_role,
                 },
                 "is_own": own_message,
@@ -1359,11 +1360,31 @@ async def fetch_global_chat_reaction_participants(session: AsyncSession, *, mess
                     "username": _username_for(profile, user_id),
                     "avatar_name": profile.get("avatar_name"),
                     "theme_color": profile.get("theme_color"),
+                    "theme_icon": profile.get("theme_icon"),
                 },
             }
         )
 
     return participants
+
+
+async def emit_global_chat_profile_theme_sync(user_id: int, theme_color: str | None, theme_icon: str | None) -> None:
+    uid = _positive_int(user_id)
+    if uid <= 0:
+        return
+
+    normalized_color = theme_color.strip() if isinstance(theme_color, str) and theme_color.strip() else None
+    normalized_icon = theme_icon.strip() if isinstance(theme_icon, str) and theme_icon.strip() else None
+    await sio.emit(
+        "chat_profile_theme_sync",
+        {
+            "user_id": uid,
+            "theme_color": normalized_color,
+            "theme_icon": normalized_icon,
+        },
+        room=GLOBAL_CHAT_ROOM,
+        namespace="/chat",
+    )
 
 
 async def get_global_chat_message(session: AsyncSession, message_id: int) -> GlobalChatMessage | None:
@@ -1672,6 +1693,7 @@ async def build_deleted_global_chat_message_preview(session: AsyncSession, *, me
             "username": _username_for(author_profile, author_id),
             "avatar_name": author_profile.get("avatar_name"),
             "theme_color": author_profile.get("theme_color"),
+            "theme_icon": author_profile.get("theme_icon"),
         },
     }
 

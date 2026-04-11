@@ -134,7 +134,7 @@ async def connect(sid, environ, auth):
         log.warning("room.connect.denied", sid=sid)
         return False
 
-    uid, role, username, avatar_name, theme_color = vr
+    uid, role, username, avatar_name, theme_color, theme_icon = vr
     await sio.save_session(sid,
                            {"uid": uid,
                             "rid": None,
@@ -142,7 +142,8 @@ async def connect(sid, environ, auth):
                             "base_role": role,
                             "username": username,
                             "avatar_name": avatar_name,
-                            "theme_color": theme_color},
+                            "theme_color": theme_color,
+                            "theme_icon": theme_icon},
                            namespace="/room")
     await sio.enter_room(sid,
                          f"user:{uid}",
@@ -261,6 +262,7 @@ async def join(sid, data) -> JoinAck:
             sess.get("username"),
             sess.get("avatar_name"),
             sess.get("theme_color"),
+            sess.get("theme_icon"),
         )
 
         try:
@@ -358,7 +360,10 @@ async def join(sid, data) -> JoinAck:
         me_prof = profiles.get(str(uid)) or {}
         ev_username = me_prof.get("username") or sess.get("username") or f"user{uid}"
         ev_avatar = me_prof.get("avatar_name") or sess.get("avatar_name") or None
-        ev_theme_color = me_prof.get("theme_color") or sess.get("theme_color") or None
+        ev_theme_color = me_prof.get("theme_color") if "theme_color" in me_prof else sess.get("theme_color")
+        ev_theme_color = ev_theme_color or None
+        ev_theme_icon = me_prof.get("theme_icon") if "theme_icon" in me_prof else sess.get("theme_icon")
+        ev_theme_icon = ev_theme_icon or None
         eff_role = roles.get(str(uid), base_role)
 
         epoch = int(await r.incr(f"room:{rid}:user:{uid}:epoch"))
@@ -374,6 +379,7 @@ async def join(sid, data) -> JoinAck:
                                 "username": ev_username,
                                 "avatar_name": ev_avatar,
                                 "theme_color": ev_theme_color,
+                                "theme_icon": ev_theme_icon,
                                 "epoch": epoch,
                                 "spectator": spectator_mode},
                                namespace="/room")
@@ -438,7 +444,8 @@ async def join(sid, data) -> JoinAck:
                              "blocks": blocked.get(str(uid)) or {},
                              "username": ev_username,
                              "avatar_name": ev_avatar,
-                             "theme_color": ev_theme_color},
+                             "theme_color": ev_theme_color,
+                             "theme_icon": ev_theme_icon},
                             room=f"room:{rid}",
                             skip_sid=sid,
                             namespace="/room")
@@ -4733,7 +4740,8 @@ async def disconnect(sid):
                                 "base_role": base_role,
                                 "username": sess.get("username"),
                                 "avatar_name": sess.get("avatar_name"),
-                                "theme_color": sess.get("theme_color")},
+                                "theme_color": sess.get("theme_color"),
+                                "theme_icon": sess.get("theme_icon")},
                                namespace="/room")
 
         await gc_if_empty(occ, gc_seq, schedule=True)

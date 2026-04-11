@@ -10,7 +10,7 @@ from ..services.profile_theme import resolve_profile_theme_state, resolve_profil
 
 log = structlog.get_logger()
 
-PROFILE_FIELDS: tuple[str, ...] = ("username", "avatar_name", "role", "theme_color", "theme_until")
+PROFILE_FIELDS: tuple[str, ...] = ("username", "avatar_name", "role", "theme_color", "theme_until", "theme_icon")
 
 
 class UserProfile(TypedDict):
@@ -19,6 +19,7 @@ class UserProfile(TypedDict):
     role: str | None
     theme_color: str | None
     theme_until: str | None
+    theme_icon: str | None
 
 
 def user_profile_cache_key(user_id: int) -> str:
@@ -55,12 +56,14 @@ def _profile_from_values(values: list[Any] | tuple[Any, ...]) -> UserProfile:
     role = _value_or_none(values[2] if len(values) > 2 else None)
     theme_color = _value_or_none(values[3] if len(values) > 3 else None)
     theme_until = _value_or_none(values[4] if len(values) > 4 else None)
+    theme_icon = _value_or_none(values[5] if len(values) > 5 else None)
     return {
         "username": username,
         "avatar_name": avatar_name,
         "role": role,
         "theme_color": theme_color,
         "theme_until": theme_until,
+        "theme_icon": theme_icon,
     }
 
 
@@ -68,7 +71,13 @@ def _profile_ready(profile: UserProfile | None) -> bool:
     if not profile:
         return False
 
-    return bool(profile.get("username")) and bool(profile.get("role"))
+    if not (bool(profile.get("username")) and bool(profile.get("role"))):
+        return False
+
+    if profile.get("theme_color") is not None and profile.get("theme_until") is not None:
+        return profile.get("theme_icon") is not None
+
+    return True
 
 
 def _parse_datetime_or_none(raw: Any) -> datetime | None:
@@ -90,19 +99,23 @@ def _parse_datetime_or_none(raw: Any) -> datetime | None:
 def _normalize_theme_state(profile: UserProfile) -> UserProfile:
     theme_color = _value_or_none(profile.get("theme_color"))
     theme_until = _value_or_none(profile.get("theme_until"))
+    theme_icon = _value_or_none(profile.get("theme_icon"))
     if theme_color is None or theme_until is None:
         profile["theme_color"] = None
         profile["theme_until"] = None
+        profile["theme_icon"] = None
         return profile
 
     expires_at = _parse_datetime_or_none(theme_until)
     if expires_at is None or expires_at <= datetime.now(timezone.utc):
         profile["theme_color"] = None
         profile["theme_until"] = None
+        profile["theme_icon"] = None
         return profile
 
     profile["theme_color"] = theme_color
     profile["theme_until"] = theme_until
+    profile["theme_icon"] = theme_icon
     return profile
 
 
@@ -133,7 +146,7 @@ async def read_user_profile_cache(user_id: int, *, redis_client=None) -> UserPro
     return profile if _profile_ready(profile) else None
 
 
-async def write_user_profile_cache(user_id: int, *, username: str, role: str, avatar_name: str | None, theme_color: str | None, theme_until: datetime | None, redis_client=None) -> None:
+async def write_user_profile_cache(user_id: int, *, username: str, role: str, avatar_name: str | None, theme_color: str | None, theme_until: datetime | None, theme_icon: str | None = None, redis_client=None) -> None:
     r = redis_client or get_redis()
     key = user_profile_cache_key(user_id)
     mapping = {
@@ -142,6 +155,7 @@ async def write_user_profile_cache(user_id: int, *, username: str, role: str, av
     }
     avatar = _value_or_none(avatar_name)
     color = _value_or_none(theme_color)
+    icon = _value_or_none(theme_icon)
     expires_at = theme_until.isoformat() if isinstance(theme_until, datetime) else None
 
     try:
@@ -151,10 +165,10 @@ async def write_user_profile_cache(user_id: int, *, username: str, role: str, av
                 await p.hset(key, mapping={"avatar_name": avatar})
             else:
                 await p.hdel(key, "avatar_name")
-            if color is not None and expires_at:
-                await p.hset(key, mapping={"theme_color": color, "theme_until": expires_at})
+            if color is not None and expires_at and icon is not None:
+                await p.hset(key, mapping={"theme_color": color, "theme_until": expires_at, "theme_icon": icon})
             else:
-                await p.hdel(key, "theme_color", "theme_until")
+                await p.hdel(key, "theme_color", "theme_until", "theme_icon")
             await p.execute()
     except Exception:
         log.warning("user_cache.write_failed", user_id=int(user_id))
@@ -199,6 +213,7 @@ async def refresh_user_profile_cache(session: AsyncSession, user_id: int, *, red
         "role": _value_or_none(rec[2]),
         "theme_color": _value_or_none(theme_state.color),
         "theme_until": theme_state.subscription_until.isoformat() if theme_state.subscription_until else None,
+        "theme_icon": _value_or_none(theme_state.icon),
     }
     if not _profile_ready(profile):
         await delete_user_profile_cache(uid, redis_client=redis_client)
@@ -211,6 +226,7 @@ async def refresh_user_profile_cache(session: AsyncSession, user_id: int, *, red
         avatar_name=profile["avatar_name"],
         theme_color=profile["theme_color"],
         theme_until=theme_state.subscription_until,
+        theme_icon=profile["theme_icon"],
         redis_client=redis_client,
     )
     return profile
@@ -274,6 +290,7 @@ async def get_user_profiles_cached(session: AsyncSession, user_ids: Iterable[int
                 if theme_state and theme_state.subscription_until
                 else None
             ),
+            "theme_icon": _value_or_none(theme_state.icon if theme_state else None),
         }
         if _profile_ready(profile):
             db_map[uid] = profile
@@ -297,16 +314,17 @@ async def get_user_profiles_cached(session: AsyncSession, user_ids: Iterable[int
                     await p.hset(user_profile_cache_key(uid), mapping={"avatar_name": profile["avatar_name"]})
                 else:
                     await p.hdel(user_profile_cache_key(uid), "avatar_name")
-                if profile["theme_color"] is not None and profile["theme_until"] is not None:
+                if profile["theme_color"] is not None and profile["theme_until"] is not None and profile["theme_icon"] is not None:
                     await p.hset(
                         user_profile_cache_key(uid),
                         mapping={
                             "theme_color": profile["theme_color"],
                             "theme_until": profile["theme_until"],
+                            "theme_icon": profile["theme_icon"],
                         },
                     )
                 else:
-                    await p.hdel(user_profile_cache_key(uid), "theme_color", "theme_until")
+                    await p.hdel(user_profile_cache_key(uid), "theme_color", "theme_until", "theme_icon")
             await p.execute()
     except Exception:
         log.warning("user_cache.batch_write_failed", users=len(missed))

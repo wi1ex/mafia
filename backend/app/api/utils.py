@@ -1046,6 +1046,7 @@ async def build_user_out_payload(session: AsyncSession, *, user_id: int, role: s
         avatar_name=user.avatar_name,
         theme_color=theme_state.color,
         theme_until=theme_state.subscription_until,
+        theme_icon=theme_state.icon,
     )
     active = await fetch_active_sanctions(session, uid)
     timeout = active.get(SANCTION_TIMEOUT)
@@ -1140,7 +1141,10 @@ async def sync_expired_profile_subscriptions() -> int:
                     await session.commit()
                 await refresh_user_profile_cache(session, uid, redis_client=r)
                 await emit_auth_profile_sync(uid)
-                await emit_room_profile_theme_sync(uid, None)
+                await emit_room_profile_theme_sync(uid, None, None)
+                with suppress(Exception):
+                    from ..services.global_chat import emit_global_chat_profile_theme_sync
+                    await emit_global_chat_profile_theme_sync(uid, None, None)
                 synced += 1
             except Exception as exc:
                 with suppress(Exception):
@@ -3533,7 +3537,7 @@ async def broadcast_creator_rooms(uid: int, *, update_name: Optional[str] = None
             log.warning("rooms.upsert.iter_failed", rid=rid, err=type(e).__name__)
 
 
-async def emit_room_profile_theme_sync(uid: int, theme_color: str | None) -> None:
+async def emit_room_profile_theme_sync(uid: int, theme_color: str | None, theme_icon: str | None) -> None:
     r = get_redis()
     try:
         raw_room_id = await r.get(f"user:{int(uid)}:room")
@@ -3545,13 +3549,15 @@ async def emit_room_profile_theme_sync(uid: int, theme_color: str | None) -> Non
         return
 
     try:
-        if isinstance(theme_color, str) and theme_color.strip():
+        normalized_color = theme_color.strip() if isinstance(theme_color, str) and theme_color.strip() else None
+        normalized_icon = theme_icon.strip() if isinstance(theme_icon, str) and theme_icon.strip() else None
+        if normalized_color and normalized_icon:
             await r.hset(
                 f"room:{rid}:user:{int(uid)}:info",
-                mapping={"theme_color": theme_color.strip()},
+                mapping={"theme_color": normalized_color, "theme_icon": normalized_icon},
             )
         else:
-            await r.hdel(f"room:{rid}:user:{int(uid)}:info", "theme_color")
+            await r.hdel(f"room:{rid}:user:{int(uid)}:info", "theme_color", "theme_icon")
     except Exception as exc:
         log.warning("room.profile_theme.cache_failed", rid=rid, uid=int(uid), err=type(exc).__name__)
 
@@ -3561,6 +3567,7 @@ async def emit_room_profile_theme_sync(uid: int, theme_color: str | None) -> Non
             {
                 "user_id": int(uid),
                 "theme_color": theme_color if isinstance(theme_color, str) and theme_color.strip() else None,
+                "theme_icon": theme_icon if isinstance(theme_icon, str) and theme_icon.strip() else None,
             },
             room=f"room:{rid}",
             namespace="/room",
