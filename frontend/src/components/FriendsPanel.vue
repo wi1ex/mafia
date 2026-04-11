@@ -21,6 +21,7 @@
             <article v-for="f in section.items" :key="`${f.kind}-${f.id}`" class="item" :style="friendItemStyle(f)">
               <div class="left">
                 <img v-minio-img="{ key: f.avatar_name ? `avatars/${f.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
+                <img v-if="friendThemeIconSrc(f)" class="profile-theme-icon" :src="friendThemeIconSrc(f) || ''" alt="" aria-hidden="true" />
                 <span class="nick">{{ f.username || ('user' + f.id) }}</span>
               </div>
               <div class="info">
@@ -65,6 +66,7 @@
 <script setup lang="ts">
 import { ref, watch, nextTick, onBeforeUnmount, computed, reactive } from 'vue'
 import { buildProfileThemeBgStyle } from '@/constants/profileThemes'
+import { getProfileThemeIconSrc } from '@/constants/profileThemeIcons'
 import { useFriendsStore, resolveFriendsApiError, shouldRefreshFriendsStateAfterError } from '@/store'
 import { confirmDialog, alertDialog, useConfirmState } from '@/services/confirm'
 
@@ -101,6 +103,7 @@ const canInvite = (f: { kind?: string; room_id?: number | null; in_current_room?
 }
 const shouldShowInviteButton = (f: { kind?: string; room_id?: number | null; in_current_room?: boolean | null }) => canInvite(f)
 const friendItemStyle = (friend: { theme_color?: string | null }) => buildProfileThemeBgStyle(friend.theme_color)
+const friendThemeIconSrc = (friend: { theme_icon?: string | null }) => getProfileThemeIconSrc(friend.theme_icon)
 const sections = computed(() => [
   { kind: 'incoming', title: 'Входящие заявки —', items: friends.list.filter(f => f.kind === 'incoming') },
   { kind: 'online', title: 'В сети —', items: friends.list.filter(f => f.kind === 'online') },
@@ -459,6 +462,10 @@ onBeforeUnmount(() => {
           height: 24px;
           border-radius: 50%;
         }
+        .profile-theme-icon {
+          border-radius: 0;
+          object-fit: contain;
+        }
         .nick {
           height: 18px;
           font-size: 16px;
@@ -616,6 +623,10 @@ onBeforeUnmount(() => {
           img {
             width: 16px;
             height: 16px;
+          }
+          .profile-theme-icon {
+            border-radius: 0;
+            object-fit: contain;
           }
           .nick {
             height: 14px;

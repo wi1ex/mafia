@@ -86,6 +86,7 @@
       <button class="card-head" :disabled="id === localId" :aria-disabled="id === localId" @click.stop="$emit('toggle-panel', id)" :aria-expanded="openPanel">
         <img v-if="seat != null && seatIcon" class="user-slot" :src="seatIcon" alt="seat" />
         <img class="user-avatar" v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar, lazy: false }" alt="avatar" />
+        <img v-if="profileThemeIconSrc" class="profile-theme-icon" :src="profileThemeIconSrc" alt="" aria-hidden="true" />
         <span>{{ userName(id) }}</span>
         <div class="status" v-if="showHeaderStatus">
           <img v-if="showMicStatus" :src="micStatusIcon" alt="mic" />
@@ -158,6 +159,7 @@ import iconInFriends from '@/assets/svg/inFriends.svg'
 import iconRecieveFriends from '@/assets/svg/recieveFriends.svg'
 import iconSendFriends from '@/assets/svg/sendFriends.svg'
 import { buildProfileThemeBgStyle } from '@/constants/profileThemes'
+import { getProfileThemeIconSrc } from '@/constants/profileThemeIcons'
 
 type IconKind = 'mic' | 'cam' | 'speakers' | 'visibility' | 'screen'
 
@@ -171,6 +173,7 @@ const props = withDefaults(defineProps<{
   fitContain?: boolean
   defaultAvatar: string
   themeColor?: string | null
+  themeIcon?: string | null
   volumeIcon: string
   videoRef: (el: HTMLVideoElement | null) => void
   hasVideoTrack: (id: string) => boolean
@@ -294,6 +297,7 @@ const props = withDefaults(defineProps<{
   friendBusy: false,
   friendLoading: false,
   themeColor: null,
+  themeIcon: null,
   vol: 100,
 })
 
@@ -396,6 +400,7 @@ const friendDisabled = computed(() =>
 )
 const showFriendAction = computed(() => props.id !== props.localId && friendActionLabel.value !== '')
 const userCardStyle = computed(() => buildProfileThemeBgStyle(props.themeColor))
+const profileThemeIconSrc = computed(() => getProfileThemeIconSrc(props.themeIcon))
 
 </script>
 
@@ -767,6 +772,11 @@ const userCardStyle = computed(() => buildProfileThemeBgStyle(props.themeColor))
         border-radius: 50%;
         object-fit: cover;
       }
+      .profile-theme-icon {
+        width: 24px;
+        height: 24px;
+        object-fit: contain;
+      }
       span {
         flex: 1 1 auto;
         min-width: 0;
@@ -1080,6 +1090,10 @@ const userCardStyle = computed(() => buildProfileThemeBgStyle(props.themeColor))
           height: 16px;
         }
         .user-avatar {
+          width: 14px;
+          height: 14px;
+        }
+        .profile-theme-icon {
           width: 14px;
           height: 14px;
         }

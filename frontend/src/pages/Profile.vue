@@ -425,7 +425,7 @@ const profileThemeAvailabilityText = computed(() => {
   if (!raw) return 'Доступно, пока активна подписка'
   const dt = new Date(raw)
   if (Number.isNaN(dt.getTime())) return 'Доступно, пока активна подписка'
-  return `Доступно до ${dt.toLocaleDateString('ru-RU')}`
+  return `Доступно для Вас до ${dt.toLocaleDateString('ru-RU')}`
 })
 const registrationDateLabel = computed(() => {
   const raw = me.registered_at

@@ -33,6 +33,7 @@
               <div class="message-meta">
                 <div class="message-meta-author">
                   <img class="author-avatar" v-minio-img="{ key: message.author.avatar_name ? `avatars/${message.author.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="Аватар автора" />
+                  <img v-if="profileThemeIconSrc(message.author.theme_icon)" class="profile-theme-icon" :src="profileThemeIconSrc(message.author.theme_icon) || ''" alt="" aria-hidden="true" />
                   <span class="author-name">{{ message.author.username || (`user${message.author.id}`) }}</span>
                 </div>
                 <span class="message-time">{{ formatMessageTime(message.created_at) }}</span>
@@ -88,6 +89,7 @@
                     <template v-else-if="reactionParticipantsFor(message.id, reaction.emoji).length > 0">
                       <div v-for="participant in reactionParticipantsFor(message.id, reaction.emoji)" :key="`${participant.user.id}-${participant.created_at}`" class="reaction-details-item">
                         <img class="reaction-details-avatar" v-minio-img="{ key: participant.user.avatar_name ? `avatars/${participant.user.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="Аватар" />
+                        <img v-if="profileThemeIconSrc(participant.user.theme_icon)" class="profile-theme-icon" :src="profileThemeIconSrc(participant.user.theme_icon) || ''" alt="" aria-hidden="true" />
                         <div class="reaction-details-meta">
                           <span class="reaction-details-name">{{ participant.user.username || (`user${participant.user.id}`) }}</span>
                           <small class="reaction-details-time">{{ formatMessageTime(participant.created_at) }}</small>
@@ -221,6 +223,7 @@
           <div class="deleted-preview-body">
             <div class="deleted-preview-author">
               <img class="deleted-preview-avatar" v-minio-img="{ key: deletedPreview.author.avatar_name ? `avatars/${deletedPreview.author.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="Аватар автора" />
+              <img v-if="profileThemeIconSrc(deletedPreview.author.theme_icon)" class="profile-theme-icon" :src="profileThemeIconSrc(deletedPreview.author.theme_icon) || ''" alt="" aria-hidden="true" />
               <span>{{ deletedPreview.author.username || (`user${deletedPreview.author.id}`) }}</span>
             </div>
 
@@ -258,6 +261,7 @@ import { useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { api } from '@/services/axios'
 import { buildProfileThemeBgStyle } from '@/constants/profileThemes'
+import { getProfileThemeIconSrc } from '@/constants/profileThemeIcons'
 import { alertDialog, confirmDialog } from '@/services/confirm'
 import { formatChatTimestamp } from '@/services/datetime'
 import { useAuthStore, useGlobalChatStore, useSettingsStore, useUserStore } from '@/store'
@@ -411,6 +415,7 @@ const composerPlaceholder = computed(() => (
 const showLoadMore = computed(() => hasMore.value && (loadingMore.value || listAtTop.value))
 const mentionDropdownVisible = computed(() => Boolean(activeMentionRange.value?.query) && !composerDisabled.value && (mentionLoading.value || mentionHasSearched.value))
 const messageCardStyle = (message: GlobalChatMessage) => buildProfileThemeBgStyle(message.author.theme_color)
+const profileThemeIconSrc = (icon: unknown) => getProfileThemeIconSrc(icon)
 
 type TextSegment = {
   kind: 'text' | 'link' | 'mention'
@@ -1668,6 +1673,11 @@ onBeforeUnmount(() => {
               border-radius: 50%;
               object-fit: cover;
             }
+            .profile-theme-icon {
+              width: 20px;
+              height: 20px;
+              object-fit: contain;
+            }
             .author-name {
               min-width: 0;
               height: 18px;
@@ -1851,6 +1861,11 @@ onBeforeUnmount(() => {
                   height: 25px;
                   border-radius: 50%;
                   object-fit: cover;
+                }
+                .profile-theme-icon {
+                  width: 25px;
+                  height: 25px;
+                  object-fit: contain;
                 }
                 .reaction-details-meta {
                   display: flex;
@@ -2251,6 +2266,11 @@ onBeforeUnmount(() => {
           border-radius: 50%;
           object-fit: cover;
         }
+        .profile-theme-icon {
+          width: 30px;
+          height: 30px;
+          object-fit: contain;
+        }
         span {
           color: $fg;
           font-size: 16px;
@@ -2436,6 +2456,10 @@ onBeforeUnmount(() => {
                 width: 16px;
                 height: 16px;
               }
+              .profile-theme-icon {
+                width: 16px;
+                height: 16px;
+              }
               .author-name {
                 height: 14px;
                 font-size: 12px;
@@ -2509,6 +2533,10 @@ onBeforeUnmount(() => {
                 .reaction-details-item {
                   gap: 3px;
                   .reaction-details-avatar {
+                    width: 20px;
+                    height: 20px;
+                  }
+                  .profile-theme-icon {
                     width: 20px;
                     height: 20px;
                   }
@@ -2685,6 +2713,10 @@ onBeforeUnmount(() => {
         .deleted-preview-author {
           gap: 3px;
           .deleted-preview-avatar {
+            width: 20px;
+            height: 20px;
+          }
+          .profile-theme-icon {
             width: 20px;
             height: 20px;
           }
