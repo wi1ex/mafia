@@ -59,8 +59,7 @@
 
           <div v-if="canEditProfileTheme" class="block theme-block">
             <h3>Оформление профиля</h3>
-            <p class="hint">{{ profileThemeAvailabilityText }}</p>
-            <div class="theme-row" :class="{ disabled: !canEditProfileTheme }">
+            <div class="theme-row">
               <div class="theme-preview-grid">
                 <div class="theme-preview-card" :style="themePreviewStyle">
                   <img class="theme-preview-avatar" v-minio-img="{ key: me.avatar_name ? `avatars/${me.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
@@ -70,15 +69,16 @@
 
               <div class="theme-palette">
                 <button v-for="item in PROFILE_THEME_OPTIONS" :key="item.key" class="theme-option" type="button" :class="{ active: selectedProfileThemeColor === item.key }"
-                        :style="themeOptionStyle(item.key)" :disabled="!canEditProfileTheme || themeSaveBusy || isBanned" @click="pickProfileTheme(item.key)">
+                        :style="themeOptionStyle(item.key)" :disabled="themeSaveBusy || isBanned" @click="pickProfileTheme(item.key)">
                 </button>
               </div>
 
-              <button class="btn confirm" @click="saveProfileTheme" :disabled="themeSaveBusy || isBanned || !canEditProfileTheme || !profileThemeDirty">
+              <button class="btn confirm" @click="saveProfileTheme" :disabled="themeSaveBusy || isBanned || !profileThemeDirty">
                 <img class="btn-img" :src="iconSave" alt="save" />
                 {{ themeSaveBusy ? '...' : 'Сохранить' }}
               </button>
             </div>
+            <p class="hint">{{ profileThemeAvailabilityText }}</p>
           </div>
 
           <div class="block settings-block">
@@ -144,13 +144,13 @@
                   <span id="profile-pass-confirm-hint">{{ pwd.confirm.length }}/{{ PASSWORD_MAX }}</span>
                 </template>
               </UiInput>
+              <button class="btn confirm" @click="changePassword" :disabled="pwdBusy || !canChangePassword">
+                {{ pwdBusy ? '...' : 'Сменить пароль' }}
+              </button>
               <p class="hint">
                 Сбросить пароль можно через
                 <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">TG-бота</a>
               </p>
-              <button class="btn confirm" @click="changePassword" :disabled="pwdBusy || !canChangePassword">
-                {{ pwdBusy ? '...' : 'Сменить пароль' }}
-              </button>
             </div>
           </div>
 
@@ -1118,9 +1118,7 @@ onBeforeUnmount(() => {
         }
         &.theme-block {
           .theme-row {
-            &.disabled {
-              opacity: 0.75;
-            }
+            margin-bottom: 10px;
             .theme-preview-grid {
               display: grid;
               gap: 10px;
@@ -1135,6 +1133,7 @@ onBeforeUnmount(() => {
               border-radius: 10px;
               background-color: var(--user-theme-bg, rgba($dark, 0.75));
               box-shadow: 3px 3px 5px rgba($black, 0.25);
+              transition: background-color 0.25s ease-in-out;
               .theme-preview-avatar {
                 width: 30px;
                 height: 30px;
@@ -1156,7 +1155,7 @@ onBeforeUnmount(() => {
             .theme-palette {
               display: flex;
               flex-wrap: wrap;
-              margin: 10px 0;
+              margin: 15px 0;
               gap: 10px;
             }
             .theme-option {
@@ -1504,6 +1503,9 @@ onBeforeUnmount(() => {
                   height: 16px;
                   font-size: 14px;
                 }
+              }
+              .theme-palette {
+                margin: 10px 0;
               }
               .theme-option {
                 width: 20px;
