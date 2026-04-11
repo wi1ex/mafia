@@ -75,9 +75,8 @@
               </div>
 
               <div class="theme-icon-palette">
-                <button v-for="item in PROFILE_THEME_ICON_OPTIONS" :key="item.key" class="theme-icon-option" type="button"
-                        :class="{ active: selectedProfileThemeIcon === item.key }" :disabled="themeSaveBusy || isBanned"
-                        :title="item.title" @click="pickProfileThemeIcon(item.key)">
+                <button v-for="item in PROFILE_THEME_ICON_OPTIONS" :key="item.key" @click="pickProfileThemeIcon(item.key)"
+                        class="theme-icon-option" type="button" :class="{ active: selectedProfileThemeIcon === item.key }" :disabled="themeSaveBusy || isBanned">
                   <img :src="themeIconSrc(item.key)" alt="" aria-hidden="true" />
                 </button>
               </div>

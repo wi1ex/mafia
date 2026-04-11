@@ -822,7 +822,7 @@
                   <th>Дата начала подписки</th>
                   <th>Дата окончания подписки</th>
                   <th>Статус</th>
-                  <th>Цвет</th>
+                  <th>Оформление</th>
                   <th>Действия</th>
                 </tr>
               </thead>
@@ -838,8 +838,11 @@
                   <td>{{ formatLocalDateTime(row.ends_at) }}</td>
                   <td>{{ row.is_active ? 'Активна' : 'Истекла' }}</td>
                   <td>
-                    <span class="subscription-theme-chip" :style="subscriptionThemeStyle(row.profile_theme_color)">
-                    </span>
+                    <div class="subscription-theme-preview">
+                      <span class="subscription-theme-chip" :style="subscriptionThemeStyle(row.profile_theme_color)"></span>
+                      <img v-if="subscriptionThemeIconSrc(row.profile_theme_icon)" class="subscription-theme-icon"
+                           :src="subscriptionThemeIconSrc(row.profile_theme_icon) || ''" alt="" aria-hidden="true" />
+                    </div>
                   </td>
                   <td>
                     <div class="subscription-actions">
@@ -936,6 +939,10 @@ import {
   buildProfileThemeBgStyle,
   getProfileThemeOption,
 } from '@/constants/profileThemes'
+import {
+  getProfileThemeIconOption,
+  getProfileThemeIconSrc,
+} from '@/constants/profileThemeIcons'
 
 const DATE_ONLY: Intl.DateTimeFormatOptions = {
   year: 'numeric',
@@ -1126,6 +1133,7 @@ type SubscriptionRow = {
   ends_at: string
   is_active: boolean
   profile_theme_color?: string | null
+  profile_theme_icon?: string | null
 }
 
 type SubscriptionTarget = {
@@ -1679,6 +1687,10 @@ function formatRoomGameResult(result: string): string {
 
 function subscriptionThemeStyle(color: string | null | undefined): Record<string, string> {
   return buildProfileThemeBgStyle(color)
+}
+
+function subscriptionThemeIconSrc(icon: string | null | undefined): string | null {
+  return getProfileThemeIconSrc(icon)
 }
 
 function userSubscriptionEntry(userId: number): SubscriptionRow | null {
@@ -3095,6 +3107,11 @@ onMounted(() => {
         flex-wrap: wrap;
         gap: 10px;
       }
+      .subscription-theme-preview {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+      }
       .subscription-theme-chip {
         display: inline-flex;
         align-items: center;
@@ -3104,6 +3121,11 @@ onMounted(() => {
         border-radius: 999px;
         background-color: var(--user-theme-bg, $graphite);
         font-family: Manrope-Medium;
+      }
+      .subscription-theme-icon {
+        width: 30px;
+        height: 30px;
+        object-fit: contain;
       }
     }
     .pager {
@@ -3218,6 +3240,10 @@ onMounted(() => {
           }
         }
         .subscription-theme-chip {
+          width: 24px;
+          height: 24px;
+        }
+        .subscription-theme-icon {
           width: 24px;
           height: 24px;
         }
