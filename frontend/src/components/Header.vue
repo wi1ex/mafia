@@ -548,6 +548,7 @@ function openAuth(mode: 'login' | 'register') {
     max-height: 50px;
     .btn {
       padding: 0 8px;
+      gap: 3px;
       height: 30px;
       span {
         font-size: 12px;
@@ -561,6 +562,7 @@ function openAuth(mode: 'login' | 'register') {
         height: 16px;
       }
       .arrow {
+        margin-left: 3px;
         width: 10px;
         height: 10px;
       }

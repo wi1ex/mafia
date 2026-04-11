@@ -68,14 +68,12 @@
                 </div>
               </div>
 
-              <span class="theme-subtitle">Цвет</span>
               <div class="theme-palette">
                 <button v-for="item in PROFILE_THEME_OPTIONS" :key="item.key" class="theme-option" type="button" :class="{ active: selectedProfileThemeColor === item.key }"
                         :style="themeOptionStyle(item.key)" :disabled="themeSaveBusy || isBanned" @click="pickProfileTheme(item.key)">
                 </button>
               </div>
 
-              <span class="theme-subtitle">Иконка</span>
               <div class="theme-icon-palette">
                 <button v-for="item in PROFILE_THEME_ICON_OPTIONS" :key="item.key" class="theme-icon-option" type="button"
                         :class="{ active: selectedProfileThemeIcon === item.key }" :disabled="themeSaveBusy || isBanned"
@@ -1197,12 +1195,6 @@ onBeforeUnmount(() => {
                 text-overflow: ellipsis;
               }
             }
-            .theme-subtitle {
-              display: block;
-              color: $grey;
-              font-size: 14px;
-              text-transform: uppercase;
-            }
             .theme-palette {
               display: flex;
               flex-wrap: wrap;
@@ -1240,16 +1232,16 @@ onBeforeUnmount(() => {
               display: flex;
               align-items: center;
               justify-content: center;
-              width: 40px;
-              height: 40px;
+              width: 25px;
+              height: 25px;
               border: 2px solid transparent;
-              border-radius: 10px;
+              border-radius: 5px;
               background-color: $graphite;
               cursor: pointer;
               transition: background-color 0.25s ease-in-out, border-color 0.25s ease-in-out;
               img {
-                width: 30px;
-                height: 30px;
+                width: 25px;
+                height: 25px;
                 object-fit: contain;
               }
               &:hover:enabled {
@@ -1578,6 +1570,7 @@ onBeforeUnmount(() => {
           &.theme-block {
             .theme-row {
               .theme-preview-card {
+                gap: 3px;
                 height: 35px;
                 .theme-preview-avatar {
                   width: 20px;
@@ -1600,11 +1593,11 @@ onBeforeUnmount(() => {
                 height: 20px;
               }
               .theme-icon-option {
-                width: 32px;
-                height: 32px;
+                width: 20px;
+                height: 20px;
                 img {
-                  width: 20px;
-                  height: 20px;
+                  width: 16px;
+                  height: 16px;
                 }
               }
             }
