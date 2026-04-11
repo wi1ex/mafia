@@ -64,7 +64,7 @@
 
 <script setup lang="ts">
 import { ref, watch, nextTick, onBeforeUnmount, computed, reactive } from 'vue'
-import { buildProfileThemeChatStyle } from '@/constants/profileThemes'
+import { buildProfileThemeBgStyle } from '@/constants/profileThemes'
 import { useFriendsStore, resolveFriendsApiError, shouldRefreshFriendsStateAfterError } from '@/store'
 import { confirmDialog, alertDialog, useConfirmState } from '@/services/confirm'
 
@@ -100,7 +100,7 @@ const canInvite = (f: { kind?: string; room_id?: number | null; in_current_room?
   return Number(f.room_id || 0) !== inviteRoomId.value
 }
 const shouldShowInviteButton = (f: { kind?: string; room_id?: number | null; in_current_room?: boolean | null }) => canInvite(f)
-const friendItemStyle = (friend: { theme_color?: string | null }) => buildProfileThemeChatStyle(friend.theme_color)
+const friendItemStyle = (friend: { theme_color?: string | null }) => buildProfileThemeBgStyle(friend.theme_color)
 const sections = computed(() => [
   { kind: 'incoming', title: 'Входящие заявки —', items: friends.list.filter(f => f.kind === 'incoming') },
   { kind: 'online', title: 'В сети —', items: friends.list.filter(f => f.kind === 'online') },

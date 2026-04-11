@@ -58,7 +58,7 @@
           </div>
 
           <div v-if="canEditProfileTheme" class="block theme-block">
-            <h3>Цвет профиля</h3>
+            <h3>Оформление профиля</h3>
             <div class="theme-row" :class="{ disabled: !canEditProfileTheme }">
               <div class="theme-preview-grid">
                 <div class="theme-preview-card" :style="themePreviewStyle">
@@ -256,7 +256,7 @@ import iconEdit from '@/assets/svg/edit.svg'
 import iconDelete from '@/assets/svg/delete.svg'
 import {
   PROFILE_THEME_OPTIONS,
-  buildProfileThemeStyle,
+  buildProfileThemeBgStyle,
   normalizeProfileThemeColor,
   resolveProfileThemeColor,
   type ProfileThemeColor,
@@ -397,7 +397,7 @@ const canEditProfileTheme = computed(() => {
 })
 const currentProfileThemeColor = computed(() => resolveProfileThemeColor(canEditProfileTheme.value ? me.profile_theme_color : null))
 const profileThemeDirty = computed(() => canEditProfileTheme.value && selectedProfileThemeColor.value !== currentProfileThemeColor.value)
-const themePreviewStyle = computed(() => buildProfileThemeStyle(canEditProfileTheme.value ? selectedProfileThemeColor.value : null))
+const themePreviewStyle = computed(() => buildProfileThemeBgStyle(canEditProfileTheme.value ? selectedProfileThemeColor.value : null))
 const registrationDateLabel = computed(() => {
   const raw = me.registered_at
   if (!raw) return '-'
@@ -464,7 +464,7 @@ function applyMePayload(data: any, options: { keepNickDraft?: boolean; keepTheme
 }
 
 function themeOptionStyle(color: ProfileThemeColor): Record<string, string> {
-  return buildProfileThemeStyle(color)
+  return buildProfileThemeBgStyle(color)
 }
 
 function pickProfileTheme(color: ProfileThemeColor) {
@@ -1161,13 +1161,12 @@ onBeforeUnmount(() => {
               border-radius: 999px;
               background-color: var(--user-theme-bg, $graphite);
               cursor: pointer;
-              transition: background-color 0.25s ease-in-out, border-color 0.25s ease-in-out, box-shadow 0.25s ease-in-out;
+              transition: background-color 0.25s ease-in-out, border-color 0.25s ease-in-out;
               &:hover:enabled {
-                background-color: var(--user-theme-bg-hover, $lead);
+                border-color: rgba($white, 0.5);
               }
               &.active {
                 border-color: $fg;
-                box-shadow: 0 0 0 1px var(--user-theme-shadow, rgba($white, 0.2));
               }
               &:disabled {
                 cursor: not-allowed;

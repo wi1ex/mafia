@@ -257,7 +257,7 @@ import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, r
 import { useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { api } from '@/services/axios'
-import { buildProfileThemeChatStyle } from '@/constants/profileThemes'
+import { buildProfileThemeBgStyle } from '@/constants/profileThemes'
 import { alertDialog, confirmDialog } from '@/services/confirm'
 import { formatChatTimestamp } from '@/services/datetime'
 import { useAuthStore, useGlobalChatStore, useSettingsStore, useUserStore } from '@/store'
@@ -410,7 +410,7 @@ const composerPlaceholder = computed(() => (
 ))
 const showLoadMore = computed(() => hasMore.value && (loadingMore.value || listAtTop.value))
 const mentionDropdownVisible = computed(() => Boolean(activeMentionRange.value?.query) && !composerDisabled.value && (mentionLoading.value || mentionHasSearched.value))
-const messageCardStyle = (message: GlobalChatMessage) => buildProfileThemeChatStyle(message.author.theme_color)
+const messageCardStyle = (message: GlobalChatMessage) => buildProfileThemeBgStyle(message.author.theme_color)
 
 type TextSegment = {
   kind: 'text' | 'link' | 'mention'

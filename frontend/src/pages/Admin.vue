@@ -933,7 +933,7 @@ import iconEdit from '@/assets/svg/edit.svg'
 import iconDelete from '@/assets/svg/delete.svg'
 import iconSave from '@/assets/svg/save.svg'
 import {
-  buildProfileThemeStyle,
+  buildProfileThemeBgStyle,
   getProfileThemeOption,
 } from '@/constants/profileThemes'
 
@@ -1678,7 +1678,7 @@ function formatRoomGameResult(result: string): string {
 }
 
 function subscriptionThemeStyle(color: string | null | undefined): Record<string, string> {
-  return buildProfileThemeStyle(color)
+  return buildProfileThemeBgStyle(color)
 }
 
 function userSubscriptionEntry(userId: number): SubscriptionRow | null {

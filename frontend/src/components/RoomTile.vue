@@ -157,7 +157,7 @@ import iconAddFriends from '@/assets/svg/addFriends.svg'
 import iconInFriends from '@/assets/svg/inFriends.svg'
 import iconRecieveFriends from '@/assets/svg/recieveFriends.svg'
 import iconSendFriends from '@/assets/svg/sendFriends.svg'
-import { buildProfileThemeStyle } from '@/constants/profileThemes'
+import { buildProfileThemeBgStyle } from '@/constants/profileThemes'
 
 type IconKind = 'mic' | 'cam' | 'speakers' | 'visibility' | 'screen'
 
@@ -395,7 +395,7 @@ const friendDisabled = computed(() =>
   props.friendBusy || props.friendLoading || props.friendStatus === 'self'
 )
 const showFriendAction = computed(() => props.id !== props.localId && friendActionLabel.value !== '')
-const userCardStyle = computed(() => buildProfileThemeStyle(props.themeColor))
+const userCardStyle = computed(() => buildProfileThemeBgStyle(props.themeColor))
 
 </script>
 
