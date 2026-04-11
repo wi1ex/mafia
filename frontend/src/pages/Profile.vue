@@ -59,6 +59,7 @@
 
           <div v-if="canEditProfileTheme" class="block theme-block">
             <h3>Оформление профиля</h3>
+            <p class="hint">{{ profileThemeAvailabilityText }}</p>
             <div class="theme-row" :class="{ disabled: !canEditProfileTheme }">
               <div class="theme-preview-grid">
                 <div class="theme-preview-card" :style="themePreviewStyle">
@@ -398,6 +399,13 @@ const canEditProfileTheme = computed(() => {
 const currentProfileThemeColor = computed(() => resolveProfileThemeColor(canEditProfileTheme.value ? me.profile_theme_color : null))
 const profileThemeDirty = computed(() => canEditProfileTheme.value && selectedProfileThemeColor.value !== currentProfileThemeColor.value)
 const themePreviewStyle = computed(() => buildProfileThemeBgStyle(canEditProfileTheme.value ? selectedProfileThemeColor.value : null))
+const profileThemeAvailabilityText = computed(() => {
+  const raw = me.subscription_until
+  if (!raw) return 'Доступно, пока активна подписка'
+  const dt = new Date(raw)
+  if (Number.isNaN(dt.getTime())) return 'Доступно, пока активна подписка'
+  return `Доступно до ${dt.toLocaleDateString('ru-RU')}`
+})
 const registrationDateLabel = computed(() => {
   const raw = me.registered_at
   if (!raw) return '-'
