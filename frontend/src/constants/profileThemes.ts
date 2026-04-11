@@ -1,4 +1,4 @@
-export const PROFILE_THEME_DEFAULT = 'violet' as const
+export const PROFILE_THEME_DEFAULT = 'terracotta' as const
 
 export const PROFILE_THEME_OPTIONS = [
   { key: 'violet', title: 'Фиолетовый', shadow: 'rgba(80, 40, 200, 0.4)', chat: 'rgba(80, 40, 200, 0.6)', bg: 'rgba(80, 40, 200, 0.8)', hover: 'rgba(80, 40, 200, 1)' },

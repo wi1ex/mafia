@@ -18,27 +18,6 @@ from .clients import close_clients, get_redis, init_clients
 from .logging import configure_logging
 
 
-# ----------------------------------------------------
-async def ensure_users_profile_theme_color_column(conn) -> bool:
-    exists = await conn.scalar(
-        text(
-            """
-            SELECT 1
-            FROM information_schema.columns
-            WHERE table_schema = current_schema()
-              AND table_name = 'users'
-              AND column_name = 'profile_theme_color'
-            """
-        )
-    )
-    if exists:
-        return False
-
-    await conn.execute(text("ALTER TABLE users ADD COLUMN profile_theme_color VARCHAR(32)"))
-    return True
-#----------------------------------------------------
-
-
 @asynccontextmanager
 async def lifespan(app) -> AsyncIterator[None]:
     configure_logging()
@@ -51,13 +30,6 @@ async def lifespan(app) -> AsyncIterator[None]:
         async with engine.begin() as conn:
             await conn.execute(text("SELECT 1"))
             await conn.run_sync(Base.metadata.create_all)
-            #----------------------------------------------------
-            added_theme_column = await ensure_users_profile_theme_color_column(conn)
-
-        if added_theme_column:
-            log.info("app.startup.users_profile_theme_color_column_added")
-        #----------------------------------------------------
-
         async with SessionLocal() as session:
             await ensure_app_settings(session)
             await assert_protected_admin_invariants(session)

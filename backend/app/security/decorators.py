@@ -31,8 +31,8 @@ CONTENT_SAFE_ROUTE_PATHS = frozenset({
 })
 AUTH_ROUTE_LIMITS: dict[str, RateLimitRules] = {
     "/api/auth/login": ((3, 10), (8, 60)),
-    "/api/auth/register": ((2, 30), (6, 60)),
-    "/api/auth/refresh": ((5, 10), (20, 60)),
+    "/api/auth/register": ((3, 30), (8, 60)),
+    "/api/auth/refresh": ((7, 10), (24, 60)),
     "/api/auth/logout": ((5, 10), (20, 60)),
 }
 PUBLIC_SAFE_ROUTE_LIMITS: dict[str, RateLimitRules] = {

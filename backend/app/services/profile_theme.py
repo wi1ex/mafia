@@ -20,7 +20,7 @@ PROFILE_THEME_COLORS: tuple[str, ...] = (
     "azure",
     "midnight",
 )
-PROFILE_THEME_DEFAULT = "violet"
+PROFILE_THEME_DEFAULT = "terracotta"
 
 
 @dataclass(slots=True)

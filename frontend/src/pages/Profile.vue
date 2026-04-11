@@ -1148,16 +1148,15 @@ onBeforeUnmount(() => {
             .theme-palette {
               display: flex;
               flex-wrap: wrap;
-              margin: 20px 0;
-              max-width: 250px;
+              margin: 10px 0;
               gap: 10px;
             }
             .theme-option {
               display: flex;
               align-items: center;
               justify-content: center;
-              width: 40px;
-              height: 40px;
+              width: 25px;
+              height: 25px;
               border: 2px solid transparent;
               border-radius: 999px;
               background-color: var(--user-theme-bg, $graphite);
@@ -1499,13 +1498,9 @@ onBeforeUnmount(() => {
                   font-size: 14px;
                 }
               }
-              .theme-palette {
-                margin: 10px 0;
-                max-width: 200px;
-              }
               .theme-option {
-                width: 30px;
-                height: 30px;
+                width: 20px;
+                height: 20px;
               }
             }
           }
