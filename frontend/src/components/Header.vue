@@ -76,6 +76,7 @@
       <div class="user-menu" ref="userMenuEl">
         <button class="btn" type="button" :style="userMenuButtonStyle" @click.stop="onToggleUserMenu" :aria-expanded="um_open" aria-haspopup="true">
           <img v-minio-img="{ key: user.user?.avatar_name ? `avatars/${user.user.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="Аватар" />
+          <img v-if="userMenuProfileIconSrc" class="profile-theme-icon" :src="userMenuProfileIconSrc" alt="" aria-hidden="true" />
           <span aria-live="polite">{{ user.user?.username || 'User' }}</span>
           <img class="arrow" :src="iconArrowDown" alt="arrow" :style="{ transform: um_open ? 'rotate(180deg)' : 'none'}" />
         </button>
@@ -137,6 +138,7 @@ import iconProfile from "@/assets/svg/profile.svg"
 import iconArrowDown from '@/assets/svg/arrowDown.svg'
 import iconJudge from '@/assets/svg/judge.svg'
 import { buildProfileThemeStyle } from '@/constants/profileThemes'
+import { getProfileThemeIconSrc } from '@/constants/profileThemeIcons'
 
 const auth = useAuthStore()
 const user = useUserStore()
@@ -160,6 +162,7 @@ const BUILD = (import.meta.env.VITE_BUILD_ID as string || '').trim() || 'BUILD'
 const botName = (import.meta.env.VITE_TG_BOT_NAME as string || '').trim()
 const botLink = botName ? `https://t.me/${botName}` : 'https://t.me'
 const userMenuButtonStyle = computed(() => buildProfileThemeStyle(user.activeProfileThemeColor))
+const userMenuProfileIconSrc = computed(() => getProfileThemeIconSrc(user.activeProfileThemeIcon))
 
 type SanctionBanner = { kind: 'ban' | 'timeout' | 'suspend'; text: string }
 
@@ -363,6 +366,12 @@ function openAuth(mode: 'login' | 'register') {
       border-radius: 50%;
       object-fit: cover;
     }
+    .profile-theme-icon {
+      width: 24px;
+      height: 24px;
+      border-radius: 0;
+      object-fit: contain;
+    }
     .arrow {
       margin-left: 5px;
       width: 16px;
@@ -544,6 +553,10 @@ function openAuth(mode: 'login' | 'register') {
         font-size: 12px;
       }
       img {
+        width: 16px;
+        height: 16px;
+      }
+      .profile-theme-icon {
         width: 16px;
         height: 16px;
       }

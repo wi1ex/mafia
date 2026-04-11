@@ -83,7 +83,9 @@ from ...services.minio import (
 )
 from ...services.profile_theme import (
     normalize_profile_theme_color,
+    normalize_profile_theme_icon,
     resolve_profile_theme_state,
+    upsert_profile_theme_icon_preference,
     upsert_profile_theme_preference,
 )
 from ...services.user_cache import (
@@ -665,15 +667,28 @@ async def update_profile_theme(payload: UserProfileThemeIn, ident: Identity = De
         detail = str(exc).strip() or "profile_theme_invalid"
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=detail)
 
-    if theme_state.color == color:
+    has_icon_update = "icon" in payload.model_fields_set
+    if has_icon_update:
+        try:
+            icon = normalize_profile_theme_icon(payload.icon)
+        except ValueError as exc:
+            detail = str(exc).strip() or "profile_theme_icon_invalid"
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=detail)
+    else:
+        icon = theme_state.icon
+
+    if theme_state.color == color and (not has_icon_update or theme_state.icon == icon):
         return UserProfileThemeOut(
             subscription_active=True,
             subscription_started_at=theme_state.subscription_started_at,
             subscription_until=theme_state.subscription_until,
             profile_theme_color=theme_state.color,
+            profile_theme_icon=theme_state.icon,
         )
 
     await upsert_profile_theme_preference(db, uid, color)
+    if has_icon_update:
+        await upsert_profile_theme_icon_preference(db, uid, icon)
     await db.commit()
     await refresh_user_profile_cache(db, uid)
     next_state = await resolve_profile_theme_state(db, uid)
@@ -696,6 +711,7 @@ async def update_profile_theme(payload: UserProfileThemeIn, ident: Identity = De
         subscription_started_at=next_state.subscription_started_at,
         subscription_until=next_state.subscription_until,
         profile_theme_color=next_state.color,
+        profile_theme_icon=next_state.icon,
     )
 
 

@@ -21,6 +21,25 @@ PROFILE_THEME_COLORS: tuple[str, ...] = (
     "midnight",
 )
 PROFILE_THEME_DEFAULT = "terracotta"
+PROFILE_THEME_ICONS: tuple[str, ...] = (
+    "slot1",
+    "slot2",
+    "slot3",
+    "slot4",
+    "slot5",
+    "slot6",
+    "slot7",
+    "slot8",
+    "slot9",
+    "slot10",
+)
+PROFILE_THEME_ICON_DEFAULT = PROFILE_THEME_ICONS[0]
+
+
+@dataclass(slots=True)
+class ProfileThemePreference:
+    color: str | None = None
+    icon: str | None = None
 
 
 @dataclass(slots=True)
@@ -29,6 +48,7 @@ class ProfileThemeState:
     subscription_started_at: datetime | None = None
     subscription_until: datetime | None = None
     color: str | None = None
+    icon: str | None = None
 
 
 def _normalize_user_ids(user_ids: Iterable[int | str]) -> list[int]:
@@ -49,6 +69,21 @@ def normalize_profile_theme_color(raw: object) -> str:
         raise ValueError("profile_theme_invalid")
 
     return value
+
+
+def normalize_optional_profile_theme_icon(raw: object) -> str | None:
+    value = str(raw or "").strip().lower()
+    if not value:
+        return None
+
+    if value not in PROFILE_THEME_ICONS:
+        raise ValueError("profile_theme_icon_invalid")
+
+    return value
+
+
+def normalize_profile_theme_icon(raw: object) -> str:
+    return normalize_optional_profile_theme_icon(raw) or PROFILE_THEME_ICON_DEFAULT
 
 
 def add_months(dt: datetime, months: int) -> datetime:
@@ -93,24 +128,30 @@ async def fetch_active_subscriptions(session: AsyncSession, user_ids: Iterable[i
     }
 
 
-async def fetch_profile_theme_preferences(session: AsyncSession, user_ids: Iterable[int | str]) -> dict[int, str]:
+async def fetch_profile_theme_preferences(session: AsyncSession, user_ids: Iterable[int | str]) -> dict[int, ProfileThemePreference]:
     ids = _normalize_user_ids(user_ids)
     if not ids:
         return {}
 
     rows = await session.execute(
-        select(User.id, User.profile_theme_color).where(User.id.in_(ids))
+        select(User.id, User.profile_theme_color, User.profile_theme_icon).where(User.id.in_(ids))
     )
-    out: dict[int, str] = {}
-    for user_id_raw, color_raw in rows.all():
+    out: dict[int, ProfileThemePreference] = {}
+    for user_id_raw, color_raw, icon_raw in rows.all():
         try:
             uid = int(user_id_raw)
         except Exception:
             continue
+        pref = ProfileThemePreference()
         try:
-            out[uid] = normalize_profile_theme_color(color_raw)
+            pref.color = normalize_profile_theme_color(color_raw)
         except ValueError:
-            continue
+            pass
+        try:
+            pref.icon = normalize_optional_profile_theme_icon(icon_raw)
+        except ValueError:
+            pass
+        out[uid] = pref
     return out
 
 
@@ -127,11 +168,13 @@ async def resolve_profile_theme_states(session: AsyncSession, user_ids: Iterable
         if not subscription:
             out[uid] = ProfileThemeState()
             continue
+        preference = preferences.get(uid) or ProfileThemePreference()
         out[uid] = ProfileThemeState(
             subscription_active=True,
             subscription_started_at=subscription.starts_at,
             subscription_until=subscription.ends_at,
-            color=preferences.get(uid) or PROFILE_THEME_DEFAULT,
+            color=preference.color or PROFILE_THEME_DEFAULT,
+            icon=preference.icon or PROFILE_THEME_ICON_DEFAULT,
         )
     return out
 
@@ -149,3 +192,12 @@ async def upsert_profile_theme_preference(session: AsyncSession, user_id: int | 
     if row is not None:
         row.profile_theme_color = normalized_color
     return normalized_color
+
+
+async def upsert_profile_theme_icon_preference(session: AsyncSession, user_id: int | str, icon: object) -> str | None:
+    uid = int(user_id)
+    normalized_icon = normalize_optional_profile_theme_icon(icon)
+    row = await session.get(User, uid)
+    if row is not None:
+        row.profile_theme_icon = normalized_icon
+    return normalized_icon

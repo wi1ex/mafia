@@ -322,6 +322,7 @@ class AdminSubscriptionOut(BaseModel):
     ends_at: datetime
     is_active: bool
     profile_theme_color: Optional[str] = None
+    profile_theme_icon: Optional[str] = None
 
 
 class AdminSubscriptionsOut(BaseModel):

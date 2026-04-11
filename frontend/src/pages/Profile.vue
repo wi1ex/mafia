@@ -63,13 +63,24 @@
               <div class="theme-preview-grid">
                 <div class="theme-preview-card" :style="themePreviewStyle">
                   <img class="theme-preview-avatar" v-minio-img="{ key: me.avatar_name ? `avatars/${me.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
+                  <img v-if="themePreviewIconSrc" class="theme-preview-icon" :src="themePreviewIconSrc" alt="" aria-hidden="true" />
                   <span>{{ me.username || 'User' }}</span>
                 </div>
               </div>
 
+              <span class="theme-subtitle">Цвет</span>
               <div class="theme-palette">
                 <button v-for="item in PROFILE_THEME_OPTIONS" :key="item.key" class="theme-option" type="button" :class="{ active: selectedProfileThemeColor === item.key }"
                         :style="themeOptionStyle(item.key)" :disabled="themeSaveBusy || isBanned" @click="pickProfileTheme(item.key)">
+                </button>
+              </div>
+
+              <span class="theme-subtitle">Иконка</span>
+              <div class="theme-icon-palette">
+                <button v-for="item in PROFILE_THEME_ICON_OPTIONS" :key="item.key" class="theme-icon-option" type="button"
+                        :class="{ active: selectedProfileThemeIcon === item.key }" :disabled="themeSaveBusy || isBanned"
+                        :title="item.title" @click="pickProfileThemeIcon(item.key)">
+                  <img :src="themeIconSrc(item.key)" alt="" aria-hidden="true" />
                 </button>
               </div>
 
@@ -262,6 +273,12 @@ import {
   resolveProfileThemeColor,
   type ProfileThemeColor,
 } from '@/constants/profileThemes'
+import {
+  PROFILE_THEME_ICON_OPTIONS,
+  getProfileThemeIconSrc,
+  normalizeProfileThemeIcon,
+  type ProfileThemeIcon,
+} from '@/constants/profileThemeIcons'
 
 const userStore = useUserStore()
 const auth = useAuthStore()
@@ -283,7 +300,8 @@ const me = reactive({
   subscription_active: false,
   subscription_started_at: null as string | null,
   subscription_until: null as string | null,
-  profile_theme_color: null as string | null,
+  profile_theme_color: null as ProfileThemeColor | null,
+  profile_theme_icon: null as ProfileThemeIcon | null,
 })
 const isProtectedAdminSelf = computed(() => Boolean(me.protected_user))
 const fileEl = ref<HTMLInputElement | null>(null)
@@ -391,14 +409,20 @@ const currentPasswordUnderlineStyle = computed(() => underlineStyle(pwd.current.
 const newPasswordUnderlineStyle = computed(() => underlineStyle(pwd.next.length, PASSWORD_MAX))
 const confirmPasswordUnderlineStyle = computed(() => underlineStyle(pwd.confirm.length, PASSWORD_MAX))
 const selectedProfileThemeColor = ref<ProfileThemeColor>(resolveProfileThemeColor(null))
+const selectedProfileThemeIcon = ref<ProfileThemeIcon | null>(null)
 const subscriptionUntilMs = computed(() => parseDateMs(me.subscription_until))
 const canEditProfileTheme = computed(() => {
   if (subscriptionUntilMs.value > 0) return subscriptionUntilMs.value > userNow.value
   return Boolean(me.subscription_active)
 })
 const currentProfileThemeColor = computed(() => resolveProfileThemeColor(canEditProfileTheme.value ? me.profile_theme_color : null))
-const profileThemeDirty = computed(() => canEditProfileTheme.value && selectedProfileThemeColor.value !== currentProfileThemeColor.value)
+const currentProfileThemeIcon = computed(() => normalizeProfileThemeIcon(canEditProfileTheme.value ? me.profile_theme_icon : null))
+const profileThemeDirty = computed(() => canEditProfileTheme.value && (
+  selectedProfileThemeColor.value !== currentProfileThemeColor.value
+  || selectedProfileThemeIcon.value !== currentProfileThemeIcon.value
+))
 const themePreviewStyle = computed(() => buildProfileThemeBgStyle(canEditProfileTheme.value ? selectedProfileThemeColor.value : null))
+const themePreviewIconSrc = computed(() => getProfileThemeIconSrc(selectedProfileThemeIcon.value))
 const profileThemeAvailabilityText = computed(() => {
   const raw = me.subscription_until
   if (!raw) return 'Доступно, пока активна подписка'
@@ -443,14 +467,17 @@ function applyProfileThemePayload(data: any, options: { keepDraft?: boolean } = 
   me.subscription_started_at = data?.subscription_started_at || null
   me.subscription_until = data?.subscription_until || null
   me.profile_theme_color = normalizeProfileThemeColor(data?.profile_theme_color)
+  me.profile_theme_icon = normalizeProfileThemeIcon(data?.profile_theme_icon)
   setProfileTheme({
     subscription_active: me.subscription_active,
     subscription_started_at: me.subscription_started_at,
     subscription_until: me.subscription_until,
     profile_theme_color: me.profile_theme_color,
+    profile_theme_icon: me.profile_theme_icon,
   })
   if (!options.keepDraft) {
     selectedProfileThemeColor.value = resolveProfileThemeColor(me.profile_theme_color)
+    selectedProfileThemeIcon.value = me.profile_theme_icon
   }
 }
 
@@ -475,9 +502,18 @@ function themeOptionStyle(color: ProfileThemeColor): Record<string, string> {
   return buildProfileThemeBgStyle(color)
 }
 
+function themeIconSrc(icon: ProfileThemeIcon): string {
+  return getProfileThemeIconSrc(icon) || ''
+}
+
 function pickProfileTheme(color: ProfileThemeColor) {
   if (!canEditProfileTheme.value || themeSaveBusy.value || isBanned.value) return
   selectedProfileThemeColor.value = color
+}
+
+function pickProfileThemeIcon(icon: ProfileThemeIcon) {
+  if (!canEditProfileTheme.value || themeSaveBusy.value || isBanned.value) return
+  selectedProfileThemeIcon.value = icon
 }
 
 async function loadMe(options: { keepNickDraft?: boolean } = {}) {
@@ -526,16 +562,20 @@ async function saveProfileTheme() {
   if (themeSaveBusy.value || isBanned.value || !canEditProfileTheme.value || !profileThemeDirty.value) return
   themeSaveBusy.value = true
   try {
-    const { data } = await api.patch('/users/profile_theme', { color: selectedProfileThemeColor.value })
+    const { data } = await api.patch('/users/profile_theme', {
+      color: selectedProfileThemeColor.value,
+      icon: selectedProfileThemeIcon.value,
+    })
     applyProfileThemePayload(data)
-    void alertDialog('Цвет профиля сохранен')
+    return void alertDialog('Оформление профиля сохранено')
   } catch (e: any) {
     const st = e?.response?.status
     const d = e?.response?.data?.detail
-    if (st === 403 && d === 'subscription_required') void alertDialog('Выбор цвета доступен только при активной подписке')
-    else if (st === 403 && d === 'user_banned') void alertDialog('Аккаунт забанен. Изменение цвета профиля недоступно')
-    else if (st === 422 && d === 'profile_theme_invalid') void alertDialog('Выбран недопустимый цвет профиля')
-    else void alertDialog('Не удалось сохранить цвет профиля')
+    if (st === 403 && d === 'subscription_required') return void alertDialog('Выбор оформления доступен только при активной подписке')
+    if (st === 403 && d === 'user_banned') return void alertDialog('Аккаунт забанен. Изменение оформления профиля недоступно')
+    if (st === 422 && d === 'profile_theme_invalid') return void alertDialog('Выбран недопустимый цвет профиля')
+    if (st === 422 && d === 'profile_theme_icon_invalid') return void alertDialog('Выбрана недопустимая иконка профиля')
+    void alertDialog('Не удалось сохранить оформление профиля')
   } finally {
     themeSaveBusy.value = false
   }
@@ -1140,6 +1180,11 @@ onBeforeUnmount(() => {
                 border-radius: 50%;
                 object-fit: cover;
               }
+              .theme-preview-icon {
+                width: 30px;
+                height: 30px;
+                object-fit: contain;
+              }
               span {
                 min-width: 0;
                 height: 20px;
@@ -1152,7 +1197,19 @@ onBeforeUnmount(() => {
                 text-overflow: ellipsis;
               }
             }
+            .theme-subtitle {
+              display: block;
+              color: $grey;
+              font-size: 14px;
+              text-transform: uppercase;
+            }
             .theme-palette {
+              display: flex;
+              flex-wrap: wrap;
+              margin: 15px 0;
+              gap: 10px;
+            }
+            .theme-icon-palette {
               display: flex;
               flex-wrap: wrap;
               margin: 15px 0;
@@ -1174,6 +1231,33 @@ onBeforeUnmount(() => {
               }
               &.active {
                 border-color: $fg;
+              }
+              &:disabled {
+                cursor: not-allowed;
+              }
+            }
+            .theme-icon-option {
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              width: 40px;
+              height: 40px;
+              border: 2px solid transparent;
+              border-radius: 10px;
+              background-color: $graphite;
+              cursor: pointer;
+              transition: background-color 0.25s ease-in-out, border-color 0.25s ease-in-out;
+              img {
+                width: 30px;
+                height: 30px;
+                object-fit: contain;
+              }
+              &:hover:enabled {
+                border-color: rgba($white, 0.5);
+              }
+              &.active {
+                border-color: $fg;
+                background-color: $lead;
               }
               &:disabled {
                 cursor: not-allowed;
@@ -1499,6 +1583,10 @@ onBeforeUnmount(() => {
                   width: 20px;
                   height: 20px;
                 }
+                .theme-preview-icon {
+                  width: 20px;
+                  height: 20px;
+                }
                 span {
                   height: 16px;
                   font-size: 14px;
@@ -1510,6 +1598,14 @@ onBeforeUnmount(() => {
               .theme-option {
                 width: 20px;
                 height: 20px;
+              }
+              .theme-icon-option {
+                width: 32px;
+                height: 32px;
+                img {
+                  width: 20px;
+                  height: 20px;
+                }
               }
             }
           }

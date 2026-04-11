@@ -23,6 +23,7 @@ class UserOut(BaseModel):
     subscription_started_at: Optional[datetime] = None
     subscription_until: Optional[datetime] = None
     profile_theme_color: Optional[str] = None
+    profile_theme_icon: Optional[str] = None
     timeout_until: Optional[datetime] = None
     suspend_until: Optional[datetime] = None
     ban_active: bool = False
@@ -209,6 +210,7 @@ class UserUiPrefsOut(BaseModel):
 
 class UserProfileThemeIn(BaseModel):
     color: str = Field(min_length=1, max_length=32)
+    icon: Optional[str] = Field(default=None, max_length=32)
 
 
 class UserProfileThemeOut(BaseModel):
@@ -216,6 +218,7 @@ class UserProfileThemeOut(BaseModel):
     subscription_started_at: Optional[datetime] = None
     subscription_until: Optional[datetime] = None
     profile_theme_color: Optional[str] = None
+    profile_theme_icon: Optional[str] = None
 
 
 class PasswordChangeIn(BaseModel):

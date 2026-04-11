@@ -1070,6 +1070,7 @@ async def build_user_out_payload(session: AsyncSession, *, user_id: int, role: s
         subscription_started_at=theme_state.subscription_started_at,
         subscription_until=theme_state.subscription_until,
         profile_theme_color=theme_state.color,
+        profile_theme_icon=theme_state.icon,
         timeout_until=timeout.expires_at if timeout else None,
         suspend_until=suspend.expires_at if suspend else None,
         ban_active=bool(ban),
@@ -1133,8 +1134,9 @@ async def sync_expired_profile_subscriptions() -> int:
 
             try:
                 user = await session.get(User, uid)
-                if user is not None and user.profile_theme_color is not None:
+                if user is not None and (user.profile_theme_color is not None or user.profile_theme_icon is not None):
                     user.profile_theme_color = None
+                    user.profile_theme_icon = None
                     await session.commit()
                 await refresh_user_profile_cache(session, uid, redis_client=r)
                 await emit_auth_profile_sync(uid)

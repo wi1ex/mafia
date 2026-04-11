@@ -1,6 +1,7 @@
 from __future__ import annotations
 import asyncio
 import structlog
+from datetime import datetime, timedelta
 from sqlalchemy import text
 from typing import AsyncIterator
 from contextlib import asynccontextmanager, suppress
@@ -18,6 +19,14 @@ from .clients import close_clients, get_redis, init_clients
 from .logging import configure_logging
 
 
+def _next_local_daily_run_at(*, hour: int, minute: int = 0) -> datetime:
+    now = datetime.now().astimezone()
+    next_run = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+    if next_run <= now:
+        next_run += timedelta(days=1)
+    return next_run
+
+
 @asynccontextmanager
 async def lifespan(app) -> AsyncIterator[None]:
     configure_logging()
@@ -30,6 +39,8 @@ async def lifespan(app) -> AsyncIterator[None]:
         async with engine.begin() as conn:
             await conn.execute(text("SELECT 1"))
             await conn.run_sync(Base.metadata.create_all)
+            await conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_theme_color VARCHAR(32)"))
+            await conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_theme_icon VARCHAR(32)"))
         async with SessionLocal() as session:
             await ensure_app_settings(session)
             await assert_protected_admin_invariants(session)
@@ -102,13 +113,15 @@ async def lifespan(app) -> AsyncIterator[None]:
     async def expired_profile_subscriptions_loop() -> None:
         try:
             while True:
+                next_run = _next_local_daily_run_at(hour=3, minute=0)
+                delay_s = max(0.0, (next_run - datetime.now(next_run.tzinfo)).total_seconds())
                 try:
+                    log.info("app.subscriptions.expired_sync.scheduled", run_at=next_run.isoformat(), delay_s=int(delay_s))
+                    await asyncio.sleep(delay_s)
                     synced = await sync_expired_profile_subscriptions()
-                    if synced > 0:
-                        log.info("app.subscriptions.expired_sync.done", synced=synced)
+                    log.info("app.subscriptions.expired_sync.done", synced=synced, scheduled_at=next_run.isoformat())
                 except Exception:
                     log.exception("app.subscriptions.expired_sync.failed")
-                await asyncio.sleep(15)
         except asyncio.CancelledError:
             pass
 

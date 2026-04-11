@@ -34,9 +34,12 @@ from ...security.parameters import ensure_app_settings, sync_cache_from_row, ref
 from ...services.user_cache import refresh_user_profile_cache, get_user_profiles_cached
 from ...services.profile_theme import (
     PROFILE_THEME_DEFAULT,
+    PROFILE_THEME_ICON_DEFAULT,
     compute_subscription_end,
+    normalize_optional_profile_theme_icon,
     resolve_profile_theme_state,
     resolve_profile_theme_states,
+    upsert_profile_theme_icon_preference,
     upsert_profile_theme_preference,
 )
 from ...services.user_stats import get_user_game_stats_cached
@@ -1252,6 +1255,7 @@ async def subscriptions_list(session: AsyncSession = Depends(get_session)) -> Ad
                 ends_at=row.ends_at,
                 is_active=is_active,
                 profile_theme_color=theme_state.color if theme_state else None,
+                profile_theme_icon=theme_state.icon if theme_state else None,
             )
         )
     items.sort(
@@ -1300,8 +1304,15 @@ async def subscriptions_upsert(payload: AdminSubscriptionCreateIn, ident: Identi
             subscription.starts_at = now
             subscription.ends_at = compute_subscription_end(now, months=months, days=days)
 
+    try:
+        current_icon = normalize_optional_profile_theme_icon(user.profile_theme_icon)
+    except ValueError:
+        current_icon = None
+
     if is_new_subscription:
         await upsert_profile_theme_preference(session, uid, PROFILE_THEME_DEFAULT)
+    if current_icon is None:
+        await upsert_profile_theme_icon_preference(session, uid, PROFILE_THEME_ICON_DEFAULT)
 
     await session.commit()
     await session.refresh(subscription)
@@ -1333,6 +1344,7 @@ async def subscriptions_upsert(payload: AdminSubscriptionCreateIn, ident: Identi
         ends_at=subscription.ends_at,
         is_active=True,
         profile_theme_color=theme_state.color,
+        profile_theme_icon=theme_state.icon,
     )
 
 
@@ -1351,6 +1363,7 @@ async def subscriptions_delete(user_id: int, ident: Identity = Depends(get_ident
         raise HTTPException(status_code=404, detail="subscription_not_found")
 
     user.profile_theme_color = None
+    user.profile_theme_icon = None
     await session.delete(subscription)
     await session.commit()
     await refresh_user_profile_cache(session, uid)
