@@ -456,7 +456,7 @@ onBeforeUnmount(() => {
       .left {
         display: flex;
         align-items: center;
-        gap: 5px;
+        gap: 3px;
         img {
           width: 24px;
           height: 24px;
@@ -619,7 +619,7 @@ onBeforeUnmount(() => {
         padding: 3px;
         gap: 10px;
         .left {
-          gap: 3px;
+          gap: 1px;
           img {
             width: 16px;
             height: 16px;

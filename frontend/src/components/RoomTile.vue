@@ -753,7 +753,7 @@ const profileThemeIconSrc = computed(() => getProfileThemeIconSrc(props.themeIco
       align-items: center;
       flex-wrap: nowrap;
       padding: 0;
-      gap: 5px;
+      gap: 3px;
       max-inline-size: 100%;
       height: 30px;
       border: none;
@@ -1083,7 +1083,7 @@ const profileThemeIconSrc = computed(() => getProfileThemeIconSrc(props.themeIco
         block-size: 65px;
       }
       .card-head {
-        gap: 3px;
+        gap: 1px;
         height: 16px;
         .user-slot {
           width: 16px;

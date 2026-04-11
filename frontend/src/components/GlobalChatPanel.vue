@@ -1666,7 +1666,7 @@ onBeforeUnmount(() => {
           .message-meta-author {
             display: flex;
             align-items: center;
-            gap: 5px;
+            gap: 3px;
             .author-avatar {
               width: 20px;
               height: 20px;
@@ -2451,7 +2451,7 @@ onBeforeUnmount(() => {
           gap: 3px;
           .message-meta {
             .message-meta-author {
-              gap: 3px;
+              gap: 1px;
               .author-avatar {
                 width: 16px;
                 height: 16px;
