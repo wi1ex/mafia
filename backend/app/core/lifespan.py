@@ -15,8 +15,15 @@ from ..api.utils import (
 from ..security.admin_guard import assert_protected_admin_invariants
 from ..security.parameters import ensure_app_settings, refresh_app_settings
 from ..services.minio import ensure_bucket
+# ---------------
+from ..services.profile_theme import PROFILE_THEME_ICON_DEFAULT
+# ---------------
 from .clients import close_clients, get_redis, init_clients
 from .logging import configure_logging
+
+# ---------------
+PROFILE_THEME_ICON_RESET_FLAG_COLUMN = "profile_theme_icon_reset_to_sub_icons_done"
+# ---------------
 
 
 def _next_local_daily_run_at(*, hour: int, minute: int = 0) -> datetime:
@@ -25,6 +32,44 @@ def _next_local_daily_run_at(*, hour: int, minute: int = 0) -> datetime:
     if next_run <= now:
         next_run += timedelta(days=1)
     return next_run
+
+
+# ---------------
+async def _reset_profile_theme_icons_once(session, log) -> None:
+    migrated = bool(
+        await session.scalar(
+            text(f"SELECT {PROFILE_THEME_ICON_RESET_FLAG_COLUMN} FROM settings WHERE id = 1")
+        )
+    )
+    if migrated:
+        return
+
+    updated = await session.execute(
+        text(
+            """
+            UPDATE users
+            SET profile_theme_icon = :default_icon
+            WHERE profile_theme_icon IS NOT NULL
+            """
+        ),
+        {"default_icon": PROFILE_THEME_ICON_DEFAULT},
+    )
+    await session.execute(
+        text(
+            f"""
+            UPDATE settings
+            SET {PROFILE_THEME_ICON_RESET_FLAG_COLUMN} = TRUE
+            WHERE id = 1
+            """
+        )
+    )
+    await session.commit()
+    log.info(
+        "app.startup.profile_theme_icons_reset.done",
+        default_icon=PROFILE_THEME_ICON_DEFAULT,
+        updated=max(0, int(getattr(updated, "rowcount", 0) or 0)),
+    )
+# ---------------
 
 
 @asynccontextmanager
@@ -41,8 +86,21 @@ async def lifespan(app) -> AsyncIterator[None]:
             await conn.run_sync(Base.metadata.create_all)
             await conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_theme_color VARCHAR(32)"))
             await conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_theme_icon VARCHAR(32)"))
+            # ---------------
+            await conn.execute(
+                text(
+                    f"""
+                    ALTER TABLE settings
+                    ADD COLUMN IF NOT EXISTS {PROFILE_THEME_ICON_RESET_FLAG_COLUMN} BOOLEAN NOT NULL DEFAULT FALSE
+                    """
+                )
+            )
+            # ---------------
         async with SessionLocal() as session:
             await ensure_app_settings(session)
+            # ---------------
+            await _reset_profile_theme_icons_once(session, log)
+            # ---------------
             await assert_protected_admin_invariants(session)
     except Exception:
         log.exception("app.startup.db_failed")

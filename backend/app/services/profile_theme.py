@@ -22,16 +22,16 @@ PROFILE_THEME_COLORS: tuple[str, ...] = (
 )
 PROFILE_THEME_DEFAULT = "terracotta"
 PROFILE_THEME_ICONS: tuple[str, ...] = (
-    "slot1",
-    "slot2",
-    "slot3",
-    "slot4",
-    "slot5",
-    "slot6",
-    "slot7",
-    "slot8",
-    "slot9",
-    "slot10",
+    "sub_icon1",
+    "sub_icon2",
+    "sub_icon3",
+    "sub_icon4",
+    "sub_icon5",
+    "sub_icon6",
+    "sub_icon7",
+    "sub_icon8",
+    "sub_icon9",
+    "sub_icon10",
 )
 PROFILE_THEME_ICON_DEFAULT = PROFILE_THEME_ICONS[0]
 
