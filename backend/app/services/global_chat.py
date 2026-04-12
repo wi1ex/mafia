@@ -16,7 +16,7 @@ from ..core.db import SessionLocal
 from ..core.roles import can_moderate_chat_message, is_chat_moderator_role, normalize_user_role
 from ..realtime.sio import sio
 from ..security.parameters import get_cached_settings
-from ..api.utils import is_user_in_active_alive_game
+from ..api.utils import is_user_in_active_game
 from ..services.minio import CHAT_IMAGE_PREFIX, delete_object_async, object_exists_async, validate_chat_image_object_async
 from ..services.user_cache import get_user_profiles_cached
 
@@ -58,7 +58,7 @@ class GlobalChatPermissions:
     can_delete_own: bool
     timeout_active: bool
     ban_active: bool
-    in_active_game_as_alive_player: bool
+    in_active_game_as_player: bool
     telegram_verified: bool
     error: str | None = None
 
@@ -583,7 +583,7 @@ async def resolve_global_chat_permissions(session: AsyncSession, user_id: int) -
             can_delete_own=False,
             timeout_active=False,
             ban_active=False,
-            in_active_game_as_alive_player=False,
+            in_active_game_as_player=False,
             telegram_verified=False,
             error="unauthorized",
         )
@@ -593,7 +593,7 @@ async def resolve_global_chat_permissions(session: AsyncSession, user_id: int) -
     ban_active = sanctions.get(SANCTION_BAN) is not None
     telegram_verified = bool(user.telegram_id)
     try:
-        in_active_game_as_alive_player = await is_user_in_active_alive_game(int(user.id), strict=True)
+        in_active_game_as_player = await is_user_in_active_game(int(user.id), strict=True, scan_if_missing=True)
     except RuntimeError:
         return GlobalChatPermissions(
             can_open=False,
@@ -602,7 +602,7 @@ async def resolve_global_chat_permissions(session: AsyncSession, user_id: int) -
             can_delete_own=False,
             timeout_active=timeout_active,
             ban_active=ban_active,
-            in_active_game_as_alive_player=False,
+            in_active_game_as_player=False,
             telegram_verified=telegram_verified,
             error="presence_unavailable",
         )
@@ -618,7 +618,7 @@ async def resolve_global_chat_permissions(session: AsyncSession, user_id: int) -
     elif timeout_active:
         can_open = False
         error = "user_timeout"
-    elif in_active_game_as_alive_player:
+    elif in_active_game_as_player:
         can_open = False
         error = "active_game_player"
     elif get_cached_settings().verification_restrictions and not telegram_verified:
@@ -636,7 +636,7 @@ async def resolve_global_chat_permissions(session: AsyncSession, user_id: int) -
         can_delete_own=can_delete_own,
         timeout_active=timeout_active,
         ban_active=ban_active,
-        in_active_game_as_alive_player=in_active_game_as_alive_player,
+        in_active_game_as_player=in_active_game_as_player,
         telegram_verified=telegram_verified,
         error=error,
     )

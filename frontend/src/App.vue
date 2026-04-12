@@ -70,8 +70,9 @@ onMounted(async () => {
   }
   window.addEventListener('auth-sanctions_update', onSanctionsUpdate)
   onUserGameParticipationChanged = (e: any) => {
-    const inActiveGameAsAlivePlayer = Boolean(e?.detail?.in_active_game_as_alive_player)
-    user.setInActiveGameAsAlivePlayer(inActiveGameAsAlivePlayer)
+    const detail = e?.detail || {}
+    const inActiveGameAsPlayer = Boolean(detail.in_active_game_as_player ?? detail.in_active_game_as_alive_player)
+    user.setInActiveGameAsPlayer(inActiveGameAsPlayer)
   }
   window.addEventListener('auth-user_game_participation_changed', onUserGameParticipationChanged)
   onProfileSync = (e: any) => {

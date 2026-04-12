@@ -61,8 +61,11 @@ __all__ = [
     "touch_user_last_visit",
     "touch_user_online",
     "active_alive_game_room_key",
+    "active_game_rooms_key",
     "get_active_alive_game_room",
+    "get_active_game_rooms",
     "is_user_in_active_alive_game",
+    "is_user_in_active_game",
     "validate_object_key_for_presign",
     "parse_month_range",
     "parse_day_range",
@@ -1053,6 +1056,7 @@ async def build_user_out_payload(session: AsyncSession, *, user_id: int, role: s
     ban = active.get(SANCTION_BAN)
     suspend = active.get(SANCTION_SUSPEND)
     in_active_game_as_alive_player = await is_user_in_active_alive_game(uid)
+    in_active_game_as_player = await is_user_in_active_game(uid, scan_if_missing=True)
     chat_unread_count = await count_global_chat_unread(session, user_id=uid)
 
     return UserOut(
@@ -1076,6 +1080,7 @@ async def build_user_out_payload(session: AsyncSession, *, user_id: int, role: s
         suspend_until=suspend.expires_at if suspend else None,
         ban_active=bool(ban),
         in_active_game_as_alive_player=in_active_game_as_alive_player,
+        in_active_game_as_player=in_active_game_as_player,
         chat_unread_count=chat_unread_count,
     )
 
@@ -2703,6 +2708,57 @@ def active_alive_game_room_key(user_id: int) -> str:
     return f"user:{int(user_id)}:active_alive_game_room"
 
 
+def active_game_rooms_key(user_id: int) -> str:
+    return f"user:{int(user_id)}:active_game_rooms"
+
+
+def _normalize_active_game_room_ids(values: Iterable[object]) -> set[int]:
+    out: set[int] = set()
+    for raw in values:
+        try:
+            room_id = int(raw or 0)
+        except Exception:
+            continue
+        if room_id > 0:
+            out.add(room_id)
+    return out
+
+
+async def _filter_user_active_game_rooms(r, user_id: int, room_ids: Iterable[int]) -> set[int]:
+    uid = int(user_id)
+    ids = sorted(_normalize_active_game_room_ids(room_ids))
+    if uid <= 0 or not ids:
+        return set()
+
+    async with r.pipeline() as p:
+        for rid in ids:
+            await p.hget(f"room:{rid}:game_state", "phase")
+            await p.hget(f"room:{rid}:game_state", "game_finished")
+            await p.sismember(f"room:{rid}:game_players", str(uid))
+        rows = await p.execute()
+
+    out: set[int] = set()
+    for idx, rid in enumerate(ids):
+        base = idx * 3
+        phase = str(rows[base] or "idle") if base < len(rows) else "idle"
+        game_finished = str(rows[base + 1] or "0") if base + 1 < len(rows) else "0"
+        is_player = bool(rows[base + 2]) if base + 2 < len(rows) else False
+        if phase != "idle" and game_finished != "1" and is_player:
+            out.add(rid)
+
+    return out
+
+
+async def _scan_user_active_game_rooms(r, user_id: int) -> set[int]:
+    uid = int(user_id)
+    if uid <= 0:
+        return set()
+
+    raw_room_ids = await r.zrange("rooms:index", 0, -1)
+    candidate_ids = _normalize_active_game_room_ids(raw_room_ids or [])
+    return await _filter_user_active_game_rooms(r, uid, candidate_ids)
+
+
 async def get_active_alive_game_room(user_id: int, *, redis_client=None, strict: bool = False) -> int | None:
     r = redis_client or get_redis()
     try:
@@ -2723,6 +2779,40 @@ async def get_active_alive_game_room(user_id: int, *, redis_client=None, strict:
 
 async def is_user_in_active_alive_game(user_id: int, *, redis_client=None, strict: bool = False) -> bool:
     return (await get_active_alive_game_room(user_id, redis_client=redis_client, strict=strict)) is not None
+
+
+async def get_active_game_rooms(user_id: int, *, redis_client=None, strict: bool = False, scan_if_missing: bool = False) -> set[int]:
+    r = redis_client or get_redis()
+    try:
+        uid = int(user_id)
+    except Exception:
+        return set()
+
+    if uid <= 0:
+        return set()
+
+    try:
+        async with r.pipeline() as p:
+            await p.smembers(active_game_rooms_key(uid))
+            await p.get(active_alive_game_room_key(uid))
+            raw_rooms, raw_legacy_room = await p.execute()
+
+        candidates = _normalize_active_game_room_ids(raw_rooms or [])
+        candidates.update(_normalize_active_game_room_ids([raw_legacy_room]))
+        active_rooms = await _filter_user_active_game_rooms(r, uid, candidates)
+        if not active_rooms and scan_if_missing:
+            active_rooms = await _scan_user_active_game_rooms(r, uid)
+        return active_rooms
+
+    except Exception as exc:
+        if strict:
+            raise RuntimeError("active_game_rooms_unavailable") from exc
+
+        return set()
+
+
+async def is_user_in_active_game(user_id: int, *, redis_client=None, strict: bool = False, scan_if_missing: bool = False) -> bool:
+    return bool(await get_active_game_rooms(user_id, redis_client=redis_client, strict=strict, scan_if_missing=scan_if_missing))
 
 
 async def prune_online_users(r, cutoff_ts: int) -> None:

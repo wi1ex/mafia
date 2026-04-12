@@ -102,6 +102,7 @@ onBeforeUnmount(() => {
     border-radius: 5px;
     overflow-y: auto;
     overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
     .emoji-grid--composer {
       display: grid;
@@ -125,6 +126,7 @@ onBeforeUnmount(() => {
     }
     &--reactions {
       padding: 3px;
+      gap: 3px;
       > .emoji-button {
         width: 20px;
         height: 20px;
@@ -136,6 +138,8 @@ onBeforeUnmount(() => {
       padding: 5px;
       width: 200px;
       height: 150px;
+      overflow-y: auto;
+      overflow-x: hidden;
       .emoji-grid--composer {
         gap: 3px;
       }

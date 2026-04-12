@@ -796,7 +796,7 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
   function maybeApplyAccessLoss(status: number, error: string): void {
     if (status !== 403) return
     if (error === 'active_game_player') {
-      useUserStore().setInActiveGameAsAlivePlayer(true)
+      useUserStore().setInActiveGameAsPlayer(true)
     }
     if (error === 'active_game_player' || error === 'chat_disabled' || error === 'not_verified' || error === 'user_timeout' || error === 'user_banned') {
       closePanel()
@@ -916,7 +916,7 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
       const error = isRecord(payload) ? asString(payload.error) : ''
       if (Boolean(isRecord(payload) && payload.force_close)) {
         if (error === 'active_game_player') {
-          useUserStore().setInActiveGameAsAlivePlayer(true)
+          useUserStore().setInActiveGameAsPlayer(true)
         }
         closePanel()
       }

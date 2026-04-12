@@ -376,7 +376,7 @@ const showLauncher = computed(() => {
   if (!auth.ready || !settings.ready || !auth.isAuthed) return false
   if (!settings.chatOpenEnabled) return false
   if (!user.user) return false
-  if (user.banActive || user.timeoutActive || user.inActiveGameAsAlivePlayer) return false
+  if (user.banActive || user.timeoutActive || user.inActiveGameAsPlayer) return false
   return !(settings.verificationRestrictions && !user.telegramVerified);
 })
 const canRender = computed(() => settings.chatOpenEnabled && (showLauncher.value || chat.open))

@@ -118,6 +118,7 @@ from ..utils import (
     maybe_emit_vote_presence_break,
     maybe_finish_game_after_death,
     mark_users_in_active_alive_game,
+    mark_users_in_active_game,
     sync_user_active_alive_game_marker,
 )
 
@@ -1476,6 +1477,10 @@ async def game_start(sid, data) -> GameStartAck:
             await mark_users_in_active_alive_game(player_ids, rid)
         except Exception:
             log.exception("sio.game_start.active_alive_mark_failed", rid=rid)
+        try:
+            await mark_users_in_active_game(player_ids, rid)
+        except Exception:
+            log.exception("sio.game_start.active_game_mark_failed", rid=rid)
 
         await sio.emit("game_started",
                        payload,

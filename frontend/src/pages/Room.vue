@@ -654,7 +654,7 @@ const showGlobalChatButton = computed(() => {
   if (!auth.ready || !settings.ready || !auth.isAuthed) return false
   if (!settings.chatOpenEnabled) return false
   if (!userStore.user) return false
-  if (userStore.banActive || userStore.timeoutActive || userStore.inActiveGameAsAlivePlayer) return false
+  if (userStore.banActive || userStore.timeoutActive || userStore.inActiveGameAsPlayer) return false
   return !(settings.verificationRestrictions && !userStore.telegramVerified)
 })
 function onAppsCounts(p: { total?: number; unread?: number }) {
