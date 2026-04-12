@@ -687,6 +687,14 @@ async def update_profile_theme(payload: UserProfileThemeIn, ident: Identity = De
             profile_theme_icon=theme_state.icon,
         )
 
+    old_color = theme_state.color
+    old_icon = theme_state.icon
+    changed_theme_parts: list[str] = []
+    if old_color != color:
+        changed_theme_parts.append(f"profile_theme_color: {old_color or 'none'} -> {color}")
+    if has_icon_update and old_icon != icon:
+        changed_theme_parts.append(f"profile_theme_icon: {old_icon or 'none'} -> {icon}")
+
     await upsert_profile_theme_preference(db, uid, color)
     if has_icon_update:
         await upsert_profile_theme_icon_preference(db, uid, icon)
@@ -699,7 +707,7 @@ async def update_profile_theme(payload: UserProfileThemeIn, ident: Identity = De
         user_id=uid,
         username=ident["username"],
         action="profile_theme_updated",
-        details=f"Обновление цвета профиля: user_id={uid} color={color}",
+        details=f"Обновление темы профиля: user_id={uid} changes={'; '.join(changed_theme_parts)}",
     )
 
     with suppress(Exception):

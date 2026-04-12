@@ -1,16 +1,16 @@
 export const PROFILE_THEME_DEFAULT = 'terracotta' as const
 
 export const PROFILE_THEME_OPTIONS = [
-  { key: 'violet', title: 'Фиолетовый', bg: 'rgba(100, 40, 200, 0.6)', hover: 'rgba(100, 40, 200, 0.75)' },
   { key: 'mulberry', title: 'Тутовый', bg: 'rgba(200, 40, 100, 0.6)', hover: 'rgba(200, 40, 100, 0.75)' },
   { key: 'garnet', title: 'Гранатовый', bg: 'rgba(180, 40, 40, 0.6)', hover: 'rgb(180, 40, 40, 0.75)' },
-  { key: 'terracotta', title: 'Терракотовый', bg: 'rgba(180, 120, 40, 0.6)', hover: 'rgba(180, 120, 40, 0.75)' },
-  { key: 'amber', title: 'Янтарный', bg: 'rgba(200, 180, 40, 0.6)', hover: 'rgb(200, 180, 40, 0.75)' },
+  { key: 'terracotta', title: 'Терракотовый', bg: 'rgba(220, 140, 40, 0.6)', hover: 'rgba(220, 140, 40, 0.75)' },
+  { key: 'amber', title: 'Янтарный', bg: 'rgba(220, 200, 40, 0.6)', hover: 'rgb(220, 200, 40, 0.75)' },
   { key: 'olive', title: 'Оливковый', bg: 'rgba(100, 160, 40, 0.6)', hover: 'rgb(100, 160, 40, 0.75)' },
   { key: 'emerald', title: 'Изумрудный', bg: 'rgba(40, 160, 120, 0.6)', hover: 'rgb(40, 160, 120, 0.75)' },
   { key: 'lagoon', title: 'Лагунный', bg: 'rgba(40, 140, 180, 0.6)', hover: 'rgba(40, 140, 180, 0.75)' },
   { key: 'azure', title: 'Лазурный', bg: 'rgba(40, 80, 180, 0.6)', hover: 'rgba(40, 80, 180, 0.75)' },
   { key: 'midnight', title: 'Полуночный', bg: 'rgba(40, 40, 140, 0.6)', hover: 'rgba(40, 40, 140, 0.75)' },
+  { key: 'violet', title: 'Фиолетовый', bg: 'rgba(100, 40, 200, 0.6)', hover: 'rgba(100, 40, 200, 0.75)' },
 ] as const
 
 export type ProfileThemeColor = typeof PROFILE_THEME_OPTIONS[number]['key']
