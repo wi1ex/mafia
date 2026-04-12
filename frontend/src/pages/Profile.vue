@@ -1204,7 +1204,7 @@ onBeforeUnmount(() => {
               display: flex;
               flex-wrap: wrap;
               margin: 15px 0;
-              gap: 10px;
+              gap: 5px;
             }
             .theme-option {
               display: flex;
@@ -1231,16 +1231,16 @@ onBeforeUnmount(() => {
               display: flex;
               align-items: center;
               justify-content: center;
-              width: 25px;
-              height: 25px;
+              width: 30px;
+              height: 30px;
               border: 2px solid transparent;
-              border-radius: 5px;
-              background-color: $graphite;
+              border-radius: 999px;
+              background: none;
               cursor: pointer;
-              transition: background-color 0.25s ease-in-out, border-color 0.25s ease-in-out;
+              transition: border-color 0.25s ease-in-out;
               img {
-                width: 25px;
-                height: 25px;
+                width: 24px;
+                height: 24px;
                 object-fit: contain;
               }
               &:hover:enabled {
@@ -1248,7 +1248,6 @@ onBeforeUnmount(() => {
               }
               &.active {
                 border-color: $fg;
-                background-color: $lead;
               }
               &:disabled {
                 cursor: not-allowed;
