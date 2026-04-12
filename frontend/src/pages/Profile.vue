@@ -1197,7 +1197,7 @@ onBeforeUnmount(() => {
             .theme-palette {
               display: flex;
               flex-wrap: wrap;
-              margin: 15px 0;
+              margin: 15px 0 15px 2px;
               gap: 10px;
             }
             .theme-icon-palette {
@@ -1586,6 +1586,10 @@ onBeforeUnmount(() => {
               .theme-palette {
                 margin: 10px 0;
               }
+              .theme-icon-palette {
+                margin: 10px 0;
+                gap: 10px;
+              }
               .theme-option {
                 width: 20px;
                 height: 20px;
@@ -1594,8 +1598,8 @@ onBeforeUnmount(() => {
                 width: 20px;
                 height: 20px;
                 img {
-                  width: 16px;
-                  height: 16px;
+                  width: 14px;
+                  height: 14px;
                 }
               }
             }
