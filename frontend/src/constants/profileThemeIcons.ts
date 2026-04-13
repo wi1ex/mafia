@@ -1,43 +1,80 @@
-import iconSub1 from '@/assets/svg/sub_icon1.svg'
-import iconSub2 from '@/assets/svg/sub_icon2.svg'
-import iconSub3 from '@/assets/svg/sub_icon3.svg'
-import iconSub4 from '@/assets/svg/sub_icon4.svg'
-import iconSub5 from '@/assets/svg/sub_icon5.svg'
-import iconSub6 from '@/assets/svg/sub_icon6.svg'
-import iconSub7 from '@/assets/svg/sub_icon7.svg'
-import iconSub8 from '@/assets/svg/sub_icon8.svg'
-import iconSub9 from '@/assets/svg/sub_icon9.svg'
-import iconSub10 from '@/assets/svg/sub_icon10.svg'
+const PROFILE_THEME_ICON_ASSET_MODULES = import.meta.glob('@/assets/svg/sub_icon*.svg', { eager: true, query: '?url', import: 'default' })
 
-export const PROFILE_THEME_ICON_OPTIONS = [
-  { key: 'sub_icon1', title: 'Иконка 1', src: iconSub1 },
-  { key: 'sub_icon2', title: 'Иконка 2', src: iconSub2 },
-  { key: 'sub_icon3', title: 'Иконка 3', src: iconSub3 },
-  { key: 'sub_icon4', title: 'Иконка 4', src: iconSub4 },
-  { key: 'sub_icon5', title: 'Иконка 5', src: iconSub5 },
-  { key: 'sub_icon6', title: 'Иконка 6', src: iconSub6 },
-  { key: 'sub_icon7', title: 'Иконка 7', src: iconSub7 },
-  { key: 'sub_icon8', title: 'Иконка 8', src: iconSub8 },
-  { key: 'sub_icon9', title: 'Иконка 9', src: iconSub9 },
-  { key: 'sub_icon10', title: 'Иконка 10', src: iconSub10 },
+const PROFILE_THEME_ICON_ASSETS = Object.entries(PROFILE_THEME_ICON_ASSET_MODULES).reduce<Record<string, string>>((acc, [path, src]) => {
+  const match = path.match(/sub_icon\d+\.svg$/)
+  if (!match) return acc
+  acc[match[0].replace('.svg', '')] = String(src || '')
+  return acc
+}, {})
+
+export const PROFILE_THEME_ICON_NONE = 'none'
+export const PROFILE_THEME_ICON_KEYS = [
+  'sub_icon1',
+  'sub_icon2',
+  'sub_icon3',
+  'sub_icon4',
+  'sub_icon5',
+  'sub_icon6',
+  'sub_icon7',
+  'sub_icon8',
+  'sub_icon9',
+  'sub_icon10',
+  'sub_icon11',
+  'sub_icon12',
+  'sub_icon13',
+  'sub_icon14',
+  'sub_icon15',
+  'sub_icon16',
+  'sub_icon17',
+  'sub_icon18',
+  'sub_icon19',
 ] as const
 
-export type ProfileThemeIcon = typeof PROFILE_THEME_ICON_OPTIONS[number]['key']
-export type ProfileThemeIconOption = typeof PROFILE_THEME_ICON_OPTIONS[number]
+export type ProfileThemeAssetIcon = typeof PROFILE_THEME_ICON_KEYS[number]
+export type ProfileThemeIcon = typeof PROFILE_THEME_ICON_NONE | ProfileThemeAssetIcon
+
+export interface ProfileThemeIconOption {
+  key: ProfileThemeIcon
+  title: string
+  src: string | null
+  available: boolean
+}
+
+const FALLBACK_PROFILE_THEME_ICON_SRC = PROFILE_THEME_ICON_ASSETS.sub_icon1 || ''
+
+const PROFILE_THEME_ASSET_ICON_OPTIONS: readonly ProfileThemeIconOption[] = PROFILE_THEME_ICON_KEYS.map((key, index) => {
+  const src = PROFILE_THEME_ICON_ASSETS[key] || FALLBACK_PROFILE_THEME_ICON_SRC
+  return {
+    key,
+    title: `Иконка ${index + 1}`,
+    src,
+    available: Boolean(PROFILE_THEME_ICON_ASSETS[key]),
+  }
+})
+
+export const PROFILE_THEME_ICON_OPTIONS: readonly ProfileThemeIconOption[] = [
+  {
+    key: PROFILE_THEME_ICON_NONE,
+    title: 'Без иконки',
+    src: null,
+    available: true,
+  },
+  ...PROFILE_THEME_ASSET_ICON_OPTIONS,
+]
 
 const PROFILE_THEME_ICON_MAP = PROFILE_THEME_ICON_OPTIONS.reduce<Record<ProfileThemeIcon, ProfileThemeIconOption>>((acc, item) => {
   acc[item.key] = item
   return acc
 }, {} as Record<ProfileThemeIcon, ProfileThemeIconOption>)
 
-export function normalizeProfileThemeIcon(value: unknown): ProfileThemeIcon | null {
+export function normalizeProfileThemeIcon(value: unknown): ProfileThemeIcon {
   const key = String(value || '').trim().toLowerCase()
-  return key in PROFILE_THEME_ICON_MAP ? (key as ProfileThemeIcon) : null
+  return key in PROFILE_THEME_ICON_MAP ? (key as ProfileThemeIcon) : PROFILE_THEME_ICON_NONE
 }
 
 export function getProfileThemeIconOption(value: unknown): ProfileThemeIconOption | null {
   const key = normalizeProfileThemeIcon(value)
-  return key ? PROFILE_THEME_ICON_MAP[key] : null
+  return PROFILE_THEME_ICON_MAP[key] || null
 }
 
 export function getProfileThemeIconSrc(value: unknown): string | null {

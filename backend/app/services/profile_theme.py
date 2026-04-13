@@ -21,18 +21,8 @@ PROFILE_THEME_COLORS: tuple[str, ...] = (
     "midnight",
 )
 PROFILE_THEME_DEFAULT = "terracotta"
-PROFILE_THEME_ICONS: tuple[str, ...] = (
-    "sub_icon1",
-    "sub_icon2",
-    "sub_icon3",
-    "sub_icon4",
-    "sub_icon5",
-    "sub_icon6",
-    "sub_icon7",
-    "sub_icon8",
-    "sub_icon9",
-    "sub_icon10",
-)
+PROFILE_THEME_ICON_NONE = "none"
+PROFILE_THEME_ICONS: tuple[str, ...] = tuple(f"sub_icon{idx}" for idx in range(1, 20))
 PROFILE_THEME_ICON_DEFAULT = PROFILE_THEME_ICONS[0]
 
 
@@ -76,6 +66,9 @@ def normalize_optional_profile_theme_icon(raw: object) -> str | None:
     if not value:
         return None
 
+    if value == PROFILE_THEME_ICON_NONE:
+        return PROFILE_THEME_ICON_NONE
+
     if value not in PROFILE_THEME_ICONS:
         raise ValueError("profile_theme_icon_invalid")
 
@@ -83,7 +76,8 @@ def normalize_optional_profile_theme_icon(raw: object) -> str | None:
 
 
 def normalize_profile_theme_icon(raw: object) -> str:
-    return normalize_optional_profile_theme_icon(raw) or PROFILE_THEME_ICON_DEFAULT
+    normalized = normalize_optional_profile_theme_icon(raw)
+    return normalized if normalized is not None else PROFILE_THEME_ICON_NONE
 
 
 def add_months(dt: datetime, months: int) -> datetime:
@@ -174,7 +168,7 @@ async def resolve_profile_theme_states(session: AsyncSession, user_ids: Iterable
             subscription_started_at=subscription.starts_at,
             subscription_until=subscription.ends_at,
             color=preference.color or PROFILE_THEME_DEFAULT,
-            icon=preference.icon or PROFILE_THEME_ICON_DEFAULT,
+            icon=None if preference.icon == PROFILE_THEME_ICON_NONE else (preference.icon or PROFILE_THEME_ICON_DEFAULT),
         )
     return out
 

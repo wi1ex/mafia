@@ -77,7 +77,8 @@
               <div class="theme-icon-palette">
                 <button v-for="item in PROFILE_THEME_ICON_OPTIONS" :key="item.key" @click="pickProfileThemeIcon(item.key)"
                         class="theme-icon-option" type="button" :class="{ active: selectedProfileThemeIcon === item.key }" :disabled="themeSaveBusy || isBanned">
-                  <img :src="themeIconSrc(item.key)" alt="" aria-hidden="true" />
+                  <img v-if="themeIconSrc(item.key)" :src="themeIconSrc(item.key) || ''" alt="" aria-hidden="true" />
+                  <span v-else class="theme-icon-none" aria-hidden="true"></span>
                 </button>
               </div>
 
@@ -499,8 +500,8 @@ function themeOptionStyle(color: ProfileThemeColor): Record<string, string> {
   return buildProfileThemeBgStyle(color)
 }
 
-function themeIconSrc(icon: ProfileThemeIcon): string {
-  return getProfileThemeIconSrc(icon) || ''
+function themeIconSrc(icon: ProfileThemeIcon): string | null {
+  return getProfileThemeIconSrc(icon)
 }
 
 function pickProfileTheme(color: ProfileThemeColor) {
@@ -1243,6 +1244,12 @@ onBeforeUnmount(() => {
                 height: 24px;
                 object-fit: contain;
               }
+              .theme-icon-none {
+                width: 16px;
+                height: 2px;
+                border-radius: 2px;
+                background-color: rgba($white, 0.75);
+              }
               &:hover:enabled {
                 border-color: rgba($white, 0.5);
               }
@@ -1600,6 +1607,9 @@ onBeforeUnmount(() => {
                 img {
                   width: 14px;
                   height: 14px;
+                }
+                .theme-icon-none {
+                  width: 10px;
                 }
               }
             }
