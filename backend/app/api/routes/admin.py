@@ -117,6 +117,7 @@ from ..utils import (
     build_user_stats_out,
     fetch_users_last_game_at,
     fetch_users_last_room_id,
+    fetch_users_last_spectator_room_id,
     fetch_friends_count_for_users,
     fetch_sanction_counts_for_users,
     safe_int,
@@ -1089,6 +1090,7 @@ async def users_list(page: int = 1, limit: int = 20, username: str | None = None
     games_hosted: dict[int, int]
     last_game_at: dict[int, datetime | None]
     last_room_id: dict[int, int | None]
+    last_spectator_room_id: dict[int, int | None]
 
     if sort_key in {"registered_at", "last_login_at", "last_visit_at"}:
         if sort_key == "last_login_at":
@@ -1106,6 +1108,7 @@ async def users_list(page: int = 1, limit: int = 20, username: str | None = None
         rooms_created, room_seconds, stream_seconds, spectator_seconds, games_played, games_hosted = await aggregate_user_room_stats(session, ids)
         last_game_at = await fetch_users_last_game_at(session, ids)
         last_room_id = await fetch_users_last_room_id(session, ids)
+        last_spectator_room_id = await fetch_users_last_spectator_room_id(session, ids)
     else:
         rows = await session.execute(select(User).where(*filters))
         all_users = rows.scalars().all()
@@ -1125,6 +1128,10 @@ async def users_list(page: int = 1, limit: int = 20, username: str | None = None
             all_last_room_id = await fetch_users_last_room_id(session, all_ids)
         else:
             all_last_room_id = {}
+        if sort_key == "last_spectator_room_id":
+            all_last_spectator_room_id = await fetch_users_last_spectator_room_id(session, all_ids)
+        else:
+            all_last_spectator_room_id = {}
 
         if sort_key == "role":
             users_sorted = sorted(
@@ -1164,6 +1171,7 @@ async def users_list(page: int = 1, limit: int = 20, username: str | None = None
                         sanction_counts=sanction_counts,
                         last_game_at_ts=last_game_at_ts,
                         last_room_id=all_last_room_id,
+                        last_spectator_room_id=all_last_spectator_room_id,
                     ),
                     u.registered_at,
                     int(u.id),
@@ -1180,6 +1188,10 @@ async def users_list(page: int = 1, limit: int = 20, username: str | None = None
             last_room_id = {uid: all_last_room_id.get(uid) for uid in ids}
         else:
             last_room_id = await fetch_users_last_room_id(session, ids)
+        if sort_key == "last_spectator_room_id":
+            last_spectator_room_id = {uid: all_last_spectator_room_id.get(uid) for uid in ids}
+        else:
+            last_spectator_room_id = await fetch_users_last_spectator_room_id(session, ids)
 
     ids = [int(u.id) for u in users]
     sanctions_map = await fetch_sanctions_for_users(session, ids)
@@ -1210,6 +1222,7 @@ async def users_list(page: int = 1, limit: int = 20, username: str | None = None
             last_visit_at=u.last_visit_at,
             last_game_at=last_game_at.get(uid),
             last_room_id=last_room_id.get(uid),
+            last_spectator_room_id=last_spectator_room_id.get(uid),
             deleted_at=u.deleted_at,
             friends_count=friends_count.get(uid, 0),
             rooms_created=created,
