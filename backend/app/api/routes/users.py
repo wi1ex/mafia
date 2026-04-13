@@ -82,6 +82,7 @@ from ...services.minio import (
     CHAT_IMAGE_MAX_BYTES,
 )
 from ...services.profile_theme import (
+    ensure_profile_theme_defaults,
     normalize_profile_theme_color,
     normalize_profile_theme_icon,
     resolve_profile_theme_state,
@@ -661,6 +662,10 @@ async def update_profile_theme(payload: UserProfileThemeIn, ident: Identity = De
     theme_state = await resolve_profile_theme_state(db, uid)
     if not theme_state.subscription_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="subscription_required")
+    defaults_changed = await ensure_profile_theme_defaults(db, uid)
+    if defaults_changed:
+        await db.commit()
+        theme_state = await resolve_profile_theme_state(db, uid)
 
     try:
         color = normalize_profile_theme_color(payload.color)
@@ -679,6 +684,15 @@ async def update_profile_theme(payload: UserProfileThemeIn, ident: Identity = De
         icon = theme_state.icon
 
     if theme_state.color == color and (not has_icon_update or theme_state.icon == icon):
+        if defaults_changed:
+            await refresh_user_profile_cache(db, uid)
+            with suppress(Exception):
+                await emit_auth_profile_sync(uid, role=str(user.role))
+            with suppress(Exception):
+                await emit_room_profile_theme_sync(uid, theme_state.color, theme_state.icon)
+            with suppress(Exception):
+                from ...services.global_chat import emit_global_chat_profile_theme_sync
+                await emit_global_chat_profile_theme_sync(uid, theme_state.color, theme_state.icon)
         return UserProfileThemeOut(
             subscription_active=True,
             subscription_started_at=theme_state.subscription_started_at,

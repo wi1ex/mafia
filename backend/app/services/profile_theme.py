@@ -80,6 +80,28 @@ def normalize_profile_theme_icon(raw: object) -> str:
     return normalized if normalized is not None else PROFILE_THEME_ICON_NONE
 
 
+def _apply_profile_theme_defaults(row: User) -> bool:
+    changed = False
+    try:
+        normalized_color = normalize_profile_theme_color(row.profile_theme_color)
+    except ValueError:
+        normalized_color = PROFILE_THEME_DEFAULT
+    if row.profile_theme_color != normalized_color:
+        row.profile_theme_color = normalized_color
+        changed = True
+
+    try:
+        normalized_icon = normalize_optional_profile_theme_icon(row.profile_theme_icon)
+    except ValueError:
+        normalized_icon = None
+    normalized_icon = normalized_icon or PROFILE_THEME_ICON_DEFAULT
+    if row.profile_theme_icon != normalized_icon:
+        row.profile_theme_icon = normalized_icon
+        changed = True
+
+    return changed
+
+
 def add_months(dt: datetime, months: int) -> datetime:
     months_i = max(0, int(months or 0))
     if months_i <= 0:
@@ -168,7 +190,7 @@ async def resolve_profile_theme_states(session: AsyncSession, user_ids: Iterable
             subscription_started_at=subscription.starts_at,
             subscription_until=subscription.ends_at,
             color=preference.color or PROFILE_THEME_DEFAULT,
-            icon=None if preference.icon == PROFILE_THEME_ICON_NONE else (preference.icon or PROFILE_THEME_ICON_DEFAULT),
+            icon=preference.icon or PROFILE_THEME_ICON_DEFAULT,
         )
     return out
 
@@ -177,6 +199,28 @@ async def resolve_profile_theme_state(session: AsyncSession, user_id: int | str,
     uid = int(user_id)
     states = await resolve_profile_theme_states(session, [uid], now=now)
     return states.get(uid) or ProfileThemeState()
+
+
+async def ensure_profile_theme_defaults(session: AsyncSession, user_id: int | str, *, now: datetime | None = None) -> bool:
+    uid = int(user_id)
+    current = now or datetime.now(timezone.utc)
+    active_subscription = await session.scalar(
+        select(UserSubscription.user_id)
+        .where(
+            UserSubscription.user_id == uid,
+            UserSubscription.starts_at <= current,
+            UserSubscription.ends_at > current,
+        )
+        .limit(1)
+    )
+    if active_subscription is None:
+        return False
+
+    row = await session.get(User, uid)
+    if row is None:
+        return False
+
+    return _apply_profile_theme_defaults(row)
 
 
 async def upsert_profile_theme_preference(session: AsyncSession, user_id: int | str, color: str) -> str:

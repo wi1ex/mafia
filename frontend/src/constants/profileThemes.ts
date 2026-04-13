@@ -6,7 +6,7 @@ export const PROFILE_THEME_OPTIONS = [
   { key: 'terracotta', title: 'Терракотовый', bg: 'rgba(220, 140, 40, 0.6)', hover: 'rgba(220, 140, 40, 0.75)' },
   { key: 'amber', title: 'Янтарный', bg: 'rgba(220, 200, 40, 0.6)', hover: 'rgb(220, 200, 40, 0.75)' },
   { key: 'olive', title: 'Оливковый', bg: 'rgba(100, 160, 40, 0.6)', hover: 'rgb(100, 160, 40, 0.75)' },
-  { key: 'emerald', title: 'Изумрудный', bg: 'rgba(40, 160, 120, 0.6)', hover: 'rgb(40, 160, 120, 0.75)' },
+  { key: 'emerald', title: 'Изумрудный', bg: 'rgba(40, 160, 140, 0.6)', hover: 'rgb(40, 160, 140, 0.75)' },
   { key: 'lagoon', title: 'Лагунный', bg: 'rgba(40, 140, 180, 0.6)', hover: 'rgba(40, 140, 180, 0.75)' },
   { key: 'azure', title: 'Лазурный', bg: 'rgba(40, 80, 180, 0.6)', hover: 'rgba(40, 80, 180, 0.75)' },
   { key: 'midnight', title: 'Полуночный', bg: 'rgba(40, 40, 140, 0.6)', hover: 'rgba(40, 40, 140, 0.75)' },

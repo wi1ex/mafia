@@ -42,6 +42,51 @@ async def lifespan(app) -> AsyncIterator[None]:
             await conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_theme_color VARCHAR(32)"))
             await conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_theme_icon VARCHAR(32)"))
 
+            # remove after the first deploy with profile theme defaults recovery.
+            valid_theme_colors = (
+                "violet",
+                "mulberry",
+                "garnet",
+                "terracotta",
+                "amber",
+                "olive",
+                "emerald",
+                "lagoon",
+                "azure",
+                "midnight",
+            )
+            valid_theme_icons = ("none", *(f"sub_icon{idx}" for idx in range(1, 20)))
+            valid_theme_colors_sql = ", ".join(f"'{value}'" for value in valid_theme_colors)
+            valid_theme_icons_sql = ", ".join(f"'{value}'" for value in valid_theme_icons)
+            theme_defaults_result = await conn.execute(text(f"""
+                UPDATE users AS u
+                SET
+                    profile_theme_color = CASE
+                        WHEN lower(trim(coalesce(u.profile_theme_color, ''))) IN ({valid_theme_colors_sql})
+                            THEN lower(trim(u.profile_theme_color))
+                        ELSE 'terracotta'
+                    END,
+                    profile_theme_icon = CASE
+                        WHEN lower(trim(coalesce(u.profile_theme_icon, ''))) IN ({valid_theme_icons_sql})
+                            THEN lower(trim(u.profile_theme_icon))
+                        ELSE 'sub_icon1'
+                    END
+                WHERE EXISTS (
+                    SELECT 1
+                    FROM user_subscriptions AS us
+                    WHERE us.user_id = u.id
+                      AND us.starts_at <= CURRENT_TIMESTAMP
+                      AND us.ends_at > CURRENT_TIMESTAMP
+                )
+                  AND (
+                    lower(trim(coalesce(u.profile_theme_color, ''))) NOT IN ({valid_theme_colors_sql})
+                    OR lower(trim(coalesce(u.profile_theme_icon, ''))) NOT IN ({valid_theme_icons_sql})
+                  )
+            """))
+            if theme_defaults_result.rowcount and theme_defaults_result.rowcount > 0:
+                log.info("app.subscriptions.theme_defaults_synced", users=int(theme_defaults_result.rowcount))
+            # remove after the first deploy with profile theme defaults recovery.
+
         async with SessionLocal() as session:
             await ensure_app_settings(session)
             await assert_protected_admin_invariants(session)

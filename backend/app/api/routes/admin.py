@@ -33,14 +33,10 @@ from ...security.passwords import hash_password
 from ...security.parameters import ensure_app_settings, sync_cache_from_row, refresh_app_settings, get_cached_settings
 from ...services.user_cache import refresh_user_profile_cache, get_user_profiles_cached
 from ...services.profile_theme import (
-    PROFILE_THEME_DEFAULT,
-    PROFILE_THEME_ICON_DEFAULT,
     compute_subscription_end,
-    normalize_optional_profile_theme_icon,
+    ensure_profile_theme_defaults,
     resolve_profile_theme_state,
     resolve_profile_theme_states,
-    upsert_profile_theme_icon_preference,
-    upsert_profile_theme_preference,
 )
 from ...services.user_stats import get_user_game_stats_cached
 from ...services.global_chat import (
@@ -1290,7 +1286,6 @@ async def subscriptions_upsert(payload: AdminSubscriptionCreateIn, ident: Identi
     )
 
     had_active_subscription = False
-    is_new_subscription = subscription is None
     if subscription is None:
         starts_at = now
         ends_at = compute_subscription_end(starts_at, months=months, days=days)
@@ -1304,15 +1299,7 @@ async def subscriptions_upsert(payload: AdminSubscriptionCreateIn, ident: Identi
             subscription.starts_at = now
             subscription.ends_at = compute_subscription_end(now, months=months, days=days)
 
-    try:
-        current_icon = normalize_optional_profile_theme_icon(user.profile_theme_icon)
-    except ValueError:
-        current_icon = None
-
-    if is_new_subscription:
-        await upsert_profile_theme_preference(session, uid, PROFILE_THEME_DEFAULT)
-    if current_icon is None:
-        await upsert_profile_theme_icon_preference(session, uid, PROFILE_THEME_ICON_DEFAULT)
+    await ensure_profile_theme_defaults(session, uid, now=now)
 
     await session.commit()
     await session.refresh(subscription)
@@ -1365,8 +1352,6 @@ async def subscriptions_delete(user_id: int, ident: Identity = Depends(get_ident
     if subscription is None:
         raise HTTPException(status_code=404, detail="subscription_not_found")
 
-    user.profile_theme_color = None
-    user.profile_theme_icon = None
     await session.delete(subscription)
     await session.commit()
     await refresh_user_profile_cache(session, uid)

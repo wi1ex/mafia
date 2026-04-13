@@ -1202,9 +1202,9 @@ onBeforeUnmount(() => {
               gap: 10px;
             }
             .theme-icon-palette {
-              display: flex;
-              flex-wrap: wrap;
-              margin: 15px 0;
+              display: inline-grid;
+              grid-template-columns: repeat(10, 1fr);
+              margin: 0 0 15px;
               gap: 5px;
             }
             .theme-option {
@@ -1245,7 +1245,7 @@ onBeforeUnmount(() => {
                 object-fit: contain;
               }
               .theme-icon-none {
-                width: 16px;
+                width: 10px;
                 height: 2px;
                 border-radius: 2px;
                 background-color: rgba($white, 0.75);
@@ -1594,8 +1594,8 @@ onBeforeUnmount(() => {
                 margin: 10px 0;
               }
               .theme-icon-palette {
-                margin: 10px 0;
-                gap: 10px;
+                margin: 0 0 10px;
+                gap: 5px 10px;
               }
               .theme-option {
                 width: 20px;
@@ -1609,7 +1609,8 @@ onBeforeUnmount(() => {
                   height: 14px;
                 }
                 .theme-icon-none {
-                  width: 10px;
+                  width: 4px;
+                  height: 1px;
                 }
               }
             }

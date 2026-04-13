@@ -36,7 +36,7 @@ from ..services.user_cache import (
     write_user_profile_cache,
     invalidate_avatar_presign_cache,
 )
-from ..services.profile_theme import resolve_profile_theme_state
+from ..services.profile_theme import ensure_profile_theme_defaults, resolve_profile_theme_state
 if TYPE_CHECKING:
     from ..schemas.admin import SiteSettingsOut, GameSettingsOut, RegistrationsPoint, AdminRoomUserStat, AdminSanctionOut, AdminGameActionFieldOut
     from ..schemas.room import GameParams
@@ -1041,6 +1041,9 @@ async def build_user_out_payload(session: AsyncSession, *, user_id: int, role: s
 
     uid = cast(int, user.id)
     normalized_role = str(role or user.role or "")
+    defaults_changed = await ensure_profile_theme_defaults(session, uid)
+    if defaults_changed:
+        await session.commit()
     theme_state = await resolve_profile_theme_state(session, uid)
     await write_user_profile_cache(
         uid,
@@ -1051,6 +1054,12 @@ async def build_user_out_payload(session: AsyncSession, *, user_id: int, role: s
         theme_until=theme_state.subscription_until,
         theme_icon=theme_state.icon,
     )
+    if defaults_changed:
+        with suppress(Exception):
+            await emit_room_profile_theme_sync(uid, theme_state.color, theme_state.icon)
+        with suppress(Exception):
+            from ..services.global_chat import emit_global_chat_profile_theme_sync
+            await emit_global_chat_profile_theme_sync(uid, theme_state.color, theme_state.icon)
     active = await fetch_active_sanctions(session, uid)
     timeout = active.get(SANCTION_TIMEOUT)
     ban = active.get(SANCTION_BAN)
@@ -1139,11 +1148,6 @@ async def sync_expired_profile_subscriptions() -> int:
                 continue
 
             try:
-                user = await session.get(User, uid)
-                if user is not None and (user.profile_theme_color is not None or user.profile_theme_icon is not None):
-                    user.profile_theme_color = None
-                    user.profile_theme_icon = None
-                    await session.commit()
                 await refresh_user_profile_cache(session, uid, redis_client=r)
                 await emit_auth_profile_sync(uid)
                 await emit_room_profile_theme_sync(uid, None, None)
@@ -3641,11 +3645,12 @@ async def emit_room_profile_theme_sync(uid: int, theme_color: str | None, theme_
     try:
         normalized_color = theme_color.strip() if isinstance(theme_color, str) and theme_color.strip() else None
         normalized_icon = theme_icon.strip() if isinstance(theme_icon, str) and theme_icon.strip() else None
-        if normalized_color and normalized_icon:
-            await r.hset(
-                f"room:{rid}:user:{int(uid)}:info",
-                mapping={"theme_color": normalized_color, "theme_icon": normalized_icon},
-            )
+        if normalized_color:
+            await r.hset(f"room:{rid}:user:{int(uid)}:info", mapping={"theme_color": normalized_color})
+            if normalized_icon:
+                await r.hset(f"room:{rid}:user:{int(uid)}:info", mapping={"theme_icon": normalized_icon})
+            else:
+                await r.hdel(f"room:{rid}:user:{int(uid)}:info", "theme_icon")
         else:
             await r.hdel(f"room:{rid}:user:{int(uid)}:info", "theme_color", "theme_icon")
     except Exception as exc:
