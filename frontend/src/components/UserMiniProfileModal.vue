@@ -222,7 +222,11 @@ const friendDisabled = computed(() => (
   || (loading.value && !profileLoadedForTarget.value && friendStatus.value === 'none')
 ))
 const showFriendAction = computed(() => targetUserId.value > 0 && friendStatus.value !== 'self' && friendActionLabel.value !== '')
-const showStatsButton = computed(() => Boolean(props.showStatsButton && targetUserId.value > 0))
+const showStatsButton = computed(() => Boolean(
+  props.showStatsButton
+  && targetUserId.value > 0
+  && (friendStatus.value === 'friends' || friendStatus.value === 'self')
+))
 
 function normalizeFriendStatus(value: unknown): FriendStatus {
   if (value === 'self' || value === 'friends' || value === 'outgoing' || value === 'incoming' || value === 'none') return value

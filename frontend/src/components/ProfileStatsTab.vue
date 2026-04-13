@@ -512,9 +512,10 @@ async function load(force = false) {
     stats.spectator_minutes = safeInt(data?.spectator_minutes)
     stats.game = normalizeGame(data?.game)
     loaded.value = true
-  } catch {
+  } catch (e: any) {
     if (seq !== requestSeq) return
-    error.value = 'Не удалось загрузить статистику'
+    const detail = String(e?.response?.data?.detail || '')
+    error.value = detail === 'friends_only' ? 'Статистика доступна только друзьям' : 'Не удалось загрузить статистику'
   } finally {
     if (seq === requestSeq) loading.value = false
   }

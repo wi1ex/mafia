@@ -132,6 +132,7 @@ async def user_stats(season: int | None = None, ident: Identity = Depends(get_id
 @log_route("users.public_stats")
 @rate_limited(lambda ident, user_id, **_: f"rl:user_public_stats:{ident['id']}:{user_id}", limit=10, window_s=1)
 async def public_user_stats(user_id: int, season: int | None = None, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UserStatsOut:
+    viewer_id = int(ident["id"])
     uid = int(user_id)
     if uid <= 0:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="bad_user_id")
@@ -139,6 +140,11 @@ async def public_user_stats(user_id: int, season: int | None = None, ident: Iden
     user = await db.get(User, uid)
     if not user or user.deleted_at:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="user_not_found")
+
+    if uid != viewer_id and str(ident["role"]) != "admin":
+        friendship_status = await friend_status_for(db, viewer_id, uid)
+        if friendship_status != "friends":
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="friends_only")
 
     return await build_user_stats_out(db, uid, season)
 
