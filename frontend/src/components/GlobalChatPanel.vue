@@ -1711,8 +1711,6 @@ onBeforeUnmount(() => {
             gap: 3px;
             border: none;
             background: none;
-            color: inherit;
-            text-align: left;
             cursor: default;
             &:disabled {
               opacity: 1;
@@ -1734,7 +1732,6 @@ onBeforeUnmount(() => {
             .author-name {
               margin-left: 2px;
               min-width: 0;
-              height: 18px;
               color: $fg;
               font-size: 16px;
               font-family: Manrope-Medium;
@@ -2517,7 +2514,6 @@ onBeforeUnmount(() => {
                 height: 16px;
               }
               .author-name {
-                height: 14px;
                 font-size: 12px;
               }
             }

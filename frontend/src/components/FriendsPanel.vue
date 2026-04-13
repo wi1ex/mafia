@@ -497,8 +497,9 @@ onBeforeUnmount(() => {
         }
         .nick {
           margin-left: 2px;
-          height: 18px;
           font-size: 16px;
+          line-height: 1.5;
+          font-family: Manrope-Medium;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -520,7 +521,7 @@ onBeforeUnmount(() => {
           }
           .game {
             font-size: 12px;
-            color: $grey;
+            color: $ashy;
             &.active {
               color: $green;
             }
@@ -660,7 +661,6 @@ onBeforeUnmount(() => {
             object-fit: contain;
           }
           .nick {
-            height: 14px;
             font-size: 12px;
           }
         }

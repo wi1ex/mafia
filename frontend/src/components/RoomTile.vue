@@ -819,7 +819,6 @@ const profileThemeIconSrc = computed(() => getProfileThemeIconSrc(props.themeIco
         }
       }
       .profile-row {
-        display: flex;
         button {
           display: flex;
           align-items: center;
@@ -830,20 +829,21 @@ const profileThemeIconSrc = computed(() => getProfileThemeIconSrc(props.themeIco
           height: 25px;
           border: none;
           border-radius: 5px;
+          background-color: $graphite;
           cursor: pointer;
           transition: background-color 0.25s ease-in-out;
           img {
-            width: 20px;
-            height: 20px;
+            width: 16px;
+            height: 16px;
           }
           span {
-            color: $bg;
+            height: 20px;
+            color: $fg;
             font-size: 14px;
             font-family: Manrope-Medium;
           }
-          background-color: $fg;
           &:hover {
-            background-color: $white;
+            background-color: $lead;
           }
         }
       }
@@ -1072,13 +1072,15 @@ const profileThemeIconSrc = computed(() => getProfileThemeIconSrc(props.themeIco
           }
         }
         .profile-row {
+          gap: 3px;
           button {
             height: 20px;
             img {
-              width: 14px;
-              height: 14px;
+              width: 12px;
+              height: 12px;
             }
             span {
+              height: 16px;
               font-size: 10px;
             }
           }
