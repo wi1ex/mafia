@@ -31,7 +31,8 @@
           >
             <div class="message-main">
               <div class="message-meta">
-                <button class="message-meta-author author-trigger" type="button" @click="openAuthorMiniProfile(message.author)">
+                <button class="message-meta-author" :class="{ 'author-trigger': canOpenAuthorMiniProfile(message) }" type="button"
+                        :disabled="!canOpenAuthorMiniProfile(message)" @click="openAuthorMiniProfile(message)">
                   <img class="author-avatar" v-minio-img="{ key: message.author.avatar_name ? `avatars/${message.author.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="Аватар автора" />
                   <img v-if="profileThemeIconSrc(message.author.theme_icon)" class="profile-theme-icon" :src="profileThemeIconSrc(message.author.theme_icon) || ''" alt="" aria-hidden="true" />
                   <span class="author-name">{{ message.author.username || (`user${message.author.id}`) }}</span>
@@ -287,7 +288,6 @@ import iconDotMail from '@/assets/svg/dotMail.svg'
 import iconArrowDown from '@/assets/svg/arrowDown.svg'
 
 import type {
-  GlobalChatAuthor,
   GlobalChatDeletedMessagePreview,
   GlobalChatMessage,
   GlobalChatMention,
@@ -435,7 +435,15 @@ const mentionDropdownVisible = computed(() => Boolean(activeMentionRange.value?.
 const messageCardStyle = (message: GlobalChatMessage) => buildProfileThemeBgStyle(message.author.theme_color)
 const profileThemeIconSrc = (icon: unknown) => getProfileThemeIconSrc(icon)
 
-function openAuthorMiniProfile(author: GlobalChatAuthor) {
+function canOpenAuthorMiniProfile(message: GlobalChatMessage): boolean {
+  const uid = Number(message.author?.id || 0)
+  const viewerId = Number(user.user?.id || 0)
+  return Number.isFinite(uid) && uid > 0 && !message.is_own && uid !== viewerId
+}
+
+function openAuthorMiniProfile(message: GlobalChatMessage) {
+  if (!canOpenAuthorMiniProfile(message)) return
+  const author = message.author
   const uid = Number(author?.id || 0)
   if (!Number.isFinite(uid) || uid <= 0) return
   miniProfileUserId.value = uid
@@ -1705,7 +1713,13 @@ onBeforeUnmount(() => {
             background: none;
             color: inherit;
             text-align: left;
-            cursor: pointer;
+            cursor: default;
+            &:disabled {
+              opacity: 1;
+            }
+            &.author-trigger {
+              cursor: pointer;
+            }
             .author-avatar {
               width: 20px;
               height: 20px;
