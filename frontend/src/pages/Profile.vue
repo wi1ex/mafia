@@ -421,7 +421,7 @@ const profileThemeDirty = computed(() => (
 ))
 const themeSaveDisabled = computed(() => themeSaveBusy.value || isBanned.value || !canEditProfileTheme.value || !profileThemeDirty.value)
 const profileThemeSaveDisabledText = computed(() => {
-  if (!canEditProfileTheme.value) return 'Сохранение оформления доступно при наличии подписки'
+  if (!canEditProfileTheme.value) return 'Выбор оформления доступен пользователям, поддержавшим платформу'
   return ''
 })
 const themePreviewStyle = computed(() => buildProfileThemeBgStyle(selectedProfileThemeColor.value))
