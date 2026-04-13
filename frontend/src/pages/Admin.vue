@@ -849,6 +849,9 @@
                       <button class="btn confirm" :disabled="subscriptionSaving" @click="openExtendSubscription(row)">
                         Продлить
                       </button>
+                      <button class="btn dark" :disabled="subscriptionSaving || !row.is_active" @click="openReduceSubscription(row)">
+                        Уменьшить
+                      </button>
                       <button class="btn danger" :disabled="subscriptionRemoving[row.user_id]" @click="removeSubscription(row)">
                         Снять
                       </button>
@@ -1293,7 +1296,7 @@ const usersSanctionBusy = reactive<Record<string, boolean>>({})
 const subscriptions = ref<SubscriptionRow[]>([])
 const subscriptionsReady = ref(false)
 const subscriptionModalOpen = ref(false)
-const subscriptionModalMode = ref<'grant' | 'extend'>('grant')
+const subscriptionModalMode = ref<'grant' | 'extend' | 'reduce'>('grant')
 const subscriptionTarget = ref<SubscriptionTarget | null>(null)
 const subscriptionSaving = ref(false)
 const subscriptionRemoving = reactive<Record<number, boolean>>({})
@@ -1501,13 +1504,18 @@ const selectedSubscriptionStatusText = computed(() => {
     : `Истекла ${formatLocalDateTime(entry.ends_at)}`
 })
 const subscriptionModalTitle = computed(() => {
+  if (subscriptionModalMode.value === 'reduce') return 'Уменьшить подписку'
   return subscriptionModalMode.value === 'extend' ? 'Продлить подписку' : 'Выдать подписку'
 })
 const subscriptionModalSaveLabel = computed(() => {
+  if (subscriptionModalMode.value === 'reduce') return 'Уменьшить'
   return subscriptionModalMode.value === 'extend' ? 'Продлить' : 'Выдать'
 })
 const subscriptionCanSave = computed(() => {
   const hasDuration = (Number(subscriptionForm.months) || 0) > 0 || (Number(subscriptionForm.days) || 0) > 0
+  if (subscriptionModalMode.value === 'reduce') {
+    return Boolean(subscriptionTarget.value && selectedSubscriptionEntry.value?.is_active && hasDuration)
+  }
   return Boolean(subscriptionTarget.value && hasDuration)
 })
 
@@ -1737,6 +1745,18 @@ function openGrantSubscription(row: UserRow): void {
 
 function openExtendSubscription(row: SubscriptionRow): void {
   subscriptionModalMode.value = 'extend'
+  subscriptionTarget.value = {
+    user_id: row.user_id,
+    username: row.username ?? null,
+    avatar_name: row.avatar_name ?? null,
+  }
+  resetSubscriptionForm()
+  subscriptionModalOpen.value = true
+}
+
+function openReduceSubscription(row: SubscriptionRow): void {
+  if (!row.is_active) return
+  subscriptionModalMode.value = 'reduce'
   subscriptionTarget.value = {
     user_id: row.user_id,
     username: row.username ?? null,
@@ -2017,22 +2037,38 @@ async function saveSubscription(): Promise<void> {
   const selectedEntry = selectedSubscriptionEntry.value
   const hadAnySubscription = Boolean(selectedEntry)
   const hadActiveSubscription = Boolean(selectedEntry?.is_active)
+  const mode = subscriptionModalMode.value
+  const userId = subscriptionTarget.value.user_id
+  const duration = {
+    months: Math.max(0, Math.trunc(Number(subscriptionForm.months) || 0)),
+    days: Math.max(0, Math.trunc(Number(subscriptionForm.days) || 0)),
+  }
   try {
-    await api.post('/admin/subscriptions', {
-      user_id: subscriptionTarget.value.user_id,
-      months: Math.max(0, Math.trunc(Number(subscriptionForm.months) || 0)),
-      days: Math.max(0, Math.trunc(Number(subscriptionForm.days) || 0)),
-    })
+    if (mode === 'reduce') {
+      await api.patch(`/admin/subscriptions/${userId}/reduce`, duration)
+    } else {
+      await api.post('/admin/subscriptions', {
+        user_id: userId,
+        ...duration,
+      })
+    }
     await loadSubscriptions()
     clearSubscriptionModalState()
-    void alertDialog(
-      hadActiveSubscription ? 'Подписка продлена' : hadAnySubscription ? 'Подписка активирована' : 'Подписка выдана'
-    )
+    let message = 'Подписка выдана'
+    if (mode === 'reduce') message = 'Срок подписки уменьшен'
+    else if (hadActiveSubscription) message = 'Подписка продлена'
+    else if (hadAnySubscription) message = 'Подписка активирована'
+    void alertDialog(message)
   } catch (e: any) {
     const st = e?.response?.status
     const d = e?.response?.data?.detail
     if (st === 404 && d === 'user_not_found') void alertDialog('Пользователь не найден')
+    else if (st === 404 && d === 'subscription_not_found') void alertDialog('Подписка уже отсутствует')
     else if (st === 422 && d === 'duration_required') void alertDialog('Укажите срок подписки')
+    else if (st === 422 && d === 'subscription_not_active') void alertDialog('Подписка уже не активна')
+    else if (st === 422 && d === 'subscription_reduce_too_large') {
+      void alertDialog('Нельзя уменьшить срок до нуля или больше оставшегося времени')
+    }
     else void alertDialog('Не удалось сохранить подписку')
   } finally {
     subscriptionSaving.value = false

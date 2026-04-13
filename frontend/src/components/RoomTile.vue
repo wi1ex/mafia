@@ -114,10 +114,10 @@
             <span>{{ vol ?? 100 }}%</span>
           </div>
 
-          <div v-if="showFriendAction" class="friend-row">
-            <button type="button" :disabled="friendDisabled" :class="['status-' + friendStatusClass, { disabled: friendDisabled }]" @click="$emit('friend-action', id, friendActionKind)" >
-              <img :src="friendActionIcon" alt="" />
-              <span>{{ friendActionLabel }}</span>
+          <div v-if="id !== localId" class="profile-row">
+            <button type="button" @click="$emit('open-profile', id)">
+              <img :src="iconProfile" alt="" />
+              <span>Профиль</span>
             </button>
           </div>
 
@@ -139,7 +139,6 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { FriendStatus } from '@/store'
 import UiSlider from '@/components/UiSlider.vue'
 
 import iconReadyGreen from '@/assets/svg/readyGreen.svg'
@@ -154,10 +153,7 @@ import iconKill from '@/assets/svg/killBlack.svg'
 import iconCloseCircle from '@/assets/svg/closeCircle.svg'
 import iconWink from '@/assets/svg/wink.svg'
 import iconKnock from '@/assets/svg/knock.svg'
-import iconAddFriends from '@/assets/svg/addFriends.svg'
-import iconInFriends from '@/assets/svg/inFriends.svg'
-import iconRecieveFriends from '@/assets/svg/recieveFriends.svg'
-import iconSendFriends from '@/assets/svg/sendFriends.svg'
+import iconProfile from '@/assets/svg/profile.svg'
 import { buildProfileThemeBgStyle } from '@/constants/profileThemes'
 import { getProfileThemeIconSrc } from '@/constants/profileThemeIcons'
 
@@ -237,9 +233,6 @@ const props = withDefaults(defineProps<{
   pickKind?: 'shoot' | 'check' | ''
   nightOwnerId?: string
   nightRemainingMs?: number
-  friendStatus?: FriendStatus
-  friendBusy?: boolean
-  friendLoading?: boolean
 }>(), {
   side: false,
   fitContain: false,
@@ -293,9 +286,6 @@ const props = withDefaults(defineProps<{
   pickKind: '',
   nightOwnerId: '',
   nightRemainingMs: 0,
-  friendStatus: 'none',
-  friendBusy: false,
-  friendLoading: false,
   themeColor: null,
   themeIcon: null,
   vol: 100,
@@ -316,7 +306,7 @@ defineEmits<{
   (e: 'knock', id: string): void
   (e: 'farewell', verdict: 'citizen' | 'mafia', id: string): void
   (e: 'best-move', id: string): void
-  (e: 'friend-action', id: string, kind: 'add' | 'remove' | 'incoming' | 'outgoing'): void
+  (e: 'open-profile', id: string): void
 }>()
 
 const micBlocked = computed(() => props.isBlocked(props.id, 'mic'))
@@ -374,31 +364,6 @@ const timelineDurationSec = computed(() => {
   return Math.max(ms / 1000, 0.1)
 })
 
-const friendActionLabel = computed(() => {
-  if (props.friendLoading) return 'Загрузка...'
-  if (props.friendStatus === 'none') return 'Добавить в друзья'
-  if (props.friendStatus === 'friends') return 'В друзьях'
-  if (props.friendStatus === 'outgoing') return 'Отменить заявку'
-  if (props.friendStatus === 'incoming') return 'Входящий запрос'
-  return ''
-})
-const friendStatusClass = computed(() => (props.friendStatus === 'self' ? 'none' : props.friendStatus))
-const friendActionIcon = computed(() => {
-  if (props.friendStatus === 'friends') return iconInFriends
-  if (props.friendStatus === 'outgoing') return iconSendFriends
-  if (props.friendStatus === 'incoming') return iconRecieveFriends
-  return iconAddFriends
-})
-const friendActionKind = computed(() => {
-  if (props.friendStatus === 'none') return 'add'
-  if (props.friendStatus === 'friends') return 'remove'
-  if (props.friendStatus === 'outgoing') return 'outgoing'
-  return 'incoming'
-})
-const friendDisabled = computed(() =>
-  props.friendBusy || props.friendLoading || props.friendStatus === 'self'
-)
-const showFriendAction = computed(() => props.id !== props.localId && friendActionLabel.value !== '')
 const userCardStyle = computed(() => buildProfileThemeBgStyle(props.themeColor))
 const profileThemeIconSrc = computed(() => getProfileThemeIconSrc(props.themeIcon))
 
@@ -853,7 +818,7 @@ const profileThemeIconSrc = computed(() => getProfileThemeIconSrc(props.themeIco
           font-size: 12px;
         }
       }
-      .friend-row {
+      .profile-row {
         display: flex;
         button {
           display: flex;
@@ -876,32 +841,9 @@ const profileThemeIconSrc = computed(() => getProfileThemeIconSrc(props.themeIco
             font-size: 14px;
             font-family: Manrope-Medium;
           }
-          &.status-none {
-            background-color: $fg;
-            &:not(:disabled):hover {
-              background-color: $white;
-            }
-          }
-          &.status-friends {
-            background-color: rgba($green, 0.75);
-            &:not(:disabled):hover {
-              background-color: $green;
-            }
-          }
-          &.status-outgoing {
-            background-color: rgba($yellow, 0.75);
-            &:not(:disabled):hover {
-              background-color: $yellow;
-            }
-          }
-          &.status-incoming {
-            background-color: rgba($orange, 0.75);
-            &:not(:disabled):hover {
-              background-color: $orange;
-            }
-          }
-          &.disabled {
-            cursor: not-allowed;
+          background-color: $fg;
+          &:hover {
+            background-color: $white;
           }
         }
       }
@@ -1129,7 +1071,7 @@ const profileThemeIconSrc = computed(() => getProfileThemeIconSrc(props.themeIco
             font-size: 10px;
           }
         }
-        .friend-row {
+        .profile-row {
           button {
             height: 20px;
             img {

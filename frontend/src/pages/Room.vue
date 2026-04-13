@@ -88,11 +88,8 @@
           :vote-enabled="game.canPressVoteButton()"
           :has-voted="(isLiftVoting ? votedUsers : votedThisRound).has(id)"
           :show-foul-control="canShowFoulButtons"
-          :friend-status="friendStatusFor(id)"
-          :friend-busy="friendBusyFor(id)"
-          :friend-loading="friendLoadingFor(id)"
           @toggle-panel="toggleTilePanel"
-          @friend-action="onFriendAction"
+          @open-profile="openMiniProfileFromTile"
           @vol-input="onVol"
           @block="onTileBlock"
           @kick="kickUser"
@@ -205,11 +202,8 @@
             :vote-enabled="game.canPressVoteButton()"
             :has-voted="(isLiftVoting ? votedUsers : votedThisRound).has(id)"
             :show-foul-control="canShowFoulButtons"
-            :friend-status="friendStatusFor(id)"
-            :friend-busy="friendBusyFor(id)"
-            :friend-loading="friendLoadingFor(id)"
             @toggle-panel="toggleTilePanel"
-            @friend-action="onFriendAction"
+            @open-profile="openMiniProfileFromTile"
             @vol-input="onVol"
             @block="onTileBlock"
             @kick="kickUser"
@@ -343,6 +337,12 @@
           :room-id="rid"
         />
 
+        <UserMiniProfileModal
+          v-model:open="miniProfileOpen"
+          :user-id="miniProfileUserId"
+          :initial-profile="miniProfileInitial"
+        />
+
         <RoomSetting
           :open="settingsOpen"
           :in-game="gamePhase !== 'idle'"
@@ -420,10 +420,7 @@ import {
   useUserStore,
   useFriendsStore,
   useGlobalChatStore,
-  resolveFriendsApiError,
-  shouldRefreshFriendsStateAfterError,
 } from '@/store'
-import type { FriendStatus, FriendApiAction } from '@/store'
 import {
   type Ack,
   type FarewellVerdict,
@@ -442,6 +439,7 @@ import RoomRequests from '@/components/RoomRequests.vue'
 import RoomSetting from '@/components/RoomSetting.vue'
 import GameParamsModal from '@/components/GameParamsModal.vue'
 import FriendsPanel from '@/components/FriendsPanel.vue'
+import UserMiniProfileModal from '@/components/UserMiniProfileModal.vue'
 import UiSlider from '@/components/UiSlider.vue'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
@@ -501,6 +499,13 @@ type StatusState = Partial<MediaState> & {
 }
 type BlockState = MediaState & { screen: State01 }
 type IconKind = keyof MediaState | 'screen'
+type RoomMiniProfileInitial = {
+  id: number
+  username?: string | null
+  avatar_name?: string | null
+  theme_color?: string | null
+  theme_icon?: string | null
+}
 
 const route = useRoute()
 const router = useRouter()
@@ -634,9 +639,9 @@ const SEAT_TILE_STYLE_CACHE = new Map<number, Readonly<{ gridColumn: string; gri
 const volumeSnapTimers = new Map<string, number>()
 const screenOwnerId = ref<string>('')
 const openPanelFor = ref<string>('')
-const friendStatusByUser = reactive(new Map<string, FriendStatus>())
-const friendStatusLoading = reactive(new Map<string, boolean>())
-const friendBusyByUser = reactive(new Map<string, boolean>())
+const miniProfileOpen = ref(false)
+const miniProfileUserId = ref<number | null>(null)
+const miniProfileInitial = ref<RoomMiniProfileInitial | null>(null)
 const pendingScreen = ref(false)
 const settingsOpen = ref(false)
 const friendsPanelOpen = ref(false)
@@ -935,100 +940,6 @@ function applyProfileTheme(id: string, source: any): void {
   else themeIconByUser.delete(id)
 }
 
-function friendStatusFor(id: string): FriendStatus {
-  if (id && id === localId.value) return 'self'
-  return friendStatusByUser.get(id) ?? 'none'
-}
-function friendBusyFor(id: string): boolean {
-  return friendBusyByUser.get(id) ?? false
-}
-function friendLoadingFor(id: string): boolean {
-  return friendStatusLoading.get(id) ?? false
-}
-
-function onFriendsUpdate(e: any) {
-  const p = e?.detail || {}
-  const uid = Number(p.user_id)
-  if (!Number.isFinite(uid) || uid <= 0) return
-  if (String(uid) === localId.value) return
-  const st = p.status as FriendStatus
-  if (!['self', 'friends', 'outgoing', 'incoming', 'none'].includes(st)) return
-  friendStatusByUser.set(String(uid), st)
-}
-
-async function fetchFriendStatus(id: string) {
-  if (id === localId.value) return
-  const uid = Number(id)
-  if (!Number.isFinite(uid) || uid <= 0) return
-  if (friendStatusLoading.get(id)) return
-  friendStatusLoading.set(id, true)
-  try {
-    const status = await friends.fetchStatus(uid)
-    friendStatusByUser.set(id, status)
-  } catch {}
-  finally {
-    friendStatusLoading.set(id, false)
-  }
-}
-
-async function onFriendAction(id: string, kind: 'add' | 'remove' | 'incoming' | 'outgoing') {
-  if (friendBusyFor(id)) return
-  const uid = Number(id)
-  if (!Number.isFinite(uid) || uid <= 0) return
-  friendBusyByUser.set(id, true)
-  let actionForError: FriendApiAction = 'unknown'
-  try {
-    if (kind === 'add') {
-      actionForError = 'send'
-      await friends.sendRequest(uid)
-      friendStatusByUser.set(id, 'outgoing')
-    } else if (kind === 'remove') {
-      const ok = await confirmDialog({
-        title: 'Удалить из друзей',
-        text: 'Вы уверены, что хотите удалить пользователя из друзей?',
-        confirmText: 'Удалить',
-        cancelText: 'Отмена',
-      })
-      if (!ok) return
-      actionForError = 'remove'
-      await friends.removeFriend(uid)
-      friendStatusByUser.set(id, 'none')
-    } else if (kind === 'outgoing') {
-      const ok = await confirmDialog({
-        title: 'Отменить заявку',
-        text: `Вы уверены, что хотите отменить заявку в друзья для пользователя ${userName(id)}?`,
-        confirmText: 'Отменить',
-        cancelText: 'Отмена',
-      })
-      if (!ok) return
-      actionForError = 'cancel'
-      await friends.cancelOutgoingRequest(uid)
-      friendStatusByUser.set(id, 'none')
-    } else if (kind === 'incoming') {
-      const ok = await confirmDialog({
-        title: 'Запрос в друзья',
-        text: 'Принять запрос в друзья?',
-        confirmText: 'Принять',
-        cancelText: 'Отклонить',
-      })
-      if (ok) {
-        actionForError = 'accept'
-        await friends.acceptRequest(uid)
-        friendStatusByUser.set(id, 'friends')
-      } else {
-        actionForError = 'decline'
-        await friends.declineRequest(uid)
-        friendStatusByUser.set(id, 'none')
-      }
-    }
-  } catch (e: any) {
-    if (shouldRefreshFriendsStateAfterError(e)) void fetchFriendStatus(id)
-    void alertDialog(resolveFriendsApiError(e, actionForError))
-  } finally {
-    friendBusyByUser.set(id, false)
-  }
-}
-
 function memoRef<K, V>(cache: Map<K, V>, factory: (k: K) => V): (k: K) => V {
   return (k: K) => {
     const c = cache.get(k)
@@ -1065,12 +976,28 @@ function closePanels(except?: 'card'|'apps'|'settings'|'friends'|'game', opts?: 
   if (except !== 'friends' && !keepFriends) friendsPanelOpen.value = false
   if (except !== 'game') gameParamsOpen.value = false
 }
+
+function openMiniProfileFromTile(id: string): void {
+  if (!id || id === localId.value) return
+  const uid = Number(id)
+  if (!Number.isFinite(uid) || uid <= 0) return
+  miniProfileUserId.value = uid
+  miniProfileInitial.value = {
+    id: uid,
+    username: nameByUser.get(id) || null,
+    avatar_name: avatarByUser.get(id) || null,
+    theme_color: themeColorFor(id),
+    theme_icon: themeIconFor(id),
+  }
+  closePanels()
+  miniProfileOpen.value = true
+}
+
 const toggleTilePanel = (id: string) => {
   if (id === localId.value) return
   const next = openPanelFor.value === id ? '' : id
   closePanels('card')
   openPanelFor.value = next
-  if (next && !friendStatusByUser.has(next)) void fetchFriendStatus(next)
 }
 function toggleSettings() {
   const next = !settingsOpen.value
@@ -3079,7 +3006,6 @@ onMounted(async () => {
     window.addEventListener('focus', handleForegroundSignal)
     window.addEventListener('offline', handleOffline)
     window.addEventListener('online', handleOnline)
-    window.addEventListener('auth-friends_update', onFriendsUpdate)
 
     uiReady.value = true
   } catch (err) {
@@ -3103,7 +3029,6 @@ onBeforeUnmount(() => {
   window.removeEventListener('keydown', onHotkey)
   window.removeEventListener('pageshow', handleForegroundSignal)
   window.removeEventListener('focus', handleForegroundSignal)
-  window.removeEventListener('auth-friends_update', onFriendsUpdate)
   clearForegroundMediaRecoveryTimers()
   volumeSnapTimers.forEach((tm) => { try { window.clearTimeout(tm) } catch {} })
   volumeSnapTimers.clear()

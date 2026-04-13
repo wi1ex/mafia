@@ -34,6 +34,7 @@ from ...security.parameters import ensure_app_settings, sync_cache_from_row, ref
 from ...services.user_cache import refresh_user_profile_cache, get_user_profiles_cached
 from ...services.profile_theme import (
     compute_subscription_end,
+    compute_subscription_reduced_end,
     ensure_profile_theme_defaults,
     resolve_profile_theme_state,
     resolve_profile_theme_states,
@@ -76,6 +77,7 @@ from ...schemas.admin import (
     AdminSubscriptionOut,
     AdminSubscriptionsOut,
     AdminSubscriptionCreateIn,
+    AdminSubscriptionDurationIn,
     AdminSanctionTimedIn,
     AdminSanctionBanIn,
     OnlineUserOut,
@@ -1312,6 +1314,82 @@ async def subscriptions_upsert(payload: AdminSubscriptionCreateIn, ident: Identi
         details=(
             f"Подписка user_id={uid} username={user.username or f'user{uid}'} "
             f"months={months} days={days} starts_at={subscription.starts_at.isoformat()} "
+            f"ends_at={subscription.ends_at.isoformat()}"
+        ),
+    )
+
+    with suppress(Exception):
+        await emit_auth_profile_sync(uid, role=str(user.role))
+    with suppress(Exception):
+        await emit_room_profile_theme_sync(uid, theme_state.color, theme_state.icon)
+    with suppress(Exception):
+        from ...services.global_chat import emit_global_chat_profile_theme_sync
+        await emit_global_chat_profile_theme_sync(uid, theme_state.color, theme_state.icon)
+
+    return AdminSubscriptionOut(
+        user_id=uid,
+        username=user.username,
+        avatar_name=user.avatar_name,
+        starts_at=subscription.starts_at,
+        ends_at=subscription.ends_at,
+        is_active=True,
+        profile_theme_color=theme_state.color,
+        profile_theme_icon=theme_state.icon,
+    )
+
+
+@router.patch("/subscriptions/{user_id}/reduce", response_model=AdminSubscriptionOut)
+@log_route("admin.subscriptions.reduce")
+async def subscriptions_reduce(user_id: int, payload: AdminSubscriptionDurationIn, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> AdminSubscriptionOut:
+    months = int(payload.months or 0)
+    days = int(payload.days or 0)
+    if months <= 0 and days <= 0:
+        raise HTTPException(status_code=422, detail="duration_required")
+
+    uid = int(user_id)
+    user = await session.get(User, uid)
+    if not user:
+        raise HTTPException(status_code=404, detail="user_not_found")
+
+    ensure_admin_target_not_deleted(user)
+
+    now = datetime.now(timezone.utc)
+    subscription = await session.scalar(
+        select(UserSubscription).where(UserSubscription.user_id == uid).limit(1)
+    )
+    if subscription is None:
+        raise HTTPException(status_code=404, detail="subscription_not_found")
+
+    if not (subscription.starts_at <= now < subscription.ends_at):
+        raise HTTPException(status_code=422, detail="subscription_not_active")
+
+    next_ends_at = compute_subscription_reduced_end(
+        subscription.ends_at,
+        months=months,
+        days=days,
+    )
+    if next_ends_at <= now:
+        raise HTTPException(status_code=422, detail="subscription_reduce_too_large")
+
+    previous_ends_at = subscription.ends_at
+    subscription.ends_at = next_ends_at
+
+    await ensure_profile_theme_defaults(session, uid, now=now)
+
+    await session.commit()
+    await session.refresh(subscription)
+    await refresh_user_profile_cache(session, uid)
+    theme_state = await resolve_profile_theme_state(session, uid)
+
+    await log_action(
+        session,
+        user_id=int(ident["id"]),
+        username=ident["username"],
+        action="admin_subscription_reduce",
+        details=(
+            f"Подписка уменьшена user_id={uid} username={user.username or f'user{uid}'} "
+            f"months={months} days={days} starts_at={subscription.starts_at.isoformat()} "
+            f"old_ends_at={previous_ends_at.isoformat()} "
             f"ends_at={subscription.ends_at.isoformat()}"
         ),
     )

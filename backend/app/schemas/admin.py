@@ -329,10 +329,13 @@ class AdminSubscriptionsOut(BaseModel):
     items: List[AdminSubscriptionOut] = Field(default_factory=list)
 
 
-class AdminSubscriptionCreateIn(BaseModel):
-    user_id: int = Field(ge=1)
+class AdminSubscriptionDurationIn(BaseModel):
     months: int = Field(default=0, ge=0, le=24)
     days: int = Field(default=0, ge=0, le=3650)
+
+
+class AdminSubscriptionCreateIn(AdminSubscriptionDurationIn):
+    user_id: int = Field(ge=1)
 
 
 class AdminSanctionTimedIn(BaseModel):

@@ -24,6 +24,7 @@ PROFILE_THEME_DEFAULT = "terracotta"
 PROFILE_THEME_ICON_NONE = "none"
 PROFILE_THEME_ICONS: tuple[str, ...] = tuple(f"sub_icon{idx}" for idx in range(1, 20))
 PROFILE_THEME_ICON_DEFAULT = PROFILE_THEME_ICONS[0]
+SUBSCRIPTION_END_LOCAL_HOUR = 2
 
 
 @dataclass(slots=True)
@@ -102,9 +103,9 @@ def _apply_profile_theme_defaults(row: User) -> bool:
     return changed
 
 
-def add_months(dt: datetime, months: int) -> datetime:
-    months_i = max(0, int(months or 0))
-    if months_i <= 0:
+def shift_months(dt: datetime, months: int) -> datetime:
+    months_i = int(months or 0)
+    if months_i == 0:
         return dt
 
     month_index = (dt.month - 1) + months_i
@@ -115,13 +116,78 @@ def add_months(dt: datetime, months: int) -> datetime:
     return dt.replace(year=year, month=month, day=day)
 
 
+def add_months(dt: datetime, months: int) -> datetime:
+    months_i = max(0, int(months or 0))
+    if months_i <= 0:
+        return dt
+
+    return shift_months(dt, months_i)
+
+
+def subtract_months(dt: datetime, months: int) -> datetime:
+    months_i = max(0, int(months or 0))
+    if months_i <= 0:
+        return dt
+
+    return shift_months(dt, -months_i)
+
+
+def normalize_subscription_end_time(dt: datetime) -> datetime:
+    if dt.tzinfo is None:
+        return dt.replace(
+            hour=SUBSCRIPTION_END_LOCAL_HOUR,
+            minute=0,
+            second=0,
+            microsecond=0,
+        )
+
+    local_dt = dt.astimezone()
+    rounded_local_dt = local_dt.replace(
+        hour=SUBSCRIPTION_END_LOCAL_HOUR,
+        minute=0,
+        second=0,
+        microsecond=0,
+    )
+    return rounded_local_dt.astimezone(dt.tzinfo)
+
+
+def subscription_local_datetime(dt: datetime) -> datetime:
+    if dt.tzinfo is None:
+        return dt
+
+    return dt.astimezone()
+
+
+def restore_subscription_datetime_timezone(dt: datetime, source: datetime) -> datetime:
+    if source.tzinfo is None:
+        return dt
+
+    return dt.astimezone(source.tzinfo)
+
+
 def compute_subscription_end(starts_at: datetime, *, months: int = 0, days: int = 0) -> datetime:
-    result = starts_at
+    result = subscription_local_datetime(starts_at)
     if int(months or 0) > 0:
         result = add_months(result, int(months or 0))
     if int(days or 0) > 0:
         result = result + timedelta(days=int(days or 0))
-    return result
+    return restore_subscription_datetime_timezone(
+        normalize_subscription_end_time(result),
+        starts_at,
+    )
+
+
+def compute_subscription_reduced_end(ends_at: datetime, *, months: int = 0, days: int = 0) -> datetime:
+    result = subscription_local_datetime(ends_at)
+    if int(months or 0) > 0:
+        result = subtract_months(result, int(months or 0))
+    if int(days or 0) > 0:
+        result = result - timedelta(days=int(days or 0))
+
+    return restore_subscription_datetime_timezone(
+        normalize_subscription_end_time(result),
+        ends_at,
+    )
 
 
 async def fetch_active_subscriptions(session: AsyncSession, user_ids: Iterable[int | str], *, now: datetime | None = None) -> dict[int, UserSubscription]:
