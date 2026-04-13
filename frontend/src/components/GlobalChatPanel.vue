@@ -1795,6 +1795,7 @@ onBeforeUnmount(() => {
             color: $fg;
             font-size: 16px;
             line-height: 1.2;
+            user-select: text;
             white-space: pre-wrap;
             overflow-wrap: anywhere;
           }

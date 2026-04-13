@@ -234,6 +234,7 @@ USERS_SORT_ALLOWED = {
     "last_login_at",
     "last_visit_at",
     "last_game_at",
+    "last_room_id",
     "tg_invites_enabled",
     "friends_count",
     "rooms_created",
@@ -652,9 +653,12 @@ async def fetch_sanction_counts_for_users(session: AsyncSession, ids: list[int])
     return out
 
 
-def user_sort_metric(*, sort_by: str, uid: int, tg_invites_enabled: dict[int, bool], friends_count: dict[int, int], rooms_created: dict[int, int], room_seconds: dict[int, int], stream_seconds: dict[int, int], games_played: dict[int, int], games_hosted: dict[int, int], spectator_seconds: dict[int, int], sanction_counts: dict[int, dict[str, int]], last_game_at_ts: dict[int, int]) -> int:
+def user_sort_metric(*, sort_by: str, uid: int, tg_invites_enabled: dict[int, bool], friends_count: dict[int, int], rooms_created: dict[int, int], room_seconds: dict[int, int], stream_seconds: dict[int, int], games_played: dict[int, int], games_hosted: dict[int, int], spectator_seconds: dict[int, int], sanction_counts: dict[int, dict[str, int]], last_game_at_ts: dict[int, int], last_room_id: dict[int, int | None]) -> int:
     if sort_by == "last_game_at":
         return last_game_at_ts.get(uid, 0)
+
+    if sort_by == "last_room_id":
+        return int(last_room_id.get(uid) or 0)
 
     if sort_by == "tg_invites_enabled":
         return 1 if tg_invites_enabled.get(uid, True) is False else 0
@@ -3349,6 +3353,53 @@ async def aggregate_user_room_stats(session: AsyncSession, ids: list[int]) -> tu
                 continue
 
     return rooms_created, room_seconds, stream_seconds, spectator_seconds, games_played, games_hosted
+
+
+async def fetch_users_last_room_id(session: AsyncSession, ids: list[int]) -> dict[int, int | None]:
+    out: dict[int, int | None] = {uid: None for uid in ids}
+    if not ids:
+        return out
+
+    id_set = set(ids)
+    pending = set(ids)
+    id_strs = [str(i) for i in ids]
+    scan_all = len(ids) > 200
+
+    if scan_all:
+        room_q = select(Room.id, Room.deleted_at, Room.visitors)
+    else:
+        room_filters = [Room.visitors.has_key(i) for i in id_strs]
+        room_filters.append(Room.deleted_at.is_(None))
+        room_q = select(Room.id, Room.deleted_at, Room.visitors).where(or_(*room_filters))
+    room_rows = (await session.execute(room_q.order_by(Room.id.desc()))).all()
+
+    active_room_ids = [int(rid) for rid, deleted_at, _visitors in room_rows if deleted_at is None]
+    live_stats: dict[int, dict[str, Any]] = {}
+    if active_room_ids:
+        try:
+            live_stats = await fetch_live_room_stats(get_redis(), sorted(set(active_room_ids)))
+        except Exception:
+            log.warning("users_last_room.live_fetch_failed", rooms=len(active_room_ids))
+
+    for rid, deleted_at, visitors in room_rows:
+        if not pending:
+            break
+        room_id = int(rid)
+        live = live_stats.get(room_id) if deleted_at is None else None
+        visitors_map = live.get("visitors") if live else visitors
+        if not isinstance(visitors_map, dict):
+            continue
+        for raw_uid in visitors_map.keys():
+            try:
+                uid = int(raw_uid)
+            except Exception:
+                continue
+            if uid not in id_set or uid not in pending:
+                continue
+            out[uid] = room_id
+            pending.remove(uid)
+
+    return out
 
 
 def _season_game_id_bounds_or_raise(season: int | None) -> tuple[int | None, int | None]:

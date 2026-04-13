@@ -613,6 +613,12 @@
                     </button>
                   </th>
                   <th>
+                    <button class="th-sort" type="button" :class="{ active: usersSortBy === 'last_room_id' }" @click="setUsersSort('last_room_id')">
+                      Последнее общение
+                      <span class="th-sort-mark" aria-hidden="true">▼</span>
+                    </button>
+                  </th>
+                  <th>
                     <button class="th-sort" type="button" :class="{ active: usersSortBy === 'tg_invites_enabled' }" @click="setUsersSort('tg_invites_enabled')">
                       TG-уведомления
                       <span class="th-sort-mark" aria-hidden="true">▼</span>
@@ -705,6 +711,7 @@
                   <td>{{ formatLocalDateTime(row.last_login_at) }}</td>
                   <td>{{ formatLocalDateTime(row.last_visit_at) }}</td>
                   <td>{{ formatLocalDateTime(row.last_game_at) }}</td>
+                  <td>{{ row.last_room_id ?? '-' }}</td>
                   <td>{{ row.tg_invites_enabled ? 'Вкл' : 'Откл' }}</td>
                   <td>{{ row.friends_count }}</td>
                   <td>{{ row.rooms_created }}</td>
@@ -799,7 +806,7 @@
                   </td>
                 </tr>
                 <tr v-if="users.length === 0">
-                  <td colspan="28" class="muted">Нет данных</td>
+                  <td colspan="29" class="muted">Нет данных</td>
                 </tr>
               </tbody>
             </table>
@@ -1107,6 +1114,7 @@ type UserRow = {
   last_login_at: string
   last_visit_at: string
   last_game_at?: string | null
+  last_room_id?: number | null
   deleted_at?: string | null
   friends_count: number
   rooms_created: number
@@ -1152,6 +1160,7 @@ type UsersSortBy =
   | 'last_login_at'
   | 'last_visit_at'
   | 'last_game_at'
+  | 'last_room_id'
   | 'tg_invites_enabled'
   | 'friends_count'
   | 'rooms_created'
@@ -2007,6 +2016,7 @@ async function loadUsers(): Promise<void> {
       tg_invites_enabled: item?.tg_invites_enabled !== false,
       protected_user: Boolean(item?.protected_user),
       last_game_at: item?.last_game_at ?? null,
+      last_room_id: Number.isFinite(item?.last_room_id) ? item.last_room_id : null,
     }))
     usersTotal.value = Number.isFinite(data?.total) ? data.total : 0
   } catch {

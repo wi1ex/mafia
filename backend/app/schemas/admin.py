@@ -288,6 +288,7 @@ class AdminUserOut(BaseModel):
     last_login_at: datetime
     last_visit_at: datetime
     last_game_at: Optional[datetime] = None
+    last_room_id: Optional[int] = None
     deleted_at: Optional[datetime] = None
     friends_count: int
     rooms_created: int
