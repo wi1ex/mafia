@@ -1,7 +1,7 @@
 <template>
   <Teleport to="body">
     <Transition name="user-mini-profile-fade">
-      <div v-if="open" class="user-mini-profile-overlay" role="presentation" @pointerdown.self="close">
+      <div v-if="open" class="user-mini-profile-overlay" role="presentation" @pointerdown.stop.self="close">
         <section
           class="user-mini-profile-panel"
           :class="{ 'stats-mode': view === 'stats' }"
@@ -17,7 +17,6 @@
               <img v-if="profileThemeIconSrc" class="profile-theme-icon" :src="profileThemeIconSrc" alt="" aria-hidden="true" />
               <div class="profile-title">
                 <span class="profile-name">{{ displayName }}</span>
-                <small>{{ onlineLabel }}</small>
               </div>
             </div>
             <button class="close-button" type="button" aria-label="Закрыть" @click="close">
@@ -188,10 +187,8 @@ const profileThemeIcon = computed(() => {
 })
 const profilePanelStyle = computed(() => buildProfileThemeBgStyle(profileThemeColor.value))
 const profileThemeIconSrc = computed(() => getProfileThemeIconSrc(profileThemeIcon.value))
-const online = computed(() => Boolean(profileLoadedForTarget.value && profile.value?.online))
-const onlineLabel = computed(() => online.value ? 'Сейчас онлайн' : 'Не в сети')
 const registeredAtLabel = computed(() => formatLocalDateTime(profile.value?.registered_at))
-const lastOnlineLabel = computed(() => online.value ? 'Сейчас онлайн' : formatLocalDateTime(profile.value?.last_visit_at))
+const lastOnlineLabel = computed(() => formatLocalDateTime(profile.value?.last_visit_at))
 const lastGameAtLabel = computed(() => formatLocalDateTime(profile.value?.last_game_at))
 const statsUrl = computed(() => `/users/${targetUserId.value}/stats`)
 
@@ -458,7 +455,6 @@ onBeforeUnmount(() => {
       display: flex;
       flex-direction: column;
       min-width: 0;
-      gap: 4px;
       .profile-name {
         max-width: 230px;
         font-size: 22px;
@@ -467,11 +463,6 @@ onBeforeUnmount(() => {
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-      }
-      small {
-        color: $ashy;
-        font-size: 13px;
-        font-family: Manrope-Medium;
       }
     }
     .close-button {
@@ -629,9 +620,6 @@ onBeforeUnmount(() => {
         .profile-name {
           max-width: 190px;
           font-size: 18px;
-        }
-        small {
-          font-size: 11px;
         }
       }
       .close-button {

@@ -257,6 +257,7 @@
       v-model:open="miniProfileOpen"
       :user-id="miniProfileUserId"
       :initial-profile="miniProfileInitial"
+      :show-stats-button="true"
     />
   </div>
 </template>
