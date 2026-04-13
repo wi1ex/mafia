@@ -483,8 +483,6 @@ onBeforeUnmount(() => {
         gap: 3px;
         border: none;
         background: none;
-        color: inherit;
-        text-align: left;
         cursor: pointer;
         img {
           width: 24px;
@@ -497,6 +495,7 @@ onBeforeUnmount(() => {
         }
         .nick {
           margin-left: 2px;
+          color: $fg;
           font-size: 16px;
           line-height: 1.5;
           font-family: Manrope-Medium;
