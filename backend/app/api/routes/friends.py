@@ -35,14 +35,11 @@ from ...api.utils import (
     emit_notify,
     emit_friends_update,
     elapsed_seconds_since,
+    tg_room_invite_cooldown_key,
 )
 router = APIRouter()
 FRIEND_REMOVE_MIN_SECONDS = 10 * 60
 TG_ROOM_INVITE_COOLDOWN_S = 30 * 60
-
-
-def tg_room_invite_cooldown_key(user_id: int) -> str:
-    return f"user:{int(user_id)}:tg_room_invite_cooldown"
 
 
 @router.get("/status/{user_id}", response_model=FriendStatusOut)

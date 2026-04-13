@@ -32,6 +32,20 @@ class UserOut(BaseModel):
     chat_unread_count: int = 0
 
 
+class UserMiniProfileOut(BaseModel):
+    id: int
+    username: Optional[str] = None
+    avatar_name: Optional[str] = None
+    registered_at: Optional[datetime] = None
+    last_visit_at: Optional[datetime] = None
+    last_game_at: Optional[datetime] = None
+    online: bool = False
+    subscription_active: bool = False
+    profile_theme_color: Optional[str] = None
+    profile_theme_icon: Optional[str] = None
+    friend_status: Literal["self", "friends", "outgoing", "incoming", "none"] = "none"
+
+
 class UserTopPlayerOut(BaseModel):
     id: int
     username: Optional[str] = None

@@ -31,11 +31,11 @@
           >
             <div class="message-main">
               <div class="message-meta">
-                <div class="message-meta-author">
+                <button class="message-meta-author author-trigger" type="button" @click="openAuthorMiniProfile(message.author)">
                   <img class="author-avatar" v-minio-img="{ key: message.author.avatar_name ? `avatars/${message.author.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="Аватар автора" />
                   <img v-if="profileThemeIconSrc(message.author.theme_icon)" class="profile-theme-icon" :src="profileThemeIconSrc(message.author.theme_icon) || ''" alt="" aria-hidden="true" />
                   <span class="author-name">{{ message.author.username || (`user${message.author.id}`) }}</span>
-                </div>
+                </button>
                 <span class="message-time">{{ formatMessageTime(message.created_at) }}</span>
               </div>
 
@@ -252,6 +252,12 @@
         <img class="image-lightbox-image" :src="imageLightboxSrc" :alt="imageLightboxAlt || 'Просмотр изображения'" />
       </div>
     </Transition>
+
+    <UserMiniProfileModal
+      v-model:open="miniProfileOpen"
+      :user-id="miniProfileUserId"
+      :initial-profile="miniProfileInitial"
+    />
   </div>
 </template>
 
@@ -265,6 +271,7 @@ import { getProfileThemeIconSrc } from '@/constants/profileThemeIcons'
 import { alertDialog, confirmDialog } from '@/services/confirm'
 import { formatChatTimestamp } from '@/services/datetime'
 import { useAuthStore, useGlobalChatStore, useSettingsStore, useUserStore } from '@/store'
+import UserMiniProfileModal from '@/components/UserMiniProfileModal.vue'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
 import iconClose from '@/assets/svg/close.svg'
@@ -279,6 +286,7 @@ import iconDotMail from '@/assets/svg/dotMail.svg'
 import iconArrowDown from '@/assets/svg/arrowDown.svg'
 
 import type {
+  GlobalChatAuthor,
   GlobalChatDeletedMessagePreview,
   GlobalChatMessage,
   GlobalChatMention,
@@ -344,6 +352,15 @@ const imageLightboxOpen = ref(false)
 const imageLightboxArmed = ref(false)
 const imageLightboxSrc = ref('')
 const imageLightboxAlt = ref('')
+const miniProfileOpen = ref(false)
+const miniProfileUserId = ref<number | null>(null)
+const miniProfileInitial = ref<{
+  id: number
+  username?: string | null
+  avatar_name?: string | null
+  theme_color?: string | null
+  theme_icon?: string | null
+} | null>(null)
 const reactionDetailsMessageId = ref<number | null>(null)
 const reactionDetailsEmoji = ref('')
 const reactionDetailsLoadingMessageId = ref<number | null>(null)
@@ -416,6 +433,20 @@ const showLoadMore = computed(() => hasMore.value && (loadingMore.value || listA
 const mentionDropdownVisible = computed(() => Boolean(activeMentionRange.value?.query) && !composerDisabled.value && (mentionLoading.value || mentionHasSearched.value))
 const messageCardStyle = (message: GlobalChatMessage) => buildProfileThemeBgStyle(message.author.theme_color)
 const profileThemeIconSrc = (icon: unknown) => getProfileThemeIconSrc(icon)
+
+function openAuthorMiniProfile(author: GlobalChatAuthor) {
+  const uid = Number(author?.id || 0)
+  if (!Number.isFinite(uid) || uid <= 0) return
+  miniProfileUserId.value = uid
+  miniProfileInitial.value = {
+    id: uid,
+    username: author.username || null,
+    avatar_name: author.avatar_name || null,
+    theme_color: author.theme_color || null,
+    theme_icon: author.theme_icon || null,
+  }
+  miniProfileOpen.value = true
+}
 
 type TextSegment = {
   kind: 'text' | 'link' | 'mention'
@@ -1666,7 +1697,14 @@ onBeforeUnmount(() => {
           .message-meta-author {
             display: flex;
             align-items: center;
+            min-width: 0;
+            padding: 0;
             gap: 3px;
+            border: none;
+            background: none;
+            color: inherit;
+            text-align: left;
+            cursor: pointer;
             .author-avatar {
               width: 20px;
               height: 20px;
@@ -1679,9 +1717,12 @@ onBeforeUnmount(() => {
               object-fit: contain;
             }
             .author-name {
+              margin-left: 2px;
               min-width: 0;
               height: 18px;
+              color: $fg;
               font-size: 16px;
+              font-family: Manrope-Medium;
               overflow: hidden;
               text-overflow: ellipsis;
               white-space: nowrap;

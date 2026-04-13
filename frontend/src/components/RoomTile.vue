@@ -779,6 +779,7 @@ const profileThemeIconSrc = computed(() => getProfileThemeIconSrc(props.themeIco
       }
       span {
         flex: 1 1 auto;
+        margin-left: 2px;
         min-width: 0;
         height: 18px;
         color: $fg;

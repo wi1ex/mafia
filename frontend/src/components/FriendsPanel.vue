@@ -19,11 +19,11 @@
               <span class="count">{{ section.items.length }}</span>
             </div>
             <article v-for="f in section.items" :key="`${f.kind}-${f.id}`" class="item" :style="friendItemStyle(f)">
-              <div class="left">
+              <button class="left profile-trigger" type="button" @click="openMiniProfile(f)">
                 <img v-minio-img="{ key: f.avatar_name ? `avatars/${f.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
                 <img v-if="friendThemeIconSrc(f)" class="profile-theme-icon" :src="friendThemeIconSrc(f) || ''" alt="" aria-hidden="true" />
                 <span class="nick">{{ f.username || ('user' + f.id) }}</span>
-              </div>
+              </button>
               <div class="info">
                 <template v-if="isAccepted(f)">
                   <div v-if="f.room_id" class="room-info">
@@ -61,14 +61,24 @@
       </div>
     </div>
   </Transition>
+
+  <UserMiniProfileModal
+    v-model:open="miniProfileOpen"
+    :user-id="miniProfileUserId"
+    :initial-profile="miniProfileInitial"
+    :show-stats-button="true"
+    :refresh-friends-list-on-action="true"
+    :refresh-friends-room-id="currentListRoomId()"
+  />
 </template>
 
 <script setup lang="ts">
 import { ref, watch, nextTick, onBeforeUnmount, computed, reactive } from 'vue'
 import { buildProfileThemeBgStyle } from '@/constants/profileThemes'
 import { getProfileThemeIconSrc } from '@/constants/profileThemeIcons'
-import { useFriendsStore, resolveFriendsApiError, shouldRefreshFriendsStateAfterError } from '@/store'
+import { useFriendsStore, resolveFriendsApiError, shouldRefreshFriendsStateAfterError, type FriendListItem } from '@/store'
 import { confirmDialog, alertDialog, useConfirmState } from '@/services/confirm'
+import UserMiniProfileModal from '@/components/UserMiniProfileModal.vue'
 
 import iconClose from '@/assets/svg/close.svg'
 import iconAccept from '@/assets/svg/readyBlack.svg'
@@ -92,6 +102,9 @@ const confirmState = useConfirmState()
 const root = ref<HTMLElement | null>(null)
 const inviteBusy = reactive<Record<number, boolean>>({})
 const actionBusy = reactive<Record<number, boolean>>({})
+const miniProfileOpen = ref(false)
+const miniProfileUserId = ref<number | null>(null)
+const miniProfileInitial = ref<FriendListItem | null>(null)
 const isRoomMode = computed(() => props.mode === 'room')
 const inviteRoomId = computed(() => Number(props.roomId || 0))
 const isAccepted = (f: { kind?: string }) => f.kind === 'online' || f.kind === 'offline'
@@ -152,6 +165,14 @@ function inviteIcon(friend: { kind?: string }): string {
 
 function isActionBusy(uid: number): boolean {
   return Boolean(actionBusy[uid])
+}
+
+function openMiniProfile(friend: FriendListItem) {
+  const uid = Number(friend.id || 0)
+  if (uid <= 0) return
+  miniProfileUserId.value = uid
+  miniProfileInitial.value = friend
+  miniProfileOpen.value = true
 }
 
 async function refreshListAfterStateError(e: any): Promise<void> {
@@ -354,6 +375,7 @@ watch(() => props.open, async v => {
     startPolling()
     startAutoClose()
   } else {
+    miniProfileOpen.value = false
     unbindDoc()
     stopPolling()
     stopAutoClose()
@@ -456,7 +478,14 @@ onBeforeUnmount(() => {
       .left {
         display: flex;
         align-items: center;
+        min-width: 0;
+        padding: 0;
         gap: 3px;
+        border: none;
+        background: none;
+        color: inherit;
+        text-align: left;
+        cursor: pointer;
         img {
           width: 24px;
           height: 24px;
@@ -467,6 +496,7 @@ onBeforeUnmount(() => {
           object-fit: contain;
         }
         .nick {
+          margin-left: 2px;
           height: 18px;
           font-size: 16px;
           white-space: nowrap;
@@ -619,6 +649,7 @@ onBeforeUnmount(() => {
         padding: 3px;
         gap: 10px;
         .left {
+          padding: 0;
           gap: 1px;
           img {
             width: 16px;

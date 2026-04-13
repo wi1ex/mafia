@@ -19,20 +19,23 @@ from ..utils import (
     non_empty_str,
     normalize_game_result,
     fetch_games_history_page,
-    aggregate_user_room_time_stats,
-    aggregate_user_games_in_owned_rooms_stats,
+    build_user_stats_out,
     build_user_out_payload,
     emit_auth_profile_sync,
     emit_room_profile_theme_sync,
+    fetch_effective_online_user_ids,
+    fetch_online_user_ids,
+    fetch_users_last_game_at,
+    friend_status_for,
 )
 from ...models.game import Game
 from ...models.user import User
 from ...core.db import get_session
 from ...core.settings import settings
+from ...core.clients import get_redis
 from ...core.logging import log_action
 from ...security.auth_tokens import get_identity
 from ...security.decorators import log_route, rate_limited
-from ...services.user_stats import get_user_game_stats_cached
 from ...services.text_moderation import enforce_clean_text
 from ...schemas.common import Identity, Ok
 from ...schemas.user import (
@@ -59,7 +62,7 @@ from ...schemas.user import (
     UserProfileThemeOut,
     PasswordChangeIn,
     UserStatsOut,
-    UserTopPlayerOut,
+    UserMiniProfileOut,
 )
 from ...security.passwords import hash_password, verify_password
 from ...services.global_chat import global_chat_send_error, resolve_global_chat_permissions
@@ -122,43 +125,63 @@ async def user_stats(season: int | None = None, ident: Identity = Depends(get_id
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
 
-    try:
-        rooms_created, room_seconds, stream_seconds, spectator_seconds = await aggregate_user_room_time_stats(db, [uid], season=season)
-        games_in_owned_rooms = await aggregate_user_games_in_owned_rooms_stats(db, [uid], season=season)
-        room_minutes = max(0, int(room_seconds.get(uid, 0)) // 60)
-        stream_minutes = max(0, int(stream_seconds.get(uid, 0)) // 60)
-        spectator_minutes = max(0, int(spectator_seconds.get(uid, 0)) // 60)
-        game_stats = await get_user_game_stats_cached(db, uid, season)
-    except ValueError as exc:
-        detail = str(exc) or "season_invalid"
-        if detail not in {"season_invalid", "season_not_found"}:
-            detail = "season_invalid"
-        raise HTTPException(status_code=422, detail=detail)
+    return await build_user_stats_out(db, uid, season)
 
-    top_player_ids = {int(item.id) for item in (game_stats.top_players or []) if int(item.id) > 0}
-    if top_player_ids:
-        profiles = await get_user_profiles_cached(db, top_player_ids)
-        refreshed_top_players: list[UserTopPlayerOut] = []
-        for item in game_stats.top_players:
-            profile = profiles.get(int(item.id)) or {}
-            username_raw = profile.get("username")
-            username = str(username_raw) if isinstance(username_raw, str) else item.username
-            refreshed_top_players.append(
-                UserTopPlayerOut(
-                    id=int(item.id),
-                    username=username,
-                    games_together=max(0, int(item.games_together)),
-                )
-            )
-        game_stats = game_stats.model_copy(update={"top_players": refreshed_top_players})
 
-    return UserStatsOut(
-        rooms_created=max(0, safe_int(rooms_created.get(uid, 0))),
-        games_in_my_rooms=max(0, safe_int(games_in_owned_rooms.get(uid, 0))),
-        room_minutes=room_minutes,
-        stream_minutes=stream_minutes,
-        spectator_minutes=spectator_minutes,
-        game=game_stats,
+@router.get("/{user_id}/stats", response_model=UserStatsOut)
+@log_route("users.public_stats")
+@rate_limited(lambda ident, user_id, **_: f"rl:user_public_stats:{ident['id']}:{user_id}", limit=10, window_s=1)
+async def public_user_stats(user_id: int, season: int | None = None, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UserStatsOut:
+    uid = int(user_id)
+    if uid <= 0:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="bad_user_id")
+
+    user = await db.get(User, uid)
+    if not user or user.deleted_at:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="user_not_found")
+
+    return await build_user_stats_out(db, uid, season)
+
+
+@router.get("/{user_id}/mini_profile", response_model=UserMiniProfileOut)
+@log_route("users.mini_profile")
+@rate_limited(lambda ident, user_id, **_: f"rl:user_mini_profile:{ident['id']}:{user_id}", limit=10, window_s=1)
+async def mini_profile(user_id: int, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UserMiniProfileOut:
+    viewer_id = int(ident["id"])
+    uid = int(user_id)
+    if uid <= 0:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="bad_user_id")
+
+    user = await db.get(User, uid)
+    if not user or user.deleted_at:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="user_not_found")
+
+    defaults_changed = await ensure_profile_theme_defaults(db, uid)
+    if defaults_changed:
+        await db.commit()
+    theme_state = await resolve_profile_theme_state(db, uid)
+    last_game_at = (await fetch_users_last_game_at(db, [uid])).get(uid)
+    friend_status = await friend_status_for(db, viewer_id, uid)
+
+    online = False
+    with suppress(Exception):
+        r = get_redis()
+        base_online_ids = set(await fetch_online_user_ids(r))
+        online_ids = await fetch_effective_online_user_ids(r, [uid], base_online_ids=base_online_ids)
+        online = uid in online_ids
+
+    return UserMiniProfileOut(
+        id=uid,
+        username=user.username,
+        avatar_name=user.avatar_name,
+        registered_at=user.registered_at,
+        last_visit_at=user.last_visit_at,
+        last_game_at=last_game_at,
+        online=online,
+        subscription_active=theme_state.subscription_active,
+        profile_theme_color=theme_state.color,
+        profile_theme_icon=theme_state.icon,
+        friend_status=friend_status,
     )
 
 

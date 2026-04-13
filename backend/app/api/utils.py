@@ -40,7 +40,7 @@ from ..services.profile_theme import ensure_profile_theme_defaults, resolve_prof
 if TYPE_CHECKING:
     from ..schemas.admin import SiteSettingsOut, GameSettingsOut, RegistrationsPoint, AdminRoomUserStat, AdminSanctionOut, AdminGameActionFieldOut
     from ..schemas.room import GameParams
-    from ..schemas.user import UserGamesHistoryOut, GameHistoryItemOut, GameHistoryHostOut
+    from ..schemas.user import UserGamesHistoryOut, GameHistoryItemOut, GameHistoryHostOut, UserStatsOut
 
 __all__ = [
     "SANCTION_TIMEOUT",
@@ -62,6 +62,7 @@ __all__ = [
     "touch_user_online",
     "active_alive_game_room_key",
     "active_game_rooms_key",
+    "tg_room_invite_cooldown_key",
     "get_active_alive_game_room",
     "get_active_game_rooms",
     "is_user_in_active_alive_game",
@@ -96,6 +97,7 @@ __all__ = [
     "aggregate_user_room_time_stats",
     "aggregate_user_room_stats",
     "aggregate_user_games_in_owned_rooms_stats",
+    "build_user_stats_out",
     "fetch_users_last_game_at",
     "normalize_users_sort",
     "normalize_moderation_users_sort",
@@ -148,6 +150,7 @@ __all__ = [
     "require_bot_token",
     "pair",
     "load_link",
+    "friend_status_for",
     "raise_missing_incoming_request_error",
     "raise_missing_outgoing_request_error",
     "emit_notify",
@@ -2716,6 +2719,10 @@ def active_game_rooms_key(user_id: int) -> str:
     return f"user:{int(user_id)}:active_game_rooms"
 
 
+def tg_room_invite_cooldown_key(user_id: int) -> str:
+    return f"user:{int(user_id)}:tg_room_invite_cooldown"
+
+
 def _normalize_active_game_room_ids(values: Iterable[object]) -> set[int]:
     out: set[int] = set()
     for raw in values:
@@ -2934,6 +2941,23 @@ async def load_link(db: AsyncSession, uid: int, other: int) -> FriendLink | None
             )
         ).limit(1)
     )
+
+
+async def friend_status_for(db: AsyncSession, viewer_id: int, target_id: int) -> str:
+    if target_id == viewer_id:
+        return "self"
+
+    link = await load_link(db, viewer_id, target_id)
+    if not link:
+        return "none"
+
+    if link.status == "accepted":
+        return "friends"
+
+    if int(link.requester_id) == viewer_id:
+        return "outgoing"
+
+    return "incoming"
 
 
 async def raise_missing_incoming_request_error(db: AsyncSession, uid: int, requester_id: int) -> None:
@@ -3549,6 +3573,50 @@ async def aggregate_user_room_time_stats(session: AsyncSession, ids: list[int], 
                         continue
 
     return rooms_created, room_seconds, stream_seconds, spectator_seconds
+
+
+async def build_user_stats_out(db: AsyncSession, uid: int, season: int | None = None) -> UserStatsOut:
+    from ..schemas.user import UserStatsOut, UserTopPlayerOut
+    from ..services.user_stats import get_user_game_stats_cached
+
+    try:
+        rooms_created, room_seconds, stream_seconds, spectator_seconds = await aggregate_user_room_time_stats(db, [uid], season=season)
+        games_in_owned_rooms = await aggregate_user_games_in_owned_rooms_stats(db, [uid], season=season)
+        room_minutes = max(0, int(room_seconds.get(uid, 0)) // 60)
+        stream_minutes = max(0, int(stream_seconds.get(uid, 0)) // 60)
+        spectator_minutes = max(0, int(spectator_seconds.get(uid, 0)) // 60)
+        game_stats = await get_user_game_stats_cached(db, uid, season)
+    except ValueError as exc:
+        detail = str(exc) or "season_invalid"
+        if detail not in {"season_invalid", "season_not_found"}:
+            detail = "season_invalid"
+        raise HTTPException(status_code=422, detail=detail)
+
+    top_player_ids = {int(item.id) for item in (game_stats.top_players or []) if int(item.id) > 0}
+    if top_player_ids:
+        profiles = await get_user_profiles_cached(db, top_player_ids)
+        refreshed_top_players: list[UserTopPlayerOut] = []
+        for item in game_stats.top_players:
+            profile = profiles.get(int(item.id)) or {}
+            username_raw = profile.get("username")
+            username = str(username_raw) if isinstance(username_raw, str) else item.username
+            refreshed_top_players.append(
+                UserTopPlayerOut(
+                    id=int(item.id),
+                    username=username,
+                    games_together=max(0, int(item.games_together)),
+                )
+            )
+        game_stats = game_stats.model_copy(update={"top_players": refreshed_top_players})
+
+    return UserStatsOut(
+        rooms_created=max(0, safe_int(rooms_created.get(uid, 0))),
+        games_in_my_rooms=max(0, safe_int(games_in_owned_rooms.get(uid, 0))),
+        room_minutes=room_minutes,
+        stream_minutes=stream_minutes,
+        spectator_minutes=spectator_minutes,
+        game=game_stats,
+    )
 
 
 async def emit_rooms_upsert(rid: int) -> None:
