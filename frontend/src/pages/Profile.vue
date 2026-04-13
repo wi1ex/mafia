@@ -86,9 +86,8 @@
                 <img class="btn-img" :src="iconSave" alt="save" />
                 {{ themeSaveBusy ? '...' : 'Сохранить' }}
               </button>
-              <p v-if="profileThemeSaveDisabledText" class="hint theme-save-disabled">{{ profileThemeSaveDisabledText }}</p>
             </div>
-            <p class="hint">{{ profileThemeAvailabilityText }}</p>
+            <p class="hint">{{ profileThemeMessageText }}</p>
           </div>
 
           <div class="block settings-block">
@@ -423,7 +422,6 @@ const profileThemeDirty = computed(() => (
 const themeSaveDisabled = computed(() => themeSaveBusy.value || isBanned.value || !canEditProfileTheme.value || !profileThemeDirty.value)
 const profileThemeSaveDisabledText = computed(() => {
   if (!canEditProfileTheme.value) return 'Сохранение оформления доступно при наличии подписки'
-  if (isBanned.value) return 'Сохранение оформления недоступно: аккаунт забанен'
   return ''
 })
 const themePreviewStyle = computed(() => buildProfileThemeBgStyle(selectedProfileThemeColor.value))
@@ -435,6 +433,7 @@ const profileThemeAvailabilityText = computed(() => {
   if (Number.isNaN(dt.getTime())) return 'Доступно, пока активна подписка'
   return `Доступно для Вас до ${dt.toLocaleDateString('ru-RU')}`
 })
+const profileThemeMessageText = computed(() => canEditProfileTheme.value ? profileThemeAvailabilityText.value : profileThemeSaveDisabledText.value)
 const registrationDateLabel = computed(() => {
   const raw = me.registered_at
   if (!raw) return '-'
