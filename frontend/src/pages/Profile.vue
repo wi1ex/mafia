@@ -57,7 +57,7 @@
             </div>
           </div>
 
-          <div v-if="canEditProfileTheme" class="block theme-block">
+          <div class="block theme-block">
             <h3>Оформление профиля</h3>
             <div class="theme-row">
               <div class="theme-preview-grid">
@@ -82,10 +82,11 @@
                 </button>
               </div>
 
-              <button class="btn confirm" @click="saveProfileTheme" :disabled="themeSaveBusy || isBanned || !profileThemeDirty">
+              <button class="btn confirm" @click="saveProfileTheme" :disabled="themeSaveDisabled">
                 <img class="btn-img" :src="iconSave" alt="save" />
                 {{ themeSaveBusy ? '...' : 'Сохранить' }}
               </button>
+              <p v-if="profileThemeSaveDisabledText" class="hint theme-save-disabled">{{ profileThemeSaveDisabledText }}</p>
             </div>
             <p class="hint">{{ profileThemeAvailabilityText }}</p>
           </div>
@@ -413,13 +414,19 @@ const canEditProfileTheme = computed(() => {
   if (subscriptionUntilMs.value > 0) return subscriptionUntilMs.value > userNow.value
   return Boolean(me.subscription_active)
 })
-const currentProfileThemeColor = computed(() => resolveProfileThemeColor(canEditProfileTheme.value ? me.profile_theme_color : null))
-const currentProfileThemeIcon = computed(() => normalizeProfileThemeIcon(canEditProfileTheme.value ? me.profile_theme_icon : null))
-const profileThemeDirty = computed(() => canEditProfileTheme.value && (
+const currentProfileThemeColor = computed(() => resolveProfileThemeColor(me.profile_theme_color))
+const currentProfileThemeIcon = computed(() => normalizeProfileThemeIcon(me.profile_theme_icon))
+const profileThemeDirty = computed(() => (
   selectedProfileThemeColor.value !== currentProfileThemeColor.value
   || selectedProfileThemeIcon.value !== currentProfileThemeIcon.value
 ))
-const themePreviewStyle = computed(() => buildProfileThemeBgStyle(canEditProfileTheme.value ? selectedProfileThemeColor.value : null))
+const themeSaveDisabled = computed(() => themeSaveBusy.value || isBanned.value || !canEditProfileTheme.value || !profileThemeDirty.value)
+const profileThemeSaveDisabledText = computed(() => {
+  if (!canEditProfileTheme.value) return 'Сохранение оформления доступно при наличии подписки'
+  if (isBanned.value) return 'Сохранение оформления недоступно: аккаунт забанен'
+  return ''
+})
+const themePreviewStyle = computed(() => buildProfileThemeBgStyle(selectedProfileThemeColor.value))
 const themePreviewIconSrc = computed(() => getProfileThemeIconSrc(selectedProfileThemeIcon.value))
 const profileThemeAvailabilityText = computed(() => {
   const raw = me.subscription_until
@@ -505,12 +512,12 @@ function themeIconSrc(icon: ProfileThemeIcon): string | null {
 }
 
 function pickProfileTheme(color: ProfileThemeColor) {
-  if (!canEditProfileTheme.value || themeSaveBusy.value || isBanned.value) return
+  if (themeSaveBusy.value || isBanned.value) return
   selectedProfileThemeColor.value = color
 }
 
 function pickProfileThemeIcon(icon: ProfileThemeIcon) {
-  if (!canEditProfileTheme.value || themeSaveBusy.value || isBanned.value) return
+  if (themeSaveBusy.value || isBanned.value) return
   selectedProfileThemeIcon.value = icon
 }
 
@@ -557,7 +564,7 @@ async function saveNick() {
 }
 
 async function saveProfileTheme() {
-  if (themeSaveBusy.value || isBanned.value || !canEditProfileTheme.value || !profileThemeDirty.value) return
+  if (themeSaveDisabled.value) return
   themeSaveBusy.value = true
   try {
     const { data } = await api.patch('/users/profile_theme', {
