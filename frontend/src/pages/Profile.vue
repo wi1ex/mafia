@@ -1055,7 +1055,7 @@ onBeforeUnmount(() => {
       }
     }
     &.support-btn {
-      min-width: 200px;
+      min-width: 175px;
       background-color: $fg;
       color: $bg;
       font-family: Manrope-SemiBold;
@@ -1570,7 +1570,7 @@ onBeforeUnmount(() => {
       height: 30px;
       font-size: 12px;
       &.support-btn {
-        min-width: 125px;
+        max-width: 125px;
       }
       &.nav {
         font-size: 14px;
