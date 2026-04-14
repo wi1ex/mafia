@@ -82,10 +82,13 @@
                 </button>
               </div>
 
-              <button class="btn confirm" @click="saveProfileTheme" :disabled="themeSaveDisabled">
+              <button v-if="canEditProfileTheme" class="btn confirm" @click="saveProfileTheme" :disabled="themeSaveDisabled">
                 <img class="btn-img" :src="iconSave" alt="save" />
                 {{ themeSaveBusy ? '...' : 'Сохранить' }}
               </button>
+              <a v-else class="btn support-btn" :href="supportLink" target="_blank" rel="noopener noreferrer" @click="onSupportLinkClick">
+                Поддержать проект
+              </a>
             </div>
             <p class="hint">{{ profileThemeMessageText }}</p>
           </div>
@@ -375,6 +378,7 @@ const telegramVerified = computed(() => userStore.telegramVerified)
 const passwordTemp = computed(() => userStore.passwordTemp)
 const botName = (import.meta.env.VITE_TG_BOT_NAME as string || '').trim()
 const botLink = botName ? `https://t.me/${botName}` : 'https://t.me'
+const supportLink = 'https://web.tribute.tg/d/Cvc'
 const pwd = reactive({ current: '', next: '', confirm: '' })
 const pwdBusy = ref(false)
 const unlinkTgBusy = ref(false)
@@ -583,6 +587,10 @@ async function saveProfileTheme() {
   } finally {
     themeSaveBusy.value = false
   }
+}
+
+function onSupportLinkClick() {
+  void api.post('/users/support_link_click').catch(() => {})
 }
 
 async function changePassword() {
@@ -1044,6 +1052,17 @@ onBeforeUnmount(() => {
       color: $fg;
       &:hover {
         background-color: $red;
+      }
+    }
+    &.support-btn {
+      min-width: 200px;
+      background-color: $fg;
+      color: $bg;
+      font-family: Manrope-SemiBold;
+      &:hover,
+      &:focus-visible {
+        background-color: $white;
+        box-shadow: 0 15px 30px rgba($black, 0.25);
       }
     }
     &:disabled {
@@ -1550,6 +1569,9 @@ onBeforeUnmount(() => {
       padding: 0 10px;
       height: 30px;
       font-size: 12px;
+      &.support-btn {
+        min-width: 125px;
+      }
       &.nav {
         font-size: 14px;
       }
