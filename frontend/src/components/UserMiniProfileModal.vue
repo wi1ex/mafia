@@ -405,25 +405,22 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   inset: 0;
-  padding: 12px;
-  background-color: rgba($black, 0.45);
-  backdrop-filter: blur(10px);
-  z-index: 1400;
+  background-color: rgba($black, 0.25);
+  backdrop-filter: blur(5px);
+  z-index: 1500;
   .user-mini-profile-panel {
     display: flex;
     flex-direction: column;
-    gap: 14px;
-    width: min(420px, calc(100vw - 24px));
-    max-height: calc(100dvh - 24px);
-    padding: 16px;
-    border-radius: 8px;
-    background-color: var(--user-theme-bg, rgba($dark, 0.97));
-    box-shadow: 0 20px 45px rgba($black, 0.35);
+    padding: 20px;
+    gap: 20px;
+    width: 400px;
+    max-height: 300px;
+    border-radius: 10px;
+    background-color: var(--user-theme-bg, $graphite);
     overflow-y: auto;
-    scrollbar-width: thin;
     color: $fg;
     &.stats-mode {
-      width: min(960px, calc(100vw - 24px));
+      width: min(1200px, calc(100vw - 80px));
     }
     .profile-top {
       display: flex;

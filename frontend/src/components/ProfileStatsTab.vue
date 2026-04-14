@@ -876,6 +876,7 @@ onMounted(() => {
           align-items: center;
           gap: 10px;
           .best-label {
+            min-width: 30px;
             color: $ashy;
             font-size: 14px;
           }
