@@ -20,7 +20,10 @@ def normalize_webhook_path(path: str) -> str:
 
 def keyboard_verify_only() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
-        keyboard=[[KeyboardButton(text="Верификация")]],
+        keyboard=[
+            [KeyboardButton(text="Верификация")],
+            [KeyboardButton(text="Поддержать проект")],
+        ],
         resize_keyboard=True,
         one_time_keyboard=False,
     )
@@ -28,7 +31,10 @@ def keyboard_verify_only() -> ReplyKeyboardMarkup:
 
 def keyboard_reset_only() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
-        keyboard=[[KeyboardButton(text="Сбросить пароль")]],
+        keyboard=[
+            [KeyboardButton(text="Сбросить пароль")],
+            [KeyboardButton(text="Поддержать проект")],
+        ],
         resize_keyboard=True,
         one_time_keyboard=False,
     )
