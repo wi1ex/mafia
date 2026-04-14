@@ -1055,7 +1055,7 @@ onBeforeUnmount(() => {
       }
     }
     &.support-btn {
-      min-width: 175px;
+      max-width: 175px;
       background-color: $fg;
       color: $bg;
       font-family: Manrope-SemiBold;
