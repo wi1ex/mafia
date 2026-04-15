@@ -628,7 +628,7 @@ onMounted(() => {
       justify-content: space-between;
       padding: 10px;
       gap: 5px;
-      min-height: 75px;
+      height: 72px;
       border-radius: 5px;
       border: 1px solid rgba($grey, 0.5);
       background: linear-gradient(150deg, rgba($graphite, 0.75), rgba($lead, 0.75));
@@ -938,7 +938,7 @@ onMounted(() => {
         }
       }
       .metric-card {
-        min-height: 64px;
+        height: 50px;
         padding: 10px;
         span {
           font-size: 12px;

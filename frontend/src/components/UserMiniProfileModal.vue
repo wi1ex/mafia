@@ -407,7 +407,8 @@ onBeforeUnmount(() => {
     overflow-y: auto;
     color: $fg;
     &.stats-mode {
-      width: min(1200px, calc(100vw - 80px));
+      gap: 20px;
+      width: min(1250px, calc(100vw - 80px));
     }
     .profile-top {
       display: flex;
