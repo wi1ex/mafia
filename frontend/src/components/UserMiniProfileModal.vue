@@ -403,12 +403,14 @@ onBeforeUnmount(() => {
     width: 400px;
     height: 300px;
     border-radius: 10px;
-    background-color: var(--user-theme-bg, $graphite);
+    background-color: var(--user-theme-bg, $dark);
     overflow-y: auto;
-    color: $fg;
+    scrollbar-width: none;
+    transition: width 0.25s ease-in-out, height 0.25s ease-in-out;
     &.stats-mode {
       gap: 20px;
       width: min(1250px, calc(100vw - 80px));
+      height: calc(100dvh - 80px);
     }
     .profile-top {
       display: flex;
@@ -480,19 +482,18 @@ onBeforeUnmount(() => {
     .profile-dates {
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 10px;
     }
     .date-row {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 12px;
-      padding: 8px 10px;
-      border-radius: 8px;
-      background-color: rgba($dark, 0.45);
+      padding: 10px;
+      border-radius: 5px;
+      background-color: $graphite;
       span {
         color: $ashy;
-        font-size: 13px;
+        font-size: 14px;
       }
       strong {
         color: $fg;
@@ -506,29 +507,28 @@ onBeforeUnmount(() => {
     .stats-toolbar {
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 10px;
     }
     .profile-action {
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 8px;
-      min-height: 38px;
-      padding: 0 12px;
+      gap: 5px;
+      min-height: 40px;
       border: none;
-      border-radius: 8px;
+      border-radius: 5px;
       color: $bg;
       font-size: 15px;
       font-family: Manrope-SemiBold;
       cursor: pointer;
       transition: background-color 0.25s ease-in-out, opacity 0.25s ease-in-out;
       &:disabled {
-        opacity: 0.6;
+        opacity: 0.5;
         cursor: not-allowed;
       }
       img {
-        width: 22px;
-        height: 22px;
+        width: 24px;
+        height: 24px;
       }
       &.secondary {
         background-color: $fg;
@@ -575,56 +575,48 @@ onBeforeUnmount(() => {
 .user-mini-profile-fade-leave-to {
   opacity: 0;
   .user-mini-profile-panel {
-    transform: translateY(12px) scale(0.98);
+    transform: translateY(10px) scale(0.9);
   }
 }
 
 @media (max-width: 1280px) {
   .user-mini-profile-overlay {
-    padding: 8px;
     .user-mini-profile-panel {
-      width: min(340px, calc(100vw - 16px));
-      max-height: calc(100dvh - 16px);
-      padding: 10px;
-      gap: 10px;
       &.stats-mode {
-        width: min(760px, calc(100vw - 16px));
+      }
+      .profile-top {
+      }
+      .profile-identity {
       }
       .profile-avatar {
-        width: 48px;
-        height: 48px;
       }
       .profile-theme-icon {
-        width: 24px;
-        height: 24px;
       }
       .profile-title {
         .profile-name {
-          max-width: 190px;
-          font-size: 18px;
         }
       }
       .close-button {
-        width: 26px;
-        height: 26px;
         img {
-          width: 15px;
-          height: 15px;
         }
+      }
+      .state {
+        &.state-danger {
+        }
+      }
+      .profile-dates {
       }
       .date-row {
-        padding: 6px 8px;
-        span,
+        span {
+        }
         strong {
-          font-size: 12px;
         }
       }
+      .profile-actions,
+      .stats-toolbar {
+      }
       .profile-action {
-        min-height: 32px;
-        font-size: 12px;
         img {
-          width: 18px;
-          height: 18px;
         }
       }
     }
