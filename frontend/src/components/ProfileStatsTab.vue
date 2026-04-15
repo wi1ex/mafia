@@ -655,11 +655,11 @@ onMounted(() => {
       gap: 10px;
       .result-card {
         display: grid;
-        grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
+        grid-template-columns: 350px minmax(0, 1fr);
         align-items: center;
         padding: 10px;
         gap: 10px;
-        min-width: 894px;
+        min-width: 800px;
         border-radius: 5px;
         border: 1px solid rgba($grey, 0.5);
         background: linear-gradient(150deg, rgba($graphite, 0.75), rgba($dark, 0.75));

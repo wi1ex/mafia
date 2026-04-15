@@ -2,15 +2,8 @@
   <Teleport to="body">
     <Transition name="user-mini-profile-fade">
       <div v-if="open" class="user-mini-profile-overlay" role="presentation" @pointerdown.stop.self="close">
-        <section
-          class="user-mini-profile-panel"
-          :class="{ 'stats-mode': view === 'stats' }"
-          :style="profilePanelStyle"
-          role="dialog"
-          aria-modal="true"
-          :aria-label="`Мини-профиль ${displayName}`"
-          @pointerdown.stop
-        >
+        <section class="user-mini-profile-panel" :class="{ 'stats-mode': view === 'stats' }" :style="profilePanelStyle"
+                 role="dialog" aria-modal="true" :aria-label="`Мини-профиль ${displayName}`" @pointerdown.stop>
           <header class="profile-top">
             <div class="profile-identity">
               <img class="profile-avatar" v-minio-img="{ key: avatarKey, placeholder: defaultAvatar, lazy: false }" alt="avatar" />
@@ -28,7 +21,7 @@
             <p v-if="loading && !profileLoadedForTarget" class="state">Загрузка...</p>
             <p v-else-if="loadError" class="state state-danger">{{ loadError }}</p>
 
-            <div class="profile-dates" aria-label="Даты профиля">
+            <div v-else class="profile-dates" aria-label="Даты профиля">
               <div class="date-row">
                 <span>Дата регистрации</span>
                 <strong>{{ registeredAtLabel }}</strong>
@@ -47,14 +40,8 @@
               <button v-if="showStatsButton" class="profile-action secondary" type="button" @click="view = 'stats'">
                 Статистика пользователя
               </button>
-              <button
-                v-if="showFriendAction"
-                class="profile-action friend-action"
-                type="button"
-                :class="`status-${friendStatusClass}`"
-                :disabled="friendDisabled"
-                @click="onFriendAction(friendActionKind)"
-              >
+              <button v-if="showFriendAction" class="profile-action friend-action" :class="`status-${friendStatusClass}`"
+                      type="button" :disabled="friendDisabled" @click="onFriendAction(friendActionKind)">
                 <img :src="friendActionIcon" alt="" />
                 <span>{{ friendActionLabel }}</span>
               </button>
@@ -405,16 +392,16 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   inset: 0;
-  background-color: rgba($black, 0.25);
+  background-color: rgba($black, 0.5);
   backdrop-filter: blur(5px);
   z-index: 1500;
   .user-mini-profile-panel {
     display: flex;
     flex-direction: column;
+    justify-content: space-between;
     padding: 20px;
-    gap: 20px;
     width: 400px;
-    max-height: 300px;
+    height: 300px;
     border-radius: 10px;
     background-color: var(--user-theme-bg, $graphite);
     overflow-y: auto;
@@ -426,26 +413,24 @@ onBeforeUnmount(() => {
       display: flex;
       align-items: flex-start;
       justify-content: space-between;
-      gap: 10px;
     }
     .profile-identity {
       display: flex;
       align-items: center;
       min-width: 0;
-      gap: 10px;
+      gap: 5px;
     }
     .profile-avatar {
       flex: 0 0 auto;
-      width: 68px;
-      height: 68px;
+      width: 40px;
+      height: 40px;
       border-radius: 50%;
       object-fit: cover;
-      background-color: $graphite;
     }
     .profile-theme-icon {
       flex: 0 0 auto;
-      width: 34px;
-      height: 34px;
+      width: 40px;
+      height: 40px;
       object-fit: contain;
     }
     .profile-title {
@@ -453,10 +438,9 @@ onBeforeUnmount(() => {
       flex-direction: column;
       min-width: 0;
       .profile-name {
-        max-width: 230px;
-        font-size: 22px;
+        max-width: 275px;
+        font-size: 24px;
         font-family: Manrope-SemiBold;
-        line-height: 1.1;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -468,26 +452,26 @@ onBeforeUnmount(() => {
       align-items: center;
       justify-content: center;
       padding: 0;
-      width: 32px;
-      height: 32px;
+      width: 30px;
+      height: 30px;
       border: none;
-      border-radius: 8px;
-      background-color: rgba($dark, 0.65);
+      border-radius: 5px;
+      background-color: $graphite;
       cursor: pointer;
       transition: background-color 0.25s ease-in-out;
       &:hover {
-        background-color: $graphite;
+        background-color: $lead;
       }
       img {
-        width: 18px;
-        height: 18px;
+        width: 20px;
+        height: 20px;
       }
     }
     .state {
       margin: 0;
       color: $ashy;
       text-align: center;
-      font-size: 14px;
+      font-size: 16px;
       &.state-danger {
         color: $red;
       }
