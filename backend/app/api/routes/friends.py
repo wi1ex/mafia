@@ -42,6 +42,72 @@ FRIEND_REMOVE_MIN_SECONDS = 10 * 60
 TG_ROOM_INVITE_COOLDOWN_S = 30 * 60
 
 
+def _redis_text(raw: object, default: str = "") -> str:
+    if raw is None:
+        return default
+
+    if isinstance(raw, bytes):
+        return raw.decode("utf-8", "ignore")
+
+    return str(raw)
+
+
+async def _active_game_head_room_by_uid(r, user_ids: list[int]) -> dict[int, int]:
+    user_id_set: set[int] = set()
+    for raw_uid in user_ids:
+        try:
+            uid = int(raw_uid)
+        except Exception:
+            continue
+        if uid > 0:
+            user_id_set.add(uid)
+    if not user_id_set:
+        return {}
+
+    try:
+        raw_room_ids = await r.zrange("rooms:index", 0, -1)
+    except Exception:
+        return {}
+
+    room_ids: list[int] = []
+    for raw in raw_room_ids or []:
+        try:
+            rid = int(raw or 0)
+        except Exception:
+            continue
+        if rid > 0:
+            room_ids.append(rid)
+
+    if not room_ids:
+        return {}
+
+    try:
+        async with r.pipeline() as p:
+            for rid in room_ids:
+                await p.hget(f"room:{rid}:game_state", "phase")
+                await p.hget(f"room:{rid}:game_state", "game_finished")
+                await p.hget(f"room:{rid}:game_state", "head")
+            rows = await p.execute()
+    except Exception:
+        return {}
+
+    out: dict[int, int] = {}
+    for idx, rid in enumerate(room_ids):
+        base = idx * 3
+        phase = _redis_text(rows[base], "idle") if base < len(rows) else "idle"
+        game_finished = _redis_text(rows[base + 1], "0") if base + 1 < len(rows) else "0"
+        try:
+            head_uid = int(rows[base + 2] or 0) if base + 2 < len(rows) else 0
+        except Exception:
+            head_uid = 0
+
+        if phase == "idle" or game_finished == "1" or head_uid not in user_id_set:
+            continue
+        out.setdefault(head_uid, rid)
+
+    return out
+
+
 @router.get("/status/{user_id}", response_model=FriendStatusOut)
 @log_route("friends.status")
 @rate_limited(lambda ident, user_id, **_: f"rl:friends:status:{ident['id']}:{user_id}", limit=10, window_s=1)
@@ -167,6 +233,8 @@ async def friends_list(room_id: int | None = None, ident: Identity = Depends(get
         except Exception:
             room_by_uid = {}
 
+    invite_room_id = int(room_id or 0)
+
     active_alive_game_room_by_uid: dict[int, int] = {}
     if friend_ids:
         try:
@@ -185,7 +253,10 @@ async def friends_list(room_id: int | None = None, ident: Identity = Depends(get
             if rid > 0:
                 active_alive_game_room_by_uid[int(fid)] = rid
 
-    invite_room_id = int(room_id or 0)
+    active_head_game_room_by_uid: dict[int, int] = {}
+    if invite_room_id > 0 and friend_ids:
+        active_head_game_room_by_uid = await _active_game_head_room_by_uid(r, friend_ids)
+
     in_current_room_ids: set[int] = set()
     if invite_room_id > 0 and friend_ids:
         try:
@@ -234,7 +305,7 @@ async def friends_list(room_id: int | None = None, ident: Identity = Depends(get
     visible_room_ids: set[int] = set()
     room_ids = list({
         rid
-        for rid in [*room_by_uid.values(), *active_alive_game_room_by_uid.values()]
+        for rid in [*room_by_uid.values(), *active_alive_game_room_by_uid.values(), *active_head_game_room_by_uid.values()]
         if rid > 0
     })
     if room_ids:
@@ -274,6 +345,7 @@ async def friends_list(room_id: int | None = None, ident: Identity = Depends(get
         visible_rid = int(rid) if rid and int(rid) in visible_room_ids else None
         info = rooms_map.get(visible_rid) if visible_rid else None
         active_room_id = active_alive_game_room_by_uid.get(fid)
+        active_head_room_id = active_head_game_room_by_uid.get(fid)
         return FriendsListItemOut(
             kind="online" if online else "offline",
             id=int(fid),
@@ -288,6 +360,7 @@ async def friends_list(room_id: int | None = None, ident: Identity = Depends(get
             room_in_game=bool(info.in_game) if info else None,
             in_current_room=(fid in in_current_room_ids) if invite_room_id > 0 else None,
             in_active_game_as_alive_player=bool(online and active_room_id),
+            in_active_game_as_host=bool(active_head_room_id) if invite_room_id > 0 else None,
             telegram_verified=bool(user_data.get("telegram_verified")),
             tg_invites_enabled=bool(user_data.get("tg_invites_enabled")),
             room_invited=(fid in invited_to_room_ids) if invite_room_id > 0 else None,
@@ -651,6 +724,11 @@ async def invite_friend(payload: FriendInviteIn, ident: Identity = Depends(get_i
     base_online_ids = set(await fetch_online_user_ids(r))
     online_ids = await fetch_effective_online_user_ids(r, [target_id], base_online_ids=base_online_ids)
     target_online = target_id in online_ids
+
+    target_active_head_room_by_uid = await _active_game_head_room_by_uid(r, [target_id])
+    if target_active_head_room_by_uid.get(target_id):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="target_in_active_game_as_host")
+
     if not target_online:
         if not target.telegram_id:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="target_telegram_not_verified")

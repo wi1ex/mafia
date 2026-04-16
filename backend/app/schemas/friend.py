@@ -24,6 +24,7 @@ class FriendsListItemOut(BaseModel):
     room_in_game: Optional[bool] = None
     in_current_room: Optional[bool] = None
     in_active_game_as_alive_player: Optional[bool] = None
+    in_active_game_as_host: Optional[bool] = None
     room_invited: Optional[bool] = None
     tg_invite_cooldown_active: Optional[bool] = None
     telegram_verified: Optional[bool] = None
