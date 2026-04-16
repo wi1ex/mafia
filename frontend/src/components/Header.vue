@@ -75,7 +75,7 @@
 
       <div class="user-menu" ref="userMenuEl">
         <button class="btn" type="button" :style="userMenuButtonStyle" @click.stop="onToggleUserMenu" :aria-expanded="um_open" aria-haspopup="true">
-          <img v-minio-img="{ key: user.user?.avatar_name ? `avatars/${user.user.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="Аватар" />
+          <img v-minio-img="{ key: user.user?.avatar_name ? `avatars/${user.user.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="Аватар" class="avatar" />
           <img v-if="userMenuProfileIconSrc" class="profile-theme-icon" :src="userMenuProfileIconSrc" alt="" aria-hidden="true" />
           <span aria-live="polite">{{ user.user?.username || 'User' }}</span>
           <img class="arrow" :src="iconArrowDown" alt="arrow" :style="{ transform: um_open ? 'rotate(180deg)' : 'none'}" />
@@ -363,6 +363,9 @@ function openAuth(mode: 'login' | 'register') {
     img {
       height: 24px;
       object-fit: cover;
+    }
+    .avatar {
+      border-radius: 50%;
     }
     .profile-theme-icon {
       width: 24px;
