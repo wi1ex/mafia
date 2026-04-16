@@ -518,7 +518,7 @@ onBeforeUnmount(() => {
       border: none;
       border-radius: 5px;
       color: $bg;
-      font-size: 15px;
+      font-size: 16px;
       font-family: Manrope-SemiBold;
       cursor: pointer;
       transition: background-color 0.25s ease-in-out, opacity 0.25s ease-in-out;
@@ -582,41 +582,63 @@ onBeforeUnmount(() => {
 @media (max-width: 1280px) {
   .user-mini-profile-overlay {
     .user-mini-profile-panel {
+      padding: 10px;
+      height: calc(100dvh - 80px);
       &.stats-mode {
-      }
-      .profile-top {
-      }
-      .profile-identity {
+        gap: 10px;
+        width: min(700px, 100vw - 40px);
+        height: calc(100dvh - 40px);
       }
       .profile-avatar {
+        width: 30px;
+        height: 30px;
       }
       .profile-theme-icon {
+        width: 30px;
+        height: 30px;
       }
       .profile-title {
         .profile-name {
+          max-width: 300px;
+          font-size: 20px;
         }
       }
       .close-button {
+        width: 20px;
+        height: 20px;
         img {
+          width: 14px;
+          height: 14px;
         }
       }
       .state {
+        font-size: 14px;
         &.state-danger {
         }
       }
       .profile-dates {
+        gap: 5px;
       }
       .date-row {
+        padding: 5px 10px;
         span {
+          font-size: 12px;
         }
         strong {
+          font-size: 12px;
         }
       }
       .profile-actions,
       .stats-toolbar {
+        gap: 5px;
       }
       .profile-action {
+        min-height: 30px;
+        font-size: 14px;
+        line-height: 2;
         img {
+          width: 20px;
+          height: 20px;
         }
       }
     }
