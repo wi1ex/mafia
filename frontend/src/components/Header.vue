@@ -361,9 +361,7 @@ function openAuth(mode: 'login' | 'register') {
       line-height: 1;
     }
     img {
-      width: 24px;
       height: 24px;
-      border-radius: 50%;
       object-fit: cover;
     }
     .profile-theme-icon {
@@ -554,7 +552,6 @@ function openAuth(mode: 'login' | 'register') {
         font-size: 12px;
       }
       img {
-        width: 16px;
         height: 16px;
       }
       .profile-theme-icon {
