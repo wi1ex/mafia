@@ -28,6 +28,16 @@ export const PROFILE_THEME_ICON_KEYS = [
   'sub_icon17',
   'sub_icon18',
   'sub_icon19',
+  'sub_icon20',
+  'sub_icon21',
+  'sub_icon22',
+  'sub_icon23',
+  'sub_icon24',
+  'sub_icon25',
+  'sub_icon26',
+  'sub_icon27',
+  'sub_icon28',
+  'sub_icon29',
 ] as const
 
 export type ProfileThemeAssetIcon = typeof PROFILE_THEME_ICON_KEYS[number]
