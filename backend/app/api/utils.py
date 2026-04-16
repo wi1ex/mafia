@@ -62,6 +62,8 @@ __all__ = [
     "touch_user_online",
     "active_alive_game_room_key",
     "active_game_rooms_key",
+    "redis_text",
+    "active_game_head_room_by_uid",
     "tg_room_invite_cooldown_key",
     "get_active_alive_game_room",
     "get_active_game_rooms",
@@ -2746,6 +2748,72 @@ def active_alive_game_room_key(user_id: int) -> str:
 
 def active_game_rooms_key(user_id: int) -> str:
     return f"user:{int(user_id)}:active_game_rooms"
+
+
+def redis_text(raw: object, default: str = "") -> str:
+    if raw is None:
+        return default
+
+    if isinstance(raw, bytes):
+        return raw.decode("utf-8", "ignore")
+
+    return str(raw)
+
+
+async def active_game_head_room_by_uid(r, user_ids: list[int]) -> dict[int, int]:
+    user_id_set: set[int] = set()
+    for raw_uid in user_ids:
+        try:
+            uid = int(raw_uid)
+        except Exception:
+            continue
+        if uid > 0:
+            user_id_set.add(uid)
+    if not user_id_set:
+        return {}
+
+    try:
+        raw_room_ids = await r.zrange("rooms:index", 0, -1)
+    except Exception:
+        return {}
+
+    room_ids: list[int] = []
+    for raw in raw_room_ids or []:
+        try:
+            rid = int(raw or 0)
+        except Exception:
+            continue
+        if rid > 0:
+            room_ids.append(rid)
+
+    if not room_ids:
+        return {}
+
+    try:
+        async with r.pipeline() as p:
+            for rid in room_ids:
+                await p.hget(f"room:{rid}:game_state", "phase")
+                await p.hget(f"room:{rid}:game_state", "game_finished")
+                await p.hget(f"room:{rid}:game_state", "head")
+            rows = await p.execute()
+    except Exception:
+        return {}
+
+    out: dict[int, int] = {}
+    for idx, rid in enumerate(room_ids):
+        base = idx * 3
+        phase = redis_text(rows[base], "idle") if base < len(rows) else "idle"
+        game_finished = redis_text(rows[base + 1], "0") if base + 1 < len(rows) else "0"
+        try:
+            head_uid = int(rows[base + 2] or 0) if base + 2 < len(rows) else 0
+        except Exception:
+            head_uid = 0
+
+        if phase == "idle" or game_finished == "1" or head_uid not in user_id_set:
+            continue
+        out.setdefault(head_uid, rid)
+
+    return out
 
 
 def tg_room_invite_cooldown_key(user_id: int) -> str:

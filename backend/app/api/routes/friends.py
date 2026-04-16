@@ -23,6 +23,7 @@ from ...schemas.room import RoomBriefOut
 from ...security.auth_tokens import get_identity
 from ...security.decorators import log_route, rate_limited
 from ...api.utils import (
+    active_game_head_room_by_uid,
     active_alive_game_room_key,
     emit_rooms_upsert,
     fetch_online_user_ids,
@@ -40,72 +41,6 @@ from ...api.utils import (
 router = APIRouter()
 FRIEND_REMOVE_MIN_SECONDS = 10 * 60
 TG_ROOM_INVITE_COOLDOWN_S = 30 * 60
-
-
-def _redis_text(raw: object, default: str = "") -> str:
-    if raw is None:
-        return default
-
-    if isinstance(raw, bytes):
-        return raw.decode("utf-8", "ignore")
-
-    return str(raw)
-
-
-async def _active_game_head_room_by_uid(r, user_ids: list[int]) -> dict[int, int]:
-    user_id_set: set[int] = set()
-    for raw_uid in user_ids:
-        try:
-            uid = int(raw_uid)
-        except Exception:
-            continue
-        if uid > 0:
-            user_id_set.add(uid)
-    if not user_id_set:
-        return {}
-
-    try:
-        raw_room_ids = await r.zrange("rooms:index", 0, -1)
-    except Exception:
-        return {}
-
-    room_ids: list[int] = []
-    for raw in raw_room_ids or []:
-        try:
-            rid = int(raw or 0)
-        except Exception:
-            continue
-        if rid > 0:
-            room_ids.append(rid)
-
-    if not room_ids:
-        return {}
-
-    try:
-        async with r.pipeline() as p:
-            for rid in room_ids:
-                await p.hget(f"room:{rid}:game_state", "phase")
-                await p.hget(f"room:{rid}:game_state", "game_finished")
-                await p.hget(f"room:{rid}:game_state", "head")
-            rows = await p.execute()
-    except Exception:
-        return {}
-
-    out: dict[int, int] = {}
-    for idx, rid in enumerate(room_ids):
-        base = idx * 3
-        phase = _redis_text(rows[base], "idle") if base < len(rows) else "idle"
-        game_finished = _redis_text(rows[base + 1], "0") if base + 1 < len(rows) else "0"
-        try:
-            head_uid = int(rows[base + 2] or 0) if base + 2 < len(rows) else 0
-        except Exception:
-            head_uid = 0
-
-        if phase == "idle" or game_finished == "1" or head_uid not in user_id_set:
-            continue
-        out.setdefault(head_uid, rid)
-
-    return out
 
 
 @router.get("/status/{user_id}", response_model=FriendStatusOut)
@@ -255,7 +190,7 @@ async def friends_list(room_id: int | None = None, ident: Identity = Depends(get
 
     active_head_game_room_by_uid: dict[int, int] = {}
     if invite_room_id > 0 and friend_ids:
-        active_head_game_room_by_uid = await _active_game_head_room_by_uid(r, friend_ids)
+        active_head_game_room_by_uid = await active_game_head_room_by_uid(r, friend_ids)
 
     in_current_room_ids: set[int] = set()
     if invite_room_id > 0 and friend_ids:
@@ -725,7 +660,7 @@ async def invite_friend(payload: FriendInviteIn, ident: Identity = Depends(get_i
     online_ids = await fetch_effective_online_user_ids(r, [target_id], base_online_ids=base_online_ids)
     target_online = target_id in online_ids
 
-    target_active_head_room_by_uid = await _active_game_head_room_by_uid(r, [target_id])
+    target_active_head_room_by_uid = await active_game_head_room_by_uid(r, [target_id])
     if target_active_head_room_by_uid.get(target_id):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="target_in_active_game_as_host")
 

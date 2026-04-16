@@ -57,6 +57,8 @@ __all__ = [
     "clear_users_in_active_alive_game",
     "mark_users_in_active_game",
     "clear_users_in_active_game",
+    "is_user_alive_in_active_game_room",
+    "active_alive_room_conflict",
     "to_bool01",
     "apply_state",
     "apply_bg_state_on_join",
@@ -351,6 +353,97 @@ async def sync_user_active_alive_game_marker(r, rid: int, user_id: int, *, emit:
 
     await clear_users_in_active_alive_game([uid], room_id=room_id, redis_client=r, emit=emit)
     return False
+
+
+async def is_user_alive_in_active_game_room(r, uid: int, room_id: int) -> bool:
+    raw_state = await r.hgetall(f"room:{room_id}:game_state")
+    phase = str(raw_state.get("phase") or "idle")
+    game_finished = str(raw_state.get("game_finished") or "0") == "1"
+    return (
+        phase != "idle"
+        and not game_finished
+        and bool(await r.sismember(f"room:{room_id}:game_alive", str(uid)))
+    )
+
+
+async def active_alive_room_conflict(r, uid: int, target_rid: int) -> int:
+    checked: set[int] = set()
+    try:
+        active_rid = int(await r.get(active_alive_game_room_key(uid)) or 0)
+    except Exception:
+        log.warning("sio.join.active_alive_marker_load_failed", uid=uid, target_rid=target_rid)
+        active_rid = 0
+
+    if active_rid > 0:
+        checked.add(active_rid)
+        if active_rid == target_rid:
+            return 0
+
+        try:
+            is_alive = await is_user_alive_in_active_game_room(r, uid, active_rid)
+        except Exception:
+            log.warning(
+                "sio.join.active_alive_marker_validate_failed",
+                uid=uid,
+                active_rid=active_rid,
+                target_rid=target_rid,
+            )
+            return active_rid
+
+        if is_alive:
+            return active_rid
+
+        try:
+            await sync_user_active_alive_game_marker(r, active_rid, uid, emit=False)
+        except Exception:
+            log.warning(
+                "sio.join.active_alive_marker_cleanup_failed",
+                uid=uid,
+                active_rid=active_rid,
+                target_rid=target_rid,
+            )
+
+    try:
+        active_game_room_ids = await r.smembers(active_game_rooms_key(uid))
+    except Exception:
+        log.warning("sio.join.active_game_rooms_load_failed", uid=uid, target_rid=target_rid)
+        return 0
+
+    candidates: list[int] = []
+    for raw_room_id in active_game_room_ids or []:
+        try:
+            room_id = int(raw_room_id or 0)
+        except Exception:
+            continue
+        if room_id > 0 and room_id != target_rid and room_id not in checked:
+            candidates.append(room_id)
+
+    for room_id in sorted(candidates):
+        try:
+            is_alive = await is_user_alive_in_active_game_room(r, uid, room_id)
+        except Exception:
+            log.warning(
+                "sio.join.active_game_room_validate_failed",
+                uid=uid,
+                active_rid=room_id,
+                target_rid=target_rid,
+            )
+            return room_id
+
+        try:
+            await sync_user_active_alive_game_marker(r, room_id, uid, emit=False)
+        except Exception:
+            log.warning(
+                "sio.join.active_game_room_sync_failed",
+                uid=uid,
+                active_rid=room_id,
+                target_rid=target_rid,
+            )
+
+        if is_alive:
+            return room_id
+
+    return 0
 
 
 def cancel_host_blur_auto_task(rid: int) -> None:

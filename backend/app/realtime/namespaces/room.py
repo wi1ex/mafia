@@ -120,6 +120,7 @@ from ..utils import (
     mark_users_in_active_alive_game,
     mark_users_in_active_game,
     sync_user_active_alive_game_marker,
+    active_alive_room_conflict,
 )
 
 log = structlog.get_logger()
@@ -165,6 +166,15 @@ async def join(sid, data) -> JoinAck:
             return {"ok": False, "error": "bad_room_id", "status": 400}
 
         r = get_redis()
+        active_alive_rid = await active_alive_room_conflict(r, uid, rid)
+        if active_alive_rid:
+            return {
+                "ok": False,
+                "error": "active_alive_game_conflict",
+                "status": 409,
+                "room_id": active_alive_rid,
+            }
+
         params = await r.hgetall(f"room:{rid}:params")
         if not params:
             return {"ok": False, "error": "room_not_found", "status": 404}      

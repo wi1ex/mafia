@@ -2506,6 +2506,7 @@ function joinFailureMessage(j: any): string {
   if (!j) return 'Таймаут сети при входе в комнату'
   if (st === 404) return 'Комната не найдена'
   if (st === 410) return 'Комната закрыта'
+  if (st === 409 && code === 'active_alive_game_conflict') return 'Вы живой игрок в другой активной игре'
   if (st === 409 && code === 'game_in_progress') return 'В комнате нет мест для зрителей'
   if (st === 409 && code === 'spectators_full') return 'В комнате нет мест для зрителей'
   if (st === 409) return 'Комната заполнена'
@@ -2553,6 +2554,16 @@ async function handleJoinFailure(j: any) {
   if (j?.status === 409 && j?.error === 'room_is_full') {
     void alertDialog('Комната заполнена')
     await router.replace({ name: 'home', query: { focus: String(rid) } })
+    return
+  }
+  if (j?.status === 409 && j?.error === 'active_alive_game_conflict') {
+    void alertDialog('Вы живой игрок в другой активной игре')
+    const activeRoomId = Number(j?.room_id || 0)
+    if (Number.isFinite(activeRoomId) && activeRoomId > 0 && activeRoomId !== rid) {
+      await router.replace(`/room/${activeRoomId}`)
+    } else {
+      await router.replace({ name: 'home', query: { focus: String(rid) } })
+    }
     return
   }
   if (j?.status === 409 && (j?.error === 'game_in_progress' || j?.error === 'spectators_full')) {
