@@ -87,7 +87,7 @@
                 {{ themeSaveBusy ? '...' : 'Сохранить' }}
               </button>
               <a v-else class="btn support-btn" :href="supportLink" target="_blank" rel="noopener noreferrer" @click="onSupportLinkClick">
-                Поддержать проект
+                Поддержать платформу
               </a>
             </div>
             <p class="hint">{{ profileThemeMessageText }}</p>
@@ -107,7 +107,7 @@
             <ToggleSwitch
               class="profile-switch"
               :model-value="tgInvitesEnabled"
-              label="Уведомления приглашений в TG"
+              label="Уведомления о приглашениях в TG"
               off-label="Запретить"
               on-label="Разрешить"
               :width="200"
@@ -1055,7 +1055,7 @@ onBeforeUnmount(() => {
       }
     }
     &.support-btn {
-      max-width: 175px;
+      max-width: 190px;
       background-color: $fg;
       color: $bg;
       font-family: Manrope-SemiBold;
@@ -1570,7 +1570,7 @@ onBeforeUnmount(() => {
       height: 30px;
       font-size: 12px;
       &.support-btn {
-        max-width: 125px;
+        max-width: 145px;
       }
       &.nav {
         font-size: 14px;

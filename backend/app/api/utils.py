@@ -1548,6 +1548,11 @@ async def _can_auto_delete_unverified_user(session: AsyncSession, user: User, *,
 
 
 async def delete_stale_unverified_accounts(*, batch_limit: int = 100, min_age_minutes: int = 60) -> int:
+    from ..security.parameters import get_cached_settings
+
+    if not get_cached_settings().verification_restrictions:
+        return 0
+
     limit = max(1, min(int(batch_limit), 1000))
     min_age = max(1, int(min_age_minutes))
     cutoff_dt = datetime.now(timezone.utc) - timedelta(minutes=min_age)

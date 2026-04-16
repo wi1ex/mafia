@@ -121,10 +121,10 @@ async def verify_start(message: types.Message, state: FSMContext, session: aioht
 
 
 @router.message(Command("support"))
-@router.message(F.text == "Поддержать проект")
+@router.message(F.text == "Поддержать платформу")
 @guarded_handler
 async def support_project(message: types.Message) -> None:
-    await safe_message_answer(message, f"Поддержать проект: {DONATE_URL}")
+    await safe_message_answer(message, f"Поддержать платформу: {DONATE_URL}")
 
 
 @router.message(VerifyState.username, F.text)
@@ -256,7 +256,7 @@ async def on_startup(app: web.Application) -> None:
                 types.BotCommand(command="start", description="Показать меню"),
                 types.BotCommand(command="verify", description="Пройти верификацию"),
                 types.BotCommand(command="reset", description="Сбросить пароль"),
-                types.BotCommand(command="support", description="Поддержать проект"),
+                types.BotCommand(command="support", description="Поддержать платформу"),
                 types.BotCommand(command="cancel", description="Отмена текущего действия"),
             ]
         ),

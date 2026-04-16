@@ -28,7 +28,7 @@
 
               <div class="slide-actions">
                 <a class="primary-btn" :href="supportLink" target="_blank" rel="noopener noreferrer" @click="onSupportLinkClick">
-                  Поддержать проект
+                  Поддержать платформу
                 </a>
                 <span class="action-note">Откроется официальный сервис поддержки в Telegram.</span>
               </div>
@@ -462,7 +462,7 @@ onBeforeUnmount(() => {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      min-width: 200px;
+      min-width: 220px;
       height: 40px;
       border: none;
       border-radius: 10px;
@@ -631,7 +631,7 @@ onBeforeUnmount(() => {
         font-size: 7px;
       }
       .primary-btn {
-        min-width: 125px;
+        min-width: 135px;
         height: 24px;
         border-radius: 5px;
         font-size: 10px;
