@@ -443,6 +443,7 @@ onBeforeUnmount(() => {
       .profile-name {
         max-width: 275px;
         font-size: 24px;
+        line-height: 1.5;
         font-family: Manrope-SemiBold;
         white-space: nowrap;
         overflow: hidden;

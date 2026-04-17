@@ -1436,6 +1436,10 @@ async def set_user_deleted(session: AsyncSession, user_id: int, *, deleted: bool
         with suppress(Exception):
             await broadcast_creator_rooms(int(user.id), update_name=user.username)
 
+    with suppress(Exception):
+        from ..services.global_chat import emit_global_chat_messages_refresh
+        await emit_global_chat_messages_refresh()
+
     return user
 
 

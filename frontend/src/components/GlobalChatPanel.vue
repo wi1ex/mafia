@@ -438,7 +438,8 @@ const profileThemeIconSrc = (icon: unknown) => getProfileThemeIconSrc(icon)
 function canOpenAuthorMiniProfile(message: GlobalChatMessage): boolean {
   const uid = Number(message.author?.id || 0)
   const viewerId = Number(user.user?.id || 0)
-  return Number.isFinite(uid) && uid > 0 && !message.is_own && uid !== viewerId
+  const authorRole = String(message.author?.role || '').trim().toLowerCase()
+  return Number.isFinite(uid) && uid > 0 && !message.is_own && uid !== viewerId && authorRole !== 'admin' && !message.author?.deleted
 }
 
 function openAuthorMiniProfile(message: GlobalChatMessage) {

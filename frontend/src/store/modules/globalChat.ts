@@ -52,6 +52,7 @@ export interface GlobalChatAuthor {
   theme_color?: string | null
   theme_icon?: string | null
   role?: string
+  deleted?: boolean
 }
 
 export interface GlobalChatMention {
@@ -501,6 +502,7 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
           avatar_name: asString(userRaw.avatar_name) || null,
           theme_color: asString(userRaw.theme_color) || null,
           theme_icon: asString(userRaw.theme_icon) || null,
+          deleted: Boolean(userRaw.deleted),
         },
       })
     }
@@ -584,6 +586,9 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
     const authorThemeIcon = Object.prototype.hasOwnProperty.call(authorRaw, 'theme_icon')
       ? (asString(authorRaw.theme_icon) || null)
       : (previous?.author.theme_icon || null)
+    const authorDeleted = Object.prototype.hasOwnProperty.call(authorRaw, 'deleted')
+      ? Boolean(authorRaw.deleted)
+      : Boolean(previous?.author.deleted)
     const deleted = Boolean(raw.deleted)
     const deletedContentAvailable = deleted
       ? (typeof raw.deleted_content_available === 'boolean'
@@ -608,6 +613,7 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
         theme_color: authorThemeColor,
         theme_icon: authorThemeIcon,
         role: authorRole,
+        deleted: authorDeleted,
       },
       is_own: ownByAuthor,
       can_delete: Boolean(!deleted && (Boolean(raw.can_delete) || canDeleteOwn || (canModerate && !ownByAuthor))),
@@ -638,6 +644,7 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
         avatar_name: asString(authorRaw.avatar_name) || null,
         theme_color: asString(authorRaw.theme_color) || null,
         theme_icon: asString(authorRaw.theme_icon) || null,
+        deleted: Boolean(authorRaw.deleted),
       },
     }
   }

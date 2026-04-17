@@ -110,6 +110,16 @@ def _username_for(profile: dict[str, Any] | None, user_id: int) -> str:
     return username or f"user{int(user_id)}"
 
 
+def _profile_deleted(profile: dict[str, Any] | None) -> bool:
+    if not profile:
+        return False
+
+    if profile.get("deleted_at"):
+        return True
+
+    return str(profile.get("username") or "").strip().lower().startswith("deleted_")
+
+
 def _extract_mentioned_usernames(text: str) -> list[str]:
     seen: set[str] = set()
     ordered: list[str] = []
@@ -1303,6 +1313,7 @@ async def serialize_global_chat_messages(session: AsyncSession, messages: Sequen
                     "theme_color": author_profile.get("theme_color"),
                     "theme_icon": author_profile.get("theme_icon"),
                     "role": author_role,
+                    "deleted": _profile_deleted(author_profile),
                 },
                 "is_own": own_message,
                 "can_delete": can_delete_message,
@@ -1361,6 +1372,7 @@ async def fetch_global_chat_reaction_participants(session: AsyncSession, *, mess
                     "avatar_name": profile.get("avatar_name"),
                     "theme_color": profile.get("theme_color"),
                     "theme_icon": profile.get("theme_icon"),
+                    "deleted": _profile_deleted(profile),
                 },
             }
         )
@@ -1694,6 +1706,7 @@ async def build_deleted_global_chat_message_preview(session: AsyncSession, *, me
             "avatar_name": author_profile.get("avatar_name"),
             "theme_color": author_profile.get("theme_color"),
             "theme_icon": author_profile.get("theme_icon"),
+            "deleted": _profile_deleted(author_profile),
         },
     }
 

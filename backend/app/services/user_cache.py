@@ -10,7 +10,7 @@ from ..services.profile_theme import resolve_profile_theme_state, resolve_profil
 
 log = structlog.get_logger()
 
-PROFILE_FIELDS: tuple[str, ...] = ("username", "avatar_name", "role", "theme_color", "theme_until", "theme_icon")
+PROFILE_FIELDS: tuple[str, ...] = ("username", "avatar_name", "role", "theme_color", "theme_until", "theme_icon", "deleted_at")
 
 
 class UserProfile(TypedDict):
@@ -20,6 +20,7 @@ class UserProfile(TypedDict):
     theme_color: str | None
     theme_until: str | None
     theme_icon: str | None
+    deleted_at: str | None
 
 
 def user_profile_cache_key(user_id: int) -> str:
@@ -57,6 +58,7 @@ def _profile_from_values(values: list[Any] | tuple[Any, ...]) -> UserProfile:
     theme_color = _value_or_none(values[3] if len(values) > 3 else None)
     theme_until = _value_or_none(values[4] if len(values) > 4 else None)
     theme_icon = _value_or_none(values[5] if len(values) > 5 else None)
+    deleted_at = _value_or_none(values[6] if len(values) > 6 else None)
     return {
         "username": username,
         "avatar_name": avatar_name,
@@ -64,6 +66,7 @@ def _profile_from_values(values: list[Any] | tuple[Any, ...]) -> UserProfile:
         "theme_color": theme_color,
         "theme_until": theme_until,
         "theme_icon": theme_icon,
+        "deleted_at": deleted_at,
     }
 
 
@@ -146,7 +149,7 @@ async def read_user_profile_cache(user_id: int, *, redis_client=None) -> UserPro
     return profile if _profile_ready(profile) else None
 
 
-async def write_user_profile_cache(user_id: int, *, username: str, role: str, avatar_name: str | None, theme_color: str | None, theme_until: datetime | None, theme_icon: str | None = None, redis_client=None) -> None:
+async def write_user_profile_cache(user_id: int, *, username: str, role: str, avatar_name: str | None, theme_color: str | None, theme_until: datetime | None, theme_icon: str | None = None, deleted_at: datetime | str | None = None, redis_client=None) -> None:
     r = redis_client or get_redis()
     key = user_profile_cache_key(user_id)
     mapping = {
@@ -157,6 +160,7 @@ async def write_user_profile_cache(user_id: int, *, username: str, role: str, av
     color = _value_or_none(theme_color)
     icon = _value_or_none(theme_icon)
     expires_at = theme_until.isoformat() if isinstance(theme_until, datetime) else None
+    deleted_at_value = deleted_at.isoformat() if isinstance(deleted_at, datetime) else _value_or_none(deleted_at)
 
     try:
         async with r.pipeline() as p:
@@ -169,6 +173,10 @@ async def write_user_profile_cache(user_id: int, *, username: str, role: str, av
                 await p.hset(key, mapping={"theme_color": color, "theme_until": expires_at, "theme_icon": icon})
             else:
                 await p.hdel(key, "theme_color", "theme_until", "theme_icon")
+            if deleted_at_value is not None:
+                await p.hset(key, mapping={"deleted_at": deleted_at_value})
+            else:
+                await p.hdel(key, "deleted_at")
             await p.execute()
     except Exception:
         log.warning("user_cache.write_failed", user_id=int(user_id))
@@ -200,7 +208,7 @@ async def invalidate_avatar_presign_cache(avatar_name: str | None, *, redis_clie
 
 async def refresh_user_profile_cache(session: AsyncSession, user_id: int, *, redis_client=None) -> UserProfile | None:
     uid = int(user_id)
-    row = await session.execute(select(User.username, User.avatar_name, User.role).where(User.id == uid))
+    row = await session.execute(select(User.username, User.avatar_name, User.role, User.deleted_at).where(User.id == uid))
     rec = row.first()
     if not rec:
         await delete_user_profile_cache(uid, redis_client=redis_client)
@@ -214,6 +222,7 @@ async def refresh_user_profile_cache(session: AsyncSession, user_id: int, *, red
         "theme_color": _value_or_none(theme_state.color),
         "theme_until": theme_state.subscription_until.isoformat() if theme_state.subscription_until else None,
         "theme_icon": _value_or_none(theme_state.icon),
+        "deleted_at": rec[3].isoformat() if isinstance(rec[3], datetime) else _value_or_none(rec[3]),
     }
     if not _profile_ready(profile):
         await delete_user_profile_cache(uid, redis_client=redis_client)
@@ -227,6 +236,7 @@ async def refresh_user_profile_cache(session: AsyncSession, user_id: int, *, red
         theme_color=profile["theme_color"],
         theme_until=theme_state.subscription_until,
         theme_icon=profile["theme_icon"],
+        deleted_at=profile["deleted_at"],
         redis_client=redis_client,
     )
     return profile
@@ -272,9 +282,9 @@ async def get_user_profiles_cached(session: AsyncSession, user_ids: Iterable[int
         return out
 
     theme_states = await resolve_profile_theme_states(session, missed)
-    rows = await session.execute(select(User.id, User.username, User.avatar_name, User.role).where(User.id.in_(missed)))
+    rows = await session.execute(select(User.id, User.username, User.avatar_name, User.role, User.deleted_at).where(User.id.in_(missed)))
     db_map: dict[int, UserProfile] = {}
-    for uid_raw, username, avatar_name, role in rows.all():
+    for uid_raw, username, avatar_name, role, deleted_at in rows.all():
         try:
             uid = int(uid_raw)
         except Exception:
@@ -291,6 +301,7 @@ async def get_user_profiles_cached(session: AsyncSession, user_ids: Iterable[int
                 else None
             ),
             "theme_icon": _value_or_none(theme_state.icon if theme_state else None),
+            "deleted_at": deleted_at.isoformat() if isinstance(deleted_at, datetime) else _value_or_none(deleted_at),
         }
         if _profile_ready(profile):
             db_map[uid] = profile
@@ -325,6 +336,10 @@ async def get_user_profiles_cached(session: AsyncSession, user_ids: Iterable[int
                     )
                 else:
                     await p.hdel(user_profile_cache_key(uid), "theme_color", "theme_until", "theme_icon")
+                if profile["deleted_at"] is not None:
+                    await p.hset(user_profile_cache_key(uid), mapping={"deleted_at": profile["deleted_at"]})
+                else:
+                    await p.hdel(user_profile_cache_key(uid), "deleted_at")
             await p.execute()
     except Exception:
         log.warning("user_cache.batch_write_failed", users=len(missed))
