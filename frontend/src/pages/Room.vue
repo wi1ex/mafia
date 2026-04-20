@@ -109,6 +109,9 @@
       <div v-else class="theater">
         <div class="stage">
           <video :ref="(el) => stableScreenRef(screenOwnerId)(el as HTMLVideoElement | null)" playsinline autoplay muted />
+          <div v-if="screenOwnerId" class="screen-quality" :class="`screen-quality-${screenQuality}`">
+            {{ screenQualityLabel }}
+          </div>
           <div v-if="screenOwnerId !== localId && streamAudioKey" class="volume" @click.stop>
             <img :src="volumeIconForStream(streamAudioKey)" alt="vol" />
             <UiSlider
@@ -430,7 +433,7 @@ import {
   type SendAckFn,
   useRoomGame
 } from '@/composables/roomGame'
-import { type CameraQuality, useRTC, type VQ } from '@/composables/rtc'
+import { type CameraQuality, type ScreenShareQuality, useRTC, type VQ } from '@/composables/rtc'
 import { api } from '@/services/axios'
 import { alertDialog, confirmDialog, useConfirmState } from '@/services/confirm'
 import { setPageTitle } from '@/services/pwa'
@@ -639,6 +642,7 @@ const IDLE_GRID_STYLE_CACHE = new Map<string, Readonly<{ gridTemplateColumns: st
 const SEAT_TILE_STYLE_CACHE = new Map<number, Readonly<{ gridColumn: string; gridRow: string }>>()
 const volumeSnapTimers = new Map<string, number>()
 const screenOwnerId = ref<string>('')
+const screenQuality = ref<ScreenShareQuality>('low')
 const openPanelFor = ref<string>('')
 const miniProfileOpen = ref(false)
 const miniProfileUserId = ref<number | null>(null)
@@ -709,6 +713,10 @@ const ws_url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.
 const isTheater = computed(() => !!screenOwnerId.value)
 const isMyScreen = computed(() => !!localId.value && screenOwnerId.value === localId.value)
 const streamAudioKey = computed(() => screenOwnerId.value ? rtc.screenKey(screenOwnerId.value) : '')
+const screenQualityLabel = computed(() => screenQuality.value === 'high' ? 'HD' : 'SD')
+function normalizeScreenQuality(raw: unknown, fallback: ScreenShareQuality = 'low'): ScreenShareQuality {
+  return raw === 'high' ? 'high' : raw === 'low' ? 'low' : fallback
+}
 function volumeFor(id: string, fallback = 100): number {
   if (!id) return fallback
   const raw = volUi[id] ?? rtc.getUserVolume(id)
@@ -1699,7 +1707,7 @@ function purgePeerUI(id: string) {
   clearVolumeSnap(rtc.screenKey(id))
   delete volUi[id]
   delete volUi[rtc.screenKey(id)]
-  if (screenOwnerId.value === id) screenOwnerId.value = ''
+  if (screenOwnerId.value === id) setScreenOwner('')
 }
 
 function clearScreenVolume(id: string | null | undefined) {
@@ -1708,9 +1716,12 @@ function clearScreenVolume(id: string | null | undefined) {
   delete volUi[rtc.screenKey(id)]
 }
 
-function setScreenOwner(id: string) {
+function setScreenOwner(id: string, quality?: unknown) {
   const prev = screenOwnerId.value
   screenOwnerId.value = id
+  screenQuality.value = id
+    ? normalizeScreenQuality(quality, id === prev ? screenQuality.value : 'low')
+    : 'low'
   if (openPanelFor.value === rtc.screenKey(prev)) openPanelFor.value = ''
   clearScreenVolume(prev)
 }
@@ -1852,7 +1863,7 @@ socket.value?.on('connect', async () => {
       }
       if ('screen' in blocks && norm01(blocks.screen, 0) === 1) {
         if (screenOwnerId.value === localId.value) { try { await rtc.stopScreenShare() } catch {} }
-        screenOwnerId.value = ''
+        setScreenOwner('')
       }
     }
   })
@@ -1881,7 +1892,7 @@ socket.value?.on('connect', async () => {
   })
 
   socket.value.on('screen_owner', (p: any) => {
-    setScreenOwner(p?.user_id ? String(p.user_id) : '')
+    setScreenOwner(p?.user_id ? String(p.user_id) : '', p?.quality)
   })
 
   socket.value?.on('game_starting', async (p: any) => {
@@ -2154,7 +2165,7 @@ async function enforceNoPublishWhenInactive(): Promise<void> {
   }
   if (isSpectator && screenOwnerId.value === localId.value) {
     try { await rtc.stopScreenShare() } catch {}
-    screenOwnerId.value = ''
+    setScreenOwner('')
     try { await sendAck('screen', { on: false }) } catch {}
   }
   if (changed) {
@@ -2305,7 +2316,7 @@ function applyJoinAck(j: any) {
   }
 
   if (j.self_pref) applySelfPref(j.self_pref)
-  screenOwnerId.value = j.screen_owner ? String(j.screen_owner) : ''
+  setScreenOwner(j.screen_owner ? String(j.screen_owner) : '', j.screen_quality)
   const keepKey = screenOwnerId.value ? rtc.screenKey(screenOwnerId.value) : ''
   for (const k in volUi) {
     const isUserId = statusByUser.has(k)
@@ -2411,23 +2422,23 @@ const toggleScreen = async () => {
     if (wantEnable) {
       const resp = await sendAck('screen', { on: true })
       if (!resp || !resp.ok) {
-        if (resp?.status === 409 && resp?.owner) screenOwnerId.value = String(resp.owner)
+        if (resp?.status === 409 && resp?.owner) setScreenOwner(String(resp.owner), resp?.quality)
         else if (resp?.status === 403 && resp?.error === 'streams_start_disabled') void alertDialog('Запуск трансляций отключен')
         else if (resp?.status === 403 && resp?.error === 'blocked') void alertDialog('Стрим запрещён администратором')
         else void alertDialog('Не удалось запустить трансляцию')
         return
       }
-      const screenQuality = resp?.quality === 'high'
+      const nextScreenQuality = resp?.quality === 'high'
         ? 'high'
         : (resp?.quality === 'low' ? 'low' : (userStore.subscriptionActive ? 'high' : 'low'))
-      const ok = await rtc.startScreenShare({ audio: true, quality: screenQuality })
+      const ok = await rtc.startScreenShare({ audio: true, quality: nextScreenQuality })
       if (ok) {
-        screenOwnerId.value = localId.value
+        setScreenOwner(localId.value, nextScreenQuality)
         return
       }
       if (!ok) {
         await sendAck('screen', { on: false, canceled: true })
-        screenOwnerId.value = ''
+        setScreenOwner('')
         const reason = rtc.getLastScreenShareError?.()
         void alertDialog(reason === 'canceled' ? 'Трансляция отменена' : 'Ошибка публикации видеопотока')
       }
@@ -2663,7 +2674,7 @@ async function applyLocalStateFromServer(state: any, blocks: any): Promise<void>
 
   if (mergedBlocks.screen && screenOwnerId.value === lid) {
     try { await rtc.stopScreenShare() } catch {}
-    screenOwnerId.value = ''
+    setScreenOwner('')
   }
 
   try {
@@ -2960,7 +2971,7 @@ onMounted(async () => {
     const bindLK = () => rtc.initRoom({
       onScreenShareEnded: async () => {
         if (isMyScreen.value) {
-          screenOwnerId.value = ''
+          setScreenOwner('')
           try { await sendAck('screen', { on: false }) } catch {}
         }
       },
@@ -3123,6 +3134,26 @@ onBeforeUnmount(() => {
         height: 100%;
         object-fit: contain;
         background-color: $black;
+      }
+      .screen-quality {
+        display: flex;
+        position: absolute;
+        align-items: center;
+        justify-content: center;
+        top: 5px;
+        right: 5px;
+        min-width: 30px;
+        height: 30px;
+        padding: 0 10px;
+        border-radius: 5px;
+        background-color: rgba($dark, 0.75);
+        color: $fg;
+        font-size: 14px;
+        font-weight: bold;
+        line-height: 1;
+        letter-spacing: 0;
+        box-shadow: 3px 3px 5px rgba($black, 0.25);
+        pointer-events: none;
       }
       .volume {
         display: flex;
@@ -3490,6 +3521,14 @@ onBeforeUnmount(() => {
       height: calc(100dvh - 40px);
       gap: 3px;
       .stage {
+        .screen-quality {
+          top: 3px;
+          right: 3px;
+          min-width: 20px;
+          height: 20px;
+          padding: 0 5px;
+          font-size: 12px;
+        }
         .volume {
           top: 3px;
           left: 3px;
