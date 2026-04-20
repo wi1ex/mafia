@@ -3,7 +3,7 @@ from contextlib import suppress
 from typing import cast, Literal
 from sqlalchemy import select, update, exists, func, literal, and_, case
 from sqlalchemy.ext.asyncio import AsyncSession
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Response
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Response
 from ..utils import (
     broadcast_creator_rooms,
     fetch_active_sanctions,
@@ -844,7 +844,7 @@ async def unverify_telegram(ident: Identity = Depends(get_identity), db: AsyncSe
 @router.post("/avatar", response_model=AvatarUploadOut)
 @log_route("users.upload_avatar")
 @rate_limited(lambda ident, **_: f"rl:upload_avatar:{ident['id']}", limit=1, window_s=1)
-async def upload_avatar(file: UploadFile = File(...), ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> AvatarUploadOut:
+async def upload_avatar(file: UploadFile = File(...), static_frame_index: int | None = Form(None), ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> AvatarUploadOut:
     uid = int(ident["id"])
     await ensure_profile_changes_allowed(db, uid)
 
@@ -863,6 +863,9 @@ async def upload_avatar(file: UploadFile = File(...), ident: Identity = Depends(
     theme_state = await resolve_profile_theme_state(db, uid)
     if ct == "image/gif" and not theme_state.subscription_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="subscription_required")
+    gif_static_frame_index = int(static_frame_index or 0)
+    if ct != "image/gif":
+        gif_static_frame_index = 0
 
     data = await file.read()
     if not data:
@@ -871,7 +874,7 @@ async def upload_avatar(file: UploadFile = File(...), ident: Identity = Depends(
     if len(data) > MAX_BYTES:
         raise HTTPException(status_code=413, detail="file_too_large")
 
-    name = await put_avatar_async(uid, data, ct)
+    name = await put_avatar_async(uid, data, ct, static_frame_index=gif_static_frame_index)
     if not name:
         raise HTTPException(status_code=422, detail="bad_image")
 

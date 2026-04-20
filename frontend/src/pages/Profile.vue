@@ -182,6 +182,34 @@
               </div>
             </div>
           </div>
+
+          <div v-if="gifPicker.show" ref="gifModalEl" class="modal gif-modal" @keydown.esc="cancelGifPicker" tabindex="0" aria-modal="true" aria-label="Выбор статичного кадра GIF">
+            <div class="modal-body gif-modal-body">
+              <div class="gif-preview-row">
+                <div class="gif-preview-block">
+                  <span>Анимация</span>
+                  <img v-if="gifPicker.animatedUrl" :src="gifPicker.animatedUrl" alt="GIF-анимация" />
+                </div>
+                <div class="gif-preview-block">
+                  <span>Статичный кадр</span>
+                  <canvas ref="gifCanvasEl" />
+                </div>
+              </div>
+              <p v-if="gifPicker.error" class="hint red">{{ gifPicker.error }}</p>
+              <div class="range">
+                <span>Кадр {{ gifFrameLabel }}</span>
+                <div class="range-wrap">
+                  <div class="range-track" :style="gifRangeFillStyle" aria-hidden="true"></div>
+                  <input class="range-native" type="range" aria-label="Кадр GIF" min="0" :max="Math.max(0, gifPicker.frameCount - 1)" step="1"
+                         :value="gifPicker.frameIndex" @input="onGifFrameRange" :disabled="busyAva || isBanned || gifPicker.frameCount <= 1 || gifPicker.decoding" />
+                </div>
+              </div>
+              <div class="modal-actions">
+                <button class="btn danger" @click="cancelGifPicker">Отменить</button>
+                <button class="btn confirm" @click="applyGifPicker" :disabled="busyAva || isBanned || gifPicker.loading || gifPicker.decoding || !!gifPicker.error">Загрузить</button>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div v-else-if="activeTab === 'stats'" class="grid grid-stats">
@@ -322,6 +350,7 @@ const NICK_MAX = 20
 const PASSWORD_MIN = 8
 const PASSWORD_MAX = 32
 const AVATAR_MAX_BYTES = 5 * 1024 * 1024
+const MAX_AVATAR_GIF_FRAMES = 300
 const STATIC_AVATAR_TYPES = new Set(['image/jpeg', 'image/png'])
 const ANIMATED_AVATAR_TYPE = 'image/gif'
 const nickPct = computed(() => {
@@ -758,6 +787,31 @@ type Crop = {
 }
 const crop = reactive<Crop>({ show: false, scale: 1, min: 0.5, max: 3, x: 0, y: 0, dragging: false, sx: 0, sy: 0, type: 'image/jpeg' })
 const canvasEl = ref<HTMLCanvasElement | null>(null)
+
+type GifPicker = {
+  show: boolean
+  file?: File
+  animatedUrl: string
+  frameCount: number
+  frameIndex: number
+  loading: boolean
+  decoding: boolean
+  error: string
+}
+const gifPicker = reactive<GifPicker>({
+  show: false,
+  animatedUrl: '',
+  frameCount: 1,
+  frameIndex: 0,
+  loading: false,
+  decoding: false,
+  error: '',
+})
+const gifModalEl = ref<HTMLDivElement | null>(null)
+const gifCanvasEl = ref<HTMLCanvasElement | null>(null)
+let gifDecoder: any = null
+let gifDecodeSeq = 0
+
 const busyAva = ref(false)
 const deleteBusy = ref(false)
 
@@ -777,6 +831,14 @@ const cropRangeFillStyle = computed<Record<string, string>>(() => ({
   '--fill': `${cropRangePct.value}%`,
 }))
 
+const gifRangeFillStyle = computed<Record<string, string>>(() => {
+  if (gifPicker.frameCount <= 1) return { '--fill': '0%' }
+  const pct = (gifPicker.frameIndex * 100) / (gifPicker.frameCount - 1)
+  return { '--fill': `${Math.max(0, Math.min(100, pct))}%` }
+})
+
+const gifFrameLabel = computed(() => `${gifPicker.frameIndex + 1}/${Math.max(1, gifPicker.frameCount)}`)
+
 function scaleTo(next: number) {
   if (!crop.img || !canvasEl.value) return
   const c = canvasEl.value!
@@ -788,6 +850,128 @@ function scaleTo(next: number) {
   crop.y = Cy - v * next
   clampPosition()
   redraw()
+}
+
+function closeGifDecoder() {
+  try { gifDecoder?.close?.() } catch {}
+  gifDecoder = null
+}
+
+function resetGifPicker() {
+  closeGifDecoder()
+  gifDecodeSeq += 1
+  if (gifPicker.animatedUrl) {
+    try { URL.revokeObjectURL(gifPicker.animatedUrl) } catch {}
+  }
+  gifPicker.show = false
+  gifPicker.file = undefined
+  gifPicker.animatedUrl = ''
+  gifPicker.frameCount = 1
+  gifPicker.frameIndex = 0
+  gifPicker.loading = false
+  gifPicker.decoding = false
+  gifPicker.error = ''
+}
+
+function cancelGifPicker() {
+  resetGifPicker()
+  document.body.style.overflow = ''
+}
+
+async function drawGifFrame(frameIndex: number) {
+  const decoder = gifDecoder
+  if (!decoder || !gifCanvasEl.value) return
+  const seq = ++gifDecodeSeq
+  gifPicker.decoding = true
+  try {
+    const decoded = await decoder.decode({ frameIndex })
+    const image = decoded?.image
+    if (!image) throw new Error('decode_failed')
+    if (seq !== gifDecodeSeq) {
+      try { image.close?.() } catch {}
+      return
+    }
+
+    const canvas = gifCanvasEl.value
+    const dpr = Math.max(1, window.devicePixelRatio || 1)
+    const size = 200
+    canvas.width = size * dpr
+    canvas.height = size * dpr
+    canvas.style.width = `${size}px`
+    canvas.style.height = `${size}px`
+
+    const width = Number(image.displayWidth || image.codedWidth || image.width || 1)
+    const height = Number(image.displayHeight || image.codedHeight || image.height || 1)
+    const scale = Math.min(canvas.width / width, canvas.height / height)
+    const drawW = width * scale
+    const drawH = height * scale
+    const dx = (canvas.width - drawW) / 2
+    const dy = (canvas.height - drawH) / 2
+    const ctx = canvas.getContext('2d')!
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    ctx.fillStyle = '#000'
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+    ctx.imageSmoothingEnabled = true
+    ctx.imageSmoothingQuality = 'high' as any
+    ctx.drawImage(image as CanvasImageSource, dx, dy, drawW, drawH)
+    try { image.close?.() } catch {}
+  } catch {
+    if (seq === gifDecodeSeq) gifPicker.error = 'Не удалось показать выбранный кадр GIF'
+  } finally {
+    if (seq === gifDecodeSeq) gifPicker.decoding = false
+  }
+}
+
+async function openGifFramePicker(file: File) {
+  const ImageDecoderCtor = (window as any).ImageDecoder
+  if (!ImageDecoderCtor) {
+    await alertDialog('В этом браузере недоступен выбор кадра GIF. Будет использован первый кадр.')
+    await uploadAvatarFile(file, 0)
+    return
+  }
+
+  resetGifPicker()
+  gifPicker.file = file
+  gifPicker.animatedUrl = URL.createObjectURL(file)
+  gifPicker.show = true
+  gifPicker.loading = true
+  document.body.style.overflow = 'hidden'
+  await nextTick()
+  gifModalEl.value?.focus()
+
+  try {
+    const buffer = await file.arrayBuffer()
+    const decoder = new ImageDecoderCtor({ data: buffer, type: file.type || ANIMATED_AVATAR_TYPE })
+    if (decoder.tracks?.ready) await decoder.tracks.ready
+    const track = decoder.tracks?.selectedTrack
+    const frameCountRaw = Number(track?.frameCount || 1)
+    if (!Number.isFinite(frameCountRaw) || frameCountRaw <= 0) throw new Error('bad_frame_count')
+    if (frameCountRaw > MAX_AVATAR_GIF_FRAMES) throw new Error('too_many_frames')
+    gifDecoder = decoder
+    gifPicker.frameCount = Math.max(1, Math.trunc(frameCountRaw))
+    gifPicker.frameIndex = 0
+    gifPicker.loading = false
+    await nextTick()
+    await drawGifFrame(0)
+  } catch (e: any) {
+    closeGifDecoder()
+    gifPicker.loading = false
+    gifPicker.error = e?.message === 'too_many_frames'
+      ? `В GIF больше ${MAX_AVATAR_GIF_FRAMES} кадров`
+      : 'Не удалось прочитать кадры GIF'
+  }
+}
+
+function onGifFrameRange(e: Event) {
+  const next = clamp(Math.trunc(Number((e.target as HTMLInputElement).value)), 0, Math.max(0, gifPicker.frameCount - 1))
+  gifPicker.frameIndex = next
+  void drawGifFrame(next)
+}
+
+async function applyGifPicker() {
+  if (!gifPicker.file || gifPicker.loading || gifPicker.decoding || gifPicker.error) return
+  const ok = await uploadAvatarFile(gifPicker.file, gifPicker.frameIndex)
+  if (ok) cancelGifPicker()
 }
 
 async function onPick(e: Event) {
@@ -808,7 +992,7 @@ async function onPick(e: Event) {
       void alertDialog('GIF-аватары доступны только при активной подписке')
       return
     }
-    await uploadAvatarFile(f)
+    await openGifFramePicker(f)
     return
   }
   const url = URL.createObjectURL(f)
@@ -913,16 +1097,19 @@ function showAvatarUploadError(e: any) {
   else                                                   void alertDialog('Не удалось загрузить аватар')
 }
 
-async function uploadAvatarFile(file: File) {
+async function uploadAvatarFile(file: File, staticFrameIndex?: number): Promise<boolean> {
   busyAva.value = true
   try {
     const fd = new FormData()
     fd.append('file', file)
+    if (typeof staticFrameIndex === 'number') fd.append('static_frame_index', String(Math.max(0, Math.trunc(staticFrameIndex))))
     const { data } = await api.post('/users/avatar', fd)
     me.avatar_name = data.avatar_name || null
     userStore.setAvatarName(me.avatar_name)
+    return true
   } catch (e: any) {
     showAvatarUploadError(e)
+    return false
   } finally {
     busyAva.value = false
   }
@@ -1033,6 +1220,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   if (onSanctionsUpdate) window.removeEventListener('auth-sanctions_update', onSanctionsUpdate)
   if (onProfileSync) window.removeEventListener('auth-profile_sync', onProfileSync)
+  resetGifPicker()
   document.body.style.overflow = ''
 })
 </script>
@@ -1486,6 +1674,41 @@ onBeforeUnmount(() => {
           border: 1px solid $graphite;
           border-radius: 5px;
           background-color: $dark;
+                                                                                    &.gif-modal-body {
+                                                                                      max-width: calc(100vw - 20px);
+                                                                                    }
+                                                                                    .gif-preview-row {
+                                                                                      display: flex;
+                                                                                      flex-wrap: wrap;
+                                                                                      gap: 10px;
+                                                                                      align-items: stretch;
+                                                                                      justify-content: center;
+                                                                                    }
+                                                                                    .gif-preview-block {
+                                                                                      display: flex;
+                                                                                      flex-direction: column;
+                                                                                      gap: 5px;
+                                                                                      align-items: center;
+                                                                                      span {
+                                                                                        color: $grey;
+                                                                                        font-size: 14px;
+                                                                                      }
+                                                                                      img {
+                                                                                        width: 200px;
+                                                                                        height: 200px;
+                                                                                        border-radius: 5px;
+                                                                                        background-color: $black;
+                                                                                        object-fit: contain;
+                                                                                      }
+                                                                                    }
+                                                                                    .hint {
+                                                                                      margin: 0;
+                                                                                      color: $grey;
+                                                                                      font-size: 14px;
+                                                                                      &.red {
+                                                                                        color: $red;
+                                                                                      }
+                                                                                    }
           canvas {
             align-self: center;
             width: 200px;

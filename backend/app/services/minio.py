@@ -68,7 +68,10 @@ def _make_static_preview(im: Image.Image, *, max_side: int = MAX_SIDE) -> bytes 
     return buf.getvalue()
 
 
-def _validate_gif_avatar(content: bytes, *, max_side: int = MAX_SIDE) -> tuple[bytes, str] | None:
+def _validate_gif_avatar(content: bytes, *, max_side: int = MAX_SIDE, preview_frame_index: int = 0) -> tuple[bytes, str] | None:
+    if preview_frame_index < 0 or preview_frame_index >= MAX_AVATAR_GIF_FRAMES:
+        return None
+
     try:
         with Image.open(io.BytesIO(content)) as im:
             if str(getattr(im, "format", "") or "").upper() != "GIF":
@@ -93,7 +96,7 @@ def _validate_gif_avatar(content: bytes, *, max_side: int = MAX_SIDE) -> tuple[b
                 if frame.width > max_side or frame.height > max_side:
                     return None
 
-                if idx == 0:
+                if idx == preview_frame_index:
                     preview = _make_static_preview(frame, max_side=max_side)
                 frame_seen = True
 
@@ -146,7 +149,7 @@ def _sniff_ct(buf: bytes) -> Optional[str]:
     return None
 
 
-def put_avatar(user_id: int, content: bytes, content_type: str | None) -> Optional[str]:
+def put_avatar(user_id: int, content: bytes, content_type: str | None, *, static_frame_index: int = 0) -> Optional[str]:
     if not content:
         log.warning("avatar.put.empty", user_id=user_id)
         return None
@@ -165,7 +168,7 @@ def put_avatar(user_id: int, content: bytes, content_type: str | None) -> Option
     preview_content: bytes | None = None
     preview_ct: str | None = None
     if ct == "image/gif":
-        preview = _validate_gif_avatar(content, max_side=MAX_SIDE)
+        preview = _validate_gif_avatar(content, max_side=MAX_SIDE, preview_frame_index=int(static_frame_index or 0))
         if preview is None:
             return None
 
@@ -479,8 +482,8 @@ def presign_key(key: str, *, expires_hours: int = 1) -> tuple[str, int]:
         raise
 
 
-async def put_avatar_async(user_id: int, content: bytes, content_type: str | None) -> Optional[str]:
-    return await asyncio.to_thread(put_avatar, user_id, content, content_type)
+async def put_avatar_async(user_id: int, content: bytes, content_type: str | None, *, static_frame_index: int = 0) -> Optional[str]:
+    return await asyncio.to_thread(put_avatar, user_id, content, content_type, static_frame_index=static_frame_index)
 
 
 async def put_chat_image_async(user_id: int, content: bytes, content_type: str | None) -> Optional[str]:
