@@ -821,6 +821,13 @@ function fitContain(imgW: number, imgH: number, boxW: number, boxH: number) {
   return Math.min(boxW / imgW, boxH / imgH)
 }
 
+function gifCanvasDisplaySize(canvas: HTMLCanvasElement): number {
+  canvas.style.width = ''
+  canvas.style.height = ''
+  const cssWidth = Number.parseFloat(window.getComputedStyle(canvas).width)
+  return Number.isFinite(cssWidth) && cssWidth > 0 ? Math.round(cssWidth) : 300
+}
+
 const cropRangePct = computed(() => {
   if (crop.max === crop.min) return 0
   const p = ((crop.scale - crop.min) * 100) / (crop.max - crop.min)
@@ -894,11 +901,9 @@ async function drawGifFrame(frameIndex: number) {
 
     const canvas = gifCanvasEl.value
     const dpr = Math.max(1, window.devicePixelRatio || 1)
-    const size = 200
-    canvas.width = size * dpr
-    canvas.height = size * dpr
-    canvas.style.width = `${size}px`
-    canvas.style.height = `${size}px`
+    const size = gifCanvasDisplaySize(canvas)
+    canvas.width = Math.round(size * dpr)
+    canvas.height = Math.round(size * dpr)
 
     const width = Number(image.displayWidth || image.codedWidth || image.width || 1)
     const height = Number(image.displayHeight || image.codedHeight || image.height || 1)

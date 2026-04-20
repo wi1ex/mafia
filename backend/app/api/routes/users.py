@@ -169,6 +169,8 @@ async def mini_profile(user_id: int, ident: Identity = Depends(get_identity), db
     theme_state = await resolve_profile_theme_state(db, uid)
     last_game_at = (await fetch_users_last_game_at(db, [uid])).get(uid)
     friend_status = await friend_status_for(db, viewer_id, uid)
+    viewer_username = str(ident.get("username") or f"user{viewer_id}")
+    target_username = user.username or f"user{uid}"
 
     online = False
     with suppress(Exception):
@@ -176,6 +178,17 @@ async def mini_profile(user_id: int, ident: Identity = Depends(get_identity), db
         base_online_ids = set(await fetch_online_user_ids(r))
         online_ids = await fetch_effective_online_user_ids(r, [uid], base_online_ids=base_online_ids)
         online = uid in online_ids
+
+    await log_action(
+        db,
+        user_id=viewer_id,
+        username=viewer_username,
+        action="mini_profile_opened",
+        details=(
+            f"Открыт мини-профиль target_user={uid} "
+            f"target_username={target_username}"
+        ),
+    )
 
     return UserMiniProfileOut(
         id=uid,
