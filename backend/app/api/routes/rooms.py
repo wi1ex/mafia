@@ -28,6 +28,7 @@ from ...schemas.room import (
 )
 from ...security.parameters import get_cached_settings
 from ...services.user_cache import get_user_profile_cached, get_user_profiles_cached
+from ...services.profile_theme import resolve_profile_theme_state
 from ...services.text_moderation import enforce_clean_text
 from ..utils import (
     emit_rooms_upsert,
@@ -72,6 +73,11 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
 
     gp = payload.game
     anonymity = payload.anonymity
+    if anonymity == "hidden":
+        theme_state = await resolve_profile_theme_state(session, uid)
+        if not theme_state.subscription_active:
+            raise HTTPException(status_code=403, detail="subscription_required")
+
     privacy = "private" if anonymity == "hidden" else payload.privacy
     game_dict = {
         "mode": gp.mode,

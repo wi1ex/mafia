@@ -25,6 +25,9 @@ from ..utils import (
 from ..utils import (
     KEYS_STATE,
     KEYS_BLOCK,
+    SCREEN_QUALITY_LOW,
+    SCREEN_QUALITY_HIGH,
+    resolve_screen_quality,
     to_bool01,
     apply_state,
     apply_bg_state_on_join,
@@ -481,6 +484,8 @@ async def join(sid, data) -> JoinAck:
         positions = await get_positions_map(r, rid)
         owner_raw = await r.get(f"room:{rid}:screen_owner")
         owner = int(owner_raw) if owner_raw else 0
+        screen_quality_raw = await r.get(f"room:{rid}:screen_quality") if owner else None
+        screen_quality = SCREEN_QUALITY_HIGH if screen_quality_raw == SCREEN_QUALITY_HIGH else SCREEN_QUALITY_LOW
         livekit_room = f"{settings.PROJECT_NAME}_{rid}"
         token = make_livekit_token(identity=str(uid), name=ev_username, room=livekit_room, can_publish=not spectator_mode)
         game_runtime, game_roles_view, my_game_role = await get_game_runtime_and_roles_view(r, rid, uid)
@@ -504,6 +509,7 @@ async def join(sid, data) -> JoinAck:
             "moderation_roles": moderation_roles,
             "profiles": profiles,
             "screen_owner": owner,
+            "screen_quality": screen_quality,
             "game_runtime": game_runtime,
             "game_roles": game_roles_view,
             "my_game_role": my_game_role,
@@ -792,8 +798,10 @@ async def screen(sid, data) -> ScreenAck:
             if not ok and owner and owner != target:
                 return {"ok": False, "error": "busy", "status": 409, "owner": owner}
 
+            screen_quality = await resolve_screen_quality(target)
+            await r.set(f"room:{rid}:screen_quality", screen_quality)
             await sio.emit("screen_owner",
-                           {"user_id": target},
+                           {"user_id": target, "quality": screen_quality},
                            room=f"room:{rid}",
                            namespace="/room")
             await emit_rooms_event_safe(r, rid, "rooms_stream", {"id": rid, "owner": target})
@@ -822,7 +830,7 @@ async def screen(sid, data) -> ScreenAck:
                     )
             except Exception:
                 log.exception("sio.stream_start.log_failed", rid=rid, uid=actor_uid, target=target)
-            return {"ok": True, "on": True}
+            return {"ok": True, "on": True, "quality": screen_quality}
 
         canceled = bool((data or {}).get("canceled"))
         await stop_screen_for_user(r, rid, target, canceled=canceled, actor_uid=actor_uid, actor_username=actor_user_name, actor_role=actor_role)

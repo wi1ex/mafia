@@ -17,6 +17,7 @@ class JoinAck(TypedDict, total=False):
     moderation_roles: Dict[str, str]
     profiles: Dict[str, Dict[str, Optional[str]]]
     screen_owner: int
+    screen_quality: Literal["low", "high"]
     pending: bool
     game_runtime: dict
     game_roles: Dict[str, str]
@@ -62,6 +63,7 @@ class ScreenAck(TypedDict, total=False):
     error: str
     status: int
     owner: int
+    quality: Literal["low", "high"]
 
 
 class GameStartAck(TypedDict, total=False):

@@ -39,7 +39,7 @@
           </div>
 
           <ToggleSwitch v-model="isPrivate" :disabled="isPrivacyLocked" label="Приватность:" off-label="Открытая" on-label="Закрытая" aria-label="Приватность: открытая/закрытая" />
-          <ToggleSwitch v-model="isAnonymous" label="Анонимность:" off-label="Видимая" on-label="Скрытая" aria-label="Анонимность: видимая/скрытая" />
+          <ToggleSwitch v-model="isAnonymous" :disabled="!canCreateHiddenRoom" label="Анонимность:" off-label="Видимая" on-label="Скрытая" aria-label="Анонимность: видимая/скрытая" />
         </div>
       </div>
 
@@ -173,9 +173,10 @@ const initialLimit = (() => {
 })()
 const limit = ref<number>(initialLimit)
 const isMafiaRoom = computed(() => limit.value === gameLimitMin.value)
+const canCreateHiddenRoom = computed(() => Boolean(user.subscriptionActive))
 
 const privacy = ref<'open'|'private'>(initialBasic.privacy === 'private' ? 'private' : 'open')
-const initialAnonymity = initialBasic.anonymity === 'hidden' ? 'hidden' : 'visible'
+const initialAnonymity = initialBasic.anonymity === 'hidden' && canCreateHiddenRoom.value ? 'hidden' : 'visible'
 const anonymity = ref<'visible'|'hidden'>(initialAnonymity)
 if (anonymity.value === 'hidden') privacy.value = 'private'
 
@@ -194,6 +195,7 @@ const isPrivate = computed<boolean>({
 const isAnonymous = computed<boolean>({
   get: () => anonymity.value === 'hidden',
   set: v => {
+    if (v && !canCreateHiddenRoom.value) return
     anonymity.value = v ? 'hidden' : 'visible'
   }
 })
@@ -241,6 +243,7 @@ async function create() {
     else if (st === 403 && d === 'user_timeout')       void alertDialog('Вам выдан таймаут — создание комнаты недоступно')
     else if (st === 403 && d === 'user_banned')        void alertDialog('Аккаунт забанен — создание комнаты недоступно')
     else if (st === 403 && d === 'not_verified')       void alertDialog('Для создания комнаты требуется верификация')
+    else if (st === 403 && d === 'subscription_required') void alertDialog('Скрытые комнаты доступны только обладателям подписки')
     else if (st === 409 && d === 'rooms_limit_global') void alertDialog('Достигнут общий лимит комнат')
     else if (st === 409 && d === 'rooms_limit_user')   void alertDialog('Достигнут личный лимит комнат')
     else if (st === 422 && moderationText)             void alertDialog({ title: 'Отказ в создании', text: moderationText })
@@ -269,6 +272,10 @@ watch(limit, (v) => {
 
 watch(anonymity, (next) => {
   if (next === 'hidden' && privacy.value !== 'private') privacy.value = 'private'
+}, { flush: 'sync' })
+
+watch(canCreateHiddenRoom, (canCreate) => {
+  if (!canCreate && anonymity.value === 'hidden') anonymity.value = 'visible'
 }, { flush: 'sync' })
 
 watch(() => user.user, () => { if (!hadStoredTitle && !_title.value) _title.value = defaultTitle() }, { flush: 'post' })

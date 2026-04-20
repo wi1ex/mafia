@@ -2417,7 +2417,10 @@ const toggleScreen = async () => {
         else void alertDialog('Не удалось запустить трансляцию')
         return
       }
-      const ok = await rtc.startScreenShare({ audio: true })
+      const screenQuality = resp?.quality === 'high'
+        ? 'high'
+        : (resp?.quality === 'low' ? 'low' : (userStore.subscriptionActive ? 'high' : 'low'))
+      const ok = await rtc.startScreenShare({ audio: true, quality: screenQuality })
       if (ok) {
         screenOwnerId.value = localId.value
         return

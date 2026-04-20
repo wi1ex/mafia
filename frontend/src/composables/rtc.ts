@@ -24,6 +24,7 @@ setLogLevel(LogLevel.error)
 export type DeviceKind = 'audioinput' | 'videoinput'
 export type VQ = 'sd' | 'hd'
 export type CameraQuality = 'low' | 'high'
+export type ScreenShareQuality = 'low' | 'high'
 const LS = {
   mic: 'audioDeviceId',
   cam: 'videoDeviceId',
@@ -80,13 +81,13 @@ export type UseRTC = {
   videoRef: (id: string) => (el: HTMLVideoElement | null) => void
   reconnecting: Ref<boolean>
   screenVideoRef: (id: string) => (el: HTMLVideoElement | null) => void
-  prepareScreenShare: (opts?: { audio?: boolean }) => Promise<boolean>
+  prepareScreenShare: (opts?: { audio?: boolean; quality?: ScreenShareQuality }) => Promise<boolean>
   publishPreparedScreen: () => Promise<boolean>
   cancelPreparedScreen: () => Promise<void>
   stopScreenShare: () => Promise<void>
   screenKey: (id: string) => string
   isScreenKey: (key: string) => boolean
-  startScreenShare: (opts?: { audio?: boolean }) => Promise<boolean>
+  startScreenShare: (opts?: { audio?: boolean; quality?: ScreenShareQuality }) => Promise<boolean>
   getLastScreenShareError: () => 'canceled' | 'failed' | null
   initRoom: (opts?: {
     onScreenShareEnded?: () => void | Promise<void>
@@ -185,8 +186,9 @@ export function useRTC(): UseRTC {
   const isSub = (pub: RemoteTrackPublication) => pub.isSubscribed
   const lowVideoQuality = new VideoPreset(480, 270, 250_000, 20)
   const highVideoQuality = VideoPresets.h720
-  // const lowScreenQuality = ScreenSharePresets.h360fps15
+  const lowScreenQuality = ScreenSharePresets.h360fps15
   const highScreenQuality = ScreenSharePresets.h720fps30
+  const screenPresetFor = (quality?: ScreenShareQuality) => (quality === 'low' ? lowScreenQuality : highScreenQuality)
   const cameraQuality = ref<CameraQuality>('low')
   const cameraPresetFor = (quality: CameraQuality) => {
     if (quality === 'low') return lowVideoQuality
@@ -868,7 +870,7 @@ export function useRTC(): UseRTC {
     } catch {}
   }
 
-  async function startScreenShare(opts?: { audio?: boolean }): Promise<boolean> {
+  async function startScreenShare(opts?: { audio?: boolean; quality?: ScreenShareQuality }): Promise<boolean> {
     const got = await prepareScreenShare(opts)
     if (!got) return false
     const ok = await publishPreparedScreen()
@@ -881,6 +883,7 @@ export function useRTC(): UseRTC {
   }
 
   let preparedScreen: LocalTrack[] | null = null
+  let preparedScreenQuality: ScreenShareQuality = 'high'
   const screenVideoRef = makeVideoRef({ elMap: screenVideoEls, source: Track.Source.ScreenShare })
   function attachScreenTrackEndedHandlers(tracks: LocalTrack[]) {
     tracks.forEach(t => {
@@ -888,15 +891,17 @@ export function useRTC(): UseRTC {
       t.mediaStreamTrack.addEventListener('ended', onEnded, { once: true })
     })
   }
-  async function createScreenTracks(audio: boolean): Promise<LocalTrack[]> {
-    const tracks = await createLocalScreenTracks({ audio, resolution: highScreenQuality.resolution })
+  async function createScreenTracks(audio: boolean, quality: ScreenShareQuality): Promise<LocalTrack[]> {
+    const tracks = await createLocalScreenTracks({ audio, resolution: screenPresetFor(quality).resolution })
     attachScreenTrackEndedHandlers(tracks)
     return tracks
   }
-  async function prepareScreenShare(opts?: { audio?: boolean }): Promise<boolean> {
+  async function prepareScreenShare(opts?: { audio?: boolean; quality?: ScreenShareQuality }): Promise<boolean> {
+    const quality: ScreenShareQuality = opts?.quality === 'low' ? 'low' : 'high'
     try {
       lastScreenShareError = null
-      preparedScreen = await createScreenTracks(opts?.audio ?? true)
+      preparedScreen = await createScreenTracks(opts?.audio ?? true, quality)
+      preparedScreenQuality = quality
       return true
     } catch (e: any) {
       if (isUserCancel(e)) {
@@ -905,7 +910,8 @@ export function useRTC(): UseRTC {
         return false
       }
       try {
-        preparedScreen = await createScreenTracks(false)
+        preparedScreen = await createScreenTracks(false, quality)
+        preparedScreenQuality = quality
         return true
       } catch (e2: any) {
         lastScreenShareError = isUserCancel(e2) ? 'canceled' : 'failed'
@@ -918,12 +924,13 @@ export function useRTC(): UseRTC {
     if (!lk.value || !preparedScreen?.length) return false
     const video = preparedScreen.find(t => t.kind === Track.Kind.Video)
     const audio = preparedScreen.find(t => t.kind === Track.Kind.Audio)
+    const screenPreset = screenPresetFor(preparedScreenQuality)
     try {
       if (video) {
         await lk.value.localParticipant.publishTrack(video, {
           source: Track.Source.ScreenShare,
           simulcast: false,
-          videoEncoding: highScreenQuality.encoding,
+          videoEncoding: screenPreset.encoding,
         })
       }
     } catch {

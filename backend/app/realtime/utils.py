@@ -34,15 +34,19 @@ from ..api.utils import (
     reduce_suspend_after_hosted_game,
 )
 from ..services.global_chat import emit_global_chat_permissions_updated
+from ..services.profile_theme import resolve_profile_theme_state
 from ..services.user_cache import get_user_profile_cached, get_user_profiles_cached
 from ..services.user_stats import invalidate_user_game_stats_cache_for_users
 
 __all__ = [
     "KEYS_STATE",
     "KEYS_BLOCK",
+    "SCREEN_QUALITY_LOW",
+    "SCREEN_QUALITY_HIGH",
     "SANCTION_TIMEOUT",
     "SANCTION_BAN",
     "SANCTION_SUSPEND",
+    "resolve_screen_quality",
     "payload_dict",
     "positive_int",
     "permissions_status",
@@ -169,6 +173,18 @@ _leave_sha: str | None = None
 _single_gc_tasks: dict[int, tuple[str, asyncio.Task[None]]] = {}
 HOST_BLUR_AUTO_OFF_SECONDS = 120
 _host_blur_auto_tasks: dict[int, asyncio.Task[None]] = {}
+SCREEN_QUALITY_LOW = "low"
+SCREEN_QUALITY_HIGH = "high"
+
+
+async def resolve_screen_quality(user_id: int) -> str:
+    try:
+        async with SessionLocal() as session:
+            theme_state = await resolve_profile_theme_state(session, int(user_id))
+        return SCREEN_QUALITY_HIGH if theme_state.subscription_active else SCREEN_QUALITY_LOW
+    except Exception:
+        log.warning("sio.screen.quality_resolve_failed", uid=int(user_id))
+        return SCREEN_QUALITY_LOW
 
 
 def payload_dict(data: object) -> dict[str, object]:
@@ -4839,10 +4855,10 @@ async def stop_screen_for_user(r, rid: int, uid: int, *, canceled: bool = False,
     else:
         await account_screen_time(r, rid, uid)
 
-    await r.delete(f"room:{rid}:screen_owner")
+    await r.delete(f"room:{rid}:screen_owner", f"room:{rid}:screen_quality")
 
     await sio.emit("screen_owner",
-                   {"user_id": None},
+                   {"user_id": None, "quality": None},
                    room=f"room:{rid}",
                    namespace="/room")
     await emit_rooms_event_safe(r, rid, "rooms_stream", {"id": rid, "owner": None})
@@ -5704,6 +5720,7 @@ async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
             f"room:{rid}:invited",
             f"room:{rid}:screen_time",
             f"room:{rid}:screen_owner",
+            f"room:{rid}:screen_quality",
             f"room:{rid}:screen_started_at",
             f"room:{rid}:ready",
             f"room:{rid}:game_state",
