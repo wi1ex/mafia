@@ -401,7 +401,7 @@ onBeforeUnmount(() => {
     justify-content: space-between;
     padding: 20px;
     width: 400px;
-    height: 300px;
+    height: 350px;
     border-radius: 10px;
     background-color: var(--user-theme-bg, $dark);
     overflow-y: auto;
@@ -419,21 +419,21 @@ onBeforeUnmount(() => {
     }
     .profile-identity {
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       min-width: 0;
       gap: 5px;
     }
     .profile-avatar {
       flex: 0 0 auto;
-      width: 40px;
-      height: 40px;
+      width: 100px;
+      height: 100px;
       border-radius: 50%;
       object-fit: cover;
     }
     .profile-theme-icon {
       flex: 0 0 auto;
-      width: 40px;
-      height: 40px;
+      width: 30px;
+      height: 38px;
       object-fit: contain;
     }
     .profile-title {
@@ -441,7 +441,6 @@ onBeforeUnmount(() => {
       flex-direction: column;
       min-width: 0;
       .profile-name {
-        max-width: 275px;
         font-size: 24px;
         line-height: 1.5;
         font-family: Manrope-SemiBold;
@@ -584,32 +583,34 @@ onBeforeUnmount(() => {
   .user-mini-profile-overlay {
     .user-mini-profile-panel {
       padding: 10px;
-      height: calc(100dvh - 80px);
+      height: calc(100dvh - 40px);
       &.stats-mode {
         gap: 10px;
         width: min(700px, 100vw - 40px);
         height: calc(100dvh - 40px);
       }
+      .profile-identity {
+        gap: 5px;
+      }
       .profile-avatar {
-        width: 30px;
-        height: 30px;
+        width: 80px;
+        height: 80px;
       }
       .profile-theme-icon {
-        width: 30px;
+        width: 24px;
         height: 30px;
       }
       .profile-title {
         .profile-name {
-          max-width: 300px;
-          font-size: 20px;
+          font-size: 18px;
         }
       }
       .close-button {
-        width: 20px;
-        height: 20px;
+        width: 24px;
+        height: 24px;
         img {
-          width: 14px;
-          height: 14px;
+          width: 16px;
+          height: 16px;
         }
       }
       .state {
