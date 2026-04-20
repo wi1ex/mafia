@@ -154,6 +154,7 @@ from ..utils import (
     emit_rooms_upsert,
     emit_auth_profile_sync,
     emit_room_profile_theme_sync,
+    notify_subscription_upsert,
     delete_gif_avatar_for_inactive_subscription,
     get_room_params_or_404,
 )
@@ -1312,6 +1313,7 @@ async def subscriptions_upsert(payload: AdminSubscriptionCreateIn, ident: Identi
         select(UserSubscription).where(UserSubscription.user_id == uid).limit(1)
     )
 
+    had_subscription = subscription is not None
     had_active_subscription = False
     if subscription is None:
         starts_at = now
@@ -1352,6 +1354,15 @@ async def subscriptions_upsert(payload: AdminSubscriptionCreateIn, ident: Identi
     with suppress(Exception):
         from ...services.global_chat import emit_global_chat_profile_theme_sync
         await emit_global_chat_profile_theme_sync(uid, theme_state.color, theme_state.icon)
+    try:
+        await notify_subscription_upsert(session, user, subscription, extended=had_subscription)
+    except Exception as exc:
+        log.warning(
+            "admin.subscription.notify_failed",
+            uid=uid,
+            extended=had_subscription,
+            err=type(exc).__name__,
+        )
 
     return AdminSubscriptionOut(
         user_id=uid,

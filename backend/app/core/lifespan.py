@@ -10,6 +10,7 @@ from ..core.settings import settings
 from ..api.utils import (
     emit_expired_timed_sanctions_chat_notices,
     delete_stale_unverified_accounts,
+    notify_expiring_profile_subscriptions,
     sync_expired_profile_subscriptions,
 )
 from ..security.admin_guard import assert_protected_admin_invariants
@@ -114,13 +115,30 @@ async def lifespan(app) -> AsyncIterator[None]:
             while True:
                 next_run = _next_local_daily_run_at(hour=3, minute=0)
                 delay_s = max(0.0, (next_run - datetime.now(next_run.tzinfo)).total_seconds())
+                log.info(
+                    "app.subscriptions.maintenance.scheduled",
+                    run_at=next_run.isoformat(),
+                    delay_s=int(delay_s),
+                )
+                await asyncio.sleep(delay_s)
                 try:
-                    log.info("app.subscriptions.expired_sync.scheduled", run_at=next_run.isoformat(), delay_s=int(delay_s))
-                    await asyncio.sleep(delay_s)
                     synced = await sync_expired_profile_subscriptions()
-                    log.info("app.subscriptions.expired_sync.done", synced=synced, scheduled_at=next_run.isoformat())
+                    log.info(
+                        "app.subscriptions.expired_sync.done",
+                        synced=synced,
+                        scheduled_at=next_run.isoformat(),
+                    )
                 except Exception:
                     log.exception("app.subscriptions.expired_sync.failed")
+                try:
+                    notified = await notify_expiring_profile_subscriptions()
+                    log.info(
+                        "app.subscriptions.expiring_soon.done",
+                        notified=notified,
+                        scheduled_at=next_run.isoformat(),
+                    )
+                except Exception:
+                    log.exception("app.subscriptions.expiring_soon.failed")
         except asyncio.CancelledError:
             pass
 

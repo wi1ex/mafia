@@ -37,6 +37,7 @@ from ..services.user_cache import (
     invalidate_avatar_presign_cache,
 )
 from ..services.profile_theme import ensure_profile_theme_defaults, resolve_profile_theme_state
+from ..services.telegram import send_text_message
 if TYPE_CHECKING:
     from ..schemas.admin import SiteSettingsOut, GameSettingsOut, RegistrationsPoint, AdminRoomUserStat, AdminSanctionOut, AdminGameActionFieldOut
     from ..schemas.room import GameParams
@@ -123,6 +124,8 @@ __all__ = [
     "emit_expired_timed_sanction_chat_notice_once",
     "emit_expired_timed_sanctions_chat_notices",
     "sync_expired_profile_subscriptions",
+    "notify_expiring_profile_subscriptions",
+    "notify_subscription_upsert",
     "delete_gif_avatar_for_inactive_subscription",
     "emit_sanctions_update",
     "build_user_out_payload",
@@ -144,6 +147,7 @@ __all__ = [
     "check_sanctions_expired",
     "format_duration_parts",
     "format_duration_seconds_compact",
+    "format_subscription_until",
     "normalize_chat_mention_query",
     "normalize_username",
     "normalize_password",
@@ -228,6 +232,8 @@ SANCTION_SUSPEND = "suspend"
 HOSTED_GAME_SUSPEND_REDUCTION_SECONDS = 6 * 60 * 60
 EXPIRED_SANCTION_CHAT_NOTICE_TTL_S = 60 * 60 * 24 * 365
 EXPIRED_SUBSCRIPTION_SYNC_TTL_S = 14 * 24 * 60 * 60
+SUBSCRIPTION_EXPIRING_SOON_NOTICE_BEFORE = timedelta(days=3)
+SUBSCRIPTION_EXPIRING_SOON_NOTICE_TTL_S = 14 * 24 * 60 * 60
 AUTO_DELETE_UNVERIFIED_ACCOUNT_LOCK_TTL_S = 60 * 60
 USERS_SORT_DEFAULT = "registered_at"
 USERS_SORT_ALLOWED = {
@@ -1141,8 +1147,96 @@ async def emit_auth_profile_sync(user_id: int, *, role: str | None = None) -> No
 
 
 def _expired_subscription_sync_key(user_id: int, ends_at: datetime) -> str:
-    normalized = ends_at.astimezone(timezone.utc) if ends_at.tzinfo is not None else ends_at.replace(tzinfo=timezone.utc)
+    normalized = _subscription_datetime_as_utc(ends_at)
     return f"user:{int(user_id)}:subscription_expired_sync:{int(normalized.timestamp())}"
+
+
+def _subscription_expiring_soon_notice_key(user_id: int, ends_at: datetime) -> str:
+    normalized = _subscription_datetime_as_utc(ends_at)
+    return f"user:{int(user_id)}:subscription_expiring_soon:{int(normalized.timestamp())}"
+
+
+def _subscription_datetime_as_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+
+    return value.astimezone(timezone.utc)
+
+
+def _subscription_expiring_soon_notice_window(now: datetime) -> tuple[datetime, datetime]:
+    local_now = (
+        now.astimezone()
+        if now.tzinfo is not None
+        else now.replace(tzinfo=timezone.utc).astimezone()
+    )
+    target_start_local = (
+        local_now.replace(hour=0, minute=0, second=0, microsecond=0)
+        + SUBSCRIPTION_EXPIRING_SOON_NOTICE_BEFORE
+    )
+    target_end_local = target_start_local + timedelta(days=1)
+    return target_start_local.astimezone(timezone.utc), target_end_local.astimezone(timezone.utc)
+
+
+def format_subscription_until(ends_at: datetime) -> str:
+    local_dt = ends_at.astimezone() if ends_at.tzinfo is not None else ends_at
+    return local_dt.strftime("%d.%m.%Y в %H:%M")
+
+
+async def notify_subscription_upsert(session: AsyncSession, user: User, subscription: UserSubscription, *, extended: bool) -> None:
+    uid = int(user.id)
+    until_text = format_subscription_until(subscription.ends_at)
+    title = "Благодарим за поддержку платформы!"
+    text = (
+        f"Ваша подписка продлена до {until_text}."
+        if extended
+        else f"Ваша подписка активирована до {until_text}."
+    )
+
+    note = Notif(user_id=uid, title=title, text=text)
+    try:
+        session.add(note)
+        await session.commit()
+        await session.refresh(note)
+    except Exception:
+        with suppress(Exception):
+            await session.rollback()
+        raise
+
+    await emit_notify(uid, note, kind="subscription")
+
+    telegram_id = int(user.telegram_id or 0)
+    if telegram_id <= 0:
+        return
+
+    send_result = await send_text_message(chat_id=telegram_id, text=f"{title}\n\n{text}")
+    if not send_result.ok:
+        log.warning(
+            "subscription.telegram_notify_failed",
+            uid=uid,
+            reason=send_result.reason,
+        )
+
+
+async def _create_subscription_site_notice_once(session: AsyncSession, user_id: int, *, title: str, text: str, no_toast: bool) -> bool:
+    uid = int(user_id)
+    existing_note_id = await session.scalar(
+        select(Notif.id)
+        .where(
+            Notif.user_id == uid,
+            Notif.title == title,
+            Notif.text == text,
+        )
+        .limit(1)
+    )
+    if existing_note_id:
+        return False
+
+    note = Notif(user_id=uid, title=title, text=text)
+    session.add(note)
+    await session.commit()
+    await session.refresh(note)
+    await emit_notify(uid, note, kind="subscription", no_toast=no_toast)
+    return True
 
 
 def _is_gif_avatar_name(value: object) -> bool:
@@ -1218,6 +1312,13 @@ async def sync_expired_profile_subscriptions() -> int:
                 with suppress(Exception):
                     from ..services.global_chat import emit_global_chat_profile_theme_sync
                     await emit_global_chat_profile_theme_sync(uid, None, None)
+                await _create_subscription_site_notice_once(
+                    session,
+                    uid,
+                    title="Подписка истекла",
+                    text=f"Нам очень жаль, но Ваша подписка истекла {format_subscription_until(ends_at)}.",
+                    no_toast=True,
+                )
                 synced += 1
             except Exception as exc:
                 with suppress(Exception):
@@ -1227,6 +1328,76 @@ async def sync_expired_profile_subscriptions() -> int:
                 log.warning("subscriptions.expired_sync_failed", uid=uid, err=type(exc).__name__)
 
         return synced
+
+
+async def notify_expiring_profile_subscriptions() -> int:
+    now = datetime.now(timezone.utc)
+    notice_start, notice_end = _subscription_expiring_soon_notice_window(now)
+
+    async with SessionLocal() as session:
+        rows = (
+            await session.execute(
+                select(UserSubscription.user_id, UserSubscription.ends_at)
+                .join(User, User.id == UserSubscription.user_id)
+                .where(
+                    User.deleted_at.is_(None),
+                    UserSubscription.starts_at <= now,
+                    UserSubscription.ends_at > now,
+                    UserSubscription.ends_at >= notice_start,
+                    UserSubscription.ends_at < notice_end,
+                )
+                .order_by(UserSubscription.ends_at.asc(), UserSubscription.user_id.asc())
+            )
+        ).all()
+        if not rows:
+            return 0
+
+        r = get_redis()
+        notified = 0
+        for user_id_raw, ends_at in rows:
+            try:
+                uid = int(user_id_raw)
+            except Exception:
+                continue
+            if uid <= 0 or not isinstance(ends_at, datetime):
+                continue
+
+            dedupe_key = _subscription_expiring_soon_notice_key(uid, ends_at)
+            claimed = True
+            try:
+                claimed = bool(
+                    await r.set(
+                        dedupe_key,
+                        "1",
+                        ex=SUBSCRIPTION_EXPIRING_SOON_NOTICE_TTL_S,
+                        nx=True,
+                    )
+                )
+            except Exception:
+                claimed = True
+            if not claimed:
+                continue
+
+            title = "Подписка скоро истечет"
+            text = f"Ваша подписка истечет {format_subscription_until(ends_at)}."
+            try:
+                created = await _create_subscription_site_notice_once(
+                    session,
+                    uid,
+                    title=title,
+                    text=text,
+                    no_toast=True,
+                )
+                if created:
+                    notified += 1
+            except Exception as exc:
+                with suppress(Exception):
+                    await session.rollback()
+                with suppress(Exception):
+                    await r.delete(dedupe_key)
+                log.warning("subscriptions.expiring_soon_notify_failed", uid=uid, err=type(exc).__name__)
+
+        return notified
 
 
 def _expired_sanction_note(kind: str) -> tuple[str, str] | None:
