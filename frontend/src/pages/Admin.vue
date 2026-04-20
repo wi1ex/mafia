@@ -396,7 +396,8 @@
                   <td>
                     <div v-if="row.username" class="user-cell">
                       <img class="user-avatar" v-minio-img="{ key: row.avatar_name ? `avatars/${row.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
-                      <span>{{ row.username }}</span>
+                      <button v-if="canOpenLogUserMiniProfile(row)" class="user-link" type="button" @click="openLogUserMiniProfile(row)">{{ row.username }}</button>
+                      <span v-else>{{ row.username }}</span>
                     </div>
                     <span v-else>-</span>
                   </td>
@@ -467,7 +468,8 @@
                   <td>
                     <div class="user-cell">
                       <img class="user-avatar" v-minio-img="{ key: row.creator_avatar_name ? `avatars/${row.creator_avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
-                      <span>{{ row.creator_name }}</span>
+                      <button v-if="canOpenRoomCreatorMiniProfile(row)" class="user-link" type="button" @click="openRoomCreatorMiniProfile(row)">{{ row.creator_name || `user${row.creator}` }}</button>
+                      <span v-else>{{ row.creator_name }}</span>
                     </div>
                   </td>
                   <td>{{ formatRoomPrivacy(row.privacy) }}</td>
@@ -845,7 +847,8 @@
                   <td>
                     <div class="user-cell">
                       <img class="user-avatar" v-minio-img="{ key: row.avatar_name ? `avatars/${row.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
-                      <span>{{ row.username || `user${row.user_id}` }}</span>
+                      <button v-if="canOpenSubscriptionUserMiniProfile(row)" class="user-link" type="button" @click="openSubscriptionUserMiniProfile(row)">{{ row.username || `user${row.user_id}` }}</button>
+                      <span v-else>{{ row.username || `user${row.user_id}` }}</span>
                     </div>
                   </td>
                   <td>{{ formatLocalDateTime(row.starts_at) }}</td>
@@ -1140,6 +1143,8 @@ type UserRow = {
   suspends: SanctionRow[]
 }
 
+type UserMiniProfileTarget = Pick<UserRow, 'id' | 'username' | 'avatar_name'>
+
 type SubscriptionRow = {
   user_id: number
   username?: string | null
@@ -1319,7 +1324,7 @@ const subscriptionForm = reactive({
   days: 0,
 })
 const userMiniProfileOpen = ref(false)
-const userMiniProfileTarget = ref<UserRow | null>(null)
+const userMiniProfileTarget = ref<UserMiniProfileTarget | null>(null)
 const userMiniProfileStatsUrl = computed(() => {
   const target = userMiniProfileTarget.value
   return target ? `/admin/users/${target.id}/stats` : null
@@ -1672,9 +1677,60 @@ function isNicknameDefault(row: UserRow | null | undefined): boolean {
   return String(row.username || '') === `user_${row.id}`
 }
 
-function openUserMiniProfile(row: UserRow): void {
+function openUserMiniProfile(row: UserMiniProfileTarget): void {
   userMiniProfileTarget.value = row
   userMiniProfileOpen.value = true
+}
+
+function getPositiveUserId(value: unknown): number {
+  const id = Number(value ?? 0)
+  return Number.isFinite(id) && id > 0 ? Math.trunc(id) : 0
+}
+
+function getLogUserId(row: LogRow): number {
+  return getPositiveUserId(row.user_id)
+}
+
+function canOpenLogUserMiniProfile(row: LogRow): boolean {
+  return getLogUserId(row) > 0
+}
+
+function openLogUserMiniProfile(row: LogRow): void {
+  const id = getLogUserId(row)
+  if (id <= 0) return
+  openUserMiniProfile({
+    id,
+    username: row.username ?? null,
+    avatar_name: row.avatar_name ?? null,
+  })
+}
+
+function canOpenRoomCreatorMiniProfile(row: RoomRow): boolean {
+  return getPositiveUserId(row.creator) > 0
+}
+
+function openRoomCreatorMiniProfile(row: RoomRow): void {
+  const id = getPositiveUserId(row.creator)
+  if (id <= 0) return
+  openUserMiniProfile({
+    id,
+    username: row.creator_name || null,
+    avatar_name: row.creator_avatar_name ?? null,
+  })
+}
+
+function canOpenSubscriptionUserMiniProfile(row: SubscriptionRow): boolean {
+  return getPositiveUserId(row.user_id) > 0
+}
+
+function openSubscriptionUserMiniProfile(row: SubscriptionRow): void {
+  const id = getPositiveUserId(row.user_id)
+  if (id <= 0) return
+  openUserMiniProfile({
+    id,
+    username: row.username ?? null,
+    avatar_name: row.avatar_name ?? null,
+  })
 }
 
 function closeUserMiniProfile(): void {
