@@ -7,9 +7,11 @@
           <header class="profile-top">
             <div class="profile-identity">
               <img class="profile-avatar" v-minio-img="{ key: avatarKey, placeholder: defaultAvatar, lazy: false, animated: true }" alt="avatar" />
-              <img v-if="profileThemeIconSrc" class="profile-theme-icon" :src="profileThemeIconSrc" alt="" aria-hidden="true" />
-              <div class="profile-title">
-                <span class="profile-name">{{ displayName }}</span>
+              <div class="profile-icon-name">
+                <img v-if="profileThemeIconSrc" class="profile-theme-icon" :src="profileThemeIconSrc" alt="" aria-hidden="true" />
+                <div class="profile-title">
+                  <span class="profile-name">{{ displayName }}</span>
+                </div>
               </div>
             </div>
             <button class="close-button" type="button" aria-label="Закрыть" @click="close">
@@ -422,6 +424,9 @@ onBeforeUnmount(() => {
       align-items: flex-start;
       min-width: 0;
       gap: 5px;
+    }
+    .profile-icon-name {
+      display: flex;
     }
     .profile-avatar {
       flex: 0 0 auto;
