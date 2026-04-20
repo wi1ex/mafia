@@ -351,6 +351,9 @@ const PASSWORD_MIN = 8
 const PASSWORD_MAX = 32
 const AVATAR_MAX_BYTES = 5 * 1024 * 1024
 const MAX_AVATAR_GIF_FRAMES = 300
+const CROP_CANVAS_DESKTOP_SIZE = 400
+const CROP_CANVAS_MOBILE_SIZE = 200
+const CROP_CANVAS_MOBILE_QUERY = '(max-width: 1280px)'
 const STATIC_AVATAR_TYPES = new Set(['image/jpeg', 'image/png'])
 const ANIMATED_AVATAR_TYPE = 'image/gif'
 const nickPct = computed(() => {
@@ -821,6 +824,12 @@ function fitContain(imgW: number, imgH: number, boxW: number, boxH: number) {
   return Math.min(boxW / imgW, boxH / imgH)
 }
 
+function cropCanvasDisplaySize(): number {
+  return window.matchMedia(CROP_CANVAS_MOBILE_QUERY).matches
+    ? CROP_CANVAS_MOBILE_SIZE
+    : CROP_CANVAS_DESKTOP_SIZE
+}
+
 function gifCanvasDisplaySize(canvas: HTMLCanvasElement): number {
   canvas.style.width = ''
   canvas.style.height = ''
@@ -1012,10 +1021,9 @@ async function onPick(e: Event) {
     document.body.style.overflow = 'hidden'
     const canvas = canvasEl.value!
     const dpr = Math.max(1, window.devicePixelRatio || 1)
-    const viewportH = window.innerHeight || document.documentElement.clientHeight || 0
-    const S = viewportH > 500 ? 400 : 200
-    canvas.width = S * dpr
-    canvas.height = S * dpr
+    const S = cropCanvasDisplaySize()
+    canvas.width = Math.round(S * dpr)
+    canvas.height = Math.round(S * dpr)
     canvas.style.width = S + 'px'
     canvas.style.height = S + 'px'
     const s = fitContain(img.width, img.height, canvas.width, canvas.height)
