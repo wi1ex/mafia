@@ -29,12 +29,12 @@
                 <strong>{{ registeredAtLabel }}</strong>
               </div>
               <div class="date-row">
-                <span>Последний онлайн</span>
-                <strong>{{ lastOnlineLabel }}</strong>
-              </div>
-              <div class="date-row">
                 <span>Последняя игра</span>
                 <strong>{{ lastGameAtLabel }}</strong>
+              </div>
+              <div class="date-row">
+                <span>Последний онлайн</span>
+                <strong>{{ lastOnlineLabel }}</strong>
               </div>
             </div>
 
@@ -182,8 +182,8 @@ const profileThemeIcon = computed(() => {
 const profilePanelStyle = computed(() => buildProfileThemeBgStyle(profileThemeColor.value))
 const profileThemeIconSrc = computed(() => getProfileThemeIconSrc(profileThemeIcon.value))
 const registeredAtLabel = computed(() => formatLocalDateTime(profile.value?.registered_at))
-const lastOnlineLabel = computed(() => formatLocalDateTime(profile.value?.last_visit_at))
 const lastGameAtLabel = computed(() => formatLocalDateTime(profile.value?.last_game_at))
+const lastOnlineLabel = computed(() => (profile.value?.online ? 'Онлайн' : formatLocalDateTime(profile.value?.last_visit_at)))
 const resolvedStatsUrl = computed(() => {
   const provided = String(props.statsUrl || '').trim()
   return provided || `/users/${targetUserId.value}/stats`
