@@ -1731,7 +1731,6 @@ onBeforeUnmount(() => {
               object-fit: contain;
             }
             .author-name {
-              margin-left: 2px;
               min-width: 0;
               color: $fg;
               font-size: 16px;
@@ -2506,7 +2505,6 @@ onBeforeUnmount(() => {
           gap: 3px;
           .message-meta {
             .message-meta-author {
-              gap: 1px;
               .author-avatar {
                 width: 16px;
                 height: 16px;

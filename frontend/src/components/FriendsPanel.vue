@@ -496,7 +496,6 @@ onBeforeUnmount(() => {
           object-fit: contain;
         }
         .nick {
-          margin-left: 2px;
           color: $fg;
           font-size: 16px;
           line-height: 1.5;
@@ -651,8 +650,6 @@ onBeforeUnmount(() => {
         padding: 3px;
         gap: 10px;
         .left {
-          padding: 0;
-          gap: 1px;
           img {
             width: 16px;
             height: 16px;
