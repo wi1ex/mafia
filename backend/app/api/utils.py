@@ -123,6 +123,7 @@ __all__ = [
     "emit_expired_timed_sanction_chat_notice_once",
     "emit_expired_timed_sanctions_chat_notices",
     "sync_expired_profile_subscriptions",
+    "delete_gif_avatar_for_inactive_subscription",
     "emit_sanctions_update",
     "build_user_out_payload",
     "emit_auth_profile_sync",
@@ -1144,6 +1145,38 @@ def _expired_subscription_sync_key(user_id: int, ends_at: datetime) -> str:
     return f"user:{int(user_id)}:subscription_expired_sync:{int(normalized.timestamp())}"
 
 
+def _is_gif_avatar_name(value: object) -> bool:
+    return isinstance(value, str) and value.strip().lower().endswith(".gif")
+
+
+async def delete_gif_avatar_for_inactive_subscription(session: AsyncSession, user_id: int, *, redis_client=None) -> bool:
+    uid = int(user_id)
+    if uid <= 0:
+        return False
+
+    row = await session.execute(select(User.avatar_name).where(User.id == uid))
+    old_avatar_name = cast(str | None, row.scalar_one_or_none())
+    if not _is_gif_avatar_name(old_avatar_name):
+        return False
+
+    await session.execute(
+        update(User)
+        .where(User.id == uid, User.avatar_name == old_avatar_name)
+        .values(avatar_name=None)
+    )
+    await session.commit()
+
+    await refresh_user_profile_cache(session, uid, redis_client=redis_client)
+    with suppress(Exception):
+        await invalidate_avatar_presign_cache(old_avatar_name, redis_client=redis_client)
+    with suppress(Exception):
+        await delete_avatars_async(uid)
+    with suppress(Exception):
+        await broadcast_creator_rooms(uid, avatar="delete")
+
+    return True
+
+
 async def sync_expired_profile_subscriptions() -> int:
     now = datetime.now(timezone.utc)
     async with SessionLocal() as session:
@@ -1177,7 +1210,9 @@ async def sync_expired_profile_subscriptions() -> int:
                 continue
 
             try:
-                await refresh_user_profile_cache(session, uid, redis_client=r)
+                avatar_deleted = await delete_gif_avatar_for_inactive_subscription(session, uid, redis_client=r)
+                if not avatar_deleted:
+                    await refresh_user_profile_cache(session, uid, redis_client=r)
                 await emit_auth_profile_sync(uid)
                 await emit_room_profile_theme_sync(uid, None, None)
                 with suppress(Exception):

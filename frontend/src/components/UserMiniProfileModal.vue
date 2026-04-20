@@ -6,7 +6,7 @@
                  role="dialog" aria-modal="true" :aria-label="`Мини-профиль ${displayName}`" @pointerdown.stop>
           <header class="profile-top">
             <div class="profile-identity">
-              <img class="profile-avatar" v-minio-img="{ key: avatarKey, placeholder: defaultAvatar, lazy: false }" alt="avatar" />
+              <img class="profile-avatar" v-minio-img="{ key: avatarKey, placeholder: defaultAvatar, lazy: false, animated: true }" alt="avatar" />
               <img v-if="profileThemeIconSrc" class="profile-theme-icon" :src="profileThemeIconSrc" alt="" aria-hidden="true" />
               <div class="profile-title">
                 <span class="profile-name">{{ displayName }}</span>

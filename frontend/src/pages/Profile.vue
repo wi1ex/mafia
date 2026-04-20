@@ -24,14 +24,14 @@
           <div class="block avatar-block">
             <h3>Аватар</h3>
             <div class="avatar-row">
-              <img class="avatar-img" v-minio-img="{ key: me.avatar_name ? `avatars/${me.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="Текущий аватар" />
+              <img class="avatar-img" v-minio-img="{ key: me.avatar_name ? `avatars/${me.avatar_name}` : '', placeholder: defaultAvatar, lazy: false, animated: true }" alt="Текущий аватар" />
               <div class="actions">
-                <input ref="fileEl" type="file" accept="image/jpeg,image/png" @change="onPick" :disabled="isBanned" hidden />
+                <input ref="fileEl" type="file" :accept="avatarAccept" @change="onPick" :disabled="isBanned" hidden />
                 <button class="btn dark" @click="fileEl?.click()" :disabled="busyAva || isBanned">
                   <img class="btn-img" :src="iconEdit" alt="edit" />
                   {{ me.avatar_name ? 'Изменить' : 'Загрузить' }}
                 </button>
-                <span class="hint center">JPG/PNG, до 5 МБ</span>
+                <span class="hint center">{{ avatarFormatHint }}</span>
                 <button class="btn danger" v-if="me.avatar_name" @click="onDeleteAvatar" :disabled="busyAva || isBanned">
                   <img class="btn-img" :src="iconDelete" alt="delete" />
                   Удалить
@@ -62,7 +62,7 @@
             <div class="theme-row">
               <div class="theme-preview-grid">
                 <div class="theme-preview-card" :style="themePreviewStyle">
-                  <img class="theme-preview-avatar" v-minio-img="{ key: me.avatar_name ? `avatars/${me.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
+                  <img class="theme-preview-avatar" v-minio-img="{ key: me.avatar_name ? `avatars/${me.avatar_name}` : '', placeholder: defaultAvatar, lazy: false, animated: true }" alt="avatar" />
                   <img v-if="themePreviewIconSrc" class="theme-preview-icon" :src="themePreviewIconSrc" alt="" aria-hidden="true" />
                   <span>{{ me.username || 'User' }}</span>
                 </div>
@@ -321,6 +321,9 @@ const validNick = computed(() => {
 const NICK_MAX = 20
 const PASSWORD_MIN = 8
 const PASSWORD_MAX = 32
+const AVATAR_MAX_BYTES = 5 * 1024 * 1024
+const STATIC_AVATAR_TYPES = new Set(['image/jpeg', 'image/png'])
+const ANIMATED_AVATAR_TYPE = 'image/gif'
 const nickPct = computed(() => {
   const used = Math.min(NICK_MAX, Math.max(0, nick.value.length))
   return (used / NICK_MAX) * 100
@@ -417,6 +420,13 @@ const canEditProfileTheme = computed(() => {
   if (subscriptionUntilMs.value > 0) return subscriptionUntilMs.value > userNow.value
   return Boolean(me.subscription_active)
 })
+const canUseAnimatedAvatar = computed(() => canEditProfileTheme.value)
+const avatarAccept = computed(() => (
+  canUseAnimatedAvatar.value ? 'image/jpeg,image/png,image/gif' : 'image/jpeg,image/png'
+))
+const avatarFormatHint = computed(() => (
+  canUseAnimatedAvatar.value ? 'JPG/PNG/GIF, до 5 МБ' : 'JPG/PNG, до 5 МБ'
+))
 const currentProfileThemeColor = computed(() => resolveProfileThemeColor(me.profile_theme_color))
 const currentProfileThemeIcon = computed(() => normalizeProfileThemeIcon(me.profile_theme_icon))
 const profileThemeDirty = computed(() => (
@@ -785,12 +795,20 @@ async function onPick(e: Event) {
   const f = (e.target as HTMLInputElement).files?.[0]
   ;(e.target as HTMLInputElement).value = ''
   if (!f) return
-  if (!['image/jpeg', 'image/png'].includes(f.type)) {
-    void alertDialog('К загрузке допустимы только форматы JPG/PNG')
+  if (!STATIC_AVATAR_TYPES.has(f.type) && f.type !== ANIMATED_AVATAR_TYPE) {
+    void alertDialog('К загрузке допустимы только форматы JPG/PNG/GIF')
     return
   }
-  if (f.size > 5 * 1024 * 1024) {
+  if (f.size > AVATAR_MAX_BYTES) {
     void alertDialog('К загрузке допустимы только файлы менее 5 Мбайт')
+    return
+  }
+  if (f.type === ANIMATED_AVATAR_TYPE) {
+    if (!canUseAnimatedAvatar.value) {
+      void alertDialog('GIF-аватары доступны только при активной подписке')
+      return
+    }
+    await uploadAvatarFile(f)
     return
   }
   const url = URL.createObjectURL(f)
@@ -883,6 +901,33 @@ function cancelCrop() {
   document.body.style.overflow = ''
 }
 
+function showAvatarUploadError(e: any) {
+  const st = e?.response?.status
+  const d  = e?.response?.data?.detail
+  if (st === 403 && d === 'user_banned')                 void alertDialog('Аккаунт забанен. Изменение аватара недоступно')
+  else if (st === 403 && d === 'subscription_required')   void alertDialog('GIF-аватары доступны только при активной подписке')
+  else if (st === 415 || d === 'unsupported_media_type') void alertDialog('К загрузке допустимы только форматы JPG/PNG/GIF')
+  else if (st === 413)                                   void alertDialog('К загрузке допустимы только файлы менее 5 Мбайт')
+  else if (st === 422 && d === 'empty_file')             void alertDialog('Не удалось прочитать файл')
+  else if (st === 422 && d === 'bad_image')              void alertDialog('Некорректное изображение')
+  else                                                   void alertDialog('Не удалось загрузить аватар')
+}
+
+async function uploadAvatarFile(file: File) {
+  busyAva.value = true
+  try {
+    const fd = new FormData()
+    fd.append('file', file)
+    const { data } = await api.post('/users/avatar', fd)
+    me.avatar_name = data.avatar_name || null
+    userStore.setAvatarName(me.avatar_name)
+  } catch (e: any) {
+    showAvatarUploadError(e)
+  } finally {
+    busyAva.value = false
+  }
+}
+
 async function applyCrop() {
   if (!canvasEl.value) return
   busyAva.value = true
@@ -900,7 +945,7 @@ async function applyCrop() {
     const k = (tmp.width / src.width)
     tctx.drawImage(img, crop.x * k, crop.y * k, img.width * crop.scale * k, img.height * crop.scale * k)
     const blob: Blob = await new Promise((res, rej) => tmp.toBlob(b => b ? res(b) : rej(new Error('toBlob')), crop.type === 'image/png' ? 'image/png' : 'image/jpeg', 0.92))
-    if (blob.size > 5 * 1024 * 1024) {
+    if (blob.size > AVATAR_MAX_BYTES) {
       void alertDialog('Получившийся файл оказался больше 5 Мбайт')
       return
     }
@@ -911,14 +956,7 @@ async function applyCrop() {
     userStore.setAvatarName(me.avatar_name)
     cancelCrop()
   } catch (e: any) {
-    const st = e?.response?.status
-    const d  = e?.response?.data?.detail
-    if (st === 403 && d === 'user_banned')                 void alertDialog('Аккаунт забанен. Изменение аватара недоступно')
-    else if (st === 415 || d === 'unsupported_media_type') void alertDialog('К загрузке допустимы только форматы JPG/PNG')
-    else if (st === 413)                                   void alertDialog('К загрузке допустимы только файлы менее 5 Мбайт')
-    else if (st === 422 && d === 'empty_file')             void alertDialog('Не удалось прочитать файл')
-    else if (st === 422 && d === 'bad_image')              void alertDialog('Некорректное изображение')
-    else                                                   void alertDialog('Не удалось загрузить аватар')
+    showAvatarUploadError(e)
   } finally { busyAva.value = false }
 }
 

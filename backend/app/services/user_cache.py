@@ -201,7 +201,10 @@ async def invalidate_avatar_presign_cache(avatar_name: str | None, *, redis_clie
 
     r = redis_client or get_redis()
     try:
-        await r.delete(f"presign:{key}")
+        keys = [f"presign:{key}"]
+        if key.lower().endswith(".gif"):
+            keys.append(f"presign:{key[:-4]}.png")
+        await r.delete(*keys)
     except Exception:
         log.warning("user_cache.avatar_presign_invalidate_failed")
 

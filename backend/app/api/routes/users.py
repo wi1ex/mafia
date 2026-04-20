@@ -81,6 +81,7 @@ from ...services.minio import (
     build_chat_image_post_upload_async,
     delete_avatars_async,
     ALLOWED_CT,
+    AVATAR_ALLOWED_CT,
     MAX_BYTES,
     CHAT_IMAGE_MAX_BYTES,
 )
@@ -856,8 +857,12 @@ async def upload_avatar(file: UploadFile = File(...), ident: Identity = Depends(
     old_avatar_name = cast(str | None, rec[1])
     db_role = str(rec[2])
     ct = (file.content_type or "").split(";")[0].strip().lower()
-    if ct not in ALLOWED_CT:
+    if ct not in AVATAR_ALLOWED_CT:
         raise HTTPException(status_code=415, detail="unsupported_media_type")
+
+    theme_state = await resolve_profile_theme_state(db, uid)
+    if ct == "image/gif" and not theme_state.subscription_active:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="subscription_required")
 
     data = await file.read()
     if not data:
@@ -872,7 +877,6 @@ async def upload_avatar(file: UploadFile = File(...), ident: Identity = Depends(
 
     await db.execute(update(User).where(User.id == uid).values(avatar_name=name))
     await db.commit()
-    theme_state = await resolve_profile_theme_state(db, uid)
     await write_user_profile_cache(
         uid,
         username=db_username,

@@ -154,6 +154,7 @@ from ..utils import (
     emit_rooms_upsert,
     emit_auth_profile_sync,
     emit_room_profile_theme_sync,
+    delete_gif_avatar_for_inactive_subscription,
     get_room_params_or_404,
 )
 
@@ -1456,7 +1457,9 @@ async def subscriptions_delete(user_id: int, ident: Identity = Depends(get_ident
 
     await session.delete(subscription)
     await session.commit()
-    await refresh_user_profile_cache(session, uid)
+    avatar_deleted = await delete_gif_avatar_for_inactive_subscription(session, uid)
+    if not avatar_deleted:
+        await refresh_user_profile_cache(session, uid)
 
     await log_action(
         session,

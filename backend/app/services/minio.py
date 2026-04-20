@@ -5,7 +5,7 @@ import threading
 import time
 from urllib.parse import urlunsplit
 from uuid import uuid4
-from PIL import Image, ImageOps
+from PIL import Image, ImageOps, ImageSequence
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 import structlog
@@ -23,9 +23,14 @@ ALLOWED_CT = {
     "image/jpeg": ".jpg",
     "image/png": ".png",
 }
+AVATAR_ALLOWED_CT = {
+    **ALLOWED_CT,
+    "image/gif": ".gif",
+}
 MAX_BYTES = 5 * 1024 * 1024
 MAX_PIXELS = 4096 * 4096
 MAX_SIDE = 1024
+MAX_AVATAR_GIF_FRAMES = 300
 CHAT_IMAGE_MAX_BYTES = MAX_BYTES
 CHAT_IMAGE_MAX_SIDE = MAX_SIDE
 CHAT_IMAGE_PREFIX = "chat/global/images"
@@ -53,6 +58,52 @@ def _reencode_safe(content: bytes, ct_hint: Optional[str], *, max_side: int = MA
 
     im.save(buf, format="JPEG", quality=90, optimize=True)
     return buf.getvalue(), "image/jpeg"
+
+
+def _make_static_preview(im: Image.Image, *, max_side: int = MAX_SIDE) -> bytes | None:
+    frame = im.convert("RGBA")
+    frame.thumbnail((max_side, max_side), resample=Image.Resampling.LANCZOS)
+    buf = io.BytesIO()
+    frame.save(buf, format="PNG", optimize=True)
+    return buf.getvalue()
+
+
+def _validate_gif_avatar(content: bytes, *, max_side: int = MAX_SIDE) -> tuple[bytes, str] | None:
+    try:
+        with Image.open(io.BytesIO(content)) as im:
+            if str(getattr(im, "format", "") or "").upper() != "GIF":
+                return None
+
+            if im.width * im.height > MAX_PIXELS:
+                return None
+
+            if im.width > max_side or im.height > max_side:
+                return None
+
+            preview: bytes | None = None
+            frame_seen = False
+            for idx, frame in enumerate(ImageSequence.Iterator(im)):
+                if idx >= MAX_AVATAR_GIF_FRAMES:
+                    return None
+
+                frame.load()
+                if frame.width * frame.height > MAX_PIXELS:
+                    return None
+
+                if frame.width > max_side or frame.height > max_side:
+                    return None
+
+                if idx == 0:
+                    preview = _make_static_preview(frame, max_side=max_side)
+                frame_seen = True
+
+            if not frame_seen or not preview:
+                return None
+
+            return preview, "image/png"
+
+    except Exception:
+        return None
 
 
 def ensure_bucket(minio_client: Optional[Minio] = None) -> None:
@@ -106,25 +157,36 @@ def put_avatar(user_id: int, content: bytes, content_type: str | None) -> Option
 
     ct_hdr = (content_type or "").split(";")[0].strip().lower()
     ct_guess = _sniff_ct(content)
-    ct = ct_hdr if ct_hdr in ALLOWED_CT else ct_guess
-    if ct not in ALLOWED_CT:
+    ct = ct_hdr if ct_hdr in AVATAR_ALLOWED_CT else ct_guess
+    if ct not in AVATAR_ALLOWED_CT:
         log.warning("avatar.put.unsupported_type", user_id=user_id, content_type=ct or content_type)
         return None
 
-    try:
-        content, ct = _reencode_safe(content, ct, max_side=MAX_SIDE)
-        if content is None or ct not in ALLOWED_CT:
+    preview_content: bytes | None = None
+    preview_ct: str | None = None
+    if ct == "image/gif":
+        preview = _validate_gif_avatar(content, max_side=MAX_SIDE)
+        if preview is None:
             return None
 
-    except Exception:
-        log.warning("avatar.put.decode_failed", user_id=user_id)
-        return None
+        preview_content, preview_ct = preview
+
+    else:
+        try:
+            content, ct = _reencode_safe(content, ct, max_side=MAX_SIDE)
+            if content is None or ct not in ALLOWED_CT:
+                return None
+
+        except Exception:
+            log.warning("avatar.put.decode_failed", user_id=user_id)
+            return None
 
     minio = get_minio_private()
     ensure_bucket(minio)
-    ext = ALLOWED_CT[ct]
+    ext = AVATAR_ALLOWED_CT[ct]
     name = f"{user_id}-{int(time.time())}{ext}"
     obj = f"avatars/{name}"
+    preview_obj = f"avatars/{name[:-4]}.png" if ct == "image/gif" else None
     prefix = f"avatars/{user_id}-"
     to_delete = [DeleteObject(o.object_name) for o in minio.list_objects(bucket_name=_bucket, prefix=prefix, recursive=True)]
     if to_delete:
@@ -136,6 +198,14 @@ def put_avatar(user_id: int, content: bytes, content_type: str | None) -> Option
 
     try:
         minio.put_object(bucket_name=_bucket, object_name=obj, data=io.BytesIO(content), length=len(content), content_type=ct)
+        if preview_obj and preview_content and preview_ct:
+            minio.put_object(
+                bucket_name=_bucket,
+                object_name=preview_obj,
+                data=io.BytesIO(preview_content),
+                length=len(preview_content),
+                content_type=preview_ct,
+            )
         return name
 
     except S3Error as e:
