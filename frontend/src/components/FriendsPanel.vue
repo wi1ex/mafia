@@ -20,7 +20,7 @@
             </div>
             <article v-for="f in section.items" :key="`${f.kind}-${f.id}`" class="item" :style="friendItemStyle(f)">
               <button class="left profile-trigger" type="button" @click="openMiniProfile(f)">
-                <img v-minio-img="{ key: f.avatar_name ? `avatars/${f.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
+                <img v-minio-img="{ key: f.avatar_name ? `avatars/${f.avatar_name}` : '', placeholder: defaultAvatar, lazy: false, animated: true }" alt="avatar" />
                 <img v-if="friendThemeIconSrc(f)" class="profile-theme-icon" :src="friendThemeIconSrc(f) || ''" alt="" aria-hidden="true" />
                 <span class="nick">{{ f.username || ('user' + f.id) }}</span>
               </button>

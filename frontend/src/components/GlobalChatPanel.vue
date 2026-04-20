@@ -33,7 +33,7 @@
               <div class="message-meta">
                 <button class="message-meta-author" :class="{ 'author-trigger': canOpenAuthorMiniProfile(message) }" type="button"
                         :disabled="!canOpenAuthorMiniProfile(message)" @click="openAuthorMiniProfile(message)">
-                  <img class="author-avatar" v-minio-img="{ key: message.author.avatar_name ? `avatars/${message.author.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="Аватар автора" />
+                  <img class="author-avatar" v-minio-img="{ key: message.author.avatar_name ? `avatars/${message.author.avatar_name}` : '', placeholder: defaultAvatar, lazy: false, animated: true }" alt="Аватар автора" />
                   <img v-if="profileThemeIconSrc(message.author.theme_icon)" class="profile-theme-icon" :src="profileThemeIconSrc(message.author.theme_icon) || ''" alt="" aria-hidden="true" />
                   <span class="author-name">{{ message.author.username || (`user${message.author.id}`) }}</span>
                 </button>
@@ -42,7 +42,7 @@
 
               <button v-if="message.reply" class="reply-preview" type="button" @click="onJumpToReply(message.reply.message_id)">
                 <div class="reply-preview-body">
-                  <img class="reply-avatar" v-minio-img="{ key: message.reply.avatar_name ? `avatars/${message.reply.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="" />
+                  <img class="reply-avatar" v-minio-img="{ key: message.reply.avatar_name ? `avatars/${message.reply.avatar_name}` : '', placeholder: defaultAvatar, lazy: false, animated: true }" alt="" />
                   <span class="reply-author">{{ message.reply.author_username }}</span>
                 </div>
                 <span class="reply-snippet">{{ message.reply.snippet || (message.reply.has_image ? 'Изображение' : 'Сообщение') }}</span>
@@ -89,7 +89,7 @@
                     </p>
                     <template v-else-if="reactionParticipantsFor(message.id, reaction.emoji).length > 0">
                       <div v-for="participant in reactionParticipantsFor(message.id, reaction.emoji)" :key="`${participant.user.id}-${participant.created_at}`" class="reaction-details-item">
-                        <img class="reaction-details-avatar" v-minio-img="{ key: participant.user.avatar_name ? `avatars/${participant.user.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="Аватар" />
+                        <img class="reaction-details-avatar" v-minio-img="{ key: participant.user.avatar_name ? `avatars/${participant.user.avatar_name}` : '', placeholder: defaultAvatar, lazy: false, animated: true }" alt="Аватар" />
                         <img v-if="profileThemeIconSrc(participant.user.theme_icon)" class="profile-theme-icon" :src="profileThemeIconSrc(participant.user.theme_icon) || ''" alt="" aria-hidden="true" />
                         <div class="reaction-details-meta">
                           <span class="reaction-details-name">{{ participant.user.username || (`user${participant.user.id}`) }}</span>
@@ -187,7 +187,7 @@
                       :class="['mention-suggestion', { 'mention-suggestion--active': mentionSelectedIndex === index }]"
                       type="button" role="option" :aria-selected="mentionSelectedIndex === index"
                       @pointerdown.prevent="selectMention(candidate)" @mouseenter="mentionSelectedIndex = index">
-                <img class="mention-suggestion-avatar" v-minio-img="{ key: candidate.avatar_name ? `avatars/${candidate.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="" />
+                <img class="mention-suggestion-avatar" v-minio-img="{ key: candidate.avatar_name ? `avatars/${candidate.avatar_name}` : '', placeholder: defaultAvatar, lazy: false, animated: true }" alt="" />
                 <span class="mention-suggestion-name">@{{ candidate.username }}</span>
               </button>
             </div>
@@ -223,7 +223,7 @@
 
           <div class="deleted-preview-body">
             <div class="deleted-preview-author">
-              <img class="deleted-preview-avatar" v-minio-img="{ key: deletedPreview.author.avatar_name ? `avatars/${deletedPreview.author.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="Аватар автора" />
+              <img class="deleted-preview-avatar" v-minio-img="{ key: deletedPreview.author.avatar_name ? `avatars/${deletedPreview.author.avatar_name}` : '', placeholder: defaultAvatar, lazy: false, animated: true }" alt="Аватар автора" />
               <img v-if="profileThemeIconSrc(deletedPreview.author.theme_icon)" class="profile-theme-icon" :src="profileThemeIconSrc(deletedPreview.author.theme_icon) || ''" alt="" aria-hidden="true" />
               <span>{{ deletedPreview.author.username || (`user${deletedPreview.author.id}`) }}</span>
             </div>
