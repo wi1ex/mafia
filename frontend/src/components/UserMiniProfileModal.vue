@@ -604,7 +604,7 @@ onBeforeUnmount(() => {
     .user-mini-profile-panel {
       padding: 10px;
       width: 350px;
-      height: calc(100dvh - 40px);
+      height: calc(100dvh - 60px);
       &.stats-mode {
         gap: 10px;
         width: min(700px, 100vw - 40px);
