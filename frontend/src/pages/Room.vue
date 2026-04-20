@@ -3148,10 +3148,8 @@ onBeforeUnmount(() => {
         border-radius: 5px;
         background-color: rgba($dark, 0.75);
         color: $fg;
-        font-size: 14px;
+        font-size: 16px;
         font-weight: bold;
-        line-height: 1;
-        letter-spacing: 0;
         box-shadow: 3px 3px 5px rgba($black, 0.25);
         pointer-events: none;
       }
@@ -3527,7 +3525,7 @@ onBeforeUnmount(() => {
           min-width: 20px;
           height: 20px;
           padding: 0 5px;
-          font-size: 12px;
+          font-size: 10px;
         }
         .volume {
           top: 3px;
