@@ -427,6 +427,8 @@ onBeforeUnmount(() => {
     }
     .profile-icon-name {
       display: flex;
+      padding: 5px;
+      gap: 5px;
     }
     .profile-avatar {
       flex: 0 0 auto;
@@ -437,7 +439,7 @@ onBeforeUnmount(() => {
     }
     .profile-theme-icon {
       flex: 0 0 auto;
-      width: 30px;
+      width: 26px;
       height: 38px;
       object-fit: contain;
     }
@@ -588,21 +590,23 @@ onBeforeUnmount(() => {
   .user-mini-profile-overlay {
     .user-mini-profile-panel {
       padding: 10px;
+      width: 350px;
       height: calc(100dvh - 40px);
       &.stats-mode {
         gap: 10px;
         width: min(700px, 100vw - 40px);
         height: calc(100dvh - 40px);
       }
-      .profile-identity {
-        gap: 5px;
+      .profile-icon-name {
+        padding: 3px;
+        gap: 3px;
       }
       .profile-avatar {
         width: 80px;
         height: 80px;
       }
       .profile-theme-icon {
-        width: 24px;
+        width: 20px;
         height: 30px;
       }
       .profile-title {
