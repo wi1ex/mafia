@@ -1674,45 +1674,44 @@ onBeforeUnmount(() => {
           border: 1px solid $graphite;
           border-radius: 5px;
           background-color: $dark;
-                                                                                    &.gif-modal-body {
-                                                                                      max-width: calc(100vw - 20px);
-                                                                                    }
-                                                                                    .gif-preview-row {
-                                                                                      display: flex;
-                                                                                      flex-wrap: wrap;
-                                                                                      gap: 10px;
-                                                                                      align-items: stretch;
-                                                                                      justify-content: center;
-                                                                                    }
-                                                                                    .gif-preview-block {
-                                                                                      display: flex;
-                                                                                      flex-direction: column;
-                                                                                      gap: 5px;
-                                                                                      align-items: center;
-                                                                                      span {
-                                                                                        color: $grey;
-                                                                                        font-size: 14px;
-                                                                                      }
-                                                                                      img {
-                                                                                        width: 200px;
-                                                                                        height: 200px;
-                                                                                        border-radius: 5px;
-                                                                                        background-color: $black;
-                                                                                        object-fit: contain;
-                                                                                      }
-                                                                                    }
-                                                                                    .hint {
-                                                                                      margin: 0;
-                                                                                      color: $grey;
-                                                                                      font-size: 14px;
-                                                                                      &.red {
-                                                                                        color: $red;
-                                                                                      }
-                                                                                    }
+          &.gif-modal-body {
+          }
+          .gif-preview-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: stretch;
+            justify-content: center;
+          }
+          .gif-preview-block {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            align-items: center;
+            span {
+              color: $grey;
+              font-size: 18px;
+            }
+            img {
+              width: 300px;
+              height: 300px;
+              border-radius: 5px;
+              background-color: $black;
+              object-fit: contain;
+            }
+          }
+          .hint {
+            margin: 0;
+            color: $grey;
+            font-size: 14px;
+            &.red {
+              color: $red;
+            }
+          }
           canvas {
             align-self: center;
-            width: 200px;
-            height: 200px;
+            width: 300px;
+            height: 300px;
             border-radius: 5px;
             background-color: $black;
           }
@@ -1907,6 +1906,23 @@ onBeforeUnmount(() => {
           &.sanctions-block {
             .sanctions-list {
               grid-template-columns: 1fr 1fr;
+            }
+          }
+        }
+        .modal {
+          .modal-body {
+            .gif-preview-block {
+              span {
+                font-size: 14px;
+              }
+              img {
+                width: 160px;
+                height: 160px;
+              }
+            }
+            canvas {
+              width: 160px;
+              height: 160px;
             }
           }
         }
