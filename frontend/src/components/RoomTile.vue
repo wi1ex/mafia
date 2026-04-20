@@ -678,6 +678,7 @@ const profileThemeIconSrc = computed(() => getProfileThemeIconSrc(props.themeIco
       user-select: none;
     }
     .avatar {
+      aspect-ratio: 1 / 1;
       height: 50%;
       border-radius: 50%;
     }

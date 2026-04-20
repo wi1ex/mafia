@@ -54,7 +54,7 @@
             <div class="stats-toolbar">
               <button class="profile-action secondary" type="button" @click="view = 'profile'">Назад к профилю</button>
             </div>
-            <ProfileStatsTab :stats-url="statsUrl" />
+            <ProfileStatsTab :stats-url="resolvedStatsUrl" />
           </template>
         </section>
       </div>
@@ -119,12 +119,16 @@ const props = withDefaults(defineProps<{
   userId?: number | null
   initialProfile?: MiniProfileInitial | null
   showStatsButton?: boolean
+  adminMode?: boolean
+  statsUrl?: string | null
   refreshFriendsListOnAction?: boolean
   refreshFriendsRoomId?: number | null
 }>(), {
   userId: null,
   initialProfile: null,
   showStatsButton: false,
+  adminMode: false,
+  statsUrl: null,
   refreshFriendsListOnAction: false,
   refreshFriendsRoomId: null,
 })
@@ -151,6 +155,7 @@ const targetUserId = computed(() => {
 })
 const profileLoadedForTarget = computed(() => Boolean(profile.value && profile.value.id === targetUserId.value))
 const viewerUserId = computed(() => Number(userStore.user?.id || 0))
+const adminViewer = computed(() => props.adminMode || String(userStore.user?.role || '') === 'admin')
 
 const displayName = computed(() => {
   if (profileLoadedForTarget.value && profile.value?.username) return profile.value.username
@@ -179,7 +184,10 @@ const profileThemeIconSrc = computed(() => getProfileThemeIconSrc(profileThemeIc
 const registeredAtLabel = computed(() => formatLocalDateTime(profile.value?.registered_at))
 const lastOnlineLabel = computed(() => formatLocalDateTime(profile.value?.last_visit_at))
 const lastGameAtLabel = computed(() => formatLocalDateTime(profile.value?.last_game_at))
-const statsUrl = computed(() => `/users/${targetUserId.value}/stats`)
+const resolvedStatsUrl = computed(() => {
+  const provided = String(props.statsUrl || '').trim()
+  return provided || `/users/${targetUserId.value}/stats`
+})
 
 const friendStatusClass = computed(() => (friendStatus.value === 'self' ? 'none' : friendStatus.value))
 const friendActionLabel = computed(() => {
@@ -207,11 +215,16 @@ const friendDisabled = computed(() => (
   || friendStatus.value === 'self'
   || (loading.value && !profileLoadedForTarget.value && friendStatus.value === 'none')
 ))
-const showFriendAction = computed(() => targetUserId.value > 0 && friendStatus.value !== 'self' && friendActionLabel.value !== '')
+const showFriendAction = computed(() => (
+  !adminViewer.value
+  && targetUserId.value > 0
+  && friendStatus.value !== 'self'
+  && friendActionLabel.value !== ''
+))
 const showStatsButton = computed(() => Boolean(
   props.showStatsButton
   && targetUserId.value > 0
-  && (friendStatus.value === 'friends' || friendStatus.value === 'self')
+  && (adminViewer.value || friendStatus.value === 'friends' || friendStatus.value === 'self')
 ))
 
 function normalizeFriendStatus(value: unknown): FriendStatus {
@@ -432,8 +445,8 @@ onBeforeUnmount(() => {
     }
     .profile-avatar {
       flex: 0 0 auto;
-      width: 100px;
-      height: 100px;
+      width: 120px;
+      height: 120px;
       border-radius: 50%;
       object-fit: cover;
     }
@@ -602,8 +615,8 @@ onBeforeUnmount(() => {
         gap: 3px;
       }
       .profile-avatar {
-        width: 80px;
-        height: 80px;
+        width: 100px;
+        height: 100px;
       }
       .profile-theme-icon {
         width: 20px;

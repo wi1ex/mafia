@@ -155,12 +155,14 @@ async def public_user_stats(user_id: int, season: int | None = None, ident: Iden
 @rate_limited(lambda ident, user_id, **_: f"rl:user_mini_profile:{ident['id']}:{user_id}", limit=10, window_s=1)
 async def mini_profile(user_id: int, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UserMiniProfileOut:
     viewer_id = int(ident["id"])
+    viewer_role = str(ident["role"])
+    is_admin_viewer = viewer_role == "admin"
     uid = int(user_id)
     if uid <= 0:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="bad_user_id")
 
     user = await db.get(User, uid)
-    if not user or user.deleted_at:
+    if not user or (user.deleted_at and not is_admin_viewer):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="user_not_found")
 
     defaults_changed = await ensure_profile_theme_defaults(db, uid)
@@ -168,7 +170,7 @@ async def mini_profile(user_id: int, ident: Identity = Depends(get_identity), db
         await db.commit()
     theme_state = await resolve_profile_theme_state(db, uid)
     last_game_at = (await fetch_users_last_game_at(db, [uid])).get(uid)
-    friend_status = await friend_status_for(db, viewer_id, uid)
+    friend_status = "none" if is_admin_viewer else await friend_status_for(db, viewer_id, uid)
     viewer_username = str(ident.get("username") or f"user{viewer_id}")
     target_username = user.username or f"user{uid}"
 
@@ -179,16 +181,17 @@ async def mini_profile(user_id: int, ident: Identity = Depends(get_identity), db
         online_ids = await fetch_effective_online_user_ids(r, [uid], base_online_ids=base_online_ids)
         online = uid in online_ids
 
-    await log_action(
-        db,
-        user_id=viewer_id,
-        username=viewer_username,
-        action="mini_profile_opened",
-        details=(
-            f"Открыт мини-профиль target_user={uid} "
-            f"target_username={target_username}"
-        ),
-    )
+    if not is_admin_viewer:
+        await log_action(
+            db,
+            user_id=viewer_id,
+            username=viewer_username,
+            action="mini_profile_opened",
+            details=(
+                f"Открыт мини-профиль target_user={uid} "
+                f"target_username={target_username}"
+            ),
+        )
 
     return UserMiniProfileOut(
         id=uid,

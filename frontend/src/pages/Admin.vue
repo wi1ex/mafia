@@ -708,7 +708,7 @@
                   <td>
                     <div v-if="row.username" class="user-cell">
                       <img class="user-avatar" v-minio-img="{ key: row.avatar_name ? `avatars/${row.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
-                      <button class="user-link" type="button" @click="openUserStats(row)">{{ row.username }}</button>
+                      <button class="user-link" type="button" @click="openUserMiniProfile(row)">{{ row.username }}</button>
                     </div>
                     <span v-else>-</span>
                   </td>
@@ -914,19 +914,15 @@
       @save="saveSubscription"
     />
 
-    <div v-if="userStatsOpen && userStatsTarget" class="user-stats-overlay">
-      <div class="user-stats-modal">
-        <header class="user-stats-head">
-          <span>Статистика: {{ userStatsTarget.username || `user${userStatsTarget.id}` }}</span>
-          <button type="button" aria-label="Закрыть" @click="closeUserStats">
-            <img :src="iconClose" alt="close" />
-          </button>
-        </header>
-        <div class="user-stats-body">
-          <ProfileStatsTab :key="`admin-user-stats-${userStatsTarget.id}`" :stats-url="`/admin/users/${userStatsTarget.id}/stats`" />
-        </div>
-      </div>
-    </div>
+    <UserMiniProfileModal
+      :open="userMiniProfileOpen"
+      :user-id="userMiniProfileTarget?.id ?? null"
+      :initial-profile="userMiniProfileTarget"
+      :stats-url="userMiniProfileStatsUrl"
+      show-stats-button
+      admin-mode
+      @update:open="onUserMiniProfileOpenUpdate"
+    />
   </section>
 </template>
 
@@ -942,7 +938,7 @@ import { useSettingsStore } from '@/store'
 import UpdateModal from '@/components/UpdateModal.vue'
 import SanctionModal from '@/components/SanctionModal.vue'
 import SubscriptionModal from '@/components/SubscriptionModal.vue'
-import ProfileStatsTab from '@/components/ProfileStatsTab.vue'
+import UserMiniProfileModal from '@/components/UserMiniProfileModal.vue'
 import ToggleSwitch from '@/components/ToggleSwitch.vue'
 import UiInput from '@/components/UiInput.vue'
 
@@ -1322,8 +1318,12 @@ const subscriptionForm = reactive({
   months: 0,
   days: 0,
 })
-const userStatsOpen = ref(false)
-const userStatsTarget = ref<UserRow | null>(null)
+const userMiniProfileOpen = ref(false)
+const userMiniProfileTarget = ref<UserRow | null>(null)
+const userMiniProfileStatsUrl = computed(() => {
+  const target = userMiniProfileTarget.value
+  return target ? `/admin/users/${target.id}/stats` : null
+})
 const updates = ref<UpdateRow[]>([])
 const updateModalOpen = ref(false)
 const updateSaving = ref(false)
@@ -1672,14 +1672,19 @@ function isNicknameDefault(row: UserRow | null | undefined): boolean {
   return String(row.username || '') === `user_${row.id}`
 }
 
-function openUserStats(row: UserRow): void {
-  userStatsTarget.value = row
-  userStatsOpen.value = true
+function openUserMiniProfile(row: UserRow): void {
+  userMiniProfileTarget.value = row
+  userMiniProfileOpen.value = true
 }
 
-function closeUserStats(): void {
-  userStatsOpen.value = false
-  userStatsTarget.value = null
+function closeUserMiniProfile(): void {
+  userMiniProfileOpen.value = false
+  userMiniProfileTarget.value = null
+}
+
+function onUserMiniProfileOpenUpdate(open: boolean): void {
+  userMiniProfileOpen.value = open
+  if (!open) userMiniProfileTarget.value = null
 }
 
 function formatRoomGame(row: RoomRow): string {
@@ -2555,8 +2560,8 @@ watch(activeTab, (tab) => {
   if (normalizeTab(route.query.tab) !== tab) {
     router.replace({ query: { ...route.query, tab } }).catch(() => {})
   }
-  if (tab !== 'users' && userStatsOpen.value) {
-    closeUserStats()
+  if (tab !== 'users' && userMiniProfileOpen.value) {
+    closeUserMiniProfile()
   }
   if (tab !== 'users' && tab !== 'subscriptions' && subscriptionModalOpen.value) {
     closeSubscriptionModal()
