@@ -1756,7 +1756,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       setDaySpeechRemainingMs(0, true)
       return
     }
-    if (hostBlurActive.value && daySpeech.currentId === speakerId) return
+    if (daySpeech.currentId === speakerId && daySpeech.remainingMs > 0) return
     if (!daySpeech.currentId || daySpeech.currentId === speakerId) {
       daySpeech.currentId = speakerId
       setDaySpeechRemainingMs(ms, true)
