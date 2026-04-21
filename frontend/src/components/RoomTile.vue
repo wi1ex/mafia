@@ -132,7 +132,7 @@
       </Transition>
     </div>
     <div v-if="showTimeline && timelineDurationSec > 0" class="role-timer">
-      <div class="role-timer-bar" :style="{ animationDuration: timelineDurationSec + 's' }" />
+      <div class="role-timer-bar" :style="{ animationDuration: timelineDurationSec + 's', animationPlayState: timelinePaused ? 'paused' : 'running' }" />
     </div>
   </div>
 </template>
@@ -198,6 +198,7 @@ const props = withDefaults(defineProps<{
   mafiaTalkRemainingMs?: number
   daySpeechOwnerId?: string
   daySpeechRemainingMs?: number
+  daySpeechPaused?: boolean
   redMark?: boolean
   gameRole?: string
   finishRoleBadge?: boolean
@@ -252,6 +253,7 @@ const props = withDefaults(defineProps<{
   mafiaTalkRemainingMs: 0,
   daySpeechOwnerId: '',
   daySpeechRemainingMs: 0,
+  daySpeechPaused: false,
   redMark: false,
   hiddenByVisibility: false,
   visibilityHiddenAvatar: '',
@@ -354,6 +356,7 @@ const hasMafiaTalkTimer = computed(() => props.mafiaTalkHostId === props.id && (
 const hasDaySpeechTimer = computed(() => props.daySpeechOwnerId === props.id && (props.daySpeechRemainingMs ?? 0) > 0)
 const hasNightTimer = computed(() => props.nightOwnerId === props.id && (props.nightRemainingMs ?? 0) > 0)
 const showTimeline = computed(() => hasRolePickTimer.value || hasMafiaTalkTimer.value || hasDaySpeechTimer.value || hasNightTimer.value)
+const timelinePaused = computed(() => hasDaySpeechTimer.value && props.daySpeechPaused)
 const timelineDurationSec = computed(() => {
   let ms = 0
   if (hasRolePickTimer.value) ms = props.rolePickRemainingMs ?? 0

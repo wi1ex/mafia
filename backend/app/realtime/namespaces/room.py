@@ -116,6 +116,7 @@ from ..utils import (
     maybe_end_game_if_room_presence_low,
     cancel_host_blur_auto_task,
     schedule_host_blur_auto_off,
+    apply_host_blur_state,
     finish_game,
     record_spectator_leave,
     maybe_emit_vote_presence_break,
@@ -724,27 +725,22 @@ async def game_host_blur(sid, data) -> GameHostBlurAck:
         want_raw = payload.get("on") if isinstance(payload, dict) else None
         current = ctx.gbool("host_blur")
         want = (not current) if want_raw is None else bool(want_raw)
+        if want == current:
+            return {"ok": True, "room_id": ctx.rid, "enabled": current}
+
+        event_payload = await apply_host_blur_state(ctx.r, ctx.rid, ctx.gstate, want)
         if want:
-            started_at = int(time())
-            await ctx.r.hset(
-                f"room:{ctx.rid}:game_state",
-                mapping={"host_blur": "1", "host_blur_started_at": str(started_at)},
-            )
-            schedule_host_blur_auto_off(ctx.rid, started_at)
+            schedule_host_blur_auto_off(ctx.rid, int(event_payload.get("started_at") or int(time())))
         else:
-            await ctx.r.hset(
-                f"room:{ctx.rid}:game_state",
-                mapping={"host_blur": "0", "host_blur_started_at": "0"},
-            )
             cancel_host_blur_auto_task(ctx.rid)
         await sio.emit(
             "game_host_blur",
-            {"room_id": ctx.rid, "enabled": want},
+            event_payload,
             room=f"room:{ctx.rid}",
             namespace="/room",
         )
 
-        return {"ok": True, "room_id": ctx.rid, "enabled": want}
+        return {"ok": True, **event_payload}
 
     except Exception:
         log.exception("sio.game_host_blur.error", sid=sid)
@@ -4076,8 +4072,7 @@ async def game_vote_speech_next(sid, data):
         speech_started = ctx.gint("vote_speech_started")
         speech_duration = ctx.gint("vote_speech_duration")
         vote_lift_state = ctx.gstr("vote_lift_state")
-        now_ts = int(time())
-        if cur_speaker and speech_started and speech_duration > 0 and now_ts < speech_started + speech_duration:
+        if cur_speaker and speech_started and speech_duration > 0 and ctx.deadline("vote_speech_started", "vote_speech_duration", freeze_on_host_blur=True) > 0:
             return {"ok": False, "error": "speech_in_progress", "status": 409}
 
         leaders = ctx.gcsv_ints("vote_leaders_order")

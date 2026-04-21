@@ -143,6 +143,8 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   const votedThisRound = reactive(new Set<string>())
   const voteStartedForCurrent = ref(false)
   const daySpeechTimerId = ref<number | null>(null)
+  let daySpeechTimerEndsAt = 0
+  let daySpeechPausedRemainingMs = 0
   const daySpeechesDone = ref(false)
   const foulActive = reactive(new Set<string>())
   const winkKnockEnabled = ref(true)
@@ -1730,16 +1732,34 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   }
 
   function handleGameHostBlur(p: any) {
+    let updated = false
     if (p && 'enabled' in p) {
       hostBlurActive.value = isTrueLike((p as any).enabled)
-      return
+      updated = true
     }
     if (p && 'host_blur' in p) {
       hostBlurActive.value = isTrueLike((p as any).host_blur)
-      return
+      updated = true
     }
     if (p && 'on' in p) {
       hostBlurActive.value = isTrueLike((p as any).on)
+      updated = true
+    }
+
+    if (!updated) return
+
+    const speech = (p as any)?.speech
+    if (!speech || typeof speech !== 'object') return
+    const speakerId = String((speech as any).speaker_uid || '')
+    const ms = secondsToMs((speech as any).deadline)
+    if (!speakerId || ms <= 0) {
+      setDaySpeechRemainingMs(0, true)
+      return
+    }
+    if (hostBlurActive.value && daySpeech.currentId === speakerId) return
+    if (!daySpeech.currentId || daySpeech.currentId === speakerId) {
+      daySpeech.currentId = speakerId
+      setDaySpeechRemainingMs(ms, true)
     }
   }
 
@@ -2029,9 +2049,68 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     setTimerWithLatency(mafiaTalk, ms, mafiaTalkTimerId, changed)
   }
 
-  function setDaySpeechRemainingMs(ms: number, changed: boolean) {
-    setTimerWithLatency(daySpeech, ms, daySpeechTimerId, changed)
+  function clearDaySpeechTimeout(): void {
+    if (daySpeechTimerId.value != null) {
+      clearTimeout(daySpeechTimerId.value)
+      daySpeechTimerId.value = null
+    }
   }
+
+  function finishDaySpeechTimeout(): void {
+    daySpeech.remainingMs = 0
+    daySpeechTimerId.value = null
+    daySpeechTimerEndsAt = 0
+    daySpeechPausedRemainingMs = 0
+  }
+
+  function armDaySpeechTimeout(ms: number): void {
+    clearDaySpeechTimeout()
+    daySpeechTimerEndsAt = Date.now() + ms
+    daySpeechTimerId.value = window.setTimeout(finishDaySpeechTimeout, ms)
+  }
+
+  function setDaySpeechRemainingMs(ms: number, changed: boolean) {
+    const safe = !changed ? withLatency(ms) : ms
+    daySpeech.remainingMs = safe
+    clearDaySpeechTimeout()
+    daySpeechTimerEndsAt = safe > 0 ? Date.now() + safe : 0
+    daySpeechPausedRemainingMs = hostBlurActive.value && safe > 0 ? safe : 0
+    if (safe > 0 && !hostBlurActive.value) {
+      daySpeechTimerId.value = window.setTimeout(finishDaySpeechTimeout, safe)
+    } else if (safe <= 0) {
+      daySpeechPausedRemainingMs = 0
+    }
+  }
+
+  function pauseDaySpeechTimer(): void {
+    if (!daySpeech.currentId || daySpeech.remainingMs <= 0) return
+    const remaining = daySpeechTimerEndsAt > 0
+      ? Math.max(daySpeechTimerEndsAt - Date.now(), 0)
+      : Math.max(daySpeechPausedRemainingMs || daySpeech.remainingMs, 0)
+    clearDaySpeechTimeout()
+    daySpeechTimerEndsAt = 0
+    daySpeechPausedRemainingMs = remaining
+    if (remaining <= 0) finishDaySpeechTimeout()
+  }
+
+  function resumeDaySpeechTimer(): void {
+    if (!daySpeech.currentId || daySpeech.remainingMs <= 0) {
+      daySpeechPausedRemainingMs = 0
+      return
+    }
+    const remaining = Math.max(daySpeechPausedRemainingMs || daySpeech.remainingMs, 0)
+    daySpeechPausedRemainingMs = 0
+    if (remaining <= 0) {
+      finishDaySpeechTimeout()
+      return
+    }
+    armDaySpeechTimeout(remaining)
+  }
+
+  watch(hostBlurActive, (active) => {
+    if (active) pauseDaySpeechTimer()
+    else resumeDaySpeechTimer()
+  })
 
   function handleGamePhaseChange(p: any) {
     const to = String(p?.to || '') as GamePhase

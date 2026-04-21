@@ -164,6 +164,7 @@ __all__ = [
     "sync_user_active_alive_game_marker",
     "cancel_host_blur_auto_task",
     "schedule_host_blur_auto_off",
+    "apply_host_blur_state",
 ]
 
 log = structlog.get_logger()
@@ -468,6 +469,96 @@ def cancel_host_blur_auto_task(rid: int) -> None:
         task.cancel()
 
 
+def _host_blur_speech_payload(raw_state: Mapping[str, Any], *, now_ts: int) -> dict[str, Any] | None:
+    phase = str(raw_state.get("phase") or "")
+    if phase == "day":
+        uid = GameActionContext.as_int(raw_state.get("day_current_uid"), 0)
+        started = GameActionContext.as_int(raw_state.get("day_speech_started"), 0)
+        duration = GameActionContext.as_int(raw_state.get("day_speech_duration"), 0)
+        if uid <= 0 or started <= 0 or duration <= 0:
+            return None
+
+        return {
+            "phase": "day",
+            "speaker_uid": uid,
+            "deadline": max(started + duration - now_ts, 0),
+        }
+
+    if phase == "vote":
+        uid = GameActionContext.as_int(raw_state.get("vote_speech_uid"), 0)
+        started = GameActionContext.as_int(raw_state.get("vote_speech_started"), 0)
+        duration = GameActionContext.as_int(raw_state.get("vote_speech_duration"), 0)
+        if uid <= 0 or started <= 0 or duration <= 0:
+            return None
+
+        return {
+            "phase": "vote",
+            "speaker_uid": uid,
+            "deadline": max(started + duration - now_ts, 0),
+            "kind": str(raw_state.get("vote_speech_kind") or ""),
+        }
+
+    return None
+
+
+def _host_blur_resume_speech_mapping(raw_state: Mapping[str, Any], *, pause_started: int, now_ts: int) -> dict[str, str]:
+    phase = str(raw_state.get("phase") or "")
+    if pause_started <= 0 or now_ts <= pause_started:
+        return {}
+
+    if phase == "day":
+        uid = GameActionContext.as_int(raw_state.get("day_current_uid"), 0)
+        started = GameActionContext.as_int(raw_state.get("day_speech_started"), 0)
+        duration = GameActionContext.as_int(raw_state.get("day_speech_duration"), 0)
+        started_key = "day_speech_started"
+    elif phase == "vote":
+        uid = GameActionContext.as_int(raw_state.get("vote_speech_uid"), 0)
+        started = GameActionContext.as_int(raw_state.get("vote_speech_started"), 0)
+        duration = GameActionContext.as_int(raw_state.get("vote_speech_duration"), 0)
+        started_key = "vote_speech_started"
+    else:
+        return {}
+
+    if uid <= 0 or started <= 0 or duration <= 0:
+        return {}
+
+    pause_effective_from = max(pause_started, started)
+    if started + duration <= pause_effective_from:
+        return {}
+
+    return {started_key: str(started + max(now_ts - pause_effective_from, 0))}
+
+
+async def apply_host_blur_state(r, rid: int, raw_state: Mapping[str, Any], enabled: bool, *, auto: bool = False) -> dict[str, Any]:
+    now_ts = int(time())
+    if enabled:
+        payload: dict[str, Any] = {"room_id": rid, "enabled": True, "started_at": now_ts}
+        speech = _host_blur_speech_payload(raw_state, now_ts=now_ts)
+        if speech:
+            payload["speech"] = speech
+        await r.hset(
+            f"room:{rid}:game_state",
+            mapping={"host_blur": "1", "host_blur_started_at": str(now_ts)},
+        )
+        return payload
+
+    pause_started = GameActionContext.as_int(raw_state.get("host_blur_started_at"), 0)
+    if pause_started <= 0:
+        pause_started = now_ts
+
+    payload = {"room_id": rid, "enabled": False}
+    if auto:
+        payload["auto"] = True
+    speech = _host_blur_speech_payload(raw_state, now_ts=pause_started)
+    if speech:
+        payload["speech"] = speech
+
+    mapping = {"host_blur": "0", "host_blur_started_at": "0"}
+    mapping.update(_host_blur_resume_speech_mapping(raw_state, pause_started=pause_started, now_ts=now_ts))
+    await r.hset(f"room:{rid}:game_state", mapping=mapping)
+    return payload
+
+
 def schedule_host_blur_auto_off(rid: int, started_at: int) -> None:
     cancel_host_blur_auto_task(rid)
     task: asyncio.Task[None] | None = None
@@ -498,13 +589,10 @@ def schedule_host_blur_auto_off(rid: int, started_at: int) -> None:
             if current_started != started_at:
                 return
 
-            await r.hset(
-                f"room:{rid}:game_state",
-                mapping={"host_blur": "0", "host_blur_started_at": "0"},
-            )
+            payload = await apply_host_blur_state(r, rid, raw_state, False, auto=True)
             await sio.emit(
                 "game_host_blur",
-                {"room_id": rid, "enabled": False, "auto": True},
+                payload,
                 room=f"room:{rid}",
                 namespace="/room",
             )
@@ -515,7 +603,7 @@ def schedule_host_blur_auto_off(rid: int, started_at: int) -> None:
         finally:
             current = _host_blur_auto_tasks.get(rid)
             if current is task:
-                await _host_blur_auto_tasks.pop(rid, None)
+                del _host_blur_auto_tasks[rid]
 
     task = asyncio.create_task(_runner())
     _host_blur_auto_tasks[rid] = task
@@ -724,13 +812,19 @@ class GameActionContext:
         return out
 
 
-    def deadline(self, started_key: str, duration_key: str, *, default_duration: int | None = None) -> int:
+    def deadline(self, started_key: str, duration_key: str, *, default_duration: int | None = None, freeze_on_host_blur: bool = False) -> int:
         started = self.gint(started_key)
         duration = self.gint(duration_key, default_duration if default_duration is not None else 0)
         if started <= 0 or duration <= 0:
             return 0
 
-        return max(started + duration - int(time()), 0)
+        now_ts = int(time())
+        if freeze_on_host_blur and self.gbool("host_blur"):
+            paused_at = self.gint("host_blur_started_at")
+            if paused_at > 0:
+                now_ts = paused_at
+
+        return max(started + duration - now_ts, 0)
 
 
     def ensure_phase(self, allowed: Iterable[str] | str, *, error: str = "bad_phase", status: int = 400):
@@ -820,6 +914,7 @@ class GameStateView:
             "day_speech_started",
             "day_speech_duration",
             default_duration=get_cached_settings().player_talk_seconds,
+            freeze_on_host_blur=True,
         )
 
         day_section: dict[str, Any] = {
@@ -894,7 +989,7 @@ class GameStateView:
             "vote_duration",
             default_duration=get_cached_settings().vote_seconds,
         )
-        speech_remaining = self.ctx.deadline("vote_speech_started", "vote_speech_duration")
+        speech_remaining = self.ctx.deadline("vote_speech_started", "vote_speech_duration", freeze_on_host_blur=True)
 
         leaders = self.ctx.gcsv_ints("vote_leaders_order")
         leader_idx = self.ctx.gint("vote_leader_idx")

@@ -102,3 +102,6 @@ class GameHostBlurAck(TypedDict, total=False):
     error: str
     room_id: int
     enabled: bool
+    started_at: int
+    auto: bool
+    speech: dict[str, object]
