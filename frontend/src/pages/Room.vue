@@ -286,15 +286,16 @@
             <img :src="stateIcon('cam', localId)" alt="cam" />
               <span v-if="!IS_MOBILE && hotkeysVisible" class="hot-btn">C</span>
           </button>
-          <button v-if="gamePhase !== 'idle' && isHead" @click="toggleHostBlur" :disabled="!hostBlurToggleEnabled || hostBlurPending" :aria-pressed="hostBlurActive" aria-label="Затемнить экран">
-            <img :src="hostBlurActive ? iconBlurOn : iconBlurOff" alt="blur" />
-          </button>
           <button v-if="gamePhase === 'idle'" @click="toggleSpeakers" :disabled="pending.speakers || blockedSelf.speakers === 1" :aria-pressed="speakersOn">
             <img :src="stateIcon('speakers', localId)" alt="speakers" />
               <span v-if="!IS_MOBILE && hotkeysVisible" class="hot-btn">S</span>
           </button>
           <button v-if="gamePhase === 'idle' && !IS_MOBILE && settings.streamsCanStart" @click="toggleScreen" :disabled="pendingScreen || (!!screenOwnerId && screenOwnerId !== localId) || blockedSelf.screen === 1" :aria-pressed="isMyScreen">
             <img :src="stateIcon('screen', localId)" alt="screen" />
+          </button>
+          <button v-if="gamePhase !== 'idle' && isHead" @click="toggleHostBlur" :disabled="!hostBlurToggleEnabled || hostBlurPending" :aria-pressed="hostBlurActive" aria-label="Затемнить экран">
+            <img :src="hostBlurActive ? iconBlurOn : iconBlurOff" alt="blur" />
+              <span v-if="!IS_MOBILE && hotkeysVisible" class="hot-btn">P</span>
           </button>
         </div>
 
@@ -1061,9 +1062,35 @@ function onHotkey(e: KeyboardEvent) {
   if (isEditableTarget(e.target)) return
   if (confirmState.open) return
   if (e.ctrlKey || e.altKey || e.metaKey || e.shiftKey) return
+  const code = e.code
+
+  if (code === 'KeyP') {
+    if (gamePhase.value !== 'idle' && isHead.value && hostBlurToggleEnabled.value && !hostBlurPending.value) {
+      e.preventDefault()
+      e.stopPropagation()
+      void toggleHostBlur()
+    }
+    return
+  }
+  if (code === 'KeyC') {
+    if ((gamePhase.value === 'idle' || isHead.value) && !pending.cam && !blockedSelf.value.cam) {
+      e.preventDefault()
+      e.stopPropagation()
+      void toggleCam()
+    }
+    return
+  }
+  if (code === 'KeyM') {
+    if ((gamePhase.value === 'idle' || isHead.value) && !pending.mic && !blockedSelf.value.mic) {
+      e.preventDefault()
+      e.stopPropagation()
+      void toggleMic()
+    }
+    return
+  }
+
   if (hostBlurActive.value) return
   if (gamePhase.value !== 'idle' && !(isHead.value || amIAlive.value)) return
-  const code = e.code
 
   if (code === 'Enter' || code === 'NumpadEnter') {
     if (gamePhase.value !== 'idle' && canShowTakeFoulSelf.value && canTakeFoulSelf.value && !foulPending.value) {
@@ -1090,23 +1117,6 @@ function onHotkey(e: KeyboardEvent) {
       e.preventDefault()
       e.stopPropagation()
       toggleKnownRolesUi()
-    }
-    return
-  }
-
-  if (code === 'KeyC') {
-    if ((gamePhase.value === 'idle' || isHead.value) && !pending.cam && !blockedSelf.value.cam) {
-      e.preventDefault()
-      e.stopPropagation()
-      void toggleCam()
-    }
-    return
-  }
-  if (code === 'KeyM') {
-    if ((gamePhase.value === 'idle' || isHead.value) && !pending.mic && !blockedSelf.value.mic) {
-      e.preventDefault()
-      e.stopPropagation()
-      void toggleMic()
     }
     return
   }
