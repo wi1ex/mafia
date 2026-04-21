@@ -10,6 +10,7 @@ from ..core.clients import get_redis
 from ..core.db import SessionLocal
 from ..core.settings import settings
 from ..security.admin_guard import normalize_protected_admin_role
+from ..services.presence import touch_user_activity
 from ..services.user_cache import read_user_profile_cache, refresh_user_profile_cache
 from ..schemas.common import Identity
 
@@ -111,6 +112,8 @@ async def get_identity(creds: HTTPAuthorizationCredentials = Depends(HTTPBearer(
         if str(role or "").strip().lower() == "admin" and normalized_role != "admin":
             log.warning("auth.non_protected_admin_role_blocked", uid=uid)
         role = normalized_role
+
+        await touch_user_activity(uid)
 
         return {"id": uid, "role": role, "username": username}
 

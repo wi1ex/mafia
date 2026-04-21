@@ -109,7 +109,7 @@
       <div v-else class="theater">
         <div class="stage">
           <video :ref="(el) => stableScreenRef(screenOwnerId)(el as HTMLVideoElement | null)" playsinline autoplay muted />
-          <div v-if="screenOwnerId" class="screen-quality" :class="`screen-quality-${screenQuality}`">
+          <div v-if="screenOwnerId" class="screen-quality" :class="`screen-quality-${screenQuality}`" :title="SCREEN_QUALITY_HINT" :aria-label="`${screenQualityLabel}: ${SCREEN_QUALITY_HINT}`">
             {{ screenQualityLabel }}
           </div>
           <div v-if="screenOwnerId !== localId && streamAudioKey" class="volume" @click.stop>
@@ -713,6 +713,7 @@ const ws_url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.
 const isTheater = computed(() => !!screenOwnerId.value)
 const isMyScreen = computed(() => !!localId.value && screenOwnerId.value === localId.value)
 const streamAudioKey = computed(() => screenOwnerId.value ? rtc.screenKey(screenOwnerId.value) : '')
+const SCREEN_QUALITY_HINT = 'HD-качество доступно для обладателей подписки'
 const screenQualityLabel = computed(() => screenQuality.value === 'high' ? 'HD' : 'SD')
 function normalizeScreenQuality(raw: unknown, fallback: ScreenShareQuality = 'low'): ScreenShareQuality {
   return raw === 'high' ? 'high' : raw === 'low' ? 'low' : fallback
@@ -3151,7 +3152,7 @@ onBeforeUnmount(() => {
         font-size: 16px;
         font-weight: bold;
         box-shadow: 3px 3px 5px rgba($black, 0.25);
-        pointer-events: none;
+        pointer-events: auto;
       }
       .volume {
         display: flex;
