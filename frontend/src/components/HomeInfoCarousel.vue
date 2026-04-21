@@ -23,7 +23,7 @@
 
               <div class="info-banner">
                 <span class="info-banner-title">Приятные бонусы</span>
-                <p>Возможность кастомизировать профиль (GIF-аватары, выбор цвета и иконки профиля), создавать скрытые комнаты, трансляции в HD-качестве.</p>
+                <p>Возможность кастомизировать профиль (GIF-аватары, выбор цвета и иконки профиля), создавать скрытые комнаты и HD-трансляции.</p>
               </div>
 
               <div class="slide-actions">
@@ -415,7 +415,7 @@ onBeforeUnmount(() => {
     }
     .slide-highlight-label {
       color: $ashy;
-      font-size: 12px;
+      font-size: 14px;
       line-height: 1.2;
     }
     .slide-grid {
@@ -435,7 +435,7 @@ onBeforeUnmount(() => {
       p {
         margin: 0;
         color: $ashy;
-        font-size: 12px;
+        font-size: 14px;
         line-height: 1.2;
       }
     }
