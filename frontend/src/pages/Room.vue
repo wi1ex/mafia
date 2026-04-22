@@ -725,8 +725,8 @@ const ws_url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.
 const isTheater = computed(() => !!screenOwnerId.value)
 const isMyScreen = computed(() => !!localId.value && screenOwnerId.value === localId.value)
 const streamAudioKey = computed(() => screenOwnerId.value ? rtc.screenKey(screenOwnerId.value) : '')
-const SCREEN_QUALITY_HINT = 'HD-качество доступно для обладателей подписки'
-const screenQualityLabel = computed(() => screenQuality.value === 'high' ? 'HD' : 'SD')
+const SCREEN_QUALITY_HINT = 'FULLHD-качество доступно для обладателей подписки'
+const screenQualityLabel = computed(() => screenQuality.value === 'high' ? '1080p' : '540p')
 function normalizeScreenQuality(raw: unknown, fallback: ScreenShareQuality = 'low'): ScreenShareQuality {
   return raw === 'high' ? 'high' : raw === 'low' ? 'low' : fallback
 }
