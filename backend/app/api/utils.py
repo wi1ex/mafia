@@ -19,7 +19,6 @@ from ..core.logging import log_action
 from ..core.roles import ROLE_USER, admin_users_role_sort_value, normalize_user_role
 from ..core.settings import settings
 from ..models.game import Game
-from ..models.log import AppLog
 from ..models.room import Room
 from ..models.friend import FriendLink
 from ..models.notif import Notif
@@ -59,8 +58,6 @@ __all__ = [
     "build_room_members_for_info",
     "get_room_params_or_404",
     "touch_user_last_login",
-    "touch_user_last_visit",
-    "touch_user_online",
     "active_alive_game_room_key",
     "active_game_rooms_key",
     "redis_text",
@@ -86,7 +83,7 @@ __all__ = [
     "build_active_users_monthly_series",
     "schedule_user_game_stats_cache_invalidation",
     "calc_total_stream_seconds",
-    "calc_stream_seconds_in_range",
+    "calc_room_stream_seconds_in_range",
     "fetch_active_rooms_stats",
     "fetch_online_user_ids",
     "fetch_effective_online_user_ids",
@@ -218,7 +215,6 @@ def schedule_user_game_stats_cache_invalidation(log_event: str, **log_kwargs: ob
 
 PRESIGN_ALLOWED_PREFIXES: tuple[str, ...] = ("avatars/", "chat/global/images/")
 PRESIGN_KEY_RE = re.compile(r"^[a-zA-Z0-9._/-]{3,256}$")
-STREAM_LOG_RE = re.compile(r"room_id=(\d+)\s+target_user=(\d+)")
 BOT_USERNAME_RE = re.compile(r"^[a-zA-Zа-яА-ЯёЁ0-9._\-()]{2,20}$")
 CHAT_MENTION_QUERY_RE = re.compile(r"^[a-zA-Zа-яА-ЯёЁ0-9._\-()]{1,20}$")
 PWD_CTRL_RE = re.compile(r"[\x00-\x1F\x7F]")
@@ -2863,77 +2859,69 @@ async def build_active_users_monthly_series(session: AsyncSession) -> list[Regis
 
 
 async def calc_total_stream_seconds(session: AsyncSession) -> int:
-    first_log = await session.scalar(select(func.min(AppLog.created_at)).where(AppLog.action.in_(("stream_start", "stream_stop"))))
-    if first_log:
-        now = datetime.now(timezone.utc)
-        return await calc_stream_seconds_in_range(session, first_log, now)
-
     total_stream_seconds = 0
-    rooms_rows = await session.execute(select(Room.created_at, Room.deleted_at, Room.screen_time))
-    for _created_at, _deleted_at, screen_time in rooms_rows.all():
-        if isinstance(screen_time, dict):
-            for v in screen_time.values():
-                try:
-                    total_stream_seconds += int(v or 0)
-                except Exception:
-                    continue
+    rows = await session.execute(select(Room.id, Room.deleted_at, Room.screen_time))
+    room_rows = rows.all()
+    active_room_ids = [int(rid) for rid, deleted_at, _screen_time in room_rows if deleted_at is None]
+    live_stats: dict[int, dict[str, Any]] = {}
+    if active_room_ids:
+        try:
+            live_stats = await fetch_live_room_stats(get_redis(), sorted(set(active_room_ids)))
+        except Exception:
+            log.warning("admin_stats.total_stream.live_fetch_failed", rooms=len(active_room_ids))
+
+    for rid, deleted_at, screen_time in room_rows:
+        live = live_stats.get(int(rid)) if deleted_at is None else None
+        if live:
+            try:
+                total_stream_seconds += int(live.get("stream_seconds") or 0)
+            except Exception:
+                continue
+        else:
+            total_stream_seconds += sum_room_stream_seconds(screen_time)
 
     return total_stream_seconds
 
 
-def parse_stream_log_details(details: str) -> tuple[int, int] | None:
-    if not details:
-        return None
+async def calc_room_stream_seconds_in_range(session: AsyncSession, start_dt: datetime, end_dt: datetime) -> int:
+    if end_dt <= start_dt:
+        return 0
 
-    match = STREAM_LOG_RE.search(details)
-    if not match:
-        return None
-
-    try:
-        rid = int(match.group(1))
-        uid = int(match.group(2))
-    except Exception:
-        return None
-
-    if rid <= 0 or uid <= 0:
-        return None
-
-    return rid, uid
-
-
-async def calc_stream_seconds_in_range(session: AsyncSession, start_dt: datetime, end_dt: datetime) -> int:
     rows = await session.execute(
-        select(AppLog.action, AppLog.details, AppLog.created_at)
-        .where(
-            AppLog.action.in_(("stream_start", "stream_stop")),
-            AppLog.created_at >= start_dt,
-            AppLog.created_at < end_dt,
+        select(Room.id, Room.created_at, Room.deleted_at, Room.screen_time).where(
+            Room.created_at < end_dt,
+            Room.created_at >= start_dt,
         )
-        .order_by(AppLog.created_at)
     )
-    active: dict[tuple[int, int], datetime] = {}
-    total_seconds = 0
-    for action, details, created_at in rows.all():
-        parsed = parse_stream_log_details(str(details or ""))
-        if not parsed:
-            continue
-        key = (parsed[0], parsed[1])
-        if action == "stream_start":
-            active[key] = created_at
-            continue
-        if action == "stream_stop":
-            start_at = active.pop(key, None) or start_dt
-            seg_start = start_at if start_at > start_dt else start_dt
-            seg_end = created_at if created_at < end_dt else end_dt
-            if seg_end > seg_start:
-                total_seconds += int((seg_end - seg_start).total_seconds())
-    if active:
-        for start_at in active.values():
-            seg_start = start_at if start_at > start_dt else start_dt
-            if end_dt > seg_start:
-                total_seconds += int((end_dt - seg_start).total_seconds())
+    room_rows = rows.all()
+    if not room_rows:
+        return 0
 
-    return total_seconds
+    active_room_ids = [int(rid) for rid, _created_at, deleted_at, _screen_time in room_rows if deleted_at is None]
+    live_stats: dict[int, dict[str, Any]] = {}
+    if active_room_ids:
+        try:
+            live_stats = await fetch_live_room_stats(get_redis(), sorted(set(active_room_ids)))
+        except Exception:
+            log.warning("admin_stats.period_stream.live_fetch_failed", rooms=len(active_room_ids))
+
+    total_stream_seconds = 0
+    for rid, _created_at, deleted_at, screen_time in room_rows:
+        live = live_stats.get(int(rid)) if deleted_at is None else None
+        if live:
+            try:
+                stream_seconds = max(0, int(live.get("stream_seconds") or 0))
+            except Exception:
+                stream_seconds = 0
+        else:
+            stream_seconds = max(0, sum_room_stream_seconds(screen_time))
+
+        if stream_seconds <= 0:
+            continue
+
+        total_stream_seconds += stream_seconds
+
+    return total_stream_seconds
 
 
 def online_cutoff_ts(now_ts: int | None = None) -> int:
@@ -2942,18 +2930,6 @@ def online_cutoff_ts(now_ts: int | None = None) -> int:
         now_ts = int(time())
 
     return int(now_ts) - ttl
-
-
-async def touch_user_online(r, user_id: int) -> None:
-    try:
-        uid = int(user_id)
-    except Exception:
-        return
-
-    if uid <= 0:
-        return
-
-    await r.zadd("online:users:seen", {str(uid): int(time())})
 
 
 def active_alive_game_room_key(user_id: int) -> str:
@@ -3855,19 +3831,15 @@ async def aggregate_user_room_time_stats(session: AsyncSession, ids: list[int], 
 
         current_season = len(starts)
         include_active_rooms = season_no == current_season
-        if season_no == current_season:
-            scope_parts = [Room.deleted_at.is_(None)]
-            if season_start_dt is not None:
-                scope_parts.append(and_(Room.deleted_at.is_not(None), Room.deleted_at >= season_start_dt))
-            season_scope = or_(*scope_parts)
-        else:
-            if season_start_dt is None or season_end_dt is None:
+        if season_start_dt is None:
+            return rooms_created, room_seconds, stream_seconds, spectator_seconds
+
+        season_scope_parts = [Room.created_at >= season_start_dt]
+        if season_no != current_season:
+            if season_end_dt is None:
                 return rooms_created, room_seconds, stream_seconds, spectator_seconds
-            season_scope = and_(
-                Room.deleted_at.is_not(None),
-                Room.deleted_at >= season_start_dt,
-                Room.deleted_at <= season_end_dt,
-            )
+            season_scope_parts.append(Room.created_at <= season_end_dt)
+        season_scope = and_(*season_scope_parts)
 
     counts_q = select(Room.creator, func.count(Room.id)).where(Room.creator.in_(ids))
     if season_scope is not None:
@@ -4239,11 +4211,6 @@ async def build_room_members_for_info(r, room_id: int) -> list[Dict[str, Any]]:
 
 async def touch_user_last_login(db: AsyncSession, user_id: int) -> None:
     await db.execute(update(User).where(User.id == user_id).values(last_login_at=func.now()))
-    await db.commit()
-
-
-async def touch_user_last_visit(db: AsyncSession, user_id: int) -> None:
-    await db.execute(update(User).where(User.id == user_id).values(last_visit_at=func.now()))
     await db.commit()
 
 

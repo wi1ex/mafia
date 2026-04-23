@@ -102,7 +102,7 @@ from ..utils import (
     build_active_users_series,
     build_active_users_monthly_series,
     calc_total_stream_seconds,
-    calc_stream_seconds_in_range,
+    calc_room_stream_seconds_in_range,
     fetch_active_rooms_stats,
     fetch_online_user_ids,
     fetch_effective_online_user_ids,
@@ -277,8 +277,8 @@ async def site_stats(month: str | None = None, session: AsyncSession = Depends(g
     games_monthly = await build_games_monthly_series(session)
     active_users_monthly = await build_active_users_monthly_series(session)
     total_stream_seconds = await calc_total_stream_seconds(session)
-    day_stream_seconds = await calc_stream_seconds_in_range(session, day_start, now)
-    month_stream_seconds = await calc_stream_seconds_in_range(session, month_start, month_end)
+    day_stream_seconds = await calc_room_stream_seconds_in_range(session, day_start, now)
+    month_stream_seconds = await calc_room_stream_seconds_in_range(session, month_start, month_end)
 
     r = get_redis()
     active_room_users = await fetch_active_rooms_stats(r)
