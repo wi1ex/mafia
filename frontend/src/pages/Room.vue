@@ -9,7 +9,7 @@
         <div v-if="gameOverlayVisible" class="reconnect-overlay load-game" aria-live="polite">{{ gameOverlayText }}</div>
       </Transition>
       <Transition name="host-blur">
-        <div v-if="hostBlurVisible" class="host-blur-overlay" :class="{ 'host-blur-overlay-head': isHead }" aria-hidden="true">Пауза…</div>
+        <div v-if="hostBlurVisible" class="host-blur-overlay" :class="{ 'host-blur-overlay-head': hostBlurUsesHeadView }" aria-hidden="true">Пауза…</div>
       </Transition>
       <div v-if="!isTheater" class="grid" :style="gridStyle">
         <RoomTile
@@ -771,6 +771,7 @@ const isSpectatorInGame = computed(() => {
 const hostBlurPending = ref(false)
 const hostBlurToggleEnabled = computed(() => gamePhase.value === 'day' || gamePhase.value === 'vote')
 const hostBlurVisible = computed(() => gamePhase.value !== 'idle' && hostBlurActive.value)
+const hostBlurUsesHeadView = computed(() => isHead.value || isSpectatorInGame.value)
 const hostBlurLocksControls = computed(() => isHead.value && hostBlurActive.value)
 const ACTION_PHASES = ['day', 'vote', 'night'] as const
 const canShowLeaveGameButton = computed(() =>
