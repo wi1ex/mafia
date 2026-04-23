@@ -243,38 +243,78 @@
           <button class="btn-text" @click="onProbeClick">Разрешить доступ к камере и микрофону</button>
         </div>
         <div v-else-if="!gameFinished" class="controls">
-          <button v-if="canShowHeadGoToMafiaTalkControl" class="btn-text" :disabled="!canHeadGoToMafiaTalkControl" @click="goToMafiaTalkUi" aria-label="Перейти к договорке">Начать договорку</button>
-          <button v-if="canHeadFinishMafiaTalkControl" class="btn-text" @click="finishMafiaTalkUi" aria-label="Завершить договорку">Завершить договорку</button>
-          <button v-if="canShowStartDay" class="btn-text" :disabled="!canStartDay" @click="startDayUi" aria-label="Начать день">День</button>
+          <button v-if="canShowHeadGoToMafiaTalkControl" class="btn-text" :disabled="!canHeadGoToMafiaTalkControl" @click="goToMafiaTalkUi" aria-label="Перейти к договорке">
+            Начать договорку
+            <span v-if="showSpaceHotkeyHint('goToMafiaTalk')" class="hot-btn">_</span>
+          </button>
+          <button v-if="canHeadFinishMafiaTalkControl" class="btn-text" @click="finishMafiaTalkUi" aria-label="Завершить договорку">
+            Завершить договорку
+            <span v-if="showSpaceHotkeyHint('finishMafiaTalk')" class="hot-btn">_</span>
+          </button>
+          <button v-if="canShowStartDay" class="btn-text" :disabled="!canStartDay" @click="startDayUi" aria-label="Начать день">
+            День
+            <span v-if="showSpaceHotkeyHint('startDay')" class="hot-btn">_</span>
+          </button>
           <button v-if="canShowFinishSpeechHead" class="btn-text" :disabled="hostBlurLocksControls || !canFinishSpeechHead" @click="finishSpeechUi" aria-label="Завершить речь">
             Завершить речь
-            <span v-if="!IS_MOBILE && hotkeysVisible" class="hot-btn">_</span>
+            <span v-if="showSpaceHotkeyHint('finishSpeechHead')" class="hot-btn">_</span>
           </button>
           <button v-else-if="canShowPassSpeechHead" class="btn-text" :disabled="hostBlurLocksControls || !canPassSpeechHead" @click="passSpeechUi" aria-label="Передать речь">
             Передать речь
-            <span v-if="!IS_MOBILE && hotkeysVisible" class="hot-btn">_</span>
+            <span v-if="showSpaceHotkeyHint('passSpeechHead')" class="hot-btn">_</span>
           </button>
-          <button v-if="canStartVote" class="btn-text" :disabled="hostBlurLocksControls" @click="startVoteUi">Начать голосование</button>
+          <button v-if="canStartVote" class="btn-text" :disabled="hostBlurLocksControls" @click="startVoteUi">
+            Начать голосование
+            <span v-if="showSpaceHotkeyHint('startVote')" class="hot-btn">_</span>
+          </button>
           <button v-if="canHeadVoteControl" class="btn-text" :disabled="hostBlurLocksControls || hasOfflineAlivePlayers || !canPressHeadVoteControl" @click="onHeadVoteControl">
             {{ !voteStartedForCurrent ? 'Голосование за ' + (currentNomineeSeat ?? '') : 'Продолжить' }}
+            <span v-if="showSpaceHotkeyHint('headVoteControl')" class="hot-btn">_</span>
           </button>
-          <button v-if="canHeadFinishVoteControl" class="btn-text" :disabled="hostBlurLocksControls" @click="finishVoteUi">Завершить голосование</button>
-          <button v-if="canPrepareVoteLift" class="btn-text" :disabled="hostBlurLocksControls || hasOfflineAlivePlayers" @click="prepareVoteLiftUi">Продолжить</button>
-          <button v-if="canStartVoteLift" class="btn-text" :disabled="hostBlurLocksControls || hasOfflineAlivePlayers" @click="startVoteLiftUi">Голосование за подъём</button>
+          <button v-if="canHeadFinishVoteControl" class="btn-text" :disabled="hostBlurLocksControls" @click="finishVoteUi">
+            Завершить голосование
+            <span v-if="showSpaceHotkeyHint('finishVote')" class="hot-btn">_</span>
+          </button>
+          <button v-if="canPrepareVoteLift" class="btn-text" :disabled="hostBlurLocksControls || hasOfflineAlivePlayers" @click="prepareVoteLiftUi">
+            Продолжить
+            <span v-if="showSpaceHotkeyHint('prepareVoteLift')" class="hot-btn">_</span>
+          </button>
+          <button v-if="canStartVoteLift" class="btn-text" :disabled="hostBlurLocksControls || hasOfflineAlivePlayers" @click="startVoteLiftUi">
+            Голосование за подъём
+            <span v-if="showSpaceHotkeyHint('startVoteLift')" class="hot-btn">_</span>
+          </button>
           <button v-if="canShowStartLeaderSpeech" class="btn-text" :disabled="hostBlurLocksControls || !canStartLeaderSpeech" @click="startLeaderSpeechUi">
             Передать речь
-            <span v-if="!IS_MOBILE && hotkeysVisible" class="hot-btn">_</span>
+            <span v-if="showSpaceHotkeyHint('startLeaderSpeech')" class="hot-btn">_</span>
           </button>
-          <button v-if="canRestartVoteForLeaders" class="btn-text" :disabled="hostBlurLocksControls" @click="restartVoteForLeadersUi">Начать голосование</button>
-          <button v-if="canShowNight" class="btn-text" :disabled="hostBlurLocksControls || hasOfflineAlivePlayers" @click="goToNightUi">Ночь</button>
-          <button v-if="canHeadNightShootControl" class="btn-text" :disabled="hasOfflineAlivePlayers" @click="startNightShootUi">Стрельба</button>
-          <button v-if="canHeadNightCheckControl" class="btn-text" :disabled="hasOfflineAlivePlayers" @click="startNightChecksUi">Проверки</button>
-          <button v-if="canHeadBestMoveControl" class="btn-text" @click="startBestMoveUi">Лучший ход {{ bestMoveSeat ?? '?' }}</button>
-          <button v-if="canStartDayFromNight" class="btn-text" :disabled="!canHeadDayFromNightControl" @click="startDayFromNightUi">День</button>
+          <button v-if="canRestartVoteForLeaders" class="btn-text" :disabled="hostBlurLocksControls" @click="restartVoteForLeadersUi">
+            Начать голосование
+            <span v-if="showSpaceHotkeyHint('restartVoteForLeaders')" class="hot-btn">_</span>
+          </button>
+          <button v-if="canShowNight" class="btn-text" :disabled="hostBlurLocksControls || hasOfflineAlivePlayers" @click="goToNightUi">
+            Ночь
+            <span v-if="showSpaceHotkeyHint('goToNight')" class="hot-btn">_</span>
+          </button>
+          <button v-if="canHeadNightShootControl" class="btn-text" :disabled="hasOfflineAlivePlayers" @click="startNightShootUi">
+            Стрельба
+            <span v-if="showSpaceHotkeyHint('startNightShoot')" class="hot-btn">_</span>
+          </button>
+          <button v-if="canHeadNightCheckControl" class="btn-text" :disabled="hasOfflineAlivePlayers" @click="startNightChecksUi">
+            Проверки
+            <span v-if="showSpaceHotkeyHint('startNightChecks')" class="hot-btn">_</span>
+          </button>
+          <button v-if="canHeadBestMoveControl" class="btn-text" @click="startBestMoveUi">
+            Лучший ход {{ bestMoveSeat ?? '?' }}
+            <span v-if="showSpaceHotkeyHint('startBestMove')" class="hot-btn">_</span>
+          </button>
+          <button v-if="canStartDayFromNight" class="btn-text" :disabled="!canHeadDayFromNightControl" @click="startDayFromNightUi">
+            День
+            <span v-if="showSpaceHotkeyHint('startDayFromNight')" class="hot-btn">_</span>
+          </button>
 
           <button v-if="canFinishSpeechSelf" class="btn-text" @click="finishSpeechUi">
             Завершить речь
-            <span v-if="!IS_MOBILE && hotkeysVisible" class="hot-btn">_</span>
+            <span v-if="showSpaceHotkeyHint('finishSpeechSelf')" class="hot-btn">_</span>
           </button>
           <button v-else-if="canShowTakeFoulSelf" class="btn-text" @click="takeFoulUi" :disabled="!canTakeFoulSelf || foulPending">
             Взять фол
@@ -1069,6 +1109,117 @@ function isEditableTarget(target: EventTarget | null): boolean {
   if (tag === 'input' || tag === 'textarea' || tag === 'select') return true
   return el.isContentEditable
 }
+
+type SpaceHotkeyAction =
+  | 'goToMafiaTalk'
+  | 'finishMafiaTalk'
+  | 'startDay'
+  | 'finishSpeechHead'
+  | 'passSpeechHead'
+  | 'startVote'
+  | 'headVoteControl'
+  | 'finishVote'
+  | 'prepareVoteLift'
+  | 'startVoteLift'
+  | 'startLeaderSpeech'
+  | 'restartVoteForLeaders'
+  | 'goToNight'
+  | 'startNightShoot'
+  | 'startNightChecks'
+  | 'startBestMove'
+  | 'startDayFromNight'
+  | 'finishSpeechSelf'
+  | 'playerVote'
+
+const spaceHotkeyAction = computed<SpaceHotkeyAction | null>(() => {
+  if (gamePhase.value === 'idle') return null
+  if (canShowHeadGoToMafiaTalkControl.value && canHeadGoToMafiaTalkControl.value) return 'goToMafiaTalk'
+  if (canHeadFinishMafiaTalkControl.value) return 'finishMafiaTalk'
+  if (canShowStartDay.value && canStartDay.value) return 'startDay'
+  if (canShowFinishSpeechHead.value && canFinishSpeechHead.value && !hostBlurLocksControls.value) return 'finishSpeechHead'
+  if (!canShowFinishSpeechHead.value && canShowPassSpeechHead.value && canPassSpeechHead.value && !hostBlurLocksControls.value) return 'passSpeechHead'
+  if (canStartVote.value && !hostBlurLocksControls.value) return 'startVote'
+  if (canHeadVoteControl.value && canPressHeadVoteControl.value && !hostBlurLocksControls.value && !hasOfflineAlivePlayers.value) return 'headVoteControl'
+  if (canHeadFinishVoteControl.value && !hostBlurLocksControls.value) return 'finishVote'
+  if (canPrepareVoteLift.value && !hostBlurLocksControls.value && !hasOfflineAlivePlayers.value) return 'prepareVoteLift'
+  if (canStartVoteLift.value && !hostBlurLocksControls.value && !hasOfflineAlivePlayers.value) return 'startVoteLift'
+  if (canShowStartLeaderSpeech.value && canStartLeaderSpeech.value && !hostBlurLocksControls.value) return 'startLeaderSpeech'
+  if (canRestartVoteForLeaders.value && !hostBlurLocksControls.value) return 'restartVoteForLeaders'
+  if (canShowNight.value && !hostBlurLocksControls.value && !hasOfflineAlivePlayers.value) return 'goToNight'
+  if (canHeadNightShootControl.value && !hasOfflineAlivePlayers.value) return 'startNightShoot'
+  if (canHeadNightCheckControl.value && !hasOfflineAlivePlayers.value) return 'startNightChecks'
+  if (canHeadBestMoveControl.value) return 'startBestMove'
+  if (canStartDayFromNight.value && canHeadDayFromNightControl.value) return 'startDayFromNight'
+  if (canFinishSpeechSelf.value) return 'finishSpeechSelf'
+  if (game.canPressVoteButton()) return 'playerVote'
+  return null
+})
+
+function showSpaceHotkeyHint(action: SpaceHotkeyAction): boolean {
+  return !IS_MOBILE && hotkeysVisible.value && spaceHotkeyAction.value === action
+}
+
+function tryHandleSpaceHotkey(): boolean {
+  switch (spaceHotkeyAction.value) {
+    case 'goToMafiaTalk':
+      void goToMafiaTalkUi()
+      return true
+    case 'finishMafiaTalk':
+      void finishMafiaTalkUi()
+      return true
+    case 'startDay':
+      void startDayUi()
+      return true
+    case 'finishSpeechHead':
+    case 'finishSpeechSelf':
+      void finishSpeechUi()
+      return true
+    case 'passSpeechHead':
+      void passSpeechUi()
+      return true
+    case 'startVote':
+      void startVoteUi()
+      return true
+    case 'headVoteControl':
+      void onHeadVoteControl()
+      return true
+    case 'finishVote':
+      void finishVoteUi()
+      return true
+    case 'prepareVoteLift':
+      void prepareVoteLiftUi()
+      return true
+    case 'startVoteLift':
+      void startVoteLiftUi()
+      return true
+    case 'startLeaderSpeech':
+      void startLeaderSpeechUi()
+      return true
+    case 'restartVoteForLeaders':
+      void restartVoteForLeadersUi()
+      return true
+    case 'goToNight':
+      void goToNightUi()
+      return true
+    case 'startNightShoot':
+      void startNightShootUi()
+      return true
+    case 'startNightChecks':
+      void startNightChecksUi()
+      return true
+    case 'startBestMove':
+      void startBestMoveUi()
+      return true
+    case 'startDayFromNight':
+      void startDayFromNightUi()
+      return true
+    case 'playerVote':
+      void onVote()
+      return true
+    default:
+      return false
+  }
+}
 function onHotkey(e: KeyboardEvent) {
   if (e.defaultPrevented || e.repeat) return
   if (isEditableTarget(e.target)) return
@@ -1113,26 +1264,9 @@ function onHotkey(e: KeyboardEvent) {
     return
   }
   if (code === 'Space') {
-    if (gamePhase.value !== 'idle' && canShowFinishSpeechHead.value && canFinishSpeechHead.value && !hostBlurLocksControls.value) {
+    if (tryHandleSpaceHotkey()) {
       e.preventDefault()
       e.stopPropagation()
-      finishSpeechUi()
-    } else if (gamePhase.value !== 'idle' && !canShowFinishSpeechHead.value && canShowPassSpeechHead.value && canPassSpeechHead.value && !hostBlurLocksControls.value) {
-      e.preventDefault()
-      e.stopPropagation()
-      passSpeechUi()
-    } else if (gamePhase.value !== 'idle' && canShowStartLeaderSpeech.value && canStartLeaderSpeech.value && !hostBlurLocksControls.value) {
-      e.preventDefault()
-      e.stopPropagation()
-      startLeaderSpeechUi()
-    } else if (gamePhase.value !== 'idle' && canFinishSpeechSelf.value) {
-      e.preventDefault()
-      e.stopPropagation()
-      finishSpeechUi()
-    } else if (gamePhase.value !== 'idle' && game.canPressVoteButton()) {
-      e.preventDefault()
-      e.stopPropagation()
-      onVote()
     }
     return
   }
