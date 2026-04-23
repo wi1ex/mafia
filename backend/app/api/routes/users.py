@@ -13,6 +13,7 @@ from ..utils import (
     set_user_deleted,
     force_logout_user,
     normalize_chat_mention_query,
+    normalize_password,
     normalize_username,
     is_protected_admin,
     safe_int,
@@ -806,7 +807,8 @@ async def change_password(payload: PasswordChangeIn, ident: Identity = Depends(g
     if not verify_password(payload.current_password, password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid_credentials")
 
-    user.password_hash = hash_password(payload.new_password)
+    new_password = normalize_password(payload.new_password)
+    user.password_hash = hash_password(new_password)
     user.password_temp = False
     await db.commit()
 

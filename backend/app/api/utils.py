@@ -222,6 +222,7 @@ STREAM_LOG_RE = re.compile(r"room_id=(\d+)\s+target_user=(\d+)")
 BOT_USERNAME_RE = re.compile(r"^[a-zA-Zа-яА-ЯёЁ0-9._\-()]{2,20}$")
 CHAT_MENTION_QUERY_RE = re.compile(r"^[a-zA-Zа-яА-ЯёЁ0-9._\-()]{1,20}$")
 PWD_CTRL_RE = re.compile(r"[\x00-\x1F\x7F]")
+PWD_WS_RE = re.compile(r"\s")
 TITLE_CTRL_RE = re.compile(r"[\x00-\x1F\x7F]")
 TITLE_BIDI_RE = re.compile(r"[\u200B-\u200F\u202A-\u202E\u2066-\u2069]")
 TITLE_WS_RE = re.compile(r"\s+")
@@ -984,7 +985,7 @@ def normalize_chat_mention_query(raw: str) -> str:
     return out
 
 
-def normalize_password(raw: str) -> str:
+def normalize_password(raw: str, *, allow_whitespace: bool = False) -> str:
     pwd = str(raw or "")
     if not pwd.strip():
         raise HTTPException(status_code=422, detail="invalid_password")
@@ -993,6 +994,9 @@ def normalize_password(raw: str) -> str:
         raise HTTPException(status_code=422, detail="invalid_password")
 
     if PWD_CTRL_RE.search(pwd):
+        raise HTTPException(status_code=422, detail="invalid_password")
+
+    if not allow_whitespace and PWD_WS_RE.search(pwd):
         raise HTTPException(status_code=422, detail="invalid_password")
 
     return pwd

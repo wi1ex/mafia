@@ -349,6 +349,7 @@ const validNick = computed(() => {
 const NICK_MAX = 20
 const PASSWORD_MIN = 8
 const PASSWORD_MAX = 32
+const PASSWORD_SPACE_RE = /\s/
 const AVATAR_MAX_BYTES = 5 * 1024 * 1024
 const MAX_AVATAR_GIF_FRAMES = 300
 const CROP_CANVAS_DESKTOP_SIZE = 400
@@ -422,8 +423,10 @@ const canChangePassword = computed(() =>
   pwd.current.length <= PASSWORD_MAX &&
   pwd.next.length >= PASSWORD_MIN &&
   pwd.next.length <= PASSWORD_MAX &&
+  !hasPasswordWhitespace(pwd.next) &&
   pwd.confirm.length >= PASSWORD_MIN &&
   pwd.confirm.length <= PASSWORD_MAX &&
+  !hasPasswordWhitespace(pwd.confirm) &&
   pwd.next === pwd.confirm
 )
 
@@ -433,14 +436,19 @@ const currentPasswordInvalid = computed(() => {
 })
 const newPasswordInvalid = computed(() => {
   const len = pwd.next.length
-  return len > 0 && len < PASSWORD_MIN
+  return len > 0 && (len < PASSWORD_MIN || hasPasswordWhitespace(pwd.next))
 })
 const confirmPasswordInvalid = computed(() => {
   const len = pwd.confirm.length
   if (len === 0) return false
+  if (hasPasswordWhitespace(pwd.confirm)) return true
   if (len < PASSWORD_MIN) return true
   return pwd.next !== pwd.confirm
 })
+
+function hasPasswordWhitespace(value: string) {
+  return PASSWORD_SPACE_RE.test(value)
+}
 
 const currentPasswordUnderlineStyle = computed(() => underlineStyle(pwd.current.length, PASSWORD_MAX))
 const newPasswordUnderlineStyle = computed(() => underlineStyle(pwd.next.length, PASSWORD_MAX))
@@ -654,6 +662,7 @@ async function changePassword() {
     if (st === 401 && d === 'invalid_credentials') void alertDialog('Текущий пароль неверный')
     else if (st === 403 && d === 'password_not_set') void alertDialog('Пароль не установлен. Восстановите его через TG-бота.')
     else if (st === 403 && d === 'user_deleted') void alertDialog('Аккаунт удален')
+    else if (st === 422 && d === 'invalid_password') void alertDialog('Пароль должен быть от 8 до 32 символов и без пробелов')
     else void alertDialog('Не удалось изменить пароль')
   } finally { pwdBusy.value = false }
 }

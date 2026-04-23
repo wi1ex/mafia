@@ -20,7 +20,7 @@
           <div class="range">
             <div class="range-label">
               <span>Лимит участников: {{ limit }}</span>
-              <span v-if="limit === 2" class="limit-badge" aria-label="Высокое качество">DUO FULLHD</span>
+              <span v-if="limit === 2" class="limit-badge" aria-label="Высокое качество">DUO HD</span>
               <span v-if="isMafiaRoom" class="limit-badge" aria-label="Лимит для игры">MAFIA</span>
             </div>
             <UiSlider

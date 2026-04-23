@@ -97,6 +97,7 @@ const USERNAME_MIN = 2
 const USERNAME_MAX = 20
 const PASSWORD_MIN = 8
 const PASSWORD_MAX = 32
+const PASSWORD_SPACE_RE = /\s/
 
 const canLogin = computed(() =>
   login.username.trim().length >= USERNAME_MIN &&
@@ -109,6 +110,8 @@ const canRegisterSubmit = computed(() =>
   reg.username.trim().length >= USERNAME_MIN &&
   reg.password.length >= PASSWORD_MIN &&
   reg.password.length <= PASSWORD_MAX &&
+  !hasPasswordWhitespace(reg.password) &&
+  !hasPasswordWhitespace(reg.passwordConfirm) &&
   passwordsMatch.value &&
   reg.acceptRules
 )
@@ -127,14 +130,19 @@ const regUsernameInvalid = computed(() => {
 })
 const regPasswordInvalid = computed(() => {
   const len = reg.password.length
-  return len > 0 && len < PASSWORD_MIN
+  return len > 0 && (len < PASSWORD_MIN || hasPasswordWhitespace(reg.password))
 })
 const regPasswordConfirmInvalid = computed(() => {
   const len = reg.passwordConfirm.length
   if (len === 0) return false
+  if (hasPasswordWhitespace(reg.passwordConfirm)) return true
   if (len < PASSWORD_MIN) return true
   return reg.password !== reg.passwordConfirm
 })
+
+function hasPasswordWhitespace(value: string) {
+  return PASSWORD_SPACE_RE.test(value)
+}
 
 function underlineStyle(len: number, max: number) {
   const used = Math.min(max, Math.max(0, len))

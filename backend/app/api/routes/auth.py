@@ -90,7 +90,7 @@ async def register(payload: PasswordRegisterIn, resp: Response, request: Request
 @log_route("auth.login")
 async def login(payload: PasswordLoginIn, resp: Response, request: Request, db: AsyncSession = Depends(get_session)) -> AccessTokenOut:
     username = normalize_username(payload.username)
-    password = normalize_password(payload.password)
+    password = normalize_password(payload.password, allow_whitespace=True)
 
     user = await find_user_by_username(db, username)
     if not user:

@@ -316,7 +316,7 @@ export const useAuthStore = defineStore('auth', () => {
       } else if (st === 422 && detail === 'invalid_username_format') {
         void alertDialog('Никнейм не должен начинаться с deleted_ или user_ и не должен содержать символы кроме ()._-')
       } else if (st === 422 && detail === 'invalid_password') {
-        void alertDialog('Пароль должен быть от 8 до 32 символов')
+        void alertDialog('Пароль должен быть от 8 до 32 символов и без пробелов')
       } else {
         void alertDialog('Не удалось зарегистрироваться')
       }
