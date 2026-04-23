@@ -257,7 +257,6 @@ async def update_settings(payload: AdminSettingsUpdateIn, session: AsyncSession 
 async def site_stats(month: str | None = None, session: AsyncSession = Depends(get_session)) -> SiteStatsOut:
     start_dt, end_dt = parse_month_range(month)
     now = datetime.now(timezone.utc)
-    day_start = now - timedelta(days=1)
     month_start = start_dt
     month_end = end_dt if end_dt <= now else now
     if month_end < month_start:
@@ -277,7 +276,6 @@ async def site_stats(month: str | None = None, session: AsyncSession = Depends(g
     games_monthly = await build_games_monthly_series(session)
     active_users_monthly = await build_active_users_monthly_series(session)
     total_stream_seconds = await calc_total_stream_seconds(session)
-    day_stream_seconds = await calc_room_stream_seconds_in_range(session, day_start, now)
     month_stream_seconds = await calc_room_stream_seconds_in_range(session, month_start, month_end)
 
     r = get_redis()
@@ -318,11 +316,7 @@ async def site_stats(month: str | None = None, session: AsyncSession = Depends(g
         online_ids_sorted = sorted(online_ids, key=lambda uid: (name_map.get(uid) or f"user{uid}").lower())
         online_users_list = [OnlineUserOut(id=uid, username=name_map.get(uid)) for uid in online_ids_sorted]
 
-    day_online_users = int(await session.scalar(select(func.count(User.id)).where(User.last_visit_at >= day_start, User.last_visit_at < now)) or 0)
-    month_online_users = int(await session.scalar(select(func.count(User.id)).where(User.last_visit_at >= month_start, User.last_visit_at < month_end)) or 0)
-    day_rooms = int(await session.scalar(select(func.count(Room.id)).where(Room.created_at >= day_start, Room.created_at < now)) or 0)
     month_rooms = int(await session.scalar(select(func.count(Room.id)).where(Room.created_at >= month_start, Room.created_at < month_end)) or 0)
-    day_games = int(await session.scalar(select(func.count(Game.id)).where(Game.finished_at >= day_start, Game.finished_at < now)) or 0)
     month_games = int(await session.scalar(select(func.count(Game.id)).where(Game.finished_at >= month_start, Game.finished_at < month_end)) or 0)
 
     return SiteStatsOut(
@@ -343,15 +337,8 @@ async def site_stats(month: str | None = None, session: AsyncSession = Depends(g
         active_room_users=active_room_users,
         online_users=online_users,
         online_users_list=online_users_list,
-        last_day=PeriodStatsOut(
-            games=day_games,
-            online_users=day_online_users,
-            rooms=day_rooms,
-            stream_minutes=day_stream_seconds // 60,
-        ),
         last_month=PeriodStatsOut(
             games=month_games,
-            online_users=month_online_users,
             rooms=month_rooms,
             stream_minutes=month_stream_seconds // 60,
         ),

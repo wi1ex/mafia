@@ -121,7 +121,6 @@ class OnlineUserOut(BaseModel):
 
 class PeriodStatsOut(BaseModel):
     games: int
-    online_users: int
     rooms: int
     stream_minutes: int
 
@@ -144,7 +143,6 @@ class SiteStatsOut(BaseModel):
     active_room_users: int
     online_users: int
     online_users_list: List[OnlineUserOut]
-    last_day: PeriodStatsOut
     last_month: PeriodStatsOut
 
 

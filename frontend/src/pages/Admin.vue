@@ -199,27 +199,6 @@
                 </div>
               </div>
             </div>
-            <div class="stats-subtitle">За последние 24 часа</div>
-            <div class="stats-grid">
-              <div class="stat-card">
-                <span class="label">Онлайн</span>
-                <span class="value">{{ stats.last_day.online_users }}</span>
-              </div>
-              <div class="stat-card">
-                <span class="label">Комнаты </span>
-                <span class="value">{{ stats.last_day.rooms }}</span>
-              </div>
-              <div class="stat-card">
-                <span class="label">Игры</span>
-                <span class="value">{{ stats.last_day.games }}</span>
-              </div>
-              <div class="stat-card">
-                <span class="label">Стримы</span>
-                <span class="value">{{ formatMinutes(stats.last_day.stream_minutes) }}</span>
-              </div>
-            </div>
-            <div class="stats-subtitle">За календарный месяц</div>
-
             <div class="chart">
               <div class="filters">
                 <div class="field">
@@ -227,10 +206,6 @@
                 </div>
               </div>
               <div class="stats-grid">
-                <div class="stat-card">
-                  <span class="label">Онлайн</span>
-                  <span class="value">{{ stats.last_month.online_users }}</span>
-                </div>
                 <div class="stat-card">
                   <span class="label">Комнаты</span>
                   <span class="value">{{ stats.last_month.rooms }}</span>
@@ -1012,7 +987,6 @@ type OnlineUser = {
 
 type PeriodStats = {
   games: number
-  online_users: number
   rooms: number
   stream_minutes: number
 }
@@ -1035,7 +1009,6 @@ type SiteStats = {
   active_room_users: number
   online_users: number
   online_users_list: OnlineUser[]
-  last_day: PeriodStats
   last_month: PeriodStats
 }
 
@@ -1270,15 +1243,8 @@ const stats = reactive<SiteStats>({
   active_room_users: 0,
   online_users: 0,
   online_users_list: [],
-  last_day: {
-    games: 0,
-    online_users: 0,
-    rooms: 0,
-    stream_minutes: 0,
-  },
   last_month: {
     games: 0,
-    online_users: 0,
     rooms: 0,
     stream_minutes: 0,
   },
@@ -1982,15 +1948,8 @@ async function loadStats(): Promise<void> {
       active_room_users: data?.active_room_users ?? 0,
       online_users: data?.online_users ?? 0,
       online_users_list: Array.isArray(data?.online_users_list) ? data.online_users_list : [],
-      last_day: {
-        games: data?.last_day?.games ?? 0,
-        online_users: data?.last_day?.online_users ?? 0,
-        rooms: data?.last_day?.rooms ?? 0,
-        stream_minutes: data?.last_day?.stream_minutes ?? 0,
-      },
       last_month: {
         games: data?.last_month?.games ?? 0,
-        online_users: data?.last_month?.online_users ?? 0,
         rooms: data?.last_month?.rooms ?? 0,
         stream_minutes: data?.last_month?.stream_minutes ?? 0,
       },
@@ -2910,10 +2869,6 @@ onMounted(() => {
         font-size: 12px;
         color: $grey;
       }
-      .stats-subtitle {
-        font-size: 14px;
-        color: $grey;
-      }
       .stats-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
@@ -3007,7 +2962,6 @@ onMounted(() => {
       }
       .chart {
         padding: 10px;
-        border: 1px solid $lead;
         border-radius: 5px;
         background-color: $graphite;
         .chart-body {
@@ -3030,7 +2984,7 @@ onMounted(() => {
           display: flex;
           align-items: flex-end;
           gap: 8px;
-          height: 180px;
+          height: 200px;
           overflow-x: auto;
           padding: 5px 3px;
           flex: 1;
