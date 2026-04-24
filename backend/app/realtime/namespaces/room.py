@@ -1036,10 +1036,6 @@ async def kick(sid, data):
             )
         except Exception as e:
             log.warning("sio.kick.epoch_delete_failed", rid=rid, target_uid=target, err=type(e).__name__)
-        try:
-            await remove_livekit_participant(rid=rid, uid=target)
-        except Exception:
-            log.exception("livekit.participant.kick_failed", rid=rid, uid=target)
 
         await sio.emit("member_left",
                        {"user_id": target},
@@ -1052,6 +1048,10 @@ async def kick(sid, data):
                            namespace="/room")
 
         await emit_rooms_occupancy_safe(r, rid, occ)
+        try:
+            await remove_livekit_participant(rid=rid, uid=target)
+        except Exception:
+            log.exception("livekit.participant.kick_failed", rid=rid, uid=target)
         try:
             await maybe_end_game_if_room_presence_low(r, rid, reason="presence_too_low")
         except Exception:
