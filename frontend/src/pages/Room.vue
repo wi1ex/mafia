@@ -731,7 +731,7 @@ watch(isReconnecting, (now, prev) => {
   const next = reconnectBursts.value.filter(t => ts - t <= 10_000)
   next.push(ts)
   reconnectBursts.value = next
-  if (next.length >= 3) armRoomReconnectReloadTimer()
+  if (next.length >= 3) hardReload()
 })
 const openApps = ref(false)
 const appsCounts = reactive({ total: 0, unread: 0 })
@@ -973,7 +973,6 @@ const rerr = (...a: unknown[]) => console.error('[ROOM]', ...a)
 
 let reloading = false
 let roomDisconnectFailClosedTimer: number | null = null
-let roomReconnectReloadTimer: number | null = null
 function hardReload() {
   if (reloading) return
   reloading = true
@@ -981,32 +980,15 @@ function hardReload() {
 }
 
 function clearRoomDisconnectFailClosedTimer() {
-  if (roomDisconnectFailClosedTimer != null) {
-    window.clearTimeout(roomDisconnectFailClosedTimer)
-    roomDisconnectFailClosedTimer = null
-  }
-  if (roomReconnectReloadTimer != null) {
-    window.clearTimeout(roomReconnectReloadTimer)
-    roomReconnectReloadTimer = null
-  }
+  if (roomDisconnectFailClosedTimer == null) return
+  window.clearTimeout(roomDisconnectFailClosedTimer)
+  roomDisconnectFailClosedTimer = null
 }
 
 function shouldDeferRoomDisconnectFailClosed(): boolean {
   if (!backgrounded.value) return false
   const phase = backgroundedPhase ?? gamePhase.value
   return phase === 'idle'
-}
-
-function armRoomReconnectReloadTimer() {
-  if (shouldDeferRoomDisconnectFailClosed()) return
-  if (roomReconnectReloadTimer != null) return
-  roomReconnectReloadTimer = window.setTimeout(() => {
-    roomReconnectReloadTimer = null
-    if (leaving.value) return
-    if (!netReconnecting.value) return
-    if (!navigator.onLine) return
-    hardReload()
-  }, 20_000)
 }
 
 function armRoomDisconnectFailClosedTimer() {
@@ -1018,7 +1000,7 @@ function armRoomDisconnectFailClosedTimer() {
     if (!netReconnecting.value) return
     if (socket.value?.connected) return
     try { await rtc.disconnect() } catch {}
-    if (navigator.onLine) armRoomReconnectReloadTimer()
+    if (navigator.onLine) hardReload()
   }, 6500)
 }
 
@@ -3122,10 +3104,7 @@ function onBackgroundVisibility(e?: Event) {
 
 function handleOffline() { netReconnecting.value = true }
 
-function handleOnline() {
-  if (!netReconnecting.value) return
-  armRoomReconnectReloadTimer()
-}
+function handleOnline() { if (netReconnecting.value) hardReload() }
 
 watch(isCurrentSpeaker, async (now, was) => {
   if (now === was) return
@@ -3211,8 +3190,8 @@ onMounted(async () => {
       },
       onDisconnected: async () => {
         if (leaving.value) return
-        netReconnecting.value = true
-        if (navigator.onLine) armRoomReconnectReloadTimer()
+        if (navigator.onLine) hardReload()
+        else netReconnecting.value = true
       },
     })
     bindLK()
