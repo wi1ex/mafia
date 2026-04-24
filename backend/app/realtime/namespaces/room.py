@@ -1137,10 +1137,21 @@ async def game_leave(sid, data):
         if phase == "vote":
             vote_speaker_uid = ctx.gint("vote_speech_uid")
             vote_kind = ctx.gstr("vote_speech_kind")
+            vote_lift_state = ctx.gstr("vote_lift_state")
             vote_results_ready = ctx.gbool("vote_results_ready")
             leaders = ctx.gcsv_ints("vote_leaders_order")
             if vote_results_ready and not vote_speaker_uid and len(leaders) == 1 and leaders[0] == uid:
-                removed = await process_player_death(r, rid, uid, head_uid=head_uid, phase_override=phase, reason="vote")
+                skip_vote_leave_death = False
+                if vote_lift_state != "passed" and ctx.gint("day_number") == 1:
+                    try:
+                        raw_game = await r.hgetall(f"room:{rid}:game")
+                    except Exception:
+                        raw_game = {}
+                    if not game_flag(raw_game, "break_at_zero", True):
+                        skip_vote_leave_death = True
+                removed = False
+                if not skip_vote_leave_death:
+                    removed = await process_player_death(r, rid, uid, head_uid=head_uid, phase_override=phase, reason="vote")
                 if removed:
                     async with r.pipeline() as p:
                         await p.hset(
@@ -3729,6 +3740,7 @@ async def game_vote_finish(sid, data):
         lift_state_new = "ready" if repeated else ""
         all_alive_leaders = False
         lift_forbidden = False
+        raw_game: Mapping[str, Any] | None = None
         if repeated and leaders:
             alive_ids, _ = await get_alive_and_voted_ids(r, rid)
             all_alive_leaders = bool(alive_ids) and set(leaders) == set(alive_ids)
@@ -3749,6 +3761,16 @@ async def game_vote_finish(sid, data):
                         if alive_total == 9:
                             lift_forbidden = True
 
+        skip_repeat_farewell = False
+        if len(leaders) == 1 and day_number == 1 and ctx.gint("vote_round_index") > 0:
+            if raw_game is None:
+                try:
+                    raw_game = await r.hgetall(f"room:{rid}:game")
+                except Exception:
+                    raw_game = {}
+            if not game_flag(raw_game, "break_at_zero", True):
+                skip_repeat_farewell = True
+
         no_elimination = all_alive_leaders or lift_forbidden
         if lift_forbidden:
             lift_state_new = ""
@@ -3765,6 +3787,8 @@ async def game_vote_finish(sid, data):
             payload["speeches_done"] = True
             lift_state_new = ""
             payload.pop("lift_state", None)
+        elif skip_repeat_farewell:
+            payload["speeches_done"] = True
 
         await sio.emit("game_vote_result",
                        payload,
@@ -3784,7 +3808,7 @@ async def game_vote_finish(sid, data):
                     "vote_speech_kind": "",
                     "vote_aborted": "0",
                     "vote_results_ready": "1",
-                    "vote_speeches_done": "1" if (lift_state_new or no_elimination) else "0",
+                    "vote_speeches_done": "1" if (lift_state_new or no_elimination or skip_repeat_farewell) else "0",
                     "vote_prev_leaders": leaders_str if not no_elimination else "",
                     "vote_lift_state": lift_state_new,
                     "vote_blocked": "0",
