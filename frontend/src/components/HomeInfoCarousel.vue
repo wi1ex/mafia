@@ -390,14 +390,14 @@ onBeforeUnmount(() => {
       font-size: 14px;
       line-height: 1.2;
       background:
-        linear-gradient(180deg, rgba($white, 0.05), rgba($white, 0.05) 50%, rgba($white, 0.01)),
+        linear-gradient(180deg, rgba($white, 0.05), rgba($white, 0.03) 50%, rgba($white, 0.03)),
         radial-gradient(circle at top left, rgba($white, 1), transparent 5%),
         radial-gradient(circle at bottom right, rgba($white, 0.05), transparent 50%),
-        rgba($bg, 0.1);
+        rgba($bg, 0.15);
       box-shadow:
-        inset 0 1px 0 rgba($white, 0.34),
-        inset 0 -1px 0 rgba($white, 0.08),
-        0 10px 24px rgba($black, 0.2);
+        inset 0 1px 0 rgba($white, 0.25),
+        inset 0 -1px 0 rgba($white, 0.1),
+        0 10px 30px rgba($black, 0.2);
       -webkit-backdrop-filter: blur(15px) saturate(180%) brightness(1.1);
       backdrop-filter: blur(15px) saturate(180%) brightness(1.1);
       color: $fg;
@@ -550,7 +550,7 @@ onBeforeUnmount(() => {
       border-color: rgba($white, 0.1);
       background:
         linear-gradient(180deg, rgba($white, 0.25), rgba($white, 0.1)),
-        rgba($white, 0.1);
+        rgba($white, 0.25);
       box-shadow:
         inset 0 1px 0 rgba($white, 0.25),
         0 5px 15px rgba($black, 0.1);
@@ -560,7 +560,7 @@ onBeforeUnmount(() => {
       border-color: rgba($white, 0.1);
       background:
         linear-gradient(180deg, rgba($white, 0.25), rgba($white, 0.1)),
-        rgba($white, 0.1);
+        rgba($white, 0.25);
       box-shadow:
         inset 0 1px 0 rgba($white, 0.25),
         0 5px 15px rgba($black, 0.1);
