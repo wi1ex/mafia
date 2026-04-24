@@ -1,4 +1,5 @@
 from __future__ import annotations
+import asyncio
 from datetime import timedelta
 from typing import Iterable
 from urllib.parse import urlparse
@@ -81,46 +82,52 @@ def make_livekit_token(*, identity: str, name: str, room: str, ttl_minutes: int 
         raise
 
 
-async def remove_livekit_participant(*, rid: int, uid: int, timeout_seconds: float = 1.0) -> bool:
+async def remove_livekit_participant(*, rid: int, uid: int, timeout_seconds: float = 1.0, retry_rounds: int = 3) -> bool:
     global _preferred_livekit_api_url
     room = get_livekit_room_name(rid)
     identity = str(int(uid))
     timeout = ClientTimeout(total=max(0.35, float(timeout_seconds)))
+    urls = list(_iter_livekit_api_urls())
     attempted_urls: list[str] = []
     last_err: str | None = None
+    rounds = max(1, int(retry_rounds))
 
-    for url in _iter_livekit_api_urls():
-        attempted_urls.append(url)
-        api: LiveKitAPI | None = None
-        try:
-            api = LiveKitAPI(
-                url=url,
-                api_key=settings.LIVEKIT_API_KEY,
-                api_secret=settings.LIVEKIT_API_SECRET,
-                timeout=timeout,
-            )
-            await api.room.remove_participant(RoomParticipantIdentity(room=room, identity=identity))
-            _preferred_livekit_api_url = url
-            log.info("livekit.participant.removed", rid=rid, uid=uid, room=room, url=url)
-            return True
-
-        except TwirpError as err:
-            if err.code == "not_found":
+    for round_idx in range(rounds):
+        for url in urls:
+            attempted_urls.append(url)
+            api: LiveKitAPI | None = None
+            try:
+                api = LiveKitAPI(
+                    url=url,
+                    api_key=settings.LIVEKIT_API_KEY,
+                    api_secret=settings.LIVEKIT_API_SECRET,
+                    timeout=timeout,
+                )
+                await api.room.remove_participant(RoomParticipantIdentity(room=room, identity=identity))
                 _preferred_livekit_api_url = url
-                log.info("livekit.participant.already_absent", rid=rid, uid=uid, room=room, url=url)
+                log.info("livekit.participant.removed", rid=rid, uid=uid, room=room, url=url, round=round_idx + 1)
                 return True
 
-            last_err = f"{type(err).__name__}:{err.code}"
+            except TwirpError as err:
+                if err.code == "not_found":
+                    _preferred_livekit_api_url = url
+                    log.info("livekit.participant.already_absent", rid=rid, uid=uid, room=room, url=url, round=round_idx + 1)
+                    return True
 
-        except Exception as err:
-            last_err = type(err).__name__
+                last_err = f"{type(err).__name__}:{err.code}"
 
-        finally:
-            if api is not None:
-                try:
-                    await api.aclose()
-                except Exception:
-                    log.warning("livekit.client.close_failed", rid=rid, uid=uid, room=room, url=url)
+            except Exception as err:
+                last_err = type(err).__name__
 
-    log.warning("livekit.participant.remove_failed", rid=rid, uid=uid, room=room, urls=attempted_urls, err=last_err)
+            finally:
+                if api is not None:
+                    try:
+                        await api.aclose()
+                    except Exception:
+                        log.warning("livekit.client.close_failed", rid=rid, uid=uid, room=room, url=url)
+
+        if round_idx + 1 < rounds:
+            await asyncio.sleep(min(0.25 * (round_idx + 1), 1.0))
+
+    log.warning("livekit.participant.remove_failed", rid=rid, uid=uid, room=room, urls=attempted_urls, err=last_err, rounds=rounds)
     return False

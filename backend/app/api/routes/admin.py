@@ -878,12 +878,12 @@ async def room_close(room_id: int, ident: Identity = Depends(require_protected_a
                        {"room_id": room_id, "reason": "room_deleted"},
                        room=f"user:{uid}",
                        namespace="/room")
+        with suppress(Exception):
+            await remove_livekit_participant(rid=room_id, uid=uid)
         try:
             await record_spectator_leave(r, room_id, uid, int(time()))
         except Exception:
             pass
-        with suppress(Exception):
-            await remove_livekit_participant(rid=room_id, uid=uid)
 
     should_gc = gc_seq_on_empty is not None
     if not should_gc:
@@ -1008,12 +1008,12 @@ async def rooms_kick_all(ident: Identity = Depends(require_protected_admin_dep),
                            {"room_id": rid, "reason": "admin_kick_all"},
                            room=f"user:{uid}",
                            namespace="/room")
+            with suppress(Exception):
+                await remove_livekit_participant(rid=rid, uid=uid)
             try:
                 await record_spectator_leave(r, rid, uid, int(time()))
             except Exception:
                 pass
-            with suppress(Exception):
-                await remove_livekit_participant(rid=rid, uid=uid)
 
         should_gc = gc_seq_on_empty is not None
         if not should_gc:

@@ -258,6 +258,7 @@ async def finalize_guarded_disconnect_cleanup(*, rid: int, uid: int, expected_ep
         was_spectator = False
 
     cleaned = False
+    spectator_cleaned = False
 
     if was_member:
         try:
@@ -339,7 +340,7 @@ async def finalize_guarded_disconnect_cleanup(*, rid: int, uid: int, expected_ep
             return False
 
         cleaned = True
-        await emit_rooms_spectators_safe(r, rid)
+        spectator_cleaned = True
 
     if not cleaned:
         return False
@@ -355,6 +356,8 @@ async def finalize_guarded_disconnect_cleanup(*, rid: int, uid: int, expected_ep
         log.warning("sio.disconnect.reset_session_failed", rid=rid, uid=uid)
 
     await _evict_livekit_after_epoch_cleanup(r, rid, uid, expected_epoch)
+    if spectator_cleaned:
+        await emit_rooms_spectators_safe(r, rid)
 
     return True
 
@@ -2729,6 +2732,10 @@ async def cleanup_user_from_room(r, rid: int, uid: int, *, was_member: bool, was
         log.warning("sio.join.cleanup.epoch_delete_failed", rid=rid, uid=uid, err=type(err).__name__)
 
     if was_spectator:
+        try:
+            await remove_livekit_participant(rid=rid, uid=uid)
+        except Exception:
+            log.exception("livekit.participant.spectator_cleanup_failed", rid=rid, uid=uid)
         try:
             await record_spectator_leave(r, rid, uid, int(time()))
             cleaned = True
@@ -5828,6 +5835,11 @@ async def perform_game_end(ctx, sess: Optional[dict[str, Any]], *, confirm: bool
     await asyncio.sleep(1)
     spectators_soft_2 = await _spectator_ids_from_redis()
     await _soft_force_leave(spectators_soft_2)
+    for uid_i in sorted(spectators_soft_2):
+        try:
+            await remove_livekit_participant(rid=rid, uid=uid_i)
+        except Exception:
+            log.exception("livekit.participant.game_end_spectator_failed", rid=rid, uid=uid_i)
     await _cleanup_game_end_spectators(spectators_soft_2)
 
     try:
@@ -5836,12 +5848,6 @@ async def perform_game_end(ctx, sess: Optional[dict[str, Any]], *, confirm: bool
         log.exception("sio.game_end.spectators_clear_failed", rid=rid)
 
     await emit_rooms_spectators_safe(r, rid)
-
-    for uid_i in sorted(spectators_soft_2):
-        try:
-            await remove_livekit_participant(rid=rid, uid=uid_i)
-        except Exception:
-            log.exception("livekit.participant.game_end_spectator_failed", rid=rid, uid=uid_i)
 
     return {"ok": True, "status": 200, "room_id": rid, "reason": reason}
 
