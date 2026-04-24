@@ -3149,6 +3149,7 @@ def build_night_reset_mapping(*, include_vote_meta: bool) -> dict[str, str]:
         "best_move_active": "0",
         "best_move_targets": "",
         "vote_blocked": "0",
+        "vote_round_index": "0",
     }
     if include_vote_meta:
         mapping["vote_prev_leaders"] = ""
@@ -5120,6 +5121,7 @@ async def block_vote_and_clear(r, rid: int, *, reason: str = "", phase: str = ""
                 "vote_speech_duration": "0",
                 "vote_speech_kind": "",
                 "vote_current_uid": "0",
+                "vote_round_index": "0",
             })
         await p.hset(f"room:{rid}:game_state", mapping=mapping)
         await p.delete(f"room:{rid}:game_nominees")

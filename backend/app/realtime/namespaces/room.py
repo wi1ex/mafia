@@ -1160,6 +1160,7 @@ async def game_leave(sid, data):
                                 "vote_speech_duration": "0",
                                 "vote_speech_kind": "",
                                 "vote_current_uid": "0",
+                                "vote_round_index": "0",
                             },
                         )
                         await p.delete(
@@ -1475,6 +1476,7 @@ async def game_start(sid, data) -> GameStartAck:
                              "host_blur_started_at": "0",
                              "vote_blocked": "0",
                              "vote_blocked_next": "0",
+                             "vote_round_index": "0",
                              "best_move_uid": "0",
                              "best_move_active": "0",
                              "best_move_targets": "",
@@ -1924,6 +1926,7 @@ async def game_phase_next(sid, data):
                         "vote_lift_state": "",
                         "vote_blocked": "0",
                         "vote_blocked_next": "0",
+                        "vote_round_index": "0",
                     },
                 )
                 await p.delete(f"room:{rid}:game_votes")
@@ -4136,6 +4139,7 @@ async def game_vote_speech_next(sid, data):
             return {"ok": False, "error": "no_leaders", "status": 409}
 
         leader_idx = ctx.gint("vote_leader_idx")
+        vote_round_index = ctx.gint("vote_round_index")
         total = len(leaders)
         if leader_idx >= total:
             vote_speeches_done = str(raw_gstate.get("vote_speeches_done") or "0") == "1"
@@ -4186,13 +4190,46 @@ async def game_vote_speech_next(sid, data):
         if short_sec <= 0:
             short_sec = full_sec
         shorten_farewell = False
-        if total == 1 and ctx.gint("day_number") == 1:
+        skip_farewell = False
+        if total == 1 and ctx.gint("day_number") == 1 and vote_lift_state != "passed":
             try:
                 raw_game = await r.hgetall(f"room:{rid}:game")
             except Exception:
                 raw_game = {}
             if not game_flag(raw_game, "break_at_zero", True):
-                shorten_farewell = True
+                if vote_round_index <= 0:
+                    shorten_farewell = True
+                else:
+                    skip_farewell = True
+
+        if skip_farewell:
+            payload = {
+                "room_id": rid,
+                "speaker_uid": 0,
+                "opening_uid": 0,
+                "closing_uid": 0,
+                "deadline": 0,
+                "speeches_done": True,
+                "vote_blocked": str(raw_gstate.get("vote_blocked") or "0") == "1",
+            }
+            async with r.pipeline() as p:
+                await p.hset(
+                    f"room:{rid}:game_state",
+                    mapping={
+                        "vote_leader_idx": str(leader_idx + 1),
+                        "vote_speech_uid": "0",
+                        "vote_speech_started": "0",
+                        "vote_speech_duration": "0",
+                        "vote_speech_kind": "",
+                        "vote_speeches_done": "1",
+                    },
+                )
+                await p.execute()
+            await sio.emit("game_day_speech",
+                           payload,
+                           room=f"room:{rid}",
+                           namespace="/room")
+            return {"ok": True, "status": 200, **payload}
 
         if vote_lift_state == "passed":
             kind = "farewell"
@@ -4304,6 +4341,7 @@ async def game_vote_restart(sid, data):
 
         first_uid = ordered[0]
         vote_duration = get_positive_setting_int("VOTE_SECONDS", 3)
+        next_round_index = ctx.gint("vote_round_index") + 1
         async with r.pipeline() as p:
             await p.hset(
                 f"room:{rid}:game_state",
@@ -4322,6 +4360,7 @@ async def game_vote_restart(sid, data):
                     "vote_lift_state": "",
                     "vote_blocked": "0",
                     "vote_blocked_next": "0",
+                    "vote_round_index": str(next_round_index),
                 },
             )
             await p.delete(f"room:{rid}:game_votes")
