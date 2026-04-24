@@ -333,13 +333,13 @@ onBeforeUnmount(() => {
       background:
         radial-gradient(circle at top left, rgba($orange, 0.25), transparent 35%),
         radial-gradient(circle at bottom right, rgba($red, 0.25), transparent 35%),
-        linear-gradient(145deg, rgba(76, 52, 34, 1), rgba(28, 18, 14, 1));
+        linear-gradient(145deg, rgba(75, 50, 25, 1), rgba(15, 15, 15, 1));
     }
     &.slide--support::before {
       background:
-        radial-gradient(circle at top center, rgba($green, 0.25), transparent 35%),
+        radial-gradient(circle at top center, rgba(10, 250, 150, 0.25), transparent 35%),
         radial-gradient(circle at right bottom, rgba($white, 0.1), transparent 35%),
-        linear-gradient(145deg, rgba(34, 56, 52, 1), rgba(18, 26, 24, 1));
+        linear-gradient(145deg, rgb(50, 100, 100), rgba(15, 15, 15, 1));
     }
     &.slide--contacts::before {
       background:
@@ -405,7 +405,6 @@ onBeforeUnmount(() => {
       img {
         width: 20px;
         height: 20px;
-        filter: drop-shadow(0 1px 1px rgba($black, 0.25));
       }
     }
     .slide-copy {
@@ -603,7 +602,6 @@ onBeforeUnmount(() => {
   .nav-icon {
     width: 20px;
     height: 20px;
-    filter: drop-shadow(0 1px 1px rgba($black, 0.25));
     &.nav-icon--prev {
       transform: rotate(90deg);
     }
