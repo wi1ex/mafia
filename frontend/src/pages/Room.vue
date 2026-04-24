@@ -1181,8 +1181,32 @@ const spaceHotkeyAction = computed<SpaceHotkeyAction | null>(() => {
   return null
 })
 
+const visibleSpaceHotkeyAction = computed<SpaceHotkeyAction | null>(() => {
+  if (gamePhase.value === 'idle') return null
+  if (canShowHeadGoToMafiaTalkControl.value) return 'goToMafiaTalk'
+  if (canHeadFinishMafiaTalkControl.value) return 'finishMafiaTalk'
+  if (canShowStartDay.value) return 'startDay'
+  if (canShowFinishSpeechHead.value) return 'finishSpeechHead'
+  if (!canShowFinishSpeechHead.value && canShowPassSpeechHead.value) return 'passSpeechHead'
+  if (canStartVote.value) return 'startVote'
+  if (canHeadVoteControl.value) return 'headVoteControl'
+  if (canHeadFinishVoteControl.value) return 'finishVote'
+  if (canPrepareVoteLift.value) return 'prepareVoteLift'
+  if (canStartVoteLift.value) return 'startVoteLift'
+  if (canShowStartLeaderSpeech.value) return 'startLeaderSpeech'
+  if (canRestartVoteForLeaders.value) return 'restartVoteForLeaders'
+  if (canShowNight.value) return 'goToNight'
+  if (canHeadNightShootControl.value) return 'startNightShoot'
+  if (canHeadNightCheckControl.value) return 'startNightChecks'
+  if (canHeadBestMoveControl.value) return 'startBestMove'
+  if (canStartDayFromNight.value) return 'startDayFromNight'
+  if (canFinishSpeechSelf.value) return 'finishSpeechSelf'
+  if (game.canPressVoteButton()) return 'playerVote'
+  return null
+})
+
 function showSpaceHotkeyHint(action: SpaceHotkeyAction): boolean {
-  return !IS_MOBILE && hotkeysVisible.value && spaceHotkeyAction.value === action
+  return !IS_MOBILE && hotkeysVisible.value && visibleSpaceHotkeyAction.value === action
 }
 
 function tryHandleSpaceHotkey(): boolean {
