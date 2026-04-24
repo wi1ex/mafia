@@ -3051,7 +3051,12 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       }
       return
     }
-    voteLeaderSpeechesDone.value = false
+    const speechesDone = isTrueLike((resp as any)?.speeches_done)
+    const killed = isTrueLike((resp as any)?.killed)
+    const speakerId = String((resp as any)?.speaker_uid || '')
+    const hasActiveSpeech = secondsToMs((resp as any)?.deadline) > 0 && !!speakerId
+    voteLeaderSpeechesDone.value = speechesDone || !hasActiveSpeech
+    voteLeaderKilled.value = killed
   }
 
   async function restartVoteForLeaders(sendAck: SendAckFn): Promise<void> {
