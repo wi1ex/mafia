@@ -95,10 +95,22 @@ async function doRefreshWithTimeout(): Promise<RefreshResult> {
   const res = await Promise.race([refreshPromise, timeoutPromise])
   return (res && typeof res === 'object' && 'token' in res) ? res as RefreshResult : { token: res as string | null }
 }
+
+async function doRefreshWithRetry(): Promise<RefreshResult> {
+  let out = await doRefreshWithTimeout()
+  if (out.token) return out
+
+  await new Promise<void>((resolve) => {
+    window.setTimeout(resolve, 250)
+  })
+  out = await doRefreshWithTimeout()
+  return out
+}
+
 async function startRefresh(): Promise<RefreshResult> {
   if (!refreshInFlight) {
     refreshInFlight = (async () => {
-      const out = await doRefreshWithTimeout()
+      const out = await doRefreshWithRetry()
       refreshInFlight = null
       return out
     })()

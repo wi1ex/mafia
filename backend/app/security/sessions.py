@@ -120,9 +120,13 @@ async def rotate_refresh(resp: Response, *, raw_refresh_jwt: str) -> tuple[bool,
         return False, 0, None
 
     current = await r.get(f"session:{sid}:rjti")
-    if current is None or current != jti:
+    if current is None:
         await logout(resp, user_id=uid, sid=sid)
-        log.warning("session.refresh.reuse", user_id=uid, sid=sid)
+        log.warning("session.refresh.missing_jti", user_id=uid, sid=sid)
+        return False, 0, None
+
+    if current != jti:
+        log.warning("session.refresh.stale_jti", user_id=uid, sid=sid)
         return False, 0, None
 
     new_jti = secrets.token_urlsafe(16)
