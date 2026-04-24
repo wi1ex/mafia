@@ -34,6 +34,7 @@ from ..api.utils import (
     reduce_suspend_after_hosted_game,
 )
 from ..services.global_chat import emit_global_chat_permissions_updated
+from ..services.livekit import remove_livekit_participant
 from ..services.profile_theme import resolve_profile_theme_state
 from ..services.user_cache import get_user_profile_cached, get_user_profiles_cached
 from ..services.user_stats import invalidate_user_game_stats_cache_for_users
@@ -83,10 +84,17 @@ __all__ = [
     "get_profiles_snapshot",
     "join_room_atomic",
     "leave_room_atomic",
+    "leave_room_atomic_if_epoch",
+    "leave_spectator_atomic_if_epoch",
     "set_user_current_room",
     "clear_user_current_room",
     "find_user_rooms",
     "cleanup_user_from_room",
+    "cancel_disconnect_cleanup_task",
+    "set_disconnect_cleanup_task",
+    "clear_disconnect_cleanup_task_if_current",
+    "reset_room_session",
+    "finalize_guarded_disconnect_cleanup",
     "gc_empty_room",
     "claim_screen",
     "get_rooms_brief",
@@ -171,11 +179,184 @@ log = structlog.get_logger()
 
 _join_sha: str | None = None
 _leave_sha: str | None = None
+_leave_if_epoch_sha: str | None = None
+_spectator_leave_if_epoch_sha: str | None = None
+_disconnect_cleanup_tasks: dict[tuple[int, int], asyncio.Task[None]] = {}
 _single_gc_tasks: dict[int, tuple[str, asyncio.Task[None]]] = {}
 HOST_BLUR_AUTO_OFF_SECONDS = 120
 _host_blur_auto_tasks: dict[int, asyncio.Task[None]] = {}
 SCREEN_QUALITY_LOW = "low"
 SCREEN_QUALITY_HIGH = "high"
+
+
+def cancel_disconnect_cleanup_task(rid: int, uid: int) -> None:
+    key = (int(rid), int(uid))
+    task = _disconnect_cleanup_tasks.pop(key, None)
+    if task and not task.done():
+        task.cancel()
+
+
+def set_disconnect_cleanup_task(rid: int, uid: int, task: asyncio.Task[None]) -> None:
+    _disconnect_cleanup_tasks[(int(rid), int(uid))] = task
+
+
+def clear_disconnect_cleanup_task_if_current(rid: int, uid: int, task: asyncio.Task[None]) -> None:
+    key = (int(rid), int(uid))
+    current = _disconnect_cleanup_tasks.get(key)
+    if current is task:
+        _disconnect_cleanup_tasks.pop(key, None)
+
+
+async def reset_room_session(sid: str, sess: dict[str, Any], *, uid: int | None = None) -> None:
+    actual_uid = int(uid if uid is not None else sess["uid"])
+    base_role = str(sess.get("base_role") or "user")
+    await sio.save_session(
+        sid,
+        {
+            "uid": actual_uid,
+            "rid": None,
+            "role": base_role,
+            "base_role": base_role,
+            "username": sess.get("username"),
+            "avatar_name": sess.get("avatar_name"),
+            "theme_color": sess.get("theme_color"),
+            "theme_icon": sess.get("theme_icon"),
+        },
+        namespace="/room",
+    )
+
+
+async def _evict_livekit_after_epoch_cleanup(r, rid: int, uid: int, expected_epoch: int) -> None:
+    try:
+        cur_epoch_raw = await r.get(f"room:{rid}:user:{uid}:epoch")
+    except Exception:
+        cur_epoch_raw = None
+
+    if cur_epoch_raw is not None:
+        try:
+            cur_epoch = int(cur_epoch_raw or 0)
+        except Exception:
+            cur_epoch = 0
+        if cur_epoch != int(expected_epoch):
+            return
+
+    try:
+        await remove_livekit_participant(rid=rid, uid=uid)
+    except Exception:
+        log.exception("livekit.participant.disconnect_cleanup_failed", rid=rid, uid=uid)
+
+
+async def finalize_guarded_disconnect_cleanup(*, rid: int, uid: int, expected_epoch: int, expected_sid: str, actor_username: str | None, sid: str, sess: dict[str, Any]) -> bool:
+    r = get_redis()
+    try:
+        was_member = bool(await r.sismember(f"room:{rid}:members", str(uid)))
+    except Exception:
+        was_member = False
+    try:
+        was_spectator = (not was_member) and bool(await r.sismember(f"room:{rid}:spectators", str(uid)))
+    except Exception:
+        was_spectator = False
+
+    cleaned = False
+
+    if was_member:
+        try:
+            removed, occ, gc_seq, pos_updates = await leave_room_atomic_if_epoch(
+                r,
+                rid,
+                uid,
+                expected_epoch,
+                expected_sid=expected_sid,
+            )
+        except Exception:
+            log.exception("sio.disconnect.member_leave_if_epoch_failed", rid=rid, uid=uid, epoch=expected_epoch)
+            return False
+
+        if not removed:
+            return False
+
+        cleaned = True
+        await _evict_livekit_after_epoch_cleanup(r, rid, uid, expected_epoch)
+
+        try:
+            await stop_screen_for_user(r, rid, uid, actor_uid=uid, actor_username=actor_username)
+        except Exception:
+            log.exception("sio.disconnect.stop_screen_failed", rid=rid, uid=uid)
+
+        await sio.emit(
+            "member_left",
+            {"user_id": uid},
+            room=f"room:{rid}",
+            namespace="/room",
+        )
+        if pos_updates:
+            await sio.emit(
+                "positions",
+                {"updates": [{"user_id": u, "position": p} for u, p in pos_updates]},
+                room=f"room:{rid}",
+                namespace="/room",
+            )
+
+        await emit_rooms_occupancy_safe(r, rid, occ)
+        try:
+            await maybe_end_game_if_room_presence_low(r, rid, reason="presence_too_low")
+        except Exception:
+            log.exception("sio.disconnect.presence_end_failed", rid=rid, uid=uid)
+        try:
+            await sync_user_active_alive_game_marker(r, rid, uid)
+        except Exception:
+            log.exception("sio.disconnect.active_alive_sync_failed", rid=rid, uid=uid)
+
+        if occ == 0:
+            try:
+                phase = str(await r.hget(f"room:{rid}:game_state", "phase") or "idle")
+            except Exception:
+                phase = "idle"
+            if phase == "idle":
+                async def _gc() -> None:
+                    try:
+                        removed_room = await gc_empty_room(rid, expected_seq=gc_seq)
+                        if not removed_room:
+                            await gc_empty_room(rid)
+                    except Exception:
+                        log.exception("gc.failed", rid=rid)
+
+                asyncio.create_task(_gc())
+
+    elif was_spectator:
+        try:
+            removed = await leave_spectator_atomic_if_epoch(
+                r,
+                rid,
+                uid,
+                expected_epoch,
+                expected_sid=expected_sid,
+            )
+        except Exception:
+            log.exception("sio.disconnect.spectator_leave_if_epoch_failed", rid=rid, uid=uid, epoch=expected_epoch)
+            return False
+
+        if not removed:
+            return False
+
+        cleaned = True
+        await _evict_livekit_after_epoch_cleanup(r, rid, uid, expected_epoch)
+        await emit_rooms_spectators_safe(r, rid)
+
+    if not cleaned:
+        return False
+
+    try:
+        await sio.leave_room(sid, f"room:{rid}", namespace="/room")
+    except Exception:
+        log.warning("sio.disconnect.leave_socket_room_failed", rid=rid, uid=uid)
+
+    try:
+        await reset_room_session(sid, sess, uid=uid)
+    except Exception:
+        log.warning("sio.disconnect.reset_session_failed", rid=rid, uid=uid)
+
+    return True
 
 
 async def resolve_screen_quality(user_id: int) -> str:
@@ -732,6 +913,141 @@ for i=1,#ids do
   table.insert(updates, sc)
 end
 return {occ, 0, #updates/2, unpack(updates)}
+"""
+
+
+LEAVE_IF_EPOCH_LUA = r"""
+-- KEYS: members, positions, info, empty_since, gc_seq, single_since, visitors, current_room, epoch_key, ready, bg_state, sid_key
+local members      = KEYS[1]
+local positions    = KEYS[2]
+local info         = KEYS[3]
+local empty_since  = KEYS[4]
+local gc_seq       = KEYS[5]
+local single_since = KEYS[6]
+local visitors     = KEYS[7]
+local current_room = KEYS[8]
+local epoch_key    = KEYS[9]
+local ready        = KEYS[10]
+local bg_state     = KEYS[11]
+local sid_key      = KEYS[12]
+
+local uid            = tonumber(ARGV[1])
+local now            = tonumber(ARGV[2])
+local expected_epoch = tostring(ARGV[3])
+local rid            = tostring(ARGV[4])
+local expected_sid   = tostring(ARGV[5])
+
+local cur_sid = redis.call('GET', sid_key)
+if cur_sid and tostring(cur_sid) ~= expected_sid then
+  return {-10, 0, 0}
+end
+local cur_epoch = redis.call('GET', epoch_key)
+if cur_epoch then
+  if tostring(cur_epoch) ~= expected_epoch then
+    return {-9, 0, 0}
+  end
+elseif not cur_sid or tostring(cur_sid) ~= expected_sid then
+  return {-9, 0, 0}
+end
+
+local pos = tonumber(redis.call('ZSCORE', positions, uid) or '0')
+local jd  = tonumber(redis.call('HGET', info, 'join_date') or '0')
+if jd and jd > 0 then
+  local dt = now - jd
+  if dt > 0 then redis.call('HINCRBY', visitors, tostring(uid), dt) end
+end
+
+redis.call('SREM', members, uid)
+redis.call('ZREM', positions, uid)
+redis.call('DEL', info)
+redis.call('SREM', ready, uid)
+redis.call('DEL', epoch_key, bg_state, sid_key)
+
+local cur_room = redis.call('GET', current_room)
+if cur_room and tostring(cur_room) == rid then
+  redis.call('DEL', current_room)
+end
+
+local occ = tonumber(redis.call('SCARD', members) or '0')
+if occ == 0 then
+  redis.call('DEL', single_since)
+  redis.call('SET', empty_since, now, 'EX', 2592000)
+  local seq = tonumber(redis.call('INCR', gc_seq))
+  return {occ, seq, 0}
+end
+
+if occ == 1 then
+  redis.call('SET', single_since, now, 'EX', 2592000)
+else
+  redis.call('DEL', single_since)
+end
+
+if not pos or pos == 0 then return {occ, 0, 0} end
+
+local ids = redis.call('ZRANGEBYSCORE', positions, pos+1, '+inf')
+local updates = {}
+for i=1,#ids do
+  local mid = tonumber(ids[i])
+  local sc  = tonumber(redis.call('ZINCRBY', positions, -1, mid))
+  table.insert(updates, mid)
+  table.insert(updates, sc)
+end
+return {occ, 0, #updates/2, unpack(updates)}
+"""
+
+
+SPECTATOR_LEAVE_IF_EPOCH_LUA = r"""
+-- KEYS: spectators, spectators_join, spectators_time, current_room, epoch_key, ready, bg_state, sid_key
+local spectators      = KEYS[1]
+local spectators_join = KEYS[2]
+local spectators_time = KEYS[3]
+local current_room    = KEYS[4]
+local epoch_key       = KEYS[5]
+local ready           = KEYS[6]
+local bg_state        = KEYS[7]
+local sid_key         = KEYS[8]
+
+local uid            = tonumber(ARGV[1])
+local now            = tonumber(ARGV[2])
+local expected_epoch = tostring(ARGV[3])
+local rid            = tostring(ARGV[4])
+local expected_sid   = tostring(ARGV[5])
+
+local cur_sid = redis.call('GET', sid_key)
+if cur_sid and tostring(cur_sid) ~= expected_sid then
+  return 0
+end
+local cur_epoch = redis.call('GET', epoch_key)
+if cur_epoch then
+  if tostring(cur_epoch) ~= expected_epoch then
+    return 0
+  end
+elseif not cur_sid or tostring(cur_sid) ~= expected_sid then
+  return 0
+end
+
+local raw_join = redis.call('HGET', spectators_join, uid)
+if raw_join then
+  local join_ts = tonumber(raw_join or '0')
+  if join_ts and join_ts > 0 then
+    local dt = now - join_ts
+    if dt > 0 then
+      redis.call('HINCRBY', spectators_time, tostring(uid), dt)
+    end
+  end
+end
+
+local removed = redis.call('SREM', spectators, uid)
+redis.call('HDEL', spectators_join, uid)
+redis.call('SREM', ready, uid)
+redis.call('DEL', epoch_key, bg_state, sid_key)
+
+local cur_room = redis.call('GET', current_room)
+if cur_room and tostring(cur_room) == rid then
+  redis.call('DEL', current_room)
+end
+
+return removed
 """
 
 
@@ -1294,11 +1610,15 @@ async def build_game_context(sid, *, namespace="/room") -> tuple[GameActionConte
 
 
 async def ensure_scripts(r):
-    global _join_sha, _leave_sha
+    global _join_sha, _leave_sha, _leave_if_epoch_sha, _spectator_leave_if_epoch_sha
     if _join_sha is None:
         _join_sha = await r.script_load(JOIN_LUA)
     if _leave_sha is None:
         _leave_sha = await r.script_load(LEAVE_LUA)
+    if _leave_if_epoch_sha is None:
+        _leave_if_epoch_sha = await r.script_load(LEAVE_IF_EPOCH_LUA)
+    if _spectator_leave_if_epoch_sha is None:
+        _spectator_leave_if_epoch_sha = await r.script_load(SPECTATOR_LEAVE_IF_EPOCH_LUA)
 
 
 def norm01(v: Any) -> str:
@@ -2248,6 +2568,86 @@ async def leave_room_atomic(r, rid: int, uid: int):
     return occ, gc_seq, updates
 
 
+async def leave_room_atomic_if_epoch(r, rid: int, uid: int, expected_epoch: int, *, expected_sid: str) -> tuple[bool, int, int, list[tuple[int, int]]]:
+    await ensure_scripts(r)
+    now_ts = int(time())
+    args = (
+        12,
+        f"room:{rid}:members",
+        f"room:{rid}:positions",
+        f"room:{rid}:user:{uid}:info",
+        f"room:{rid}:empty_since",
+        f"room:{rid}:gc_seq",
+        f"room:{rid}:single_since",
+        f"room:{rid}:visitors",
+        f"user:{int(uid)}:room",
+        f"room:{rid}:user:{uid}:epoch",
+        f"room:{rid}:ready",
+        f"room:{rid}:user:{uid}:bg_state",
+        f"room:{rid}:user:{uid}:sid",
+        str(uid),
+        str(now_ts),
+        str(int(expected_epoch)),
+        str(int(rid)),
+        str(expected_sid),
+    )
+
+    global _leave_if_epoch_sha
+    try:
+        res = await r.evalsha(_leave_if_epoch_sha, *args)
+    except ResponseError as e:
+        if "NOSCRIPT" in str(e):
+            _leave_if_epoch_sha = await r.script_load(LEAVE_IF_EPOCH_LUA)
+            res = await r.evalsha(_leave_if_epoch_sha, *args)
+        else:
+            log.exception("leave_if_epoch.lua_error", rid=rid, uid=uid, expected_epoch=expected_epoch)
+            raise
+
+    occ = int(res[0] or 0)
+    if occ < 0:
+        return False, 0, 0, []
+
+    gc_seq = int(res[1] or 0)
+    k = int(res[2] or 0)
+    tail = list(map(int, res[3: 3 + 2 * k]))
+    updates = [(tail[i], tail[i + 1]) for i in range(0, 2 * k, 2)]
+    return True, occ, gc_seq, updates
+
+
+async def leave_spectator_atomic_if_epoch(r, rid: int, uid: int, expected_epoch: int, *, expected_sid: str) -> bool:
+    await ensure_scripts(r)
+    now_ts = int(time())
+    args = (
+        8,
+        f"room:{rid}:spectators",
+        f"room:{rid}:spectators_join",
+        f"room:{rid}:spectators_time",
+        f"user:{int(uid)}:room",
+        f"room:{rid}:user:{uid}:epoch",
+        f"room:{rid}:ready",
+        f"room:{rid}:user:{uid}:bg_state",
+        f"room:{rid}:user:{uid}:sid",
+        str(uid),
+        str(now_ts),
+        str(int(expected_epoch)),
+        str(int(rid)),
+        str(expected_sid),
+    )
+
+    global _spectator_leave_if_epoch_sha
+    try:
+        res = await r.evalsha(_spectator_leave_if_epoch_sha, *args)
+    except ResponseError as e:
+        if "NOSCRIPT" in str(e):
+            _spectator_leave_if_epoch_sha = await r.script_load(SPECTATOR_LEAVE_IF_EPOCH_LUA)
+            res = await r.evalsha(_spectator_leave_if_epoch_sha, *args)
+        else:
+            log.exception("spectator_leave_if_epoch.lua_error", rid=rid, uid=uid, expected_epoch=expected_epoch)
+            raise
+
+    return bool(int(res or 0))
+
+
 async def find_user_rooms(r, uid: int, *, current_rid: int, extra_rids: Iterable[int] | None = None) -> list[tuple[int, bool, bool]]:
     room_ids: list[int] = []
     seen: set[int] = set()
@@ -2313,18 +2713,25 @@ async def cleanup_user_from_room(r, rid: int, uid: int, *, was_member: bool, was
     if not was_member and not was_spectator:
         return
 
+    cleaned = False
+
     try:
         await r.srem(f"room:{rid}:ready", str(uid))
     except Exception as err:
         log.warning("sio.join.cleanup.ready_delete_failed", rid=rid, uid=uid, err=type(err).__name__)
     try:
-        await r.delete(f"room:{rid}:user:{uid}:epoch", f"room:{rid}:user:{uid}:bg_state")
+        await r.delete(
+            f"room:{rid}:user:{uid}:epoch",
+            f"room:{rid}:user:{uid}:bg_state",
+            f"room:{rid}:user:{uid}:sid",
+        )
     except Exception as err:
         log.warning("sio.join.cleanup.epoch_delete_failed", rid=rid, uid=uid, err=type(err).__name__)
 
     if was_spectator:
         try:
             await record_spectator_leave(r, rid, uid, int(time()))
+            cleaned = True
         except Exception:
             log.exception("sio.join.cleanup_spectator_failed", rid=rid, uid=uid)
 
@@ -2343,6 +2750,7 @@ async def cleanup_user_from_room(r, rid: int, uid: int, *, was_member: bool, was
             occ = None
 
         if occ is not None:
+            cleaned = True
             await sio.emit("member_left",
                            {"user_id": uid},
                            room=f"room:{rid}",
@@ -2377,6 +2785,12 @@ async def cleanup_user_from_room(r, rid: int, uid: int, *, was_member: bool, was
                             log.exception("sio.join.cleanup.gc_failed", rid=rid)
 
                     asyncio.create_task(_gc())
+
+    if cleaned:
+        try:
+            await remove_livekit_participant(rid=rid, uid=uid)
+        except Exception:
+            log.exception("livekit.participant.cleanup_failed", rid=rid, uid=uid)
 
     if sid:
         try:
@@ -5151,6 +5565,14 @@ async def record_spectator_leave(r, rid: int, uid: int, now_ts: int) -> None:
         await r.srem(f"room:{rid}:spectators", str(uid))
     except Exception:
         log.warning("spectator.leave.remove_failed", rid=rid, uid=uid)
+    try:
+        await r.delete(
+            f"room:{rid}:user:{uid}:epoch",
+            f"room:{rid}:user:{uid}:bg_state",
+            f"room:{rid}:user:{uid}:sid",
+        )
+    except Exception:
+        log.warning("spectator.leave.runtime_cleanup_failed", rid=rid, uid=uid)
     await clear_user_current_room(r, uid, rid=rid)
     await emit_rooms_spectators_safe(r, rid)
 
@@ -5582,9 +6004,17 @@ async def gc_singleton_room(rid: int, *, expected_since: str | None = None) -> b
         except Exception:
             pass
         try:
-            await r.delete(f"room:{rid}:user:{target_uid}:epoch")
+            await r.delete(
+                f"room:{rid}:user:{target_uid}:epoch",
+                f"room:{rid}:user:{target_uid}:bg_state",
+                f"room:{rid}:user:{target_uid}:sid",
+            )
         except Exception:
             pass
+        try:
+            await remove_livekit_participant(rid=rid, uid=target_uid)
+        except Exception:
+            log.exception("livekit.participant.gc_singleton_failed", rid=rid, uid=target_uid)
 
         await sio.emit("member_left",
                        {"user_id": target_uid},
@@ -5795,6 +6225,8 @@ async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
         await _del_scan(f"room:{rid}:user:*:state")
         await _del_scan(f"room:{rid}:user:*:block")
         await _del_scan(f"room:{rid}:user:*:epoch")
+        await _del_scan(f"room:{rid}:user:*:bg_state")
+        await _del_scan(f"room:{rid}:user:*:sid")
         await r.delete(
             f"room:{rid}:members",
             f"room:{rid}:positions",

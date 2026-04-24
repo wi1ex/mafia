@@ -972,10 +972,36 @@ const mirrorOn = computed({
 const rerr = (...a: unknown[]) => console.error('[ROOM]', ...a)
 
 let reloading = false
+let roomDisconnectFailClosedTimer: number | null = null
 function hardReload() {
   if (reloading) return
   reloading = true
   window.location.reload()
+}
+
+function clearRoomDisconnectFailClosedTimer() {
+  if (roomDisconnectFailClosedTimer == null) return
+  window.clearTimeout(roomDisconnectFailClosedTimer)
+  roomDisconnectFailClosedTimer = null
+}
+
+function shouldDeferRoomDisconnectFailClosed(): boolean {
+  if (!backgrounded.value) return false
+  const phase = backgroundedPhase ?? gamePhase.value
+  return phase === 'idle'
+}
+
+function armRoomDisconnectFailClosedTimer() {
+  if (shouldDeferRoomDisconnectFailClosed()) return
+  if (roomDisconnectFailClosedTimer != null) return
+  roomDisconnectFailClosedTimer = window.setTimeout(async () => {
+    roomDisconnectFailClosedTimer = null
+    if (leaving.value) return
+    if (!netReconnecting.value) return
+    if (socket.value?.connected) return
+    try { await rtc.disconnect() } catch {}
+    if (navigator.onLine) hardReload()
+  }, 6500)
 }
 
 function avatarKey(id: string): string {
@@ -1912,11 +1938,15 @@ function connectSocket() {
     socket.value?.io.on('reconnect_attempt', () => { netReconnecting.value = true })
     socket.value?.io.on('reconnect_error',   () => { netReconnecting.value = true })
     socket.value?.io.on('reconnect_failed',  () => { netReconnecting.value = true })
-    socket.value?.io.on('reconnect',         () => { netReconnecting.value = false })
+    socket.value?.io.on('reconnect',         () => {
+      netReconnecting.value = false
+      clearRoomDisconnectFailClosedTimer()
+    })
   } catch {}
 
 socket.value?.on('connect', async () => {
   netReconnecting.value = false
+  clearRoomDisconnectFailClosedTimer()
   if (!leaving.value) {
     rtc.setVideoSubscriptionsForAll(false)
     const ack = await safeJoin()
@@ -1935,7 +1965,11 @@ socket.value?.on('connect', async () => {
 })
 
   socket.value?.on('disconnect', () => {
-    if (!leaving.value) netReconnecting.value = true
+    if (!leaving.value) {
+      netReconnecting.value = true
+      if (shouldDeferRoomDisconnectFailClosed()) clearRoomDisconnectFailClosedTimer()
+      else armRoomDisconnectFailClosedTimer()
+    }
     openPanelFor.value = ''
   })
 
@@ -2769,12 +2803,16 @@ async function onLeave(goHome = true) {
       window.removeEventListener('focus', handleForegroundSignal)
       window.removeEventListener('keydown', onHotkey)
   } catch {}
+  clearRoomDisconnectFailClosedTimer()
   clearForegroundMediaRecoveryTimers()
   try {
     await stopScreenBeforeLeave()
     const s = socket.value
     socket.value = null
     if (s) {
+      if (s.connected) {
+        try { await s.timeout(800).emitWithAck('leave', { room_id: rid }) } catch {}
+      }
       disposeAuthedSocket(s)
       try { (s.io.opts as any).reconnection = false } catch {}
       try { s.removeAllListeners?.() } catch {}
@@ -3006,6 +3044,9 @@ function handleForegroundSignal() {
   local.visibility = false
   rtc.setVideoSubscriptionsForAll(false)
   backgrounded.value = false
+  if (netReconnecting.value && !socket.value?.connected) {
+    armRoomDisconnectFailClosedTimer()
+  }
   void restoreAfterBackgroundFromServer()
 }
 
@@ -3224,6 +3265,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('keydown', onHotkey)
   window.removeEventListener('pageshow', handleForegroundSignal)
   window.removeEventListener('focus', handleForegroundSignal)
+  clearRoomDisconnectFailClosedTimer()
   clearForegroundMediaRecoveryTimers()
   volumeSnapTimers.forEach((tm) => { try { window.clearTimeout(tm) } catch {} })
   volumeSnapTimers.clear()

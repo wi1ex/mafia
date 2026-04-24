@@ -39,9 +39,11 @@ class Settings(BaseSettings):
 
     LIVEKIT_API_KEY: str
     LIVEKIT_API_SECRET: str
+    LIVEKIT_UPSTREAM: str
 
     BACKEND_CORS_ORIGINS: List[str] = []
     ONLINE_TTL_SECONDS: int = 60
+    ROOM_RECONNECT_GRACE_SECONDS: int = 4
 
     REGISTRATION_ENABLED: bool = True
     ROOMS_CAN_CREATE: bool = True

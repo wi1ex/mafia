@@ -31,6 +31,7 @@ from ...security.decorators import log_route, require_protected_admin_dep
 from ...security.auth_tokens import get_identity
 from ...security.passwords import hash_password
 from ...security.parameters import ensure_app_settings, sync_cache_from_row, refresh_app_settings, get_cached_settings
+from ...services.livekit import remove_livekit_participant
 from ...services.user_cache import refresh_user_profile_cache, get_user_profiles_cached
 from ...services.profile_theme import (
     compute_subscription_end,
@@ -851,7 +852,11 @@ async def room_close(room_id: int, ident: Identity = Depends(require_protected_a
         except Exception:
             pass
         try:
-            await r.delete(f"room:{room_id}:user:{uid}:epoch")
+            await r.delete(
+                f"room:{room_id}:user:{uid}:epoch",
+                f"room:{room_id}:user:{uid}:bg_state",
+                f"room:{room_id}:user:{uid}:sid",
+            )
         except Exception:
             pass
 
@@ -865,6 +870,8 @@ async def room_close(room_id: int, ident: Identity = Depends(require_protected_a
                            room=f"room:{room_id}",
                            namespace="/room")
         await emit_rooms_occupancy_safe(r, room_id, occ)
+        with suppress(Exception):
+            await remove_livekit_participant(rid=room_id, uid=uid)
 
     for uid in spectator_ids - member_ids:
         await sio.emit("force_leave",
@@ -875,6 +882,8 @@ async def room_close(room_id: int, ident: Identity = Depends(require_protected_a
             await record_spectator_leave(r, room_id, uid, int(time()))
         except Exception:
             pass
+        with suppress(Exception):
+            await remove_livekit_participant(rid=room_id, uid=uid)
 
     should_gc = gc_seq_on_empty is not None
     if not should_gc:
@@ -973,7 +982,11 @@ async def rooms_kick_all(ident: Identity = Depends(require_protected_admin_dep),
             except Exception:
                 pass
             try:
-                await r.delete(f"room:{rid}:user:{uid}:epoch")
+                await r.delete(
+                    f"room:{rid}:user:{uid}:epoch",
+                    f"room:{rid}:user:{uid}:bg_state",
+                    f"room:{rid}:user:{uid}:sid",
+                )
             except Exception:
                 pass
 
@@ -987,6 +1000,8 @@ async def rooms_kick_all(ident: Identity = Depends(require_protected_admin_dep),
                                room=f"room:{rid}",
                                namespace="/room")
             await emit_rooms_occupancy_safe(r, rid, occ)
+            with suppress(Exception):
+                await remove_livekit_participant(rid=rid, uid=uid)
 
         for uid in spectator_ids - member_ids:
             await sio.emit("force_leave",
@@ -997,6 +1012,8 @@ async def rooms_kick_all(ident: Identity = Depends(require_protected_admin_dep),
                 await record_spectator_leave(r, rid, uid, int(time()))
             except Exception:
                 pass
+            with suppress(Exception):
+                await remove_livekit_participant(rid=rid, uid=uid)
 
         should_gc = gc_seq_on_empty is not None
         if not should_gc:

@@ -99,6 +99,8 @@ __all__ = [
     "aggregate_user_games_in_owned_rooms_stats",
     "build_user_stats_out",
     "fetch_users_last_game_at",
+    "fetch_users_last_room_id",
+    "fetch_users_last_spectator_room_id",
     "normalize_users_sort",
     "normalize_moderation_users_sort",
     "fetch_friends_count_for_users",
