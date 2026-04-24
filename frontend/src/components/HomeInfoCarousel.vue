@@ -382,30 +382,30 @@ onBeforeUnmount(() => {
       justify-content: center;
       gap: 5px;
       padding: 5px 10px;
-                                                                          position: relative;
-                                                                          overflow: hidden;
-                                                                          isolation: isolate;
+      position: relative;
+      overflow: hidden;
+      isolation: isolate;
       border-radius: 999px;
-                                                                              border: 1px solid rgba($white, 0.2);
+      border: 1px solid rgba($white, 0.1);
       font-size: 14px;
       line-height: 1.2;
-                                                                                background:
-                                                                                  linear-gradient(180deg, rgba($white, 0.24), rgba($white, 0.07) 48%, rgba($white, 0.03)),
-                                                                                  radial-gradient(circle at top left, rgba($white, 0.38), transparent 58%),
-                                                                                  radial-gradient(circle at bottom right, rgba($white, 0.12), transparent 54%),
-                                                                                  rgba($bg, 0.24);
-                                                                                box-shadow:
-                                                                                  inset 0 1px 0 rgba($white, 0.34),
-                                                                                  inset 0 -1px 0 rgba($white, 0.08),
-                                                                                  0 10px 24px rgba($black, 0.2);
-                                                                                -webkit-backdrop-filter: blur(18px) saturate(180%) brightness(1.08);
-                                                                                backdrop-filter: blur(18px) saturate(180%) brightness(1.08);
+      background:
+        linear-gradient(180deg, rgba($white, 0.05), rgba($white, 0.05) 50%, rgba($white, 0.01)),
+        radial-gradient(circle at top left, rgba($white, 1), transparent 5%),
+        radial-gradient(circle at bottom right, rgba($white, 0.05), transparent 50%),
+        rgba($bg, 0.1);
+      box-shadow:
+        inset 0 1px 0 rgba($white, 0.34),
+        inset 0 -1px 0 rgba($white, 0.08),
+        0 10px 24px rgba($black, 0.2);
+      -webkit-backdrop-filter: blur(15px) saturate(180%) brightness(1.1);
+      backdrop-filter: blur(15px) saturate(180%) brightness(1.1);
       color: $fg;
-                                                                        text-shadow: 0 1px 2px rgba($black, 0.22);
+      text-shadow: 0 1px 2px rgba($black, 0.25);
       img {
         width: 20px;
         height: 20px;
-                                                                        filter: drop-shadow(0 1px 1px rgba($black, 0.2));
+        filter: drop-shadow(0 1px 1px rgba($black, 0.25));
       }
     }
     .slide-copy {
@@ -511,56 +511,59 @@ onBeforeUnmount(() => {
     bottom: 15px;
     padding: 5px 10px;
     gap: 10px;
-                                                                overflow: hidden;
-                                                                isolation: isolate;
-                                                                border: 1px solid rgba($white, 0.18);
+    overflow: hidden;
+    isolation: isolate;
+    border: 1px solid rgba($white, 0.1);
     border-radius: 999px;
-                                                                      background:
-                                                                        linear-gradient(180deg, rgba($white, 0.18), rgba($white, 0.06) 50%, rgba($white, 0.03)),
-                                                                        radial-gradient(circle at top center, rgba($white, 0.18), transparent 62%),
-                                                                        rgba($bg, 0.28);
-                                                                      -webkit-backdrop-filter: blur(22px) saturate(180%) brightness(1.06);
-                                                                      backdrop-filter: blur(22px) saturate(180%) brightness(1.06);
-                                                                      transform: translateX(-50%);
-                                                                      box-shadow:
-                                                                        inset 0 1px 0 rgba($white, 0.28),
-                                                                        inset 0 -1px 0 rgba($white, 0.08),
-                                                                        0 15px 30px rgba($black, 0.25);
+    background:
+      linear-gradient(180deg, rgba($white, 0.1), rgba($white, 0.05) 50%, rgba($white, 0.01)),
+      radial-gradient(circle at top center, rgba($white, 0.1), transparent 75%),
+      rgba($bg, 0.5);
+    -webkit-backdrop-filter: blur(30px) saturate(180%) brightness(1.25);
+    backdrop-filter: blur(30px) saturate(180%) brightness(1.25);
+    transform: translateX(-50%);
+    box-shadow:
+      inset 0 1px 0 rgba($white, 0.25),
+      inset 0 -1px 0 rgba($white, 0.1),
+      0 15px 30px rgba($black, 0.25);
     z-index: 5;
   }
   .carousel-dot {
     padding: 0;
-                                                                      position: relative;
-                                                                      overflow: hidden;
+    position: relative;
+    overflow: hidden;
     width: 20px;
     height: 10px;
-                                                                    border: 1px solid rgba($white, 0.14);
+    border: 1px solid rgba($white, 0.1);
     border-radius: 999px;
-                                                                          background:
-                                                                            linear-gradient(180deg, rgba($white, 0.18), rgba($white, 0.04)),
-                                                                            rgba($white, 0.08);
-                                                                          box-shadow:
-                                                                            inset 0 1px 0 rgba($white, 0.22),
-                                                                            0 4px 10px rgba($black, 0.12);
+    background:
+      linear-gradient(180deg, rgba($white, 0.1), rgba($white, 0.05)),
+      rgba($white, 0.1);
+    box-shadow:
+      inset 0 1px 0 rgba($white, 0.25),
+      0 5px 10px rgba($black, 0.1);
     outline: none;
     cursor: pointer;
     transition: width 0.25s ease-in-out, background-color 0.25s ease-in-out, border-color 0.25s ease-in-out, box-shadow 0.25s ease-in-out;
     &:hover,
     &:focus-visible {
-                                                                      border-color: rgba($white, 0.22);
-                                                                      background:
-                                                                        linear-gradient(180deg, rgba($white, 0.24), rgba($white, 0.08)),
-                                                                        rgba($white, 0.12);
+      border-color: rgba($white, 0.1);
+      background:
+        linear-gradient(180deg, rgba($white, 0.25), rgba($white, 0.1)),
+        rgba($white, 0.1);
+      box-shadow:
+        inset 0 1px 0 rgba($white, 0.25),
+        0 5px 15px rgba($black, 0.1);
     }
     &.active {
       width: 50px;
-                                                                              border-color: rgba($white, 0.28);
-                                                                              background:
-                                                                                linear-gradient(180deg, rgba($white, 0.38), rgba($white, 0.12)),
-                                                                                rgba($white, 0.18);
-                                                                              box-shadow:
-                                                                                inset 0 1px 0 rgba($white, 0.3),
-                                                                                0 6px 14px rgba($black, 0.16);
+      border-color: rgba($white, 0.1);
+      background:
+        linear-gradient(180deg, rgba($white, 0.25), rgba($white, 0.1)),
+        rgba($white, 0.1);
+      box-shadow:
+        inset 0 1px 0 rgba($white, 0.25),
+        0 5px 15px rgba($black, 0.1);
     }
   }
   .nav-btn {
@@ -570,38 +573,37 @@ onBeforeUnmount(() => {
     padding: 0;
     width: 40px;
     height: 40px;
-                                                                        position: relative;
-                                                                        overflow: hidden;
-                                                                        isolation: isolate;
-                                                                        border: 1px solid rgba($white, 0.2);
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+    border: 1px solid rgba($white, 0.1);
     border-radius: 50%;
-                                                                            background:
-                                                                              linear-gradient(180deg, rgba($white, 0.24), rgba($white, 0.07) 48%, rgba($white, 0.03)),
-                                                                              radial-gradient(circle at top left, rgba($white, 0.34), transparent 60%),
-                                                                              rgba($bg, 0.24);
-                                                                            box-shadow:
-                                                                              inset 0 1px 0 rgba($white, 0.34),
-                                                                              inset 0 -1px 0 rgba($white, 0.08),
-                                                                              0 10px 20px rgba($black, 0.18);
-                                                                            -webkit-backdrop-filter: blur(18px) saturate(180%) brightness(1.08);
-                                                                            backdrop-filter: blur(18px) saturate(180%) brightness(1.08);
+    background:
+      linear-gradient(180deg, rgba($white, 0.1), rgba($white, 0.05) 50%, rgba($white, 0.05)),
+      radial-gradient(circle at top left, rgba($white, 0.25), transparent 50%),
+      rgba($bg, 0.35);
+    box-shadow:
+      inset 0 1px 0 rgba($white, 0.25),
+      inset 0 -1px 0 rgba($white, 0.1),
+      0 10px 20px rgba($black, 0.1);
+    -webkit-backdrop-filter: blur(20px) saturate(180%) brightness(1.25);
+    backdrop-filter: blur(20px) saturate(180%) brightness(1.25);
     outline: none;
     cursor: pointer;
-    transition: background-color 0.25s ease-in-out, border-color 0.25s ease-in-out, box-shadow 0.25s ease-in-out, transform 0.25s ease-in-out;
+    transition: background-color 0.25s ease-in-out, border-color 0.25s ease-in-out, box-shadow 0.25s ease-in-out;
     &:hover,
     &:focus-visible {
-                                                                                transform: translateY(-1px);
-                                                                                border-color: rgba($white, 0.28);
-                                                                                box-shadow:
-                                                                                  inset 0 1px 0 rgba($white, 0.4),
-                                                                                  inset 0 -1px 0 rgba($white, 0.1),
-                                                                                  0 14px 28px rgba($black, 0.22);
+      border-color: rgba($white, 0.25);
+      box-shadow:
+        inset 0 1px 0 rgba($white, 0.25),
+        inset 0 -1px 0 rgba($white, 0.1),
+        0 15px 30px rgba($black, 0.1);
     }
   }
   .nav-icon {
     width: 20px;
     height: 20px;
-                                                                                    filter: drop-shadow(0 1px 1px rgba($black, 0.24));
+    filter: drop-shadow(0 1px 1px rgba($black, 0.25));
     &.nav-icon--prev {
       transform: rotate(90deg);
     }
@@ -650,12 +652,6 @@ onBeforeUnmount(() => {
         padding: 3px 5px;
         gap: 3px;
         font-size: 8px;
-                                                                                box-shadow:
-                                                                                  inset 0 1px 0 rgba($white, 0.32),
-                                                                                  inset 0 -1px 0 rgba($white, 0.08),
-                                                                                  0 6px 14px rgba($black, 0.18);
-                                                                                -webkit-backdrop-filter: blur(14px) saturate(170%) brightness(1.06);
-                                                                                backdrop-filter: blur(14px) saturate(170%) brightness(1.06);
         img {
           width: 12px;
           height: 12px;
@@ -706,19 +702,10 @@ onBeforeUnmount(() => {
       bottom: 5px;
       padding: 3px 5px;
       gap: 5px;
-                                                                    box-shadow:
-                                                                      inset 0 1px 0 rgba($white, 0.24),
-                                                                      inset 0 -1px 0 rgba($white, 0.08),
-                                                                      0 8px 18px rgba($black, 0.2);
-                                                                    -webkit-backdrop-filter: blur(16px) saturate(170%) brightness(1.04);
-                                                                    backdrop-filter: blur(16px) saturate(170%) brightness(1.04);
     }
     .carousel-dot {
       width: 10px;
       height: 3px;
-                                                                      box-shadow:
-                                                                        inset 0 1px 0 rgba($white, 0.18),
-                                                                        0 3px 6px rgba($black, 0.1);
       &.active {
         width: 24px;
       }
@@ -726,12 +713,6 @@ onBeforeUnmount(() => {
     .nav-btn {
       width: 16px;
       height: 16px;
-                                                                      box-shadow:
-                                                                        inset 0 1px 0 rgba($white, 0.28),
-                                                                        inset 0 -1px 0 rgba($white, 0.08),
-                                                                        0 4px 10px rgba($black, 0.16);
-                                                                      -webkit-backdrop-filter: blur(12px) saturate(170%) brightness(1.05);
-                                                                      backdrop-filter: blur(12px) saturate(170%) brightness(1.05);
     }
     .nav-icon {
       width: 8px;
