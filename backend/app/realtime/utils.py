@@ -276,7 +276,6 @@ async def finalize_guarded_disconnect_cleanup(*, rid: int, uid: int, expected_ep
             return False
 
         cleaned = True
-        await _evict_livekit_after_epoch_cleanup(r, rid, uid, expected_epoch)
 
         try:
             await stop_screen_for_user(r, rid, uid, actor_uid=uid, actor_username=actor_username)
@@ -340,7 +339,6 @@ async def finalize_guarded_disconnect_cleanup(*, rid: int, uid: int, expected_ep
             return False
 
         cleaned = True
-        await _evict_livekit_after_epoch_cleanup(r, rid, uid, expected_epoch)
         await emit_rooms_spectators_safe(r, rid)
 
     if not cleaned:
@@ -355,6 +353,8 @@ async def finalize_guarded_disconnect_cleanup(*, rid: int, uid: int, expected_ep
         await reset_room_session(sid, sess, uid=uid)
     except Exception:
         log.warning("sio.disconnect.reset_session_failed", rid=rid, uid=uid)
+
+    await _evict_livekit_after_epoch_cleanup(r, rid, uid, expected_epoch)
 
     return True
 
@@ -5788,6 +5788,21 @@ async def perform_game_end(ctx, sess: Optional[dict[str, Any]], *, confirm: bool
             except Exception:
                 log.warning("sio.game_end.spectator_soft_force_leave_failed", rid=rid, uid=uid_i)
 
+    async def _cleanup_game_end_spectators(ids: set[int]) -> None:
+        if not ids:
+            return
+
+        for uid_i in sorted(ids):
+            try:
+                await r.delete(
+                    f"room:{rid}:user:{uid_i}:epoch",
+                    f"room:{rid}:user:{uid_i}:bg_state",
+                    f"room:{rid}:user:{uid_i}:sid",
+                )
+            except Exception:
+                log.warning("sio.game_end.spectator_runtime_cleanup_failed", rid=rid, uid=uid_i)
+            await clear_user_current_room(r, uid_i, rid=rid)
+
     spectators_soft_1 = await _spectator_ids_from_redis()
     await _soft_force_leave(spectators_soft_1)
 
@@ -5813,6 +5828,7 @@ async def perform_game_end(ctx, sess: Optional[dict[str, Any]], *, confirm: bool
     await asyncio.sleep(1)
     spectators_soft_2 = await _spectator_ids_from_redis()
     await _soft_force_leave(spectators_soft_2)
+    await _cleanup_game_end_spectators(spectators_soft_2)
 
     try:
         await r.delete(f"room:{rid}:spectators", f"room:{rid}:spectators_join")
@@ -5820,6 +5836,12 @@ async def perform_game_end(ctx, sess: Optional[dict[str, Any]], *, confirm: bool
         log.exception("sio.game_end.spectators_clear_failed", rid=rid)
 
     await emit_rooms_spectators_safe(r, rid)
+
+    for uid_i in sorted(spectators_soft_2):
+        try:
+            await remove_livekit_participant(rid=rid, uid=uid_i)
+        except Exception:
+            log.exception("livekit.participant.game_end_spectator_failed", rid=rid, uid=uid_i)
 
     return {"ok": True, "status": 200, "room_id": rid, "reason": reason}
 
@@ -6011,11 +6033,6 @@ async def gc_singleton_room(rid: int, *, expected_since: str | None = None) -> b
             )
         except Exception:
             pass
-        try:
-            await remove_livekit_participant(rid=rid, uid=target_uid)
-        except Exception:
-            log.exception("livekit.participant.gc_singleton_failed", rid=rid, uid=target_uid)
-
         await sio.emit("member_left",
                        {"user_id": target_uid},
                        room=f"room:{rid}",
@@ -6026,6 +6043,10 @@ async def gc_singleton_room(rid: int, *, expected_since: str | None = None) -> b
                            room=f"room:{rid}",
                            namespace="/room")
         await emit_rooms_occupancy_safe(r, rid, occ)
+        try:
+            await remove_livekit_participant(rid=rid, uid=target_uid)
+        except Exception:
+            log.exception("livekit.participant.gc_singleton_failed", rid=rid, uid=target_uid)
 
         if occ != 0:
             return False
