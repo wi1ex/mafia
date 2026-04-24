@@ -652,6 +652,12 @@ onBeforeUnmount(() => {
         padding: 3px 5px;
         gap: 3px;
         font-size: 8px;
+        box-shadow:
+          inset 0 1px 0 rgba($white, 0.2),
+          inset 0 -1px 0 rgba($white, 0.05),
+          0 5px 15px rgba($black, 0.15);
+        -webkit-backdrop-filter: blur(10px) saturate(170%) brightness(1.1);
+        backdrop-filter: blur(10px) saturate(170%) brightness(1.1);
         img {
           width: 12px;
           height: 12px;
@@ -702,10 +708,19 @@ onBeforeUnmount(() => {
       bottom: 5px;
       padding: 3px 5px;
       gap: 5px;
+      box-shadow:
+        inset 0 1px 0 rgba($white, 0.20),
+        inset 0 -1px 0 rgba($white, 0.05),
+        0 5px 15px rgba($black, 0.15);
+      -webkit-backdrop-filter: blur(15px) saturate(170%) brightness(1.15);
+      backdrop-filter: blur(15px) saturate(170%) brightness(1.15);
     }
     .carousel-dot {
       width: 10px;
       height: 3px;
+      box-shadow:
+        inset 0 1px 0 rgba($white, 0.2),
+        0 3px 5px rgba($black, 0.1);
       &.active {
         width: 24px;
       }
@@ -713,6 +728,12 @@ onBeforeUnmount(() => {
     .nav-btn {
       width: 16px;
       height: 16px;
+      box-shadow:
+        inset 0 1px 0 rgba($white, 0.2),
+        inset 0 -1px 0 rgba($white, 0.1),
+        0 5px 10px rgba($black, 0.1);
+      -webkit-backdrop-filter: blur(10px) saturate(170%) brightness(1.15);
+      backdrop-filter: blur(10px) saturate(170%) brightness(1.15);
     }
     .nav-icon {
       width: 8px;
