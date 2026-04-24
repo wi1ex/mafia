@@ -625,6 +625,12 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
     }
   }
 
+  function shouldHideDeletedMessageForViewer(raw: unknown): boolean {
+    if (!isRecord(raw)) return false
+    if (!Boolean(raw.deleted)) return false
+    return !currentViewerIsChatModerator()
+  }
+
   function normalizeDeletedPreview(raw: unknown): GlobalChatDeletedMessagePreview | null {
     if (!isRecord(raw)) return null
     const messageId = asPositiveInt(raw.message_id)
@@ -672,31 +678,34 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
   function mergeMessages(rawItems: unknown[]): { insertedIds: number[] } {
     if (!Array.isArray(rawItems) || rawItems.length === 0) return { insertedIds: [] }
     const viewerUserId = currentViewerUserId()
-    const next = [...messages.value]
-    const indexById = new Map(next.map((item, index) => [item.id, index]))
+    const nextById = new Map(messages.value.map((item) => [item.id, item]))
     const insertedIds: number[] = []
 
     for (const rawItem of rawItems) {
       const rawId = isRecord(rawItem) ? asPositiveInt(rawItem.id) : 0
       if (rawId <= 0) continue
-      const existingIndex = indexById.get(rawId)
-      const existing = typeof existingIndex === 'number' ? next[existingIndex] : undefined
+      const existing = nextById.get(rawId)
+      if (shouldHideDeletedMessageForViewer(rawItem)) {
+        if (nextById.delete(rawId)) {
+          clearReactionParticipantsCache(rawId)
+          consumeUnreadTargetMessageId(rawId)
+          if (draftReplyMessageId.value === rawId) clearReplyTarget()
+          delete reactionBusy[rawId]
+          delete deleteBusy[rawId]
+          delete purgeBusy[rawId]
+        }
+        continue
+      }
       const normalized = normalizeMessage(rawItem, viewerUserId, existing)
       if (!normalized) continue
-      if (typeof existingIndex === 'number') {
-        next[existingIndex] = normalized
-      } else {
-        indexById.set(rawId, next.length)
-        next.push(normalized)
-        insertedIds.push(rawId)
-      }
+      if (!existing) insertedIds.push(rawId)
+      nextById.set(rawId, normalized)
       if (normalized.deleted) {
         clearReactionParticipantsCache(rawId)
       }
     }
 
-    next.sort((a, b) => a.id - b.id)
-    messages.value = next
+    messages.value = [...nextById.values()].sort((a, b) => a.id - b.id)
     return { insertedIds }
   }
 
