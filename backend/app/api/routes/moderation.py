@@ -36,6 +36,7 @@ from ..utils import (
     moderation_user_sort_metric,
     normalize_pagination,
     normalize_moderation_users_sort,
+    maybe_send_sanction_telegram_if_offline,
     revoke_active_suspend,
 )
 
@@ -213,6 +214,9 @@ async def moderation_apply_user_suspend(user_id: int, payload: AdminSanctionTime
 
     with suppress(Exception):
         await emit_notify(uid, note, kind="sanction")
+    with suppress(Exception):
+        await maybe_send_sanction_telegram_if_offline(session, user_id=uid, telegram_id=user.telegram_id, note=note)
+    with suppress(Exception):
         await emit_sanctions_update(session, uid)
     with suppress(Exception):
         await emit_global_chat_sanction_issued_notice(

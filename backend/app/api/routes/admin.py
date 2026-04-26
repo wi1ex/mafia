@@ -144,6 +144,7 @@ from ..utils import (
     format_duration_seconds_compact,
     emit_notify,
     emit_sanctions_update,
+    maybe_send_sanction_telegram_if_offline,
     refresh_rooms_after,
     set_user_deleted,
     delete_user_account_as_admin_action,
@@ -1835,6 +1836,8 @@ async def apply_user_timeout(user_id: int, payload: AdminSanctionTimedIn, ident:
             namespace="/auth",
         )
     with suppress(Exception):
+        await maybe_send_sanction_telegram_if_offline(session, user_id=uid, telegram_id=user.telegram_id, note=note)
+    with suppress(Exception):
         await emit_sanctions_update(session, uid)
     with suppress(Exception):
         await emit_global_chat_sanction_issued_notice(
@@ -1911,6 +1914,8 @@ async def revoke_user_timeout(user_id: int, ident: Identity = Depends(get_identi
             room=f"user:{uid}",
             namespace="/auth",
         )
+    with suppress(Exception):
+        await maybe_send_sanction_telegram_if_offline(session, user_id=uid, telegram_id=user.telegram_id, note=note)
     with suppress(Exception):
         await emit_sanctions_update(session, uid)
     with suppress(Exception):
@@ -1992,6 +1997,8 @@ async def apply_user_ban(user_id: int, payload: AdminSanctionBanIn, ident: Ident
             namespace="/auth",
         )
     with suppress(Exception):
+        await maybe_send_sanction_telegram_if_offline(session, user_id=uid, telegram_id=user.telegram_id, note=note)
+    with suppress(Exception):
         await emit_sanctions_update(session, uid)
     with suppress(Exception):
         await emit_global_chat_sanction_issued_notice(
@@ -2063,6 +2070,8 @@ async def revoke_user_ban(user_id: int, ident: Identity = Depends(get_identity),
             room=f"user:{uid}",
             namespace="/auth",
         )
+    with suppress(Exception):
+        await maybe_send_sanction_telegram_if_offline(session, user_id=uid, telegram_id=user.telegram_id, note=note)
     with suppress(Exception):
         await emit_sanctions_update(session, uid)
     with suppress(Exception):
@@ -2168,6 +2177,8 @@ async def apply_user_suspend(user_id: int, payload: AdminSanctionTimedIn, ident:
             room=f"user:{uid}",
             namespace="/auth",
         )
+    with suppress(Exception):
+        await maybe_send_sanction_telegram_if_offline(session, user_id=uid, telegram_id=user.telegram_id, note=note)
     with suppress(Exception):
         await emit_sanctions_update(session, uid)
     with suppress(Exception):

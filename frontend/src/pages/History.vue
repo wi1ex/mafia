@@ -571,8 +571,8 @@ onBeforeUnmount(() => {
     .history-pager {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      padding: 10px 0;
+      justify-content: center;
+      padding: 10px 0 20px;
       gap: 10px;
       color: $ashy;
       font-size: 14px;
@@ -629,10 +629,6 @@ onBeforeUnmount(() => {
             }
           }
         }
-      }
-      .history-pager {
-        flex-direction: column;
-        align-items: stretch;
       }
     }
   }

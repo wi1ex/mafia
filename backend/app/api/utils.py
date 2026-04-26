@@ -125,6 +125,7 @@ __all__ = [
     "sync_expired_profile_subscriptions",
     "notify_expiring_profile_subscriptions",
     "notify_subscription_upsert",
+    "maybe_send_sanction_telegram_if_offline",
     "delete_gif_avatar_for_inactive_subscription",
     "emit_sanctions_update",
     "build_user_out_payload",
@@ -895,6 +896,9 @@ async def revoke_active_suspend(session: AsyncSession, sanction: UserSanction, *
 
     with suppress(Exception):
         await emit_notify(uid, note, kind="sanction")
+    with suppress(Exception):
+        await maybe_send_sanction_telegram_if_offline(session, user_id=uid, note=note)
+    with suppress(Exception):
         await emit_sanctions_update(session, uid)
     with suppress(Exception):
         from ..services.global_chat import emit_global_chat_sanction_removed_notice
@@ -1219,6 +1223,45 @@ async def notify_subscription_upsert(session: AsyncSession, user: User, subscrip
         )
 
 
+async def maybe_send_sanction_telegram_if_offline(session: AsyncSession, *, user_id: int, note: Notif, telegram_id: int | None = None) -> bool:
+    uid = int(user_id or 0)
+    if uid <= 0:
+        return False
+
+    tg_id = int(telegram_id or 0)
+    if tg_id <= 0:
+        user = await session.get(User, uid)
+        if not user or user.deleted_at is not None:
+            return False
+
+        tg_id = int(user.telegram_id or 0)
+        if tg_id <= 0:
+            return False
+
+    try:
+        r = get_redis()
+        base_online_ids = set(await fetch_online_user_ids(r))
+        online_ids = await fetch_effective_online_user_ids(r, [uid], base_online_ids=base_online_ids)
+    except Exception:
+        log.warning("sanction.telegram_presence_check_failed", uid=uid, exc_info=True)
+        return False
+
+    if uid in online_ids:
+        return False
+
+    try:
+        send_result = await send_text_message(chat_id=tg_id, text=f"{note.title}\n\n{note.text}")
+    except Exception:
+        log.warning("sanction.telegram_notify_failed", uid=uid, reason="unexpected_error", exc_info=True)
+        return False
+
+    if not send_result.ok:
+        log.warning("sanction.telegram_notify_failed", uid=uid, reason=send_result.reason)
+        return False
+
+    return True
+
+
 async def _create_subscription_site_notice_once(session: AsyncSession, user_id: int, *, title: str, text: str, no_toast: bool) -> bool:
     uid = int(user_id)
     existing_note_id = await session.scalar(
@@ -1464,6 +1507,8 @@ async def _notify_expired_timed_sanctions(user_id: int) -> None:
         for note in notes:
             with suppress(Exception):
                 await emit_notify(int(user_id), note, kind="sanction")
+            with suppress(Exception):
+                await maybe_send_sanction_telegram_if_offline(session, user_id=int(user_id), note=note)
 
 
 async def emit_expired_timed_sanction_chat_notice_once(session: AsyncSession, sanction: UserSanction) -> bool:

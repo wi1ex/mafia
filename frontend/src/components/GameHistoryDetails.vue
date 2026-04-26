@@ -35,7 +35,7 @@
         <div v-if="slot.farewell.length > 0" class="slot-extra slot-extra-farewell">
           <span class="slot-extra-label">Завещание:</span>
           <span class="farewell-values">
-            <template v-for="(pick, index) in slot.farewell" :key="`${slot.slot}-${pick.slot}-${pick.verdict}`">
+            <template v-for="pick in slot.farewell" :key="`${slot.slot}-${pick.slot}-${pick.verdict}`">
               <span class="farewell-chip" :class="pick.verdict">{{ pick.slot }}</span>
             </template>
           </span>
@@ -264,7 +264,7 @@ function formatMetric(value: number): string {
       flex-direction: column;
       padding: 10px;
       gap: 5px;
-      min-height: 135px;
+      min-height: 130px;
       border-radius: 5px;
       background-color: $dark;
       border: 1px solid rgba($grey, 0.25);
@@ -430,6 +430,9 @@ function formatMetric(value: number): string {
         color: $orange;
         font-size: 12px;
         line-height: 1.2;
+        span {
+          min-width: fit-content;
+        }
         .ppk-mark {
           display: inline-flex;
           align-items: center;
@@ -472,7 +475,91 @@ function formatMetric(value: number): string {
 @media (max-width: 1280px) {
   .history-details {
     .slots-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 5px;
+      .slot-card {
+        min-height: 100px;
+        padding: 5px;
+        .slot-role-icon {
+          top: 5px;
+          right: 5px;
+          width: 16px;
+          height: 16px;
+        }
+        .slot-top {
+          gap: 3px;
+          .slot-num-icon {
+            width: 16px;
+            height: 16px;
+          }
+          .slot-player {
+            gap: 3px;
+            img {
+              width: 14px;
+              height: 14px;
+            }
+            span {
+              width: 85px;
+              height: 12px;
+              font-size: 10px;
+            }
+          }
+        }
+        .slot-metrics {
+          bottom: 5px;
+          left: 5px;
+          gap: 3px;
+          font-size: 10px;
+        }
+        .slot-extra {
+          font-size: 10px;
+          &.slot-extra-best-move {
+            gap: 3px;
+            .best-move-values {
+              .best-move-chip {
+                min-width: 12px;
+                height: 12px;
+                font-size: 8px;
+              }
+            }
+          }
+          &.slot-extra-farewell {
+            .farewell-values {
+              .farewell-chip {
+                min-width: 12px;
+                height: 12px;
+                font-size: 8px;
+              }
+            }
+          }
+          &.slot-extra-night-checks {
+            .night-check-values {
+              .night-check-chip {
+                min-width: 12px;
+                height: 12px;
+                font-size: 8px;
+              }
+            }
+          }
+        }
+        .slot-leave {
+          gap: 3px;
+          font-size: 10px;
+          .ppk-mark {
+            font-size: 8px;
+          }
+          .vote-values {
+            .vote-chip {
+              min-width: 12px;
+              height: 12px;
+              font-size: 8px;
+            }
+          }
+          .leave-reason-icon {
+            width: 14px;
+            height: 14px;
+          }
+        }
+      }
     }
   }
 }
