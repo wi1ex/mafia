@@ -404,8 +404,7 @@ onBeforeUnmount(() => {
       position: relative;
       flex-direction: column;
       align-items: flex-start;
-      padding: 50px 15px 15px 15px;
-      gap: 30px;
+      padding: 50px 15px 15px;
       border-radius: 5px;
       background-color: $fg;
       box-shadow: 0 15px 20px rgba($white, 0.1), 0 5px 10px rgba($white, 0.1);
@@ -618,16 +617,50 @@ onBeforeUnmount(() => {
 @media (max-width: 1280px) {
   .history-page {
     .history-card {
+      .history-header {
+        display: flex;
+        position: relative;
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 40px 10px 10px;
+        border-radius: 5px;
+        background-color: $fg;
+        box-shadow: 0 15px 20px rgba($white, 0.1), 0 5px 10px rgba($white, 0.1);
+        h1 {
+          font-size: 20px;
+        }
+        .history-header-stats {
+          gap: 5px;
+          .history-header-stat-label {
+            font-size: 12px;
+          }
+          .history-header-stat-value {
+            min-width: 30px;
+            height: 20px;
+            font-size: 12px;
+          }
+        }
+      }
       .history-list {
         .history-item {
           .history-main {
             display: flex;
             align-items: center;
             justify-content: space-between;
+            padding: 10px;
+            font-size: 12px;
             .history-main-mid {
               grid-column: 1 / -1;
             }
           }
+        }
+      }
+      .history-pager {
+        padding: 0 10px 10px;
+        font-size: 12px;
+        .btn {
+          min-width: 75px;
+          height: 30px;
         }
       }
     }
