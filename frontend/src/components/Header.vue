@@ -74,7 +74,7 @@
       </div>
 
       <div class="user-menu" ref="userMenuEl">
-        <button class="btn" type="button" :style="userMenuButtonStyle" @click.stop="onToggleUserMenu" :aria-expanded="um_open" aria-haspopup="true">
+        <button class="btn" :class="{ 'has-profile-theme': hasUserMenuProfileTheme }" type="button" :style="userMenuButtonStyle" @click.stop="onToggleUserMenu" :aria-expanded="um_open" aria-haspopup="true">
           <img v-minio-img="{ key: user.user?.avatar_name ? `avatars/${user.user.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="Аватар" class="avatar" />
           <img v-if="userMenuProfileIconSrc" class="profile-theme-icon" :src="userMenuProfileIconSrc" alt="" aria-hidden="true" />
           <span aria-live="polite">{{ user.user?.username || 'User' }}</span>
@@ -162,6 +162,7 @@ const BUILD = (import.meta.env.VITE_BUILD_ID as string || '').trim() || 'BUILD'
 const botName = (import.meta.env.VITE_TG_BOT_NAME as string || '').trim()
 const botLink = botName ? `https://t.me/${botName}` : 'https://t.me'
 const userMenuButtonStyle = computed(() => buildProfileThemeStyle(user.activeProfileThemeColor))
+const hasUserMenuProfileTheme = computed(() => Boolean(user.activeProfileThemeColor))
 const userMenuProfileIconSrc = computed(() => getProfileThemeIconSrc(user.activeProfileThemeIcon))
 
 type SanctionBanner = { kind: 'ban' | 'timeout' | 'suspend'; text: string }
@@ -433,7 +434,7 @@ function openAuth(mode: 'login' | 'register') {
     }
     .user-menu {
       position: relative;
-      > .btn {
+      > .btn.has-profile-theme {
         position: relative;
         overflow: hidden;
         isolation: isolate;
