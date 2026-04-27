@@ -64,9 +64,7 @@
     <Transition name="avatar-lightbox-transition">
       <div v-if="avatarLightboxOpen && avatarLightboxSrc" class="avatar-lightbox-overlay" role="dialog"
            aria-modal="true" aria-label="Avatar preview" @pointerdown.stop @click.stop @click.self="closeAvatarLightbox">
-        <div class="avatar-lightbox-stage">
-          <img class="avatar-lightbox-image" :src="avatarLightboxSrc" alt="avatar" />
-        </div>
+        <img class="avatar-lightbox-image" :src="avatarLightboxSrc" alt="avatar" />
       </div>
     </Transition>
   </Teleport>
@@ -472,69 +470,33 @@ onBeforeUnmount(() => {
       min-width: 0;
       gap: 5px;
     }
-                                                                                          .profile-avatar-trigger {
-                                                                                            display: flex;
-                                                                                            position: relative;
-                                                                                            flex: 0 0 auto;
-                                                                                            align-items: center;
-                                                                                            justify-content: center;
-                                                                                            padding: 0;
-                                                                                            border: none;
-                                                                                            border-radius: 50%;
-                                                                                            background: transparent;
-                                                                                            cursor: zoom-in;
-                                                                                            isolation: isolate;
-                                                                                            &:disabled {
-                                                                                              cursor: default;
-                                                                                            }
-                                                                                            &::before {
-                                                                                              content: '';
-                                                                                              position: absolute;
-                                                                                              inset: -10px;
-                                                                                              border-radius: 50%;
-                                                                                              background: radial-gradient(circle, rgba($white, 0.2) 0%, rgba($white, 0.08) 32%, rgba($white, 0) 72%);
-                                                                                              opacity: 0;
-                                                                                              transform: scale(0.9);
-                                                                                              transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
-                                                                                              z-index: -1;
-                                                                                            }
-                                                                                            &:not(:disabled):hover,
-                                                                                            &:not(:disabled):focus-visible {
-                                                                                            }
-                                                                                            &:not(:disabled):hover::before,
-                                                                                            &:not(:disabled):focus-visible::before {
-                                                                                              opacity: 1;
-                                                                                              transform: scale(1);
-                                                                                            }
-                                                                                            &:focus-visible {
-                                                                                              outline: none;
-                                                                                            }
-                                                                                            &:disabled {
-                                                                                              &::before {
-                                                                                                display: none;
-                                                                                              }
-                                                                                            }
-                                                                                          }
+    .profile-avatar-trigger {
+      display: flex;
+      position: relative;
+      flex: 0 0 auto;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      border: none;
+      border-radius: 50%;
+      background: transparent;
+      cursor: zoom-in;
+      &:disabled {
+        cursor: default;
+      }
+    }
     .profile-icon-name {
       display: flex;
       padding: 5px;
       gap: 5px;
     }
-                                                                                      .profile-avatar {
-                                                                                        width: 120px;
-                                                                                        height: 120px;
-                                                                                        border: 2px solid rgba($white, 0.08);
-                                                                                        border-radius: 50%;
-                                                                                        object-fit: cover;
-                                                                                        box-shadow: 0 14px 30px rgba($black, 0.22);
-                                                                                        transition: transform 0.25s ease-in-out, box-shadow 0.25s ease-in-out, filter 0.25s ease-in-out, border-color 0.25s ease-in-out;
-                                                                                      }
-                                                                                      .profile-avatar-trigger:not(:disabled):hover .profile-avatar,
-                                                                                      .profile-avatar-trigger:not(:disabled):focus-visible .profile-avatar {
-                                                                                        border-color: rgba($white, 0.18);
-                                                                                        box-shadow: 0 18px 34px rgba($black, 0.34);
-                                                                                        filter: saturate(1.08) brightness(1.03);
-                                                                                      }
+    .profile-avatar {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      object-fit: cover;
+      box-shadow: 0 15px 30px rgba($black, 0.25);
+    }
     .profile-theme-icon {
       flex: 0 0 auto;
       width: 26px;
@@ -669,47 +631,40 @@ onBeforeUnmount(() => {
   }
 }
 
-                                                                                  .avatar-lightbox-overlay {
-                                                                                    display: flex;
-                                                                                    position: fixed;
-                                                                                    align-items: center;
-                                                                                    justify-content: center;
-                                                                                    inset: 0;
-                                                                                    padding: 32px;
-                                                                                    background:
-                                                                                      radial-gradient(circle at top, rgba($white, 0.14) 0%, rgba($white, 0) 34%),
-                                                                                      rgba($black, 0.92);
-                                                                                    backdrop-filter: blur(18px);
-                                                                                    z-index: 1600;
-                                                                                    .avatar-lightbox-stage {
-                                                                                      display: flex;
-                                                                                      position: relative;
-                                                                                      flex-direction: column;
-                                                                                      align-items: center;
-                                                                                      gap: 18px;
-                                                                                      &::before {
-                                                                                        content: '';
-                                                                                        position: absolute;
-                                                                                        top: 50%;
-                                                                                        left: 50%;
-                                                                                        width: min(72vw, 72vh, 760px);
-                                                                                        height: min(72vw, 72vh, 760px);
-                                                                                        border-radius: 50%;
-                                                                                        background: radial-gradient(circle, rgba($white, 0.24) 0%, rgba($white, 0.08) 36%, rgba($white, 0) 72%);
-                                                                                        filter: blur(26px);
-                                                                                        transform: translate(-50%, -50%);
-                                                                                        z-index: -1;
-                                                                                      }
-                                                                                    }
-                                                                                    .avatar-lightbox-image {
-                                                                                      width: min(72vw, 72vh, 640px);
-                                                                                      height: min(72vw, 72vh, 640px);
-                                                                                      border: 1px solid rgba($white, 0.12);
-                                                                                      border-radius: 50%;
-                                                                                      object-fit: cover;
-                                                                                      box-shadow: 0 30px 80px rgba($black, 0.46);
-                                                                                    }
-                                                                                  }
+.avatar-lightbox-overlay {
+  display: flex;
+  position: fixed;
+  align-items: center;
+  justify-content: center;
+  inset: 0;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top, rgba($white, 0.1) 0%, rgba($white, 0) 100%),
+    rgba($black, 0.75);
+  backdrop-filter: blur(15px);
+  z-index: 1600;
+  &::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: min(75vw, 75vh, 750px);
+    height: min(75vw, 75vh, 750px);
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba($white, 0.25) 0%, rgba($white, 0.1) 25%, rgba($white, 0) 75%);
+    transform: translate(-50%, -50%);
+    z-index: 0;
+  }
+  .avatar-lightbox-image {
+    position: relative;
+    z-index: 1;
+    width: min(75vw, 75vh, 750px);
+    height: min(75vw, 75vh, 750px);
+    border-radius: 50%;
+    object-fit: cover;
+    box-shadow: 0 15px 30px rgba($black, 0.5);
+  }
+}
 
 .user-mini-profile-fade-enter-active,
 .user-mini-profile-fade-leave-active {
@@ -729,14 +684,14 @@ onBeforeUnmount(() => {
 .avatar-lightbox-transition-enter-active,
 .avatar-lightbox-transition-leave-active {
   transition: opacity 0.25s ease-in-out;
-  .avatar-lightbox-stage {
+  .avatar-lightbox-image {
     transition: transform 0.25s ease-in-out, opacity 0.25s ease-in-out;
   }
 }
 .avatar-lightbox-transition-enter-from,
 .avatar-lightbox-transition-leave-to {
   opacity: 0;
-  .avatar-lightbox-stage {
+  .avatar-lightbox-image {
     opacity: 0;
     transform: translateY(10px) scale(0.9);
   }
@@ -810,15 +765,11 @@ onBeforeUnmount(() => {
       }
     }
   }
-                                                                            .avatar-lightbox-overlay {
-                                                                              padding: 20px;
-                                                                              .avatar-lightbox-stage {
-                                                                                gap: 14px;
-                                                                              }
-                                                                              .avatar-lightbox-image {
-                                                                                width: min(84vw, 84vh, 520px);
-                                                                                height: min(84vw, 84vh, 520px);
-                                                                              }
-                                                                            }
+  .avatar-lightbox-overlay {
+    .avatar-lightbox-image {
+      width: min(75vw, 75vh, 500px);
+      height: min(75vw, 75vh, 500px);
+    }
+  }
 }
 </style>
