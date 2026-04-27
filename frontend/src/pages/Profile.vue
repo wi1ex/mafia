@@ -1486,7 +1486,7 @@ onBeforeUnmount(() => {
               justify-content: center;
               width: 25px;
               height: 25px;
-              border: 2px solid transparent;
+              border: none;
               border-radius: 999px;
               background-color: var(--user-theme-bg, $graphite);
               cursor: pointer;
