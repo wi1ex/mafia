@@ -1684,7 +1684,7 @@ onBeforeUnmount(() => {
       width: calc(100% - 20px);
       border-radius: 10px;
       background-color: var(--user-theme-bg, $graphite);
-      border: 1px solid transparent;
+      border: 1px solid $lead;
       transition: border-color 0.25s ease-in-out;
       &--own {
         background-color: var(--user-theme-bg, $graphite);

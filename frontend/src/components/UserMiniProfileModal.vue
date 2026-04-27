@@ -639,7 +639,7 @@ onBeforeUnmount(() => {
   overflow: hidden;
   background:
     radial-gradient(circle at top, rgba($white, 0.1) 0%, rgba($white, 0) 100%),
-    rgba($black, 0.75);
+    rgba($black, 0.25);
   backdrop-filter: blur(15px);
   z-index: 1600;
   &::before {
