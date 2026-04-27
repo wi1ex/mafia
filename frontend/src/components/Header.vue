@@ -433,6 +433,32 @@ function openAuth(mode: 'login' | 'register') {
     }
     .user-menu {
       position: relative;
+      > .btn {
+        position: relative;
+        overflow: hidden;
+        isolation: isolate;
+        &::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          border-radius: inherit;
+          background:
+            radial-gradient(circle at top, rgba($white, 0.1) 0%, rgba($white, 0) 50%),
+            rgba($white, 0.05);
+          opacity: 0;
+          pointer-events: none;
+          transition: opacity 0.25s ease-in-out;
+          z-index: 0;
+        }
+        &:hover::before,
+        &:focus-visible::before {
+          opacity: 1;
+        }
+        > * {
+          position: relative;
+          z-index: 1;
+        }
+      }
       .user-menu-dropdown {
         position: absolute;
         right: 0;

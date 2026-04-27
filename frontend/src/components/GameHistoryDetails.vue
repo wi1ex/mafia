@@ -427,6 +427,7 @@ function formatMetric(value: number): string {
         display: inline-flex;
         align-items: center;
         gap: 5px;
+        max-width: calc(100% - 70px);
         color: $orange;
         font-size: 12px;
         line-height: 1.2;
@@ -543,6 +544,7 @@ function formatMetric(value: number): string {
         }
         .slot-leave {
           gap: 3px;
+          max-width: calc(100% - 55px);
           font-size: 10px;
           .ppk-mark {
             font-size: 8px;
