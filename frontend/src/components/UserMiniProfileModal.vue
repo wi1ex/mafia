@@ -447,8 +447,9 @@ onBeforeUnmount(() => {
     flex-direction: column;
     justify-content: space-between;
     padding: 15px;
+    gap: 15px;
     width: 400px;
-    height: 350px;
+    height: min-content;
     border-radius: 10px;
     background-color: var(--user-theme-bg, $dark);
     overflow-y: auto;
@@ -700,8 +701,8 @@ onBeforeUnmount(() => {
   .user-mini-profile-overlay {
     .user-mini-profile-panel {
       padding: 10px;
+      gap: 10px;
       width: 350px;
-      height: calc(100dvh - 60px);
       &.stats-mode {
         gap: 10px;
         width: min(700px, 100vw - 40px);
@@ -721,7 +722,7 @@ onBeforeUnmount(() => {
       }
       .profile-title {
         .profile-name {
-          font-size: 18px;
+          font-size: 20px;
         }
       }
       .close-button {

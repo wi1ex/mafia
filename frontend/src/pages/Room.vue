@@ -825,11 +825,7 @@ const canShowFoulButtons = computed(() =>
   ACTION_PHASES.includes(gamePhase.value as (typeof ACTION_PHASES)[number])
 )
 const isMafiaLimitRoom = computed(() => roomUserLimit.value === gameLimitMin.value)
-const canViewGameSettings = computed(() => {
-  if (!isMafiaLimitRoom.value) return false
-  if (gamePhase.value === 'idle') return true
-  return !isSpectatorInGame.value
-})
+const canViewGameSettings = computed(() => isMafiaLimitRoom.value)
 const canEditGameSettings = computed(() =>
   myRole.value === 'host' &&
   gamePhase.value === 'idle' &&
