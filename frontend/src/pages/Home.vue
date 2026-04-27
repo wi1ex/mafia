@@ -70,7 +70,10 @@
                   <span v-if="m.role === 'head'" class="user-numb">Вед. </span>
                   <span v-else-if="m.role === 'player' && m.slot != null" class="user-numb">{{ formatSeatNumber(m.slot) }}. </span>
                   <img v-minio-img="{ key: m.avatar_name ? `avatars/${m.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
-                  <span>{{ m.username || ('user' + m.id) }}</span>
+                  <button v-if="canOpenRoomInfoMiniProfileForUserId(m.id)" class="mini-profile-name mini-profile-name-trigger" type="button" @click="openMiniProfileFromRoomInfo(m)">
+                    {{ m.username || ('user' + m.id) }}
+                  </button>
+                  <span v-else class="mini-profile-name">{{ m.username || ('user' + m.id) }}</span>
                   <img v-if="m.screen" :src="iconScreenOn" alt="streaming" />
                 </li>
               </ul>
@@ -92,7 +95,10 @@
                       <div v-else class="spectators-list">
                         <div v-for="s in spectators" :key="`spectator-${s.id}`" class="spectators-row">
                           <img v-minio-img="{ key: s.avatar_name ? `avatars/${s.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
-                          <span>{{ s.username || ('user' + s.id) }}</span>
+                          <button v-if="canOpenRoomInfoMiniProfileForUserId(s.id)" class="mini-profile-name mini-profile-name-trigger" type="button" @click="openMiniProfileFromRoomInfo(s)">
+                            {{ s.username || ('user' + s.id) }}
+                          </button>
+                          <span v-else class="mini-profile-name">{{ s.username || ('user' + s.id) }}</span>
                         </div>
                       </div>
                     </div>
@@ -156,6 +162,11 @@
       </Transition>
     </aside>
   </section>
+  <UserMiniProfileModal
+    v-model:open="miniProfileOpen"
+    :user-id="miniProfileUserId"
+    :initial-profile="miniProfileInitial"
+  />
 </template>
 
 <script setup lang="ts">
@@ -168,6 +179,7 @@ import { api } from '@/services/axios'
 import { useAuthStore, useSettingsStore, useUserStore } from '@/store'
 import HomeInfoCarousel from '@/components/HomeInfoCarousel.vue'
 import RoomModal from '@/components/RoomModal.vue'
+import UserMiniProfileModal from '@/components/UserMiniProfileModal.vue'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
 import iconScreenOn from '@/assets/svg/screenOn.svg'
@@ -208,6 +220,11 @@ type RoomMembers = {
 type RoomSpectator = {
   id: number
   username?: string
+  avatar_name?: string | null
+}
+type HomeMiniProfileInitial = {
+  id?: number | null
+  username?: string | null
   avatar_name?: string | null
 }
 type Game = {
@@ -251,6 +268,9 @@ const spectatorsError = ref('')
 const spectatorsOpen = ref(false)
 const spectatorsWrapEl = ref<HTMLElement | null>(null)
 let spectatorsReqSeq = 0
+const miniProfileOpen = ref(false)
+const miniProfileUserId = ref<number | null>(null)
+const miniProfileInitial = ref<HomeMiniProfileInitial | null>(null)
 
 const selectedId = ref<number | null>(null)
 const pendingRoomId = ref<number | null>(null)
@@ -300,6 +320,12 @@ const sortedMembers = computed<RoomInfoMember[]>(() => {
 const isFull = computed(() => selectedRoom.value ? isFullRoom(selectedRoom.value) : false)
 const currentUserId = computed(() => userStore.user?.id ?? null)
 const verificationRestricted = computed(() => auth.isAuthed && settings.verificationRestrictions && !userStore.telegramVerified)
+const canOpenRoomInfoMiniProfile = computed(() => {
+  if (!auth.ready || !settings.ready || !auth.isAuthed) return false
+  if (!userStore.user) return false
+  if (userStore.banActive || userStore.timeoutActive) return false
+  return !(settings.verificationRestrictions && !userStore.telegramVerified)
+})
 const adminBannerActive = computed(() => {
   const text = String(settings.adminBannerText || '').trim()
   return Boolean(text && text !== '0')
@@ -390,6 +416,27 @@ function formatSeatNumber(slot: number | null | undefined): string {
   const n = Number(slot)
   if (!Number.isFinite(n)) return String(slot)
   return String(Math.trunc(n)).padStart(2, '0')
+}
+
+function canOpenRoomInfoMiniProfileForUserId(id: number | null | undefined): boolean {
+  const uid = Number(id || 0)
+  const viewerId = Number(currentUserId.value || 0)
+  if (!canOpenRoomInfoMiniProfile.value) return false
+  if (!Number.isFinite(uid) || uid <= 0) return false
+  return viewerId <= 0 || uid !== viewerId
+}
+
+function openMiniProfileFromRoomInfo(user: { id: number; username?: string | null; avatar_name?: string | null }): void {
+  const uid = Number(user.id || 0)
+  if (!canOpenRoomInfoMiniProfileForUserId(uid)) return
+  miniProfileUserId.value = uid
+  miniProfileInitial.value = {
+    id: uid,
+    username: user.username || null,
+    avatar_name: user.avatar_name || null,
+  }
+  spectatorsOpen.value = false
+  miniProfileOpen.value = true
 }
 
 function upsert(r: Room) {
@@ -588,6 +635,7 @@ function scheduleInfoRefresh(id: number, delay: number) {
 
 function onGlobalPointerDown(e: PointerEvent) {
   const target = e.target as Node | null
+  if (target instanceof Element && target.closest('.user-mini-profile-overlay, .avatar-lightbox-overlay')) return
   if (spectatorsOpen.value) {
     const wrap = spectatorsWrapEl.value
     if (!wrap || (target && !wrap.contains(target))) {
@@ -1059,6 +1107,15 @@ onBeforeUnmount(() => {
                       display: flex;
                       align-items: center;
                       gap: 5px;
+                      .mini-profile-name {
+                        min-width: 0;
+                        max-width: 150px;
+                        overflow: hidden;
+                        color: $fg;
+                        font-size: 14px;
+                        text-overflow: ellipsis;
+                        white-space: nowrap;
+                      }
                       img {
                         width: 20px;
                         height: 20px;
@@ -1099,20 +1156,21 @@ onBeforeUnmount(() => {
               gap: 5px;
               width: 100%;
               height: 20px;
+              .mini-profile-name {
+                min-width: 0;
+                max-width: 167px;
+                height: 16px;
+                overflow: hidden;
+                color: $ashy;
+                font-size: 14px;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+              }
               img {
                 width: 20px;
                 height: 20px;
                 border-radius: 50%;
                 object-fit: cover;
-              }
-              span {
-                max-width: 167px;
-                height: 16px;
-                font-size: 14px;
-                color: $ashy;
-                white-space: nowrap;
-                overflow: hidden;
-                text-overflow: ellipsis;
               }
               .user-numb {
                 font-variant-numeric: tabular-nums;
@@ -1284,6 +1342,10 @@ onBeforeUnmount(() => {
                       gap: 3px;
                       .spectators-row {
                         gap: 3px;
+                        .mini-profile-name {
+                          max-width: 140px;
+                          font-size: 12px;
+                        }
                         img {
                           width: 16px;
                           height: 16px;
@@ -1307,7 +1369,7 @@ onBeforeUnmount(() => {
                   width: 16px;
                   height: 16px;
                 }
-                span {
+                .mini-profile-name {
                   max-width: 210px;
                   height: 14px;
                   font-size: 12px;
@@ -1332,6 +1394,16 @@ onBeforeUnmount(() => {
       }
     }
   }
+}
+
+.mini-profile-name-trigger {
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
 </style>

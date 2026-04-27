@@ -495,7 +495,6 @@ onBeforeUnmount(() => {
       height: 120px;
       border-radius: 50%;
       object-fit: cover;
-      box-shadow: 0 15px 30px rgba($black, 0.25);
     }
     .profile-theme-icon {
       flex: 0 0 auto;
