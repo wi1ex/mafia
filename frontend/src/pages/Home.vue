@@ -166,6 +166,7 @@
     v-model:open="miniProfileOpen"
     :user-id="miniProfileUserId"
     :initial-profile="miniProfileInitial"
+    :show-stats-button="true"
   />
 </template>
 
@@ -1109,7 +1110,7 @@ onBeforeUnmount(() => {
                       gap: 5px;
                       .mini-profile-name {
                         min-width: 0;
-                        max-width: 150px;
+                        max-width: 175px;
                         overflow: hidden;
                         color: $fg;
                         font-size: 14px;
@@ -1153,12 +1154,12 @@ onBeforeUnmount(() => {
             .ri-user {
               display: flex;
               align-items: center;
-              gap: 5px;
+              gap: 3px;
               width: 100%;
               height: 20px;
               .mini-profile-name {
                 min-width: 0;
-                max-width: 167px;
+                max-width: 150px;
                 height: 16px;
                 overflow: hidden;
                 color: $ashy;
@@ -1173,6 +1174,7 @@ onBeforeUnmount(() => {
                 object-fit: cover;
               }
               .user-numb {
+                font-size: 14px;
                 font-variant-numeric: tabular-nums;
               }
               &.dead {
@@ -1343,7 +1345,7 @@ onBeforeUnmount(() => {
                       .spectators-row {
                         gap: 3px;
                         .mini-profile-name {
-                          max-width: 140px;
+                          max-width: 150px;
                           font-size: 12px;
                         }
                         img {
@@ -1363,15 +1365,17 @@ onBeforeUnmount(() => {
             .ri-users {
               gap: 3px;
               .ri-user {
-                gap: 3px;
                 height: 16px;
+                .mini-profile-name {
+                  max-width: 200px;
+                  height: 14px;
+                  font-size: 12px;
+                }
                 img {
                   width: 16px;
                   height: 16px;
                 }
-                .mini-profile-name {
-                  max-width: 210px;
-                  height: 14px;
+                .user-numb {
                   font-size: 12px;
                 }
               }
