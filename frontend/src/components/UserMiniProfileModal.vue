@@ -8,7 +8,6 @@
             <div class="profile-identity">
               <button class="profile-avatar-trigger" type="button" :disabled="!hasAvatar" aria-label="Open avatar" @click="openAvatarLightbox">
                 <img ref="avatarImageEl" class="profile-avatar" v-minio-img="{ key: avatarKey, placeholder: defaultAvatar, lazy: false, animated: true }" alt="avatar" />
-                <span v-if="hasAvatar" class="profile-avatar-zoom-badge" aria-hidden="true"></span>
               </button>
               <div class="profile-icon-name">
                 <img v-if="profileThemeIconSrc" class="profile-theme-icon" :src="profileThemeIconSrc" alt="" aria-hidden="true" />
@@ -63,14 +62,10 @@
       </div>
     </Transition>
     <Transition name="avatar-lightbox-transition">
-      <div v-if="avatarLightboxOpen && avatarLightboxSrc" class="avatar-lightbox-overlay" role="dialog" aria-modal="true" aria-label="Avatar preview"
-           @pointerdown.self="avatarLightboxArmed = true" @pointerup.self="avatarLightboxArmed && closeAvatarLightbox()" @pointerleave.self="avatarLightboxArmed = false" @pointercancel.self="avatarLightboxArmed = false">
-        <button class="avatar-lightbox-close" type="button" aria-label="Close avatar preview" @click="closeAvatarLightbox">
-          <img :src="iconClose" alt="" />
-        </button>
+      <div v-if="avatarLightboxOpen && avatarLightboxSrc" class="avatar-lightbox-overlay" role="dialog"
+           aria-modal="true" aria-label="Avatar preview" @pointerdown.stop @click.stop @click.self="closeAvatarLightbox">
         <div class="avatar-lightbox-stage">
           <img class="avatar-lightbox-image" :src="avatarLightboxSrc" alt="avatar" />
-          <p class="avatar-lightbox-caption">{{ displayName }}</p>
         </div>
       </div>
     </Transition>
@@ -163,7 +158,6 @@ const friendBusy = ref(false)
 const view = ref<'profile' | 'stats'>('profile')
 const avatarImageEl = ref<HTMLImageElement | null>(null)
 const avatarLightboxOpen = ref(false)
-const avatarLightboxArmed = ref(false)
 const avatarLightboxSrc = ref('')
 let requestSeq = 0
 
@@ -269,7 +263,6 @@ function close() {
 }
 
 function closeAvatarLightbox() {
-  avatarLightboxArmed.value = false
   avatarLightboxOpen.value = false
   avatarLightboxSrc.value = ''
 }
@@ -279,7 +272,6 @@ function openAvatarLightbox() {
   const src = avatarImageEl.value?.currentSrc || avatarImageEl.value?.src || ''
   if (!src) return
   avatarLightboxSrc.value = src
-  avatarLightboxArmed.value = false
   avatarLightboxOpen.value = true
 }
 
@@ -492,7 +484,6 @@ onBeforeUnmount(() => {
                                                                                             background: transparent;
                                                                                             cursor: zoom-in;
                                                                                             isolation: isolate;
-                                                                                            transition: transform 0.25s ease-in-out;
                                                                                             &:disabled {
                                                                                               cursor: default;
                                                                                             }
@@ -509,7 +500,6 @@ onBeforeUnmount(() => {
                                                                                             }
                                                                                             &:not(:disabled):hover,
                                                                                             &:not(:disabled):focus-visible {
-                                                                                              transform: translateY(-2px) scale(1.02);
                                                                                             }
                                                                                             &:not(:disabled):hover::before,
                                                                                             &:not(:disabled):focus-visible::before {
@@ -544,49 +534,6 @@ onBeforeUnmount(() => {
                                                                                         border-color: rgba($white, 0.18);
                                                                                         box-shadow: 0 18px 34px rgba($black, 0.34);
                                                                                         filter: saturate(1.08) brightness(1.03);
-                                                                                      }
-                                                                                      .profile-avatar-zoom-badge {
-                                                                                        position: absolute;
-                                                                                        right: 8px;
-                                                                                        bottom: 8px;
-                                                                                        width: 34px;
-                                                                                        height: 34px;
-                                                                                        border: 1px solid rgba($white, 0.12);
-                                                                                        border-radius: 999px;
-                                                                                        background: rgba($black, 0.58);
-                                                                                        backdrop-filter: blur(12px);
-                                                                                        box-shadow: 0 10px 22px rgba($black, 0.3);
-                                                                                        pointer-events: none;
-                                                                                        transition: transform 0.25s ease-in-out, background-color 0.25s ease-in-out, border-color 0.25s ease-in-out;
-                                                                                        &::before,
-                                                                                        &::after {
-                                                                                          content: '';
-                                                                                          position: absolute;
-                                                                                        }
-                                                                                        &::before {
-                                                                                          top: 8px;
-                                                                                          left: 8px;
-                                                                                          width: 10px;
-                                                                                          height: 10px;
-                                                                                          border: 2px solid $white;
-                                                                                          border-radius: 50%;
-                                                                                        }
-                                                                                        &::after {
-                                                                                          right: 8px;
-                                                                                          bottom: 9px;
-                                                                                          width: 9px;
-                                                                                          height: 2px;
-                                                                                          border-radius: 999px;
-                                                                                          background: $white;
-                                                                                          transform: rotate(45deg);
-                                                                                          transform-origin: center;
-                                                                                        }
-                                                                                      }
-                                                                                      .profile-avatar-trigger:not(:disabled):hover .profile-avatar-zoom-badge,
-                                                                                      .profile-avatar-trigger:not(:disabled):focus-visible .profile-avatar-zoom-badge {
-                                                                                        border-color: rgba($white, 0.2);
-                                                                                        background: rgba($black, 0.72);
-                                                                                        transform: scale(1.05);
                                                                                       }
     .profile-theme-icon {
       flex: 0 0 auto;
@@ -734,32 +681,6 @@ onBeforeUnmount(() => {
                                                                                       rgba($black, 0.92);
                                                                                     backdrop-filter: blur(18px);
                                                                                     z-index: 1600;
-                                                                                    .avatar-lightbox-close {
-                                                                                      position: absolute;
-                                                                                      top: 24px;
-                                                                                      right: 24px;
-                                                                                      display: flex;
-                                                                                      align-items: center;
-                                                                                      justify-content: center;
-                                                                                      width: 42px;
-                                                                                      height: 42px;
-                                                                                      padding: 0;
-                                                                                      border: 1px solid rgba($white, 0.08);
-                                                                                      border-radius: 999px;
-                                                                                      background: rgba($graphite, 0.88);
-                                                                                      backdrop-filter: blur(14px);
-                                                                                      cursor: pointer;
-                                                                                      box-shadow: 0 12px 28px rgba($black, 0.28);
-                                                                                      transition: transform 0.25s ease-in-out, background-color 0.25s ease-in-out;
-                                                                                      &:hover {
-                                                                                        background-color: rgba($lead, 0.95);
-                                                                                        transform: scale(1.05);
-                                                                                      }
-                                                                                      img {
-                                                                                        width: 18px;
-                                                                                        height: 18px;
-                                                                                      }
-                                                                                    }
                                                                                     .avatar-lightbox-stage {
                                                                                       display: flex;
                                                                                       position: relative;
@@ -788,24 +709,6 @@ onBeforeUnmount(() => {
                                                                                       object-fit: cover;
                                                                                       box-shadow: 0 30px 80px rgba($black, 0.46);
                                                                                     }
-                                                                                    .avatar-lightbox-caption {
-                                                                                      margin: 0;
-                                                                                      padding: 10px 18px;
-                                                                                      max-width: min(70vw, 420px);
-                                                                                      border: 1px solid rgba($white, 0.08);
-                                                                                      border-radius: 999px;
-                                                                                      background: rgba($graphite, 0.72);
-                                                                                      backdrop-filter: blur(14px);
-                                                                                      color: $fg;
-                                                                                      font-size: 14px;
-                                                                                      line-height: 1.3;
-                                                                                      font-family: Manrope-SemiBold;
-                                                                                      text-align: center;
-                                                                                      white-space: nowrap;
-                                                                                      overflow: hidden;
-                                                                                      text-overflow: ellipsis;
-                                                                                      box-shadow: 0 12px 30px rgba($black, 0.24);
-                                                                                    }
                                                                                   }
 
 .user-mini-profile-fade-enter-active,
@@ -826,16 +729,14 @@ onBeforeUnmount(() => {
 .avatar-lightbox-transition-enter-active,
 .avatar-lightbox-transition-leave-active {
   transition: opacity 0.25s ease-in-out;
-  .avatar-lightbox-stage,
-  .avatar-lightbox-close {
+  .avatar-lightbox-stage {
     transition: transform 0.25s ease-in-out, opacity 0.25s ease-in-out;
   }
 }
 .avatar-lightbox-transition-enter-from,
 .avatar-lightbox-transition-leave-to {
   opacity: 0;
-  .avatar-lightbox-stage,
-  .avatar-lightbox-close {
+  .avatar-lightbox-stage {
     opacity: 0;
     transform: translateY(10px) scale(0.9);
   }
@@ -860,23 +761,6 @@ onBeforeUnmount(() => {
         width: 100px;
         height: 100px;
       }
-                                                                                                  .profile-avatar-zoom-badge {
-                                                                                                    right: 6px;
-                                                                                                    bottom: 6px;
-                                                                                                    width: 30px;
-                                                                                                    height: 30px;
-                                                                                                    &::before {
-                                                                                                      top: 7px;
-                                                                                                      left: 7px;
-                                                                                                      width: 9px;
-                                                                                                      height: 9px;
-                                                                                                    }
-                                                                                                    &::after {
-                                                                                                      right: 7px;
-                                                                                                      bottom: 8px;
-                                                                                                      width: 8px;
-                                                                                                    }
-                                                                                                  }
       .profile-theme-icon {
         width: 20px;
         height: 30px;
@@ -926,29 +810,15 @@ onBeforeUnmount(() => {
       }
     }
   }
-                                                                                            .avatar-lightbox-overlay {
-                                                                                              padding: 20px;
-                                                                                              .avatar-lightbox-close {
-                                                                                                top: 14px;
-                                                                                                right: 14px;
-                                                                                                width: 36px;
-                                                                                                height: 36px;
-                                                                                                img {
-                                                                                                  width: 16px;
-                                                                                                  height: 16px;
-                                                                                                }
-                                                                                              }
-                                                                                              .avatar-lightbox-stage {
-                                                                                                gap: 14px;
-                                                                                              }
-                                                                                              .avatar-lightbox-image {
-                                                                                                width: min(84vw, 84vh, 520px);
-                                                                                                height: min(84vw, 84vh, 520px);
-                                                                                              }
-                                                                                              .avatar-lightbox-caption {
-                                                                                                max-width: calc(100vw - 48px);
-                                                                                                padding: 9px 16px;
-                                                                                              }
-                                                                                            }
+                                                                            .avatar-lightbox-overlay {
+                                                                              padding: 20px;
+                                                                              .avatar-lightbox-stage {
+                                                                                gap: 14px;
+                                                                              }
+                                                                              .avatar-lightbox-image {
+                                                                                width: min(84vw, 84vh, 520px);
+                                                                                height: min(84vw, 84vh, 520px);
+                                                                              }
+                                                                            }
 }
 </style>
