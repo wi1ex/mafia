@@ -6,7 +6,10 @@
                  role="dialog" aria-modal="true" :aria-label="`Мини-профиль ${displayName}`" @pointerdown.stop>
           <header class="profile-top">
             <div class="profile-identity">
-              <img class="profile-avatar" v-minio-img="{ key: avatarKey, placeholder: defaultAvatar, lazy: false, animated: true }" alt="avatar" />
+              <button class="profile-avatar-trigger" type="button" :disabled="!hasAvatar" aria-label="Open avatar" @click="openAvatarLightbox">
+                <img ref="avatarImageEl" class="profile-avatar" v-minio-img="{ key: avatarKey, placeholder: defaultAvatar, lazy: false, animated: true }" alt="avatar" />
+                <span v-if="hasAvatar" class="profile-avatar-zoom-badge" aria-hidden="true"></span>
+              </button>
               <div class="profile-icon-name">
                 <img v-if="profileThemeIconSrc" class="profile-theme-icon" :src="profileThemeIconSrc" alt="" aria-hidden="true" />
                 <div class="profile-title">
@@ -57,6 +60,18 @@
             <ProfileStatsTab :stats-url="resolvedStatsUrl" />
           </template>
         </section>
+      </div>
+    </Transition>
+    <Transition name="avatar-lightbox-transition">
+      <div v-if="avatarLightboxOpen && avatarLightboxSrc" class="avatar-lightbox-overlay" role="dialog" aria-modal="true" aria-label="Avatar preview"
+           @pointerdown.self="avatarLightboxArmed = true" @pointerup.self="avatarLightboxArmed && closeAvatarLightbox()" @pointerleave.self="avatarLightboxArmed = false" @pointercancel.self="avatarLightboxArmed = false">
+        <button class="avatar-lightbox-close" type="button" aria-label="Close avatar preview" @click="closeAvatarLightbox">
+          <img :src="iconClose" alt="" />
+        </button>
+        <div class="avatar-lightbox-stage">
+          <img class="avatar-lightbox-image" :src="avatarLightboxSrc" alt="avatar" />
+          <p class="avatar-lightbox-caption">{{ displayName }}</p>
+        </div>
       </div>
     </Transition>
   </Teleport>
@@ -146,6 +161,10 @@ const profile = ref<MiniProfileResponse | null>(null)
 const friendStatus = ref<FriendStatus>('none')
 const friendBusy = ref(false)
 const view = ref<'profile' | 'stats'>('profile')
+const avatarImageEl = ref<HTMLImageElement | null>(null)
+const avatarLightboxOpen = ref(false)
+const avatarLightboxArmed = ref(false)
+const avatarLightboxSrc = ref('')
 let requestSeq = 0
 
 const targetUserId = computed(() => {
@@ -171,6 +190,7 @@ const avatarKey = computed(() => {
   if (!name) return ''
   return name.startsWith('avatars/') ? name : `avatars/${name}`
 })
+const hasAvatar = computed(() => Boolean(avatarKey.value))
 const profileThemeColor = computed(() => {
   if (profileLoadedForTarget.value) return profile.value?.profile_theme_color || null
   return props.initialProfile?.profile_theme_color || props.initialProfile?.theme_color || null
@@ -244,7 +264,23 @@ function inferInitialFriendStatus(): FriendStatus {
 }
 
 function close() {
+  closeAvatarLightbox()
   emit('update:open', false)
+}
+
+function closeAvatarLightbox() {
+  avatarLightboxArmed.value = false
+  avatarLightboxOpen.value = false
+  avatarLightboxSrc.value = ''
+}
+
+function openAvatarLightbox() {
+  if (!hasAvatar.value) return
+  const src = avatarImageEl.value?.currentSrc || avatarImageEl.value?.src || ''
+  if (!src) return
+  avatarLightboxSrc.value = src
+  avatarLightboxArmed.value = false
+  avatarLightboxOpen.value = true
 }
 
 function applyFriendStatus(status: FriendStatus) {
@@ -363,6 +399,10 @@ async function onFriendAction(kind: FriendActionKind) {
 
 function onKeydown(e: KeyboardEvent) {
   if (!props.open || e.key !== 'Escape') return
+  if (avatarLightboxOpen.value) {
+    closeAvatarLightbox()
+    return
+  }
   close()
 }
 
@@ -379,12 +419,14 @@ watch([() => props.open, targetUserId], ([open, uid]) => {
     loading.value = false
     loadError.value = ''
     view.value = 'profile'
+    closeAvatarLightbox()
     return
   }
 
   profile.value = null
   view.value = 'profile'
   loadError.value = ''
+  closeAvatarLightbox()
   applyFriendStatus(inferInitialFriendStatus())
   if (uid > 0) void loadProfile()
 }, { immediate: true })
@@ -438,18 +480,114 @@ onBeforeUnmount(() => {
       min-width: 0;
       gap: 5px;
     }
+                                                                                          .profile-avatar-trigger {
+                                                                                            display: flex;
+                                                                                            position: relative;
+                                                                                            flex: 0 0 auto;
+                                                                                            align-items: center;
+                                                                                            justify-content: center;
+                                                                                            padding: 0;
+                                                                                            border: none;
+                                                                                            border-radius: 50%;
+                                                                                            background: transparent;
+                                                                                            cursor: zoom-in;
+                                                                                            isolation: isolate;
+                                                                                            transition: transform 0.25s ease-in-out;
+                                                                                            &:disabled {
+                                                                                              cursor: default;
+                                                                                            }
+                                                                                            &::before {
+                                                                                              content: '';
+                                                                                              position: absolute;
+                                                                                              inset: -10px;
+                                                                                              border-radius: 50%;
+                                                                                              background: radial-gradient(circle, rgba($white, 0.2) 0%, rgba($white, 0.08) 32%, rgba($white, 0) 72%);
+                                                                                              opacity: 0;
+                                                                                              transform: scale(0.9);
+                                                                                              transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
+                                                                                              z-index: -1;
+                                                                                            }
+                                                                                            &:not(:disabled):hover,
+                                                                                            &:not(:disabled):focus-visible {
+                                                                                              transform: translateY(-2px) scale(1.02);
+                                                                                            }
+                                                                                            &:not(:disabled):hover::before,
+                                                                                            &:not(:disabled):focus-visible::before {
+                                                                                              opacity: 1;
+                                                                                              transform: scale(1);
+                                                                                            }
+                                                                                            &:focus-visible {
+                                                                                              outline: none;
+                                                                                            }
+                                                                                            &:disabled {
+                                                                                              &::before {
+                                                                                                display: none;
+                                                                                              }
+                                                                                            }
+                                                                                          }
     .profile-icon-name {
       display: flex;
       padding: 5px;
       gap: 5px;
     }
-    .profile-avatar {
-      flex: 0 0 auto;
-      width: 120px;
-      height: 120px;
-      border-radius: 50%;
-      object-fit: cover;
-    }
+                                                                                      .profile-avatar {
+                                                                                        width: 120px;
+                                                                                        height: 120px;
+                                                                                        border: 2px solid rgba($white, 0.08);
+                                                                                        border-radius: 50%;
+                                                                                        object-fit: cover;
+                                                                                        box-shadow: 0 14px 30px rgba($black, 0.22);
+                                                                                        transition: transform 0.25s ease-in-out, box-shadow 0.25s ease-in-out, filter 0.25s ease-in-out, border-color 0.25s ease-in-out;
+                                                                                      }
+                                                                                      .profile-avatar-trigger:not(:disabled):hover .profile-avatar,
+                                                                                      .profile-avatar-trigger:not(:disabled):focus-visible .profile-avatar {
+                                                                                        border-color: rgba($white, 0.18);
+                                                                                        box-shadow: 0 18px 34px rgba($black, 0.34);
+                                                                                        filter: saturate(1.08) brightness(1.03);
+                                                                                      }
+                                                                                      .profile-avatar-zoom-badge {
+                                                                                        position: absolute;
+                                                                                        right: 8px;
+                                                                                        bottom: 8px;
+                                                                                        width: 34px;
+                                                                                        height: 34px;
+                                                                                        border: 1px solid rgba($white, 0.12);
+                                                                                        border-radius: 999px;
+                                                                                        background: rgba($black, 0.58);
+                                                                                        backdrop-filter: blur(12px);
+                                                                                        box-shadow: 0 10px 22px rgba($black, 0.3);
+                                                                                        pointer-events: none;
+                                                                                        transition: transform 0.25s ease-in-out, background-color 0.25s ease-in-out, border-color 0.25s ease-in-out;
+                                                                                        &::before,
+                                                                                        &::after {
+                                                                                          content: '';
+                                                                                          position: absolute;
+                                                                                        }
+                                                                                        &::before {
+                                                                                          top: 8px;
+                                                                                          left: 8px;
+                                                                                          width: 10px;
+                                                                                          height: 10px;
+                                                                                          border: 2px solid $white;
+                                                                                          border-radius: 50%;
+                                                                                        }
+                                                                                        &::after {
+                                                                                          right: 8px;
+                                                                                          bottom: 9px;
+                                                                                          width: 9px;
+                                                                                          height: 2px;
+                                                                                          border-radius: 999px;
+                                                                                          background: $white;
+                                                                                          transform: rotate(45deg);
+                                                                                          transform-origin: center;
+                                                                                        }
+                                                                                      }
+                                                                                      .profile-avatar-trigger:not(:disabled):hover .profile-avatar-zoom-badge,
+                                                                                      .profile-avatar-trigger:not(:disabled):focus-visible .profile-avatar-zoom-badge {
+                                                                                        border-color: rgba($white, 0.2);
+                                                                                        background: rgba($black, 0.72);
+                                                                                        transform: scale(1.05);
+                                                                                      }
     .profile-theme-icon {
       flex: 0 0 auto;
       width: 26px;
@@ -584,6 +722,92 @@ onBeforeUnmount(() => {
   }
 }
 
+                                                                                  .avatar-lightbox-overlay {
+                                                                                    display: flex;
+                                                                                    position: fixed;
+                                                                                    align-items: center;
+                                                                                    justify-content: center;
+                                                                                    inset: 0;
+                                                                                    padding: 32px;
+                                                                                    background:
+                                                                                      radial-gradient(circle at top, rgba($white, 0.14) 0%, rgba($white, 0) 34%),
+                                                                                      rgba($black, 0.92);
+                                                                                    backdrop-filter: blur(18px);
+                                                                                    z-index: 1600;
+                                                                                    .avatar-lightbox-close {
+                                                                                      position: absolute;
+                                                                                      top: 24px;
+                                                                                      right: 24px;
+                                                                                      display: flex;
+                                                                                      align-items: center;
+                                                                                      justify-content: center;
+                                                                                      width: 42px;
+                                                                                      height: 42px;
+                                                                                      padding: 0;
+                                                                                      border: 1px solid rgba($white, 0.08);
+                                                                                      border-radius: 999px;
+                                                                                      background: rgba($graphite, 0.88);
+                                                                                      backdrop-filter: blur(14px);
+                                                                                      cursor: pointer;
+                                                                                      box-shadow: 0 12px 28px rgba($black, 0.28);
+                                                                                      transition: transform 0.25s ease-in-out, background-color 0.25s ease-in-out;
+                                                                                      &:hover {
+                                                                                        background-color: rgba($lead, 0.95);
+                                                                                        transform: scale(1.05);
+                                                                                      }
+                                                                                      img {
+                                                                                        width: 18px;
+                                                                                        height: 18px;
+                                                                                      }
+                                                                                    }
+                                                                                    .avatar-lightbox-stage {
+                                                                                      display: flex;
+                                                                                      position: relative;
+                                                                                      flex-direction: column;
+                                                                                      align-items: center;
+                                                                                      gap: 18px;
+                                                                                      &::before {
+                                                                                        content: '';
+                                                                                        position: absolute;
+                                                                                        top: 50%;
+                                                                                        left: 50%;
+                                                                                        width: min(72vw, 72vh, 760px);
+                                                                                        height: min(72vw, 72vh, 760px);
+                                                                                        border-radius: 50%;
+                                                                                        background: radial-gradient(circle, rgba($white, 0.24) 0%, rgba($white, 0.08) 36%, rgba($white, 0) 72%);
+                                                                                        filter: blur(26px);
+                                                                                        transform: translate(-50%, -50%);
+                                                                                        z-index: -1;
+                                                                                      }
+                                                                                    }
+                                                                                    .avatar-lightbox-image {
+                                                                                      width: min(72vw, 72vh, 640px);
+                                                                                      height: min(72vw, 72vh, 640px);
+                                                                                      border: 1px solid rgba($white, 0.12);
+                                                                                      border-radius: 50%;
+                                                                                      object-fit: cover;
+                                                                                      box-shadow: 0 30px 80px rgba($black, 0.46);
+                                                                                    }
+                                                                                    .avatar-lightbox-caption {
+                                                                                      margin: 0;
+                                                                                      padding: 10px 18px;
+                                                                                      max-width: min(70vw, 420px);
+                                                                                      border: 1px solid rgba($white, 0.08);
+                                                                                      border-radius: 999px;
+                                                                                      background: rgba($graphite, 0.72);
+                                                                                      backdrop-filter: blur(14px);
+                                                                                      color: $fg;
+                                                                                      font-size: 14px;
+                                                                                      line-height: 1.3;
+                                                                                      font-family: Manrope-SemiBold;
+                                                                                      text-align: center;
+                                                                                      white-space: nowrap;
+                                                                                      overflow: hidden;
+                                                                                      text-overflow: ellipsis;
+                                                                                      box-shadow: 0 12px 30px rgba($black, 0.24);
+                                                                                    }
+                                                                                  }
+
 .user-mini-profile-fade-enter-active,
 .user-mini-profile-fade-leave-active {
   transition: opacity 0.25s ease-in-out;
@@ -595,6 +819,24 @@ onBeforeUnmount(() => {
 .user-mini-profile-fade-leave-to {
   opacity: 0;
   .user-mini-profile-panel {
+    transform: translateY(10px) scale(0.9);
+  }
+}
+
+.avatar-lightbox-transition-enter-active,
+.avatar-lightbox-transition-leave-active {
+  transition: opacity 0.25s ease-in-out;
+  .avatar-lightbox-stage,
+  .avatar-lightbox-close {
+    transition: transform 0.25s ease-in-out, opacity 0.25s ease-in-out;
+  }
+}
+.avatar-lightbox-transition-enter-from,
+.avatar-lightbox-transition-leave-to {
+  opacity: 0;
+  .avatar-lightbox-stage,
+  .avatar-lightbox-close {
+    opacity: 0;
     transform: translateY(10px) scale(0.9);
   }
 }
@@ -618,6 +860,23 @@ onBeforeUnmount(() => {
         width: 100px;
         height: 100px;
       }
+                                                                                                  .profile-avatar-zoom-badge {
+                                                                                                    right: 6px;
+                                                                                                    bottom: 6px;
+                                                                                                    width: 30px;
+                                                                                                    height: 30px;
+                                                                                                    &::before {
+                                                                                                      top: 7px;
+                                                                                                      left: 7px;
+                                                                                                      width: 9px;
+                                                                                                      height: 9px;
+                                                                                                    }
+                                                                                                    &::after {
+                                                                                                      right: 7px;
+                                                                                                      bottom: 8px;
+                                                                                                      width: 8px;
+                                                                                                    }
+                                                                                                  }
       .profile-theme-icon {
         width: 20px;
         height: 30px;
@@ -667,5 +926,29 @@ onBeforeUnmount(() => {
       }
     }
   }
+                                                                                            .avatar-lightbox-overlay {
+                                                                                              padding: 20px;
+                                                                                              .avatar-lightbox-close {
+                                                                                                top: 14px;
+                                                                                                right: 14px;
+                                                                                                width: 36px;
+                                                                                                height: 36px;
+                                                                                                img {
+                                                                                                  width: 16px;
+                                                                                                  height: 16px;
+                                                                                                }
+                                                                                              }
+                                                                                              .avatar-lightbox-stage {
+                                                                                                gap: 14px;
+                                                                                              }
+                                                                                              .avatar-lightbox-image {
+                                                                                                width: min(84vw, 84vh, 520px);
+                                                                                                height: min(84vw, 84vh, 520px);
+                                                                                              }
+                                                                                              .avatar-lightbox-caption {
+                                                                                                max-width: calc(100vw - 48px);
+                                                                                                padding: 9px 16px;
+                                                                                              }
+                                                                                            }
 }
 </style>
