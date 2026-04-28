@@ -858,7 +858,7 @@
                   <td>{{ formatSanctionDuration(row.served_seconds) }}</td>
                   <td class="rule-cell">{{ row.reason || '-' }}</td>
                   <td class="actions-cell">
-                    <button v-if="canDeleteSanction(row)" class="btn danger width-min" :disabled="sanctionsDeleting[row.id]" @click="deleteSanction(row)">
+                    <button v-if="canDeleteSanction(row)" class="btn danger" :disabled="sanctionsDeleting[row.id]" @click="deleteSanction(row)">
                       <img class="btn-img" :src="iconDelete" alt="delete" />
                       Удалить
                     </button>

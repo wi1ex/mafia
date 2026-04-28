@@ -39,7 +39,12 @@
           </div>
 
           <ToggleSwitch v-model="isPrivate" :disabled="isPrivacyLocked" label="Приватность:" off-label="Открытая" on-label="Закрытая" aria-label="Приватность: открытая/закрытая" />
-          <ToggleSwitch v-model="isAnonymous" :disabled="!canCreateHiddenRoom" label="Анонимность:" off-label="Видимая" on-label="Скрытая" aria-label="Анонимность: видимая/скрытая" />
+          <div class="toggle-tooltip" :class="{ 'toggle-tooltip--enabled': !canCreateHiddenRoom }" :title="!canCreateHiddenRoom ? hiddenRoomHint : undefined" :tabindex="!canCreateHiddenRoom ? 0 : undefined">
+            <ToggleSwitch v-model="isAnonymous" :disabled="!canCreateHiddenRoom" label="Анонимность:" off-label="Видимая" on-label="Скрытая" aria-label="Анонимность: видимая/скрытая" />
+            <div v-if="!canCreateHiddenRoom" class="toggle-tooltip__body" role="tooltip">
+              {{ hiddenRoomHint }}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -173,6 +178,7 @@ const initialLimit = (() => {
 })()
 const limit = ref<number>(initialLimit)
 const isMafiaRoom = computed(() => limit.value === gameLimitMin.value)
+const hiddenRoomHint = 'Создание скрытых комнат доступно пользователям, поддержавшим платформу'
 const canCreateHiddenRoom = computed(() => Boolean(user.subscriptionActive))
 
 const privacy = ref<'open'|'private'>(initialBasic.privacy === 'private' ? 'private' : 'open')
@@ -390,6 +396,38 @@ onBeforeUnmount(() => {
               }
             }
           }
+        }
+        .toggle-tooltip {
+          position: relative;
+          &--enabled {
+            cursor: help;
+          }
+          &__body {
+            position: absolute;
+            right: 0;
+            bottom: calc(100% + 10px);
+            min-width: 240px;
+            max-width: 320px;
+            padding: 10px;
+            border: 1px solid $lead;
+            border-radius: 5px;
+            background-color: $graphite;
+            box-shadow: 0 5px 15px rgba($black, 0.25);
+            color: $fg;
+            font-size: 12px;
+            line-height: 1.2;
+            opacity: 0;
+            transform: translateY(5px);
+            pointer-events: none;
+            transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
+            z-index: 5;
+          }
+        }
+        .toggle-tooltip--enabled:hover .toggle-tooltip__body,
+        .toggle-tooltip--enabled:focus-within .toggle-tooltip__body {
+          opacity: 1;
+          transform: translateY(0);
+          pointer-events: auto;
         }
       }
     }
