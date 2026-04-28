@@ -15,6 +15,7 @@ from ...models.user import User
 from ...schemas.admin import AdminSanctionListItemOut, AdminSanctionsOut, AdminSanctionTimedIn
 from ...schemas.common import Identity, Ok
 from ...schemas.moderation import ModerationUserOut, ModerationUsersOut
+from ...schemas.user import UserStatsOut
 from ...realtime.sio import sio
 from ...security.auth_tokens import get_identity
 from ...security.decorators import log_route, require_roles_dep
@@ -24,6 +25,7 @@ from ..utils import (
     SANCTION_SUSPEND,
     admin_username_sort_key,
     build_admin_sanction_out,
+    build_user_stats_out,
     compute_duration_seconds,
     emit_notify,
     emit_sanctions_update,
@@ -159,6 +161,17 @@ async def moderation_users_list(page: int = 1, limit: int = 20, username: str | 
         )
 
     return ModerationUsersOut(total=total, items=items)
+
+
+@router.get("/users/{user_id}/stats", response_model=UserStatsOut)
+@log_route("moderation.users.stats")
+async def moderation_user_stats(user_id: int, season: int | None = None, session: AsyncSession = Depends(get_session)) -> UserStatsOut:
+    uid = int(user_id)
+    user = await session.get(User, uid)
+    if not user:
+        raise HTTPException(status_code=404, detail="user_not_found")
+
+    return await build_user_stats_out(session, uid, season)
 
 @router.get("/sanctions", response_model=AdminSanctionsOut)
 @log_route("moderation.sanctions.list")

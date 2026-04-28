@@ -238,6 +238,8 @@
       :open="userMiniProfileOpen"
       :user-id="userMiniProfileTarget?.id ?? null"
       :initial-profile="userMiniProfileTarget"
+      :stats-url="userMiniProfileStatsUrl"
+      show-stats-button
       admin-mode
       @update:open="onUserMiniProfileOpenUpdate"
     />
@@ -357,6 +359,10 @@ const sanctionKind = ref<'timeout' | 'suspend'>('suspend')
 const sanctionTarget = ref<UserRow | null>(null)
 const userMiniProfileOpen = ref(false)
 const userMiniProfileTarget = ref<UserMiniProfileTarget | null>(null)
+const userMiniProfileStatsUrl = computed(() => {
+  const target = userMiniProfileTarget.value
+  return target ? `/moderation/users/${target.id}/stats` : null
+})
 const sanctionForm = reactive({
   months: 0,
   days: 0,
