@@ -3042,7 +3042,7 @@ onMounted(() => {
         position: absolute;
         top: calc(100% - 35px);
         right: 15px;
-        min-width: 150px;
+        min-width: 200px;
         max-width: 300px;
         max-height: 200px;
         overflow: auto;
