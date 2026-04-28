@@ -3100,6 +3100,69 @@ onMounted(() => {
         }
       }
     }
+    .tooltip {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      cursor: default;
+      width: fit-content;
+      .tooltip-value {
+        border-bottom: 1px dashed $grey;
+      }
+      .tooltip-body {
+        position: absolute;
+        top: calc(100% - 35px);
+        right: 15px;
+        min-width: 150px;
+        max-width: 300px;
+        max-height: 200px;
+        overflow: auto;
+        padding: 10px;
+        border: 1px solid $lead;
+        border-radius: 5px;
+        background-color: $graphite;
+        box-shadow: 0 5px 15px rgba($black, 0.25);
+        opacity: 0;
+        transform: translateY(-5px);
+        pointer-events: none;
+        transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
+        z-index: 10;
+      }
+      .tooltip-list {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+      }
+      .tooltip-row {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 5px;
+        font-size: 12px;
+        color: $fg;
+      }
+      .tooltip-avatar {
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        object-fit: cover;
+        flex: 0 0 auto;
+      }
+      .tooltip-id,
+      .tooltip-minutes {
+        color: $grey;
+      }
+      .tooltip-empty {
+        font-size: 12px;
+        color: $grey;
+      }
+      &:hover .tooltip-body,
+      &:focus-within .tooltip-body {
+        opacity: 1;
+        transform: translateY(0);
+        pointer-events: auto;
+      }
+    }
     .stats {
       display: flex;
       flex-direction: column;
@@ -3129,65 +3192,6 @@ onMounted(() => {
             font-size: 20px;
             color: $green;
           }
-        }
-      }
-      .tooltip {
-        position: relative;
-        display: inline-flex;
-        align-items: center;
-        cursor: default;
-        width: fit-content;
-        .tooltip-value {
-          border-bottom: 1px dashed $grey;
-        }
-        .tooltip-body {
-          position: absolute;
-          top: calc(100% - 35px);
-          right: 15px;
-          min-width: 150px;
-          max-width: 300px;
-          max-height: 200px;
-          overflow: auto;
-          padding: 10px;
-          border: 1px solid $lead;
-          border-radius: 5px;
-          background-color: $graphite;
-          box-shadow: 0 5px 15px rgba($black, 0.25);
-          opacity: 0;
-          transform: translateY(-5px);
-          pointer-events: none;
-          transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
-          z-index: 10;
-        }
-        .tooltip-list {
-          display: flex;
-          flex-direction: column;
-          gap: 5px;
-        }
-        .tooltip-row {
-          display: flex;
-          align-items: center;
-          flex-wrap: wrap;
-          gap: 5px;
-          font-size: 12px;
-          color: $fg;
-        }
-        .tooltip-avatar {
-          width: 16px;
-          height: 16px;
-          border-radius: 50%;
-          object-fit: cover;
-          flex: 0 0 auto;
-        }
-        .tooltip-empty {
-          font-size: 12px;
-          color: $grey;
-        }
-        &:hover .tooltip-body,
-        &:focus-within .tooltip-body {
-          opacity: 1;
-          transform: translateY(0);
-          pointer-events: auto;
         }
       }
       .stats-daily-grid {
@@ -3338,62 +3342,6 @@ onMounted(() => {
         height: 24px;
         border-radius: 50%;
         object-fit: cover;
-      }
-      .tooltip {
-        position: relative;
-        display: inline-flex;
-        align-items: center;
-        cursor: default;
-        width: fit-content;
-        .tooltip-value {
-          border-bottom: 1px dashed $grey;
-        }
-        .tooltip-body {
-          position: absolute;
-          top: calc(100% - 35px);
-          right: 15px;
-          min-width: 150px;
-          max-width: 300px;
-          max-height: 200px;
-          overflow: auto;
-          padding: 10px;
-          border: 1px solid $lead;
-          border-radius: 5px;
-          background-color: $graphite;
-          box-shadow: 0 5px 15px rgba($black, 0.25);
-          opacity: 0;
-          transform: translateY(-5px);
-          pointer-events: none;
-          transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
-          z-index: 10;
-        }
-        .tooltip-list {
-          display: flex;
-          flex-direction: column;
-          gap: 5px;
-        }
-        .tooltip-row {
-          display: flex;
-          align-items: center;
-          flex-wrap: wrap;
-          gap: 5px;
-          font-size: 12px;
-          color: $fg;
-        }
-        .tooltip-id,
-        .tooltip-minutes {
-          color: $grey;
-        }
-        .tooltip-empty {
-          font-size: 12px;
-          color: $grey;
-        }
-        &:hover .tooltip-body,
-        &:focus-within .tooltip-body {
-          opacity: 1;
-          transform: translateY(0);
-          pointer-events: auto;
-        }
       }
     }
     .updates-toolbar {

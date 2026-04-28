@@ -4,11 +4,7 @@
       <slot name="label">{{ label }}</slot>
     </span>
     <label :class="{ 'has-tooltip': Boolean(props.tooltip) }" :tabindex="props.tooltip ? 0 : undefined" :title="props.tooltip || undefined">
-      <input type="checkbox"
-             :checked="modelValue"
-             :disabled="isDisabled"
-             :aria-label="ariaLabel || label"
-             @change="onChange" />
+      <input type="checkbox" :checked="modelValue" :disabled="isDisabled" :aria-label="ariaLabel || label" @change="onChange" />
       <div class="slider">
         <span>{{ offLabel }}</span>
         <span>{{ onLabel }}</span>
@@ -146,12 +142,12 @@ onBeforeUnmount(() => {
       position: absolute;
       right: 0;
       bottom: calc(100% + 10px);
-      min-width: 150px;
-      max-width: 300px;
+      min-width: 260px;
+      max-width: 360px;
       padding: 10px;
-      border: 1px solid $lead;
+      border: 1px solid $grey;
       border-radius: 5px;
-      background-color: $graphite;
+      background-color: $lead;
       box-shadow: 0 5px 15px rgba($black, 0.25);
       color: $fg;
       font-size: 12px;
