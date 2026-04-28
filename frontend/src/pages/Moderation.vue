@@ -977,15 +977,12 @@ onBeforeUnmount(() => {
     white-space: nowrap;
     &.status-active {
       background-color: rgba($green, 0.25);
-      color: $green;
     }
     &.status-expired {
       background-color: rgba($yellow, 0.25);
-      color: $yellow;
     }
     &.status-revoked {
       background-color: rgba($red, 0.25);
-      color: $red;
     }
   }
   .pager {
