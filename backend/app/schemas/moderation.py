@@ -2,7 +2,6 @@ from __future__ import annotations
 from datetime import datetime
 from typing import List, Optional
 from pydantic import BaseModel, Field
-from .admin import AdminSanctionOut
 
 
 class ModerationUserOut(BaseModel):
@@ -21,9 +20,6 @@ class ModerationUserOut(BaseModel):
     timeouts_count: int
     bans_count: int
     suspends_count: int
-    timeouts: List[AdminSanctionOut] = Field(default_factory=list)
-    bans: List[AdminSanctionOut] = Field(default_factory=list)
-    suspends: List[AdminSanctionOut] = Field(default_factory=list)
 
 
 class ModerationUsersOut(BaseModel):

@@ -20,23 +20,22 @@ from ...security.auth_tokens import get_identity
 from ...security.decorators import log_route, require_roles_dep
 from ...services.global_chat import emit_global_chat_sanction_issued_notice, emit_global_chat_sanction_removed_notice
 from ..utils import (
+    SANCTION_BAN,
     SANCTION_TIMEOUT,
     SANCTION_SUSPEND,
     admin_username_sort_key,
-    build_admin_sanction_out,
     build_user_stats_out,
     compute_duration_seconds,
     emit_notify,
     emit_sanctions_update,
     fetch_active_sanction,
+    fetch_active_sanctions_for_users,
     fetch_sanction_counts_for_users,
-    fetch_sanctions_for_users,
     fetch_users_last_game_at,
     force_leave_user_from_rooms,
     format_duration_parts,
     format_duration_seconds_compact,
     get_moderation_target_user,
-    is_sanction_active,
     moderation_user_sort_metric,
     normalize_pagination,
     normalize_moderation_users_sort,
@@ -126,17 +125,15 @@ async def moderation_users_list(page: int = 1, limit: int = 20, username: str | 
             last_game_at = await fetch_users_last_game_at(session, ids)
 
     ids = [int(u.id) for u in users]
-    sanctions_map = await fetch_sanctions_for_users(session, ids)
-    now = datetime.now(timezone.utc)
+    sanction_counts = await fetch_sanction_counts_for_users(session, ids)
+    active_sanctions = await fetch_active_sanctions_for_users(session, ids)
     items: list[ModerationUserOut] = []
     for user in users:
         uid = int(user.id)
-        user_sanctions = sanctions_map.get(uid, [])
-        timeouts_raw = [row for row in user_sanctions if row.kind == "timeout"]
-        bans_raw = [row for row in user_sanctions if row.kind == "ban"]
-        suspends_raw = [row for row in user_sanctions if row.kind == SANCTION_SUSPEND]
-        active_timeout = next((row for row in timeouts_raw if is_sanction_active(row, now)), None)
-        active_suspend = next((row for row in suspends_raw if is_sanction_active(row, now)), None)
+        user_counts = sanction_counts.get(uid, {})
+        user_active_sanctions = active_sanctions.get(uid, {})
+        active_timeout = user_active_sanctions.get(SANCTION_TIMEOUT)
+        active_suspend = user_active_sanctions.get(SANCTION_SUSPEND)
         items.append(
             ModerationUserOut(
                 id=uid,
@@ -151,12 +148,9 @@ async def moderation_users_list(page: int = 1, limit: int = 20, username: str | 
                 timeout_until=active_timeout.expires_at if active_timeout else None,
                 suspend_active=active_suspend is not None,
                 suspend_until=active_suspend.expires_at if active_suspend else None,
-                timeouts_count=len(timeouts_raw),
-                bans_count=len(bans_raw),
-                suspends_count=len(suspends_raw),
-                timeouts=[build_admin_sanction_out(row) for row in timeouts_raw],
-                bans=[build_admin_sanction_out(row) for row in bans_raw],
-                suspends=[build_admin_sanction_out(row) for row in suspends_raw],
+                timeouts_count=int(user_counts.get(SANCTION_TIMEOUT, 0) or 0),
+                bans_count=int(user_counts.get(SANCTION_BAN, 0) or 0),
+                suspends_count=int(user_counts.get(SANCTION_SUSPEND, 0) or 0),
             )
         )
 

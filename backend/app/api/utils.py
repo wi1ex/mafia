@@ -114,6 +114,7 @@ __all__ = [
     "is_sanction_active",
     "fetch_active_sanction",
     "fetch_active_sanctions",
+    "fetch_active_sanctions_for_users",
     "fetch_active_sanctions_by_telegram",
     "fetch_sanctions_for_users",
     "pick_active_sanction_kind",
@@ -810,6 +811,33 @@ async def fetch_active_sanctions(session: AsyncSession, user_id: int) -> dict[st
     for row in items:
         if row.kind in out and out[row.kind] is None:
             out[row.kind] = row
+
+    return out
+
+
+async def fetch_active_sanctions_for_users(session: AsyncSession, user_ids: Iterable[int]) -> dict[int, dict[str, Optional[UserSanction]]]:
+    ids = [int(x) for x in user_ids]
+    out = {uid: _empty_active_sanctions() for uid in ids}
+    if not ids:
+        return out
+
+    now = datetime.now(timezone.utc)
+    rows = await session.execute(
+        select(UserSanction)
+        .where(
+            UserSanction.user_id.in_(ids),
+            UserSanction.kind.in_([SANCTION_TIMEOUT, SANCTION_BAN, SANCTION_SUSPEND]),
+            UserSanction.revoked_at.is_(None),
+            or_(UserSanction.expires_at.is_(None), UserSanction.expires_at > now),
+        )
+        .order_by(UserSanction.user_id.asc(), UserSanction.issued_at.desc(), UserSanction.id.desc())
+    )
+    for row in rows.scalars().all():
+        uid = cast(int, row.user_id)
+        if uid not in out:
+            continue
+        if row.kind in out[uid] and out[uid][row.kind] is None:
+            out[uid][row.kind] = row
 
     return out
 

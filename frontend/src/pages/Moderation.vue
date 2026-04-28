@@ -97,45 +97,9 @@
                 <td>{{ formatLocalDateTime(row.last_login_at) }}</td>
                 <td>{{ formatLocalDateTime(row.last_visit_at) }}</td>
                 <td>{{ formatLocalDateTime(row.last_game_at) }}</td>
-                <td>
-                  <div class="tooltip" tabindex="0">
-                    <span class="tooltip-value">{{ row.suspends_count }}</span>
-                    <div class="tooltip-body">
-                      <div v-if="row.suspends.length === 0" class="tooltip-empty">Нет данных</div>
-                      <div v-else class="tooltip-list">
-                        <div v-for="item in row.suspends" :key="`suspend-${item.id}`" class="tooltip-row">
-                          {{ formatSanctionLine(item) }}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </td>
-                <td>
-                  <div class="tooltip" tabindex="0">
-                    <span class="tooltip-value">{{ row.timeouts_count }}</span>
-                    <div class="tooltip-body">
-                      <div v-if="row.timeouts.length === 0" class="tooltip-empty">Нет данных</div>
-                      <div v-else class="tooltip-list">
-                        <div v-for="item in row.timeouts" :key="`timeout-${item.id}`" class="tooltip-row">
-                          {{ formatSanctionLine(item) }}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </td>
-                <td>
-                  <div class="tooltip" tabindex="0">
-                    <span class="tooltip-value">{{ row.bans_count }}</span>
-                    <div class="tooltip-body">
-                      <div v-if="row.bans.length === 0" class="tooltip-empty">Нет данных</div>
-                      <div v-else class="tooltip-list">
-                        <div v-for="item in row.bans" :key="`ban-${item.id}`" class="tooltip-row">
-                          {{ formatSanctionLine(item) }}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </td>
+                <td>{{ row.suspends_count }}</td>
+                <td>{{ row.timeouts_count }}</td>
+                <td>{{ row.bans_count }}</td>
                 <td>
                   <button class="btn" :class="row.suspend_active ? 'dark' : 'danger'" :disabled="!canModerateUser(row) || isSanctionBusy(row.id, 'suspend')" @click="toggleSuspend(row)">
                     <img class="btn-img" :src="row.suspend_active ? iconClose : iconJudge" alt="" />
@@ -267,20 +231,6 @@ import iconJudge from '@/assets/svg/judge.svg'
 type TabKey = 'users' | 'sanctions'
 type SanctionListStatus = 'active' | 'expired_auto' | 'revoked'
 
-type SanctionRow = {
-  id: number
-  kind: 'timeout' | 'ban' | 'suspend'
-  reason?: string | null
-  issued_at: string
-  issued_by_id?: number | null
-  issued_by_name?: string | null
-  duration_seconds?: number | null
-  expires_at?: string | null
-  revoked_at?: string | null
-  revoked_by_id?: number | null
-  revoked_by_name?: string | null
-}
-
 type SanctionsRow = {
   id: number
   user_id: number
@@ -317,9 +267,6 @@ type UserRow = {
   timeouts_count: number
   bans_count: number
   suspends_count: number
-  timeouts: SanctionRow[]
-  bans: SanctionRow[]
-  suspends: SanctionRow[]
 }
 
 type UserMiniProfileTarget = {
@@ -409,26 +356,6 @@ function formatSanctionDuration(seconds?: number | null): string {
   if (hours > 0) parts.push(`${hours}ч`)
   if (minutes > 0 || parts.length === 0) parts.push(`${minutes}м`)
   return parts.join(' ')
-}
-
-function formatSanctionActor(name?: string | null, id?: number | null): string {
-  if (name) return name
-  if (Number.isFinite(id)) return `#${id}`
-  return '-'
-}
-
-function formatSanctionLine(item: SanctionRow): string {
-  const issuedBy = formatSanctionActor(item.issued_by_name, item.issued_by_id)
-  const issuedAt = formatLocalDateTime(item.issued_at)
-  const duration = formatSanctionDuration(item.duration_seconds)
-  let end = 'активен'
-  if (item.revoked_at) {
-    const revokedBy = formatSanctionActor(item.revoked_by_name, item.revoked_by_id)
-    end = `снял: ${revokedBy} ${formatLocalDateTime(item.revoked_at)}`
-  } else if (item.expires_at) {
-    end = `авто: ${formatLocalDateTime(item.expires_at)}`
-  }
-  return `${issuedAt} • ${duration} • выдал: ${issuedBy} • ${end}`
 }
 
 function formatSanctionKindLabel(kind: 'timeout' | 'ban' | 'suspend'): string {
@@ -528,9 +455,6 @@ async function loadUsers(): Promise<void> {
       last_game_at: item?.last_game_at ?? null,
       timeout_until: item?.timeout_until ?? null,
       suspend_until: item?.suspend_until ?? null,
-      timeouts: Array.isArray(item?.timeouts) ? item.timeouts : [],
-      bans: Array.isArray(item?.bans) ? item.bans : [],
-      suspends: Array.isArray(item?.suspends) ? item.suspends : [],
     }))
     usersTotal.value = Number.isFinite(data?.total) ? data.total : 0
   } catch {
@@ -909,58 +833,6 @@ onBeforeUnmount(() => {
       border-radius: 50%;
       object-fit: cover;
     }
-    .tooltip {
-      position: relative;
-      display: inline-flex;
-      align-items: center;
-      cursor: default;
-      width: fit-content;
-      .tooltip-value {
-        border-bottom: 1px dashed $grey;
-      }
-      .tooltip-body {
-        position: absolute;
-        top: calc(100% - 35px);
-        right: 15px;
-        min-width: 220px;
-        max-width: 320px;
-        max-height: 200px;
-        overflow: auto;
-        padding: 10px;
-        border: 1px solid $lead;
-        border-radius: 5px;
-        background-color: $graphite;
-        box-shadow: 0 5px 15px rgba($black, 0.25);
-        opacity: 0;
-        transform: translateY(-5px);
-        pointer-events: none;
-        transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
-        z-index: 10;
-      }
-      .tooltip-list {
-        display: flex;
-        flex-direction: column;
-        gap: 5px;
-      }
-      .tooltip-row {
-        display: flex;
-        align-items: center;
-        flex-wrap: wrap;
-        gap: 5px;
-        font-size: 12px;
-        color: $fg;
-      }
-      .tooltip-empty {
-        font-size: 12px;
-        color: $grey;
-      }
-      &:hover .tooltip-body,
-      &:focus-within .tooltip-body {
-        opacity: 1;
-        transform: translateY(0);
-        pointer-events: auto;
-      }
-    }
   }
   .sanctions-table .rule-cell {
     max-width: 520px;
@@ -1040,11 +912,6 @@ onBeforeUnmount(() => {
       .user-avatar {
         width: 16px;
         height: 16px;
-      }
-      .tooltip {
-        .tooltip-body {
-          padding: 5px;
-        }
       }
     }
     .sanctions-table .rule-cell {

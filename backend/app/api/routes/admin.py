@@ -138,9 +138,8 @@ from ..utils import (
     compute_duration_seconds,
     gc_empty_room_and_emit,
     fetch_active_sanction,
-    fetch_sanctions_for_users,
+    fetch_active_sanctions_for_users,
     is_sanction_active,
-    build_admin_sanction_out,
     sanction_status,
     sanction_finished_at,
     sanction_served_seconds,
@@ -1210,19 +1209,17 @@ async def users_list(page: int = 1, limit: int = 20, username: str | None = None
             last_spectator_room_id = await fetch_users_last_spectator_room_id(session, ids)
 
     ids = [int(u.id) for u in users]
-    sanctions_map = await fetch_sanctions_for_users(session, ids)
-    now = datetime.now(timezone.utc)
+    sanction_counts = await fetch_sanction_counts_for_users(session, ids)
+    active_sanctions = await fetch_active_sanctions_for_users(session, ids)
     items: list[AdminUserOut] = []
     for u in users:
         uid = int(u.id)
         created = rooms_created.get(uid, 0)
-        user_sanctions = sanctions_map.get(uid, [])
-        timeouts_raw = [s for s in user_sanctions if s.kind == SANCTION_TIMEOUT]
-        bans_raw = [s for s in user_sanctions if s.kind == SANCTION_BAN]
-        suspends_raw = [s for s in user_sanctions if s.kind == SANCTION_SUSPEND]
-        active_timeout = next((s for s in timeouts_raw if is_sanction_active(s, now)), None)
-        active_ban = next((s for s in bans_raw if is_sanction_active(s, now)), None)
-        active_suspend = next((s for s in suspends_raw if is_sanction_active(s, now)), None)
+        user_counts = sanction_counts.get(uid, {})
+        user_active_sanctions = active_sanctions.get(uid, {})
+        active_timeout = user_active_sanctions.get(SANCTION_TIMEOUT)
+        active_ban = user_active_sanctions.get(SANCTION_BAN)
+        active_suspend = user_active_sanctions.get(SANCTION_SUSPEND)
         items.append(AdminUserOut(
             id=uid,
             tg_id=u.telegram_id,
@@ -1252,12 +1249,9 @@ async def users_list(page: int = 1, limit: int = 20, username: str | None = None
             ban_active=active_ban is not None,
             suspend_active=active_suspend is not None,
             suspend_until=active_suspend.expires_at if active_suspend else None,
-            timeouts_count=len(timeouts_raw),
-            bans_count=len(bans_raw),
-            suspends_count=len(suspends_raw),
-            timeouts=[build_admin_sanction_out(s) for s in timeouts_raw],
-            bans=[build_admin_sanction_out(s) for s in bans_raw],
-            suspends=[build_admin_sanction_out(s) for s in suspends_raw],
+            timeouts_count=int(user_counts.get(SANCTION_TIMEOUT, 0) or 0),
+            bans_count=int(user_counts.get(SANCTION_BAN, 0) or 0),
+            suspends_count=int(user_counts.get(SANCTION_SUSPEND, 0) or 0),
         ))
 
     return AdminUsersOut(total=total, items=items)

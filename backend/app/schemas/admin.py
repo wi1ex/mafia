@@ -331,9 +331,6 @@ class AdminUserOut(BaseModel):
     timeouts_count: int
     bans_count: int
     suspends_count: int
-    timeouts: List[AdminSanctionOut]
-    bans: List[AdminSanctionOut]
-    suspends: List[AdminSanctionOut]
 
 
 class AdminUsersOut(BaseModel):
