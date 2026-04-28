@@ -12,7 +12,7 @@
           История игр
         </button>
         <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'sanctions' }" :aria-selected="activeTab === 'sanctions'" @click="activeTab = 'sanctions'">
-          Ограничения
+          Санкции
         </button>
       </nav>
       <router-link class="btn nav" :to="{ name: 'home' }" aria-label="На главную">На главную</router-link>

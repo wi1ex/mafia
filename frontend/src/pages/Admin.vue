@@ -650,6 +650,12 @@
                     </button>
                   </th>
                   <th>
+                    <button class="th-sort" type="button" :class="{ active: usersSortBy === 'suspends_count' }" @click="setUsersSort('suspends_count')">
+                      Отстранения
+                      <span class="th-sort-mark" aria-hidden="true">▼</span>
+                    </button>
+                  </th>
+                  <th>
                     <button class="th-sort" type="button" :class="{ active: usersSortBy === 'timeouts_count' }" @click="setUsersSort('timeouts_count')">
                       Таймауты
                       <span class="th-sort-mark" aria-hidden="true">▼</span>
@@ -661,19 +667,13 @@
                       <span class="th-sort-mark" aria-hidden="true">▼</span>
                     </button>
                   </th>
-                  <th>
-                    <button class="th-sort" type="button" :class="{ active: usersSortBy === 'suspends_count' }" @click="setUsersSort('suspends_count')">
-                      Огранич.
-                      <span class="th-sort-mark" aria-hidden="true">▼</span>
-                    </button>
-                  </th>
                   <th>Подписка</th>
                   <th>Модерка</th>
                   <th>Аккаунт</th>
                   <th>Вериф.</th>
                   <th>Пароль</th>
                   <th>Никнейм</th>
-                  <th>Огранич.</th>
+                  <th>Отстранить</th>
                   <th>Таймаут</th>
                   <th>Бан</th>
                 </tr>
@@ -706,6 +706,19 @@
                   <td>{{ formatMinutes(row.spectator_minutes) }}</td>
                   <td>
                     <div class="tooltip" tabindex="0">
+                      <span class="tooltip-value">{{ row.suspends_count }}</span>
+                      <div class="tooltip-body">
+                        <div v-if="row.suspends.length === 0" class="tooltip-empty">Нет данных</div>
+                        <div v-else class="tooltip-list">
+                          <div v-for="item in row.suspends" :key="`suspend-${item.id}`" class="tooltip-row">
+                            {{ formatSanctionLine(item) }}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="tooltip" tabindex="0">
                       <span class="tooltip-value">{{ row.timeouts_count }}</span>
                       <div class="tooltip-body">
                         <div v-if="row.timeouts.length === 0" class="tooltip-empty">Нет данных</div>
@@ -724,19 +737,6 @@
                         <div v-if="row.bans.length === 0" class="tooltip-empty">Нет данных</div>
                         <div v-else class="tooltip-list">
                           <div v-for="item in row.bans" :key="`ban-${item.id}`" class="tooltip-row">
-                            {{ formatSanctionLine(item) }}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </td>
-                  <td>
-                    <div class="tooltip" tabindex="0">
-                      <span class="tooltip-value">{{ row.suspends_count }}</span>
-                      <div class="tooltip-body">
-                        <div v-if="row.suspends.length === 0" class="tooltip-empty">Нет данных</div>
-                        <div v-else class="tooltip-list">
-                          <div v-for="item in row.suspends" :key="`suspend-${item.id}`" class="tooltip-row">
                             {{ formatSanctionLine(item) }}
                           </div>
                         </div>
@@ -1330,7 +1330,7 @@ const sanctionCanSave = computed(() => {
 const sanctionTitle = computed(() => {
   if (sanctionKind.value === 'timeout') return 'Выдать таймаут'
   if (sanctionKind.value === 'ban') return 'Выдать бан'
-  return 'Выдать ограничение'
+  return 'Выдать отстранение'
 })
 const kickRoomsBusy = ref(false)
 const clearChatBusy = ref(false)
@@ -2458,7 +2458,7 @@ async function saveSanction(): Promise<void> {
   try {
     await api.post(url, payload)
     sanctionModalOpen.value = false
-    void alertDialog(kind === 'timeout' ? 'Таймаут выдан' : kind === 'ban' ? 'Бан выдан' : 'Ограничение выдано')
+    void alertDialog(kind === 'timeout' ? 'Таймаут выдан' : kind === 'ban' ? 'Бан выдан' : 'Отстранение выдано')
     await loadUsers()
   } catch (e: any) {
     const st = e?.response?.status
@@ -2479,12 +2479,12 @@ async function revokeSanction(row: UserRow, kind: 'timeout' | 'ban' | 'suspend')
   if (isDeletedUserActionsLocked(row)) return
   if (isSanctionBusy(row.id, kind)) return
   const userLabel = row.username ? `${row.username}` : `#${row.id}`
-  const title = kind === 'ban' ? 'Разбанить' : kind === 'timeout' ? 'Снять таймаут' : 'Снять ограничение'
+  const title = kind === 'ban' ? 'Разбанить' : kind === 'timeout' ? 'Снять таймаут' : 'Снять отстранение'
   const text = kind === 'ban'
     ? `Разбанить ${userLabel}?`
     : kind === 'timeout'
       ? `Снять таймаут у ${userLabel}?`
-      : `Снять ограничение у ${userLabel}?`
+      : `Снять отстранение у ${userLabel}?`
   const ok = await confirmDialog({
     title,
     text,
@@ -2495,7 +2495,7 @@ async function revokeSanction(row: UserRow, kind: 'timeout' | 'ban' | 'suspend')
   setSanctionBusy(row.id, kind, true)
   try {
     await api.delete(`/admin/users/${row.id}/${kind}`)
-    void alertDialog(kind === 'ban' ? 'Бан снят' : kind === 'timeout' ? 'Таймаут снят' : 'Ограничение снято')
+    void alertDialog(kind === 'ban' ? 'Бан снят' : kind === 'timeout' ? 'Таймаут снят' : 'Отстранение снято')
     await loadUsers()
   } catch (e: any) {
     const st = e?.response?.status
