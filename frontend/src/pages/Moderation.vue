@@ -179,7 +179,7 @@
           <table class="table sanctions-table">
             <thead>
               <tr>
-                <th>Никнейм</th>
+                <th>Пользователь</th>
                 <th>Тип санкции</th>
                 <th>Статус</th>
                 <th>Дата выдачи</th>
