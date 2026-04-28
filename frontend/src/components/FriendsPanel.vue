@@ -75,7 +75,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, nextTick, onBeforeUnmount, computed, reactive } from 'vue'
+import { ref, watch, nextTick, onMounted, onBeforeUnmount, computed, reactive } from 'vue'
 import { buildProfileThemeBgStyle } from '@/constants/profileThemes'
 import { getProfileThemeBadgeSources } from '@/constants/profileThemeIcons'
 import { useFriendsStore, resolveFriendsApiError, shouldRefreshFriendsStateAfterError, type FriendListItem } from '@/store'
@@ -132,6 +132,10 @@ let pollTimer: number | undefined
 let autoCloseTimer: number | undefined
 const POLL_MS = 3000
 const AUTO_CLOSE_MS = 5 * 60 * 1000
+
+onMounted(() => {
+  friends.ensureWS()
+})
 
 function inviteBlockedReason(friend: { kind?: string; telegram_verified?: boolean; tg_invites_enabled?: boolean; tg_invite_cooldown_active?: boolean | null; in_active_game_as_alive_player?: boolean | null; in_active_game_as_host?: boolean | null }): string {
   if (friend.in_active_game_as_host) return 'Пользователь сейчас является ведущим в активной игре'

@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.clients import get_redis
 from ..core.db import SessionLocal
 from ..core.logging import log_action
-from ..core.roles import ROLE_USER, admin_users_role_sort_value, normalize_user_role
+from ..core.roles import ROLE_USER, admin_users_role_sort_value, normalize_user_role, room_moderation_role
 from ..core.settings import settings
 from ..models.game import Game
 from ..models.room import Room
@@ -167,6 +167,9 @@ __all__ = [
     "raise_missing_outgoing_request_error",
     "emit_notify",
     "emit_friends_update",
+    "emit_friends_profile_sync",
+    "emit_role_change_friend_profile_syncs",
+    "emit_room_role_sync",
     "sanitize_username_for_schema",
     "sanitize_title_for_schema",
     "parse_season_starts",
@@ -3415,6 +3418,147 @@ async def emit_friends_update(user_id: int, other_id: int, status: str) -> None:
     payload = {"user_id": int(other_id), "status": status}
     with suppress(Exception):
         await sio.emit("friends_update", payload, room=f"user:{int(user_id)}", namespace="/auth")
+
+
+async def emit_friends_profile_sync(user_id: int, target_user_id: int, *, role: str | None = None) -> None:
+    uid = int(user_id)
+    target_uid = int(target_user_id)
+    if uid <= 0 or target_uid <= 0:
+        return
+
+    payload = {
+        "user_id": target_uid,
+        "role": normalize_user_role(role),
+    }
+    with suppress(Exception):
+        await sio.emit("friends_profile_sync", payload, room=f"user:{uid}", namespace="/auth")
+
+
+async def emit_role_change_friend_profile_syncs(session: AsyncSession, user_id: int, *, role: str | None = None) -> None:
+    uid = int(user_id)
+    if uid <= 0:
+        return
+
+    rows = await session.execute(
+        select(FriendLink.requester_id, FriendLink.addressee_id).where(
+            or_(FriendLink.requester_id == uid, FriendLink.addressee_id == uid)
+        )
+    )
+    recipient_ids: set[int] = set()
+    for requester_id, addressee_id in rows.all():
+        try:
+            requester_uid = int(requester_id)
+            addressee_uid = int(addressee_id)
+        except Exception:
+            continue
+        other_uid = addressee_uid if requester_uid == uid else requester_uid
+        if other_uid > 0:
+            recipient_ids.add(other_uid)
+
+    normalized_role = normalize_user_role(role)
+    for recipient_uid in sorted(recipient_ids):
+        await emit_friends_profile_sync(recipient_uid, uid, role=normalized_role)
+
+
+async def emit_room_role_sync(user_id: int, *, role: str | None = None) -> None:
+    uid = int(user_id)
+    if uid <= 0:
+        return
+
+    normalized_base_role = normalize_user_role(role)
+    r = get_redis()
+    room_updates: dict[int, dict[str, str]] = {}
+
+    def remember_room_update(rid: int, current_role: str | None) -> None:
+        if rid <= 0:
+            return
+
+        current_role_value = str(current_role or "").strip().lower()
+        next_role = "host" if current_role_value == "host" else normalized_base_role
+        room_updates[rid] = {
+            "role": next_role,
+            "base_role": normalized_base_role,
+            "moderation_role": room_moderation_role(next_role, normalized_base_role),
+        }
+
+    try:
+        participants = tuple(sio.manager.get_participants("/room", f"user:{uid}"))
+    except Exception:
+        participants = ()
+
+    for sid, _ in participants:
+        try:
+            sess = await sio.get_session(sid, namespace="/room")
+        except Exception:
+            continue
+        if not sess:
+            continue
+
+        try:
+            rid = int(sess.get("rid") or 0)
+        except Exception:
+            rid = 0
+
+        current_role = str(sess.get("role") or "").strip().lower()
+        if not current_role and rid > 0:
+            try:
+                current_role = str(await r.hget(f"room:{rid}:user:{uid}:info", "role") or "").strip().lower()
+            except Exception:
+                current_role = ""
+
+        next_role = "host" if current_role == "host" else normalized_base_role
+        next_session = dict(sess)
+        next_session["role"] = next_role
+        next_session["base_role"] = normalized_base_role
+        try:
+            await sio.save_session(sid, next_session, namespace="/room")
+        except Exception:
+            pass
+
+        remember_room_update(rid, current_role)
+
+    try:
+        raw_current_room_id = await r.get(f"user:{uid}:room")
+    except Exception:
+        raw_current_room_id = None
+
+    try:
+        current_room_id = int(raw_current_room_id or 0)
+    except Exception:
+        current_room_id = 0
+
+    if current_room_id > 0 and current_room_id not in room_updates:
+        try:
+            current_role = str(await r.hget(f"room:{current_room_id}:user:{uid}:info", "role") or "").strip().lower()
+        except Exception:
+            current_role = ""
+        if current_role:
+            remember_room_update(current_room_id, current_role)
+
+    for rid, payload in room_updates.items():
+        try:
+            await r.hset(
+                f"room:{rid}:user:{uid}:info",
+                mapping={
+                    "role": payload["role"],
+                    "base_role": payload["base_role"],
+                },
+            )
+        except Exception as exc:
+            log.warning("room.role_sync.cache_failed", rid=rid, uid=uid, err=type(exc).__name__)
+
+        with suppress(Exception):
+            await sio.emit(
+                "role_sync",
+                {
+                    "user_id": uid,
+                    "role": payload["role"],
+                    "base_role": payload["base_role"],
+                    "moderation_role": payload["moderation_role"],
+                },
+                room=f"room:{rid}",
+                namespace="/room",
+            )
 
 
 async def fetch_user_avatar_map(session: AsyncSession, user_ids: set[int]) -> dict[int, str | None]:

@@ -2,10 +2,10 @@ export const PROFILE_THEME_DEFAULT = 'terracotta' as const
 
 const PROFILE_THEME_GRADIENT = {
   topGlowAlpha: '50',
-  topGlowFade: '150%',
+  topGlowFade: '200%',
   cornerGlowAlpha: '1a',
-  cornerGlowFade: '150%',
-  angle: '165deg',
+  cornerGlowFade: '200%',
+  angle: '170deg',
   surfaceColor: '#0f0f0f',
   hoverSurfaceColor: '#151515',
   hoverTopGlowAlpha: '50',

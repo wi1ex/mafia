@@ -1400,6 +1400,50 @@ async def emit_global_chat_profile_theme_sync(user_id: int, theme_color: str | N
     )
 
 
+async def emit_global_chat_role_sync(user_id: int, role: str | None = None) -> None:
+    uid = _positive_int(user_id)
+    if uid <= 0:
+        return
+
+    normalized_role = normalize_user_role(role)
+
+    try:
+        participants = tuple(sio.manager.get_participants("/chat", f"user:{uid}"))
+    except Exception:
+        participants = ()
+
+    for sid, _ in participants:
+        try:
+            sess = await sio.get_session(sid, namespace="/chat")
+        except Exception:
+            continue
+        if not sess:
+            continue
+
+        next_session = dict(sess)
+        next_session["role"] = normalized_role
+        try:
+            await sio.save_session(sid, next_session, namespace="/chat")
+        except Exception:
+            pass
+
+    await sio.emit(
+        "chat_role_sync",
+        {
+            "user_id": uid,
+            "role": normalized_role,
+        },
+        room=GLOBAL_CHAT_ROOM,
+        namespace="/chat",
+    )
+    await sio.emit(
+        "chat_refresh_requested",
+        {},
+        room=global_chat_open_user_room(uid),
+        namespace="/chat",
+    )
+
+
 async def get_global_chat_message(session: AsyncSession, message_id: int) -> GlobalChatMessage | None:
     mid = _positive_int(message_id)
     if mid <= 0:

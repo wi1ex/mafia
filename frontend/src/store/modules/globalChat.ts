@@ -572,6 +572,42 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
     if (changed) markMutation('none')
   }
 
+  function applyRoleSync(raw: unknown): void {
+    if (!isRecord(raw)) return
+    const userId = asPositiveInt(raw.user_id)
+    if (userId <= 0) return
+    const role = normalizeChatRole(raw.role)
+
+    let changed = false
+    messages.value = messages.value.map((message) => {
+      if (message.author.id !== userId) return message
+      changed = true
+      return {
+        ...message,
+        author: {
+          ...message.author,
+          role,
+        },
+      }
+    })
+
+    Object.entries(reactionParticipantsCache).forEach(([key, participants]) => {
+      const nextParticipants = participants.map((participant) => {
+        if (participant.user.id !== userId) return participant
+        return {
+          ...participant,
+          user: {
+            ...participant.user,
+            role,
+          },
+        }
+      })
+      reactionParticipantsCache[Number(key)] = nextParticipants
+    })
+
+    if (changed) markMutation('none')
+  }
+
   function normalizeMessage(raw: unknown, viewerUserId: number, previous?: GlobalChatMessage): GlobalChatMessage | null {
     if (!isRecord(raw)) return null
     const id = asPositiveInt(raw.id)
@@ -893,6 +929,10 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
 
     socket.on('chat_profile_theme_sync', (payload: unknown) => {
       applyProfileThemeSync(payload)
+    })
+
+    socket.on('chat_role_sync', (payload: unknown) => {
+      applyRoleSync(payload)
     })
 
     socket.on('chat_cleared', () => {

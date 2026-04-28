@@ -45,6 +45,7 @@ from ...services.global_chat import (
     emit_global_chat_permissions_refresh,
     emit_global_chat_permissions_updated,
     emit_global_chat_role_notice,
+    emit_global_chat_role_sync,
     emit_global_chat_sanction_issued_notice,
     emit_global_chat_sanction_removed_notice,
 )
@@ -160,7 +161,9 @@ from ..utils import (
     ensure_admin_target_not_deleted,
     emit_rooms_upsert,
     emit_auth_profile_sync,
+    emit_role_change_friend_profile_syncs,
     emit_room_profile_theme_sync,
+    emit_room_role_sync,
     notify_subscription_upsert,
     delete_gif_avatar_for_inactive_subscription,
     get_room_params_or_404,
@@ -1700,6 +1703,15 @@ async def update_user_role(user_id: int, payload: AdminUserRoleIn, ident: Identi
                     role="moder",
                     granted=False,
                 )
+
+        with suppress(Exception):
+            await emit_auth_profile_sync(uid, role=str(user.role))
+        with suppress(Exception):
+            await emit_room_role_sync(uid, role=str(user.role))
+        with suppress(Exception):
+            await emit_global_chat_role_sync(uid, role=str(user.role))
+        with suppress(Exception):
+            await emit_role_change_friend_profile_syncs(session, uid, role=str(user.role))
 
     return AdminUserRoleOut(id=uid, role=user.role)
 

@@ -156,6 +156,10 @@ export function startAuthSocket(opts?: { onForceLogout?: () => void }): Socket {
     window.dispatchEvent(new CustomEvent('auth-friends_update', { detail: p }))
   })
 
+  authSocket.on('friends_profile_sync', (p:any) => {
+    window.dispatchEvent(new CustomEvent('auth-friends_profile_sync', { detail: p }))
+  })
+
   authSocket.on('site_update', (p:any) => {
     window.dispatchEvent(new CustomEvent('auth-site_update', { detail: p }))
   })

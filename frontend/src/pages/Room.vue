@@ -1028,6 +1028,17 @@ function applyProfileTheme(id: string, source: any): void {
   else themeIconByUser.delete(id)
 }
 
+function applyRoomRoleSync(id: string, source: any): void {
+  const role = typeof source?.role === 'string' && source.role.trim() !== '' ? source.role.trim() : ''
+  const moderationRole = typeof source?.moderation_role === 'string' && source.moderation_role.trim() !== ''
+    ? source.moderation_role.trim()
+    : ''
+
+  if (role) rolesByUser.set(id, role)
+  if (moderationRole) moderationRolesByUser.set(id, moderationRole)
+  else if (role) moderationRolesByUser.set(id, role)
+}
+
 function memoRef<K, V>(cache: Map<K, V>, factory: (k: K) => V): (k: K) => V {
   return (k: K) => {
     const c = cache.get(k)
@@ -2063,6 +2074,13 @@ socket.value?.on('connect', async () => {
     if (!id) return
     ensurePeer(id)
     applyProfileTheme(id, p)
+  })
+
+  socket.value.on('role_sync', (p: any) => {
+    const id = String(p?.user_id || '')
+    if (!id) return
+    ensurePeer(id)
+    applyRoomRoleSync(id, p)
   })
 
   socket.value.on('moderation', async (p: any) => {
