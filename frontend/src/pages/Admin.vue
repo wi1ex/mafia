@@ -838,7 +838,13 @@
               </thead>
               <tbody>
                 <tr v-for="row in sanctions" :key="row.id">
-                  <td>{{ row.username || `user${row.user_id}` }}</td>
+                  <td>
+                    <div class="user-cell">
+                      <img class="user-avatar" v-minio-img="{ key: row.avatar_name ? `avatars/${row.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
+                      <button v-if="canOpenSanctionUserMiniProfile(row)" class="user-link" type="button" @click="openSanctionUserMiniProfile(row)">{{ row.username || `user${row.user_id}` }}</button>
+                      <span v-else>{{ row.username || `user${row.user_id}` }}</span>
+                    </div>
+                  </td>
                   <td>{{ formatSanctionKindLabel(row.kind) }}</td>
                   <td>{{ formatSanctionStatusLabel(row.status) }}</td>
                   <td>{{ formatLocalDateTime(row.issued_at) }}</td>
@@ -1201,6 +1207,7 @@ type SanctionsRow = {
   id: number
   user_id: number
   username?: string | null
+  avatar_name?: string | null
   kind: 'timeout' | 'ban' | 'suspend'
   status: SanctionListStatus
   issued_at: string
@@ -1790,6 +1797,20 @@ function canOpenSubscriptionUserMiniProfile(row: SubscriptionRow): boolean {
   return getPositiveUserId(row.user_id) > 0
 }
 
+function canOpenSanctionUserMiniProfile(row: SanctionsRow): boolean {
+  return getPositiveUserId(row.user_id) > 0
+}
+
+function openSanctionUserMiniProfile(row: SanctionsRow): void {
+  const id = getPositiveUserId(row.user_id)
+  if (id <= 0) return
+  openUserMiniProfile({
+    id,
+    username: row.username ?? null,
+    avatar_name: row.avatar_name ?? null,
+  })
+}
+
 function openSubscriptionUserMiniProfile(row: SubscriptionRow): void {
   const id = getPositiveUserId(row.user_id)
   if (id <= 0) return
@@ -2171,6 +2192,7 @@ async function loadSanctions(): Promise<void> {
     sanctions.value = items.map((item: any) => ({
       ...item,
       username: item?.username ?? null,
+      avatar_name: item?.avatar_name ?? null,
       finished_at: item?.finished_at ?? null,
       issued_by_display: String(item?.issued_by_display || '-'),
       revoked_by_display: item?.revoked_by_display ? String(item.revoked_by_display) : null,

@@ -165,7 +165,7 @@ async def moderation_users_list(page: int = 1, limit: int = 20, username: str | 
 async def moderation_sanctions_list(page: int = 1, limit: int = 20, username: str | None = None, session: AsyncSession = Depends(get_session)) -> AdminSanctionsOut:
     limit, page, offset = normalize_pagination(page, limit)
 
-    filters = [User.role == ROLE_USER]
+    filters = []
     if username:
         needle = username.lower()
         filters.append(func.lower(User.username).contains(needle, autoescape=True))
@@ -174,15 +174,15 @@ async def moderation_sanctions_list(page: int = 1, limit: int = 20, username: st
         await session.scalar(
             select(func.count(UserSanction.id))
             .select_from(UserSanction)
-            .join(User, User.id == UserSanction.user_id)
+            .outerjoin(User, User.id == UserSanction.user_id)
             .where(*filters)
         ) or 0
     )
 
     rows = await session.execute(
-        select(UserSanction, User.username)
+        select(UserSanction, User.username, User.avatar_name)
         .select_from(UserSanction)
-        .join(User, User.id == UserSanction.user_id)
+        .outerjoin(User, User.id == UserSanction.user_id)
         .where(*filters)
         .order_by(UserSanction.issued_at.desc(), UserSanction.id.desc())
         .offset(offset)
@@ -191,7 +191,7 @@ async def moderation_sanctions_list(page: int = 1, limit: int = 20, username: st
 
     now = datetime.now(timezone.utc)
     items: list[AdminSanctionListItemOut] = []
-    for row, target_username in rows.all():
+    for row, target_username, target_avatar_name in rows.all():
         sanction = cast(UserSanction, row)
         uid = cast(int, sanction.user_id)
         sid = cast(int, sanction.id)
@@ -209,6 +209,7 @@ async def moderation_sanctions_list(page: int = 1, limit: int = 20, username: st
                 id=sid,
                 user_id=uid,
                 username=cast(str | None, target_username),
+                avatar_name=cast(str | None, target_avatar_name),
                 kind=cast(str, sanction.kind),
                 status=cast(str, status),
                 issued_at=sanction.issued_at,

@@ -193,7 +193,13 @@
             </thead>
             <tbody>
               <tr v-for="row in sanctions" :key="row.id">
-                <td>{{ row.username || `user${row.user_id}` }}</td>
+                <td>
+                  <div class="user-cell">
+                    <img class="user-avatar" v-minio-img="{ key: row.avatar_name ? `avatars/${row.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
+                    <button v-if="canOpenSanctionUserMiniProfile(row)" class="user-link" type="button" @click="openSanctionUserMiniProfile(row)">{{ row.username || `user${row.user_id}` }}</button>
+                    <span v-else>{{ row.username || `user${row.user_id}` }}</span>
+                  </div>
+                </td>
                 <td>{{ formatSanctionKindLabel(row.kind) }}</td>
                 <td>{{ formatSanctionStatusLabel(row.status) }}</td>
                 <td>{{ formatLocalDateTime(row.issued_at) }}</td>
@@ -228,6 +234,13 @@
       :reasons="sanctionReasons"
       @save="saveSanction"
     />
+    <UserMiniProfileModal
+      :open="userMiniProfileOpen"
+      :user-id="userMiniProfileTarget?.id ?? null"
+      :initial-profile="userMiniProfileTarget"
+      admin-mode
+      @update:open="onUserMiniProfileOpenUpdate"
+    />
   </section>
 </template>
 
@@ -238,6 +251,7 @@ import { alertDialog, confirmDialog } from '@/services/confirm'
 import { formatLocalDateTime } from '@/services/datetime'
 import { DEFAULT_SANCTION_REASON, SANCTION_REASONS } from '@/constants/sanctionReasons'
 
+import UserMiniProfileModal from '@/components/UserMiniProfileModal.vue'
 import SanctionModal from '@/components/SanctionModal.vue'
 import UiInput from '@/components/UiInput.vue'
 
@@ -266,6 +280,7 @@ type SanctionsRow = {
   id: number
   user_id: number
   username?: string | null
+  avatar_name?: string | null
   kind: 'timeout' | 'ban' | 'suspend'
   status: SanctionListStatus
   issued_at: string
@@ -301,6 +316,12 @@ type UserRow = {
   suspends: SanctionRow[]
 }
 
+type UserMiniProfileTarget = {
+  id: number
+  username?: string | null
+  avatar_name?: string | null
+}
+
 type UsersSortBy =
   | 'username'
   | 'registered_at'
@@ -334,6 +355,8 @@ const sanctionModalOpen = ref(false)
 const sanctionSaving = ref(false)
 const sanctionKind = ref<'timeout' | 'suspend'>('suspend')
 const sanctionTarget = ref<UserRow | null>(null)
+const userMiniProfileOpen = ref(false)
+const userMiniProfileTarget = ref<UserMiniProfileTarget | null>(null)
 const sanctionForm = reactive({
   months: 0,
   days: 0,
@@ -418,6 +441,35 @@ function setSanctionBusy(userId: number, kind: 'timeout' | 'suspend', value: boo
   usersSanctionBusy[`${userId}:${kind}`] = value
 }
 
+function getPositiveUserId(value: unknown): number {
+  const id = Number(value ?? 0)
+  return Number.isFinite(id) && id > 0 ? Math.trunc(id) : 0
+}
+
+function openUserMiniProfile(row: UserMiniProfileTarget): void {
+  userMiniProfileTarget.value = row
+  userMiniProfileOpen.value = true
+}
+
+function canOpenSanctionUserMiniProfile(row: SanctionsRow): boolean {
+  return getPositiveUserId(row.user_id) > 0
+}
+
+function openSanctionUserMiniProfile(row: SanctionsRow): void {
+  const id = getPositiveUserId(row.user_id)
+  if (id <= 0) return
+  openUserMiniProfile({
+    id,
+    username: row.username ?? null,
+    avatar_name: row.avatar_name ?? null,
+  })
+}
+
+function onUserMiniProfileOpenUpdate(open: boolean): void {
+  userMiniProfileOpen.value = open
+  if (!open) userMiniProfileTarget.value = null
+}
+
 function resetSanctionForm(): void {
   sanctionForm.months = 0
   sanctionForm.days = 0
@@ -477,6 +529,7 @@ async function loadSanctions(): Promise<void> {
     sanctions.value = items.map((item: any) => ({
       ...item,
       username: item?.username ?? null,
+      avatar_name: item?.avatar_name ?? null,
       finished_at: item?.finished_at ?? null,
       issued_by_display: String(item?.issued_by_display || '-'),
       revoked_by_display: item?.revoked_by_display ? String(item.revoked_by_display) : null,
@@ -810,6 +863,20 @@ onBeforeUnmount(() => {
       display: inline-flex;
       align-items: center;
       gap: 10px;
+      .user-link {
+        padding: 0;
+        border: none;
+        background: transparent;
+        color: $fg;
+        font: inherit;
+        text-align: left;
+        cursor: pointer;
+        transition: color 0.25s ease-in-out;
+        &:hover {
+          color: $white;
+          text-decoration: underline;
+        }
+      }
     }
     .user-avatar {
       width: 24px;

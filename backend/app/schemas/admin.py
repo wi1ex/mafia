@@ -183,6 +183,7 @@ class AdminSanctionListItemOut(BaseModel):
     id: int
     user_id: int
     username: Optional[str] = None
+    avatar_name: Optional[str] = None
     kind: Literal["timeout", "ban", "suspend"]
     status: Literal["active", "expired_auto", "revoked"]
     issued_at: datetime

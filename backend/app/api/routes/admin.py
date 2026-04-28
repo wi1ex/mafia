@@ -1280,7 +1280,7 @@ async def sanctions_list(page: int = 1, limit: int = 20, username: str | None = 
     )
 
     rows = await session.execute(
-        select(UserSanction, User.username)
+        select(UserSanction, User.username, User.avatar_name)
         .select_from(UserSanction)
         .outerjoin(User, User.id == UserSanction.user_id)
         .where(*filters)
@@ -1291,7 +1291,7 @@ async def sanctions_list(page: int = 1, limit: int = 20, username: str | None = 
 
     now = datetime.now(timezone.utc)
     items: list[AdminSanctionListItemOut] = []
-    for row, target_username in rows.all():
+    for row, target_username, target_avatar_name in rows.all():
         sanction = cast(UserSanction, row)
         uid = cast(int, sanction.user_id)
         sid = cast(int, sanction.id)
@@ -1309,6 +1309,7 @@ async def sanctions_list(page: int = 1, limit: int = 20, username: str | None = 
                 id=sid,
                 user_id=uid,
                 username=cast(str | None, target_username),
+                avatar_name=cast(str | None, target_avatar_name),
                 kind=cast(str, sanction.kind),
                 status=cast(str, status),
                 issued_at=sanction.issued_at,
