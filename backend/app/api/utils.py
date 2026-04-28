@@ -118,6 +118,10 @@ __all__ = [
     "fetch_sanctions_for_users",
     "pick_active_sanction_kind",
     "build_admin_sanction_out",
+    "sanction_status",
+    "sanction_finished_at",
+    "sanction_served_seconds",
+    "sanction_actor_display",
     "revoke_active_suspend",
     "reduce_suspend_after_hosted_game",
     "emit_expired_timed_sanction_chat_notice_once",
@@ -870,6 +874,45 @@ def build_admin_sanction_out(row: UserSanction) -> AdminSanctionOut:
         revoked_by_id=revoked_by_id,
         revoked_by_name=row.revoked_by_name,
     )
+
+
+def sanction_status(row: UserSanction, now: datetime) -> str:
+    if row.revoked_at is not None:
+        return "revoked"
+
+    if row.expires_at is not None and row.expires_at <= now:
+        return "expired_auto"
+
+    return "active"
+
+
+def sanction_finished_at(row: UserSanction) -> datetime | None:
+    if row.revoked_at is not None:
+        return row.revoked_at
+
+    return row.expires_at
+
+
+def sanction_served_seconds(row: UserSanction, now: datetime) -> int:
+    end_at = row.revoked_at
+    if end_at is None:
+        if row.expires_at is not None and row.expires_at <= now:
+            end_at = row.expires_at
+        else:
+            end_at = now
+
+    return max(0, int((end_at - row.issued_at).total_seconds()))
+
+
+def sanction_actor_display(name: str | None, user_id: int | None, *, auto_fallback: bool = False) -> str:
+    normalized_name = str(name or "").strip()
+    if normalized_name:
+        return normalized_name
+
+    if user_id is not None:
+        return f"#{int(user_id)}"
+
+    return "авто" if auto_fallback else "-"
 
 
 async def revoke_active_suspend(session: AsyncSession, sanction: UserSanction, *, revoked_by_id: int | None, revoked_by_name: str | None, note_text: str, note_title: str = "Ограничение снято", chat_notice_source: str = "admin",) -> Notif:

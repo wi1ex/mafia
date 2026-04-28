@@ -20,6 +20,9 @@
         <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'users' }" :aria-selected="activeTab === 'users'" @click="activeTab = 'users'">
           Пользователи
         </button>
+        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'sanctions' }" :aria-selected="activeTab === 'sanctions'" @click="activeTab = 'sanctions'">
+          Санкции
+        </button>
         <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'subscriptions' }" :aria-selected="activeTab === 'subscriptions'" @click="activeTab = 'subscriptions'">
           Подписки
         </button>
@@ -802,6 +805,63 @@
           </div>
         </div>
 
+        <div v-else-if="activeTab === 'sanctions'">
+          <div class="filters">
+            <div class="field">
+              <UiInput id="sanctions-user" v-model.trim="sanctionsUser" label="Никнейм" :disabled="sanctionsLoading" />
+            </div>
+            <div class="field">
+              <span>Отображать по</span>
+              <select v-model.number="sanctionsLimit" :disabled="sanctionsLoading">
+                <option :value="20">20</option>
+                <option :value="100">100</option>
+              </select>
+            </div>
+          </div>
+
+          <div v-if="sanctionsLoading" class="loading">Загрузка...</div>
+          <div v-else>
+            <table class="table sanctions-table">
+              <thead>
+                <tr>
+                  <th>Никнейм</th>
+                  <th>Тип санкции</th>
+                  <th>Статус</th>
+                  <th>Дата выдачи</th>
+                  <th>Дата истечения или снятия</th>
+                  <th>Кем выдана</th>
+                  <th>Кем снята</th>
+                  <th>Срок при выдаче</th>
+                  <th>Реально пройденный срок</th>
+                  <th>Пункт правил</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="row in sanctions" :key="row.id">
+                  <td>{{ row.username || `user${row.user_id}` }}</td>
+                  <td>{{ formatSanctionKindLabel(row.kind) }}</td>
+                  <td>{{ formatSanctionStatusLabel(row.status) }}</td>
+                  <td>{{ formatLocalDateTime(row.issued_at) }}</td>
+                  <td>{{ row.finished_at ? formatLocalDateTime(row.finished_at) : '-' }}</td>
+                  <td>{{ row.issued_by_display }}</td>
+                  <td>{{ row.revoked_by_display || '-' }}</td>
+                  <td>{{ formatSanctionDuration(row.duration_seconds) }}</td>
+                  <td>{{ formatSanctionDuration(row.served_seconds) }}</td>
+                  <td class="rule-cell">{{ row.reason || '-' }}</td>
+                </tr>
+                <tr v-if="sanctions.length === 0">
+                  <td colspan="10" class="muted">Нет данных</td>
+                </tr>
+              </tbody>
+            </table>
+            <div class="pager">
+              <button class="btn" :disabled="sanctionsPage <= 1" @click="prevSanctions">Назад</button>
+              <span>{{ sanctionsPage }} / {{ sanctionsPages }}</span>
+              <button class="btn" :disabled="sanctionsPage >= sanctionsPages" @click="nextSanctions">Вперед</button>
+            </div>
+          </div>
+        </div>
+
         <div v-else-if="activeTab === 'subscriptions'" class="subscriptions-tab">
           <div class="block subscription-table-block">
             <h3>Активные подписки — {{ activeSubscriptionsCount }}</h3>
@@ -1135,6 +1195,27 @@ type SubscriptionTarget = {
   avatar_name?: string | null
 }
 
+type SanctionListStatus = 'active' | 'expired_auto' | 'revoked'
+
+type SanctionsRow = {
+  id: number
+  user_id: number
+  username?: string | null
+  kind: 'timeout' | 'ban' | 'suspend'
+  status: SanctionListStatus
+  issued_at: string
+  finished_at?: string | null
+  issued_by_id?: number | null
+  issued_by_name?: string | null
+  issued_by_display: string
+  revoked_by_id?: number | null
+  revoked_by_name?: string | null
+  revoked_by_display?: string | null
+  duration_seconds?: number | null
+  served_seconds: number
+  reason?: string | null
+}
+
 type UsersSortBy =
   | 'role'
   | 'username'
@@ -1168,7 +1249,7 @@ type UpdateRow = {
 const route = useRoute()
 const router = useRouter()
 
-const TAB_KEYS = ['settings', 'updates', 'stats', 'logs', 'rooms', 'users', 'subscriptions'] as const
+const TAB_KEYS = ['settings', 'updates', 'stats', 'logs', 'rooms', 'users', 'sanctions', 'subscriptions'] as const
 type TabKey = typeof TAB_KEYS[number]
 
 function normalizeTab(v: unknown): TabKey {
@@ -1183,6 +1264,7 @@ const statsLoading = ref(false)
 const logsLoading = ref(false)
 const roomsLoading = ref(false)
 const usersLoading = ref(false)
+const sanctionsLoading = ref(false)
 const updatesLoading = ref(false)
 const subscriptionsLoading = ref(false)
 
@@ -1272,6 +1354,11 @@ const usersPage = ref(1)
 const usersLimit = ref(20)
 const usersUser = ref('')
 const usersSortBy = ref<UsersSortBy>('registered_at')
+const sanctions = ref<SanctionsRow[]>([])
+const sanctionsTotal = ref(0)
+const sanctionsPage = ref(1)
+const sanctionsLimit = ref(20)
+const sanctionsUser = ref('')
 const usersRoleBusy = reactive<Record<number, boolean>>({})
 const usersDeleteBusy = reactive<Record<number, boolean>>({})
 const usersVerifyBusy = reactive<Record<number, boolean>>({})
@@ -1337,6 +1424,7 @@ const clearChatBusy = ref(false)
 let logsUserTimer: number | undefined
 let roomsUserTimer: number | undefined
 let usersUserTimer: number | undefined
+let sanctionsUserTimer: number | undefined
 
 function parseSeasonStartNumbers(raw: unknown): number[] {
   const source = String(raw ?? '').trim()
@@ -1472,6 +1560,7 @@ const isSettingsDirty = computed(() => isSiteDirty.value || isGameDirty.value)
 const logsPages = computed(() => Math.max(1, Math.ceil(logsTotal.value / logsLimit.value)))
 const roomsPages = computed(() => Math.max(1, Math.ceil(roomsTotal.value / roomsLimit.value)))
 const usersPages = computed(() => Math.max(1, Math.ceil(usersTotal.value / usersLimit.value)))
+const sanctionsPages = computed(() => Math.max(1, Math.ceil(sanctionsTotal.value / sanctionsLimit.value)))
 const subscriptionsByUserId = computed(() => {
   const mapped = new Map<number, SubscriptionRow>()
   for (const item of subscriptions.value) mapped.set(item.user_id, item)
@@ -1618,6 +1707,18 @@ function formatSanctionLine(item: SanctionRow): string {
     end = `авто: ${formatLocalDateTime(item.expires_at)}`
   }
   return `${issuedAt} • ${duration} • выдал: ${issuedBy} • ${end}`
+}
+
+function formatSanctionKindLabel(kind: 'timeout' | 'ban' | 'suspend'): string {
+  if (kind === 'timeout') return 'Таймаут'
+  if (kind === 'ban') return 'Бан'
+  return 'Отстранение'
+}
+
+function formatSanctionStatusLabel(status: SanctionListStatus): string {
+  if (status === 'active') return 'Активна'
+  if (status === 'expired_auto') return 'Истекла автоматически'
+  return 'Снята'
 }
 
 function isSanctionBusy(userId: number, kind: 'timeout' | 'ban' | 'suspend'): boolean {
@@ -2056,6 +2157,36 @@ async function loadUsers(): Promise<void> {
   }
 }
 
+async function loadSanctions(): Promise<void> {
+  if (sanctionsLoading.value) return
+  sanctionsLoading.value = true
+  try {
+    const params: Record<string, any> = {
+      page: sanctionsPage.value,
+      limit: sanctionsLimit.value,
+    }
+    if (sanctionsUser.value) params.username = sanctionsUser.value
+    const { data } = await api.get('/admin/sanctions', { params })
+    const items = Array.isArray(data?.items) ? data.items : []
+    sanctions.value = items.map((item: any) => ({
+      ...item,
+      username: item?.username ?? null,
+      finished_at: item?.finished_at ?? null,
+      issued_by_display: String(item?.issued_by_display || '-'),
+      revoked_by_display: item?.revoked_by_display ? String(item.revoked_by_display) : null,
+      duration_seconds: Number.isFinite(item?.duration_seconds) ? item.duration_seconds : null,
+      served_seconds: Math.max(0, Number(item?.served_seconds) || 0),
+      reason: item?.reason ?? null,
+    }))
+    sanctionsTotal.value = Number.isFinite(data?.total) ? data.total : 0
+  } catch {
+    sanctions.value = []
+    void alertDialog('Не удалось загрузить санкции')
+  } finally {
+    sanctionsLoading.value = false
+  }
+}
+
 async function loadSubscriptions(): Promise<void> {
   if (subscriptionsLoading.value) return
   subscriptionsLoading.value = true
@@ -2291,6 +2422,18 @@ function prevUsers(): void {
   if (usersPage.value <= 1) return
   usersPage.value -= 1
   void loadUsers()
+}
+
+function nextSanctions(): void {
+  if (sanctionsPage.value >= sanctionsPages.value) return
+  sanctionsPage.value += 1
+  void loadSanctions()
+}
+
+function prevSanctions(): void {
+  if (sanctionsPage.value <= 1) return
+  sanctionsPage.value -= 1
+  void loadSanctions()
 }
 
 async function toggleUserRole(row: UserRow): Promise<void> {
@@ -2561,6 +2704,10 @@ function refreshActiveTab(tab: typeof activeTab.value): void {
     void loadSubscriptions()
     return
   }
+  if (tab === 'sanctions') {
+    void loadSanctions()
+    return
+  }
   if (tab === 'subscriptions') {
     void loadSubscriptions()
   }
@@ -2626,6 +2773,19 @@ watch(usersUser, () => {
   if (activeTab.value !== 'users') return
   if (usersUserTimer) window.clearTimeout(usersUserTimer)
   usersUserTimer = window.setTimeout(() => { void loadUsers() }, 500)
+})
+
+watch(sanctionsLimit, () => {
+  sanctionsPage.value = 1
+  if (activeTab.value !== 'sanctions') return
+  void loadSanctions()
+})
+
+watch(sanctionsUser, () => {
+  sanctionsPage.value = 1
+  if (activeTab.value !== 'sanctions') return
+  if (sanctionsUserTimer) window.clearTimeout(sanctionsUserTimer)
+  sanctionsUserTimer = window.setTimeout(() => { void loadSanctions() }, 500)
 })
 
 onMounted(() => {
@@ -3160,6 +3320,11 @@ onMounted(() => {
     .updates-table .desc {
       white-space: pre-wrap;
       max-width: 520px;
+    }
+    .sanctions-table .rule-cell {
+      max-width: 520px;
+      white-space: pre-wrap;
+      word-break: break-word;
     }
     .subscriptions-tab {
       .block {

@@ -12,7 +12,7 @@ from ...core.roles import ROLE_USER
 from ...models.notif import Notif
 from ...models.sanction import UserSanction
 from ...models.user import User
-from ...schemas.admin import AdminSanctionTimedIn
+from ...schemas.admin import AdminSanctionListItemOut, AdminSanctionsOut, AdminSanctionTimedIn
 from ...schemas.common import Identity, Ok
 from ...schemas.moderation import ModerationUserOut, ModerationUsersOut
 from ...realtime.sio import sio
@@ -27,7 +27,6 @@ from ..utils import (
     compute_duration_seconds,
     emit_notify,
     emit_sanctions_update,
-    get_moderation_target_user,
     fetch_active_sanction,
     fetch_sanction_counts_for_users,
     fetch_sanctions_for_users,
@@ -35,12 +34,17 @@ from ..utils import (
     force_leave_user_from_rooms,
     format_duration_parts,
     format_duration_seconds_compact,
+    get_moderation_target_user,
     is_sanction_active,
     moderation_user_sort_metric,
     normalize_pagination,
     normalize_moderation_users_sort,
     maybe_send_sanction_telegram_if_offline,
     revoke_active_suspend,
+    sanction_actor_display,
+    sanction_finished_at,
+    sanction_served_seconds,
+    sanction_status,
 )
 
 router = APIRouter(dependencies=[Depends(require_roles_dep("moder"))])
@@ -155,6 +159,73 @@ async def moderation_users_list(page: int = 1, limit: int = 20, username: str | 
         )
 
     return ModerationUsersOut(total=total, items=items)
+
+@router.get("/sanctions", response_model=AdminSanctionsOut)
+@log_route("moderation.sanctions.list")
+async def moderation_sanctions_list(page: int = 1, limit: int = 20, username: str | None = None, session: AsyncSession = Depends(get_session)) -> AdminSanctionsOut:
+    limit, page, offset = normalize_pagination(page, limit)
+
+    filters = [User.role == ROLE_USER]
+    if username:
+        needle = username.lower()
+        filters.append(func.lower(User.username).contains(needle, autoescape=True))
+
+    total = int(
+        await session.scalar(
+            select(func.count(UserSanction.id))
+            .select_from(UserSanction)
+            .join(User, User.id == UserSanction.user_id)
+            .where(*filters)
+        ) or 0
+    )
+
+    rows = await session.execute(
+        select(UserSanction, User.username)
+        .select_from(UserSanction)
+        .join(User, User.id == UserSanction.user_id)
+        .where(*filters)
+        .order_by(UserSanction.issued_at.desc(), UserSanction.id.desc())
+        .offset(offset)
+        .limit(limit)
+    )
+
+    now = datetime.now(timezone.utc)
+    items: list[AdminSanctionListItemOut] = []
+    for row, target_username in rows.all():
+        sanction = cast(UserSanction, row)
+        uid = cast(int, sanction.user_id)
+        sid = cast(int, sanction.id)
+        issued_by_id = cast(int, sanction.issued_by_id) if sanction.issued_by_id is not None else None
+        revoked_by_id = cast(int, sanction.revoked_by_id) if sanction.revoked_by_id is not None else None
+        status = sanction_status(sanction, now)
+        revoked_by_display: str | None = None
+        if status == "expired_auto":
+            revoked_by_display = "авто"
+        elif sanction.revoked_at is not None:
+            revoked_by_display = sanction_actor_display(sanction.revoked_by_name, revoked_by_id, auto_fallback=True)
+
+        items.append(
+            AdminSanctionListItemOut(
+                id=sid,
+                user_id=uid,
+                username=cast(str | None, target_username),
+                kind=cast(str, sanction.kind),
+                status=cast(str, status),
+                issued_at=sanction.issued_at,
+                finished_at=sanction_finished_at(sanction),
+                issued_by_id=issued_by_id,
+                issued_by_name=sanction.issued_by_name,
+                issued_by_display=sanction_actor_display(sanction.issued_by_name, issued_by_id),
+                revoked_by_id=revoked_by_id,
+                revoked_by_name=sanction.revoked_by_name,
+                revoked_by_display=revoked_by_display,
+                duration_seconds=sanction.duration_seconds,
+                served_seconds=sanction_served_seconds(sanction, now),
+                reason=sanction.reason or None,
+            )
+        )
+
+    return AdminSanctionsOut(total=total, items=items)
 
 
 @router.post("/users/{user_id}/timeout", response_model=Ok)

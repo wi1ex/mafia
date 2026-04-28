@@ -179,6 +179,30 @@ class AdminSanctionOut(BaseModel):
     revoked_by_name: Optional[str] = None
 
 
+class AdminSanctionListItemOut(BaseModel):
+    id: int
+    user_id: int
+    username: Optional[str] = None
+    kind: Literal["timeout", "ban", "suspend"]
+    status: Literal["active", "expired_auto", "revoked"]
+    issued_at: datetime
+    finished_at: Optional[datetime] = None
+    issued_by_id: Optional[int] = None
+    issued_by_name: Optional[str] = None
+    issued_by_display: str
+    revoked_by_id: Optional[int] = None
+    revoked_by_name: Optional[str] = None
+    revoked_by_display: Optional[str] = None
+    duration_seconds: Optional[int] = None
+    served_seconds: int
+    reason: Optional[str] = None
+
+
+class AdminSanctionsOut(BaseModel):
+    total: int
+    items: List[AdminSanctionListItemOut] = Field(default_factory=list)
+
+
 class AdminRoomUserStat(BaseModel):
     id: int
     username: Optional[str] = None

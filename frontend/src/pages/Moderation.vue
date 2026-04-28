@@ -2,156 +2,218 @@
   <section class="moderation">
     <header>
       <nav class="tabs" aria-label="Модерация">
-        <button class="tab active" type="button" disabled>
+        <button class="tab" type="button" :class="{ active: activeTab === 'users' }" @click="activeTab = 'users'">
           Пользователи
+        </button>
+        <button class="tab" type="button" :class="{ active: activeTab === 'sanctions' }" @click="activeTab = 'sanctions'">
+          Санкции
         </button>
       </nav>
       <router-link class="btn nav" :to="{ name: 'home' }" aria-label="На главную">На главную</router-link>
     </header>
 
     <div class="panel">
-      <div class="filters">
-        <div class="field">
-          <UiInput id="moderation-users-user" v-model.trim="usersUser" label="Никнейм" :disabled="usersLoading" />
+      <div v-if="activeTab === 'users'">
+        <div class="filters">
+          <div class="field">
+            <UiInput id="moderation-users-user" v-model.trim="usersUser" label="Никнейм" :disabled="usersLoading" />
+          </div>
+          <div class="field">
+            <span>Отображать по</span>
+            <select v-model.number="usersLimit" :disabled="usersLoading">
+              <option :value="20">20</option>
+              <option :value="100">100</option>
+            </select>
+          </div>
         </div>
-        <div class="field">
-          <span>Отображать по</span>
-          <select v-model.number="usersLimit" :disabled="usersLoading">
-            <option :value="20">20</option>
-            <option :value="100">100</option>
-          </select>
+
+        <div v-if="usersLoading" class="loading">Загрузка...</div>
+        <div v-else>
+          <table class="table">
+            <thead>
+              <tr>
+                <th>
+                  <button class="th-sort" type="button" :class="{ active: usersSortBy === 'username' }" @click="setUsersSort('username')">
+                    Никнейм
+                    <span class="th-sort-mark" aria-hidden="true">▼</span>
+                  </button>
+                </th>
+                <th>
+                  <button class="th-sort" type="button" :class="{ active: usersSortBy === 'registered_at' }" @click="setUsersSort('registered_at')">
+                    Регистрация
+                    <span class="th-sort-mark" aria-hidden="true">▼</span>
+                  </button>
+                </th>
+                <th>
+                  <button class="th-sort" type="button" :class="{ active: usersSortBy === 'last_login_at' }" @click="setUsersSort('last_login_at')">
+                    Авторизация
+                    <span class="th-sort-mark" aria-hidden="true">▼</span>
+                  </button>
+                </th>
+                <th>
+                  <button class="th-sort" type="button" :class="{ active: usersSortBy === 'last_visit_at' }" @click="setUsersSort('last_visit_at')">
+                    Онлайн
+                    <span class="th-sort-mark" aria-hidden="true">▼</span>
+                  </button>
+                </th>
+                <th>
+                  <button class="th-sort" type="button" :class="{ active: usersSortBy === 'last_game_at' }" @click="setUsersSort('last_game_at')">
+                    Последняя игра
+                    <span class="th-sort-mark" aria-hidden="true">▼</span>
+                  </button>
+                </th>
+                <th>
+                  <button class="th-sort" type="button" :class="{ active: usersSortBy === 'suspends_count' }" @click="setUsersSort('suspends_count')">
+                    Отстранения от игр
+                    <span class="th-sort-mark" aria-hidden="true">▼</span>
+                  </button>
+                </th>
+                <th>
+                  <button class="th-sort" type="button" :class="{ active: usersSortBy === 'timeouts_count' }" @click="setUsersSort('timeouts_count')">
+                    Таймауты
+                    <span class="th-sort-mark" aria-hidden="true">▼</span>
+                  </button>
+                </th>
+                <th>
+                  <button class="th-sort" type="button" :class="{ active: usersSortBy === 'bans_count' }" @click="setUsersSort('bans_count')">
+                    Баны
+                    <span class="th-sort-mark" aria-hidden="true">▼</span>
+                  </button>
+                </th>
+                <th>Отстранить</th>
+                <th>Таймаут</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in users" :key="row.id">
+                <td>
+                  <div v-if="row.username" class="user-cell">
+                    <img class="user-avatar" v-minio-img="{ key: row.avatar_name ? `avatars/${row.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
+                    <span>{{ row.username }}</span>
+                  </div>
+                  <span v-else>-</span>
+                </td>
+                <td>{{ formatLocalDateTime(row.registered_at) }}</td>
+                <td>{{ formatLocalDateTime(row.last_login_at) }}</td>
+                <td>{{ formatLocalDateTime(row.last_visit_at) }}</td>
+                <td>{{ formatLocalDateTime(row.last_game_at) }}</td>
+                <td>
+                  <div class="tooltip" tabindex="0">
+                    <span class="tooltip-value">{{ row.suspends_count }}</span>
+                    <div class="tooltip-body">
+                      <div v-if="row.suspends.length === 0" class="tooltip-empty">Нет данных</div>
+                      <div v-else class="tooltip-list">
+                        <div v-for="item in row.suspends" :key="`suspend-${item.id}`" class="tooltip-row">
+                          {{ formatSanctionLine(item) }}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <div class="tooltip" tabindex="0">
+                    <span class="tooltip-value">{{ row.timeouts_count }}</span>
+                    <div class="tooltip-body">
+                      <div v-if="row.timeouts.length === 0" class="tooltip-empty">Нет данных</div>
+                      <div v-else class="tooltip-list">
+                        <div v-for="item in row.timeouts" :key="`timeout-${item.id}`" class="tooltip-row">
+                          {{ formatSanctionLine(item) }}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <div class="tooltip" tabindex="0">
+                    <span class="tooltip-value">{{ row.bans_count }}</span>
+                    <div class="tooltip-body">
+                      <div v-if="row.bans.length === 0" class="tooltip-empty">Нет данных</div>
+                      <div v-else class="tooltip-list">
+                        <div v-for="item in row.bans" :key="`ban-${item.id}`" class="tooltip-row">
+                          {{ formatSanctionLine(item) }}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <button class="btn" :class="row.suspend_active ? 'dark' : 'danger'" :disabled="isSanctionBusy(row.id, 'suspend')" @click="toggleSuspend(row)">
+                    <img class="btn-img" :src="row.suspend_active ? iconClose : iconJudge" alt="" />
+                  </button>
+                </td>
+                <td>
+                  <button class="btn" :class="row.timeout_active ? 'dark' : 'danger'" :disabled="isSanctionBusy(row.id, 'timeout')" @click="toggleTimeout(row)">
+                    <img class="btn-img" :src="row.timeout_active ? iconClose : iconJudge" alt="" />
+                  </button>
+                </td>
+              </tr>
+              <tr v-if="users.length === 0">
+                <td colspan="10" class="muted">Нет данных</td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="pager">
+            <button class="btn" :disabled="usersPage <= 1" @click="prevUsers">Назад</button>
+            <span>{{ usersPage }} / {{ usersPages }}</span>
+            <button class="btn" :disabled="usersPage >= usersPages" @click="nextUsers">Вперед</button>
+          </div>
         </div>
       </div>
 
-      <div v-if="usersLoading" class="loading">Загрузка...</div>
       <div v-else>
-        <table class="table">
-          <thead>
-            <tr>
-              <th>
-                <button class="th-sort" type="button" :class="{ active: usersSortBy === 'username' }" @click="setUsersSort('username')">
-                  Никнейм
-                  <span class="th-sort-mark" aria-hidden="true">▼</span>
-                </button>
-              </th>
-              <th>
-                <button class="th-sort" type="button" :class="{ active: usersSortBy === 'registered_at' }" @click="setUsersSort('registered_at')">
-                  Регистрация
-                  <span class="th-sort-mark" aria-hidden="true">▼</span>
-                </button>
-              </th>
-              <th>
-                <button class="th-sort" type="button" :class="{ active: usersSortBy === 'last_login_at' }" @click="setUsersSort('last_login_at')">
-                  Авторизация
-                  <span class="th-sort-mark" aria-hidden="true">▼</span>
-                </button>
-              </th>
-              <th>
-                <button class="th-sort" type="button" :class="{ active: usersSortBy === 'last_visit_at' }" @click="setUsersSort('last_visit_at')">
-                  Онлайн
-                  <span class="th-sort-mark" aria-hidden="true">▼</span>
-                </button>
-              </th>
-              <th>
-                <button class="th-sort" type="button" :class="{ active: usersSortBy === 'last_game_at' }" @click="setUsersSort('last_game_at')">
-                  Последняя игра
-                  <span class="th-sort-mark" aria-hidden="true">▼</span>
-                </button>
-              </th>
-              <th>
-                <button class="th-sort" type="button" :class="{ active: usersSortBy === 'suspends_count' }" @click="setUsersSort('suspends_count')">
-                  Отстранения от игр
-                  <span class="th-sort-mark" aria-hidden="true">▼</span>
-                </button>
-              </th>
-              <th>
-                <button class="th-sort" type="button" :class="{ active: usersSortBy === 'timeouts_count' }" @click="setUsersSort('timeouts_count')">
-                  Таймауты
-                  <span class="th-sort-mark" aria-hidden="true">▼</span>
-                </button>
-              </th>
-              <th>
-                <button class="th-sort" type="button" :class="{ active: usersSortBy === 'bans_count' }" @click="setUsersSort('bans_count')">
-                  Баны
-                  <span class="th-sort-mark" aria-hidden="true">▼</span>
-                </button>
-              </th>
-              <th>Отстранить</th>
-              <th>Таймаут</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="row in users" :key="row.id">
-              <td>
-                <div v-if="row.username" class="user-cell">
-                  <img class="user-avatar" v-minio-img="{ key: row.avatar_name ? `avatars/${row.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
-                  <span>{{ row.username }}</span>
-                </div>
-                <span v-else>-</span>
-              </td>
-              <td>{{ formatLocalDateTime(row.registered_at) }}</td>
-              <td>{{ formatLocalDateTime(row.last_login_at) }}</td>
-              <td>{{ formatLocalDateTime(row.last_visit_at) }}</td>
-              <td>{{ formatLocalDateTime(row.last_game_at) }}</td>
-              <td>
-                <div class="tooltip" tabindex="0">
-                  <span class="tooltip-value">{{ row.suspends_count }}</span>
-                  <div class="tooltip-body">
-                    <div v-if="row.suspends.length === 0" class="tooltip-empty">Нет данных</div>
-                    <div v-else class="tooltip-list">
-                      <div v-for="item in row.suspends" :key="`suspend-${item.id}`" class="tooltip-row">
-                        {{ formatSanctionLine(item) }}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </td>
-              <td>
-                <div class="tooltip" tabindex="0">
-                  <span class="tooltip-value">{{ row.timeouts_count }}</span>
-                  <div class="tooltip-body">
-                    <div v-if="row.timeouts.length === 0" class="tooltip-empty">Нет данных</div>
-                    <div v-else class="tooltip-list">
-                      <div v-for="item in row.timeouts" :key="`timeout-${item.id}`" class="tooltip-row">
-                        {{ formatSanctionLine(item) }}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </td>
-              <td>
-                <div class="tooltip" tabindex="0">
-                  <span class="tooltip-value">{{ row.bans_count }}</span>
-                  <div class="tooltip-body">
-                    <div v-if="row.bans.length === 0" class="tooltip-empty">Нет данных</div>
-                    <div v-else class="tooltip-list">
-                      <div v-for="item in row.bans" :key="`ban-${item.id}`" class="tooltip-row">
-                        {{ formatSanctionLine(item) }}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </td>
-              <td>
-                <button class="btn" :class="row.suspend_active ? 'dark' : 'danger'" :disabled="isSanctionBusy(row.id, 'suspend')" @click="toggleSuspend(row)">
-                  <img class="btn-img" :src="row.suspend_active ? iconClose : iconJudge" alt="" />
-                </button>
-              </td>
-              <td>
-                <button class="btn" :class="row.timeout_active ? 'dark' : 'danger'" :disabled="isSanctionBusy(row.id, 'timeout')" @click="toggleTimeout(row)">
-                  <img class="btn-img" :src="row.timeout_active ? iconClose : iconJudge" alt="" />
-                </button>
-              </td>
-            </tr>
-            <tr v-if="users.length === 0">
-              <td colspan="10" class="muted">Нет данных</td>
-            </tr>
-          </tbody>
-        </table>
-        <div class="pager">
-          <button class="btn" :disabled="usersPage <= 1" @click="prevUsers">Назад</button>
-          <span>{{ usersPage }} / {{ usersPages }}</span>
-          <button class="btn" :disabled="usersPage >= usersPages" @click="nextUsers">Вперед</button>
+        <div class="filters">
+          <div class="field">
+            <UiInput id="moderation-sanctions-user" v-model.trim="sanctionsUser" label="Никнейм" :disabled="sanctionsLoading" />
+          </div>
+          <div class="field">
+            <span>Отображать по</span>
+            <select v-model.number="sanctionsLimit" :disabled="sanctionsLoading">
+              <option :value="20">20</option>
+              <option :value="100">100</option>
+            </select>
+          </div>
+        </div>
+
+        <div v-if="sanctionsLoading" class="loading">Загрузка...</div>
+        <div v-else>
+          <table class="table sanctions-table">
+            <thead>
+              <tr>
+                <th>Никнейм</th>
+                <th>Тип санкции</th>
+                <th>Статус</th>
+                <th>Дата выдачи</th>
+                <th>Дата окончания</th>
+                <th>Кем выдана</th>
+                <th>Кем снята</th>
+                <th>Срок изначальный</th>
+                <th>Срок по факту</th>
+                <th>Пункт правил</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in sanctions" :key="row.id">
+                <td>{{ row.username || `user${row.user_id}` }}</td>
+                <td>{{ formatSanctionKindLabel(row.kind) }}</td>
+                <td>{{ formatSanctionStatusLabel(row.status) }}</td>
+                <td>{{ formatLocalDateTime(row.issued_at) }}</td>
+                <td>{{ row.finished_at ? formatLocalDateTime(row.finished_at) : '-' }}</td>
+                <td>{{ row.issued_by_display }}</td>
+                <td>{{ row.revoked_by_display || '-' }}</td>
+                <td>{{ formatSanctionDuration(row.duration_seconds) }}</td>
+                <td>{{ formatSanctionDuration(row.served_seconds) }}</td>
+                <td class="rule-cell">{{ row.reason || '-' }}</td>
+              </tr>
+              <tr v-if="sanctions.length === 0">
+                <td colspan="10" class="muted">Нет данных</td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="pager">
+            <button class="btn" :disabled="sanctionsPage <= 1" @click="prevSanctions">Назад</button>
+            <span>{{ sanctionsPage }} / {{ sanctionsPages }}</span>
+            <button class="btn" :disabled="sanctionsPage >= sanctionsPages" @click="nextSanctions">Вперед</button>
+          </div>
         </div>
       </div>
     </div>
@@ -183,6 +245,9 @@ import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
 import iconClose from '@/assets/svg/close.svg'
 import iconJudge from '@/assets/svg/judge.svg'
 
+type TabKey = 'users' | 'sanctions'
+type SanctionListStatus = 'active' | 'expired_auto' | 'revoked'
+
 type SanctionRow = {
   id: number
   kind: 'timeout' | 'ban' | 'suspend'
@@ -195,6 +260,25 @@ type SanctionRow = {
   revoked_at?: string | null
   revoked_by_id?: number | null
   revoked_by_name?: string | null
+}
+
+type SanctionsRow = {
+  id: number
+  user_id: number
+  username?: string | null
+  kind: 'timeout' | 'ban' | 'suspend'
+  status: SanctionListStatus
+  issued_at: string
+  finished_at?: string | null
+  issued_by_id?: number | null
+  issued_by_name?: string | null
+  issued_by_display: string
+  revoked_by_id?: number | null
+  revoked_by_name?: string | null
+  revoked_by_display?: string | null
+  duration_seconds?: number | null
+  served_seconds: number
+  reason?: string | null
 }
 
 type UserRow = {
@@ -227,6 +311,7 @@ type UsersSortBy =
   | 'bans_count'
   | 'suspends_count'
 
+const activeTab = ref<TabKey>('users')
 const users = ref<UserRow[]>([])
 const usersLoading = ref(false)
 const usersTotal = ref(0)
@@ -235,7 +320,14 @@ const usersLimit = ref(20)
 const usersUser = ref('')
 const usersSortBy = ref<UsersSortBy>('registered_at')
 const usersSanctionBusy = reactive<Record<string, boolean>>({})
+const sanctions = ref<SanctionsRow[]>([])
+const sanctionsLoading = ref(false)
+const sanctionsTotal = ref(0)
+const sanctionsPage = ref(1)
+const sanctionsLimit = ref(20)
+const sanctionsUser = ref('')
 let usersUserTimer: number | undefined
+let sanctionsUserTimer: number | undefined
 
 const sanctionReasons = SANCTION_REASONS
 const sanctionModalOpen = ref(false)
@@ -251,6 +343,7 @@ const sanctionForm = reactive({
 })
 
 const usersPages = computed(() => Math.max(1, Math.ceil(usersTotal.value / usersLimit.value)))
+const sanctionsPages = computed(() => Math.max(1, Math.ceil(sanctionsTotal.value / sanctionsLimit.value)))
 const sanctionTotalSeconds = computed(() => {
   const months = Math.max(0, Number(sanctionForm.months) || 0)
   const days = Math.max(0, Number(sanctionForm.days) || 0)
@@ -303,6 +396,18 @@ function formatSanctionLine(item: SanctionRow): string {
     end = `авто: ${formatLocalDateTime(item.expires_at)}`
   }
   return `${issuedAt} • ${duration} • выдал: ${issuedBy} • ${end}`
+}
+
+function formatSanctionKindLabel(kind: 'timeout' | 'ban' | 'suspend'): string {
+  if (kind === 'timeout') return 'Таймаут'
+  if (kind === 'ban') return 'Бан'
+  return 'Отстранение'
+}
+
+function formatSanctionStatusLabel(status: SanctionListStatus): string {
+  if (status === 'active') return 'Активна'
+  if (status === 'expired_auto') return 'Истекла автоматически'
+  return 'Снята'
 }
 
 function isSanctionBusy(userId: number, kind: 'timeout' | 'suspend'): boolean {
@@ -358,6 +463,36 @@ async function loadUsers(): Promise<void> {
   }
 }
 
+async function loadSanctions(): Promise<void> {
+  if (sanctionsLoading.value) return
+  sanctionsLoading.value = true
+  try {
+    const params: Record<string, unknown> = {
+      page: sanctionsPage.value,
+      limit: sanctionsLimit.value,
+    }
+    if (sanctionsUser.value) params.username = sanctionsUser.value
+    const { data } = await api.get('/moderation/sanctions', { params })
+    const items = Array.isArray(data?.items) ? data.items : []
+    sanctions.value = items.map((item: any) => ({
+      ...item,
+      username: item?.username ?? null,
+      finished_at: item?.finished_at ?? null,
+      issued_by_display: String(item?.issued_by_display || '-'),
+      revoked_by_display: item?.revoked_by_display ? String(item.revoked_by_display) : null,
+      duration_seconds: Number.isFinite(item?.duration_seconds) ? item.duration_seconds : null,
+      served_seconds: Math.max(0, Number(item?.served_seconds) || 0),
+      reason: item?.reason ?? null,
+    }))
+    sanctionsTotal.value = Number.isFinite(data?.total) ? data.total : 0
+  } catch {
+    sanctions.value = []
+    void alertDialog('Не удалось загрузить санкции')
+  } finally {
+    sanctionsLoading.value = false
+  }
+}
+
 async function saveSanction(): Promise<void> {
   const target = sanctionTarget.value
   if (!target || sanctionSaving.value || !sanctionCanSave.value) return
@@ -374,6 +509,7 @@ async function saveSanction(): Promise<void> {
     sanctionModalOpen.value = false
     void alertDialog(kind === 'timeout' ? 'Таймаут выдан' : 'Отстранение от игр выдано')
     await loadUsers()
+    if (activeTab.value === 'sanctions') await loadSanctions()
   } catch (e: any) {
     const st = e?.response?.status
     const d = e?.response?.data?.detail
@@ -408,6 +544,7 @@ async function revokeSanction(row: UserRow, kind: 'timeout' | 'suspend'): Promis
     await api.delete(`/moderation/users/${row.id}/${kind}`)
     void alertDialog(kind === 'timeout' ? 'Таймаут снят' : 'Отстранение от игр снято')
     await loadUsers()
+    if (activeTab.value === 'sanctions') await loadSanctions()
   } catch (e: any) {
     const st = e?.response?.status
     const d = e?.response?.data?.detail
@@ -449,23 +586,63 @@ function prevUsers(): void {
   void loadUsers()
 }
 
+function nextSanctions(): void {
+  if (sanctionsPage.value >= sanctionsPages.value) return
+  sanctionsPage.value += 1
+  void loadSanctions()
+}
+
+function prevSanctions(): void {
+  if (sanctionsPage.value <= 1) return
+  sanctionsPage.value -= 1
+  void loadSanctions()
+}
+
+function refreshActiveTab(tab: TabKey): void {
+  if (tab === 'users') {
+    void loadUsers()
+    return
+  }
+  void loadSanctions()
+}
+
+watch(activeTab, (tab) => {
+  refreshActiveTab(tab)
+})
+
 watch([usersLimit, usersSortBy], () => {
   usersPage.value = 1
+  if (activeTab.value !== 'users') return
   void loadUsers()
 })
 
 watch(usersUser, () => {
   usersPage.value = 1
+  if (activeTab.value !== 'users') return
   if (usersUserTimer) window.clearTimeout(usersUserTimer)
   usersUserTimer = window.setTimeout(() => { void loadUsers() }, 500)
 })
 
+watch(sanctionsLimit, () => {
+  sanctionsPage.value = 1
+  if (activeTab.value !== 'sanctions') return
+  void loadSanctions()
+})
+
+watch(sanctionsUser, () => {
+  sanctionsPage.value = 1
+  if (activeTab.value !== 'sanctions') return
+  if (sanctionsUserTimer) window.clearTimeout(sanctionsUserTimer)
+  sanctionsUserTimer = window.setTimeout(() => { void loadSanctions() }, 500)
+})
+
 onMounted(() => {
-  void loadUsers()
+  refreshActiveTab(activeTab.value)
 })
 
 onBeforeUnmount(() => {
   if (usersUserTimer) window.clearTimeout(usersUserTimer)
+  if (sanctionsUserTimer) window.clearTimeout(sanctionsUserTimer)
 })
 </script>
 
@@ -492,15 +669,20 @@ onBeforeUnmount(() => {
       height: 30px;
       .tab {
         width: 200px;
-        height: 40px;
+        height: 30px;
         border: none;
         border-radius: 5px 5px 0 0;
-        background-color: $lead;
+        background-color: $graphite;
         color: $fg;
         font-size: 18px;
         font-family: Manrope-Medium;
         line-height: 1;
-        cursor: default;
+        cursor: pointer;
+        transition: opacity 0.25s ease-in-out, height 0.25s ease-in-out, background-color 0.25s ease-in-out;
+        &.active {
+          height: 40px;
+          background-color: $lead;
+        }
       }
     }
   }
@@ -688,6 +870,11 @@ onBeforeUnmount(() => {
       }
     }
   }
+  .sanctions-table .rule-cell {
+    max-width: 520px;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
   .pager {
     margin-top: 10px;
     display: flex;
@@ -710,6 +897,9 @@ onBeforeUnmount(() => {
         .tab {
           height: 30px;
           font-size: 12px;
+          &.active {
+            height: 35px;
+          }
         }
       }
     }
@@ -745,6 +935,9 @@ onBeforeUnmount(() => {
           padding: 5px;
         }
       }
+    }
+    .sanctions-table .rule-cell {
+      min-width: 220px;
     }
   }
 }

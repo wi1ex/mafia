@@ -61,6 +61,8 @@ from ...schemas.admin import (
     AdminLogOut,
     AdminLogsOut,
     AdminLogActionsOut,
+    AdminSanctionListItemOut,
+    AdminSanctionsOut,
     AdminRoomOut,
     AdminRoomGameOut,
     AdminRoomsOut,
@@ -139,6 +141,10 @@ from ..utils import (
     fetch_sanctions_for_users,
     is_sanction_active,
     build_admin_sanction_out,
+    sanction_status,
+    sanction_finished_at,
+    sanction_served_seconds,
+    sanction_actor_display,
     revoke_active_suspend,
     format_duration_parts,
     format_duration_seconds_compact,
@@ -1252,6 +1258,74 @@ async def users_list(page: int = 1, limit: int = 20, username: str | None = None
         ))
 
     return AdminUsersOut(total=total, items=items)
+
+
+@router.get("/sanctions", response_model=AdminSanctionsOut)
+@log_route("admin.sanctions.list")
+async def sanctions_list(page: int = 1, limit: int = 20, username: str | None = None, session: AsyncSession = Depends(get_session)) -> AdminSanctionsOut:
+    limit, page, offset = normalize_pagination(page, limit)
+
+    filters = []
+    if username:
+        needle = username.lower()
+        filters.append(func.lower(User.username).contains(needle, autoescape=True))
+
+    total = int(
+        await session.scalar(
+            select(func.count(UserSanction.id))
+            .select_from(UserSanction)
+            .outerjoin(User, User.id == UserSanction.user_id)
+            .where(*filters)
+        ) or 0
+    )
+
+    rows = await session.execute(
+        select(UserSanction, User.username)
+        .select_from(UserSanction)
+        .outerjoin(User, User.id == UserSanction.user_id)
+        .where(*filters)
+        .order_by(UserSanction.issued_at.desc(), UserSanction.id.desc())
+        .offset(offset)
+        .limit(limit)
+    )
+
+    now = datetime.now(timezone.utc)
+    items: list[AdminSanctionListItemOut] = []
+    for row, target_username in rows.all():
+        sanction = cast(UserSanction, row)
+        uid = cast(int, sanction.user_id)
+        sid = cast(int, sanction.id)
+        issued_by_id = cast(int, sanction.issued_by_id) if sanction.issued_by_id is not None else None
+        revoked_by_id = cast(int, sanction.revoked_by_id) if sanction.revoked_by_id is not None else None
+        status = sanction_status(sanction, now)
+        revoked_by_display: str | None = None
+        if status == "expired_auto":
+            revoked_by_display = "авто"
+        elif sanction.revoked_at is not None:
+            revoked_by_display = sanction_actor_display(sanction.revoked_by_name, revoked_by_id, auto_fallback=True)
+
+        items.append(
+            AdminSanctionListItemOut(
+                id=sid,
+                user_id=uid,
+                username=cast(str | None, target_username),
+                kind=cast(str, sanction.kind),
+                status=cast(str, status),
+                issued_at=sanction.issued_at,
+                finished_at=sanction_finished_at(sanction),
+                issued_by_id=issued_by_id,
+                issued_by_name=sanction.issued_by_name,
+                issued_by_display=sanction_actor_display(sanction.issued_by_name, issued_by_id),
+                revoked_by_id=revoked_by_id,
+                revoked_by_name=sanction.revoked_by_name,
+                revoked_by_display=revoked_by_display,
+                duration_seconds=sanction.duration_seconds,
+                served_seconds=sanction_served_seconds(sanction, now),
+                reason=sanction.reason or None,
+            )
+        )
+
+    return AdminSanctionsOut(total=total, items=items)
 
 
 @router.get("/subscriptions", response_model=AdminSubscriptionsOut)
