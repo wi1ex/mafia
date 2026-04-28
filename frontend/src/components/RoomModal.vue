@@ -39,16 +39,7 @@
           </div>
 
           <ToggleSwitch v-model="isPrivate" :disabled="isPrivacyLocked" label="Приватность:" off-label="Открытая" on-label="Закрытая" aria-label="Приватность: открытая/закрытая" />
-          <ToggleSwitch v-model="isAnonymous" :disabled="!canCreateHiddenRoom" label="Анонимность:" off-label="Видимая" on-label="Скрытая" aria-label="Анонимность: видимая/скрытая">
-            <template #label>
-              <span class="toggle-label-tooltip" :class="{ 'toggle-label-tooltip--enabled': !canCreateHiddenRoom }" :title="!canCreateHiddenRoom ? hiddenRoomHint : undefined" :tabindex="!canCreateHiddenRoom ? 0 : undefined">
-                Анонимность:
-                <span v-if="!canCreateHiddenRoom" class="toggle-label-tooltip__body" role="tooltip">
-                  {{ hiddenRoomHint }}
-                </span>
-              </span>
-            </template>
-          </ToggleSwitch>
+          <ToggleSwitch v-model="isAnonymous" :disabled="!canCreateHiddenRoom" :tooltip="!canCreateHiddenRoom ? hiddenRoomHint : undefined" label="Анонимность:" off-label="Видимая" on-label="Скрытая" aria-label="Анонимность: видимая/скрытая" />
         </div>
       </div>
 
@@ -400,42 +391,6 @@ onBeforeUnmount(() => {
               }
             }
           }
-        }
-        .toggle-label-tooltip {
-          position: relative;
-          display: inline-flex;
-          align-items: center;
-          width: fit-content;
-          max-width: 100%;
-          &--enabled {
-            cursor: help;
-          }
-          &__body {
-            position: absolute;
-            left: 0;
-            bottom: calc(100% + 10px);
-            min-width: 240px;
-            max-width: 320px;
-            padding: 10px;
-            border: 1px solid $lead;
-            border-radius: 5px;
-            background-color: $graphite;
-            box-shadow: 0 5px 15px rgba($black, 0.25);
-            color: $fg;
-            font-size: 12px;
-            line-height: 1.2;
-            opacity: 0;
-            transform: translateY(5px);
-            pointer-events: none;
-            transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
-            z-index: 5;
-          }
-        }
-        .toggle-label-tooltip--enabled:hover .toggle-label-tooltip__body,
-        .toggle-label-tooltip--enabled:focus-within .toggle-label-tooltip__body {
-          opacity: 1;
-          transform: translateY(0);
-          pointer-events: auto;
         }
       }
     }

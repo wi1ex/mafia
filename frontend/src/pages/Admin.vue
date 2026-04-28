@@ -3144,8 +3144,8 @@ onMounted(() => {
           position: absolute;
           top: calc(100% - 35px);
           right: 15px;
-          min-width: 220px;
-          max-width: 320px;
+          min-width: 150px;
+          max-width: 300px;
           max-height: 200px;
           overflow: auto;
           padding: 10px;
@@ -3352,8 +3352,8 @@ onMounted(() => {
           position: absolute;
           top: calc(100% - 35px);
           right: 15px;
-          min-width: 220px;
-          max-width: 320px;
+          min-width: 150px;
+          max-width: 300px;
           max-height: 200px;
           overflow: auto;
           padding: 10px;

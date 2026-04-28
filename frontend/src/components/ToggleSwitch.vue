@@ -3,7 +3,7 @@
     <span class="switch-label">
       <slot name="label">{{ label }}</slot>
     </span>
-    <label>
+    <label :class="{ 'has-tooltip': Boolean(props.tooltip) }" :tabindex="props.tooltip ? 0 : undefined" :title="props.tooltip || undefined">
       <input type="checkbox"
              :checked="modelValue"
              :disabled="isDisabled"
@@ -13,6 +13,7 @@
         <span>{{ offLabel }}</span>
         <span>{{ onLabel }}</span>
       </div>
+      <span v-if="props.tooltip" class="switch-tooltip" role="tooltip">{{ props.tooltip }}</span>
     </label>
   </div>
 </template>
@@ -30,6 +31,7 @@ const props = defineProps<{
   ariaLabel?: string
   disabled?: boolean
   width?: number
+  tooltip?: string
 }>()
 
 const emit = defineEmits<{
@@ -37,8 +39,8 @@ const emit = defineEmits<{
   (e: 'change', value: boolean): void
 }>()
 
-const offLabel = computed(() => props.offLabel ?? 'Откл')
-const onLabel = computed(() => props.onLabel ?? 'Вкл')
+const offLabel = computed(() => props.offLabel ?? 'РћС‚РєР»')
+const onLabel = computed(() => props.onLabel ?? 'Р’РєР»')
 const widthPx = computed(() => `${Number.isFinite(props.width) && props.width ? props.width : 170}px`)
 const switchStyle = computed<Record<string, string>>(() => ({ '--switch-width': widthPx.value }))
 
@@ -91,6 +93,9 @@ onBeforeUnmount(() => {
     width: var(--switch-width);
     height: 25px;
     box-shadow: 3px 3px 5px rgba($black, 0.25);
+    &.has-tooltip {
+      cursor: help;
+    }
     input {
       position: absolute;
       opacity: 0;
@@ -136,6 +141,32 @@ onBeforeUnmount(() => {
     }
     input:disabled + .slider {
       cursor: not-allowed;
+    }
+    .switch-tooltip {
+      position: absolute;
+      right: 0;
+      bottom: calc(100% + 10px);
+      min-width: 150px;
+      max-width: 300px;
+      padding: 10px;
+      border: 1px solid $lead;
+      border-radius: 5px;
+      background-color: $graphite;
+      box-shadow: 0 5px 15px rgba($black, 0.25);
+      color: $fg;
+      font-size: 12px;
+      line-height: 1.2;
+      opacity: 0;
+      transform: translateY(5px);
+      pointer-events: none;
+      transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
+      z-index: 5;
+    }
+    &.has-tooltip:hover .switch-tooltip,
+    &.has-tooltip:focus-within .switch-tooltip {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
     }
   }
 }
