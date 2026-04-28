@@ -455,9 +455,9 @@ onBeforeUnmount(() => {
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    padding: 15px;
-    gap: 15px;
-    width: 400px;
+    padding: 20px;
+    gap: 20px;
+    width: 500px;
     height: min-content;
     border-radius: 10px;
     background-color: var(--user-theme-bg, $dark);
@@ -497,6 +497,7 @@ onBeforeUnmount(() => {
     }
     .profile-icon-name {
       display: flex;
+      align-items: center;
       padding: 5px;
       gap: 5px;
     }
@@ -523,8 +524,9 @@ onBeforeUnmount(() => {
       flex-direction: column;
       min-width: 0;
       .profile-name {
+        max-width: 260px;
         font-size: 24px;
-        line-height: 1.5;
+        line-height: 1.2;
         font-family: Manrope-SemiBold;
         white-space: nowrap;
         overflow: hidden;
@@ -728,8 +730,8 @@ onBeforeUnmount(() => {
         gap: 3px;
       }
       .profile-avatar {
-        width: 100px;
-        height: 100px;
+        width: 80px;
+        height: 80px;
       }
       .profile-theme-icon {
         width: 20px;
@@ -740,7 +742,8 @@ onBeforeUnmount(() => {
       }
       .profile-title {
         .profile-name {
-          font-size: 20px;
+          max-width: 180px;
+          font-size: 18px;
         }
       }
       .close-button {
