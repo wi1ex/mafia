@@ -1329,6 +1329,45 @@ async def sanctions_list(page: int = 1, limit: int = 20, username: str | None = 
     return AdminSanctionsOut(total=total, items=items)
 
 
+@router.delete("/sanctions/{sanction_id}", response_model=Ok)
+@log_route("admin.sanctions.delete")
+async def delete_inactive_sanction(sanction_id: int, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
+    sanction = await session.get(UserSanction, int(sanction_id))
+    if not sanction:
+        raise HTTPException(status_code=404, detail="sanction_not_found")
+
+    now = datetime.now(timezone.utc)
+    if is_sanction_active(sanction, now):
+        raise HTTPException(status_code=409, detail="sanction_active")
+
+    sid = cast(int, sanction.id)
+    uid = cast(int, sanction.user_id)
+    kind = str(sanction.kind or "")
+    status_value = sanction_status(sanction, now)
+    target_username = None
+    user = await session.get(User, uid)
+    if user and user.username:
+        target_username = user.username
+
+    await session.delete(sanction)
+    await session.commit()
+    with suppress(Exception):
+        await emit_sanctions_update(session, uid)
+
+    details = f"Удаление неактивной санкции id={sid} user_id={uid} kind={kind} status={status_value}"
+    if target_username:
+        details += f" username={target_username}"
+    await log_action(
+        session,
+        user_id=int(ident["id"]),
+        username=ident["username"],
+        action="sanction_delete_inactive",
+        details=details,
+    )
+
+    return Ok()
+
+
 @router.get("/subscriptions", response_model=AdminSubscriptionsOut)
 @log_route("admin.subscriptions.list")
 async def subscriptions_list(session: AsyncSession = Depends(get_session)) -> AdminSubscriptionsOut:

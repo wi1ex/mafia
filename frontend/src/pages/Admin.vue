@@ -834,6 +834,7 @@
                   <th>Срок изначальный</th>
                   <th>Срок по факту</th>
                   <th>Пункт правил</th>
+                  <th>Удаление</th>
                 </tr>
               </thead>
               <tbody>
@@ -856,9 +857,16 @@
                   <td>{{ formatSanctionDuration(row.duration_seconds) }}</td>
                   <td>{{ formatSanctionDuration(row.served_seconds) }}</td>
                   <td class="rule-cell">{{ row.reason || '-' }}</td>
+                  <td class="actions-cell">
+                    <button v-if="canDeleteSanction(row)" class="btn danger width-min" :disabled="sanctionsDeleting[row.id]" @click="deleteSanction(row)">
+                      <img class="btn-img" :src="iconDelete" alt="delete" />
+                      Удалить
+                    </button>
+                    <span v-else>-</span>
+                  </td>
                 </tr>
                 <tr v-if="sanctions.length === 0">
-                  <td colspan="10" class="muted">Нет данных</td>
+                  <td colspan="11" class="muted">Нет данных</td>
                 </tr>
               </tbody>
             </table>
@@ -1374,6 +1382,7 @@ const usersVerifyBusy = reactive<Record<number, boolean>>({})
 const usersPasswordBusy = reactive<Record<number, boolean>>({})
 const usersNicknameBusy = reactive<Record<number, boolean>>({})
 const usersSanctionBusy = reactive<Record<string, boolean>>({})
+const sanctionsDeleting = reactive<Record<number, boolean>>({})
 const subscriptions = ref<SubscriptionRow[]>([])
 const subscriptionsReady = ref(false)
 const subscriptionModalOpen = ref(false)
@@ -1819,6 +1828,10 @@ function openSanctionUserMiniProfile(row: SanctionsRow): void {
   })
 }
 
+function canDeleteSanction(row: SanctionsRow): boolean {
+  return row.status !== 'active'
+}
+
 function openSubscriptionUserMiniProfile(row: SubscriptionRow): void {
   const id = getPositiveUserId(row.user_id)
   if (id <= 0) return
@@ -2214,6 +2227,35 @@ async function loadSanctions(): Promise<void> {
     void alertDialog('Не удалось загрузить санкции')
   } finally {
     sanctionsLoading.value = false
+  }
+}
+
+async function deleteSanction(row: SanctionsRow): Promise<void> {
+  if (!canDeleteSanction(row) || sanctionsDeleting[row.id]) return
+  const userLabel = row.username || `user${row.user_id}`
+  const ok = await confirmDialog({
+    title: 'Удалить санкцию',
+    text: `Удалить неактивную санкцию из истории у ${userLabel}?`,
+    confirmText: 'Удалить',
+    cancelText: 'Отмена',
+  })
+  if (!ok) return
+  sanctionsDeleting[row.id] = true
+  try {
+    await api.delete(`/admin/sanctions/${row.id}`)
+    const nextTotal = Math.max(0, sanctionsTotal.value - 1)
+    const nextPages = Math.max(1, Math.ceil(nextTotal / sanctionsLimit.value))
+    if (sanctionsPage.value > nextPages) sanctionsPage.value = nextPages
+    await loadSanctions()
+    void alertDialog('Санкция удалена')
+  } catch (e: any) {
+    const st = e?.response?.status
+    const d = e?.response?.data?.detail
+    if (st === 404 && d === 'sanction_not_found') void alertDialog('Санкция не найдена')
+    else if (st === 409 && d === 'sanction_active') void alertDialog('Активную санкцию нельзя удалить')
+    else void alertDialog('Не удалось удалить санкцию')
+  } finally {
+    sanctionsDeleting[row.id] = false
   }
 }
 
@@ -3355,6 +3397,9 @@ onMounted(() => {
       max-width: 520px;
       white-space: pre-wrap;
       word-break: break-word;
+    }
+    .sanctions-table .actions-cell {
+      white-space: nowrap;
     }
     .status-badge {
       display: inline-flex;
