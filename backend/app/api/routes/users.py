@@ -198,6 +198,7 @@ async def mini_profile(user_id: int, ident: Identity = Depends(get_identity), db
         id=uid,
         username=user.username,
         avatar_name=user.avatar_name,
+        role=str(user.role or "user"),
         registered_at=user.registered_at,
         last_visit_at=user.last_visit_at,
         last_game_at=last_game_at,

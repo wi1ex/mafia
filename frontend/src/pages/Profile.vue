@@ -63,7 +63,9 @@
               <div class="theme-preview-grid">
                 <div class="theme-preview-card" :style="themePreviewStyle">
                   <img class="theme-preview-avatar" v-minio-img="{ key: me.avatar_name ? `avatars/${me.avatar_name}` : '', placeholder: defaultAvatar, lazy: false, animated: true }" alt="avatar" />
-                  <img v-if="themePreviewIconSrc" class="theme-preview-icon" :src="themePreviewIconSrc" alt="" aria-hidden="true" />
+                  <span v-if="themePreviewIconSrcs.length" class="theme-preview-icons" aria-hidden="true">
+                    <img v-for="badgeSrc in themePreviewIconSrcs" :key="badgeSrc" class="theme-preview-icon" :src="badgeSrc" alt="" />
+                  </span>
                   <span>{{ me.username || 'User' }}</span>
                 </div>
               </div>
@@ -304,6 +306,7 @@ import {
 } from '@/constants/profileThemes'
 import {
   PROFILE_THEME_ICON_OPTIONS,
+  getProfileThemeBadgeSources,
   getProfileThemeIconSrc,
   normalizeProfileThemeIcon,
   type ProfileThemeIcon,
@@ -479,7 +482,7 @@ const profileThemeSaveDisabledText = computed(() => {
   return ''
 })
 const themePreviewStyle = computed(() => buildProfileThemeBgStyle(selectedProfileThemeColor.value))
-const themePreviewIconSrc = computed(() => getProfileThemeIconSrc(selectedProfileThemeIcon.value))
+const themePreviewIconSrcs = computed(() => getProfileThemeBadgeSources(selectedProfileThemeIcon.value, me.role))
 const profileThemeAvailabilityText = computed(() => {
   const raw = me.subscription_until
   if (!raw) return 'Доступно, пока активна подписка'
@@ -1456,6 +1459,12 @@ onBeforeUnmount(() => {
                 height: 30px;
                 object-fit: contain;
               }
+              .theme-preview-icons {
+                display: inline-flex;
+                align-items: center;
+                gap: 5px;
+                flex: 0 0 auto;
+              }
               span {
                 min-width: 0;
                 height: 20px;
@@ -1894,6 +1903,9 @@ onBeforeUnmount(() => {
                 .theme-preview-icon {
                   width: 20px;
                   height: 20px;
+                }
+                .theme-preview-icons {
+                  gap: 3px;
                 }
                 span {
                   height: 16px;

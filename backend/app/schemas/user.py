@@ -36,6 +36,7 @@ class UserMiniProfileOut(BaseModel):
     id: int
     username: Optional[str] = None
     avatar_name: Optional[str] = None
+    role: str
     registered_at: Optional[datetime] = None
     last_visit_at: Optional[datetime] = None
     last_game_at: Optional[datetime] = None

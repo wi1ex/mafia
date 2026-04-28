@@ -502,6 +502,7 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
           avatar_name: asString(userRaw.avatar_name) || null,
           theme_color: asString(userRaw.theme_color) || null,
           theme_icon: asString(userRaw.theme_icon) || null,
+          role: asString(userRaw.role) || undefined,
           deleted: Boolean(userRaw.deleted),
         },
       })
@@ -650,6 +651,7 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
         avatar_name: asString(authorRaw.avatar_name) || null,
         theme_color: asString(authorRaw.theme_color) || null,
         theme_icon: asString(authorRaw.theme_icon) || null,
+        role: asString(authorRaw.role) || undefined,
         deleted: Boolean(authorRaw.deleted),
       },
     }

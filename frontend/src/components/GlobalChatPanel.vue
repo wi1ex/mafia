@@ -34,7 +34,9 @@
                 <button class="message-meta-author" :class="{ 'author-trigger': canOpenAuthorMiniProfile(message) }" type="button"
                         :disabled="!canOpenAuthorMiniProfile(message)" @click="openAuthorMiniProfile(message)">
                   <img class="author-avatar" v-minio-img="{ key: message.author.avatar_name ? `avatars/${message.author.avatar_name}` : '', placeholder: defaultAvatar, lazy: false, animated: true }" alt="Аватар автора" />
-                  <img v-if="profileThemeIconSrc(message.author.theme_icon)" class="profile-theme-icon" :src="profileThemeIconSrc(message.author.theme_icon) || ''" alt="" aria-hidden="true" />
+                  <span v-if="profileThemeIconSrcs(message.author.theme_icon, message.author.role).length" class="profile-theme-icons" aria-hidden="true">
+                    <img v-for="badgeSrc in profileThemeIconSrcs(message.author.theme_icon, message.author.role)" :key="`${message.author.id}-${badgeSrc}`" class="profile-theme-icon" :src="badgeSrc" alt="" />
+                  </span>
                   <span class="author-name">{{ message.author.username || (`user${message.author.id}`) }}</span>
                 </button>
                 <span class="message-time">{{ formatMessageTime(message.created_at) }}</span>
@@ -90,7 +92,9 @@
                     <template v-else-if="reactionParticipantsFor(message.id, reaction.emoji).length > 0">
                       <div v-for="participant in reactionParticipantsFor(message.id, reaction.emoji)" :key="`${participant.user.id}-${participant.created_at}`" class="reaction-details-item">
                         <img class="reaction-details-avatar" v-minio-img="{ key: participant.user.avatar_name ? `avatars/${participant.user.avatar_name}` : '', placeholder: defaultAvatar, lazy: false, animated: true }" alt="Аватар" />
-                        <img v-if="profileThemeIconSrc(participant.user.theme_icon)" class="profile-theme-icon" :src="profileThemeIconSrc(participant.user.theme_icon) || ''" alt="" aria-hidden="true" />
+                        <span v-if="profileThemeIconSrcs(participant.user.theme_icon, participant.user.role).length" class="profile-theme-icons" aria-hidden="true">
+                          <img v-for="badgeSrc in profileThemeIconSrcs(participant.user.theme_icon, participant.user.role)" :key="`${participant.user.id}-${participant.created_at}-${badgeSrc}`" class="profile-theme-icon" :src="badgeSrc" alt="" />
+                        </span>
                         <div class="reaction-details-meta">
                           <span class="reaction-details-name">{{ participant.user.username || (`user${participant.user.id}`) }}</span>
                           <small class="reaction-details-time">{{ formatMessageTime(participant.created_at) }}</small>
@@ -224,7 +228,9 @@
           <div class="deleted-preview-body">
             <div class="deleted-preview-author">
               <img class="deleted-preview-avatar" v-minio-img="{ key: deletedPreview.author.avatar_name ? `avatars/${deletedPreview.author.avatar_name}` : '', placeholder: defaultAvatar, lazy: false, animated: true }" alt="Аватар автора" />
-              <img v-if="profileThemeIconSrc(deletedPreview.author.theme_icon)" class="profile-theme-icon" :src="profileThemeIconSrc(deletedPreview.author.theme_icon) || ''" alt="" aria-hidden="true" />
+              <span v-if="profileThemeIconSrcs(deletedPreview.author.theme_icon, deletedPreview.author.role).length" class="profile-theme-icons" aria-hidden="true">
+                <img v-for="badgeSrc in profileThemeIconSrcs(deletedPreview.author.theme_icon, deletedPreview.author.role)" :key="`${deletedPreview.author.id}-${badgeSrc}`" class="profile-theme-icon" :src="badgeSrc" alt="" />
+              </span>
               <span>{{ deletedPreview.author.username || (`user${deletedPreview.author.id}`) }}</span>
             </div>
 
@@ -269,7 +275,7 @@ import { useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { api } from '@/services/axios'
 import { buildProfileThemeBgStyle } from '@/constants/profileThemes'
-import { getProfileThemeIconSrc } from '@/constants/profileThemeIcons'
+import { getProfileThemeBadgeSources } from '@/constants/profileThemeIcons'
 import { alertDialog, confirmDialog } from '@/services/confirm'
 import { formatChatTimestamp } from '@/services/datetime'
 import { useAuthStore, useGlobalChatStore, useSettingsStore, useUserStore } from '@/store'
@@ -359,6 +365,7 @@ const miniProfileInitial = ref<{
   id: number
   username?: string | null
   avatar_name?: string | null
+  role?: string | null
   theme_color?: string | null
   theme_icon?: string | null
 } | null>(null)
@@ -433,7 +440,7 @@ const composerPlaceholder = computed(() => (
 const showLoadMore = computed(() => hasMore.value && (loadingMore.value || listAtTop.value))
 const mentionDropdownVisible = computed(() => Boolean(activeMentionRange.value?.query) && !composerDisabled.value && (mentionLoading.value || mentionHasSearched.value))
 const messageCardStyle = (message: GlobalChatMessage) => buildProfileThemeBgStyle(message.author.theme_color)
-const profileThemeIconSrc = (icon: unknown) => getProfileThemeIconSrc(icon)
+const profileThemeIconSrcs = (icon: unknown, role?: unknown) => getProfileThemeBadgeSources(icon, role)
 
 function canOpenAuthorMiniProfile(message: GlobalChatMessage): boolean {
   const uid = Number(message.author?.id || 0)
@@ -452,6 +459,7 @@ function openAuthorMiniProfile(message: GlobalChatMessage) {
     id: uid,
     username: author.username || null,
     avatar_name: author.avatar_name || null,
+    role: author.role || null,
     theme_color: author.theme_color || null,
     theme_icon: author.theme_icon || null,
   }
@@ -1730,6 +1738,12 @@ onBeforeUnmount(() => {
               height: 20px;
               object-fit: contain;
             }
+            .profile-theme-icons {
+              display: inline-flex;
+              align-items: center;
+              gap: 5px;
+              flex: 0 0 auto;
+            }
             .author-name {
               min-width: 0;
               color: $fg;
@@ -1920,6 +1934,12 @@ onBeforeUnmount(() => {
                   width: 25px;
                   height: 25px;
                   object-fit: contain;
+                }
+                .profile-theme-icons {
+                  display: inline-flex;
+                  align-items: center;
+                  gap: 5px;
+                  flex: 0 0 auto;
                 }
                 .reaction-details-meta {
                   display: flex;
@@ -2325,6 +2345,12 @@ onBeforeUnmount(() => {
           height: 30px;
           object-fit: contain;
         }
+        .profile-theme-icons {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          flex: 0 0 auto;
+        }
         span {
           color: $fg;
           font-size: 16px;
@@ -2513,6 +2539,9 @@ onBeforeUnmount(() => {
                 width: 16px;
                 height: 16px;
               }
+              .profile-theme-icons {
+                gap: 3px;
+              }
               .author-name {
                 font-size: 12px;
               }
@@ -2591,6 +2620,9 @@ onBeforeUnmount(() => {
                   .profile-theme-icon {
                     width: 20px;
                     height: 20px;
+                  }
+                  .profile-theme-icons {
+                    gap: 3px;
                   }
                   .reaction-details-meta {
                     gap: 3px;
@@ -2771,6 +2803,9 @@ onBeforeUnmount(() => {
           .profile-theme-icon {
             width: 20px;
             height: 20px;
+          }
+          .profile-theme-icons {
+            gap: 3px;
           }
           span {
             font-size: 14px;

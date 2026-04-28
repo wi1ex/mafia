@@ -342,6 +342,7 @@ class AdminSubscriptionOut(BaseModel):
     user_id: int
     username: Optional[str] = None
     avatar_name: Optional[str] = None
+    role: Optional[str] = None
     starts_at: datetime
     ends_at: datetime
     is_active: bool

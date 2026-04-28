@@ -76,7 +76,9 @@
       <div class="user-menu" ref="userMenuEl">
         <button class="btn" :class="{ 'has-profile-theme': hasUserMenuProfileTheme }" type="button" :style="userMenuButtonStyle" @click.stop="onToggleUserMenu" :aria-expanded="um_open" aria-haspopup="true">
           <img v-minio-img="{ key: user.user?.avatar_name ? `avatars/${user.user.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="Аватар" class="avatar" />
-          <img v-if="userMenuProfileIconSrc" class="profile-theme-icon" :src="userMenuProfileIconSrc" alt="" aria-hidden="true" />
+          <span v-if="userMenuProfileIconSrcs.length" class="profile-theme-icons" aria-hidden="true">
+            <img v-for="badgeSrc in userMenuProfileIconSrcs" :key="badgeSrc" class="profile-theme-icon" :src="badgeSrc" alt="" />
+          </span>
           <span aria-live="polite">{{ user.user?.username || 'User' }}</span>
           <img class="arrow" :src="iconArrowDown" alt="arrow" :style="{ transform: um_open ? 'rotate(180deg)' : 'none'}" />
         </button>
@@ -138,7 +140,7 @@ import iconProfile from "@/assets/svg/profile.svg"
 import iconArrowDown from '@/assets/svg/arrowDown.svg'
 import iconJudge from '@/assets/svg/judge.svg'
 import { buildProfileThemeStyle } from '@/constants/profileThemes'
-import { getProfileThemeIconSrc } from '@/constants/profileThemeIcons'
+import { getProfileThemeBadgeSources } from '@/constants/profileThemeIcons'
 
 const auth = useAuthStore()
 const user = useUserStore()
@@ -163,7 +165,7 @@ const botName = (import.meta.env.VITE_TG_BOT_NAME as string || '').trim()
 const botLink = botName ? `https://t.me/${botName}` : 'https://t.me'
 const userMenuButtonStyle = computed(() => buildProfileThemeStyle(user.activeProfileThemeColor))
 const hasUserMenuProfileTheme = computed(() => Boolean(user.activeProfileThemeColor))
-const userMenuProfileIconSrc = computed(() => getProfileThemeIconSrc(user.activeProfileThemeIcon))
+const userMenuProfileIconSrcs = computed(() => getProfileThemeBadgeSources(user.activeProfileThemeIcon, user.user?.role))
 
 type SanctionBanner = { kind: 'ban' | 'timeout' | 'suspend'; text: string }
 
@@ -373,6 +375,12 @@ function openAuth(mode: 'login' | 'register') {
       height: 24px;
       border-radius: 0;
       object-fit: contain;
+    }
+    .profile-theme-icons {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      flex: 0 0 auto;
     }
     .arrow {
       margin-left: 5px;
@@ -587,6 +595,9 @@ function openAuth(mode: 'login' | 'register') {
       .profile-theme-icon {
         width: 16px;
         height: 16px;
+      }
+      .profile-theme-icons {
+        gap: 3px;
       }
       .arrow {
         margin-left: 3px;

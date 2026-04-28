@@ -10,7 +10,9 @@
                 <img ref="avatarImageEl" class="profile-avatar" v-minio-img="{ key: avatarKey, placeholder: defaultAvatar, lazy: false, animated: true }" alt="avatar" />
               </button>
               <div class="profile-icon-name">
-                <img v-if="profileThemeIconSrc" class="profile-theme-icon" :src="profileThemeIconSrc" alt="" aria-hidden="true" />
+                <span v-if="profileThemeIconSrcs.length" class="profile-theme-icons" aria-hidden="true">
+                  <img v-for="badgeSrc in profileThemeIconSrcs" :key="badgeSrc" class="profile-theme-icon" :src="badgeSrc" alt="" />
+                </span>
                 <div class="profile-title">
                   <span class="profile-name">{{ displayName }}</span>
                 </div>
@@ -76,7 +78,7 @@ import { api } from '@/services/axios'
 import { alertDialog, confirmDialog } from '@/services/confirm'
 import { formatLocalDateTime } from '@/services/datetime'
 import { buildProfileThemeBgStyle } from '@/constants/profileThemes'
-import { getProfileThemeIconSrc } from '@/constants/profileThemeIcons'
+import { getProfileThemeBadgeSources } from '@/constants/profileThemeIcons'
 import {
   useFriendsStore,
   useUserStore,
@@ -100,6 +102,7 @@ type MiniProfileInitial = {
   id?: number | null
   username?: string | null
   avatar_name?: string | null
+  role?: string | null
   theme_color?: string | null
   theme_icon?: string | null
   profile_theme_color?: string | null
@@ -112,6 +115,7 @@ type MiniProfileResponse = {
   id: number
   username?: string | null
   avatar_name?: string | null
+  role?: string | null
   registered_at?: string | null
   last_visit_at?: string | null
   last_game_at?: string | null
@@ -191,8 +195,12 @@ const profileThemeIcon = computed(() => {
   if (profileLoadedForTarget.value) return profile.value?.profile_theme_icon || null
   return props.initialProfile?.profile_theme_icon || props.initialProfile?.theme_icon || null
 })
+const profileRole = computed(() => {
+  if (profileLoadedForTarget.value) return profile.value?.role || null
+  return props.initialProfile?.role || null
+})
 const profilePanelStyle = computed(() => buildProfileThemeBgStyle(profileThemeColor.value))
-const profileThemeIconSrc = computed(() => getProfileThemeIconSrc(profileThemeIcon.value))
+const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(profileThemeIcon.value, profileRole.value))
 const registeredAtLabel = computed(() => formatLocalDateTime(profile.value?.registered_at))
 const lastGameAtLabel = computed(() => formatLocalDateTime(profile.value?.last_game_at))
 const lastOnlineLabel = computed(() => (profile.value?.online ? 'Онлайн' : formatLocalDateTime(profile.value?.last_visit_at)))
@@ -310,6 +318,7 @@ async function loadProfile() {
       id: Number(data?.id || uid),
       username: data?.username ?? null,
       avatar_name: data?.avatar_name ?? null,
+      role: data?.role ?? null,
       registered_at: data?.registered_at ?? null,
       last_visit_at: data?.last_visit_at ?? null,
       last_game_at: data?.last_game_at ?? null,
@@ -502,6 +511,12 @@ onBeforeUnmount(() => {
       width: 26px;
       height: 38px;
       object-fit: contain;
+    }
+    .profile-theme-icons {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      flex: 0 0 auto;
     }
     .profile-title {
       display: flex;
@@ -719,6 +734,9 @@ onBeforeUnmount(() => {
       .profile-theme-icon {
         width: 20px;
         height: 30px;
+      }
+      .profile-theme-icons {
+        gap: 3px;
       }
       .profile-title {
         .profile-name {

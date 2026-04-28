@@ -872,8 +872,9 @@
                   <td>
                     <div class="subscription-theme-preview">
                       <span class="subscription-theme-chip" :style="subscriptionThemeStyle(row.profile_theme_color)"></span>
-                      <img v-if="subscriptionThemeIconSrc(row.profile_theme_icon)" class="subscription-theme-icon"
-                           :src="subscriptionThemeIconSrc(row.profile_theme_icon) || ''" alt="" aria-hidden="true" />
+                      <span v-if="subscriptionThemeIconSrcs(row.profile_theme_icon, row.role).length" class="subscription-theme-icons" aria-hidden="true">
+                        <img v-for="badgeSrc in subscriptionThemeIconSrcs(row.profile_theme_icon, row.role)" :key="`${row.user_id}-${badgeSrc}`" class="subscription-theme-icon" :src="badgeSrc" alt="" />
+                      </span>
                     </div>
                   </td>
                   <td>
@@ -973,7 +974,7 @@ import {
 } from '@/constants/profileThemes'
 import {
   getProfileThemeIconOption,
-  getProfileThemeIconSrc,
+  getProfileThemeBadgeSources,
 } from '@/constants/profileThemeIcons'
 
 const DATE_ONLY: Intl.DateTimeFormatOptions = {
@@ -1142,12 +1143,18 @@ type UserRow = {
   suspends_count: number
 }
 
-type UserMiniProfileTarget = Pick<UserRow, 'id' | 'username' | 'avatar_name'>
+type UserMiniProfileTarget = {
+  id: number
+  username?: string | null
+  avatar_name?: string | null
+  role?: string | null
+}
 
 type SubscriptionRow = {
   user_id: number
   username?: string | null
   avatar_name?: string | null
+  role?: string | null
   starts_at: string
   ends_at: string
   is_active: boolean
@@ -1770,6 +1777,7 @@ function openSubscriptionUserMiniProfile(row: SubscriptionRow): void {
     id,
     username: row.username ?? null,
     avatar_name: row.avatar_name ?? null,
+    role: row.role ?? null,
   })
 }
 
@@ -1816,8 +1824,8 @@ function subscriptionThemeStyle(color: string | null | undefined): Record<string
   return buildProfileThemeBgStyle(color)
 }
 
-function subscriptionThemeIconSrc(icon: string | null | undefined): string | null {
-  return getProfileThemeIconSrc(icon)
+function subscriptionThemeIconSrcs(icon: string | null | undefined, role?: string | null): string[] {
+  return getProfileThemeBadgeSources(icon, role)
 }
 
 function userSubscriptionEntry(userId: number): SubscriptionRow | null {
@@ -3346,6 +3354,12 @@ onMounted(() => {
         height: 30px;
         object-fit: contain;
       }
+      .subscription-theme-icons {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        flex: 0 0 auto;
+      }
     }
     .pager {
       margin-top: 10px;
@@ -3465,6 +3479,9 @@ onMounted(() => {
         .subscription-theme-icon {
           width: 24px;
           height: 24px;
+        }
+        .subscription-theme-icons {
+          gap: 3px;
         }
       }
     }

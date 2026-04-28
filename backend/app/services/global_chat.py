@@ -1372,6 +1372,7 @@ async def fetch_global_chat_reaction_participants(session: AsyncSession, *, mess
                     "avatar_name": profile.get("avatar_name"),
                     "theme_color": profile.get("theme_color"),
                     "theme_icon": profile.get("theme_icon"),
+                    "role": profile.get("role"),
                     "deleted": _profile_deleted(profile),
                 },
             }
@@ -1706,6 +1707,7 @@ async def build_deleted_global_chat_message_preview(session: AsyncSession, *, me
             "avatar_name": author_profile.get("avatar_name"),
             "theme_color": author_profile.get("theme_color"),
             "theme_icon": author_profile.get("theme_icon"),
+            "role": author_profile.get("role"),
             "deleted": _profile_deleted(author_profile),
         },
     }

@@ -120,6 +120,7 @@ async def friends_list(room_id: int | None = None, ident: Identity = Depends(get
             users_map[uid_i] = {
                 "username": profile.get("username"),
                 "avatar_name": profile.get("avatar_name"),
+                "role": profile.get("role"),
                 "theme_color": profile.get("theme_color"),
                 "theme_icon": profile.get("theme_icon"),
                 "telegram_verified": bool(telegram_id),
@@ -266,6 +267,10 @@ async def friends_list(room_id: int | None = None, ident: Identity = Depends(get
         raw = (users_map.get(user_id) or {}).get("theme_color")
         return str(raw) if isinstance(raw, str) else None
 
+    def user_role(user_id: int) -> str | None:
+        raw = (users_map.get(user_id) or {}).get("role")
+        return str(raw) if isinstance(raw, str) else None
+
     def user_theme_icon(user_id: int) -> str | None:
         raw = (users_map.get(user_id) or {}).get("theme_icon")
         return str(raw) if isinstance(raw, str) else None
@@ -286,6 +291,7 @@ async def friends_list(room_id: int | None = None, ident: Identity = Depends(get
             id=int(fid),
             username=name,
             avatar_name=avatar,
+            role=user_role(fid),
             theme_color=user_theme_color(fid),
             theme_icon=user_theme_icon(fid),
             online=online,
@@ -318,6 +324,7 @@ async def friends_list(room_id: int | None = None, ident: Identity = Depends(get
             id=int(link.requester_id),
             username=user_username(int(link.requester_id)),
             avatar_name=user_avatar_name(int(link.requester_id)),
+            role=user_role(int(link.requester_id)),
             theme_color=user_theme_color(int(link.requester_id)),
             theme_icon=user_theme_icon(int(link.requester_id)),
             requested_at=link.created_at,
@@ -332,6 +339,7 @@ async def friends_list(room_id: int | None = None, ident: Identity = Depends(get
             id=int(link.addressee_id),
             username=user_username(int(link.addressee_id)),
             avatar_name=user_avatar_name(int(link.addressee_id)),
+            role=user_role(int(link.addressee_id)),
             theme_color=user_theme_color(int(link.addressee_id)),
             theme_icon=user_theme_icon(int(link.addressee_id)),
             requested_at=link.created_at,

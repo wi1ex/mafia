@@ -11,6 +11,7 @@ export type FriendListItem = {
   id: number
   username?: string
   avatar_name?: string | null
+  role?: string | null
   theme_color?: string | null
   theme_icon?: string | null
   online?: boolean

@@ -86,7 +86,9 @@
       <button class="card-head" :disabled="id === localId" :aria-disabled="id === localId" @click.stop="$emit('toggle-panel', id)" :aria-expanded="openPanel">
         <img v-if="seat != null && seatIcon" class="user-slot" :src="seatIcon" alt="seat" />
         <img class="user-avatar" v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar, lazy: false }" alt="avatar" />
-        <img v-if="profileThemeIconSrc" class="profile-theme-icon" :src="profileThemeIconSrc" alt="" aria-hidden="true" />
+        <span v-if="profileThemeIconSrcs.length" class="profile-theme-icons" aria-hidden="true">
+          <img v-for="badgeSrc in profileThemeIconSrcs" :key="badgeSrc" class="profile-theme-icon" :src="badgeSrc" alt="" />
+        </span>
         <span>{{ userName(id) }}</span>
         <div class="status" v-if="showHeaderStatus">
           <img v-if="showMicStatus" :src="micStatusIcon" alt="mic" />
@@ -155,7 +157,7 @@ import iconWink from '@/assets/svg/wink.svg'
 import iconKnock from '@/assets/svg/knock.svg'
 import iconProfile from '@/assets/svg/profile.svg'
 import { buildProfileThemeBgStyle } from '@/constants/profileThemes'
-import { getProfileThemeIconSrc } from '@/constants/profileThemeIcons'
+import { getProfileThemeBadgeSources } from '@/constants/profileThemeIcons'
 
 type IconKind = 'mic' | 'cam' | 'speakers' | 'visibility' | 'screen'
 
@@ -170,6 +172,7 @@ const props = withDefaults(defineProps<{
   defaultAvatar: string
   themeColor?: string | null
   themeIcon?: string | null
+  moderationRole?: string | null
   volumeIcon: string
   videoRef: (el: HTMLVideoElement | null) => void
   hasVideoTrack: (id: string) => boolean
@@ -290,6 +293,7 @@ const props = withDefaults(defineProps<{
   nightRemainingMs: 0,
   themeColor: null,
   themeIcon: null,
+  moderationRole: null,
   vol: 100,
 })
 
@@ -368,7 +372,7 @@ const timelineDurationSec = computed(() => {
 })
 
 const userCardStyle = computed(() => buildProfileThemeBgStyle(props.themeColor))
-const profileThemeIconSrc = computed(() => getProfileThemeIconSrc(props.themeIcon))
+const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(props.themeIcon, props.moderationRole))
 
 </script>
 
@@ -746,6 +750,12 @@ const profileThemeIconSrc = computed(() => getProfileThemeIconSrc(props.themeIco
         height: 24px;
         object-fit: contain;
       }
+      .profile-theme-icons {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        flex: 0 0 auto;
+      }
       span {
         flex: 1 1 auto;
         min-width: 0;
@@ -1042,6 +1052,9 @@ const profileThemeIconSrc = computed(() => getProfileThemeIconSrc(props.themeIco
         .profile-theme-icon {
           width: 14px;
           height: 14px;
+        }
+        .profile-theme-icons {
+          gap: 3px;
         }
         span {
           height: 12px;

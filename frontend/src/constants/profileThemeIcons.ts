@@ -1,3 +1,5 @@
+import moderProfileThemeIconSrc from '@/assets/svg/sub_moder_icon.svg'
+
 const PROFILE_THEME_ICON_ASSET_MODULES = import.meta.glob('@/assets/svg/sub_icon*.svg', { eager: true, query: '?url', import: 'default' })
 
 const PROFILE_THEME_ICON_ASSETS = Object.entries(PROFILE_THEME_ICON_ASSET_MODULES).reduce<Record<string, string>>((acc, [path, src]) => {
@@ -89,4 +91,16 @@ export function getProfileThemeIconOption(value: unknown): ProfileThemeIconOptio
 
 export function getProfileThemeIconSrc(value: unknown): string | null {
   return getProfileThemeIconOption(value)?.src || null
+}
+
+export function isModeratorProfileThemeRole(role: unknown): boolean {
+  return String(role || '').trim().toLowerCase() === 'moder'
+}
+
+export function getProfileThemeBadgeSources(value: unknown, role?: unknown): string[] {
+  const badges: string[] = []
+  const themeIconSrc = getProfileThemeIconSrc(value)
+  if (themeIconSrc) badges.push(themeIconSrc)
+  if (isModeratorProfileThemeRole(role) && moderProfileThemeIconSrc) badges.push(moderProfileThemeIconSrc)
+  return badges
 }

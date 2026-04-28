@@ -34,6 +34,7 @@
           :avatar-key="avatarKey"
           :theme-color="themeColorFor(id)"
           :theme-icon="themeIconFor(id)"
+          :moderation-role="moderationRol(id)"
           :can-moderate="canModerate"
           :speakers-on="speakersOn"
           :open-panel-for="openPanelFor"
@@ -152,6 +153,7 @@
             :avatar-key="avatarKey"
             :theme-color="themeColorFor(id)"
             :theme-icon="themeIconFor(id)"
+            :moderation-role="moderationRol(id)"
             :can-moderate="canModerate"
             :speakers-on="speakersOn"
             :open-panel-for="openPanelFor"
@@ -559,6 +561,7 @@ type RoomMiniProfileInitial = {
   id: number
   username?: string | null
   avatar_name?: string | null
+  role?: string | null
   theme_color?: string | null
   theme_icon?: string | null
 }
@@ -1071,6 +1074,7 @@ function openMiniProfileFromTile(id: string): void {
     id: uid,
     username: nameByUser.get(id) || null,
     avatar_name: avatarByUser.get(id) || null,
+    role: moderationRol(id),
     theme_color: themeColorFor(id),
     theme_icon: themeIconFor(id),
   }

@@ -15,6 +15,7 @@ class FriendsListItemOut(BaseModel):
     id: int
     username: Optional[str] = None
     avatar_name: Optional[str] = None
+    role: Optional[str] = None
     theme_color: Optional[str] = None
     theme_icon: Optional[str] = None
     online: Optional[bool] = None
