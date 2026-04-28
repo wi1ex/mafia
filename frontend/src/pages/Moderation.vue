@@ -59,6 +59,12 @@
                 </button>
               </th>
               <th>
+                <button class="th-sort" type="button" :class="{ active: usersSortBy === 'suspends_count' }" @click="setUsersSort('suspends_count')">
+                  Отстранения от игр
+                  <span class="th-sort-mark" aria-hidden="true">▼</span>
+                </button>
+              </th>
+              <th>
                 <button class="th-sort" type="button" :class="{ active: usersSortBy === 'timeouts_count' }" @click="setUsersSort('timeouts_count')">
                   Таймауты
                   <span class="th-sort-mark" aria-hidden="true">▼</span>
@@ -70,13 +76,8 @@
                   <span class="th-sort-mark" aria-hidden="true">▼</span>
                 </button>
               </th>
-              <th>
-                <button class="th-sort" type="button" :class="{ active: usersSortBy === 'suspends_count' }" @click="setUsersSort('suspends_count')">
-                  Отстранения от игр
-                  <span class="th-sort-mark" aria-hidden="true">▼</span>
-                </button>
-              </th>
               <th>Отстранить</th>
+              <th>Таймаут</th>
             </tr>
           </thead>
           <tbody>
@@ -92,6 +93,19 @@
               <td>{{ formatLocalDateTime(row.last_login_at) }}</td>
               <td>{{ formatLocalDateTime(row.last_visit_at) }}</td>
               <td>{{ formatLocalDateTime(row.last_game_at) }}</td>
+              <td>
+                <div class="tooltip" tabindex="0">
+                  <span class="tooltip-value">{{ row.suspends_count }}</span>
+                  <div class="tooltip-body">
+                    <div v-if="row.suspends.length === 0" class="tooltip-empty">Нет данных</div>
+                    <div v-else class="tooltip-list">
+                      <div v-for="item in row.suspends" :key="`suspend-${item.id}`" class="tooltip-row">
+                        {{ formatSanctionLine(item) }}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </td>
               <td>
                 <div class="tooltip" tabindex="0">
                   <span class="tooltip-value">{{ row.timeouts_count }}</span>
@@ -119,26 +133,18 @@
                 </div>
               </td>
               <td>
-                <div class="tooltip" tabindex="0">
-                  <span class="tooltip-value">{{ row.suspends_count }}</span>
-                  <div class="tooltip-body">
-                    <div v-if="row.suspends.length === 0" class="tooltip-empty">Нет данных</div>
-                    <div v-else class="tooltip-list">
-                      <div v-for="item in row.suspends" :key="`suspend-${item.id}`" class="tooltip-row">
-                        {{ formatSanctionLine(item) }}
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                <button class="btn" :class="row.suspend_active ? 'dark' : 'danger'" :disabled="isSanctionBusy(row.id, 'suspend')" @click="toggleSuspend(row)">
+                  <img class="btn-img" :src="row.suspend_active ? iconClose : iconJudge" alt="" />
+                </button>
               </td>
               <td>
-                <button class="btn" :class="row.suspend_active ? 'dark' : 'danger'" :disabled="isSanctionBusy(row.id)" @click="toggleSuspend(row)">
-                  <img class="btn-img" :src="row.suspend_active ? iconClose : iconJudge" alt="" />
+                <button class="btn" :class="row.timeout_active ? 'dark' : 'danger'" :disabled="isSanctionBusy(row.id, 'timeout')" @click="toggleTimeout(row)">
+                  <img class="btn-img" :src="row.timeout_active ? iconClose : iconJudge" alt="" />
                 </button>
               </td>
             </tr>
             <tr v-if="users.length === 0">
-              <td colspan="9" class="muted">Нет данных</td>
+              <td colspan="10" class="muted">Нет данных</td>
             </tr>
           </tbody>
         </table>
@@ -199,6 +205,8 @@ type UserRow = {
   last_login_at: string
   last_visit_at: string
   last_game_at?: string | null
+  timeout_active: boolean
+  timeout_until?: string | null
   suspend_active: boolean
   suspend_until?: string | null
   timeouts_count: number
@@ -226,12 +234,13 @@ const usersPage = ref(1)
 const usersLimit = ref(20)
 const usersUser = ref('')
 const usersSortBy = ref<UsersSortBy>('registered_at')
-const usersSanctionBusy = reactive<Record<number, boolean>>({})
+const usersSanctionBusy = reactive<Record<string, boolean>>({})
 let usersUserTimer: number | undefined
 
 const sanctionReasons = SANCTION_REASONS
 const sanctionModalOpen = ref(false)
 const sanctionSaving = ref(false)
+const sanctionKind = ref<'timeout' | 'suspend'>('suspend')
 const sanctionTarget = ref<UserRow | null>(null)
 const sanctionForm = reactive({
   months: 0,
@@ -254,7 +263,7 @@ const sanctionCanSave = computed(() => Boolean(sanctionForm.reason) && sanctionT
 const sanctionTitle = computed(() => {
   const target = sanctionTarget.value
   const label = target?.username || (target ? `user${target.id}` : 'пользователю')
-  return `Отстранение от игр: ${label}`
+  return sanctionKind.value === 'timeout' ? `Таймаут: ${label}` : `Отстранение от игр: ${label}`
 })
 
 function setUsersSort(sortBy: UsersSortBy): void {
@@ -296,12 +305,12 @@ function formatSanctionLine(item: SanctionRow): string {
   return `${issuedAt} • ${duration} • выдал: ${issuedBy} • ${end}`
 }
 
-function isSanctionBusy(userId: number): boolean {
-  return Boolean(usersSanctionBusy[userId])
+function isSanctionBusy(userId: number, kind: 'timeout' | 'suspend'): boolean {
+  return Boolean(usersSanctionBusy[`${userId}:${kind}`])
 }
 
-function setSanctionBusy(userId: number, value: boolean): void {
-  usersSanctionBusy[userId] = value
+function setSanctionBusy(userId: number, kind: 'timeout' | 'suspend', value: boolean): void {
+  usersSanctionBusy[`${userId}:${kind}`] = value
 }
 
 function resetSanctionForm(): void {
@@ -312,8 +321,9 @@ function resetSanctionForm(): void {
   sanctionForm.reason = DEFAULT_SANCTION_REASON
 }
 
-function openSuspend(row: UserRow): void {
+function openSanction(row: UserRow, kind: 'timeout' | 'suspend'): void {
   sanctionTarget.value = row
+  sanctionKind.value = kind
   resetSanctionForm()
   sanctionModalOpen.value = true
 }
@@ -334,6 +344,7 @@ async function loadUsers(): Promise<void> {
       ...item,
       avatar_name: item?.avatar_name ?? null,
       last_game_at: item?.last_game_at ?? null,
+      timeout_until: item?.timeout_until ?? null,
       suspend_until: item?.suspend_until ?? null,
       timeouts: Array.isArray(item?.timeouts) ? item.timeouts : [],
       bans: Array.isArray(item?.bans) ? item.bans : [],
@@ -351,8 +362,9 @@ async function saveSanction(): Promise<void> {
   const target = sanctionTarget.value
   if (!target || sanctionSaving.value || !sanctionCanSave.value) return
   sanctionSaving.value = true
+  const kind = sanctionKind.value
   try {
-    await api.post(`/moderation/users/${target.id}/suspend`, {
+    await api.post(`/moderation/users/${target.id}/${kind}`, {
       months: sanctionForm.months,
       days: sanctionForm.days,
       hours: sanctionForm.hours,
@@ -360,7 +372,7 @@ async function saveSanction(): Promise<void> {
       reason: sanctionForm.reason,
     })
     sanctionModalOpen.value = false
-    void alertDialog('Отстранение от игр выдано')
+    void alertDialog(kind === 'timeout' ? 'Таймаут выдан' : 'Отстранение от игр выдано')
     await loadUsers()
   } catch (e: any) {
     const st = e?.response?.status
@@ -370,27 +382,31 @@ async function saveSanction(): Promise<void> {
     } else if (st === 422 && d === 'duration_required') {
       void alertDialog('Укажите срок санкции')
     } else {
-      void alertDialog('Не удалось выдать отстранение от игр')
+      void alertDialog(kind === 'timeout' ? 'Не удалось выдать таймаут' : 'Не удалось выдать отстранение от игр')
     }
   } finally {
     sanctionSaving.value = false
   }
 }
 
-async function revokeSuspend(row: UserRow): Promise<void> {
-  if (isSanctionBusy(row.id)) return
+async function revokeSanction(row: UserRow, kind: 'timeout' | 'suspend'): Promise<void> {
+  if (isSanctionBusy(row.id, kind)) return
   const userLabel = row.username ? `${row.username}` : `#${row.id}`
+  const title = kind === 'timeout' ? 'Снять таймаут' : 'Снять отстранение от игр'
+  const text = kind === 'timeout'
+    ? `Снять таймаут у ${userLabel}?`
+    : `Снять отстранение от игр у ${userLabel}?`
   const ok = await confirmDialog({
-    title: 'Снять отстранение от игр',
-    text: `Снять отстранение от игр у ${userLabel}?`,
+    title,
+    text,
     confirmText: 'Снять',
     cancelText: 'Отмена',
   })
   if (!ok) return
-  setSanctionBusy(row.id, true)
+  setSanctionBusy(row.id, kind, true)
   try {
-    await api.delete(`/moderation/users/${row.id}/suspend`)
-    void alertDialog('Отстранение от игр снято')
+    await api.delete(`/moderation/users/${row.id}/${kind}`)
+    void alertDialog(kind === 'timeout' ? 'Таймаут снят' : 'Отстранение от игр снято')
     await loadUsers()
   } catch (e: any) {
     const st = e?.response?.status
@@ -398,19 +414,27 @@ async function revokeSuspend(row: UserRow): Promise<void> {
     if (st === 404 && d === 'sanction_not_found') {
       void alertDialog('Санкция не найдена')
     } else {
-      void alertDialog('Не удалось снять отстранение от игр')
+      void alertDialog(kind === 'timeout' ? 'Не удалось снять таймаут' : 'Не удалось снять отстранение от игр')
     }
   } finally {
-    setSanctionBusy(row.id, false)
+    setSanctionBusy(row.id, kind, false)
   }
 }
 
 async function toggleSuspend(row: UserRow): Promise<void> {
   if (row.suspend_active) {
-    await revokeSuspend(row)
+    await revokeSanction(row, 'suspend')
     return
   }
-  openSuspend(row)
+  openSanction(row, 'suspend')
+}
+
+async function toggleTimeout(row: UserRow): Promise<void> {
+  if (row.timeout_active) {
+    await revokeSanction(row, 'timeout')
+    return
+  }
+  openSanction(row, 'timeout')
 }
 
 function nextUsers(): void {

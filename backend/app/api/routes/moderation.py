@@ -18,8 +18,9 @@ from ...schemas.moderation import ModerationUserOut, ModerationUsersOut
 from ...realtime.sio import sio
 from ...security.auth_tokens import get_identity
 from ...security.decorators import log_route, require_roles_dep
-from ...services.global_chat import emit_global_chat_sanction_issued_notice
+from ...services.global_chat import emit_global_chat_sanction_issued_notice, emit_global_chat_sanction_removed_notice
 from ..utils import (
+    SANCTION_TIMEOUT,
     SANCTION_SUSPEND,
     admin_username_sort_key,
     build_admin_sanction_out,
@@ -31,7 +32,9 @@ from ..utils import (
     fetch_sanction_counts_for_users,
     fetch_sanctions_for_users,
     fetch_users_last_game_at,
+    force_leave_user_from_rooms,
     format_duration_parts,
+    format_duration_seconds_compact,
     is_sanction_active,
     moderation_user_sort_metric,
     normalize_pagination,
@@ -127,6 +130,7 @@ async def moderation_users_list(page: int = 1, limit: int = 20, username: str | 
         timeouts_raw = [row for row in user_sanctions if row.kind == "timeout"]
         bans_raw = [row for row in user_sanctions if row.kind == "ban"]
         suspends_raw = [row for row in user_sanctions if row.kind == SANCTION_SUSPEND]
+        active_timeout = next((row for row in timeouts_raw if is_sanction_active(row, now)), None)
         active_suspend = next((row for row in suspends_raw if is_sanction_active(row, now)), None)
         items.append(
             ModerationUserOut(
@@ -137,6 +141,8 @@ async def moderation_users_list(page: int = 1, limit: int = 20, username: str | 
                 last_login_at=user.last_login_at,
                 last_visit_at=user.last_visit_at,
                 last_game_at=last_game_at.get(uid),
+                timeout_active=active_timeout is not None,
+                timeout_until=active_timeout.expires_at if active_timeout else None,
                 suspend_active=active_suspend is not None,
                 suspend_until=active_suspend.expires_at if active_suspend else None,
                 timeouts_count=len(timeouts_raw),
@@ -149,6 +155,86 @@ async def moderation_users_list(page: int = 1, limit: int = 20, username: str | 
         )
 
     return ModerationUsersOut(total=total, items=items)
+
+
+@router.post("/users/{user_id}/timeout", response_model=Ok)
+@log_route("moderation.users.timeout_add")
+async def moderation_apply_user_timeout(user_id: int, payload: AdminSanctionTimedIn, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
+    user = await get_moderation_target_user(session, user_id)
+    uid = cast(int, user.id)
+    active = await fetch_active_sanction(session, uid, SANCTION_TIMEOUT)
+    if active:
+        raise HTTPException(status_code=409, detail="sanction_active")
+
+    months = int(payload.months or 0)
+    days = int(payload.days or 0)
+    hours = int(payload.hours or 0)
+    minutes = int(payload.minutes or 0)
+    duration_seconds = compute_duration_seconds(months, days, hours, minutes)
+    if duration_seconds <= 0:
+        raise HTTPException(status_code=422, detail="duration_required")
+
+    reason = payload.reason.strip()
+    if not reason:
+        raise HTTPException(status_code=422, detail="reason_required")
+
+    now = datetime.now(timezone.utc)
+    expires_at = now + timedelta(seconds=duration_seconds)
+    duration_label = format_duration_parts(months, days, hours, minutes)
+
+    sanction = UserSanction(
+        user_id=uid,
+        telegram_id_snapshot=user.telegram_id,
+        kind=SANCTION_TIMEOUT,
+        reason=reason,
+        issued_at=now,
+        issued_by_id=int(ident["id"]),
+        issued_by_name=ident["username"],
+        duration_seconds=duration_seconds,
+        expires_at=expires_at,
+    )
+    note = Notif(
+        user_id=uid,
+        title="Таймаут",
+        text=f"Вам выдан таймаут на {duration_label}. Причина: {reason}",
+    )
+    session.add(sanction)
+    session.add(note)
+    await session.commit()
+    await session.refresh(note)
+
+    with suppress(Exception):
+        await emit_notify(uid, note, kind="sanction")
+    with suppress(Exception):
+        await maybe_send_sanction_telegram_if_offline(session, user_id=uid, telegram_id=user.telegram_id, note=note)
+    with suppress(Exception):
+        await emit_sanctions_update(session, uid)
+    with suppress(Exception):
+        await emit_global_chat_sanction_issued_notice(
+            session,
+            actor_user_id=int(ident["id"]),
+            target_user_id=uid,
+            target_username=user.username,
+            kind=SANCTION_TIMEOUT,
+            reason=reason,
+            duration_label=duration_label,
+        )
+    with suppress(Exception):
+        await force_leave_user_from_rooms(uid, reason="sanction_timeout")
+
+    details = f"TIMEOUT user_id={uid}"
+    if user.username:
+        details += f" username={user.username}"
+    details += f" duration={duration_label} reason={reason} panel=moderation actor_role={ident['role']}"
+    await log_action(
+        session,
+        user_id=int(ident["id"]),
+        username=ident["username"],
+        action="sanction_timeout_add",
+        details=details,
+    )
+
+    return Ok()
 
 
 @router.post("/users/{user_id}/suspend", response_model=Ok)
@@ -238,6 +324,66 @@ async def moderation_apply_user_suspend(user_id: int, payload: AdminSanctionTime
         user_id=int(ident["id"]),
         username=ident["username"],
         action="sanction_suspend_add",
+        details=details,
+    )
+
+    return Ok()
+
+
+@router.delete("/users/{user_id}/timeout", response_model=Ok)
+@log_route("moderation.users.timeout_remove")
+async def moderation_revoke_user_timeout(user_id: int, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
+    user = await get_moderation_target_user(session, user_id)
+    uid = cast(int, user.id)
+    active = await fetch_active_sanction(session, uid, SANCTION_TIMEOUT)
+    if not active:
+        raise HTTPException(status_code=404, detail="sanction_not_found")
+
+    now = datetime.now(timezone.utc)
+    remaining_duration_label = None
+    if active.expires_at is not None:
+        remaining_seconds = int((active.expires_at - now).total_seconds())
+        if remaining_seconds > 0:
+            remaining_duration_label = format_duration_seconds_compact(remaining_seconds)
+    active.revoked_at = now
+    active.revoked_by_id = int(ident["id"])
+    active.revoked_by_name = ident["username"]
+    note = Notif(
+        user_id=uid,
+        title="Таймаут снят",
+        text="Ваш таймаут снят досрочно. Доступ к комнатам восстановлен.",
+    )
+    session.add(note)
+    await session.commit()
+    await session.refresh(note)
+
+    with suppress(Exception):
+        await emit_notify(uid, note, kind="sanction")
+    with suppress(Exception):
+        await maybe_send_sanction_telegram_if_offline(session, user_id=uid, telegram_id=user.telegram_id, note=note)
+    with suppress(Exception):
+        await emit_sanctions_update(session, uid)
+    with suppress(Exception):
+        await emit_global_chat_sanction_removed_notice(
+            session,
+            actor_user_id=int(ident["id"]),
+            target_user_id=uid,
+            target_username=user.username,
+            kind=SANCTION_TIMEOUT,
+            reason=active.reason or "",
+            source="moder" if str(ident["role"]) == "moder" else "admin",
+            remaining_duration_label=remaining_duration_label,
+        )
+
+    details = f"Снятие таймаута user_id={uid}"
+    if user.username:
+        details += f" username={user.username}"
+    details += f" panel=moderation actor_role={ident['role']}"
+    await log_action(
+        session,
+        user_id=int(ident["id"]),
+        username=ident["username"],
+        action="sanction_timeout_remove",
         details=details,
     )
 
