@@ -34,9 +34,9 @@
                 <button class="message-meta-author" :class="{ 'author-trigger': canOpenAuthorMiniProfile(message) }" type="button"
                         :disabled="!canOpenAuthorMiniProfile(message)" @click="openAuthorMiniProfile(message)">
                   <img class="author-avatar" v-minio-img="{ key: message.author.avatar_name ? `avatars/${message.author.avatar_name}` : '', placeholder: defaultAvatar, lazy: false, animated: true }" alt="Аватар автора" />
-                  <span v-if="profileThemeIconSrcs(message.author.theme_icon, message.author.role).length" class="profile-theme-icons" aria-hidden="true">
+                  <div v-if="profileThemeIconSrcs(message.author.theme_icon, message.author.role).length" class="profile-theme-icons" aria-hidden="true">
                     <img v-for="badgeSrc in profileThemeIconSrcs(message.author.theme_icon, message.author.role)" :key="`${message.author.id}-${badgeSrc}`" class="profile-theme-icon" :src="badgeSrc" alt="" />
-                  </span>
+                  </div>
                   <span class="author-name">{{ message.author.username || (`user${message.author.id}`) }}</span>
                 </button>
                 <span class="message-time">{{ formatMessageTime(message.created_at) }}</span>
@@ -92,9 +92,9 @@
                     <template v-else-if="reactionParticipantsFor(message.id, reaction.emoji).length > 0">
                       <div v-for="participant in reactionParticipantsFor(message.id, reaction.emoji)" :key="`${participant.user.id}-${participant.created_at}`" class="reaction-details-item">
                         <img class="reaction-details-avatar" v-minio-img="{ key: participant.user.avatar_name ? `avatars/${participant.user.avatar_name}` : '', placeholder: defaultAvatar, lazy: false, animated: true }" alt="Аватар" />
-                        <span v-if="profileThemeIconSrcs(participant.user.theme_icon, participant.user.role).length" class="profile-theme-icons" aria-hidden="true">
+                        <div v-if="profileThemeIconSrcs(participant.user.theme_icon, participant.user.role).length" class="profile-theme-icons" aria-hidden="true">
                           <img v-for="badgeSrc in profileThemeIconSrcs(participant.user.theme_icon, participant.user.role)" :key="`${participant.user.id}-${participant.created_at}-${badgeSrc}`" class="profile-theme-icon" :src="badgeSrc" alt="" />
-                        </span>
+                        </div>
                         <div class="reaction-details-meta">
                           <span class="reaction-details-name">{{ participant.user.username || (`user${participant.user.id}`) }}</span>
                           <small class="reaction-details-time">{{ formatMessageTime(participant.created_at) }}</small>
@@ -228,9 +228,9 @@
           <div class="deleted-preview-body">
             <div class="deleted-preview-author">
               <img class="deleted-preview-avatar" v-minio-img="{ key: deletedPreview.author.avatar_name ? `avatars/${deletedPreview.author.avatar_name}` : '', placeholder: defaultAvatar, lazy: false, animated: true }" alt="Аватар автора" />
-              <span v-if="profileThemeIconSrcs(deletedPreview.author.theme_icon, deletedPreview.author.role).length" class="profile-theme-icons" aria-hidden="true">
+              <div v-if="profileThemeIconSrcs(deletedPreview.author.theme_icon, deletedPreview.author.role).length" class="profile-theme-icons" aria-hidden="true">
                 <img v-for="badgeSrc in profileThemeIconSrcs(deletedPreview.author.theme_icon, deletedPreview.author.role)" :key="`${deletedPreview.author.id}-${badgeSrc}`" class="profile-theme-icon" :src="badgeSrc" alt="" />
-              </span>
+              </div>
               <span>{{ deletedPreview.author.username || (`user${deletedPreview.author.id}`) }}</span>
             </div>
 

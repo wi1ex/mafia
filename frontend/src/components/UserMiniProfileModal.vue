@@ -10,9 +10,9 @@
                 <img ref="avatarImageEl" class="profile-avatar" v-minio-img="{ key: avatarKey, placeholder: defaultAvatar, lazy: false, animated: true }" alt="avatar" />
               </button>
               <div class="profile-icon-name">
-                <span v-if="profileThemeIconSrcs.length" class="profile-theme-icons" aria-hidden="true">
+                <div v-if="profileThemeIconSrcs.length" class="profile-theme-icons" aria-hidden="true">
                   <img v-for="badgeSrc in profileThemeIconSrcs" :key="badgeSrc" class="profile-theme-icon" :src="badgeSrc" alt="" />
-                </span>
+                </div>
                 <div class="profile-title">
                   <span class="profile-name">{{ displayName }}</span>
                 </div>

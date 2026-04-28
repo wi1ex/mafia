@@ -76,9 +76,9 @@
       <div class="user-menu" ref="userMenuEl">
         <button class="btn" :class="{ 'has-profile-theme': hasUserMenuProfileTheme }" type="button" :style="userMenuButtonStyle" @click.stop="onToggleUserMenu" :aria-expanded="um_open" aria-haspopup="true">
           <img v-minio-img="{ key: user.user?.avatar_name ? `avatars/${user.user.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="Аватар" class="avatar" />
-          <span v-if="userMenuProfileIconSrcs.length" class="profile-theme-icons" aria-hidden="true">
+          <div v-if="userMenuProfileIconSrcs.length" class="profile-theme-icons" aria-hidden="true">
             <img v-for="badgeSrc in userMenuProfileIconSrcs" :key="badgeSrc" class="profile-theme-icon" :src="badgeSrc" alt="" />
-          </span>
+          </div>
           <span aria-live="polite">{{ user.user?.username || 'User' }}</span>
           <img class="arrow" :src="iconArrowDown" alt="arrow" :style="{ transform: um_open ? 'rotate(180deg)' : 'none'}" />
         </button>

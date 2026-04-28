@@ -872,9 +872,9 @@
                   <td>
                     <div class="subscription-theme-preview">
                       <span class="subscription-theme-chip" :style="subscriptionThemeStyle(row.profile_theme_color)"></span>
-                      <span v-if="subscriptionThemeIconSrcs(row.profile_theme_icon, row.role).length" class="subscription-theme-icons" aria-hidden="true">
+                      <div v-if="subscriptionThemeIconSrcs(row.profile_theme_icon, row.role).length" class="subscription-theme-icons" aria-hidden="true">
                         <img v-for="badgeSrc in subscriptionThemeIconSrcs(row.profile_theme_icon, row.role)" :key="`${row.user_id}-${badgeSrc}`" class="subscription-theme-icon" :src="badgeSrc" alt="" />
-                      </span>
+                      </div>
                     </div>
                   </td>
                   <td>

@@ -21,9 +21,9 @@
             <article v-for="f in section.items" :key="`${f.kind}-${f.id}`" class="item" :style="friendItemStyle(f)">
               <button class="left profile-trigger" type="button" @click="openMiniProfile(f)">
                 <img v-minio-img="{ key: f.avatar_name ? `avatars/${f.avatar_name}` : '', placeholder: defaultAvatar, lazy: false, animated: true }" alt="avatar" />
-                <span v-if="friendThemeIconSrcs(f).length" class="profile-theme-icons" aria-hidden="true">
+                <div v-if="friendThemeIconSrcs(f).length" class="profile-theme-icons" aria-hidden="true">
                   <img v-for="badgeSrc in friendThemeIconSrcs(f)" :key="`${f.id}-${badgeSrc}`" class="profile-theme-icon" :src="badgeSrc" alt="" />
-                </span>
+                </div>
                 <span class="nick">{{ f.username || ('user' + f.id) }}</span>
               </button>
               <div class="info">
