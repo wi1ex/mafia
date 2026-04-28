@@ -64,7 +64,7 @@
                 </th>
                 <th>
                   <button class="th-sort" type="button" :class="{ active: usersSortBy === 'suspends_count' }" @click="setUsersSort('suspends_count')">
-                    Отстранения от игр
+                    Отстранения
                     <span class="th-sort-mark" aria-hidden="true">▼</span>
                   </button>
                 </th>
@@ -87,11 +87,11 @@
             <tbody>
               <tr v-for="row in users" :key="row.id">
                 <td>
-                  <div v-if="row.username" class="user-cell">
+                  <div class="user-cell">
                     <img class="user-avatar" v-minio-img="{ key: row.avatar_name ? `avatars/${row.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
-                    <span>{{ row.username }}</span>
+                    <button v-if="canOpenModerationUserMiniProfile(row)" class="user-link" type="button" @click="openUserMiniProfile(row)">{{ row.username || `user${row.id}` }}</button>
+                    <span v-else>{{ row.username || '-' }}</span>
                   </div>
-                  <span v-else>-</span>
                 </td>
                 <td>{{ formatLocalDateTime(row.registered_at) }}</td>
                 <td>{{ formatLocalDateTime(row.last_login_at) }}</td>
@@ -201,7 +201,9 @@
                   </div>
                 </td>
                 <td>{{ formatSanctionKindLabel(row.kind) }}</td>
-                <td>{{ formatSanctionStatusLabel(row.status) }}</td>
+                <td>
+                  <span class="status-badge" :class="sanctionStatusClass(row.status)">{{ formatSanctionStatusLabel(row.status) }}</span>
+                </td>
                 <td>{{ formatLocalDateTime(row.issued_at) }}</td>
                 <td>{{ row.finished_at ? formatLocalDateTime(row.finished_at) : '-' }}</td>
                 <td>{{ row.issued_by_display }}</td>
@@ -439,6 +441,12 @@ function formatSanctionStatusLabel(status: SanctionListStatus): string {
   return 'Снята'
 }
 
+function sanctionStatusClass(status: SanctionListStatus): string {
+  if (status === 'active') return 'status-active'
+  if (status === 'expired_auto') return 'status-expired'
+  return 'status-revoked'
+}
+
 function isSanctionBusy(userId: number, kind: 'timeout' | 'suspend'): boolean {
   return Boolean(usersSanctionBusy[`${userId}:${kind}`])
 }
@@ -455,6 +463,10 @@ function getPositiveUserId(value: unknown): number {
 function openUserMiniProfile(row: UserMiniProfileTarget): void {
   userMiniProfileTarget.value = row
   userMiniProfileOpen.value = true
+}
+
+function canOpenModerationUserMiniProfile(row: UserRow): boolean {
+  return getPositiveUserId(row.id) > 0
 }
 
 function canOpenSanctionUserMiniProfile(row: SanctionsRow): boolean {
@@ -868,7 +880,7 @@ onBeforeUnmount(() => {
     .user-cell {
       display: inline-flex;
       align-items: center;
-      gap: 10px;
+      gap: 5px;
       .user-link {
         padding: 0;
         border: none;
@@ -947,6 +959,28 @@ onBeforeUnmount(() => {
     max-width: 520px;
     white-space: pre-wrap;
     word-break: break-word;
+  }
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-family: Manrope-SemiBold;
+    line-height: 1;
+    white-space: nowrap;
+    &.status-active {
+      background-color: rgba($green, 0.25);
+      color: $green;
+    }
+    &.status-expired {
+      background-color: rgba($yellow, 0.25);
+      color: $yellow;
+    }
+    &.status-revoked {
+      background-color: rgba($red, 0.25);
+      color: $red;
+    }
   }
   .pager {
     margin-top: 10px;

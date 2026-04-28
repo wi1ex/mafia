@@ -846,7 +846,9 @@
                     </div>
                   </td>
                   <td>{{ formatSanctionKindLabel(row.kind) }}</td>
-                  <td>{{ formatSanctionStatusLabel(row.status) }}</td>
+                  <td>
+                    <span class="status-badge" :class="sanctionStatusClass(row.status)">{{ formatSanctionStatusLabel(row.status) }}</span>
+                  </td>
                   <td>{{ formatLocalDateTime(row.issued_at) }}</td>
                   <td>{{ row.finished_at ? formatLocalDateTime(row.finished_at) : '-' }}</td>
                   <td>{{ row.issued_by_display }}</td>
@@ -1726,6 +1728,12 @@ function formatSanctionStatusLabel(status: SanctionListStatus): string {
   if (status === 'active') return 'Активна'
   if (status === 'expired_auto') return 'Истекла'
   return 'Снята'
+}
+
+function sanctionStatusClass(status: SanctionListStatus): string {
+  if (status === 'active') return 'status-active'
+  if (status === 'expired_auto') return 'status-expired'
+  return 'status-revoked'
 }
 
 function isSanctionBusy(userId: number, kind: 'timeout' | 'ban' | 'suspend'): boolean {
@@ -3347,6 +3355,28 @@ onMounted(() => {
       max-width: 520px;
       white-space: pre-wrap;
       word-break: break-word;
+    }
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 5px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-family: Manrope-SemiBold;
+      line-height: 1;
+      white-space: nowrap;
+      &.status-active {
+        background-color: rgba($green, 0.25);
+        color: $green;
+      }
+      &.status-expired {
+        background-color: rgba($yellow, 0.25);
+        color: $yellow;
+      }
+      &.status-revoked {
+        background-color: rgba($red, 0.25);
+        color: $red;
+      }
     }
     .subscriptions-tab {
       .block {

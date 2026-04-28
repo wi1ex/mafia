@@ -228,7 +228,7 @@
         <div v-else-if="activeTab === 'sanctions'" class="grid grid-sanctions">
           <div class="block sanctions-block">
             <div class="sanctions-head">
-              <h3>История все выданных ранее отстранений от игр, таймаутов и банов</h3>
+              <h3>История отстранений от игр, таймаутов и банов</h3>
             </div>
             <div v-if="sanctionsLoaded" class="sanctions-summary">
               <span>Всего: {{ sanctionsSummary.total }}</span>
