@@ -951,6 +951,7 @@
       :saving="sanctionSaving"
       :can-save="sanctionCanSave"
       :show-duration="sanctionKind !== 'ban'"
+      :show-minutes="false"
       :form="sanctionForm"
       :reasons="sanctionReasons"
       @save="saveSanction"

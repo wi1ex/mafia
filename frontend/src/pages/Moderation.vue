@@ -232,6 +232,7 @@
       :saving="sanctionSaving"
       :can-save="sanctionCanSave"
       :show-duration="true"
+      :show-minutes="false"
       :form="sanctionForm"
       :reasons="sanctionReasons"
       @save="saveSanction"

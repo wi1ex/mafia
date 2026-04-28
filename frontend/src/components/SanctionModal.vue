@@ -11,11 +11,11 @@
             </button>
           </header>
           <div class="modal-body">
-            <div v-if="showDuration" class="grid">
+            <div v-if="showDuration" class="grid" :class="{ 'grid--compact': !showMinutes }">
               <UiInput id="sanction-months" v-model.number="form.months" type="number" min="0" autocomplete="off" label="Месяцы" />
               <UiInput id="sanction-days" v-model.number="form.days" type="number" min="0" autocomplete="off" label="Дни" />
               <UiInput id="sanction-hours" v-model.number="form.hours" type="number" min="0" autocomplete="off" label="Часы" />
-              <UiInput id="sanction-minutes" v-model.number="form.minutes" type="number" min="0" autocomplete="off" label="Минуты" />
+              <UiInput v-if="showMinutes" id="sanction-minutes" v-model.number="form.minutes" type="number" min="0" autocomplete="off" label="Минуты" />
             </div>
             <div class="select-field" :class="{ filled: Boolean(form.reason) }">
               <select id="sanction-reason" v-model="form.reason">
@@ -49,6 +49,7 @@ withDefaults(defineProps<{
   saving: boolean
   canSave: boolean
   showDuration?: boolean
+  showMinutes?: boolean
   reasons: { value: string; label: string }[]
   form: {
     months: number
@@ -59,6 +60,7 @@ withDefaults(defineProps<{
   }
 }>(), {
   showDuration: true,
+  showMinutes: true,
 })
 
 const emit = defineEmits<{
@@ -157,6 +159,9 @@ function close() {
         display: grid;
         grid-template-columns: repeat(4, minmax(0, 1fr));
         gap: 10px;
+        &--compact {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
       }
     }
     .select-field {
