@@ -1741,7 +1741,7 @@ onBeforeUnmount(() => {
             .profile-theme-icons {
               display: inline-flex;
               align-items: center;
-              gap: 5px;
+              gap: 3px;
               flex: 0 0 auto;
             }
             .author-name {
@@ -1938,7 +1938,7 @@ onBeforeUnmount(() => {
                 .profile-theme-icons {
                   display: inline-flex;
                   align-items: center;
-                  gap: 5px;
+                  gap: 3px;
                   flex: 0 0 auto;
                 }
                 .reaction-details-meta {
@@ -2348,7 +2348,7 @@ onBeforeUnmount(() => {
         .profile-theme-icons {
           display: inline-flex;
           align-items: center;
-          gap: 5px;
+          gap: 3px;
           flex: 0 0 auto;
         }
         span {
@@ -2538,9 +2538,6 @@ onBeforeUnmount(() => {
               .profile-theme-icon {
                 width: 16px;
                 height: 16px;
-              }
-              .profile-theme-icons {
-                gap: 3px;
               }
               .author-name {
                 font-size: 12px;

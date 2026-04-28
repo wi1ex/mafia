@@ -500,7 +500,7 @@ onBeforeUnmount(() => {
         .profile-theme-icons {
           display: inline-flex;
           align-items: center;
-          gap: 5px;
+          gap: 3px;
           flex: 0 0 auto;
         }
         .nick {
@@ -665,9 +665,6 @@ onBeforeUnmount(() => {
           .profile-theme-icon {
             border-radius: 0;
             object-fit: contain;
-          }
-          .profile-theme-icons {
-            gap: 3px;
           }
           .nick {
             font-size: 12px;

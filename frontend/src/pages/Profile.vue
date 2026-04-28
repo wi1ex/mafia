@@ -63,9 +63,9 @@
               <div class="theme-preview-grid">
                 <div class="theme-preview-card" :style="themePreviewStyle">
                   <img class="theme-preview-avatar" v-minio-img="{ key: me.avatar_name ? `avatars/${me.avatar_name}` : '', placeholder: defaultAvatar, lazy: false, animated: true }" alt="avatar" />
-                  <span v-if="themePreviewIconSrcs.length" class="theme-preview-icons" aria-hidden="true">
+                  <div v-if="themePreviewIconSrcs.length" class="theme-preview-icons" aria-hidden="true">
                     <img v-for="badgeSrc in themePreviewIconSrcs" :key="badgeSrc" class="theme-preview-icon" :src="badgeSrc" alt="" />
-                  </span>
+                  </div>
                   <span>{{ me.username || 'User' }}</span>
                 </div>
               </div>

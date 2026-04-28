@@ -3480,9 +3480,6 @@ onMounted(() => {
           width: 24px;
           height: 24px;
         }
-        .subscription-theme-icons {
-          gap: 3px;
-        }
       }
     }
   }
