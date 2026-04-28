@@ -9,6 +9,7 @@ class ModerationUserOut(BaseModel):
     id: int
     username: Optional[str] = None
     avatar_name: Optional[str] = None
+    role: str
     registered_at: datetime
     last_login_at: datetime
     last_visit_at: datetime

@@ -8,7 +8,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ...core.clients import get_redis
 from ...core.db import get_session
 from ...core.logging import log_action
-from ...core.roles import ROLE_USER
 from ...models.notif import Notif
 from ...models.sanction import UserSanction
 from ...models.user import User
@@ -58,7 +57,7 @@ async def moderation_users_list(page: int = 1, limit: int = 20, username: str | 
     limit, page, offset = normalize_pagination(page, limit)
     sort_key = normalize_moderation_users_sort(sort_by)
 
-    filters = [User.deleted_at.is_(None), User.role == ROLE_USER]
+    filters = [User.deleted_at.is_(None)]
     if username:
         needle = username.lower()
         filters.append(func.lower(User.username).contains(needle, autoescape=True))
@@ -143,6 +142,7 @@ async def moderation_users_list(page: int = 1, limit: int = 20, username: str | 
                 id=uid,
                 username=user.username,
                 avatar_name=user.avatar_name,
+                role=str(user.role),
                 registered_at=user.registered_at,
                 last_login_at=user.last_login_at,
                 last_visit_at=user.last_visit_at,

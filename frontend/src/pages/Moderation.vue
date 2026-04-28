@@ -137,12 +137,12 @@
                   </div>
                 </td>
                 <td>
-                  <button class="btn" :class="row.suspend_active ? 'dark' : 'danger'" :disabled="isSanctionBusy(row.id, 'suspend')" @click="toggleSuspend(row)">
+                  <button class="btn" :class="row.suspend_active ? 'dark' : 'danger'" :disabled="!canModerateUser(row) || isSanctionBusy(row.id, 'suspend')" @click="toggleSuspend(row)">
                     <img class="btn-img" :src="row.suspend_active ? iconClose : iconJudge" alt="" />
                   </button>
                 </td>
                 <td>
-                  <button class="btn" :class="row.timeout_active ? 'dark' : 'danger'" :disabled="isSanctionBusy(row.id, 'timeout')" @click="toggleTimeout(row)">
+                  <button class="btn" :class="row.timeout_active ? 'dark' : 'danger'" :disabled="!canModerateUser(row) || isSanctionBusy(row.id, 'timeout')" @click="toggleTimeout(row)">
                     <img class="btn-img" :src="row.timeout_active ? iconClose : iconJudge" alt="" />
                   </button>
                 </td>
@@ -304,6 +304,7 @@ type UserRow = {
   id: number
   username?: string | null
   avatar_name?: string | null
+  role: string
   registered_at: string
   last_login_at: string
   last_visit_at: string
@@ -469,6 +470,10 @@ function canOpenModerationUserMiniProfile(row: UserRow): boolean {
   return getPositiveUserId(row.id) > 0
 }
 
+function canModerateUser(row: UserRow): boolean {
+  return String(row.role || '') === 'user'
+}
+
 function canOpenSanctionUserMiniProfile(row: SanctionsRow): boolean {
   return getPositiveUserId(row.user_id) > 0
 }
@@ -518,6 +523,7 @@ async function loadUsers(): Promise<void> {
     users.value = items.map((item: any) => ({
       ...item,
       avatar_name: item?.avatar_name ?? null,
+      role: String(item?.role || ''),
       last_game_at: item?.last_game_at ?? null,
       timeout_until: item?.timeout_until ?? null,
       suspend_until: item?.suspend_until ?? null,
