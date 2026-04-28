@@ -828,11 +828,11 @@
                   <th>Тип санкции</th>
                   <th>Статус</th>
                   <th>Дата выдачи</th>
-                  <th>Дата истечения или снятия</th>
+                  <th>Дата окончания</th>
                   <th>Кем выдана</th>
                   <th>Кем снята</th>
-                  <th>Срок при выдаче</th>
-                  <th>Реально пройденный срок</th>
+                  <th>Срок изначальный</th>
+                  <th>Срок по факту</th>
                   <th>Пункт правил</th>
                 </tr>
               </thead>
@@ -1717,7 +1717,7 @@ function formatSanctionKindLabel(kind: 'timeout' | 'ban' | 'suspend'): string {
 
 function formatSanctionStatusLabel(status: SanctionListStatus): string {
   if (status === 'active') return 'Активна'
-  if (status === 'expired_auto') return 'Истекла автоматически'
+  if (status === 'expired_auto') return 'Истекла'
   return 'Снята'
 }
 

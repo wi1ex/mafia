@@ -406,7 +406,7 @@ function formatSanctionKindLabel(kind: 'timeout' | 'ban' | 'suspend'): string {
 
 function formatSanctionStatusLabel(status: SanctionListStatus): string {
   if (status === 'active') return 'Активна'
-  if (status === 'expired_auto') return 'Истекла автоматически'
+  if (status === 'expired_auto') return 'Истекла'
   return 'Снята'
 }
 
