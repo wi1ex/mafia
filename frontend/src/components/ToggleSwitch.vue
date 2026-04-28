@@ -35,8 +35,8 @@ const emit = defineEmits<{
   (e: 'change', value: boolean): void
 }>()
 
-const offLabel = computed(() => props.offLabel ?? 'РћС‚РєР»')
-const onLabel = computed(() => props.onLabel ?? 'Р’РєР»')
+const offLabel = computed(() => props.offLabel ?? 'Откл')
+const onLabel = computed(() => props.onLabel ?? 'Вкл')
 const widthPx = computed(() => `${Number.isFinite(props.width) && props.width ? props.width : 170}px`)
 const switchStyle = computed<Record<string, string>>(() => ({ '--switch-width': widthPx.value }))
 
