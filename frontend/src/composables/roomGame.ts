@@ -192,6 +192,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   nightResultClearedDay.value = loadNightResultCleared()
   const myNightShotTarget = ref<string>('')
   const myNightCheckTarget = ref<string>('')
+  const myPrivateRoleKind = ref<GameRoleKind | null>(null)
   const nightKnownByMe = reactive(new Map<string, GameRoleKind>())
   const nightCheckedByMe = reactive(new Set<string>())
   const headNightPicks = reactive(new Map<string, number>())
@@ -202,9 +203,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   })
 
   const myGameRoleKind = computed<GameRoleKind | null>(() => {
-    const id = localId.value
-    if (!id) return null
-    return gameRolesByUser.get(id) ?? null
+    return myPrivateRoleKind.value
   })
 
   const myGameRole = computed<'head' | 'player' | 'none'>(() => {
@@ -924,7 +923,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     if (!me) return false
     if (gameFinished.value) return true
     if (!knownRolesVisible.value) return false
-    const myRole = gameRolesByUser.get(me) as GameRoleKind | undefined
+    const myRole = myGameRoleKind.value
     const isSelf = id === me
     if (isSelf) return true
     if (isHead.value && rolesVisibleForHead.value) return true
@@ -964,6 +963,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       roleOverlayTimerId.value = null
     }
     gameRolesByUser.clear()
+    myPrivateRoleKind.value = null
     rolesVisibleForHead.value = false
     gameFoulsByUser.clear()
     farewellLimits.clear()
@@ -998,10 +998,8 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
 
   function nightKnownRoleIconForTile(id: string): string {
     if (gamePhase.value === 'idle') return ''
-    const me = localId.value
-    if (!me) return ''
     if (!knownRolesVisible.value) return ''
-    const myRole = gameRolesByUser.get(me)
+    const myRole = myGameRoleKind.value
     if (myRole !== 'don' && myRole !== 'sheriff') return ''
     const rr = nightKnownByMe.get(id)
     if (!rr) return ''
@@ -1125,6 +1123,12 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     return String(raw || '') === 'head' ? 'head' : 'players'
   }
 
+  function normalizeGameRoleKind(raw: any): GameRoleKind | null {
+    const role = String(raw || '')
+    if (role === 'citizen' || role === 'mafia' || role === 'don' || role === 'sheriff') return role
+    return null
+  }
+
   function applyFromJoinAck(join: any, snapshotIds?: string[]) {
     const gr = join?.game_runtime || {}
     nominateMode.value = normalizeNominateMode((gr as any).nominate_mode)
@@ -1165,6 +1169,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     for (const [uid, role] of Object.entries(grRoles)) {
       gameRolesByUser.set(String(uid), role as GameRoleKind)
     }
+    myPrivateRoleKind.value = normalizeGameRoleKind(join?.my_game_role)
     syncGameFouls(join?.game_fouls)
     deathReasonByUser.clear()
     const deathsRaw = join?.game_deaths || {}
@@ -1520,6 +1525,8 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       for (const [uid, role] of Object.entries(roles)) {
         gameRolesByUser.set(String(uid), role as GameRoleKind)
       }
+      const myRole = localId.value ? normalizeGameRoleKind((roles as Record<string, unknown>)[localId.value]) : null
+      if (myRole) myPrivateRoleKind.value = myRole
       rolesVisibleForHead.value = true
     }
   }
@@ -1582,6 +1589,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     if (!uid || !role) return
     gameRolesByUser.set(uid, role as GameRoleKind)
     if (uid === localId.value) {
+      myPrivateRoleKind.value = normalizeGameRoleKind(role)
       knownRolesVisible.value = true
       roleOverlayMode.value = 'reveal'
       roleOverlayCard.value = Number(p?.card || 0) || null
@@ -2299,7 +2307,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     if (!amIAlive.value) return false
     const me = localId.value
     if (!me) return false
-    const myRole = gameRolesByUser.get(me)
+    const myRole = myGameRoleKind.value
     if (myRole !== 'mafia' && myRole !== 'don') return false
     if (myNightShotTarget.value) return false
     return gamePlayers.has(targetId)
@@ -2314,7 +2322,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     const me = localId.value
     if (!me) return false
     if (targetId === me) return false
-    const myRole = gameRolesByUser.get(me)
+    const myRole = myGameRoleKind.value
     if (myRole !== 'don' && myRole !== 'sheriff') return false
     if (nightCheckObjectiveComplete(myRole)) return false
     if (myNightCheckTarget.value) return false
@@ -2932,10 +2940,8 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     const role = gameRolesByUser.get(id)
     if (!role) return false
     if (role !== 'mafia' && role !== 'don') return false
-    const me = localId.value
-    if (!me) return false
-    const myRoleKind = gameRolesByUser.get(me) as GameRoleKind | undefined
     if (isHead.value) return true
+    const myRoleKind = myGameRoleKind.value
     return myRoleKind === 'mafia' || myRoleKind === 'don'
   }
 
