@@ -194,7 +194,7 @@
                     <div v-if="stats.online_users_list.length === 0" class="tooltip-empty">Нет данных</div>
                     <div v-else class="tooltip-list">
                       <div v-for="item in stats.online_users_list" :key="`online-${item.id}`" class="tooltip-row">
-                        <span class="tooltip-id">ID {{ item.id }}</span>
+                        <img class="tooltip-avatar" v-minio-img="{ key: item.avatar_name ? `avatars/${item.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
                         <span>{{ item.username || `user${item.id}` }}</span>
                       </div>
                     </div>
@@ -1060,6 +1060,7 @@ type RegistrationPoint = {
 type OnlineUser = {
   id: number
   username?: string | null
+  avatar_name?: string | null
 }
 
 type PeriodStats = {
@@ -2091,7 +2092,13 @@ async function loadStats(): Promise<void> {
       total_stream_minutes: data?.total_stream_minutes ?? 0,
       active_room_users: data?.active_room_users ?? 0,
       online_users: data?.online_users ?? 0,
-      online_users_list: Array.isArray(data?.online_users_list) ? data.online_users_list : [],
+      online_users_list: Array.isArray(data?.online_users_list)
+        ? data.online_users_list.map((item: any) => ({
+          id: Number(item?.id) || 0,
+          username: item?.username ?? null,
+          avatar_name: item?.avatar_name ?? null,
+        }))
+        : [],
       last_month: {
         games: data?.last_month?.games ?? 0,
         rooms: data?.last_month?.rooms ?? 0,
@@ -3165,8 +3172,12 @@ onMounted(() => {
           font-size: 12px;
           color: $fg;
         }
-        .tooltip-id {
-          color: $grey;
+        .tooltip-avatar {
+          width: 16px;
+          height: 16px;
+          border-radius: 50%;
+          object-fit: cover;
+          flex: 0 0 auto;
         }
         .tooltip-empty {
           font-size: 12px;

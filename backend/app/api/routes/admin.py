@@ -320,9 +320,12 @@ async def site_stats(month: str | None = None, session: AsyncSession = Depends(g
 
     online_users_list: list[OnlineUserOut] = []
     if online_ids:
-        name_map, _ = await fetch_user_name_avatar_maps(session, set(online_ids))
+        name_map, avatar_map = await fetch_user_name_avatar_maps(session, set(online_ids))
         online_ids_sorted = sorted(online_ids, key=lambda uid: (name_map.get(uid) or f"user{uid}").lower())
-        online_users_list = [OnlineUserOut(id=uid, username=name_map.get(uid)) for uid in online_ids_sorted]
+        online_users_list = [
+            OnlineUserOut(id=uid, username=name_map.get(uid), avatar_name=avatar_map.get(uid))
+            for uid in online_ids_sorted
+        ]
 
     month_rooms = int(await session.scalar(select(func.count(Room.id)).where(Room.created_at >= month_start, Room.created_at < month_end)) or 0)
     month_games = int(await session.scalar(select(func.count(Game.id)).where(Game.finished_at >= month_start, Game.finished_at < month_end)) or 0)

@@ -117,6 +117,7 @@ class RegistrationsPoint(BaseModel):
 class OnlineUserOut(BaseModel):
     id: int
     username: Optional[str] = None
+    avatar_name: Optional[str] = None
 
 
 class PeriodStatsOut(BaseModel):
