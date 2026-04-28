@@ -577,9 +577,9 @@ async def rooms_list(page: int = 1, limit: int = 20, username: str | None = None
             privacy = room.privacy
             created_at = room.created_at
             game_params = parse_room_game_params(room.game)
-        visitors_items = build_room_user_stats(visitors_map, name_map)
-        spectators_items = build_room_user_stats(spectators_map, name_map)
-        stream_items = build_room_user_stats(stream_map, name_map)
+        visitors_items = build_room_user_stats(visitors_map, name_map, avatar_map)
+        spectators_items = build_room_user_stats(spectators_map, name_map, avatar_map)
+        stream_items = build_room_user_stats(stream_map, name_map, avatar_map)
         room_games = games_map.get(int(room.id), [])
         game_items: list[AdminRoomGameOut] = []
         for index, (result, started_at, finished_at) in enumerate(room_games):

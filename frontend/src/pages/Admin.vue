@@ -463,9 +463,9 @@
                         <div v-if="row.visitors.length === 0" class="tooltip-empty">Нет данных</div>
                         <div v-else class="tooltip-list">
                           <div v-for="item in row.visitors" :key="`visitor-${row.id}-${item.id}`" class="tooltip-row">
-                            <span class="tooltip-id">ID {{ item.id }}</span>
                             <div class="user-cell compact">
-                              <span>{{ item.username || '-' }}</span>
+                              <img class="tooltip-avatar" v-minio-img="{ key: item.avatar_name ? `avatars/${item.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
+                              <span>{{ item.username || `user${item.id}` }}</span>
                             </div>
                             <span class="tooltip-minutes">{{ formatMinutes(item.minutes) }}</span>
                           </div>
@@ -480,9 +480,9 @@
                         <div v-if="row.streamers.length === 0" class="tooltip-empty">Нет данных</div>
                         <div v-else class="tooltip-list">
                           <div v-for="item in row.streamers" :key="`stream-${row.id}-${item.id}`" class="tooltip-row">
-                            <span class="tooltip-id">ID {{ item.id }}</span>
                             <div class="user-cell compact">
-                              <span>{{ item.username || '-' }}</span>
+                              <img class="tooltip-avatar" v-minio-img="{ key: item.avatar_name ? `avatars/${item.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
+                              <span>{{ item.username || `user${item.id}` }}</span>
                             </div>
                             <span class="tooltip-minutes">{{ formatMinutes(item.minutes) }}</span>
                           </div>
@@ -511,9 +511,9 @@
                         <div v-if="row.spectators.length === 0" class="tooltip-empty">Нет данных</div>
                         <div v-else class="tooltip-list">
                           <div v-for="item in row.spectators" :key="`spectator-${row.id}-${item.id}`" class="tooltip-row">
-                            <span class="tooltip-id">ID {{ item.id }}</span>
                             <div class="user-cell compact">
-                              <span>{{ item.username || '-' }}</span>
+                              <img class="tooltip-avatar" v-minio-img="{ key: item.avatar_name ? `avatars/${item.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
+                              <span>{{ item.username || `user${item.id}` }}</span>
                             </div>
                             <span class="tooltip-minutes">{{ formatMinutes(item.minutes) }}</span>
                           </div>
@@ -1103,6 +1103,7 @@ type LogRow = {
 type RoomUserStat = {
   id: number
   username?: string | null
+  avatar_name?: string | null
   minutes: number
 }
 
@@ -1520,6 +1521,7 @@ function normalizeRoomUsers(value: unknown): RoomUserStat[] {
     .map((item: any) => ({
       id: Number(item?.id) || 0,
       username: item?.username ?? null,
+      avatar_name: item?.avatar_name ?? null,
       minutes: Number(item?.minutes) || 0,
     }))
     .filter(item => item.id > 0)

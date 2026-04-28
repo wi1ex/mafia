@@ -208,6 +208,7 @@ class AdminSanctionsOut(BaseModel):
 class AdminRoomUserStat(BaseModel):
     id: int
     username: Optional[str] = None
+    avatar_name: Optional[str] = None
     minutes: int
 
 
