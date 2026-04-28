@@ -39,12 +39,16 @@
           </div>
 
           <ToggleSwitch v-model="isPrivate" :disabled="isPrivacyLocked" label="Приватность:" off-label="Открытая" on-label="Закрытая" aria-label="Приватность: открытая/закрытая" />
-          <div class="toggle-tooltip" :class="{ 'toggle-tooltip--enabled': !canCreateHiddenRoom }" :title="!canCreateHiddenRoom ? hiddenRoomHint : undefined" :tabindex="!canCreateHiddenRoom ? 0 : undefined">
-            <ToggleSwitch v-model="isAnonymous" :disabled="!canCreateHiddenRoom" label="Анонимность:" off-label="Видимая" on-label="Скрытая" aria-label="Анонимность: видимая/скрытая" />
-            <div v-if="!canCreateHiddenRoom" class="toggle-tooltip__body" role="tooltip">
-              {{ hiddenRoomHint }}
-            </div>
-          </div>
+          <ToggleSwitch v-model="isAnonymous" :disabled="!canCreateHiddenRoom" label="Анонимность:" off-label="Видимая" on-label="Скрытая" aria-label="Анонимность: видимая/скрытая">
+            <template #label>
+              <span class="toggle-label-tooltip" :class="{ 'toggle-label-tooltip--enabled': !canCreateHiddenRoom }" :title="!canCreateHiddenRoom ? hiddenRoomHint : undefined" :tabindex="!canCreateHiddenRoom ? 0 : undefined">
+                Анонимность:
+                <span v-if="!canCreateHiddenRoom" class="toggle-label-tooltip__body" role="tooltip">
+                  {{ hiddenRoomHint }}
+                </span>
+              </span>
+            </template>
+          </ToggleSwitch>
         </div>
       </div>
 
@@ -346,12 +350,12 @@ onBeforeUnmount(() => {
     .modal-div {
       display: flex;
       flex-direction: column;
-      padding: 15px 10px 0;
+      padding: 10px 10px 0;
       background-color: $dark;
       .params {
         display: flex;
         flex-direction: column;
-        gap: 15px;
+        gap: 10px;
         border-bottom: none;
         .range {
           display: flex;
@@ -397,14 +401,18 @@ onBeforeUnmount(() => {
             }
           }
         }
-        .toggle-tooltip {
+        .toggle-label-tooltip {
           position: relative;
+          display: inline-flex;
+          align-items: center;
+          width: fit-content;
+          max-width: 100%;
           &--enabled {
             cursor: help;
           }
           &__body {
             position: absolute;
-            right: 0;
+            left: 0;
             bottom: calc(100% + 10px);
             min-width: 240px;
             max-width: 320px;
@@ -423,8 +431,8 @@ onBeforeUnmount(() => {
             z-index: 5;
           }
         }
-        .toggle-tooltip--enabled:hover .toggle-tooltip__body,
-        .toggle-tooltip--enabled:focus-within .toggle-tooltip__body {
+        .toggle-label-tooltip--enabled:hover .toggle-label-tooltip__body,
+        .toggle-label-tooltip--enabled:focus-within .toggle-label-tooltip__body {
           opacity: 1;
           transform: translateY(0);
           pointer-events: auto;
@@ -435,7 +443,7 @@ onBeforeUnmount(() => {
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 15px 0 0;
+      padding: 10px 0 0;
       button {
         padding: 0;
         width: 100%;
