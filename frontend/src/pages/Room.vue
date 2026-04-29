@@ -3171,15 +3171,67 @@ watch(() => [gamePhase.value, amIAlive.value, isSpectatorInGame.value, localId.v
 }, { immediate: true })
 
 let speechAudioKickId: number | null = null
+let speechAudioRetryShortId: number | null = null
+let speechAudioRetryLongId: number | null = null
+function clearSpeechAudioKickTimer(): void {
+  if (speechAudioKickId != null) {
+    window.clearTimeout(speechAudioKickId)
+    speechAudioKickId = null
+  }
+}
+function clearSpeechAudioRecoveryTimers(): void {
+  if (speechAudioRetryShortId != null) {
+    window.clearTimeout(speechAudioRetryShortId)
+    speechAudioRetryShortId = null
+  }
+  if (speechAudioRetryLongId != null) {
+    window.clearTimeout(speechAudioRetryLongId)
+    speechAudioRetryLongId = null
+  }
+}
+async function recoverSpeechAudioPlayback(): Promise<void> {
+  if (!IS_MOBILE || leaving.value || backgrounded.value) return
+  if (!rtc.lk.value || !hasRemotePeers.value) return
+  if (!speakersOn.value || blockedSelf.value.speakers) return
+  try { await rtc.startAudio() } catch {}
+  try { rtc.setAudioSubscriptionsForAll(true) } catch {}
+  try { await rtc.resumeAudio() } catch {}
+}
+function scheduleSpeechAudioRecovery(): void {
+  if (!IS_MOBILE) return
+  clearSpeechAudioRecoveryTimers()
+  const run = () => { void recoverSpeechAudioPlayback() }
+  run()
+  speechAudioRetryShortId = window.setTimeout(() => {
+    speechAudioRetryShortId = null
+    run()
+  }, 250)
+  speechAudioRetryLongId = window.setTimeout(() => {
+    speechAudioRetryLongId = null
+    run()
+  }, 900)
+}
 function kickSpeechAudio() {
   if (speechAudioKickId != null) return
   speechAudioKickId = window.setTimeout(() => {
     speechAudioKickId = null
-    if (!speakersOn.value || blockedSelf.value.speakers) return
-    rtc.setAudioSubscriptionsForAll(true)
-    void rtc.resumeAudio()
+    void recoverSpeechAudioPlayback()
   }, 100)
 }
+
+watch(
+  () => [gamePhase.value, game.daySpeech.currentId, speakersOn.value, blockedSelf.value.speakers, backgrounded.value],
+  ([phase, cur, speakers, speakersBlocked, bg], [_prevPhase, prevCur]) => {
+    if (!IS_MOBILE) return
+    if (bg || !speakers || speakersBlocked) {
+      clearSpeechAudioRecoveryTimers()
+      return
+    }
+    if ((phase !== 'day' && phase !== 'vote') || !cur) return
+    if (cur === prevCur || cur === localId.value) return
+    scheduleSpeechAudioRecovery()
+  }
+)
 
 watch(() => [gamePhase.value, game.daySpeech.currentId, game.daySpeech.remainingMs, speakersOn.value, blockedSelf.value.speakers], ([phase, cur, ms]) => {
   if ((phase !== 'day' && phase !== 'vote') || !cur) return
@@ -3311,6 +3363,8 @@ onBeforeUnmount(() => {
   window.removeEventListener('keydown', onHotkey)
   window.removeEventListener('pageshow', handleForegroundSignal)
   window.removeEventListener('focus', handleForegroundSignal)
+  clearSpeechAudioKickTimer()
+  clearSpeechAudioRecoveryTimers()
   clearRoomDisconnectFailClosedTimer()
   clearForegroundMediaRecoveryTimers()
   volumeSnapTimers.forEach((tm) => { try { window.clearTimeout(tm) } catch {} })
