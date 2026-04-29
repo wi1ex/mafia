@@ -278,6 +278,7 @@ import { buildProfileThemeBgStyle } from '@/constants/profileThemes'
 import { getProfileThemeBadgeSources } from '@/constants/profileThemeIcons'
 import { alertDialog, confirmDialog } from '@/services/confirm'
 import { formatChatTimestamp } from '@/services/datetime'
+import { canOpenMiniProfileTarget, normalizeMiniProfileUserId } from '@/services/miniProfile'
 import { useAuthStore, useGlobalChatStore, useSettingsStore, useUserStore } from '@/store'
 import UserMiniProfileModal from '@/components/UserMiniProfileModal.vue'
 
@@ -443,10 +444,12 @@ const messageCardStyle = (message: GlobalChatMessage) => buildProfileThemeBgStyl
 const profileThemeIconSrcs = (icon: unknown, role?: unknown) => getProfileThemeBadgeSources(icon, role)
 
 function canOpenAuthorMiniProfile(message: GlobalChatMessage): boolean {
-  const uid = Number(message.author?.id || 0)
-  const viewerId = Number(user.user?.id || 0)
-  const authorRole = String(message.author?.role || '').trim().toLowerCase()
-  return Number.isFinite(uid) && uid > 0 && !message.is_own && uid !== viewerId && authorRole !== 'admin' && !message.author?.deleted
+  return !message.is_own && canOpenMiniProfileTarget({
+    targetId: message.author?.id,
+    viewerId: normalizeMiniProfileUserId(user.user?.id),
+    targetRole: message.author?.role,
+    targetDeletedAt: message.author?.deleted,
+  })
 }
 
 function openAuthorMiniProfile(message: GlobalChatMessage) {

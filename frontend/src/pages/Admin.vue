@@ -688,7 +688,8 @@
                   <td>
                     <div v-if="row.username" class="user-cell">
                       <img class="user-avatar" v-minio-img="{ key: row.avatar_name ? `avatars/${row.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
-                      <button class="user-link" type="button" @click="openUserMiniProfile(row)">{{ row.username }}</button>
+                      <button v-if="canOpenAdminUserMiniProfile(row)" class="user-link" type="button" @click="openAdminUserMiniProfile(row)">{{ row.username }}</button>
+                      <span v-else>{{ row.username }}</span>
                     </div>
                     <span v-else>-</span>
                   </td>
@@ -938,6 +939,7 @@
       :open="userMiniProfileOpen"
       :user-id="userMiniProfileTarget?.id ?? null"
       :initial-profile="userMiniProfileTarget"
+      :allow-deleted="userMiniProfileAllowDeleted"
       :stats-url="userMiniProfileStatsUrl"
       show-stats-button
       admin-mode
@@ -953,7 +955,8 @@ import { api } from '@/services/axios'
 import { alertDialog, confirmDialog } from '@/services/confirm'
 import { formatLocalDateTime } from '@/services/datetime'
 import { DEFAULT_SANCTION_REASON, SANCTION_REASONS } from '@/constants/sanctionReasons'
-import { useSettingsStore } from '@/store'
+import { canOpenMiniProfileTarget, normalizeMiniProfileUserId } from '@/services/miniProfile'
+import { useSettingsStore, useUserStore } from '@/store'
 
 import UpdateModal from '@/components/UpdateModal.vue'
 import SanctionModal from '@/components/SanctionModal.vue'
@@ -1060,6 +1063,8 @@ type LogRow = {
   user_id?: number | null
   username?: string | null
   avatar_name?: string | null
+  role?: string | null
+  deleted_at?: string | null
   action: string
   details: string
   created_at: string
@@ -1083,6 +1088,8 @@ type RoomRow = {
   creator: number
   creator_name: string
   creator_avatar_name?: string | null
+  creator_role?: string | null
+  creator_deleted_at?: string | null
   title: string
   user_limit: number
   privacy: string
@@ -1148,6 +1155,7 @@ type UserMiniProfileTarget = {
   username?: string | null
   avatar_name?: string | null
   role?: string | null
+  deleted_at?: string | null
 }
 
 type SubscriptionRow = {
@@ -1155,6 +1163,7 @@ type SubscriptionRow = {
   username?: string | null
   avatar_name?: string | null
   role?: string | null
+  deleted_at?: string | null
   starts_at: string
   ends_at: string
   is_active: boolean
@@ -1175,6 +1184,8 @@ type SanctionsRow = {
   user_id: number
   username?: string | null
   avatar_name?: string | null
+  role?: string | null
+  deleted_at?: string | null
   kind: 'timeout' | 'ban' | 'suspend'
   status: SanctionListStatus
   issued_at: string
@@ -1277,6 +1288,8 @@ const game = reactive<GameSettings>({
 })
 
 const settingsStore = useSettingsStore()
+const userStore = useUserStore()
+const viewerUserId = computed(() => normalizeMiniProfileUserId(userStore.user?.id))
 const siteSnapshot = ref('')
 const gameSnapshot = ref('')
 
@@ -1353,6 +1366,7 @@ const subscriptionForm = reactive({
 })
 const userMiniProfileOpen = ref(false)
 const userMiniProfileTarget = ref<UserMiniProfileTarget | null>(null)
+const userMiniProfileAllowDeleted = computed(() => activeTab.value === 'users' || activeTab.value === 'sanctions')
 const userMiniProfileStatsUrl = computed(() => {
   const target = userMiniProfileTarget.value
   return target ? `/admin/users/${target.id}/stats` : null
@@ -1711,6 +1725,35 @@ function openUserMiniProfile(row: UserMiniProfileTarget): void {
   userMiniProfileOpen.value = true
 }
 
+function canOpenMiniProfileOnAdminPage(value: {
+  id?: unknown
+  role?: unknown
+  deleted_at?: unknown
+}, opts?: { allowDeleted?: boolean }): boolean {
+  return canOpenMiniProfileTarget({
+    targetId: value.id,
+    viewerId: viewerUserId.value,
+    targetRole: value.role,
+    targetDeletedAt: value.deleted_at,
+    allowDeleted: Boolean(opts?.allowDeleted),
+  })
+}
+
+function canOpenAdminUserMiniProfile(row: UserRow): boolean {
+  return canOpenMiniProfileOnAdminPage(row, { allowDeleted: true })
+}
+
+function openAdminUserMiniProfile(row: UserRow): void {
+  if (!canOpenAdminUserMiniProfile(row)) return
+  openUserMiniProfile({
+    id: row.id,
+    username: row.username ?? null,
+    avatar_name: row.avatar_name ?? null,
+    role: row.role ?? null,
+    deleted_at: row.deleted_at ?? null,
+  })
+}
+
 function getPositiveUserId(value: unknown): number {
   const id = Number(value ?? 0)
   return Number.isFinite(id) && id > 0 ? Math.trunc(id) : 0
@@ -1721,7 +1764,11 @@ function getLogUserId(row: LogRow): number {
 }
 
 function canOpenLogUserMiniProfile(row: LogRow): boolean {
-  return getLogUserId(row) > 0
+  return canOpenMiniProfileOnAdminPage({
+    id: getLogUserId(row),
+    role: row.role,
+    deleted_at: row.deleted_at,
+  })
 }
 
 function openLogUserMiniProfile(row: LogRow): void {
@@ -1731,11 +1778,17 @@ function openLogUserMiniProfile(row: LogRow): void {
     id,
     username: row.username ?? null,
     avatar_name: row.avatar_name ?? null,
+    role: row.role ?? null,
+    deleted_at: row.deleted_at ?? null,
   })
 }
 
 function canOpenRoomCreatorMiniProfile(row: RoomRow): boolean {
-  return getPositiveUserId(row.creator) > 0
+  return canOpenMiniProfileOnAdminPage({
+    id: row.creator,
+    role: row.creator_role,
+    deleted_at: row.creator_deleted_at,
+  })
 }
 
 function openRoomCreatorMiniProfile(row: RoomRow): void {
@@ -1745,15 +1798,25 @@ function openRoomCreatorMiniProfile(row: RoomRow): void {
     id,
     username: row.creator_name || null,
     avatar_name: row.creator_avatar_name ?? null,
+    role: row.creator_role ?? null,
+    deleted_at: row.creator_deleted_at ?? null,
   })
 }
 
 function canOpenSubscriptionUserMiniProfile(row: SubscriptionRow): boolean {
-  return getPositiveUserId(row.user_id) > 0
+  return canOpenMiniProfileOnAdminPage({
+    id: row.user_id,
+    role: row.role,
+    deleted_at: row.deleted_at,
+  })
 }
 
 function canOpenSanctionUserMiniProfile(row: SanctionsRow): boolean {
-  return getPositiveUserId(row.user_id) > 0
+  return canOpenMiniProfileOnAdminPage({
+    id: row.user_id,
+    role: row.role,
+    deleted_at: row.deleted_at,
+  }, { allowDeleted: true })
 }
 
 function openSanctionUserMiniProfile(row: SanctionsRow): void {
@@ -1763,6 +1826,8 @@ function openSanctionUserMiniProfile(row: SanctionsRow): void {
     id,
     username: row.username ?? null,
     avatar_name: row.avatar_name ?? null,
+    role: row.role ?? null,
+    deleted_at: row.deleted_at ?? null,
   })
 }
 
@@ -1778,6 +1843,7 @@ function openSubscriptionUserMiniProfile(row: SubscriptionRow): void {
     username: row.username ?? null,
     avatar_name: row.avatar_name ?? null,
     role: row.role ?? null,
+    deleted_at: row.deleted_at ?? null,
   })
 }
 

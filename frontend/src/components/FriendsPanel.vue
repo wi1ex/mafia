@@ -19,13 +19,20 @@
               <span class="count">{{ section.items.length }}</span>
             </div>
             <article v-for="f in section.items" :key="`${f.kind}-${f.id}`" class="item" :style="friendItemStyle(f)">
-              <button class="left profile-trigger" type="button" @click="openMiniProfile(f)">
+              <button v-if="canOpenMiniProfile(f)" class="left profile-trigger" type="button" @click="openMiniProfile(f)">
                 <img v-minio-img="{ key: f.avatar_name ? `avatars/${f.avatar_name}` : '', placeholder: defaultAvatar, lazy: false, animated: true }" alt="avatar" />
                 <div v-if="friendThemeIconSrcs(f).length" class="profile-theme-icons" aria-hidden="true">
                   <img v-for="badgeSrc in friendThemeIconSrcs(f)" :key="`${f.id}-${badgeSrc}`" class="profile-theme-icon" :src="badgeSrc" alt="" />
                 </div>
                 <span class="nick">{{ f.username || ('user' + f.id) }}</span>
               </button>
+              <div v-else class="left profile-trigger">
+                <img v-minio-img="{ key: f.avatar_name ? `avatars/${f.avatar_name}` : '', placeholder: defaultAvatar, lazy: false, animated: true }" alt="avatar" />
+                <div v-if="friendThemeIconSrcs(f).length" class="profile-theme-icons" aria-hidden="true">
+                  <img v-for="badgeSrc in friendThemeIconSrcs(f)" :key="`${f.id}-${badgeSrc}`" class="profile-theme-icon" :src="badgeSrc" alt="" />
+                </div>
+                <span class="nick">{{ f.username || ('user' + f.id) }}</span>
+              </div>
               <div class="info">
                 <template v-if="isAccepted(f)">
                   <div v-if="f.room_id" class="room-info">
@@ -75,11 +82,18 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, nextTick, onMounted, onBeforeUnmount, computed, reactive } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { buildProfileThemeBgStyle } from '@/constants/profileThemes'
 import { getProfileThemeBadgeSources } from '@/constants/profileThemeIcons'
-import { useFriendsStore, resolveFriendsApiError, shouldRefreshFriendsStateAfterError, type FriendListItem } from '@/store'
-import { confirmDialog, alertDialog, useConfirmState } from '@/services/confirm'
+import { canOpenMiniProfileTarget, normalizeMiniProfileUserId } from '@/services/miniProfile'
+import {
+  type FriendListItem,
+  resolveFriendsApiError,
+  shouldRefreshFriendsStateAfterError,
+  useFriendsStore,
+  useUserStore
+} from '@/store'
+import { alertDialog, confirmDialog, useConfirmState } from '@/services/confirm'
 import UserMiniProfileModal from '@/components/UserMiniProfileModal.vue'
 
 import iconClose from '@/assets/svg/close.svg'
@@ -100,6 +114,7 @@ const emit = defineEmits<{
 }>()
 
 const friends = useFriendsStore()
+const userStore = useUserStore()
 const confirmState = useConfirmState()
 const root = ref<HTMLElement | null>(null)
 const inviteBusy = reactive<Record<number, boolean>>({})
@@ -109,6 +124,7 @@ const miniProfileUserId = ref<number | null>(null)
 const miniProfileInitial = ref<FriendListItem | null>(null)
 const isRoomMode = computed(() => props.mode === 'room')
 const inviteRoomId = computed(() => Number(props.roomId || 0))
+const viewerUserId = computed(() => normalizeMiniProfileUserId(userStore.user?.id))
 const isAccepted = (f: { kind?: string }) => f.kind === 'online' || f.kind === 'offline'
 const currentListRoomId = () => (isRoomMode.value && inviteRoomId.value > 0 ? inviteRoomId.value : null)
 const canInvite = (f: { kind?: string; room_id?: number | null; in_current_room?: boolean | null }) => {
@@ -174,10 +190,17 @@ function isActionBusy(uid: number): boolean {
   return Boolean(actionBusy[uid])
 }
 
+function canOpenMiniProfile(friend: FriendListItem): boolean {
+  return canOpenMiniProfileTarget({
+    targetId: friend.id,
+    viewerId: viewerUserId.value,
+    targetRole: friend.role,
+  })
+}
+
 function openMiniProfile(friend: FriendListItem) {
-  const uid = Number(friend.id || 0)
-  if (uid <= 0) return
-  miniProfileUserId.value = uid
+  if (!canOpenMiniProfile(friend)) return
+  miniProfileUserId.value = Number(friend.id || 0)
   miniProfileInitial.value = friend
   miniProfileOpen.value = true
 }

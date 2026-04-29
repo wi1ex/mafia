@@ -77,6 +77,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { api } from '@/services/axios'
 import { alertDialog, confirmDialog } from '@/services/confirm'
 import { formatLocalDateTime } from '@/services/datetime'
+import { isMiniProfilePrivilegedViewer, normalizeMiniProfileRole } from '@/services/miniProfile'
 import { buildProfileThemeBgStyle } from '@/constants/profileThemes'
 import { getProfileThemeBadgeSources } from '@/constants/profileThemeIcons'
 import {
@@ -116,6 +117,7 @@ type MiniProfileResponse = {
   username?: string | null
   avatar_name?: string | null
   role?: string | null
+  deleted?: boolean
   registered_at?: string | null
   last_visit_at?: string | null
   last_game_at?: string | null
@@ -132,6 +134,7 @@ const props = withDefaults(defineProps<{
   initialProfile?: MiniProfileInitial | null
   showStatsButton?: boolean
   adminMode?: boolean
+  allowDeleted?: boolean
   statsUrl?: string | null
   refreshFriendsListOnAction?: boolean
   refreshFriendsRoomId?: number | null
@@ -140,6 +143,7 @@ const props = withDefaults(defineProps<{
   initialProfile: null,
   showStatsButton: false,
   adminMode: false,
+  allowDeleted: false,
   statsUrl: null,
   refreshFriendsListOnAction: false,
   refreshFriendsRoomId: null,
@@ -170,7 +174,9 @@ const targetUserId = computed(() => {
 })
 const profileLoadedForTarget = computed(() => Boolean(profile.value && profile.value.id === targetUserId.value))
 const viewerUserId = computed(() => Number(userStore.user?.id || 0))
-const adminViewer = computed(() => props.adminMode || String(userStore.user?.role || '') === 'admin')
+const viewerRole = computed(() => normalizeMiniProfileRole(userStore.user?.role))
+const privilegedViewer = computed(() => isMiniProfilePrivilegedViewer(viewerRole.value, props.adminMode))
+const targetDeleted = computed(() => Boolean(profileLoadedForTarget.value && profile.value?.deleted))
 
 const displayName = computed(() => {
   if (profileLoadedForTarget.value && profile.value?.username) return profile.value.username
@@ -233,18 +239,19 @@ const friendActionKind = computed<FriendActionKind>(() => {
 const friendDisabled = computed(() => (
   friendBusy.value
   || friendStatus.value === 'self'
+  || targetDeleted.value
   || (loading.value && !profileLoadedForTarget.value && friendStatus.value === 'none')
 ))
 const showFriendAction = computed(() => (
-  !adminViewer.value
-  && targetUserId.value > 0
+  targetUserId.value > 0
+  && !targetDeleted.value
   && friendStatus.value !== 'self'
   && friendActionLabel.value !== ''
 ))
 const showStatsButton = computed(() => Boolean(
   props.showStatsButton
   && targetUserId.value > 0
-  && (adminViewer.value || friendStatus.value === 'friends' || friendStatus.value === 'self')
+  && (privilegedViewer.value || friendStatus.value === 'friends' || friendStatus.value === 'self')
 ))
 
 function normalizeFriendStatus(value: unknown): FriendStatus {
@@ -312,13 +319,15 @@ async function loadProfile() {
   loading.value = true
   loadError.value = ''
   try {
-    const { data } = await api.get<MiniProfileResponse>(`/users/${uid}/mini_profile`)
+    const reqConfig = props.allowDeleted ? { params: { allow_deleted: 1 } } : undefined
+    const { data } = await api.get<MiniProfileResponse>(`/users/${uid}/mini_profile`, reqConfig)
     if (seq !== requestSeq) return
     profile.value = {
       id: Number(data?.id || uid),
       username: data?.username ?? null,
       avatar_name: data?.avatar_name ?? null,
       role: data?.role ?? null,
+      deleted: Boolean(data?.deleted),
       registered_at: data?.registered_at ?? null,
       last_visit_at: data?.last_visit_at ?? null,
       last_game_at: data?.last_game_at ?? null,

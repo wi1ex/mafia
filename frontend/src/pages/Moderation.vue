@@ -205,6 +205,7 @@
       :open="userMiniProfileOpen"
       :user-id="userMiniProfileTarget?.id ?? null"
       :initial-profile="userMiniProfileTarget"
+      :allow-deleted="userMiniProfileAllowDeleted"
       :stats-url="userMiniProfileStatsUrl"
       show-stats-button
       admin-mode
@@ -219,6 +220,8 @@ import { api } from '@/services/axios'
 import { alertDialog, confirmDialog } from '@/services/confirm'
 import { formatLocalDateTime } from '@/services/datetime'
 import { DEFAULT_SANCTION_REASON, SANCTION_REASONS } from '@/constants/sanctionReasons'
+import { canOpenMiniProfileTarget, normalizeMiniProfileUserId } from '@/services/miniProfile'
+import { useUserStore } from '@/store'
 
 import UserMiniProfileModal from '@/components/UserMiniProfileModal.vue'
 import SanctionModal from '@/components/SanctionModal.vue'
@@ -236,6 +239,8 @@ type SanctionsRow = {
   user_id: number
   username?: string | null
   avatar_name?: string | null
+  role?: string | null
+  deleted_at?: string | null
   kind: 'timeout' | 'ban' | 'suspend'
   status: SanctionListStatus
   issued_at: string
@@ -273,6 +278,8 @@ type UserMiniProfileTarget = {
   id: number
   username?: string | null
   avatar_name?: string | null
+  role?: string | null
+  deleted_at?: string | null
 }
 
 type UsersSortBy =
@@ -286,6 +293,8 @@ type UsersSortBy =
   | 'suspends_count'
 
 const activeTab = ref<TabKey>('users')
+const userStore = useUserStore()
+const viewerUserId = computed(() => normalizeMiniProfileUserId(userStore.user?.id))
 const users = ref<UserRow[]>([])
 const usersLoading = ref(false)
 const usersTotal = ref(0)
@@ -310,6 +319,7 @@ const sanctionKind = ref<'timeout' | 'suspend'>('suspend')
 const sanctionTarget = ref<UserRow | null>(null)
 const userMiniProfileOpen = ref(false)
 const userMiniProfileTarget = ref<UserMiniProfileTarget | null>(null)
+const userMiniProfileAllowDeleted = computed(() => activeTab.value === 'sanctions')
 const userMiniProfileStatsUrl = computed(() => {
   const target = userMiniProfileTarget.value
   return target ? `/moderation/users/${target.id}/stats` : null
@@ -394,8 +404,25 @@ function openUserMiniProfile(row: UserMiniProfileTarget): void {
   userMiniProfileOpen.value = true
 }
 
+function canOpenMiniProfileOnModerationPage(value: {
+  id?: unknown
+  role?: unknown
+  deleted_at?: unknown
+}, opts?: { allowDeleted?: boolean }): boolean {
+  return canOpenMiniProfileTarget({
+    targetId: value.id,
+    viewerId: viewerUserId.value,
+    targetRole: value.role,
+    targetDeletedAt: value.deleted_at,
+    allowDeleted: Boolean(opts?.allowDeleted),
+  })
+}
+
 function canOpenModerationUserMiniProfile(row: UserRow): boolean {
-  return getPositiveUserId(row.id) > 0
+  return canOpenMiniProfileOnModerationPage({
+    id: row.id,
+    role: row.role,
+  })
 }
 
 function canModerateUser(row: UserRow): boolean {
@@ -403,7 +430,11 @@ function canModerateUser(row: UserRow): boolean {
 }
 
 function canOpenSanctionUserMiniProfile(row: SanctionsRow): boolean {
-  return getPositiveUserId(row.user_id) > 0
+  return canOpenMiniProfileOnModerationPage({
+    id: row.user_id,
+    role: row.role,
+    deleted_at: row.deleted_at,
+  }, { allowDeleted: true })
 }
 
 function openSanctionUserMiniProfile(row: SanctionsRow): void {
@@ -413,6 +444,8 @@ function openSanctionUserMiniProfile(row: SanctionsRow): void {
     id,
     username: row.username ?? null,
     avatar_name: row.avatar_name ?? null,
+    role: row.role ?? null,
+    deleted_at: row.deleted_at ?? null,
   })
 }
 

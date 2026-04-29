@@ -187,6 +187,7 @@ async def room_info(room_id: int) -> RoomInfoOut:
             id=m["id"],
             username=m.get("username"),
             avatar_name=m.get("avatar_name"),
+            profile_role=cast(str | None, m.get("profile_role")),
             screen=m.get("screen"),
             role=m.get("role"),
             slot=m.get("slot"),
@@ -250,7 +251,15 @@ async def room_spectators(room_id: int, ident: Identity = Depends(get_identity),
 
     ids = [uid for uid in ids if uid in visible_ids]
     ids.sort(key=lambda uid: (join_map.get(uid, 0), name_map.get(uid) or "", uid))
-    spectators = [RoomSpectatorOut(id=uid, username=name_map.get(uid), avatar_name=avatar_map.get(uid)) for uid in ids]
+    spectators = [
+        RoomSpectatorOut(
+            id=uid,
+            username=name_map.get(uid),
+            avatar_name=avatar_map.get(uid),
+            profile_role=cast(str | None, (profiles.get(uid) or {}).get("role")),
+        )
+        for uid in ids
+    ]
 
     return RoomSpectatorsOut(spectators=spectators)
 

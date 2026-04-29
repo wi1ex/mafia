@@ -94,6 +94,7 @@ from ..utils import (
     parse_day_range,
     normalize_admin_banner_text,
     normalize_admin_banner_link,
+    parse_cached_deleted_at,
     normalize_game_result,
     site_settings_out,
     game_settings_out,
@@ -110,7 +111,6 @@ from ..utils import (
     fetch_active_rooms_stats,
     fetch_online_user_ids,
     fetch_effective_online_user_ids,
-    fetch_user_avatar_map,
     fetch_user_name_avatar_maps,
     collect_room_user_ids,
     parse_room_game_params,
@@ -391,17 +391,20 @@ async def logs_list(page: int = 1, limit: int = 20, action: str | None = None, u
         if row.user_id is not None:
             user_ids.add(cast(int, row.user_id))
 
-    avatar_map = await fetch_user_avatar_map(session, user_ids)
+    profiles = await get_user_profiles_cached(session, user_ids) if user_ids else {}
 
     items: list[AdminLogOut] = []
     for row in logs:
         uid = cast(int, row.user_id) if row.user_id is not None else None
+        profile = profiles.get(uid or 0) if uid is not None else None
         items.append(
             AdminLogOut(
                 id=row.id,
                 user_id=row.user_id,
                 username=row.username,
-                avatar_name=avatar_map.get(uid) if uid is not None else None,
+                avatar_name=cast(str | None, (profile or {}).get("avatar_name")),
+                role=cast(str | None, (profile or {}).get("role")),
+                deleted_at=parse_cached_deleted_at((profile or {}).get("deleted_at")),
                 action=row.action,
                 details=row.details,
                 created_at=row.created_at,
@@ -524,6 +527,7 @@ async def rooms_list(page: int = 1, limit: int = 20, username: str | None = None
             except Exception:
                 continue
 
+    profiles = await get_user_profiles_cached(session, user_ids) if user_ids else {}
     name_map, avatar_map = await fetch_user_name_avatar_maps(session, user_ids)
     room_ids = [int(room.id) for room in rooms]
     games_map: dict[int, list[tuple[str, datetime, datetime]]] = {}
@@ -598,6 +602,8 @@ async def rooms_list(page: int = 1, limit: int = 20, username: str | None = None
                 creator=creator,
                 creator_name=creator_name,
                 creator_avatar_name=creator_avatar_name,
+                creator_role=cast(str | None, (profiles.get(int(creator)) or {}).get("role")),
+                creator_deleted_at=parse_cached_deleted_at((profiles.get(int(creator)) or {}).get("deleted_at")),
                 title=title,
                 user_limit=user_limit,
                 privacy=privacy,
@@ -1280,7 +1286,7 @@ async def sanctions_list(page: int = 1, limit: int = 20, username: str | None = 
     )
 
     rows = await session.execute(
-        select(UserSanction, User.username, User.avatar_name)
+        select(UserSanction, User.username, User.avatar_name, User.role, User.deleted_at)
         .select_from(UserSanction)
         .outerjoin(User, User.id == UserSanction.user_id)
         .where(*filters)
@@ -1291,7 +1297,7 @@ async def sanctions_list(page: int = 1, limit: int = 20, username: str | None = 
 
     now = datetime.now(timezone.utc)
     items: list[AdminSanctionListItemOut] = []
-    for row, target_username, target_avatar_name in rows.all():
+    for row, target_username, target_avatar_name, target_role, target_deleted_at in rows.all():
         sanction = cast(UserSanction, row)
         uid = cast(int, sanction.user_id)
         sid = cast(int, sanction.id)
@@ -1310,6 +1316,8 @@ async def sanctions_list(page: int = 1, limit: int = 20, username: str | None = 
                 user_id=uid,
                 username=cast(str | None, target_username),
                 avatar_name=cast(str | None, target_avatar_name),
+                role=cast(str | None, target_role),
+                deleted_at=cast(datetime | None, target_deleted_at),
                 kind=cast(str, sanction.kind),
                 status=cast(str, status),
                 issued_at=sanction.issued_at,
@@ -1395,6 +1403,7 @@ async def subscriptions_list(session: AsyncSession = Depends(get_session)) -> Ad
                 username=cast(str | None, profile.get("username")),
                 avatar_name=cast(str | None, profile.get("avatar_name")),
                 role=cast(str | None, profile.get("role")),
+                deleted_at=parse_cached_deleted_at(profile.get("deleted_at")),
                 starts_at=row.starts_at,
                 ends_at=row.ends_at,
                 is_active=is_active,

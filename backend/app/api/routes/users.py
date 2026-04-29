@@ -135,6 +135,7 @@ async def user_stats(season: int | None = None, ident: Identity = Depends(get_id
 @rate_limited(lambda ident, user_id, **_: f"rl:user_public_stats:{ident['id']}:{user_id}", limit=10, window_s=1)
 async def public_user_stats(user_id: int, season: int | None = None, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UserStatsOut:
     viewer_id = int(ident["id"])
+    viewer_role = str(ident["role"] or "").strip().lower()
     uid = int(user_id)
     if uid <= 0:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="bad_user_id")
@@ -143,7 +144,7 @@ async def public_user_stats(user_id: int, season: int | None = None, ident: Iden
     if not user or user.deleted_at:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="user_not_found")
 
-    if uid != viewer_id and str(ident["role"]) != "admin":
+    if uid != viewer_id and viewer_role not in {"admin", "moder"}:
         friendship_status = await friend_status_for(db, viewer_id, uid)
         if friendship_status != "friends":
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="friends_only")
@@ -154,16 +155,23 @@ async def public_user_stats(user_id: int, season: int | None = None, ident: Iden
 @router.get("/{user_id}/mini_profile", response_model=UserMiniProfileOut)
 @log_route("users.mini_profile")
 @rate_limited(lambda ident, user_id, **_: f"rl:user_mini_profile:{ident['id']}:{user_id}", limit=10, window_s=1)
-async def mini_profile(user_id: int, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UserMiniProfileOut:
+async def mini_profile(user_id: int, allow_deleted: bool = False, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UserMiniProfileOut:
     viewer_id = int(ident["id"])
-    viewer_role = str(ident["role"])
-    is_admin_viewer = viewer_role == "admin"
+    viewer_role = str(ident["role"] or "").strip().lower()
+    is_staff_viewer = viewer_role in {"admin", "moder"}
     uid = int(user_id)
     if uid <= 0:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="bad_user_id")
 
     user = await db.get(User, uid)
-    if not user or (user.deleted_at and not is_admin_viewer):
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="user_not_found")
+
+    target_role = str(user.role or "user").strip().lower()
+    if target_role == "admin":
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="user_not_found")
+
+    if user.deleted_at and not (allow_deleted and is_staff_viewer):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="user_not_found")
 
     defaults_changed = await ensure_profile_theme_defaults(db, uid)
@@ -171,7 +179,7 @@ async def mini_profile(user_id: int, ident: Identity = Depends(get_identity), db
         await db.commit()
     theme_state = await resolve_profile_theme_state(db, uid)
     last_game_at = (await fetch_users_last_game_at(db, [uid])).get(uid)
-    friend_status = "none" if is_admin_viewer else await friend_status_for(db, viewer_id, uid)
+    friend_status = await friend_status_for(db, viewer_id, uid)
     viewer_username = str(ident.get("username") or f"user{viewer_id}")
     target_username = user.username or f"user{uid}"
 
@@ -182,7 +190,7 @@ async def mini_profile(user_id: int, ident: Identity = Depends(get_identity), db
         online_ids = await fetch_effective_online_user_ids(r, [uid], base_online_ids=base_online_ids)
         online = uid in online_ids
 
-    if not is_admin_viewer:
+    if viewer_role != "admin":
         await log_action(
             db,
             user_id=viewer_id,
@@ -198,7 +206,8 @@ async def mini_profile(user_id: int, ident: Identity = Depends(get_identity), db
         id=uid,
         username=user.username,
         avatar_name=user.avatar_name,
-        role=str(user.role or "user"),
+        role=target_role,
+        deleted=bool(user.deleted_at),
         registered_at=user.registered_at,
         last_visit_at=user.last_visit_at,
         last_game_at=last_game_at,

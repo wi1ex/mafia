@@ -70,7 +70,7 @@
                   <span v-if="m.role === 'head'" class="user-numb">Вед. </span>
                   <span v-else-if="m.role === 'player' && m.slot != null" class="user-numb">{{ formatSeatNumber(m.slot) }}. </span>
                   <img v-minio-img="{ key: m.avatar_name ? `avatars/${m.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
-                  <button v-if="canOpenRoomInfoMiniProfileForUserId(m.id)" class="mini-profile-name mini-profile-name-trigger" type="button" @click="openMiniProfileFromRoomInfo(m)">
+                  <button v-if="canOpenRoomInfoMiniProfileForUser(m)" class="mini-profile-name mini-profile-name-trigger" type="button" @click="openMiniProfileFromRoomInfo(m)">
                     {{ m.username || ('user' + m.id) }}
                   </button>
                   <span v-else class="mini-profile-name">{{ m.username || ('user' + m.id) }}</span>
@@ -95,7 +95,7 @@
                       <div v-else class="spectators-list">
                         <div v-for="s in spectators" :key="`spectator-${s.id}`" class="spectators-row">
                           <img v-minio-img="{ key: s.avatar_name ? `avatars/${s.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
-                          <button v-if="canOpenRoomInfoMiniProfileForUserId(s.id)" class="mini-profile-name mini-profile-name-trigger" type="button" @click="openMiniProfileFromRoomInfo(s)">
+                          <button v-if="canOpenRoomInfoMiniProfileForUser(s)" class="mini-profile-name mini-profile-name-trigger" type="button" @click="openMiniProfileFromRoomInfo(s)">
                             {{ s.username || ('user' + s.id) }}
                           </button>
                           <span v-else class="mini-profile-name">{{ s.username || ('user' + s.id) }}</span>
@@ -177,6 +177,7 @@ import { Socket } from 'socket.io-client'
 import { createPublicSocket } from '@/services/sio'
 import { alertDialog, confirmDialog } from '@/services/confirm'
 import { api } from '@/services/axios'
+import { canOpenMiniProfileTarget, normalizeMiniProfileUserId } from '@/services/miniProfile'
 import { useAuthStore, useSettingsStore, useUserStore } from '@/store'
 import HomeInfoCarousel from '@/components/HomeInfoCarousel.vue'
 import RoomModal from '@/components/RoomModal.vue'
@@ -209,6 +210,7 @@ type RoomInfoMember = {
   id: number
   username?: string
   avatar_name?: string | null
+  profile_role?: string | null
   screen?: boolean
   role?: 'head' | 'player' | 'observer'
   slot?: number | null
@@ -222,11 +224,13 @@ type RoomSpectator = {
   id: number
   username?: string
   avatar_name?: string | null
+  profile_role?: string | null
 }
 type HomeMiniProfileInitial = {
   id?: number | null
   username?: string | null
   avatar_name?: string | null
+  role?: string | null
 }
 type Game = {
   mode: 'normal' | 'rating'
@@ -319,7 +323,7 @@ const sortedMembers = computed<RoomInfoMember[]>(() => {
 })
 
 const isFull = computed(() => selectedRoom.value ? isFullRoom(selectedRoom.value) : false)
-const currentUserId = computed(() => userStore.user?.id ?? null)
+const currentUserId = computed(() => normalizeMiniProfileUserId(userStore.user?.id))
 const verificationRestricted = computed(() => auth.isAuthed && settings.verificationRestrictions && !userStore.telegramVerified)
 const canOpenRoomInfoMiniProfile = computed(() => {
   if (!auth.ready || !settings.ready || !auth.isAuthed) return false
@@ -419,22 +423,24 @@ function formatSeatNumber(slot: number | null | undefined): string {
   return String(Math.trunc(n)).padStart(2, '0')
 }
 
-function canOpenRoomInfoMiniProfileForUserId(id: number | null | undefined): boolean {
-  const uid = Number(id || 0)
-  const viewerId = Number(currentUserId.value || 0)
+function canOpenRoomInfoMiniProfileForUser(user: { id?: number | null; profile_role?: string | null }): boolean {
   if (!canOpenRoomInfoMiniProfile.value) return false
-  if (!Number.isFinite(uid) || uid <= 0) return false
-  return viewerId <= 0 || uid !== viewerId
+  return canOpenMiniProfileTarget({
+    targetId: user.id,
+    viewerId: currentUserId.value,
+    targetRole: user.profile_role,
+  })
 }
 
-function openMiniProfileFromRoomInfo(user: { id: number; username?: string | null; avatar_name?: string | null }): void {
+function openMiniProfileFromRoomInfo(user: { id: number; username?: string | null; avatar_name?: string | null; profile_role?: string | null }): void {
   const uid = Number(user.id || 0)
-  if (!canOpenRoomInfoMiniProfileForUserId(uid)) return
+  if (!canOpenRoomInfoMiniProfileForUser(user)) return
   miniProfileUserId.value = uid
   miniProfileInitial.value = {
     id: uid,
     username: user.username || null,
     avatar_name: user.avatar_name || null,
+    role: user.profile_role || null,
   }
   spectatorsOpen.value = false
   miniProfileOpen.value = true

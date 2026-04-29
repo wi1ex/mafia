@@ -2051,6 +2051,8 @@ async def get_profiles_snapshot(r, rid: int, *, extra_ids: Iterable[int | str] |
             "avatar_name": str(av) if av else None,
             "theme_color": str(th) if th else None,
             "theme_icon": str(ic) if ic else None,
+            "role": None,
+            "deleted_at": None,
         }
 
     profile_ids: set[int] = set()
@@ -2069,7 +2071,14 @@ async def get_profiles_snapshot(r, rid: int, *, extra_ids: Iterable[int | str] |
         async with r.pipeline() as p:
             for uid_i in profile_ids:
                 key = str(uid_i)
-                cur = out.get(key) or {"username": None, "avatar_name": None, "theme_color": None, "theme_icon": None}
+                cur = out.get(key) or {
+                    "username": None,
+                    "avatar_name": None,
+                    "theme_color": None,
+                    "theme_icon": None,
+                    "role": None,
+                    "deleted_at": None,
+                }
                 profile = cached_profiles.get(uid_i)
                 if not profile:
                     out[key] = cur
@@ -2079,11 +2088,15 @@ async def get_profiles_snapshot(r, rid: int, *, extra_ids: Iterable[int | str] |
                 avatar_cached = profile.get("avatar_name")
                 theme_cached = profile.get("theme_color")
                 icon_cached = profile.get("theme_icon")
+                role_cached = profile.get("role")
+                deleted_at_cached = profile.get("deleted_at")
                 if username_cached is not None:
                     cur["username"] = str(username_cached)
                 cur["avatar_name"] = str(avatar_cached) if avatar_cached is not None else None
                 cur["theme_color"] = str(theme_cached) if theme_cached is not None else None
                 cur["theme_icon"] = str(icon_cached) if icon_cached is not None else None
+                cur["role"] = str(role_cached) if role_cached is not None else None
+                cur["deleted_at"] = str(deleted_at_cached) if deleted_at_cached is not None else None
                 out[key] = cur
 
                 mp: dict[str, str] = {}

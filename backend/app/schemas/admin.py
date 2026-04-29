@@ -152,6 +152,8 @@ class AdminLogOut(BaseModel):
     user_id: Optional[int] = None
     username: Optional[str] = None
     avatar_name: Optional[str] = None
+    role: Optional[str] = None
+    deleted_at: Optional[datetime] = None
     action: str
     details: str
     created_at: datetime
@@ -185,6 +187,8 @@ class AdminSanctionListItemOut(BaseModel):
     user_id: int
     username: Optional[str] = None
     avatar_name: Optional[str] = None
+    role: Optional[str] = None
+    deleted_at: Optional[datetime] = None
     kind: Literal["timeout", "ban", "suspend"]
     status: Literal["active", "expired_auto", "revoked"]
     issued_at: datetime
@@ -223,6 +227,8 @@ class AdminRoomOut(BaseModel):
     creator: int
     creator_name: str
     creator_avatar_name: Optional[str] = None
+    creator_role: Optional[str] = None
+    creator_deleted_at: Optional[datetime] = None
     title: str
     user_limit: int
     privacy: str
@@ -343,6 +349,7 @@ class AdminSubscriptionOut(BaseModel):
     username: Optional[str] = None
     avatar_name: Optional[str] = None
     role: Optional[str] = None
+    deleted_at: Optional[datetime] = None
     starts_at: datetime
     ends_at: datetime
     is_active: bool

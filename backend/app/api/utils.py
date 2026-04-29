@@ -187,6 +187,7 @@ __all__ = [
     "normalize_season_start_value",
     "build_app_settings_snapshot_defaults",
     "build_app_settings_snapshot_from_row",
+    "parse_cached_deleted_at",
     "safe_int",
     "non_empty_str",
     "normalize_game_result",
@@ -3071,6 +3072,18 @@ def redis_text(raw: object, default: str = "") -> str:
     return str(raw)
 
 
+def parse_cached_deleted_at(value: object) -> datetime | None:
+    raw = str(value or "").strip()
+    if not raw:
+        return None
+
+    try:
+        return datetime.fromisoformat(raw.replace("Z", "+00:00"))
+
+    except Exception:
+        return None
+
+
 async def active_game_head_room_by_uid(r, user_ids: list[int]) -> dict[int, int]:
     user_id_set: set[int] = set()
     for raw_uid in user_ids:
@@ -4468,6 +4481,7 @@ async def build_room_members_for_info(r, room_id: int) -> list[Dict[str, Any]]:
                 "id": uid,
                 "username": p.get("username"),
                 "avatar_name": p.get("avatar_name"),
+                "profile_role": p.get("role"),
                 "screen": True if screen_owner and uid == screen_owner else None,
                 "role": role,
                 "slot": slot,

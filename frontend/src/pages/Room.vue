@@ -490,6 +490,7 @@ import {
 import { type CameraQuality, type ScreenShareQuality, useRTC, type VQ } from '@/composables/rtc'
 import { api } from '@/services/axios'
 import { alertDialog, confirmDialog, useConfirmState } from '@/services/confirm'
+import { canOpenMiniProfileTarget } from '@/services/miniProfile'
 import { setPageTitle } from '@/services/pwa'
 import { createAuthedSocket, disposeAuthedSocket } from '@/services/sio'
 import RoomTile from '@/components/RoomTile.vue'
@@ -1077,9 +1078,12 @@ function closePanels(except?: 'card'|'apps'|'settings'|'friends'|'game', opts?: 
 }
 
 function openMiniProfileFromTile(id: string): void {
-  if (!id || id === localId.value) return
   const uid = Number(id)
-  if (!Number.isFinite(uid) || uid <= 0) return
+  if (!canOpenMiniProfileTarget({
+    targetId: uid,
+    viewerId: localId.value,
+    targetRole: moderationRol(id),
+  })) return
   miniProfileUserId.value = uid
   miniProfileInitial.value = {
     id: uid,
