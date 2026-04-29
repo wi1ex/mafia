@@ -1725,17 +1725,25 @@ async def set_user_deleted(session: AsyncSession, user_id: int, *, deleted: bool
         raise HTTPException(status_code=404, detail="user_not_found")
 
     user = cast(User, user)
+    uid = int(user.id)
     was_deleted = user.deleted_at is not None
     prev_avatar_name = cast(Optional[str], user.avatar_name)
     affected_friend_user_ids: tuple[int, ...] = ()
+    subscription_deleted = False
     if deleted:
-        _removed_friend_links, affected_friend_user_ids = await delete_friend_links_for_user(session, int(user.id))
-        new_username = f"deleted_{int(user.id)}"
+        _removed_friend_links, affected_friend_user_ids = await delete_friend_links_for_user(session, uid)
+        active_subscription = await session.scalar(
+            select(UserSubscription).where(UserSubscription.user_id == uid).limit(1)
+        )
+        if active_subscription is not None:
+            await session.delete(active_subscription)
+            subscription_deleted = True
+        new_username = f"deleted_{uid}"
         user.username = new_username
         user.avatar_name = None
         user.telegram_id = None
     elif was_deleted:
-        user.username = f"user_{int(user.id)}"
+        user.username = f"user_{uid}"
 
     if deleted:
         user.deleted_at = datetime.now(timezone.utc)
@@ -1746,7 +1754,11 @@ async def set_user_deleted(session: AsyncSession, user_id: int, *, deleted: bool
     await session.refresh(user)
 
     with suppress(Exception):
-        await refresh_user_profile_cache(session, int(user.id))
+        await refresh_user_profile_cache(session, uid)
+
+    if deleted and subscription_deleted:
+        with suppress(Exception):
+            await emit_room_profile_theme_sync(uid, None, None)
 
     if deleted:
         with suppress(Exception):
@@ -1754,15 +1766,15 @@ async def set_user_deleted(session: AsyncSession, user_id: int, *, deleted: bool
 
     if deleted:
         with suppress(Exception):
-            await delete_avatars_async(int(user.id))
+            await delete_avatars_async(uid)
         with suppress(Exception):
-            await broadcast_creator_rooms(int(user.id), update_name=user.username, avatar="delete")
+            await broadcast_creator_rooms(uid, update_name=user.username, avatar="delete")
         for other_user_id in affected_friend_user_ids:
             with suppress(Exception):
-                await emit_friends_update(int(other_user_id), int(user.id), "none")
+                await emit_friends_update(int(other_user_id), uid, "none")
     elif was_deleted:
         with suppress(Exception):
-            await broadcast_creator_rooms(int(user.id), update_name=user.username)
+            await broadcast_creator_rooms(uid, update_name=user.username)
 
     with suppress(Exception):
         from ..services.global_chat import emit_global_chat_messages_refresh
