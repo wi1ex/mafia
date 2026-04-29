@@ -5,6 +5,7 @@ import aiohttp
 from aiogram import types
 from functools import wraps
 from typing import Any, Awaitable, Callable, Dict, Tuple, TypeVar
+from urllib.parse import urlsplit, urlunsplit
 from aiogram.exceptions import TelegramAPIError, TelegramNetworkError, TelegramRetryAfter
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup
 
@@ -16,6 +17,31 @@ def normalize_webhook_path(path: str) -> str:
         return "/bot/webhook"
 
     return path if path.startswith("/") else f"/{path}"
+
+
+def build_webhook_url(host: str, path: str) -> str:
+    raw_host = (host or "").strip().rstrip("/")
+    webhook_path = normalize_webhook_path(path)
+    if not raw_host:
+        raise ValueError("WEBHOOK_HOST is empty")
+
+    parsed = urlsplit(raw_host)
+    if not parsed.scheme:
+        raise ValueError("WEBHOOK_HOST must include the https:// scheme")
+
+    if parsed.scheme != "https":
+        raise ValueError("WEBHOOK_HOST must use https")
+
+    if not parsed.netloc:
+        raise ValueError("WEBHOOK_HOST must include a domain name")
+
+    if parsed.path not in ("", "/"):
+        raise ValueError("WEBHOOK_HOST must not include a path")
+
+    if parsed.query or parsed.fragment:
+        raise ValueError("WEBHOOK_HOST must not include a query string or fragment")
+
+    return urlunsplit((parsed.scheme, parsed.netloc, webhook_path, "", ""))
 
 
 def keyboard_verify_only() -> ReplyKeyboardMarkup:

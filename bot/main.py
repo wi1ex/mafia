@@ -12,6 +12,7 @@ from aiogram.fsm.storage.redis import RedisStorage
 from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
 from utils import (
     backend_request,
+    build_webhook_url,
     guarded_handler,
     keyboard_reset_only,
     keyboard_verify_only,
@@ -249,6 +250,7 @@ async def reset_cancel(callback: types.CallbackQuery, state: FSMContext) -> None
 async def on_startup(app: web.Application) -> None:
     bot: Bot = app["bot"]
     dp: Dispatcher = app["dp"]
+    webhook_url: str = app["webhook_url"]
     await safe_telegram_call(
         "bot.set_my_commands",
         lambda: bot.set_my_commands(
@@ -269,17 +271,18 @@ async def on_startup(app: web.Application) -> None:
         retries=RETRY_ATTEMPTS,
         logger=log,
     )
-    webhook_path = normalize_webhook_path(WEBHOOK_PATH)
-    await safe_telegram_call(
+    webhook_set = await safe_telegram_call(
         "bot.set_webhook",
         lambda: bot.set_webhook(
-            f"{WEBHOOK_HOST}{webhook_path}",
+            webhook_url,
             secret_token=WEBHOOK_SECRET,
             allowed_updates=dp.resolve_used_update_types(),
         ),
         retries=RETRY_ATTEMPTS,
         logger=log,
     )
+    if not webhook_set:
+        raise RuntimeError(f"Failed to register Telegram webhook: {webhook_url}")
 
 
 async def on_shutdown(app: web.Application) -> None:
@@ -302,11 +305,13 @@ async def main() -> None:
     if not BOT_API_TOKEN:
         raise RuntimeError("BOT_API_TOKEN is required")
 
-    if not WEBHOOK_HOST:
-        raise RuntimeError("WEBHOOK_HOST is required")
-
     if not WEBHOOK_SECRET:
         raise RuntimeError("WEBHOOK_SECRET is required")
+
+    try:
+        webhook_url = build_webhook_url(WEBHOOK_HOST, WEBHOOK_PATH)
+    except ValueError as exc:
+        raise RuntimeError(f"Invalid webhook configuration: {exc}") from exc
 
     webhook_path = normalize_webhook_path(WEBHOOK_PATH)
     bot = Bot(token=TG_BOT_TOKEN)
@@ -321,6 +326,7 @@ async def main() -> None:
     app["dp"] = dp
     app["session"] = session
     app["storage"] = storage
+    app["webhook_url"] = webhook_url
 
     SimpleRequestHandler(dispatcher=dp, bot=bot, secret_token=WEBHOOK_SECRET).register(app, path=webhook_path)
     setup_application(app, dp, bot=bot)
