@@ -184,7 +184,7 @@ export function useRTC(): UseRTC {
   const screenKey = (id: string) => `${id}#s`
   const isScreenKey = (key: string) => key.endsWith('#s')
   const isSub = (pub: RemoteTrackPublication) => pub.isSubscribed
-  const lowVideoQuality = new VideoPreset(480, 270, 250_000, 20)
+  const lowVideoQuality = new VideoPreset(480, 270, 250_000, 30)
   const highVideoQuality = VideoPresets.h720
   const lowScreenQuality = new VideoPreset(960, 540, 900_000, 15, 'medium')
   const highScreenQuality = ScreenSharePresets.h1080fps30
