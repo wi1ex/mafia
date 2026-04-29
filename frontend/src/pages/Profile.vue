@@ -129,7 +129,7 @@
               </a>
               <p v-if="telegramVerified" class="hint">Если отвязать TG-аккаунт верификация будет снята и вход в комнаты будет ограничен</p>
               <p v-else class="hint">В чате с ботом сначала введите никнейм, затем пароль. После успешной верификации ограничения на вход в комнаты будут сняты</p>
-              <button class="btn danger" @click="deleteAccount" :disabled="deleteBusy || isProtectedAdminSelf">
+              <button class="btn danger" @click="deleteAccount" :disabled="deleteBusy || isDeleteAccountForbiddenSelf">
                 {{ deleteBusy ? '...' : 'Удалить аккаунт' }}
               </button>
               <p class="hint red">Удаление произойдет навсегда без возможности восстановления</p>
@@ -336,6 +336,10 @@ const me = reactive({
   profile_theme_icon: null as ProfileThemeIcon | null,
 })
 const isProtectedAdminSelf = computed(() => Boolean(me.protected_user))
+const isDeleteAccountForbiddenSelf = computed(() => {
+  const role = String(me.role || '').trim().toLowerCase()
+  return Boolean(me.protected_user) || role === 'admin' || role === 'moder'
+})
 const fileEl = ref<HTMLInputElement | null>(null)
 const modalEl = ref<HTMLDivElement | null>(null)
 
@@ -696,7 +700,7 @@ async function unlinkTelegram() {
 }
 
 async function deleteAccount() {
-  if (deleteBusy.value || isProtectedAdminSelf.value) return
+  if (deleteBusy.value || isDeleteAccountForbiddenSelf.value) return
   const ok = await confirmDialog({
     title: 'Удаление аккаунта',
     text: 'Вы уверены что хотите навсегда удалить свой аккаунт?',
@@ -708,8 +712,14 @@ async function deleteAccount() {
   try {
     await api.delete('/users/account')
     await auth.logout()
-  } catch {
-    void alertDialog('Не удалось удалить аккаунт')
+  } catch (e: any) {
+    const st = e?.response?.status
+    const d = e?.response?.data?.detail
+    if (st === 403 && (d === 'protected_user' || d === 'staff_self_delete_forbidden')) {
+      void alertDialog('Модераторам и администраторам нельзя удалять свой аккаунт')
+    } else {
+      void alertDialog('Не удалось удалить аккаунт')
+    }
   } finally {
     deleteBusy.value = false
   }

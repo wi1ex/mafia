@@ -32,6 +32,7 @@ from ..utils import (
 from ...models.game import Game
 from ...models.user import User
 from ...core.db import get_session
+from ...core.roles import ROLE_MODER, normalize_user_role
 from ...core.settings import settings
 from ...core.clients import get_redis
 from ...core.logging import log_action
@@ -1070,6 +1071,9 @@ async def delete_account(resp: Response, ident: Identity = Depends(get_identity)
 
     if is_protected_admin(getattr(user, "id", 0)):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="protected_user")
+
+    if normalize_user_role(getattr(user, "role", None)) == ROLE_MODER:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="staff_self_delete_forbidden")
 
     await set_user_deleted(db, uid, deleted=True)
 
