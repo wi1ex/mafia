@@ -887,7 +887,7 @@
                         Уменьшить
                       </button>
                       <button class="btn danger" :disabled="subscriptionRemoving[row.user_id]" @click="removeSubscription(row)">
-                        Снять
+                        Удалить
                       </button>
                     </div>
                   </td>
@@ -2332,9 +2332,9 @@ async function saveSubscription(): Promise<void> {
 async function removeSubscription(row: SubscriptionRow): Promise<void> {
   if (subscriptionRemoving[row.user_id]) return
   const ok = await confirmDialog({
-    title: 'Снять подписку',
-    text: `Снять подписку у ${row.username || `user${row.user_id}`}?`,
-    confirmText: 'Снять',
+    title: 'Удалить подписку',
+    text: `Удалить подписку у ${row.username || `user${row.user_id}`}?`,
+    confirmText: 'Удалить',
     cancelText: 'Отмена',
   })
   if (!ok) return
@@ -2347,7 +2347,7 @@ async function removeSubscription(row: SubscriptionRow): Promise<void> {
     const st = e?.response?.status
     const d = e?.response?.data?.detail
     if (st === 404 && d === 'subscription_not_found') void alertDialog('Подписка уже отсутствует')
-    else void alertDialog('Не удалось снять подписку')
+    else void alertDialog('Не удалось удалить подписку')
   } finally {
     subscriptionRemoving[row.user_id] = false
   }
