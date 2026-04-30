@@ -92,9 +92,6 @@
                     <template v-else-if="reactionParticipantsFor(message.id, reaction.emoji).length > 0">
                       <div v-for="participant in reactionParticipantsFor(message.id, reaction.emoji)" :key="`${participant.user.id}-${participant.created_at}`" class="reaction-details-item">
                         <img class="reaction-details-avatar" v-minio-img="{ key: participant.user.avatar_name ? `avatars/${participant.user.avatar_name}` : '', placeholder: defaultAvatar, lazy: false, animated: true }" alt="Аватар" />
-                        <div v-if="profileThemeIconSrcs(participant.user.theme_icon, participant.user.role).length" class="profile-theme-icons" aria-hidden="true">
-                          <img v-for="badgeSrc in profileThemeIconSrcs(participant.user.theme_icon, participant.user.role)" :key="`${participant.user.id}-${participant.created_at}-${badgeSrc}`" class="profile-theme-icon" :src="badgeSrc" alt="" />
-                        </div>
                         <div class="reaction-details-meta">
                           <span class="reaction-details-name">{{ participant.user.username || (`user${participant.user.id}`) }}</span>
                           <small class="reaction-details-time">{{ formatMessageTime(participant.created_at) }}</small>
@@ -1954,17 +1951,6 @@ onBeforeUnmount(() => {
                   border-radius: 50%;
                   object-fit: cover;
                 }
-                .profile-theme-icon {
-                  width: 25px;
-                  height: 25px;
-                  object-fit: contain;
-                }
-                .profile-theme-icons {
-                  display: inline-flex;
-                  align-items: center;
-                  gap: 3px;
-                  flex: 0 0 auto;
-                }
                 .reaction-details-meta {
                   display: flex;
                   flex-direction: column;
@@ -2637,13 +2623,6 @@ onBeforeUnmount(() => {
                   .reaction-details-avatar {
                     width: 20px;
                     height: 20px;
-                  }
-                  .profile-theme-icon {
-                    width: 20px;
-                    height: 20px;
-                  }
-                  .profile-theme-icons {
-                    gap: 3px;
                   }
                   .reaction-details-meta {
                     gap: 3px;

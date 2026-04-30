@@ -97,10 +97,14 @@ export function isModeratorProfileThemeRole(role: unknown): boolean {
   return String(role || '').trim().toLowerCase() === 'moder'
 }
 
-export function getProfileThemeBadgeSources(value: unknown, role?: unknown): string[] {
+export interface ProfileThemeBadgeOptions {
+  hideModeratorBadge?: boolean
+}
+
+export function getProfileThemeBadgeSources(value: unknown, role?: unknown, options: ProfileThemeBadgeOptions = {}): string[] {
   const badges: string[] = []
   const themeIconSrc = getProfileThemeIconSrc(value)
   if (themeIconSrc) badges.push(themeIconSrc)
-  if (isModeratorProfileThemeRole(role) && moderProfileThemeIconSrc) badges.push(moderProfileThemeIconSrc)
+  if (!options.hideModeratorBadge && isModeratorProfileThemeRole(role) && moderProfileThemeIconSrc) badges.push(moderProfileThemeIconSrc)
   return badges
 }
