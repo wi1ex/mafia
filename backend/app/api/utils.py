@@ -1441,7 +1441,33 @@ async def maybe_send_sanction_telegram_if_offline(session: AsyncSession, *, user
     return True
 
 
-async def _create_subscription_site_notice_once(session: AsyncSession, user_id: int, *, title: str, text: str, no_toast: bool) -> bool:
+async def _send_subscription_telegram_notice(session: AsyncSession, *, user_id: int, title: str, text: str) -> bool:
+    uid = int(user_id)
+    if uid <= 0:
+        return False
+
+    user = await session.get(User, uid)
+    if not user or user.deleted_at is not None:
+        return False
+
+    telegram_id = int(user.telegram_id or 0)
+    if telegram_id <= 0:
+        return False
+
+    try:
+        send_result = await send_text_message(chat_id=telegram_id, text=f"{title}\n\n{text}")
+    except Exception:
+        log.warning("subscription.telegram_notify_failed", uid=uid, reason="unexpected_error", exc_info=True)
+        return False
+
+    if not send_result.ok:
+        log.warning("subscription.telegram_notify_failed", uid=uid, reason=send_result.reason)
+        return False
+
+    return True
+
+
+async def _create_subscription_site_notice_once(session: AsyncSession, user_id: int, *, title: str, text: str, no_toast: bool) -> Notif | None:
     uid = int(user_id)
     existing_note_id = await session.scalar(
         select(Notif.id)
@@ -1453,14 +1479,14 @@ async def _create_subscription_site_notice_once(session: AsyncSession, user_id: 
         .limit(1)
     )
     if existing_note_id:
-        return False
+        return None
 
     note = Notif(user_id=uid, title=title, text=text)
     session.add(note)
     await session.commit()
     await session.refresh(note)
     await emit_notify(uid, note, kind="subscription", no_toast=no_toast)
-    return True
+    return note
 
 
 def _is_gif_avatar_name(value: object) -> bool:
@@ -1536,13 +1562,20 @@ async def sync_expired_profile_subscriptions() -> int:
                 with suppress(Exception):
                     from ..services.global_chat import emit_global_chat_profile_theme_sync
                     await emit_global_chat_profile_theme_sync(uid, None, None)
-                await _create_subscription_site_notice_once(
+                created = await _create_subscription_site_notice_once(
                     session,
                     uid,
                     title="Подписка истекла",
-                    text=f"Нам очень жаль, но Ваша подписка истекла {format_subscription_until(ends_at)}.",
-                    no_toast=True,
+                    text=f"Нам очень жаль, но Ваша подписка истекла.",
+                    no_toast=False,
                 )
+                if created is not None:
+                    await _send_subscription_telegram_notice(
+                        session,
+                        user_id=uid,
+                        title="Подписка истекла",
+                        text=f"Нам очень жаль, но Ваша подписка истекла.",
+                    )
                 synced += 1
             except Exception as exc:
                 with suppress(Exception):
@@ -1610,9 +1643,15 @@ async def notify_expiring_profile_subscriptions() -> int:
                     uid,
                     title=title,
                     text=text,
-                    no_toast=True,
+                    no_toast=False,
                 )
-                if created:
+                if created is not None:
+                    await _send_subscription_telegram_notice(
+                        session,
+                        user_id=uid,
+                        title=title,
+                        text=text,
+                    )
                     notified += 1
             except Exception as exc:
                 with suppress(Exception):
