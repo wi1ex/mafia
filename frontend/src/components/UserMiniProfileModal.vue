@@ -109,6 +109,8 @@ type MiniProfileInitial = {
   profile_theme_color?: string | null
   profile_theme_icon?: string | null
   friend_status?: FriendStatus | null
+  deleted?: boolean | null
+  deleted_at?: string | null
   kind?: 'incoming' | 'outgoing' | 'online' | 'offline' | string | null
 }
 
@@ -176,7 +178,15 @@ const profileLoadedForTarget = computed(() => Boolean(profile.value && profile.v
 const viewerUserId = computed(() => Number(userStore.user?.id || 0))
 const viewerRole = computed(() => normalizeMiniProfileRole(userStore.user?.role))
 const privilegedViewer = computed(() => isMiniProfilePrivilegedViewer(viewerRole.value, props.adminMode))
-const targetDeleted = computed(() => Boolean(profileLoadedForTarget.value && profile.value?.deleted))
+const initialTargetDeleted = computed(() => {
+  const initialId = Number(props.initialProfile?.id || 0)
+  if (!Number.isFinite(initialId) || initialId <= 0 || Math.trunc(initialId) !== targetUserId.value) return false
+  return Boolean(props.initialProfile?.deleted || props.initialProfile?.deleted_at)
+})
+const targetDeleted = computed(() => Boolean(
+  (profileLoadedForTarget.value && profile.value?.deleted)
+  || (!profileLoadedForTarget.value && initialTargetDeleted.value)
+))
 
 const displayName = computed(() => {
   if (profileLoadedForTarget.value && profile.value?.username) return profile.value.username

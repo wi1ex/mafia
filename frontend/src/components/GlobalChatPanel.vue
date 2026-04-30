@@ -264,6 +264,8 @@
       v-model:open="miniProfileOpen"
       :user-id="miniProfileUserId"
       :initial-profile="miniProfileInitial"
+      :allow-deleted="miniProfileAllowDeleted"
+      :stats-url="miniProfileStatsUrl"
       :show-stats-button="true"
     />
   </div>
@@ -278,7 +280,7 @@ import { buildProfileThemeBgStyle } from '@/constants/profileThemes'
 import { getProfileThemeBadgeSources } from '@/constants/profileThemeIcons'
 import { alertDialog, confirmDialog } from '@/services/confirm'
 import { formatChatTimestamp } from '@/services/datetime'
-import { canOpenMiniProfileTarget, normalizeMiniProfileUserId } from '@/services/miniProfile'
+import { canOpenMiniProfileTarget, normalizeMiniProfileUserId, normalizeMiniProfileRole } from '@/services/miniProfile'
 import { useAuthStore, useGlobalChatStore, useSettingsStore, useUserStore } from '@/store'
 import UserMiniProfileModal from '@/components/UserMiniProfileModal.vue'
 
@@ -369,6 +371,7 @@ const miniProfileInitial = ref<{
   role?: string | null
   theme_color?: string | null
   theme_icon?: string | null
+  deleted?: boolean | null
 } | null>(null)
 const reactionDetailsMessageId = ref<number | null>(null)
 const reactionDetailsEmoji = ref('')
@@ -392,9 +395,17 @@ const visibleUnreadTargetReadInFlightIds = new Set<number>()
 const USER_SCROLL_INTENT_WINDOW_MS = 4000
 const VISIBLE_UNREAD_TARGET_RATIO = 0.5
 const VISIBLE_UNREAD_TARGET_MAX_PX = 120
+const viewerMiniProfileRole = computed(() => normalizeMiniProfileRole(user.user?.role))
 const isChatModerator = computed(() => {
-  const role = String(user.user?.role || '').trim().toLowerCase()
-  return role === 'admin' || role === 'moder'
+  return viewerMiniProfileRole.value === 'admin' || viewerMiniProfileRole.value === 'moder'
+})
+const miniProfileAllowDeleted = computed(() => isChatModerator.value)
+const miniProfileStatsUrl = computed(() => {
+  const uid = Number(miniProfileUserId.value || 0)
+  if (!Number.isFinite(uid) || uid <= 0) return null
+  if (viewerMiniProfileRole.value === 'admin') return `/admin/users/${uid}/stats`
+  if (viewerMiniProfileRole.value === 'moder') return `/moderation/users/${uid}/stats`
+  return null
 })
 const isRoomMode = computed(() => route.name === 'room')
 
@@ -449,6 +460,7 @@ function canOpenAuthorMiniProfile(message: GlobalChatMessage): boolean {
     viewerId: normalizeMiniProfileUserId(user.user?.id),
     targetRole: message.author?.role,
     targetDeletedAt: message.author?.deleted,
+    allowDeleted: miniProfileAllowDeleted.value,
   })
 }
 
@@ -465,6 +477,7 @@ function openAuthorMiniProfile(message: GlobalChatMessage) {
     role: author.role || null,
     theme_color: author.theme_color || null,
     theme_icon: author.theme_icon || null,
+    deleted: Boolean(author.deleted),
   }
   miniProfileOpen.value = true
 }

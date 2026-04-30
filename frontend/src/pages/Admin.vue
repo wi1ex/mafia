@@ -101,7 +101,7 @@
                 <UiInput id="knocks-limit" v-model.number="game.knocks_limit" type="number" min="0" step="1"
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Постукивания (шт)" />
                 <UiInput id="wink-spot-chance-percent" v-model.number="game.wink_spot_chance_percent" type="number" min="0" max="100" step="1"
-                         autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Шанс заметить подмигивание (%)" />
+                         autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Вероятность для подмигиваний (%)" />
               </div>
             </div>
 
