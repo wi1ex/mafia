@@ -71,7 +71,8 @@ export interface GlobalChatMessage {
   author: GlobalChatAuthor
   is_own: boolean
   can_delete: boolean
-  can_moderate_deleted: boolean
+  can_preview_deleted: boolean
+  can_purge_deleted: boolean
   reactions: GlobalChatReaction[]
   reply: GlobalChatReplyPreview | null
   image_object_key: string | null
@@ -261,7 +262,7 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
     const viewerRole = currentViewerChatRole()
     const authorRole = normalizeChatRole(authorRoleRaw)
     if (viewerRole === 'admin') return true
-    if (viewerRole === 'moder') return authorRole === 'user'
+    if (viewerRole === 'moder') return authorRole !== 'admin'
     return false
   }
 
@@ -635,6 +636,27 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
     const ownByAuthor = viewerUserId > 0 && authorId === viewerUserId
     const canModerate = currentViewerIsChatModerator() && canModerateChatMessage(authorId, authorRole, viewerUserId)
     const canDeleteOwn = !deleted && ownByAuthor && (Boolean(permissions.value.can_delete_own) || canModerate)
+    const viewerRole = currentViewerChatRole()
+    const canPreviewDeleted = Boolean(
+      deleted
+      && deletedContentAvailable
+      && (
+        typeof raw.can_preview_deleted === 'boolean'
+          ? raw.can_preview_deleted
+          : typeof raw.can_moderate_deleted === 'boolean'
+            ? raw.can_moderate_deleted
+            : currentViewerIsChatModerator()
+      )
+    )
+    const canPurgeDeleted = Boolean(
+      deleted
+      && deletedContentAvailable
+      && (
+        typeof raw.can_purge_deleted === 'boolean'
+          ? raw.can_purge_deleted
+          : viewerRole === 'admin'
+      )
+    )
 
     return {
       id,
@@ -654,7 +676,8 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
       },
       is_own: ownByAuthor,
       can_delete: Boolean(!deleted && (Boolean(raw.can_delete) || canDeleteOwn || (canModerate && !ownByAuthor))),
-      can_moderate_deleted: Boolean(deleted && deletedContentAvailable && (Boolean(raw.can_moderate_deleted) || canModerate)),
+      can_preview_deleted: canPreviewDeleted,
+      can_purge_deleted: canPurgeDeleted,
       reactions: deleted ? [] : normalizeReactionList(raw.reactions, previous?.reactions || []),
       reply: normalizeReply(raw.reply),
       image_object_key: deleted ? null : (asString(raw.image_object_key) || null),

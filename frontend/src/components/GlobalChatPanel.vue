@@ -52,13 +52,13 @@
 
               <div class="message-bubble">
                 <p v-if="message.deleted" class="tombstone">Сообщение удалено</p>
-                <div v-if="showDeletedModerationActions(message)" class="tombstone-actions">
+                <div v-if="showDeletedActions(message)" class="tombstone-actions">
                   <button class="icon-action-button" type="button" aria-label="Показать удаленное сообщение"
-                          :disabled="isDeletedPreviewBusy(message.id)" @click="onPreviewDeletedMessage(message.id)">
+                          :disabled="isDeletedPreviewBusy(message.id)" @click="onPreviewDeletedMessage(message.id)" v-if="showDeletedPreviewAction(message)">
                     <img :src="iconInfo" alt="" />
                   </button>
                   <button class="icon-action-button icon-action-button--danger" type="button" aria-label="Удалить сообщение окончательно"
-                          :disabled="chat.isPurgeBusy(message.id)" @click="onPurgeDeletedMessage(message)">
+                          :disabled="chat.isPurgeBusy(message.id)" @click="onPurgeDeletedMessage(message)" v-if="showDeletedPurgeAction(message)">
                     <img :src="iconDelete" alt="" />
                   </button>
                 </div>
@@ -1232,8 +1232,16 @@ async function onDeleteMessage(message: GlobalChatMessage): Promise<void> {
   await chat.deleteMessage(message.id)
 }
 
-function showDeletedModerationActions(message: GlobalChatMessage): boolean {
-  return Boolean(message.deleted && message.can_moderate_deleted)
+function showDeletedPreviewAction(message: GlobalChatMessage): boolean {
+  return Boolean(message.deleted && message.can_preview_deleted)
+}
+
+function showDeletedPurgeAction(message: GlobalChatMessage): boolean {
+  return Boolean(message.deleted && message.can_purge_deleted)
+}
+
+function showDeletedActions(message: GlobalChatMessage): boolean {
+  return showDeletedPreviewAction(message) || showDeletedPurgeAction(message)
 }
 
 function isDeletedPreviewBusy(messageId: number): boolean {
@@ -1263,7 +1271,7 @@ async function onPreviewDeletedMessage(messageId: number): Promise<void> {
 }
 
 async function onPurgeDeletedMessage(message: GlobalChatMessage): Promise<void> {
-  if (!showDeletedModerationActions(message) || chat.isPurgeBusy(message.id)) return
+  if (!showDeletedPurgeAction(message) || chat.isPurgeBusy(message.id)) return
   const confirmed = await confirmDialog({
     title: 'Окончательное удаление',
     text: 'Вы уверены что хотите удалить сообщение навсегда?',

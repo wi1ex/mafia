@@ -4,7 +4,12 @@ from uuid import UUID
 import structlog
 from ..sio import sio
 from ..utils import payload_dict, permissions_status, positive_int, public_reactions, validate_auth
-from ...core.roles import can_moderate_chat_message, is_chat_moderator_role
+from ...core.roles import (
+    can_moderate_chat_message,
+    can_purge_deleted_chat_message,
+    can_view_deleted_chat_message,
+    is_chat_moderator_role,
+)
 from ...core.db import SessionLocal
 from ...core.logging import log_action
 from ...security.decorators import rate_limited_sio
@@ -545,7 +550,7 @@ async def chat_deleted_message_preview(sid, data):
         sess = await sio.get_session(sid, namespace="/chat")
         uid = int(sess.get("uid") or 0)
         role = str(sess.get("role") or "").strip().lower()
-        if not is_chat_moderator_role(role):
+        if not can_view_deleted_chat_message(actor_role=role):
             return {"ok": False, "status": 403, "error": "forbidden"}
 
         payload = payload_dict(data)
@@ -560,17 +565,6 @@ async def chat_deleted_message_preview(sid, data):
 
             if message.deleted_at is None:
                 return {"ok": False, "status": 409, "error": "not_deleted"}
-
-            message_author_id = int(message.user_id)
-            author_profile = (await get_user_profiles_cached(db, {message_author_id})).get(message_author_id) or {}
-            author_role = str(author_profile.get("role") or "user")
-            if not can_moderate_chat_message(
-                actor_role=role,
-                target_role=author_role,
-                actor_user_id=uid,
-                target_user_id=message_author_id,
-            ):
-                return {"ok": False, "status": 403, "error": "forbidden"}
 
             preview = await build_deleted_global_chat_message_preview(db, message=message)
 
@@ -589,7 +583,7 @@ async def chat_message_purge(sid, data):
         uid = int(sess.get("uid") or 0)
         role = str(sess.get("role") or "").strip().lower()
         actor_username = str(sess.get("username") or f"user{uid}")
-        if not is_chat_moderator_role(role):
+        if not can_purge_deleted_chat_message(actor_role=role):
             return {"ok": False, "status": 403, "error": "forbidden"}
 
         payload = payload_dict(data)
@@ -606,16 +600,6 @@ async def chat_message_purge(sid, data):
                 return {"ok": False, "status": 409, "error": "not_deleted"}
 
             message_author_id = int(message.user_id)
-            author_profile = (await get_user_profiles_cached(db, {message_author_id})).get(message_author_id) or {}
-            author_role = str(author_profile.get("role") or "user")
-            if not can_moderate_chat_message(
-                actor_role=role,
-                target_role=author_role,
-                actor_user_id=uid,
-                target_user_id=message_author_id,
-            ):
-                return {"ok": False, "status": 403, "error": "forbidden"}
-
             message_author_username = ""
             message_payload = await build_global_chat_message_payload(db, message_id=message_id, viewer_user_id=uid)
             if message_payload is not None:

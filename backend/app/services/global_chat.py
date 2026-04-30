@@ -13,7 +13,13 @@ from ..models.global_chat import GlobalChatMessage, GlobalChatMessageReaction, G
 from ..models.sanction import UserSanction
 from ..models.user import User
 from ..core.db import SessionLocal
-from ..core.roles import can_moderate_chat_message, is_chat_moderator_role, normalize_user_role
+from ..core.roles import (
+    can_moderate_chat_message,
+    can_purge_deleted_chat_message,
+    can_view_deleted_chat_message,
+    is_chat_moderator_role,
+    normalize_user_role,
+)
 from ..realtime.sio import sio
 from ..security.parameters import get_cached_settings
 from ..api.utils import is_user_in_active_game
@@ -1243,11 +1249,15 @@ async def serialize_global_chat_messages(session: AsyncSession, messages: Sequen
             else:
                 can_delete_message = bool(viewer_is_chat_moderator and can_moderate_message)
 
-        can_moderate_deleted_message = bool(
+        can_preview_deleted_message = bool(
             deleted
             and public.get("deleted_content_available")
-            and viewer_is_chat_moderator
-            and can_moderate_message
+            and can_view_deleted_chat_message(actor_role=viewer_role)
+        )
+        can_purge_deleted_message_flag = bool(
+            deleted
+            and public.get("deleted_content_available")
+            and can_purge_deleted_chat_message(actor_role=viewer_role)
         )
 
         reactions: list[dict[str, Any]] = []
@@ -1317,7 +1327,8 @@ async def serialize_global_chat_messages(session: AsyncSession, messages: Sequen
                 },
                 "is_own": own_message,
                 "can_delete": can_delete_message,
-                "can_moderate_deleted": can_moderate_deleted_message,
+                "can_preview_deleted": can_preview_deleted_message,
+                "can_purge_deleted": can_purge_deleted_message_flag,
                 "reactions": reactions,
                 "reply": reply_payload,
                 "image_object_key": public["image_object_key"],

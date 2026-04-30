@@ -87,9 +87,17 @@ def can_moderate_chat_message(*, actor_role: object, target_role: object, actor_
         return True
 
     if actor_value == ROLE_MODER:
-        return target_value == ROLE_USER
+        return target_value != ROLE_ADMIN
 
     return False
+
+
+def can_view_deleted_chat_message(*, actor_role: object) -> bool:
+    return normalize_user_role(actor_role) in {ROLE_ADMIN, ROLE_MODER}
+
+
+def can_purge_deleted_chat_message(*, actor_role: object) -> bool:
+    return normalize_user_role(actor_role) == ROLE_ADMIN
 
 
 def admin_users_role_sort_value(raw: object) -> tuple[int, str]:
