@@ -758,10 +758,23 @@ function parseSanctionDate(value?: string | null): Date | null {
   return Number.isNaN(dt.getTime()) ? null : dt
 }
 
+function isSanctionExpiredAfterGame(item: SanctionItem): boolean {
+  const revokedByName = String(item.revoked_by_name || '').trim().toLowerCase()
+  return Boolean(
+    item.revoked_at
+    && item.kind === 'suspend'
+    && item.revoked_by_id == null
+    && revokedByName === 'проведение игры',
+  )
+}
+
 function getSanctionState(item: SanctionItem) {
   const now = Date.now()
   const revokedAt = parseSanctionDate(item.revoked_at)
-  if (revokedAt) return { state: 'revoked', endAt: revokedAt, now }
+  if (revokedAt) {
+    if (isSanctionExpiredAfterGame(item)) return { state: 'expired', endAt: revokedAt, now }
+    return { state: 'revoked', endAt: revokedAt, now }
+  }
   const expiresAt = parseSanctionDate(item.expires_at)
   if (expiresAt) {
     if (expiresAt.getTime() <= now) return { state: 'expired', endAt: expiresAt, now }

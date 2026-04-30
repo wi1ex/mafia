@@ -911,8 +911,21 @@ def build_admin_sanction_out(row: UserSanction) -> AdminSanctionOut:
     )
 
 
+def is_sanction_expired_after_game(row: UserSanction) -> bool:
+    revoked_by_name = str(row.revoked_by_name or "").strip().lower()
+    return (
+        row.revoked_at is not None
+        and str(row.kind or "").strip().lower() == SANCTION_SUSPEND
+        and row.revoked_by_id is None
+        and revoked_by_name == "проведение игры"
+    )
+
+
 def sanction_status(row: UserSanction, now: datetime) -> str:
     if row.revoked_at is not None:
+        if is_sanction_expired_after_game(row):
+            return "expired_auto"
+
         return "revoked"
 
     if row.expires_at is not None and row.expires_at <= now:
