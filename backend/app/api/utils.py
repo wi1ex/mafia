@@ -156,6 +156,9 @@ __all__ = [
     "normalize_chat_mention_query",
     "normalize_username",
     "normalize_password",
+    "normalize_username_search_term",
+    "is_within_single_typo",
+    "find_user_ids_by_username_search",
     "find_user_by_username",
     "generate_user_id",
     "init_updates_read",
@@ -1060,6 +1063,94 @@ def normalize_chat_mention_query(raw: str) -> str:
         raise HTTPException(status_code=422, detail="invalid_mention_query")
 
     return out
+
+
+def normalize_username_search_term(raw: str) -> str:
+    return unicodedata.normalize("NFKC", raw or "").strip().lower()
+
+
+def is_within_single_typo(candidate: str, query: str) -> bool:
+    left = normalize_username_search_term(candidate)
+    right = normalize_username_search_term(query)
+    if not left or not right:
+        return False
+
+    if left == right:
+        return True
+
+    if len(left) == len(right):
+        mismatches = [idx for idx, (left_ch, right_ch) in enumerate(zip(left, right)) if left_ch != right_ch]
+        if (
+            len(mismatches) == 2
+            and mismatches[1] == mismatches[0] + 1
+        ):
+            idx = mismatches[0]
+            if left[idx] == right[idx + 1] and left[idx + 1] == right[idx]:
+                return True
+
+    len_diff = len(left) - len(right)
+    if abs(len_diff) > 1:
+        return False
+
+    if len(left) < len(right):
+        left, right = right, left
+
+    left_len = len(left)
+    right_len = len(right)
+    left_idx = 0
+    right_idx = 0
+    edits = 0
+
+    while left_idx < left_len and right_idx < right_len:
+        if left[left_idx] == right[right_idx]:
+            left_idx += 1
+            right_idx += 1
+            continue
+
+        edits += 1
+        if edits > 1:
+            return False
+
+        if left_len == right_len:
+            left_idx += 1
+            right_idx += 1
+        else:
+            left_idx += 1
+
+    if left_idx < left_len or right_idx < right_len:
+        edits += 1
+
+    return edits <= 1
+
+
+async def find_user_ids_by_username_search(session: AsyncSession, username: str, *, include_deleted: bool = True) -> list[int]:
+    needle = normalize_username_search_term(username)
+    if not needle:
+        return []
+
+    filters = []
+    if not include_deleted:
+        filters.append(User.deleted_at.is_(None))
+
+    exact_rows = await session.execute(
+        select(User.id)
+        .where(*filters, func.lower(User.username).contains(needle, autoescape=True))
+        .order_by(User.id.desc())
+    )
+    exact_ids = [int(row_id) for row_id in exact_rows.scalars().all()]
+    if exact_ids:
+        return exact_ids
+
+    if len(needle) < 3:
+        return []
+
+    candidate_rows = await session.execute(select(User.id, User.username).where(*filters))
+    fuzzy_ids: list[int] = []
+    for user_id, candidate_username in candidate_rows.all():
+        if candidate_username and is_within_single_typo(str(candidate_username), needle):
+            fuzzy_ids.append(int(user_id))
+
+    return fuzzy_ids
 
 
 def normalize_password(raw: str, *, allow_whitespace: bool = False) -> str:

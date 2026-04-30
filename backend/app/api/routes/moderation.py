@@ -45,6 +45,7 @@ from ..utils import (
     sanction_finished_at,
     sanction_served_seconds,
     sanction_status,
+    find_user_ids_by_username_search,
 )
 
 router = APIRouter(dependencies=[Depends(require_roles_dep("moder"))])
@@ -58,8 +59,11 @@ async def moderation_users_list(page: int = 1, limit: int = 20, username: str | 
 
     filters = [User.deleted_at.is_(None)]
     if username:
-        needle = username.lower()
-        filters.append(func.lower(User.username).contains(needle, autoescape=True))
+        user_ids = await find_user_ids_by_username_search(session, username, include_deleted=False)
+        if not user_ids:
+            return ModerationUsersOut(total=0, items=[])
+
+        filters.append(User.id.in_(user_ids))
 
     users: list[User]
 
@@ -174,8 +178,11 @@ async def moderation_sanctions_list(page: int = 1, limit: int = 20, username: st
 
     filters = []
     if username:
-        needle = username.lower()
-        filters.append(func.lower(User.username).contains(needle, autoescape=True))
+        user_ids = await find_user_ids_by_username_search(session, username)
+        if not user_ids:
+            return AdminSanctionsOut(total=0, items=[])
+
+        filters.append(UserSanction.user_id.in_(user_ids))
 
     total = int(
         await session.scalar(

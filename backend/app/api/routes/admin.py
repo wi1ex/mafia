@@ -148,6 +148,7 @@ from ..utils import (
     revoke_active_suspend,
     format_duration_parts,
     format_duration_seconds_compact,
+    find_user_ids_by_username_search,
     emit_notify,
     emit_sanctions_update,
     maybe_send_sanction_telegram_if_offline,
@@ -422,9 +423,7 @@ async def rooms_list(page: int = 1, limit: int = 20, username: str | None = None
     query = select(Room)
     filters = []
     if username:
-        needle = username.lower()
-        rows = await session.execute(select(User.id).where(func.lower(User.username).contains(needle, autoescape=True)))
-        ids = [int(x[0]) for x in rows.all()]
+        ids = await find_user_ids_by_username_search(session, username)
         if not ids:
             return AdminRoomsOut(total=0, items=[])
 
@@ -1101,8 +1100,11 @@ async def users_list(page: int = 1, limit: int = 20, username: str | None = None
 
     filters = []
     if username:
-        needle = username.lower()
-        filters.append(func.lower(User.username).contains(needle, autoescape=True))
+        user_ids = await find_user_ids_by_username_search(session, username)
+        if not user_ids:
+            return AdminUsersOut(total=0, items=[])
+
+        filters.append(User.id.in_(user_ids))
 
     users: list[User]
     friends_count: dict[int, int]
@@ -1273,8 +1275,11 @@ async def sanctions_list(page: int = 1, limit: int = 20, username: str | None = 
 
     filters = []
     if username:
-        needle = username.lower()
-        filters.append(func.lower(User.username).contains(needle, autoescape=True))
+        user_ids = await find_user_ids_by_username_search(session, username)
+        if not user_ids:
+            return AdminSanctionsOut(total=0, items=[])
+
+        filters.append(UserSanction.user_id.in_(user_ids))
 
     total = int(
         await session.scalar(
