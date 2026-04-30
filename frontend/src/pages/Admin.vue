@@ -167,7 +167,7 @@
                 <span class="value">{{ stats.avatars_count }} ({{ formatBytes(stats.avatars_bytes) }})</span>
               </div>
               <div class="stat-card">
-                <span class="label">Изображения</span>
+                <span class="label">Изображения в чате</span>
                 <span class="value">{{ stats.images_count }} ({{ formatBytes(stats.images_bytes) }})</span>
               </div>
               <div class="stat-card">
@@ -258,7 +258,7 @@
                   </div>
                 </div>
                 <div class="stats-daily-block">
-                  <div class="stats-mini-title">Актив по дням (входившие в комнаты)</div>
+                  <div class="stats-mini-title">Активные пользователи по дням</div>
                   <div v-if="stats.active_users_by_day.length === 0" class="muted">Нет данных</div>
                   <div v-else class="chart-body">
                     <div class="chart-axis">

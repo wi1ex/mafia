@@ -2752,7 +2752,11 @@ async def build_registrations_series(session: AsyncSession, start_dt: datetime, 
 
     rows = await session.execute(
         select(func.date_trunc("day", User.registered_at).label("day"), func.count(User.id))
-        .where(User.registered_at >= start_dt, User.registered_at < end_dt)
+        .where(
+            User.registered_at >= start_dt,
+            User.registered_at < end_dt,
+            User.deleted_at.is_(None),
+        )
         .group_by("day")
         .order_by("day")
     )
@@ -2777,7 +2781,12 @@ async def build_registrations_series(session: AsyncSession, start_dt: datetime, 
 async def build_registrations_monthly_series(session: AsyncSession) -> list[RegistrationsPoint]:
     from ..schemas.admin import RegistrationsPoint
 
-    rows = await session.execute(select(func.date_trunc("month", User.registered_at).label("month"), func.count(User.id)).group_by("month").order_by("month"))
+    rows = await session.execute(
+        select(func.date_trunc("month", User.registered_at).label("month"), func.count(User.id))
+        .where(User.deleted_at.is_(None))
+        .group_by("month")
+        .order_by("month")
+    )
     raw = rows.all()
     if not raw:
         return []
