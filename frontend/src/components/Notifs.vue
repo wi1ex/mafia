@@ -258,15 +258,17 @@ onBeforeUnmount(() => {
       box-shadow: 0 3px 5px rgba($black, 0.25);
       .item-header {
         display: flex;
-        align-items: center;
+        align-items: flex-start;
         justify-content: space-between;
         width: 100%;
         span {
           margin: 0;
+          max-width: 240px;
           font-size: 18px;
           font-weight: bold;
         }
         time {
+          margin-top: 3px;
           color: $grey;
           font-size: 12px;
         }
@@ -350,9 +352,11 @@ onBeforeUnmount(() => {
         gap: 5px;
         .item-header {
           span {
+            max-width: 280px;
             font-size: 12px;
           }
           time {
+            margin-top: 1px;
             font-size: 10px;
           }
         }

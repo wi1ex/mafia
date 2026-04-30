@@ -1,9 +1,9 @@
 <template>
   <Teleport to="body">
     <Transition name="user-mini-profile-fade">
-      <div v-if="open" class="user-mini-profile-overlay" role="presentation" @pointerdown.stop.self="close">
+      <div v-if="open" class="user-mini-profile-overlay" role="presentation" @pointerdown.stop.self @click.stop.self="close">
         <section class="user-mini-profile-panel" :class="{ 'stats-mode': view === 'stats' }" :style="profilePanelStyle"
-                 role="dialog" aria-modal="true" :aria-label="`Мини-профиль ${displayName}`" @pointerdown.stop>
+                 role="dialog" aria-modal="true" :aria-label="`Мини-профиль ${displayName}`" @pointerdown.stop @click.stop>
           <header class="profile-top">
             <div class="profile-identity">
               <button class="profile-avatar-trigger" type="button" :disabled="!hasAvatar" aria-label="Open avatar" @click="openAvatarLightbox">
@@ -700,9 +700,7 @@ onBeforeUnmount(() => {
     z-index: 1;
     width: min(75vw, 75vh, 750px);
     height: min(75vw, 75vh, 750px);
-    border-radius: 50%;
     object-fit: cover;
-    box-shadow: 0 15px 30px rgba($black, 0.5);
   }
 }
 
