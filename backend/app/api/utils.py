@@ -1403,42 +1403,45 @@ async def notify_subscription_upsert(session: AsyncSession, user: User, subscrip
 
 
 async def maybe_send_sanction_telegram_if_offline(session: AsyncSession, *, user_id: int, note: Notif, telegram_id: int | None = None) -> bool:
-    uid = int(user_id or 0)
-    if uid <= 0:
-        return False
+    # uid = int(user_id or 0)
+    # if uid <= 0:
+    #     return False
+    #
+    # tg_id = int(telegram_id or 0)
+    # if tg_id <= 0:
+    #     user = await session.get(User, uid)
+    #     if not user or user.deleted_at is not None:
+    #         return False
+    #
+    #     tg_id = int(user.telegram_id or 0)
+    #     if tg_id <= 0:
+    #         return False
+    #
+    # try:
+    #     r = get_redis()
+    #     base_online_ids = set(await fetch_online_user_ids(r))
+    #     online_ids = await fetch_effective_online_user_ids(r, [uid], base_online_ids=base_online_ids)
+    # except Exception:
+    #     log.warning("sanction.telegram_presence_check_failed", uid=uid, exc_info=True)
+    #     return False
+    #
+    # if uid in online_ids:
+    #     return False
+    #
+    # try:
+    #     send_result = await send_text_message(chat_id=tg_id, text=f"{note.title}\n\n{note.text}")
+    # except Exception:
+    #     log.warning("sanction.telegram_notify_failed", uid=uid, reason="unexpected_error", exc_info=True)
+    #     return False
+    #
+    # if not send_result.ok:
+    #     log.warning("sanction.telegram_notify_failed", uid=uid, reason=send_result.reason)
+    #     return False
+    #
+    # return True
 
-    tg_id = int(telegram_id or 0)
-    if tg_id <= 0:
-        user = await session.get(User, uid)
-        if not user or user.deleted_at is not None:
-            return False
-
-        tg_id = int(user.telegram_id or 0)
-        if tg_id <= 0:
-            return False
-
-    try:
-        r = get_redis()
-        base_online_ids = set(await fetch_online_user_ids(r))
-        online_ids = await fetch_effective_online_user_ids(r, [uid], base_online_ids=base_online_ids)
-    except Exception:
-        log.warning("sanction.telegram_presence_check_failed", uid=uid, exc_info=True)
-        return False
-
-    if uid in online_ids:
-        return False
-
-    try:
-        send_result = await send_text_message(chat_id=tg_id, text=f"{note.title}\n\n{note.text}")
-    except Exception:
-        log.warning("sanction.telegram_notify_failed", uid=uid, reason="unexpected_error", exc_info=True)
-        return False
-
-    if not send_result.ok:
-        log.warning("sanction.telegram_notify_failed", uid=uid, reason=send_result.reason)
-        return False
-
-    return True
+    # Sanction-related Telegram notifications are intentionally disabled.
+    return False
 
 
 async def _send_subscription_telegram_notice(session: AsyncSession, *, user_id: int, title: str, text: str) -> bool:
