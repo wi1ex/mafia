@@ -759,11 +759,10 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(props.th
       span {
         flex: 1 1 auto;
         min-width: 0;
-        height: 18px;
         color: $fg;
         font-size: 16px;
         font-family: Manrope-Medium;
-        line-height: 1;
+        line-height: 1.2;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;

@@ -509,6 +509,7 @@ onBeforeUnmount(() => {
       border: none;
       border-radius: 50%;
       background: transparent;
+      box-shadow: 3px 3px 5px rgba($black, 0.25);
       cursor: zoom-in;
       &:disabled {
         cursor: default;
@@ -517,7 +518,7 @@ onBeforeUnmount(() => {
     .profile-icon-name {
       display: flex;
       align-items: center;
-      padding: 5px;
+      padding: 0 5px;
       gap: 5px;
     }
     .profile-avatar {
@@ -563,6 +564,7 @@ onBeforeUnmount(() => {
       border: none;
       border-radius: 5px;
       background-color: $graphite;
+      box-shadow: 3px 3px 5px rgba($black, 0.25);
       cursor: pointer;
       transition: background-color 0.25s ease-in-out;
       &:hover {
@@ -593,9 +595,10 @@ onBeforeUnmount(() => {
       justify-content: space-between;
       padding: 10px;
       border-radius: 5px;
-      background-color: $graphite;
+      background-color: rgba($graphite, 0.5);
+      box-shadow: 3px 3px 5px rgba($black, 0.25);
       span {
-        color: $ashy;
+        color: $fg;
         font-size: 14px;
       }
       strong {
@@ -620,6 +623,7 @@ onBeforeUnmount(() => {
       min-height: 40px;
       border: none;
       border-radius: 5px;
+      box-shadow: 3px 3px 5px rgba($black, 0.25);
       color: $bg;
       font-size: 16px;
       font-family: Manrope-SemiBold;
@@ -745,7 +749,7 @@ onBeforeUnmount(() => {
         height: calc(100dvh - 40px);
       }
       .profile-icon-name {
-        padding: 3px;
+        padding: 0 3px;
         gap: 3px;
       }
       .profile-avatar {
