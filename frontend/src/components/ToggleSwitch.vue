@@ -3,18 +3,15 @@
     <span class="switch-label">
       <slot name="label">{{ label }}</slot>
     </span>
-    <label :class="{ 'has-tooltip': Boolean(props.tooltip) }" :tabindex="props.tooltip ? 0 : undefined" :title="props.tooltip || undefined">
+    <label :class="{ 'has-tooltip': Boolean(props.tooltip) }" :tabindex="props.tooltip ? 0 : undefined">
       <input type="checkbox" :checked="modelValue" :disabled="isDisabled" :aria-label="ariaLabel || label" @change="onChange" />
       <div class="slider">
         <span>{{ offLabel }}</span>
         <span>{{ onLabel }}</span>
       </div>
-      <span
-        v-if="props.tooltip"
-        class="switch-tooltip"
-        :class="`switch-tooltip--${tooltipPosition}`"
-        role="tooltip"
-      >{{ props.tooltip }}</span>
+      <span v-if="props.tooltip" class="switch-tooltip" :class="`switch-tooltip--${tooltipPosition}`" role="tooltip">
+        {{ props.tooltip }}
+      </span>
     </label>
   </div>
 </template>
