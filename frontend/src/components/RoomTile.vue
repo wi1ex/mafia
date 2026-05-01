@@ -375,7 +375,10 @@ const userCardStyle = computed(() => buildProfileThemeBgStyle(props.themeColor))
 const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
   props.themeIcon,
   props.moderationRole,
-  { hideModeratorBadge: props.inGame },
+  {
+    hideAdminBadge: props.inGame,
+    hideModeratorBadge: props.inGame,
+  },
 ))
 
 </script>
