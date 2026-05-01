@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.clients import get_redis
 from ..core.db import SessionLocal
 from ..core.logging import log_action
-from ..core.roles import ROLE_USER, admin_users_role_sort_value, normalize_user_role, room_moderation_role
+from ..core.roles import ROLE_ADMIN, ROLE_USER, admin_users_role_sort_value, normalize_user_role, room_moderation_role
 from ..core.settings import settings
 from ..models.game import Game
 from ..models.room import Room
@@ -1380,6 +1380,10 @@ def format_subscription_until(ends_at: datetime) -> str:
     return local_dt.strftime("%d.%m.%Y в %H:%M")
 
 
+def _is_admin_subscription_target(role: object) -> bool:
+    return normalize_user_role(role) == ROLE_ADMIN
+
+
 async def notify_subscription_upsert(session: AsyncSession, user: User, subscription: UserSubscription, *, extended: bool) -> None:
     uid = int(user.id)
     until_text = format_subscription_until(subscription.ends_at)
@@ -1403,7 +1407,7 @@ async def notify_subscription_upsert(session: AsyncSession, user: User, subscrip
     await emit_notify(uid, note, kind="subscription")
 
     telegram_id = int(user.telegram_id or 0)
-    if telegram_id <= 0:
+    if telegram_id <= 0 or _is_admin_subscription_target(user.role):
         return
 
     send_result = await send_text_message(chat_id=telegram_id, text=f"{title}\n\n{text}")
@@ -1542,7 +1546,8 @@ async def sync_expired_profile_subscriptions() -> int:
     async with SessionLocal() as session:
         rows = (
             await session.execute(
-                select(UserSubscription.user_id, UserSubscription.ends_at)
+                select(UserSubscription.user_id, UserSubscription.ends_at, User.role)
+                .outerjoin(User, User.id == UserSubscription.user_id)
                 .where(UserSubscription.ends_at <= now)
                 .order_by(UserSubscription.ends_at.desc(), UserSubscription.user_id.asc())
             )
@@ -1552,7 +1557,7 @@ async def sync_expired_profile_subscriptions() -> int:
 
         r = get_redis()
         synced = 0
-        for user_id_raw, ends_at in rows:
+        for user_id_raw, ends_at, role_raw in rows:
             try:
                 uid = int(user_id_raw)
             except Exception:
@@ -1578,20 +1583,21 @@ async def sync_expired_profile_subscriptions() -> int:
                 with suppress(Exception):
                     from ..services.global_chat import emit_global_chat_profile_theme_sync
                     await emit_global_chat_profile_theme_sync(uid, None, None)
-                created = await _create_subscription_site_notice_once(
-                    session,
-                    uid,
-                    title="Подписка истекла",
-                    text=f"Нам очень жаль, но Ваша подписка истекла.",
-                    no_toast=False,
-                )
-                if created is not None:
-                    await _send_subscription_telegram_notice(
+                if not _is_admin_subscription_target(role_raw):
+                    created = await _create_subscription_site_notice_once(
                         session,
-                        user_id=uid,
+                        uid,
                         title="Подписка истекла",
                         text=f"Нам очень жаль, но Ваша подписка истекла.",
+                        no_toast=False,
                     )
+                    if created is not None:
+                        await _send_subscription_telegram_notice(
+                            session,
+                            user_id=uid,
+                            title="Подписка истекла",
+                            text=f"Нам очень жаль, но Ваша подписка истекла.",
+                        )
                 synced += 1
             except Exception as exc:
                 with suppress(Exception):
@@ -1610,7 +1616,7 @@ async def notify_expiring_profile_subscriptions() -> int:
     async with SessionLocal() as session:
         rows = (
             await session.execute(
-                select(UserSubscription.user_id, UserSubscription.ends_at)
+                select(UserSubscription.user_id, UserSubscription.ends_at, User.role)
                 .join(User, User.id == UserSubscription.user_id)
                 .where(
                     User.deleted_at.is_(None),
@@ -1627,12 +1633,14 @@ async def notify_expiring_profile_subscriptions() -> int:
 
         r = get_redis()
         notified = 0
-        for user_id_raw, ends_at in rows:
+        for user_id_raw, ends_at, role_raw in rows:
             try:
                 uid = int(user_id_raw)
             except Exception:
                 continue
             if uid <= 0 or not isinstance(ends_at, datetime):
+                continue
+            if _is_admin_subscription_target(role_raw):
                 continue
 
             dedupe_key = _subscription_expiring_soon_notice_key(uid, ends_at)
