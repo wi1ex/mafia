@@ -362,8 +362,8 @@ class AdminSubscriptionsOut(BaseModel):
 
 
 class AdminSubscriptionDurationIn(BaseModel):
-    months: int = Field(default=0, ge=0, le=24)
-    days: int = Field(default=0, ge=0, le=3650)
+    months: int = Field(default=0, ge=0, le=240)
+    days: int = Field(default=0, ge=0, le=31)
 
 
 class AdminSubscriptionCreateIn(AdminSubscriptionDurationIn):

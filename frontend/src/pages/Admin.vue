@@ -712,7 +712,7 @@
                   <td>{{ row.timeouts_count }}</td>
                   <td>{{ row.bans_count }}</td>
                   <td>
-                    <button v-if="subscriptionsReady" class="btn confirm" :disabled="isDeletedUserActionsLocked(row) || userHasActiveSubscription(row.id)" @click="openGrantSubscription(row)">
+                    <button v-if="subscriptionsReady" class="btn confirm" :disabled="isSubscriptionGrantLocked(row) || userHasActiveSubscription(row.id)" @click="openGrantSubscription(row)">
                       Выдать
                     </button>
                   </td>
@@ -1711,6 +1711,10 @@ function isDeletedUser(row: UserRow | null | undefined): boolean {
   return Boolean(row.deleted_at)
 }
 
+function isSubscriptionGrantLocked(row: UserRow | null | undefined): boolean {
+  return isDeletedUser(row)
+}
+
 function isDeletedUserActionsLocked(row: UserRow | null | undefined): boolean {
   return isUserActionsLocked(row) || isDeletedUser(row)
 }
@@ -1924,7 +1928,7 @@ function onSubscriptionModalOpenUpdate(open: boolean): void {
 }
 
 function openGrantSubscription(row: UserRow): void {
-  if (isDeletedUserActionsLocked(row)) return
+  if (isSubscriptionGrantLocked(row)) return
   if (userHasActiveSubscription(row.id)) return
   subscriptionModalMode.value = 'grant'
   subscriptionTarget.value = {
