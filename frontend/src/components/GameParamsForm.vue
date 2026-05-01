@@ -4,6 +4,7 @@
       v-model="spectatorsEnabled"
       :disabled="spectatorsToggleDisabled"
       :tooltip="spectatorsToggleTooltip"
+      :tooltip-position="spectatorsTooltipPosition"
       label="Зрители:"
       off-label="Откл"
       on-label="Вкл"
@@ -87,6 +88,7 @@ const props = defineProps<{
   disabled?: boolean
   canDisableSpectators?: boolean
   spectatorsDisabledHint?: string
+  spectatorsTooltipPosition?: 'top' | 'bottom'
 }>()
 
 const emit = defineEmits<{
@@ -149,6 +151,7 @@ const spectatorsToggleTooltip = computed(() => {
   if (disabled.value || canDisableSpectators.value) return undefined
   return props.spectatorsDisabledHint || 'Отключение зрителей доступно пользователям, поддержавшим платформу'
 })
+const spectatorsTooltipPosition = computed(() => props.spectatorsTooltipPosition === 'bottom' ? 'bottom' : 'top')
 </script>
 
 <style scoped lang="scss">

@@ -20,6 +20,7 @@
           :disabled="busy || loading || !canEdit"
           :can-disable-spectators="canDisableSpectators"
           spectators-disabled-hint="Отключение зрителей доступно пользователям, поддержавшим платформу"
+          spectators-tooltip-position="bottom"
         />
       </div>
 

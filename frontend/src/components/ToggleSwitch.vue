@@ -9,7 +9,12 @@
         <span>{{ offLabel }}</span>
         <span>{{ onLabel }}</span>
       </div>
-      <span v-if="props.tooltip" class="switch-tooltip" role="tooltip">{{ props.tooltip }}</span>
+      <span
+        v-if="props.tooltip"
+        class="switch-tooltip"
+        :class="`switch-tooltip--${tooltipPosition}`"
+        role="tooltip"
+      >{{ props.tooltip }}</span>
     </label>
   </div>
 </template>
@@ -28,6 +33,7 @@ const props = defineProps<{
   disabled?: boolean
   width?: number
   tooltip?: string
+  tooltipPosition?: 'top' | 'bottom'
 }>()
 
 const emit = defineEmits<{
@@ -37,6 +43,7 @@ const emit = defineEmits<{
 
 const offLabel = computed(() => props.offLabel ?? 'Откл')
 const onLabel = computed(() => props.onLabel ?? 'Вкл')
+const tooltipPosition = computed(() => props.tooltipPosition === 'bottom' ? 'bottom' : 'top')
 const widthPx = computed(() => `${Number.isFinite(props.width) && props.width ? props.width : 170}px`)
 const switchStyle = computed<Record<string, string>>(() => ({ '--switch-width': widthPx.value }))
 
@@ -157,6 +164,11 @@ onBeforeUnmount(() => {
       pointer-events: none;
       transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
       z-index: 5;
+      &.switch-tooltip--bottom {
+        top: calc(100% + 10px);
+        bottom: auto;
+        transform: translateY(-5px);
+      }
     }
     &.has-tooltip:hover .switch-tooltip,
     &.has-tooltip:focus-within .switch-tooltip {
