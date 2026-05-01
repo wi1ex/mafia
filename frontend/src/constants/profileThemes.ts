@@ -22,7 +22,7 @@ const PROFILE_THEME_PRESETS = [
   { key: 'azure', title: 'Лазурный', accent: '#2850b4' },
   { key: 'midnight', title: 'Полуночный', accent: '#28288c' },
   { key: 'violet', title: 'Фиолетовый', accent: '#6428c8' },
-  { key: 'onyx', title: 'Ониксовый', accent: '#050d0f', adminOnly: true },
+  { key: 'onyx', title: 'Ониксовый', accent: '#787878', adminOnly: true },
 ] as const
 
 type ProfileThemePreset = typeof PROFILE_THEME_PRESETS[number]
