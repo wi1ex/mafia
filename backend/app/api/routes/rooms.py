@@ -34,6 +34,7 @@ from ..utils import (
     emit_rooms_upsert,
     serialize_game_for_redis,
     game_from_redis_to_model,
+    normalize_spectators_limit,
     build_room_members_for_info,
     get_room_params_or_404,
     ensure_room_access_allowed,
@@ -73,7 +74,8 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
 
     gp = payload.game
     anonymity = payload.anonymity
-    if anonymity == "hidden":
+    spectators_limit = normalize_spectators_limit(gp.spectators_limit)
+    if anonymity == "hidden" or spectators_limit <= 0:
         theme_state = await resolve_profile_theme_state(session, uid)
         if not theme_state.subscription_active:
             raise HTTPException(status_code=403, detail="subscription_required")
@@ -82,7 +84,7 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
     game_dict = {
         "mode": gp.mode,
         "format": gp.format,
-        "spectators_limit": int(gp.spectators_limit),
+        "spectators_limit": spectators_limit,
         "nominate_mode": gp.nominate_mode,
         "break_at_zero": bool(gp.break_at_zero),
         "lift_at_zero": bool(gp.lift_at_zero),
@@ -277,10 +279,16 @@ async def update_game(room_id: int, payload: GameParams, ident: Identity = Depen
     if phase != "idle":
         raise HTTPException(status_code=409, detail="game_in_progress")
 
+    spectators_limit = normalize_spectators_limit(payload.spectators_limit)
+    if spectators_limit <= 0:
+        theme_state = await resolve_profile_theme_state(session, int(ident["id"]))
+        if not theme_state.subscription_active:
+            raise HTTPException(status_code=403, detail="subscription_required")
+
     game_dict = {
         "mode": payload.mode,
         "format": payload.format,
-        "spectators_limit": int(payload.spectators_limit),
+        "spectators_limit": spectators_limit,
         "nominate_mode": payload.nominate_mode,
         "break_at_zero": bool(payload.break_at_zero),
         "lift_at_zero": bool(payload.lift_at_zero),

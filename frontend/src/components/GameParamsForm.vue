@@ -1,119 +1,154 @@
 <template>
   <div class="params">
-    <div class="range">
-      <span>Лимит зрителей: {{ local.spectators_limit }}/{{ SPECT_MAX }}</span>
-      <UiSlider
-        v-model="local.spectators_limit"
-        :min="SPECT_MIN"
-        :max="SPECT_MAX"
-        :step="1"
-        aria-label="Лимит зрителей"
-        :disabled="disabled"
-      />
-    </div>
-
-    <ToggleSwitch v-model="isRating" label="Режим:" off-label="Обычный" on-label="Рейтинг" aria-label="Режим: обычный/рейтинг" :disabled="true" />
-    <ToggleSwitch v-model="isNoHost" label="Судья:" off-label="Ведущий" on-label="Авто" aria-label="Формат: с ведущим/без ведущего" :disabled="true" />
-    <ToggleSwitch v-model="isPlayersNomination" label="Выставления:" off-label="Ведущий" on-label="Игрок" aria-label="Выставления" :disabled="disabled" />
-    <ToggleSwitch v-model="local.farewell_wills" label="Завещания:" aria-label="Завещания" :disabled="disabled" />
-    <ToggleSwitch v-model="local.wink_knock" label="Подмигивать/Стучать:" aria-label="Подмигивать/Стучать" :disabled="disabled" />
-    <ToggleSwitch v-model="local.break_at_zero" label="Слом в нуле:" aria-label="Слом в нуле" :disabled="disabled" />
-    <ToggleSwitch v-model="local.lift_at_zero" label="Подъём в нуле:" aria-label="Подъём в нуле" :disabled="disabled" />
-    <ToggleSwitch v-model="local.lift_3x" label="Подъём 3х при 9х:" aria-label="Подъём 3х" :disabled="disabled" />
-    <ToggleSwitch v-model="local.music" label="Музыка:" aria-label="Музыка" :disabled="disabled" />
+    <ToggleSwitch
+      v-model="spectatorsEnabled"
+      :disabled="spectatorsToggleDisabled"
+      :tooltip="spectatorsToggleTooltip"
+      label="Зрители:"
+      off-label="Откл"
+      on-label="Вкл"
+      aria-label="Зрители: откл/вкл"
+    />
+    <ToggleSwitch
+      v-model="isRating"
+      label="Режим:"
+      off-label="Обычный"
+      on-label="Рейтинг"
+      aria-label="Режим: обычный/рейтинг"
+      :disabled="true"
+    />
+    <ToggleSwitch
+      v-model="isNoHost"
+      label="Ведущий:"
+      off-label="Ведущий"
+      on-label="Авто"
+      aria-label="Ведущий: с ведущим/авто"
+      :disabled="true"
+    />
+    <ToggleSwitch
+      v-model="isPlayersNomination"
+      label="Выставления:"
+      off-label="Ведущий"
+      on-label="Игрок"
+      aria-label="Выставления"
+      :disabled="disabled"
+    />
+    <ToggleSwitch
+      v-model="local.farewell_wills"
+      label="Завещания:"
+      aria-label="Завещания"
+      :disabled="disabled"
+    />
+    <ToggleSwitch
+      v-model="local.wink_knock"
+      label="Подмигивать/Стучать:"
+      aria-label="Подмигивать/Стучать"
+      :disabled="disabled"
+    />
+    <ToggleSwitch
+      v-model="local.break_at_zero"
+      label="Слом в нуле:"
+      aria-label="Слом в нуле"
+      :disabled="disabled"
+    />
+    <ToggleSwitch
+      v-model="local.lift_at_zero"
+      label="Подъём в нуле:"
+      aria-label="Подъём в нуле"
+      :disabled="disabled"
+    />
+    <ToggleSwitch
+      v-model="local.lift_3x"
+      label="Подъём 3х при 9х:"
+      aria-label="Подъём 3х при 9х"
+      :disabled="disabled"
+    />
+    <ToggleSwitch
+      v-model="local.music"
+      label="Музыка:"
+      aria-label="Музыка"
+      :disabled="disabled"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import ToggleSwitch from '@/components/ToggleSwitch.vue'
-import UiSlider from '@/components/UiSlider.vue'
-
-type Game = {
-  mode: 'normal' | 'rating'
-  format: 'hosted' | 'nohost'
-  spectators_limit: number
-  nominate_mode: 'head' | 'players'
-  break_at_zero: boolean
-  lift_at_zero: boolean
-  lift_3x: boolean
-  wink_knock: boolean
-  farewell_wills: boolean
-  music: boolean
-}
+import {
+  normalizeRoomGameParams,
+  SPECTATORS_DISABLED_LIMIT,
+  SPECTATORS_ENABLED_LIMIT,
+  type RoomGameParams,
+} from '@/services/gameParams'
 
 const props = defineProps<{
-  modelValue: Game
+  modelValue: RoomGameParams
   disabled?: boolean
+  canDisableSpectators?: boolean
+  spectatorsDisabledHint?: string
 }>()
 
 const emit = defineEmits<{
-  (e: 'update:modelValue', value: Game): void
+  (e: 'update:modelValue', value: RoomGameParams): void
 }>()
 
-const SPECT_MIN = 0
-const SPECT_MAX = 10
-
-const gameDefault: Game = {
-  mode: 'normal',
-  format: 'hosted',
-  spectators_limit: 10,
-  nominate_mode: 'players',
-  break_at_zero: true,
-  lift_at_zero: true,
-  lift_3x: true,
-  wink_knock: true,
-  farewell_wills: true,
-  music: true,
-}
-
-function clamp(n: number, min: number, max: number) {
-  return Math.max(min, Math.min(max, n))
-}
-
-function normalize(raw: any): Game {
-  const merged: Game = { ...gameDefault }
-  if (!raw || typeof raw !== 'object') return merged
-  if (raw.mode === 'normal' || raw.mode === 'rating') merged.mode = raw.mode
-  if (raw.format === 'hosted' || raw.format === 'nohost') merged.format = raw.format
-  if (raw.nominate_mode === 'head' || raw.nominate_mode === 'players') merged.nominate_mode = raw.nominate_mode
-  const spect = Number(raw.spectators_limit)
-  if (Number.isFinite(spect)) merged.spectators_limit = clamp(spect, SPECT_MIN, SPECT_MAX)
-  if (typeof raw.break_at_zero === 'boolean') merged.break_at_zero = raw.break_at_zero
-  if (typeof raw.lift_at_zero === 'boolean') merged.lift_at_zero = raw.lift_at_zero
-  if (typeof raw.lift_3x === 'boolean') merged.lift_3x = raw.lift_3x
-  if (typeof raw.wink_knock === 'boolean') merged.wink_knock = raw.wink_knock
-  if (typeof raw.farewell_wills === 'boolean') merged.farewell_wills = raw.farewell_wills
-  if (typeof raw.music === 'boolean') merged.music = raw.music
-  return merged
-}
-
-const local = ref<Game>(normalize(props.modelValue))
+const canDisableSpectators = computed(() => props.canDisableSpectators)
+const local = ref<RoomGameParams>(normalizeRoomGameParams(props.modelValue, {
+  allowDisableSpectators: canDisableSpectators.value,
+}))
 
 watch(() => props.modelValue, (val) => {
-  local.value = normalize(val)
+  local.value = normalizeRoomGameParams(val, {
+    allowDisableSpectators: canDisableSpectators.value,
+  })
 }, { deep: true })
 
 watch(local, (val) => {
-  const normalized = normalize(val)
+  const normalized = normalizeRoomGameParams(val, {
+    allowDisableSpectators: canDisableSpectators.value,
+  })
   if (JSON.stringify(normalized) === JSON.stringify(props.modelValue)) return
   emit('update:modelValue', { ...normalized })
 }, { deep: true })
+
+watch(canDisableSpectators, (allowDisable) => {
+  const normalized = normalizeRoomGameParams(local.value, {
+    allowDisableSpectators: allowDisable,
+  })
+  if (JSON.stringify(normalized) === JSON.stringify(local.value)) return
+  local.value = normalized
+}, { flush: 'sync' })
 
 const isRating = computed<boolean>({
   get: () => local.value.mode === 'rating',
   set: v => { local.value.mode = v ? 'rating' : 'normal' },
 })
+
 const isNoHost = computed<boolean>({
   get: () => local.value.format === 'nohost',
   set: v => { local.value.format = v ? 'nohost' : 'hosted' },
 })
+
 const isPlayersNomination = computed<boolean>({
   get: () => local.value.nominate_mode === 'players',
   set: v => { local.value.nominate_mode = v ? 'players' : 'head' },
 })
 
 const disabled = computed(() => props.disabled)
+const spectatorsEnabled = computed<boolean>({
+  get: () => local.value.spectators_limit >= SPECTATORS_ENABLED_LIMIT,
+  set: (next) => {
+    if (!next && !canDisableSpectators.value) return
+    local.value.spectators_limit = next ? SPECTATORS_ENABLED_LIMIT : SPECTATORS_DISABLED_LIMIT
+  },
+})
+
+const spectatorsToggleDisabled = computed(() => Boolean(disabled.value || !canDisableSpectators.value))
+const spectatorsToggleTooltip = computed(() => {
+  if (disabled.value || canDisableSpectators.value) return undefined
+  return props.spectatorsDisabledHint || 'Отключение зрителей доступно пользователям, поддержавшим платформу'
+})
 </script>
 
 <style scoped lang="scss">
@@ -122,11 +157,6 @@ const disabled = computed(() => props.disabled)
   flex-direction: column;
   padding: 10px;
   gap: 15px;
-  .range {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-  }
 }
 
 @media (max-width: 1280px) {

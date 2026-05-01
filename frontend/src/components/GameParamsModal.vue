@@ -1,6 +1,12 @@
 <template>
   <Transition name="panel">
-    <div v-show="open" class="game-params-panel" :data-open="open ? 1 : 0" aria-label="Параметры игры" @click.stop>
+    <div
+      v-show="open"
+      class="game-params-panel"
+      :data-open="open ? 1 : 0"
+      aria-label="Параметры игры"
+      @click.stop
+    >
       <header>
         <span>Параметры игры</span>
         <button @click="emitClose" aria-label="Закрыть">
@@ -9,7 +15,12 @@
       </header>
 
       <div class="modal-div">
-        <GameParamsForm v-model="game" :disabled="busy || loading || !canEdit" />
+        <GameParamsForm
+          v-model="game"
+          :disabled="busy || loading || !canEdit"
+          :can-disable-spectators="canDisableSpectators"
+          spectators-disabled-hint="Отключение зрителей доступно пользователям, поддержавшим платформу"
+        />
       </div>
 
       <div v-if="canEdit" class="save-game">
@@ -23,7 +34,13 @@
 import { computed, ref, watch } from 'vue'
 import { api } from '@/services/axios'
 import { alertDialog } from '@/services/confirm'
+import { useUserStore } from '@/store'
 import GameParamsForm from '@/components/GameParamsForm.vue'
+import {
+  normalizeRoomGameParams,
+  roomGameDefault,
+  type RoomGameParams,
+} from '@/services/gameParams'
 import iconClose from '@/assets/svg/close.svg'
 
 const props = defineProps<{
@@ -32,67 +49,25 @@ const props = defineProps<{
   canEdit: boolean
 }>()
 
-type Game = {
-  mode: 'normal' | 'rating'
-  format: 'hosted' | 'nohost'
-  spectators_limit: number
-  nominate_mode: 'head' | 'players'
-  break_at_zero: boolean
-  lift_at_zero: boolean
-  lift_3x: boolean
-  wink_knock: boolean
-  farewell_wills: boolean
-  music: boolean
-}
-
 const emit = defineEmits<{
   (e: 'update:open', value: boolean): void
-  (e: 'saved', game: Game): void
+  (e: 'saved', game: RoomGameParams): void
 }>()
 
-const gameDefault: Game = {
-  mode: 'normal',
-  format: 'hosted',
-  spectators_limit: 10,
-  nominate_mode: 'players',
-  break_at_zero: true,
-  lift_at_zero: true,
-  lift_3x: true,
-  wink_knock: true,
-  farewell_wills: true,
-  music: true,
-}
-
-const SPECT_MIN = 0
-const SPECT_MAX = 10
-
+const user = useUserStore()
 const busy = ref(false)
 const loading = ref(false)
-const game = ref<Game>({ ...gameDefault })
-const initialGame = ref<Game | null>(null)
+const game = ref<RoomGameParams>({ ...roomGameDefault })
+const initialGame = ref<RoomGameParams | null>(null)
+const canDisableSpectators = computed(() => Boolean(user.subscriptionActive))
 
-function clamp(n: number, min: number, max: number) {
-  return Math.max(min, Math.min(max, n))
+function normalizeGame(raw: unknown): RoomGameParams {
+  return normalizeRoomGameParams(raw, {
+    allowDisableSpectators: canDisableSpectators.value,
+  })
 }
 
-function normalizeGame(raw: any): Game {
-  const merged: Game = { ...gameDefault }
-  if (!raw || typeof raw !== 'object') return merged
-  if (raw.mode === 'normal' || raw.mode === 'rating') merged.mode = raw.mode
-  if (raw.format === 'hosted' || raw.format === 'nohost') merged.format = raw.format
-  if (raw.nominate_mode === 'head' || raw.nominate_mode === 'players') merged.nominate_mode = raw.nominate_mode
-  const spect = Number(raw.spectators_limit)
-  if (Number.isFinite(spect)) merged.spectators_limit = clamp(spect, SPECT_MIN, SPECT_MAX)
-  if (typeof raw.break_at_zero === 'boolean') merged.break_at_zero = raw.break_at_zero
-  if (typeof raw.lift_at_zero === 'boolean') merged.lift_at_zero = raw.lift_at_zero
-  if (typeof raw.lift_3x === 'boolean') merged.lift_3x = raw.lift_3x
-  if (typeof raw.wink_knock === 'boolean') merged.wink_knock = raw.wink_knock
-  if (typeof raw.farewell_wills === 'boolean') merged.farewell_wills = raw.farewell_wills
-  if (typeof raw.music === 'boolean') merged.music = raw.music
-  return merged
-}
-
-function isSameGame(a: Game, b: Game) {
+function isSameGame(a: RoomGameParams, b: RoomGameParams) {
   return a.mode === b.mode &&
     a.format === b.format &&
     a.spectators_limit === b.spectators_limit &&
@@ -114,8 +89,10 @@ function emitClose() {
   emit('update:open', false)
 }
 
-function saveLastGame(gameToStore: Game) {
-  try { localStorage.setItem('room:lastGame', JSON.stringify(gameToStore)) } catch {}
+function saveLastGame(gameToStore: RoomGameParams) {
+  try {
+    localStorage.setItem('room:lastGame', JSON.stringify(gameToStore))
+  } catch {}
 }
 
 async function loadGame() {
@@ -123,7 +100,7 @@ async function loadGame() {
   loading.value = true
   try {
     const { data } = await api.get(`/rooms/${props.roomId}/info`)
-    const next = data?.game ? normalizeGame(data.game) : { ...gameDefault }
+    const next = data?.game ? normalizeGame(data.game) : { ...roomGameDefault }
     game.value = next
     initialGame.value = { ...next }
   } catch {
@@ -137,10 +114,11 @@ async function save() {
   if (!props.canEdit || !isDirty.value || busy.value || loading.value) return
   busy.value = true
   try {
-    const payload = { ...game.value }
+    const payload = normalizeGame(game.value)
     await api.patch(`/rooms/${props.roomId}/game`, payload)
     saveLastGame(payload)
     initialGame.value = { ...payload }
+    game.value = { ...payload }
     emit('saved', payload)
     emitClose()
   } catch (e: any) {
@@ -148,6 +126,7 @@ async function save() {
     const d = e?.response?.data?.detail
     if (st === 409 && d === 'game_in_progress') void alertDialog('Игра уже началась')
     else if (st === 403 && d === 'forbidden') void alertDialog('Нет доступа к настройкам игры')
+    else if (st === 403 && d === 'subscription_required') void alertDialog('Отключение зрителей доступно только обладателям подписки')
     else if (st === 404 && d === 'room_not_found') void alertDialog('Комната не найдена')
     else if (st === 429 && d === 'rate_limited') void alertDialog('Слишком много запросов, попробуйте позже')
     else if (d && typeof d === 'object' && d.detail) void alertDialog(String(d.detail))
@@ -165,6 +144,22 @@ watch(() => props.open, (on) => {
 watch(() => props.roomId, () => {
   if (props.open) void loadGame()
 })
+
+watch(canDisableSpectators, (allowDisable) => {
+  const normalizedGame = normalizeRoomGameParams(game.value, {
+    allowDisableSpectators: allowDisable,
+  })
+  const normalizedInitial = initialGame.value
+    ? normalizeRoomGameParams(initialGame.value, { allowDisableSpectators: allowDisable })
+    : null
+
+  if (JSON.stringify(normalizedGame) !== JSON.stringify(game.value)) {
+    game.value = normalizedGame
+  }
+  if (normalizedInitial && JSON.stringify(normalizedInitial) !== JSON.stringify(initialGame.value)) {
+    initialGame.value = normalizedInitial
+  }
+}, { flush: 'sync' })
 </script>
 
 <style scoped lang="scss">

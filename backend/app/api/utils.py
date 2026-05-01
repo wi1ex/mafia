@@ -51,6 +51,7 @@ __all__ = [
     "TIMED_KINDS",
     "serialize_game_for_redis",
     "game_from_redis_to_model",
+    "normalize_spectators_limit",
     "emit_rooms_upsert",
     "broadcast_creator_rooms",
     "emit_room_profile_theme_sync",
@@ -215,6 +216,18 @@ __all__ = [
 ]
 
 log = structlog.get_logger()
+
+
+def normalize_spectators_limit(value: Any) -> int:
+    if value is None:
+        return 10
+
+    try:
+        parsed = int(value)
+    except Exception:
+        return 10
+
+    return 0 if parsed <= 0 else 10
 
 
 def schedule_user_game_stats_cache_invalidation(log_event: str, **log_kwargs: object) -> None:
@@ -2779,7 +2792,7 @@ def serialize_game_for_redis(game_dict: Dict[str, Any]) -> Dict[str, str]:
     return {
         "mode": str(game_dict["mode"]),
         "format": str(game_dict["format"]),
-        "spectators_limit": str(int(game_dict["spectators_limit"])),
+        "spectators_limit": str(normalize_spectators_limit(game_dict.get("spectators_limit"))),
         "nominate_mode": nominate_mode,
         "break_at_zero": "1" if raw_bool(game_dict.get("break_at_zero"), True) else "0",
         "lift_at_zero": "1" if raw_bool(game_dict.get("lift_at_zero"), True) else "0",
@@ -2805,7 +2818,7 @@ def game_from_redis_to_model(raw_game: Dict[str, Any]) -> GameParams:
     return GameParams(
         mode=(raw_game.get("mode") or "normal"),
         format=(raw_game.get("format") or "hosted"),
-        spectators_limit=int(raw_game.get("spectators_limit") or 0),
+        spectators_limit=normalize_spectators_limit(raw_game.get("spectators_limit")),
         nominate_mode=nominate_mode,
         break_at_zero=raw_bool(raw_game.get("break_at_zero"), True),
         lift_at_zero=raw_bool(raw_game.get("lift_at_zero"), True),
@@ -3803,10 +3816,7 @@ def parse_room_game_params(game: dict | None) -> dict[str, Any]:
     nominate_mode = str(game.get("nominate_mode") or "players")
     if nominate_mode not in ("players", "head"):
         nominate_mode = "players"
-    try:
-        spectators_limit = int(game.get("spectators_limit") or 0)
-    except Exception:
-        spectators_limit = 0
+    spectators_limit = normalize_spectators_limit(game.get("spectators_limit"))
 
     return {
         "mode": game_mode,

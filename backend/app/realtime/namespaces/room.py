@@ -2,7 +2,7 @@ from __future__ import annotations
 import asyncio
 import random
 from time import time
-from typing import Any
+from typing import Any, Mapping
 import structlog
 from sqlalchemy import select
 from ..sio import sio
@@ -14,6 +14,7 @@ from ...core.logging import log_action
 from ...core.db import SessionLocal
 from ...security.parameters import get_cached_settings
 from ...schemas.realtime import StateAck, ModerateAck, JoinAck, ScreenAck, GameStartAck, GameRolePickAck, GameHostBlurAck
+from ...api.utils import normalize_spectators_limit
 from ...services.livekit import get_livekit_room_name, make_livekit_token, remove_livekit_participant
 from ..utils import (
     SANCTION_TIMEOUT,
@@ -232,10 +233,7 @@ async def join(sid, data) -> JoinAck:
                     raw_game = await r.hgetall(f"room:{rid}:game")
                 except Exception:
                     raw_game = {}
-                try:
-                    spectators_limit = int(raw_game.get("spectators_limit") or 0)
-                except Exception:
-                    spectators_limit = 0
+                spectators_limit = normalize_spectators_limit(raw_game.get("spectators_limit"))
                 is_admin_user = base_role == "admin"
                 if spectators_limit <= 0 and not is_admin_user:
                     return {"ok": False, "error": "game_in_progress", "status": 409}

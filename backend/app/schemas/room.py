@@ -10,7 +10,7 @@ Title = Annotated[str, BeforeValidator(sanitize_title_for_schema)]
 class GameParams(BaseModel):
     mode: Literal["normal", "rating"] = "normal"
     format: Literal["hosted", "nohost"] = "hosted"
-    spectators_limit: int = Field(ge=0, le=10, default=0)
+    spectators_limit: int = Field(ge=0, le=10, default=10)
     nominate_mode: Literal["players", "head"] = "players"
     break_at_zero: bool = Field(default=True)
     lift_at_zero: bool = Field(default=True)

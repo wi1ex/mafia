@@ -1,5 +1,11 @@
 <template>
-  <div class="overlay" @pointerdown.self="armed = true" @pointerup.self="armed && $emit('close')" @pointerleave.self="armed = false" @pointercancel.self="armed = false">
+  <div
+    class="overlay"
+    @pointerdown.self="armed = true"
+    @pointerup.self="armed && $emit('close')"
+    @pointerleave.self="armed = false"
+    @pointercancel.self="armed = false"
+  >
     <div class="modal">
       <header>
         <span>Создать комнату</span>
@@ -10,8 +16,17 @@
 
       <div class="modal-div">
         <div class="params">
-          <UiInput id="room-title" v-model.trim="title" :maxlength="TITLE_MAX" label="Название комнаты" autocomplete="off"
-            :invalid="!title" :underline-style="titleUnderlineStyle" :aria-invalid="!title" aria-describedby="room-title-hint" >
+          <UiInput
+            id="room-title"
+            v-model.trim="title"
+            :maxlength="TITLE_MAX"
+            label="Название комнаты"
+            autocomplete="off"
+            :invalid="!title"
+            :underline-style="titleUnderlineStyle"
+            :aria-invalid="!title"
+            aria-describedby="room-title-hint"
+          >
             <template #meta>
               <span id="room-title-hint">{{ title.length }}/{{ TITLE_MAX }}</span>
             </template>
@@ -38,8 +53,23 @@
             </div>
           </div>
 
-          <ToggleSwitch v-model="isPrivate" :disabled="isPrivacyLocked" label="Приватность:" off-label="Открытая" on-label="Закрытая" aria-label="Приватность: открытая/закрытая" />
-          <ToggleSwitch v-model="isAnonymous" :disabled="!canCreateHiddenRoom" :tooltip="!canCreateHiddenRoom ? hiddenRoomHint : undefined" label="Анонимность:" off-label="Видимая" on-label="Скрытая" aria-label="Анонимность: видимая/скрытая" />
+          <ToggleSwitch
+            v-model="isPrivate"
+            :disabled="isPrivacyLocked"
+            label="Приватность:"
+            off-label="Открытая"
+            on-label="Закрытая"
+            aria-label="Приватность: открытая/закрытая"
+          />
+          <ToggleSwitch
+            v-model="isAnonymous"
+            :disabled="!canCreateHiddenRoom"
+            :tooltip="!canCreateHiddenRoom ? hiddenRoomHint : undefined"
+            label="Анонимность:"
+            off-label="Видимая"
+            on-label="Скрытая"
+            aria-label="Анонимность: видимая/скрытая"
+          />
         </div>
       </div>
 
@@ -54,6 +84,11 @@
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { api } from '@/services/axios'
 import { alertDialog } from '@/services/confirm'
+import {
+  normalizeRoomGameParams,
+  roomGameDefault,
+  type RoomGameParams,
+} from '@/services/gameParams'
 import { formatModerationAlert } from '@/services/moderation'
 import { useUserStore, useSettingsStore } from '@/store'
 
@@ -73,8 +108,6 @@ let prevOverflow = ''
 const RANGE_MIN = 0
 const RANGE_MAX = 12
 const DEAD_MIN = 2
-const SPECT_MIN = 0
-const SPECT_MAX = 10
 const TITLE_MAX = 32
 const titlePct = computed(() => {
   const used = Math.min(TITLE_MAX, Math.max(0, title.value.length))
@@ -92,66 +125,37 @@ const emit = defineEmits<{
   (e: 'created', room: any): void
 }>()
 
-type Game = {
-  mode: 'normal' | 'rating'
-  format: 'hosted' | 'nohost'
-  spectators_limit: number
-  nominate_mode: 'head' | 'players'
-  break_at_zero: boolean
-  lift_at_zero: boolean
-  lift_3x: boolean
-  wink_knock: boolean
-  farewell_wills: boolean
-  music: boolean
-}
-const gameDefault: Game = {
-  mode: 'normal',
-  format: 'hosted',
-  spectators_limit: 10,
-  nominate_mode: 'players',
-  break_at_zero: true,
-  lift_at_zero: true,
-  lift_3x: true,
-  wink_knock: true,
-  farewell_wills: true,
-  music: true,
-}
-const initialGame: Game = (() => {
+const hasSubscription = computed(() => Boolean(user.subscriptionActive))
+const canCreateHiddenRoom = hasSubscription
+const canDisableSpectators = hasSubscription
+
+const initialGame: RoomGameParams = (() => {
   try {
     const raw = localStorage.getItem('room:lastGame')
-    if (!raw) return gameDefault
-    const parsed = JSON.parse(raw) as Partial<Game> & { lift_2x_at_zero?: boolean }
-    const merged: Game = { ...gameDefault }
-    if (parsed.mode === 'normal' || parsed.mode === 'rating') merged.mode = parsed.mode
-    if (parsed.format === 'hosted' || parsed.format === 'nohost') merged.format = parsed.format
-    if (parsed.nominate_mode === 'head' || parsed.nominate_mode === 'players') merged.nominate_mode = parsed.nominate_mode
-    const spect = Number(parsed.spectators_limit)
-    if (Number.isFinite(spect)) merged.spectators_limit = clamp(spect, SPECT_MIN, SPECT_MAX)
-    if (typeof parsed.break_at_zero === 'boolean') merged.break_at_zero = parsed.break_at_zero
-    const liftAtZero = typeof parsed.lift_at_zero === 'boolean'
-      ? parsed.lift_at_zero
-      : (typeof parsed.lift_2x_at_zero === 'boolean' ? parsed.lift_2x_at_zero : undefined)
-    if (typeof liftAtZero === 'boolean') merged.lift_at_zero = liftAtZero
-    if (typeof parsed.lift_3x === 'boolean') merged.lift_3x = parsed.lift_3x
-    if (typeof parsed.wink_knock === 'boolean') merged.wink_knock = parsed.wink_knock
-    if (typeof parsed.farewell_wills === 'boolean') merged.farewell_wills = parsed.farewell_wills
-    if (typeof parsed.music === 'boolean') merged.music = parsed.music
-    return merged
-  } catch { return gameDefault }
+    if (!raw) return { ...roomGameDefault }
+    return normalizeRoomGameParams(JSON.parse(raw), {
+      allowDisableSpectators: canDisableSpectators.value,
+    })
+  } catch {
+    return { ...roomGameDefault }
+  }
 })()
-const game = ref<Game>(initialGame)
+const game = ref<RoomGameParams>({ ...initialGame })
 
 type RoomBasic = {
   title?: string
   user_limit?: number
-  privacy?: 'open'|'private'
-  anonymity?: 'visible'|'hidden'
+  privacy?: 'open' | 'private'
+  anonymity?: 'visible' | 'hidden'
 }
+
 const initialBasic: RoomBasic = (() => {
   try {
     const raw = localStorage.getItem('room:lastRoom')
     return raw ? JSON.parse(raw) as RoomBasic : {}
-  } catch { return {} }
+  } catch {
+    return {}
+  }
 })()
 const hadStoredTitle = typeof initialBasic.title === 'string' && initialBasic.title.length > 0
 
@@ -161,24 +165,24 @@ const defaultTitle = () => {
   const nick = name || (Number.isFinite(id) ? `user${id}` : 'user')
   return `Комната ${nick}`
 }
+
 const _title = ref((initialBasic.title || defaultTitle()).slice(0, TITLE_MAX))
 const title = computed({
   get: () => _title.value,
-  set: v => { _title.value = sanitizeTitle(v, TITLE_MAX) }
+  set: v => { _title.value = sanitizeTitle(v, TITLE_MAX) },
 })
 
 const initialLimit = (() => {
-  const v = Number(initialBasic.user_limit)
-  return Number.isFinite(v) ? clamp(v, 2, 12) : 11
+  const value = Number(initialBasic.user_limit)
+  return Number.isFinite(value) ? clamp(value, 2, 12) : 11
 })()
 const limit = ref<number>(initialLimit)
 const isMafiaRoom = computed(() => limit.value === gameLimitMin.value)
 const hiddenRoomHint = 'Создание скрытых комнат доступно пользователям, поддержавшим платформу'
-const canCreateHiddenRoom = computed(() => Boolean(user.subscriptionActive))
 
-const privacy = ref<'open'|'private'>(initialBasic.privacy === 'private' ? 'private' : 'open')
+const privacy = ref<'open' | 'private'>(initialBasic.privacy === 'private' ? 'private' : 'open')
 const initialAnonymity = initialBasic.anonymity === 'hidden' && canCreateHiddenRoom.value ? 'hidden' : 'visible'
-const anonymity = ref<'visible'|'hidden'>(initialAnonymity)
+const anonymity = ref<'visible' | 'hidden'>(initialAnonymity)
 if (anonymity.value === 'hidden') privacy.value = 'private'
 
 const ok = computed(() => title.value.length > 0 && limit.value >= 2 && limit.value <= 12)
@@ -191,23 +195,33 @@ const isPrivate = computed<boolean>({
       return
     }
     privacy.value = v ? 'private' : 'open'
-  }
+  },
 })
+
 const isAnonymous = computed<boolean>({
   get: () => anonymity.value === 'hidden',
   set: v => {
     if (v && !canCreateHiddenRoom.value) return
     anonymity.value = v ? 'hidden' : 'visible'
-  }
+  },
 })
+
 const isPrivacyLocked = computed(() => anonymity.value === 'hidden')
 
-function clamp(n: number, min: number, max: number) { return Math.max(min, Math.min(max, n)) }
+function clamp(n: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, n))
+}
 
 function rangeMarkStyle(value: number) {
   const span = RANGE_MAX - RANGE_MIN
   const pct = span > 0 ? ((value - RANGE_MIN) * 100) / span : 0
   return { left: `${pct}%` }
+}
+
+function normalizeGame(value: unknown): RoomGameParams {
+  return normalizeRoomGameParams(value, {
+    allowDisableSpectators: canDisableSpectators.value,
+  })
 }
 
 function saveBasic() {
@@ -222,53 +236,64 @@ function saveBasic() {
   } catch {}
 }
 
+function saveGame() {
+  try {
+    localStorage.setItem('room:lastGame', JSON.stringify(normalizeGame(game.value)))
+  } catch {}
+}
+
 async function create() {
   if (!ok.value || busy.value) return
   busy.value = true
   try {
+    const normalizedGame = normalizeGame(game.value)
+    game.value = normalizedGame
     const payload = {
       title: title.value,
       user_limit: limit.value,
       privacy: privacy.value,
       anonymity: anonymity.value,
-      game: { ...game.value },
+      game: normalizedGame,
     }
     saveBasic()
+    saveGame()
     const { data } = await api.post('/rooms', payload)
     emit('created', data)
   } catch (e: any) {
     const st = e?.response?.status
     const d = e?.response?.data?.detail
     const moderationText = formatModerationAlert(d)
-    if (st === 403 && d === 'rooms_create_disabled')   void alertDialog('Создание комнат временно недоступно')
-    else if (st === 403 && d === 'user_timeout')       void alertDialog('Вам выдан таймаут — создание комнаты недоступно')
-    else if (st === 403 && d === 'user_banned')        void alertDialog('Аккаунт забанен — создание комнаты недоступно')
-    else if (st === 403 && d === 'not_verified')       void alertDialog('Для создания комнаты требуется верификация')
-    else if (st === 403 && d === 'subscription_required') void alertDialog('Скрытые комнаты доступны только обладателям подписки')
+    if (st === 403 && d === 'rooms_create_disabled') void alertDialog('Создание комнат временно недоступно')
+    else if (st === 403 && d === 'user_timeout') void alertDialog('Вам выдан таймаут, создание комнаты недоступно')
+    else if (st === 403 && d === 'user_banned') void alertDialog('Аккаунт забанен, создание комнаты недоступно')
+    else if (st === 403 && d === 'not_verified') void alertDialog('Для создания комнаты требуется верификация')
+    else if (st === 403 && d === 'subscription_required') void alertDialog('Скрытые комнаты и отключение зрителей доступны только обладателям подписки')
     else if (st === 409 && d === 'rooms_limit_global') void alertDialog('Достигнут общий лимит комнат')
-    else if (st === 409 && d === 'rooms_limit_user')   void alertDialog('Достигнут личный лимит комнат')
-    else if (st === 422 && moderationText)             void alertDialog({ title: 'Отказ в создании', text: moderationText })
-    else if (st === 422 && d === 'title_empty')        void alertDialog('Название не должно быть пустым')
-    else if (d && typeof d === 'object' && d.detail)   void alertDialog(String(d.detail))
-    else if (typeof d === 'string' && d)               void alertDialog(d)
-    else                                               void alertDialog('Ошибка создания комнаты')
-  } finally { busy.value = false }
+    else if (st === 409 && d === 'rooms_limit_user') void alertDialog('Достигнут личный лимит комнат')
+    else if (st === 422 && moderationText) void alertDialog({ title: 'Отказ в создании', text: moderationText })
+    else if (st === 422 && d === 'title_empty') void alertDialog('Название не должно быть пустым')
+    else if (d && typeof d === 'object' && d.detail) void alertDialog(String(d.detail))
+    else if (typeof d === 'string' && d) void alertDialog(d)
+    else void alertDialog('Ошибка создания комнаты')
+  } finally {
+    busy.value = false
+  }
 }
 
 function sanitizeTitle(s: string, max = 32): string {
-  return (s ?? "")
-    .normalize("NFKC")
-    .replace(/[\u0000-\u001F\u007F]/g, "")
-    .replace(/[\u200B-\u200F\u202A-\u202E\u2066-\u2069]/g, "")
-    .replace(/\s+/g, " ")
+  return (s ?? '')
+    .normalize('NFKC')
+    .replace(/[\u0000-\u001F\u007F]/g, '')
+    .replace(/[\u200B-\u200F\u202A-\u202E\u2066-\u2069]/g, '')
+    .replace(/\s+/g, ' ')
     .trim()
     .slice(0, max)
 }
 
 watch([title, limit, privacy, anonymity], saveBasic, { flush: 'post' })
 
-watch(limit, (v) => {
-  if (v < 2) limit.value = 2
+watch(limit, (value) => {
+  if (value < 2) limit.value = 2
 }, { flush: 'sync' })
 
 watch(anonymity, (next) => {
@@ -279,7 +304,19 @@ watch(canCreateHiddenRoom, (canCreate) => {
   if (!canCreate && anonymity.value === 'hidden') anonymity.value = 'visible'
 }, { flush: 'sync' })
 
-watch(() => user.user, () => { if (!hadStoredTitle && !_title.value) _title.value = defaultTitle() }, { flush: 'post' })
+watch(canDisableSpectators, (allowDisable) => {
+  const normalizedGame = normalizeRoomGameParams(game.value, {
+    allowDisableSpectators: allowDisable,
+  })
+  if (JSON.stringify(normalizedGame) !== JSON.stringify(game.value)) {
+    game.value = normalizedGame
+  }
+  saveGame()
+}, { flush: 'sync' })
+
+watch(() => user.user, () => {
+  if (!hadStoredTitle && !_title.value) _title.value = defaultTitle()
+}, { flush: 'post' })
 
 onMounted(() => {
   if (!hadStoredTitle && !_title.value) _title.value = defaultTitle()
@@ -380,7 +417,7 @@ onBeforeUnmount(() => {
               white-space: nowrap;
               transform: translateX(-50%);
               &::before {
-                content: "";
+                content: '';
                 position: absolute;
                 left: 50%;
                 bottom: 100%;

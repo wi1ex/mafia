@@ -1120,6 +1120,7 @@ onBeforeUnmount(() => {
                         overflow: hidden;
                         color: $fg;
                         font-size: 14px;
+                        line-height: 1.2;
                         text-overflow: ellipsis;
                         white-space: nowrap;
                       }
@@ -1170,6 +1171,7 @@ onBeforeUnmount(() => {
                 overflow: hidden;
                 color: $ashy;
                 font-size: 14px;
+                line-height: 1.2;
                 text-overflow: ellipsis;
                 white-space: nowrap;
               }
