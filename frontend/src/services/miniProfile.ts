@@ -34,9 +34,7 @@ export function isMiniProfilePrivilegedViewer(role: unknown, adminMode = false):
 
 export function canOpenMiniProfileTarget(input: MiniProfileOpenGuardInput): boolean {
   const targetId = normalizeMiniProfileUserId(input.targetId)
-  const viewerId = normalizeMiniProfileUserId(input.viewerId)
   if (targetId <= 0) return false
-  if (viewerId > 0 && targetId === viewerId) return false
   if (isMiniProfileAdminTargetRole(input.targetRole)) return false
   return !(!input.allowDeleted && hasMiniProfileDeletedAt(input.targetDeletedAt))
 }

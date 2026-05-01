@@ -452,7 +452,7 @@ const messageCardStyle = (message: GlobalChatMessage) => buildProfileThemeBgStyl
 const profileThemeIconSrcs = (icon: unknown, role?: unknown) => getProfileThemeBadgeSources(icon, role)
 
 function canOpenAuthorMiniProfile(message: GlobalChatMessage): boolean {
-  return !message.is_own && canOpenMiniProfileTarget({
+  return canOpenMiniProfileTarget({
     targetId: message.author?.id,
     viewerId: normalizeMiniProfileUserId(user.user?.id),
     targetRole: message.author?.role,

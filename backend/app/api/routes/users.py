@@ -191,7 +191,7 @@ async def mini_profile(user_id: int, allow_deleted: bool = False, ident: Identit
         online_ids = await fetch_effective_online_user_ids(r, [uid], base_online_ids=base_online_ids)
         online = uid in online_ids
 
-    if viewer_role != "admin":
+    if viewer_role != "admin" and uid != viewer_id:
         await log_action(
             db,
             user_id=viewer_id,

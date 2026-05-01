@@ -83,7 +83,7 @@
     <img v-if="hasVoted" class="icon-voted" :src="iconLikeGreen" alt="voted" />
 
     <div class="user-card" :style="userCardStyle" :data-open="openPanel ? 1 : 0" :data-game="inGame ? 1 : 0" @click.stop>
-      <button class="card-head" :disabled="id === localId" :aria-disabled="id === localId" @click.stop="$emit('toggle-panel', id)" :aria-expanded="openPanel">
+      <button class="card-head" @click.stop="$emit('toggle-panel', id)" :aria-expanded="openPanel">
         <img v-if="seat != null && seatIcon" class="user-slot" :src="seatIcon" alt="seat" />
         <img class="user-avatar" v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar, lazy: false }" alt="avatar" />
         <div v-if="profileThemeIconSrcs.length" class="profile-theme-icons" aria-hidden="true">
@@ -116,14 +116,14 @@
             <span>{{ vol ?? 100 }}%</span>
           </div>
 
-          <div v-if="id !== localId" class="profile-row">
+          <div class="profile-row">
             <button type="button" @click="$emit('open-profile', id)">
               <img :src="iconProfile" alt="" />
               <span>Профиль</span>
             </button>
           </div>
 
-          <div v-if="!inGame && canModerate(id)" class="admin-row" aria-label="Блокировки">
+          <div v-if="id !== localId && !inGame && canModerate(id)" class="admin-row" aria-label="Блокировки">
             <button @click="$emit('block','mic',id)" aria-label="block mic"><img :src="micStatusIcon" alt="mic" /></button>
             <button @click="$emit('block','cam',id)" aria-label="block cam"><img :src="camStatusIcon" alt="cam" /></button>
             <button @click="$emit('block','speakers',id)" aria-label="block speakers"><img :src="speakersStatusIcon" alt="spk" /></button>

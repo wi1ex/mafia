@@ -1098,7 +1098,6 @@ function openMiniProfileFromTile(id: string): void {
 }
 
 const toggleTilePanel = (id: string) => {
-  if (id === localId.value) return
   const next = openPanelFor.value === id ? '' : id
   closePanels('card')
   openPanelFor.value = next

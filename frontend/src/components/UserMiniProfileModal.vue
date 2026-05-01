@@ -42,7 +42,7 @@
               </div>
             </div>
 
-            <div class="profile-actions">
+            <div v-if="showActionBlock" class="profile-actions">
               <button v-if="showStatsButton" class="profile-action secondary" type="button" @click="view = 'stats'">
                 Статистика пользователя
               </button>
@@ -177,6 +177,7 @@ const targetUserId = computed(() => {
 const profileLoadedForTarget = computed(() => Boolean(profile.value && profile.value.id === targetUserId.value))
 const viewerUserId = computed(() => Number(userStore.user?.id || 0))
 const viewerRole = computed(() => normalizeMiniProfileRole(userStore.user?.role))
+const isSelfProfile = computed(() => targetUserId.value > 0 && viewerUserId.value === targetUserId.value)
 const privilegedViewer = computed(() => isMiniProfilePrivilegedViewer(viewerRole.value, props.adminMode))
 const initialTargetDeleted = computed(() => {
   const initialId = Number(props.initialProfile?.id || 0)
@@ -254,15 +255,16 @@ const friendDisabled = computed(() => (
 ))
 const showFriendAction = computed(() => (
   targetUserId.value > 0
+  && !isSelfProfile.value
   && !targetDeleted.value
-  && friendStatus.value !== 'self'
   && friendActionLabel.value !== ''
 ))
 const showStatsButton = computed(() => Boolean(
   props.showStatsButton
   && targetUserId.value > 0
-  && (privilegedViewer.value || friendStatus.value === 'friends' || friendStatus.value === 'self')
+  && (isSelfProfile.value || privilegedViewer.value || friendStatus.value === 'friends')
 ))
+const showActionBlock = computed(() => showStatsButton.value || showFriendAction.value)
 
 function normalizeFriendStatus(value: unknown): FriendStatus {
   if (value === 'self' || value === 'friends' || value === 'outgoing' || value === 'incoming' || value === 'none') return value
@@ -270,7 +272,7 @@ function normalizeFriendStatus(value: unknown): FriendStatus {
 }
 
 function inferInitialFriendStatus(): FriendStatus {
-  if (targetUserId.value > 0 && viewerUserId.value === targetUserId.value) return 'self'
+  if (isSelfProfile.value) return 'self'
   const direct = normalizeFriendStatus(props.initialProfile?.friend_status)
   if (direct !== 'none') return direct
   const kind = String(props.initialProfile?.kind || '')
