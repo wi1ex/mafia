@@ -726,7 +726,7 @@ async def update_profile_theme(payload: UserProfileThemeIn, ident: Identity = De
         theme_state = await resolve_profile_theme_state(db, uid)
 
     try:
-        color = normalize_profile_theme_color(payload.color)
+        color = normalize_profile_theme_color(payload.color, role=user.role)
     except ValueError as exc:
         detail = str(exc).strip() or "profile_theme_invalid"
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=detail)

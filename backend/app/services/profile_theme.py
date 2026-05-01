@@ -20,6 +20,7 @@ PROFILE_THEME_COLORS: tuple[str, ...] = (
     "azure",
     "midnight",
 )
+PROFILE_THEME_ADMIN_COLORS: tuple[str, ...] = ("onyx",)
 PROFILE_THEME_DEFAULT = "terracotta"
 PROFILE_THEME_ICON_NONE = "none"
 PROFILE_THEME_ICON_COUNT = 29
@@ -55,9 +56,20 @@ def _normalize_user_ids(user_ids: Iterable[int | str]) -> list[int]:
     return sorted(ids)
 
 
-def normalize_profile_theme_color(raw: object) -> str:
+def _is_admin_role(role: object) -> bool:
+    return str(role or "").strip().lower() == "admin"
+
+
+def profile_theme_colors_for_role(role: object) -> tuple[str, ...]:
+    if _is_admin_role(role):
+        return *PROFILE_THEME_COLORS, *PROFILE_THEME_ADMIN_COLORS
+
+    return PROFILE_THEME_COLORS
+
+
+def normalize_profile_theme_color(raw: object, *, role: object = None) -> str:
     value = str(raw or "").strip().lower()
-    if value not in PROFILE_THEME_COLORS:
+    if value not in profile_theme_colors_for_role(role):
         raise ValueError("profile_theme_invalid")
 
     return value
@@ -85,7 +97,7 @@ def normalize_profile_theme_icon(raw: object) -> str:
 def _apply_profile_theme_defaults(row: User) -> bool:
     changed = False
     try:
-        normalized_color = normalize_profile_theme_color(row.profile_theme_color)
+        normalized_color = normalize_profile_theme_color(row.profile_theme_color, role=row.role)
     except ValueError:
         normalized_color = PROFILE_THEME_DEFAULT
     if row.profile_theme_color != normalized_color:
@@ -217,17 +229,17 @@ async def fetch_profile_theme_preferences(session: AsyncSession, user_ids: Itera
         return {}
 
     rows = await session.execute(
-        select(User.id, User.profile_theme_color, User.profile_theme_icon).where(User.id.in_(ids))
+        select(User.id, User.role, User.profile_theme_color, User.profile_theme_icon).where(User.id.in_(ids))
     )
     out: dict[int, ProfileThemePreference] = {}
-    for user_id_raw, color_raw, icon_raw in rows.all():
+    for user_id_raw, role_raw, color_raw, icon_raw in rows.all():
         try:
             uid = int(user_id_raw)
         except Exception:
             continue
         pref = ProfileThemePreference()
         try:
-            pref.color = normalize_profile_theme_color(color_raw)
+            pref.color = normalize_profile_theme_color(color_raw, role=role_raw)
         except ValueError:
             pass
         try:
@@ -292,8 +304,8 @@ async def ensure_profile_theme_defaults(session: AsyncSession, user_id: int | st
 
 async def upsert_profile_theme_preference(session: AsyncSession, user_id: int | str, color: str) -> str:
     uid = int(user_id)
-    normalized_color = normalize_profile_theme_color(color)
     row = await session.get(User, uid)
+    normalized_color = normalize_profile_theme_color(color, role=row.role if row is not None else None)
     if row is not None:
         row.profile_theme_color = normalized_color
     return normalized_color

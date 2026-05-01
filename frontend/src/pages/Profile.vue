@@ -71,7 +71,7 @@
               </div>
 
               <div class="theme-palette">
-                <button v-for="item in PROFILE_THEME_OPTIONS" :key="item.key" class="theme-option" type="button" :class="{ active: selectedProfileThemeColor === item.key }"
+                <button v-for="item in profileThemeOptions" :key="item.key" class="theme-option" type="button" :class="{ active: selectedProfileThemeColor === item.key }"
                         :style="themeOptionStyle(item.key)" :disabled="themeSaveBusy || isBanned" @click="pickProfileTheme(item.key)">
                 </button>
               </div>
@@ -298,8 +298,8 @@ import iconSave from '@/assets/svg/save.svg'
 import iconEdit from '@/assets/svg/edit.svg'
 import iconDelete from '@/assets/svg/delete.svg'
 import {
-  PROFILE_THEME_OPTIONS,
   buildProfileThemeBgStyle,
+  getProfileThemeOptions,
   normalizeProfileThemeColor,
   resolveProfileThemeColor,
   type ProfileThemeColor,
@@ -487,6 +487,7 @@ const profileThemeSaveDisabledText = computed(() => {
 })
 const themePreviewStyle = computed(() => buildProfileThemeBgStyle(selectedProfileThemeColor.value))
 const themePreviewIconSrcs = computed(() => getProfileThemeBadgeSources(selectedProfileThemeIcon.value, me.role))
+const profileThemeOptions = computed(() => getProfileThemeOptions(me.role))
 const profileThemeAvailabilityText = computed(() => {
   const raw = me.subscription_until
   if (!raw) return 'Доступно, пока активна подписка'

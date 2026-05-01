@@ -22,6 +22,7 @@ const PROFILE_THEME_PRESETS = [
   { key: 'azure', title: 'Лазурный', accent: '#2850b4' },
   { key: 'midnight', title: 'Полуночный', accent: '#28288c' },
   { key: 'violet', title: 'Фиолетовый', accent: '#6428c8' },
+  { key: 'onyx', title: 'Ониксовый', accent: '#050d0f', adminOnly: true },
 ] as const
 
 type ProfileThemePreset = typeof PROFILE_THEME_PRESETS[number]
@@ -62,6 +63,15 @@ const PROFILE_THEME_MAP = PROFILE_THEME_OPTIONS.reduce<Record<ProfileThemeColor,
   return acc
 }, {} as Record<ProfileThemeColor, ProfileThemeOption>)
 const GRADIENT_BACKGROUND_RE = /\b(?:repeating-)?(?:linear|radial|conic)-gradient\(/i
+
+export function isAdminProfileThemeRole(role: unknown): boolean {
+  return String(role || '').trim().toLowerCase() === 'admin'
+}
+
+export function getProfileThemeOptions(role?: unknown): readonly ProfileThemeOption[] {
+  if (isAdminProfileThemeRole(role)) return PROFILE_THEME_OPTIONS
+  return PROFILE_THEME_OPTIONS.filter((item) => !item.adminOnly)
+}
 
 function needsDirectBackgroundStyle(bg: string, hover?: string): boolean {
   return GRADIENT_BACKGROUND_RE.test(bg) || GRADIENT_BACKGROUND_RE.test(String(hover || ''))
