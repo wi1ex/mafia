@@ -144,6 +144,7 @@ __all__ = [
     "ensure_admin_target_not_deleted",
     "ensure_moderation_target_allowed",
     "get_moderation_target_user",
+    "delete_user_avatar",
     "set_user_deleted",
     "delete_user_account_as_admin_action",
     "delete_stale_unverified_accounts",
@@ -1539,6 +1540,41 @@ async def delete_gif_avatar_for_inactive_subscription(session: AsyncSession, use
         await broadcast_creator_rooms(uid, avatar="delete")
 
     return True
+
+
+async def delete_user_avatar(session: AsyncSession, user_id: int, *, missing_status_code: int = 404, missing_detail: str = "user_not_found") -> str | None:
+    uid = int(user_id)
+    row = await session.execute(select(User.username, User.avatar_name, User.role).where(User.id == uid))
+    rec = row.first()
+    if not rec:
+        raise HTTPException(status_code=missing_status_code, detail=missing_detail)
+
+    db_username = str(rec[0])
+    old_avatar_name = cast(str | None, rec[1])
+    db_role = str(rec[2])
+
+    await session.execute(update(User).where(User.id == uid).values(avatar_name=None))
+    await session.commit()
+    theme_state = await resolve_profile_theme_state(session, uid)
+    await write_user_profile_cache(
+        uid,
+        username=db_username,
+        role=db_role,
+        avatar_name=None,
+        theme_color=theme_state.color,
+        theme_until=theme_state.subscription_until,
+        theme_icon=theme_state.icon,
+    )
+    await invalidate_avatar_presign_cache(old_avatar_name)
+
+    with suppress(Exception):
+        await delete_avatars_async(uid)
+    with suppress(Exception):
+        await emit_auth_profile_sync(uid, role=db_role)
+    with suppress(Exception):
+        await broadcast_creator_rooms(uid, avatar="delete")
+
+    return old_avatar_name
 
 
 async def sync_expired_profile_subscriptions() -> int:

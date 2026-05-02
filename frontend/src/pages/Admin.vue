@@ -675,6 +675,7 @@
                   <th>Аккаунт</th>
                   <th>Вериф.</th>
                   <th>Пароль</th>
+                  <th>Аватар</th>
                   <th>Никнейм</th>
                   <th>Отстранить</th>
                   <th>Таймаут</th>
@@ -737,6 +738,11 @@
                     </button>
                   </td>
                   <td>
+                    <button class="btn" :class="row.avatar_name ? 'danger' : 'dark'" :disabled="isDeletedUserActionsLocked(row) || !row.avatar_name || usersAvatarBusy[row.id]" @click="deleteUserAvatar(row)">
+                      <img class="btn-img" :src="iconClose" alt="" />
+                    </button>
+                  </td>
+                  <td>
                     <button class="btn" :class="isNicknameDefault(row) ? 'dark' : 'danger'" :disabled="isDeletedUserActionsLocked(row) || isNicknameDefault(row) || usersNicknameBusy[row.id]" @click="resetUserNickname(row)">
                       <img class="btn-img" :src="iconClose" alt="" />
                     </button>
@@ -758,7 +764,7 @@
                   </td>
                 </tr>
                 <tr v-if="users.length === 0">
-                  <td colspan="29" class="muted">Нет данных</td>
+                  <td colspan="30" class="muted">Нет данных</td>
                 </tr>
               </tbody>
             </table>
@@ -1350,6 +1356,7 @@ const usersRoleBusy = reactive<Record<number, boolean>>({})
 const usersDeleteBusy = reactive<Record<number, boolean>>({})
 const usersVerifyBusy = reactive<Record<number, boolean>>({})
 const usersPasswordBusy = reactive<Record<number, boolean>>({})
+const usersAvatarBusy = reactive<Record<number, boolean>>({})
 const usersNicknameBusy = reactive<Record<number, boolean>>({})
 const usersSanctionBusy = reactive<Record<string, boolean>>({})
 const sanctionsDeleting = reactive<Record<number, boolean>>({})
@@ -2615,6 +2622,30 @@ async function clearUserPassword(row: UserRow): Promise<void> {
     void alertDialog('Не удалось сбросить пароль')
   } finally {
     usersPasswordBusy[row.id] = false
+  }
+}
+
+async function deleteUserAvatar(row: UserRow): Promise<void> {
+  if (isDeletedUserActionsLocked(row)) return
+  if (!row.avatar_name) return
+  if (usersAvatarBusy[row.id]) return
+  const userLabel = row.username ? `${row.username}` : `#${row.id}`
+  const ok = await confirmDialog({
+    title: 'Удалить аватар',
+    text: `Удалить аватар у ${userLabel}?`,
+    confirmText: 'Удалить',
+    cancelText: 'Отмена',
+  })
+  if (!ok) return
+  usersAvatarBusy[row.id] = true
+  try {
+    await api.post(`/admin/users/${row.id}/avatar_delete`)
+    row.avatar_name = null
+    void alertDialog('Аватар удален')
+  } catch {
+    void alertDialog('Не удалось удалить аватар')
+  } finally {
+    usersAvatarBusy[row.id] = false
   }
 }
 

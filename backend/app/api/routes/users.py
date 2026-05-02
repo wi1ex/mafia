@@ -16,6 +16,7 @@ from ..utils import (
     normalize_password,
     normalize_username,
     is_protected_admin,
+    delete_user_avatar,
     safe_int,
     non_empty_str,
     normalize_game_result,
@@ -81,7 +82,6 @@ from ...services.minio import (
     delete_object_async,
     put_chat_image_async,
     build_chat_image_post_upload_async,
-    delete_avatars_async,
     ALLOWED_CT,
     AVATAR_ALLOWED_CT,
     MAX_BYTES,
@@ -1022,31 +1022,12 @@ async def delete_avatar(ident: Identity = Depends(get_identity), db: AsyncSessio
     uid = int(ident["id"])
     await ensure_profile_changes_allowed(db, uid)
 
-    row = await db.execute(select(User.username, User.avatar_name, User.role).where(User.id == uid))
-    rec = row.first()
-    if not rec:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
-
-    db_username = str(rec[0])
-    old_avatar_name = cast(str | None, rec[1])
-    db_role = str(rec[2])
-
-    await db.execute(update(User).where(User.id == uid).values(avatar_name=None))
-    await db.commit()
-    theme_state = await resolve_profile_theme_state(db, uid)
-    await write_user_profile_cache(
+    await delete_user_avatar(
+        db,
         uid,
-        username=db_username,
-        role=db_role,
-        avatar_name=None,
-        theme_color=theme_state.color,
-        theme_until=theme_state.subscription_until,
-        theme_icon=theme_state.icon,
+        missing_status_code=status.HTTP_401_UNAUTHORIZED,
+        missing_detail="Unauthorized",
     )
-    await invalidate_avatar_presign_cache(old_avatar_name)
-
-    with suppress(Exception):
-        await delete_avatars_async(uid)
 
     await log_action(
         db,
@@ -1056,7 +1037,6 @@ async def delete_avatar(ident: Identity = Depends(get_identity), db: AsyncSessio
         details="Удаление аватара",
     )
 
-    await broadcast_creator_rooms(uid, avatar="delete")
     return Ok()
 
 

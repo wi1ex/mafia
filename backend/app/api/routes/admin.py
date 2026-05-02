@@ -155,6 +155,7 @@ from ..utils import (
     refresh_rooms_after,
     set_user_deleted,
     delete_user_account_as_admin_action,
+    delete_user_avatar,
     broadcast_creator_rooms,
     force_leave_user_from_rooms,
     is_protected_admin,
@@ -1765,6 +1766,33 @@ async def reset_user_nickname(user_id: int, ident: Identity = Depends(get_identi
     )
 
     return AdminUserNameOut(id=uid, username=next_username)
+
+
+@router.post("/users/{user_id}/avatar_delete", response_model=Ok)
+@log_route("admin.users.avatar_delete")
+async def delete_user_avatar_as_admin(user_id: int, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
+    user = await session.get(User, int(user_id))
+    if not user:
+        raise HTTPException(status_code=404, detail="user_not_found")
+
+    ensure_admin_target_allowed(user)
+    ensure_admin_target_not_deleted(user)
+    uid = int(user.id)
+    target_username = str(user.username or f"user{uid}")
+    old_avatar_name = await delete_user_avatar(session, uid)
+
+    await log_action(
+        session,
+        user_id=int(ident["id"]),
+        username=ident["username"],
+        action="admin_avatar_delete",
+        details=(
+            f"Avatar deleted user_id={uid} username={target_username} "
+            f"had_avatar={int(bool(old_avatar_name))}"
+        ),
+    )
+
+    return Ok()
 
 
 @router.post("/users/{user_id}/delete", response_model=Ok)
