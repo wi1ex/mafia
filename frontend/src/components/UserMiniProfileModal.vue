@@ -511,7 +511,6 @@ onBeforeUnmount(() => {
       border: none;
       border-radius: 50%;
       background: transparent;
-      box-shadow: 3px 3px 5px rgba($black, 0.25);
       cursor: zoom-in;
       &:disabled {
         cursor: default;

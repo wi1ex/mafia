@@ -153,7 +153,9 @@ onMounted(() => {
   friends.ensureWS()
 })
 
-function inviteBlockedReason(friend: { kind?: string; telegram_verified?: boolean; tg_invites_enabled?: boolean; tg_invite_cooldown_active?: boolean | null; in_active_game_as_alive_player?: boolean | null; in_active_game_as_host?: boolean | null }): string {
+function inviteBlockedReason(friend: { kind?: string; telegram_verified?: boolean; tg_invites_enabled?: boolean; tg_invite_cooldown_active?: boolean | null; ban_active?: boolean | null; timeout_active?: boolean | null; in_active_game_as_alive_player?: boolean | null; in_active_game_as_host?: boolean | null }): string {
+  if (friend.ban_active) return 'Аккаунт пользователя забанен'
+  if (friend.timeout_active) return 'У пользователя активный таймаут'
   if (friend.in_active_game_as_host) return 'Пользователь сейчас является ведущим в активной игре'
   if (friend.kind === 'online' && friend.in_active_game_as_alive_player) return 'Пользователь сейчас является живым игроком в активной игре'
   if (friend.kind !== 'offline') return ''
@@ -167,14 +169,14 @@ function isAlreadyInvited(friend: { room_invited?: boolean | null }): boolean {
   return Boolean(friend.room_invited)
 }
 
-function isInviteDisabled(friend: { id: number; kind?: string; telegram_verified?: boolean; tg_invites_enabled?: boolean; tg_invite_cooldown_active?: boolean | null; room_invited?: boolean | null; in_active_game_as_alive_player?: boolean | null; in_active_game_as_host?: boolean | null }): boolean {
+function isInviteDisabled(friend: { id: number; kind?: string; telegram_verified?: boolean; tg_invites_enabled?: boolean; tg_invite_cooldown_active?: boolean | null; ban_active?: boolean | null; timeout_active?: boolean | null; room_invited?: boolean | null; in_active_game_as_alive_player?: boolean | null; in_active_game_as_host?: boolean | null }): boolean {
   const uid = Number(friend.id || 0)
   if (uid <= 0) return true
   if (inviteBlockedReason(friend)) return true
   return isAlreadyInvited(friend)
 }
 
-function inviteDisabledReason(friend: { id: number; kind?: string; telegram_verified?: boolean; tg_invites_enabled?: boolean; tg_invite_cooldown_active?: boolean | null; room_invited?: boolean | null; in_active_game_as_alive_player?: boolean | null; in_active_game_as_host?: boolean | null }): string {
+function inviteDisabledReason(friend: { id: number; kind?: string; telegram_verified?: boolean; tg_invites_enabled?: boolean; tg_invite_cooldown_active?: boolean | null; ban_active?: boolean | null; timeout_active?: boolean | null; room_invited?: boolean | null; in_active_game_as_alive_player?: boolean | null; in_active_game_as_host?: boolean | null }): string {
   if (inviteBusy[Number(friend.id || 0)]) return 'Отправка приглашения'
   const blockedReason = inviteBlockedReason(friend)
   if (blockedReason) return blockedReason
@@ -258,7 +260,7 @@ function stopAutoClose() {
   autoCloseTimer = undefined
 }
 
-async function invite(friend: { id: number; username?: string | null; kind?: string; telegram_verified?: boolean; tg_invites_enabled?: boolean; tg_invite_cooldown_active?: boolean | null; room_invited?: boolean | null; in_active_game_as_alive_player?: boolean | null; in_active_game_as_host?: boolean | null }) {
+async function invite(friend: { id: number; username?: string | null; kind?: string; telegram_verified?: boolean; tg_invites_enabled?: boolean; tg_invite_cooldown_active?: boolean | null; ban_active?: boolean | null; timeout_active?: boolean | null; room_invited?: boolean | null; in_active_game_as_alive_player?: boolean | null; in_active_game_as_host?: boolean | null }) {
   const uid = Number(friend.id || 0)
   if (!inviteRoomId.value || uid <= 0) return
   if (inviteBusy[uid]) return
@@ -292,6 +294,8 @@ async function invite(friend: { id: number; username?: string | null; kind?: str
       || (st === 409 && d === 'target_telegram_invite_cooldown_active')
       || (st === 409 && d === 'target_in_active_game_as_alive_player')
       || (st === 409 && d === 'target_in_active_game_as_host')
+      || (st === 409 && d === 'target_banned')
+      || (st === 409 && d === 'target_timeout')
       || (st === 409 && d === 'target_invite_unavailable')
       || (st === 404 && d === 'user_not_found')
       || (st === 403 && d === 'not_friends')

@@ -28,6 +28,8 @@ class FriendsListItemOut(BaseModel):
     in_active_game_as_host: Optional[bool] = None
     room_invited: Optional[bool] = None
     tg_invite_cooldown_active: Optional[bool] = None
+    ban_active: Optional[bool] = None
+    timeout_active: Optional[bool] = None
     telegram_verified: Optional[bool] = None
     tg_invites_enabled: Optional[bool] = None
     requested_at: Optional[datetime] = None

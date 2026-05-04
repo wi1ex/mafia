@@ -23,9 +23,13 @@ from ...schemas.room import RoomBriefOut
 from ...security.auth_tokens import get_identity
 from ...security.decorators import log_route, rate_limited
 from ...api.utils import (
+    SANCTION_BAN,
+    SANCTION_TIMEOUT,
     active_game_head_room_by_uid,
     active_alive_game_room_key,
     emit_rooms_upsert,
+    fetch_active_sanctions,
+    fetch_active_sanctions_for_users,
     fetch_online_user_ids,
     fetch_effective_online_user_ids,
     get_room_params_or_404,
@@ -170,6 +174,9 @@ async def friends_list(room_id: int | None = None, ident: Identity = Depends(get
             room_by_uid = {}
 
     invite_room_id = int(room_id or 0)
+    active_sanctions_by_uid = {}
+    if invite_room_id > 0 and friend_ids:
+        active_sanctions_by_uid = await fetch_active_sanctions_for_users(db, friend_ids)
 
     active_alive_game_room_by_uid: dict[int, int] = {}
     if friend_ids:
@@ -286,6 +293,7 @@ async def friends_list(room_id: int | None = None, ident: Identity = Depends(get
         info = rooms_map.get(visible_rid) if visible_rid else None
         active_room_id = active_alive_game_room_by_uid.get(fid)
         active_head_room_id = active_head_game_room_by_uid.get(fid)
+        active_sanctions = active_sanctions_by_uid.get(fid) or {}
         return FriendsListItemOut(
             kind="online" if online else "offline",
             id=int(fid),
@@ -306,6 +314,8 @@ async def friends_list(room_id: int | None = None, ident: Identity = Depends(get
             tg_invites_enabled=bool(user_data.get("tg_invites_enabled")),
             room_invited=(fid in invited_to_room_ids) if invite_room_id > 0 else None,
             tg_invite_cooldown_active=(fid in tg_invite_cooldown_ids) if invite_room_id > 0 else None,
+            ban_active=bool(active_sanctions.get(SANCTION_BAN)) if invite_room_id > 0 else None,
+            timeout_active=bool(active_sanctions.get(SANCTION_TIMEOUT)) if invite_room_id > 0 else None,
         )
 
     friends_items: list[FriendsListItemOut] = []
@@ -663,6 +673,13 @@ async def invite_friend(payload: FriendInviteIn, ident: Identity = Depends(get_i
     target = await db.get(User, target_id)
     if not target or target.deleted_at:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="user_not_found")
+
+    target_active_sanctions = await fetch_active_sanctions(db, target_id)
+    if target_active_sanctions.get(SANCTION_BAN):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="target_banned")
+
+    if target_active_sanctions.get(SANCTION_TIMEOUT):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="target_timeout")
 
     base_online_ids = set(await fetch_online_user_ids(r))
     online_ids = await fetch_effective_online_user_ids(r, [target_id], base_online_ids=base_online_ids)
