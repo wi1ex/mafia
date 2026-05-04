@@ -198,7 +198,6 @@
       :saving="sanctionSaving"
       :can-save="sanctionCanSave"
       :show-duration="true"
-      :show-minutes="false"
       :form="sanctionForm"
       :reasons="sanctionReasons"
       @save="saveSanction"
@@ -319,6 +318,11 @@ const sanctionModalOpen = ref(false)
 const sanctionSaving = ref(false)
 const sanctionKind = ref<'timeout' | 'suspend'>('suspend')
 const sanctionTarget = ref<UserRow | null>(null)
+const SANCTION_DURATION_LIMITS = {
+  months: 240,
+  days: 31,
+  hours: 23,
+} as const
 const userMiniProfileOpen = ref(false)
 const userMiniProfileTarget = ref<UserMiniProfileTarget | null>(null)
 const userMiniProfileAllowDeleted = computed(() => activeTab.value === 'sanctions')
@@ -330,21 +334,28 @@ const sanctionForm = reactive({
   months: 0,
   days: 0,
   hours: 0,
-  minutes: 0,
   reason: DEFAULT_SANCTION_REASON,
 })
+function isSanctionDurationPartValid(value: number, max: number): boolean {
+  const parsed = Number(value)
+  return Number.isInteger(parsed) && parsed >= 0 && parsed <= max
+}
 
 const usersPages = computed(() => Math.max(1, Math.ceil(usersTotal.value / usersLimit.value)))
 const sanctionsPages = computed(() => Math.max(1, Math.ceil(sanctionsTotal.value / sanctionsLimit.value)))
+const sanctionDurationValid = computed(() => (
+  isSanctionDurationPartValid(sanctionForm.months, SANCTION_DURATION_LIMITS.months)
+  && isSanctionDurationPartValid(sanctionForm.days, SANCTION_DURATION_LIMITS.days)
+  && isSanctionDurationPartValid(sanctionForm.hours, SANCTION_DURATION_LIMITS.hours)
+))
 const sanctionTotalSeconds = computed(() => {
   const months = Math.max(0, Number(sanctionForm.months) || 0)
   const days = Math.max(0, Number(sanctionForm.days) || 0)
   const hours = Math.max(0, Number(sanctionForm.hours) || 0)
-  const minutes = Math.max(0, Number(sanctionForm.minutes) || 0)
-  const totalMinutes = (months * 30 * 24 * 60) + (days * 24 * 60) + (hours * 60) + minutes
+  const totalMinutes = (months * 30 * 24 * 60) + (days * 24 * 60) + (hours * 60)
   return totalMinutes * 60
 })
-const sanctionCanSave = computed(() => Boolean(sanctionForm.reason) && sanctionTotalSeconds.value > 0)
+const sanctionCanSave = computed(() => Boolean(sanctionForm.reason) && sanctionDurationValid.value && sanctionTotalSeconds.value > 0)
 const sanctionTitle = computed(() => {
   const target = sanctionTarget.value
   const label = target?.username || (target ? `user${target.id}` : 'пользователю')
@@ -460,7 +471,6 @@ function resetSanctionForm(): void {
   sanctionForm.months = 0
   sanctionForm.days = 0
   sanctionForm.hours = 0
-  sanctionForm.minutes = 0
   sanctionForm.reason = DEFAULT_SANCTION_REASON
 }
 
@@ -540,7 +550,6 @@ async function saveSanction(): Promise<void> {
       months: sanctionForm.months,
       days: sanctionForm.days,
       hours: sanctionForm.hours,
-      minutes: sanctionForm.minutes,
       reason: sanctionForm.reason,
     })
     sanctionModalOpen.value = false

@@ -257,7 +257,7 @@ async def moderation_apply_user_timeout(user_id: int, payload: AdminSanctionTime
     months = int(payload.months or 0)
     days = int(payload.days or 0)
     hours = int(payload.hours or 0)
-    minutes = int(payload.minutes or 0)
+    minutes = 0
     duration_seconds = compute_duration_seconds(months, days, hours, minutes)
     if duration_seconds <= 0:
         raise HTTPException(status_code=422, detail="duration_required")
@@ -337,7 +337,7 @@ async def moderation_apply_user_suspend(user_id: int, payload: AdminSanctionTime
     months = int(payload.months or 0)
     days = int(payload.days or 0)
     hours = int(payload.hours or 0)
-    minutes = int(payload.minutes or 0)
+    minutes = 0
     duration_seconds = compute_duration_seconds(months, days, hours, minutes)
     if duration_seconds <= 0:
         raise HTTPException(status_code=422, detail="duration_required")

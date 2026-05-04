@@ -371,10 +371,9 @@ class AdminSubscriptionCreateIn(AdminSubscriptionDurationIn):
 
 
 class AdminSanctionTimedIn(BaseModel):
-    months: int = Field(default=0, ge=0, le=24)
-    days: int = Field(default=0, ge=0, le=365)
-    hours: int = Field(default=0, ge=0, le=720)
-    minutes: int = Field(default=0, ge=0, le=60 * 24 * 31)
+    months: int = Field(default=0, ge=0, le=240)
+    days: int = Field(default=0, ge=0, le=31)
+    hours: int = Field(default=0, ge=0, le=23)
     reason: str = Field(min_length=1, max_length=1024)
 
 
