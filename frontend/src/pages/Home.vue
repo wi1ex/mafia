@@ -69,14 +69,10 @@
                 <li class="ri-user" v-for="m in sortedMembers" :key="m.id" :class="{ dead: m.role === 'player' && m.alive === false }">
                   <span v-if="m.role === 'head'" class="user-numb">Вед. </span>
                   <span v-else-if="m.role === 'player' && m.slot != null" class="user-numb">{{ formatSeatNumber(m.slot) }}. </span>
-                  <button v-if="canOpenRoomInfoMiniProfileForUser(m)" class="mini-profile-avatar-trigger" type="button" @click="openMiniProfileFromRoomInfo(m)">
+                  <button class="mini-profile-user-trigger" type="button" :disabled="!canOpenRoomInfoMiniProfileForUser(m)" @click="openMiniProfileFromRoomInfo(m)">
                     <img v-minio-img="{ key: m.avatar_name ? `avatars/${m.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
+                    <span class="mini-profile-name">{{ m.username || ('user' + m.id) }}</span>
                   </button>
-                  <img v-else v-minio-img="{ key: m.avatar_name ? `avatars/${m.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
-                  <button v-if="canOpenRoomInfoMiniProfileForUser(m)" class="mini-profile-name mini-profile-name-trigger" type="button" @click="openMiniProfileFromRoomInfo(m)">
-                    {{ m.username || ('user' + m.id) }}
-                  </button>
-                  <span v-else class="mini-profile-name">{{ m.username || ('user' + m.id) }}</span>
                   <img v-if="m.screen" :src="iconScreenOn" alt="streaming" />
                 </li>
               </ul>
@@ -97,14 +93,10 @@
                       <div v-else-if="spectators.length === 0">Нет зрителей</div>
                       <div v-else class="spectators-list">
                         <div v-for="s in spectators" :key="`spectator-${s.id}`" class="spectators-row">
-                          <button v-if="canOpenRoomInfoMiniProfileForUser(s)" class="mini-profile-avatar-trigger" type="button" @click="openMiniProfileFromRoomInfo(s)">
+                          <button class="mini-profile-user-trigger" type="button" :disabled="!canOpenRoomInfoMiniProfileForUser(s)" @click="openMiniProfileFromRoomInfo(s)">
                             <img v-minio-img="{ key: s.avatar_name ? `avatars/${s.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
+                            <span class="mini-profile-name">{{ s.username || ('user' + s.id) }}</span>
                           </button>
-                          <img v-else v-minio-img="{ key: s.avatar_name ? `avatars/${s.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
-                          <button v-if="canOpenRoomInfoMiniProfileForUser(s)" class="mini-profile-name mini-profile-name-trigger" type="button" @click="openMiniProfileFromRoomInfo(s)">
-                            {{ s.username || ('user' + s.id) }}
-                          </button>
-                          <span v-else class="mini-profile-name">{{ s.username || ('user' + s.id) }}</span>
                         </div>
                       </div>
                     </div>
@@ -1414,7 +1406,12 @@ onBeforeUnmount(() => {
   }
 }
 
-.mini-profile-name-trigger {
+.mini-profile-user-trigger {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 1 auto;
+  min-width: 0;
+  gap: inherit;
   padding: 0;
   border: none;
   background: none;
@@ -1422,22 +1419,9 @@ onBeforeUnmount(() => {
   font: inherit;
   text-align: left;
   cursor: pointer;
+  &:disabled {
+    cursor: default;
+  }
 }
-                                                                                          .mini-profile-avatar-trigger {
-                                                                                            display: inline-flex;
-                                                                                            align-items: center;
-                                                                                            justify-content: center;
-                                                                                            flex: 0 0 auto;
-                                                                                            padding: 0;
-                                                                                            border: none;
-                                                                                            border-radius: 50%;
-                                                                                            background: none;
-                                                                                            line-height: 0;
-                                                                                            cursor: pointer;
-                                                                                            &:focus-visible {
-                                                                                              outline: 2px solid $green;
-                                                                                              outline-offset: 2px;
-                                                                                            }
-                                                                                          }
 
 </style>

@@ -88,12 +88,10 @@
               <tr v-for="row in users" :key="row.id">
                 <td>
                   <div class="user-cell">
-                    <button v-if="canOpenModerationUserMiniProfile(row)" class="user-avatar-button" type="button" @click="openUserMiniProfile(row)">
+                    <button class="user-link user-profile-trigger" type="button" :disabled="!canOpenModerationUserMiniProfile(row)" @click="openUserMiniProfile(row)">
                       <img class="user-avatar" v-minio-img="{ key: row.avatar_name ? `avatars/${row.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
+                      <span>{{ row.username || `user${row.id}` }}</span>
                     </button>
-                    <img v-else class="user-avatar" v-minio-img="{ key: row.avatar_name ? `avatars/${row.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
-                    <button v-if="canOpenModerationUserMiniProfile(row)" class="user-link" type="button" @click="openUserMiniProfile(row)">{{ row.username || `user${row.id}` }}</button>
-                    <span v-else>{{ row.username || '-' }}</span>
                   </div>
                 </td>
                 <td>{{ formatLocalDateTime(row.registered_at) }}</td>
@@ -162,12 +160,10 @@
               <tr v-for="row in sanctions" :key="row.id">
                 <td>
                   <div class="user-cell">
-                    <button v-if="canOpenSanctionUserMiniProfile(row)" class="user-avatar-button" type="button" @click="openSanctionUserMiniProfile(row)">
+                    <button class="user-link user-profile-trigger" type="button" :disabled="!canOpenSanctionUserMiniProfile(row)" @click="openSanctionUserMiniProfile(row)">
                       <img class="user-avatar" v-minio-img="{ key: row.avatar_name ? `avatars/${row.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
+                      <span>{{ row.username || `user${row.user_id}` }}</span>
                     </button>
-                    <img v-else class="user-avatar" v-minio-img="{ key: row.avatar_name ? `avatars/${row.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
-                    <button v-if="canOpenSanctionUserMiniProfile(row)" class="user-link" type="button" @click="openSanctionUserMiniProfile(row)">{{ row.username || `user${row.user_id}` }}</button>
-                    <span v-else>{{ row.username || `user${row.user_id}` }}</span>
                   </div>
                 </td>
                 <td>{{ formatSanctionKindLabel(row.kind) }}</td>
@@ -865,22 +861,19 @@ onBeforeUnmount(() => {
           text-decoration: underline;
         }
       }
-                                                                                  .user-avatar-button {
-                                                                                    display: inline-flex;
-                                                                                    align-items: center;
-                                                                                    justify-content: center;
-                                                                                    flex: 0 0 auto;
-                                                                                    padding: 0;
-                                                                                    border: none;
-                                                                                    border-radius: 50%;
-                                                                                    background: transparent;
-                                                                                    line-height: 0;
-                                                                                    cursor: pointer;
-                                                                                    &:focus-visible {
-                                                                                      outline: 2px solid $green;
-                                                                                      outline-offset: 2px;
-                                                                                    }
-                                                                                  }
+      .user-profile-trigger {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        min-width: 0;
+        &:disabled {
+          cursor: default;
+          &:hover {
+            color: $fg;
+            text-decoration: none;
+          }
+        }
+      }
     }
     .user-avatar {
       width: 24px;
