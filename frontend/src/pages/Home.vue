@@ -69,7 +69,10 @@
                 <li class="ri-user" v-for="m in sortedMembers" :key="m.id" :class="{ dead: m.role === 'player' && m.alive === false }">
                   <span v-if="m.role === 'head'" class="user-numb">Вед. </span>
                   <span v-else-if="m.role === 'player' && m.slot != null" class="user-numb">{{ formatSeatNumber(m.slot) }}. </span>
-                  <img v-minio-img="{ key: m.avatar_name ? `avatars/${m.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
+                  <button v-if="canOpenRoomInfoMiniProfileForUser(m)" class="mini-profile-avatar-trigger" type="button" @click="openMiniProfileFromRoomInfo(m)">
+                    <img v-minio-img="{ key: m.avatar_name ? `avatars/${m.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
+                  </button>
+                  <img v-else v-minio-img="{ key: m.avatar_name ? `avatars/${m.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
                   <button v-if="canOpenRoomInfoMiniProfileForUser(m)" class="mini-profile-name mini-profile-name-trigger" type="button" @click="openMiniProfileFromRoomInfo(m)">
                     {{ m.username || ('user' + m.id) }}
                   </button>
@@ -94,7 +97,10 @@
                       <div v-else-if="spectators.length === 0">Нет зрителей</div>
                       <div v-else class="spectators-list">
                         <div v-for="s in spectators" :key="`spectator-${s.id}`" class="spectators-row">
-                          <img v-minio-img="{ key: s.avatar_name ? `avatars/${s.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
+                          <button v-if="canOpenRoomInfoMiniProfileForUser(s)" class="mini-profile-avatar-trigger" type="button" @click="openMiniProfileFromRoomInfo(s)">
+                            <img v-minio-img="{ key: s.avatar_name ? `avatars/${s.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
+                          </button>
+                          <img v-else v-minio-img="{ key: s.avatar_name ? `avatars/${s.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
                           <button v-if="canOpenRoomInfoMiniProfileForUser(s)" class="mini-profile-name mini-profile-name-trigger" type="button" @click="openMiniProfileFromRoomInfo(s)">
                             {{ s.username || ('user' + s.id) }}
                           </button>
@@ -1417,5 +1423,21 @@ onBeforeUnmount(() => {
   text-align: left;
   cursor: pointer;
 }
+                                                                                          .mini-profile-avatar-trigger {
+                                                                                            display: inline-flex;
+                                                                                            align-items: center;
+                                                                                            justify-content: center;
+                                                                                            flex: 0 0 auto;
+                                                                                            padding: 0;
+                                                                                            border: none;
+                                                                                            border-radius: 50%;
+                                                                                            background: none;
+                                                                                            line-height: 0;
+                                                                                            cursor: pointer;
+                                                                                            &:focus-visible {
+                                                                                              outline: 2px solid $green;
+                                                                                              outline-offset: 2px;
+                                                                                            }
+                                                                                          }
 
 </style>

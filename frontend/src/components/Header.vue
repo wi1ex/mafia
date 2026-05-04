@@ -369,6 +369,7 @@ function openAuth(mode: 'login' | 'register') {
     }
     .avatar {
       border-radius: 50%;
+      aspect-ratio: 1;
     }
     .profile-theme-icon {
       width: 24px;

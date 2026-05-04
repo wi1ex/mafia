@@ -373,7 +373,10 @@
                   <td>{{ formatLocalDateTime(row.created_at) }}</td>
                   <td>
                     <div v-if="row.username" class="user-cell">
-                      <img class="user-avatar" v-minio-img="{ key: row.avatar_name ? `avatars/${row.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
+                      <button v-if="canOpenLogUserMiniProfile(row)" class="user-avatar-button" type="button" @click="openLogUserMiniProfile(row)">
+                        <img class="user-avatar" v-minio-img="{ key: row.avatar_name ? `avatars/${row.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
+                      </button>
+                      <img v-else class="user-avatar" v-minio-img="{ key: row.avatar_name ? `avatars/${row.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
                       <button v-if="canOpenLogUserMiniProfile(row)" class="user-link" type="button" @click="openLogUserMiniProfile(row)">{{ row.username }}</button>
                       <span v-else>{{ row.username }}</span>
                     </div>
@@ -445,7 +448,10 @@
                   <td>{{ row.title }}</td>
                   <td>
                     <div class="user-cell">
-                      <img class="user-avatar" v-minio-img="{ key: row.creator_avatar_name ? `avatars/${row.creator_avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
+                      <button v-if="canOpenRoomCreatorMiniProfile(row)" class="user-avatar-button" type="button" @click="openRoomCreatorMiniProfile(row)">
+                        <img class="user-avatar" v-minio-img="{ key: row.creator_avatar_name ? `avatars/${row.creator_avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
+                      </button>
+                      <img v-else class="user-avatar" v-minio-img="{ key: row.creator_avatar_name ? `avatars/${row.creator_avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
                       <button v-if="canOpenRoomCreatorMiniProfile(row)" class="user-link" type="button" @click="openRoomCreatorMiniProfile(row)">{{ row.creator_name || `user${row.creator}` }}</button>
                       <span v-else>{{ row.creator_name }}</span>
                     </div>
@@ -688,7 +694,10 @@
                   <td>{{ row.tg_id ?? '-' }}</td>
                   <td>
                     <div v-if="row.username" class="user-cell">
-                      <img class="user-avatar" v-minio-img="{ key: row.avatar_name ? `avatars/${row.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
+                      <button v-if="canOpenAdminUserMiniProfile(row)" class="user-avatar-button" type="button" @click="openAdminUserMiniProfile(row)">
+                        <img class="user-avatar" v-minio-img="{ key: row.avatar_name ? `avatars/${row.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
+                      </button>
+                      <img v-else class="user-avatar" v-minio-img="{ key: row.avatar_name ? `avatars/${row.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
                       <button v-if="canOpenAdminUserMiniProfile(row)" class="user-link" type="button" @click="openAdminUserMiniProfile(row)">{{ row.username }}</button>
                       <span v-else>{{ row.username }}</span>
                     </div>
@@ -812,7 +821,10 @@
                 <tr v-for="row in sanctions" :key="row.id">
                   <td>
                     <div class="user-cell">
-                      <img class="user-avatar" v-minio-img="{ key: row.avatar_name ? `avatars/${row.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
+                      <button v-if="canOpenSanctionUserMiniProfile(row)" class="user-avatar-button" type="button" @click="openSanctionUserMiniProfile(row)">
+                        <img class="user-avatar" v-minio-img="{ key: row.avatar_name ? `avatars/${row.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
+                      </button>
+                      <img v-else class="user-avatar" v-minio-img="{ key: row.avatar_name ? `avatars/${row.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
                       <button v-if="canOpenSanctionUserMiniProfile(row)" class="user-link" type="button" @click="openSanctionUserMiniProfile(row)">{{ row.username || `user${row.user_id}` }}</button>
                       <span v-else>{{ row.username || `user${row.user_id}` }}</span>
                     </div>
@@ -868,7 +880,10 @@
                 <tr v-for="row in subscriptions" :key="row.user_id">
                   <td>
                     <div class="user-cell">
-                      <img class="user-avatar" v-minio-img="{ key: row.avatar_name ? `avatars/${row.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
+                      <button v-if="canOpenSubscriptionUserMiniProfile(row)" class="user-avatar-button" type="button" @click="openSubscriptionUserMiniProfile(row)">
+                        <img class="user-avatar" v-minio-img="{ key: row.avatar_name ? `avatars/${row.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
+                      </button>
+                      <img v-else class="user-avatar" v-minio-img="{ key: row.avatar_name ? `avatars/${row.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
                       <button v-if="canOpenSubscriptionUserMiniProfile(row)" class="user-link" type="button" @click="openSubscriptionUserMiniProfile(row)">{{ row.username || `user${row.user_id}` }}</button>
                       <span v-else>{{ row.username || `user${row.user_id}` }}</span>
                     </div>
@@ -3374,6 +3389,22 @@ onMounted(() => {
             text-decoration: underline;
           }
         }
+                                                                                    .user-avatar-button {
+                                                                                      display: inline-flex;
+                                                                                      align-items: center;
+                                                                                      justify-content: center;
+                                                                                      flex: 0 0 auto;
+                                                                                      padding: 0;
+                                                                                      border: none;
+                                                                                      border-radius: 50%;
+                                                                                      background: transparent;
+                                                                                      line-height: 0;
+                                                                                      cursor: pointer;
+                                                                                      &:focus-visible {
+                                                                                        outline: 2px solid $green;
+                                                                                        outline-offset: 2px;
+                                                                                      }
+                                                                                    }
       }
       .user-avatar {
         width: 24px;
