@@ -11,7 +11,7 @@ from ...core.logging import log_action
 from ...models.notif import Notif
 from ...models.sanction import UserSanction
 from ...models.user import User
-from ...schemas.admin import AdminSanctionListItemOut, AdminSanctionsOut, AdminSanctionTimedIn
+from ...schemas.admin import AdminSanctionDurationAdjustIn, AdminSanctionListItemOut, AdminSanctionsOut, AdminSanctionTimedIn
 from ...schemas.common import Identity, Ok
 from ...schemas.moderation import ModerationUserOut, ModerationUsersOut
 from ...schemas.user import UserStatsOut
@@ -24,6 +24,7 @@ from ..utils import (
     SANCTION_TIMEOUT,
     SANCTION_SUSPEND,
     admin_username_sort_key,
+    adjust_active_sanction_duration,
     build_user_stats_out,
     compute_duration_seconds,
     emit_notify,
@@ -243,6 +244,18 @@ async def moderation_sanctions_list(page: int = 1, limit: int = 20, username: st
         )
 
     return AdminSanctionsOut(total=total, items=items)
+
+
+@router.patch("/sanctions/{sanction_id}/increase", response_model=Ok)
+@log_route("moderation.sanctions.increase")
+async def moderation_increase_active_sanction_duration(sanction_id: int, payload: AdminSanctionDurationAdjustIn, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
+    return await adjust_active_sanction_duration(sanction_id, payload, action="increase", ident=ident, session=session, target_scope="moderation")
+
+
+@router.patch("/sanctions/{sanction_id}/decrease", response_model=Ok)
+@log_route("moderation.sanctions.decrease")
+async def moderation_decrease_active_sanction_duration(sanction_id: int, payload: AdminSanctionDurationAdjustIn, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
+    return await adjust_active_sanction_duration(sanction_id, payload, action="decrease", ident=ident, session=session, target_scope="moderation")
 
 
 @router.post("/users/{user_id}/timeout", response_model=Ok)

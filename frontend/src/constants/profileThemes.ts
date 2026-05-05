@@ -27,7 +27,13 @@ const PROFILE_THEME_PRESETS = [
 
 type ProfileThemePreset = typeof PROFILE_THEME_PRESETS[number]
 export type ProfileThemeColor = ProfileThemePreset['key']
-export type ProfileThemeOption = ProfileThemePreset & { bg: string; hover: string }
+type ProfileThemePresetBase = {
+  key: ProfileThemeColor
+  title: string
+  accent: string
+  adminOnly?: boolean
+}
+export type ProfileThemeOption = ProfileThemePresetBase & { bg: string; hover: string }
 
 function normalizeHexColor(value: string): string {
   const color = String(value || '').trim()

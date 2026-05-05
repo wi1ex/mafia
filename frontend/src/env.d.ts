@@ -18,3 +18,7 @@ declare module '*.vue' {
 declare module '@livekit/throws-transformer/throws' {
   export type Throws<T, _E = never> = T
 }
+
+declare module 'sdp-transform' {
+  export type MediaAttributes = Record<string, any>
+}

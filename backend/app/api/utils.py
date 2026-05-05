@@ -37,8 +37,9 @@ from ..services.user_cache import (
 )
 from ..services.profile_theme import ensure_profile_theme_defaults, resolve_profile_theme_state
 from ..services.telegram import send_text_message
+from ..schemas.common import Ok, Identity
 if TYPE_CHECKING:
-    from ..schemas.admin import SiteSettingsOut, GameSettingsOut, RegistrationsPoint, AdminRoomUserStat, AdminSanctionOut, AdminGameActionFieldOut
+    from ..schemas.admin import SiteSettingsOut, GameSettingsOut, RegistrationsPoint, AdminRoomUserStat, AdminSanctionOut, AdminSanctionDurationAdjustIn, AdminGameActionFieldOut
     from ..schemas.room import GameParams
     from ..schemas.user import UserGamesHistoryOut, GameHistoryItemOut, GameHistoryHostOut, UserStatsOut
 
@@ -124,6 +125,8 @@ __all__ = [
     "sanction_finished_at",
     "sanction_served_seconds",
     "sanction_actor_display",
+    "sanction_adjust_notification",
+    "adjust_active_sanction_duration",
     "revoke_active_suspend",
     "reduce_suspend_after_hosted_game",
     "emit_expired_timed_sanction_chat_notice_once",
@@ -923,6 +926,126 @@ def build_admin_sanction_out(row: UserSanction) -> AdminSanctionOut:
         revoked_by_id=revoked_by_id,
         revoked_by_name=row.revoked_by_name,
     )
+
+
+def sanction_adjust_notification(kind: str, action: str, duration_label: str, remaining_label: str | None) -> tuple[str, str]:
+    kind_value = str(kind or "").strip().lower()
+    action_value = str(action or "").strip().lower()
+    remaining_suffix = f" До окончания осталось {remaining_label}." if remaining_label else ""
+
+    if kind_value == SANCTION_TIMEOUT:
+        if action_value == "increase":
+            return "Таймаут продлен", f"Срок вашего таймаута увеличен на {duration_label}.{remaining_suffix}"
+
+        return "Срок таймаута уменьшен", f"Срок вашего таймаута уменьшен на {duration_label}.{remaining_suffix}"
+
+    if kind_value == SANCTION_SUSPEND:
+        if action_value == "increase":
+            return "Отстранение продлено", f"Срок вашего отстранения от игр увеличен на {duration_label}.{remaining_suffix}"
+
+        return "Срок отстранения уменьшен", f"Срок вашего отстранения от игр уменьшен на {duration_label}.{remaining_suffix}"
+
+    if action_value == "increase":
+        return "Срок санкции увеличен", f"Срок вашей санкции увеличен на {duration_label}.{remaining_suffix}"
+
+    return "Срок санкции уменьшен", f"Срок вашей санкции уменьшен на {duration_label}.{remaining_suffix}"
+
+
+async def adjust_active_sanction_duration(sanction_id: int, payload: AdminSanctionDurationAdjustIn, *, action: str, ident: Identity, session: AsyncSession, target_scope: Literal["admin", "moderation"] = "admin") -> Ok:
+    sanction = await session.get(UserSanction, int(sanction_id))
+    if not sanction:
+        raise HTTPException(status_code=404, detail="sanction_not_found")
+
+    kind = str(sanction.kind or "").strip().lower()
+    if kind not in {SANCTION_TIMEOUT, SANCTION_SUSPEND}:
+        raise HTTPException(status_code=422, detail="sanction_not_timed")
+
+    now = datetime.now(timezone.utc)
+    if not is_sanction_active(sanction, now):
+        raise HTTPException(status_code=409, detail="sanction_not_active")
+
+    current_expires_at = cast(datetime | None, sanction.expires_at)
+    if current_expires_at is None:
+        raise HTTPException(status_code=422, detail="sanction_not_timed")
+
+    uid = cast(int, sanction.user_id)
+    user = await session.get(User, uid)
+    if not user:
+        raise HTTPException(status_code=404, detail="user_not_found")
+
+    if target_scope == "moderation":
+        ensure_moderation_target_allowed(user)
+    else:
+        ensure_admin_target_allowed(user)
+        ensure_admin_target_not_deleted(user)
+
+    months = int(getattr(payload, "months", 0) or 0)
+    days = int(getattr(payload, "days", 0) or 0)
+    hours = int(getattr(payload, "hours", 0) or 0)
+    minutes = 0
+    duration_seconds = compute_duration_seconds(months, days, hours, minutes)
+    if duration_seconds <= 0:
+        raise HTTPException(status_code=422, detail="duration_required")
+
+    duration_label = format_duration_parts(months, days, hours, minutes)
+    action_value = "increase" if str(action or "").strip().lower() == "increase" else "decrease"
+    if action_value == "increase":
+        next_expires_at = current_expires_at + timedelta(seconds=duration_seconds)
+        sanction.expired_notified_at = None
+    else:
+        remaining_seconds_before = max(0.0, (current_expires_at - now).total_seconds())
+        if duration_seconds >= remaining_seconds_before:
+            raise HTTPException(status_code=422, detail="sanction_decrease_too_large")
+
+        next_expires_at = current_expires_at - timedelta(seconds=duration_seconds)
+        sanction.expired_notified_at = None
+
+    sanction.expires_at = next_expires_at
+    remaining_seconds = max(0, int((next_expires_at - now).total_seconds()))
+    remaining_label = format_duration_seconds_compact(remaining_seconds) if remaining_seconds > 0 else None
+    note_title, note_text = sanction_adjust_notification(kind, action_value, duration_label, remaining_label)
+    note = Notif(user_id=uid, title=note_title, text=note_text)
+    session.add(note)
+    await session.commit()
+    await session.refresh(note)
+
+    with suppress(Exception):
+        await emit_notify(uid, note, kind="sanction")
+    with suppress(Exception):
+        await maybe_send_sanction_telegram_if_offline(session, user_id=uid, telegram_id=user.telegram_id, note=note)
+    with suppress(Exception):
+        await emit_sanctions_update(session, uid)
+    with suppress(Exception):
+        from ..services.global_chat import emit_global_chat_sanction_adjusted_notice
+
+        await emit_global_chat_sanction_adjusted_notice(
+            session,
+            actor_user_id=int(ident["id"]),
+            target_user_id=uid,
+            target_username=user.username,
+            kind=kind,
+            action=action_value,
+            duration_label=duration_label,
+        )
+
+    details = (
+        f"{kind} duration_{action_value} sanction_id={int(sanction.id)} user_id={uid} "
+        f"duration={duration_label} old_expires_at={current_expires_at.isoformat()} "
+        f"new_expires_at={next_expires_at.isoformat()}"
+    )
+    if user.username:
+        details += f" username={user.username}"
+    if target_scope == "moderation":
+        details += f" panel=moderation actor_role={ident['role']}"
+    await log_action(
+        session,
+        user_id=int(ident["id"]),
+        username=str(ident["username"]),
+        action=f"sanction_{kind}_duration_{action_value}",
+        details=details,
+    )
+
+    return Ok()
 
 
 def is_sanction_expired_after_game(row: UserSanction) -> bool:

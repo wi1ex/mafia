@@ -154,6 +154,8 @@
                 <th>Срок изначальный</th>
                 <th>Срок по факту</th>
                 <th>Пункт правил</th>
+                <th>Уменьшить</th>
+                <th>Увеличить</th>
               </tr>
             </thead>
             <tbody>
@@ -177,9 +179,21 @@
                 <td>{{ formatSanctionDuration(row.duration_seconds) }}</td>
                 <td>{{ formatSanctionDuration(row.served_seconds) }}</td>
                 <td class="rule-cell">{{ row.reason || '-' }}</td>
+                <td class="actions-cell">
+                  <button v-if="canAdjustSanction(row)" class="btn dark" :disabled="isSanctionAdjustBusy(row, 'decrease')" @click="openSanctionAdjust(row, 'decrease')">
+                    Уменьшить
+                  </button>
+                  <span v-else>-</span>
+                </td>
+                <td class="actions-cell">
+                  <button v-if="canAdjustSanction(row)" class="btn" :disabled="isSanctionAdjustBusy(row, 'increase')" @click="openSanctionAdjust(row, 'increase')">
+                    Увеличить
+                  </button>
+                  <span v-else>-</span>
+                </td>
               </tr>
               <tr v-if="sanctions.length === 0">
-                <td colspan="10" class="muted">Нет данных</td>
+                <td colspan="12" class="muted">Нет данных</td>
               </tr>
             </tbody>
           </table>
@@ -201,6 +215,19 @@
       :form="sanctionForm"
       :reasons="sanctionReasons"
       @save="saveSanction"
+    />
+    <SanctionModal
+      :open="sanctionAdjustModalOpen"
+      :title="sanctionAdjustTitle"
+      :saving="sanctionAdjustSaving"
+      :can-save="sanctionAdjustCanSave"
+      :show-duration="true"
+      :show-reason="false"
+      :save-label="sanctionAdjustSaveLabel"
+      :form="sanctionAdjustForm"
+      :reasons="sanctionReasons"
+      @update:open="onSanctionAdjustModalOpenUpdate"
+      @save="saveSanctionAdjust"
     />
     <UserMiniProfileModal
       :open="userMiniProfileOpen"
@@ -234,6 +261,7 @@ import iconJudge from '@/assets/svg/judge.svg'
 
 type TabKey = 'users' | 'sanctions'
 type SanctionListStatus = 'active' | 'expired_auto' | 'revoked'
+type SanctionAdjustMode = 'increase' | 'decrease'
 
 type SanctionsRow = {
   id: number
@@ -310,6 +338,7 @@ const sanctionsTotal = ref(0)
 const sanctionsPage = ref(1)
 const sanctionsLimit = ref(20)
 const sanctionsUser = ref('')
+const sanctionsAdjusting = reactive<Record<string, boolean>>({})
 let usersUserTimer: number | undefined
 let sanctionsUserTimer: number | undefined
 
@@ -360,6 +389,40 @@ const sanctionTitle = computed(() => {
   const target = sanctionTarget.value
   const label = target?.username || (target ? `user${target.id}` : 'пользователю')
   return sanctionKind.value === 'timeout' ? `Таймаут: ${label}` : `Отстранение от игр: ${label}`
+})
+const sanctionAdjustModalOpen = ref(false)
+const sanctionAdjustSaving = ref(false)
+const sanctionAdjustMode = ref<SanctionAdjustMode>('increase')
+const sanctionAdjustTarget = ref<SanctionsRow | null>(null)
+const sanctionAdjustForm = reactive({
+  months: 0,
+  days: 0,
+  hours: 0,
+  reason: '',
+})
+const sanctionAdjustDurationValid = computed(() => (
+  isSanctionDurationPartValid(sanctionAdjustForm.months, SANCTION_DURATION_LIMITS.months)
+  && isSanctionDurationPartValid(sanctionAdjustForm.days, SANCTION_DURATION_LIMITS.days)
+  && isSanctionDurationPartValid(sanctionAdjustForm.hours, SANCTION_DURATION_LIMITS.hours)
+))
+const sanctionAdjustTotalSeconds = computed(() => {
+  const months = Math.max(0, Number(sanctionAdjustForm.months) || 0)
+  const days = Math.max(0, Number(sanctionAdjustForm.days) || 0)
+  const hours = Math.max(0, Number(sanctionAdjustForm.hours) || 0)
+  const totalMinutes = (months * 30 * 24 * 60) + (days * 24 * 60) + (hours * 60)
+  return totalMinutes * 60
+})
+const sanctionAdjustCanSave = computed(() => {
+  const target = sanctionAdjustTarget.value
+  return Boolean(target && canAdjustSanction(target) && sanctionAdjustDurationValid.value && sanctionAdjustTotalSeconds.value > 0)
+})
+const sanctionAdjustSaveLabel = computed(() => sanctionAdjustMode.value === 'increase' ? 'Увеличить' : 'Уменьшить')
+const sanctionAdjustTitle = computed(() => {
+  const target = sanctionAdjustTarget.value
+  const actionLabel = sanctionAdjustSaveLabel.value
+  if (!target) return `${actionLabel} срок санкции`
+  const userLabel = target.username || `user${target.user_id}`
+  return `${actionLabel} ${formatSanctionKindLabel(target.kind).toLowerCase()}: ${userLabel}`
 })
 
 function setUsersSort(sortBy: UsersSortBy): void {
@@ -448,6 +511,21 @@ function canOpenSanctionUserMiniProfile(row: SanctionsRow): boolean {
     role: row.role,
     deleted_at: row.deleted_at,
   }, { allowDeleted: true })
+}
+
+function canAdjustSanction(row: SanctionsRow): boolean {
+  return row.status === 'active'
+    && (row.kind === 'timeout' || row.kind === 'suspend')
+    && String(row.role || '') === 'user'
+    && !row.deleted_at
+}
+
+function sanctionAdjustBusyKey(row: SanctionsRow, mode: SanctionAdjustMode): string {
+  return `${row.id}:${mode}`
+}
+
+function isSanctionAdjustBusy(row: SanctionsRow, mode: SanctionAdjustMode): boolean {
+  return Boolean(sanctionsAdjusting[sanctionAdjustBusyKey(row, mode)])
 }
 
 function openSanctionUserMiniProfile(row: SanctionsRow): void {
@@ -568,6 +646,67 @@ async function saveSanction(): Promise<void> {
     }
   } finally {
     sanctionSaving.value = false
+  }
+}
+
+function resetSanctionAdjustForm(): void {
+  sanctionAdjustForm.months = 0
+  sanctionAdjustForm.days = 0
+  sanctionAdjustForm.hours = 0
+  sanctionAdjustForm.reason = ''
+}
+
+function clearSanctionAdjustModalState(): void {
+  sanctionAdjustModalOpen.value = false
+  sanctionAdjustTarget.value = null
+  resetSanctionAdjustForm()
+}
+
+function onSanctionAdjustModalOpenUpdate(open: boolean): void {
+  sanctionAdjustModalOpen.value = open
+  if (!open) clearSanctionAdjustModalState()
+}
+
+function openSanctionAdjust(row: SanctionsRow, mode: SanctionAdjustMode): void {
+  if (!canAdjustSanction(row) || isSanctionAdjustBusy(row, mode)) return
+  sanctionAdjustTarget.value = row
+  sanctionAdjustMode.value = mode
+  resetSanctionAdjustForm()
+  sanctionAdjustModalOpen.value = true
+}
+
+async function saveSanctionAdjust(): Promise<void> {
+  const target = sanctionAdjustTarget.value
+  if (!target || sanctionAdjustSaving.value || !sanctionAdjustCanSave.value) return
+  const mode = sanctionAdjustMode.value
+  const busyKey = sanctionAdjustBusyKey(target, mode)
+  sanctionAdjustSaving.value = true
+  sanctionsAdjusting[busyKey] = true
+  const duration = {
+    months: Math.max(0, Math.trunc(Number(sanctionAdjustForm.months) || 0)),
+    days: Math.max(0, Math.trunc(Number(sanctionAdjustForm.days) || 0)),
+    hours: Math.max(0, Math.trunc(Number(sanctionAdjustForm.hours) || 0)),
+  }
+  try {
+    await api.patch(`/moderation/sanctions/${target.id}/${mode}`, duration)
+    await loadSanctions()
+    await loadUsers()
+    clearSanctionAdjustModalState()
+    void alertDialog(mode === 'increase' ? 'Срок санкции увеличен' : 'Срок санкции уменьшен')
+  } catch (e: any) {
+    const st = e?.response?.status
+    const d = e?.response?.data?.detail
+    if (st === 404 && d === 'sanction_not_found') void alertDialog('Санкция не найдена')
+    else if (st === 404 && d === 'user_not_found') void alertDialog('Пользователь не найден')
+    else if (st === 403 && d === 'forbidden') void alertDialog('Нельзя изменить санкцию этого пользователя')
+    else if (st === 409 && d === 'sanction_not_active') void alertDialog('Санкция уже не активна')
+    else if (st === 422 && d === 'duration_required') void alertDialog('Укажите срок изменения')
+    else if (st === 422 && d === 'sanction_not_timed') void alertDialog('Для этой санкции нельзя изменить срок')
+    else if (st === 422 && d === 'sanction_decrease_too_large') void alertDialog('Нельзя уменьшить срок на все оставшееся время санкции или больше')
+    else void alertDialog('Не удалось изменить срок санкции')
+  } finally {
+    sanctionsAdjusting[busyKey] = false
+    sanctionAdjustSaving.value = false
   }
 }
 

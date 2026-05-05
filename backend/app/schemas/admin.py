@@ -377,6 +377,12 @@ class AdminSanctionTimedIn(BaseModel):
     reason: str = Field(min_length=1, max_length=1024)
 
 
+class AdminSanctionDurationAdjustIn(BaseModel):
+    months: int = Field(default=0, ge=0, le=240)
+    days: int = Field(default=0, ge=0, le=31)
+    hours: int = Field(default=0, ge=0, le=23)
+
+
 class AdminSanctionBanIn(BaseModel):
     reason: str = Field(min_length=1, max_length=1024)
 

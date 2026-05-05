@@ -16,7 +16,7 @@
               <UiInput id="sanction-days" v-model.number="form.days" type="number" min="0" max="31" step="1" autocomplete="off" label="Дни" />
               <UiInput id="sanction-hours" v-model.number="form.hours" type="number" min="0" max="23" step="1" autocomplete="off" label="Часы" />
             </div>
-            <div class="select-field" :class="{ filled: Boolean(form.reason) }">
+            <div v-if="showReason" class="select-field" :class="{ filled: Boolean(form.reason) }">
               <select id="sanction-reason" v-model="form.reason">
                 <option v-for="item in reasons" :key="item.value" :value="item.value">{{ item.label }}</option>
               </select>
@@ -26,7 +26,7 @@
           <div class="modal-actions">
             <button class="btn dark" @click="close">Отмена</button>
             <button class="btn confirm" :disabled="saving || !canSave" @click="$emit('save')">
-              Применить
+              {{ saving ? '...' : saveLabel }}
             </button>
           </div>
         </div>
@@ -48,6 +48,8 @@ withDefaults(defineProps<{
   saving: boolean
   canSave: boolean
   showDuration?: boolean
+  showReason?: boolean
+  saveLabel?: string
   reasons: { value: string; label: string }[]
   form: {
     months: number
@@ -57,6 +59,8 @@ withDefaults(defineProps<{
   }
 }>(), {
   showDuration: true,
+  showReason: true,
+  saveLabel: 'Применить',
 })
 
 const emit = defineEmits<{

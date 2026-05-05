@@ -83,6 +83,7 @@ from ...schemas.admin import (
     AdminSubscriptionCreateIn,
     AdminSubscriptionDurationIn,
     AdminSanctionTimedIn,
+    AdminSanctionDurationAdjustIn,
     AdminSanctionBanIn,
     OnlineUserOut,
 )
@@ -145,6 +146,7 @@ from ..utils import (
     sanction_finished_at,
     sanction_served_seconds,
     sanction_actor_display,
+    adjust_active_sanction_duration,
     revoke_active_suspend,
     format_duration_parts,
     format_duration_seconds_compact,
@@ -1341,6 +1343,18 @@ async def sanctions_list(page: int = 1, limit: int = 20, username: str | None = 
         )
 
     return AdminSanctionsOut(total=total, items=items)
+
+
+@router.patch("/sanctions/{sanction_id}/increase", response_model=Ok)
+@log_route("admin.sanctions.increase")
+async def increase_active_sanction_duration(sanction_id: int, payload: AdminSanctionDurationAdjustIn, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
+    return await adjust_active_sanction_duration(sanction_id, payload, action="increase", ident=ident, session=session)
+
+
+@router.patch("/sanctions/{sanction_id}/decrease", response_model=Ok)
+@log_route("admin.sanctions.decrease")
+async def decrease_active_sanction_duration(sanction_id: int, payload: AdminSanctionDurationAdjustIn, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
+    return await adjust_active_sanction_duration(sanction_id, payload, action="decrease", ident=ident, session=session)
 
 
 @router.delete("/sanctions/{sanction_id}", response_model=Ok)
