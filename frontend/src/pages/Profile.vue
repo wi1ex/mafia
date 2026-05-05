@@ -88,9 +88,9 @@
                 <img class="btn-img" :src="iconSave" alt="save" />
                 {{ themeSaveBusy ? '...' : 'Сохранить' }}
               </button>
-              <a v-else class="btn support-btn" :href="supportLink" target="_blank" rel="noopener noreferrer" @click="onSupportLinkClick">
+              <button v-else type="button" class="btn support-btn" @click="openSupportModal">
                 Поддержать платформу
-              </a>
+              </button>
             </div>
             <p class="hint">{{ profileThemeMessageText }}</p>
           </div>
@@ -275,6 +275,7 @@
         </div>
       </div>
     </Transition>
+    <SupportSiteModal v-model:open="supportModalOpen" @select="onSupportSiteSelect" />
   </section>
 </template>
 
@@ -292,6 +293,7 @@ import ProfileStatsTab from '@/components/ProfileStatsTab.vue'
 import ProfileHistoryTab from '@/components/ProfileHistoryTab.vue'
 import ToggleSwitch from '@/components/ToggleSwitch.vue'
 import UiInput from '@/components/UiInput.vue'
+import SupportSiteModal from '@/components/SupportSiteModal.vue'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
 import iconSave from '@/assets/svg/save.svg'
@@ -417,11 +419,11 @@ const sanctionsError = ref('')
 const hotkeysTogglePending = ref(false)
 const tgInvitesTogglePending = ref(false)
 const themeSaveBusy = ref(false)
+const supportModalOpen = ref(false)
 const telegramVerified = computed(() => userStore.telegramVerified)
 const passwordTemp = computed(() => userStore.passwordTemp)
 const botName = (import.meta.env.VITE_TG_BOT_NAME as string || '').trim()
 const botLink = botName ? `https://t.me/${botName}` : 'https://t.me'
-const supportLink = 'https://web.tribute.tg/d/Cvc'
 const pwd = reactive({ current: '', next: '', confirm: '' })
 const pwdBusy = ref(false)
 const unlinkTgBusy = ref(false)
@@ -647,7 +649,11 @@ async function saveProfileTheme() {
   }
 }
 
-function onSupportLinkClick() {
+function openSupportModal() {
+  supportModalOpen.value = true
+}
+
+function onSupportSiteSelect() {
   void api.post('/users/support_link_click').catch(() => {})
 }
 

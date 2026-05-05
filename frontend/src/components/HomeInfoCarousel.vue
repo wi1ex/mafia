@@ -27,10 +27,9 @@
               </div>
 
               <div class="slide-actions">
-                <a class="primary-btn" :href="supportLink" target="_blank" rel="noopener noreferrer" @click="onSupportLinkClick">
+                <button type="button" class="primary-btn" @click="openSupportModal">
                   Поддержать платформу
-                </a>
-                <span class="action-note">Откроется официальный сервис поддержки в Telegram.</span>
+                </button>
               </div>
             </div>
           </div>
@@ -69,7 +68,6 @@
                 <button type="button" class="primary-btn" :disabled="installButtonDisabled" @click="openInstall">
                   {{ installButtonLabel }}
                 </button>
-                <span class="action-note">{{ installActionNote }}</span>
               </div>
             </div>
           </div>
@@ -108,7 +106,6 @@
                 <a class="primary-btn" :href="contactsLink" target="_blank" rel="noopener noreferrer">
                   Связаться с командой
                 </a>
-                <span class="action-note">Откроется аккаунт пользователя в Telegram.</span>
               </div>
             </div>
           </div>
@@ -132,6 +129,7 @@
         </button>
       </div>
     </div>
+    <SupportSiteModal v-model:open="supportModalOpen" @select="onSupportSiteSelect" />
   </section>
 </template>
 
@@ -140,6 +138,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { api } from '@/services/axios'
 import { requestPwaInstall, usePwaInstallState } from '@/services/pwa'
 import { useAuthStore } from '@/store'
+import SupportSiteModal from '@/components/SupportSiteModal.vue'
 
 import iconArrowDown from '@/assets/svg/arrowDown.svg'
 import iconCard from '@/assets/svg/card.svg'
@@ -156,10 +155,10 @@ const focused = ref(false)
 const documentHidden = ref(false)
 const prefersReducedMotion = ref(false)
 const manualInstallHintVisible = ref(false)
+const supportModalOpen = ref(false)
 const pwaInstall = usePwaInstallState()
 const auth = useAuthStore()
 
-const supportLink = 'https://web.tribute.tg/d/Cvc'
 const contactsLink = 'https://t.me/wi1ex'
 
 let autoplayTimer: number | null = null
@@ -170,14 +169,8 @@ const installButtonDisabled = computed(() => pwaInstall.installed || (manualInst
 const installButtonLabel = computed(() => {
   if (pwaInstall.installed) return 'Приложение установлено'
   if (manualInstallHintVisible.value && !canPromptInstall.value) return 'Используйте меню браузера'
-  if (canPromptInstall.value) return 'Установить платформу'
-  return 'Установить платформу'
-})
-const installActionNote = computed(() => {
-  if (pwaInstall.installed) return 'Платформа уже установлена на этом устройстве.'
-  if (manualInstallHintVisible.value && !canPromptInstall.value) return 'Если системная установка не открылась, добавьте приложение через меню браузера.'
-  if (canPromptInstall.value) return 'Откроется системное окно установки браузера.'
-  return 'Если браузер поддерживает установку PWA, он предложит системное окно.'
+  if (canPromptInstall.value) return 'Установить приложение'
+  return 'Установить приложение'
 })
 
 watch(() => canPromptInstall.value, (next) => {
@@ -189,7 +182,7 @@ watch(() => pwaInstall.installed, (next) => {
 })
 
 const slideTransitionName = computed(() => slideDirection.value > 0 ? 'carousel-slide-forward' : 'carousel-slide-backward')
-const isPaused = computed(() => hovered.value || focused.value || documentHidden.value || prefersReducedMotion.value)
+const isPaused = computed(() => hovered.value || focused.value || documentHidden.value || prefersReducedMotion.value || supportModalOpen.value)
 
 function clearAutoplayTimer() {
   if (autoplayTimer == null) return
@@ -234,7 +227,11 @@ function goTo(index: number, userInitiated = false) {
   setActive(normalized, direction, userInitiated)
 }
 
-function onSupportLinkClick() {
+function openSupportModal() {
+  supportModalOpen.value = true
+}
+
+function onSupportSiteSelect() {
   if (!auth.isAuthed) return
   void api.post('/users/support_link_click').catch(() => {})
 }
@@ -464,14 +461,8 @@ onBeforeUnmount(() => {
     .slide-actions {
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      justify-content: center;
       margin-top: auto;
-    }
-    .action-note {
-      max-width: 230px;
-      text-align: end;
-      color: $ashy;
-      font-size: 14px;
     }
     .primary-btn {
       display: inline-flex;
@@ -690,10 +681,6 @@ onBeforeUnmount(() => {
       .info-card-title,
       .info-banner-title {
         font-size: 10px;
-      }
-      .action-note {
-        max-width: 125px;
-        font-size: 7px;
       }
       .primary-btn {
         min-width: 135px;
