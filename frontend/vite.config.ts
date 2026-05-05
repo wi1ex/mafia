@@ -25,6 +25,15 @@ export default defineConfig({
         manualChunks(id) {
           const normalized = id.replace(/\\/g, '/')
 
+          if (
+            normalized.includes('/node_modules/vue/')
+            || normalized.includes('/node_modules/@vue/')
+            || normalized.includes('/node_modules/vue-router/')
+            || normalized.includes('/node_modules/pinia/')
+          ) {
+            return 'vue-vendor'
+          }
+
           if (normalized.includes('/node_modules/livekit-client/')) {
             return 'room-rtc-vendor'
           }
