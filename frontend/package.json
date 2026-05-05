@@ -28,6 +28,6 @@
     "vue-tsc": "^3.2.8"
   },
   "overrides": {
-    "rollup": "4.55.1"
+    "rollup": "4.60.3"
   }
 }
