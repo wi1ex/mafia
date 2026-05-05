@@ -225,6 +225,13 @@ class UserUiPrefsOut(BaseModel):
     tg_invites_enabled: bool
 
 
+class SupportLinkClickIn(BaseModel):
+    source: Optional[str] = Field(default=None, max_length=64)
+    site_id: Optional[str] = Field(default=None, max_length=64)
+    site_name: Optional[str] = Field(default=None, max_length=128)
+    url: Optional[str] = Field(default=None, max_length=512)
+
+
 class UserProfileThemeIn(BaseModel):
     color: str = Field(min_length=1, max_length=32)
     icon: Optional[str] = Field(default=None, max_length=32)

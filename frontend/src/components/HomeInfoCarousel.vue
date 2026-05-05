@@ -231,9 +231,14 @@ function openSupportModal() {
   supportModalOpen.value = true
 }
 
-function onSupportSiteSelect() {
+function onSupportSiteSelect(site: { id: string; name: string; url: string }) {
   if (!auth.isAuthed) return
-  void api.post('/users/support_link_click').catch(() => {})
+  void api.post('/users/support_link_click', {
+    source: 'home_info_carousel',
+    site_id: site.id,
+    site_name: site.name,
+    url: site.url,
+  }).catch(() => {})
 }
 
 async function openInstall() {

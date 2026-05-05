@@ -12,7 +12,7 @@
           </header>
 
           <div class="site-list">
-            <a v-for="site in SUPPORT_SITES" :key="site.id" class="site-option" :href="site.url" target="_blank" rel="noopener noreferrer" @click="onSelect">
+            <a v-for="site in SUPPORT_SITES" :key="site.id" class="site-option" :href="site.url" target="_blank" rel="noopener noreferrer" @click="onSelect(site)">
               <span class="site-copy">
                 <span class="site-name">{{ site.name }}</span>
                 <span class="site-note">{{ site.note }}</span>
@@ -35,9 +35,15 @@ const props = defineProps<{
   open: boolean
 }>()
 
+type SupportSite = {
+  id: string
+  name: string
+  url: string
+}
+
 const emit = defineEmits<{
   'update:open': [boolean]
-  'select': []
+  'select': [SupportSite]
 }>()
 
 const armed = ref(false)
@@ -61,8 +67,8 @@ function requestClose(): void {
   emit('update:open', false)
 }
 
-function onSelect(): void {
-  emit('select')
+function onSelect(site: SupportSite): void {
+  emit('select', site)
   requestClose()
 }
 

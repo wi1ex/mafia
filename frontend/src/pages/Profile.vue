@@ -653,8 +653,13 @@ function openSupportModal() {
   supportModalOpen.value = true
 }
 
-function onSupportSiteSelect() {
-  void api.post('/users/support_link_click').catch(() => {})
+function onSupportSiteSelect(site: { id: string; name: string; url: string }) {
+  void api.post('/users/support_link_click', {
+    source: 'profile_theme',
+    site_id: site.id,
+    site_name: site.name,
+    url: site.url,
+  }).catch(() => {})
 }
 
 async function changePassword() {

@@ -61,6 +61,7 @@ from ...schemas.user import (
     GameHistorySlotOut,
     UserUiPrefsIn,
     UserUiPrefsOut,
+    SupportLinkClickIn,
     UserProfileThemeIn,
     UserProfileThemeOut,
     PasswordChangeIn,
@@ -223,15 +224,16 @@ async def mini_profile(user_id: int, allow_deleted: bool = False, ident: Identit
 @router.post("/support_link_click", response_model=Ok)
 @log_route("users.support_link_click")
 @rate_limited(lambda ident, **_: f"rl:support_link_click:{ident['id']}", limit=10, window_s=1)
-async def support_link_click(ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> Ok:
+async def support_link_click(payload: SupportLinkClickIn | None = None, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> Ok:
     uid = int(ident["id"])
     username = str(ident["username"] or "")
+    site_name = non_empty_str(payload.site_name if payload else None) or "-"
     await log_action(
         db,
         user_id=uid,
         username=username,
         action="support_link_click",
-        details=f"Переход по ссылке поддержки: user_id={uid} username={username} source=home_info_carousel",
+        details=f"Переход по ссылке поддержки: user_id={uid} site_name={site_name}",
     )
     return Ok()
 
