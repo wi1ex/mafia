@@ -46,6 +46,7 @@ from ..utils import (
     sanction_finished_at,
     sanction_served_seconds,
     sanction_status,
+    fetch_suspend_hosted_workoff_seconds,
     find_user_ids_by_username_search,
 )
 
@@ -205,14 +206,25 @@ async def moderation_sanctions_list(page: int = 1, limit: int = 20, username: st
     )
 
     now = datetime.now(timezone.utc)
+    sanction_rows = rows.all()
+    hosted_workoff_seconds = await fetch_suspend_hosted_workoff_seconds(
+        session,
+        [cast(UserSanction, row) for row, *_rest in sanction_rows],
+        now=now,
+    )
     items: list[AdminSanctionListItemOut] = []
-    for row, target_username, target_avatar_name, target_role, target_deleted_at in rows.all():
+    for row, target_username, target_avatar_name, target_role, target_deleted_at in sanction_rows:
         sanction = cast(UserSanction, row)
         uid = cast(int, sanction.user_id)
         sid = cast(int, sanction.id)
         issued_by_id = cast(int, sanction.issued_by_id) if sanction.issued_by_id is not None else None
         revoked_by_id = cast(int, sanction.revoked_by_id) if sanction.revoked_by_id is not None else None
         status = sanction_status(sanction, now)
+        hosted_workoff = (
+            hosted_workoff_seconds.get(sid)
+            if sanction.kind == SANCTION_SUSPEND
+            else None
+        )
         revoked_by_display: str | None = None
         if status == "expired_auto":
             revoked_by_display = "авто"
@@ -239,6 +251,7 @@ async def moderation_sanctions_list(page: int = 1, limit: int = 20, username: st
                 revoked_by_display=revoked_by_display,
                 duration_seconds=sanction.duration_seconds,
                 served_seconds=sanction_served_seconds(sanction, now),
+                hosted_workoff_seconds=hosted_workoff,
                 reason=sanction.reason or None,
             )
         )

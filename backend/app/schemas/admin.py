@@ -201,6 +201,7 @@ class AdminSanctionListItemOut(BaseModel):
     revoked_by_display: Optional[str] = None
     duration_seconds: Optional[int] = None
     served_seconds: int
+    hosted_workoff_seconds: Optional[int] = None
     reason: Optional[str] = None
 
 

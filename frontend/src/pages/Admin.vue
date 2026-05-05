@@ -807,6 +807,7 @@
                   <th>Кем снята</th>
                   <th>Срок изначальный</th>
                   <th>Срок по факту</th>
+                  <th>Отработка ведущим</th>
                   <th>Пункт правил</th>
                   <th>Уменьшить</th>
                   <th>Увеличить</th>
@@ -833,6 +834,7 @@
                   <td>{{ row.revoked_by_display || '-' }}</td>
                   <td>{{ formatSanctionDuration(row.duration_seconds) }}</td>
                   <td>{{ formatSanctionDuration(row.served_seconds) }}</td>
+                  <td>{{ formatSanctionWorkoff(row) }}</td>
                   <td class="rule-cell">{{ row.reason || '-' }}</td>
                   <td class="actions-cell">
                     <button v-if="canAdjustSanction(row)" class="btn dark" :disabled="isSanctionAdjustBusy(row, 'decrease')" @click="openSanctionAdjust(row, 'decrease')">
@@ -855,7 +857,7 @@
                   </td>
                 </tr>
                 <tr v-if="sanctions.length === 0">
-                  <td colspan="13" class="muted">Нет данных</td>
+                  <td colspan="14" class="muted">Нет данных</td>
                 </tr>
               </tbody>
             </table>
@@ -1236,6 +1238,7 @@ type SanctionsRow = {
   revoked_by_display?: string | null
   duration_seconds?: number | null
   served_seconds: number
+  hosted_workoff_seconds?: number | null
   reason?: string | null
 }
 
@@ -1751,8 +1754,8 @@ function formatBytes(value: number): string {
   return `${(total / (1024 * 1024 * 1024)).toFixed(total < 10 * 1024 * 1024 * 1024 ? 1 : 0)} ГБ`
 }
 
-function formatSanctionDuration(seconds?: number | null): string {
-  if (!seconds) return 'без срока'
+function formatDurationSeconds(seconds?: number | null, zeroLabel = 'без срока'): string {
+  if (!seconds) return zeroLabel
   const total = Math.max(0, Math.floor(Number(seconds) || 0))
   const mins = Math.floor(total / 60)
   const days = Math.floor(mins / 1440)
@@ -1763,6 +1766,15 @@ function formatSanctionDuration(seconds?: number | null): string {
   if (hours > 0) parts.push(`${hours}ч`)
   if (minutes > 0 || parts.length === 0) parts.push(`${minutes}м`)
   return parts.join(' ')
+}
+
+function formatSanctionDuration(seconds?: number | null): string {
+  return formatDurationSeconds(seconds, 'без срока')
+}
+
+function formatSanctionWorkoff(row: SanctionsRow): string {
+  if (row.kind !== 'suspend') return '-'
+  return formatDurationSeconds(row.hosted_workoff_seconds, '0м')
 }
 
 function formatSanctionKindLabel(kind: 'timeout' | 'ban' | 'suspend'): string {
@@ -2332,6 +2344,9 @@ async function loadSanctions(): Promise<void> {
       revoked_by_display: item?.revoked_by_display ? String(item.revoked_by_display) : null,
       duration_seconds: Number.isFinite(item?.duration_seconds) ? item.duration_seconds : null,
       served_seconds: Math.max(0, Number(item?.served_seconds) || 0),
+      hosted_workoff_seconds: Number.isFinite(item?.hosted_workoff_seconds)
+        ? Math.max(0, Number(item.hosted_workoff_seconds))
+        : null,
       reason: item?.reason ?? null,
     }))
     sanctionsTotal.value = Number.isFinite(data?.total) ? data.total : 0

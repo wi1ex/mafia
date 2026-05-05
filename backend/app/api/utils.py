@@ -48,6 +48,7 @@ __all__ = [
     "SANCTION_BAN",
     "SANCTION_SUSPEND",
     "HOSTED_GAME_SUSPEND_REDUCTION_SECONDS",
+    "fetch_suspend_hosted_workoff_seconds",
     "USERS_SORT_DEFAULT",
     "TIMED_KINDS",
     "serialize_game_for_redis",
@@ -259,6 +260,9 @@ SANCTION_TIMEOUT = "timeout"
 SANCTION_BAN = "ban"
 SANCTION_SUSPEND = "suspend"
 HOSTED_GAME_SUSPEND_REDUCTION_SECONDS = 4 * 60 * 60
+HOSTED_GAME_SUSPEND_LEGACY_REDUCTION_SECONDS = 6 * 60 * 60
+HOSTED_GAME_SUSPEND_REDUCTION_CHANGED_AT = datetime(2026, 5, 1, tzinfo=timezone.utc)
+SUSPEND_HOSTED_WORKOFF_LOOKAHEAD = timedelta(minutes=5)
 EXPIRED_SANCTION_CHAT_NOTICE_TTL_S = 60 * 60 * 24 * 365
 EXPIRED_SUBSCRIPTION_SYNC_TTL_S = 14 * 24 * 60 * 60
 SUBSCRIPTION_EXPIRING_SOON_NOTICE_BEFORE = timedelta(days=3)
@@ -1087,6 +1091,103 @@ def sanction_served_seconds(row: UserSanction, now: datetime) -> int:
             end_at = now
 
     return max(0, int((end_at - row.issued_at).total_seconds()))
+
+
+def _as_utc_datetime(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+
+    return value.astimezone(timezone.utc)
+
+
+def _suspend_hosted_workoff_window(row: UserSanction, now: datetime) -> tuple[datetime, datetime] | None:
+    if str(row.kind or "").strip().lower() != SANCTION_SUSPEND:
+        return None
+
+    issued_at = _as_utc_datetime(row.issued_at)
+    now_utc = _as_utc_datetime(now)
+    end_at: datetime
+    if row.revoked_at is not None:
+        end_at = _as_utc_datetime(row.revoked_at) + SUSPEND_HOSTED_WORKOFF_LOOKAHEAD
+    elif row.expires_at is not None and _as_utc_datetime(row.expires_at) <= now_utc:
+        end_at = _as_utc_datetime(row.expires_at)
+    else:
+        end_at = now_utc
+
+    if end_at < issued_at:
+        end_at = issued_at
+
+    return issued_at, end_at
+
+
+def _hosted_game_suspend_reduction_seconds(finished_at: datetime) -> int:
+    game_finished_at = _as_utc_datetime(finished_at)
+    if game_finished_at < HOSTED_GAME_SUSPEND_REDUCTION_CHANGED_AT:
+        return HOSTED_GAME_SUSPEND_LEGACY_REDUCTION_SECONDS
+
+    return HOSTED_GAME_SUSPEND_REDUCTION_SECONDS
+
+
+async def fetch_suspend_hosted_workoff_seconds(session: AsyncSession, sanctions: Iterable[UserSanction], *, now: datetime) -> dict[int, int]:
+    windows_by_user: dict[int, list[tuple[int, datetime, datetime]]] = {}
+    out: dict[int, int] = {}
+
+    for sanction in sanctions:
+        try:
+            sid = int(sanction.id)
+            uid = int(sanction.user_id)
+        except Exception:
+            continue
+        window = _suspend_hosted_workoff_window(sanction, now)
+        if window is None:
+            continue
+
+        start_at, end_at = window
+        out[sid] = 0
+        windows_by_user.setdefault(uid, []).append((sid, start_at, end_at))
+
+    if not windows_by_user:
+        return out
+
+    starts = [
+        start_at
+        for windows in windows_by_user.values()
+        for _sid, start_at, _end_at in windows
+    ]
+    ends = [
+        end_at
+        for windows in windows_by_user.values()
+        for _sid, _start_at, end_at in windows
+    ]
+    if not starts or not ends:
+        return out
+
+    rows = await session.execute(
+        select(Game.head_id, Game.finished_at)
+        .where(
+            Game.head_id.in_(list(windows_by_user.keys())),
+            Game.finished_at >= min(starts),
+            Game.finished_at <= max(ends),
+        )
+        .order_by(Game.finished_at.asc(), Game.id.asc())
+    )
+    for head_id, finished_at in rows.all():
+        try:
+            uid = int(head_id)
+        except Exception:
+            continue
+        if not isinstance(finished_at, datetime):
+            continue
+
+        game_finished_at = _as_utc_datetime(finished_at)
+        for sid, start_at, end_at in windows_by_user.get(uid, []):
+            if start_at <= game_finished_at <= end_at:
+                out[sid] = (
+                    out.get(sid, 0)
+                    + _hosted_game_suspend_reduction_seconds(game_finished_at)
+                )
+
+    return out
 
 
 def sanction_actor_display(name: str | None, user_id: int | None, *, auto_fallback: bool = False) -> str:
