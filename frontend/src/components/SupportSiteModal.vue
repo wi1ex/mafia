@@ -97,7 +97,7 @@ onBeforeUnmount(() => {
     display: flex;
     flex-direction: column;
     padding: 20px;
-    gap: 10px;
+    gap: 15px;
     width: 500px;
     border-radius: 5px;
     background-color: $graphite;
@@ -126,11 +126,13 @@ onBeforeUnmount(() => {
     }
     .site-list {
       display: flex;
-      gap: 20px;
+      gap: 15px;
       .site-option {
         display: flex;
         gap: 10px;
-        padding: 10px;
+        padding: 15px;
+        min-width: 210px;
+        max-width: 210px;
         border: 1px solid $lead;
         border-radius: 10px;
         background-color: $dark;
@@ -146,8 +148,8 @@ onBeforeUnmount(() => {
           box-shadow: 0 15px 30px rgba($black, 0.25);
         }
         .site-logo {
-          width: 75px;
-          height: 75px;
+          width: 65px;
+          height: 65px;
         }
         .site-copy {
           display: flex;
@@ -182,6 +184,45 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 1280px) {
-
+  .support-site-overlay {
+    .support-site-modal {
+      padding: 15px;
+      gap: 10px;
+      width: 400px;
+      header {
+        span {
+          font-size: 16px;
+        }
+        .icon {
+          width: 25px;
+          height: 25px;
+          img {
+            width: 20px;
+            height: 20px;
+          }
+        }
+      }
+      .site-list {
+        .site-option {
+          gap: 5px;
+          padding: 10px;
+          min-width: 170px;
+          max-width: 170px;
+          .site-logo {
+            width: 50px;
+            height: 50px;
+          }
+          .site-copy {
+            .site-name {
+              font-size: 14px;
+            }
+            .site-note {
+              font-size: 10px;
+            }
+          }
+        }
+      }
+    }
+  }
 }
 </style>
