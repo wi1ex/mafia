@@ -12,20 +12,18 @@
 
           <div class="site-list">
             <a class="site-option" href="https://web.tribute.tg/d/Cvc" target="_blank" rel="noopener noreferrer" @click="onSelect(site)">
-              <img :src="iconTribute" alt="tribute" />
+              <img :src="iconTribute" alt="tribute" class="site-logo" />
               <div class="site-copy">
                 <span class="site-name">Tribute</span>
                 <span class="site-note">Сервис поддержки в Telegram</span>
               </div>
-              <span class="site-action">Перейти</span>
             </a>
             <a class="site-option" href="https://dalink.to/deceit_games" target="_blank" rel="noopener noreferrer" @click="onSelect(site)">
-              <img :src="iconDonationAlerts" alt="donation" />
+              <img :src="iconDonationAlerts" alt="donation" class="site-logo" />
               <div class="site-copy">
                 <span class="site-name">DonationAlerts</span>
                 <span class="site-note">Сторонний сервис поддержки</span>
               </div>
-              <span class="site-action">Перейти</span>
             </a>
           </div>
         </div>
@@ -100,7 +98,7 @@ onBeforeUnmount(() => {
     flex-direction: column;
     padding: 10px;
     gap: 10px;
-    width: 400px;
+    width: 500px;
     border-radius: 5px;
     background-color: $graphite;
     box-shadow: 0 15px 30px rgba($black, 0.25);
@@ -127,11 +125,10 @@ onBeforeUnmount(() => {
       }
     }
     .site-list {
-      display: grid;
+      display: flex;
       gap: 10px;
       .site-option {
         display: flex;
-        flex-direction: column;
         gap: 10px;
         padding: 10px;
         border: 1px solid $lead;
@@ -147,6 +144,10 @@ onBeforeUnmount(() => {
           border-color: rgba($green, 0.5);
           background-color: $graphite;
           box-shadow: 0 15px 30px rgba($black, 0.25);
+        }
+        .site-logo {
+          width: 75px;
+          height: 75px;
         }
         .site-copy {
           display: flex;
@@ -164,20 +165,6 @@ onBeforeUnmount(() => {
             font-size: 12px;
             line-height: 1.2;
           }
-        }
-        .site-action {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          flex: 0 0 auto;
-          height: 40px;
-          padding: 0 10px;
-          border-radius: 5px;
-          background-color: rgba($green, 0.75);
-          color: $bg;
-          font-size: 14px;
-          font-family: Manrope-Medium;
-          line-height: 1;
         }
       }
     }
