@@ -96,7 +96,7 @@ onBeforeUnmount(() => {
     max-width: 100%;
     display: flex;
     flex-direction: column;
-    padding: 10px;
+    padding: 20px;
     gap: 10px;
     width: 500px;
     border-radius: 5px;
@@ -108,7 +108,7 @@ onBeforeUnmount(() => {
       justify-content: space-between;
       gap: 10px;
       span {
-        font-size: 18px;
+        font-size: 20px;
         font-family: Manrope-Medium;
       }
       .icon {
@@ -126,13 +126,13 @@ onBeforeUnmount(() => {
     }
     .site-list {
       display: flex;
-      gap: 10px;
+      gap: 20px;
       .site-option {
         display: flex;
         gap: 10px;
         padding: 10px;
         border: 1px solid $lead;
-        border-radius: 5px;
+        border-radius: 10px;
         background-color: $dark;
         color: $fg;
         text-decoration: none;
@@ -141,7 +141,7 @@ onBeforeUnmount(() => {
         transition: background-color 0.25s ease-in-out, border-color 0.25s ease-in-out, box-shadow 0.25s ease-in-out;
         &:hover,
         &:focus-visible {
-          border-color: rgba($green, 0.5);
+          border-color: $grey;
           background-color: $graphite;
           box-shadow: 0 15px 30px rgba($black, 0.25);
         }
@@ -156,7 +156,7 @@ onBeforeUnmount(() => {
           gap: 5px;
           .site-name {
             color: $fg;
-            font-size: 16px;
+            font-size: 18px;
             font-family: Manrope-SemiBold;
             line-height: 1.2;
           }
