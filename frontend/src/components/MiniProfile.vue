@@ -707,6 +707,7 @@ onBeforeUnmount(() => {
             display: flex;
             align-items: center;
             min-width: 0;
+            height: 30px;
             gap: 5px;
             .profile-theme-icons {
               display: inline-flex;
@@ -714,9 +715,8 @@ onBeforeUnmount(() => {
               align-items: center;
               gap: 5px;
               .profile-theme-icon {
-                flex: 0 0 auto;
-                width: 26px;
-                height: 38px;
+                width: 24px;
+                height: 24px;
                 object-fit: contain;
               }
             }
