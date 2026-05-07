@@ -12,9 +12,9 @@
               <div class="profile-icon-name">
                 <div v-if="profileThemeIconSrcs.length" class="profile-theme-icons" aria-hidden="true">
                   <img v-for="badgeSrc in profileThemeIconSrcs" :key="badgeSrc" class="profile-theme-icon" :src="badgeSrc" alt="" />
+                  <span class="profile-name">{{ displayName }}</span>
                 </div>
                 <div class="profile-title">
-                  <span class="profile-name">{{ displayName }}</span>
                   <div v-if="showProfileMeta" class="profile-meta">
                     <span v-if="activeSanction" class="profile-meta-tooltip-wrap">
                       <img class="profile-meta-icon sanction-icon" :src="iconJudge" alt="" />
@@ -695,7 +695,7 @@ onBeforeUnmount(() => {
     }
     .profile-icon-name {
       display: flex;
-      align-items: center;
+      flex-direction: column;
       padding: 0 5px;
       gap: 5px;
     }
@@ -780,16 +780,15 @@ onBeforeUnmount(() => {
       height: 30px;
       border: none;
       border-radius: 5px;
-      background-color: $graphite;
-      box-shadow: 3px 3px 5px rgba($black, 0.25);
+      background: none;
       cursor: pointer;
       transition: background-color 0.25s ease-in-out;
       &:hover {
         background-color: $lead;
       }
       img {
-        width: 20px;
-        height: 20px;
+        width: 24px;
+        height: 24px;
       }
     }
     .profile-tooltip {
