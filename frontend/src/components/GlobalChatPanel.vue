@@ -257,7 +257,7 @@
       </div>
     </Transition>
 
-    <UserMiniProfileModal
+    <MiniProfile
       v-model:open="miniProfileOpen"
       :user-id="miniProfileUserId"
       :initial-profile="miniProfileInitial"
@@ -279,7 +279,7 @@ import { alertDialog, confirmDialog } from '@/services/confirm'
 import { formatChatTimestamp } from '@/services/datetime'
 import { canOpenMiniProfileTarget, normalizeMiniProfileUserId, normalizeMiniProfileRole } from '@/services/miniProfile'
 import { useAuthStore, useGlobalChatStore, useSettingsStore, useUserStore } from '@/store'
-import UserMiniProfileModal from '@/components/UserMiniProfileModal.vue'
+import MiniProfile from '@/components/MiniProfile.vue'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
 import iconClose from '@/assets/svg/close.svg'

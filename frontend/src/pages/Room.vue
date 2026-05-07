@@ -394,7 +394,7 @@
           :room-id="rid"
         />
 
-        <UserMiniProfileModal
+        <MiniProfile
           v-model:open="miniProfileOpen"
           :user-id="miniProfileUserId"
           :initial-profile="miniProfileInitial"
@@ -498,7 +498,7 @@ import RoomRequests from '@/components/RoomRequests.vue'
 import RoomSetting from '@/components/RoomSetting.vue'
 import GameParamsModal from '@/components/GameParamsModal.vue'
 import FriendsPanel from '@/components/FriendsPanel.vue'
-import UserMiniProfileModal from '@/components/UserMiniProfileModal.vue'
+import MiniProfile from '@/components/MiniProfile.vue'
 import UiSlider from '@/components/UiSlider.vue'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'

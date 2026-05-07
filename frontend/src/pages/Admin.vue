@@ -974,7 +974,7 @@
       @save="saveSubscription"
     />
 
-    <UserMiniProfileModal
+    <MiniProfile
       :open="userMiniProfileOpen"
       :user-id="userMiniProfileTarget?.id ?? null"
       :initial-profile="userMiniProfileTarget"
@@ -1000,7 +1000,7 @@ import { useSettingsStore, useUserStore } from '@/store'
 import UpdateModal from '@/components/UpdateModal.vue'
 import SanctionModal from '@/components/SanctionModal.vue'
 import SubscriptionModal from '@/components/SubscriptionModal.vue'
-import UserMiniProfileModal from '@/components/UserMiniProfileModal.vue'
+import MiniProfile from '@/components/MiniProfile.vue'
 import ToggleSwitch from '@/components/ToggleSwitch.vue'
 import UiInput from '@/components/UiInput.vue'
 

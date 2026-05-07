@@ -231,7 +231,7 @@
       @update:open="onSanctionAdjustModalOpenUpdate"
       @save="saveSanctionAdjust"
     />
-    <UserMiniProfileModal
+    <MiniProfile
       :open="userMiniProfileOpen"
       :user-id="userMiniProfileTarget?.id ?? null"
       :initial-profile="userMiniProfileTarget"
@@ -253,7 +253,7 @@ import { DEFAULT_SANCTION_REASON, SANCTION_REASONS } from '@/constants/sanctionR
 import { canOpenMiniProfileTarget, normalizeMiniProfileUserId } from '@/services/miniProfile'
 import { useUserStore } from '@/store'
 
-import UserMiniProfileModal from '@/components/UserMiniProfileModal.vue'
+import MiniProfile from '@/components/MiniProfile.vue'
 import SanctionModal from '@/components/SanctionModal.vue'
 import UiInput from '@/components/UiInput.vue'
 
