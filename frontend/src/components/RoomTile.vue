@@ -116,7 +116,7 @@
             <span>{{ vol ?? 100 }}%</span>
           </div>
 
-          <div class="profile-row">
+          <div v-if="canOpenProfile" class="profile-row">
             <button type="button" @click="$emit('open-profile', id)">
               <img :src="iconProfile" alt="" />
               <span>Профиль</span>
@@ -185,6 +185,7 @@ const props = withDefaults(defineProps<{
   userName: (id: string) => string
   avatarKey: (id: string) => string
   canModerate: (id: string) => boolean
+  canOpenProfile?: boolean
   isReady: (id: string) => boolean
   isMirrored: (id: string) => boolean
   isGameHead?: boolean
@@ -242,6 +243,7 @@ const props = withDefaults(defineProps<{
   fitContain: false,
   isMobile: false,
   hotkeysVisible: true,
+  canOpenProfile: true,
   isGameHead: false,
   isHead: false,
   isDead: () => false,

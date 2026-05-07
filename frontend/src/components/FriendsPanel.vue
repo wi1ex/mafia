@@ -518,7 +518,10 @@ onBeforeUnmount(() => {
         gap: 3px;
         border: none;
         background: none;
-        cursor: pointer;
+        cursor: default;
+        &.profile-trigger:is(button) {
+          cursor: pointer;
+        }
         img {
           width: 24px;
           height: 24px;

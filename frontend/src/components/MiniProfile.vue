@@ -361,21 +361,27 @@ function formatLastOnline(value?: string | number | Date | null, online = false)
   if (!dt) return '-'
 
   const diffMs = Date.now() - dt.getTime()
-  if (diffMs < 0) return '0 ч 0 мин назад'
+  if (diffMs < 0) return 'Только что'
 
   const totalMinutes = Math.floor(diffMs / 60000)
   const minutesInDay = 24 * 60
   const minutesInMonth = 30 * minutesInDay
 
+  if (totalMinutes < 1) return 'Только что'
+
+  if (totalMinutes < 60) {
+    return `${totalMinutes}мин назад`
+  }
+
   if (totalMinutes < minutesInDay) {
     const hours = Math.floor(totalMinutes / 60)
     const minutes = totalMinutes % 60
-    return `${hours} ч ${minutes} мин назад`
+    return `${hours}ч ${minutes}мин назад`
   }
 
   if (totalMinutes < minutesInMonth) {
     const days = Math.floor(totalMinutes / minutesInDay)
-    return `${days} дн. назад`
+    return `${days}д назад`
   }
 
   return formatDateOnly(dt)
@@ -725,44 +731,44 @@ onBeforeUnmount(() => {
         text-overflow: ellipsis;
       }
     }
-                                                                                    .profile-meta {
-                                                                                      display: flex;
-                                                                                      align-items: center;
-                                                                                      margin-top: 6px;
-                                                                                      min-height: 24px;
-                                                                                      gap: 8px;
-                                                                                    }
-                                                                                    .profile-meta-tooltip-wrap,
-                                                                                    .profile-history-tooltip-wrap {
-                                                                                      display: inline-flex;
-                                                                                      position: relative;
-                                                                                      align-items: center;
-                                                                                      justify-content: center;
-                                                                                      flex: 0 0 auto;
-                                                                                    }
-                                                                                    .profile-meta-icon {
-                                                                                      width: 22px;
-                                                                                      height: 22px;
-                                                                                      object-fit: contain;
-                                                                                    }
-                                                                                    .profile-friends-count {
-                                                                                      display: inline-flex;
-                                                                                      align-items: center;
-                                                                                      justify-content: center;
-                                                                                      min-width: 22px;
-                                                                                      height: 22px;
-                                                                                      color: $fg;
-                                                                                      font-size: 14px;
-                                                                                      line-height: 1;
-                                                                                      font-family: Manrope-SemiBold;
-                                                                                    }
-                                                                                    .profile-side-tools {
-                                                                                      display: flex;
-                                                                                      flex: 0 0 auto;
-                                                                                      flex-direction: column;
-                                                                                      align-items: flex-end;
-                                                                                      gap: 8px;
-                                                                                    }
+    .profile-meta {
+      display: flex;
+      align-items: center;
+      margin-top: 5px;
+      min-height: 20px;
+      gap: 5px;
+    }
+    .profile-meta-tooltip-wrap,
+    .profile-history-tooltip-wrap {
+      display: inline-flex;
+      position: relative;
+      align-items: center;
+      justify-content: center;
+      flex: 0 0 auto;
+    }
+    .profile-meta-icon {
+      width: 20px;
+      height: 20px;
+      object-fit: contain;
+    }
+    .profile-friends-count {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 20px;
+      height: 20px;
+      color: $fg;
+      font-size: 14px;
+      line-height: 1;
+      font-family: Manrope-SemiBold;
+    }
+    .profile-side-tools {
+      display: flex;
+      flex: 0 0 auto;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 5px;
+    }
     .close-button,
     .history-button {
       display: flex;
@@ -786,61 +792,61 @@ onBeforeUnmount(() => {
         height: 20px;
       }
     }
-                                                                        .profile-tooltip {
-                                                                          display: none;
-                                                                          position: absolute;
-                                                                          padding: 10px;
-                                                                          border-radius: 5px;
-                                                                          background-color: rgba($black, 0.92);
-                                                                          box-shadow: 3px 3px 8px rgba($black, 0.35);
-                                                                          color: $fg;
-                                                                          font-size: 12px;
-                                                                          line-height: 1.35;
-                                                                          z-index: 2;
-                                                                        }
-                                                                        .profile-meta-tooltip-wrap:hover .profile-tooltip,
-                                                                        .profile-history-tooltip-wrap:hover .profile-tooltip,
-                                                                        .profile-history-tooltip-wrap:focus-within .profile-tooltip {
-                                                                          display: flex;
-                                                                        }
-                                                                        .sanction-tooltip {
-                                                                          left: 50%;
-                                                                          bottom: calc(100% + 8px);
-                                                                          flex-direction: column;
-                                                                          min-width: 170px;
-                                                                          transform: translateX(-50%);
-                                                                          strong {
-                                                                            font-family: Manrope-SemiBold;
-                                                                            font-weight: normal;
-                                                                          }
-                                                                        }
-                                                                        .nickname-history-tooltip {
-                                                                          top: calc(100% + 8px);
-                                                                          right: 0;
-                                                                          flex-direction: column;
-                                                                          width: 220px;
-                                                                          max-height: 220px;
-                                                                          overflow-y: auto;
-                                                                        }
-                                                                        .nickname-history-list {
-                                                                          display: flex;
-                                                                          flex-direction: column;
-                                                                          gap: 4px;
-                                                                          span {
-                                                                            color: $ashy;
-                                                                            overflow-wrap: anywhere;
-                                                                            &.current {
-                                                                              color: $fg;
-                                                                              font-family: Manrope-SemiBold;
-                                                                            }
-                                                                          }
-                                                                        }
-                                                                        .nickname-history-state {
-                                                                          color: $ashy;
-                                                                          &.danger {
-                                                                            color: $red;
-                                                                          }
-                                                                        }
+    .profile-tooltip {
+      display: none;
+      position: absolute;
+      padding: 10px;
+      border-radius: 5px;
+      background-color: $dark;
+      box-shadow: 3px 3px 5px rgba($black, 0.25);
+      color: $fg;
+      font-size: 12px;
+      line-height: 1.2;
+      z-index: 2;
+    }
+    .profile-meta-tooltip-wrap:hover .profile-tooltip,
+    .profile-history-tooltip-wrap:hover .profile-tooltip,
+    .profile-history-tooltip-wrap:focus-within .profile-tooltip {
+      display: flex;
+    }
+    .sanction-tooltip {
+      left: 50%;
+      bottom: calc(100% + 10px);
+      flex-direction: column;
+      min-width: 170px;
+      transform: translateX(-50%);
+      strong {
+        font-family: Manrope-SemiBold;
+        font-weight: normal;
+      }
+    }
+    .nickname-history-tooltip {
+      top: calc(100% + 10px);
+      right: 0;
+      flex-direction: column;
+      width: max-content;
+      max-height: 165px;
+      overflow-y: auto;
+    }
+    .nickname-history-list {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      span {
+        color: $ashy;
+        overflow-wrap: anywhere;
+        &.current {
+          color: $fg;
+          font-family: Manrope-SemiBold;
+        }
+      }
+    }
+    .nickname-history-state {
+      color: $ashy;
+      &.danger {
+        color: $red;
+      }
+    }
     .state {
       margin: 0;
       color: $ashy;
@@ -1033,21 +1039,21 @@ onBeforeUnmount(() => {
           font-size: 18px;
         }
       }
-                                                                                              .profile-meta {
-                                                                                                margin-top: 4px;
-                                                                                                min-height: 20px;
-                                                                                                gap: 6px;
-                                                                                              }
-                                                                                              .profile-meta-icon,
-                                                                                              .profile-friends-count {
-                                                                                                min-width: 20px;
-                                                                                                width: 20px;
-                                                                                                height: 20px;
-                                                                                                font-size: 12px;
-                                                                                              }
-                                                                                              .profile-side-tools {
-                                                                                                gap: 6px;
-                                                                                              }
+      .profile-meta {
+        margin-top: 5px;
+        min-height: 20px;
+        gap: 5px;
+      }
+      .profile-meta-icon,
+      .profile-friends-count {
+        min-width: 20px;
+        width: 20px;
+        height: 20px;
+        font-size: 12px;
+      }
+      .profile-side-tools {
+        gap: 5px;
+      }
       .close-button,
       .history-button {
         width: 24px;
@@ -1057,9 +1063,9 @@ onBeforeUnmount(() => {
           height: 16px;
         }
       }
-                                                                                          .nickname-history-tooltip {
-                                                                                            width: 190px;
-                                                                                          }
+      .nickname-history-tooltip {
+        max-height: 123px;
+      }
       .state {
         font-size: 14px;
         &.state-danger {

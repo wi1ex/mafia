@@ -35,6 +35,7 @@
           :theme-color="themeColorFor(id)"
           :theme-icon="themeIconFor(id)"
           :moderation-role="moderationRol(id)"
+          :can-open-profile="canOpenMiniProfileFromTile(id)"
           :can-moderate="canModerate"
           :speakers-on="speakersOn"
           :open-panel-for="openPanelFor"
@@ -154,6 +155,7 @@
             :theme-color="themeColorFor(id)"
             :theme-icon="themeIconFor(id)"
             :moderation-role="moderationRol(id)"
+            :can-open-profile="canOpenMiniProfileFromTile(id)"
             :can-moderate="canModerate"
             :speakers-on="speakersOn"
             :open-panel-for="openPanelFor"
@@ -1077,13 +1079,18 @@ function closePanels(except?: 'card'|'apps'|'settings'|'friends'|'game', opts?: 
   if (except !== 'game') gameParamsOpen.value = false
 }
 
-function openMiniProfileFromTile(id: string): void {
+function canOpenMiniProfileFromTile(id: string): boolean {
   const uid = Number(id)
-  if (!canOpenMiniProfileTarget({
+  return canOpenMiniProfileTarget({
     targetId: uid,
     viewerId: localId.value,
     targetRole: moderationRol(id),
-  })) return
+  })
+}
+
+function openMiniProfileFromTile(id: string): void {
+  const uid = Number(id)
+  if (!canOpenMiniProfileFromTile(id)) return
   miniProfileUserId.value = uid
   miniProfileInitial.value = {
     id: uid,
