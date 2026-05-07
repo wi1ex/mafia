@@ -755,6 +755,18 @@ onBeforeUnmount(() => {
             display: flex;
             align-items: center;
             gap: 10px;
+            .profile-friends-count {
+              display: inline-flex;
+              align-items: center;
+              justify-content: center;
+              padding: 5px 10px;
+              background-color: rgba($graphite, 0.5);
+              border-radius: 5px;
+              color: $fg;
+              font-size: 14px;
+              line-height: 1;
+              font-family: Manrope-SemiBold;
+            }
             .profile-meta-tooltip-wrap {
               display: inline-flex;
               position: relative;
@@ -788,7 +800,6 @@ onBeforeUnmount(() => {
                   flex-direction: column;
                   width: max-content;
                   strong {
-                    font-size: 14px;
                     font-family: Manrope-SemiBold;
                   }
                 }
@@ -876,18 +887,6 @@ onBeforeUnmount(() => {
                 }
               }
             }
-            .profile-friends-count {
-              display: inline-flex;
-              align-items: center;
-              justify-content: center;
-              padding: 5px 10px;
-              background-color: rgba($graphite, 0.5);
-              border-radius: 5px;
-              color: $fg;
-              font-size: 14px;
-              line-height: 1;
-              font-family: Manrope-SemiBold;
-            }
           }
         }
       }
@@ -896,7 +895,6 @@ onBeforeUnmount(() => {
         flex: 0 0 auto;
         flex-direction: column;
         align-items: flex-end;
-        gap: 5px;
         .close-button {
           display: flex;
           flex: 0 0 auto;
@@ -1083,204 +1081,131 @@ onBeforeUnmount(() => {
 @media (max-width: 1280px) {
   .user-mini-profile-overlay {
     .user-mini-profile-panel {
+      padding: 10px;
+      gap: 10px;
+      width: 350px;
       &.stats-mode {
+        gap: 10px;
+        width: min(750px, calc(100vw - 40px));
+        height: calc(100dvh - 40px);
       }
       .profile-top {
         .profile-identity {
+          gap: 5px;
           .profile-avatar-trigger {
             .profile-avatar {
+              width: 80px;
+              height: 80px;
             }
           }
           .profile-icon-name {
+            gap: 3px;
             .profile-title {
+              gap: 3px;
+              height: 20px;
               .profile-theme-icons {
+                gap: 3px;
                 .profile-theme-icon {
+                  width: 16px;
+                  height: 16px;
                 }
               }
               .profile-name {
+                max-width: 200px;
+                font-size: 16px;
               }
             }
             .profile-meta {
+              gap: 5px;
+              .profile-friends-count {
+                padding: 3px 8px;
+                font-size: 10px;
+              }
               .profile-meta-tooltip-wrap {
                 .profile-meta-icon {
+                  width: 14px;
+                  height: 14px;
                 }
                 .profile-tooltip {
+                  padding: 3px 5px;
+                  font-size: 10px;
                   &.sanction-tooltip {
+                    top: calc(100% + 5px);
                     strong {
                     }
                   }
                 }
               }
               .profile-history-tooltip-wrap {
+                &::after {
+                  height: 5px;
+                }
                 .history-button {
+                  width: 14px;
+                  height: 14px;
                   img {
+                    width: 14px;
+                    height: 14px;
                   }
                 }
                 .profile-tooltip {
+                  padding: 3px 5px;
+                  font-size: 10px;
                   &.nickname-history-tooltip {
+                    top: calc(100% + 5px);
+                    max-height: 152px;
                     .nickname-history-list {
-                      span {
-                        &.current {
-                        }
-                      }
-                    }
-                    .nickname-history-state {
-                      &.danger {
-                      }
+                      gap: 3px;
                     }
                   }
                 }
-              }
-              .profile-friends-count {
               }
             }
           }
         }
         .profile-side-tools {
           .close-button {
+            width: 20px;
+            height: 20px;
             img {
+              width: 14px;
+              height: 14px;
             }
           }
         }
       }
       .state {
+        font-size: 14px;
         &.state-danger {
         }
       }
       .profile-dates {
+        gap: 5px;
         .date-row {
+          padding: 5px 8px;
           span {
+            font-size: 10px;
           }
           strong {
+            font-size: 10px;
           }
         }
       }
       .profile-actions,
       .stats-toolbar {
+        gap: 5px;
         .profile-action {
+          gap: 3px;
+          min-height: 30px;
+          font-size: 12px;
           img {
+            width: 16px;
+            height: 16px;
           }
         }
       }
     }
   }
-
-
-
-
-
-
-
-
-
-
-  //.user-mini-profile-overlay {
-  //  .user-mini-profile-panel {
-  //    padding: 10px;
-  //    gap: 10px;
-  //    width: 350px;
-  //    &.stats-mode {
-  //      gap: 10px;
-  //      width: min(700px, calc(100vw - 40px));
-  //      height: calc(100dvh - 40px);
-  //    }
-  //    .profile-top {
-  //      .profile-identity {
-  //        gap: 5px;
-  //        .profile-avatar-trigger {
-  //          .profile-avatar {
-  //            width: 80px;
-  //            height: 80px;
-  //          }
-  //        }
-  //        .profile-icon-name {
-  //          gap: 3px;
-  //          .profile-title {
-  //            gap: 3px;
-  //            .profile-theme-icons {
-  //              gap: 3px;
-  //              .profile-theme-icon {
-  //                width: 20px;
-  //                height: 30px;
-  //              }
-  //            }
-  //            .profile-name {
-  //              max-width: 200px;
-  //              font-size: 18px;
-  //            }
-  //          }
-  //          .profile-meta {
-  //            gap: 5px;
-  //            .profile-meta-tooltip-wrap {
-  //              .profile-meta-icon {
-  //                width: 20px;
-  //                height: 20px;
-  //              }
-  //            }
-  //            .profile-history-tooltip-wrap {
-  //              .history-button {
-  //                width: 20px;
-  //                height: 20px;
-  //                img {
-  //                  width: 20px;
-  //                  height: 20px;
-  //                }
-  //              }
-  //              .profile-tooltip {
-  //                &.nickname-history-tooltip {
-  //                  max-height: 123px;
-  //                }
-  //              }
-  //            }
-  //            .profile-friends-count {
-  //              padding: 4px 8px;
-  //              font-size: 12px;
-  //            }
-  //          }
-  //        }
-  //      }
-  //      .profile-side-tools {
-  //        gap: 5px;
-  //        .close-button {
-  //          width: 24px;
-  //          height: 24px;
-  //          img {
-  //            width: 16px;
-  //            height: 16px;
-  //          }
-  //        }
-  //      }
-  //    }
-  //    .state {
-  //      font-size: 14px;
-  //    }
-  //    .profile-dates {
-  //      gap: 5px;
-  //      .date-row {
-  //        padding: 5px 10px;
-  //        span {
-  //          font-size: 12px;
-  //        }
-  //        strong {
-  //          font-size: 12px;
-  //        }
-  //      }
-  //    }
-  //    .profile-actions,
-  //    .stats-toolbar {
-  //      gap: 5px;
-  //      .profile-action {
-  //        min-height: 30px;
-  //        font-size: 14px;
-  //        line-height: 2;
-  //        img {
-  //          width: 20px;
-  //          height: 20px;
-  //        }
-  //      }
-  //    }
-  //  }
-  //}
   .avatar-lightbox-overlay {
     .avatar-lightbox-image {
       width: min(75vw, 75vh, 500px);
