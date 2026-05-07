@@ -786,7 +786,7 @@ onBeforeUnmount(() => {
               .profile-tooltip {
                 display: none;
                 position: absolute;
-                padding: 10px;
+                padding: 8px 10px;
                 border-radius: 5px;
                 background-color: $graphite;
                 box-shadow: 3px 3px 5px rgba($black, 0.25);
@@ -849,7 +849,7 @@ onBeforeUnmount(() => {
               .profile-tooltip {
                 display: none;
                 position: absolute;
-                padding: 10px;
+                padding: 8px 10px;
                 border-radius: 5px;
                 background-color: $graphite;
                 box-shadow: 3px 3px 5px rgba($black, 0.25);
@@ -862,7 +862,7 @@ onBeforeUnmount(() => {
                   top: calc(100% + 10px);
                   flex-direction: column;
                   width: max-content;
-                  max-height: 233px;
+                  max-height: 200px;
                   overflow-y: auto;
                   scrollbar-width: thin;
                   .nickname-history-list {
@@ -1153,7 +1153,7 @@ onBeforeUnmount(() => {
                   font-size: 10px;
                   &.nickname-history-tooltip {
                     top: calc(100% + 5px);
-                    max-height: 152px;
+                    max-height: 150px;
                     .nickname-history-list {
                       gap: 3px;
                     }
