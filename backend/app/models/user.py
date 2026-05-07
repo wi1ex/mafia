@@ -1,7 +1,7 @@
 from __future__ import annotations
 from datetime import datetime
 from typing import Optional
-from sqlalchemy import BigInteger, String, DateTime, Boolean, func
+from sqlalchemy import BigInteger, String, DateTime, Boolean, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 from ..core.db import Base
 
@@ -13,6 +13,7 @@ class User(Base):
     username: Mapped[str] = mapped_column(String(20), nullable=False, index=True, unique=True)
     role: Mapped[str] = mapped_column(String(16), nullable=False, default="user")
     avatar_name: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
+    nickname_history: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     profile_theme_color: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
     profile_theme_icon: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
     telegram_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True, unique=True, index=True)

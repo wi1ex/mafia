@@ -55,6 +55,7 @@
                 {{ busyNick ? '...' : 'Сохранить' }}
               </button>
             </div>
+            <p class="hint">Никнейм является логином для авторизации</p>
           </div>
 
           <div class="block theme-block">

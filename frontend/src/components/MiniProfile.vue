@@ -15,12 +15,41 @@
                 </div>
                 <div class="profile-title">
                   <span class="profile-name">{{ displayName }}</span>
+                  <div v-if="showProfileMeta" class="profile-meta">
+                    <span v-if="activeSanction" class="profile-meta-tooltip-wrap">
+                      <img class="profile-meta-icon sanction-icon" :src="iconJudge" alt="" />
+                      <span class="profile-tooltip sanction-tooltip" role="tooltip">
+                        <strong>{{ activeSanctionKindLabel }}</strong>
+                        <span>{{ activeSanctionExpiryLabel }}</span>
+                      </span>
+                    </span>
+                    <span v-if="friendsCount !== null" class="profile-friends-count" aria-label="Количество друзей">
+                      {{ friendsCount }}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
-            <button class="close-button" type="button" aria-label="Закрыть" @click="close">
-              <img :src="iconClose" alt="" />
-            </button>
+            <div class="profile-side-tools">
+              <button class="close-button" type="button" aria-label="Закрыть" @click="close">
+                <img :src="iconClose" alt="" />
+              </button>
+              <span v-if="targetUserId > 0" class="profile-history-tooltip-wrap" @mouseenter="loadNicknameHistory" @focusin="loadNicknameHistory">
+                <button class="history-button" type="button" aria-label="История никнеймов">
+                  <img :src="iconTimeHistory" alt="" />
+                </button>
+                <span class="profile-tooltip nickname-history-tooltip" role="tooltip">
+                  <span v-if="nicknameHistoryLoading" class="nickname-history-state">Загрузка...</span>
+                  <span v-else-if="nicknameHistoryError" class="nickname-history-state danger">{{ nicknameHistoryError }}</span>
+                  <span v-else class="nickname-history-list">
+                    <span v-for="(nickname, index) in nicknameHistoryItems" :key="`${nickname}-${index}`" :class="{ current: index === 0 }">
+                      {{ nickname }}
+                    </span>
+                    <span v-if="!nicknameHistoryItems.length" class="nickname-history-state">-</span>
+                  </span>
+                </span>
+              </span>
+            </div>
           </header>
 
           <template v-if="view === 'profile'">
@@ -76,7 +105,6 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { api } from '@/services/axios'
 import { alertDialog, confirmDialog } from '@/services/confirm'
-import { formatLocalDateTime } from '@/services/datetime'
 import { isMiniProfilePrivilegedViewer, normalizeMiniProfileRole } from '@/services/miniProfile'
 import { buildProfileThemeBgStyle } from '@/constants/profileThemes'
 import { getProfileThemeBadgeSources } from '@/constants/profileThemeIcons'
@@ -96,8 +124,16 @@ import iconAddFriends from '@/assets/svg/addFriends.svg'
 import iconInFriends from '@/assets/svg/inFriends.svg'
 import iconRecieveFriends from '@/assets/svg/recieveFriends.svg'
 import iconSendFriends from '@/assets/svg/sendFriends.svg'
+import iconJudge from '@/assets/svg/judge.svg'
+import iconTimeHistory from '@/assets/svg/timeHistory.svg'
 
 type FriendActionKind = 'add' | 'remove' | 'incoming' | 'outgoing'
+type MiniProfileSanctionKind = 'timeout' | 'ban' | 'suspend'
+
+type MiniProfileSanction = {
+  kind?: MiniProfileSanctionKind | string | null
+  expires_at?: string | null
+}
 
 type MiniProfileInitial = {
   id?: number | null
@@ -123,11 +159,18 @@ type MiniProfileResponse = {
   registered_at?: string | null
   last_visit_at?: string | null
   last_game_at?: string | null
+  last_game_id?: number | null
   online?: boolean
   subscription_active?: boolean
   profile_theme_color?: string | null
   profile_theme_icon?: string | null
   friend_status?: FriendStatus | null
+  friends_count?: number | null
+  active_sanction?: MiniProfileSanction | null
+}
+
+type NicknameHistoryResponse = {
+  items?: string[] | null
 }
 
 const props = withDefaults(defineProps<{
@@ -167,7 +210,12 @@ const view = ref<'profile' | 'stats'>('profile')
 const avatarImageEl = ref<HTMLImageElement | null>(null)
 const avatarLightboxOpen = ref(false)
 const avatarLightboxSrc = ref('')
+const nicknameHistoryLoading = ref(false)
+const nicknameHistoryError = ref('')
+const nicknameHistoryItems = ref<string[]>([])
+const nicknameHistoryLoadedForTarget = ref(0)
 let requestSeq = 0
+let nicknameHistorySeq = 0
 
 const targetUserId = computed(() => {
   const raw = props.userId ?? props.initialProfile?.id ?? 0
@@ -218,9 +266,27 @@ const profileRole = computed(() => {
 })
 const profilePanelStyle = computed(() => buildProfileThemeBgStyle(profileThemeColor.value))
 const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(profileThemeIcon.value, profileRole.value))
-const registeredAtLabel = computed(() => formatLocalDateTime(profile.value?.registered_at))
-const lastGameAtLabel = computed(() => formatLocalDateTime(profile.value?.last_game_at))
-const lastOnlineLabel = computed(() => (profile.value?.online ? 'Онлайн' : formatLocalDateTime(profile.value?.last_visit_at)))
+const activeSanction = computed(() => (profileLoadedForTarget.value ? profile.value?.active_sanction || null : null))
+const friendsCount = computed(() => {
+  if (!profileLoadedForTarget.value) return null
+  const value = Number(profile.value?.friends_count ?? 0)
+  return Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0
+})
+const showProfileMeta = computed(() => Boolean(activeSanction.value || friendsCount.value !== null))
+const activeSanctionKindLabel = computed(() => sanctionKindLabel(activeSanction.value?.kind))
+const activeSanctionExpiryLabel = computed(() => {
+  const expiresAt = activeSanction.value?.expires_at
+  const label = formatDateTimeMinute(expiresAt)
+  return label !== '-' ? `Истекает ${label}` : 'Бессрочно'
+})
+const registeredAtLabel = computed(() => formatDateOnly(profile.value?.registered_at))
+const lastGameAtLabel = computed(() => {
+  const dateLabel = formatDateOnly(profile.value?.last_game_at)
+  if (dateLabel === '-') return '-'
+  const gameId = Number(profile.value?.last_game_id || 0)
+  return Number.isFinite(gameId) && gameId > 0 ? `Игра #${Math.trunc(gameId)} ${dateLabel}` : dateLabel
+})
+const lastOnlineLabel = computed(() => formatLastOnline(profile.value?.last_visit_at, Boolean(profile.value?.online)))
 const resolvedStatsUrl = computed(() => {
   const provided = String(props.statsUrl || '').trim()
   return provided || `/users/${targetUserId.value}/stats`
@@ -266,6 +332,62 @@ const showStatsButton = computed(() => Boolean(
 ))
 const showActionBlock = computed(() => showStatsButton.value || showFriendAction.value)
 
+function parseDate(value?: string | number | Date | null): Date | null {
+  if (!value) return null
+  const dt = value instanceof Date ? value : new Date(value)
+  return Number.isNaN(dt.getTime()) ? null : dt
+}
+
+function pad2(value: number): string {
+  return String(value).padStart(2, '0')
+}
+
+function formatDateOnly(value?: string | number | Date | null): string {
+  const dt = parseDate(value)
+  if (!dt) return '-'
+  return `${pad2(dt.getDate())}.${pad2(dt.getMonth() + 1)}.${dt.getFullYear()}`
+}
+
+function formatDateTimeMinute(value?: string | number | Date | null): string {
+  const dt = parseDate(value)
+  if (!dt) return '-'
+  return `${formatDateOnly(dt)} ${pad2(dt.getHours())}:${pad2(dt.getMinutes())}`
+}
+
+function formatLastOnline(value?: string | number | Date | null, online = false): string {
+  if (online) return 'Онлайн'
+
+  const dt = parseDate(value)
+  if (!dt) return '-'
+
+  const diffMs = Date.now() - dt.getTime()
+  if (diffMs < 0) return '0 ч 0 мин назад'
+
+  const totalMinutes = Math.floor(diffMs / 60000)
+  const minutesInDay = 24 * 60
+  const minutesInMonth = 30 * minutesInDay
+
+  if (totalMinutes < minutesInDay) {
+    const hours = Math.floor(totalMinutes / 60)
+    const minutes = totalMinutes % 60
+    return `${hours} ч ${minutes} мин назад`
+  }
+
+  if (totalMinutes < minutesInMonth) {
+    const days = Math.floor(totalMinutes / minutesInDay)
+    return `${days} дн. назад`
+  }
+
+  return formatDateOnly(dt)
+}
+
+function sanctionKindLabel(kind?: string | null): string {
+  if (kind === 'suspend') return 'Отстранение от игр'
+  if (kind === 'timeout') return 'Таймаут'
+  if (kind === 'ban') return 'Бан'
+  return 'Санкция'
+}
+
 function normalizeFriendStatus(value: unknown): FriendStatus {
   if (value === 'self' || value === 'friends' || value === 'outgoing' || value === 'incoming' || value === 'none') return value
   return 'none'
@@ -303,6 +425,12 @@ function openAvatarLightbox() {
 function applyFriendStatus(status: FriendStatus) {
   friendStatus.value = status
   if (targetUserId.value > 0) emit('friend-status-change', targetUserId.value, status)
+}
+
+function adjustProfileFriendsCount(delta: number) {
+  if (!profileLoadedForTarget.value || !profile.value) return
+  const current = Number(profile.value.friends_count ?? 0)
+  profile.value.friends_count = Math.max(0, Math.trunc((Number.isFinite(current) ? current : 0) + delta))
 }
 
 async function refreshFriendStatus() {
@@ -343,11 +471,14 @@ async function loadProfile() {
       registered_at: data?.registered_at ?? null,
       last_visit_at: data?.last_visit_at ?? null,
       last_game_at: data?.last_game_at ?? null,
+      last_game_id: Number.isFinite(Number(data?.last_game_id)) ? Math.trunc(Number(data?.last_game_id)) : null,
       online: Boolean(data?.online),
       subscription_active: Boolean(data?.subscription_active),
       profile_theme_color: data?.profile_theme_color ?? null,
       profile_theme_icon: data?.profile_theme_icon ?? null,
       friend_status: normalizeFriendStatus(data?.friend_status),
+      friends_count: Number.isFinite(Number(data?.friends_count)) ? Math.max(0, Math.trunc(Number(data?.friends_count))) : 0,
+      active_sanction: data?.active_sanction ?? null,
     }
     applyFriendStatus(normalizeFriendStatus(data?.friend_status))
   } catch {
@@ -355,6 +486,37 @@ async function loadProfile() {
     loadError.value = 'Не удалось загрузить профиль'
   } finally {
     if (seq === requestSeq) loading.value = false
+  }
+}
+
+function resetNicknameHistory() {
+  nicknameHistorySeq += 1
+  nicknameHistoryLoading.value = false
+  nicknameHistoryError.value = ''
+  nicknameHistoryItems.value = []
+  nicknameHistoryLoadedForTarget.value = 0
+}
+
+async function loadNicknameHistory() {
+  const uid = targetUserId.value
+  if (uid <= 0 || nicknameHistoryLoading.value || nicknameHistoryLoadedForTarget.value === uid) return
+
+  const seq = ++nicknameHistorySeq
+  nicknameHistoryLoading.value = true
+  nicknameHistoryError.value = ''
+  try {
+    const reqConfig = props.allowDeleted ? { params: { allow_deleted: 1 } } : undefined
+    const { data } = await api.get<NicknameHistoryResponse>(`/users/${uid}/nickname_history`, reqConfig)
+    if (seq !== nicknameHistorySeq) return
+    nicknameHistoryItems.value = Array.isArray(data?.items)
+      ? data.items.map((item) => String(item || '').trim()).filter(Boolean)
+      : []
+    nicknameHistoryLoadedForTarget.value = uid
+  } catch {
+    if (seq !== nicknameHistorySeq) return
+    nicknameHistoryError.value = 'Не удалось загрузить историю'
+  } finally {
+    if (seq === nicknameHistorySeq) nicknameHistoryLoading.value = false
   }
 }
 
@@ -380,6 +542,7 @@ async function onFriendAction(kind: FriendActionKind) {
       actionForError = 'remove'
       await friends.removeFriend(uid)
       applyFriendStatus('none')
+      adjustProfileFriendsCount(-1)
     } else if (kind === 'outgoing') {
       const ok = await confirmDialog({
         title: 'Отменить заявку',
@@ -402,6 +565,7 @@ async function onFriendAction(kind: FriendActionKind) {
         actionForError = 'accept'
         await friends.acceptRequest(uid)
         applyFriendStatus('friends')
+        adjustProfileFriendsCount(1)
       } else {
         actionForError = 'decline'
         await friends.declineRequest(uid)
@@ -430,7 +594,11 @@ function onFriendsUpdate(e: Event) {
   const detail = (e as CustomEvent)?.detail || {}
   const uid = Number(detail.user_id)
   if (!props.open || uid !== targetUserId.value) return
-  applyFriendStatus(normalizeFriendStatus(detail.status))
+  const previousStatus = friendStatus.value
+  const nextStatus = normalizeFriendStatus(detail.status)
+  applyFriendStatus(nextStatus)
+  if (previousStatus !== 'friends' && nextStatus === 'friends') adjustProfileFriendsCount(1)
+  if (previousStatus === 'friends' && nextStatus !== 'friends') adjustProfileFriendsCount(-1)
 }
 
 watch([() => props.open, targetUserId], ([open, uid]) => {
@@ -440,6 +608,7 @@ watch([() => props.open, targetUserId], ([open, uid]) => {
     loadError.value = ''
     view.value = 'profile'
     closeAvatarLightbox()
+    resetNicknameHistory()
     return
   }
 
@@ -447,6 +616,7 @@ watch([() => props.open, targetUserId], ([open, uid]) => {
   view.value = 'profile'
   loadError.value = ''
   closeAvatarLightbox()
+  resetNicknameHistory()
   applyFriendStatus(inferInitialFriendStatus())
   if (uid > 0) void loadProfile()
 }, { immediate: true })
@@ -457,6 +627,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  resetNicknameHistory()
   window.removeEventListener('keydown', onKeydown)
   window.removeEventListener('auth-friends_update', onFriendsUpdate)
 })
@@ -554,7 +725,46 @@ onBeforeUnmount(() => {
         text-overflow: ellipsis;
       }
     }
-    .close-button {
+                                                                                    .profile-meta {
+                                                                                      display: flex;
+                                                                                      align-items: center;
+                                                                                      margin-top: 6px;
+                                                                                      min-height: 24px;
+                                                                                      gap: 8px;
+                                                                                    }
+                                                                                    .profile-meta-tooltip-wrap,
+                                                                                    .profile-history-tooltip-wrap {
+                                                                                      display: inline-flex;
+                                                                                      position: relative;
+                                                                                      align-items: center;
+                                                                                      justify-content: center;
+                                                                                      flex: 0 0 auto;
+                                                                                    }
+                                                                                    .profile-meta-icon {
+                                                                                      width: 22px;
+                                                                                      height: 22px;
+                                                                                      object-fit: contain;
+                                                                                    }
+                                                                                    .profile-friends-count {
+                                                                                      display: inline-flex;
+                                                                                      align-items: center;
+                                                                                      justify-content: center;
+                                                                                      min-width: 22px;
+                                                                                      height: 22px;
+                                                                                      color: $fg;
+                                                                                      font-size: 14px;
+                                                                                      line-height: 1;
+                                                                                      font-family: Manrope-SemiBold;
+                                                                                    }
+                                                                                    .profile-side-tools {
+                                                                                      display: flex;
+                                                                                      flex: 0 0 auto;
+                                                                                      flex-direction: column;
+                                                                                      align-items: flex-end;
+                                                                                      gap: 8px;
+                                                                                    }
+    .close-button,
+    .history-button {
       display: flex;
       flex: 0 0 auto;
       align-items: center;
@@ -576,6 +786,61 @@ onBeforeUnmount(() => {
         height: 20px;
       }
     }
+                                                                        .profile-tooltip {
+                                                                          display: none;
+                                                                          position: absolute;
+                                                                          padding: 10px;
+                                                                          border-radius: 5px;
+                                                                          background-color: rgba($black, 0.92);
+                                                                          box-shadow: 3px 3px 8px rgba($black, 0.35);
+                                                                          color: $fg;
+                                                                          font-size: 12px;
+                                                                          line-height: 1.35;
+                                                                          z-index: 2;
+                                                                        }
+                                                                        .profile-meta-tooltip-wrap:hover .profile-tooltip,
+                                                                        .profile-history-tooltip-wrap:hover .profile-tooltip,
+                                                                        .profile-history-tooltip-wrap:focus-within .profile-tooltip {
+                                                                          display: flex;
+                                                                        }
+                                                                        .sanction-tooltip {
+                                                                          left: 50%;
+                                                                          bottom: calc(100% + 8px);
+                                                                          flex-direction: column;
+                                                                          min-width: 170px;
+                                                                          transform: translateX(-50%);
+                                                                          strong {
+                                                                            font-family: Manrope-SemiBold;
+                                                                            font-weight: normal;
+                                                                          }
+                                                                        }
+                                                                        .nickname-history-tooltip {
+                                                                          top: calc(100% + 8px);
+                                                                          right: 0;
+                                                                          flex-direction: column;
+                                                                          width: 220px;
+                                                                          max-height: 220px;
+                                                                          overflow-y: auto;
+                                                                        }
+                                                                        .nickname-history-list {
+                                                                          display: flex;
+                                                                          flex-direction: column;
+                                                                          gap: 4px;
+                                                                          span {
+                                                                            color: $ashy;
+                                                                            overflow-wrap: anywhere;
+                                                                            &.current {
+                                                                              color: $fg;
+                                                                              font-family: Manrope-SemiBold;
+                                                                            }
+                                                                          }
+                                                                        }
+                                                                        .nickname-history-state {
+                                                                          color: $ashy;
+                                                                          &.danger {
+                                                                            color: $red;
+                                                                          }
+                                                                        }
     .state {
       margin: 0;
       color: $ashy;
@@ -768,7 +1033,23 @@ onBeforeUnmount(() => {
           font-size: 18px;
         }
       }
-      .close-button {
+                                                                                              .profile-meta {
+                                                                                                margin-top: 4px;
+                                                                                                min-height: 20px;
+                                                                                                gap: 6px;
+                                                                                              }
+                                                                                              .profile-meta-icon,
+                                                                                              .profile-friends-count {
+                                                                                                min-width: 20px;
+                                                                                                width: 20px;
+                                                                                                height: 20px;
+                                                                                                font-size: 12px;
+                                                                                              }
+                                                                                              .profile-side-tools {
+                                                                                                gap: 6px;
+                                                                                              }
+      .close-button,
+      .history-button {
         width: 24px;
         height: 24px;
         img {
@@ -776,6 +1057,9 @@ onBeforeUnmount(() => {
           height: 16px;
         }
       }
+                                                                                          .nickname-history-tooltip {
+                                                                                            width: 190px;
+                                                                                          }
       .state {
         font-size: 14px;
         &.state-danger {

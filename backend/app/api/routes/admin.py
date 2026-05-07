@@ -50,6 +50,7 @@ from ...services.global_chat import (
     emit_global_chat_sanction_removed_notice,
 )
 from ...services.minio import CHAT_IMAGE_PREFIX, delete_chat_images_async, get_prefix_storage_stats_async
+from ...services.nickname_history import prepend_nickname_history
 from ...schemas.common import Ok, Identity
 from ...schemas.user import UserStatsOut
 from ...schemas.updates import AdminUpdateIn, AdminUpdateOut, AdminUpdatesOut
@@ -1777,6 +1778,7 @@ async def reset_user_nickname(user_id: int, ident: Identity = Depends(get_identi
         raise HTTPException(status_code=409, detail="username_taken")
 
     prev_username = str(user.username)
+    user.nickname_history = prepend_nickname_history(user.nickname_history, prev_username, current_username=next_username)
     user.username = next_username
     await session.commit()
     await session.refresh(user)

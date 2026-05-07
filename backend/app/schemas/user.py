@@ -32,6 +32,11 @@ class UserOut(BaseModel):
     chat_unread_count: int = 0
 
 
+class UserMiniProfileSanctionOut(BaseModel):
+    kind: Literal["timeout", "ban", "suspend"]
+    expires_at: Optional[datetime] = None
+
+
 class UserMiniProfileOut(BaseModel):
     id: int
     username: Optional[str] = None
@@ -41,11 +46,18 @@ class UserMiniProfileOut(BaseModel):
     registered_at: Optional[datetime] = None
     last_visit_at: Optional[datetime] = None
     last_game_at: Optional[datetime] = None
+    last_game_id: Optional[int] = None
     online: bool = False
     subscription_active: bool = False
     profile_theme_color: Optional[str] = None
     profile_theme_icon: Optional[str] = None
     friend_status: Literal["self", "friends", "outgoing", "incoming", "none"] = "none"
+    friends_count: int = 0
+    active_sanction: Optional[UserMiniProfileSanctionOut] = None
+
+
+class UserNicknameHistoryOut(BaseModel):
+    items: List[str] = Field(default_factory=list)
 
 
 class UserTopPlayerOut(BaseModel):

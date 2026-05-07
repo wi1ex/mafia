@@ -27,7 +27,7 @@ from ..utils import (
     emit_room_profile_theme_sync,
     fetch_effective_online_user_ids,
     fetch_online_user_ids,
-    fetch_users_last_game_at,
+    fetch_friends_count_for_users,
     friend_status_for,
 )
 from ...models.game import Game
@@ -67,6 +67,8 @@ from ...schemas.user import (
     PasswordChangeIn,
     UserStatsOut,
     UserMiniProfileOut,
+    UserMiniProfileSanctionOut,
+    UserNicknameHistoryOut,
 )
 from ...security.passwords import hash_password, verify_password
 from ...services.global_chat import global_chat_send_error, resolve_global_chat_permissions
@@ -96,6 +98,7 @@ from ...services.profile_theme import (
     upsert_profile_theme_icon_preference,
     upsert_profile_theme_preference,
 )
+from ...services.nickname_history import build_nickname_history_out, prepend_nickname_history
 from ...services.user_cache import (
     refresh_user_profile_cache,
     write_user_profile_cache,
@@ -180,7 +183,31 @@ async def mini_profile(user_id: int, allow_deleted: bool = False, ident: Identit
     if defaults_changed:
         await db.commit()
     theme_state = await resolve_profile_theme_state(db, uid)
-    last_game_at = (await fetch_users_last_game_at(db, [uid])).get(uid)
+    last_game_id: int | None = None
+    last_game_at = None
+    last_game_row = await db.execute(
+        select(Game.id, Game.finished_at)
+        .where(Game.roles.has_key(str(uid)))
+        .order_by(Game.finished_at.desc(), Game.id.desc())
+        .limit(1)
+    )
+    last_game_rec = last_game_row.first()
+    if last_game_rec:
+        last_game_id = int(last_game_rec[0])
+        last_game_at = last_game_rec[1]
+
+    friends_count = (await fetch_friends_count_for_users(db, [uid])).get(uid, 0)
+    active_sanctions = await fetch_active_sanctions(db, uid)
+    active_sanction_kind = pick_active_sanction_kind(active_sanctions)
+    active_sanction = None
+    if active_sanction_kind:
+        active_sanction_row = active_sanctions.get(active_sanction_kind)
+        if active_sanction_row is not None:
+            active_sanction = UserMiniProfileSanctionOut(
+                kind=active_sanction_kind,
+                expires_at=active_sanction_row.expires_at,
+            )
+
     friend_status = await friend_status_for(db, viewer_id, uid)
     viewer_username = str(ident.get("username") or f"user{viewer_id}")
     target_username = user.username or f"user{uid}"
@@ -213,12 +240,39 @@ async def mini_profile(user_id: int, allow_deleted: bool = False, ident: Identit
         registered_at=user.registered_at,
         last_visit_at=user.last_visit_at,
         last_game_at=last_game_at,
+        last_game_id=last_game_id,
         online=online,
         subscription_active=theme_state.subscription_active,
         profile_theme_color=theme_state.color,
         profile_theme_icon=theme_state.icon,
         friend_status=friend_status,
+        friends_count=int(friends_count or 0),
+        active_sanction=active_sanction,
     )
+
+
+@router.get("/{user_id}/nickname_history", response_model=UserNicknameHistoryOut)
+@log_route("users.nickname_history")
+@rate_limited(lambda ident, user_id, **_: f"rl:user_nickname_history:{ident['id']}:{user_id}", limit=10, window_s=1)
+async def nickname_history(user_id: int, allow_deleted: bool = False, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UserNicknameHistoryOut:
+    viewer_role = str(ident["role"] or "").strip().lower()
+    is_staff_viewer = viewer_role in {"admin", "moder"}
+    uid = int(user_id)
+    if uid <= 0:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="bad_user_id")
+
+    user = await db.get(User, uid)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="user_not_found")
+
+    target_role = str(user.role or "user").strip().lower()
+    if target_role == "admin":
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="user_not_found")
+
+    if user.deleted_at and not (allow_deleted and is_staff_viewer):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="user_not_found")
+
+    return UserNicknameHistoryOut(items=build_nickname_history_out(user.username, user.nickname_history))
 
 
 @router.post("/support_link_click", response_model=Ok)
@@ -605,7 +659,12 @@ async def update_username(payload: UsernameUpdateIn, ident: Identity = Depends(g
         raise HTTPException(status_code=409, detail="username_taken")
 
     old_username = user.username
-    await db.execute(update(User).where(User.id == uid).values(username=new))
+    next_nickname_history = prepend_nickname_history(user.nickname_history, old_username, current_username=new)
+    await db.execute(
+        update(User)
+        .where(User.id == uid)
+        .values(username=new, nickname_history=next_nickname_history)
+    )
     await db.commit()
     theme_state = await resolve_profile_theme_state(db, uid)
     await write_user_profile_cache(
