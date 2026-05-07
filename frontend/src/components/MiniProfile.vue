@@ -29,9 +29,7 @@
                     </span>
                   </span>
                   <span v-if="targetUserId > 0" class="profile-history-tooltip-wrap" @mouseenter="loadNicknameHistory" @focusin="loadNicknameHistory">
-                    <button class="history-button" type="button" aria-label="История никнеймов">
-                      <img :src="iconTimeHistory" alt="" />
-                    </button>
+                    <img class="profile-meta-icon history-icon" :src="iconTimeHistory" alt="" />
                     <span class="profile-tooltip nickname-history-tooltip" role="tooltip">
                       <span v-if="nicknameHistoryLoading" class="nickname-history-state">Загрузка...</span>
                       <span v-else-if="nicknameHistoryError" class="nickname-history-state danger">{{ nicknameHistoryError }}</span>
@@ -830,21 +828,10 @@ onBeforeUnmount(() => {
                 height: 10px;
                 z-index: 1;
               }
-              .history-button {
-                display: flex;
-                flex: 0 0 auto;
-                align-items: center;
-                justify-content: center;
-                padding: 0;
+              .history-icon {
                 width: 24px;
                 height: 24px;
-                border: none;
-                background: none;
-                cursor: pointer;
-                img {
-                  width: 24px;
-                  height: 24px;
-                }
+                object-fit: contain;
               }
               .profile-tooltip {
                 display: none;
@@ -1140,13 +1127,9 @@ onBeforeUnmount(() => {
                 &::after {
                   height: 5px;
                 }
-                .history-button {
+                .history-icon {
                   width: 14px;
                   height: 14px;
-                  img {
-                    width: 14px;
-                    height: 14px;
-                  }
                 }
                 .profile-tooltip {
                   padding: 3px 5px;
