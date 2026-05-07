@@ -721,7 +721,7 @@ onBeforeUnmount(() => {
               }
             }
             .profile-name {
-              max-width: 260px;
+              max-width: 280px;
               font-size: 24px;
               line-height: 1.2;
               font-family: Manrope-SemiBold;
@@ -755,7 +755,7 @@ onBeforeUnmount(() => {
                 position: absolute;
                 padding: 10px;
                 border-radius: 5px;
-                background-color: $dark;
+                background-color: $graphite;
                 box-shadow: 3px 3px 5px rgba($black, 0.25);
                 color: $fg;
                 font-size: 12px;
@@ -765,10 +765,10 @@ onBeforeUnmount(() => {
                   left: 0;
                   top: calc(100% + 10px);
                   flex-direction: column;
-                  min-width: 170px;
+                  width: max-content;
                   strong {
+                    font-size: 14px;
                     font-family: Manrope-SemiBold;
-                    font-weight: normal;
                   }
                 }
               }
@@ -806,10 +806,10 @@ onBeforeUnmount(() => {
                 position: absolute;
                 padding: 10px;
                 border-radius: 5px;
-                background-color: $dark;
+                background-color: $graphite;
                 box-shadow: 3px 3px 5px rgba($black, 0.25);
                 color: $fg;
-                font-size: 12px;
+                font-size: 14px;
                 line-height: 1.2;
                 z-index: 2;
                 &.nickname-history-tooltip {
@@ -817,8 +817,9 @@ onBeforeUnmount(() => {
                   top: calc(100% + 10px);
                   flex-direction: column;
                   width: max-content;
-                  max-height: 165px;
+                  max-height: 233px;
                   overflow-y: auto;
+                  scrollbar-width: thin;
                   .nickname-history-list {
                     display: flex;
                     flex-direction: column;
@@ -1077,7 +1078,7 @@ onBeforeUnmount(() => {
                 }
               }
               .profile-name {
-                max-width: 180px;
+                max-width: 200px;
                 font-size: 18px;
               }
             }
