@@ -12,16 +12,16 @@ const PROFILE_THEME_GRADIENT = {
 } as const
 
 const PROFILE_THEME_PRESETS = [
-  { key: 'mulberry', title: 'Тутовый', accent: '#c82864' },
+  { key: 'mulberry', title: 'Тутовый', accent: '#c82888' },
   { key: 'garnet', title: 'Гранатовый', accent: '#b42828' },
-  { key: 'terracotta', title: 'Терракотовый', accent: '#dc8c28' },
-  { key: 'amber', title: 'Янтарный', accent: '#dcc828' },
-  { key: 'olive', title: 'Оливковый', accent: '#64a028' },
-  { key: 'emerald', title: 'Изумрудный', accent: '#28a08c' },
-  { key: 'lagoon', title: 'Лагунный', accent: '#288cb4' },
+  { key: 'terracotta', title: 'Терракотовый', accent: '#dc8228' },
+  { key: 'amber', title: 'Янтарный', accent: '#dcd328' },
+  { key: 'olive', title: 'Оливковый', accent: '#38a028' },
+  { key: 'emerald', title: 'Изумрудный', accent: '#28a096' },
+  { key: 'lagoon', title: 'Лагунный', accent: '#289ab4' },
   { key: 'azure', title: 'Лазурный', accent: '#2850b4' },
-  { key: 'midnight', title: 'Полуночный', accent: '#28288c' },
-  { key: 'violet', title: 'Фиолетовый', accent: '#6428c8' },
+  { key: 'midnight', title: 'Полуночный', accent: '#2b288c' },
+  { key: 'violet', title: 'Фиолетовый', accent: '#6328c8' },
   { key: 'onyx', title: 'Ониксовый', accent: '#787878', adminOnly: true },
 ] as const
 

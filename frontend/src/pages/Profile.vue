@@ -1516,14 +1516,20 @@ onBeforeUnmount(() => {
             .theme-palette {
               display: flex;
               flex-wrap: wrap;
-              margin: 15px 0 15px 2px;
+              margin: 15px 0;
+              padding: 10px;
               gap: 10px;
+              background-color: $graphite;
+              border-radius: 10px;
             }
             .theme-icon-palette {
               display: inline-grid;
               grid-template-columns: repeat(10, 1fr);
-              margin: 0 0 15px;
+              margin-bottom: 15px;
+              padding: 10px;
               gap: 5px;
+              background-color: $graphite;
+              border-radius: 10px;
             }
             .theme-option {
               display: flex;

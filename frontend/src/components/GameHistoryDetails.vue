@@ -4,10 +4,10 @@
       <article v-for="slot in orderedSlots" :key="slot.slot" :class="['slot-card', slotCardRoleClass(slot.role)]">
         <div class="slot-top">
           <img class="slot-num-icon" :src="slotIcon(slot.slot)" :alt="`slot-${slot.slot}`" />
-          <div class="slot-player">
+          <button class="slot-player" type="button" :disabled="!canOpenSlotMiniProfile(slot)" @click.stop="openSlotMiniProfile(slot)">
             <img v-minio-img="{ key: slot.avatar_name ? `avatars/${slot.avatar_name}` : '', placeholder: defaultAvatar }" alt="avatar" />
             <span>{{ slot.username || 'Пусто' }}</span>
-          </div>
+          </button>
         </div>
 
         <img v-if="slot.role" class="slot-role-icon" :src="roleIcon(slot.role)" alt="role" />
@@ -55,12 +55,24 @@
         </div>
       </article>
     </div>
+
+    <MiniProfile
+      v-model:open="miniProfileOpen"
+      :user-id="miniProfileUserId"
+      :initial-profile="miniProfileInitial"
+      :allow-deleted="miniProfileAllowDeleted"
+      :stats-url="miniProfileStatsUrl"
+      :show-stats-button="true"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 
+import { canOpenMiniProfileTarget, normalizeMiniProfileRole, normalizeMiniProfileUserId } from '@/services/miniProfile'
+import { useUserStore } from '@/store'
+import MiniProfile from '@/components/MiniProfile.vue'
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
 import iconRoleCitizen from '@/assets/images/roleCitizen.png'
 import iconRoleMafia from '@/assets/images/roleMafia.png'
@@ -102,6 +114,8 @@ interface GameHistorySlot {
   user_id?: number | null
   username?: string | null
   avatar_name?: string | null
+  profile_role?: string | null
+  deleted?: boolean | null
   role?: GameHistoryRole | null
   points: number
   mmr: number
@@ -121,9 +135,32 @@ interface GameHistorySlotView extends Omit<GameHistorySlot, 'voted_by_slots' | '
   night_checks: GameHistoryNightCheckItem[]
 }
 
+type GameHistoryMiniProfileInitial = {
+  id: number
+  username?: string | null
+  avatar_name?: string | null
+  role?: string | null
+  deleted?: boolean | null
+}
+
 const props = defineProps<{
   slots: GameHistorySlot[]
 }>()
+
+const userStore = useUserStore()
+const miniProfileOpen = ref(false)
+const miniProfileUserId = ref<number | null>(null)
+const miniProfileInitial = ref<GameHistoryMiniProfileInitial | null>(null)
+const viewerUserId = computed(() => normalizeMiniProfileUserId(userStore.user?.id))
+const viewerRole = computed(() => normalizeMiniProfileRole(userStore.user?.role))
+const miniProfileAllowDeleted = computed(() => viewerRole.value === 'admin' || viewerRole.value === 'moder')
+const miniProfileStatsUrl = computed(() => {
+  const uid = Number(miniProfileUserId.value || 0)
+  if (!Number.isFinite(uid) || uid <= 0) return null
+  if (viewerRole.value === 'admin') return `/admin/users/${uid}/stats`
+  if (viewerRole.value === 'moder') return `/moderation/users/${uid}/stats`
+  return null
+})
 
 function normalizeSeatList(raw: unknown): number[] {
   if (!Array.isArray(raw)) return []
@@ -184,6 +221,31 @@ const orderedSlots = computed<GameHistorySlotView[]>(() => {
     }))
     .sort((a, b) => a.slot - b.slot)
 })
+
+function canOpenSlotMiniProfile(slot: GameHistorySlotView): boolean {
+  return canOpenMiniProfileTarget({
+    targetId: slot.user_id,
+    viewerId: viewerUserId.value,
+    targetRole: slot.profile_role,
+    targetDeletedAt: slot.deleted,
+    allowDeleted: miniProfileAllowDeleted.value,
+  })
+}
+
+function openSlotMiniProfile(slot: GameHistorySlotView): void {
+  if (!canOpenSlotMiniProfile(slot)) return
+  const uid = normalizeMiniProfileUserId(slot.user_id)
+  if (uid <= 0) return
+  miniProfileUserId.value = uid
+  miniProfileInitial.value = {
+    id: uid,
+    username: slot.username || null,
+    avatar_name: slot.avatar_name || null,
+    role: slot.profile_role || null,
+    deleted: Boolean(slot.deleted),
+  }
+  miniProfileOpen.value = true
+}
 
 const roleIcons: Record<GameHistoryRole, string> = {
   citizen: iconRoleCitizen,
@@ -300,7 +362,21 @@ function formatMetric(value: number): string {
         .slot-player {
           display: flex;
           align-items: center;
+          padding: 0;
           gap: 5px;
+          min-width: 0;
+          border: none;
+          background: transparent;
+          color: inherit;
+          font: inherit;
+          text-align: left;
+          &:not(:disabled) {
+            cursor: pointer;
+          }
+          &:disabled {
+            cursor: default;
+            opacity: 1;
+          }
           img {
             width: 20px;
             height: 20px;

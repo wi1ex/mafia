@@ -150,6 +150,8 @@ class GameHistorySlotOut(BaseModel):
     user_id: Optional[int] = None
     username: Optional[str] = None
     avatar_name: Optional[str] = None
+    profile_role: Optional[str] = None
+    deleted: bool = False
     role: Optional[Literal["citizen", "mafia", "don", "sheriff"]] = None
     points: int = 0
     mmr: int = 0

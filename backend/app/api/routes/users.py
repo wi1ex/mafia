@@ -493,6 +493,8 @@ async def game_history_details(game_id: int, ident: Identity = Depends(get_ident
         if username is None and slot_uid:
             username = f"user{slot_uid}"
         avatar_name = non_empty_str((profile or {}).get("avatar_name"))
+        profile_role = non_empty_str((profile or {}).get("role"))
+        deleted_at_value = non_empty_str((profile or {}).get("deleted_at"))
         role_value = None
         points = 0
         mmr = 0
@@ -564,6 +566,8 @@ async def game_history_details(game_id: int, ident: Identity = Depends(get_ident
                 user_id=slot_uid,
                 username=username,
                 avatar_name=avatar_name,
+                profile_role=profile_role,
+                deleted=deleted_at_value is not None,
                 role=role_value,
                 points=points,
                 mmr=mmr,

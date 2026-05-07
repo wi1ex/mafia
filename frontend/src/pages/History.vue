@@ -115,6 +115,8 @@ interface GameHistorySlot {
   user_id?: number | null
   username?: string | null
   avatar_name?: string | null
+  profile_role?: string | null
+  deleted?: boolean | null
   role?: GameHistoryRole | null
   points: number
   mmr: number
