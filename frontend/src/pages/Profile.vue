@@ -1514,13 +1514,14 @@ onBeforeUnmount(() => {
               }
             }
             .theme-palette {
-              display: flex;
+              display: inline-flex;
               flex-wrap: wrap;
               margin: 15px 0;
               padding: 10px;
-              gap: 10px;
+              gap: 5px;
               background-color: $graphite;
               border-radius: 10px;
+              box-shadow: 3px 3px 5px rgba($black, 0.25);
             }
             .theme-icon-palette {
               display: inline-grid;
@@ -1530,14 +1531,15 @@ onBeforeUnmount(() => {
               gap: 5px;
               background-color: $graphite;
               border-radius: 10px;
+              box-shadow: 3px 3px 5px rgba($black, 0.25);
             }
             .theme-option {
               display: flex;
               align-items: center;
               justify-content: center;
-              width: 25px;
-              height: 25px;
-              border: none;
+              width: 30px;
+              height: 30px;
+              border: 2px solid $graphite;
               border-radius: 999px;
               background-color: var(--user-theme-bg, $graphite);
               cursor: pointer;
@@ -1956,10 +1958,11 @@ onBeforeUnmount(() => {
               }
               .theme-palette {
                 margin: 10px 0;
+                gap: 10px;
               }
               .theme-icon-palette {
-                margin: 0 0 10px;
-                gap: 5px 10px;
+                margin-bottom: 10px;
+                gap: 10px;
               }
               .theme-option {
                 width: 20px;
