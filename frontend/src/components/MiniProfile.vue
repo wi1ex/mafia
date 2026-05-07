@@ -28,6 +28,21 @@
                       <span>{{ activeSanctionExpiryLabel }}</span>
                     </span>
                   </span>
+                  <span v-if="targetUserId > 0" class="profile-history-tooltip-wrap" @mouseenter="loadNicknameHistory" @focusin="loadNicknameHistory">
+                    <button class="history-button" type="button" aria-label="История никнеймов">
+                      <img :src="iconTimeHistory" alt="" />
+                    </button>
+                    <span class="profile-tooltip nickname-history-tooltip" role="tooltip">
+                      <span v-if="nicknameHistoryLoading" class="nickname-history-state">Загрузка...</span>
+                      <span v-else-if="nicknameHistoryError" class="nickname-history-state danger">{{ nicknameHistoryError }}</span>
+                      <span v-else class="nickname-history-list">
+                        <span v-for="(nickname, index) in nicknameHistoryItems" :key="`${nickname}-${index}`" :class="{ current: index === 0 }">
+                          {{ nickname }}
+                        </span>
+                        <span v-if="!nicknameHistoryItems.length" class="nickname-history-state">-</span>
+                      </span>
+                    </span>
+                  </span>
                 </div>
               </div>
             </div>
@@ -35,21 +50,6 @@
               <button class="close-button" type="button" aria-label="Закрыть" @click="close">
                 <img :src="iconClose" alt="" />
               </button>
-              <span v-if="targetUserId > 0" class="profile-history-tooltip-wrap" @mouseenter="loadNicknameHistory" @focusin="loadNicknameHistory">
-                <button class="history-button" type="button" aria-label="История никнеймов">
-                  <img :src="iconTimeHistory" alt="" />
-                </button>
-                <span class="profile-tooltip nickname-history-tooltip" role="tooltip">
-                  <span v-if="nicknameHistoryLoading" class="nickname-history-state">Загрузка...</span>
-                  <span v-else-if="nicknameHistoryError" class="nickname-history-state danger">{{ nicknameHistoryError }}</span>
-                  <span v-else class="nickname-history-list">
-                    <span v-for="(nickname, index) in nicknameHistoryItems" :key="`${nickname}-${index}`" :class="{ current: index === 0 }">
-                      {{ nickname }}
-                    </span>
-                    <span v-if="!nicknameHistoryItems.length" class="nickname-history-state">-</span>
-                  </span>
-                </span>
-              </span>
             </div>
           </header>
 
@@ -273,7 +273,7 @@ const friendsCount = computed(() => {
   const value = Number(profile.value?.friends_count ?? 0)
   return Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0
 })
-const showProfileMeta = computed(() => Boolean(activeSanction.value || friendsCount.value !== null))
+const showProfileMeta = computed(() => Boolean(activeSanction.value || targetUserId.value > 0 || friendsCount.value !== null))
 const activeSanctionKindLabel = computed(() => sanctionKindLabel(activeSanction.value?.kind))
 const activeSanctionExpiryLabel = computed(() => {
   const expiresAt = activeSanction.value?.expires_at
@@ -773,6 +773,74 @@ onBeforeUnmount(() => {
                 }
               }
             }
+            .profile-history-tooltip-wrap {
+              display: inline-flex;
+              position: relative;
+              flex: 0 0 auto;
+              align-items: center;
+              justify-content: center;
+              &:hover,
+              &:focus-within {
+                .profile-tooltip {
+                  display: flex;
+                }
+              }
+              .history-button {
+                display: flex;
+                flex: 0 0 auto;
+                align-items: center;
+                justify-content: center;
+                padding: 0;
+                width: 24px;
+                height: 24px;
+                border: none;
+                background: none;
+                cursor: pointer;
+                img {
+                  width: 24px;
+                  height: 24px;
+                }
+              }
+              .profile-tooltip {
+                display: none;
+                position: absolute;
+                padding: 10px;
+                border-radius: 5px;
+                background-color: $dark;
+                box-shadow: 3px 3px 5px rgba($black, 0.25);
+                color: $fg;
+                font-size: 12px;
+                line-height: 1.2;
+                z-index: 2;
+                &.nickname-history-tooltip {
+                  left: 0;
+                  top: calc(100% + 10px);
+                  flex-direction: column;
+                  width: max-content;
+                  max-height: 165px;
+                  overflow-y: auto;
+                  .nickname-history-list {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 5px;
+                    span {
+                      color: $ashy;
+                      overflow-wrap: anywhere;
+                      &.current {
+                        color: $fg;
+                        font-family: Manrope-SemiBold;
+                      }
+                    }
+                  }
+                  .nickname-history-state {
+                    color: $ashy;
+                    &.danger {
+                      color: $red;
+                    }
+                  }
+                }
+              }
+            }
             .profile-friends-count {
               display: inline-flex;
               align-items: center;
@@ -814,76 +882,6 @@ onBeforeUnmount(() => {
           img {
             width: 20px;
             height: 20px;
-          }
-        }
-        .profile-history-tooltip-wrap {
-          display: inline-flex;
-          position: relative;
-          flex: 0 0 auto;
-          align-items: center;
-          justify-content: center;
-          &:hover,
-          &:focus-within {
-            .profile-tooltip {
-              display: flex;
-            }
-          }
-          .history-button {
-            display: flex;
-            flex: 0 0 auto;
-            align-items: center;
-            justify-content: center;
-            padding: 0;
-            width: 30px;
-            height: 30px;
-            border: none;
-            border-radius: 5px;
-            background: none;
-            cursor: pointer;
-            transition: background-color 0.25s ease-in-out;
-            img {
-              width: 24px;
-              height: 24px;
-            }
-          }
-          .profile-tooltip {
-            display: none;
-            position: absolute;
-            padding: 10px;
-            border-radius: 5px;
-            background-color: $dark;
-            box-shadow: 3px 3px 5px rgba($black, 0.25);
-            color: $fg;
-            font-size: 12px;
-            line-height: 1.2;
-            z-index: 2;
-            &.nickname-history-tooltip {
-              top: calc(100% + 10px);
-              right: 0;
-              flex-direction: column;
-              width: max-content;
-              max-height: 165px;
-              overflow-y: auto;
-              .nickname-history-list {
-                display: flex;
-                flex-direction: column;
-                gap: 5px;
-                span {
-                  color: $ashy;
-                  overflow-wrap: anywhere;
-                  &.current {
-                    color: $fg;
-                    font-family: Manrope-SemiBold;
-                  }
-                }
-              }
-              .nickname-history-state {
-                color: $ashy;
-                &.danger {
-                  color: $red;
-                }
-              }
-            }
           }
         }
       }
@@ -1091,9 +1089,24 @@ onBeforeUnmount(() => {
                   height: 20px;
                 }
               }
+              .profile-history-tooltip-wrap {
+                .history-button {
+                  width: 20px;
+                  height: 20px;
+                  img {
+                    width: 20px;
+                    height: 20px;
+                  }
+                }
+                .profile-tooltip {
+                  &.nickname-history-tooltip {
+                    max-height: 123px;
+                  }
+                }
+              }
               .profile-friends-count {
                 min-width: 20px;
-                width: 20px;
+                width: auto;
                 height: 20px;
                 font-size: 12px;
               }
@@ -1108,21 +1121,6 @@ onBeforeUnmount(() => {
             img {
               width: 16px;
               height: 16px;
-            }
-          }
-          .profile-history-tooltip-wrap {
-            .history-button {
-              width: 24px;
-              height: 24px;
-              img {
-                width: 16px;
-                height: 16px;
-              }
-            }
-            .profile-tooltip {
-              &.nickname-history-tooltip {
-                max-height: 123px;
-              }
             }
           }
         }
