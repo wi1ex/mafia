@@ -170,14 +170,14 @@ async def _resolve_mentioned_users(session: AsyncSession, usernames: set[str]) -
         return {}
 
     rows = await session.execute(
-        select(User.id, User.username, User.avatar_name)
+        select(User.id, User.username, User.avatar_name, User.role)
         .where(
             User.deleted_at.is_(None),
             func.lower(User.username).in_(normalized),
         )
     )
     resolved: dict[str, dict[str, Any]] = {}
-    for user_id_raw, username_raw, avatar_name_raw in rows.all():
+    for user_id_raw, username_raw, avatar_name_raw, role_raw in rows.all():
         user_id = _positive_int(user_id_raw)
         username = str(username_raw or "").strip()
         if user_id <= 0 or not username:
@@ -186,6 +186,8 @@ async def _resolve_mentioned_users(session: AsyncSession, usernames: set[str]) -
             "id": user_id,
             "username": username,
             "avatar_name": str(avatar_name_raw) if avatar_name_raw else None,
+            "role": normalize_user_role(role_raw),
+            "deleted": False,
         }
     return resolved
 
@@ -298,6 +300,10 @@ def _build_mentions_payload_from_spans(mention_spans: Sequence[dict[str, Any]], 
                 "id": user_id,
                 "username": username,
                 "avatar_name": profile.get("avatar_name"),
+                "role": normalize_user_role(profile.get("role")),
+                "theme_color": profile.get("theme_color"),
+                "theme_icon": profile.get("theme_icon"),
+                "deleted": _profile_deleted(profile),
             }
         )
     return mentions
@@ -342,6 +348,10 @@ def _build_mentions_payload(text: str, resolved_users: dict[str, dict[str, Any]]
                 "id": int(mention["id"]),
                 "username": str(mention["username"]),
                 "avatar_name": mention.get("avatar_name"),
+                "role": normalize_user_role(mention.get("role")),
+                "theme_color": mention.get("theme_color"),
+                "theme_icon": mention.get("theme_icon"),
+                "deleted": bool(mention.get("deleted")),
             }
         )
     return mentions

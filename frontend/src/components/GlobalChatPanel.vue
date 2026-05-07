@@ -67,6 +67,8 @@
                   <p v-if="message.text" class="message-text">
                     <template v-for="(segment, index) in buildTextSegments(message.text, message.mentions)" :key="`${message.id}-text-${index}`">
                       <a v-if="segment.kind === 'link'" class="message-link" :href="segment.href" target="_blank" rel="noopener noreferrer nofollow" @click.stop>{{ segment.text }}</a>
+                      <button v-else-if="segment.kind === 'mention' && segment.mention && canOpenMentionMiniProfile(segment.mention)"
+                              class="message-mention message-mention-trigger" type="button" @click.stop="openMentionMiniProfile(segment.mention)">{{ segment.text }}</button>
                       <span v-else-if="segment.kind === 'mention'" class="message-mention">{{ segment.text }}</span>
                       <span v-else>{{ segment.text }}</span>
                     </template>
@@ -235,6 +237,8 @@
               <p v-if="deletedPreview.text" class="deleted-preview-text">
                 <template v-for="(segment, index) in buildTextSegments(deletedPreview.text, deletedPreview.mentions)" :key="`deleted-preview-text-${index}`">
                   <a v-if="segment.kind === 'link'" class="message-link" :href="segment.href" target="_blank" rel="noopener noreferrer nofollow" @click.stop>{{ segment.text }}</a>
+                  <button v-else-if="segment.kind === 'mention' && segment.mention && canOpenMentionMiniProfile(segment.mention)"
+                          class="message-mention message-mention-trigger" type="button" @click.stop="openMentionMiniProfile(segment.mention)">{{ segment.text }}</button>
                   <span v-else-if="segment.kind === 'mention'" class="message-mention">{{ segment.text }}</span>
                   <span v-else>{{ segment.text }}</span>
                 </template>
@@ -475,6 +479,34 @@ function openAuthorMiniProfile(message: GlobalChatMessage) {
     theme_color: author.theme_color || null,
     theme_icon: author.theme_icon || null,
     deleted: Boolean(author.deleted),
+  }
+  miniProfileOpen.value = true
+}
+
+function canOpenMentionMiniProfile(mention: GlobalChatMention): boolean {
+  if (!normalizeMiniProfileRole(mention?.role)) return false
+  return canOpenMiniProfileTarget({
+    targetId: mention?.id,
+    viewerId: normalizeMiniProfileUserId(user.user?.id),
+    targetRole: mention?.role,
+    targetDeletedAt: mention?.deleted,
+    allowDeleted: miniProfileAllowDeleted.value,
+  })
+}
+
+function openMentionMiniProfile(mention: GlobalChatMention): void {
+  if (!canOpenMentionMiniProfile(mention)) return
+  const uid = normalizeMiniProfileUserId(mention?.id)
+  if (uid <= 0) return
+  miniProfileUserId.value = uid
+  miniProfileInitial.value = {
+    id: uid,
+    username: mention.username || null,
+    avatar_name: mention.avatar_name || null,
+    role: mention.role || null,
+    theme_color: mention.theme_color || null,
+    theme_icon: mention.theme_icon || null,
+    deleted: Boolean(mention.deleted),
   }
   miniProfileOpen.value = true
 }
@@ -730,6 +762,10 @@ function buildKnownDraftMentions(): GlobalChatMention[] {
         id: message.author.id,
         username: authorUsername,
         avatar_name: message.author.avatar_name || null,
+        role: message.author.role,
+        theme_color: message.author.theme_color || null,
+        theme_icon: message.author.theme_icon || null,
+        deleted: Boolean(message.author.deleted),
       })
     }
     for (const mention of message.mentions) {
@@ -1602,6 +1638,16 @@ onBeforeUnmount(() => {
   .message-mention {
     color: $orange;
     font-family: Manrope-SemiBold;
+  }
+  .message-mention-trigger {
+    display: inline;
+    padding: 0;
+    border: none;
+    background: none;
+    font: inherit;
+    line-height: inherit;
+    text-align: inherit;
+    cursor: pointer;
   }
   .panel-header {
     display: flex;

@@ -59,6 +59,10 @@ export interface GlobalChatMention {
   id: number
   username: string
   avatar_name: string | null
+  theme_color?: string | null
+  theme_icon?: string | null
+  role?: string
+  deleted?: boolean
 }
 
 export interface GlobalChatMessage {
@@ -472,6 +476,7 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
       const userId = asPositiveInt(item.id)
       const username = asString(item.username).trim()
       if (userId <= 0 || !username) continue
+      const role = asString(item.role).trim().toLowerCase()
       const usernameKey = username.toLowerCase()
       if (seen.has(usernameKey)) continue
       seen.add(usernameKey)
@@ -479,6 +484,10 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
         id: userId,
         username,
         avatar_name: asString(item.avatar_name) || null,
+        theme_color: asString(item.theme_color) || null,
+        theme_icon: asString(item.theme_icon) || null,
+        role: role || undefined,
+        deleted: Boolean(item.deleted),
       })
     }
     return out
