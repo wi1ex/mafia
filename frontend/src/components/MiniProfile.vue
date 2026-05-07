@@ -392,13 +392,13 @@ function formatLastOnline(value?: string | number | Date | null, online = false)
   if (totalMinutes < 1) return 'Только что'
 
   if (totalMinutes < 60) {
-    return `${totalMinutes}мин назад`
+    return `${totalMinutes}м назад`
   }
 
   if (totalMinutes < minutesInDay) {
     const hours = Math.floor(totalMinutes / 60)
     const minutes = totalMinutes % 60
-    return `${hours}ч ${minutes}мин назад`
+    return `${hours}ч ${minutes}м назад`
   }
 
   if (totalMinutes < minutesInMonth) {
@@ -1083,113 +1083,204 @@ onBeforeUnmount(() => {
 @media (max-width: 1280px) {
   .user-mini-profile-overlay {
     .user-mini-profile-panel {
-      padding: 10px;
-      gap: 10px;
-      width: 350px;
       &.stats-mode {
-        gap: 10px;
-        width: min(700px, calc(100vw - 40px));
-        height: calc(100dvh - 40px);
       }
       .profile-top {
         .profile-identity {
-          gap: 5px;
           .profile-avatar-trigger {
             .profile-avatar {
-              width: 80px;
-              height: 80px;
             }
           }
           .profile-icon-name {
-            gap: 3px;
             .profile-title {
-              gap: 3px;
               .profile-theme-icons {
-                gap: 3px;
                 .profile-theme-icon {
-                  width: 20px;
-                  height: 30px;
                 }
               }
               .profile-name {
-                max-width: 200px;
-                font-size: 18px;
               }
             }
             .profile-meta {
-              gap: 5px;
               .profile-meta-tooltip-wrap {
                 .profile-meta-icon {
-                  width: 20px;
-                  height: 20px;
+                }
+                .profile-tooltip {
+                  &.sanction-tooltip {
+                    strong {
+                    }
+                  }
                 }
               }
               .profile-history-tooltip-wrap {
                 .history-button {
-                  width: 20px;
-                  height: 20px;
                   img {
-                    width: 20px;
-                    height: 20px;
                   }
                 }
                 .profile-tooltip {
                   &.nickname-history-tooltip {
-                    max-height: 123px;
+                    .nickname-history-list {
+                      span {
+                        &.current {
+                        }
+                      }
+                    }
+                    .nickname-history-state {
+                      &.danger {
+                      }
+                    }
                   }
                 }
               }
               .profile-friends-count {
-                min-width: 20px;
-                width: auto;
-                height: 20px;
-                font-size: 12px;
               }
             }
           }
         }
         .profile-side-tools {
-          gap: 5px;
           .close-button {
-            width: 24px;
-            height: 24px;
             img {
-              width: 16px;
-              height: 16px;
             }
           }
         }
       }
       .state {
-        font-size: 14px;
+        &.state-danger {
+        }
       }
       .profile-dates {
-        gap: 5px;
         .date-row {
-          padding: 5px 10px;
           span {
-            font-size: 12px;
           }
           strong {
-            font-size: 12px;
           }
         }
       }
       .profile-actions,
       .stats-toolbar {
-        gap: 5px;
         .profile-action {
-          min-height: 30px;
-          font-size: 14px;
-          line-height: 2;
           img {
-            width: 20px;
-            height: 20px;
           }
         }
       }
     }
   }
+
+
+
+
+
+
+
+
+
+
+  //.user-mini-profile-overlay {
+  //  .user-mini-profile-panel {
+  //    padding: 10px;
+  //    gap: 10px;
+  //    width: 350px;
+  //    &.stats-mode {
+  //      gap: 10px;
+  //      width: min(700px, calc(100vw - 40px));
+  //      height: calc(100dvh - 40px);
+  //    }
+  //    .profile-top {
+  //      .profile-identity {
+  //        gap: 5px;
+  //        .profile-avatar-trigger {
+  //          .profile-avatar {
+  //            width: 80px;
+  //            height: 80px;
+  //          }
+  //        }
+  //        .profile-icon-name {
+  //          gap: 3px;
+  //          .profile-title {
+  //            gap: 3px;
+  //            .profile-theme-icons {
+  //              gap: 3px;
+  //              .profile-theme-icon {
+  //                width: 20px;
+  //                height: 30px;
+  //              }
+  //            }
+  //            .profile-name {
+  //              max-width: 200px;
+  //              font-size: 18px;
+  //            }
+  //          }
+  //          .profile-meta {
+  //            gap: 5px;
+  //            .profile-meta-tooltip-wrap {
+  //              .profile-meta-icon {
+  //                width: 20px;
+  //                height: 20px;
+  //              }
+  //            }
+  //            .profile-history-tooltip-wrap {
+  //              .history-button {
+  //                width: 20px;
+  //                height: 20px;
+  //                img {
+  //                  width: 20px;
+  //                  height: 20px;
+  //                }
+  //              }
+  //              .profile-tooltip {
+  //                &.nickname-history-tooltip {
+  //                  max-height: 123px;
+  //                }
+  //              }
+  //            }
+  //            .profile-friends-count {
+  //              padding: 4px 8px;
+  //              font-size: 12px;
+  //            }
+  //          }
+  //        }
+  //      }
+  //      .profile-side-tools {
+  //        gap: 5px;
+  //        .close-button {
+  //          width: 24px;
+  //          height: 24px;
+  //          img {
+  //            width: 16px;
+  //            height: 16px;
+  //          }
+  //        }
+  //      }
+  //    }
+  //    .state {
+  //      font-size: 14px;
+  //    }
+  //    .profile-dates {
+  //      gap: 5px;
+  //      .date-row {
+  //        padding: 5px 10px;
+  //        span {
+  //          font-size: 12px;
+  //        }
+  //        strong {
+  //          font-size: 12px;
+  //        }
+  //      }
+  //    }
+  //    .profile-actions,
+  //    .stats-toolbar {
+  //      gap: 5px;
+  //      .profile-action {
+  //        min-height: 30px;
+  //        font-size: 14px;
+  //        line-height: 2;
+  //        img {
+  //          width: 20px;
+  //          height: 20px;
+  //        }
+  //      }
+  //    }
+  //  }
+  //}
   .avatar-lightbox-overlay {
     .avatar-lightbox-image {
       width: min(75vw, 75vh, 500px);
