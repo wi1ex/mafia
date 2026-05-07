@@ -10,23 +10,23 @@
                 <img ref="avatarImageEl" class="profile-avatar" v-minio-img="{ key: avatarKey, placeholder: defaultAvatar, lazy: false, animated: true }" alt="avatar" />
               </button>
               <div class="profile-icon-name">
-                <div v-if="profileThemeIconSrcs.length" class="profile-theme-icons" aria-hidden="true">
-                  <img v-for="badgeSrc in profileThemeIconSrcs" :key="badgeSrc" class="profile-theme-icon" :src="badgeSrc" alt="" />
+                <div class="profile-title">
+                  <div v-if="profileThemeIconSrcs.length" class="profile-theme-icons" aria-hidden="true">
+                    <img v-for="badgeSrc in profileThemeIconSrcs" :key="badgeSrc" class="profile-theme-icon" :src="badgeSrc" alt="" />
+                  </div>
                   <span class="profile-name">{{ displayName }}</span>
                 </div>
-                <div class="profile-title">
-                  <div v-if="showProfileMeta" class="profile-meta">
-                    <span v-if="activeSanction" class="profile-meta-tooltip-wrap">
-                      <img class="profile-meta-icon sanction-icon" :src="iconJudge" alt="" />
-                      <span class="profile-tooltip sanction-tooltip" role="tooltip">
-                        <strong>{{ activeSanctionKindLabel }}</strong>
-                        <span>{{ activeSanctionExpiryLabel }}</span>
-                      </span>
+                <div v-if="showProfileMeta" class="profile-meta">
+                  <span v-if="activeSanction" class="profile-meta-tooltip-wrap">
+                    <img class="profile-meta-icon sanction-icon" :src="iconJudge" alt="" />
+                    <span class="profile-tooltip sanction-tooltip" role="tooltip">
+                      <strong>{{ activeSanctionKindLabel }}</strong>
+                      <span>{{ activeSanctionExpiryLabel }}</span>
                     </span>
-                    <span v-if="friendsCount !== null" class="profile-friends-count" aria-label="Количество друзей">
-                      {{ friendsCount }}
-                    </span>
-                  </div>
+                  </span>
+                  <span v-if="friendsCount !== null" class="profile-friends-count" aria-label="Количество друзей">
+                    {{ friendsCount }}
+                  </span>
                 </div>
               </div>
             </div>
@@ -671,179 +671,225 @@ onBeforeUnmount(() => {
       display: flex;
       align-items: flex-start;
       justify-content: space-between;
-    }
-    .profile-identity {
-      display: flex;
-      align-items: flex-start;
-      min-width: 0;
-      gap: 5px;
-    }
-    .profile-avatar-trigger {
-      display: flex;
-      position: relative;
-      flex: 0 0 auto;
-      align-items: center;
-      justify-content: center;
-      padding: 0;
-      border: none;
-      border-radius: 50%;
-      background: transparent;
-      cursor: zoom-in;
-      &:disabled {
-        cursor: default;
-      }
-    }
-    .profile-icon-name {
-      display: flex;
-      flex-direction: column;
-      padding: 0 5px;
-      gap: 5px;
-    }
-    .profile-avatar {
-      width: 120px;
-      height: 120px;
-      border-radius: 50%;
-      object-fit: cover;
-    }
-    .profile-theme-icon {
-      flex: 0 0 auto;
-      width: 26px;
-      height: 38px;
-      object-fit: contain;
-    }
-    .profile-theme-icons {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      flex: 0 0 auto;
-    }
-    .profile-title {
-      display: flex;
-      flex-direction: column;
-      min-width: 0;
-      .profile-name {
-        max-width: 260px;
-        font-size: 24px;
-        line-height: 1.2;
-        font-family: Manrope-SemiBold;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-    }
-    .profile-meta {
-      display: flex;
-      align-items: center;
-      margin-top: 5px;
-      min-height: 20px;
-      gap: 5px;
-    }
-    .profile-meta-tooltip-wrap,
-    .profile-history-tooltip-wrap {
-      display: inline-flex;
-      position: relative;
-      align-items: center;
-      justify-content: center;
-      flex: 0 0 auto;
-    }
-    .profile-meta-icon {
-      width: 20px;
-      height: 20px;
-      object-fit: contain;
-    }
-    .profile-friends-count {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-width: 20px;
-      height: 20px;
-      color: $fg;
-      font-size: 14px;
-      line-height: 1;
-      font-family: Manrope-SemiBold;
-    }
-    .profile-side-tools {
-      display: flex;
-      flex: 0 0 auto;
-      flex-direction: column;
-      align-items: flex-end;
-      gap: 5px;
-    }
-    .close-button,
-    .history-button {
-      display: flex;
-      flex: 0 0 auto;
-      align-items: center;
-      justify-content: center;
-      padding: 0;
-      width: 30px;
-      height: 30px;
-      border: none;
-      border-radius: 5px;
-      background: none;
-      cursor: pointer;
-      transition: background-color 0.25s ease-in-out;
-      &:hover {
-        background-color: $lead;
-      }
-      img {
-        width: 24px;
-        height: 24px;
-      }
-    }
-    .profile-tooltip {
-      display: none;
-      position: absolute;
-      padding: 10px;
-      border-radius: 5px;
-      background-color: $dark;
-      box-shadow: 3px 3px 5px rgba($black, 0.25);
-      color: $fg;
-      font-size: 12px;
-      line-height: 1.2;
-      z-index: 2;
-    }
-    .profile-meta-tooltip-wrap:hover .profile-tooltip,
-    .profile-history-tooltip-wrap:hover .profile-tooltip,
-    .profile-history-tooltip-wrap:focus-within .profile-tooltip {
-      display: flex;
-    }
-    .sanction-tooltip {
-      left: 50%;
-      bottom: calc(100% + 10px);
-      flex-direction: column;
-      min-width: 170px;
-      transform: translateX(-50%);
-      strong {
-        font-family: Manrope-SemiBold;
-        font-weight: normal;
-      }
-    }
-    .nickname-history-tooltip {
-      top: calc(100% + 10px);
-      right: 0;
-      flex-direction: column;
-      width: max-content;
-      max-height: 165px;
-      overflow-y: auto;
-    }
-    .nickname-history-list {
-      display: flex;
-      flex-direction: column;
-      gap: 5px;
-      span {
-        color: $ashy;
-        overflow-wrap: anywhere;
-        &.current {
-          color: $fg;
-          font-family: Manrope-SemiBold;
+      .profile-identity {
+        display: flex;
+        align-items: flex-start;
+        min-width: 0;
+        gap: 5px;
+        .profile-avatar-trigger {
+          display: flex;
+          position: relative;
+          flex: 0 0 auto;
+          align-items: center;
+          justify-content: center;
+          padding: 0;
+          border: none;
+          border-radius: 50%;
+          background: transparent;
+          cursor: zoom-in;
+          &:disabled {
+            cursor: default;
+          }
+          .profile-avatar {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            object-fit: cover;
+          }
+        }
+        .profile-icon-name {
+          display: flex;
+          flex-direction: column;
+          min-width: 0;
+          padding: 0 5px;
+          gap: 5px;
+          .profile-title {
+            display: flex;
+            align-items: center;
+            min-width: 0;
+            gap: 5px;
+            .profile-theme-icons {
+              display: inline-flex;
+              flex: 0 0 auto;
+              align-items: center;
+              gap: 5px;
+              .profile-theme-icon {
+                flex: 0 0 auto;
+                width: 26px;
+                height: 38px;
+                object-fit: contain;
+              }
+            }
+            .profile-name {
+              max-width: 260px;
+              font-size: 24px;
+              line-height: 1.2;
+              font-family: Manrope-SemiBold;
+              white-space: nowrap;
+              overflow: hidden;
+              text-overflow: ellipsis;
+            }
+          }
+          .profile-meta {
+            display: flex;
+            align-items: center;
+            margin-top: 5px;
+            min-height: 20px;
+            gap: 5px;
+            .profile-meta-tooltip-wrap {
+              display: inline-flex;
+              position: relative;
+              flex: 0 0 auto;
+              align-items: center;
+              justify-content: center;
+              &:hover {
+                .profile-tooltip {
+                  display: flex;
+                }
+              }
+              .profile-meta-icon {
+                width: 20px;
+                height: 20px;
+                object-fit: contain;
+              }
+              .profile-tooltip {
+                display: none;
+                position: absolute;
+                padding: 10px;
+                border-radius: 5px;
+                background-color: $dark;
+                box-shadow: 3px 3px 5px rgba($black, 0.25);
+                color: $fg;
+                font-size: 12px;
+                line-height: 1.2;
+                z-index: 2;
+                &.sanction-tooltip {
+                  left: 50%;
+                  bottom: calc(100% + 10px);
+                  flex-direction: column;
+                  min-width: 170px;
+                  transform: translateX(-50%);
+                  strong {
+                    font-family: Manrope-SemiBold;
+                    font-weight: normal;
+                  }
+                }
+              }
+            }
+            .profile-friends-count {
+              display: inline-flex;
+              align-items: center;
+              justify-content: center;
+              min-width: 20px;
+              height: 20px;
+              color: $fg;
+              font-size: 14px;
+              line-height: 1;
+              font-family: Manrope-SemiBold;
+            }
+          }
         }
       }
-    }
-    .nickname-history-state {
-      color: $ashy;
-      &.danger {
-        color: $red;
+      .profile-side-tools {
+        display: flex;
+        flex: 0 0 auto;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 5px;
+        .close-button {
+          display: flex;
+          flex: 0 0 auto;
+          align-items: center;
+          justify-content: center;
+          padding: 0;
+          width: 30px;
+          height: 30px;
+          border: none;
+          border-radius: 5px;
+          background: none;
+          cursor: pointer;
+          transition: background-color 0.25s ease-in-out;
+          &:hover {
+            background-color: $lead;
+          }
+          img {
+            width: 24px;
+            height: 24px;
+          }
+        }
+        .profile-history-tooltip-wrap {
+          display: inline-flex;
+          position: relative;
+          flex: 0 0 auto;
+          align-items: center;
+          justify-content: center;
+          &:hover,
+          &:focus-within {
+            .profile-tooltip {
+              display: flex;
+            }
+          }
+          .history-button {
+            display: flex;
+            flex: 0 0 auto;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            border: none;
+            border-radius: 5px;
+            background: none;
+            cursor: pointer;
+            transition: background-color 0.25s ease-in-out;
+            &:hover {
+              background-color: $lead;
+            }
+            img {
+              width: 24px;
+              height: 24px;
+            }
+          }
+          .profile-tooltip {
+            display: none;
+            position: absolute;
+            padding: 10px;
+            border-radius: 5px;
+            background-color: $dark;
+            box-shadow: 3px 3px 5px rgba($black, 0.25);
+            color: $fg;
+            font-size: 12px;
+            line-height: 1.2;
+            z-index: 2;
+            &.nickname-history-tooltip {
+              top: calc(100% + 10px);
+              right: 0;
+              flex-direction: column;
+              width: max-content;
+              max-height: 165px;
+              overflow-y: auto;
+              .nickname-history-list {
+                display: flex;
+                flex-direction: column;
+                gap: 5px;
+                span {
+                  color: $ashy;
+                  overflow-wrap: anywhere;
+                  &.current {
+                    color: $fg;
+                    font-family: Manrope-SemiBold;
+                  }
+                }
+              }
+              .nickname-history-state {
+                color: $ashy;
+                &.danger {
+                  color: $red;
+                }
+              }
+            }
+          }
+        }
       }
     }
     .state {
@@ -859,25 +905,25 @@ onBeforeUnmount(() => {
       display: flex;
       flex-direction: column;
       gap: 10px;
-    }
-    .date-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 10px;
-      border-radius: 5px;
-      background-color: rgba($graphite, 0.5);
-      box-shadow: 3px 3px 5px rgba($black, 0.25);
-      span {
-        color: $fg;
-        font-size: 14px;
-      }
-      strong {
-        color: $fg;
-        text-align: right;
-        font-size: 14px;
-        font-family: Manrope-SemiBold;
-        font-weight: normal;
+      .date-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px;
+        border-radius: 5px;
+        background-color: rgba($graphite, 0.5);
+        box-shadow: 3px 3px 5px rgba($black, 0.25);
+        span {
+          color: $fg;
+          font-size: 14px;
+        }
+        strong {
+          color: $fg;
+          text-align: right;
+          font-size: 14px;
+          font-family: Manrope-SemiBold;
+          font-weight: normal;
+        }
       }
     }
     .profile-actions,
@@ -885,63 +931,62 @@ onBeforeUnmount(() => {
       display: flex;
       flex-direction: column;
       gap: 10px;
-    }
-    .profile-action {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 5px;
-      min-height: 40px;
-      border: none;
-      border-radius: 5px;
-      box-shadow: 3px 3px 5px rgba($black, 0.25);
-      color: $bg;
-      font-size: 16px;
-      font-family: Manrope-SemiBold;
-      cursor: pointer;
-      transition: background-color 0.25s ease-in-out, opacity 0.25s ease-in-out;
-      &:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-      }
-      img {
-        width: 24px;
-        height: 24px;
-      }
-      &.secondary {
-        background-color: $fg;
-        &:not(:disabled):hover {
-          background-color: $white;
+      .profile-action {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 5px;
+        min-height: 40px;
+        border: none;
+        border-radius: 5px;
+        box-shadow: 3px 3px 5px rgba($black, 0.25);
+        color: $bg;
+        font-size: 16px;
+        font-family: Manrope-SemiBold;
+        cursor: pointer;
+        transition: background-color 0.25s ease-in-out, opacity 0.25s ease-in-out;
+        &:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
         }
-      }
-      &.status-none {
-        background-color: $fg;
-        &:not(:disabled):hover {
-          background-color: $white;
+        img {
+          width: 24px;
+          height: 24px;
         }
-      }
-      &.status-friends {
-        background-color: rgba($green, 0.75);
-        &:not(:disabled):hover {
-          background-color: $green;
+        &.secondary {
+          background-color: $fg;
+          &:not(:disabled):hover {
+            background-color: $white;
+          }
         }
-      }
-      &.status-outgoing {
-        background-color: rgba($yellow, 0.75);
-        &:not(:disabled):hover {
-          background-color: $yellow;
+        &.status-none {
+          background-color: $fg;
+          &:not(:disabled):hover {
+            background-color: $white;
+          }
         }
-      }
-      &.status-incoming {
-        background-color: rgba($orange, 0.75);
-        &:not(:disabled):hover {
-          background-color: $orange;
+        &.status-friends {
+          background-color: rgba($green, 0.75);
+          &:not(:disabled):hover {
+            background-color: $green;
+          }
+        }
+        &.status-outgoing {
+          background-color: rgba($yellow, 0.75);
+          &:not(:disabled):hover {
+            background-color: $yellow;
+          }
+        }
+        &.status-incoming {
+          background-color: rgba($orange, 0.75);
+          &:not(:disabled):hover {
+            background-color: $orange;
+          }
         }
       }
     }
   }
 }
-
 .avatar-lightbox-overlay {
   display: flex;
   position: fixed;
@@ -1014,85 +1059,106 @@ onBeforeUnmount(() => {
       width: 350px;
       &.stats-mode {
         gap: 10px;
-        width: min(700px, 100vw - 40px);
+        width: min(700px, calc(100vw - 40px));
         height: calc(100dvh - 40px);
       }
-      .profile-icon-name {
-        padding: 0 3px;
-        gap: 3px;
-      }
-      .profile-avatar {
-        width: 80px;
-        height: 80px;
-      }
-      .profile-theme-icon {
-        width: 20px;
-        height: 30px;
-      }
-      .profile-theme-icons {
-        gap: 3px;
-      }
-      .profile-title {
-        .profile-name {
-          max-width: 180px;
-          font-size: 18px;
+      .profile-top {
+        .profile-identity {
+          .profile-avatar-trigger {
+            .profile-avatar {
+              width: 80px;
+              height: 80px;
+            }
+          }
+          .profile-icon-name {
+            padding: 0 3px;
+            gap: 3px;
+            .profile-title {
+              gap: 3px;
+              .profile-theme-icons {
+                gap: 3px;
+                .profile-theme-icon {
+                  width: 20px;
+                  height: 30px;
+                }
+              }
+              .profile-name {
+                max-width: 180px;
+                font-size: 18px;
+              }
+            }
+            .profile-meta {
+              margin-top: 5px;
+              min-height: 20px;
+              gap: 5px;
+              .profile-meta-tooltip-wrap {
+                .profile-meta-icon {
+                  width: 20px;
+                  height: 20px;
+                }
+              }
+              .profile-friends-count {
+                min-width: 20px;
+                width: 20px;
+                height: 20px;
+                font-size: 12px;
+              }
+            }
+          }
         }
-      }
-      .profile-meta {
-        margin-top: 5px;
-        min-height: 20px;
-        gap: 5px;
-      }
-      .profile-meta-icon,
-      .profile-friends-count {
-        min-width: 20px;
-        width: 20px;
-        height: 20px;
-        font-size: 12px;
-      }
-      .profile-side-tools {
-        gap: 5px;
-      }
-      .close-button,
-      .history-button {
-        width: 24px;
-        height: 24px;
-        img {
-          width: 16px;
-          height: 16px;
+        .profile-side-tools {
+          gap: 5px;
+          .close-button {
+            width: 24px;
+            height: 24px;
+            img {
+              width: 16px;
+              height: 16px;
+            }
+          }
+          .profile-history-tooltip-wrap {
+            .history-button {
+              width: 24px;
+              height: 24px;
+              img {
+                width: 16px;
+                height: 16px;
+              }
+            }
+            .profile-tooltip {
+              &.nickname-history-tooltip {
+                max-height: 123px;
+              }
+            }
+          }
         }
-      }
-      .nickname-history-tooltip {
-        max-height: 123px;
       }
       .state {
         font-size: 14px;
-        &.state-danger {
-        }
       }
       .profile-dates {
         gap: 5px;
-      }
-      .date-row {
-        padding: 5px 10px;
-        span {
-          font-size: 12px;
-        }
-        strong {
-          font-size: 12px;
+        .date-row {
+          padding: 5px 10px;
+          span {
+            font-size: 12px;
+          }
+          strong {
+            font-size: 12px;
+          }
         }
       }
       .profile-actions,
       .stats-toolbar {
         gap: 5px;
-      }
-      .profile-action {
-        min-height: 30px;
-        font-size: 14px;
-        line-height: 2;
-        img {
-          width: 20px;
-          height: 20px;
+        .profile-action {
+          min-height: 30px;
+          font-size: 14px;
+          line-height: 2;
+          img {
+            width: 20px;
+            height: 20px;
+          }
         }
       }
     }
