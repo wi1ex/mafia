@@ -17,15 +17,16 @@
                   <span class="profile-name">{{ displayName }}</span>
                 </div>
                 <div v-if="showProfileMeta" class="profile-meta">
+                  <span v-if="friendsCount !== null" class="profile-friends-count" aria-label="Количество друзей">
+                    Друзья: {{ friendsCount }}
+                  </span>
+
                   <span v-if="activeSanction" class="profile-meta-tooltip-wrap">
                     <img class="profile-meta-icon sanction-icon" :src="iconJudge" alt="" />
                     <span class="profile-tooltip sanction-tooltip" role="tooltip">
                       <strong>{{ activeSanctionKindLabel }}</strong>
                       <span>{{ activeSanctionExpiryLabel }}</span>
                     </span>
-                  </span>
-                  <span v-if="friendsCount !== null" class="profile-friends-count" aria-label="Количество друзей">
-                    {{ friendsCount }}
                   </span>
                 </div>
               </div>
@@ -675,7 +676,7 @@ onBeforeUnmount(() => {
         display: flex;
         align-items: flex-start;
         min-width: 0;
-        gap: 5px;
+        gap: 10px;
         .profile-avatar-trigger {
           display: flex;
           position: relative;
@@ -701,7 +702,6 @@ onBeforeUnmount(() => {
           display: flex;
           flex-direction: column;
           min-width: 0;
-          padding: 0 5px;
           gap: 5px;
           .profile-title {
             display: flex;
@@ -733,9 +733,7 @@ onBeforeUnmount(() => {
           .profile-meta {
             display: flex;
             align-items: center;
-            margin-top: 5px;
-            min-height: 20px;
-            gap: 5px;
+            gap: 10px;
             .profile-meta-tooltip-wrap {
               display: inline-flex;
               position: relative;
@@ -748,8 +746,8 @@ onBeforeUnmount(() => {
                 }
               }
               .profile-meta-icon {
-                width: 20px;
-                height: 20px;
+                width: 24px;
+                height: 24px;
                 object-fit: contain;
               }
               .profile-tooltip {
@@ -764,11 +762,10 @@ onBeforeUnmount(() => {
                 line-height: 1.2;
                 z-index: 2;
                 &.sanction-tooltip {
-                  left: 50%;
-                  bottom: calc(100% + 10px);
+                  left: 0;
+                  top: calc(100% + 10px);
                   flex-direction: column;
                   min-width: 170px;
-                  transform: translateX(-50%);
                   strong {
                     font-family: Manrope-SemiBold;
                     font-weight: normal;
@@ -780,8 +777,9 @@ onBeforeUnmount(() => {
               display: inline-flex;
               align-items: center;
               justify-content: center;
-              min-width: 20px;
-              height: 20px;
+              padding: 5px 10px;
+              background-color: rgba($graphite, 0.5);
+              border-radius: 5px;
               color: $fg;
               font-size: 14px;
               line-height: 1;
@@ -806,15 +804,16 @@ onBeforeUnmount(() => {
           height: 30px;
           border: none;
           border-radius: 5px;
-          background: none;
+          background-color: $graphite;
+          box-shadow: 3px 3px 5px rgba($black, 0.25);
           cursor: pointer;
           transition: background-color 0.25s ease-in-out;
           &:hover {
             background-color: $lead;
           }
           img {
-            width: 24px;
-            height: 24px;
+            width: 20px;
+            height: 20px;
           }
         }
         .profile-history-tooltip-wrap {
@@ -842,9 +841,6 @@ onBeforeUnmount(() => {
             background: none;
             cursor: pointer;
             transition: background-color 0.25s ease-in-out;
-            &:hover {
-              background-color: $lead;
-            }
             img {
               width: 24px;
               height: 24px;
@@ -1064,6 +1060,7 @@ onBeforeUnmount(() => {
       }
       .profile-top {
         .profile-identity {
+          gap: 5px;
           .profile-avatar-trigger {
             .profile-avatar {
               width: 80px;
@@ -1071,7 +1068,6 @@ onBeforeUnmount(() => {
             }
           }
           .profile-icon-name {
-            padding: 0 3px;
             gap: 3px;
             .profile-title {
               gap: 3px;
@@ -1088,8 +1084,6 @@ onBeforeUnmount(() => {
               }
             }
             .profile-meta {
-              margin-top: 5px;
-              min-height: 20px;
               gap: 5px;
               .profile-meta-tooltip-wrap {
                 .profile-meta-icon {
