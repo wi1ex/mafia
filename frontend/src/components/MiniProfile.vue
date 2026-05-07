@@ -280,12 +280,12 @@ const activeSanctionExpiryLabel = computed(() => {
   const label = formatDateTimeMinute(expiresAt)
   return label !== '-' ? `Истекает ${label}` : 'Бессрочно'
 })
-const registeredAtLabel = computed(() => formatDateOnly(profile.value?.registered_at))
+const registeredAtLabel = computed(() => formatDateWithMonthName(profile.value?.registered_at))
 const lastGameAtLabel = computed(() => {
   const dateLabel = formatDateOnly(profile.value?.last_game_at)
   if (dateLabel === '-') return '-'
   const gameId = Number(profile.value?.last_game_id || 0)
-  return Number.isFinite(gameId) && gameId > 0 ? `Игра #${Math.trunc(gameId)} ${dateLabel}` : dateLabel
+  return Number.isFinite(gameId) && gameId > 0 ? `Игра #${Math.trunc(gameId)} от ${dateLabel}` : dateLabel
 })
 const lastOnlineLabel = computed(() => formatLastOnline(profile.value?.last_visit_at, Boolean(profile.value?.online)))
 const resolvedStatsUrl = computed(() => {
@@ -343,10 +343,31 @@ function pad2(value: number): string {
   return String(value).padStart(2, '0')
 }
 
+const RU_MONTHS_GENITIVE = [
+  'января',
+  'февраля',
+  'марта',
+  'апреля',
+  'мая',
+  'июня',
+  'июля',
+  'августа',
+  'сентября',
+  'октября',
+  'ноября',
+  'декабря',
+]
+
 function formatDateOnly(value?: string | number | Date | null): string {
   const dt = parseDate(value)
   if (!dt) return '-'
   return `${pad2(dt.getDate())}.${pad2(dt.getMonth() + 1)}.${dt.getFullYear()}`
+}
+
+function formatDateWithMonthName(value?: string | number | Date | null): string {
+  const dt = parseDate(value)
+  if (!dt) return '-'
+  return `${dt.getDate()} ${RU_MONTHS_GENITIVE[dt.getMonth()]} ${dt.getFullYear()}`
 }
 
 function formatDateTimeMinute(value?: string | number | Date | null): string {
@@ -781,9 +802,22 @@ onBeforeUnmount(() => {
               justify-content: center;
               &:hover,
               &:focus-within {
+                &::after {
+                  display: block;
+                }
                 .profile-tooltip {
                   display: flex;
                 }
+              }
+              &::after {
+                content: '';
+                display: none;
+                position: absolute;
+                top: 100%;
+                left: 0;
+                width: max(100%, 260px);
+                height: 10px;
+                z-index: 1;
               }
               .history-button {
                 display: flex;
