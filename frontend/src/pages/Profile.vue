@@ -1469,6 +1469,8 @@ onBeforeUnmount(() => {
         }
         &.theme-block {
           .theme-row {
+            display: inline-flex;
+            flex-direction: column;
             margin-bottom: 10px;
             .theme-preview-grid {
               display: grid;
@@ -1515,8 +1517,8 @@ onBeforeUnmount(() => {
               }
             }
             .theme-palette {
-              display: inline-flex;
-              flex-wrap: wrap;
+              display: inline-grid;
+              grid-template-columns: repeat(10, 1fr);
               margin: 15px 0;
               padding: 10px;
               gap: 5px;
