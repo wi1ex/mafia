@@ -19,6 +19,16 @@ PROFILE_THEME_COLORS: tuple[str, ...] = (
     "lagoon",
     "azure",
     "midnight",
+    "rose",
+    "ruby",
+    "copper",
+    "gold",
+    "moss",
+    "mint",
+    "teal",
+    "sky",
+    "cobalt",
+    "plum",
 )
 PROFILE_THEME_ADMIN_COLORS: tuple[str, ...] = ("onyx",)
 PROFILE_THEME_DEFAULT = "terracotta"
