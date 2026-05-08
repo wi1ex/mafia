@@ -11,18 +11,11 @@
           </header>
 
           <div class="site-list">
-            <a class="site-option" href="https://web.tribute.tg/d/Cvc" target="_blank" rel="noopener noreferrer" @click="onSelect(site)">
-              <img :src="iconTribute" alt="tribute" class="site-logo" />
+            <a v-for="site in supportSites" :key="site.id" class="site-option" :href="site.url" target="_blank" rel="noopener noreferrer" @click="onSelect(site)">
+              <img :src="site.icon" :alt="site.iconAlt" class="site-logo" />
               <div class="site-copy">
-                <span class="site-name">Tribute</span>
-                <span class="site-note">Сервис поддержки в Telegram</span>
-              </div>
-            </a>
-            <a class="site-option" href="https://dalink.to/deceit_games" target="_blank" rel="noopener noreferrer" @click="onSelect(site)">
-              <img :src="iconDonationAlerts" alt="donation" class="site-logo" />
-              <div class="site-copy">
-                <span class="site-name">DonationAlerts</span>
-                <span class="site-note">Сторонний сервис поддержки</span>
+                <span class="site-name">{{ site.name }}</span>
+                <span class="site-note">{{ site.note }}</span>
               </div>
             </a>
           </div>
@@ -49,10 +42,35 @@ type SupportSite = {
   url: string
 }
 
+type SupportSiteOption = SupportSite & {
+  icon: string
+  iconAlt: string
+  note: string
+}
+
 const emit = defineEmits<{
   'update:open': [boolean]
   'select': [SupportSite]
 }>()
+
+const supportSites: readonly SupportSiteOption[] = [
+  {
+    id: 'tribute',
+    name: 'Tribute',
+    url: 'https://web.tribute.tg/d/Cvc',
+    icon: iconTribute,
+    iconAlt: 'tribute',
+    note: 'Сервис поддержки в Telegram',
+  },
+  {
+    id: 'donation_alerts',
+    name: 'DonationAlerts',
+    url: 'https://dalink.to/deceit_games',
+    icon: iconDonationAlerts,
+    iconAlt: 'donation',
+    note: 'Сторонний сервис поддержки',
+  },
+] as const
 
 const armed = ref(false)
 
@@ -61,7 +79,7 @@ function requestClose(): void {
 }
 
 function onSelect(site: SupportSite): void {
-  emit('select', site)
+  emit('select', { id: site.id, name: site.name, url: site.url })
   requestClose()
 }
 
