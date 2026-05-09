@@ -1,7 +1,7 @@
-import adminProfileThemeIconSrc from '@/assets/svg/sub_admin_icon.svg'
-import moderProfileThemeIconSrc from '@/assets/svg/sub_moder_icon.svg'
+import adminProfileThemeIconSrc from '@/assets/svg/icons/sub_admin_icon.svg'
+import moderProfileThemeIconSrc from '@/assets/svg/icons/sub_moder_icon.svg'
 
-const PROFILE_THEME_ICON_ASSET_MODULES = import.meta.glob('@/assets/svg/sub_icon*.svg', { eager: true, query: '?url', import: 'default' })
+const PROFILE_THEME_ICON_ASSET_MODULES = import.meta.glob('@/assets/svg/icons/sub_icon*.svg', { eager: true, query: '?url', import: 'default' })
 
 const PROFILE_THEME_ICON_ASSETS = Object.entries(PROFILE_THEME_ICON_ASSET_MODULES).reduce<Record<string, string>>((acc, [path, src]) => {
   const match = path.match(/sub_icon\d+\.svg$/)
