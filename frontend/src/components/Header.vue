@@ -583,6 +583,9 @@ function openAuth(mode: 'login' | 'register') {
     min-height: 50px;
     height: 50px;
     max-height: 50px;
+    .links {
+      gap: 5px;
+    }
     .btn {
       padding: 0 8px;
       gap: 3px;
@@ -607,6 +610,7 @@ function openAuth(mode: 'login' | 'register') {
       }
     }
     .user {
+      gap: 5px;
       .bell {
         button {
           padding: 0 8px;
