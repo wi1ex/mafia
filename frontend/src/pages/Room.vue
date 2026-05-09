@@ -3849,7 +3849,7 @@ onBeforeUnmount(() => {
           left: 3px;
           padding: 3px 5px;
           gap: 3px;
-          width: 30%;
+          width: 40%;
           max-width: 200px;
           height: 14px;
           img {

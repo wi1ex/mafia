@@ -320,6 +320,12 @@ export function useRTC(): UseRTC {
     return 100 + ((ui - 100) * 3)
   }
 
+  function setRemoteAudioTrackEnabled(id: string, enabled: boolean) {
+    const track = audioTrackByAid.get(id)?.mediaStreamTrack
+    if (!track) return
+    try { track.enabled = enabled } catch {}
+  }
+
   function flushVolumePrefs() {
     lsWriteTimers.forEach((tm, id) => {
       try { window.clearTimeout(tm) } catch {}
@@ -601,12 +607,14 @@ export function useRTC(): UseRTC {
     if (!a) return 'missing'
     const want = v ?? volumePrefs.get(id) ?? getSavedVol(id)
     const effective = effectiveUserVolumePercent(want)
+    const muted = effective <= 0
+    setRemoteAudioTrackEnabled(id, !muted)
 
     if (webAudioAvailable()) {
       try {
         const ctx = getCtx()
         const g = ensureGainFor(id, a)
-        const gain = Math.max(0, effective / 100)
+        const gain = muted ? 0 : Math.max(0, effective / 100)
         const now = ctx.currentTime || 0
         try { g.gain.cancelScheduledValues(now) } catch {}
         g.gain.setTargetAtTime(gain, now, 0.01)
@@ -618,8 +626,8 @@ export function useRTC(): UseRTC {
       }
     }
     destroyAudioGraph(id)
-    a.muted = false
-    a.volume = Math.min(1, Math.max(0, (effective / 100)))
+    a.muted = muted
+    a.volume = muted ? 0 : Math.min(1, Math.max(0, (effective / 100)))
     return 'fallback'
   }
 
