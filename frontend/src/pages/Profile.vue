@@ -1583,13 +1583,12 @@ onBeforeUnmount(() => {
             gap: 10px;
             .nick-input-line {
               display: flex;
-              align-items: flex-end;
+              align-items: center;
               gap: 10px;
               width: 100%;
-              max-width: 370px;
               :deep(.profile-input) {
                 flex: 1 1 auto;
-                max-width: 320px;
+                max-width: 300px;
                 width: 100%;
               }
               .nickname-history-tooltip-wrap {
@@ -1616,7 +1615,7 @@ onBeforeUnmount(() => {
                   position: absolute;
                   top: 100%;
                   right: 0;
-                  width: 260px;
+                  width: 300px;
                   height: 10px;
                   z-index: 4;
                 }
@@ -1632,24 +1631,24 @@ onBeforeUnmount(() => {
                   right: 0;
                   flex-direction: column;
                   gap: 10px;
-                  width: 260px;
-                  max-height: 330px;
+                  width: 300px;
+                  max-height: 250px;
                   padding: 10px;
                   border-radius: 5px;
                   background-color: $graphite;
                   box-shadow: 3px 3px 5px rgba($black, 0.25);
                   color: $fg;
-                  font-size: 12px;
+                  font-size: 14px;
                   line-height: 1.2;
                   z-index: 5;
                   .nickname-history-clear {
                     width: 100%;
                     max-width: none;
-                    height: 30px;
-                    font-size: 12px;
+                    min-height: 30px;
+                    font-size: 14px;
                   }
                   .nickname-history-access-text {
-                    color: $fg;
+                    color: $ashy;
                     overflow-wrap: anywhere;
                     &.disabled {
                       color: $grey;
@@ -1664,7 +1663,6 @@ onBeforeUnmount(() => {
                     display: flex;
                     flex-direction: column;
                     gap: 5px;
-                    max-height: 150px;
                     overflow-y: auto;
                     scrollbar-width: thin;
                     span {
