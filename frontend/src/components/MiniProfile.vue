@@ -872,8 +872,8 @@ onBeforeUnmount(() => {
                   left: 0;
                   top: calc(100% + 10px);
                   flex-direction: column;
-                  width: min(320px, calc(100vw - 40px));
-                  max-height: 260px;
+                  width: max-content;
+                  max-height: 200px;
                   overflow-y: auto;
                   scrollbar-width: thin;
                   .profile-friends-empty {
@@ -882,11 +882,11 @@ onBeforeUnmount(() => {
                   .profile-friends-list {
                     display: flex;
                     flex-direction: column;
-                    gap: 8px;
+                    gap: 5px;
                     .profile-friend-row {
                       display: flex;
                       align-items: center;
-                      gap: 8px;
+                      gap: 5px;
                       min-width: 0;
                       .profile-friend-avatar {
                         flex: 0 0 auto;
@@ -899,7 +899,7 @@ onBeforeUnmount(() => {
                         display: flex;
                         flex-direction: column;
                         min-width: 0;
-                        gap: 2px;
+                        gap: 1px;
                         .profile-friend-name {
                           color: $fg;
                           font-family: Manrope-SemiBold;
@@ -1269,19 +1269,21 @@ onBeforeUnmount(() => {
                   font-size: 10px;
                   &.profile-friends-tooltip {
                     top: calc(100% + 5px);
-                    width: min(260px, calc(100vw - 40px));
-                    max-height: 180px;
+                    max-height: 125px;
                     .profile-friends-list {
-                      gap: 5px;
+                      gap: 3px;
                       .profile-friend-row {
-                        gap: 5px;
+                        gap: 3px;
                         .profile-friend-avatar {
-                          width: 24px;
-                          height: 24px;
+                          width: 20px;
+                          height: 20px;
                         }
                         .profile-friend-main {
-                          .profile-friend-date {
+                          .profile-friend-name {
                             font-size: 9px;
+                          }
+                          .profile-friend-date {
+                            font-size: 7px;
                           }
                         }
                       }
